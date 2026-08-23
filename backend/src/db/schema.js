@@ -1507,6 +1507,16 @@ export function initDb() {
   } catch (_) {}
   try {
     _db.exec(`CREATE INDEX IF NOT EXISTS idx_browser_tasks_ceo ON browser_tasks(ceo_user_id, created_at DESC)`);
+    const browserTaskColumns = [
+      ['selected_node_id', 'TEXT'],
+      ['selected_driver_mode', 'TEXT'],
+      ['protocol_version', 'INTEGER NOT NULL DEFAULT 1'],
+      ['trace_id', 'TEXT'],
+      ['restartable', 'INTEGER NOT NULL DEFAULT 1'],
+    ];
+    for (const [column, type] of browserTaskColumns) {
+      try { _db.exec(`ALTER TABLE browser_tasks ADD COLUMN ${column} ${type}`); } catch (_) {}
+    }
   } catch (_) {}
   try {
     _db.exec(`
@@ -1781,6 +1791,49 @@ export function initDb() {
     `);
   } catch (_) {}
 
+  /** Multiple browser executors may be online for one CEO. */
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS browser_executor_nodes (
+        id TEXT PRIMARY KEY,
+        owner_user_id TEXT NOT NULL,
+        token_id TEXT,
+        device_name TEXT DEFAULT '',
+        online INTEGER NOT NULL DEFAULT 0,
+        last_heartbeat_at TEXT,
+        worker_version TEXT DEFAULT '',
+        browser_version TEXT DEFAULT '',
+        driver_mode TEXT DEFAULT 'playwright',
+        protocol_version INTEGER NOT NULL DEFAULT 1,
+        capabilities_json TEXT DEFAULT '{}',
+        last_client_ip TEXT,
+        active_task_id TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (owner_user_id) REFERENCES platform_users(id) ON DELETE CASCADE
+      )
+    `);
+    _db.exec(`CREATE INDEX IF NOT EXISTS idx_browser_executor_owner_online ON browser_executor_nodes(owner_user_id, online, last_heartbeat_at DESC)`);
+    _db.exec(`CREATE INDEX IF NOT EXISTS idx_browser_executor_owner_driver ON browser_executor_nodes(owner_user_id, driver_mode)`);
+    _db.exec(`CREATE INDEX IF NOT EXISTS idx_browser_executor_token ON browser_executor_nodes(token_id)`);
+  } catch (_) {}
+
+  /** Short-lived, single-use extension pairing codes. Only hashes are persisted. */
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS browser_extension_pairing_codes (
+        id TEXT PRIMARY KEY,
+        owner_user_id TEXT NOT NULL,
+        code_hash TEXT NOT NULL UNIQUE,
+        expires_at TEXT NOT NULL,
+        used_at TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (owner_user_id) REFERENCES platform_users(id) ON DELETE CASCADE
+      )
+    `);
+    _db.exec(`CREATE INDEX IF NOT EXISTS idx_browser_pairing_owner ON browser_extension_pairing_codes(owner_user_id, created_at DESC)`);
+  } catch (_) {}
+
   try {
     _db.exec(`
       CREATE TABLE IF NOT EXISTS browser_worker_jobs (
@@ -1801,6 +1854,24 @@ export function initDb() {
     _db.exec(
       `CREATE INDEX IF NOT EXISTS idx_browser_worker_jobs_owner_status ON browser_worker_jobs(owner_user_id, status, created_at)`
     );
+    const browserJobColumns = [
+      ['selected_node_id', 'TEXT'],
+      ['selected_driver_mode', 'TEXT'],
+      ['protocol_version', 'INTEGER NOT NULL DEFAULT 1'],
+      ['capability_requirements_json', "TEXT DEFAULT '{}'"],
+      ['idempotency_key', 'TEXT'],
+      ['attempt_number', 'INTEGER NOT NULL DEFAULT 1'],
+      ['dispatch_deadline', 'TEXT'],
+      ['result_state', 'TEXT'],
+      ['failure_code', 'TEXT'],
+    ];
+    for (const [column, type] of browserJobColumns) {
+      try {
+        _db.exec(`ALTER TABLE browser_worker_jobs ADD COLUMN ${column} ${type}`);
+      } catch (_) {}
+    }
+    _db.exec(`CREATE INDEX IF NOT EXISTS idx_browser_jobs_node_status ON browser_worker_jobs(owner_user_id, selected_node_id, status, created_at)`);
+    _db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_browser_jobs_owner_idempotency ON browser_worker_jobs(owner_user_id, idempotency_key) WHERE idempotency_key IS NOT NULL`);
   } catch (_) {}
 
   /** Monthly token + error-rate budgets per org member (internal agent or org leaf member). */

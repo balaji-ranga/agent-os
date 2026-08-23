@@ -22,7 +22,7 @@ const SKIP_DIR_NAMES = new Set([
   'browser-profile',
   'browser-profile-chrome',
 ]);
-const SKIP_FILE_NAMES = new Set(['.env', 'package-lock.json']);
+const SKIP_FILE_NAMES = new Set(['.env', 'package-lock.json', 'browser-node.json']);
 
 function walkFiles(dir, base = dir) {
   const out = [];

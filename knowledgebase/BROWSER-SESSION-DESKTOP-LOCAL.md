@@ -2,6 +2,11 @@
 
 **Status:** Implemented as Connectors **Browser Session package** (owner-scoped local worker).
 
+**Browser Protocol v1 / multi-executor upgrade:** The worker persists a node ID, registers as an
+independent executor, returns structured generation-scoped element references, accepts bounded action
+batches, and reports typed failures. A CEO may keep this worker and the Flolah Chrome extension online
+simultaneously; jobs are addressed to exactly one node.
+
 ## Product summary
 
 | Item | Behavior |
@@ -10,7 +15,7 @@
 | Auth | Per-download `bwk_…` token stored hashed, bound to `owner_user_id`; optional **client IP whitelist** |
 | Runtime | Long-lived Windows process; loopback :3020 for workflow APIs; outbound register/heartbeat/jobs |
 | Browser | Playwright **persistent** profile; default **Chrome channel** (`BROWSER_CHANNEL=chrome`, folder `browser-profile-chrome\`); **headed by default** (`BROWSER_HEADLESS=0`). If Google blocks Playwright, `Start-ChromeForGoogleLogin.ps1` + `BROWSER_CDP_URL`. |
-| Agents | When worker **online**, `browse_*` / recipe / autonomous open-snapshot-act run on the laptop; else managed OpenClaw |
+| Agents | `browse_*` tasks select and pin a compatible owner-scoped executor; managed OpenClaw remains available for public/isolated work |
 | Isolation | Tokens and jobs never cross CEOs; loopback binds 127.0.0.1 |
 
 ## CEO setup
@@ -41,6 +46,7 @@
 ## Ops
 
 - Tables: `browser_worker_tokens`, `owner_ip_whitelists` (`apply_browser_worker`), `browser_worker_nodes`, `browser_worker_jobs`
+- Multi-executor registry: `browser_executor_nodes`; extension enrollment: `browser_extension_pairing_codes` (hash only, short-lived, single-use)
 - APIs: `/api/integrations/browser-worker/*` (session), `/api/browser-worker/v1/*` (worker bearer + IP)
 - Central IP API: `/api/settings/ip-whitelists`
 - Env (cloud): `BROWSER_WORKER_OFFLINE_MS`, `BROWSER_WORKER_JOB_TIMEOUT_MS`

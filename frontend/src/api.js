@@ -1200,6 +1200,17 @@ export const api = {
     setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
   },
   browserWorkerStatus: () => get('/integrations/browser-worker/status'),
+  browserExtensionPairingCode: () => post('/integrations/browser-worker/extension/pairing-code', {}),
+  browserExtensionPackageDownload: async () => {
+    const objectUrl = await fetchBlobUrl('/integrations/browser-worker/extension/package');
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = 'flolah-chrome-extension.zip';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+  },
   browserWorkerTokensList: () => get('/integrations/browser-worker/tokens'),
   browserWorkerTokenRevoke: (tokenId) =>
     del(`/integrations/browser-worker/tokens/${encodeURIComponent(tokenId)}`),

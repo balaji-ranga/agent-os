@@ -4,14 +4,17 @@
  * Loopback HTTP + outbound job pull to Flolah.
  */
 import { createServer } from 'http';
-import { readFileSync, existsSync, mkdirSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { dirname, join, isAbsolute } from 'path';
 import { fileURLToPath } from 'url';
+import { randomUUID } from 'crypto';
+import { hostname } from 'os';
 import { chromium } from 'playwright';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
-const WORKER_VERSION = '1.2.0';
+const WORKER_VERSION = '2.0.0';
+const PROTOCOL_VERSION = 1;
 
 function loadEnvFile() {
   const envPath = join(ROOT, '.env');
@@ -46,6 +49,19 @@ const BROWSER_CHANNEL = String(process.env.BROWSER_CHANNEL || '').trim().toLower
 const BROWSER_CDP_URL = String(process.env.BROWSER_CDP_URL || '').trim();
 const rawUserData = String(process.env.BROWSER_USER_DATA_DIR || 'browser-profile').trim() || 'browser-profile';
 const USER_DATA_DIR = isAbsolute(rawUserData) ? rawUserData : join(ROOT, rawUserData);
+const NODE_FILE = join(ROOT, 'browser-node.json');
+
+function loadOrCreateNodeId() {
+  try {
+    const parsed = JSON.parse(readFileSync(NODE_FILE, 'utf8'));
+    if (parsed?.node_id) return String(parsed.node_id);
+  } catch { /* first run */ }
+  const nodeId = randomUUID();
+  writeFileSync(NODE_FILE, JSON.stringify({ node_id: nodeId, created_at: new Date().toISOString() }, null, 2));
+  return nodeId;
+}
+const NODE_ID = loadOrCreateNodeId();
+const DEVICE_NAME = String(process.env.BROWSER_DEVICE_NAME || hostname() || 'Windows browser').slice(0, 120);
 
 if (!TOKEN || !TOKEN.startsWith('bwk_')) {
   console.error('[browser-worker] BROWSER_WORKER_TOKEN missing or invalid');
@@ -64,6 +80,8 @@ let cdpBrowser = null;
 let context = null;
 /** @type {import('playwright').Page | null} */
 let page = null;
+/** Stable task-to-page pins. Popups are registered but never steal another task's page. */
+const taskPages = new Map();
 
 function profileHasLocalState() {
   return (
@@ -73,8 +91,20 @@ function profileHasLocalState() {
   );
 }
 
-async function ensureBrowser() {
-  if (page && !page.isClosed()) return page;
+async function ensureBrowser(taskId = '') {
+  const taskKey = String(taskId || '').trim();
+  const pinned = taskKey ? taskPages.get(taskKey) : null;
+  if (pinned && !pinned.isClosed()) return pinned;
+  if (taskKey && context) {
+    try {
+      const dedicated = await context.newPage();
+      taskPages.set(taskKey, dedicated);
+      return dedicated;
+    } catch {
+      // Reconnect or relaunch below when the prior context is no longer usable.
+    }
+  }
+  if (!taskKey && page && !page.isClosed()) return page;
 
   // CDP attach: do not close the user's Chrome — only drop our handles.
   if (BROWSER_CDP_URL) {
@@ -85,6 +115,7 @@ async function ensureBrowser() {
         if (context) {
           const pages = context.pages();
           page = pages.find((p) => !p.isClosed()) || (await context.newPage());
+          if (taskKey) taskPages.set(taskKey, page);
           if (page && !page.isClosed()) return page;
         }
       } catch {
@@ -99,9 +130,8 @@ async function ensureBrowser() {
     context = contexts[0] || (await cdpBrowser.newContext({ acceptDownloads: true }));
     const pages = context.pages();
     page = pages.find((p) => !p.isClosed()) || (await context.newPage());
-    context.on('page', (p) => {
-      page = p;
-    });
+    context.on('page', (p) => { if (!page || page.isClosed()) page = p; });
+    if (taskKey) taskPages.set(taskKey, page);
     console.info('[browser-worker] browser ready via CDP contexts=%s', contexts.length);
     return page;
   }
@@ -142,9 +172,8 @@ async function ensureBrowser() {
   });
   const pages = context.pages();
   page = pages.length ? pages[0] : await context.newPage();
-  context.on('page', (p) => {
-    page = p;
-  });
+  context.on('page', (p) => { if (!page || page.isClosed()) page = p; });
+  if (taskKey) taskPages.set(taskKey, page);
   console.info(
     '[browser-worker] browser ready headless=%s channel=%s persistent=true',
     HEADLESS,
@@ -197,6 +226,66 @@ async function accessibilitySnapshot(p, limit = 12000) {
     snap;
   return body.slice(0, Math.max(1000, Number(limit) || 12000));
 }
+
+async function structuredSnapshot(p, limit = 12000) {
+  const data = await p.evaluate(({ max }) => {
+    const state = globalThis.__flolahSnapshotState || { href: '', generation: 0, counter: 0 };
+    if (state.href !== location.href) {
+      state.href = location.href;
+      state.generation += 1;
+      state.counter = 0;
+    }
+    globalThis.__flolahSnapshotState = state;
+    const selector = [
+      'a[href]', 'button', 'input', 'textarea', 'select', '[contenteditable="true"]',
+      '[role="button"]', '[role="link"]', '[role="textbox"]', '[role="menuitem"]', '[tabindex]'
+    ].join(',');
+    const elements = [];
+    for (const el of document.querySelectorAll(selector)) {
+      if (elements.length >= max) break;
+      const rect = el.getBoundingClientRect();
+      const style = getComputedStyle(el);
+      if (rect.width <= 0 || rect.height <= 0 || style.visibility === 'hidden' || style.display === 'none') continue;
+      let localRef = el.getAttribute('data-flolah-ref');
+      if (!localRef) {
+        localRef = String(++state.counter);
+        el.setAttribute('data-flolah-ref', localRef);
+      }
+      const role = el.getAttribute('role') || ({ A: 'link', BUTTON: 'button', INPUT: 'textbox', TEXTAREA: 'textbox', SELECT: 'combobox' }[el.tagName] || el.tagName.toLowerCase());
+      const type = String(el.getAttribute('type') || '').toLowerCase();
+      const sensitive = type === 'password' || /password|secret|token|card number|cvv/i.test(String(el.getAttribute('aria-label') || el.getAttribute('name') || ''));
+      elements.push({
+        ref: `g${state.generation}-e${localRef}`,
+        role,
+        name: String(el.getAttribute('aria-label') || el.innerText || el.getAttribute('placeholder') || el.getAttribute('name') || '').trim().slice(0, 180),
+        enabled: !el.disabled,
+        visible: true,
+        editable: el.matches('input,textarea,[contenteditable="true"]'),
+        sensitive,
+        focused: document.activeElement === el,
+        bounds: { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height) },
+      });
+    }
+    return {
+      protocol_version: 1,
+      page: { url: location.href, title: document.title, navigation_generation: state.generation },
+      elements,
+      dialogs: [...document.querySelectorAll('[role="dialog"],dialog[open]')].slice(0, 20).map((el) => ({
+        role: 'dialog', name: String(el.getAttribute('aria-label') || el.innerText || '').trim().slice(0, 240),
+      })),
+    };
+  }, { max: Math.max(20, Math.min(1000, Math.floor(Number(limit) / 30) || 400)) });
+  const text = data.elements.map((el) => `- ${el.role} "${el.name}" [ref=${el.ref}]${el.enabled ? '' : ' [disabled]'}`).join('\n');
+  return { ...data, text: `URL: ${data.page.url}\nTitle: ${data.page.title}\n\n${text}`.slice(0, Math.max(1000, Number(limit) || 12000)) };
+}
+
+function failureCode(error) {
+  const message = String(error?.message || error || '');
+  if (/not found|not visible/i.test(message)) return 'TARGET_NOT_FOUND';
+  if (/closed/i.test(message)) return 'PAGE_CLOSED';
+  if (/timeout/i.test(message)) return 'ACTION_TIMEOUT';
+  return 'ACTION_FAILED';
+}
 async function clickByTextOrSelector(p, label) {
   const target = String(label || '').trim();
   if (!target) throw new Error('empty click target');
@@ -219,9 +308,21 @@ async function clickByTextOrSelector(p, label) {
   throw new Error('Element not found or not visible for "' + target.slice(0, 80) + '"');
 }
 
+async function locatorForRef(p, ref) {
+  const match = /^g(\d+)-e(.+)$/.exec(String(ref || ''));
+  if (!match) return null;
+  const currentGeneration = await p.evaluate(() => Number(globalThis.__flolahSnapshotState?.generation || 0));
+  if (currentGeneration !== Number(match[1])) {
+    throw Object.assign(new Error('Snapshot reference is stale after navigation or rerender'), { code: 'STALE_REF' });
+  }
+  return p.locator(`[data-flolah-ref="${match[2].replace(/"/g, '')}"]`);
+}
+
 async function runAction(action, args = {}) {
   const act = String(action || '').toLowerCase();
-  const p = await ensureBrowser();
+  const taskKey = String(args.task_id || '').trim();
+  let p = await ensureBrowser(taskKey);
+  if (taskKey && taskPages.get(taskKey)?.isClosed()) taskPages.delete(taskKey);
   if (act === 'status' || act === 'browser_status') {
     return {
       ok: true,
@@ -241,8 +342,26 @@ async function runAction(action, args = {}) {
     return { ok: true, url: p.url(), title: await p.title().catch(() => '') };
   }
   if (act === 'snapshot') {
-    const text = await accessibilitySnapshot(p, Number(args.limit) || 12000);
-    return { ok: true, text, snapshot: text };
+    const snapshot = await structuredSnapshot(p, Number(args.limit) || 12000).catch(async () => {
+      const text = await accessibilitySnapshot(p, Number(args.limit) || 12000);
+      return { protocol_version: 1, page: { url: p.url(), title: await p.title().catch(() => '') }, elements: [], text };
+    });
+    return { ok: true, text: snapshot.text, snapshot: snapshot.text, structured_snapshot: snapshot };
+  }
+  if (act === 'action_batch' || act === 'batch') {
+    const actions = Array.isArray(args.actions) ? args.actions.slice(0, 20) : [];
+    const results = [];
+    for (const action of actions) {
+      try {
+        const result = await runAction(action.kind || action.action || 'act', { ...action, task_id: taskKey, request: action });
+        results.push({ ok: true, result });
+      } catch (error) {
+        results.push({ ok: false, error: error.message, failure_code: failureCode(error) });
+        if (args.stop_on_failure !== false) break;
+      }
+    }
+    const snapshot = args.return_snapshot ? await structuredSnapshot(p, Number(args.limit) || 12000) : null;
+    return { ok: results.every((item) => item.ok), result_state: 'action_applied', results, structured_snapshot: snapshot };
   }
   if (act === 'act' || act === 'click' || act === 'type' || act === 'press' || act === 'scroll') {
     const req = args.request && typeof args.request === 'object' ? args.request : args;
@@ -250,14 +369,18 @@ async function runAction(action, args = {}) {
     const ref = String(req.ref || args.ref || '').trim();
     const text = req.text != null ? String(req.text) : args.text != null ? String(args.text) : '';
     if (kind === 'click' || act === 'click') {
-      if (ref) await clickByTextOrSelector(p, ref);
+      const refLocator = await locatorForRef(p, ref);
+      if (refLocator) await refLocator.click({ timeout: 15000 });
+      else if (ref) await clickByTextOrSelector(p, ref);
       else if (text) await clickByTextOrSelector(p, text);
       else if (req.selector) await p.click(String(req.selector), { timeout: 15000 });
       else throw new Error('click requires ref, text, or selector');
       return { ok: true, kind: 'click' };
     }
     if (kind === 'type' || act === 'type') {
-      if (req.selector) await p.fill(String(req.selector), text, { timeout: 15000 });
+      const refLocator = await locatorForRef(p, ref);
+      if (refLocator) await refLocator.fill(text, { timeout: 15000 });
+      else if (req.selector) await p.fill(String(req.selector), text, { timeout: 15000 });
       else await p.keyboard.type(text, { delay: 15 });
       return { ok: true, kind: 'type', length: text.length };
     }
@@ -304,7 +427,11 @@ async function runAction(action, args = {}) {
 
 function workerCapabilities() {
   return {
-    actions: ['open', 'snapshot', 'act', 'status', 'evaluate', 'wait', 'start'],
+    protocol_version: PROTOCOL_VERSION,
+    actions: ['open', 'snapshot', 'act', 'action_batch', 'status', 'evaluate', 'wait', 'start'],
+    structured_snapshot: true,
+    action_batch: true,
+    screenshots: false,
     persistent_profile: true,
     headless: HEADLESS,
     user_data_dir_configured: true,
@@ -349,6 +476,9 @@ async function registerAndHeartbeat() {
     method: 'POST',
     body: {
       worker_version: WORKER_VERSION,
+      protocol_version: PROTOCOL_VERSION,
+      node_id: NODE_ID,
+      device_name: DEVICE_NAME,
       driver_mode: driverMode(),
       capabilities: workerCapabilities(),
     },
@@ -358,13 +488,16 @@ async function registerAndHeartbeat() {
 async function jobLoop() {
   while (true) {
     try {
-      const pulled = await cloudFetch('/jobs?wait_ms=25000', { method: 'GET' });
+      const pulled = await cloudFetch(`/jobs?wait_ms=25000&node_id=${encodeURIComponent(NODE_ID)}&worker_version=${encodeURIComponent(WORKER_VERSION)}&driver_mode=${encodeURIComponent(driverMode())}&protocol_version=${PROTOCOL_VERSION}`, { method: 'GET' });
       const job = pulled?.job || null;
       if (!job?.id) {
         await cloudFetch('/heartbeat', {
           method: 'POST',
           body: {
             worker_version: WORKER_VERSION,
+            protocol_version: PROTOCOL_VERSION,
+            node_id: NODE_ID,
+            device_name: DEVICE_NAME,
             driver_mode: driverMode(),
             capabilities: workerCapabilities(),
           },
@@ -376,13 +509,13 @@ async function jobLoop() {
         const result = await runAction(job.action, job.args || {});
         await cloudFetch('/jobs/' + encodeURIComponent(job.id) + '/result', {
           method: 'POST',
-          body: { ok: true, result },
+          body: { ok: true, result, node_id: NODE_ID, result_state: result?.result_state || 'outcome_verified' },
         });
       } catch (e) {
         console.warn('[browser-worker] job fail id=%s: %s', job.id, e.message);
         await cloudFetch('/jobs/' + encodeURIComponent(job.id) + '/result', {
           method: 'POST',
-          body: { ok: false, error: e.message || String(e) },
+          body: { ok: false, error: e.message || String(e), node_id: NODE_ID, failure_code: failureCode(e), result_state: 'outcome_not_observed' },
         });
       }
     } catch (e) {
@@ -470,6 +603,9 @@ async function main() {
       method: 'POST',
       body: {
         worker_version: WORKER_VERSION,
+        protocol_version: PROTOCOL_VERSION,
+        node_id: NODE_ID,
+        device_name: DEVICE_NAME,
         driver_mode: driverMode(),
         capabilities: workerCapabilities(),
       },

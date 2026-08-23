@@ -267,11 +267,12 @@ ssh @ssh "root@$HostIp" "rm -f $RemoteRoot/deploy/docker/deepseek-proxy.js $Remo
 
 # Broader sync for backend/openclaw when doing full deploy
 if ($Services -match "backend|openclaw") {
-  Write-Host "==> Sync backend/src + desktop-workflow-runner + local-ibkr-bridge + package files + backend/scripts + scripts/ + openclaw-*"
+  Write-Host "==> Sync backend/src + desktop packages + Flolah Chrome extension + backend/scripts + scripts/ + openclaw-*"
   scp @ssh -r "$Repo\backend\src" "root@${HostIp}:$RemoteRoot/backend/"
   scp @ssh -r "$Repo\backend\desktop-workflow-runner" "root@${HostIp}:$RemoteRoot/backend/"
   scp @ssh -r "$Repo\backend\local-ibkr-bridge" "root@${HostIp}:$RemoteRoot/backend/"
   scp @ssh -r "$Repo\backend\local-browser-worker" "root@${HostIp}:$RemoteRoot/backend/"
+  scp @ssh -r "$Repo\backend\flolah-chrome-extension" "root@${HostIp}:$RemoteRoot/backend/"
   scp @ssh `
     "$Repo\backend\package.json" `
     "$Repo\backend\package-lock.json" `
@@ -565,6 +566,11 @@ if ($Services -match "backend|openclaw") {
   scp @ssh "$Repo\knowledgebase\README.md" "root@${HostIp}:$RemoteRoot/knowledgebase/README.md"
   scp @ssh "$Repo\knowledgebase\PROJECT.md" "root@${HostIp}:$RemoteRoot/knowledgebase/PROJECT.md"
   scp @ssh "$Repo\knowledgebase\TESTING.md" "root@${HostIp}:$RemoteRoot/knowledgebase/TESTING.md"
+  scp @ssh `
+    "$Repo\knowledgebase\BROWSER-AUTOMATION-MATURITY-PLAN.md" `
+    "$Repo\knowledgebase\BROWSER-SESSION-DESKTOP-LOCAL.md" `
+    "$Repo\knowledgebase\CLIENT-BROWSER-SESSION.md" `
+    "root@${HostIp}:$RemoteRoot/knowledgebase/"
   if (Test-Path "$Repo\knowledgebase\WORKFLOW-BUILDER-ENDUSER-STRESS.md") {
     scp @ssh "$Repo\knowledgebase\WORKFLOW-BUILDER-ENDUSER-STRESS.md" "root@${HostIp}:$RemoteRoot/knowledgebase/WORKFLOW-BUILDER-ENDUSER-STRESS.md"
   }

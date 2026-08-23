@@ -2,6 +2,17 @@
 
 Use **Browser Session** (`/browser-session`) to run natural-language tasks in managed Playwright or a CEO-attached Chrome tab (Browser Relay), and to record reusable recipes.
 
+## Flolah Chrome extension (recommended normal-Chrome path)
+
+The Flolah-owned MV3 extension uses the existing owner-scoped browser worker contract and a one-time
+pairing code from Browser Session. It controls only tabs on which the CEO selects **Allow Flolah on this
+tab**. **Pause** detaches immediately. It does not use the shared OpenClaw relay lease.
+
+Routing is requirement-aware: normal-Chrome login tasks prefer an allowed extension tab, Desktop Local
+Playwright remains available for a separate persistent profile, and managed Playwright remains the public
+or isolated fallback. Each browser task is pinned to its selected executor; an uncertain side effect is not
+silently replayed on another browser.
+
 ## Multi-user / exclusive Client Chrome lease
 
 Recipes, tasks, and URL policy are scoped by `ceo_user_id` (each CEO only sees their own).
@@ -21,7 +32,8 @@ True concurrent Client Chrome for multiple users uses **Desktop Local Mode** (pe
 
 Worker defaults on the CEO PC: headed (`BROWSER_HEADLESS=0`) and persistent Playwright profile (`BROWSER_USER_DATA_DIR=browser-profile`) so site logins survive restarts. Package download lives under **Connectors** (or Browser Session when linked). Operator guide: [BROWSER-SESSION-DESKTOP-LOCAL.md](./BROWSER-SESSION-DESKTOP-LOCAL.md). Platform Help: [platform-help/22-browser-session-and-recipes.md](./platform-help/22-browser-session-and-recipes.md).
 
-When the desktop worker is **online**, backend `browse_*` / open-snapshot-act prefer the laptop job queue; otherwise managed AgentSystem / Client Chrome lease apply as documented above.
+Extension and Desktop Local register as separate nodes. Node-addressed jobs prevent claim races when both
+are online. Legacy packages register under a compatibility node until upgraded.
 
 ## Content tools
 

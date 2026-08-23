@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="popup.css">
+  <title>Flolah Browser</title>
+</head>
+<body>
+  <main>
+    <h1>Flolah Browser</h1>
+    <p id="status" class="status">Loading…</p>
+    <section id="pairing">
+      <label>Flolah address<input id="baseUrl" value="https://login.flolah.cloud" autocomplete="url"></label>
+      <label>Pairing code<input id="code" maxlength="12" autocomplete="one-time-code"></label>
+      <button id="pair">Pair extension</button>
+    </section>
+    <section id="controls" hidden>
+      <p id="tabLabel" class="tab"></p>
+      <button id="allow">Allow Flolah on this tab</button>
+      <button id="pause" class="secondary">Pause this tab</button>
+      <button id="stop" class="danger">Stop all tabs</button>
+      <button id="unpair" class="link">Unpair this device</button>
+    </section>
+    <p class="notice">Flolah controls only tabs you explicitly allow. Pause detaches immediately.</p>
+  </main>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

@@ -2,6 +2,7 @@
  * Browser tasks: autonomous observe-act loop, recorder mode, recipe replay.
  */
 import { randomUUID } from 'crypto';
+import { AsyncLocalStorage } from 'async_hooks';
 import { getDb } from '../db/schema.js';
 import { chatCompletions } from '../config/llm.js';
 import {
@@ -14,6 +15,8 @@ import { resolveBrowserProfile } from './client-browser-session.js';
 import {
   isBrowserWorkerOnline,
   invokeViaBrowserWorker,
+  selectBrowserExecutor,
+  getBrowserExecutorNode,
 } from './browser-worker-dispatch.js';
 import {
   appendRecipeStep,
@@ -36,6 +39,7 @@ const MAX_STEPS_DEFAULT = 18;
 const BROWSER_CDP_AGENT_ID = process.env.BROWSER_TASK_CDP_AGENT_ID || 'browser-cdp';
 const LOGIN_HINT_RE =
   /sign in|log in|login|authwall|password|verify you|captcha|challenge/i;
+const browserTaskContext = new AsyncLocalStorage();
 
 function nowIso() {
   return new Date().toISOString();
@@ -215,13 +219,35 @@ async function browserInvoke(ceoUserId, action, extra = {}, agentId = 'browser-c
   const url = String(extra.url || extra.targetUrl || '').trim();
   if ((action === 'open' || url) && url) assertUrlAllowed(ceoUserId, url);
   // Prefer owner-scoped local browser worker when online (multi-user Client Chrome).
-  if (isBrowserWorkerOnline(ceoUserId)) {
+  const pinned = browserTaskContext.getStore();
+  const pinnedNode = pinned?.selected_node_id
+    ? getBrowserExecutorNode(ceoUserId, pinned.selected_node_id)
+    : null;
+  if (pinnedNode || (!pinned && isBrowserWorkerOnline(ceoUserId))) {
     console.info(
       '[browser-task] invoke via desktop_worker ceo=%s action=%s',
       ceoUserId,
       action
     );
-    return invokeViaBrowserWorker(ceoUserId, action, { ...extra });
+    const result = await invokeViaBrowserWorker(
+      ceoUserId,
+      action,
+      { ...extra, task_id: pinned?.id || undefined },
+      pinnedNode ? { node: pinnedNode } : {}
+    );
+    if (!result.ok) {
+      const error = new Error(result.text || 'Browser executor action failed');
+      error.code = result.failure_code || 'BROWSER_EXECUTOR_FAILED';
+      error.status = result.status || 500;
+      throw error;
+    }
+    return result;
+  }
+  if (pinned?.selected_node_id) {
+    const error = new Error('Pinned browser executor is offline');
+    error.code = 'EXECUTOR_OFFLINE';
+    error.status = 503;
+    throw error;
   }
   const { profile } = resolveBrowserProfile(ceoUserId);
   if (profile === 'openclaw') {
@@ -1190,6 +1216,10 @@ export async function startBrowserTask(ceoUserId, body = {}) {
   const id = `bt-${randomUUID()}`;
   const agentId = String(body.agent_id || 'workflowbuilder');
   let recipeId = body.recipe_id || null;
+  const selectedExecutor = selectBrowserExecutor(ceoUserId, {
+    preferredDriver: body.preferred_driver || body.preferredDriver || null,
+  });
+  const traceId = randomUUID();
 
   if (mode === 'recipe_replay' && !recipeId) {
     const recipeName = String(body.recipe_name || body.name || '').trim();
@@ -1216,8 +1246,9 @@ export async function startBrowserTask(ceoUserId, body = {}) {
   db.prepare(
     `INSERT INTO browser_tasks (
       id, ceo_user_id, agent_id, recipe_id, mode, status, goal_text, start_url,
-      input_json, steps_json, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '[]', ?, ?)`
+      input_json, steps_json, selected_node_id, selected_driver_mode, protocol_version,
+      trace_id, restartable, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '[]', ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
     ceoUserId,
@@ -1228,6 +1259,11 @@ export async function startBrowserTask(ceoUserId, body = {}) {
     goal,
     startUrl,
     JSON.stringify(body.input || {}),
+    selectedExecutor?.id || null,
+    selectedExecutor?.driver_mode || 'managed_playwright',
+    selectedExecutor?.protocol_version || 1,
+    traceId,
+    /publish|send|submit|purchase|delete|apply|generate/i.test(goal) ? 0 : 1,
     nowIso(),
     nowIso()
   );
@@ -1237,7 +1273,7 @@ export async function startBrowserTask(ceoUserId, body = {}) {
   if (mode === 'recorder') {
     if (startUrl) {
       try {
-        await browserInvoke(ceoUserId, 'open', { url: startUrl, targetUrl: startUrl }, agentId);
+        await browserTaskContext.run(getTask(ceoUserId, id), () => browserInvoke(ceoUserId, 'open', { url: startUrl, targetUrl: startUrl }, agentId));
         await appendRecipeStep(ceoUserId, recipeId, { action: 'open', args: { url: startUrl }, label: 'Open start URL' });
       } catch (e) {
         console.warn('[browser-task] recorder open failed: %s', e.message);
@@ -1253,7 +1289,7 @@ export async function startBrowserTask(ceoUserId, body = {}) {
       throw err;
     }
     setImmediate(() => {
-      runRecipeReplay(ceoUserId, id).catch((e) => {
+      browserTaskContext.run(getTask(ceoUserId, id), () => runRecipeReplay(ceoUserId, id)).catch((e) => {
         console.error('[browser-task] recipe replay failed id=%s: %s', id, e.message);
         updateTask(ceoUserId, id, { status: 'failed', error: e.message });
       });
@@ -1262,7 +1298,7 @@ export async function startBrowserTask(ceoUserId, body = {}) {
   }
 
   setImmediate(() => {
-    runAutonomous(ceoUserId, id).catch((e) => {
+    browserTaskContext.run(getTask(ceoUserId, id), () => runAutonomous(ceoUserId, id)).catch((e) => {
       console.error('[browser-task] autonomous failed id=%s: %s', id, e.message);
       updateTask(ceoUserId, id, { status: 'failed', error: e.message });
       const failed = getTask(ceoUserId, id);

@@ -1,336 +1,251 @@
-/**
- * Local browser worker registry + job dispatch (owner-scoped).
- * Workers pull jobs outbound; browser-tasks enqueues when node online.
- */
+/** Owner-scoped multi-executor browser registry and node-addressed job dispatch. */
 import { randomUUID } from 'crypto';
 import { getDb } from '../db/schema.js';
+import { assertUrlAllowed } from './browser-url-policy.js';
 
-function db() {
-  return getDb();
-}
-
-const OFFLINE_MS = () =>
-  Math.max(15_000, Number(process.env.BROWSER_WORKER_OFFLINE_MS || 90_000));
-const JOB_TIMEOUT_MS = () =>
-  Math.max(10_000, Number(process.env.BROWSER_WORKER_JOB_TIMEOUT_MS || 120_000));
-
-function nowIso() {
-  return new Date().toISOString();
-}
+function db() { return getDb(); }
+const OFFLINE_MS = () => Math.max(15_000, Number(process.env.BROWSER_WORKER_OFFLINE_MS || 90_000));
+const JOB_TIMEOUT_MS = () => Math.max(10_000, Number(process.env.BROWSER_WORKER_JOB_TIMEOUT_MS || 120_000));
+const DRIVER_PRIORITY = ['chrome_extension', 'playwright_chrome', 'playwright_persistent', 'playwright'];
+const nowIso = () => new Date().toISOString();
 
 function parseJson(raw, fallback) {
-  try {
-    return JSON.parse(raw || '') ?? fallback;
-  } catch {
-    return fallback;
-  }
+  try { return JSON.parse(raw || '') ?? fallback; } catch { return fallback; }
 }
-
-export function getBrowserWorkerOfflineMs() {
-  return OFFLINE_MS();
+function nodeIdFor(nodeId, owner) {
+  return (String(nodeId || '').trim() || `legacy-${String(owner || '').trim()}`).slice(0, 120);
 }
-
-/**
- * Mark node online from register/heartbeat. Owner from authenticated token only.
- */
-export function touchBrowserWorkerNode(ownerUserId, {
-  tokenId = null,
-  workerVersion = '',
-  driverMode = 'playwright',
-  capabilities = {},
-  clientIp = null,
-} = {}) {
-  const id = String(ownerUserId || '').trim();
-  if (!id) throw new Error('owner_user_id required');
-  const ts = nowIso();
-  const caps = JSON.stringify(capabilities && typeof capabilities === 'object' ? capabilities : {});
-  db()
-    .prepare(
-      `INSERT INTO browser_worker_nodes
-         (owner_user_id, token_id, online, last_heartbeat_at, worker_version, driver_mode, capabilities_json, last_client_ip, updated_at)
-       VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT(owner_user_id) DO UPDATE SET
-         token_id = COALESCE(excluded.token_id, browser_worker_nodes.token_id),
-         online = 1,
-         last_heartbeat_at = excluded.last_heartbeat_at,
-         worker_version = excluded.worker_version,
-         driver_mode = excluded.driver_mode,
-         capabilities_json = excluded.capabilities_json,
-         last_client_ip = excluded.last_client_ip,
-         updated_at = excluded.updated_at`
-    )
-    .run(
-      id,
-      tokenId || null,
-      ts,
-      String(workerVersion || '').slice(0, 80),
-      String(driverMode || 'playwright').slice(0, 40),
-      caps,
-      clientIp ? String(clientIp).slice(0, 80) : null,
-      ts
-    );
-  return getBrowserWorkerNodeStatus(id);
+function heartbeatFresh(value) {
+  const time = Date.parse(value || '');
+  return Number.isFinite(time) && Date.now() - time < OFFLINE_MS();
 }
-
-export function markBrowserWorkerOffline(ownerUserId) {
-  const id = String(ownerUserId || '').trim();
-  if (!id) return false;
-  const r = db()
-    .prepare(
-      `UPDATE browser_worker_nodes SET online = 0, updated_at = ? WHERE owner_user_id = ?`
-    )
-    .run(nowIso(), id);
-  return r.changes > 0;
-}
-
-function isHeartbeatFresh(lastHeartbeatAt) {
-  if (!lastHeartbeatAt) return false;
-  const t = Date.parse(lastHeartbeatAt);
-  if (!Number.isFinite(t)) return false;
-  return Date.now() - t < OFFLINE_MS();
-}
-
-/**
- * Effective online status for an owner (demotes stale heartbeats).
- */
-export function getBrowserWorkerNodeStatus(ownerUserId) {
-  const id = String(ownerUserId || '').trim();
-  if (!id) {
-    return {
-      online: false,
-      last_heartbeat_at: null,
-      worker_version: null,
-      driver_mode: null,
-      capabilities: {},
-      last_client_ip: null,
-      offline_after_ms: OFFLINE_MS(),
-    };
-  }
-  const row = db()
-    .prepare(`SELECT * FROM browser_worker_nodes WHERE owner_user_id = ?`)
-    .get(id);
-  if (!row) {
-    return {
-      online: false,
-      last_heartbeat_at: null,
-      worker_version: null,
-      driver_mode: null,
-      capabilities: {},
-      last_client_ip: null,
-      offline_after_ms: OFFLINE_MS(),
-    };
-  }
-  const fresh = isHeartbeatFresh(row.last_heartbeat_at);
-  if (row.online && !fresh) {
-    db()
-      .prepare(
-        `UPDATE browser_worker_nodes SET online = 0, updated_at = ? WHERE owner_user_id = ?`
-      )
-      .run(nowIso(), id);
-  }
+function rowToNode(row) {
+  if (!row) return null;
   return {
-    online: Boolean(row.online) && fresh,
+    id: row.id,
+    node_id: row.id,
+    owner_user_id: row.owner_user_id,
+    token_id: row.token_id || null,
+    device_name: row.device_name || '',
+    online: Boolean(row.online) && heartbeatFresh(row.last_heartbeat_at),
     last_heartbeat_at: row.last_heartbeat_at || null,
     worker_version: row.worker_version || null,
-    driver_mode: row.driver_mode || null,
+    browser_version: row.browser_version || null,
+    driver_mode: row.driver_mode || 'playwright',
+    protocol_version: Number(row.protocol_version || 1),
     capabilities: parseJson(row.capabilities_json, {}),
     last_client_ip: row.last_client_ip || null,
-    token_id: row.token_id || null,
+    active_task_id: row.active_task_id || null,
     offline_after_ms: OFFLINE_MS(),
   };
 }
 
-export function isBrowserWorkerOnline(ownerUserId) {
-  return Boolean(getBrowserWorkerNodeStatus(ownerUserId).online);
+export function getBrowserWorkerOfflineMs() { return OFFLINE_MS(); }
+
+export function touchBrowserWorkerNode(ownerUserId, {
+  nodeId = null, tokenId = null, deviceName = '', workerVersion = '', browserVersion = '',
+  driverMode = 'playwright', protocolVersion = 1, capabilities = {}, clientIp = null,
+} = {}) {
+  const owner = String(ownerUserId || '').trim();
+  if (!owner) throw new Error('owner_user_id required');
+  const id = nodeIdFor(nodeId, owner);
+  const ts = nowIso();
+  db().prepare(
+    `INSERT INTO browser_executor_nodes
+      (id, owner_user_id, token_id, device_name, online, last_heartbeat_at, worker_version,
+       browser_version, driver_mode, protocol_version, capabilities_json, last_client_ip, updated_at)
+     VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       token_id = COALESCE(excluded.token_id, browser_executor_nodes.token_id),
+       device_name = excluded.device_name, online = 1,
+       last_heartbeat_at = excluded.last_heartbeat_at, worker_version = excluded.worker_version,
+       browser_version = excluded.browser_version, driver_mode = excluded.driver_mode,
+       protocol_version = excluded.protocol_version, capabilities_json = excluded.capabilities_json,
+       last_client_ip = excluded.last_client_ip, updated_at = excluded.updated_at
+     WHERE browser_executor_nodes.owner_user_id = excluded.owner_user_id`
+  ).run(id, owner, tokenId || null, String(deviceName || '').slice(0, 120), ts,
+    String(workerVersion || '').slice(0, 80), String(browserVersion || '').slice(0, 80),
+    String(driverMode || 'playwright').slice(0, 40), Math.max(1, Number(protocolVersion) || 1),
+    JSON.stringify(capabilities && typeof capabilities === 'object' ? capabilities : {}),
+    clientIp ? String(clientIp).slice(0, 80) : null, ts);
+  const node = getBrowserExecutorNode(owner, id);
+  if (!node) throw new Error('node_id belongs to another owner');
+  return node;
 }
 
-/**
- * Enqueue a browser action job for the owner's worker.
- * @returns {{ id: string }}
- */
-export function enqueueBrowserWorkerJob(ownerUserId, action, args = {}) {
-  const id = randomUUID();
+export function getBrowserExecutorNode(ownerUserId, nodeId) {
+  return rowToNode(db().prepare(`SELECT * FROM browser_executor_nodes WHERE id = ? AND owner_user_id = ?`)
+    .get(String(nodeId || ''), String(ownerUserId || '')));
+}
+
+export function listBrowserExecutorNodes(ownerUserId, { includeOffline = true } = {}) {
+  const owner = String(ownerUserId || '').trim();
+  if (!owner) return [];
+  const rows = db().prepare(`SELECT * FROM browser_executor_nodes WHERE owner_user_id = ? ORDER BY last_heartbeat_at DESC`).all(owner);
+  const stale = rows.filter((row) => row.online && !heartbeatFresh(row.last_heartbeat_at)).map((row) => row.id);
+  if (stale.length) {
+    db().prepare(`UPDATE browser_executor_nodes SET online = 0, updated_at = ? WHERE owner_user_id = ? AND id IN (${stale.map(() => '?').join(',')})`)
+      .run(nowIso(), owner, ...stale);
+  }
+  const nodes = rows.map(rowToNode).map((node) => stale.includes(node.id) ? { ...node, online: false } : node);
+  return includeOffline ? nodes : nodes.filter((node) => node.online);
+}
+
+export function markBrowserWorkerOffline(ownerUserId, nodeId = null) {
+  const owner = String(ownerUserId || '').trim();
+  if (!owner) return false;
+  const result = nodeId
+    ? db().prepare(`UPDATE browser_executor_nodes SET online = 0, updated_at = ? WHERE owner_user_id = ? AND id = ?`)
+      .run(nowIso(), owner, nodeIdFor(nodeId, owner))
+    : db().prepare(`UPDATE browser_executor_nodes SET online = 0, updated_at = ? WHERE owner_user_id = ?`)
+      .run(nowIso(), owner);
+  return result.changes > 0;
+}
+
+export function selectBrowserExecutor(ownerUserId, { preferredDriver = null, requiredCapabilities = [] } = {}) {
+  let nodes = listBrowserExecutorNodes(ownerUserId, { includeOffline: false });
+  const required = Array.isArray(requiredCapabilities) ? requiredCapabilities : [];
+  nodes = nodes.filter((node) => required.every((cap) => node.capabilities?.[cap] === true || node.capabilities?.actions?.includes?.(cap)));
+  if (preferredDriver) {
+    const preferred = nodes.find((node) => node.driver_mode === preferredDriver);
+    if (preferred) return preferred;
+  }
+  return nodes.sort((a, b) => {
+    const ai = DRIVER_PRIORITY.indexOf(a.driver_mode);
+    const bi = DRIVER_PRIORITY.indexOf(b.driver_mode);
+    return (ai < 0 ? 999 : ai) - (bi < 0 ? 999 : bi);
+  })[0] || null;
+}
+
+export function getBrowserWorkerNodeStatus(ownerUserId) {
+  const nodes = listBrowserExecutorNodes(ownerUserId);
+  const selected = selectBrowserExecutor(ownerUserId);
+  return selected ? { ...selected, nodes } : {
+    online: false, node_id: null, nodes, last_heartbeat_at: null, worker_version: null,
+    driver_mode: null, capabilities: {}, last_client_ip: null, offline_after_ms: OFFLINE_MS(),
+  };
+}
+export function isBrowserWorkerOnline(ownerUserId) { return Boolean(selectBrowserExecutor(ownerUserId)); }
+
+export function enqueueBrowserWorkerJob(ownerUserId, action, args = {}, options = {}) {
   const owner = String(ownerUserId || '').trim();
   if (!owner) throw new Error('owner_user_id required');
   const act = String(action || '').trim();
   if (!act) throw new Error('action required');
-  db()
-    .prepare(
-      `INSERT INTO browser_worker_jobs
-       (id, owner_user_id, action, args_json, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, 'queued', ?, ?)`
-    )
-    .run(id, owner, act, JSON.stringify(args || {}), nowIso(), nowIso());
-  console.info(
-    '[browser-worker-dispatch] job queued owner=%s id=%s action=%s',
-    owner,
-    id,
-    act
-  );
-  return { id };
+  const selected = options.node || selectBrowserExecutor(owner, options);
+  if (!selected) throw Object.assign(new Error('No compatible local browser executor is online'), { code: 'EXECUTOR_OFFLINE' });
+  const idempotencyKey = options.idempotencyKey ? String(options.idempotencyKey).slice(0, 160) : null;
+  if (idempotencyKey) {
+    const existing = db().prepare(`SELECT id FROM browser_worker_jobs WHERE owner_user_id = ? AND idempotency_key = ?`).get(owner, idempotencyKey);
+    if (existing) return { id: existing.id, node: selected, duplicate: true };
+  }
+  const id = randomUUID();
+  const required = options.requiredCapabilities || [];
+  db().prepare(
+    `INSERT INTO browser_worker_jobs
+      (id, owner_user_id, action, args_json, status, selected_node_id, selected_driver_mode,
+       protocol_version, capability_requirements_json, idempotency_key, dispatch_deadline, created_at, updated_at)
+     VALUES (?, ?, ?, ?, 'queued', ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(id, owner, act, JSON.stringify(args || {}), selected.id, selected.driver_mode,
+    selected.protocol_version || 1, JSON.stringify(required), idempotencyKey,
+    new Date(Date.now() + JOB_TIMEOUT_MS()).toISOString(), nowIso(), nowIso());
+  console.info('[browser-worker-dispatch] queued owner=%s node=%s driver=%s id=%s action=%s', owner, selected.id, selected.driver_mode, id, act);
+  return { id, node: selected };
 }
 
-/**
- * Worker claims next queued job (owner from token only).
- */
-export function claimNextBrowserWorkerJob(ownerUserId) {
+export function claimNextBrowserWorkerJob(ownerUserId, nodeId) {
   const owner = String(ownerUserId || '').trim();
-  const row = db()
-    .prepare(
-      `SELECT * FROM browser_worker_jobs
-       WHERE owner_user_id = ? AND status = 'queued'
-       ORDER BY created_at ASC
-       LIMIT 1`
-    )
-    .get(owner);
+  const node = nodeIdFor(nodeId, owner);
+  if (!getBrowserExecutorNode(owner, node)) return null;
+  const row = db().prepare(
+    `SELECT * FROM browser_worker_jobs WHERE owner_user_id = ? AND selected_node_id = ? AND status = 'queued' ORDER BY created_at ASC LIMIT 1`
+  ).get(owner, node);
   if (!row) return null;
   const ts = nowIso();
-  const updated = db()
-    .prepare(
-      `UPDATE browser_worker_jobs
-       SET status = 'running', claimed_at = ?, updated_at = ?
-       WHERE id = ? AND owner_user_id = ? AND status = 'queued'`
-    )
-    .run(ts, ts, row.id, owner);
+  const updated = db().prepare(
+    `UPDATE browser_worker_jobs SET status = 'running', claimed_at = ?, updated_at = ?
+     WHERE id = ? AND owner_user_id = ? AND selected_node_id = ? AND status = 'queued'`
+  ).run(ts, ts, row.id, owner, node);
   if (!updated.changes) return null;
-  return {
-    id: row.id,
-    action: row.action,
-    args: parseJson(row.args_json, {}),
-    created_at: row.created_at,
-  };
+  return { id: row.id, action: row.action, args: parseJson(row.args_json, {}), created_at: row.created_at, protocol_version: row.protocol_version || 1 };
 }
 
-export function completeBrowserWorkerJob(ownerUserId, jobId, { ok, result = null, error = null } = {}) {
+export function completeBrowserWorkerJob(ownerUserId, nodeId, jobId, {
+  ok, result = null, error = null, failureCode = null, resultState = null,
+} = {}) {
   const owner = String(ownerUserId || '').trim();
+  const node = nodeIdFor(nodeId, owner);
   const id = String(jobId || '').trim();
-  const row = db()
-    .prepare(
-      `SELECT id, status FROM browser_worker_jobs WHERE id = ? AND owner_user_id = ?`
-    )
-    .get(id, owner);
-  if (!row) return { ok: false, error: 'job not found' };
-  if (row.status === 'completed' || row.status === 'failed') {
-    return { ok: true, already: true };
-  }
-  const ts = nowIso();
+  const row = db().prepare(`SELECT id, status FROM browser_worker_jobs WHERE id = ? AND owner_user_id = ? AND selected_node_id = ?`).get(id, owner, node);
+  if (!row) return { ok: false, error: 'job not found for this node' };
+  if (row.status === 'completed' || row.status === 'failed') return { ok: true, already: true };
   const status = ok ? 'completed' : 'failed';
-  db()
-    .prepare(
-      `UPDATE browser_worker_jobs
-       SET status = ?, result_json = ?, error = ?, completed_at = ?, updated_at = ?
-       WHERE id = ? AND owner_user_id = ?`
-    )
-    .run(
-      status,
-      result != null ? JSON.stringify(result) : null,
-      error ? String(error).slice(0, 2000) : null,
-      ts,
-      ts,
-      id,
-      owner
-    );
-  console.info(
-    '[browser-worker-dispatch] job %s owner=%s id=%s',
-    status,
-    owner,
-    id
-  );
+  const ts = nowIso();
+  db().prepare(
+    `UPDATE browser_worker_jobs SET status = ?, result_json = ?, error = ?, failure_code = ?, result_state = ?, completed_at = ?, updated_at = ?
+     WHERE id = ? AND owner_user_id = ? AND selected_node_id = ?`
+  ).run(status, result != null ? JSON.stringify(result) : null, error ? String(error).slice(0, 2000) : null,
+    failureCode ? String(failureCode).slice(0, 80) : null, resultState ? String(resultState).slice(0, 80) : null,
+    ts, ts, id, owner, node);
   return { ok: true };
 }
 
 export function getBrowserWorkerJob(ownerUserId, jobId) {
-  const row = db()
-    .prepare(
-      `SELECT * FROM browser_worker_jobs WHERE id = ? AND owner_user_id = ?`
-    )
+  const row = db().prepare(`SELECT * FROM browser_worker_jobs WHERE id = ? AND owner_user_id = ?`)
     .get(String(jobId || ''), String(ownerUserId || ''));
   if (!row) return null;
   return {
-    id: row.id,
-    owner_user_id: row.owner_user_id,
-    action: row.action,
-    args: parseJson(row.args_json, {}),
-    status: row.status,
-    result: parseJson(row.result_json, null),
-    error: row.error || null,
-    created_at: row.created_at,
-    claimed_at: row.claimed_at,
-    completed_at: row.completed_at,
+    id: row.id, owner_user_id: row.owner_user_id, action: row.action,
+    args: parseJson(row.args_json, {}), status: row.status, result: parseJson(row.result_json, null),
+    error: row.error || null, failure_code: row.failure_code || null, result_state: row.result_state || null,
+    selected_node_id: row.selected_node_id || null, selected_driver_mode: row.selected_driver_mode || null,
+    created_at: row.created_at, claimed_at: row.claimed_at, completed_at: row.completed_at,
   };
 }
 
-function sleep(ms) {
-  return new Promise((r) => setTimeout(r, ms));
-}
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/**
- * Enqueue and wait for worker result. Shape matches invokeBrowserAction-ish for tasks.
- * @returns {Promise<{ ok: boolean, status: number, text: string, via: string }>}
- */
-export async function invokeViaBrowserWorker(ownerUserId, action, args = {}) {
-  if (!isBrowserWorkerOnline(ownerUserId)) {
-    return {
-      ok: false,
-      status: 503,
-      text: 'Local browser worker is offline for this account',
-      via: 'desktop_worker',
-    };
+export async function invokeViaBrowserWorker(ownerUserId, action, args = {}, options = {}) {
+  let queued;
+  try { queued = enqueueBrowserWorkerJob(ownerUserId, action, args, options); }
+  catch (error) {
+    return { ok: false, status: 503, text: error.message, via: 'local_executor', failure_code: error.code || 'EXECUTOR_OFFLINE' };
   }
-  const { id } = enqueueBrowserWorkerJob(ownerUserId, action, args);
   const deadline = Date.now() + JOB_TIMEOUT_MS();
   while (Date.now() < deadline) {
-    const job = getBrowserWorkerJob(ownerUserId, id);
-    if (!job) {
-      return { ok: false, status: 500, text: 'job vanished', via: 'desktop_worker' };
-    }
+    const job = getBrowserWorkerJob(ownerUserId, queued.id);
+    if (!job) return { ok: false, status: 500, text: 'job vanished', via: 'local_executor' };
     if (job.status === 'completed') {
-      const body =
-        typeof job.result === 'string'
-          ? job.result
-          : JSON.stringify(job.result ?? { ok: true });
-      return { ok: true, status: 200, text: body, via: 'desktop_worker' };
-    }
-    if (job.status === 'failed') {
+      if (String(action).toLowerCase() === 'open' && job.result?.url) {
+        try { assertUrlAllowed(ownerUserId, job.result.url); }
+        catch (error) {
+          return { ok: false, status: 403, text: error.message, via: job.selected_driver_mode, failure_code: 'URL_REDIRECT_BLOCKED' };
+        }
+      }
       return {
-        ok: false,
-        status: 500,
-        text: job.error || 'browser worker job failed',
-        via: 'desktop_worker',
+        ok: true, status: 200,
+        text: typeof job.result === 'string' ? job.result : JSON.stringify(job.result ?? { ok: true }),
+        via: job.selected_driver_mode || 'local_executor', node_id: job.selected_node_id,
       };
     }
+    if (job.status === 'failed') return {
+      ok: false, status: 500, text: job.error || 'browser executor job failed',
+      via: job.selected_driver_mode || 'local_executor', failure_code: job.failure_code,
+    };
     await sleep(400);
   }
-  db()
-    .prepare(
-      `UPDATE browser_worker_jobs
-       SET status = 'failed', error = ?, completed_at = ?, updated_at = ?
-       WHERE id = ? AND owner_user_id = ? AND status IN ('queued','running')`
-    )
-    .run('job timed out waiting for local worker', nowIso(), nowIso(), id, ownerUserId);
-  console.warn(
-    '[browser-worker-dispatch] job timeout owner=%s id=%s action=%s',
-    ownerUserId,
-    id,
-    action
-  );
-  return {
-    ok: false,
-    status: 504,
-    text: 'Local browser worker job timed out',
-    via: 'desktop_worker',
-  };
+  db().prepare(
+    `UPDATE browser_worker_jobs SET status = 'failed', error = ?, failure_code = 'ACTION_TIMEOUT', result_state = 'outcome_uncertain', completed_at = ?, updated_at = ?
+     WHERE id = ? AND owner_user_id = ? AND status IN ('queued','running')`
+  ).run('job timed out waiting for browser executor', nowIso(), nowIso(), queued.id, ownerUserId);
+  return { ok: false, status: 504, text: 'Browser executor job timed out', via: queued.node.driver_mode, failure_code: 'ACTION_TIMEOUT' };
 }
 
-/**
- * Long-poll helper: sleep then claim (used by route with short wait_ms).
- */
-export async function pullBrowserWorkerJob(ownerUserId, waitMs = 0) {
+export async function pullBrowserWorkerJob(ownerUserId, nodeId, waitMs = 0) {
   const maxWait = Math.min(55_000, Math.max(0, Number(waitMs) || 0));
   const deadline = Date.now() + maxWait;
-  // eslint-disable-next-line no-constant-condition
   while (true) {
-    const job = claimNextBrowserWorkerJob(ownerUserId);
+    const job = claimNextBrowserWorkerJob(ownerUserId, nodeId);
     if (job) return job;
     if (Date.now() >= deadline) return null;
     await sleep(Math.min(1000, deadline - Date.now()));

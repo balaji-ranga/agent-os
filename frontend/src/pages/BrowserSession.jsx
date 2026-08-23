@@ -53,6 +53,8 @@ function WizardStepper({ step }) {
 
 function BrowserSessionPanel() {
   const [status, setStatus] = useState(null);
+  const [workerStatus, setWorkerStatus] = useState(null);
+  const [extensionPairing, setExtensionPairing] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [tasksTotal, setTasksTotal] = useState(0);
   const [tasksOffset, setTasksOffset] = useState(0);
@@ -98,12 +100,14 @@ function BrowserSessionPanel() {
   const refresh = useCallback(async () => {
     setError(null);
     try {
-      const [st, tPage, rPage] = await Promise.all([
+      const [st, workers, tPage, rPage] = await Promise.all([
         api.browserSessionStatus(),
+        api.browserWorkerStatus().catch(() => null),
         api.browserSessionTasks({ limit: PAGE_SIZE, offset: tasksOffset, days: 7 }),
         api.browserSessionRecipes({ limit: PAGE_SIZE, offset: recipesOffset }),
       ]);
       setStatus(st);
+      setWorkerStatus(workers);
       setTasks(tPage.tasks || []);
       setTasksTotal(tPage.total || 0);
       setRecipes(rPage.recipes || []);
@@ -332,8 +336,50 @@ function BrowserSessionPanel() {
       {error && <p style={{ color: 'var(--danger, #b91c1c)' }}>{error}</p>}
       {message && <p style={{ color: 'var(--ok, #15803d)' }}>{message}</p>}
 
+      <section style={{ marginBottom: '1.5rem', padding: '1rem', border: '2px solid var(--accent)', borderRadius: 10 }}>
+        <h2 style={{ fontSize: '1.05rem', marginTop: 0 }}>Recommended: Flolah Chrome extension</h2>
+        <p style={{ color: 'var(--muted)', fontSize: '0.9rem', lineHeight: 1.5 }}>
+          Use your normally launched Chrome and existing logins. Flolah controls only tabs you explicitly allow
+          from the extension. This path is owner-scoped and does not use the shared OpenClaw Chrome lease.
+        </p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+          <button type="button" disabled={busy} onClick={() => run(() => api.browserExtensionPackageDownload(), 'Downloaded flolah-chrome-extension.zip')}>
+            Download Flolah extension
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => run(async () => {
+              const code = await api.browserExtensionPairingCode();
+              setExtensionPairing(code);
+              return code;
+            }, 'One-time pairing code created')}
+          >
+            Create pairing code
+          </button>
+        </div>
+        {extensionPairing?.code && (
+          <div style={{ marginTop: '0.75rem', padding: '0.75rem', borderRadius: 8, background: 'var(--surface, #fafafa)' }}>
+            <div style={{ color: 'var(--muted)', fontSize: '0.82rem' }}>Enter this once in the Flolah extension:</div>
+            <code style={{ display: 'block', marginTop: 4, fontSize: '1.3rem', letterSpacing: '0.15em' }}>{extensionPairing.code}</code>
+            <div style={{ color: 'var(--muted)', fontSize: '0.78rem', marginTop: 4 }}>Expires {new Date(extensionPairing.expires_at).toLocaleString()}</div>
+          </div>
+        )}
+        <div style={{ marginTop: '0.75rem', fontSize: '0.85rem' }}>
+          {(workerStatus?.nodes || []).length ? (
+            <ul style={{ margin: 0, paddingLeft: '1.2rem' }}>
+              {workerStatus.nodes.map((node) => (
+                <li key={node.node_id || node.id}>
+                  {node.device_name || node.driver_mode} — {node.online ? 'online' : 'offline'} · {node.driver_mode}
+                </li>
+              ))}
+            </ul>
+          ) : <span style={{ color: 'var(--muted)' }}>No local browser executor paired yet.</span>}
+        </div>
+      </section>
+
       <section style={{ marginBottom: '1.5rem' }}>
-        <h2 style={{ fontSize: '1.05rem' }}>1. Connect your Chrome</h2>
+        <h2 style={{ fontSize: '1.05rem' }}>Legacy: OpenClaw Client Chrome</h2>
         <ol style={{ fontSize: '0.9rem', color: 'var(--muted)', paddingLeft: '1.25rem', lineHeight: 1.5 }}>
           {(setupSteps.length
             ? setupSteps

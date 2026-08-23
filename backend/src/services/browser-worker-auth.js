@@ -62,6 +62,43 @@ export function createBrowserWorkerToken(ownerUserId, { name = '', expiresAt = n
   return { id, token: plaintext, token_prefix: prefix, expires_at: expiresAt || null };
 }
 
+/** Create a short-lived one-time code for pairing the Flolah Chrome extension. */
+export function createBrowserExtensionPairingCode(ownerUserId, { ttlMs = 10 * 60 * 1000 } = {}) {
+  const id = randomUUID();
+  // 48 bits of entropy, rendered without ambiguous punctuation for copy/paste.
+  const code = randomBytes(6).toString('hex').toUpperCase();
+  const expiresAt = new Date(Date.now() + Math.max(60_000, Number(ttlMs) || 600_000)).toISOString();
+  db().prepare(
+    `INSERT INTO browser_extension_pairing_codes (id, owner_user_id, code_hash, expires_at)
+     VALUES (?, ?, ?, ?)`
+  ).run(id, ownerUserId, hashBrowserWorkerToken(`pair:${code}`), expiresAt);
+  return { id, code, expires_at: expiresAt };
+}
+
+/** Atomically consume a pairing code and mint an extension worker credential. */
+export function consumeBrowserExtensionPairingCode(code, { deviceName = 'Flolah Chrome extension' } = {}) {
+  const normalized = String(code || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (normalized.length < 6) return { ok: false, status: 400, error: 'Invalid pairing code' };
+  const hash = hashBrowserWorkerToken(`pair:${normalized}`);
+  const transaction = db().transaction(() => {
+    const row = db().prepare(
+      `SELECT * FROM browser_extension_pairing_codes WHERE code_hash = ? AND used_at IS NULL`
+    ).get(hash);
+    if (!row) return { ok: false, status: 401, error: 'Pairing code is invalid or already used' };
+    const expiry = Date.parse(row.expires_at || '');
+    if (!Number.isFinite(expiry) || expiry <= Date.now()) {
+      return { ok: false, status: 401, error: 'Pairing code expired' };
+    }
+    const used = db().prepare(
+      `UPDATE browser_extension_pairing_codes SET used_at = datetime('now') WHERE id = ? AND used_at IS NULL`
+    ).run(row.id);
+    if (!used.changes) return { ok: false, status: 409, error: 'Pairing code already used' };
+    const minted = createBrowserWorkerToken(row.owner_user_id, { name: String(deviceName || '').slice(0, 120) || 'Flolah Chrome extension' });
+    return { ok: true, owner_user_id: row.owner_user_id, ...minted };
+  });
+  return transaction();
+}
+
 export function listBrowserWorkerTokens(ownerUserId) {
   return db()
     .prepare(
@@ -90,6 +127,12 @@ export function revokeBrowserWorkerToken(tokenId, ownerUserId) {
     db()
       .prepare(
         `UPDATE browser_worker_nodes SET online = 0, updated_at = datetime('now')
+         WHERE owner_user_id = ? AND token_id = ?`
+      )
+      .run(ownerUserId, tokenId);
+    db()
+      .prepare(
+        `UPDATE browser_executor_nodes SET online = 0, updated_at = datetime('now')
          WHERE owner_user_id = ? AND token_id = ?`
       )
       .run(ownerUserId, tokenId);

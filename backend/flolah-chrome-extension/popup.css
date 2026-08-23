@@ -1,0 +1,12 @@
+body { margin: 0; width: 340px; font: 14px system-ui, sans-serif; color: #172033; background: #f7f9fc; }
+main { padding: 16px; }
+h1 { margin: 0 0 8px; font-size: 20px; }
+.status { padding: 8px; border-radius: 6px; background: #e8eef8; }
+label { display: block; margin: 10px 0; font-weight: 600; }
+input { display: block; box-sizing: border-box; width: 100%; margin-top: 4px; padding: 8px; border: 1px solid #b8c2d6; border-radius: 6px; }
+button { width: 100%; margin-top: 8px; padding: 9px; border: 0; border-radius: 6px; background: #315bea; color: white; cursor: pointer; }
+button.secondary { background: #60708f; }
+button.danger { background: #b42318; }
+button.link { color: #315bea; background: transparent; }
+.tab { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.notice { margin-bottom: 0; color: #58647a; font-size: 12px; }

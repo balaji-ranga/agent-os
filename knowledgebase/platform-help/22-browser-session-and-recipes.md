@@ -1,5 +1,15 @@
 # Browser Session, recipes, and browse_* agent tools
 
+## Recommended: Flolah Chrome extension
+
+Download the Flolah extension from **Browser Session**, load the unpacked extension during the alpha,
+create a one-time pairing code, and enter it in the extension. On a Chrome tab you want an employee to
+use, select **Allow Flolah on this tab**. Use **Pause this tab** or **Stop all tabs** to detach immediately.
+
+The extension uses your normally launched Chrome and existing login. It does not give Flolah access to
+other tabs. The Desktop Browser Session package remains available when you prefer a separate persistent
+automation profile, while public tasks can continue in managed Playwright.
+
 ## What it is
 
 **Browser Session** (`/browser-session`) lets you run natural-language browser work in:

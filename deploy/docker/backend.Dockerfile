@@ -5,6 +5,7 @@
 # desktop-workflow-runner (Windows PS1 packages + optional portable Node baked at download time),
 # local-ibkr-bridge (Connectors download zip + vendored IBKR gateway client),
 # local-browser-worker (Connectors Browser Session package: multi-user desktop chrome, headed + persistent profile),
+# flolah-chrome-extension (MV3 owner-scoped normal-Chrome executor package),
 # monthly trading W1–W5 seeds + paper E2E / certify helpers,
 # bridge poll + ingest /api/ibkr-trading/local-bridge-webhook (W3 secret; W3 graph on EOD) → W1 latest cache,
 # IBKR Summary UI (/ibkr-summary) + clear transactional APIs (ibkr-transactional-clear.js),
