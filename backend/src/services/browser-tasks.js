@@ -2060,7 +2060,7 @@ export async function resumeBrowserTask(ceoUserId, taskId, { approved = true } =
   return updateTask(ceoUserId, taskId, { status: 'running', wait_reason: null });
 }
 
-export async function captureRecorderStep(ceoUserId, taskId, { label = '', action, args = {}, url, execute = false } = {}) {
+async function captureRecorderStepPinned(ceoUserId, taskId, { label = '', action, args = {}, url, execute = false } = {}) {
   const task = getTask(ceoUserId, taskId);
   if (!task || task.mode !== 'recorder') {
     const err = new Error('Recorder task not found');
@@ -2144,6 +2144,11 @@ export async function captureRecorderStep(ceoUserId, taskId, { label = '', actio
     recipe: updated,
     captured: { action: recordedAction, url: stepArgs.url || null, label: stepLabel },
   };
+}
+
+export async function captureRecorderStep(ceoUserId, taskId, input = {}) {
+  const task = getTask(ceoUserId, taskId);
+  return browserTaskContext.run(task, () => captureRecorderStepPinned(ceoUserId, taskId, input));
 }
 
 export async function stopRecorder(ceoUserId, taskId, { publish = true, name } = {}) {
