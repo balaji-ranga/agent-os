@@ -62,6 +62,45 @@ function autonomyLevel(model, action) {
   return row?.level || "require_ceo";
 }
 
+export function appendOperatingModelHistory(strategic, model, { version, confirmedAt } = {}) {
+  const history = Array.isArray(strategic?.operating_model_history)
+    ? [...strategic.operating_model_history]
+    : [];
+  history.push({
+    version: Number(version) || 1,
+    confirmed_at: confirmedAt || new Date().toISOString(),
+    model: JSON.parse(JSON.stringify(model || {})),
+  });
+  return history.slice(-20);
+}
+
+export function evaluateDay1Acceptance({ model, agents = [], md = [], workflows = [], policy = null } = {}) {
+  const errors = [];
+  const criticalLoops = (model?.loops || []).filter((loop) => loop.critical_day1 !== false);
+  const byLoop = new Map(workflows.filter((w) => w?.loop_id).map((w) => [String(w.loop_id), w]));
+  for (const loop of criticalLoops) {
+    const installed = byLoop.get(String(loop.id));
+    if (!installed?.ok || !installed?.id || installed.published !== true) {
+      errors.push({ code: 'CRITICAL_WORKFLOW_NOT_PUBLISHED', loop_id: loop.id, message: installed?.error || installed?.publish_error || 'Critical loop was not published' });
+    }
+  }
+  if (agents.length > 0 && !md.some((row) => row?.ok === true)) {
+    errors.push({ code: 'RUNBOOK_INSTALL_FAILED', message: 'No employee runbook was installed' });
+  }
+  if (policy?.ok !== true) {
+    errors.push({ code: 'POLICY_INSTALL_FAILED', message: policy?.error || 'Company safety policy was not installed' });
+  }
+  return {
+    ok: errors.length === 0,
+    errors,
+    installed: {
+      critical_workflows: criticalLoops.length - errors.filter((e) => e.code === 'CRITICAL_WORKFLOW_NOT_PUBLISHED').length,
+      runbooks: md.filter((row) => row?.ok).length,
+      policy: policy?.ok === true,
+    },
+  };
+}
+
 function companyHasBeenFormed(ownerUserId, strategic, row) {
   const org = detectExistingOrg(ownerUserId);
   if (org.has_custom_agents) return true;
@@ -309,11 +348,17 @@ export function getOperateState(ownerUserId) {
     systems: strategic.systems || [],
     agents,
     operating_model: model,
+    operating_model_version: strategic.operating_model_version || 0,
+    operating_model_history: Array.isArray(strategic.operating_model_history)
+      ? strategic.operating_model_history
+      : [],
     design_source: strategic.operate_design_source || null,
     design_error: strategic.operate_design_error || null,
     design_model: strategic.operate_design_model || null,
     digest: model?.digest || strategic.operate_digest || { mode: "daily", channel: "in_app" },
     day1_result: strategic.operate_day1 || null,
+    day1_version: strategic.operate_day1_version || null,
+    day1_last_attempt: strategic.operate_day1_attempt || null,
     has_template: true,
     template_hint: shouldUseLlmOperateDesign(companyType) ? "llm_preferred" : "template_preferred",
     template_pack_label: bp.label || companyType,
@@ -500,6 +545,10 @@ export function confirmOperateDay0(ownerUserId, body = {}) {
   const prev = Number(strategic.operating_model_version || 0) || 0;
   strategic.operating_model_version = prev + 1;
   strategic.operating_model_confirmed_at = new Date().toISOString();
+  strategic.operating_model_history = appendOperatingModelHistory(strategic, model, {
+    version: strategic.operating_model_version,
+    confirmedAt: strategic.operating_model_confirmed_at,
+  });
   strategic.operate_gate = "day0_confirmed";
   strategic.operate_step = "day0_done";
   writeStrategic(ownerUserId, row, journey, strategic);
@@ -819,6 +868,7 @@ function createOperateWorkflow(ownerUserId, loop, agent, model) {
           const pubAlt = publishDefinition(altId, ownerUserId, actor);
           return {
             id: altId,
+            loop_id: loop.id,
             name: name,
             updated: false,
             created: true,
@@ -846,6 +896,7 @@ function createOperateWorkflow(ownerUserId, loop, agent, model) {
     }
     return {
       id: existingId,
+      loop_id: loop.id,
       name: name,
       updated: !!prior,
       created: !prior,
@@ -1124,6 +1175,9 @@ export async function applyOperateDay1(ownerUserId) {
   strategic.operating_model = model;
   const version = strategic.operating_model_version || 1;
   model._version = version;
+  if (gate === "day1_applied" && Number(strategic.operate_day1_version || 0) === Number(version)) {
+    return { ...getOperateState(ownerUserId), idempotent: true, day1: strategic.operate_day1 || null };
+  }
 
   const agents = listAgentsForUser(ownerUserId);
   const mdResults = [];
@@ -1329,9 +1383,29 @@ export async function applyOperateDay1(ownerUserId) {
   day1.blueprint_agents_md = blueprintAgentsMd;
   day1.blueprint_id = bp?.id || strategic.blueprint_id || null;
 
+  const acceptance = evaluateDay1Acceptance({
+    model,
+    agents,
+    md: mdResults,
+    workflows,
+    policy: policySeed,
+  });
+  day1.acceptance = acceptance;
+  strategic.operate_day1_attempt = { version, attempted_at: new Date().toISOString(), acceptance };
+  if (!acceptance.ok) {
+    strategic.operate_gate = "day0_confirmed";
+    strategic.operate_step = "day1_failed";
+    writeStrategic(ownerUserId, ensureStrategyRow(ownerUserId), journey, strategic);
+    const err = new Error("Day 1 install did not satisfy its acceptance contract.");
+    err.status = 409;
+    err.details = { acceptance, retryable: true, version };
+    throw err;
+  }
+
   strategic.operate_gate = "day1_applied";
   strategic.operate_step = "done";
   strategic.operate_day1 = day1;
+  strategic.operate_day1_version = version;
   strategic.operate_readiness = readiness;
   writeStrategic(ownerUserId, ensureStrategyRow(ownerUserId), journey, strategic);
 

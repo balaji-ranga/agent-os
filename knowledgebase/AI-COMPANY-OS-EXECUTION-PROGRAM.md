@@ -7,8 +7,8 @@ This program strengthens seven product outcomes without duplicating foundations 
 
 | Outcome | Existing foundation | Remaining work |
 |---|---|---|
-| Unified execution and verified outcomes | Goal plans, outcome observer, mission events, workflow/browser/Kanban histories | One owner-scoped execution vocabulary; typed evidence contracts at each side-effect boundary |
-| Operate bootstrap | Phase D Day 0/Day 1 is implemented | Acceptance coverage, honest readiness, and connect installed loops to the unified execution view |
+| Unified execution and verified outcomes | **Completed baseline:** common vocabulary, typed nested evidence, durable goal→workflow/browser/Kanban correlation | Add new domain evidence adapters as additional side-effect tools are productized |
+| Operate bootstrap | **Hardened:** version history, same-version idempotency, critical workflow/runbook/policy acceptance gate, honest readiness | Expand vertical-specific acceptance fixtures as new blueprint packs ship |
 | Natural-language capability resolution | Business capability aliases, goal intent planning, recipe matching | Runtime registry across recipes/workflows/connectors/employees/executors; scored decision evidence |
 | Browser maturity | Desktop worker, Flolah MV3 extension, recipes, executor routing | Extension acceptance, richer snapshots, resumability, typed recipe output verification |
 | Policy-based autonomy | Action-family policy middleware and operating-model autonomy matrix | Context rules (recipient, spend, known campaign), durable approval grants, platform-wide enforcement coverage |
@@ -27,6 +27,16 @@ The first additive slice introduces `/api/company-executions`. It projects exist
 Every execution reports a common status (`pending`, `running`, `blocked`, `failed`, `completed`) and an outcome-verification state (`not_due`, `failed`, `unverified`, `verified`). A completed activity without an artifact, URL, provider receipt, explicit verification, or satisfied goal outcome is shown honestly as **unverified**.
 
 The My Org dashboard shows a small Company execution pulse backed by this endpoint. Later slices may add durable cross-runtime correlation ids and more evidence adapters while keeping this response contract compatible.
+
+## Slice 2 — durable correlation and Phase D hardening
+
+- Goal-plan tool execution propagates `goal_run_id` and `goal_step_id` into Browser Session and Kanban creation.
+- Browser and Kanban schemas store those links; workflow runs continue using their existing goal context.
+- `/api/company-executions` supplies `parent_execution_id` and goal `children[]` across all three child runtimes.
+- Evidence extraction walks bounded nested results and recognizes artifacts, public/post URLs, provider receipts, record ids, message ids and explicit verifier satisfaction.
+- Every confirmed operating model appends an immutable version snapshot (latest 20 retained).
+- Reapplying the already-installed model version is idempotent.
+- Day 1 remains at `day0_confirmed` and returns a retryable 409 when any critical workflow is unpublished, no employee runbook installs, or the safety policy fails. Partial files are safe to retry; the model is not falsely marked autonomous.
 
 ## Acceptance gates
 

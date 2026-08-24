@@ -23,7 +23,9 @@
     ,"test:browser-executors": "node scripts/test-browser-executor-multinode.js",
     "test:browser-recipe-inputs": "node scripts/test-browser-recipe-inputs.mjs",
     "test:browser-task-routing": "node scripts/test-browser-task-routing.mjs",
-    "test:company-executions": "node scripts/test-company-executions.mjs"
+    "test:company-executions": "node scripts/test-company-executions.mjs",
+    "test:company-execution-schema": "node scripts/test-company-execution-schema.mjs",
+    "test:company-operate-contract": "node scripts/test-company-operate-contract.mjs"
   },
   "dependencies": {
     "@stoqey/ib": "^1.6.3",

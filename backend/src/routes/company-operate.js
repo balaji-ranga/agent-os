@@ -116,7 +116,7 @@ router.post("/apply-day1", async (req, res) => {
     res.json(await applyOperateDay1(owner));
   } catch (e) {
     console.warn("[company-operate] apply-day1 failed", e?.message || e);
-    res.status(e.status || 500).json({ error: e.message || "Failed to apply Day 1 operate install" });
+    res.status(e.status || 500).json({ error: e.message || "Failed to apply Day 1 operate install", details: e.details || undefined });
   }
 });
 
