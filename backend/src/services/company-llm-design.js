@@ -24,7 +24,7 @@ const ALLOWED_TOOLS = [
 
 const DEFAULT_TOOLS = ['learnings_summary', 'master_data_rag', 'notify_ceo', 'kanban_create_task'];
 
-function extractJson(text) {
+export function extractCompanyDesignJson(text) {
   const raw = String(text || '').trim();
   if (!raw) return null;
   try {
@@ -50,6 +50,61 @@ function extractJson(text) {
     }
   }
   return null;
+}
+
+export function hasUsableCompanyDesign(parsed) {
+  return (
+    parsed != null &&
+    typeof parsed === 'object' &&
+    Array.isArray(parsed.departments) &&
+    parsed.departments.some((department) => String(department?.name || '').trim()) &&
+    Array.isArray(parsed.agents) &&
+    parsed.agents.some((agent) => String(agent?.name || '').trim())
+  );
+}
+
+/**
+ * Request a compact JSON org design and retry once when a provider returns
+ * prose, truncated JSON, or an object without departments/agents.
+ */
+export async function requestCompanyDesignJson({
+  messages,
+  maxTokens,
+  ownerUserId,
+  chatFn = chatCompletions,
+}) {
+  const run = async (attemptMessages, attempt) => {
+    const result = await chatFn({
+      messages: attemptMessages,
+      maxTokens,
+      ownerUserId,
+      responseFormat: 'json_object',
+      temperature: attempt === 1 ? 0.2 : 0,
+    });
+    return { ...result, parsed: extractCompanyDesignJson(result?.content) };
+  };
+
+  const first = await run(messages, 1);
+  if (hasUsableCompanyDesign(first.parsed)) return { ...first, attempts: 1 };
+
+  console.warn('[company-llm-design] invalid structured response; retrying compact JSON');
+  const second = await run(
+    [
+      ...messages,
+      {
+        role: 'system',
+        content: [
+          'Your previous response was not a complete usable JSON organization.',
+          'Regenerate the answer from the original request.',
+          'Return exactly one compact JSON object with non-empty departments and agents arrays.',
+          'Do not include markdown, commentary, or text outside the JSON object.',
+          'Keep descriptions concise so the entire object fits in the response limit.',
+        ].join(' '),
+      },
+    ],
+    2
+  );
+  return { ...second, attempts: 2 };
 }
 
 function clampTools(tools) {
@@ -183,7 +238,7 @@ Constraints: 2-5 departments, 2-6 agents; each agent maps to a listed department
   );
 
   try {
-    const { content, modelUsed } = await chatCompletions({
+    const { parsed, modelUsed, attempts } = await requestCompanyDesignJson({
       messages: [
         {
           role: 'system',
@@ -192,12 +247,12 @@ Constraints: 2-5 departments, 2-6 agents; each agent maps to a listed department
         },
         { role: 'user', content: userMsg },
       ],
-      maxTokens: 1600,
+      maxTokens: 2800,
       ownerUserId,
     });
-    const parsed = extractJson(content);
     const design = sanitizeDesign(parsed, fallback);
     design.model_used = modelUsed || null;
+    design.design_attempts = attempts;
     console.info(
       '[company-llm-design] design done source=',
       design.design_source,
@@ -326,15 +381,14 @@ export async function refineCompanyOrgWithLlm(ownerUserId, context = {}) {
   );
 
   try {
-    const { content, modelUsed } = await chatCompletions({
+    const { parsed, modelUsed, attempts } = await requestCompanyDesignJson({
       messages: [
         { role: 'system', content: system },
         { role: 'user', content: userMsg },
       ],
-      maxTokens: 2000,
+      maxTokens: 3200,
       ownerUserId,
     });
-    const parsed = extractJson(content);
     const design = sanitizeDesign(parsed || {}, {
       departments: baseDepts,
       agents: baseAgents,
@@ -351,6 +405,7 @@ export async function refineCompanyOrgWithLlm(ownerUserId, context = {}) {
       design.design_source = 'llm_refine';
     }
     design.model_used = modelUsed || null;
+    design.design_attempts = attempts;
     design.reply =
       String(parsed?.reply || '')
         .trim()

@@ -28,7 +28,8 @@
     "test:company-operate-contract": "node scripts/test-company-operate-contract.mjs",
     "test:runtime-capabilities": "node scripts/test-runtime-capability-registry.mjs",
     "test:browser-maturity": "node scripts/test-browser-maturity-contract.mjs",
-    "test:exception-policy": "node scripts/test-exception-policy.mjs"
+    "test:exception-policy": "node scripts/test-exception-policy.mjs",
+    "test:company-llm-design": "node scripts/test-company-llm-design.mjs"
   },
   "dependencies": {
     "@stoqey/ib": "^1.6.3",
