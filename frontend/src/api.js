@@ -1292,6 +1292,10 @@ export const api = {
   companyExecutions: (params = {}) => {
     const q = new URLSearchParams();
     if (params.limit != null) q.set('limit', String(params.limit));
+    if (params.page != null) q.set('page', String(params.page));
+    if (params.pageSize != null) q.set('page_size', String(params.pageSize));
+    if (params.from) q.set('from', String(params.from).slice(0, 10));
+    if (params.to) q.set('to', String(params.to).slice(0, 10));
     return get(`/company-executions${q.size ? `?${q}` : ''}`);
   },
 

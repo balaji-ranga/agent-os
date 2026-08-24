@@ -3,6 +3,7 @@ import {
   collectTypedEvidence,
   correlateCompanyExecutions,
   normalizeExecutionStatus,
+  pageCompanyExecutions,
   verificationFromResult,
 } from '../src/services/company-executions.js';
 
@@ -24,4 +25,11 @@ const correlated = correlateCompanyExecutions([
 ]);
 assert.equal(correlated[1].parent_execution_id, 'goal:agr-1');
 assert.equal(correlated[0].children[0].id, 'browser:bt-1');
+const paged = pageCompanyExecutions([
+  { id: 'a', updated_at: '2026-08-18T10:00:00Z' },
+  { id: 'b', updated_at: '2026-08-19T10:00:00Z' },
+  { id: 'c', updated_at: '2026-08-25T10:00:00Z' },
+], { page: 2, pageSize: 1, from: '2026-08-18', to: '2026-08-24' });
+assert.deepEqual(paged.executions.map((item) => item.id), ['b']);
+assert.deepEqual(paged.pagination, { page: 2, page_size: 1, total: 2, page_count: 2, has_previous: true, has_next: false });
 console.log('company execution contract tests passed');

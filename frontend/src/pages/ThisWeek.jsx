@@ -4,6 +4,7 @@ import { api } from '../api';
 import { formatChatTimestamp } from '../utils/formatDateTime.js';
 import GoalPlanPanel from '../components/GoalPlanPanel';
 import { goalOriginLabel } from '../components/GoalPlanTelemetry';
+import ExecutionHistory from '../components/ExecutionHistory.jsx';
 
 function KpiIcon({ name }) {
   const common = { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' };
@@ -666,6 +667,8 @@ export default function ThisWeek() {
               </div>
             </article>
           </section>
+
+          <ExecutionHistory from={data?.week?.start_date} to={data?.week?.end_date} />
 
           <form className="digest-ask" onSubmit={onAsk}>
             <div className="digest-ask-label">

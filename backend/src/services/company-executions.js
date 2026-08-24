@@ -149,24 +149,77 @@ export function correlateCompanyExecutions(executions) {
     if (!parentId) continue;
     item.parent_execution_id = `goal:${parentId}`;
     const parent = goals.get(parentId);
-    if (parent) parent.children.push({ id: item.id, source_type: item.source_type, source_id: item.source_id, status: item.status });
+    if (parent) parent.children.push({
+      id: item.id,
+      source_type: item.source_type,
+      source_id: item.source_id,
+      title: item.title,
+      status: item.status,
+      verification: item.verification,
+      executor: item.executor || null,
+      updated_at: item.updated_at,
+      detail_path: item.detail_path,
+    });
   }
   return list;
 }
 
-export function listCompanyExecutions(ownerUserId, { limit = 30 } = {}) {
+function validDate(value) {
+  const text = String(value || '').trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : null;
+}
+
+function filterCompanyExecutions(executions, from, to) {
+  const startDate = validDate(from);
+  const endDate = validDate(to);
+  let all = Array.isArray(executions) ? executions : [];
+  if (startDate || endDate) {
+    all = all.filter((item) => {
+      const date = String(item.updated_at || item.created_at || '').slice(0, 10);
+      return (!startDate || date >= startDate) && (!endDate || date <= endDate);
+    });
+  }
+  return { executions: all, filters: { from: startDate, to: endDate } };
+}
+
+export function pageCompanyExecutions(executions, { page = 1, pageSize = 10, from = null, to = null } = {}) {
+  const filtered = filterCompanyExecutions(executions, from, to);
+  const all = filtered.executions;
+  const size = Math.min(25, Math.max(1, Number(pageSize) || 10));
+  const pageCount = Math.max(1, Math.ceil(all.length / size));
+  const selectedPage = Math.min(Math.max(1, Number(page) || 1), pageCount);
+  const offset = (selectedPage - 1) * size;
+  return {
+    executions: all.slice(offset, offset + size),
+    pagination: { page: selectedPage, page_size: size, total: all.length, page_count: pageCount, has_previous: selectedPage > 1, has_next: selectedPage < pageCount },
+    filters: filtered.filters,
+  };
+}
+
+export function listCompanyExecutions(ownerUserId, { limit = 30, page = null, pageSize = null, from = null, to = null } = {}) {
   const owner = String(ownerUserId || '').trim();
   if (!owner) { const error = new Error('CEO context required'); error.status = 403; throw error; }
+  const paged = page != null || pageSize != null || from != null || to != null;
+  const size = Math.min(25, Math.max(1, Number(pageSize) || Number(limit) || 10));
   const lim = Math.min(100, Math.max(1, Number(limit) || 30));
-  const each = Math.max(lim, 20);
-  const executions = correlateCompanyExecutions([...goalExecutions(owner, each), ...workflowExecutions(owner, each),
-    ...browserExecutions(owner, each), ...kanbanExecutions(owner, each)])
-    .sort((a, b) => String(b.updated_at || b.created_at || '').localeCompare(String(a.updated_at || a.created_at || '')))
-    .slice(0, lim);
-  const counts = { total: executions.length, pending: 0, running: 0, blocked: 0, failed: 0, completed: 0, unverified: 0 };
-  for (const item of executions) {
+  const scan = paged ? 2000 : Math.max(lim, 20);
+  let all = correlateCompanyExecutions([...goalExecutions(owner, scan), ...workflowExecutions(owner, scan),
+    ...browserExecutions(owner, scan), ...kanbanExecutions(owner, scan)])
+    .sort((a, b) => String(b.updated_at || b.created_at || '').localeCompare(String(a.updated_at || a.created_at || '')));
+  const filtered = filterCompanyExecutions(all, from, to);
+  all = filtered.executions;
+  const counts = { total: all.length, pending: 0, running: 0, blocked: 0, failed: 0, completed: 0, unverified: 0 };
+  for (const item of all) {
     counts[item.status] += 1;
     if (item.verification?.state === 'unverified') counts.unverified += 1;
   }
-  return { executions, counts, generated_at: new Date().toISOString() };
+  if (!paged) return { executions: all.slice(0, lim), counts, generated_at: new Date().toISOString() };
+  const selected = pageCompanyExecutions(all, { page, pageSize: size });
+  return {
+    executions: selected.executions,
+    counts,
+    pagination: selected.pagination,
+    filters: filtered.filters,
+    generated_at: new Date().toISOString(),
+  };
 }
