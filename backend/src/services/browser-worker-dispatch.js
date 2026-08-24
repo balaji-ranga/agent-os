@@ -44,13 +44,32 @@ function rowToNode(row) {
 export function getBrowserWorkerOfflineMs() { return OFFLINE_MS(); }
 
 export function touchBrowserWorkerNode(ownerUserId, {
-  nodeId = null, tokenId = null, deviceName = '', workerVersion = '', browserVersion = '',
-  driverMode = 'playwright', protocolVersion = 1, capabilities = {}, clientIp = null,
+  nodeId = null, tokenId = null, deviceName, workerVersion, browserVersion,
+  driverMode, protocolVersion, capabilities, clientIp = null,
 } = {}) {
   const owner = String(ownerUserId || '').trim();
   if (!owner) throw new Error('owner_user_id required');
   const id = nodeIdFor(nodeId, owner);
   const ts = nowIso();
+  // Heartbeats and long-poll requests intentionally send only liveness fields.
+  // Preserve the richer metadata registered by the executor instead of replacing
+  // capabilities with an empty object and making the node unroutable.
+  const existing = db().prepare(
+    `SELECT device_name, worker_version, browser_version, driver_mode,
+            protocol_version, capabilities_json
+       FROM browser_executor_nodes
+      WHERE id = ? AND owner_user_id = ?`
+  ).get(id, owner);
+  const nextDeviceName = deviceName == null ? existing?.device_name || '' : String(deviceName || '').slice(0, 120);
+  const nextWorkerVersion = workerVersion == null ? existing?.worker_version || '' : String(workerVersion || '').slice(0, 80);
+  const nextBrowserVersion = browserVersion == null ? existing?.browser_version || '' : String(browserVersion || '').slice(0, 80);
+  const nextDriverMode = driverMode == null ? existing?.driver_mode || 'playwright' : String(driverMode || 'playwright').slice(0, 40);
+  const nextProtocolVersion = protocolVersion == null
+    ? Math.max(1, Number(existing?.protocol_version) || 1)
+    : Math.max(1, Number(protocolVersion) || 1);
+  const nextCapabilities = capabilities == null
+    ? parseJson(existing?.capabilities_json, {})
+    : (capabilities && typeof capabilities === 'object' ? capabilities : {});
   db().prepare(
     `INSERT INTO browser_executor_nodes
       (id, owner_user_id, token_id, device_name, online, last_heartbeat_at, worker_version,
@@ -64,10 +83,10 @@ export function touchBrowserWorkerNode(ownerUserId, {
        protocol_version = excluded.protocol_version, capabilities_json = excluded.capabilities_json,
        last_client_ip = excluded.last_client_ip, updated_at = excluded.updated_at
      WHERE browser_executor_nodes.owner_user_id = excluded.owner_user_id`
-  ).run(id, owner, tokenId || null, String(deviceName || '').slice(0, 120), ts,
-    String(workerVersion || '').slice(0, 80), String(browserVersion || '').slice(0, 80),
-    String(driverMode || 'playwright').slice(0, 40), Math.max(1, Number(protocolVersion) || 1),
-    JSON.stringify(capabilities && typeof capabilities === 'object' ? capabilities : {}),
+  ).run(id, owner, tokenId || null, nextDeviceName, ts,
+    nextWorkerVersion, nextBrowserVersion,
+    nextDriverMode, nextProtocolVersion,
+    JSON.stringify(nextCapabilities),
     clientIp ? String(clientIp).slice(0, 80) : null, ts);
   const node = getBrowserExecutorNode(owner, id);
   if (!node) throw new Error('node_id belongs to another owner');

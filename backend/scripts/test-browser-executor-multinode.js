@@ -36,11 +36,36 @@ touchBrowserWorkerNode('browser-owner-a', {
 });
 touchBrowserWorkerNode('browser-owner-a', {
   nodeId: 'extension-a', tokenId: extensionToken.id, driverMode: 'chrome_extension',
-  protocolVersion: 1, capabilities: { actions: ['open', 'snapshot', 'act'], structured_snapshot: true },
+  deviceName: 'Chrome test', workerVersion: '1.1.0', browserVersion: 'Chrome/151',
+  protocolVersion: 2,
+  capabilities: {
+    actions: ['open', 'snapshot', 'screenshot', 'act'],
+    structured_snapshot: true,
+    screenshots: true,
+    resumable_tasks: true,
+  },
 });
+
+// A jobs long-poll refreshes only liveness/version fields. It must not erase
+// the capabilities and identity supplied by the preceding registration.
+touchBrowserWorkerNode('browser-owner-a', {
+  nodeId: 'extension-a', tokenId: extensionToken.id,
+  workerVersion: '1.1.0', driverMode: 'chrome_extension', protocolVersion: 2,
+});
+const extensionAfterPoll = listBrowserExecutorNodes('browser-owner-a')
+  .find((node) => node.id === 'extension-a');
+assert.equal(extensionAfterPoll.device_name, 'Chrome test');
+assert.equal(extensionAfterPoll.browser_version, 'Chrome/151');
+assert.equal(extensionAfterPoll.capabilities.screenshots, true, 'poll preserves screenshot capability');
+assert.equal(extensionAfterPoll.capabilities.resumable_tasks, true, 'poll preserves resume capability');
 
 assert.equal(listBrowserExecutorNodes('browser-owner-a').length, 2);
 assert.equal(selectBrowserExecutor('browser-owner-a').id, 'extension-a', 'extension has routing priority');
+assert.equal(
+  selectBrowserExecutor('browser-owner-a', { requiredCapabilities: ['screenshot'] }).id,
+  'extension-a',
+  'screenshot requirement still routes to extension after poll refresh'
+);
 
 const queued = enqueueBrowserWorkerJob('browser-owner-a', 'snapshot', { limit: 1000 });
 assert.equal(queued.node.id, 'extension-a');
