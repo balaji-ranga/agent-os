@@ -8,6 +8,38 @@ const PLACEHOLDER = `Examples:
 - Prefer local tools over browser automation for Master Data.
 - Escalate legal or medical advice to a human specialist.`;
 
+function SearchMultiSelect({ label, options, selected, onChange, loading }) {
+  const [query, setQuery] = useState('');
+  const visible = options.filter((item) => `${item.label} ${item.description || ''} ${item.value}`.toLowerCase().includes(query.toLowerCase()));
+  const toggle = (value) => onChange(selected.includes(value) ? selected.filter((id) => id !== value) : [...selected, value]);
+  return (
+    <div>
+      <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--muted)', marginBottom: 4 }}>{label}</span>
+      <details style={{ border: '1px solid var(--border)', borderRadius: 9, background: 'var(--surface)', position: 'relative' }}>
+        <summary style={{ cursor: 'pointer', padding: '0.65rem 0.75rem', listStyle: 'none', display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+          <span>{loading ? 'Loading…' : selected.length ? `${selected.length} selected` : 'Search and select…'}</span><span aria-hidden>⌄</span>
+        </summary>
+        <div style={{ borderTop: '1px solid var(--border)', padding: '0.65rem', display: 'grid', gap: 6 }}>
+          <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder={`Search ${label.toLowerCase()}`} style={{ width: '100%', boxSizing: 'border-box', padding: '0.55rem 0.65rem', border: '1px solid var(--border)', borderRadius: 7, background: 'var(--bg)', color: 'var(--text)' }} />
+          <div style={{ maxHeight: 220, overflow: 'auto', display: 'grid', gap: 3 }}>
+            {visible.map((item) => (
+              <label key={item.value} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', padding: '0.48rem', borderRadius: 7, cursor: 'pointer', background: selected.includes(item.value) ? 'color-mix(in srgb, var(--accent) 10%, transparent)' : 'transparent' }}>
+                <input type="checkbox" checked={selected.includes(item.value)} onChange={() => toggle(item.value)} />
+                <span><strong style={{ fontSize: '0.84rem' }}>{item.label}</strong>{item.description ? <span style={{ display: 'block', color: 'var(--muted)', fontSize: '0.72rem' }}>{item.description}</span> : null}</span>
+              </label>
+            ))}
+            {!visible.length ? <span style={{ color: 'var(--muted)', fontSize: '0.8rem', padding: 6 }}>No matching items.</span> : null}
+          </div>
+        </div>
+      </details>
+      {selected.length ? <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 7 }}>{selected.map((value) => {
+        const item = options.find((candidate) => candidate.value === value);
+        return <button type="button" key={value} onClick={() => toggle(value)} title="Remove" style={{ border: '1px solid var(--border)', borderRadius: 999, background: 'var(--bg)', color: 'var(--text)', padding: '0.28rem 0.55rem', fontSize: '0.74rem', cursor: 'pointer' }}>{item?.label || value} ×</button>;
+      })}</div> : null}
+    </div>
+  );
+}
+
 function PoliciesPanel() {
   const [activeTab, setActiveTab] = useState('guardrails');
   const [policyText, setPolicyText] = useState('');
@@ -15,9 +47,11 @@ function PoliciesPanel() {
   const [updatedAt, setUpdatedAt] = useState(null);
   const [actionControl, setActionControl] = useState([]);
   const [actionOverrides, setActionOverrides] = useState([]);
+  const [scopeCatalog, setScopeCatalog] = useState({ goal: [], workflow: [], agent: [], tool: [] });
+  const [catalogLoading, setCatalogLoading] = useState(true);
   const [overrideBusy, setOverrideBusy] = useState(false);
   const [overrideDraft, setOverrideDraft] = useState({
-    scope_type: 'tool', scope_id: '', action_family: 'communicate_external', mode: 'autonomous',
+    scope_type: 'tool', scope_ids: [], action_family: 'communicate_external', mode: 'autonomous',
     permitted_email_ids: '', permitted_websites: '', expires_at: '', max_uses: '',
   });
   const [exceptionPolicy, setExceptionPolicy] = useState({
@@ -53,6 +87,20 @@ function PoliciesPanel() {
 
   useEffect(() => {
     load();
+    Promise.allSettled([
+      api.scheduledGoalsList(), api.agentWorkflowList({ limit: 500, offset: 0 }), api.agentsList(), api.contentToolsMeta(),
+    ]).then(([goals, workflows, agents, tools]) => {
+      const goalRows = goals.status === 'fulfilled' ? (goals.value?.goals || []) : [];
+      const workflowRows = workflows.status === 'fulfilled' ? (workflows.value?.workflows || []) : [];
+      const agentRows = agents.status === 'fulfilled' ? (Array.isArray(agents.value) ? agents.value : agents.value?.agents || []) : [];
+      const toolRows = tools.status === 'fulfilled' ? (tools.value?.tools || []) : [];
+      setScopeCatalog({
+        goal: goalRows.map((row) => ({ value: String(row.id), label: row.title || row.prompt || row.id, description: `${row.status || 'goal'} · ${row.id}` })),
+        workflow: workflowRows.map((row) => ({ value: String(row.id), label: row.name || row.title || row.id, description: `${row.status || 'workflow'} · ${row.id}` })),
+        agent: agentRows.map((row) => ({ value: String(row.id), label: row.name || row.display_name || row.id, description: `${row.role_title || row.purpose || 'AI employee'} · ${row.id}` })),
+        tool: toolRows.filter((row) => row.enabled !== false && row.enabled !== 0).map((row) => ({ value: String(row.name), label: row.label || row.name, description: row.description || row.name })),
+      });
+    }).finally(() => setCatalogLoading(false));
   }, []);
 
   const save = async (e) => {
@@ -107,24 +155,16 @@ function PoliciesPanel() {
     setError(null);
     try {
       const split = (value) => String(value || '').split(',').map((item) => item.trim()).filter(Boolean);
-      const data = await api.ceoActionOverrideSave({
-        scope_type: overrideDraft.scope_type,
-        scope_id: overrideDraft.scope_id.trim(),
-        action_family: overrideDraft.action_family,
-        mode: overrideDraft.mode,
-        constraints: {
-          permitted_email_ids: split(overrideDraft.permitted_email_ids),
-          permitted_websites: split(overrideDraft.permitted_websites),
-        },
+      const results = await Promise.all(overrideDraft.scope_ids.map((scopeId) => api.ceoActionOverrideSave({
+        scope_type: overrideDraft.scope_type, scope_id: scopeId, action_family: overrideDraft.action_family,
+        mode: overrideDraft.mode, constraints: { permitted_email_ids: split(overrideDraft.permitted_email_ids), permitted_websites: split(overrideDraft.permitted_websites) },
         expires_at: overrideDraft.expires_at ? new Date(overrideDraft.expires_at).toISOString() : null,
         max_uses: overrideDraft.max_uses === '' ? null : Number(overrideDraft.max_uses),
-      });
-      const saved = data.action_override;
-      setActionOverrides((prev) => [...prev.filter((row) => row.id !== saved.id && !(
-        row.scope_type === saved.scope_type && row.scope_id === saved.scope_id && row.action_family === saved.action_family
-      )), saved]);
-      setOverrideDraft((prev) => ({ ...prev, scope_id: '', permitted_email_ids: '', permitted_websites: '', expires_at: '', max_uses: '' }));
-      setMessage('Scoped action override saved and effective immediately.');
+      })));
+      const savedRows = results.map((result) => result.action_override);
+      setActionOverrides((prev) => [...prev.filter((row) => !savedRows.some((saved) => row.id === saved.id || (row.scope_type === saved.scope_type && row.scope_id === saved.scope_id && row.action_family === saved.action_family))), ...savedRows]);
+      setOverrideDraft((prev) => ({ ...prev, scope_ids: [], permitted_email_ids: '', permitted_websites: '', expires_at: '', max_uses: '' }));
+      setMessage(`${savedRows.length} scoped override${savedRows.length === 1 ? '' : 's'} saved and effective immediately.`);
     } catch (err) {
       setError(err.message || String(err));
     } finally {
@@ -410,23 +450,24 @@ function PoliciesPanel() {
             {controlBusy ? 'Saving…' : 'Save action control'}
           </button>
 
-          <section style={{ marginTop: '1.5rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border)' }}>
-            <h2 style={{ fontSize: '1.05rem', margin: '0 0 0.35rem' }}>Scoped overrides &amp; recurring grants</h2>
+          <section style={{ marginTop: '1.5rem', padding: '1rem', border: '1px solid var(--border)', borderRadius: 14, background: 'linear-gradient(145deg, color-mix(in srgb, var(--accent) 6%, var(--surface)), var(--surface))' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+              <div><h2 style={{ fontSize: '1.08rem', margin: '0 0 0.25rem' }}>Scoped overrides &amp; recurring grants</h2><span style={{ color: 'var(--muted)', fontSize: '0.75rem' }}>Precise autonomy without repeated approvals</span></div>
+              <span style={{ border: '1px solid var(--border)', borderRadius: 999, padding: '0.3rem 0.6rem', fontSize: '0.72rem', background: 'var(--surface)' }}>{actionOverrides.length} saved rule{actionOverrides.length === 1 ? '' : 's'}</span>
+            </div>
             <p style={{ margin: '0 0 0.85rem', color: 'var(--muted)', fontSize: '0.86rem', lineHeight: 1.45 }}>
               Apply a narrower rule to one goal, workflow, employee, or tool. Resolution order is goal → workflow →
               employee → tool → company. For recurring email or publishing automation, choose Autonomous and bound
               it by permitted recipients/websites, expiry, and maximum uses.
             </p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '0.65rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '0.75rem' }}>
               <label><span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--muted)' }}>Override target</span>
-                <select value={overrideDraft.scope_type} onChange={(e) => setOverrideDraft((p) => ({ ...p, scope_type: e.target.value }))} style={{ width: '100%', padding: '0.48rem' }}>
+                <select value={overrideDraft.scope_type} onChange={(e) => setOverrideDraft((p) => ({ ...p, scope_type: e.target.value, scope_ids: [] }))} style={{ width: '100%', padding: '0.58rem', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}>
                   <option value="goal">Goal</option><option value="workflow">Workflow</option>
                   <option value="agent">Employee/agent</option><option value="tool">Tool</option>
                 </select>
               </label>
-              <label><span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--muted)' }}>Exact ID or tool name</span>
-                <input value={overrideDraft.scope_id} onChange={(e) => setOverrideDraft((p) => ({ ...p, scope_id: e.target.value }))} placeholder="email_send" style={{ width: '100%', padding: '0.48rem', boxSizing: 'border-box' }} />
-              </label>
+              <SearchMultiSelect label={`Select ${overrideDraft.scope_type}s`} options={scopeCatalog[overrideDraft.scope_type] || []} selected={overrideDraft.scope_ids} onChange={(scope_ids) => setOverrideDraft((p) => ({ ...p, scope_ids }))} loading={catalogLoading} />
               <label><span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--muted)' }}>Action family</span>
                 <select value={overrideDraft.action_family} onChange={(e) => setOverrideDraft((p) => ({ ...p, action_family: e.target.value }))} style={{ width: '100%', padding: '0.48rem' }}>
                   {actionControl.map((row) => <option key={row.family} value={row.family}>{row.label}</option>)}
@@ -450,8 +491,8 @@ function PoliciesPanel() {
                 <input type="number" min="1" max="100000" value={overrideDraft.max_uses} onChange={(e) => setOverrideDraft((p) => ({ ...p, max_uses: e.target.value }))} placeholder="90" style={{ width: '100%', padding: '0.48rem', boxSizing: 'border-box' }} />
               </label>
             </div>
-            <button type="button" className="btn-primary" disabled={overrideBusy || !overrideDraft.scope_id.trim()} onClick={saveOverride} style={{ marginTop: '0.8rem' }}>
-              {overrideBusy ? 'Saving…' : 'Save scoped override'}
+            <button type="button" className="btn-primary" disabled={overrideBusy || !overrideDraft.scope_ids.length} onClick={saveOverride} style={{ marginTop: '0.9rem' }}>
+              {overrideBusy ? 'Saving…' : `Apply to ${overrideDraft.scope_ids.length || 0} selected`}
             </button>
             {actionOverrides.length > 0 && <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
               {actionOverrides.map((row) => <div key={row.id} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '0.65rem', display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>

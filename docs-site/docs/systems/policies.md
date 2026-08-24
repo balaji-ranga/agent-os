@@ -14,6 +14,8 @@ After you change policies, Resync org docs if the product asks you to, and start
 
 Use **Scoped overrides & recurring grants** for one goal, workflow, employee, or tool. Resolution is goal → workflow → employee → tool → company. A recurring email or publishing grant can be Autonomous while restricted to permitted email IDs or website domains, an expiry, and a maximum number of uses. Non-matching constraints fail closed; expired or exhausted overrides return to the next applicable policy.
 
+The searchable target picker supports multi-select, so one save can apply the same bounded rule to several targets. A scheduled-goal override remains effective across that goal's future scheduled fires.
+
 Policies are not a substitute for **tool grants**, **Maker/Checker**, or **IP allowlists**. Stack them: policy says what *should* happen; Action control, tools and Checker enforce what *can* happen.
 
 See [Example stress test run](../operate/example-stress-test-run.md) for a scored outcome (verified CRM, spend cap, approval-required send).

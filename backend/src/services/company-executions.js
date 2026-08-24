@@ -1,5 +1,6 @@
 /** Owner-scoped read model across Flolah execution runtimes. */
 import { getDb } from '../db/schema.js';
+import { valueTokenUsage } from './llmops-cost.js';
 
 function parseJson(raw, fallback = null) {
   if (raw == null || raw === '') return fallback;
@@ -196,6 +197,27 @@ export function pageCompanyExecutions(executions, { page = 1, pageSize = 10, fro
   };
 }
 
+export function buildCompanyPulse(executions, counts, cost = {}) {
+  const list = Array.isArray(executions) ? executions : [];
+  const artifacts = list.reduce((sum, item) => sum + (item.verification?.evidence?.length || 0), 0);
+  const urgent = list.find((item) => item.status === 'failed') ||
+    list.find((item) => item.status === 'blocked') ||
+    list.find((item) => item.verification?.state === 'unverified') ||
+    list.find((item) => item.status === 'running');
+  let nextAction = { kind: 'clear', label: 'No intervention needed', detail_path: null, execution_id: null };
+  if (urgent?.status === 'failed') nextAction = { kind: 'failed', label: `Review failed: ${urgent.title}`, detail_path: urgent.detail_path, execution_id: urgent.id };
+  else if (urgent?.status === 'blocked') nextAction = { kind: 'blocked', label: `Unblock: ${urgent.title}`, detail_path: urgent.detail_path, execution_id: urgent.id };
+  else if (urgent?.verification?.state === 'unverified') nextAction = { kind: 'unverified', label: `Verify outcome: ${urgent.title}`, detail_path: urgent.detail_path, execution_id: urgent.id };
+  else if (urgent?.status === 'running') nextAction = { kind: 'running', label: `Monitor: ${urgent.title}`, detail_path: urgent.detail_path, execution_id: urgent.id };
+  return {
+    active: Number(counts?.running || 0), blocked: Number(counts?.blocked || 0),
+    failed: Number(counts?.failed || 0), unverified: Number(counts?.unverified || 0),
+    completed: Number(counts?.completed || 0), artifacts,
+    estimated_llm_cost_usd: Number(cost?.amount_usd || 0), cost_payer: cost?.payer || 'unknown',
+    next_action: nextAction,
+  };
+}
+
 export function listCompanyExecutions(ownerUserId, { limit = 30, page = null, pageSize = null, from = null, to = null } = {}) {
   const owner = String(ownerUserId || '').trim();
   if (!owner) { const error = new Error('CEO context required'); error.status = 403; throw error; }
@@ -213,11 +235,15 @@ export function listCompanyExecutions(ownerUserId, { limit = 30, page = null, pa
     counts[item.status] += 1;
     if (item.verification?.state === 'unverified') counts.unverified += 1;
   }
-  if (!paged) return { executions: all.slice(0, lim), counts, generated_at: new Date().toISOString() };
+  let cost = { amount_usd: 0, payer: 'unknown' };
+  try { cost = valueTokenUsage(owner, { since: validDate(from), until: validDate(to) }); } catch (_) {}
+  const pulse = buildCompanyPulse(all, counts, cost);
+  if (!paged) return { executions: all.slice(0, lim), counts, pulse, generated_at: new Date().toISOString() };
   const selected = pageCompanyExecutions(all, { page, pageSize: size });
   return {
     executions: selected.executions,
     counts,
+    pulse,
     pagination: selected.pagination,
     filters: filtered.filters,
     generated_at: new Date().toISOString(),

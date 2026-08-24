@@ -71,3 +71,10 @@ The Digest ends with a week-filtered, paginated **Execution history**. Goals exp
 - Grants may be constrained to one tool, recipient, campaign, maximum amount, and bounded use count. Only a hash is stored; the bearer value is redacted from tool logs and is not forwarded downstream.
 - Company policy can be narrowed by owner-scoped goal, workflow, employee, or tool overrides. Resolution is goal → workflow → employee → tool → company. Recurring grants support permitted email IDs and website domains, expiry, and bounded use counts.
 - Every allow/deny decision is recorded as mission evidence. The owner-scoped exception policy independently retries a failed goal/workflow step and then creates a correlated recovery Kanban when retries are exhausted.
+
+## Slice 6 — CEO operations cockpit in Digest
+
+- The existing paginated **Execution history** remains the authoritative end-user surface; no duplicate cockpit page is introduced.
+- Its company pulse summarizes active, blocked, failed, completed-but-unverified executions, typed evidence count, and price-book-estimated LLM cost for the selected week.
+- **Next action** is deterministic and links to the highest-priority source record: failed → blocked → unverified → running → no intervention.
+- Cost is explicitly labelled as an estimate, not a provider invoice. Technical evidence remains behind disclosure while the business action is visible first.

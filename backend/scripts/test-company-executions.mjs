@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   collectTypedEvidence,
+  buildCompanyPulse,
   correlateCompanyExecutions,
   normalizeExecutionStatus,
   pageCompanyExecutions,
@@ -32,4 +33,11 @@ const paged = pageCompanyExecutions([
 ], { page: 2, pageSize: 1, from: '2026-08-18', to: '2026-08-24' });
 assert.deepEqual(paged.executions.map((item) => item.id), ['b']);
 assert.deepEqual(paged.pagination, { page: 2, page_size: 1, total: 2, page_count: 2, has_previous: true, has_next: false });
+const pulse = buildCompanyPulse([
+  { id: 'run-1', title: 'Publish report', status: 'failed', detail_path: '/run/1', verification: { evidence: [] } },
+  { id: 'run-2', title: 'Create brief', status: 'completed', verification: { state: 'verified', evidence: [{ type: 'artifact' }] } },
+], { running: 0, blocked: 0, failed: 1, unverified: 0, completed: 1 }, { amount_usd: 0.1234, payer: 'platform' });
+assert.equal(pulse.next_action.execution_id, 'run-1');
+assert.equal(pulse.artifacts, 1);
+assert.equal(pulse.estimated_llm_cost_usd, 0.1234);
 console.log('company execution contract tests passed');

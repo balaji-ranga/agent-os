@@ -999,7 +999,7 @@ async function deliverPriorEmailArtifactIfNeeded(goal, step) {
   const invokeOpts = {
     agentId: caller?.id || goal.agent_id || null,
     openclawAgentId: caller?.openclaw_agent_id || caller?.id || goal.agent_id || null,
-    goalId: goal.id,
+    goalId: goal.scheduled_goal_id || goal.id,
   };
 
   const out = await invokeContentToolHttp('email_send', args, goal.owner_user_id, invokeOpts);
@@ -1526,7 +1526,7 @@ async function executeAgentToolStep(goal, step) {
   const invokeOpts = {
     agentId: caller?.id || goal.agent_id || null,
     openclawAgentId: caller?.openclaw_agent_id || caller?.id || goal.agent_id || null,
-    goalId: goal.id,
+    goalId: goal.scheduled_goal_id || goal.id,
   };
 
   // Single-symbol tools + multi-ticker goals (MAG7, lists): invoke per symbol and aggregate.

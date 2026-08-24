@@ -78,6 +78,7 @@ export default function ExecutionHistory({ from, to }) {
   }, [page, from, to]);
 
   const counts = data?.counts || {};
+  const pulse = data?.pulse || {};
   const pagination = data?.pagination || {};
   return (
     <section className="digest-row" aria-label="Execution history">
@@ -89,11 +90,31 @@ export default function ExecutionHistory({ from, to }) {
               Goals and the work Flolah actually ran. Completed work is verified only when an outcome or provider receipt was recorded.
             </p>
           </div>
-          <div style={{ display: 'flex', gap: 10, fontSize: '0.8rem', color: 'var(--muted)', flexWrap: 'wrap' }}>
-            <span>{counts.running || 0} active</span><span>{counts.blocked || 0} need attention</span>
-            <span>{counts.failed || 0} failed</span><span>{counts.unverified || 0} unverified</span>
-          </div>
         </div>
+        {data ? (
+          <div style={{ border: '1px solid color-mix(in srgb, var(--accent) 26%, var(--border))', borderRadius: 12, padding: '0.85rem', marginBottom: '0.9rem', background: 'linear-gradient(135deg, color-mix(in srgb, var(--accent) 9%, var(--surface)), var(--surface))' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(105px, 1fr))', gap: 8 }}>
+              {[
+                ['Active', pulse.active ?? counts.running ?? 0, '#2563eb'],
+                ['Blocked', pulse.blocked ?? counts.blocked ?? 0, '#b45309'],
+                ['Failed', pulse.failed ?? counts.failed ?? 0, '#dc2626'],
+                ['Unverified', pulse.unverified ?? counts.unverified ?? 0, '#7c3aed'],
+                ['Evidence', pulse.artifacts ?? 0, '#059669'],
+                ['Est. LLM cost', `$${Number(pulse.estimated_llm_cost_usd || 0).toFixed(4)}`, 'var(--text)'],
+              ].map(([label, value, color]) => (
+                <div key={label} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 9, padding: '0.65rem' }}>
+                  <div style={{ fontSize: '1.08rem', fontWeight: 750, color }}>{value}</div>
+                  <div style={{ color: 'var(--muted)', fontSize: '0.72rem', marginTop: 2 }}>{label}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
+              <div style={{ fontSize: '0.82rem' }}><strong>Next action:</strong> {pulse.next_action?.label || 'No intervention needed'}</div>
+              {pulse.next_action?.detail_path ? <Link to={pulse.next_action.detail_path}>Open →</Link> : null}
+            </div>
+            <div style={{ color: 'var(--muted)', fontSize: '0.7rem', marginTop: 6 }}>Estimated LLM cost uses the configured price book and is not a provider invoice.</div>
+          </div>
+        ) : null}
         {error ? <p className="error-text">{error}</p> : null}
         {loading && !data ? <p className="digest-muted">Loading execution history…</p> : null}
         {!loading && data && !data.executions?.length ? <p className="digest-muted">No executions were recorded in this week.</p> : null}

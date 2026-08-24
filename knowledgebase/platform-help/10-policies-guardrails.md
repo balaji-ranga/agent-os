@@ -37,6 +37,8 @@ Below Action control, add a narrower override for a specific **goal**, **workflo
 
 For an approved recurring automation such as a daily status email, create an **Autonomous grant** for the workflow, agent, or `email_send` tool. Bound it with permitted email IDs, an expiry, and a maximum use count. Public publishing can likewise be restricted to permitted website domains. An active override whose recipient/domain constraints do not match fails closed. Expired or exhausted overrides fall back to the next applicable policy.
 
+The target picker is searchable and supports multiple selections, so one save applies the rule independently to every selected goal, workflow, employee, or tool. A scheduled-goal override follows that schedule across future fires; an ad-hoc goal uses its individual goal-plan ID.
+
 ## How agents see it
 
 - Workspace file: `POLICY.md` (also referenced from `ORG.md`).
