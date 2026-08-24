@@ -1289,6 +1289,11 @@ export const api = {
   agentGoalRunsGet: (id) => get(`/agent-goal-runs/${encodeURIComponent(id)}`),
   agentGoalRunsEvents: (id) => get(`/agent-goal-runs/${encodeURIComponent(id)}/events`),
   agentGoalRunsAmend: (id, body) => post(`/agent-goal-runs/${encodeURIComponent(id)}/amend`, body),
+  companyExecutions: (params = {}) => {
+    const q = new URLSearchParams();
+    if (params.limit != null) q.set('limit', String(params.limit));
+    return get(`/company-executions${q.size ? `?${q}` : ''}`);
+  },
 
   /** IBKR Summary dashboard (portfolio + day-wise planned vs executed). */
   ibkrSummary: (params = {}) => {

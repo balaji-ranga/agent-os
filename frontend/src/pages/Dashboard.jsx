@@ -14,6 +14,7 @@ import { formatLocalDateTime, formatChatTimestamp, toLocalDateTimeInputValue } f
 import { buildMessageWithAttachments, uploadChatAttachments } from '../utils/chatAttachments.js';
 import { userRoleTitle } from '../utils/userRoleTitle.js';
 import CompanyArchitecturePanel from '../components/CompanyArchitecturePanel.jsx';
+import CompanyExecutionPulse from '../components/CompanyExecutionPulse.jsx';
 
 // Voice: browser Speech Synthesis API (Edge/Chrome TTS)
 function useEdgeTTS() {
@@ -506,6 +507,8 @@ export default function Dashboard() {
       </div>
 
       <CompanyArchitecturePanel />
+
+      <CompanyExecutionPulse />
 
       {/* Org chart: recursive hierarchy with List | Graph */}
       <section style={{ marginBottom: '2rem' }}>

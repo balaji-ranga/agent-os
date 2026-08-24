@@ -22,7 +22,8 @@
     "test:blueprint-secrets": "node scripts/test-blueprint-secret-sanitize.js && node scripts/scan-blueprint-secrets.js"
     ,"test:browser-executors": "node scripts/test-browser-executor-multinode.js",
     "test:browser-recipe-inputs": "node scripts/test-browser-recipe-inputs.mjs",
-    "test:browser-task-routing": "node scripts/test-browser-task-routing.mjs"
+    "test:browser-task-routing": "node scripts/test-browser-task-routing.mjs",
+    "test:company-executions": "node scripts/test-company-executions.mjs"
   },
   "dependencies": {
     "@stoqey/ib": "^1.6.3",
