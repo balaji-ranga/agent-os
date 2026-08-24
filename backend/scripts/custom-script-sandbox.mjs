@@ -9,6 +9,20 @@ import { tmpdir } from 'os';
 
 const TIMEOUT_MS = Number(process.env.CUSTOM_SCRIPT_TIMEOUT_MS) || 60000;
 
+async function runWithTimeout(fn, inputs, context) {
+  let timer;
+  try {
+    return await Promise.race([
+      Promise.resolve().then(() => fn(inputs, context)),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error('Script timeout')), TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 async function main() {
   const chunks = [];
   for await (const c of process.stdin) chunks.push(c);
@@ -39,10 +53,7 @@ export default typeof run !== 'undefined' ? run : undefined;
     if (typeof fn !== 'function') {
       throw new Error('Script must export run(inputs, context)');
     }
-    const result = await Promise.race([
-      fn(inputs, context),
-      new Promise((_, rej) => setTimeout(() => rej(new Error('Script timeout')), TIMEOUT_MS)),
-    ]);
+    const result = await runWithTimeout(fn, inputs, context);
     const out = result && typeof result === 'object' ? result : { text: String(result ?? '') };
     process.stdout.write(JSON.stringify({ ok: true, output: out }));
   } catch (e) {

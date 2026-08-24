@@ -27,6 +27,7 @@ function execute(payload) {
       : null;
   if (!script) return Promise.resolve({ ok: false, error: 'Unsupported language' });
   const command = language === 'python' ? 'python3' : 'node';
+  const timeoutMs = Math.min(Math.max(1, Number(payload.timeoutMs) || maxTimeout), maxTimeout);
   return new Promise((resolve) => {
     const child = spawn(command, [script], {
       uid: nobody,
@@ -39,7 +40,7 @@ function execute(payload) {
         LANG: 'C.UTF-8',
         HOME: '/tmp',
         TMPDIR: '/tmp',
-        CUSTOM_SCRIPT_TIMEOUT_MS: String(maxTimeout),
+        CUSTOM_SCRIPT_TIMEOUT_MS: String(timeoutMs),
         PYTHONDONTWRITEBYTECODE: '1',
         NODE_NO_WARNINGS: '1',
       },
@@ -56,7 +57,7 @@ function execute(payload) {
     const timer = setTimeout(() => {
       try { process.kill(-child.pid, 'SIGKILL'); } catch {}
       finish({ ok: false, error: 'Script timed out' });
-    }, maxTimeout + 1000);
+    }, timeoutMs + 1000);
     child.stdout.on('data', (chunk) => { if (stdout.length < 1000000) stdout += chunk; });
     child.stderr.on('data', (chunk) => { if (stderr.length < 200000) stderr += chunk; });
     child.on('error', (error) => finish({ ok: false, error: error.message }));

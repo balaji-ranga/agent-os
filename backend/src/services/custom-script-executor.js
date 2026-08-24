@@ -184,7 +184,7 @@ export async function runCustomScriptInSandbox({
       ? Math.min(Number(timeoutMs), 60000)
       : Math.min(ENV_TIMEOUT_MS, 60000);
 
-  const payload = { source, language: lang, inputs, context: slimCtx, runtimeProfile };
+  const payload = { source, language: lang, inputs, context: slimCtx, runtimeProfile, timeoutMs: cappedTimeout };
   const remote = await runRemoteSandbox(payload, cappedTimeout);
   if (remote) return remote;
 
