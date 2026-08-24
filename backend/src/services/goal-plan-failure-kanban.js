@@ -10,6 +10,7 @@ import { getOrCreateDelegationHubStandup } from './standup-hub.js';
 import { withOwnerScope } from './org-context.js';
 import { sendPlatformNotifications } from './platform-notifications.js';
 import { getPlatformSetting, setPlatformSetting } from './platform-llm-settings.js';
+import { getExceptionPolicy } from './exception-policy.js';
 
 const TAG = '[goal_plan_recovery]';
 
@@ -45,10 +46,6 @@ export function isGoalPlanFailureKanbanDisabled() {
 export function setGoalPlanFailureKanbanEnabled(enabled) {
   setPlatformSetting(FAILURE_KANBAN_SETTING, enabled ? '1' : '0');
   return { enabled: !!enabled, disabled: !enabled };
-}
-
-function recoveryDisabled() {
-  return isGoalPlanFailureKanbanDisabled();
 }
 
 /**
@@ -159,9 +156,6 @@ export function buildGoalPlanRecoveryPrompt(goal, { steps = [], error = null } =
  * @returns {Promise<{ ok: boolean, skipped?: boolean, reason?: string, kanban_id?: number, task_id?: number, request_id?: string, agent_id?: string }>}
  */
 export async function enqueueGoalPlanFailureKanban(goalRunId, opts = {}) {
-  if (recoveryDisabled()) {
-    return { ok: false, skipped: true, reason: 'disabled_by_env' };
-  }
   const id = String(goalRunId || '').trim();
   if (!id) return { ok: false, error: 'goal_run_id required' };
 
@@ -188,22 +182,27 @@ export async function enqueueGoalPlanFailureKanban(goalRunId, opts = {}) {
     };
   }
 
+  const exceptionPolicy = getExceptionPolicy(scoped.owner_user_id);
+  if (!exceptionPolicy.create_kanban) {
+    return { ok: false, skipped: true, reason: 'disabled_by_exception_policy' };
+  }
+
   const steps = Array.isArray(scoped.steps) ? scoped.steps : [];
   const agentId = resolveGoalFailureAssignee(scoped, steps);
-  const agent = db()
+  const agent = exceptionPolicy.agent_pickup ? db()
     .prepare('SELECT id, name, openclaw_agent_id, is_coo FROM agents WHERE lower(id) = lower(?)')
-    .get(agentId);
-  if (!agent) {
+    .get(agentId) : null;
+  if (exceptionPolicy.agent_pickup && !agent) {
     console.warn('[goal-run] recovery kanban: agent not found', agentId);
     return { ok: false, error: 'agent_not_found', agent_id: agentId };
   }
 
-  const entitled = db()
+  const entitled = agent ? db()
     .prepare(
       'SELECT 1 AS ok FROM user_agents WHERE user_id = ? AND agent_id = ? AND enabled = 1'
     )
-    .get(scoped.owner_user_id, agent.id);
-  if (!entitled && !agent.is_coo) {
+    .get(scoped.owner_user_id, agent.id) : null;
+  if (agent && !entitled && !agent.is_coo) {
     const isGoalAgent =
       String(scoped.agent_id || '').toLowerCase() === String(agent.id).toLowerCase();
     if (!isGoalAgent) {
@@ -215,8 +214,8 @@ export async function enqueueGoalPlanFailureKanban(goalRunId, opts = {}) {
     }
   }
 
-  const standupId = getOrCreateDelegationHubStandup(scoped.owner_user_id);
-  if (!standupId) {
+  const standupId = agent ? getOrCreateDelegationHubStandup(scoped.owner_user_id) : null;
+  if (agent && !standupId) {
     return { ok: false, error: 'no_standup_hub' };
   }
 
@@ -232,14 +231,16 @@ export async function enqueueGoalPlanFailureKanban(goalRunId, opts = {}) {
     scoped.owner_user_id
   );
 
-  const requestId = `goal-fail-${String(id).replace(/[^a-zA-Z0-9-]/g, '').slice(0, 40)}-${Date.now()}`;
-  const info = db()
+  const requestId = agent
+    ? `goal-fail-${String(id).replace(/[^a-zA-Z0-9-]/g, '').slice(0, 40)}-${Date.now()}`
+    : null;
+  const info = agent ? db()
     .prepare(
       `INSERT INTO agent_delegation_tasks (standup_id, request_id, to_agent_id, prompt, status, owner_user_id)
        VALUES (?, ?, ?, ?, 'pending', ?)`
     )
-    .run(standupId, requestId, agent.id, prompt, scoped.owner_user_id);
-  const taskId = Number(info.lastInsertRowid);
+    .run(standupId, requestId, agent.id, prompt, scoped.owner_user_id) : null;
+  const taskId = info ? Number(info.lastInsertRowid) : null;
 
   const title = clip(`Goal recovery: ${scoped.title || id}`, 120) || `Goal recovery ${id}`;
   const description = [
@@ -252,17 +253,35 @@ export async function enqueueGoalPlanFailureKanban(goalRunId, opts = {}) {
 
   const kInfo = db()
     .prepare(
-      `INSERT INTO kanban_tasks (title, description, status, assigned_agent_id, created_by, standup_id, agent_delegation_task_id, owner_user_id)
-       VALUES (?, ?, 'open', ?, ?, ?, ?, ?)`
+      `INSERT INTO kanban_tasks
+         (title, description, status, assigned_agent_id, created_by, standup_id,
+          agent_delegation_task_id, owner_user_id, goal_run_id, goal_step_id)
+       VALUES (?, ?, 'open', ?, ?, ?, ?, ?, ?, ?)`
     )
-    .run(title, description, agent.id, agent.id, standupId, taskId, scoped.owner_user_id);
+    .run(
+      title,
+      description,
+      agent?.id || null,
+      'exception-policy',
+      standupId,
+      taskId,
+      scoped.owner_user_id,
+      id,
+      [...steps].reverse().find((s) => String(s.status) === 'failed')?.id || null
+    );
   const kanbanId = Number(kInfo.lastInsertRowid);
+  const failedStepId = [...steps].reverse().find((s) => String(s.status) === 'failed')?.id || null;
+  if (failedStepId) {
+    db()
+      .prepare('UPDATE agent_goal_steps SET exception_kanban_id = ? WHERE id = ?')
+      .run(kanbanId, failedStepId);
+  }
 
   ctx.failure_recovery_kanban_at = new Date().toISOString();
   ctx.failure_recovery_kanban_id = kanbanId;
   ctx.failure_recovery_task_id = taskId;
   ctx.failure_recovery_request_id = requestId;
-  ctx.failure_recovery_agent_id = agent.id;
+  ctx.failure_recovery_agent_id = agent?.id || null;
   try {
     db()
       .prepare(
@@ -278,12 +297,14 @@ export async function enqueueGoalPlanFailureKanban(goalRunId, opts = {}) {
       userIds: [scoped.owner_user_id],
       title: clip(`Goal recovery Kanban: ${scoped.title || id}`, 100),
       body: clip(
-        `${id} failed — recovery task #${kanbanId} assigned to ${agent.name || agent.id}. ` +
-          `Agent will continue via chat tools (not a new goal plan).`,
+        agent
+          ? `${id} failed — recovery task #${kanbanId} assigned to ${agent.name || agent.id}. ` +
+            `The agent will continue via chat tools (not a new goal plan).`
+          : `${id} failed — recovery task #${kanbanId} requires user action to rectify the failed step and continue.`,
         500
       ),
       linkUrl: `/kanban`,
-      createdBy: String(agent.id || 'goal-run').slice(0, 64),
+      createdBy: String(agent?.id || 'exception-policy').slice(0, 64),
       source: 'agent_goal_run',
       sourceKey: `goal-run:${id}:failure-kanban`,
     });
@@ -295,7 +316,7 @@ export async function enqueueGoalPlanFailureKanban(goalRunId, opts = {}) {
     goalRunId: id,
     kanbanId,
     taskId,
-    agentId: agent.id,
+    agentId: agent?.id || null,
   });
 
   return {
@@ -304,6 +325,6 @@ export async function enqueueGoalPlanFailureKanban(goalRunId, opts = {}) {
     kanban_id: kanbanId,
     task_id: taskId,
     request_id: requestId,
-    agent_id: agent.id,
+    agent_id: agent?.id || null,
   };
 }

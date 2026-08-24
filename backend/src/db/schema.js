@@ -2467,6 +2467,30 @@ export function initDb() {
     if (runCols.length && !runCols.includes('plan_history_json')) {
       _db.exec('ALTER TABLE agent_goal_runs ADD COLUMN plan_history_json TEXT');
     }
+    if (agCols.length && !agCols.includes('exception_retry_count')) {
+      _db.exec('ALTER TABLE agent_goal_steps ADD COLUMN exception_retry_count INTEGER DEFAULT 0');
+    }
+    if (agCols.length && !agCols.includes('exception_kanban_id')) {
+      _db.exec('ALTER TABLE agent_goal_steps ADD COLUMN exception_kanban_id INTEGER');
+    }
+  } catch (_) {}
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS exception_policies (
+        owner_user_id TEXT PRIMARY KEY,
+        retry_limit INTEGER NOT NULL DEFAULT 1,
+        create_kanban INTEGER NOT NULL DEFAULT 1,
+        agent_pickup INTEGER NOT NULL DEFAULT 1,
+        updated_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+    const wfStepCols = _db.prepare('PRAGMA table_info(agent_workflow_run_steps)').all().map((c) => c.name);
+    if (wfStepCols.length && !wfStepCols.includes('exception_retry_count')) {
+      _db.exec('ALTER TABLE agent_workflow_run_steps ADD COLUMN exception_retry_count INTEGER DEFAULT 0');
+    }
+    if (wfStepCols.length && !wfStepCols.includes('exception_kanban_id')) {
+      _db.exec('ALTER TABLE agent_workflow_run_steps ADD COLUMN exception_kanban_id INTEGER');
+    }
   } catch (_) {}
   try {
     _db.exec(`

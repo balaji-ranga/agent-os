@@ -11,6 +11,7 @@ import {
 import { getActionFamilyPolicies, upsertActionFamilyPolicies } from '../services/action-policy.js';
 import { syncOrgContextForCeo } from '../services/org-context.js';
 import { getUserById } from '../services/users.js';
+import { getExceptionPolicy, upsertExceptionPolicy } from '../services/exception-policy.js';
 
 const router = Router();
 
@@ -21,9 +22,20 @@ router.get('/', requireAuth, requireCeoOrAdmin, (req, res) => {
     res.json({
       guardrails: getCeoGuardrails(ceoUserId),
       action_control: getActionFamilyPolicies(ceoUserId),
+      exception_policy: getExceptionPolicy(ceoUserId),
     });
   } catch (e) {
     res.status(500).json({ error: e.message || String(e) });
+  }
+});
+
+router.put('/exception-policy', requireAuth, requireCeoOrAdmin, (req, res) => {
+  try {
+    const ceoUserId = resolveAuthenticatedCeoUserId(req);
+    if (!ceoUserId) return res.status(403).json({ error: 'CEO context required' });
+    res.json({ exception_policy: upsertExceptionPolicy(ceoUserId, req.body || {}) });
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || String(e) });
   }
 });
 

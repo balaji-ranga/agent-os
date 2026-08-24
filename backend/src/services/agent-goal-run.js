@@ -60,6 +60,7 @@ import {
   nextExecutorForStep,
   buildRetrospective,
 } from './goal-plan-runtime.js';
+import { getExceptionPolicy } from './exception-policy.js';
 
 const TERMINAL_WF = new Set(['completed', 'failed', 'cancelled', 'paused']);
 let _tablesReady = false;
@@ -123,6 +124,14 @@ export function ensureAgentGoalRunTables() {
     CREATE INDEX IF NOT EXISTS idx_agent_goal_steps_run ON agent_goal_steps(goal_run_id, step_index ASC);
     CREATE INDEX IF NOT EXISTS idx_agent_goal_steps_wf ON agent_goal_steps(child_workflow_run_id);
   `);
+  for (const sql of [
+    'ALTER TABLE agent_goal_steps ADD COLUMN exception_retry_count INTEGER DEFAULT 0',
+    'ALTER TABLE agent_goal_steps ADD COLUMN exception_kanban_id INTEGER',
+  ]) {
+    try {
+      db().exec(sql);
+    } catch (_) {}
+  }
   const cols = db().prepare('PRAGMA table_info(agent_goal_steps)').all().map((c) => c.name);
   if (!cols.includes('child_delegation_task_id')) {
     db().exec('ALTER TABLE agent_goal_steps ADD COLUMN child_delegation_task_id INTEGER');
@@ -1975,6 +1984,7 @@ export function completeGoalStep({ goalRunId, stepId, ownerUserId, result = null
 
   if (failed) {
     const spec = parseJson(step.spec_json, {});
+    const exceptionPolicy = getExceptionPolicy(goal.owner_user_id);
     const classified = classifyToolFailure(
       { message: error || result?.error || result?.message || 'step failed' },
       { status: result?.status || result?.http_status, policyDenied: result?.policy_denied }
@@ -1985,8 +1995,10 @@ export function completeGoalStep({ goalRunId, stepId, ownerUserId, result = null
     const decision = decideFromObservation({
       observation,
       failure: classified,
-      retryCount: Number(spec.retry_count || 0),
+      retryCount: Number(step.exception_retry_count || 0),
+      maxRetries: exceptionPolicy.retry_limit,
       fallbackAvailable: !!fallback,
+      allowFallback: false,
       failed: true,
     });
     recordMissionEvent({
@@ -2001,7 +2013,9 @@ export function completeGoalStep({ goalRunId, stepId, ownerUserId, result = null
       spec.retry_count = Number(spec.retry_count || 0) + 1;
       db()
         .prepare(
-          `UPDATE agent_goal_steps SET status = 'pending', spec_json = ?, result_json = ?, error_message = ?
+          `UPDATE agent_goal_steps SET status = 'pending', spec_json = ?, result_json = ?, error_message = ?,
+             completed_at = NULL, child_workflow_run_id = NULL, child_delegation_task_id = NULL,
+             exception_retry_count = COALESCE(exception_retry_count, 0) + 1
            WHERE id = ?`
         )
         .run(JSON.stringify(spec), JSON.stringify(resultPayload), String(error || decision.reason).slice(0, 1000), stepId);
@@ -2045,8 +2059,8 @@ export function completeGoalStep({ goalRunId, stepId, ownerUserId, result = null
         `UPDATE agent_goal_steps SET status = 'failed', result_json = ?, error_message = ?, completed_at = datetime('now')
          WHERE id = ?`
       )
-      .run(JSON.stringify(resultPayload), String(decision.reason || error || 'escalated').slice(0, 1000), stepId);
-    completeGoalRun(goalRunId, { status: 'failed', error: decision.reason || error || 'escalated' });
+      .run(JSON.stringify(resultPayload), String(error || decision.reason || 'escalated').slice(0, 1000), stepId);
+    completeGoalRun(goalRunId, { status: 'failed', error: error || decision.reason || 'escalated' });
     return { ok: false, escalated: true, decision, goal: getGoalRun(goalRunId, ownerUserId) };
   }
 
@@ -2180,7 +2194,7 @@ export async function onDelegationTerminalForGoalRun(taskId) {
     reply_preview: clip(task?.response_content || '', 400),
     error_message: task?.error_message || null,
   };
-  await completeGoalStep({
+  const completion = await completeGoalStep({
     goalRunId: goal.id,
     stepId: step.id,
     ownerUserId: goal.owner_user_id,
@@ -2188,6 +2202,9 @@ export async function onDelegationTerminalForGoalRun(taskId) {
     failed,
     error: failed ? task?.error_message || task?.status || 'delegation failed' : null,
   });
+  if (completion?.recovered) {
+    return startGoalRunExecution(goal.id, { ownerUserId: goal.owner_user_id });
+  }
   if (failed) {
     return { ok: false, failed: true, goal_run_id: goal.id, task_id: Number(taskId) };
   }
@@ -2234,7 +2251,17 @@ async function startParallelSpecialtyGroup(goal, steps, group) {
           `UPDATE agent_goal_steps SET status = 'failed', error_message = ?, completed_at = datetime('now') WHERE id = ?`
         )
         .run(msg.slice(0, 1000), step.id);
-      completeGoalRun(goal.id, { status: 'failed', error: msg });
+      const completion = completeGoalStep({
+        goalRunId: goal.id,
+        stepId: step.id,
+        ownerUserId: goal.owner_user_id,
+        result: { error: msg },
+        failed: true,
+        error: msg,
+      });
+      if (completion?.recovered) {
+        return startGoalRunExecution(goal.id, { ownerUserId: goal.owner_user_id });
+      }
       return { ok: false, error: msg, goal: getGoalRun(goal.id, goal.owner_user_id) };
     }
   }
@@ -2440,12 +2467,17 @@ export async function startGoalRunExecution(goalRunId, opts = {}) {
               error: msg,
             });
             try {
-              db()
-                .prepare(
-                  `UPDATE agent_goal_steps SET status = 'failed', error_message = ?, completed_at = datetime('now') WHERE id = ? AND status = 'running'`
-                )
-                .run(msg.slice(0, 1000), stepId);
-              completeGoalRun(goalId, { status: 'failed', error: msg });
+              const completion = completeGoalStep({
+                goalRunId: goalId,
+                stepId,
+                ownerUserId: owner,
+                result: { error: msg },
+                failed: true,
+                error: msg,
+              });
+              if (completion?.recovered) {
+                void startGoalRunExecution(goalId, { ownerUserId: owner });
+              }
             } catch (failErr) {
               console.warn('[goal-run] agent_continue fail finalize:', failErr?.message || failErr);
             }
@@ -2464,12 +2496,17 @@ export async function startGoalRunExecution(goalRunId, opts = {}) {
   } catch (e) {
     const msg = e?.message || String(e);
     console.error('[goal-run] step failed', { goalRunId, stepId: step.id, error: msg });
-    db()
-      .prepare(
-        `UPDATE agent_goal_steps SET status = 'failed', error_message = ?, completed_at = datetime('now') WHERE id = ?`
-      )
-      .run(msg.slice(0, 1000), step.id);
-    completeGoalRun(goalRunId, { status: 'failed', error: msg });
+    const completion = completeGoalStep({
+      goalRunId,
+      stepId: step.id,
+      ownerUserId: goal.owner_user_id,
+      result: { error: msg },
+      failed: true,
+      error: msg,
+    });
+    if (completion?.recovered) {
+      return startGoalRunExecution(goalRunId, { ownerUserId: goal.owner_user_id });
+    }
     return { ok: false, error: msg, goal: getGoalRun(goal.id, goal.owner_user_id) };
   }
 }
@@ -2500,7 +2537,7 @@ export async function onWorkflowTerminalForGoalRun(workflowRunId) {
     error_message: run.error_message,
   };
 
-  await completeGoalStep({
+  const completion = await completeGoalStep({
     goalRunId: goal.id,
     stepId: step.id,
     ownerUserId: goal.owner_user_id,
@@ -2508,6 +2545,9 @@ export async function onWorkflowTerminalForGoalRun(workflowRunId) {
     failed,
     error: failed ? run.error_message || run.status : null,
   });
+  if (completion?.recovered) {
+    return startGoalRunExecution(goal.id, { ownerUserId: goal.owner_user_id });
+  }
 
   if (!failed) {
     try {

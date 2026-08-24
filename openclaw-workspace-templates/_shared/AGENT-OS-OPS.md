@@ -180,6 +180,19 @@ When the ask needs the CEO's **name, email, phone/mobile, country, region, busin
 `ORG.md` may also list the CEO email — still prefer **ceo_profile** so you get the live account values.
 
 
+## Exception recovery tasks
+
+When a Kanban assignment contains `[goal_plan_recovery]` or `[workflow_exception_recovery]`:
+
+1. Treat it as continuation of an existing execution, not a new goal. Never create a replacement goal plan.
+2. Read the run id, failed step/node, error, and completed-step ladder in the task.
+3. Preserve completed upstream work. Repair or complete only the failed step and the still-pending outcome.
+4. Use normal entitled tools autonomously. Do not ask for approval merely because this is a retry; existing action,
+   security, credential, and URL policies still apply.
+5. If you can resolve it, put the evidence/result in the Kanban conversation and mark the card completed.
+6. If user-only input is required (credentials, MFA, policy change, missing business decision), leave the card open
+   with one precise requested action. Do not loop or falsely mark it completed.
+
 ## Client browser session (browse_*)
 
 For Browser Session, Client Chrome, or multi-step web goals, use **only browse_*** tools. Do **not** use the built-in **browser** tool in the same turn: it can cause gateway timeouts. Agents configured with `browser` denied (including TechResearcher) must never attempt it.

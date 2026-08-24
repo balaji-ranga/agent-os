@@ -9,10 +9,17 @@ const PLACEHOLDER = `Examples:
 - Escalate legal or medical advice to a human specialist.`;
 
 function PoliciesPanel() {
+  const [activeTab, setActiveTab] = useState('guardrails');
   const [policyText, setPolicyText] = useState('');
   const [enabled, setEnabled] = useState(true);
   const [updatedAt, setUpdatedAt] = useState(null);
   const [actionControl, setActionControl] = useState([]);
+  const [exceptionPolicy, setExceptionPolicy] = useState({
+    retry_limit: 1,
+    create_kanban: true,
+    agent_pickup: true,
+  });
+  const [exceptionBusy, setExceptionBusy] = useState(false);
   const [controlBusy, setControlBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [enrichBusy, setEnrichBusy] = useState(false);
@@ -31,6 +38,7 @@ function PoliciesPanel() {
         setEnabled(g.enabled !== false);
         setUpdatedAt(g.updated_at || null);
         setActionControl(Array.isArray(data.action_control) ? data.action_control : []);
+        if (data.exception_policy) setExceptionPolicy(data.exception_policy);
       })
       .catch((e) => setError(e.message || String(e)))
       .finally(() => setLoading(false));
@@ -86,6 +94,21 @@ function PoliciesPanel() {
     );
   };
 
+  const saveExceptionPolicy = async () => {
+    setExceptionBusy(true);
+    setMessage(null);
+    setError(null);
+    try {
+      const data = await api.ceoExceptionPolicySave(exceptionPolicy);
+      setExceptionPolicy(data.exception_policy || exceptionPolicy);
+      setMessage('Exception policy saved. New goal and workflow failures will use it immediately.');
+    } catch (err) {
+      setError(err.message || String(err));
+    } finally {
+      setExceptionBusy(false);
+    }
+  };
+
   const enrichWithAi = async () => {
     setEnrichBusy(true);
     setMessage(null);
@@ -118,9 +141,30 @@ function PoliciesPanel() {
         </p>
       </header>
 
+      <div role="tablist" aria-label="Organisation policy sections" style={{ display: 'flex', gap: 8, marginBottom: '1rem' }}>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'guardrails'}
+          className={activeTab === 'guardrails' ? 'btn-primary' : 'btn-secondary'}
+          onClick={() => setActiveTab('guardrails')}
+        >
+          Policies &amp; guardrails
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'exceptions'}
+          className={activeTab === 'exceptions' ? 'btn-primary' : 'btn-secondary'}
+          onClick={() => setActiveTab('exceptions')}
+        >
+          Exception policy
+        </button>
+      </div>
+
       {loading ? (
         <p style={{ color: 'var(--muted)' }}>Loading…</p>
-      ) : (
+      ) : activeTab === 'guardrails' ? (
         <form onSubmit={save} style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
             <input type="checkbox" checked={enabled} onChange={(ev) => setEnabled(ev.target.checked)} />
@@ -192,9 +236,70 @@ function PoliciesPanel() {
             </button>
           </div>
         </form>
+      ) : (
+        <section role="tabpanel" aria-label="Exception policy" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div>
+            <h2 style={{ margin: '0 0 0.35rem', fontSize: '1.15rem' }}>Exception policy</h2>
+            <p style={{ margin: 0, color: 'var(--muted)', lineHeight: 1.45 }}>
+              Applies to failed goal-plan steps and workflow nodes. Completed earlier steps stay completed. Flolah
+              retries only the failed step, then creates a visible Kanban task if the retry is unsuccessful.
+            </p>
+          </div>
+
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 5, maxWidth: 260 }}>
+            <span>Automatic retries per failed step</span>
+            <input
+              type="number"
+              min="0"
+              max="5"
+              value={exceptionPolicy.retry_limit}
+              onChange={(ev) => setExceptionPolicy((prev) => ({ ...prev, retry_limit: Number(ev.target.value) }))}
+              style={{ padding: '0.55rem', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+            />
+            <span style={{ color: 'var(--muted)', fontSize: '0.8rem' }}>Default: 1. Set 0 to escalate immediately.</span>
+          </label>
+
+          <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+            <input
+              type="checkbox"
+              checked={exceptionPolicy.create_kanban !== false}
+              onChange={(ev) => setExceptionPolicy((prev) => ({ ...prev, create_kanban: ev.target.checked }))}
+            />
+            <span>
+              <strong>Create a Kanban task after retries are exhausted</strong>
+              <span style={{ display: 'block', color: 'var(--muted)', fontSize: '0.82rem' }}>
+                The task links the failed run and exact step so you can rectify it and continue from there.
+              </span>
+            </span>
+          </label>
+
+          <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+            <input
+              type="checkbox"
+              checked={exceptionPolicy.agent_pickup !== false}
+              disabled={exceptionPolicy.create_kanban === false}
+              onChange={(ev) => setExceptionPolicy((prev) => ({ ...prev, agent_pickup: ev.target.checked }))}
+            />
+            <span>
+              <strong>Let the responsible agent pick up the recovery task</strong>
+              <span style={{ display: 'block', color: 'var(--muted)', fontSize: '0.82rem' }}>
+                The assigned employee works only on the failed step. If credentials, policy, or user input is needed,
+                the task remains visible for you with a precise explanation.
+              </span>
+            </span>
+          </label>
+
+          {message && <p role="status" style={{ margin: 0, color: 'var(--accent)' }}>{message}</p>}
+          {error && <p role="alert" style={{ margin: 0, color: 'var(--danger, #c44)' }}>{error}</p>}
+          <div>
+            <button type="button" className="btn-primary" disabled={exceptionBusy} onClick={saveExceptionPolicy}>
+              {exceptionBusy ? 'Saving…' : 'Save exception policy'}
+            </button>
+          </div>
+        </section>
       )}
 
-      {!loading && actionControl.length > 0 ? (
+      {!loading && activeTab === 'guardrails' && actionControl.length > 0 ? (
         <section style={{ marginTop: '1.75rem' }}>
           <h2 style={{ fontSize: '1.05rem', margin: '0 0 0.35rem' }}>Action control</h2>
           <p style={{ margin: '0 0 0.75rem', color: 'var(--muted)', fontSize: '0.88rem', maxWidth: 560 }}>

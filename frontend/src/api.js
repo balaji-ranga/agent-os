@@ -484,6 +484,7 @@ export const api = {
   ceoGuardrailsSave: (body) => put('/ceo-guardrails', body),
   ceoGuardrailsEnrich: (body) => post('/ceo-guardrails/enrich', body),
   ceoActionControlSave: (body) => put('/ceo-guardrails/action-control', body),
+  ceoExceptionPolicySave: (body) => put('/ceo-guardrails/exception-policy', body),
   submitFeedback: (body) => post('/feedback', body),
   listFeedback: (params = {}) => {
     const q = new URLSearchParams();

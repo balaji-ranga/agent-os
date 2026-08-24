@@ -69,6 +69,11 @@ import {
   DEFAULT_NODE_TIMEOUT_MS,
 } from './agent-workflow-node-timeout.js';
 import { isAvatarWorkflowDefinition } from './agent-workflow-templates.js';
+import {
+  workflowExceptionDecision,
+  recordWorkflowExceptionRetry,
+  enqueueWorkflowExceptionKanban,
+} from './exception-policy.js';
 
 function db() {
   return getDb();
@@ -546,11 +551,60 @@ async function invokeContentTool(toolName, body, ownerUserId = null, opts = {}) 
 }
 
 function failRun(runId, message) {
+  const failedStep = db()
+    .prepare(
+      `SELECT node_id FROM agent_workflow_run_steps
+       WHERE run_id = ? AND status = 'failed' ORDER BY id DESC LIMIT 1`
+    )
+    .get(runId);
+  const exception = failedStep
+    ? workflowExceptionDecision(runId, failedStep.node_id)
+    : { action: 'fail', reason: 'failed_step_not_found' };
+
   db()
     .prepare(
       `UPDATE agent_workflow_runs SET status = 'failed', error_message = ?, completed_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`
     )
     .run(message, runId);
+
+  if (exception.action === 'retry') {
+    recordWorkflowExceptionRetry(exception.step.id);
+    console.info('[agent-workflow] exception policy retry', {
+      runId,
+      nodeId: failedStep.node_id,
+      attempt: exception.retry_count + 1,
+      limit: exception.policy.retry_limit,
+    });
+    setImmediate(() => {
+      void resumeRunFromStep(runId, failedStep.node_id, {
+        ownerUserId: exception.run.owner_user_id,
+        actor: { id: 'exception-policy', name: 'Exception policy' },
+        reason: `automatic exception retry ${exception.retry_count + 1}/${exception.policy.retry_limit}`,
+        allowRunning: false,
+      }).catch((err) => {
+        console.warn('[agent-workflow] exception retry dispatch failed', runId, err?.message || err);
+        failRun(runId, err?.message || 'Exception retry dispatch failed');
+      });
+    });
+    return;
+  }
+
+  if (exception.action === 'kanban') {
+    try {
+      const recovery = enqueueWorkflowExceptionKanban(runId, failedStep.node_id, message);
+      console.info('[agent-workflow] exception Kanban created', {
+        runId,
+        nodeId: failedStep.node_id,
+        kanbanId: recovery.kanban_id || null,
+        agentId: recovery.agent_id || null,
+      });
+      if (recovery.delegation_task_id) {
+        setImmediate(() => processPendingDelegationTasks().catch(() => {}));
+      }
+    } catch (err) {
+      console.warn('[agent-workflow] exception Kanban failed', runId, err?.message || err);
+    }
+  }
   void notifyA2ARunTerminal(runId).catch((e) =>
     console.warn('[a2a] notify on fail failed', runId, e?.message || e)
   );

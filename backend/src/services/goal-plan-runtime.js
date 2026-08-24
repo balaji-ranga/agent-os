@@ -108,7 +108,9 @@ export function decideFromObservation({
   observation = {},
   failure = null,
   retryCount = 0,
+  maxRetries = null,
   fallbackAvailable = false,
+  allowFallback = true,
   failed = false,
   goalComplete = false,
 } = {}) {
@@ -122,7 +124,16 @@ export function decideFromObservation({
         ? classifyToolFailure({ message: observation.reason || observation.error || 'step failed' }, observation)
         : null;
   const retries = Number(retryCount || 0);
-  const max = Number(classified?.bounded_retries || 2);
+  const max = Math.max(0, Number(maxRetries ?? classified?.bounded_retries ?? 2));
+
+  if ((failed || classified) && retries < max) {
+    return {
+      action: 'retry',
+      reason: classified?.failure_class || observation.reason || 'step_failed',
+      ceo_required: false,
+      failure_class: classified?.failure_class || null,
+    };
+  }
 
   if (classified && classified.failure_class === 'policy_denial') {
     return { action: 'escalate', reason: 'policy_denial', ceo_required: true, failure_class: classified.failure_class };
@@ -131,15 +142,7 @@ export function decideFromObservation({
     return { action: 'escalate', reason: 'auth_failure', ceo_required: true, failure_class: classified.failure_class };
   }
   if (failed || classified) {
-    if (classified?.retryable && retries < max) {
-      return {
-        action: 'retry',
-        reason: classified.failure_class || 'transient',
-        ceo_required: false,
-        failure_class: classified.failure_class,
-      };
-    }
-    if (fallbackAvailable && (classified?.retryable || classified?.fallback_tool || failed)) {
+    if (allowFallback && fallbackAvailable && (classified?.retryable || classified?.fallback_tool || failed)) {
       return {
         action: 'switch_executor',
         reason: classified?.failure_class || 'primary_executor_failed',
