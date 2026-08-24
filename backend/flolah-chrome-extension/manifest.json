@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Flolah Browser",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Allow your Flolah AI employees to work in Chrome tabs you explicitly approve.",
   "permissions": ["debugger", "tabs", "storage", "alarms"],
   "host_permissions": ["https://*/*", "http://localhost/*", "http://127.0.0.1/*"],

@@ -25,7 +25,9 @@
     "test:browser-task-routing": "node scripts/test-browser-task-routing.mjs",
     "test:company-executions": "node scripts/test-company-executions.mjs",
     "test:company-execution-schema": "node scripts/test-company-execution-schema.mjs",
-    "test:company-operate-contract": "node scripts/test-company-operate-contract.mjs"
+    "test:company-operate-contract": "node scripts/test-company-operate-contract.mjs",
+    "test:runtime-capabilities": "node scripts/test-runtime-capability-registry.mjs",
+    "test:browser-maturity": "node scripts/test-browser-maturity-contract.mjs"
   },
   "dependencies": {
     "@stoqey/ib": "^1.6.3",

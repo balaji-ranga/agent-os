@@ -1389,8 +1389,10 @@ export async function startBrowserTask(ceoUserId, body = {}) {
   let recipeId = body.recipe_id || null;
   const preferredDriver = String(body.preferred_driver || body.preferredDriver || '').trim() || null;
   const allowFallback = body.allow_fallback !== false && body.allowFallback !== false;
+  const requiredCapabilities = /\b(screen\s*shot|png|image capture)\b/i.test(goal) ? ['screenshot'] : [];
   const selectedExecutor = selectBrowserExecutor(ceoUserId, {
     preferredDriver,
+    requiredCapabilities,
   });
   assertPreferredBrowserExecutor(selectedExecutor, preferredDriver, allowFallback);
   const traceId = randomUUID();
@@ -1596,24 +1598,39 @@ function recordBrowserTaskOutcome(ceoUserId, task, { rating, comment, note }) {
   }
 }
 
+export function browserTaskResumeState(task) {
+  const prior = Array.isArray(task?.steps) ? task.steps : [];
+  const resumed = prior.length > 0;
+  return {
+    resumed,
+    steps: resumed ? [...prior] : [],
+    execution_plan: [...prior].reverse().find((entry) => entry.action === 'plan' && entry.plan)?.plan || null,
+  };
+}
+
 async function runAutonomous(ceoUserId, taskId) {
   const task = getTask(ceoUserId, taskId);
   if (!task) return;
   updateTask(ceoUserId, taskId, { status: 'running', wait_reason: null, error: null });
   const maxSteps = Number(task.input?.max_steps) || MAX_STEPS_DEFAULT;
   const agentId = task.agent_id || 'workflowbuilder';
-  const steps = [];
+  const resumeState = browserTaskResumeState(task);
+  const resumed = resumeState.resumed;
+  const steps = resumeState.steps;
   let parseFallbackStreak = 0;
   let exitNote = 'max_steps_reached';
   const socialPublish = goalLooksSocialPublish(task.goal_text);
   const publishBody = extractPublishBodyFromGoal(task.goal_text);
-  const executionPlan = await createExecutionPlan(ceoUserId, task.goal_text, task.start_url);
-  steps.push({ t: nowIso(), action: 'plan', plan: executionPlan });
+  const executionPlan = resumeState.execution_plan ||
+    await createExecutionPlan(ceoUserId, task.goal_text, task.start_url);
+  steps.push(resumed
+    ? { t: nowIso(), action: 'resume', from_step_count: task.steps.length, node_id: task.selected_node_id || null }
+    : { t: nowIso(), action: 'plan', plan: executionPlan });
   updateTask(ceoUserId, taskId, { steps });
 
   // Autonomous social publish: tab focus, open composer, shadow fill+Post, recycle tab.
   // No human mid-workflow for tab focus or Start a post (only Client Chrome lease is one-time setup).
-  if (socialPublish && publishBody) {
+  if (socialPublish && publishBody && !resumed) {
     console.info('[browser-task] social autonomous path id=%s body_len=%s', taskId, publishBody.length);
     updateTask(ceoUserId, taskId, { status: 'running', wait_reason: null });
     const pub = await runAutonomousSocialPublish(ceoUserId, {
@@ -1646,15 +1663,15 @@ async function runAutonomous(ceoUserId, taskId) {
     return;
   }
 
-  if (task.start_url) {
+  if (task.start_url && !resumed) {
     await browserInvoke(ceoUserId, 'open', { url: task.start_url, targetUrl: task.start_url }, agentId);
     steps.push({ t: nowIso(), action: 'open', url: task.start_url });
     await sleep(goalLooksInteractive(task.goal_text) ? 5000 : 3500);
-  } else {
+  } else if (!resumed) {
     await browserInvoke(ceoUserId, 'start', {}, agentId).catch(() => {});
   }
 
-  if (goalLooksInteractive(task.goal_text)) {
+  if (goalLooksInteractive(task.goal_text) && !resumed) {
     await tryLinkedInComposerBootstrap(ceoUserId, agentId, task.goal_text, steps);
     const flowBoot = await tryGoogleFlowBootstrap(ceoUserId, agentId, task.goal_text, steps);
     updateTask(ceoUserId, taskId, { steps });
@@ -2031,6 +2048,50 @@ async function runAutonomous(ceoUserId, taskId) {
   });
 }
 
+function parseWorkerEvidence(result) {
+  if (!result) return null;
+  const raw = result.text ?? result.result ?? result;
+  if (raw && typeof raw === 'object') return raw;
+  try { return JSON.parse(String(raw || '')); } catch { return String(raw || '').slice(0, 4000); }
+}
+
+export function verifyRecipeReplayOutcome(recipe, actionResults, snapshot) {
+  const results = Array.isArray(actionResults) ? actionResults : [];
+  const evidence = [];
+  const missing = [];
+  const snapshotText = String(snapshot || '');
+  const url = snapshotText.match(/^URL:\s*(https?:\/\/\S+)/im)?.[1] || null;
+  const title = snapshotText.match(/^Title:\s*(.+)$/im)?.[1]?.trim() || null;
+  if (url) evidence.push({ type: 'final_url', value: url }); else missing.push('final_url');
+  if (title) evidence.push({ type: 'page_title', value: title });
+  for (const result of results) {
+    if (!result.ok) missing.push(`action_receipt:${result.action}`);
+    else evidence.push({ type: 'action_receipt', action: result.action, result_state: result.evidence?.result_state || null });
+    if (result.action === 'screenshot') {
+      const artifact = result.evidence?.artifact || result.evidence?.artifact_url;
+      if (artifact) evidence.push({ type: 'artifact', value: artifact.url || artifact });
+      else missing.push('screenshot_artifact');
+    }
+  }
+  for (const step of recipe?.steps || []) {
+    const args = step.args || {};
+    if (args.expect_text && !snapshotText.toLowerCase().includes(String(args.expect_text).toLowerCase())) {
+      missing.push(`expected_text:${String(args.expect_text).slice(0, 80)}`);
+    }
+    if (args.expect_url) {
+      try { if (!(new RegExp(String(args.expect_url), 'i')).test(url || '')) missing.push(`expected_url:${String(args.expect_url).slice(0, 80)}`); }
+      catch { missing.push('invalid_expected_url_pattern'); }
+    }
+  }
+  return {
+    satisfied: missing.length === 0,
+    reason: missing.length ? `Recipe finished without required evidence: ${missing.join(', ')}` : 'All recipe actions and typed outputs were observed.',
+    evidence,
+    missing_evidence: missing,
+    outputs: { final_url: url, page_title: title, action_receipts: results.length },
+  };
+}
+
 async function runRecipeReplay(ceoUserId, taskId) {
   const task = getTask(ceoUserId, taskId);
   if (!task?.recipe_id) throw new Error('missing recipe');
@@ -2051,7 +2112,7 @@ async function runRecipeReplay(ceoUserId, taskId) {
   updateTask(ceoUserId, taskId, { status: 'running' });
   const agentId = task.agent_id || 'workflowbuilder';
   const actionable = (recipe.steps || []).filter((s) =>
-    ['open', 'act', 'click', 'type', 'press', 'scroll'].includes(String(s.action || '').toLowerCase())
+    ['open', 'act', 'click', 'type', 'press', 'scroll', 'screenshot'].includes(String(s.action || '').toLowerCase())
   );
   if (!actionable.length) {
     const msg =
@@ -2070,6 +2131,7 @@ async function runRecipeReplay(ceoUserId, taskId) {
     return;
   }
   const steps = [];
+  const actionResults = [];
   for (const step of recipe.steps) {
     const args = substituteRecipeInputs(step.args || {}, inputs);
     const act = String(step.action || '').toLowerCase();
@@ -2079,23 +2141,31 @@ async function runRecipeReplay(ceoUserId, taskId) {
       updateTask(ceoUserId, taskId, { steps });
       continue;
     }
+    let invokeResult = null;
     if (act === 'open' && args.url) {
-      await browserInvoke(ceoUserId, 'open', { url: args.url, targetUrl: args.url }, agentId);
+      invokeResult = await browserInvoke(ceoUserId, 'open', { url: args.url, targetUrl: args.url }, agentId);
     } else if (act === 'act' || act === 'click' || act === 'type') {
-      await browserInvoke(ceoUserId, 'act', args, agentId);
-    } else if (act === 'press' || act === 'scroll' || act === 'wait') {
-      await browserInvoke(ceoUserId, act === 'wait' ? 'act' : act, args, agentId);
+      invokeResult = await browserInvoke(ceoUserId, 'act', args, agentId);
+    } else if (act === 'press' || act === 'scroll') {
+      invokeResult = await browserInvoke(ceoUserId, 'act', { ...args, request: args.request || { kind: act, ...args } }, agentId);
+    } else if (act === 'wait') {
+      invokeResult = await browserInvoke(ceoUserId, 'wait', args, agentId);
+    } else if (act === 'screenshot') {
+      invokeResult = await browserInvoke(ceoUserId, 'screenshot', args, agentId);
     } else {
-      await browserInvoke(ceoUserId, step.action, args, agentId);
+      invokeResult = await browserInvoke(ceoUserId, step.action, args, agentId);
     }
-    steps.push({ t: nowIso(), step });
+    const evidence = parseWorkerEvidence(invokeResult);
+    actionResults.push({ action: act, ok: invokeResult?.ok !== false, evidence });
+    steps.push({ t: nowIso(), step, outcome: invokeResult?.ok === false ? 'failed' : 'ok', evidence });
     updateTask(ceoUserId, taskId, { steps });
     await sleep(1500);
   }
   const snap = await takeSnapshot(ceoUserId, agentId);
   const summary = `Replayed ${actionable.length} actionable step(s) from recipe "${recipe.name}"`;
+  const verification = verifyRecipeReplayOutcome(recipe, actionResults, snap);
   updateTask(ceoUserId, taskId, {
-    status: 'completed',
+    status: verification.satisfied ? 'completed' : 'failed',
     steps,
     result: {
       summary,
@@ -2104,10 +2174,13 @@ async function runRecipeReplay(ceoUserId, taskId) {
       actionable_steps: actionable.length,
       used_inputs: requiredInputs,
       snapshot_excerpt: snap.slice(0, 4000),
+      outputs: verification.outputs,
+      verification,
     },
+    error: verification.satisfied ? null : verification.reason,
   });
   recordBrowserTaskOutcome(ceoUserId, getTask(ceoUserId, taskId), {
-    rating: 'up',
+    rating: verification.satisfied ? 'up' : 'down',
     comment: summary,
     note: 'recipe_replay_completed',
   });
@@ -2131,7 +2204,7 @@ export async function resumeBrowserTask(ceoUserId, taskId, { approved = true } =
   }
   if (task.mode === 'recorder') return task;
   setImmediate(() => {
-    runAutonomous(ceoUserId, taskId).catch((e) => {
+    browserTaskContext.run(task, () => runAutonomous(ceoUserId, taskId)).catch((e) => {
       updateTask(ceoUserId, taskId, { status: 'failed', error: e.message });
     });
   });

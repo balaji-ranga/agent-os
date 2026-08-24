@@ -38,6 +38,7 @@ import {
   goalWantsChatSynthesis,
 } from './goal-plan-tool-args.js';
 import { mergeCapabilitySteps } from './business-capabilities.js';
+import { mergeRuntimeCapabilityStep } from './runtime-capability-registry.js';
 import {
   ensureGoalOutcomeTables,
   parseOutcomeFromPrompt,
@@ -162,6 +163,7 @@ export function normalizeStepSpec(raw) {
         phase: raw.phase || raw.workflow_phase || nested.phase || "generic",
         workflow_id: raw.workflow_id || nested.workflow_id || null,
         capability_id: raw.capability_id || nested.capability_id || null,
+        resolution_evidence: raw.resolution_evidence || nested.resolution_evidence || null,
       },
     };
   }
@@ -208,6 +210,8 @@ export function normalizeStepSpec(raw) {
         tool_name: toolName || null,
         args,
         capability_id: raw.capability_id || nested.capability_id || null,
+        required_inputs: raw.required_inputs || nested.required_inputs || [],
+        resolution_evidence: raw.resolution_evidence || nested.resolution_evidence || null,
       },
     };
   }
@@ -233,6 +237,7 @@ export function normalizeStepSpec(raw) {
         message: message || null,
         parallel_group: Number.isFinite(pg) ? pg : null,
         phase: raw.phase || nested.phase || "specialty",
+        resolution_evidence: raw.resolution_evidence || nested.resolution_evidence || null,
       },
     };
   }
@@ -245,9 +250,11 @@ export function normalizeStepSpec(raw) {
   };
 }
 
-export function planGoalStepsFromText(prompt, { explicitSteps } = {}) {
+export function planGoalStepsFromText(prompt, { explicitSteps, ownerUserId = null } = {}) {
   if (Array.isArray(explicitSteps) && explicitSteps.length) {
-    const steps = mergeCapabilitySteps(explicitSteps.map(normalizeStepSpec), prompt).map(
+    const steps = mergeRuntimeCapabilityStep(
+      mergeCapabilitySteps(explicitSteps.map(normalizeStepSpec), prompt), ownerUserId, prompt
+    ).map(
       normalizeStepSpec
     );
     if (steps.length >= 1 && !steps.some((s) => s.type === 'notify_ceo')) {
@@ -309,7 +316,7 @@ export function planGoalStepsFromText(prompt, { explicitSteps } = {}) {
     steps.push(normalizeStepSpec({ type: 'agent_continue' }));
   }
 
-  const merged = mergeCapabilitySteps(steps, text).map(normalizeStepSpec);
+  const merged = mergeRuntimeCapabilityStep(mergeCapabilitySteps(steps, text), ownerUserId, text).map(normalizeStepSpec);
   if (merged.length >= 1 && !merged.some((s) => s.type === 'notify_ceo')) {
     merged.push(normalizeStepSpec({ type: 'notify_ceo' }));
   }
@@ -390,7 +397,7 @@ export async function planGoalStepsAsync(prompt, opts = {}) {
 async function planGoalStepsAsyncInner(prompt, opts = {}) {
   const { explicitSteps, ownerUserId = null, maxSpecialty = GOAL_PLAN_MAX_SPECIALTY, feedback = null } = opts;
   if (Array.isArray(explicitSteps) && explicitSteps.length) {
-    return planGoalStepsFromText(prompt, { explicitSteps });
+    return planGoalStepsFromText(prompt, { explicitSteps, ownerUserId });
   }
 
   let fullPrompt = String(prompt || '');
@@ -410,7 +417,9 @@ async function planGoalStepsAsyncInner(prompt, opts = {}) {
       });
       if (Array.isArray(classified) && classified.length) {
         const steps = enrichPlanSteps(
-          mergeCapabilitySteps(classified.map(normalizeStepSpec), fullPrompt).map(normalizeStepSpec)
+          mergeRuntimeCapabilityStep(
+            mergeCapabilitySteps(classified.map(normalizeStepSpec), fullPrompt), ownerUserId, fullPrompt
+          ).map(normalizeStepSpec)
         );
         if (steps.length && !steps.some((s) => s.type === 'notify_ceo')) {
           steps.push(normalizeStepSpec({ type: 'notify_ceo' }));
@@ -446,7 +455,9 @@ async function planGoalStepsAsyncInner(prompt, opts = {}) {
     }
   }
 
-  steps = enrichPlanSteps(mergeCapabilitySteps(steps, fullPrompt).map(normalizeStepSpec));
+  steps = enrichPlanSteps(
+    mergeRuntimeCapabilityStep(mergeCapabilitySteps(steps, fullPrompt), ownerUserId, fullPrompt).map(normalizeStepSpec)
+  );
   if (!steps.length) {
     steps.push(normalizeStepSpec({ type: 'agent_continue' }));
     steps = enrichPlanSteps(steps);
@@ -649,8 +660,12 @@ export function createGoalRun({
   }
 
   const plannedRaw = Array.isArray(steps) && steps.length
-    ? enrichPlanSteps(mergeCapabilitySteps(steps.map(normalizeStepSpec), prompt).map(normalizeStepSpec))
-    : planGoalStepsFromText(prompt, {});
+    ? enrichPlanSteps(
+        mergeRuntimeCapabilityStep(
+          mergeCapabilitySteps(steps.map(normalizeStepSpec), prompt), owner, prompt
+        ).map(normalizeStepSpec)
+      )
+    : planGoalStepsFromText(prompt, { ownerUserId: owner });
   // Honor explicit "do not call notify_ceo" in CEO / scheduled prompts.
   const planned = promptForbidsNotifyCeo(prompt)
     ? plannedRaw.filter((s) => (s.type || s.step_type) !== 'notify_ceo')

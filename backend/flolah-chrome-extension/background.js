@@ -1,7 +1,8 @@
-const PROTOCOL_VERSION = 1;
+const PROTOCOL_VERSION = 2;
 const DRIVER_MODE = 'chrome_extension';
 const POLL_ALARM = 'flolah-job-poll';
 let polling = false;
+const intentionalDetaches = new Set();
 
 const storageGet = (keys) => chrome.storage.local.get(keys);
 const storageSet = (value) => chrome.storage.local.set(value);
@@ -33,10 +34,11 @@ async function api(path, { method = 'GET', body = null, auth = true } = {}) {
 function capabilities() {
   return {
     protocol_version: PROTOCOL_VERSION,
-    actions: ['open', 'snapshot', 'act', 'action_batch', 'status', 'wait'],
+    actions: ['open', 'snapshot', 'screenshot', 'act', 'action_batch', 'status', 'wait', 'task_cleanup'],
     structured_snapshot: true,
     action_batch: true,
-    screenshots: false,
+    screenshots: true,
+    resumable_tasks: true,
     tab_consent: true,
   };
 }
@@ -58,8 +60,10 @@ async function attachAllowed(tabId) {
     if (!/already attached/i.test(error.message)) throw Object.assign(error, { code: 'DEBUGGER_DETACHED' });
   }
 }
-async function detach(tabId) {
+async function detach(tabId, { preserveAllow = false } = {}) {
+  if (preserveAllow) intentionalDetaches.add(Number(tabId));
   try { await chrome.debugger.detach({ tabId }); } catch { /* already detached */ }
+  finally { if (preserveAllow) setTimeout(() => intentionalDetaches.delete(Number(tabId)), 1000); }
 }
 async function taskTab(args = {}) {
   const s = await state();
@@ -92,7 +96,9 @@ function snapshotExpression(limit) {
     const q='a[href],button,input,textarea,select,[contenteditable="true"],[role="button"],[role="link"],[role="textbox"],[role="menuitem"],[tabindex]';
     const elements=[];
     for(const el of document.querySelectorAll(q)){if(elements.length>=max)break;const r=el.getBoundingClientRect(),cs=getComputedStyle(el);if(r.width<=0||r.height<=0||cs.display==='none'||cs.visibility==='hidden')continue;let id=el.getAttribute('data-flolah-ref');if(!id){id=String(++s.counter);el.setAttribute('data-flolah-ref',id)}const type=String(el.getAttribute('type')||'').toLowerCase();elements.push({ref:'g'+s.generation+'-e'+id,role:el.getAttribute('role')||({A:'link',BUTTON:'button',INPUT:'textbox',TEXTAREA:'textbox',SELECT:'combobox'}[el.tagName]||el.tagName.toLowerCase()),name:String(el.getAttribute('aria-label')||el.innerText||el.getAttribute('placeholder')||el.getAttribute('name')||'').trim().slice(0,180),enabled:!el.disabled,visible:true,editable:el.matches('input,textarea,[contenteditable="true"]'),sensitive:type==='password'||/password|secret|token|card number|cvv/i.test(String(el.getAttribute('aria-label')||el.getAttribute('name')||'')),focused:document.activeElement===el,bounds:{x:Math.round(r.x),y:Math.round(r.y),width:Math.round(r.width),height:Math.round(r.height)}})}
-    return {protocol_version:1,page:{url:location.href,title:document.title,navigation_generation:s.generation},elements};
+    const landmarks=Array.from(document.querySelectorAll('main,nav,header,footer,form,[role="main"],[role="navigation"],[role="dialog"]')).slice(0,40).map(el=>({role:el.getAttribute('role')||el.tagName.toLowerCase(),name:String(el.getAttribute('aria-label')||el.getAttribute('name')||'').slice(0,120)}));
+    const visible_text=String(document.body?.innerText||'').replace(/\s+/g,' ').trim().slice(0,4000);
+    return {protocol_version:2,page:{url:location.href,title:document.title,navigation_generation:s.generation},landmarks,visible_text_excerpt:visible_text,elements};
   })()`;
 }
 async function snapshot(tabId, limit = 12000) {
@@ -147,6 +153,22 @@ async function runAction(action, args = {}) {
     return { ok: true, tab_id: tabId, url: current.url || url, title: current.title || '', result_state: 'action_applied' };
   }
   if (name === 'snapshot') return snapshot(tabId, Number(args.limit) || 12000);
+  if (name === 'screenshot') {
+    const metrics = await chrome.debugger.sendCommand({ tabId }, 'Page.getLayoutMetrics');
+    const size = metrics.cssContentSize || metrics.contentSize || { width: 1280, height: 720 };
+    const fullPage = args.full_page === true || args.fullPage === true;
+    const capture = await chrome.debugger.sendCommand({ tabId }, 'Page.captureScreenshot', {
+      format: 'png', fromSurface: true, captureBeyondViewport: fullPage,
+      ...(fullPage ? { clip: { x: 0, y: 0, width: Math.min(10000, size.width), height: Math.min(30000, size.height), scale: 1 } } : {}),
+    });
+    return { ok: true, screenshot_base64: capture.data, filename: `flolah-${Date.now()}.png`, result_state: 'artifact_observed' };
+  }
+  if (name === 'task_cleanup') {
+    const s = await state(); const taskId = String(args.task_id || ''); const pinned = Number(s.taskTabs[taskId] || tabId);
+    if (pinned) await detach(pinned, { preserveAllow: true }); if (taskId) delete s.taskTabs[taskId];
+    await storageSet({ taskTabs: s.taskTabs });
+    return { ok: true, task_id: taskId, detached: Boolean(pinned), result_state: 'cleanup_applied' };
+  }
   if (name === 'act') return act(tabId, args.request || args);
   if (name === 'wait') { await new Promise((resolve) => setTimeout(resolve, Math.min(30000, Number(args.ms || 1500)))); return { ok: true }; }
   if (name === 'action_batch' || name === 'batch') {
@@ -213,7 +235,7 @@ chrome.runtime.onMessage.addListener((message, _sender, respond) => {
   return true;
 });
 chrome.tabs.onRemoved.addListener(async (tabId) => { const s = await state(); if (s.allowedTabs[String(tabId)]) delete s.allowedTabs[String(tabId)]; for (const [taskId, id] of Object.entries(s.taskTabs)) if (Number(id) === tabId) delete s.taskTabs[taskId]; await storageSet({ allowedTabs: s.allowedTabs, taskTabs: s.taskTabs }); });
-chrome.debugger.onDetach.addListener(async ({ tabId }) => { const s = await state(); if (s.allowedTabs[String(tabId)]) { delete s.allowedTabs[String(tabId)]; await storageSet({ allowedTabs: s.allowedTabs }); } });
+chrome.debugger.onDetach.addListener(async ({ tabId }) => { if (intentionalDetaches.has(Number(tabId))) return; const s = await state(); if (s.allowedTabs[String(tabId)]) { delete s.allowedTabs[String(tabId)]; await storageSet({ allowedTabs: s.allowedTabs }); } });
 chrome.runtime.onInstalled.addListener(() => chrome.alarms.create(POLL_ALARM, { periodInMinutes: 0.5 }));
 chrome.runtime.onStartup.addListener(async () => { await register().catch(() => {}); poll(); });
 chrome.alarms.onAlarm.addListener((alarm) => { if (alarm.name === POLL_ALARM) poll(); });
