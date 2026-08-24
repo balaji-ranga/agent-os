@@ -8,6 +8,7 @@ import { getDb } from '../db/schema.js';
 import { resolveToolOwnerUserIdOrNull, resolveEntitledOwnerUserId } from './tool-owner-scope.js';
 import { resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
 import { recordMissionEvent } from './goal-outcome.js';
+import { parseTenantOpenClawAgentId } from './openclaw-tenant.js';
 
 export const ACTION_FAMILIES = Object.freeze([
   { id: 'read', label: 'Read / research', defaultMode: 'autonomous', defaultTier: 'R0' },
@@ -17,6 +18,7 @@ export const ACTION_FAMILIES = Object.freeze([
 ]);
 
 export const POLICY_MODES = Object.freeze(['autonomous', 'approval_required', 'prohibited']);
+export const POLICY_OVERRIDE_SCOPES = Object.freeze(['goal', 'workflow', 'agent', 'tool']);
 
 let _ready = false;
 
@@ -47,6 +49,26 @@ export function ensureActionPolicyTables() {
     );
     CREATE INDEX IF NOT EXISTS idx_action_approval_grants_owner
       ON action_approval_grants(owner_user_id, expires_at DESC);
+  `);
+  getDb().exec(`
+    CREATE TABLE IF NOT EXISTS action_policy_overrides (
+      id TEXT PRIMARY KEY,
+      owner_user_id TEXT NOT NULL,
+      scope_type TEXT NOT NULL,
+      scope_id TEXT NOT NULL,
+      action_family TEXT NOT NULL,
+      mode TEXT NOT NULL,
+      constraints_json TEXT DEFAULT '{}',
+      expires_at TEXT,
+      max_uses INTEGER,
+      use_count INTEGER NOT NULL DEFAULT 0,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(owner_user_id, scope_type, scope_id, action_family)
+    );
+    CREATE INDEX IF NOT EXISTS idx_action_policy_overrides_owner_scope
+      ON action_policy_overrides(owner_user_id, scope_type, scope_id, enabled);
   `);
   try {
     const cols = getDb().prepare('PRAGMA table_info(content_tools_meta)').all().map((c) => c.name);
@@ -135,7 +157,126 @@ function constraintsMatch(constraints, body) {
     if (!Number.isFinite(amount) || amount > Number(c.max_amount)) return false;
   }
   if (c.campaign_id != null && String(body?.campaign_id || '') !== String(c.campaign_id)) return false;
+  const permittedEmails = Array.isArray(c.permitted_email_ids)
+    ? c.permitted_email_ids.map((value) => String(value).trim().toLowerCase()).filter(Boolean)
+    : [];
+  if (permittedEmails.length && (!recipient || !permittedEmails.includes(recipient))) return false;
+  const rawUrl = String(body?.url || body?.target_url || body?.targetUrl || body?.website || body?.link_url || '').trim();
+  const permittedWebsites = Array.isArray(c.permitted_websites)
+    ? c.permitted_websites.map((value) => String(value).trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '')).filter(Boolean)
+    : [];
+  if (permittedWebsites.length) {
+    let host = '';
+    try { host = new URL(/^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`).hostname.toLowerCase(); } catch (_) {}
+    if (!host || !permittedWebsites.some((domain) => host === domain || host.endsWith(`.${domain}`))) return false;
+  }
   return true;
+}
+
+function parseConstraints(raw) {
+  try { return JSON.parse(raw || '{}') || {}; } catch (_) { return {}; }
+}
+
+function overrideToPublic(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    scope_type: row.scope_type,
+    scope_id: row.scope_id,
+    action_family: row.action_family,
+    mode: row.mode,
+    constraints: parseConstraints(row.constraints_json),
+    expires_at: row.expires_at || null,
+    max_uses: row.max_uses == null ? null : Number(row.max_uses),
+    use_count: Number(row.use_count || 0),
+    enabled: Boolean(row.enabled),
+    created_at: row.created_at || null,
+    updated_at: row.updated_at || null,
+  };
+}
+
+export function listActionPolicyOverrides(ownerUserId) {
+  ensureActionPolicyTables();
+  return getDb().prepare(
+    `SELECT * FROM action_policy_overrides WHERE owner_user_id = ?
+      ORDER BY scope_type, scope_id, action_family`
+  ).all(String(ownerUserId || '')).map(overrideToPublic);
+}
+
+export function upsertActionPolicyOverride(ownerUserId, input = {}) {
+  ensureActionPolicyTables();
+  const owner = String(ownerUserId || '').trim();
+  const scopeType = String(input.scope_type || input.scopeType || '').trim();
+  const scopeId = String(input.scope_id || input.scopeId || '').trim().slice(0, 180);
+  const family = String(input.action_family || input.family || '').trim();
+  const mode = String(input.mode || '').trim();
+  if (!owner) throw Object.assign(new Error('CEO context required'), { status: 403 });
+  if (!POLICY_OVERRIDE_SCOPES.includes(scopeType)) throw Object.assign(new Error('Valid scope_type required'), { status: 400 });
+  if (!scopeId) throw Object.assign(new Error('scope_id required'), { status: 400 });
+  if (!ACTION_FAMILIES.some((item) => item.id === family)) throw Object.assign(new Error('Valid action_family required'), { status: 400 });
+  if (!POLICY_MODES.includes(mode)) throw Object.assign(new Error('Valid mode required'), { status: 400 });
+  const constraints = input.constraints && typeof input.constraints === 'object' ? input.constraints : {};
+  const expiresAt = input.expires_at || input.expiresAt || null;
+  if (expiresAt && !Number.isFinite(Date.parse(expiresAt))) throw Object.assign(new Error('expires_at must be a valid date'), { status: 400 });
+  const maxUses = input.max_uses == null && input.maxUses == null
+    ? null
+    : Math.min(100000, Math.max(1, Number(input.max_uses ?? input.maxUses) || 1));
+  const id = String(input.id || `apo-${randomUUID()}`);
+  getDb().prepare(
+    `INSERT INTO action_policy_overrides
+      (id, owner_user_id, scope_type, scope_id, action_family, mode, constraints_json, expires_at, max_uses, enabled, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+     ON CONFLICT(owner_user_id, scope_type, scope_id, action_family) DO UPDATE SET
+       mode = excluded.mode, constraints_json = excluded.constraints_json,
+       expires_at = excluded.expires_at, max_uses = excluded.max_uses,
+       enabled = excluded.enabled, updated_at = datetime('now')`
+  ).run(id, owner, scopeType, scopeId, family, mode, JSON.stringify(constraints), expiresAt,
+    maxUses, input.enabled === false ? 0 : 1);
+  return overrideToPublic(getDb().prepare(
+    `SELECT * FROM action_policy_overrides
+      WHERE owner_user_id = ? AND scope_type = ? AND scope_id = ? AND action_family = ?`
+  ).get(owner, scopeType, scopeId, family));
+}
+
+export function deleteActionPolicyOverride(ownerUserId, overrideId) {
+  ensureActionPolicyTables();
+  return getDb().prepare('DELETE FROM action_policy_overrides WHERE id = ? AND owner_user_id = ?')
+    .run(String(overrideId || ''), String(ownerUserId || '')).changes > 0;
+}
+
+function policyContext(toolName, body = {}, explicit = {}) {
+  return {
+    goal: String(explicit.goalId || body.goal_id || body.goal_run_id || body.goalRunId || '').trim(),
+    workflow: String(explicit.workflowId || body.workflow_id || body.definition_id || body.workflowId || '').trim(),
+    agent: String(explicit.agentId || body.agent_id || body.agentId || '').trim(),
+    tool: String(toolName || '').trim(),
+  };
+}
+
+function resolveActiveOverride(ownerUserId, family, toolName, body, context) {
+  const ids = policyContext(toolName, body, context);
+  for (const scopeType of POLICY_OVERRIDE_SCOPES) {
+    const scopeId = ids[scopeType];
+    if (!scopeId) continue;
+    const row = getDb().prepare(
+      `SELECT * FROM action_policy_overrides
+        WHERE owner_user_id = ? AND scope_type = ? AND scope_id = ?
+          AND action_family = ? AND enabled = 1`
+    ).get(String(ownerUserId || ''), scopeType, scopeId, family);
+    if (!row) continue;
+    if (row.expires_at && Date.parse(row.expires_at) <= Date.now()) continue;
+    if (row.max_uses != null && Number(row.use_count) >= Number(row.max_uses)) continue;
+    return { row, public: overrideToPublic(row), constraints_ok: constraintsMatch(parseConstraints(row.constraints_json), body) };
+  }
+  return null;
+}
+
+function consumeOverrideUse(row) {
+  if (!row || row.max_uses == null) return true;
+  return getDb().prepare(
+    `UPDATE action_policy_overrides SET use_count = use_count + 1, updated_at = datetime('now')
+      WHERE id = ? AND enabled = 1 AND use_count < max_uses`
+  ).run(row.id).changes === 1;
 }
 
 export function consumeActionApprovalGrant(ownerUserId, token, { family, toolName, body = {} } = {}) {
@@ -209,14 +350,20 @@ export function evaluateActionPolicy({
   toolName,
   body = {},
   goalRunId = null,
+  context = {},
 } = {}) {
   ensureActionPolicyTables();
   const tool = String(toolName || '').trim();
   if (!tool) return { ok: true, skipped: true, reason: 'no_tool' };
   const inferred = resolveRiskForTool(tool);
   const families = getActionFamilyPolicies(ownerUserId);
-  const row = families.find((f) => f.family === inferred.action_family) || families[0];
-  const mode = row?.mode || 'autonomous';
+  const companyRow = families.find((f) => f.family === inferred.action_family) || families[0];
+  const override = resolveActiveOverride(ownerUserId, inferred.action_family, tool, body, context);
+  if (override && !override.constraints_ok) {
+    return deny(ownerUserId, tool, inferred, override.public.mode, goalRunId,
+      'Action does not match the permitted recipients, websites, amount, or campaign for this override.', override.public);
+  }
+  const mode = override?.public?.mode || companyRow?.mode || 'autonomous';
   const approval = mode === 'approval_required'
     ? consumeActionApprovalGrant(ownerUserId, body?.approval_token, {
         family: inferred.action_family,
@@ -226,7 +373,7 @@ export function evaluateActionPolicy({
     : { ok: true };
 
   if (mode === 'prohibited') {
-    return deny(ownerUserId, tool, inferred, mode, goalRunId, 'Action family is prohibited for this company.');
+    return deny(ownerUserId, tool, inferred, mode, goalRunId, 'Action family is prohibited by the effective policy.', override?.public || null);
   }
   if (mode === 'approval_required' && !approval.ok) {
     return deny(
@@ -235,12 +382,17 @@ export function evaluateActionPolicy({
       inferred,
       mode,
       goalRunId,
-      `This action family requires a valid CEO approval grant before execution (${approval.reason}).`
+      `This action family requires a valid CEO approval grant before execution (${approval.reason}).`,
+      override?.public || null
     );
+  }
+  if (override && !consumeOverrideUse(override.row)) {
+    return deny(ownerUserId, tool, inferred, mode, goalRunId, 'The bounded override has exhausted its permitted uses.', override.public);
   }
   recordSafe(ownerUserId, goalRunId, {
     event_type: 'policy_decision',
-    payload: { tool, mode, risk_tier: inferred.risk_tier, family: inferred.action_family, allow: true },
+    payload: { tool, mode, risk_tier: inferred.risk_tier, family: inferred.action_family, allow: true,
+      policy_scope: override?.public?.scope_type || 'company', policy_scope_id: override?.public?.scope_id || null },
   });
   return {
     ok: true,
@@ -249,13 +401,17 @@ export function evaluateActionPolicy({
     action_family: inferred.action_family,
     classification_source: inferred.source,
     approval_grant_id: approval.grant_id || null,
+    policy_scope: override?.public?.scope_type || 'company',
+    policy_scope_id: override?.public?.scope_id || null,
+    override_id: override?.public?.id || null,
   };
 }
 
-function deny(ownerUserId, tool, inferred, mode, goalRunId, error) {
+function deny(ownerUserId, tool, inferred, mode, goalRunId, error, override = null) {
   recordSafe(ownerUserId, goalRunId, {
     event_type: 'policy_decision',
-    payload: { tool, mode, risk_tier: inferred.risk_tier, family: inferred.action_family, allow: false, error },
+    payload: { tool, mode, risk_tier: inferred.risk_tier, family: inferred.action_family, allow: false, error,
+      policy_scope: override?.scope_type || 'company', policy_scope_id: override?.scope_id || null },
   });
   console.info('[action-policy] deny', { tool, mode, owner: String(ownerUserId || '').slice(0, 12) });
   return {
@@ -267,6 +423,9 @@ function deny(ownerUserId, tool, inferred, mode, goalRunId, error) {
     action_family: inferred.action_family,
     failure_class: 'policy_denial',
     needs_approval: mode === 'approval_required',
+    policy_scope: override?.scope_type || 'company',
+    policy_scope_id: override?.scope_id || null,
+    override_id: override?.id || null,
   };
 }
 
@@ -313,6 +472,14 @@ export function actionPolicyMiddleware(req, res, next) {
     toolName,
     body: req.body || {},
     goalRunId: req.body?.goal_run_id || req.body?.goalRunId || null,
+    context: {
+      goalId: req.headers['x-flolah-goal-id'] || req.body?.goal_id || req.body?.goal_run_id || req.body?.goalRunId,
+      workflowId: req.headers['x-flolah-workflow-id'] || req.body?.workflow_id || req.body?.definition_id || req.body?.workflowId,
+      agentId: (() => {
+        const raw = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || req.body?.agent_id;
+        return parseTenantOpenClawAgentId(raw)?.baseOpenClawId || raw;
+      })(),
+    },
   });
   if (decision?.ok === false) {
     return res.status(Number(decision.status) || 403).json(decision);

@@ -2532,6 +2532,26 @@ export function initDb() {
         ON action_approval_grants(owner_user_id, expires_at DESC);
     `);
     _db.exec(`
+      CREATE TABLE IF NOT EXISTS action_policy_overrides (
+        id TEXT PRIMARY KEY,
+        owner_user_id TEXT NOT NULL,
+        scope_type TEXT NOT NULL,
+        scope_id TEXT NOT NULL,
+        action_family TEXT NOT NULL,
+        mode TEXT NOT NULL,
+        constraints_json TEXT DEFAULT '{}',
+        expires_at TEXT,
+        max_uses INTEGER,
+        use_count INTEGER NOT NULL DEFAULT 0,
+        enabled INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        UNIQUE(owner_user_id, scope_type, scope_id, action_family)
+      );
+      CREATE INDEX IF NOT EXISTS idx_action_policy_overrides_owner_scope
+        ON action_policy_overrides(owner_user_id, scope_type, scope_id, enabled);
+    `);
+    _db.exec(`
       CREATE TABLE IF NOT EXISTS tool_write_idempotency (
         owner_user_id TEXT NOT NULL,
         tool_name TEXT NOT NULL,

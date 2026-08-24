@@ -36,7 +36,7 @@ function appendQueryParams(targetUrl, payload) {
  * @param {string} toolName
  * @param {object|null|undefined} body
  * @param {string|null} [ownerUserId]
- * @param {{ timeoutMs?: number, agentId?: string|null, openclawAgentId?: string|null, callerAgentId?: string|null }} [opts]
+ * @param {{ timeoutMs?: number, agentId?: string|null, openclawAgentId?: string|null, callerAgentId?: string|null, goalId?: string|null, workflowId?: string|null }} [opts]
  * Platform self-invokes (goal plans, workflow tool nodes) should pass the orchestrating agent's id so
  * COO/WB-gated tools (getCallerAgent) work the same as chat-session tool calls.
  */
@@ -56,6 +56,8 @@ export async function invokeContentToolHttp(toolName, body, ownerUserId = null, 
   const openclawAgentId = String(opts.openclawAgentId || agentId || '').trim();
   if (agentId) headers['x-agent-id'] = agentId;
   if (openclawAgentId) headers['x-openclaw-agent-id'] = openclawAgentId;
+  if (opts.goalId) headers['x-flolah-goal-id'] = String(opts.goalId);
+  if (opts.workflowId) headers['x-flolah-workflow-id'] = String(opts.workflowId);
 
   const payload = body && typeof body === 'object' && !Array.isArray(body) ? body : {};
   const isGetLike = method === 'GET' || method === 'HEAD';

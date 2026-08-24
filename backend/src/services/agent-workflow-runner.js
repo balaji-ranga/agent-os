@@ -1257,6 +1257,8 @@ async function executeNode(runId, nodeId, graph, context, def, runRow) {
       const result = await invokeContentTool(toolName, payload, runRow.owner_user_id, {
         agentId: actorId,
         openclawAgentId: context?.actor?.openclaw_agent_id || actorId,
+        workflowId: def.id,
+        goalId: context?.goal_run_id || context?.goal_id || null,
       });
       const outputs = { result, text: typeof result === 'string' ? result : JSON.stringify(result, null, 2) };
       storeNodeOutput(context, node.id, outputs);

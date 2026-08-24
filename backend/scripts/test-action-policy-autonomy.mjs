@@ -20,6 +20,8 @@ try {
     createActionApprovalGrant,
     ensureActionPolicyTables,
     evaluateActionPolicy,
+    listActionPolicyOverrides,
+    upsertActionPolicyOverride,
     upsertActionFamilyPolicies,
   } = await import('../src/services/action-policy.js');
   ensureActionPolicyTables();
@@ -106,6 +108,68 @@ try {
   assert.equal(metadataClassified.ok, false, 'explicit metadata overrides a misleading tool name');
   assert.equal(metadataClassified.action_family, 'financial_destructive');
 
+  // A bounded recurring tool grant overrides the company R2 approval requirement.
+  const recurringEmail = upsertActionPolicyOverride(owner, {
+    scope_type: 'tool', scope_id: 'email_send', action_family: 'communicate_external', mode: 'autonomous',
+    constraints: { permitted_email_ids: ['daily@example.test'] }, max_uses: 2,
+    expires_at: new Date(Date.now() + 3600000).toISOString(),
+  });
+  const wrongRecurringRecipient = evaluateActionPolicy({
+    ownerUserId: owner, toolName: 'email_send', body: { to: 'intruder@example.test' },
+  });
+  assert.equal(wrongRecurringRecipient.ok, false);
+  assert.equal(wrongRecurringRecipient.policy_scope, 'tool');
+  for (let i = 0; i < 2; i += 1) {
+    const allowed = evaluateActionPolicy({ ownerUserId: owner, toolName: 'email_send', body: { to: 'daily@example.test' } });
+    assert.equal(allowed.ok, true);
+    assert.equal(allowed.mode, 'autonomous');
+    assert.equal(allowed.override_id, recurringEmail.id);
+  }
+  const exhausted = evaluateActionPolicy({ ownerUserId: owner, toolName: 'email_send', body: { to: 'daily@example.test' } });
+  assert.equal(exhausted.ok, false, 'exhausted recurring grant falls back to company approval-required policy');
+  assert.equal(exhausted.needs_approval, true);
+
+  upsertActionPolicyOverride(owner, {
+    scope_type: 'tool', scope_id: 'social_post', action_family: 'communicate_external', mode: 'autonomous',
+    constraints: { permitted_websites: ['linkedin.com'] }, max_uses: 5,
+  });
+  assert.equal(evaluateActionPolicy({
+    ownerUserId: owner, toolName: 'social_post', body: { url: 'https://www.linkedin.com/feed/' },
+  }).ok, true);
+  assert.equal(evaluateActionPolicy({
+    ownerUserId: owner, toolName: 'social_post', body: { url: 'https://evil.example/post' },
+  }).ok, false, 'website constraint fails closed');
+
+  // Narrowest context wins: goal > workflow > agent > tool > company.
+  upsertActionPolicyOverride(owner, {
+    scope_type: 'agent', scope_id: 'status-agent', action_family: 'communicate_external', mode: 'autonomous',
+    constraints: { permitted_email_ids: ['daily@example.test'] },
+  });
+  upsertActionPolicyOverride(owner, {
+    scope_type: 'workflow', scope_id: 'wf-freeze', action_family: 'communicate_external', mode: 'prohibited',
+  });
+  upsertActionPolicyOverride(owner, {
+    scope_type: 'goal', scope_id: 'goal-freeze', action_family: 'communicate_external', mode: 'prohibited',
+  });
+  const agentAllowed = evaluateActionPolicy({
+    ownerUserId: owner, toolName: 'email_send', body: { to: 'daily@example.test' }, context: { agentId: 'status-agent' },
+  });
+  assert.equal(agentAllowed.ok, true);
+  assert.equal(agentAllowed.policy_scope, 'agent');
+  const workflowBlocked = evaluateActionPolicy({
+    ownerUserId: owner, toolName: 'email_send', body: { to: 'daily@example.test' },
+    context: { agentId: 'status-agent', workflowId: 'wf-freeze' },
+  });
+  assert.equal(workflowBlocked.ok, false);
+  assert.equal(workflowBlocked.policy_scope, 'workflow');
+  const goalBlocked = evaluateActionPolicy({
+    ownerUserId: owner, toolName: 'email_send', body: { to: 'daily@example.test' },
+    context: { agentId: 'status-agent', workflowId: 'wf-other', goalId: 'goal-freeze' },
+  });
+  assert.equal(goalBlocked.ok, false);
+  assert.equal(goalBlocked.policy_scope, 'goal');
+  assert.equal(listActionPolicyOverrides(other).length, 0, 'scoped overrides remain owner isolated');
+
   const events = db.prepare(
     `SELECT payload_json FROM goal_mission_events WHERE owner_user_id = ? AND event_type = 'policy_decision'`
   ).all(owner).map((row) => JSON.parse(row.payload_json));
@@ -121,6 +185,12 @@ try {
     approval_required: { tool: 'email_send', self_approval_blocked: true, scoped_grant_consumed: true, replay_blocked: true },
     prohibited: ['delete_customer', 'innocent_lookup_name'],
     owner_isolation: true,
+    scoped_overrides: {
+      precedence: ['goal', 'workflow', 'agent', 'tool', 'company'],
+      recurring_email_max_uses: 2,
+      permitted_email_enforced: true,
+      permitted_website_enforced: true,
+    },
     audited_decisions: events.length,
   }, null, 2));
   db.close();

@@ -25,6 +25,18 @@ On the same **Policies** page, set three states per action family for **your com
 
 **Approval required** blocks the tool unless it carries a short-lived, owner-scoped approval grant issued by Flolah for that action. An agent cannot approve itself with request flags. Grants can be single-use and constrained to a tool, recipient, campaign, or maximum amount. **Prohibited** always blocks, even when a grant is supplied. These rules are enforced on read and write tool invokes for the entitled CEO — they do not replace tool grants or Maker/Checker.
 
+### Scoped overrides and recurring grants
+
+Below Action control, add a narrower override for a specific **goal**, **workflow**, **employee/agent**, or **tool**. Flolah resolves the first applicable policy in this order:
+
+1. goal;
+2. workflow;
+3. employee/agent;
+4. tool;
+5. company Action control fallback.
+
+For an approved recurring automation such as a daily status email, create an **Autonomous grant** for the workflow, agent, or `email_send` tool. Bound it with permitted email IDs, an expiry, and a maximum use count. Public publishing can likewise be restricted to permitted website domains. An active override whose recipient/domain constraints do not match fails closed. Expired or exhausted overrides fall back to the next applicable policy.
+
 ## How agents see it
 
 - Workspace file: `POLICY.md` (also referenced from `ORG.md`).

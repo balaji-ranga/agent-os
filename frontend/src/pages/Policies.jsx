@@ -14,6 +14,12 @@ function PoliciesPanel() {
   const [enabled, setEnabled] = useState(true);
   const [updatedAt, setUpdatedAt] = useState(null);
   const [actionControl, setActionControl] = useState([]);
+  const [actionOverrides, setActionOverrides] = useState([]);
+  const [overrideBusy, setOverrideBusy] = useState(false);
+  const [overrideDraft, setOverrideDraft] = useState({
+    scope_type: 'tool', scope_id: '', action_family: 'communicate_external', mode: 'autonomous',
+    permitted_email_ids: '', permitted_websites: '', expires_at: '', max_uses: '',
+  });
   const [exceptionPolicy, setExceptionPolicy] = useState({
     retry_limit: 1,
     create_kanban: true,
@@ -38,6 +44,7 @@ function PoliciesPanel() {
         setEnabled(g.enabled !== false);
         setUpdatedAt(g.updated_at || null);
         setActionControl(Array.isArray(data.action_control) ? data.action_control : []);
+        setActionOverrides(Array.isArray(data.action_overrides) ? data.action_overrides : []);
         if (data.exception_policy) setExceptionPolicy(data.exception_policy);
       })
       .catch((e) => setError(e.message || String(e)))
@@ -92,6 +99,52 @@ function PoliciesPanel() {
     setActionControl((prev) =>
       (prev || []).map((row) => (row.family === family ? { ...row, mode } : row))
     );
+  };
+
+  const saveOverride = async () => {
+    setOverrideBusy(true);
+    setMessage(null);
+    setError(null);
+    try {
+      const split = (value) => String(value || '').split(',').map((item) => item.trim()).filter(Boolean);
+      const data = await api.ceoActionOverrideSave({
+        scope_type: overrideDraft.scope_type,
+        scope_id: overrideDraft.scope_id.trim(),
+        action_family: overrideDraft.action_family,
+        mode: overrideDraft.mode,
+        constraints: {
+          permitted_email_ids: split(overrideDraft.permitted_email_ids),
+          permitted_websites: split(overrideDraft.permitted_websites),
+        },
+        expires_at: overrideDraft.expires_at ? new Date(overrideDraft.expires_at).toISOString() : null,
+        max_uses: overrideDraft.max_uses === '' ? null : Number(overrideDraft.max_uses),
+      });
+      const saved = data.action_override;
+      setActionOverrides((prev) => [...prev.filter((row) => row.id !== saved.id && !(
+        row.scope_type === saved.scope_type && row.scope_id === saved.scope_id && row.action_family === saved.action_family
+      )), saved]);
+      setOverrideDraft((prev) => ({ ...prev, scope_id: '', permitted_email_ids: '', permitted_websites: '', expires_at: '', max_uses: '' }));
+      setMessage('Scoped action override saved and effective immediately.');
+    } catch (err) {
+      setError(err.message || String(err));
+    } finally {
+      setOverrideBusy(false);
+    }
+  };
+
+  const deleteOverride = async (row) => {
+    if (!window.confirm(`Delete ${row.scope_type} override for ${row.scope_id}?`)) return;
+    setOverrideBusy(true);
+    setError(null);
+    try {
+      await api.ceoActionOverrideDelete(row.id);
+      setActionOverrides((prev) => prev.filter((item) => item.id !== row.id));
+      setMessage('Scoped action override deleted; company policy is now the fallback.');
+    } catch (err) {
+      setError(err.message || String(err));
+    } finally {
+      setOverrideBusy(false);
+    }
   };
 
   const saveExceptionPolicy = async () => {
@@ -304,7 +357,7 @@ function PoliciesPanel() {
           <h2 style={{ fontSize: '1.05rem', margin: '0 0 0.35rem' }}>Action control</h2>
           <p style={{ margin: '0 0 0.75rem', color: 'var(--muted)', fontSize: '0.88rem', maxWidth: 560 }}>
             Three states per action family for your company. Tool invokes are blocked when Prohibited, or when
-            Approval required and the call has no CEO approval. Applies to every entitled employee — not a
+            Approval required and the call has no valid CEO grant. Applies to every entitled employee — not a
             second policy product.
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
@@ -356,6 +409,61 @@ function PoliciesPanel() {
           >
             {controlBusy ? 'Saving…' : 'Save action control'}
           </button>
+
+          <section style={{ marginTop: '1.5rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border)' }}>
+            <h2 style={{ fontSize: '1.05rem', margin: '0 0 0.35rem' }}>Scoped overrides &amp; recurring grants</h2>
+            <p style={{ margin: '0 0 0.85rem', color: 'var(--muted)', fontSize: '0.86rem', lineHeight: 1.45 }}>
+              Apply a narrower rule to one goal, workflow, employee, or tool. Resolution order is goal → workflow →
+              employee → tool → company. For recurring email or publishing automation, choose Autonomous and bound
+              it by permitted recipients/websites, expiry, and maximum uses.
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '0.65rem' }}>
+              <label><span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--muted)' }}>Override target</span>
+                <select value={overrideDraft.scope_type} onChange={(e) => setOverrideDraft((p) => ({ ...p, scope_type: e.target.value }))} style={{ width: '100%', padding: '0.48rem' }}>
+                  <option value="goal">Goal</option><option value="workflow">Workflow</option>
+                  <option value="agent">Employee/agent</option><option value="tool">Tool</option>
+                </select>
+              </label>
+              <label><span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--muted)' }}>Exact ID or tool name</span>
+                <input value={overrideDraft.scope_id} onChange={(e) => setOverrideDraft((p) => ({ ...p, scope_id: e.target.value }))} placeholder="email_send" style={{ width: '100%', padding: '0.48rem', boxSizing: 'border-box' }} />
+              </label>
+              <label><span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--muted)' }}>Action family</span>
+                <select value={overrideDraft.action_family} onChange={(e) => setOverrideDraft((p) => ({ ...p, action_family: e.target.value }))} style={{ width: '100%', padding: '0.48rem' }}>
+                  {actionControl.map((row) => <option key={row.family} value={row.family}>{row.label}</option>)}
+                </select>
+              </label>
+              <label><span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--muted)' }}>Effective mode</span>
+                <select value={overrideDraft.mode} onChange={(e) => setOverrideDraft((p) => ({ ...p, mode: e.target.value }))} style={{ width: '100%', padding: '0.48rem' }}>
+                  <option value="autonomous">Autonomous grant</option><option value="approval_required">Approval required</option><option value="prohibited">Prohibited</option>
+                </select>
+              </label>
+              <label><span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--muted)' }}>Permitted email IDs (comma-separated)</span>
+                <input value={overrideDraft.permitted_email_ids} onChange={(e) => setOverrideDraft((p) => ({ ...p, permitted_email_ids: e.target.value }))} placeholder="ceo@example.com" style={{ width: '100%', padding: '0.48rem', boxSizing: 'border-box' }} />
+              </label>
+              <label><span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--muted)' }}>Permitted websites/domains</span>
+                <input value={overrideDraft.permitted_websites} onChange={(e) => setOverrideDraft((p) => ({ ...p, permitted_websites: e.target.value }))} placeholder="linkedin.com, medium.com" style={{ width: '100%', padding: '0.48rem', boxSizing: 'border-box' }} />
+              </label>
+              <label><span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--muted)' }}>Expires (optional)</span>
+                <input type="datetime-local" value={overrideDraft.expires_at} onChange={(e) => setOverrideDraft((p) => ({ ...p, expires_at: e.target.value }))} style={{ width: '100%', padding: '0.48rem', boxSizing: 'border-box' }} />
+              </label>
+              <label><span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--muted)' }}>Maximum uses (optional)</span>
+                <input type="number" min="1" max="100000" value={overrideDraft.max_uses} onChange={(e) => setOverrideDraft((p) => ({ ...p, max_uses: e.target.value }))} placeholder="90" style={{ width: '100%', padding: '0.48rem', boxSizing: 'border-box' }} />
+              </label>
+            </div>
+            <button type="button" className="btn-primary" disabled={overrideBusy || !overrideDraft.scope_id.trim()} onClick={saveOverride} style={{ marginTop: '0.8rem' }}>
+              {overrideBusy ? 'Saving…' : 'Save scoped override'}
+            </button>
+            {actionOverrides.length > 0 && <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+              {actionOverrides.map((row) => <div key={row.id} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '0.65rem', display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                <div><strong>{row.scope_type}: {row.scope_id}</strong><div style={{ color: 'var(--muted)', fontSize: '0.8rem' }}>
+                  {row.action_family} · {row.mode} · uses {row.use_count}{row.max_uses == null ? '/unbounded' : `/${row.max_uses}`}{row.expires_at ? ` · expires ${new Date(row.expires_at).toLocaleString()}` : ''}
+                  {row.constraints?.permitted_email_ids?.length ? ` · email: ${row.constraints.permitted_email_ids.join(', ')}` : ''}
+                  {row.constraints?.permitted_websites?.length ? ` · sites: ${row.constraints.permitted_websites.join(', ')}` : ''}
+                </div></div>
+                <button type="button" className="btn-secondary" disabled={overrideBusy} onClick={() => deleteOverride(row)}>Delete</button>
+              </div>)}
+            </div>}
+          </section>
         </section>
       ) : null}
     </div>

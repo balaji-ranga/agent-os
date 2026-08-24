@@ -345,6 +345,7 @@ export async function executeDesktopRemoteNode(runId, ownerUserId, nodeId, { con
     outputs = await runRemoteNodeWork(node, graph, context, inputRecord, {
       ownerUserId,
       runId,
+      definitionId: def.id,
     });
   } catch (err) {
     const msg = err?.message || String(err);
@@ -398,7 +399,13 @@ async function runRemoteNodeWork(node, graph, context, inputRecord, meta) {
       payload = renderPayloadTemplates(payload, context) || payload;
       if (payload.message == null && inputRecord.resolved.payload) payload.message = inputRecord.resolved.payload;
       if (payload.input == null && inputRecord.resolved.body) payload.input = inputRecord.resolved.body;
-      const result = await invokeContentTool(toolName, payload, meta.ownerUserId);
+      const actorId = context?.actor?.id || context?.actor?.agent_id || context?.actor_agent_id || null;
+      const result = await invokeContentTool(toolName, payload, meta.ownerUserId, {
+        agentId: actorId,
+        openclawAgentId: context?.actor?.openclaw_agent_id || actorId,
+        workflowId: meta.definitionId,
+        goalId: context?.goal_run_id || context?.goal_id || null,
+      });
       return { result, text: typeof result === 'string' ? result : JSON.stringify(result, null, 2) };
     }
     case 'connector': {

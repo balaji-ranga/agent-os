@@ -10,7 +10,10 @@ import {
 } from '../services/ceo-guardrails.js';
 import {
   createActionApprovalGrant,
+  deleteActionPolicyOverride,
   getActionFamilyPolicies,
+  listActionPolicyOverrides,
+  upsertActionPolicyOverride,
   upsertActionFamilyPolicies,
 } from '../services/action-policy.js';
 import { syncOrgContextForCeo } from '../services/org-context.js';
@@ -26,6 +29,7 @@ router.get('/', requireAuth, requireCeoOrAdmin, (req, res) => {
     res.json({
       guardrails: getCeoGuardrails(ceoUserId),
       action_control: getActionFamilyPolicies(ceoUserId),
+      action_overrides: listActionPolicyOverrides(ceoUserId),
       exception_policy: getExceptionPolicy(ceoUserId),
     });
   } catch (e) {
@@ -75,6 +79,38 @@ router.post('/action-approval-grants', requireAuth, requireCeoOrAdmin, (req, res
     const ceoUserId = resolveAuthenticatedCeoUserId(req);
     if (!ceoUserId) return res.status(403).json({ error: 'CEO context required' });
     res.status(201).json({ approval_grant: createActionApprovalGrant(ceoUserId, req.body || {}) });
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || String(e) });
+  }
+});
+
+router.get('/action-overrides', requireAuth, requireCeoOrAdmin, (req, res) => {
+  try {
+    const ceoUserId = resolveAuthenticatedCeoUserId(req);
+    if (!ceoUserId) return res.status(403).json({ error: 'CEO context required' });
+    res.json({ action_overrides: listActionPolicyOverrides(ceoUserId) });
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || String(e) });
+  }
+});
+
+router.put('/action-overrides', requireAuth, requireCeoOrAdmin, (req, res) => {
+  try {
+    const ceoUserId = resolveAuthenticatedCeoUserId(req);
+    if (!ceoUserId) return res.status(403).json({ error: 'CEO context required' });
+    res.json({ action_override: upsertActionPolicyOverride(ceoUserId, req.body || {}) });
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || String(e) });
+  }
+});
+
+router.delete('/action-overrides/:id', requireAuth, requireCeoOrAdmin, (req, res) => {
+  try {
+    const ceoUserId = resolveAuthenticatedCeoUserId(req);
+    if (!ceoUserId) return res.status(403).json({ error: 'CEO context required' });
+    const deleted = deleteActionPolicyOverride(ceoUserId, req.params.id);
+    if (!deleted) return res.status(404).json({ error: 'Override not found' });
+    res.json({ ok: true });
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message || String(e) });
   }

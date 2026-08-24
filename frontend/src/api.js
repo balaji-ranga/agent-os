@@ -484,6 +484,8 @@ export const api = {
   ceoGuardrailsSave: (body) => put('/ceo-guardrails', body),
   ceoGuardrailsEnrich: (body) => post('/ceo-guardrails/enrich', body),
   ceoActionControlSave: (body) => put('/ceo-guardrails/action-control', body),
+  ceoActionOverrideSave: (body) => put('/ceo-guardrails/action-overrides', body),
+  ceoActionOverrideDelete: (id) => del(`/ceo-guardrails/action-overrides/${encodeURIComponent(id)}`),
   ceoExceptionPolicySave: (body) => put('/ceo-guardrails/exception-policy', body),
   submitFeedback: (body) => post('/feedback', body),
   listFeedback: (params = {}) => {

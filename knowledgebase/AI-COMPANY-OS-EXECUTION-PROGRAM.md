@@ -69,4 +69,5 @@ The Digest ends with a week-filtered, paginated **Execution history**. Goals exp
 - Autonomous actions proceed without per-run CEO confirmation. Prohibited actions always fail closed.
 - Approval-required actions accept only a short-lived owner-scoped grant issued by Flolah. Caller booleans cannot self-approve an agent action.
 - Grants may be constrained to one tool, recipient, campaign, maximum amount, and bounded use count. Only a hash is stored; the bearer value is redacted from tool logs and is not forwarded downstream.
+- Company policy can be narrowed by owner-scoped goal, workflow, employee, or tool overrides. Resolution is goal → workflow → employee → tool → company. Recurring grants support permitted email IDs and website domains, expiry, and bounded use counts.
 - Every allow/deny decision is recorded as mission evidence. The owner-scoped exception policy independently retries a failed goal/workflow step and then creates a correlated recovery Kanban when retries are exhausted.
