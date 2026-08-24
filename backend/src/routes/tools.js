@@ -3535,7 +3535,7 @@ router.post('/browse-task-start', optionalAuth, async (req, res) => {
       task_id: task.id,
       task,
       agent_hint:
-        'Do not use the built-in browser tool. Immediately tell the CEO this task_id. Optionally call browse_task_status once with wait_ms: 90000; if still running, reply with the task_id.',
+        `Task routed to ${task.selected_driver_mode || 'unknown'}${task.selected_node_id ? ` node ${task.selected_node_id}` : ''}. Do not use the built-in browser tool before or after this task. Immediately tell the CEO this task_id and actual selected_driver_mode. Optionally call browse_task_status once with wait_ms: 90000; if still running, reply with the task_id.`,
     });
   } catch (e) {
     const err = { error: e.message };

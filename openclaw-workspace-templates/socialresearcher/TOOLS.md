@@ -20,3 +20,5 @@ Report from **`posts[]`**. **`indexed_results` / `results` are search hits, not 
 | **kanban_move_status** | Status on assigned cards |
 
 If `posts` is empty, quote `next_step` and stop inventing captions. Do not “fill in” from websearch snippets.
+
+For Browser Session work, use **only `browse_*` tools**. Never call the native built-in `browser` tool before or after a `browse_*` task in the same request. Call `browse_session_status` first. If the CEO explicitly requires Desktop Local, pass its returned `desktop_worker.driver_mode` as `preferred_driver` and `allow_fallback:false`; report `EXECUTOR_OFFLINE` if unavailable rather than switching to managed Playwright. Always report the task's actual `selected_driver_mode`.

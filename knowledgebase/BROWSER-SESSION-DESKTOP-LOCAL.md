@@ -51,7 +51,7 @@ simultaneously; jobs are addressed to exactly one node.
 - Central IP API: `/api/settings/ip-whitelists`
 - Env (cloud): `BROWSER_WORKER_OFFLINE_MS`, `BROWSER_WORKER_JOB_TIMEOUT_MS`
 - Package env (laptop `.env`): `BROWSER_WORKER_TOKEN`, `AGENT_OS_BASE_URL`, `BROWSER_HEADLESS=0`, `BROWSER_CHANNEL=chrome`, `BROWSER_USER_DATA_DIR`, optional `BROWSER_CDP_URL`
-- Package source: `backend/local-browser-worker/` (worker `2.1.0`, Playwright **1.55.1+**, persistent profile)
+- Package source: `backend/local-browser-worker/` (worker `2.1.1`, Playwright **1.55.1+**, persistent profile)
 
 See also: [CLIENT-BROWSER-SESSION.md](./CLIENT-BROWSER-SESSION.md), Connectors UI, platform-help [22-browser-session-and-recipes.md](./platform-help/22-browser-session-and-recipes.md), [33-ip-whitelists.md](./platform-help/33-ip-whitelists.md).
 

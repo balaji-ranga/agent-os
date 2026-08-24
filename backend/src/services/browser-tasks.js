@@ -41,6 +41,10 @@ const TASK_TAB_RETENTION_MS = Math.max(
   0,
   Number(process.env.BROWSER_TASK_TAB_RETENTION_MS || 60000) || 0
 );
+const TASK_STALE_MS = Math.max(
+  5 * 60 * 1000,
+  Number(process.env.BROWSER_TASK_STALE_MS || 20 * 60 * 1000) || 20 * 60 * 1000
+);
 // Backend CDP invokes use this OpenClaw agent (must have built-in browser allowed).
 // Chat agents like techresearcher keep browser denied and use browse_* only.
 const BROWSER_CDP_AGENT_ID = process.env.BROWSER_TASK_CDP_AGENT_ID || 'browser-cdp';
@@ -118,6 +122,34 @@ function scheduleTaskTabCleanup(task) {
   timer.unref?.();
 }
 
+export function reapStaleBrowserTasks(ceoUserId) {
+  const db = getDb();
+  const cutoff = new Date(Date.now() - TASK_STALE_MS).toISOString();
+  const stale = db
+    .prepare(
+      `SELECT id FROM browser_tasks
+       WHERE ceo_user_id = ?
+         AND status IN ('pending', 'running')
+         AND updated_at < ?`
+    )
+    .all(ceoUserId, cutoff);
+  for (const row of stale) {
+    updateTask(ceoUserId, row.id, {
+      status: 'failed',
+      error: 'Browser task expired after the worker stopped reporting progress',
+      result: {
+        ok: false,
+        code: 'TASK_STALE',
+        message: 'The browser worker stopped reporting progress. Start a new task to retry.',
+      },
+    });
+  }
+  if (stale.length) {
+    console.warn('[browser-task] reaped %s stale tasks ceo=%s', stale.length, ceoUserId);
+  }
+  return { reaped: stale.length };
+}
+
 const TASK_HISTORY_DAYS_DEFAULT = 7;
 
 export function purgeBrowserTasksOlderThan(ceoUserId, days = TASK_HISTORY_DAYS_DEFAULT) {
@@ -152,6 +184,7 @@ export function listBrowserTasks(
   const lim = Math.min(50, Math.max(1, Number(limit) || 10));
   const off = Math.max(0, Number(offset) || 0);
   const d = Math.max(1, Number(days) || TASK_HISTORY_DAYS_DEFAULT);
+  reapStaleBrowserTasks(ceoUserId);
   if (purge !== false) purgeBrowserTasksOlderThan(ceoUserId, d);
   const cutoff = new Date(Date.now() - d * 24 * 60 * 60 * 1000).toISOString();
   const total =
@@ -1319,7 +1352,17 @@ export function inferLinkedInStartUrl(goal, startUrl = '') {
   return url;
 }
 
+export function assertPreferredBrowserExecutor(selectedExecutor, preferredDriver, allowFallback = true) {
+  const preferred = String(preferredDriver || '').trim();
+  if (!preferred || allowFallback !== false || selectedExecutor?.driver_mode === preferred) return selectedExecutor;
+  const error = new Error(`Required browser executor is offline: ${preferred}`);
+  error.code = 'EXECUTOR_OFFLINE';
+  error.status = 503;
+  throw error;
+}
+
 export async function startBrowserTask(ceoUserId, body = {}) {
+  reapStaleBrowserTasks(ceoUserId);
   const mode = ['autonomous', 'recorder', 'recipe_replay'].includes(body.mode) ? body.mode : 'autonomous';
   let goal = String(body.goal || body.goal_text || '').trim();
   let startUrl = String(body.start_url || body.url || '').trim();
@@ -1344,9 +1387,12 @@ export async function startBrowserTask(ceoUserId, body = {}) {
   const id = `bt-${randomUUID()}`;
   const agentId = String(body.agent_id || 'workflowbuilder');
   let recipeId = body.recipe_id || null;
+  const preferredDriver = String(body.preferred_driver || body.preferredDriver || '').trim() || null;
+  const allowFallback = body.allow_fallback !== false && body.allowFallback !== false;
   const selectedExecutor = selectBrowserExecutor(ceoUserId, {
-    preferredDriver: body.preferred_driver || body.preferredDriver || null,
+    preferredDriver,
   });
+  assertPreferredBrowserExecutor(selectedExecutor, preferredDriver, allowFallback);
   const traceId = randomUUID();
 
   if (mode === 'recipe_replay' && !recipeId) {
@@ -1487,10 +1533,24 @@ function browserArtifactsFromSteps(steps) {
  * Goals that require click/type/submit (publish, compose, reply) must run the act loop.
  * early_page_summarize only helps pure read/research (and Cheapflights accelerator).
  */
-function goalLooksInteractive(goalText) {
+export function goalLooksInteractive(goalText) {
   const g = String(goalText || '');
-  return /\b(publish|post|compose|submit|share|create a (new )?(post|tweet|update)|reply|comment|type|fill|click|upload|message|send|like|follow|connect|apply|paste|download|generate|prompt box|prompt text|start generation|scene\s+\d+|google flow|labs\.google\/fx\/tools\/flow)\b/i.test(
+  return /\b(publish|post|compose|submit|share|create a (new )?(post|tweet|update)|reply|comment|type|fill|click|upload|message|send|like|follow|connect|apply|paste|download|generate|capture|screen\s*shot|png|save (?:an? )?(?:image|screen\s*shot)|prompt box|prompt text|start generation|scene\s+\d+|google flow|labs\.google\/fx\/tools\/flow)\b/i.test(
     g
+  );
+}
+
+export function snapshotSummaryPrompt(goal, snapshot) {
+  const flightGoal = /\b(flights?|airline|airport|nonstop|non-stop|cheapflights)\b/i.test(String(goal || ''));
+  return (
+    'Goal: ' +
+    goal +
+    '\nFrom this page text (accessibility + DOM), answer the goal. ' +
+    (flightGoal
+      ? 'If flights are visible, list the top options sorted by ascending price with airline, stops, duration, and price. Prefer direct/nonstop when the goal asks for that. Do not invent prices or airlines. Prefer the DOM_RESULTS section when present because it has the flight cards. '
+      : 'Stay specific to this goal and page. Do not introduce flight-search instructions or unrelated domains. ') +
+    '\nSnapshot:\n' +
+    String(snapshot || '').slice(0, 20000)
   );
 }
 
@@ -1499,14 +1559,7 @@ async function summarizeGoalFromSnapshot(ceoUserId, goal, snapshot) {
     messages: [
       {
         role: 'user',
-        content:
-          'Goal: ' +
-          goal +
-          '\nFrom this page text (accessibility + DOM), answer the goal. ' +
-          'If flights are visible, list the top options sorted by ascending price with airline, stops, duration, and price. ' +
-          'Prefer direct/nonstop when the goal asks for that. Do not invent prices or airlines. ' +
-          'Prefer the DOM_RESULTS section when present — it has the flight cards.\nSnapshot:\n' +
-          String(snapshot || '').slice(0, 20000),
+        content: snapshotSummaryPrompt(goal, snapshot),
       },
     ],
     maxTokens: 1000,

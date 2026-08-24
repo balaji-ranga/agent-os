@@ -21,7 +21,7 @@ const BROWSER_TOOLS = [
     endpoint: '/api/tools/browse-task-start',
     method: 'POST',
     purpose:
-      'API tool: start a natural-language browser task (async). Pass goal, optional start_url, mode autonomous|recorder|recipe_replay. Prefer browse_recipe_run to play saved recipes (requires that tool grant). For recipe_replay via this tool you also need browse_recipe_run granted; pass recipe_name or recipe_id. Then call browse_task_status once with wait_ms up to 90000; if still running, report the task id. Prefer this one wait over many polls. For Client Session goals, do not use the built-in browser tool. Flight goals may omit homepage start_url (backend deep-links Cheapflights). Do not use exec.',
+      'API tool: start a natural-language browser task (async). Pass goal, optional start_url, mode autonomous|recorder|recipe_replay. Before starting, call browse_session_status. When the CEO explicitly requires Desktop Local, pass preferred_driver equal to desktop_worker.driver_mode and allow_fallback:false; if Desktop is offline, report EXECUTOR_OFFLINE instead of silently using managed Playwright. For ordinary goals omit those fields so routing may follow extension → Desktop → managed fallback. Prefer browse_recipe_run for saved recipes. Then call browse_task_status once with wait_ms up to 90000. Never use the built-in browser tool before or after browse_* in the same request. Flight goals may omit homepage start_url. Do not use exec.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,

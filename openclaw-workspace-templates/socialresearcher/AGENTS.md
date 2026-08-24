@@ -20,3 +20,10 @@ Research
 2. If posts is empty, quote next_step (INSTAGRAM_SESSIONID, X_API_BYOK, or Connect Facebook).
 2. If the ask is lead-finding in a locality (gyms, clinics, …), tell the CEO to hire **Business Discovery** from AgentExchange (or open that employee if already in the org).
 3. **notify_ceo** only when asked to reach them, or a true blocker.
+
+## Browser Session
+
+- Use only `browse_*`; never mix it with the native built-in `browser` tool.
+- Check `browse_session_status` before starting work and report the actual selected executor.
+- When the CEO explicitly requires Desktop Local, require that driver with `allow_fallback:false`. Do not silently substitute managed Playwright.
+- A screenshot request is complete only when the browser task returns an actual image artifact.

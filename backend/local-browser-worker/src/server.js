@@ -13,7 +13,7 @@ import { chromium } from 'playwright';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
-const WORKER_VERSION = '2.1.0';
+const WORKER_VERSION = '2.1.1';
 const PROTOCOL_VERSION = 1;
 
 function loadEnvFile() {
@@ -544,31 +544,46 @@ function workerCapabilities() {
   };
 }
 
-async function cloudFetch(path, { method = 'GET', body = null } = {}) {
+async function cloudFetch(path, { method = 'GET', body = null, retries = 2 } = {}) {
   const url = BASE_URL + '/api/browser-worker/v1' + path;
-  const res = await fetch(url, {
-    method,
-    headers: {
-      Authorization: 'Bearer ' + TOKEN,
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
-    body: body != null ? JSON.stringify(body) : undefined,
-    signal: AbortSignal.timeout(60000),
-  });
-  const text = await res.text();
-  let json = null;
-  try {
-    json = JSON.parse(text);
-  } catch {
-    json = { raw: text };
+  const maxAttempts = Math.max(1, Number(retries || 0) + 1);
+  let lastError = null;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: {
+          Authorization: 'Bearer ' + TOKEN,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: body != null ? JSON.stringify(body) : undefined,
+        signal: AbortSignal.timeout(60000),
+      });
+      const text = await res.text();
+      let json = null;
+      try {
+        json = JSON.parse(text);
+      } catch {
+        json = { raw: text };
+      }
+      if (res.ok) return json;
+      const detail = String(json?.error || json?.message || text || '').replace(/\s+/g, ' ').trim().slice(0, 240);
+      const err = new Error(`HTTP ${res.status}${detail ? ': ' + detail : ''}`);
+      err.status = res.status;
+      lastError = err;
+      if (res.status < 500 && res.status !== 429) throw err;
+    } catch (error) {
+      lastError = error;
+      const status = Number(error?.status || 0);
+      if (status > 0 && status < 500 && status !== 429) throw error;
+    }
+    if (attempt < maxAttempts) {
+      const delay = Math.min(10000, 1000 * 2 ** (attempt - 1)) + Math.floor(Math.random() * 400);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
   }
-  if (!res.ok) {
-    const err = new Error(json?.error || 'HTTP ' + res.status);
-    err.status = res.status;
-    throw err;
-  }
-  return json;
+  throw lastError || new Error('Cloud request failed');
 }
 
 function driverMode() {
@@ -592,6 +607,7 @@ async function registerAndHeartbeat() {
 }
 
 async function jobLoop() {
+  let consecutiveErrors = 0;
   while (true) {
     try {
       const pulled = await cloudFetch(`/jobs?wait_ms=25000&node_id=${encodeURIComponent(NODE_ID)}&worker_version=${encodeURIComponent(WORKER_VERSION)}&driver_mode=${encodeURIComponent(driverMode())}&protocol_version=${PROTOCOL_VERSION}`, { method: 'GET' });
@@ -608,6 +624,7 @@ async function jobLoop() {
             capabilities: workerCapabilities(),
           },
         }).catch(() => {});
+        consecutiveErrors = 0;
         continue;
       }
       console.info('[browser-worker] job id=%s action=%s', job.id, job.action);
@@ -624,9 +641,17 @@ async function jobLoop() {
           body: { ok: false, error: e.message || String(e), node_id: NODE_ID, failure_code: failureCode(e), result_state: 'outcome_not_observed' },
         });
       }
+      consecutiveErrors = 0;
     } catch (e) {
-      console.warn('[browser-worker] job loop error: %s', e.message || e);
-      await new Promise((r) => setTimeout(r, 3000));
+      consecutiveErrors += 1;
+      if (consecutiveErrors === 1 || consecutiveErrors % 5 === 0) {
+        console.warn('[browser-worker] job loop error attempt=%s: %s', consecutiveErrors, e.message || e);
+      }
+      if (consecutiveErrors % 3 === 0) {
+        await registerAndHeartbeat().catch(() => {});
+      }
+      const delay = Math.min(30000, 2000 * 2 ** Math.min(consecutiveErrors - 1, 4));
+      await new Promise((r) => setTimeout(r, delay));
     }
   }
 }
