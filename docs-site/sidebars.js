@@ -62,6 +62,7 @@ const sidebars = {
       type: 'category',
       label: '5. Operate and grow',
       items: [
+        'operate/how-we-loop',
         'operate/maker-checker',
         'operate/example-stress-test-run',
         'operate/budgets',
