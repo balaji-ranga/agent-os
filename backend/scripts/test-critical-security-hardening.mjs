@@ -10,6 +10,7 @@ process.env.OPENCLAW_TOOL_CREDENTIALS_PATH = join(dataDir, 'tool-credentials.jso
 process.env.NODE_ENV = 'production';
 delete process.env.CUSTOM_SCRIPT_RUNNER_URL;
 delete process.env.CUSTOM_SCRIPT_RUNNER_TOKEN;
+delete process.env.CUSTOM_SCRIPT_RUNNER_JOBS_DIR;
 
 let database;
 try {
