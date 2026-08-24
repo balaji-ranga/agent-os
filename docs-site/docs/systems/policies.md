@@ -10,7 +10,7 @@ CEO **common guardrails** apply to all of your AI employees and to workflow Brai
 
 After you change policies, Resync org docs if the product asks you to, and start a **new chat** so employees pick up the latest text.
 
-**Action control** (same page): three states per action family — Autonomous, Approval required, Prohibited. External messages default to approval; deletes default to prohibited. Enforcement is on tool invoke for your company.
+**Action control** (same page): three states per action family — Autonomous, Approval required, Prohibited. External messages default to approval; deletes default to prohibited. Approval uses a short-lived, owner-scoped grant; an agent cannot self-approve with request flags. A grant may be restricted to one tool, recipient, campaign, amount, and use. Prohibited always wins. Enforcement applies to read and write tool invokes for your company.
 
 Policies are not a substitute for **tool grants**, **Maker/Checker**, or **IP allowlists**. Stack them: policy says what *should* happen; Action control, tools and Checker enforce what *can* happen.
 

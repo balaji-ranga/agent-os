@@ -10,8 +10,8 @@ This program strengthens seven product outcomes without duplicating foundations 
 | Unified execution and verified outcomes | **Completed baseline:** common vocabulary, typed nested evidence, durable goal→workflow/browser/Kanban correlation | Add new domain evidence adapters as additional side-effect tools are productized |
 | Operate bootstrap | **Hardened:** version history, same-version idempotency, critical workflow/runbook/policy acceptance gate, honest readiness | Expand vertical-specific acceptance fixtures as new blueprint packs ship |
 | Natural-language capability resolution | **Completed baseline:** live owner-scoped registry across published recipes/workflows, healthy connectors, entitled employees and online executors; deterministic scoring and durable decision evidence in goal steps | Add semantic embeddings only after deterministic production telemetry justifies them |
-| Browser maturity | **Completed baseline:** MV3 screenshot/cleanup acceptance, protocol-2 structured snapshots, executor capability routing, state-preserving resume and typed recipe replay verification | Continue snapshot compression and site-independent assertion authoring from recorder UX |
-| Policy-based autonomy | Action-family policy middleware, operating-model autonomy matrix, and owner-scoped exception policy: retry the failed goal/workflow step, then create a correlated recovery Kanban | Context rules (recipient, spend, known campaign), durable approval grants, platform-wide enforcement coverage |
+| Browser maturity | **Completed baseline:** MV3 screenshot/cleanup acceptance, protocol-2 structured snapshots, executor capability routing, capability-aware page extraction, state-preserving resume and typed recipe replay verification | Continue snapshot compression and site-independent assertion authoring from recorder UX |
+| Policy-based autonomy | **Hardened baseline:** action-family policy middleware for read/write invokes, explicit tool metadata classification, owner-scoped contextual single-use approval grants, immutable policy decisions, and exception retry → correlated recovery Kanban | Add domain-specific context adapters as new side-effect tools are productized |
 | CEO operations cockpit | Digest, OEI, Kanban, goal telemetry, LLMOps | One company pulse showing active, blocked, failed, unverified, cost, artifacts and next action |
 | Governed learning | Learnings, retrospectives, feedback, plan history | Versioned improvement proposals, evidence/diff, CEO accept/reject, never auto-weaken gates |
 
@@ -62,3 +62,11 @@ The Digest ends with a week-filtered, paginated **Execution history**. Goals exp
 - Autonomous resume preserves the prior plan and action history, stays pinned to the selected owner-scoped executor, and continues from the current page instead of reopening the start URL.
 - Recipe replay stores action receipts and produces typed outputs (`final_url`, `page_title`, receipt count, artifacts). Missing required evidence fails the replay rather than reporting success.
 - Recorder steps may carry optional `expect_text` and `expect_url` assertions; replay evaluates them against the final observed page.
+
+## Slice 5 — policy-based autonomy
+
+- Every agent tool invoke is classified as read/research, internal write, external communication/publish, or financial/destructive. Explicit tool metadata wins over name inference.
+- Autonomous actions proceed without per-run CEO confirmation. Prohibited actions always fail closed.
+- Approval-required actions accept only a short-lived owner-scoped grant issued by Flolah. Caller booleans cannot self-approve an agent action.
+- Grants may be constrained to one tool, recipient, campaign, maximum amount, and bounded use count. Only a hash is stored; the bearer value is redacted from tool logs and is not forwarded downstream.
+- Every allow/deny decision is recorded as mission evidence. The owner-scoped exception policy independently retries a failed goal/workflow step and then creates a correlated recovery Kanban when retries are exhausted.

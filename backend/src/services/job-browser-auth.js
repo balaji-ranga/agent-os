@@ -185,8 +185,17 @@ function parseInvokeText(result) {
     const outer = JSON.parse(result.text);
     // Local browser worker JSON: { ok, text|snapshot, ... }
     if (result.via === 'desktop_worker' || outer?.snapshot != null || (outer?.text && outer?.ok != null)) {
-      if (typeof outer.text === 'string') return outer.text;
-      if (typeof outer.snapshot === 'string') return outer.snapshot;
+      const visibleText = String(outer?.structured_snapshot?.visible_text_excerpt || '').trim();
+      if (typeof outer.text === 'string') {
+        return visibleText && !outer.text.includes(visibleText)
+          ? `${outer.text}\n\nVisible page text:\n${visibleText}`
+          : outer.text;
+      }
+      if (typeof outer.snapshot === 'string') {
+        return visibleText && !outer.snapshot.includes(visibleText)
+          ? `${outer.snapshot}\n\nVisible page text:\n${visibleText}`
+          : outer.snapshot;
+      }
       if (outer.result != null && typeof outer.result === 'object') {
         return JSON.stringify(outer.result);
       }

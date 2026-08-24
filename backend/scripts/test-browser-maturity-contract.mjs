@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { browserTaskResumeState, verifyRecipeReplayOutcome } from '../src/services/browser-tasks.js';
+import {
+  browserExecutorSupportsEvaluate,
+  browserTaskResumeState,
+  verifyRecipeReplayOutcome,
+} from '../src/services/browser-tasks.js';
 
 const recipe = { steps: [
   { action: 'open', args: { url: 'https://example.com', expect_url: '^https://example\\.com' } },
@@ -24,6 +28,10 @@ const resume = browserTaskResumeState({ steps: [
 assert.equal(resume.resumed, true);
 assert.equal(resume.steps.length, 2);
 assert.equal(resume.execution_plan.steps[0].goal, 'Open');
+
+assert.equal(browserExecutorSupportsEvaluate({ driver_mode: 'chrome_extension', capabilities: { actions: ['act'] } }), false);
+assert.equal(browserExecutorSupportsEvaluate({ driver_mode: 'chrome_extension', capabilities: { actions: ['act', 'evaluate'] } }), true);
+assert.equal(browserExecutorSupportsEvaluate({ driver_mode: 'playwright_chrome', capabilities: { actions: ['act'] } }), true);
 
 const extensionPath = fileURLToPath(new URL('../flolah-chrome-extension/background.js', import.meta.url));
 const extension = readFileSync(extensionPath, 'utf8');

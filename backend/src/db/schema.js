@@ -2515,6 +2515,23 @@ export function initDb() {
       );
     `);
     _db.exec(`
+      CREATE TABLE IF NOT EXISTS action_approval_grants (
+        id TEXT PRIMARY KEY,
+        owner_user_id TEXT NOT NULL,
+        token_hash TEXT NOT NULL UNIQUE,
+        action_family TEXT NOT NULL,
+        tool_name TEXT DEFAULT '',
+        constraints_json TEXT DEFAULT '{}',
+        remaining_uses INTEGER NOT NULL DEFAULT 1,
+        expires_at TEXT NOT NULL,
+        revoked_at TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        used_at TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_action_approval_grants_owner
+        ON action_approval_grants(owner_user_id, expires_at DESC);
+    `);
+    _db.exec(`
       CREATE TABLE IF NOT EXISTS tool_write_idempotency (
         owner_user_id TEXT NOT NULL,
         tool_name TEXT NOT NULL,

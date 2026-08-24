@@ -52,6 +52,18 @@ const LOGIN_HINT_RE =
   /sign in|log in|login|authwall|password|verify you|captcha|challenge/i;
 const browserTaskContext = new AsyncLocalStorage();
 
+/** Arbitrary page JavaScript is intentionally not part of the MV3 extension contract. */
+export function browserExecutorSupportsEvaluate(node) {
+  if (!node || node.driver_mode !== 'chrome_extension') return true;
+  return node.capabilities?.evaluate === true || node.capabilities?.actions?.includes?.('evaluate');
+}
+
+function currentExecutorSupportsEvaluate(ceoUserId) {
+  const pinned = browserTaskContext.getStore();
+  if (!pinned?.selected_node_id) return true;
+  return browserExecutorSupportsEvaluate(getBrowserExecutorNode(ceoUserId, pinned.selected_node_id));
+}
+
 function nowIso() {
   return new Date().toISOString();
 }
@@ -208,7 +220,7 @@ export function listBrowserTasks(
 
 
 async function getCurrentPageUrl(ceoUserId, agentId = 'workflowbuilder') {
-  try {
+  if (currentExecutorSupportsEvaluate(ceoUserId)) try {
     const ev = await browserInvoke(
       ceoUserId,
       'evaluate',
@@ -332,6 +344,7 @@ async function takeSnapshot(ceoUserId, agentId = 'workflowbuilder', { limit = 60
  * Site-specific DOM helper: Cheapflights result cards can be weak in a11y trees.
  */
 async function extractFlightResultsDomText(ceoUserId, agentId) {
+  if (!currentExecutorSupportsEvaluate(ceoUserId)) return '';
   const fn = `() => {
     const roots = [
       document.querySelector('#flight-results-list-wrapper'),
@@ -377,6 +390,7 @@ async function extractFlightResultsDomText(ceoUserId, agentId) {
 
 /** Generic DOM fallback for pages whose accessibility tree omits visible content. */
 async function extractVisibleDomText(ceoUserId, agentId, selectors = []) {
+  if (!currentExecutorSupportsEvaluate(ceoUserId)) return '';
   const requested = Array.isArray(selectors) ? selectors.filter(Boolean) : [];
   const fn = '() => {' +
     'const selectors = ' + JSON.stringify(requested) + ';' +

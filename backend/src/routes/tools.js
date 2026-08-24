@@ -244,7 +244,11 @@ function logContentTool(toolName, requestPayload, responsePayload, status, sourc
     ).run(
       toolName,
       source || ctx.memberKey || ctx.agentId || null,
-      typeof requestPayload === 'string' ? requestPayload : JSON.stringify(requestPayload || {}),
+      typeof requestPayload === 'string'
+        ? requestPayload
+        : JSON.stringify(requestPayload && typeof requestPayload === 'object'
+          ? { ...requestPayload, ...(requestPayload.approval_token ? { approval_token: '[redacted]' } : {}) }
+          : {}),
       typeof responsePayload === 'string' ? responsePayload : JSON.stringify(responsePayload || {}),
       status,
       ownerUserId || ctx.ownerUserId || null,
@@ -3392,7 +3396,7 @@ router.post('/invoke', requireToolsAccess, async (req, res) => {
       }
       if (!headers['x-ceo-user-id']) headers['x-ceo-user-id'] = ownerUserId;
     }
-    const policy = evaluateActionPolicy({
+    const policy = req.actionPolicy || evaluateActionPolicy({
       ownerUserId,
       toolName,
       body: params,
@@ -3402,6 +3406,8 @@ router.post('/invoke', requireToolsAccess, async (req, res) => {
       logTool(req, toolName, req.body, policy, 'error', source);
       return res.status(Number(policy.status) || 403).json(policy);
     }
+    // Approval grants authorize this hop only. Never forward or persist the bearer token downstream.
+    delete params.approval_token;
     if (row.auth_header && typeof row.auth_header === 'string' && row.auth_header.trim()) {
       headers['Authorization'] = row.auth_header.trim();
     }

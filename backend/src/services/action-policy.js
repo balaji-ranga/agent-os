@@ -3,6 +3,7 @@
  * Risk tiers R0–R3 inferred from tool names; CEO Control overrides per family.
  * Owner-scoped. Does not trust body ceo_user_id for authorization.
  */
+import { createHash, randomBytes, randomUUID } from 'crypto';
 import { getDb } from '../db/schema.js';
 import { resolveToolOwnerUserIdOrNull, resolveEntitledOwnerUserId } from './tool-owner-scope.js';
 import { resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
@@ -29,6 +30,23 @@ export function ensureActionPolicyTables() {
       updated_at TEXT DEFAULT (datetime('now')),
       PRIMARY KEY (owner_user_id, family)
     );
+  `);
+  getDb().exec(`
+    CREATE TABLE IF NOT EXISTS action_approval_grants (
+      id TEXT PRIMARY KEY,
+      owner_user_id TEXT NOT NULL,
+      token_hash TEXT NOT NULL UNIQUE,
+      action_family TEXT NOT NULL,
+      tool_name TEXT DEFAULT '',
+      constraints_json TEXT DEFAULT '{}',
+      remaining_uses INTEGER NOT NULL DEFAULT 1,
+      expires_at TEXT NOT NULL,
+      revoked_at TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      used_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_action_approval_grants_owner
+      ON action_approval_grants(owner_user_id, expires_at DESC);
   `);
   try {
     const cols = getDb().prepare('PRAGMA table_info(content_tools_meta)').all().map((c) => c.name);
@@ -58,6 +76,87 @@ export function inferRiskForTool(toolName) {
     return { risk_tier: 'R1', action_family: 'write_internal' };
   }
   return { risk_tier: 'R0', action_family: 'read' };
+}
+
+function explicitRiskForTool(toolName) {
+  try {
+    const row = getDb().prepare(
+      'SELECT risk_tier, action_family FROM content_tools_meta WHERE name = ?'
+    ).get(String(toolName || '').trim());
+    const family = String(row?.action_family || '').trim();
+    const tier = String(row?.risk_tier || '').trim().toUpperCase();
+    if (ACTION_FAMILIES.some((item) => item.id === family) && /^R[0-3]$/.test(tier)) {
+      return { risk_tier: tier, action_family: family, source: 'tool_metadata' };
+    }
+  } catch (_) {}
+  return null;
+}
+
+export function resolveRiskForTool(toolName) {
+  return explicitRiskForTool(toolName) || { ...inferRiskForTool(toolName), source: 'inferred' };
+}
+
+const approvalHash = (token) => createHash('sha256').update(String(token || '')).digest('hex');
+
+export function createActionApprovalGrant(ownerUserId, {
+  family,
+  toolName = '',
+  constraints = {},
+  ttlSeconds = 900,
+  uses = 1,
+} = {}) {
+  ensureActionPolicyTables();
+  const owner = String(ownerUserId || '').trim();
+  const actionFamily = String(family || '').trim();
+  if (!owner) throw Object.assign(new Error('CEO context required'), { status: 403 });
+  if (!ACTION_FAMILIES.some((item) => item.id === actionFamily)) {
+    throw Object.assign(new Error('Valid action family required'), { status: 400 });
+  }
+  const token = `fap_${randomBytes(32).toString('base64url')}`;
+  const id = `aag-${randomUUID()}`;
+  const expiresAt = new Date(Date.now() + Math.min(86400, Math.max(60, Number(ttlSeconds) || 900)) * 1000).toISOString();
+  getDb().prepare(
+    `INSERT INTO action_approval_grants
+      (id, owner_user_id, token_hash, action_family, tool_name, constraints_json, remaining_uses, expires_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(id, owner, approvalHash(token), actionFamily, String(toolName || '').trim(),
+    JSON.stringify(constraints && typeof constraints === 'object' ? constraints : {}),
+    Math.min(100, Math.max(1, Number(uses) || 1)), expiresAt);
+  return { id, token, action_family: actionFamily, tool_name: String(toolName || '').trim(), expires_at: expiresAt };
+}
+
+function constraintsMatch(constraints, body) {
+  const c = constraints && typeof constraints === 'object' ? constraints : {};
+  const recipient = String(body?.recipient || body?.to || body?.email || body?.phone || '').trim().toLowerCase();
+  const allowed = Array.isArray(c.allowed_recipients) ? c.allowed_recipients.map((v) => String(v).trim().toLowerCase()) : [];
+  if (allowed.length && (!recipient || !allowed.includes(recipient))) return false;
+  if (c.max_amount != null) {
+    const amount = Number(body?.amount ?? body?.total ?? body?.value);
+    if (!Number.isFinite(amount) || amount > Number(c.max_amount)) return false;
+  }
+  if (c.campaign_id != null && String(body?.campaign_id || '') !== String(c.campaign_id)) return false;
+  return true;
+}
+
+export function consumeActionApprovalGrant(ownerUserId, token, { family, toolName, body = {} } = {}) {
+  ensureActionPolicyTables();
+  const raw = String(token || '').trim();
+  if (!raw) return { ok: false, reason: 'missing' };
+  const row = getDb().prepare(
+    `SELECT * FROM action_approval_grants
+      WHERE owner_user_id = ? AND token_hash = ? AND revoked_at IS NULL`
+  ).get(String(ownerUserId || ''), approvalHash(raw));
+  if (!row || Date.parse(row.expires_at) <= Date.now() || Number(row.remaining_uses) < 1) return { ok: false, reason: 'invalid_or_expired' };
+  if (row.action_family !== family || (row.tool_name && row.tool_name !== toolName)) return { ok: false, reason: 'scope_mismatch' };
+  let constraints = {};
+  try { constraints = JSON.parse(row.constraints_json || '{}'); } catch (_) {}
+  if (!constraintsMatch(constraints, body)) return { ok: false, reason: 'context_mismatch' };
+  const used = getDb().prepare(
+    `UPDATE action_approval_grants
+        SET remaining_uses = remaining_uses - 1, used_at = datetime('now')
+      WHERE id = ? AND remaining_uses > 0 AND revoked_at IS NULL`
+  ).run(row.id);
+  return used.changes === 1 ? { ok: true, grant_id: row.id } : { ok: false, reason: 'already_used' };
 }
 
 export function getActionFamilyPolicies(ownerUserId) {
@@ -114,27 +213,29 @@ export function evaluateActionPolicy({
   ensureActionPolicyTables();
   const tool = String(toolName || '').trim();
   if (!tool) return { ok: true, skipped: true, reason: 'no_tool' };
-  const inferred = inferRiskForTool(tool);
+  const inferred = resolveRiskForTool(tool);
   const families = getActionFamilyPolicies(ownerUserId);
   const row = families.find((f) => f.family === inferred.action_family) || families[0];
   const mode = row?.mode || 'autonomous';
-  const approved =
-    body?.ceo_approved === true ||
-    body?.ceoApproved === true ||
-    body?.confirm === true ||
-    String(body?.approval_token || '').trim().length > 0;
+  const approval = mode === 'approval_required'
+    ? consumeActionApprovalGrant(ownerUserId, body?.approval_token, {
+        family: inferred.action_family,
+        toolName: tool,
+        body,
+      })
+    : { ok: true };
 
   if (mode === 'prohibited') {
     return deny(ownerUserId, tool, inferred, mode, goalRunId, 'Action family is prohibited for this company.');
   }
-  if (mode === 'approval_required' && !approved) {
+  if (mode === 'approval_required' && !approval.ok) {
     return deny(
       ownerUserId,
       tool,
       inferred,
       mode,
       goalRunId,
-      'This action family requires CEO approval before execution.'
+      `This action family requires a valid CEO approval grant before execution (${approval.reason}).`
     );
   }
   recordSafe(ownerUserId, goalRunId, {
@@ -146,6 +247,8 @@ export function evaluateActionPolicy({
     mode,
     risk_tier: inferred.risk_tier,
     action_family: inferred.action_family,
+    classification_source: inferred.source,
+    approval_grant_id: approval.grant_id || null,
   };
 }
 
@@ -175,7 +278,7 @@ function recordSafe(ownerUserId, goalRunId, ev) {
 }
 
 export function actionPolicyMiddleware(req, res, next) {
-  if (req.method === 'OPTIONS' || req.method === 'HEAD' || req.method === 'GET') return next();
+  if (req.method === 'OPTIONS' || req.method === 'HEAD') return next();
   const path = String(req.path || '');
   if (path.startsWith('/rate-limits') || path.startsWith('/model-mappings')) return next();
 

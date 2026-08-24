@@ -23,7 +23,7 @@ On the same **Policies** page, set three states per action family for **your com
 | External messages / publish | Approval required | `email_send`, public posts |
 | Financial / destructive | Prohibited until you allow | Delete, refund, live trade |
 
-**Approval required** blocks the tool unless the call includes CEO approval (`ceo_approved` / `confirm`). **Prohibited** always blocks. These rules are enforced on tool invoke for the entitled CEO — they do not replace tool grants or Maker/Checker.
+**Approval required** blocks the tool unless it carries a short-lived, owner-scoped approval grant issued by Flolah for that action. An agent cannot approve itself with request flags. Grants can be single-use and constrained to a tool, recipient, campaign, or maximum amount. **Prohibited** always blocks, even when a grant is supplied. These rules are enforced on read and write tool invokes for the entitled CEO — they do not replace tool grants or Maker/Checker.
 
 ## How agents see it
 

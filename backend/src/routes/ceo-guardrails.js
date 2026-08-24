@@ -8,7 +8,11 @@ import {
   upsertCeoGuardrails,
   enrichPolicyTextWithAi,
 } from '../services/ceo-guardrails.js';
-import { getActionFamilyPolicies, upsertActionFamilyPolicies } from '../services/action-policy.js';
+import {
+  createActionApprovalGrant,
+  getActionFamilyPolicies,
+  upsertActionFamilyPolicies,
+} from '../services/action-policy.js';
 import { syncOrgContextForCeo } from '../services/org-context.js';
 import { getUserById } from '../services/users.js';
 import { getExceptionPolicy, upsertExceptionPolicy } from '../services/exception-policy.js';
@@ -61,6 +65,16 @@ router.put('/action-control', requireAuth, requireCeoOrAdmin, (req, res) => {
     const policies = req.body?.policies || req.body?.action_control || [];
     const action_control = upsertActionFamilyPolicies(ceoUserId, policies);
     res.json({ action_control });
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || String(e) });
+  }
+});
+
+router.post('/action-approval-grants', requireAuth, requireCeoOrAdmin, (req, res) => {
+  try {
+    const ceoUserId = resolveAuthenticatedCeoUserId(req);
+    if (!ceoUserId) return res.status(403).json({ error: 'CEO context required' });
+    res.status(201).json({ approval_grant: createActionApprovalGrant(ceoUserId, req.body || {}) });
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message || String(e) });
   }
