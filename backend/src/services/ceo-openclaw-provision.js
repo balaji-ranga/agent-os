@@ -6,6 +6,7 @@ import { ensureTenantOpenClawAgent } from './openclaw-tenant.js';
 import { syncAllowlistsFile } from './openclaw-agent-tools.js';
 import { syncOrgContextForCeo } from './org-context.js';
 import { syncUserLlmToOpenClaw } from './user-llm-settings.js';
+import { ensureAllToolServiceCredentials } from './tool-scoped-token.js';
 
 /** Ensure tenant OpenClaw agents + allowlists for every enabled user_agents row. */
 export async function provisionCeoOpenClawAgents(ceoUserId) {
@@ -33,6 +34,7 @@ export async function provisionCeoOpenClawAgents(ceoUserId) {
     }
   }
   syncAllowlistsFile();
+  ensureAllToolServiceCredentials();
   // Re-sync BYOK provider + auth profiles now that tenant agent dirs exist.
   let llmSync = null;
   try {

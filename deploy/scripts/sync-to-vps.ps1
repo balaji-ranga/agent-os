@@ -472,6 +472,8 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\test-browser-task-routing.mjs" `
     "$Repo\backend\scripts\test-exception-policy.mjs" `
     "$Repo\backend\scripts\test-action-policy-autonomy.mjs" `
+    "$Repo\backend\scripts\test-critical-security-hardening.mjs" `
+    "$Repo\backend\scripts\custom-script-runner-worker.mjs" `
     "$Repo\backend\scripts\test-coo-native-file-skip.js" `
     "$Repo\backend\scripts\test-agent-workflow-runs-tool.js" `
     "$Repo\backend\scripts\verify-coo-agents-md.js" `

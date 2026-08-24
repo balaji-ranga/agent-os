@@ -7,6 +7,7 @@ import { getPublicBaseUrl } from '../config/public-url.js';
 import { hashPassword } from './auth/password.js';
 import { sendSmtpMail, smtpFromEnv } from './agent-workflow-tasks.js';
 import { revokeAllSessions } from './auth/session.js';
+import { assertStrongPassword } from './password-policy.js';
 
 const TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 
@@ -156,11 +157,7 @@ export function consumePasswordResetToken(rawToken, newPassword) {
     err.status = 400;
     throw err;
   }
-  if (pwd.length < 8) {
-    const err = new Error('Password must be at least 8 characters');
-    err.status = 400;
-    throw err;
-  }
+  assertStrongPassword(pwd);
   const db = getDb();
   const row = db.prepare('SELECT * FROM password_reset_tokens WHERE token_hash = ?').get(hashToken(token));
   if (!row) {

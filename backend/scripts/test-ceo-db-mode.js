@@ -10,14 +10,14 @@ const stamp = Date.now().toString(36);
 const shared = await registerCeoUser({
     accept_terms: true,
     email: `shared-${stamp}@test.local`,
-  password: 'x',
+  password: 'test-password-strong',
   name: 'Shared User',
   db_mode: 'shared',
 });
 const tenant = await registerCeoUser({
     accept_terms: true,
     email: `tenant-${stamp}@test.local`,
-  password: 'x',
+  password: 'test-password-strong',
   name: 'Tenant User',
   db_mode: 'tenant',
 });

@@ -1,12 +1,11 @@
 /**
- * Run user custom scripts in an isolated subprocess with timeout.
- * Short/simple JS scripts also support in-process evaluation to avoid stdin pipe hangs under load.
+ * Run user custom scripts outside the backend process with a bounded timeout.
  */
 import { spawn } from "child_process";
 import { dirname, join } from "path";
-import { fileURLToPath, pathToFileURL } from "url";
-import { writeFileSync, mkdtempSync, rmSync } from "fs";
-import { tmpdir } from "os";
+import { fileURLToPath } from "url";
+import { randomUUID } from 'node:crypto';
+import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { DEFAULT_NODE_TIMEOUT_MS } from "./agent-workflow-node-timeout.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -58,51 +57,17 @@ function slimSandboxContext(context = {}) {
   };
 }
 
-async function runJsInProcess(source, inputs, context, timeoutMs) {
-  const dir = mkdtempSync(join(tmpdir(), "aos-script-ip-"));
-  const scriptPath = join(dir, "user-script.mjs");
-  const hasDefaultExport = /\bexport\s+default\b/.test(String(source || ""));
-  const wrapped = hasDefaultExport
-    ? String(source || "")
-    : String(source || "") + "\nexport default typeof run !== \"undefined\" ? run : undefined;\n";
-  writeFileSync(scriptPath, wrapped, "utf8");
-  try {
-    const mod = await import(pathToFileURL(scriptPath).href + "?t=" + Date.now());
-    const fn =
-      typeof mod.default === "function"
-        ? mod.default
-        : typeof mod.run === "function"
-          ? mod.run
-          : typeof mod.default?.run === "function"
-            ? mod.default.run
-            : null;
-    if (typeof fn !== "function") {
-      return { ok: false, error: "Script must export run(inputs, context)" };
-    }
-    const result = await Promise.race([
-      Promise.resolve().then(() => fn(inputs, context)),
-      new Promise((_, rej) => setTimeout(() => rej(new Error("Script timeout")), timeoutMs)),
-    ]);
-    const out = result && typeof result === "object" ? result : { text: String(result ?? "") };
-    return { ok: true, output: out };
-  } catch (e) {
-    return { ok: false, error: e.message || String(e) };
-  } finally {
-    try {
-      rmSync(dir, { recursive: true, force: true });
-    } catch (_) {}
-  }
-}
-
 function runSubprocess(cmd, args, stdinPayload, timeoutMs) {
   const effectiveTimeout = Number(timeoutMs) > 0 ? Number(timeoutMs) : ENV_TIMEOUT_MS;
   return new Promise((resolve) => {
     const child = spawn(cmd, args, {
       stdio: ["pipe", "pipe", "pipe"],
       env: {
-        ...process.env,
+        PATH: process.env.PATH || '/usr/local/bin:/usr/bin:/bin',
+        LANG: 'C.UTF-8',
         CUSTOM_SCRIPT_TIMEOUT_MS: String(Math.min(effectiveTimeout, 60000)),
         PYTHONDONTWRITEBYTECODE: "1",
+        NODE_NO_WARNINGS: '1',
       },
       windowsHide: true,
     });
@@ -165,6 +130,45 @@ function runSubprocess(cmd, args, stdinPayload, timeoutMs) {
   });
 }
 
+async function runRemoteSandbox(payload, timeoutMs) {
+  const jobsDir = String(process.env.CUSTOM_SCRIPT_RUNNER_JOBS_DIR || '').trim();
+  if (!jobsDir) {
+    if (process.env.NODE_ENV === 'production') {
+      return { ok: false, error: 'Custom script runner is not configured' };
+    }
+    return null;
+  }
+  if (String(payload.runtimeProfile || 'restricted').toLowerCase() === 'network') {
+    return { ok: false, error: 'Network custom scripts are disabled by the hardened runner; use an API workflow node with URL policy instead' };
+  }
+  await mkdir(jobsDir, { recursive: true });
+  const id = randomUUID();
+  const tempPath = join(jobsDir, `.${id}.tmp`);
+  const requestPath = join(jobsDir, `${id}.request.json`);
+  const resultPath = join(jobsDir, `${id}.result.json`);
+  const deadline = Date.now() + Math.min(timeoutMs, 60000) + 3000;
+  try {
+    await writeFile(tempPath, JSON.stringify(payload), { encoding: 'utf8', mode: 0o600 });
+    await rename(tempPath, requestPath);
+    while (Date.now() < deadline) {
+      try {
+        const data = JSON.parse(await readFile(resultPath, 'utf8'));
+        return data;
+      } catch (e) {
+        if (e?.code !== 'ENOENT' && !(e instanceof SyntaxError)) throw e;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    return { ok: false, error: 'Custom script runner timed out' };
+  } catch (e) {
+    return { ok: false, error: e.message || String(e) };
+  } finally {
+    for (const path of [tempPath, requestPath, resultPath]) {
+      try { await unlink(path); } catch {}
+    }
+  }
+}
+
 export async function runCustomScriptInSandbox({
   source,
   language = "python",
@@ -180,12 +184,11 @@ export async function runCustomScriptInSandbox({
       ? Math.min(Number(timeoutMs), 60000)
       : Math.min(ENV_TIMEOUT_MS, 60000);
 
-  // JS under 64KB: run in-process (avoids spawn/stdin hangs that stuck W1 parse/maker on VPS).
-  if ((lang === "javascript" || lang === "js") && String(source || "").length < 65536) {
-    return runJsInProcess(source, inputs, slimCtx, cappedTimeout);
-  }
+  const payload = { source, language: lang, inputs, context: slimCtx, runtimeProfile };
+  const remote = await runRemoteSandbox(payload, cappedTimeout);
+  if (remote) return remote;
 
-  const payload = { source, inputs, context: slimCtx, runtimeProfile };
+  // Development fallback only. Production always uses the isolated runner service.
   if (lang === "javascript" || lang === "js") {
     return runSubprocess(NODE_BIN, [SANDBOX_JS], payload, cappedTimeout);
   }

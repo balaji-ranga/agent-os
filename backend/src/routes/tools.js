@@ -154,6 +154,7 @@ const KANBAN_STATUSES = ['open', 'awaiting_confirmation', 'in_progress', 'comple
 
 function getCallerAgent(req) {
   const id = (
+    req.toolsAgentId ||
     req.headers['x-openclaw-agent-id'] ||
     req.headers['x-agent-id'] ||
     req.body?.caller_agent_id ||

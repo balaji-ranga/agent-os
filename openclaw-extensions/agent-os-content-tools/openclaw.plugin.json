@@ -1,7 +1,7 @@
 {
   "id": "agent-os-content-tools",
   "name": "Agent OS Content Tools",
-  "description": "Register Agent OS content/workflow/kanban tools that call the backend. No hardcoded URLs; baseUrl and apiKey from config or env.",
+  "description": "Register Agent OS content/workflow/kanban tools that call the backend with owner/agent-scoped credentials.",
   "version": "1.1.1",
   "activation": {
     "onStartup": true
@@ -187,10 +187,6 @@
       "baseUrl": {
         "type": "string",
         "description": "Agent OS backend base URL (e.g. http://backend:3001). Overrides AGENT_OS_API_URL env."
-      },
-      "apiKey": {
-        "type": "string",
-        "description": "Optional. Bearer token for backend auth (overrides TOOLS_API_KEY env)."
       }
     }
   }

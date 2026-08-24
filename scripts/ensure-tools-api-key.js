@@ -1,9 +1,9 @@
 /**
- * Ensure TOOLS_API_KEY exists and stays in sync between backend env and openclaw.json.
+ * Ensure the transitional backend/internal-sidecar TOOLS_API_KEY exists.
  *
  * Local dev:
  *   node scripts/ensure-tools-api-key.js
- *   → backend/.env + ~/.openclaw/openclaw.json
+ *   → backend/.env; removes any legacy shared key from openclaw.json
  *
  * Docker deploy (before init):
  *   node scripts/ensure-tools-api-key.js --env-file deploy/.env --skip-openclaw
@@ -34,8 +34,8 @@ function parseArgs(argv) {
     if (arg === '-h' || arg === '--help') {
       console.log(`Usage: node scripts/ensure-tools-api-key.js [--env-file PATH] [--skip-openclaw]
 
-Ensures TOOLS_API_KEY is set in the env file and (unless --skip-openclaw) in openclaw.json
-plugins.entries['agent-os-content-tools'].config.apiKey.
+Ensures TOOLS_API_KEY is set in the env file. Unless --skip-openclaw, removes the
+legacy shared content-tools apiKey from openclaw.json.
 
 Default env file: backend/.env
 OpenClaw config: OPENCLAW_CONFIG_PATH or ~/.openclaw/openclaw.json`);
@@ -57,14 +57,14 @@ function ensureEnvKey(envPath) {
   } else {
     key = randomBytes(24).toString('hex');
     const prefix = content.length && !content.endsWith('\n') ? '\n' : '';
-    const line = `${prefix}\n# OpenClaw content-tools plugin auth (auto-generated)\nTOOLS_API_KEY=${key}\n`;
+    const line = `${prefix}\n# Backend/internal-sidecar tool auth (auto-generated)\nTOOLS_API_KEY=${key}\n`;
     writeFileSync(envPath, content + line, 'utf8');
     console.log(`Added TOOLS_API_KEY to ${envPath}`);
   }
   return key;
 }
 
-function ensureOpenClawConfig(key, internalApiUrl) {
+function ensureOpenClawConfig(_key, internalApiUrl) {
   const configPath = resolveOpenClawConfigPath();
   if (!existsSync(configPath)) {
     console.warn('openclaw.json not found at', configPath);
@@ -75,7 +75,8 @@ function ensureOpenClawConfig(key, internalApiUrl) {
   if (!config.plugins.entries) config.plugins.entries = {};
   const entry = config.plugins.entries['agent-os-content-tools'] || { enabled: true, config: {} };
   entry.enabled = entry.enabled !== false;
-  entry.config = { ...(entry.config || {}), apiKey: key };
+  entry.config = { ...(entry.config || {}) };
+  delete entry.config.apiKey;
   if (!entry.config.baseUrl) {
     entry.config.baseUrl =
       internalApiUrl ||
@@ -85,7 +86,7 @@ function ensureOpenClawConfig(key, internalApiUrl) {
   }
   config.plugins.entries['agent-os-content-tools'] = entry;
   writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
-  console.log('Updated openclaw.json agent-os-content-tools.config.apiKey');
+  console.log('Removed legacy shared content-tools apiKey from openclaw.json');
 }
 
 const { envFile, skipOpenClaw } = parseArgs(process.argv.slice(2));

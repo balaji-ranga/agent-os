@@ -182,6 +182,7 @@ export function resolveEntitledOwnerUserId(req, { fallbackToBala = true } = {}) 
 }
 
 export function resolveToolOwnerUserId(req, body = {}, resolveAuthenticatedCeoUserId = null) {
+  if (req?.toolsOwnerUserId) return String(req.toolsOwnerUserId).trim();
   // Skip placeholder internalServiceUser (always ceo-bala) — resolve from session/tenant/headers.
   if (req?.authUser?.role === 'ceo' && !isPlaceholderServiceUser(req.authUser)) {
     return req.authUser.id;

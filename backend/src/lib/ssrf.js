@@ -4,6 +4,7 @@
  */
 import dns from 'node:dns/promises';
 import net from 'node:net';
+import https from 'node:https';
 
 const BLOCKED_HOSTS = new Set([
   'localhost',
@@ -147,7 +148,7 @@ export async function assertPublicResolvedHost(urlObj) {
   if (net.isIP(host) || decodeIpv4Literal(host)) {
     const ip = net.isIP(host) ? host : decodeIpv4Literal(host);
     if (isPrivateIp(ip)) fail('URL host is not allowed');
-    return;
+    return [{ address: ip, family: net.isIP(ip) }];
   }
   let addrs = [];
   try {
@@ -161,6 +162,7 @@ export async function assertPublicResolvedHost(urlObj) {
   for (const a of addrs) {
     if (isPrivateIp(a.address)) fail('URL host is not allowed');
   }
+  return addrs;
 }
 
 /**
@@ -171,6 +173,55 @@ export async function assertSafeOutboundHttpsUrl(raw, opts = {}) {
   const parsed = parsePublicHttpsUrl(raw, opts);
   await assertPublicResolvedHost(parsed);
   return toSafeHref(parsed);
+}
+
+/** HTTPS request pinned to an address that passed the public-IP check (prevents DNS rebinding). */
+export async function requestValidatedHttps(rawUrl, {
+  method = 'GET', headers = {}, body = null, signal, allowedDomains, maxBytes = 1024 * 1024,
+} = {}) {
+  const parsed = parsePublicHttpsUrl(rawUrl, { httpsOnly: true, allowedDomains });
+  const addresses = await assertPublicResolvedHost(parsed);
+  const pinned = addresses[0];
+  const hostname = normalizeHost(parsed.hostname);
+  return new Promise((resolve, reject) => {
+    const request = https.request(parsed, {
+      method,
+      headers,
+      servername: net.isIP(hostname) ? undefined : hostname,
+      lookup(_host, options, callback) {
+        if (options?.all) callback(null, [pinned]);
+        else callback(null, pinned.address, pinned.family);
+      },
+    }, (response) => {
+      const chunks = [];
+      let size = 0;
+      response.on('data', (chunk) => {
+        size += chunk.length;
+        if (size > maxBytes) {
+          request.destroy(new SafeOutboundUrlError('Response too large', 502));
+          return;
+        }
+        chunks.push(chunk);
+      });
+      response.on('end', () => {
+        const textValue = Buffer.concat(chunks).toString('utf8');
+        resolve({
+          status: Number(response.statusCode || 0),
+          ok: Number(response.statusCode || 0) >= 200 && Number(response.statusCode || 0) < 300,
+          headers: response.headers,
+          text: async () => textValue,
+          json: async () => JSON.parse(textValue),
+        });
+      });
+    });
+    request.on('error', reject);
+    if (signal) {
+      if (signal.aborted) request.destroy(new Error('Request aborted'));
+      else signal.addEventListener('abort', () => request.destroy(new Error('Request aborted')), { once: true });
+    }
+    if (body != null) request.write(body);
+    request.end();
+  });
 }
 
 /**

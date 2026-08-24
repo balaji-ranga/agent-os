@@ -33,6 +33,7 @@ import {
 import { getLlmCatalogPublic } from '../services/user-llm-settings.js';
 import { getServerTimezone } from '../utils/format-datetime.js';
 import { getLegalVersionsPublic } from '../services/legal-terms.js';
+import { authRateLimit } from '../middleware/auth-rate-limit.js';
 
 const router = Router();
 
@@ -69,7 +70,7 @@ router.get('/mfa/defaults', (_req, res) => {
   res.json(getPlatformMfaDefaults());
 });
 
-router.post('/register', async (req, res) => {
+router.post('/register', authRateLimit('register', { ipLimit: 5, accountLimit: 3, windowMs: 60 * 60 * 1000 }), async (req, res) => {
   try {
     const {
       email,
@@ -131,7 +132,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', authRateLimit('login', { ipLimit: 30, accountLimit: 10, windowMs: 15 * 60 * 1000, resetOnSuccess: true }), async (req, res) => {
   try {
     ensureMfaTables();
     const { email, password } = req.body || {};
@@ -146,7 +147,7 @@ router.post('/login', async (req, res) => {
   }
 });
 
-router.post('/admin/login', async (req, res) => {
+router.post('/admin/login', authRateLimit('admin-login', { ipLimit: 15, accountLimit: 5, windowMs: 15 * 60 * 1000, resetOnSuccess: true }), async (req, res) => {
   try {
     ensureMfaTables();
     const { email, password } = req.body || {};
@@ -160,7 +161,7 @@ router.post('/admin/login', async (req, res) => {
 });
 
 /** Complete MFA after password step (login challenge). */
-router.post('/mfa/verify', (req, res) => {
+router.post('/mfa/verify', authRateLimit('mfa-verify', { ipLimit: 20, accountLimit: 8, windowMs: 10 * 60 * 1000, accountField: 'mfa_token', resetOnSuccess: true }), (req, res) => {
   try {
     const { mfa_token, code } = req.body || {};
     if (!mfa_token || !code) return res.status(400).json({ error: 'mfa_token and code required' });
@@ -171,7 +172,7 @@ router.post('/mfa/verify', (req, res) => {
 });
 
 /** Resend email OTP (MFA_MODE=EMAIL only). */
-router.post('/mfa/resend', async (req, res) => {
+router.post('/mfa/resend', authRateLimit('mfa-resend', { ipLimit: 10, accountLimit: 3, windowMs: 15 * 60 * 1000, accountField: 'mfa_token' }), async (req, res) => {
   try {
     const { mfa_token } = req.body || {};
     if (!mfa_token) return res.status(400).json({ error: 'mfa_token required' });
@@ -348,7 +349,7 @@ router.patch('/me', requireAuth, (req, res) => {
 ensurePasswordResetTables();
 
 /** Public: request password reset email (always generic response). */
-router.post('/forgot-password', async (req, res) => {
+router.post('/forgot-password', authRateLimit('forgot-password', { ipLimit: 10, accountLimit: 5, windowMs: 60 * 60 * 1000 }), async (req, res) => {
   try {
     const email = String(req.body?.email || '').trim();
     if (!email) return res.status(400).json({ error: 'email required' });
@@ -359,7 +360,7 @@ router.post('/forgot-password', async (req, res) => {
 });
 
 /** Public: set new password with token from email link. */
-router.post('/reset-password', (req, res) => {
+router.post('/reset-password', authRateLimit('reset-password', { ipLimit: 12, accountLimit: 6, windowMs: 60 * 60 * 1000, accountField: 'token' }), (req, res) => {
   try {
     const token = req.body?.token;
     const password = req.body?.password || req.body?.new_password;

@@ -14,6 +14,7 @@ import {
   isUnsetApiKeyRow,
 } from './user-api-keys.js';
 import { getMcpServer } from './mcp-servers.js';
+import { parsePublicHttpsUrl, requestValidatedHttps } from '../lib/ssrf.js';
 
 const STATE_TTL_MS = 15 * 60 * 1000;
 const META_GRAPH_DEFAULT_SCOPES = [
@@ -445,6 +446,8 @@ export function upsertOauthConfig(serverId, body = {}, authUser) {
   if (!authorization_url || !token_url) {
     throw Object.assign(new Error('authorization_url and token_url are required'), { status: 400 });
   }
+  parsePublicHttpsUrl(authorization_url, { httpsOnly: true });
+  parsePublicHttpsUrl(token_url, { httpsOnly: true });
 
   let client_id = template.client_id || '';
   if (body.client_id != null || body.clientId != null) {
@@ -850,7 +853,7 @@ async function exchangeCodeForTokens(cfg, code) {
 
   let tokenRes;
   if (style === 'json') {
-    tokenRes = await fetch(cfg.token_url, {
+    tokenRes = await requestValidatedHttps(cfg.token_url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({
@@ -870,7 +873,7 @@ async function exchangeCodeForTokens(cfg, code) {
       u.searchParams.set('client_secret', clientSecret);
       u.searchParams.set('redirect_uri', redirectUri);
       u.searchParams.set('code', code);
-      tokenRes = await fetch(u.toString(), {
+      tokenRes = await requestValidatedHttps(u.toString(), {
         method: 'GET',
         headers: { Accept: 'application/json' },
         signal: AbortSignal.timeout(45000),
@@ -883,7 +886,7 @@ async function exchangeCodeForTokens(cfg, code) {
         client_id: clientId,
         client_secret: clientSecret,
       });
-      tokenRes = await fetch(cfg.token_url, {
+      tokenRes = await requestValidatedHttps(cfg.token_url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
@@ -895,6 +898,9 @@ async function exchangeCodeForTokens(cfg, code) {
     }
   }
 
+  if (tokenRes.status >= 300 && tokenRes.status < 400) {
+    throw new Error('OAuth token endpoint redirects are not allowed');
+  }
   const text = await tokenRes.text();
   let data;
   try {
@@ -981,7 +987,7 @@ async function fetchAccountLabel(cfg, accessToken) {
     const opts = parseJson(cfg.provider_options_json, {});
     const labelUrl = String(opts.account_label_url || '').trim();
     if (labelUrl) {
-      const res = await fetch(labelUrl, {
+      const res = await requestValidatedHttps(labelUrl, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
           Accept: 'application/json',

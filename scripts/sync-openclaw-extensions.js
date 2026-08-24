@@ -127,12 +127,11 @@ function ensurePluginLoadPaths() {
       const internal =
         String(process.env.AGENT_OS_INTERNAL_API_URL || 'http://backend:3001').replace(/\/$/, '') ||
         'http://backend:3001';
-      const apiKey = String(process.env.TOOLS_API_KEY || (prev.config && prev.config.apiKey) || '').trim();
       next.config = {
         ...(prev.config || {}),
         baseUrl: (prev.config && prev.config.baseUrl) || internal,
-        ...(apiKey ? { apiKey } : {}),
       };
+      delete next.config.apiKey;
     } else {
       next.config = prev.config || {};
     }

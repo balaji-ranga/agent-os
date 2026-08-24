@@ -4,6 +4,7 @@
 import { randomBytes } from 'crypto';
 import { getDb } from '../db/schema.js';
 import { hashPassword, verifyPassword } from './auth/password.js';
+import { assertStrongPassword } from './password-policy.js';
 import { initCeoDb } from '../db/ceo-db.js';
 import { getBalaCeoAuthId, isPlatformLegacyCeo } from './job-applicant-ceo.js';
 import {
@@ -227,6 +228,7 @@ export async function registerCeoUser({
   if (!normalizedEmail || !password || !name) {
     throw new Error('email, password, and name are required');
   }
+  assertStrongPassword(password);
   const existing = db.prepare('SELECT id FROM platform_users WHERE email = ?').get(normalizedEmail);
   if (existing) throw new Error('Email already registered');
 
@@ -678,8 +680,7 @@ export function updateUserProfile(
   if (new_password !== undefined && String(new_password).length > 0) {
     if (!current_password) throw new Error('current_password required to change password');
     if (!verifyPassword(current_password, row.password_hash)) throw new Error('Current password is incorrect');
-    if (String(new_password).length < 8) throw new Error('new_password must be at least 8 characters');
-    updates.password_hash = hashPassword(new_password);
+    updates.password_hash = hashPassword(assertStrongPassword(new_password, 'new_password'));
   }
 
   if (llm_efficiency_mode !== undefined) {

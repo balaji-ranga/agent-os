@@ -13,9 +13,26 @@ const OPENCLAW_DIR = join(process.env.USERPROFILE || process.env.HOME || "", ".o
 const DEFAULT_TOOLS_LIST_PATH = join(OPENCLAW_DIR, "agent-os-tools.json");
 const ALLOWLISTS_PATH = join(OPENCLAW_DIR, "agent-tool-allowlists.json");
 const OPENCLAW_CONFIG_PATH = process.env.OPENCLAW_CONFIG_PATH || join(OPENCLAW_DIR, "openclaw.json");
+const TOOL_CREDENTIALS_PATH = process.env.OPENCLAW_TOOL_CREDENTIALS_PATH || join(OPENCLAW_DIR, "agent-os-tool-credentials.json");
 
 let allowlistsCache = { mtime: 0, data: {} };
 let openclawConfigCache = { mtime: 0, byAgent: {} };
+let toolCredentialsCache = { mtime: 0, credentials: {} };
+
+function loadToolCredentials() {
+  try {
+    const st = statSync(TOOL_CREDENTIALS_PATH);
+    if (st.mtimeMs === toolCredentialsCache.mtime) return toolCredentialsCache.credentials;
+    const parsed = JSON.parse(readFileSync(TOOL_CREDENTIALS_PATH, "utf8"));
+    const credentials = parsed?.version === 1 && parsed.credentials && typeof parsed.credentials === "object"
+      ? parsed.credentials
+      : {};
+    toolCredentialsCache = { mtime: st.mtimeMs, credentials };
+    return credentials;
+  } catch {
+    return {};
+  }
+}
 
 function getToolsListPath() {
   return process.env.OPENCLAW_TOOLS_LIST_PATH || DEFAULT_TOOLS_LIST_PATH;
@@ -693,8 +710,7 @@ function resolvePluginConfig(api) {
   const pluginConfig = api.config?.plugins?.entries?.["agent-os-content-tools"];
   const baseUrl =
     pluginConfig?.config?.baseUrl || process.env.AGENT_OS_API_URL || process.env.AGENT_OS_INTERNAL_API_URL || "";
-  const apiKey = pluginConfig?.config?.apiKey || process.env.TOOLS_API_KEY || "";
-  return { baseUrl, apiKey };
+  return { baseUrl };
 }
 
 function resolveCallerAgentId(api, params, toolCtx) {
@@ -713,7 +729,7 @@ function resolveCallerAgentId(api, params, toolCtx) {
 }
 
 async function callInvoke(api, toolName, params, callerAgentId, toolCtx) {
-  const { baseUrl, apiKey } = resolvePluginConfig(api);
+  const { baseUrl } = resolvePluginConfig(api);
   const url = (baseUrl?.trim() || "").replace(/\/$/, "");
   if (!url) {
     return {
@@ -722,14 +738,7 @@ async function callInvoke(api, toolName, params, callerAgentId, toolCtx) {
         "Agent OS backend URL not set. Set plugins.entries['agent-os-content-tools'].config.baseUrl or AGENT_OS_API_URL.",
     };
   }
-  if (!apiKey) {
-    return {
-      ok: false,
-      error:
-        "TOOLS_API_KEY not configured for agent-os-content-tools plugin (set plugins config apiKey or TOOLS_API_KEY env).",
-    };
-  }
-  const headers = { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` };
+  const headers = { "Content-Type": "application/json" };
   if (callerAgentId) headers["x-openclaw-agent-id"] = callerAgentId;
   const sessionKey =
     toolCtx?.sessionKey || (typeof api.getSessionKey === "function" ? api.getSessionKey() : api.sessionKey);
@@ -752,6 +761,17 @@ async function callInvoke(api, toolName, params, callerAgentId, toolCtx) {
   if (!headers["x-openclaw-session-key"] && ownerUserId && callerAgentId) {
     headers["x-openclaw-session-key"] = `agent:${callerAgentId}:tenant-scoped`;
   }
+  if (!callerAgentId) {
+    return { ok: false, error: "Calling agent identity unavailable; cannot authorize this tool." };
+  }
+  const scopedCredential = loadToolCredentials()?.[ownerUserId]?.[callerAgentId];
+  if (!scopedCredential) {
+    return {
+      ok: false,
+      error: "Owner/agent tool credential unavailable. Restart the Flolah backend once to provision credentials.",
+    };
+  }
+  headers.Authorization = `Bearer ${scopedCredential}`;
   const body = { tool_name: toolName, ...params };
   if (callerAgentId) body.caller_agent_id = callerAgentId;
   const ownerFromHeader = headers["x-ceo-user-id"];
@@ -780,7 +800,7 @@ export default definePluginEntry({
   id: "agent-os-content-tools",
   name: "Agent OS Content Tools",
   description:
-    "Register Agent OS content/workflow/kanban tools that call the backend. baseUrl and apiKey from config or env.",
+    "Register Agent OS content/workflow/kanban tools with owner/agent-scoped backend credentials.",
   register(api) {
     const tools = loadToolsFromFile().slice().sort((a, b) => {
       const rank = (n) =>

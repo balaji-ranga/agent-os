@@ -17,8 +17,8 @@ export default function ResetPassword() {
     e.preventDefault();
     setError(null);
     setOk(null);
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters');
+    if (password.length < 12) {
+      setError('Password must be at least 12 characters');
       return;
     }
     if (password !== confirm) {
@@ -60,7 +60,7 @@ export default function ResetPassword() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            minLength={8}
+            minLength={12}
             style={{ display: 'block', width: '100%', marginTop: 4, padding: '0.5rem' }}
           />
         </label>
@@ -71,7 +71,7 @@ export default function ResetPassword() {
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
             required
-            minLength={8}
+            minLength={12}
             style={{ display: 'block', width: '100%', marginTop: 4, padding: '0.5rem' }}
           />
         </label>

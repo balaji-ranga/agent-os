@@ -121,6 +121,10 @@ export default function Register() {
 
   const submit = async (e) => {
     e.preventDefault();
+    if (form.password.length < 12) {
+      setError('Password must be at least 12 characters');
+      return;
+    }
     if (!acceptTerms) {
       setError('You must accept the Terms of Service and Privacy Policy to register');
       return;

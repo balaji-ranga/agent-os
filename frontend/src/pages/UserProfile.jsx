@@ -228,6 +228,10 @@ function UserProfilePanel() {
       setError('New passwords do not match');
       return;
     }
+    if (form.new_password && form.new_password.length < 12) {
+      setError('New password must be at least 12 characters');
+      return;
+    }
     setBusy(true);
     try {
       const body = {
@@ -991,6 +995,7 @@ function UserProfilePanel() {
           <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>New password</span>
           <input
             type="password"
+            minLength={12}
             value={form.new_password}
             onChange={(e) => set('new_password', e.target.value)}
             autoComplete="new-password"
@@ -1001,6 +1006,7 @@ function UserProfilePanel() {
           <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Confirm new password</span>
           <input
             type="password"
+            minLength={12}
             value={form.confirm_password}
             onChange={(e) => set('confirm_password', e.target.value)}
             autoComplete="new-password"

@@ -32,7 +32,7 @@
 #
 # LLM keys: set in deploy/.env — injected at runtime into openclaw + backend containers.
 # Never committed; never baked into images.
-# Written to openclaw.json at init: gateway.auth.token, agent-os-content-tools.config.apiKey (from TOOLS_API_KEY).
+# OpenClaw tools use backend-provisioned owner/agent credentials; shared TOOLS_API_KEY stays backend/internal only.
 
 name: agent-os
 
@@ -84,7 +84,6 @@ x-openclaw-env: &openclaw-env
   PLAYWRIGHT_BROWSERS_PATH: /opt/playwright
   OPENCLAW_GATEWAY_PORT: "18789"
   OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
-  TOOLS_API_KEY: ${TOOLS_API_KEY:-}
   AGENT_OS_INTERNAL_API_URL: http://backend:3001
   BROWSER_TASK_CDP_AGENT_ID: ${BROWSER_TASK_CDP_AGENT_ID:-browser-cdp}
   # Applied by configure-openclaw-docker.js to agents.defaults + WhatsApp accounts
@@ -265,6 +264,7 @@ x-backend-env: &backend-env
   CUSTOM_SCRIPT_LLM_REVIEW: ${CUSTOM_SCRIPT_LLM_REVIEW:-1}
   CUSTOM_SCRIPT_LLM_REVIEW_REQUIRED: ${CUSTOM_SCRIPT_LLM_REVIEW_REQUIRED:-1}
   CUSTOM_SCRIPT_LLM_REVIEW_MAX_TOKENS: ${CUSTOM_SCRIPT_LLM_REVIEW_MAX_TOKENS:-768}
+  CUSTOM_SCRIPT_RUNNER_JOBS_DIR: /custom-script-jobs
   # SMTP (workflow Send Email + email_send content tool + MFA email OTP)
   # notify_ceo is in-app only (platform_user_notifications) — no SMTP required
   WORKFLOW_SMTP_HOST: ${WORKFLOW_SMTP_HOST:-}
@@ -424,6 +424,7 @@ services:
       - agent_os_data:/data/agent-os:Z
       - openclaw_home:/root/.openclaw:Z
       - workflow_fs:/data/workflow-fs:Z
+      - custom_script_jobs:/custom-script-jobs:Z
     # Loopback-only publish (always). VPS host-network nginx proxies to 127.0.0.1:3001.
     # Keep this in base (not only vps-client-ip.yml) so a recreate without the overlay
     # cannot strip the port and 502 all logins while container healthcheck still passes.
@@ -442,12 +443,47 @@ services:
       embeddings:
         condition: service_healthy
         required: false
+      custom-script-runner:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3001/health"]
       interval: 30s
       timeout: 5s
       retries: 5
       start_period: 45s
+
+  custom-script-runner:
+    build:
+      context: ..
+      dockerfile: deploy/docker/custom-script-runner.Dockerfile
+    image: agent-os-custom-script-runner:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      CUSTOM_SCRIPT_RUNNER_JOBS_DIR: /jobs
+      CUSTOM_SCRIPT_MAX_BYTES: ${CUSTOM_SCRIPT_MAX_BYTES:-131072}
+      CUSTOM_SCRIPT_TIMEOUT_MS: ${CUSTOM_SCRIPT_TIMEOUT_MS:-60000}
+      CUSTOM_SCRIPT_MAX_CONCURRENT: ${CUSTOM_SCRIPT_MAX_CONCURRENT:-2}
+    network_mode: none
+    volumes:
+      - custom_script_jobs:/jobs:Z
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    cap_add:
+      - SETUID
+      - SETGID
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 256m
+    healthcheck:
+      test: ["CMD", "node", "-e", "process.exit(require('fs').existsSync('/tmp/runner-ready')?0:1)"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   frontend:
     build:
@@ -820,3 +856,4 @@ volumes:
   whisper_data:
   piper_data:
   opensearch_data:
+  custom_script_jobs:

@@ -19,6 +19,7 @@
     "test:goal-plan:async-ui": "node scripts/test-goal-plan-async-ui.mjs",
     "test:goal-plan:intent": "node scripts/test-goal-plan-intent-classify.mjs",
     "test:ssrf": "node scripts/test-ssrf-outbound.js",
+    "test:security:critical": "node scripts/test-critical-security-hardening.mjs",
     "test:blueprint-secrets": "node scripts/test-blueprint-secret-sanitize.js && node scripts/scan-blueprint-secrets.js"
     ,"test:browser-executors": "node scripts/test-browser-executor-multinode.js",
     "test:browser-recipe-inputs": "node scripts/test-browser-recipe-inputs.mjs",

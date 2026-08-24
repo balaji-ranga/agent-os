@@ -140,6 +140,7 @@ import { healStuckKanbanForCompletedDelegations } from './services/kanban-workfl
 import { requeueStuckStatusOnlyKanbanCards, rependInfraFailedStatusOnlyRetries } from './services/delegation-status-only-retry.js';
 import { seedPlatformStandardWorkspaceTemplate } from './services/platform-agent-workspace-templates.js';
 import { startOpenClawInboundMediaSync } from './services/openclaw-inbound-media-sync.js';
+import { ensureAllToolServiceCredentials } from './services/tool-scoped-token.js';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
@@ -265,6 +266,12 @@ try {
   }
 } catch (e) {
   console.warn('[startup] CEO default master data:', e.message);
+}
+try {
+  const credentialCount = ensureAllToolServiceCredentials();
+  console.log(`[startup] ensured ${credentialCount} owner/agent tool credential binding(s)`);
+} catch (e) {
+  console.warn('[startup] tool credential provisioning:', e.message || e);
 }
 
 // OpenSearch: wait, seed platform help, migrate legacy SQLite docs

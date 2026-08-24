@@ -94,7 +94,7 @@ if (!existsSync(envFile)) {
   process.exit(1);
 }
 
-ensureSecret(envFile, 'TOOLS_API_KEY', 24, 'OpenClaw content-tools plugin auth (auto-generated)');
+ensureSecret(envFile, 'TOOLS_API_KEY', 24, 'Backend/internal-sidecar tool auth (auto-generated)');
 ensureSecret(
   envFile,
   'AGENT_OS_INTERNAL_TOKEN',

@@ -43,7 +43,7 @@ const user = await registerCeoUser({
   terms_version: currentTermsVersion(),
   privacy_version: currentPrivacyVersion(),
   email,
-  password: "LegalTest1!",
+  password: "LegalTest1!Strong",
   name: "Legal Accept Test",
   industry: "personal",
   mfa_policy: "off",
@@ -62,7 +62,7 @@ assert(!!pub.terms_accepted_at && pub.terms_version === currentTermsVersion(), "
 try {
   await registerCeoUser({
     email: `legal.noaccept.${stamp}@test.local`,
-    password: "LegalTest1!",
+    password: "LegalTest1!Strong",
     name: "No Accept",
     industry: "personal",
     require_terms_accept: true,
@@ -74,7 +74,7 @@ try {
 
 const adminCreated = await registerCeoUser({
   email: `legal.admincreate.${stamp}@test.local`,
-  password: "LegalTest1!",
+  password: "LegalTest1!Strong",
   name: "Admin Create",
   industry: "personal",
   require_terms_accept: false,

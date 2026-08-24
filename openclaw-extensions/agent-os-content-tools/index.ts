@@ -13,9 +13,26 @@ const OPENCLAW_DIR = join(process.env.USERPROFILE || process.env.HOME || "", ".o
 const DEFAULT_TOOLS_LIST_PATH = join(OPENCLAW_DIR, "agent-os-tools.json");
 const ALLOWLISTS_PATH = join(OPENCLAW_DIR, "agent-tool-allowlists.json");
 const OPENCLAW_CONFIG_PATH = process.env.OPENCLAW_CONFIG_PATH || join(OPENCLAW_DIR, "openclaw.json");
+const TOOL_CREDENTIALS_PATH = process.env.OPENCLAW_TOOL_CREDENTIALS_PATH || join(OPENCLAW_DIR, "agent-os-tool-credentials.json");
 
 let allowlistsCache: { mtime: number; data: Record<string, string[]> } = { mtime: 0, data: {} };
 let openclawConfigCache: { mtime: number; byAgent: Record<string, string[]> } = { mtime: 0, byAgent: {} };
+let toolCredentialsCache: { mtime: number; credentials: Record<string, Record<string, string>> } = { mtime: 0, credentials: {} };
+
+function loadToolCredentials(): Record<string, Record<string, string>> {
+  try {
+    const st = statSync(TOOL_CREDENTIALS_PATH);
+    if (st.mtimeMs === toolCredentialsCache.mtime) return toolCredentialsCache.credentials;
+    const parsed = JSON.parse(readFileSync(TOOL_CREDENTIALS_PATH, "utf8"));
+    const credentials = parsed?.version === 1 && parsed.credentials && typeof parsed.credentials === "object"
+      ? parsed.credentials
+      : {};
+    toolCredentialsCache = { mtime: st.mtimeMs, credentials };
+    return credentials;
+  } catch {
+    return {};
+  }
+}
 
 function getToolsListPath(): string {
   return process.env.OPENCLAW_TOOLS_LIST_PATH || DEFAULT_TOOLS_LIST_PATH;
@@ -332,11 +349,7 @@ function resolvePluginConfig(api: PluginApi) {
     process.env.AGENT_OS_API_URL ||
     process.env.AGENT_OS_INTERNAL_API_URL ||
     "";
-  const apiKey =
-    ((pluginConfig?.config as Record<string, unknown>)?.apiKey as string | undefined) ||
-    process.env.TOOLS_API_KEY ||
-    "";
-  return { baseUrl, apiKey };
+  return { baseUrl };
 }
 
 function resolveCallerAgentId(
@@ -371,7 +384,7 @@ async function callInvoke(
   callerAgentId?: string | null,
   toolCtx?: ToolCtx
 ): Promise<{ ok: boolean; data?: unknown; error?: string }> {
-  const { baseUrl, apiKey } = resolvePluginConfig(api);
+  const { baseUrl } = resolvePluginConfig(api);
   const url = (baseUrl?.trim() || "").replace(/\/$/, "");
   if (!url) {
     return {
@@ -380,24 +393,15 @@ async function callInvoke(
         "Agent OS backend URL not set. Set plugins.entries['agent-os-content-tools'].config.baseUrl or AGENT_OS_API_URL.",
     };
   }
-  if (!apiKey) {
-    return {
-      ok: false,
-      error:
-        "TOOLS_API_KEY not configured for agent-os-content-tools plugin (set plugins config apiKey or TOOLS_API_KEY env).",
-    };
-  }
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${apiKey}`,
-  };
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (callerAgentId) headers["x-openclaw-agent-id"] = callerAgentId;
   const sessionKey =
     toolCtx?.sessionKey ||
     (typeof api.getSessionKey === "function" ? api.getSessionKey() : api.sessionKey);
+  let ownerUserId: string | null = null;
   if (sessionKey) {
     headers["x-openclaw-session-key"] = sessionKey;
-    const ownerUserId = ownerUserIdFromSessionKey(sessionKey);
+    ownerUserId = ownerUserIdFromSessionKey(sessionKey);
     if (ownerUserId) headers["x-ceo-user-id"] = ownerUserId;
   }
   if (!headers["x-openclaw-session-key"]) {
@@ -407,6 +411,12 @@ async function callInvoke(
         "OpenClaw session key unavailable — cannot scope this tool to the current CEO. Chat from Agent OS UI so the session is bound to the user.",
     };
   }
+  if (!callerAgentId) return { ok: false, error: "Calling agent identity unavailable; cannot authorize this tool." };
+  const scopedCredential = ownerUserId ? loadToolCredentials()?.[ownerUserId]?.[callerAgentId] : null;
+  if (!scopedCredential) {
+    return { ok: false, error: "Owner/agent tool credential unavailable. Restart the Flolah backend once to provision credentials." };
+  }
+  headers.Authorization = `Bearer ${scopedCredential}`;
   const body: Record<string, unknown> = { tool_name: toolName, ...params };
   if (callerAgentId) body.caller_agent_id = callerAgentId;
   const ownerFromHeader = headers["x-ceo-user-id"];
@@ -435,7 +445,7 @@ export default definePluginEntry({
   id: "agent-os-content-tools",
   name: "Agent OS Content Tools",
   description:
-    "Register Agent OS content/workflow/kanban tools that call the backend. baseUrl and apiKey from config or env.",
+    "Register Agent OS content/workflow/kanban tools with owner/agent-scoped backend credentials.",
   register(api: PluginApi) {
     const tools = loadToolsFromFile();
     const apiToolNote =
