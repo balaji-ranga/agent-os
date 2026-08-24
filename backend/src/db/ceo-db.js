@@ -122,6 +122,9 @@ function runCeoSchema(db) {
       standup_id INTEGER,
       agent_delegation_task_id INTEGER,
       owner_user_id TEXT,
+      goal_run_id TEXT,
+      goal_step_id TEXT,
+      trace_id TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now')),
       due_date TEXT
@@ -282,6 +285,9 @@ export function initCeoDb(ceoUserId) {
   for (const sql of [
     `ALTER TABLE kanban_tasks ADD COLUMN owner_user_id TEXT`,
     `ALTER TABLE kanban_tasks ADD COLUMN assigned_member_key TEXT`,
+    `ALTER TABLE kanban_tasks ADD COLUMN goal_run_id TEXT`,
+    `ALTER TABLE kanban_tasks ADD COLUMN goal_step_id TEXT`,
+    `ALTER TABLE kanban_tasks ADD COLUMN trace_id TEXT`,
   ]) {
     try {
       db.exec(sql);

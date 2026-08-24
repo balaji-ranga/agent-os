@@ -1512,6 +1512,8 @@ export function initDb() {
       ['selected_driver_mode', 'TEXT'],
       ['protocol_version', 'INTEGER NOT NULL DEFAULT 1'],
       ['trace_id', 'TEXT'],
+      ['parent_goal_run_id', 'TEXT'],
+      ['parent_goal_step_id', 'TEXT'],
       ['restartable', 'INTEGER NOT NULL DEFAULT 1'],
     ];
     for (const [column, type] of browserTaskColumns) {
@@ -2066,6 +2068,15 @@ export function initDb() {
   } catch (_) {}
   try {
     _db.exec(`ALTER TABLE kanban_tasks ADD COLUMN workflow_run_id INTEGER`);
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE kanban_tasks ADD COLUMN goal_run_id TEXT`);
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE kanban_tasks ADD COLUMN goal_step_id TEXT`);
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE kanban_tasks ADD COLUMN trace_id TEXT`);
   } catch (_) {}
   try {
     _db.exec(`CREATE INDEX IF NOT EXISTS idx_kanban_tasks_a2a ON kanban_tasks(a2a_task_id)`);

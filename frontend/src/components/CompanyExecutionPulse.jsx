@@ -40,7 +40,9 @@ export default function CompanyExecutionPulse() {
           {rows.map((row) => (
             <Link key={row.id} to={row.detail_path || '#'} style={{ color: 'inherit', textDecoration: 'none', display: 'grid', gridTemplateColumns: '80px minmax(0,1fr) 100px 150px', gap: 10, alignItems: 'center', padding: '0.55rem 0.65rem', borderRadius: 7, background: 'var(--bg)' }}>
               <span style={{ color: 'var(--muted)', fontSize: '0.78rem' }}>{LABELS[row.source_type] || row.source_type}</span>
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.title}</span>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {row.title}{row.children?.length ? ` · ${row.children.length} child run${row.children.length === 1 ? '' : 's'}` : row.parent_execution_id ? ' · linked to goal' : ''}
+              </span>
               <span style={{ fontSize: '0.8rem' }}>{row.status}</span>
               <span style={{ color: row.verification?.state === 'unverified' ? '#f59e0b' : 'var(--muted)', fontSize: '0.78rem', textAlign: 'right' }}>
                 {row.verification?.state === 'unverified' ? 'outcome unverified' : formatLocalDateTime(row.updated_at || row.created_at)}

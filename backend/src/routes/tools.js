@@ -1481,9 +1481,15 @@ router.post('/kanban-create-task', optionalAuth, (req, res) => {
     const status = 'open';
     const db = getDb();
     db.prepare(
-      `INSERT INTO kanban_tasks (title, description, status, assigned_agent_id, created_by, due_date, owner_user_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
-    ).run(title, description, status, assignedAgentId, caller.id, null, ownerUserId);
+      `INSERT INTO kanban_tasks (title, description, status, assigned_agent_id, created_by, due_date, owner_user_id,
+        goal_run_id, goal_step_id, trace_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      title, description, status, assignedAgentId, caller.id, null, ownerUserId,
+      requestPayload.goal_run_id || requestPayload.goalRunId || null,
+      requestPayload.goal_step_id || requestPayload.goalStepId || null,
+      requestPayload.trace_id || requestPayload.goal_run_id || requestPayload.goalRunId || null
+    );
     const row = db.prepare('SELECT * FROM kanban_tasks ORDER BY id DESC LIMIT 1').get();
     notifyKanbanTaskCreated({ userId: ownerUserId, task: row });
     const out = {

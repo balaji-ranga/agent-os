@@ -1394,6 +1394,8 @@ export async function startBrowserTask(ceoUserId, body = {}) {
   });
   assertPreferredBrowserExecutor(selectedExecutor, preferredDriver, allowFallback);
   const traceId = randomUUID();
+  const parentGoalRunId = String(body.goal_run_id || body.goalRunId || '').trim() || null;
+  const parentGoalStepId = String(body.goal_step_id || body.goalStepId || '').trim() || null;
 
   if (mode === 'recipe_replay' && !recipeId) {
     const recipeName = String(body.recipe_name || body.name || '').trim();
@@ -1421,8 +1423,8 @@ export async function startBrowserTask(ceoUserId, body = {}) {
     `INSERT INTO browser_tasks (
       id, ceo_user_id, agent_id, recipe_id, mode, status, goal_text, start_url,
       input_json, steps_json, selected_node_id, selected_driver_mode, protocol_version,
-      trace_id, restartable, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '[]', ?, ?, ?, ?, ?, ?, ?)`
+      trace_id, parent_goal_run_id, parent_goal_step_id, restartable, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '[]', ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
     ceoUserId,
@@ -1437,6 +1439,8 @@ export async function startBrowserTask(ceoUserId, body = {}) {
     selectedExecutor?.driver_mode || 'managed_playwright',
     selectedExecutor?.protocol_version || 1,
     traceId,
+    parentGoalRunId,
+    parentGoalStepId,
     /publish|send|submit|purchase|delete|apply|generate/i.test(goal) ? 0 : 1,
     nowIso(),
     nowIso()

@@ -412,6 +412,9 @@ async function planGoalStepsAsyncInner(prompt, opts = {}) {
         const steps = enrichPlanSteps(
           mergeCapabilitySteps(classified.map(normalizeStepSpec), fullPrompt).map(normalizeStepSpec)
         );
+        if (steps.length && !steps.some((s) => s.type === 'notify_ceo')) {
+          steps.push(normalizeStepSpec({ type: 'notify_ceo' }));
+        }
         console.info('[goal-run] plan via intent classifier', {
           steps: steps.map((x) => x.type + ':' + (x.label || '')).slice(0, 12),
         });
@@ -447,6 +450,9 @@ async function planGoalStepsAsyncInner(prompt, opts = {}) {
   if (!steps.length) {
     steps.push(normalizeStepSpec({ type: 'agent_continue' }));
     steps = enrichPlanSteps(steps);
+  }
+  if (steps.length && !steps.some((s) => s.type === 'notify_ceo')) {
+    steps.push(normalizeStepSpec({ type: 'notify_ceo' }));
   }
   return steps;
 }
@@ -1487,6 +1493,10 @@ async function executeAgentToolStep(goal, step) {
 
   args.ceo_user_id = args.ceo_user_id || goal.owner_user_id;
   args.owner_user_id = args.owner_user_id || goal.owner_user_id;
+  if (toolName === 'browse_task_start' || toolName === 'kanban_create_task') {
+    args.goal_run_id = args.goal_run_id || goal.id;
+    args.goal_step_id = args.goal_step_id || step.id;
+  }
   const caller = resolveAgentForGoal(goal.owner_user_id, goal.agent_id);
   const invokeOpts = {
     agentId: caller?.id || goal.agent_id || null,
