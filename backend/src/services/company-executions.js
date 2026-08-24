@@ -30,7 +30,8 @@ export function verificationFromResult(status, result, error = null) {
     for (const item of r.artifacts.slice(0, 10)) add('artifact', item?.id || item?.artifact_id || item);
   }
   const explicit = String(r.verification_status || r.acceptance || '').toLowerCase();
-  const verified = ['verified', 'accepted', 'qualified'].includes(explicit) || r.verified === true;
+  const verified = ['verified', 'accepted', 'qualified'].includes(explicit) || r.verified === true ||
+    r.verification?.satisfied === true || r.verification?.verified === true;
   return { state: verified || evidence.length ? 'verified' : 'unverified', evidence, error: null };
 }
 
