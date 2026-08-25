@@ -137,7 +137,7 @@ function deleteOwnedCustomAgents(db, ownerUserId) {
   return deleted;
 }
 
-function purgeOwnerScopedRows(db, ownerUserId) {
+export function purgeOwnerScopedRows(db, ownerUserId) {
   const counts = {};
 
   // Workflows: delete definitions with full run cleanup
@@ -220,6 +220,7 @@ function purgeOwnerScopedRows(db, ownerUserId) {
 
   // Integrations / scripts / MCP
   counts.mcp_servers = tryRun(db, `DELETE FROM mcp_servers WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.mcp_call_logs = tryRun(db, `DELETE FROM mcp_call_logs WHERE user_id = ?`, [ownerUserId]);
   counts.org_member_invocations = tryRun(
     db,
     `DELETE FROM org_member_invocations WHERE owner_user_id = ?`,
@@ -233,6 +234,9 @@ function purgeOwnerScopedRows(db, ownerUserId) {
   ]);
   counts.ibkr_budget_days = tryRun(db, `DELETE FROM ibkr_budget_days WHERE owner_user_id = ?`, [ownerUserId]);
   counts.ibkr_order_events = tryRun(db, `DELETE FROM ibkr_order_events WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.ibkr_fills = tryRun(db, `DELETE FROM ibkr_fills WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.ibkr_equity_marks = tryRun(db, `DELETE FROM ibkr_equity_marks WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.trading_day_plans = tryRun(db, `DELETE FROM trading_day_plans WHERE owner_user_id = ?`, [ownerUserId]);
   counts.ibkr_positions = tryRun(db, `DELETE FROM ibkr_positions_cache WHERE owner_user_id = ?`, [ownerUserId]);
   counts.ibkr_account_snapshot_cache = tryRun(
     db,
