@@ -15,6 +15,18 @@ function clip(value, n = 240) {
   return s.length > n ? `${s.slice(0, n)}…` : s;
 }
 
+function parseJson(value, fallback = {}) {
+  if (!value) return fallback;
+  try { return typeof value === 'string' ? JSON.parse(value) : value; } catch { return fallback; }
+}
+
+function toolLabel(toolName) {
+  return String(toolName || '')
+    .replace(/^(mcp_|browse_)/i, '')
+    .replaceAll('_', ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 function iso(value) {
   if (!value) return null;
   const s = String(value);
@@ -36,6 +48,7 @@ function liveSnapshot(ownerUserId) {
     current: [],
     queued: [],
     blocked: [],
+    tools: [],
   }));
   const byId = new Map(agents.map((a) => [String(a.id).toLowerCase(), a]));
   const ensure = (id) => byId.get(String(id || '').toLowerCase());
@@ -54,7 +67,7 @@ function liveSnapshot(ownerUserId) {
 
   const goals = db().prepare(
     `SELECT g.id, g.agent_id, g.title, g.prompt, g.status, g.updated_at,
-            s.label AS step_label, s.status AS step_status
+            s.label AS step_label, s.status AS step_status, s.spec_json AS step_spec_json
      FROM agent_goal_runs g
      LEFT JOIN agent_goal_steps s ON s.goal_run_id = g.id AND s.step_index = g.current_step_index
      WHERE g.owner_user_id = ? AND g.status IN ('pending','running')
@@ -68,6 +81,42 @@ function liveSnapshot(ownerUserId) {
       status: row.step_status || row.status, at: iso(row.updated_at), link: `/goal-plans/${encodeURIComponent(row.id)}`,
     };
     (row.status === 'pending' ? a.queued : a.current).push(item);
+    const spec = parseJson(row.step_spec_json);
+    const toolName = String(spec.tool_name || spec.toolName || '').trim();
+    if (toolName) {
+      a.tools.push({
+        name: toolName,
+        label: toolLabel(toolName),
+        status: row.status === 'pending' ? 'queued' : (row.step_status || 'running'),
+        at: iso(row.updated_at),
+        source: 'goal',
+      });
+    }
+  }
+
+  // Tool logs are terminal records, but calls from the latest polling window still provide
+  // the best truthful connector signal for direct/agent-chat invocations outside goal steps.
+  const recentTools = db().prepare(
+    `SELECT tool_name, source, status, created_at
+     FROM content_tool_logs
+     WHERE owner_user_id = ? AND datetime(created_at) >= datetime('now', '-2 minutes')
+     ORDER BY created_at DESC LIMIT 100`
+  ).all(ownerUserId);
+  for (const row of recentTools) {
+    const source = String(row.source || '').toLowerCase();
+    const a = agents.find((candidate) => {
+      const id = String(candidate.id || '').toLowerCase();
+      const name = String(candidate.name || '').toLowerCase();
+      return source === id || source === name || (id && source.includes(id));
+    });
+    if (!a || a.tools.some((tool) => tool.name === row.tool_name)) continue;
+    a.tools.push({
+      name: row.tool_name,
+      label: toolLabel(row.tool_name),
+      status: row.status,
+      at: iso(row.created_at),
+      source: 'tool_log',
+    });
   }
 
   const cards = db().prepare(
@@ -128,6 +177,7 @@ function liveSnapshot(ownerUserId) {
     },
     approvals: attention,
     agents,
+    connectors: agents.flatMap((agent) => agent.tools.map((tool) => ({ ...tool, agent_id: agent.id, agent_name: agent.name }))),
   };
 }
 

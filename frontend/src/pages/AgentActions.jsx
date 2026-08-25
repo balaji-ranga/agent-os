@@ -5,12 +5,16 @@ import { formatChatTimestamp } from '../utils/formatDateTime.js';
 
 const STATE_LABEL = { working: 'Working now', queued: 'Queued', blocked: 'Blocked', idle: 'Idle' };
 
-function NetworkNode({ agent, index, total }) {
+function nodePosition(index, total) {
   const angle = (index / Math.max(total, 1)) * Math.PI * 2 - Math.PI / 2;
   const radius = total > 8 ? 41 : 37;
+  return { x: 50 + Math.cos(angle) * radius, y: 50 + Math.sin(angle) * radius };
+}
+
+function NetworkNode({ agent, position }) {
   const style = {
-    '--node-x': `${50 + Math.cos(angle) * radius}%`,
-    '--node-y': `${50 + Math.sin(angle) * radius}%`,
+    '--node-x': `${position.x}%`,
+    '--node-y': `${position.y}%`,
   };
   return (
     <div className={`ops-network-node state-${agent.state}`} style={style} title={`${agent.name}: ${STATE_LABEL[agent.state]}`}>
@@ -19,6 +23,19 @@ function NetworkNode({ agent, index, total }) {
       <small>{agent.current[0]?.title || agent.queued[0]?.title || STATE_LABEL[agent.state]}</small>
     </div>
   );
+}
+
+function ConnectorNode({ tool, position, index }) {
+  const ratio = 0.58;
+  const dx = position.x - 50;
+  const dy = position.y - 50;
+  const length = Math.max(Math.hypot(dx, dy), 1);
+  const offset = (index - 0.5) * 3.5;
+  const style = {
+    '--connector-x': `${50 + dx * ratio + (-dy / length) * offset}%`,
+    '--connector-y': `${50 + dy * ratio + (dx / length) * offset}%`,
+  };
+  return <span className={`ops-connector status-${tool.status}`} style={style} title={`${tool.label}: ${tool.status}`}>{tool.label}</span>;
 }
 
 function OperationsDashboard({ live }) {
@@ -33,6 +50,7 @@ function OperationsDashboard({ live }) {
     ...agent.queued.map((item) => ({ ...item, agent: agent.name, lane: 'queued' })),
   ]).sort((a, b) => String(b.at || '').localeCompare(String(a.at || ''))).slice(0, 8);
   const visibleAgents = agents.slice(0, 12);
+  const positions = visibleAgents.map((_, index) => nodePosition(index, visibleAgents.length));
 
   return (
     <div className="ops-dashboard">
@@ -60,8 +78,16 @@ function OperationsDashboard({ live }) {
 
         <section className="ops-panel ops-network" aria-label="Live agent network">
           <div className="ops-network-lines" aria-hidden />
+          <svg className="ops-network-links" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
+            {visibleAgents.map((agent, index) => (
+              <line key={agent.id} className={`state-${agent.state}`} x1="50" y1="50" x2={positions[index].x} y2={positions[index].y} />
+            ))}
+          </svg>
           <div className="ops-network-core"><span>✦</span><strong>Flolah</strong><small>Agent network</small></div>
-          {visibleAgents.map((agent, index) => <NetworkNode key={agent.id} agent={agent} index={index} total={visibleAgents.length} />)}
+          {visibleAgents.flatMap((agent, index) => (agent.tools || []).slice(0, 2).map((tool, toolIndex) => (
+            <ConnectorNode key={`${agent.id}-${tool.name}-${toolIndex}`} tool={tool} position={positions[index]} index={toolIndex} />
+          )))}
+          {visibleAgents.map((agent, index) => <NetworkNode key={agent.id} agent={agent} position={positions[index]} />)}
           {agents.length > visibleAgents.length && <span className="ops-more-agents">+{agents.length - visibleAgents.length} more</span>}
         </section>
 
