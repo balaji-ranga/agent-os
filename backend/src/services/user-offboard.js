@@ -164,6 +164,23 @@ export function purgeOwnerScopedRows(db, ownerUserId) {
   counts.workflow_file_pollers = tryRun(db, `DELETE FROM workflow_file_pollers WHERE owner_user_id = ?`, [
     ownerUserId,
   ]);
+  // Legacy runs can outlive a definition or be linked to a platform-owned
+  // definition. Purge by run owner as well as through definition cleanup.
+  const ownedRunIds = tryAll(db, `SELECT id FROM agent_workflow_runs WHERE owner_user_id = ?`, [ownerUserId])
+    .map((row) => row.id);
+  for (const runId of ownedRunIds) {
+    counts.workflow_run_steps = (counts.workflow_run_steps || 0) + tryRun(
+      db,
+      `DELETE FROM agent_workflow_run_steps WHERE run_id = ?`,
+      [runId]
+    );
+    counts.workflow_pending_listeners = (counts.workflow_pending_listeners || 0) + tryRun(
+      db,
+      `DELETE FROM agent_workflow_pending_listeners WHERE run_id = ?`,
+      [runId]
+    );
+  }
+  counts.workflow_runs = tryRun(db, `DELETE FROM agent_workflow_runs WHERE owner_user_id = ?`, [ownerUserId]);
 
   // Durable goals and semantic router state (children before parents).
   const goalIds = tryAll(db, `SELECT id FROM agent_goal_runs WHERE owner_user_id = ?`, [ownerUserId]).map((r) => r.id);
@@ -182,10 +199,13 @@ export function purgeOwnerScopedRows(db, ownerUserId) {
   // Standups + messages + delegations + kanban
   const standupIds = tryAll(db, `SELECT id FROM standups WHERE owner_user_id = ?`, [ownerUserId]).map((r) => r.id);
   let standupMsgs = 0;
+  let standupResponses = 0;
   for (const sid of standupIds) {
     standupMsgs += tryRun(db, `DELETE FROM standup_messages WHERE standup_id = ?`, [sid]);
+    standupResponses += tryRun(db, `DELETE FROM standup_responses WHERE standup_id = ?`, [sid]);
   }
   counts.standup_messages = standupMsgs;
+  counts.standup_responses = standupResponses;
   counts.delegations = tryRun(db, `DELETE FROM agent_delegation_tasks WHERE owner_user_id = ?`, [ownerUserId]);
   // Also by standup_id for legacy rows without owner
   for (const sid of standupIds) {
