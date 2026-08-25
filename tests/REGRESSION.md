@@ -1,6 +1,7 @@
 # Regression test packs
 
-Post-CEO-login coverage (excludes admin login and user onboarding/register).
+Post-CEO-login coverage. The VPS full runner creates its own disposable CEO tenant and exercises
+Company Setup + Company Operate without touching a real CEO account.
 
 ## Minimal
 
@@ -14,7 +15,9 @@ npm run test:regression:minimal
 
 ## Full
 
-Broader API coverage + security hardening checks (internal token, unauthenticated denials, path traversal).
+Broader API coverage + semantic router isolation/execution modes + delegation callback correlation +
+Company Setup/Operate lifecycle + security hardening checks (internal token, unauthenticated denials,
+path traversal).
 
 ```bash
 cd agent-os/backend
@@ -52,4 +55,8 @@ npm run test:goal-plan:async-ui
 
 Skip inside full pack: `REGRESSION_GOAL_PLAN=0 npm run test:regression:full`.
 
-VPS: `bash deploy/scripts/vps-regression-full.sh` (mints CEO session; runs pack + goal plan e2e; also copies `test-goal-plan-async-ui.mjs` into the backend container for direct runs).
+VPS: `bash deploy/scripts/vps-regression-full.sh`. It first removes stale users tagged
+`flolah-regression-…@example.invalid`, creates a fresh tenant CEO, runs the full pack (including
+router, setup, operate Day 0/Day 1/idempotency, and goal-plan E2E), then always offboards the fixture
+through an EXIT/INT/TERM trap. Teardown verifies no directly user-scoped database rows remain.
+Set `REGRESSION_COMPANY_LIFECYCLE=0` only when diagnosing unrelated infrastructure.

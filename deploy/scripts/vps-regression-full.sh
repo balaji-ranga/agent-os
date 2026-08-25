@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Run full post-CEO-login regression against the backend inside Docker on the VPS.
-# Mints a CEO session (avoids MFA / password) and sets AGENT_OS_REGRESSION_TOKEN.
+# Run the full regression against an isolated, disposable CEO tenant on the VPS.
+# A trap always offboards the fixture and verifies owner-scoped rows are gone.
 #
 # Usage (on VPS, from deploy/):
 #   bash scripts/vps-regression-full.sh
-#   REGRESSION_CEO_EMAIL=bala@agent-os.local bash scripts/vps-regression-full.sh
+#   bash scripts/vps-regression-full.sh
 set -euo pipefail
 
 ROOT="${AGENT_OS_ROOT:-/opt/agent-os}"
@@ -34,39 +34,59 @@ if [[ -f "$ROOT/tests/regression-full.js" ]]; then
   docker compose cp "$ROOT/tests/lib/ceo-session.js" backend:/opt/agent-os/tests/lib/ceo-session.js
 fi
 
+for script in regression-test-user.mjs test-chat-context-boundaries.mjs test-delegation-result-callback.mjs test-company-llm-design.mjs; do
+  if [[ -f "$ROOT/backend/scripts/$script" ]]; then
+    docker compose cp "$ROOT/backend/scripts/$script" "backend:/opt/agent-os/backend/scripts/$script"
+  fi
+done
+
 if ! docker compose exec -T backend test -f /opt/agent-os/tests/regression-full.js; then
   echo "ERROR: tests/regression-full.js missing in backend container — rebuild backend image"
   exit 1
 fi
 
-CEO_EMAIL="${REGRESSION_CEO_EMAIL:-${AGENT_OS_BALA_EMAIL:-bala@agent-os.local}}"
-TOKEN=$(docker compose exec -T -w /opt/agent-os/backend -e CEO_EMAIL="$CEO_EMAIL" backend node --input-type=module <<'NODE'
-import { initDb, getDb } from './src/db/schema.js';
-import { createSession } from './src/services/auth/session.js';
-initDb();
-const email = String(process.env.CEO_EMAIL || 'bala@agent-os.local').trim();
-const row =
-  getDb().prepare("SELECT id FROM platform_users WHERE email = ? AND role='ceo' AND enabled=1").get(email) ||
-  getDb().prepare("SELECT id FROM platform_users WHERE id = 'ceo-bala' AND enabled=1").get() ||
-  getDb().prepare("SELECT id FROM platform_users WHERE role='ceo' AND enabled=1 ORDER BY rowid LIMIT 1").get();
-if (!row) {
-  console.error('no CEO user for regression');
-  process.exit(2);
-}
-console.error(`[regression] minting session for ${row.id}`);
-process.stdout.write(createSession(row.id).token);
-NODE
-)
+echo "==> remove stale tagged regression users/data"
+docker compose exec -T -w /opt/agent-os/backend backend \
+  node scripts/regression-test-user.mjs cleanup-stale
 
-if [[ -z "${TOKEN:-}" ]]; then
-  echo "ERROR: could not mint CEO session for regression"
+echo "==> create isolated regression CEO"
+CREATE_OUTPUT=$(docker compose exec -T -w /opt/agent-os/backend backend \
+  node scripts/regression-test-user.mjs create)
+FIXTURE_LINE=$(printf '%s\n' "$CREATE_OUTPUT" | grep '^REGRESSION_FIXTURE|' | tail -n 1)
+if [[ -z "${FIXTURE_LINE:-}" ]]; then
+  echo "ERROR: could not create isolated regression CEO"
+  exit 1
+fi
+IFS='|' read -r _FIXTURE_MARKER REGRESSION_CEO_ID REGRESSION_CEO_EMAIL TOKEN <<<"$FIXTURE_LINE"
+if [[ -z "${REGRESSION_CEO_ID:-}" || -z "${TOKEN:-}" ]]; then
+  echo "ERROR: malformed regression fixture output"
   exit 1
 fi
 
-echo "    minted session for ${CEO_EMAIL}"
+cleanup_fixture() {
+  local status=$?
+  trap - EXIT INT TERM
+  set +e
+  echo "==> cleanup isolated regression CEO/data id=${REGRESSION_CEO_ID:-unknown}"
+  if [[ -n "${REGRESSION_CEO_ID:-}" ]]; then
+    docker compose exec -T -w /opt/agent-os/backend backend \
+      node scripts/regression-test-user.mjs cleanup "$REGRESSION_CEO_ID"
+    [[ $? -eq 0 ]] || status=1
+  fi
+  docker compose exec -T -w /opt/agent-os/backend backend \
+    node scripts/regression-test-user.mjs cleanup-stale
+  [[ $? -eq 0 ]] || status=1
+  exit "$status"
+}
+trap cleanup_fixture EXIT INT TERM
+
+echo "    isolated CEO id=${REGRESSION_CEO_ID} email=${REGRESSION_CEO_EMAIL}"
 docker compose exec -T -w /opt/agent-os \
   -e BASE_URL=http://127.0.0.1:3001 \
   -e AGENT_OS_REGRESSION_TOKEN="$TOKEN" \
+  -e REGRESSION_ISOLATED_USER=1 \
+  -e REGRESSION_COMPANY_LIFECYCLE="${REGRESSION_COMPANY_LIFECYCLE:-1}" \
+  -e REGRESSION_CEO_ID="$REGRESSION_CEO_ID" \
   -e REGRESSION_GOAL_PLAN="${REGRESSION_GOAL_PLAN:-1}" \
   -e REGRESSION_GOAL_PLAN_FORCE_TERMINAL="${REGRESSION_GOAL_PLAN_FORCE_TERMINAL:-1}" \
   backend node tests/regression-full.js

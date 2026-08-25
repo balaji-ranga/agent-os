@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { getDb } from '../src/db/schema.js';
 import { enrichTaskQueryWithPriorThread } from '../src/services/delegation-queue.js';
 import {
   DASHBOARD_CONTEXT_INSTRUCTION,
@@ -49,6 +50,10 @@ const routeBase = {
   sessionId: `session-${Date.now()}`,
   history: staleDashboardHistory,
 };
+const cleanupRouterRows = () => {
+  try { getDb().prepare('DELETE FROM chat_work_units WHERE owner_user_id=?').run(routeBase.ownerUserId); } catch (_) {}
+};
+process.on('exit', cleanupRouterRows);
 const conversation = await routeAgentTurn({
   ...routeBase,
   message: 'A fresh greeting',
@@ -137,3 +142,4 @@ assert.equal(
 );
 
 console.log('CHAT_CONTEXT_BOUNDARIES_OK');
+cleanupRouterRows();

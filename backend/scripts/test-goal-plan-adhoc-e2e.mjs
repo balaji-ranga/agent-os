@@ -20,6 +20,10 @@ import {
   planGoalStepsAsync,
   normalizeStepSpec,
 } from '../src/services/agent-goal-run.js';
+import {
+  createDefinition,
+  publishDefinition,
+} from '../src/services/agent-workflow-store.js';
 
 initDb();
 const db = getDb();
@@ -30,6 +34,10 @@ function assert(cond, msg) {
 
 const forceTerminal = String(process.env.REGRESSION_GOAL_PLAN_FORCE_TERMINAL || '1') !== '0';
 const ownerOverride = String(process.env.REGRESSION_CEO_ID || '').trim();
+const requireSpecialty = String(
+  process.env.REGRESSION_REQUIRE_SPECIALTY ??
+    (String(process.env.REGRESSION_ISOLATED_USER || '') === '1' ? '0' : '1')
+) !== '0';
 
 const ceo =
   (ownerOverride && db.prepare(`SELECT id FROM platform_users WHERE id = ? AND enabled=1`).get(ownerOverride)) ||
@@ -37,6 +45,45 @@ const ceo =
   db.prepare(`SELECT id FROM platform_users WHERE role='ceo' AND enabled=1 ORDER BY id LIMIT 1`).get();
 assert(ceo?.id, 'need enabled CEO (REGRESSION_CEO_ID or seed CEO)');
 const owner = ceo.id;
+
+function ensureIsolatedTriggerWorkflow(phrase, suffix) {
+  const existing = db.prepare(
+    `SELECT id,status FROM agent_workflow_definitions
+     WHERE owner_user_id=? AND lower(chat_trigger_phrase)=lower(?) LIMIT 1`
+  ).get(owner, phrase);
+  if (existing?.id) {
+    if (existing.status !== 'published') {
+      publishDefinition(existing.id, owner, { id: 'regression', name: 'Regression pack' });
+    }
+    return existing.id;
+  }
+  const id = `regression-${owner}-${suffix}`.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 120);
+  createDefinition({
+    id,
+    name: `Regression ${suffix}`,
+    description: 'Disposable trigger-only workflow for isolated goal-plan regression.',
+    ownerUserId: owner,
+    actor: { id: 'regression', name: 'Regression pack' },
+    trigger_modes: ['manual', 'chat'],
+    chat_trigger_phrase: phrase,
+    graph: {
+      nodes: [{ id: 'trigger', type: 'trigger', position: { x: 0, y: 0 }, data: { label: 'Trigger' } }],
+      edges: [],
+      viewport: { x: 0, y: 0, zoom: 1 },
+    },
+  });
+  publishDefinition(id, owner, { id: 'regression', name: 'Regression pack' });
+  return id;
+}
+
+if (
+  String(process.env.REGRESSION_INSTALL_GOAL_FIXTURES || '') === '1' ||
+  String(process.env.REGRESSION_ISOLATED_USER || '') === '1'
+) {
+  console.log('[goal-plan-e2e] installing isolated trigger workflows');
+  ensureIsolatedTriggerWorkflow('run crm maker checker', 'crm-maker-checker');
+  ensureIsolatedTriggerWorkflow('run erp maker checker', 'erp-maker-checker');
+}
 
 let agentId = 'balserve';
 try {
@@ -96,7 +143,7 @@ const help = planned.find(
 const notify = planned.find((s) => s.type === 'notify_ceo');
 assert(crm, 'planned CRM workflow_trigger missing');
 assert(erp, 'planned ERP workflow_trigger missing');
-assert(help, 'planned Platform Help specialty_task missing');
+if (requireSpecialty) assert(help, 'planned Platform Help specialty_task missing');
 assert(notify, 'planned notify_ceo missing');
 assert(
   crm.spec.phrase === 'run crm maker checker',
@@ -110,10 +157,12 @@ assert(
 // Idempotent re-normalize (createGoalRun maps steps again)
 const renorm = planned.map(normalizeStepSpec);
 assert(renorm[0].spec.phrase === crm.spec.phrase, 're-normalize lost CRM phrase');
-assert(
-  renorm.find((s) => s.type === 'specialty_task')?.spec?.agent_id,
-  're-normalize lost specialty agent_id'
-);
+if (requireSpecialty) {
+  assert(
+    renorm.find((s) => s.type === 'specialty_task')?.spec?.agent_id,
+    're-normalize lost specialty agent_id'
+  );
+}
 
 // --- Create + start ---
 const { goal, execution } = await createAndStartGoalRun({
@@ -131,11 +180,15 @@ console.log('[goal-plan-e2e] goal_run_id', goal.id, 'exec', {
 });
 
 let loaded = getGoalRun(goal.id, owner);
-assert(loaded?.steps?.length >= 4, 'stored plan must have ≥4 steps, got ' + loaded?.steps?.length);
+const expectedMinSteps = requireSpecialty ? 4 : 3;
+assert(
+  loaded?.steps?.length >= expectedMinSteps,
+  `stored plan must have ≥${expectedMinSteps} steps, got ${loaded?.steps?.length}`
+);
 const s0 = loaded.steps.find((s) => (s.step_type || s.type) === 'workflow_trigger');
 assert(s0?.spec?.phrase === 'run crm maker checker', 'stored CRM phrase lost: ' + JSON.stringify(s0?.spec));
 const helpStored = loaded.steps.find((s) => (s.step_type || s.type) === 'specialty_task');
-assert(helpStored, 'stored specialty_task missing');
+if (requireSpecialty) assert(helpStored, 'stored specialty_task missing');
 if (/No workflow matched/i.test(String(s0.error_message || ''))) {
   throw new Error('CRM must match published workflow: ' + s0.error_message);
 }
@@ -221,7 +274,7 @@ if (forceTerminal) {
   }
   const typesDone = loaded.steps.map((s) => s.step_type || s.type);
   assert(typesDone.includes('workflow_trigger'), 'workflow steps');
-  assert(typesDone.includes('specialty_task'), 'specialty step');
+  if (requireSpecialty) assert(typesDone.includes('specialty_task'), 'specialty step');
   assert(typesDone.includes('notify_ceo'), 'notify step');
 }
 

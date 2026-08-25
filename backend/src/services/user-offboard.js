@@ -1,8 +1,8 @@
 /**
  * Full CEO/user offboarding: schedules, workflows, standups, grants, tenant DB/files, OpenClaw tenants.
  */
-import { existsSync, rmSync, readFileSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import { existsSync, rmSync, readFileSync, readdirSync, writeFileSync } from 'fs';
+import { join, resolve, sep } from 'path';
 import { getDb } from '../db/schema.js';
 import { closeCeoDb } from '../db/ceo-db.js';
 import { usesTenantCeoDb } from '../db/ceo-db-config.js';
@@ -99,6 +99,25 @@ function scrubOpenClawTenantAgents(ceoUserId) {
   return { removed };
 }
 
+function removeOpenClawTenantRuntimeDirs(ceoUserId) {
+  const prefix = `t-${sanitizeIdPart(ceoUserId)}--`;
+  const agentsRoot = resolve(getOpenClawDir(), 'agents');
+  if (!existsSync(agentsRoot)) return { removed: 0 };
+  let removed = 0;
+  try {
+    for (const entry of readdirSync(agentsRoot, { withFileTypes: true })) {
+      if (!entry.isDirectory() || entry.isSymbolicLink() || !entry.name.toLowerCase().startsWith(prefix)) continue;
+      const target = resolve(agentsRoot, entry.name);
+      if (!target.startsWith(agentsRoot + sep)) continue;
+      rmSync(target, { recursive: true, force: true });
+      removed += 1;
+    }
+  } catch (e) {
+    return { removed, error: e?.message || String(e) };
+  }
+  return { removed };
+}
+
 function deleteOwnedCustomAgents(db, ownerUserId) {
   const agents = tryAll(db, `SELECT id FROM agents WHERE owner_user_id = ? AND agent_type = 'custom'`, [
     ownerUserId,
@@ -145,6 +164,20 @@ function purgeOwnerScopedRows(db, ownerUserId) {
     ownerUserId,
   ]);
 
+  // Durable goals and semantic router state (children before parents).
+  const goalIds = tryAll(db, `SELECT id FROM agent_goal_runs WHERE owner_user_id = ?`, [ownerUserId]).map((r) => r.id);
+  for (const goalId of goalIds) {
+    counts.agent_goal_steps = (counts.agent_goal_steps || 0) + tryRun(
+      db,
+      `DELETE FROM agent_goal_steps WHERE goal_run_id = ?`,
+      [goalId]
+    );
+  }
+  counts.goal_mission_events = tryRun(db, `DELETE FROM goal_mission_events WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.agent_goal_runs = tryRun(db, `DELETE FROM agent_goal_runs WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.chat_work_units = tryRun(db, `DELETE FROM chat_work_units WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.chat_sessions = tryRun(db, `DELETE FROM chat_sessions WHERE owner_user_id = ?`, [ownerUserId]);
+
   // Standups + messages + delegations + kanban
   const standupIds = tryAll(db, `SELECT id FROM standups WHERE owner_user_id = ?`, [ownerUserId]).map((r) => r.id);
   let standupMsgs = 0;
@@ -180,6 +213,8 @@ function purgeOwnerScopedRows(db, ownerUserId) {
   ]);
   counts.notifications = tryRun(db, `DELETE FROM platform_user_notifications WHERE user_id = ?`, [ownerUserId]);
   counts.feed_dismissals = tryRun(db, `DELETE FROM user_feed_dismissals WHERE user_id = ?`, [ownerUserId]);
+  counts.user_api_keys = tryRun(db, `DELETE FROM user_api_keys WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.tool_model_overrides = tryRun(db, `DELETE FROM tool_model_overrides WHERE owner_user_id = ?`, [ownerUserId]);
 
   // Integrations / scripts / MCP
   counts.mcp_servers = tryRun(db, `DELETE FROM mcp_servers WHERE owner_user_id = ?`, [ownerUserId]);
@@ -239,6 +274,27 @@ function purgeOwnerScopedRows(db, ownerUserId) {
   counts.company_business_profiles = tryRun(db, `DELETE FROM company_business_profiles WHERE owner_user_id = ?`, [
     ownerUserId,
   ]);
+  counts.company_workspace_boards = tryRun(db, `DELETE FROM company_workspace_boards WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.ceo_org_strategy = tryRun(db, `DELETE FROM ceo_org_strategy WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.exception_policies = tryRun(db, `DELETE FROM exception_policies WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.action_family_policies = tryRun(db, `DELETE FROM action_family_policies WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.action_approval_grants = tryRun(db, `DELETE FROM action_approval_grants WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.action_policy_overrides = tryRun(db, `DELETE FROM action_policy_overrides WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.tool_write_idempotency = tryRun(db, `DELETE FROM tool_write_idempotency WHERE owner_user_id = ?`, [ownerUserId]);
+
+  // Human org members and their role catalog belong to this CEO tenant too.
+  counts.org_user_sessions = tryRun(
+    db,
+    `DELETE FROM platform_sessions WHERE user_id IN
+       (SELECT id FROM platform_users WHERE owner_user_id = ? AND role = 'org_user')`,
+    [ownerUserId]
+  );
+  counts.org_users = tryRun(
+    db,
+    `DELETE FROM platform_users WHERE owner_user_id = ? AND role = 'org_user'`,
+    [ownerUserId]
+  );
+  counts.org_roles = tryRun(db, `DELETE FROM org_roles WHERE owner_user_id = ?`, [ownerUserId]);
 
   counts.custom_agents = deleteOwnedCustomAgents(db, ownerUserId);
   counts.user_agents = tryRun(db, `DELETE FROM user_agents WHERE user_id = ?`, [ownerUserId]);
@@ -383,6 +439,7 @@ export function offboardUser(userId, opts = {}) {
     summary.steps.openclaw_tenant_error = e?.message || String(e);
   }
   summary.steps.openclaw_agents = scrubOpenClawTenantAgents(row.id);
+  summary.steps.openclaw_runtime_dirs = removeOpenClawTenantRuntimeDirs(row.id);
 
   if (twentyWsToRelease) {
     void import('./twenty-workspace.js')

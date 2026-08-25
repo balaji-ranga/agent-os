@@ -318,7 +318,7 @@ bash /opt/agent-os/deploy/scripts/vps-regression-full.sh
 docker exec -w /opt/agent-os/backend agent-os-backend-1 node scripts/test-goal-plan-adhoc-e2e.mjs
 # Async ack + goal-correlated terminal notifies (plan still running after create; notifies include agr + title)
 docker exec -w /opt/agent-os/backend agent-os-backend-1 node scripts/test-goal-plan-async-ui.mjs
-# or via full regression pack on VPS (mints session; no password needed):
+# or via full regression pack on VPS (isolated disposable CEO; no password needed):
 bash /opt/agent-os/deploy/scripts/vps-regression-full.sh
 # npm aliases (from backend/):
 #   test:e2e:goal-plan | test:goal-plan:async-ui | test:goal-plan:unit | test:goal-plan:acceptance
@@ -328,7 +328,11 @@ Env: `REGRESSION_GOAL_PLAN` (pack, default on), `REGRESSION_GOAL_PLAN_FORCE_TERM
 
 Ad-hoc chat **reuse trap:** COO session/MEMORY may quote an old `agr-…` on a similar prompt — start **New chat** or say *create a new plan*. Backend create always stores a new `agr-…` when the tool is invoked. Scheduled **plan-mode** fires also create a new `agr-…` each tick (approved `plan_json` is only the step template).
 
-`vps-regression-full.sh` sets `AGENT_OS_REGRESSION_TOKEN` so `tests/lib/ceo-session.js` skips password login (needed when MFA is on or the default password is not in env).
+`vps-regression-full.sh` creates a uniquely tagged tenant CEO and sets
+`AGENT_OS_REGRESSION_TOKEN`, so `tests/lib/ceo-session.js` skips password login. The full pack covers
+the shared semantic router contracts plus Company Setup and Company Operate Day 0/Day 1. A shell trap
+offboards the fixture on success, failure, or interruption, runs a stale-fixture sweep, and fails the
+run if directly owner/user-scoped rows remain.
 
 Manual UI checks:
 
