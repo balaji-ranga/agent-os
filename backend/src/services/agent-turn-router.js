@@ -96,8 +96,8 @@ Rules:
 - correction: the user rejects or corrects a prior response. Select only the corrected unit, never unrelated work.
 - conversation: greeting, acknowledgement, explanation, or ordinary dialogue that needs no executable work.
 - goal_plan: substantial durable execution with multiple meaningful stages, dependencies, agents, tools, workflows, asynchronous work, tracking, retry, or a composite final deliverable.
-- delegate: one specialist deliverable best owned by another employee.
-- direct_tool: one bounded action or lookup.
+- delegate: one specialist deliverable that the user assigns to, or that is best owned by, a different employee in the supplied organization roster. An explicit request for another named employee to do the work is delegate, not direct_tool.
+- direct_tool: one bounded action or lookup for the current agent to perform itself.
 - chat: answer/explain/converse without durable execution.
 - Do not classify a detailed standalone specification as follow_up merely because its prose contains pronouns.
 - A terminal execution is historical evidence, not permission to restart it. Only select it when the current message semantically requests continuation/retry/status.
@@ -115,6 +115,17 @@ export async function routeAgentTurn({
 }) {
   ensureAgentTurnRouterSchema();
   const candidates = compactTurns(history);
+  let organization = [];
+  try {
+    organization = db().prepare(`
+      SELECT a.id,a.name,a.role,a.department
+      FROM user_agents ua JOIN agents a ON a.id=ua.agent_id
+      WHERE ua.user_id=? AND ua.enabled=1 AND a.id<>?
+      ORDER BY a.name LIMIT 80
+    `).all(ownerUserId, agent?.id || '');
+  } catch (_) {
+    organization = [];
+  }
   let parsed = semanticDecision && typeof semanticDecision === 'object' ? semanticDecision : null;
   try {
     if (!parsed) {
@@ -130,6 +141,7 @@ export async function routeAgentTurn({
           role: 'user',
           content: JSON.stringify({
             agent: { id: agent?.id, name: agent?.name, role: agent?.role, is_coo: !!agent?.is_coo },
+            organization,
             current_message: String(message || ''),
             candidate_turns: candidates,
           }),
