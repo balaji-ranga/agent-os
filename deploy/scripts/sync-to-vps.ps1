@@ -302,6 +302,8 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\test-gate-bc-live.mjs" `
     "$Repo\backend\scripts\test-agent-channel-announce.mjs" `
     "$Repo\backend\scripts\test-openclaw-delivery-noise.mjs" `
+    "$Repo\backend\scripts\test-chat-context-boundaries.mjs" `
+    "$Repo\backend\scripts\test-delegation-result-callback.mjs" `
     "$Repo\backend\scripts\test-platform-help-seed.js" `
     "$Repo\backend\scripts\test-totp-enrollment-fields.js" `
     "$Repo\backend\scripts\reupload-platform-help-docs.js" `
