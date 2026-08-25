@@ -1699,6 +1699,16 @@ async function executeAgentToolStep(goal, step) {
     args.goal_run_id = args.goal_run_id || goal.id;
     args.goal_step_id = args.goal_step_id || step.id;
   }
+
+  // agent_continue is the synthesis/final-response step. Executable actions belong in
+  // explicit agent_tool/workflow/specialty steps where policy, telemetry, retries and
+  // evidence are enforced. Letting this turn call tools causes empty-argument retries and
+  // lets model prose/tool chatter compete with the platform goal state machine.
+  prompt +=
+    '\n\n[Platform execution boundary — synthesis only]\n' +
+    'Do not call tools, do not create/delegate work, and do not call agent_goal_complete_step or Kanban status tools.\n' +
+    'Use the completed step outputs above to produce the final, concrete CEO-facing response now.\n' +
+    'The platform will persist this response and advance the goal automatically.';
   const caller = resolveAgentForGoal(goal.owner_user_id, goal.agent_id);
   const invokeOpts = {
     agentId: caller?.id || goal.agent_id || null,
@@ -1848,7 +1858,7 @@ async function executeCompositionalToolViaAgent(goal, step, toolName) {
     false,
     {
       injectLearningsInstruction: false,
-      injectKanbanInstruction: true,
+      injectKanbanInstruction: false,
       injectSessionHistoryInstruction: false,
       timeoutMs: Number(process.env.GOAL_AGENT_CONTINUE_TIMEOUT_MS || process.env.OPENCLAW_FETCH_TIMEOUT_MS || 240000),
     }
