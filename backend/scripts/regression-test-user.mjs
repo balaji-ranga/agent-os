@@ -134,6 +134,20 @@ if (command === 'create') {
   for (const { owner_user_id } of orphanCredentialOwners) {
     removeToolServiceCredentialsForOwner(owner_user_id);
   }
+  // Repair residues left by older fixture teardown implementations after the
+  // tagged platform_users row was already gone. Never matches a normal CEO ID.
+  for (const table of [
+    'agent_delegation_tasks',
+    'standups',
+    'ibkr_budget_days',
+    'chat_session_meta',
+    'agent_ops_budgets',
+    'deleted_agents',
+  ]) {
+    try {
+      db.prepare(`DELETE FROM ${quoteIdent(table)} WHERE owner_user_id LIKE 'ceo-flolah-regression-%'`).run();
+    } catch (_) {}
+  }
   const routerRows = cleanupRouterTestRows();
   const remaining = candidates();
   if (remaining.length) throw new Error(`Regression users remain: ${remaining.map((r) => r.id).join(',')}`);

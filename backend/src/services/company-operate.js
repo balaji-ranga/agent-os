@@ -498,7 +498,7 @@ export async function designOperate(ownerUserId, body = {}) {
       design_source: "template",
       setup_systems: setupSystems,
       org_channels: orgChannels,
-      company_type: companyType,
+      company_type: companyTypeFinal,
       force_setup_merge: true,
     });
   }

@@ -208,6 +208,7 @@ function purgeOwnerScopedRows(db, ownerUserId) {
 
   // Chat / tools / feedback / notifications
   counts.chat_turns = tryRun(db, `DELETE FROM chat_turns WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.chat_session_meta = tryRun(db, `DELETE FROM chat_session_meta WHERE owner_user_id = ?`, [ownerUserId]);
   counts.content_tool_logs = tryRun(db, `DELETE FROM content_tool_logs WHERE owner_user_id = ?`, [ownerUserId]);
   counts.agent_response_feedback = tryRun(db, `DELETE FROM agent_response_feedback WHERE owner_user_id = ?`, [
     ownerUserId,
@@ -230,6 +231,7 @@ function purgeOwnerScopedRows(db, ownerUserId) {
   counts.ibkr_reservations = tryRun(db, `DELETE FROM ibkr_trade_reservations WHERE owner_user_id = ?`, [
     ownerUserId,
   ]);
+  counts.ibkr_budget_days = tryRun(db, `DELETE FROM ibkr_budget_days WHERE owner_user_id = ?`, [ownerUserId]);
   counts.ibkr_order_events = tryRun(db, `DELETE FROM ibkr_order_events WHERE owner_user_id = ?`, [ownerUserId]);
   counts.ibkr_positions = tryRun(db, `DELETE FROM ibkr_positions_cache WHERE owner_user_id = ?`, [ownerUserId]);
   counts.ibkr_account_snapshot_cache = tryRun(
@@ -265,6 +267,7 @@ function purgeOwnerScopedRows(db, ownerUserId) {
     ownerUserId,
   ]);
   counts.token_usage = tryRun(db, `DELETE FROM token_usage WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.agent_ops_budgets = tryRun(db, `DELETE FROM agent_ops_budgets WHERE owner_user_id = ?`, [ownerUserId]);
   counts.agent_monthly_budgets = tryRun(db, `DELETE FROM agent_monthly_budgets WHERE owner_user_id = ?`, [ownerUserId]);
   counts.browser_tasks = tryRun(db, `DELETE FROM browser_tasks WHERE owner_user_id = ?`, [ownerUserId]);
   counts.browser_recipes = tryRun(db, `DELETE FROM browser_recipes WHERE owner_user_id = ?`, [ownerUserId]);
@@ -298,6 +301,9 @@ function purgeOwnerScopedRows(db, ownerUserId) {
   counts.org_roles = tryRun(db, `DELETE FROM org_roles WHERE owner_user_id = ?`, [ownerUserId]);
 
   counts.custom_agents = deleteOwnedCustomAgents(db, ownerUserId);
+  // Agent cascade writes owner-scoped tombstones, which are no longer needed
+  // once the owning tenant itself is being deleted.
+  counts.deleted_agents = tryRun(db, `DELETE FROM deleted_agents WHERE owner_user_id = ?`, [ownerUserId]);
   counts.user_agents = tryRun(db, `DELETE FROM user_agents WHERE user_id = ?`, [ownerUserId]);
   counts.sessions = tryRun(db, `DELETE FROM platform_sessions WHERE user_id = ?`, [ownerUserId]);
   counts.mfa_tokens = tryRun(db, `DELETE FROM mfa_tokens WHERE user_id = ?`, [ownerUserId]);
@@ -442,6 +448,11 @@ export function offboardUser(userId, opts = {}) {
   }
   summary.steps.openclaw_agents = scrubOpenClawTenantAgents(row.id);
   summary.steps.openclaw_runtime_dirs = removeOpenClawTenantRuntimeDirs(row.id);
+
+  // A running delegation can finish while the first purge is deleting custom
+  // agents. Make the final DB pass after runtime/config teardown so those late
+  // standup/task rows and agent tombstones cannot survive offboarding.
+  summary.steps.final_db = purgeOwnerScopedRows(db, row.id);
 
   if (twentyWsToRelease) {
     void import('./twenty-workspace.js')
