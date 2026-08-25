@@ -114,6 +114,10 @@ export function listAgentResponseNotificationsForUser(authUser, { limit = 20, in
        WHERE t.status = 'completed'
          AND t.response_content IS NOT NULL
          AND t.response_content != ''
+         -- Goal-step delegations report through their originating orchestrator when the
+         -- whole goal terminates. Surfacing every internal attempt here creates duplicate,
+         -- recurring CEO notifications and breaks that ownership contract.
+         AND t.prompt NOT LIKE '%[goal_run_id:%'
          AND t.to_agent_id IN (${placeholders})
          AND s.owner_user_id = ?
          AND datetime(t.completed_at) >= datetime('now', '-3 days')

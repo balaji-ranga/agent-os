@@ -1914,7 +1914,7 @@ export function completeGoalRun(goalRunId, { status = 'completed', error = null 
         `SELECT k.id
          FROM kanban_tasks k
          JOIN agent_delegation_tasks d ON d.id = k.agent_delegation_task_id
-         WHERE d.prompt LIKE ? AND k.status IN ('open','in_progress','awaiting_confirmation')`
+         WHERE d.prompt LIKE ? AND k.status IN ('open','in_progress','awaiting_confirmation','failed')`
       ).all(marker);
       const terminalCardStatus = status === 'completed' ? 'completed' : 'failed';
       const update = db().prepare(
