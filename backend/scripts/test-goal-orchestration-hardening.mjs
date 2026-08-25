@@ -20,6 +20,7 @@ try {
     ['content-orchestrator', 'Content Orchestrator', 'coo-test', 0, 1, 'Content'],
     ['scene-agent', 'Scene Agent', 'content-orchestrator', 0, 0, 'Content'],
     ['finance-agent', 'Finance Agent', 'coo-test', 0, 0, 'Finance'],
+    ['erp-checker', 'ERP Checker', 'coo-test', 0, 0, 'ERP'],
   ];
   for (const [id, name, parent, isCoo, isOrch, department] of agents) {
     db.prepare(
@@ -27,6 +28,10 @@ try {
     ).run(id, name, parent, isCoo, isOrch, department, id);
     db.prepare(`INSERT INTO user_agents (user_id,agent_id,enabled) VALUES (?,?,1)`).run(owner, id);
   }
+  for (const tool of ['status_checker', 'email_send', 'brave_web_search']) {
+    db.prepare(`INSERT OR IGNORE INTO agent_tool_grants (agent_id,tool_name) VALUES (?,?)`).run('coo-test', tool);
+  }
+  db.prepare(`INSERT OR IGNORE INTO agent_tool_grants (agent_id,tool_name) VALUES (?,?)`).run('erp-checker', 'email_send');
 
   const { classifyToolFailure } = await import('../src/services/tool-failure-class.js');
   const quota = classifyToolFailure(new Error('Brave Usage limit exceeded current_spend 5.05'), { status: 402 });
@@ -61,6 +66,42 @@ try {
     }),
     /only to direct reportees/
   );
+
+  const digestPrompt =
+    'Every morning collect the company daily status, create a concise status digest, and email the digest to me.';
+  const wrongDigestPlan = [{
+    type: 'specialty_task',
+    agent_id: 'erp-checker',
+    label: 'Check status through ERP Checker',
+    message: 'Collect company daily status and email the digest.',
+  }, {
+    type: 'agent_continue',
+    label: 'Complete goal (agent interpretation)',
+    message: '[Goal run — agent interpretation]\nPrefer tools: email_send.',
+  }];
+  for (const source of ['adhoc_chat', 'scheduled_goal']) {
+    const digestGoal = createGoalRun({
+      ownerUserId: owner,
+      agentId: 'coo-test',
+      prompt: digestPrompt,
+      title: `${source} daily digest`,
+      steps: wrongDigestPlan,
+      source,
+    });
+    const executable = digestGoal.steps.map((s) => ({
+      type: s.type,
+      tool: s.spec?.tool_name || null,
+      agent: s.spec?.agent_id || null,
+    }));
+    assert(!executable.some((s) => s.agent === 'erp-checker'), `${source}: incapable ERP delegation removed`);
+    assert(executable.some((s) => s.tool === 'status_checker'), `${source}: status collection required`);
+    assert(executable.some((s) => s.tool === 'email_send'), `${source}: email delivery required`);
+    assert(!executable.some((s) => s.type === 'agent_continue'), `${source}: no duplicate delivery continuation`);
+    assert(
+      executable.findIndex((s) => s.tool === 'status_checker') < executable.findIndex((s) => s.tool === 'email_send'),
+      `${source}: collect status before sending email`
+    );
+  }
 
   const { upsertExceptionPolicy } = await import('../src/services/exception-policy.js');
   upsertExceptionPolicy(owner, { retry_limit: 3, create_kanban: false, agent_pickup: false });
@@ -142,6 +183,7 @@ try {
     orchestrator_reportees: ['scene-agent'],
     blocked_kanban_status: retained.status,
     retry_cards: retryCards.map((r) => r.status),
+    capability_plan_sources: ['adhoc_chat', 'scheduled_goal'],
   });
 } finally {
   try { database?.close(); } catch {}

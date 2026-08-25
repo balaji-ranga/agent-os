@@ -21,6 +21,7 @@ import {
 } from './goal-plan-specialty.js';
 import {
   classifyGoalPlanIntents,
+  listOrchestratorToolsForGoalPlan,
   matchWorkflowStepsFromCatalog,
   resolveCeoEmail,
   isCooStyleOrchestrator,
@@ -37,7 +38,8 @@ import {
   toolNeedsAgentInterpretation,
   goalWantsChatSynthesis,
 } from './goal-plan-tool-args.js';
-import { mergeCapabilitySteps } from './business-capabilities.js';
+import { mergeCapabilitySteps, resolveCapabilitiesFromPrompt } from './business-capabilities.js';
+import { getAgentToolGrants } from './openclaw-agent-tools.js';
 import { mergeRuntimeCapabilityStep } from './runtime-capability-registry.js';
 import {
   ensureGoalOutcomeTables,
@@ -291,7 +293,7 @@ export function planGoalStepsFromText(prompt, { explicitSteps, ownerUserId = nul
     if (steps.length >= 1 && !steps.some((s) => s.type === 'notify_ceo')) {
       steps.push(normalizeStepSpec({ type: 'notify_ceo' }));
     }
-    return enrichPlanSteps(steps);
+    return validateAndRepairGoalPlan(steps, prompt, { ownerUserId });
   }
 
   const text = String(prompt || '');
@@ -353,7 +355,7 @@ export function planGoalStepsFromText(prompt, { explicitSteps, ownerUserId = nul
   }
 
   const planned = enrichPlanSteps(merged.length ? merged : steps);
-  return planned.length ? planned : steps;
+  return validateAndRepairGoalPlan(planned.length ? planned : steps, prompt, { ownerUserId });
 }
 
 
@@ -458,7 +460,10 @@ async function planGoalStepsAsyncInner(prompt, opts = {}) {
         console.info('[goal-run] plan via intent classifier', {
           steps: steps.map((x) => x.type + ':' + (x.label || '')).slice(0, 12),
         });
-        return steps;
+        return validateAndRepairGoalPlan(steps, fullPrompt, {
+          ownerUserId,
+          orchestratorAgentId: opts.orchestratorAgentId || null,
+        });
       }
     } catch (e) {
       console.warn('[goal-run] intent classifier failed; catalog fallback', e?.message || e);
@@ -499,7 +504,122 @@ async function planGoalStepsAsyncInner(prompt, opts = {}) {
   if (steps.length && !steps.some((s) => s.type === 'notify_ceo')) {
     steps.push(normalizeStepSpec({ type: 'notify_ceo' }));
   }
-  return steps;
+  return validateAndRepairGoalPlan(steps, fullPrompt, {
+    ownerUserId,
+    orchestratorAgentId: opts.orchestratorAgentId || null,
+  });
+}
+
+/**
+ * Deterministic final gate shared by ad-hoc and scheduled goals.
+ * The LLM may propose a plan, but requested capability outcomes must resolve to
+ * real tools granted to the orchestrator. Auto-delegations that cannot execute
+ * those capabilities are removed; explicitly named employees remain respected.
+ */
+export function validateAndRepairGoalPlan(
+  steps,
+  prompt,
+  { ownerUserId = null, orchestratorAgentId = null } = {}
+) {
+  const text = String(prompt || '');
+  const requirements = resolveCapabilitiesFromPrompt(text).filter((c) => c.tool_name || c.workflow_phrase);
+  let out = mergeCapabilitySteps(Array.isArray(steps) ? steps : [], text).map(normalizeStepSpec);
+  if (requirements.length) {
+    out = out.filter(
+      (step) => step.type !== 'agent_continue' || String(step.spec?.message || '').trim()
+    );
+    const requiredDeliveryTools = requirements
+      .map((c) => String(c.tool_name || ''))
+      .filter((name) => name && isCompositionalTool(name));
+    if (requiredDeliveryTools.length) {
+      out = out.filter((step) => {
+        if (step.type !== 'agent_continue') return true;
+        const message = String(step.spec?.message || '');
+        if (!/\[Goal run [—-] agent interpretation\]/i.test(message)) return true;
+        return !requiredDeliveryTools.some((name) => message.includes(name));
+      });
+    }
+  }
+  if (!ownerUserId) return enrichPlanSteps(out);
+
+  const orchestratorBase = String(orchestratorAgentId || '')
+    .split('--')
+    .pop()
+    .trim();
+  const orchestratorTools = new Set([
+    ...listOrchestratorToolsForGoalPlan(ownerUserId, orchestratorAgentId).map((t) => String(t.name).toLowerCase()),
+    ...getAgentToolGrants(orchestratorBase).map((t) => String(t).toLowerCase()),
+  ]);
+  const unavailable = new Set();
+
+  out = out.filter((step) => {
+    if (step.type !== 'agent_tool') return true;
+    const tool = String(step.spec?.tool_name || '').toLowerCase();
+    if (!tool || orchestratorTools.has(tool)) return true;
+    unavailable.add(tool);
+    return false;
+  });
+
+  const specialtyCount = out.filter((s) => s.type === 'specialty_task').length;
+  out = out.filter((step) => {
+    if (step.type !== 'specialty_task') return true;
+    const agentId = String(step.spec?.agent_id || '').trim();
+    if (!agentId) return false;
+    const agent = db().prepare('SELECT id, name FROM agents WHERE lower(id) = lower(?) LIMIT 1').get(agentId);
+    const namedTokens = [agent?.id, agent?.name]
+      .map((x) => String(x || '').trim().toLowerCase())
+      .filter((x) => x.length >= 4);
+    const explicitlyNamed = namedTokens.some((x) => text.toLowerCase().includes(x));
+    if (explicitlyNamed) return true;
+
+    const stepRequirements = resolveCapabilitiesFromPrompt(step.spec?.message || '');
+    const relevant = stepRequirements.length
+      ? stepRequirements
+      : specialtyCount === 1
+        ? requirements
+        : [];
+    const requiredTools = relevant.map((c) => c.tool_name).filter(Boolean);
+    if (!requiredTools.length) return true;
+    const targetTools = new Set(getAgentToolGrants(agent?.id || agentId).map((x) => String(x).toLowerCase()));
+    const missingOnTarget = requiredTools.filter(
+      (tool) => orchestratorTools.has(String(tool).toLowerCase()) && !targetTools.has(String(tool).toLowerCase())
+    );
+    if (!missingOnTarget.length) return true;
+    console.warn('[goal-run] removed incapable auto-delegation', {
+      agentId,
+      missingTools: missingOnTarget,
+      capabilities: relevant.map((c) => c.id),
+    });
+    return false;
+  });
+
+  // Missing configured tools are surfaced as a real blocked/clarification step,
+  // never silently omitted from a plan that would then claim success.
+  if (unavailable.size) {
+    out.push(normalizeStepSpec({
+      type: 'agent_continue',
+      label: 'Resolve unavailable goal capability',
+      message:
+        `[NEEDS_CLARIFICATION] The goal requires unavailable orchestrator tool(s): ${[...unavailable].join(', ')}. ` +
+        'Do not claim the goal completed. Explain which capability must be enabled.',
+    }));
+  }
+
+  // Data/work must precede outbound delivery; notify is presentation only.
+  const executionRank = (step) => {
+    if (step.type === 'notify_ceo') return 4;
+    if (step.type === 'agent_tool' && isCompositionalTool(step.spec?.tool_name)) return 3;
+    if (step.type === 'agent_continue') return 2;
+    if (step.type === 'agent_tool') return 1;
+    return 0;
+  };
+  out.sort((a, b) => executionRank(a) - executionRank(b));
+  console.info('[goal-run] capability plan validation', {
+    required: requirements.map((c) => c.id),
+    unavailable: [...unavailable],
+    steps: out.map((s) => `${s.type}:${s.spec?.tool_name || s.spec?.agent_id || s.label}`),
+  });
+  return enrichPlanSteps(out);
 }
 
 /** Whether a planned step list warrants durable goal_run_plan mode. */
@@ -695,13 +815,17 @@ export function createGoalRun({
     throw err;
   }
 
-  const plannedRaw = Array.isArray(steps) && steps.length
+  const proposed = Array.isArray(steps) && steps.length
     ? enrichPlanSteps(
         mergeRuntimeCapabilityStep(
           mergeCapabilitySteps(steps.map(normalizeStepSpec), prompt), owner, prompt
         ).map(normalizeStepSpec)
       )
     : planGoalStepsFromText(prompt, { ownerUserId: owner });
+  const plannedRaw = validateAndRepairGoalPlan(proposed, prompt, {
+    ownerUserId: owner,
+    orchestratorAgentId: agent,
+  });
   // Honor explicit "do not call notify_ceo" in CEO / scheduled prompts.
   const planned = promptForbidsNotifyCeo(prompt)
     ? plannedRaw.filter((s) => (s.type || s.step_type) !== 'notify_ceo')

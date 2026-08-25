@@ -143,6 +143,20 @@ export const BUSINESS_CAPABILITIES = Object.freeze([
     ],
   }),
   cap({
+    id: 'send_email',
+    label: 'Send Email',
+    risk_tier: 'R2',
+    tool_name: 'email_send',
+    inputs: ['recipient', 'subject', 'body_or_artifact'],
+    outputs: ['send_receipt'],
+    expected_evidence: 'message_id_or_send_receipt',
+    patterns: [
+      /\b(?:send|deliver|email|mail)\b[\s\S]{0,80}\b(?:email|mail|digest|report|summary|update)\b/i,
+      /\b(?:daily|weekly|monthly)\b[\s\S]{0,60}\b(?:digest|report|status\s+update)\b[\s\S]{0,60}\b(?:email|mail)\b/i,
+      /\b(?:email|mail)\b[\s\S]{0,60}\b(?:daily|weekly|monthly|digest|report|status\s+update)\b/i,
+    ],
+  }),
+  cap({
     id: 'create_invoice',
     label: 'Create Invoice',
     risk_tier: 'R1',
@@ -206,6 +220,8 @@ export const BUSINESS_CAPABILITIES = Object.freeze([
       /status checker/i,
       /how are tasks going/i,
       /org status (?:update|digest)/i,
+      /\b(?:daily|weekly|monthly)\b[\s\S]{0,50}\b(?:company|org(?:anisation|anization)?|team|agent|task|goal|workflow)?\s*status\b[\s\S]{0,40}\b(?:digest|report|update|summary|email)\b/i,
+      /\bstatus\b[\s\S]{0,35}\b(?:digest|report|summary)\b/i,
     ],
   }),
   cap({
@@ -244,6 +260,12 @@ export function resolveCapabilitiesFromPrompt(prompt) {
   const text = String(prompt || '');
   const hits = [];
   for (const cap of BUSINESS_CAPABILITIES) {
+    // A requested draft is an internal artifact, not an instruction to send it.
+    if (
+      cap.id === 'send_email' &&
+      /\b(?:draft|prepare|write|compose)\b[\s\S]{0,50}\b(?:email|mail)\b/i.test(text) &&
+      !/\b(?:send|deliver|mail\s+it|email\s+it)\b/i.test(text)
+    ) continue;
     const idx = firstMatchIndex(text, cap.patterns);
     if (idx < 0) continue;
     hits.push({ ...cap, _order: idx });
