@@ -933,6 +933,9 @@ export async function postCallbackForRequestId(requestId, { summarize = null } =
     const ownerUserId = parent.owner_user_id || getStandupOwnerUserId(standupId);
     const coo = db().prepare('SELECT * FROM agents WHERE id=?').get(parent.parent_agent_id)
       || getCooAgentRow();
+    // The specialist result is already the authoritative deliverable. Production
+    // callback delivery is deterministic so a second model cannot invent actions
+    // (for example, claiming the CEO was notified when no notify tool ran).
     let cooReply = callbackMessage;
     try {
       const workUnit = getWorkUnit(parent.parent_work_unit_id);
@@ -944,22 +947,6 @@ export async function postCallbackForRequestId(requestId, { summarize = null } =
       ].join('\n\n');
       if (summarize) {
         cooReply = String(await summarize({ requestId, resultPrompt, callbackMessage, tasks })).trim() || callbackMessage;
-      } else {
-        const ensured = ensureTenantOpenClawAgent(coo, ownerUserId);
-        const completion = await openclaw.chatCompletions(
-          ensured.openclawAgentId,
-          [{ role: 'user', content: resultPrompt }],
-          openclaw.sessionUserFor(coo.id, ownerUserId, `delegation-result-${requestId}`),
-          false,
-          {
-            injectSessionHistoryInstruction: false,
-            injectBrowserInstruction: false,
-            injectLearningsInstruction: false,
-            injectKanbanInstruction: false,
-            retries: 1,
-          }
-        );
-        cooReply = normalizeReplyContent(completion?.content) || callbackMessage;
       }
     } catch (e) {
       console.warn('[delegation-callback] COO summary failed; storing factual callback', e?.message || e);

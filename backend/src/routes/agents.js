@@ -819,6 +819,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
         return res.json({
           reply: reach.cooReply,
           agent_id: agentId,
+          work_unit: turnRoute,
           reach_me: {
             specialist_id: reach.specialist?.id,
             specialist_name: reach.specialist?.name,
@@ -838,6 +839,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
         return res.json({
           reply: orgList.cooReply,
           agent_id: agentId,
+          work_unit: turnRoute,
           org_agents_list: { count: orgList.agent_count },
           workflow_triggered: null,
         });
@@ -862,6 +864,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
         return res.json({
           reply: delegated.cooReply,
           agent_id: agentId,
+          work_unit: turnRoute,
           specialty_delegation: {
             standup_id: delegated.standup_id,
             request_id: delegated.result?.requestId,
@@ -884,6 +887,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
         return res.json({
           reply: referral.reply,
           agent_id: agentId,
+          work_unit: turnRoute,
           specialty_referral: {
             target_id: referral.target?.id,
             target_name: referral.target?.name,
