@@ -1298,6 +1298,17 @@ export const api = {
   agentGoalRunsGet: (id) => get(`/agent-goal-runs/${encodeURIComponent(id)}`),
   agentGoalRunsEvents: (id) => get(`/agent-goal-runs/${encodeURIComponent(id)}/events`),
   agentGoalRunsAmend: (id, body) => post(`/agent-goal-runs/${encodeURIComponent(id)}/amend`, body),
+  companyReviewsList: (params = {}) => {
+    const sp = new URLSearchParams();
+    if (params.limit != null) sp.set('limit', String(params.limit));
+    return get(`/company-reviews${sp.size ? `?${sp}` : ''}`);
+  },
+  companyReviewsPrepare: (body = {}) => post('/company-reviews/prepare', body),
+  companyReviewsGet: (id) => get(`/company-reviews/${encodeURIComponent(id)}`),
+  companyReviewsSetStatus: (id, status) => post(`/company-reviews/${encodeURIComponent(id)}/status`, { status }),
+  companyReviewsFeedback: (id, body) => post(`/company-reviews/${encodeURIComponent(id)}/feedback`, body),
+  companyReviewsCreateImprovement: (id, body) => post(`/company-reviews/${encodeURIComponent(id)}/improvements`, body),
+  companyReviewsDecideImprovement: (id, decision) => post(`/company-reviews/improvements/${encodeURIComponent(id)}/decision`, { decision }),
   companyExecutions: (params = {}) => {
     const q = new URLSearchParams();
     if (params.limit != null) q.set('limit', String(params.limit));

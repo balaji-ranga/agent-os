@@ -20,6 +20,7 @@ export function buildCeoNavCatalog({ showCrm = false, showErp = false } = {}) {
     { id: 'this-week', label: 'Digest', to: '/this-week', always: true, group: 'top' },
     { id: 'work', label: 'Workspace', to: '/work', group: 'top' },
     { id: 'agent-actions', label: 'Live Operations', to: '/agent-actions', group: 'top' },
+    { id: 'company-reviews', label: 'Reviews', to: '/reviews', group: 'top' },
   ];
   const run = [
     { id: 'org', label: 'My Org', to: '/org', group: 'Run & Operate' },

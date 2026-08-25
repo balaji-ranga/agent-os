@@ -25,6 +25,7 @@ import kanbanRoutes from './routes/kanban.js';
 import scheduledGoalsRoutes from './routes/scheduled-goals.js';
 import agentGoalRunsRoutes from './routes/agent-goal-runs.js';
 import agentActionsRoutes from './routes/agent-actions.js';
+import companyReviewsRoutes from './routes/company-reviews.js';
 import companyExecutionsRoutes from './routes/company-executions.js';
 import companyCapabilitiesRoutes from './routes/company-capabilities.js';
 import mediaRoutes from './routes/media.js';
@@ -597,6 +598,7 @@ apiRouter.use('/kanban', kanbanRoutes);
 apiRouter.use('/scheduled-goals', scheduledGoalsRoutes);
 apiRouter.use('/agent-goal-runs', agentGoalRunsRoutes);
 apiRouter.use('/agent-actions', agentActionsRoutes);
+apiRouter.use('/company-reviews', companyReviewsRoutes);
 apiRouter.use('/company-executions', companyExecutionsRoutes);
 apiRouter.use('/company-capabilities', companyCapabilitiesRoutes);
 apiRouter.use('/job-applicant', jobApplicantRoutes);
@@ -814,6 +816,20 @@ registerPlatformCron({
     const { tickScheduledGoals } = await import('./services/scheduled-goals.js');
     const out = await tickScheduledGoals();
     return out;
+  },
+});
+
+const companyReviewPreparationCron = process.env.COMPANY_REVIEW_PREPARATION_CRON || '15 3 * * *';
+registerPlatformCron({
+  id: 'company_review_preparation',
+  name: 'Company review preparation',
+  description:
+    'Prepares owner-scoped weekly and monthly CEO/COO review snapshots from goal, step, retry, Kanban, tool, approval, and policy evidence. Existing in-session or completed review snapshots are never overwritten.',
+  schedule: companyReviewPreparationCron,
+  envVar: 'COMPANY_REVIEW_PREPARATION_CRON',
+  handler: async () => {
+    const { prepareDueCompanyReviews } = await import('./services/company-reviews.js');
+    return prepareDueCompanyReviews();
   },
 });
 

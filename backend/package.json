@@ -35,6 +35,7 @@
     ,"test:chat-work-units": "node scripts/test-chat-context-boundaries.mjs && node scripts/test-delegation-result-callback.mjs",
     "test:goal-hardening": "node scripts/test-goal-orchestration-hardening.mjs",
     "test:openclaw-session-cleanup": "node scripts/test-openclaw-session-cleanup.mjs"
+    ,"test:company-reviews": "node scripts/test-company-reviews.mjs"
   },
   "dependencies": {
     "@stoqey/ib": "^1.6.3",

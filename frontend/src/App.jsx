@@ -7,6 +7,7 @@ import ThisWeek from './pages/ThisWeek';
 import GoalPlans from './pages/GoalPlans';
 import GoalPlanDetail from './pages/GoalPlanDetail';
 import AgentActions from './pages/AgentActions';
+import CompanyReviews from './pages/CompanyReviews';
 import WorkspaceDesigner from './pages/WorkspaceDesigner';
 import NavMenuManager from './pages/NavMenuManager';
 import IpWhitelists from './pages/IpWhitelists';
@@ -371,6 +372,7 @@ function Shell() {
                 <Route path="/goal-plans/:goalRunId" element={<Perm user={user} k="this-week"><GoalPlanDetail /></Perm>} />
                 <Route path="/goal-plans" element={<Perm user={user} k="this-week"><GoalPlans /></Perm>} />
                 <Route path="/agent-actions" element={<TenantFull user={user}><AgentActions /></TenantFull>} />
+                <Route path="/reviews" element={<TenantFull user={user}><CompanyReviews /></TenantFull>} />
                 <Route path="/workspace-designer" element={<Perm user={user} k="workspace-designer"><WorkspaceDesigner /></Perm>} />
                 <Route path="/nav-menus" element={<Perm user={user} k="nav-menus"><NavMenuManager /></Perm>} />
                 <Route path="/settings/ip-whitelists" element={<Perm user={user} k="ip-whitelists"><IpWhitelists /></Perm>} />

@@ -146,6 +146,16 @@ export function getFeedbackById(ownerUserId, id) {
   return row ? mapFeedbackRow(row) : null;
 }
 
+/** Remove one owner-scoped feedback signal (used by governed learning rollback). */
+export function deleteFeedbackById(ownerUserId, id) {
+  const owner = String(ownerUserId || '').trim();
+  if (!owner) throw new Error('owner_user_id required');
+  const info = dbForOwner(owner)
+    .prepare('DELETE FROM agent_response_feedback WHERE id = ? AND owner_user_id = ?')
+    .run(Number(id), owner);
+  return info.changes > 0;
+}
+
 function mapFeedbackRow(row) {
   let context = {};
   try {
