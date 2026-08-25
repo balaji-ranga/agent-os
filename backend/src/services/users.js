@@ -33,6 +33,7 @@ import {
 import { normalizeCountryRegion, parseIsoLocation } from '../lib/iso-country-region.js';
 import { ensureBuiltInRoles, hydrateOrgFields } from './org-permissions.js';
 import { parseEfficiencyModeFlag } from './llm-efficiency-mode.js';
+import { syncToolServiceCredentialsForGrant } from './tool-scoped-token.js';
 
 export { isUserEnabled } from './user-enabled.js';
 
@@ -126,6 +127,7 @@ export function grantStandardAgents(userId) {
   );
   for (const agentId of ids) {
     insert.run(userId, agentId);
+    syncToolServiceCredentialsForGrant(userId, agentId, true);
   }
   return ids;
 }
@@ -156,6 +158,7 @@ export function pruneSharedStandardAgentGrants() {
       if (lean.has(g.agent_id)) continue;
       // Revoke shared/standard catalog agents outside the lean default set
       del.run(ceo.id, g.agent_id);
+      syncToolServiceCredentialsForGrant(ceo.id, g.agent_id, false);
       revoked += 1;
     }
   }
@@ -552,6 +555,7 @@ export function setUserAgentEnabled(userId, agentId, enabled) {
     `INSERT INTO user_agents (user_id, agent_id, enabled) VALUES (?, ?, ?)
      ON CONFLICT(user_id, agent_id) DO UPDATE SET enabled = excluded.enabled`
   ).run(userId, agentId, enabled ? 1 : 0);
+  syncToolServiceCredentialsForGrant(userId, agentId, Boolean(enabled));
   return { user_id: userId, agent_id: agentId, enabled: !!enabled };
 }
 

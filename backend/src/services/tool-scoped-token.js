@@ -4,8 +4,10 @@ import { dirname, join } from 'node:path';
 import { getDb } from '../db/schema.js';
 import { tenantOpenClawAgentId } from './openclaw-tenant.js';
 
-const CREDENTIALS_PATH = process.env.OPENCLAW_TOOL_CREDENTIALS_PATH ||
-  join(process.env.OPENCLAW_DIR || join(process.env.HOME || '', '.openclaw'), 'agent-os-tool-credentials.json');
+function credentialsPath() {
+  return process.env.OPENCLAW_TOOL_CREDENTIALS_PATH ||
+    join(process.env.OPENCLAW_DIR || join(process.env.HOME || '', '.openclaw'), 'agent-os-tool-credentials.json');
+}
 
 function tokenHash(token) {
   return createHash('sha256').update(String(token || '')).digest();
@@ -25,8 +27,9 @@ function ensureTable() {
 }
 
 function readCredentialFile() {
+  const path = credentialsPath();
   try {
-    const value = JSON.parse(readFileSync(CREDENTIALS_PATH, 'utf8'));
+    const value = JSON.parse(readFileSync(path, 'utf8'));
     return value?.version === 1 && value.credentials && typeof value.credentials === 'object'
       ? value
       : { version: 1, credentials: {} };
@@ -36,11 +39,12 @@ function readCredentialFile() {
 }
 
 function writeCredentialFile(value) {
-  mkdirSync(dirname(CREDENTIALS_PATH), { recursive: true });
-  const temp = `${CREDENTIALS_PATH}.${process.pid}.tmp`;
+  const path = credentialsPath();
+  mkdirSync(dirname(path), { recursive: true });
+  const temp = `${path}.${process.pid}.tmp`;
   writeFileSync(temp, JSON.stringify(value, null, 2), { encoding: 'utf8', mode: 0o600 });
-  renameSync(temp, CREDENTIALS_PATH);
-  try { chmodSync(CREDENTIALS_PATH, 0o600); } catch {}
+  renameSync(temp, path);
+  try { chmodSync(path, 0o600); } catch {}
 }
 
 function validStoredToken(token, hashHex) {
@@ -48,6 +52,16 @@ function validStoredToken(token, hashHex) {
   const actual = tokenHash(token);
   const expected = Buffer.from(hashHex, 'hex');
   return actual.length === expected.length && timingSafeEqual(actual, expected);
+}
+
+function credentialAgentIds(ownerUserId, agentId) {
+  const owner = String(ownerUserId || '').trim();
+  const id = String(agentId || '').trim();
+  if (!owner || !id) throw new Error('Tool credential owner and agent are required');
+  const row = getDb().prepare('SELECT id, openclaw_agent_id FROM agents WHERE id = ?').get(id);
+  if (!row) throw new Error('Agent not found');
+  const base = String(row.openclaw_agent_id || row.id).trim();
+  return [...new Set([base, row.id, tenantOpenClawAgentId(owner, base)].filter(Boolean))];
 }
 
 export function ensureToolServiceCredential(ownerUserId, agentId) {
@@ -73,6 +87,36 @@ export function ensureToolServiceCredential(ownerUserId, agentId) {
   file.credentials[owner][agent] = token;
   writeCredentialFile(file);
   return token;
+}
+
+/** Immediately provision or revoke every credential alias for one user-agent grant. */
+export function syncToolServiceCredentialsForGrant(ownerUserId, agentId, enabled) {
+  ensureTable();
+  const owner = String(ownerUserId || '').trim();
+  const aliases = credentialAgentIds(owner, agentId);
+  if (enabled) {
+    for (const alias of aliases) ensureToolServiceCredential(owner, alias);
+    return { owner_user_id: owner, agent_id: String(agentId), enabled: true, aliases };
+  }
+
+  const db = getDb();
+  const revoke = db.prepare(`UPDATE tool_service_credentials SET revoked_at = datetime('now')
+    WHERE owner_user_id = ? AND agent_id = ? AND revoked_at IS NULL`);
+  const file = readCredentialFile();
+  let fileChanged = false;
+  for (const alias of aliases) {
+    revoke.run(owner, alias);
+    if (file.credentials?.[owner]?.[alias]) {
+      delete file.credentials[owner][alias];
+      fileChanged = true;
+    }
+  }
+  if (file.credentials?.[owner] && !Object.keys(file.credentials[owner]).length) {
+    delete file.credentials[owner];
+    fileChanged = true;
+  }
+  if (fileChanged) writeCredentialFile(file);
+  return { owner_user_id: owner, agent_id: String(agentId), enabled: false, aliases };
 }
 
 export function ensureAllToolServiceCredentials() {

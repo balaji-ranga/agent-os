@@ -17,6 +17,7 @@ try {
   const { initDb } = await import('../src/db/schema.js');
   database = initDb();
   const { ensureToolServiceCredential, ensureAllToolServiceCredentials, verifyToolScopedToken } = await import('../src/services/tool-scoped-token.js');
+  const { setUserAgentEnabled } = await import('../src/services/users.js');
   const { resolveToolOwnerUserId } = await import('../src/services/tool-owner-scope.js');
   const { scanCustomScriptSource } = await import('../src/services/custom-script-scanner.js');
   const { runCustomScriptInSandbox } = await import('../src/services/custom-script-executor.js');
@@ -49,6 +50,18 @@ try {
   assert.equal(verifyToolScopedToken(ceoBToken), null);
   database.prepare('UPDATE user_agents SET enabled = 1 WHERE user_id = ? AND agent_id = ?').run('ceo-b', 'coo-b');
   assert(ensureAllToolServiceCredentials() >= 2);
+  database.prepare(`INSERT INTO agents (id,name,openclaw_agent_id) VALUES (?,?,?)`)
+    .run('frontend-agent', 'Frontend Agent', 'frontend-agent');
+  setUserAgentEnabled('ceo-b', 'frontend-agent', true);
+  let lifecycleFile = JSON.parse((await import('node:fs')).readFileSync(process.env.OPENCLAW_TOOL_CREDENTIALS_PATH, 'utf8'));
+  const frontendRuntime = 't-ceo-b--frontend-agent';
+  const frontendToken = lifecycleFile.credentials['ceo-b'][frontendRuntime];
+  assert(frontendToken);
+  assert.deepEqual(verifyToolScopedToken(frontendToken), { ownerUserId: 'ceo-b', agentId: frontendRuntime });
+  setUserAgentEnabled('ceo-b', 'frontend-agent', false);
+  assert.equal(verifyToolScopedToken(frontendToken), null);
+  lifecycleFile = JSON.parse((await import('node:fs')).readFileSync(process.env.OPENCLAW_TOOL_CREDENTIALS_PATH, 'utf8'));
+  assert.equal(lifecycleFile.credentials['ceo-b']?.[frontendRuntime], undefined);
   const authorize = (bearer, headers = {}, remoteAddress = '172.20.0.5', body = {}) => new Promise((resolve) => {
     const req = { headers: { authorization: `Bearer ${bearer}`, ...headers }, socket: { remoteAddress }, body };
     const result = { status: 200, req };
