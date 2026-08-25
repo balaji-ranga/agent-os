@@ -79,6 +79,9 @@ export async function invokeContentToolHttp(toolName, body, ownerUserId = null, 
     if (!response.ok) {
       const err = new Error(data.error || `Tool ${toolName} failed (${response.status})`);
       err.status = response.status;
+      err.details = data;
+      err.policyDenied = data.failure_class === 'policy_denial';
+      err.needsApproval = data.needs_approval === true;
       throw err;
     }
     return data;

@@ -308,6 +308,7 @@ export function purgeOwnerScopedRows(db, ownerUserId) {
   counts.action_family_policies = tryRun(db, `DELETE FROM action_family_policies WHERE owner_user_id = ?`, [ownerUserId]);
   counts.action_approval_grants = tryRun(db, `DELETE FROM action_approval_grants WHERE owner_user_id = ?`, [ownerUserId]);
   counts.action_policy_overrides = tryRun(db, `DELETE FROM action_policy_overrides WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.goal_action_approvals = tryRun(db, `DELETE FROM goal_action_approvals WHERE owner_user_id = ?`, [ownerUserId]);
   counts.tool_write_idempotency = tryRun(db, `DELETE FROM tool_write_idempotency WHERE owner_user_id = ?`, [ownerUserId]);
 
   // Human org members and their role catalog belong to this CEO tenant too.

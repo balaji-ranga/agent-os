@@ -366,6 +366,7 @@ export const api = {
   },
   kanbanTaskCreate: (body) => post('/kanban/tasks', body),
   kanbanTaskUpdate: (id, body) => patch(`/kanban/tasks/${id}`, body),
+  kanbanActionApprovalRespond: (id, body) => post(`/kanban/tasks/${id}/action-approval`, body),
   kanbanTaskReopen: (id) => post(`/kanban/tasks/${id}/reopen`, {}),
   kanbanTaskDelete: (id) => del(`/kanban/tasks/${id}`),
   kanbanTasksDeleteBulk: (taskIds) => request('/kanban/tasks', { method: 'DELETE', body: JSON.stringify({ task_ids: taskIds }) }),

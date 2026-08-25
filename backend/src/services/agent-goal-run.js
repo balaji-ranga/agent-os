@@ -1743,8 +1743,20 @@ async function executeAgentToolStep(goal, step) {
     };
   }
 
-  const out = await invokeContentToolHttp(toolName, args, goal.owner_user_id, invokeOpts);
-  return { ok: true, tool_name: toolName, result: out };
+  try {
+    const out = await invokeContentToolHttp(toolName, args, goal.owner_user_id, invokeOpts);
+    return { ok: true, tool_name: toolName, result: out };
+  } catch (e) {
+    e.actionArgs = { ...args };
+    throw e;
+  } finally {
+    // Approval tokens are one-use and short-lived; never retain them in goal telemetry/specs.
+    if (args.approval_token) {
+      const cleanSpec = parseJson(step.spec_json, {});
+      if (cleanSpec.args && typeof cleanSpec.args === 'object') delete cleanSpec.args.approval_token;
+      db().prepare('UPDATE agent_goal_steps SET spec_json=? WHERE id=?').run(JSON.stringify(cleanSpec), step.id);
+    }
+  }
 }
 
 /**
@@ -2719,6 +2731,27 @@ export async function startGoalRunExecution(goalRunId, opts = {}) {
   } catch (e) {
     const msg = e?.message || String(e);
     console.error('[goal-run] step failed', { goalRunId, stepId: step.id, error: msg });
+    if (e?.needsApproval || e?.details?.needs_approval === true) {
+      const spec = parseJson(step.spec_json, {});
+      const { createGoalActionApproval } = await import('./goal-action-approval.js');
+      const approval = createGoalActionApproval({
+        ownerUserId: goal.owner_user_id,
+        goal,
+        step,
+        toolName: String(spec.tool_name || ''),
+        actionFamily: e?.details?.action_family || 'communicate_external',
+        args: e?.actionArgs || spec.args || {},
+        error: msg,
+      });
+      db().prepare("UPDATE agent_goal_steps SET status='awaiting_approval',error_message=? WHERE id=?")
+        .run(msg.slice(0, 1000), step.id);
+      touchGoalRun(goalRunId, { status: 'awaiting_approval', current_step_index: step.step_index, error_message: null });
+      recordMissionEvent({ ownerUserId: goal.owner_user_id, goalRunId, event_type: 'awaiting_approval', payload: {
+        step_id: step.id, tool_name: spec.tool_name || null, kanban_task_id: approval.kanban_task_id,
+      } });
+      return { ok: true, waiting: true, needs_approval: true, kanban_task_id: approval.kanban_task_id,
+        goal: getGoalRun(goal.id, goal.owner_user_id) };
+    }
     const completion = completeGoalStep({
       goalRunId,
       stepId: step.id,

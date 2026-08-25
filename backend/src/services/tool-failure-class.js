@@ -39,6 +39,9 @@ export function classifyToolFailure(err, extra = {}) {
   ) {
     return pack('quota_exhausted', status || 402, extra);
   }
+  if (/policy|prohibited|approval required|approval grant|not allowed/.test(msg) || extra.policyDenied) {
+    return pack('policy_denial', status || 403, extra);
+  }
   if (status === 401 || status === 403 || /unauthorized|forbidden|invalid api key|auth/.test(msg)) {
     return pack('auth', status, extra);
   }
@@ -51,9 +54,6 @@ export function classifyToolFailure(err, extra = {}) {
   }
   if (status === 400 || /schema|required|invalid json|validation/.test(msg)) {
     return pack('schema', status || 400, extra);
-  }
-  if (/policy|prohibited|approval required|not allowed/.test(msg) || extra.policyDenied) {
-    return pack('policy_denial', status || 403, extra);
   }
   if (/uncertain|low confidence|unverifiable|unknown contact|needs? (?:ceo )?clarification|missing required input/.test(msg)) {
     return pack('model_uncertainty', status || 422, extra);

@@ -37,6 +37,7 @@ import {
   cancelDelegationsForDeletedKanban,
   reinitiateKanbanDelegation,
 } from '../services/kanban-orphan-watcher.js';
+import { respondToGoalActionApproval } from '../services/goal-action-approval.js';
 
 const router = Router();
 router.use(attachAuthUser);
@@ -46,6 +47,26 @@ const VALID_STATUSES = ['open', 'awaiting_confirmation', 'in_progress', 'complet
 function db() {
   return getDb();
 }
+
+router.post('/tasks/:id/action-approval', async (req, res) => {
+  try {
+    const task = db().prepare('SELECT * FROM kanban_tasks WHERE id=?').get(req.params.id);
+    if (!task) return res.status(404).json({ error: 'Task not found' });
+    assertKanbanTaskMutate(task, req.authUser);
+    const ownerUserId = resolveAuthenticatedCeoUserId(req);
+    const decision = String(req.body?.decision || '').toLowerCase();
+    if (!['approve', 'reject'].includes(decision)) return res.status(400).json({ error: 'decision must be approve or reject' });
+    const out = await respondToGoalActionApproval({
+      ownerUserId,
+      kanbanTaskId: Number(req.params.id),
+      decision,
+      comment: String(req.body?.comment || '').slice(0, 1000),
+    });
+    res.json(out);
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || String(e) });
+  }
+});
 
 /** Mirror Kanban task chat into Dashboard chat_turns so Agent Chat shows the same exchange. */
 function mirrorKanbanTurnToAgentChat({ agentId, ownerUserId, role, content, taskId, taskTitle }) {

@@ -43,6 +43,12 @@ try {
   const clarification = classifyToolFailure(new Error('Needs CEO clarification'));
   assert.equal(clarification.failure_class, 'model_uncertainty');
   assert.equal(clarification.retryable, false);
+  const approvalDenial = classifyToolFailure(
+    new Error('This action family requires a valid CEO approval grant before execution (missing).'),
+    { status: 403, policyDenied: true }
+  );
+  assert.equal(approvalDenial.failure_class, 'policy_denial');
+  assert.equal(approvalDenial.retryable, false);
 
   const { toolNeedsAgentInterpretation } = await import('../src/services/goal-plan-tool-args.js');
   assert.equal(
@@ -111,6 +117,33 @@ try {
       `${source}: collect status before sending email`
     );
   }
+
+  const { createGoalActionApproval, respondToGoalActionApproval } = await import('../src/services/goal-action-approval.js');
+  const approvalGoal = createGoalRun({
+    ownerUserId: owner,
+    agentId: 'coo-test',
+    prompt: 'Send the daily digest by email.',
+    steps: [{ type: 'agent_tool', label: 'Send approved email', tool_name: 'email_send', args: { to: 'goal-hardening@example.test', subject: 'Digest', body: 'Status' } }],
+  });
+  const approvalStep = db.prepare('SELECT * FROM agent_goal_steps WHERE goal_run_id=? ORDER BY step_index LIMIT 1').get(approvalGoal.id);
+  db.prepare("UPDATE agent_goal_steps SET status='awaiting_approval' WHERE id=?").run(approvalStep.id);
+  db.prepare("UPDATE agent_goal_runs SET status='awaiting_approval' WHERE id=?").run(approvalGoal.id);
+  const pendingApproval = createGoalActionApproval({ ownerUserId: owner, goal: approvalGoal, step: approvalStep,
+    toolName: 'email_send', actionFamily: 'communicate_external', args: { to: 'goal-hardening@example.test', subject: 'Digest', body: 'Status' } });
+  assert.equal(db.prepare('SELECT status FROM kanban_tasks WHERE id=?').get(pendingApproval.kanban_task_id).status, 'awaiting_confirmation');
+  await respondToGoalActionApproval({ ownerUserId: owner, kanbanTaskId: pendingApproval.kanban_task_id, decision: 'approve', execute: false });
+  assert.equal(db.prepare('SELECT status FROM agent_goal_runs WHERE id=?').get(approvalGoal.id).status, 'running');
+  assert.equal(db.prepare('SELECT status FROM agent_goal_steps WHERE id=?').get(approvalStep.id).status, 'pending');
+  assert.equal(db.prepare('SELECT status FROM kanban_tasks WHERE id=?').get(pendingApproval.kanban_task_id).status, 'completed');
+
+  const rejectGoal = createGoalRun({ ownerUserId: owner, agentId: 'coo-test', prompt: 'Publish externally.',
+    steps: [{ type: 'agent_tool', label: 'Publish', tool_name: 'email_send', args: { to: 'reject@example.test', body: 'No' } }] });
+  const rejectStep = db.prepare('SELECT * FROM agent_goal_steps WHERE goal_run_id=? LIMIT 1').get(rejectGoal.id);
+  const rejectApproval = createGoalActionApproval({ ownerUserId: owner, goal: rejectGoal, step: rejectStep,
+    toolName: 'email_send', actionFamily: 'communicate_external', args: { to: 'reject@example.test', body: 'No' } });
+  await respondToGoalActionApproval({ ownerUserId: owner, kanbanTaskId: rejectApproval.kanban_task_id, decision: 'reject', execute: false });
+  assert.equal(db.prepare('SELECT status FROM agent_goal_runs WHERE id=?').get(rejectGoal.id).status, 'failed');
+  assert.equal(db.prepare('SELECT status FROM kanban_tasks WHERE id=?').get(rejectApproval.kanban_task_id).status, 'failed');
 
   const { upsertExceptionPolicy } = await import('../src/services/exception-policy.js');
   upsertExceptionPolicy(owner, { retry_limit: 3, create_kanban: false, agent_pickup: false });

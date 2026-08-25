@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../api';
 import WizardReturnBanner from '../components/WizardReturnBanner.jsx';
-import KanbanTaskDescription, { isCeoJobReviewTask, isWorkflowCeoApprovalTask, parseCeoReviewContext } from '../components/KanbanTaskDescription.jsx';
+import KanbanTaskDescription, { isCeoJobReviewTask, isGoalActionApprovalTask, isWorkflowCeoApprovalTask, parseCeoReviewContext } from '../components/KanbanTaskDescription.jsx';
 import KanbanTaskArtifacts from '../components/KanbanTaskArtifacts.jsx';
 import KanbanBoardCell from '../components/KanbanBoardCell.jsx';
 import RobotAvatar from '../components/RobotAvatar.jsx';
@@ -528,6 +528,11 @@ export default function Kanban() {
     (taskDetail?.status ?? selectedTask.status) === 'awaiting_confirmation' &&
     isWorkflowCeoApprovalTask(taskDetail || selectedTask);
 
+  const selectedIsGoalActionApproval =
+    selectedTask &&
+    (taskDetail?.status ?? selectedTask.status) === 'awaiting_confirmation' &&
+    isGoalActionApprovalTask(taskDetail || selectedTask);
+
   const respondWorkflowApproval = (decision) => {
     if (!selectedTask) return;
     setWfApproving(true);
@@ -551,6 +556,30 @@ export default function Kanban() {
       .catch((e) => {
         setApproveError(e.message);
         showError(e.message || 'Workflow approval failed');
+      })
+      .finally(() => setWfApproving(false));
+  };
+
+  const respondGoalActionApproval = (decision) => {
+    if (!selectedTask) return;
+    setWfApproving(true);
+    setApproveError(null);
+    setApproveSuccess(null);
+    api.kanbanActionApprovalRespond(selectedTask.id, { decision, comment: wfApprovalComment.trim() })
+      .then((result) => {
+        const msg = decision === 'approve'
+          ? `Approved — resumed goal ${result.goal_run_id}`
+          : `Rejected — stopped goal ${result.goal_run_id}`;
+        setApproveSuccess(msg);
+        showSuccess(msg);
+        setWfApprovalComment('');
+        return api.kanbanTaskGet(selectedTask.id);
+      })
+      .then(setTaskDetail)
+      .then(() => fetchTasks())
+      .catch((e) => {
+        setApproveError(e.message || 'Action approval failed');
+        showError(e.message || 'Action approval failed');
       })
       .finally(() => setWfApproving(false));
   };
@@ -1082,6 +1111,24 @@ export default function Kanban() {
                   >
                     Reject
                   </button>
+                </div>
+              </div>
+            )}
+            {drawerTab === 'details' && selectedIsGoalActionApproval && (
+              <div style={{ position: 'sticky', top: 0, zIndex: 2, margin: '-1rem -1rem 1rem', padding: '0.75rem 1rem', borderBottom: '1px solid #ca8a04', background: 'rgba(202,138,4,0.12)' }}>
+                <strong>Action approval required</strong>
+                <div style={{ fontSize: '0.8rem', color: 'var(--muted)', margin: '4px 0 8px' }}>
+                  Approve resumes this exact paused goal step with a one-use grant. Reject stops the step.
+                </div>
+                {approveError && <div style={{ fontSize: '0.85rem', color: '#dc2626', marginBottom: 6 }}>{approveError}</div>}
+                {approveSuccess && <div style={{ fontSize: '0.85rem', color: '#166534', marginBottom: 6 }}>{approveSuccess}</div>}
+                <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: 6 }}>
+                  Comment (optional)
+                  <textarea rows={2} value={wfApprovalComment} onChange={(e) => setWfApprovalComment(e.target.value)} style={{ width: '100%', marginTop: 4, padding: '0.4rem', borderRadius: 6, border: '1px solid var(--border)' }} />
+                </label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button type="button" onClick={() => respondGoalActionApproval('approve')} disabled={wfApproving || !selectedCanMutate} style={{ flex: 1, padding: '0.65rem', borderRadius: 6, background: '#16a34a', color: 'white', border: 'none', fontWeight: 700 }}>Approve &amp; continue</button>
+                  <button type="button" onClick={() => respondGoalActionApproval('reject')} disabled={wfApproving || !selectedCanMutate} style={{ flex: 1, padding: '0.65rem', borderRadius: 6, background: '#dc2626', color: 'white', border: 'none', fontWeight: 700 }}>Reject</button>
                 </div>
               </div>
             )}

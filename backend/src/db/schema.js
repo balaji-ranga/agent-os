@@ -2603,6 +2603,24 @@ export function initDb() {
         ON action_policy_overrides(owner_user_id, scope_type, scope_id, enabled);
     `);
     _db.exec(`
+      CREATE TABLE IF NOT EXISTS goal_action_approvals (
+        id TEXT PRIMARY KEY,
+        owner_user_id TEXT NOT NULL,
+        goal_run_id TEXT NOT NULL,
+        goal_step_id TEXT NOT NULL,
+        kanban_task_id INTEGER,
+        tool_name TEXT NOT NULL,
+        action_family TEXT NOT NULL,
+        args_json TEXT NOT NULL DEFAULT '{}',
+        status TEXT NOT NULL DEFAULT 'pending',
+        decided_at TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        UNIQUE(owner_user_id, goal_run_id, goal_step_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_goal_action_approvals_kanban
+        ON goal_action_approvals(owner_user_id, kanban_task_id);
+    `);
+    _db.exec(`
       CREATE TABLE IF NOT EXISTS tool_write_idempotency (
         owner_user_id TEXT NOT NULL,
         tool_name TEXT NOT NULL,
