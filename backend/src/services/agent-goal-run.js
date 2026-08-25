@@ -4,6 +4,7 @@
  */
 import { randomUUID } from 'crypto';
 import { getDb } from '../db/schema.js';
+import { chatCompletions as platformChatCompletions } from '../config/llm.js';
 import { clearKanbanTaskNotification, sendPlatformNotifications } from './platform-notifications.js';
 import { isPlatformCronActive } from './platform-cron-registry.js';
 import * as openclaw from '../gateway/openclaw.js';
@@ -1432,13 +1433,6 @@ async function executeAgentContinueStep(goal, step) {
   const agent = resolveAgentForGoal(goal.owner_user_id, goal.agent_id);
   if (!agent) throw new Error(`Agent not found or not entitled: ${goal.agent_id}`);
 
-  let openclawId = agent.openclaw_agent_id || agent.id;
-  try {
-    openclawId = ensureTenantOpenClawAgent(agent, goal.owner_user_id).openclawAgentId;
-  } catch (e) {
-    console.warn('[goal-run] tenant ensure failed', agent.id, e?.message || e);
-  }
-
   const prior = priorStepContextForAgent(goal.id, step.step_index);
 
   // Prefer platform delivery of prior HTML/markdown artifacts (agents drop html= on large digests).
@@ -1521,13 +1515,11 @@ async function executeAgentContinueStep(goal, step) {
     /* optional */
   }
   prompt = `[ceo_user_id: ${goal.owner_user_id}]\n[owner_user_id: ${goal.owner_user_id}]\n${prompt}`;
-
-  const sessionUser = openclaw.sessionUserFor(
-    openclawId,
-    goal.owner_user_id,
-    // Unique per agent_goal_run so concurrent scheduled goals on the same agent never share session.
-    `goalrun-${String(goal.id).replace(/^agr-/, '')}`
-  );
+  prompt +=
+    '\n\n[Platform execution boundary — synthesis only]\n' +
+    'Do not call tools, create/delegate work, or request another goal/step transition.\n' +
+    'Use the completed outputs above to return the final, concrete CEO-facing response now.\n' +
+    'The platform will persist this response and advance the goal automatically.';
 
   try {
     insertChatTurn({
@@ -1540,19 +1532,18 @@ async function executeAgentContinueStep(goal, step) {
     console.warn('[goal-run] chat user turn:', e?.message || e);
   }
 
-  const { content } = await openclaw.chatCompletions(
-    openclawId,
-    [{ role: 'user', content: prompt }],
-    sessionUser,
-    false,
-    {
-      injectLearningsInstruction: false,
-      injectKanbanInstruction: true,
-      // Do not tell the agent to pull unrelated chat/session history into this goal fire.
-      injectSessionHistoryInstruction: false,
-      timeoutMs: Number(process.env.GOAL_AGENT_CONTINUE_TIMEOUT_MS || process.env.OPENCLAW_FETCH_TIMEOUT_MS || 240000),
-    }
-  );
+  const { content, modelUsed, usage } = await platformChatCompletions({
+    messages: [
+      { role: 'system', content: `You are ${agent.name || agent.id}, completing one isolated company goal. Synthesize only from the supplied goal context.` },
+      { role: 'user', content: prompt },
+    ],
+    ownerUserId: goal.owner_user_id,
+    memberKey: agent.id,
+    source: 'goal_agent_continue',
+    sessionId: `goal:${goal.id}:${step.id}`,
+    runId: goal.id,
+    maxTokens: 3000,
+  });
   const reply = String(content || '').trim() || '(no response)';
   try {
     insertChatTurn({
@@ -1564,7 +1555,7 @@ async function executeAgentContinueStep(goal, step) {
   } catch (_) {
     /* ignore */
   }
-  return { ok: true, reply_preview: reply.slice(0, 2000) };
+  return { ok: true, via: 'platform_synthesis', model_used: modelUsed, usage, reply_preview: reply.slice(0, 2000) };
 }
 
 async function executeAgentToolStep(goal, step) {
@@ -1700,15 +1691,6 @@ async function executeAgentToolStep(goal, step) {
     args.goal_step_id = args.goal_step_id || step.id;
   }
 
-  // agent_continue is the synthesis/final-response step. Executable actions belong in
-  // explicit agent_tool/workflow/specialty steps where policy, telemetry, retries and
-  // evidence are enforced. Letting this turn call tools causes empty-argument retries and
-  // lets model prose/tool chatter compete with the platform goal state machine.
-  prompt +=
-    '\n\n[Platform execution boundary — synthesis only]\n' +
-    'Do not call tools, do not create/delegate work, and do not call agent_goal_complete_step or Kanban status tools.\n' +
-    'Use the completed step outputs above to produce the final, concrete CEO-facing response now.\n' +
-    'The platform will persist this response and advance the goal automatically.';
   const caller = resolveAgentForGoal(goal.owner_user_id, goal.agent_id);
   const invokeOpts = {
     agentId: caller?.id || goal.agent_id || null,
@@ -1858,7 +1840,7 @@ async function executeCompositionalToolViaAgent(goal, step, toolName) {
     false,
     {
       injectLearningsInstruction: false,
-      injectKanbanInstruction: false,
+      injectKanbanInstruction: true,
       injectSessionHistoryInstruction: false,
       timeoutMs: Number(process.env.GOAL_AGENT_CONTINUE_TIMEOUT_MS || process.env.OPENCLAW_FETCH_TIMEOUT_MS || 240000),
     }
