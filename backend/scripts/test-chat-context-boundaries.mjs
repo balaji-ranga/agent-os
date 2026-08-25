@@ -3,6 +3,9 @@ import { enrichTaskQueryWithPriorThread } from '../src/services/delegation-queue
 import {
   DASHBOARD_CONTEXT_INSTRUCTION,
   dashboardGatewaySessionUser,
+  dashboardAskNeedsPriorContext,
+  isDashboardGreeting,
+  selectDashboardHistoryForAsk,
 } from '../src/services/dashboard-chat-context.js';
 import { isPromptAuthoringAskForAgent } from '../src/services/specialty-referral.js';
 
@@ -37,6 +40,36 @@ const second = dashboardGatewaySessionUser('balserve', 'ceo-bala', stableThread,
 assert.notEqual(first, second, 'each Dashboard request must have an isolated gateway session');
 assert.match(DASHBOARD_CONTEXT_INSTRUCTION, /final user message as the current ask/i);
 assert.match(DASHBOARD_CONTEXT_INSTRUCTION, /Do not call sessions_history/i);
+
+const staleDashboardHistory = [
+  { role: 'user', content: 'Open the weekly digest in Chrome.' },
+  { role: 'assistant', content: 'The browser task is still running.' },
+];
+assert.equal(isDashboardGreeting('Hi again'), true);
+assert.equal(dashboardAskNeedsPriorContext('Hi again'), false);
+assert.deepEqual(
+  selectDashboardHistoryForAsk(staleDashboardHistory, 'Hi again'),
+  [],
+  'a greeting must never inherit an unfinished browser task'
+);
+assert.deepEqual(
+  selectDashboardHistoryForAsk(staleDashboardHistory, 'Create a CRM lead prompt.'),
+  [],
+  'a self-contained ask must begin a new context boundary'
+);
+assert.equal(
+  selectDashboardHistoryForAsk(
+    [...staleDashboardHistory, { role: 'assistant', content: 'No response from AgentSystem.' }],
+    'Retry that.'
+  ).length,
+  2,
+  'referential follow-up may use recent context but must exclude empty placeholders'
+);
+assert.deepEqual(
+  selectDashboardHistoryForAsk(staleDashboardHistory, 'You are using the wrong context.'),
+  [],
+  'a context correction must not resume the context it rejects'
+);
 
 assert.equal(
   isPromptAuthoringAskForAgent(

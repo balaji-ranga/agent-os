@@ -33,7 +33,7 @@ import { ensureManagedBrowserReady } from '../services/job-browser-auth.js';
 import * as agentTools from '../services/openclaw-agent-tools.js';
 import { ensureTenantOpenClawAgent } from '../services/openclaw-tenant.js';
 import { writeOpenClawConfigSafe } from '../services/openclaw-config-safe.js';
-import { isOpenClawEmptyResponse, toAgentSystemUserMessage, AGENT_SYSTEM_EMPTY_REPLY } from '../services/openclaw-runtime-tools.js';
+import { isOpenClawEmptyResponse, toAgentSystemUserMessage } from '../services/openclaw-runtime-tools.js';
 import { tryHandleCooReachMeRequest } from '../services/reach-me-delegation.js';
 import { tryHandleCooSpecialtyDelegation } from '../services/coo-specialty-delegation.js';
 import { tryHandleCooOrgAgentsList } from '../services/coo-org-agents-list.js';
@@ -65,6 +65,7 @@ import { BudgetBlockedError, enforceBudget } from '../services/agent-budgets.js'
 import {
   DASHBOARD_CONTEXT_INSTRUCTION,
   dashboardGatewaySessionUser,
+  selectDashboardHistoryForAsk,
 } from '../services/dashboard-chat-context.js';
 import {
   listPublishedTemplates,
@@ -853,6 +854,11 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     // listActive returns ASC; take last 20
     if (history.length > 20) history = history.slice(-20);
 
+    // New, self-contained asks are hard context boundaries. Only explicit
+    // follow-ups receive a small recent window; a greeting must never resume
+    // an unfinished browser/workflow task from prior turns.
+    history = selectDashboardHistoryForAsk(history, message, { limit: 6 });
+
     let sessionMeta = null;
     let topicHint = null;
 
@@ -1017,6 +1023,16 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
           console.warn('[agents] tenant re-sync after empty reply:', syncErr?.message || syncErr);
         }
         await new Promise((r) => setTimeout(r, 400));
+        const retrySessionUser = dashboardGatewaySessionUser(
+          agentId,
+          ownerUserId,
+          threadId,
+          `empty-retry-${Date.now()}`
+        );
+        registerOpenClawSessionOwner(
+          openclaw.sessionKeyFor(openclawAgentId, retrySessionUser),
+          ownerUserId
+        );
         ({ content: reply, usage } = await withLlmopsContext(
           {
             ownerUserId,
@@ -1030,7 +1046,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
             openclaw.chatCompletions(
               openclawAgentId,
               messages,
-              sessionUser,
+              retrySessionUser,
               false,
               chatOpts
             )
@@ -1038,6 +1054,13 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
       }
     } finally {
       clearActiveDashboardChat(agentId, ownerUserId);
+    }
+    if (isOpenClawEmptyResponse(reply)) {
+      const emptyErr = new Error(
+        'AgentSystem returned an empty response after retry. Please retry this message.'
+      );
+      emptyErr.status = 503;
+      throw emptyErr;
     }
     meterOpenClawUsage(ownerUserId, agentId, {
       usage,
@@ -1048,9 +1071,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
       traceId: threadId ? `sess:${threadId}` : null,
     });
     const replyText = toAgentSystemUserMessage(
-      isOpenClawEmptyResponse(reply)
-        ? AGENT_SYSTEM_EMPTY_REPLY
-        : stripEchoedCeoScope(normalizeReplyContent(reply))
+      stripEchoedCeoScope(normalizeReplyContent(reply))
     );
     const tool_calls = listToolCallsSince(agentId, ownerUserId, toolsSince);
 
