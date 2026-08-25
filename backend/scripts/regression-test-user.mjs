@@ -11,6 +11,7 @@ import { initDb, getDb } from '../src/db/schema.js';
 import { registerCeoUser } from '../src/services/users.js';
 import { createSession } from '../src/services/auth/session.js';
 import { isProtectedFromOffboard, offboardUser } from '../src/services/user-offboard.js';
+import { removeToolServiceCredentialsForOwner } from '../src/services/tool-scoped-token.js';
 
 initDb();
 const db = getDb();
@@ -124,6 +125,15 @@ if (command === 'create') {
 } else if (command === 'cleanup-stale') {
   const rows = candidates();
   for (const row of rows) cleanupOne(row);
+  // An interrupted older cleanup may remove the fixture user before its opaque
+  // credentials. This sweep is restricted to the generated fixture ID namespace.
+  const orphanCredentialOwners = db
+    .prepare(`SELECT DISTINCT owner_user_id FROM tool_service_credentials
+      WHERE owner_user_id LIKE 'ceo-flolah-regression-%'`)
+    .all();
+  for (const { owner_user_id } of orphanCredentialOwners) {
+    removeToolServiceCredentialsForOwner(owner_user_id);
+  }
   const routerRows = cleanupRouterTestRows();
   const remaining = candidates();
   if (remaining.length) throw new Error(`Regression users remain: ${remaining.map((r) => r.id).join(',')}`);

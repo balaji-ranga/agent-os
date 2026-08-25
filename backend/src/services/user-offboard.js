@@ -17,6 +17,7 @@ import { getOpenClawDir, getOpenClawConfigPath } from '../config/openclaw-paths.
 import { writeOpenClawConfigSafe } from './openclaw-config-safe.js';
 import { deleteAllMediaForOwner } from './ceo-media-artifacts.js';
 import { deleteAllAvatarsForOwner } from './ceo-avatars.js';
+import { removeToolServiceCredentialsForOwner } from './tool-scoped-token.js';
 
 function sanitizeIdPart(value) {
   return String(value || '')
@@ -383,6 +384,7 @@ export function offboardUser(userId, opts = {}) {
   }
 
   // 2) Shared DB owner-scoped purge (standups, workflows, etc.)
+  summary.steps.tool_service_credentials = removeToolServiceCredentialsForOwner(row.id);
   summary.steps.db = purgeOwnerScopedRows(db, row.id);
 
   // 3b) Media artifacts + 3D avatars

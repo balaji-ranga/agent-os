@@ -119,6 +119,23 @@ export function syncToolServiceCredentialsForGrant(ownerUserId, agentId, enabled
   return { owner_user_id: owner, agent_id: String(agentId), enabled: false, aliases };
 }
 
+/** Permanently remove every opaque tool credential for an offboarded owner. */
+export function removeToolServiceCredentialsForOwner(ownerUserId) {
+  ensureTable();
+  const owner = String(ownerUserId || '').trim();
+  if (!owner) return { removed: 0, file_changed: false };
+  const removed = getDb()
+    .prepare('DELETE FROM tool_service_credentials WHERE owner_user_id = ?')
+    .run(owner).changes || 0;
+  const file = readCredentialFile();
+  const fileChanged = Boolean(file.credentials?.[owner]);
+  if (fileChanged) {
+    delete file.credentials[owner];
+    writeCredentialFile(file);
+  }
+  return { removed, file_changed: fileChanged };
+}
+
 export function ensureAllToolServiceCredentials() {
   ensureTable();
   const rows = getDb().prepare(`SELECT ua.user_id AS owner_user_id, a.id, a.openclaw_agent_id
