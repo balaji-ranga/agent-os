@@ -27,6 +27,7 @@ export default function AgentWorkspace() {
   const [syncingMd, setSyncingMd] = useState(false);
   const [orgDept, setOrgDept] = useState('');
   const [orgParentId, setOrgParentId] = useState('');
+  const [isOrchestrator, setIsOrchestrator] = useState(false);
   const [orgSaving, setOrgSaving] = useState(false);
   const [orgMessage, setOrgMessage] = useState(null);
   const [wsTemplates, setWsTemplates] = useState([]);
@@ -54,6 +55,7 @@ export default function AgentWorkspace() {
         setAgent(a);
         setOrgDept(a.department || '');
         setOrgParentId(a.parent_id || '');
+        setIsOrchestrator(!!a.is_orchestrator || !!a.is_coo);
       })
       .catch((e) => setError(e.message));
     api.agentsList()
@@ -209,6 +211,7 @@ export default function AgentWorkspace() {
       .agentUpdate(agentId, {
         department,
         parent_id: orgParentId || null,
+        is_orchestrator: !!isOrchestrator,
       })
       .then((updated) => {
         setAgent(updated);
@@ -316,6 +319,26 @@ export default function AgentWorkspace() {
                 </option>
               ))}
           </select>
+          <label
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '0.45rem 0.7rem',
+              border: '1px solid var(--border)',
+              borderRadius: 8,
+              background: 'var(--bg, #121216)',
+            }}
+            title="Orchestrators can create goal plans and delegate only to employees who report to them."
+          >
+            <input
+              type="checkbox"
+              checked={isOrchestrator}
+              disabled={!!agent?.is_coo}
+              onChange={(e) => setIsOrchestrator(e.target.checked)}
+            />
+            <span>Orchestrator</span>
+          </label>
           <button
             type="button"
             onClick={saveOrg}
@@ -333,6 +356,9 @@ export default function AgentWorkspace() {
           </button>
           {orgMessage && <span style={{ color: '#22c55e', fontSize: '0.85rem' }}>{orgMessage}</span>}
         </div>
+        <p style={{ margin: '0.65rem 0 0', color: 'var(--muted)', fontSize: '0.82rem' }}>
+          Orchestrators can plan goals and delegate to their direct reportees. Org sync writes that scoped team roster into their workspace.
+        </p>
         <div style={{ marginTop: '0.85rem' }}>
           <button
             type="button"

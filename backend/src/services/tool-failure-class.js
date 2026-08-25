@@ -6,6 +6,7 @@
 export const FAILURE_CLASSES = Object.freeze([
   'transient',
   'auth',
+  'quota_exhausted',
   'rate_limit',
   'schema',
   'policy_denial',
@@ -14,6 +15,7 @@ export const FAILURE_CLASSES = Object.freeze([
 ]);
 
 const FALLBACK_BY_CLASS = Object.freeze({
+  quota_exhausted: null,
   rate_limit: 'browse_task_start',
   transient: null,
   auth: null,
@@ -28,6 +30,15 @@ export function classifyToolFailure(err, extra = {}) {
   const msg = String(err?.message || extra.message || err || '').toLowerCase();
   const code = String(extra.code || err?.code || '').toLowerCase();
 
+  // A paid-plan/usage ceiling cannot recover by retrying. Keep this before the
+  // broad quota/rate-limit matcher so HTTP 402 never burns an exception retry.
+  if (
+    status === 402 ||
+    /payment required|usage limit exceeded|monthly (spend|usage) limit|billing limit|current_spend|insufficient (credit|funds)/.test(msg) ||
+    code === 'insufficient_quota'
+  ) {
+    return pack('quota_exhausted', status || 402, extra);
+  }
   if (status === 401 || status === 403 || /unauthorized|forbidden|invalid api key|auth/.test(msg)) {
     return pack('auth', status, extra);
   }
@@ -44,7 +55,7 @@ export function classifyToolFailure(err, extra = {}) {
   if (/policy|prohibited|approval required|not allowed/.test(msg) || extra.policyDenied) {
     return pack('policy_denial', status || 403, extra);
   }
-  if (/uncertain|low confidence|unverifiable|unknown contact/.test(msg)) {
+  if (/uncertain|low confidence|unverifiable|unknown contact|needs? (?:ceo )?clarification|missing required input/.test(msg)) {
     return pack('model_uncertainty', status || 422, extra);
   }
   if (status >= 500 || /econnreset|etimedout|enotfound|fetch failed|socket/.test(msg)) {

@@ -27,6 +27,7 @@ export function initDb() {
       workspace_path TEXT,
       openclaw_agent_id TEXT DEFAULT 'main',
       is_coo INTEGER DEFAULT 0,
+      is_orchestrator INTEGER DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now'))
     );
 
@@ -2492,6 +2493,19 @@ export function initDb() {
     );
   } catch (_) {}
 
+  try {
+    const agentCols = _db.prepare('PRAGMA table_info(agents)').all().map((c) => c.name);
+    if (!agentCols.includes('is_orchestrator')) {
+      _db.exec('ALTER TABLE agents ADD COLUMN is_orchestrator INTEGER DEFAULT 0');
+    }
+    _db.exec(`UPDATE agents SET is_orchestrator = 1 WHERE is_coo = 1`);
+    _db.exec(
+      `UPDATE agents SET is_orchestrator = 1
+       WHERE lower(COALESCE(name, '')) = 'content orchestrator'
+          OR lower(COALESCE(template_base_id, '')) = 'video-orchestrator'
+          OR lower(COALESCE(id, '')) LIKE 'video-orch-%'`
+    );
+  } catch (_) {}
   try {
     const agCols = _db.prepare('PRAGMA table_info(agent_goal_steps)').all().map((c) => c.name);
     if (!agCols.includes('child_delegation_task_id')) {

@@ -6,7 +6,7 @@ import {
   notifyKanbanTaskCreated,
   clearKanbanTaskNotification,
 } from './platform-notifications.js';
-import { shouldCompleteKanbanForReply } from './kanban-reply-enrich.js';
+import { replyHasUnresolvedBlocker, shouldCompleteKanbanForReply } from './kanban-reply-enrich.js';
 
 const PIPELINE_TAG = '[job_pipeline';
 
@@ -201,15 +201,17 @@ export function completePipelineKanbanForDelegation(delegationTaskId, { ok = tru
   // Status-only "I marked it completed" must NOT stick — reopen even if the agent
   // already called kanban_move_status → completed during the same turn.
   if (ok && replyText != null && !shouldCompleteKanbanForReply(replyText)) {
-    if (row.status !== 'in_progress') {
+    const blocked = replyHasUnresolvedBlocker(replyText);
+    const retainedStatus = blocked ? 'awaiting_confirmation' : 'in_progress';
+    if (row.status !== retainedStatus) {
       db()
-        .prepare(`UPDATE kanban_tasks SET status = 'in_progress', updated_at = datetime('now') WHERE id = ?`)
-        .run(row.id);
+        .prepare(`UPDATE kanban_tasks SET status = ?, updated_at = datetime('now') WHERE id = ?`)
+        .run(retainedStatus, row.id);
     }
     console.warn(
       `[kanban] skip auto-complete for delegation=${delegationTaskId} kanban=${row.id} — status-only reply (was ${row.status})`
     );
-    return { ...row, status: 'in_progress', skipped_status_only: true };
+    return { ...row, status: retainedStatus, skipped_status_only: !blocked, blocked_unresolved: blocked };
   }
 
   if (['completed', 'failed'].includes(row.status)) return row;

@@ -194,7 +194,7 @@ router.get('/', requireAuth, (req, res) => {
 });
 
 /**
- * POST /org/sync — rebuild ORG.md (all agent workspaces) + COO AGENTS.md (session keys) from DB.
+ * POST /org/sync — rebuild ORG.md (all agent workspaces) + scoped orchestrator AGENTS.md from DB.
  * CEO: own org. Admin: pass owner_user_id.
  */
 router.post('/org/sync', requireAuth, requireCeoOrAdmin, async (req, res) => {
@@ -228,7 +228,7 @@ router.post('/org/sync', requireAuth, requireCeoOrAdmin, async (req, res) => {
       tenant_agents_ensured: tenantEnsured,
       agent_count: ctx.agents.length,
       delegatee_count: ctx.delegatees.length,
-      message: `Refreshed ORG.md in ${workspacesSynced} workspace(s) and COO AGENTS.md (tenant session keys).`,
+      message: `Refreshed ORG.md in ${workspacesSynced} workspace(s) and scoped AGENTS.md for every orchestrator.`,
     });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -526,6 +526,7 @@ router.post('/', requireAuth, requireCeoOrAdmin, async (req, res) => {
       template_base_id,
       templateBaseId,
       template_id,
+      is_orchestrator,
     } = req.body || {};
     let ownerUserId = null;
     if (req.authUser.role === 'ceo') {
@@ -554,6 +555,7 @@ router.post('/', requireAuth, requireCeoOrAdmin, async (req, res) => {
       hourly_rate_usd: hourly_rate_usd ?? hourlyRateUsd ?? null,
       avatar_image: avatar_image || '',
       template_base_id: template_base_id || templateBaseId || template_id || '',
+      is_orchestrator: !!is_orchestrator,
     });
     res.status(201).json(row);
   } catch (e) {
@@ -630,6 +632,7 @@ router.patch('/:id', requireAuth, requireCeoOrAdmin, (req, res) => {
       'workspace_path',
       'openclaw_agent_id',
       'is_coo',
+      'is_orchestrator',
       'avatar_image',
       'hourly_rate_usd',
     ];
@@ -638,13 +641,29 @@ router.patch('/:id', requireAuth, requireCeoOrAdmin, (req, res) => {
     for (const k of allowed) {
       if (updates[k] !== undefined) {
         set.push(`${k} = ?`);
-        values.push(k === 'is_coo' ? (updates[k] ? 1 : 0) : updates[k]);
+        values.push(k === 'is_coo' || k === 'is_orchestrator' ? (updates[k] ? 1 : 0) : updates[k]);
       }
     }
     if (set.length) {
       db().prepare(`UPDATE agents SET ${set.join(', ')} WHERE id = ?`).run(...values, id);
     }
     const updated = db().prepare('SELECT * FROM agents WHERE id = ?').get(id);
+    if (updates.is_orchestrator) {
+      const grants = agentTools.getAgentToolGrants(id);
+      agentTools.setAgentToolGrants(updated, [
+        ...grants,
+        'agent_goal_create',
+        'agent_goal_list',
+        'agent_goal_status',
+        'agent_goal_complete_step',
+      ]);
+    }
+    import('../services/org-context.js')
+      .then(({ syncOrgContextForCeo }) => {
+        const owner = updated.owner_user_id || resolveAuthenticatedCeoUserId(req, req.body || {});
+        return owner ? syncOrgContextForCeo(owner) : null;
+      })
+      .catch((e) => console.warn('[agents] post-update org sync:', e?.message || e));
     res.json(updated);
   } catch (e) {
     res.status(400).json({ error: e.message });

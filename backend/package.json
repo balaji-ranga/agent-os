@@ -32,7 +32,8 @@
     "test:exception-policy": "node scripts/test-exception-policy.mjs",
     "test:action-policy": "node scripts/test-action-policy-autonomy.mjs",
     "test:company-llm-design": "node scripts/test-company-llm-design.mjs"
-    ,"test:chat-work-units": "node scripts/test-chat-context-boundaries.mjs && node scripts/test-delegation-result-callback.mjs"
+    ,"test:chat-work-units": "node scripts/test-chat-context-boundaries.mjs && node scripts/test-delegation-result-callback.mjs",
+    "test:goal-hardening": "node scripts/test-goal-orchestration-hardening.mjs"
   },
   "dependencies": {
     "@stoqey/ib": "^1.6.3",

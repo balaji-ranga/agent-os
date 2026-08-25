@@ -126,7 +126,7 @@ export function decideFromObservation({
   const retries = Number(retryCount || 0);
   const max = Math.max(0, Number(maxRetries ?? classified?.bounded_retries ?? 2));
 
-  if ((failed || classified) && retries < max) {
+  if ((failed || classified) && classified?.retryable !== false && retries < max) {
     return {
       action: 'retry',
       reason: classified?.failure_class || observation.reason || 'step_failed',

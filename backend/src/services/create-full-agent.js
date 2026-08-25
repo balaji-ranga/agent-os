@@ -161,7 +161,7 @@ ${department || 'Unassigned'}
 }
 
 /**
- * @param {{ name: string, role?: string, parent_id?: string, reportingTo?: string, department?: string, id?: string, ownerUserId?: string, tools?: string[], monthly_token_budget?: number|string|null, error_budget_pct?: number|string|null, hourly_rate_usd?: number|string|null, hourlyRateUsd?: number|string|null, avatar_image?: string, source_kind?: string, source_publish_id?: string, template_base_id?: string, templateBaseId?: string, workspace_template?: string }} input
+ * @param {{ name: string, role?: string, parent_id?: string, reportingTo?: string, department?: string, id?: string, ownerUserId?: string, tools?: string[], is_orchestrator?: boolean, monthly_token_budget?: number|string|null, error_budget_pct?: number|string|null, hourly_rate_usd?: number|string|null, hourlyRateUsd?: number|string|null, avatar_image?: string, source_kind?: string, source_publish_id?: string, template_base_id?: string, templateBaseId?: string, workspace_template?: string }} input
  */
 export async function createFullAgent(input) {
   const name = (input.name || 'Unnamed').trim();
@@ -216,6 +216,7 @@ export async function createFullAgent(input) {
   }
   const sourceKind = String(input.source_kind || 'hired').trim() || 'hired';
   const sourcePublishId = String(input.source_publish_id || '').trim();
+  const isOrchestrator = input.is_orchestrator || templateBaseIdInput === 'video-orchestrator' ? 1 : 0;
 
   const soulMd = buildSoulMd(name, role, id, ownerUserId);
   const agentsMd = buildCustomAgentsMd(name, role, department, ownerUserId, coo?.id);
@@ -234,8 +235,8 @@ export async function createFullAgent(input) {
 
   // Custom agents belong to the creating CEO and are NOT auto-granted to all CEOs on signup.
   db.prepare(
-    `INSERT INTO agents (id, name, role, parent_id, workspace_path, openclaw_agent_id, is_coo, agent_type, owner_user_id, department, hourly_rate_usd, avatar_image, source_kind, source_publish_id, template_base_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 'custom', ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO agents (id, name, role, parent_id, workspace_path, openclaw_agent_id, is_coo, is_orchestrator, agent_type, owner_user_id, department, hourly_rate_usd, avatar_image, source_kind, source_publish_id, template_base_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'custom', ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
     name,
@@ -244,6 +245,7 @@ export async function createFullAgent(input) {
     tenantWs,
     id,
     0,
+    isOrchestrator,
     ownerUserId,
     department,
     hourlyRateUsd,
@@ -254,12 +256,15 @@ export async function createFullAgent(input) {
   );
 
   let row = db.prepare('SELECT * FROM agents WHERE id = ?').get(id);
-  const toolsToGrant =
+  let toolsToGrant =
     Array.isArray(input.tools) && input.tools.length
       ? input.tools
       : Array.isArray(hireTpl?.tools) && hireTpl.tools.length
         ? hireTpl.tools
         : DEFAULT_TOOLS_ALLOW;
+  if (isOrchestrator) {
+    toolsToGrant = [...new Set([...toolsToGrant, 'agent_goal_create', 'agent_goal_list', 'agent_goal_status', 'agent_goal_complete_step'])];
+  }
   try {
     setAgentToolGrants(row, toolsToGrant);
   } catch (e) {

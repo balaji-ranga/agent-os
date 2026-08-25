@@ -2,7 +2,7 @@
  * Specialty + multi-intent goal plan expansion and async specialization steps.
  * Used by agent-goal-run (specialty_task) and scheduled-goals draft plans.
  */
-import { readCooAgentsMdForCeo, getAgentsUnderCooForCeo } from './org-context.js';
+import { readCooAgentsMdForCeo, getAgentsUnderCooForCeo, getAgentsUnderOrchestratorForCeo } from './org-context.js';
 import { classifyIntentAndAllocate, parseAgentsFromAgentsMd } from './intent-classifier.js';
 import { isCooNativeWork, isRefuseDelegationRequest } from './coo-specialty-delegation.js';
 import { listChatTriggerableWorkflows, listPublishedWorkflows } from './agent-workflow-chat-tools.js';
@@ -97,7 +97,7 @@ export function shouldSkipAllSpecialtyAsCooNative(
 }
 
 /** Merge AGENTS.md table + live under-COO roster (Exchange hires may be missing from MD). */
-export function rosterAgentsForGoalPlan(agentsMd, ownerUserId = null) {
+export function rosterAgentsForGoalPlan(agentsMd, ownerUserId = null, orchestratorAgentId = null) {
   const map = new Map();
   for (const a of parseAgentsFromAgentsMd(agentsMd || '')) {
     const id = String(a.id || '').toLowerCase();
@@ -105,7 +105,10 @@ export function rosterAgentsForGoalPlan(agentsMd, ownerUserId = null) {
   }
   if (ownerUserId) {
     try {
-      for (const a of getAgentsUnderCooForCeo(ownerUserId) || []) {
+      const scoped = orchestratorAgentId
+        ? getAgentsUnderOrchestratorForCeo(ownerUserId, orchestratorAgentId)
+        : getAgentsUnderCooForCeo(ownerUserId);
+      for (const a of scoped || []) {
         const id = String(a.id || '').toLowerCase();
         if (!id || a.is_coo) continue;
         if (map.has(id)) continue;
@@ -336,7 +339,8 @@ export async function classifySpecialtyIntentsForPlan(ownerUserId, residualText,
     }
   }
 
-  const roster = rosterAgentsForGoalPlan(md, ownerUserId);
+  const roster = rosterAgentsForGoalPlan(md, ownerUserId, opts.orchestratorAgentId || null);
+  const allowedAgentIds = new Set(roster.map((a) => String(a.id).toLowerCase()));
   if (letteredOrNumbered && chunks.length >= 1) {
     for (const chunk of chunks) {
       const hit = matchNamedRosterAgentInText(chunk, roster);
@@ -365,6 +369,7 @@ export async function classifySpecialtyIntentsForPlan(ownerUserId, residualText,
   let out = [];
   for (const [agentId, message] of byAgent) {
     if (out.length >= max) break;
+    if (opts.orchestratorAgentId && !allowedAgentIds.has(String(agentId).toLowerCase())) continue;
     const meta = purpose.get(agentId);
     out.push({
       agent_id: agentId,

@@ -40,13 +40,25 @@ function eventTone(type, payload) {
 }
 
 function pickSafe(payload) {
-  if (!payload || typeof payload !== 'object') return {};
+  if (Array.isArray(payload)) return payload.map((v) => pickSafe(v));
+  if (!payload || typeof payload !== 'object') return payload;
   const out = {};
   for (const [k, v] of Object.entries(payload)) {
-    if (SENSITIVE_KEY.test(k)) continue;
-    out[k] = v;
+    if (SENSITIVE_KEY.test(k)) {
+      out[k] = '[redacted]';
+      continue;
+    }
+    out[k] = pickSafe(v);
   }
   return out;
+}
+
+function JsonEvidence({ value, empty = 'Not recorded yet' }) {
+  if (value == null || (typeof value === 'object' && !Object.keys(value).length)) {
+    return <span className="goal-tel-muted">{empty}</span>;
+  }
+  const text = JSON.stringify(pickSafe(value), null, 2);
+  return <pre className="goal-tel-evidence">{text.length > 12000 ? `${text.slice(0, 12000)}\n…` : text}</pre>;
 }
 
 export function summarizeGoalEvent(ev) {
@@ -88,6 +100,8 @@ export function summarizeGoalEvent(ev) {
     if (p.fallback) bits.push('fallback');
   } else if (type === 'decision') {
     if (p.action) bits.push(String(p.action));
+    if (p.action === 'retry') bits.push(`attempt ${Number(p.retry_count || 0) + 1} of ${Number(p.retry_limit || 0)}`);
+    if (p.failure_class) bits.push(String(p.failure_class));
     if (p.reason) bits.push(String(p.reason).slice(0, 140));
   } else if (type === 'human_intervention') {
     if (p.kind || p.action) bits.push(String(p.kind || p.action));
@@ -195,6 +209,36 @@ export default function GoalPlanTelemetry({
               </li>
             ))}
           </ol>
+        </section>
+      ) : null}
+
+      {!compact && Array.isArray(goal?.steps) && goal.steps.length ? (
+        <section className="goal-tel-section" aria-label="Step inputs and outputs">
+          <h3 className="goal-tel-h">Step inputs and outputs</h3>
+          <div className="goal-step-evidence-grid">
+            {goal.steps.map((step) => (
+              <details className="goal-step-evidence" key={step.id} open={step.status === 'failed'}>
+                <summary>
+                  <strong>{Number(step.step_index) + 1}. {step.label || step.step_type}</strong>
+                  <span className={`goal-step-state state-${step.status || 'pending'}`}>{step.status || 'pending'}</span>
+                  {Number(step.retry_count || 0) > 0 ? (
+                    <span className="goal-step-retry">{step.retry_count} retr{Number(step.retry_count) === 1 ? 'y' : 'ies'}</span>
+                  ) : null}
+                </summary>
+                <div className="goal-step-io">
+                  <div>
+                    <h4>Input</h4>
+                    <JsonEvidence value={step.spec} />
+                  </div>
+                  <div>
+                    <h4>Output</h4>
+                    <JsonEvidence value={step.result} />
+                    {step.error_message ? <p className="goal-step-error">{step.error_message}</p> : null}
+                  </div>
+                </div>
+              </details>
+            ))}
+          </div>
         </section>
       ) : null}
 

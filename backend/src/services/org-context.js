@@ -30,6 +30,24 @@ export function getAgentsUnderCooForCeo(ceoUserId) {
     .all(ceoUserId, coo.id, coo.id);
 }
 
+/** Direct reports an orchestrator is permitted to delegate to in this tenant. */
+export function getAgentsUnderOrchestratorForCeo(ceoUserId, orchestratorAgentId) {
+  const id = String(orchestratorAgentId || '').includes('--')
+    ? String(orchestratorAgentId).split('--').pop()
+    : String(orchestratorAgentId || '');
+  if (!ceoUserId || !id) return [];
+  return getDb()
+    .prepare(
+      `SELECT a.id, a.name, a.role, a.department, a.parent_id, a.openclaw_agent_id,
+              a.is_coo, COALESCE(a.is_orchestrator, 0) AS is_orchestrator
+       FROM agents a
+       INNER JOIN user_agents ua ON ua.agent_id = a.id AND ua.user_id = ? AND ua.enabled = 1
+       WHERE lower(a.parent_id) = lower(?) AND lower(a.id) != lower(?)
+       ORDER BY a.name`
+    )
+    .all(ceoUserId, id, id);
+}
+
 export function buildOrgContextForCeo(ceoUserId) {
   const ceo = getUserById(ceoUserId);
   const coo = getCooAgentRow();
@@ -40,6 +58,7 @@ export function buildOrgContextForCeo(ceoUserId) {
     department: a.department || '',
     parent_id: a.parent_id || '',
     is_coo: !!a.is_coo,
+    is_orchestrator: !!a.is_orchestrator,
     agent_type: a.agent_type || 'standard',
     owner_user_id: a.owner_user_id || '',
   }));
@@ -528,7 +547,7 @@ export async function syncOrgContextToWorkspace(agent, ceoUserId, workspacePath)
     workspaceRoot: workspacePath,
     backup: false,
   });
-  if (agent?.is_coo) {
+  if (agent?.is_coo || agent?.is_orchestrator) {
     // Merge: refresh roster / session-key / leaf sections only — keep Role, Priorities, Tools,
     // Guardrails, and any custom ## sections the CEO may have edited by hand.
     let existing = '';
@@ -539,7 +558,15 @@ export async function syncOrgContextToWorkspace(agent, ceoUserId, workspacePath)
     } catch {
       existing = '';
     }
-    const agentsMd = mergeCooAgentsMd(existing, ctx);
+    const scopedCtx = agent?.is_coo
+      ? ctx
+      : {
+          ...ctx,
+          coo_id: agent.id,
+          coo_name: agent.name,
+          delegatees: getAgentsUnderOrchestratorForCeo(ceoUserId, agent.id),
+        };
+    const agentsMd = mergeCooAgentsMd(existing, scopedCtx);
     await workspace.writeWorkspaceFile('agents', agentsMd, {
       workspaceRoot: workspacePath,
       backup: false,

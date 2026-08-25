@@ -61,6 +61,7 @@ import {
   buildRetrospective,
 } from './goal-plan-runtime.js';
 import { getExceptionPolicy } from './exception-policy.js';
+import { getAgentsUnderOrchestratorForCeo } from './org-context.js';
 
 const TERMINAL_WF = new Set(['completed', 'failed', 'cancelled', 'paused']);
 let _tablesReady = false;
@@ -452,7 +453,10 @@ async function planGoalStepsAsyncInner(prompt, opts = {}) {
   const residual = stripWorkflowPhrasesFromPrompt(fullPrompt, ownerUserId).trim();
   if (ownerUserId && residual.length >= 8 && isCooStyleOrchestrator(opts.orchestratorAgentId)) {
     try {
-      const specialtyRaw = await classifySpecialtyIntentsForPlan(ownerUserId, residual, { maxSpecialty });
+      const specialtyRaw = await classifySpecialtyIntentsForPlan(ownerUserId, residual, {
+        maxSpecialty,
+        orchestratorAgentId: opts.orchestratorAgentId || null,
+      });
       const specialtySteps = specialtyIntentsToSteps(specialtyRaw, {
         parallel: specialtyRaw.length > 1 && !residualIsLetteredOrNumbered(residual),
       }).map(normalizeStepSpec);
@@ -542,6 +546,8 @@ export function serializeGoalRun(row, steps = null) {
       error_message: s.error_message,
       started_at: s.started_at,
       completed_at: s.completed_at,
+      retry_count: Number(s.exception_retry_count || 0),
+      exception_kanban_id: s.exception_kanban_id || null,
     })),
   };
 }
@@ -679,6 +685,23 @@ export function createGoalRun({
   const planned = promptForbidsNotifyCeo(prompt)
     ? plannedRaw.filter((s) => (s.type || s.step_type) !== 'notify_ceo')
     : plannedRaw;
+  const orchestratorRow = db()
+    .prepare(`SELECT id, is_coo, COALESCE(is_orchestrator, 0) AS is_orchestrator FROM agents WHERE lower(id) = lower(?) LIMIT 1`)
+    .get(agent.includes('--') ? agent.split('--').pop() : agent);
+  if (orchestratorRow?.is_orchestrator && !orchestratorRow?.is_coo) {
+    const allowed = new Set(
+      getAgentsUnderOrchestratorForCeo(owner, orchestratorRow.id).map((a) => String(a.id).toLowerCase())
+    );
+    const outside = planned
+      .filter((s) => (s.type || s.step_type) === 'specialty_task')
+      .map((s) => String(s.agent_id || s.spec?.agent_id || '').toLowerCase())
+      .filter((id) => id && !allowed.has(id));
+    if (outside.length) {
+      const err = new Error(`Orchestrator may delegate only to direct reportees: ${[...new Set(outside)].join(', ')}`);
+      err.status = 403;
+      throw err;
+    }
+  }
   if (plannedRaw.length !== planned.length) {
     console.info('[goal-run] stripped notify_ceo step(s) per prompt instruction');
   }
@@ -2007,7 +2030,15 @@ export function completeGoalStep({ goalRunId, stepId, ownerUserId, result = null
       ownerUserId: goal.owner_user_id,
       goalRunId,
       event_type: 'decision',
-      payload: { action: decision.action, reason: decision.reason, step_id: stepId, ceo_required: !!decision.ceo_required },
+      payload: {
+        action: decision.action,
+        reason: decision.reason,
+        step_id: stepId,
+        ceo_required: !!decision.ceo_required,
+        failure_class: classified.failure_class,
+        retry_count: Number(step.exception_retry_count || 0),
+        retry_limit: Number(exceptionPolicy.retry_limit || 0),
+      },
     });
     console.info('[goal-run] decision', { goalRunId, stepId, action: decision.action, reason: decision.reason });
 
@@ -2112,17 +2143,19 @@ async function executeSpecialtyTaskStep(goal, step) {
   const agentId = String(spec.agent_id || '').trim().toLowerCase();
   if (!agentId) throw new Error('specialty_task requires agent_id');
   const prior = priorStepSummaries(goal.id, step.step_index);
+  const originalGoal = String(goal.prompt || '').trim() || 'Complete the CEO goal.';
+  const assignedDeliverable =
+    (spec.message && String(spec.message).trim()) || 'Complete the specialty portion assigned by the plan.';
   let message =
-    (spec.message && String(spec.message).trim()) ||
-    String(goal.prompt || '').trim() ||
-    'Complete this specialty task for the CEO goal.';
-  if (prior) {
-    message =
-      message +
-      '\n\nPrior completed goal steps:\n' +
-      prior +
-      '\n\nStay focused on your assigned specialty deliverable.';
-  }
+    `Original CEO goal (verbatim):\n${originalGoal}\n\n` +
+    `Your assigned specialty deliverable:\n${assignedDeliverable}\n\n` +
+    `Relevant completed outputs from THIS goal only:\n${prior || '(none — this is the first relevant step)'}\n\n` +
+    `Context boundary:\n` +
+    `- Use only the original goal and outputs listed above.\n` +
+    `- Never reuse facts, target markets, companies, locations, or results from another task or memory.\n` +
+    `- If an essential target, market, geography, audience, account, date range, or other required input is missing, ` +
+    `do not guess. Reply with [NEEDS_CLARIFICATION] followed by the smallest specific question(s) needed.\n` +
+    `- Otherwise return the concrete completed deliverable, not a future-tense acknowledgement.`;
   message =
     message +
     `\n\n[goal_run_id: ${goal.id}]\n[goal_step_id: ${step.id}]\n[ceo_user_id: ${goal.owner_user_id}]`;
@@ -2189,12 +2222,14 @@ export async function onDelegationTerminalForGoalRun(taskId) {
     return { ok: true, skipped: true, reason: 'step_already_terminal', goal_run_id: goal.id };
   }
   const task = db().prepare('SELECT * FROM agent_delegation_tasks WHERE id = ?').get(Number(taskId));
-  const failed = !task || String(task.status || '') === 'failed';
+  const needsClarification = /\[NEEDS_CLARIFICATION\]/i.test(String(task?.response_content || ''));
+  const failed = !task || String(task.status || '') === 'failed' || needsClarification;
   const result = {
     delegation_task_id: Number(taskId),
     status: task?.status || 'missing',
     reply_preview: clip(task?.response_content || '', 400),
-    error_message: task?.error_message || null,
+    error_message: task?.error_message || (needsClarification ? 'Needs CEO clarification' : null),
+    needs_clarification: needsClarification,
   };
   const completion = await completeGoalStep({
     goalRunId: goal.id,
@@ -2202,7 +2237,9 @@ export async function onDelegationTerminalForGoalRun(taskId) {
     ownerUserId: goal.owner_user_id,
     result,
     failed,
-    error: failed ? task?.error_message || task?.status || 'delegation failed' : null,
+    error: failed
+      ? task?.error_message || (needsClarification ? 'Needs CEO clarification' : task?.status || 'delegation failed')
+      : null,
   });
   if (completion?.recovered) {
     return startGoalRunExecution(goal.id, { ownerUserId: goal.owner_user_id });

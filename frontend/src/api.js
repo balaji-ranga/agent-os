@@ -178,6 +178,9 @@ export const api = {
   adminWorkspaceTemplateDelete: (id) => del(`/admin/workspace-templates/${encodeURIComponent(id)}`),
   // Agents
   agentsList: () => get('/agents'),
+  agentActionsLive: () => get('/agent-actions/live'),
+  agentActionsHistory: ({ limit = 30, offset = 0 } = {}) =>
+    get(`/agent-actions/history?limit=${encodeURIComponent(limit)}&offset=${encodeURIComponent(offset)}`),
   /** Rebuild ORG.md + COO AGENTS.md from DB for the signed-in CEO (admin: owner_user_id). */
   orgSyncAgentDocs: (body) => post('/agents/org/sync', body || {}),
   agentGet: (id) => get(`/agents/${id}`),

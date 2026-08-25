@@ -217,7 +217,7 @@ export function extractTaskSummaryFromPrompt(prompt) {
 /**
  * Append delegation task request and response to agent's chat_turns so Agent Chat page shows it.
  */
-export function appendDelegationResponseToAgentChat(agentId, promptSnippet, responseContent, ownerUserId = null) {
+export function appendDelegationResponseToAgentChat(agentId, promptSnippet, responseContent, ownerUserId = null, sessionId = null) {
   if (!agentId || responseContent == null) return;
   const owner =
     ownerUserId ||
@@ -226,8 +226,8 @@ export function appendDelegationResponseToAgentChat(agentId, promptSnippet, resp
   const userMsg = (promptSnippet || 'Task from COO').trim().slice(0, 4000);
   const assistantMsg = (typeof responseContent === 'string' ? responseContent : JSON.stringify(responseContent)).trim().slice(0, 100000);
   try {
-    insertChatTurn({ agentId, ownerUserId: owner, role: 'user', content: userMsg });
-    insertChatTurn({ agentId, ownerUserId: owner, role: 'assistant', content: assistantMsg });
+    insertChatTurn({ agentId, ownerUserId: owner, role: 'user', content: userMsg, sessionId });
+    insertChatTurn({ agentId, ownerUserId: owner, role: 'assistant', content: assistantMsg, sessionId });
   } catch (_) {}
 }
 
@@ -967,6 +967,20 @@ export async function postCallbackForRequestId(requestId, { summarize = null } =
   }
 }
 
+export function goalExecutionIdentity(prompt) {
+  const text = String(prompt || '');
+  const goalRunId = text.match(/\[goal_run_id:\s*([^\]\s]+)\]/i)?.[1] || '';
+  const goalStepId = text.match(/\[goal_step_id:\s*([^\]\s]+)\]/i)?.[1] || '';
+  return goalRunId && goalStepId ? { goalRunId, goalStepId } : null;
+}
+
+export function delegationSessionUserForPrompt(prompt, taskId) {
+  const identity = goalExecutionIdentity(prompt);
+  return identity
+    ? `goal-${identity.goalRunId}-${identity.goalStepId}`
+    : `delegation-${taskId}`;
+}
+
 /**
  * Process pending delegation tasks for a single CEO.
  * Pulls only that CEO's tasks, mirrors the per-CEO standup cron pattern.
@@ -1068,7 +1082,10 @@ export async function processPendingDelegationTasksForCeo(ceoUserId, opts = {}) 
     } catch (e) {
       console.warn('[delegation] tenant openclaw ensure failed:', e?.message || e);
     }
-    const sessionUser = `delegation-${task.id}`;
+    const goalIdentity = goalExecutionIdentity(task.prompt);
+    // Goal steps have a stable, isolated execution identity. They must never
+    // share the agent's conversational or memory-aware delegation session.
+    const sessionUser = delegationSessionUserForPrompt(task.prompt, task.id);
     const avatarVr = isAvatarAgentWorkflowPrompt(task.prompt);
     let promptWithMemory;
     if (avatarVr) {
@@ -1084,6 +1101,14 @@ export async function processPendingDelegationTasksForCeo(ceoUserId, opts = {}) 
       console.info('[delegation] avatar VR prompt (no memory/sessions_history inject)', {
         taskId: task.id,
         agent: task.to_agent_id,
+      });
+    } else if (goalIdentity) {
+      promptWithMemory = getPromptForFreshGoalRun(task.prompt);
+      console.info('[delegation] isolated goal-step session', {
+        taskId: task.id,
+        goalRunId: goalIdentity.goalRunId,
+        goalStepId: goalIdentity.goalStepId,
+        sessionUser,
       });
     } else {
       const sessionKeyLine = `\n\nYour session key for this run is ${openclaw.sessionKeyFor(runtimeOcId, sessionUser)}. Use this exact sessionKey when calling sessions_history. If sessions_history returns empty, the conversation is in the messages above—proceed with those.`;
@@ -1203,14 +1228,19 @@ export async function processPendingDelegationTasksForCeo(ceoUserId, opts = {}) 
           ? extractTaskContentFromPrompt(task.prompt)
           : extractTaskSummaryFromPrompt(task.prompt),
         responseText,
-        extractOwnerUserIdFromText(task.prompt)
+        extractOwnerUserIdFromText(task.prompt),
+        sessionUser
       );
-      const summary = extractTaskSummaryFromPrompt(task.prompt);
-      await appendToAgentMemory(
-        task.to_agent_id,
-        summary,
-        extractOwnerUserIdFromText(task.prompt) || standupOwner
-      );
+      // Goal outputs are persisted on the goal step and supplied explicitly to
+      // later steps. Do not leak them into cross-task agent memory.
+      if (!goalIdentity) {
+        const summary = extractTaskSummaryFromPrompt(task.prompt);
+        await appendToAgentMemory(
+          task.to_agent_id,
+          summary,
+          extractOwnerUserIdFromText(task.prompt) || standupOwner
+        );
+      }
     } catch (err) {
       const errMsg = err?.message || String(err);
       // During OpenClaw restarts, leave the task pending so status-only auto-retries

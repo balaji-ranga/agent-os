@@ -70,6 +70,26 @@ export function grantCooDelegationToolsIfMissing() {
   return added;
 }
 
+export function grantOrchestratorGoalToolsIfMissing() {
+  const db = getDb();
+  const orchestrators = db
+    .prepare(`SELECT id FROM agents WHERE COALESCE(is_orchestrator, 0) = 1 OR is_coo = 1`)
+    .all();
+  const tools = ['agent_goal_create', 'agent_goal_list', 'agent_goal_status', 'agent_goal_complete_step'];
+  const available = contentToolNamesSet();
+  const ins = db.prepare('INSERT OR IGNORE INTO agent_tool_grants (agent_id, tool_name) VALUES (?, ?)');
+  let added = 0;
+  for (const agent of orchestrators) {
+    for (const tool of tools) {
+      if (!available.has(tool)) continue;
+      const out = ins.run(agent.id, tool);
+      added += Number(out.changes || 0);
+    }
+  }
+  if (added) syncAllowlistsFile();
+  return added;
+}
+
 export function getAgentToolGrants(agentId) {
   const db = getDb();
   return db

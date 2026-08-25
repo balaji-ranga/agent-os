@@ -26,8 +26,10 @@ docker compose --env-file .env exec -T -w /opt/agent-os/backend \
   backend node scripts/test-places-parse-text.mjs
 
 echo "==> vps-test-social-research.mjs"
+# Production deploy verification must not inject synthetic user prompts into
+# a real CEO/agent chat. Set SKIP_CHAT=0 explicitly only in an isolated test tenant.
 docker compose --env-file .env exec -T -w /opt/agent-os/backend \
-  -e SKIP_CHAT="${SKIP_CHAT:-0}" \
+  -e SKIP_CHAT="${SKIP_CHAT:-1}" \
   backend node scripts/vps-test-social-research.mjs
 
 echo "VPS_SOCIAL_RESEARCH_SMOKE_OK"

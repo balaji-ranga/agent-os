@@ -23,6 +23,7 @@ export function buildCeoNavCatalog({ showCrm = false, showErp = false } = {}) {
   const run = [
     { id: 'org', label: 'My Org', to: '/org', group: 'Run & Operate' },
     { id: 'kanban', label: 'Kanban', to: '/kanban', group: 'Run & Operate' },
+    { id: 'agent-actions', label: 'Agent Actions', to: '/agent-actions', group: 'Run & Operate' },
   ];
   if (showCrm) {
     run.push({ id: 'crm', label: 'CRM', to: '/crm', group: 'Run & Operate', entitlement: 'crm' });

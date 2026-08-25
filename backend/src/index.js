@@ -24,6 +24,7 @@ import broadcastRoutes from './routes/broadcast.js';
 import kanbanRoutes from './routes/kanban.js';
 import scheduledGoalsRoutes from './routes/scheduled-goals.js';
 import agentGoalRunsRoutes from './routes/agent-goal-runs.js';
+import agentActionsRoutes from './routes/agent-actions.js';
 import companyExecutionsRoutes from './routes/company-executions.js';
 import companyCapabilitiesRoutes from './routes/company-capabilities.js';
 import mediaRoutes from './routes/media.js';
@@ -113,6 +114,7 @@ import { writeOpenClawToolsList } from './services/content-tools-meta.js';
 import {
   importGrantsFromOpenClawConfig,
   grantCooDelegationToolsIfMissing,
+  grantOrchestratorGoalToolsIfMissing,
   syncAllowlistsFile,
   syncOpenClawJsonForAgent,
   getAgentToolGrants,
@@ -429,8 +431,10 @@ writeOpenClawToolsList();
 try {
   const cooGranted = grantCooDelegationToolsIfMissing();
   if (cooGranted) console.log(`[startup] granted ${cooGranted} COO delegation tool(s)`);
+  const orchestratorGranted = grantOrchestratorGoalToolsIfMissing();
+  if (orchestratorGranted) console.log(`[startup] granted ${orchestratorGranted} orchestrator goal tool(s)`);
 } catch (e) {
-  console.warn('[startup] COO delegation tool grants:', e.message);
+  console.warn('[startup] orchestrator tool grants:', e.message);
 }
 try {
   const imported = importGrantsFromOpenClawConfig();
@@ -591,6 +595,7 @@ apiRouter.use('/broadcast', broadcastRoutes);
 apiRouter.use('/kanban', kanbanRoutes);
 apiRouter.use('/scheduled-goals', scheduledGoalsRoutes);
 apiRouter.use('/agent-goal-runs', agentGoalRunsRoutes);
+apiRouter.use('/agent-actions', agentActionsRoutes);
 apiRouter.use('/company-executions', companyExecutionsRoutes);
 apiRouter.use('/company-capabilities', companyCapabilitiesRoutes);
 apiRouter.use('/job-applicant', jobApplicantRoutes);

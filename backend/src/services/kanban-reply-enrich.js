@@ -15,9 +15,18 @@ const STATUS_ONLY_RE =
 const STATUS_CHATTER_RE =
   /\b(marked (as )?(completed|done|finished)|successfully (marked|completed)|task (has been |was )?(successfully )?(marked |is )?(as )?(completed|done|finished)|kanban (task |card )?(has been |was )?(marked )?(as )?(completed|done))\b/i;
 
+const FUTURE_ACK_RE =
+  /\b(i (?:will|'ll|am going to)|next[, ]+i(?:'ll| will)|i(?:'ll| will) (?:proceed|start|work|investigate|update)|will update (?:you|the ceo)|shortly|once (?:this|that) is done)\b/i;
+const UNRESOLVED_BLOCKER_RE =
+  /\b(blocked|cannot|can't|unable|quota|usage limit|payment required|access denied|not logged in|credentials? (?:missing|required)|awaiting (?:access|approval|input)|needs? clarification)\b/i;
+const CONCRETE_EVIDENCE_RE =
+  /\b(result|deliverable|found|created|published|sent|generated|completed output|evidence|source|https?:\/\/|task[_ -]?id|record[_ -]?id)\b/i;
+
 export function looksStatusOnlyReply(text) {
   const t = String(text || '').trim();
   if (!t || t.startsWith('[Error from agent:')) return false;
+  if (FUTURE_ACK_RE.test(t) && !CONCRETE_EVIDENCE_RE.test(t)) return true;
+  if (UNRESOLVED_BLOCKER_RE.test(t) && !CONCRETE_EVIDENCE_RE.test(t)) return true;
   if (t.length > 420) return false;
   // Real deliverables / structured answers — never treat as status-only.
   if (/!\[|\/api\/media\/|ingredients?:|instructions?:|#{1,3}\s|^\s*[-*]\s+\S/im.test(t)) return false;
@@ -25,6 +34,12 @@ export function looksStatusOnlyReply(text) {
   if (STATUS_CHATTER_RE.test(t) && t.length < 360) return true;
   if (/completed|marked as (done|finished|completed)/i.test(t) && t.length < 280) return true;
   return false;
+}
+
+/** A terminal-looking reply that still names an external blocker is not success. */
+export function replyHasUnresolvedBlocker(text) {
+  const t = String(text || '').trim();
+  return !!t && UNRESOLVED_BLOCKER_RE.test(t) && !CONCRETE_EVIDENCE_RE.test(t);
 }
 
 /** True when the card/ask expects a real answer (not a greet) — used for Kanban chat nudge. */

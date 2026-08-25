@@ -1,0 +1,121 @@
+import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+const dataDir = mkdtempSync(join(tmpdir(), 'flolah-goal-hardening-'));
+process.env.AGENT_OS_DATA_DIR = dataDir;
+process.env.GOAL_PLAN_COO_COMPLETION_NUDGE = '0';
+
+let database = null;
+try {
+  const { initDb } = await import('../src/db/schema.js');
+  const db = initDb();
+  database = db;
+  const owner = 'ceo-goal-hardening';
+  db.prepare(`INSERT INTO platform_users (id,email,password_hash,name,role) VALUES (?,?,?,?,?)`)
+    .run(owner, 'goal-hardening@example.test', 'x', 'Goal Hardening', 'ceo');
+  const agents = [
+    ['coo-test', 'COO', null, 1, 1, 'Operations'],
+    ['content-orchestrator', 'Content Orchestrator', 'coo-test', 0, 1, 'Content'],
+    ['scene-agent', 'Scene Agent', 'content-orchestrator', 0, 0, 'Content'],
+    ['finance-agent', 'Finance Agent', 'coo-test', 0, 0, 'Finance'],
+  ];
+  for (const [id, name, parent, isCoo, isOrch, department] of agents) {
+    db.prepare(
+      `INSERT INTO agents (id,name,parent_id,is_coo,is_orchestrator,department,openclaw_agent_id) VALUES (?,?,?,?,?,?,?)`
+    ).run(id, name, parent, isCoo, isOrch, department, id);
+    db.prepare(`INSERT INTO user_agents (user_id,agent_id,enabled) VALUES (?,?,1)`).run(owner, id);
+  }
+
+  const { classifyToolFailure } = await import('../src/services/tool-failure-class.js');
+  const quota = classifyToolFailure(new Error('Brave Usage limit exceeded current_spend 5.05'), { status: 402 });
+  assert.equal(quota.failure_class, 'quota_exhausted');
+  assert.equal(quota.retryable, false);
+  assert.equal(quota.bounded_retries, 0);
+  const clarification = classifyToolFailure(new Error('Needs CEO clarification'));
+  assert.equal(clarification.failure_class, 'model_uncertainty');
+  assert.equal(clarification.retryable, false);
+
+  const { looksStatusOnlyReply, replyHasUnresolvedBlocker } = await import('../src/services/kanban-reply-enrich.js');
+  const acknowledgement = "I have updated the task to in_progress. Next, I'll proceed with the research and update you shortly.";
+  assert.equal(looksStatusOnlyReply(acknowledgement), true);
+  assert.equal(replyHasUnresolvedBlocker('Unable to continue: Brave quota usage limit exceeded.'), true);
+
+  const { delegationSessionUserForPrompt, getPromptForFreshGoalRun } = await import('../src/services/delegation-queue.js');
+  const tagged = 'Do this\n[goal_run_id: agr-1]\n[goal_step_id: ags-2]';
+  assert.equal(delegationSessionUserForPrompt(tagged, 77), 'goal-agr-1-ags-2');
+  assert.equal(delegationSessionUserForPrompt('ordinary task', 77), 'delegation-77');
+  assert(!getPromptForFreshGoalRun(tagged).includes('MEMORY.md'));
+
+  const { getAgentsUnderOrchestratorForCeo } = await import('../src/services/org-context.js');
+  assert.deepEqual(getAgentsUnderOrchestratorForCeo(owner, 'content-orchestrator').map((a) => a.id), ['scene-agent']);
+
+  const { createGoalRun, completeGoalStep, getGoalRun } = await import('../src/services/agent-goal-run.js');
+  assert.throws(
+    () => createGoalRun({
+      ownerUserId: owner,
+      agentId: 'content-orchestrator',
+      prompt: 'Delegate outside the reporting line',
+      steps: [{ type: 'specialty_task', agent_id: 'finance-agent', message: 'Do finance work' }],
+    }),
+    /only to direct reportees/
+  );
+
+  const { upsertExceptionPolicy } = await import('../src/services/exception-policy.js');
+  upsertExceptionPolicy(owner, { retry_limit: 3, create_kanban: false, agent_pickup: false });
+  const goal = createGoalRun({
+    ownerUserId: owner,
+    agentId: 'coo-test',
+    prompt: 'Research a target market with Brave.',
+    steps: [{ type: 'agent_tool', label: 'Brave research', tool_name: 'brave_web_search' }],
+  });
+  const terminal = completeGoalStep({
+    goalRunId: goal.id,
+    stepId: goal.steps[0].id,
+    ownerUserId: owner,
+    failed: true,
+    error: 'Brave Usage limit exceeded',
+    result: { status: 402, message: 'Usage limit exceeded' },
+  });
+  assert.equal(terminal.escalated, true);
+  const after = getGoalRun(goal.id, owner);
+  assert.equal(after.steps[0].retry_count, 0);
+  assert.equal(after.steps[0].status, 'failed');
+  const decision = db.prepare(
+    `SELECT payload_json FROM goal_mission_events WHERE goal_run_id = ? AND event_type = 'decision' ORDER BY created_at DESC LIMIT 1`
+  ).get(goal.id);
+  assert.equal(JSON.parse(decision.payload_json).failure_class, 'quota_exhausted');
+
+  db.prepare(`INSERT INTO standups (scheduled_at, owner_user_id, source) VALUES (?,?,?)`)
+    .run(new Date().toISOString(), owner, 'test');
+  const standupId = db.prepare(`SELECT id FROM standups ORDER BY id DESC LIMIT 1`).get().id;
+  db.prepare(
+    `INSERT INTO agent_delegation_tasks (standup_id,request_id,to_agent_id,prompt,status,owner_user_id) VALUES (?,?,?,?,?,?)`
+  ).run(standupId, 'req-hardening', 'scene-agent', 'Recover quota', 'completed', owner);
+  const delegationId = db.prepare(`SELECT id FROM agent_delegation_tasks ORDER BY id DESC LIMIT 1`).get().id;
+  db.prepare(
+    `INSERT INTO kanban_tasks (title,status,assigned_agent_id,standup_id,agent_delegation_task_id,owner_user_id) VALUES (?,?,?,?,?,?)`
+  ).run('Recover external blocker', 'completed', 'scene-agent', standupId, delegationId, owner);
+  const { completePipelineKanbanForDelegation } = await import('../src/services/kanban-workflow-stage.js');
+  const retained = completePipelineKanbanForDelegation(delegationId, {
+    ok: true,
+    replyText: 'Unable to continue because the Brave quota usage limit is still exceeded.',
+  });
+  assert.equal(retained.status, 'awaiting_confirmation');
+  assert.equal(retained.blocked_unresolved, true);
+
+  // completeGoalStep schedules its recovery-card audit asynchronously.
+  await new Promise((resolve) => setTimeout(resolve, 150));
+
+  console.log('GOAL_ORCHESTRATION_HARDENING_OK', {
+    quota_failure_class: quota.failure_class,
+    goal_retry_count: after.steps[0].retry_count,
+    isolated_session: delegationSessionUserForPrompt(tagged, 77),
+    orchestrator_reportees: ['scene-agent'],
+    blocked_kanban_status: retained.status,
+  });
+} finally {
+  try { database?.close(); } catch {}
+  rmSync(dataDir, { recursive: true, force: true });
+}

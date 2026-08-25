@@ -18,6 +18,7 @@ export default function AddAgentForm({ agents = [], onCreated, compact = false }
   const [errorBudget, setErrorBudget] = useState('');
   const [hourlyRate, setHourlyRate] = useState('10');
   const [avatarImage, setAvatarImage] = useState('');
+  const [isOrchestrator, setIsOrchestrator] = useState(false);
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -59,6 +60,7 @@ export default function AddAgentForm({ agents = [], onCreated, compact = false }
       parent_id: parentId || coo?.id || undefined,
       avatar_image: avatarImage || '',
       template_base_id: hireTemplateId || undefined,
+      is_orchestrator: isOrchestrator || hireTemplateId === 'video-orchestrator',
     };
     api
       .agentCreate(body)
@@ -72,6 +74,7 @@ export default function AddAgentForm({ agents = [], onCreated, compact = false }
         setErrorBudget('');
         setHourlyRate('10');
         setAvatarImage('');
+        setIsOrchestrator(false);
         setMessage(
           `"${agent.name}" hired` +
             (agent.department ? ` · ${agent.department}` : '') +
@@ -155,6 +158,15 @@ export default function AddAgentForm({ agents = [], onCreated, compact = false }
             </option>
           ))}
         </select>
+        <label className="agent-orchestrator-choice" title="Can goal-plan and delegate to direct reports">
+          <input
+            type="checkbox"
+            checked={isOrchestrator || hireTemplateId === 'video-orchestrator'}
+            disabled={hireTemplateId === 'video-orchestrator'}
+            onChange={(e) => setIsOrchestrator(e.target.checked)}
+          />
+          Orchestrator
+        </label>
         <input
           type="number"
           min="0"

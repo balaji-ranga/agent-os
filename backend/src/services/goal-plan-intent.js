@@ -9,7 +9,7 @@
  * No product CRM/ERP keyword hardcoding. Workflow match is phrase-catalog only.
  */
 import { chatCompletions } from '../config/llm.js';
-import { readCooAgentsMdForCeo, getCooAgentRow, getAgentsUnderCooForCeo } from './org-context.js';
+import { readCooAgentsMdForCeo, getCooAgentRow, getAgentsUnderCooForCeo, getAgentsUnderOrchestratorForCeo } from './org-context.js';
 import { parseAgentsFromAgentsMd } from './intent-classifier.js';
 import {
   classifySpecialtyIntentsForPlan,
@@ -68,9 +68,9 @@ export function isCooStyleOrchestrator(orchestratorAgentId) {
     const cooId = String(coo?.id || '').toLowerCase();
     if (cooId && (id === cooId || base === cooId)) return true;
     const row = getDb()
-      .prepare('SELECT is_coo FROM agents WHERE lower(id) = ? OR lower(id) = ? LIMIT 1')
+      .prepare('SELECT is_coo, COALESCE(is_orchestrator, 0) AS is_orchestrator FROM agents WHERE lower(id) = ? OR lower(id) = ? LIMIT 1')
       .get(id, base);
-    if (row?.is_coo) return true;
+    if (row?.is_coo || row?.is_orchestrator) return true;
   } catch {
     /* ignore */
   }
@@ -395,11 +395,13 @@ export function listWorkflowCatalogForGoalPlan(ownerUserId) {
   return [...byId.values()];
 }
 
-export async function listSpecialtyAgentsForGoalPlan(ownerUserId) {
+export async function listSpecialtyAgentsForGoalPlan(ownerUserId, orchestratorAgentId = null) {
   const md = ownerUserId ? await readCooAgentsMdForCeo(ownerUserId) : '';
   let roster = parseAgentsFromAgentsMd(md || '');
   try {
-    const under = getAgentsUnderCooForCeo(ownerUserId) || [];
+    const under = orchestratorAgentId
+      ? getAgentsUnderOrchestratorForCeo(ownerUserId, orchestratorAgentId)
+      : getAgentsUnderCooForCeo(ownerUserId) || [];
     const seen = new Set(roster.map((a) => String(a.id).toLowerCase()));
     for (const a of under) {
       const id = String(a.id || '').toLowerCase();
@@ -924,7 +926,7 @@ export async function classifyGoalPlanIntents(ownerUserId, prompt, opts = {}) {
 
   const tools = listOrchestratorToolsForGoalPlan(owner, opts.orchestratorAgentId || null);
   const workflows = listWorkflowCatalogForGoalPlan(owner);
-  const agents = await listSpecialtyAgentsForGoalPlan(owner);
+  const agents = await listSpecialtyAgentsForGoalPlan(owner, opts.orchestratorAgentId || null);
   const cooStyle = isCooStyleOrchestrator(opts.orchestratorAgentId);
 
   // --- Lane A: tenant published workflow phrases (catalog order) ---
@@ -938,6 +940,7 @@ export async function classifyGoalPlanIntents(ownerUserId, prompt, opts = {}) {
       if (residualForSpecialty.length >= 8) {
         const specialtyRaw = await classifySpecialtyIntentsForPlan(owner, residualForSpecialty, {
           maxSpecialty: opts.maxSpecialty || 4,
+          orchestratorAgentId: opts.orchestratorAgentId || null,
         });
         const lettered = residualIsLetteredOrNumbered(residualForSpecialty);
         specialtySteps = specialtyIntentsToSteps(specialtyRaw, {
