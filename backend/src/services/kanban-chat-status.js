@@ -49,14 +49,15 @@ export function looksLikeClosedFollowUp(userText) {
  */
 export function buildKanbanChatStatusGuidance(taskId, status, { userText = '', title = '', description = '' } = {}) {
   if (isAwaitingUserConfirmation(status)) {
+    const resumed = buildKanbanChatStatusGuidance(taskId, 'in_progress', { userText, title, description });
     return {
-      awaitingUser: true,
-      promoteOnReply: false,
-      completeOnReply: false,
-      instructions: '',
-      finishBlock:
-        '\n\n---\nIMPORTANT — awaiting user confirmation:\n' +
-        'Do NOT call kanban_move_status yet. Wait for the CEO/user to confirm or reply, then continue.\n---',
+      ...resumed,
+      awaitingUser: false,
+      promoteOnReply: true,
+      instructions:
+        `The CEO/user has replied to the confirmation or clarification request. ` +
+        `Resume this same task now. FIRST call kanban_move_status with JSON:\n` +
+        `  {"task_id": ${taskId}, "new_status": "in_progress"}\n\n`,
     };
   }
 

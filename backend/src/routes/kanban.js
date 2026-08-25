@@ -717,7 +717,7 @@ router.post('/tasks/:id/messages', async (req, res) => {
             db()
               .prepare(
                 `UPDATE kanban_tasks SET status = 'in_progress', updated_at = datetime('now')
-                 WHERE id = ? AND status = 'open'`
+                 WHERE id = ? AND status IN ('open', 'awaiting_confirmation')`
               )
               .run(taskId);
           }
@@ -745,6 +745,12 @@ router.post('/tasks/:id/messages', async (req, res) => {
               )
               .run(taskId);
             clearKanbanTaskNotification(taskId, req.authUser?.id);
+          }
+          try {
+            const { recoverStaleAgentContinueGoalSteps } = await import('../services/agent-goal-run.js');
+            await recoverStaleAgentContinueGoalSteps({ ownerUserId: ceoOwner, limit: 10 });
+          } catch (recoverErr) {
+            console.warn('[kanban] stale goal continuation recovery:', recoverErr?.message || recoverErr);
           }
         } catch (err) {
           const errMsg = err?.message || String(err);

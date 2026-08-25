@@ -2388,6 +2388,12 @@ async function executeSpecialtyTaskStep(goal, step) {
       `UPDATE agent_goal_steps SET child_delegation_task_id = ?, status = 'running', started_at = COALESCE(started_at, datetime('now')) WHERE id = ?`
     )
     .run(Number(taskId), step.id);
+  db()
+    .prepare(
+      `UPDATE kanban_tasks SET goal_run_id = ?, goal_step_id = ?
+       WHERE agent_delegation_task_id = ?`
+    )
+    .run(goal.id, step.id, Number(taskId));
   touchGoalRun(goal.id, { status: 'running', current_step_index: step.step_index });
   console.info('[goal-run] specialty_task started', {
     goalRunId: goal.id,
@@ -2408,6 +2414,49 @@ export function findGoalStepByDelegationTask(taskId) {
   if (!step) return null;
   const goal = loadGoalRunRow(step.goal_run_id);
   return goal ? { goal, step } : null;
+}
+
+const activeAgentContinueSteps = new Set();
+
+/** Recover agent_continue work abandoned by a backend restart or lost background turn. */
+export async function recoverStaleAgentContinueGoalSteps({
+  ownerUserId = null,
+  limit = 20,
+  staleMs = null,
+} = {}) {
+  ensureAgentGoalRunTables();
+  const configured = Number(
+    staleMs ?? process.env.GOAL_AGENT_CONTINUE_STALE_MS ??
+      (Number(process.env.GOAL_AGENT_CONTINUE_TIMEOUT_MS || process.env.OPENCLAW_FETCH_TIMEOUT_MS || 240000) + 60000)
+  );
+  const ageSeconds = Math.max(60, Math.ceil((Number.isFinite(configured) ? configured : 300000) / 1000));
+  const owner = String(ownerUserId || '').trim();
+  const params = owner ? [owner, `-${ageSeconds} seconds`, limit] : [`-${ageSeconds} seconds`, limit];
+  const rows = db().prepare(
+    `SELECT s.id AS step_id, s.goal_run_id, g.owner_user_id
+     FROM agent_goal_steps s JOIN agent_goal_runs g ON g.id = s.goal_run_id
+     WHERE s.step_type = 'agent_continue' AND s.status = 'running'
+       AND g.status = 'running'
+       ${owner ? 'AND g.owner_user_id = ?' : ''}
+       AND datetime(COALESCE(s.started_at, g.updated_at)) < datetime('now', ?)
+     ORDER BY datetime(COALESCE(s.started_at, g.updated_at)) ASC LIMIT ?`
+  ).all(...params);
+  const recovered = [];
+  for (const row of rows) {
+    if (activeAgentContinueSteps.has(row.step_id)) continue;
+    const changed = db().prepare(
+      `UPDATE agent_goal_steps SET status='pending', started_at=NULL, error_message=NULL
+       WHERE id=? AND status='running'`
+    ).run(row.step_id);
+    if (!changed.changes) continue;
+    touchGoalRun(row.goal_run_id, { status: 'running' });
+    console.warn('[goal-run] reclaimed stale agent_continue', {
+      goalRunId: row.goal_run_id, stepId: row.step_id, ageSeconds,
+    });
+    const execution = await startGoalRunExecution(row.goal_run_id, { ownerUserId: row.owner_user_id });
+    recovered.push({ goal_run_id: row.goal_run_id, step_id: row.step_id, execution });
+  }
+  return { scanned: rows.length, recovered: recovered.length, stale_seconds: ageSeconds, details: recovered };
 }
 
 export async function onDelegationTerminalForGoalRun(taskId) {
@@ -2682,6 +2731,7 @@ export async function startGoalRunExecution(goalRunId, opts = {}) {
       const owner = goal.owner_user_id;
       const stepSnap = { ...step };
       const goalSnap = { ...goal };
+      activeAgentContinueSteps.add(stepId);
       setImmediate(() => {
         Promise.resolve()
           .then(() => executeAgentContinueStep(goalSnap, stepSnap))
@@ -2716,7 +2766,8 @@ export async function startGoalRunExecution(goalRunId, opts = {}) {
             } catch (failErr) {
               console.warn('[goal-run] agent_continue fail finalize:', failErr?.message || failErr);
             }
-          });
+          })
+          .finally(() => activeAgentContinueSteps.delete(stepId));
       });
       return {
         ok: true,

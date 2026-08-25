@@ -9,6 +9,7 @@ import { getBalaCeoAuthId } from '../src/services/job-applicant-ceo.js';
 import {
   recoverStaleSpecialtyProcessingDelegations,
   reinitiateKanbanDelegation,
+  reinitiateOrphanKanbanCards,
   cancelDelegationsForDeletedKanban,
   runKanbanOrphanWatcher,
 } from '../src/services/kanban-orphan-watcher.js';
@@ -93,6 +94,27 @@ try {
   const k2 = db.prepare(`SELECT status, agent_delegation_task_id FROM kanban_tasks WHERE id = ?`).get(kanbanId);
   check('card back to in_progress', k2.status === 'in_progress', k2.status);
   check('new delegation linked', k2.agent_delegation_task_id !== delId, `old=${delId} new=${k2.agent_delegation_task_id}`);
+
+  // A terminal failed card is not CEO intent to retry. Only moving it to `open`
+  // may reset retry limits and create a fresh delegation.
+  const terminalOwner = `orphan-test-owner-${Date.now()}`;
+  const terminalDel = db.prepare(
+    `INSERT INTO agent_delegation_tasks
+       (standup_id, request_id, to_agent_id, prompt, status, response_content, owner_user_id, completed_at)
+     VALUES (?, ?, ?, ?, 'completed', 'Unable to perform this task.', ?, datetime('now'))`
+  ).run(standupId, `orphan-test-terminal-${Date.now()}`, agent.id, 'Terminal failure test.', terminalOwner);
+  const terminalDelId = Number(terminalDel.lastInsertRowid);
+  createdDelegations.push(terminalDelId);
+  const terminalCard = db.prepare(
+    `INSERT INTO kanban_tasks
+       (title, description, status, assigned_agent_id, created_by, standup_id, agent_delegation_task_id, owner_user_id, updated_at)
+     VALUES ('Terminal failed card', 'Must stay terminal', 'failed', ?, 'coo', ?, ?, ?, datetime('now','-10 minutes'))`
+  ).run(agent.id, standupId, terminalDelId, terminalOwner);
+  const terminalCardId = Number(terminalCard.lastInsertRowid);
+  created.push(terminalCardId);
+  const terminalScan = reinitiateOrphanKanbanCards({ ownerUserId: terminalOwner, limit: 10 });
+  const terminalAfter = db.prepare('SELECT status,agent_delegation_task_id FROM kanban_tasks WHERE id=?').get(terminalCardId);
+  check('failed card is not mistaken for CEO reopen', terminalScan.reinitiated === 0 && terminalAfter.status === 'failed' && terminalAfter.agent_delegation_task_id === terminalDelId, JSON.stringify(terminalScan));
 
   // --- cancel on delete ---
   const pendingId = k2.agent_delegation_task_id;

@@ -347,12 +347,12 @@ export function reinitiateOrphanKanbanCards({ ownerUserId = null, limit = 25 } =
   const orphanWhere = `
          AND k.assigned_agent_id IS NOT NULL
          AND k.assigned_member_key IS NULL
-         AND k.status IN ('in_progress', 'failed', 'open')
+         AND k.status IN ('in_progress', 'open')
          AND (
            k.agent_delegation_task_id IS NULL
            OR d.id IS NULL
            OR (d.status = 'failed')
-           OR (d.status = 'completed' AND k.status IN ('in_progress', 'open', 'failed'))
+           OR (d.status = 'completed' AND k.status IN ('in_progress', 'open'))
          )
          AND (
            k.status = 'open'
@@ -391,7 +391,8 @@ export function reinitiateOrphanKanbanCards({ ownerUserId = null, limit = 25 } =
         .get(k.agent_delegation_task_id);
     }
     // Completed work still on an in_progress card is healed elsewhere — do not re-run.
-    // Completed/failed cards the CEO moved back to open/failed need a fresh run.
+    // Only `open` is an explicit CEO/user reopen. `failed` is terminal and must never
+    // be interpreted as user intent; exception-policy/recovery flows own failed work.
     if (old?.status === 'completed' && k.status === 'in_progress') {
       skipped += 1;
       continue;
@@ -403,12 +404,11 @@ export function reinitiateOrphanKanbanCards({ ownerUserId = null, limit = 25 } =
     }
 
     const ceoReopen =
-      (k.status === 'open' || k.status === 'failed') &&
-      (!old || old.status === 'completed' || old.status === 'failed');
+      k.status === 'open' && (!old || old.status === 'completed' || old.status === 'failed');
     const reason =
       !old || !k.agent_delegation_task_id
         ? 'missing_delegation'
-        : old.status === 'completed' && (k.status === 'open' || k.status === 'failed')
+        : old.status === 'completed' && k.status === 'open'
           ? 'ceo_reopen_completed'
           : old.status === 'failed'
             ? `delegation_failed:${String(old.error_message || '').slice(0, 80)}`
@@ -508,6 +508,13 @@ export async function runKanbanOrphanWatcher({ ownerUserId = null, limit = 25 } 
   } catch (e) {
     console.warn('[orphan-watcher] A2A leaf reconcile:', e?.message || e);
   }
+  let staleGoalContinue = { recovered: 0 };
+  try {
+    const { recoverStaleAgentContinueGoalSteps } = await import('./agent-goal-run.js');
+    staleGoalContinue = await recoverStaleAgentContinueGoalSteps({ ownerUserId: owner, limit });
+  } catch (e) {
+    console.warn('[orphan-watcher] stale goal continuation:', e?.message || e);
+  }
 
   const needsProcess =
     (stale.recovered || 0) +
@@ -553,6 +560,7 @@ export async function runKanbanOrphanWatcher({ ownerUserId = null, limit = 25 } 
     orphans,
     workflow_orphan: workflowOrphan,
     a2a_leaf_reconcile: a2aLeaf,
+    stale_goal_continue: staleGoalContinue,
     process_pending,
   };
 }

@@ -48,10 +48,11 @@ import {
 
 {
   const g = buildKanbanChatStatusGuidance(42, 'awaiting_confirmation', { userText: 'ok?' });
-  assert.strictEqual(g.awaitingUser, true);
-  assert.strictEqual(g.promoteOnReply, false);
-  assert.strictEqual(g.completeOnReply, false);
-  console.log('PASS awaiting_confirmation → wait');
+  assert.strictEqual(g.awaitingUser, false);
+  assert.strictEqual(g.promoteOnReply, true);
+  assert.strictEqual(g.completeOnReply, true);
+  assert.ok(g.instructions.includes('Resume this same task'));
+  console.log('PASS awaiting_confirmation + user reply → resume same task');
 }
 
 {
