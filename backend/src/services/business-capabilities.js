@@ -16,6 +16,7 @@ function cap({
   outputs = ['result'],
   expected_evidence = 'step_result',
   observer = false,
+  executor_scope = 'granted_agent',
   patterns,
 }) {
   const providerList =
@@ -42,6 +43,7 @@ function cap({
     outputs,
     expected_evidence,
     observer,
+    executor_scope,
     patterns,
   };
 }
@@ -215,6 +217,7 @@ export const BUSINESS_CAPABILITIES = Object.freeze([
     inputs: ['scope'],
     outputs: ['digest'],
     expected_evidence: 'status_html',
+    executor_scope: 'orchestrator_only',
     patterns: [
       /weekly status check/i,
       /status checker/i,

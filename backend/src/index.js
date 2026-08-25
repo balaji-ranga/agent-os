@@ -442,7 +442,7 @@ try {
   const revokedWf = revokeUnauthorizedWorkflowToolGrants();
   if (revokedWf) {
     console.log(
-      `[startup] revoked ${revokedWf} unauthorized agent_workflow_* grant(s) from non-COO/non-WorkflowBuilder agents`
+      `[startup] revoked ${revokedWf} unauthorized role-restricted tool grant(s)`
     );
   }
   syncAllowlistsFile();

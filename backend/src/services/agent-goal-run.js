@@ -570,7 +570,6 @@ export function validateAndRepairGoalPlan(
       .map((x) => String(x || '').trim().toLowerCase())
       .filter((x) => x.length >= 4);
     const explicitlyNamed = namedTokens.some((x) => text.toLowerCase().includes(x));
-    if (explicitlyNamed) return true;
 
     const stepRequirements = resolveCapabilitiesFromPrompt(step.spec?.message || '');
     const relevant = stepRequirements.length
@@ -580,6 +579,15 @@ export function validateAndRepairGoalPlan(
         : [];
     const requiredTools = relevant.map((c) => c.tool_name).filter(Boolean);
     if (!requiredTools.length) return true;
+    const orchestratorOnly = relevant.filter((c) => c.executor_scope === 'orchestrator_only');
+    if (orchestratorOnly.length) {
+      console.warn('[goal-run] removed orchestrator-only auto-delegation', {
+        agentId,
+        capabilities: orchestratorOnly.map((c) => c.id),
+      });
+      return false;
+    }
+    if (explicitlyNamed) return true;
     const targetTools = new Set(getAgentToolGrants(agent?.id || agentId).map((x) => String(x).toLowerCase()));
     const missingOnTarget = requiredTools.filter(
       (tool) => orchestratorTools.has(String(tool).toLowerCase()) && !targetTools.has(String(tool).toLowerCase())

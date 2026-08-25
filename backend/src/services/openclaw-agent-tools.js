@@ -307,14 +307,17 @@ export function isVideoContentOrchestratorAgent(agent) {
 }
 
 /**
- * Strip workflow catalog/trigger tools from agents that are not COO, Workflow Builder,
- * or Video Content Orchestrator (allowed list only for the latter).
- * Prevents specialists (e.g. TechResearcher in Virtual Room) from attempting agent_workflow_trigger.
+ * Strip role-restricted tools: workflow catalog/trigger tools from unauthorized
+ * agents, plus every registry tool declared "COO only" from non-COO agents.
+ * Prevents a stale blueprint/grant from advertising a tool its API will reject.
  */
 export function revokeUnauthorizedWorkflowToolGrants() {
   const db = getDb();
   const agents = db.prepare('SELECT id, name, is_coo FROM agents').all();
   const del = db.prepare('DELETE FROM agent_tool_grants WHERE agent_id = ? AND tool_name = ?');
+  const cooOnlyTools = meta.listToolsMeta()
+    .filter((t) => /\bCOO\s+only\b/i.test(String(t.purpose || '')))
+    .map((t) => t.name);
   const orchAllow = new Set(VIDEO_CONTENT_ORCHESTRATOR_WORKFLOW_TOOLS);
   let revoked = 0;
   for (const agent of agents) {
@@ -331,6 +334,7 @@ export function revokeUnauthorizedWorkflowToolGrants() {
       }
     }
     if (!isWfb) strip.push(...WORKFLOW_BUILDER_ONLY_TOOLS);
+    if (!isCoo) strip.push(...cooOnlyTools);
     for (const tool of strip) {
       const r = del.run(agent.id, tool);
       if (r.changes) revoked += 1;
@@ -357,7 +361,17 @@ export function listToolsCatalogForAgent(agentId) {
 export function setAgentToolGrants(agent, toolNames) {
   const db = getDb();
   const contentSet = contentToolNamesSet();
-  const normalized = [...new Set((toolNames || []).map((t) => String(t).trim()).filter((t) => contentSet.has(t)))];
+  const cooOnlyTools = new Set(
+    meta.listToolsMeta()
+      .filter((t) => /\bCOO\s+only\b/i.test(String(t.purpose || '')))
+      .map((t) => t.name)
+  );
+  const normalized = [...new Set(
+    (toolNames || [])
+      .map((t) => String(t).trim())
+      .filter((t) => contentSet.has(t))
+      .filter((t) => !!agent?.is_coo || !cooOnlyTools.has(t))
+  )];
   db.prepare('DELETE FROM agent_tool_grants WHERE agent_id = ?').run(agent.id);
   const ins = db.prepare('INSERT INTO agent_tool_grants (agent_id, tool_name) VALUES (?, ?)');
   for (const t of normalized) ins.run(agent.id, t);

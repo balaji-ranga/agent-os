@@ -31,7 +31,9 @@ try {
   for (const tool of ['status_checker', 'email_send', 'brave_web_search']) {
     db.prepare(`INSERT OR IGNORE INTO agent_tool_grants (agent_id,tool_name) VALUES (?,?)`).run('coo-test', tool);
   }
-  db.prepare(`INSERT OR IGNORE INTO agent_tool_grants (agent_id,tool_name) VALUES (?,?)`).run('erp-checker', 'email_send');
+  for (const tool of ['email_send', 'status_checker']) {
+    db.prepare(`INSERT OR IGNORE INTO agent_tool_grants (agent_id,tool_name) VALUES (?,?)`).run('erp-checker', tool);
+  }
 
   const { classifyToolFailure } = await import('../src/services/tool-failure-class.js');
   const quota = classifyToolFailure(new Error('Brave Usage limit exceeded current_spend 5.05'), { status: 402 });
