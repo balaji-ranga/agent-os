@@ -19,11 +19,11 @@ export function buildCeoNavCatalog({ showCrm = false, showErp = false } = {}) {
     { id: 'home', label: 'Home', to: '/', always: true, group: 'top' },
     { id: 'this-week', label: 'Digest', to: '/this-week', always: true, group: 'top' },
     { id: 'work', label: 'Workspace', to: '/work', group: 'top' },
+    { id: 'agent-actions', label: 'Live Operations', to: '/agent-actions', group: 'top' },
   ];
   const run = [
     { id: 'org', label: 'My Org', to: '/org', group: 'Run & Operate' },
     { id: 'kanban', label: 'Kanban', to: '/kanban', group: 'Run & Operate' },
-    { id: 'agent-actions', label: 'Agent Actions', to: '/agent-actions', group: 'Run & Operate' },
   ];
   if (showCrm) {
     run.push({ id: 'crm', label: 'CRM', to: '/crm', group: 'Run & Operate', entitlement: 'crm' });

@@ -51,7 +51,7 @@ try {
   const { getAgentsUnderOrchestratorForCeo } = await import('../src/services/org-context.js');
   assert.deepEqual(getAgentsUnderOrchestratorForCeo(owner, 'content-orchestrator').map((a) => a.id), ['scene-agent']);
 
-  const { createGoalRun, completeGoalStep, getGoalRun } = await import('../src/services/agent-goal-run.js');
+  const { createGoalRun, completeGoalRun, completeGoalStep, getGoalRun } = await import('../src/services/agent-goal-run.js');
   assert.throws(
     () => createGoalRun({
       ownerUserId: owner,
@@ -87,6 +87,33 @@ try {
   ).get(goal.id);
   assert.equal(JSON.parse(decision.payload_json).failure_class, 'quota_exhausted');
 
+  const retryGoal = createGoalRun({
+    ownerUserId: owner,
+    agentId: 'coo-test',
+    prompt: 'Complete a retried specialist task.',
+    steps: [{ type: 'specialty_task', agent_id: 'finance-agent', message: 'Prepare the result' }],
+  });
+  db.prepare(`INSERT INTO standups (scheduled_at, owner_user_id, source) VALUES (?,?,?)`)
+    .run(new Date().toISOString(), owner, 'goal-retry-test');
+  const retryStandupId = db.prepare(`SELECT id FROM standups ORDER BY id DESC LIMIT 1`).get().id;
+  for (const attempt of [1, 2]) {
+    db.prepare(
+      `INSERT INTO agent_delegation_tasks (standup_id,request_id,to_agent_id,prompt,status,owner_user_id) VALUES (?,?,?,?,?,?)`
+    ).run(retryStandupId, `req-retry-${attempt}`, 'finance-agent',
+      `Attempt ${attempt}\n[goal_run_id: ${retryGoal.id}]\n[goal_step_id: ${retryGoal.steps[0].id}]`,
+      attempt === 1 ? 'failed' : 'processing', owner);
+    const attemptId = db.prepare(`SELECT id FROM agent_delegation_tasks ORDER BY id DESC LIMIT 1`).get().id;
+    db.prepare(
+      `INSERT INTO kanban_tasks (title,status,assigned_agent_id,standup_id,agent_delegation_task_id,owner_user_id) VALUES (?,?,?,?,?,?)`
+    ).run(`Retry attempt ${attempt}`, attempt === 1 ? 'completed' : 'in_progress', 'finance-agent', retryStandupId, attemptId, owner);
+  }
+  completeGoalRun(retryGoal.id, { status: 'completed' });
+  const retryCards = db.prepare(
+    `SELECT k.status FROM kanban_tasks k JOIN agent_delegation_tasks d ON d.id = k.agent_delegation_task_id
+     WHERE d.prompt LIKE ? ORDER BY k.id`
+  ).all(`%[goal_run_id: ${retryGoal.id}]%`);
+  assert.deepEqual(retryCards.map((r) => r.status), ['completed', 'completed']);
+
   db.prepare(`INSERT INTO standups (scheduled_at, owner_user_id, source) VALUES (?,?,?)`)
     .run(new Date().toISOString(), owner, 'test');
   const standupId = db.prepare(`SELECT id FROM standups ORDER BY id DESC LIMIT 1`).get().id;
@@ -114,6 +141,7 @@ try {
     isolated_session: delegationSessionUserForPrompt(tagged, 77),
     orchestrator_reportees: ['scene-agent'],
     blocked_kanban_status: retained.status,
+    retry_cards: retryCards.map((r) => r.status),
   });
 } finally {
   try { database?.close(); } catch {}

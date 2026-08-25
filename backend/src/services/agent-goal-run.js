@@ -4,7 +4,7 @@
  */
 import { randomUUID } from 'crypto';
 import { getDb } from '../db/schema.js';
-import { sendPlatformNotifications } from './platform-notifications.js';
+import { clearKanbanTaskNotification, sendPlatformNotifications } from './platform-notifications.js';
 import { isPlatformCronActive } from './platform-cron-registry.js';
 import * as openclaw from '../gateway/openclaw.js';
 import { ensureTenantOpenClawAgent } from './openclaw-tenant.js';
@@ -140,6 +140,27 @@ export function ensureAgentGoalRunTables() {
   try {
     db().exec('CREATE INDEX IF NOT EXISTS idx_agent_goal_steps_del ON agent_goal_steps(child_delegation_task_id)');
   } catch (_) {}
+  // Repair legacy/retry cards left active after their parent goal became terminal.
+  // This is safe and idempotent, and covers records created before terminal
+  // reconciliation was added to completeGoalRun().
+  try {
+    const stale = db().prepare(
+      `SELECT k.id, g.status
+       FROM kanban_tasks k
+       JOIN agent_delegation_tasks d ON d.id = k.agent_delegation_task_id
+       JOIN agent_goal_runs g ON d.prompt LIKE '%[goal_run_id: ' || g.id || ']%'
+       WHERE g.status IN ('completed','failed')
+         AND k.status IN ('open','in_progress','awaiting_confirmation')`
+    ).all();
+    const update = db().prepare(`UPDATE kanban_tasks SET status = ?, updated_at = datetime('now') WHERE id = ?`);
+    for (const row of stale) {
+      update.run(row.status === 'completed' ? 'completed' : 'failed', row.id);
+      clearKanbanTaskNotification(row.id);
+    }
+    if (stale.length) console.info('[goal-run] repaired stale terminal Kanban cards', { count: stale.length });
+  } catch (e) {
+    console.warn('[goal-run] stale Kanban repair failed', e?.message || e);
+  }
   ensureGoalOutcomeTables();
   _tablesReady = true;
 }
@@ -1745,6 +1766,36 @@ export function completeGoalRun(goalRunId, { status = 'completed', error = null 
     completed_at: status === 'completed' || status === 'failed' ? new Date().toISOString() : null,
   });
   console.info('[goal-run] finished', { goalRunId, status });
+  // Every specialty retry gets a new delegation and therefore a new Kanban card.
+  // A terminal goal must not leave any card from any attempt looking active.
+  // Match through the immutable goal marker in the delegation prompt so this also
+  // repairs cards created before goal_run_id/goal_step_id columns existed.
+  if (status === 'completed' || status === 'failed') {
+    try {
+      const marker = `%[goal_run_id: ${String(goalRunId)}]%`;
+      const rows = db().prepare(
+        `SELECT k.id
+         FROM kanban_tasks k
+         JOIN agent_delegation_tasks d ON d.id = k.agent_delegation_task_id
+         WHERE d.prompt LIKE ? AND k.status IN ('open','in_progress','awaiting_confirmation')`
+      ).all(marker);
+      const terminalCardStatus = status === 'completed' ? 'completed' : 'failed';
+      const update = db().prepare(
+        `UPDATE kanban_tasks SET status = ?, updated_at = datetime('now') WHERE id = ?`
+      );
+      for (const row of rows) {
+        update.run(terminalCardStatus, row.id);
+        clearKanbanTaskNotification(row.id);
+      }
+      if (rows.length) {
+        console.info('[goal-run] reconciled terminal Kanban attempts', {
+          goalRunId, status: terminalCardStatus, cards: rows.map((r) => r.id),
+        });
+      }
+    } catch (e) {
+      console.warn('[goal-run] terminal Kanban reconciliation failed', goalRunId, e?.message || e);
+    }
+  }
   try {
     const row = loadGoalRunRow(goalRunId);
     if (row) {

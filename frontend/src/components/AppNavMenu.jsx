@@ -146,8 +146,24 @@ export function CeoNavMenu({ collapsed }) {
     return map;
   }, [catalog]);
 
+  const topExtras = useMemo(
+    () => catalog.filter((it) => it.group === 'top' && !['home', 'this-week', 'work'].includes(it.id)),
+    [catalog]
+  );
+
   return (
     <>
+      {topExtras.map((it) => (
+        <NavItem
+          key={it.id}
+          to={it.to}
+          title={it.label}
+          collapsed={collapsed}
+          label={it.label}
+          short={shortLabel(it.label)}
+          nested={false}
+        />
+      ))}
       {Object.entries(byGroup).map(([group, items]) => (
         <NavSection key={group} title={group} collapsed={collapsed}>
           {items.map((it) => (
