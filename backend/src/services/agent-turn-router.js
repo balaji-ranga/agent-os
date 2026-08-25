@@ -105,6 +105,12 @@ Rules:
 - resolved_request must be self-contained and must not add requirements.
 - relevant_turn_ids must come only from the supplied candidate list.`;
 
+const DURABLE_GOAL_ADJUDICATOR = `Decide whether the supplied request requires a durable goal plan.
+Judge its meaning and execution structure, never isolated keywords.
+Return JSON only: {"durable_goal":true|false,"stage_count":integer}.
+durable_goal is true when completion requires two or more independently verifiable stages or outputs, dependencies, multiple agents/systems, asynchronous work, tracked retry, or a composite final deliverable.
+A long explanation with only one answer is not a durable goal. A detailed specification remains durable even when formatted as one paragraph.`;
+
 export async function routeAgentTurn({
   ownerUserId,
   agent,
@@ -152,6 +158,35 @@ export async function routeAgentTurn({
     }
   } catch (e) {
     console.warn('[agent-turn-router] semantic route failed; safe clean-context fallback', e?.message || e);
+  }
+
+  // Large specifications are vulnerable to formatting-dependent under-routing
+  // (the same request as bullets vs one paragraph). A separate semantic judge
+  // resolves execution structure without any domain or phrase rules.
+  if (
+    !semanticDecision &&
+    String(message || '').trim().length >= 600 &&
+    String(parsed?.execution_mode || '') !== 'goal_plan'
+  ) {
+    try {
+      const { content } = await chatCompletions({
+        ownerUserId,
+        toolName: 'agent_turn_goal_adjudicator',
+        maxTokens: 120,
+        temperature: 0,
+        responseFormat: 'json_object',
+        messages: [
+          { role: 'system', content: DURABLE_GOAL_ADJUDICATOR },
+          { role: 'user', content: String(message || '') },
+        ],
+      });
+      const durable = extractJson(content);
+      if (durable?.durable_goal === true && Number(durable?.stage_count) >= 2) {
+        parsed = { ...(parsed || {}), relation: 'new_work', execution_mode: 'goal_plan', relevant_turn_ids: [] };
+      }
+    } catch (e) {
+      console.warn('[agent-turn-router] durable-goal adjudication failed; keeping primary route', e?.message || e);
+    }
   }
 
   const relation = RELATIONS.has(String(parsed?.relation)) ? String(parsed.relation) : 'new_work';
