@@ -106,7 +106,16 @@ export function registerPlatformCron(opts) {
         console.log(`[platform-cron] skipped (paused): ${id}`);
         return;
       }
-      void runPlatformCron(id, { source: 'schedule' });
+      void runPlatformCron(id, { source: 'schedule' }).catch((error) => {
+        if (Number(error?.status) === 409) {
+          console.log(`[platform-cron] skipped overlapping tick id=${id}`);
+          return;
+        }
+        // runPlatformCron already persisted and logged handler failures. Consume
+        // the scheduled promise here so node-cron cannot create an unhandled
+        // rejection that terminates the backend process.
+        console.error(`[platform-cron] scheduled tick handled id=${id}:`, error?.message || String(error));
+      });
     });
     if (isPaused(id)) {
       try {
