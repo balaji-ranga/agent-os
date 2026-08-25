@@ -42,8 +42,11 @@ export function initDb() {
     CREATE TABLE IF NOT EXISTS chat_turns (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       agent_id TEXT NOT NULL,
+      owner_user_id TEXT NOT NULL DEFAULT 'default',
       role TEXT NOT NULL,
       content TEXT NOT NULL,
+      session_id TEXT,
+      work_unit_id TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (agent_id) REFERENCES agents(id)
     );
@@ -94,6 +97,10 @@ export function initDb() {
       status TEXT DEFAULT 'pending',
       response_content TEXT,
       error_message TEXT,
+      owner_user_id TEXT,
+      parent_work_unit_id TEXT,
+      parent_agent_id TEXT,
+      callback_delivered_at TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       completed_at TEXT,
       FOREIGN KEY (standup_id) REFERENCES standups(id),
@@ -1617,8 +1624,38 @@ export function initDb() {
       _db.exec(`ALTER TABLE chat_turns ADD COLUMN session_id TEXT`);
     } catch (_) {}
     try {
+      _db.exec(`ALTER TABLE chat_turns ADD COLUMN work_unit_id TEXT`);
+    } catch (_) {}
+    try {
       _db.exec(`CREATE INDEX IF NOT EXISTS idx_chat_turns_session ON chat_turns(session_id, created_at)`);
     } catch (_) {}
+  } catch (_) {}
+
+  // Semantic work-unit routing and correlated delegated outcomes.
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS chat_work_units (
+        id TEXT PRIMARY KEY,
+        owner_user_id TEXT NOT NULL,
+        agent_id TEXT NOT NULL,
+        session_id TEXT NOT NULL,
+        relation TEXT NOT NULL,
+        execution_mode TEXT NOT NULL,
+        resolved_request TEXT NOT NULL,
+        parent_work_unit_id TEXT,
+        status TEXT NOT NULL DEFAULT 'active',
+        execution_ref TEXT,
+        request_fingerprint TEXT,
+        route_json TEXT DEFAULT '{}',
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_chat_work_units_session
+        ON chat_work_units(owner_user_id, agent_id, session_id, created_at DESC);
+    `);
+    try { _db.exec(`ALTER TABLE agent_delegation_tasks ADD COLUMN parent_work_unit_id TEXT`); } catch (_) {}
+    try { _db.exec(`ALTER TABLE agent_delegation_tasks ADD COLUMN parent_agent_id TEXT`); } catch (_) {}
+    try { _db.exec(`ALTER TABLE agent_delegation_tasks ADD COLUMN callback_delivered_at TEXT`); } catch (_) {}
   } catch (_) {}
 
   try {

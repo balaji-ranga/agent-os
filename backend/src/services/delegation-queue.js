@@ -47,9 +47,11 @@ import { ensureTenantOpenClawAgent, tenantWorkspacePath } from './openclaw-tenan
 import { getBalaCeoAuthId } from './job-applicant-ceo.js';
 import {
   getAgentsUnderCooForCeo,
+  getCooAgentRow,
   readCooAgentsMdForCeo,
   withOwnerScope,
 } from './org-context.js';
+import { bindWorkUnitExecution, getWorkUnit } from './agent-turn-router.js';
 import { isUserEnabled } from './user-enabled.js';
 import { notifyKanbanTaskCreated } from './platform-notifications.js';
 import { meterOpenClawUsage } from './token-usage.js';
@@ -493,6 +495,8 @@ function enqueueAllocatedTasks({
   priorUserMessages = [],
   currentCeoMessage = '',
   notify = true,
+  parentWorkUnitId = null,
+  parentAgentId = null,
 }) {
   const taskRows = [];
   for (const a of agents) {
@@ -501,7 +505,15 @@ function enqueueAllocatedTasks({
     const query = enrichTaskQueryWithPriorThread(rawQuery, priorUserMessages, currentCeoMessage);
     const prompt = buildDetailedPromptForAgent(query, a.name || a.id, a.role);
     const scopedPrompt = withOwnerScope(prompt, ownerUserId);
-    ins.run(standupId, requestId, a.id, scopedPrompt, ownerUserId);
+    ins.run(
+      standupId,
+      requestId,
+      a.id,
+      scopedPrompt,
+      ownerUserId,
+      parentWorkUnitId || null,
+      parentAgentId || null
+    );
     const row = db().prepare('SELECT id FROM agent_delegation_tasks ORDER BY id DESC LIMIT 1').get();
     if (row) {
       taskRows.push({ taskId: row.id, agent: a, query });
@@ -599,7 +611,9 @@ export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage, c
   }
   const agentsMdContent = await readCooAgentsMd(ownerUserId);
   const scopedMessage = withOwnerScope(ceoMessage, ownerUserId);
-  const context = getStandupContextForIntent(standupId, scopedMessage, ownerUserId);
+  const context = opts.isolatedContext
+    ? { lastUserMessages: [], agentResponses: [] }
+    : getStandupContextForIntent(standupId, scopedMessage, ownerUserId);
 
   let allocated =
     opts.preAllocated && typeof opts.preAllocated === 'object' && Object.keys(opts.preAllocated).length
@@ -714,7 +728,9 @@ export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage, c
   const requestId = `req-${standupId}-${Date.now()}`;
   const baseUrl = getBaseUrl();
   const ins = db().prepare(
-    `INSERT INTO agent_delegation_tasks (standup_id, request_id, to_agent_id, prompt, status, owner_user_id) VALUES (?, ?, ?, ?, 'pending', ?)`
+    `INSERT INTO agent_delegation_tasks
+      (standup_id, request_id, to_agent_id, prompt, status, owner_user_id, parent_work_unit_id, parent_agent_id)
+     VALUES (?, ?, ?, ?, 'pending', ?, ?, ?)`
   );
   const kanbanIns = db().prepare(
     `INSERT INTO kanban_tasks (title, description, status, assigned_agent_id, created_by, standup_id, agent_delegation_task_id, owner_user_id)
@@ -734,6 +750,8 @@ export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage, c
           priorUserMessages: context.lastUserMessages || [],
           currentCeoMessage: scopedMessage,
           notify,
+          parentWorkUnitId: opts.parentWorkUnitId || null,
+          parentAgentId: opts.parentAgentId || null,
         })
       : [];
 
@@ -881,13 +899,12 @@ export function enqueueDelegationTask(standupId, toAgentId, prompt, requestId = 
  * Post COO callback message for a request_id when all its tasks are done (completed or failed).
  * Idempotent: skips if callback already posted.
  */
-export function postCallbackForRequestId(requestId) {
+export async function postCallbackForRequestId(requestId, { summarize = null } = {}) {
   const alreadyPosted = db().prepare('SELECT 1 FROM delegation_callbacks WHERE request_id = ?').get(requestId);
-  if (alreadyPosted) return;
 
   const tasks = db().prepare('SELECT * FROM agent_delegation_tasks WHERE request_id = ?').all(requestId);
-  const anyPending = tasks.some((t) => t.status === 'pending');
-  if (anyPending) return;
+  const allTerminal = tasks.length > 0 && tasks.every((t) => ['completed', 'failed'].includes(String(t.status)));
+  if (!allTerminal) return;
 
   const standupId = tasks[0]?.standup_id;
   if (!standupId) return;
@@ -895,18 +912,72 @@ export function postCallbackForRequestId(requestId) {
   const completed = db().prepare('SELECT t.*, a.name as agent_name FROM agent_delegation_tasks t JOIN agents a ON a.id = t.to_agent_id WHERE t.request_id = ? AND t.status = ?').all(requestId, 'completed');
   const failed = db().prepare('SELECT t.*, a.name as agent_name FROM agent_delegation_tasks t JOIN agents a ON a.id = t.to_agent_id WHERE t.request_id = ? AND t.status = ?').all(requestId, 'failed');
 
-  for (const t of completed) {
-    db().prepare('INSERT INTO standup_responses (standup_id, agent_id, content) VALUES (?, ?, ?)').run(standupId, t.to_agent_id, t.response_content || '');
-  }
-
   const lines = completed.map((t) => `**${t.agent_name}:**\n${truncatePreservingImages(t.response_content || '', 2000)}`);
   if (failed.length) lines.push(...failed.map((t) => `**${t.agent_name}:** [Error: ${t.error_message}]`));
   const callbackMessage = lines.length
     ? `Updates from the team (for your review):\n\n${lines.join('\n\n---\n\n')}`
     : 'No responses from the team yet.';
 
-  db().prepare('INSERT INTO standup_messages (standup_id, role, content) VALUES (?, ?, ?)').run(standupId, 'coo', callbackMessage);
-  db().prepare('INSERT INTO delegation_callbacks (request_id) VALUES (?)').run(requestId);
+  if (!alreadyPosted) {
+    for (const t of completed) {
+      db().prepare('INSERT INTO standup_responses (standup_id, agent_id, content) VALUES (?, ?, ?)').run(standupId, t.to_agent_id, t.response_content || '');
+    }
+    db().prepare('INSERT INTO standup_messages (standup_id, role, content) VALUES (?, ?, ?)').run(standupId, 'coo', callbackMessage);
+    db().prepare('INSERT INTO delegation_callbacks (request_id) VALUES (?)').run(requestId);
+  }
+
+  // Dashboard COO delegation: deliver the actual specialist outcome back into
+  // the parent work unit once. Standup callbacks remain supported above.
+  const parent = tasks.find((t) => t.parent_work_unit_id);
+  if (parent?.parent_work_unit_id && !tasks.some((t) => t.callback_delivered_at)) {
+    const ownerUserId = parent.owner_user_id || getStandupOwnerUserId(standupId);
+    const coo = db().prepare('SELECT * FROM agents WHERE id=?').get(parent.parent_agent_id)
+      || getCooAgentRow();
+    let cooReply = callbackMessage;
+    try {
+      const workUnit = getWorkUnit(parent.parent_work_unit_id);
+      const resultPrompt = [
+        'A specialist delegation for the CEO has reached a terminal state.',
+        `Original CEO request:\n${workUnit?.resolved_request || 'Unavailable'}`,
+        `Actual specialist outcomes:\n${callbackMessage}`,
+        'Report the actual outcome concisely to the CEO. Do not start tools, create another delegation, or claim unfinished work succeeded.',
+      ].join('\n\n');
+      if (summarize) {
+        cooReply = String(await summarize({ requestId, resultPrompt, callbackMessage, tasks })).trim() || callbackMessage;
+      } else {
+        const ensured = ensureTenantOpenClawAgent(coo, ownerUserId);
+        const completion = await openclaw.chatCompletions(
+          ensured.openclawAgentId,
+          [{ role: 'user', content: resultPrompt }],
+          openclaw.sessionUserFor(coo.id, ownerUserId, `delegation-result-${requestId}`),
+          false,
+          {
+            injectSessionHistoryInstruction: false,
+            injectBrowserInstruction: false,
+            injectLearningsInstruction: false,
+            injectKanbanInstruction: false,
+            retries: 1,
+          }
+        );
+        cooReply = normalizeReplyContent(completion?.content) || callbackMessage;
+      }
+    } catch (e) {
+      console.warn('[delegation-callback] COO summary failed; storing factual callback', e?.message || e);
+    }
+    insertChatTurn({
+      agentId: coo.id,
+      ownerUserId,
+      role: 'assistant',
+      content: cooReply,
+      workUnitId: parent.parent_work_unit_id,
+    });
+    db().prepare(`UPDATE agent_delegation_tasks SET callback_delivered_at=datetime('now') WHERE request_id=?`).run(requestId);
+    bindWorkUnitExecution(
+      parent.parent_work_unit_id,
+      requestId,
+      failed.length ? 'failed' : 'completed'
+    );
+  }
 }
 
 /**
@@ -1203,7 +1274,7 @@ export async function processPendingDelegationTasksForCeo(ceoUserId, opts = {}) 
     .all(ceoUserId, ceoUserId)
     .map((r) => r.request_id);
   for (const requestId of requestIds) {
-    postCallbackForRequestId(requestId);
+    await postCallbackForRequestId(requestId);
   }
   return pending.length;
 }

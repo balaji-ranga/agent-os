@@ -3,10 +3,8 @@ import { enrichTaskQueryWithPriorThread } from '../src/services/delegation-queue
 import {
   DASHBOARD_CONTEXT_INSTRUCTION,
   dashboardGatewaySessionUser,
-  dashboardAskNeedsPriorContext,
-  isDashboardGreeting,
-  selectDashboardHistoryForAsk,
 } from '../src/services/dashboard-chat-context.js';
+import { bindWorkUnitExecution, routeAgentTurn } from '../src/services/agent-turn-router.js';
 import { isPromptAuthoringAskForAgent } from '../src/services/specialty-referral.js';
 
 const polluted = [
@@ -42,34 +40,84 @@ assert.match(DASHBOARD_CONTEXT_INSTRUCTION, /final user message as the current a
 assert.match(DASHBOARD_CONTEXT_INSTRUCTION, /Do not call sessions_history/i);
 
 const staleDashboardHistory = [
-  { role: 'user', content: 'Open the weekly digest in Chrome.' },
-  { role: 'assistant', content: 'The browser task is still running.' },
+  { id: 901, role: 'user', content: 'Open the weekly digest in Chrome.', work_unit_id: 'wu-old' },
+  { id: 902, role: 'assistant', content: 'The browser task failed.', work_unit_id: 'wu-old' },
 ];
-assert.equal(isDashboardGreeting('Hi again'), true);
-assert.equal(dashboardAskNeedsPriorContext('Hi again'), false);
-assert.deepEqual(
-  selectDashboardHistoryForAsk(staleDashboardHistory, 'Hi again'),
-  [],
-  'a greeting must never inherit an unfinished browser task'
-);
-assert.deepEqual(
-  selectDashboardHistoryForAsk(staleDashboardHistory, 'Create a CRM lead prompt.'),
-  [],
-  'a self-contained ask must begin a new context boundary'
-);
-assert.equal(
-  selectDashboardHistoryForAsk(
-    [...staleDashboardHistory, { role: 'assistant', content: 'No response from AgentSystem.' }],
-    'Retry that.'
-  ).length,
-  2,
-  'referential follow-up may use recent context but must exclude empty placeholders'
-);
-assert.deepEqual(
-  selectDashboardHistoryForAsk(staleDashboardHistory, 'You are using the wrong context.'),
-  [],
-  'a context correction must not resume the context it rejects'
-);
+const routeBase = {
+  ownerUserId: `router-test-${Date.now()}`,
+  agent: { id: 'test-agent', name: 'Test Agent', role: 'Tester', is_coo: 0 },
+  sessionId: `session-${Date.now()}`,
+  history: staleDashboardHistory,
+};
+const conversation = await routeAgentTurn({
+  ...routeBase,
+  message: 'A fresh greeting',
+  semanticDecision: { relation: 'conversation', execution_mode: 'chat', relevant_turn_ids: [901, 902], resolved_request: 'A fresh greeting' },
+});
+assert.equal(conversation.selected_turns.length, 0, 'conversation mode receives no stale execution history');
+
+const goal = await routeAgentTurn({
+  ...routeBase,
+  message: 'A complete multi-stage specification containing ordinary pronouns.',
+  semanticDecision: { relation: 'new_work', execution_mode: 'goal_plan', relevant_turn_ids: [901], resolved_request: 'Complete multi-stage specification.' },
+});
+assert.equal(goal.execution_mode, 'goal_plan');
+assert.equal(goal.selected_turns.length, 0, 'new goal is isolated even when prose contains pronouns');
+
+bindWorkUnitExecution(goal.id, 'goal-test-terminal', 'completed');
+const terminalHistory = [
+  { id: 903, role: 'user', content: 'Run a completed plan.', work_unit_id: goal.id },
+  { id: 904, role: 'assistant', content: 'The plan completed.', work_unit_id: goal.id },
+];
+const statusOnly = await routeAgentTurn({
+  ...routeBase,
+  history: terminalHistory,
+  message: 'Give me its status.',
+  semanticDecision: { relation: 'follow_up', execution_mode: 'direct_tool', relevant_turn_ids: [903, 904], resolved_request: 'Report the completed plan status.', restart_requested: false },
+});
+assert.equal(statusOnly.execution_mode, 'chat', 'terminal work cannot be relaunched by a status-only follow-up');
+assert.equal(statusOnly.terminal_parent_guarded, true);
+
+const explicitRetry = await routeAgentTurn({
+  ...routeBase,
+  history: terminalHistory,
+  message: 'Retry that completed plan.',
+  semanticDecision: { relation: 'follow_up', execution_mode: 'goal_plan', relevant_turn_ids: [903, 904], resolved_request: 'Retry the completed plan.', restart_requested: true },
+});
+assert.equal(explicitRetry.execution_mode, 'goal_plan', 'semantic explicit retry may relaunch terminal work');
+assert.equal(explicitRetry.restart_requested, true);
+
+const followUp = await routeAgentTurn({
+  ...routeBase,
+  message: 'Retry the prior work unit.',
+  semanticDecision: { relation: 'follow_up', execution_mode: 'direct_tool', relevant_turn_ids: [901, 902], resolved_request: 'Retry the prior digest work.' },
+});
+assert.deepEqual(followUp.relevant_turn_ids, [901, 902]);
+assert.equal(followUp.parent_work_unit_id, 'wu-old');
+
+const correction = await routeAgentTurn({
+  ...routeBase,
+  message: 'Correct the prior result.',
+  semanticDecision: { relation: 'correction', execution_mode: 'chat', relevant_turn_ids: [902], resolved_request: 'Correct the prior digest result.' },
+});
+assert.deepEqual(correction.relevant_turn_ids, [902]);
+
+for (const executionMode of ['chat', 'direct_tool', 'delegate', 'goal_plan']) {
+  const modeRoute = await routeAgentTurn({
+    ...routeBase,
+    message: `Independent ${executionMode} scenario.`,
+    semanticDecision: {
+      relation: executionMode === 'chat' ? 'conversation' : 'new_work',
+      execution_mode: executionMode,
+      relevant_turn_ids: [],
+      resolved_request: `Independent ${executionMode} scenario.`,
+      restart_requested: false,
+      confidence: 1,
+    },
+  });
+  assert.equal(modeRoute.execution_mode, executionMode, `${executionMode} mode is preserved by the shared router`);
+  assert.equal(modeRoute.selected_turns.length, 0);
+}
 
 assert.equal(
   isPromptAuthoringAskForAgent(

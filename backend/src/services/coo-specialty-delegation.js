@@ -166,7 +166,11 @@ export async function classifyCooDelegationTargets(ownerUserId, ceoMessage) {
 /**
  * @returns {null | { ok: true, cooReply: string, result: object, standup_id: number }}
  */
-export async function tryHandleCooSpecialtyDelegation(ownerUserId, ceoMessage, { actingUser } = {}) {
+export async function tryHandleCooSpecialtyDelegation(
+  ownerUserId,
+  ceoMessage,
+  { actingUser, parentWorkUnitId = null, parentAgentId = null } = {}
+) {
   const t = String(ceoMessage || '').trim();
   if (!ownerUserId || !t || t.length < 8) return null;
   if (isAskSpecialistToReachMe(t)) return null;
@@ -296,6 +300,12 @@ export async function tryHandleCooSpecialtyDelegation(ownerUserId, ceoMessage, {
   const result = await scheduleCeoRequestViaOpenClawCron(standupId, t, ownerUserId, {
     restrictToAgentIds,
     preAllocated: allowedInternal,
+    parentWorkUnitId,
+    parentAgentId,
+    // Dashboard semantic routing already resolved the complete work unit. The
+    // shared delegation hub may contain older unrelated asks and must not blend
+    // those into this handoff.
+    isolatedContext: !!parentWorkUnitId,
   });
   const moreBlocked = [
     ...internalBlocked,

@@ -46,6 +46,9 @@ export function ensureChatHistorySchema() {
     db.exec(`ALTER TABLE chat_turns ADD COLUMN session_id TEXT`);
   } catch (_) {}
   try {
+    db.exec(`ALTER TABLE chat_turns ADD COLUMN work_unit_id TEXT`);
+  } catch (_) {}
+  try {
     db.exec(`CREATE INDEX IF NOT EXISTS idx_chat_turns_session ON chat_turns(session_id, created_at)`);
   } catch (_) {}
   try {
@@ -294,7 +297,7 @@ export function listSessionTurns(sessionId, { limit = 200, offset = 0 } = {}) {
   const off = Math.max(Number(offset) || 0, 0);
   return db()
     .prepare(
-      `SELECT id, agent_id, owner_user_id, role, content, created_at, session_id
+      `SELECT id, agent_id, owner_user_id, role, content, created_at, session_id, work_unit_id
        FROM chat_turns WHERE session_id = ? ORDER BY created_at ASC, id ASC LIMIT ? OFFSET ?`
     )
     .all(sessionId, lim, off)
@@ -320,16 +323,16 @@ export function listActiveSessionTurns(agentId, ownerUserId, { limit = 200, offs
   };
 }
 
-export function insertChatTurn({ agentId, ownerUserId, role, content, sessionId = null }) {
+export function insertChatTurn({ agentId, ownerUserId, role, content, sessionId = null, workUnitId = null }) {
   const sid = sessionId || backfillActiveSession(agentId, ownerUserId).id;
   const stored =
     role === 'assistant' ? stripOpenClawDeliveryNoise(content) : content;
   db()
     .prepare(
-      `INSERT INTO chat_turns (agent_id, owner_user_id, role, content, session_id)
-       VALUES (?, ?, ?, ?, ?)`
+      `INSERT INTO chat_turns (agent_id, owner_user_id, role, content, session_id, work_unit_id)
+       VALUES (?, ?, ?, ?, ?, ?)`
     )
-    .run(agentId, ownerUserId, role, stored, sid);
+    .run(agentId, ownerUserId, role, stored, sid, workUnitId || null);
   return sid;
 }
 

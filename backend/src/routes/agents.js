@@ -65,8 +65,9 @@ import { BudgetBlockedError, enforceBudget } from '../services/agent-budgets.js'
 import {
   DASHBOARD_CONTEXT_INSTRUCTION,
   dashboardGatewaySessionUser,
-  selectDashboardHistoryForAsk,
 } from '../services/dashboard-chat-context.js';
+import { routeAgentTurn, bindWorkUnitExecution } from '../services/agent-turn-router.js';
+import { createAndStartGoalRun } from '../services/agent-goal-run.js';
 import {
   listPublishedTemplates,
   getTemplate,
@@ -743,12 +744,78 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
       throw budgetErr;
     }
 
+    // Semantic work-unit routing is shared by every agent. The selected turns are
+    // the only durable Dashboard context allowed into this request.
+    const ensured = ensureTenantOpenClawAgent(agent, ownerUserId);
+    const openclawAgentId = ensured.openclawAgentId;
+    const ensuredSession = await ensureActiveChatSession({
+      agentId,
+      ownerUserId,
+      openclawAgentId,
+      timeZone:
+        String(req.body?.tz || req.headers['x-timezone'] || process.env.TZ || 'UTC').trim() || 'UTC',
+      generateTitle: true,
+    });
+    const activeHistory = listActiveSessionTurns(agentId, ownerUserId, { limit: 24 }).turns;
+    const turnRoute = await routeAgentTurn({
+      ownerUserId,
+      agent,
+      sessionId: ensuredSession.session.id,
+      message: message.trim(),
+      history: activeHistory,
+    });
+    const routedMessage = turnRoute.resolved_request || message.trim();
+
+    // Durable multi-stage execution belongs to the platform control plane. Do
+    // not rely on the language model remembering to call agent_goal_create.
+    if (turnRoute.execution_mode === 'goal_plan') {
+      const ownGoalGrant = agent.is_coo || agentTools.getAgentToolGrants(agent.id).includes('agent_goal_create');
+      const planAgent = ownGoalGrant
+        ? agent
+        : db().prepare('SELECT * FROM agents WHERE is_coo=1 ORDER BY id LIMIT 1').get() || agent;
+      const planOpenClawId = ownGoalGrant
+        ? openclawAgentId
+        : ensureTenantOpenClawAgent(planAgent, ownerUserId).openclawAgentId;
+      const started = await createAndStartGoalRun({
+        ownerUserId,
+        agentId: planAgent.id,
+        orchestratorAgentId: planOpenClawId,
+        prompt: routedMessage,
+        source: 'dashboard_chat',
+        context: {
+          work_unit_id: turnRoute.id,
+          chat_session_id: ensuredSession.session.id,
+          routed_relation: turnRoute.relation,
+          requested_via_agent_id: agent.id,
+        },
+      });
+      const goal = started.goal;
+      bindWorkUnitExecution(turnRoute.id, goal?.id || started.goal_run_id, goal?.status || 'running');
+      const steps = Array.isArray(goal?.steps) ? goal.steps : [];
+      const replyText = [
+        `Created goal plan \`${goal?.id || started.goal_run_id}\`: **${goal?.title || 'Goal plan'}**.`,
+        ...steps.map((step, index) => `${index + 1}. ${step.label || step.step_type || 'Step'} — ${step.status || 'pending'}`),
+        'Execution is asynchronous; Flolah will advance dependent steps and report terminal outcomes.',
+      ].join('\n');
+      insertChatTurn({ agentId, ownerUserId, role: 'user', content: message, sessionId: ensuredSession.session.id, workUnitId: turnRoute.id });
+      insertChatTurn({ agentId, ownerUserId, role: 'assistant', content: replyText, sessionId: ensuredSession.session.id, workUnitId: turnRoute.id });
+      return res.json({
+        reply: replyText,
+        agent_id: agentId,
+        thread_id: getChatThreadId(agentId, ownerUserId),
+        work_unit: turnRoute,
+        goal_plan: goal,
+        workflow_triggered: null,
+      });
+    }
+
     // Hard path: "ask social media expert to reach me" — notify as specialist, skip COO LLM notify_ceo
     if (agent.is_coo) {
-      const reach = await tryHandleCooReachMeRequest(ownerUserId, message.trim());
+      const reach = await tryHandleCooReachMeRequest(ownerUserId, routedMessage);
       if (reach?.ok) {
-        insertChatTurn({ agentId, ownerUserId, role: 'user', content: message });
-        insertChatTurn({ agentId, ownerUserId, role: 'assistant', content: reach.cooReply });
+        bindWorkUnitExecution(turnRoute.id, reach.notify?.id || null, 'completed');
+        insertChatTurn({ agentId, ownerUserId, role: 'user', content: message, workUnitId: turnRoute.id });
+        insertChatTurn({ agentId, ownerUserId, role: 'assistant', content: reach.cooReply, workUnitId: turnRoute.id });
         return res.json({
           reply: reach.cooReply,
           agent_id: agentId,
@@ -763,10 +830,11 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
       }
 
       // Hard path: "what agents are in the org?" — list from DB (Ollama often confuses this with workflows)
-      const orgList = tryHandleCooOrgAgentsList(ownerUserId, message.trim());
+      const orgList = tryHandleCooOrgAgentsList(ownerUserId, routedMessage);
       if (orgList?.ok) {
-        insertChatTurn({ agentId, ownerUserId, role: 'user', content: message });
-        insertChatTurn({ agentId, ownerUserId, role: 'assistant', content: orgList.cooReply });
+        bindWorkUnitExecution(turnRoute.id, null, 'completed');
+        insertChatTurn({ agentId, ownerUserId, role: 'user', content: message, workUnitId: turnRoute.id });
+        insertChatTurn({ agentId, ownerUserId, role: 'assistant', content: orgList.cooReply, workUnitId: turnRoute.id });
         return res.json({
           reply: orgList.cooReply,
           agent_id: agentId,
@@ -776,12 +844,21 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
       }
 
       // Hard path: specialty work / "delegate …" — schedule real agents, don't let COO do the work
-      const delegated = await tryHandleCooSpecialtyDelegation(ownerUserId, message.trim(), {
-        actingUser: req.authUser,
-      });
+      const delegated = turnRoute.execution_mode === 'delegate'
+        ? await tryHandleCooSpecialtyDelegation(ownerUserId, routedMessage, {
+            actingUser: req.authUser,
+            parentWorkUnitId: turnRoute.id,
+            parentAgentId: agentId,
+          })
+        : null;
       if (delegated?.ok) {
-        insertChatTurn({ agentId, ownerUserId, role: 'user', content: message });
-        insertChatTurn({ agentId, ownerUserId, role: 'assistant', content: delegated.cooReply });
+        bindWorkUnitExecution(
+          turnRoute.id,
+          delegated.result?.requestId,
+          delegated.result?.requestId ? 'running' : 'completed'
+        );
+        insertChatTurn({ agentId, ownerUserId, role: 'user', content: message, workUnitId: turnRoute.id });
+        insertChatTurn({ agentId, ownerUserId, role: 'assistant', content: delegated.cooReply, workUnitId: turnRoute.id });
         return res.json({
           reply: delegated.cooReply,
           agent_id: agentId,
@@ -798,11 +875,12 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     }
 
     // Hard path: wrong specialist for a clear specialty ask (e.g. Social + "deep research")
-    if (!agent.is_coo) {
-      const referral = await tryBuildSpecialtyReferral(ownerUserId, agent, message.trim());
+    if (!agent.is_coo && turnRoute.execution_mode === 'delegate') {
+      const referral = await tryBuildSpecialtyReferral(ownerUserId, agent, routedMessage);
       if (referral) {
-        insertChatTurn({ agentId, ownerUserId, role: 'user', content: message });
-        insertChatTurn({ agentId, ownerUserId, role: 'assistant', content: referral.reply });
+        bindWorkUnitExecution(turnRoute.id, referral.target?.id || null, 'completed');
+        insertChatTurn({ agentId, ownerUserId, role: 'user', content: message, workUnitId: turnRoute.id });
+        insertChatTurn({ agentId, ownerUserId, role: 'assistant', content: referral.reply, workUnitId: turnRoute.id });
         return res.json({
           reply: referral.reply,
           agent_id: agentId,
@@ -818,10 +896,14 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     }
 
     let workflowTrigger = null;
-    if (req.authUser && (req.authUser.role === 'ceo' || req.authUser.role === 'admin')) {
+    if (
+      turnRoute.execution_mode === 'direct_tool' &&
+      req.authUser &&
+      (req.authUser.role === 'ceo' || req.authUser.role === 'admin')
+    ) {
       const ownerUserId = resolveAuthenticatedCeoUserId(req, req.body || {});
       try {
-        workflowTrigger = await tryTriggerWorkflowFromChat(ownerUserId, message, {
+        workflowTrigger = await tryTriggerWorkflowFromChat(ownerUserId, routedMessage, {
           id: req.authUser.id,
           name: req.authUser.name,
           type: 'chat',
@@ -833,31 +915,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
 
     const userId = resolveCeoDataUserIdFromRequest(req, req.body || {});
     const profileId = req.body?.profile_id || req.body?.profileId || null;
-    const ensured = ensureTenantOpenClawAgent(agent, ownerUserId);
-    const openclawAgentId = ensured.openclawAgentId;
-
-    // Daily rollover must LLM-title (or heuristic) — generateTitle:false left archives as "Chat · date"
-    await ensureActiveChatSession({
-      agentId,
-      ownerUserId,
-      openclawAgentId,
-      timeZone:
-        String(req.body?.tz || req.headers['x-timezone'] || process.env.TZ || 'UTC').trim() || 'UTC',
-      generateTitle: true,
-    });
-
-    // Load recent history from active session only
-    let history = listActiveSessionTurns(agentId, ownerUserId, { limit: 20 }).turns.map((t) => ({
-      role: t.role,
-      content: t.content,
-    }));
-    // listActive returns ASC; take last 20
-    if (history.length > 20) history = history.slice(-20);
-
-    // New, self-contained asks are hard context boundaries. Only explicit
-    // follow-ups receive a small recent window; a greeting must never resume
-    // an unfinished browser/workflow task from prior turns.
-    history = selectDashboardHistoryForAsk(history, message, { limit: 6 });
+    let history = turnRoute.selected_turns.map((t) => ({ role: t.role, content: t.content }));
 
     let sessionMeta = null;
     let topicHint = null;
@@ -887,14 +945,14 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
       content: DASHBOARD_CONTEXT_INSTRUCTION,
     });
     const jobApplicantAgents = new Set(['jobdiscovery', 'fitscorer', 'resumetailor', 'applicationagent']);
-    let userContent = message;
+    let userContent = routedMessage;
     const llmForOwner = resolveLlmConfigForUser(ownerUserId);
     const isLocalLlmByok =
       isPlatformLocalOllama() ||
       llmForOwner?.provider === 'ollama_free' ||
       llmForOwner?.provider === 'deepseek';
 
-    if (agent.is_coo && !message.includes('[ceo_user_id:')) {
+    if (agent.is_coo && !routedMessage.includes('[ceo_user_id:')) {
       if (isLocalLlmByok) {
         // Keep the user turn clean — small models parrot long CEO-scope prefixes as the answer.
         messages.unshift({
@@ -905,14 +963,14 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
             `Prefer real tool calls only when the user asked for an action or lookup; never invent fake tool JSON or paste internal instructions. ` +
             `For org agents / team questions, list agents from context/tools — do not confuse agents with workflows.`,
         });
-        userContent = message;
+        userContent = routedMessage;
       } else {
-        userContent = `[ceo_user_id: ${ownerUserId}]\n[owner_user_id: ${ownerUserId}]\nImportant: You are assisting CEO user id "${ownerUserId}" only. When calling agent_workflow_list, agent_workflow_enquire, or agent_workflow_runs, return workflows/runs for this CEO only — never other users. Use agent_workflow_runs (not ibkr_order_learnings) for workflow run status.\n${message}`;
+        userContent = `[ceo_user_id: ${ownerUserId}]\n[owner_user_id: ${ownerUserId}]\nImportant: You are assisting CEO user id "${ownerUserId}" only. When calling agent_workflow_list, agent_workflow_enquire, or agent_workflow_runs, return workflows/runs for this CEO only — never other users. Use agent_workflow_runs (not ibkr_order_learnings) for workflow run status.\n${routedMessage}`;
       }
-    } else if (jobApplicantAgents.has(String(agentId).toLowerCase()) && !message.includes('[ceo_user_id:')) {
+    } else if (jobApplicantAgents.has(String(agentId).toLowerCase()) && !routedMessage.includes('[ceo_user_id:')) {
       const tags = [`[ceo_user_id: ${userId}]`];
       if (profileId) tags.push(`[profile_id: ${profileId}]`);
-      userContent = `${tags.join('\n')}\n${message}`;
+      userContent = `${tags.join('\n')}\n${routedMessage}`;
     }
     messages.push({ role: 'user', content: userContent });
 
@@ -951,7 +1009,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     const sessionUser = dashboardGatewaySessionUser(agentId, ownerUserId, threadId);
     const sessionKey = openclaw.sessionKeyFor(openclawAgentId, sessionUser);
     registerOpenClawSessionOwner(sessionKey, ownerUserId);
-    registerActiveDashboardChat(agentId, ownerUserId, message.trim());
+    registerActiveDashboardChat(agentId, ownerUserId, routedMessage);
     const isDiscovery = String(agentId).toLowerCase() === 'jobdiscovery';
     const discoveryTimeout = Number(process.env.OPENCLAW_DISCOVERY_TIMEOUT_MS || 900000);
     const toolsSince = new Date().toISOString();
@@ -1074,15 +1132,21 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
       stripEchoedCeoScope(normalizeReplyContent(reply))
     );
     const tool_calls = listToolCallsSince(agentId, ownerUserId, toolsSince);
+    bindWorkUnitExecution(
+      turnRoute.id,
+      workflowTrigger?.id || null,
+      workflowTrigger ? 'running' : 'completed'
+    );
 
     // Persist user message and assistant reply (same normalized string shape as standup chat)
-    insertChatTurn({ agentId, ownerUserId, role: 'user', content: message });
-    insertChatTurn({ agentId, ownerUserId, role: 'assistant', content: replyText });
+    insertChatTurn({ agentId, ownerUserId, role: 'user', content: message, workUnitId: turnRoute.id });
+    insertChatTurn({ agentId, ownerUserId, role: 'assistant', content: replyText, workUnitId: turnRoute.id });
 
     res.json({
       reply: replyText,
       usage,
       agent_id: agentId,
+      work_unit: turnRoute,
       tool_calls,
       thread_id: threadId,
       session_reset: sessionMeta || null,

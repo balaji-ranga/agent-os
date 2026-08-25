@@ -65,7 +65,7 @@ function getCooAgent() {
 
 // OpenClaw Gateway cron webhook: agent run finished → update task and maybe post COO callback
 // Must be before /:id so "cron-callback" is not captured as id
-router.post('/cron-callback', requireInternalToken, (req, res) => {
+router.post('/cron-callback', requireInternalToken, async (req, res) => {
   try {
     const { standup_id, request_id, agent_id, task_id } = req.query;
     const standupId = Number(standup_id);
@@ -115,8 +115,8 @@ router.post('/cron-callback', requireInternalToken, (req, res) => {
       extractOwnerUserIdFromText(task.prompt)
     );
     const summary = extractTaskSummaryFromPrompt(task.prompt);
-      appendToAgentMemory(agent_id, summary, extractOwnerUserIdFromText(task.prompt)).catch(() => {});
-    postCallbackForRequestId(request_id);
+    appendToAgentMemory(agent_id, summary, extractOwnerUserIdFromText(task.prompt)).catch(() => {});
+    await postCallbackForRequestId(request_id);
     res.status(200).json({ ok: true });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
