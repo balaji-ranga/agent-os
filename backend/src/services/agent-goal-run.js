@@ -1579,7 +1579,8 @@ async function executeAgentToolStep(goal, step) {
   const prior = priorStepSummaries(goal.id, step.step_index);
   const hasPriorSteps = Boolean(String(prior || '').trim());
 
-  // Compositional tools after prior work: OpenClaw interpretation (like chat), not dry plan-dump HTTP.
+  // Extension hook only. Outbound actions currently require a real endpoint result;
+  // agent prose is never accepted as execution evidence.
   if (toolNeedsAgentInterpretation(toolName, { hasPriorSteps })) {
     console.info('[goal-run] compositional agent_tool via agent interpretation', {
       goalRunId: goal.id,

@@ -71,10 +71,15 @@ function liveSnapshot(ownerUserId) {
   }
 
   const cards = db().prepare(
-    `SELECT id, assigned_agent_id AS agent_id, title, status, updated_at
-     FROM kanban_tasks
-     WHERE owner_user_id = ? AND status IN ('open','in_progress','awaiting_confirmation')
-     ORDER BY updated_at DESC LIMIT 250`
+    `SELECT k.id, k.assigned_agent_id AS agent_id, k.title, k.status, k.updated_at
+     FROM kanban_tasks k
+     LEFT JOIN agent_delegation_tasks d ON d.id = k.agent_delegation_task_id
+     WHERE k.owner_user_id = ? AND k.status IN ('open','in_progress','awaiting_confirmation')
+       AND NOT (
+         k.agent_delegation_task_id IS NOT NULL
+         AND lower(COALESCE(d.status,'')) IN ('completed','failed','cancelled')
+       )
+     ORDER BY k.updated_at DESC LIMIT 250`
   ).all(ownerUserId);
   for (const row of cards) {
     const a = ensure(row.agent_id);

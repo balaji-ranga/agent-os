@@ -44,6 +44,13 @@ try {
   assert.equal(clarification.failure_class, 'model_uncertainty');
   assert.equal(clarification.retryable, false);
 
+  const { toolNeedsAgentInterpretation } = await import('../src/services/goal-plan-tool-args.js');
+  assert.equal(
+    toolNeedsAgentInterpretation('email_send', { hasPriorSteps: true }),
+    false,
+    'outbound action requires a real endpoint result, never agent prose acknowledgement'
+  );
+
   const { looksStatusOnlyReply, replyHasUnresolvedBlocker } = await import('../src/services/kanban-reply-enrich.js');
   const acknowledgement = "I have updated the task to in_progress. Next, I'll proceed with the research and update you shortly.";
   assert.equal(looksStatusOnlyReply(acknowledgement), true);

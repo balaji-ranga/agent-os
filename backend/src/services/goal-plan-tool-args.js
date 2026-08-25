@@ -391,11 +391,14 @@ export function rewriteCompositionalToolsForAgentInterpretation(steps, prompt = 
 }
 
 /**
- * Execute-time: compositional tool after prior steps needs OpenClaw interpretation
- * (not dry HTTP with plan-dump fallback).
+ * Action steps must be executed by their real platform endpoint. Agent prose is
+ * not execution evidence and cannot turn a denied/failed send into success.
+ * Argument composition still happens in resolveAgentToolArgsForGoal.
  */
 export function toolNeedsAgentInterpretation(toolName, { hasPriorSteps = false } = {}) {
-  return Boolean(hasPriorSteps && isCompositionalTool(toolName));
+  void toolName;
+  void hasPriorSteps;
+  return false;
 }
 
 /**
