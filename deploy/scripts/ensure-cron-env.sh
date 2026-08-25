@@ -44,6 +44,17 @@ ensure_missing_cron_keys() {
 EOF
     added=1
   fi
+  if ! grep -qF 'OPENCLAW_SESSION_CLEANUP_CRON' "$ENV_FILE"; then
+    cat >> "$ENV_FILE" <<'EOF'
+# OPENCLAW_SESSION_CLEANUP_CRON=30 2 * * * # execution-session audit/cleanup (Admin → Crons; dry-run default)
+# OPENCLAW_SESSION_CLEANUP_DRY_RUN=1
+# OPENCLAW_SESSION_CLEANUP_RETENTION_DAYS=7
+# OPENCLAW_SESSION_CLEANUP_MISSING_GRACE_HOURS=48
+# OPENCLAW_SESSION_CLEANUP_RECENT_MINUTES=15
+# OPENCLAW_SESSION_CLEANUP_BATCH_SIZE=500
+EOF
+    added=1
+  fi
   if ! grep -qF 'SCHEDULED_GOALS_CRON' "$ENV_FILE"; then
     cat >> "$ENV_FILE" <<'EOF'
 # SCHEDULED_GOALS_CRON=* * * * *          # CEO scheduled goals: hourly|daily|weekdays|weekly; pause/delete off schedule
@@ -119,6 +130,12 @@ cat >> "$ENV_FILE" <<'EOF'
 # COO_STATUS_CHECKER_CRON=0 9 * * *        # daily CEO status report -> standup chat + HTML email
 # TOOL_API_RATE_LIMIT_RESET_CRON=5 0 * * * # audit+zero per-user tool API call actuals at day/month roll (Tools → Rate limits)
 # DATA_RETENTION_CRON=15 3 * * *           # daily purge: chats/standup msgs/workflow runs + aged Content Explorer media (hard delete)
+# OPENCLAW_SESSION_CLEANUP_CRON=30 2 * * * # execution-session audit/cleanup (Admin → Crons; dry-run default)
+# OPENCLAW_SESSION_CLEANUP_DRY_RUN=1
+# OPENCLAW_SESSION_CLEANUP_RETENTION_DAYS=7
+# OPENCLAW_SESSION_CLEANUP_MISSING_GRACE_HOURS=48
+# OPENCLAW_SESSION_CLEANUP_RECENT_MINUTES=15
+# OPENCLAW_SESSION_CLEANUP_BATCH_SIZE=500
 # KANBAN_ORPHAN_WATCHER_CRON=*/5 * * * *   # re-pend stuck processing + reinitiate orphan specialty Kanban
 # SCHEDULED_GOALS_CRON=* * * * *          # CEO scheduled goals: hourly|daily|weekdays|weekly prompts → agent (pause/delete off schedule)
 # GOAL_PLAN_MAX_SPECIALTY=8              # Max specialty_task intents per durable goal plan

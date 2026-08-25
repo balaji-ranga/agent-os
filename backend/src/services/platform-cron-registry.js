@@ -64,7 +64,7 @@ function hydrateLastRun(entry) {
 
 /**
  * Register a platform cron job. Call once at startup (before listen).
- * @param {{ id: string, name: string, description: string, schedule: string, envVar?: string|null, handler: () => Promise<any>|any, enabled?: boolean }} opts
+ * @param {{ id: string, name: string, description: string, schedule: string, envVar?: string|null, handler: () => Promise<any>|any, details?: () => Record<string, any>, enabled?: boolean }} opts
  */
 export function registerPlatformCron(opts) {
   const id = String(opts.id || '').trim();
@@ -92,6 +92,7 @@ export function registerPlatformCron(opts) {
     enabled,
     task: null,
     handler: opts.handler,
+    details: typeof opts.details === 'function' ? opts.details : null,
     lastRunAt: null,
     lastResult: null,
     lastError: null,
@@ -223,6 +224,12 @@ function describeJob(entry) {
   let status = 'running';
   if (!entry.enabled) status = 'disabled';
   else if (paused) status = 'paused';
+  let details = {};
+  try {
+    details = entry.details?.() || {};
+  } catch (e) {
+    console.warn(`[platform-cron] details failed id=${entry.id}: ${e?.message || e}`);
+  }
   return {
     id: entry.id,
     name: entry.name,
@@ -244,6 +251,7 @@ function describeJob(entry) {
     last_run_at: entry.lastRunAt,
     last_error: entry.lastError,
     last_result: entry.lastResult,
+    ...details,
   };
 }
 

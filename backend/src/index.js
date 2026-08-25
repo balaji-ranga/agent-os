@@ -133,6 +133,7 @@ import { initAgentWorkflowScheduler } from './services/agent-workflow-scheduler.
 import { syncWorkflowScheduleRegistry } from './services/agent-workflow-store.js';
 import { resumeStuckWorkflowRuns, startWorkflowTimeoutWatchdog } from './services/agent-workflow-runner.js';
 import { registerPlatformCron } from './services/platform-cron-registry.js';
+import { getOpenClawSessionCleanupAdminDetails } from './services/openclaw-session-cleanup.js';
 import { seedWorkflowBuilderAgent } from '../scripts/seed-workflow-builder-agent.js';
 import { seedPlatformHelpAgent } from '../scripts/seed-platform-help-agent.js';
 import { seedOnboardingHelperAgent } from '../scripts/seed-onboarding-helper-agent.js';
@@ -746,6 +747,21 @@ registerPlatformCron({
     console.log('[cron] Data retention purge:', out.count, 'CEO(s)');
     return out;
   },
+});
+
+const openClawSessionCleanupCron = process.env.OPENCLAW_SESSION_CLEANUP_CRON || '30 2 * * *';
+registerPlatformCron({
+  id: 'openclaw_session_cleanup',
+  name: 'OpenClaw execution session cleanup',
+  description:
+    'Safely removes aged terminal execution sessions and their indexed transcripts. Unknown, conversational, unindexed, active, recent, cross-owner and mismatched-agent sessions are never selected. Starts in dry-run mode.',
+  schedule: openClawSessionCleanupCron,
+  envVar: 'OPENCLAW_SESSION_CLEANUP_CRON',
+  handler: async () => {
+    const { runOpenClawSessionCleanup } = await import('./services/openclaw-session-cleanup.js');
+    return runOpenClawSessionCleanup();
+  },
+  details: getOpenClawSessionCleanupAdminDetails,
 });
 
 const kanbanOrphanCron = process.env.KANBAN_ORPHAN_WATCHER_CRON || '*/5 * * * *';

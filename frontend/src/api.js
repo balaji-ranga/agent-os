@@ -781,6 +781,8 @@ export const api = {
   adminCronPause: (id) => post(`/admin/crons/${encodeURIComponent(id)}/pause`, {}),
   adminCronResume: (id) => post(`/admin/crons/${encodeURIComponent(id)}/resume`, {}),
   adminCronRun: (id) => post(`/admin/crons/${encodeURIComponent(id)}/run`, {}),
+  adminCronConfig: (id) => get(`/admin/crons/${encodeURIComponent(id)}/config`),
+  adminCronConfigUpdate: (id, body) => put(`/admin/crons/${encodeURIComponent(id)}/config`, body),
   adminImpersonateUser: (userId) => post(`/admin/users/${encodeURIComponent(userId)}/impersonate`, {}),
   authExitImpersonation: () => post('/auth/exit-impersonation', {}),
   // Agent workflows (custom, separate from job workflows)

@@ -66,6 +66,11 @@ import {
   resumePlatformCron,
   runPlatformCron,
 } from '../services/platform-cron-registry.js';
+import {
+  OPENCLAW_SESSION_CLEANUP_CRON_ID,
+  getOpenClawSessionCleanupPolicy,
+  setOpenClawSessionCleanupPolicy,
+} from '../services/openclaw-session-cleanup.js';
 
 const router = Router();
 
@@ -470,6 +475,28 @@ router.get('/crons/:id', (req, res) => {
     res.json({ cron: job });
   } catch (e) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+router.get('/crons/:id/config', (req, res) => {
+  if (req.params.id !== OPENCLAW_SESSION_CLEANUP_CRON_ID) {
+    return res.status(404).json({ error: 'This cron has no editable policy' });
+  }
+  res.json({ policy: getOpenClawSessionCleanupPolicy() });
+});
+
+router.put('/crons/:id/config', (req, res) => {
+  try {
+    if (req.params.id !== OPENCLAW_SESSION_CLEANUP_CRON_ID) {
+      return res.status(404).json({ error: 'This cron has no editable policy' });
+    }
+    const policy = setOpenClawSessionCleanupPolicy(req.body || {});
+    console.log(
+      `[admin] OpenClaw cleanup policy updated by=${req.authUser?.id || 'admin'} dry_run=${policy.dry_run}`
+    );
+    res.json({ ok: true, policy });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Invalid cleanup policy' });
   }
 });
 

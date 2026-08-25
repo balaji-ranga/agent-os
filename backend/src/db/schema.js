@@ -2884,6 +2884,27 @@ function ensureOrgPeopleSchema(_db) {
   } catch (_) {}
 
   try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS openclaw_session_cleanup_runs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        started_at TEXT NOT NULL,
+        finished_at TEXT,
+        dry_run INTEGER NOT NULL DEFAULT 1,
+        policy_json TEXT NOT NULL DEFAULT '{}',
+        scanned_sessions INTEGER NOT NULL DEFAULT 0,
+        candidate_sessions INTEGER NOT NULL DEFAULT 0,
+        deleted_sessions INTEGER NOT NULL DEFAULT 0,
+        deleted_files INTEGER NOT NULL DEFAULT 0,
+        reclaimed_bytes INTEGER NOT NULL DEFAULT 0,
+        error TEXT,
+        result_json TEXT NOT NULL DEFAULT '{}'
+      );
+      CREATE INDEX IF NOT EXISTS idx_openclaw_cleanup_runs_started
+        ON openclaw_session_cleanup_runs(started_at DESC);
+    `);
+  } catch (_) {}
+
+  try {
     const row = _db.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='platform_users'`).get();
     const sql = String(row?.sql || '');
     if (sql && !sql.includes("'org_user'")) {

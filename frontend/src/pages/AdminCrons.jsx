@@ -8,12 +8,117 @@ function statusBadge(status) {
   return { bg: 'rgba(100,116,139,0.12)', color: '#475569', label: 'Disabled' };
 }
 
+function bytesLabel(value) {
+  const n = Number(value || 0);
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function CleanupPolicy({ cron, busy, onSaved }) {
+  const [policy, setPolicy] = useState(cron.cleanup_policy || null);
+  const [saving, setSaving] = useState(false);
+  const [policyError, setPolicyError] = useState(null);
+
+  useEffect(() => setPolicy(cron.cleanup_policy || null), [cron.cleanup_policy]);
+  if (!policy) return null;
+  const updateNumber = (key, value) => setPolicy((p) => ({ ...p, [key]: value }));
+  const save = async () => {
+    setSaving(true);
+    setPolicyError(null);
+    try {
+      await api.adminCronConfigUpdate(cron.id, policy);
+      onSaved?.('Cleanup policy saved');
+    } catch (e) {
+      setPolicyError(e.message || 'Failed to save cleanup policy');
+    } finally {
+      setSaving(false);
+    }
+  };
+  const last = cron.cleanup_last_run;
+  const result = last?.result || {};
+  return (
+    <section
+      style={{
+        marginTop: '0.9rem',
+        padding: '0.85rem',
+        borderRadius: 8,
+        border: `1px solid ${policy.dry_run ? '#bae6fd' : '#fdba74'}`,
+        background: policy.dry_run ? 'rgba(14,165,233,0.06)' : 'rgba(249,115,22,0.07)',
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
+        <div>
+          <strong style={{ fontSize: '0.9rem' }}>Cleanup safety policy</strong>
+          <div style={{ color: 'var(--muted)', fontSize: '0.78rem', marginTop: 2 }}>
+            Only known execution sessions with owner/reference checks qualify. Unknown and chat sessions are preserved.
+          </div>
+        </div>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontWeight: 600, fontSize: '0.82rem' }}>
+          <input
+            type="checkbox"
+            checked={!!policy.dry_run}
+            onChange={(e) => setPolicy((p) => ({ ...p, dry_run: e.target.checked }))}
+          />
+          Dry run (no deletion)
+        </label>
+      </div>
+      {!policy.dry_run && (
+        <div style={{ color: '#c2410c', fontSize: '0.78rem', fontWeight: 600, marginTop: '0.45rem' }}>
+          Live deletion is enabled. Run once in dry-run mode and review candidate counts first.
+        </div>
+      )}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(155px, 1fr))', gap: '0.6rem', marginTop: '0.75rem' }}>
+        {[
+          ['terminal_retention_days', 'Terminal retention', 'days', 1, 365],
+          ['missing_reference_grace_hours', 'Missing-reference grace', 'hours', 24, 720],
+          ['recent_activity_minutes', 'Recent-activity guard', 'minutes', 5, 1440],
+          ['batch_size', 'Maximum per run', 'sessions/files', 1, 5000],
+        ].map(([key, label, unit, min, max]) => (
+          <label key={key} style={{ fontSize: '0.76rem', color: 'var(--muted)' }}>
+            {label}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3 }}>
+              <input
+                type="number"
+                min={min}
+                max={max}
+                value={policy[key]}
+                onChange={(e) => updateNumber(key, e.target.value)}
+                style={{ width: 82, padding: '0.3rem 0.4rem', border: '1px solid var(--border)', borderRadius: 5 }}
+              />
+              <span>{unit}</span>
+            </div>
+          </label>
+        ))}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
+        <button type="button" className="mcp-pg-btn-ghost mcp-pg-btn-sm" disabled={busy || saving} onClick={save}>
+          {saving ? 'Saving…' : 'Save policy'}
+        </button>
+        {policyError && <span style={{ color: '#b91c1c', fontSize: '0.78rem' }}>{policyError}</span>}
+        {last && (
+          <span style={{ color: 'var(--muted)', fontSize: '0.78rem' }}>
+            Last audit: {last.dry_run ? 'dry run' : 'live'} · {result.candidate_sessions || 0} candidates ·{' '}
+            {result.deleted_sessions || 0} index entries + {result.deleted_files || 0} files deleted ·{' '}
+            {bytesLabel(result.reclaimed_bytes)} reclaimed
+          </span>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export default function AdminCrons() {
   const [crons, setCrons] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const [flash, setFlash] = useState(null);
+
+  const policySaved = (message) => {
+    setFlash(message);
+    load();
+  };
 
   const load = useCallback(() => {
     setLoading(true);
@@ -217,6 +322,9 @@ export default function AdminCrons() {
                     </dd>
                   </div>
                 </dl>
+                {c.id === 'openclaw_session_cleanup' && (
+                  <CleanupPolicy cron={c} busy={busy} onSaved={policySaved} />
+                )}
               </article>
             );
           })}
