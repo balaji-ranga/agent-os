@@ -327,36 +327,20 @@ function getStandupContextForIntent(standupId, ceoMessage = '', ownerUserId = nu
     try {
       const chatRows = db()
         .prepare(
-          `SELECT content FROM chat_turns
-           WHERE owner_user_id = ?
-             AND role = 'user'
-             AND (agent_id = 'balserve' OR agent_id LIKE '%balserve%' OR agent_id LIKE '%coo%')
-           ORDER BY id DESC LIMIT 12`
+          `SELECT ct.content FROM chat_turns ct
+           JOIN chat_sessions cs ON cs.id = ct.session_id
+           WHERE ct.owner_user_id = ?
+             AND ct.role = 'user'
+             AND cs.status = 'active'
+             AND cs.owner_user_id = ct.owner_user_id
+             AND cs.agent_id = ct.agent_id
+             AND (ct.agent_id = 'balserve' OR ct.agent_id LIKE '%balserve%' OR ct.agent_id LIKE '%coo%')
+           ORDER BY ct.id DESC LIMIT 6`
         )
         .all(String(ownerUserId));
       for (const r of chatRows) pushMsg(r.content);
     } catch (e) {
       console.warn('[delegation] chat_turns context load failed:', e?.message || e);
-    }
-    // recent substantive Kanban titles the CEO already created
-    try {
-      const kanbanRows = db()
-        .prepare(
-          `SELECT title FROM kanban_tasks
-           WHERE owner_user_id = ?
-             AND title IS NOT NULL AND trim(title) != ''
-           ORDER BY id DESC LIMIT 8`
-        )
-        .all(String(ownerUserId));
-      for (const r of kanbanRows) {
-        const t = String(r.title || '').trim();
-        if (t.length < 12) continue;
-        if (/^delegate to\b/i.test(t)) continue;
-        if (/deepseek brain summarize/i.test(t)) continue;
-        pushMsg(t);
-      }
-    } catch (e) {
-      console.warn('[delegation] kanban context load failed:', e?.message || e);
     }
   }
 
@@ -400,6 +384,11 @@ function isContextThinOrMetaHandoff(query) {
   ) {
     return true;
   }
+  if (
+    /^(?:please\s+)?(?:generate|create|write|do|run|send|post|publish|complete|continue|retry)\s+(?:the\s+)?(?:requested|above|previous|same|that|it)\b/i.test(q)
+  ) {
+    return true;
+  }
   if (/^delegate to\b/i.test(q) || /^hand\s*off to\b/i.test(q) || /^assign (to|this)\b/i.test(q)) {
     return true;
   }
@@ -437,7 +426,7 @@ function capAllocatedAgents(allocated, maxAgents = 2) {
 }
 
 /** Meta / role-echo handoffs lose Mag7-style work unit — stitch prior CEO lines into the specialist query. */
-function enrichTaskQueryWithPriorThread(query, lastUserMessages = [], currentCeoMessage = '') {
+export function enrichTaskQueryWithPriorThread(query, lastUserMessages = [], currentCeoMessage = '') {
   const q = String(query || '').trim();
   if (!q) return q;
   const prior = (Array.isArray(lastUserMessages) ? lastUserMessages : [])
@@ -447,7 +436,13 @@ function enrichTaskQueryWithPriorThread(query, lastUserMessages = [], currentCeo
     .trim()
     .replace(/\[(ceo|owner)_user_id:[^\]]+\]/gi, '')
     .trim();
-  const thin = isContextThinOrMetaHandoff(q) || isContextThinOrMetaHandoff(current);
+  const queryThin = isContextThinOrMetaHandoff(q);
+  const currentThin = isContextThinOrMetaHandoff(current);
+  // A substantive current CEO message is the complete handoff boundary. Never blend
+  // unrelated earlier chats or Kanban titles into it merely because the classifier
+  // returned a short routing phrase.
+  if (!currentThin) return queryThin ? current : q;
+  const thin = queryThin || currentThin;
   const alreadyHasWork =
     !thin &&
     (q.length > 120 ||
@@ -457,7 +452,9 @@ function enrichTaskQueryWithPriorThread(query, lastUserMessages = [], currentCeo
   if (alreadyHasWork) return q;
 
   const thread = [];
-  for (const p of prior.slice(-8)) {
+  // A genuinely referential command ("delegate that") may use only the immediately
+  // preceding active-chat turns. Older same-day topics are not part of this task.
+  for (const p of prior.slice(-2)) {
     if (!thread.includes(p)) thread.push(p);
   }
   if (current && !thread.some((t) => t.toLowerCase() === current.toLowerCase()) && !/owner_user_id:/.test(current)) {

@@ -39,6 +39,15 @@ function isVideoOrchestratorAgent(agent) {
   return isVideoContentOrchestratorAgent(agent);
 }
 
+/** A prompt-writing desk owns prompt composition even when the prompt's subject is CRM, research, etc. */
+export function isPromptAuthoringAskForAgent(agent, message) {
+  const identity = [agent?.id, agent?.openclaw_agent_id, agent?.name, agent?.role]
+    .filter(Boolean)
+    .join(' ');
+  if (!/\bprompt\b/i.test(identity)) return false;
+  return /\b(prompt|system instructions?|instruction set|template)\b/i.test(String(message || ''));
+}
+
 /** Operational asks should stay with the current agent (Kanban / workflows / status). */
 function isOperationalMessage(message) {
   return /\b(kanban|create\s+(a\s+)?task|move\s+(the\s+)?task|workflow|notify_ceo|sessions_send|stand-?up|status|storyboard|run\s+video)\b/i.test(
@@ -55,6 +64,9 @@ export async function tryBuildSpecialtyReferral(ownerUserId, currentAgent, messa
   if (isHelpOrBuilderAgent(currentAgent)) return null;
   // Video Content Orchestrator owns story/storyboard intake — never bounce to Story Agent chat.
   if (isVideoOrchestratorAgent(currentAgent)) return null;
+  // Composition intent belongs to a Prompt Agent; subject-domain words must not bounce it
+  // to the execution specialist (e.g. CRM Maker for "write a CRM lead-gen prompt").
+  if (isPromptAuthoringAskForAgent(currentAgent, message)) return null;
 
   const msg = String(message || '').trim();
   if (!msg || msg.length < 8) return null;

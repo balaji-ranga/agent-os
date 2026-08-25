@@ -63,6 +63,10 @@ import { meterOpenClawUsage } from '../services/token-usage.js';
 import { withLlmopsContext } from '../services/llmops-context.js';
 import { BudgetBlockedError, enforceBudget } from '../services/agent-budgets.js';
 import {
+  DASHBOARD_CONTEXT_INSTRUCTION,
+  dashboardGatewaySessionUser,
+} from '../services/dashboard-chat-context.js';
+import {
   listPublishedTemplates,
   getTemplate,
   publishAgentWorkspaceAsTemplate,
@@ -872,6 +876,10 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     }
 
     const messages = history.map((t) => ({ role: t.role, content: t.content }));
+    messages.unshift({
+      role: 'system',
+      content: DASHBOARD_CONTEXT_INSTRUCTION,
+    });
     const jobApplicantAgents = new Set(['jobdiscovery', 'fitscorer', 'resumetailor', 'applicationagent']);
     let userContent = message;
     const llmForOwner = resolveLlmConfigForUser(ownerUserId);
@@ -931,7 +939,10 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     }
 
     const threadId = getChatThreadId(agentId, ownerUserId);
-    const sessionUser = openclaw.sessionUserFor(agentId, ownerUserId, threadId);
+    // The platform DB is the authoritative Dashboard history and is supplied above.
+    // A fresh gateway session per request prevents OpenClaw from appending the same
+    // history repeatedly or resuming stale tool state from an earlier request.
+    const sessionUser = dashboardGatewaySessionUser(agentId, ownerUserId, threadId);
     const sessionKey = openclaw.sessionKeyFor(openclawAgentId, sessionUser);
     registerOpenClawSessionOwner(sessionKey, ownerUserId);
     registerActiveDashboardChat(agentId, ownerUserId, message.trim());
@@ -942,6 +953,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     let usage;
     // Ollama BYOK is slow/fragile with extra tool-bootstrap instructions on small VPS hosts.
     let chatOpts = isDiscovery ? { timeoutMs: discoveryTimeout } : {};
+    chatOpts.injectSessionHistoryInstruction = false;
     try {
       const llm = llmForOwner || resolveLlmConfigForUser(ownerUserId);
       const localOllama =
