@@ -14,16 +14,23 @@ try {
   db.prepare("INSERT OR IGNORE INTO platform_users (id,email,password_hash,name,role) VALUES ('owner-other','other@example.test','test','Other CEO','ceo')").run();
   db.prepare("UPDATE platform_users SET ceo_db_mode='shared' WHERE id='owner-review'").run();
   db.prepare("INSERT OR IGNORE INTO agents (id,name,role,is_coo,is_orchestrator) VALUES ('coo','COO','Chief Operating Officer',1,1)").run();
+  db.prepare("INSERT OR IGNORE INTO agents (id,name,role,is_coo,is_orchestrator) VALUES ('market-watcher','Market Watcher','Market Analyst',0,0)").run();
   db.prepare("INSERT OR IGNORE INTO user_agents (user_id,agent_id,enabled) VALUES ('owner-review','coo',1)").run();
+  db.prepare("INSERT OR IGNORE INTO user_agents (user_id,agent_id,enabled) VALUES ('owner-review','market-watcher',1)").run();
   db.prepare(`INSERT INTO agent_goal_runs (id,owner_user_id,agent_id,title,prompt,status,created_at,completed_at) VALUES
     ('goal-ok','owner-review','coo','Publish weekly brief','brief','completed',datetime('now'),datetime('now')),
     ('goal-fail','owner-review','coo','Research target accounts','research','failed',datetime('now'),datetime('now'))`).run();
   db.prepare(`INSERT INTO agent_goal_steps (id,goal_run_id,step_index,step_type,label,status,exception_retry_count,error_message,spec_json,result_json) VALUES
     ('step-ok','goal-ok',0,'agent_continue','Draft','completed',0,'','{"prompt":"Draft the weekly brief"}','{"artifact_id":"brief-1"}'),
     ('step-fail','goal-fail',0,'agent_tool','Search','failed',1,'External quota exhausted','{"tool_name":"web_search","api_key":"must-not-leak"}','{"partial_results":32}')`).run();
+  db.prepare(`INSERT INTO kanban_tasks (title,status,assigned_agent_id,owner_user_id,goal_run_id,goal_step_id)
+    VALUES ('Delegated market research','in_progress','market-watcher','owner-review','goal-fail','step-fail')`).run();
   const review = prepareCompanyReview({ ownerUserId: 'owner-review', cadence: 'weekly', preparedByAgentId: 'coo' });
   assert.equal(review.status, 'ready'); assert.equal(review.snapshot.summary.outcomes_total, 2); assert.equal(review.snapshot.summary.goals_completed, 1); assert.equal(review.snapshot.summary.needs_attention, 1);
   assert.match(review.snapshot.misses[0].input_summary, /web_search/); assert.doesNotMatch(review.snapshot.misses[0].input_summary, /must-not-leak/); assert.match(review.snapshot.misses[0].output_summary, /partial_results/); assert.match(review.snapshot.misses[0].agent_explanation, /External quota exhausted/);
+  const contribution = review.snapshot.misses.find((item) => item.type === 'agent_contribution');
+  assert.equal(contribution.agent_id, 'market-watcher'); assert.equal(contribution.orchestrator_id, 'coo'); assert.equal(contribution.attribution, 'kanban_assignment');
+  assert.equal(review.snapshot.summary.outcomes_total, 2); assert.equal(review.snapshot.summary.agent_contributions, 1);
   const inSession = setReviewStatus('owner-review', review.id, 'in_session'); assert.equal(inSession.status, 'in_session');
   const withFeedback = addReviewFeedback({ ownerUserId: 'owner-review', reviewId: review.id, evidenceId: 'goal-fail', agentId: 'coo', rating: 'needs_improvement', feedback: 'Use an entitled fallback and preserve partial results.', scope: ['coo'] }); assert.equal(withFeedback.feedback.length, 1);
   const reviewDraft = 'Use an entitled fallback and preserve partial results.';

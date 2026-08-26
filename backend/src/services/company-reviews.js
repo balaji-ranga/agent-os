@@ -128,29 +128,71 @@ function goalEvidence(ownerUserId, start, end) {
   }));
 }
 
+function contributionEvidence(ownerUserId, goals) {
+  const items = [];
+  const seenSteps = new Set();
+  const statement = db().prepare(`
+    SELECT s.*, d.to_agent_id AS delegated_agent_id,
+      (SELECT k.assigned_agent_id FROM kanban_tasks k
+       WHERE k.owner_user_id=? AND k.goal_step_id=s.id AND COALESCE(k.assigned_agent_id,'')<>''
+       ORDER BY k.updated_at DESC LIMIT 1) AS kanban_agent_id
+    FROM agent_goal_steps s
+    LEFT JOIN agent_delegation_tasks d ON d.id=s.child_delegation_task_id AND d.owner_user_id=?
+    WHERE s.goal_run_id=? ORDER BY s.step_index
+  `);
+  for (const goal of goals) {
+    for (const step of statement.all(ownerUserId, ownerUserId, goal.id)) {
+      if (seenSteps.has(step.id)) continue;
+      seenSteps.add(step.id);
+      const performer = step.delegated_agent_id || step.kanban_agent_id || '';
+      if (!performer || performer === goal.agent_id) continue;
+      const input = summarizeJson(step.spec_json);
+      const output = summarizeJson(step.result_json);
+      const error = clip(step.error_message, 700);
+      const success = TERMINAL_SUCCESS.has(String(step.status).toLowerCase());
+      items.push({
+        id: `contribution:${step.id}`, type: 'agent_contribution', goal_id: goal.id, goal_title: goal.title,
+        step_id: step.id, step_index: step.step_index, title: `${goal.title} — ${clip(step.label || step.step_type, 90)}`,
+        agent_id: performer, orchestrator_id: goal.agent_id, attribution: step.delegated_agent_id ? 'delegation' : 'kanban_assignment',
+        status: step.status, success, step_count: 1, completed_steps: success ? 1 : 0,
+        retries: Number(step.exception_retry_count || 0), attention_steps: ['failed','awaiting_approval','awaiting_confirmation'].includes(step.status) ? 1 : 0,
+        error, link: `/goal-plans/${encodeURIComponent(goal.id)}`, created_at: step.started_at || goal.created_at,
+        completed_at: step.completed_at, input_summary: input || '(no structured input)',
+        output_summary: error ? `${error}${output ? ` | captured result: ${output}` : ''}` : (output || step.status),
+        agent_explanation: clip(`${performer} executed delegated step “${step.label || step.step_type}” for goal “${goal.title}”. Result: ${error || output || step.status}`, 1200),
+      });
+    }
+  }
+  return items;
+}
+
 function buildSnapshot(ownerUserId, cadence, start, end) {
   const goals = goalEvidence(ownerUserId, start, end);
+  const contributions = contributionEvidence(ownerUserId, goals);
   const tools = db().prepare(`SELECT status, COUNT(*) count FROM content_tool_logs
     WHERE owner_user_id=? AND date(created_at) BETWEEN date(?) AND date(?) GROUP BY status`).all(ownerUserId, start, end);
   const kanban = db().prepare(`SELECT status, COUNT(*) count FROM kanban_tasks
     WHERE owner_user_id=? AND date(created_at) BETWEEN date(?) AND date(?) GROUP BY status`).all(ownerUserId, start, end);
   const agents = listAgentsForUser(ownerUserId).map((a) => ({ id: a.id, name: a.name, role: a.role || '', is_orchestrator: !!a.is_coo || !!a.is_orchestrator }));
-  const succeeded = goals.filter((g) => g.success);
-  const attention = goals.filter((g) => !g.success || g.retries || g.attention_steps);
+  const succeededGoals = goals.filter((g) => g.success);
+  const attentionGoals = goals.filter((g) => !g.success || g.retries || g.attention_steps);
+  const succeeded = [...succeededGoals, ...contributions.filter((item) => item.success)];
+  const attention = [...attentionGoals, ...contributions.filter((item) => !item.success || item.retries || item.attention_steps)];
   const completedCards = kanban.find((r) => r.status === 'completed')?.count || 0;
   const failedTools = tools.filter((r) => ['error', 'failed', 'blocked', 'denied'].includes(String(r.status).toLowerCase())).reduce((n, r) => n + r.count, 0);
-  const delivered = succeeded.length;
+  const delivered = succeededGoals.length;
   const total = goals.length;
   return {
     cadence, period_start: start, period_end: end, generated_at: new Date().toISOString(),
-    summary: { outcomes_delivered: delivered, outcomes_total: total, completion_rate: total ? Math.round(delivered * 100 / total) : 0, goals_completed: delivered, needs_attention: attention.length, kanban_completed: completedCards, tool_failures: failedTools },
-    wins: succeeded.slice(0, 8), misses: attention.slice(0, 8),
-    improvement_candidates: attention.slice(0, 6).map((g) => ({ id: g.id, title: g.error ? `Resolve: ${g.title}` : `Improve reliability: ${g.title}`, reason: g.error || `${g.retries} retries and ${g.attention_steps} attention steps`, agent_id: g.agent_id, evidence: [{ type: 'goal', id: g.id, link: g.link }] })),
+    summary: { outcomes_delivered: delivered, outcomes_total: total, completion_rate: total ? Math.round(delivered * 100 / total) : 0, goals_completed: delivered, needs_attention: attentionGoals.length, agent_contributions: contributions.length, kanban_completed: completedCards, tool_failures: failedTools },
+    wins: succeeded.slice(0, 24), misses: attention.slice(0, 24),
+    improvement_candidates: attention.slice(0, 12).map((g) => ({ id: g.id, type: g.type, title: g.error ? `Resolve: ${g.title}` : `Improve reliability: ${g.title}`, reason: g.error || `${g.retries} retries and ${g.attention_steps} attention steps`, agent_id: g.agent_id, evidence: [{ type: g.type, id: g.id, link: g.link }] })),
     agents,
   };
 }
 
 function evidenceDetail(goal) {
+  if (goal.type === 'agent_contribution') return goal;
   const steps = db().prepare(`SELECT id,step_index,step_type,label,spec_json,status,result_json,error_message,
     exception_retry_count,started_at,completed_at FROM agent_goal_steps WHERE goal_run_id=? ORDER BY step_index`).all(goal.id).map((step) => ({
       id: step.id, step_index: step.step_index, type: step.step_type, label: step.label,
@@ -169,14 +211,20 @@ function evidenceDetail(goal) {
   return { ...goal, steps, input_summary: steps.map((s) => `${s.label || s.type}: ${s.input || '(no structured input)'}`).join('\n'), output_summary: steps.map((s) => `${s.label || s.type}: ${s.error ? `${s.error}${s.output ? ` | captured result: ${s.output}` : ''}` : (s.output || s.status)}`).join('\n'), agent_explanation: clip(explanation, 1200) };
 }
 
-function hydrateSnapshot(snapshot) {
+function hydrateSnapshot(snapshot, ownerUserId) {
+  const original = [...(snapshot.wins || []), ...(snapshot.misses || [])];
+  const goalItems = original.filter((item) => item.type !== 'agent_contribution');
+  const existingContributionIds = new Set(original.filter((item) => item.type === 'agent_contribution').map((item) => item.id));
+  const derived = ownerUserId ? contributionEvidence(ownerUserId, goalItems).filter((item) => !existingContributionIds.has(item.id)) : [];
+  const derivedWins = derived.filter((item) => item.success);
+  const derivedMisses = derived.filter((item) => !item.success || item.retries || item.attention_steps);
   const cache = new Map();
   const hydrate = (item) => {
     if (!item?.id) return item;
     if (!cache.has(item.id)) cache.set(item.id, evidenceDetail(item));
     return cache.get(item.id);
   };
-  return { ...snapshot, wins: (snapshot.wins || []).map(hydrate), misses: (snapshot.misses || []).map(hydrate) };
+  return { ...snapshot, wins: [...(snapshot.wins || []), ...derivedWins].map(hydrate), misses: [...(snapshot.misses || []), ...derivedMisses].map(hydrate) };
 }
 
 function hydrateReview(row) {
@@ -185,7 +233,7 @@ function hydrateReview(row) {
   const improvements = db().prepare('SELECT * FROM company_review_improvements WHERE review_id=? ORDER BY created_at').all(row.id).map((i) => ({ ...i, scope: parse(i.scope_json, []), evidence: parse(i.evidence_json, []), rollback: parse(i.rollback_json, {}) }));
   const opinions = db().prepare('SELECT * FROM company_review_opinions WHERE review_id=? AND owner_user_id=? ORDER BY created_at').all(row.id, row.owner_user_id);
   for (const improvement of improvements) improvement.learning_versions = listImprovementLearningVersions(row.owner_user_id, improvement.id);
-  return { ...row, snapshot: hydrateSnapshot(parse(row.snapshot_json)), feedback, opinions, improvements };
+  return { ...row, snapshot: hydrateSnapshot(parse(row.snapshot_json), row.owner_user_id), feedback, opinions, improvements };
 }
 
 function requireMutableReview(ownerUserId, reviewId) {
