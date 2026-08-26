@@ -54,7 +54,7 @@ function Session({ review, selected, setSelected, refresh, setStage }) {
     await refresh(); setFeedback(''); setStage('improvements');
   }
   async function generateOpinions() { if(!evidence||feedback.trim().length<20)return; setOpinionsLoading(true); setOpinionError(''); try { await api.companyReviewsGenerateOpinions(review.id,evidence.id,feedback.trim()); await refresh(); } catch(error) { setOpinionError(error.message); } finally { setOpinionsLoading(false); } }
-  const evidenceOpinions=(review.opinions||[]).filter(x=>x.evidence_id===evidence?.id&&x.subject_text===feedback.trim());
+  const evidenceOpinions=feedback.trim().length>=20?(review.opinions||[]).filter(x=>x.evidence_id===evidence?.id&&x.subject_text===feedback.trim()):[];
   return <div className="review-session-layout">
     <aside className="review-agenda"><h3>Review agenda</h3>{['Outcomes','Wins','Misses & blockers','Agent feedback','Commit improvements'].map((x,i)=><button type="button" className={i===3?'active':''} key={x} onClick={()=>i===4&&setStage('improvements')}><b>{i+1}</b><span>{x}<small>{['Review committed outcomes','Celebrate what went well','Analyze gaps and causes','COO and agent respond','Agree on governed actions'][i]}</small></span></button>)}</aside>
     <section className="review-session-main">
