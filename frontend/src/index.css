@@ -7253,4 +7253,6 @@ button.ai-snip-info-btn:hover {
 .review-opinion-grid textarea,.review-opinion-grid select{width:100%;margin:6px 0;padding:9px;border:1px solid var(--border-color,#dfe3ea);border-radius:9px;background:var(--input-bg,#fff);color:inherit}
 .review-opinion-grid blockquote{display:flex;flex-direction:column;gap:4px;margin:8px 0;padding:9px;border-left:3px solid var(--primary,#7557ff);background:color-mix(in srgb,var(--primary,#7557ff) 7%,transparent)}
 .finish-review{font-size:1rem;font-weight:750;padding:12px 18px!important}
+.review-opinion-actions{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:18px 0 8px;padding:14px;border:1px solid var(--border-color,#dfe3ea);border-radius:14px;background:color-mix(in srgb,var(--primary,#7557ff) 5%,var(--card-bg,#fff))}
+.review-opinion-actions h3,.review-opinion-actions p{margin:0 0 4px}.review-opinion-actions p{opacity:.72}.review-opinion-grid blockquote em{font-size:.72rem;opacity:.65}.review-opinion-grid blockquote small{margin-top:5px}
 @media(max-width:900px){.review-opinion-grid{grid-template-columns:1fr}}

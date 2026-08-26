@@ -1307,7 +1307,7 @@ export const api = {
   companyReviewsGet: (id) => get(`/company-reviews/${encodeURIComponent(id)}`),
   companyReviewsSetStatus: (id, status) => post(`/company-reviews/${encodeURIComponent(id)}/status`, { status }),
   companyReviewsFeedback: (id, body) => post(`/company-reviews/${encodeURIComponent(id)}/feedback`, body),
-  companyReviewsOpinion: (id, body) => post(`/company-reviews/${encodeURIComponent(id)}/opinions`, body),
+  companyReviewsGenerateOpinions: (id, evidenceId) => post(`/company-reviews/${encodeURIComponent(id)}/opinions/generate`, { evidence_id: evidenceId }),
   companyReviewsCreateImprovement: (id, body) => post(`/company-reviews/${encodeURIComponent(id)}/improvements`, body),
   companyReviewsDecideImprovement: (id, decision) => post(`/company-reviews/improvements/${encodeURIComponent(id)}/decision`, { decision }),
   companyExecutions: (params = {}) => {
