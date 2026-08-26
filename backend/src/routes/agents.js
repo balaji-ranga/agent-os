@@ -30,6 +30,7 @@ import {
 import { deleteAgentCascade } from '../services/agent-delete.js';
 import { log } from '../utils/logger.js';
 import { ensureManagedBrowserReady } from '../services/job-browser-auth.js';
+import { getActiveLearningPrompt, recordExecutionLearningVersions } from '../services/agent-learning-rollout.js';
 import * as agentTools from '../services/openclaw-agent-tools.js';
 import { ensureTenantOpenClawAgent } from '../services/openclaw-tenant.js';
 import { writeOpenClawConfigSafe } from '../services/openclaw-config-safe.js';
@@ -1253,9 +1254,11 @@ router.post('/:id/chat/from-agent', allowInternalOrAuth, async (req, res) => {
     }));
     if (history.length > 20) history = history.slice(-20);
     const messages = history.map((t) => ({ role: t.role, content: t.content }));
-    messages.push({ role: 'user', content: userContent });
+    const governed = getActiveLearningPrompt({ ownerUserId, agentId, sessionId: openclaw.sessionUserFor(agentId, ownerUserId) });
+    messages.push({ role: 'user', content: `${userContent}${governed.text}` });
 
     const sessionUser = openclaw.sessionUserFor(agentId, ownerUserId);
+    recordExecutionLearningVersions({ ownerUserId, agentId, executionType: 'agent_chat', executionId: sessionUser, sessionId: sessionUser, learningVersionIds: governed.version_ids });
     const { content: reply, usage } = await openclaw.chatCompletions(openclawAgentId, messages, sessionUser, false);
     const replyText = normalizeReplyContent(reply);
 

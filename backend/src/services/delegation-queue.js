@@ -11,6 +11,7 @@ import { isPlatformLocalOllama } from './platform-llm-settings.js';
 import { hasAnyActiveDashboardChat } from './tool-owner-scope.js';
 import { extractOwnerUserIdFromText } from './agent-chat-scope.js';
 import { insertChatTurn } from './chat-history.js';
+import { getActiveLearningPrompt, recordExecutionLearningVersions } from './agent-learning-rollout.js';
 import { cronAddOneShotWebhook } from '../gateway/openclaw-cron.js';
 import { classifyIntentAndAllocate } from './intent-classifier.js';
 import {
@@ -1122,6 +1123,15 @@ export async function processPendingDelegationTasksForCeo(ceoUserId, opts = {}) 
         `  {\"task_id\": ${kanbanRow.id}, \"new_status\": \"in_progress\"}\n\n` +
         promptWithMemory +
         buildDelegationKanbanFinishPrompt(kanbanRow.id);
+    }
+    if (!avatarVr) {
+      try {
+        const governed = getActiveLearningPrompt({ ownerUserId: ownerForTenant, agentId: task.to_agent_id, goalRunId: goalIdentity?.goalRunId || '', sessionId: sessionUser });
+        promptWithMemory += governed.text;
+        recordExecutionLearningVersions({ ownerUserId: ownerForTenant, agentId: task.to_agent_id, executionType: goalIdentity ? 'goal_step' : 'delegation', executionId: goalIdentity?.goalStepId || task.id, sessionId: sessionUser, learningVersionIds: governed.version_ids });
+      } catch (e) {
+        console.warn('[delegation] governed learning injection skipped:', e?.message || e);
+      }
     }
     const budgetState = enforceBudget(ownerForTenant, task.to_agent_id, {
       action: 'delegation',

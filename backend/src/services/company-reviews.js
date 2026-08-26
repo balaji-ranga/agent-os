@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import { getDb } from '../db/schema.js';
 import { listAgentsForUser } from './users.js';
-import { deleteFeedbackById, storeFeedback } from './agent-feedback.js';
+import { activateImprovementLearning, ensureAgentLearningRolloutTables, listImprovementLearningVersions, rollbackImprovementLearning } from './agent-learning-rollout.js';
 
 let ready = false;
 const TERMINAL_SUCCESS = new Set(['completed', 'success', 'succeeded']);
@@ -80,7 +80,15 @@ export function ensureCompanyReviewTables() {
       FOREIGN KEY(review_id) REFERENCES company_reviews(id)
     );
     CREATE INDEX IF NOT EXISTS idx_review_improvements_owner ON company_review_improvements(owner_user_id, status, created_at DESC);
+    CREATE TABLE IF NOT EXISTS company_review_opinions (
+      id TEXT PRIMARY KEY, review_id TEXT NOT NULL, owner_user_id TEXT NOT NULL, evidence_id TEXT NOT NULL DEFAULT '',
+      actor_role TEXT NOT NULL, agent_id TEXT NOT NULL DEFAULT '', position TEXT NOT NULL, content TEXT NOT NULL,
+      proposed_revision TEXT NOT NULL DEFAULT '', created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY(review_id) REFERENCES company_reviews(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_review_opinions_owner ON company_review_opinions(owner_user_id, review_id, evidence_id);
   `);
+  ensureAgentLearningRolloutTables();
   ready = true;
 }
 
@@ -168,7 +176,9 @@ function hydrateReview(row) {
   if (!row) return null;
   const feedback = db().prepare('SELECT * FROM company_review_feedback WHERE review_id=? ORDER BY created_at').all(row.id).map((f) => ({ ...f, scope: parse(f.scope_json, []) }));
   const improvements = db().prepare('SELECT * FROM company_review_improvements WHERE review_id=? ORDER BY created_at').all(row.id).map((i) => ({ ...i, scope: parse(i.scope_json, []), evidence: parse(i.evidence_json, []), rollback: parse(i.rollback_json, {}) }));
-  return { ...row, snapshot: hydrateSnapshot(parse(row.snapshot_json)), feedback, improvements };
+  const opinions = db().prepare('SELECT * FROM company_review_opinions WHERE review_id=? AND owner_user_id=? ORDER BY created_at').all(row.id, row.owner_user_id);
+  for (const improvement of improvements) improvement.learning_versions = listImprovementLearningVersions(row.owner_user_id, improvement.id);
+  return { ...row, snapshot: hydrateSnapshot(parse(row.snapshot_json)), feedback, opinions, improvements };
 }
 
 function requireMutableReview(ownerUserId, reviewId) {
@@ -207,9 +217,22 @@ export function setReviewStatus(ownerUserId, id, status) {
   const current = getCompanyReview(ownerUserId, id);
   if (!current) throw Object.assign(new Error('Review not found'), { status: 404 });
   if (current.status === 'completed' && status !== 'completed') throw Object.assign(new Error('Completed reviews are immutable'), { status: 409 });
+  if (status === 'completed' && current.improvements.some((item) => ['draft','deferred','refinement_requested'].includes(item.status))) throw Object.assign(new Error('Decide or refine every improvement before finishing the review'), { status: 409 });
   db().prepare(`UPDATE company_reviews SET status=?, started_at=CASE WHEN ?='in_session' THEN COALESCE(started_at,datetime('now')) ELSE started_at END,
     completed_at=CASE WHEN ?='completed' THEN datetime('now') ELSE completed_at END, updated_at=datetime('now') WHERE id=? AND owner_user_id=?`).run(status, status, status, id, ownerUserId);
   return getCompanyReview(ownerUserId, id);
+}
+export function addReviewOpinion({ ownerUserId, reviewId, evidenceId, actorRole, agentId = '', position, content, proposedRevision = '' }) {
+  ensureCompanyReviewTables(); requireMutableReview(ownerUserId, reviewId);
+  const roles = new Set(['coo','agent','ceo']); const positions = new Set(['agree','agree_with_revisions','disagree','more_evidence','acknowledge']);
+  if (!roles.has(actorRole) || !positions.has(position) || !String(content || '').trim()) throw Object.assign(new Error('Valid actor_role, position, and content are required'), { status: 400 });
+  if (agentId) {
+    const owned = db().prepare('SELECT 1 FROM user_agents WHERE user_id=? AND agent_id=? AND enabled=1').get(ownerUserId, agentId);
+    if (!owned) throw Object.assign(new Error('Agent not found'), { status: 404 });
+  }
+  db().prepare('INSERT INTO company_review_opinions (id,review_id,owner_user_id,evidence_id,actor_role,agent_id,position,content,proposed_revision) VALUES (?,?,?,?,?,?,?,?,?)')
+    .run(`opinion-${randomUUID().replaceAll('-', '').slice(0,16)}`, reviewId, ownerUserId, evidenceId || '', actorRole, agentId, position, String(content).trim(), String(proposedRevision || '').trim());
+  return getCompanyReview(ownerUserId, reviewId);
 }
 export function addReviewFeedback({ ownerUserId, reviewId, evidenceType, evidenceId, agentId, rating, feedback, classification, scope = [] }) {
   ensureCompanyReviewTables(); if (!String(feedback || '').trim()) throw Object.assign(new Error('feedback is required'), { status: 400 });
@@ -232,28 +255,25 @@ export function createImprovement({ ownerUserId, reviewId, title, problem, propo
 }
 export function decideImprovement({ ownerUserId, improvementId, decision, userId }) {
   ensureCompanyReviewTables();
-  const status = decision === 'approve' ? 'approved' : decision === 'reject' ? 'rejected' : decision === 'rollback' ? 'rolled_back' : null;
-  if (!status) throw Object.assign(new Error('decision must be approve, reject, or rollback'), { status: 400 });
+  const status = decision === 'approve' ? 'approved' : decision === 'reject' ? 'rejected' : decision === 'rollback' ? 'rolled_back' : decision === 'defer' ? 'deferred' : decision === 'refine' ? 'refinement_requested' : null;
+  if (!status) throw Object.assign(new Error('decision must be approve, reject, defer, refine, or rollback'), { status: 400 });
   const row = db().prepare('SELECT * FROM company_review_improvements WHERE id=? AND owner_user_id=?').get(improvementId, ownerUserId);
   if (!row) throw Object.assign(new Error('Improvement not found'), { status: 404 });
-  const rollback = parse(row.rollback_json, {});
-  if (status === 'approved' && row.destination === 'agent_playbook' && !rollback.feedback_ids?.length) {
-    const scope = parse(row.scope_json, []);
-    const feedbackIds = [];
-    for (const agentId of scope) {
-      const signal = storeFeedback({
-        ownerUserId, agentId, source: 'other', rating: 'down',
-        messageId: row.id, messageRole: 'system', messageContent: row.problem,
-        comment: `Approved performance-review learning: ${row.proposed_change}`,
-        context: { company_review_id: row.review_id, improvement_id: row.id, governed: true },
-      });
-      feedbackIds.push(signal.id);
+  if (status === 'approved') {
+    const evidenceIds = parse(row.evidence_json, []).map((item) => item.id).filter(Boolean);
+    if (evidenceIds.length) {
+      const opinions = db().prepare(`SELECT actor_role FROM company_review_opinions WHERE owner_user_id=? AND review_id=? AND evidence_id IN (${evidenceIds.map(() => '?').join(',')})`).all(ownerUserId, row.review_id, ...evidenceIds);
+      const roles = new Set(opinions.map((item) => item.actor_role));
+      if (!roles.has('coo') || !roles.has('agent')) throw Object.assign(new Error('COO assessment and affected-agent response are required before CEO approval'), { status: 409 });
     }
-    rollback.feedback_ids = feedbackIds;
-    rollback.activated_at = new Date().toISOString();
+  }
+  const rollback = parse(row.rollback_json, {});
+  if (status === 'approved' && !rollback.learning_version_ids?.length) {
+    const versions = activateImprovementLearning({ ownerUserId, improvement: row });
+    rollback.learning_version_ids = versions.map((item) => item.id); rollback.activated_at = new Date().toISOString(); rollback.rollout_status = versions[0]?.status || 'draft';
   }
   if (status === 'rolled_back') {
-    for (const feedbackId of rollback.feedback_ids || []) deleteFeedbackById(ownerUserId, feedbackId);
+    rollback.rolled_back_learning_version_ids = rollbackImprovementLearning({ ownerUserId, improvementId, userId });
     rollback.rolled_back_at = new Date().toISOString();
   }
   db().prepare(`UPDATE company_review_improvements SET status=?, approved_by_user_id=CASE WHEN ?='approved' THEN ? ELSE approved_by_user_id END,
