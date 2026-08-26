@@ -44,12 +44,13 @@ function OperationsDashboard({ live }) {
   const activeWork = agents.reduce((n, a) => n + a.current.length, 0);
   const totalAgents = agents.length;
   const ready = agents.filter((a) => a.state === 'idle').length;
-  const events = agents.flatMap((agent) => [
+  const events = (live?.events?.length ? live.events : agents.flatMap((agent) => [
     ...agent.blocked.map((item) => ({ ...item, agent: agent.name, lane: 'blocked' })),
     ...agent.current.map((item) => ({ ...item, agent: agent.name, lane: 'working' })),
     ...agent.queued.map((item) => ({ ...item, agent: agent.name, lane: 'queued' })),
-  ]).sort((a, b) => String(b.at || '').localeCompare(String(a.at || ''))).slice(0, 8);
-  const visibleAgents = agents.slice(0, 12);
+  ])).sort((a, b) => String(b.at || '').localeCompare(String(a.at || ''))).slice(0, 12);
+  const activeAgents = agents.filter((agent) => agent.state !== 'idle');
+  const visibleAgents = (activeAgents.length ? activeAgents : agents).slice(0, 12);
   const positions = visibleAgents.map((_, index) => nodePosition(index, visibleAgents.length));
 
   return (
@@ -69,7 +70,7 @@ function OperationsDashboard({ live }) {
             {events.map((item, i) => (
               <div className={`ops-event lane-${item.lane}`} key={`${item.agent}-${item.kind}-${item.id}-${i}`}>
                 <span className="ops-event-dot" aria-hidden />
-                <div><strong>{item.agent}</strong><p>{item.title}</p><small>{item.kind} · {String(item.status || '').replaceAll('_', ' ')}</small></div>
+                <div><strong>{item.agent || 'Platform'}</strong><p>{item.title}</p><small>{item.kind} · {String(item.status || '').replaceAll('_', ' ')}</small></div>
               </div>
             ))}
             {!events.length && <p className="agent-live-idle">No work is active right now.</p>}
@@ -88,7 +89,7 @@ function OperationsDashboard({ live }) {
             <ConnectorNode key={`${agent.id}-${tool.name}-${toolIndex}`} tool={tool} position={positions[index]} index={toolIndex} />
           )))}
           {visibleAgents.map((agent, index) => <NetworkNode key={agent.id} agent={agent} position={positions[index]} />)}
-          {agents.length > visibleAgents.length && <span className="ops-more-agents">+{agents.length - visibleAgents.length} more</span>}
+          {activeAgents.length > visibleAgents.length && <span className="ops-more-agents">+{activeAgents.length - visibleAgents.length} more active</span>}
         </section>
 
         <aside className="ops-side-stack">

@@ -37,7 +37,7 @@ function owner(req) {
   return resolveAuthenticatedCeoUserId(req, req.query || {});
 }
 
-function liveSnapshot(ownerUserId) {
+export function liveSnapshot(ownerUserId) {
   const agents = listAgentsForUser(ownerUserId).map((a) => ({
     id: a.id,
     name: a.name,
@@ -52,6 +52,8 @@ function liveSnapshot(ownerUserId) {
   }));
   const byId = new Map(agents.map((a) => [String(a.id).toLowerCase(), a]));
   const ensure = (id) => byId.get(String(id || '').toLowerCase());
+  const goalById = new Map();
+  const goalToolOwners = new Map();
 
   const delegations = db().prepare(
     `SELECT id, to_agent_id AS agent_id, status, prompt AS title, created_at, completed_at, error_message
@@ -76,6 +78,7 @@ function liveSnapshot(ownerUserId) {
   for (const row of goals) {
     const a = ensure(row.agent_id);
     if (!a) continue;
+    goalById.set(String(row.id), a);
     const item = {
       kind: 'goal', id: row.id, title: clip(row.step_label || row.title || row.prompt),
       status: row.step_status || row.status, at: iso(row.updated_at), link: `/goal-plans/${encodeURIComponent(row.id)}`,
@@ -84,6 +87,9 @@ function liveSnapshot(ownerUserId) {
     const spec = parseJson(row.step_spec_json);
     const toolName = String(spec.tool_name || spec.toolName || '').trim();
     if (toolName) {
+      const key = toolName.toLowerCase();
+      if (!goalToolOwners.has(key)) goalToolOwners.set(key, []);
+      goalToolOwners.get(key).push(a);
       a.tools.push({
         name: toolName,
         label: toolLabel(toolName),
@@ -97,25 +103,43 @@ function liveSnapshot(ownerUserId) {
   // Tool logs are terminal records, but calls from the latest polling window still provide
   // the best truthful connector signal for direct/agent-chat invocations outside goal steps.
   const recentTools = db().prepare(
-    `SELECT tool_name, source, status, created_at
+    `SELECT id, tool_name, source, request_payload, response_payload, trace_id, status, created_at
      FROM content_tool_logs
      WHERE owner_user_id = ? AND datetime(created_at) >= datetime('now', '-2 minutes')
      ORDER BY created_at DESC LIMIT 100`
   ).all(ownerUserId);
+  const toolEvents = [];
   for (const row of recentTools) {
     const source = String(row.source || '').toLowerCase();
-    const a = agents.find((candidate) => {
+    const request = parseJson(row.request_payload);
+    const response = parseJson(row.response_payload);
+    const context = { ...response, ...request, ...(request.context || {}), ...(response.context || {}) };
+    const explicitAgentId = context.agent_id || context.agentId || context.owner_agent_id || context.source_agent_id || context.from_agent_id;
+    const goalId = context.goal_run_id || context.goalRunId;
+    const sourceMatch = agents.find((candidate) => {
       const id = String(candidate.id || '').toLowerCase();
       const name = String(candidate.name || '').toLowerCase();
       return source === id || source === name || (id && source.includes(id));
     });
-    if (!a || a.tools.some((tool) => tool.name === row.tool_name)) continue;
-    a.tools.push({
-      name: row.tool_name,
-      label: toolLabel(row.tool_name),
-      status: row.status,
-      at: iso(row.created_at),
-      source: 'tool_log',
+    const matchingOwners = goalToolOwners.get(String(row.tool_name || '').toLowerCase()) || [];
+    const busyAgents = agents.filter((candidate) => candidate.current.length > 0);
+    const a = ensure(explicitAgentId) || goalById.get(String(goalId || '')) || sourceMatch
+      || (matchingOwners.length === 1 ? matchingOwners[0] : null)
+      || (busyAgents.length === 1 ? busyAgents[0] : null);
+    if (a && !a.tools.some((tool) => tool.name === row.tool_name && tool.source === 'tool_log')) {
+      a.tools.push({
+        id: row.id,
+        name: row.tool_name,
+        label: toolLabel(row.tool_name),
+        status: row.status,
+        at: iso(row.created_at),
+        source: 'tool_log',
+      });
+    }
+    toolEvents.push({
+      kind: 'tool', id: row.id, title: `${toolLabel(row.tool_name)} called`, status: row.status,
+      at: iso(row.created_at), agent: a?.name || sourceMatch?.name || 'Platform', agent_id: a?.id || null,
+      lane: ['blocked', 'denied', 'error', 'failed'].includes(String(row.status || '').toLowerCase()) ? 'blocked' : 'working',
     });
   }
 
@@ -141,7 +165,7 @@ function liveSnapshot(ownerUserId) {
 
   for (const a of agents) {
     if (a.blocked.length) a.state = 'blocked';
-    else if (a.current.length) a.state = 'working';
+    else if (a.current.length || a.tools.length) a.state = 'working';
     else if (a.queued.length) a.state = 'queued';
   }
   const workflowApprovals = db().prepare(
@@ -167,6 +191,11 @@ function liveSnapshot(ownerUserId) {
     at: iso(r.created_at), source: r.source || '', link: '/policies',
   }));
   const attention = [...workflowApprovals, ...policyBlocks];
+  const workEvents = agents.flatMap((agent) => [
+    ...agent.blocked.map((item) => ({ ...item, agent: agent.name, agent_id: agent.id, lane: 'blocked' })),
+    ...agent.current.map((item) => ({ ...item, agent: agent.name, agent_id: agent.id, lane: 'working' })),
+    ...agent.queued.map((item) => ({ ...item, agent: agent.name, agent_id: agent.id, lane: 'queued' })),
+  ]);
   return {
     generated_at: new Date().toISOString(),
     summary: {
@@ -176,6 +205,7 @@ function liveSnapshot(ownerUserId) {
       idle: agents.filter((a) => a.state === 'idle').length,
     },
     approvals: attention,
+    events: [...toolEvents, ...workEvents].sort((a, b) => String(b.at || '').localeCompare(String(a.at || ''))).slice(0, 100),
     agents,
     connectors: agents.flatMap((agent) => agent.tools.map((tool) => ({ ...tool, agent_id: agent.id, agent_name: agent.name }))),
   };
