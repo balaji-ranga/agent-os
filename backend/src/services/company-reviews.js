@@ -10,6 +10,16 @@ function db() { return getDb(); }
 function parse(raw, fallback = {}) { try { return raw ? JSON.parse(raw) : fallback; } catch { return fallback; } }
 function isoDate(value) { return new Date(value).toISOString().slice(0, 10); }
 function clip(value, size = 180) { const text = String(value || '').replace(/\s+/g, ' ').trim(); return text.length > size ? `${text.slice(0, size)}…` : text; }
+function redact(value) {
+  if (Array.isArray(value)) return value.map(redact);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, /pass(word)?|secret|api.?key|token|authorization/i.test(key) ? '[redacted]' : redact(item)]));
+}
+function summarizeJson(raw, size = 700) {
+  const value = redact(parse(raw, {}));
+  if (!value || (typeof value === 'object' && !Object.keys(value).length)) return '';
+  return clip(JSON.stringify(value), size);
+}
 
 export function ensureCompanyReviewTables() {
   if (ready) return;
@@ -125,11 +135,47 @@ function buildSnapshot(ownerUserId, cadence, start, end) {
   };
 }
 
+function evidenceDetail(goal) {
+  const steps = db().prepare(`SELECT id,step_index,step_type,label,spec_json,status,result_json,error_message,
+    exception_retry_count,started_at,completed_at FROM agent_goal_steps WHERE goal_run_id=? ORDER BY step_index`).all(goal.id).map((step) => ({
+      id: step.id, step_index: step.step_index, type: step.step_type, label: step.label,
+      status: step.status, retries: Number(step.exception_retry_count || 0),
+      input: summarizeJson(step.spec_json), output: summarizeJson(step.result_json), error: clip(step.error_message, 700),
+      started_at: step.started_at, completed_at: step.completed_at,
+    }));
+  const failed = steps.filter((step) => ['failed','awaiting_approval','awaiting_confirmation'].includes(step.status));
+  const retried = steps.filter((step) => step.retries > 0);
+  const lastOutput = [...steps].reverse().find((step) => step.output || step.error);
+  const explanation = failed.length
+    ? `${goal.agent_id || 'The assigned agent'} completed ${steps.filter((s) => s.status === 'completed').length}/${steps.length} steps. ${failed.map((s) => `${s.label || s.type}: ${s.error || s.status}`).join(' ')}`
+    : retried.length
+      ? `${goal.agent_id || 'The assigned agent'} completed the goal after ${retried.reduce((n, s) => n + s.retries, 0)} recorded retry attempt(s). The final evidence was: ${lastOutput?.output || 'completed successfully'}`
+      : `${goal.agent_id || 'The assigned agent'} completed all ${steps.length} planned steps without a recorded retry. Final evidence: ${lastOutput?.output || 'completed successfully'}`;
+  return { ...goal, steps, input_summary: steps.map((s) => `${s.label || s.type}: ${s.input || '(no structured input)'}`).join('\n'), output_summary: steps.map((s) => `${s.label || s.type}: ${s.error ? `${s.error}${s.output ? ` | captured result: ${s.output}` : ''}` : (s.output || s.status)}`).join('\n'), agent_explanation: clip(explanation, 1200) };
+}
+
+function hydrateSnapshot(snapshot) {
+  const cache = new Map();
+  const hydrate = (item) => {
+    if (!item?.id) return item;
+    if (!cache.has(item.id)) cache.set(item.id, evidenceDetail(item));
+    return cache.get(item.id);
+  };
+  return { ...snapshot, wins: (snapshot.wins || []).map(hydrate), misses: (snapshot.misses || []).map(hydrate) };
+}
+
 function hydrateReview(row) {
   if (!row) return null;
   const feedback = db().prepare('SELECT * FROM company_review_feedback WHERE review_id=? ORDER BY created_at').all(row.id).map((f) => ({ ...f, scope: parse(f.scope_json, []) }));
   const improvements = db().prepare('SELECT * FROM company_review_improvements WHERE review_id=? ORDER BY created_at').all(row.id).map((i) => ({ ...i, scope: parse(i.scope_json, []), evidence: parse(i.evidence_json, []), rollback: parse(i.rollback_json, {}) }));
-  return { ...row, snapshot: parse(row.snapshot_json), feedback, improvements };
+  return { ...row, snapshot: hydrateSnapshot(parse(row.snapshot_json)), feedback, improvements };
+}
+
+function requireMutableReview(ownerUserId, reviewId) {
+  const review = getCompanyReview(ownerUserId, reviewId);
+  if (!review) throw Object.assign(new Error('Review not found'), { status: 404 });
+  if (review.status === 'completed') throw Object.assign(new Error('Completed reviews are locked. Start a new review period to add feedback or improvements.'), { status: 409 });
+  return review;
 }
 
 export function prepareCompanyReview({ ownerUserId, cadence = 'weekly', periodStart, periodEnd, preparedByAgentId = '' }) {
@@ -158,13 +204,16 @@ export function getCompanyReview(ownerUserId, id) { ensureCompanyReviewTables();
 export function setReviewStatus(ownerUserId, id, status) {
   ensureCompanyReviewTables();
   const allowed = new Set(['ready', 'in_session', 'completed']); if (!allowed.has(status)) throw Object.assign(new Error('Invalid review status'), { status: 400 });
+  const current = getCompanyReview(ownerUserId, id);
+  if (!current) throw Object.assign(new Error('Review not found'), { status: 404 });
+  if (current.status === 'completed' && status !== 'completed') throw Object.assign(new Error('Completed reviews are immutable'), { status: 409 });
   db().prepare(`UPDATE company_reviews SET status=?, started_at=CASE WHEN ?='in_session' THEN COALESCE(started_at,datetime('now')) ELSE started_at END,
     completed_at=CASE WHEN ?='completed' THEN datetime('now') ELSE completed_at END, updated_at=datetime('now') WHERE id=? AND owner_user_id=?`).run(status, status, status, id, ownerUserId);
   return getCompanyReview(ownerUserId, id);
 }
 export function addReviewFeedback({ ownerUserId, reviewId, evidenceType, evidenceId, agentId, rating, feedback, classification, scope = [] }) {
   ensureCompanyReviewTables(); if (!String(feedback || '').trim()) throw Object.assign(new Error('feedback is required'), { status: 400 });
-  if (!getCompanyReview(ownerUserId, reviewId)) throw Object.assign(new Error('Review not found'), { status: 404 });
+  requireMutableReview(ownerUserId, reviewId);
   const id = `feedback-${randomUUID().replaceAll('-', '').slice(0, 16)}`;
   db().prepare(`INSERT INTO company_review_feedback (id,review_id,owner_user_id,evidence_type,evidence_id,agent_id,rating,feedback,classification,scope_json) VALUES (?,?,?,?,?,?,?,?,?,?)`)
     .run(id, reviewId, ownerUserId, evidenceType || 'goal', evidenceId || '', agentId || '', rating || 'meets_expectations', String(feedback).trim(), classification || 'reusable_operating_lesson', JSON.stringify(scope));
@@ -173,7 +222,9 @@ export function addReviewFeedback({ ownerUserId, reviewId, evidenceType, evidenc
 export function createImprovement({ ownerUserId, reviewId, title, problem, proposedChange, destination = 'agent_playbook', scope = [], evidence = [], ownerAgentId = '', successMetric = '', evaluationDate = null, validationTest = '' }) {
   ensureCompanyReviewTables();
   if (!String(title || '').trim() || !String(proposedChange || '').trim()) throw Object.assign(new Error('title and proposed_change are required'), { status: 400 });
+  requireMutableReview(ownerUserId, reviewId);
   if (destination === 'soul') throw Object.assign(new Error('Soul changes require a separate explicit identity-governance process'), { status: 409 });
+  if (String(proposedChange).trim().length < 20 || String(proposedChange).trim().split(/\s+/).length < 4) throw Object.assign(new Error('Proposed change must be a specific, actionable instruction (at least four words and 20 characters)'), { status: 400 });
   const id = `improvement-${randomUUID().replaceAll('-', '').slice(0, 16)}`;
   db().prepare(`INSERT INTO company_review_improvements (id,review_id,owner_user_id,title,problem,proposed_change,destination,scope_json,evidence_json,owner_agent_id,success_metric,evaluation_date,validation_test,status,rollback_json)
     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,'draft',?)`).run(id, reviewId, ownerUserId, String(title).trim(), problem || '', String(proposedChange).trim(), destination, JSON.stringify(scope), JSON.stringify(evidence), ownerAgentId, successMetric, evaluationDate, validationTest, JSON.stringify({ previous_version: null, reversible: true }));
