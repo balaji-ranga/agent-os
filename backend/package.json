@@ -37,6 +37,7 @@
     "test:openclaw-session-cleanup": "node scripts/test-openclaw-session-cleanup.mjs"
     ,"test:company-reviews": "node scripts/test-company-reviews.mjs"
     ,"test:agent-actions-live": "node scripts/test-agent-actions-live.mjs"
+    ,"test:efficiency-ollama-utilities": "node scripts/test-efficiency-ollama-utilities.mjs"
   },
   "dependencies": {
     "@stoqey/ib": "^1.6.3",

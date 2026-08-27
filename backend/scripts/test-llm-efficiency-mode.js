@@ -39,12 +39,14 @@ for (const t of [
   'coo_tool_ownership',
   'goal_plan_tool_args',
   'ceo_guardrails_enrich',
+  'summarize_url',
+  'master_data_rag',
 ]) {
   assert(isEfficiencyModeTool(t), `wave-1 tool ${t}`);
 }
-assert(EFFICIENCY_MODE_TOOLS.length === 8, 'eight wave-1 tools');
+assert(EFFICIENCY_MODE_TOOLS.length === 10, 'ten efficiency utility tools');
 assert(!isEfficiencyModeTool('workflow_builder_chat'), 'builder chat stays on BYOK');
-assert(!isEfficiencyModeTool('summarize_url'), 'summarize_url is wave-2, not wave-1');
+assert(isEfficiencyModeTool('summarize_url'), 'URL summarization uses Ollama in efficiency mode');
 assert(!shouldUseEfficiencyOllama(null, 'learnings_summary'), 'no owner → no efficiency route');
 
 const ollama = getEfficiencyOllamaLlmConfig();

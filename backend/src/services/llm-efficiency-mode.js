@@ -18,6 +18,8 @@ export const EFFICIENCY_MODE_TOOLS = Object.freeze([
   'coo_tool_ownership',
   'goal_plan_tool_args',
   'ceo_guardrails_enrich',
+  'summarize_url',
+  'master_data_rag',
 ]);
 
 const TOOL_SET = new Set(EFFICIENCY_MODE_TOOLS);
