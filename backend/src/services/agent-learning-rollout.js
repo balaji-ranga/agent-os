@@ -1,8 +1,12 @@
 import { randomUUID } from 'crypto';
 import { getDb } from '../db/schema.js';
+import { getCachedLearningsSummary, listFeedback, listKanbanLearningActions, summarizeLearnings } from './agent-feedback.js';
+import { shouldUseEfficiencyOllama } from './llm-efficiency-mode.js';
 
 let ready = false;
 const ACTIVE_DESTINATIONS = new Set(['agent_playbook', 'working_memory']);
+const PROMPT_MAX_RULES = Math.max(1, Math.min(10, Number(process.env.AGENT_LEARNING_PROMPT_MAX_RULES) || 5));
+const PROMPT_MAX_CHARS = Math.max(1200, Math.min(12000, Number(process.env.AGENT_LEARNING_PROMPT_MAX_CHARS) || 4800));
 
 function db() { return getDb(); }
 function parse(value, fallback = {}) { try { return value ? JSON.parse(value) : fallback; } catch { return fallback; } }
@@ -62,7 +66,7 @@ export function activateImprovementLearning({ ownerUserId, improvement }) {
   const tx = db().transaction(() => {
     for (const agentId of agents) {
       requireOwnedAgent(ownerUserId, agentId);
-      const previous = db().prepare(`SELECT * FROM agent_learning_versions WHERE owner_user_id=? AND agent_id=? AND destination=? AND status='active' ORDER BY version DESC LIMIT 1`).get(ownerUserId, agentId, improvement.destination);
+      const previous = db().prepare(`SELECT * FROM agent_learning_versions WHERE owner_user_id=? AND agent_id=? AND improvement_id=? AND status='active' ORDER BY version DESC LIMIT 1`).get(ownerUserId, agentId, improvement.id);
       const version = Number(db().prepare('SELECT MAX(version) version FROM agent_learning_versions WHERE owner_user_id=? AND agent_id=? AND improvement_id=?').get(ownerUserId, agentId, improvement.id)?.version || 0) + 1;
       const learningId = id('learning');
       const scope = { evidence: parse(improvement.evidence_json, []), success_metric: improvement.success_metric || '', validation_test: improvement.validation_test || '' };
@@ -106,7 +110,56 @@ export function listActiveAgentLearnings({ ownerUserId, agentId, goalRunId = '',
 export function getActiveLearningPrompt(args) {
   const rows = listActiveAgentLearnings(args);
   if (!rows.length) return { text: '', version_ids: [] };
-  return { text: `\n\nGOVERNED ACTIVE LEARNINGS (CEO-approved; apply when relevant):\n${rows.map((row) => `- [${row.id} v${row.version}] ${row.instruction}`).join('\n')}`, version_ids: rows.map((row) => row.id) };
+  const topicWords = new Set(String(args?.topic || '').toLowerCase().match(/[a-z0-9]{3,}/g) || []);
+  const ranked = rows.map((row) => {
+    const words = new Set(String(row.instruction || '').toLowerCase().match(/[a-z0-9]{3,}/g) || []);
+    let score = 0; for (const word of topicWords) if (words.has(word)) score += 1;
+    return { row, score, time: Date.parse(row.activated_at || row.created_at || '') || 0 };
+  }).sort((a, b) => b.score - a.score || b.time - a.time);
+  const chosen = []; let chars = 0;
+  for (const item of ranked) {
+    if (chosen.length >= PROMPT_MAX_RULES) break;
+    const rawLine = `- [${item.row.id} v${item.row.version}] ${item.row.instruction}`;
+    const line = rawLine.length > PROMPT_MAX_CHARS ? `${rawLine.slice(0, PROMPT_MAX_CHARS - 1)}…` : rawLine;
+    if (chosen.length && chars + line.length > PROMPT_MAX_CHARS) continue;
+    chosen.push({ ...item.row, line }); chars += line.length;
+  }
+  return { text: `\n\nGOVERNED ACTIVE LEARNINGS (CEO-approved; apply when relevant):\n${chosen.map((row) => row.line).join('\n')}`, version_ids: chosen.map((row) => row.id), available_count: rows.length, selected_count: chosen.length, bounded_chars: chars };
+}
+
+export function getAgentLearningWorkspace({ ownerUserId, agentId }) {
+  ensureAgentLearningRolloutTables(); requireOwnedAgent(ownerUserId, agentId);
+  const versions = db().prepare(`SELECT v.*, i.title AS improvement_title FROM agent_learning_versions v LEFT JOIN company_review_improvements i ON i.id=v.improvement_id WHERE v.owner_user_id=? AND v.agent_id=? ORDER BY v.created_at DESC`).all(ownerUserId, agentId).map((row) => ({ ...row, scope: parse(row.scope_json), tombstone: parse(row.tombstone_json) }));
+  const reviewFeedback = db().prepare(`SELECT f.*, r.cadence, r.period_start, r.period_end FROM company_review_feedback f LEFT JOIN company_reviews r ON r.id=f.review_id WHERE f.owner_user_id=? AND f.agent_id=? ORDER BY f.created_at DESC LIMIT 100`).all(ownerUserId, agentId).map((row) => ({ ...row, scope: parse(row.scope_json, []) }));
+  const responseFeedback = listFeedback({ ownerUserId, agentId, days: 365, limit: 100 });
+  const kanbanFeedback = listKanbanLearningActions({ ownerUserId, agentId, days: 365, limit: 100 });
+  const cached = getCachedLearningsSummary({ ownerUserId, agentId });
+  return { owner_user_id: ownerUserId, agent_id: agentId, summary: cached, summary_provider: shouldUseEfficiencyOllama(ownerUserId, 'learnings_summary') ? 'ollama_free' : 'configured_model', prompt_policy: { max_rules: PROMPT_MAX_RULES, max_chars: PROMPT_MAX_CHARS }, active_playbooks: versions.filter((row) => row.status === 'active'), version_history: versions, feedback_history: [...reviewFeedback.map((row) => ({ ...row, source: 'company_review' })), ...responseFeedback, ...kanbanFeedback].sort((a,b) => String(b.created_at || '').localeCompare(String(a.created_at || ''))).slice(0, 200) };
+}
+
+export async function regenerateAgentLearningSummary({ ownerUserId, agentId, topic = '' }) {
+  requireOwnedAgent(ownerUserId, agentId);
+  await summarizeLearnings({ ownerUserId, agentId, topic, days: 365, force: true });
+  return getAgentLearningWorkspace({ ownerUserId, agentId });
+}
+
+export function removeAgentLearningVersion({ ownerUserId, agentId, versionId, userId = '' }) {
+  ensureAgentLearningRolloutTables(); requireOwnedAgent(ownerUserId, agentId);
+  const row = db().prepare('SELECT * FROM agent_learning_versions WHERE id=? AND owner_user_id=? AND agent_id=?').get(versionId, ownerUserId, agentId);
+  if (!row) throw Object.assign(new Error('Learning version not found'), { status: 404 });
+  db().prepare(`UPDATE agent_learning_versions SET status='removed',rolled_back_at=datetime('now'),tombstone_json=?,updated_at=datetime('now') WHERE id=? AND owner_user_id=? AND agent_id=?`).run(JSON.stringify({ removed_by: userId, reason: 'CEO override removal' }), versionId, ownerUserId, agentId);
+  return getAgentLearningWorkspace({ ownerUserId, agentId });
+}
+
+export function overrideAgentLearningVersion({ ownerUserId, agentId, versionId, instruction, userId = '' }) {
+  ensureAgentLearningRolloutTables(); requireOwnedAgent(ownerUserId, agentId);
+  const text = String(instruction || '').trim(); if (text.length < 20) throw Object.assign(new Error('Override instruction must be at least 20 characters'), { status: 400 });
+  const row = db().prepare('SELECT * FROM agent_learning_versions WHERE id=? AND owner_user_id=? AND agent_id=?').get(versionId, ownerUserId, agentId);
+  if (!row) throw Object.assign(new Error('Learning version not found'), { status: 404 });
+  const version = Number(db().prepare('SELECT MAX(version) version FROM agent_learning_versions WHERE owner_user_id=? AND agent_id=? AND improvement_id=?').get(ownerUserId, agentId, row.improvement_id)?.version || 0) + 1;
+  const newId = id('learning'); const scope = { ...parse(row.scope_json), overridden_by: userId, overridden_version_id: row.id };
+  const tx = db().transaction(() => { db().prepare("UPDATE agent_learning_versions SET status='superseded',updated_at=datetime('now') WHERE id=? AND owner_user_id=?").run(row.id, ownerUserId); db().prepare(`INSERT INTO agent_learning_versions (id,owner_user_id,agent_id,review_id,improvement_id,destination,version,instruction,scope_json,status,previous_version_id,activated_at) VALUES (?,?,?,?,?,?,?,?,?,'active',?,datetime('now'))`).run(newId, ownerUserId, agentId, row.review_id, row.improvement_id, row.destination, version, text, JSON.stringify(scope), row.id); }); tx();
+  return getAgentLearningWorkspace({ ownerUserId, agentId });
 }
 
 export function recordExecutionLearningVersions({ ownerUserId, agentId, executionType, executionId, sessionId = '', learningVersionIds = [] }) {

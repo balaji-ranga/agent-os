@@ -1254,7 +1254,7 @@ router.post('/:id/chat/from-agent', allowInternalOrAuth, async (req, res) => {
     }));
     if (history.length > 20) history = history.slice(-20);
     const messages = history.map((t) => ({ role: t.role, content: t.content }));
-    const governed = getActiveLearningPrompt({ ownerUserId, agentId, sessionId: openclaw.sessionUserFor(agentId, ownerUserId) });
+    const governed = getActiveLearningPrompt({ ownerUserId, agentId, sessionId: openclaw.sessionUserFor(agentId, ownerUserId), topic: userContent });
     messages.push({ role: 'user', content: `${userContent}${governed.text}` });
 
     const sessionUser = openclaw.sessionUserFor(agentId, ownerUserId);

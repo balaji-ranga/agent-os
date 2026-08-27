@@ -1310,6 +1310,10 @@ export const api = {
   companyReviewsGenerateOpinions: (id, evidenceId, ceoFeedback) => post(`/company-reviews/${encodeURIComponent(id)}/opinions/generate`, { evidence_id: evidenceId, ceo_feedback: ceoFeedback }),
   companyReviewsCreateImprovement: (id, body) => post(`/company-reviews/${encodeURIComponent(id)}/improvements`, body),
   companyReviewsDecideImprovement: (id, decision) => post(`/company-reviews/improvements/${encodeURIComponent(id)}/decision`, { decision }),
+  agentLearningWorkspace: (agentId) => get(`/company-reviews/agent-learnings/workspace?agent_id=${encodeURIComponent(agentId)}`),
+  agentLearningRegenerate: (agentId, topic = '') => post('/company-reviews/agent-learnings/summary/regenerate', { agent_id: agentId, topic }),
+  agentLearningOverride: (versionId, agentId, instruction) => put(`/company-reviews/agent-learnings/${encodeURIComponent(versionId)}`, { agent_id: agentId, instruction }),
+  agentLearningRemove: (versionId, agentId) => del(`/company-reviews/agent-learnings/${encodeURIComponent(versionId)}?agent_id=${encodeURIComponent(agentId)}`),
   companyExecutions: (params = {}) => {
     const q = new URLSearchParams();
     if (params.limit != null) q.set('limit', String(params.limit));

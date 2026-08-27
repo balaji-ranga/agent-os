@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requireAuth, requireCeoOrAdmin, resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
 import { addReviewFeedback, createImprovement, decideImprovement, generateReviewOpinions, getCompanyReview, listCompanyReviews, prepareCompanyReview, setReviewStatus } from '../services/company-reviews.js';
+import { getAgentLearningWorkspace, overrideAgentLearningVersion, regenerateAgentLearningSummary, removeAgentLearningVersion } from '../services/agent-learning-rollout.js';
 
 const router = Router();
 const owner = (req) => resolveAuthenticatedCeoUserId(req, req.query || {});
@@ -9,6 +10,10 @@ const wrapAsync = (fn) => async (req, res) => { try { await fn(req, res); } catc
 router.use(requireAuth, requireCeoOrAdmin);
 router.get('/', wrap((req, res) => res.json({ items: listCompanyReviews(owner(req), Math.min(50, Number(req.query.limit) || 20)) })));
 router.post('/prepare', wrap((req, res) => res.json(prepareCompanyReview({ ownerUserId: owner(req), cadence: req.body?.cadence, periodStart: req.body?.period_start, periodEnd: req.body?.period_end, preparedByAgentId: req.body?.prepared_by_agent_id }))));
+router.get('/agent-learnings/workspace', wrap((req, res) => res.json(getAgentLearningWorkspace({ ownerUserId: owner(req), agentId: req.query.agent_id }))));
+router.post('/agent-learnings/summary/regenerate', wrapAsync(async (req, res) => res.json(await regenerateAgentLearningSummary({ ownerUserId: owner(req), agentId: req.body?.agent_id, topic: req.body?.topic }))));
+router.put('/agent-learnings/:versionId', wrap((req, res) => res.json(overrideAgentLearningVersion({ ownerUserId: owner(req), agentId: req.body?.agent_id, versionId: req.params.versionId, instruction: req.body?.instruction, userId: req.user?.id }))));
+router.delete('/agent-learnings/:versionId', wrap((req, res) => res.json(removeAgentLearningVersion({ ownerUserId: owner(req), agentId: req.body?.agent_id || req.query.agent_id, versionId: req.params.versionId, userId: req.user?.id }))));
 router.get('/:id', wrap((req, res) => { const row = getCompanyReview(owner(req), req.params.id); if (!row) return res.status(404).json({ error: 'Review not found' }); res.json(row); }));
 router.post('/:id/status', wrap((req, res) => res.json(setReviewStatus(owner(req), req.params.id, req.body?.status))));
 router.post('/:id/feedback', wrap((req, res) => res.json(addReviewFeedback({ ownerUserId: owner(req), reviewId: req.params.id, evidenceType: req.body?.evidence_type, evidenceId: req.body?.evidence_id, agentId: req.body?.agent_id, rating: req.body?.rating, feedback: req.body?.feedback, classification: req.body?.classification, scope: req.body?.scope }))));

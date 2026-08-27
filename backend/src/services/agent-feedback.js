@@ -383,6 +383,15 @@ function readLearningsCache(db, owner, agentKey) {
   }
 }
 
+export function getCachedLearningsSummary({ ownerUserId, agentId = null } = {}) {
+  const owner = String(ownerUserId || '').trim();
+  if (!owner) throw new Error('owner_user_id required');
+  const tenantDb = dbForOwner(owner);
+  ensureLearningsCacheTable(tenantDb);
+  const row = readLearningsCache(tenantDb, owner, learningsAgentKey(agentId));
+  return row ? { summary: row.summary, model: row.model || '', feedback_count: row.feedback_count || 0, kanban_count: row.kanban_count || 0, generated_at: row.base_generated_at || row.updated_at, updated_at: row.updated_at } : null;
+}
+
 function writeLearningsCache(db, row) {
   db.prepare(
     `INSERT INTO agent_learnings_cache

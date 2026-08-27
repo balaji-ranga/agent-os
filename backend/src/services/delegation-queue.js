@@ -1126,7 +1126,7 @@ export async function processPendingDelegationTasksForCeo(ceoUserId, opts = {}) 
     }
     if (!avatarVr) {
       try {
-        const governed = getActiveLearningPrompt({ ownerUserId: ownerForTenant, agentId: task.to_agent_id, goalRunId: goalIdentity?.goalRunId || '', sessionId: sessionUser });
+        const governed = getActiveLearningPrompt({ ownerUserId: ownerForTenant, agentId: task.to_agent_id, goalRunId: goalIdentity?.goalRunId || '', sessionId: sessionUser, topic: task.prompt });
         promptWithMemory += governed.text;
         recordExecutionLearningVersions({ ownerUserId: ownerForTenant, agentId: task.to_agent_id, executionType: goalIdentity ? 'goal_step' : 'delegation', executionId: goalIdentity?.goalStepId || task.id, sessionId: sessionUser, learningVersionIds: governed.version_ids });
       } catch (e) {

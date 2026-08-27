@@ -8,7 +8,7 @@ process.env.AGENT_OS_DATA_DIR = dataDir;
 try {
   const { initDb, getDb } = await import('../src/db/schema.js');
   const { prepareCompanyReview, addReviewFeedback, addReviewOpinion, createImprovement, decideImprovement, getCompanyReview, setReviewStatus } = await import('../src/services/company-reviews.js');
-  const { getActiveLearningPrompt } = await import('../src/services/agent-learning-rollout.js');
+  const { getActiveLearningPrompt, getAgentLearningWorkspace, overrideAgentLearningVersion, removeAgentLearningVersion } = await import('../src/services/agent-learning-rollout.js');
   initDb(); const db = getDb();
   db.prepare("INSERT OR IGNORE INTO platform_users (id,email,password_hash,name,role) VALUES ('owner-review','review@example.test','test','Review CEO','ceo')").run();
   db.prepare("INSERT OR IGNORE INTO platform_users (id,email,password_hash,name,role) VALUES ('owner-other','other@example.test','test','Other CEO','ceo')").run();
@@ -41,6 +41,17 @@ try {
   const approved = decideImprovement({ ownerUserId: 'owner-review', improvementId: withImprovement.improvements[0].id, decision: 'approve', userId: 'owner-review' }); assert.equal(approved.improvements[0].status, 'approved');
   assert.equal(approved.improvements[0].learning_versions[0].status, 'active');
   const activePrompt = getActiveLearningPrompt({ ownerUserId: 'owner-review', agentId: 'coo' }); assert.match(activePrompt.text, /Use an entitled fallback/); assert.equal(activePrompt.version_ids.length, 1);
+  const second = createImprovement({ ownerUserId: 'owner-review', reviewId: review.id, title: 'Structured completion reports', proposedChange: 'Always report the exact final tool result and execution identifier.', scope: ['coo'] });
+  const secondId = second.improvements.find((item) => item.title === 'Structured completion reports').id;
+  const secondApproved = decideImprovement({ ownerUserId: 'owner-review', improvementId: secondId, decision: 'approve', userId: 'owner-review' });
+  const multiPrompt = getActiveLearningPrompt({ ownerUserId: 'owner-review', agentId: 'coo', topic: 'report final tool result' });
+  assert.match(multiPrompt.text, /Use an entitled fallback/); assert.match(multiPrompt.text, /Always report the exact final tool result/); assert.equal(multiPrompt.available_count, 2); assert.equal(multiPrompt.selected_count, 2);
+  const secondVersion = secondApproved.improvements.find((item) => item.id === secondId).learning_versions[0];
+  const overridden = overrideAgentLearningVersion({ ownerUserId: 'owner-review', agentId: 'coo', versionId: secondVersion.id, instruction: 'Report the exact final tool result, trace identifier, and terminal status.', userId: 'owner-review' });
+  assert.match(overridden.active_playbooks.find((item) => item.improvement_id === secondId).instruction, /trace identifier/);
+  const activeSecond = overridden.active_playbooks.find((item) => item.improvement_id === secondId);
+  const removed = removeAgentLearningVersion({ ownerUserId: 'owner-review', agentId: 'coo', versionId: activeSecond.id, userId: 'owner-review' });
+  assert.ok(!removed.active_playbooks.some((item) => item.id === activeSecond.id)); assert.ok(removed.version_history.some((item) => item.id === activeSecond.id && item.status === 'removed'));
   const rolledBack = decideImprovement({ ownerUserId: 'owner-review', improvementId: withImprovement.improvements[0].id, decision: 'rollback', userId: 'owner-review' }); assert.equal(rolledBack.improvements[0].status, 'rolled_back');
   assert.equal(rolledBack.improvements[0].learning_versions[0].status, 'rolled_back'); assert.equal(getActiveLearningPrompt({ ownerUserId: 'owner-review', agentId: 'coo' }).version_ids.length, 0);
   assert.throws(() => createImprovement({ ownerUserId: 'owner-review', reviewId: review.id, title: 'Silent identity rewrite', proposedChange: 'Change identity', destination: 'soul' }), /explicit identity-governance/);
