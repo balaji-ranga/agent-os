@@ -50,6 +50,7 @@ const sidebars = {
       items: [
         'systems/workflows',
         'systems/connectors-and-mcp',
+        'systems/mcp-universe',
         'systems/agent-exchange',
         'systems/crm-and-erp',
         'systems/channels',
@@ -65,6 +66,7 @@ const sidebars = {
         'operate/how-we-loop',
         'operate/live-operations',
         'operate/performance-reviews',
+        'operate/announcements',
         'operate/maker-checker',
         'operate/example-stress-test-run',
         'operate/budgets',

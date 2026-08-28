@@ -1,0 +1,10 @@
+import express from 'express';
+import { requireAuth, requireRole } from '../middleware/auth.js';
+import { listSubmissions, listSyncRuns, moderateSubmission, searchServers, syncMcpUniverse } from '../services/mcp-universe.js';
+const router=express.Router();
+router.use(requireAuth,requireRole('admin'));
+router.get('/status',(_req,res)=>res.json({runs:listSyncRuns(),listings:searchServers({limit:10})}));
+router.get('/submissions',(_req,res)=>res.json({submissions:listSubmissions()}));
+router.post('/submissions/:id/moderate',(req,res,next)=>{try{const ok=moderateSubmission(req.params.id,req.body?.status,req.body?.note);return ok?res.json({ok:true}):res.status(404).json({error:'Submission not found'});}catch(e){next(e);}});
+router.post('/sync',async(_req,res,next)=>{try{res.json(await syncMcpUniverse());}catch(e){next(e);}});
+export default router;

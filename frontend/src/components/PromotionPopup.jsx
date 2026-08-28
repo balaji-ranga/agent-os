@@ -1,0 +1,32 @@
+import { useEffect, useRef, useState } from 'react';
+import { api } from '../api';
+import './PromotionPopup.css';
+
+function Block({ block }) {
+  if (block.type === 'heading') return <h2>{block.text}</h2>;
+  if (block.type === 'paragraph' || block.type === 'disclosure') return <p className={block.type === 'disclosure' ? 'promotion-disclosure' : ''}>{block.text}</p>;
+  if (block.type === 'image') return <img src={block.url} alt={block.alt || ''} />;
+  if (block.type === 'video') return <video controls playsInline src={block.url}>{block.text}</video>;
+  if (block.type === 'audio') return <audio controls src={block.url}>{block.text}</audio>;
+  if (block.type === 'cta') return <a className="promotion-cta" href={block.url} target="_blank" rel="noopener noreferrer">{block.label || block.text || 'Learn more'}</a>;
+  return null;
+}
+
+export default function PromotionPopup({ enabled = true }) {
+  const [campaign, setCampaign] = useState(null);
+  const sessionKey = useRef(`session-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  const event = (type, metadata = {}) => campaign && api.promotionsEvent(campaign.id, { event_type: type, idempotency_key: `${sessionKey.current}:${type}`, metadata }).catch(() => {});
+  useEffect(() => { if (enabled && !sessionStorage.getItem('flolah-promotion-shown')) api.promotionsEligible().then((r) => { if (r.campaign) { sessionStorage.setItem('flolah-promotion-shown', '1'); setCampaign(r.campaign); } }).catch(() => {}); }, [enabled]);
+  useEffect(() => { if (!campaign) return undefined; event('impression'); const timer = setTimeout(() => event('viewable'), 2000); return () => clearTimeout(timer); }, [campaign?.id]);
+  if (!campaign) return null;
+  const close = (type) => { event(type); setCampaign(null); };
+  return <div className="promotion-backdrop" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && close('dismissed')}>
+    <section className="promotion-dialog" role="dialog" aria-modal="true" aria-labelledby="promotion-title">
+      <button className="promotion-close" type="button" onClick={() => close('dismissed')} aria-label="Close announcement">×</button>
+      <div className="promotion-sponsor">Flolah announcement · {campaign.advertiser}</div>
+      <div id="promotion-title">{campaign.blocks.map((b, i) => <div key={`${b.type}-${i}`} onClick={() => b.type === 'cta' && event('cta_clicked', { url: b.url })}><Block block={b} /></div>)}</div>
+      <p className="promotion-disclosure">{campaign.disclosure}</p>
+      <div className="promotion-actions"><button type="button" onClick={() => { event('expanded_read'); close('dismissed'); }}>Done</button>{campaign.allow_suppress && <button type="button" className="secondary" onClick={() => close('suppressed_by_user')}>Don&apos;t show again</button>}</div>
+    </section>
+  </div>;
+}

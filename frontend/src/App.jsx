@@ -38,6 +38,8 @@ import AdminPlatformDocuments from './pages/AdminPlatformDocuments';
 import AdminToolOnboarding from './pages/AdminToolOnboarding';
 import AdminTlsCerts from './pages/AdminTlsCerts';
 import AdminOpenclawRecovery from './pages/AdminOpenclawRecovery';
+import AdminPromotions from './pages/AdminPromotions';
+import AdminMcpUniverse from './pages/AdminMcpUniverse';
 import McpIntegrations from './pages/McpIntegrations';
 import CustomScripts from './pages/CustomScripts';
 import ExternalAgents from './pages/ExternalAgents';
@@ -67,6 +69,7 @@ import ThemeToggle from './components/ThemeToggle';
 import GlobalSearch from './components/GlobalSearch';
 import { AdminNavMenu, CeoNavMenu } from './components/AppNavMenu';
 import ImpersonationBanner from './components/ImpersonationBanner';
+import PromotionPopup from './components/PromotionPopup';
 import { useAuth } from './context/AuthContext';
 import { api } from './api';
 import { NotificationProvider } from './context/NotificationContext';
@@ -356,6 +359,8 @@ function Shell() {
                 <Route path="/admin/openclaw-recovery" element={<AdminOpenclawRecovery />} />
                 <Route path="/admin/platform-feedback" element={<AdminPlatformFeedback />} />
                 <Route path="/admin/user-insights" element={<AdminUserInsights />} />
+                <Route path="/admin/promotions" element={<AdminPromotions />} />
+                <Route path="/admin/mcp-universe" element={<AdminMcpUniverse />} />
                 <Route path="/integrations/mcp/*" element={<McpIntegrations />} />
                 <Route path="/integrations/custom-scripts" element={<CustomScripts />} />
                 <Route path="/integrations/external-agents" element={<ExternalAgents />} />
@@ -425,6 +430,7 @@ function Shell() {
           </Routes>
         </main>
       </div>
+      <PromotionPopup enabled={isCompanyUser(user)} />
     </div>
     </NotificationProvider>
   );

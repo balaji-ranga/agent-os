@@ -61,6 +61,8 @@ function UserProfilePanel() {
   const [biz, setBiz] = useState({ crm_provider: 'none', erp_provider: 'none' });
   const [bizMeta, setBizMeta] = useState(null);
   const [bizBusy, setBizBusy] = useState(false);
+  const [promotionPrefs, setPromotionPrefs] = useState({ whatsapp_consent: false });
+  const [promotionPrefsBusy, setPromotionPrefsBusy] = useState(false);
 
   const loadOcConnections = () => {
     api
@@ -90,6 +92,11 @@ function UserProfilePanel() {
         });
       })
       .catch(() => {});
+  }, [user]);
+
+  useEffect(() => {
+    if (!user || user.role !== 'ceo') return;
+    api.promotionPreferences().then(setPromotionPrefs).catch(() => {});
   }, [user]);
 
   const saveBusinessCore = () => {
@@ -386,6 +393,12 @@ function UserProfilePanel() {
       <div id="appearance" style={{ marginTop: '1.25rem' }}>
         <ThemePicker />
       </div>
+
+      {user?.role === 'ceo' && <section className="card" style={{ marginTop: '1.25rem' }}>
+        <h2 style={{ marginTop: 0 }}>Announcement channels</h2>
+        <p style={{ color: 'var(--muted)' }}>In-app announcements may appear after login. WhatsApp promotions are sent only with your explicit consent and a paired channel.</p>
+        <label style={{ display: 'flex', gap: 10, alignItems: 'center' }}><input type="checkbox" checked={promotionPrefs.whatsapp_consent} onChange={async(e)=>{const whatsapp_consent=e.target.checked;setPromotionPrefsBusy(true);try{setPromotionPrefs(await api.promotionPreferencesSave({whatsapp_consent}));setMessage('Announcement preference saved.')}catch(err){setError(err.message)}finally{setPromotionPrefsBusy(false)}}} disabled={promotionPrefsBusy}/> Allow clearly labelled Flolah announcements on my paired WhatsApp channel</label>
+      </section>}
 
       <form onSubmit={save} style={{ marginTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>

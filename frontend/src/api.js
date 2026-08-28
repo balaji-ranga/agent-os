@@ -1356,4 +1356,16 @@ export const api = {
    * Does not require live Gateway on the VPS.
    */
   ibkrAccountSnapshotLatest: () => get('/ibkr-trading/account-snapshot/latest'),
+  promotionsEligible: () => get('/promotions/eligible'),
+  promotionsEvent: (id, body) => post(`/promotions/${encodeURIComponent(id)}/events`, body),
+  promotionPreferences: () => get('/promotions/preferences'),
+  promotionPreferencesSave: (body) => put('/promotions/preferences', body),
+  adminPromotionsList: () => get('/admin/promotions'),
+  adminPromotionsCreate: (body) => post('/admin/promotions', body),
+  adminPromotionsUpdate: (id, body) => put(`/admin/promotions/${encodeURIComponent(id)}`, body),
+  adminPromotionAnalytics: (id) => get(`/admin/promotions/${encodeURIComponent(id)}/analytics`),
+  adminMcpUniverseStatus: () => get('/admin/mcp-universe/status'),
+  adminMcpUniverseSync: () => post('/admin/mcp-universe/sync', {}),
+  adminMcpUniverseSubmissions: () => get('/admin/mcp-universe/submissions'),
+  adminMcpUniverseModerate: (id, body) => post(`/admin/mcp-universe/submissions/${encodeURIComponent(id)}/moderate`, body),
 };

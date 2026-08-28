@@ -249,6 +249,20 @@ export function AdminNavMenu({ collapsed }) {
       >
         {collapsed ? 'FB' : 'Platform feedback'}
       </NavLink>
+      <NavLink
+        to="/admin/promotions"
+        className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+        title="Internal promotions"
+      >
+        {collapsed ? 'PR' : 'Promotions'}
+      </NavLink>
+      <NavLink
+        to="/admin/mcp-universe"
+        className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+        title="MCP Universe"
+      >
+        {collapsed ? 'MU' : 'MCP Universe'}
+      </NavLink>
 
       <NavSection title="Company Tools" collapsed={collapsed}>
         <NavItem to="/connectors" title="Connectors" collapsed={collapsed} label="Connectors" short="Cn" />

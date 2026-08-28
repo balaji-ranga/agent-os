@@ -66,6 +66,11 @@ import adminToolOnboardingRoutes from './routes/admin-tool-onboarding.js';
 import adminTlsCertsRoutes from './routes/admin-tls-certs.js';
 import adminPrivilegedSessionRoutes from './routes/admin-privileged-session.js';
 import adminOpenclawRecoveryRoutes from './routes/admin-openclaw-recovery.js';
+import adminPromotionsRoutes from './routes/admin-promotions.js';
+import adminMcpUniverseRoutes from './routes/admin-mcp-universe.js';
+import promotionsRoutes from './routes/promotions.js';
+import mcpUniversePublicRoutes from './routes/mcp-universe-public.js';
+import publicPromotionTrackingRoutes from './routes/public-promotion-tracking.js';
 import {
   openSearchConsoleProxy,
   waitForOpenSearch,
@@ -145,6 +150,8 @@ import { requeueStuckStatusOnlyKanbanCards, rependInfraFailedStatusOnlyRetries }
 import { seedPlatformStandardWorkspaceTemplate } from './services/platform-agent-workspace-templates.js';
 import { startOpenClawInboundMediaSync } from './services/openclaw-inbound-media-sync.js';
 import { ensureAllToolServiceCredentials } from './services/tool-scoped-token.js';
+import { syncMcpUniverse } from './services/mcp-universe.js';
+import { dispatchDueWhatsappPromotions } from './services/promotions.js';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
@@ -574,6 +581,11 @@ apiRouter.use('/admin/tool-onboarding', adminToolOnboardingRoutes);
 apiRouter.use('/admin/tls-certs', adminTlsCertsRoutes);
 apiRouter.use('/admin/privileged-session', adminPrivilegedSessionRoutes);
 apiRouter.use('/admin/openclaw-recovery', adminOpenclawRecoveryRoutes);
+apiRouter.use('/admin/promotions', adminPromotionsRoutes);
+apiRouter.use('/admin/mcp-universe', adminMcpUniverseRoutes);
+apiRouter.use('/promotions', promotionsRoutes);
+apiRouter.use('/public/mcp-universe', mcpUniversePublicRoutes);
+apiRouter.use('/public/promotions', publicPromotionTrackingRoutes);
 apiRouter.use('/ceo-guardrails', ceoGuardrailsRoutes);
 apiRouter.use('/onboarding/helper', onboardingHelperRoutes);
 apiRouter.use('/company-setup', companySetupRoutes);
@@ -749,6 +761,24 @@ registerPlatformCron({
     console.log('[cron] Data retention purge:', out.count, 'CEO(s)');
     return out;
   },
+});
+
+const mcpUniverseCron = process.env.MCP_UNIVERSE_SYNC_CRON || '20 2 * * *';
+registerPlatformCron({
+  id: 'mcp_universe_sync',
+  name: 'MCP Universe registry sync',
+  description: 'Imports authoritative MCP Registry metadata into the canonical database and atomically rebuilds the private OpenSearch public-search alias.',
+  schedule: mcpUniverseCron,
+  envVar: 'MCP_UNIVERSE_SYNC_CRON',
+  handler: syncMcpUniverse,
+});
+registerPlatformCron({
+  id: 'promotion_whatsapp_dispatch',
+  name: 'Promotion WhatsApp dispatcher',
+  description: 'Delivers due, disclosed promotions only to explicitly opted-in CEOs with an owner-scoped paired WhatsApp channel.',
+  schedule: process.env.PROMOTION_WHATSAPP_CRON || '*/5 * * * *',
+  envVar: 'PROMOTION_WHATSAPP_CRON',
+  handler: dispatchDueWhatsappPromotions,
 });
 
 const openClawSessionCleanupCron = process.env.OPENCLAW_SESSION_CLEANUP_CRON || '30 2 * * *';
@@ -935,7 +965,8 @@ app.use((err, req, res, next) => {
     req.logUrl || sanitizeSafeUrl(req),
     err?.message || err
   );
-  res.status(500).json({ error: err.message || 'Internal server error' });
+  const status = Number(err?.status);
+  res.status(Number.isInteger(status) && status >= 400 && status < 600 ? status : 500).json({ error: err.message || 'Internal server error' });
 });
 
 function sanitizeSafeUrl(req) {

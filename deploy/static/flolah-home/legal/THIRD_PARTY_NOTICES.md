@@ -277,3 +277,6 @@ Image-layer OS packages (Debian/Alpine) can be listed with `dpkg -l` / `apk info
 | `frontend/public/legal/THIRD_PARTY_NOTICES.md` | Login host `/legal/THIRD_PARTY_NOTICES.md` |
 | `deploy/static/flolah-home/legal/THIRD_PARTY_NOTICES.md` | Marketing host `/legal/THIRD_PARTY_NOTICES.md` |
 | `/legal/open-source.html` | End users (short list + links) |
+# MCP Registry
+
+MCP Universe imports public metadata from the official Model Context Protocol Registry. Listing names, descriptions, repositories, packages, endpoints, and publisher marks remain the property of their respective publishers. Source: https://registry.modelcontextprotocol.io and https://github.com/modelcontextprotocol/registry.
