@@ -4,6 +4,7 @@ import {
   selectExplicitFallbackUrl,
   goalRequestsBrowserRecovery,
   sanitizeUnsupportedItemClaims,
+  buildVerifiedMarketOutcome,
   buildOutcomeRichTerminalReport,
 } from '../src/services/agent-goal-run.js';
 
@@ -25,6 +26,18 @@ const sanitized = sanitizeUnsupportedItemClaims('| VOOG | +0.68% |\n| AAPL | +1.
 assert.doesNotMatch(sanitized, /VOOG[^\n]*0\.68%/);
 assert.match(sanitized, /AAPL[^\n]*\+1\.2%/);
 assert.match(sanitized, /Verified-data correction: VOOG/);
+
+const verified = buildVerifiedMarketOutcome([{
+  step_index: 0,
+  result_json: JSON.stringify({
+    multi_symbol: true,
+    results: [{ symbol: 'MSFT', result: { daily_change_pct: 0.026, close: 499.99 } }],
+    fallbacks: [{ symbol: 'VOOG', status: 'completed', task: { result: { summary: 'VOOG +0.68% from Yahoo Finance' } } }],
+  }),
+}]);
+assert.match(verified, /MSFT: \+0\.03%/);
+assert.doesNotMatch(verified, /2\.60%/);
+assert.match(verified, /VOOG \(browser recovery\).*\+0\.68%/);
 
 const report = buildOutcomeRichTerminalReport({
   terminal: 'completed',

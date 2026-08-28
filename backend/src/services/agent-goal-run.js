@@ -160,6 +160,56 @@ function unresolvedItemsBeforeStep(goalRunId, stepIndex) {
   return [...failed].filter((item) => !recovered.has(item));
 }
 
+function priorSuccessfulBrowserFallback(goalRunId, stepIndex, symbol) {
+  for (const row of loadGoalSteps(goalRunId).reverse()) {
+    if (Number(row.step_index) >= Number(stepIndex)) continue;
+    const match = (resultPayload(row)?.fallbacks || []).find((fallback) =>
+      String(fallback?.symbol || '').toUpperCase() === String(symbol || '').toUpperCase()
+      && fallback?.status === 'completed'
+      && fallback?.task?.result
+    );
+    if (match) return match;
+  }
+  return null;
+}
+
+export function buildVerifiedMarketOutcome(steps = []) {
+  const values = new Map();
+  const browserValues = new Map();
+  for (const step of steps) {
+    const result = resultPayload(step);
+    if (!result?.multi_symbol) continue;
+    for (const item of result.results || []) {
+      const payload = item?.result?.result || item?.result || {};
+      const change = Number(payload.daily_change_pct);
+      if (!item?.symbol || !Number.isFinite(change)) continue;
+      values.set(String(item.symbol).toUpperCase(), {
+        change,
+        close: Number.isFinite(Number(payload.close)) ? Number(payload.close) : null,
+        source: payload.source_url || payload.source || null,
+        timestamp: payload.source_timestamp || payload.timestamp || null,
+      });
+    }
+    for (const fallback of result.fallbacks || []) {
+      if (fallback?.status !== 'completed' || !fallback?.task?.result || !fallback?.symbol) continue;
+      if (!browserValues.has(String(fallback.symbol).toUpperCase())) {
+        browserValues.set(String(fallback.symbol).toUpperCase(), fallback.task.result);
+      }
+    }
+  }
+  if (!values.size && !browserValues.size) return '';
+  const lines = ['### Verified market outcome'];
+  for (const [symbol, value] of values) {
+    const close = value.close == null ? '' : `; close ${value.close}`;
+    lines.push(`- **${symbol}: ${value.change >= 0 ? '+' : ''}${value.change.toFixed(2)}%**${close}`);
+  }
+  for (const [symbol, evidence] of browserValues) {
+    const summary = String(evidence?.summary || evidence?.verification?.evidence?.[0] || '').trim();
+    lines.push(`- **${symbol} (browser recovery):** ${clip(summary || 'verified recovery completed', 500)}`);
+  }
+  return lines.join('\n');
+}
+
 export function buildOutcomeRichTerminalReport({ goal, steps, terminal = 'completed' } = {}) {
   const rows = Array.isArray(steps) ? steps : [];
   const synthesis = [...rows].reverse().map(resultPayload).map(usefulReply)
@@ -1720,7 +1770,13 @@ async function executeAgentContinueStep(goal, step) {
     maxTokens: 3000,
   });
   const unsupportedItems = unresolvedItemsBeforeStep(goal.id, step.step_index);
-  const reply = sanitizeUnsupportedItemClaims(String(content || '').trim() || '(no response)', unsupportedItems);
+  const verifiedMarketOutcome = buildVerifiedMarketOutcome(loadGoalSteps(goal.id).filter(
+    (row) => Number(row.step_index) < Number(step.step_index)
+  ));
+  const modelReply = sanitizeUnsupportedItemClaims(String(content || '').trim() || '(no response)', unsupportedItems);
+  // Numeric market reporting must be rendered from structured evidence. Models may
+  // turn 0.026% into 2.60% or prefer stale browser text over a successful API value.
+  const reply = verifiedMarketOutcome || modelReply;
   try {
     insertChatTurn({
       agentId: agent.id,
@@ -1897,6 +1953,11 @@ async function executeAgentToolStep(goal, step) {
       const goalText = `${goal.title || ''}\n${goal.prompt || ''}`;
       const fallbackUrl = selectExplicitFallbackUrl(goalText, failed.symbol);
       if (!fallbackUrl && !goalRequestsBrowserRecovery(goalText)) continue;
+      const priorRecovery = priorSuccessfulBrowserFallback(goal.id, step.step_index, failed.symbol);
+      if (priorRecovery) {
+        fallbacks.push({ ...priorRecovery, reused: true });
+        continue;
+      }
       try {
         const excludedDrivers = [];
         for (let attempt = 0; attempt < 3; attempt += 1) {
