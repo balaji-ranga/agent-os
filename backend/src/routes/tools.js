@@ -105,6 +105,12 @@ import {
 } from '../services/tool-api-rate-limits.js';
 import { actionPolicyMiddleware, evaluateActionPolicy } from '../services/action-policy.js';
 import {
+  beginToolExecution,
+  completeToolExecution,
+  listExecutionBehaviours,
+  putExecutionBehaviours,
+} from '../services/tool-execution-governor.js';
+import {
   notifyKanbanTaskCreated,
   clearKanbanTaskNotification,
 } from '../services/platform-notifications.js';
@@ -553,6 +559,30 @@ router.post('/rate-limits/reset', attachToolsAuth, requireAuth, requireCeoOrAdmi
     const msg = e?.message || 'Failed to reset tool rate limit';
     if (/required|period must/i.test(msg)) return res.status(400).json({ error: msg });
     res.status(e?.status || 500).json({ error: msg });
+  }
+});
+
+/**
+ * GET /execution-behaviour — owner-scoped execution-governor defaults, overrides and health.
+ * Agent grants remain in AI Employees; models/rate limits remain in their existing tabs.
+ */
+router.get('/execution-behaviour', attachToolsAuth, requireAuth, requireCeoOrAdmin, (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req);
+    res.json({ ok: true, tools: listExecutionBehaviours(ownerUserId) });
+  } catch (e) {
+    res.status(e?.status || 500).json({ error: e.message || 'Failed to load execution behaviour' });
+  }
+});
+
+/** PUT /execution-behaviour — save bounded owner overrides. */
+router.put('/execution-behaviour', attachToolsAuth, requireAuth, requireCeoOrAdmin, (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req);
+    const tools = putExecutionBehaviours(ownerUserId, req.body?.mappings || []);
+    res.json({ ok: true, tools });
+  } catch (e) {
+    res.status(e?.status || 400).json({ error: e.message || 'Failed to save execution behaviour' });
   }
 });
 
@@ -3346,6 +3376,7 @@ router.post('/agent-workflow-certify-resume', optionalAuth, async (req, res) => 
  */
 router.post('/invoke', requireToolsAccess, async (req, res) => {
   let source = (req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || '').toString().trim() || null;
+  let governed = null;
   if (!source && req.body && (req.body.caller_agent_id != null || req.body.x_openclaw_agent_id != null)) {
     source = String(req.body.caller_agent_id ?? req.body.x_openclaw_agent_id).trim() || null;
   }
@@ -3392,9 +3423,6 @@ router.post('/invoke', requireToolsAccess, async (req, res) => {
     }
     const ownerUserId = resolveToolOwnerUserIdOrNull(req, params, resolveAuthenticatedCeoUserId);
     if (ownerUserId) {
-      if (!params.ceo_user_id && !params.ceoUserId && !params.owner_user_id) {
-        params.ceo_user_id = ownerUserId;
-      }
       if (!headers['x-ceo-user-id']) headers['x-ceo-user-id'] = ownerUserId;
     }
     const policy = req.actionPolicy || evaluateActionPolicy({
@@ -3409,11 +3437,40 @@ router.post('/invoke', requireToolsAccess, async (req, res) => {
     }
     // Approval grants authorize this hop only. Never forward or persist the bearer token downstream.
     delete params.approval_token;
+    // Owner and tenant identity are platform-derived. Never allow the model to forward or
+    // vary them as tool arguments; downstream endpoints receive the trusted header above.
+    for (const key of ['owner_user_id', 'ownerUserId', 'ceo_user_id', 'ceoUserId', 'user_id', 'userId']) {
+      delete params[key];
+    }
+    governed = ownerUserId
+      ? beginToolExecution({
+          ownerUserId,
+          agentId: source,
+          sessionKey:
+            req.headers['x-openclaw-session-key'] ||
+            req.headers['x-openclaw-session-user'] ||
+            req.headers['x-session-key'] ||
+            null,
+          traceId: inferTraceId(getLlmopsContext() || {}),
+          toolName,
+          params,
+        })
+      : null;
+    if (governed?.duplicate) {
+      const out = { ok: false, error: governed.observation.message, _execution: governed.observation };
+      logTool(req, toolName, params, out, 'error', source);
+      return res.status(409).json(out);
+    }
     if (row.auth_header && typeof row.auth_header === 'string' && row.auth_header.trim()) {
       headers['Authorization'] = row.auth_header.trim();
     }
     if (targetUrl.startsWith(baseUrl)) Object.assign(headers, internalAuthHeaders());
-    const fetchOpts = { method, headers, signal: AbortSignal.timeout(90000) };
+    if (governed?.id) headers['x-flolah-execution-action-id'] = governed.id;
+    const fetchOpts = {
+      method,
+      headers,
+      signal: AbortSignal.timeout(governed?.behaviour?.timeout_ms || 90000),
+    };
     if (method === 'GET') {
       const url = new URL(targetUrl);
       for (const [k, v] of Object.entries(params)) {
@@ -3425,12 +3482,26 @@ router.post('/invoke', requireToolsAccess, async (req, res) => {
     }
     const response = await fetch(targetUrl, fetchOpts);
     const data = await response.json().catch(() => ({}));
+    const observation = governed
+      ? completeToolExecution(governed, { httpStatus: response.status, data })
+      : null;
+    const governedData = data && typeof data === 'object' && !Array.isArray(data)
+      ? { ...data, ...(observation ? { _execution: observation } : {}) }
+      : { result: data, ...(observation ? { _execution: observation } : {}) };
     const status = response.ok ? 'ok' : 'error';
-    logTool(req,toolName, params, data, status, source);
-    if (!response.ok) return res.status(response.status).json(data);
-    res.json(data);
+    logTool(req,toolName, params, governedData, status, source);
+    if (!response.ok) return res.status(response.status).json(governedData);
+    res.json(governedData);
   } catch (e) {
     const errMsg = e.name === 'AbortError' ? 'Request timeout' : e.message;
+    if (governed?.id) {
+      try {
+        completeToolExecution(governed, {
+          httpStatus: e.name === 'AbortError' ? 408 : 500,
+          data: { error: errMsg },
+        });
+      } catch (_) {}
+    }
     logTool(req,req.body?.tool_name || '?', req.body, { error: errMsg }, 'error', source);
     res.status(500).json({ error: errMsg });
   }

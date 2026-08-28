@@ -230,6 +230,8 @@ export function purgeOwnerScopedRows(db, ownerUserId) {
   counts.chat_turns = tryRun(db, `DELETE FROM chat_turns WHERE owner_user_id = ?`, [ownerUserId]);
   counts.chat_session_meta = tryRun(db, `DELETE FROM chat_session_meta WHERE owner_user_id = ?`, [ownerUserId]);
   counts.content_tool_logs = tryRun(db, `DELETE FROM content_tool_logs WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.tool_execution_actions = tryRun(db, `DELETE FROM tool_execution_actions WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.tool_execution_behaviour = tryRun(db, `DELETE FROM tool_execution_behaviour WHERE owner_user_id = ?`, [ownerUserId]);
   counts.agent_response_feedback = tryRun(db, `DELETE FROM agent_response_feedback WHERE owner_user_id = ?`, [
     ownerUserId,
   ]);

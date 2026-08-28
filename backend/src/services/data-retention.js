@@ -42,6 +42,7 @@ export function purgeOwnerRetention(ownerUserId, { days = null } = {}) {
     standup_messages: 0,
     workflow_run_steps: 0,
     workflow_runs: 0,
+    tool_execution_actions: 0,
     inbound_attachments: 0,
     generated_media: 0,
   };
@@ -74,6 +75,16 @@ export function purgeOwnerRetention(ownerUserId, { days = null } = {}) {
            AND datetime(created_at) < datetime('now', ?)`
       )
       .run(owner, cutoff).changes || 0;
+
+  try {
+    deleted.tool_execution_actions =
+      db.prepare(
+        `DELETE FROM tool_execution_actions
+          WHERE owner_user_id = ? AND datetime(created_at) < datetime('now', ?)`
+      ).run(owner, cutoff).changes || 0;
+  } catch (_) {
+    /* table may not exist on older DBs */
+  }
 
   const oldRuns = db
     .prepare(

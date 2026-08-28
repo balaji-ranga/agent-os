@@ -439,7 +439,7 @@ function recordSafe(ownerUserId, goalRunId, ev) {
 export function actionPolicyMiddleware(req, res, next) {
   if (req.method === 'OPTIONS' || req.method === 'HEAD') return next();
   const path = String(req.path || '');
-  if (path.startsWith('/rate-limits') || path.startsWith('/model-mappings')) return next();
+  if (path.startsWith('/rate-limits') || path.startsWith('/model-mappings') || path.startsWith('/execution-behaviour')) return next();
 
   let toolName = String(req.body?.tool_name || req.body?.toolName || '').trim();
   if (!toolName) {

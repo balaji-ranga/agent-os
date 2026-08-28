@@ -38,6 +38,8 @@
     ,"test:company-reviews": "node scripts/test-company-reviews.mjs"
     ,"test:agent-actions-live": "node scripts/test-agent-actions-live.mjs"
     ,"test:efficiency-ollama-utilities": "node scripts/test-efficiency-ollama-utilities.mjs"
+    ,"test:agent-reasoning-patterns": "node scripts/vps-test-agent-reasoning-patterns.mjs"
+    ,"test:execution-governor": "node scripts/test-tool-execution-governor.mjs"
   },
   "dependencies": {
     "@stoqey/ib": "^1.6.3",

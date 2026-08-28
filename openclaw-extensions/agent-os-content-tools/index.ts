@@ -419,10 +419,6 @@ async function callInvoke(
   headers.Authorization = `Bearer ${scopedCredential}`;
   const body: Record<string, unknown> = { tool_name: toolName, ...params };
   if (callerAgentId) body.caller_agent_id = callerAgentId;
-  const ownerFromHeader = headers["x-ceo-user-id"];
-  if (ownerFromHeader && !body.ceo_user_id && !body.owner_user_id) {
-    body.ceo_user_id = ownerFromHeader;
-  }
   try {
     const res = await fetch(`${url}/api/tools/invoke`, {
       method: "POST",
@@ -432,13 +428,24 @@ async function callInvoke(
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      return { ok: false, error: (data as { error?: string }).error || res.statusText };
+      return { ok: false, error: (data as { error?: string }).error || res.statusText, data };
     }
     return { ok: true, data };
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     return { ok: false, error: msg };
   }
+}
+
+function modelVisibleSchema(schema: Record<string, unknown>): Record<string, unknown> {
+  const copy = JSON.parse(JSON.stringify(schema || { type: "object", properties: {} })) as {
+    properties?: Record<string, unknown>;
+    required?: string[];
+  };
+  const hidden = new Set(["owner_user_id", "ownerUserId", "ceo_user_id", "ceoUserId", "user_id", "userId"]);
+  if (copy.properties) for (const key of hidden) delete copy.properties[key];
+  if (Array.isArray(copy.required)) copy.required = copy.required.filter((key) => !hidden.has(key));
+  return copy as Record<string, unknown>;
 }
 
 export default definePluginEntry({
@@ -454,9 +461,10 @@ export default definePluginEntry({
       const name = t?.name;
       if (!name || typeof name !== "string") continue;
       const description = (t.purpose || t.display_name || name) as string;
-      const parameters =
+      const parameters = modelVisibleSchema(
         PARAM_SCHEMAS[name] ||
-        ({ type: "object", properties: {}, additionalProperties: true } as Record<string, unknown>);
+          ({ type: "object", properties: {}, additionalProperties: true } as Record<string, unknown>)
+      );
       api.registerTool(
         (toolCtx: ToolCtx) => {
           const callerAgentId = resolveCallerAgentId(api, {}, toolCtx);
@@ -471,7 +479,7 @@ export default definePluginEntry({
               const invokeCaller = resolveCallerAgentId(api, raw, toolCtx);
               const { __openclaw_agent_id, caller_agent_id, agent_id, ...rest } = raw;
               const result = await callInvoke(api, name, rest, invokeCaller, toolCtx);
-              const text = result.ok ? JSON.stringify(result.data) : JSON.stringify({ error: result.error });
+              const text = result.ok ? JSON.stringify(result.data) : JSON.stringify(result.data || { error: result.error });
               return { content: [{ type: "text" as const, text }] };
             },
           };

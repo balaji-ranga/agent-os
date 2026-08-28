@@ -1303,6 +1303,9 @@ export const api = {
     if (params.limit != null) sp.set('limit', String(params.limit));
     return get(`/company-reviews${sp.size ? `?${sp}` : ''}`);
   },
+  /** CEO Tools → platform execution/recovery behaviour (agent grants stay in AI Employees). */
+  contentToolsExecutionBehaviour: () => get('/tools/execution-behaviour'),
+  contentToolsExecutionBehaviourSave: (mappings) => put('/tools/execution-behaviour', { mappings }),
   companyReviewsPrepare: (body = {}) => post('/company-reviews/prepare', body),
   companyReviewsGet: (id) => get(`/company-reviews/${encodeURIComponent(id)}`),
   companyReviewsSetStatus: (id, status) => post(`/company-reviews/${encodeURIComponent(id)}/status`, { status }),

@@ -774,10 +774,6 @@ async function callInvoke(api, toolName, params, callerAgentId, toolCtx) {
   headers.Authorization = `Bearer ${scopedCredential}`;
   const body = { tool_name: toolName, ...params };
   if (callerAgentId) body.caller_agent_id = callerAgentId;
-  const ownerFromHeader = headers["x-ceo-user-id"];
-  if (ownerFromHeader && !body.ceo_user_id && !body.owner_user_id) {
-    body.ceo_user_id = ownerFromHeader;
-  }
   try {
     const res = await fetch(`${url}/api/tools/invoke`, {
       method: "POST",
@@ -787,13 +783,23 @@ async function callInvoke(api, toolName, params, callerAgentId, toolCtx) {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      return { ok: false, error: data.error || res.statusText };
+      return { ok: false, error: data.error || res.statusText, data };
     }
     return { ok: true, data };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return { ok: false, error: msg };
   }
+}
+
+function modelVisibleSchema(schema) {
+  const copy = JSON.parse(JSON.stringify(schema || { type: "object", properties: {} }));
+  const hidden = new Set(["owner_user_id", "ownerUserId", "ceo_user_id", "ceoUserId", "user_id", "userId"]);
+  if (copy.properties) {
+    for (const key of hidden) delete copy.properties[key];
+  }
+  if (Array.isArray(copy.required)) copy.required = copy.required.filter((key) => !hidden.has(key));
+  return copy;
 }
 
 export default definePluginEntry({
@@ -817,7 +823,7 @@ export default definePluginEntry({
       const name = t?.name;
       if (!name || typeof name !== "string") continue;
       const description = t.purpose || t.display_name || name;
-      const parameters = PARAM_SCHEMAS[name] || { type: "object", properties: {}, additionalProperties: true };
+      const parameters = modelVisibleSchema(PARAM_SCHEMAS[name] || { type: "object", properties: {}, additionalProperties: true });
       api.registerTool(
         (toolCtx) => {
           const callerAgentId = resolveCallerAgentId(api, {}, toolCtx);
@@ -833,7 +839,7 @@ export default definePluginEntry({
               const { __openclaw_agent_id, caller_agent_id, agent_id, ...rest } = raw;
               const result = await callInvoke(api, name, rest, invokeCaller, toolCtx);
               if (!result.ok) {
-                return { content: [{ type: "text", text: JSON.stringify({ error: result.error }) }] };
+                return { content: [{ type: "text", text: JSON.stringify(result.data || { error: result.error }) }] };
               }
               let data = result.data;
               // Force WhatsApp-safe paste: MEDIA:/abs/path (not auth-gated https).

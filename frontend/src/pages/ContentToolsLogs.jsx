@@ -148,6 +148,13 @@ export default function ContentToolsLogs() {
   const [rateMapAuditRows, setRateMapAuditRows] = useState([]);
   const [rateMapAuditLoading, setRateMapAuditLoading] = useState(false);
 
+  const [executionOpen, setExecutionOpen] = useState(false);
+  const [executionLoading, setExecutionLoading] = useState(false);
+  const [executionSaving, setExecutionSaving] = useState(false);
+  const [executionError, setExecutionError] = useState(null);
+  const [executionTools, setExecutionTools] = useState([]);
+  const [executionFilter, setExecutionFilter] = useState('');
+
   const [logs, setLogs] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -362,6 +369,33 @@ export default function ContentToolsLogs() {
       .finally(() => setRateMapAuditLoading(false));
   };
 
+  const openExecutionBehaviour = () => {
+    setExecutionOpen(true);
+    setExecutionLoading(true);
+    setExecutionError(null);
+    api.contentToolsExecutionBehaviour()
+      .then((data) => setExecutionTools(data.tools || []))
+      .catch((e) => setExecutionError(e.message))
+      .finally(() => setExecutionLoading(false));
+  };
+
+  const saveExecutionBehaviour = () => {
+    setExecutionSaving(true);
+    setExecutionError(null);
+    const mappings = executionTools.map((t) => ({
+      tool_name: t.name,
+      retry_limit: Number(t.retry_limit),
+      timeout_ms: Number(t.timeout_ms),
+      duplicate_window_sec: Number(t.duplicate_window_sec),
+      verification_mode: t.verification_mode,
+      fallback_capabilities: t.fallback_capabilities || [],
+    }));
+    api.contentToolsExecutionBehaviourSave(mappings)
+      .then((data) => setExecutionTools(data.tools || []))
+      .catch((e) => setExecutionError(e.message))
+      .finally(() => setExecutionSaving(false));
+  };
+
   if (toolsLoading && tools.length === 0) {
     return (
       <div style={{ padding: '2rem' }}>Loading…</div>
@@ -421,6 +455,21 @@ export default function ContentToolsLogs() {
               }}
             >
               Tools → Rate limits
+            </button>
+            <button
+              type="button"
+              onClick={openExecutionBehaviour}
+              style={{
+                padding: '0.4rem 0.75rem',
+                background: 'var(--surface)',
+                color: 'var(--text)',
+                border: '1px solid var(--border)',
+                borderRadius: 6,
+                cursor: 'pointer',
+                fontSize: '0.9rem',
+              }}
+            >
+              Tools → Execution behaviour
             </button>
             <button
               type="button"
@@ -605,6 +654,69 @@ export default function ContentToolsLogs() {
                 </pre>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {executionOpen && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}
+          onClick={() => !executionSaving && setExecutionOpen(false)}
+        >
+          <div
+            style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, padding: '1.5rem', width: '96%', maxWidth: 1120, maxHeight: '88vh', overflow: 'auto' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ marginTop: 0 }}>Tools → Execution behaviour</h3>
+            <p style={{ marginTop: 0, color: 'var(--muted)', fontSize: '0.9rem' }}>
+              Platform recovery and verification rules. Agent access remains in AI Employees; approvals remain in Org Policy. Safe defaults apply until you save an override.
+            </p>
+            <input
+              type="search"
+              placeholder="Filter tools or capabilities…"
+              value={executionFilter}
+              onChange={(e) => setExecutionFilter(e.target.value)}
+              style={{ width: '100%', maxWidth: 360, padding: '0.4rem 0.55rem', background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 6, marginBottom: '0.75rem' }}
+            />
+            {executionError && <div style={{ color: '#f87171', marginBottom: '0.75rem' }}>{executionError}</div>}
+            {executionLoading ? <div style={{ color: 'var(--muted)' }}>Loading…</div> : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                  <thead><tr style={{ borderBottom: '1px solid var(--border)' }}>
+                    <th style={{ textAlign: 'left', padding: 8 }}>Tool / capability</th>
+                    <th style={{ textAlign: 'left', padding: 8 }}>Access</th>
+                    <th style={{ textAlign: 'left', padding: 8 }}>Retry</th>
+                    <th style={{ textAlign: 'left', padding: 8 }}>Timeout</th>
+                    <th style={{ textAlign: 'left', padding: 8 }}>Duplicate guard</th>
+                    <th style={{ textAlign: 'left', padding: 8 }}>Verification</th>
+                    <th style={{ textAlign: 'left', padding: 8 }}>Fallback</th>
+                    <th style={{ textAlign: 'left', padding: 8 }}>Health</th>
+                  </tr></thead>
+                  <tbody>
+                    {executionTools.map((t, index) => {
+                      const q = executionFilter.trim().toLowerCase();
+                      if (q && !`${t.name} ${t.display_name} ${t.capability}`.toLowerCase().includes(q)) return null;
+                      const update = (field, value) => setExecutionTools((rows) => rows.map((row, i) => i === index ? { ...row, [field]: value } : row));
+                      const calls = Number(t.stats?.calls || 0);
+                      return <tr key={t.name} style={{ borderBottom: '1px solid var(--border)' }}>
+                        <td style={{ padding: 8, minWidth: 190 }}><strong>{t.display_name || t.name}</strong><div style={{ color: 'var(--muted)' }}>{t.name}</div><div style={{ color: 'var(--accent)' }}>{t.capability}</div></td>
+                        <td style={{ padding: 8 }}>{t.access === 'mutating' ? 'Mutating' : 'Read-only'}</td>
+                        <td style={{ padding: 8 }}><input aria-label={`${t.name} retry limit`} type="number" min="0" max="3" value={t.retry_limit} onChange={(e) => update('retry_limit', e.target.value)} style={{ width: 54, padding: 4 }} /></td>
+                        <td style={{ padding: 8 }}><input aria-label={`${t.name} timeout milliseconds`} type="number" min="1000" max="600000" step="1000" value={t.timeout_ms} onChange={(e) => update('timeout_ms', e.target.value)} style={{ width: 92, padding: 4 }} /></td>
+                        <td style={{ padding: 8 }}><input aria-label={`${t.name} duplicate window seconds`} type="number" min="0" max="86400" value={t.duplicate_window_sec} onChange={(e) => update('duplicate_window_sec', e.target.value)} style={{ width: 78, padding: 4 }} /> sec</td>
+                        <td style={{ padding: 8 }}><select value={t.verification_mode} onChange={(e) => update('verification_mode', e.target.value)} style={{ padding: 4 }}><option value="none">None</option><option value="evidence_coverage">Evidence</option><option value="read_back_or_receipt">Read-back / receipt</option></select></td>
+                        <td style={{ padding: 8, minWidth: 170, color: 'var(--muted)' }}>{(t.fallback_capabilities || []).join(' → ') || 'Clarify'}</td>
+                        <td style={{ padding: 8 }}>{calls ? `${t.stats.successes}/${calls} ok` : 'No calls'}{t.stats?.duplicates_prevented ? <div>{t.stats.duplicates_prevented} duplicate prevented</div> : null}</td>
+                      </tr>;
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+              <button type="button" onClick={saveExecutionBehaviour} disabled={executionLoading || executionSaving} style={{ padding: '0.45rem 0.8rem', background: 'var(--accent)', color: '#fff', border: 0, borderRadius: 6 }}>{executionSaving ? 'Saving…' : 'Save behaviour'}</button>
+              <button type="button" onClick={() => setExecutionOpen(false)} disabled={executionSaving} style={{ padding: '0.45rem 0.8rem', background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 6 }}>Close</button>
+            </div>
           </div>
         </div>
       )}

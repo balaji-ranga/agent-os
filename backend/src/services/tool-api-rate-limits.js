@@ -682,7 +682,7 @@ export function toolApiRateLimitMiddleware(req, res, next) {
   if (req.method === 'OPTIONS' || req.method === 'HEAD') return next();
   const path = String(req.path || '');
   if (path === '/invoke' || path.startsWith('/invoke/')) return next();
-  if (path.startsWith('/rate-limits') || path.startsWith('/model-mappings')) return next();
+  if (path.startsWith('/rate-limits') || path.startsWith('/model-mappings') || path.startsWith('/execution-behaviour')) return next();
 
   const toolName = resolveToolNameFromRequest(req);
   if (!toolName || !isToolApiRateLimitable(toolName)) return next();

@@ -27,7 +27,11 @@ export const CHAT_INSTRUCTION_BROWSER =
 
 /** Before starting work: pull user+agent learnings (feedback + Kanban decisions). */
 export const CHAT_INSTRUCTION_LEARNINGS =
-  'REQUIRED before any non-trivial task (research, recipes, builds, Kanban work, multi-step asks): call the learnings_summary tool first with JSON {"topic":"<short topic>","days":30}. Read the summary and apply it (avoid past mistakes; prefer what this CEO liked, including Kanban approve/reject comments). Skip only for trivial greets. Do this once at the start, then proceed with tools and the answer.';
+  'REQUIRED before any non-trivial task (research, recipes, builds, Kanban work, multi-step asks): call the learnings_summary tool first with JSON {"topic":"<short topic>","days":30}. Apply only topic-relevant active learnings/playbooks; historical or rolled-back guidance is evidence, not an active rule. Learnings never override security, tenant scope, entitlements, or Org Policy. Skip only for trivial greets. Do this once at the start, then proceed with tools and the answer.';
+
+/** Platform-owned ReAct contract: OpenClaw reasons/acts; Flolah governs observations and completion. */
+export const CHAT_INSTRUCTION_EXECUTION_GOVERNOR =
+  'Execution contract for non-trivial work: identify every explicit requested outcome and the evidence needed before acting. After each tool result, inspect `_execution`: do not repeat an equivalent action after duplicate_blocked, wrong_source, empty, or permanent_error; use suggested_capabilities or another genuinely different capability. Retry only when retryable=true and at most once. Continue until each requested outcome is supported. For mutations, verify by read-back, provider receipt, or resulting state before claiming success. If evidence is still missing, clarify or report the precise blocker; never present incomplete work as completed. Give the user concise action/outcome summaries, never private chain-of-thought.';
 
 /** Agent owns Kanban status — complete only after real deliverable. */
 export const CHAT_INSTRUCTION_KANBAN =
@@ -131,6 +135,7 @@ export async function chatCompletions(agentId, messages, sessionUser = null, str
   if (injectSessionHistoryInstruction) systemParts.push(CHAT_INSTRUCTION_SESSION_HISTORY);
   if (injectBrowserInstruction) systemParts.push(CHAT_INSTRUCTION_BROWSER);
   if (injectLearningsInstruction) systemParts.push(CHAT_INSTRUCTION_LEARNINGS);
+  systemParts.push(CHAT_INSTRUCTION_EXECUTION_GOVERNOR);
   if (injectKanbanInstruction) systemParts.push(CHAT_INSTRUCTION_KANBAN);
   const outMessages = systemParts.length > 0
     ? [{ role: 'system', content: systemParts.join('\n\n') }, ...messages]

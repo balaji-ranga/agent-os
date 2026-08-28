@@ -1982,6 +1982,45 @@ export function initDb() {
       `CREATE INDEX IF NOT EXISTS idx_content_tool_logs_trace ON content_tool_logs(owner_user_id, trace_id)`
     );
   } catch (_) {}
+  /**
+   * Owner-scoped execution-governor overrides and action ledger.  The ledger stores
+   * observable actions/observations only; private model reasoning is never persisted.
+   */
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS tool_execution_behaviour (
+        owner_user_id TEXT NOT NULL,
+        tool_name TEXT NOT NULL,
+        retry_limit INTEGER,
+        timeout_ms INTEGER,
+        duplicate_window_sec INTEGER,
+        verification_mode TEXT,
+        fallback_capabilities TEXT,
+        updated_at TEXT DEFAULT (datetime('now')),
+        PRIMARY KEY (owner_user_id, tool_name)
+      );
+      CREATE TABLE IF NOT EXISTS tool_execution_actions (
+        id TEXT PRIMARY KEY,
+        owner_user_id TEXT NOT NULL,
+        execution_key TEXT NOT NULL,
+        agent_id TEXT,
+        tool_name TEXT NOT NULL,
+        capability TEXT,
+        action_fingerprint TEXT NOT NULL,
+        request_payload TEXT,
+        observation_status TEXT DEFAULT 'running',
+        reason_code TEXT,
+        progress INTEGER DEFAULT 0,
+        response_summary TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        completed_at TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_tool_exec_actions_owner_created
+        ON tool_execution_actions(owner_user_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_tool_exec_actions_fingerprint
+        ON tool_execution_actions(owner_user_id, execution_key, action_fingerprint, created_at DESC);
+    `);
+  } catch (_) {}
   try {
     _db.exec(`ALTER TABLE agent_workflow_runs ADD COLUMN trace_id TEXT`);
   } catch (_) {}
