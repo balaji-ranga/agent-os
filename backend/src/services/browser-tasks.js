@@ -1403,10 +1403,14 @@ export async function startBrowserTask(ceoUserId, body = {}) {
   let recipeId = body.recipe_id || null;
   const preferredDriver = String(body.preferred_driver || body.preferredDriver || '').trim() || null;
   const allowFallback = body.allow_fallback !== false && body.allowFallback !== false;
+  const excludedDrivers = Array.isArray(body.excluded_drivers || body.excludedDrivers)
+    ? (body.excluded_drivers || body.excludedDrivers)
+    : [];
   const requiredCapabilities = /\b(screen\s*shot|png|image capture)\b/i.test(goal) ? ['screenshot'] : [];
   const selectedExecutor = selectBrowserExecutor(ceoUserId, {
     preferredDriver,
     requiredCapabilities,
+    excludedDrivers,
   });
   assertPreferredBrowserExecutor(selectedExecutor, preferredDriver, allowFallback);
   const traceId = randomUUID();

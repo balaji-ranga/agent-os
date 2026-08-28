@@ -1861,25 +1861,36 @@ async function executeAgentToolStep(goal, step) {
       const fallbackUrl = selectExplicitFallbackUrl(goalText, failed.symbol);
       if (!fallbackUrl && !goalRequestsBrowserRecovery(goalText)) continue;
       try {
-        const browserArgs = {
-          mode: 'autonomous',
-          goal: `Recover the missing factual data for ${failed.symbol} after ${toolName} failed. Original goal: ${clip(goal.prompt, 1200)} Return the requested values, source URL, and source timestamp. Do not submit or modify anything.`,
-          goal_run_id: goal.id,
-          goal_step_id: step.id,
-        };
-        if (fallbackUrl) browserArgs.start_url = fallbackUrl;
-        const started = await invokeContentToolHttp('browse_task_start', browserArgs, goal.owner_user_id, invokeOpts);
-        const taskId = started?.task_id || started?.task?.id;
-        const terminalResult = taskId
-          ? await invokeContentToolHttp('browse_task_status', { task_id: taskId, wait_ms: 90000 }, goal.owner_user_id, invokeOpts)
-          : started;
-        fallbacks.push({
-          symbol: failed.symbol,
-          url: fallbackUrl || terminalResult?.task?.url || null,
-          task_id: taskId || null,
-          task: terminalResult?.task || started?.task || null,
-          status: terminalResult?.task?.status || started?.task?.status || 'submitted',
-        });
+        const excludedDrivers = [];
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          const browserArgs = {
+            mode: 'autonomous',
+            goal: `Recover the missing factual data for ${failed.symbol} after ${toolName} failed. Original goal: ${clip(goal.prompt, 1200)} Return the requested values, source URL, and source timestamp. Do not submit or modify anything.`,
+            goal_run_id: goal.id,
+            goal_step_id: step.id,
+            excluded_drivers: excludedDrivers,
+          };
+          if (fallbackUrl) browserArgs.start_url = fallbackUrl;
+          const started = await invokeContentToolHttp('browse_task_start', browserArgs, goal.owner_user_id, invokeOpts);
+          const taskId = started?.task_id || started?.task?.id;
+          const terminalResult = taskId
+            ? await invokeContentToolHttp('browse_task_status', { task_id: taskId, wait_ms: 90000 }, goal.owner_user_id, invokeOpts)
+            : started;
+          const taskResult = terminalResult?.task || started?.task || null;
+          const status = taskResult?.status || 'submitted';
+          fallbacks.push({
+            symbol: failed.symbol,
+            url: fallbackUrl || taskResult?.url || null,
+            task_id: taskId || null,
+            task: taskResult,
+            status,
+            attempt: attempt + 1,
+          });
+          if (status === 'completed' || status === 'blocked_on_input') break;
+          const failedDriver = String(taskResult?.selected_driver_mode || '').trim();
+          if (!failedDriver || failedDriver === 'managed_playwright') break;
+          excludedDrivers.push(failedDriver);
+        }
       } catch (fallbackError) {
         fallbacks.push({ symbol: failed.symbol, url: fallbackUrl || null, status: 'failed', error: fallbackError?.message || String(fallbackError) });
       }

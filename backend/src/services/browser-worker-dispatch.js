@@ -122,9 +122,11 @@ export function markBrowserWorkerOffline(ownerUserId, nodeId = null) {
   return result.changes > 0;
 }
 
-export function selectBrowserExecutor(ownerUserId, { preferredDriver = null, requiredCapabilities = [] } = {}) {
+export function selectBrowserExecutor(ownerUserId, { preferredDriver = null, requiredCapabilities = [], excludedDrivers = [] } = {}) {
   let nodes = listBrowserExecutorNodes(ownerUserId, { includeOffline: false });
   const required = Array.isArray(requiredCapabilities) ? requiredCapabilities : [];
+  const excluded = new Set((Array.isArray(excludedDrivers) ? excludedDrivers : []).map((v) => String(v || '').trim()).filter(Boolean));
+  nodes = nodes.filter((node) => !excluded.has(node.driver_mode));
   nodes = nodes.filter((node) => required.every((cap) => node.capabilities?.[cap] === true || node.capabilities?.actions?.includes?.(cap)));
   if (preferredDriver) {
     const preferred = nodes.find((node) => node.driver_mode === preferredDriver);
