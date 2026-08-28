@@ -1,0 +1,57 @@
+import assert from 'node:assert/strict';
+import {
+  explicitGoalUrls,
+  selectExplicitFallbackUrl,
+  buildOutcomeRichTerminalReport,
+} from '../src/services/agent-goal-run.js';
+
+const prompt = [
+  'Check AAPL and VOOG.',
+  'If VOOG is subscription limited, use https://query1.finance.yahoo.com/v8/finance/chart/VOOG.',
+  'Reference https://example.com/background only for background.',
+].join(' ');
+
+assert.equal(explicitGoalUrls(prompt).length, 2);
+assert.equal(
+  selectExplicitFallbackUrl(prompt, 'VOOG'),
+  'https://query1.finance.yahoo.com/v8/finance/chart/VOOG'
+);
+assert.equal(selectExplicitFallbackUrl(prompt, 'MSFT'), null, 'must not guess among multiple URLs');
+
+const report = buildOutcomeRichTerminalReport({
+  terminal: 'completed',
+  goal: { id: 'agr-test', title: 'Morning MAG7 & VOOG' },
+  steps: [
+    {
+      label: 'Market history',
+      status: 'completed',
+      result_json: JSON.stringify({
+        ok: true,
+        tool_name: 'market_history',
+        multi_symbol: true,
+        results: [{ symbol: 'AAPL', ok: true, result: { close: 1 } }],
+        errors: [{ symbol: 'VOOG', ok: false, error: 'provider HTTP 402' }],
+        fallbacks: [{
+          symbol: 'VOOG',
+          url: 'https://query1.finance.yahoo.com/v8/finance/chart/VOOG',
+          status: 'completed',
+          task: { status: 'completed' },
+        }],
+      }),
+    },
+    {
+      label: 'Synthesize',
+      status: 'completed',
+      result_json: JSON.stringify({
+        ok: true,
+        reply_preview: 'AAPL closed at 232.10. VOOG closed at 405.21 from Yahoo Finance.',
+      }),
+    },
+  ],
+});
+
+assert.match(report, /AAPL closed at 232\.10/);
+assert.match(report, /VOOG closed at 405\.21/);
+assert.match(report, /browser fallback completed/);
+assert.match(report, /provider HTTP 402/);
+console.log('goal browser fallback + terminal report tests passed');

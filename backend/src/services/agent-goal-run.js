@@ -89,6 +89,72 @@ function clip(s, n = 500) {
   return t.slice(0, n) + '...';
 }
 
+export function explicitGoalUrls(text) {
+  const found = String(text || '').match(/https:\/\/[^\s<>"']+/gi) || [];
+  return [...new Set(found.map((url) => url.replace(/[),.;\]]+$/, '')))];
+}
+
+export function selectExplicitFallbackUrl(text, failedItem = '') {
+  const urls = explicitGoalUrls(text);
+  if (!urls.length) return null;
+  const needle = String(failedItem || '').trim().toLowerCase();
+  if (needle) {
+    const exact = urls.find((url) => {
+      try {
+        const parsed = new URL(url);
+        return `${parsed.pathname}${parsed.search}`.toLowerCase().includes(needle);
+      } catch {
+        return false;
+      }
+    });
+    if (exact) return exact;
+  }
+  return urls.length === 1 ? urls[0] : null;
+}
+
+function resultPayload(step) {
+  return parseJson(step?.result_json ?? step?.result, null);
+}
+
+function usefulReply(result) {
+  return String(result?.reply_preview || result?.deliverable || result?.summary || '').trim();
+}
+
+export function buildOutcomeRichTerminalReport({ goal, steps, terminal = 'completed' } = {}) {
+  const rows = Array.isArray(steps) ? steps : [];
+  const synthesis = [...rows].reverse().map(resultPayload).map(usefulReply)
+    .find((value) => value && value !== '(no response)');
+  const toolEvidence = [];
+  const gaps = [];
+  for (const step of rows) {
+    const result = resultPayload(step);
+    if (!result) continue;
+    const label = step.label || step.step_type || 'Step';
+    if (result.multi_symbol) {
+      const ok = (result.results || []).map((r) => r.symbol).filter(Boolean);
+      if (ok.length) toolEvidence.push(`${label}: ${ok.join(', ')} returned data`);
+      for (const err of result.errors || []) gaps.push(`${err.symbol || label}: ${clip(err.error, 180)}`);
+      for (const recovered of result.fallbacks || []) {
+        const state = recovered?.task?.status || recovered?.status || 'submitted';
+        toolEvidence.push(`${recovered.symbol || label}: browser fallback ${state} (${recovered.url})`);
+      }
+    } else if (result.tool_name) {
+      toolEvidence.push(`${label}: ${result.tool_name} ${result.ok === false ? 'failed' : 'completed'}`);
+    }
+    if (step.status === 'failed' || result.ok === false) {
+      gaps.push(`${label}: ${clip(step.error_message || result.error || 'failed', 180)}`);
+    }
+  }
+  const title = goal?.title || clip(goal?.prompt, 100) || goal?.id || 'Goal';
+  return [
+    `## Goal ${terminal}: \`${goal?.id || ''}\``,
+    `**${title}**`,
+    synthesis ? `### Outcome\n${clip(synthesis, 5000)}` : '',
+    toolEvidence.length ? `### Evidence\n${toolEvidence.slice(0, 20).map((x) => `- ${x}`).join('\n')}` : '',
+    gaps.length ? `### Gaps\n${gaps.slice(0, 12).map((x) => `- ${x}`).join('\n')}` : '',
+  ].filter(Boolean).join('\n\n');
+}
+
 export function ensureAgentGoalRunTables() {
   if (_tablesReady) return;
   db().exec(`
@@ -1770,6 +1836,7 @@ async function executeAgentToolStep(goal, step) {
   if (Array.isArray(multiSymbols) && multiSymbols.length > 1) {
     const results = [];
     const errors = [];
+    const fallbacks = [];
     for (const sym of multiSymbols.slice(0, 20)) {
       const body = { ...args, symbol: sym };
       delete body.symbols;
@@ -1780,6 +1847,34 @@ async function executeAgentToolStep(goal, step) {
         const msg = e?.message || String(e);
         errors.push({ symbol: sym, ok: false, error: msg });
         console.warn('[goal-run] multi-symbol tool fail', { toolName, sym, err: msg });
+      }
+    }
+    // Recover a failed item from an explicit CEO-provided URL. Executor selection
+    // remains in browser routing: extension -> desktop -> managed fallback.
+    for (const failed of errors) {
+      const fallbackUrl = selectExplicitFallbackUrl(`${goal.title || ''}\n${goal.prompt || ''}`, failed.symbol);
+      if (!fallbackUrl) continue;
+      try {
+        const started = await invokeContentToolHttp('browse_task_start', {
+          mode: 'autonomous',
+          start_url: fallbackUrl,
+          goal: `Retrieve factual data for ${failed.symbol} needed by goal "${clip(goal.title, 160)}". Return the values and source timestamp from this page. Do not submit or modify anything.`,
+          goal_run_id: goal.id,
+          goal_step_id: step.id,
+        }, goal.owner_user_id, invokeOpts);
+        const taskId = started?.task_id || started?.task?.id;
+        const terminalResult = taskId
+          ? await invokeContentToolHttp('browse_task_status', { task_id: taskId, wait_ms: 90000 }, goal.owner_user_id, invokeOpts)
+          : started;
+        fallbacks.push({
+          symbol: failed.symbol,
+          url: fallbackUrl,
+          task_id: taskId || null,
+          task: terminalResult?.task || started?.task || null,
+          status: terminalResult?.task?.status || started?.task?.status || 'submitted',
+        });
+      } catch (fallbackError) {
+        fallbacks.push({ symbol: failed.symbol, url: fallbackUrl, status: 'failed', error: fallbackError?.message || String(fallbackError) });
       }
     }
     if (!results.length) {
@@ -1800,6 +1895,7 @@ async function executeAgentToolStep(goal, step) {
       symbols: multiSymbols,
       results,
       errors: errors.length ? errors : undefined,
+      fallbacks: fallbacks.length ? fallbacks : undefined,
     };
   }
 
@@ -1940,17 +2036,10 @@ async function executeCompositionalToolViaAgent(goal, step, toolName) {
 
 async function executeNotifyCeoStep(goal, step) {
   const spec = parseJson(step.spec_json);
-  const prior = priorStepSummaries(goal.id, step.step_index + 1);
+  const steps = loadGoalSteps(goal.id).filter((s) => Number(s.step_index) < Number(step.step_index));
+  const report = buildOutcomeRichTerminalReport({ goal, steps, terminal: 'completed' });
   const title = spec.title || clip(goal.title || 'Goal run complete', 120);
-  const body =
-    spec.body ||
-    [
-      goal.title ? `Goal: ${goal.title}` : '',
-      clip(goal.prompt, 800),
-      prior ? `\nSteps completed:\n${prior}` : '',
-    ]
-      .filter(Boolean)
-      .join('\n');
+  const body = spec.body ? `${spec.body}\n\n${report}` : report;
 
   sendPlatformNotifications({
     userIds: [goal.owner_user_id],
@@ -1961,7 +2050,7 @@ async function executeNotifyCeoStep(goal, step) {
     source: 'agent_goal_run',
     sourceKey: `goal-run:${goal.id}:notify`,
   });
-  return { ok: true, title, body: clip(body, 500) };
+  return { ok: true, title, body: clip(body, 4000), outcome_report: clip(report, 4000) };
 }
 
 export function completeGoalRun(goalRunId, { status = 'completed', error = null } = {}) {
@@ -2123,16 +2212,7 @@ export async function nudgeCooOnGoalPlanTerminal(goalRunId, opts = {}) {
     .join('\n');
 
   const title = goal.title || clip(goal.prompt, 72) || id;
-  const fallback =
-    terminal === 'failed'
-      ? `## Goal plan failed: \`${id}\`\n\n**${title}** reached a failed status.\n\n` +
-        (goal.error_message ? `Error: ${clip(goal.error_message, 400)}\n\n` : '') +
-        `### Step ladder\n${ladder || '(no steps)'}\n\n` +
-        `Progress: ${progress.completed_steps || 0}/${progress.total_steps || 0} completed.`
-      : `## Goal plan completed: \`${id}\`\n\n**${title}** finished all planned steps.\n\n` +
-        `### Step ladder\n${ladder || '(no steps)'}\n\n` +
-        `Progress: ${progress.completed_steps || 0}/${progress.total_steps || 0} · ${progress.progress_pct || 100}%.\n\n` +
-        `Open **Goal plans** or the GOAL PLAN panel on this message for live detail.`;
+  const fallback = buildOutcomeRichTerminalReport({ goal, steps, terminal });
 
   let reply = fallback;
   let via = 'fallback';
@@ -2151,11 +2231,11 @@ export async function nudgeCooOnGoalPlanTerminal(goalRunId, opts = {}) {
       `Goal plan ${id} ("${clip(title, 100)}") just reached terminal status: ${terminal}.\n` +
       `You are the COO. Post ONE final chat update for the CEO. Rules:\n` +
       `- Quote the exact goal run id ${id} (agr-…).\n` +
-      `- Summarize every step outcome from the ladder below (completed/failed).\n` +
+      `- Preserve every material value and gap from the outcome evidence below.\n` +
       `- Do not create a new plan, re-trigger workflows, or call tools unless agent_goal_status is required.\n` +
       `- Do not ask the CEO to re-request status — this IS the status post.\n` +
       `- Keep it short, professional, factual.\n\n` +
-      `### Ladder\n${ladder || '(none)'}\n\n` +
+      `### Outcome evidence\n${clip(fallback, 7000)}\n\n### Ladder\n${ladder || '(none)'}\n\n` +
       (goal.error_message ? `Error: ${clip(goal.error_message, 500)}\n` : '') +
       `Progress: ${progress.completed_steps || 0}/${progress.total_steps || 0} (${progress.progress_pct || 0}%).`;
 
@@ -2213,7 +2293,7 @@ export async function nudgeCooOnGoalPlanTerminal(goalRunId, opts = {}) {
           ? `Goal plan failed: ${clip(title, 80)}`
           : `Goal plan completed: ${clip(title, 80)}`,
       body: clip(
-        `${id} · ${terminal}\n${ladder || ''}\n\nOpen chat with your COO or Goal plans for full detail.`.slice(
+        `${reply}\n\n${ladder || ''}`.slice(
           0,
           3500
         ),
