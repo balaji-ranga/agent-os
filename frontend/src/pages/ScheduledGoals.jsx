@@ -581,6 +581,9 @@ function ScheduledGoalsPanel() {
                     {s.spec?.parallel_group != null ? ' (parallel)' : ''}: {s.label}
                     {s.spec?.agent_id ? ' → ' + s.spec.agent_id : ''}
                     {s.spec?.phrase ? ' [' + s.spec.phrase + ']' : ''}
+                    {s.spec?.selection_rationale && (
+                      <span className="sg-plan-rationale"><b>Why selected:</b> {s.spec.selection_rationale}</span>
+                    )}
                   </li>
                 ))}
               </ol>
@@ -932,6 +935,8 @@ function ScheduledGoalsPanel() {
         .sg-plan-icon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
         .sg-plan-icon-danger:hover:not(:disabled) { border-color: var(--danger, #c44); color: var(--danger, #c44); }
         .sg-plan-type-hint { margin: 0 0 0.4rem; font-size: 0.72rem; color: var(--muted); }
+        .sg-plan-rationale { display: block; margin-top: 0.3rem; font-size: 0.76rem; line-height: 1.4; color: var(--muted); }
+        .sg-plan-rationale b { color: var(--text); }
         .sg-plan-fields {
           display: grid; grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); gap: 0.45rem 0.65rem;
         }

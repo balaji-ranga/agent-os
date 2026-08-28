@@ -354,6 +354,7 @@ export function normalizeStepSpec(raw) {
         workflow_id: raw.workflow_id || nested.workflow_id || null,
         capability_id: raw.capability_id || nested.capability_id || null,
         resolution_evidence: raw.resolution_evidence || nested.resolution_evidence || null,
+        selection_rationale: raw.selection_rationale || nested.selection_rationale || null,
       },
     };
   }
@@ -373,7 +374,7 @@ export function normalizeStepSpec(raw) {
     return {
       type: "notify_ceo",
       label: String(raw.label || "Notify CEO").trim(),
-      spec: { title, body },
+      spec: { title, body, selection_rationale: raw.selection_rationale || nested.selection_rationale || null },
     };
   }
   if (type === "agent_tool" || type === "self_tool" || type === "tool") {
@@ -402,6 +403,7 @@ export function normalizeStepSpec(raw) {
         capability_id: raw.capability_id || nested.capability_id || null,
         required_inputs: raw.required_inputs || nested.required_inputs || [],
         resolution_evidence: raw.resolution_evidence || nested.resolution_evidence || null,
+        selection_rationale: raw.selection_rationale || nested.selection_rationale || null,
       },
     };
   }
@@ -428,6 +430,7 @@ export function normalizeStepSpec(raw) {
         parallel_group: Number.isFinite(pg) ? pg : null,
         phase: raw.phase || nested.phase || "specialty",
         resolution_evidence: raw.resolution_evidence || nested.resolution_evidence || null,
+        selection_rationale: raw.selection_rationale || nested.selection_rationale || null,
       },
     };
   }
@@ -436,6 +439,7 @@ export function normalizeStepSpec(raw) {
     label: String(raw.label || "Agent continue").trim(),
     spec: {
       message: raw.message || raw.prompt || nested.message || nested.prompt || null,
+      selection_rationale: raw.selection_rationale || nested.selection_rationale || null,
     },
   };
 }
@@ -764,6 +768,7 @@ export function validateAndRepairGoalPlan(
   });
 
   const specialtyCount = out.filter((s) => s.type === 'specialty_task').length;
+  const goalRequiredTools = requirements.map((c) => String(c.tool_name || '').toLowerCase()).filter(Boolean);
   out = out.filter((step) => {
     if (step.type !== 'specialty_task') return true;
     const agentId = String(step.spec?.agent_id || '').trim();
@@ -781,7 +786,6 @@ export function validateAndRepairGoalPlan(
         ? requirements
         : [];
     const requiredTools = relevant.map((c) => c.tool_name).filter(Boolean);
-    if (!requiredTools.length) return true;
     const orchestratorOnly = relevant.filter((c) => c.executor_scope === 'orchestrator_only');
     if (orchestratorOnly.length) {
       console.warn('[goal-run] removed orchestrator-only auto-delegation', {
@@ -790,8 +794,15 @@ export function validateAndRepairGoalPlan(
       });
       return false;
     }
-    if (explicitlyNamed) return true;
     const targetTools = new Set(getAgentToolGrants(agent?.id || agentId).map((x) => String(x).toLowerCase()));
+    if (!explicitlyNamed && !stepRequirements.length && specialtyCount > 1 && goalRequiredTools.length) {
+      const sharedTools = goalRequiredTools.filter((tool) => targetTools.has(tool));
+      if (!sharedTools.length) {
+        console.warn('[goal-run] removed unrelated auto-delegation', { agentId, goalRequiredTools });
+        return false;
+      }
+    }
+    if (!requiredTools.length || explicitlyNamed) return true;
     const missingOnTarget = requiredTools.filter(
       (tool) => orchestratorTools.has(String(tool).toLowerCase()) && !targetTools.has(String(tool).toLowerCase())
     );
@@ -827,6 +838,33 @@ export function validateAndRepairGoalPlan(
     return 0;
   };
   out.sort((a, b) => executionRank(a) - executionRank(b));
+  out = out.map((step) => {
+    const spec = { ...(step.spec || {}) };
+    if (spec.selection_rationale) return { ...step, spec };
+    if (step.type === 'specialty_task') {
+      const agentId = String(spec.agent_id || '').trim();
+      const agent = db().prepare(
+        `SELECT a.id, a.name, a.role FROM agents a
+         JOIN user_agents ua ON ua.agent_id = a.id
+         WHERE ua.user_id = ? AND ua.enabled = 1 AND lower(a.id) = lower(?) LIMIT 1`
+      ).get(ownerUserId, agentId);
+      const grants = new Set(getAgentToolGrants(agent?.id || agentId).map((x) => String(x).toLowerCase()));
+      const matched = goalRequiredTools.filter((tool) => grants.has(tool));
+      const role = String(agent?.role || '').trim();
+      spec.selection_rationale = matched.length
+        ? `Selected because this goal needs ${matched.join(', ')} and ${agent?.name || agentId} can use ${matched.join(', ')}.${role ? ` Role: ${role}` : ''}`
+        : `Selected as the best-fit specialist from your company${role ? ` for the role: ${role}` : '.'}`;
+    } else if (step.type === 'agent_tool') {
+      spec.selection_rationale = `Selected because the goal explicitly needs the ${spec.tool_name || 'configured'} tool capability.`;
+    } else if (step.type === 'workflow_trigger') {
+      spec.selection_rationale = `Selected because the goal matched the published workflow trigger “${spec.phrase || step.label}”.`;
+    } else if (step.type === 'notify_ceo') {
+      spec.selection_rationale = 'Selected to return the consolidated final outcome to the CEO after execution finishes.';
+    } else {
+      spec.selection_rationale = 'Selected so the orchestrator can combine prior step outputs and complete the requested outcome.';
+    }
+    return { ...step, spec };
+  });
   console.info('[goal-run] capability plan validation', {
     required: requirements.map((c) => c.id),
     unavailable: [...unavailable],

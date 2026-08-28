@@ -172,6 +172,9 @@ export function GoalPlanManualEditor({ plan, onChange, agents = [], prompt = '',
                   </div>
                 </div>
                 <p className="sg-plan-type-hint">{typeMeta.hint}</p>
+                {step.spec?.selection_rationale && (
+                  <p className="sg-plan-rationale"><b>Why selected:</b> {step.spec.selection_rationale}</p>
+                )}
 
                 {step.type === 'workflow_trigger' && (
                   <div className="sg-plan-fields">

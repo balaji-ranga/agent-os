@@ -71,7 +71,7 @@ try {
   const { getAgentsUnderOrchestratorForCeo } = await import('../src/services/org-context.js');
   assert.deepEqual(getAgentsUnderOrchestratorForCeo(owner, 'content-orchestrator').map((a) => a.id), ['scene-agent']);
 
-  const { createGoalRun, completeGoalRun, completeGoalStep, getGoalRun } = await import('../src/services/agent-goal-run.js');
+  const { createGoalRun, completeGoalRun, completeGoalStep, getGoalRun, validateAndRepairGoalPlan } = await import('../src/services/agent-goal-run.js');
   assert.throws(
     () => createGoalRun({
       ownerUserId: owner,
@@ -84,6 +84,19 @@ try {
 
   const digestPrompt =
     'Every morning collect the company daily status, create a concise status digest, and email the digest to me.';
+  const multiSpecialistPlan = validateAndRepairGoalPlan([
+    { type: 'specialty_task', agent_id: 'erp-checker', message: 'Prepare the requested result.' },
+    { type: 'specialty_task', agent_id: 'finance-agent', message: 'Prepare the requested result.' },
+  ], digestPrompt, {
+    ownerUserId: owner,
+    orchestratorAgentId: 'coo-test',
+  });
+  assert(multiSpecialistPlan.some((s) => s.spec?.agent_id === 'erp-checker'), 'capable specialist retained');
+  assert(!multiSpecialistPlan.some((s) => s.spec?.agent_id === 'finance-agent'), 'unrelated auto-specialist removed');
+  assert(
+    multiSpecialistPlan.every((s) => s.spec?.selection_rationale),
+    'every generated plan step includes a selection rationale'
+  );
   const wrongDigestPlan = [{
     type: 'specialty_task',
     agent_id: 'erp-checker',
