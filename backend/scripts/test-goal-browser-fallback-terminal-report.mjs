@@ -3,6 +3,7 @@ import {
   explicitGoalUrls,
   selectExplicitFallbackUrl,
   goalRequestsBrowserRecovery,
+  sanitizeUnsupportedItemClaims,
   buildOutcomeRichTerminalReport,
 } from '../src/services/agent-goal-run.js';
 
@@ -20,6 +21,10 @@ assert.equal(
 assert.equal(selectExplicitFallbackUrl(prompt, 'MSFT'), null, 'must not guess among multiple URLs');
 assert.equal(goalRequestsBrowserRecovery('use Yahoo Finance browser tool if provider fails'), true);
 assert.equal(goalRequestsBrowserRecovery('use only the market API'), false);
+const sanitized = sanitizeUnsupportedItemClaims('| VOOG | +0.68% |\n| AAPL | +1.2% |', ['VOOG']);
+assert.doesNotMatch(sanitized, /VOOG[^\n]*0\.68%/);
+assert.match(sanitized, /AAPL[^\n]*\+1\.2%/);
+assert.match(sanitized, /Verified-data correction: VOOG/);
 
 const report = buildOutcomeRichTerminalReport({
   terminal: 'completed',

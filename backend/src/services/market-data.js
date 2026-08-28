@@ -569,13 +569,7 @@ async function getProfile(symbol, { force = false } = {}) {
     const hit = getCached(cacheKey);
     if (hit?.payload) {
       logCache(kind, sym, true);
-      const cached = { ...hit.payload, cached: true };
-      if (cached.daily_change_pct == null && Array.isArray(cached.bars)) {
-        const metrics = buildHistoryMetrics(cached.bars);
-        cached.previous_close = metrics.previous_close;
-        cached.daily_change_pct = metrics.daily_change_pct;
-      }
-      return cached;
+      return { ...hit.payload, cached: true };
     }
   }
   logCache(kind, sym, false);
@@ -798,7 +792,13 @@ export async function getHistory({ symbol, days = 260, force = false } = {}) {
     const hit = getCached(cacheKey);
     if (hit?.payload) {
       logCache(kind, sym, true);
-      return { ...hit.payload, cached: true };
+      const cached = { ...hit.payload, cached: true };
+      if (cached.daily_change_pct == null && Array.isArray(cached.bars)) {
+        const metrics = buildHistoryMetrics(cached.bars);
+        cached.previous_close = metrics.previous_close;
+        cached.daily_change_pct = metrics.daily_change_pct;
+      }
+      return cached;
     }
   } else {
     invalidateCache({ cacheKey });

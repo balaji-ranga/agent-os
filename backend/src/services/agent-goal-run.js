@@ -124,6 +124,41 @@ function usefulReply(result) {
   return String(result?.reply_preview || result?.deliverable || result?.summary || '').trim();
 }
 
+export function sanitizeUnsupportedItemClaims(text, unsupportedItems = []) {
+  let output = String(text || '');
+  const corrected = [];
+  for (const rawItem of unsupportedItems) {
+    const item = String(rawItem || '').trim();
+    if (!item) continue;
+    const escaped = item.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const claim = new RegExp(`(\\b${escaped}\\b[^\\n]{0,180}?)([+-]?\\d+(?:\\.\\d+)?\\s*%)`, 'gi');
+    if (claim.test(output)) {
+      output = output.replace(claim, `$1unavailable`);
+      corrected.push(item);
+    }
+  }
+  if (corrected.length) {
+    output += `\n\nVerified-data correction: ${corrected.join(', ')} had no successful source or browser evidence, so no numeric value is reported.`;
+  }
+  return output;
+}
+
+function unresolvedItemsBeforeStep(goalRunId, stepIndex) {
+  const unresolved = new Set();
+  for (const row of loadGoalSteps(goalRunId)) {
+    if (Number(row.step_index) >= Number(stepIndex)) continue;
+    const result = resultPayload(row);
+    for (const error of result?.errors || []) {
+      if (error?.symbol) unresolved.add(String(error.symbol));
+    }
+    for (const fallback of result?.fallbacks || []) {
+      const hasEvidence = fallback?.status === 'completed' && fallback?.task?.result;
+      if (hasEvidence && fallback?.symbol) unresolved.delete(String(fallback.symbol));
+    }
+  }
+  return [...unresolved];
+}
+
 export function buildOutcomeRichTerminalReport({ goal, steps, terminal = 'completed' } = {}) {
   const rows = Array.isArray(steps) ? steps : [];
   const synthesis = [...rows].reverse().map(resultPayload).map(usefulReply)
@@ -1683,7 +1718,8 @@ async function executeAgentContinueStep(goal, step) {
     runId: goal.id,
     maxTokens: 3000,
   });
-  const reply = String(content || '').trim() || '(no response)';
+  const unsupportedItems = unresolvedItemsBeforeStep(goal.id, step.step_index);
+  const reply = sanitizeUnsupportedItemClaims(String(content || '').trim() || '(no response)', unsupportedItems);
   try {
     insertChatTurn({
       agentId: agent.id,
