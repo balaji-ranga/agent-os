@@ -461,7 +461,10 @@ export async function resolveAgentToolArgsForGoal({
       baseArgs: next,
     });
     if (Array.isArray(filled.symbols) && filled.symbols.length) {
-      symbols = filled.symbols.map((s) => String(s).trim().toUpperCase()).filter(Boolean);
+      const modelSymbols = filled.symbols.map((s) => String(s).trim().toUpperCase()).filter(Boolean);
+      // Deterministic extraction is the lower bound. The model may add symbols or
+      // other args, but it must not silently remove explicit tickers/basket members.
+      symbols = [...new Set([...symbols, ...modelSymbols])];
     }
     for (const [k, v] of Object.entries(filled)) {
       if (k === 'symbols') continue;

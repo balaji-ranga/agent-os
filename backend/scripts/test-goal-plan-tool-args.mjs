@@ -11,6 +11,7 @@ import {
   isCompositionalTool,
   rewriteCompositionalToolsForAgentInterpretation,
   toolNeedsAgentInterpretation,
+  resolveAgentToolArgsForGoal,
 } from '../src/services/goal-plan-tool-args.js';
 
 const prompt =
@@ -34,7 +35,7 @@ assert(goalWantsChatSynthesis('list my workflows') === false, 'no false synthesi
 assert(goalWantsAgentInterpretation('Send appealing HTML email via email_send') === true, 'email wants interpretation');
 assert(isCompositionalTool('email_send') === true, 'email_send compositional');
 assert(isCompositionalTool('status_checker') === false, 'status_checker not compositional');
-assert(toolNeedsAgentInterpretation('email_send', { hasPriorSteps: true }) === true, 'needs interpretation with priors');
+assert(toolNeedsAgentInterpretation('email_send', { hasPriorSteps: true }) === false, 'real endpoint remains execution evidence with priors');
 assert(toolNeedsAgentInterpretation('email_send', { hasPriorSteps: false }) === false, 'lone email can stay dry');
 
 const rewritten = rewriteCompositionalToolsForAgentInterpretation(
@@ -83,5 +84,13 @@ assert(
   loneEmail.some((s) => s.tool_name === 'email_send'),
   'lone email_send stays dry (no prior work)'
 );
+
+// With no owner/model call, the deterministic basket must preserve every symbol.
+const resolvedBasket = await resolveAgentToolArgsForGoal({
+  toolName: 'market_history',
+  goalPrompt: prompt,
+});
+assert(resolvedBasket.symbols?.length === 8, 'MAG7 + VOOG preserves eight symbols');
+assert(resolvedBasket.symbols.includes('VOOG'), 'VOOG preserved in resolved tool args');
 
 console.log('ok', { tickers, basket_len: basket.length, rewritten: rewritten.map((s) => s.type) });

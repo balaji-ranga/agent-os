@@ -571,14 +571,17 @@ export function validateAndRepairGoalPlan(
     .split('--')
     .pop()
     .trim();
+  const goalRunnerTools = listOrchestratorToolsForGoalPlan(ownerUserId, orchestratorAgentId)
+    .map((t) => String(t.name).toLowerCase())
+    .filter(Boolean);
   const orchestratorTools = new Set([
-    ...listOrchestratorToolsForGoalPlan(ownerUserId, orchestratorAgentId).map((t) => String(t.name).toLowerCase()),
+    ...goalRunnerTools,
     ...getAgentToolGrants(orchestratorBase).map((t) => String(t).toLowerCase()),
   ]);
 
   // An explicitly named, granted tool is an executable instruction, even when an
   // older saved plan omitted it. This is catalog-driven and works for any tool.
-  for (const tool of orchestratorTools) {
+  for (const tool of goalRunnerTools) {
     if (!tool) continue;
     const escaped = tool.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const mentioned = new RegExp(`(^|[^a-z0-9_])${escaped}([^a-z0-9_]|$)`, 'i').test(text);
