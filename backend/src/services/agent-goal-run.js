@@ -144,19 +144,20 @@ export function sanitizeUnsupportedItemClaims(text, unsupportedItems = []) {
 }
 
 function unresolvedItemsBeforeStep(goalRunId, stepIndex) {
-  const unresolved = new Set();
+  const failed = new Set();
+  const recovered = new Set();
   for (const row of loadGoalSteps(goalRunId)) {
     if (Number(row.step_index) >= Number(stepIndex)) continue;
     const result = resultPayload(row);
     for (const error of result?.errors || []) {
-      if (error?.symbol) unresolved.add(String(error.symbol));
+      if (error?.symbol) failed.add(String(error.symbol));
     }
     for (const fallback of result?.fallbacks || []) {
       const hasEvidence = fallback?.status === 'completed' && fallback?.task?.result;
-      if (hasEvidence && fallback?.symbol) unresolved.delete(String(fallback.symbol));
+      if (hasEvidence && fallback?.symbol) recovered.add(String(fallback.symbol));
     }
   }
-  return [...unresolved];
+  return [...failed].filter((item) => !recovered.has(item));
 }
 
 export function buildOutcomeRichTerminalReport({ goal, steps, terminal = 'completed' } = {}) {
@@ -1708,7 +1709,7 @@ async function executeAgentContinueStep(goal, step) {
 
   const { content, modelUsed, usage } = await platformChatCompletions({
     messages: [
-      { role: 'system', content: `You are ${agent.name || agent.id}, completing one isolated company goal. Synthesize only from the supplied goal context.` },
+      { role: 'system', content: `You are ${agent.name || agent.id}, completing one isolated company goal. Synthesize only from supplied evidence. Successful primary tool results are authoritative for each item. Use browser fallback evidence only for the specific failed item it recovered; never replace successful primary values with unrelated values found during fallback. Never invent a number for an unresolved item.` },
       { role: 'user', content: prompt },
     ],
     ownerUserId: goal.owner_user_id,
@@ -1901,7 +1902,7 @@ async function executeAgentToolStep(goal, step) {
         for (let attempt = 0; attempt < 3; attempt += 1) {
           const browserArgs = {
             mode: 'autonomous',
-            goal: `Recover the missing factual data for ${failed.symbol} after ${toolName} failed. Original goal: ${clip(goal.prompt, 1200)} Return the requested values, source URL, and source timestamp. Do not submit or modify anything.`,
+            goal: `Recover only the missing factual data for ${failed.symbol} after ${toolName} failed. The CEO goal requests: ${clip(goal.prompt, 900)} Do not collect or report values for other items. Return only ${failed.symbol}'s requested values, source URL, and source timestamp. Do not submit or modify anything.`,
             goal_run_id: goal.id,
             goal_step_id: step.id,
             excluded_drivers: excludedDrivers,
