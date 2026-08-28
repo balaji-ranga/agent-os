@@ -52,7 +52,10 @@ assert(
   email.length === 1 || continues.length >= 1,
   'expected email_send or agent_continue for completion email'
 );
-assert(!types.includes('workflow_trigger') || !/run id/i.test(JSON.stringify(steps)), 'junk run-id workflows');
+assert(
+  !wf.some((s) => /run id/i.test(`${s.label || ''} ${s.spec?.phrase || ''}`)),
+  'junk run-id workflows'
+);
 // create goal should not be a step
 assert(!steps.some((s) => /create.*goal|agent_goal_create/i.test(s.label + JSON.stringify(s.spec))), 'create goal should be skip');
 // domain status tools must not appear from notify summary words
