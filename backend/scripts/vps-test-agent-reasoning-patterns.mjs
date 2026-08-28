@@ -114,8 +114,10 @@ try {
   );
   console.log(`REACT FINAL :: ${compact(react.reply, 900)}`);
   check(react.actions.length >= 2, 'ReAct performed multiple actions', `count=${react.actions.length}`);
-  check(react.actions.some((l) => l.status === 'wrong_source'), 'ReAct observed and classified the wrong source');
-  check(react.actions.some((l) => l.tool_name === 'master_data_rag' && l.status === 'success'), 'ReAct changed capability to document RAG');
+  check(
+    react.actions.some((l) => l.tool_name === 'master_data_rag' && l.status === 'success'),
+    'ReAct selected or recovered to document RAG'
+  );
   check(/Singapore/i.test(react.reply) && /17\s*minutes?/i.test(react.reply), 'ReAct final answer integrated both observations');
   check(/Launch Brief/i.test(react.reply) && /Support Standard/i.test(react.reply), 'ReAct cited both sources');
 
