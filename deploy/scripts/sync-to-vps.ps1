@@ -53,6 +53,7 @@
 # Published Scenes + public VR (/p/vr/:slug), Slack/WhatsApp agent channels wizard,
 # free STT/TTS optional-voice (ensure-voice-env.sh → SPEECH_* + whisper/piper),
 # Flolah branding, hPanel shell + light/dark theme (ThemeToggle, data-theme),
+# public Free Tools / MCP Universe stays on the marketing tree, not the app SPA,
 # Agent Workspaces Add agent (AddAgentForm), Tools nav label (/content-tools),
 # Tools → Model + Tools → Rate limits (per-user daily/monthly API call caps; help 11),
 # workflow editor fullscreen (shell-focus-mode), run audit fullscreen (/workflows/runs/:id),

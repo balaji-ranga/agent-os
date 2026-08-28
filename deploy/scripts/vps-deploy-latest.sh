@@ -176,7 +176,7 @@ echo "              CEO home chat (COO default) + My Org (/org); Profile role_ti
 echo "              Chat history/browser panes closed by default (icon toggles);"
 echo "              COO SOUL inbound list→index→RAG + org-context tools line;"
 echo "              COO skip hard-delegate for don't-delegate + find/download/attach files"
-echo "              Marketing apex flolah.cloud + app login.flolah.cloud; acme.sh TLS-ALPN cert script,"
+echo "              Marketing apex flolah.cloud + public Free Tools + app login.flolah.cloud; acme.sh TLS-ALPN cert script,"
 echo "              Admin company blueprints: secret scrub on publish/export (secret-sanitize.js),"
 echo "              CRM/ERP Maker-Checker ceo_approval HITL + async agent_workflow_trigger/run-watch"
 
@@ -422,6 +422,11 @@ elif curl -kfsS "${APEX_URL%/}/blog/" 2>/dev/null | grep -qi 'Flolah Blog'; then
   echo "    marketing blog ${APEX_URL}/blog/: OK"
 else
   echo "    WARN: public blog missing (/blog/ on flolah-home? run build-public-docs.sh)"
+fi
+if curl -kfsS -H "Host: flolah.cloud" https://127.0.0.1/free-tools/mcp-universe/ 2>/dev/null | grep -qi '<h1>MCP Universe</h1>'; then
+  echo "    marketing Free Tools MCP Universe (not app SPA): OK"
+else
+  echo "    WARN: MCP Universe missing or routed to authenticated SPA"
 fi
 if curl -kfsS -H "Host: flolah.cloud" https://127.0.0.1/blog/forum/ 2>/dev/null | grep -qi 'GitHub Discussions'; then
   echo "    marketing forum (Host flolah.cloud /blog/forum/): OK"
