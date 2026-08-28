@@ -77,10 +77,16 @@ async function rebuildIndex(rows, runId) {
     await opensearchBulk(ndjson, { timeoutMs: 120000 });
   }
   const aliases = await opensearchRequest('GET', `/_alias/${MCP_UNIVERSE_ALIAS}`, null, { allowStatuses: [404] });
-  const actions = Object.keys(aliases || {}).filter((n) => n !== 'raw').map((n) => ({ remove: { index: n, alias: MCP_UNIVERSE_ALIAS } }));
+  const actions = aliasRemovalActions(aliases);
   actions.push({ add: { index, alias: MCP_UNIVERSE_ALIAS } });
   await opensearchRequest('POST', '/_aliases', { actions }, { timeoutMs: 60000 });
   return index;
+}
+
+export function aliasRemovalActions(response) {
+  return Object.entries(response || {})
+    .filter(([, value]) => value?.aliases?.[MCP_UNIVERSE_ALIAS])
+    .map(([name]) => ({ remove: { index: name, alias: MCP_UNIVERSE_ALIAS } }));
 }
 
 export async function syncMcpUniverse() {

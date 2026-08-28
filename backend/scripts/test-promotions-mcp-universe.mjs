@@ -27,6 +27,8 @@ const fp=m.ipFingerprint('203.0.113.4'),token=m.issueHumanSession(fp);assert.equ
 m.ensureMcpUniverseTables();
 db.prepare(`INSERT INTO mcp_universe_servers(id,identity,name,description,publisher,source_id,status,stale,created_at,updated_at) VALUES ('m1','official:test','Test MCP','Useful server','Publisher','official','approved',0,?,?)`).run(now,now);
 assert.equal(m.searchServers({q:'Useful'}).total,1);assert.equal(m.getPublicServer('m1').publisher,'Publisher');
+assert.deepEqual(m.aliasRemovalActions({error:{root_cause:[]},status:404}),[],'404 error body must not be treated as an index');
+assert.equal(m.aliasRemovalActions({'old-index':{aliases:{[m.MCP_UNIVERSE_ALIAS]:{}}}})[0].remove.index,'old-index');
 const sub=m.createSubmission({publisher_name:'Publisher',email:'publisher@example.invalid',name:'Submitted MCP',repository_url:'https://github.com/example/mcp'},fp);assert.equal(sub.status,'submitted');assert.equal(m.moderateSubmission(sub.id,'approved','Reviewed'),true);
 db.close();
 fs.rmSync(root,{recursive:true,force:true});
