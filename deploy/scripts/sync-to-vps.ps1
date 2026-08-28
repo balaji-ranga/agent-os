@@ -486,6 +486,10 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\probe-budgets-org-ready.js" `
     "$Repo\backend\scripts\list-ceos.js" `
     "root@${HostIp}:$RemoteRoot/backend/scripts/"
+  # Keep the deployed test/maintenance surface aligned with package.json. The
+  # explicit list above is retained for compatibility, while this full-tree
+  # sync prevents newly committed scripts from being omitted from VPS images.
+  scp @ssh -r "$Repo\backend\scripts" "root@${HostIp}:$RemoteRoot/backend/"
   ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/backend/scripts/lib $RemoteRoot/backend/scripts/samples"
   scp @ssh `
     "$Repo\backend\scripts\lib\trading-strategy-prompt.js" `
