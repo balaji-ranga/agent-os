@@ -9,6 +9,7 @@ import {
   planGoalStepsAsync,
   planUsesGoalRunMode,
   validateAndRepairGoalPlan,
+  compactGoalToolContext,
 } from '../src/services/agent-goal-run.js';
 import {
   stripWorkflowPhrasesFromPrompt,
@@ -127,6 +128,18 @@ const oneForbidden = validateAndRepairGoalPlan(
 );
 assert(oneForbidden.some((s) => s.spec?.agent_id === 'researcher'), 'unconstrained delegate retained');
 assert(!oneForbidden.some((s) => s.spec?.agent_id === 'writer'), 'named forbidden delegate removed');
+
+const compactSeries = compactGoalToolContext({
+  results: ['AAPL', 'MSFT', 'VOOG'].map((symbol) => ({
+    symbol,
+    history: Array.from({ length: 40 }, (_, i) => ({ date: `d${i}`, close: i + 100 })),
+  })),
+  errors: [{ symbol: 'VOOG', error: 'subscription required' }],
+});
+assert(compactSeries.results.length === 3, 'all peer symbol outputs retained');
+assert(compactSeries.results[2].symbol === 'VOOG', 'later symbols not truncated');
+assert(compactSeries.results[0].history.item_count === 40, 'large series compacted with count');
+assert(compactSeries.results[0].history.latest_items.length === 3, 'latest observations retained');
 
 
 // createGoalRun re-maps plan steps — normalize must be idempotent for workflow phrases

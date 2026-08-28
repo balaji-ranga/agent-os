@@ -1062,6 +1062,26 @@ export function priorStepSummaries(goalRunId, beforeIndex = Infinity) {
   return lines.join('\n');
 }
 
+/** Keep every peer result while bounding large time-series for the next agent. */
+export function compactGoalToolContext(value, depth = 0) {
+  if (value == null || typeof value !== 'object') return value;
+  if (depth >= 7) return '[nested value omitted]';
+  if (Array.isArray(value)) {
+    if (value.length > 20) {
+      return {
+        item_count: value.length,
+        latest_items: value.slice(-3).map((item) => compactGoalToolContext(item, depth + 1)),
+      };
+    }
+    return value.map((item) => compactGoalToolContext(item, depth + 1));
+  }
+  const out = {};
+  for (const [key, item] of Object.entries(value)) {
+    out[key] = compactGoalToolContext(item, depth + 1);
+  }
+  return out;
+}
+
 /**
  * Rich prior context for OpenClaw agent turns (agent_continue / interpreted tools).
  * Includes digest HTML/markdown so the agent can compose email like chat — not one-line stubs.
@@ -1107,13 +1127,13 @@ export function priorStepContextForAgent(goalRunId, beforeIndex = Infinity) {
               tool: result.tool_name || spec.tool_name,
               multi_symbol: true,
               symbols: result.symbols,
-              results: result.results,
-              errors: result.errors,
+              results: compactGoalToolContext(result.results),
+              errors: compactGoalToolContext(result.errors),
             }
           : result.result != null
-            ? { tool: result.tool_name || spec.tool_name, result: result.result }
-            : result;
-      parts.push(`### ${label} (${tool || 'tool'})\n${clip(JSON.stringify(payload), 8000)}`);
+            ? { tool: result.tool_name || spec.tool_name, result: compactGoalToolContext(result.result) }
+            : compactGoalToolContext(result);
+      parts.push(`### ${label} (${tool || 'tool'})\n${clip(JSON.stringify(payload), 12000)}`);
       continue;
     }
     if (result?.body) {
