@@ -63,6 +63,8 @@ const sidebars = {
       label: '5. Operate and grow',
       items: [
         'operate/how-we-loop',
+        'operate/live-operations',
+        'operate/performance-reviews',
         'operate/maker-checker',
         'operate/example-stress-test-run',
         'operate/budgets',
