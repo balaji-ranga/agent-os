@@ -8,6 +8,7 @@ import {
   planGoalStepsFromText,
   planGoalStepsAsync,
   planUsesGoalRunMode,
+  validateAndRepairGoalPlan,
 } from '../src/services/agent-goal-run.js';
 import {
   stripWorkflowPhrasesFromPrompt,
@@ -106,6 +107,26 @@ assert(asyncHybrid.filter((s) => s.type === 'workflow_trigger').length >= 2, 'as
 assert(asyncHybrid.some((s) => s.type === 'notify_ceo'), 'async notify');
 // Without owner, specialty not classified; residual must not invent empty specialty silently — wf still present
 assert(planUsesGoalRunMode(asyncHybrid), 'async uses goal mode');
+
+// Approved/stored plans must not override explicit CEO execution constraints.
+const constrainedMarket = validateAndRepairGoalPlan(
+  [
+    normalizeStepSpec({ type: 'specialty_task', agent_id: 'businessdiscovery', message: 'Summarize basket' }),
+    normalizeStepSpec({ type: 'specialty_task', agent_id: 'marketwatcher', message: 'Fetch basket' }),
+  ],
+  'Use market_history and market_fundamentals for MAG7 and VOOG. Do not delegate to MarketWatcher; handle it yourself as the COO.'
+);
+assert(!constrainedMarket.some((s) => s.type === 'specialty_task'), 'handle-yourself removes all delegations');
+
+const oneForbidden = validateAndRepairGoalPlan(
+  [
+    normalizeStepSpec({ type: 'specialty_task', agent_id: 'researcher', message: 'Research' }),
+    normalizeStepSpec({ type: 'specialty_task', agent_id: 'writer', message: 'Draft' }),
+  ],
+  'Research and draft the brief. Do not delegate to writer.'
+);
+assert(oneForbidden.some((s) => s.spec?.agent_id === 'researcher'), 'unconstrained delegate retained');
+assert(!oneForbidden.some((s) => s.spec?.agent_id === 'writer'), 'named forbidden delegate removed');
 
 
 // createGoalRun re-maps plan steps — normalize must be idempotent for workflow phrases

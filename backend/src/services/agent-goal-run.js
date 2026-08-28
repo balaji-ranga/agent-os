@@ -541,6 +541,30 @@ export function validateAndRepairGoalPlan(
       });
     }
   }
+
+  // Stored/approved plans are still subordinate to the CEO's current execution
+  // constraints. This applies to every employee and goal; no agent is special-cased.
+  const requiresOrchestratorExecution =
+    /\b(?:handle|perform|execute|complete|do)\b[^.\n]{0,80}\b(?:yourself|directly by (?:you|the orchestrator|the coo))\b/i.test(text) ||
+    /\b(?:do not|don't|never|must not)\s+(?:delegate|assign|hand\s*off)\b(?![^.\n]{0,60}\bto\b)/i.test(text);
+  const forbiddenDelegateClauses = [
+    ...text.matchAll(
+      /\b(?:do not|don't|never|must not)\s+(?:delegate|assign|hand\s*off)(?:\s+(?:this|it|the\s+(?:goal|task|work)))?\s+to\s+([^.;\n—]+)/gi
+    ),
+  ].map((m) => String(m[1] || '').toLowerCase().replace(/[^a-z0-9]+/g, ''));
+  out = out.filter((step) => {
+    if (step.type !== 'specialty_task') return true;
+    const agentId = String(step.spec?.agent_id || '').trim();
+    const compactId = agentId.toLowerCase().replace(/[^a-z0-9]+/g, '');
+    const explicitlyForbidden =
+      compactId && forbiddenDelegateClauses.some((clause) => clause.includes(compactId));
+    if (!requiresOrchestratorExecution && !explicitlyForbidden) return true;
+    console.warn('[goal-run] removed delegation conflicting with CEO constraint', {
+      agentId,
+      constraint: requiresOrchestratorExecution ? 'orchestrator_execution' : 'forbidden_delegate',
+    });
+    return false;
+  });
   if (!ownerUserId) return enrichPlanSteps(out);
 
   const orchestratorBase = String(orchestratorAgentId || '')
@@ -551,6 +575,25 @@ export function validateAndRepairGoalPlan(
     ...listOrchestratorToolsForGoalPlan(ownerUserId, orchestratorAgentId).map((t) => String(t.name).toLowerCase()),
     ...getAgentToolGrants(orchestratorBase).map((t) => String(t).toLowerCase()),
   ]);
+
+  // An explicitly named, granted tool is an executable instruction, even when an
+  // older saved plan omitted it. This is catalog-driven and works for any tool.
+  for (const tool of orchestratorTools) {
+    if (!tool) continue;
+    const escaped = tool.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const mentioned = new RegExp(`(^|[^a-z0-9_])${escaped}([^a-z0-9_]|$)`, 'i').test(text);
+    const present = out.some(
+      (step) => step.type === 'agent_tool' && String(step.spec?.tool_name || '').toLowerCase() === tool
+    );
+    if (mentioned && !present) {
+      out.push(normalizeStepSpec({
+        type: 'agent_tool',
+        label: tool.replace(/_/g, ' '),
+        tool_name: tool,
+        args: {},
+      }));
+    }
+  }
   const unavailable = new Set();
 
   out = out.filter((step) => {
@@ -2332,7 +2375,9 @@ async function executeSpecialtyTaskStep(goal, step) {
   const spec = parseJson(step.spec_json);
   const agentId = String(spec.agent_id || '').trim().toLowerCase();
   if (!agentId) throw new Error('specialty_task requires agent_id');
-  const prior = priorStepSummaries(goal.id, step.step_index);
+  // Specialists receive complete, bounded prior I/O from this goal only, matching
+  // continuation turns rather than the shorter notification-oriented summary.
+  const prior = priorStepContextForAgent(goal.id, step.step_index);
   const originalGoal = String(goal.prompt || '').trim() || 'Complete the CEO goal.';
   const assignedDeliverable =
     (spec.message && String(spec.message).trim()) || 'Complete the specialty portion assigned by the plan.';
