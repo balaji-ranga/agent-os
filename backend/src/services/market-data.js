@@ -508,6 +508,10 @@ function buildHistoryMetrics(barsChronological) {
   const closes = barsChronological.map((b) => barClose(b)).filter((c) => c != null);
   const volumes = barsChronological.map((b) => num(b.volume, 0));
   const last = closes.length ? closes[closes.length - 1] : null;
+  const previous = closes.length > 1 ? closes[closes.length - 2] : null;
+  const daily_change_pct = previous > 0 && last != null
+    ? Number((((last - previous) / previous) * 100).toFixed(4))
+    : null;
   const window52 = closes.slice(-252);
   const high_52w = window52.length ? Math.max(...window52) : null;
   const pct_from_high_52w =
@@ -530,6 +534,8 @@ function buildHistoryMetrics(barsChronological) {
       volume: num(b.volume),
     })),
     last_close: last,
+    previous_close: previous,
+    daily_change_pct,
     sma_50: (() => {
       const v = sma(closes, 50);
       return v != null ? Number(v.toFixed(4)) : null;
@@ -563,7 +569,13 @@ async function getProfile(symbol, { force = false } = {}) {
     const hit = getCached(cacheKey);
     if (hit?.payload) {
       logCache(kind, sym, true);
-      return { ...hit.payload, cached: true };
+      const cached = { ...hit.payload, cached: true };
+      if (cached.daily_change_pct == null && Array.isArray(cached.bars)) {
+        const metrics = buildHistoryMetrics(cached.bars);
+        cached.previous_close = metrics.previous_close;
+        cached.daily_change_pct = metrics.daily_change_pct;
+      }
+      return cached;
     }
   }
   logCache(kind, sym, false);

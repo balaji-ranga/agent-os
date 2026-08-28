@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {
   explicitGoalUrls,
   selectExplicitFallbackUrl,
+  goalRequestsBrowserRecovery,
   buildOutcomeRichTerminalReport,
 } from '../src/services/agent-goal-run.js';
 
@@ -17,6 +18,8 @@ assert.equal(
   'https://query1.finance.yahoo.com/v8/finance/chart/VOOG'
 );
 assert.equal(selectExplicitFallbackUrl(prompt, 'MSFT'), null, 'must not guess among multiple URLs');
+assert.equal(goalRequestsBrowserRecovery('use Yahoo Finance browser tool if provider fails'), true);
+assert.equal(goalRequestsBrowserRecovery('use only the market API'), false);
 
 const report = buildOutcomeRichTerminalReport({
   terminal: 'completed',

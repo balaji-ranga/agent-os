@@ -112,6 +112,10 @@ export function selectExplicitFallbackUrl(text, failedItem = '') {
   return urls.length === 1 ? urls[0] : null;
 }
 
+export function goalRequestsBrowserRecovery(text) {
+  return /\b(browser|browse|web)\b/i.test(String(text || ''));
+}
+
 function resultPayload(step) {
   return parseJson(step?.result_json ?? step?.result, null);
 }
@@ -1195,6 +1199,7 @@ export function priorStepContextForAgent(goalRunId, beforeIndex = Infinity) {
               symbols: result.symbols,
               results: compactGoalToolContext(result.results),
               errors: compactGoalToolContext(result.errors),
+              fallbacks: compactGoalToolContext(result.fallbacks),
             }
           : result.result != null
             ? { tool: result.tool_name || spec.tool_name, result: compactGoalToolContext(result.result) }
@@ -1852,29 +1857,31 @@ async function executeAgentToolStep(goal, step) {
     // Recover a failed item from an explicit CEO-provided URL. Executor selection
     // remains in browser routing: extension -> desktop -> managed fallback.
     for (const failed of errors) {
-      const fallbackUrl = selectExplicitFallbackUrl(`${goal.title || ''}\n${goal.prompt || ''}`, failed.symbol);
-      if (!fallbackUrl) continue;
+      const goalText = `${goal.title || ''}\n${goal.prompt || ''}`;
+      const fallbackUrl = selectExplicitFallbackUrl(goalText, failed.symbol);
+      if (!fallbackUrl && !goalRequestsBrowserRecovery(goalText)) continue;
       try {
-        const started = await invokeContentToolHttp('browse_task_start', {
+        const browserArgs = {
           mode: 'autonomous',
-          start_url: fallbackUrl,
-          goal: `Retrieve factual data for ${failed.symbol} needed by goal "${clip(goal.title, 160)}". Return the values and source timestamp from this page. Do not submit or modify anything.`,
+          goal: `Recover the missing factual data for ${failed.symbol} after ${toolName} failed. Original goal: ${clip(goal.prompt, 1200)} Return the requested values, source URL, and source timestamp. Do not submit or modify anything.`,
           goal_run_id: goal.id,
           goal_step_id: step.id,
-        }, goal.owner_user_id, invokeOpts);
+        };
+        if (fallbackUrl) browserArgs.start_url = fallbackUrl;
+        const started = await invokeContentToolHttp('browse_task_start', browserArgs, goal.owner_user_id, invokeOpts);
         const taskId = started?.task_id || started?.task?.id;
         const terminalResult = taskId
           ? await invokeContentToolHttp('browse_task_status', { task_id: taskId, wait_ms: 90000 }, goal.owner_user_id, invokeOpts)
           : started;
         fallbacks.push({
           symbol: failed.symbol,
-          url: fallbackUrl,
+          url: fallbackUrl || terminalResult?.task?.url || null,
           task_id: taskId || null,
           task: terminalResult?.task || started?.task || null,
           status: terminalResult?.task?.status || started?.task?.status || 'submitted',
         });
       } catch (fallbackError) {
-        fallbacks.push({ symbol: failed.symbol, url: fallbackUrl, status: 'failed', error: fallbackError?.message || String(fallbackError) });
+        fallbacks.push({ symbol: failed.symbol, url: fallbackUrl || null, status: 'failed', error: fallbackError?.message || String(fallbackError) });
       }
     }
     if (!results.length) {
