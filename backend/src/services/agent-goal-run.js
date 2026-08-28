@@ -614,9 +614,11 @@ export function validateAndRepairGoalPlan(
     }));
   }
 
-  // Data/work must precede outbound delivery; notify is presentation only.
+  // Data/work must precede outbound delivery. Keep the planner's relative order
+  // between outbound delivery steps (for example notify_ceo then email_send)
+  // instead of unconditionally moving every notification behind email.
   const executionRank = (step) => {
-    if (step.type === 'notify_ceo') return 4;
+    if (step.type === 'notify_ceo') return 3;
     if (step.type === 'agent_tool' && isCompositionalTool(step.spec?.tool_name)) return 3;
     if (step.type === 'agent_continue') return 2;
     if (step.type === 'agent_tool') return 1;
