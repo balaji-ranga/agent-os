@@ -512,6 +512,9 @@ export async function summarizeLearnings({
 
   const today = todayUtc();
   const cache = readLearningsCache(db, owner, agentKey);
+  const invalidCachedSummary = /^(?:unable to produce summary text\.?|null|undefined)$/i.test(
+    String(cache?.summary || '').trim()
+  );
 
   const maxFeedbackId = feedback.reduce((m, f) => Math.max(m, Number(f.id) || 0), 0);
   const maxKanbanAt = kanbanActions.reduce(
@@ -525,7 +528,7 @@ export async function summarizeLearnings({
 
   // Same UTC day cache hit — but only if no new feedback/Kanban actions since watermark.
   // (Previously same-day always returned stale summary, so same-day thumbs-down comments were invisible.)
-  if (!force && cache && cache.valid_date === today && cache.summary && !hasNewSinceCache) {
+  if (!force && cache && cache.valid_date === today && cache.summary && !invalidCachedSummary && !hasNewSinceCache) {
     return {
       ...baseResult,
       summary: cache.summary + note,
@@ -539,6 +542,7 @@ export async function summarizeLearnings({
     force ||
     !cache ||
     !cache.summary ||
+    invalidCachedSummary ||
     !cache.base_generated_at ||
     ageInDays(cache.base_generated_at) >= LEARNINGS_FULL_REBUILD_DAYS;
 
@@ -677,7 +681,9 @@ Keep under 400 words.`;
       ownerUserId: owner,
       toolName: 'learnings_summary',
     });
-    summary = String(content || '').trim() || 'Unable to produce summary text.';
+    const generated = String(content || '').trim();
+    if (!generated) throw new Error('Configured model returned an empty learning summary');
+    summary = generated;
     usedModel = modelUsed || '';
   } catch (e) {
     const downs = feedback.filter((f) => f.rating === 'down').length;

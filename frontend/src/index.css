@@ -7337,3 +7337,22 @@ button.ai-snip-info-btn:hover {
   .agent-action-pager { justify-content:space-between; }
   .agent-action-pager button { flex:1; }
 }
+.review-processing {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin: 0.65rem 0;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+  color: var(--text);
+  font-size: 0.86rem;
+}
+.review-processing > span {
+  display: inline-block;
+  color: var(--accent);
+  font-size: 1.15rem;
+  animation: review-processing-spin 0.9s linear infinite;
+}
+@keyframes review-processing-spin { to { transform: rotate(360deg); } }

@@ -66,6 +66,12 @@ function PoliciesPanel() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
+  const processing = loading ? 'Loading company policies…'
+    : enrichBusy ? 'AI is enriching the policy draft…'
+      : busy ? 'Saving and syncing policy to agent workspaces…'
+        : controlBusy ? 'Saving action controls…'
+          : overrideBusy ? 'Updating scoped action overrides…'
+            : exceptionBusy ? 'Saving exception policy…' : '';
 
   const load = () => {
     setLoading(true);
@@ -233,6 +239,7 @@ function PoliciesPanel() {
           abusive, or discriminatory content.
         </p>
       </header>
+      {processing && <div className="review-processing" role="status" aria-live="polite"><span>◌</span>{processing}</div>}
 
       <div role="tablist" aria-label="Organisation policy sections" style={{ display: 'flex', gap: 8, marginBottom: '1rem' }}>
         <button

@@ -19,6 +19,7 @@ process.env.OPENAI_API_KEY = 'stub-key';
 process.env.OPENCLAW_MODEL_PRIMARY = 'stub-model';
 
 let llmCalls = 0;
+let emptyNext = false;
 const realFetch = global.fetch;
 global.fetch = async (url, opts = {}) => {
   const u = String(url);
@@ -31,10 +32,11 @@ global.fetch = async (url, opts = {}) => {
     } catch {
       /* ignore */
     }
-    const text =
+    const text = emptyNext ? '' :
       (incremental ? 'INCREMENTAL SUMMARY v' : 'FULL SUMMARY v') +
       llmCalls +
       '\n1. Disliked: X\n2. Liked: Y\n3. Do/Dont: Z';
+    emptyNext = false;
     return {
       ok: true,
       status: 200,
@@ -102,7 +104,7 @@ try {
 
   console.log('== 6. Next day WITH new feedback → incremental, 1 LLM call ==');
   staleDay('2000-01-01');
-  addFeedback('down', 'Used a hallucinated 404 URL isro.gov.in/launchers');
+  addFeedback('down', 'Used a hallucinated 404 URL isro.gov.in/launchers', 'Verify every source URL before citing it');
   r = await summarizeLearnings({ ownerUserId: OWNER, agentId: AGENT, topic: 'space' });
   check(r.mode === 'incremental', `mode=incremental (got ${r.mode})`);
   check(llmCalls === 3, `3 LLM calls (calls=${llmCalls})`);
@@ -122,6 +124,12 @@ try {
   check(Array.isArray(r.feedback_sample), 'feedback_sample is array');
   check(Array.isArray(r.kanban_actions_sample), 'kanban_actions_sample is array');
   check('summary' in r, 'summary present');
+
+  console.log('== 9. Empty model output → meaningful deterministic fallback, never poison cache ==');
+  emptyNext = true;
+  r = await summarizeLearnings({ ownerUserId: OWNER, agentId: AGENT, topic: 'space', force: true });
+  check(/raw fallback/i.test(r.summary), 'empty model response uses deterministic fallback');
+  check(!/Unable to produce summary text/i.test(r.summary), 'invalid placeholder is never persisted');
 } finally {
   global.fetch = realFetch;
   try {
