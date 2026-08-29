@@ -7,6 +7,8 @@ import {
   createVoiceSession,
   publicVoicePagePayload,
   getPublishedVoiceBySlug,
+  resolveVoiceInvite,
+  voiceInvitePagePayload,
 } from '../services/agent-voice-sessions.js';
 
 const router = Router();
@@ -23,6 +25,21 @@ function rateLimitOk(key, limit = 12, windowMs = 60_000) {
   hits.set(key, row);
   return row.n <= limit;
 }
+
+router.get('/invite/:token', (req, res) => {
+  try { res.json(voiceInvitePagePayload(req.params.token)); }
+  catch (e) { res.status(e.status || 500).json({ error: e.message || 'Voice invitation failed' }); }
+});
+
+router.post('/invite/:token/session', async (req, res) => {
+  try {
+    const ip = String(req.ip || req.headers['x-forwarded-for'] || 'ip').slice(0, 80);
+    if (!rateLimitOk(`invite:${ip}`)) return res.status(429).json({ error: 'Too many call attempts' });
+    const { data, pub } = resolveVoiceInvite(req.params.token);
+    const out = await createVoiceSession({ ownerUserId: data.o, agentId: data.a, channelId: pub.row.id, publicSlug: data.s, guest: true });
+    res.json(out);
+  } catch (e) { res.status(e.status || 500).json({ error: e.message || 'Voice invitation failed' }); }
+});
 
 router.get('/:slug', (req, res) => {
   try {

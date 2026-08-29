@@ -479,6 +479,7 @@ export default function App() {
           </AuthLayout>
         }
       />
+      <Route path="/p/voice-invite/:token" element={<PublicVoiceCall invite />} />
       <Route path="/*" element={<Shell />} />
     </Routes>
   );

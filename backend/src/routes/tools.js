@@ -77,6 +77,7 @@ import { resolveAuthenticatedCeoUserId, attachAuthUser, requireAuth, requireCeoO
 import { requireToolsAccess, attachToolsAuth } from '../middleware/tools-auth.js';
 import { internalAuthHeaders, isInternalRequest } from '../middleware/internal-auth.js';
 import { getPublicBaseUrl } from '../config/public-url.js';
+import { createVoiceInvite } from '../services/agent-voice-sessions.js';
 import {
   fetchValidatedHttps,
   parsePublicHttpsUrl,
@@ -1894,6 +1895,26 @@ router.post('/notify-ceo', optionalAuth, async (req, res) => {
     const err = { error: e.message };
     logTool(req, 'notify_ceo', requestPayload, err, 'error', source);
     res.status(500).json(err);
+  }
+});
+
+/** Create a short-lived, owner-scoped Voice call link that an agent can share in its current channel. */
+router.post('/voice-call-invite', optionalAuth, (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    const caller = getCallerAgent(req);
+    const ownerUserId = resolveToolOwnerUserId(req, requestPayload, resolveAuthenticatedCeoUserId);
+    if (!ownerUserId) return res.status(403).json({ error: 'Could not resolve CEO user for this session' });
+    const agentId = String(requestPayload.agent_id || caller?.id || '').trim();
+    if (!agentId) return res.status(400).json({ error: 'agent_id required when the caller cannot be identified' });
+    if (caller && !caller.is_coo && String(caller.id) !== agentId) return res.status(403).json({ error: 'Only the COO can create a Voice invitation for another employee' });
+    const out = createVoiceInvite(ownerUserId, agentId, { ttlSeconds: requestPayload.ttl_seconds });
+    logTool(req, 'voice_call_invite', { agent_id: agentId, owner_user_id: ownerUserId }, { ok: true, expires_at: out.expires_at }, 'ok', source);
+    res.json({ ok: true, ...out });
+  } catch (e) {
+    logTool(req, 'voice_call_invite', requestPayload, { error: e.message }, 'error', source);
+    res.status(e.status || 500).json({ error: e.message || 'Voice invitation failed' });
   }
 });
 

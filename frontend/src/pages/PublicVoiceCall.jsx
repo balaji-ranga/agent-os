@@ -6,8 +6,8 @@ import { useParams } from 'react-router-dom';
 import { api } from '../api';
 import AgentVoiceCall from '../components/AgentVoiceCall.jsx';
 
-export default function PublicVoiceCall() {
-  const { slug } = useParams();
+export default function PublicVoiceCall({ invite = false }) {
+  const { slug, token } = useParams();
   const [meta, setMeta] = useState(null);
   const [error, setError] = useState(null);
   const [calling, setCalling] = useState(false);
@@ -15,12 +15,12 @@ export default function PublicVoiceCall() {
   useEffect(() => {
     setError(null);
     api
-      .publicVoiceGet(slug)
+      [invite ? 'voiceInviteGet' : 'publicVoiceGet'](invite ? token : slug)
       .then(setMeta)
       .catch((e) => setError(e.message || 'Not found'));
-  }, [slug]);
+  }, [invite, slug, token]);
 
-  const mintSession = useCallback(() => api.publicVoiceSession(slug), [slug]);
+  const mintSession = useCallback(() => invite ? api.voiceInviteSession(token) : api.publicVoiceSession(slug), [invite, slug, token]);
 
   return (
     <div style={{ maxWidth: 480, margin: '2rem auto', padding: '0 1rem' }}>

@@ -442,6 +442,17 @@ const BUILTIN_TOOLS = [
     is_builtin: 1,
   },
   {
+    name: 'voice_call_invite',
+    display_name: 'Create Voice Call Invitation',
+    endpoint: '/api/tools/voice-call-invite',
+    method: 'POST',
+    purpose:
+      'API tool: create a short-lived owner-and-agent-bound browser Voice call link for the current CEO. Use when the CEO asks in web, WhatsApp, or another channel to start/call the employee by voice. Params: agent_id optional (defaults to the calling employee), ttl_seconds optional (60-3600; default 600). Return/share the exact url. Never invent or reuse an expired link; no user_id.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
     name: 'onboarding_save_proposal',
     display_name: 'Save Onboarding Proposal',
     endpoint: '/api/tools/onboarding-save-proposal',
@@ -906,6 +917,7 @@ const EMAIL_SEND_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'email_send');
 const SPEECH_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'speech_tts' || t.name === 'speech_stt');
 const VISION_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'analyze_image');
 const NOTIFY_CEO_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'notify_ceo');
+const VOICE_INVITE_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'voice_call_invite');
 const ONBOARDING_PROPOSAL_TOOLS = BUILTIN_TOOLS.filter((t) =>
   t.name === 'onboarding_save_proposal' || t.name === 'onboarding_apply_proposal'
 );
@@ -2045,5 +2057,18 @@ export function seedErpToolsIfMissing() {
   );
   for (const t of ERP_TOOLS_META) {
     update.run(t.purpose, t.display_name, t.endpoint, t.method, t.name);
+  }
+}
+
+/** Add short-lived Voice invitation tool and grant it to employees; runtime owner scope remains authoritative. */
+export function seedVoiceInviteToolIfMissing() {
+  const db = getDb();
+  const stmt = db.prepare(`INSERT OR IGNORE INTO content_tools_meta (name, display_name, endpoint, method, purpose, model_used, enabled, is_builtin) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
+  const update = db.prepare('UPDATE content_tools_meta SET purpose=?,display_name=?,endpoint=?,method=? WHERE name=?');
+  const grant = db.prepare('INSERT OR IGNORE INTO agent_tool_grants (agent_id, tool_name) VALUES (?, ?)');
+  for (const t of VOICE_INVITE_TOOLS) {
+    stmt.run(t.name,t.display_name,t.endpoint,t.method,t.purpose,t.model_used,t.enabled,t.is_builtin);
+    update.run(t.purpose,t.display_name,t.endpoint,t.method,t.name);
+    for (const agent of db.prepare('SELECT id FROM agents').all()) grant.run(agent.id,t.name);
   }
 }

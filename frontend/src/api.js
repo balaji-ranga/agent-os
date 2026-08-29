@@ -1016,6 +1016,8 @@ export const api = {
   agentVoiceStatus: (agentId) => get(`/agents/${encodeURIComponent(agentId)}/voice/status`),
   publicVoiceGet: (slug) => get(`/public/voice/${encodeURIComponent(slug)}`),
   publicVoiceSession: (slug) => post(`/public/voice/${encodeURIComponent(slug)}/session`, {}),
+  voiceInviteGet: (token) => get(`/public/voice/invite/${encodeURIComponent(token)}`),
+  voiceInviteSession: (token) => post(`/public/voice/invite/${encodeURIComponent(token)}/session`, {}),
 
   mediaArtifactsUpload: (body) => post('/media/artifacts', body),
   mediaArtifactsList: (params = {}) => {
@@ -1363,7 +1365,10 @@ export const api = {
   adminPromotionsList: () => get('/admin/promotions'),
   adminPromotionsCreate: (body) => post('/admin/promotions', body),
   adminPromotionsUpdate: (id, body) => put(`/admin/promotions/${encodeURIComponent(id)}`, body),
-  adminPromotionAnalytics: (id) => get(`/admin/promotions/${encodeURIComponent(id)}/analytics`),
+  adminPromotionAnalytics: (id, params = {}) => {
+    const query = new URLSearchParams(Object.entries(params).filter(([, value]) => value != null && value !== '')).toString();
+    return get(`/admin/promotions/${encodeURIComponent(id)}/analytics${query ? `?${query}` : ''}`);
+  },
   adminMcpUniverseStatus: () => get('/admin/mcp-universe/status'),
   adminMcpUniverseSync: () => post('/admin/mcp-universe/sync', {}),
   adminMcpUniverseSubmissions: () => get('/admin/mcp-universe/submissions'),

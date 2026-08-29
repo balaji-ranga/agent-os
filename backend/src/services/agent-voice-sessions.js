@@ -3,7 +3,7 @@
  * tool-invoke bridge (existing content tools), hangup wrap-up via OpenClaw chat.
  * Not a call-center ACD. PSTN is deferred to a telephony MCP.
  */
-import { createHash, randomBytes } from 'crypto';
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'crypto';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { getDb } from '../db/schema.js';
@@ -40,6 +40,7 @@ const guestMintHits = new Map();
 
 const SESSION_TTL_MS = 15 * 60 * 1000;
 const TRANSCRIPT_MAX_CHARS = 24_000;
+const VOICE_INVITE_TTL_SECONDS = 10 * 60;
 
 function hashToken(token) {
   return createHash('sha256').update(String(token || '')).digest('hex');
@@ -685,6 +686,55 @@ export function publicVoicePagePayload(slug) {
     channel_id: pub.row.id,
     status: pub.row.status,
   };
+}
+
+function voiceInviteSecret() {
+  const secret = String(process.env.SESSION_SECRET || process.env.PROMOTION_TRACKING_SECRET || '').trim();
+  if (!secret) throw Object.assign(new Error('Voice invitation signing is not configured'), { status: 503 });
+  return secret;
+}
+
+/** Short-lived owner + agent + channel-bound URL for sharing a private call handoff. */
+export function createVoiceInvite(ownerUserId, agentId, { ttlSeconds = VOICE_INVITE_TTL_SECONDS } = {}) {
+  const owner = String(ownerUserId || '').trim();
+  const agent = assertAgentForOwner(owner, agentId);
+  const channel = getVoiceChannelForAgent(owner, agent.id);
+  if (!channel || String(channel.status).toLowerCase() !== 'enabled') {
+    throw Object.assign(new Error('This employee does not have an enabled Voice channel'), { status: 400 });
+  }
+  const config = parseJson(channel.config_json, {});
+  if (!config.public_slug) throw Object.assign(new Error('Voice channel has no published route'), { status: 400 });
+  const payload = Buffer.from(JSON.stringify({
+    o: owner,
+    a: agent.id,
+    c: channel.id,
+    s: String(config.public_slug).toLowerCase(),
+    e: Math.floor(Date.now() / 1000) + Math.max(60, Math.min(Number(ttlSeconds) || VOICE_INVITE_TTL_SECONDS, 3600)),
+    n: randomBytes(8).toString('hex'),
+  })).toString('base64url');
+  const signature = createHmac('sha256', voiceInviteSecret()).update(payload).digest('base64url');
+  const token = `${payload}.${signature}`;
+  const base = getPublicBaseUrl().replace(/\/api$/i, '');
+  return { token, url: `${base}/p/voice-invite/${encodeURIComponent(token)}`, expires_at: new Date(JSON.parse(Buffer.from(payload, 'base64url')).e * 1000).toISOString(), agent: { id: agent.id, name: agent.name, role: agent.role } };
+}
+
+export function resolveVoiceInvite(token) {
+  const [payload, signature] = String(token || '').split('.');
+  if (!payload || !signature) throw Object.assign(new Error('Invalid voice invitation'), { status: 400 });
+  const expected = createHmac('sha256', voiceInviteSecret()).update(payload).digest();
+  const actual = Buffer.from(signature, 'base64url');
+  if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) throw Object.assign(new Error('Invalid voice invitation'), { status: 400 });
+  let data;
+  try { data = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')); } catch { throw Object.assign(new Error('Invalid voice invitation'), { status: 400 }); }
+  if (!data.e || data.e < Math.floor(Date.now() / 1000)) throw Object.assign(new Error('Voice invitation expired'), { status: 410 });
+  const pub = getPublishedVoiceBySlug(data.s);
+  if (!pub || pub.row.id !== data.c || pub.row.owner_user_id !== data.o || pub.row.agent_id !== data.a) throw Object.assign(new Error('Voice invitation is no longer available'), { status: 404 });
+  return { data, pub };
+}
+
+export function voiceInvitePagePayload(token) {
+  const { data, pub } = resolveVoiceInvite(token);
+  return { invite: true, expires_at: new Date(data.e * 1000).toISOString(), agent: pub.agent ? { id: pub.agent.id, name: pub.agent.name, role: pub.agent.role } : null, channel_id: pub.row.id, status: pub.row.status };
 }
 
 export function voicePublicUrl(slug) {

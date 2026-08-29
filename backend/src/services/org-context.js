@@ -86,6 +86,12 @@ export function buildOrgContextForCeo(ceoUserId) {
   } catch (e) {
     console.warn('[org-context] people lookup failed', ceoUserId, e?.message || e);
   }
+  let channels = [];
+  try {
+    channels = getDb().prepare(`SELECT agent_id,channel,status FROM ceo_agent_channels WHERE owner_user_id=? ORDER BY agent_id,channel`).all(ceoUserId);
+  } catch (e) {
+    console.warn('[org-context] channels lookup failed', ceoUserId, e?.message || e);
+  }
   return {
     ceo: ceo
       ? { id: ceo.id, name: ceo.name, email: ceo.email || '' }
@@ -96,6 +102,7 @@ export function buildOrgContextForCeo(ceoUserId) {
     departments,
     leaf_members: leafMembers,
     people,
+    channels,
     delegatees: getAgentsUnderCooForCeo(ceoUserId),
   };
 }
@@ -141,6 +148,16 @@ export function formatOrgMd(ctx) {
     lines.push(
       `| **${a.id}** | ${String(a.name).replace(/\|/g, ' ')} | ${a.department || '—'} | ${String(a.role || '—').replace(/\|/g, ' ')} | ${reportsTo} | ${toolGrantsSummary(a.id)} |`
     );
+  }
+  const channels = Array.isArray(ctx.channels) ? ctx.channels : [];
+  if (channels.length) {
+    lines.push('', '## Agent channels', '', 'Safe capability metadata only; credentials and pairing material are never included.', '', '| Agent ID | Channel | Status | How to start |', '|----------|---------|--------|--------------|');
+    for (const channel of channels) {
+      const action = channel.channel === 'voice' && channel.status === 'enabled'
+        ? 'Use `voice_call_invite` for a short-lived link'
+        : channel.status === 'enabled' ? 'Available in this channel' : 'Not available';
+      lines.push(`| **${channel.agent_id}** | ${channel.channel} | ${channel.status} | ${action} |`);
+    }
   }
   const departments = Array.isArray(ctx.departments) ? ctx.departments : [];
   if (departments.length) {

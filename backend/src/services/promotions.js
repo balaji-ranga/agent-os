@@ -149,13 +149,26 @@ export function eligibleCampaign(userId) {
   return null;
 }
 
-export function campaignAnalytics(id) {
+export function campaignAnalytics(id, { page = 1, pageSize = 25 } = {}) {
   const db = ensurePromotionTables();
   const campaign = getCampaign(id);
   if (!campaign) return null;
+  const safePageSize = Math.max(10, Math.min(Number(pageSize) || 25, 100));
+  const eventCount = Number(db.prepare(`SELECT COUNT(*) total FROM promotion_events WHERE campaign_id=?`).get(id)?.total || 0);
+  const safePage = Math.max(1, Math.min(Number(page) || 1, Math.max(1, Math.ceil(eventCount / safePageSize))));
   const totals = db.prepare(`SELECT event_type,channel,COUNT(*) total,COUNT(DISTINCT user_id) users FROM promotion_events WHERE campaign_id=? GROUP BY event_type,channel`).all(id);
-  const history = db.prepare(`SELECT id,user_id,event_type,channel,metadata_json,created_at FROM promotion_events WHERE campaign_id=? ORDER BY created_at DESC LIMIT 500`).all(id);
-  return { campaign, totals, history };
+  const history = db.prepare(`
+    SELECT e.id,e.user_id,u.name AS user_name,u.email AS user_email,e.event_type,e.channel,e.metadata_json,e.created_at
+    FROM promotion_events e
+    LEFT JOIN platform_users u ON u.id=e.user_id
+    WHERE e.campaign_id=?
+    ORDER BY e.created_at DESC
+    LIMIT ? OFFSET ?
+  `).all(id, safePageSize, (safePage - 1) * safePageSize).map((row) => ({
+    ...row,
+    metadata: (() => { try { return JSON.parse(row.metadata_json || '{}'); } catch { return {}; } })(),
+  }));
+  return { campaign, totals, history, pagination: { page: safePage, page_size: safePageSize, total: eventCount, pages: Math.max(1, Math.ceil(eventCount / safePageSize)) } };
 }
 
 export function getPromotionPreferences(userId) {
