@@ -17,7 +17,9 @@ const campaign=p.saveCampaign({name:'Safe campaign',advertiser:'Flolah',disclosu
 assert.equal(campaign.blocks[0].text.includes('<'),false,'markup must be removed');
 assert.equal(p.eligibleCampaign('other-user'),null,'non-target must not receive campaign');
 assert.equal(p.eligibleCampaign('test-ceo')?.id,campaign.id,'target should receive campaign');
-assert.equal(p.eligibleCampaign('test-ceo'),null,'once campaign must not repeat');
+const secondCampaign=p.saveCampaign({name:'Second campaign',advertiser:'Flolah',disclosure:'Promotional announcement',state:'active',audience:'all',delivery:'popup',frequency:'once',blocks:[{type:'heading',text:'Second'}]},'admin-test');
+assert.equal(p.eligibleCampaign('test-ceo')?.id,secondCampaign.id,'next eligible campaign should follow the first');
+assert.equal(p.eligibleCampaign('test-ceo'),null,'once campaigns must not repeat after delivery');
 assert.equal(p.recordPromotionEvent({campaignId:campaign.id,userId:'test-ceo',eventType:'impression',idempotencyKey:'same'}).duplicate,false);
 assert.equal(p.recordPromotionEvent({campaignId:campaign.id,userId:'test-ceo',eventType:'impression',idempotencyKey:'same'}).duplicate,true,'events must be idempotent');
 const click=p.signedPromotionClick(campaign.id,'test-ceo','https://flolah.cloud/docs/');const decoded=p.resolvePromotionClick(new URL(click).searchParams.get('t'));assert.equal(decoded.u,'test-ceo');assert.equal(decoded.d,'https://flolah.cloud/docs/');
