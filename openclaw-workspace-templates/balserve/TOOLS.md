@@ -134,7 +134,14 @@ When the CEO asks **what a task produced**, **what the specialist wrote**, or to
 
 ---
 
+## Browser Voice call link (`voice_call_invite`)
+
+- Read the current channel table in `ORG.md`. When Voice is enabled, call `voice_call_invite` and send its exact short-lived URL to the CEO.
+- This opens Flolah's authenticated browser Voice room; it is different from a WhatsApp voice note or native WhatsApp calling.
+- Never say Voice is unsupported when `ORG.md` shows it enabled and the tool is available. If the tool returns an error, report that actual error.
+
 ## Scheduled goals (recurring CEO prompts)
+
 
 Use these when the CEO wants work **every hour / every day / weekdays / weekly / always** without building a workflow graph.
 

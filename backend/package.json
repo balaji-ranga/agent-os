@@ -41,6 +41,7 @@
     ,"test:agent-reasoning-patterns": "node scripts/vps-test-agent-reasoning-patterns.mjs"
     ,"test:execution-governor": "node scripts/test-tool-execution-governor.mjs"
     ,"test:promotions-mcp-universe": "node scripts/test-promotions-mcp-universe.mjs"
+    ,"test:channel-capability-session": "node scripts/test-channel-capability-session.mjs"
   },
   "dependencies": {
     "@stoqey/ib": "^1.6.3",

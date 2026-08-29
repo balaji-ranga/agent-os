@@ -3,6 +3,10 @@
  */
 import { Router } from 'express';
 import { requireAuth, requireCeoOrAdmin, resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
+import { getDb } from '../db/schema.js';
+import { syncOrgContextForCeo } from '../services/org-context.js';
+import { ensureTenantOpenClawAgent } from '../services/openclaw-tenant.js';
+import { invalidateOpenClawMainSession } from '../services/openclaw-capability-session.js';
 import {
   listAgentChannels,
   getAgentChannelForOwner,
@@ -18,6 +22,30 @@ import {
 } from '../services/ceo-agent-channels.js';
 
 const router = Router();
+
+async function refreshAgentCapabilityContext(ownerUserId, agentId) {
+  const result = { workspace_synced: false, session_invalidated: false, warnings: [] };
+  try {
+    await syncOrgContextForCeo(ownerUserId);
+    result.workspace_synced = true;
+  } catch (error) {
+    result.warnings.push(`workspace_sync_failed: ${error?.message || error}`);
+  }
+  try {
+    const agent = getDb().prepare('SELECT * FROM agents WHERE id = ?').get(agentId);
+    if (!agent) {
+      result.warnings.push('agent_not_found_for_session_refresh');
+      return result;
+    }
+    const runtime = ensureTenantOpenClawAgent(agent, ownerUserId);
+    const reset = invalidateOpenClawMainSession(runtime.openclawAgentId);
+    result.session_invalidated = reset.invalidated === true;
+    result.session_refresh = reset;
+  } catch (error) {
+    result.warnings.push(`session_refresh_failed: ${error?.message || error}`);
+  }
+  return result;
+}
 
 function ownerOr403(req, res) {
   const ownerUserId = resolveAuthenticatedCeoUserId(req);
@@ -76,36 +104,40 @@ router.patch('/:id', requireAuth, requireCeoOrAdmin, (req, res) => {
   }
 });
 
-router.delete('/:id', requireAuth, requireCeoOrAdmin, (req, res) => {
+router.delete('/:id', requireAuth, requireCeoOrAdmin, async (req, res) => {
   try {
     const owner = ownerOr403(req, res);
     if (!owner) return;
+    const existing = getAgentChannelForOwner(owner, req.params.id);
     const out = deleteAgentChannel(owner, req.params.id);
-    res.json(out);
+    const capability_refresh = existing ? await refreshAgentCapabilityContext(owner, existing.agent_id) : null;
+    res.json({ ...out, capability_refresh });
   } catch (e) {
     console.error('[agent-channels] delete failed', e?.message || e);
     res.status(e.status || 500).json({ error: e.message || 'Delete failed' });
   }
 });
 
-router.post('/:id/apply', requireAuth, requireCeoOrAdmin, (req, res) => {
+router.post('/:id/apply', requireAuth, requireCeoOrAdmin, async (req, res) => {
   try {
     const owner = ownerOr403(req, res);
     if (!owner) return;
     const out = applyAgentChannel(owner, req.params.id);
-    res.json(out);
+    const capability_refresh = await refreshAgentCapabilityContext(owner, out.channel.agent_id);
+    res.json({ ...out, capability_refresh });
   } catch (e) {
     console.error('[agent-channels] apply failed', e?.message || e);
     res.status(e.status || 500).json({ error: e.message || 'Apply failed' });
   }
 });
 
-router.post('/:id/disable', requireAuth, requireCeoOrAdmin, (req, res) => {
+router.post('/:id/disable', requireAuth, requireCeoOrAdmin, async (req, res) => {
   try {
     const owner = ownerOr403(req, res);
     if (!owner) return;
     const channel = disableAgentChannel(owner, req.params.id);
-    res.json({ channel });
+    const capability_refresh = await refreshAgentCapabilityContext(owner, channel.agent_id);
+    res.json({ channel, capability_refresh });
   } catch (e) {
     console.error('[agent-channels] disable failed', e?.message || e);
     res.status(e.status || 500).json({ error: e.message || 'Disable failed' });

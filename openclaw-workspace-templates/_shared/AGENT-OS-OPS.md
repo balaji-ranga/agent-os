@@ -249,7 +249,12 @@ For Browser Session, Client Chrome, or multi-step web goals, use **only browse_*
 
 CEO 👎 comments on your chat replies are stored and included the next time you call **learnings_summary**. Treat those comments as hard rules (especially about recipe vs autonomous mistakes).
 
+## Voice channel capability
+
+When `ORG.md` shows the agent's Voice channel as enabled, `voice_call_invite` creates a short-lived link to Flolah's browser Voice room. This is not native WhatsApp calling and is not a WhatsApp voice note. Call the tool and return its exact URL; do not answer from an older remembered capability state.
+
 ## Virtual Room / avatar media
+
 
 When the CEO chats in a **Virtual Room** (@avatar), you are already inside the avatar outbound workflow — never call **agent_workflow_trigger** / list / enquire, and do not update Kanban for the step. Greets (`hi` / `hello` / `hey`) → reply warmly immediately; skip **learnings_summary** and other tools.
 
