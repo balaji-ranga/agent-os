@@ -23,6 +23,9 @@ assert.equal(p.eligibleCampaign('test-ceo'),null,'once campaigns must not repeat
 assert.equal(p.recordPromotionEvent({campaignId:campaign.id,userId:'test-ceo',eventType:'impression',idempotencyKey:'same'}).duplicate,false);
 assert.equal(p.recordPromotionEvent({campaignId:campaign.id,userId:'test-ceo',eventType:'impression',idempotencyKey:'same'}).duplicate,true,'events must be idempotent');
 const click=p.signedPromotionClick(campaign.id,'test-ceo','https://flolah.cloud/docs/');const decoded=p.resolvePromotionClick(new URL(click).searchParams.get('t'));assert.equal(decoded.u,'test-ceo');assert.equal(decoded.d,'https://flolah.cloud/docs/');
+assert.equal(p.assertPromotionMediaSignature(Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]),'image/png'),true,'valid PNG signature');
+assert.equal(p.assertPromotionMediaSignature(Buffer.from([0,0,0,24,0x66,0x74,0x79,0x70,0x69,0x73,0x6f,0x6d]),'video/mp4'),true,'valid MP4 signature');
+assert.throws(()=>p.assertPromotionMediaSignature(Buffer.from('not an image'),'image/png'),/does not match/,'MIME spoofing must be rejected');
 await assert.rejects(()=>m.assertSafePublicUrl('https://127.0.0.1/private'),/blocked network/,'SSRF loopback must be blocked');
 assert.equal(await m.verifyTurnstile('test-pass','127.0.0.1'),true,'test-only Turnstile bypass contract');
 const fp=m.ipFingerprint('203.0.113.4'),token=m.issueHumanSession(fp);assert.equal(m.verifyHumanSession(token,fp),true);assert.equal(m.verifyHumanSession(token,'other'),false);

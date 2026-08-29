@@ -1,12 +1,25 @@
 import { createHmac, randomUUID, timingSafeEqual } from 'crypto';
 import { getDb } from '../db/schema.js';
 import { announceOnAgentChannel } from './agent-channel-announce.js';
+import { assertSafePublicUrl } from './mcp-universe.js';
 
 const STATES = new Set(['draft', 'pending_approval', 'scheduled', 'active', 'paused', 'completed', 'cancelled']);
 const FREQUENCIES = new Set(['once', 'daily', 'capped']);
 const DELIVERIES = new Set(['popup', 'whatsapp', 'both']);
-const EVENT_TYPES = new Set(['eligible', 'delivered', 'impression', 'viewable', 'expanded_read', 'dismissed', 'suppressed_by_user', 'cta_clicked', 'whatsapp_queued', 'whatsapp_sent', 'whatsapp_failed']);
+const EVENT_TYPES = new Set(['eligible', 'delivered', 'impression', 'viewable', 'expanded_read', 'dismissed', 'suppressed_by_user', 'cta_clicked', 'whatsapp_queued', 'whatsapp_sent', 'whatsapp_failed', 'whatsapp_media_queued', 'whatsapp_media_sent', 'whatsapp_media_failed']);
 const BLOCK_TYPES = new Set(['heading', 'paragraph', 'image', 'video', 'audio', 'cta', 'disclosure']);
+const MAX_PROMOTION_MEDIA_BYTES = 1_200_000;
+const PROMOTION_MEDIA_TIMEOUT_MS = 20_000;
+const PROMOTION_MEDIA_REDIRECTS = 3;
+const ALLOWED_PROMOTION_MEDIA = new Map([
+  ['image/png', { kind: 'image', ext: 'png' }],
+  ['image/jpeg', { kind: 'image', ext: 'jpg' }],
+  ['image/gif', { kind: 'image', ext: 'gif' }],
+  ['image/webp', { kind: 'image', ext: 'webp' }],
+  ['video/mp4', { kind: 'video', ext: 'mp4' }],
+  ['video/webm', { kind: 'video', ext: 'webm' }],
+  ['video/quicktime', { kind: 'video', ext: 'mov' }],
+]);
 
 export function ensurePromotionTables() {
   const db = getDb();
@@ -167,21 +180,128 @@ function campaignMessage(c,userId) {
   return `[Flolah announcement${c.advertiser ? ` · ${c.advertiser}` : ''}]\n\n${copy}\n\n${c.disclosure}${cta ? `\n\n${cta.label || 'Learn more'}: ${link}` : ''}`.slice(0, 12000);
 }
 
+export function assertPromotionMediaSignature(buffer, mimeType) {
+  const b = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer || []);
+  const mime = String(mimeType || '').toLowerCase();
+  const ascii = (start, end) => b.subarray(start, end).toString('ascii');
+  const valid =
+    (mime === 'image/png' && b.length >= 8 && b.subarray(0, 8).equals(Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]))) ||
+    (mime === 'image/jpeg' && b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) ||
+    (mime === 'image/gif' && b.length >= 6 && /^GIF8[79]a$/.test(ascii(0, 6))) ||
+    (mime === 'image/webp' && b.length >= 12 && ascii(0, 4) === 'RIFF' && ascii(8, 12) === 'WEBP') ||
+    ((mime === 'video/mp4' || mime === 'video/quicktime') && b.length >= 12 && ascii(4, 8) === 'ftyp') ||
+    (mime === 'video/webm' && b.length >= 4 && b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3);
+  if (!valid) throw new Error(`Media content does not match ${mime || 'declared type'}`);
+  return true;
+}
+
+async function readLimitedBody(response, maxBytes) {
+  const declared = Number(response.headers.get('content-length') || 0);
+  if (declared > maxBytes) throw new Error(`Media exceeds ${maxBytes} bytes`);
+  if (!response.body) return Buffer.alloc(0);
+  const reader = response.body.getReader();
+  const chunks = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel();
+      throw new Error(`Media exceeds ${maxBytes} bytes`);
+    }
+    chunks.push(Buffer.from(value));
+  }
+  return Buffer.concat(chunks, total);
+}
+
+export async function fetchPromotionMedia(block, { fetchImpl = fetch } = {}) {
+  const expectedKind = String(block?.type || '').toLowerCase();
+  if (!['image', 'video'].includes(expectedKind)) throw new Error('Only image and video blocks can be sent to WhatsApp');
+  let current = await assertSafePublicUrl(block?.url);
+  let response;
+  for (let redirects = 0; redirects <= PROMOTION_MEDIA_REDIRECTS; redirects += 1) {
+    response = await fetchImpl(current, {
+      redirect: 'manual',
+      headers: { Accept: expectedKind === 'image' ? 'image/*' : 'video/*' },
+      signal: AbortSignal.timeout(PROMOTION_MEDIA_TIMEOUT_MS),
+    });
+    if (![301,302,303,307,308].includes(response.status)) break;
+    const location = response.headers.get('location');
+    if (!location || redirects === PROMOTION_MEDIA_REDIRECTS) throw new Error('Too many or invalid media redirects');
+    current = await assertSafePublicUrl(new URL(location, current).toString());
+  }
+  if (!response?.ok) throw new Error(`Media download failed with HTTP ${response?.status || 0}`);
+  const mimeType = String(response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+  const allowed = ALLOWED_PROMOTION_MEDIA.get(mimeType);
+  if (!allowed || allowed.kind !== expectedKind) throw new Error(`Unsupported ${expectedKind} content type: ${mimeType || 'missing'}`);
+  const buffer = await readLimitedBody(response, MAX_PROMOTION_MEDIA_BYTES);
+  if (!buffer.length) throw new Error('Media response was empty');
+  assertPromotionMediaSignature(buffer, mimeType);
+  return {
+    kind: allowed.kind,
+    bytes: buffer.length,
+    filename: `promotion-${String(block.mediaKey || randomUUID()).replace(/[^a-z0-9_-]/gi, '').slice(0, 80)}.${allowed.ext}`,
+    mimeType,
+    bufferBase64: buffer.toString('base64'),
+    mediaKey: String(block.mediaKey || ''),
+  };
+}
+
 export async function dispatchDueWhatsappPromotions() {
-  const db = ensurePromotionTables(), now = new Date().toISOString();
-  const campaigns = db.prepare(`SELECT * FROM promotion_campaigns WHERE state IN ('active','scheduled') AND delivery IN ('whatsapp','both') AND (starts_at IS NULL OR starts_at<=?) AND (ends_at IS NULL OR ends_at>?)`).all(now,now);
-  const results=[];
-  for(const c of campaigns){
-    const users = c.audience === 'selected' ? db.prepare(`SELECT u.id FROM platform_users u JOIN promotion_campaign_targets t ON t.user_id=u.id WHERE t.campaign_id=? AND u.enabled=1 AND u.role='ceo'`).all(c.id) : db.prepare(`SELECT id FROM platform_users WHERE enabled=1 AND role='ceo'`).all();
-    for(const u of users){
-      if(!getPromotionPreferences(u.id).whatsapp_consent){results.push({campaign_id:c.id,user_id:u.id,skipped:'no_consent'});continue;}
-      const sent=db.prepare(`SELECT 1 FROM promotion_events WHERE campaign_id=? AND user_id=? AND event_type='whatsapp_sent' LIMIT 1`).get(c.id,u.id);if(sent&&c.frequency==='once')continue;
-      const day=now.slice(0,10);const daySent=db.prepare(`SELECT COUNT(*) n FROM promotion_events WHERE campaign_id=? AND user_id=? AND event_type='whatsapp_sent' AND created_at>=?`).get(c.id,u.id,`${day}T00:00:00.000Z`)?.n||0;if(c.frequency==='daily'&&daySent)continue;
-      const total=db.prepare(`SELECT COUNT(*) n FROM promotion_events WHERE campaign_id=? AND user_id=? AND event_type='whatsapp_sent'`).get(c.id,u.id)?.n||0;if(c.frequency==='capped'&&total>=c.frequency_cap)continue;
-      const agent=db.prepare(`SELECT a.id FROM agents a JOIN user_agents ua ON ua.agent_id=a.id WHERE ua.user_id=? AND ua.enabled=1 ORDER BY a.is_coo DESC LIMIT 1`).get(u.id);
-      const key=`wa:${c.id}:${u.id}:${c.frequency==='daily'?day:total+1}`;recordPromotionEvent({campaignId:c.id,userId:u.id,eventType:'whatsapp_queued',channel:'whatsapp',idempotencyKey:`${key}:queued`});
-      try{const out=await announceOnAgentChannel({ownerUserId:u.id,agentId:agent?.id,channel:'whatsapp',text:campaignMessage(c,u.id),idempotencyKey:key});const ok=!!out?.ok&&!out?.skipped;recordPromotionEvent({campaignId:c.id,userId:u.id,eventType:ok?'whatsapp_sent':'whatsapp_failed',channel:'whatsapp',idempotencyKey:`${key}:${ok?'sent':'failed'}`,metadata:{reason:out?.reason||out?.error||''}});results.push({campaign_id:c.id,user_id:u.id,ok,reason:out?.reason});}catch(e){recordPromotionEvent({campaignId:c.id,userId:u.id,eventType:'whatsapp_failed',channel:'whatsapp',idempotencyKey:`${key}:failed`,metadata:{reason:String(e.message).slice(0,300)}});results.push({campaign_id:c.id,user_id:u.id,ok:false,error:e.message});}
+  const db = ensurePromotionTables();
+  const now = new Date().toISOString();
+  const campaigns = db.prepare(`SELECT * FROM promotion_campaigns WHERE state IN ('active','scheduled') AND delivery IN ('whatsapp','both') AND (starts_at IS NULL OR starts_at<=?) AND (ends_at IS NULL OR ends_at>?)`).all(now, now);
+  const results = [];
+  for (const c of campaigns) {
+    const users = c.audience === 'selected'
+      ? db.prepare(`SELECT u.id FROM platform_users u JOIN promotion_campaign_targets t ON t.user_id=u.id WHERE t.campaign_id=? AND u.enabled=1 AND u.role='ceo'`).all(c.id)
+      : db.prepare(`SELECT id FROM platform_users WHERE enabled=1 AND role='ceo'`).all();
+    const blocks = JSON.parse(c.content_json || '[]');
+    const mediaBlocks = blocks
+      .map((block, index) => ({ ...block, index, mediaKey: `b${index}` }))
+      .filter((block) => ['image', 'video'].includes(block.type) && block.url);
+    for (const u of users) {
+      if (!getPromotionPreferences(u.id).whatsapp_consent) {
+        results.push({ campaign_id: c.id, user_id: u.id, skipped: 'no_consent' });
+        continue;
+      }
+      const sent = db.prepare(`SELECT 1 FROM promotion_events WHERE campaign_id=? AND user_id=? AND event_type='whatsapp_sent' LIMIT 1`).get(c.id,u.id);
+      if (sent && c.frequency === 'once') continue;
+      const day = now.slice(0,10);
+      const daySent = db.prepare(`SELECT COUNT(*) n FROM promotion_events WHERE campaign_id=? AND user_id=? AND event_type='whatsapp_sent' AND created_at>=?`).get(c.id,u.id,`${day}T00:00:00.000Z`)?.n || 0;
+      if (c.frequency === 'daily' && daySent) continue;
+      const total = db.prepare(`SELECT COUNT(*) n FROM promotion_events WHERE campaign_id=? AND user_id=? AND event_type='whatsapp_sent'`).get(c.id,u.id)?.n || 0;
+      if (c.frequency === 'capped' && total >= c.frequency_cap) continue;
+      const agent = db.prepare(`SELECT a.id FROM agents a JOIN user_agents ua ON ua.agent_id=a.id WHERE ua.user_id=? AND ua.enabled=1 ORDER BY a.is_coo DESC LIMIT 1`).get(u.id);
+      const key = `wa:${c.id}:${u.id}:${c.frequency === 'daily' ? day : total + 1}`;
+      recordPromotionEvent({ campaignId:c.id,userId:u.id,eventType:'whatsapp_queued',channel:'whatsapp',idempotencyKey:`${key}:queued` });
+      const mediaFiles = [];
+      let mediaPrepareFailed = false;
+      for (const block of mediaBlocks) {
+        const mediaEventKey = `${key}:media:${block.mediaKey}`;
+        recordPromotionEvent({ campaignId:c.id,userId:u.id,eventType:'whatsapp_media_queued',channel:'whatsapp',idempotencyKey:`${mediaEventKey}:queued`,metadata:{ kind:block.type } });
+        try {
+          mediaFiles.push(await fetchPromotionMedia(block));
+        } catch (error) {
+          mediaPrepareFailed = true;
+          recordPromotionEvent({ campaignId:c.id,userId:u.id,eventType:'whatsapp_media_failed',channel:'whatsapp',idempotencyKey:`${mediaEventKey}:failed:prepare`,metadata:{ kind:block.type,reason:String(error.message).slice(0,300) } });
+        }
+      }
+      try {
+        const out = await announceOnAgentChannel({ ownerUserId:u.id,agentId:agent?.id,channel:'whatsapp',text:campaignMessage(c,u.id),idempotencyKey:key,mediaFiles });
+        for (const item of out?.media_results || []) {
+          recordPromotionEvent({ campaignId:c.id,userId:u.id,eventType:item.ok?'whatsapp_media_sent':'whatsapp_media_failed',channel:'whatsapp',idempotencyKey:`${key}:media:${item.mediaKey}:${item.ok?'sent':'failed:send'}`,metadata:{ kind:item.kind,reason:item.error||'' } });
+        }
+        const mediaSendFailed = (out?.media_results || []).some((item) => !item.ok) || (mediaBlocks.length !== (out?.media_results || []).length);
+        const ok = !!out?.ok && !out?.skipped && !mediaPrepareFailed && !mediaSendFailed;
+        recordPromotionEvent({ campaignId:c.id,userId:u.id,eventType:ok?'whatsapp_sent':'whatsapp_failed',channel:'whatsapp',idempotencyKey:`${key}:${ok?'sent':`failed:${Date.now()}`}`,metadata:{ reason:out?.reason||out?.error||(ok?'':'media_delivery_failed') } });
+        results.push({ campaign_id:c.id,user_id:u.id,ok,reason:out?.reason,media_sent:out?.media_sent||0,media_expected:mediaBlocks.length });
+      } catch (error) {
+        recordPromotionEvent({ campaignId:c.id,userId:u.id,eventType:'whatsapp_failed',channel:'whatsapp',idempotencyKey:`${key}:failed:${Date.now()}`,metadata:{reason:String(error.message).slice(0,300)} });
+        results.push({ campaign_id:c.id,user_id:u.id,ok:false,error:error.message });
+      }
     }
   }
-  return {ok:true,count:results.length,results};
+  return { ok:true,count:results.length,results };
 }

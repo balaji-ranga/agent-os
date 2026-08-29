@@ -487,6 +487,7 @@ export async function announceOnAgentChannel({
   channel,
   text,
   idempotencyKey,
+  mediaFiles: suppliedMediaFiles = [],
 } = {}) {
   const ch = String(channel || '').toLowerCase();
   try {
@@ -505,7 +506,7 @@ export async function announceOnAgentChannel({
     const split = splitMediaLines(prefixed);
     let mediaLines = split.mediaLines;
     const body = split.body;
-    if (ch === 'whatsapp' && !mediaLines.length) {
+    if (ch === 'whatsapp' && !mediaLines.length && !suppliedMediaFiles.length) {
       const recent = recentOwnerGeneratedAudioLines(ownerUserId);
       if (recent.length) {
         mediaLines = recent;
@@ -516,7 +517,21 @@ export async function announceOnAgentChannel({
         });
       }
     }
-    const mediaFiles = mediaLines.map(resolveAnnounceMediaFile).filter(Boolean);
+    const inlineMediaFiles = mediaLines.map(resolveAnnounceMediaFile).filter(Boolean);
+    const supplied = suppliedMediaFiles
+      .filter((file) => file && ['image', 'video', 'audio'].includes(file.kind))
+      .filter((file) => Number(file.bytes) > 0 && Number(file.bytes) <= MAX_MEDIA_BUFFER_BYTES)
+      .filter((file) => typeof file.bufferBase64 === 'string' && file.bufferBase64.length > 0)
+      .map((file) => ({
+        kind: file.kind,
+        bytes: Number(file.bytes),
+        filename: basename(String(file.filename || `${file.kind}.bin`)),
+        mimeType: String(file.mimeType || 'application/octet-stream').slice(0, 120),
+        bufferBase64: file.bufferBase64,
+        asVoice: !!file.asVoice,
+        mediaKey: String(file.mediaKey || '').slice(0, 180),
+      }));
+    const mediaFiles = [...inlineMediaFiles, ...supplied];
     try {
       ensureTenantOpenClawAgent(
         getDb().prepare('SELECT * FROM agents WHERE id = ?').get(agentId),
@@ -531,7 +546,9 @@ export async function announceOnAgentChannel({
       idempotencyKey,
     });
     let mediaSent = 0;
-    for (const file of mediaFiles) {
+    const mediaResults = [];
+    for (let mediaIndex = 0; mediaIndex < mediaFiles.length; mediaIndex += 1) {
+      const file = mediaFiles[mediaIndex];
       try {
         const ready =
           ch === 'whatsapp' && file.kind === 'audio' ? await ensureWhatsAppAudioFile(file) : file;
@@ -542,9 +559,10 @@ export async function announceOnAgentChannel({
           accountId: resolved.accountId,
           message: '',
           mediaFile: packed,
-          idempotencyKey: idempotencyKey ? `${idempotencyKey}:m${mediaSent}` : undefined,
+          idempotencyKey: idempotencyKey ? `${idempotencyKey}:m${mediaIndex}` : undefined,
         });
         mediaSent += 1;
+        mediaResults.push({ ok: true, mediaKey: file.mediaKey || `m${mediaIndex}`, kind: file.kind });
         console.info('[channel-announce] media sent', {
           owner: ownerUserId,
           agent: agentId,
@@ -557,6 +575,12 @@ export async function announceOnAgentChannel({
           via: packed.bufferBase64 ? 'buffer' : 'path',
         });
       } catch (mediaErr) {
+        mediaResults.push({
+          ok: false,
+          mediaKey: file.mediaKey || `m${mediaIndex}`,
+          kind: file.kind,
+          error: String(mediaErr?.message || mediaErr).slice(0, 300),
+        });
         console.warn('[channel-announce] media send failed', {
           owner: ownerUserId,
           agent: agentId,
@@ -582,7 +606,14 @@ export async function announceOnAgentChannel({
       media_sent: mediaSent,
       to: String(resolved.to).replace(/\d(?=\d{4})/g, '•'),
     });
-    return { ok: true, channel: ch, method: sent.method, to_set: true, media_sent: mediaSent };
+    return {
+      ok: true,
+      channel: ch,
+      method: sent.method,
+      to_set: true,
+      media_sent: mediaSent,
+      media_results: mediaResults,
+    };
   } catch (e) {
     const msg = e?.message || String(e);
     console.warn('[channel-announce] failed', {
