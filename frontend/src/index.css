@@ -2500,6 +2500,27 @@ select:focus-visible {
   border: 1px solid #dc262644;
 }
 
+.wf-editor-readiness {
+  flex: 1 1 100%;
+  order: 11;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid color-mix(in srgb, #d97706 45%, var(--border));
+  border-radius: 8px;
+  background: color-mix(in srgb, #d97706 10%, var(--surface));
+  color: var(--text);
+  font-size: 0.82rem;
+}
+.wf-editor-readiness ul { margin: 0.35rem 0 0; padding-left: 1.15rem; }
+.wf-editor-readiness button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .wf-editor-kbd-hint {
   display: block;
   margin-top: 0.35rem;

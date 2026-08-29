@@ -55,6 +55,25 @@ const BRAIN_EXAMPLES = {
 };
 
 const NODE_EXAMPLES = {
+  email: {
+    staticRecipientDynamicBody: {
+      label: 'Send an upstream report to a fixed recipient',
+      inputBindings: [
+        { id: 'to', mode: 'static', value: 'ceo@example.com' },
+        { id: 'subject', mode: 'static', value: 'Daily status report' },
+        { id: 'body', mode: 'dynamic', sourceNodeId: 'report-1', sourceOutputKey: 'text' },
+      ],
+      taskConfig: { useEnvSmtp: true },
+    },
+    workflowRecipient: {
+      label: 'Recipient supplied when the workflow starts',
+      inputBindings: [
+        { id: 'to', mode: 'workflow_variable', variableKey: 'recipient_email' },
+        { id: 'subject', mode: 'static', value: 'Requested report' },
+        { id: 'body', mode: 'dynamic', sourceNodeId: 'report-1', sourceOutputKey: 'text' },
+      ],
+    },
+  },
   brain: BRAIN_EXAMPLES,
   web_scrape: {
     crawlSite: {
@@ -110,6 +129,12 @@ The CEO asked to CREATE a workflow. Return a single JSON object with "reply" and
 
 Each graph node: { "id", "type", "position": { "x": number, "y": number }, "data": { "label", "taskConfig": { ... }, "inputBindings"?: [...] } }.
 Include graph.edges [{ "id", "source", "target" }].
+
+Before returning actions, validate every node against the catalog below:
+- Every required input needs a non-empty static value, a workflow_variable key, or a dynamic binding to a real upstream node/output.
+- Use inputBindings for task inputs. Do not put email to/subject/body, API url/body, or similar runtime inputs only in taskConfig.
+- Set every node identity field (agentId, toolName, mcpServerId/toolName, connector appId/actionId, sub-workflow id) to an exact Runtime environment ID.
+- Connect every non-trigger node. Never publish or test when required values are unresolved; ask one concise business question instead.
 
 Example shape (replace types/config from the catalog to fit THIS ask):
 {
@@ -277,28 +302,112 @@ export function validateWorkflowGraphSchema(graph) {
   return { ok: errors.length === 0, errors };
 }
 
-export function validateWorkflowForPublish(graph, ownerUserId = null) {
-  const errors = [];
-  const nodes = graph?.nodes || [];
+function nonEmpty(value) {
+  if (value == null) return false;
+  if (typeof value === 'string') return value.trim().length > 0;
+  if (Array.isArray(value)) return value.length > 0;
+  return true;
+}
 
-  if (!nodes.length) errors.push('Workflow has no nodes.');
-  if (!nodes.some((n) => n.type === 'trigger')) errors.push('Workflow must include a Trigger node.');
+function bindingSatisfiesInput(binding, node, graph) {
+  if (!binding) return false;
+  const mode = String(binding.mode || 'static').toLowerCase();
+  if (mode === 'static') return nonEmpty(binding.value);
+  if (mode === 'workflow_variable' || mode === 'variable') {
+    return nonEmpty(binding.variableKey || binding.sourceOutputKey || binding.id);
+  }
+  if (mode === 'dynamic') {
+    if (nonEmpty(binding.sourceNodeId)) return graph.nodes.some((n) => n.id === binding.sourceNodeId);
+    return graph.edges.some((e) => e.target === node.id && graph.nodes.some((n) => n.id === e.source));
+  }
+  return false;
+}
 
-  errors.push(...validateWorkflowBrainCredentials(graph, ownerUserId));
+function nodeName(node) {
+  return node?.data?.label || node?.id || node?.type || 'Unknown node';
+}
 
-  for (const node of nodes) {
-    if (node.type === 'mcp_tool') {
-      const cfg = node.data?.taskConfig || {};
-      if (!cfg.mcpServerId) errors.push(`MCP node "${node.data?.label || node.id}": set mcpServerId.`);
-      if (!cfg.toolName) errors.push(`MCP node "${node.data?.label || node.id}": set toolName.`);
+/** Structured readiness analysis shared by GUI publish, Builder, certify and repair. */
+export function analyzeWorkflowForPublish(graph, ownerUserId = null) {
+  const normalized = {
+    nodes: Array.isArray(graph?.nodes) ? graph.nodes : [],
+    edges: Array.isArray(graph?.edges) ? graph.edges : [],
+  };
+  const issues = validateWorkflowGraphSchema(normalized).errors.map((message) => ({
+    code: 'graph_schema',
+    message,
+  }));
+  const nodesById = new Map(normalized.nodes.map((node) => [node.id, node]));
+
+  for (const node of normalized.nodes) {
+    const def = getTaskTypeDef(node.type);
+    const label = nodeName(node);
+    if (!def) {
+      issues.push({ code: 'unknown_node_type', node_id: node.id, field: 'type', message: `${label}: unknown node type "${node.type}".` });
+      continue;
     }
-    if (node.type === 'custom_script') {
-      const cfg = node.data?.taskConfig || {};
-      if (!cfg.customScriptId) errors.push(`Custom script node "${node.data?.label || node.id}": set customScriptId.`);
+    if (node.type !== 'trigger' && !normalized.edges.some((edge) => edge.target === node.id)) {
+      issues.push({ code: 'node_not_connected', node_id: node.id, message: `${label}: connect this node from an upstream step.` });
+    }
+
+    const bindings = Array.isArray(node.data?.inputBindings) ? node.data.inputBindings : [];
+    for (const input of def.inputs || []) {
+      if (!input.required) continue;
+      const binding = bindings.find((candidate) => candidate.id === input.id);
+      if (!bindingSatisfiesInput(binding, node, normalized)) {
+        issues.push({
+          code: 'required_input_missing',
+          node_id: node.id,
+          field: `inputBindings.${input.id}`,
+          message: `${label} → ${input.label || input.id} is required and has no usable value or binding.`,
+        });
+      }
+      if (binding?.mode === 'dynamic' && binding.sourceNodeId) {
+        const source = nodesById.get(binding.sourceNodeId);
+        if (!source) continue;
+        const outputKey = binding.sourceOutputKey || 'text';
+        const outputs = getTaskTypeDef(source.type)?.outputs || source.data?.outputs || [];
+        if (outputs.length && !outputs.some((output) => output.id === outputKey)) {
+          issues.push({
+            code: 'invalid_output_binding',
+            node_id: node.id,
+            field: `inputBindings.${input.id}.sourceOutputKey`,
+            message: `${label} → ${input.label || input.id} references unavailable output ${binding.sourceNodeId}.${outputKey}.`,
+          });
+        }
+      }
+    }
+
+    const cfg = node.data?.taskConfig || {};
+    const identityRequirements = {
+      agent: [['agentId', node.data?.agentId]],
+      tool: [['toolName', node.data?.toolName]],
+      mcp_tool: [['mcpServerId', cfg.mcpServerId], ['toolName', cfg.toolName]],
+      custom_script: [['customScriptId', cfg.customScriptId]],
+      connector: [['appId', cfg.appId], ['actionId', cfg.actionId]],
+      sub_workflow: [['targetWorkflowId', cfg.targetWorkflowId]],
+      externalAgent: [['externalAgentId', cfg.externalAgentId]],
+    };
+    for (const [field, value] of identityRequirements[node.type] || []) {
+      if (!nonEmpty(value)) {
+        issues.push({
+          code: 'required_config_missing',
+          node_id: node.id,
+          field,
+          message: `${label} → ${field} must be set to an exact catalog ID.`,
+        });
+      }
     }
   }
 
-  return errors;
+  for (const message of validateWorkflowBrainCredentials(normalized, ownerUserId)) {
+    issues.push({ code: 'brain_credentials', message });
+  }
+  return { ok: issues.length === 0, issues };
+}
+
+export function validateWorkflowForPublish(graph, ownerUserId = null) {
+  return analyzeWorkflowForPublish(graph, ownerUserId).issues.map((issue) => issue.message);
 }
 
 export function formatCatalogForPrompt({ nodeType = null, compact = false } = {}) {
@@ -312,9 +421,10 @@ export function formatCatalogForPrompt({ nodeType = null, compact = false } = {}
         type: c.type,
         label: c.label,
         purpose: c.purpose,
-        inputs: (c.inputs || []).map((i) => i.id),
-        outputs: (c.outputs || []).map((o) => o.id),
-        config: (c.configFields || []).map((f) => f.id),
+        inputs: (c.inputs || []).map((i) => ({ id: i.id, required: i.required, mode: i.mode, description: i.description })),
+        outputs: (c.outputs || []).map((o) => ({ id: o.id, description: o.description })),
+        config: (c.configFields || []).map((f) => ({ id: f.id, type: f.type, default: f.default, description: f.description })),
+        examples: c.examples,
       })),
       null,
       2

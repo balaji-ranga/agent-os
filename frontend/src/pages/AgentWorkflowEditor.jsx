@@ -1821,6 +1821,53 @@ function readStoredPropsPaneWidth() {
   return PROPS_PANE_DEFAULT;
 }
 
+function analyzeGraphReadinessClient(nodes, edges, taskCatalog) {
+  const issues = [];
+  const catalogByType = new Map((taskCatalog || []).map((entry) => [entry.type, entry]));
+  const nodeIds = new Set((nodes || []).map((node) => node.id));
+  if (!(nodes || []).some((node) => node.type === 'trigger')) {
+    issues.push({ message: 'Workflow needs a Trigger node.' });
+  }
+  for (const node of nodes || []) {
+    const label = node.data?.label || node.id;
+    const spec = catalogByType.get(node.type);
+    if (!spec) continue;
+    if (node.type !== 'trigger' && !(edges || []).some((edge) => edge.target === node.id)) {
+      issues.push({ nodeId: node.id, message: `${label}: connect this node from an upstream step.` });
+    }
+    const bindings = Array.isArray(node.data?.inputBindings) ? node.data.inputBindings : [];
+    for (const input of spec.inputs || []) {
+      if (!input.required) continue;
+      const binding = bindings.find((candidate) => candidate.id === input.id);
+      const mode = String(binding?.mode || 'static').toLowerCase();
+      const valid = mode === 'static'
+        ? String(binding?.value ?? '').trim().length > 0
+        : mode === 'dynamic'
+          ? (binding?.sourceNodeId ? nodeIds.has(binding.sourceNodeId) : (edges || []).some((edge) => edge.target === node.id))
+          : ['workflow_variable', 'variable'].includes(mode)
+            ? String(binding?.variableKey || binding?.sourceOutputKey || binding?.id || '').trim().length > 0
+            : false;
+      if (!valid) {
+        issues.push({ nodeId: node.id, message: `${label} → ${input.label || input.id} is required.` });
+      }
+    }
+    const cfg = node.data?.taskConfig || {};
+    const identities = {
+      agent: [['Agent', node.data?.agentId]],
+      tool: [['Tool name', node.data?.toolName]],
+      mcp_tool: [['MCP server', cfg.mcpServerId], ['MCP tool', cfg.toolName]],
+      custom_script: [['Custom script', cfg.customScriptId]],
+      connector: [['Connector app', cfg.appId], ['Connector action', cfg.actionId]],
+      sub_workflow: [['Target workflow', cfg.targetWorkflowId]],
+      externalAgent: [['External agent', cfg.externalAgentId]],
+    };
+    for (const [field, value] of identities[node.type] || []) {
+      if (!String(value || '').trim()) issues.push({ nodeId: node.id, message: `${label} → ${field} is required.` });
+    }
+  }
+  return issues;
+}
+
 function EditorInner({ workflowId }) {
   const navigate = useNavigate();
   const { setCenter, getZoom } = useReactFlow();
@@ -2064,6 +2111,10 @@ function EditorInner({ workflowId }) {
   const initial = useMemo(() => graphToFlow(workflow?.draft_graph), [workflow?.id]);
   const [nodes, setNodes, onNodesChange] = useNodesState(initial.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initial.edges);
+  const readinessIssues = useMemo(
+    () => analyzeGraphReadinessClient(nodes, edges, taskCatalog),
+    [nodes, edges, taskCatalog]
+  );
 
   const createPastedNode = useCallback(
     (src, id, position) => {
@@ -2677,7 +2728,13 @@ function EditorInner({ workflowId }) {
           <button type="button" className="wf-btn" onClick={saveDraft} disabled={saving}>
             Save draft
           </button>
-          <button type="button" className="wf-btn-primary" onClick={publish} disabled={saving}>
+          <button
+            type="button"
+            className="wf-btn-primary"
+            onClick={publish}
+            disabled={saving || readinessIssues.length > 0}
+            title={readinessIssues.length ? `Resolve ${readinessIssues.length} readiness issue(s) before publishing` : 'Publish workflow'}
+          >
             {workflow.status === 'published' ? 'Publish changes' : 'Publish'}
           </button>
           {workflow.status === 'published' && (
@@ -2724,6 +2781,21 @@ function EditorInner({ workflowId }) {
             aria-live="polite"
           >
             {inlineStatus.message}
+          </div>
+        )}
+        {!!readinessIssues.length && (
+          <div className="wf-editor-readiness" role="status" aria-live="polite">
+            <strong>Not ready to publish · {readinessIssues.length} issue{readinessIssues.length === 1 ? '' : 's'}</strong>
+            <ul>
+              {readinessIssues.slice(0, 6).map((issue, index) => (
+                <li key={`${issue.nodeId || 'graph'}-${index}`}>
+                  {issue.nodeId ? (
+                    <button type="button" onClick={() => setSelectedId(issue.nodeId)}>{issue.message}</button>
+                  ) : issue.message}
+                </li>
+              ))}
+            </ul>
+            {readinessIssues.length > 6 && <small>+ {readinessIssues.length - 6} more issues</small>}
           </div>
         )}
       </header>

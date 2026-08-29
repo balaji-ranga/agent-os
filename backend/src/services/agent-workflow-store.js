@@ -3,7 +3,7 @@
  */
 import { randomBytes } from 'crypto';
 import { getDb } from '../db/schema.js';
-import { validateWorkflowBrainCredentials } from './agent-workflow-brain-providers.js';
+import { validateWorkflowForPublish } from './agent-workflow-builder-catalog.js';
 import {
   extractInputSchemaFromGraph,
   normalizeInputSchema,
@@ -302,15 +302,9 @@ export function updateDraft(id, ownerUserId, patch, actor) {
 export function publishDefinition(id, ownerUserId, actor) {
   const def = getDefinition(id, ownerUserId);
   if (!def) return null;
-  if (!def.draft_graph?.nodes?.length) {
-    throw new Error('Workflow must have at least one node before publishing');
-  }
-  const hasTrigger = def.draft_graph.nodes.some((n) => n.type === 'trigger');
-  if (!hasTrigger) throw new Error('Workflow must include a Trigger node');
-
-  const brainErrors = validateWorkflowBrainCredentials(def.draft_graph, ownerUserId);
-  if (brainErrors.length) {
-    throw new Error(`Cannot publish: ${brainErrors.join('; ')}`);
+  const publishErrors = validateWorkflowForPublish(def.draft_graph, ownerUserId);
+  if (publishErrors.length) {
+    throw new Error(`Cannot publish: ${publishErrors.join('; ')}`);
   }
 
   const inputSchema =
