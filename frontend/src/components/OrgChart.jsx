@@ -217,7 +217,14 @@ export default function OrgChart({ agents = [], onRemove, roleTitle = 'CEO', use
 
   useEffect(() => {
     let cancelled = false;
-    api.orgPeople().then((r) => { if (!cancelled) setPeople(Array.isArray(r) ? r : (r?.people || [])); }).catch(() => {});
+    // The company directory is readable by employees as well as the CEO.
+    // /org-people is intentionally a people-administration API and rejects a
+    // normal employee, which previously made their own org chart omit humans.
+    api.humanDirectory()
+      .then((r) => {
+        if (!cancelled) setPeople((Array.isArray(r) ? r : (r?.people || [])).filter((p) => p?.role === 'org_user'));
+      })
+      .catch(() => { if (!cancelled) setPeople([]); });
     return () => { cancelled = true; };
   }, []);
 
