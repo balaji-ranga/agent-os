@@ -44,6 +44,7 @@
     ,"test:channel-capability-session": "node scripts/test-channel-capability-session.mjs"
     ,"test:workflow-contract-validation": "node scripts/test-workflow-contract-validation.mjs"
     ,"test:human-company-execution": "node scripts/test-human-company-execution.mjs"
+    ,"test:company-communications-retention-eta": "node scripts/test-company-communications-retention-eta.mjs"
   },
   "dependencies": {
     "@stoqey/ib": "^1.6.3",

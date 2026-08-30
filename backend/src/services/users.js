@@ -664,6 +664,7 @@ export function updateUserProfile(
   }
 
   if (data_retention_days !== undefined) {
+    if (row.role !== 'ceo') throw new Error('Data retention is controlled by the company CEO profile');
     updates.data_retention_days = normalizeRetentionDays(data_retention_days);
   }
 

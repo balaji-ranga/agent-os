@@ -1033,6 +1033,7 @@ export const api = {
     post(`/agent-channels/${encodeURIComponent(id)}/whatsapp-qr/wait`, body),
   agentVoiceSession: (agentId) => post(`/agents/${encodeURIComponent(agentId)}/voice/session`, {}),
   agentVoiceStatus: (agentId) => get(`/agents/${encodeURIComponent(agentId)}/voice/status`),
+  agentVoiceSessions: (agentId, params = {}) => get(`/agents/${encodeURIComponent(agentId)}/voice/sessions?${new URLSearchParams(params)}`),
   publicVoiceGet: (slug) => get(`/public/voice/${encodeURIComponent(slug)}`),
   publicVoiceSession: (slug) => post(`/public/voice/${encodeURIComponent(slug)}/session`, {}),
   voiceInviteGet: (token) => get(`/public/voice/invite/${encodeURIComponent(token)}`),

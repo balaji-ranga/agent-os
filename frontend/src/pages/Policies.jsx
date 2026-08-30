@@ -60,7 +60,7 @@ function PoliciesPanel() {
     agent_pickup: true,
   });
   const [exceptionBusy, setExceptionBusy] = useState(false);
-  const [assignmentPolicy, setAssignmentPolicy] = useState({ mode: 'prefer_agent', high_risk_to_human: true });
+  const [assignmentPolicy, setAssignmentPolicy] = useState({ mode: 'prefer_agent', high_risk_to_human: true, urgent_eta_hours: 4, standard_eta_hours: 8, complex_eta_hours: 12 });
   const [assignmentBusy, setAssignmentBusy] = useState(false);
   const [controlBusy, setControlBusy] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -412,6 +412,19 @@ function PoliciesPanel() {
           <div><h2 style={{ margin: '0 0 .35rem' }}>AI and human work assignment</h2><p style={{ margin: 0, color: 'var(--muted)' }}>When an AI employee and a human employee both match a planned outcome, this company policy chooses the executor. The goal remains isolated and resumes from the same step when a human responds.</p></div>
           <label><span style={{ display: 'block', marginBottom: 5 }}>Default preference</span><select value={assignmentPolicy.mode} onChange={(e) => setAssignmentPolicy((p) => ({ ...p, mode: e.target.value }))} style={{ width: '100%', padding: '.65rem' }}><option value="equal_weight">Equal weight — choose best capability fit</option><option value="prefer_agent">Prefer AI employee</option><option value="prefer_human">Prefer human employee</option><option value="risk_to_human">Prefer AI, but route high-risk judgment to humans</option></select></label>
           <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9 }}><input type="checkbox" checked={assignmentPolicy.high_risk_to_human !== false} onChange={(e) => setAssignmentPolicy((p) => ({ ...p, high_risk_to_human: e.target.checked }))} /><span><strong>Require a matched human for high-risk judgment</strong><small style={{ display: 'block', color: 'var(--muted)' }}>Financial commitments/costs, legal or regulatory decisions, destructive actions, and binding external commitments.</small></span></label>
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+            <h3 style={{ margin: '0 0 .35rem' }}>Kanban ETA defaults</h3>
+            <p style={{ margin: '0 0 .8rem', color: 'var(--muted)' }}>Applied to generated human and AI tasks. A task-specific ETA still overrides these defaults.</p>
+            <div className="policy-eta-grid">
+              {[
+                ['urgent_eta_hours', 'Urgent / high risk'],
+                ['standard_eta_hours', 'Standard work'],
+                ['complex_eta_hours', 'Complex / research'],
+              ].map(([key, label]) => (
+                <label key={key}><span style={{ display: 'block', marginBottom: 5 }}>{label}</span><select value={assignmentPolicy[key] || 8} onChange={(e) => setAssignmentPolicy((p) => ({ ...p, [key]: Number(e.target.value) }))} style={{ width: '100%', padding: '.65rem' }}>{[1,2,4,8,12,24,36,48,72,168].map((h) => <option key={h} value={h}>{h === 168 ? '7 days' : `${h} hours`}</option>)}</select></label>
+              ))}
+            </div>
+          </div>
           {message && <p role="status" style={{ color: 'var(--accent)' }}>{message}</p>}{error && <p role="alert" style={{ color: 'var(--danger,#c44)' }}>{error}</p>}
           <div><button className="btn-primary" onClick={saveAssignmentPolicy} disabled={assignmentBusy}>{assignmentBusy ? 'Saving…' : 'Save work assignment policy'}</button></div>
         </section>

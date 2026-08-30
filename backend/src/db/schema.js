@@ -2961,6 +2961,33 @@ function ensureOrgPeopleSchema(_db) {
   try {
     _db.exec(`CREATE INDEX IF NOT EXISTS idx_kanban_assigned_user ON kanban_tasks(assigned_user_id)`);
   } catch (_) {}
+  try {
+    _db.exec(`CREATE TABLE IF NOT EXISTS work_assignment_policies (
+      owner_user_id TEXT PRIMARY KEY, mode TEXT NOT NULL DEFAULT 'prefer_agent',
+      high_risk_to_human INTEGER NOT NULL DEFAULT 1,
+      urgent_eta_hours INTEGER NOT NULL DEFAULT 4,
+      standard_eta_hours INTEGER NOT NULL DEFAULT 8,
+      complex_eta_hours INTEGER NOT NULL DEFAULT 12,
+      updated_at TEXT DEFAULT (datetime('now'))
+    )`);
+    for (const sql of [
+      `ALTER TABLE work_assignment_policies ADD COLUMN urgent_eta_hours INTEGER NOT NULL DEFAULT 4`,
+      `ALTER TABLE work_assignment_policies ADD COLUMN standard_eta_hours INTEGER NOT NULL DEFAULT 8`,
+      `ALTER TABLE work_assignment_policies ADD COLUMN complex_eta_hours INTEGER NOT NULL DEFAULT 12`,
+    ]) { try { _db.exec(sql); } catch (_) {} }
+    _db.exec(`DROP TRIGGER IF EXISTS trg_kanban_default_policy_eta`);
+    _db.exec(`CREATE TRIGGER trg_kanban_default_policy_eta AFTER INSERT ON kanban_tasks
+      WHEN NEW.owner_user_id IS NOT NULL AND NEW.eta_hours IS NULL
+        AND NEW.status IN ('open','in_progress','awaiting_confirmation')
+      BEGIN
+        UPDATE kanban_tasks SET
+          eta_hours=COALESCE((SELECT standard_eta_hours FROM work_assignment_policies WHERE owner_user_id=NEW.owner_user_id),8),
+          due_at=datetime(COALESCE(NEW.created_at,datetime('now')), '+' || COALESCE((SELECT standard_eta_hours FROM work_assignment_policies WHERE owner_user_id=NEW.owner_user_id),8) || ' hours')
+        WHERE id=NEW.id;
+      END`);
+  } catch (e) {
+    console.warn('[schema] work assignment ETA policy:', e.message);
+  }
 
   try {
     _db.exec(`

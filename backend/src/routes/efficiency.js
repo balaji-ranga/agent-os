@@ -201,11 +201,11 @@ router.get('/retention', (req, res) => {
  * POST /api/efficiency/retention/purge — permanently delete aged chats / standup / workflow runs.
  * Body: { days?: number } — omit to use profile data_retention_days.
  */
-router.post('/retention/purge', (req, res) => {
+router.post('/retention/purge', async (req, res) => {
   try {
     const ownerUserId = resolveAuthenticatedCeoUserId(req, req.body || {});
     const days = req.body?.days != null ? req.body.days : null;
-    const out = purgeOwnerRetention(ownerUserId, { days });
+    const out = await purgeOwnerRetention(ownerUserId, { days });
     console.log(`[efficiency] retention purge owner=${ownerUserId} days=${out.retention_days}`);
     res.json({ ok: true, ...out });
   } catch (e) {

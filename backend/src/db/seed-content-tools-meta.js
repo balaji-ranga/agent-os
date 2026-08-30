@@ -453,6 +453,17 @@ const BUILTIN_TOOLS = [
     is_builtin: 1,
   },
   {
+    name: 'company_communications_history',
+    display_name: 'Company Communications History',
+    endpoint: '/api/tools/company-communications-history',
+    method: 'POST',
+    purpose:
+      'COO-only owner-scoped audit of human-to-human web conversations and WebRTC call metadata. Optional conversation_id returns its messages; limit and offset paginate. Calls include participants, timestamps, status, and duration only—never SDP, ICE, tokens, or audio. Use when the CEO asks what company users discussed or when a call occurred.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
     name: 'onboarding_save_proposal',
     display_name: 'Save Onboarding Proposal',
     endpoint: '/api/tools/onboarding-save-proposal',
@@ -917,7 +928,7 @@ const EMAIL_SEND_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'email_send');
 const SPEECH_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'speech_tts' || t.name === 'speech_stt');
 const VISION_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'analyze_image');
 const NOTIFY_CEO_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'notify_ceo');
-const VOICE_INVITE_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'voice_call_invite');
+const VOICE_INVITE_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'voice_call_invite' || t.name === 'company_communications_history');
 const ONBOARDING_PROPOSAL_TOOLS = BUILTIN_TOOLS.filter((t) =>
   t.name === 'onboarding_save_proposal' || t.name === 'onboarding_apply_proposal'
 );

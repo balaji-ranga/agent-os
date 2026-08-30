@@ -96,12 +96,12 @@ router.post('/run-data-retention', async (req, res) => {
   try {
     const body = req.body || {};
     if (body.all_ceos === true && (req.authUser?.role === 'admin' || req.headers['x-internal-token'])) {
-      const out = purgeRetentionForAllCeos();
+      const out = await purgeRetentionForAllCeos();
       return res.json({ ok: true, ...out });
     }
     const ownerUserId = resolveAuthenticatedCeoUserId(req, body);
     const days = body.days != null ? body.days : null;
-    const out = purgeOwnerRetention(ownerUserId, { days });
+    const out = await purgeOwnerRetention(ownerUserId, { days });
     console.log(`[cron] retention purge owner=${ownerUserId} days=${out.retention_days}`);
     res.json({ ok: true, ...out });
   } catch (e) {

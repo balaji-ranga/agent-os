@@ -18,6 +18,7 @@ import { getCooAgentRow } from './org-context.js';
 import { normalizeA2AVisibility } from './workflow-a2a-access.js';
 import { extractA2AReply, findLocalA2APublication } from './a2a-local-invoke.js';
 import { shouldCompleteKanbanForReply } from './kanban-reply-enrich.js';
+import { applyPolicyEtaToTask } from './kanban-sla.js';
 
 export { isOrgMemberKey, splitAllocationByKind } from './org-member-keys.js';
 
@@ -36,7 +37,9 @@ function createKanbanTask(ownerUserId, member, query, callerAgentId) {
       callerAgentId || 'coo',
       String(ownerUserId)
     );
-  return Number(info.lastInsertRowid);
+  const taskId = Number(info.lastInsertRowid);
+  applyPolicyEtaToTask(taskId, ownerUserId, { context: query });
+  return taskId;
 }
 
 function getPublicationVisibility(publishId) {

@@ -9,6 +9,7 @@ import {
   createVoiceSession,
   getVoiceChannelForAgent,
   voicePublicUrl,
+  listVoiceSessions,
 } from '../services/agent-voice-sessions.js';
 
 const router = Router({ mergeParams: true });
@@ -73,6 +74,17 @@ router.get('/status', requireAuth, requireCeoOrAdmin, (req, res) => {
     });
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message || 'Voice status failed' });
+  }
+});
+
+router.get('/sessions', requireAuth, requireCeoOrAdmin, (req, res) => {
+  try {
+    const owner = resolveAuthenticatedCeoUserId(req);
+    const agentId = String(req.params.id || '').trim();
+    assertUserAgentAccess(req.authUser, agentId);
+    res.json({ sessions: listVoiceSessions(owner, agentId, req.query || {}) });
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || 'Voice history failed' });
   }
 });
 

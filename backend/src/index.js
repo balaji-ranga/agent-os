@@ -759,12 +759,12 @@ const dataRetentionCron = process.env.DATA_RETENTION_CRON || '15 3 * * *';
 registerPlatformCron({
   id: 'data_retention',
   name: 'Data retention purge',
-  description: 'Permanently deletes aged chats, standup conversations and workflow runs per CEO retention days.',
+  description: 'Uses each CEO profile to purge aged company chats, calls/transcripts, workflow history, uploaded/generated content and tenant RAG documents for that CEO and all employees.',
   schedule: dataRetentionCron,
   envVar: 'DATA_RETENTION_CRON',
   handler: async () => {
     const { purgeRetentionForAllCeos } = await import('./services/data-retention.js');
-    const out = purgeRetentionForAllCeos();
+    const out = await purgeRetentionForAllCeos();
     console.log('[cron] Data retention purge:', out.count, 'CEO(s)');
     return out;
   },

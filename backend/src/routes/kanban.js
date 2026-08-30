@@ -39,7 +39,7 @@ import {
 } from '../services/kanban-orphan-watcher.js';
 import { respondToGoalActionApproval } from '../services/goal-action-approval.js';
 import { respondToHumanGoalTask } from '../services/agent-goal-run.js';
-import { normalizeEtaHours, computeDueAt, withSlaState } from '../services/kanban-sla.js';
+import { resolveKanbanEtaHours, computeDueAt, withSlaState } from '../services/kanban-sla.js';
 
 const router = Router();
 router.use(attachAuthUser);
@@ -393,7 +393,7 @@ router.post('/tasks', (req, res) => {
     const assigned_agent_id = assign_to && assign_to !== 'coo' ? String(assign_to).trim() || null : null;
     const desc = typeof description === 'string' ? description.trim() : '';
     const due = due_date ? new Date(due_date).toISOString().slice(0, 10) : null;
-    const eta = normalizeEtaHours(eta_hours, `${title}\n${desc}`);
+    const eta = resolveKanbanEtaHours(ownerUserId, eta_hours, `${title}\n${desc}`);
     const dueAt = computeDueAt(eta);
     db()
       .prepare(
@@ -454,7 +454,7 @@ router.patch('/tasks/:id', (req, res) => {
       values.push(due_date ? new Date(due_date).toISOString().slice(0, 10) : null);
     }
     if (eta_hours !== undefined) {
-      const eta = normalizeEtaHours(eta_hours, `${title ?? task.title}\n${description ?? task.description}`);
+      const eta = resolveKanbanEtaHours(task.owner_user_id, eta_hours, `${title ?? task.title}\n${description ?? task.description}`);
       updates.push('eta_hours = ?', 'due_at = ?', 'sla_nudged_at = NULL', 'sla_escalated_at = NULL');
       values.push(eta, computeDueAt(eta));
     }

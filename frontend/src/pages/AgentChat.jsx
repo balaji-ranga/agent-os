@@ -319,6 +319,7 @@ export default function AgentChat() {
   const [agent, setAgent] = useState(null);
   const [turns, setTurns] = useState([]);
   const [history, setHistory] = useState([]);
+  const [voiceHistory, setVoiceHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [restoreBusyId, setRestoreBusyId] = useState(null);
   const [input, setInput] = useState('');
@@ -466,10 +467,15 @@ export default function AgentChat() {
     if (!agentId) return;
     setHistoryLoading(true);
     try {
-      const r = await api.agentChatSessions(agentId, { limit: 100 });
+      const [r, voice] = await Promise.all([
+        api.agentChatSessions(agentId, { limit: 100 }),
+        api.agentVoiceSessions(agentId, { limit: 20 }).catch(() => ({ sessions: [] })),
+      ]);
       setHistory(Array.isArray(r?.sessions) ? r.sessions : Array.isArray(r) ? r : []);
+      setVoiceHistory(Array.isArray(voice?.sessions) ? voice.sessions : []);
     } catch {
       setHistory([]);
+      setVoiceHistory([]);
     } finally {
       setHistoryLoading(false);
     }
@@ -850,6 +856,17 @@ export default function AgentChat() {
                     </button>
                   </div>
                 </div>
+              ))}
+              {voiceHistory.length > 0 && <div className="chat-history-header"><h2>Voice calls</h2><span className="chat-history-meta">Transcripts</span></div>}
+              {voiceHistory.map((call) => (
+                <details key={call.id} className="chat-history-item">
+                  <summary className="chat-history-title">Voice call · {formatArchivedAt(call.ended_at || call.created_at)}</summary>
+                  <div className="chat-history-date">{call.duration_seconds != null ? `${call.duration_seconds}s` : call.status}{call.is_guest ? ' · guest' : ''}</div>
+                  <div style={{ display: 'grid', gap: 6, marginTop: 8 }}>
+                    {(call.transcript || []).map((turn, index) => <div key={`${call.id}:${index}`}><strong>{turn.role === 'assistant' ? agentLabel : 'You'}:</strong> {turn.text}</div>)}
+                    {!call.transcript?.length && <span className="chat-history-meta">No transcript captured.</span>}
+                  </div>
+                </details>
               ))}
             </div>
           </>

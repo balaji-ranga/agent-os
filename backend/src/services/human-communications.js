@@ -16,6 +16,19 @@ function id(prefix) { return `${prefix}-${randomBytes(10).toString('hex')}`; }
 function hash(value) { return createHash('sha256').update(String(value || '')).digest('hex'); }
 function json(value, fallback = null) { try { return JSON.parse(String(value || '')); } catch { return fallback; } }
 
+function safeCall(row) {
+  const started = Date.parse(row.answered_at || row.created_at || '');
+  const ended = Date.parse(row.ended_at || '');
+  return {
+    id: row.id, conversation_id: row.conversation_id || null, status: row.status,
+    caller_user_id: row.caller_user_id || null, caller_name: row.caller_name || (row.caller_user_id ? 'Company user' : 'Guest'),
+    callee_user_id: row.callee_user_id, callee_name: row.callee_name || '',
+    created_at: row.created_at, answered_at: row.answered_at, ended_at: row.ended_at,
+    duration_seconds: Number.isFinite(started) && Number.isFinite(ended) ? Math.max(0, Math.round((ended - started) / 1000)) : null,
+    guest_call: !row.caller_user_id,
+  };
+}
+
 export function ensureHumanCommunicationsSchema() {
   db().exec(`
     CREATE TABLE IF NOT EXISTS human_conversations (
@@ -87,6 +100,13 @@ export function ensureHumanCommunicationsSchema() {
     CREATE INDEX IF NOT EXISTS idx_human_messages_conversation ON human_messages(conversation_id, id);
     CREATE INDEX IF NOT EXISTS idx_human_calls_callee ON human_calls(owner_user_id, callee_user_id, status);
   `);
+  db().prepare(`UPDATE human_calls SET status='expired',ended_at=COALESCE(ended_at,datetime('now')),
+    offer_json=NULL,answer_json=NULL,caller_candidates_json='[]',callee_candidates_json='[]'
+    WHERE status='ringing' AND expires_at IS NOT NULL AND datetime(expires_at)<=datetime('now')`).run();
+  db().prepare(`UPDATE human_calls SET offer_json=NULL,answer_json=NULL,
+    caller_candidates_json='[]',callee_candidates_json='[]'
+    WHERE status IN ('ended','declined','expired') AND
+      (offer_json IS NOT NULL OR answer_json IS NOT NULL OR caller_candidates_json<>'[]' OR callee_candidates_json<>'[]')`).run();
 }
 
 function assertCompanyUser(ownerUserId, userId) {
@@ -282,9 +302,42 @@ export function updateHumanCall(ownerUserId, userId, callId, patch = {}) {
     const current = row.caller_user_id === userId ? row.caller_candidates : row.callee_candidates;
     updates.push(`${col}=?`); values.push(JSON.stringify([...(current || []), patch.candidate].slice(-100)));
   }
-  if (['declined','ended'].includes(patch.status)) { updates.push("status=?,ended_at=datetime('now')"); values.push(patch.status); }
+  if (['declined','ended'].includes(patch.status)) {
+    updates.push("status=?,ended_at=datetime('now'),offer_json=NULL,answer_json=NULL,caller_candidates_json='[]',callee_candidates_json='[]'");
+    values.push(patch.status);
+  }
   if (updates.length) { values.push(callId, ownerUserId); db().prepare(`UPDATE human_calls SET ${updates.join(',')} WHERE id=? AND owner_user_id=?`).run(...values); }
   return getHumanCall(ownerUserId, userId, callId);
+}
+
+/** Owner-scoped operational record for COO/CEO. Signalling secrets are never returned. */
+export function listCompanyCommunicationHistory(ownerUserId, { limit = 50, offset = 0, conversationId = null } = {}) {
+  ensureHumanCommunicationsSchema();
+  const owner = String(ownerUserId || '').trim();
+  const take = Math.min(100, Math.max(1, Number(limit) || 50));
+  const skip = Math.max(0, Number(offset) || 0);
+  const conversations = db().prepare(
+    `SELECT c.* FROM human_conversations c WHERE c.owner_user_id=?
+     ORDER BY c.updated_at DESC LIMIT ? OFFSET ?`
+  ).all(owner, take, skip).map((row) => serializeConversation(row, owner));
+  let messages = [];
+  if (conversationId) {
+    const exists = db().prepare('SELECT 1 FROM human_conversations WHERE id=? AND owner_user_id=?').get(String(conversationId), owner);
+    if (!exists) throw Object.assign(new Error('Conversation not found'), { status: 404 });
+    messages = db().prepare(
+      `SELECT m.id,m.conversation_id,m.sender_user_id,u.name AS sender_name,m.body,m.message_type,m.created_at
+       FROM human_messages m JOIN platform_users u ON u.id=m.sender_user_id
+       WHERE m.owner_user_id=? AND m.conversation_id=? ORDER BY m.id DESC LIMIT ?`
+    ).all(owner, String(conversationId), take).reverse();
+  }
+  const calls = db().prepare(
+    `SELECT c.*,caller.name AS caller_name,callee.name AS callee_name
+       FROM human_calls c
+       LEFT JOIN platform_users caller ON caller.id=c.caller_user_id
+       LEFT JOIN platform_users callee ON callee.id=c.callee_user_id
+      WHERE c.owner_user_id=? ORDER BY c.created_at DESC LIMIT ? OFFSET ?`
+  ).all(owner, take, skip).map(safeCall);
+  return { conversations, messages, calls, limit: take, offset: skip };
 }
 
 export function createHumanVoiceInvite(ownerUserId, requestedByUserId, targetUserId, { ttlSeconds = INVITE_TTL_SECONDS } = {}) {
@@ -336,6 +389,6 @@ export function updateGuestHumanCall(token, callId, patch = {}) {
     const candidates = json(row.caller_candidates_json, []);
     db().prepare('UPDATE human_calls SET caller_candidates_json=? WHERE id=?').run(JSON.stringify([...candidates, patch.candidate].slice(-100)), callId);
   }
-  if (patch.status === 'ended') db().prepare("UPDATE human_calls SET status='ended',ended_at=datetime('now') WHERE id=?").run(callId);
+  if (patch.status === 'ended') db().prepare("UPDATE human_calls SET status='ended',ended_at=datetime('now'),offer_json=NULL,answer_json=NULL,caller_candidates_json='[]',callee_candidates_json='[]' WHERE id=?").run(callId);
   return getGuestHumanCall(token, callId);
 }

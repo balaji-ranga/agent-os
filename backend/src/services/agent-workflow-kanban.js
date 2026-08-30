@@ -6,6 +6,7 @@ import {
   notifyKanbanTaskCreated,
   clearKanbanTaskNotification,
 } from './platform-notifications.js';
+import { applyPolicyEtaToTask } from './kanban-sla.js';
 
 export const AGENT_WORKFLOW_TAG = '[agent_workflow:';
 
@@ -54,6 +55,7 @@ export function createCeoApprovalKanbanTask({
     .run(title, description, standupId, ownerUserId || null);
   const id = db().prepare('SELECT id FROM kanban_tasks ORDER BY id DESC LIMIT 1').get()?.id;
   if (id && ownerUserId) {
+    applyPolicyEtaToTask(id, ownerUserId, { context: `${title}\n${description}` });
     notifyKanbanTaskCreated({
       userId: ownerUserId,
       task: { id, title, assigned_agent_id: null },
@@ -96,6 +98,7 @@ export function createAgentWorkflowKanbanTask({
     .run(title, description, agentId, standupId, delegationTaskId, ownerUserId);
   const id = db().prepare('SELECT id FROM kanban_tasks WHERE agent_delegation_task_id = ?').get(delegationTaskId)?.id;
   if (id && ownerUserId) {
+    applyPolicyEtaToTask(id, ownerUserId, { context: `${title}\n${description}` });
     notifyKanbanTaskCreated({
       userId: ownerUserId,
       task: { id, title, assigned_agent_id: agentId },

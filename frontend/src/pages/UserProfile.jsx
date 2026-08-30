@@ -260,8 +260,8 @@ function UserProfilePanel() {
             ? null
             : form.llm_model || undefined,
         llm_efficiency_mode: !!form.llm_efficiency_mode,
-        data_retention_days: Number(form.data_retention_days) || 90,
       };
+      if (user?.role === 'ceo') body.data_retention_days = Number(form.data_retention_days) || 90;
       if (form.new_password) {
         body.current_password = form.current_password;
         body.new_password = form.new_password;
@@ -454,6 +454,7 @@ function UserProfilePanel() {
             )}
           </div>
         </div>
+        {user?.role === 'ceo' && <>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Name</span>
           <input
@@ -594,7 +595,7 @@ function UserProfilePanel() {
             ))}
           </select>
           <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
-            After this period, chats, standup history, and workflow run instances are permanently deleted (daily job + My Org purge).
+            Company-wide for you and all employees. After this period, chats, call history/transcripts, workflow runs, uploaded/generated content, and tenant RAG documents are permanently deleted (daily job + manual purge).
           </span>
         </label>
         <button
@@ -635,6 +636,7 @@ function UserProfilePanel() {
         >
           {purgeBusy ? 'Purging…' : 'Purge aged data now'}
         </button>
+        </>}
         <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Industry</span>
           <select

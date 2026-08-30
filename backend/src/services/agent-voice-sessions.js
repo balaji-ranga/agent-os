@@ -85,6 +85,32 @@ export function ensureVoiceSessionsSchema() {
   } catch (_) {}
 }
 
+export function listVoiceSessions(ownerUserId, agentId, { limit = 20, offset = 0 } = {}) {
+  ensureVoiceSessionsSchema();
+  assertAgentForOwner(ownerUserId, agentId);
+  const rows = getDb().prepare(
+    `SELECT id,status,created_at,ended_at,expires_at,is_guest,transcript_json
+       FROM ceo_voice_sessions WHERE owner_user_id=? AND agent_id=?
+       ORDER BY created_at DESC LIMIT ? OFFSET ?`
+  ).all(String(ownerUserId), String(agentId), Math.min(100, Math.max(1, Number(limit) || 20)), Math.max(0, Number(offset) || 0));
+  return rows.map((row) => {
+    let transcript = [];
+    try { transcript = JSON.parse(row.transcript_json || '[]'); } catch { transcript = []; }
+    const started = Date.parse(row.created_at || '');
+    const ended = Date.parse(row.ended_at || '');
+    return {
+      id: row.id,
+      status: row.status,
+      created_at: row.created_at,
+      ended_at: row.ended_at,
+      expires_at: row.expires_at,
+      is_guest: !!row.is_guest,
+      duration_seconds: Number.isFinite(started) && Number.isFinite(ended) ? Math.max(0, Math.round((ended - started) / 1000)) : null,
+      transcript,
+    };
+  });
+}
+
 function isRealtimeCapableBase(baseUrl) {
   const u = String(baseUrl || '').toLowerCase();
   if (!u) return false;

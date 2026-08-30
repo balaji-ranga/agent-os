@@ -3,8 +3,9 @@ import { sendPlatformNotifications } from './platform-notifications.js';
 import { executeEmailSend } from './email-send.js';
 import { announceOnAgentChannel } from './agent-channel-announce.js';
 import { insertChatTurn } from './chat-history.js';
+import { resolvePolicyEtaHours } from './work-assignment-policy.js';
 
-const ALLOWED = [4, 8, 12, 24, 36];
+const ALLOWED = [1, 2, 4, 8, 12, 24, 36, 48, 72, 168];
 
 export function normalizeEtaHours(value, context = '') {
   const explicit = Number(value);
@@ -15,8 +16,21 @@ export function normalizeEtaHours(value, context = '') {
   return 8;
 }
 
+export function resolveKanbanEtaHours(ownerUserId, value, context = '') {
+  return resolvePolicyEtaHours(ownerUserId, value, context);
+}
+
 export function computeDueAt(hours, from = Date.now()) {
   return new Date(Number(from) + normalizeEtaHours(hours) * 3600000).toISOString();
+}
+
+export function applyPolicyEtaToTask(taskId, ownerUserId, { etaHours = null, context = '' } = {}) {
+  if (!taskId || !ownerUserId) return null;
+  const hours = resolveKanbanEtaHours(ownerUserId, etaHours, context);
+  const dueAt = computeDueAt(hours);
+  getDb().prepare(`UPDATE kanban_tasks SET eta_hours=?, due_at=? WHERE id=? AND owner_user_id=?`)
+    .run(hours, dueAt, taskId, ownerUserId);
+  return { eta_hours: hours, due_at: dueAt };
 }
 
 export function slaState(task, nowMs = Date.now()) {

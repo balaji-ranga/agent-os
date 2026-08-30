@@ -5,6 +5,7 @@ import {
   getHumanCall, getOrCreateDirectConversation, listHumanConversations,
   listHumanDirectory, listHumanMessages, listIncomingHumanCalls,
   markHumanConversationRead, sendHumanMessage, updateHumanCall, updateHumanChannels,
+  listCompanyCommunicationHistory,
 } from '../services/human-communications.js';
 
 const router = Router();
@@ -30,5 +31,10 @@ router.post('/calls', (req, res) => handle(res, () => { const { owner, userId } 
 router.get('/calls/:id', (req, res) => handle(res, () => { const { owner, userId } = ctx(req); return { call: getHumanCall(owner, userId, req.params.id) }; }));
 router.patch('/calls/:id', (req, res) => handle(res, () => { const { owner, userId } = ctx(req); return { call: updateHumanCall(owner, userId, req.params.id, req.body || {}) }; }));
 router.post('/voice-invites', (req, res) => handle(res, () => { const { owner, userId } = ctx(req); return createHumanVoiceInvite(owner, userId, req.body?.target_user_id, { ttlSeconds: req.body?.ttl_seconds }); }));
+router.get('/company-history', (req, res) => handle(res, () => {
+  const { owner } = ctx(req);
+  if (!['ceo', 'admin'].includes(req.authUser.role)) throw Object.assign(new Error('CEO access required'), { status: 403 });
+  return listCompanyCommunicationHistory(owner, req.query || {});
+}));
 
 export default router;

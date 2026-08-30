@@ -78,7 +78,8 @@ import { requireToolsAccess, attachToolsAuth } from '../middleware/tools-auth.js
 import { internalAuthHeaders, isInternalRequest } from '../middleware/internal-auth.js';
 import { getPublicBaseUrl } from '../config/public-url.js';
 import { createVoiceInvite } from '../services/agent-voice-sessions.js';
-import { createHumanVoiceInvite, listHumanDirectory } from '../services/human-communications.js';
+import { createHumanVoiceInvite, listHumanDirectory, listCompanyCommunicationHistory } from '../services/human-communications.js';
+import { applyPolicyEtaToTask } from '../services/kanban-sla.js';
 import {
   fetchValidatedHttps,
   parsePublicHttpsUrl,
@@ -1528,6 +1529,8 @@ router.post('/kanban-create-task', optionalAuth, (req, res) => {
       requestPayload.trace_id || requestPayload.goal_run_id || requestPayload.goalRunId || null
     );
     const row = db.prepare('SELECT * FROM kanban_tasks ORDER BY id DESC LIMIT 1').get();
+    const sla = applyPolicyEtaToTask(row.id, ownerUserId, { etaHours: requestPayload.eta_hours, context: `${title}\n${description}` });
+    Object.assign(row, sla || {});
     notifyKanbanTaskCreated({ userId: ownerUserId, task: row });
     const out = {
       ok: true,
@@ -1926,6 +1929,28 @@ router.post('/voice-call-invite', optionalAuth, (req, res) => {
   } catch (e) {
     logTool(req, 'voice_call_invite', requestPayload, { error: e.message }, 'error', source);
     res.status(e.status || 500).json({ error: e.message || 'Voice invitation failed' });
+  }
+});
+
+/** COO-only, owner-scoped human communication history. WebRTC signalling is never included. */
+router.post('/company-communications-history', optionalAuth, (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    const caller = getCallerAgent(req);
+    if (!caller?.is_coo) return res.status(403).json({ error: 'Only the company COO can read company communication history' });
+    const ownerUserId = resolveToolOwnerUserId(req, requestPayload, resolveAuthenticatedCeoUserId);
+    const out = listCompanyCommunicationHistory(ownerUserId, {
+      limit: requestPayload.limit,
+      offset: requestPayload.offset,
+      conversationId: requestPayload.conversation_id,
+    });
+    logTool(req, 'company_communications_history', { owner_user_id: ownerUserId, conversation_id: requestPayload.conversation_id || null },
+      { ok: true, conversations: out.conversations.length, messages: out.messages.length, calls: out.calls.length }, 'ok', source);
+    res.json({ ok: true, ...out });
+  } catch (e) {
+    logTool(req, 'company_communications_history', requestPayload, { error: e.message }, 'error', source);
+    res.status(e.status || 500).json({ error: e.message || 'Communication history failed' });
   }
 });
 

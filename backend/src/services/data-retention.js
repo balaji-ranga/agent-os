@@ -4,6 +4,7 @@
  */
 import { getDb } from '../db/schema.js';
 import { purgeAgedContentExplorerMedia } from './content-explorer.js';
+import { listDocuments, deleteDocument, isOpenSearchConfigured } from './master-data.js';
 
 export const RETENTION_DAY_OPTIONS = [30, 60, 90, 120, 365];
 export const DEFAULT_RETENTION_DAYS = 90;
@@ -28,11 +29,12 @@ export function normalizeRetentionDays(value) {
  * Permanently delete aged history for one CEO.
  * @returns {{ owner_user_id, retention_days, deleted: object }}
  */
-export function purgeOwnerRetention(ownerUserId, { days = null } = {}) {
+export async function purgeOwnerRetention(ownerUserId, { days = null } = {}) {
   const owner = String(ownerUserId || '').trim();
   if (!owner) throw new Error('owner_user_id required');
   const db = getDb();
-  const row = db.prepare(`SELECT data_retention_days FROM platform_users WHERE id = ?`).get(owner);
+  const row = db.prepare(`SELECT data_retention_days,role FROM platform_users WHERE id = ?`).get(owner);
+  if (!row || row.role !== 'ceo') throw Object.assign(new Error('CEO owner profile required for company retention'), { status: 403 });
   const retentionDays = normalizeRetentionDays(days ?? row?.data_retention_days ?? DEFAULT_RETENTION_DAYS);
   const cutoff = `-${retentionDays} days`;
 
@@ -45,6 +47,13 @@ export function purgeOwnerRetention(ownerUserId, { days = null } = {}) {
     tool_execution_actions: 0,
     inbound_attachments: 0,
     generated_media: 0,
+    human_messages: 0,
+    human_conversations: 0,
+    human_calls: 0,
+    human_call_invites: 0,
+    agent_voice_sessions: 0,
+    platform_notifications: 0,
+    opensearch_documents: 0,
   };
 
   deleted.chat_turns =
@@ -67,6 +76,32 @@ export function purgeOwnerRetention(ownerUserId, { days = null } = {}) {
     /* table may not exist on older DBs */
   }
 
+  // Human/voice communications belong to the CEO company, including employee activity.
+  try {
+    deleted.human_messages = db.prepare(
+      `DELETE FROM human_messages WHERE owner_user_id=? AND datetime(created_at)<datetime('now',?)`
+    ).run(owner, cutoff).changes || 0;
+    db.prepare(`UPDATE human_conversations SET summary_text='',summary_updated_at=NULL
+      WHERE owner_user_id=? AND summary_updated_at IS NOT NULL AND datetime(summary_updated_at)<datetime('now',?)`).run(owner, cutoff);
+    const stale = db.prepare(`SELECT id FROM human_conversations c WHERE owner_user_id=?
+      AND datetime(updated_at)<datetime('now',?) AND NOT EXISTS(SELECT 1 FROM human_messages m WHERE m.conversation_id=c.id)`).all(owner, cutoff).map((r) => r.id);
+    if (stale.length) {
+      const ph = stale.map(() => '?').join(',');
+      db.prepare(`DELETE FROM human_conversation_participants WHERE conversation_id IN (${ph})`).run(...stale);
+      deleted.human_conversations = db.prepare(`DELETE FROM human_conversations WHERE id IN (${ph})`).run(...stale).changes || 0;
+    }
+    deleted.human_calls = db.prepare(`DELETE FROM human_calls WHERE owner_user_id=?
+      AND datetime(COALESCE(ended_at,expires_at,created_at))<datetime('now',?)`).run(owner, cutoff).changes || 0;
+    deleted.human_call_invites = db.prepare(`DELETE FROM human_call_invites WHERE owner_user_id=?
+      AND datetime(COALESCE(consumed_at,expires_at,created_at))<datetime('now',?)`).run(owner, cutoff).changes || 0;
+    deleted.agent_voice_sessions = db.prepare(`DELETE FROM ceo_voice_sessions WHERE owner_user_id=?
+      AND status<>'open' AND datetime(COALESCE(ended_at,expires_at,created_at))<datetime('now',?)`).run(owner, cutoff).changes || 0;
+    deleted.platform_notifications = db.prepare(`DELETE FROM platform_user_notifications WHERE user_id IN
+      (SELECT id FROM platform_users WHERE id=? OR owner_user_id=?) AND datetime(created_at)<datetime('now',?)`).run(owner, owner, cutoff).changes || 0;
+  } catch (e) {
+    console.warn('[retention] company communication purge failed', owner, e?.message || e);
+  }
+
   deleted.standup_messages =
     db
       .prepare(
@@ -84,6 +119,32 @@ export function purgeOwnerRetention(ownerUserId, { days = null } = {}) {
       ).run(owner, cutoff).changes || 0;
   } catch (_) {
     /* table may not exist on older DBs */
+  }
+
+
+  // Delete only this CEO's aged uploaded/generated RAG documents; platform help is in a separate owner index.
+  if (isOpenSearchConfigured()) {
+    try {
+      const docs = [];
+      let offset = 0;
+      for (;;) {
+        const page = await listDocuments(owner, { limit: 200, offset });
+        docs.push(...(page.documents || []));
+        if (!page.has_more) break;
+        offset += page.documents.length;
+        if (!page.documents.length) break;
+      }
+      const cutoffMs = Date.now() - retentionDays * 86400000;
+      for (const doc of docs) {
+        const at = Date.parse(doc.created_at || doc.updated_at || '');
+        if (Number.isFinite(at) && at < cutoffMs && !doc.is_protected) {
+          await deleteDocument(owner, doc.id);
+          deleted.opensearch_documents += 1;
+        }
+      }
+    } catch (e) {
+      console.warn('[retention] OpenSearch document purge failed', owner, e?.message || e);
+    }
   }
 
   const oldRuns = db
@@ -118,14 +179,14 @@ export function purgeOwnerRetention(ownerUserId, { days = null } = {}) {
   return { owner_user_id: owner, retention_days: retentionDays, deleted };
 }
 
-export function purgeRetentionForAllCeos() {
+export async function purgeRetentionForAllCeos() {
   const ceos = getDb()
     .prepare(`SELECT id, data_retention_days FROM platform_users WHERE role = 'ceo' AND enabled = 1`)
     .all();
   const results = [];
   for (const ceo of ceos) {
     try {
-      results.push({ ok: true, ...purgeOwnerRetention(ceo.id) });
+      results.push({ ok: true, ...(await purgeOwnerRetention(ceo.id)) });
     } catch (e) {
       console.warn('[retention] failed', ceo.id, e?.message || e);
       results.push({ ok: false, owner_user_id: ceo.id, error: e.message || String(e) });

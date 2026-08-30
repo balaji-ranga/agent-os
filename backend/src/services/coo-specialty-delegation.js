@@ -11,6 +11,7 @@ import { getOrCreateDelegationHubStandup } from './standup-hub.js';
 import { splitAllocationByKind } from './org-member-keys.js';
 import { enforceBudget } from './agent-budgets.js';
 import { getDb } from '../db/schema.js';
+import { applyPolicyEtaToTask } from './kanban-sla.js';
 import { isOrgUser, isTenantFullAccess, normalizeDept } from './org-permissions.js';
 
 /** Match intent-classifier + delegation-queue multi-intent cap. */
@@ -446,5 +447,7 @@ function assignKanbanToHuman(ownerUserId, title, human) {
        VALUES (?, ?, 'awaiting_confirmation', ?, 'coo', ?)`
     )
     .run(String(title).slice(0, 200), String(title).slice(0, 4000), human.id, ownerUserId);
-  return Number(info.lastInsertRowid);
+  const taskId = Number(info.lastInsertRowid);
+  applyPolicyEtaToTask(taskId, ownerUserId, { context: title });
+  return taskId;
 }

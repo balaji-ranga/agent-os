@@ -2977,8 +2977,8 @@ async function executeHumanTaskStep(goal, step) {
     '## How to continue the goal\nOpen this task and choose **Complete task**, **Unable to complete**, or **Ask a question**. A completion outcome resumes the exact goal step automatically.',
     spec.selection_rationale ? `## Why you were selected\n${spec.selection_rationale}` : '',
   ].filter(Boolean).join('\n\n');
-  const { normalizeEtaHours, computeDueAt } = await import('./kanban-sla.js');
-  const etaHours = normalizeEtaHours(spec.eta_hours, `${step.label || ''}\n${spec.message || ''}\nrisk:${spec.risk || 'normal'}`);
+  const { resolveKanbanEtaHours, computeDueAt } = await import('./kanban-sla.js');
+  const etaHours = resolveKanbanEtaHours(goal.owner_user_id, spec.eta_hours, `${step.label || ''}\n${spec.message || ''}\nrisk:${spec.risk || 'normal'}`);
   const dueAt = computeDueAt(etaHours);
   const info = db().prepare(
     `INSERT INTO kanban_tasks

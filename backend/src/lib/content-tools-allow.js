@@ -99,6 +99,7 @@ export const BROWSER_SESSION_CONTENT_TOOLS = [
 
 /** Default COO (balserve) content tools.allow — merged on every container configure. */
 export const COO_CONTENT_TOOLS_ALLOW = [
+  'company_communications_history',
   'summarize_url',
   'generate_image',
   'generate_video',
