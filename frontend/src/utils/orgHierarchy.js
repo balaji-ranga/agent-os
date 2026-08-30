@@ -133,6 +133,7 @@ export function buildOrgTree(agents = [], opts = {}) {
       is_coo: !!agent.is_coo,
       agent_type: agent.agent_type || (agent._leaf ? 'leaf' : 'standard'),
       parent_id: agent.parent_id || null,
+      _human: !!agent._human,
       _leaf: !!agent._leaf,
       _kind: agent._kind || null,
       depth,
