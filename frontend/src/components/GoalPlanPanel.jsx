@@ -189,6 +189,32 @@ export default function GoalPlanPanel({
           </li>
         ))}
       </ol>
+      {goal.final_outcome ? (
+        <details
+          open={!compact}
+          style={{
+            marginTop: 10,
+            paddingTop: 8,
+            borderTop: '1px solid var(--border)',
+            fontSize: '0.8rem',
+          }}
+        >
+          <summary style={{ cursor: 'pointer', fontWeight: 700 }}>
+            {goal.status === 'failed' ? 'Final outcome and blocker' : 'Final outcome'}
+          </summary>
+          <div
+            style={{
+              marginTop: 8,
+              whiteSpace: 'pre-wrap',
+              overflowWrap: 'anywhere',
+              color: 'var(--text)',
+              lineHeight: 1.45,
+            }}
+          >
+            {goal.final_outcome}
+          </div>
+        </details>
+      ) : null}
     </div>
   );
 }

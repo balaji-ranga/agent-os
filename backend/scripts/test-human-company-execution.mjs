@@ -107,6 +107,8 @@ try {
   const terminalContext = goals.priorStepContextForAgent(goal.id, 1);
   assert.match(terminalContext, /Customer confirmed payment on 3 September/, 'orchestrator synthesis receives the concrete human outcome');
   assert.match(terminalContext, /Kanban task: #/, 'orchestrator synthesis retains human-task evidence correlation');
+  const completedGoal = goals.getGoalRun(goal.id, owner);
+  assert.match(completedGoal.final_outcome, /Customer confirmed payment on 3 September/, 'Goal Plans API exposes the durable final outcome');
   await assert.rejects(() => goals.respondToHumanGoalTask({ ownerUserId: owner, actorUserId: outsider, taskId: task.id, action: 'complete', outcome: 'spoof' }), /assigned employee/);
   const ownerGoal = goals.createGoalRun({ ownerUserId: owner, agentId: 'balserve', title: 'CEO disposition', prompt: 'Obtain invoice evidence from Alex.', steps: [{ type: 'human_task', label: 'Human: Alex Collector', user_id: employee, message: 'Obtain the invoice evidence.', risk: 'normal' }, { type: 'notify_ceo', label: 'Report outcome' }] });
   const ownerStarted = await goals.startGoalRunExecution(ownerGoal.id, { ownerUserId: owner });

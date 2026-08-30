@@ -964,6 +964,7 @@ export function serializeGoalRun(row, steps = null) {
   if (!row) return null;
   const stepRows = steps != null ? steps : loadGoalSteps(row.id);
   const ctx = parseJson(row.context_json);
+  const terminal = row.status === 'completed' || row.status === 'failed';
   return {
     id: row.id,
     owner_user_id: row.owner_user_id,
@@ -983,6 +984,9 @@ export function serializeGoalRun(row, steps = null) {
     outcome: loadOutcome(row),
     plan_history: loadPlanHistory(row),
     retrospective: loadOutcome(row)?.retrospective || null,
+    final_outcome: terminal
+      ? buildOutcomeRichTerminalReport({ goal: row, steps: stepRows, terminal: row.status })
+      : null,
     steps: stepRows.map((s) => ({
       id: s.id,
       step_index: s.step_index,
