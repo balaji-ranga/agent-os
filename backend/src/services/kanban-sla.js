@@ -2,6 +2,7 @@ import { getDb } from '../db/schema.js';
 import { sendPlatformNotifications } from './platform-notifications.js';
 import { executeEmailSend } from './email-send.js';
 import { announceOnAgentChannel } from './agent-channel-announce.js';
+import { insertChatTurn } from './chat-history.js';
 
 const ALLOWED = [4, 8, 12, 24, 36];
 
@@ -41,8 +42,14 @@ async function notifyCeo(task, message) {
   if (ceo?.email) {
     try { await executeEmailSend({ to: ceo.email, subject: `Flolah task SLA breached — #${task.id}`, body: message }); } catch (e) { console.warn('[kanban-sla] email escalation failed', e?.message || e); }
   }
-  const coo = getDb().prepare('SELECT id FROM agents WHERE is_coo = 1 LIMIT 1').get();
-  if (coo?.id) await announceOnAgentChannel({ ownerUserId: owner, agentId: coo.id, channel: 'whatsapp', text: message, idempotencyKey: `kanban-sla:${task.id}:breach` });
+  const coo = getDb().prepare(
+    `SELECT a.id FROM user_agents ua JOIN agents a ON a.id=ua.agent_id
+     WHERE ua.user_id=? AND ua.enabled=1 AND a.is_coo=1 ORDER BY a.id LIMIT 1`
+  ).get(owner);
+  if (coo?.id) {
+    insertChatTurn({ agentId: coo.id, ownerUserId: owner, role: 'assistant', content: `[Task SLA escalation]\n${message}` });
+    await announceOnAgentChannel({ ownerUserId: owner, agentId: coo.id, channel: 'whatsapp', text: message, idempotencyKey: `kanban-sla:${task.id}:breach` });
+  }
 }
 
 export async function runKanbanSlaMonitor() {
@@ -54,6 +61,14 @@ export async function runKanbanSlaMonitor() {
     if (state === 'amber' && !task.sla_nudged_at && assignee) {
       const userTarget = task.assigned_user_id || task.owner_user_id;
       sendPlatformNotifications({ userIds: [userTarget], title: `Deadline approaching: ${task.title}`, body: `Task #${task.id} is due ${task.due_at}. Record progress or a blocker in Kanban.`, linkUrl: `/kanban?task=${task.id}`, createdBy: 'system', source: 'kanban_sla_nudge', sourceKey: String(task.id) });
+      if (task.assigned_agent_id) {
+        insertChatTurn({
+          agentId: task.assigned_agent_id,
+          ownerUserId: task.owner_user_id,
+          role: 'user',
+          content: `[Task SLA nudge]\nTask #${task.id} “${task.title}” is approaching its deadline (${task.due_at}). Continue the assigned work and record a concrete outcome or blocker in Kanban.`,
+        });
+      }
       getDb().prepare("UPDATE kanban_tasks SET sla_nudged_at = datetime('now') WHERE id = ?").run(task.id); nudged += 1;
     }
     if (state === 'red' && !task.sla_escalated_at) {

@@ -63,11 +63,19 @@ export function mapOrgPeopleToNodes(people = []) {
 
 export function mergeCompanyPeople(agents = [], people = []) {
   const out = Array.isArray(agents) ? [...agents] : [];
-  const seen = new Set(out.map((a) => String(a.id)));
   const cooId = out.find((a) => a?.is_coo)?.id || null;
   for (const person of mapOrgPeopleToNodes(people)) {
     if (!person.parent_id) person.parent_id = cooId;
-    if (!seen.has(String(person.id))) out.push(person);
+    const existingIndex = out.findIndex((node) => String(node.id) === String(person.id));
+    if (existingIndex >= 0) {
+      // A human may also be projected through the legacy agents roster so goal
+      // delegation can target one identifier. The people record is authoritative
+      // for presentation: keep any useful projection fields but render it as a
+      // human, with human chat/actions and its real reporting line.
+      out[existingIndex] = { ...out[existingIndex], ...person };
+    } else {
+      out.push(person);
+    }
   }
   return out;
 }
