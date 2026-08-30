@@ -64,11 +64,16 @@ export default function OrgPeoplePanel({ agents = [] }) {
 
   const savePerson = async (patch) => {
     if (!selected || !canManage) return;
+    const personId = selected.id;
     setBusy(true);
     setError(null);
     try {
-      await api.orgPeopleUpdate(selected.id, patch);
-      await load();
+      await api.orgPeopleUpdate(personId, patch);
+      // Do not reload the full collection here. A blur save for one field can
+      // finish while the user is already editing the next field; replacing the
+      // collection with that older response would erase the newer draft before
+      // its blur event can persist it. Merge only the fields this request owns.
+      setPeople((prev) => prev.map((p) => (p.id === personId ? { ...p, ...patch } : p)));
       flash('Saved');
     } catch (err) {
       setError(err.message);
