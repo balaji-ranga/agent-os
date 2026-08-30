@@ -20,7 +20,9 @@ export function isEligiblePlanningAgent(agent = {}) {
   const placeholderRole = /^(?:test(?:er)?|demo|placeholder|sample)(?:\s+(?:agent|employee))?$/i.test(purpose);
   const placeholderName = /^(?:test|demo|placeholder|sample)(?:\s*\d+|\s*roll)?$/i.test(name);
   const fixtureId = /(?:^|[-_])test(?:[-_]|$)/i.test(id);
-  return !(placeholderRole && (placeholderName || fixtureId));
+  // A fixture-shaped id plus a placeholder display name is conclusive even if
+  // one directory projection omitted/replaced its purpose text.
+  return !((fixtureId && placeholderName) || (placeholderRole && (placeholderName || fixtureId)));
 }
 
 /**

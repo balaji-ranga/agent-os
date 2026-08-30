@@ -31,6 +31,7 @@ try {
   assert.deepEqual(intent.normalizeKeysToDocIds({ 'Invoice Agent': 'Review receivable', hallucinated_agent: 'Do unrelated work' }, roster), { 'erp-invoice': 'Review receivable' });
   const goalIntent = await import('../src/services/goal-plan-intent.js');
   assert.equal(goalIntent.isEligiblePlanningAgent({ id: 'test-chat-hist-1', name: 'Test', role: 'Operations — tester' }), false);
+  assert.equal(goalIntent.isEligiblePlanningAgent({ id: 'test-chat-hist-1', name: 'Test', role: 'specialty agent' }), false);
   assert.equal(goalIntent.isEligiblePlanningAgent({ id: 'erp-invoice', name: 'Invoice Agent', role: 'Finance — Accounts receivable' }), true);
   const specialty = await import('../src/services/goal-plan-specialty.js');
   const planningRoster = specialty.rosterAgentsForGoalPlan(`| Agent ID | Name | Department | Purpose |\n|---|---|---|---|\n| erp-invoice | Invoice Agent | Finance | Accounts receivable |\n| test-chat-hist-1 | Test | Operations | tester |`);
