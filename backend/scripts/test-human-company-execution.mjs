@@ -61,7 +61,7 @@ try {
   const goals = await import('../src/services/agent-goal-run.js');
   const repaired = goals.validateAndRepairGoalPlan([
     { type: 'specialty_task', label: 'Test', agent_id: 'test-chat-hist-leak', message: 'Test the final result.' },
-    { type: 'specialty_task', label: 'Report consolidated final outcome', agent_id: 'business-discovery', message: 'Report the consolidated final outcome to the CEO in this chat.' },
+    { type: 'specialty_task', label: 'Report consolidated final outcome', agent_id: 'business-discovery', message: '' },
     { type: 'notify_ceo', label: 'Notify CEO' },
   ], 'Assign invoice collection judgment to Alex Collector and report the consolidated final outcome to me in this chat.', { ownerUserId: owner, orchestratorAgentId: 'balserve' });
   assert.equal(repaired.some((step) => step.type === 'specialty_task' && step.spec?.agent_id === 'test-chat-hist-leak'), false);

@@ -814,10 +814,12 @@ export function validateAndRepairGoalPlan(
       .filter((x) => x.length >= 4);
     const explicitlyNamed = namedTokens.some((x) => text.toLowerCase().includes(x));
     const delegatedText = `${step.label || ''} ${step.spec?.message || ''}`;
-    const orchestratorSynthesis =
-      goalWantsChatSynthesis(text) &&
-      /\b(?:consolidat(?:e|ed|ion)|synthesi[sz]e?|final\s+outcome|report\s+(?:the\s+)?(?:completed|final|consolidated)\s+(?:work|outcome|result))\b/i.test(delegatedText) &&
-      /\b(?:ceo|this\s+chat|prior\s+steps?|completed\s+steps?|goal\s+outcome)\b/i.test(delegatedText);
+    const unmistakableTerminalOutcome =
+      /\b(?:final\s+outcome|consolidated\s+(?:final\s+)?(?:outcome|result)|report\s+(?:the\s+)?(?:completed|final|consolidated)\s+(?:work|outcome|result))\b/i.test(delegatedText);
+    const priorOutputSynthesis =
+      /\b(?:consolidat(?:e|ed|ion)|synthesi[sz]e?)\b/i.test(delegatedText) &&
+      /\b(?:ceo|this\s+chat|prior\s+steps?|completed\s+(?:steps?|work)|goal\s+outcome)\b/i.test(delegatedText);
+    const orchestratorSynthesis = goalWantsChatSynthesis(text) && (unmistakableTerminalOutcome || priorOutputSynthesis);
     if (!explicitlyNamed && orchestratorSynthesis) {
       console.warn('[goal-run] converted delegated terminal synthesis to orchestrator work', {
         agentId,
