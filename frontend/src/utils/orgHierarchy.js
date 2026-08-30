@@ -62,7 +62,13 @@ export function mapOrgPeopleToNodes(people = []) {
 }
 
 export function mergeCompanyPeople(agents = [], people = []) {
-  const out = Array.isArray(agents) ? [...agents] : [];
+  // Human task assignees are intentionally projected into the agent roster so
+  // goals can use one assignee identifier. Preserve that runtime compatibility,
+  // but never render a platform user (`usr-*`) as an AI employee if the
+  // directory request is delayed or unavailable.
+  const out = Array.isArray(agents)
+    ? agents.map((node) => String(node?.id || '').startsWith('usr-') ? { ...node, _human: true, _leaf: false } : node)
+    : [];
   const cooId = out.find((a) => a?.is_coo)?.id || null;
   for (const person of mapOrgPeopleToNodes(people)) {
     if (!person.parent_id) person.parent_id = cooId;
@@ -76,6 +82,9 @@ export function mergeCompanyPeople(agents = [], people = []) {
     } else {
       out.push(person);
     }
+  }
+  for (const node of out) {
+    if (node?._human && !node.parent_id) node.parent_id = cooId;
   }
   return out;
 }
