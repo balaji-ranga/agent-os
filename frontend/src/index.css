@@ -7111,6 +7111,17 @@ button.ai-snip-info-btn:hover {
   gap: 0.75rem 1rem;
   margin-bottom: 0.85rem;
 }
+.flolah-arch-expand {
+  flex: 0 0 auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--accent);
+  padding: .45rem .75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.flolah-arch-tabs-row { margin-top: .8rem; justify-content: flex-end; }
 .flolah-arch-h2 {
   font-size: 1.15rem;
   margin: 0 0 0.35rem;

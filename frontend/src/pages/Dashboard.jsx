@@ -505,7 +505,7 @@ export default function Dashboard() {
         <h1 style={{ marginTop: 0, marginBottom: 0 }}>My Org</h1>
       </div>
 
-      <CompanyArchitecturePanel />
+      <CompanyArchitecturePanel isEmployee={user?.role === 'org_user'} />
 
       {/* Org chart: recursive hierarchy with List | Graph */}
       <section style={{ marginBottom: '2rem' }}>
@@ -606,7 +606,14 @@ export default function Dashboard() {
             }
           />
         ) : (
-          <OrgChart agents={agents} onRemove={removeAgent} roleTitle={user?.role === 'org_user' ? 'Company owner' : roleTitle} userName={user?.role === 'org_user' ? '' : (user?.name || '')} />
+          <OrgChart
+            agents={agents}
+            onRemove={removeAgent}
+            roleTitle={user?.role === 'org_user' ? 'CEO / Founder' : roleTitle}
+            userName={user?.role === 'org_user' ? '' : (user?.name || '')}
+            viewerUserId={user?.id || ''}
+            viewerIsCeo={user?.role !== 'org_user'}
+          />
         )}
         {agents.length === 0 && (
           <div style={{ marginTop: '0.75rem', padding: '1rem', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8 }}>

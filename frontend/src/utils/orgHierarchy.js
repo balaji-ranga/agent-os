@@ -102,6 +102,8 @@ export function buildOrgTree(agents = [], opts = {}) {
   const coo = list.find((a) => a.is_coo) || null;
   const roleTitle = String(opts.roleTitle || '').trim() || 'CEO';
   const userName = String(opts.userName || '').trim();
+  const viewerUserId = String(opts.viewerUserId || '').trim();
+  const viewerIsCeo = opts.viewerIsCeo !== false;
 
   const childrenOf = new Map();
   for (const a of list) {
@@ -127,7 +129,7 @@ export function buildOrgTree(agents = [], opts = {}) {
     const kids = sortKids(childrenOf.get(agent.id) || []);
     return {
       id: agent.id,
-      name: agent.name,
+      name: viewerUserId && String(agent.id) === viewerUserId ? `${agent.name} (Me)` : agent.name,
       role: agent.role || '',
       department: agent.department || '',
       is_coo: !!agent.is_coo,
@@ -145,7 +147,7 @@ export function buildOrgTree(agents = [], opts = {}) {
   const rootChildren = sortKids(childrenOf.get(CEO_NODE_ID) || []);
   return {
     id: CEO_NODE_ID,
-    name: userName ? `${roleTitle} (${userName})` : `${roleTitle} (me)`,
+    name: viewerIsCeo ? `${roleTitle} (Me)` : roleTitle,
     role: roleTitle,
     department: 'Executive',
     isCeo: true,

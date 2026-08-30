@@ -206,8 +206,9 @@ function CompactStrip() {
   );
 }
 
-export default function CompanyArchitecturePanel({ variant = 'full' }) {
+export default function CompanyArchitecturePanel({ variant = 'full', isEmployee = false }) {
   const [tab, setTab] = useState('poster');
+  const [expanded, setExpanded] = useState(false);
   if (variant === 'compact') return <CompactStrip />;
 
   return (
@@ -216,10 +217,23 @@ export default function CompanyArchitecturePanel({ variant = 'full' }) {
         <div>
           <h2 className="flolah-arch-h2">How this company runs</h2>
           <p className="flolah-arch-lead">
-            You stay CEO. The COO is your chief of staff — not another chatbot. Named AI employees do
-            the work under your supervision.
+            {isEmployee
+              ? 'Your company is CEO-led. The COO coordinates human and AI employees through shared goals and Kanban.'
+              : 'You stay CEO. The COO is your chief of staff — not another chatbot. Named AI employees do the work under your supervision.'}
           </p>
         </div>
+        <button
+          type="button"
+          className="flolah-arch-expand"
+          aria-expanded={expanded}
+          aria-controls="company-architecture-details"
+          onClick={() => setExpanded((value) => !value)}
+        >
+          {expanded ? 'Hide details' : 'Show details'}
+        </button>
+      </div>
+      {expanded && <div id="company-architecture-details">
+        <div className="flolah-arch-head flolah-arch-tabs-row">
         <div className="flolah-arch-tabs" role="tablist">
           <button
             type="button"
@@ -274,6 +288,7 @@ export default function CompanyArchitecturePanel({ variant = 'full' }) {
           How the company runs
         </a>
       </p>
+      </div>}
     </section>
   );
 }

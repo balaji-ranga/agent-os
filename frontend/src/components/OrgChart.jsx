@@ -186,7 +186,7 @@ function GraphCard({ node, onRemove, onRemoveLeaf }) {
  * Org structure viewer: List | Graph, optional group-by-department.
  * Merges external / published-A2A leaf members under their reports-to parent.
  */
-export default function OrgChart({ agents = [], onRemove, roleTitle = 'CEO', userName = '' }) {
+export default function OrgChart({ agents = [], onRemove, roleTitle = 'CEO', userName = '', viewerUserId = '', viewerIsCeo = true }) {
   const [view, setView] = useState('list');
   const [groupByDept, setGroupByDept] = useState(false);
   const [leafMembers, setLeafMembers] = useState([]);
@@ -251,8 +251,8 @@ export default function OrgChart({ agents = [], onRemove, roleTitle = 'CEO', use
     [agents, leafMembers, people]
   );
   const tree = useMemo(
-    () => buildOrgTree(chartAgents, { roleTitle, userName }),
-    [chartAgents, roleTitle, userName]
+    () => buildOrgTree(chartAgents, { roleTitle, userName, viewerUserId, viewerIsCeo }),
+    [chartAgents, roleTitle, userName, viewerUserId, viewerIsCeo]
   );
   const deptGroups = useMemo(() => groupAgentsByDepartment(chartAgents), [chartAgents]);
 
