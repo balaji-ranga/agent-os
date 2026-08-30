@@ -3,7 +3,7 @@
  * Used by agent-goal-run (specialty_task) and scheduled-goals draft plans.
  */
 import { readCooAgentsMdForCeo, getAgentsUnderCooForCeo, getAgentsUnderOrchestratorForCeo } from './org-context.js';
-import { classifyIntentAndAllocate, parseAgentsFromAgentsMd } from './intent-classifier.js';
+import { classifyIntentAndAllocate, parseAgentsFromAgentsMd, isEligiblePlanningAgent } from './intent-classifier.js';
 import { isCooNativeWork, isRefuseDelegationRequest } from './coo-specialty-delegation.js';
 import { listChatTriggerableWorkflows, listPublishedWorkflows } from './agent-workflow-chat-tools.js';
 
@@ -124,7 +124,7 @@ export function rosterAgentsForGoalPlan(agentsMd, ownerUserId = null, orchestrat
   }
   return [...map.values()].filter((a) => {
     const id = String(a.id || '').toLowerCase();
-    return id && id !== 'balserve' && !/coo|chief operating/i.test(`${a.name || ''} ${a.role || ''}`);
+    return id && id !== 'balserve' && isEligiblePlanningAgent(a) && !/coo|chief operating/i.test(`${a.name || ''} ${a.role || ''}`);
   });
 }
 

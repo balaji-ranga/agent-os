@@ -11,6 +11,18 @@ function getIntentModelOverride() {
   return (process.env.OPENAI_INTENT_MODEL || process.env.OPENAI_COO_MODEL || '').trim() || undefined;
 }
 
+/** Keep smoke/demo fixture employees out of production goal allocation. */
+export function isEligiblePlanningAgent(agent = {}) {
+  const id = String(agent.id || '').trim().toLowerCase();
+  const name = String(agent.name || '').trim().toLowerCase();
+  const role = String(agent.role || '').trim().toLowerCase();
+  const purpose = role.replace(/^[^—]+—\s*/, '').trim();
+  const placeholderRole = /^(?:test(?:er)?|demo|placeholder|sample)(?:\s+(?:agent|employee))?$/i.test(purpose);
+  const placeholderName = /^(?:test|demo|placeholder|sample)(?:\s*\d+|\s*roll)?$/i.test(name);
+  const fixtureId = /(?:^|[-_])test(?:[-_]|$)/i.test(id);
+  return !(placeholderRole && (placeholderName || fixtureId));
+}
+
 /**
  * Parse the agents table from COO AGENTS.md.
  * Supports 3-col (Agent ID | Name | Role), 4-col (Agent ID | Name | Department | Role),
