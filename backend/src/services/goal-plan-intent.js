@@ -419,9 +419,20 @@ export async function listSpecialtyAgentsForGoalPlan(ownerUserId, orchestratorAg
   }
   roster = roster.filter((a) => {
     const id = String(a.id || '').toLowerCase();
-    return id && id !== 'balserve' && !/coo|chief operating/i.test(String(a.name || '') + ' ' + String(a.role || ''));
+    return id && id !== 'balserve' && isEligiblePlanningAgent(a) && !/coo|chief operating/i.test(String(a.name || '') + ' ' + String(a.role || ''));
   });
   return roster;
+}
+
+/** Keep smoke/demo fixture employees out of production goal allocation. */
+export function isEligiblePlanningAgent(agent = {}) {
+  const id = String(agent.id || '').trim().toLowerCase();
+  const name = String(agent.name || '').trim().toLowerCase();
+  const role = String(agent.role || '').trim().toLowerCase();
+  const placeholderRole = /^(?:test(?:er)?|demo|placeholder|sample)(?:\s+(?:agent|employee))?$/i.test(role);
+  const placeholderName = /^(?:test|demo|placeholder|sample)(?:\s*\d+|\s*roll)?$/i.test(name);
+  const fixtureId = /(?:^|[-_])test(?:[-_]|$)/i.test(id);
+  return !(placeholderRole && (placeholderName || fixtureId));
 }
 
 /**
@@ -462,12 +473,28 @@ export async function applyHumanAssignmentPolicy(ownerUserId, prompt, steps = []
     console.warn('[goal-plan-intent] human assignment scoring skipped', e?.message || e);
   }
   const byIndex = new Map(matches.map((m) => [Number(m.step_index), m]));
-  return (steps || []).map((step, index) => {
+  const directHumans = [...new Map([...explicit.values()].map((h) => [h.id, h])).values()];
+  const forcedByIndex = new Map();
+  const reserved = new Set();
+  for (const human of directHumans) {
+    let best = null;
+    for (const { index } of specialty) {
+      if (reserved.has(index)) continue;
+      const match = byIndex.get(index);
+      const score = match?.user_id === human.id ? Number(match?.human_match_score || 0) : 0;
+      const riskBonus = match?.risk === 'high' ? 10 : 0;
+      const rank = score + riskBonus;
+      if (!best || rank > best.rank) best = { index, rank };
+    }
+    if (best) {
+      forcedByIndex.set(best.index, human);
+      reserved.add(best.index);
+    }
+  }
+  const assignedHumans = new Set();
+  let out = (steps || []).map((step, index) => {
     if (step.type !== 'specialty_task') return step;
-    const direct = [...explicit.values()].find((h) => {
-      const task = `${step.label || ''} ${step.spec?.message || ''}`.toLowerCase();
-      return task.includes(String(h.id).toLowerCase()) || task.includes(String(h.name).toLowerCase());
-    });
+    const direct = forcedByIndex.get(index) || null;
     const match = byIndex.get(index);
     const human = direct || (Number(match?.human_match_score || 0) >= 60 ? humans.find((h) => h.id === match?.user_id) : null);
     if (!human) return step;
@@ -480,6 +507,8 @@ export async function applyHumanAssignmentPolicy(ownerUserId, prompt, steps = []
           humanCandidate: { ...human, match_score: match?.human_match_score },
         });
     if (decision?.kind !== 'human') return step;
+    if (assignedHumans.has(human.id)) return null;
+    assignedHumans.add(human.id);
     return {
       type: 'human_task',
       label: `Human: ${human.name}`,
@@ -492,7 +521,16 @@ export async function applyHumanAssignmentPolicy(ownerUserId, prompt, steps = []
           : `${policy.mode}: ${match?.reason || `${human.name}'s role and specialty fit this work`}`,
       },
     };
-  });
+  }).filter(Boolean);
+  // A human goal step creates and owns its Kanban card itself. A separately
+  // inferred kanban_create_task step is duplicate work and can orphan a card.
+  if (out.some((step) => step.type === 'human_task')) {
+    out = out.filter((step) => !(
+      step.type === 'agent_tool' &&
+      String(step.spec?.tool_name || step.tool_name || '').toLowerCase() === 'kanban_create_task'
+    ));
+  }
+  return out;
 }
 
 function resolveWorkflowMatch(intent, catalog) {

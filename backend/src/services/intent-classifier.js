@@ -51,6 +51,14 @@ export function parseAgentsFromAgentsMd(md) {
     if (!purpose || /^[-–—\s]+$/.test(purpose)) continue;
     const headerPurposes = new Set(['role', 'purpose', 'department — purpose', 'department']);
     if (headerPurposes.has(purpose.toLowerCase())) continue;
+    // Smoke/demo fixtures sometimes live in the same tenant while verification
+    // is running. They are not executable company capabilities and must never
+    // win production delegation merely because the CEO used the word "test".
+    const roleKey = purpose.toLowerCase().replace(/^[^—]+—\s*/, '').trim();
+    const placeholderRole = /^(?:test(?:er)?|demo|placeholder|sample)(?:\s+(?:agent|employee))?$/.test(roleKey);
+    const placeholderName = /^(?:test|demo|placeholder|sample)(?:\s*\d+|\s*roll)?$/i.test(name);
+    const fixtureId = /(?:^|[-_])test(?:[-_]|$)/i.test(id);
+    if (placeholderRole && (placeholderName || fixtureId)) continue;
     seen.add(id);
     agents.push({ id, name, role: purpose });
   }

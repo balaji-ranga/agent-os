@@ -25,6 +25,10 @@ try {
   assignment.saveWorkAssignmentPolicy(owner, { mode: 'risk_to_human', high_risk_to_human: true });
   const decision = assignment.chooseOverlappingExecutor({ policy: assignment.getWorkAssignmentPolicy(owner), risk: 'high', agentCandidate: { id: 'erp-checker', match_score: 90 }, humanCandidate: { id: employee, match_score: 75 } }); assert.equal(decision.kind, 'human');
 
+  const intent = await import('../src/services/intent-classifier.js');
+  const roster = intent.parseAgentsFromAgentsMd(`| Agent ID | Name | Department | Purpose |\n|---|---|---|---|\n| erp-invoice | Invoice Agent | Finance | Accounts receivable |\n| test-chat-hist-1 | Test | Operations | tester |`);
+  assert.deepEqual(roster.map((row) => row.id), ['erp-invoice']);
+
   const goals = await import('../src/services/agent-goal-run.js');
   const goal = goals.createGoalRun({ ownerUserId: owner, agentId: 'balserve', title: 'Overdue invoice collection', prompt: 'Resolve overdue invoice INV-104 and report the outcome.', steps: [{ type: 'human_task', label: 'Human: Alex Collector', user_id: employee, message: 'Contact the account owner, use judgment on the collection approach, and record the outcome.', risk: 'high', selection_rationale: 'High-risk customer/financial judgment routed to the matched human.' }, { type: 'notify_ceo', label: 'Report outcome' }] });
   const started = await goals.startGoalRunExecution(goal.id, { ownerUserId: owner }); assert.equal(started.waiting_for_human, true); assert(started.kanban_task_id);
