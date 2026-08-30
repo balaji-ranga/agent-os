@@ -26,6 +26,19 @@ try {
   db.prepare(`INSERT INTO content_tool_logs (tool_name,source,request_payload,response_payload,status,owner_user_id,created_at)
     VALUES ('market_quote','goal-runtime','{"goal_run_id":"goal-live"}','{"ok":true}','ok','live-owner',datetime('now'))`).run();
 
+  // A normal tool error may mention an approval-named workflow in explanatory text.
+  // It must not become an actionable approval without a structured policy signal.
+  db.prepare(`INSERT INTO content_tool_logs (tool_name,source,request_payload,response_payload,status,owner_user_id,created_at)
+    VALUES ('agent_workflow_trigger','market-watcher','{}','{"error":"No workflow matched. Published: Brain + CEO Approval Test"}','error','live-owner',datetime('now'))`).run();
+  db.prepare(`INSERT INTO content_tool_logs (tool_name,source,request_payload,response_payload,status,owner_user_id,created_at)
+    VALUES ('email_send','market-watcher','{}','{"error":"CEO grant required","mode":"approval_required","failure_class":"policy_denial","needs_approval":true,"_execution":{"status":"awaiting_approval","reason_code":"approval_required"}}','denied','live-owner',datetime('now'))`).run();
+  db.prepare(`INSERT INTO content_tool_logs (tool_name,source,request_payload,response_payload,status,owner_user_id,created_at)
+    VALUES ('email_send','market-watcher','{}','{"error":"CEO grant required","mode":"approval_required","failure_class":"policy_denial","needs_approval":true}','denied','live-owner',datetime('now'))`).run();
+  db.prepare(`INSERT INTO content_tool_logs (tool_name,source,request_payload,response_payload,status,owner_user_id,created_at)
+    VALUES ('erp_delete','market-watcher','{}','{"error":"Action prohibited","mode":"prohibited","failure_class":"policy_denial","needs_approval":false}','denied','live-owner',datetime('now'))`).run();
+  db.prepare(`INSERT INTO kanban_tasks (title,description,status,created_by,owner_user_id,created_at,updated_at)
+    VALUES ('CEO review: genuine task','Review this output','awaiting_confirmation','agent_workflow_ceo','live-owner',datetime('now'),datetime('now'))`).run();
+
   const live = liveSnapshot('live-owner');
   const market = live.agents.find((agent) => agent.id === 'market-watcher');
   assert.equal(market.state, 'working');
@@ -34,6 +47,11 @@ try {
   assert.ok(live.events.some((event) => event.kind === 'tool' && event.agent_id === 'market-watcher'));
   assert.ok(live.connectors.some((connector) => connector.name === 'market_quote' && connector.agent_id === 'market-watcher'));
   assert.equal(live.summary.working, 1);
+  assert.equal(live.approvals.filter((item) => item.status === 'awaiting_approval').length, 1);
+  assert.equal(live.approvals.filter((item) => item.status === 'prohibited').length, 1);
+  assert.equal(live.approvals.filter((item) => item.status === 'awaiting_confirmation').length, 1);
+  assert.ok(!live.approvals.some((item) => item.title.includes('No workflow matched')));
+  assert.equal(live.summary.blocked, 3);
   console.log('agent actions live telemetry tests passed');
 } finally {
   try { const { getDb } = await import('../src/db/schema.js'); getDb().close(); } catch {}

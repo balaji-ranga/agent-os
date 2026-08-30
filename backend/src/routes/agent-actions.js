@@ -20,6 +20,43 @@ function parseJson(value, fallback = {}) {
   try { return typeof value === 'string' ? JSON.parse(value) : value; } catch { return fallback; }
 }
 
+export function classifyPolicyAttention(row) {
+  const response = parseJson(row?.response_payload, {});
+  const execution = response?._execution && typeof response._execution === 'object'
+    ? response._execution
+    : {};
+  const mode = String(response?.mode || response?.policy_mode || '').toLowerCase();
+  const failureClass = String(response?.failure_class || '').toLowerCase();
+  const executionStatus = String(execution?.status || '').toLowerCase();
+  const reasonCode = String(execution?.reason_code || '').toLowerCase();
+  const isPolicyDenial = failureClass === 'policy_denial';
+  const needsApproval = response?.needs_approval === true
+    || executionStatus === 'awaiting_approval'
+    || reasonCode === 'approval_required';
+  const prohibited = (isPolicyDenial && mode === 'prohibited')
+    || reasonCode === 'policy_prohibited';
+  if (!needsApproval && !prohibited) return null;
+  const detail = response?.error || response?.message
+    || (needsApproval ? 'CEO approval is required before this action can run.' : 'The effective action policy prohibits this action.');
+  return {
+    kind: 'action policy',
+    id: row.id,
+    title: `${row.tool_name}: ${clip(detail, 180)}`,
+    status: needsApproval ? 'awaiting_approval' : 'prohibited',
+    at: iso(row.created_at),
+    source: row.source || '',
+    link: '/policies',
+  };
+}
+
+function policyAttentionKey(row, item) {
+  const response = parseJson(row?.response_payload, {});
+  return [
+    row?.tool_name || '', row?.source || '', row?.created_at || '', item?.status || '',
+    row?.request_payload || '', response?.error || response?.message || '',
+  ].join('\u0000');
+}
+
 function toolLabel(toolName) {
   return String(toolName || '')
     .replace(/^(mcp_|browse_)/i, '')
@@ -176,21 +213,34 @@ export function liveSnapshot(ownerUserId) {
     kind: 'workflow', id: r.id, title: r.name || `Workflow run ${r.id}`, status: r.status,
     at: iso(r.updated_at), link: `/workflows/runs/${r.id}`,
   }));
+  const kanbanConfirmations = db().prepare(
+    `SELECT k.id, k.title, k.status, k.updated_at, k.assigned_user_id, pu.name AS assigned_user_name
+     FROM kanban_tasks k
+     LEFT JOIN platform_users pu ON pu.id = k.assigned_user_id
+     WHERE k.owner_user_id = ? AND k.status = 'awaiting_confirmation'
+       AND (k.assigned_agent_id IS NULL OR k.assigned_agent_id = '')
+     ORDER BY k.updated_at DESC LIMIT 50`
+  ).all(ownerUserId).map((r) => ({
+    kind: 'Kanban confirmation', id: r.id,
+    title: r.assigned_user_name ? `${r.title} · ${r.assigned_user_name}` : r.title,
+    status: r.status, at: iso(r.updated_at), link: `/kanban?task=${encodeURIComponent(r.id)}`,
+  }));
   const policyBlocks = db().prepare(
-    `SELECT id, tool_name, source, status, response_payload, created_at
+    `SELECT id, tool_name, source, status, request_payload, response_payload, created_at
      FROM content_tool_logs
      WHERE owner_user_id = ? AND lower(status) IN ('blocked','denied','error')
-       AND (lower(COALESCE(response_payload,'')) LIKE '%approval%'
-         OR lower(COALESCE(response_payload,'')) LIKE '%prohibited%'
-         OR lower(COALESCE(response_payload,'')) LIKE '%policy%')
        AND datetime(created_at) >= datetime('now', '-7 days')
-     ORDER BY created_at DESC LIMIT 50`
-  ).all(ownerUserId).map((r) => ({
-    kind: 'action policy', id: r.id, title: `${r.tool_name}: ${clip(r.response_payload, 180)}`,
-    status: /approval/i.test(String(r.response_payload || '')) ? 'awaiting_approval' : 'prohibited',
-    at: iso(r.created_at), source: r.source || '', link: '/policies',
-  }));
-  const attention = [...workflowApprovals, ...policyBlocks];
+     ORDER BY created_at DESC LIMIT 250`
+  ).all(ownerUserId).reduce((items, row) => {
+    const item = classifyPolicyAttention(row);
+    if (!item) return items;
+    const key = policyAttentionKey(row, item);
+    if (items.seen.has(key)) return items;
+    items.seen.add(key);
+    items.list.push(item);
+    return items;
+  }, { seen: new Set(), list: [] }).list;
+  const attention = [...workflowApprovals, ...kanbanConfirmations, ...policyBlocks];
   const workEvents = agents.flatMap((agent) => [
     ...agent.blocked.map((item) => ({ ...item, agent: agent.name, agent_id: agent.id, lane: 'blocked' })),
     ...agent.current.map((item) => ({ ...item, agent: agent.name, agent_id: agent.id, lane: 'working' })),
