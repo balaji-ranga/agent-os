@@ -43,6 +43,7 @@ import {
 import { mergeCapabilitySteps, resolveCapabilitiesFromPrompt } from './business-capabilities.js';
 import { getAgentToolGrants } from './openclaw-agent-tools.js';
 import { mergeRuntimeCapabilityStep } from './runtime-capability-registry.js';
+import { isEligiblePlanningAgent } from './intent-classifier.js';
 import {
   ensureGoalOutcomeTables,
   parseOutcomeFromPrompt,
@@ -793,11 +794,37 @@ export function validateAndRepairGoalPlan(
     if (step.type !== 'specialty_task') return true;
     const agentId = String(step.spec?.agent_id || '').trim();
     if (!agentId) return false;
-    const agent = db().prepare('SELECT id, name FROM agents WHERE lower(id) = lower(?) LIMIT 1').get(agentId);
+    const agent = db().prepare(
+      `SELECT a.id, a.name, a.role, a.department,
+              COALESCE(a.planning_status, 'production') AS planning_status,
+              COALESCE(ua.enabled, 0) AS entitled
+       FROM agents a LEFT JOIN user_agents ua ON ua.agent_id=a.id AND ua.user_id=?
+       WHERE lower(a.id) = lower(?) LIMIT 1`
+    ).get(ownerUserId, agentId);
+    if (!agent || !agent.entitled || !isEligiblePlanningAgent(agent)) {
+      console.warn('[goal-run] removed ineligible planning agent', {
+        agentId,
+        planningStatus: agent?.planning_status || 'missing',
+        entitled: !!agent?.entitled,
+      });
+      return false;
+    }
     const namedTokens = [agent?.id, agent?.name]
       .map((x) => String(x || '').trim().toLowerCase())
       .filter((x) => x.length >= 4);
     const explicitlyNamed = namedTokens.some((x) => text.toLowerCase().includes(x));
+    const delegatedText = `${step.label || ''} ${step.spec?.message || ''}`;
+    const orchestratorSynthesis =
+      goalWantsChatSynthesis(text) &&
+      /\b(?:consolidat(?:e|ed|ion)|synthesi[sz]e?|final\s+outcome|report\s+(?:the\s+)?(?:completed|final|consolidated)\s+(?:work|outcome|result))\b/i.test(delegatedText) &&
+      /\b(?:ceo|this\s+chat|prior\s+steps?|completed\s+steps?|goal\s+outcome)\b/i.test(delegatedText);
+    if (!explicitlyNamed && orchestratorSynthesis) {
+      console.warn('[goal-run] converted delegated terminal synthesis to orchestrator work', {
+        agentId,
+        step: step.label,
+      });
+      return false;
+    }
 
     const stepRequirements = resolveCapabilitiesFromPrompt(step.spec?.message || '');
     const relevant = stepRequirements.length

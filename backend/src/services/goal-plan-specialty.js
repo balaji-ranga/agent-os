@@ -6,6 +6,7 @@ import { readCooAgentsMdForCeo, getAgentsUnderCooForCeo, getAgentsUnderOrchestra
 import { classifyIntentAndAllocate, parseAgentsFromAgentsMd, isEligiblePlanningAgent } from './intent-classifier.js';
 import { isCooNativeWork, isRefuseDelegationRequest } from './coo-specialty-delegation.js';
 import { listChatTriggerableWorkflows, listPublishedWorkflows } from './agent-workflow-chat-tools.js';
+import { getDb } from '../db/schema.js';
 
 /** Plan builders may use more specialists than one-shot COO chat (default chat still 2). */
 export const GOAL_PLAN_MAX_SPECIALTY =
@@ -116,6 +117,7 @@ export function rosterAgentsForGoalPlan(agentsMd, ownerUserId = null, orchestrat
           id,
           name: a.name || id,
           role: [a.department, a.role].filter(Boolean).join(' — ') || '',
+          planning_status: a.planning_status || 'production',
         });
       }
     } catch {
@@ -124,7 +126,14 @@ export function rosterAgentsForGoalPlan(agentsMd, ownerUserId = null, orchestrat
   }
   return [...map.values()].filter((a) => {
     const id = String(a.id || '').toLowerCase();
-    return id && id !== 'balserve' && isEligiblePlanningAgent(a) && !/coo|chief operating/i.test(`${a.name || ''} ${a.role || ''}`);
+    if (!id || id === 'balserve' || !isEligiblePlanningAgent(a) || /coo|chief operating/i.test(`${a.name || ''} ${a.role || ''}`)) return false;
+    if (!ownerUserId) return true;
+    try {
+      const live = getDb().prepare("SELECT COALESCE(planning_status, 'production') AS planning_status FROM agents WHERE lower(id)=lower(?) LIMIT 1").get(id);
+      return !live || live.planning_status === 'production';
+    } catch {
+      return true;
+    }
   });
 }
 

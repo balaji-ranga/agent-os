@@ -363,6 +363,15 @@ async function main() {
   // --- Durable multi-intent goal plans (CRM→ERP + Platform Help specialty + notify) ---
   await runner.expectStatus('agent-goal-runs list', 'GET', '/api/agent-goal-runs?limit=5', { token }, 200);
   await runner.expectStatus('agent-goal-runs unauth → 401', 'GET', '/api/agent-goal-runs', {}, 401);
+  await runner.check('planner eligibility + human assignment + Kanban SLA/escalation contract', async () => {
+    runBackendScript('test-human-company-execution.mjs', 'human-company-execution: OK');
+  });
+  await runner.check('runtime capability registry excludes non-production agents', async () => {
+    runBackendScript('test-runtime-capability-registry.mjs', 'runtime capability registry tests passed');
+  });
+  await runner.check('goal planner and recovery hardening', async () => {
+    runBackendScript('test-goal-orchestration-hardening.mjs', 'GOAL_ORCHESTRATION_HARDENING_OK');
+  });
   await runner.check('goal plan adhoc e2e (CRM+ERP+Help+notify)', async () => {
     if (process.env.REGRESSION_GOAL_PLAN === '0') {
       console.log('    (skipped REGRESSION_GOAL_PLAN=0)');

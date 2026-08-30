@@ -21,7 +21,8 @@ export function getAgentsUnderCooForCeo(ceoUserId) {
   if (!coo || !ceoUserId) return [];
   return getDb()
     .prepare(
-      `SELECT a.id, a.name, a.role, a.department, a.parent_id, a.openclaw_agent_id, a.is_coo
+      `SELECT a.id, a.name, a.role, a.department, a.parent_id, a.openclaw_agent_id, a.is_coo,
+              COALESCE(a.planning_status, 'production') AS planning_status
        FROM agents a
        INNER JOIN user_agents ua ON ua.agent_id = a.id AND ua.user_id = ? AND ua.enabled = 1
        WHERE a.parent_id = ? AND a.id != ?
@@ -39,7 +40,8 @@ export function getAgentsUnderOrchestratorForCeo(ceoUserId, orchestratorAgentId)
   return getDb()
     .prepare(
       `SELECT a.id, a.name, a.role, a.department, a.parent_id, a.openclaw_agent_id,
-              a.is_coo, COALESCE(a.is_orchestrator, 0) AS is_orchestrator
+              a.is_coo, COALESCE(a.is_orchestrator, 0) AS is_orchestrator,
+              COALESCE(a.planning_status, 'production') AS planning_status
        FROM agents a
        INNER JOIN user_agents ua ON ua.agent_id = a.id AND ua.user_id = ? AND ua.enabled = 1
        WHERE lower(a.parent_id) = lower(?) AND lower(a.id) != lower(?)

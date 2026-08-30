@@ -1,6 +1,7 @@
 /** Tenant-scoped live capability registry and deterministic intent scoring. */
 import { getDb } from '../db/schema.js';
 import { getRecipe, recipeRequiredInputs } from './browser-recipes.js';
+import { isEligiblePlanningAgent } from './intent-classifier.js';
 
 const STOP = new Set(['the', 'and', 'for', 'with', 'from', 'this', 'that', 'into', 'your', 'please', 'want', 'need', 'use', 'run']);
 
@@ -51,12 +52,18 @@ export function buildRuntimeCapabilityRegistry(ownerUserId) {
     status: row.status, metadata: { available: true },
   }));
   for (const row of safeRows(
-    `SELECT a.id, a.name, a.role, a.department FROM agents a
-     INNER JOIN user_agents ua ON ua.agent_id = a.id AND ua.user_id = ? AND ua.enabled = 1`, [owner]
-  )) entries.push(candidate({
-    id: row.id, kind: 'employee', name: row.name, description: `${row.role || ''} ${row.department || ''}`,
-    status: 'available', execution: { type: 'specialty_task', agent_id: row.id },
-  }));
+    `SELECT a.id, a.name, a.role, a.department, COALESCE(a.planning_status, 'production') AS planning_status
+     FROM agents a
+     INNER JOIN user_agents ua ON ua.agent_id = a.id AND ua.user_id = ? AND ua.enabled = 1
+     WHERE COALESCE(a.is_coo, 0) = 0 AND COALESCE(a.planning_status, 'production') = 'production'`, [owner]
+  )) {
+    if (!isEligiblePlanningAgent(row)) continue;
+    entries.push(candidate({
+      id: row.id, kind: 'employee', name: row.name, description: `${row.role || ''} ${row.department || ''}`,
+      status: 'available', execution: { type: 'specialty_task', agent_id: row.id },
+      metadata: { planning_status: row.planning_status },
+    }));
+  }
   for (const row of safeRows(
     `SELECT id, device_name, driver_mode, capabilities_json, online, last_heartbeat_at
      FROM browser_executor_nodes WHERE owner_user_id = ? AND online = 1`, [owner]
@@ -105,6 +112,12 @@ export function mergeRuntimeCapabilityStep(existing, ownerUserId, prompt) {
   const resolution = resolveRuntimeCapability(ownerUserId, prompt);
   const selected = resolution.selected;
   if (!selected) return out;
+  // A typed human step is already the policy decision for this work. Do not
+  // append a semantically similar AI employee behind it through the independent
+  // runtime registry path.
+  if (selected.kind === 'employee' && out.some((step) => String(step.type || step.step_type || '') === 'human_task')) {
+    return out;
+  }
   const decisiveSingleIntent = selected.kind === 'recipe' &&
     selected.decision_evidence.matched_terms.length >= 2 &&
     !/\b(and then|then|after that|also)\b/i.test(String(prompt || ''));

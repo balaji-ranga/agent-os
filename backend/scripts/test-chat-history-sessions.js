@@ -21,7 +21,7 @@ const ownerB = 'ceo-test-b';
 ensureChatHistorySchema();
 const db = getDb();
 db.prepare(
-  `INSERT OR IGNORE INTO agents (id, name, role, openclaw_agent_id) VALUES (?, 'Test', 'tester', ?)`
+  `INSERT OR IGNORE INTO agents (id, name, role, openclaw_agent_id, planning_status) VALUES (?, 'Test', 'tester', ?, 'fixture')`
 ).run(agentId, agentId);
 
 insertChatTurn({ agentId, ownerUserId: ownerA, role: 'user', content: 'Hello from A' });
@@ -90,7 +90,7 @@ if (listActiveSessionTurns(agentId, ownerA).turns.length !== 2) {
 // Non-restored multi-day turns under today's started_at must still roll on open
 const agentRoll = `test-chat-hist-roll-${Date.now()}`;
 db.prepare(
-  `INSERT OR IGNORE INTO agents (id, name, role, openclaw_agent_id) VALUES (?, 'TestRoll', 'tester', ?)`
+  `INSERT OR IGNORE INTO agents (id, name, role, openclaw_agent_id, planning_status) VALUES (?, 'TestRoll', 'tester', ?, 'fixture')`
 ).run(agentRoll, agentRoll);
 insertChatTurn({ agentId: agentRoll, ownerUserId: ownerA, role: 'user', content: 'day1' });
 const rollActive = getActiveChatSession(agentRoll, ownerA);
@@ -130,7 +130,7 @@ if (listActiveSessionTurns(agentId, ownerA).turns.length !== 0) {
 // Legacy backfill bug: started_at=now but turns are old → still rollover
 const agent2 = `test-chat-hist-legacy-${Date.now()}`;
 db.prepare(
-  `INSERT OR IGNORE INTO agents (id, name, role, openclaw_agent_id) VALUES (?, 'Test2', 'tester', ?)`
+  `INSERT OR IGNORE INTO agents (id, name, role, openclaw_agent_id, planning_status) VALUES (?, 'Test2', 'tester', ?, 'fixture')`
 ).run(agent2, agent2);
 db.prepare(
   `INSERT INTO chat_turns (agent_id, owner_user_id, role, content, created_at)

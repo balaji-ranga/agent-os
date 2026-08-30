@@ -433,7 +433,23 @@ export function initDb() {
     _db.exec(`ALTER TABLE agents ADD COLUMN department TEXT DEFAULT ''`);
   } catch (_) {}
   try {
+    _db.exec(`ALTER TABLE agents ADD COLUMN planning_status TEXT DEFAULT 'production'`);
+  } catch (_) {}
+  try {
     _db.exec(`UPDATE agents SET agent_type = 'standard' WHERE agent_type IS NULL OR agent_type = ''`);
+  } catch (_) {}
+  try {
+    _db.exec(`UPDATE agents SET planning_status = 'production' WHERE planning_status IS NULL OR planning_status = ''`);
+    // One-time repair for historical chat-session fixtures that were accidentally
+    // written into the shared VPS database. Runtime planning never relies on
+    // names/keywords: these rows are explicitly classified here and disabled.
+    _db.exec(`UPDATE agents
+      SET planning_status = 'fixture'
+      WHERE lower(COALESCE(role, '')) = 'tester'
+        AND lower(id) LIKE 'test-chat-hist-%'
+        AND lower(name) IN ('test', 'test2', 'testroll')`);
+    _db.exec(`UPDATE user_agents SET enabled = 0
+      WHERE agent_id IN (SELECT id FROM agents WHERE planning_status = 'fixture')`);
   } catch (_) {}
   try {
     // Backfill known standard agents when department is empty

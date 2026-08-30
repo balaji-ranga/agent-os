@@ -13,6 +13,8 @@ function getIntentModelOverride() {
 
 /** Keep smoke/demo fixture employees out of production goal allocation. */
 export function isEligiblePlanningAgent(agent = {}) {
+  const planningStatus = String(agent.planning_status || agent.planningStatus || 'production').trim().toLowerCase();
+  if (planningStatus !== 'production') return false;
   const id = String(agent.id || '').trim().toLowerCase();
   const name = String(agent.name || '').trim().toLowerCase();
   const role = String(agent.role || '').trim().toLowerCase();

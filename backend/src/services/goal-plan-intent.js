@@ -23,6 +23,7 @@ import { listEnabledContentTools } from './content-tools-meta.js';
 import { getDb } from '../db/schema.js';
 import { mergeCapabilitySteps } from './business-capabilities.js';
 import { getWorkAssignmentPolicy, listHumanWorkCandidates, chooseOverlappingExecutor } from './work-assignment-policy.js';
+import { goalWantsChatSynthesis } from './goal-plan-tool-args.js';
 
 const MAX_INTENTS = Math.max(4, Math.min(20, Number(process.env.GOAL_PLAN_MAX_INTENTS) || 12));
 
@@ -412,6 +413,7 @@ export async function listSpecialtyAgentsForGoalPlan(ownerUserId, orchestratorAg
         id,
         name: a.name || id,
         role: [a.department, a.role].filter(Boolean).join(' — ') || 'specialty agent',
+        planning_status: a.planning_status || 'production',
       });
     }
   } catch (_) {
@@ -419,7 +421,13 @@ export async function listSpecialtyAgentsForGoalPlan(ownerUserId, orchestratorAg
   }
   roster = roster.filter((a) => {
     const id = String(a.id || '').toLowerCase();
-    return id && id !== 'balserve' && isEligiblePlanningAgent(a) && !/coo|chief operating/i.test(String(a.name || '') + ' ' + String(a.role || ''));
+    if (!id || id === 'balserve' || !isEligiblePlanningAgent(a) || /coo|chief operating/i.test(String(a.name || '') + ' ' + String(a.role || ''))) return false;
+    try {
+      const live = getDb().prepare("SELECT COALESCE(planning_status, 'production') AS planning_status FROM agents WHERE lower(id)=lower(?) LIMIT 1").get(id);
+      return !live || live.planning_status === 'production';
+    } catch {
+      return true;
+    }
   });
   return roster;
 }
@@ -434,7 +442,7 @@ export const isEligiblePlanningAgent = isEligibleRosterAgent;
 export async function applyHumanAssignmentPolicy(ownerUserId, prompt, steps = []) {
   const humans = listHumanWorkCandidates(ownerUserId);
   const specialty = (steps || []).map((step, index) => ({ step, index })).filter(({ step }) => step.type === 'specialty_task');
-  if (!humans.length || !specialty.length) return steps;
+  if (!humans.length) return steps;
   const policy = getWorkAssignmentPolicy(ownerUserId);
   const explicitLower = String(prompt || '').toLowerCase();
   const explicit = new Map();
@@ -465,6 +473,7 @@ export async function applyHumanAssignmentPolicy(ownerUserId, prompt, steps = []
   }
   const byIndex = new Map(matches.map((m) => [Number(m.step_index), m]));
   const directHumans = [...new Map([...explicit.values()].map((h) => [h.id, h])).values()];
+  if (!specialty.length && !directHumans.length) return steps;
   const forcedByIndex = new Map();
   const reserved = new Set();
   for (const human of directHumans) {
@@ -513,6 +522,37 @@ export async function applyHumanAssignmentPolicy(ownerUserId, prompt, steps = []
       },
     };
   }).filter(Boolean);
+  // An explicitly named human is an execution instruction, not merely a score
+  // hint. Preserve it even when the post-plan capability gate correctly removed
+  // an unrelated AI candidate that the model had used as a temporary proxy.
+  for (const human of directHumans) {
+    if (assignedHumans.has(human.id) || out.some((step) => step.type === 'human_task' && step.spec?.user_id === human.id)) continue;
+    const highRisk = /\b(financ|invoice|payment|discount|fee|cost|legal|regulat|compliance|contract|destructive|delete)\b/i.test(String(prompt || ''));
+    const humanStep = {
+      type: 'human_task',
+      label: `Human: ${human.name}`,
+      spec: {
+        user_id: human.id,
+        message: String(prompt || '').slice(0, 6000),
+        risk: highRisk ? 'high' : 'normal',
+        selection_rationale: `Assigned to the explicitly named human employee ${human.name}.`,
+      },
+    };
+    const terminalAt = out.findIndex((step) => step.type === 'agent_continue' || step.type === 'notify_ceo');
+    out.splice(terminalAt >= 0 ? terminalAt : out.length, 0, humanStep);
+    assignedHumans.add(human.id);
+  }
+  if (out.some((step) => step.type === 'human_task') && goalWantsChatSynthesis(prompt) && !out.some((step) => step.type === 'agent_continue')) {
+    const notifyAt = out.findIndex((step) => step.type === 'notify_ceo');
+    out.splice(notifyAt >= 0 ? notifyAt : out.length, 0, {
+      type: 'agent_continue',
+      label: 'Consolidate completed work',
+      spec: {
+        message: '[Goal run — synthesis] Use only this goal run’s completed step outputs. Produce the requested final outcome for the CEO; do not delegate this synthesis.',
+        selection_rationale: 'The originating orchestrator consolidates prior step outputs before notifying the CEO.',
+      },
+    });
+  }
   // A human goal step creates and owns its Kanban card itself. A separately
   // inferred kanban_create_task step is duplicate work and can orphan a card.
   if (out.some((step) => step.type === 'human_task')) {
