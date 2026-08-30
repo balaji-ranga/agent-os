@@ -429,7 +429,11 @@ export function isEligiblePlanningAgent(agent = {}) {
   const id = String(agent.id || '').trim().toLowerCase();
   const name = String(agent.name || '').trim().toLowerCase();
   const role = String(agent.role || '').trim().toLowerCase();
-  const placeholderRole = /^(?:test(?:er)?|demo|placeholder|sample)(?:\s+(?:agent|employee))?$/i.test(role);
+  // Directory-backed agents include the department in `role` (for example
+  // "Operations — tester"), while AGENTS.md rows are already reduced to the
+  // purpose. Evaluate the purpose portion consistently on both paths.
+  const purpose = role.replace(/^[^—]+—\s*/, '').trim();
+  const placeholderRole = /^(?:test(?:er)?|demo|placeholder|sample)(?:\s+(?:agent|employee))?$/i.test(purpose);
   const placeholderName = /^(?:test|demo|placeholder|sample)(?:\s*\d+|\s*roll)?$/i.test(name);
   const fixtureId = /(?:^|[-_])test(?:[-_]|$)/i.test(id);
   return !(placeholderRole && (placeholderName || fixtureId));

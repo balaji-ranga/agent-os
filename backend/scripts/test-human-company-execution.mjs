@@ -29,6 +29,9 @@ try {
   const roster = intent.parseAgentsFromAgentsMd(`| Agent ID | Name | Department | Purpose |\n|---|---|---|---|\n| erp-invoice | Invoice Agent | Finance | Accounts receivable |\n| test-chat-hist-1 | Test | Operations | tester |`);
   assert.deepEqual(roster.map((row) => row.id), ['erp-invoice']);
   assert.deepEqual(intent.normalizeKeysToDocIds({ 'Invoice Agent': 'Review receivable', hallucinated_agent: 'Do unrelated work' }, roster), { 'erp-invoice': 'Review receivable' });
+  const goalIntent = await import('../src/services/goal-plan-intent.js');
+  assert.equal(goalIntent.isEligiblePlanningAgent({ id: 'test-chat-hist-1', name: 'Test', role: 'Operations — tester' }), false);
+  assert.equal(goalIntent.isEligiblePlanningAgent({ id: 'erp-invoice', name: 'Invoice Agent', role: 'Finance — Accounts receivable' }), true);
 
   const goals = await import('../src/services/agent-goal-run.js');
   const goal = goals.createGoalRun({ ownerUserId: owner, agentId: 'balserve', title: 'Overdue invoice collection', prompt: 'Resolve overdue invoice INV-104 and report the outcome.', steps: [{ type: 'human_task', label: 'Human: Alex Collector', user_id: employee, message: 'Contact the account owner, use judgment on the collection approach, and record the outcome.', risk: 'high', selection_rationale: 'High-risk customer/financial judgment routed to the matched human.' }, { type: 'notify_ceo', label: 'Report outcome' }] });
