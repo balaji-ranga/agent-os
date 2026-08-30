@@ -34,6 +34,8 @@ function publicPerson(row, roleRow = null, permKeys = null) {
     is_ceo_delegate: !!roleRow?.is_ceo_delegate,
     department: row.department || '',
     parent_id: row.parent_id || '',
+    specialty: row.specialty || '',
+    purpose: row.purpose || '',
     last_login_at: row.last_login_at || null,
     created_at: row.created_at,
     permissions: permKeys,
@@ -112,13 +114,15 @@ export async function inviteOrgPerson(ownerUserId, body = {}, { invitedBy } = {}
   }
   const department = String(body.department || '').trim();
   const parentId = String(body.parent_id || '').trim();
+  const specialty = String(body.specialty || '').trim();
+  const purpose = String(body.purpose || '').trim();
   const id = newOrgUserId(email);
   const randomPwd = randomBytes(24).toString('hex');
   db().prepare(
     `INSERT INTO platform_users
-      (id, email, password_hash, name, mobile, role, enabled, owner_user_id, org_role_id, department, parent_id)
-     VALUES (?, ?, ?, ?, ?, 'org_user', 1, ?, ?, ?, ?)`
-  ).run(id, email, hashPassword(randomPwd), name, mobile, owner, orgRoleId, department, parentId);
+      (id, email, password_hash, name, mobile, role, enabled, owner_user_id, org_role_id, department, parent_id, specialty, purpose)
+     VALUES (?, ?, ?, ?, ?, 'org_user', 1, ?, ?, ?, ?, ?, ?)`
+  ).run(id, email, hashPassword(randomPwd), name, mobile, owner, orgRoleId, department, parentId, specialty, purpose);
 
   console.info('[org-people] invited employee=%s owner=%s by=%s', id, owner, invitedBy || 'ceo');
   let invite = null;
@@ -165,6 +169,8 @@ export function updateOrgPerson(ownerUserId, userId, body = {}) {
     org_role_id: body.org_role_id,
     department: body.department,
     parent_id: body.parent_id,
+    specialty: body.specialty,
+    purpose: body.purpose,
   };
   for (const [col, val] of Object.entries(map)) {
     if (val === undefined) continue;

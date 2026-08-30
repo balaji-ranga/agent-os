@@ -253,6 +253,8 @@ CEO 👎 comments on your chat replies are stored and included the next time you
 
 When `ORG.md` shows the agent's Voice channel as enabled, `voice_call_invite` creates a short-lived link to Flolah's browser Voice room. This is not native WhatsApp calling and is not a WhatsApp voice note. Call the tool and return its exact URL; do not answer from an older remembered capability state.
 
+For a **human employee**, use the live Human employees table in `ORG.md` and call `voice_call_invite` with the exact `user_id` (or exact `user_name`). Only the COO may create another person's link. Human work assigned by a goal is completed through the Kanban outcome controls; do not interpret an ordinary chat acknowledgement as task completion.
+
 ## Virtual Room / avatar media
 
 

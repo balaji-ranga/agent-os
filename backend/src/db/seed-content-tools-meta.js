@@ -447,7 +447,7 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/voice-call-invite',
     method: 'POST',
     purpose:
-      'API tool: create a short-lived owner-and-agent-bound browser Voice call link for the current CEO. Use when the CEO asks in web, WhatsApp, or another channel to start/call the employee by voice. Params: agent_id optional (defaults to the calling employee), ttl_seconds optional (60-3600; default 600). Return/share the exact url. Never invent or reuse an expired link; no user_id.',
+      'API tool: create a short-lived owner-bound browser Voice call link. For an AI employee use agent_id (defaults to caller). COO may target a human colleague using exact user_id or user_name from ORG.md. ttl_seconds optional (60-3600; default 600). Return the exact url; never expose credentials or invent/reuse expired links.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,

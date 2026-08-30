@@ -273,6 +273,7 @@ export function matchApiPermission(method, path) {
   const rules = [
     { prefix: '/auth', allow: true },
     { prefix: '/kanban', allow: true },
+    { prefix: '/human-communications', allow: true },
     { prefix: '/platform-notifications', allow: true },
     { prefix: '/home', allow: true },
     { prefix: '/feedback', allow: true },

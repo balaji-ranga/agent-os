@@ -19,6 +19,7 @@ import {
 import { syncOrgContextForCeo } from '../services/org-context.js';
 import { getUserById } from '../services/users.js';
 import { getExceptionPolicy, upsertExceptionPolicy } from '../services/exception-policy.js';
+import { getWorkAssignmentPolicy, saveWorkAssignmentPolicy } from '../services/work-assignment-policy.js';
 
 const router = Router();
 
@@ -31,9 +32,20 @@ router.get('/', requireAuth, requireCeoOrAdmin, (req, res) => {
       action_control: getActionFamilyPolicies(ceoUserId),
       action_overrides: listActionPolicyOverrides(ceoUserId),
       exception_policy: getExceptionPolicy(ceoUserId),
+      work_assignment_policy: getWorkAssignmentPolicy(ceoUserId),
     });
   } catch (e) {
     res.status(500).json({ error: e.message || String(e) });
+  }
+});
+
+router.put('/work-assignment-policy', requireAuth, requireCeoOrAdmin, (req, res) => {
+  try {
+    const ceoUserId = resolveAuthenticatedCeoUserId(req);
+    if (!ceoUserId) return res.status(403).json({ error: 'CEO context required' });
+    res.json({ work_assignment_policy: saveWorkAssignmentPolicy(ceoUserId, req.body || {}) });
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || String(e) });
   }
 });
 

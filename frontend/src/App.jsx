@@ -62,11 +62,15 @@ import VirtualRoom from './pages/VirtualRoom';
 import PublishedScenes from './pages/PublishedScenes';
 import PublicVirtualRoom from './pages/PublicVirtualRoom';
 import PublicVoiceCall from './pages/PublicVoiceCall';
+import PublicHumanCall from './pages/PublicHumanCall';
+import HumanChat from './pages/HumanChat';
 import AgentChannels from './pages/AgentChannels';
 import NotificationBell from './components/NotificationBell';
 import ProfileMenu from './components/ProfileMenu';
 import ThemeToggle from './components/ThemeToggle';
 import GlobalSearch from './components/GlobalSearch';
+import CooAssistantWidget from './components/CooAssistantWidget';
+import HumanIncomingCall from './components/HumanIncomingCall';
 import { AdminNavMenu, CeoNavMenu } from './components/AppNavMenu';
 import ImpersonationBanner from './components/ImpersonationBanner';
 import PromotionPopup from './components/PromotionPopup';
@@ -423,6 +427,7 @@ function Shell() {
                 <Route path="/agents/:agentId/workspace" element={<Perm user={user} k="ai-employees"><AgentWorkspace /></Perm>} />
                 <Route path="/agents/:agentId/chat" element={<AgentChat />} />
                 <Route path="/agents/:agentId/channels" element={<Perm user={user} k="ai-employees"><AgentChannels /></Perm>} />
+                <Route path="/people/:userId/chat" element={<HumanChat />} />
                 <Route path="/agents/:agentId/virtual-room" element={<Perm user={user} k="avatars"><VirtualRoom /></Perm>} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </>
@@ -431,6 +436,8 @@ function Shell() {
         </main>
       </div>
       <PromotionPopup enabled={isCompanyUser(user)} />
+      {isCompanyUser(user) && <CooAssistantWidget />}
+      {isCompanyUser(user) && <HumanIncomingCall />}
     </div>
     </NotificationProvider>
   );
@@ -480,6 +487,7 @@ export default function App() {
         }
       />
       <Route path="/p/voice-invite/:token" element={<PublicVoiceCall invite />} />
+      <Route path="/call/user/:token" element={<PublicHumanCall />} />
       <Route path="/*" element={<Shell />} />
     </Routes>
   );

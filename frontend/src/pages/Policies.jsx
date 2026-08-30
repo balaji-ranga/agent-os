@@ -60,6 +60,8 @@ function PoliciesPanel() {
     agent_pickup: true,
   });
   const [exceptionBusy, setExceptionBusy] = useState(false);
+  const [assignmentPolicy, setAssignmentPolicy] = useState({ mode: 'prefer_agent', high_risk_to_human: true });
+  const [assignmentBusy, setAssignmentBusy] = useState(false);
   const [controlBusy, setControlBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [enrichBusy, setEnrichBusy] = useState(false);
@@ -86,6 +88,7 @@ function PoliciesPanel() {
         setActionControl(Array.isArray(data.action_control) ? data.action_control : []);
         setActionOverrides(Array.isArray(data.action_overrides) ? data.action_overrides : []);
         if (data.exception_policy) setExceptionPolicy(data.exception_policy);
+        if (data.work_assignment_policy) setAssignmentPolicy(data.work_assignment_policy);
       })
       .catch((e) => setError(e.message || String(e)))
       .finally(() => setLoading(false));
@@ -153,6 +156,12 @@ function PoliciesPanel() {
     setActionControl((prev) =>
       (prev || []).map((row) => (row.family === family ? { ...row, mode } : row))
     );
+  };
+
+  const saveAssignmentPolicy = async () => {
+    setAssignmentBusy(true); setError(null); setMessage(null);
+    try { const out = await api.ceoWorkAssignmentPolicySave(assignmentPolicy); setAssignmentPolicy(out.work_assignment_policy); setMessage('Work assignment policy saved. New goal plans use it immediately.'); }
+    catch (e) { setError(e.message); } finally { setAssignmentBusy(false); }
   };
 
   const saveOverride = async () => {
@@ -260,6 +269,7 @@ function PoliciesPanel() {
         >
           Exception policy
         </button>
+        <button type="button" role="tab" aria-selected={activeTab === 'assignment'} className={activeTab === 'assignment' ? 'btn-primary' : 'btn-secondary'} onClick={() => setActiveTab('assignment')}>Work assignment</button>
       </div>
 
       {loading ? (
@@ -336,7 +346,7 @@ function PoliciesPanel() {
             </button>
           </div>
         </form>
-      ) : (
+      ) : activeTab === 'exceptions' ? (
         <section role="tabpanel" aria-label="Exception policy" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div>
             <h2 style={{ margin: '0 0 0.35rem', fontSize: '1.15rem' }}>Exception policy</h2>
@@ -396,6 +406,14 @@ function PoliciesPanel() {
               {exceptionBusy ? 'Saving…' : 'Save exception policy'}
             </button>
           </div>
+        </section>
+      ) : (
+        <section role="tabpanel" aria-label="Work assignment policy" style={{ display: 'grid', gap: '1rem' }}>
+          <div><h2 style={{ margin: '0 0 .35rem' }}>AI and human work assignment</h2><p style={{ margin: 0, color: 'var(--muted)' }}>When an AI employee and a human employee both match a planned outcome, this company policy chooses the executor. The goal remains isolated and resumes from the same step when a human responds.</p></div>
+          <label><span style={{ display: 'block', marginBottom: 5 }}>Default preference</span><select value={assignmentPolicy.mode} onChange={(e) => setAssignmentPolicy((p) => ({ ...p, mode: e.target.value }))} style={{ width: '100%', padding: '.65rem' }}><option value="equal_weight">Equal weight — choose best capability fit</option><option value="prefer_agent">Prefer AI employee</option><option value="prefer_human">Prefer human employee</option><option value="risk_to_human">Prefer AI, but route high-risk judgment to humans</option></select></label>
+          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9 }}><input type="checkbox" checked={assignmentPolicy.high_risk_to_human !== false} onChange={(e) => setAssignmentPolicy((p) => ({ ...p, high_risk_to_human: e.target.checked }))} /><span><strong>Require a matched human for high-risk judgment</strong><small style={{ display: 'block', color: 'var(--muted)' }}>Financial commitments/costs, legal or regulatory decisions, destructive actions, and binding external commitments.</small></span></label>
+          {message && <p role="status" style={{ color: 'var(--accent)' }}>{message}</p>}{error && <p role="alert" style={{ color: 'var(--danger,#c44)' }}>{error}</p>}
+          <div><button className="btn-primary" onClick={saveAssignmentPolicy} disabled={assignmentBusy}>{assignmentBusy ? 'Saving…' : 'Save work assignment policy'}</button></div>
         </section>
       )}
 

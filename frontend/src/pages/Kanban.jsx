@@ -58,6 +58,8 @@ export default function Kanban() {
   const [messageAttachments, setMessageAttachments] = useState([]);
   const [sendingMessage, setSendingMessage] = useState(false);
   const [taskChatError, setTaskChatError] = useState(null);
+  const [humanOutcome, setHumanOutcome] = useState('');
+  const [humanResponding, setHumanResponding] = useState('');
   const [reopeningId, setReopeningId] = useState(null);
   const [draggingTask, setDraggingTask] = useState(null);
   const [dropTargetStatus, setDropTargetStatus] = useState(null);
@@ -519,6 +521,17 @@ export default function Kanban() {
       })
       .catch((err) => showError(err.message || 'Failed to reopen task'))
       .finally(() => setReopeningId(null));
+  };
+
+  const respondHumanTask = async (action) => {
+    if (!selectedTask || !humanOutcome.trim()) return;
+    setHumanResponding(action); setTaskChatError(null);
+    try {
+      await api.kanbanHumanRespond(selectedTask.id, { action, outcome: humanOutcome.trim() });
+      setHumanOutcome('');
+      const detail = await api.kanbanTaskGet(selectedTask.id); setTaskDetail(detail); setSelectedTask(detail);
+      await fetchTasks(); showSuccess(action === 'complete' ? 'Outcome recorded; the goal resumed.' : action === 'unable' ? 'Blocker recorded and returned to the orchestrator.' : 'Question sent; the goal is waiting for an answer.');
+    } catch (e) { setTaskChatError(e.message); showError(e.message); } finally { setHumanResponding(''); }
   };
 
   const selectedCanMutate = selectedTask?.can_mutate !== false;
@@ -1021,6 +1034,13 @@ export default function Kanban() {
                 flexDirection: 'column',
               }}
             >
+            {(taskDetail || selectedTask)?.assigned_user_id && (taskDetail || selectedTask)?.goal_run_id && ['in_progress','awaiting_confirmation'].includes((taskDetail || selectedTask)?.status) && (
+              <section style={{ margin: '1rem 1rem 0', padding: '1rem', border: '1px solid color-mix(in srgb,var(--accent) 45%,var(--border))', borderRadius: 12, background: 'color-mix(in srgb,var(--accent) 7%,var(--surface))' }}>
+                <strong>Human outcome required</strong><p style={{ color: 'var(--muted)', margin: '.35rem 0 .65rem', fontSize: '.84rem' }}>Your response is bound to this exact goal step. Completing it automatically continues the orchestrator’s plan.</p>
+                <textarea value={humanOutcome} onChange={(e) => setHumanOutcome(e.target.value)} placeholder="Outcome delivered, blocker, or question…" style={{ width: '100%', minHeight: 82, boxSizing: 'border-box' }} />
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}><button className="btn-primary" disabled={!humanOutcome.trim() || !!humanResponding} onClick={() => respondHumanTask('complete')}>{humanResponding === 'complete' ? 'Completing…' : 'Complete task'}</button><button disabled={!humanOutcome.trim() || !!humanResponding} onClick={() => respondHumanTask('question')}>Ask a question</button><button disabled={!humanOutcome.trim() || !!humanResponding} onClick={() => respondHumanTask('unable')} style={{ color: 'var(--danger,#c44)' }}>Unable to complete</button></div>
+              </section>
+            )}
             <div
               ref={taskChatScrollRef}
               className="chat-scroll-panel"

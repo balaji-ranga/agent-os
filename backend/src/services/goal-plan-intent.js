@@ -22,6 +22,7 @@ import { getAgentToolGrants } from './openclaw-agent-tools.js';
 import { listEnabledContentTools } from './content-tools-meta.js';
 import { getDb } from '../db/schema.js';
 import { mergeCapabilitySteps } from './business-capabilities.js';
+import { getWorkAssignmentPolicy, listHumanWorkCandidates, chooseOverlappingExecutor } from './work-assignment-policy.js';
 
 const MAX_INTENTS = Math.max(4, Math.min(20, Number(process.env.GOAL_PLAN_MAX_INTENTS) || 12));
 
@@ -421,6 +422,77 @@ export async function listSpecialtyAgentsForGoalPlan(ownerUserId, orchestratorAg
     return id && id !== 'balserve' && !/coo|chief operating/i.test(String(a.name || '') + ' ' + String(a.role || ''));
   });
   return roster;
+}
+
+/**
+ * Apply the CEO's generic agent-vs-human policy after capability planning.
+ * The model only scores semantic fit/risk against the live human roster; the
+ * deterministic policy function makes the final choice.
+ */
+export async function applyHumanAssignmentPolicy(ownerUserId, prompt, steps = []) {
+  const humans = listHumanWorkCandidates(ownerUserId);
+  const specialty = (steps || []).map((step, index) => ({ step, index })).filter(({ step }) => step.type === 'specialty_task');
+  if (!humans.length || !specialty.length) return steps;
+  const policy = getWorkAssignmentPolicy(ownerUserId);
+  const explicitLower = String(prompt || '').toLowerCase();
+  const explicit = new Map();
+  for (const human of humans) {
+    for (const token of [human.id, human.name].map((x) => String(x || '').trim().toLowerCase()).filter((x) => x.length >= 4)) {
+      if (explicitLower.includes(token)) explicit.set(token, human);
+    }
+  }
+  const humanBlock = humans.map((h) => `${h.id} | ${h.name} | ${h.department || ''} | ${h.role_title || ''} | ${h.specialty || ''} | ${h.purpose || ''}`).join('\n');
+  const stepBlock = specialty.map(({ step, index }) => `${index} | ${step.label} | ${step.spec?.message || ''} | agent=${step.spec?.agent_id || ''}`).join('\n');
+  let matches = [];
+  try {
+    const completion = await chatCompletions({
+      ownerUserId,
+      maxTokens: 900,
+      toolName: 'goal_human_assignment',
+      temperature: 0,
+      responseFormat: 'json_object',
+      messages: [
+        { role: 'system', content: 'Match planned work to HUMAN employees only when their department, role, specialty or purpose genuinely fits. Classify task risk as high only for financial commitments/costs, legal/regulatory decisions, destructive operations, or binding external commitments. JSON only: {"matches":[{"step_index":0,"user_id":"exact id or empty","human_match_score":0-100,"agent_match_score":0-100,"risk":"normal|high","reason":"short"}]}.' },
+        { role: 'user', content: `GOAL:\n${String(prompt || '').slice(0, 3500)}\n\nPLANNED AGENT STEPS:\n${stepBlock}\n\nHUMAN EMPLOYEES:\n${humanBlock}` },
+      ],
+    });
+    const parsed = parseJsonObject(completion?.content || completion);
+    matches = Array.isArray(parsed?.matches) ? parsed.matches : [];
+  } catch (e) {
+    console.warn('[goal-plan-intent] human assignment scoring skipped', e?.message || e);
+  }
+  const byIndex = new Map(matches.map((m) => [Number(m.step_index), m]));
+  return (steps || []).map((step, index) => {
+    if (step.type !== 'specialty_task') return step;
+    const direct = [...explicit.values()].find((h) => {
+      const task = `${step.label || ''} ${step.spec?.message || ''}`.toLowerCase();
+      return task.includes(String(h.id).toLowerCase()) || task.includes(String(h.name).toLowerCase());
+    });
+    const match = byIndex.get(index);
+    const human = direct || (Number(match?.human_match_score || 0) >= 60 ? humans.find((h) => h.id === match?.user_id) : null);
+    if (!human) return step;
+    const decision = direct
+      ? { kind: 'human', candidate: human }
+      : chooseOverlappingExecutor({
+          policy,
+          risk: match?.risk === 'high' ? 'high' : 'normal',
+          agentCandidate: { id: step.spec?.agent_id, match_score: match?.agent_match_score },
+          humanCandidate: { ...human, match_score: match?.human_match_score },
+        });
+    if (decision?.kind !== 'human') return step;
+    return {
+      type: 'human_task',
+      label: `Human: ${human.name}`,
+      spec: {
+        user_id: human.id,
+        message: step.spec?.message || step.label,
+        risk: match?.risk === 'high' ? 'high' : 'normal',
+        selection_rationale: direct
+          ? `Assigned to the explicitly named human employee ${human.name}.`
+          : `${policy.mode}: ${match?.reason || `${human.name}'s role and specialty fit this work`}`,
+      },
+    };
+  });
 }
 
 function resolveWorkflowMatch(intent, catalog) {

@@ -5,7 +5,7 @@
 import { randomUUID } from 'crypto';
 import { getDb } from '../db/schema.js';
 import { chatCompletions as platformChatCompletions } from '../config/llm.js';
-import { clearKanbanTaskNotification, sendPlatformNotifications } from './platform-notifications.js';
+import { clearKanbanTaskNotification, notifyKanbanTaskCreated, sendPlatformNotifications } from './platform-notifications.js';
 import { isPlatformCronActive } from './platform-cron-registry.js';
 import * as openclaw from '../gateway/openclaw.js';
 import { ensureTenantOpenClawAgent } from './openclaw-tenant.js';
@@ -26,6 +26,7 @@ import {
   matchWorkflowStepsFromCatalog,
   resolveCeoEmail,
   isCooStyleOrchestrator,
+  applyHumanAssignmentPolicy,
 } from './goal-plan-intent.js';
 import { invokeContentToolHttp } from './content-tool-http-invoke.js';
 import { listPublishedWorkflows } from './agent-workflow-chat-tools.js';
@@ -287,6 +288,7 @@ export function ensureAgentGoalRunTables() {
   for (const sql of [
     'ALTER TABLE agent_goal_steps ADD COLUMN exception_retry_count INTEGER DEFAULT 0',
     'ALTER TABLE agent_goal_steps ADD COLUMN exception_kanban_id INTEGER',
+    'ALTER TABLE agent_goal_steps ADD COLUMN human_kanban_task_id INTEGER',
   ]) {
     try {
       db().exec(sql);
@@ -296,6 +298,9 @@ export function ensureAgentGoalRunTables() {
   if (!cols.includes('child_delegation_task_id')) {
     db().exec('ALTER TABLE agent_goal_steps ADD COLUMN child_delegation_task_id INTEGER');
   }
+  try {
+    db().exec('CREATE INDEX IF NOT EXISTS idx_agent_goal_steps_human_task ON agent_goal_steps(human_kanban_task_id)');
+  } catch (_) {}
   try {
     db().exec('CREATE INDEX IF NOT EXISTS idx_agent_goal_steps_del ON agent_goal_steps(child_delegation_task_id)');
   } catch (_) {}
@@ -430,6 +435,19 @@ export function normalizeStepSpec(raw) {
         parallel_group: Number.isFinite(pg) ? pg : null,
         phase: raw.phase || nested.phase || "specialty",
         resolution_evidence: raw.resolution_evidence || nested.resolution_evidence || null,
+        selection_rationale: raw.selection_rationale || nested.selection_rationale || null,
+      },
+    };
+  }
+  if (type === 'human_task' || type === 'human') {
+    const userId = String(raw.user_id || raw.userId || nested.user_id || nested.userId || '').trim();
+    return {
+      type: 'human_task',
+      label: String(raw.label || (userId ? `Human: ${userId}` : 'Human task')).trim(),
+      spec: {
+        user_id: userId,
+        message: String(raw.message || raw.prompt || nested.message || nested.prompt || '').trim() || null,
+        risk: String(raw.risk || nested.risk || 'normal').toLowerCase() === 'high' ? 'high' : 'normal',
         selection_rationale: raw.selection_rationale || nested.selection_rationale || null,
       },
     };
@@ -621,10 +639,11 @@ async function planGoalStepsAsyncInner(prompt, opts = {}) {
         console.info('[goal-run] plan via intent classifier', {
           steps: steps.map((x) => x.type + ':' + (x.label || '')).slice(0, 12),
         });
-        return validateAndRepairGoalPlan(steps, fullPrompt, {
+        const repaired = validateAndRepairGoalPlan(steps, fullPrompt, {
           ownerUserId,
           orchestratorAgentId: opts.orchestratorAgentId || null,
         });
+        return await applyHumanAssignmentPolicy(ownerUserId, fullPrompt, repaired);
       }
     } catch (e) {
       console.warn('[goal-run] intent classifier failed; catalog fallback', e?.message || e);
@@ -665,10 +684,11 @@ async function planGoalStepsAsyncInner(prompt, opts = {}) {
   if (steps.length && !steps.some((s) => s.type === 'notify_ceo')) {
     steps.push(normalizeStepSpec({ type: 'notify_ceo' }));
   }
-  return validateAndRepairGoalPlan(steps, fullPrompt, {
+  const repaired = validateAndRepairGoalPlan(steps, fullPrompt, {
     ownerUserId,
     orchestratorAgentId: opts.orchestratorAgentId || null,
   });
+  return ownerUserId ? await applyHumanAssignmentPolicy(ownerUserId, fullPrompt, repaired) : repaired;
 }
 
 /**
@@ -878,6 +898,7 @@ export function planUsesGoalRunMode(planned) {
   const steps = Array.isArray(planned) ? planned : [];
   if (steps.some((s) => (s.type || s.step_type) === 'workflow_trigger')) return true;
   if (steps.some((s) => (s.type || s.step_type) === 'specialty_task')) return true;
+  if (steps.some((s) => (s.type || s.step_type) === 'human_task')) return true;
   if (steps.some((s) => (s.type || s.step_type) === 'agent_tool')) return true;
   const real = steps.filter((s) => (s.type || s.step_type) !== 'notify_ceo');
   return real.length >= 2;
@@ -2477,7 +2498,7 @@ export async function nudgeCooOnGoalPlanTerminal(goalRunId, opts = {}) {
 }
 
 
-export function completeGoalStep({ goalRunId, stepId, ownerUserId, result = null, failed = false, error = null }) {
+export function completeGoalStep({ goalRunId, stepId, ownerUserId, result = null, failed = false, error = null, skipRecovery = false }) {
   ensureAgentGoalRunTables();
   const goal = loadGoalRunRow(goalRunId, ownerUserId);
   if (!goal) {
@@ -2507,7 +2528,7 @@ export function completeGoalStep({ goalRunId, stepId, ownerUserId, result = null
     const failedProviders = Array.isArray(spec.failed_providers) ? [...spec.failed_providers] : [];
     if (spec.tool_name) failedProviders.push(spec.tool_name);
     const fallback = nextExecutorForStep({ ...spec, capability_id: spec.capability_id }, failedProviders);
-    const decision = decideFromObservation({
+    const decision = skipRecovery ? { action: 'escalate', reason: 'Human employee reported this task could not be completed.', ceo_required: true } : decideFromObservation({
       observation,
       failure: classified,
       retryCount: Number(step.exception_retry_count || 0),
@@ -2855,6 +2876,82 @@ async function startParallelSpecialtyGroup(goal, steps, group) {
   };
 }
 
+async function executeHumanTaskStep(goal, step) {
+  const spec = parseJson(step.spec_json, {});
+  const userId = String(spec.user_id || '').trim();
+  if (!userId) throw new Error('human_task requires user_id');
+  const employee = db().prepare(
+    `SELECT id, name, department, role_title, enabled FROM platform_users
+     WHERE id = ? AND (id = ? OR owner_user_id = ?)`
+  ).get(userId, goal.owner_user_id, goal.owner_user_id);
+  if (!employee || !employee.enabled) throw new Error('Assigned human employee is unavailable in this company');
+  const existing = step.human_kanban_task_id
+    ? db().prepare('SELECT * FROM kanban_tasks WHERE id = ?').get(step.human_kanban_task_id)
+    : null;
+  if (existing) return { kanban_task_id: existing.id, assigned_user_id: userId, waiting_for_human: true };
+  const prior = priorStepContextForAgent(goal.id, step.step_index);
+  const description = [
+    `## Original company goal\n${String(goal.prompt || '').trim()}`,
+    `## Your assigned outcome\n${String(spec.message || step.label || '').trim()}`,
+    prior ? `## Relevant completed outputs from this goal only\n${prior}` : '',
+    '## How to continue the goal\nOpen this task and choose **Complete task**, **Unable to complete**, or **Ask a question**. A completion outcome resumes the exact goal step automatically.',
+    spec.selection_rationale ? `## Why you were selected\n${spec.selection_rationale}` : '',
+  ].filter(Boolean).join('\n\n');
+  const info = db().prepare(
+    `INSERT INTO kanban_tasks
+       (title, description, status, assigned_user_id, created_by, owner_user_id, goal_run_id, goal_step_id, created_at, updated_at)
+     VALUES (?, ?, 'in_progress', ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`
+  ).run(step.label || `Human task for ${employee.name}`, description, userId, goal.agent_id || 'balserve', goal.owner_user_id, goal.id, step.id);
+  const taskId = Number(info.lastInsertRowid);
+  db().prepare('UPDATE agent_goal_steps SET human_kanban_task_id = ? WHERE id = ?').run(taskId, step.id);
+  const task = db().prepare('SELECT * FROM kanban_tasks WHERE id = ?').get(taskId);
+  notifyKanbanTaskCreated({ userId, task });
+  recordMissionEvent({
+    ownerUserId: goal.owner_user_id,
+    goalRunId: goal.id,
+    event_type: 'human_task_assigned',
+    payload: { step_id: step.id, kanban_task_id: taskId, assigned_user_id: userId, risk: spec.risk || 'normal' },
+  });
+  return { kanban_task_id: taskId, assigned_user_id: userId, waiting_for_human: true };
+}
+
+export async function respondToHumanGoalTask({ ownerUserId, actorUserId, taskId, action, outcome }) {
+  ensureAgentGoalRunTables();
+  const task = db().prepare('SELECT * FROM kanban_tasks WHERE id = ? AND owner_user_id = ?').get(taskId, ownerUserId);
+  if (!task || !task.goal_run_id || !task.goal_step_id) {
+    const err = new Error('Linked human goal task not found'); err.status = 404; throw err;
+  }
+  if (task.assigned_user_id !== actorUserId && ownerUserId !== actorUserId) {
+    const err = new Error('Only the assigned employee or company owner may respond'); err.status = 403; throw err;
+  }
+  const normalized = String(action || '').toLowerCase();
+  const text = String(outcome || '').trim();
+  if (!['complete', 'unable', 'question'].includes(normalized)) {
+    const err = new Error('action must be complete, unable, or question'); err.status = 400; throw err;
+  }
+  if (!text) { const err = new Error('An outcome, reason, or question is required'); err.status = 400; throw err; }
+  db().prepare('INSERT INTO task_messages (task_id, role, content) VALUES (?, ?, ?)').run(task.id, actorUserId, text);
+  if (normalized === 'question') {
+    db().prepare("UPDATE kanban_tasks SET status = 'awaiting_confirmation', updated_at = datetime('now') WHERE id = ?").run(task.id);
+    sendPlatformNotifications({ userIds: [ownerUserId], title: `Question on: ${task.title}`, body: text, linkUrl: `/kanban?task=${task.id}`, createdBy: actorUserId, source: 'human_goal_question', sourceKey: String(task.id) });
+    return { ok: true, waiting_for_answer: true, task_id: task.id };
+  }
+  const failed = normalized === 'unable';
+  db().prepare("UPDATE kanban_tasks SET status = ?, updated_at = datetime('now') WHERE id = ?").run(failed ? 'failed' : 'completed', task.id);
+  clearKanbanTaskNotification(task.id, actorUserId);
+  const completion = completeGoalStep({
+    goalRunId: task.goal_run_id,
+    stepId: task.goal_step_id,
+    ownerUserId,
+    result: { ok: !failed, human_outcome: text, assigned_user_id: task.assigned_user_id, kanban_task_id: task.id },
+    failed,
+    error: failed ? text : null,
+    skipRecovery: true,
+  });
+  if (!failed && !completion.done) await startGoalRunExecution(task.goal_run_id, { ownerUserId });
+  return { ok: !failed, task_id: task.id, completion, goal: getGoalRun(task.goal_run_id, ownerUserId) };
+}
+
 export async function startGoalRunExecution(goalRunId, opts = {}) {
   ensureAgentGoalRunTables();
   const ownerUserId = opts.ownerUserId || null;
@@ -2916,6 +3013,11 @@ export async function startGoalRunExecution(goalRunId, opts = {}) {
       step_id: runningContinue.id,
       goal: getGoalRun(goal.id, goal.owner_user_id),
     };
+  }
+
+  const runningHuman = steps.find((s) => s.step_type === 'human_task' && s.status === 'running');
+  if (runningHuman) {
+    return { ok: true, async: true, waiting_for_human: true, step_id: runningHuman.id, kanban_task_id: runningHuman.human_kanban_task_id, goal: getGoalRun(goal.id, goal.owner_user_id) };
   }
 
   // Running workflow steps without a bound child run cannot advance on terminal; re-fire them.
@@ -2984,6 +3086,11 @@ export async function startGoalRunExecution(goalRunId, opts = {}) {
 
     if (step.step_type === 'specialty_task') {
       const out = await executeSpecialtyTaskStep(goal, step);
+      return { ok: true, async: true, step_id: step.id, ...out, goal: getGoalRun(goal.id, goal.owner_user_id) };
+    }
+
+    if (step.step_type === 'human_task') {
+      const out = await executeHumanTaskStep(goal, step);
       return { ok: true, async: true, step_id: step.id, ...out, goal: getGoalRun(goal.id, goal.owner_user_id) };
     }
 

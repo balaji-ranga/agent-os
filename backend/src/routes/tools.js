@@ -78,6 +78,7 @@ import { requireToolsAccess, attachToolsAuth } from '../middleware/tools-auth.js
 import { internalAuthHeaders, isInternalRequest } from '../middleware/internal-auth.js';
 import { getPublicBaseUrl } from '../config/public-url.js';
 import { createVoiceInvite } from '../services/agent-voice-sessions.js';
+import { createHumanVoiceInvite, listHumanDirectory } from '../services/human-communications.js';
 import {
   fetchValidatedHttps,
   parsePublicHttpsUrl,
@@ -1906,6 +1907,16 @@ router.post('/voice-call-invite', optionalAuth, (req, res) => {
     const caller = getCallerAgent(req);
     const ownerUserId = resolveToolOwnerUserId(req, requestPayload, resolveAuthenticatedCeoUserId);
     if (!ownerUserId) return res.status(403).json({ error: 'Could not resolve CEO user for this session' });
+    const humanRef = String(requestPayload.user_id || requestPayload.user_name || '').trim();
+    if (humanRef) {
+      if (caller && !caller.is_coo) return res.status(403).json({ error: 'Only the COO can create a human employee Voice invitation' });
+      const people = listHumanDirectory(ownerUserId, ownerUserId).filter((p) => !p.is_self);
+      const target = people.find((p) => p.id === humanRef) || people.find((p) => p.name.toLowerCase() === humanRef.toLowerCase());
+      if (!target) return res.status(404).json({ error: 'Human employee not found in this company directory' });
+      const out = createHumanVoiceInvite(ownerUserId, ownerUserId, target.id, { ttlSeconds: requestPayload.ttl_seconds });
+      logTool(req, 'voice_call_invite', { target_user_id: target.id, owner_user_id: ownerUserId }, { ok: true, expires_in_seconds: out.expires_in_seconds }, 'ok', source);
+      return res.json({ ok: true, kind: 'human_employee', ...out });
+    }
     const agentId = String(requestPayload.agent_id || caller?.id || '').trim();
     if (!agentId) return res.status(400).json({ error: 'agent_id required when the caller cannot be identified' });
     if (caller && !caller.is_coo && String(caller.id) !== agentId) return res.status(403).json({ error: 'Only the COO can create a Voice invitation for another employee' });

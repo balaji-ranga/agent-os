@@ -81,6 +81,9 @@ import aiSnipperRoutes from './routes/ai-snipper.js';
 import efficiencyRoutes from './routes/efficiency.js';
 import orgMembersRoutes from './routes/org-members.js';
 import orgPeopleRoutes from './routes/org-people.js';
+import humanCommunicationsRoutes from './routes/human-communications.js';
+import publicHumanCallRoutes from './routes/public-human-call.js';
+import { ensureHumanCommunicationsSchema } from './services/human-communications.js';
 import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
 import platformNotificationsRoutes from './routes/platform-notifications.js';
@@ -191,6 +194,7 @@ app.use(express.json({ limit: '100mb' }));
 app.use(express.text({ type: 'text/*', limit: '10mb' }));
 
 initDb();
+ensureHumanCommunicationsSchema();
 try {
   ensureExternalTokenTables();
 } catch (e) {
@@ -587,12 +591,14 @@ apiRouter.use('/admin/mcp-universe', adminMcpUniverseRoutes);
 apiRouter.use('/promotions', promotionsRoutes);
 apiRouter.use('/public/mcp-universe', mcpUniversePublicRoutes);
 apiRouter.use('/public/promotions', publicPromotionTrackingRoutes);
+apiRouter.use('/public/human-call', publicHumanCallRoutes);
 apiRouter.use('/ceo-guardrails', ceoGuardrailsRoutes);
 apiRouter.use('/onboarding/helper', onboardingHelperRoutes);
 apiRouter.use('/company-setup', companySetupRoutes);
 apiRouter.use('/company-operate', companyOperateRoutes);
 apiRouter.use('/business-core', businessCoreRoutes);
 apiRouter.use('/company-workspace', companyWorkspaceRoutes);
+apiRouter.use('/human-communications', humanCommunicationsRoutes);
 apiRouter.use('/ui-prefs', uiPrefsRoutes);
 apiRouter.use('/workspace-boards', workspaceBoardsRoutes);
 apiRouter.use('/this-week-digest', thisWeekDigestRoutes);

@@ -2922,6 +2922,8 @@ function ensureOrgPeopleSchema(_db) {
     `ALTER TABLE platform_users ADD COLUMN org_role_id TEXT`,
     `ALTER TABLE platform_users ADD COLUMN department TEXT DEFAULT ''`,
     `ALTER TABLE platform_users ADD COLUMN parent_id TEXT DEFAULT ''`,
+    `ALTER TABLE platform_users ADD COLUMN specialty TEXT DEFAULT ''`,
+    `ALTER TABLE platform_users ADD COLUMN purpose TEXT DEFAULT ''`,
     `ALTER TABLE kanban_tasks ADD COLUMN assigned_user_id TEXT`,
   ]) {
     try {
@@ -3008,6 +3010,12 @@ function migratePlatformUsersRoleCheck(_db) {
   } catch (e) {
     try {
       _db.exec('DROP TABLE IF EXISTS platform_users_org_migrated');
+    } catch (_) {}
+    try {
+      _db.exec('ALTER TABLE agent_goal_steps ADD COLUMN human_kanban_task_id INTEGER');
+    } catch (_) {}
+    try {
+      _db.exec('CREATE INDEX IF NOT EXISTS idx_agent_goal_steps_human_task ON agent_goal_steps(human_kanban_task_id)');
     } catch (_) {}
     _db.exec('PRAGMA foreign_keys=ON');
     throw e;

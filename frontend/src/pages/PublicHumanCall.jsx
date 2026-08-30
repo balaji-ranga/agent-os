@@ -1,0 +1,11 @@
+import { useEffect, useRef, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { api } from '../api';
+
+export default function PublicHumanCall() {
+  const { token } = useParams(); const pc = useRef(null); const audio = useRef(null);
+  const [invite, setInvite] = useState(null); const [status, setStatus] = useState('Ready'); const [error, setError] = useState('');
+  useEffect(() => { api.publicHumanInvite(token).then((r) => setInvite(r.invite)).catch((e) => setError(e.message)); return () => pc.current?.close(); }, [token]);
+  const start = async () => { try { setStatus('Requesting microphone…'); const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); const peer = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }); pc.current = peer; stream.getTracks().forEach((t) => peer.addTrack(t, stream)); peer.ontrack = (e) => { audio.current.srcObject = e.streams[0]; }; await peer.setLocalDescription(await peer.createOffer()); await new Promise((resolve) => { if (peer.iceGatheringState === 'complete') resolve(); else peer.onicegatheringstatechange = () => peer.iceGatheringState === 'complete' && resolve(); }); const created = await api.publicHumanCallCreate(token, { offer: peer.localDescription }); setStatus(`Calling ${invite.target_name}…`); const timer = setInterval(async () => { const r = await api.publicHumanCallGet(token, created.call_id); if (r.call.answer && !peer.currentRemoteDescription) { await peer.setRemoteDescription(r.call.answer); setStatus('Connected'); } if (['declined','ended'].includes(r.call.status)) { clearInterval(timer); setStatus(r.call.status); peer.close(); } }, 1500); } catch (e) { setError(e.message); setStatus('Call could not start'); } };
+  return <main className="public-human-call"><div className="public-human-call-card"><div className="call-avatar">{invite?.target_name?.[0] || 'F'}</div><h1>Call {invite?.target_name || 'your colleague'}</h1><p>{invite ? [invite.role_title, invite.department].filter(Boolean).join(' · ') : 'Secure Flolah voice link'}</p><strong>{status}</strong>{error && <div className="error-box">{error}</div>}<button onClick={start} disabled={!invite || status !== 'Ready'}>Start voice call</button><audio ref={audio} autoPlay /></div></main>;
+}

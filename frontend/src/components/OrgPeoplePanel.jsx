@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api';
 import { isTenantFullAccess } from '../utils/orgAccess.js';
 import { useAuth } from '../context/AuthContext';
+import { Link } from 'react-router-dom';
 
 export default function OrgPeoplePanel({ agents = [] }) {
   const { user } = useAuth();
@@ -167,6 +168,12 @@ export default function OrgPeoplePanel({ agents = [] }) {
           <>
             <h3 style={{ marginTop: 0 }}>{selected.name}</h3>
             <p style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>{selected.email}</p>
+            {!selected.is_self && selected.id !== user?.id && (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
+                <Link className="button-link" to={`/people/${encodeURIComponent(selected.id)}/chat`}>Chat with {selected.name}</Link>
+                <button type="button" onClick={async () => { try { const out = await api.humanVoiceInvite(selected.id); await navigator.clipboard.writeText(out.url); window.open(out.url, '_blank', 'noopener,noreferrer'); flash('Short-lived voice link copied'); } catch (e) { setError(e.message); } }}>Voice call link</button>
+              </div>
+            )}
             {canManage && (
               <div style={{ display: 'grid', gap: 8, marginBottom: 16 }}>
                 <label>
@@ -196,6 +203,8 @@ export default function OrgPeoplePanel({ agents = [] }) {
                     ))}
                   </select>
                 </label>
+                <label>Specialty<input value={selected.specialty || ''} onChange={(e) => setPeople((prev) => prev.map((p) => p.id === selected.id ? { ...p, specialty: e.target.value } : p))} onBlur={(e) => savePerson({ specialty: e.target.value })} placeholder="e.g. enterprise collections" /></label>
+                <label>Purpose<input value={selected.purpose || ''} onChange={(e) => setPeople((prev) => prev.map((p) => p.id === selected.id ? { ...p, purpose: e.target.value } : p))} onBlur={(e) => savePerson({ purpose: e.target.value })} placeholder="What this employee owns" /></label>
                 <label>
                   Reports to
                   <select

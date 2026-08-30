@@ -38,11 +38,29 @@ import {
   reinitiateKanbanDelegation,
 } from '../services/kanban-orphan-watcher.js';
 import { respondToGoalActionApproval } from '../services/goal-action-approval.js';
+import { respondToHumanGoalTask } from '../services/agent-goal-run.js';
 
 const router = Router();
 router.use(attachAuthUser);
 router.use(requireAuth);
 const VALID_STATUSES = ['open', 'awaiting_confirmation', 'in_progress', 'completed', 'failed'];
+
+router.post('/tasks/:id/human-response', async (req, res) => {
+  try {
+    const task = db().prepare('SELECT * FROM kanban_tasks WHERE id = ?').get(req.params.id);
+    if (!task) return res.status(404).json({ error: 'Task not found' });
+    assertKanbanTaskMutate(task, req.authUser);
+    const ownerUserId = resolveAuthenticatedCeoUserId(req);
+    const result = await respondToHumanGoalTask({
+      ownerUserId,
+      actorUserId: req.authUser.id,
+      taskId: Number(req.params.id),
+      action: req.body?.action,
+      outcome: req.body?.outcome,
+    });
+    res.json(result);
+  } catch (e) { res.status(e.status || 400).json({ error: e.message }); }
+});
 
 function db() {
   return getDb();
@@ -396,6 +414,9 @@ router.patch('/tasks/:id', (req, res) => {
     const updates = [];
     const values = [];
     if (status !== undefined && VALID_STATUSES.includes(status)) {
+      if ((status === 'completed' || status === 'failed') && task.goal_run_id && task.goal_step_id && task.assigned_user_id) {
+        return res.status(409).json({ error: 'Use Complete task or Unable to complete and provide the human outcome so the goal can continue.' });
+      }
       updates.push('status = ?');
       values.push(status);
     }

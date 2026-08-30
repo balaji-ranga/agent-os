@@ -78,7 +78,8 @@ export function buildOrgContextForCeo(ceoUserId) {
   try {
     people = getDb()
       .prepare(
-        `SELECT id, name, email, department, parent_id, org_role_id, enabled
+        `SELECT id, name, department, parent_id, org_role_id, enabled, role_title,
+                COALESCE(specialty,'') AS specialty, COALESCE(purpose,'') AS purpose
          FROM platform_users WHERE owner_user_id = ? AND role = 'org_user'
          ORDER BY name`
       )
@@ -199,15 +200,15 @@ export function formatOrgMd(ctx) {
       '',
       '## People (human employees / sub-users)',
       '',
-      'These are company employees under the CEO (root). They inherit company entitlements. Prefer **AI employees** for execution. Send **approvals** to humans (`user:{id}`). If no specialist AI employee fits, assign the Kanban card to a person in that department.',
+      'Safe company directory only; credentials and private contact details are never included. Goal planning applies the company work-assignment policy when AI and human specialties overlap. Use `voice_call_invite` with exact `user_id`/`user_name` when asked for a short-lived human voice link.',
       '',
-      '| User key | Name | Department | Reports to | Email |',
-      '|----------|------|------------|------------|-------|'
+      '| User key | Name | Department | Role / specialty | Purpose | Reports to |',
+      '|----------|------|------------|------------------|---------|------------|'
     );
     for (const p of people) {
       if (!p.enabled && p.enabled !== undefined && Number(p.enabled) === 0) continue;
       lines.push(
-        `| \`user:${p.id}\` | ${String(p.name || '').replace(/\|/g, ' ')} | ${p.department || '—'} | ${p.parent_id || ctx.coo_id} | ${String(p.email || '').replace(/\|/g, ' ')} |`
+        `| \`user:${p.id}\` | ${String(p.name || '').replace(/\|/g, ' ')} | ${p.department || '—'} | ${String([p.role_title,p.specialty].filter(Boolean).join(' / ') || '—').replace(/\|/g, ' ')} | ${String(p.purpose || '—').replace(/\|/g, ' ')} | ${p.parent_id || ctx.coo_id} |`
       );
     }
   }
