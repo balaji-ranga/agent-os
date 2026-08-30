@@ -82,7 +82,7 @@ function formatAgentsPurposeForModel(agents) {
  * @param {{ id: string, name: string, role: string }[]} agentsFromDoc
  * @returns {Record<string, string>}
  */
-function normalizeKeysToDocIds(parsed, agentsFromDoc) {
+export function normalizeKeysToDocIds(parsed, agentsFromDoc) {
   const idByKey = new Map();
   for (const a of agentsFromDoc) {
     idByKey.set(a.id.toLowerCase(), a.id);
@@ -100,7 +100,10 @@ function normalizeKeysToDocIds(parsed, agentsFromDoc) {
       .trim()
       .toLowerCase();
     const key = cleaned.replace(/\s+/g, '');
-    const canonical = idByKey.get(key) ?? idByKey.get(cleaned) ?? key;
+    const canonical = idByKey.get(key) ?? idByKey.get(cleaned);
+    // Fail closed on model-hallucinated IDs. Allocation may only target an
+    // exact roster ID or display-name alias from the owner-scoped AGENTS.md.
+    if (!canonical) continue;
     result[canonical] = v.trim();
   }
   return result;
