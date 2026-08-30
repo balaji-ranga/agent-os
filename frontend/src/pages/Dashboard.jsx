@@ -544,7 +544,7 @@ export default function Dashboard() {
           </div>
         </div>
         <p style={{ color: 'var(--muted)', marginBottom: '1rem', fontSize: '0.9rem' }}>
-          {roleTitle} (you) → reports-to chain for agents in <strong>your</strong> workspace only. Use Chart or Design to arrange departments.
+          {user?.role === 'org_user' ? 'Company owner → COO → AI and human employees.' : `${roleTitle} (you) → COO → AI and human employees.`} Use Chart or Design to arrange reporting lines.
           After structural changes, click <strong>Resync ORG.md &amp; AGENTS.md</strong> to refresh the agent roster (and leaf members).
           Manual edits in the COO&apos;s Role / Priorities / Tools / Guardrails (or other custom sections) are preserved.
         </p>
@@ -606,7 +606,7 @@ export default function Dashboard() {
             }
           />
         ) : (
-          <OrgChart agents={agents} onRemove={removeAgent} roleTitle={roleTitle} userName={user?.name || ''} />
+          <OrgChart agents={agents} onRemove={removeAgent} roleTitle={user?.role === 'org_user' ? 'Company owner' : roleTitle} userName={user?.role === 'org_user' ? '' : (user?.name || '')} />
         )}
         {agents.length === 0 && (
           <div style={{ marginTop: '0.75rem', padding: '1rem', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8 }}>

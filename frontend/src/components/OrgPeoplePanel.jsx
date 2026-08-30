@@ -245,7 +245,7 @@ export default function OrgPeoplePanel({ agents = [] }) {
           <>
             <h3>Roles & permissions</h3>
             <p style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>
-              CEO Delegate has full company access. Custom roles cannot manage people. Home, Kanban, and Profile are always on.
+              CEO Delegate has full company access. Custom roles cannot manage people. Home, Kanban, and Profile are always on. Agent chat controls access to the COO and same-department AI employees.
             </p>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
               {roles.map((r) => (

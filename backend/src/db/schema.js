@@ -2925,6 +2925,10 @@ function ensureOrgPeopleSchema(_db) {
     `ALTER TABLE platform_users ADD COLUMN specialty TEXT DEFAULT ''`,
     `ALTER TABLE platform_users ADD COLUMN purpose TEXT DEFAULT ''`,
     `ALTER TABLE kanban_tasks ADD COLUMN assigned_user_id TEXT`,
+    `ALTER TABLE kanban_tasks ADD COLUMN eta_hours INTEGER`,
+    `ALTER TABLE kanban_tasks ADD COLUMN due_at TEXT`,
+    `ALTER TABLE kanban_tasks ADD COLUMN sla_nudged_at TEXT`,
+    `ALTER TABLE kanban_tasks ADD COLUMN sla_escalated_at TEXT`,
   ]) {
     try {
       _db.exec(sql);

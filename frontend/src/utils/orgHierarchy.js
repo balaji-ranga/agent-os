@@ -48,6 +48,30 @@ export function mergeAgentsWithLeafMembers(agents = [], members = []) {
   return [...internal, ...leaves.filter((m) => !seen.has(m.id))];
 }
 
+export function mapOrgPeopleToNodes(people = []) {
+  return (Array.isArray(people) ? people : []).filter((p) => p?.id && p.enabled !== false).map((p) => ({
+    id: p.id,
+    name: p.name || p.email || p.id,
+    role: p.specialty || p.org_role_name || 'Human employee',
+    department: p.department || '',
+    parent_id: p.parent_id || null,
+    is_coo: false,
+    _human: true,
+    _leaf: false,
+  }));
+}
+
+export function mergeCompanyPeople(agents = [], people = []) {
+  const out = Array.isArray(agents) ? [...agents] : [];
+  const seen = new Set(out.map((a) => String(a.id)));
+  const cooId = out.find((a) => a?.is_coo)?.id || null;
+  for (const person of mapOrgPeopleToNodes(people)) {
+    if (!person.parent_id) person.parent_id = cooId;
+    if (!seen.has(String(person.id))) out.push(person);
+  }
+  return out;
+}
+
 /**
  * Build a recursive org tree from agents (parent_id edges).
  * Synthetic user root sits at the top; COO (and orphans) hang under it.

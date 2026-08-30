@@ -56,12 +56,15 @@ export const PLATFORM_PERMISSION_KEYS = [
   'tokens-management',
   'api-keys',
   'people.manage',
+  'agent-chat',
 ];
 
 /** Always available to every company employee (sub-user). */
 export const ALWAYS_ON_PERMISSIONS = ['home', 'kanban', 'profile'];
 
-const MEMBER_EXTRA = []; // member = always-on only
+// New company members can collaborate with the COO and same-department AI employees.
+// The CEO can remove this grant from a custom/member role in People → Roles.
+const MEMBER_EXTRA = ['agent-chat'];
 
 export function permissionCatalog({ showCrm = true, showErp = true } = {}) {
   const groups = [
@@ -288,6 +291,10 @@ export function matchApiPermission(method, path) {
     { prefix: '/org-people', permission: 'people.manage' },
     { prefix: '/org-members', methods: ['GET'], permission: 'org' },
     { prefix: '/org-members', fullAccess: true },
+    // Dynamic chat/session endpoints must precede the broad agent mutation rule.
+    // Otherwise an employee POST to /agents/:id/chat is incorrectly classified as
+    // an agent-administration write and rejected as "CEO or CEO Delegate".
+    { pattern: /^\/agents\/[^/]+\/(?:chat(?:\/|$)|sessions(?:\/|$))/, permission: 'agent-chat' },
     { prefix: '/agents', methods: ['POST', 'PATCH', 'PUT', 'DELETE'], fullAccess: true },
     { prefix: '/agents', allow: true },
     { prefix: '/master-data', permission: 'master-data' },
@@ -343,7 +350,7 @@ export function matchApiPermission(method, path) {
 
   for (const rule of rules) {
     if (rule.methods && !rule.methods.includes(m)) continue;
-    if (p === rule.prefix || p.startsWith(`${rule.prefix}/`) || p.startsWith(rule.prefix)) {
+    if ((rule.pattern && rule.pattern.test(p)) || (!rule.pattern && (p === rule.prefix || p.startsWith(`${rule.prefix}/`)))) {
       if (rule.deny) return false;
       if (rule.allow) return true;
       if (rule.fullAccess) return '__full__';

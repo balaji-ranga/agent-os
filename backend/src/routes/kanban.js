@@ -39,6 +39,7 @@ import {
 } from '../services/kanban-orphan-watcher.js';
 import { respondToGoalActionApproval } from '../services/goal-action-approval.js';
 import { respondToHumanGoalTask } from '../services/agent-goal-run.js';
+import { normalizeEtaHours, computeDueAt, withSlaState } from '../services/kanban-sla.js';
 
 const router = Router();
 router.use(attachAuthUser);
@@ -108,7 +109,7 @@ function mirrorKanbanTurnToAgentChat({ agentId, ownerUserId, role, content, task
 /** Add platform-timezone display strings so the UI never renders raw UTC. */
 function withDisplayTimes(row) {
   return {
-    ...row,
+    ...withSlaState(row),
     created_at_display: formatServerDateTime(row.created_at),
     updated_at_display: row.updated_at ? formatServerDateTime(row.updated_at) : null,
     due_date_display: row.due_date ? formatServerDate(row.due_date) : null,
@@ -123,6 +124,7 @@ const KANBAN_SELECT = `
   SELECT k.id, k.title, k.description, k.status, k.assigned_agent_id, k.assigned_member_key,
          k.assigned_user_id, k.created_by, k.standup_id,
          k.agent_delegation_task_id, k.owner_user_id, k.created_at, k.updated_at, k.due_date,
+         k.eta_hours, k.due_at, k.sla_nudged_at, k.sla_escalated_at,
          COALESCE(a.name, om.display_name, pu.name) AS assigned_agent_name,
          om.kind AS assigned_member_kind,
          pu.name AS assigned_user_name
@@ -385,17 +387,19 @@ router.post('/tasks', (req, res) => {
   try {
     const ownerUserId = resolveAuthenticatedCeoUserId(req, req.body);
     if (!ownerUserId) return res.status(403).json({ error: 'CEO session required to create Kanban tasks' });
-    const { title, description, assign_to, due_date } = req.body;
+    const { title, description, assign_to, due_date, eta_hours } = req.body;
     if (!title || typeof title !== 'string' || !title.trim()) return res.status(400).json({ error: 'title required' });
     const assigned_agent_id = assign_to && assign_to !== 'coo' ? String(assign_to).trim() || null : null;
     const desc = typeof description === 'string' ? description.trim() : '';
     const due = due_date ? new Date(due_date).toISOString().slice(0, 10) : null;
+    const eta = normalizeEtaHours(eta_hours, `${title}\n${desc}`);
+    const dueAt = computeDueAt(eta);
     db()
       .prepare(
-        `INSERT INTO kanban_tasks (title, description, status, assigned_agent_id, created_by, due_date, owner_user_id)
-         VALUES (?, ?, ?, ?, 'user', ?, ?)`
+        `INSERT INTO kanban_tasks (title, description, status, assigned_agent_id, created_by, due_date, eta_hours, due_at, owner_user_id)
+         VALUES (?, ?, ?, ?, 'user', ?, ?, ?, ?)`
       )
-      .run(title.trim(), desc, 'open', assigned_agent_id, due, ownerUserId);
+      .run(title.trim(), desc, 'open', assigned_agent_id, due, eta, dueAt, ownerUserId);
     const row = db().prepare('SELECT * FROM kanban_tasks ORDER BY id DESC LIMIT 1').get();
     notifyKanbanTaskCreated({ userId: ownerUserId, task: row });
     res.status(201).json(row);
@@ -410,7 +414,7 @@ router.patch('/tasks/:id', (req, res) => {
     const task = db().prepare('SELECT * FROM kanban_tasks WHERE id = ?').get(req.params.id);
     if (!task) return res.status(404).json({ error: 'Task not found' });
     assertKanbanTaskMutate(task, req.authUser);
-    const { status, assigned_agent_id, assigned_user_id, title, description, due_date } = req.body;
+    const { status, assigned_agent_id, assigned_user_id, title, description, due_date, eta_hours } = req.body;
     const updates = [];
     const values = [];
     if (status !== undefined && VALID_STATUSES.includes(status)) {
@@ -447,6 +451,11 @@ router.patch('/tasks/:id', (req, res) => {
     if (due_date !== undefined) {
       updates.push('due_date = ?');
       values.push(due_date ? new Date(due_date).toISOString().slice(0, 10) : null);
+    }
+    if (eta_hours !== undefined) {
+      const eta = normalizeEtaHours(eta_hours, `${title ?? task.title}\n${description ?? task.description}`);
+      updates.push('eta_hours = ?', 'due_at = ?', 'sla_nudged_at = NULL', 'sla_escalated_at = NULL');
+      values.push(eta, computeDueAt(eta));
     }
     if (updates.length === 0) return res.json(task);
     updates.push("updated_at = datetime('now')");

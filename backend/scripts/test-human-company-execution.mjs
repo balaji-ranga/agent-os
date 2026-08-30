@@ -26,6 +26,10 @@ try {
   const decision = assignment.chooseOverlappingExecutor({ policy: assignment.getWorkAssignmentPolicy(owner), risk: 'high', agentCandidate: { id: 'erp-checker', match_score: 90 }, humanCandidate: { id: employee, match_score: 75 } }); assert.equal(decision.kind, 'human');
 
   const intent = await import('../src/services/intent-classifier.js');
+  const permissions = await import('../src/services/org-permissions.js');
+  assert.equal(permissions.matchApiPermission('POST', '/agents/erp-invoice/chat'), 'agent-chat');
+  assert.equal(permissions.matchApiPermission('POST', '/agents/erp-invoice/sessions/new'), 'agent-chat');
+  assert.equal(permissions.matchApiPermission('PATCH', '/agents/erp-invoice'), '__full__');
   const roster = intent.parseAgentsFromAgentsMd(`| Agent ID | Name | Department | Purpose |\n|---|---|---|---|\n| erp-invoice | Invoice Agent | Finance | Accounts receivable |\n| test-chat-hist-1 | Test | Operations | tester |`);
   assert.deepEqual(roster.map((row) => row.id), ['erp-invoice']);
   assert.deepEqual(intent.normalizeKeysToDocIds({ 'Invoice Agent': 'Review receivable', hallucinated_agent: 'Do unrelated work' }, roster), { 'erp-invoice': 'Review receivable' });
@@ -41,6 +45,10 @@ try {
   const goal = goals.createGoalRun({ ownerUserId: owner, agentId: 'balserve', title: 'Overdue invoice collection', prompt: 'Resolve overdue invoice INV-104 and report the outcome.', steps: [{ type: 'human_task', label: 'Human: Alex Collector', user_id: employee, message: 'Contact the account owner, use judgment on the collection approach, and record the outcome.', risk: 'high', selection_rationale: 'High-risk customer/financial judgment routed to the matched human.' }, { type: 'notify_ceo', label: 'Report outcome' }] });
   const started = await goals.startGoalRunExecution(goal.id, { ownerUserId: owner }); assert.equal(started.waiting_for_human, true); assert(started.kanban_task_id);
   const task = db.prepare('SELECT * FROM kanban_tasks WHERE id=?').get(started.kanban_task_id); assert.equal(task.assigned_user_id, employee); assert.equal(task.goal_run_id, goal.id); assert.equal(task.status, 'in_progress');
+  assert([4, 8, 12, 24, 36].includes(task.eta_hours)); assert(task.due_at);
+  const sla = await import('../src/services/kanban-sla.js'); assert.equal(sla.slaState(task), 'green');
+  const rejectedOutcome = await goals.respondToHumanGoalTask({ ownerUserId: owner, actorUserId: employee, taskId: task.id, action: 'complete', outcome: 'done' });
+  assert.equal(rejectedOutcome.validation_failed, true); assert.equal(db.prepare('SELECT status FROM kanban_tasks WHERE id=?').get(task.id).status, 'in_progress');
   await goals.respondToHumanGoalTask({ ownerUserId: owner, actorUserId: employee, taskId: task.id, action: 'complete', outcome: 'Customer confirmed payment on 3 September; no fee waiver was promised.' });
   const humanStep = db.prepare("SELECT * FROM agent_goal_steps WHERE goal_run_id=? AND step_type='human_task'").get(goal.id); assert.equal(humanStep.status, 'completed'); assert.match(humanStep.result_json, /payment on 3 September/);
   await assert.rejects(() => goals.respondToHumanGoalTask({ ownerUserId: owner, actorUserId: outsider, taskId: task.id, action: 'complete', outcome: 'spoof' }), /assigned employee/);

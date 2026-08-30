@@ -50,7 +50,7 @@ export default function KanbanBoardCell({
             tabIndex={0}
             onClick={() => onSelectTask(t)}
             onKeyDown={(e) => e.key === 'Enter' && onSelectTask(t)}
-            className="kanban-card-compact"
+            className={`kanban-card-compact kanban-sla-${t.sla_state || 'none'}`}
             style={{
               background: draggingTask?.id === t.id ? 'var(--border)' : undefined,
               cursor: draggingTask?.id === t.id ? 'grabbing' : 'grab',
@@ -66,6 +66,7 @@ export default function KanbanBoardCell({
             />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div className="kanban-card-title">{t.title || '(no title)'}</div>
+              {t.sla_state && t.sla_state !== 'none' && <span className={`kanban-sla-badge is-${t.sla_state}`}>{String(t.sla_state).toUpperCase()}{t.eta_hours ? ` · ${t.eta_hours}h` : ''}</span>}
               {isWorkflowCeoApprovalTask(t) && (
                 <span style={{ fontSize: '0.6rem', color: '#ca8a04', fontWeight: 700 }}>WF CEO</span>
               )}

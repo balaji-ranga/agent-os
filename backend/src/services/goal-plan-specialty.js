@@ -369,7 +369,11 @@ export async function classifySpecialtyIntentsForPlan(ownerUserId, residualText,
   let out = [];
   for (const [agentId, message] of byAgent) {
     if (out.length >= max) break;
-    if (opts.orchestratorAgentId && !allowedAgentIds.has(String(agentId).toLowerCase())) continue;
+    // Always fail closed against the owner-scoped eligible roster. COO plans
+    // previously skipped this gate when orchestratorAgentId was omitted, so a
+    // model could reintroduce a fixture/removed agent that was absent from the
+    // planning catalog.
+    if (!allowedAgentIds.has(String(agentId).toLowerCase())) continue;
     const meta = purpose.get(agentId);
     out.push({
       agent_id: agentId,

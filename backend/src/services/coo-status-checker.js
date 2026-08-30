@@ -8,6 +8,7 @@ import { getDb } from '../db/schema.js';
 import { getUserById } from './users.js';
 import { getOrCreateDelegationHubStandup } from './standup-hub.js';
 import { executeEmailSend } from './email-send.js';
+import { withSlaState } from './kanban-sla.js';
 
 const A2A_WORKING = new Set(['working', 'submitted', 'input-required', 'input_required', 'queued']);
 const A2A_FAILED = new Set(['failed', 'rejected', 'canceled', 'cancelled', 'unknown']);
@@ -332,11 +333,15 @@ function failureReasonFromTask(task) {
  * Build structured digest for one CEO.
  */
 function mapTaskBrief(t, extra = {}) {
+  const timed = withSlaState(t);
   return {
     id: t.id,
     title: t.title || '(untitled)',
     assignee: assigneeLabel(t),
     status: t.status,
+    sla_state: timed.sla_state,
+    eta_hours: t.eta_hours || null,
+    due_at: t.due_at || null,
     updated_at: t.updated_at,
     a2a: isA2AMemberKey(t.assigned_member_key) || isExtMemberKey(t.assigned_member_key),
     ...extra,
@@ -367,6 +372,9 @@ export function buildStatusDigest(ownerUserId, { reconcile = true } = {}) {
     failed_1d: failed.map((t) => mapTaskBrief(t, { reason: failureReasonFromTask(t) })),
     completed_1d: completed.map((t) => mapTaskBrief(t)),
   };
+  sections.escalations = [...sections.awaiting_ceo, ...sections.in_progress, ...sections.open, ...sections.failed]
+    .filter((t) => t.sla_state === 'amber' || t.sla_state === 'red')
+    .sort((a, b) => (a.sla_state === b.sla_state ? String(a.due_at || '').localeCompare(String(b.due_at || '')) : a.sla_state === 'red' ? -1 : 1));
 
   return {
     owner_user_id: owner,
@@ -381,6 +389,8 @@ export function buildStatusDigest(ownerUserId, { reconcile = true } = {}) {
       failed: sections.failed.length,
       failed_1d: sections.failed.length,
       completed_1d: sections.completed_1d.length,
+      amber: sections.escalations.filter((t) => t.sla_state === 'amber').length,
+      red: sections.escalations.filter((t) => t.sla_state === 'red').length,
       needs_attention: sections.awaiting_ceo.length + sections.failed.length,
     },
     sections,
@@ -421,19 +431,13 @@ export function formatDigestMarkdown(digest) {
   else failed.forEach((t) => lines.push(formatTaskLine(t, { withReason: true })));
   lines.push('');
 
-  lines.push('### In progress');
-  if (!digest.sections.in_progress.length) lines.push('_None_');
-  else digest.sections.in_progress.forEach((t) => lines.push(formatTaskLine(t)));
+  lines.push('### SLA escalations (amber / red only)');
+  if (!digest.sections.escalations.length) lines.push('_None_');
+  else digest.sections.escalations.forEach((t) => lines.push(`${formatTaskLine(t)} — ${t.sla_state.toUpperCase()} · due ${t.due_at || 'not set'}`));
   lines.push('');
 
-  lines.push('### Open');
-  if (!digest.sections.open.length) lines.push('_None_');
-  else digest.sections.open.forEach((t) => lines.push(formatTaskLine(t)));
-  lines.push('');
-
-  lines.push('### Completed (past 7 days)');
-  if (!digest.sections.completed_1d.length) lines.push('_None_');
-  else digest.sections.completed_1d.forEach((t) => lines.push(formatTaskLine(t)));
+  lines.push(`### Completed (past 7 days): ${digest.sections.completed_1d.length}`);
+  lines.push('_Completed items are summarized as a count; open Kanban for individual history._');
   lines.push('');
 
   lines.push(
@@ -525,17 +529,12 @@ export function formatDigestHtml(digest) {
     accent: '#fecaca',
     emptyHint: 'No failed tasks',
   })}
-  ${table('In progress', digest.sections.in_progress, {
-    extraFn: (t) => (t.a2a ? 'A2A / external agent' : ''),
-    accent: '#dbeafe',
-    emptyHint: 'Nothing in progress',
+  ${table('SLA escalations — amber / red only', digest.sections.escalations || [], {
+    extraFn: (t) => `${String(t.sla_state || '').toUpperCase()} · due ${t.due_at || 'not set'}`,
+    accent: '#fef3c7',
+    emptyHint: 'No approaching or breached task ETAs',
   })}
-  ${table('Open', digest.sections.open, { emptyHint: 'No open backlog cards' })}
-  ${table('Completed (past 7 days)', digest.sections.completed_1d, {
-    extraFn: () => 'Reply in standup with #id to reopen / rework',
-    accent: '#dcfce7',
-    emptyHint: 'No completions in the last 7 days',
-  })}
+  <h3 style="margin:1.5rem 0 0.5rem;font-size:1.05rem;">Completed (past 7 days): ${digest.sections.completed_1d.length}</h3>
   <h3 style="margin:1.5rem 0 0.5rem;font-size:1.05rem;">Next steps</h3>
   <ul style="margin:0;padding-left:1.2rem;color:#334155;">
     <li>Open <strong>Kanban</strong> for cards that need approval or failed — act or reopen.</li>

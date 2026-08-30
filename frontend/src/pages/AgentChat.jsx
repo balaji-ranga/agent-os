@@ -302,12 +302,19 @@ export default function AgentChat() {
   const isNarrow = useIsNarrow(900);
 
   const pickerAgents = useMemo(() => sortAgentsForPicker(authAgents || []), [authAgents]);
+  const [pickerPeople, setPickerPeople] = useState([]);
   const defaultCooId = useMemo(() => {
     const coo = pickerAgents.find((a) => a.is_coo);
     return coo?.id || pickerAgents[0]?.id || null;
   }, [pickerAgents]);
 
   const agentId = paramAgentId || defaultCooId;
+
+  useEffect(() => {
+    let cancelled = false;
+    api.humanDirectory().then((r) => { if (!cancelled) setPickerPeople((r?.people || []).filter((p) => !p.is_self)); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   const [agent, setAgent] = useState(null);
   const [turns, setTurns] = useState([]);
@@ -443,6 +450,10 @@ export default function AgentChat() {
 
   const selectAgent = (nextId) => {
     if (!nextId || nextId === agentId) return;
+    if (String(nextId).startsWith('user:')) {
+      navigate(`/people/${encodeURIComponent(String(nextId).slice(5))}/chat`);
+      return;
+    }
     const next = pickerAgents.find((a) => a.id === nextId);
     if (next?.is_coo) {
       navigate('/');
@@ -935,6 +946,7 @@ export default function AgentChat() {
                           {a.is_coo ? ' (COO)' : ''}
                         </option>
                       ))}
+                      {pickerPeople.length > 0 && <optgroup label="Human employees">{pickerPeople.map((p) => <option key={`user:${p.id}`} value={`user:${p.id}`}>{p.name || p.email} (Human)</option>)}</optgroup>}
                     </select>
                   </label>
                   <span className="chat-online-pill">Online</span>
@@ -1147,6 +1159,7 @@ export default function AgentChat() {
                           {a.is_coo ? ' (COO)' : ''}
                         </option>
                       ))}
+                      {pickerPeople.length > 0 && <optgroup label="Human employees">{pickerPeople.map((p) => <option key={`user:${p.id}`} value={`user:${p.id}`}>{p.name || p.email} (Human)</option>)}</optgroup>}
                     </select>
                   </label>
                 </div>

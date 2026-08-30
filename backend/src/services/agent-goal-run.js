@@ -2897,11 +2897,14 @@ async function executeHumanTaskStep(goal, step) {
     '## How to continue the goal\nOpen this task and choose **Complete task**, **Unable to complete**, or **Ask a question**. A completion outcome resumes the exact goal step automatically.',
     spec.selection_rationale ? `## Why you were selected\n${spec.selection_rationale}` : '',
   ].filter(Boolean).join('\n\n');
+  const { normalizeEtaHours, computeDueAt } = await import('./kanban-sla.js');
+  const etaHours = normalizeEtaHours(spec.eta_hours, `${step.label || ''}\n${spec.message || ''}\n${spec.risk || ''}`);
+  const dueAt = computeDueAt(etaHours);
   const info = db().prepare(
     `INSERT INTO kanban_tasks
-       (title, description, status, assigned_user_id, created_by, owner_user_id, goal_run_id, goal_step_id, created_at, updated_at)
-     VALUES (?, ?, 'in_progress', ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`
-  ).run(step.label || `Human task for ${employee.name}`, description, userId, goal.agent_id || 'balserve', goal.owner_user_id, goal.id, step.id);
+       (title, description, status, assigned_user_id, created_by, owner_user_id, goal_run_id, goal_step_id, eta_hours, due_at, created_at, updated_at)
+     VALUES (?, ?, 'in_progress', ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`
+  ).run(step.label || `Human task for ${employee.name}`, description, userId, goal.agent_id || 'balserve', goal.owner_user_id, goal.id, step.id, etaHours, dueAt);
   const taskId = Number(info.lastInsertRowid);
   db().prepare('UPDATE agent_goal_steps SET human_kanban_task_id = ? WHERE id = ?').run(taskId, step.id);
   const task = db().prepare('SELECT * FROM kanban_tasks WHERE id = ?').get(taskId);
@@ -2936,7 +2939,38 @@ export async function respondToHumanGoalTask({ ownerUserId, actorUserId, taskId,
     sendPlatformNotifications({ userIds: [ownerUserId], title: `Question on: ${task.title}`, body: text, linkUrl: `/kanban?task=${task.id}`, createdBy: actorUserId, source: 'human_goal_question', sourceKey: String(task.id) });
     return { ok: true, waiting_for_answer: true, task_id: task.id };
   }
+  const goal = loadGoalRunRow(task.goal_run_id, ownerUserId);
+  const step = loadGoalSteps(task.goal_run_id).find((s) => s.id === task.goal_step_id);
+  const validation = await validateHumanOutcome({ ownerUserId, goal, step, action: normalized, outcome: text });
+  if (!validation.accepted) {
+    const note = validation.reason || 'The response does not yet demonstrate the assigned outcome or a concrete blocker.';
+    db().prepare("INSERT INTO task_messages (task_id, role, content) VALUES (?, 'system', ?)").run(task.id, `COO validation: ${note}`);
+    db().prepare("UPDATE kanban_tasks SET status = 'in_progress', updated_at = datetime('now') WHERE id = ?").run(task.id);
+    sendPlatformNotifications({ userIds: [task.assigned_user_id], title: `More evidence needed: ${task.title}`, body: note, linkUrl: `/kanban?task=${task.id}`, createdBy: goal?.agent_id || 'system', source: 'human_goal_validation', sourceKey: String(task.id) });
+    return { ok: false, validation_failed: true, reason: note, task_id: task.id };
+  }
   const failed = normalized === 'unable';
+  if (failed) {
+    const reassignment = selectHumanTaskReassignment({ ownerUserId, task, step, outcome: text });
+    if (reassignment?.kind === 'human') {
+      const spec = { ...parseJson(step.spec_json, {}), user_id: reassignment.id, reassigned_from_user_id: task.assigned_user_id, reassignment_reason: text };
+      db().prepare("UPDATE agent_goal_steps SET spec_json = ? WHERE id = ?").run(JSON.stringify(spec), step.id);
+      db().prepare("UPDATE kanban_tasks SET assigned_user_id = ?, status = 'in_progress', sla_nudged_at = NULL, sla_escalated_at = NULL, updated_at = datetime('now') WHERE id = ?").run(reassignment.id, task.id);
+      notifyKanbanTaskCreated({ userId: reassignment.id, task: { ...task, assigned_user_id: reassignment.id } });
+      return { ok: true, blocked: true, reassigned: true, reassignment, task_id: task.id, validation };
+    }
+    if (reassignment?.kind === 'agent') {
+      const spec = { agent_id: reassignment.id, message: parseJson(step.spec_json, {}).message || step.label, phase: 'reassigned_human_blocker', resolution_evidence: text, selection_rationale: reassignment.reason };
+      db().prepare("UPDATE agent_goal_steps SET step_type = 'specialty_task', spec_json = ?, status = 'pending', started_at = NULL, human_kanban_task_id = NULL WHERE id = ?").run(JSON.stringify(spec), step.id);
+      db().prepare("UPDATE kanban_tasks SET status = 'failed', updated_at = datetime('now') WHERE id = ?").run(task.id);
+      await startGoalRunExecution(task.goal_run_id, { ownerUserId });
+      return { ok: true, blocked: true, reassigned: true, reassignment, task_id: task.id, validation };
+    }
+    // No safe alternative matched: pause for CEO resolution, never silently fail.
+    db().prepare("UPDATE kanban_tasks SET status = 'awaiting_confirmation', updated_at = datetime('now') WHERE id = ?").run(task.id);
+    sendPlatformNotifications({ userIds: [ownerUserId], title: `Reassignment decision: ${task.title}`, body: `${text}\n\nCOO validation: ${validation.reason || 'valid blocker'}`, linkUrl: `/kanban?task=${task.id}`, createdBy: goal?.agent_id || 'system', source: 'human_goal_blocker', sourceKey: String(task.id) });
+    return { ok: true, blocked: true, awaiting_reassignment: true, task_id: task.id, validation };
+  }
   db().prepare("UPDATE kanban_tasks SET status = ?, updated_at = datetime('now') WHERE id = ?").run(failed ? 'failed' : 'completed', task.id);
   clearKanbanTaskNotification(task.id, actorUserId);
   const completion = completeGoalStep({
@@ -2950,6 +2984,39 @@ export async function respondToHumanGoalTask({ ownerUserId, actorUserId, taskId,
   });
   if (!failed && !completion.done) await startGoalRunExecution(task.goal_run_id, { ownerUserId });
   return { ok: !failed, task_id: task.id, completion, goal: getGoalRun(task.goal_run_id, ownerUserId) };
+}
+
+function selectHumanTaskReassignment({ ownerUserId, task, step, outcome }) {
+  const spec = parseJson(step?.spec_json, {});
+  const highRisk = String(spec.risk || '').toLowerCase() === 'high';
+  const words = new Set(`${step?.label || ''} ${spec.message || ''} ${outcome || ''}`.toLowerCase().match(/[a-z0-9]{4,}/g) || []);
+  const score = (row) => (`${row.department || ''} ${row.specialty || ''} ${row.purpose || ''} ${row.role || ''}`.toLowerCase().match(/[a-z0-9]{4,}/g) || []).reduce((n, w) => n + (words.has(w) ? 1 : 0), 0);
+  const humans = db().prepare("SELECT id,name,department,specialty,purpose FROM platform_users WHERE owner_user_id = ? AND role='org_user' AND enabled=1 AND id <> ?").all(ownerUserId, task.assigned_user_id).map((r) => ({ ...r, kind: 'human', match: score(r) })).filter((r) => r.match > 0);
+  const agents = highRisk ? [] : db().prepare("SELECT a.id,a.name,a.department,a.role FROM user_agents ua JOIN agents a ON a.id=ua.agent_id WHERE ua.user_id=? AND ua.enabled=1 AND COALESCE(a.is_coo,0)=0").all(ownerUserId).map((r) => ({ ...r, kind: 'agent', match: score(r) })).filter((r) => r.match > 0);
+  const hit = [...humans, ...agents].sort((a, b) => b.match - a.match)[0];
+  return hit ? { id: hit.id, name: hit.name, kind: hit.kind, reason: `Matched ${hit.match} goal/blocker terms; ${highRisk ? 'high-risk policy kept reassignment human-only' : 'eligible company roster'}.` } : null;
+}
+
+async function validateHumanOutcome({ ownerUserId, goal, step, action, outcome }) {
+  const spec = parseJson(step?.spec_json, {});
+  const minimum = String(outcome || '').trim();
+  if (minimum.length < 12) return { accepted: false, reason: 'Add a concrete result, evidence, or blocker (not only “done” or “unable”).' };
+  try {
+    const { content } = await platformChatCompletions({
+      ownerUserId,
+      purpose: 'human_task_outcome_validation',
+      messages: [{ role: 'system', content: 'Validate a human work response against its assigned outcome. Return strict JSON only: {"accepted":boolean,"reason":"short factual reason"}. Accept a completion only if it contains a plausible concrete result/evidence. Accept an unable response only if it states a specific blocker. Do not judge writing style and do not invent facts.' }, { role: 'user', content: `ORIGINAL GOAL:\n${goal?.prompt || ''}\n\nASSIGNED OUTCOME:\n${spec.message || step?.label || ''}\n\nACTION: ${action}\nRESPONSE:\n${minimum}` }],
+    });
+    const parsed = parseJson(content, null);
+    if (parsed && typeof parsed.accepted === 'boolean') return { accepted: parsed.accepted, reason: String(parsed.reason || '').slice(0, 500) };
+  } catch (e) { console.warn('[goal-run] human outcome validation unavailable', e?.message || e); }
+  // Deterministic fallback keeps company execution available if the utility model is
+  // down, while still rejecting acknowledgement-only responses.
+  const statusOnly = /^(done|completed|complete|finished|unable|cannot complete|not able)([.! ]*)$/i.test(minimum);
+  const concrete = minimum.length >= 30 && !statusOnly;
+  return action === 'unable'
+    ? { accepted: concrete, reason: concrete ? 'Specific blocker recorded for reassignment review.' : 'Explain the blocker and what was attempted.' }
+    : { accepted: concrete, reason: concrete ? 'Concrete outcome recorded (deterministic validation fallback).' : 'Add a concrete result, evidence, date, identifier, or decision.' };
 }
 
 export async function startGoalRunExecution(goalRunId, opts = {}) {

@@ -827,6 +827,18 @@ registerPlatformCron({
   },
 });
 
+registerPlatformCron({
+  id: 'kanban_sla_monitor',
+  name: 'Kanban SLA and ETA monitor',
+  description: 'Every 5 min: nudges task owners near ETA and escalates breached AI/human tasks to the CEO through in-app, email and the COO WhatsApp channel when configured.',
+  schedule: process.env.KANBAN_SLA_MONITOR_CRON || '*/5 * * * *',
+  envVar: 'KANBAN_SLA_MONITOR_CRON',
+  handler: async () => {
+    const { runKanbanSlaMonitor } = await import('./services/kanban-sla.js');
+    return runKanbanSlaMonitor();
+  },
+});
+
 const workflowSchedulerCron = process.env.AGENT_WORKFLOW_SCHEDULER_CRON || '* * * * *';
 registerPlatformCron({
   id: 'agent_workflow_scheduler',

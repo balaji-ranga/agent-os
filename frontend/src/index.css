@@ -3490,6 +3490,13 @@ body.wf-props-resizing .react-flow {
   flex-shrink: 0;
   transform: scale(0.85);
 }
+.kanban-card-compact.kanban-sla-green { border-left: 4px solid #22c55e; }
+.kanban-card-compact.kanban-sla-amber { border-left: 4px solid #f59e0b; background: color-mix(in srgb, var(--surface) 88%, #f59e0b); }
+.kanban-card-compact.kanban-sla-red { border-left: 4px solid #ef4444; background: color-mix(in srgb, var(--surface) 86%, #ef4444); }
+.kanban-sla-badge { display: inline-block; margin-top: 3px; padding: 1px 5px; border-radius: 999px; font-size: .56rem; font-weight: 800; }
+.kanban-sla-badge.is-green { color: #166534; background: #dcfce7; }
+.kanban-sla-badge.is-amber { color: #92400e; background: #fef3c7; }
+.kanban-sla-badge.is-red { color: #991b1b; background: #fee2e2; }
 .kanban-task-wrap {
   display: block;
 }

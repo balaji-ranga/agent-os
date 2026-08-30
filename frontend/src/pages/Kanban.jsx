@@ -52,6 +52,7 @@ export default function Kanban() {
   const [createTitle, setCreateTitle] = useState('');
   const [createDesc, setCreateDesc] = useState('');
   const [createAssignTo, setCreateAssignTo] = useState('coo');
+  const [createEtaHours, setCreateEtaHours] = useState('8');
   const [createSubmitting, setCreateSubmitting] = useState(false);
   const [createError, setCreateError] = useState(null);
   const [messageInput, setMessageInput] = useState('');
@@ -373,6 +374,7 @@ export default function Kanban() {
         title: createTitle.trim(),
         description: createDesc.trim(),
         assign_to: createAssignTo,
+        eta_hours: Number(createEtaHours),
       })
         .then(() => {
           setCreateOpen(false);
@@ -936,6 +938,12 @@ export default function Kanban() {
                 {agents.filter((a) => !a.is_coo).map((a) => (
                   <option key={a.id} value={a.id}>{a.name}</option>
                 ))}
+              </select>
+            </div>
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ display: 'block', marginBottom: 4, fontSize: '0.9rem' }}>ETA / SLA</label>
+              <select value={createEtaHours} onChange={(e) => setCreateEtaHours(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: 6, border: '1px solid var(--border)' }}>
+                {[4, 8, 12, 24, 36].map((h) => <option key={h} value={h}>{h} hours</option>)}
               </select>
             </div>
             {createError && <div style={{ color: 'var(--error)', marginBottom: '0.5rem', fontSize: '0.9rem' }}>{createError}</div>}

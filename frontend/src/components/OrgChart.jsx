@@ -6,6 +6,7 @@ import {
   flattenOrgTree,
   groupAgentsByDepartment,
   mergeAgentsWithLeafMembers,
+  mergeCompanyPeople,
   CEO_NODE_ID,
 } from '../utils/orgHierarchy.js';
 
@@ -42,6 +43,9 @@ function DeptBadge({ department }) {
 
 function AgentActions({ agent, onRemove, onRemoveLeaf, isCeo }) {
   if (isCeo) return null;
+  if (agent._human) {
+    return <span style={{ marginLeft: '0.5rem', display: 'inline-flex', gap: 6 }}><Link to={`/people/${encodeURIComponent(agent.id)}/chat`} style={{ fontSize: '0.85rem' }}>Chat</Link><span style={{ color: 'var(--muted)', fontSize: '0.75rem' }}>Human employee</span></span>;
+  }
   if (agent._leaf) {
     const manageTo = agent._kind === 'a2a_publish' ? '/agent-exchange' : '/integrations/external-agents';
     const manageLabel = agent._kind === 'a2a_publish' ? 'AgentExchange' : 'External Agents';
@@ -187,6 +191,7 @@ export default function OrgChart({ agents = [], onRemove, roleTitle = 'CEO', use
   const [groupByDept, setGroupByDept] = useState(false);
   const [leafMembers, setLeafMembers] = useState([]);
   const [leafError, setLeafError] = useState(null);
+  const [people, setPeople] = useState([]);
 
   const loadLeafMembers = () => {
     api
@@ -210,6 +215,12 @@ export default function OrgChart({ agents = [], onRemove, roleTitle = 'CEO', use
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    api.orgPeople().then((r) => { if (!cancelled) setPeople(Array.isArray(r) ? r : (r?.people || [])); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
   const removeLeaf = async (memberId) => {
     if (
       !window.confirm(
@@ -229,8 +240,8 @@ export default function OrgChart({ agents = [], onRemove, roleTitle = 'CEO', use
   };
 
   const chartAgents = useMemo(
-    () => mergeAgentsWithLeafMembers(agents, leafMembers),
-    [agents, leafMembers]
+    () => mergeCompanyPeople(mergeAgentsWithLeafMembers(agents, leafMembers), people),
+    [agents, leafMembers, people]
   );
   const tree = useMemo(
     () => buildOrgTree(chartAgents, { roleTitle, userName }),
