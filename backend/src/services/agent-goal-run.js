@@ -2927,7 +2927,7 @@ async function executeHumanTaskStep(goal, step) {
     spec.selection_rationale ? `## Why you were selected\n${spec.selection_rationale}` : '',
   ].filter(Boolean).join('\n\n');
   const { normalizeEtaHours, computeDueAt } = await import('./kanban-sla.js');
-  const etaHours = normalizeEtaHours(spec.eta_hours, `${step.label || ''}\n${spec.message || ''}\n${spec.risk || ''}`);
+  const etaHours = normalizeEtaHours(spec.eta_hours, `${step.label || ''}\n${spec.message || ''}\nrisk:${spec.risk || 'normal'}`);
   const dueAt = computeDueAt(etaHours);
   const info = db().prepare(
     `INSERT INTO kanban_tasks
@@ -2970,7 +2970,10 @@ export async function respondToHumanGoalTask({ ownerUserId, actorUserId, taskId,
   }
   const goal = loadGoalRunRow(task.goal_run_id, ownerUserId);
   const step = loadGoalSteps(task.goal_run_id).find((s) => s.id === task.goal_step_id);
-  const validation = await validateHumanOutcome({ ownerUserId, goal, step, action: normalized, outcome: text });
+  const ownerOverride = actorUserId === ownerUserId && actorUserId !== task.assigned_user_id;
+  const validation = ownerOverride
+    ? { accepted: true, reason: 'Company owner explicitly accepted this disposition.', overridden_by_owner: true }
+    : await validateHumanOutcome({ ownerUserId, goal, step, action: normalized, outcome: text });
   if (!validation.accepted) {
     const note = validation.reason || 'The response does not yet demonstrate the assigned outcome or a concrete blocker.';
     db().prepare("INSERT INTO task_messages (task_id, role, content) VALUES (?, 'system', ?)").run(task.id, `COO validation: ${note}`);
@@ -2979,6 +2982,51 @@ export async function respondToHumanGoalTask({ ownerUserId, actorUserId, taskId,
     return { ok: false, validation_failed: true, reason: note, task_id: task.id };
   }
   const failed = normalized === 'unable';
+  if (ownerOverride) {
+    const disposition = failed ? 'failed' : 'completed';
+    db().prepare("INSERT INTO task_messages (task_id, role, content) VALUES (?, 'system', ?)")
+      .run(task.id, `CEO override: task marked ${disposition}. Automated evidence validation was bypassed and this decision was audited.`);
+    db().prepare("UPDATE kanban_tasks SET status = ?, updated_at = datetime('now') WHERE id = ?").run(disposition, task.id);
+    clearKanbanTaskNotification(task.id, task.assigned_user_id);
+    clearKanbanTaskNotification(task.id, actorUserId);
+    recordMissionEvent({
+      ownerUserId,
+      goalRunId: task.goal_run_id,
+      event_type: 'human_task_owner_override',
+      payload: {
+        step_id: task.goal_step_id,
+        kanban_task_id: task.id,
+        assigned_user_id: task.assigned_user_id,
+        actor_user_id: actorUserId,
+        disposition,
+        outcome: text.slice(0, 1000),
+      },
+    });
+    const completion = completeGoalStep({
+      goalRunId: task.goal_run_id,
+      stepId: task.goal_step_id,
+      ownerUserId,
+      result: {
+        ok: !failed,
+        human_outcome: text,
+        assigned_user_id: task.assigned_user_id,
+        kanban_task_id: task.id,
+        owner_override: true,
+      },
+      failed,
+      error: failed ? text : null,
+      skipRecovery: true,
+    });
+    if (!failed && !completion.done) await startGoalRunExecution(task.goal_run_id, { ownerUserId });
+    return {
+      ok: !failed,
+      owner_override: true,
+      task_id: task.id,
+      completion,
+      validation,
+      goal: getGoalRun(task.goal_run_id, ownerUserId),
+    };
+  }
   if (failed) {
     const reassignment = selectHumanTaskReassignment({ ownerUserId, task, step, outcome: text });
     if (reassignment?.kind === 'human') {
@@ -3034,7 +3082,7 @@ async function validateHumanOutcome({ ownerUserId, goal, step, action, outcome }
     const { content } = await platformChatCompletions({
       ownerUserId,
       purpose: 'human_task_outcome_validation',
-      messages: [{ role: 'system', content: 'Validate a human work response against its assigned outcome. Return strict JSON only: {"accepted":boolean,"reason":"short factual reason"}. Accept a completion only if it contains a plausible concrete result/evidence. Accept an unable response only if it states a specific blocker. Do not judge writing style and do not invent facts.' }, { role: 'user', content: `ORIGINAL GOAL:\n${goal?.prompt || ''}\n\nASSIGNED OUTCOME:\n${spec.message || step?.label || ''}\n\nACTION: ${action}\nRESPONSE:\n${minimum}` }],
+      messages: [{ role: 'system', content: 'Validate a human work response against the actual work requested by the original goal and assigned outcome. Return strict JSON only: {"accepted":boolean,"reason":"short factual reason"}. The responder is already the assigned employee: never require evidence that the task was assigned, routed, or delegated to them. If an assigned-outcome note merely describes assigning/routing the work, assess the response against the original goal itself. Accept a completion only if it contains a plausible concrete result/evidence. Accept an unable response only if it states a specific blocker. Do not judge writing style and do not invent facts.' }, { role: 'user', content: `ORIGINAL GOAL:\n${goal?.prompt || ''}\n\nASSIGNED OUTCOME:\n${spec.message || step?.label || ''}\n\nACTION: ${action}\nRESPONSE:\n${minimum}` }],
     });
     const parsed = parseJson(content, null);
     if (parsed && typeof parsed.accepted === 'boolean') return { accepted: parsed.accepted, reason: String(parsed.reason || '').slice(0, 500) };

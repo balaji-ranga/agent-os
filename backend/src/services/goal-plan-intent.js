@@ -509,12 +509,19 @@ export async function applyHumanAssignmentPolicy(ownerUserId, prompt, steps = []
     if (decision?.kind !== 'human') return step;
     if (assignedHumans.has(human.id)) return null;
     assignedHumans.add(human.id);
+    const humanWorkOrder = direct
+      ? [
+          'Complete the work assigned to you in the original CEO request below. Do the work itself; do not merely report that it was assigned.',
+          String(prompt || '').slice(0, 6000),
+          'Record the concrete result, evidence, decision, or a specific blocker in the Kanban task.',
+        ].join('\n\n')
+      : (step.spec?.message || step.label);
     return {
       type: 'human_task',
       label: `Human: ${human.name}`,
       spec: {
         user_id: human.id,
-        message: step.spec?.message || step.label,
+        message: humanWorkOrder,
         risk: match?.risk === 'high' ? 'high' : 'normal',
         selection_rationale: direct
           ? `Assigned to the explicitly named human employee ${human.name}.`

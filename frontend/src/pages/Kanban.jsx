@@ -36,7 +36,7 @@ function isConfirmApprovalMessage(text) {
 }
 
 export default function Kanban() {
-  const { displayTimezone } = useAuth();
+  const { displayTimezone, user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [agents, setAgents] = useState([]);
   const [tasks, setTasks] = useState([]);
@@ -807,7 +807,7 @@ export default function Kanban() {
               return (
                 <div
                   key={t.id}
-                  className="kanban-mobile-card"
+                  className={`kanban-mobile-card kanban-sla-${t.sla_state || 'none'}`}
                   role="button"
                   tabIndex={0}
                   onClick={() => setSelectedTask(t)}
@@ -837,6 +837,11 @@ export default function Kanban() {
                   </div>
                   <div className="kanban-mobile-meta">
                     <span>Updated {taskUpdatedAtDisplay(t, displayTimezone || serverTimezone)}</span>
+                    {t.sla_state && t.sla_state !== 'none' && (
+                      <span className={`kanban-sla-badge is-${t.sla_state}`} aria-label={`SLA ${t.sla_state}, ${t.eta_hours || 'unknown'} hours`}>
+                        {String(t.sla_state).toUpperCase()}{t.eta_hours ? ` · ${t.eta_hours}h` : ''}
+                      </span>
+                    )}
                     {isCeoJobReviewTask(t) && <span className="kanban-mobile-tag">CEO review</span>}
                     {isWorkflowCeoApprovalTask(t) && <span className="kanban-mobile-tag">WF approval</span>}
                   </div>
@@ -992,6 +997,14 @@ export default function Kanban() {
                     <span> · Updated {taskUpdatedAtDisplay(taskDetail || selectedTask, displayTimezone || serverTimezone)}</span>
                   )}
                 </div>
+                {(taskDetail || selectedTask)?.sla_state && (taskDetail || selectedTask)?.sla_state !== 'none' && (
+                  <div style={{ marginTop: 6 }}>
+                    <span className={`kanban-sla-badge is-${(taskDetail || selectedTask).sla_state}`}>
+                      {String((taskDetail || selectedTask).sla_state).toUpperCase()}
+                      {(taskDetail || selectedTask).eta_hours ? ` · ${(taskDetail || selectedTask).eta_hours}h ETA` : ''}
+                    </span>
+                  </div>
+                )}
                 {drawerTab === 'details' && selectedIsCeoReview && (
                   <div style={{ marginTop: 6, fontSize: '0.8rem', color: 'var(--accent)' }}>
                     Review job links & resumes below, then confirm to proceed with applications.
@@ -1044,9 +1057,9 @@ export default function Kanban() {
             >
             {(taskDetail || selectedTask)?.assigned_user_id && (taskDetail || selectedTask)?.goal_run_id && ['in_progress','awaiting_confirmation'].includes((taskDetail || selectedTask)?.status) && (
               <section style={{ margin: '1rem 1rem 0', padding: '1rem', border: '1px solid color-mix(in srgb,var(--accent) 45%,var(--border))', borderRadius: 12, background: 'color-mix(in srgb,var(--accent) 7%,var(--surface))' }}>
-                <strong>Human outcome required</strong><p style={{ color: 'var(--muted)', margin: '.35rem 0 .65rem', fontSize: '.84rem' }}>Your response is bound to this exact goal step. Completing it automatically continues the orchestrator’s plan.</p>
+                <strong>{user?.role === 'ceo' ? 'CEO task disposition' : 'Human outcome required'}</strong><p style={{ color: 'var(--muted)', margin: '.35rem 0 .65rem', fontSize: '.84rem' }}>{user?.role === 'ceo' ? 'Your explicit decision is authoritative, audited, and will complete or fail the linked goal step.' : 'Your response is bound to this exact goal step. Completing it automatically continues the orchestrator’s plan.'}</p>
                 <textarea value={humanOutcome} onChange={(e) => setHumanOutcome(e.target.value)} placeholder="Outcome delivered, blocker, or question…" style={{ width: '100%', minHeight: 82, boxSizing: 'border-box' }} />
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}><button className="btn-primary" disabled={!humanOutcome.trim() || !!humanResponding} onClick={() => respondHumanTask('complete')}>{humanResponding === 'complete' ? 'Completing…' : 'Complete task'}</button><button disabled={!humanOutcome.trim() || !!humanResponding} onClick={() => respondHumanTask('question')}>Ask a question</button><button disabled={!humanOutcome.trim() || !!humanResponding} onClick={() => respondHumanTask('unable')} style={{ color: 'var(--danger,#c44)' }}>Unable to complete</button></div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}><button className="btn-primary" disabled={!humanOutcome.trim() || !!humanResponding} onClick={() => respondHumanTask('complete')}>{humanResponding === 'complete' ? 'Completing…' : user?.role === 'ceo' ? 'Complete as CEO' : 'Complete task'}</button><button disabled={!humanOutcome.trim() || !!humanResponding} onClick={() => respondHumanTask('question')}>Ask a question</button><button disabled={!humanOutcome.trim() || !!humanResponding} onClick={() => respondHumanTask('unable')} style={{ color: 'var(--danger,#c44)' }}>{user?.role === 'ceo' ? 'Mark failed as CEO' : 'Unable to complete'}</button></div>
               </section>
             )}
             <div

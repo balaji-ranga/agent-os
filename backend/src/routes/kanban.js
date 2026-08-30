@@ -319,7 +319,7 @@ router.get('/tasks/:id', (req, res) => {
   try {
     const task = db()
       .prepare(
-        `SELECT k.*, COALESCE(a.name, om.display_name) AS assigned_agent_name,
+        `SELECT k.*, COALESCE(a.name, om.display_name, pu.name) AS assigned_agent_name,
                 om.kind AS assigned_member_kind,
                 d.prompt AS delegation_prompt_preview,
                 d.owner_user_id AS delegation_owner_user_id
@@ -327,6 +327,7 @@ router.get('/tasks/:id', (req, res) => {
          LEFT JOIN agents a ON a.id = k.assigned_agent_id
          LEFT JOIN org_agent_members om
            ON om.id = k.assigned_member_key AND om.owner_user_id = k.owner_user_id
+         LEFT JOIN platform_users pu ON pu.id = k.assigned_user_id
          LEFT JOIN agent_delegation_tasks d ON d.id = k.agent_delegation_task_id
          WHERE k.id = ?`
       )

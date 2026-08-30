@@ -6037,6 +6037,10 @@ button.ai-snip-info-btn:hover {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   cursor: pointer;
 }
+.kanban-mobile-card.kanban-sla-green { border-left: 5px solid #22c55e; }
+.kanban-mobile-card.kanban-sla-amber { border-left: 5px solid #f59e0b; }
+.kanban-mobile-card.kanban-sla-red { border-left: 5px solid #ef4444; }
+.kanban-mobile-meta .kanban-sla-badge { margin-top: 0; font-size: 0.68rem; }
 .kanban-mobile-card-top {
   display: grid;
   grid-template-columns: auto 1fr auto auto;

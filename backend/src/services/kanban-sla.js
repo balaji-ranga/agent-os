@@ -10,7 +10,7 @@ export function normalizeEtaHours(value, context = '') {
   const explicit = Number(value);
   if (ALLOWED.includes(explicit)) return explicit;
   const text = String(context || '').toLowerCase();
-  if (/critical|urgent|immediate|regulatory|legal|payment|finance/.test(text)) return 4;
+  if (/critical|urgent|immediate|high[- ]risk|risk\s*[:=]\s*high|regulatory|legal|overdue|payment|finance/.test(text)) return 4;
   if (/complex|research|investigat|multi[- ]step|customer/.test(text)) return 12;
   return 8;
 }
