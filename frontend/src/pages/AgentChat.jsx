@@ -488,13 +488,9 @@ export default function AgentChat() {
     }
   }, [agentId, refreshHistory]);
 
-  /** Soft-poll chat so COO goal-plan completion nudge appears without CEO re-enquire. */
-  const hasGoalPlanInChat = useMemo(() => {
-    return turns.some((t) => /\bagr-[a-f0-9]{8,}\b/i.test(String(t?.content || '')));
-  }, [turns]);
-
+  /** Soft-poll chat so background goal/delegation outcomes appear without CEO re-enquiry. */
   useEffect(() => {
-    if (!agentId || sending || !hasGoalPlanInChat) return undefined;
+    if (!agentId || sending) return undefined;
     let cancelled = false;
     const tick = async () => {
       if (cancelled || (typeof document !== 'undefined' && document.hidden)) return;
@@ -520,7 +516,7 @@ export default function AgentChat() {
       cancelled = true;
       clearInterval(id);
     };
-  }, [agentId, sending, hasGoalPlanInChat]);
+  }, [agentId, sending]);
 
   useEffect(() => {
     if (!agentId) return;

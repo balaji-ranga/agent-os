@@ -61,6 +61,17 @@ const report = buildOutcomeRichTerminalReport({
       }),
     },
     {
+      step_type: 'human_task',
+      label: 'Human: Raji',
+      status: 'completed',
+      result_json: JSON.stringify({
+        ok: true,
+        human_outcome: 'Customer confirmed payment on 3 September; no fee waiver was promised.',
+        assigned_user_id: 'user-raji',
+        kanban_task_id: 14132,
+      }),
+    },
+    {
       label: 'Synthesize',
       status: 'completed',
       result_json: JSON.stringify({
@@ -75,4 +86,5 @@ assert.match(report, /AAPL closed at 232\.10/);
 assert.match(report, /VOOG closed at 405\.21/);
 assert.match(report, /browser fallback completed/);
 assert.match(report, /provider HTTP 402/);
+assert.match(report, /Human: Raji: Customer confirmed payment on 3 September/);
 console.log('goal browser fallback + terminal report tests passed');

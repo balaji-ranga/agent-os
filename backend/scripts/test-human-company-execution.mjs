@@ -104,6 +104,9 @@ try {
   assert.equal(rejectedOutcome.validation_failed, true); assert.equal(db.prepare('SELECT status FROM kanban_tasks WHERE id=?').get(task.id).status, 'in_progress');
   await goals.respondToHumanGoalTask({ ownerUserId: owner, actorUserId: employee, taskId: task.id, action: 'complete', outcome: 'Customer confirmed payment on 3 September; no fee waiver was promised.' });
   const humanStep = db.prepare("SELECT * FROM agent_goal_steps WHERE goal_run_id=? AND step_type='human_task'").get(goal.id); assert.equal(humanStep.status, 'completed'); assert.match(humanStep.result_json, /payment on 3 September/);
+  const terminalContext = goals.priorStepContextForAgent(goal.id, 1);
+  assert.match(terminalContext, /Customer confirmed payment on 3 September/, 'orchestrator synthesis receives the concrete human outcome');
+  assert.match(terminalContext, /Kanban task: #/, 'orchestrator synthesis retains human-task evidence correlation');
   await assert.rejects(() => goals.respondToHumanGoalTask({ ownerUserId: owner, actorUserId: outsider, taskId: task.id, action: 'complete', outcome: 'spoof' }), /assigned employee/);
   const ownerGoal = goals.createGoalRun({ ownerUserId: owner, agentId: 'balserve', title: 'CEO disposition', prompt: 'Obtain invoice evidence from Alex.', steps: [{ type: 'human_task', label: 'Human: Alex Collector', user_id: employee, message: 'Obtain the invoice evidence.', risk: 'normal' }, { type: 'notify_ceo', label: 'Report outcome' }] });
   const ownerStarted = await goals.startGoalRunExecution(ownerGoal.id, { ownerUserId: owner });

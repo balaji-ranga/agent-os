@@ -123,7 +123,13 @@ function resultPayload(step) {
 }
 
 function usefulReply(result) {
-  return String(result?.reply_preview || result?.deliverable || result?.summary || '').trim();
+  return String(
+    result?.reply_preview ||
+    result?.human_outcome ||
+    result?.deliverable ||
+    result?.summary ||
+    ''
+  ).trim();
 }
 
 export function sanitizeUnsupportedItemClaims(text, unsupportedItems = []) {
@@ -222,7 +228,9 @@ export function buildOutcomeRichTerminalReport({ goal, steps, terminal = 'comple
     const result = resultPayload(step);
     if (!result) continue;
     const label = step.label || step.step_type || 'Step';
-    if (result.multi_symbol) {
+    if (step.step_type === 'human_task' && result.human_outcome) {
+      toolEvidence.push(`${label}: ${clip(result.human_outcome, 700)}`);
+    } else if (result.multi_symbol) {
       const ok = (result.results || []).map((r) => r.symbol).filter(Boolean);
       if (ok.length) toolEvidence.push(`${label}: ${ok.join(', ')} returned data`);
       for (const err of result.errors || []) gaps.push(`${err.symbol || label}: ${clip(err.error, 180)}`);
@@ -1345,6 +1353,17 @@ export function priorStepContextForAgent(goalRunId, beforeIndex = Infinity) {
       );
       continue;
     }
+    if (s.step_type === 'human_task' && result?.human_outcome) {
+      const details = [
+        `### ${label} (human result)`,
+        clip(result.human_outcome, 4000),
+        result.owner_override ? 'Disposition: accepted directly by the CEO/owner.' : null,
+        result.assigned_user_id ? `Assigned user: ${result.assigned_user_id}` : null,
+        result.kanban_task_id ? `Kanban task: #${result.kanban_task_id}` : null,
+      ].filter(Boolean);
+      parts.push(details.join('\n'));
+      continue;
+    }
     if (result?.reply_preview) {
       parts.push(`### ${label}\n${clip(result.reply_preview, 4000)}`);
       continue;
@@ -1865,17 +1884,37 @@ async function executeAgentContinueStep(goal, step) {
   // Numeric market reporting must be rendered from structured evidence. Models may
   // turn 0.026% into 2.60% or prefer stale browser text over a successful API value.
   const reply = verifiedMarketOutcome || modelReply;
-  try {
-    insertChatTurn({
-      agentId: agent.id,
-      ownerUserId: goal.owner_user_id,
-      role: 'assistant',
-      content: reply,
-    });
-  } catch (_) {
-    /* ignore */
+  // When a terminal notify step follows, completeGoalRun() owns the single final
+  // orchestrator chat post. Posting here as well produced two near-identical COO
+  // messages and could expose a synthesis before the goal was actually terminal.
+  const terminalNotifyFollows = loadGoalSteps(goal.id).some(
+    (row) => Number(row.step_index) > Number(step.step_index) && row.step_type === 'notify_ceo'
+  );
+  let orchestratorChatPosted = false;
+  if (!terminalNotifyFollows) {
+    try {
+      const ctx = goalContextObject(goal);
+      insertChatTurn({
+        agentId: agent.id,
+        ownerUserId: goal.owner_user_id,
+        role: 'assistant',
+        content: reply,
+        sessionId: ctx.chat_session_id || null,
+      });
+      orchestratorChatPosted = true;
+    } catch (_) {
+      /* terminal nudge remains the durable fallback */
+    }
   }
-  return { ok: true, via: 'platform_synthesis', model_used: modelUsed, usage, reply_preview: reply.slice(0, 2000) };
+  return {
+    ok: true,
+    via: 'platform_synthesis',
+    model_used: modelUsed,
+    usage,
+    reply_preview: reply.slice(0, 5000),
+    orchestrator_chat_posted: orchestratorChatPosted,
+    terminal_delivery_pending: terminalNotifyFollows,
+  };
 }
 
 async function executeAgentToolStep(goal, step) {
@@ -2417,11 +2456,18 @@ export async function nudgeCooOnGoalPlanTerminal(goalRunId, opts = {}) {
 
   const title = goal.title || clip(goal.prompt, 72) || id;
   const fallback = buildOutcomeRichTerminalReport({ goal, steps, terminal });
+  const hasPlatformSynthesis = steps.some((s) => {
+    const result = resultPayload(s);
+    return s.step_type === 'agent_continue' && result?.via === 'platform_synthesis' && usefulReply(result);
+  });
 
   let reply = fallback;
-  let via = 'fallback';
+  let via = hasPlatformSynthesis ? 'platform_terminal_report' : 'fallback';
 
-  try {
+  // A completed agent_continue step already used the originating orchestrator's
+  // model with the isolated goal evidence. Rewriting it through OpenClaw a second
+  // time can drop facts or turn completed human work back into future work.
+  if (!hasPlatformSynthesis) try {
     let openclawId = agent.openclaw_agent_id || agent.id;
     try {
       openclawId = ensureTenantOpenClawAgent(agent, owner).openclawAgentId;
@@ -2483,6 +2529,7 @@ export async function nudgeCooOnGoalPlanTerminal(goalRunId, opts = {}) {
       ownerUserId: owner,
       role: 'assistant',
       content: reply,
+      sessionId: ctx.chat_session_id || null,
     });
   } catch (e) {
     console.warn('[goal-run] completion nudge chat insert failed', e?.message || e);
