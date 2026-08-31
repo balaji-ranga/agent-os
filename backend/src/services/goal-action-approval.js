@@ -81,7 +81,7 @@ export function getGoalActionApprovalByKanban(ownerUserId, kanbanTaskId) {
     .get(ownerUserId, Number(kanbanTaskId));
 }
 
-export async function respondToGoalActionApproval({ ownerUserId, kanbanTaskId, decision, comment = '', execute = true }) {
+export async function respondToGoalActionApproval({ ownerUserId, kanbanTaskId, decision, comment = '', execute = true, actor = null }) {
   const row = getGoalActionApprovalByKanban(ownerUserId, kanbanTaskId);
   if (!row) throw Object.assign(new Error('Goal action approval not found'), { status: 404 });
   if (row.status !== 'pending') throw Object.assign(new Error(`Approval already ${row.status}`), { status: 409 });
@@ -94,9 +94,9 @@ export async function respondToGoalActionApproval({ ownerUserId, kanbanTaskId, d
     db().transaction(() => {
       db().prepare("UPDATE goal_action_approvals SET status='rejected',decided_at=datetime('now') WHERE id=?").run(row.id);
       db().prepare("UPDATE kanban_tasks SET status='failed',updated_at=datetime('now') WHERE id=?").run(row.kanban_task_id);
-      db().prepare("UPDATE agent_goal_steps SET status='failed',error_message='Rejected by CEO',completed_at=datetime('now') WHERE id=?").run(step.id);
-      db().prepare("UPDATE agent_goal_runs SET status='failed',error_message='Action rejected by CEO',completed_at=datetime('now'),updated_at=datetime('now') WHERE id=?").run(goal.id);
-      db().prepare("INSERT INTO task_messages(task_id,role,content) VALUES (?,'user',?)").run(row.kanban_task_id, `[CEO rejected] ${comment}`.trim());
+      db().prepare("UPDATE agent_goal_steps SET status='failed',error_message='Rejected by authorized user',completed_at=datetime('now') WHERE id=?").run(step.id);
+      db().prepare("UPDATE agent_goal_runs SET status='failed',error_message='Action rejected by authorized user',completed_at=datetime('now'),updated_at=datetime('now') WHERE id=?").run(goal.id);
+      db().prepare("INSERT INTO task_messages(task_id,role,content) VALUES (?,'user',?)").run(row.kanban_task_id, `[${actor?.name || actor?.id || 'CEO'} rejected] ${comment}`.trim());
     })();
     clearKanbanTaskNotification(row.kanban_task_id, ownerUserId);
     return { ok: true, decision: 'rejected', goal_run_id: goal.id, goal_step_id: step.id };
@@ -115,7 +115,7 @@ export async function respondToGoalActionApproval({ ownerUserId, kanbanTaskId, d
   db().transaction(() => {
     db().prepare("UPDATE goal_action_approvals SET status='approved',decided_at=datetime('now') WHERE id=?").run(row.id);
     db().prepare("UPDATE kanban_tasks SET status='completed',updated_at=datetime('now') WHERE id=?").run(row.kanban_task_id);
-    db().prepare("INSERT INTO task_messages(task_id,role,content) VALUES (?,'user',?)").run(row.kanban_task_id, `[CEO approved] ${comment}`.trim());
+    db().prepare("INSERT INTO task_messages(task_id,role,content) VALUES (?,'user',?)").run(row.kanban_task_id, `[${actor?.name || actor?.id || 'CEO'} approved] ${comment}`.trim());
     db().prepare("UPDATE agent_goal_steps SET status='pending',spec_json=?,error_message=NULL,started_at=NULL,completed_at=NULL WHERE id=?")
       .run(JSON.stringify(spec), step.id);
     db().prepare("UPDATE agent_goal_runs SET status='running',error_message=NULL,current_step_index=?,updated_at=datetime('now') WHERE id=?")

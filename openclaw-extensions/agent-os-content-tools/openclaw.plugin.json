@@ -2,7 +2,7 @@
   "id": "agent-os-content-tools",
   "name": "Agent OS Content Tools",
   "description": "Register Agent OS content/workflow/kanban tools that call the backend with owner/agent-scoped credentials.",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "activation": {
     "onStartup": true
   },
@@ -11,6 +11,7 @@
       "summarize_url",
       "generate_image",
       "generate_video",
+      "kanban_user_action",
       "kanban_move_status",
       "kanban_reassign_to_coo",
       "kanban_assign_task",
@@ -60,6 +61,9 @@
       "optional": true
     },
     "generate_video": {
+      "optional": true
+    },
+    "kanban_user_action": {
       "optional": true
     },
     "kanban_move_status": {

@@ -37,8 +37,7 @@ import {
   cancelDelegationsForDeletedKanban,
   reinitiateKanbanDelegation,
 } from '../services/kanban-orphan-watcher.js';
-import { respondToGoalActionApproval } from '../services/goal-action-approval.js';
-import { respondToHumanGoalTask } from '../services/agent-goal-run.js';
+import { executeKanbanUserAction } from '../services/kanban-user-actions.js';
 import {
   resolveKanbanEtaHours,
   computeDueAt,
@@ -58,12 +57,13 @@ router.post('/tasks/:id/human-response', async (req, res) => {
     if (!task) return res.status(404).json({ error: 'Task not found' });
     assertKanbanTaskMutate(task, req.authUser);
     const ownerUserId = resolveAuthenticatedCeoUserId(req);
-    const result = await respondToHumanGoalTask({
+    const result = await executeKanbanUserAction({
       ownerUserId,
-      actorUserId: req.authUser.id,
+      actor: req.authUser,
       taskId: Number(req.params.id),
       action: req.body?.action,
-      outcome: req.body?.outcome,
+      evidence: req.body?.outcome,
+      channel: 'web',
     });
     res.json(result);
   } catch (e) { res.status(e.status || 400).json({ error: e.message }); }
@@ -81,11 +81,13 @@ router.post('/tasks/:id/action-approval', async (req, res) => {
     const ownerUserId = resolveAuthenticatedCeoUserId(req);
     const decision = String(req.body?.decision || '').toLowerCase();
     if (!['approve', 'reject'].includes(decision)) return res.status(400).json({ error: 'decision must be approve or reject' });
-    const out = await respondToGoalActionApproval({
+    const out = await executeKanbanUserAction({
       ownerUserId,
-      kanbanTaskId: Number(req.params.id),
-      decision,
-      comment: String(req.body?.comment || '').slice(0, 1000),
+      actor: req.authUser,
+      taskId: Number(req.params.id),
+      action: decision,
+      evidence: String(req.body?.comment || `User selected ${decision}`).slice(0, 1000),
+      channel: 'web',
     });
     res.json(out);
   } catch (e) {

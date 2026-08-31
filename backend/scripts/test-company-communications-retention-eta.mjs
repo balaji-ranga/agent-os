@@ -44,6 +44,11 @@ try {
   database.prepare(`INSERT INTO kanban_sla_events
     (owner_user_id,task_id,event_type,task_title,task_status,occurred_at)
     VALUES(?,999,'breach','Old SLA breach','deleted',datetime('now','-45 days'))`).run(owner);
+  const taskActions = await import('../src/services/kanban-user-actions.js');
+  taskActions.ensureKanbanUserActionAudit();
+  database.prepare(`INSERT INTO kanban_user_action_audit
+    (owner_user_id,task_id,actor_user_id,proxy_agent_id,channel,action,evidence,result_json,status,created_at)
+    VALUES(?,999,?,'coo-retention','whatsapp','complete','old evidence','{}','ok',datetime('now','-45 days'))`).run(owner, employee);
 
   const users = await import('../src/services/users.js');
   assert.equal(users.getUserById(employee).data_retention_days, undefined, 'employee profile must not expose retention');
@@ -86,6 +91,7 @@ try {
   assert.equal(purged.deleted.human_messages, 1);
   assert.equal(purged.deleted.agent_voice_sessions, 1);
   assert.equal(purged.deleted.kanban_sla_events, 1);
+  assert.equal(purged.deleted.kanban_user_action_audit, 1);
   assert.equal(database.prepare("SELECT COUNT(*) AS n FROM ceo_voice_sessions WHERE id='voice-current'").get().n, 1);
   assert.equal(database.prepare('SELECT COUNT(*) AS n FROM human_messages WHERE conversation_id=?').get(conversation.id).n >= 1, true);
   await assert.rejects(() => retention.purgeOwnerRetention(employee), /CEO owner profile required/);

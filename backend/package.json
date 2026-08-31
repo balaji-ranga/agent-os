@@ -45,6 +45,7 @@
     ,"test:workflow-contract-validation": "node scripts/test-workflow-contract-validation.mjs"
     ,"test:human-company-execution": "node scripts/test-human-company-execution.mjs"
     ,"test:company-communications-retention-eta": "node scripts/test-company-communications-retention-eta.mjs"
+    ,"test:channel-user-kanban-actions": "node scripts/test-channel-user-kanban-actions.mjs"
   },
   "dependencies": {
     "@stoqey/ib": "^1.6.3",

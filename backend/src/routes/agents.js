@@ -1032,7 +1032,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     // history repeatedly or resuming stale tool state from an earlier request.
     const sessionUser = dashboardGatewaySessionUser(agentId, ownerUserId, threadId);
     const sessionKey = openclaw.sessionKeyFor(openclawAgentId, sessionUser);
-    registerOpenClawSessionOwner(sessionKey, ownerUserId);
+    registerOpenClawSessionOwner(sessionKey, ownerUserId, req.authUser.id, 'web');
     registerActiveDashboardChat(agentId, ownerUserId, routedMessage);
     const isDiscovery = String(agentId).toLowerCase() === 'jobdiscovery';
     const discoveryTimeout = Number(process.env.OPENCLAW_DISCOVERY_TIMEOUT_MS || 900000);
@@ -1113,7 +1113,9 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
         );
         registerOpenClawSessionOwner(
           openclaw.sessionKeyFor(openclawAgentId, retrySessionUser),
-          ownerUserId
+          ownerUserId,
+          req.authUser.id,
+          'web'
         );
         ({ content: reply, usage } = await withLlmopsContext(
           {

@@ -38,6 +38,14 @@ const BUILTIN_TOOLS = [
     is_builtin: 1,
   },
   {
+    name: 'kanban_user_action',
+    display_name: 'Kanban User Action',
+    endpoint: '/api/tools/kanban-user-action',
+    method: 'POST',
+    purpose: 'COO-only API tool: list or act on Kanban tasks for the verified current web/WhatsApp user. Supports update, complete, unable, question, approve, reject, and reopen. Mutations require the exact user request or confirmation in evidence; identity is platform-derived and cannot be supplied as an argument.',
+    model_used: '', enabled: 1, is_builtin: 1,
+  },
+  {
     name: 'kanban_move_status',
     display_name: 'Kanban Move Status',
     endpoint: '/api/tools/kanban-move-status',
@@ -890,6 +898,7 @@ const BUILTIN_TOOLS = [
 
 const KANBAN_TOOLS = BUILTIN_TOOLS.filter((t) =>
   [
+    'kanban_user_action',
     'kanban_move_status',
     'kanban_reassign_to_coo',
     'kanban_assign_task',

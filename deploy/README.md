@@ -685,6 +685,12 @@ Full platform verify (Master Data, delegation, notifications, allowlists):
 bash /opt/agent-os/deploy/scripts/vps-verify-platform.sh
 ```
 
+Channel user task actions are delivered by the source-controlled `agent-os-content-tools`
+extension (`kanban_user_action`). The authenticated Dashboard session or OpenClaw's trusted
+WhatsApp sender is mapped to an active company user; only the CEO, a CEO delegate, or the
+assigned human may act, and only the COO may proxy the action. Verify after a backend/OpenClaw
+deploy with `docker compose exec -T -w /opt/agent-os/backend backend npm run test:channel-user-kanban-actions`.
+
 Frontend-only rebuild + bundle markers:
 
 ```bash

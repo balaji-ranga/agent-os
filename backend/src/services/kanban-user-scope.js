@@ -92,23 +92,20 @@ export function kanbanTaskAssigneeDepartment(task) {
 
 /**
  * CEO / CEO Delegate can mutate any company card.
- * Department employees may mutate only when the assignee is in their department.
+ * Employees may mutate only cards assigned to their own user id. Department membership
+ * is discovery scope, not authority to act for a colleague.
  */
 export function canMutateKanbanTask(task, authUser) {
   if (!kanbanTaskBelongsToUser(task, authUser)) return false;
   if (isTenantFullAccess(authUser) || authUser?.role === 'ceo') return true;
   if (!isOrgUser(authUser)) return false;
-  const actorDept = normalizeDept(authUser.department);
-  if (!actorDept) return false;
-  const taskDept = kanbanTaskAssigneeDepartment(task);
-  if (!taskDept || taskDept === '*') return false;
-  return taskDept === actorDept;
+  return String(task.assigned_user_id || '') === String(authUser.id || '');
 }
 
 export function assertKanbanTaskMutate(task, authUser) {
   assertKanbanTaskAccess(task, authUser);
   if (!canMutateKanbanTask(task, authUser)) {
-    const err = new Error('You can only act on tasks for your department');
+    const err = new Error('Only the company CEO, a CEO delegate, or the assigned task owner may act on this task');
     err.status = 403;
     throw err;
   }

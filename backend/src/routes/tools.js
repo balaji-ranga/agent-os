@@ -13,7 +13,9 @@ import { getDb } from '../db/schema.js';
 import * as meta from '../services/content-tools-meta.js';
 import { assertCallerMayUseTool, getAgentToolGrants } from '../services/openclaw-agent-tools.js';
 import { parseTenantOpenClawAgentId, resolveAgentFromOpenClawCallerId } from '../services/openclaw-tenant.js';
-import { resolveOwnerFromOpenClawSession } from '../services/tool-owner-scope.js';
+import { resolveOwnerFromOpenClawSession, lookupOpenClawSessionActor } from '../services/tool-owner-scope.js';
+import { resolveChannelActor, loadCompanyActor } from '../services/channel-user-identity.js';
+import { executeKanbanUserAction } from '../services/kanban-user-actions.js';
 import { withLlmopsContext, getLlmopsContext, inferTraceId } from '../services/llmops-context.js';
 import {
   startBrowserTask,
@@ -1379,6 +1381,11 @@ router.post('/kanban-move-status', optionalAuth, (req, res) => {
       logTool(req, 'kanban_move_status', requestPayload, err, 'error', source);
       return res.status(e.status || 403).json(err);
     }
+    if (task.assigned_user_id) {
+      const err = { error: 'Human-owned task actions require kanban_user_action with verified user evidence' };
+      logTool(req, 'kanban_move_status', requestPayload, err, 'error', source);
+      return res.status(409).json(err);
+    }
     let caller = getCallerAgent(req);
     // When invoked from gateway plugin without agent id: allow move if request is internal (from our /invoke) and task has assigned agent
     if (!caller && task.assigned_agent_id && isInternalRequest(req)) {
@@ -1929,6 +1936,38 @@ router.post('/voice-call-invite', optionalAuth, (req, res) => {
   } catch (e) {
     logTool(req, 'voice_call_invite', requestPayload, { error: e.message }, 'error', source);
     res.status(e.status || 500).json({ error: e.message || 'Voice invitation failed' });
+  }
+});
+
+/** COO-only proxy for actions explicitly requested by a verified company user. */
+router.post('/kanban-user-action', optionalAuth, async (req, res) => {
+  const source = String(req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || '').trim();
+  try {
+    // Human identity headers exist only after /invoke validates the owner+agent token
+    // and forwards them over the internal service hop.
+    if (!req.isInternalService) return res.status(403).json({ error: 'Internal verified tool hop required' });
+    const caller = getCallerAgent(req);
+    if (!caller?.is_coo) return res.status(403).json({ error: 'Only the COO may act on behalf of users' });
+    const ownerUserId = resolveToolOwnerUserIdOrNull(req, req.body || {}, resolveAuthenticatedCeoUserId);
+    const actorUserId = String(req.headers['x-flolah-actor-user-id'] || '').trim();
+    const channel = String(req.headers['x-openclaw-message-channel'] || req.headers['x-flolah-actor-channel'] || 'web').toLowerCase();
+    const actor = actorUserId
+      ? loadCompanyActor(ownerUserId, actorUserId)
+      : resolveChannelActor({ ownerUserId, senderId: req.headers['x-openclaw-requester-sender-id'], channel });
+    if (!actor) return res.status(403).json({ error: 'Verified user is not an active member of this company' });
+    const out = await executeKanbanUserAction({
+      ownerUserId, actor, proxyAgentId: caller.id, channel,
+      senderFingerprint: actor.sender_fingerprint || req.headers['x-openclaw-sender-fingerprint'] || null,
+      sessionKey: req.headers['x-openclaw-session-key'] || null,
+      taskId: Number(req.body?.task_id) || null, action: req.body?.action,
+      evidence: req.body?.evidence, newStatus: req.body?.new_status,
+    });
+    logTool(req, 'kanban_user_action', req.body || {}, out, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'kanban_user_action', req.body || {}, err, 'error', source);
+    res.status(e.status || 400).json(err);
   }
 });
 
@@ -3479,6 +3518,19 @@ router.post('/invoke', requireToolsAccess, async (req, res) => {
       if (req.headers[h]) headers[h] = String(req.headers[h]);
     }
     const ownerUserId = resolveToolOwnerUserIdOrNull(req, params, resolveAuthenticatedCeoUserId);
+    // Channel identity is accepted only on the owner+agent scoped plugin hop and is
+    // forwarded to our internal endpoint; model parameters can never supply it.
+    if (req.toolsApiAuth && !req.legacyToolsApiAuth) {
+      for (const h of ['x-openclaw-requester-sender-id', 'x-openclaw-message-channel', 'x-openclaw-account-id']) {
+        if (req.headers[h]) headers[h] = String(req.headers[h]);
+      }
+    }
+    const sessionKey = String(req.headers['x-openclaw-session-key'] || req.headers['x-session-key'] || '');
+    const sessionActor = lookupOpenClawSessionActor(sessionKey);
+    if (sessionActor && (!ownerUserId || String(sessionActor.ownerUserId) === String(ownerUserId))) {
+      headers['x-flolah-actor-user-id'] = sessionActor.actorUserId;
+      headers['x-flolah-actor-channel'] = sessionActor.channel || 'web';
+    }
     if (ownerUserId) {
       if (!headers['x-ceo-user-id']) headers['x-ceo-user-id'] = ownerUserId;
     }

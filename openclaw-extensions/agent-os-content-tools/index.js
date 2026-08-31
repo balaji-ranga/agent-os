@@ -146,6 +146,16 @@ function ownerUserIdFromSessionKey(sessionKey) {
 }
 
 const PARAM_SCHEMAS = {
+  kanban_user_action: {
+    type: "object",
+    properties: {
+      task_id: { type: "number", description: "Task id; omit only when listing accessible tasks." },
+      action: { type: "string", enum: ["list", "update", "complete", "unable", "question", "approve", "reject", "reopen"] },
+      evidence: { type: "string", description: "Exact request/confirmation from the current user. Required for every mutating action." },
+      new_status: { type: "string", enum: ["open", "awaiting_confirmation", "in_progress", "completed", "failed"] },
+    },
+    required: ["action"], additionalProperties: false,
+  },
   browse_session_status: { type: 'object', properties: {}, additionalProperties: true },
   browse_task_start: {
     type: 'object',
@@ -740,6 +750,10 @@ async function callInvoke(api, toolName, params, callerAgentId, toolCtx) {
   }
   const headers = { "Content-Type": "application/json" };
   if (callerAgentId) headers["x-openclaw-agent-id"] = callerAgentId;
+  const messageChannel = toolCtx?.messageChannel || toolCtx?.deliveryContext?.channel;
+  if (messageChannel) headers["x-openclaw-message-channel"] = String(messageChannel);
+  if (toolCtx?.agentAccountId) headers["x-openclaw-account-id"] = String(toolCtx.agentAccountId);
+  if (toolCtx?.requesterSenderId) headers["x-openclaw-requester-sender-id"] = String(toolCtx.requesterSenderId);
   const sessionKey =
     toolCtx?.sessionKey || (typeof api.getSessionKey === "function" ? api.getSessionKey() : api.sessionKey);
   let ownerUserId = null;

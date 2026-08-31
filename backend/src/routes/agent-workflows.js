@@ -2,6 +2,8 @@
  * Custom agent workflows API — separate from job-applicant workflows.
  */
 import { Router } from 'express';
+import { getDb } from '../db/schema.js';
+import { assertKanbanTaskMutate } from '../services/kanban-user-scope.js';
 import { requireCeoOrAdmin, resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
 import { isInternalRequest, internalServiceUser } from '../middleware/internal-auth.js';
 import * as store from '../services/agent-workflow-store.js';
@@ -258,11 +260,15 @@ router.post('/approval/respond', async (req, res) => {
     if (!decision || !['approve', 'reject', 'approved', 'rejected'].includes(decision)) {
       return res.status(400).json({ error: 'decision must be approve or reject' });
     }
+    const task = getDb().prepare('SELECT * FROM kanban_tasks WHERE id=?').get(Number(kanbanTaskId));
+    if (!task) return res.status(404).json({ error: 'Task not found' });
+    assertKanbanTaskMutate(task, req.authUser);
     const result = await completeCeoApprovalResponse({
       kanbanTaskId: Number(kanbanTaskId),
       decision,
       comment: comment || '',
       actor: actorFromRequest(req),
+      ownerUserId: resolveAuthenticatedCeoUserId(req),
     });
     res.json(result);
   } catch (e) {

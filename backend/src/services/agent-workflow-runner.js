@@ -1951,9 +1951,10 @@ export async function failAgentWorkflowForDelegation(failedTask) {
 /**
  * CEO responds to workflow approval Kanban task (approve / reject + comment).
  */
-export async function completeCeoApprovalResponse({ kanbanTaskId, decision, comment = '', actor = null }) {
+export async function completeCeoApprovalResponse({ kanbanTaskId, decision, comment = '', actor = null, ownerUserId = null }) {
   const task = db().prepare('SELECT * FROM kanban_tasks WHERE id = ?').get(kanbanTaskId);
   if (!task) throw new Error('Kanban task not found');
+  if (ownerUserId && String(task.owner_user_id || '') !== String(ownerUserId)) throw new Error('Kanban task not found');
   if (!isWorkflowCeoApprovalDescription(task.description)) {
     throw new Error('Not a workflow CEO approval task');
   }
@@ -1995,8 +1996,8 @@ export async function completeCeoApprovalResponse({ kanbanTaskId, decision, comm
     approvedContent = '';
   }
   const textParts = [
-    `CEO decision: ${decisionLabel}`,
-    commentTrim ? `CEO comment: ${commentTrim}` : null,
+    `${actor?.name || 'CEO'} decision: ${decisionLabel}`,
+    commentTrim ? `Decision evidence: ${commentTrim}` : null,
     approvedContent
       ? `--- APPROVED CONTENT (use this for publish tools; do not invent bodies) ---\n${approvedContent}`
       : null,
@@ -2012,7 +2013,7 @@ export async function completeCeoApprovalResponse({ kanbanTaskId, decision, comm
   if (comment?.trim()) {
     db()
       .prepare(`INSERT INTO task_messages (task_id, role, content) VALUES (?, 'user', ?)`)
-      .run(kanbanTaskId, `[CEO ${decisionLabel}] ${comment.trim()}`);
+      .run(kanbanTaskId, `[${actor?.name || actor?.id || 'CEO'} ${decisionLabel}] ${comment.trim()}`);
   }
 
   db()

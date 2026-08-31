@@ -64,13 +64,24 @@ function pruneSessionOwners() {
   }
 }
 
-export function registerOpenClawSessionOwner(sessionKey, ownerUserId) {
+export function registerOpenClawSessionOwner(sessionKey, ownerUserId, actorUserId = null, channel = null) {
   if (!sessionKey || !ownerUserId) return;
   pruneSessionOwners();
   sessionOwnerRegistry.set(String(sessionKey), {
     ownerUserId: String(ownerUserId).trim(),
+    actorUserId: actorUserId ? String(actorUserId).trim() : null,
+    channel: channel ? String(channel).trim().toLowerCase() : null,
     expiresAt: Date.now() + SESSION_OWNER_TTL_MS,
   });
+}
+
+/** Trusted human attached by the authenticated Dashboard chat route. */
+export function lookupOpenClawSessionActor(sessionKey) {
+  if (!sessionKey) return null;
+  pruneSessionOwners();
+  const row = sessionOwnerRegistry.get(String(sessionKey));
+  if (!row || row.expiresAt <= Date.now() || !row.actorUserId) return null;
+  return { ownerUserId: row.ownerUserId, actorUserId: row.actorUserId, channel: row.channel || 'web' };
 }
 
 export function lookupOpenClawSessionOwner(sessionKey) {

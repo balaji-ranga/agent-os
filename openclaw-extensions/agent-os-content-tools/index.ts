@@ -130,7 +130,7 @@ function ownerUserIdFromSessionKey(sessionKey: string | undefined): string | nul
   return ownerUserIdFromSessionUser(m[2], m[1]);
 }
 
-type ToolCtx = { agentId?: string; sessionKey?: string };
+type ToolCtx = { agentId?: string; sessionKey?: string; messageChannel?: string; agentAccountId?: string; requesterSenderId?: string; deliveryContext?: { channel?: string } };
 type PluginApi = {
   registerTool: Function;
   config: Record<string, unknown>;
@@ -140,6 +140,16 @@ type PluginApi = {
 };
 
 const PARAM_SCHEMAS: Record<string, Record<string, unknown>> = {
+  kanban_user_action: {
+    type: "object",
+    properties: {
+      task_id: { type: "number", description: "Task id; omit only when listing accessible tasks." },
+      action: { type: "string", enum: ["list", "update", "complete", "unable", "question", "approve", "reject", "reopen"] },
+      evidence: { type: "string", description: "Exact request/confirmation from the current user. Required for every mutating action." },
+      new_status: { type: "string", enum: ["open", "awaiting_confirmation", "in_progress", "completed", "failed"] },
+    },
+    required: ["action"], additionalProperties: false,
+  },
   kanban_move_status: {
     type: "object",
     properties: {
@@ -395,6 +405,10 @@ async function callInvoke(
   }
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (callerAgentId) headers["x-openclaw-agent-id"] = callerAgentId;
+  const messageChannel = toolCtx?.messageChannel || toolCtx?.deliveryContext?.channel;
+  if (messageChannel) headers["x-openclaw-message-channel"] = String(messageChannel);
+  if (toolCtx?.agentAccountId) headers["x-openclaw-account-id"] = String(toolCtx.agentAccountId);
+  if (toolCtx?.requesterSenderId) headers["x-openclaw-requester-sender-id"] = String(toolCtx.requesterSenderId);
   const sessionKey =
     toolCtx?.sessionKey ||
     (typeof api.getSessionKey === "function" ? api.getSessionKey() : api.sessionKey);

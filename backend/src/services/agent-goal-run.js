@@ -2998,13 +2998,13 @@ async function executeHumanTaskStep(goal, step) {
   return { kanban_task_id: taskId, assigned_user_id: userId, waiting_for_human: true };
 }
 
-export async function respondToHumanGoalTask({ ownerUserId, actorUserId, taskId, action, outcome }) {
+export async function respondToHumanGoalTask({ ownerUserId, actorUserId, taskId, action, outcome, authorizedActor = false }) {
   ensureAgentGoalRunTables();
   const task = db().prepare('SELECT * FROM kanban_tasks WHERE id = ? AND owner_user_id = ?').get(taskId, ownerUserId);
   if (!task || !task.goal_run_id || !task.goal_step_id) {
     const err = new Error('Linked human goal task not found'); err.status = 404; throw err;
   }
-  if (task.assigned_user_id !== actorUserId && ownerUserId !== actorUserId) {
+  if (!authorizedActor && task.assigned_user_id !== actorUserId && ownerUserId !== actorUserId) {
     const err = new Error('Only the assigned employee or company owner may respond'); err.status = 403; throw err;
   }
   const normalized = String(action || '').toLowerCase();
