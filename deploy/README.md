@@ -579,6 +579,10 @@ docker compose up -d --force-recreate backend
 
 `vps-deploy-latest.sh` defaults `COMPOSE_FILE` to include the docker-tools overlay. Keep `DOCKER_TOOLS_ENABLED=0` until registry allow-list + sock are ready. Tool containers are **not** Compose services (Hostinger hPanel may omit them); manage via Admin UI or `docker ps --filter label=agent-os.managed=1`.
 
+`BACKEND_DEPLOY_HEALTH_WAIT_SECONDS` controls the pre-nginx backend health gate (default
+420 seconds). This accommodates owner-scoped tenant/workspace synchronization on larger
+installations while still failing closed before nginx is recreated.
+
 ## Admin AgentSystem recovery
 
 When Agent Chat **queues then fails**, the gateway lane is usually saturated (delegations, goal-plan recovery Kanban, scheduled goals, browser tasks). Admins recover from **Admin → AgentSystem recovery** (`/admin/openclaw-recovery`). Status/diagnose is admin-only (no OTP). Drain / restart / repair / session reset / kill-switch require the **same privileged OTP session** as Tools Onboarding and TLS certs (`ADMIN_PRIVILEGED_SESSION_TTL_MS`, default 30 min). Authenticator TOTP if enrolled, otherwise email OTP.

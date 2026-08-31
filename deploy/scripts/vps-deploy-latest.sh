@@ -262,9 +262,11 @@ docker compose up -d --force-recreate $SERVICES
 # nginx depends_on backend service_healthy. Recreating nginx immediately after a backend
 # recreate races the 45s health start_period and fails with "backend is unhealthy".
 if echo " $SERVICES " | grep -q " backend "; then
-  echo "==> wait for backend container health before nginx recreate"
+  backend_health_wait_seconds="${BACKEND_DEPLOY_HEALTH_WAIT_SECONDS:-420}"
+  backend_health_tries=$(( (backend_health_wait_seconds + 2) / 3 ))
+  echo "==> wait for backend container health before nginx recreate (up to ${backend_health_wait_seconds}s)"
   be_ok=0
-  for i in $(seq 1 40); do
+  for i in $(seq 1 "$backend_health_tries"); do
     st="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' agent-os-backend-1 2>/dev/null || echo missing)"
     if [[ "$st" == "healthy" ]]; then
       echo "    backend container healthy after ${i} tries"
@@ -274,7 +276,7 @@ if echo " $SERVICES " | grep -q " backend "; then
     sleep 3
   done
   if [[ "$be_ok" != "1" ]]; then
-    echo "ERROR: backend not healthy before nginx recreate (status=${st:-unknown})"
+    echo "ERROR: backend not healthy before nginx recreate after ${backend_health_wait_seconds}s (status=${st:-unknown})"
     docker compose ps backend || true
     docker compose logs --tail=80 backend || true
     exit 1
