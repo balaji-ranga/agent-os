@@ -36,6 +36,7 @@
     "test:goal-hardening": "node scripts/test-goal-orchestration-hardening.mjs",
     "test:openclaw-session-cleanup": "node scripts/test-openclaw-session-cleanup.mjs"
     ,"test:company-reviews": "node scripts/test-company-reviews.mjs"
+    ,"test:kanban-sla-timezone": "node scripts/test-kanban-sla-timezone.mjs"
     ,"test:agent-actions-live": "node scripts/test-agent-actions-live.mjs"
     ,"test:efficiency-ollama-utilities": "node scripts/test-efficiency-ollama-utilities.mjs"
     ,"test:agent-reasoning-patterns": "node scripts/vps-test-agent-reasoning-patterns.mjs"

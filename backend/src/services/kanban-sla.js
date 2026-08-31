@@ -24,6 +24,21 @@ export function computeDueAt(hours, from = Date.now()) {
   return new Date(Number(from) + normalizeEtaHours(hours) * 3600000).toISOString();
 }
 
+/**
+ * SQLite datetime() values are UTC but omit a timezone suffix. Date.parse()
+ * treats those strings as server-local time, which shifts SLA deadlines when
+ * the backend TZ is not UTC. Preserve explicit offsets and normalize only the
+ * timezone-less database representation to UTC.
+ */
+export function parseDbTimestampMs(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return NaN;
+  if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)?$/.test(raw)) {
+    return Date.parse(`${raw.replace(' ', 'T')}Z`);
+  }
+  return Date.parse(raw);
+}
+
 export function applyPolicyEtaToTask(taskId, ownerUserId, { etaHours = null, context = '' } = {}) {
   if (!taskId || !ownerUserId) return null;
   const hours = resolveKanbanEtaHours(ownerUserId, etaHours, context);
@@ -35,9 +50,12 @@ export function applyPolicyEtaToTask(taskId, ownerUserId, { etaHours = null, con
 
 export function slaState(task, nowMs = Date.now()) {
   if (!task?.due_at || ['completed', 'failed', 'cancelled'].includes(String(task.status))) return 'none';
-  const due = Date.parse(task.due_at);
+  const due = parseDbTimestampMs(task.due_at);
   if (!Number.isFinite(due)) return 'none';
-  const created = Date.parse(task.created_at || '') || (due - normalizeEtaHours(task.eta_hours) * 3600000);
+  const parsedCreated = parseDbTimestampMs(task.created_at);
+  const created = Number.isFinite(parsedCreated)
+    ? parsedCreated
+    : due - normalizeEtaHours(task.eta_hours) * 3600000;
   const duration = Math.max(1, due - created);
   const remaining = due - nowMs;
   if (remaining <= 0) return 'red';
