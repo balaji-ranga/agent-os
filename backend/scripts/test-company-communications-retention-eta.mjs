@@ -23,7 +23,14 @@ try {
   database.prepare(`INSERT INTO user_agents(user_id,agent_id,enabled) VALUES(?,?,1)`).run(owner, 'coo-retention');
 
   const policy = await import('../src/services/work-assignment-policy.js');
-  policy.saveWorkAssignmentPolicy(owner, { mode: 'prefer_agent', urgent_eta_hours: 2, standard_eta_hours: 24, complex_eta_hours: 72 });
+  policy.saveWorkAssignmentPolicy(owner, {
+    mode: 'prefer_agent', urgent_eta_hours: 2, standard_eta_hours: 24, complex_eta_hours: 72,
+    sla_notify_in_app: true, sla_notify_email: false, sla_notify_whatsapp: true,
+    sla_include_status_checker: true,
+  });
+  const savedPolicy = policy.getWorkAssignmentPolicy(owner);
+  assert.equal(savedPolicy.sla_notify_email, false);
+  assert.equal(savedPolicy.sla_notify_whatsapp, true);
   assert.equal(policy.resolvePolicyEtaHours(owner, null, 'urgent legal approval'), 2);
   assert.equal(policy.resolvePolicyEtaHours(owner, null, 'prepare normal update'), 24);
   assert.equal(policy.resolvePolicyEtaHours(owner, null, 'complex research'), 72);
@@ -34,6 +41,9 @@ try {
   const applied = sla.applyPolicyEtaToTask(Number(taskInfo.lastInsertRowid), owner, { context: 'normal work' });
   assert.equal(applied.eta_hours, 24);
   assert.equal(Math.round((Date.parse(applied.due_at) - Date.now()) / 3600000), 24);
+  database.prepare(`INSERT INTO kanban_sla_events
+    (owner_user_id,task_id,event_type,task_title,task_status,occurred_at)
+    VALUES(?,999,'breach','Old SLA breach','deleted',datetime('now','-45 days'))`).run(owner);
 
   const users = await import('../src/services/users.js');
   assert.equal(users.getUserById(employee).data_retention_days, undefined, 'employee profile must not expose retention');
@@ -75,6 +85,7 @@ try {
   assert.equal(purged.retention_days, 30, 'CEO profile is the company retention source');
   assert.equal(purged.deleted.human_messages, 1);
   assert.equal(purged.deleted.agent_voice_sessions, 1);
+  assert.equal(purged.deleted.kanban_sla_events, 1);
   assert.equal(database.prepare("SELECT COUNT(*) AS n FROM ceo_voice_sessions WHERE id='voice-current'").get().n, 1);
   assert.equal(database.prepare('SELECT COUNT(*) AS n FROM human_messages WHERE conversation_id=?').get(conversation.id).n >= 1, true);
   await assert.rejects(() => retention.purgeOwnerRetention(employee), /CEO owner profile required/);

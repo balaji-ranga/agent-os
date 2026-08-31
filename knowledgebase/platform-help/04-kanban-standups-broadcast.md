@@ -32,6 +32,14 @@ Board of tasks by agent and status — shared for agent work, workflow steps, an
 2. Chat in the standup; ask the COO to collect updates or delegate.
 3. Use **Get work from team** / **Run COO summary** when available.
 4. Use **Run status checker** to open a CEO status report popup (awaiting you, failed, in progress, open, recent completions) and post the digest into standup chat. Counts include **every** open/failed card of any age (Kanban **All** view) — not only the Weekly filter. The HTML email is sent only by the daily batch cron — not from this button or the COO tool.
+
+### ETA and SLA breach delivery
+
+- Configure ETA defaults and SLA delivery under **Policies → Work assignment**.
+- Approaching tasks turn amber; breached tasks turn red. The SLA monitor runs every five minutes by default.
+- The CEO can independently enable in-app + COO chat, CEO email, COO WhatsApp, and inclusion in `status_checker` reports.
+- SLA breach events are stored separately from Kanban cards. Deleting a card removes it from the active board and clears stale actionable notifications, but its recent breach remains in the 30-day status-checker audit history.
+- SLA event history follows the CEO company data-retention period and is never shared with another company.
 5. Watch the **bell** for delegated agent replies.
 6. Daily standups can also run on a schedule when your admin configures standup cron.
 

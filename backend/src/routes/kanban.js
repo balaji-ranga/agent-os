@@ -39,7 +39,13 @@ import {
 } from '../services/kanban-orphan-watcher.js';
 import { respondToGoalActionApproval } from '../services/goal-action-approval.js';
 import { respondToHumanGoalTask } from '../services/agent-goal-run.js';
-import { resolveKanbanEtaHours, computeDueAt, withSlaState } from '../services/kanban-sla.js';
+import {
+  resolveKanbanEtaHours,
+  computeDueAt,
+  withSlaState,
+  preserveSlaHistoryForDeletedTask,
+  clearKanbanSlaNotifications,
+} from '../services/kanban-sla.js';
 
 const router = Router();
 router.use(attachAuthUser);
@@ -550,7 +556,9 @@ router.delete('/tasks/:id', (req, res) => {
     if (!task) return res.status(404).json({ error: 'Task not found' });
     assertKanbanTaskMutate(task, req.authUser);
     const id = Number(req.params.id);
+    preserveSlaHistoryForDeletedTask(task);
     clearKanbanTaskNotification(id, req.authUser?.id);
+    clearKanbanSlaNotifications(id);
     cancelDelegationsForDeletedKanban([id]);
     db().prepare('UPDATE kanban_tasks SET standup_id = NULL, agent_delegation_task_id = NULL WHERE id = ?').run(id);
     db().prepare('DELETE FROM task_messages WHERE task_id = ?').run(id);
@@ -573,7 +581,12 @@ router.delete('/tasks', (req, res) => {
     }
     if (!allowed.length) return res.status(404).json({ error: 'No accessible tasks found' });
     const placeholders = allowed.map(() => '?').join(',');
-    for (const id of allowed) clearKanbanTaskNotification(id, req.authUser?.id);
+    for (const id of allowed) {
+      const task = db().prepare('SELECT * FROM kanban_tasks WHERE id = ?').get(id);
+      if (task) preserveSlaHistoryForDeletedTask(task);
+      clearKanbanTaskNotification(id, req.authUser?.id);
+      clearKanbanSlaNotifications(id);
+    }
     cancelDelegationsForDeletedKanban(allowed);
     db().prepare(`UPDATE kanban_tasks SET standup_id = NULL, agent_delegation_task_id = NULL WHERE id IN (${placeholders})`).run(...allowed);
     db().prepare(`DELETE FROM task_messages WHERE task_id IN (${placeholders})`).run(...allowed);

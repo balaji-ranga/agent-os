@@ -2968,13 +2968,39 @@ function ensureOrgPeopleSchema(_db) {
       urgent_eta_hours INTEGER NOT NULL DEFAULT 4,
       standard_eta_hours INTEGER NOT NULL DEFAULT 8,
       complex_eta_hours INTEGER NOT NULL DEFAULT 12,
+      sla_notify_in_app INTEGER NOT NULL DEFAULT 1,
+      sla_notify_email INTEGER NOT NULL DEFAULT 1,
+      sla_notify_whatsapp INTEGER NOT NULL DEFAULT 1,
+      sla_include_status_checker INTEGER NOT NULL DEFAULT 1,
       updated_at TEXT DEFAULT (datetime('now'))
     )`);
     for (const sql of [
       `ALTER TABLE work_assignment_policies ADD COLUMN urgent_eta_hours INTEGER NOT NULL DEFAULT 4`,
       `ALTER TABLE work_assignment_policies ADD COLUMN standard_eta_hours INTEGER NOT NULL DEFAULT 8`,
       `ALTER TABLE work_assignment_policies ADD COLUMN complex_eta_hours INTEGER NOT NULL DEFAULT 12`,
+      `ALTER TABLE work_assignment_policies ADD COLUMN sla_notify_in_app INTEGER NOT NULL DEFAULT 1`,
+      `ALTER TABLE work_assignment_policies ADD COLUMN sla_notify_email INTEGER NOT NULL DEFAULT 1`,
+      `ALTER TABLE work_assignment_policies ADD COLUMN sla_notify_whatsapp INTEGER NOT NULL DEFAULT 1`,
+      `ALTER TABLE work_assignment_policies ADD COLUMN sla_include_status_checker INTEGER NOT NULL DEFAULT 1`,
     ]) { try { _db.exec(sql); } catch (_) {} }
+
+    _db.exec(`CREATE TABLE IF NOT EXISTS kanban_sla_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      owner_user_id TEXT NOT NULL,
+      task_id INTEGER NOT NULL,
+      event_type TEXT NOT NULL,
+      task_title TEXT NOT NULL DEFAULT '',
+      task_status TEXT NOT NULL DEFAULT '',
+      assignee TEXT NOT NULL DEFAULT '',
+      eta_hours INTEGER,
+      due_at TEXT,
+      occurred_at TEXT NOT NULL DEFAULT (datetime('now')),
+      task_deleted_at TEXT,
+      delivery_json TEXT NOT NULL DEFAULT '{}',
+      UNIQUE(owner_user_id, task_id, event_type)
+    )`);
+    _db.exec(`CREATE INDEX IF NOT EXISTS idx_kanban_sla_events_owner_time
+      ON kanban_sla_events(owner_user_id, occurred_at DESC)`);
     _db.exec(`DROP TRIGGER IF EXISTS trg_kanban_default_policy_eta`);
     _db.exec(`CREATE TRIGGER trg_kanban_default_policy_eta AFTER INSERT ON kanban_tasks
       WHEN NEW.owner_user_id IS NOT NULL AND NEW.eta_hours IS NULL

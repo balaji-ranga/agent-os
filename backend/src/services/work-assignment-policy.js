@@ -19,6 +19,10 @@ function ensure() {
   if (!columns.has('urgent_eta_hours')) getDb().exec(`ALTER TABLE work_assignment_policies ADD COLUMN urgent_eta_hours INTEGER NOT NULL DEFAULT 4`);
   if (!columns.has('standard_eta_hours')) getDb().exec(`ALTER TABLE work_assignment_policies ADD COLUMN standard_eta_hours INTEGER NOT NULL DEFAULT 8`);
   if (!columns.has('complex_eta_hours')) getDb().exec(`ALTER TABLE work_assignment_policies ADD COLUMN complex_eta_hours INTEGER NOT NULL DEFAULT 12`);
+  if (!columns.has('sla_notify_in_app')) getDb().exec(`ALTER TABLE work_assignment_policies ADD COLUMN sla_notify_in_app INTEGER NOT NULL DEFAULT 1`);
+  if (!columns.has('sla_notify_email')) getDb().exec(`ALTER TABLE work_assignment_policies ADD COLUMN sla_notify_email INTEGER NOT NULL DEFAULT 1`);
+  if (!columns.has('sla_notify_whatsapp')) getDb().exec(`ALTER TABLE work_assignment_policies ADD COLUMN sla_notify_whatsapp INTEGER NOT NULL DEFAULT 1`);
+  if (!columns.has('sla_include_status_checker')) getDb().exec(`ALTER TABLE work_assignment_policies ADD COLUMN sla_include_status_checker INTEGER NOT NULL DEFAULT 1`);
 }
 
 export function getWorkAssignmentPolicy(ownerUserId) {
@@ -30,21 +34,39 @@ export function getWorkAssignmentPolicy(ownerUserId) {
     urgent_eta_hours: eta(row.urgent_eta_hours, 4),
     standard_eta_hours: eta(row.standard_eta_hours, 8),
     complex_eta_hours: eta(row.complex_eta_hours, 12),
+    sla_notify_in_app: row.sla_notify_in_app !== 0,
+    sla_notify_email: row.sla_notify_email !== 0,
+    sla_notify_whatsapp: row.sla_notify_whatsapp !== 0,
+    sla_include_status_checker: row.sla_include_status_checker !== 0,
     updated_at: row.updated_at,
-  } : { mode: 'prefer_agent', high_risk_to_human: true, urgent_eta_hours: 4, standard_eta_hours: 8, complex_eta_hours: 12, updated_at: null };
+  } : {
+    mode: 'prefer_agent', high_risk_to_human: true,
+    urgent_eta_hours: 4, standard_eta_hours: 8, complex_eta_hours: 12,
+    sla_notify_in_app: true, sla_notify_email: true, sla_notify_whatsapp: true,
+    sla_include_status_checker: true, updated_at: null,
+  };
 }
 
 export function saveWorkAssignmentPolicy(ownerUserId, input = {}) {
   ensure();
+  const current = getWorkAssignmentPolicy(ownerUserId);
   const mode = WORK_ASSIGNMENT_MODES.has(input.mode) ? input.mode : 'prefer_agent';
   getDb().prepare(`INSERT INTO work_assignment_policies
-    (owner_user_id,mode,high_risk_to_human,urgent_eta_hours,standard_eta_hours,complex_eta_hours,updated_at)
-    VALUES(?,?,?,?,?,?,datetime('now')) ON CONFLICT(owner_user_id) DO UPDATE SET
+    (owner_user_id,mode,high_risk_to_human,urgent_eta_hours,standard_eta_hours,complex_eta_hours,
+     sla_notify_in_app,sla_notify_email,sla_notify_whatsapp,sla_include_status_checker,updated_at)
+    VALUES(?,?,?,?,?,?,?,?,?,?,datetime('now')) ON CONFLICT(owner_user_id) DO UPDATE SET
     mode=excluded.mode,high_risk_to_human=excluded.high_risk_to_human,
     urgent_eta_hours=excluded.urgent_eta_hours,standard_eta_hours=excluded.standard_eta_hours,
-    complex_eta_hours=excluded.complex_eta_hours,updated_at=datetime('now')`
+    complex_eta_hours=excluded.complex_eta_hours,
+    sla_notify_in_app=excluded.sla_notify_in_app,sla_notify_email=excluded.sla_notify_email,
+    sla_notify_whatsapp=excluded.sla_notify_whatsapp,
+    sla_include_status_checker=excluded.sla_include_status_checker,updated_at=datetime('now')`
   ).run(ownerUserId, mode, input.high_risk_to_human === false ? 0 : 1,
-    eta(input.urgent_eta_hours, 4), eta(input.standard_eta_hours, 8), eta(input.complex_eta_hours, 12));
+    eta(input.urgent_eta_hours, 4), eta(input.standard_eta_hours, 8), eta(input.complex_eta_hours, 12),
+    (input.sla_notify_in_app ?? current.sla_notify_in_app) === false ? 0 : 1,
+    (input.sla_notify_email ?? current.sla_notify_email) === false ? 0 : 1,
+    (input.sla_notify_whatsapp ?? current.sla_notify_whatsapp) === false ? 0 : 1,
+    (input.sla_include_status_checker ?? current.sla_include_status_checker) === false ? 0 : 1);
   return getWorkAssignmentPolicy(ownerUserId);
 }
 

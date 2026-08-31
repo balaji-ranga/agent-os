@@ -60,7 +60,12 @@ function PoliciesPanel() {
     agent_pickup: true,
   });
   const [exceptionBusy, setExceptionBusy] = useState(false);
-  const [assignmentPolicy, setAssignmentPolicy] = useState({ mode: 'prefer_agent', high_risk_to_human: true, urgent_eta_hours: 4, standard_eta_hours: 8, complex_eta_hours: 12 });
+  const [assignmentPolicy, setAssignmentPolicy] = useState({
+    mode: 'prefer_agent', high_risk_to_human: true,
+    urgent_eta_hours: 4, standard_eta_hours: 8, complex_eta_hours: 12,
+    sla_notify_in_app: true, sla_notify_email: true, sla_notify_whatsapp: true,
+    sla_include_status_checker: true,
+  });
   const [assignmentBusy, setAssignmentBusy] = useState(false);
   const [controlBusy, setControlBusy] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -422,6 +427,25 @@ function PoliciesPanel() {
                 ['complex_eta_hours', 'Complex / research'],
               ].map(([key, label]) => (
                 <label key={key}><span style={{ display: 'block', marginBottom: 5 }}>{label}</span><select value={assignmentPolicy[key] || 8} onChange={(e) => setAssignmentPolicy((p) => ({ ...p, [key]: Number(e.target.value) }))} style={{ width: '100%', padding: '.65rem' }}>{[1,2,4,8,12,24,36,48,72,168].map((h) => <option key={h} value={h}>{h === 168 ? '7 days' : `${h} hours`}</option>)}</select></label>
+              ))}
+            </div>
+          </div>
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+            <h3 style={{ margin: '0 0 .35rem' }}>SLA breach delivery</h3>
+            <p style={{ margin: '0 0 .8rem', color: 'var(--muted)' }}>
+              Choose how the CEO is told when a task passes its ETA. Breach history is retained even if the task is later deleted.
+            </p>
+            <div style={{ display: 'grid', gap: '.65rem' }}>
+              {[
+                ['sla_notify_in_app', 'In-app notification and COO chat', 'Shows the bell notification and records the escalation in the COO conversation.'],
+                ['sla_notify_email', 'Email the CEO', 'Uses the CEO profile email and configured workflow SMTP service.'],
+                ['sla_notify_whatsapp', 'COO sends WhatsApp', 'Uses the owner-scoped COO WhatsApp channel when it is linked and online.'],
+                ['sla_include_status_checker', 'Include in status_checker reports', 'Shows current amber/red tasks and the retained 30-day SLA breach history.'],
+              ].map(([key, label, hint]) => (
+                <label key={key} style={{ display: 'flex', alignItems: 'flex-start', gap: 9 }}>
+                  <input type="checkbox" checked={assignmentPolicy[key] !== false} onChange={(e) => setAssignmentPolicy((p) => ({ ...p, [key]: e.target.checked }))} />
+                  <span><strong>{label}</strong><small style={{ display: 'block', color: 'var(--muted)' }}>{hint}</small></span>
+                </label>
               ))}
             </div>
           </div>

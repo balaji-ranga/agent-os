@@ -8,7 +8,8 @@ import { getDb } from '../db/schema.js';
 import { getUserById } from './users.js';
 import { getOrCreateDelegationHubStandup } from './standup-hub.js';
 import { executeEmailSend } from './email-send.js';
-import { withSlaState } from './kanban-sla.js';
+import { withSlaState, listRecentSlaBreaches } from './kanban-sla.js';
+import { getWorkAssignmentPolicy } from './work-assignment-policy.js';
 
 const A2A_WORKING = new Set(['working', 'submitted', 'input-required', 'input_required', 'queued']);
 const A2A_FAILED = new Set(['failed', 'rejected', 'canceled', 'cancelled', 'unknown']);
@@ -350,6 +351,7 @@ function mapTaskBrief(t, extra = {}) {
 
 export function buildStatusDigest(ownerUserId, { reconcile = true } = {}) {
   const owner = String(ownerUserId || '').trim();
+  const slaPolicy = getWorkAssignmentPolicy(owner);
   const sync = reconcile ? reconcileA2AKanbanForOwner(owner) : [];
   const open = listOpenTasks(owner);
   const failed = listFailedTasks(owner);
@@ -372,9 +374,25 @@ export function buildStatusDigest(ownerUserId, { reconcile = true } = {}) {
     failed_1d: failed.map((t) => mapTaskBrief(t, { reason: failureReasonFromTask(t) })),
     completed_1d: completed.map((t) => mapTaskBrief(t)),
   };
-  sections.escalations = [...sections.awaiting_ceo, ...sections.in_progress, ...sections.open, ...sections.failed]
-    .filter((t) => t.sla_state === 'amber' || t.sla_state === 'red')
-    .sort((a, b) => (a.sla_state === b.sla_state ? String(a.due_at || '').localeCompare(String(b.due_at || '')) : a.sla_state === 'red' ? -1 : 1));
+  sections.escalations = slaPolicy.sla_include_status_checker
+    ? [...sections.awaiting_ceo, ...sections.in_progress, ...sections.open, ...sections.failed]
+      .filter((t) => t.sla_state === 'amber' || t.sla_state === 'red')
+      .sort((a, b) => (a.sla_state === b.sla_state ? String(a.due_at || '').localeCompare(String(b.due_at || '')) : a.sla_state === 'red' ? -1 : 1))
+    : [];
+  sections.sla_breaches_30d = slaPolicy.sla_include_status_checker
+    ? listRecentSlaBreaches(owner, 30).map((event) => ({
+      id: event.task_id,
+      event_id: event.id,
+      title: event.task_title || '(deleted task)',
+      assignee: event.assignee || 'unassigned',
+      status: event.deleted ? 'deleted' : event.task_status,
+      eta_hours: event.eta_hours,
+      due_at: event.due_at,
+      occurred_at: event.occurred_at,
+      deleted: event.deleted,
+      delivery: event.delivery,
+    }))
+    : [];
 
   return {
     owner_user_id: owner,
@@ -391,7 +409,11 @@ export function buildStatusDigest(ownerUserId, { reconcile = true } = {}) {
       completed_1d: sections.completed_1d.length,
       amber: sections.escalations.filter((t) => t.sla_state === 'amber').length,
       red: sections.escalations.filter((t) => t.sla_state === 'red').length,
+      sla_breaches_30d: sections.sla_breaches_30d.length,
       needs_attention: sections.awaiting_ceo.length + sections.failed.length,
+    },
+    sla_policy: {
+      include_status_checker: slaPolicy.sla_include_status_checker,
     },
     sections,
   };
@@ -434,6 +456,14 @@ export function formatDigestMarkdown(digest) {
   lines.push('### SLA escalations (amber / red only)');
   if (!digest.sections.escalations.length) lines.push('_None_');
   else digest.sections.escalations.forEach((t) => lines.push(`${formatTaskLine(t)} — ${t.sla_state.toUpperCase()} · due ${t.due_at || 'not set'}`));
+  lines.push('');
+
+  lines.push('### SLA breach history (past 30 days)');
+  if (!digest.sla_policy?.include_status_checker) lines.push('_Hidden by your Work Assignment Policy._');
+  else if (!digest.sections.sla_breaches_30d?.length) lines.push('_None_');
+  else digest.sections.sla_breaches_30d.forEach((t) => lines.push(
+    `- #${t.id} · ${t.title} · ${t.assignee} · breached ${t.occurred_at}${t.deleted ? ' · task deleted (audit retained)' : ''}`
+  ));
   lines.push('');
 
   lines.push(`### Completed (past 7 days): ${digest.sections.completed_1d.length}`);
@@ -533,6 +563,11 @@ export function formatDigestHtml(digest) {
     extraFn: (t) => `${String(t.sla_state || '').toUpperCase()} · due ${t.due_at || 'not set'}`,
     accent: '#fef3c7',
     emptyHint: 'No approaching or breached task ETAs',
+  })}
+  ${table('SLA breach history — past 30 days', digest.sections.sla_breaches_30d || [], {
+    extraFn: (t) => `Breached ${t.occurred_at || 'unknown'}${t.deleted ? ' · deleted task; audit retained' : ''}`,
+    accent: '#fee2e2',
+    emptyHint: digest.sla_policy?.include_status_checker === false ? 'Hidden by your Work Assignment Policy' : 'No SLA breaches in the past 30 days',
   })}
   <h3 style="margin:1.5rem 0 0.5rem;font-size:1.05rem;">Completed (past 7 days): ${digest.sections.completed_1d.length}</h3>
   <h3 style="margin:1.5rem 0 0.5rem;font-size:1.05rem;">Next steps</h3>

@@ -53,6 +53,7 @@ export async function purgeOwnerRetention(ownerUserId, { days = null } = {}) {
     human_call_invites: 0,
     agent_voice_sessions: 0,
     platform_notifications: 0,
+    kanban_sla_events: 0,
     opensearch_documents: 0,
   };
 
@@ -98,6 +99,8 @@ export async function purgeOwnerRetention(ownerUserId, { days = null } = {}) {
       AND status<>'open' AND datetime(COALESCE(ended_at,expires_at,created_at))<datetime('now',?)`).run(owner, cutoff).changes || 0;
     deleted.platform_notifications = db.prepare(`DELETE FROM platform_user_notifications WHERE user_id IN
       (SELECT id FROM platform_users WHERE id=? OR owner_user_id=?) AND datetime(created_at)<datetime('now',?)`).run(owner, owner, cutoff).changes || 0;
+    deleted.kanban_sla_events = db.prepare(`DELETE FROM kanban_sla_events
+      WHERE owner_user_id=? AND datetime(occurred_at)<datetime('now',?)`).run(owner, cutoff).changes || 0;
   } catch (e) {
     console.warn('[retention] company communication purge failed', owner, e?.message || e);
   }
