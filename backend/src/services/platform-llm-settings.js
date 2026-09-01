@@ -178,7 +178,7 @@ function openClawSlugForEndpoint(ep) {
   try {
     const host = new URL(ep.baseUrl).hostname.toLowerCase();
     if (host.includes('openrouter')) return `openrouter/${model.includes('/') ? model : `openai/${model}`}`;
-    if (host.includes('deepseek')) return `openai/${model}`; // OpenAI-compat provider block
+    if (host.includes('deepseek')) return `deepseek/${model}`;
   } catch {
     /* ignore */
   }
@@ -200,9 +200,9 @@ function isOfficialOpenAiBase(baseUrl) {
 }
 
 /**
- * Align models.providers.openai with the effective platform endpoint.
- * DeepSeek and official OpenAI both use the openai/* slug prefix, so they
- * cannot share one baseUrl — admin primary/secondary switch must rewrite this block.
+ * Align the effective platform endpoint with a dedicated OpenClaw provider.
+ * Official OpenAI uses openai/* and DeepSeek uses deepseek/* so both can be
+ * configured concurrently and participate in real gateway failover.
  */
 function applyPlatformOpenAiProvider(config, ep) {
   if (!ep?.baseUrl || !ep?.apiKey) return null;
@@ -211,7 +211,8 @@ function applyPlatformOpenAiProvider(config, ep) {
   if (!config.models.providers) config.models.providers = {};
   const modelId = String(ep.model || 'gpt-4o-mini').replace(/^[^/]+\//, '');
   const base = normalizeBaseUrl(ep.baseUrl);
-  const existing = config.models.providers.openai || {};
+  const providerKey = isOfficialOpenAiBase(base) ? 'openai' : 'deepseek';
+  const existing = config.models.providers[providerKey] || {};
 
   if (isOfficialOpenAiBase(base)) {
     const catalogIds = [modelId, 'gpt-4o-mini', 'gpt-4o'].filter(
@@ -255,7 +256,7 @@ function applyPlatformOpenAiProvider(config, ep) {
   const catalogIds = [modelId, 'deepseek-v4-flash', 'deepseek-v4-pro'].filter(
     (id, i, arr) => id && arr.indexOf(id) === i
   );
-  config.models.providers.openai = {
+  config.models.providers.deepseek = {
     baseUrl: openaiBase,
     apiKey: ep.apiKey,
     api: 'openai-completions',
@@ -383,6 +384,14 @@ export function syncPlatformEndpointToOpenClaw() {
   config.agents.defaults.model.fallbacks = fallbacks;
 
   const providerSync = applyPlatformOpenAiProvider(config, primary);
+  // Materialize a different-provider secondary as its own OpenClaw provider
+  // so primary quota/outage failover is executable rather than just metadata.
+  if (
+    secondary &&
+    providerPrefixForSlug(openClawSlugForEndpoint(secondary)) !== primaryPrefix
+  ) {
+    applyPlatformOpenAiProvider(config, secondary);
+  }
   writePlatformLlmRuntimeEnv(primary);
 
   // Ensure ollama provider exists when platform primary is local Ollama
