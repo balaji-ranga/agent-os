@@ -780,7 +780,12 @@ function allTokenIndices(lower, tok, { wholeWord = false } = {}) {
     return out;
   }
   // Whole-word-ish: not letter/digit on either side (handles snake_case goal names)
-  const re = new RegExp(`(?:^|[^a-z0-9_])(${tok.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?=[^a-z0-9_]|$)`, 'g');
+  const escaped = tok.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // Catalog IDs are commonly singular while natural requests use plurals
+  // (for example workflow/workflows). Treat a simple trailing "s" as the
+  // same whole-word token; multi-token proximity still supplies precision.
+  const inflected = tok.length >= 4 && !tok.endsWith('s') ? `${escaped}s?` : escaped;
+  const re = new RegExp(`(?:^|[^a-z0-9_])(${inflected})(?=[^a-z0-9_]|$)`, 'g');
   let m;
   while ((m = re.exec(lower)) !== null) {
     out.push(m.index + (m[0].length - m[1].length));

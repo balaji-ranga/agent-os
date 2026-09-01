@@ -7,10 +7,17 @@ const dataDir = mkdtempSync(join(tmpdir(), 'flolah-goal-quality-'));
 process.env.AGENT_OS_DATA_DIR = dataDir;
 const { validateTypedGoalPlan, validateCandidateGoalPlan, validateSeedRequirementCoverage, repairCheckerExecutorAvailability, safeGoalClarificationPlan, normalizeExecutorOutputKinds } = await import('../src/services/goal-plan-quality.js');
 const { isEfficiencyModeTool } = await import('../src/services/llm-efficiency-mode.js');
+const { matchSelfToolsFromCatalog } = await import('../src/services/goal-plan-intent.js');
 assert.equal(isEfficiencyModeTool('goal_plan_intent'), false);
 assert.equal(isEfficiencyModeTool('goal_plan_maker'), false);
 assert.equal(isEfficiencyModeTool('goal_plan_checker'), false);
 assert.equal(isEfficiencyModeTool('goal_plan_tool_args'), true);
+const pluralCatalogMatch = matchSelfToolsFromCatalog(
+  'Retrieve the list of workflow nodes supported by the builder.',
+  [{ name: 'agent_workflow_list', display_name: 'List agent workflows', purpose: 'List workflows available to this agent.' }]
+);
+assert.equal(pluralCatalogMatch.length, 1);
+assert.equal(pluralCatalogMatch[0].tool_name, 'agent_workflow_list');
 const catalog = {
   tools: [{ name: 'erp_invoice_read' }, { name: 'erp_purchase_order_create_draft' }],
   workflows: [],
