@@ -1,0 +1,25 @@
+[
+  {
+    "symbol": "EXAMPLE",
+    "security_type": "STK",
+    "index_memberships": ["SPX"],
+    "average_daily_volume": 5000000,
+    "fundamentals": {
+      "market_cap_usd": 10000000000,
+      "revenue_ttm_usd": 2000000000,
+      "debt_to_equity": 1.2,
+      "operating_cash_flow_ttm_usd": 500000000,
+      "sector": "TECHNOLOGY"
+    },
+    "corporate_events": [
+      { "type": "earnings", "at": "2099-01-15T21:00:00.000Z" }
+    ]
+  },
+  {
+    "symbol": "EXAMPLEETF",
+    "security_type": "ETF",
+    "etf_categories": ["EQUITY", "INDEX"],
+    "average_daily_volume": 10000000,
+    "assets_under_management_usd": 1000000000
+  }
+]

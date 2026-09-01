@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import crypto from 'crypto';
-import { IBKRNewBridgeCore, IBKRNewFeatureEngine, buildBarFeatures } from '../src/core.js';
+import { IBKRNewBridgeCore, IBKRNewFeatureEngine, buildBarFeatures, selectUniverseProfiles } from '../src/core.js';
 
 const dir = mkdtempSync(join(tmpdir(), 'ibkrnew-'));
 let calls = 0;
@@ -17,6 +17,11 @@ const signature = crypto.createHmac('sha256', key).update(JSON.stringify(signed)
 assert.equal(core.verifyCommand({ ...signed, signature, expires_at: new Date(Date.now() + 10000).toISOString() }), true);
 assert.equal(core.verifyCommand({ ...signed, signature: '0'.repeat(64) }), false);
 assert.equal(core.commandSeen('IBKRNewCommand_once'), null); core.markCommand('IBKRNewCommand_once', 'executing'); assert.equal(core.commandSeen('IBKRNewCommand_once').status, 'executing');
+const profileEvent = core.emitInstrumentProfile({ symbol: 'aapl', security_type: 'STK', index_memberships: ['SPX'], fundamentals: { market_cap_usd: 1 } });
+assert.equal(profileEvent.event_type, 'instrument.profile_refreshed'); assert.equal(profileEvent.payload.symbol, 'AAPL');
+assert.throws(() => core.emitInstrumentProfile({ symbol: 'SPY', security_type: 'OPT' }), /STK or ETF/);
+const selected = selectUniverseProfiles([{ symbol: 'AAPL', security_type: 'STK', index_memberships: ['SPX'] }, { symbol: 'MSFT', security_type: 'STK', index_memberships: ['NDX'] }, { symbol: 'SPY', security_type: 'ETF', etf_categories: ['EQUITY'] }], { allowlist: [], denylist: [], filters: { stock: { enabled: true, indexes: ['NDX'], index_match: 'ANY' }, etf: { enabled: true, allowlist: [], denylist: [], categories: ['EQUITY'] } } });
+assert.deepEqual(selected.map((item) => item.symbol), ['MSFT', 'SPY']);
 const bars = Array.from({ length: 21 }, (_, i) => ({ close: 100 + i, volume: 1000, at: new Date().toISOString() }));
 const features = buildBarFeatures({ bars, relativeVolume: 1.5, confirmed15m: true });
 assert.ok(features.ema_fast > features.ema_slow); assert.ok(features.vwap > 0);

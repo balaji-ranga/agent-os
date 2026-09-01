@@ -18,6 +18,11 @@ export class IBKRNewBridgeCore {
     this.sequence += 1; const event = { event_id: `IBKRNewDesktopEvent_${crypto.randomUUID()}`, sequence: this.sequence, event_type: eventType, occurred_at: occurredAt, payload };
     appendFileSync(this.spoolPath, `${JSON.stringify(event)}\n`, { encoding: 'utf8', mode: 0o600 }); writeFileSync(this.statePath, JSON.stringify({ sequence: this.sequence }), { mode: 0o600 }); return event;
   }
+  emitInstrumentProfile(profile, occurredAt = this.now().toISOString()) {
+    const symbol = String(profile?.symbol || '').trim().toUpperCase(); const securityType = String(profile?.security_type || '').trim().toUpperCase();
+    if (!symbol || !['STK', 'ETF'].includes(securityType)) throw new Error('IBKRNew instrument profile requires symbol and STK or ETF security_type');
+    return this.emit('instrument.profile_refreshed', { ...profile, symbol, security_type: securityType }, occurredAt);
+  }
   async flush() {
     if (!existsSync(this.spoolPath)) return { sent: 0, remaining: 0 };
     const lines = readFileSync(this.spoolPath, 'utf8').split(/\r?\n/).filter(Boolean); let sent = 0;
@@ -57,6 +62,27 @@ export function buildBarFeatures({ bars, relativeVolume, confirmed15m, shortable
   const ema = (period) => closes.reduce((v, x, i) => i ? x * (2 / (period + 1)) + v * (1 - 2 / (period + 1)) : x, closes[0]);
   const totalVolume = volumes.reduce((a, b) => a + b, 0); const vwap = bars.reduce((sum, b, i) => sum + closes[i] * volumes[i], 0) / Math.max(1, totalVolume);
   return { last: closes.at(-1), close: closes.at(-1), vwap, ema_fast: ema(9), ema_slow: ema(21), relative_volume: Number(relativeVolume), confirmed_15m: confirmed15m === true, shortable, quote_at: bars.at(-1).at || new Date().toISOString() };
+}
+
+export function selectUniverseProfiles(profiles, universe) {
+  const normalize = (values) => (values || []).map((value) => String(value || '').trim().toUpperCase()).filter(Boolean);
+  const globalAllow = normalize(universe?.allowlist); const globalDeny = new Set(normalize(universe?.denylist)); const stockRules = universe?.filters?.stock || {}; const etfRules = universe?.filters?.etf || {};
+  const indexes = normalize(stockRules.indexes); const etfAllow = normalize(etfRules.allowlist); const etfDeny = new Set(normalize(etfRules.denylist)); const categories = normalize(etfRules.categories);
+  return (Array.isArray(profiles) ? profiles : []).filter((profile) => {
+    const symbol = String(profile?.symbol || '').trim().toUpperCase(); const securityType = String(profile?.security_type || '').trim().toUpperCase();
+    if (!symbol || globalDeny.has(symbol) || globalAllow.length && !globalAllow.includes(symbol)) return false;
+    if (securityType === 'STK') {
+      if (stockRules.enabled !== true) return false;
+      const memberships = normalize(profile.index_memberships); const matched = indexes.filter((index) => memberships.includes(index));
+      return !indexes.length || (stockRules.index_match === 'ALL' ? matched.length === indexes.length : matched.length > 0);
+    }
+    if (securityType === 'ETF') {
+      if (etfRules.enabled !== true || etfDeny.has(symbol) || etfAllow.length && !etfAllow.includes(symbol)) return false;
+      const profileCategories = normalize(profile.etf_categories || profile.categories);
+      return !categories.length || categories.some((category) => profileCategories.includes(category));
+    }
+    return false;
+  });
 }
 
 export class IBKRNewFeatureEngine {

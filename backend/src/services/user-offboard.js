@@ -271,6 +271,7 @@ export function purgeOwnerScopedRows(db, ownerUserId) {
   counts.ibkrnew_trades = tryRun(db, `DELETE FROM ibkrnew_trade_records WHERE owner_user_id = ?`, [ownerUserId]);
   counts.ibkrnew_allocations = tryRun(db, `DELETE FROM ibkrnew_allocation_decisions WHERE owner_user_id = ?`, [ownerUserId]);
   counts.ibkrnew_snapshots = tryRun(db, `DELETE FROM ibkrnew_position_snapshots WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.ibkrnew_instrument_profiles = tryRun(db, `DELETE FROM ibkrnew_instrument_profiles WHERE owner_user_id = ?`, [ownerUserId]);
   counts.ibkrnew_component_errors = tryRun(db, `DELETE FROM ibkrnew_component_errors WHERE owner_user_id = ?`, [ownerUserId]);
   counts.ibkrnew_component_health = tryRun(db, `DELETE FROM ibkrnew_component_health WHERE owner_user_id = ?`, [ownerUserId]);
   counts.ibkrnew_authorizations = tryRun(db, `DELETE FROM ibkrnew_authorizations WHERE owner_user_id = ?`, [ownerUserId]);

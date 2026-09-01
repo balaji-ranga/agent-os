@@ -13,6 +13,7 @@ Require the active immutable versions of:
 
 - IBKRNew strategy skill, strategy, policy, universe, and market-data policy.
 - Canonical IBKR market event and fresh executable quote.
+- The deterministic instrument-eligibility result, including underlying security type, configured stock-index membership or ETF filter, profile timestamps, company fundamentals, and corporate-event risk.
 - Account, positions, pending reservations, daily usage, bridge health, and shortability when applicable.
 - Estimated IBKR round-trip commission and prior actual commission observations.
 
@@ -20,7 +21,7 @@ Return no proposal when required data is stale or unavailable.
 
 ## Evaluation
 
-1. Confirm the instrument is in the active universe and its expression is enabled.
+1. Confirm the deterministic eligibility result passed. For stocks, respect the configured arbitrary index membership, fresh company-fundamental thresholds, and earnings blackout. For ETFs, use only the separate ETF allow/deny, category, assets, liquidity, and spread rules; never apply company fundamentals or stock-index membership to an ETF.
 2. Apply the configured trend/pullback features and market-regime vetoes.
 3. Calculate planned loss, gross target profit, estimated entry and exit commission, expected net profit, commission drag percentage, and net reward-to-risk.
 4. Compare a concentrated allocation with a diversified allocation.
@@ -45,6 +46,11 @@ Return no proposal when required data is stale or unavailable.
   "commission_drag_pct": 0,
   "allocation_mode": "diversified_capped",
   "allocation_rationale": "",
+  "eligibility_evidence": {
+    "security_type": "STK",
+    "matched_stock_indexes": [],
+    "instrument_profile_updated_at": ""
+  },
   "veto_reasons": []
 }
 ```

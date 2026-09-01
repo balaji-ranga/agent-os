@@ -89,32 +89,86 @@ const DEFAULT_STRATEGY = Object.freeze({
 });
 
 const DEFAULT_UNIVERSE = Object.freeze({
-  name: 'IBKRNew US Liquid Stocks', allowlist: [], denylist: [], maximum_active_subscriptions: 40,
-  filters: { country: ['US'], security_types: ['STK', 'ETF'], minimum_price_usd: 10, maximum_price_usd: 300, minimum_average_daily_volume: 2000000, maximum_spread_pct: 0.2, require_shortable_for_short: true },
+  schema_version: 2,
+  name: 'IBKRNew US Liquid Stocks and ETFs', allowlist: [], denylist: [], maximum_active_subscriptions: 40,
+  filters: {
+    country: ['US'], security_types: ['STK', 'ETF'], require_shortable_for_short: true,
+    stock: {
+      enabled: true,
+      indexes: [],
+      index_match: 'ANY',
+      index_membership_maximum_age_hours: 168,
+      minimum_price_usd: 10,
+      maximum_price_usd: 300,
+      minimum_average_daily_volume: 2000000,
+      maximum_spread_pct: 0.2,
+      fundamentals: {
+        enabled: true,
+        fail_closed: true,
+        maximum_age_hours: 36,
+        minimum_market_cap_usd: 2000000000,
+        minimum_revenue_ttm_usd: 500000000,
+        maximum_debt_to_equity: 3,
+        require_positive_operating_cash_flow: false,
+        allowed_sectors: [],
+        excluded_sectors: [],
+      },
+      corporate_events: {
+        enabled: true,
+        fail_closed: true,
+        maximum_age_hours: 36,
+        earnings_blackout_days_before: 2,
+        earnings_blackout_days_after: 1,
+      },
+    },
+    etf: {
+      enabled: true,
+      allowlist: [],
+      denylist: [],
+      categories: [],
+      minimum_price_usd: 10,
+      maximum_price_usd: 500,
+      minimum_average_daily_volume: 1000000,
+      maximum_spread_pct: 0.2,
+      minimum_assets_under_management_usd: 500000000,
+      profile_maximum_age_hours: 168,
+      fail_closed: true,
+    },
+  },
 });
 
 const DEFAULT_MARKET_DATA = Object.freeze({
   name: 'IBKRNew IBKR Executable Data', executable_source: 'IBKR', allow_delayed_for_execution: false,
   required_fields: ['bid', 'ask', 'last', 'quote_at'], bar_intervals: ['1m', '5m', '15m', '1d'], session: 'REGULAR',
+  instrument_profile_events: ['instrument.profile_refreshed', 'instrument.fundamentals_refreshed', 'instrument.membership_refreshed', 'instrument.corporate_events_refreshed'],
 });
 
 const DEFAULT_STRATEGY_SKILL = Object.freeze({
+  schema_version: 2,
   name: 'IBKRNew Trade Strategy Skill',
   agent_name: 'IBKRNewStrategyPlanner',
   reaction_name: 'IBKRNewStrategyEvaluation',
   skill_path: '.cursor/skills/ibkrnew-trade-strategy/SKILL.md',
   enabled: true,
   instructions: [
-    'Evaluate only canonical IBKRNew market events and the active strategy, universe, policy, and commission model.',
+    'Evaluate only canonical IBKRNew market events and the active strategy, universe, policy, commission model, and deterministic instrument-eligibility result.',
+    'Respect stock-only index membership, fresh company fundamentals and corporate-event blackouts; apply the independent ETF filter to ETFs and the underlying profile to options.',
     'Compare expected gross profit, round-trip commission, planned loss, net reward-to-risk, confidence, and remaining daily capacity.',
     'Prefer diversification unless concentration passes every configured concentration threshold.',
     'Never authorize or place an order; return a structured proposal to the deterministic IBKRNewRiskChecker.',
   ],
-  output_schema: ['expression', 'confidence', 'quantity_requested', 'expected_gross_profit_usd', 'estimated_round_trip_commission_usd', 'expected_net_profit_usd', 'planned_loss_usd', 'net_reward_risk', 'commission_drag_pct', 'allocation_mode', 'allocation_rationale', 'veto_reasons'],
+  output_schema: ['expression', 'confidence', 'quantity_requested', 'expected_gross_profit_usd', 'estimated_round_trip_commission_usd', 'expected_net_profit_usd', 'planned_loss_usd', 'net_reward_risk', 'commission_drag_pct', 'allocation_mode', 'allocation_rationale', 'eligibility_evidence', 'veto_reasons'],
 });
 
 function json(value) { return JSON.stringify(value ?? null); }
 function parse(value, fallback = null) { try { return JSON.parse(value); } catch { return fallback; } }
+function mergeConfig(base, value) {
+  if (Array.isArray(value)) return structuredClone(value);
+  if (!value || typeof value !== 'object') return value === undefined ? structuredClone(base) : value;
+  const out = base && typeof base === 'object' && !Array.isArray(base) ? structuredClone(base) : {};
+  for (const [key, child] of Object.entries(value)) out[key] = mergeConfig(out[key], child);
+  return out;
+}
 function id(prefix) { return `${prefix}_${crypto.randomUUID()}`; }
 function sha256(value) { return crypto.createHash('sha256').update(String(value)).digest('hex'); }
 function nowIso() { return new Date().toISOString(); }
@@ -190,6 +244,14 @@ export function ensureIbkrNewEventTraderSchema(db = getDb()) {
       captured_at TEXT NOT NULL, created_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_ibkrnew_snapshots_owner_time ON ibkrnew_position_snapshots(owner_user_id, captured_at DESC);
+    CREATE TABLE IF NOT EXISTS ibkrnew_instrument_profiles (
+      owner_user_id TEXT NOT NULL, bridge_id TEXT NOT NULL, symbol TEXT NOT NULL,
+      security_type TEXT NOT NULL, profile_json TEXT NOT NULL,
+      fundamentals_at TEXT, membership_at TEXT, corporate_events_at TEXT,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY(owner_user_id, symbol, security_type)
+    );
+    CREATE INDEX IF NOT EXISTS idx_ibkrnew_profiles_owner_time ON ibkrnew_instrument_profiles(owner_user_id, updated_at DESC);
     CREATE TABLE IF NOT EXISTS ibkrnew_component_health (
       owner_user_id TEXT NOT NULL, bridge_id TEXT NOT NULL, component_id TEXT NOT NULL,
       component_type TEXT NOT NULL, status TEXT NOT NULL, version TEXT, detail_json TEXT NOT NULL,
@@ -233,7 +295,7 @@ export function ensureIbkrNewEventTraderSchema(db = getDb()) {
 }
 
 const IBKRNEW_REACTIONS = [
-  ['IBKRNewMarketObserver', ['market.bar_closed', 'market.session_changed', 'instrument.shortability_changed']],
+  ['IBKRNewMarketObserver', ['market.bar_closed', 'market.session_changed', 'instrument.shortability_changed', 'instrument.profile_refreshed', 'instrument.fundamentals_refreshed', 'instrument.membership_refreshed', 'instrument.corporate_events_refreshed']],
   ['IBKRNewStrategyPlanner', ['market.bar_closed', 'market.regime_changed']],
   ['IBKRNewRiskChecker', ['signal.created', 'account.snapshot', 'position.changed']],
   ['IBKRNewExecutionOperator', ['trade.authorized', 'order.status_changed']],
@@ -266,7 +328,23 @@ export function validateConfig(kind, document) {
     if (!(Number(a.concentrated_trade_maximum_commission_drag_pct) >= 0 && Number(a.concentrated_trade_maximum_commission_drag_pct) <= 100)) throw Object.assign(new Error('concentrated trade commission drag must be between 0 and 100 percent'), { status: 400 });
   }
   if (kind === 'strategy' && !['automatic', 'approval_required', 'advisory'].includes(d.execution_mode)) throw Object.assign(new Error('strategy execution_mode is invalid'), { status: 400 });
-  if (kind === 'universe' && (!Array.isArray(d.allowlist) || !Array.isArray(d.denylist) || !(Number(d.maximum_active_subscriptions) > 0))) throw Object.assign(new Error('universe lists and subscription ceiling are required'), { status: 400 });
+  if (kind === 'universe') {
+    if (!Array.isArray(d.allowlist) || !Array.isArray(d.denylist) || !(Number(d.maximum_active_subscriptions) > 0)) throw Object.assign(new Error('universe lists and subscription ceiling are required'), { status: 400 });
+    const stock = d.filters?.stock; const etf = d.filters?.etf;
+    if (!stock || !etf) throw Object.assign(new Error('separate stock and ETF filters are required'), { status: 400 });
+    if (!Array.isArray(stock.indexes) || !['ANY', 'ALL'].includes(stock.index_match)) throw Object.assign(new Error('stock indexes must be a list with index_match ANY or ALL'), { status: 400 });
+    if (stock.indexes.some((value) => !String(value || '').trim() || String(value).length > 64)) throw Object.assign(new Error('stock index identifiers must be non-empty and at most 64 characters'), { status: 400 });
+    if (!Array.isArray(etf.allowlist) || !Array.isArray(etf.denylist) || !Array.isArray(etf.categories)) throw Object.assign(new Error('ETF allowlist, denylist, and categories must be lists'), { status: 400 });
+    const fundamentals = stock.fundamentals || {}; const events = stock.corporate_events || {};
+    for (const [key, value] of Object.entries({ index_membership_maximum_age_hours: stock.index_membership_maximum_age_hours, fundamentals_maximum_age_hours: fundamentals.maximum_age_hours, corporate_events_maximum_age_hours: events.maximum_age_hours, etf_profile_maximum_age_hours: etf.profile_maximum_age_hours })) {
+      if (!(Number(value) > 0)) throw Object.assign(new Error(`${key} must be positive`), { status: 400 });
+    }
+    for (const key of ['earnings_blackout_days_before', 'earnings_blackout_days_after']) if (!(Number(events[key]) >= 0)) throw Object.assign(new Error(`${key} must be zero or positive`), { status: 400 });
+    for (const [key, value] of Object.entries({ stock_minimum_price_usd: stock.minimum_price_usd, stock_maximum_price_usd: stock.maximum_price_usd, stock_minimum_average_daily_volume: stock.minimum_average_daily_volume, stock_maximum_spread_pct: stock.maximum_spread_pct, minimum_market_cap_usd: fundamentals.minimum_market_cap_usd, minimum_revenue_ttm_usd: fundamentals.minimum_revenue_ttm_usd, maximum_debt_to_equity: fundamentals.maximum_debt_to_equity, etf_minimum_price_usd: etf.minimum_price_usd, etf_maximum_price_usd: etf.maximum_price_usd, etf_minimum_average_daily_volume: etf.minimum_average_daily_volume, etf_maximum_spread_pct: etf.maximum_spread_pct, minimum_assets_under_management_usd: etf.minimum_assets_under_management_usd })) {
+      if (!(Number(value) >= 0)) throw Object.assign(new Error(`${key} must be zero or positive`), { status: 400 });
+    }
+    if (Number(stock.maximum_price_usd) < Number(stock.minimum_price_usd) || Number(etf.maximum_price_usd) < Number(etf.minimum_price_usd)) throw Object.assign(new Error('maximum universe price must not be below minimum price'), { status: 400 });
+  }
   if (kind === 'market_data' && (d.executable_source !== 'IBKR' || d.allow_delayed_for_execution !== false)) throw Object.assign(new Error('Executable and account truth must use non-delayed IBKR data'), { status: 400 });
   if (kind === 'strategy_skill' && (d.agent_name !== 'IBKRNewStrategyPlanner' || !Array.isArray(d.instructions) || !d.instructions.length)) throw Object.assign(new Error('IBKRNew strategy skill must target IBKRNewStrategyPlanner and include instructions'), { status: 400 });
   return d;
@@ -284,6 +362,22 @@ export function ensureIbkrNewDefaults(ownerUserId) {
   for (const kind of ['policy', 'strategy', 'strategy_skill', 'universe', 'market_data']) {
     let current = getPublishedConfig(ownerUserId, kind);
     if (!current) current = publishConfig(ownerUserId, kind, structuredClone(defaultsFor(kind)), { confirmRiskLoosening: true });
+    if (kind === 'universe' && Number(current.schema_version || 0) < Number(DEFAULT_UNIVERSE.schema_version)) {
+      const prior = structuredClone(current); delete prior.id; delete prior.version; delete prior.status;
+      const migrated = mergeConfig(DEFAULT_UNIVERSE, prior); const legacyFilters = prior.filters || {};
+      for (const key of ['minimum_price_usd', 'maximum_price_usd', 'minimum_average_daily_volume', 'maximum_spread_pct']) {
+        if (Object.hasOwn(legacyFilters, key)) { migrated.filters.stock[key] = legacyFilters[key]; migrated.filters.etf[key] = legacyFilters[key]; }
+      }
+      migrated.schema_version = DEFAULT_UNIVERSE.schema_version;
+      current = publishConfig(ownerUserId, kind, migrated, { confirmRiskLoosening: true });
+    }
+    if (kind === 'strategy_skill' && Number(current.schema_version || 0) < Number(DEFAULT_STRATEGY_SKILL.schema_version)) {
+      const prior = structuredClone(current); delete prior.id; delete prior.version; delete prior.status;
+      const migrated = mergeConfig(DEFAULT_STRATEGY_SKILL, prior); migrated.schema_version = DEFAULT_STRATEGY_SKILL.schema_version;
+      migrated.instructions = [...new Set([...(prior.instructions || []), ...DEFAULT_STRATEGY_SKILL.instructions])];
+      migrated.output_schema = [...new Set([...(prior.output_schema || []), ...DEFAULT_STRATEGY_SKILL.output_schema])];
+      current = publishConfig(ownerUserId, kind, migrated, { confirmRiskLoosening: true });
+    }
     out[kind] = current;
   }
   const addReaction = getDb().prepare(`INSERT OR IGNORE INTO ibkrnew_reaction_registry(reaction_id,owner_user_id,agent_name,subscriptions_json,created_at) VALUES(?,?,?,?,?)`);
@@ -438,6 +532,105 @@ function recordComponentError(db, bridge, payload, occurred, created) {
   db.prepare(`INSERT INTO ibkrnew_component_health(owner_user_id,bridge_id,component_id,component_type,status,detail_json,error_count,last_error,last_seen_at,updated_at) VALUES(?,?,?,?,?,'{}',1,?,?,?) ON CONFLICT(owner_user_id,bridge_id,component_id) DO UPDATE SET status='error',error_count=error_count+1,last_error=excluded.last_error,last_seen_at=excluded.last_seen_at,updated_at=excluded.updated_at`).run(bridge.owner_user_id, bridge.bridge_id, componentId, String(payload.component_type || 'desktop'), 'error', message, occurred, created);
 }
 
+function normalizedValues(values) {
+  return [...new Set((values || []).map((value) => String(value || '').trim().toUpperCase()).filter(Boolean))];
+}
+
+function isFresh(timestamp, maximumAgeHours) {
+  const at = Date.parse(timestamp || 0);
+  const age = Date.now() - at;
+  return Number.isFinite(at) && age >= -300000 && age <= Number(maximumAgeHours) * 60 * 60 * 1000;
+}
+
+function saveInstrumentProfile(db, bridge, eventType, payload, occurred, created) {
+  if (Buffer.byteLength(json(payload), 'utf8') > 262144) throw Object.assign(new Error('instrument profile exceeds 256 KiB'), { status: 413 });
+  const symbol = String(payload.symbol || payload.contract?.symbol || '').trim().toUpperCase();
+  const securityType = String(payload.security_type || payload.secType || 'STK').trim().toUpperCase();
+  if (!symbol || !['STK', 'ETF'].includes(securityType)) throw Object.assign(new Error('instrument profile requires a symbol and STK or ETF security_type'), { status: 400 });
+  const existing = db.prepare(`SELECT * FROM ibkrnew_instrument_profiles WHERE owner_user_id=? AND symbol=? AND security_type=?`).get(bridge.owner_user_id, symbol, securityType);
+  const prior = parse(existing?.profile_json, {}); let profile = { ...prior, symbol, security_type: securityType };
+  if (eventType === 'instrument.profile_refreshed') profile = { ...profile, ...payload, symbol, security_type: securityType };
+  if (eventType === 'instrument.fundamentals_refreshed') profile.fundamentals = { ...(prior.fundamentals || {}), ...(payload.fundamentals || payload.data || {}) };
+  if (eventType === 'instrument.membership_refreshed') profile.index_memberships = normalizedValues(payload.index_memberships || payload.indexes);
+  if (eventType === 'instrument.corporate_events_refreshed') profile.corporate_events = Array.isArray(payload.corporate_events) ? payload.corporate_events : [];
+  profile.index_memberships = normalizedValues(profile.index_memberships);
+  profile.etf_categories = normalizedValues(profile.etf_categories || profile.categories);
+  const fundamentalsAt = payload.fundamentals_at || (eventType === 'instrument.fundamentals_refreshed' || eventType === 'instrument.profile_refreshed' && profile.fundamentals ? occurred : existing?.fundamentals_at);
+  const membershipAt = payload.membership_at || (eventType === 'instrument.membership_refreshed' || eventType === 'instrument.profile_refreshed' && Array.isArray(profile.index_memberships) ? occurred : existing?.membership_at);
+  const corporateEventsAt = payload.corporate_events_at || (eventType === 'instrument.corporate_events_refreshed' || eventType === 'instrument.profile_refreshed' && Array.isArray(profile.corporate_events) ? occurred : existing?.corporate_events_at);
+  db.prepare(`INSERT INTO ibkrnew_instrument_profiles(owner_user_id,bridge_id,symbol,security_type,profile_json,fundamentals_at,membership_at,corporate_events_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(owner_user_id,symbol,security_type) DO UPDATE SET bridge_id=excluded.bridge_id,profile_json=excluded.profile_json,fundamentals_at=excluded.fundamentals_at,membership_at=excluded.membership_at,corporate_events_at=excluded.corporate_events_at,updated_at=excluded.updated_at`).run(bridge.owner_user_id, bridge.bridge_id, symbol, securityType, json(profile), fundamentalsAt || null, membershipAt || null, corporateEventsAt || null, created);
+}
+
+function instrumentEligibility(db, ownerUserId, universe, symbol, expression, payload) {
+  const optionExpression = /CALL|PUT/.test(expression);
+  const underlyingType = String(payload.underlying_security_type || payload.underlying_sec_type || (optionExpression ? 'STK' : payload.security_type || payload.contract?.security_type || 'STK')).toUpperCase();
+  if (!['STK', 'ETF'].includes(underlyingType)) return { eligible: false, reason: 'unsupported_underlying_security_type' };
+  if (!(universe.filters?.security_types || ['STK', 'ETF']).includes(underlyingType)) return { eligible: false, reason: 'security_type_filtered' };
+  const row = db.prepare(`SELECT * FROM ibkrnew_instrument_profiles WHERE owner_user_id=? AND symbol=? AND security_type=?`).get(ownerUserId, symbol, underlyingType);
+  const profile = row ? parse(row.profile_json, {}) : null;
+  const rules = underlyingType === 'ETF' ? universe.filters?.etf : universe.filters?.stock;
+  if (rules?.enabled !== true) return { eligible: false, reason: underlyingType === 'ETF' ? 'etf_filter_disabled' : 'stock_filter_disabled' };
+  const unitPrice = Number(optionExpression ? payload.underlying_price : payload.maximum_entry_price ?? payload.limit_price ?? payload.ask ?? payload.last ?? payload.close);
+  if (!Number.isFinite(unitPrice) || unitPrice < Number(rules.minimum_price_usd || 0) || unitPrice > Number(rules.maximum_price_usd || Infinity)) return { eligible: false, reason: 'universe_price_filter_failed' };
+  const averageVolume = Number((optionExpression ? payload.underlying_average_daily_volume : payload.average_daily_volume) ?? profile?.average_daily_volume);
+  if (!Number.isFinite(averageVolume) || averageVolume < Number(rules.minimum_average_daily_volume || 0)) return { eligible: false, reason: 'universe_average_volume_filter_failed' };
+  const spreadPct = Number((optionExpression ? payload.underlying_spread_pct : payload.spread_pct) ?? (!optionExpression && Number(payload.ask) > 0 && Number(payload.bid) >= 0 ? (Number(payload.ask) - Number(payload.bid)) / ((Number(payload.ask) + Number(payload.bid)) / 2) * 100 : NaN));
+  if (!Number.isFinite(spreadPct) || spreadPct > Number(rules.maximum_spread_pct || Infinity)) return { eligible: false, reason: 'universe_spread_filter_failed' };
+
+  if (underlyingType === 'ETF') {
+    const allow = normalizedValues(rules.allowlist); const deny = normalizedValues(rules.denylist); const categories = normalizedValues(rules.categories);
+    if (deny.includes(symbol)) return { eligible: false, reason: 'etf_symbol_denied' };
+    if (allow.length && !allow.includes(symbol)) return { eligible: false, reason: 'outside_etf_allowlist' };
+    if (!profile || !isFresh(row?.updated_at, rules.profile_maximum_age_hours)) {
+      if (rules.fail_closed !== false) return { eligible: false, reason: profile ? 'etf_profile_stale' : 'etf_profile_missing' };
+    } else {
+      const profileCategories = normalizedValues(profile.etf_categories || profile.categories);
+      if (categories.length && !categories.some((category) => profileCategories.includes(category))) return { eligible: false, reason: 'etf_category_filter_failed' };
+      const aum = Number(profile.assets_under_management_usd ?? profile.aum_usd);
+      if (!Number.isFinite(aum) || aum < Number(rules.minimum_assets_under_management_usd || 0)) return { eligible: false, reason: 'etf_assets_filter_failed' };
+    }
+    return { eligible: true, security_type: underlyingType, profile_updated_at: row?.updated_at || null };
+  }
+
+  const requestedIndexes = normalizedValues(rules.indexes);
+  if (requestedIndexes.length) {
+    if (!profile || !isFresh(row?.membership_at, rules.index_membership_maximum_age_hours)) return { eligible: false, reason: profile ? 'index_membership_stale' : 'index_membership_missing' };
+    const memberships = normalizedValues(profile.index_memberships);
+    const matches = requestedIndexes.filter((index) => memberships.includes(index));
+    if (rules.index_match === 'ALL' ? matches.length !== requestedIndexes.length : matches.length === 0) return { eligible: false, reason: 'outside_configured_stock_indexes' };
+  }
+
+  const fundamentalRules = rules.fundamentals || {};
+  if (fundamentalRules.enabled === true) {
+    const fundamentals = profile?.fundamentals;
+    if (!fundamentals || !isFresh(row?.fundamentals_at, fundamentalRules.maximum_age_hours)) {
+      if (fundamentalRules.fail_closed !== false) return { eligible: false, reason: fundamentals ? 'fundamentals_stale' : 'fundamentals_missing' };
+    } else {
+      const marketCap = Number(fundamentals.market_cap_usd); const revenue = Number(fundamentals.revenue_ttm_usd); const debtToEquity = Number(fundamentals.debt_to_equity);
+      if (!Number.isFinite(marketCap) || marketCap < Number(fundamentalRules.minimum_market_cap_usd || 0)) return { eligible: false, reason: 'fundamental_market_cap_failed' };
+      if (!Number.isFinite(revenue) || revenue < Number(fundamentalRules.minimum_revenue_ttm_usd || 0)) return { eligible: false, reason: 'fundamental_revenue_failed' };
+      if (!Number.isFinite(debtToEquity) || debtToEquity > Number(fundamentalRules.maximum_debt_to_equity || Infinity)) return { eligible: false, reason: 'fundamental_debt_failed' };
+      if (fundamentalRules.require_positive_operating_cash_flow === true && !(Number(fundamentals.operating_cash_flow_ttm_usd) > 0)) return { eligible: false, reason: 'fundamental_cash_flow_failed' };
+      const sector = String(fundamentals.sector || '').trim().toUpperCase(); const allowed = normalizedValues(fundamentalRules.allowed_sectors); const excluded = normalizedValues(fundamentalRules.excluded_sectors);
+      if (excluded.includes(sector)) return { eligible: false, reason: 'fundamental_sector_excluded' };
+      if (allowed.length && !allowed.includes(sector)) return { eligible: false, reason: 'fundamental_sector_not_allowed' };
+    }
+  }
+
+  const eventRules = rules.corporate_events || {};
+  if (eventRules.enabled === true) {
+    const events = profile?.corporate_events;
+    if (!Array.isArray(events) || !isFresh(row?.corporate_events_at, eventRules.maximum_age_hours)) {
+      if (eventRules.fail_closed !== false) return { eligible: false, reason: Array.isArray(events) ? 'corporate_events_stale' : 'corporate_events_missing' };
+    } else {
+      const beforeMs = Number(eventRules.earnings_blackout_days_before || 0) * 86400000; const afterMs = Number(eventRules.earnings_blackout_days_after || 0) * 86400000; const now = Date.now();
+      const earningsRisk = events.some((event) => String(event.type || event.event_type || '').toLowerCase() === 'earnings' && Number.isFinite(Date.parse(event.at || event.date)) && Date.parse(event.at || event.date) >= now - afterMs && Date.parse(event.at || event.date) <= now + beforeMs);
+      if (earningsRisk) return { eligible: false, reason: 'earnings_blackout_active' };
+    }
+  }
+  return { eligible: true, security_type: underlyingType, profile_updated_at: row?.updated_at || null };
+}
+
 function refreshTradeFinancials(db, ownerUserId, authorizationId, ts) {
   const trade = db.prepare(`SELECT * FROM ibkrnew_trade_records WHERE owner_user_id=? AND authorization_id=?`).get(ownerUserId, authorizationId);
   if (!trade) return;
@@ -482,11 +675,11 @@ function maybeAuthorize(bridge, eventId, payload) {
   if (!symbol) return { decision: 'blocked', reason: 'symbol_required' };
   if ((universe.denylist || []).map((x) => String(x).toUpperCase()).includes(symbol)) return { decision: 'blocked', reason: 'symbol_denied' };
   if ((universe.allowlist || []).length && !(universe.allowlist || []).map((x) => String(x).toUpperCase()).includes(symbol)) return { decision: 'blocked', reason: 'outside_active_universe' };
+  const eligibility = instrumentEligibility(db, bridge.owner_user_id, universe, symbol, expression, payload);
+  if (!eligibility.eligible) return { decision: 'blocked', reason: eligibility.reason };
   const quoteAt = Date.parse(payload.quote_at || payload.occurred_at || 0);
   if (!Number.isFinite(quoteAt) || Date.now() - quoteAt > Number(policy.freshness?.quote_max_age_ms || 5000)) return { decision: 'blocked', reason: 'stale_quote' };
   if (!Number.isInteger(Number(payload.quantity)) || Number(payload.quantity) <= 0) return { decision: 'blocked', reason: 'whole_positive_quantity_required' };
-  const unitPrice = Number(payload.maximum_entry_price ?? payload.limit_price ?? payload.ask ?? payload.last ?? payload.close);
-  if (expression.includes('STOCK') && (unitPrice < Number(universe.filters?.minimum_price_usd || 0) || unitPrice > Number(universe.filters?.maximum_price_usd || Infinity))) return { decision: 'blocked', reason: 'universe_price_filter_failed' };
   if (/CALL|PUT/.test(expression)) {
     const o = policy.option_rules || {}; const dte = Number(payload.dte); const spread = Number(payload.ask) - Number(payload.bid); const midpoint = (Number(payload.ask) + Number(payload.bid)) / 2;
     if (!Number.isFinite(dte) || dte < Number(o.minimum_dte) || dte > Number(o.maximum_dte)) return { decision: 'blocked', reason: 'option_dte_failed' };
@@ -526,10 +719,10 @@ function maybeAuthorize(bridge, eventId, payload) {
     const quantity = Number(effectivePayload.quantity); const authorization = {
       authorization_id: authId, owner_user_id: bridge.owner_user_id, account_id: bridge.account_id, bridge_id: bridge.bridge_id, environment: 'paper',
       strategy: { id: strategy.id, version: strategy.version }, strategy_skill: { id: strategySkill.id, version: strategySkill.version, agent_name: strategySkill.agent_name }, policy: { id: policy.id, version: policy.version }, universe: { id: configs.universe.id, version: configs.universe.version },
-      signal_event_id: eventId, action: 'OPEN', expression, contract: effectivePayload.contract || { symbol: effectivePayload.symbol, security_type: expression.includes('STOCK') ? 'STK' : 'OPT', exchange: 'SMART', currency: 'USD' },
+      signal_event_id: eventId, action: 'OPEN', expression, contract: effectivePayload.contract || { symbol: effectivePayload.symbol, security_type: expression.includes('STOCK') ? eligibility.security_type : 'OPT', exchange: 'SMART', currency: 'USD' },
       side: expression === 'SHORT_STOCK' ? 'SELL' : 'BUY', quantity, entry: { order_type: 'LIMIT', limit_price: Number(effectivePayload.limit_price ?? effectivePayload.ask ?? effectivePayload.last) },
       protection: effectivePayload.protection, budget: { daily_opening_reserved_usd: amount, total_exposure_reserved_usd: grossReservation, planned_loss_usd: Number(effectivePayload.planned_loss_usd || 0), estimated_round_trip_commission_usd: economics.estimated_round_trip_commission_usd, reservation_id: reservationId },
-      economics, observed: { bid: effectivePayload.bid, ask: effectivePayload.ask, last: effectivePayload.last ?? effectivePayload.close, quote_at: effectivePayload.quote_at }, issued_at: created, expires_at: expires,
+      economics, eligibility, observed: { bid: effectivePayload.bid, ask: effectivePayload.ask, last: effectivePayload.last ?? effectivePayload.close, quote_at: effectivePayload.quote_at }, issued_at: created, expires_at: expires,
       idempotency_key: `IBKRNew:${eventId}`, nonce: crypto.randomBytes(16).toString('hex'),
     };
     if (!authorization.protection?.stop_price) throw Object.assign(new Error('protective_stop_required'), { code: 'RISK_BLOCK' });
@@ -566,6 +759,7 @@ export function ingestBridgeEvent(bridge, input) {
     for (const component of payload.components || []) updateComponentHealth(db, bridge, String(component.component_id || component.name), String(component.component_type || 'desktop'), String(component.status || 'unknown'), component, created);
   }
   if (/error|failed|disconnected/.test(eventType) || payload.level === 'error') recordComponentError(db, bridge, payload, occurred, created);
+  if (['instrument.profile_refreshed', 'instrument.fundamentals_refreshed', 'instrument.membership_refreshed', 'instrument.corporate_events_refreshed'].includes(eventType)) saveInstrumentProfile(db, bridge, eventType, payload, occurred, created);
   if (eventType === 'account.snapshot') {
     db.prepare(`INSERT INTO ibkrnew_account_state(owner_user_id,account_id,bridge_id,eligible_capital_usd,cash_usd,realized_pnl_day_usd,unrealized_pnl_usd,positions_json,open_orders_json,captured_at) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(owner_user_id,account_id) DO UPDATE SET bridge_id=excluded.bridge_id,eligible_capital_usd=excluded.eligible_capital_usd,cash_usd=excluded.cash_usd,realized_pnl_day_usd=excluded.realized_pnl_day_usd,unrealized_pnl_usd=excluded.unrealized_pnl_usd,positions_json=excluded.positions_json,open_orders_json=excluded.open_orders_json,captured_at=excluded.captured_at`).run(bridge.owner_user_id, bridge.account_id, bridge.bridge_id, Number(payload.eligible_capital_usd || payload.net_liquidation_usd || 0), Number(payload.cash_usd || 0), Number(payload.realized_pnl_day_usd || 0), Number(payload.unrealized_pnl_usd || 0), json(payload.positions || []), json(payload.open_orders || []), occurred);
     db.prepare(`INSERT INTO ibkrnew_position_snapshots(snapshot_id,owner_user_id,account_id,bridge_id,snapshot_type,payload_json,captured_at,created_at) VALUES(?,?,?,?,?,?,?,?)`).run(id('IBKRNewSnapshot'), bridge.owner_user_id, bridge.account_id, bridge.bridge_id, 'account', json(payload), occurred, created);
@@ -679,6 +873,7 @@ export function getIbkrNewLiveOperations(ownerUserId, { limit = 200 } = {}) {
   const errors = db.prepare(`SELECT * FROM ibkrnew_component_errors WHERE owner_user_id=? ORDER BY occurred_at DESC LIMIT ?`).all(ownerUserId, n).map((row) => ({ ...row, detail: parse(row.detail_json, {}) }));
   const snapshots = db.prepare(`SELECT * FROM ibkrnew_position_snapshots WHERE owner_user_id=? ORDER BY captured_at DESC LIMIT ?`).all(ownerUserId, n).map((row) => ({ ...row, payload: parse(row.payload_json, {}) }));
   const executions = db.prepare(`SELECT * FROM ibkrnew_executions WHERE owner_user_id=? ORDER BY occurred_at DESC LIMIT ?`).all(ownerUserId, n);
+  const instrumentProfiles = db.prepare(`SELECT symbol,security_type,fundamentals_at,membership_at,corporate_events_at,updated_at,profile_json FROM ibkrnew_instrument_profiles WHERE owner_user_id=? ORDER BY updated_at DESC LIMIT ?`).all(ownerUserId, n).map((row) => ({ ...row, profile: parse(row.profile_json, {}) }));
   const profile = db.prepare(`SELECT data_retention_days FROM platform_users WHERE id=?`).get(ownerUserId);
-  return { generated_at: nowIso(), retention_days: Number(profile?.data_retention_days || 90), health, errors, snapshots, executions, dashboard, summary: getIbkrNewSummary(ownerUserId) };
+  return { generated_at: nowIso(), retention_days: Number(profile?.data_retention_days || 90), health, errors, snapshots, executions, instrument_profiles: instrumentProfiles, dashboard, summary: getIbkrNewSummary(ownerUserId) };
 }

@@ -1343,4 +1343,14 @@ Live Operations polls Flolah; the browser never connects to IBKR. Desktop runtim
 
 **Flolah decides and authorizes; the desktop listens and executes; IBKR hosts protective orders; durable events connect every transition.**
 
+### 27.1 Instrument eligibility addendum
+
+Slow-moving eligibility data is separated from executable market prices. The desktop bridge publishes owner-scoped, durable instrument-profile refresh events; Flolah caches the latest stock or ETF profile and evaluates it before every opening authorization. Missing or stale required data fails closed by default.
+
+Stock filters support a configurable list of arbitrary index identifiers with `ANY` or `ALL` membership semantics. Index membership applies only to stocks. Company-fundamental filters include freshness, market capitalization, trailing revenue, debt/equity, optional positive operating cash flow, and allowed/excluded sectors. A separately refreshed corporate-event calendar enforces configurable earnings blackout days before and after the event.
+
+ETF filters are independent and include enablement, allowlist, denylist, category, profile freshness, price, average volume, spread, and minimum assets under management. ETFs do not inherit company-fundamental or stock-index rules. Options are evaluated against the security type and eligibility profile of their underlying instrument, while the option contract continues through the existing DTE, volume, open-interest, spread, delta, premium, and commission checks.
+
+The local bridge accepts instrument profiles through a generic provider boundary (`IBKRNEW_INSTRUMENT_PROFILES_FILE` in the reference adapter). That provider may be backed by entitled IBKR fundamental/event data or another approved licensed source. The profile provider never supplies executable prices, account truth, fills, commissions, or order state; those remain IBKR Gateway-only.
+
 The first release is a new, owner-scoped, paper-only Event Trader and does not alter or depend on the behavior of the existing IBKR workflows.

@@ -61,6 +61,7 @@ export async function purgeOwnerRetention(ownerUserId, { days = null } = {}) {
     ibkrnew_authorizations: 0,
     ibkrnew_reservations: 0,
     ibkrnew_snapshots: 0,
+    ibkrnew_instrument_profiles: 0,
     ibkrnew_component_errors: 0,
     ibkrnew_component_health: 0,
     ibkrnew_executions: 0,
@@ -95,6 +96,7 @@ export async function purgeOwnerRetention(ownerUserId, { days = null } = {}) {
     deleted.ibkrnew_authorizations = db.prepare(`DELETE FROM ibkrnew_authorizations WHERE owner_user_id=? AND status IN ('expired','rejected','cancelled','filled') AND datetime(created_at)<datetime('now',?)`).run(owner, cutoff).changes || 0;
     deleted.ibkrnew_reservations = db.prepare(`DELETE FROM ibkrnew_budget_reservations WHERE owner_user_id=? AND status IN ('released','filled') AND datetime(created_at)<datetime('now',?)`).run(owner, cutoff).changes || 0;
     deleted.ibkrnew_snapshots = db.prepare(`DELETE FROM ibkrnew_position_snapshots WHERE owner_user_id=? AND datetime(captured_at)<datetime('now',?)`).run(owner, cutoff).changes || 0;
+    deleted.ibkrnew_instrument_profiles = db.prepare(`DELETE FROM ibkrnew_instrument_profiles WHERE owner_user_id=? AND datetime(updated_at)<datetime('now',?)`).run(owner, cutoff).changes || 0;
     deleted.ibkrnew_component_errors = db.prepare(`DELETE FROM ibkrnew_component_errors WHERE owner_user_id=? AND datetime(occurred_at)<datetime('now',?)`).run(owner, cutoff).changes || 0;
     deleted.ibkrnew_component_health = db.prepare(`DELETE FROM ibkrnew_component_health WHERE owner_user_id=? AND datetime(updated_at)<datetime('now',?)`).run(owner, cutoff).changes || 0;
     deleted.ibkrnew_executions = db.prepare(`DELETE FROM ibkrnew_executions WHERE owner_user_id=? AND datetime(occurred_at)<datetime('now',?)`).run(owner, cutoff).changes || 0;
