@@ -381,12 +381,16 @@ console.log('Set agent-os-content-tools baseUrl:', INTERNAL_API);
 // so restart does not wipe openai/gpt-4o back to OPENCLAW_MODEL_PRIMARY=deepseek.
 let platformActive = 'primary';
 let markerPrimarySlug = '';
+let markerFallbacks = [];
 try {
   const markerPath = join(OPENCLAW_DIR, 'platform-llm-active.json');
   if (existsSync(markerPath)) {
     const marker = JSON.parse(readFileSync(markerPath, 'utf8'));
     if (String(marker?.active || '').toLowerCase() === 'secondary') platformActive = 'secondary';
     markerPrimarySlug = String(marker?.primary || '').trim();
+    markerFallbacks = Array.isArray(marker?.fallbacks)
+      ? marker.fallbacks.map((item) => String(item || '').trim()).filter(Boolean)
+      : [];
   }
 } catch {
   /* ignore */
@@ -598,10 +602,13 @@ if (primaryIsOllama) {
     process.env.OPENCLAW_ENABLE_OLLAMA_FALLBACK === '1' ||
     process.env.OPENCLAW_ENABLE_OLLAMA_FALLBACK === 'true';
   const primary = String(config.agents.defaults.model.primary || primarySlug || '').trim();
-  let fallbacks = String(process.env.OPENCLAW_MODEL_FALLBACKS || '')
+  let fallbacks = [
+    ...markerFallbacks,
+    ...String(process.env.OPENCLAW_MODEL_FALLBACKS || '')
     .split(',')
     .map((s) => s.trim())
-    .filter((s) => s && s !== primary);
+    .filter(Boolean),
+  ].filter((s, index, all) => s && s !== primary && all.indexOf(s) === index);
   if (!enableOllamaFallback) {
     fallbacks = fallbacks.filter((s) => !String(s).toLowerCase().startsWith('ollama/'));
   } else if (!fallbacks.some((s) => String(s).toLowerCase().startsWith('ollama/'))) {
