@@ -178,14 +178,18 @@ console.log('connector deleted', deleted, 'of', conn.length);
   const { fileURLToPath } = await import('node:url');
   const path = await import('node:path');
   const scriptsDir = path.dirname(fileURLToPath(import.meta.url));
+  const childTimeoutMs = Math.max(180000, Number(process.env.GOAL_PLAN_ACCEPTANCE_CHILD_TIMEOUT_MS || 420000));
   const r = spawnSync(process.execPath, [path.join(scriptsDir, 'test-goal-plan-adhoc-e2e.mjs')], {
     cwd: path.join(scriptsDir, '..'),
     env: process.env,
     encoding: 'utf8',
-    timeout: 180000,
+    timeout: childTimeoutMs,
   });
   if (r.stdout) process.stdout.write(r.stdout);
   if (r.stderr) process.stderr.write(r.stderr);
+  if (r.error) {
+    throw new Error(`test-goal-plan-adhoc-e2e failed: ${r.error.code || r.error.message}; timeout_ms=${childTimeoutMs}`);
+  }
   if (r.status !== 0) throw new Error('test-goal-plan-adhoc-e2e failed status=' + r.status);
   console.log('PASS adhoc goal plan e2e (CRM+ERP+Help+notify)');
 }
