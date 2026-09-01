@@ -16,15 +16,19 @@ try {
     `INSERT INTO platform_users(id,email,password_hash,name,role,enabled)
      VALUES(?,?,?,?,?,1)`
   ).run(owner, 'sla-policy@example.test', 'x', 'SLA Policy CEO', 'ceo');
+  database.prepare(`INSERT INTO agents(id,name,role,is_coo,openclaw_agent_id) VALUES(?,?,?,?,?)`)
+    .run('coo-sla-policy-test', 'SLA Test COO', 'Chief Operating Officer', 1, 'coo-sla-policy-test');
+  database.prepare(`INSERT INTO user_agents(user_id,agent_id,enabled) VALUES(?,?,1)`)
+    .run(owner, 'coo-sla-policy-test');
 
   const policyService = await import('../src/services/work-assignment-policy.js');
   policyService.saveWorkAssignmentPolicy(owner, {
     mode: 'prefer_agent', urgent_eta_hours: 2, standard_eta_hours: 8, complex_eta_hours: 24,
-    sla_notify_in_app: false, sla_notify_email: false, sla_notify_whatsapp: false,
+    sla_notify_in_app: true, sla_notify_email: false, sla_notify_whatsapp: false,
     sla_include_status_checker: true,
   });
   const saved = policyService.getWorkAssignmentPolicy(owner);
-  assert.equal(saved.sla_notify_in_app, false);
+  assert.equal(saved.sla_notify_in_app, true);
   assert.equal(saved.sla_notify_email, false);
   assert.equal(saved.sla_notify_whatsapp, false);
   assert.equal(saved.sla_include_status_checker, true);
@@ -46,9 +50,28 @@ try {
   ).get(owner, taskId);
   assert.ok(event, 'breach event must be retained independently from the Kanban card');
   const delivery = JSON.parse(event.delivery_json);
-  assert.equal(delivery.in_app, 'disabled');
+  assert.equal(delivery.in_app, 'sent');
   assert.equal(delivery.email, 'disabled');
   assert.equal(delivery.whatsapp, 'disabled');
+  assert.equal(database.prepare(`SELECT COUNT(*) n FROM platform_user_notifications
+    WHERE source='kanban_sla_escalation' AND source_key=?`).get(String(taskId)).n, 1);
+  assert.equal(database.prepare(`SELECT COUNT(*) n FROM chat_turns
+    WHERE work_unit_id=?`).get(`kanban-sla:breach:${taskId}`).n, 1);
+
+  database.prepare("UPDATE kanban_tasks SET status='completed' WHERE id=?").run(taskId);
+  assert.equal(database.prepare(`SELECT COUNT(*) n FROM platform_user_notifications
+    WHERE source='kanban_sla_escalation' AND source_key=?`).get(String(taskId)).n, 0, 'terminal task clears live SLA notification');
+  assert.equal(database.prepare(`SELECT COUNT(*) n FROM chat_turns
+    WHERE work_unit_id=?`).get(`kanban-sla:breach:${taskId}`).n, 0, 'terminal task clears COO SLA chat alert');
+
+  for (const terminalStatus of ['completed', 'failed', 'cancelled']) {
+    database.prepare(`INSERT INTO kanban_tasks
+      (title,description,status,created_by,owner_user_id,assigned_user_id,eta_hours,due_at,created_at)
+      VALUES(?,?,?,?,?,?,2,datetime('now','-1 hour'),datetime('now','-3 hours'))`)
+      .run(`Terminal ${terminalStatus}`, 'Must never escalate', terminalStatus, 'test', owner, owner);
+  }
+  const terminalMonitor = await sla.runKanbanSlaMonitor();
+  assert.equal(terminalMonitor.escalated, 0, 'completed, failed and cancelled cards cannot be escalated');
 
   const task = database.prepare('SELECT * FROM kanban_tasks WHERE id=?').get(taskId);
   sla.preserveSlaHistoryForDeletedTask(task);
@@ -56,6 +79,14 @@ try {
   const retained = sla.listRecentSlaBreaches(owner, 30);
   assert.equal(retained.length, 1);
   assert.equal(retained[0].deleted, true);
+
+  database.prepare(`INSERT INTO chat_turns(agent_id,owner_user_id,role,content)
+    VALUES(?,?,?,?)`).run('coo-sla-policy-test', owner, 'assistant', '[Task SLA escalation]\nTask #999999 “Deleted task” missed its ETA.');
+  database.prepare(`INSERT INTO platform_user_notifications(user_id,title,body,created_by,source,source_key)
+    VALUES(?,?,?,?,?,?)`).run(owner, 'Stale SLA', 'Deleted task', 'system', 'kanban_sla_escalation', '999999');
+  const reconciled = sla.reconcileKanbanSlaArtifacts(owner);
+  assert.equal(reconciled.chat_turns_removed, 1, 'legacy COO SLA alert for missing task is reconciled');
+  assert.equal(reconciled.notifications_removed, 1, 'legacy platform SLA alert for missing task is reconciled');
 
   const status = await import('../src/services/coo-status-checker.js');
   const digest = status.buildStatusDigest(owner, { reconcile: false });

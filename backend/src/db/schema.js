@@ -3011,6 +3011,37 @@ function ensureOrgPeopleSchema(_db) {
           due_at=datetime(COALESCE(NEW.created_at,datetime('now')), '+' || COALESCE((SELECT standard_eta_hours FROM work_assignment_policies WHERE owner_user_id=NEW.owner_user_id),8) || ' hours')
         WHERE id=NEW.id;
       END`);
+    _db.exec(`DROP TRIGGER IF EXISTS trg_kanban_sla_terminal_cleanup`);
+    _db.exec(`CREATE TRIGGER trg_kanban_sla_terminal_cleanup AFTER UPDATE OF status ON kanban_tasks
+      WHEN NEW.status IN ('completed','failed','cancelled')
+      BEGIN
+        DELETE FROM platform_user_notifications
+          WHERE source IN ('kanban_sla_nudge','kanban_sla_escalation')
+            AND source_key=CAST(NEW.id AS TEXT);
+        DELETE FROM chat_turns
+          WHERE owner_user_id=NEW.owner_user_id
+            AND (
+              work_unit_id IN ('kanban-sla:nudge:' || NEW.id, 'kanban-sla:breach:' || NEW.id)
+              OR content LIKE '[Task SLA nudge]' || char(10) || 'Task #' || NEW.id || ' %'
+              OR content LIKE '[Task SLA escalation]' || char(10) || 'Task #' || NEW.id || ' %'
+            );
+      END`);
+    _db.exec(`DROP TRIGGER IF EXISTS trg_kanban_sla_delete_cleanup`);
+    _db.exec(`CREATE TRIGGER trg_kanban_sla_delete_cleanup AFTER DELETE ON kanban_tasks
+      BEGIN
+        UPDATE kanban_sla_events SET task_deleted_at=COALESCE(task_deleted_at,datetime('now'))
+          WHERE owner_user_id=OLD.owner_user_id AND task_id=OLD.id;
+        DELETE FROM platform_user_notifications
+          WHERE source IN ('kanban_sla_nudge','kanban_sla_escalation')
+            AND source_key=CAST(OLD.id AS TEXT);
+        DELETE FROM chat_turns
+          WHERE owner_user_id=OLD.owner_user_id
+            AND (
+              work_unit_id IN ('kanban-sla:nudge:' || OLD.id, 'kanban-sla:breach:' || OLD.id)
+              OR content LIKE '[Task SLA nudge]' || char(10) || 'Task #' || OLD.id || ' %'
+              OR content LIKE '[Task SLA escalation]' || char(10) || 'Task #' || OLD.id || ' %'
+            );
+      END`);
   } catch (e) {
     console.warn('[schema] work assignment ETA policy:', e.message);
   }

@@ -473,6 +473,7 @@ router.patch('/tasks/:id', (req, res) => {
     let updated = db().prepare('SELECT k.*, a.name AS assigned_agent_name FROM kanban_tasks k LEFT JOIN agents a ON a.id = k.assigned_agent_id WHERE k.id = ?').get(req.params.id);
     if (status === 'completed' || status === 'failed') {
       clearKanbanTaskNotification(updated.id, req.authUser?.id);
+      clearKanbanSlaNotifications(updated.id);
     }
     // Drag/move back to open: start a fresh specialty run (watcher used to ignore open+completed).
     const movedToOpen =

@@ -68,6 +68,32 @@ const unavailableExecutor = structuredClone(valid);
 unavailableExecutor[1].spec.agent_id = 'hallucinated-agent';
 assert.equal(validateTypedGoalPlan(unavailableExecutor, catalog).ok, false);
 
+const missingWorkflowId = structuredClone(valid);
+missingWorkflowId[0].type = 'workflow_trigger';
+missingWorkflowId[0].spec = {};
+assert.equal(validateTypedGoalPlan(missingWorkflowId, catalog).ok, false);
+
+const disconnectedInput = structuredClone(valid);
+disconnectedInput[3].depends_on = [];
+const disconnected = validateTypedGoalPlan(disconnectedInput, catalog);
+assert.equal(disconnected.ok, false);
+assert(disconnected.errors.some((x) => /not in its dependency graph/i.test(x)));
+
+const vagueSpecialty = structuredClone(valid);
+vagueSpecialty[1].spec.message = '';
+assert(validateTypedGoalPlan(vagueSpecialty, catalog).errors.some((x) => /no bounded work instruction/i.test(x)));
+
+const orphaned = structuredClone(valid);
+orphaned.splice(1, 0, {
+  key: 'unused_lookup', type: 'agent_tool', label: 'Unused lookup', depends_on: [], required_inputs: [],
+  produces: [{ key: 'unused_data', kind: 'data', required: true }], spec: { tool_name: 'erp_invoice_read' },
+});
+assert(validateTypedGoalPlan(orphaned, catalog).errors.some((x) => /orphaned from the terminal outcome/i.test(x)));
+
+const duplicateOutput = structuredClone(valid);
+duplicateOutput[0].produces.push({ ...duplicateOutput[0].produces[0] });
+assert(validateTypedGoalPlan(duplicateOutput, catalog).errors.some((x) => /duplicate output/i.test(x)));
+
 const futureDependency = structuredClone(valid);
 futureDependency[0].depends_on = ['draft_po'];
 assert.equal(validateTypedGoalPlan(futureDependency, catalog).ok, false);

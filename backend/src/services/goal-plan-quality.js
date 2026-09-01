@@ -143,6 +143,17 @@ export function validateTypedGoalPlan(steps, catalog) {
   const agents = new Set((catalog.agents || []).map((x) => String(x.id).toLowerCase()));
   const humans = new Set((catalog.humans || []).map((x) => String(x.id)));
   let notifyAt = -1;
+  let notifyCount = 0;
+  const dependencies = new Map();
+
+  const ancestorsOf = (stepKey, found = new Set()) => {
+    for (const dependency of dependencies.get(stepKey) || []) {
+      if (found.has(dependency)) continue;
+      found.add(dependency);
+      ancestorsOf(dependency, found);
+    }
+    return found;
+  };
 
   steps.forEach((step, index) => {
     if (!STEP_TYPES.has(step.type)) errors.push(`Step ${index + 1} has unsupported type ${step.type || '(empty)'}`);
@@ -150,23 +161,52 @@ export function validateTypedGoalPlan(steps, catalog) {
     for (const dep of step.depends_on || []) {
       if (!keys.has(dep)) errors.push(`Step ${step.key || index + 1} depends on non-prior step ${dep}`);
     }
+    dependencies.set(step.key, [...(step.depends_on || [])]);
+    const ancestors = ancestorsOf(step.key);
     for (const req of step.required_inputs || []) {
       if (req.source_step_key && !keys.has(req.source_step_key)) errors.push(`Step ${step.key} input ${req.key} has invalid source ${req.source_step_key}`);
+      if (req.source_step_key && keys.has(req.source_step_key) && !ancestors.has(req.source_step_key)) {
+        errors.push(`Step ${step.key} input ${req.key} comes from ${req.source_step_key}, but that source is not in its dependency graph`);
+      }
       const source = req.source_step_key ? produced.get(req.source_step_key) : null;
       if (req.required && req.source_step_key && !source?.has(`${req.kind}:${req.key}`)) {
         errors.push(`Step ${step.key} requires ${req.kind}:${req.key}, but ${req.source_step_key} does not declare it`);
       }
     }
     if (step.type === 'agent_tool' && !tools.has(String(step.spec?.tool_name || ''))) errors.push(`Step ${step.key} uses an unavailable tool`);
-    if (step.type === 'workflow_trigger' && step.spec?.workflow_id && !workflows.has(String(step.spec.workflow_id))) errors.push(`Step ${step.key} uses an unavailable workflow`);
+    if (step.type === 'workflow_trigger' && !workflows.has(String(step.spec?.workflow_id || ''))) errors.push(`Step ${step.key} uses an unavailable workflow`);
     if (step.type === 'specialty_task' && !agents.has(String(step.spec?.agent_id || '').toLowerCase())) errors.push(`Step ${step.key} uses an unavailable agent`);
+    if (step.type === 'specialty_task' && !String(step.spec?.message || '').trim()) errors.push(`Specialty step ${step.key} has no bounded work instruction`);
     if (step.type === 'human_task' && !humans.has(String(step.spec?.user_id || ''))) errors.push(`Step ${step.key} uses an unavailable human`);
     if (step.type === 'human_task' && !String(step.spec?.message || '').trim()) errors.push(`Human step ${step.key} has no specific work or decision`);
-    if (step.type === 'notify_ceo') notifyAt = index;
+    if (step.type === 'notify_ceo') { notifyAt = index; notifyCount += 1; }
+    const outputKeys = new Set();
+    for (const output of step.produces || []) {
+      const identity = `${output.kind}:${output.key}`;
+      if (outputKeys.has(identity)) errors.push(`Step ${step.key} declares duplicate output ${identity}`);
+      outputKeys.add(identity);
+    }
     keys.add(step.key);
     produced.set(step.key, new Set((step.produces || []).map((x) => `${x.kind}:${x.key}`)));
   });
   if (notifyAt >= 0 && notifyAt !== steps.length - 1) errors.push('notify_ceo must be the terminal step');
+  if (notifyCount > 1) errors.push('Plan must not contain multiple notify_ceo steps');
+  if (notifyAt === steps.length - 1) {
+    const terminal = steps[notifyAt];
+    if (!(terminal.depends_on || []).length && !(terminal.required_inputs || []).length) {
+      errors.push('notify_ceo must be bound to completed plan outcomes');
+    }
+  }
+  if (steps.length > 1) {
+    const terminal = steps.at(-1);
+    const terminalLineage = ancestorsOf(terminal.key);
+    for (const input of terminal.required_inputs || []) {
+      if (input.source_step_key) terminalLineage.add(input.source_step_key);
+    }
+    for (const step of steps.slice(0, -1)) {
+      if (!terminalLineage.has(step.key)) errors.push(`Step ${step.key} is orphaned from the terminal outcome`);
+    }
+  }
   return { ok: errors.length === 0, errors };
 }
 
@@ -293,7 +333,7 @@ function checkerPreference(ownerUserId, makerResult) {
   return cfg.secondary?.baseUrl && cfg.secondary?.model ? 'secondary' : 'ollama';
 }
 
-export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, prompt, candidateSteps }) {
+export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, prompt, candidateSteps, checkerEndpointPreference = null }) {
   const catalog = await buildCatalog(ownerUserId, orchestratorAgentId);
   let maker;
   let made = [];
@@ -329,7 +369,10 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
     }
   }
 
-  const preference = checkerPreference(ownerUserId, maker);
+  const requestedChecker = ['ollama', 'secondary', 'platform_primary'].includes(String(checkerEndpointPreference || ''))
+    ? String(checkerEndpointPreference)
+    : null;
+  const preference = requestedChecker || checkerPreference(ownerUserId, maker);
   const checkerRequestFor = (plan, endpointPreference) => ({
     ownerUserId,
     toolName: 'goal_plan_checker',
@@ -378,7 +421,11 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
   let verdict = parseJsonObject(check.content) || {};
   if (typeof verdict.approved !== 'boolean' && preference === 'secondary' && checkerEndpoint !== 'ollama') {
     checkerEndpoint = 'ollama';
-    check = await chatCompletions(checkerRequestFor(made, 'ollama'));
+    try {
+      check = await chatCompletions(checkerRequestFor(made, 'ollama'));
+    } catch (fallbackError) {
+      check = acceptDeterministicContract(fallbackError, 'ollama');
+    }
     verdict = parseJsonObject(check.content) || {};
   }
 
@@ -494,7 +541,7 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
       checker_model: check.modelUsed,
       checker_endpoint: checkerEndpoint,
       checker_degraded: checkerDegraded,
-      checker_approved_maker: verdict.approved === true,
+      checker_approved_maker: !checkerDegraded && verdict.approved === true,
       issues: Array.isArray(verdict.issues) ? verdict.issues.slice(0, 20) : [],
     },
   };
