@@ -23,6 +23,10 @@ assert(
   'DeepSeek host accepts deepseek-v4-flash'
 );
 assert(
+  !modelFitsChatEndpoint('https://api.deepseek.com/v1', 'gpt-4o-mini'),
+  'DeepSeek host rejects an OpenAI model id'
+);
+assert(
   !modelFitsChatEndpoint('https://api.openai.com/v1', 'deepseek-v4-flash'),
   'OpenAI host rejects deepseek-v4-flash'
 );
@@ -49,6 +53,24 @@ const platform = {
 const mixed = buildChatCompletionEndpoints(platform, 'deepseek-v4-flash');
 assert(mixed[0].model === 'deepseek-v4-flash', `primary keeps DeepSeek model (${mixed[0]?.model})`);
 assert(mixed[1].model === 'gpt-4o-mini', `secondary keeps OpenAI model, not deepseek-v4-flash (${mixed[1]?.model})`);
+
+const openAiPrimary = {
+  provider: 'platform_decided',
+  using_byok: false,
+  primary: {
+    baseUrl: 'https://api.openai.com/v1',
+    apiKey: 'sk-oa',
+    model: 'gpt-4o-mini',
+  },
+  secondary: {
+    baseUrl: 'https://api.deepseek.com/v1',
+    apiKey: 'sk-ds',
+    model: 'deepseek-v4-flash',
+  },
+};
+const failover = buildChatCompletionEndpoints(openAiPrimary, 'gpt-4o-mini');
+assert(failover[0].model === 'gpt-4o-mini', `OpenAI primary keeps OpenAI model (${failover[0]?.model})`);
+assert(failover[1].model === 'deepseek-v4-flash', `DeepSeek failover keeps DeepSeek model (${failover[1]?.model})`);
 
 const byok = {
   provider: 'openai',

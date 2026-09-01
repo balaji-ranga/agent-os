@@ -42,6 +42,12 @@ export function modelFitsChatEndpoint(baseUrl, model) {
   if (host === 'api.openai.com' || host.endsWith('.openai.com')) {
     return !/deepseek|llama|qwen|mistral|mixtral|phi-|gemma|codellama|ollama/.test(lower);
   }
+  // DeepSeek's OpenAI-compatible API does not accept OpenAI model ids. A
+  // failover must retain the fallback endpoint's configured model instead of
+  // copying the failed primary model across providers.
+  if (host === 'api.deepseek.com' || host.endsWith('.deepseek.com')) {
+    return /^deepseek(?:-|$)/.test(lower);
+  }
   return true;
 }
 
