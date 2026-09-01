@@ -47,6 +47,7 @@
     ,"test:company-communications-retention-eta": "node scripts/test-company-communications-retention-eta.mjs"
     ,"test:channel-user-kanban-actions": "node scripts/test-channel-user-kanban-actions.mjs"
     ,"test:ibkrnew-event-trader": "node scripts/test-ibkrnew-event-trader.mjs"
+    ,"test:goal-plan-quality": "node scripts/test-goal-plan-maker-checker-contract.mjs"
   },
   "dependencies": {
     "@stoqey/ib": "^1.6.3",

@@ -482,6 +482,7 @@ export async function applyHumanAssignmentPolicy(ownerUserId, prompt, steps = []
       if (reserved.has(index)) continue;
       const match = byIndex.get(index);
       const score = match?.user_id === human.id ? Number(match?.human_match_score || 0) : 0;
+      if (score < 70) continue;
       const riskBonus = match?.risk === 'high' ? 10 : 0;
       const rank = score + riskBonus;
       if (!best || rank > best.rank) best = { index, rank };
@@ -509,13 +510,7 @@ export async function applyHumanAssignmentPolicy(ownerUserId, prompt, steps = []
     if (decision?.kind !== 'human') return step;
     if (assignedHumans.has(human.id)) return null;
     assignedHumans.add(human.id);
-    const humanWorkOrder = direct
-      ? [
-          'Complete the work assigned to you in the original CEO request below. Do the work itself; do not merely report that it was assigned.',
-          String(prompt || '').slice(0, 6000),
-          'Record the concrete result, evidence, decision, or a specific blocker in the Kanban task.',
-        ].join('\n\n')
-      : (step.spec?.message || step.label);
+    const humanWorkOrder = step.spec?.message || step.label;
     return {
       type: 'human_task',
       label: `Human: ${human.name}`,
@@ -529,20 +524,26 @@ export async function applyHumanAssignmentPolicy(ownerUserId, prompt, steps = []
       },
     };
   }).filter(Boolean);
-  // An explicitly named human is an execution instruction, not merely a score
-  // hint. Preserve it even when the post-plan capability gate correctly removed
-  // an unrelated AI candidate that the model had used as a temporary proxy.
+  // A person's name is not enough to turn the entire goal into their work
+  // order. The semantic maker/checker adds a bounded human step (and its
+  // prerequisite hand-offs). This legacy overlap pass may only replace an
+  // existing specialty step when the independent match scored that same step.
   for (const human of directHumans) {
     if (assignedHumans.has(human.id) || out.some((step) => step.type === 'human_task' && step.spec?.user_id === human.id)) continue;
-    const highRisk = /\b(financ|invoice|payment|discount|fee|cost|legal|regulat|compliance|contract|destructive|delete)\b/i.test(String(prompt || ''));
+    const tokens = [human.name, human.id].map((x) => String(x || '').trim()).filter(Boolean);
+    const clauses = String(prompt || '').split(/(?:\r?\n)+|(?<=[.!?;])\s+/).map((x) => x.trim()).filter(Boolean);
+    const bounded = clauses.find((clause) =>
+      clause.length <= 700 && tokens.some((token) => clause.toLowerCase().includes(token.toLowerCase()))
+    );
+    if (!bounded) continue;
     const humanStep = {
       type: 'human_task',
       label: `Human: ${human.name}`,
       spec: {
         user_id: human.id,
-        message: String(prompt || '').slice(0, 6000),
-        risk: highRisk ? 'high' : 'normal',
-        selection_rationale: `Assigned to the explicitly named human employee ${human.name}.`,
+        message: bounded,
+        risk: 'normal',
+        selection_rationale: `The original goal explicitly assigns this bounded clause to ${human.name}; the maker/checker will validate its dependencies and risk.`,
       },
     };
     const terminalAt = out.findIndex((step) => step.type === 'agent_continue' || step.type === 'notify_ceo');
