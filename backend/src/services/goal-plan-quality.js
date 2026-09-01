@@ -210,6 +210,11 @@ export function validateTypedGoalPlan(steps, catalog) {
   return { ok: errors.length === 0, errors };
 }
 
+export function validateCandidateGoalPlan(candidateSteps, catalog) {
+  const steps = normalizeExecutorOutputKinds(normalizeTypedSteps(candidateSteps), catalog);
+  return { steps, validation: validateTypedGoalPlan(steps, catalog) };
+}
+
 function catalogPrompt(catalog) {
   return clip({
     tools: catalog.tools.map((x) => ({ name: x.name, purpose: x.purpose })),
@@ -335,6 +340,10 @@ function checkerPreference(ownerUserId, makerResult) {
 
 export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, prompt, candidateSteps, checkerEndpointPreference = null }) {
   const catalog = await buildCatalog(ownerUserId, orchestratorAgentId);
+  // The catalog router is deterministic and may already have produced a fully
+  // executable contract. Keep that validated contract as a recovery point so
+  // repeated maker hallucinations cannot erase known-good workflows/tools.
+  const seed = validateCandidateGoalPlan(candidateSteps, catalog);
   let maker;
   let made = [];
   let madeValidation = { ok: false, errors: ['Maker has not run'] };
@@ -359,11 +368,20 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
     console.warn('[goal-plan-quality] maker contract retry', { attempt, errors: madeValidation.errors.slice(0, 12) });
   }
   if (!madeValidation.ok) {
-    console.warn('[goal-plan-quality] maker could not produce a valid executable contract; using safe clarification plan', {
-      errors: madeValidation.errors.slice(0, 12),
-    });
-    made = safeGoalClarificationPlan();
-    madeValidation = validateTypedGoalPlan(made, catalog);
+    if (seed.validation.ok) {
+      console.warn('[goal-plan-quality] maker could not produce a valid executable contract; retaining validated catalog plan', {
+        errors: madeValidation.errors.slice(0, 12),
+      });
+      made = seed.steps;
+      madeValidation = seed.validation;
+    } else {
+      console.warn('[goal-plan-quality] maker and catalog plan were invalid; using safe clarification plan', {
+        maker_errors: madeValidation.errors.slice(0, 12),
+        catalog_errors: seed.validation.errors.slice(0, 12),
+      });
+      made = safeGoalClarificationPlan();
+      madeValidation = validateTypedGoalPlan(made, catalog);
+    }
     if (!madeValidation.ok) {
       throw new Error(`Goal-plan fail-safe contract is invalid: ${madeValidation.errors.join('; ')}`);
     }

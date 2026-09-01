@@ -922,6 +922,17 @@ export function validateAndRepairGoalPlan(
     }));
   }
 
+  // A plan has one terminal CEO outcome. Multiple router/model passes can each
+  // contribute a notify_ceo step; collapse them before typed validation so a
+  // good executable seed is never discarded solely because of duplicate
+  // terminal notifications.
+  const notifySteps = out.filter((step) => step.type === 'notify_ceo');
+  out = out.filter((step) => step.type !== 'notify_ceo');
+  if (out.length || notifySteps.length) {
+    const terminal = notifySteps.find((step) => step.spec?.body || step.spec?.title) || notifySteps[0];
+    out.push(terminal || normalizeStepSpec({ type: 'notify_ceo' }));
+  }
+
   // Data/work must precede outbound delivery. Keep the planner's relative order
   // between outbound delivery steps (for example notify_ceo then email_send)
   // instead of unconditionally moving every notification behind email.

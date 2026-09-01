@@ -5,7 +5,7 @@ import { join } from 'node:path';
 
 const dataDir = mkdtempSync(join(tmpdir(), 'flolah-goal-quality-'));
 process.env.AGENT_OS_DATA_DIR = dataDir;
-const { validateTypedGoalPlan, repairCheckerExecutorAvailability, safeGoalClarificationPlan, normalizeExecutorOutputKinds } = await import('../src/services/goal-plan-quality.js');
+const { validateTypedGoalPlan, validateCandidateGoalPlan, repairCheckerExecutorAvailability, safeGoalClarificationPlan, normalizeExecutorOutputKinds } = await import('../src/services/goal-plan-quality.js');
 const { isEfficiencyModeTool } = await import('../src/services/llm-efficiency-mode.js');
 assert.equal(isEfficiencyModeTool('goal_plan_intent'), false);
 assert.equal(isEfficiencyModeTool('goal_plan_maker'), false);
@@ -41,6 +41,14 @@ const valid = [
   { key: 'notify', type: 'notify_ceo', label: 'Report outcome', depends_on: ['draft_po'], required_inputs: [], produces: [], spec: {} },
 ];
 assert.deepEqual(validateTypedGoalPlan(valid, catalog), { ok: true, errors: [] });
+const nestedCandidate = valid.map(({ key, type, label, depends_on, required_inputs, produces, spec }) => ({
+  type,
+  label,
+  spec: { ...spec, step_key: key, depends_on, required_inputs, produces },
+}));
+const validatedSeed = validateCandidateGoalPlan(nestedCandidate, catalog);
+assert.equal(validatedSeed.validation.ok, true);
+assert.deepEqual(validatedSeed.steps.map((step) => step.key), valid.map((step) => step.key));
 
 const falseArtifact = structuredClone(valid);
 falseArtifact[0].produces[0].kind = 'artifact';
