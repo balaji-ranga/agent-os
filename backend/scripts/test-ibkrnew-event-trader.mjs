@@ -14,6 +14,8 @@ assert.equal(configs.policy.budgets.daily_opening_exposure_usd, 1000);
 assert.equal(configs.policy.budgets.total_gross_exposure_usd, 10000);
 assert.equal(configs.strategy_skill.agent_name, 'IBKRNewStrategyPlanner');
 assert.match(configs.strategy_skill.skill_path, /ibkrnew-trade-strategy/);
+assert.equal(configs.strategy.goal_binding.selector, 'ACTIVE_IBKRNEW_GOAL');
+assert.equal(service.getIbkrNewGoalState(owner).block_reason, 'goal_waiting_for_capital');
 assert.throws(() => service.publishConfig(owner, 'strategy', { ...configs.strategy, name: 'DU1234567' }), /not accepted in server-side configuration/);
 assert.throws(() => service.publishConfig(owner, 'policy', { ...configs.policy, commissions: { ...configs.policy.commissions, maximum_round_trip_commission_pct_of_expected_gross_profit: 101 } }), /between 0 and 100/);
 assert.ok(service.getDashboard(owner).reactions.every((x) => x.agent_name.startsWith('IBKRNew')));
@@ -35,6 +37,7 @@ assert.equal(service.getDashboard(other).events.length, 0);
 const privacySentinel = 'DU1234567';
 assert.throws(() => service.ingestBridgeEvent(bridge, { event_id: privacySentinel, sequence: 1, event_type: 'bridge.heartbeat', payload: {} }), /not accepted in event metadata/);
 service.ingestBridgeEvent(bridge, { event_id: 'desktop-1', sequence: 1, event_type: 'account.snapshot', occurred_at: new Date().toISOString(), payload: { account_id: privacySentinel, eligible_capital_usd: 10000, cash_usd: 10000, positions: [], open_orders: [], nested: [{ acctCode: privacySentinel, note: `broker ${privacySentinel} snapshot` }] } });
+const defaultGoal = service.getIbkrNewGoalState(owner); assert.equal(defaultGoal.opening_trades_allowed, true); assert.equal(defaultGoal.cycle.capital_basis_usd, 10000); assert.equal(defaultGoal.cycle.target_profit_usd, 500);
 const persistedSnapshot = getDb().prepare(`SELECT payload_json FROM ibkrnew_events WHERE bridge_id=? AND source_event_id='desktop-1'`).get(bridge.bridge_id);
 assert.doesNotMatch(persistedSnapshot.payload_json, /DU1234567|acctCode|account_id/);
 assert.match(persistedSnapshot.payload_json, /REDACTED_IBKR_ACCOUNT/);
@@ -126,6 +129,27 @@ assert.ok(live.snapshots.some((snapshot) => snapshot.snapshot_type === 'position
 assert.equal(live.executions[0].commission_usd, 1.25);
 assert.ok(live.instrument_profiles.some((profile) => profile.symbol === 'MSFT'));
 assert.equal(service.getIbkrNewSummary(other).totals.trade_count, 0, 'reports remain owner scoped');
+
+const goalOwner = 'IBKRNewOwner_GoalLifecycle'; const goalCredentials = service.registerBridge(goalOwner); const goalBridge = service.authenticateBridge(goalCredentials.bridge_id, goalCredentials.token);
+service.ingestBridgeEvent(goalBridge, { event_id: 'goal-1', sequence: 1, event_type: 'account.snapshot', occurred_at: new Date().toISOString(), payload: { eligible_capital_usd: 10000, cash_usd: 10000, positions: [], open_orders: [] } });
+service.ingestBridgeEvent(goalBridge, { event_id: 'goal-2', sequence: 2, event_type: 'instrument.profile_refreshed', occurred_at: new Date().toISOString(), payload: healthyStockProfile('AAPL') });
+const goalSignal = (eventId, sequence) => service.ingestBridgeEvent(goalBridge, { event_id: eventId, sequence, event_type: 'market.signal', occurred_at: new Date().toISOString(), payload: { expression: 'LONG_STOCK', symbol: 'AAPL', security_type: 'STK', quantity: 1, bid: 99.9, ask: 100, last: 100, limit_price: 100, average_daily_volume: 5000000, quote_at: new Date().toISOString(), planned_loss_usd: 5, protection: { stop_price: 95, targets: [{ limit_price: 112, quantity: 1 }] } } });
+const goalTrade = goalSignal('goal-3', 3); assert.equal(goalTrade.reaction.decision, 'authorized');
+assert.ok(getDb().prepare(`SELECT 1 FROM ibkrnew_goal_trade_links WHERE authorization_id=?`).get(goalTrade.reaction.authorization_id));
+service.ingestBridgeEvent(goalBridge, { event_id: 'goal-4', sequence: 4, event_type: 'execution.fill', occurred_at: new Date().toISOString(), payload: { authorization_id: goalTrade.reaction.authorization_id, execution_id: 'goal-entry', order_role: 'entry', side: 'BUY', quantity: 1, price: 100 } });
+service.ingestBridgeEvent(goalBridge, { event_id: 'goal-5', sequence: 5, event_type: 'commission.report', occurred_at: new Date().toISOString(), payload: { authorization_id: goalTrade.reaction.authorization_id, execution_id: 'goal-entry', commission_usd: 1 } });
+service.ingestBridgeEvent(goalBridge, { event_id: 'goal-6', sequence: 6, event_type: 'execution.fill', occurred_at: new Date().toISOString(), payload: { authorization_id: goalTrade.reaction.authorization_id, execution_id: 'goal-exit', order_role: 'exit', side: 'SELL', quantity: 1, price: 700 } });
+service.ingestBridgeEvent(goalBridge, { event_id: 'goal-7', sequence: 7, event_type: 'commission.report', occurred_at: new Date().toISOString(), payload: { authorization_id: goalTrade.reaction.authorization_id, execution_id: 'goal-exit', commission_usd: 1, realized_pnl_usd: 600 } });
+const achievedGoal = service.getIbkrNewGoalState(goalOwner); assert.equal(achievedGoal.cycle.status, 'ACHIEVED'); assert.equal(achievedGoal.opening_trades_allowed, false); assert.ok(achievedGoal.cycle.net_realized_profit_usd >= 500);
+assert.equal(goalSignal('goal-8', 8).reaction.reason, 'goal_target_achieved');
+assert.equal(service.ingestBridgeEvent(goalBridge, { event_id: 'goal-9', sequence: 9, event_type: 'position.changed', occurred_at: new Date().toISOString(), payload: { positions: [] } }).accepted, true, 'goal completion never blocks position/risk-reducing events');
+getDb().prepare(`UPDATE ibkrnew_goal_cycles SET scheduled_end_at=? WHERE cycle_id=?`).run(new Date(Date.now() - 1000).toISOString(), achievedGoal.cycle.cycle_id);
+const restartedGoal = service.getIbkrNewGoalState(goalOwner); assert.equal(restartedGoal.cycle.status, 'ACTIVE'); assert.ok(restartedGoal.cycle.cycle_number > achievedGoal.cycle.cycle_number); assert.equal(restartedGoal.opening_trades_allowed, true);
+const oneTime = service.setIbkrNewGoal(goalOwner, { name: 'One-time objective', mode: 'ONE_TIME', target_return_pct: 5, duration_days: 1 }); assert.equal(oneTime.definition.mode, 'ONE_TIME');
+getDb().prepare(`UPDATE ibkrnew_goal_cycles SET scheduled_end_at=? WHERE cycle_id=?`).run(new Date(Date.now() - 1000).toISOString(), oneTime.cycle.cycle_id);
+const expiredOneTime = service.getIbkrNewGoalState(goalOwner); assert.equal(expiredOneTime.definition.status, 'COMPLETED'); assert.equal(expiredOneTime.block_reason, 'goal_completed');
+const pausedReplacement = service.setIbkrNewGoal(goalOwner, { name: 'Paused perpetual', mode: 'PERPETUAL', target_return_pct: 4, duration_days: 30 }); assert.equal(pausedReplacement.opening_trades_allowed, true);
+assert.equal(service.pauseIbkrNewGoal(goalOwner).block_reason, 'goal_paused'); assert.equal(service.resumeIbkrNewGoal(goalOwner).opening_trades_allowed, true);
 assert.equal(getDb().prepare("SELECT COUNT(*) count FROM sqlite_master WHERE type='table' AND name LIKE 'ibkr\\_%' ESCAPE '\\'").get().count, legacyTableCountBefore, 'must not create or alter the legacy IBKR table set');
 
 // Simulate an upgrade from the old contract, including an unsigned-safe pending command.

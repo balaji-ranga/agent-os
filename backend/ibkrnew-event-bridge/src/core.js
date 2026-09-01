@@ -26,7 +26,9 @@ function sanitizeSpoolLine(line) {
 export function commandMatchesBootstrap(command, bootstrap) {
   const commandRef = String(command?.authorization?.account_ref || '');
   const currentRef = String(bootstrap?.account_ref || '');
-  return Boolean(commandRef && currentRef && commandRef === currentRef);
+  const commandCycle = String(command?.authorization?.goal?.cycle_id || '');
+  const currentCycle = String(bootstrap?.goal?.cycle?.cycle_id || '');
+  return Boolean(commandRef && currentRef && commandRef === currentRef && commandCycle && commandCycle === currentCycle && bootstrap?.goal?.opening_trades_allowed === true);
 }
 
 export class IBKRNewBridgeCore {

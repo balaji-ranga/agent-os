@@ -82,7 +82,9 @@ const DEFAULT_POLICY = Object.freeze({
 });
 
 const DEFAULT_STRATEGY = Object.freeze({
+  schema_version: 2,
   name: 'IBKRNew US Liquid Trend Pullback', enabled: true, execution_mode: 'automatic',
+  goal_binding: { required: true, selector: 'ACTIVE_IBKRNEW_GOAL' },
   allowed_expressions: ['LONG_STOCK', 'SHORT_STOCK', 'LONG_CALL', 'LONG_PUT'],
   entry: { minimum_relative_volume: 1.25, require_15m_confirmation: true, maximum_atr_extension: 1 },
   exits: { first_target_r: 1, final_target_r: 2, single_lot_target_r: 1.5, never_widen_stop: true, maximum_holding_sessions: 5 },
@@ -144,7 +146,7 @@ const DEFAULT_MARKET_DATA = Object.freeze({
 });
 
 const DEFAULT_STRATEGY_SKILL = Object.freeze({
-  schema_version: 2,
+  schema_version: 3,
   name: 'IBKRNew Trade Strategy Skill',
   agent_name: 'IBKRNewStrategyPlanner',
   reaction_name: 'IBKRNewStrategyEvaluation',
@@ -154,6 +156,7 @@ const DEFAULT_STRATEGY_SKILL = Object.freeze({
     'Evaluate only canonical IBKRNew market events and the active strategy, universe, policy, commission model, and deterministic instrument-eligibility result.',
     'Respect stock-only index membership, fresh company fundamentals and corporate-event blackouts; apply the independent ETF filter to ETFs and the underlying profile to options.',
     'Compare expected gross profit, round-trip commission, planned loss, net reward-to-risk, confidence, and remaining daily capacity.',
+    'Use the active IBKRNew goal and cycle progress as a hard planning constraint; never propose a new opening trade when the cycle is waiting, paused, achieved, expired, or completed.',
     'Prefer diversification unless concentration passes every configured concentration threshold.',
     'Never authorize or place an order; return a structured proposal to the deterministic IBKRNewRiskChecker.',
   ],
@@ -229,6 +232,7 @@ export function migrateIbkrNewAccountPrivacy(db = getDb(), { force = false } = {
     }
     const textColumns = {
       ibkrnew_config_versions: ['document_json'],
+      ibkrnew_goals: ['name'], ibkrnew_goal_cycles: ['stop_reason'],
       ibkrnew_events: ['payload_json', 'reason'],
       ibkrnew_account_state: ['positions_json', 'open_orders_json'],
       ibkrnew_authorizations: ['authorization_json'],
@@ -272,7 +276,7 @@ function ensureIbkrNewPrivacyTriggers(db) {
     ibkrnew_config_versions: ['document_json'], ibkrnew_events: ['payload_json'], ibkrnew_account_state: ['positions_json', 'open_orders_json'],
     ibkrnew_authorizations: ['authorization_json'], ibkrnew_command_outbox: ['command_json'], ibkrnew_position_snapshots: ['payload_json'],
     ibkrnew_instrument_profiles: ['profile_json'], ibkrnew_component_health: ['detail_json', 'last_error'], ibkrnew_component_errors: ['message', 'detail_json'],
-    ibkrnew_trade_records: ['economics_json'], ibkrnew_allocation_decisions: ['rationale', 'detail_json'],
+    ibkrnew_trade_records: ['economics_json'], ibkrnew_allocation_decisions: ['rationale', 'detail_json'], ibkrnew_goals: ['name'], ibkrnew_goal_cycles: ['stop_reason'],
   };
   const containsAccount = (column) => `(NEW.${column} GLOB '*DU[0-9][0-9][0-9][0-9][0-9]*' OR NEW.${column} GLOB '*U[0-9][0-9][0-9][0-9][0-9]*')`;
   for (const [table, columns] of Object.entries(textColumns)) {
@@ -407,6 +411,32 @@ export function ensureIbkrNewEventTraderSchema(db = getDb()) {
       confidence REAL NOT NULL, allocation_mode TEXT NOT NULL, rationale TEXT NOT NULL,
       detail_json TEXT NOT NULL, created_at TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS ibkrnew_goals (
+      goal_id TEXT PRIMARY KEY, owner_user_id TEXT NOT NULL, name TEXT NOT NULL,
+      mode TEXT NOT NULL CHECK(mode IN ('ONE_TIME','PERPETUAL')),
+      target_return_pct REAL NOT NULL, duration_days INTEGER NOT NULL,
+      duration_basis TEXT NOT NULL CHECK(duration_basis='CALENDAR_DAYS'),
+      capital_basis TEXT NOT NULL CHECK(capital_basis='CYCLE_START_ELIGIBLE_CAPITAL_CAPPED_BY_TOTAL_BUDGET'),
+      profit_basis TEXT NOT NULL CHECK(profit_basis='NET_REALIZED_AFTER_COMMISSIONS'),
+      status TEXT NOT NULL CHECK(status IN ('ACTIVE','PAUSED','COMPLETED')),
+      created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_ibkrnew_goal_owner_open ON ibkrnew_goals(owner_user_id) WHERE status IN ('ACTIVE','PAUSED');
+    CREATE TABLE IF NOT EXISTS ibkrnew_goal_cycles (
+      cycle_id TEXT PRIMARY KEY, goal_id TEXT NOT NULL, owner_user_id TEXT NOT NULL,
+      cycle_number INTEGER NOT NULL, status TEXT NOT NULL CHECK(status IN ('ACTIVE','ACHIEVED','EXPIRED','PAUSED')),
+      started_at TEXT NOT NULL, scheduled_end_at TEXT NOT NULL,
+      capital_basis_usd REAL NOT NULL, target_profit_usd REAL NOT NULL,
+      net_realized_profit_usd REAL NOT NULL DEFAULT 0,
+      achieved_at TEXT, closed_at TEXT, stop_reason TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+      UNIQUE(goal_id,cycle_number)
+    );
+    CREATE INDEX IF NOT EXISTS idx_ibkrnew_goal_cycles_owner ON ibkrnew_goal_cycles(owner_user_id,created_at DESC);
+    CREATE TABLE IF NOT EXISTS ibkrnew_goal_trade_links (
+      authorization_id TEXT PRIMARY KEY, owner_user_id TEXT NOT NULL,
+      goal_id TEXT NOT NULL, cycle_id TEXT NOT NULL, created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_ibkrnew_goal_links_cycle ON ibkrnew_goal_trade_links(owner_user_id,cycle_id);
   `);
   ensureIbkrNewPrivacyTriggers(db);
   migrateIbkrNewAccountPrivacy(db);
@@ -445,7 +475,10 @@ export function validateConfig(kind, document) {
     if (!(Number(a.concentrated_trade_minimum_net_reward_risk) > 0)) throw Object.assign(new Error('concentrated trade net reward/risk must be positive'), { status: 400 });
     if (!(Number(a.concentrated_trade_maximum_commission_drag_pct) >= 0 && Number(a.concentrated_trade_maximum_commission_drag_pct) <= 100)) throw Object.assign(new Error('concentrated trade commission drag must be between 0 and 100 percent'), { status: 400 });
   }
-  if (kind === 'strategy' && !['automatic', 'approval_required', 'advisory'].includes(d.execution_mode)) throw Object.assign(new Error('strategy execution_mode is invalid'), { status: 400 });
+  if (kind === 'strategy') {
+    if (!['automatic', 'approval_required', 'advisory'].includes(d.execution_mode)) throw Object.assign(new Error('strategy execution_mode is invalid'), { status: 400 });
+    if (d.goal_binding?.required !== true || d.goal_binding?.selector !== 'ACTIVE_IBKRNEW_GOAL') throw Object.assign(new Error('strategy must require the active IBKRNew goal'), { status: 400 });
+  }
   if (kind === 'universe') {
     if (!Array.isArray(d.allowlist) || !Array.isArray(d.denylist) || !(Number(d.maximum_active_subscriptions) > 0)) throw Object.assign(new Error('universe lists and subscription ceiling are required'), { status: 400 });
     const stock = d.filters?.stock; const etf = d.filters?.etf;
@@ -480,6 +513,11 @@ export function ensureIbkrNewDefaults(ownerUserId) {
   for (const kind of ['policy', 'strategy', 'strategy_skill', 'universe', 'market_data']) {
     let current = getPublishedConfig(ownerUserId, kind);
     if (!current) current = publishConfig(ownerUserId, kind, structuredClone(defaultsFor(kind)), { confirmRiskLoosening: true });
+    if (kind === 'strategy' && Number(current.schema_version || 0) < Number(DEFAULT_STRATEGY.schema_version)) {
+      const prior = structuredClone(current); delete prior.id; delete prior.version; delete prior.status;
+      const migrated = mergeConfig(DEFAULT_STRATEGY, prior); migrated.schema_version = DEFAULT_STRATEGY.schema_version;
+      current = publishConfig(ownerUserId, kind, migrated, { confirmRiskLoosening: true });
+    }
     if (kind === 'universe' && Number(current.schema_version || 0) < Number(DEFAULT_UNIVERSE.schema_version)) {
       const prior = structuredClone(current); delete prior.id; delete prior.version; delete prior.status;
       const migrated = mergeConfig(DEFAULT_UNIVERSE, prior); const legacyFilters = prior.filters || {};
@@ -500,7 +538,126 @@ export function ensureIbkrNewDefaults(ownerUserId) {
   }
   const addReaction = getDb().prepare(`INSERT OR IGNORE INTO ibkrnew_reaction_registry(reaction_id,owner_user_id,agent_name,subscriptions_json,created_at) VALUES(?,?,?,?,?)`);
   for (const [agentName, subscriptions] of IBKRNEW_REACTIONS) addReaction.run(id('IBKRNewReaction'), ownerUserId, agentName, json(subscriptions), nowIso());
+  ensureDefaultIbkrNewGoal(ownerUserId, out.policy);
   return out;
+}
+
+function goalDefinition(row) {
+  if (!row) return null;
+  return { goal_id: row.goal_id, name: row.name, mode: row.mode, target_return_pct: Number(row.target_return_pct), duration_days: Number(row.duration_days), duration_basis: row.duration_basis, capital_basis: row.capital_basis, profit_basis: row.profit_basis, status: row.status, created_at: row.created_at, updated_at: row.updated_at };
+}
+
+function validateGoal(input = {}) {
+  const goal = {
+    name: String(input.name || 'IBKRNew 5% in 30 Days').trim().slice(0, 120),
+    mode: String(input.mode || 'PERPETUAL').toUpperCase(),
+    target_return_pct: Number(input.target_return_pct ?? 5),
+    duration_days: Number(input.duration_days ?? 30),
+    duration_basis: String(input.duration_basis || 'CALENDAR_DAYS').toUpperCase(),
+    capital_basis: String(input.capital_basis || 'CYCLE_START_ELIGIBLE_CAPITAL_CAPPED_BY_TOTAL_BUDGET').toUpperCase(),
+    profit_basis: String(input.profit_basis || 'NET_REALIZED_AFTER_COMMISSIONS').toUpperCase(),
+  };
+  if (!goal.name) throw Object.assign(new Error('goal name is required'), { status: 400 });
+  if (!['ONE_TIME', 'PERPETUAL'].includes(goal.mode)) throw Object.assign(new Error('goal mode must be ONE_TIME or PERPETUAL'), { status: 400 });
+  if (!(goal.target_return_pct > 0 && goal.target_return_pct <= 100)) throw Object.assign(new Error('goal target return must be above 0 and at most 100 percent'), { status: 400 });
+  if (!Number.isInteger(goal.duration_days) || goal.duration_days < 1 || goal.duration_days > 3650) throw Object.assign(new Error('goal duration must be 1 to 3650 calendar days'), { status: 400 });
+  if (goal.duration_basis !== 'CALENDAR_DAYS') throw Object.assign(new Error('goal duration basis must be CALENDAR_DAYS'), { status: 400 });
+  if (goal.capital_basis !== 'CYCLE_START_ELIGIBLE_CAPITAL_CAPPED_BY_TOTAL_BUDGET') throw Object.assign(new Error('unsupported goal capital basis'), { status: 400 });
+  if (goal.profit_basis !== 'NET_REALIZED_AFTER_COMMISSIONS') throw Object.assign(new Error('unsupported goal profit basis'), { status: 400 });
+  return sanitizeIbkrNewPersistence(goal);
+}
+
+function ensureDefaultIbkrNewGoal(ownerUserId, policy) {
+  const db = getDb(); const existing = db.prepare(`SELECT 1 FROM ibkrnew_goals WHERE owner_user_id=? LIMIT 1`).get(ownerUserId);
+  if (existing) return;
+  const goal = validateGoal(); const ts = nowIso();
+  db.prepare(`INSERT INTO ibkrnew_goals(goal_id,owner_user_id,name,mode,target_return_pct,duration_days,duration_basis,capital_basis,profit_basis,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,'ACTIVE',?,?)`).run(id('IBKRNewGoal'), ownerUserId, goal.name, goal.mode, goal.target_return_pct, goal.duration_days, goal.duration_basis, goal.capital_basis, goal.profit_basis, ts, ts);
+  reconcileIbkrNewGoal(ownerUserId, { policy, at: ts });
+}
+
+function createGoalCycle(db, ownerUserId, goal, policy, startedAt, cycleNumber) {
+  const account = db.prepare(`SELECT eligible_capital_usd FROM ibkrnew_account_state WHERE owner_user_id=? ORDER BY captured_at DESC LIMIT 1`).get(ownerUserId);
+  const capital = Math.min(Number(policy?.budgets?.total_gross_exposure_usd || 0), Number(account?.eligible_capital_usd || 0));
+  if (!(capital > 0)) return null;
+  const startMs = Date.parse(startedAt); const end = new Date(startMs + Number(goal.duration_days) * 86400000).toISOString(); const ts = nowIso(); const cycleId = id('IBKRNewGoalCycle');
+  db.prepare(`INSERT INTO ibkrnew_goal_cycles(cycle_id,goal_id,owner_user_id,cycle_number,status,started_at,scheduled_end_at,capital_basis_usd,target_profit_usd,created_at,updated_at) VALUES(?,?,?,?,'ACTIVE',?,?,?,?,?,?)`).run(cycleId, goal.goal_id, ownerUserId, cycleNumber, new Date(startMs).toISOString(), end, capital, capital * Number(goal.target_return_pct) / 100, ts, ts);
+  return db.prepare(`SELECT * FROM ibkrnew_goal_cycles WHERE cycle_id=?`).get(cycleId);
+}
+
+function goalCycleProfit(db, ownerUserId, cycleId) {
+  return Number(db.prepare(`SELECT COALESCE(SUM(t.net_pnl_usd),0) value FROM ibkrnew_goal_trade_links l LEFT JOIN ibkrnew_trade_records t ON t.authorization_id=l.authorization_id AND t.owner_user_id=l.owner_user_id WHERE l.owner_user_id=? AND l.cycle_id=?`).get(ownerUserId, cycleId)?.value || 0);
+}
+
+function serializeGoalState(goal, cycle, now = new Date()) {
+  const net = Number(cycle?.net_realized_profit_usd || 0); const target = Number(cycle?.target_profit_usd || 0); const remaining = Math.max(0, target - net); const endMs = Date.parse(cycle?.scheduled_end_at || 0);
+  const allowed = goal?.status === 'ACTIVE' && cycle?.status === 'ACTIVE' && Number.isFinite(endMs) && now.getTime() < endMs;
+  const reason = !goal ? 'goal_missing' : goal.status === 'PAUSED' ? 'goal_paused' : goal.status === 'COMPLETED' ? 'goal_completed' : !cycle ? 'goal_waiting_for_capital' : cycle.status === 'ACHIEVED' ? 'goal_target_achieved' : cycle.status === 'EXPIRED' ? 'goal_expired' : cycle.status === 'PAUSED' ? 'goal_paused' : allowed ? null : 'goal_cycle_inactive';
+  return { definition: goalDefinition(goal), cycle: cycle ? { ...cycle, cycle_number: Number(cycle.cycle_number), capital_basis_usd: Number(cycle.capital_basis_usd), target_profit_usd: target, net_realized_profit_usd: net, remaining_profit_usd: remaining, progress_pct: target > 0 ? Math.max(0, net / target * 100) : 0, days_remaining: Number.isFinite(endMs) ? Math.max(0, Math.ceil((endMs - now.getTime()) / 86400000)) : 0 } : null, opening_trades_allowed: allowed, block_reason: reason };
+}
+
+function reconcileIbkrNewGoal(ownerUserId, { policy, at = nowIso() } = {}) {
+  const db = getDb(); const atDate = new Date(at); const atMs = atDate.getTime();
+  let goal = db.prepare(`SELECT * FROM ibkrnew_goals WHERE owner_user_id=? AND status IN ('ACTIVE','PAUSED') ORDER BY created_at DESC LIMIT 1`).get(ownerUserId);
+  if (!goal) goal = db.prepare(`SELECT * FROM ibkrnew_goals WHERE owner_user_id=? ORDER BY created_at DESC LIMIT 1`).get(ownerUserId);
+  if (!goal) return serializeGoalState(null, null, atDate);
+  let cycle = db.prepare(`SELECT * FROM ibkrnew_goal_cycles WHERE owner_user_id=? AND goal_id=? ORDER BY cycle_number DESC LIMIT 1`).get(ownerUserId, goal.goal_id);
+  if (goal.status === 'PAUSED') {
+    if (cycle?.status === 'ACTIVE') { db.prepare(`UPDATE ibkrnew_goal_cycles SET status='PAUSED',stop_reason='GOAL_PAUSED',updated_at=? WHERE cycle_id=?`).run(nowIso(), cycle.cycle_id); cycle = { ...cycle, status: 'PAUSED', stop_reason: 'GOAL_PAUSED' }; }
+    return serializeGoalState(goal, cycle, atDate);
+  }
+  if (goal.status === 'COMPLETED') return serializeGoalState(goal, cycle, atDate);
+  if (!cycle) cycle = createGoalCycle(db, ownerUserId, goal, policy, atDate.toISOString(), 1);
+  if (!cycle) return serializeGoalState(goal, null, atDate);
+  const net = goalCycleProfit(db, ownerUserId, cycle.cycle_id); cycle = { ...cycle, net_realized_profit_usd: net };
+  db.prepare(`UPDATE ibkrnew_goal_cycles SET net_realized_profit_usd=?,updated_at=? WHERE cycle_id=?`).run(net, nowIso(), cycle.cycle_id);
+  const endMs = Date.parse(cycle.scheduled_end_at);
+  if (cycle.status === 'ACTIVE') {
+    if (net >= Number(cycle.target_profit_usd) && atMs <= endMs) {
+      db.prepare(`UPDATE ibkrnew_goal_cycles SET status='ACHIEVED',achieved_at=?,closed_at=?,stop_reason='TARGET_RETURN_REACHED',updated_at=? WHERE cycle_id=?`).run(atDate.toISOString(), atDate.toISOString(), nowIso(), cycle.cycle_id);
+      cycle = { ...cycle, status: 'ACHIEVED', achieved_at: atDate.toISOString(), closed_at: atDate.toISOString(), stop_reason: 'TARGET_RETURN_REACHED' };
+      if (goal.mode === 'ONE_TIME') { db.prepare(`UPDATE ibkrnew_goals SET status='COMPLETED',updated_at=? WHERE goal_id=?`).run(nowIso(), goal.goal_id); goal = { ...goal, status: 'COMPLETED' }; }
+    } else if (atMs >= endMs) {
+      db.prepare(`UPDATE ibkrnew_goal_cycles SET status='EXPIRED',closed_at=?,stop_reason='DURATION_ELAPSED',updated_at=? WHERE cycle_id=?`).run(cycle.scheduled_end_at, nowIso(), cycle.cycle_id);
+      cycle = { ...cycle, status: 'EXPIRED', closed_at: cycle.scheduled_end_at, stop_reason: 'DURATION_ELAPSED' };
+      if (goal.mode === 'ONE_TIME') { db.prepare(`UPDATE ibkrnew_goals SET status='COMPLETED',updated_at=? WHERE goal_id=?`).run(nowIso(), goal.goal_id); goal = { ...goal, status: 'COMPLETED' }; }
+    }
+  }
+  if (goal.mode === 'PERPETUAL' && goal.status === 'ACTIVE' && ['ACHIEVED','EXPIRED'].includes(cycle.status) && atMs >= endMs) {
+    const durationMs = Number(goal.duration_days) * 86400000; const skipped = Math.max(0, Math.floor((atMs - endMs) / durationMs)); const nextStart = new Date(endMs + skipped * durationMs).toISOString();
+    cycle = createGoalCycle(db, ownerUserId, goal, policy, nextStart, Number(cycle.cycle_number) + skipped + 1) || cycle;
+  }
+  return serializeGoalState(goal, cycle, atDate);
+}
+
+export function getIbkrNewGoalState(ownerUserId, options = {}) {
+  const configs = ensureIbkrNewDefaults(ownerUserId);
+  return reconcileIbkrNewGoal(ownerUserId, { policy: configs.policy, at: options.at || nowIso() });
+}
+
+export function setIbkrNewGoal(ownerUserId, input = {}) {
+  const configs = ensureIbkrNewDefaults(ownerUserId); const goal = validateGoal(input); const db = getDb(); const ts = nowIso();
+  const tx = db.transaction(() => {
+    db.prepare(`UPDATE ibkrnew_goal_cycles SET status='EXPIRED',closed_at=?,stop_reason='GOAL_REPLACED',updated_at=? WHERE owner_user_id=? AND status IN ('ACTIVE','PAUSED')`).run(ts, ts, ownerUserId);
+    db.prepare(`UPDATE ibkrnew_goals SET status='COMPLETED',updated_at=? WHERE owner_user_id=? AND status IN ('ACTIVE','PAUSED')`).run(ts, ownerUserId);
+    const goalId = id('IBKRNewGoal');
+    db.prepare(`INSERT INTO ibkrnew_goals(goal_id,owner_user_id,name,mode,target_return_pct,duration_days,duration_basis,capital_basis,profit_basis,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,'ACTIVE',?,?)`).run(goalId, ownerUserId, goal.name, goal.mode, goal.target_return_pct, goal.duration_days, goal.duration_basis, goal.capital_basis, goal.profit_basis, ts, ts);
+    return goalId;
+  }); tx();
+  return reconcileIbkrNewGoal(ownerUserId, { policy: configs.policy, at: ts });
+}
+
+export function pauseIbkrNewGoal(ownerUserId) {
+  ensureIbkrNewDefaults(ownerUserId); const db = getDb(); const ts = nowIso(); const result = db.prepare(`UPDATE ibkrnew_goals SET status='PAUSED',updated_at=? WHERE owner_user_id=? AND status='ACTIVE'`).run(ts, ownerUserId);
+  if (!result.changes) throw Object.assign(new Error('active IBKRNew goal not found'), { status: 404 });
+  return getIbkrNewGoalState(ownerUserId);
+}
+
+export function resumeIbkrNewGoal(ownerUserId) {
+  ensureIbkrNewDefaults(ownerUserId); const db = getDb(); const ts = nowIso(); const goal = db.prepare(`SELECT * FROM ibkrnew_goals WHERE owner_user_id=? AND status='PAUSED' ORDER BY created_at DESC LIMIT 1`).get(ownerUserId);
+  if (!goal) throw Object.assign(new Error('paused IBKRNew goal not found'), { status: 404 });
+  db.prepare(`UPDATE ibkrnew_goals SET status='ACTIVE',updated_at=? WHERE goal_id=?`).run(ts, goal.goal_id);
+  db.prepare(`UPDATE ibkrnew_goal_cycles SET status='ACTIVE',stop_reason=NULL,updated_at=? WHERE goal_id=? AND status='PAUSED'`).run(ts, goal.goal_id);
+  return getIbkrNewGoalState(ownerUserId);
 }
 
 export function publishConfig(ownerUserId, kind, document, { confirmRiskLoosening = false } = {}) {
@@ -774,13 +931,19 @@ function recordExecutionEvent(db, bridge, payload, occurred, created) {
     if (payload.order_role === 'entry') db.prepare(`UPDATE ibkrnew_trade_records SET entry_value_usd=entry_value_usd+?,status='open',opened_at=COALESCE(opened_at,?),updated_at=? WHERE trade_id=?`).run(value, occurred, created, trade.trade_id);
     else if (['target','protective_stop','exit'].includes(payload.order_role)) db.prepare(`UPDATE ibkrnew_trade_records SET exit_value_usd=exit_value_usd+?,status='closed',closed_at=?,updated_at=? WHERE trade_id=?`).run(value, occurred, created, trade.trade_id);
   }
-  if (authorizationId) refreshTradeFinancials(db, bridge.owner_user_id, authorizationId, created);
+  if (authorizationId) {
+    refreshTradeFinancials(db, bridge.owner_user_id, authorizationId, created);
+    const policy = ensureIbkrNewDefaults(bridge.owner_user_id).policy;
+    reconcileIbkrNewGoal(bridge.owner_user_id, { policy, at: occurred });
+  }
 }
 
 function maybeAuthorize(bridge, eventId, payload) {
   const db = getDb(); expireStaleAuthorizations(bridge.owner_user_id, db); const configs = ensureIbkrNewDefaults(bridge.owner_user_id); const policy = configs.policy; const strategy = configs.strategy; const strategySkill = configs.strategy_skill;
   if (!policy.feature_switches?.trading_enabled || !policy.feature_switches?.paper_execution_enabled || !strategy.enabled) return { decision: 'blocked', reason: 'trading_disabled' };
   if (!strategySkill.enabled) return { decision: 'blocked', reason: 'strategy_skill_disabled' };
+  const goalState = reconcileIbkrNewGoal(bridge.owner_user_id, { policy, at: payload.occurred_at || nowIso() });
+  if (strategy.goal_binding?.required === true && !goalState.opening_trades_allowed) return { decision: 'blocked', reason: goalState.block_reason || 'goal_cycle_inactive', goal: goalState };
   const breaker = db.prepare(`SELECT 1 FROM ibkrnew_circuit_breakers WHERE owner_user_id=? AND active=1`).get(bridge.owner_user_id);
   if (breaker) return { decision: 'blocked', reason: 'circuit_breaker_active' };
   let expression = payload.expression || signalFromBar(payload, strategy);
@@ -823,6 +986,8 @@ function maybeAuthorize(bridge, eventId, payload) {
   const approvalRequired = policy.feature_switches.ceo_approval_required === true || strategy.execution_mode === 'approval_required' || policy.feature_switches.automatic_entry_enabled !== true;
   const expires = new Date(Date.now() + Number(approvalRequired ? policy.freshness?.approval_ttl_ms || 300000 : policy.freshness?.authorization_ttl_ms || 15000)).toISOString();
   const transaction = db.transaction(() => {
+    const activeCycle = db.prepare(`SELECT c.*,g.status goal_status FROM ibkrnew_goal_cycles c JOIN ibkrnew_goals g ON g.goal_id=c.goal_id WHERE c.cycle_id=? AND c.owner_user_id=?`).get(goalState.cycle?.cycle_id, bridge.owner_user_id);
+    if (!activeCycle || activeCycle.status !== 'ACTIVE' || activeCycle.goal_status !== 'ACTIVE' || Date.parse(activeCycle.scheduled_end_at) <= Date.now()) throw Object.assign(new Error('goal_cycle_inactive'), { code: 'RISK_BLOCK' });
     const daily = db.prepare(`SELECT COALESCE(SUM(daily_reserved_usd-daily_released_usd),0) used FROM ibkrnew_budget_reservations WHERE owner_user_id=? AND trading_day=? AND status IN ('reserved','partially_filled','filled')`).get(bridge.owner_user_id, day).used;
     const pendingGross = db.prepare(`SELECT COALESCE(SUM(gross_reserved_usd-gross_released_usd),0) used FROM ibkrnew_budget_reservations WHERE owner_user_id=? AND status IN ('reserved','partially_filled','filled')`).get(bridge.owner_user_id).used;
     const positions = parse(account.positions_json, []); const existingGross = grossFromPositions(positions, policy.budgets.short_stress_buffer_pct);
@@ -837,7 +1002,7 @@ function maybeAuthorize(bridge, eventId, payload) {
     if (existingGross + Number(pendingGross) + grossReservation > totalCeiling) throw Object.assign(new Error('total_budget_exceeded'), { code: 'RISK_BLOCK' });
     const quantity = Number(effectivePayload.quantity); const authorization = {
       authorization_id: authId, owner_user_id: bridge.owner_user_id, account_ref: bridge.account_id, bridge_id: bridge.bridge_id, environment: 'paper',
-      strategy: { id: strategy.id, version: strategy.version }, strategy_skill: { id: strategySkill.id, version: strategySkill.version, agent_name: strategySkill.agent_name }, policy: { id: policy.id, version: policy.version }, universe: { id: configs.universe.id, version: configs.universe.version },
+      goal: { goal_id: activeCycle.goal_id, cycle_id: activeCycle.cycle_id, cycle_number: activeCycle.cycle_number, target_profit_usd: activeCycle.target_profit_usd, scheduled_end_at: activeCycle.scheduled_end_at }, strategy: { id: strategy.id, version: strategy.version }, strategy_skill: { id: strategySkill.id, version: strategySkill.version, agent_name: strategySkill.agent_name }, policy: { id: policy.id, version: policy.version }, universe: { id: configs.universe.id, version: configs.universe.version },
       signal_event_id: eventId, action: 'OPEN', expression, contract: effectivePayload.contract || { symbol: effectivePayload.symbol, security_type: expression.includes('STOCK') ? eligibility.security_type : 'OPT', exchange: 'SMART', currency: 'USD' },
       side: expression === 'SHORT_STOCK' ? 'SELL' : 'BUY', quantity, entry: { order_type: 'LIMIT', limit_price: Number(effectivePayload.limit_price ?? effectivePayload.ask ?? effectivePayload.last) },
       protection: effectivePayload.protection, budget: { daily_opening_reserved_usd: amount, total_exposure_reserved_usd: grossReservation, planned_loss_usd: Number(effectivePayload.planned_loss_usd || 0), estimated_round_trip_commission_usd: economics.estimated_round_trip_commission_usd, reservation_id: reservationId },
@@ -852,6 +1017,7 @@ function maybeAuthorize(bridge, eventId, payload) {
     db.prepare(`INSERT INTO ibkrnew_authorizations VALUES(?,?,?,?,?,?,?,?,?,?)`).run(authId, bridge.owner_user_id, bridge.account_id, bridge.bridge_id, eventId, expression, json(authorization), approvalRequired ? 'pending_approval' : 'issued', expires, created);
     saveAllocationDecision(db, bridge.owner_user_id, eventId, economics, authId);
     db.prepare(`INSERT INTO ibkrnew_trade_records(trade_id,owner_user_id,account_id,bridge_id,authorization_id,symbol,expression,quantity,estimated_round_trip_commission_usd,expected_net_profit_usd,required_profitable_exit_price,status,economics_json,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,'authorized',?,?,?)`).run(id('IBKRNewTrade'), bridge.owner_user_id, bridge.account_id, bridge.bridge_id, authId, symbol, expression, quantity, economics.estimated_round_trip_commission_usd, economics.expected_net_profit_usd, economics.required_profitable_exit_price, json(economics), created, created);
+    db.prepare(`INSERT INTO ibkrnew_goal_trade_links(authorization_id,owner_user_id,goal_id,cycle_id,created_at) VALUES(?,?,?,?,?)`).run(authId, bridge.owner_user_id, activeCycle.goal_id, activeCycle.cycle_id, created);
     const commandId = approvalRequired ? null : insertCommand(db, bridge, authorization, created, expires);
     return { decision: approvalRequired ? 'pending_approval' : 'authorized', authorization_id: authId, command_id: commandId, reservation_id: reservationId, reserved_usd: amount, economics };
   });
@@ -889,6 +1055,7 @@ export function ingestBridgeEvent(bridge, input) {
     for (const order of payload.open_orders || []) if (String(order.order_ref || '').startsWith('IBKRNewAuthorization_')) db.prepare(`UPDATE ibkrnew_authorizations SET status='submitted' WHERE authorization_id=? AND owner_user_id=? AND status IN ('issued','uncertain')`).run(order.order_ref, bridge.owner_user_id);
     reconcileFilledReservations(bridge.owner_user_id, payload.positions || [], created, db);
     const policy = ensureIbkrNewDefaults(bridge.owner_user_id).policy;
+    reconcileIbkrNewGoal(bridge.owner_user_id, { policy, at: occurred });
     const pnl = Number(payload.realized_pnl_day_usd || 0) + Number(payload.unrealized_pnl_usd || 0);
     if (pnl <= -Number(policy.loss_limits.daily_loss_limit_usd)) {
       db.prepare(`INSERT INTO ibkrnew_circuit_breakers(owner_user_id,breaker_type,active,reason,created_at) VALUES(?,'daily_loss',1,?,?) ON CONFLICT(owner_user_id,breaker_type) DO UPDATE SET active=1,reason=excluded.reason,created_at=excluded.created_at,cleared_at=NULL`).run(bridge.owner_user_id, `Daily P&L ${pnl} breached limit`, created);
@@ -927,6 +1094,12 @@ export function claimCommands(bridge, limit = 10, protocolVersion = 0) {
   if (Number(protocolVersion) < 2) throw Object.assign(new Error('IBKRNew desktop bridge protocol version 2 or newer is required'), { status: 426 });
   ensureIbkrNewEventTraderSchema(); const db = getDb(); const ts = nowIso(); const lease = new Date(Date.now() + 10000).toISOString();
   const tx = db.transaction(() => {
+    const goalBlocked = db.prepare(`SELECT o.authorization_id FROM ibkrnew_command_outbox o LEFT JOIN ibkrnew_goal_trade_links l ON l.authorization_id=o.authorization_id LEFT JOIN ibkrnew_goal_cycles c ON c.cycle_id=l.cycle_id LEFT JOIN ibkrnew_goals g ON g.goal_id=l.goal_id WHERE o.bridge_id=? AND o.status IN ('pending','claimed') AND (c.status IS NULL OR c.status<>'ACTIVE' OR g.status<>'ACTIVE' OR c.scheduled_end_at<=?)`).all(bridge.bridge_id, ts);
+    for (const row of goalBlocked) {
+      db.prepare(`UPDATE ibkrnew_command_outbox SET status='cancelled',acknowledged_at=?,lease_until=NULL WHERE authorization_id=? AND status IN ('pending','claimed')`).run(ts, row.authorization_id);
+      db.prepare(`UPDATE ibkrnew_authorizations SET status='cancelled' WHERE authorization_id=? AND status IN ('issued','pending_approval','uncertain')`).run(row.authorization_id);
+      db.prepare(`UPDATE ibkrnew_budget_reservations SET daily_released_usd=daily_reserved_usd,gross_released_usd=gross_reserved_usd,status='released',updated_at=? WHERE authorization_id=? AND status='reserved'`).run(ts, row.authorization_id);
+    }
     const expired = db.prepare(`SELECT authorization_id FROM ibkrnew_command_outbox WHERE bridge_id=? AND status IN ('pending','claimed') AND expires_at<=?`).all(bridge.bridge_id, ts);
     db.prepare(`UPDATE ibkrnew_command_outbox SET status='expired' WHERE bridge_id=? AND status IN ('pending','claimed') AND expires_at<=?`).run(bridge.bridge_id, ts);
     const release = db.prepare(`UPDATE ibkrnew_budget_reservations SET daily_released_usd=daily_reserved_usd,gross_released_usd=gross_reserved_usd,status='released',updated_at=? WHERE authorization_id=? AND status='reserved'`);
@@ -964,6 +1137,12 @@ export function approveAuthorization(ownerUserId, authorizationId) {
     if (!row) throw Object.assign(new Error('authorization not found'), { status: 404 });
     if (row.status !== 'pending_approval') throw Object.assign(new Error('authorization is not pending approval'), { status: 409 });
     if (Date.parse(row.expires_at) <= Date.now()) return { expired: true };
+    const link = db.prepare(`SELECT c.*,g.status goal_status FROM ibkrnew_goal_trade_links l JOIN ibkrnew_goal_cycles c ON c.cycle_id=l.cycle_id JOIN ibkrnew_goals g ON g.goal_id=l.goal_id WHERE l.authorization_id=? AND l.owner_user_id=?`).get(authorizationId, ownerUserId);
+    if (!link || link.status !== 'ACTIVE' || link.goal_status !== 'ACTIVE' || Date.parse(link.scheduled_end_at) <= Date.now()) {
+      db.prepare(`UPDATE ibkrnew_authorizations SET status='cancelled' WHERE authorization_id=?`).run(authorizationId);
+      db.prepare(`UPDATE ibkrnew_budget_reservations SET daily_released_usd=daily_reserved_usd,gross_released_usd=gross_reserved_usd,status='released',updated_at=? WHERE authorization_id=? AND status='reserved'`).run(ts, authorizationId);
+      return { goal_blocked: true };
+    }
     const bridge = db.prepare(`SELECT * FROM ibkrnew_bridges WHERE bridge_id=? AND owner_user_id=? AND revoked_at IS NULL`).get(row.bridge_id, ownerUserId);
     if (!bridge) throw Object.assign(new Error('bridge unavailable'), { status: 409 });
     const commandId = insertCommand(db, bridge, parse(row.authorization_json, {}), ts, row.expires_at);
@@ -971,6 +1150,7 @@ export function approveAuthorization(ownerUserId, authorizationId) {
     return { authorization_id: authorizationId, command_id: commandId, status: 'issued' };
   }); const result = tx();
   if (result.expired) { expireStaleAuthorizations(ownerUserId, db); throw Object.assign(new Error('authorization expired'), { status: 409 }); }
+  if (result.goal_blocked) throw Object.assign(new Error('goal cycle no longer permits opening trades'), { status: 409 });
   return result;
 }
 
@@ -984,7 +1164,8 @@ export function getDashboard(ownerUserId) {
   const approvals = db.prepare(`SELECT authorization_id,expression,bridge_id,expires_at,created_at FROM ibkrnew_authorizations WHERE owner_user_id=? AND status='pending_approval' ORDER BY created_at DESC`).all(ownerUserId);
   const reactions = db.prepare(`SELECT reaction_id,agent_name,subscriptions_json,enabled FROM ibkrnew_reaction_registry WHERE owner_user_id=? ORDER BY agent_name`).all(ownerUserId).map((r) => ({ ...r, subscriptions: parse(r.subscriptions_json, []) }));
   const staleMs = Number(configs.policy.freshness?.bridge_offline_after_ms || 30000); const now = Date.now();
-  return { namespace: IBKRNEW_NAMESPACE, environment: 'paper', configs, reactions, approvals, trading_day: day, budgets: { daily_limit_usd: configs.policy.budgets.daily_opening_exposure_usd, daily_used_usd: Number(daily), total_limit_usd: configs.policy.budgets.total_gross_exposure_usd }, bridges: bridges.map((b) => ({ ...b, effective_status: !b.last_seen_at || now - Date.parse(b.last_seen_at) > staleMs ? 'offline' : b.status })), account: account ? { ...withAccountRef(account), positions: parse(account.positions_json, []), open_orders: parse(account.open_orders_json, []) } : null, events, commands };
+  const goal = reconcileIbkrNewGoal(ownerUserId, { policy: configs.policy, at: nowIso() });
+  return { namespace: IBKRNEW_NAMESPACE, environment: 'paper', configs, goal, reactions, approvals, trading_day: day, budgets: { daily_limit_usd: configs.policy.budgets.daily_opening_exposure_usd, daily_used_usd: Number(daily), total_limit_usd: configs.policy.budgets.total_gross_exposure_usd }, bridges: bridges.map((b) => ({ ...b, effective_status: !b.last_seen_at || now - Date.parse(b.last_seen_at) > staleMs ? 'offline' : b.status })), account: account ? { ...withAccountRef(account), positions: parse(account.positions_json, []), open_orders: parse(account.open_orders_json, []) } : null, events, commands };
 }
 
 export function getIbkrNewSummary(ownerUserId) {
@@ -993,7 +1174,7 @@ export function getIbkrNewSummary(ownerUserId) {
   const trades = db.prepare(`SELECT * FROM ibkrnew_trade_records WHERE owner_user_id=? ORDER BY created_at DESC LIMIT 200`).all(ownerUserId).map((row) => ({ ...withAccountRef(row), economics: parse(row.economics_json, {}) }));
   const allocations = db.prepare(`SELECT * FROM ibkrnew_allocation_decisions WHERE owner_user_id=? ORDER BY created_at DESC LIMIT 200`).all(ownerUserId).map((row) => ({ ...row, detail: parse(row.detail_json, {}) }));
   const profile = db.prepare(`SELECT data_retention_days FROM platform_users WHERE id=?`).get(ownerUserId);
-  return { retention_days: Number(profile?.data_retention_days || 90), totals: { ...totals, win_rate_pct: Number(totals.trade_count) ? Number(totals.profitable_trade_count || 0) / Number(totals.trade_count) * 100 : 0 }, trades, allocations };
+  return { retention_days: Number(profile?.data_retention_days || 90), goal: getIbkrNewGoalState(ownerUserId), totals: { ...totals, win_rate_pct: Number(totals.trade_count) ? Number(totals.profitable_trade_count || 0) / Number(totals.trade_count) * 100 : 0 }, trades, allocations };
 }
 
 export function getIbkrNewLiveOperations(ownerUserId, { limit = 200 } = {}) {

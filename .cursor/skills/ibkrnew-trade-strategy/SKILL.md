@@ -16,20 +16,22 @@ Require the active immutable versions of:
 - The deterministic instrument-eligibility result, including underlying security type, configured stock-index membership or ETF filter, profile timestamps, company fundamentals, and corporate-event risk.
 - Account, positions, pending reservations, daily usage, bridge health, and shortability when applicable.
 - Estimated IBKR round-trip commission and prior actual commission observations.
+- The active IBKRNew goal definition and current cycle, including capital basis, target net profit, commission-adjusted realized progress, deadline, and opening-trade permission.
 
 Return no proposal when required data is stale or unavailable.
 
 ## Evaluation
 
-1. Confirm the deterministic eligibility result passed. For stocks, respect the configured arbitrary index membership, fresh company-fundamental thresholds, and earnings blackout. For ETFs, use only the separate ETF allow/deny, category, assets, liquidity, and spread rules; never apply company fundamentals or stock-index membership to an ETF.
-2. Apply the configured trend/pullback features and market-regime vetoes.
-3. Calculate planned loss, gross target profit, estimated entry and exit commission, expected net profit, commission drag percentage, and net reward-to-risk.
-4. Compare a concentrated allocation with a diversified allocation.
-5. Permit full remaining daily capacity only when every configured concentration threshold passes: confidence, net reward-to-risk, commission drag, position limits, correlation, and total exposure.
-6. Otherwise cap the proposal at the configured diversified percentage. Do not force a trade merely to reduce commission drag.
-7. Reject proposals whose expected net profit does not clear the configured minimum after round-trip commission and fees.
-8. Set the profit target beyond the commission-adjusted profitable exit price. Never widen the protective stop.
-9. Send the structured proposal to `IBKRNewRiskChecker`; its deterministic decision is final.
+1. Return no opening-trade proposal unless the active goal cycle explicitly permits new entries. Goal completion, expiry, pause, or missing cycle capital is a hard veto; it never blocks protective or risk-reducing management of existing positions.
+2. Confirm the deterministic eligibility result passed. For stocks, respect the configured arbitrary index membership, fresh company-fundamental thresholds, and earnings blackout. For ETFs, use only the separate ETF allow/deny, category, assets, liquidity, and spread rules; never apply company fundamentals or stock-index membership to an ETF.
+3. Apply the configured trend/pullback features and market-regime vetoes.
+4. Calculate planned loss, gross target profit, estimated entry and exit commission, expected net profit, commission drag percentage, and net reward-to-risk.
+5. Compare a concentrated allocation with a diversified allocation.
+6. Permit full remaining daily capacity only when every configured concentration threshold passes: confidence, net reward-to-risk, commission drag, position limits, correlation, and total exposure.
+7. Otherwise cap the proposal at the configured diversified percentage. Do not force a trade merely to reduce commission drag.
+8. Reject proposals whose expected net profit does not clear the configured minimum after round-trip commission and fees.
+9. Set the profit target beyond the commission-adjusted profitable exit price. Never widen the protective stop.
+10. Send the structured proposal to `IBKRNewRiskChecker`; its deterministic decision is final.
 
 ## Output
 

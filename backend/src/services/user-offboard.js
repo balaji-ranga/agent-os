@@ -266,6 +266,9 @@ export function purgeOwnerScopedRows(db, ownerUserId) {
     [ownerUserId]
   );
   // Net-new IBKRNew Event Trader is isolated from all legacy IBKR tables.
+  counts.ibkrnew_goal_trade_links = tryRun(db, `DELETE FROM ibkrnew_goal_trade_links WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.ibkrnew_goal_cycles = tryRun(db, `DELETE FROM ibkrnew_goal_cycles WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.ibkrnew_goals = tryRun(db, `DELETE FROM ibkrnew_goals WHERE owner_user_id = ?`, [ownerUserId]);
   counts.ibkrnew_commands = tryRun(db, `DELETE FROM ibkrnew_command_outbox WHERE owner_user_id = ?`, [ownerUserId]);
   counts.ibkrnew_executions = tryRun(db, `DELETE FROM ibkrnew_executions WHERE owner_user_id = ?`, [ownerUserId]);
   counts.ibkrnew_trades = tryRun(db, `DELETE FROM ibkrnew_trade_records WHERE owner_user_id = ?`, [ownerUserId]);

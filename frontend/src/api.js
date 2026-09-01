@@ -154,6 +154,10 @@ export const api = {
   ibkrNewSummary: () => get('/ibkrnew-event-trader/summary'),
   ibkrNewLiveOperations: (limit = 200) => get(`/ibkrnew-event-trader/live-operations?limit=${encodeURIComponent(limit)}`),
   ibkrNewInitialize: () => post('/ibkrnew-event-trader/initialize', {}),
+  ibkrNewGoal: () => get('/ibkrnew-event-trader/goal'),
+  ibkrNewSetGoal: (goal) => put('/ibkrnew-event-trader/goal', goal),
+  ibkrNewPauseGoal: () => post('/ibkrnew-event-trader/goal/pause', {}),
+  ibkrNewResumeGoal: () => post('/ibkrnew-event-trader/goal/resume', {}),
   ibkrNewPublishConfig: (kind, document, confirmRiskLoosening = false) =>
     post(`/ibkrnew-event-trader/configs/${encodeURIComponent(kind)}/publish`, {
       document,

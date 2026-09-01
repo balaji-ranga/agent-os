@@ -17,8 +17,9 @@ const signed = { command_id: 'IBKRNewCommand_test', type: 'test' }; const key = 
 const signature = crypto.createHmac('sha256', key).update(JSON.stringify(signed)).digest('hex');
 assert.equal(core.verifyCommand({ ...signed, signature, expires_at: new Date(Date.now() + 10000).toISOString() }), true);
 assert.equal(core.verifyCommand({ ...signed, signature: '0'.repeat(64) }), false);
-assert.equal(commandMatchesBootstrap({ authorization: { account_ref: 'IBKRNewAccount_current' } }, { account_ref: 'IBKRNewAccount_current' }), true);
+assert.equal(commandMatchesBootstrap({ authorization: { account_ref: 'IBKRNewAccount_current', goal: { cycle_id: 'IBKRNewGoalCycle_current' } } }, { account_ref: 'IBKRNewAccount_current', goal: { opening_trades_allowed: true, cycle: { cycle_id: 'IBKRNewGoalCycle_current' } } }), true);
 assert.equal(commandMatchesBootstrap({ authorization: { account_ref: 'IBKRNewAccount_old' } }, { account_ref: 'IBKRNewAccount_current' }), false);
+assert.equal(commandMatchesBootstrap({ authorization: { account_ref: 'IBKRNewAccount_current', goal: { cycle_id: 'IBKRNewGoalCycle_old' } } }, { account_ref: 'IBKRNewAccount_current', goal: { opening_trades_allowed: false, cycle: { cycle_id: 'IBKRNewGoalCycle_current' } } }), false);
 assert.equal(commandMatchesBootstrap({ authorization: { account_id: 'DU1234567' } }, { account_ref: 'IBKRNewAccount_current' }), false);
 assert.equal(core.commandSeen('IBKRNewCommand_once'), null); core.markCommand('IBKRNewCommand_once', 'executing'); assert.equal(core.commandSeen('IBKRNewCommand_once').status, 'executing');
 const profileEvent = core.emitInstrumentProfile({ symbol: 'aapl', security_type: 'STK', index_memberships: ['SPX'], fundamentals: { market_cap_usd: 1 } });

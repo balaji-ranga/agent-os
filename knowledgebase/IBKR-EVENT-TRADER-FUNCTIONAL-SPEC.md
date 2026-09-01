@@ -59,6 +59,19 @@ All policies, strategies, universes, market-data requirements, holding rules, or
 8. Produce an auditable causal chain from market observation through signal, authorization, command, broker order, fill, position, and exit.
 9. Provide an explicit paper-certification path before any future live-trading work.
 
+### 2.1 Trading outcome goal contract
+
+Each owner has one active `IBKRNew` trading outcome goal. The goal, rather than the strategy, owns the measurable objective and time boundary. The strategy binds to `ACTIVE_IBKRNEW_GOAL` and selects trades only while that goal permits new opening exposure.
+
+The default goal is configurable and starts at 5% net realized return over 30 calendar days. Cycle capital is the lesser of the configured total budget and eligible account capital captured when the cycle starts. Progress is calculated from linked, closed trade records as net realized profit after actual commissions; estimates do not mark a goal achieved.
+
+Supported modes are:
+
+- `ONE_TIME`: stop opening new trades when the target is achieved or the deadline is reached, and remain stopped until the owner activates a new goal.
+- `PERPETUAL`: apply the same stop behavior for the current cycle, then open the next cycle only at its scheduled boundary. Achieving a target early does not immediately restart trading.
+
+Goal state is a deterministic authorization gate. `ACTIVE` permits otherwise-valid opening trades; `WAITING_FOR_CAPITAL`, `PAUSED`, `ACHIEVED`, `EXPIRED`, and `COMPLETED` reject them. A goal stop does not suppress fills, commissions, reconciliation, protective exits, buy-to-cover, position-risk reduction, or operational health events for existing exposure. Goal replacement, pause, resume, cycle transitions, and trade-to-cycle attribution are owner-scoped and auditable.
+
 ## 3. Non-goals
 
 - Modifying or replacing existing IBKR workflows.
@@ -1001,6 +1014,11 @@ All routes are authenticated and owner-scoped. Proposed namespace:
 
 Configuration:
 
+- `GET /api/ibkrnew-event-trader/goal`
+- `PUT /api/ibkrnew-event-trader/goal`
+- `POST /api/ibkrnew-event-trader/goal/pause`
+- `POST /api/ibkrnew-event-trader/goal/resume`
+
 - `GET/POST /api/ibkr-event-trader/policies`
 - `GET/PUT /api/ibkr-event-trader/policies/:id/draft`
 - `POST /api/ibkr-event-trader/policies/:id/publish`
@@ -1044,6 +1062,7 @@ New tables use an `ibkr_event_trader_` prefix and mandatory `owner_user_id` inde
 
 Required logical stores:
 
+- Outcome goals, immutable cycle boundaries, and authorization-to-cycle trade links.
 - Policies and immutable policy versions.
 - Strategies and immutable strategy versions.
 - Universes, universe versions, and resolved universe snapshots.
@@ -1336,11 +1355,13 @@ The skill may rank, abstain, and propose an expression, quantity, protection, co
 
 The Prebuilt Workflows navigation contains a parent `IBKRNew0` item with:
 
-- **Strategy:** versioned strategy skill, strategy, policy, universe, and market-data configuration.
+- **Strategy:** outcome-goal definition and live cycle progress, plus versioned strategy skill, strategy, policy, universe, and market-data configuration. Creating a new goal replaces the active objective; pause and resume do not rewrite strategy versions.
 - **Summary:** trade history, estimated and actual commissions, gross/net P&L, required profitable exit, and allocation decisions.
-- **Live Operations:** bridge registration/revocation, pending CEO approvals, daily/total budget state, account and position snapshots, component health, component errors, execution/commission records, and causal events.
+- **Live Operations:** active goal-cycle status and progress, bridge registration/revocation, pending CEO approvals, daily/total budget state, account and position snapshots, component health, component errors, execution/commission records, and causal events.
 
 Live Operations polls Flolah; the browser never connects to IBKR. Desktop runtime, durable spool, local bridge, and IBKR Gateway health are heartbeat-driven and become effectively offline after the configured freshness period. Their operational tables, snapshots, executions, trade history, and allocation records are owner-scoped and participate in the user's profile retention and offboarding policy.
+
+The bridge bootstrap includes the active goal-cycle identifier and whether opening trades are allowed. Before executing a claimed opening command, the desktop verifies that the command's signed authorization references the same active cycle. A stopped, replaced, expired, or mismatched cycle fails closed, including for commands claimed immediately before a goal transition.
 
 ---
 
