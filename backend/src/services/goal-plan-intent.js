@@ -934,6 +934,19 @@ export function matchSelfToolsFromCatalog(prompt, tools) {
   return steps;
 }
 
+export function specialtyMessageContainsToolInstruction(message, toolName) {
+  const normalized = normalizeIntentText(message);
+  const distinctive = String(toolName || '')
+    .toLowerCase()
+    .split(/_+/g)
+    .filter((token) => token.length >= 4 && token !== 'agent' && !GENERIC_TOKENS.has(token));
+  // One overlapping word (especially agent/workflow/status) is not enough to
+  // prove that a separate tool request belongs inside a specialty assignment.
+  return distinctive.length >= 2 && distinctive.every(
+    (token) => allTokenIndices(normalized, token, { wholeWord: true }).length > 0
+  );
+}
+
 async function llmJsonIntents({ ownerUserId, system, user, maxTokens = 1400, toolName = 'goal_plan_intent' }) {
   const { content } = await chatCompletions({
     ownerUserId,
@@ -1316,10 +1329,7 @@ export async function classifyGoalPlanIntents(ownerUserId, prompt, opts = {}) {
     for (let i = toolSteps.length - 1; i >= 0; i -= 1) {
       const st = toolSteps[i];
       if (!st || st.type === 'notify_ceo') continue;
-      const token = String(st.tool_name || '')
-        .split('_')
-        .find((p) => p.length >= 5);
-      if (token && specBlob.includes(token.toLowerCase())) {
+      if (specialtyMessageContainsToolInstruction(specBlob, st.tool_name)) {
         toolSteps.splice(i, 1);
       }
     }

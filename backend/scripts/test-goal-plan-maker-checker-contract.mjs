@@ -7,7 +7,7 @@ const dataDir = mkdtempSync(join(tmpdir(), 'flolah-goal-quality-'));
 process.env.AGENT_OS_DATA_DIR = dataDir;
 const { validateTypedGoalPlan, validateCandidateGoalPlan, validateSeedRequirementCoverage, repairCheckerExecutorAvailability, safeGoalClarificationPlan, normalizeExecutorOutputKinds } = await import('../src/services/goal-plan-quality.js');
 const { isEfficiencyModeTool } = await import('../src/services/llm-efficiency-mode.js');
-const { matchSelfToolsFromCatalog } = await import('../src/services/goal-plan-intent.js');
+const { matchSelfToolsFromCatalog, specialtyMessageContainsToolInstruction } = await import('../src/services/goal-plan-intent.js');
 assert.equal(isEfficiencyModeTool('goal_plan_intent'), false);
 assert.equal(isEfficiencyModeTool('goal_plan_maker'), false);
 assert.equal(isEfficiencyModeTool('goal_plan_checker'), false);
@@ -18,6 +18,8 @@ const pluralCatalogMatch = matchSelfToolsFromCatalog(
 );
 assert.equal(pluralCatalogMatch.length, 1);
 assert.equal(pluralCatalogMatch[0].tool_name, 'agent_workflow_list');
+assert.equal(specialtyMessageContainsToolInstruction('Provide help tracking status of workflows and goals.', 'agent_workflow_list'), false);
+assert.equal(specialtyMessageContainsToolInstruction('Create a Kanban card for this assignment.', 'kanban_create_task'), true);
 const catalog = {
   tools: [{ name: 'erp_invoice_read' }, { name: 'erp_purchase_order_create_draft' }],
   workflows: [],
