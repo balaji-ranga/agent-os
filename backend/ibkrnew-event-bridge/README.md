@@ -4,11 +4,15 @@ This is the dedicated, outbound-only Windows desktop runtime for **IBKRNew Event
 
 The runtime is fail-closed unless either `IBKRNEW_MOCK=1`, or `IBKRNEW_PAPER_EXECUTION_ENABLED=1` with a paper account whose ID starts with `DU`. It streams Gateway callbacks, spools outbound events, verifies command signatures and expiry, revalidates commands, and submits a parent limit order with a broker-hosted protective stop. Live trading is unavailable.
 
-1. Copy `.env.example` to `.env` and paste the one-time credentials from the IBKRNew UI.
+1. Copy `.env.example` to `.env`, paste the one-time bridge credentials from the IBKRNew UI, and set the real paper account only in local `IBKRNEW_ACCOUNT_ID`.
 2. Run `npm install` and `npm test`.
 3. Start with `IBKRNEW_MOCK=1 npm start`.
 
 No inbound server or public port is opened. Events are written to `IBKRNew-events.jsonl` before transmission and removed only after server acknowledgement.
+
+The real IBKR account identifier is desktop-only. It is never entered in the Flolah browser UI, included in bridge health/events/errors, or stored on the VPS. Flolah generates an opaque, bridge-scoped `IBKRNewAccount_*` reference for server-side joins and reports. Do not add the local account identifier to custom profile or event payloads; the server also strips account-number fields and redacts recognizable IBKR account values as defense in depth.
+
+Bridge protocol version 2 rechecks the current opaque account reference immediately before every broker submission. Upgrading from the former real-account registration contract revokes the old bridge credentials and cancels its pending commands; create fresh credentials in Live Operations and replace only `IBKRNEW_BRIDGE_ID` and `IBKRNEW_BRIDGE_TOKEN`. Stop the old desktop runtime and allow its short-lived authorizations to expire before starting the upgraded bridge.
 
 ## Instrument profile refresh
 

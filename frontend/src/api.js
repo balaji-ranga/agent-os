@@ -159,8 +159,8 @@ export const api = {
       document,
       confirm_risk_loosening: confirmRiskLoosening,
     }),
-  ibkrNewRegisterBridge: (accountId) =>
-    post('/ibkrnew-event-trader/bridges', { account_id: accountId }),
+  ibkrNewRegisterBridge: () =>
+    post('/ibkrnew-event-trader/bridges', {}),
   ibkrNewRevokeBridge: (bridgeId) =>
     del(`/ibkrnew-event-trader/bridges/${encodeURIComponent(bridgeId)}`),
   ibkrNewApprove: (authorizationId) =>

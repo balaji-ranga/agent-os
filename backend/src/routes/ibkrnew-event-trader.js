@@ -20,12 +20,15 @@ router.get('/summary', requireAuth, requireCeoOrAdmin, (req, res) => handle(res,
 router.get('/live-operations', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json(getIbkrNewLiveOperations(owner(req), { limit: req.query.limit }))));
 router.post('/initialize', requireAuth, requireTenantFullAccess, (req, res) => handle(res, () => res.status(201).json(ensureIbkrNewDefaults(owner(req)))));
 router.post('/configs/:kind/publish', requireAuth, requireTenantFullAccess, (req, res) => handle(res, () => res.status(201).json(publishConfig(owner(req), req.params.kind, req.body?.document, { confirmRiskLoosening: req.body?.confirm_risk_loosening === true }))));
-router.post('/bridges', requireAuth, requireTenantFullAccess, (req, res) => handle(res, () => res.status(201).json(registerBridge(owner(req), req.body?.account_id))));
+router.post('/bridges', requireAuth, requireTenantFullAccess, (req, res) => handle(res, () => {
+  const suppliedAccountId = req.body?.account_id ?? req.body?.accountId ?? req.body?.account_ref;
+  return res.status(201).json(registerBridge(owner(req), suppliedAccountId));
+}));
 router.delete('/bridges/:bridgeId', requireAuth, requireTenantFullAccess, (req, res) => handle(res, () => res.json(revokeBridge(owner(req), req.params.bridgeId))));
 router.post('/authorizations/:authorizationId/approve', requireAuth, requireTenantFullAccess, (req, res) => handle(res, () => res.json(approveAuthorization(owner(req), req.params.authorizationId))));
 router.post('/bridge/events', bridge, (req, res) => handle(res, () => res.status(202).json(ingestBridgeEvent(req.ibkrNewBridge, req.body || {}))));
-router.get('/bridge/bootstrap', bridge, (req, res) => handle(res, () => res.json({ environment: 'paper', bridge_id: req.ibkrNewBridge.bridge_id, account_id: req.ibkrNewBridge.account_id, configs: ensureIbkrNewDefaults(req.ibkrNewBridge.owner_user_id) })));
-router.post('/bridge/commands/claim', bridge, (req, res) => handle(res, () => res.json({ commands: claimCommands(req.ibkrNewBridge, req.body?.limit) })));
+router.get('/bridge/bootstrap', bridge, (req, res) => handle(res, () => res.json({ environment: 'paper', bridge_id: req.ibkrNewBridge.bridge_id, account_ref: req.ibkrNewBridge.account_id, configs: ensureIbkrNewDefaults(req.ibkrNewBridge.owner_user_id) })));
+router.post('/bridge/commands/claim', bridge, (req, res) => handle(res, () => res.json({ commands: claimCommands(req.ibkrNewBridge, req.body?.limit, req.body?.protocol_version) })));
 router.post('/bridge/commands/:commandId/ack', bridge, (req, res) => handle(res, () => res.json(acknowledgeCommand(req.ibkrNewBridge, req.params.commandId, req.body?.status, req.body?.detail))));
 
 export default router;

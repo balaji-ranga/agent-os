@@ -172,6 +172,119 @@ function mergeConfig(base, value) {
 function id(prefix) { return `${prefix}_${crypto.randomUUID()}`; }
 function sha256(value) { return crypto.createHash('sha256').update(String(value)).digest('hex'); }
 function nowIso() { return new Date().toISOString(); }
+const IBKR_ACCOUNT_VALUE_PATTERN = /\b(?:DU|U)[- ]?\d{5,12}\b/gi;
+const IBKR_ACCOUNT_KEYS = new Set(['accountid', 'accountnumber', 'accountno', 'accountcode', 'acctid', 'acctnumber', 'acctno', 'acctcode', 'ibkraccountid', 'ibkraccountnumber']);
+
+function redactIbkrAccountText(value) {
+  return String(value).replace(IBKR_ACCOUNT_VALUE_PATTERN, '[REDACTED_IBKR_ACCOUNT]');
+}
+
+export function sanitizeIbkrNewPersistence(value, depth = 0) {
+  if (depth > 30) return '[REDACTED_EXCESSIVE_DEPTH]';
+  if (typeof value === 'string') return redactIbkrAccountText(value);
+  if (Array.isArray(value)) return value.map((child) => sanitizeIbkrNewPersistence(child, depth + 1));
+  if (!value || typeof value !== 'object') return value;
+  const clean = {};
+  for (const [key, child] of Object.entries(value)) {
+    const normalizedKey = key.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (IBKR_ACCOUNT_KEYS.has(normalizedKey)) continue;
+    clean[key] = sanitizeIbkrNewPersistence(child, depth + 1);
+  }
+  return clean;
+}
+
+function sanitizeStoredText(value, legacyAccountIds = []) {
+  if (value == null) return value;
+  let scrubbed = String(value);
+  for (const accountId of legacyAccountIds) if (accountId) scrubbed = scrubbed.split(String(accountId)).join('[REDACTED_IBKR_ACCOUNT]');
+  try { return json(sanitizeIbkrNewPersistence(JSON.parse(scrubbed))); }
+  catch { return redactIbkrAccountText(scrubbed); }
+}
+
+function withAccountRef(row) {
+  if (!row) return row;
+  const { account_id: accountRef, ...rest } = row;
+  return { ...rest, account_ref: accountRef };
+}
+
+export function migrateIbkrNewAccountPrivacy(db = getDb(), { force = false } = {}) {
+  db.pragma('secure_delete = ON');
+  const migrationName = 'opaque-account-reference-v1';
+  const legacy = db.prepare(`SELECT bridge_id,owner_user_id,account_id FROM ibkrnew_bridges WHERE account_id NOT LIKE 'IBKRNewAccount_%'`).all();
+  if (!force && !legacy.length && db.prepare(`SELECT 1 FROM ibkrnew_privacy_migrations WHERE migration_name=?`).get(migrationName)) return { migrated_bridge_count: 0, storage_rebuilt: false, already_applied: true };
+  const legacyAccountIds = [...new Set(legacy.map((row) => row.account_id).filter(Boolean))];
+  let changed = false;
+  const ts = nowIso();
+  const accountTables = ['ibkrnew_events', 'ibkrnew_account_state', 'ibkrnew_authorizations', 'ibkrnew_command_outbox', 'ibkrnew_position_snapshots', 'ibkrnew_trade_records', 'ibkrnew_executions'];
+  const migrate = db.transaction(() => {
+    for (const bridge of legacy) {
+      const accountRef = id('IBKRNewAccount');
+      db.prepare(`UPDATE ibkrnew_command_outbox SET status='cancelled',acknowledged_at=?,lease_until=NULL WHERE bridge_id=? AND status IN ('pending','claimed')`).run(ts, bridge.bridge_id);
+      db.prepare(`UPDATE ibkrnew_authorizations SET status='cancelled' WHERE bridge_id=? AND status IN ('pending_approval','issued')`).run(bridge.bridge_id);
+      db.prepare(`UPDATE ibkrnew_budget_reservations SET daily_released_usd=daily_reserved_usd,gross_released_usd=gross_reserved_usd,status='released',updated_at=? WHERE owner_user_id=? AND authorization_id IN (SELECT authorization_id FROM ibkrnew_authorizations WHERE bridge_id=?) AND status IN ('reserved','partially_filled')`).run(ts, bridge.owner_user_id, bridge.bridge_id);
+      for (const table of accountTables) db.prepare(`UPDATE ${table} SET account_id=? WHERE bridge_id=?`).run(accountRef, bridge.bridge_id);
+      db.prepare(`UPDATE ibkrnew_budget_reservations SET account_id=? WHERE authorization_id IN (SELECT authorization_id FROM ibkrnew_authorizations WHERE bridge_id=?)`).run(accountRef, bridge.bridge_id);
+      db.prepare(`UPDATE ibkrnew_bridges SET account_id=?,status='revoked',revoked_at=COALESCE(revoked_at,?) WHERE bridge_id=?`).run(accountRef, ts, bridge.bridge_id);
+      changed = true;
+    }
+    const textColumns = {
+      ibkrnew_config_versions: ['document_json'],
+      ibkrnew_events: ['payload_json', 'reason'],
+      ibkrnew_account_state: ['positions_json', 'open_orders_json'],
+      ibkrnew_authorizations: ['authorization_json'],
+      ibkrnew_command_outbox: ['command_json'],
+      ibkrnew_position_snapshots: ['payload_json'],
+      ibkrnew_instrument_profiles: ['profile_json'],
+      ibkrnew_component_health: ['detail_json', 'last_error'],
+      ibkrnew_component_errors: ['message', 'detail_json'],
+      ibkrnew_trade_records: ['economics_json'],
+      ibkrnew_allocation_decisions: ['rationale', 'detail_json'],
+    };
+    for (const [table, columns] of Object.entries(textColumns)) {
+      const rows = db.prepare(`SELECT rowid,* FROM ${table}`).all();
+      for (const row of rows) {
+        const values = columns.map((column) => sanitizeStoredText(row[column], legacyAccountIds));
+        if (columns.some((column, index) => values[index] !== row[column])) {
+          db.prepare(`UPDATE ${table} SET ${columns.map((column) => `${column}=?`).join(',')} WHERE rowid=?`).run(...values, row.rowid);
+          changed = true;
+        }
+      }
+    }
+  });
+  migrate();
+  if (changed) {
+    db.pragma('wal_checkpoint(TRUNCATE)');
+    db.exec('VACUUM');
+  }
+  db.prepare(`INSERT OR REPLACE INTO ibkrnew_privacy_migrations(migration_name,applied_at) VALUES(?,?)`).run(migrationName, nowIso());
+  return { migrated_bridge_count: legacy.length, storage_rebuilt: changed };
+}
+
+function ensureIbkrNewPrivacyTriggers(db) {
+  const accountTables = ['ibkrnew_bridges', 'ibkrnew_events', 'ibkrnew_account_state', 'ibkrnew_budget_reservations', 'ibkrnew_authorizations', 'ibkrnew_command_outbox', 'ibkrnew_position_snapshots', 'ibkrnew_trade_records', 'ibkrnew_executions'];
+  for (const table of accountTables) db.exec(`
+    CREATE TRIGGER IF NOT EXISTS ${table}_opaque_account_insert BEFORE INSERT ON ${table}
+    WHEN NEW.account_id NOT GLOB 'IBKRNewAccount_*' BEGIN SELECT RAISE(ABORT, 'IBKRNew requires an opaque account reference'); END;
+    CREATE TRIGGER IF NOT EXISTS ${table}_opaque_account_update BEFORE UPDATE OF account_id ON ${table}
+    WHEN NEW.account_id NOT GLOB 'IBKRNewAccount_*' BEGIN SELECT RAISE(ABORT, 'IBKRNew requires an opaque account reference'); END;
+  `);
+  const textColumns = {
+    ibkrnew_config_versions: ['document_json'], ibkrnew_events: ['payload_json'], ibkrnew_account_state: ['positions_json', 'open_orders_json'],
+    ibkrnew_authorizations: ['authorization_json'], ibkrnew_command_outbox: ['command_json'], ibkrnew_position_snapshots: ['payload_json'],
+    ibkrnew_instrument_profiles: ['profile_json'], ibkrnew_component_health: ['detail_json', 'last_error'], ibkrnew_component_errors: ['message', 'detail_json'],
+    ibkrnew_trade_records: ['economics_json'], ibkrnew_allocation_decisions: ['rationale', 'detail_json'],
+  };
+  const containsAccount = (column) => `(NEW.${column} GLOB '*DU[0-9][0-9][0-9][0-9][0-9]*' OR NEW.${column} GLOB '*U[0-9][0-9][0-9][0-9][0-9]*')`;
+  for (const [table, columns] of Object.entries(textColumns)) {
+    const condition = columns.map(containsAccount).join(' OR ');
+    db.exec(`
+      CREATE TRIGGER IF NOT EXISTS ${table}_account_text_insert BEFORE INSERT ON ${table}
+      WHEN ${condition} BEGIN SELECT RAISE(ABORT, 'IBKR account identifiers are forbidden in IBKRNew server text'); END;
+      CREATE TRIGGER IF NOT EXISTS ${table}_account_text_update BEFORE UPDATE OF ${columns.join(',')} ON ${table}
+      WHEN ${condition} BEGIN SELECT RAISE(ABORT, 'IBKR account identifiers are forbidden in IBKRNew server text'); END;
+    `);
+  }
+}
 function tradingDay(ts = Date.now()) {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ts));
 }
@@ -182,6 +295,9 @@ export function ensureIbkrNewEventTraderSchema(db = getDb()) {
       id TEXT NOT NULL, owner_user_id TEXT NOT NULL, kind TEXT NOT NULL, version INTEGER NOT NULL,
       status TEXT NOT NULL, document_json TEXT NOT NULL, created_at TEXT NOT NULL, published_at TEXT,
       PRIMARY KEY(owner_user_id, kind, id, version)
+    );
+    CREATE TABLE IF NOT EXISTS ibkrnew_privacy_migrations (
+      migration_name TEXT PRIMARY KEY, applied_at TEXT NOT NULL
     );
     CREATE UNIQUE INDEX IF NOT EXISTS idx_ibkrnew_config_published
       ON ibkrnew_config_versions(owner_user_id, kind) WHERE status = 'published';
@@ -292,6 +408,8 @@ export function ensureIbkrNewEventTraderSchema(db = getDb()) {
       detail_json TEXT NOT NULL, created_at TEXT NOT NULL
     );
   `);
+  ensureIbkrNewPrivacyTriggers(db);
+  migrateIbkrNewAccountPrivacy(db);
 }
 
 const IBKRNEW_REACTIONS = [
@@ -387,7 +505,8 @@ export function ensureIbkrNewDefaults(ownerUserId) {
 
 export function publishConfig(ownerUserId, kind, document, { confirmRiskLoosening = false } = {}) {
   ensureIbkrNewEventTraderSchema();
-  const db = getDb(); const clean = validateConfig(kind, document); const current = getPublishedConfig(ownerUserId, kind);
+  const db = getDb(); const validated = validateConfig(kind, document); const clean = sanitizeIbkrNewPersistence(validated); const current = getPublishedConfig(ownerUserId, kind);
+  if (json(clean) !== json(validated)) throw Object.assign(new Error('IBKR account identifiers are not accepted in server-side configuration'), { status: 400 });
   if (kind === 'policy' && current) {
     const oldB = current.budgets || {}; const newB = clean.budgets || {};
     const anyIncrease = (oldValues, newValues) => Object.keys(newValues || {}).some((key) => Number.isFinite(Number(newValues[key])) && Number(newValues[key]) > Number(oldValues?.[key] ?? newValues[key]));
@@ -406,12 +525,12 @@ export function publishConfig(ownerUserId, kind, document, { confirmRiskLoosenin
   return { id: configId, version, status: 'published', ...clean };
 }
 
-export function registerBridge(ownerUserId, accountId) {
+export function registerBridge(ownerUserId, suppliedAccountId) {
   ensureIbkrNewEventTraderSchema();
-  if (!String(accountId || '').startsWith('DU')) throw Object.assign(new Error('A DU-prefixed IBKR paper account_id is required'), { status: 400 });
-  const bridgeId = id('IBKRNewBridge'); const token = `ibkrnew_${crypto.randomBytes(32).toString('base64url')}`;
-  getDb().prepare(`INSERT INTO ibkrnew_bridges(bridge_id,owner_user_id,account_id,environment,token_hash,status,created_at) VALUES(?,?,?,?,?,'offline',?)`).run(bridgeId, ownerUserId, String(accountId), 'paper', sha256(token), nowIso());
-  return { bridge_id: bridgeId, account_id: String(accountId), environment: 'paper', token };
+  if (suppliedAccountId != null && String(suppliedAccountId).trim()) throw Object.assign(new Error('Real IBKR account identifiers must remain in the desktop bridge only'), { status: 400 });
+  const bridgeId = id('IBKRNewBridge'); const accountRef = id('IBKRNewAccount'); const token = `ibkrnew_${crypto.randomBytes(32).toString('base64url')}`;
+  getDb().prepare(`INSERT INTO ibkrnew_bridges(bridge_id,owner_user_id,account_id,environment,token_hash,status,created_at) VALUES(?,?,?,?,?,'offline',?)`).run(bridgeId, ownerUserId, accountRef, 'paper', sha256(token), nowIso());
+  return { bridge_id: bridgeId, account_ref: accountRef, environment: 'paper', token };
 }
 
 export function revokeBridge(ownerUserId, bridgeId) {
@@ -717,7 +836,7 @@ function maybeAuthorize(bridge, eventId, payload) {
     if (Number(daily) + amount > Number(policy.budgets.daily_opening_exposure_usd)) throw Object.assign(new Error('daily_budget_exceeded'), { code: 'RISK_BLOCK' });
     if (existingGross + Number(pendingGross) + grossReservation > totalCeiling) throw Object.assign(new Error('total_budget_exceeded'), { code: 'RISK_BLOCK' });
     const quantity = Number(effectivePayload.quantity); const authorization = {
-      authorization_id: authId, owner_user_id: bridge.owner_user_id, account_id: bridge.account_id, bridge_id: bridge.bridge_id, environment: 'paper',
+      authorization_id: authId, owner_user_id: bridge.owner_user_id, account_ref: bridge.account_id, bridge_id: bridge.bridge_id, environment: 'paper',
       strategy: { id: strategy.id, version: strategy.version }, strategy_skill: { id: strategySkill.id, version: strategySkill.version, agent_name: strategySkill.agent_name }, policy: { id: policy.id, version: policy.version }, universe: { id: configs.universe.id, version: configs.universe.version },
       signal_event_id: eventId, action: 'OPEN', expression, contract: effectivePayload.contract || { symbol: effectivePayload.symbol, security_type: expression.includes('STOCK') ? eligibility.security_type : 'OPT', exchange: 'SMART', currency: 'USD' },
       side: expression === 'SHORT_STOCK' ? 'SELL' : 'BUY', quantity, entry: { order_type: 'LIMIT', limit_price: Number(effectivePayload.limit_price ?? effectivePayload.ask ?? effectivePayload.last) },
@@ -742,17 +861,21 @@ function maybeAuthorize(bridge, eventId, payload) {
 export function ingestBridgeEvent(bridge, input) {
   ensureIbkrNewEventTraderSchema(); const db = getDb(); const sourceId = String(input.event_id || input.source_event_id || ''); const sequence = Number(input.sequence); const eventType = String(input.event_type || input.type || '');
   if (!sourceId || !Number.isSafeInteger(sequence) || sequence < 1 || !eventType) throw Object.assign(new Error('event_id, positive integer sequence, and event_type are required'), { status: 400 });
+  if (redactIbkrAccountText(sourceId) !== sourceId || redactIbkrAccountText(eventType) !== eventType) throw Object.assign(new Error('IBKR account identifiers are not accepted in event metadata'), { status: 400 });
+  const occurredMs = input.occurred_at == null ? Date.now() : Date.parse(input.occurred_at);
+  if (!Number.isFinite(occurredMs)) throw Object.assign(new Error('occurred_at must be a valid timestamp'), { status: 400 });
   const currentBridge = db.prepare(`SELECT last_sequence FROM ibkrnew_bridges WHERE bridge_id=?`).get(bridge.bridge_id);
   const lastSequence = Number(currentBridge?.last_sequence || 0);
   const existing = db.prepare(`SELECT event_id,status,sequence FROM ibkrnew_events WHERE bridge_id=? AND source_event_id=?`).get(bridge.bridge_id, sourceId);
   if (existing && !(existing.status === 'quarantined' && Number(existing.sequence) === lastSequence + 1)) return { accepted: existing.status === 'accepted', duplicate: true, event_id: existing.event_id, status: existing.status };
-  const eventId = existing?.event_id || id('IBKRNewEvent'); const occurred = input.occurred_at || nowIso(); const created = nowIso(); let status = 'accepted'; let reason = null;
+  const eventId = existing?.event_id || id('IBKRNewEvent'); const occurred = new Date(occurredMs).toISOString(); const created = nowIso(); let status = 'accepted'; let reason = null;
   if (sequence !== lastSequence + 1) { status = 'quarantined'; reason = `sequence_gap_expected_${lastSequence + 1}`; }
-  if (existing) db.prepare(`UPDATE ibkrnew_events SET status='accepted',reason=NULL,payload_json=?,occurred_at=? WHERE event_id=?`).run(json(input.payload || {}), occurred, eventId);
-  else db.prepare(`INSERT INTO ibkrnew_events VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(eventId, bridge.owner_user_id, bridge.account_id, bridge.bridge_id, 'paper', eventType, sourceId, sequence, occurred, json(input.payload || {}), status, reason, created);
+  const cleanPayload = sanitizeIbkrNewPersistence(input.payload || {});
+  if (existing) db.prepare(`UPDATE ibkrnew_events SET status='accepted',reason=NULL,payload_json=?,occurred_at=? WHERE event_id=?`).run(json(cleanPayload), occurred, eventId);
+  else db.prepare(`INSERT INTO ibkrnew_events VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(eventId, bridge.owner_user_id, bridge.account_id, bridge.bridge_id, 'paper', eventType, sourceId, sequence, occurred, json(cleanPayload), status, reason, created);
   db.prepare(`UPDATE ibkrnew_bridges SET status='online',last_seen_at=?,last_sequence=CASE WHEN ?='accepted' THEN ? ELSE last_sequence END WHERE bridge_id=?`).run(created, status, sequence, bridge.bridge_id);
   if (status !== 'accepted') return { accepted: false, event_id: eventId, status, reason };
-  const payload = { ...(input.payload || {}), occurred_at: occurred };
+  const payload = { ...cleanPayload, occurred_at: occurred };
   updateComponentHealth(db, bridge, 'IBKRNewDesktopBridge', 'desktop_bridge', 'online', { event_type: eventType, version: payload.bridge_version, sequence }, created);
   if (eventType === 'bridge.heartbeat') {
     updateComponentHealth(db, bridge, 'IBKRNewGateway', 'ibkr_gateway', payload.gateway_connected ? 'online' : 'offline', payload, created);
@@ -800,7 +923,8 @@ export function ingestBridgeEvent(bridge, input) {
   return { accepted: true, duplicate: false, event_id: eventId, status, reaction };
 }
 
-export function claimCommands(bridge, limit = 10) {
+export function claimCommands(bridge, limit = 10, protocolVersion = 0) {
+  if (Number(protocolVersion) < 2) throw Object.assign(new Error('IBKRNew desktop bridge protocol version 2 or newer is required'), { status: 426 });
   ensureIbkrNewEventTraderSchema(); const db = getDb(); const ts = nowIso(); const lease = new Date(Date.now() + 10000).toISOString();
   const tx = db.transaction(() => {
     const expired = db.prepare(`SELECT authorization_id FROM ibkrnew_command_outbox WHERE bridge_id=? AND status IN ('pending','claimed') AND expires_at<=?`).all(bridge.bridge_id, ts);
@@ -818,14 +942,19 @@ export function claimCommands(bridge, limit = 10) {
 export function acknowledgeCommand(bridge, commandId, status, detail = {}) {
   const allowed = new Set(['submitted', 'rejected', 'cancelled', 'uncertain', 'filled']);
   if (!allowed.has(status)) throw Object.assign(new Error('invalid acknowledgement status'), { status: 400 });
-  const db = getDb(); const row = db.prepare(`SELECT * FROM ibkrnew_command_outbox WHERE command_id=? AND bridge_id=?`).get(commandId, bridge.bridge_id);
+  const cleanDetail = sanitizeIbkrNewPersistence(detail); const db = getDb(); const row = db.prepare(`SELECT * FROM ibkrnew_command_outbox WHERE command_id=? AND bridge_id=?`).get(commandId, bridge.bridge_id);
   if (!row) throw Object.assign(new Error('command not found'), { status: 404 });
   const mapped = status === 'submitted' ? 'acknowledged' : status;
-  db.prepare(`UPDATE ibkrnew_command_outbox SET status=?,acknowledged_at=?,lease_until=NULL WHERE command_id=?`).run(mapped, nowIso(), commandId);
-  db.prepare(`UPDATE ibkrnew_authorizations SET status=? WHERE authorization_id=?`).run(status, row.authorization_id);
-  if (['rejected', 'cancelled'].includes(status)) db.prepare(`UPDATE ibkrnew_budget_reservations SET daily_released_usd=daily_reserved_usd,gross_released_usd=gross_reserved_usd,status='released',updated_at=? WHERE authorization_id=? AND status='reserved'`).run(nowIso(), row.authorization_id);
-  if (status === 'filled') db.prepare(`UPDATE ibkrnew_budget_reservations SET filled_usd=daily_reserved_usd,status='filled',updated_at=? WHERE authorization_id=?`).run(nowIso(), row.authorization_id);
-  return { ok: true, command_id: commandId, status, detail };
+  if (row.status === mapped || row.status === status) return { ok: true, duplicate: true, command_id: commandId, status, detail: cleanDetail };
+  if (row.status !== 'claimed' || row.account_id !== bridge.account_id) throw Object.assign(new Error('command is no longer claimable or belongs to a prior account-reference epoch'), { status: 409 });
+  const ts = nowIso(); const tx = db.transaction(() => {
+    const updated = db.prepare(`UPDATE ibkrnew_command_outbox SET status=?,acknowledged_at=?,lease_until=NULL WHERE command_id=? AND status='claimed' AND account_id=?`).run(mapped, ts, commandId, bridge.account_id);
+    if (!updated.changes) throw Object.assign(new Error('command state changed before acknowledgement'), { status: 409 });
+    db.prepare(`UPDATE ibkrnew_authorizations SET status=? WHERE authorization_id=? AND status NOT IN ('cancelled','expired')`).run(status, row.authorization_id);
+    if (['rejected', 'cancelled'].includes(status)) db.prepare(`UPDATE ibkrnew_budget_reservations SET daily_released_usd=daily_reserved_usd,gross_released_usd=gross_reserved_usd,status='released',updated_at=? WHERE authorization_id=? AND status='reserved'`).run(ts, row.authorization_id);
+    if (status === 'filled') db.prepare(`UPDATE ibkrnew_budget_reservations SET filled_usd=daily_reserved_usd,status='filled',updated_at=? WHERE authorization_id=?`).run(ts, row.authorization_id);
+  }); tx();
+  return { ok: true, command_id: commandId, status, detail: cleanDetail };
 }
 
 export function approveAuthorization(ownerUserId, authorizationId) {
@@ -847,7 +976,7 @@ export function approveAuthorization(ownerUserId, authorizationId) {
 
 export function getDashboard(ownerUserId) {
   const db = getDb(); ensureIbkrNewEventTraderSchema(db); expireStaleAuthorizations(ownerUserId, db); const configs = ensureIbkrNewDefaults(ownerUserId); const day = tradingDay();
-  const bridges = db.prepare(`SELECT bridge_id,account_id,environment,status,last_sequence,last_seen_at,created_at,revoked_at FROM ibkrnew_bridges WHERE owner_user_id=? ORDER BY created_at DESC`).all(ownerUserId);
+  const bridges = db.prepare(`SELECT bridge_id,account_id,environment,status,last_sequence,last_seen_at,created_at,revoked_at FROM ibkrnew_bridges WHERE owner_user_id=? ORDER BY created_at DESC`).all(ownerUserId).map(withAccountRef);
   const account = db.prepare(`SELECT * FROM ibkrnew_account_state WHERE owner_user_id=? ORDER BY captured_at DESC LIMIT 1`).get(ownerUserId);
   const daily = db.prepare(`SELECT COALESCE(SUM(daily_reserved_usd-daily_released_usd),0) used FROM ibkrnew_budget_reservations WHERE owner_user_id=? AND trading_day=? AND status IN ('reserved','partially_filled','filled')`).get(ownerUserId, day).used;
   const events = db.prepare(`SELECT event_id,event_type,bridge_id,sequence,occurred_at,status,reason,created_at FROM ibkrnew_events WHERE owner_user_id=? ORDER BY created_at DESC LIMIT 100`).all(ownerUserId);
@@ -855,13 +984,13 @@ export function getDashboard(ownerUserId) {
   const approvals = db.prepare(`SELECT authorization_id,expression,bridge_id,expires_at,created_at FROM ibkrnew_authorizations WHERE owner_user_id=? AND status='pending_approval' ORDER BY created_at DESC`).all(ownerUserId);
   const reactions = db.prepare(`SELECT reaction_id,agent_name,subscriptions_json,enabled FROM ibkrnew_reaction_registry WHERE owner_user_id=? ORDER BY agent_name`).all(ownerUserId).map((r) => ({ ...r, subscriptions: parse(r.subscriptions_json, []) }));
   const staleMs = Number(configs.policy.freshness?.bridge_offline_after_ms || 30000); const now = Date.now();
-  return { namespace: IBKRNEW_NAMESPACE, environment: 'paper', configs, reactions, approvals, trading_day: day, budgets: { daily_limit_usd: configs.policy.budgets.daily_opening_exposure_usd, daily_used_usd: Number(daily), total_limit_usd: configs.policy.budgets.total_gross_exposure_usd }, bridges: bridges.map((b) => ({ ...b, effective_status: !b.last_seen_at || now - Date.parse(b.last_seen_at) > staleMs ? 'offline' : b.status })), account: account ? { ...account, positions: parse(account.positions_json, []), open_orders: parse(account.open_orders_json, []) } : null, events, commands };
+  return { namespace: IBKRNEW_NAMESPACE, environment: 'paper', configs, reactions, approvals, trading_day: day, budgets: { daily_limit_usd: configs.policy.budgets.daily_opening_exposure_usd, daily_used_usd: Number(daily), total_limit_usd: configs.policy.budgets.total_gross_exposure_usd }, bridges: bridges.map((b) => ({ ...b, effective_status: !b.last_seen_at || now - Date.parse(b.last_seen_at) > staleMs ? 'offline' : b.status })), account: account ? { ...withAccountRef(account), positions: parse(account.positions_json, []), open_orders: parse(account.open_orders_json, []) } : null, events, commands };
 }
 
 export function getIbkrNewSummary(ownerUserId) {
   const db = getDb(); ensureIbkrNewDefaults(ownerUserId);
   const totals = db.prepare(`SELECT COUNT(*) trade_count,COALESCE(SUM(actual_commission_usd),0) actual_commission_usd,COALESCE(SUM(estimated_round_trip_commission_usd),0) estimated_commission_usd,COALESCE(SUM(gross_pnl_usd),0) gross_pnl_usd,COALESCE(SUM(net_pnl_usd),0) net_pnl_usd,SUM(CASE WHEN status='open' THEN 1 ELSE 0 END) open_trade_count,SUM(CASE WHEN status='closed' AND net_pnl_usd>0 THEN 1 ELSE 0 END) profitable_trade_count FROM ibkrnew_trade_records WHERE owner_user_id=?`).get(ownerUserId);
-  const trades = db.prepare(`SELECT * FROM ibkrnew_trade_records WHERE owner_user_id=? ORDER BY created_at DESC LIMIT 200`).all(ownerUserId).map((row) => ({ ...row, economics: parse(row.economics_json, {}) }));
+  const trades = db.prepare(`SELECT * FROM ibkrnew_trade_records WHERE owner_user_id=? ORDER BY created_at DESC LIMIT 200`).all(ownerUserId).map((row) => ({ ...withAccountRef(row), economics: parse(row.economics_json, {}) }));
   const allocations = db.prepare(`SELECT * FROM ibkrnew_allocation_decisions WHERE owner_user_id=? ORDER BY created_at DESC LIMIT 200`).all(ownerUserId).map((row) => ({ ...row, detail: parse(row.detail_json, {}) }));
   const profile = db.prepare(`SELECT data_retention_days FROM platform_users WHERE id=?`).get(ownerUserId);
   return { retention_days: Number(profile?.data_retention_days || 90), totals: { ...totals, win_rate_pct: Number(totals.trade_count) ? Number(totals.profitable_trade_count || 0) / Number(totals.trade_count) * 100 : 0 }, trades, allocations };
@@ -871,8 +1000,8 @@ export function getIbkrNewLiveOperations(ownerUserId, { limit = 200 } = {}) {
   const db = getDb(); const dashboard = getDashboard(ownerUserId); const n = Math.min(500, Math.max(1, Number(limit) || 200)); const staleMs = Number(dashboard.configs.policy.freshness?.bridge_offline_after_ms || 30000); const now = Date.now();
   const health = db.prepare(`SELECT * FROM ibkrnew_component_health WHERE owner_user_id=? ORDER BY updated_at DESC`).all(ownerUserId).map((row) => ({ ...row, detail: parse(row.detail_json, {}), effective_status: now - Date.parse(row.last_seen_at) > staleMs ? 'offline' : row.status }));
   const errors = db.prepare(`SELECT * FROM ibkrnew_component_errors WHERE owner_user_id=? ORDER BY occurred_at DESC LIMIT ?`).all(ownerUserId, n).map((row) => ({ ...row, detail: parse(row.detail_json, {}) }));
-  const snapshots = db.prepare(`SELECT * FROM ibkrnew_position_snapshots WHERE owner_user_id=? ORDER BY captured_at DESC LIMIT ?`).all(ownerUserId, n).map((row) => ({ ...row, payload: parse(row.payload_json, {}) }));
-  const executions = db.prepare(`SELECT * FROM ibkrnew_executions WHERE owner_user_id=? ORDER BY occurred_at DESC LIMIT ?`).all(ownerUserId, n);
+  const snapshots = db.prepare(`SELECT * FROM ibkrnew_position_snapshots WHERE owner_user_id=? ORDER BY captured_at DESC LIMIT ?`).all(ownerUserId, n).map((row) => ({ ...withAccountRef(row), payload: parse(row.payload_json, {}) }));
+  const executions = db.prepare(`SELECT * FROM ibkrnew_executions WHERE owner_user_id=? ORDER BY occurred_at DESC LIMIT ?`).all(ownerUserId, n).map(withAccountRef);
   const instrumentProfiles = db.prepare(`SELECT symbol,security_type,fundamentals_at,membership_at,corporate_events_at,updated_at,profile_json FROM ibkrnew_instrument_profiles WHERE owner_user_id=? ORDER BY updated_at DESC LIMIT ?`).all(ownerUserId, n).map((row) => ({ ...row, profile: parse(row.profile_json, {}) }));
   const profile = db.prepare(`SELECT data_retention_days FROM platform_users WHERE id=?`).get(ownerUserId);
   return { generated_at: nowIso(), retention_days: Number(profile?.data_retention_days || 90), health, errors, snapshots, executions, instrument_profiles: instrumentProfiles, dashboard, summary: getIbkrNewSummary(ownerUserId) };

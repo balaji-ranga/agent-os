@@ -1,9 +1,10 @@
 import assert from 'assert/strict';
-import { mkdtempSync, readFileSync } from 'fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import crypto from 'crypto';
-import { IBKRNewBridgeCore, IBKRNewFeatureEngine, buildBarFeatures, selectUniverseProfiles } from '../src/core.js';
+import { IBKRNewBridgeCore, IBKRNewFeatureEngine, buildBarFeatures, commandMatchesBootstrap, selectUniverseProfiles } from '../src/core.js';
+import { IBKRNewGateway } from '../src/gateway.js';
 
 const dir = mkdtempSync(join(tmpdir(), 'ibkrnew-'));
 let calls = 0;
@@ -16,6 +17,9 @@ const signed = { command_id: 'IBKRNewCommand_test', type: 'test' }; const key = 
 const signature = crypto.createHmac('sha256', key).update(JSON.stringify(signed)).digest('hex');
 assert.equal(core.verifyCommand({ ...signed, signature, expires_at: new Date(Date.now() + 10000).toISOString() }), true);
 assert.equal(core.verifyCommand({ ...signed, signature: '0'.repeat(64) }), false);
+assert.equal(commandMatchesBootstrap({ authorization: { account_ref: 'IBKRNewAccount_current' } }, { account_ref: 'IBKRNewAccount_current' }), true);
+assert.equal(commandMatchesBootstrap({ authorization: { account_ref: 'IBKRNewAccount_old' } }, { account_ref: 'IBKRNewAccount_current' }), false);
+assert.equal(commandMatchesBootstrap({ authorization: { account_id: 'DU1234567' } }, { account_ref: 'IBKRNewAccount_current' }), false);
 assert.equal(core.commandSeen('IBKRNewCommand_once'), null); core.markCommand('IBKRNewCommand_once', 'executing'); assert.equal(core.commandSeen('IBKRNewCommand_once').status, 'executing');
 const profileEvent = core.emitInstrumentProfile({ symbol: 'aapl', security_type: 'STK', index_memberships: ['SPX'], fundamentals: { market_cap_usd: 1 } });
 assert.equal(profileEvent.event_type, 'instrument.profile_refreshed'); assert.equal(profileEvent.payload.symbol, 'AAPL');
@@ -28,4 +32,14 @@ assert.ok(features.ema_fast > features.ema_slow); assert.ok(features.vwap > 0);
 const engine = new IBKRNewFeatureEngine(); let closed = null; const policy = { budgets: { max_stock_position_usd: 750, max_short_position_usd: 500 }, loss_limits: { max_planned_loss_per_trade_usd: 50 } };
 for (let minute = 0; minute < 23; minute++) for (let tick = 0; tick < 12; tick++) closed = engine.ingest({ symbol: 'AAPL', at: new Date(Date.UTC(2026, 0, 2, 14, minute, tick * 5)).toISOString(), open: 100 + minute, high: 101 + minute, low: 99 + minute, close: 100.5 + minute, volume: 100 }, policy) || closed;
 assert.equal(closed.symbol, 'AAPL'); assert.ok(closed.quantity > 0); assert.ok(closed.protection.stop_price < closed.last);
+const gateway = Object.create(IBKRNewGateway.prototype); gateway.connected = true; gateway.positions = []; gateway.openOrders = []; gateway.config = { accountId: 'DU1234567' };
+assert.deepEqual(gateway.health(), { connected: true, positions: 0, open_orders: 0 }, 'desktop health must not transmit the local IBKR account identifier');
+const privacyDir = mkdtempSync(join(tmpdir(), 'ibkrnew-privacy-')); const sentBodies = [];
+const privacyCore = new IBKRNewBridgeCore({ apiUrl: 'https://example.test/api/ibkrnew-event-trader', bridgeId: 'IBKRNewBridge_privacy', token: 'secret', spoolDir: privacyDir, fetchImpl: async (_url, request) => { sentBodies.push(request?.body || ''); return { ok: true, status: 202, json: async () => ({}) }; } });
+privacyCore.emit('bridge.gateway_error', { account_id: 'DU1234567', message: 'Account DU1234567 is invalid', nested: [{ acctCode: 'DU1234567' }] });
+assert.doesNotMatch(readFileSync(join(privacyDir, 'IBKRNew-events.jsonl'), 'utf8'), /DU1234567|account_id|acctCode/);
+writeFileSync(join(privacyDir, 'IBKRNew-events.jsonl'), `${JSON.stringify({ event_id: 'legacy', sequence: 2, event_type: 'desktop.component_error', payload: { message: 'Legacy DU7654321 error' } })}\n`);
+await privacyCore.flush(); assert.doesNotMatch(sentBodies.at(-1), /DU7654321/);
+await privacyCore.acknowledge('IBKRNewCommand_privacy', 'rejected', { error: 'Account DU9999999 rejected', acctNumber: 'DU9999999' });
+assert.doesNotMatch(sentBodies.at(-1), /DU9999999|acctNumber/);
 console.log('IBKRNew desktop bridge offline tests passed');

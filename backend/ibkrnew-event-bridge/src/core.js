@@ -2,6 +2,33 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeF
 import { join } from 'path';
 import crypto from 'crypto';
 
+const IBKR_ACCOUNT_PATTERN = /\b(?:DU|U)[- ]?\d{5,12}\b/gi;
+const IBKR_ACCOUNT_KEYS = new Set(['accountid', 'accountnumber', 'accountno', 'accountcode', 'acctid', 'acctnumber', 'acctno', 'acctcode', 'ibkraccountid', 'ibkraccountnumber']);
+
+export function sanitizeBridgeEgress(value, depth = 0) {
+  if (depth > 30) return '[REDACTED_EXCESSIVE_DEPTH]';
+  if (typeof value === 'string') return value.replace(IBKR_ACCOUNT_PATTERN, '[REDACTED_IBKR_ACCOUNT]');
+  if (Array.isArray(value)) return value.map((child) => sanitizeBridgeEgress(child, depth + 1));
+  if (!value || typeof value !== 'object') return value;
+  const clean = {};
+  for (const [key, child] of Object.entries(value)) {
+    if (IBKR_ACCOUNT_KEYS.has(key.toLowerCase().replace(/[^a-z0-9]/g, ''))) continue;
+    clean[key] = sanitizeBridgeEgress(child, depth + 1);
+  }
+  return clean;
+}
+
+function sanitizeSpoolLine(line) {
+  try { return JSON.stringify(sanitizeBridgeEgress(JSON.parse(line))); }
+  catch { return String(line).replace(IBKR_ACCOUNT_PATTERN, '[REDACTED_IBKR_ACCOUNT]'); }
+}
+
+export function commandMatchesBootstrap(command, bootstrap) {
+  const commandRef = String(command?.authorization?.account_ref || '');
+  const currentRef = String(bootstrap?.account_ref || '');
+  return Boolean(commandRef && currentRef && commandRef === currentRef);
+}
+
 export class IBKRNewBridgeCore {
   constructor({ apiUrl, bridgeId, token, spoolDir, fetchImpl = fetch, now = () => new Date() }) {
     if (!apiUrl || !bridgeId || !token) throw new Error('IBKRNew API URL, bridge ID, and token are required');
@@ -15,7 +42,7 @@ export class IBKRNewBridgeCore {
   markCommand(commandId, status, detail = {}) { const state = this.commandState(); state[commandId] = { status, detail, updated_at: this.now().toISOString() }; writeFileSync(this.commandStatePath, JSON.stringify(state), { mode: 0o600 }); return state[commandId]; }
   headers() { return { 'content-type': 'application/json', 'x-ibkrnew-bridge-id': this.bridgeId, 'x-ibkrnew-bridge-token': this.token }; }
   emit(eventType, payload, occurredAt = this.now().toISOString()) {
-    this.sequence += 1; const event = { event_id: `IBKRNewDesktopEvent_${crypto.randomUUID()}`, sequence: this.sequence, event_type: eventType, occurred_at: occurredAt, payload };
+    this.sequence += 1; const event = sanitizeBridgeEgress({ event_id: `IBKRNewDesktopEvent_${crypto.randomUUID()}`, sequence: this.sequence, event_type: eventType, occurred_at: occurredAt, payload });
     appendFileSync(this.spoolPath, `${JSON.stringify(event)}\n`, { encoding: 'utf8', mode: 0o600 }); writeFileSync(this.statePath, JSON.stringify({ sequence: this.sequence }), { mode: 0o600 }); return event;
   }
   emitInstrumentProfile(profile, occurredAt = this.now().toISOString()) {
@@ -25,7 +52,7 @@ export class IBKRNewBridgeCore {
   }
   async flush() {
     if (!existsSync(this.spoolPath)) return { sent: 0, remaining: 0 };
-    const lines = readFileSync(this.spoolPath, 'utf8').split(/\r?\n/).filter(Boolean); let sent = 0;
+    const lines = readFileSync(this.spoolPath, 'utf8').split(/\r?\n/).filter(Boolean).map(sanitizeSpoolLine); let sent = 0;
     for (const line of lines) {
       const response = await this.fetch(`${this.apiUrl}/bridge/events`, { method: 'POST', headers: this.headers(), body: line });
       if (!response.ok) break; sent += 1;
@@ -34,7 +61,7 @@ export class IBKRNewBridgeCore {
     return { sent, remaining: remaining.length };
   }
   async claim(limit = 10) {
-    const response = await this.fetch(`${this.apiUrl}/bridge/commands/claim`, { method: 'POST', headers: this.headers(), body: JSON.stringify({ limit }) });
+    const response = await this.fetch(`${this.apiUrl}/bridge/commands/claim`, { method: 'POST', headers: this.headers(), body: JSON.stringify({ limit, protocol_version: 2 }) });
     if (!response.ok) throw new Error(`IBKRNew command claim failed: ${response.status}`);
     const commands = (await response.json()).commands || [];
     return commands.filter((command) => this.verifyCommand(command));
@@ -51,7 +78,7 @@ export class IBKRNewBridgeCore {
     return !transportExpiry || Date.parse(transportExpiry) > this.now().getTime();
   }
   async acknowledge(commandId, status, detail = {}) {
-    const response = await this.fetch(`${this.apiUrl}/bridge/commands/${encodeURIComponent(commandId)}/ack`, { method: 'POST', headers: this.headers(), body: JSON.stringify({ status, detail }) });
+    const response = await this.fetch(`${this.apiUrl}/bridge/commands/${encodeURIComponent(commandId)}/ack`, { method: 'POST', headers: this.headers(), body: JSON.stringify(sanitizeBridgeEgress({ status, detail })) });
     if (!response.ok) throw new Error(`IBKRNew acknowledgement failed: ${response.status}`); return response.json();
   }
 }
