@@ -1,0 +1,22 @@
+{
+  "blueprint_id": "IBKRNew0",
+  "schema_version": 1,
+  "environment": "paper",
+  "config_blueprints": {
+    "policy": "policy.json",
+    "strategy": "strategy.json",
+    "strategy_skill": "strategy-skill.json",
+    "universe": "universe.json",
+    "market_data": "market-data.json"
+  },
+  "goal_blueprint": "goal.json",
+  "workflow_blueprint": "workflows.json",
+  "agent_templates": [
+    { "agent_name": "IBKRNewMarketObserver", "template_base_id": "IBKRNewMarketObserver", "workspace_template": "openclaw-workspace-templates/IBKRNewMarketObserver/" },
+    { "agent_name": "IBKRNewStrategyPlanner", "template_base_id": "IBKRNewStrategyPlanner", "workspace_template": "openclaw-workspace-templates/IBKRNewStrategyPlanner/" },
+    { "agent_name": "IBKRNewRiskChecker", "template_base_id": "IBKRNewRiskChecker", "workspace_template": "openclaw-workspace-templates/IBKRNewRiskChecker/" },
+    { "agent_name": "IBKRNewExecutionOperator", "template_base_id": "IBKRNewExecutionOperator", "workspace_template": "openclaw-workspace-templates/IBKRNewExecutionOperator/" },
+    { "agent_name": "IBKRNewPositionMonitor", "template_base_id": "IBKRNewPositionMonitor", "workspace_template": "openclaw-workspace-templates/IBKRNewPositionMonitor/" },
+    { "agent_name": "IBKRNewTradingSupervisor", "template_base_id": "IBKRNewTradingSupervisor", "workspace_template": "openclaw-workspace-templates/IBKRNewTradingSupervisor/" }
+  ]
+}

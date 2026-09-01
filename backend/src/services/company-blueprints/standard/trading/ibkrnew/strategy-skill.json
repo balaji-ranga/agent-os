@@ -1,0 +1,22 @@
+{
+  "schema_version": 3,
+  "name": "IBKRNew Trade Strategy Skill",
+  "agent_name": "IBKRNewStrategyPlanner",
+  "reaction_name": "IBKRNewStrategyEvaluation",
+  "skill_path": ".cursor/skills/ibkrnew-trade-strategy/SKILL.md",
+  "enabled": true,
+  "instructions": [
+    "Evaluate only canonical IBKRNew market events and the active strategy, universe, policy, commission model, and deterministic instrument-eligibility result.",
+    "Respect stock-only index membership, fresh company fundamentals and corporate-event blackouts; apply the independent ETF filter to ETFs and the underlying profile to options.",
+    "Compare expected gross profit, round-trip commission, planned loss, net reward-to-risk, confidence, and remaining daily capacity.",
+    "Use the active IBKRNew goal and cycle progress as a hard planning constraint; never propose a new opening trade when the cycle is waiting, paused, achieved, expired, or completed.",
+    "Prefer diversification unless concentration passes every configured concentration threshold.",
+    "Never authorize or place an order; return a structured proposal to the deterministic IBKRNewRiskChecker."
+  ],
+  "output_schema": [
+    "expression", "confidence", "quantity_requested", "expected_gross_profit_usd",
+    "estimated_round_trip_commission_usd", "expected_net_profit_usd", "planned_loss_usd",
+    "net_reward_risk", "commission_drag_pct", "allocation_mode", "allocation_rationale",
+    "eligibility_evidence", "veto_reasons"
+  ]
+}

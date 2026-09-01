@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "name": "IBKRNew 5% in 30 Days",
+  "mode": "PERPETUAL",
+  "target_return_pct": 5,
+  "duration_days": 30,
+  "duration_basis": "CALENDAR_DAYS",
+  "capital_basis": "CYCLE_START_ELIGIBLE_CAPITAL_CAPPED_BY_TOTAL_BUDGET",
+  "profit_basis": "NET_REALIZED_AFTER_COMMISSIONS"
+}

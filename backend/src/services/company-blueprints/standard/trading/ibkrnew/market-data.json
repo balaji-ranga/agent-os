@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "name": "IBKRNew IBKR Executable Data",
+  "executable_source": "IBKR",
+  "allow_delayed_for_execution": false,
+  "required_fields": ["bid", "ask", "last", "quote_at"],
+  "bar_intervals": ["1m", "5m", "15m", "1d"],
+  "session": "REGULAR",
+  "instrument_profile_events": [
+    "instrument.profile_refreshed",
+    "instrument.fundamentals_refreshed",
+    "instrument.membership_refreshed",
+    "instrument.corporate_events_refreshed"
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "schema_version": 2,
+  "name": "IBKRNew US Liquid Stocks and ETFs",
+  "allowlist": [],
+  "denylist": [],
+  "maximum_active_subscriptions": 40,
+  "filters": {
+    "country": ["US"],
+    "security_types": ["STK", "ETF"],
+    "require_shortable_for_short": true,
+    "stock": {
+      "enabled": true,
+      "indexes": [],
+      "index_match": "ANY",
+      "index_membership_maximum_age_hours": 168,
+      "minimum_price_usd": 10,
+      "maximum_price_usd": 300,
+      "minimum_average_daily_volume": 2000000,
+      "maximum_spread_pct": 0.2,
+      "fundamentals": {
+        "enabled": true,
+        "fail_closed": true,
+        "maximum_age_hours": 36,
+        "minimum_market_cap_usd": 2000000000,
+        "minimum_revenue_ttm_usd": 500000000,
+        "maximum_debt_to_equity": 3,
+        "require_positive_operating_cash_flow": false,
+        "allowed_sectors": [],
+        "excluded_sectors": []
+      },
+      "corporate_events": {
+        "enabled": true,
+        "fail_closed": true,
+        "maximum_age_hours": 36,
+        "earnings_blackout_days_before": 2,
+        "earnings_blackout_days_after": 1
+      }
+    },
+    "etf": {
+      "enabled": true,
+      "allowlist": [],
+      "denylist": [],
+      "categories": [],
+      "minimum_price_usd": 10,
+      "maximum_price_usd": 500,
+      "minimum_average_daily_volume": 1000000,
+      "maximum_spread_pct": 0.2,
+      "minimum_assets_under_management_usd": 500000000,
+      "profile_maximum_age_hours": 168,
+      "fail_closed": true
+    }
+  }
+}

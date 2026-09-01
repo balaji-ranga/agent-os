@@ -1,167 +1,12 @@
 import crypto from 'crypto';
 import { getDb } from '../db/schema.js';
+import { IBKRNEW_CONFIG_KINDS, getIbkrNewConfigBlueprint, getIbkrNewGoalBlueprint, getIbkrNewWorkflowBlueprints } from './ibkrnew-blueprints.js';
 
 export const IBKRNEW_NAMESPACE = 'IBKRNew';
 export const IBKRNEW_ENVIRONMENT = 'paper';
 
-const DEFAULT_POLICY = Object.freeze({
-  name: 'IBKRNew Conservative-Moderate Paper',
-  environment: 'paper',
-  feature_switches: {
-    trading_enabled: true,
-    paper_execution_enabled: true,
-    live_execution_enabled: false,
-    long_stock_enabled: true,
-    short_stock_enabled: true,
-    long_call_enabled: true,
-    long_put_enabled: true,
-    intraday_enabled: true,
-    overnight_enabled: true,
-    automatic_entry_enabled: true,
-    automatic_exit_enabled: true,
-    ceo_approval_required: false,
-  },
-  budgets: {
-    total_gross_exposure_usd: 10000,
-    daily_opening_exposure_usd: 1000,
-    max_stock_position_usd: 750,
-    max_option_premium_position_usd: 250,
-    max_total_option_premium_usd: 1000,
-    max_short_position_usd: 500,
-    max_total_short_notional_usd: 2000,
-    short_stress_buffer_pct: 30,
-    max_open_positions: 6,
-    max_open_option_positions: 3,
-  },
-  loss_limits: {
-    max_planned_loss_per_trade_usd: 50,
-    daily_loss_limit_usd: 150,
-    weekly_loss_limit_usd: 400,
-    max_drawdown_usd: 1000,
-    max_consecutive_losses: 3,
-  },
-  freshness: {
-    quote_max_age_ms: 5000,
-    feature_max_age_ms: 15000,
-    account_max_age_ms: 30000,
-    shortability_max_age_ms: 15000,
-    authorization_ttl_ms: 15000,
-    approval_ttl_ms: 300000,
-    bridge_offline_after_ms: 30000,
-  },
-  option_rules: {
-    minimum_dte: 14,
-    maximum_dte: 60,
-    minimum_open_interest: 500,
-    minimum_daily_volume: 50,
-    maximum_spread_usd: 0.15,
-    maximum_spread_midpoint_pct: 10,
-    minimum_delta_abs: 0.55,
-    maximum_delta_abs: 0.70,
-    allow_automatic_exercise: false,
-    allow_hold_through_expiry: false,
-  },
-  order_permissions: { entry_order_types: ['LIMIT'], protective_order_types: ['STOP', 'STOP_LIMIT', 'LIMIT'], allow_fractional_shares: false, allow_unprotected_entry: false, allow_hard_to_borrow: false },
-  session_rules: { timezone: 'America/New_York', new_entry_cutoff_minutes_before_close: 60, intraday_exit_start_minutes_before_close: 30, intraday_exit_escalation_minutes_before_close: 15 },
-  commissions: {
-    stock_per_share_usd: 0.005,
-    stock_minimum_per_order_usd: 1,
-    option_per_contract_usd: 0.65,
-    option_minimum_per_order_usd: 0.65,
-    estimated_regulatory_exit_pct: 0.00278,
-    minimum_expected_net_profit_usd: 5,
-    maximum_round_trip_commission_pct_of_expected_gross_profit: 20,
-  },
-  allocation: {
-    default_daily_budget_pct_per_trade: 50,
-    allow_full_daily_budget_single_trade: true,
-    concentrated_trade_minimum_confidence: 0.85,
-    concentrated_trade_minimum_net_reward_risk: 2,
-    concentrated_trade_maximum_commission_drag_pct: 10,
-  },
-});
-
-const DEFAULT_STRATEGY = Object.freeze({
-  schema_version: 2,
-  name: 'IBKRNew US Liquid Trend Pullback', enabled: true, execution_mode: 'automatic',
-  goal_binding: { required: true, selector: 'ACTIVE_IBKRNEW_GOAL' },
-  allowed_expressions: ['LONG_STOCK', 'SHORT_STOCK', 'LONG_CALL', 'LONG_PUT'],
-  entry: { minimum_relative_volume: 1.25, require_15m_confirmation: true, maximum_atr_extension: 1 },
-  exits: { first_target_r: 1, final_target_r: 2, single_lot_target_r: 1.5, never_widen_stop: true, maximum_holding_sessions: 5 },
-});
-
-const DEFAULT_UNIVERSE = Object.freeze({
-  schema_version: 2,
-  name: 'IBKRNew US Liquid Stocks and ETFs', allowlist: [], denylist: [], maximum_active_subscriptions: 40,
-  filters: {
-    country: ['US'], security_types: ['STK', 'ETF'], require_shortable_for_short: true,
-    stock: {
-      enabled: true,
-      indexes: [],
-      index_match: 'ANY',
-      index_membership_maximum_age_hours: 168,
-      minimum_price_usd: 10,
-      maximum_price_usd: 300,
-      minimum_average_daily_volume: 2000000,
-      maximum_spread_pct: 0.2,
-      fundamentals: {
-        enabled: true,
-        fail_closed: true,
-        maximum_age_hours: 36,
-        minimum_market_cap_usd: 2000000000,
-        minimum_revenue_ttm_usd: 500000000,
-        maximum_debt_to_equity: 3,
-        require_positive_operating_cash_flow: false,
-        allowed_sectors: [],
-        excluded_sectors: [],
-      },
-      corporate_events: {
-        enabled: true,
-        fail_closed: true,
-        maximum_age_hours: 36,
-        earnings_blackout_days_before: 2,
-        earnings_blackout_days_after: 1,
-      },
-    },
-    etf: {
-      enabled: true,
-      allowlist: [],
-      denylist: [],
-      categories: [],
-      minimum_price_usd: 10,
-      maximum_price_usd: 500,
-      minimum_average_daily_volume: 1000000,
-      maximum_spread_pct: 0.2,
-      minimum_assets_under_management_usd: 500000000,
-      profile_maximum_age_hours: 168,
-      fail_closed: true,
-    },
-  },
-});
-
-const DEFAULT_MARKET_DATA = Object.freeze({
-  name: 'IBKRNew IBKR Executable Data', executable_source: 'IBKR', allow_delayed_for_execution: false,
-  required_fields: ['bid', 'ask', 'last', 'quote_at'], bar_intervals: ['1m', '5m', '15m', '1d'], session: 'REGULAR',
-  instrument_profile_events: ['instrument.profile_refreshed', 'instrument.fundamentals_refreshed', 'instrument.membership_refreshed', 'instrument.corporate_events_refreshed'],
-});
-
-const DEFAULT_STRATEGY_SKILL = Object.freeze({
-  schema_version: 3,
-  name: 'IBKRNew Trade Strategy Skill',
-  agent_name: 'IBKRNewStrategyPlanner',
-  reaction_name: 'IBKRNewStrategyEvaluation',
-  skill_path: '.cursor/skills/ibkrnew-trade-strategy/SKILL.md',
-  enabled: true,
-  instructions: [
-    'Evaluate only canonical IBKRNew market events and the active strategy, universe, policy, commission model, and deterministic instrument-eligibility result.',
-    'Respect stock-only index membership, fresh company fundamentals and corporate-event blackouts; apply the independent ETF filter to ETFs and the underlying profile to options.',
-    'Compare expected gross profit, round-trip commission, planned loss, net reward-to-risk, confidence, and remaining daily capacity.',
-    'Use the active IBKRNew goal and cycle progress as a hard planning constraint; never propose a new opening trade when the cycle is waiting, paused, achieved, expired, or completed.',
-    'Prefer diversification unless concentration passes every configured concentration threshold.',
-    'Never authorize or place an order; return a structured proposal to the deterministic IBKRNewRiskChecker.',
-  ],
-  output_schema: ['expression', 'confidence', 'quantity_requested', 'expected_gross_profit_usd', 'estimated_round_trip_commission_usd', 'expected_net_profit_usd', 'planned_loss_usd', 'net_reward_risk', 'commission_drag_pct', 'allocation_mode', 'allocation_rationale', 'eligibility_evidence', 'veto_reasons'],
-});
+const DEFAULT_STRATEGY_SKILL = getIbkrNewConfigBlueprint('strategy_skill');
+const DEFAULT_GOAL = getIbkrNewGoalBlueprint();
 
 function json(value) { return JSON.stringify(value ?? null); }
 function parse(value, fallback = null) { try { return JSON.parse(value); } catch { return fallback; } }
@@ -442,26 +287,16 @@ export function ensureIbkrNewEventTraderSchema(db = getDb()) {
   migrateIbkrNewAccountPrivacy(db);
 }
 
-const IBKRNEW_REACTIONS = [
-  ['IBKRNewMarketObserver', ['market.bar_closed', 'market.session_changed', 'instrument.shortability_changed', 'instrument.profile_refreshed', 'instrument.fundamentals_refreshed', 'instrument.membership_refreshed', 'instrument.corporate_events_refreshed']],
-  ['IBKRNewStrategyPlanner', ['market.bar_closed', 'market.regime_changed']],
-  ['IBKRNewRiskChecker', ['signal.created', 'account.snapshot', 'position.changed']],
-  ['IBKRNewExecutionOperator', ['trade.authorized', 'order.status_changed']],
-  ['IBKRNewPositionMonitor', ['order.filled', 'position.changed', 'position.maximum_hold_reached', 'option.expiry_exit_window_started']],
-  ['IBKRNewTradingSupervisor', ['bridge.gateway_disconnected', 'reconciliation.mismatch', 'risk.circuit_breaker_fired']],
-];
+const IBKRNEW_REACTIONS = getIbkrNewWorkflowBlueprints().map((workflow) => [workflow.agent_name, workflow.subscriptions]);
 
 function defaultsFor(kind) {
-  if (kind === 'policy') return DEFAULT_POLICY;
-  if (kind === 'strategy') return DEFAULT_STRATEGY;
-  if (kind === 'universe') return DEFAULT_UNIVERSE;
-  if (kind === 'market_data') return DEFAULT_MARKET_DATA;
-  if (kind === 'strategy_skill') return DEFAULT_STRATEGY_SKILL;
-  throw Object.assign(new Error('unsupported IBKRNew configuration kind'), { status: 400 });
+  return getIbkrNewConfigBlueprint(kind);
 }
 
 export function validateConfig(kind, document) {
   const d = structuredClone(document || {});
+  const supportedSchemaVersion = Number(defaultsFor(kind).schema_version);
+  if (Number(d.schema_version) !== supportedSchemaVersion) throw Object.assign(new Error(`${kind} schema_version must be ${supportedSchemaVersion}`), { status: 400 });
   if (kind === 'policy') {
     if (d.environment !== 'paper' || d.feature_switches?.live_execution_enabled) throw Object.assign(new Error('IBKRNew first release is paper-only'), { status: 400 });
     const b = d.budgets || {};
@@ -510,28 +345,24 @@ export function getPublishedConfig(ownerUserId, kind) {
 export function ensureIbkrNewDefaults(ownerUserId) {
   ensureIbkrNewEventTraderSchema();
   const out = {};
-  for (const kind of ['policy', 'strategy', 'strategy_skill', 'universe', 'market_data']) {
+  for (const kind of IBKRNEW_CONFIG_KINDS) {
     let current = getPublishedConfig(ownerUserId, kind);
     if (!current) current = publishConfig(ownerUserId, kind, structuredClone(defaultsFor(kind)), { confirmRiskLoosening: true });
-    if (kind === 'strategy' && Number(current.schema_version || 0) < Number(DEFAULT_STRATEGY.schema_version)) {
+    const blueprint = defaultsFor(kind);
+    if (Number(current.schema_version || 0) < Number(blueprint.schema_version)) {
       const prior = structuredClone(current); delete prior.id; delete prior.version; delete prior.status;
-      const migrated = mergeConfig(DEFAULT_STRATEGY, prior); migrated.schema_version = DEFAULT_STRATEGY.schema_version;
-      current = publishConfig(ownerUserId, kind, migrated, { confirmRiskLoosening: true });
-    }
-    if (kind === 'universe' && Number(current.schema_version || 0) < Number(DEFAULT_UNIVERSE.schema_version)) {
-      const prior = structuredClone(current); delete prior.id; delete prior.version; delete prior.status;
-      const migrated = mergeConfig(DEFAULT_UNIVERSE, prior); const legacyFilters = prior.filters || {};
-      for (const key of ['minimum_price_usd', 'maximum_price_usd', 'minimum_average_daily_volume', 'maximum_spread_pct']) {
-        if (Object.hasOwn(legacyFilters, key)) { migrated.filters.stock[key] = legacyFilters[key]; migrated.filters.etf[key] = legacyFilters[key]; }
+      const migrated = mergeConfig(blueprint, prior);
+      if (kind === 'universe') {
+        const legacyFilters = prior.filters || {};
+        for (const key of ['minimum_price_usd', 'maximum_price_usd', 'minimum_average_daily_volume', 'maximum_spread_pct']) {
+          if (Object.hasOwn(legacyFilters, key)) { migrated.filters.stock[key] = legacyFilters[key]; migrated.filters.etf[key] = legacyFilters[key]; }
+        }
       }
-      migrated.schema_version = DEFAULT_UNIVERSE.schema_version;
-      current = publishConfig(ownerUserId, kind, migrated, { confirmRiskLoosening: true });
-    }
-    if (kind === 'strategy_skill' && Number(current.schema_version || 0) < Number(DEFAULT_STRATEGY_SKILL.schema_version)) {
-      const prior = structuredClone(current); delete prior.id; delete prior.version; delete prior.status;
-      const migrated = mergeConfig(DEFAULT_STRATEGY_SKILL, prior); migrated.schema_version = DEFAULT_STRATEGY_SKILL.schema_version;
-      migrated.instructions = [...new Set([...(prior.instructions || []), ...DEFAULT_STRATEGY_SKILL.instructions])];
-      migrated.output_schema = [...new Set([...(prior.output_schema || []), ...DEFAULT_STRATEGY_SKILL.output_schema])];
+      if (kind === 'strategy_skill') {
+        migrated.instructions = [...new Set([...(prior.instructions || []), ...DEFAULT_STRATEGY_SKILL.instructions])];
+        migrated.output_schema = [...new Set([...(prior.output_schema || []), ...DEFAULT_STRATEGY_SKILL.output_schema])];
+      }
+      migrated.schema_version = blueprint.schema_version;
       current = publishConfig(ownerUserId, kind, migrated, { confirmRiskLoosening: true });
     }
     out[kind] = current;
@@ -549,13 +380,13 @@ function goalDefinition(row) {
 
 function validateGoal(input = {}) {
   const goal = {
-    name: String(input.name || 'IBKRNew 5% in 30 Days').trim().slice(0, 120),
-    mode: String(input.mode || 'PERPETUAL').toUpperCase(),
-    target_return_pct: Number(input.target_return_pct ?? 5),
-    duration_days: Number(input.duration_days ?? 30),
-    duration_basis: String(input.duration_basis || 'CALENDAR_DAYS').toUpperCase(),
-    capital_basis: String(input.capital_basis || 'CYCLE_START_ELIGIBLE_CAPITAL_CAPPED_BY_TOTAL_BUDGET').toUpperCase(),
-    profit_basis: String(input.profit_basis || 'NET_REALIZED_AFTER_COMMISSIONS').toUpperCase(),
+    name: String(input.name || DEFAULT_GOAL.name).trim().slice(0, 120),
+    mode: String(input.mode || DEFAULT_GOAL.mode).toUpperCase(),
+    target_return_pct: Number(input.target_return_pct ?? DEFAULT_GOAL.target_return_pct),
+    duration_days: Number(input.duration_days ?? DEFAULT_GOAL.duration_days),
+    duration_basis: String(input.duration_basis || DEFAULT_GOAL.duration_basis).toUpperCase(),
+    capital_basis: String(input.capital_basis || DEFAULT_GOAL.capital_basis).toUpperCase(),
+    profit_basis: String(input.profit_basis || DEFAULT_GOAL.profit_basis).toUpperCase(),
   };
   if (!goal.name) throw Object.assign(new Error('goal name is required'), { status: 400 });
   if (!['ONE_TIME', 'PERPETUAL'].includes(goal.mode)) throw Object.assign(new Error('goal mode must be ONE_TIME or PERPETUAL'), { status: 400 });
@@ -570,7 +401,7 @@ function validateGoal(input = {}) {
 function ensureDefaultIbkrNewGoal(ownerUserId, policy) {
   const db = getDb(); const existing = db.prepare(`SELECT 1 FROM ibkrnew_goals WHERE owner_user_id=? LIMIT 1`).get(ownerUserId);
   if (existing) return;
-  const goal = validateGoal(); const ts = nowIso();
+  const goal = validateGoal(DEFAULT_GOAL); const ts = nowIso();
   db.prepare(`INSERT INTO ibkrnew_goals(goal_id,owner_user_id,name,mode,target_return_pct,duration_days,duration_basis,capital_basis,profit_basis,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,'ACTIVE',?,?)`).run(id('IBKRNewGoal'), ownerUserId, goal.name, goal.mode, goal.target_return_pct, goal.duration_days, goal.duration_basis, goal.capital_basis, goal.profit_basis, ts, ts);
   reconcileIbkrNewGoal(ownerUserId, { policy, at: ts });
 }

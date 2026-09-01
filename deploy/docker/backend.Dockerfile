@@ -4,6 +4,7 @@
 # lean CEO onboard (DEFAULT_ONBOARD_AGENT_IDS / pruneSharedStandardAgentGrants),
 # desktop-workflow-runner (Windows PS1 packages + optional portable Node baked at download time),
 # local-ibkr-bridge and IBKRNew event bridge (owner-scoped Connectors download packages),
+# IBKRNew0 source blueprints + six OpenClaw agent templates + strategy skill,
 # local-browser-worker (Connectors Browser Session package: multi-user desktop chrome, headed + persistent profile),
 # flolah-chrome-extension (MV3 owner-scoped normal-Chrome executor package),
 # monthly trading W1–W5 seeds + paper E2E / certify helpers,
@@ -47,6 +48,7 @@ COPY scripts ./scripts
 COPY tests ./tests
 COPY openclaw-workspace-templates ./openclaw-workspace-templates
 COPY openclaw-skills ./openclaw-skills
+COPY .cursor/skills/ibkrnew-trade-strategy ./openclaw-skills/ibkrnew-trade-strategy
 COPY openclaw-extensions ./openclaw-extensions
 COPY deploy ./deploy
 # Seeded as Master Data "Flolah User Guide" for every CEO (register + startup backfill; protected from purge/delete)

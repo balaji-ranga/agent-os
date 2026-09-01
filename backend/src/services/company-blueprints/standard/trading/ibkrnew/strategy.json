@@ -1,0 +1,20 @@
+{
+  "schema_version": 2,
+  "name": "IBKRNew US Liquid Trend Pullback",
+  "enabled": true,
+  "execution_mode": "automatic",
+  "goal_binding": { "required": true, "selector": "ACTIVE_IBKRNEW_GOAL" },
+  "allowed_expressions": ["LONG_STOCK", "SHORT_STOCK", "LONG_CALL", "LONG_PUT"],
+  "entry": {
+    "minimum_relative_volume": 1.25,
+    "require_15m_confirmation": true,
+    "maximum_atr_extension": 1
+  },
+  "exits": {
+    "first_target_r": 1,
+    "final_target_r": 2,
+    "single_lot_target_r": 1.5,
+    "never_widen_stop": true,
+    "maximum_holding_sessions": 5
+  }
+}

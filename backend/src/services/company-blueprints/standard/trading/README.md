@@ -22,3 +22,9 @@ W1 Variables: `risk_per_trade_pct` default **5** (max stop % below entry per ord
 Paper IBKR day-plan / poller stay seed-only (deprecated). Thin industry pack `trading_ops` is org-only; Company setup deep pack `demo_balaji_ranganathan` overlays these graphs at Apply time.
 
 Index: `ibkr-workflows-manifest.json`. Loaders: `standard-prefabs.js` (`loadIbkrWorkflowTemplate`) + `ibkr-trading-pack.js`.
+
+## IBKRNew0 event trader
+
+`ibkrnew/` is the source of truth for the net-new event-driven paper trader. Its manifest references versioned goal, policy, strategy, strategy-skill, universe, market-data and six event-workflow blueprints. Runtime defaults are loaded through `ibkrnew-blueprints.js`; do not duplicate those documents in the service.
+
+The six matching OpenClaw workspace templates live under `openclaw-workspace-templates/IBKRNew*/`. The canonical strategy skill lives at `.cursor/skills/ibkrnew-trade-strategy/SKILL.md`; Docker and VPS setup copy it into `openclaw-skills/ibkrnew-trade-strategy/` for runtime use.

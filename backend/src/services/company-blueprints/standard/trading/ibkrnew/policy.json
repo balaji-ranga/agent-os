@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "name": "IBKRNew Conservative-Moderate Paper",
+  "environment": "paper",
+  "feature_switches": {
+    "trading_enabled": true,
+    "paper_execution_enabled": true,
+    "live_execution_enabled": false,
+    "long_stock_enabled": true,
+    "short_stock_enabled": true,
+    "long_call_enabled": true,
+    "long_put_enabled": true,
+    "intraday_enabled": true,
+    "overnight_enabled": true,
+    "automatic_entry_enabled": true,
+    "automatic_exit_enabled": true,
+    "ceo_approval_required": false
+  },
+  "budgets": {
+    "total_gross_exposure_usd": 10000,
+    "daily_opening_exposure_usd": 1000,
+    "max_stock_position_usd": 750,
+    "max_option_premium_position_usd": 250,
+    "max_total_option_premium_usd": 1000,
+    "max_short_position_usd": 500,
+    "max_total_short_notional_usd": 2000,
+    "short_stress_buffer_pct": 30,
+    "max_open_positions": 6,
+    "max_open_option_positions": 3
+  },
+  "loss_limits": {
+    "max_planned_loss_per_trade_usd": 50,
+    "daily_loss_limit_usd": 150,
+    "weekly_loss_limit_usd": 400,
+    "max_drawdown_usd": 1000,
+    "max_consecutive_losses": 3
+  },
+  "freshness": {
+    "quote_max_age_ms": 5000,
+    "feature_max_age_ms": 15000,
+    "account_max_age_ms": 30000,
+    "shortability_max_age_ms": 15000,
+    "authorization_ttl_ms": 15000,
+    "approval_ttl_ms": 300000,
+    "bridge_offline_after_ms": 30000
+  },
+  "option_rules": {
+    "minimum_dte": 14,
+    "maximum_dte": 60,
+    "minimum_open_interest": 500,
+    "minimum_daily_volume": 50,
+    "maximum_spread_usd": 0.15,
+    "maximum_spread_midpoint_pct": 10,
+    "minimum_delta_abs": 0.55,
+    "maximum_delta_abs": 0.7,
+    "allow_automatic_exercise": false,
+    "allow_hold_through_expiry": false
+  },
+  "order_permissions": {
+    "entry_order_types": ["LIMIT"],
+    "protective_order_types": ["STOP", "STOP_LIMIT", "LIMIT"],
+    "allow_fractional_shares": false,
+    "allow_unprotected_entry": false,
+    "allow_hard_to_borrow": false
+  },
+  "session_rules": {
+    "timezone": "America/New_York",
+    "new_entry_cutoff_minutes_before_close": 60,
+    "intraday_exit_start_minutes_before_close": 30,
+    "intraday_exit_escalation_minutes_before_close": 15
+  },
+  "commissions": {
+    "stock_per_share_usd": 0.005,
+    "stock_minimum_per_order_usd": 1,
+    "option_per_contract_usd": 0.65,
+    "option_minimum_per_order_usd": 0.65,
+    "estimated_regulatory_exit_pct": 0.00278,
+    "minimum_expected_net_profit_usd": 5,
+    "maximum_round_trip_commission_pct_of_expected_gross_profit": 20
+  },
+  "allocation": {
+    "default_daily_budget_pct_per_trade": 50,
+    "allow_full_daily_budget_single_trade": true,
+    "concentrated_trade_minimum_confidence": 0.85,
+    "concentrated_trade_minimum_net_reward_risk": 2,
+    "concentrated_trade_maximum_commission_drag_pct": 10
+  }
+}

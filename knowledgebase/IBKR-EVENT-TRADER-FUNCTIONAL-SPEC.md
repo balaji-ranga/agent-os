@@ -1349,9 +1349,11 @@ Allocation can use the full remaining daily limit only when enabled and the prop
 
 ### 26.2 Strategy skill boundary
 
-`IBKRNewStrategyPlanner` applies the versioned `ibkrnew-trade-strategy` skill to market events and returns structured proposals and evidence. The default skill is stored at `.cursor/skills/ibkrnew-trade-strategy/SKILL.md`, and its agent name, instructions, schema, and version are owner-configurable through immutable `strategy_skill` versions.
+`IBKRNewStrategyPlanner` applies the versioned `ibkrnew-trade-strategy` skill to market events and returns structured proposals and evidence. The canonical skill is stored at `.cursor/skills/ibkrnew-trade-strategy/SKILL.md` and is copied into the OpenClaw runtime during build/deployment; its agent name, instructions, schema, and version are owner-configurable through immutable `strategy_skill` versions.
 
 The skill may rank, abstain, and propose an expression, quantity, protection, confidence, and rationale. It cannot submit orders or override deterministic checks. Commission estimation, budgets, exposure, freshness, universe eligibility, broker constraints, protection, authorization, and command signing remain enforced by the service.
+
+The maintained defaults are source blueprints under `backend/src/services/company-blueprints/standard/trading/ibkrnew/`: manifest, goal, policy, strategy, strategy skill, universe, market data and six event-workflow definitions. The six matching `IBKRNew*` agent workspaces are maintained under `openclaw-workspace-templates/IBKRNew*/`. Initialization reads these files and writes owner-specific immutable configuration versions to the transactional database; UI edits never rewrite the source blueprints.
 
 ### 26.3 IBKRNew0 information architecture and operations
 

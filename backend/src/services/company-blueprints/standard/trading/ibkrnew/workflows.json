@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "namespace": "IBKRNew",
+  "delivery": "event_driven",
+  "workflows": [
+    {
+      "workflow_id": "IBKRNewMarketObservationWorkflow",
+      "agent_name": "IBKRNewMarketObserver",
+      "template_base_id": "IBKRNewMarketObserver",
+      "subscriptions": ["market.bar_closed", "market.session_changed", "instrument.shortability_changed", "instrument.profile_refreshed", "instrument.fundamentals_refreshed", "instrument.membership_refreshed", "instrument.corporate_events_refreshed"],
+      "responsibility": "Normalize local IBKR and licensed profile events into canonical owner-scoped observations."
+    },
+    {
+      "workflow_id": "IBKRNewStrategyPlanningWorkflow",
+      "agent_name": "IBKRNewStrategyPlanner",
+      "template_base_id": "IBKRNewStrategyPlanner",
+      "subscriptions": ["market.bar_closed", "market.regime_changed"],
+      "responsibility": "Apply the active goal, strategy skill, strategy and universe to produce proposals only."
+    },
+    {
+      "workflow_id": "IBKRNewRiskCheckingWorkflow",
+      "agent_name": "IBKRNewRiskChecker",
+      "template_base_id": "IBKRNewRiskChecker",
+      "subscriptions": ["signal.created", "account.snapshot", "position.changed"],
+      "responsibility": "Deterministically enforce budgets, exposure, loss, freshness and commission gates."
+    },
+    {
+      "workflow_id": "IBKRNewExecutionWorkflow",
+      "agent_name": "IBKRNewExecutionOperator",
+      "template_base_id": "IBKRNewExecutionOperator",
+      "subscriptions": ["trade.authorized", "order.status_changed"],
+      "responsibility": "Deliver short-lived signed paper commands to the outbound-only desktop bridge."
+    },
+    {
+      "workflow_id": "IBKRNewPositionMonitoringWorkflow",
+      "agent_name": "IBKRNewPositionMonitor",
+      "template_base_id": "IBKRNewPositionMonitor",
+      "subscriptions": ["order.filled", "position.changed", "position.maximum_hold_reached", "option.expiry_exit_window_started"],
+      "responsibility": "Track positions, commissions, protective exits and goal-attributed realized results."
+    },
+    {
+      "workflow_id": "IBKRNewTradingSupervisionWorkflow",
+      "agent_name": "IBKRNewTradingSupervisor",
+      "template_base_id": "IBKRNewTradingSupervisor",
+      "subscriptions": ["bridge.gateway_disconnected", "reconciliation.mismatch", "risk.circuit_breaker_fired"],
+      "responsibility": "Fail closed, surface operational health and coordinate recovery without opening trades."
+    }
+  ]
+}
