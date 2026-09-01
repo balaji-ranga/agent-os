@@ -382,6 +382,19 @@ async function main() {
         REGRESSION_CEO_ID: process.env.REGRESSION_CEO_ID || user?.id || '',
     });
   });
+  await runner.check('goal planning + execution stress (simple/medium/complex)', async () => {
+    if (process.env.REGRESSION_GOAL_STRESS === '0') {
+      console.log('    (skipped REGRESSION_GOAL_STRESS=0)');
+      return;
+    }
+    runBackendScript('test-goal-planning-execution-stress.mjs', 'GOAL_PLANNING_EXECUTION_STRESS_OK', {
+      REGRESSION_CEO_ID: process.env.REGRESSION_CEO_ID || user?.id || '',
+      REGRESSION_GOAL_STRESS_SIMULATE_SPECIALISTS:
+        process.env.REGRESSION_GOAL_STRESS_SIMULATE_SPECIALISTS || '1',
+      REGRESSION_GOAL_STRESS_KEEP_DATA: process.env.REGRESSION_GOAL_STRESS_KEEP_DATA || '0',
+      REGRESSION_GOAL_STRESS_TIMEOUT_MS: process.env.REGRESSION_GOAL_STRESS_TIMEOUT_MS || '240000',
+    });
+  });
 
   console.log(`\nCEO user: ${user?.email || user?.id}`);
   process.exit(runner.summary());

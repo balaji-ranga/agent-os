@@ -1,0 +1,434 @@
+/**
+ * Goal planner/executor stress acceptance: simple + medium + complex.
+ *
+ * The live maker/checker must create every plan from the natural-language goal.
+ * Execution then runs the accepted contract through real goal services. Workflows
+ * and read-only tools are real; human work is completed through the same Kanban
+ * continuation API used by the UI. Specialty callbacks are real by default and
+ * may be simulated only when REGRESSION_GOAL_STRESS_SIMULATE_SPECIALISTS=1.
+ *
+ * Required tenant capabilities:
+ * - an enabled COO/orchestrator
+ * - ceo_profile (or status_checker), one crm_* read/status tool, one erp_* read/status tool
+ * - at least two eligible specialty agents (one is enough for simple/medium)
+ *
+ * Usage:
+ *   node scripts/test-goal-planning-execution-stress.mjs
+ *
+ * Env:
+ *   REGRESSION_CEO_ID=<owner id>
+ *   REGRESSION_GOAL_STRESS_SIMULATE_SPECIALISTS=0|1 (default 0)
+ *   REGRESSION_GOAL_STRESS_KEEP_DATA=0|1 (default 0)
+ *   REGRESSION_GOAL_STRESS_TIMEOUT_MS=240000
+ */
+import { randomUUID } from 'node:crypto';
+import { initDb, getDb } from '../src/db/schema.js';
+import {
+  createAndStartGoalRun,
+  getGoalRun,
+  onDelegationTerminalForGoalRun,
+  onWorkflowTerminalForGoalRun,
+  planGoalStepsAsync,
+  respondToHumanGoalTask,
+  startGoalRunExecution,
+} from '../src/services/agent-goal-run.js';
+import {
+  listOrchestratorToolsForGoalPlan,
+  listSpecialtyAgentsForGoalPlan,
+} from '../src/services/goal-plan-intent.js';
+import { listHumanWorkCandidates } from '../src/services/work-assignment-policy.js';
+import {
+  createDefinition,
+  deleteDefinition,
+  publishDefinition,
+} from '../src/services/agent-workflow-store.js';
+
+initDb();
+const db = getDb();
+const runTag = `goal-stress-${Date.now()}-${randomUUID().slice(0, 6)}`;
+const simulateSpecialists = String(process.env.REGRESSION_GOAL_STRESS_SIMULATE_SPECIALISTS || '0') === '1';
+const keepData = String(process.env.REGRESSION_GOAL_STRESS_KEEP_DATA || '0') === '1';
+const timeoutMs = Math.max(30000, Number(process.env.REGRESSION_GOAL_STRESS_TIMEOUT_MS) || 240000);
+const createdGoalIds = [];
+const createdWorkflowIds = [];
+let createdHumanId = null;
+
+function assert(condition, message) {
+  if (!condition) throw new Error(message || 'assertion failed');
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function json(value, fallback = {}) {
+  try { return JSON.parse(value || ''); } catch { return fallback; }
+}
+
+function pickOwner() {
+  const ownerOverride = String(process.env.REGRESSION_CEO_ID || '').trim();
+  return (
+    (ownerOverride && db.prepare("SELECT id,email,name FROM platform_users WHERE id=? AND role='ceo' AND enabled=1").get(ownerOverride)) ||
+    db.prepare("SELECT id,email,name FROM platform_users WHERE role='ceo' AND enabled=1 ORDER BY CASE WHEN id LIKE 'ceo-demo-brightbox%' THEN 0 ELSE 1 END,id LIMIT 1").get()
+  );
+}
+
+function pickOrchestrator(ownerUserId) {
+  return (
+    db.prepare(`SELECT a.id,a.name,a.openclaw_agent_id FROM agents a
+      JOIN user_agents ua ON ua.agent_id=a.id AND ua.user_id=? AND ua.enabled=1
+      WHERE (COALESCE(a.is_coo,0)=1 OR lower(COALESCE(a.role,'')) LIKE '%chief operating%')
+      ORDER BY COALESCE(a.is_coo,0) DESC LIMIT 1`).get(ownerUserId) ||
+    db.prepare(`SELECT a.id,a.name,a.openclaw_agent_id FROM agents a
+      JOIN user_agents ua ON ua.agent_id=a.id AND ua.user_id=? AND ua.enabled=1
+      WHERE COALESCE(a.is_orchestrator,0)=1 LIMIT 1`).get(ownerUserId)
+  );
+}
+
+function ensureHuman(ownerUserId) {
+  const existing = listHumanWorkCandidates(ownerUserId)[0];
+  if (existing?.id) return existing;
+  const id = `reg-human-${randomUUID().replace(/-/g, '').slice(0, 12)}`;
+  db.prepare(`INSERT INTO platform_users
+    (id,email,password_hash,name,role,enabled,owner_user_id,department,role_title,specialty,purpose)
+    VALUES (?,?,?,?,?,1,?,?,?,?,?)`).run(
+      id,
+      `${id}@example.invalid`,
+      'regression-only-no-login',
+      'Regression Human Reviewer',
+      'org_user',
+      ownerUserId,
+      'Operations',
+      'Human Quality Reviewer',
+      'Review evidence and make bounded approve or reject decisions',
+      'Regression-only human-in-the-loop validation'
+    );
+  createdHumanId = id;
+  const row = listHumanWorkCandidates(ownerUserId).find((item) => item.id === id);
+  assert(row, 'temporary human was not eligible under work-assignment policy');
+  return row;
+}
+
+function triggerNode(phrase) {
+  return {
+    id: 'trigger-1',
+    type: 'trigger',
+    position: { x: 40, y: 100 },
+    data: {
+      label: 'Start regression workflow',
+      triggerModes: ['manual', 'chat'],
+      chatPhrase: phrase,
+      outputs: [{ id: 'trigger_input', label: 'Trigger payload' }],
+    },
+  };
+}
+
+function apiNode() {
+  return {
+    id: 'api-health',
+    type: 'api',
+    position: { x: 300, y: 100 },
+    data: {
+      label: 'Read Flolah API health',
+      inputBindings: [
+        { id: 'url', label: 'URL', mode: 'static', value: 'https://login.flolah.cloud/api/health' },
+        { id: 'headers', label: 'Headers', mode: 'static', value: '{"Accept":"application/json"}' },
+      ],
+      outputs: [
+        { id: 'status', label: 'HTTP status' },
+        { id: 'body', label: 'Response body' },
+        { id: 'ok', label: 'Success' },
+      ],
+      taskConfig: { method: 'GET', authType: 'none', timeoutMs: 30000, timeoutAction: 'fail', defaultTimeoutOutput: '{}' },
+    },
+  };
+}
+
+function createFixtureWorkflow(ownerUserId, kind) {
+  const id = `reg-${runTag}-${kind}`.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 120);
+  const phrase = `run ${runTag} ${kind}`;
+  const isApi = kind === 'complex-api';
+  createDefinition({
+    id,
+    name: `Regression ${kind} ${runTag}`,
+    description: isApi
+      ? 'Regression-only workflow that performs a safe read-only Flolah health API request.'
+      : 'Regression-only workflow used to prove human handoff continuation.',
+    ownerUserId,
+    actor: { id: 'regression', name: 'Goal stress regression' },
+    trigger_modes: ['manual', 'chat'],
+    chat_trigger_phrase: phrase,
+    graph: {
+      nodes: isApi ? [triggerNode(phrase), apiNode()] : [triggerNode(phrase)],
+      edges: isApi ? [{ id: 'trigger-to-api', source: 'trigger-1', target: 'api-health' }] : [],
+      viewport: { x: 0, y: 0, zoom: 1 },
+    },
+  });
+  publishDefinition(id, ownerUserId, { id: 'regression', name: 'Goal stress regression' });
+  createdWorkflowIds.push(id);
+  return { id, phrase, kind };
+}
+
+function safeTool(tools, preferred, prefix) {
+  const names = tools.map((item) => String(item.name || ''));
+  return preferred.find((name) => names.includes(name)) || names.find((name) => name.startsWith(prefix));
+}
+
+function shape(steps) {
+  return steps.map((step) => ({
+    key: step.spec?.step_key || null,
+    type: step.type,
+    label: step.label,
+    executor: step.spec?.tool_name || step.spec?.workflow_id || step.spec?.agent_id || step.spec?.user_id || null,
+    depends_on: step.spec?.depends_on || [],
+    required_inputs: step.spec?.required_inputs || [],
+    produces: step.spec?.produces || [],
+    rationale: step.spec?.selection_rationale || null,
+  }));
+}
+
+function assertScenarioPlan(scenario, steps) {
+  const types = steps.map((step) => step.type);
+  const tools = steps.filter((step) => step.type === 'agent_tool').map((step) => step.spec?.tool_name);
+  const workflows = steps.filter((step) => step.type === 'workflow_trigger').map((step) => step.spec?.workflow_id);
+  const agents = new Set(steps.filter((step) => step.type === 'specialty_task').map((step) => step.spec?.agent_id));
+  assert(types.at(-1) === 'notify_ceo', `${scenario.name}: notify_ceo must be terminal`);
+  assert(tools.includes(scenario.simpleTool), `${scenario.name}: required tool ${scenario.simpleTool} missing`);
+  if (scenario.crmTool) assert(tools.includes(scenario.crmTool), `${scenario.name}: CRM tool ${scenario.crmTool} missing`);
+  if (scenario.erpTool) assert(tools.includes(scenario.erpTool), `${scenario.name}: ERP tool ${scenario.erpTool} missing`);
+  if (scenario.workflow) assert(workflows.includes(scenario.workflow.id), `${scenario.name}: workflow ${scenario.workflow.id} missing`);
+  assert(agents.size >= scenario.minAgents, `${scenario.name}: expected at least ${scenario.minAgents} specialty agent(s), got ${agents.size}`);
+  if (scenario.human) {
+    assert(steps.some((step) => step.type === 'human_task' && step.spec?.user_id === scenario.human.id), `${scenario.name}: bounded human step missing`);
+  }
+  for (let index = 1; index < steps.length; index += 1) {
+    const step = steps[index];
+    if (step.type === 'notify_ceo') assert((step.spec?.depends_on || []).length > 0, `${scenario.name}: terminal report is not dependency-bound`);
+  }
+}
+
+function delegationOutput(goal, step, scenarioName) {
+  const prior = goal.steps
+    .filter((row) => row.step_index < step.step_index && row.status === 'completed')
+    .map((row) => `${row.label}: ${JSON.stringify(row.result || {}).slice(0, 1200)}`)
+    .join('\n');
+  return `[REGRESSION ${scenarioName}] Completed the bounded specialty analysis using only this goal's original request and prior outputs. Evidence reviewed:\n${prior || 'No predecessor output was required.'}\nResult: safe read-only validation passed; no CRM, ERP, payment, email, or external record was changed.`;
+}
+
+async function driveGoal(scenario, goalId) {
+  const started = Date.now();
+  const simulated = [];
+  while (Date.now() - started < timeoutMs) {
+    const goal = getGoalRun(goalId, scenario.ownerUserId);
+    assert(goal, `${scenario.name}: goal disappeared`);
+    if (goal.status === 'completed') return { goal, simulated };
+    if (['failed', 'cancelled'].includes(goal.status)) {
+      throw new Error(`${scenario.name}: goal ${goal.status}: ${goal.error_message || goal.steps.find((s) => s.error_message)?.error_message || 'unknown error'}`);
+    }
+    if (goal.status === 'awaiting_approval') throw new Error(`${scenario.name}: safe regression unexpectedly requires approval`);
+
+    let progressed = false;
+    for (const step of goal.steps) {
+      if (step.step_type === 'workflow_trigger' && step.status === 'running' && step.child_workflow_run_id) {
+        const run = db.prepare('SELECT status,error_message FROM agent_workflow_runs WHERE id=?').get(step.child_workflow_run_id);
+        if (run && ['completed', 'failed', 'cancelled', 'timed_out'].includes(String(run.status))) {
+          await onWorkflowTerminalForGoalRun(step.child_workflow_run_id);
+          progressed = true;
+          break;
+        }
+      }
+      if (step.step_type === 'specialty_task' && step.status === 'running' && step.child_delegation_task_id) {
+        const task = db.prepare('SELECT status,response_content,error_message FROM agent_delegation_tasks WHERE id=?').get(step.child_delegation_task_id);
+        if (task && ['completed', 'failed'].includes(String(task.status))) {
+          await onDelegationTerminalForGoalRun(step.child_delegation_task_id);
+          progressed = true;
+          break;
+        }
+        if (simulateSpecialists && Date.now() - started > 2500) {
+          db.prepare("UPDATE agent_delegation_tasks SET status='completed',response_content=?,completed_at=datetime('now') WHERE id=?")
+            .run(delegationOutput(goal, step, scenario.name), step.child_delegation_task_id);
+          simulated.push(Number(step.child_delegation_task_id));
+          await onDelegationTerminalForGoalRun(step.child_delegation_task_id);
+          progressed = true;
+          break;
+        }
+      }
+      if (step.step_type === 'human_task' && step.status === 'running') {
+        const stored = db.prepare('SELECT human_kanban_task_id FROM agent_goal_steps WHERE id=?').get(step.id);
+        const humanTaskId = Number(stored?.human_kanban_task_id || 0);
+        if (!humanTaskId) continue;
+        await respondToHumanGoalTask({
+          ownerUserId: scenario.ownerUserId,
+          actorUserId: scenario.ownerUserId,
+          taskId: humanTaskId,
+          action: 'complete',
+          outcome: `[REGRESSION ${scenario.name}] I reviewed the attached prior-step evidence and approve continuation for this read-only test. No production record creation, payment, email, or external publish is authorized.`,
+        });
+        progressed = true;
+        break;
+      }
+    }
+    if (!progressed && !goal.steps.some((step) => step.status === 'running')) {
+      await startGoalRunExecution(goalId, { ownerUserId: scenario.ownerUserId });
+      progressed = true;
+    }
+    await sleep(progressed ? 350 : 1200);
+  }
+  const last = getGoalRun(goalId, scenario.ownerUserId);
+  throw new Error(`${scenario.name}: timed out after ${timeoutMs}ms (${last?.status}; ${last?.steps?.map((s) => `${s.step_index}:${s.step_type}:${s.status}`).join(', ')})`);
+}
+
+function assertExecution(scenario, goal) {
+  assert(goal.status === 'completed', `${scenario.name}: goal not completed`);
+  assert(goal.steps.every((step) => step.status === 'completed'), `${scenario.name}: one or more steps are not completed`);
+  for (const step of goal.steps) {
+    assert(step.result, `${scenario.name}: ${step.label} has no execution result`);
+    const result = step.result;
+    assert(result && typeof result === 'object', `${scenario.name}: ${step.label} result is not structured JSON`);
+  }
+  if (scenario.workflow?.kind === 'complex-api') {
+    const workflowStep = goal.steps.find((step) => step.step_type === 'workflow_trigger' && step.spec?.workflow_id === scenario.workflow.id);
+    assert(workflowStep?.child_workflow_run_id, `${scenario.name}: API workflow run id missing`);
+    const apiStep = db.prepare(`SELECT status,output_json,error_message FROM agent_workflow_run_steps
+      WHERE run_id=? AND node_id='api-health'`).get(workflowStep.child_workflow_run_id);
+    assert(apiStep?.status === 'completed', `${scenario.name}: API node did not complete: ${apiStep?.error_message || apiStep?.status || 'missing'}`);
+    const output = json(apiStep.output_json, {});
+    assert(output.ok === true || Number(output.status) < 400, `${scenario.name}: API health call was not successful`);
+  }
+}
+
+function deleteGoalArtifacts(goalId) {
+  const taskIds = db.prepare('SELECT id FROM kanban_tasks WHERE goal_run_id=?').all(goalId).map((row) => row.id);
+  const delegationIds = db.prepare('SELECT child_delegation_task_id AS id FROM agent_goal_steps WHERE goal_run_id=? AND child_delegation_task_id IS NOT NULL').all(goalId).map((row) => row.id);
+  for (const taskId of taskIds) db.prepare('DELETE FROM task_messages WHERE task_id=?').run(taskId);
+  db.prepare('DELETE FROM kanban_tasks WHERE goal_run_id=?').run(goalId);
+  for (const id of delegationIds) db.prepare('DELETE FROM agent_delegation_tasks WHERE id=?').run(id);
+  for (const table of ['goal_action_approvals', 'goal_mission_events']) {
+    try { db.prepare(`DELETE FROM ${table} WHERE goal_run_id=?`).run(goalId); } catch {}
+  }
+  try { db.prepare("DELETE FROM platform_user_notifications WHERE source_key LIKE ?").run(`%${goalId}%`); } catch {}
+  try { db.prepare("DELETE FROM chat_turns WHERE content LIKE ?").run(`%${goalId}%`); } catch {}
+  db.prepare('DELETE FROM agent_goal_steps WHERE goal_run_id=?').run(goalId);
+  db.prepare('DELETE FROM agent_goal_runs WHERE id=?').run(goalId);
+}
+
+async function cleanup(ownerUserId) {
+  if (keepData) return;
+  for (const goalId of createdGoalIds) deleteGoalArtifacts(goalId);
+  for (const workflowId of createdWorkflowIds) {
+    try { deleteDefinition(workflowId, ownerUserId, { id: 'regression', name: 'Goal stress regression' }); } catch {}
+  }
+  if (createdHumanId) {
+    try { db.prepare('DELETE FROM platform_users WHERE id=? AND owner_user_id=?').run(createdHumanId, ownerUserId); } catch {}
+  }
+}
+
+async function main() {
+  const owner = pickOwner();
+  assert(owner?.id, 'No enabled CEO found (set REGRESSION_CEO_ID)');
+  const orchestrator = pickOrchestrator(owner.id);
+  assert(orchestrator?.id, `No enabled COO/orchestrator is entitled to ${owner.id}`);
+  const orchestratorId = orchestrator.openclaw_agent_id || orchestrator.id;
+  const tools = listOrchestratorToolsForGoalPlan(owner.id, orchestratorId);
+  const simpleTool = safeTool(tools, ['ceo_profile', 'status_checker'], '');
+  const crmTool = safeTool(tools, ['crm_status', 'crm_list_tasks', 'crm_list_companies'], 'crm_');
+  const erpTool = safeTool(tools, ['erp_status', 'erp_list_invoices', 'erp_list_purchase_orders'], 'erp_');
+  assert(simpleTool, 'No safe read-only profile/status tool is available to the orchestrator');
+  assert(crmTool, 'No CRM tool is available to the orchestrator');
+  assert(erpTool, 'No ERP tool is available to the orchestrator');
+  const agents = (await listSpecialtyAgentsForGoalPlan(owner.id, orchestratorId)).filter((agent) => String(agent.id).toLowerCase() !== String(orchestrator.id).toLowerCase());
+  assert(agents.length >= 2, `Need two eligible specialty agents for stress coverage; found ${agents.length}`);
+  const [agentA, agentB] = agents;
+  const human = ensureHuman(owner.id);
+  const mediumWorkflow = createFixtureWorkflow(owner.id, 'medium-handoff');
+  const complexWorkflow = createFixtureWorkflow(owner.id, 'complex-api');
+
+  const common = { ownerUserId: owner.id, orchestratorAgentId: orchestratorId, simpleTool };
+  const scenarios = [
+    {
+      ...common,
+      name: 'simple',
+      minAgents: 1,
+      prompt: `Regression goal ${runTag}: Call the exact read-only tool ${simpleTool}. Pass that tool result to the exact specialist agent ${agentA.id} (${agentA.name}) for a concise factual interpretation, then send the completed outcome to the CEO. Do not modify records, send email, publish externally, or ask for approval.`,
+    },
+    {
+      ...common,
+      name: 'medium',
+      minAgents: 1,
+      workflow: mediumWorkflow,
+      human,
+      prompt: `Regression goal ${runTag}: Run the published trigger-only workflow with exact catalog id ${mediumWorkflow.id} and exact phrase "${mediumWorkflow.phrase}". Treat its terminal status and summary as structured completion data, not as a file or artifact. Give that completion data to exact specialist ${agentA.id} (${agentA.name}) to prepare bounded review data. Then assign only the approve-or-reject decision on that data to human ${human.id} (${human.name}). After the human decision, call ${simpleTool} as a safe verification and send the complete result to the CEO. No external message or record mutation.`,
+    },
+    {
+      ...common,
+      name: 'complex',
+      minAgents: 2,
+      workflow: complexWorkflow,
+      human,
+      crmTool,
+      erpTool,
+      prompt: `Regression goal ${runTag}: Build and execute a read-only cross-company assurance. First call exact CRM tool ${crmTool} and exact ERP tool ${erpTool}. Run the published workflow with exact catalog id ${complexWorkflow.id} and exact phrase "${complexWorkflow.phrase}"; that workflow must perform the Flolah health API GET. Give the CRM evidence to exact specialist ${agentA.id} (${agentA.name}) and the ERP plus API/workflow evidence to distinct exact specialist ${agentB.id} (${agentB.name}). Preserve typed prior outputs between every dependent step. Then assign human ${human.id} (${human.name}) only a bounded approve-or-reject decision over the consolidated evidence. After that decision, call ${simpleTool} for final safe verification and send an outcome-rich terminal report to the CEO containing tool, API, workflow, both agent, and human outcomes. This is read-only: do not create or update CRM/ERP records, POs, invoices, payments, emails, or external publications.`,
+    },
+  ];
+
+  console.log('[goal-stress] tenant', { owner: owner.id, orchestrator: orchestratorId, tools: { simpleTool, crmTool, erpTool }, agents: [agentA.id, agentB.id], human: human.id });
+  console.log('[goal-stress] planning 3 goals concurrently');
+  const planned = await Promise.all(scenarios.map(async (scenario) => {
+    const steps = await planGoalStepsAsync(scenario.prompt, {
+      ownerUserId: owner.id,
+      orchestratorAgentId: orchestratorId,
+    });
+    assertScenarioPlan(scenario, steps);
+    console.log(`[goal-stress] ${scenario.name} plan`, JSON.stringify(shape(steps), null, 2));
+    return { scenario, steps };
+  }));
+
+  console.log('[goal-stress] executing 3 accepted plans concurrently');
+  const started = await Promise.all(planned.map(async ({ scenario, steps }) => {
+    const out = await createAndStartGoalRun({
+      ownerUserId: owner.id,
+      agentId: orchestratorId,
+      orchestratorAgentId: orchestratorId,
+      title: `[REGRESSION] ${scenario.name} goal stress ${runTag}`,
+      prompt: scenario.prompt,
+      steps,
+      source: `regression-goal-stress:${runTag}:${scenario.name}`,
+      context: { regression: true, run_tag: runTag, scenario: scenario.name },
+    });
+    createdGoalIds.push(out.goal_run_id);
+    return { scenario, goalId: out.goal_run_id };
+  }));
+  const settled = await Promise.allSettled(started.map(async ({ scenario, goalId }) => {
+    const result = await driveGoal(scenario, goalId);
+    assertExecution(scenario, result.goal);
+    return {
+      scenario: scenario.name,
+      goal_run_id: goalId,
+      duration_ms: Date.now() - new Date(result.goal.created_at).getTime(),
+      simulated_specialty_callbacks: result.simulated,
+      steps: result.goal.steps.map((step) => ({ index: step.step_index, type: step.step_type, label: step.label, status: step.status })),
+    };
+  }));
+  const failures = settled
+    .map((result, index) => result.status === 'rejected' ? `${started[index].scenario.name}: ${result.reason?.message || result.reason}` : null)
+    .filter(Boolean);
+  if (failures.length) throw new Error(`Goal stress failures:\n- ${failures.join('\n- ')}`);
+  const completed = settled.map((result) => result.value);
+
+  assert(new Set(completed.map((item) => item.goal_run_id)).size === 3, 'concurrent goals lost execution isolation');
+  console.log('GOAL_PLANNING_EXECUTION_STRESS_OK', JSON.stringify({
+    run_tag: runTag,
+    owner_user_id: owner.id,
+    orchestrator_agent_id: orchestratorId,
+    simulate_specialists: simulateSpecialists,
+    scenarios: completed,
+  }, null, 2));
+}
+
+let ownerForCleanup = null;
+try {
+  ownerForCleanup = pickOwner()?.id || null;
+  await main();
+} finally {
+  if (ownerForCleanup) await cleanup(ownerForCleanup);
+}

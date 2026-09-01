@@ -55,6 +55,28 @@ npm run test:goal-plan:async-ui
 
 Skip inside full pack: `REGRESSION_GOAL_PLAN=0 npm run test:regression:full`.
 
+## Goal planning and execution stress (simple / medium / complex)
+
+The full pack also runs `npm run test:goal-plan:stress`. It creates three natural-language
+goals concurrently and requires the live maker/checker to produce executable typed plans:
+
+- **Simple:** orchestrator read-only tool call → specialty agent → terminal CEO outcome.
+- **Medium:** real workflow → specialty agent → bounded human Kanban decision → read-only tool → CEO outcome.
+- **Complex:** CRM and ERP read-only tools + a workflow containing a real Flolah health API GET → two distinct specialty agents → bounded human decision → final verification tool → outcome-rich CEO report.
+
+The executor validates dependency isolation, prior-step I/O, workflow/API evidence, human-task
+continuation, structured step results, and terminal completion. Regression workflows, goal rows,
+Kanban cards, callbacks, notifications, and any temporary human fixture are removed afterward.
+The full pack uses simulated specialty terminal callbacks so CI is deterministic; all tools,
+workflows, API nodes, human continuations, and goal-runtime code paths remain real. For a live
+OpenClaw acceptance run on VPS, use:
+
+```bash
+REGRESSION_GOAL_STRESS_SIMULATE_SPECIALISTS=0 npm run test:goal-plan:stress
+```
+
+Set `REGRESSION_GOAL_STRESS=0` only to skip this suite while diagnosing unrelated infrastructure.
+
 VPS: `bash deploy/scripts/vps-regression-full.sh`. It first removes stale users tagged
 `flolah-regression-…@example.invalid`, creates a fresh tenant CEO, runs the full pack (including
 router, setup, operate Day 0/Day 1/idempotency, and goal-plan E2E), then always offboards the fixture
