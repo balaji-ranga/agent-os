@@ -402,10 +402,10 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
       const contractRepair = await chatCompletions({
         ownerUserId,
         toolName: 'goal_plan_maker',
-        endpointPreference: 'primary',
         maxTokens: 3200,
         temperature: 0,
         responseFormat: 'json_object',
+        thinkingMode: 'disabled',
         messages: [
           { role: 'system', content: `Repair only the typed dependency-contract defects reported by the deterministic validator while preserving the complete original goal, constraints, and bounded human decision. Every required input key/kind must exactly match a declared output key/kind on its prior source step. Return JSON only as {"steps":[...]}. Use only exact live catalog IDs. ${PLAN_SCHEMA}` },
           { role: 'user', content: `ORIGINAL GOAL:\n${clip(prompt, 9000)}\n\nLIVE CATALOG:\n${catalogPrompt(catalog)}\n\nPLAN WITH CONTRACT DEFECTS:\n${clip(selected, 12000)}\n\nDETERMINISTIC CONTRACT ERRORS:\n${selectedValidation.errors.join('; ')}` },
@@ -440,11 +440,22 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
   }
   if (!selectedValidation.ok) {
     const judgeIssues = Array.isArray(verdict.issues) ? verdict.issues.map((x) => x?.message).filter(Boolean) : [];
-    console.warn('[goal-plan-quality] checker could not repair; using safe clarification plan', {
-      issues: [...judgeIssues, ...selectedValidation.errors].slice(0, 12),
-    });
-    selected = safeGoalClarificationPlan();
-    selectedValidation = validateTypedGoalPlan(selected, catalog);
+    if (madeValidation.ok) {
+      // A checker rejection is actionable only when it supplies (or leads the
+      // maker to) another executable contract. Do not let a stochastic judge
+      // erase a deterministically valid plan with an invalid/empty revision.
+      console.warn('[goal-plan-quality] checker correction unusable; retaining deterministically valid maker plan', {
+        issues: [...judgeIssues, ...selectedValidation.errors].slice(0, 12),
+      });
+      selected = made;
+      selectedValidation = madeValidation;
+    } else {
+      console.warn('[goal-plan-quality] checker could not repair; using safe clarification plan', {
+        issues: [...judgeIssues, ...selectedValidation.errors].slice(0, 12),
+      });
+      selected = safeGoalClarificationPlan();
+      selectedValidation = validateTypedGoalPlan(selected, catalog);
+    }
     if (!selectedValidation.ok) {
       throw new Error(`Goal-plan checker rejected the plan without a valid repair: ${[...judgeIssues, ...selectedValidation.errors].join('; ')}`);
     }
