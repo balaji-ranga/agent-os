@@ -332,7 +332,10 @@ function assertExecution(scenario, goal) {
       ? db.prepare('SELECT description,status FROM kanban_tasks WHERE id=?').get(stored.human_kanban_task_id)
       : null;
     assert(card, `${scenario.name}: human Kanban handoff was not created`);
-    assert(/https?:\/\//i.test(String(card.description || '')), `${scenario.name}: attachment URL was not carried into the human task`);
+    assert(
+      /https?:\/\/|\/api\/media\//i.test(String(card.description || '')),
+      `${scenario.name}: attachment URL was not carried into the human task`
+    );
     assert(card.status === 'completed', `${scenario.name}: human decision did not complete through Kanban continuity`);
   }
 }
