@@ -49,6 +49,15 @@ const nestedCandidate = valid.map(({ key, type, label, depends_on, required_inpu
 const validatedSeed = validateCandidateGoalPlan(nestedCandidate, catalog);
 assert.equal(validatedSeed.validation.ok, true);
 assert.deepEqual(validatedSeed.steps.map((step) => step.key), valid.map((step) => step.key));
+const legacyCandidate = valid.map(({ key, type, label, spec }, index) => ({
+  type,
+  label,
+  spec: { ...spec, step_key: key, depends_on: index ? [index - 1] : [] },
+}));
+const validatedLegacySeed = validateCandidateGoalPlan(legacyCandidate, catalog);
+assert.equal(validatedLegacySeed.validation.ok, true, JSON.stringify(validatedLegacySeed.validation.errors));
+assert.deepEqual(validatedLegacySeed.steps[2].depends_on, ['prepare_review']);
+assert.equal(validatedLegacySeed.steps[2].required_inputs[0].source_step_key, 'prepare_review');
 assert.equal(validateSeedRequirementCoverage(valid, valid).ok, true);
 const omittedRequiredTool = valid.filter((step) => step.key !== 'draft_po');
 const incompleteCoverage = validateSeedRequirementCoverage(omittedRequiredTool, valid);

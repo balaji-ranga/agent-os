@@ -354,7 +354,7 @@ export function normalizeStepSpec(raw) {
     quality_checked: raw.quality_checked === true || nested.quality_checked === true,
     step_key: String(raw.key || raw.step_key || nested.step_key || '').trim() || null,
     depends_on: Array.isArray(raw.depends_on || nested.depends_on)
-      ? [...new Set((raw.depends_on || nested.depends_on).map((x) => String(x || '').trim()).filter(Boolean))]
+      ? [...new Set((raw.depends_on || nested.depends_on).map((x) => String(x ?? '').trim()).filter(Boolean))]
       : [],
     required_inputs: Array.isArray(raw.required_inputs || nested.required_inputs)
       ? (raw.required_inputs || nested.required_inputs)

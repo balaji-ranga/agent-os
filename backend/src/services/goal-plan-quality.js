@@ -71,7 +71,7 @@ function normalizeTypedSteps(rawSteps) {
       label: String(raw?.label || spec.label || type || `Step ${index + 1}`).trim().slice(0, 180),
       key: String(raw?.key || spec.step_key || `step_${index + 1}`).trim().slice(0, 80),
       depends_on: Array.isArray(raw?.depends_on || spec.depends_on)
-        ? [...new Set((raw.depends_on || spec.depends_on).map((x) => String(x || '').trim()).filter(Boolean))]
+        ? [...new Set((raw.depends_on || spec.depends_on).map((x) => String(x ?? '').trim()).filter(Boolean))]
         : [],
       required_inputs: normalizeIo(raw?.required_inputs || spec.required_inputs, { input: true }),
       produces: normalizeIo(raw?.produces || spec.produces),
@@ -211,7 +211,37 @@ export function validateTypedGoalPlan(steps, catalog) {
 }
 
 export function validateCandidateGoalPlan(candidateSteps, catalog) {
-  const steps = normalizeExecutorOutputKinds(normalizeTypedSteps(candidateSteps), catalog);
+  const normalized = normalizeTypedSteps(candidateSteps);
+  const keyed = normalized.map((step, index) => ({
+    ...step,
+    depends_on: (step.depends_on || []).map((dependency) => {
+      const numeric = Number(dependency);
+      return Number.isInteger(numeric) && numeric >= 0 && numeric < normalized.length
+        ? normalized[numeric].key
+        : dependency;
+    }),
+    produces: step.produces?.length || step.type === 'notify_ceo'
+      ? step.produces
+      : [{
+          key: `${step.key}_output`,
+          kind: step.type === 'human_task' ? 'decision' : 'data',
+          required: true,
+        }],
+  }));
+  const byKey = new Map(keyed.map((step) => [step.key, step]));
+  const connected = keyed.map((step) => {
+    if (step.required_inputs?.length || !step.depends_on?.length) return step;
+    const requiredInputs = step.depends_on.flatMap((dependency) =>
+      (byKey.get(dependency)?.produces || []).map((output) => ({
+        key: output.key,
+        kind: output.kind,
+        source_step_key: dependency,
+        required: output.required !== false,
+      }))
+    );
+    return { ...step, required_inputs: requiredInputs };
+  });
+  const steps = normalizeExecutorOutputKinds(connected, catalog);
   return { steps, validation: validateTypedGoalPlan(steps, catalog) };
 }
 
