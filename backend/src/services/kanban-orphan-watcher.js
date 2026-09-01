@@ -467,11 +467,18 @@ export function cancelDelegationsForDeletedKanban(taskIds = []) {
 
 /** One watcher pass for a CEO (or all when ownerUserId omitted). */
 export async function runKanbanOrphanWatcher({ ownerUserId = null, limit = 25 } = {}) {
+  const owner = String(ownerUserId || '').trim() || null;
+  let orphanHumanGoalTasks = { cancelled: 0, goals: [] };
+  try {
+    const { reconcileOrphanHumanGoalTasks } = await import('./agent-goal-run.js');
+    orphanHumanGoalTasks = reconcileOrphanHumanGoalTasks({ ownerUserId: owner, limit });
+  } catch (e) {
+    console.warn('[orphan-watcher] orphan human goal task:', e?.message || e);
+  }
   if (isPlatformLocalOllama()) {
     console.info('[orphan-watcher] skip reinitiate on local Ollama (CPU cannot fan-out specialty retries)');
-    return { skipped: true, reason: 'local_ollama', owner_user_id: String(ownerUserId || '').trim() || null };
+    return { skipped: true, reason: 'local_ollama', owner_user_id: owner, orphan_human_goal_tasks: orphanHumanGoalTasks };
   }
-  const owner = String(ownerUserId || '').trim() || null;
   const stale = recoverStaleSpecialtyProcessingDelegations({ ownerUserId: owner, limit });
   let statusOnly = { requeued: 0 };
   let infra = { repended: 0 };
@@ -561,6 +568,7 @@ export async function runKanbanOrphanWatcher({ ownerUserId = null, limit = 25 } 
     workflow_orphan: workflowOrphan,
     a2a_leaf_reconcile: a2aLeaf,
     stale_goal_continue: staleGoalContinue,
+    orphan_human_goal_tasks: orphanHumanGoalTasks,
     process_pending,
   };
 }

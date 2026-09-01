@@ -2566,6 +2566,10 @@ export function initDb() {
     if (!agCols.includes('child_delegation_task_id')) {
       _db.exec('ALTER TABLE agent_goal_steps ADD COLUMN child_delegation_task_id INTEGER');
     }
+    if (!agCols.includes('human_kanban_task_id')) {
+      _db.exec('ALTER TABLE agent_goal_steps ADD COLUMN human_kanban_task_id INTEGER');
+    }
+    _db.exec('CREATE INDEX IF NOT EXISTS idx_agent_goal_steps_human_task ON agent_goal_steps(human_kanban_task_id)');
     const runCols = _db.prepare('PRAGMA table_info(agent_goal_runs)').all().map((c) => c.name);
     if (runCols.length && !runCols.includes('outcome_json')) {
       _db.exec('ALTER TABLE agent_goal_runs ADD COLUMN outcome_json TEXT');

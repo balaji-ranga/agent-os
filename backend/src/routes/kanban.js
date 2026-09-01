@@ -45,6 +45,7 @@ import {
   preserveSlaHistoryForDeletedTask,
   clearKanbanSlaNotifications,
 } from '../services/kanban-sla.js';
+import { cancelHumanGoalRunsForDeletedKanban } from '../services/agent-goal-run.js';
 
 const router = Router();
 router.use(attachAuthUser);
@@ -562,6 +563,7 @@ router.delete('/tasks/:id', (req, res) => {
     preserveSlaHistoryForDeletedTask(task);
     clearKanbanTaskNotification(id, req.authUser?.id);
     clearKanbanSlaNotifications(id);
+    cancelHumanGoalRunsForDeletedKanban([id], { actorUserId: req.authUser?.id || null });
     cancelDelegationsForDeletedKanban([id]);
     db().prepare('UPDATE kanban_tasks SET standup_id = NULL, agent_delegation_task_id = NULL WHERE id = ?').run(id);
     db().prepare('DELETE FROM task_messages WHERE task_id = ?').run(id);
@@ -590,6 +592,7 @@ router.delete('/tasks', (req, res) => {
       clearKanbanTaskNotification(id, req.authUser?.id);
       clearKanbanSlaNotifications(id);
     }
+    cancelHumanGoalRunsForDeletedKanban(allowed, { actorUserId: req.authUser?.id || null });
     cancelDelegationsForDeletedKanban(allowed);
     db().prepare(`UPDATE kanban_tasks SET standup_id = NULL, agent_delegation_task_id = NULL WHERE id IN (${placeholders})`).run(...allowed);
     db().prepare(`DELETE FROM task_messages WHERE task_id IN (${placeholders})`).run(...allowed);

@@ -372,6 +372,9 @@ async function main() {
   await runner.check('goal planner and recovery hardening', async () => {
     runBackendScript('test-goal-orchestration-hardening.mjs', 'GOAL_ORCHESTRATION_HARDENING_OK');
   });
+  await runner.check('deleted human Kanban work terminates its linked goal', async () => {
+    runBackendScript('test-human-goal-kanban-delete-lifecycle.mjs', 'HUMAN_GOAL_KANBAN_DELETE_LIFECYCLE_OK');
+  });
   await runner.check('goal plan adhoc e2e (CRM+ERP+Help+notify)', async () => {
     if (process.env.REGRESSION_GOAL_PLAN === '0') {
       console.log('    (skipped REGRESSION_GOAL_PLAN=0)');

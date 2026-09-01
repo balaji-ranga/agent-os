@@ -2412,17 +2412,18 @@ async function executeNotifyCeoStep(goal, step) {
 }
 
 export function completeGoalRun(goalRunId, { status = 'completed', error = null } = {}) {
+  const terminal = status === 'completed' || status === 'failed' || status === 'cancelled';
   touchGoalRun(goalRunId, {
     status,
     error_message: error ? String(error).slice(0, 1000) : null,
-    completed_at: status === 'completed' || status === 'failed' ? new Date().toISOString() : null,
+    completed_at: terminal ? new Date().toISOString() : null,
   });
   console.info('[goal-run] finished', { goalRunId, status });
   // Every specialty retry gets a new delegation and therefore a new Kanban card.
   // A terminal goal must not leave any card from any attempt looking active.
   // Match through the immutable goal marker in the delegation prompt so this also
   // repairs cards created before goal_run_id/goal_step_id columns existed.
-  if (status === 'completed' || status === 'failed') {
+  if (terminal) {
     try {
       const marker = `%[goal_run_id: ${String(goalRunId)}]%`;
       const rows = db().prepare(
@@ -2492,7 +2493,7 @@ export function completeGoalRun(goalRunId, { status = 'completed', error = null 
     console.warn('[goal-run] mission complete event failed', e?.message || e);
   }
   // Once-only COO chat nudge so the CEO sees a final ladder update without re-asking.
-  if (status === 'completed' || status === 'failed') {
+  if (terminal) {
     void nudgeCooOnGoalPlanTerminal(goalRunId, { status }).catch((e) =>
       console.warn('[goal-run] completion nudge failed', goalRunId, e?.message || e)
     );
@@ -2657,7 +2658,9 @@ export async function nudgeCooOnGoalPlanTerminal(goalRunId, opts = {}) {
       title:
         terminal === 'failed'
           ? `Goal plan failed: ${clip(title, 80)}`
-          : `Goal plan completed: ${clip(title, 80)}`,
+          : terminal === 'cancelled'
+            ? `Goal plan cancelled: ${clip(title, 80)}`
+            : `Goal plan completed: ${clip(title, 80)}`,
       body: clip(
         `${reply}\n\n${ladder || ''}`.slice(
           0,
@@ -3113,6 +3116,92 @@ async function startParallelSpecialtyGroup(goal, steps, group) {
   };
 }
 
+function cancelOrphanedHumanGoalRows(rows, { actorUserId = null, reason = 'Linked human Kanban task was deleted' } = {}) {
+  const byGoal = new Map();
+  for (const row of rows || []) {
+    if (!row?.goal_run_id || !row?.step_id) continue;
+    if (!byGoal.has(row.goal_run_id)) byGoal.set(row.goal_run_id, []);
+    byGoal.get(row.goal_run_id).push(row);
+  }
+  const cancelled = [];
+  for (const [goalRunId, goalRows] of byGoal) {
+    const detail = `${reason}${actorUserId ? ` by ${actorUserId}` : ''}. The goal cannot continue without that human outcome.`;
+    const result = JSON.stringify({
+      ok: false,
+      cancelled: true,
+      reason: 'human_task_deleted',
+      actor_user_id: actorUserId || null,
+      kanban_task_ids: goalRows.map((row) => Number(row.kanban_task_id)).filter(Boolean),
+    });
+    const update = db().prepare(
+      `UPDATE agent_goal_steps
+       SET status = 'failed', result_json = ?, error_message = ?, completed_at = datetime('now')
+       WHERE id = ? AND step_type = 'human_task' AND status IN ('pending','running')`
+    );
+    let steps = 0;
+    for (const row of goalRows) steps += update.run(result, detail.slice(0, 1000), row.step_id).changes || 0;
+    if (!steps) continue;
+    recordMissionEvent({
+      ownerUserId: goalRows[0].owner_user_id,
+      goalRunId,
+      event_type: 'human_task_deleted',
+      payload: {
+        step_ids: goalRows.map((row) => row.step_id),
+        kanban_task_ids: goalRows.map((row) => Number(row.kanban_task_id)).filter(Boolean),
+        actor_user_id: actorUserId || null,
+        disposition: 'goal_cancelled',
+      },
+    });
+    completeGoalRun(goalRunId, { status: 'cancelled', error: detail });
+    cancelled.push({ goal_run_id: goalRunId, step_count: steps });
+  }
+  return { cancelled: cancelled.length, goals: cancelled };
+}
+
+/**
+ * Deleting a human work card is an explicit cancellation of that blocking outcome.
+ * Terminate the linked plan before the card disappears so Live Operations, SLA and
+ * the originating orchestrator cannot remain stuck on an invisible human task.
+ */
+export function cancelHumanGoalRunsForDeletedKanban(taskIds = [], { actorUserId = null } = {}) {
+  ensureAgentGoalRunTables();
+  const ids = [...new Set((taskIds || []).map((value) => Number(value)).filter((value) => value > 0))];
+  if (!ids.length) return { cancelled: 0, goals: [] };
+  const placeholders = ids.map(() => '?').join(',');
+  const rows = db().prepare(
+    `SELECT DISTINCT k.id AS kanban_task_id, k.owner_user_id,
+            g.id AS goal_run_id, s.id AS step_id
+     FROM kanban_tasks k
+     JOIN agent_goal_steps s
+       ON s.id = k.goal_step_id OR s.human_kanban_task_id = k.id
+     JOIN agent_goal_runs g ON g.id = s.goal_run_id AND g.owner_user_id = k.owner_user_id
+     WHERE k.id IN (${placeholders})
+       AND g.status IN ('pending','running')
+       AND s.step_type = 'human_task'
+       AND s.status IN ('pending','running')`
+  ).all(...ids);
+  return cancelOrphanedHumanGoalRows(rows, { actorUserId });
+}
+
+/** Repair cards deleted by older builds or external cleanup paths. */
+export function reconcileOrphanHumanGoalTasks({ ownerUserId = null, limit = 100 } = {}) {
+  ensureAgentGoalRunTables();
+  const owner = String(ownerUserId || '').trim();
+  const rows = db().prepare(
+    `SELECT s.human_kanban_task_id AS kanban_task_id, g.owner_user_id,
+            g.id AS goal_run_id, s.id AS step_id
+     FROM agent_goal_steps s
+     JOIN agent_goal_runs g ON g.id = s.goal_run_id
+     LEFT JOIN kanban_tasks k ON k.id = s.human_kanban_task_id
+     WHERE g.status IN ('pending','running')
+       AND s.step_type = 'human_task' AND s.status = 'running'
+       AND (s.human_kanban_task_id IS NULL OR k.id IS NULL)
+       AND (? = '' OR g.owner_user_id = ?)
+     ORDER BY g.updated_at ASC LIMIT ?`
+  ).all(owner, owner, Math.max(1, Math.min(Number(limit) || 100, 500)));
+  return cancelOrphanedHumanGoalRows(rows, { reason: 'Linked human Kanban task no longer exists' });
+}
+
 async function executeHumanTaskStep(goal, step) {
   const spec = parseJson(step.spec_json, {});
   const userId = String(spec.user_id || '').trim();
@@ -3374,6 +3463,19 @@ export async function startGoalRunExecution(goalRunId, opts = {}) {
 
   const runningHuman = steps.find((s) => s.step_type === 'human_task' && s.status === 'running');
   if (runningHuman) {
+    const humanCard = runningHuman.human_kanban_task_id
+      ? db().prepare('SELECT id FROM kanban_tasks WHERE id = ?').get(runningHuman.human_kanban_task_id)
+      : null;
+    if (!humanCard) {
+      reconcileOrphanHumanGoalTasks({ ownerUserId: goal.owner_user_id, limit: 100 });
+      return {
+        ok: false,
+        cancelled: true,
+        reason: 'human_task_deleted',
+        step_id: runningHuman.id,
+        goal: getGoalRun(goal.id, goal.owner_user_id),
+      };
+    }
     return { ok: true, async: true, waiting_for_human: true, step_id: runningHuman.id, kanban_task_id: runningHuman.human_kanban_task_id, goal: getGoalRun(goal.id, goal.owner_user_id) };
   }
 

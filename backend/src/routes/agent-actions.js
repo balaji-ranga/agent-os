@@ -110,6 +110,12 @@ export function liveSnapshot(ownerUserId) {
      FROM agent_goal_runs g
      LEFT JOIN agent_goal_steps s ON s.goal_run_id = g.id AND s.step_index = g.current_step_index
      WHERE g.owner_user_id = ? AND g.status IN ('pending','running')
+       AND NOT (
+         s.step_type = 'human_task' AND s.status = 'running'
+         AND (s.human_kanban_task_id IS NULL OR NOT EXISTS (
+           SELECT 1 FROM kanban_tasks hk WHERE hk.id = s.human_kanban_task_id
+         ))
+       )
      ORDER BY g.updated_at DESC LIMIT 100`
   ).all(ownerUserId);
   for (const row of goals) {

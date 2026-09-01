@@ -49,6 +49,7 @@
     ,"test:ibkrnew-event-trader": "node scripts/test-ibkrnew-event-trader.mjs"
     ,"test:goal-plan-quality": "node scripts/test-goal-plan-maker-checker-contract.mjs"
     ,"test:goal-plan:ollama-checker": "node scripts/test-goal-plan-ollama-checker.mjs"
+    ,"test:human-goal-kanban-delete": "node scripts/test-human-goal-kanban-delete-lifecycle.mjs"
     ,"test:goal-plan:stress": "node scripts/test-goal-planning-execution-stress.mjs"
   },
   "dependencies": {
