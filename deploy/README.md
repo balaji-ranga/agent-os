@@ -582,6 +582,9 @@ docker compose up -d --force-recreate backend
 `BACKEND_DEPLOY_HEALTH_WAIT_SECONDS` controls the pre-nginx backend health gate (default
 420 seconds). This accommodates owner-scoped tenant/workspace synchronization on larger
 installations while still failing closed before nginx is recreated.
+The deployment script starts `backend` independently, waits on that gate, and only then
+recreates dependent services such as `frontend`; Compose dependency health cannot shorten
+the configured deployment window.
 
 ## Admin AgentSystem recovery
 

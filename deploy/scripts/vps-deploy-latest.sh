@@ -258,11 +258,19 @@ if [[ -f "$ROOT/deploy/scripts/build-public-docs.sh" ]]; then
 else
   echo "WARN: build-public-docs.sh missing — /docs/ may 404"
 fi
-# shellcheck disable=SC2086
-docker compose up -d --force-recreate $SERVICES
-# nginx depends_on backend service_healthy. Recreating nginx immediately after a backend
-# recreate races the 45s health start_period and fails with "backend is unhealthy".
+# Start backend independently so dependent services cannot make Compose abort before the
+# longer multi-tenant startup gate below has elapsed. This keeps the configured health
+# window authoritative even after Docker marks an early probe unhealthy.
+remaining_services="$SERVICES"
 if echo " $SERVICES " | grep -q " backend "; then
+  echo "==> recreate backend before dependent services"
+  docker compose up -d --force-recreate backend
+  remaining_services=""
+  for service_name in $SERVICES; do
+    if [[ "$service_name" != "backend" ]]; then
+      remaining_services="${remaining_services}${remaining_services:+ }${service_name}"
+    fi
+  done
   backend_health_wait_seconds="${BACKEND_DEPLOY_HEALTH_WAIT_SECONDS:-420}"
   backend_health_tries=$(( (backend_health_wait_seconds + 2) / 3 ))
   echo "==> wait for backend container health before nginx recreate (up to ${backend_health_wait_seconds}s)"
@@ -282,6 +290,11 @@ if echo " $SERVICES " | grep -q " backend "; then
     docker compose logs --tail=80 backend || true
     exit 1
   fi
+fi
+# shellcheck disable=SC2086
+if [[ -n "$remaining_services" ]]; then
+  echo "==> recreate dependent services: $remaining_services"
+  docker compose up -d --force-recreate $remaining_services
 fi
 docker compose up -d --force-recreate nginx
 
