@@ -284,6 +284,12 @@ async function buildCatalog(ownerUserId, orchestratorAgentId) {
 function checkerPreference(ownerUserId, makerResult) {
   const cfg = getLlmConfig(ownerUserId);
   if (makerResult?.localModel || isLocalOllama(cfg.primary?.baseUrl)) return 'platform_primary';
+  // If the maker had to fail over to the configured secondary, do not use the
+  // same model as its own checker. Keep maker/checker independence with Ollama.
+  try {
+    const secondaryHost = new URL(String(cfg.secondary?.baseUrl || '')).hostname.toLowerCase();
+    if (secondaryHost && secondaryHost === String(makerResult?.endpointHost || '').toLowerCase()) return 'ollama';
+  } catch {}
   return cfg.secondary?.baseUrl && cfg.secondary?.model ? 'secondary' : 'ollama';
 }
 
@@ -297,10 +303,10 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
     maker = await chatCompletions({
       ownerUserId,
       toolName: 'goal_plan_maker',
-      endpointPreference: 'primary',
       maxTokens: 3200,
       temperature: 0,
       responseFormat: 'json_object',
+      thinkingMode: 'disabled',
       messages: [
         { role: 'system', content: `You are the maker for an executable company goal plan. Translate the complete goal into the smallest complete ordered dependency graph. Cover every requested prerequisite, output, constraint, human decision, and terminal delivery. Use only exact live catalog IDs. A named human receives only the specific work/decision intended for that human, never the whole goal when preparation is needed. A dependent action must consume the prior data/artifact/decision. Ordinary JSON, status, profile, list, and analysis results are data, not artifacts. Declare artifact only when the selected executor actually returns a file, attachment, media, document, or downloadable URL. Never invent completed evidence or artifacts. ${PLAN_SCHEMA}` },
         { role: 'user', content: `ORIGINAL GOAL:\n${clip(prompt, 9000)}\n\nLIVE CATALOG:\n${catalogPrompt(catalog)}\n\nUNTRUSTED CANDIDATE (use only as a hint):\n${clip(candidateSteps, 10000)}${attempt > 1 ? `\n\nPREVIOUS INVALID PLAN:\n${clip(rejectedPlan, 10000)}\n\nDETERMINISTIC ERRORS TO REPAIR:\n${madeValidation.errors.join('; ')}` : ''}` },
@@ -377,10 +383,10 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
     const repair = await chatCompletions({
       ownerUserId,
       toolName: 'goal_plan_maker',
-      endpointPreference: 'primary',
       maxTokens: 3200,
       temperature: 0,
       responseFormat: 'json_object',
+      thinkingMode: 'disabled',
       messages: [
         { role: 'system', content: `You are the plan maker repairing a plan after an independent review. Resolve every checker issue without dropping correct work or stated constraints. Return JSON only as {"steps":[...]}. The steps must be complete, ordered, use only exact live catalog IDs, and pass this schema. Do not explain. ${PLAN_SCHEMA}` },
         { role: 'user', content: `ORIGINAL GOAL:\n${clip(prompt, 9000)}\n\nLIVE CATALOG:\n${catalogPrompt(catalog)}\n\nMAKER PLAN:\n${clip(made, 12000)}\n\nCHECKER ISSUES:\n${clip(verdict.issues || [{ code: 'invalid_verdict', message: 'Checker did not return a valid approval decision.' }], 6000)}` },
