@@ -60,7 +60,8 @@ assert(
 assert(!steps.some((s) => /create.*goal|agent_goal_create/i.test(s.label + JSON.stringify(s.spec))), 'create goal should be skip');
 // domain status tools must not appear from notify summary words
 assert(!tools.some((t) => /^(crm|erp)_status$/.test(String(t.spec?.tool_name || ''))), 'no domain status tools from summary words');
-// order: WFs before specialty before notify before list/email-or-continue
+// order: prerequisite workflows/specialists/tools before the single terminal
+// notify_ceo step, which reports the consolidated execution outcome.
 const iWf = types.indexOf('workflow_trigger');
 const iSp = types.indexOf('specialty_task');
 const iNo = types.indexOf('notify_ceo');
@@ -68,8 +69,8 @@ const iEmail = steps.findIndex((s) => s.spec?.tool_name === 'email_send');
 const iCont = types.indexOf('agent_continue');
 if (iWf >= 0 && iSp >= 0) assert(iWf < iSp, 'WF before specialty');
 if (iSp >= 0 && iNo >= 0) assert(iSp < iNo, 'specialty before notify');
-if (iNo >= 0 && iEmail >= 0) assert(iNo < iEmail, 'notify before email');
-if (iNo >= 0 && iEmail < 0 && iCont >= 0) assert(iNo < iCont || true, 'notify may precede continue');
+if (iNo >= 0 && iEmail >= 0) assert(iEmail < iNo, 'email before terminal notify');
+if (iNo >= 0 && iEmail < 0 && iCont >= 0) assert(iCont < iNo, 'agent interpretation before terminal notify');
 
 
 console.log('GOAL_PLAN_INTENT_CLASSIFY_OK', { steps: steps.length, types });
