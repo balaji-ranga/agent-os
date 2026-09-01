@@ -215,6 +215,30 @@ export function validateCandidateGoalPlan(candidateSteps, catalog) {
   return { steps, validation: validateTypedGoalPlan(steps, catalog) };
 }
 
+export function validateSeedRequirementCoverage(planSteps, seedSteps) {
+  const identity = (step) => {
+    if (step.type === 'workflow_trigger') return `workflow:${step.spec?.workflow_id || ''}`;
+    if (step.type === 'agent_tool') return `tool:${step.spec?.tool_name || ''}`;
+    if (step.type === 'specialty_task') return `agent:${String(step.spec?.agent_id || '').toLowerCase()}`;
+    if (step.type === 'human_task') return `human:${step.spec?.user_id || ''}`;
+    return null;
+  };
+  const available = new Map();
+  for (const step of planSteps || []) {
+    const key = identity(step);
+    if (key) available.set(key, (available.get(key) || 0) + 1);
+  }
+  const errors = [];
+  for (const step of seedSteps || []) {
+    const key = identity(step);
+    if (!key) continue;
+    const count = available.get(key) || 0;
+    if (count > 0) available.set(key, count - 1);
+    else errors.push(`Plan omitted catalog-resolved requirement ${key}`);
+  }
+  return { ok: errors.length === 0, errors };
+}
+
 function catalogPrompt(catalog) {
   return clip({
     tools: catalog.tools.map((x) => ({ name: x.name, purpose: x.purpose })),
@@ -364,6 +388,10 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
     rejectedPlan = parseJsonObject(maker.content)?.steps || [];
     made = normalizeExecutorOutputKinds(normalizeTypedSteps(rejectedPlan), catalog);
     madeValidation = validateTypedGoalPlan(made, catalog);
+    if (madeValidation.ok && seed.validation.ok) {
+      const coverage = validateSeedRequirementCoverage(made, seed.steps);
+      if (!coverage.ok) madeValidation = coverage;
+    }
     if (madeValidation.ok) break;
     console.warn('[goal-plan-quality] maker contract retry', { attempt, errors: madeValidation.errors.slice(0, 12) });
   }

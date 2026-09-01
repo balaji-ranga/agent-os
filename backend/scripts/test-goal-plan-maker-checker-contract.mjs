@@ -5,7 +5,7 @@ import { join } from 'node:path';
 
 const dataDir = mkdtempSync(join(tmpdir(), 'flolah-goal-quality-'));
 process.env.AGENT_OS_DATA_DIR = dataDir;
-const { validateTypedGoalPlan, validateCandidateGoalPlan, repairCheckerExecutorAvailability, safeGoalClarificationPlan, normalizeExecutorOutputKinds } = await import('../src/services/goal-plan-quality.js');
+const { validateTypedGoalPlan, validateCandidateGoalPlan, validateSeedRequirementCoverage, repairCheckerExecutorAvailability, safeGoalClarificationPlan, normalizeExecutorOutputKinds } = await import('../src/services/goal-plan-quality.js');
 const { isEfficiencyModeTool } = await import('../src/services/llm-efficiency-mode.js');
 assert.equal(isEfficiencyModeTool('goal_plan_intent'), false);
 assert.equal(isEfficiencyModeTool('goal_plan_maker'), false);
@@ -49,6 +49,11 @@ const nestedCandidate = valid.map(({ key, type, label, depends_on, required_inpu
 const validatedSeed = validateCandidateGoalPlan(nestedCandidate, catalog);
 assert.equal(validatedSeed.validation.ok, true);
 assert.deepEqual(validatedSeed.steps.map((step) => step.key), valid.map((step) => step.key));
+assert.equal(validateSeedRequirementCoverage(valid, valid).ok, true);
+const omittedRequiredTool = valid.filter((step) => step.key !== 'draft_po');
+const incompleteCoverage = validateSeedRequirementCoverage(omittedRequiredTool, valid);
+assert.equal(incompleteCoverage.ok, false);
+assert(incompleteCoverage.errors.some((error) => error.includes('tool:erp_purchase_order_create_draft')));
 
 const falseArtifact = structuredClone(valid);
 falseArtifact[0].produces[0].kind = 'artifact';
