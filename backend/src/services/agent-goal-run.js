@@ -67,6 +67,7 @@ import {
 } from './goal-plan-runtime.js';
 import { getExceptionPolicy } from './exception-policy.js';
 import { getAgentsUnderOrchestratorForCeo } from './org-context.js';
+import { qualityAssureGoalPlan } from './goal-plan-quality.js';
 
 const TERMINAL_WF = new Set(['completed', 'failed', 'cancelled', 'paused']);
 let _tablesReady = false;
@@ -348,6 +349,19 @@ export function normalizeStepSpec(raw) {
     return { type: "agent_continue", label: "Continue with agent", spec: {} };
   }
   const nested = raw.spec && typeof raw.spec === "object" ? raw.spec : {};
+  const contract = {
+    quality_checked: raw.quality_checked === true || nested.quality_checked === true,
+    step_key: String(raw.key || raw.step_key || nested.step_key || '').trim() || null,
+    depends_on: Array.isArray(raw.depends_on || nested.depends_on)
+      ? [...new Set((raw.depends_on || nested.depends_on).map((x) => String(x || '').trim()).filter(Boolean))]
+      : [],
+    required_inputs: Array.isArray(raw.required_inputs || nested.required_inputs)
+      ? (raw.required_inputs || nested.required_inputs)
+      : [],
+    produces: Array.isArray(raw.produces || nested.produces)
+      ? (raw.produces || nested.produces)
+      : [],
+  };
   const type = String(raw.type || raw.step_type || "workflow_trigger").toLowerCase();
   if (type === "workflow_trigger" || type === "workflow") {
     const phrase = String(
@@ -363,6 +377,7 @@ export function normalizeStepSpec(raw) {
       type: "workflow_trigger",
       label: String(raw.label || phrase || "Run workflow").trim(),
       spec: {
+        ...contract,
         phrase: phrase || "run workflow",
         phase: raw.phase || raw.workflow_phase || nested.phase || "generic",
         workflow_id: raw.workflow_id || nested.workflow_id || null,
@@ -388,7 +403,7 @@ export function normalizeStepSpec(raw) {
     return {
       type: "notify_ceo",
       label: String(raw.label || "Notify CEO").trim(),
-      spec: { title, body, selection_rationale: raw.selection_rationale || nested.selection_rationale || null },
+      spec: { ...contract, title, body, selection_rationale: raw.selection_rationale || nested.selection_rationale || null },
     };
   }
   if (type === "agent_tool" || type === "self_tool" || type === "tool") {
@@ -400,6 +415,7 @@ export function normalizeStepSpec(raw) {
         type: "notify_ceo",
         label: String(raw.label || "Notify CEO").trim(),
         spec: {
+          ...contract,
           title: raw.title != null ? String(raw.title) : nested.title != null ? String(nested.title) : null,
           body: raw.body != null ? String(raw.body) : nested.body != null ? String(nested.body) : null,
         },
@@ -412,6 +428,7 @@ export function normalizeStepSpec(raw) {
       type: "agent_tool",
       label: String(raw.label || toolName || "Run tool").trim(),
       spec: {
+        ...contract,
         tool_name: toolName || null,
         args,
         capability_id: raw.capability_id || nested.capability_id || null,
@@ -439,6 +456,7 @@ export function normalizeStepSpec(raw) {
       type: "specialty_task",
       label: String(raw.label || (agentId ? "Specialty: " + agentId : "Specialty task")).trim(),
       spec: {
+        ...contract,
         agent_id: agentId,
         message: message || null,
         parallel_group: Number.isFinite(pg) ? pg : null,
@@ -454,6 +472,7 @@ export function normalizeStepSpec(raw) {
       type: 'human_task',
       label: String(raw.label || (userId ? `Human: ${userId}` : 'Human task')).trim(),
       spec: {
+        ...contract,
         user_id: userId,
         message: String(raw.message || raw.prompt || nested.message || nested.prompt || '').trim() || null,
         risk: String(raw.risk || nested.risk || 'normal').toLowerCase() === 'high' ? 'high' : 'normal',
@@ -465,6 +484,7 @@ export function normalizeStepSpec(raw) {
     type: "agent_continue",
     label: String(raw.label || "Agent continue").trim(),
     spec: {
+      ...contract,
       message: raw.message || raw.prompt || nested.message || nested.prompt || null,
       selection_rationale: raw.selection_rationale || nested.selection_rationale || null,
     },
@@ -652,7 +672,15 @@ async function planGoalStepsAsyncInner(prompt, opts = {}) {
           ownerUserId,
           orchestratorAgentId: opts.orchestratorAgentId || null,
         });
-        return await applyHumanAssignmentPolicy(ownerUserId, fullPrompt, repaired);
+        const assigned = await applyHumanAssignmentPolicy(ownerUserId, fullPrompt, repaired);
+        const assured = await qualityAssureGoalPlan({
+          ownerUserId,
+          orchestratorAgentId: opts.orchestratorAgentId || null,
+          prompt: fullPrompt,
+          candidateSteps: assigned,
+        });
+        console.info('[goal-run] maker/checker plan accepted', assured.quality);
+        return assured.steps.map(normalizeStepSpec);
       }
     } catch (e) {
       console.warn('[goal-run] intent classifier failed; catalog fallback', e?.message || e);
@@ -697,7 +725,16 @@ async function planGoalStepsAsyncInner(prompt, opts = {}) {
     ownerUserId,
     orchestratorAgentId: opts.orchestratorAgentId || null,
   });
-  return ownerUserId ? await applyHumanAssignmentPolicy(ownerUserId, fullPrompt, repaired) : repaired;
+  if (!ownerUserId) return repaired;
+  const assigned = await applyHumanAssignmentPolicy(ownerUserId, fullPrompt, repaired);
+  const assured = await qualityAssureGoalPlan({
+    ownerUserId,
+    orchestratorAgentId: opts.orchestratorAgentId || null,
+    prompt: fullPrompt,
+    candidateSteps: assigned,
+  });
+  console.info('[goal-run] maker/checker fallback plan accepted', assured.quality);
+  return assured.steps.map(normalizeStepSpec);
 }
 
 /**
@@ -1128,17 +1165,23 @@ export function createGoalRun({
     throw err;
   }
 
-  const proposed = Array.isArray(steps) && steps.length
-    ? enrichPlanSteps(
-        mergeRuntimeCapabilityStep(
-          mergeCapabilitySteps(steps.map(normalizeStepSpec), prompt), owner, prompt
-        ).map(normalizeStepSpec)
-      )
+  const supplied = Array.isArray(steps) && steps.length ? steps.map(normalizeStepSpec) : null;
+  const qualityChecked = !!supplied?.length && supplied.every(
+    (step) => step.spec?.quality_checked === true && String(step.spec?.step_key || '').trim()
+  );
+  const proposed = supplied
+    ? qualityChecked
+      ? supplied
+      : enrichPlanSteps(
+          mergeRuntimeCapabilityStep(mergeCapabilitySteps(supplied, prompt), owner, prompt).map(normalizeStepSpec)
+        )
     : planGoalStepsFromText(prompt, { ownerUserId: owner });
-  const plannedRaw = validateAndRepairGoalPlan(proposed, prompt, {
-    ownerUserId: owner,
-    orchestratorAgentId: agent,
-  });
+  const plannedRaw = qualityChecked
+    ? proposed
+    : validateAndRepairGoalPlan(proposed, prompt, {
+        ownerUserId: owner,
+        orchestratorAgentId: agent,
+      });
   // Honor explicit "do not call notify_ceo" in CEO / scheduled prompts.
   const planned = promptForbidsNotifyCeo(prompt)
     ? plannedRaw.filter((s) => (s.type || s.step_type) !== 'notify_ceo')
@@ -1411,6 +1454,62 @@ export function priorStepContextForAgent(goalRunId, beforeIndex = Infinity) {
     }
   }
   return parts.join('\n\n');
+}
+
+function collectArtifactRefs(value, found = new Map(), depth = 0) {
+  if (depth > 8 || value == null) return found;
+  if (typeof value === 'string') {
+    const urls = value.match(/https?:\/\/[^\s<>"')\]]+|\/api\/[^\s<>"')\]]+/g) || [];
+    for (const url of urls) found.set(url, { url, label: url.split('/').pop() || 'Goal artifact' });
+    return found;
+  }
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectArtifactRefs(item, found, depth + 1));
+    return found;
+  }
+  if (typeof value !== 'object') return found;
+  const url = String(value.artifact_url || value.relative_url || value.download_url || value.url || '').trim();
+  const artifactId = String(value.artifact_id || value.artifactId || '').trim();
+  if (url) {
+    found.set(url, {
+      url,
+      artifact_id: artifactId || null,
+      label: String(value.label || value.name || value.filename || value.title || url.split('/').pop() || 'Goal artifact').slice(0, 180),
+      mime_type: value.mime_type || value.mimeType || null,
+    });
+  }
+  for (const child of Object.values(value)) collectArtifactRefs(child, found, depth + 1);
+  return found;
+}
+
+export function priorGoalArtifacts(goalRunId, beforeIndex = Infinity) {
+  const rows = loadGoalSteps(goalRunId).filter((s) => s.status === 'completed' && s.step_index < beforeIndex);
+  const found = new Map();
+  for (const row of rows) collectArtifactRefs(parseJson(row.result_json, {}), found);
+  return [...found.values()];
+}
+
+function assertRuntimeStepInputs(goalRunId, step) {
+  const spec = parseJson(step.spec_json, {});
+  const deps = Array.isArray(spec.depends_on) ? spec.depends_on : [];
+  const required = Array.isArray(spec.required_inputs) ? spec.required_inputs.filter((x) => x?.required !== false) : [];
+  if (!deps.length && !required.length) return;
+  const prior = loadGoalSteps(goalRunId).filter((row) => row.step_index < step.step_index);
+  const byKey = new Map(prior.map((row) => [parseJson(row.spec_json, {}).step_key, row]));
+  for (const dep of deps) {
+    const row = byKey.get(dep);
+    if (!row || row.status !== 'completed') throw new Error(`Required predecessor ${dep} is not completed`);
+  }
+  for (const input of required) {
+    const source = input?.source_step_key ? byKey.get(input.source_step_key) : null;
+    if (!source || source.status !== 'completed') throw new Error(`Required input ${input?.key || 'input'} has no completed source step`);
+    const result = parseJson(source.result_json, null);
+    if (String(input.kind || 'data') === 'artifact') {
+      if (!collectArtifactRefs(result).size) throw new Error(`Required artifact ${input.key} was not produced by ${input.source_step_key}`);
+    } else if (result == null || (typeof result === 'object' && !Object.keys(result).length)) {
+      throw new Error(`Required ${input.kind || 'data'} ${input.key} was not produced by ${input.source_step_key}`);
+    }
+  }
 }
 
 /** Pull HTML/markdown from a prior agent_tool result suitable for email_send. */
@@ -2970,10 +3069,15 @@ async function executeHumanTaskStep(goal, step) {
     : null;
   if (existing) return { kanban_task_id: existing.id, assigned_user_id: userId, waiting_for_human: true };
   const prior = priorStepContextForAgent(goal.id, step.step_index);
+  const artifacts = priorGoalArtifacts(goal.id, step.step_index);
+  const artifactBlock = artifacts.length
+    ? artifacts.map((item) => `- [${item.label}](${item.url})${item.mime_type ? ` (${item.mime_type})` : ''}`).join('\n')
+    : '';
   const description = [
     `## Original company goal\n${String(goal.prompt || '').trim()}`,
     `## Your assigned outcome\n${String(spec.message || step.label || '').trim()}`,
     prior ? `## Relevant completed outputs from this goal only\n${prior}` : '',
+    artifactBlock ? `## Attached goal artifacts\n${artifactBlock}` : '',
     '## How to continue the goal\nOpen this task and choose **Complete task**, **Unable to complete**, or **Ask a question**. A completion outcome resumes the exact goal step automatically.',
     spec.selection_rationale ? `## Why you were selected\n${spec.selection_rationale}` : '',
   ].filter(Boolean).join('\n\n');
@@ -3274,6 +3378,7 @@ export async function startGoalRunExecution(goalRunId, opts = {}) {
   }
 
   try {
+    assertRuntimeStepInputs(goal.id, step);
     if (step.step_type === 'workflow_trigger') {
       const out = await executeWorkflowStep(goal, step);
       return { ok: true, async: true, step_id: step.id, ...out, goal: getGoalRun(goal.id, goal.owner_user_id) };

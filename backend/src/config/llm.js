@@ -11,7 +11,7 @@ import {
   getEfficiencyOllamaLlmConfig,
 } from '../services/llm-efficiency-mode.js';
 
-function isLocalOllama(baseUrl) {
+export function isLocalOllama(baseUrl) {
   if (!baseUrl || typeof baseUrl !== 'string') return false;
   try {
     const u = new URL(baseUrl);
@@ -132,7 +132,36 @@ export async function resolveChatCompletionsConfig({
   ownerUserId = null,
   toolName = null,
   modelOverride = null,
+  endpointPreference = 'default',
 } = {}) {
+  const preference = String(endpointPreference || 'default').toLowerCase();
+  if (preference === 'ollama') {
+    const cfg = getEfficiencyOllamaLlmConfig();
+    return { cfg, effectiveModel: String(cfg.primary?.model || '').trim(), efficiencyMode: true };
+  }
+  if (preference === 'primary' || preference === 'secondary' || preference === 'platform_primary') {
+    const resolved = preference === 'platform_primary'
+      ? (() => {
+          const effective = getEffectivePlatformLlmEndpoints();
+          return { primary: effective.primary, secondary: null, provider: 'platform_decided', using_byok: false };
+        })()
+      : getLlmConfig(ownerUserId);
+    const selected = preference === 'secondary' ? resolved.secondary : resolved.primary;
+    if (!selected?.baseUrl || !selected?.model) {
+      throw new Error(`Requested LLM ${preference} endpoint is not configured`);
+    }
+    const cfg = {
+      primary: { ...selected },
+      secondary: null,
+      provider: resolved.provider,
+      using_byok: resolved.using_byok,
+    };
+    return {
+      cfg,
+      effectiveModel: String(modelOverride || selected.model || '').trim(),
+      efficiencyMode: isLocalOllama(selected.baseUrl),
+    };
+  }
   if (shouldUseEfficiencyOllama(ownerUserId, toolName)) {
     const cfg = getEfficiencyOllamaLlmConfig();
     console.info('[llm] efficiency mode → ollama', {
@@ -179,11 +208,14 @@ export async function chatCompletions({
   sessionId = null,
   runId = null,
   traceId = null,
+  endpointPreference = 'default',
+  thinkingMode = null,
 }) {
   const { cfg, effectiveModel, efficiencyMode } = await resolveChatCompletionsConfig({
     ownerUserId,
     toolName,
     modelOverride,
+    endpointPreference,
   });
   const endpoints = buildChatCompletionEndpoints(cfg, effectiveModel);
 
@@ -223,6 +255,14 @@ export async function chatCompletions({
       // Prefer structured JSON when caller asks (OpenAI-compatible servers; ignored if unsupported).
       if (responseFormat === 'json_object' || responseFormat === 'json') {
         body.response_format = { type: 'json_object' };
+      }
+      // DeepSeek V4 enables thinking by default. Machine-judgement calls need
+      // the final structured verdict, not a token-consuming reasoning preamble.
+      if (
+        (thinkingMode === 'enabled' || thinkingMode === 'disabled') &&
+        (/deepseek/i.test(String(ep.baseUrl || '')) || /deepseek/i.test(String(ep.model || '')))
+      ) {
+        body.thinking = { type: thinkingMode };
       }
       let res = await fetch(chatUrl, {
         method: 'POST',
@@ -290,7 +330,14 @@ export async function chatCompletions({
         } catch (meterErr) {
           console.warn('[llm] token meter skipped: %s', meterErr?.message || meterErr);
         }
-        return { content: text, modelUsed: ep.model, usage };
+        return {
+          content: text,
+          modelUsed: ep.model,
+          usage,
+          endpointHost: endpointHost(ep.baseUrl),
+          localModel: isLocalOllama(ep.baseUrl),
+          endpointPreference,
+        };
       }
 
       const errText = await res.text();
