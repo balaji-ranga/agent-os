@@ -167,15 +167,13 @@ export function CeoNavMenu({ collapsed }) {
       {Object.entries(byGroup).map(([group, items]) => (
         <NavSection key={group} title={group} collapsed={collapsed}>
           {items.map((it) => (
-            <NavItem
-              key={it.id}
-              to={it.to}
-              end={it.to === '/org'}
-              title={it.label}
-              collapsed={collapsed}
-              label={it.label}
-              short={shortLabel(it.label)}
-            />
+            Array.isArray(it.children) ? (
+              <NavSection key={it.id} title={it.label} collapsed={collapsed}>
+                {it.children.map((child) => <NavItem key={child.id} to={child.to} title={`${it.label} · ${child.label}`} collapsed={collapsed} label={child.label} short={shortLabel(child.label)} />)}
+              </NavSection>
+            ) : (
+              <NavItem key={it.id} to={it.to} end={it.to === '/org'} title={it.label} collapsed={collapsed} label={it.label} short={shortLabel(it.label)} />
+            )
           ))}
         </NavSection>
       ))}

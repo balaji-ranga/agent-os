@@ -151,6 +151,8 @@ export const api = {
   fetchBlobUrl,
   health: () => get('/health'),
   ibkrNewDashboard: () => get('/ibkrnew-event-trader/dashboard'),
+  ibkrNewSummary: () => get('/ibkrnew-event-trader/summary'),
+  ibkrNewLiveOperations: (limit = 200) => get(`/ibkrnew-event-trader/live-operations?limit=${encodeURIComponent(limit)}`),
   ibkrNewInitialize: () => post('/ibkrnew-event-trader/initialize', {}),
   ibkrNewPublishConfig: (kind, document, confirmRiskLoosening = false) =>
     post(`/ibkrnew-event-trader/configs/${encodeURIComponent(kind)}/publish`, {

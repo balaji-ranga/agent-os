@@ -57,7 +57,9 @@ import ScheduledGoals from './pages/ScheduledGoals';
 import AiSnipper from './pages/AiSnipper';
 import EfficiencyView from './pages/EfficiencyView';
 import IbkrSummary from './pages/IbkrSummary';
-import IBKRNewEventTrader from './pages/IBKRNewEventTrader';
+import IBKRNewStrategy from './pages/IBKRNewStrategy';
+import IBKRNewSummary from './pages/IBKRNewSummary';
+import IBKRNewLiveOperations from './pages/IBKRNewLiveOperations';
 import Avatars from './pages/Avatars';
 import VirtualRoom from './pages/VirtualRoom';
 import PublishedScenes from './pages/PublishedScenes';
@@ -417,7 +419,10 @@ function Shell() {
                 <Route path="/ai-snipper" element={<Perm user={user} k="ai-snipper"><AiSnipper /></Perm>} />
                 <Route path="/efficiency" element={<Perm user={user} k="efficiency"><EfficiencyView /></Perm>} />
                 <Route path="/ibkr-summary" element={<Perm user={user} k="ibkr-summary"><IbkrSummary /></Perm>} />
-                <Route path="/ibkrnew-event-trader" element={<Perm user={user} k="ibkrnew-event-trader"><IBKRNewEventTrader /></Perm>} />
+                <Route path="/ibkrnew-event-trader" element={<Navigate to="/ibkrnew0/live-operations" replace />} />
+                <Route path="/ibkrnew0/strategy" element={<Perm user={user} k="ibkrnew-event-trader"><IBKRNewStrategy /></Perm>} />
+                <Route path="/ibkrnew0/summary" element={<Perm user={user} k="ibkrnew-event-trader"><IBKRNewSummary /></Perm>} />
+                <Route path="/ibkrnew0/live-operations" element={<Perm user={user} k="ibkrnew-event-trader"><IBKRNewLiveOperations /></Perm>} />
                 <Route path="/job-workflows" element={<Perm user={user} k="job-workflows"><JobWorkflows /></Perm>} />
                 <Route path="/workflows" element={<Perm user={user} k="workflows"><AgentWorkflows /></Perm>} />
                 <Route path="/workflows/runs/:runId" element={<Perm user={user} k="workflows"><WorkflowRunAudit /></Perm>} />

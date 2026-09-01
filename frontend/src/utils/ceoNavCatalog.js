@@ -53,7 +53,14 @@ export function buildCeoNavCatalog({ showCrm = false, showErp = false } = {}) {
     { id: 'browser-session', label: 'Browser Session', to: '/browser-session', group: 'Prebuilt Workflows' },
     { id: 'job-workflows', label: 'Job workflows', to: '/job-workflows', group: 'Prebuilt Workflows' },
     { id: 'ibkr-summary', label: 'IBKR Summary', to: '/ibkr-summary', group: 'Prebuilt Workflows' },
-    { id: 'ibkrnew-event-trader', label: 'IBKRNew Event Trader', to: '/ibkrnew-event-trader', group: 'Prebuilt Workflows' },
+    {
+      id: 'ibkrnew0', label: 'IBKRNew0', group: 'Prebuilt Workflows', permission: 'ibkrnew-event-trader',
+      children: [
+        { id: 'ibkrnew0-strategy', label: 'Strategy', to: '/ibkrnew0/strategy' },
+        { id: 'ibkrnew0-summary', label: 'Summary', to: '/ibkrnew0/summary' },
+        { id: 'ibkrnew0-live', label: 'Live Operations', to: '/ibkrnew0/live-operations' },
+      ],
+    },
   ];
   const tools = [
     { id: 'workflows', label: 'Workflows', to: '/workflows', group: 'Company Tools' },

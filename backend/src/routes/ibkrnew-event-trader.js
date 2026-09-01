@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAuth, requireCeoOrAdmin, requireTenantFullAccess, resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
-import { approveAuthorization, authenticateBridge, acknowledgeCommand, claimCommands, ensureIbkrNewDefaults, getDashboard, ingestBridgeEvent, publishConfig, registerBridge, revokeBridge } from '../services/ibkrnew-event-trader.js';
+import { approveAuthorization, authenticateBridge, acknowledgeCommand, claimCommands, ensureIbkrNewDefaults, getDashboard, getIbkrNewLiveOperations, getIbkrNewSummary, ingestBridgeEvent, publishConfig, registerBridge, revokeBridge } from '../services/ibkrnew-event-trader.js';
 
 const router = Router();
 const bridgeRate = new Map();
@@ -16,6 +16,8 @@ function bridge(req, res, next) {
 function handle(res, fn) { try { return fn(); } catch (e) { return res.status(e.status || 500).json({ error: e.message || String(e) }); } }
 
 router.get('/dashboard', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json(getDashboard(owner(req)))));
+router.get('/summary', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json(getIbkrNewSummary(owner(req)))));
+router.get('/live-operations', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json(getIbkrNewLiveOperations(owner(req), { limit: req.query.limit }))));
 router.post('/initialize', requireAuth, requireTenantFullAccess, (req, res) => handle(res, () => res.status(201).json(ensureIbkrNewDefaults(owner(req)))));
 router.post('/configs/:kind/publish', requireAuth, requireTenantFullAccess, (req, res) => handle(res, () => res.status(201).json(publishConfig(owner(req), req.params.kind, req.body?.document, { confirmRiskLoosening: req.body?.confirm_risk_loosening === true }))));
 router.post('/bridges', requireAuth, requireTenantFullAccess, (req, res) => handle(res, () => res.status(201).json(registerBridge(owner(req), req.body?.account_id))));

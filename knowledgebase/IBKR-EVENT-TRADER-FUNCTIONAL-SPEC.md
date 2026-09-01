@@ -3,7 +3,7 @@
 ## Implementation-ready functional specification
 
 **Status:** Implemented paper baseline
-**Version:** 1.1
+**Version:** 1.2
 **Date:** 2026-09-01
 **Delivery mode:** Net-new, paper-first, fully event-driven
 **Product:** Flolah (source repository: `agent-os`)
@@ -15,7 +15,7 @@ The implemented paper baseline is mapped to:
 - API: `/api/ibkrnew-event-trader`.
 - Cloud service: `backend/src/services/ibkrnew-event-trader.js`.
 - Dedicated desktop runtime: `backend/ibkrnew-event-bridge`.
-- UI: `/ibkrnew-event-trader`.
+- UI: `Prebuilt Workflows -> IBKRNew0 -> Strategy | Summary | Live Operations` (`/ibkrnew0/*`). The former `/ibkrnew-event-trader` route redirects to Live Operations.
 - Automated certification: `npm run test:ibkrnew-event-trader` in `backend` and `npm test` in `backend/ibkrnew-event-bridge`.
 
 Real broker execution remains structurally paper-only. The desktop adapter requires both a `DU` paper account and `IBKRNEW_PAPER_EXECUTION_ENABLED=1`; there is no live override.
@@ -1311,7 +1311,35 @@ The feature is implementation-complete when:
 
 ---
 
-## 26. Final architectural rule
+## 26. Commission economics, strategy skill, and live operations
+
+### 26.1 Commission-aware authorization and exits
+
+Every proposed trade records estimated round-trip commission, expected gross profit, expected net profit, commission drag percentage, net reward/risk, and the minimum exit price required to cover actual entry commissions, estimated exit commission, and the configured minimum net profit. Actual IBKR commission reports are correlated by execution and authorization and supersede estimates as they arrive.
+
+The daily opening-exposure reservation includes estimated fees. A trade is blocked when expected net profit is below the configured floor, commission drag exceeds its ceiling, or commission-adjusted reward/risk is invalid. Profit booking uses net—not gross—economics.
+
+Allocation can use the full remaining daily limit only when enabled and the proposal clears configurable concentrated-trade confidence, net reward/risk, and commission-drag thresholds. Otherwise a configurable percentage cap promotes diversification. Quantity is reduced to available capacity using whole units; unused capacity is not forced into a low-quality trade.
+
+### 26.2 Strategy skill boundary
+
+`IBKRNewStrategyPlanner` applies the versioned `ibkrnew-trade-strategy` skill to market events and returns structured proposals and evidence. The default skill is stored at `.cursor/skills/ibkrnew-trade-strategy/SKILL.md`, and its agent name, instructions, schema, and version are owner-configurable through immutable `strategy_skill` versions.
+
+The skill may rank, abstain, and propose an expression, quantity, protection, confidence, and rationale. It cannot submit orders or override deterministic checks. Commission estimation, budgets, exposure, freshness, universe eligibility, broker constraints, protection, authorization, and command signing remain enforced by the service.
+
+### 26.3 IBKRNew0 information architecture and operations
+
+The Prebuilt Workflows navigation contains a parent `IBKRNew0` item with:
+
+- **Strategy:** versioned strategy skill, strategy, policy, universe, and market-data configuration.
+- **Summary:** trade history, estimated and actual commissions, gross/net P&L, required profitable exit, and allocation decisions.
+- **Live Operations:** bridge registration/revocation, pending CEO approvals, daily/total budget state, account and position snapshots, component health, component errors, execution/commission records, and causal events.
+
+Live Operations polls Flolah; the browser never connects to IBKR. Desktop runtime, durable spool, local bridge, and IBKR Gateway health are heartbeat-driven and become effectively offline after the configured freshness period. Their operational tables, snapshots, executions, trade history, and allocation records are owner-scoped and participate in the user's profile retention and offboarding policy.
+
+---
+
+## 27. Final architectural rule
 
 **Flolah decides and authorizes; the desktop listens and executes; IBKR hosts protective orders; durable events connect every transition.**
 

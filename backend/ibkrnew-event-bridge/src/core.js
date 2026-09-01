@@ -10,6 +10,7 @@ export class IBKRNewBridgeCore {
     this.sequence = existsSync(this.statePath) ? Number(JSON.parse(readFileSync(this.statePath, 'utf8')).sequence || 0) : 0;
   }
   commandState() { return existsSync(this.commandStatePath) ? JSON.parse(readFileSync(this.commandStatePath, 'utf8')) : {}; }
+  spoolDepth() { return existsSync(this.spoolPath) ? readFileSync(this.spoolPath, 'utf8').split(/\r?\n/).filter(Boolean).length : 0; }
   commandSeen(commandId) { return this.commandState()[commandId] || null; }
   markCommand(commandId, status, detail = {}) { const state = this.commandState(); state[commandId] = { status, detail, updated_at: this.now().toISOString() }; writeFileSync(this.commandStatePath, JSON.stringify(state), { mode: 0o600 }); return state[commandId]; }
   headers() { return { 'content-type': 'application/json', 'x-ibkrnew-bridge-id': this.bridgeId, 'x-ibkrnew-bridge-token': this.token }; }

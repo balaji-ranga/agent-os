@@ -267,6 +267,12 @@ export function purgeOwnerScopedRows(db, ownerUserId) {
   );
   // Net-new IBKRNew Event Trader is isolated from all legacy IBKR tables.
   counts.ibkrnew_commands = tryRun(db, `DELETE FROM ibkrnew_command_outbox WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.ibkrnew_executions = tryRun(db, `DELETE FROM ibkrnew_executions WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.ibkrnew_trades = tryRun(db, `DELETE FROM ibkrnew_trade_records WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.ibkrnew_allocations = tryRun(db, `DELETE FROM ibkrnew_allocation_decisions WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.ibkrnew_snapshots = tryRun(db, `DELETE FROM ibkrnew_position_snapshots WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.ibkrnew_component_errors = tryRun(db, `DELETE FROM ibkrnew_component_errors WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.ibkrnew_component_health = tryRun(db, `DELETE FROM ibkrnew_component_health WHERE owner_user_id = ?`, [ownerUserId]);
   counts.ibkrnew_authorizations = tryRun(db, `DELETE FROM ibkrnew_authorizations WHERE owner_user_id = ?`, [ownerUserId]);
   counts.ibkrnew_reservations = tryRun(db, `DELETE FROM ibkrnew_budget_reservations WHERE owner_user_id = ?`, [ownerUserId]);
   counts.ibkrnew_events = tryRun(db, `DELETE FROM ibkrnew_events WHERE owner_user_id = ?`, [ownerUserId]);

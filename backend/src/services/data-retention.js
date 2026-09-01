@@ -60,6 +60,12 @@ export async function purgeOwnerRetention(ownerUserId, { days = null } = {}) {
     ibkrnew_commands: 0,
     ibkrnew_authorizations: 0,
     ibkrnew_reservations: 0,
+    ibkrnew_snapshots: 0,
+    ibkrnew_component_errors: 0,
+    ibkrnew_component_health: 0,
+    ibkrnew_executions: 0,
+    ibkrnew_trades: 0,
+    ibkrnew_allocation_decisions: 0,
   };
 
   deleted.chat_turns =
@@ -88,6 +94,12 @@ export async function purgeOwnerRetention(ownerUserId, { days = null } = {}) {
     deleted.ibkrnew_commands = db.prepare(`DELETE FROM ibkrnew_command_outbox WHERE owner_user_id=? AND status IN ('expired','rejected','cancelled','filled') AND datetime(created_at)<datetime('now',?)`).run(owner, cutoff).changes || 0;
     deleted.ibkrnew_authorizations = db.prepare(`DELETE FROM ibkrnew_authorizations WHERE owner_user_id=? AND status IN ('expired','rejected','cancelled','filled') AND datetime(created_at)<datetime('now',?)`).run(owner, cutoff).changes || 0;
     deleted.ibkrnew_reservations = db.prepare(`DELETE FROM ibkrnew_budget_reservations WHERE owner_user_id=? AND status IN ('released','filled') AND datetime(created_at)<datetime('now',?)`).run(owner, cutoff).changes || 0;
+    deleted.ibkrnew_snapshots = db.prepare(`DELETE FROM ibkrnew_position_snapshots WHERE owner_user_id=? AND datetime(captured_at)<datetime('now',?)`).run(owner, cutoff).changes || 0;
+    deleted.ibkrnew_component_errors = db.prepare(`DELETE FROM ibkrnew_component_errors WHERE owner_user_id=? AND datetime(occurred_at)<datetime('now',?)`).run(owner, cutoff).changes || 0;
+    deleted.ibkrnew_component_health = db.prepare(`DELETE FROM ibkrnew_component_health WHERE owner_user_id=? AND datetime(updated_at)<datetime('now',?)`).run(owner, cutoff).changes || 0;
+    deleted.ibkrnew_executions = db.prepare(`DELETE FROM ibkrnew_executions WHERE owner_user_id=? AND datetime(occurred_at)<datetime('now',?)`).run(owner, cutoff).changes || 0;
+    deleted.ibkrnew_trades = db.prepare(`DELETE FROM ibkrnew_trade_records WHERE owner_user_id=? AND status IN ('closed','cancelled','rejected') AND datetime(updated_at)<datetime('now',?)`).run(owner, cutoff).changes || 0;
+    deleted.ibkrnew_allocation_decisions = db.prepare(`DELETE FROM ibkrnew_allocation_decisions WHERE owner_user_id=? AND datetime(created_at)<datetime('now',?)`).run(owner, cutoff).changes || 0;
   } catch (_) {
     /* IBKRNew tables are lazy-created when the feature is first opened. */
   }
