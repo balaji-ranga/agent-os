@@ -50,6 +50,7 @@ const db = getDb();
 const runTag = `goal-stress-${Date.now()}-${randomUUID().slice(0, 6)}`;
 const simulateSpecialists = String(process.env.REGRESSION_GOAL_STRESS_SIMULATE_SPECIALISTS || '0') === '1';
 const keepData = String(process.env.REGRESSION_GOAL_STRESS_KEEP_DATA || '0') === '1';
+const cleanupOnly = String(process.env.REGRESSION_GOAL_STRESS_CLEANUP_ONLY || '0') === '1';
 const timeoutMs = Math.max(30000, Number(process.env.REGRESSION_GOAL_STRESS_TIMEOUT_MS) || 240000);
 const createdGoalIds = [];
 const createdWorkflowIds = [];
@@ -370,9 +371,32 @@ async function cleanup(ownerUserId) {
   }
 }
 
+async function cleanupInterruptedRegressionData(ownerUserId) {
+  if (keepData) return { goals: 0, workflows: 0, humans: 0 };
+  const staleGoalIds = db.prepare(`SELECT id FROM agent_goal_runs
+    WHERE owner_user_id=? AND source LIKE 'regression-goal-stress:%'`).all(ownerUserId).map((row) => row.id);
+  const staleWorkflowIds = db.prepare(`SELECT id FROM agent_workflow_definitions
+    WHERE owner_user_id=? AND id LIKE 'reg-goal-stress-%'`).all(ownerUserId).map((row) => row.id);
+  const staleHumanIds = db.prepare(`SELECT id FROM platform_users
+    WHERE owner_user_id=? AND id LIKE 'reg-human-%'`).all(ownerUserId).map((row) => row.id);
+  for (const goalId of staleGoalIds) deleteGoalArtifacts(goalId);
+  for (const workflowId of staleWorkflowIds) {
+    try { deleteDefinition(workflowId, ownerUserId, { id: 'regression', name: 'Goal stress regression cleanup' }); } catch {}
+  }
+  for (const humanId of staleHumanIds) {
+    try { db.prepare('DELETE FROM platform_users WHERE id=? AND owner_user_id=?').run(humanId, ownerUserId); } catch {}
+  }
+  return { goals: staleGoalIds.length, workflows: staleWorkflowIds.length, humans: staleHumanIds.length };
+}
+
 async function main() {
   const owner = pickOwner();
   assert(owner?.id, 'No enabled CEO found (set REGRESSION_CEO_ID)');
+  const interruptedCleanup = await cleanupInterruptedRegressionData(owner.id);
+  if (cleanupOnly) {
+    console.log('GOAL_PLANNING_EXECUTION_STRESS_CLEANUP_OK', JSON.stringify({ owner_user_id: owner.id, removed: interruptedCleanup }));
+    return;
+  }
   const orchestrator = pickOrchestrator(owner.id);
   assert(orchestrator?.id, `No enabled COO/orchestrator is entitled to ${owner.id}`);
   const orchestratorId = orchestrator.openclaw_agent_id || orchestrator.id;
