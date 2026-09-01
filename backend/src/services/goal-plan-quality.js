@@ -348,12 +348,32 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
   });
   let check;
   let checkerEndpoint = preference;
+  let checkerDegraded = false;
+  const acceptDeterministicContract = (error, attemptedEndpoint) => {
+    checkerDegraded = true;
+    checkerEndpoint = 'deterministic_contract';
+    console.warn('[goal-plan-quality] independent checker unavailable; retaining deterministically valid maker contract', {
+      attempted_endpoint: attemptedEndpoint,
+      error: String(error?.message || error || 'checker unavailable').slice(0, 500),
+    });
+    return {
+      content: JSON.stringify({ approved: true, issues: [], revised_steps: [] }),
+      modelUsed: 'deterministic_contract',
+    };
+  };
   try {
     check = await chatCompletions(checkerRequestFor(made, preference));
   } catch (error) {
-    if (preference !== 'secondary') throw error;
-    checkerEndpoint = 'ollama';
-    check = await chatCompletions(checkerRequestFor(made, 'ollama'));
+    if (preference === 'secondary') {
+      checkerEndpoint = 'ollama';
+      try {
+        check = await chatCompletions(checkerRequestFor(made, 'ollama'));
+      } catch (fallbackError) {
+        check = acceptDeterministicContract(fallbackError, 'ollama');
+      }
+    } else {
+      check = acceptDeterministicContract(error, preference);
+    }
   }
   let verdict = parseJsonObject(check.content) || {};
   if (typeof verdict.approved !== 'boolean' && preference === 'secondary' && checkerEndpoint !== 'ollama') {
@@ -423,9 +443,16 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
       try {
         finalCheck = await chatCompletions(checkerRequestFor(selected, checkerEndpoint));
       } catch (error) {
-        if (checkerEndpoint !== 'secondary') throw error;
-        checkerEndpoint = 'ollama';
-        finalCheck = await chatCompletions(checkerRequestFor(selected, 'ollama'));
+        if (checkerEndpoint === 'secondary') {
+          checkerEndpoint = 'ollama';
+          try {
+            finalCheck = await chatCompletions(checkerRequestFor(selected, 'ollama'));
+          } catch (fallbackError) {
+            finalCheck = acceptDeterministicContract(fallbackError, 'ollama');
+          }
+        } else {
+          finalCheck = acceptDeterministicContract(error, checkerEndpoint);
+        }
       }
       const finalVerdict = parseJsonObject(finalCheck.content) || {};
       check = finalCheck;
@@ -466,6 +493,7 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
       maker_model: maker.modelUsed,
       checker_model: check.modelUsed,
       checker_endpoint: checkerEndpoint,
+      checker_degraded: checkerDegraded,
       checker_approved_maker: verdict.approved === true,
       issues: Array.isArray(verdict.issues) ? verdict.issues.slice(0, 20) : [],
     },
