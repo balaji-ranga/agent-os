@@ -757,6 +757,7 @@ export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage, c
       : [];
 
   let scheduledCount = 0;
+  let cronScheduleFailures = 0;
   const cronBlockedIds = new Set();
   if (scheduleOpenClaw) {
     for (const { taskId, agent } of taskRows) {
@@ -814,10 +815,21 @@ export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage, c
       markKanbanInProgressForDelegation(taskId);
     } else {
       console.warn('[delegation] cron_add failed for', agent.id, result.error);
+      cronScheduleFailures++;
     }
     }
   }
   const pendingCount = taskRows.length - scheduledCount - cronBlockedIds.size;
+  // cron_add is an acceleration path, not the only execution path. If the
+  // Gateway has no cron tool (or rejects scheduling), immediately wake the
+  // durable per-CEO queue that owns the same task rows. The atomic pending →
+  // processing claim prevents duplicate execution if a normal worker tick races.
+  if (cronScheduleFailures > 0) {
+    setTimeout(() => {
+      void processPendingDelegationTasksForCeo(ownerUserId, { skipOrphanWatcher: true })
+        .catch((error) => console.warn('[delegation] direct queue wake failed', error?.message || error));
+    }, 0);
+  }
   const externalNames = (externalOutcome?.delegated || []).map((d) => d.member.display_name);
   const startedRows = taskRows.filter(
     (r) => !cronBlockedIds.has(String(r.agent.id).toLowerCase())

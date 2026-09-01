@@ -193,6 +193,83 @@ function checkerPlanPrompt(plan) {
   })), 10000);
 }
 
+const ARTIFACT_CAPABILITY_RE = /\b(artifact|attachment|file|pdf|document|download|image|video|audio|spreadsheet|csv|xlsx|docx|pptx|media|url)\b/i;
+
+function executorCanProduceArtifact(step, catalog) {
+  if (step.type === 'agent_tool') {
+    const tool = (catalog.tools || []).find((x) => x.name === step.spec?.tool_name);
+    return ARTIFACT_CAPABILITY_RE.test(`${tool?.display_name || ''} ${tool?.purpose || ''}`);
+  }
+  if (step.type === 'workflow_trigger') {
+    const workflow = (catalog.workflows || []).find((x) => String(x.id) === String(step.spec?.workflow_id));
+    return ARTIFACT_CAPABILITY_RE.test(`${workflow?.name || ''} ${workflow?.description || ''}`);
+  }
+  if (step.type === 'specialty_task' || step.type === 'agent_continue') {
+    return ARTIFACT_CAPABILITY_RE.test(`${step.label || ''} ${step.spec?.message || ''}`);
+  }
+  return false;
+}
+
+/**
+ * Models sometimes label ordinary JSON/status output as an artifact. Runtime is
+ * deliberately stricter and requires a real URL/file reference. Reconcile the
+ * contract with the selected executor before validation, and update every
+ * downstream edge by semantic key/source rather than by prompt keywords.
+ */
+export function normalizeExecutorOutputKinds(steps, catalog) {
+  const kindBySourceAndKey = new Map();
+  const normalized = (steps || []).map((step) => {
+    const canArtifact = executorCanProduceArtifact(step, catalog);
+    const produces = (step.produces || []).map((output) => {
+      const next = output.kind === 'artifact' && !canArtifact
+        ? { ...output, kind: 'data' }
+        : { ...output };
+      kindBySourceAndKey.set(`${step.key}:${next.key}`, next.kind);
+      return next;
+    });
+    return { ...step, produces };
+  });
+  const kindAligned = normalized.map((step) => ({
+    ...step,
+    required_inputs: (step.required_inputs || []).map((input) => {
+      const actual = input.source_step_key
+        ? kindBySourceAndKey.get(`${input.source_step_key}:${input.key}`)
+        : null;
+      return actual && actual !== input.kind ? { ...input, kind: actual } : input;
+    }),
+  }));
+  const byKey = new Map(kindAligned.map((step) => [step.key, step]));
+  const ancestorKeys = (step, found = new Set()) => {
+    for (const key of step.depends_on || []) {
+      if (found.has(key)) continue;
+      found.add(key);
+      const source = byKey.get(key);
+      if (source) ancestorKeys(source, found);
+    }
+    return found;
+  };
+  return kindAligned.map((step) => {
+    const requiredInputs = [...(step.required_inputs || [])];
+    const seen = new Set(requiredInputs.map((input) => `${input.source_step_key || ''}:${input.key}:${input.kind}`));
+    for (const sourceKey of ancestorKeys(step)) {
+      const source = byKey.get(sourceKey);
+      for (const output of source?.produces || []) {
+        if (output.required === false) continue;
+        const identity = `${sourceKey}:${output.key}:${output.kind}`;
+        if (seen.has(identity)) continue;
+        seen.add(identity);
+        requiredInputs.push({
+          key: output.key,
+          kind: output.kind,
+          required: true,
+          source_step_key: sourceKey,
+        });
+      }
+    }
+    return { ...step, required_inputs: requiredInputs.slice(0, 32) };
+  });
+}
+
 const PLAN_SCHEMA = `Return JSON only: {"steps":[{"key":"stable_key","type":"workflow_trigger|agent_tool|specialty_task|human_task|agent_continue|notify_ceo","label":"clear outcome","depends_on":["prior_key"],"required_inputs":[{"key":"semantic_name","kind":"data|artifact|decision","source_step_key":"prior_key","required":true}],"produces":[{"key":"semantic_name","kind":"data|artifact|decision","required":true}],"spec":{"workflow_id":"catalog id","phrase":"catalog phrase","tool_name":"catalog name","agent_id":"catalog id","user_id":"catalog id","message":"specific bounded work or decision","selection_rationale":"why this executor is capable"}}]}. Omit executor fields that do not apply.`;
 
 async function buildCatalog(ownerUserId, orchestratorAgentId) {
@@ -212,21 +289,39 @@ function checkerPreference(ownerUserId, makerResult) {
 
 export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, prompt, candidateSteps }) {
   const catalog = await buildCatalog(ownerUserId, orchestratorAgentId);
-  const maker = await chatCompletions({
-    ownerUserId,
-    toolName: 'goal_plan_maker',
-    endpointPreference: 'primary',
-    maxTokens: 3200,
-    temperature: 0,
-    responseFormat: 'json_object',
-    messages: [
-      { role: 'system', content: `You are the maker for an executable company goal plan. Translate the complete goal into the smallest complete ordered dependency graph. Cover every requested prerequisite, output, constraint, human decision, and terminal delivery. Use only exact live catalog IDs. A named human receives only the specific work/decision intended for that human, never the whole goal when preparation is needed. A dependent action must consume the prior data/artifact/decision. Never invent completed evidence or artifacts. ${PLAN_SCHEMA}` },
-      { role: 'user', content: `ORIGINAL GOAL:\n${clip(prompt, 9000)}\n\nLIVE CATALOG:\n${catalogPrompt(catalog)}\n\nUNTRUSTED CANDIDATE (use only as a hint):\n${clip(candidateSteps, 10000)}` },
-    ],
-  });
-  const made = normalizeTypedSteps(parseJsonObject(maker.content)?.steps);
-  const madeValidation = validateTypedGoalPlan(made, catalog);
-  if (!madeValidation.ok) throw new Error(`Goal-plan maker produced an invalid contract: ${madeValidation.errors.join('; ')}`);
+  let maker;
+  let made = [];
+  let madeValidation = { ok: false, errors: ['Maker has not run'] };
+  let rejectedPlan = null;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    maker = await chatCompletions({
+      ownerUserId,
+      toolName: 'goal_plan_maker',
+      endpointPreference: 'primary',
+      maxTokens: 3200,
+      temperature: 0,
+      responseFormat: 'json_object',
+      messages: [
+        { role: 'system', content: `You are the maker for an executable company goal plan. Translate the complete goal into the smallest complete ordered dependency graph. Cover every requested prerequisite, output, constraint, human decision, and terminal delivery. Use only exact live catalog IDs. A named human receives only the specific work/decision intended for that human, never the whole goal when preparation is needed. A dependent action must consume the prior data/artifact/decision. Ordinary JSON, status, profile, list, and analysis results are data, not artifacts. Declare artifact only when the selected executor actually returns a file, attachment, media, document, or downloadable URL. Never invent completed evidence or artifacts. ${PLAN_SCHEMA}` },
+        { role: 'user', content: `ORIGINAL GOAL:\n${clip(prompt, 9000)}\n\nLIVE CATALOG:\n${catalogPrompt(catalog)}\n\nUNTRUSTED CANDIDATE (use only as a hint):\n${clip(candidateSteps, 10000)}${attempt > 1 ? `\n\nPREVIOUS INVALID PLAN:\n${clip(rejectedPlan, 10000)}\n\nDETERMINISTIC ERRORS TO REPAIR:\n${madeValidation.errors.join('; ')}` : ''}` },
+      ],
+    });
+    rejectedPlan = parseJsonObject(maker.content)?.steps || [];
+    made = normalizeExecutorOutputKinds(normalizeTypedSteps(rejectedPlan), catalog);
+    madeValidation = validateTypedGoalPlan(made, catalog);
+    if (madeValidation.ok) break;
+    console.warn('[goal-plan-quality] maker contract retry', { attempt, errors: madeValidation.errors.slice(0, 12) });
+  }
+  if (!madeValidation.ok) {
+    console.warn('[goal-plan-quality] maker could not produce a valid executable contract; using safe clarification plan', {
+      errors: madeValidation.errors.slice(0, 12),
+    });
+    made = safeGoalClarificationPlan();
+    madeValidation = validateTypedGoalPlan(made, catalog);
+    if (!madeValidation.ok) {
+      throw new Error(`Goal-plan fail-safe contract is invalid: ${madeValidation.errors.join('; ')}`);
+    }
+  }
 
   const preference = checkerPreference(ownerUserId, maker);
   const checkerRequestFor = (plan, endpointPreference) => ({
@@ -265,10 +360,10 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
   let selectedValidation = madeValidation;
   let acceptedCheckerRevision = false;
   if (verdict.approved !== true) {
-    const checkerRevision = repairCheckerExecutorAvailability(
+    const checkerRevision = normalizeExecutorOutputKinds(repairCheckerExecutorAvailability(
       normalizeTypedSteps(verdict.revised_steps),
       catalog
-    );
+    ), catalog);
     const checkerRevisionValidation = validateTypedGoalPlan(checkerRevision, catalog);
     if (checkerRevisionValidation.ok) {
       selected = checkerRevision;
@@ -292,10 +387,10 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
       ],
     });
     const repairedJson = parseJsonObject(repair.content) || {};
-    selected = repairCheckerExecutorAvailability(
+    selected = normalizeExecutorOutputKinds(repairCheckerExecutorAvailability(
       normalizeTypedSteps(repairedJson.steps || repairedJson.revised_steps),
       catalog
-    );
+    ), catalog);
     selectedValidation = validateTypedGoalPlan(selected, catalog);
     if (!selectedValidation.ok) {
       const contractRepair = await chatCompletions({
@@ -311,10 +406,10 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
         ],
       });
       const contractJson = parseJsonObject(contractRepair.content) || {};
-      selected = repairCheckerExecutorAvailability(
+      selected = normalizeExecutorOutputKinds(repairCheckerExecutorAvailability(
         normalizeTypedSteps(contractJson.steps || contractJson.revised_steps),
         catalog
-      );
+      ), catalog);
       selectedValidation = validateTypedGoalPlan(selected, catalog);
     }
     if (selectedValidation.ok) {

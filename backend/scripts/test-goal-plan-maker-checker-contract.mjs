@@ -5,7 +5,7 @@ import { join } from 'node:path';
 
 const dataDir = mkdtempSync(join(tmpdir(), 'flolah-goal-quality-'));
 process.env.AGENT_OS_DATA_DIR = dataDir;
-const { validateTypedGoalPlan, repairCheckerExecutorAvailability, safeGoalClarificationPlan } = await import('../src/services/goal-plan-quality.js');
+const { validateTypedGoalPlan, repairCheckerExecutorAvailability, safeGoalClarificationPlan, normalizeExecutorOutputKinds } = await import('../src/services/goal-plan-quality.js');
 const { isEfficiencyModeTool } = await import('../src/services/llm-efficiency-mode.js');
 assert.equal(isEfficiencyModeTool('goal_plan_intent'), false);
 assert.equal(isEfficiencyModeTool('goal_plan_maker'), false);
@@ -26,7 +26,7 @@ const valid = [
   {
     key: 'prepare_review', type: 'specialty_task', label: 'Prepare review packet', depends_on: ['retrieve_invoice'],
     required_inputs: [{ key: 'invoice_record', kind: 'data', source_step_key: 'retrieve_invoice', required: true }],
-    produces: [{ key: 'invoice_review_packet', kind: 'artifact', required: true }], spec: { agent_id: 'erp-agent', message: 'Create the review packet.' },
+    produces: [{ key: 'invoice_review_packet', kind: 'artifact', required: true }], spec: { agent_id: 'erp-agent', message: 'Create a PDF attachment review packet and return its file URL.' },
   },
   {
     key: 'human_approval', type: 'human_task', label: 'Raji approval', depends_on: ['prepare_review'],
@@ -41,6 +41,17 @@ const valid = [
   { key: 'notify', type: 'notify_ceo', label: 'Report outcome', depends_on: ['draft_po'], required_inputs: [], produces: [], spec: {} },
 ];
 assert.deepEqual(validateTypedGoalPlan(valid, catalog), { ok: true, errors: [] });
+
+const falseArtifact = structuredClone(valid);
+falseArtifact[0].produces[0].kind = 'artifact';
+falseArtifact[1].required_inputs[0].kind = 'artifact';
+const normalizedFalseArtifact = normalizeExecutorOutputKinds(falseArtifact, catalog);
+assert.equal(normalizedFalseArtifact[0].produces[0].kind, 'data');
+assert.equal(normalizedFalseArtifact[1].required_inputs[0].kind, 'data');
+assert.equal(normalizedFalseArtifact[1].produces[0].kind, 'artifact');
+const terminalInputs = normalizedFalseArtifact.at(-1).required_inputs;
+assert(terminalInputs.some((input) => input.source_step_key === 'retrieve_invoice' && input.key === 'invoice_record'));
+assert(terminalInputs.some((input) => input.source_step_key === 'human_approval' && input.key === 'purchase_decision'));
 
 const skippedPreparation = [valid[2], valid[3], valid[4]];
 const missing = validateTypedGoalPlan(skippedPreparation, catalog);

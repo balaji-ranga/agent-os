@@ -93,4 +93,14 @@ const resolvedBasket = await resolveAgentToolArgsForGoal({
 assert(resolvedBasket.symbols?.length === 8, 'MAG7 + VOOG preserves eight symbols');
 assert(resolvedBasket.symbols.includes('VOOG'), 'VOOG preserved in resolved tool args');
 
+const unrelated = await resolveAgentToolArgsForGoal({
+  toolName: 'crm_status',
+  args: { symbols: ['AAPL', 'MSFT'], symbol: 'NVDA', ticker: 'VOOG' },
+  goalPrompt: prompt,
+});
+assert(!unrelated.symbols, 'non-market tool must not receive multi-symbol fan-out');
+assert(!('symbols' in unrelated.args), 'non-market tool strips symbols');
+assert(!('symbol' in unrelated.args), 'non-market tool strips symbol');
+assert(!('ticker' in unrelated.args), 'non-market tool strips ticker');
+
 console.log('ok', { tickers, basket_len: basket.length, rewritten: rewritten.map((s) => s.type) });

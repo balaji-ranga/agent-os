@@ -68,6 +68,7 @@ import {
 import { getExceptionPolicy } from './exception-policy.js';
 import { getAgentsUnderOrchestratorForCeo } from './org-context.js';
 import { qualityAssureGoalPlan } from './goal-plan-quality.js';
+import { createMediaArtifact } from './ceo-media-artifacts.js';
 
 const TERMINAL_WF = new Set(['completed', 'failed', 'cancelled', 'paused']);
 let _tablesReady = false;
@@ -2838,9 +2839,15 @@ async function executeSpecialtyTaskStep(goal, step) {
   const originalGoal = String(goal.prompt || '').trim() || 'Complete the CEO goal.';
   const assignedDeliverable =
     (spec.message && String(spec.message).trim()) || 'Complete the specialty portion assigned by the plan.';
+  const outputContract = Array.isArray(spec.produces) && spec.produces.length
+    ? spec.produces.map((output) => `- ${output.key}: ${output.kind || 'data'}${output.required === false ? ' (optional)' : ' (required)'}`).join('\n')
+    : '- completed_deliverable: data (required)';
   let message =
     `Original CEO goal (verbatim):\n${originalGoal}\n\n` +
     `Your assigned specialty deliverable:\n${assignedDeliverable}\n\n` +
+    `Typed output contract (your response is validated before the next step):\n${outputContract}\n` +
+    `For an artifact output, return the real file/attachment/download URL in the response; a description of a future file is not an artifact.\n\n` +
+    `An empty upstream result is still valid evidence. If you can accurately document that no records were found, produce the contracted data or exception artifact and a bounded recommendation; do not invent records or request clarification merely because the result set is empty.\n\n` +
     `Relevant completed outputs from THIS goal only:\n${prior || '(none — this is the first relevant step)'}\n\n` +
     `Context boundary:\n` +
     `- Use only the original goal and outputs listed above.\n` +
@@ -2963,13 +2970,53 @@ export async function onDelegationTerminalForGoalRun(taskId) {
     return { ok: true, skipped: true, reason: 'step_already_terminal', goal_run_id: goal.id };
   }
   const task = db().prepare('SELECT * FROM agent_delegation_tasks WHERE id = ?').get(Number(taskId));
-  const needsClarification = /\[NEEDS_CLARIFICATION\]/i.test(String(task?.response_content || ''));
-  const failed = !task || String(task.status || '') === 'failed' || needsClarification;
+  const response = String(task?.response_content || '').trim();
+  const spec = parseJson(step.spec_json, {});
+  const requiredArtifact = (Array.isArray(spec.produces) ? spec.produces : [])
+    .find((output) => output?.required !== false && String(output?.kind || '') === 'artifact');
+  const needsClarification = /\[NEEDS_CLARIFICATION\]/i.test(response);
+  let effectiveResponse = response;
+  let artifactRefs = collectArtifactRefs(response);
+  if (
+    requiredArtifact &&
+    !artifactRefs.size &&
+    response &&
+    task &&
+    String(task.status || '') !== 'failed' &&
+    !needsClarification
+  ) {
+    const safeKey = String(requiredArtifact.key || 'specialist-deliverable')
+      .replace(/[^a-zA-Z0-9_.-]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'specialist-deliverable';
+    const created = createMediaArtifact(goal.owner_user_id, {
+      buffer: Buffer.from(response, 'utf8'),
+      filename: `${safeKey}.md`,
+      mimeType: 'text/markdown; charset=utf-8',
+      kind: 'document',
+      meta: {
+        source: 'goal_specialty_output',
+        goal_run_id: goal.id,
+        goal_step_id: step.id,
+        delegation_task_id: Number(taskId),
+        output_key: requiredArtifact.key,
+      },
+    });
+    const ref = created.ref;
+    effectiveResponse = `${response}\n\n[${requiredArtifact.key || 'Specialist deliverable'}](${ref.url})`;
+    artifactRefs = collectArtifactRefs({ ...ref, reply: effectiveResponse });
+  }
+  const missingArtifact = requiredArtifact && !artifactRefs.size;
+  const failed = !task || String(task.status || '') === 'failed' || needsClarification || !!missingArtifact;
+  const contractError = missingArtifact
+    ? `Specialty response did not satisfy required artifact output ${requiredArtifact.key}: no real file or URL was returned`
+    : null;
   const result = {
     delegation_task_id: Number(taskId),
     status: task?.status || 'missing',
-    reply_preview: clip(task?.response_content || '', 400),
-    error_message: task?.error_message || (needsClarification ? 'Needs CEO clarification' : null),
+    reply_preview: clip(effectiveResponse, 2000),
+    reply: clip(effectiveResponse, 12000),
+    artifacts: [...artifactRefs.values()].slice(0, 20),
+    error_message: task?.error_message || contractError || (needsClarification ? 'Needs CEO clarification' : null),
     needs_clarification: needsClarification,
   };
   const completion = await completeGoalStep({
@@ -2979,7 +3026,7 @@ export async function onDelegationTerminalForGoalRun(taskId) {
     result,
     failed,
     error: failed
-      ? task?.error_message || (needsClarification ? 'Needs CEO clarification' : task?.status || 'delegation failed')
+      ? task?.error_message || contractError || (needsClarification ? 'Needs CEO clarification' : task?.status || 'delegation failed')
       : null,
   });
   if (completion?.recovered) {

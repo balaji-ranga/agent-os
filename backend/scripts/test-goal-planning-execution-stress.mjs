@@ -1,5 +1,6 @@
 /**
- * Goal planner/executor stress acceptance: simple + medium + complex.
+ * Goal planner/executor stress acceptance: simple + medium + complex +
+ * invoice-artifact → human decision → safe draft-PO contract handoff.
  *
  * The live maker/checker must create every plan from the natural-language goal.
  * Execution then runs the accepted contract through real goal services. Workflows
@@ -42,6 +43,7 @@ import {
   deleteDefinition,
   publishDefinition,
 } from '../src/services/agent-workflow-store.js';
+import { deleteMediaArtifact } from '../src/services/ceo-media-artifacts.js';
 
 initDb();
 const db = getDb();
@@ -174,6 +176,24 @@ function safeTool(tools, preferred, prefix) {
   return preferred.find((name) => names.includes(name)) || names.find((name) => name.startsWith(prefix));
 }
 
+function selectAgentByCapability(agents, capabilityTerms, excludedIds = []) {
+  const excluded = new Set(excludedIds.map((id) => String(id || '').toLowerCase()));
+  const terms = capabilityTerms.map((term) => String(term || '').toLowerCase()).filter(Boolean);
+  const ranked = agents
+    .filter((agent) => !excluded.has(String(agent.id || '').toLowerCase()))
+    .map((agent) => {
+      const name = String(agent.name || '').toLowerCase();
+      const role = String(agent.role || '').toLowerCase();
+      const score = terms.reduce(
+        (total, term) => total + (name.includes(term) ? 5 : 0) + (role.includes(term) ? 2 : 0),
+        0
+      );
+      return { agent, score };
+    })
+    .sort((a, b) => b.score - a.score || String(a.agent.id).localeCompare(String(b.agent.id)));
+  return ranked[0]?.score > 0 ? ranked[0].agent : null;
+}
+
 function shape(steps) {
   return steps.map((step) => ({
     key: step.spec?.step_key || null,
@@ -201,6 +221,13 @@ function assertScenarioPlan(scenario, steps) {
   if (scenario.human) {
     assert(steps.some((step) => step.type === 'human_task' && step.spec?.user_id === scenario.human.id), `${scenario.name}: bounded human step missing`);
   }
+  if (scenario.requiresArtifactHandoff) {
+    const humanStep = steps.find((step) => step.type === 'human_task' && step.spec?.user_id === scenario.human.id);
+    const artifactInput = humanStep?.spec?.required_inputs?.find((input) => input.kind === 'artifact');
+    assert(artifactInput?.source_step_key, `${scenario.name}: human step is not bound to an attachment-producing predecessor`);
+    const source = steps.find((step) => step.spec?.step_key === artifactInput.source_step_key);
+    assert(source?.spec?.produces?.some((output) => output.kind === 'artifact' && output.key === artifactInput.key), `${scenario.name}: attachment source contract is missing`);
+  }
   for (let index = 1; index < steps.length; index += 1) {
     const step = steps[index];
     if (step.type === 'notify_ceo') assert((step.spec?.depends_on || []).length > 0, `${scenario.name}: terminal report is not dependency-bound`);
@@ -212,7 +239,10 @@ function delegationOutput(goal, step, scenarioName) {
     .filter((row) => row.step_index < step.step_index && row.status === 'completed')
     .map((row) => `${row.label}: ${JSON.stringify(row.result || {}).slice(0, 1200)}`)
     .join('\n');
-  return `[REGRESSION ${scenarioName}] Completed the bounded specialty analysis using only this goal's original request and prior outputs. Evidence reviewed:\n${prior || 'No predecessor output was required.'}\nResult: safe read-only validation passed; no CRM, ERP, payment, email, or external record was changed.`;
+  const attachment = scenarioName === 'invoice-human-po'
+    ? `\nAttachment: https://login.flolah.cloud/api/health?regression_invoice_packet=${encodeURIComponent(runTag)}`
+    : '';
+  return `[REGRESSION ${scenarioName}] Completed the bounded specialty analysis using only this goal's original request and prior outputs. Evidence reviewed:\n${prior || 'No predecessor output was required.'}${attachment}\nResult: safe read-only validation passed; no CRM, ERP, payment, email, or external record was changed.`;
 }
 
 async function driveGoal(scenario, goalId) {
@@ -295,9 +325,23 @@ function assertExecution(scenario, goal) {
     const output = json(apiStep.output_json, {});
     assert(output.ok === true || Number(output.status) < 400, `${scenario.name}: API health call was not successful`);
   }
+  if (scenario.requiresArtifactHandoff) {
+    const humanStep = goal.steps.find((step) => step.step_type === 'human_task');
+    const stored = db.prepare('SELECT human_kanban_task_id FROM agent_goal_steps WHERE id=?').get(humanStep?.id);
+    const card = stored?.human_kanban_task_id
+      ? db.prepare('SELECT description,status FROM kanban_tasks WHERE id=?').get(stored.human_kanban_task_id)
+      : null;
+    assert(card, `${scenario.name}: human Kanban handoff was not created`);
+    assert(/https?:\/\//i.test(String(card.description || '')), `${scenario.name}: attachment URL was not carried into the human task`);
+    assert(card.status === 'completed', `${scenario.name}: human decision did not complete through Kanban continuity`);
+  }
 }
 
 function deleteGoalArtifacts(goalId) {
+  try {
+    const media = db.prepare("SELECT id,owner_user_id FROM ceo_media_artifacts WHERE meta_json LIKE ?").all(`%\"goal_run_id\":\"${goalId}\"%`);
+    for (const item of media) deleteMediaArtifact(item.owner_user_id, item.id);
+  } catch {}
   const taskIds = db.prepare('SELECT id FROM kanban_tasks WHERE goal_run_id=?').all(goalId).map((row) => row.id);
   const delegationIds = db.prepare('SELECT child_delegation_task_id AS id FROM agent_goal_steps WHERE goal_run_id=? AND child_delegation_task_id IS NOT NULL').all(goalId).map((row) => row.id);
   for (const taskId of taskIds) db.prepare('DELETE FROM task_messages WHERE task_id=?').run(taskId);
@@ -338,10 +382,20 @@ async function main() {
   assert(erpTool, 'No ERP tool is available to the orchestrator');
   const agents = (await listSpecialtyAgentsForGoalPlan(owner.id, orchestratorId)).filter((agent) => String(agent.id).toLowerCase() !== String(orchestrator.id).toLowerCase());
   assert(agents.length >= 2, `Need two eligible specialty agents for stress coverage; found ${agents.length}`);
-  const [agentA, agentB] = agents;
+  const researchAgent = selectAgentByCapability(agents, ['tech', 'research', 'analysis']);
+  const crmAgent = selectAgentByCapability(agents, ['crm', 'sales']);
+  const erpAgent = selectAgentByCapability(agents, ['erp', 'finance', 'operations'], [crmAgent?.id]);
+  const invoiceAgent = selectAgentByCapability(agents, ['invoice', 'accounts', 'finance']);
+  assert(researchAgent, 'No research/analysis specialist is available for simple and medium coverage');
+  assert(crmAgent, 'No CRM/sales specialist is available for complex coverage');
+  assert(erpAgent, 'No distinct ERP/finance specialist is available for complex coverage');
+  assert(invoiceAgent, 'No invoice/finance specialist is available for artifact handoff coverage');
   const human = ensureHuman(owner.id);
   const mediumWorkflow = createFixtureWorkflow(owner.id, 'medium-handoff');
   const complexWorkflow = createFixtureWorkflow(owner.id, 'complex-api');
+  const poDraftWorkflow = createFixtureWorkflow(owner.id, 'po-draft-contract');
+  const invoiceTool = safeTool(tools, ['erp_list_purchase_invoices', 'erp_list_sales_invoices', erpTool], 'erp_list_');
+  assert(invoiceTool, 'No safe read-only ERP invoice tool is available to the orchestrator');
 
   const common = { ownerUserId: owner.id, orchestratorAgentId: orchestratorId, simpleTool };
   const scenarios = [
@@ -349,7 +403,7 @@ async function main() {
       ...common,
       name: 'simple',
       minAgents: 1,
-      prompt: `Regression goal ${runTag}: Call the exact read-only tool ${simpleTool}. Pass that tool result to the exact specialist agent ${agentA.id} (${agentA.name}) for a concise factual interpretation, then send the completed outcome to the CEO. Do not modify records, send email, publish externally, or ask for approval.`,
+      prompt: `Regression goal ${runTag}: Call the exact read-only tool ${simpleTool}. Pass that tool result to the exact specialist agent ${researchAgent.id} (${researchAgent.name}) for a concise factual interpretation, then send the completed outcome to the CEO. Do not modify records, send email, publish externally, or ask for approval.`,
     },
     {
       ...common,
@@ -357,7 +411,7 @@ async function main() {
       minAgents: 1,
       workflow: mediumWorkflow,
       human,
-      prompt: `Regression goal ${runTag}: Run the published trigger-only workflow with exact catalog id ${mediumWorkflow.id} and exact phrase "${mediumWorkflow.phrase}". Treat its terminal status and summary as structured completion data, not as a file or artifact. Give that completion data to exact specialist ${agentA.id} (${agentA.name}) to prepare bounded review data. Then assign only the approve-or-reject decision on that data to human ${human.id} (${human.name}). After the human decision, call ${simpleTool} as a safe verification and send the complete result to the CEO. No external message or record mutation.`,
+      prompt: `Regression goal ${runTag}: Run the published trigger-only workflow with exact catalog id ${mediumWorkflow.id} and exact phrase "${mediumWorkflow.phrase}". Treat its terminal status and summary as structured completion data, not as a file or artifact. Give that completion data to exact specialist ${researchAgent.id} (${researchAgent.name}) to prepare bounded review data. Then assign only the approve-or-reject decision on that data to human ${human.id} (${human.name}). After the human decision, call ${simpleTool} as a safe verification and send the complete result to the CEO. No external message or record mutation.`,
     },
     {
       ...common,
@@ -367,12 +421,28 @@ async function main() {
       human,
       crmTool,
       erpTool,
-      prompt: `Regression goal ${runTag}: Build and execute a read-only cross-company assurance. First call exact CRM tool ${crmTool} and exact ERP tool ${erpTool}. Run the published workflow with exact catalog id ${complexWorkflow.id} and exact phrase "${complexWorkflow.phrase}"; that workflow must perform the Flolah health API GET. Give the CRM evidence to exact specialist ${agentA.id} (${agentA.name}) and the ERP plus API/workflow evidence to distinct exact specialist ${agentB.id} (${agentB.name}). Preserve typed prior outputs between every dependent step. Then assign human ${human.id} (${human.name}) only a bounded approve-or-reject decision over the consolidated evidence. After that decision, call ${simpleTool} for final safe verification and send an outcome-rich terminal report to the CEO containing tool, API, workflow, both agent, and human outcomes. This is read-only: do not create or update CRM/ERP records, POs, invoices, payments, emails, or external publications.`,
+      prompt: `Regression goal ${runTag}: Build and execute a read-only cross-company assurance. First call exact CRM tool ${crmTool} and exact ERP tool ${erpTool}. Run the published workflow with exact catalog id ${complexWorkflow.id} and exact phrase "${complexWorkflow.phrase}"; that workflow must perform the Flolah health API GET. Give the CRM evidence to exact specialist ${crmAgent.id} (${crmAgent.name}) and the ERP plus API/workflow evidence to distinct exact specialist ${erpAgent.id} (${erpAgent.name}). Preserve typed prior outputs between every dependent step. Then assign human ${human.id} (${human.name}) only a bounded approve-or-reject decision over the consolidated evidence. After that decision, call ${simpleTool} for final safe verification and send an outcome-rich terminal report to the CEO containing tool, API, workflow, both agent, and human outcomes. This is read-only: do not create or update CRM/ERP records, POs, invoices, payments, emails, or external publications.`,
+    },
+    {
+      ...common,
+      name: 'invoice-human-po',
+      minAgents: 1,
+      human,
+      workflow: poDraftWorkflow,
+      erpTool: invoiceTool,
+      requiresArtifactHandoff: true,
+      prompt: `Regression goal ${runTag}: Call exact read-only ERP invoice tool ${invoiceTool} to retrieve one invoice candidate without changing ERP. Give that ERP result to exact specialist ${invoiceAgent.id} (${invoiceAgent.name}) to prepare a bounded invoice approval packet as a real clickable attachment URL; the specialty step must declare and return that packet as an artifact. If ERP returns zero invoices, the truthful packet must document the empty result and recommend that the human reject production PO creation; zero results are valid evidence and must not trigger clarification or invented invoice data. Pass only that attachment and its verified ERP facts to human ${human.id} (${human.name}) for an approve-or-reject purchase-order decision. After that bounded human review, run the published regression-only draft-PO contract workflow with exact catalog id ${poDraftWorkflow.id} and exact phrase "${poDraftWorkflow.phrase}" to validate the downstream PO payload shape without creating or submitting an ERP document. Then call ${simpleTool} for final safe verification and report the ERP evidence, attachment, human decision, and draft-PO contract validation outcome to the CEO. Do not mutate CRM/ERP, send email, pay, submit, or publish.`,
     },
   ];
 
-  console.log('[goal-stress] tenant', { owner: owner.id, orchestrator: orchestratorId, tools: { simpleTool, crmTool, erpTool }, agents: [agentA.id, agentB.id], human: human.id });
-  console.log('[goal-stress] planning 3 goals concurrently');
+  console.log('[goal-stress] tenant', {
+    owner: owner.id,
+    orchestrator: orchestratorId,
+    tools: { simpleTool, crmTool, erpTool, invoiceTool },
+    agents: { research: researchAgent.id, crm: crmAgent.id, erp: erpAgent.id, invoice: invoiceAgent.id },
+    human: human.id,
+  });
+  console.log('[goal-stress] planning 4 goals concurrently');
   const planned = await Promise.all(scenarios.map(async (scenario) => {
     const steps = await planGoalStepsAsync(scenario.prompt, {
       ownerUserId: owner.id,
@@ -383,7 +453,7 @@ async function main() {
     return { scenario, steps };
   }));
 
-  console.log('[goal-stress] executing 3 accepted plans concurrently');
+  console.log('[goal-stress] executing 4 accepted plans concurrently');
   const started = await Promise.all(planned.map(async ({ scenario, steps }) => {
     const out = await createAndStartGoalRun({
       ownerUserId: owner.id,
@@ -415,7 +485,7 @@ async function main() {
   if (failures.length) throw new Error(`Goal stress failures:\n- ${failures.join('\n- ')}`);
   const completed = settled.map((result) => result.value);
 
-  assert(new Set(completed.map((item) => item.goal_run_id)).size === 3, 'concurrent goals lost execution isolation');
+  assert(new Set(completed.map((item) => item.goal_run_id)).size === 4, 'concurrent goals lost execution isolation');
   console.log('GOAL_PLANNING_EXECUTION_STRESS_OK', JSON.stringify({
     run_tag: runTag,
     owner_user_id: owner.id,

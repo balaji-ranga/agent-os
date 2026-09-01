@@ -431,6 +431,16 @@ export async function resolveAgentToolArgsForGoal({
 
   const needsSym = toolNeedsSymbolParam(name, purpose);
 
+  // A plan/model may carry generic market-shaped arguments into an unrelated
+  // sparse tool. Only tools whose declared purpose/schema accepts a symbol may
+  // receive symbol/ticker fields or multi-symbol fan-out.
+  if (!needsSym) {
+    delete next.symbols;
+    delete next.symbol;
+    delete next.ticker;
+    symbols = [];
+  }
+
   if (needsSym && (argsMissingSymbol(next) || !symbols.length)) {
     const heuristic = extractTickersFromGoalText(
       [goalTitle, goalPrompt].filter(Boolean).join('\n')
@@ -460,18 +470,18 @@ export async function resolveAgentToolArgsForGoal({
       prior: priorSummary,
       baseArgs: next,
     });
-    if (Array.isArray(filled.symbols) && filled.symbols.length) {
+    if (needsSym && Array.isArray(filled.symbols) && filled.symbols.length) {
       const modelSymbols = filled.symbols.map((s) => String(s).trim().toUpperCase()).filter(Boolean);
       // Deterministic extraction is the lower bound. The model may add symbols or
       // other args, but it must not silently remove explicit tickers/basket members.
       symbols = [...new Set([...symbols, ...modelSymbols])];
     }
     for (const [k, v] of Object.entries(filled)) {
-      if (k === 'symbols') continue;
+      if (k === 'symbols' || (!needsSym && ['symbol', 'ticker'].includes(k))) continue;
       if (next[k] == null || next[k] === '') next[k] = v;
     }
-    if (symbols.length === 1 && !next.symbol) next.symbol = symbols[0];
-    if (filled.symbol && !symbols.length) {
+    if (needsSym && symbols.length === 1 && !next.symbol) next.symbol = symbols[0];
+    if (needsSym && filled.symbol && !symbols.length) {
       symbols = [String(filled.symbol).trim().toUpperCase()].filter(Boolean);
     }
     console.info('[goal-plan-tool-args] LLM filled keys', {
