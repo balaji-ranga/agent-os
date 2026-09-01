@@ -265,6 +265,16 @@ export function purgeOwnerScopedRows(db, ownerUserId) {
     `DELETE FROM ibkr_account_snapshot_cache WHERE owner_user_id = ?`,
     [ownerUserId]
   );
+  // Net-new IBKRNew Event Trader is isolated from all legacy IBKR tables.
+  counts.ibkrnew_commands = tryRun(db, `DELETE FROM ibkrnew_command_outbox WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.ibkrnew_authorizations = tryRun(db, `DELETE FROM ibkrnew_authorizations WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.ibkrnew_reservations = tryRun(db, `DELETE FROM ibkrnew_budget_reservations WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.ibkrnew_events = tryRun(db, `DELETE FROM ibkrnew_events WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.ibkrnew_account_state = tryRun(db, `DELETE FROM ibkrnew_account_state WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.ibkrnew_breakers = tryRun(db, `DELETE FROM ibkrnew_circuit_breakers WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.ibkrnew_reactions = tryRun(db, `DELETE FROM ibkrnew_reaction_registry WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.ibkrnew_configs = tryRun(db, `DELETE FROM ibkrnew_config_versions WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.ibkrnew_bridges = tryRun(db, `DELETE FROM ibkrnew_bridges WHERE owner_user_id = ?`, [ownerUserId]);
 
   // Shared-DB master data / job tables (when not using tenant file)
   counts.md_chunks = tryRun(db, `DELETE FROM master_data_doc_chunks WHERE owner_user_id = ?`, [ownerUserId]);

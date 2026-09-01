@@ -2,11 +2,23 @@
 
 ## Implementation-ready functional specification
 
-**Status:** Proposed baseline for implementation
-**Version:** 1.0
-**Date:** 2026-08-31
+**Status:** Implemented paper baseline
+**Version:** 1.1
+**Date:** 2026-09-01
 **Delivery mode:** Net-new, paper-first, fully event-driven
 **Product:** Flolah (source repository: `agent-os`)
+
+**Implementation namespace:** `IBKRNew*` for every reaction agent, executable command, authorization, event, reservation, bridge, and desktop event identifier.
+
+The implemented paper baseline is mapped to:
+
+- API: `/api/ibkrnew-event-trader`.
+- Cloud service: `backend/src/services/ibkrnew-event-trader.js`.
+- Dedicated desktop runtime: `backend/ibkrnew-event-bridge`.
+- UI: `/ibkrnew-event-trader`.
+- Automated certification: `npm run test:ibkrnew-event-trader` in `backend` and `npm test` in `backend/ibkrnew-event-bridge`.
+
+Real broker execution remains structurally paper-only. The desktop adapter requires both a `DU` paper account and `IBKRNEW_PAPER_EXECUTION_ENABLED=1`; there is no live override.
 
 ---
 

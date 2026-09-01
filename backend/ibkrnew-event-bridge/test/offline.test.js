@@ -1,0 +1,26 @@
+import assert from 'assert/strict';
+import { mkdtempSync, readFileSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
+import crypto from 'crypto';
+import { IBKRNewBridgeCore, IBKRNewFeatureEngine, buildBarFeatures } from '../src/core.js';
+
+const dir = mkdtempSync(join(tmpdir(), 'ibkrnew-'));
+let calls = 0;
+const fakeFetch = async () => ({ ok: ++calls !== 2, status: calls === 2 ? 503 : 202, json: async () => ({ commands: [] }) });
+const core = new IBKRNewBridgeCore({ apiUrl: 'https://example.test/api/ibkrnew-event-trader', bridgeId: 'IBKRNewBridge_test', token: 'secret', spoolDir: dir, fetchImpl: fakeFetch });
+core.emit('bridge.heartbeat', {}); core.emit('market.bar_closed', {});
+const partial = await core.flush(); assert.deepEqual(partial, { sent: 1, remaining: 1 });
+assert.equal(readFileSync(join(dir, 'IBKRNew-events.jsonl'), 'utf8').trim().split(/\r?\n/).length, 1);
+const signed = { command_id: 'IBKRNewCommand_test', type: 'test' }; const key = crypto.createHash('sha256').update('secret').digest('hex');
+const signature = crypto.createHmac('sha256', key).update(JSON.stringify(signed)).digest('hex');
+assert.equal(core.verifyCommand({ ...signed, signature, expires_at: new Date(Date.now() + 10000).toISOString() }), true);
+assert.equal(core.verifyCommand({ ...signed, signature: '0'.repeat(64) }), false);
+assert.equal(core.commandSeen('IBKRNewCommand_once'), null); core.markCommand('IBKRNewCommand_once', 'executing'); assert.equal(core.commandSeen('IBKRNewCommand_once').status, 'executing');
+const bars = Array.from({ length: 21 }, (_, i) => ({ close: 100 + i, volume: 1000, at: new Date().toISOString() }));
+const features = buildBarFeatures({ bars, relativeVolume: 1.5, confirmed15m: true });
+assert.ok(features.ema_fast > features.ema_slow); assert.ok(features.vwap > 0);
+const engine = new IBKRNewFeatureEngine(); let closed = null; const policy = { budgets: { max_stock_position_usd: 750, max_short_position_usd: 500 }, loss_limits: { max_planned_loss_per_trade_usd: 50 } };
+for (let minute = 0; minute < 23; minute++) for (let tick = 0; tick < 12; tick++) closed = engine.ingest({ symbol: 'AAPL', at: new Date(Date.UTC(2026, 0, 2, 14, minute, tick * 5)).toISOString(), open: 100 + minute, high: 101 + minute, low: 99 + minute, close: 100.5 + minute, volume: 100 }, policy) || closed;
+assert.equal(closed.symbol, 'AAPL'); assert.ok(closed.quantity > 0); assert.ok(closed.protection.stop_price < closed.last);
+console.log('IBKRNew desktop bridge offline tests passed');

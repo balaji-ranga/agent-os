@@ -150,6 +150,19 @@ async function fetchBlobUrl(path, opts = {}) {
 export const api = {
   fetchBlobUrl,
   health: () => get('/health'),
+  ibkrNewDashboard: () => get('/ibkrnew-event-trader/dashboard'),
+  ibkrNewInitialize: () => post('/ibkrnew-event-trader/initialize', {}),
+  ibkrNewPublishConfig: (kind, document, confirmRiskLoosening = false) =>
+    post(`/ibkrnew-event-trader/configs/${encodeURIComponent(kind)}/publish`, {
+      document,
+      confirm_risk_loosening: confirmRiskLoosening,
+    }),
+  ibkrNewRegisterBridge: (accountId) =>
+    post('/ibkrnew-event-trader/bridges', { account_id: accountId }),
+  ibkrNewRevokeBridge: (bridgeId) =>
+    del(`/ibkrnew-event-trader/bridges/${encodeURIComponent(bridgeId)}`),
+  ibkrNewApprove: (authorizationId) =>
+    post(`/ibkrnew-event-trader/authorizations/${encodeURIComponent(authorizationId)}/approve`, {}),
   // Workspace (OpenClaw MD files) — legacy single-workspace (optional)
   workspaceFiles: () => get('/workspace/files'),
   workspaceRead: (name) => get(`/workspace/files/${encodeURIComponent(name)}`),
