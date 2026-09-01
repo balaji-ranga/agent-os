@@ -342,6 +342,22 @@ function ConnectorsPanel() {
     }
   };
 
+  const downloadIbkrNewBridge = async (includeRuntime = true) => {
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await api.ibkrNewBridgePackageDownload({ includeRuntime });
+      setMessage(
+        'IBKRNewBridge downloaded with fresh owner-scoped credentials. Keep .env private, add the paper account only on this desktop, test offline, and explicitly enable paper execution when ready.'
+      );
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const downloadBrowserWorker = async (includeRuntime = true) => {
     setBusy(true);
     setError(null);
@@ -505,6 +521,29 @@ function ConnectorsPanel() {
 
       {mainTab === 'openconnector' && (
       <>
+
+      <section style={{ marginTop: '1.25rem', padding: '1rem', border: '1px solid var(--border)', borderRadius: 8 }}>
+        <h2 style={{ margin: '0 0 0.5rem', fontSize: '1.05rem' }}>IBKRNew Event Bridge</h2>
+        <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--muted)' }}>
+          Dedicated outbound-only Windows runtime for <Link to="/ibkrnew0/live-operations">IBKRNew0</Link> event-driven paper trading.
+          The download mints a separate bridge identity and token; it never reuses or changes the Monthly Trading bridge.
+        </p>
+        <p style={{ margin: '0.5rem 0 0', fontSize: '0.85rem', color: 'var(--muted)' }}>
+          The real IBKR account number is not requested or stored by Flolah. Add it only to the downloaded desktop <code>.env</code>.
+          Paper execution remains disabled until you explicitly enable it after running the offline test.
+        </p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: '0.75rem' }}>
+          <button type="button" className="wf-btn-primary" disabled={busy} onClick={() => downloadIbkrNewBridge(true)}>
+            {busy ? 'Working…' : 'Download IBKRNewBridge'}
+          </button>
+          <button type="button" className="wf-btn" disabled={busy} onClick={() => downloadIbkrNewBridge(false)}>
+            Download lite (without Node or dependencies)
+          </button>
+        </div>
+        <p style={{ margin: '0.5rem 0 0', fontSize: '0.8rem', color: 'var(--muted)' }}>
+          Full package includes portable Node, locked production dependencies, startup/test scripts, and fresh credentials. Lite requires Node 18+ and <code>npm ci</code>.
+        </p>
+      </section>
 
       <section style={{ marginTop: '1.25rem', padding: '1rem', border: '1px solid var(--border)', borderRadius: 8 }}>
         <h2 style={{ margin: '0 0 0.5rem', fontSize: '1.05rem' }}>Local IBKR bridge</h2>

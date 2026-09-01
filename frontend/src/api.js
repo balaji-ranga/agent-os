@@ -1235,6 +1235,20 @@ export const api = {
     setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
   },
 
+  /** Download the dedicated outbound-only IBKRNew Event Bridge package. */
+  ibkrNewBridgePackageDownload: async (opts = {}) => {
+    const includeRuntime = opts.includeRuntime !== false;
+    const path = `/ibkrnew-event-trader/bridges/package?include_runtime=${includeRuntime ? '1' : '0'}`;
+    const objectUrl = await fetchBlobUrl(path);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = includeRuntime ? 'IBKRNewBridge-desktop.zip' : 'IBKRNewBridge-lite.zip';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+  },
+
   browserWorkerPackageDownload: async (opts = {}) => {
     const includeRuntime = opts.includeRuntime !== false;
     const path = `/integrations/browser-worker/package?include_runtime=${includeRuntime ? '1' : '0'}`;

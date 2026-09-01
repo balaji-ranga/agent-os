@@ -15,6 +15,7 @@ The implemented paper baseline is mapped to:
 - API: `/api/ibkrnew-event-trader`.
 - Cloud service: `backend/src/services/ibkrnew-event-trader.js`.
 - Dedicated desktop runtime: `backend/ibkrnew-event-bridge`.
+- Owner-scoped Windows package: **Connectors -> IBKRNew Event Bridge**, available as full (portable Node plus locked dependencies) or lite source/setup download.
 - UI: `Prebuilt Workflows -> IBKRNew0 -> Strategy | Summary | Live Operations` (`/ibkrnew0/*`). The former `/ibkrnew-event-trader` route redirects to Live Operations.
 - Automated certification: `npm run test:ibkrnew-event-trader` in `backend` and `npm test` in `backend/ibkrnew-event-bridge`.
 
@@ -1045,6 +1046,7 @@ Operations:
 
 Bridge:
 
+- `GET /api/ibkrnew-event-trader/bridges/package?include_runtime=0|1` creates a new owner-scoped bridge credential and downloads the maintained desktop source. The generated desktop `.env` leaves the real IBKR account blank.
 - `POST /api/ibkr-event-trader/bridges/package`
 - `POST /api/ibkr-event-trader/bridges/:id/revoke`
 - `GET /api/ibkr-event-trader/bridges`

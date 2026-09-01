@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import { requireAuth, requireCeoOrAdmin, requireTenantFullAccess, resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
 import { approveAuthorization, authenticateBridge, acknowledgeCommand, claimCommands, ensureIbkrNewDefaults, getDashboard, getIbkrNewGoalState, getIbkrNewLiveOperations, getIbkrNewSummary, ingestBridgeEvent, pauseIbkrNewGoal, publishConfig, registerBridge, resumeIbkrNewGoal, revokeBridge, setIbkrNewGoal } from '../services/ibkrnew-event-trader.js';
+import { buildIbkrNewEventBridgePackageZip } from '../services/ibkrnew-event-bridge-package.js';
 
 const router = Router();
 const bridgeRate = new Map();
-function owner(req) { return resolveAuthenticatedCeoUserId(req, req.body || {}); }
+function owner(req) { return resolveAuthenticatedCeoUserId(req, { ...(req.query || {}), ...(req.body || {}) }); }
 function bridge(req, res, next) {
   const match = authenticateBridge(req.headers['x-ibkrnew-bridge-id'], req.headers['x-ibkrnew-bridge-token']);
   if (!match) return res.status(401).json({ error: 'Invalid IBKRNew bridge credentials' });
@@ -28,6 +29,24 @@ router.post('/bridges', requireAuth, requireTenantFullAccess, (req, res) => hand
   const suppliedAccountId = req.body?.account_id ?? req.body?.accountId ?? req.body?.account_ref;
   return res.status(201).json(registerBridge(owner(req), suppliedAccountId));
 }));
+router.get('/bridges/package', requireAuth, requireTenantFullAccess, async (req, res) => {
+  try {
+    const raw = String(req.query.include_runtime ?? '1').toLowerCase();
+    const includeRuntime = !['0', 'false', 'no', 'lite'].includes(raw);
+    const ownerUserId = owner(req);
+    const result = await buildIbkrNewEventBridgePackageZip({ ownerUserId, includeRuntime });
+    console.info('[ibkrnew-package] download owner=%s bridge=%s prefix=%s runtime=%s bytes=%s', ownerUserId, result.bridge_id, result.token_prefix, includeRuntime ? '1' : '0', result.zip.length);
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
+    res.setHeader('X-IBKRNew-Bridge-Id', result.bridge_id);
+    res.setHeader('X-IBKRNew-Token-Prefix', result.token_prefix);
+    res.setHeader('X-IBKRNew-Include-Runtime', includeRuntime ? '1' : '0');
+    return res.send(result.zip);
+  } catch (e) {
+    console.warn('[ibkrnew-package] download failed: %s', e.message || e);
+    return res.status(e.status || 400).json({ error: e.message || 'Failed to build IBKRNew bridge package' });
+  }
+});
 router.delete('/bridges/:bridgeId', requireAuth, requireTenantFullAccess, (req, res) => handle(res, () => res.json(revokeBridge(owner(req), req.params.bridgeId))));
 router.post('/authorizations/:authorizationId/approve', requireAuth, requireTenantFullAccess, (req, res) => handle(res, () => res.json(approveAuthorization(owner(req), req.params.authorizationId))));
 router.post('/bridge/events', bridge, (req, res) => handle(res, () => res.status(202).json(ingestBridgeEvent(req.ibkrNewBridge, req.body || {}))));

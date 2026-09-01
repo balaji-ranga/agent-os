@@ -12,5 +12,5 @@
     "@stoqey/ib": "^1.6.3",
     "dotenv": "^16.4.5"
   },
-  "engines": { "node": ">=20" }
+  "engines": { "node": ">=18" }
 }

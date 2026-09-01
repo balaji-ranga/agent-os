@@ -3,7 +3,7 @@
 # Kanban owner_user_id isolation (schema + kanban-user-scope + routes/tools/delegation),
 # lean CEO onboard (DEFAULT_ONBOARD_AGENT_IDS / pruneSharedStandardAgentGrants),
 # desktop-workflow-runner (Windows PS1 packages + optional portable Node baked at download time),
-# local-ibkr-bridge (Connectors download zip + vendored IBKR gateway client),
+# local-ibkr-bridge and IBKRNew event bridge (owner-scoped Connectors download packages),
 # local-browser-worker (Connectors Browser Session package: multi-user desktop chrome, headed + persistent profile),
 # flolah-chrome-extension (MV3 owner-scoped normal-Chrome executor package),
 # monthly trading W1–W5 seeds + paper E2E / certify helpers,
@@ -42,6 +42,7 @@ COPY backend/package.json backend/package-lock.json ./backend/
 RUN cd backend && npm ci --omit=dev
 
 COPY backend ./backend
+RUN cd backend/ibkrnew-event-bridge && npm ci --omit=dev
 COPY scripts ./scripts
 COPY tests ./tests
 COPY openclaw-workspace-templates ./openclaw-workspace-templates

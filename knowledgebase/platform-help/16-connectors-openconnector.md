@@ -96,6 +96,18 @@ On the same **Connectors** page, **Local IBKR bridge** downloads a Windows zip o
 
 IBKR plans, positions, fills, and budget are **per CEO** (not shared with other users). CEO overview + simple flow diagrams: [20-ibkr-monthly-trading.md](./20-ibkr-monthly-trading.md). Ops detail: [IBKR-LOCAL-BRIDGE.md](../IBKR-LOCAL-BRIDGE.md).
 
+### IBKRNew Event Bridge
+
+**Connectors → IBKRNew Event Bridge** downloads the separate Windows runtime used only by **Prebuilt Workflows → IBKRNew0**. Downloading mints a new owner-scoped `IBKRNewBridge_*` identity and a one-time token directly into the package `.env`.
+
+1. Prefer the full package: it includes portable Node, locked production dependencies, source, and `scripts\Test-IBKRNewBridge.ps1` / `scripts\Start-IBKRNewBridge.ps1`. Lite requires Node 18+ and `npm ci`.
+2. Set `IBKRNEW_ACCOUNT_ID` only in the desktop `.env`; it is deliberately blank in the generated package and is never sent to or stored by Flolah.
+3. Run the offline test first. Keep `IBKRNEW_PAPER_EXECUTION_ENABLED=0` until IB Gateway/TWS paper API access is configured and you deliberately enable it.
+4. Start the bridge while IB Gateway/TWS is running. It opens no inbound port: market, account, order, fill, commission, and health events travel outbound to Flolah.
+5. Monitor or revoke the bridge under **IBKRNew0 → Live Operations**. Revocation cancels pending commands for that bridge without changing the legacy Monthly Trading bridge.
+
+The full and lite downloads are assembled from the same versioned `backend/ibkrnew-event-bridge` source shipped in the backend Docker image; there is no separate VPS hotfix copy.
+
 ### OpenConnector tips
 
 - Prefer vaulted secrets from **API Keys** when an app needs a static API key for workflows/agents (see [15-api-keys-vault.md](./15-api-keys-vault.md)). The Connectors **Save API key** control stores the key on the **OpenConnector connection** only — it does **not** create an API Keys vault entry.
