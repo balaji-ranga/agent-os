@@ -23,7 +23,11 @@ for (const template of agentTemplates) {
   for (const filename of ['AGENTS.md', 'SOUL.md', 'TOOLS.md', '.template-source.json']) assert.equal(existsSync(join(templateDir, filename)), true, `${template.agent_name} must ship ${filename}`);
   assert.equal(JSON.parse(readFileSync(join(templateDir, '.template-source.json'), 'utf8')).template_id, template.agent_name);
 }
-assert.equal(existsSync(join(process.cwd(), '..', '.cursor', 'skills', 'ibkrnew-trade-strategy', 'SKILL.md')), true, 'the canonical strategy skill must remain source controlled');
+const strategySkillLocations = [
+  join(process.cwd(), '..', '.cursor', 'skills', 'ibkrnew-trade-strategy', 'SKILL.md'),
+  join(process.cwd(), '..', 'openclaw-skills', 'ibkrnew-trade-strategy', 'SKILL.md'),
+];
+assert.equal(strategySkillLocations.some((path) => existsSync(path)), true, 'the strategy skill must exist at its canonical source path or packaged OpenClaw runtime path');
 const mutableBlueprint = blueprints.getIbkrNewConfigBlueprint('policy'); mutableBlueprint.budgets.daily_opening_exposure_usd = 1;
 assert.equal(blueprints.getIbkrNewConfigBlueprint('policy').budgets.daily_opening_exposure_usd, 1000, 'blueprint consumers receive isolated copies');
 const configs = service.ensureIbkrNewDefaults(owner);
