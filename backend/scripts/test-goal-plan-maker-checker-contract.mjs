@@ -23,6 +23,7 @@ assert.equal(specialtyMessageContainsToolInstruction('Provide help tracking stat
 assert.equal(specialtyMessageContainsToolInstruction('Create a Kanban card for this assignment.', 'kanban_create_task'), true);
 assert.equal(resolveCapabilitiesFromPrompt('Do not send email, publish, or mutate records.').some((capability) => capability.id === 'send_email'), false);
 assert.equal(resolveCapabilitiesFromPrompt('Send the completed report by email.').some((capability) => capability.id === 'send_email'), true);
+assert.equal(resolveCapabilitiesFromPrompt('Send an outcome-rich terminal report to the CEO in chat. Do not email.').some((capability) => capability.id === 'send_email'), false);
 const catalog = {
   tools: [{ name: 'erp_invoice_read' }, { name: 'erp_purchase_order_create_draft' }],
   workflows: [],

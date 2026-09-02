@@ -25,6 +25,8 @@
 import { randomUUID } from 'node:crypto';
 import { initDb, getDb } from '../src/db/schema.js';
 import {
+  completeGoalStep,
+  createGoalRun,
   createAndStartGoalRun,
   getGoalRun,
   onDelegationTerminalForGoalRun,
@@ -49,6 +51,8 @@ initDb();
 const db = getDb();
 const runTag = `goal-stress-${Date.now()}-${randomUUID().slice(0, 6)}`;
 const simulateSpecialists = String(process.env.REGRESSION_GOAL_STRESS_SIMULATE_SPECIALISTS || '0') === '1';
+const deterministicIsolatedExecution =
+  simulateSpecialists && String(process.env.REGRESSION_ISOLATED_USER || '') === '1';
 const keepData = String(process.env.REGRESSION_GOAL_STRESS_KEEP_DATA || '0') === '1';
 const cleanupOnly = String(process.env.REGRESSION_GOAL_STRESS_CLEANUP_ONLY || '0') === '1';
 const timeoutMs = Math.max(30000, Number(process.env.REGRESSION_GOAL_STRESS_TIMEOUT_MS) || 240000);
@@ -403,6 +407,60 @@ async function cleanup(ownerUserId) {
   }
 }
 
+async function driveIsolatedGoal(scenario, goalId) {
+  const simulated = [];
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    const goal = getGoalRun(goalId, scenario.ownerUserId);
+    assert(goal, `${scenario.name}: goal disappeared`);
+    if (goal.status === 'completed') return { goal, simulated };
+    if (['failed', 'cancelled'].includes(goal.status)) {
+      throw new Error(`${scenario.name}: isolated goal ${goal.status}: ${goal.error_message || 'unknown error'}`);
+    }
+    const step = goal.steps.find((row) => row.status === 'pending' || row.status === 'running');
+    assert(step, `${scenario.name}: isolated goal has no executable step`);
+    if (step.step_type === 'workflow_trigger') {
+      if (step.status === 'pending') await startGoalRunExecution(goalId, { ownerUserId: scenario.ownerUserId });
+      const refreshed = getGoalRun(goalId, scenario.ownerUserId).steps.find((row) => row.id === step.id);
+      if (refreshed?.child_workflow_run_id) {
+        const run = db.prepare('SELECT status,error_message FROM agent_workflow_runs WHERE id=?').get(refreshed.child_workflow_run_id);
+        if (run && ['completed', 'failed', 'cancelled', 'timed_out'].includes(String(run.status))) {
+          await onWorkflowTerminalForGoalRun(refreshed.child_workflow_run_id);
+        }
+      }
+    } else if (step.step_type === 'human_task') {
+      if (step.status === 'pending') await startGoalRunExecution(goalId, { ownerUserId: scenario.ownerUserId });
+      const refreshed = getGoalRun(goalId, scenario.ownerUserId).steps.find((row) => row.id === step.id);
+      const stored = db.prepare('SELECT human_kanban_task_id FROM agent_goal_steps WHERE id=?').get(refreshed?.id);
+      const humanTaskId = Number(stored?.human_kanban_task_id || 0);
+      if (humanTaskId) {
+        await respondToHumanGoalTask({
+          ownerUserId: scenario.ownerUserId,
+          actorUserId: scenario.ownerUserId,
+          taskId: humanTaskId,
+          action: 'complete',
+          outcome: `[REGRESSION ${scenario.name}] Reviewed the attached typed evidence and approved continuation of this isolated, read-only contract test.`,
+        });
+      }
+    } else {
+      const result = step.step_type === 'specialty_task'
+        ? { ok: true, simulated_isolated_specialist: true, response_content: delegationOutput(goal, step, scenario.name) }
+        : step.step_type === 'agent_tool'
+          ? { ok: true, simulated_isolated_tool: true, tool_name: step.spec?.tool_name, result: { regression: true, read_only: true } }
+          : { ok: true, simulated_isolated_step: true, outcome: `Completed ${step.label} for isolated regression.` };
+      await completeGoalStep({
+        goalRunId: goalId,
+        stepId: step.id,
+        ownerUserId: scenario.ownerUserId,
+        result,
+      });
+      simulated.push(step.id);
+    }
+    await sleep(250);
+  }
+  throw new Error(`${scenario.name}: isolated execution timed out after ${timeoutMs}ms`);
+}
+
 async function cleanupInterruptedRegressionData(ownerUserId) {
   if (keepData) return { goals: 0, workflows: 0, humans: 0 };
   const staleGoalIds = db.prepare(`SELECT id FROM agent_goal_runs
@@ -523,7 +581,16 @@ async function main() {
 
   console.log('[goal-stress] executing 4 accepted plans concurrently');
   const started = await Promise.all(planned.map(async ({ scenario, steps }) => {
-    const out = await createAndStartGoalRun({
+    const out = deterministicIsolatedExecution ? createGoalRun({
+      ownerUserId: owner.id,
+      agentId: orchestratorId,
+      orchestratorAgentId: orchestratorId,
+      title: `[REGRESSION] ${scenario.name} goal stress ${runTag}`,
+      prompt: scenario.prompt,
+      steps,
+      source: `regression-goal-stress:${runTag}:${scenario.name}`,
+      context: { regression: true, run_tag: runTag, scenario: scenario.name, deterministic_isolated_execution: true },
+    }) : await createAndStartGoalRun({
       ownerUserId: owner.id,
       agentId: orchestratorId,
       orchestratorAgentId: orchestratorId,
@@ -533,11 +600,14 @@ async function main() {
       source: `regression-goal-stress:${runTag}:${scenario.name}`,
       context: { regression: true, run_tag: runTag, scenario: scenario.name },
     });
-    createdGoalIds.push(out.goal_run_id);
-    return { scenario, goalId: out.goal_run_id };
+    const goalId = deterministicIsolatedExecution ? out.id : out.goal_run_id;
+    createdGoalIds.push(goalId);
+    return { scenario, goalId };
   }));
   const settled = await Promise.allSettled(started.map(async ({ scenario, goalId }) => {
-    const result = await driveGoal(scenario, goalId);
+    const result = deterministicIsolatedExecution
+      ? await driveIsolatedGoal(scenario, goalId)
+      : await driveGoal(scenario, goalId);
     assertExecution(scenario, result.goal);
     return {
       scenario: scenario.name,
@@ -559,6 +629,7 @@ async function main() {
     owner_user_id: owner.id,
     orchestrator_agent_id: orchestratorId,
     simulate_specialists: simulateSpecialists,
+    deterministic_isolated_execution: deterministicIsolatedExecution,
     scenarios: completed,
   }, null, 2));
 }

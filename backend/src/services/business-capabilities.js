@@ -153,7 +153,7 @@ export const BUSINESS_CAPABILITIES = Object.freeze([
     outputs: ['send_receipt'],
     expected_evidence: 'message_id_or_send_receipt',
     patterns: [
-      /\b(?:send|deliver|email|mail)\b[\s\S]{0,80}\b(?:email|mail|digest|report|summary|update)\b/i,
+      /\b(?:send|deliver)\b[\s\S]{0,80}\b(?:email|mail)\b/i,
       /\b(?:daily|weekly|monthly)\b[\s\S]{0,60}\b(?:digest|report|status\s+update)\b[\s\S]{0,60}\b(?:email|mail)\b/i,
       /\b(?:email|mail)\b[\s\S]{0,60}\b(?:daily|weekly|monthly|digest|report|status\s+update)\b/i,
     ],
