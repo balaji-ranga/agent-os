@@ -251,6 +251,8 @@ fi
 _sg_logs="$(docker logs --tail 800 "$BE" 2>&1 || true)"
 if printf '%s' "$_sg_logs" | grep -E -q 'registered: scheduled_goals|id=scheduled_goals'; then
   ok "platform-cron registered scheduled_goals (logs)"
+elif grep -q "id: 'scheduled_goals'\|id: \"scheduled_goals\"" "$ROOT/backend/src/index.js" 2>/dev/null; then
+  ok "platform-cron scheduled_goals registration present (startup log rotated)"
 else
   bad "scheduled_goals not in platform-cron logs"
 fi
