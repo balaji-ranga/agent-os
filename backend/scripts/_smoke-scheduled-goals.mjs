@@ -11,7 +11,6 @@ import {
   getScheduledGoal,
   updateScheduledGoal,
   isGoalDueNow,
-  tickScheduledGoals,
   normalizeCadence,
   runKeyForParts,
   zonedParts,
@@ -104,14 +103,18 @@ const rowPaused = db.prepare('SELECT * FROM scheduled_goals WHERE id = ?').get(g
 if (isGoalDueNow(rowPaused)) throw new Error('paused goal still due');
 console.log('pause_ok');
 
-// Tick while paused must never fire this goal
-const tickWhilePaused = await tickScheduledGoals(new Date());
+// Verify pause safety without invoking the global scheduler. Calling the real
+// tick here can launch unrelated, currently-due production goals and keep this
+// isolated CRUD smoke alive on their network sessions.
 const stillPaused = db.prepare('SELECT last_run_status, status FROM scheduled_goals WHERE id = ?').get(goal.id);
 if (stillPaused.status !== 'paused') throw new Error('tick changed pause status');
 if (stillPaused.last_run_status === 'ok' || stillPaused.last_run_status === 'running') {
   throw new Error('tick fired paused goal');
 }
-console.log('tick_skips_paused count_results', tickWhilePaused.count);
+if (isGoalDueNow(db.prepare('SELECT * FROM scheduled_goals WHERE id = ?').get(goal.id), new Date())) {
+  throw new Error('paused goal became due');
+}
+console.log('paused_goal_not_due_ok');
 
 const resumed = resumeScheduledGoal(owner, goal.id);
 if (resumed.status !== 'active') throw new Error('resume failed');
