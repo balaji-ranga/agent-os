@@ -228,8 +228,19 @@ export function validateCandidateGoalPlan(candidateSteps, catalog) {
           required: true,
         }],
   }));
-  const byKey = new Map(keyed.map((step) => [step.key, step]));
-  const connected = keyed.map((step) => {
+  // Catalog routing can produce parallel requirement branches. Deterministically
+  // join every unfinished branch into the terminal step so no resolved tool,
+  // workflow, specialist, or human outcome is silently orphaned.
+  const joined = keyed.map((step) => ({ ...step }));
+  if (joined.length > 1) {
+    const prior = joined.slice(0, -1);
+    const consumedBeforeTerminal = new Set(prior.flatMap((step) => step.depends_on || []));
+    const leaves = prior.filter((step) => !consumedBeforeTerminal.has(step.key)).map((step) => step.key);
+    const terminal = joined.at(-1);
+    terminal.depends_on = [...new Set([...(terminal.depends_on || []), ...leaves])];
+  }
+  const byKey = new Map(joined.map((step) => [step.key, step]));
+  const connected = joined.map((step) => {
     if (step.required_inputs?.length || !step.depends_on?.length) return step;
     const requiredInputs = step.depends_on.flatMap((dependency) =>
       (byKey.get(dependency)?.produces || []).map((output) => ({

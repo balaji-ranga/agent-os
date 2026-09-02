@@ -120,6 +120,9 @@ orphaned.splice(1, 0, {
   produces: [{ key: 'unused_data', kind: 'data', required: true }], spec: { tool_name: 'erp_invoice_read' },
 });
 assert(validateTypedGoalPlan(orphaned, catalog).errors.some((x) => /orphaned from the terminal outcome/i.test(x)));
+const repairedOrphan = validateCandidateGoalPlan(orphaned, catalog);
+assert.equal(repairedOrphan.validation.ok, true, JSON.stringify(repairedOrphan.validation.errors));
+assert(repairedOrphan.steps.at(-1).depends_on.includes('unused_lookup'));
 
 const duplicateOutput = structuredClone(valid);
 duplicateOutput[0].produces.push({ ...duplicateOutput[0].produces[0] });

@@ -125,6 +125,7 @@ function createCapabilityFixtureAgent(ownerUserId, orchestratorId, suffix, name,
 }
 
 function ensureStressCapabilityAgents(ownerUserId, orchestratorId, agents) {
+  const isolated = String(process.env.REGRESSION_ISOLATED_USER || '') === '1';
   const requirements = [
     { terms: ['tech', 'research', 'analysis'], suffix: 'research', name: 'Regression Research Analyst', role: 'Market and technical research analysis', department: 'Research' },
     { terms: ['crm', 'sales'], suffix: 'crm', name: 'Regression CRM Specialist', role: 'CRM sales operations and customer records', department: 'Sales' },
@@ -132,7 +133,7 @@ function ensureStressCapabilityAgents(ownerUserId, orchestratorId, agents) {
     { terms: ['invoice', 'accounts', 'finance'], suffix: 'invoice', name: 'Regression Invoice Specialist', role: 'Invoice and accounts finance review', department: 'Finance' },
   ];
   for (const requirement of requirements) {
-    if (!selectAgentByCapability(agents, requirement.terms)) {
+    if (isolated || !selectAgentByCapability(agents, requirement.terms)) {
       createCapabilityFixtureAgent(ownerUserId, orchestratorId, requirement.suffix, requirement.name, requirement.role, requirement.department);
     }
   }

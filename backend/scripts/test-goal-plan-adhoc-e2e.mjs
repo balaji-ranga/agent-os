@@ -170,6 +170,9 @@ const { goal, execution } = await createAndStartGoalRun({
   agentId,
   title: 'regression-goal-plan-adhoc',
   prompt: PROMPT,
+  // Execute the plan validated above. Replanning the same prompt here doubles
+  // remote maker/checker latency without adding coverage.
+  steps: planned,
   source: 'regression-goal-plan-adhoc-e2e',
 });
 assert(goal?.id && String(goal.id).startsWith('agr-'), 'goal_run_id agr-… required, got ' + goal?.id);
