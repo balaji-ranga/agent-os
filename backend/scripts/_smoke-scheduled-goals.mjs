@@ -56,6 +56,12 @@ if (!ceo) {
   process.exit(5);
 }
 const owner = ceo.id;
+const smokePlan = {
+  version: 1,
+  amended_manually: true,
+  steps: [{ id: 'smoke-step', type: 'agent', agent_id: 'balserve', task: 'Verify scheduled goal CRUD.' }],
+};
+const createSmokeGoal = (input) => createScheduledGoal(owner, { ...input, plan: smokePlan });
 
 // Clean leftover smokes
 for (const r of db
@@ -66,7 +72,7 @@ for (const r of db
   } catch (_) {}
 }
 
-const goal = await createScheduledGoal(owner, {
+const goal = await createSmokeGoal({
   title: 'VPS smoke market insights',
   prompt: 'Daily smoke: summarize one market theme; do not publish.',
   agent_id: 'balserve',
@@ -125,7 +131,7 @@ if (getScheduledGoal(owner, goal.id)) throw new Error('delete failed');
 console.log('delete_ok');
 
 // Deleted must not reappear as due after "restart" (just reload row)
-const g2 = await createScheduledGoal(owner, {
+const g2 = await createSmokeGoal({
   title: 'delete persist check',
   prompt: 'should be gone',
   agent_id: 'balserve',
@@ -141,7 +147,7 @@ if (db.prepare('SELECT id FROM scheduled_goals WHERE id = ?').get(id2)) {
 }
 console.log('delete_persistent_ok');
 
-const g3 = await createScheduledGoal(owner, {
+const g3 = await createSmokeGoal({
   title: 'ends 2099',
   prompt: 'temporary',
   agent_id: 'balserve',
@@ -150,7 +156,7 @@ const g3 = await createScheduledGoal(owner, {
   approve_plan: true,
 });
 if (g3.is_perpetual) throw new Error('should not be perpetual');
-const g4 = await createScheduledGoal(owner, {
+const g4 = await createSmokeGoal({
   title: 'forever',
   prompt: 'perpetual',
   agent_id: 'balserve',
@@ -163,7 +169,7 @@ deleteScheduledGoal(owner, g3.id);
 deleteScheduledGoal(owner, g4.id);
 
 // Weekdays cadence field
-const g5 = await createScheduledGoal(owner, {
+const g5 = await createSmokeGoal({
   title: 'weekdays',
   prompt: 'weekday only',
   agent_id: 'balserve',
@@ -178,7 +184,7 @@ deleteScheduledGoal(owner, g5.id);
 
 // Hourly + update (edit)
 if (normalizeCadence('every hour') !== 'hourly') throw new Error('normalizeCadence hourly alias');
-const g6 = await createScheduledGoal(owner, {
+const g6 = await createSmokeGoal({
   title: 'hourly smoke',
   prompt: 'hourly check',
   agent_id: 'balserve',
