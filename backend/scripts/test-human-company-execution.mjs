@@ -66,6 +66,15 @@ try {
   ], 'Assign invoice collection judgment to Alex Collector and report the consolidated final outcome to me in this chat.', { ownerUserId: owner, orchestratorAgentId: 'balserve' });
   assert.equal(repaired.some((step) => step.type === 'specialty_task' && step.spec?.agent_id === 'test-chat-hist-leak'), false);
   assert.equal(repaired.some((step) => step.type === 'specialty_task' && step.spec?.agent_id === 'business-discovery'), false);
+  const exactSpecialist = goals.validateAndRepairGoalPlan([
+    { type: 'notify_ceo', label: 'Notify CEO' },
+  ], 'Give the invoice evidence to exact specialist invoice-agent, then ask Alex Collector for the bounded approval decision.', { ownerUserId: owner, orchestratorAgentId: 'balserve' });
+  const preservedSpecialist = exactSpecialist.find((step) => step.type === 'specialty_task' && step.spec?.agent_id === 'invoice-agent');
+  assert(preservedSpecialist, 'an explicitly selected eligible specialist must be restored when the residual router omits it');
+  assert.equal(preservedSpecialist.spec.explicit_executor_required, true);
+  const exactAssigned = await goalIntent.applyHumanAssignmentPolicy(owner, 'Give the invoice evidence to exact specialist invoice-agent, then ask Alex Collector for the bounded approval decision.', exactSpecialist);
+  assert(exactAssigned.some((step) => step.type === 'specialty_task' && step.spec?.agent_id === 'invoice-agent'), 'human policy must not replace a distinct explicitly required specialist');
+  assert(exactAssigned.some((step) => step.type === 'human_task' && step.spec?.user_id === employee), 'the explicitly requested human decision must remain a separate step');
   const assigned = await goalIntent.applyHumanAssignmentPolicy(owner, 'Assign invoice collection judgment to Alex Collector and report the consolidated final outcome to me in this chat.', repaired);
   assert.equal(assigned.some((step) => step.type === 'human_task' && step.spec?.user_id === employee), true);
   assert.equal(assigned.some((step) => step.type === 'agent_continue'), true, 'COO synthesis must follow human outcome');

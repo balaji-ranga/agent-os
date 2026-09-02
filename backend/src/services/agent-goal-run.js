@@ -352,6 +352,8 @@ export function normalizeStepSpec(raw) {
   const nested = raw.spec && typeof raw.spec === "object" ? raw.spec : {};
   const contract = {
     quality_checked: raw.quality_checked === true || nested.quality_checked === true,
+    explicit_executor_required:
+      raw.explicit_executor_required === true || nested.explicit_executor_required === true,
     step_key: String(raw.key || raw.step_key || nested.step_key || '').trim() || null,
     depends_on: Array.isArray(raw.depends_on || nested.depends_on)
       ? [...new Set((raw.depends_on || nested.depends_on).map((x) => String(x ?? '').trim()).filter(Boolean))]
@@ -909,6 +911,53 @@ export function validateAndRepairGoalPlan(
     });
     return false;
   });
+
+  // Exact live employee IDs in the CEO goal are binding executor constraints,
+  // just like exact granted tool IDs. Residual classification or human-policy
+  // scoring may enrich the plan, but must not silently erase a specifically
+  // requested eligible specialist. This is catalog-driven and tenant-scoped;
+  // it does not infer employees from product keywords.
+  if (!requiresOrchestratorExecution) {
+    const eligibleAgents = db().prepare(
+      `SELECT a.id, a.name, a.role, a.department,
+              COALESCE(a.planning_status, 'production') AS planning_status
+       FROM agents a
+       JOIN user_agents ua ON ua.agent_id = a.id
+       WHERE ua.user_id = ? AND ua.enabled = 1`
+    ).all(ownerUserId).filter(isEligiblePlanningAgent);
+    const clauses = text
+      .split(/(?:\r?\n)+|(?<=[.!?;])\s+/)
+      .map((clause) => clause.trim())
+      .filter(Boolean);
+    for (const agent of eligibleAgents) {
+      const agentId = String(agent.id || '').trim();
+      if (!agentId) continue;
+      const escaped = agentId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const named = new RegExp(`(^|[^a-z0-9_-])${escaped}([^a-z0-9_-]|$)`, 'i').test(text);
+      if (!named) continue;
+      const compactId = agentId.toLowerCase().replace(/[^a-z0-9]+/g, '');
+      if (forbiddenDelegateClauses.some((clause) => clause.includes(compactId))) continue;
+      if (out.some((step) => step.type === 'specialty_task' && String(step.spec?.agent_id || '').toLowerCase() === agentId.toLowerCase())) {
+        out = out.map((step) => step.type === 'specialty_task' && String(step.spec?.agent_id || '').toLowerCase() === agentId.toLowerCase()
+          ? { ...step, spec: { ...(step.spec || {}), explicit_executor_required: true } }
+          : step);
+        continue;
+      }
+      const bounded = clauses.find((clause) =>
+        clause.length <= 1200 && new RegExp(`(^|[^a-z0-9_-])${escaped}([^a-z0-9_-]|$)`, 'i').test(clause)
+      );
+      const specialty = normalizeStepSpec({
+        type: 'specialty_task',
+        label: `Specialty: ${agent.name || agentId}`,
+        agent_id: agentId,
+        message: bounded || `Complete the bounded specialist work assigned to ${agent.name || agentId} in the original goal.`,
+        explicit_executor_required: true,
+        selection_rationale: `The original goal explicitly selected the eligible company specialist ${agent.name || agentId}.`,
+      });
+      const terminalAt = out.findIndex((step) => step.type === 'agent_continue' || step.type === 'notify_ceo');
+      out.splice(terminalAt >= 0 ? terminalAt : out.length, 0, specialty);
+    }
+  }
 
   // Missing configured tools are surfaced as a real blocked/clarification step,
   // never silently omitted from a plan that would then claim success.

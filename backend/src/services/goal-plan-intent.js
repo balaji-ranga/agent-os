@@ -495,6 +495,10 @@ export async function applyHumanAssignmentPolicy(ownerUserId, prompt, steps = []
   const assignedHumans = new Set();
   let out = (steps || []).map((step, index) => {
     if (step.type !== 'specialty_task') return step;
+    // A human policy may choose between overlapping candidates, but it cannot
+    // replace a distinct specialist that the CEO explicitly required. The
+    // maker/checker may add the bounded human decision as a dependent step.
+    if (step.spec?.explicit_executor_required === true) return step;
     const direct = forcedByIndex.get(index) || null;
     const match = byIndex.get(index);
     const human = direct || (Number(match?.human_match_score || 0) >= 60 ? humans.find((h) => h.id === match?.user_id) : null);
