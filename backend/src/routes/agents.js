@@ -70,6 +70,12 @@ import {
 import { routeAgentTurn, bindWorkUnitExecution } from '../services/agent-turn-router.js';
 import { createAndStartGoalRun } from '../services/agent-goal-run.js';
 import {
+  beginChatActivity,
+  updateChatActivity,
+  finishChatActivity,
+  getChatActivity,
+} from '../services/chat-live-activity.js';
+import {
   listPublishedTemplates,
   getTemplate,
   publishAgentWorkspaceAsTemplate,
@@ -737,8 +743,30 @@ router.get('/:id/chat', requireAuth, async (req, res) => {
   }
 });
 
+// Operational progress only: this exposes routing/planning/tool state, never
+// model chain-of-thought. Scope is the authenticated owner + agent + turn id.
+router.get('/:id/chat/activity/:turnId', requireAuth, (req, res) => {
+  try {
+    const agentId = req.params.id;
+    assertUserAgentAccess(req.authUser, agentId);
+    const ownerUserId = resolveChatOwnerUserId(req, req.query || {});
+    const activity = getChatActivity({ ownerUserId, agentId, turnId: req.params.turnId });
+    if (!activity) return res.json({ status: 'idle', current: null, events: [], tool_calls: [] });
+    const toolCalls = listToolCallsSince(agentId, ownerUserId, activity.started_at).map((call) => ({
+      id: call.id,
+      tool_name: call.tool_name,
+      status: call.status,
+      created_at: call.created_at,
+    }));
+    return res.json({ ...activity, tool_calls: toolCalls });
+  } catch (e) {
+    return res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
 // Chat: send message and get reply (AgentSystem gateway)
 router.post('/:id/chat', requireAuth, async (req, res) => {
+  let liveScope = null;
   try {
     const agentId = req.params.id;
     const ownerUserId = resolveChatOwnerUserId(req, req.body || {});
@@ -763,6 +791,10 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
       }
       throw budgetErr;
     }
+    if (req.body?.client_turn_id) {
+      liveScope = { ownerUserId, agentId, turnId: req.body.client_turn_id };
+      beginChatActivity(liveScope);
+    }
 
     // Semantic work-unit routing is shared by every agent. The selected turns are
     // the only durable Dashboard context allowed into this request.
@@ -785,6 +817,14 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
       history: activeHistory,
     });
     const routedMessage = turnRoute.resolved_request || message.trim();
+    const routeLabels = {
+      goal_plan: ['planning', 'Preparing a goal plan'],
+      delegate: ['delegation', 'Selecting the right specialist'],
+      direct_tool: ['tool_selection', 'Matching tools and workflows'],
+      chat: ['response', 'Preparing a response'],
+    };
+    const [routePhase, routeLabel] = routeLabels[turnRoute.execution_mode] || ['response', 'Preparing a response'];
+    if (liveScope) updateChatActivity(liveScope, { phase: routePhase, label: routeLabel });
 
     // Durable multi-stage execution belongs to the platform control plane. Do
     // not rely on the language model remembering to call agent_goal_create.
@@ -808,6 +848,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
           routed_relation: turnRoute.relation,
           requested_via_agent_id: agent.id,
         },
+        onProgress: (progress) => liveScope && updateChatActivity(liveScope, progress),
       });
       const goal = started.goal;
       bindWorkUnitExecution(turnRoute.id, goal?.id || started.goal_run_id, goal?.status || 'running');
@@ -819,6 +860,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
       ].join('\n');
       insertChatTurn({ agentId, ownerUserId, role: 'user', content: message, sessionId: ensuredSession.session.id, workUnitId: turnRoute.id });
       insertChatTurn({ agentId, ownerUserId, role: 'assistant', content: replyText, sessionId: ensuredSession.session.id, workUnitId: turnRoute.id });
+      if (liveScope) finishChatActivity(liveScope, { label: 'Goal plan created and started' });
       return res.json({
         reply: replyText,
         agent_id: agentId,
@@ -836,6 +878,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
         bindWorkUnitExecution(turnRoute.id, reach.notify?.id || null, 'completed');
         insertChatTurn({ agentId, ownerUserId, role: 'user', content: message, workUnitId: turnRoute.id });
         insertChatTurn({ agentId, ownerUserId, role: 'assistant', content: reach.cooReply, workUnitId: turnRoute.id });
+        if (liveScope) finishChatActivity(liveScope);
         return res.json({
           reply: reach.cooReply,
           agent_id: agentId,
@@ -856,6 +899,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
         bindWorkUnitExecution(turnRoute.id, null, 'completed');
         insertChatTurn({ agentId, ownerUserId, role: 'user', content: message, workUnitId: turnRoute.id });
         insertChatTurn({ agentId, ownerUserId, role: 'assistant', content: orgList.cooReply, workUnitId: turnRoute.id });
+        if (liveScope) finishChatActivity(liveScope);
         return res.json({
           reply: orgList.cooReply,
           agent_id: agentId,
@@ -881,6 +925,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
         );
         insertChatTurn({ agentId, ownerUserId, role: 'user', content: message, workUnitId: turnRoute.id });
         insertChatTurn({ agentId, ownerUserId, role: 'assistant', content: delegated.cooReply, workUnitId: turnRoute.id });
+        if (liveScope) finishChatActivity(liveScope, { label: 'Work delegated' });
         return res.json({
           reply: delegated.cooReply,
           agent_id: agentId,
@@ -904,6 +949,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
         bindWorkUnitExecution(turnRoute.id, referral.target?.id || null, 'completed');
         insertChatTurn({ agentId, ownerUserId, role: 'user', content: message, workUnitId: turnRoute.id });
         insertChatTurn({ agentId, ownerUserId, role: 'assistant', content: referral.reply, workUnitId: turnRoute.id });
+        if (liveScope) finishChatActivity(liveScope, { label: 'Specialist identified' });
         return res.json({
           reply: referral.reply,
           agent_id: agentId,
@@ -1073,6 +1119,11 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
       /* keep defaults */
     }
     try {
+      if (liveScope) updateChatActivity(liveScope, {
+        phase: 'agent',
+        label: 'Agent is working',
+        detail: workflowTrigger ? 'A workflow was started; the agent is preparing the response' : '',
+      });
       ({ content: reply, usage } = await withLlmopsContext(
         {
           ownerUserId,
@@ -1158,6 +1209,12 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
       stripEchoedCeoScope(normalizeReplyContent(reply))
     );
     const tool_calls = listToolCallsSince(agentId, ownerUserId, toolsSince);
+    if (liveScope && tool_calls.length) {
+      updateChatActivity(liveScope, {
+        phase: 'tools_complete',
+        label: `${tool_calls.length} tool call${tool_calls.length === 1 ? '' : 's'} completed`,
+      });
+    }
     bindWorkUnitExecution(
       turnRoute.id,
       workflowTrigger?.id || null,
@@ -1167,6 +1224,8 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     // Persist user message and assistant reply (same normalized string shape as standup chat)
     insertChatTurn({ agentId, ownerUserId, role: 'user', content: message, workUnitId: turnRoute.id });
     insertChatTurn({ agentId, ownerUserId, role: 'assistant', content: replyText, workUnitId: turnRoute.id });
+
+    if (liveScope) finishChatActivity(liveScope);
 
     res.json({
       reply: replyText,
@@ -1202,6 +1261,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
         `${toAgentSystemUserMessage(raw)}. AgentSystem/Ollama may be overloaded or unreachable. ` +
         `If this CEO uses Ollama BYOK, ensure the ollama container is up, model ${process.env.OLLAMA_MODEL || 'llama3.2'} is pulled, and try New chat.`;
     }
+    if (liveScope) finishChatActivity(liveScope, { failed: true, label: msg });
     res.status(e.status || 502).json({ error: msg });
   }
 });

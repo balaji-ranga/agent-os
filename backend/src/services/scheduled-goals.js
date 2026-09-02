@@ -17,6 +17,10 @@ import {
   planUsesGoalRunMode,
   getGoalRun,
   normalizeStepSpec,
+  createGoalPlanningRun,
+  updateGoalPlanningRun,
+  failGoalPlanningRun,
+  discardGoalPlanningRun,
 } from './agent-goal-run.js';
 import { normalizeDeliverTo, deliverScheduledGoalOutcome } from './agent-channel-announce.js';
 
@@ -611,14 +615,31 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
   // Prefer durable goal plan when approved stored plan or structured multi-step.
   const pStatus = planStatusOf(row);
   let planned = null;
+  let planningGoal = null;
   const stored = parsePlanJson(row.plan_json);
   if (stored?.steps?.length && pStatus === 'approved') {
     planned = stored.steps.map((s) => normalizeStepSpec(s));
   } else {
-    planned = await planGoalStepsAsync(row.prompt, {
+    planningGoal = createGoalPlanningRun({
       ownerUserId,
-      orchestratorAgentId: agent.id,
+      agentId: agent.id,
+      title: row.title,
+      prompt: row.prompt,
+      source: 'scheduled_goal',
+      scheduledGoalId: id,
+      scheduledGoalRunId: runId,
+      context: { run_key: runKey, force },
     });
+    try {
+      planned = await planGoalStepsAsync(row.prompt, {
+        ownerUserId,
+        orchestratorAgentId: agent.id,
+        onProgress: (progress) => updateGoalPlanningRun(planningGoal.id, ownerUserId, progress),
+      });
+    } catch (error) {
+      failGoalPlanningRun(planningGoal.id, ownerUserId, error);
+      throw error;
+    }
   }
   const hasGoalPlan = planUsesGoalRunMode(planned);
   if (hasGoalPlan) {
@@ -634,6 +655,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
         scheduledGoalId: id,
         scheduledGoalRunId: runId,
         context: { run_key: runKey, force },
+        goalRunId: planningGoal?.id || null,
       });
       const g = started?.goal || getGoalRun(started?.goal?.id || started?.id, ownerUserId);
       const exec = started?.execution || started;
@@ -669,6 +691,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
       console.warn('[scheduled-goals] goal-run plan failed, falling back to chat:', planErr?.message || planErr);
     }
   }
+  if (planningGoal) discardGoalPlanningRun(planningGoal.id, ownerUserId);
 
   let prompt = buildRunMessage(row, ownerUserId, { runKey, force });
   try {
@@ -795,10 +818,10 @@ export function reconcileStuckScheduledGoalRuns(now = new Date()) {
     let nextStatus = null;
     let preview = null;
     let err = null;
-    if (row.agr_id && (row.agr_status === 'completed' || row.agr_status === 'failed' || row.agr_status === 'cancelled')) {
-      nextStatus = row.agr_status === 'completed' ? 'ok' : 'error';
+    if (row.agr_id && (row.agr_status === 'completed' || row.agr_status === 'partial_success' || row.agr_status === 'failed' || row.agr_status === 'cancelled')) {
+      nextStatus = row.agr_status === 'completed' ? 'ok' : row.agr_status === 'partial_success' ? 'partial' : 'error';
       preview = `Reconciled from agent_goal_run ${row.agr_id} (${row.agr_status})`;
-      if (row.agr_status !== 'completed') err = preview;
+      if (!['completed', 'partial_success'].includes(row.agr_status)) err = preview;
     } else if (!row.agr_id && String(row.created_at || '') <= cutoff) {
       nextStatus = 'error';
       err = `Timed out while running (no agent_goal_run after ${stuckMins}m; likely AgentSystem hang or backend restart)`;

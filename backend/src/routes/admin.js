@@ -108,7 +108,10 @@ router.put('/platform-llm', (req, res) => {
 /** Admin-only model control plane. Secret values are never accepted or returned. */
 router.get('/models', (req, res) => {
   try {
-    res.json(getModelRoutingSnapshot({ eventLimit: req.query.event_limit }));
+    res.json(getModelRoutingSnapshot({
+      eventPage: req.query.event_page,
+      eventPageSize: req.query.event_page_size,
+    }));
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

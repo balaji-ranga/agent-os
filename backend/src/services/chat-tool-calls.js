@@ -137,6 +137,7 @@ function listContentToolLogs(agentId, ownerUserId, fromIso, toIso) {
   const ph = ownerIds.map(() => '?').join(',');
   const from = fromIso || '1970-01-01';
   const to = toIso || '9999-12-31';
+  const sourceNeedle = `%${String(agentId).toLowerCase()}%`;
   const rows = getDb()
     .prepare(
       `SELECT id, tool_name, source, request_payload, response_payload, status, created_at
@@ -144,10 +145,11 @@ function listContentToolLogs(agentId, ownerUserId, fromIso, toIso) {
        WHERE owner_user_id IN (${ph})
          AND datetime(created_at) >= datetime(?)
          AND datetime(created_at) <= datetime(?)
-       ORDER BY created_at ASC, id ASC
-       LIMIT 120`
+         AND lower(COALESCE(source, '')) LIKE ?
+       ORDER BY datetime(created_at) DESC, id DESC
+       LIMIT 1000`
     )
-    .all(...ownerIds, from, to);
+    .all(...ownerIds, from, to, sourceNeedle);
 
   return rows
     .filter((r) => sourceMatchesAgent(r.source, agentId))
@@ -159,7 +161,8 @@ function listContentToolLogs(agentId, ownerUserId, fromIso, toIso) {
       created_at: r.created_at,
       request: safeJson(r.request_payload, 2500),
       response: safeJson(r.response_payload, 2500),
-    }));
+    }))
+    .reverse();
 }
 
 function mergeToolCalls(fromLogs, fromSessions) {
@@ -197,7 +200,11 @@ function mergeToolCalls(fromLogs, fromSessions) {
     if (ta !== tb) return ta - tb;
     return String(a.id).localeCompare(String(b.id));
   });
-  return out.slice(0, 80);
+  // History enrichment loads a broad window once and assigns calls to each
+  // assistant turn afterwards. Keeping only the oldest calls here caused busy
+  // agents to lose the latest tool evidence entirely. Retain a bounded recent
+  // working set; each assistant message is bounded separately below.
+  return out.slice(-500);
 }
 
 /**
@@ -261,7 +268,9 @@ export function attachToolCallsToChatTurns(turns, agentId, ownerUserId) {
     const to = bumpIsoMinutes(t.created_at || from, 2);
     prevAssistantAt = t.created_at || prevAssistantAt;
 
-    const tool_calls = allTools.filter((tc) => inTimeWindow(tc.created_at, from, to));
+    const tool_calls = allTools
+      .filter((tc) => inTimeWindow(tc.created_at, from, to))
+      .slice(-80);
     return { ...t, tool_calls };
   });
 }

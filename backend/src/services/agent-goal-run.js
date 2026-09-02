@@ -116,8 +116,53 @@ export function selectExplicitFallbackUrl(text, failedItem = '') {
   return urls.length === 1 ? urls[0] : null;
 }
 
+/** Resolve a deterministic read-only provider URL when the CEO names a public
+ * source but does not paste its literal endpoint. Browser execution still owns
+ * retrieval and evidence capture; this only resolves the requested resource. */
+export function resolveBrowserRecoveryUrl(text, failedItem = '') {
+  const explicit = selectExplicitFallbackUrl(text, failedItem);
+  if (explicit) return explicit;
+  // Never synthesize provider-specific endpoints. The source must be explicit
+  // in the goal or supplied by a capability/provider contract.
+  return null;
+}
+
 export function goalRequestsBrowserRecovery(text) {
   return /\b(browser|browse|web)\b/i.test(String(text || ''));
+}
+
+export function browserFallbackHasEvidence(fallback) {
+  if (fallback?.status !== 'completed' || !fallback?.task?.result) return false;
+  const result = fallback.task.result;
+  if (result?.verification) return result.verification.satisfied === true;
+  return result?.note === 'structured_document_retrieved' && result?.structured_data != null;
+}
+
+export function unresolvedRequiredBrowserItems(errors = [], fallbacks = [], goalText = '') {
+  if (!goalRequestsBrowserRecovery(goalText)) return [];
+  const recovered = new Set(
+    fallbacks
+      .filter(browserFallbackHasEvidence)
+      .map((fallback) => String(fallback.symbol || '').toUpperCase())
+  );
+  return errors.filter((item) => !recovered.has(String(item?.symbol || '').toUpperCase()));
+}
+
+export function hasUsefulPartialResult(result = {}) {
+  const successes = Array.isArray(result?.results)
+    ? result.results.filter((item) => item?.ok !== false && item?.result != null)
+    : [];
+  const gaps = Array.isArray(result?.errors) ? result.errors : [];
+  return successes.length > 0 && gaps.length > 0;
+}
+
+export function terminalGoalStatusFromSteps(steps = []) {
+  const list = Array.isArray(steps) ? steps : [];
+  const hadPartial = list.some((step) => {
+    const result = parseJson(step?.result_json ?? step?.result, {});
+    return result?.partial_success === true;
+  });
+  return hadPartial && unresolvedItemsFromSteps(list).length > 0 ? 'partial_success' : 'completed';
 }
 
 function resultPayload(step) {
@@ -153,21 +198,31 @@ export function sanitizeUnsupportedItemClaims(text, unsupportedItems = []) {
   return output;
 }
 
-function unresolvedItemsBeforeStep(goalRunId, stepIndex) {
+export function unresolvedItemsFromSteps(steps = []) {
   const failed = new Set();
   const recovered = new Set();
-  for (const row of loadGoalSteps(goalRunId)) {
-    if (Number(row.step_index) >= Number(stepIndex)) continue;
+  for (const row of steps) {
     const result = resultPayload(row);
     for (const error of result?.errors || []) {
-      if (error?.symbol) failed.add(String(error.symbol));
+      if (error?.symbol) failed.add(String(error.symbol).toUpperCase());
+    }
+    for (const success of result?.results || []) {
+      if (success?.symbol && success?.ok !== false && success?.result != null) {
+        recovered.add(String(success.symbol).toUpperCase());
+      }
     }
     for (const fallback of result?.fallbacks || []) {
-      const hasEvidence = fallback?.status === 'completed' && fallback?.task?.result;
-      if (hasEvidence && fallback?.symbol) recovered.add(String(fallback.symbol));
+      const hasEvidence = browserFallbackHasEvidence(fallback);
+      if (hasEvidence && fallback?.symbol) recovered.add(String(fallback.symbol).toUpperCase());
     }
   }
   return [...failed].filter((item) => !recovered.has(item));
+}
+
+function unresolvedItemsBeforeStep(goalRunId, stepIndex) {
+  return unresolvedItemsFromSteps(
+    loadGoalSteps(goalRunId).filter((row) => Number(row.step_index) < Number(stepIndex))
+  );
 }
 
 function priorSuccessfulBrowserFallback(goalRunId, stepIndex, symbol) {
@@ -175,8 +230,7 @@ function priorSuccessfulBrowserFallback(goalRunId, stepIndex, symbol) {
     if (Number(row.step_index) >= Number(stepIndex)) continue;
     const match = (resultPayload(row)?.fallbacks || []).find((fallback) =>
       String(fallback?.symbol || '').toUpperCase() === String(symbol || '').toUpperCase()
-      && fallback?.status === 'completed'
-      && fallback?.task?.result
+      && browserFallbackHasEvidence(fallback)
     );
     if (match) return match;
   }
@@ -201,7 +255,7 @@ export function buildVerifiedMarketOutcome(steps = []) {
       });
     }
     for (const fallback of result.fallbacks || []) {
-      if (fallback?.status !== 'completed' || !fallback?.task?.result || !fallback?.symbol) continue;
+      if (!browserFallbackHasEvidence(fallback) || !fallback?.symbol) continue;
       if (!browserValues.has(String(fallback.symbol).toUpperCase())) {
         browserValues.set(String(fallback.symbol).toUpperCase(), fallback.task.result);
       }
@@ -238,7 +292,11 @@ export function buildOutcomeRichTerminalReport({ goal, steps, terminal = 'comple
       for (const err of result.errors || []) gaps.push(`${err.symbol || label}: ${clip(err.error, 180)}`);
       for (const recovered of result.fallbacks || []) {
         const state = recovered?.task?.status || recovered?.status || 'submitted';
-        toolEvidence.push(`${recovered.symbol || label}: browser fallback ${state} (${recovered.url})`);
+        const source = recovered?.url || recovered?.task?.start_url || 'source URL unavailable';
+        toolEvidence.push(`${recovered.symbol || label}: browser fallback ${state} (${source})`);
+        if (state === 'failed') {
+          gaps.push(`${recovered.symbol || label}: ${clip(recovered?.task?.error || recovered?.error || 'browser fallback failed', 180)}`);
+        }
       }
     } else if (result.tool_name) {
       toolEvidence.push(`${label}: ${result.tool_name} ${result.ok === false ? 'failed' : 'completed'}`);
@@ -324,7 +382,7 @@ export function ensureAgentGoalRunTables() {
        FROM kanban_tasks k
        JOIN agent_delegation_tasks d ON d.id = k.agent_delegation_task_id
        JOIN agent_goal_runs g ON d.prompt LIKE '%[goal_run_id: ' || g.id || ']%'
-       WHERE g.status IN ('completed','failed')
+       WHERE g.status IN ('completed','partial_success','failed')
          AND k.status IN ('open','in_progress','awaiting_confirmation')`
     ).all();
     const update = db().prepare(`UPDATE kanban_tasks SET status = ?, updated_at = datetime('now') WHERE id = ?`);
@@ -656,6 +714,11 @@ async function planGoalStepsAsyncInner(prompt, opts = {}) {
   // Primary: LLM intent classification with tools / workflows / org specialty catalog.
   if (ownerUserId && fullPrompt.trim().length >= 8) {
     try {
+      await opts.onProgress?.({
+        phase: 'intent',
+        label: 'Understanding goal requirements',
+        detail: 'Matching requested outcomes to available agents, tools, workflows, and humans',
+      });
       const classified = await classifyGoalPlanIntents(ownerUserId, fullPrompt, {
         orchestratorAgentId: opts.orchestratorAgentId || null,
       });
@@ -675,12 +738,18 @@ async function planGoalStepsAsyncInner(prompt, opts = {}) {
           ownerUserId,
           orchestratorAgentId: opts.orchestratorAgentId || null,
         });
+        await opts.onProgress?.({
+          phase: 'assignment',
+          label: 'Applying work assignment policy',
+          detail: 'Checking executor fit and human/AI assignment rules',
+        });
         const assigned = await applyHumanAssignmentPolicy(ownerUserId, fullPrompt, repaired);
         const assured = await qualityAssureGoalPlan({
           ownerUserId,
           orchestratorAgentId: opts.orchestratorAgentId || null,
           prompt: fullPrompt,
           candidateSteps: assigned,
+          onProgress: opts.onProgress,
         });
         console.info('[goal-run] maker/checker plan accepted', assured.quality);
         return assured.steps.map(normalizeStepSpec);
@@ -735,6 +804,7 @@ async function planGoalStepsAsyncInner(prompt, opts = {}) {
     orchestratorAgentId: opts.orchestratorAgentId || null,
     prompt: fullPrompt,
     candidateSteps: assigned,
+    onProgress: opts.onProgress,
   });
   console.info('[goal-run] maker/checker fallback plan accepted', assured.quality);
   return assured.steps.map(normalizeStepSpec);
@@ -1080,7 +1150,7 @@ export function serializeGoalRun(row, steps = null) {
   if (!row) return null;
   const stepRows = steps != null ? steps : loadGoalSteps(row.id);
   const ctx = parseJson(row.context_json);
-  const terminal = row.status === 'completed' || row.status === 'failed';
+  const terminal = row.status === 'completed' || row.status === 'partial_success' || row.status === 'failed' || row.status === 'cancelled';
   return {
     id: row.id,
     owner_user_id: row.owner_user_id,
@@ -1171,7 +1241,7 @@ export function summarizeGoalProgress(goal) {
   const failed = steps.filter((s) => String(s.status || "") === "failed").length;
   const running = steps.filter((s) => String(s.status || "") === "running").length;
   const pending = steps.filter((s) => String(s.status || "") === "pending").length;
-  const pct = total ? Math.round((completed / total) * 100) : goal?.status === "completed" ? 100 : 0;
+  const pct = total ? Math.round((completed / total) * 100) : ['completed', 'partial_success'].includes(goal?.status) ? 100 : 0;
   const current =
     steps.find((s) => String(s.status || "") === "running") ||
     steps.find((s) => String(s.status || "") === "pending") ||
@@ -1186,6 +1256,175 @@ export function summarizeGoalProgress(goal) {
     current_label: current?.label || null,
     status: goal?.status || null,
   };
+}
+
+export function createGoalPlanningRun({
+  ownerUserId,
+  agentId,
+  title = '',
+  prompt = '',
+  source = '',
+  scheduledGoalId = null,
+  scheduledGoalRunId = null,
+  context = {},
+} = {}) {
+  ensureAgentGoalRunTables();
+  const owner = String(ownerUserId || '').trim();
+  const agent = String(agentId || '').trim();
+  if (!owner || !agent) {
+    const err = new Error('ownerUserId and agentId required');
+    err.status = 400;
+    throw err;
+  }
+  const id = `agr-${randomUUID().replace(/-/g, '').slice(0, 16)}`;
+  const stepId = `ags-${randomUUID().replace(/-/g, '').slice(0, 16)}`;
+  db().transaction(() => {
+    db().prepare(
+      `INSERT INTO agent_goal_runs
+       (id, owner_user_id, agent_id, title, prompt, source, scheduled_goal_id, scheduled_goal_run_id, status, context_json)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'planning', ?)`
+    ).run(
+      id,
+      owner,
+      agent,
+      String(title || '').trim() || clip(prompt, 120),
+      String(prompt || ''),
+      String(source || ''),
+      scheduledGoalId || null,
+      scheduledGoalRunId || null,
+      JSON.stringify(context || {})
+    );
+    db().prepare(
+      `INSERT INTO agent_goal_steps
+       (id, goal_run_id, step_index, step_type, label, spec_json, status, started_at)
+       VALUES (?, ?, 0, 'planning', 'Understanding goal requirements', ?, 'running', datetime('now'))`
+    ).run(stepId, id, JSON.stringify({ phase: 'intent', visibility: 'operational' }));
+  })();
+  recordMissionEvent({
+    ownerUserId: owner,
+    goalRunId: id,
+    event_type: 'goal_created',
+    payload: { status: 'planning' },
+  });
+  return getGoalRun(id, owner);
+}
+
+export function updateGoalPlanningRun(goalRunId, ownerUserId, progress = {}) {
+  ensureAgentGoalRunTables();
+  const owner = String(ownerUserId || '').trim();
+  const goal = loadGoalRunRow(goalRunId, owner);
+  if (!goal || goal.status !== 'planning') return getGoalRun(goalRunId, owner);
+  const phase = String(progress.phase || 'planning').slice(0, 60);
+  const label = String(progress.label || 'Planning execution').slice(0, 180);
+  const detail = String(progress.detail || '').slice(0, 500);
+  const spec = {
+    phase,
+    detail,
+    attempt: Number(progress.attempt) || null,
+    max_attempts: Number(progress.max_attempts) || null,
+    visibility: 'operational',
+  };
+  db().prepare(
+    `UPDATE agent_goal_steps SET label=?, spec_json=?
+     WHERE goal_run_id=? AND step_type='planning'`
+  ).run(label, JSON.stringify(spec), goalRunId);
+  db().prepare(`UPDATE agent_goal_runs SET updated_at=datetime('now') WHERE id=? AND owner_user_id=?`)
+    .run(goalRunId, owner);
+  recordMissionEvent({
+    ownerUserId: owner,
+    goalRunId,
+    event_type: 'planning_progress',
+    payload: spec,
+  });
+  return getGoalRun(goalRunId, owner);
+}
+
+export function failGoalPlanningRun(goalRunId, ownerUserId, error) {
+  ensureAgentGoalRunTables();
+  const owner = String(ownerUserId || '').trim();
+  const message = clip(error?.message || error || 'Goal planning failed', 1000);
+  db().prepare(
+    `UPDATE agent_goal_runs SET status='failed', error_message=?, completed_at=datetime('now'), updated_at=datetime('now')
+     WHERE id=? AND owner_user_id=? AND status='planning'`
+  ).run(message, goalRunId, owner);
+  db().prepare(
+    `UPDATE agent_goal_steps SET status='failed', error_message=?, completed_at=datetime('now')
+     WHERE goal_run_id=? AND step_type='planning' AND status='running'`
+  ).run(message, goalRunId);
+  return getGoalRun(goalRunId, owner);
+}
+
+export function discardGoalPlanningRun(goalRunId, ownerUserId) {
+  ensureAgentGoalRunTables();
+  const owner = String(ownerUserId || '').trim();
+  const goal = loadGoalRunRow(goalRunId, owner);
+  if (!goal || goal.status !== 'planning') return false;
+  db().transaction(() => {
+    db().prepare('DELETE FROM agent_goal_steps WHERE goal_run_id=?').run(goalRunId);
+    db().prepare(`DELETE FROM goal_mission_events WHERE goal_run_id=? AND owner_user_id=?`)
+      .run(goalRunId, owner);
+    db().prepare(`DELETE FROM agent_goal_runs WHERE id=? AND owner_user_id=? AND status='planning'`)
+      .run(goalRunId, owner);
+  })();
+  return true;
+}
+
+/**
+ * Canonicalize the final dependency contract immediately before persistence.
+ * Runtime enrichment writes dependencies at the step level while legacy saved
+ * plans may retain an older nested spec.depends_on. Prefer the final step-level
+ * contract when present so a repaired first step cannot regain a stale
+ * self-dependency. Invalid self/forward references are repaired conservatively
+ * to the immediately prior step (or removed for the first step).
+ */
+export function finalizeGoalStepContracts(steps) {
+  const list = Array.isArray(steps) ? steps : [];
+  const keys = list.map((step, index) =>
+    String(step?.step_key || step?.key || step?.spec?.step_key || index).trim() || String(index)
+  );
+  const seen = new Set();
+  for (let index = 0; index < keys.length; index += 1) {
+    if (seen.has(keys[index])) keys[index] = `${keys[index]}_${index}`;
+    seen.add(keys[index]);
+  }
+  const indexByKey = new Map(keys.map((key, index) => [key, index]));
+
+  return list.map((step, index) => {
+    const spec = step?.spec && typeof step.spec === 'object' ? { ...step.spec } : {};
+    const hasFinalDependencies = Object.prototype.hasOwnProperty.call(step || {}, 'depends_on');
+    const rawDependencies = hasFinalDependencies ? step.depends_on : spec.depends_on;
+    const resolved = [];
+    for (const raw of Array.isArray(rawDependencies) ? rawDependencies : []) {
+      const dependency = String(raw ?? '').trim();
+      if (!dependency) continue;
+      const numeric = Number(dependency);
+      const sourceIndex = indexByKey.has(dependency)
+        ? indexByKey.get(dependency)
+        : Number.isInteger(numeric) && numeric >= 0 && numeric < keys.length
+          ? numeric
+          : -1;
+      if (sourceIndex >= 0 && sourceIndex < index) {
+        resolved.push(keys[sourceIndex]);
+        continue;
+      }
+      const fallback = index > 0 ? keys[index - 1] : null;
+      if (fallback) resolved.push(fallback);
+      console.warn('[goal-run] repaired invalid persisted dependency', {
+        step: keys[index],
+        dependency,
+        replacement: fallback,
+      });
+    }
+    return {
+      ...step,
+      depends_on: [...new Set(resolved)],
+      spec: {
+        ...spec,
+        step_key: keys[index],
+        depends_on: [...new Set(resolved)],
+      },
+    };
+  });
 }
 
 export function listGoalRuns(
@@ -1234,6 +1473,7 @@ export function createGoalRun({
   scheduledGoalId = null,
   scheduledGoalRunId = null,
   context = {},
+  goalRunId = null,
 } = {}) {
   ensureAgentGoalRunTables();
   const owner = String(ownerUserId || '').trim();
@@ -1262,9 +1502,10 @@ export function createGoalRun({
         orchestratorAgentId: agent,
       });
   // Honor explicit "do not call notify_ceo" in CEO / scheduled prompts.
-  const planned = promptForbidsNotifyCeo(prompt)
+  const filteredPlan = promptForbidsNotifyCeo(prompt)
     ? plannedRaw.filter((s) => (s.type || s.step_type) !== 'notify_ceo')
     : plannedRaw;
+  const planned = finalizeGoalStepContracts(filteredPlan);
   const orchestratorRow = db()
     .prepare(`SELECT id, is_coo, COALESCE(is_orchestrator, 0) AS is_orchestrator FROM agents WHERE lower(id) = lower(?) LIMIT 1`)
     .get(agent.includes('--') ? agent.split('--').pop() : agent);
@@ -1286,14 +1527,37 @@ export function createGoalRun({
     console.info('[goal-run] stripped notify_ceo step(s) per prompt instruction');
   }
 
-  const id = `agr-${randomUUID().replace(/-/g, '').slice(0, 16)}`;
-  db()
-    .prepare(
+  const reusable = goalRunId ? loadGoalRunRow(String(goalRunId), owner) : null;
+  if (reusable && reusable.status !== 'planning') {
+    throw Object.assign(new Error('Only a planning goal run can be finalized'), { status: 409 });
+  }
+  const id = reusable?.id || `agr-${randomUUID().replace(/-/g, '').slice(0, 16)}`;
+  if (reusable) {
+    db().transaction(() => {
+      db().prepare('DELETE FROM agent_goal_steps WHERE goal_run_id=?').run(id);
+      db().prepare(
+        `UPDATE agent_goal_runs SET agent_id=?, title=?, prompt=?, source=?, scheduled_goal_id=?,
+         scheduled_goal_run_id=?, status='pending', context_json=?, current_step_index=0,
+         error_message=NULL, completed_at=NULL, updated_at=datetime('now')
+         WHERE id=? AND owner_user_id=?`
+      ).run(
+        agent,
+        String(title || '').trim() || clip(prompt, 120),
+        String(prompt || ''),
+        String(source || ''),
+        scheduledGoalId || null,
+        scheduledGoalRunId || null,
+        JSON.stringify(context || {}),
+        id,
+        owner
+      );
+    })();
+  } else {
+    db().prepare(
       `INSERT INTO agent_goal_runs
        (id, owner_user_id, agent_id, title, prompt, source, scheduled_goal_id, scheduled_goal_run_id, status, context_json)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`
-    )
-    .run(
+    ).run(
       id,
       owner,
       agent,
@@ -1304,6 +1568,7 @@ export function createGoalRun({
       scheduledGoalRunId || null,
       JSON.stringify(context || {})
     );
+  }
 
   const outcome = parseOutcomeFromPrompt(prompt);
   persistOutcome(id, owner, outcome);
@@ -1316,19 +1581,21 @@ export function createGoalRun({
       step_labels: planned.map((s) => s.label || s.type),
     },
   ]);
-  recordMissionEvent({
-    ownerUserId: owner,
-    goalRunId: id,
-    event_type: 'goal_created',
-    payload: {
-      intent: outcome.intent,
-      kpi: outcome.kpi,
-      target: outcome.target,
-      constraints: outcome.constraints,
-      budget_usd: outcome.budget_usd,
-      approval_policy: outcome.approval_policy,
-    },
-  });
+  if (!reusable) {
+    recordMissionEvent({
+      ownerUserId: owner,
+      goalRunId: id,
+      event_type: 'goal_created',
+      payload: {
+        intent: outcome.intent,
+        kpi: outcome.kpi,
+        target: outcome.target,
+        constraints: outcome.constraints,
+        budget_usd: outcome.budget_usd,
+        approval_policy: outcome.approval_policy,
+      },
+    });
+  }
   recordMissionEvent({
     ownerUserId: owner,
     goalRunId: id,
@@ -1348,7 +1615,11 @@ export function createGoalRun({
   planned.forEach((step, idx) => {
     const stepId = `ags-${randomUUID().replace(/-/g, '').slice(0, 16)}`;
     if (idx === 0) firstStepId = stepId;
-    ins.run(stepId, id, idx, step.type, step.label || step.type, JSON.stringify(step.spec || {}));
+    // Every persisted step has a stable key. Planner/checker responses historically
+    // used numeric dependency keys ("0", "1") even when the source step omitted
+    // step_key, which made a valid completed predecessor impossible to resolve.
+    const persistedSpec = { ...(step.spec || {}) };
+    ins.run(stepId, id, idx, step.type, step.label || step.type, JSON.stringify(persistedSpec));
   });
   if (firstStepId) {
     recordMissionEvent({
@@ -1568,19 +1839,26 @@ export function priorGoalArtifacts(goalRunId, beforeIndex = Infinity) {
   return [...found.values()];
 }
 
-function assertRuntimeStepInputs(goalRunId, step) {
+export function assertRuntimeStepInputs(goalRunId, step) {
   const spec = parseJson(step.spec_json, {});
   const deps = Array.isArray(spec.depends_on) ? spec.depends_on : [];
   const required = Array.isArray(spec.required_inputs) ? spec.required_inputs.filter((x) => x?.required !== false) : [];
   if (!deps.length && !required.length) return;
   const prior = loadGoalSteps(goalRunId).filter((row) => row.step_index < step.step_index);
-  const byKey = new Map(prior.map((row) => [parseJson(row.spec_json, {}).step_key, row]));
+  const byKey = new Map();
+  for (const row of prior) {
+    const explicitKey = String(parseJson(row.spec_json, {}).step_key || '').trim();
+    if (explicitKey) byKey.set(explicitKey, row);
+    // Backward compatibility for plans persisted before step_key became mandatory.
+    byKey.set(String(row.step_index), row);
+    byKey.set(String(row.id), row);
+  }
   for (const dep of deps) {
-    const row = byKey.get(dep);
+    const row = byKey.get(String(dep));
     if (!row || row.status !== 'completed') throw new Error(`Required predecessor ${dep} is not completed`);
   }
   for (const input of required) {
-    const source = input?.source_step_key ? byKey.get(input.source_step_key) : null;
+    const source = input?.source_step_key ? byKey.get(String(input.source_step_key)) : null;
     if (!source || source.status !== 'completed') throw new Error(`Required input ${input?.key || 'input'} has no completed source step`);
     const result = parseJson(source.result_json, null);
     if (String(input.kind || 'data') === 'artifact') {
@@ -2260,7 +2538,7 @@ async function executeAgentToolStep(goal, step) {
     // remains in browser routing: extension -> desktop -> managed fallback.
     for (const failed of errors) {
       const goalText = `${goal.title || ''}\n${goal.prompt || ''}`;
-      const fallbackUrl = selectExplicitFallbackUrl(goalText, failed.symbol);
+      const fallbackUrl = resolveBrowserRecoveryUrl(goalText, failed.symbol);
       if (!fallbackUrl && !goalRequestsBrowserRecovery(goalText)) continue;
       const priorRecovery = priorSuccessfulBrowserFallback(goal.id, step.step_index, failed.symbol);
       if (priorRecovery) {
@@ -2280,9 +2558,21 @@ async function executeAgentToolStep(goal, step) {
           if (fallbackUrl) browserArgs.start_url = fallbackUrl;
           const started = await invokeContentToolHttp('browse_task_start', browserArgs, goal.owner_user_id, invokeOpts);
           const taskId = started?.task_id || started?.task?.id;
-          const terminalResult = taskId
-            ? await invokeContentToolHttp('browse_task_status', { task_id: taskId, wait_ms: 90000 }, goal.owner_user_id, invokeOpts)
-            : started;
+          let terminalResult = started;
+          if (taskId) {
+            // A running task is not a failed executor. Keep waiting for the same
+            // task instead of persisting a transient state and advancing early.
+            for (let poll = 0; poll < 3; poll += 1) {
+              terminalResult = await invokeContentToolHttp(
+                'browse_task_status',
+                { task_id: taskId, wait_ms: 90000 },
+                goal.owner_user_id,
+                invokeOpts
+              );
+              const polledStatus = terminalResult?.task?.status;
+              if (['completed', 'failed', 'blocked_on_input', 'cancelled'].includes(polledStatus)) break;
+            }
+          }
           const taskResult = terminalResult?.task || started?.task || null;
           const status = taskResult?.status || 'submitted';
           fallbacks.push({
@@ -2301,6 +2591,36 @@ async function executeAgentToolStep(goal, step) {
       } catch (fallbackError) {
         fallbacks.push({ symbol: failed.symbol, url: fallbackUrl || null, status: 'failed', error: fallbackError?.message || String(fallbackError) });
       }
+    }
+    const unresolvedRequired = unresolvedRequiredBrowserItems(
+      errors,
+      fallbacks,
+      `${goal.title || ''}\n${goal.prompt || ''}`
+    );
+    if (unresolvedRequired.length) {
+      const detail = unresolvedRequired.map((item) => {
+        const attempts = fallbacks.filter((fallback) =>
+          String(fallback.symbol || '').toUpperCase() === String(item.symbol || '').toUpperCase()
+        );
+        const terminal = attempts[attempts.length - 1];
+        return `${item.symbol}: ${terminal?.task?.error || terminal?.error || item.error || 'browser recovery failed'}`;
+      }).join('; ');
+      const failure = new Error(`Browser recovery incomplete after executor attempts: ${detail}`);
+      // Treat verifier/infrastructure incompleteness as transient so the
+      // configured exception retry is honored before escalation/Kanban.
+      failure.status = 503;
+      failure.code = 'EVIDENCE_INCOMPLETE';
+      failure.partialResult = {
+        ok: false,
+        failure_code: 'EVIDENCE_INCOMPLETE',
+        tool_name: toolName,
+        multi_symbol: true,
+        symbols: multiSymbols,
+        results,
+        errors,
+        fallbacks,
+      };
+      throw failure;
     }
     if (!results.length) {
       throw new Error(
@@ -2462,7 +2782,7 @@ async function executeCompositionalToolViaAgent(goal, step, toolName) {
 async function executeNotifyCeoStep(goal, step) {
   const spec = parseJson(step.spec_json);
   const steps = loadGoalSteps(goal.id).filter((s) => Number(s.step_index) < Number(step.step_index));
-  const report = buildOutcomeRichTerminalReport({ goal, steps, terminal: 'completed' });
+  const report = buildOutcomeRichTerminalReport({ goal, steps, terminal: terminalGoalStatusFromSteps(steps) });
   const title = spec.title || clip(goal.title || 'Goal run complete', 120);
   const body = spec.body ? `${spec.body}\n\n${report}` : report;
 
@@ -2479,7 +2799,8 @@ async function executeNotifyCeoStep(goal, step) {
 }
 
 export function completeGoalRun(goalRunId, { status = 'completed', error = null } = {}) {
-  const terminal = status === 'completed' || status === 'failed' || status === 'cancelled';
+  if (status === 'completed') status = terminalGoalStatusFromSteps(loadGoalSteps(goalRunId));
+  const terminal = status === 'completed' || status === 'partial_success' || status === 'failed' || status === 'cancelled';
   touchGoalRun(goalRunId, {
     status,
     error_message: error ? String(error).slice(0, 1000) : null,
@@ -2565,8 +2886,9 @@ export function completeGoalRun(goalRunId, { status = 'completed', error = null 
       console.warn('[goal-run] completion nudge failed', goalRunId, e?.message || e)
     );
   }
-  // On failure: recovery Kanban + pending delegation (chat/tool path, not a new goal plan).
-  if (status === 'failed') {
+  // Failed and partial-success goals both need one exception-policy recovery
+  // card after automatic retries are exhausted.
+  if (status === 'failed' || status === 'partial_success') {
     void import('./goal-plan-failure-kanban.js')
       .then(({ enqueueGoalPlanFailureKanban }) =>
         enqueueGoalPlanFailureKanban(goalRunId, { error })
@@ -2783,8 +3105,8 @@ export function completeGoalStep({ goalRunId, stepId, ownerUserId, result = null
     const spec = parseJson(step.spec_json, {});
     const exceptionPolicy = getExceptionPolicy(goal.owner_user_id);
     const classified = classifyToolFailure(
-      { message: error || result?.error || result?.message || 'step failed' },
-      { status: result?.status || result?.http_status, policyDenied: result?.policy_denied }
+      { message: error || result?.error || result?.message || 'step failed', code: result?.failure_code || result?.code },
+      { status: result?.status || result?.http_status, code: result?.failure_code || result?.code, policyDenied: result?.policy_denied }
     );
     const failedProviders = Array.isArray(spec.failed_providers) ? [...spec.failed_providers] : [];
     if (spec.tool_name) failedProviders.push(spec.tool_name);
@@ -2859,6 +3181,65 @@ export function completeGoalStep({ goalRunId, stepId, ownerUserId, result = null
       return { ok: true, recovered: true, decision, goal: getGoalRun(goalRunId, ownerUserId) };
     }
 
+    // Preserve useful evidence and continue independent downstream work after
+    // retries. The goal closes as partial_success and gets one recovery card.
+    if (hasUsefulPartialResult(resultPayload)) {
+      resultPayload.partial_success = true;
+      resultPayload.ok = true;
+      resultPayload.incomplete_reason = String(
+        error || decision.reason || 'Some required outcomes remain incomplete.'
+      ).slice(0, 1000);
+      db()
+        .prepare(
+          `UPDATE agent_goal_steps SET status = 'completed', result_json = ?, error_message = ?, completed_at = datetime('now')
+           WHERE id = ?`
+        )
+        .run(JSON.stringify(resultPayload), resultPayload.incomplete_reason, stepId);
+      recordMissionEvent({
+        ownerUserId: goal.owner_user_id,
+        goalRunId,
+        event_type: 'step_partial_success',
+        payload: {
+          step_id: stepId,
+          step_type: step.step_type,
+          label: step.label,
+          failure_class: classified.failure_class,
+          retry_count: Number(step.exception_retry_count || 0),
+          retry_limit: Number(exceptionPolicy.retry_limit || 0),
+          successful_outputs: resultPayload.results?.length || 0,
+          missing_outputs: resultPayload.errors?.length || 0,
+        },
+      });
+      const remaining = loadGoalSteps(goalRunId).find((candidate) =>
+        candidate.status === 'pending' || candidate.status === 'running'
+      );
+      if (!remaining) {
+        completeGoalRun(goalRunId, {
+          status: 'partial_success',
+          error: resultPayload.incomplete_reason,
+        });
+        return {
+          ok: true,
+          recovered: false,
+          partial_success: true,
+          done: true,
+          goal: getGoalRun(goalRunId, ownerUserId),
+        };
+      }
+      touchGoalRun(goalRunId, {
+        status: 'running',
+        current_step_index: remaining.step_index,
+        error_message: null,
+      });
+      return {
+        ok: true,
+        recovered: true,
+        partial_success: true,
+        done: false,
+        goal: getGoalRun(goalRunId, ownerUserId),
+      };
+    }
+
     db()
       .prepare(
         `UPDATE agent_goal_steps SET status = 'failed', result_json = ?, error_message = ?, completed_at = datetime('now')
@@ -2895,7 +3276,7 @@ export function completeGoalStep({ goalRunId, stepId, ownerUserId, result = null
   const steps = loadGoalSteps(goalRunId);
   const open = steps.find((s) => s.status === 'pending' || s.status === 'running');
   if (!open) {
-    completeGoalRun(goalRunId, { status: 'completed' });
+    completeGoalRun(goalRunId, { status: terminalGoalStatusFromSteps(steps) });
     return { ok: true, done: true, goal: getGoalRun(goalRunId, ownerUserId) };
   }
 
@@ -3474,7 +3855,7 @@ export async function startGoalRunExecution(goalRunId, opts = {}) {
     err.status = 404;
     throw err;
   }
-  if (goal.status === 'completed' || goal.status === 'failed' || goal.status === 'cancelled') {
+  if (goal.status === 'completed' || goal.status === 'partial_success' || goal.status === 'failed' || goal.status === 'cancelled') {
     return { ok: true, skipped: true, reason: 'terminal', goal: serializeGoalRun(goal) };
   }
 
@@ -3582,7 +3963,7 @@ export async function startGoalRunExecution(goalRunId, opts = {}) {
 
   let step = loadGoalSteps(goalRunId).find((s) => s.status === 'pending');
   if (!step) {
-    completeGoalRun(goalRunId, { status: 'completed' });
+    completeGoalRun(goalRunId, { status: terminalGoalStatusFromSteps(steps) });
     return { ok: true, done: true, goal: getGoalRun(goal.id, goal.owner_user_id) };
   }
 
@@ -3737,7 +4118,7 @@ export async function startGoalRunExecution(goalRunId, opts = {}) {
       goalRunId,
       stepId: step.id,
       ownerUserId: goal.owner_user_id,
-      result: { error: msg },
+      result: { ...(e?.partialResult || {}), error: msg },
       failed: true,
       error: msg,
     });
@@ -3799,14 +4180,30 @@ export async function onWorkflowTerminalForGoalRun(workflowRunId) {
 
 export async function createAndStartGoalRun(opts = {}) {
   let steps = opts.steps;
+  let planningGoal = null;
   if (!Array.isArray(steps) || !steps.length) {
-    steps = await planGoalStepsAsync(opts.prompt || '', {
-      ownerUserId: opts.ownerUserId,
-      explicitSteps: opts.explicitSteps,
-      orchestratorAgentId: opts.orchestratorAgentId || opts.agentId || null,
-    });
+    planningGoal = createGoalPlanningRun(opts);
+    const reportProgress = async (progress) => {
+      updateGoalPlanningRun(planningGoal.id, opts.ownerUserId, progress);
+      if (typeof opts.onProgress === 'function') await opts.onProgress(progress);
+    };
+    try {
+      steps = await planGoalStepsAsync(opts.prompt || '', {
+        ownerUserId: opts.ownerUserId,
+        explicitSteps: opts.explicitSteps,
+        orchestratorAgentId: opts.orchestratorAgentId || opts.agentId || null,
+        onProgress: reportProgress,
+      });
+    } catch (error) {
+      failGoalPlanningRun(planningGoal.id, opts.ownerUserId, error);
+      throw error;
+    }
   }
-  const goal = createGoalRun({ ...opts, steps });
+  const goal = createGoalRun({
+    ...opts,
+    steps,
+    goalRunId: planningGoal?.id || opts.goalRunId || null,
+  });
   const exec = await withLlmopsContext(
     {
       ownerUserId: goal.owner_user_id,

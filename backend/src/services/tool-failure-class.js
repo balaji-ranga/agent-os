@@ -30,6 +30,14 @@ export function classifyToolFailure(err, extra = {}) {
   const msg = String(err?.message || extra.message || err || '').toLowerCase();
   const code = String(extra.code || err?.code || '').toLowerCase();
 
+  // Typed execution failures take precedence over human-readable prose.
+  if (['evidence_incomplete', 'executor_offline', 'executor_unavailable', 'action_timeout', 'fetch_failed'].includes(code)) {
+    return pack('transient', status || 503, extra);
+  }
+  if (['invalid_input', 'schema_validation', 'invalid_schema'].includes(code)) {
+    return pack('schema', status || 400, extra);
+  }
+
   // A paid-plan/usage ceiling cannot recover by retrying. Keep this before the
   // broad quota/rate-limit matcher so HTTP 402 never burns an exception retry.
   if (
@@ -52,7 +60,7 @@ export function classifyToolFailure(err, extra = {}) {
   ) {
     return pack('rate_limit', status || 429, extra);
   }
-  if (status === 400 || /schema|required|invalid json|validation/.test(msg)) {
+  if (status === 400 || /schema validation|invalid schema|invalid json|validation failed/.test(msg)) {
     return pack('schema', status || 400, extra);
   }
   if (/uncertain|low confidence|unverifiable|unknown contact|needs? (?:ceo )?clarification|missing required input/.test(msg)) {

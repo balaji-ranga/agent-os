@@ -23,7 +23,7 @@ export async function runGoalPlanCompletionNudgeSweep({ limit = 25 } = {}) {
   const lim = Math.min(Math.max(Number(limit) || 25, 1), 100);
   const rows = db()
     .prepare(
-      "SELECT id, status, context_json FROM agent_goal_runs WHERE status IN ('completed', 'failed') ORDER BY datetime(COALESCE(completed_at, updated_at)) DESC LIMIT ?"
+      "SELECT id, status, context_json FROM agent_goal_runs WHERE status IN ('completed', 'partial_success', 'failed') ORDER BY datetime(COALESCE(completed_at, updated_at)) DESC LIMIT ?"
     )
     .all(lim);
 

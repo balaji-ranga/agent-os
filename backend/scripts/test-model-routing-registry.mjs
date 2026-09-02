@@ -33,6 +33,21 @@ try {
   assert(!JSON.stringify(snapshot).includes('test-deepseek-key'));
   assert(!JSON.stringify(snapshot).includes('test-only-not-production'));
 
+  const { getDb } = await import('../src/db/schema.js');
+  const insertEvent = getDb().prepare(`INSERT INTO model_route_events
+    (id,route_alias,outcome,model_used,source,created_at) VALUES (?,?,?,?,?,?)`);
+  for (let i = 1; i <= 31; i += 1) {
+    insertEvent.run(`event-${String(i).padStart(2, '0')}`, 'flolah-platform-primary', 'ok', 'test-model', 'pagination-test', `2026-01-01 00:${String(i).padStart(2, '0')}:00`);
+  }
+  const firstEvents = registry.getModelRoutingSnapshot({ eventPage: 1, eventPageSize: 10 });
+  const secondEvents = registry.getModelRoutingSnapshot({ eventPage: 2, eventPageSize: 10 });
+  assert.equal(firstEvents.events.length, 10);
+  assert.equal(firstEvents.event_pagination.total_items, 31);
+  assert.equal(firstEvents.event_pagination.total_pages, 4);
+  assert.equal(firstEvents.event_pagination.has_previous, false);
+  assert.equal(firstEvents.event_pagination.has_next, true);
+  assert.notEqual(firstEvents.events[0].id, secondEvents.events[0].id);
+
   const direct = { primary: { baseUrl: 'https://api.openai.com/v1', apiKey: 'x', model: 'gpt-4o-mini' }, using_byok: false };
   const routed = registry.maybeRouteThroughModelGateway({
     cfg: direct,

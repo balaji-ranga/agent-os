@@ -3,11 +3,34 @@ import {
   assertPreferredBrowserExecutor,
   goalLooksInteractive,
   snapshotSummaryPrompt,
+  structuredDocumentError,
+  structuredReadOnlyDocumentEvidence,
 } from '../src/services/browser-tasks.js';
 
 assert.equal(goalLooksInteractive('Open LinkedIn and capture a full-page PNG screenshot'), true);
 assert.equal(goalLooksInteractive('Save a screenshot image of the current page'), true);
 assert.equal(goalLooksInteractive('Read this public article and summarize it'), false);
+
+const structured = structuredReadOnlyDocumentEvidence(
+  '{"chart":{"result":[{"meta":{"symbol":"VOOG","regularMarketPrice":85.42,"previousClose":84.84}}],"error":null}}'
+);
+assert.equal(structured.kind, 'json_object');
+assert.equal(structured.value.chart.result[0].meta.symbol, 'VOOG');
+assert.equal(structuredDocumentError(structured.value), null);
+assert.deepEqual(
+  structuredDocumentError({ chart: { result: null, error: { code: 'Not Found', description: 'No data found' } } }),
+  { path: 'chart.error', detail: '{"code":"Not Found","description":"No data found"}' }
+);
+const wrappedStructured = structuredReadOnlyDocumentEvidence(
+  'EXTERNAL_UNTRUSTED_CONTENT {not json}\nSnapshot metadata [role=document]\n' +
+  '{"chart":{"result":[{"meta":{"symbol":"QQQ","regularMarketPrice":600.12}}],"error":null}}\nEnd snapshot'
+);
+assert.equal(wrappedStructured.value.chart.result[0].meta.symbol, 'QQQ');
+assert.equal(
+  structuredDocumentError(structuredReadOnlyDocumentEvidence('{"error":"quota exceeded"}').value).detail,
+  'quota exceeded'
+);
+assert.equal(structuredReadOnlyDocumentEvidence('ordinary web page text'), null);
 
 const linkedinPrompt = snapshotSummaryPrompt('Open LinkedIn and capture a screenshot', 'LinkedIn page');
 assert.match(linkedinPrompt, /Stay specific to this goal and page/);

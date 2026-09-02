@@ -1564,6 +1564,167 @@ export function goalLooksInteractive(goalText) {
   );
 }
 
+/**
+ * Deterministic evidence for a read-only API/JSON page. Browser research must
+ * not fail merely because the controller model returned prose instead of its
+ * control JSON after the requested document was already retrieved.
+ */
+export function structuredReadOnlyDocumentEvidence(text) {
+  let raw = String(text || '').trim();
+  if (!raw) return null;
+  // Browser evaluate wrappers sometimes return the document text in `result`.
+  try {
+    const outer = JSON.parse(raw);
+    if (outer && typeof outer.result === 'string') raw = outer.result.trim();
+  } catch {
+    /* inspect the visible-document text below */
+  }
+  // Browser snapshots may wrap an otherwise valid JSON document with safety
+  // labels, accessibility metadata, or other brace-containing text. Collect
+  // every balanced object/array scope and parse the largest valid one instead
+  // of assuming the first opening brace belongs to the document root.
+  const candidates = [];
+  const stack = [];
+  let quote = '';
+  let escaped = false;
+  for (let i = 0; i < raw.length; i += 1) {
+    const ch = raw[i];
+    if (quote) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === quote) quote = '';
+      continue;
+    }
+    if (ch === '"') {
+      quote = ch;
+      continue;
+    }
+    if (ch === '{' || ch === '[') {
+      stack.push({ ch, index: i });
+      continue;
+    }
+    if (ch !== '}' && ch !== ']') continue;
+    const expected = ch === '}' ? '{' : '[';
+    const open = stack.pop();
+    if (!open || open.ch !== expected) {
+      stack.length = 0;
+      continue;
+    }
+    candidates.push(raw.slice(open.index, i + 1));
+  }
+  for (const candidate of candidates.sort((a, b) => b.length - a.length)) {
+    try {
+      const value = JSON.parse(candidate);
+      if (value == null || typeof value !== 'object') continue;
+      const keys = Array.isArray(value) ? value.length : Object.keys(value).length;
+      if (!keys) continue;
+      return {
+        value,
+        text: JSON.stringify(value).slice(0, 16000),
+        kind: Array.isArray(value) ? 'json_array' : 'json_object',
+      };
+    } catch {
+      /* try the next candidate */
+    }
+  }
+  return null;
+}
+
+export function structuredDocumentError(value, maxDepth = 8) {
+  const seen = new Set();
+  function visit(node, depth, path) {
+    if (node == null || depth > maxDepth || typeof node !== 'object') return null;
+    if (seen.has(node)) return null;
+    seen.add(node);
+    if (!Array.isArray(node)) {
+      for (const [key, child] of Object.entries(node)) {
+        if (/^(error|errors)$/i.test(key) && child != null && child !== false && child !== '') {
+          if (Array.isArray(child) && child.length === 0) continue;
+          const text = typeof child === 'string' ? child : JSON.stringify(child);
+          if (!/^null$/i.test(text)) return { path: [...path, key].join('.'), detail: text.slice(0, 1000) };
+        }
+      }
+    }
+    const entries = Array.isArray(node) ? node.entries() : Object.entries(node);
+    for (const [key, child] of entries) {
+      const found = visit(child, depth + 1, [...path, String(key)]);
+      if (found) return found;
+    }
+    return null;
+  }
+  return visit(value, 0, []);
+}
+
+/**
+ * Parse and compact a JSON document inside the active browser page before it
+ * crosses the executor boundary. Large arrays are represented by bounded first
+ * and last samples while object metadata and scalar evidence are retained.
+ * This is endpoint-agnostic and prevents snapshot truncation from corrupting
+ * otherwise valid API evidence.
+ */
+async function extractStructuredDocumentText(ceoUserId, agentId) {
+  if (!currentExecutorSupportsEvaluate(ceoUserId)) return '';
+  const fn = `() => {
+    const raw = String((document.body && (document.body.innerText || document.body.textContent)) || '').trim();
+    if (!raw) return '';
+    let parsed;
+    try { parsed = JSON.parse(raw); } catch (_) { return ''; }
+    const compact = (value, depth = 0) => {
+      if (value == null || typeof value !== 'object') return value;
+      if (depth >= 10) return Array.isArray(value) ? { total_items: value.length } : '[max_depth]';
+      if (Array.isArray(value)) {
+        if (value.length <= 12) return value.map((item) => compact(item, depth + 1));
+        return {
+          total_items: value.length,
+          first_items: value.slice(0, 4).map((item) => compact(item, depth + 1)),
+          last_items: value.slice(-4).map((item) => compact(item, depth + 1)),
+        };
+      }
+      const out = {};
+      for (const [key, child] of Object.entries(value)) out[key] = compact(child, depth + 1);
+      return out;
+    };
+    return JSON.stringify(compact(parsed));
+  }`;
+  const actions = browserTaskContext.getStore()?.selected_node_id
+    ? [
+        ['act', { request: { kind: 'evaluate', fn }, fn, expression: fn }],
+        ['evaluate', { fn, expression: fn }],
+      ]
+    : [
+        ['evaluate', { fn, expression: fn }],
+        ['act', { request: { kind: 'evaluate', fn }, fn, expression: fn }],
+      ];
+  let lastError = null;
+  for (const [action, payload] of actions) {
+    try {
+      const ev = await browserInvoke(ceoUserId, action, payload, agentId);
+      let text = parseInvokeText(ev);
+      for (let depth = 0; depth < 4; depth += 1) {
+        try {
+          const parsed = JSON.parse(text);
+          const next = parsed?.result?.content?.[0]?.text
+            ?? parsed?.content?.[0]?.text
+            ?? parsed?.result
+            ?? parsed?.text;
+          if (next == null || next === text) break;
+          text = typeof next === 'string' ? next : JSON.stringify(next);
+        } catch {
+          break;
+        }
+      }
+      const structured = structuredReadOnlyDocumentEvidence(text);
+      if (structured) return structured.text;
+    } catch (e) {
+      lastError = e;
+    }
+  }
+  if (lastError) {
+    console.warn('[browser-task] structured document extraction failed: %s', lastError.message);
+  }
+  return '';
+}
+
 export function snapshotSummaryPrompt(goal, snapshot) {
   const flightGoal = /\b(flights?|airline|airport|nonstop|non-stop|cheapflights)\b/i.test(String(goal || ''));
   return (
@@ -1729,11 +1890,74 @@ async function runAutonomous(ceoUserId, taskId) {
     !/cheapflights\.com\/flight-search\//i.test(String(task.start_url)) &&
     !goalLooksInteractive(task.goal_text)
   ) {
+    const structuredText = await extractStructuredDocumentText(ceoUserId, agentId);
     const snapshot = await takeSnapshot(ceoUserId, agentId, { limit: 18000 });
     const domText = await extractVisibleDomText(ceoUserId, agentId);
     const combined = (domText
       ? `DOM_VISIBLE_TEXT:\n${domText}\n\nA11Y_SNIPPET:\n${String(snapshot || '').slice(0, 6000)}`
       : String(snapshot || '')).trim();
+    const structured = structuredReadOnlyDocumentEvidence(structuredText || domText || snapshot);
+    if (structured) {
+      const documentError = structuredDocumentError(structured.value);
+      if (documentError) {
+        const message = `Structured source returned an error at ${documentError.path}: ${documentError.detail}`;
+        steps.push({ t: nowIso(), action: 'structured_document_error', error: documentError });
+        updateTask(ceoUserId, taskId, {
+          status: 'failed',
+          error: message,
+          result: {
+            summary: message,
+            note: 'structured_document_error',
+            failure_code: 'DOWNSTREAM_REJECTION',
+            structured_error: documentError,
+            steps: steps.length,
+          },
+          steps,
+          wait_reason: null,
+        });
+        recordBrowserTaskOutcome(ceoUserId, getTask(ceoUserId, taskId), {
+          rating: 'down',
+          comment: message,
+          note: 'structured_document_error',
+        });
+        return;
+      }
+      const summary = completedTaskSummary(
+        await summarizeGoalFromSnapshot(ceoUserId, task.goal_text, structured.text),
+        task
+      );
+      const verification = {
+        satisfied: true,
+        reason: 'The requested read-only structured document was retrieved and parsed successfully.',
+        evidence: [structured.kind, task.start_url],
+        verifier: 'deterministic_structured_document',
+      };
+      steps.push({
+        t: nowIso(),
+        action: 'structured_document_retrieved',
+        chars: structured.text.length,
+        verification,
+      });
+      updateTask(ceoUserId, taskId, {
+        status: 'completed',
+        result: {
+          summary,
+          note: 'structured_document_retrieved',
+          verification,
+          structured_data: structured.value,
+          steps: steps.length,
+        },
+        steps,
+        wait_reason: null,
+      });
+      recordBrowserTaskOutcome(ceoUserId, getTask(ceoUserId, taskId), {
+        rating: 'up',
+        comment: summary,
+        note: 'structured_document_retrieved',
+      });
+      console.info('[browser-task] deterministic structured document id=%s chars=%s', taskId, structured.text.length);
+      return;
+    }
     if (combined.length > 800) {
       const summary = completedTaskSummary(
         await summarizeGoalFromSnapshot(ceoUserId, task.goal_text, combined),
@@ -1879,8 +2103,59 @@ async function runAutonomous(ceoUserId, taskId) {
     }
     if (act === 'retry') {
       console.warn('[browser-task] retry after parse_fallback id=%s step=%s', taskId, i + 1);
-      await sleep(800);
       parseFallbackStreak += 1;
+      // A controller formatting failure must not discard an already-observed,
+      // valid JSON/API document for a pure read/research goal.
+      if (!goalLooksInteractive(task.goal_text)) {
+        const structuredText = await extractStructuredDocumentText(ceoUserId, agentId);
+        const structured = structuredReadOnlyDocumentEvidence(structuredText || snapshot);
+        if (structured) {
+          const documentError = structuredDocumentError(structured.value);
+          if (documentError) {
+            const message = `Structured source returned an error at ${documentError.path}: ${documentError.detail}`;
+            steps.push({ t: nowIso(), action: 'structured_document_error', error: documentError });
+            updateTask(ceoUserId, taskId, {
+              status: 'failed',
+              error: message,
+              result: {
+                summary: message,
+                note: 'structured_document_error',
+                failure_code: 'DOWNSTREAM_REJECTION',
+                structured_error: documentError,
+                steps: steps.length,
+              },
+              steps,
+              wait_reason: null,
+            });
+            recordBrowserTaskOutcome(ceoUserId, getTask(ceoUserId, taskId), {
+              rating: 'down', comment: message, note: 'structured_document_error',
+            });
+            return;
+          }
+          const summary = completedTaskSummary(
+            decision.summary || (await summarizeGoalFromSnapshot(ceoUserId, task.goal_text, structured.text)),
+            task
+          );
+          const verification = {
+            satisfied: true,
+            reason: 'The requested read-only structured document was retrieved and parsed successfully.',
+            evidence: [structured.kind, task.start_url || 'current page'],
+            verifier: 'deterministic_structured_document',
+          };
+          steps.push({ t: nowIso(), action: 'structured_document_retrieved', verification });
+          updateTask(ceoUserId, taskId, {
+            status: 'completed',
+            result: { summary, note: 'structured_document_retrieved', verification, structured_data: structured.value, steps: steps.length },
+            steps,
+            wait_reason: null,
+          });
+          recordBrowserTaskOutcome(ceoUserId, getTask(ceoUserId, taskId), {
+            rating: 'up', comment: summary, note: 'structured_document_retrieved',
+          });
+          return;
+        }
+      }
+      await sleep(800);
       if (parseFallbackStreak >= 6) {
         console.warn('[browser-task] parse_fallback streak exhausted id=%s', taskId);
         exitNote = 'parse_fallback_exhausted';

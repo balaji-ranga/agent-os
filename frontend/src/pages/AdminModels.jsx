@@ -6,16 +6,19 @@ export default function AdminModels() {
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [eventPage, setEventPage] = useState(1);
 
-  const load = async () => {
+  const load = async (page = eventPage) => {
     try {
       setError('');
-      setData(await api.adminModelsGet());
+      const result = await api.adminModelsGet({ eventPage: page, eventPageSize: 25 });
+      setData(result);
+      setEventPage(result?.event_pagination?.page || page);
     } catch (e) {
       setError(e.message);
     }
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(1); }, []);
 
   const deployments = data?.deployments || [];
   const deploymentById = useMemo(
@@ -154,6 +157,18 @@ export default function AdminModels() {
             </tbody>
           </table>
         </div>
+        {data?.event_pagination && (
+          <div className="model-events-pagination" aria-label="Routing history pages">
+            <span>
+              Page {data.event_pagination.page} of {data.event_pagination.total_pages}
+              {' · '}{data.event_pagination.total_items} events
+            </span>
+            <div>
+              <button type="button" className="wf-btn" disabled={!data.event_pagination.has_previous || !!busy} onClick={() => load(eventPage - 1)}>Previous</button>
+              <button type="button" className="wf-btn" disabled={!data.event_pagination.has_next || !!busy} onClick={() => load(eventPage + 1)}>Next</button>
+            </div>
+          </div>
+        )}
       </section>
     </div>
   );

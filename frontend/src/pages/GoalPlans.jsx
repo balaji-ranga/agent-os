@@ -84,25 +84,33 @@ export default function GoalPlans() {
     let cancelled = false;
     setLoading(true);
     setErr('');
-    api
-      .agentGoalRunsList({
-        from: week.start_date,
-        to: week.end_date,
-        limit: 100,
-      })
-      .then((d) => {
-        if (!cancelled) setGoals(d.goals || []);
-      })
-      .catch((e) => {
-        if (!cancelled) setErr(e?.message || 'Failed to load goal plans');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+    const load = (initial = false) => api
+        .agentGoalRunsList({
+          from: week.start_date,
+          to: week.end_date,
+          limit: 100,
+        })
+        .then((d) => {
+          if (!cancelled) {
+            setGoals(d.goals || []);
+            setErr('');
+          }
+        })
+        .catch((e) => {
+          if (!cancelled && initial) setErr(e?.message || 'Failed to load goal plans');
+        })
+        .finally(() => {
+          if (!cancelled && initial) setLoading(false);
+        });
+    load(true);
+    // Current-week goal plans include a short-lived maker/checker planning
+    // state. Refresh quietly so it appears and advances without a page reload.
+    const timer = offset === 0 ? setInterval(() => load(false), 3000) : null;
     return () => {
       cancelled = true;
+      if (timer) clearInterval(timer);
     };
-  }, [week.start_date, week.end_date]);
+  }, [week.start_date, week.end_date, offset]);
 
   function setOffset(next) {
     const o = Math.min(0, Number(next) || 0);

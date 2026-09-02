@@ -17,7 +17,7 @@ import { getPlatformSetting, setPlatformSetting } from './platform-llm-settings.
 export const OPENCLAW_SESSION_CLEANUP_CRON_ID = 'openclaw_session_cleanup';
 const POLICY_KEY = 'openclaw_session_cleanup_policy';
 const TERMINAL = {
-  goal: new Set(['completed', 'failed', 'cancelled']),
+  goal: new Set(['completed', 'partial_success', 'failed', 'cancelled']),
   delegation: new Set(['completed', 'failed', 'cancelled']),
   kanban: new Set(['completed', 'failed', 'cancelled']),
   workflow: new Set(['completed', 'failed', 'cancelled']),

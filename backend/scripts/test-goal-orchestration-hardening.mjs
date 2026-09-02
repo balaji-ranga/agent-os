@@ -49,6 +49,12 @@ try {
   );
   assert.equal(approvalDenial.failure_class, 'policy_denial');
   assert.equal(approvalDenial.retryable, false);
+  const incompleteEvidence = classifyToolFailure(
+    Object.assign(new Error('Required browser recovery could not be independently verified.'), { code: 'EVIDENCE_INCOMPLETE' }),
+    { status: 503, code: 'EVIDENCE_INCOMPLETE' }
+  );
+  assert.equal(incompleteEvidence.failure_class, 'transient');
+  assert.equal(incompleteEvidence.retryable, true);
 
   const { toolNeedsAgentInterpretation } = await import('../src/services/goal-plan-tool-args.js');
   assert.equal(
@@ -68,10 +74,61 @@ try {
   assert.equal(delegationSessionUserForPrompt('ordinary task', 77), 'delegation-77');
   assert(!getPromptForFreshGoalRun(tagged).includes('MEMORY.md'));
 
+  const { attachToolCallsToChatTurns } = await import('../src/services/chat-tool-calls.js');
+  const toolLogInsert = db.prepare(`INSERT INTO content_tool_logs
+    (tool_name,source,request_payload,response_payload,status,owner_user_id,created_at)
+    VALUES (?,?,?,?,?,?,?)`);
+  for (let i = 0; i < 180; i += 1) {
+    toolLogInsert.run(`window_tool_${i}`, 't-test-owner--coo-test', '{}', '{"ok":true}', 'ok', owner,
+      `2026-01-01 00:${String(Math.floor(i / 60)).padStart(2, '0')}:${String(i % 60).padStart(2, '0')}`);
+  }
+  const enrichedToolTurns = attachToolCallsToChatTurns([
+    { id: 1, role: 'assistant', content: 'done', created_at: '2026-01-01 00:02:00' },
+  ], 'coo-test', owner);
+  assert(enrichedToolTurns[0].tool_calls.some((call) => call.tool_name === 'window_tool_179'),
+    'latest tool calls survive broad history enrichment windows');
+
   const { getAgentsUnderOrchestratorForCeo } = await import('../src/services/org-context.js');
   assert.deepEqual(getAgentsUnderOrchestratorForCeo(owner, 'content-orchestrator').map((a) => a.id), ['scene-agent']);
 
-  const { createGoalRun, completeGoalRun, completeGoalStep, getGoalRun, validateAndRepairGoalPlan } = await import('../src/services/agent-goal-run.js');
+  const {
+    createGoalRun,
+    createGoalPlanningRun,
+    updateGoalPlanningRun,
+    completeGoalRun,
+    completeGoalStep,
+    getGoalRun,
+    validateAndRepairGoalPlan,
+    assertRuntimeStepInputs,
+    finalizeGoalStepContracts,
+  } = await import('../src/services/agent-goal-run.js');
+  const provisional = createGoalPlanningRun({
+    ownerUserId: owner,
+    agentId: 'coo-test',
+    title: 'Visible maker checker planning',
+    prompt: 'Prepare a status report',
+    source: 'test',
+  });
+  assert.equal(provisional.status, 'planning');
+  assert.equal(provisional.steps[0].step_type, 'planning');
+  updateGoalPlanningRun(provisional.id, owner, {
+    phase: 'checker',
+    label: 'Validating plan independently',
+    detail: 'Checker round',
+  });
+  assert.equal(getGoalRun(provisional.id, owner).steps[0].spec.phase, 'checker');
+  const finalizedProvisional = createGoalRun({
+    ownerUserId: owner,
+    agentId: 'coo-test',
+    title: 'Visible maker checker planning',
+    prompt: 'Prepare a status report',
+    source: 'test',
+    goalRunId: provisional.id,
+    steps: [{ type: 'agent_tool', label: 'Check status', tool_name: 'status_checker', args: {} }],
+  });
+  assert.equal(finalizedProvisional.id, provisional.id, 'planning and execution keep one durable goal id');
+  assert.equal(finalizedProvisional.status, 'pending');
+  assert.equal(finalizedProvisional.steps.some((step) => step.step_type === 'planning'), false);
   assert.throws(
     () => createGoalRun({
       ownerUserId: owner,
@@ -81,6 +138,35 @@ try {
     }),
     /only to direct reportees/
   );
+
+  const dependencyGoal = createGoalRun({
+    ownerUserId: owner,
+    agentId: 'coo-test',
+    prompt: 'Run two dependent research steps.',
+    steps: [
+      { type: 'agent_tool', label: 'First', tool_name: 'status_checker' },
+      { type: 'agent_tool', label: 'Second', tool_name: 'status_checker', depends_on: ['0'] },
+    ],
+  });
+  assert.deepEqual(dependencyGoal.steps.slice(0, 2).map((step) => step.spec.step_key), ['0', '1']);
+  db.prepare("UPDATE agent_goal_steps SET status='completed', result_json=? WHERE id=?")
+    .run(JSON.stringify({ ok: true }), dependencyGoal.steps[0].id);
+  const legacySecond = db.prepare('SELECT * FROM agent_goal_steps WHERE id=?').get(dependencyGoal.steps[1].id);
+  assert.doesNotThrow(() => assertRuntimeStepInputs(dependencyGoal.id, legacySecond));
+
+  // A stale nested dependency from an older saved plan must never overwrite
+  // the runtime's repaired top-level contract and make step zero depend on itself.
+  const repairedContracts = finalizeGoalStepContracts([
+    { type: 'agent_tool', depends_on: [], spec: { step_key: '0', depends_on: ['0'], tool_name: 'market_history' } },
+    { type: 'agent_tool', depends_on: [0], spec: { step_key: '1', depends_on: ['1'], tool_name: 'market_fundamentals' } },
+  ]);
+  assert.deepEqual(repairedContracts[0].spec.depends_on, []);
+  assert.deepEqual(repairedContracts[1].spec.depends_on, ['0']);
+  // Simulate an old persisted source step that had no explicit key; numeric
+  // dependency resolution remains backward compatible via step_index.
+  db.prepare('UPDATE agent_goal_steps SET spec_json=? WHERE id=?')
+    .run(JSON.stringify({ tool_name: 'status_checker' }), dependencyGoal.steps[0].id);
+  assert.doesNotThrow(() => assertRuntimeStepInputs(dependencyGoal.id, legacySecond));
 
   const digestPrompt =
     'Every morning collect the company daily status, create a concise status digest, and email the digest to me.';
@@ -183,6 +269,30 @@ try {
   ).get(goal.id);
   assert.equal(JSON.parse(decision.payload_json).failure_class, 'quota_exhausted');
 
+  upsertExceptionPolicy(owner, { retry_limit: 0, create_kanban: false, agent_pickup: false });
+  const partialGoal = createGoalRun({
+    ownerUserId: owner,
+    agentId: 'coo-test',
+    prompt: 'Return every available symbol and identify missing evidence. Do not call notify_ceo.',
+    steps: [{ type: 'agent_tool', label: 'Market evidence', tool_name: 'status_checker' }],
+  });
+  const partialCompletion = completeGoalStep({
+    goalRunId: partialGoal.id,
+    stepId: partialGoal.steps[0].id,
+    ownerUserId: owner,
+    failed: true,
+    error: 'Browser recovery incomplete after executor attempts: XYXY not found',
+    result: {
+      status: 503,
+      failure_code: 'EVIDENCE_INCOMPLETE',
+      results: [{ symbol: 'AAPL', ok: true, result: { close: 250 } }],
+      errors: [{ symbol: 'XYXY', ok: false, error: 'not found' }],
+    },
+  });
+  assert.equal(partialCompletion.partial_success, true);
+  assert.equal(getGoalRun(partialGoal.id, owner).status, 'partial_success');
+  assert.equal(getGoalRun(partialGoal.id, owner).steps[0].status, 'completed');
+
   const retryGoal = createGoalRun({
     ownerUserId: owner,
     agentId: 'coo-test',
@@ -228,6 +338,34 @@ try {
   assert.equal(retained.status, 'awaiting_confirmation');
   assert.equal(retained.blocked_unresolved, true);
 
+  // Exception recovery must remain CEO-visible when its assigned agent cannot
+  // run due to budget, and reopen automatically after the budget is cleared.
+  const { setAgentBudget } = await import('../src/services/agent-budgets.js');
+  const { recordTokenUsage } = await import('../src/services/token-usage.js');
+  const { enqueueGoalPlanFailureKanban } = await import('../src/services/goal-plan-failure-kanban.js');
+  const { reconcileBudgetBlockedGoalRecoveryCards } = await import('../src/services/kanban-orphan-watcher.js');
+  upsertExceptionPolicy(owner, { retry_limit: 1, create_kanban: true, agent_pickup: true });
+  setAgentBudget(owner, 'coo-test', { monthly_token_budget: 1 });
+  recordTokenUsage(owner, { memberKey: 'coo-test', agentId: 'coo-test', source: 'test', inputTokens: 2 });
+  const budgetGoal = createGoalRun({
+    ownerUserId: owner,
+    agentId: 'coo-test',
+    prompt: 'Recover a failed scheduled goal visibly.',
+    steps: [{ type: 'agent_tool', label: 'Failing check', tool_name: 'status_checker' }],
+  });
+  db.prepare("UPDATE agent_goal_runs SET status='failed', error_message='schema mismatch' WHERE id=?").run(budgetGoal.id);
+  const budgetRecovery = await enqueueGoalPlanFailureKanban(budgetGoal.id);
+  assert.equal(budgetRecovery.awaiting_confirmation, true);
+  assert.equal(budgetRecovery.task_id, null);
+  assert.equal(db.prepare('SELECT status FROM kanban_tasks WHERE id=?').get(budgetRecovery.kanban_id).status, 'awaiting_confirmation');
+  db.prepare("UPDATE kanban_tasks SET status='failed' WHERE id=?").run(budgetRecovery.kanban_id);
+  const repairedBudgetCard = reconcileBudgetBlockedGoalRecoveryCards({ ownerUserId: owner });
+  assert.equal(repairedBudgetCard.awaiting, 1);
+  setAgentBudget(owner, 'coo-test', { monthly_token_budget: null });
+  const reopenedBudgetCard = reconcileBudgetBlockedGoalRecoveryCards({ ownerUserId: owner });
+  assert.equal(reopenedBudgetCard.reopened, 1);
+  assert.equal(db.prepare('SELECT status FROM kanban_tasks WHERE id=?').get(budgetRecovery.kanban_id).status, 'open');
+
   // completeGoalStep schedules its recovery-card audit asynchronously.
   await new Promise((resolve) => setTimeout(resolve, 150));
 
@@ -239,6 +377,7 @@ try {
     blocked_kanban_status: retained.status,
     retry_cards: retryCards.map((r) => r.status),
     capability_plan_sources: ['adhoc_chat', 'scheduled_goal'],
+    budget_recovery_card: 'awaiting_confirmation -> open',
   });
 } finally {
   try { database?.close(); } catch {}

@@ -22,6 +22,7 @@ import { healStuckKanbanForCompletedDelegations } from './kanban-workflow-stage.
 import { reconcileA2AKanbanForOwner } from './coo-status-checker.js';
 import { releaseDelegationRunLock } from './delegation-queue.js';
 import { isPlatformLocalOllama } from './platform-llm-settings.js';
+import { getMemberBudgetStatus } from './agent-budgets.js';
 
 const ORPHAN_TAG_RE = /\[orphan_retry:(\d+)\]/i;
 const PIPELINE_TAG = '[job_pipeline';
@@ -92,6 +93,66 @@ function isPermanentFailure(errorMessage) {
     );
   }
   return false;
+}
+
+/**
+ * Keep exception-policy recovery visible while its assigned agent is budget
+ * blocked. Once the budget is available again, reopen it so the ordinary
+ * orphan path creates a fresh delegation. This also repairs cards created by
+ * older releases that were marked failed immediately by the budget gate.
+ */
+export function reconcileBudgetBlockedGoalRecoveryCards({ ownerUserId = null, limit = 25 } = {}) {
+  const owner = String(ownerUserId || '').trim() || null;
+  const ownerSql = owner ? 'AND k.owner_user_id = ?' : '';
+  const args = owner ? [owner, limit] : [limit];
+  const rows = db()
+    .prepare(
+      `SELECT k.*, d.error_message AS delegation_error
+       FROM kanban_tasks k
+       LEFT JOIN agent_delegation_tasks d ON d.id = k.agent_delegation_task_id
+       WHERE k.created_by = 'exception-policy'
+         AND k.assigned_agent_id IS NOT NULL
+         AND k.status IN ('failed', 'awaiting_confirmation')
+         ${ownerSql}
+         AND (
+           lower(COALESCE(d.error_message, '')) LIKE '%budget%'
+           OR lower(COALESCE(d.error_message, '')) LIKE '%monthly token%'
+           OR k.description LIKE '%[SYSTEM recovery_blocker]%'
+         )
+       ORDER BY datetime(k.updated_at) ASC
+       LIMIT ?`
+    )
+    .all(...args);
+  let awaiting = 0;
+  let reopened = 0;
+  const details = [];
+  for (const row of rows) {
+    const status = getMemberBudgetStatus(row.owner_user_id, row.assigned_agent_id);
+    if (status.state === 'blocked') {
+      const reason = status.reasons.join('; ') || 'Agent execution budget is blocked.';
+      const marker = `[SYSTEM recovery_blocker] ${reason}`;
+      const description = String(row.description || '').includes('[SYSTEM recovery_blocker]')
+        ? row.description
+        : `${String(row.description || '').trim()}\n\n${marker}\nReset or increase the agent budget, then reopen this card to continue recovery.`;
+      db().prepare(
+        `UPDATE kanban_tasks
+         SET status = 'awaiting_confirmation', description = ?, updated_at = datetime('now')
+         WHERE id = ? AND status IN ('failed', 'awaiting_confirmation')`
+      ).run(description, row.id);
+      awaiting += 1;
+      details.push({ kanban_id: row.id, state: 'awaiting_confirmation', reason });
+      continue;
+    }
+    if (row.status === 'awaiting_confirmation') {
+      const description = `${String(row.description || '').trim()}\n\n[SYSTEM recovery_resumed] Agent budget is available; recovery reopened automatically.`;
+      db().prepare(
+        `UPDATE kanban_tasks SET status = 'open', description = ?, updated_at = datetime('now') WHERE id = ? AND status = 'awaiting_confirmation'`
+      ).run(description, row.id);
+      reopened += 1;
+      details.push({ kanban_id: row.id, state: 'open' });
+    }
+  }
+  return { scanned: rows.length, awaiting, reopened, details };
 }
 
 function resolvePromptFromKanban(kanban, oldDelegation) {
@@ -475,9 +536,15 @@ export async function runKanbanOrphanWatcher({ ownerUserId = null, limit = 25 } 
   } catch (e) {
     console.warn('[orphan-watcher] orphan human goal task:', e?.message || e);
   }
+  let budgetBlockedRecovery = { scanned: 0, awaiting: 0, reopened: 0, details: [] };
+  try {
+    budgetBlockedRecovery = reconcileBudgetBlockedGoalRecoveryCards({ ownerUserId: owner, limit });
+  } catch (e) {
+    console.warn('[orphan-watcher] budget-blocked goal recovery:', e?.message || e);
+  }
   if (isPlatformLocalOllama()) {
     console.info('[orphan-watcher] skip reinitiate on local Ollama (CPU cannot fan-out specialty retries)');
-    return { skipped: true, reason: 'local_ollama', owner_user_id: owner, orphan_human_goal_tasks: orphanHumanGoalTasks };
+    return { skipped: true, reason: 'local_ollama', owner_user_id: owner, orphan_human_goal_tasks: orphanHumanGoalTasks, budget_blocked_recovery: budgetBlockedRecovery };
   }
   const stale = recoverStaleSpecialtyProcessingDelegations({ ownerUserId: owner, limit });
   let statusOnly = { requeued: 0 };
@@ -569,6 +636,7 @@ export async function runKanbanOrphanWatcher({ ownerUserId = null, limit = 25 } 
     a2a_leaf_reconcile: a2aLeaf,
     stale_goal_continue: staleGoalContinue,
     orphan_human_goal_tasks: orphanHumanGoalTasks,
+    budget_blocked_recovery: budgetBlockedRecovery,
     process_pending,
   };
 }

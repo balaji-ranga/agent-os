@@ -243,6 +243,7 @@ export const api = {
       mode,
     }),
   agentChatSend: (id, message, userId = 'default', profileId = null, options = {}) => {
+    const { clientTurnId, ...requestOptions } = options || {};
     const tz =
       typeof Intl !== 'undefined'
         ? Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
@@ -254,9 +255,15 @@ export const api = {
         user_id: userId,
         tz,
         ...(profileId ? { profile_id: profileId } : {}),
+        ...(clientTurnId ? { client_turn_id: clientTurnId } : {}),
       },
-      options
+      requestOptions
     );
+  },
+  agentChatActivity: (id, turnId, userId = 'default') => {
+    const sp = new URLSearchParams();
+    if (userId) sp.set('user_id', userId);
+    return get(`/agents/${encodeURIComponent(id)}/chat/activity/${encodeURIComponent(turnId)}?${sp}`);
   },
   agentChatFromAgent: (toAgentId, fromAgentId, message) =>
     post(`/agents/${toAgentId}/chat/from-agent`, { from_agent_id: fromAgentId, message }),
@@ -802,7 +809,8 @@ export const api = {
   adminPlatformLlmGet: () => get('/admin/platform-llm'),
   adminPlatformLlmSet: (llm_active_endpoint) =>
     put('/admin/platform-llm', { llm_active_endpoint }),
-  adminModelsGet: () => get('/admin/models'),
+  adminModelsGet: ({ eventPage = 1, eventPageSize = 25 } = {}) =>
+    get(`/admin/models?event_page=${encodeURIComponent(eventPage)}&event_page_size=${encodeURIComponent(eventPageSize)}`),
   adminModelDeploymentSave: (id, payload) =>
     put(`/admin/models/deployments/${encodeURIComponent(id)}`, payload),
   adminModelDeploymentProbe: (id) =>

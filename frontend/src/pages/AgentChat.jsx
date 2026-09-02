@@ -10,6 +10,7 @@ import { buildMessageWithAttachments, uploadChatAttachments, buildDisplayAttachm
 import { parseApiDate } from '../utils/formatDateTime.js';
 import { useChatVoice, ChatVoiceBar, ChatVoiceCallOverlay } from '../components/ChatVoiceControls.jsx';
 import CompanyArchitecturePanel from '../components/CompanyArchitecturePanel.jsx';
+import ChatActivityIndicator, { useChatActivity } from '../components/ChatActivityIndicator.jsx';
 
 const secondaryBtn = {
   padding: '0.45rem 0.85rem',
@@ -339,6 +340,7 @@ export default function AgentChat() {
   const [operateBanner, setOperateBanner] = useState(null);
   const scrollRef = useRef(null);
   const abortControllerRef = useRef(null);
+  const { activity, startActivity, stopActivity } = useChatActivity(agentId, dataCeoUserId);
   const {
     recording,
     transcribing,
@@ -573,6 +575,7 @@ export default function AgentChat() {
     ]);
     const controller = new AbortController();
     abortControllerRef.current = controller;
+    const clientTurnId = startActivity();
     try {
       const uploaded = pendingFiles.length ? await uploadChatAttachments(pendingFiles) : [];
       const outbound = buildMessageWithAttachments(userText, uploaded);
@@ -595,6 +598,7 @@ export default function AgentChat() {
       }
       const r = await api.agentChatSend(agentId, outbound, dataCeoUserId || 'default', profileId, {
         signal: controller.signal,
+        clientTurnId,
       });
       if (r.session_reset?.auto_split) {
         revokeAttachmentPreviews(displayAttachments);
@@ -649,6 +653,7 @@ export default function AgentChat() {
         setInput(userText);
       }
     } finally {
+      await stopActivity();
       if (abortControllerRef.current === controller) {
         abortControllerRef.current = null;
         setSending(false);
@@ -1061,7 +1066,7 @@ export default function AgentChat() {
                     hideAudioAttachments={speakReply || calling}
                   />
                 ))}
-                {sending && <div style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>…</div>}
+                {sending && <ChatActivityIndicator activity={activity} />}
                 <ChatVoiceCallOverlay
                   calling={calling}
                   agentName={agentLabel}
@@ -1272,7 +1277,7 @@ export default function AgentChat() {
                   hideAudioAttachments={speakReply || calling}
                 />
               ))}
-              {sending && <div style={{ color: 'var(--muted)' }}>…</div>}
+              {sending && <ChatActivityIndicator activity={activity} />}
               <ChatVoiceCallOverlay
                 calling={calling}
                 agentName={agentLabel}

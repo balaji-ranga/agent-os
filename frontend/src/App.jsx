@@ -158,6 +158,33 @@ function Shell() {
     return () => window.removeEventListener('keydown', onKey);
   }, [mobileNavOpen]);
 
+  // Admin tables are rendered by several independent pages. Attach semantic
+  // mobile labels from their own headers so all current and future Admin data
+  // tables can collapse into readable cards without duplicating markup logic.
+  useEffect(() => {
+    if (user?.role !== 'admin') return undefined;
+    const root = document.getElementById('main-content');
+    if (!root) return undefined;
+    const labelTables = () => {
+      root.querySelectorAll('table').forEach((table) => {
+        const labels = [...table.querySelectorAll('thead th')].map((th) => th.textContent.trim());
+        if (!labels.length) return;
+        table.classList.add('admin-responsive-table');
+        table.querySelectorAll('tbody tr').forEach((row) => {
+          [...row.children].forEach((cell, index) => {
+            if (cell.tagName === 'TD' && !cell.hasAttribute('colspan')) {
+              cell.dataset.label = labels[index] || `Field ${index + 1}`;
+            }
+          });
+        });
+      });
+    };
+    labelTables();
+    const observer = new MutationObserver(labelTables);
+    observer.observe(root, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [user?.role, location.pathname]);
+
   useEffect(() => {
     if (!user || user.role !== 'ceo') {
       setSetupGatePending(false);
@@ -223,7 +250,7 @@ function Shell() {
 
   return (
     <NotificationProvider>
-    <div className={`app-shell ${navCollapsed && !isNarrow ? 'nav-collapsed' : ''} ${mobileNavOpen ? 'mobile-nav-open' : ''} ${focusMode ? 'shell-focus-mode' : ''}`}>
+    <div className={`app-shell ${user.role === 'admin' ? 'role-admin' : 'role-company'} ${navCollapsed && !isNarrow ? 'nav-collapsed' : ''} ${mobileNavOpen ? 'mobile-nav-open' : ''} ${focusMode ? 'shell-focus-mode' : ''}`}>
       <a href="#main-content" className="skip-link">
         Skip to main content
       </a>

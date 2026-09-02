@@ -200,7 +200,7 @@ export async function routeAgentTurn({
   const resolvedRequest = String(parsed?.resolved_request || message || '').trim() || String(message || '').trim();
   const parentWorkUnitId = selectedTurns.map((t) => t.work_unit_id).find(Boolean) || null;
   const parent = parentWorkUnitId ? db().prepare('SELECT status FROM chat_work_units WHERE id=? AND owner_user_id=?').get(parentWorkUnitId, ownerUserId) : null;
-  const terminalParent = ['completed', 'failed', 'cancelled'].includes(String(parent?.status || '').toLowerCase());
+  const terminalParent = ['completed', 'partial_success', 'failed', 'cancelled'].includes(String(parent?.status || '').toLowerCase());
   const restartRequested = parsed?.restart_requested === true;
   // The semantic router, not a phrase matcher, decides whether the CEO asked to
   // restart. Executable modes cannot silently relaunch terminal work.

@@ -192,9 +192,13 @@ function deploymentPublic(row) {
   };
 }
 
-export function getModelRoutingSnapshot({ eventLimit = 50 } = {}) {
+export function getModelRoutingSnapshot({ eventPage = 1, eventPageSize = 25 } = {}) {
   ensureModelRoutingTables();
   const db = getDb();
+  const pageSize = Math.min(Math.max(Number(eventPageSize) || 25, 1), 100);
+  const totalEvents = Number(db.prepare('SELECT COUNT(*) AS count FROM model_route_events').get()?.count || 0);
+  const totalPages = Math.max(1, Math.ceil(totalEvents / pageSize));
+  const page = Math.min(Math.max(Number(eventPage) || 1, 1), totalPages);
   const deployments = db.prepare('SELECT * FROM model_deployments ORDER BY builtin DESC, name').all().map(deploymentPublic);
   const routes = db.prepare(`
     SELECT r.*, p.name AS primary_name, f.name AS fallback_name
@@ -206,8 +210,8 @@ export function getModelRoutingSnapshot({ eventLimit = 50 } = {}) {
   const events = db.prepare(`
     SELECT id, route_alias, deployment_id, outcome, model_used, endpoint_host, source,
            latency_ms, error_message, created_at
-    FROM model_route_events ORDER BY created_at DESC LIMIT ?
-  `).all(Math.min(Math.max(Number(eventLimit) || 50, 1), 200));
+    FROM model_route_events ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?
+  `).all(pageSize, (page - 1) * pageSize);
   return {
     enabled: enabled(process.env.MODEL_ROUTING_ENABLED),
     gateway: {
@@ -218,6 +222,14 @@ export function getModelRoutingSnapshot({ eventLimit = 50 } = {}) {
     deployments,
     routes,
     events,
+    event_pagination: {
+      page,
+      page_size: pageSize,
+      total_items: totalEvents,
+      total_pages: totalPages,
+      has_previous: page > 1,
+      has_next: page < totalPages,
+    },
   };
 }
 

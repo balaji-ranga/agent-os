@@ -676,8 +676,8 @@ function ScheduledGoalsPanel() {
           No scheduled goals yet. Chat the COO: “Every hour, check MAGS and notify me if down 2%,” or create one above.
         </p>
       ) : (
-        <div style={{ overflowX: 'auto' }}>
-          <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+        <div className="sg-table-wrap">
+          <table className="data-table sg-goals-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
             <thead>
               <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border)' }}>
                 <th style={{ padding: '0.5rem' }}>Goal / prompt</th>
@@ -692,8 +692,8 @@ function ScheduledGoalsPanel() {
             <tbody>
               {filtered.map((g) => (
                 <Fragment key={g.id}>
-                <tr style={{ borderBottom: planOpenId === g.id ? 'none' : '1px solid var(--border)' }}>
-                  <td style={{ padding: '0.65rem 0.5rem', maxWidth: 320 }}>
+                <tr className="sg-goal-row" style={{ borderBottom: planOpenId === g.id ? 'none' : '1px solid var(--border)' }}>
+                  <td data-label="Goal / prompt" style={{ padding: '0.65rem 0.5rem', maxWidth: 320 }}>
                     <button
                       type="button"
                       onClick={() => openEdit(g)}
@@ -738,18 +738,18 @@ function ScheduledGoalsPanel() {
                       {String(g.prompt || '')}
                     </div>
                   </td>
-                  <td style={{ padding: '0.5rem' }}>
+                  <td data-label="Agent" style={{ padding: '0.5rem' }}>
                     <Link to={`/agents/${encodeURIComponent(g.agent_id)}/chat`}>{g.agent_name || g.agent_id}</Link>
                   </td>
-                  <td style={{ padding: '0.5rem' }}>{g.schedule_label}</td>
-                  <td style={{ padding: '0.5rem' }}>{g.ends_label || (g.is_perpetual ? 'Perpetual' : g.ends_at)}</td>
-                  <td style={{ padding: '0.5rem' }}>
+                  <td data-label="Schedule" style={{ padding: '0.5rem' }}>{g.schedule_label}</td>
+                  <td data-label="Ends" style={{ padding: '0.5rem' }}>{g.ends_label || (g.is_perpetual ? 'Perpetual' : g.ends_at)}</td>
+                  <td data-label="Status" style={{ padding: '0.5rem' }}>
                     <span className={statusClass(g.status)}>{g.status}{g.plan_status && g.plan_status !== 'none' ? ` · plan ${g.plan_status}` : ''}</span>
                     {Array.isArray(g.deliver_to) && g.deliver_to.includes('whatsapp') ? (
                       <div style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: 4 }}>Web + WhatsApp</div>
                     ) : null}
                   </td>
-                  <td style={{ padding: '0.5rem', fontSize: '0.8rem', color: 'var(--muted)' }}>
+                  <td data-label="Last run" style={{ padding: '0.5rem', fontSize: '0.8rem', color: 'var(--muted)' }}>
                     <div>{g.last_run_status || '—'}
                     {g.run_count ? ` · ${g.run_count} run(s)` : ''}</div>
                     <button
@@ -763,7 +763,7 @@ function ScheduledGoalsPanel() {
                       {planOpenId === g.id ? 'Hide plan' : 'Last plan'}
                     </button>
                   </td>
-                  <td style={{ padding: '0.5rem', minWidth: 200 }}>
+                  <td data-label="Actions" style={{ padding: '0.5rem', minWidth: 200 }}>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                       <button
                         type="button"
@@ -850,7 +850,7 @@ function ScheduledGoalsPanel() {
                   </td>
                 </tr>
                 {planOpenId === g.id ? (
-                  <tr key={`${g.id}-plan`} style={{ borderBottom: '1px solid var(--border)' }}>
+                  <tr className="sg-plan-row" key={`${g.id}-plan`} style={{ borderBottom: '1px solid var(--border)' }}>
                     <td colSpan={7} style={{ padding: '0.35rem 0.75rem 0.85rem' }}>
                       {planBusy === g.id ? (
                         <p style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>Loading plan...</p>
@@ -943,10 +943,34 @@ function ScheduledGoalsPanel() {
         .sg-plan-fields label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.78rem; }
         .sg-plan-fields label span { color: var(--muted); }
         .sg-plan-field-wide { grid-column: 1 / -1; }
+        .sg-table-wrap { width: 100%; max-width: 100%; overflow-x: auto; }
         @media (max-width: 640px) {
           .sg-plan-step-toolbar { flex-direction: column; align-items: stretch; }
           .sg-plan-step-actions { margin-left: 0; }
           .sg-plan-type, .sg-plan-label { max-width: none; width: 100%; }
+          .sg-table-wrap { overflow: visible; }
+          .sg-goals-table, .sg-goals-table tbody { display: block !important; overflow: visible !important; }
+          .sg-goals-table thead { display: none; }
+          .sg-goals-table .sg-goal-row {
+            display: block; margin-bottom: 0.9rem; padding: 0.35rem 0.7rem;
+            border: 1px solid var(--border) !important; border-radius: 12px;
+            background: var(--surface); box-shadow: var(--shadow-sm);
+          }
+          .sg-goals-table .sg-goal-row td {
+            display: grid; grid-template-columns: minmax(6.25rem, 34%) minmax(0, 1fr);
+            gap: 0.65rem; align-items: start; width: 100%; max-width: none !important;
+            min-width: 0 !important; padding: 0.55rem 0 !important;
+            border-bottom: 1px solid var(--border); white-space: normal !important;
+            overflow-wrap: anywhere;
+          }
+          .sg-goals-table .sg-goal-row td:last-child { border-bottom: 0; }
+          .sg-goals-table .sg-goal-row td::before {
+            content: attr(data-label); color: var(--muted); font-size: 0.72rem;
+            font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+          }
+          .sg-goals-table .sg-prompt-preview { white-space: normal !important; max-width: 100% !important; }
+          .sg-goals-table .sg-plan-row { display: block; margin: -0.55rem 0 0.9rem; }
+          .sg-goals-table .sg-plan-row td { display: block; width: 100%; padding: 0 !important; }
         }
       `}</style>
     </div>

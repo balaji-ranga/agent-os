@@ -7,7 +7,8 @@ import { goalOriginLabel, goalPlanTracePath } from './GoalPlanTelemetry';
 function statusColor(status) {
   const s = String(status || '').toLowerCase();
   if (s === 'completed') return 'var(--success, #16a34a)';
-  if (s === 'running' || s === 'in_progress') return 'var(--accent, #2563eb)';
+  if (s === 'partial_success') return 'var(--warning, #d97706)';
+  if (s === 'planning' || s === 'running' || s === 'in_progress') return 'var(--accent, #2563eb)';
   if (s === 'failed') return 'var(--danger, #dc2626)';
   return 'var(--muted)';
 }
@@ -155,10 +156,26 @@ export default function GoalPlanPanel({
           style={{
             width: `${Math.min(100, Math.max(0, pct))}%`,
             height: '100%',
-            background: statusColor(goal.status === 'failed' ? 'failed' : goal.status === 'completed' ? 'completed' : 'running'),
+            background: statusColor(goal.status === 'failed' ? 'failed' : goal.status === 'completed' ? 'completed' : goal.status === 'partial_success' ? 'partial_success' : 'running'),
           }}
         />
       </div>
+      {goal.status === 'planning' ? (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            marginBottom: 8,
+            padding: '0.5rem 0.6rem',
+            borderRadius: 7,
+            background: 'color-mix(in srgb, var(--accent) 8%, var(--surface))',
+            color: 'var(--muted)',
+            fontSize: '0.76rem',
+          }}
+        >
+          Maker/checker planning is in progress. Each round validates outcome coverage, dependencies, and executor fit before execution starts.
+        </div>
+      ) : null}
       <ol style={{ margin: 0, paddingLeft: '1.15rem', fontSize: '0.8rem' }}>
         {steps.map((s) => (
           <li key={s.id || s.step_index} style={{ marginBottom: 4 }}>

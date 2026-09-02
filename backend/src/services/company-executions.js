@@ -11,6 +11,7 @@ function parseJson(raw, fallback = null) {
 export function normalizeExecutionStatus(status) {
   const s = String(status || '').toLowerCase();
   if (['completed', 'complete', 'done', 'closed', 'success', 'succeeded'].includes(s)) return 'completed';
+  if (['partial_success', 'partial', 'completed_with_gaps'].includes(s)) return 'partial_success';
   if (['failed', 'error', 'cancelled', 'canceled'].includes(s)) return 'failed';
   if (['blocked', 'blocked_on_input', 'waiting', 'awaiting_approval', 'paused'].includes(s)) return 'blocked';
   if (['running', 'in_progress', 'active', 'recording', 'processing'].includes(s)) return 'running';
@@ -20,6 +21,7 @@ export function normalizeExecutionStatus(status) {
 export function verificationFromResult(status, result, error = null) {
   const normalized = normalizeExecutionStatus(status);
   if (normalized === 'failed') return { state: 'failed', evidence: [], error: error || result?.error || null };
+  if (normalized === 'partial_success') return { state: 'unverified', evidence: [], error: error || result?.error || 'Some expected outcomes remain incomplete.' };
   if (normalized !== 'completed') return { state: 'not_due', evidence: [], error: null };
   const r = result && typeof result === 'object' ? result : {};
   const evidence = collectTypedEvidence(r);

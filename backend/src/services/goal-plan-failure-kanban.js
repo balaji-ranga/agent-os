@@ -11,6 +11,7 @@ import { withOwnerScope } from './org-context.js';
 import { sendPlatformNotifications } from './platform-notifications.js';
 import { getPlatformSetting, setPlatformSetting } from './platform-llm-settings.js';
 import { getExceptionPolicy } from './exception-policy.js';
+import { getMemberBudgetStatus } from './agent-budgets.js';
 
 const TAG = '[goal_plan_recovery]';
 
@@ -122,7 +123,7 @@ export function buildGoalPlanRecoveryPrompt(goal, { steps = [], error = null } =
     `[ceo_user_id: ${goal?.owner_user_id || ''}]`,
     '',
     'SYSTEM — goal_plan_recovery (read carefully):',
-    'A durable multi-step goal plan failed. You must finish the CEO outcome via your normal Agent Chat tools',
+    `A durable multi-step goal plan ${goal?.status === 'partial_success' ? 'completed with missing outcomes' : 'failed'}. You must finish the CEO outcome via your normal Agent Chat tools`,
     '(same intelligence as free-form chat: infer tickers from MAG7/MAGS, fill tool args, summarize).',
     '',
     'HARD RULES:',
@@ -132,7 +133,7 @@ export function buildGoalPlanRecoveryPrompt(goal, { steps = [], error = null } =
     '- Use the step ladder below: do not redo successful steps unless needed for the report.',
     '- When done, mark this Kanban done (kanban_move_status completed) and optionally notify_ceo briefly.',
     '',
-    `Failed plan: ${id}`,
+    `Incomplete plan: ${id}`,
     `Title: ${title}`,
     failErr ? `Terminal error: ${clip(failErr, 500)}` : '',
     '',
@@ -166,8 +167,8 @@ export async function enqueueGoalPlanFailureKanban(goalRunId, opts = {}) {
   if (!goal) return { ok: false, error: 'goal not found' };
   // owner-scoped re-fetch for tenants always ok for system path
   const scoped = getGoalRun(id, goal.owner_user_id) || goal;
-  if (String(scoped.status || '') !== 'failed' && !opts.force) {
-    return { ok: false, skipped: true, reason: 'not_failed' };
+  if (!['failed', 'partial_success'].includes(String(scoped.status || '')) && !opts.force) {
+    return { ok: false, skipped: true, reason: 'not_incomplete' };
   }
 
   const ctx =
@@ -188,6 +189,13 @@ export async function enqueueGoalPlanFailureKanban(goalRunId, opts = {}) {
   }
 
   const steps = Array.isArray(scoped.steps) ? scoped.steps : [];
+  const recoveryStep = [...steps].reverse().find((step) => {
+    if (String(step.status) === 'failed') return true;
+    const result = step?.result && typeof step.result === 'object'
+      ? step.result
+      : parseJson(step?.result_json, {});
+    return result?.partial_success === true;
+  });
   const agentId = resolveGoalFailureAssignee(scoped, steps);
   const agent = exceptionPolicy.agent_pickup ? db()
     .prepare('SELECT id, name, openclaw_agent_id, is_coo FROM agents WHERE lower(id) = lower(?)')
@@ -231,10 +239,16 @@ export async function enqueueGoalPlanFailureKanban(goalRunId, opts = {}) {
     scoped.owner_user_id
   );
 
-  const requestId = agent
+  const budgetStatus = agent ? getMemberBudgetStatus(scoped.owner_user_id, agent.id) : null;
+  const budgetBlocked = budgetStatus?.state === 'blocked';
+  const budgetReason = budgetBlocked
+    ? budgetStatus.reasons.join('; ') || 'The assigned agent is blocked by its execution budget.'
+    : '';
+
+  const requestId = agent && !budgetBlocked
     ? `goal-fail-${String(id).replace(/[^a-zA-Z0-9-]/g, '').slice(0, 40)}-${Date.now()}`
     : null;
-  const info = agent ? db()
+  const info = agent && !budgetBlocked ? db()
     .prepare(
       `INSERT INTO agent_delegation_tasks (standup_id, request_id, to_agent_id, prompt, status, owner_user_id)
        VALUES (?, ?, ?, ?, 'pending', ?)`
@@ -245,6 +259,9 @@ export async function enqueueGoalPlanFailureKanban(goalRunId, opts = {}) {
   const title = clip(`Goal recovery: ${scoped.title || id}`, 120) || `Goal recovery ${id}`;
   const description = [
     prompt,
+    budgetBlocked
+      ? `\n[SYSTEM recovery_blocker] ${budgetReason}\nReset or increase the agent budget, then reopen this card to continue recovery.`
+      : '',
     '',
     'owner_user_id: ' + scoped.owner_user_id,
     'created_by_agent: goal-run-recovery',
@@ -256,21 +273,22 @@ export async function enqueueGoalPlanFailureKanban(goalRunId, opts = {}) {
       `INSERT INTO kanban_tasks
          (title, description, status, assigned_agent_id, created_by, standup_id,
           agent_delegation_task_id, owner_user_id, goal_run_id, goal_step_id)
-       VALUES (?, ?, 'open', ?, ?, ?, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       title,
       description,
+      budgetBlocked ? 'awaiting_confirmation' : 'open',
       agent?.id || null,
       'exception-policy',
       standupId,
       taskId,
       scoped.owner_user_id,
       id,
-      [...steps].reverse().find((s) => String(s.status) === 'failed')?.id || null
+      recoveryStep?.id || null
     );
   const kanbanId = Number(kInfo.lastInsertRowid);
-  const failedStepId = [...steps].reverse().find((s) => String(s.status) === 'failed')?.id || null;
+  const failedStepId = recoveryStep?.id || null;
   if (failedStepId) {
     db()
       .prepare('UPDATE agent_goal_steps SET exception_kanban_id = ? WHERE id = ?')
@@ -282,6 +300,7 @@ export async function enqueueGoalPlanFailureKanban(goalRunId, opts = {}) {
   ctx.failure_recovery_task_id = taskId;
   ctx.failure_recovery_request_id = requestId;
   ctx.failure_recovery_agent_id = agent?.id || null;
+  ctx.failure_recovery_blocker = budgetBlocked ? budgetReason : null;
   try {
     db()
       .prepare(
@@ -297,7 +316,10 @@ export async function enqueueGoalPlanFailureKanban(goalRunId, opts = {}) {
       userIds: [scoped.owner_user_id],
       title: clip(`Goal recovery Kanban: ${scoped.title || id}`, 100),
       body: clip(
-        agent
+        budgetBlocked
+          ? `${id} failed — recovery task #${kanbanId} is awaiting CEO action because ${budgetReason}. ` +
+            'Reset or increase the agent budget, then reopen the card to continue.'
+          : agent
           ? `${id} failed — recovery task #${kanbanId} assigned to ${agent.name || agent.id}. ` +
             `The agent will continue via chat tools (not a new goal plan).`
           : `${id} failed — recovery task #${kanbanId} requires user action to rectify the failed step and continue.`,
@@ -326,5 +348,7 @@ export async function enqueueGoalPlanFailureKanban(goalRunId, opts = {}) {
     task_id: taskId,
     request_id: requestId,
     agent_id: agent?.id || null,
+    awaiting_confirmation: budgetBlocked,
+    blocker: budgetBlocked ? budgetReason : null,
   };
 }

@@ -52,6 +52,7 @@
     ,"test:human-goal-kanban-delete": "node scripts/test-human-goal-kanban-delete-lifecycle.mjs"
     ,"test:goal-plan:stress": "node scripts/test-goal-planning-execution-stress.mjs"
     ,"test:model-routing": "node scripts/test-model-routing-registry.mjs"
+    ,"test:chat-live-activity": "node scripts/test-chat-live-activity.mjs"
   },
   "dependencies": {
     "@stoqey/ib": "^1.6.3",

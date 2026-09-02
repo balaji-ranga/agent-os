@@ -5,6 +5,7 @@ import ChatComposeInput from './ChatComposeInput';
 import { useAuth } from '../context/AuthContext';
 import { buildMessageWithAttachments, uploadChatAttachments, buildDisplayAttachmentsFromFiles, revokeAttachmentPreviews } from '../utils/chatAttachments.js';
 import { useChatVoice, ChatVoiceBar, ChatVoiceCallOverlay } from './ChatVoiceControls.jsx';
+import ChatActivityIndicator, { useChatActivity } from './ChatActivityIndicator.jsx';
 
 /**
  * Embeddable chat panel for an OpenClaw agent.
@@ -25,6 +26,7 @@ export default function AgentChatPanel({
   const [agentMeta, setAgentMeta] = useState(null);
   const scrollRef = useRef(null);
   const abortControllerRef = useRef(null);
+  const { activity, startActivity, stopActivity } = useChatActivity(agentId, dataCeoUserId);
   const {
     recording,
     transcribing,
@@ -83,6 +85,7 @@ export default function AgentChatPanel({
     ]);
     const controller = new AbortController();
     abortControllerRef.current = controller;
+    const clientTurnId = startActivity();
     try {
       const uploaded = files.length ? await uploadChatAttachments(files) : [];
       const outbound = buildMessageWithAttachments(userText, uploaded);
@@ -105,6 +108,7 @@ export default function AgentChatPanel({
       }
       const r = await api.agentChatSend(agentId, outbound, dataCeoUserId || 'default', profileId, {
         signal: controller.signal,
+        clientTurnId,
       });
       const reply = r.reply;
       setTurns((prev) => [
@@ -126,6 +130,7 @@ export default function AgentChatPanel({
       revokeAttachmentPreviews(displayAttachments);
       if (!cancelled) throw e;
     } finally {
+      await stopActivity();
       if (abortControllerRef.current === controller) {
         abortControllerRef.current = null;
         setSending(false);
@@ -200,7 +205,7 @@ export default function AgentChatPanel({
             hideAudioAttachments={speakReply || calling}
           />
         ))}
-        {sending && <div style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>…</div>}
+        {sending && <ChatActivityIndicator activity={activity} />}
         <ChatVoiceCallOverlay
           calling={calling}
           agentName={agentMeta?.name}

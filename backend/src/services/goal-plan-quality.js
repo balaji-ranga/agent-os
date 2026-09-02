@@ -416,7 +416,17 @@ function checkerPreference(ownerUserId, makerResult) {
   return cfg.secondary?.baseUrl && cfg.secondary?.model ? 'secondary' : 'ollama';
 }
 
-export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, prompt, candidateSteps, checkerEndpointPreference = null }) {
+async function reportPlanProgress(onProgress, progress) {
+  if (typeof onProgress !== 'function') return;
+  try {
+    await onProgress(progress);
+  } catch (error) {
+    // Visibility must never become a new execution dependency.
+    console.warn('[goal-plan-quality] progress callback failed', error?.message || error);
+  }
+}
+
+export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, prompt, candidateSteps, checkerEndpointPreference = null, onProgress = null }) {
   const catalog = await buildCatalog(ownerUserId, orchestratorAgentId);
   // The catalog router is deterministic and may already have produced a fully
   // executable contract. Keep that validated contract as a recovery point so
@@ -427,6 +437,13 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
   let madeValidation = { ok: false, errors: ['Maker has not run'] };
   let rejectedPlan = null;
   for (let attempt = 1; attempt <= 3; attempt += 1) {
+    await reportPlanProgress(onProgress, {
+      phase: 'maker',
+      label: attempt === 1 ? 'Building executable plan' : 'Correcting maker plan',
+      detail: `Maker round ${attempt} of 3`,
+      attempt,
+      max_attempts: 3,
+    });
     maker = await chatCompletions({
       ownerUserId,
       toolName: 'goal_plan_maker',
@@ -447,6 +464,13 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
       if (!coverage.ok) madeValidation = coverage;
     }
     if (madeValidation.ok) break;
+    await reportPlanProgress(onProgress, {
+      phase: 'maker_retry',
+      label: 'Maker plan needs correction',
+      detail: `Validation found ${madeValidation.errors.length} contract issue${madeValidation.errors.length === 1 ? '' : 's'}`,
+      attempt,
+      max_attempts: 3,
+    });
     console.warn('[goal-plan-quality] maker contract retry', { attempt, errors: madeValidation.errors.slice(0, 12) });
   }
   if (!madeValidation.ok) {
@@ -473,6 +497,11 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
     ? String(checkerEndpointPreference)
     : null;
   const preference = requestedChecker || checkerPreference(ownerUserId, maker);
+  await reportPlanProgress(onProgress, {
+    phase: 'checker',
+    label: 'Validating plan independently',
+    detail: 'Checker is reviewing coverage, dependencies, and executor fit',
+  });
   const checkerRequestFor = (plan, endpointPreference) => ({
     ownerUserId,
     toolName: 'goal_plan_checker',
@@ -509,6 +538,11 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
   } catch (error) {
     if (preference === 'secondary') {
       checkerEndpoint = 'ollama';
+      await reportPlanProgress(onProgress, {
+        phase: 'checker_fallback',
+        label: 'Retrying plan validation',
+        detail: 'The independent checker is using its configured fallback',
+      });
       try {
         check = await chatCompletions(checkerRequestFor(made, 'ollama'));
       } catch (fallbackError) {
@@ -547,6 +581,11 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
   if (verdict.approved !== true && !acceptedCheckerRevision) {
     // If the checker's proposed correction is not a valid typed contract,
     // repair remains the maker's responsibility.
+    await reportPlanProgress(onProgress, {
+      phase: 'maker_repair',
+      label: 'Repairing plan after review',
+      detail: 'Maker is applying checker feedback',
+    });
     const repair = await chatCompletions({
       ownerUserId,
       toolName: 'goal_plan_maker',
@@ -586,6 +625,11 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
       selectedValidation = validateTypedGoalPlan(selected, catalog);
     }
     if (selectedValidation.ok) {
+      await reportPlanProgress(onProgress, {
+        phase: 'final_checker',
+        label: 'Running final plan validation',
+        detail: 'Checker is validating the repaired plan',
+      });
       let finalCheck;
       try {
         finalCheck = await chatCompletions(checkerRequestFor(selected, checkerEndpoint));
@@ -634,6 +678,12 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
       throw new Error(`Goal-plan checker rejected the plan without a valid repair: ${[...judgeIssues, ...selectedValidation.errors].join('; ')}`);
     }
   }
+  await reportPlanProgress(onProgress, {
+    phase: 'complete',
+    label: 'Plan validated',
+    detail: `${selected.length} executable step${selected.length === 1 ? '' : 's'} ready`,
+    status: 'completed',
+  });
   return {
     steps: selected,
     quality: {
