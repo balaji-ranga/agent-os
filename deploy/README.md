@@ -14,6 +14,7 @@ Works with **Docker Compose** and **Podman Compose** on CentOS/RHEL, Ubuntu (Hos
 | `frontend` | Yes | internal | React SPA (Vite build) on login subdomain |
 | `backend` | Yes | internal | API, cron, workflows, SQLite, master-data, feedback, BYOK |
 | `openclaw` | Yes | internal | Gateway :18789, browser tool, skills/plugins |
+| `litellm` | Yes | internal `:4000` only | Private model gateway for platform Primary/Secondary and Ollama routes |
 | `init` | First run | — | One-shot bootstrap (`--profile init`) |
 | `mcp-random-sse` | Optional | internal | Dev MCP + SSE test server (`optional-mcp`) |
 | `brave-search-mcp` | Optional | internal | Platform Brave Search MCP BYOK (`optional-brave-mcp`) |
@@ -26,6 +27,7 @@ Works with **Docker Compose** and **Podman Compose** on CentOS/RHEL, Ubuntu (Hos
 | `openconnector` | Optional | internal | Real OpenConnector runtime, `:3000` (`optional-openconnector`) |
 | `openconnector-mcp-mock` | Optional | internal | OpenConnector MCP mock, `:3105` (`optional-openconnector-mock`) |
 | `ollama` | Optional | internal | Local LLM fallback for OpenClaw / BYOK |
+| `vllm` | Deferred | internal | Future CPU/GPU model host (`optional-vllm`; not started normally) |
 | `novnc` | Optional | 6080 | Desktop for manual job-portal login |
 
 ## Volumes (persist)
@@ -839,6 +841,10 @@ USE_PODMAN=1 ./scripts/up.sh
 curl -k https://localhost/health
 curl -k https://localhost/api/health
 ```
+
+### Model router
+
+`scripts/ensure-model-router-env.sh` creates the private LiteLLM key and derives model adapter names from the existing Primary, Secondary, and Ollama settings. No gateway port is published. Admins inspect routing under **Admin → Models & routing**. Set `MODEL_ROUTING_ENABLED=0` and redeploy to return platform-managed calls to the existing direct providers without deleting registry state. See `knowledgebase/MODEL-REGISTRY-LITELLM-OPERATIONS.md`.
 
 From repo (against deployed URL):
 

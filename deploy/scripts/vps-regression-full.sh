@@ -34,7 +34,7 @@ if [[ -f "$ROOT/tests/regression-full.js" ]]; then
   docker compose cp "$ROOT/tests/lib/ceo-session.js" backend:/opt/agent-os/tests/lib/ceo-session.js
 fi
 
-for script in regression-test-user.mjs test-chat-context-boundaries.mjs test-delegation-result-callback.mjs test-company-llm-design.mjs; do
+for script in regression-test-user.mjs test-chat-context-boundaries.mjs test-delegation-result-callback.mjs test-company-llm-design.mjs test-model-routing-registry.mjs; do
   if [[ -f "$ROOT/backend/scripts/$script" ]]; then
     docker compose cp "$ROOT/backend/scripts/$script" "backend:/opt/agent-os/backend/scripts/$script"
   fi

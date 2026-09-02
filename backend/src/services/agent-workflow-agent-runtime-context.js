@@ -17,11 +17,16 @@ import {
 
 export function defaultBrainConfig() {
   const cfg = defaultNodeConfig('brain');
+  const routed = process.env.MODEL_ROUTING_ENABLED === '1' || process.env.MODEL_ROUTING_ENABLED === 'true';
   return {
     ...cfg,
-    modelSource: process.env.BRAIN_MCP_TEST_PROVIDER === 'openai' ? 'openai' : 'ollama',
-    apiEndpoint: process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434/v1',
-    model: resolveOllamaChatModel(process.env.OLLAMA_MODEL || process.env.OPENCLAW_OLLAMA_MODEL || 'llama3.2'),
+    modelSource: routed ? 'route' : (process.env.BRAIN_MCP_TEST_PROVIDER === 'openai' ? 'openai' : 'ollama'),
+    apiEndpoint: routed
+      ? (process.env.LITELLM_BASE_URL || 'http://litellm:4000/v1')
+      : (process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434/v1'),
+    model: routed
+      ? 'flolah-efficiency'
+      : resolveOllamaChatModel(process.env.OLLAMA_MODEL || process.env.OPENCLAW_OLLAMA_MODEL || 'llama3.2'),
     maxTokens: 512,
     systemPrompt: 'You are a concise assistant.\n\nContext:\n{{input}}',
     mcpToolCalling: false,

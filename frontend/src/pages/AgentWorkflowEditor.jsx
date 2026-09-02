@@ -1607,7 +1607,7 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
                 />
                 <small>Base URL only (no /chat/completions). OpenRouter: https://openrouter.ai/api/v1</small>
               </label>
-              <label className="wf-field">
+              {(data.taskConfig?.modelSource || 'openai') !== 'route' && <label className="wf-field">
                 API key (required on Brain node)
                 <VaultOrLiteralSecret
                   literalValue={data.taskConfig?.apiKey || ''}
@@ -1638,7 +1638,10 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
                     http://ollama:11434/v1 and model deepseek-v3 (no key).
                   </small>
                 )}
-              </label>
+              </label>}
+              {(data.taskConfig?.modelSource || 'openai') === 'route' && (
+                <p className="wf-field-help">Credentials and failover are managed by Admin → Models &amp; routing.</p>
+              )}
               <label className="wf-field">
                 Model name
                 <input

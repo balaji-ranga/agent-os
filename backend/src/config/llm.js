@@ -10,6 +10,10 @@ import {
   shouldUseEfficiencyOllama,
   getEfficiencyOllamaLlmConfig,
 } from '../services/llm-efficiency-mode.js';
+import {
+  maybeRouteThroughModelGateway,
+  recordModelRouteEvent,
+} from '../services/model-routing-registry.js';
 
 export function isLocalOllama(baseUrl) {
   if (!baseUrl || typeof baseUrl !== 'string') return false;
@@ -143,7 +147,14 @@ export async function resolveChatCompletionsConfig({
   const preference = String(endpointPreference || 'default').toLowerCase();
   if (preference === 'ollama') {
     const cfg = getEfficiencyOllamaLlmConfig();
-    return { cfg, effectiveModel: String(cfg.primary?.model || '').trim(), efficiencyMode: true };
+    return {
+      ...maybeRouteThroughModelGateway({
+        cfg,
+        effectiveModel: String(cfg.primary?.model || '').trim(),
+        routeAlias: 'flolah-efficiency',
+      }),
+      efficiencyMode: true,
+    };
   }
   if (preference === 'primary' || preference === 'secondary' || preference === 'platform_primary') {
     const resolved = preference === 'platform_primary'
@@ -162,9 +173,12 @@ export async function resolveChatCompletionsConfig({
       provider: resolved.provider,
       using_byok: resolved.using_byok,
     };
+    const effectiveModel = String(modelOverride || selected.model || '').trim();
+    const routeAlias = preference === 'secondary'
+      ? 'flolah-platform-secondary'
+      : 'flolah-platform-primary';
     return {
-      cfg,
-      effectiveModel: String(modelOverride || selected.model || '').trim(),
+      ...maybeRouteThroughModelGateway({ cfg, effectiveModel, routeAlias }),
       efficiencyMode: isLocalOllama(selected.baseUrl),
     };
   }
@@ -176,8 +190,11 @@ export async function resolveChatCompletionsConfig({
       model: cfg.primary?.model || null,
     });
     return {
-      cfg,
-      effectiveModel: String(cfg.primary?.model || '').trim(),
+      ...maybeRouteThroughModelGateway({
+        cfg,
+        effectiveModel: String(cfg.primary?.model || '').trim(),
+        routeAlias: 'flolah-efficiency',
+      }),
       efficiencyMode: true,
     };
   }
@@ -192,7 +209,18 @@ export async function resolveChatCompletionsConfig({
       console.warn('[llm] tool model override skipped: %s', e?.message || e);
     }
   }
-  return { cfg, effectiveModel, efficiencyMode: false };
+  // Explicit model/tool overrides retain their provider-specific direct path.
+  // Logical platform traffic uses the registry alias when the gateway flag is enabled.
+  if (modelOverride || (toolName && effectiveModel !== cfg.primary.model)) {
+    return { cfg, effectiveModel, efficiencyMode: false, routeAlias: null };
+  }
+  const routeAlias = cfg.platform_endpoint === 'secondary'
+    ? 'flolah-platform-secondary'
+    : 'flolah-platform-primary';
+  return {
+    ...maybeRouteThroughModelGateway({ cfg, effectiveModel, routeAlias }),
+    efficiencyMode: false,
+  };
 }
 
 /**
@@ -217,7 +245,7 @@ export async function chatCompletions({
   endpointPreference = 'default',
   thinkingMode = null,
 }) {
-  const { cfg, effectiveModel, efficiencyMode } = await resolveChatCompletionsConfig({
+  const { cfg, effectiveModel, efficiencyMode, routeAlias = null } = await resolveChatCompletionsConfig({
     ownerUserId,
     toolName,
     modelOverride,
@@ -236,6 +264,7 @@ export async function chatCompletions({
   }
 
   let lastErr;
+  const routeStartedAt = Date.now();
   for (const ep of endpoints) {
     if (!ep.apiKey && !isLocalOllama(ep.baseUrl)) continue;
     console.info('[llm] chatCompletions try', {
@@ -336,6 +365,18 @@ export async function chatCompletions({
         } catch (meterErr) {
           console.warn('[llm] token meter skipped: %s', meterErr?.message || meterErr);
         }
+        if (routeAlias) {
+          recordModelRouteEvent({
+            routeAlias,
+            deploymentId: 'litellm-gateway',
+            outcome: 'success',
+            modelUsed: ep.model,
+            endpointHost: endpointHost(ep.baseUrl),
+            source: source || toolName || 'chat_completions',
+            ownerUserId,
+            latencyMs: Date.now() - routeStartedAt,
+          });
+        }
         return {
           content: text,
           modelUsed: ep.model,
@@ -363,6 +404,18 @@ export async function chatCompletions({
       lastErr = e instanceof Error ? e : new Error(String(e));
     }
   }
-
+  if (routeAlias) {
+    recordModelRouteEvent({
+      routeAlias,
+      deploymentId: 'litellm-gateway',
+      outcome: 'failed',
+      modelUsed: effectiveModel,
+      endpointHost: endpointHost(primary?.baseUrl),
+      source: source || toolName || 'chat_completions',
+      ownerUserId,
+      latencyMs: Date.now() - routeStartedAt,
+      errorMessage: lastErr?.message,
+    });
+  }
   throw lastErr || new Error('No model available');
 }

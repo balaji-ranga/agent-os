@@ -213,6 +213,13 @@ export function AdminNavMenu({ collapsed }) {
         {collapsed ? 'CR' : 'Crons'}
       </NavLink>
       <NavLink
+        to="/admin/models"
+        className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+        title="Models and routing"
+      >
+        {collapsed ? 'MR' : 'Models & routing'}
+      </NavLink>
+      <NavLink
         to="/admin/documents-rag"
         className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
         title="Platform Documents RAG"

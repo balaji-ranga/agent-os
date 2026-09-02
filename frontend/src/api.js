@@ -802,6 +802,13 @@ export const api = {
   adminPlatformLlmGet: () => get('/admin/platform-llm'),
   adminPlatformLlmSet: (llm_active_endpoint) =>
     put('/admin/platform-llm', { llm_active_endpoint }),
+  adminModelsGet: () => get('/admin/models'),
+  adminModelDeploymentSave: (id, payload) =>
+    put(`/admin/models/deployments/${encodeURIComponent(id)}`, payload),
+  adminModelDeploymentProbe: (id) =>
+    post(`/admin/models/deployments/${encodeURIComponent(id)}/probe`, {}),
+  adminModelRouteSave: (alias, payload) =>
+    put(`/admin/models/routes/${encodeURIComponent(alias)}`, payload),
   adminA2AInvocations: (params = {}) => {
     const q = new URLSearchParams();
     if (params.outcome) q.set('outcome', params.outcome);

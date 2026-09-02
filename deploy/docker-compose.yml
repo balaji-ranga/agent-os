@@ -38,6 +38,9 @@ name: agent-os
 
 # Shared LLM/provider env — OpenClaw gateway reads these from process environment.
 x-llm-env: &llm-env
+  MODEL_ROUTING_ENABLED: ${MODEL_ROUTING_ENABLED:-0}
+  LITELLM_BASE_URL: ${LITELLM_BASE_URL:-http://litellm:4000/v1}
+  LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-}
   OPENAI_API_KEY: ${OPENAI_API_KEY:-}
   OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
   OPENAI_PRIMARY_API_KEY: ${OPENAI_PRIMARY_API_KEY:-}
@@ -760,6 +763,50 @@ services:
       - ollama_data:/root/.ollama:Z
     expose:
       - "11434"
+
+  # Internal model gateway. It fronts existing remote OpenAI/DeepSeek and local
+  # Ollama deployments; no host port is published.
+  litellm:
+    image: ${LITELLM_IMAGE:-docker.litellm.ai/berriai/litellm:main-latest}
+    restart: unless-stopped
+    command: ["--config", "/app/config.yaml", "--host", "0.0.0.0", "--port", "4000"]
+    environment:
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-}
+      OPENAI_PRIMARY_BASE_URL: ${OPENAI_PRIMARY_BASE_URL:-${OPENAI_BASE_URL:-https://api.openai.com/v1}}
+      OPENAI_PRIMARY_API_KEY: ${OPENAI_PRIMARY_API_KEY:-${OPENAI_API_KEY:-}}
+      OPENAI_SECONDARY_BASE_URL: ${OPENAI_SECONDARY_BASE_URL:-https://api.openai.com/v1}
+      OPENAI_SECONDARY_API_KEY: ${OPENAI_SECONDARY_API_KEY:-}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+      LITELLM_PRIMARY_MODEL_SPEC: ${LITELLM_PRIMARY_MODEL_SPEC:-openai/gpt-4o-mini}
+      LITELLM_SECONDARY_MODEL_SPEC: ${LITELLM_SECONDARY_MODEL_SPEC:-openai/gpt-4o-mini}
+      LITELLM_OLLAMA_MODEL_SPEC: ${LITELLM_OLLAMA_MODEL_SPEC:-ollama_chat/llama3.2}
+      LITELLM_REASONING_MODEL_SPEC: ${LITELLM_REASONING_MODEL_SPEC:-ollama_chat/deepseek-r1:8b}
+    volumes:
+      - ./litellm/config.yaml:/app/config.yaml:ro
+    expose:
+      - "4000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:4000/health/liveliness', timeout=5)\""]
+      interval: 20s
+      timeout: 8s
+      retries: 10
+      start_period: 45s
+
+  # Future vLLM CPU contract only. This profile is deliberately disabled in
+  # production; Qwen hosting is deferred until a GPU/RAM-sized host exists.
+  vllm:
+    profiles: ["optional-vllm"]
+    image: ${VLLM_IMAGE:-vllm/vllm-openai-cpu:latest-x86_64}
+    restart: unless-stopped
+    cap_add: ["SYS_NICE"]
+    security_opt: ["seccomp=unconfined"]
+    shm_size: "4gb"
+    environment:
+      VLLM_CPU_KVCACHE_SPACE: ${VLLM_CPU_KVCACHE_SPACE:-2}
+      HF_TOKEN: ${HF_TOKEN:-}
+    command: ["${VLLM_MODEL:-facebook/opt-125m}", "--dtype", "float32", "--host", "0.0.0.0", "--port", "8000"]
+    expose:
+      - "8000"
 
   # Hunyuan3D 2.5 — optional GPU container for text/image → GLB avatars.
   # Requires NVIDIA Container Toolkit. Start:

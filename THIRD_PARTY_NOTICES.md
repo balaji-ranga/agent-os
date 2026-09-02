@@ -168,6 +168,8 @@ Source availability for AGPL/GPL components: use the upstream GitHub repositorie
 | Component | Image / package | License | Used for |
 |-----------|-----------------|---------|----------|
 | **Ollama** | `ollama/ollama` · [github.com/ollama/ollama](https://github.com/ollama/ollama) | MIT | Local LLM runtime. **Model weights** (Llama, Mistral, DeepSeek, …) have **separate** licenses. |
+| **LiteLLM** | `docker.litellm.ai/berriai/litellm` · [github.com/BerriAI/litellm](https://github.com/BerriAI/litellm) | MIT | Internal OpenAI-compatible model routing gateway. |
+| **vLLM** | `vllm/vllm-openai-cpu` · [github.com/vllm-project/vllm](https://github.com/vllm-project/vllm) | Apache-2.0 | Deferred optional model serving profile; model weights have separate licenses. |
 | **faster-whisper-server** | `fedirz/faster-whisper-server` · [github.com/SYSTRAN/faster-whisper](https://github.com/SYSTRAN/faster-whisper) | MIT | Local STT. Whisper weights: OpenAI MIT. |
 | **Piper TTS** | `piper-tts` (rhasspy/piper) · [github.com/rhasspy/piper](https://github.com/rhasspy/piper) | MIT | Local TTS. Voice files (e.g. `en_US-lessac-medium` from Hugging Face `rhasspy/piper-voices`) follow their upstream terms (typically MIT). |
 | **Qwen3 Embedding** | `Qwen/Qwen3-Embedding-0.6B` · sentence-transformers / transformers / PyTorch | Model: Apache-2.0 (Qwen); libs: Apache-2.0 / BSD-3 | Optional local RAG embeddings |

@@ -1,4 +1,10 @@
 export const BRAIN_PROVIDER_PRESETS = {
+  route: {
+    label: 'Flolah model route (recommended)',
+    apiEndpoint: 'http://litellm:4000/v1',
+    model: 'flolah-efficiency',
+    apiKeyHint: 'managed internally',
+  },
   openai: {
     label: 'OpenAI',
     apiEndpoint: 'https://api.openai.com/v1',

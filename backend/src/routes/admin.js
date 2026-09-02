@@ -50,6 +50,13 @@ import {
   ensurePlatformSettingsTable,
 } from '../services/platform-llm-settings.js';
 import {
+  ensureModelRoutingTables,
+  getModelRoutingSnapshot,
+  saveModelDeployment,
+  saveModelRoute,
+  probeModelDeployment,
+} from '../services/model-routing-registry.js';
+import {
   listAllTemplates,
   getTemplate,
   createTemplate,
@@ -77,6 +84,7 @@ const router = Router();
 router.use(attachAuthUser);
 router.use(requireRole('admin'));
 ensurePlatformSettingsTable();
+ensureModelRoutingTables();
 
 /** Platform LLM primary/secondary switch (OpenAI ↔ Ollama/secondary). */
 router.get('/platform-llm', (req, res) => {
@@ -94,6 +102,39 @@ router.put('/platform-llm', (req, res) => {
     res.json(result);
   } catch (e) {
     res.status(e.status || 400).json({ error: e.message });
+  }
+});
+
+/** Admin-only model control plane. Secret values are never accepted or returned. */
+router.get('/models', (req, res) => {
+  try {
+    res.json(getModelRoutingSnapshot({ eventLimit: req.query.event_limit }));
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.put('/models/deployments/:id', (req, res) => {
+  try {
+    res.json({ deployment: saveModelDeployment(req.params.id, req.body || {}) });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message });
+  }
+});
+
+router.put('/models/routes/:alias', (req, res) => {
+  try {
+    res.json({ route: saveModelRoute(req.params.alias, req.body || {}) });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message });
+  }
+});
+
+router.post('/models/deployments/:id/probe', async (req, res) => {
+  try {
+    res.json(await probeModelDeployment(req.params.id));
+  } catch (e) {
+    res.status(e.status || 502).json({ error: e.message, ...(e.result || {}) });
   }
 });
 

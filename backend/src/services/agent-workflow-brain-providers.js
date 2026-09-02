@@ -11,6 +11,16 @@ function ollamaOpenAiBase() {
 }
 
 export const BRAIN_PROVIDERS = {
+  route: {
+    label: 'Flolah model route',
+    baseUrl: 'http://litellm:4000/v1',
+    model: 'flolah-efficiency',
+    envApiKey: ['LITELLM_MASTER_KEY'],
+    envBaseUrl: ['LITELLM_BASE_URL'],
+    envModel: [],
+    protocol: 'openai',
+    requiresKey: false,
+  },
   openai: {
     label: 'OpenAI',
     baseUrl: 'https://api.openai.com/v1',
@@ -121,6 +131,7 @@ export function isDeepSeekProxyBaseUrl(baseUrl) {
 }
 
 function brainAllowsMissingKey(source, baseUrl) {
+  if (source === 'route') return true;
   if (source === 'ollama') return true;
   // DeepSeek cloud needs a key; local Ollama DeepSeek does not.
   if (source === 'deepseek') return isLocalOllamaBaseUrl(baseUrl);
@@ -166,6 +177,7 @@ export function resolveWorkflowBrainProviderConfig(modelSource, cfg = {}, ownerU
   let apiKey = configuredKey;
   const model = (cfg.model || '').trim() || firstEnv(preset.envModel) || preset.model;
 
+  if (!apiKey && source === 'route') apiKey = firstEnv(['LITELLM_MASTER_KEY']);
   if (!apiKey && preset.placeholderApiKey) apiKey = preset.placeholderApiKey;
 
   const extraHeaders = source === 'openrouter' ? buildOpenRouterHeaders(cfg) : {};

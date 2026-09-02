@@ -52,6 +52,10 @@ if [[ -f "$ROOT/deploy/scripts/ensure-deepseek-env.sh" ]]; then
   sed -i 's/\r$//' "$ROOT/deploy/scripts/ensure-deepseek-env.sh" 2>/dev/null || true
   bash "$ROOT/deploy/scripts/ensure-deepseek-env.sh" "$ROOT/deploy/.env" || true
 fi
+if [[ -f "$ROOT/deploy/scripts/ensure-model-router-env.sh" ]]; then
+  sed -i 's/\r$//' "$ROOT/deploy/scripts/ensure-model-router-env.sh" 2>/dev/null || true
+  bash "$ROOT/deploy/scripts/ensure-model-router-env.sh" "$ROOT/deploy/.env"
+fi
 if [[ -f "$ROOT/deploy/scripts/ensure-local-openclaw-ollama.sh" ]]; then
   sed -i 's/\r$//' "$ROOT/deploy/scripts/ensure-local-openclaw-ollama.sh" 2>/dev/null || true
   bash "$ROOT/deploy/scripts/ensure-local-openclaw-ollama.sh" "$ROOT/deploy/.env" || true
@@ -248,6 +252,24 @@ if [[ -d "$ROOT/deploy/static/flolah-home" ]]; then
   fi
 else
   echo "ERROR: deploy/static/flolah-home missing — marketing homepage not in tree"
+  exit 1
+fi
+
+echo "==> ensure internal LiteLLM model gateway"
+docker compose up -d litellm
+router_ok=0
+for i in $(seq 1 45); do
+  router_status="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' agent-os-litellm-1 2>/dev/null || echo missing)"
+  if [[ "$router_status" == "healthy" ]]; then
+    router_ok=1
+    echo "    LiteLLM healthy after ${i} checks"
+    break
+  fi
+  sleep 3
+done
+if [[ "$router_ok" != "1" ]]; then
+  echo "ERROR: LiteLLM gateway did not become healthy (status=${router_status:-unknown})"
+  docker compose logs --tail=80 litellm || true
   exit 1
 fi
 

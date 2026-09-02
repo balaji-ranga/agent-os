@@ -18,6 +18,11 @@ fi
 echo "Ensuring TOOLS_API_KEY + AGENT_OS_INTERNAL_TOKEN + TOOLS_BASE_URL in deploy/.env..."
 node "${DEPLOY_DIR}/../scripts/ensure-deploy-secrets.js" --env-file "${DEPLOY_DIR}/.env"
 
+if [[ -f scripts/ensure-model-router-env.sh ]]; then
+  sed -i 's/\r$//' scripts/ensure-model-router-env.sh 2>/dev/null || true
+  bash scripts/ensure-model-router-env.sh "${DEPLOY_DIR}/.env"
+fi
+
 if [[ -f scripts/ensure-opensearch-env.sh ]]; then
   sed -i 's/\r$//' scripts/ensure-opensearch-env.sh 2>/dev/null || true
   bash scripts/ensure-opensearch-env.sh "${DEPLOY_DIR}/.env" || true

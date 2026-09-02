@@ -72,6 +72,9 @@ async function main() {
   await runner.check('company setup LLM structured-output retry contract', async () => {
     runBackendScript('test-company-llm-design.mjs', 'company LLM design structured-output tests: OK');
   });
+  await runner.check('model registry + LiteLLM routing compatibility contract', async () => {
+    runBackendScript('test-model-routing-registry.mjs', 'MODEL_ROUTING_REGISTRY_OK');
+  });
 
   // --- Agents ---
   let agentId = null;

@@ -1,0 +1,42 @@
+model_list:
+  - model_name: flolah-platform-primary
+    litellm_params:
+      model: os.environ/LITELLM_PRIMARY_MODEL_SPEC
+      api_base: os.environ/OPENAI_PRIMARY_BASE_URL
+      api_key: os.environ/OPENAI_PRIMARY_API_KEY
+      timeout: 120
+  - model_name: flolah-platform-secondary
+    litellm_params:
+      model: os.environ/LITELLM_SECONDARY_MODEL_SPEC
+      api_base: os.environ/OPENAI_SECONDARY_BASE_URL
+      api_key: os.environ/OPENAI_SECONDARY_API_KEY
+      timeout: 120
+  - model_name: flolah-efficiency
+    litellm_params:
+      model: os.environ/LITELLM_OLLAMA_MODEL_SPEC
+      api_base: os.environ/OLLAMA_BASE_URL
+      api_key: ollama-local
+      timeout: 300
+  - model_name: flolah-local-reasoning
+    litellm_params:
+      model: os.environ/LITELLM_REASONING_MODEL_SPEC
+      api_base: os.environ/OLLAMA_BASE_URL
+      api_key: ollama-local
+      timeout: 300
+
+router_settings:
+  allowed_fails: 1
+  cooldown_time: 30
+  fallbacks:
+    - flolah-platform-primary: [flolah-platform-secondary]
+    - flolah-platform-secondary: [flolah-platform-primary]
+    - flolah-efficiency: [flolah-platform-primary]
+    - flolah-local-reasoning: [flolah-platform-primary]
+
+litellm_settings:
+  set_verbose: false
+  drop_params: true
+  redact_user_api_key_info: true
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY

@@ -177,6 +177,7 @@ function openClawSlugForEndpoint(ep) {
   if (isLocalOllama(ep.baseUrl)) return `ollama/${model}`;
   try {
     const host = new URL(ep.baseUrl).hostname.toLowerCase();
+    if (host === 'litellm' || host.includes('litellm')) return `litellm/${model}`;
     if (host.includes('openrouter')) return `openrouter/${model.includes('/') ? model : `openai/${model}`}`;
     if (host.includes('deepseek')) return `deepseek/${model}`;
   } catch {
@@ -211,6 +212,26 @@ function applyPlatformOpenAiProvider(config, ep) {
   if (!config.models.providers) config.models.providers = {};
   const modelId = String(ep.model || 'gpt-4o-mini').replace(/^[^/]+\//, '');
   const base = normalizeBaseUrl(ep.baseUrl);
+  let endpointHost = '';
+  try { endpointHost = new URL(base).hostname.toLowerCase(); } catch { /* ignore */ }
+  if (endpointHost === 'litellm' || endpointHost.includes('litellm')) {
+    config.models.providers.litellm = {
+      baseUrl: base.endsWith('/v1') ? base : `${base}/v1`,
+      apiKey: ep.apiKey,
+      api: 'openai-completions',
+      models: [{
+        id: modelId,
+        name: modelId,
+        reasoning: false,
+        input: ['text'],
+        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+        contextWindow: 128000,
+        maxTokens: 16384,
+        api: 'openai-completions',
+      }],
+    };
+    return { mode: 'litellm', modelId, baseUrl: config.models.providers.litellm.baseUrl };
+  }
   const providerKey = isOfficialOpenAiBase(base) ? 'openai' : 'deepseek';
   const existing = config.models.providers[providerKey] || {};
 
@@ -333,7 +354,21 @@ function writePlatformLlmActiveMarker(payload) {
  * Does not touch per-CEO byok-* providers.
  */
 export function syncPlatformEndpointToOpenClaw() {
-  const { primary, secondary, active } = getEffectivePlatformLlmEndpoints();
+  const effective = getEffectivePlatformLlmEndpoints();
+  let { primary, secondary, active } = effective;
+  const routingEnabled =
+    (process.env.MODEL_ROUTING_ENABLED === '1' || process.env.MODEL_ROUTING_ENABLED === 'true') &&
+    !!String(process.env.LITELLM_MASTER_KEY || '').trim();
+  if (routingEnabled) {
+    primary = {
+      baseUrl: process.env.LITELLM_BASE_URL || 'http://litellm:4000/v1',
+      apiKey: process.env.LITELLM_MASTER_KEY,
+      model: active === 'secondary' ? 'flolah-platform-secondary' : 'flolah-platform-primary',
+      source: 'model_registry',
+    };
+    // LiteLLM owns provider failover; avoid a second transport retry loop in OpenClaw.
+    secondary = null;
+  }
   const config = readOpenClawConfig();
   if (!config.agents) config.agents = {};
   if (!config.agents.defaults) config.agents.defaults = {};
@@ -448,6 +483,7 @@ export function syncPlatformEndpointToOpenClaw() {
   return {
     ok: true,
     active,
+    routing_enabled: routingEnabled,
     primary: primarySlug,
     fallbacks,
     provider: providerSync,

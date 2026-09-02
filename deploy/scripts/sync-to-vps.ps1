@@ -164,6 +164,9 @@ scp @ssh `
   "$Repo\deploy\README.md" `
   "root@${HostIp}:$RemoteRoot/deploy/"
 scp @ssh -r "$Repo\deploy\docker" "root@${HostIp}:$RemoteRoot/deploy/"
+Write-Host "==> Sync LiteLLM model-router config"
+ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/deploy/litellm"
+scp @ssh -r "$Repo\deploy\litellm" "root@${HostIp}:$RemoteRoot/deploy/"
 Write-Host "==> Sync deploy/business-core docs"
 ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/deploy/business-core"
 scp @ssh -r "$Repo\deploy\business-core" "root@${HostIp}:$RemoteRoot/deploy/"
@@ -241,6 +244,7 @@ scp @ssh `
   "$Repo\deploy\scripts\vps-bringup.sh" `
   "$Repo\deploy\scripts\vps-build.sh" `
   "$Repo\deploy\scripts\ensure-deepseek-env.sh" `
+  "$Repo\deploy\scripts\ensure-model-router-env.sh" `
   "$Repo\deploy\scripts\ensure-local-openclaw-ollama.sh" `
   "$Repo\deploy\scripts\ensure-workflow-certify-env.sh" `
   "$Repo\deploy\scripts\ensure-cron-env.sh" `
