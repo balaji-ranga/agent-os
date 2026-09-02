@@ -318,7 +318,10 @@ if [[ -n "$remaining_services" ]]; then
   echo "==> recreate dependent services: $remaining_services"
   docker compose up -d --force-recreate $remaining_services
 fi
-docker compose up -d --force-recreate nginx
+# The backend was explicitly recreated and health-gated above. Recreating nginx with
+# dependencies enabled makes Compose recreate backend a second time and can race the
+# first container replacement ("No such container"), leaving the API unavailable.
+docker compose up -d --force-recreate --no-deps nginx
 
 echo "==> CRM workspace TLS SAN coverage (apex crm.* does not cover {sub}.crm.*)"
 CERT="$ROOT/deploy/nginx/certs/fullchain.pem"
