@@ -2,34 +2,31 @@
 
 **Status:** Proposed; not approved for implementation
 
-**Version:** 1.0
+**Version:** 1.1
 
 **Date:** 2026-09-02
 
 **Related baseline:** [IBKR-EVENT-TRADER-FUNCTIONAL-SPEC.md](./IBKR-EVENT-TRADER-FUNCTIONAL-SPEC.md)
 
-**Existing release:** `IBKRNew0` remains paper-only
+**Existing release:** `IBKRNew0` remains paper-only until the live execution gates in this plan are implemented and accepted
 
 ## 1. Executive decision
 
-Live trading must not be implemented as a direct `paper → live` configuration toggle. Build a separately certified `IBKRNewLive0` environment that reuses the generic event engine while keeping the current paper workflow, credentials, data and safety boundary intact.
+Live trading will be exposed as a user-controlled **Trading mode: Paper / Live** setting inside the existing `IBKRNew0` product. The toggle reuses the paper-tested goal, strategy, strategy skill, policy, universe, market-data configuration, event-driven workflow and agents. It does not create a second product or require the user to rebuild the configuration.
+
+The toggle is an activation control rather than an unguarded Boolean. Moving to Live is allowed only after the bridge verifies the intended live account and the platform completes the explicit activation checks in this plan. Paper and live broker bindings, credentials, commands, orders, fills, positions, commissions and audit records remain isolated by execution mode so simulated and financial activity cannot be confused.
 
 ```text
-IBKRNew0 Paper
+IBKRNew0 — Paper mode
      │
-     │ successful certification
+     │ user selects Live and passes activation checks
      ▼
-Live Shadow Mode — reads live data/account, submits nothing
+Live account attestation and confirmation
      │
-     │ CEO activation + safety checks
+     ├── optional Shadow mode — reads live data/account, submits nothing
+     └── optional conservative canary limits
      ▼
-Live Canary — small, approval-required stock orders
-     │
-     ├── certify short stocks
-     ├── certify long calls
-     └── certify long puts
-     ▼
-Live Controlled Automation
+IBKRNew0 — Live mode
 ```
 
 IBKR requires an authenticated TWS or IB Gateway session on the desktop. Default live ports differ from paper—IB Gateway commonly uses 4001 live/4002 paper and TWS 7496 live/7497 paper—but ports are configurable, so neither Flolah nor the bridge may use the port as proof of account environment. Paper and live sessions on the same computer must use distinct ports and should use distinct usernames and client IDs.
@@ -94,21 +91,36 @@ Before implementing any live capability, improve the existing paper bridge:
 
 The account number remains desktop-only. Events sent to Flolah contain only the opaque account reference, environment verdict and sanitized reason code.
 
-## 3. Separate live environment
+## 3. One product with mode-isolated execution
 
-Create:
+Keep a single product and navigation namespace: `IBKRNew0`. Add `trading_mode = paper | live` to its runtime configuration and show the active mode prominently throughout its UI.
 
-- Product/UI namespace: `IBKRNewLive0`.
-- Desktop identity: `IBKRNewLiveBridge_*`.
-- Opaque account reference: `IBKRNewLiveAccount_*`.
-- Separate bridge token, client ID, command outbox and event stream.
-- Separate live goal, policy, strategy, strategy skill, universe and market-data versions.
-- Separate exposure, reservation, order, trade, commission and audit records.
-- Separate global, owner and desktop kill switches.
+Reuse across modes:
 
-The existing `IBKRNew0` paper workflow remains unchanged and available for continuous comparison and regression testing.
+- goal and objective definition;
+- strategy and strategy skill;
+- risk-policy values, subject to non-bypassable live safety floors;
+- stock, ETF, index and option universe filters;
+- market-data selection;
+- event inbox and event-driven workflow;
+- strategy proposal agents;
+- deterministic risk evaluator;
+- retention policy; and
+- desktop bridge package and generic protocol.
 
-The event inbox, strategy proposal engine, deterministic risk evaluator, retention framework and desktop packaging should remain generic. Live authorization and account attestation are separate modules because their safety and approval requirements differ materially.
+Isolate by mode:
+
+- local broker-account binding and opaque account reference;
+- bridge authorization, token and IBKR client ID;
+- command outbox and idempotency namespace;
+- exposure and budget reservations;
+- orders, fills, positions, executions and commissions;
+- operational health and audit records; and
+- live activation and kill-switch state.
+
+Changing the mode must not mutate or delete the saved strategy configuration. Historical reports default to the active mode and require an explicit mode filter for combined analysis. Switching to Paper stops new live entries but does not hide or abandon live positions or protective orders; those remain visible and manageable until reconciled and closed.
+
+Live authorization and account attestation remain separate safety modules inside the shared bridge because their consequences and approval requirements differ from simulation.
 
 ## 4. Live account attestation
 
@@ -130,40 +142,37 @@ Use a dedicated live username, port and client ID. If paper and live run concurr
 
 ## 5. Live activation state machine
 
-Implement an owner-scoped, auditable state machine:
+Implement an owner-scoped, auditable live-mode state machine behind the UI toggle:
 
 ```text
-DISABLED
-  → SHADOW_REQUESTED
-  → SHADOW_ACTIVE
-  → PAPER_CERTIFIED
-  → LIVE_ELIGIBLE
-  → CEO_APPROVAL_PENDING
-  → COOLING_OFF
-  → ARMED
+PAPER_ACTIVE
+  → LIVE_REQUESTED
+  → ACCOUNT_ATTESTING
+  → USER_CONFIRMATION_PENDING
   → LIVE_ACTIVE
-  → PAUSED / HALTED / REVOKED
+  → PAPER_ACTIVE / HALTED / REVOKED
+
+Optional: ACCOUNT_ATTESTING → SHADOW_ACTIVE → USER_CONFIRMATION_PENDING
 ```
 
 Live activation requires:
 
 - recent MFA/re-authentication;
 - explicit risk-disclosure acknowledgement;
-- CEO-entered confirmation phrase;
-- valid paper certification;
+- owner-entered confirmation phrase such as `ENABLE LIVE TRADING`;
 - successful live-account attestation;
 - healthy bridge, Gateway and market data;
 - no unreconciled orders or positions;
 - active live goal and policy;
-- a cooling-off period, recommended 24 hours;
-- a second confirmation from the desktop; and
 - a tested local physical kill switch.
 
-Changing the account, bridge, strategy skill, core policy or live risk ceiling returns the environment to `PAUSED` or requires recertification.
+The UI presents paper test history, shadow results and canary recommendations to support the owner's decision, but Flolah does not decide whether the strategy is profitable or suitable. Once the technical checks pass, the account owner decides whether to enable Live. No separate CEO or platform-operator approval is required.
+
+Changing the account, bridge, strategy skill, core policy or live risk ceiling returns live mode to `PAUSED` or requires recertification. The owner can always return the configuration to Paper mode, but open live positions and orders continue to be handled through the live operations boundary until reconciled.
 
 ## 6. Live shadow mode
 
-Shadow mode connects to the live account but keeps the IBKR API read-only and prohibits order submission.
+Shadow mode is an optional owner-selected validation mode. It connects to the live account but keeps the IBKR API read-only and prohibits order submission.
 
 It validates:
 
@@ -178,7 +187,7 @@ It validates:
 - paper-versus-live signal differences; and
 - proposed quantities against real account constraints.
 
-Recommended minimum: five complete US trading sessions in shadow mode with no stale-data, account-classification, duplicate-command or reconciliation failures.
+Recommended evidence: five complete US trading sessions in shadow mode with no stale-data, account-classification, duplicate-command or reconciliation failures. This is guidance shown to the owner, not a mandatory platform approval gate.
 
 ## 7. Deterministic live risk policy
 
@@ -204,7 +213,7 @@ Order IDs must respect IBKR's persistent sequence and other connected clients' o
 
 ## 8. Conservative live rollout
 
-Do not begin live trading at the full USD 10,000 total and USD 1,000 daily limits.
+Recommend that the owner not begin live trading at the full USD 10,000 total and USD 1,000 daily limits. The UI proposes the following conservative defaults, which the owner may change within the platform's non-bypassable safety constraints.
 
 | Stage | Instruments | Total exposure | Daily opening limit | Entry approval |
 |---|---|---:|---:|---|
@@ -212,9 +221,9 @@ Do not begin live trading at the full USD 10,000 total and USD 1,000 daily limit
 | Canary B | Long stocks only | USD 2,500 | USD 500 | Every trade |
 | Canary C | Add short stocks | USD 2,500 | USD 500 | Every short |
 | Canary D | Add long calls/puts | USD 2,500 | USD 500 | Every option |
-| Controlled live | All certified instruments | Up to USD 10,000 | Up to USD 1,000 | Configurable |
+| Controlled live | All owner-enabled instruments | Up to USD 10,000 | Up to USD 1,000 | Configurable |
 
-Promotion requires clean operational evidence, not profitability alone:
+Recommend increasing limits or enabling additional instrument classes only when operational evidence is clean, rather than relying on profitability alone:
 
 - no duplicate submissions;
 - 100% order/fill/commission reconciliation;
@@ -225,7 +234,7 @@ Promotion requires clean operational evidence, not profitability alone:
 - slippage and commission drag within configured thresholds; and
 - manual halt and close-position drills passed.
 
-Short stocks, long calls and long puts receive independent certifications and feature switches. Short options remain unsupported.
+Short stocks, long calls and long puts have independent feature switches so the owner can enable only the tested instrument classes. The UI retains test and operating evidence for each class. Short options remain unsupported.
 
 ## 9. Live order lifecycle
 
@@ -265,9 +274,9 @@ A cloud outage blocks entries while leaving IBKR-hosted protective orders active
 
 ## 11. UI and operating surfaces
 
-Under **Prebuilt Workflows → IBKRNewLive0**:
+Under **Prebuilt Workflows → IBKRNew0**:
 
-- **Activation:** eligibility, certification, cooling-off and confirmation state.
+- **Trading mode:** prominent Paper/Live selector, readiness checks, test evidence and confirmation state.
 - **Strategy:** live goal, strategy skill, policy, universe and market data.
 - **Summary:** net realized results after actual commissions.
 - **Live Operations:** Gateway, bridge, environment attestation, positions, orders, protection and errors.
@@ -275,9 +284,9 @@ Under **Prebuilt Workflows → IBKRNewLive0**:
 - Prominent red **LIVE** banner on every page.
 - Persistent **Halt live trading** control.
 
-Paper and live reports must never be merged without an explicit environment filter.
+Paper and live reports must never be merged without an explicit mode filter. When Live is selected, every `IBKRNew0` page displays a persistent red **LIVE** banner and immediate halt control.
 
-The UI offers **Promote certified configuration to live draft**, not “switch to live.” Promotion copies values into a new unpublished live version, applies stricter live floors and requires separate publication/activation.
+When the owner selects Live, the UI shows the exact paper-tested configuration that will be reused, any stricter live safety floors, the attested masked broker account, unresolved blockers and a final confirmation. The switch is rejected while account attestation is incomplete, orders or positions are unreconciled, required market data is stale, or another live activation condition fails.
 
 ## 12. Testing and release gates
 
@@ -308,20 +317,20 @@ A genuine live test cannot be completed without the owner's authenticated local 
 
 1. Approve the live architecture and non-bypassable safety floors.
 2. Harden current paper-session attestation.
-3. Add live source blueprints and separate agent templates.
+3. Add the mode-aware source blueprint while reusing the existing workflow and agent templates.
 4. Implement live account attestation and shadow mode.
 5. Implement activation state machine and UI.
 6. Add live risk, reservation and command safeguards.
 7. Complete simulation and fault-injection tests.
-8. Run five-session live shadow certification.
-9. Run approval-required long-stock canary.
-10. Certify short stocks separately.
-11. Certify long calls and long puts separately.
-12. Permit controlled automation only after all gates pass.
+8. Expose optional shadow validation and its evidence in the UI.
+9. Provide conservative long-stock canary defaults.
+10. Provide independently configurable short-stock controls.
+11. Provide independently configurable long-call and long-put controls.
+12. Allow the owner to enable Live after deterministic activation checks pass.
 13. Update Platform Help, public documentation, rollback package and operational runbook.
 
-## 14. Recommended approval boundary
+## 14. Implementation and activation boundary
 
-Approve only steps 1–5 initially: paper-session attestation hardening, the separate live environment, live account attestation, shadow mode and activation UI—with live order submission still structurally absent.
+The implementation includes the guarded Paper/Live UI control and live order path, but deploys with Live disabled by default. Implementing or deploying the capability does not activate live trading for any user.
 
-This produces evidence from the real live account and market-data setup before introducing financial execution risk. A second explicit approval is required before implementing or enabling the first live canary order.
+After deployment, the account owner may select Live without a separate product, duplicated configuration, CEO approval or platform-operator approval. Activation succeeds only when deterministic account attestation, reconciliation, health, permission, budget and policy checks pass. Optional shadow and canary stages remain available as recommended evidence and conservative defaults rather than mandatory approvals.

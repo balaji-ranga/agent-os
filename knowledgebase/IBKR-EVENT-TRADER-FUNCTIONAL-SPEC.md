@@ -21,7 +21,7 @@ The implemented paper baseline is mapped to:
 
 Real broker execution remains structurally paper-only. The desktop adapter requires both a `DU` paper account and `IBKRNEW_PAPER_EXECUTION_ENABLED=1`; there is no live override.
 
-Proposed live evolution, including current paper-session attestation hardening and the required shadow/canary gates, is documented separately in [IBKRNEW-LIVE-TRADING-IMPLEMENTATION-PLAN.md](./IBKRNEW-LIVE-TRADING-IMPLEMENTATION-PLAN.md). It is not part of the implemented paper release.
+Proposed live evolution, including the user-controlled Paper/Live mode, shared tested configuration, mode-isolated execution data and Gateway account attestation, is documented separately in [IBKRNEW-LIVE-TRADING-IMPLEMENTATION-PLAN.md](./IBKRNEW-LIVE-TRADING-IMPLEMENTATION-PLAN.md). It is not part of the implemented paper release.
 
 ---
 
