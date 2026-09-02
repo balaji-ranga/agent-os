@@ -233,7 +233,8 @@ else
 fi
 
 if [[ -f "$ROOT/scripts/lib/test-openclaw-whatsapp-from-prefix.mjs" ]]; then
-  if node "$ROOT/scripts/lib/test-openclaw-whatsapp-from-prefix.mjs" 2>&1 | tee /tmp/wa-from-prefix-unit.log | tail -5; then
+  docker cp "$ROOT/scripts/lib/test-openclaw-whatsapp-from-prefix.mjs" "$BE:/opt/agent-os/scripts/lib/test-openclaw-whatsapp-from-prefix.mjs" 2>/dev/null || true
+  if docker exec -w /opt/agent-os "$BE" node scripts/lib/test-openclaw-whatsapp-from-prefix.mjs 2>&1 | tee /tmp/wa-from-prefix-unit.log | tail -5; then
     if grep -q 'WHATSAPP_FROM_PREFIX_UNIT_OK' /tmp/wa-from-prefix-unit.log; then
       ok "WhatsApp From: prefix unit WHATSAPP_FROM_PREFIX_UNIT_OK"
     else
