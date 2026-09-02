@@ -982,17 +982,35 @@ export function validateAndRepairGoalPlan(
     out.push(terminal || normalizeStepSpec({ type: 'notify_ceo' }));
   }
 
-  // Data/work must precede outbound delivery. Keep the planner's relative order
-  // between outbound delivery steps (for example notify_ceo then email_send)
-  // instead of unconditionally moving every notification behind email.
-  const executionRank = (step) => {
-    if (step.type === 'notify_ceo') return 3;
-    if (step.type === 'agent_tool' && isCompositionalTool(step.spec?.tool_name)) return 3;
-    if (step.type === 'agent_continue') return 2;
-    if (step.type === 'agent_tool') return 1;
-    return 0;
+  // When the semantic maker is unavailable, exact live executor references in
+  // the original goal are the strongest deterministic ordering evidence. Keep
+  // ordinary steps in that entity order and move only outbound delivery to the
+  // end. This works for any catalogued tool, workflow, agent, or human without
+  // product-specific action keywords.
+  const mentionIndex = (step) => {
+    const candidates = [];
+    if (step.type === 'agent_tool') candidates.push(step.spec?.tool_name);
+    if (step.type === 'workflow_trigger') candidates.push(step.spec?.workflow_id, step.spec?.phrase);
+    if (step.type === 'specialty_task') candidates.push(step.spec?.agent_id);
+    if (step.type === 'human_task') candidates.push(step.spec?.user_id);
+    let best = Number.POSITIVE_INFINITY;
+    for (const candidate of candidates.map((value) => String(value || '').trim()).filter(Boolean)) {
+      const escaped = candidate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const match = new RegExp(`(^|[^a-z0-9_-])${escaped}([^a-z0-9_-]|$)`, 'i').exec(text);
+      if (match?.index != null) best = Math.min(best, match.index);
+    }
+    return best;
   };
-  out.sort((a, b) => executionRank(a) - executionRank(b));
+  out = out
+    .map((step, index) => ({ step, index, mention: mentionIndex(step) }))
+    .sort((a, b) => {
+      const aDelivery = a.step.type === 'notify_ceo' || (a.step.type === 'agent_tool' && isCompositionalTool(a.step.spec?.tool_name));
+      const bDelivery = b.step.type === 'notify_ceo' || (b.step.type === 'agent_tool' && isCompositionalTool(b.step.spec?.tool_name));
+      if (aDelivery !== bDelivery) return aDelivery ? 1 : -1;
+      if (a.mention !== b.mention) return a.mention - b.mention;
+      return a.index - b.index;
+    })
+    .map(({ step }) => step);
   out = out.map((step) => {
     const spec = { ...(step.spec || {}) };
     if (spec.selection_rationale) return { ...step, spec };

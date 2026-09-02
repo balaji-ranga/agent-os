@@ -7,6 +7,7 @@ const dataDir = mkdtempSync(join(tmpdir(), 'flolah-goal-quality-'));
 process.env.AGENT_OS_DATA_DIR = dataDir;
 const { validateTypedGoalPlan, validateCandidateGoalPlan, validateSeedRequirementCoverage, repairCheckerExecutorAvailability, safeGoalClarificationPlan, normalizeExecutorOutputKinds } = await import('../src/services/goal-plan-quality.js');
 const { isEfficiencyModeTool } = await import('../src/services/llm-efficiency-mode.js');
+const { resolveCapabilitiesFromPrompt } = await import('../src/services/business-capabilities.js');
 const { matchSelfToolsFromCatalog, specialtyMessageContainsToolInstruction } = await import('../src/services/goal-plan-intent.js');
 assert.equal(isEfficiencyModeTool('goal_plan_intent'), false);
 assert.equal(isEfficiencyModeTool('goal_plan_maker'), false);
@@ -20,6 +21,8 @@ assert.equal(pluralCatalogMatch.length, 1);
 assert.equal(pluralCatalogMatch[0].tool_name, 'agent_workflow_list');
 assert.equal(specialtyMessageContainsToolInstruction('Provide help tracking status of workflows and goals.', 'agent_workflow_list'), false);
 assert.equal(specialtyMessageContainsToolInstruction('Create a Kanban card for this assignment.', 'kanban_create_task'), true);
+assert.equal(resolveCapabilitiesFromPrompt('Do not send email, publish, or mutate records.').some((capability) => capability.id === 'send_email'), false);
+assert.equal(resolveCapabilitiesFromPrompt('Send the completed report by email.').some((capability) => capability.id === 'send_email'), true);
 const catalog = {
   tools: [{ name: 'erp_invoice_read' }, { name: 'erp_purchase_order_create_draft' }],
   workflows: [],
@@ -67,6 +70,15 @@ const validatedLegacySeed = validateCandidateGoalPlan(legacyCandidate, catalog);
 assert.equal(validatedLegacySeed.validation.ok, true, JSON.stringify(validatedLegacySeed.validation.errors));
 assert.deepEqual(validatedLegacySeed.steps[2].depends_on, ['prepare_review']);
 assert.equal(validatedLegacySeed.steps[2].required_inputs[0].source_step_key, 'prepare_review');
+const unboundHandoff = validateCandidateGoalPlan(valid.map((step) => ({
+  type: step.type,
+  label: step.label,
+  spec: { ...step.spec, step_key: step.key },
+})), catalog);
+assert.equal(unboundHandoff.validation.ok, true, JSON.stringify(unboundHandoff.validation.errors));
+const fallbackHuman = unboundHandoff.steps.find((step) => step.type === 'human_task');
+assert.deepEqual(fallbackHuman.depends_on, ['prepare_review']);
+assert(fallbackHuman.required_inputs.some((input) => input.kind === 'artifact' && input.source_step_key === 'prepare_review'));
 assert.equal(validateSeedRequirementCoverage(valid, valid).ok, true);
 const omittedRequiredTool = valid.filter((step) => step.key !== 'draft_po');
 const incompleteCoverage = validateSeedRequirementCoverage(omittedRequiredTool, valid);

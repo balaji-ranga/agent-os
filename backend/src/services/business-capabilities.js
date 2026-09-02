@@ -269,7 +269,7 @@ export function resolveCapabilitiesFromPrompt(prompt) {
       /\b(?:draft|prepare|write|compose)\b[\s\S]{0,50}\b(?:email|mail)\b/i.test(text) &&
       !/\b(?:send|deliver|mail\s+it|email\s+it)\b/i.test(text)
     ) continue;
-    const idx = firstMatchIndex(text, cap.patterns);
+    const idx = firstRequestedMatchIndex(text, cap.patterns);
     if (idx < 0) continue;
     hits.push({ ...cap, _order: idx });
   }
@@ -355,6 +355,31 @@ function firstMatchIndex(text, patterns) {
     const m = text.match(re);
     if (!m || m.index == null) continue;
     if (best < 0 || m.index < best) best = m.index;
+  }
+  return best;
+}
+
+// Capability patterns describe possible actions, but a prohibition is a
+// constraint rather than a request. Evaluate every pattern occurrence inside
+// its punctuation-bounded clause and select the first non-negated occurrence.
+// This applies uniformly to all capabilities; it is not tied to a product,
+// tool, or vertical.
+function firstRequestedMatchIndex(text, patterns) {
+  let best = -1;
+  for (const pattern of patterns || []) {
+    const flags = pattern.flags.includes('g') ? pattern.flags : `${pattern.flags}g`;
+    const re = new RegExp(pattern.source, flags);
+    for (const match of String(text || '').matchAll(re)) {
+      if (match.index == null) continue;
+      const clauseStart = Math.max(
+        String(text).lastIndexOf('.', match.index - 1),
+        String(text).lastIndexOf(';', match.index - 1),
+        String(text).lastIndexOf('\n', match.index - 1)
+      ) + 1;
+      const prefix = String(text).slice(clauseStart, match.index + match[0].length);
+      if (/\b(?:do\s+not|don't|never|must\s+not|without)\b/i.test(prefix)) continue;
+      if (best < 0 || match.index < best) best = match.index;
+    }
   }
   return best;
 }

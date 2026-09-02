@@ -224,14 +224,27 @@ export function validateCandidateGoalPlan(candidateSteps, catalog) {
       ? step.produces
       : [{
           key: `${step.key}_output`,
-          kind: step.type === 'human_task' ? 'decision' : 'data',
+          kind: step.type === 'human_task'
+            ? 'decision'
+            : executorCanProduceArtifact(step, catalog)
+              ? 'artifact'
+              : 'data',
           required: true,
         }],
   }));
+  // Candidate plans are a fail-safe used only when the maker cannot return a
+  // valid graph. Preserve explicit dependencies, but turn otherwise unbound
+  // catalog steps into a conservative sequential chain. That guarantees every
+  // downstream executor receives the previous typed result (including an
+  // attachment for a human decision) instead of running as an orphan branch.
+  const sequenced = keyed.map((step, index) => {
+    if (index === 0 || step.type === 'notify_ceo' || step.depends_on?.length) return step;
+    return { ...step, depends_on: [keyed[index - 1].key] };
+  });
   // Catalog routing can produce parallel requirement branches. Deterministically
   // join every unfinished branch into the terminal step so no resolved tool,
   // workflow, specialist, or human outcome is silently orphaned.
-  const joined = keyed.map((step) => ({ ...step }));
+  const joined = sequenced.map((step) => ({ ...step }));
   if (joined.length > 1) {
     const prior = joined.slice(0, -1);
     const consumedBeforeTerminal = new Set(prior.flatMap((step) => step.depends_on || []));
