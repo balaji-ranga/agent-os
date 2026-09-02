@@ -57,6 +57,7 @@
 | [47-admin-user-insights.md](./47-admin-user-insights.md) | **Admin** — User Insights (`/admin/user-insights`): registrations today/week, inactive 7+ days, adoption highlights |
 | [48-pipeline-under-constraints.md](./48-pipeline-under-constraints.md) | **Example stress test run** — COO outcomes (Gate A seeded 40/40; Gate B live research 20/20; Gate C CRM fail-closed + approval; Gate D 30-day not run) |
 | [50-monitoring-and-llmops.md](./50-monitoring-and-llmops.md) | **LLMOps** — Efficiency tab: token meter, estimated $, traces, price book, quality; vs Admin recovery |
+| [51-ibkrnew-event-trader.md](./51-ibkrnew-event-trader.md) | **IBKRNew0 event trader** — paper-only event flow; six reactions + one desktop bridge; goal/strategy/policy/universe/market data; budgets, commissions, privacy, setup and Live Operations |
 
 **Video Tours (UI):** User menu → **Help → Video Tours** (/video-tours) — playlist of short CEO tours (script/captions now; mp4 when exported). Not ingested as RAG docs.
 

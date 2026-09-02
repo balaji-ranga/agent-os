@@ -206,6 +206,10 @@ export const PLATFORM_HELP_DOCUMENTS = Object.freeze([
     filename: '50-monitoring-and-llmops.md',
     title: `${PLATFORM_HELP_TITLE_PREFIX}Monitoring And LLMOps`,
   },
+  {
+    filename: '51-ibkrnew-event-trader.md',
+    title: `${PLATFORM_HELP_TITLE_PREFIX} IBKRNew Event Driven Paper Trader`,
+  },
 ]);
 
 /** Resolve long-form project guide (knowledgebase/PROJECT.md; Docker: /opt/agent-os/knowledgebase/PROJECT.md). */

@@ -45,7 +45,7 @@ Disconnect from the same page when you no longer want workflows to use that app.
 
 The CEO who **runs** the workflow must have that app connected.
 
-IBKR and **Browser Session** packages also appear as connector-style downloads when those features are enabled. See [Browser Session](./browser-session.md) and [Optional packs](../operate/optional-packs.md).
+IBKR and **Browser Session** packages also appear as connector-style downloads when those features are enabled. **IBKRNew Event Bridge** is the dedicated outbound-only Windows service for the separate, paper-only event trader; it is not a generic Open Connector app. See [IBKRNew event-driven paper trading](./ibkrnew-event-trader.md), [Browser Session](./browser-session.md), and [Optional packs](../operate/optional-packs.md).
 
 ## MCP
 

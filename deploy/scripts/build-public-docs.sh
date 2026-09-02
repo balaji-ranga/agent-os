@@ -28,6 +28,16 @@ if grep -Rqi --include='*.md' --include='*.mdx' --include='*.js' 'openclaw' "${S
   exit 1
 fi
 
+if command -v node >/dev/null 2>&1; then
+  node "${ROOT}/backend/scripts/scan-public-docs-sensitive.js"
+elif command -v docker >/dev/null 2>&1; then
+  docker run --rm -v "${ROOT}:/repo:ro" -w /repo node:22-bookworm-slim \
+    node backend/scripts/scan-public-docs-sensitive.js
+else
+  echo "ERROR: need node or docker for the public-docs sensitive-content scan" >&2
+  exit 1
+fi
+
 echo "==> Build public docs + blog (Docusaurus)"
 
 build_with_npm() {
