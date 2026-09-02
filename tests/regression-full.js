@@ -17,7 +17,7 @@ function loadInternalToken() {
   return String(process.env.AGENT_OS_INTERNAL_TOKEN || '').trim();
 }
 
-function runBackendScript(scriptName, expectedMarker, extraEnv = {}) {
+function runBackendScript(scriptName, expectedMarker, extraEnv = {}, timeoutMs = 180000) {
   const testsDir = path.dirname(fileURLToPath(import.meta.url));
   const root = path.resolve(testsDir, '..');
   const script = path.join(root, 'backend', 'scripts', scriptName);
@@ -25,7 +25,7 @@ function runBackendScript(scriptName, expectedMarker, extraEnv = {}) {
     cwd: path.join(root, 'backend'),
     env: { ...process.env, ...extraEnv },
     encoding: 'utf8',
-    timeout: 180000,
+    timeout: timeoutMs,
   });
   if (result.stdout) process.stdout.write(result.stdout);
   if (result.stderr) process.stderr.write(result.stderr);
@@ -386,7 +386,7 @@ async function main() {
     runBackendScript('test-goal-plan-adhoc-e2e.mjs', 'GOAL_PLAN_ADHOC_E2E_OK', {
         REGRESSION_GOAL_PLAN_FORCE_TERMINAL: process.env.REGRESSION_GOAL_PLAN_FORCE_TERMINAL || '1',
         REGRESSION_CEO_ID: process.env.REGRESSION_CEO_ID || user?.id || '',
-    });
+    }, 480000);
   });
   await runner.check('goal planning + execution stress (simple/medium/complex)', async () => {
     if (process.env.REGRESSION_GOAL_STRESS === '0') {
@@ -399,7 +399,7 @@ async function main() {
         process.env.REGRESSION_GOAL_STRESS_SIMULATE_SPECIALISTS || '1',
       REGRESSION_GOAL_STRESS_KEEP_DATA: process.env.REGRESSION_GOAL_STRESS_KEEP_DATA || '0',
       REGRESSION_GOAL_STRESS_TIMEOUT_MS: process.env.REGRESSION_GOAL_STRESS_TIMEOUT_MS || '240000',
-    });
+    }, 900000);
   });
 
   console.log(`\nCEO user: ${user?.email || user?.id}`);

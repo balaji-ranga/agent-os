@@ -54,6 +54,7 @@ const cleanupOnly = String(process.env.REGRESSION_GOAL_STRESS_CLEANUP_ONLY || '0
 const timeoutMs = Math.max(30000, Number(process.env.REGRESSION_GOAL_STRESS_TIMEOUT_MS) || 240000);
 const createdGoalIds = [];
 const createdWorkflowIds = [];
+const createdAgentIds = [];
 let createdHumanId = null;
 
 function assert(condition, message) {
@@ -110,6 +111,31 @@ function ensureHuman(ownerUserId) {
   const row = listHumanWorkCandidates(ownerUserId).find((item) => item.id === id);
   assert(row, 'temporary human was not eligible under work-assignment policy');
   return row;
+}
+
+function createCapabilityFixtureAgent(ownerUserId, orchestratorId, suffix, name, role, department) {
+  const id = `reg-agent-${runTag}-${suffix}`.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 120);
+  db.prepare(`INSERT INTO agents
+    (id,name,role,parent_id,openclaw_agent_id,is_coo,is_orchestrator,agent_type,owner_user_id,department,planning_status)
+    VALUES (?,?,?,?,?,0,0,'custom',?,?,'production')`).run(
+      id, name, role, orchestratorId, id, ownerUserId, department
+    );
+  db.prepare('INSERT INTO user_agents(user_id,agent_id,enabled) VALUES(?,?,1)').run(ownerUserId, id);
+  createdAgentIds.push(id);
+}
+
+function ensureStressCapabilityAgents(ownerUserId, orchestratorId, agents) {
+  const requirements = [
+    { terms: ['tech', 'research', 'analysis'], suffix: 'research', name: 'Regression Research Analyst', role: 'Market and technical research analysis', department: 'Research' },
+    { terms: ['crm', 'sales'], suffix: 'crm', name: 'Regression CRM Specialist', role: 'CRM sales operations and customer records', department: 'Sales' },
+    { terms: ['erp', 'finance', 'operations'], suffix: 'erp', name: 'Regression ERP Specialist', role: 'ERP procurement finance operations', department: 'Finance' },
+    { terms: ['invoice', 'accounts', 'finance'], suffix: 'invoice', name: 'Regression Invoice Specialist', role: 'Invoice and accounts finance review', department: 'Finance' },
+  ];
+  for (const requirement of requirements) {
+    if (!selectAgentByCapability(agents, requirement.terms)) {
+      createCapabilityFixtureAgent(ownerUserId, orchestratorId, requirement.suffix, requirement.name, requirement.role, requirement.department);
+    }
+  }
 }
 
 function triggerNode(phrase) {
@@ -369,6 +395,11 @@ async function cleanup(ownerUserId) {
   if (createdHumanId) {
     try { db.prepare('DELETE FROM platform_users WHERE id=? AND owner_user_id=?').run(createdHumanId, ownerUserId); } catch {}
   }
+  for (const agentId of createdAgentIds) {
+    try { db.prepare('DELETE FROM agent_tool_grants WHERE agent_id=?').run(agentId); } catch {}
+    try { db.prepare('DELETE FROM user_agents WHERE user_id=? AND agent_id=?').run(ownerUserId, agentId); } catch {}
+    try { db.prepare('DELETE FROM agents WHERE id=? AND owner_user_id=?').run(agentId, ownerUserId); } catch {}
+  }
 }
 
 async function cleanupInterruptedRegressionData(ownerUserId) {
@@ -379,6 +410,8 @@ async function cleanupInterruptedRegressionData(ownerUserId) {
     WHERE owner_user_id=? AND id LIKE 'reg-goal-stress-%'`).all(ownerUserId).map((row) => row.id);
   const staleHumanIds = db.prepare(`SELECT id FROM platform_users
     WHERE owner_user_id=? AND id LIKE 'reg-human-%'`).all(ownerUserId).map((row) => row.id);
+  const staleAgentIds = db.prepare(`SELECT id FROM agents
+    WHERE owner_user_id=? AND id LIKE 'reg-agent-goal-stress-%'`).all(ownerUserId).map((row) => row.id);
   for (const goalId of staleGoalIds) deleteGoalArtifacts(goalId);
   for (const workflowId of staleWorkflowIds) {
     try { deleteDefinition(workflowId, ownerUserId, { id: 'regression', name: 'Goal stress regression cleanup' }); } catch {}
@@ -386,7 +419,12 @@ async function cleanupInterruptedRegressionData(ownerUserId) {
   for (const humanId of staleHumanIds) {
     try { db.prepare('DELETE FROM platform_users WHERE id=? AND owner_user_id=?').run(humanId, ownerUserId); } catch {}
   }
-  return { goals: staleGoalIds.length, workflows: staleWorkflowIds.length, humans: staleHumanIds.length };
+  for (const agentId of staleAgentIds) {
+    try { db.prepare('DELETE FROM agent_tool_grants WHERE agent_id=?').run(agentId); } catch {}
+    try { db.prepare('DELETE FROM user_agents WHERE user_id=? AND agent_id=?').run(ownerUserId, agentId); } catch {}
+    try { db.prepare('DELETE FROM agents WHERE id=? AND owner_user_id=?').run(agentId, ownerUserId); } catch {}
+  }
+  return { goals: staleGoalIds.length, workflows: staleWorkflowIds.length, humans: staleHumanIds.length, agents: staleAgentIds.length };
 }
 
 async function main() {
@@ -407,7 +445,9 @@ async function main() {
   assert(simpleTool, 'No safe read-only profile/status tool is available to the orchestrator');
   assert(crmTool, 'No CRM tool is available to the orchestrator');
   assert(erpTool, 'No ERP tool is available to the orchestrator');
-  const agents = (await listSpecialtyAgentsForGoalPlan(owner.id, orchestratorId)).filter((agent) => String(agent.id).toLowerCase() !== String(orchestrator.id).toLowerCase());
+  let agents = (await listSpecialtyAgentsForGoalPlan(owner.id, orchestratorId)).filter((agent) => String(agent.id).toLowerCase() !== String(orchestrator.id).toLowerCase());
+  ensureStressCapabilityAgents(owner.id, orchestrator.id, agents);
+  agents = (await listSpecialtyAgentsForGoalPlan(owner.id, orchestratorId)).filter((agent) => String(agent.id).toLowerCase() !== String(orchestrator.id).toLowerCase());
   assert(agents.length >= 2, `Need two eligible specialty agents for stress coverage; found ${agents.length}`);
   const researchAgent = selectAgentByCapability(agents, ['tech', 'research', 'analysis']);
   const crmAgent = selectAgentByCapability(agents, ['crm', 'sales']);

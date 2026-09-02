@@ -239,6 +239,7 @@ export function purgeOwnerScopedRows(db, ownerUserId) {
   counts.feed_dismissals = tryRun(db, `DELETE FROM user_feed_dismissals WHERE user_id = ?`, [ownerUserId]);
   counts.user_api_keys = tryRun(db, `DELETE FROM user_api_keys WHERE owner_user_id = ?`, [ownerUserId]);
   counts.tool_model_overrides = tryRun(db, `DELETE FROM tool_model_overrides WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.model_route_events = tryRun(db, `DELETE FROM model_route_events WHERE owner_user_id = ?`, [ownerUserId]);
 
   // Integrations / scripts / MCP
   counts.mcp_servers = tryRun(db, `DELETE FROM mcp_servers WHERE owner_user_id = ?`, [ownerUserId]);

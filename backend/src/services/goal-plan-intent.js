@@ -510,13 +510,20 @@ export async function applyHumanAssignmentPolicy(ownerUserId, prompt, steps = []
     if (decision?.kind !== 'human') return step;
     if (assignedHumans.has(human.id)) return null;
     assignedHumans.add(human.id);
-    const humanWorkOrder = step.spec?.message || step.label;
+    const originalGoal = String(prompt || '').trim();
+    const plannedInstruction = String(step.spec?.message || step.label || '').trim();
+    const humanWorkOrder = [
+      originalGoal ? `Original CEO goal:\n${originalGoal}` : '',
+      plannedInstruction && plannedInstruction !== originalGoal
+        ? `Your bounded work in this goal:\n${plannedInstruction}`
+        : '',
+    ].filter(Boolean).join('\n\n');
     return {
       type: 'human_task',
       label: `Human: ${human.name}`,
       spec: {
         user_id: human.id,
-        message: humanWorkOrder,
+        message: humanWorkOrder || plannedInstruction,
         risk: match?.risk === 'high' ? 'high' : 'normal',
         selection_rationale: direct
           ? `Assigned to the explicitly named human employee ${human.name}.`
