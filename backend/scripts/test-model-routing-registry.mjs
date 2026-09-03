@@ -65,6 +65,15 @@ try {
   assert.equal(byok.cfg.primary.baseUrl, 'https://api.openai.com/v1');
   assert.equal(byok.routeAlias, null);
 
+  const { setPlatformSetting } = await import('../src/services/platform-llm-settings.js');
+  const { resolveChatCompletionsConfig } = await import('../src/config/llm.js');
+  setPlatformSetting('llm_active_endpoint', 'secondary');
+  const activeSecondary = await resolveChatCompletionsConfig({ toolName: 'goal_plan_maker' });
+  const inactivePrimary = await resolveChatCompletionsConfig({ toolName: 'goal_plan_checker', endpointPreference: 'secondary' });
+  assert.equal(activeSecondary.routeAlias, 'flolah-platform-secondary', 'active Admin slot must drive the maker');
+  assert.equal(inactivePrimary.routeAlias, 'flolah-platform-primary', 'inactive Admin slot must drive the checker');
+  setPlatformSetting('llm_active_endpoint', 'primary');
+
   const { syncPlatformEndpointToOpenClaw } = await import('../src/services/platform-llm-settings.js');
   const openclawSync = syncPlatformEndpointToOpenClaw();
   assert.equal(openclawSync.routing_enabled, true);

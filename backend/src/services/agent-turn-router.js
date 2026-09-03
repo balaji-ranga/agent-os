@@ -110,8 +110,8 @@ const DURABLE_GOAL_ADJUDICATOR = `Decide the execution boundary for the supplied
 Judge its meaning, current agent, available organization, and execution structure; never isolated keywords.
 Return JSON only: {"durable_goal":true|false,"stage_count":integer,"execution_mode":"direct_tool|delegate|goal_plan"}.
 durable_goal is true when completion requires two or more independently verifiable stages or outputs, dependencies, multiple agents/systems, asynchronous work, tracked retry, or a composite final deliverable.
-A bounded request handled by one specialist using one or more of its own tools is one deliverable and is direct_tool, even if it reads several records or returns several sections.
-Choose delegate for one bounded deliverable best owned by a different employee. Choose goal_plan only for durable_goal=true.
+A bounded request handled by the current agent using its own tools is one deliverable and is direct_tool, even if it reads several records or returns several sections.
+Choose delegate when one bounded deliverable is best owned by a different employee in the supplied organization. The current agent must not substitute an unrelated tool when a roster specialist owns the requested capability. Choose goal_plan only for durable_goal=true.
 A requested state change across a collection may be durable when it necessarily requires separately tracked discovery, decision, and mutation stages; a read-only review plus summary is not durable by itself.
 A long explanation with only one answer is not a durable goal. A detailed specification remains durable even when formatted as one paragraph.`;
 

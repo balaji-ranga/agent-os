@@ -161,7 +161,13 @@ export async function resolveChatCompletionsConfig({
     const resolved = preference === 'platform_primary'
       ? (() => {
           const effective = getEffectivePlatformLlmEndpoints();
-          return { primary: effective.primary, secondary: null, provider: 'platform_decided', using_byok: false };
+          return {
+            primary: effective.primary,
+            secondary: null,
+            provider: 'platform_decided',
+            using_byok: false,
+            platform_endpoint: effective.active,
+          };
         })()
       : getLlmConfig(ownerUserId);
     const selected = preference === 'secondary' ? resolved.secondary : resolved.primary;
@@ -175,7 +181,14 @@ export async function resolveChatCompletionsConfig({
       using_byok: resolved.using_byok,
     };
     const effectiveModel = String(modelOverride || selected.model || '').trim();
-    const routeAlias = preference === 'secondary'
+    // getLlmConfig presents the Admin-selected slot as primary and the other
+    // slot as secondary. Map the logical preference back to the physical
+    // registry alias so switching Active Slot also swaps maker/checker roles.
+    const activeSlot = resolved.platform_endpoint === 'secondary' ? 'secondary' : 'primary';
+    const physicalSlot = preference === 'secondary'
+      ? (activeSlot === 'secondary' ? 'primary' : 'secondary')
+      : activeSlot;
+    const routeAlias = physicalSlot === 'secondary'
       ? 'flolah-platform-secondary'
       : 'flolah-platform-primary';
     return {
