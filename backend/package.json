@@ -53,6 +53,7 @@
     ,"test:goal-plan:stress": "node scripts/test-goal-planning-execution-stress.mjs"
     ,"test:model-routing": "node scripts/test-model-routing-registry.mjs"
     ,"test:chat-live-activity": "node scripts/test-chat-live-activity.mjs"
+    ,"test:router-planner:nested-live": "node scripts/test-router-planner-nested-goal-live.mjs"
     ,"test:gmail-mailbox-operations": "node scripts/test-gmail-mailbox-operations.mjs"
   },
   "dependencies": {
