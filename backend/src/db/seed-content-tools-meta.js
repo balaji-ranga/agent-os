@@ -373,6 +373,45 @@ const BUILTIN_TOOLS = [
     is_builtin: 1,
   },
   {
+    name: 'gmail_mailbox_review',
+    display_name: 'Gmail — Review & Cleanup Plan',
+    endpoint: '/api/tools/gmail-mailbox-review',
+    method: 'POST',
+    purpose:
+      'Owner-scoped Gmail tool: use the connected Gmail account to organize and summarize recent mail, inspect Spam, and identify marketing/promotions older than days (default 7). Returns an immutable plan_id, pre-delete summary, exact candidate list, and estimated reclaim size. This does not delete anything. Always call this before gmail_mailbox_cleanup.',
+    model_used: 'platform routing (Ollama in efficiency mode when configured)',
+    risk_tier: 'R0',
+    action_family: 'read',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'gmail_mailbox_cleanup',
+    display_name: 'Gmail — Move Reviewed Mail to Trash',
+    endpoint: '/api/tools/gmail-mailbox-cleanup',
+    method: 'POST',
+    purpose:
+      'Owner-scoped Gmail destructive tool: pass only plan_id returned by gmail_mailbox_review. Moves that reviewed plan’s Spam and stale marketing/promotion messages to Gmail Trash; never permanently deletes. Requires the effective Financial / destructive Action Control to permit execution (CEO approval or a bounded workflow/tool override).',
+    model_used: '',
+    risk_tier: 'R3',
+    action_family: 'financial_destructive',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'gmail_mailbox_cleanup_status',
+    display_name: 'Gmail — Cleanup Status',
+    endpoint: '/api/tools/gmail-mailbox-cleanup-status',
+    method: 'POST',
+    purpose:
+      'Owner-scoped Gmail tool: inspect a cleanup plan and its exact trash results using plan_id. Does not expose message bodies or another company’s plan.',
+    model_used: '',
+    risk_tier: 'R0',
+    action_family: 'read',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
     name: 'email_send',
     display_name: 'Send Email & Calendar Invite',
     endpoint: '/api/tools/email-send',
@@ -948,6 +987,7 @@ const OPERATIONAL_EFFECTIVENESS_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === '
 const LLMOPS_SUMMARY_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'llmops_summary');
 const SCHEDULED_GOAL_TOOLS = BUILTIN_TOOLS.filter((t) => String(t.name).startsWith('scheduled_goal_'));
 const CONNECTOR_TOOLS = BUILTIN_TOOLS.filter((t) => String(t.name).startsWith('connector_'));
+const GMAIL_MAILBOX_TOOLS = BUILTIN_TOOLS.filter((t) => String(t.name).startsWith('gmail_mailbox_'));
 const MASTER_DATA_TOOLS = BUILTIN_TOOLS.filter(
   (t) => String(t.name).startsWith('master_data_') || t.name === 'list_inbound_attachments'
 );
@@ -1323,6 +1363,28 @@ export function seedConnectorToolsIfMissing() {
   );
   for (const t of CONNECTOR_TOOLS) {
     update.run(t.purpose, t.display_name, t.endpoint, t.method, t.name);
+  }
+}
+
+/** Add narrow Gmail mailbox tools without granting them to unrelated agents. */
+export function seedGmailMailboxToolsIfMissing() {
+  const db = getDb();
+  const stmt = db.prepare(
+    `INSERT OR IGNORE INTO content_tools_meta (name, display_name, endpoint, method, purpose, model_used, enabled, is_builtin)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+  const update = db.prepare(
+    'UPDATE content_tools_meta SET purpose = ?, display_name = ?, endpoint = ?, method = ?, model_used = ? WHERE name = ?'
+  );
+  for (const t of GMAIL_MAILBOX_TOOLS) {
+    stmt.run(t.name, t.display_name, t.endpoint, t.method, t.purpose, t.model_used, t.enabled, t.is_builtin);
+    update.run(t.purpose, t.display_name, t.endpoint, t.method, t.model_used, t.name);
+    try {
+      db.prepare('UPDATE content_tools_meta SET risk_tier = ?, action_family = ? WHERE name = ?')
+        .run(t.risk_tier || '', t.action_family || '', t.name);
+    } catch (_) {
+      // Older databases add these columns lazily in action-policy initialization.
+    }
   }
 }
 

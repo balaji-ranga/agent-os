@@ -15,6 +15,13 @@
       "role": "Live voice support",
       "department": "Support",
       "description": "WebRTC click-to-call (in-app and public widget). Needs an OpenAI Realtime-capable BYOK key. Phone numbers later via telephony MCP."
+    },
+    {
+      "id": "gmail-operations",
+      "name": "Gmail Operations",
+      "role": "Mailbox operations and space management",
+      "department": "Operations",
+      "description": "Owner-scoped Gmail review, 7-day organization and recoverable Spam/old Promotions cleanup through the connected Gmail account. Summarizes before moving anything to Trash and obeys Action Control."
     }
   ]
 }

@@ -334,6 +334,73 @@ function connectorPublishNode(id, label, x, y, { appId, appName, actionId, input
 
 export const WORKFLOW_RECIPES = [
   {
+    id: 'gmail-mailbox-operations',
+    label: 'Review, summarize, and safely clean a connected Gmail mailbox',
+    score(message) {
+      const t = String(message || '').toLowerCase();
+      if (!/\bgmail\b/.test(t)) return 0;
+      let s = 5;
+      if (/\b(spam|promotion|marketing|mailbox|inbox)\b/.test(t)) s += 4;
+      if (/\b(clean|organize|summar|trash|space|delete)\b/.test(t)) s += 5;
+      if (/\b(workflow|automat|schedule|every day|daily)\b/.test(t)) s += 2;
+      return s;
+    },
+    build(message) {
+      const name = extractWorkflowName(message) || 'Gmail mailbox care';
+      const phrase = 'review and clean gmail';
+      const modes = inferTriggerModes(message);
+      const review = {
+        id: 'gmail-review-1',
+        type: 'tool',
+        position: { x: 300, y: 120 },
+        data: {
+          label: 'Review and summarize Gmail',
+          toolName: 'gmail_mailbox_review',
+          inputBindings: [{ id: 'days', label: 'Cutoff days', mode: 'static', value: '7' }],
+          outputs: [
+            { id: 'result', label: 'Review plan' },
+            { id: 'text', label: 'Review summary' },
+          ],
+        },
+      };
+      const cleanup = {
+        id: 'gmail-cleanup-1',
+        type: 'tool',
+        position: { x: 600, y: 120 },
+        data: {
+          label: 'Move reviewed mail to Trash',
+          toolName: 'gmail_mailbox_cleanup',
+          inputBindings: [{
+            id: 'plan_id',
+            label: 'Reviewed plan',
+            mode: 'dynamic',
+            sourceNodeId: 'gmail-review-1',
+            sourceOutputKey: 'result.plan_id',
+          }],
+          outputs: [
+            { id: 'result', label: 'Cleanup result' },
+            { id: 'text', label: 'Cleanup report' },
+          ],
+        },
+      };
+      return {
+        name,
+        chat_phrase: phrase,
+        trigger_modes: modes,
+        graph: {
+          nodes: [triggerNode(phrase, modes), review, cleanup],
+          edges: [
+            { id: 'e-gmail-review', source: 'trigger-1', target: 'gmail-review-1' },
+            { id: 'e-gmail-cleanup', source: 'gmail-review-1', target: 'gmail-cleanup-1' },
+          ],
+          viewport: { x: 0, y: 0, zoom: 1 },
+        },
+        autoTest: false,
+        summary: 'Gmail connector review + combined summary → exact reviewed plan → recoverable Trash cleanup. Action Control R3 policy remains authoritative.',
+      };
+    },
+  },
+  {
     id: 'enduser-content-promote',
     label: 'Write blogs and promote on named channels',
     score(message) {

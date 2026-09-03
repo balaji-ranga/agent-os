@@ -1,0 +1,12 @@
+{
+  "template_id": "gmail-operations",
+  "role": "gmail_operations",
+  "tools": [
+    "learnings_summary",
+    "gmail_mailbox_review",
+    "gmail_mailbox_cleanup",
+    "gmail_mailbox_cleanup_status",
+    "kanban_move_status",
+    "notify_ceo"
+  ]
+}

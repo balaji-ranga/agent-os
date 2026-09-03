@@ -82,7 +82,8 @@ export function inferRiskForTool(toolName) {
   const n = String(toolName || '').toLowerCase();
   if (!n) return { risk_tier: 'R0', action_family: 'read' };
   if (
-    /delete|refund|submit_document|cancel_order|ibkr_.*?(order|execute|trade)|discount|destructive/.test(n)
+    n === 'gmail_mailbox_cleanup' ||
+    /delete|\btrash\b|refund|submit_document|cancel_order|ibkr_.*?(order|execute|trade)|discount|destructive/.test(n)
   ) {
     return { risk_tier: 'R3', action_family: 'financial_destructive' };
   }

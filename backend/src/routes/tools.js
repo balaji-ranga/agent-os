@@ -146,6 +146,11 @@ import {
   getConnectorActionGuide,
   searchConnectorApps,
 } from '../services/openconnector.js';
+import {
+  reviewGmailMailbox,
+  executeGmailMailboxCleanup,
+  getGmailCleanupPlan,
+} from '../services/gmail-mailbox-operations.js';
 import { tryRewriteCooNotifyAsSpecialist } from '../services/reach-me-delegation.js';
 import {
   assertNoSchemaMutation,
@@ -2786,6 +2791,63 @@ router.post('/connector-execute-action', optionalAuth, async (req, res) => {
     res.json(out);
   } catch (e) {
     connectorToolError(req, 'connector_execute_action', requestPayload, res, e, source);
+  }
+});
+
+/**
+ * Narrow Gmail operations tools. These retain OpenConnector's per-CEO OAuth
+ * isolation while avoiding a broad connector_execute_action grant for the
+ * mailbox employee. gmail-mailbox-cleanup is classified R3 by Action Control.
+ */
+router.post('/gmail-mailbox-review', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = req.body || {};
+  try {
+    const ownerUserId = resolveConnectorOwner(req, requestPayload);
+    const out = await reviewGmailMailbox(ownerUserId, requestPayload);
+    logTool(req, 'gmail_mailbox_review', requestPayload, { ok: true, plan_id: out.plan_id, report: out.report }, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    connectorToolError(req, 'gmail_mailbox_review', requestPayload, res, e, source);
+  }
+});
+
+router.post('/gmail-mailbox-cleanup', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = req.body || {};
+  try {
+    const ownerUserId = resolveConnectorOwner(req, requestPayload);
+    const out = await executeGmailMailboxCleanup(ownerUserId, requestPayload);
+    logTool(req, 'gmail_mailbox_cleanup', requestPayload, out, out.ok ? 'ok' : 'error', source);
+    res.status(out.ok ? 200 : 207).json(out);
+  } catch (e) {
+    connectorToolError(req, 'gmail_mailbox_cleanup', requestPayload, res, e, source);
+  }
+});
+
+router.post('/gmail-mailbox-cleanup-status', optionalAuth, (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = req.body || {};
+  try {
+    const ownerUserId = resolveConnectorOwner(req, requestPayload);
+    const out = getGmailCleanupPlan(ownerUserId, requestPayload.plan_id || requestPayload.planId);
+    if (!out) return res.status(404).json({ error: 'Gmail cleanup plan not found for this company' });
+    const safe = {
+      ok: true,
+      plan_id: out.id,
+      status: out.status,
+      cutoff_days: out.cutoff_days,
+      summary: out.summary,
+      report: out.report,
+      execution: out.execution,
+      created_at: out.created_at,
+      expires_at: out.expires_at,
+      executed_at: out.executed_at,
+    };
+    logTool(req, 'gmail_mailbox_cleanup_status', requestPayload, safe, 'ok', source);
+    res.json(safe);
+  } catch (e) {
+    connectorToolError(req, 'gmail_mailbox_cleanup_status', requestPayload, res, e, source);
   }
 });
 
