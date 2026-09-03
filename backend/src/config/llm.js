@@ -244,6 +244,7 @@ export async function chatCompletions({
   traceId = null,
   endpointPreference = 'default',
   thinkingMode = null,
+  timeoutMs = null,
 }) {
   const { cfg, effectiveModel, efficiencyMode, routeAlias = null } = await resolveChatCompletionsConfig({
     ownerUserId,
@@ -295,15 +296,18 @@ export async function chatCompletions({
       // the final structured verdict, not a token-consuming reasoning preamble.
       if (
         (thinkingMode === 'enabled' || thinkingMode === 'disabled') &&
-        (/deepseek/i.test(String(ep.baseUrl || '')) || /deepseek/i.test(String(ep.model || '')))
+        (routeAlias || /deepseek/i.test(String(ep.baseUrl || '')) || /deepseek/i.test(String(ep.model || '')))
       ) {
         body.thinking = { type: thinkingMode };
       }
+      const requestTimeoutMs = Number(timeoutMs) > 0
+        ? Number(timeoutMs)
+        : Number(process.env.LLM_CHAT_TIMEOUT_MS) || 120000;
       let res = await fetch(chatUrl, {
         method: 'POST',
         headers,
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(Number(process.env.LLM_CHAT_TIMEOUT_MS) || 120000),
+        signal: AbortSignal.timeout(requestTimeoutMs),
       });
       // Some providers reject response_format; retry without it.
       if (!res.ok && body.response_format) {
@@ -314,7 +318,7 @@ export async function chatCompletions({
             method: 'POST',
             headers,
             body: JSON.stringify(body),
-            signal: AbortSignal.timeout(Number(process.env.LLM_CHAT_TIMEOUT_MS) || 120000),
+            signal: AbortSignal.timeout(requestTimeoutMs),
           });
         } else {
           // re-wrap for status handling below

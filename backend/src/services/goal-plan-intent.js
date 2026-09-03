@@ -461,6 +461,8 @@ export async function applyHumanAssignmentPolicy(ownerUserId, prompt, steps = []
       toolName: 'goal_human_assignment',
       temperature: 0,
       responseFormat: 'json_object',
+      thinkingMode: 'disabled',
+      timeoutMs: Number(process.env.GOAL_PLAN_INTENT_TIMEOUT_MS) || 25000,
       messages: [
         { role: 'system', content: 'Match planned work to HUMAN employees only when their department, role, specialty or purpose genuinely fits. Classify task risk as high only for financial commitments/costs, legal/regulatory decisions, destructive operations, or binding external commitments. JSON only: {"matches":[{"step_index":0,"user_id":"exact id or empty","human_match_score":0-100,"agent_match_score":0-100,"risk":"normal|high","reason":"short"}]}.' },
         { role: 'user', content: `GOAL:\n${String(prompt || '').slice(0, 3500)}\n\nPLANNED AGENT STEPS:\n${stepBlock}\n\nHUMAN EMPLOYEES:\n${humanBlock}` },
@@ -965,6 +967,8 @@ async function llmJsonIntents({ ownerUserId, system, user, maxTokens = 1400, too
     toolName,
     temperature: 0,
     responseFormat: 'json_object',
+    thinkingMode: 'disabled',
+    timeoutMs: Number(process.env.GOAL_PLAN_INTENT_TIMEOUT_MS) || 25000,
     messages: [
       { role: 'system', content: system },
       { role: 'user', content: user },
@@ -1043,6 +1047,8 @@ async function classifyToolsMultiLabel(ownerUserId, prompt, tools) {
         toolName: 'goal_plan_intent',
         temperature: 0,
         responseFormat: 'json_object',
+        thinkingMode: 'disabled',
+        timeoutMs: Number(process.env.GOAL_PLAN_INTENT_TIMEOUT_MS) || 25000,
         messages: [
           { role: 'system', content: system },
           { role: 'user', content: user },

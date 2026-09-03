@@ -5,7 +5,7 @@ import {
   DASHBOARD_CONTEXT_INSTRUCTION,
   dashboardGatewaySessionUser,
 } from '../src/services/dashboard-chat-context.js';
-import { bindWorkUnitExecution, routeAgentTurn } from '../src/services/agent-turn-router.js';
+import { bindWorkUnitExecution, routeAgentTurn, validateRouteDecision } from '../src/services/agent-turn-router.js';
 import { isPromptAuthoringAskForAgent } from '../src/services/specialty-referral.js';
 
 const polluted = [
@@ -44,6 +44,14 @@ const staleDashboardHistory = [
   { id: 901, role: 'user', content: 'Open the weekly digest in Chrome.', work_unit_id: 'wu-old' },
   { id: 902, role: 'assistant', content: 'The browser task failed.', work_unit_id: 'wu-old' },
 ];
+assert.equal(validateRouteDecision(null, []).ok, false, 'non-object router output is rejected');
+assert.equal(validateRouteDecision({ execution_mode: 'chat' }, []).ok, false, 'partial router output is rejected');
+assert.equal(validateRouteDecision({
+  relation: 'new_work', execution_mode: 'chat', relevant_turn_ids: [], resolved_request: 'test', restart_requested: false, confidence: 0,
+}, []).ok, true, 'zero confidence is syntactically valid so the runtime can explicitly trigger repair');
+assert.equal(validateRouteDecision({
+  relation: 'new_work', execution_mode: 'goal_plan', relevant_turn_ids: [999], resolved_request: 'test', restart_requested: false, confidence: 0.9,
+}, [901]).ok, false, 'unknown history IDs are rejected');
 const routeBase = {
   ownerUserId: `router-test-${Date.now()}`,
   agent: { id: 'test-agent', name: 'Test Agent', role: 'Tester', is_coo: 0 },

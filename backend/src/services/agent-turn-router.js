@@ -111,6 +111,29 @@ Return JSON only: {"durable_goal":true|false,"stage_count":integer}.
 durable_goal is true when completion requires two or more independently verifiable stages or outputs, dependencies, multiple agents/systems, asynchronous work, tracked retry, or a composite final deliverable.
 A long explanation with only one answer is not a durable goal. A detailed specification remains durable even when formatted as one paragraph.`;
 
+export function validateRouteDecision(value, candidateTurnIds = []) {
+  const errors = [];
+  const allowedIds = new Set(candidateTurnIds.map(Number));
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return { ok: false, errors: ['response is not a JSON object'] };
+  if (!RELATIONS.has(String(value.relation || ''))) errors.push('relation is missing or invalid');
+  if (!MODES.has(String(value.execution_mode || ''))) errors.push('execution_mode is missing or invalid');
+  if (!Array.isArray(value.relevant_turn_ids)) errors.push('relevant_turn_ids must be an array');
+  else if (value.relevant_turn_ids.some((id) => !Number.isInteger(Number(id)) || !allowedIds.has(Number(id)))) errors.push('relevant_turn_ids contains an unknown turn');
+  if (!String(value.resolved_request || '').trim()) errors.push('resolved_request is empty');
+  if (typeof value.restart_requested !== 'boolean') errors.push('restart_requested must be boolean');
+  const confidence = Number(value.confidence);
+  if (!Number.isFinite(confidence) || confidence < 0 || confidence > 1) errors.push('confidence must be between 0 and 1');
+  return { ok: errors.length === 0, errors };
+}
+
+function validateDurableDecision(value) {
+  const errors = [];
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return { ok: false, errors: ['response is not a JSON object'] };
+  if (typeof value.durable_goal !== 'boolean') errors.push('durable_goal must be boolean');
+  if (!Number.isInteger(Number(value.stage_count)) || Number(value.stage_count) < 0) errors.push('stage_count must be a non-negative integer');
+  return { ok: errors.length === 0, errors };
+}
+
 export async function routeAgentTurn({
   ownerUserId,
   agent,
@@ -133,31 +156,43 @@ export async function routeAgentTurn({
     organization = [];
   }
   let parsed = semanticDecision && typeof semanticDecision === 'object' ? semanticDecision : null;
+  const routeAttempts = [];
+  let routeValidation = parsed ? { ok: true, errors: [] } : { ok: false, errors: ['router has not run'] };
   try {
     if (!parsed) {
-    const { content } = await chatCompletions({
-      ownerUserId,
-      toolName: 'agent_turn_router',
-      maxTokens: 500,
-      temperature: 0,
-      responseFormat: 'json_object',
-      messages: [
-        { role: 'system', content: ROUTER_SYSTEM },
-        {
-          role: 'user',
-          content: JSON.stringify({
-            agent: { id: agent?.id, name: agent?.name, role: agent?.role, is_coo: !!agent?.is_coo },
-            organization,
-            current_message: String(message || ''),
-            candidate_turns: candidates,
-          }),
-        },
-      ],
-    });
-    parsed = extractJson(content);
+      for (let attempt = 1; attempt <= 2; attempt += 1) {
+        const { content } = await chatCompletions({
+          ownerUserId,
+          toolName: 'agent_turn_router',
+          maxTokens: 700,
+          temperature: 0,
+          responseFormat: 'json_object',
+          thinkingMode: 'disabled',
+          timeoutMs: Number(process.env.AGENT_TURN_ROUTER_TIMEOUT_MS) || 30000,
+          messages: [
+            { role: 'system', content: ROUTER_SYSTEM },
+            {
+              role: 'user',
+              content: JSON.stringify({
+                agent: { id: agent?.id, name: agent?.name, role: agent?.role, is_coo: !!agent?.is_coo },
+                organization,
+                current_message: String(message || ''),
+                candidate_turns: candidates,
+                ...(attempt > 1 ? { repair_errors: routeValidation.errors, previous_response: routeAttempts.at(-1)?.raw } : {}),
+              }),
+            },
+          ],
+        });
+        parsed = extractJson(content);
+        routeValidation = validateRouteDecision(parsed, candidates.map((turn) => turn.id));
+        routeAttempts.push({ attempt, raw: String(content || '').slice(0, 4000), errors: routeValidation.errors });
+        if (routeValidation.ok && Number(parsed.confidence) >= 0.55) break;
+        if (routeValidation.ok) routeValidation = { ok: false, errors: [`confidence ${Number(parsed.confidence)} is below 0.55`] };
+      }
     }
   } catch (e) {
-    console.warn('[agent-turn-router] semantic route failed; safe clean-context fallback', e?.message || e);
+    routeValidation = { ok: false, errors: [String(e?.message || e)] };
+    console.warn('[agent-turn-router] semantic route failed', e?.message || e);
   }
 
   // Large specifications are vulnerable to formatting-dependent under-routing
@@ -165,28 +200,62 @@ export async function routeAgentTurn({
   // resolves execution structure without any domain or phrase rules.
   if (
     !semanticDecision &&
-    String(message || '').trim().length >= 600 &&
-    String(parsed?.execution_mode || '') !== 'goal_plan'
+    (!routeValidation.ok || (
+      String(parsed?.execution_mode || '') !== 'goal_plan' &&
+      String(parsed?.relation || '') !== 'conversation'
+    ))
   ) {
     try {
-      const { content } = await chatCompletions({
-        ownerUserId,
-        toolName: 'agent_turn_goal_adjudicator',
-        maxTokens: 120,
-        temperature: 0,
-        responseFormat: 'json_object',
-        messages: [
-          { role: 'system', content: DURABLE_GOAL_ADJUDICATOR },
-          { role: 'user', content: String(message || '') },
-        ],
-      });
-      const durable = extractJson(content);
-      if (durable?.durable_goal === true && Number(durable?.stage_count) >= 2) {
-        parsed = { ...(parsed || {}), relation: 'new_work', execution_mode: 'goal_plan', relevant_turn_ids: [] };
+      let durable = null;
+      let durableValidation = { ok: false, errors: ['adjudicator has not run'] };
+      for (let attempt = 1; attempt <= 2; attempt += 1) {
+        const { content } = await chatCompletions({
+          ownerUserId,
+          toolName: 'agent_turn_goal_adjudicator',
+          maxTokens: 180,
+          temperature: 0,
+          responseFormat: 'json_object',
+          thinkingMode: 'disabled',
+          timeoutMs: Number(process.env.AGENT_TURN_ADJUDICATOR_TIMEOUT_MS) || 20000,
+          messages: [
+            { role: 'system', content: DURABLE_GOAL_ADJUDICATOR },
+            { role: 'user', content: JSON.stringify({ request: String(message || ''), ...(attempt > 1 ? { repair_errors: durableValidation.errors } : {}) }) },
+          ],
+        });
+        durable = extractJson(content);
+        durableValidation = validateDurableDecision(durable);
+        routeAttempts.push({ attempt, judge: true, raw: String(content || '').slice(0, 2000), errors: durableValidation.errors });
+        if (durableValidation.ok) break;
+      }
+      if (durableValidation.ok && durable.durable_goal === true && Number(durable.stage_count) >= 2) {
+        parsed = {
+          ...(parsed || {}),
+          relation: 'new_work',
+          execution_mode: 'goal_plan',
+          relevant_turn_ids: [],
+          resolved_request: String(parsed?.resolved_request || message || '').trim(),
+          restart_requested: false,
+          confidence: Math.max(Number(parsed?.confidence) || 0, 0.8),
+        };
+        routeValidation = validateRouteDecision(parsed, candidates.map((turn) => turn.id));
+      } else if (durableValidation.ok) {
+        // A second, valid semantic judgement may clear low confidence for a
+        // syntactically complete non-durable route. It must never rescue a
+        // malformed/partial router contract.
+        routeValidation = validateRouteDecision(parsed, candidates.map((turn) => turn.id));
       }
     } catch (e) {
-      console.warn('[agent-turn-router] durable-goal adjudication failed; keeping primary route', e?.message || e);
+      routeAttempts.push({ judge: true, error: String(e?.message || e).slice(0, 1000) });
+      console.warn('[agent-turn-router] durable-goal adjudication failed', e?.message || e);
     }
+  }
+
+  if (!semanticDecision && !routeValidation.ok) {
+    const error = new Error(`Unable to obtain a valid semantic route: ${routeValidation.errors.join('; ')}`);
+    error.code = 'ROUTER_DECISION_INVALID';
+    error.status = 503;
+    error.details = { attempts: routeAttempts };
+    throw error;
   }
 
   const relation = RELATIONS.has(String(parsed?.relation)) ? String(parsed.relation) : 'new_work';
@@ -221,6 +290,7 @@ export async function routeAgentTurn({
     restart_requested: restartRequested,
     terminal_parent_guarded: terminalParent && !restartRequested,
     request_fingerprint: fingerprint,
+    decision_attempts: routeAttempts,
   };
   db().prepare(`
     INSERT INTO chat_work_units
