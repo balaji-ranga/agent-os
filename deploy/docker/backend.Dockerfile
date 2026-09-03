@@ -40,10 +40,10 @@ RUN apt-get update \
 WORKDIR /opt/agent-os
 
 COPY backend/package.json backend/package-lock.json ./backend/
-RUN cd backend && npm ci --omit=dev
+RUN cd backend && npm ci --omit=dev --no-audit --no-fund
 
 COPY backend ./backend
-RUN cd backend/ibkrnew-event-bridge && npm ci --omit=dev
+RUN cd backend/ibkrnew-event-bridge && npm ci --omit=dev --no-audit --no-fund
 COPY scripts ./scripts
 COPY tests ./tests
 COPY openclaw-workspace-templates ./openclaw-workspace-templates

@@ -28,7 +28,8 @@ RUN mkdir -p "${PLAYWRIGHT_BROWSERS_PATH}" \
 WORKDIR /opt/agent-os
 COPY . .
 
-RUN cd backend && npm ci --omit=dev
+# Audit belongs in dependency/security checks, not a production rollout network gate.
+RUN cd backend && npm ci --omit=dev --no-audit --no-fund
 
 ENV HOME=/root
 ENV OPENCLAW_DIR=/root/.openclaw
