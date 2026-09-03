@@ -3679,6 +3679,13 @@ export async function recoverStaleAgentContinueGoalSteps({
   return { scanned: rows.length, recovered: recovered.length, stale_seconds: ageSeconds, details: recovered };
 }
 
+export function isFailedDelegationOutcome({ delegationStatus, kanbanStatus, needsClarification = false, missingArtifact = false } = {}) {
+  return String(delegationStatus || '') === 'failed' ||
+    ['failed', 'cancelled'].includes(String(kanbanStatus || '').toLowerCase()) ||
+    !!needsClarification ||
+    !!missingArtifact;
+}
+
 export async function onDelegationTerminalForGoalRun(taskId) {
   const found = findGoalStepByDelegationTask(taskId);
   if (!found) return { ok: false, skipped: true, reason: 'no_goal_step' };
@@ -3687,6 +3694,10 @@ export async function onDelegationTerminalForGoalRun(taskId) {
     return { ok: true, skipped: true, reason: 'step_already_terminal', goal_run_id: goal.id };
   }
   const task = db().prepare('SELECT * FROM agent_delegation_tasks WHERE id = ?').get(Number(taskId));
+  const linkedKanban = db().prepare(
+    `SELECT id, status, updated_at FROM kanban_tasks
+     WHERE agent_delegation_task_id = ? ORDER BY id DESC LIMIT 1`
+  ).get(Number(taskId));
   const response = String(task?.response_content || '').trim();
   const spec = parseJson(step.spec_json, {});
   const requiredArtifact = (Array.isArray(spec.produces) ? spec.produces : [])
@@ -3723,17 +3734,27 @@ export async function onDelegationTerminalForGoalRun(taskId) {
     artifactRefs = collectArtifactRefs({ ...ref, reply: effectiveResponse });
   }
   const missingArtifact = requiredArtifact && !artifactRefs.size;
-  const failed = !task || String(task.status || '') === 'failed' || needsClarification || !!missingArtifact;
+  const kanbanFailed = ['failed', 'cancelled'].includes(String(linkedKanban?.status || '').toLowerCase());
+  const failed = !task || isFailedDelegationOutcome({
+    delegationStatus: task?.status,
+    kanbanStatus: linkedKanban?.status,
+    needsClarification,
+    missingArtifact,
+  });
   const contractError = missingArtifact
     ? `Specialty response did not satisfy required artifact output ${requiredArtifact.key}: no real file or URL was returned`
     : null;
   const result = {
     delegation_task_id: Number(taskId),
     status: task?.status || 'missing',
+    kanban_task_id: linkedKanban?.id || null,
+    kanban_status: linkedKanban?.status || null,
     reply_preview: clip(effectiveResponse, 2000),
     reply: clip(effectiveResponse, 12000),
     artifacts: [...artifactRefs.values()].slice(0, 20),
-    error_message: task?.error_message || contractError || (needsClarification ? 'Needs CEO clarification' : null),
+    error_message: task?.error_message || contractError || (kanbanFailed
+      ? `Delegated work ended with Kanban status ${linkedKanban.status}`
+      : needsClarification ? 'Needs CEO clarification' : null),
     needs_clarification: needsClarification,
   };
   const completion = await completeGoalStep({
@@ -3743,7 +3764,9 @@ export async function onDelegationTerminalForGoalRun(taskId) {
     result,
     failed,
     error: failed
-      ? task?.error_message || contractError || (needsClarification ? 'Needs CEO clarification' : task?.status || 'delegation failed')
+      ? task?.error_message || contractError || (kanbanFailed
+        ? `Delegated work ended with Kanban status ${linkedKanban.status}`
+        : needsClarification ? 'Needs CEO clarification' : task?.status || 'delegation failed')
       : null,
   });
   if (completion?.recovered) {

@@ -162,7 +162,14 @@ const safe = safeGoalClarificationPlan();
 assert.equal(validateTypedGoalPlan(safe, noHumanCatalog).ok, true);
 assert.equal(safe.some((step) => step.type === 'agent_tool' || step.type === 'specialty_task' || step.type === 'human_task'), false);
 
-const { ensureAgentGoalRunTables, completeGoalStepAndContinue } = await import('../src/services/agent-goal-run.js');
+const { ensureAgentGoalRunTables, completeGoalStepAndContinue, isFailedDelegationOutcome } = await import('../src/services/agent-goal-run.js');
+assert.equal(isFailedDelegationOutcome({ delegationStatus: 'completed', kanbanStatus: 'completed' }), false);
+assert.equal(
+  isFailedDelegationOutcome({ delegationStatus: 'completed', kanbanStatus: 'failed' }),
+  true,
+  'a failed linked Kanban card must not be reported as a successful goal step'
+);
+assert.equal(isFailedDelegationOutcome({ delegationStatus: 'completed', kanbanStatus: 'cancelled' }), true);
 ensureAgentGoalRunTables();
 const testDb = (await import('../src/db/schema.js')).getDb();
 testDb.prepare(`INSERT INTO platform_users(id,email,password_hash,name,role,enabled) VALUES(?,?,?,?,?,1)`)

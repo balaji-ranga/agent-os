@@ -460,9 +460,8 @@ async function reportPlanProgress(onProgress, progress) {
 
 export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, prompt, candidateSteps, checkerEndpointPreference = null, onProgress = null }) {
   const catalog = await buildCatalog(ownerUserId, orchestratorAgentId);
-  // The catalog router is deterministic and may already have produced a fully
-  // executable contract. Keep that validated contract as a recovery point so
-  // repeated maker hallucinations cannot erase known-good workflows/tools.
+  // The catalog route is an emergency recovery point, not a semantic contract.
+  // It may contain fuzzy matches that the LLM maker must be free to reject.
   const seed = validateCandidateGoalPlan(candidateSteps, catalog);
   let maker;
   let made = [];
@@ -497,7 +496,7 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
         timeoutMs: structuredTimeoutMs,
         messages: [
           { role: 'system', content: `You are the maker for an executable company goal plan. Return one JSON object whose top-level key is exactly "steps". Translate the complete goal into the smallest complete ordered dependency graph. Cover every requested prerequisite, output, constraint, human decision, nested delegation, and terminal delivery. Use only exact live catalog IDs. Never invent a top-level executor absent from the live catalog. When a selected orchestrator must delegate to one of its own reportees or use one of its own tools that is not in this top-level catalog, preserve that complete nested requirement inside the selected orchestrator specialty_task message; the child orchestrator will create its own isolated plan. A named human receives only the specific work/decision intended for that human, never the whole goal when preparation is needed. A dependent action must consume the prior data/artifact/decision. Ordinary JSON, status, profile, list, and analysis results are data, not artifacts. Declare artifact only when the selected executor actually returns a file, attachment, media, document, or downloadable URL. Never invent completed evidence or artifacts. Do not return prose, analysis, status, tool calls, or an empty plan. ${PLAN_SCHEMA}` },
-          { role: 'user', content: `ORIGINAL GOAL:\n${clip(prompt, 9000)}\n\nLIVE CATALOG:\n${catalogPrompt(catalog)}\n\nDETERMINISTICALLY VALID BASELINE:\n${clip(seed.steps, 12000)}\nThe baseline is executable and may be returned unchanged. Improve it only where the original goal needs additional explicit stages.${attempt > 1 ? `\n\nPREVIOUS INVALID RESPONSE:\n${clip(rejectedRaw, 6000)}\n\nNORMALIZED INVALID PLAN:\n${clip(rejectedPlan, 8000)}\n\nEXACT VALIDATION ERRORS TO REPAIR:\n${madeValidation.errors.join('; ')}\nReturn the validated baseline unchanged if you cannot safely repair these errors.` : ''}` },
+          { role: 'user', content: `ORIGINAL GOAL:\n${clip(prompt, 9000)}\n\nLIVE CATALOG:\n${catalogPrompt(catalog)}\n\nADVISORY ROUTE CANDIDATE (not authoritative; omit false-positive executors and keep only work required by the original goal):\n${clip(seed.steps, 12000)}${attempt > 1 ? `\n\nPREVIOUS INVALID RESPONSE:\n${clip(rejectedRaw, 6000)}\n\nNORMALIZED INVALID PLAN:\n${clip(rejectedPlan, 8000)}\n\nEXACT VALIDATION ERRORS TO REPAIR:\n${madeValidation.errors.join('; ')}\nUse the advisory route only as a recovery reference; do not add work absent from the original goal.` : ''}` },
         ],
       });
     } catch (error) {
@@ -524,10 +523,6 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
     madeValidation = validateTypedGoalPlan(made, catalog);
     if (!rejectedPlan.length) {
       madeValidation = { ok: false, errors: ['Maker response did not contain a non-empty steps array'] };
-    }
-    if (madeValidation.ok && seed.validation.ok) {
-      const coverage = validateSeedRequirementCoverage(made, seed.steps);
-      if (!coverage.ok) madeValidation = coverage;
     }
     if (madeValidation.ok) {
       makerContractFromLlm = true;
