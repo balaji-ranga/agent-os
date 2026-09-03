@@ -13,7 +13,7 @@ import { getDb } from '../db/schema.js';
 import * as meta from '../services/content-tools-meta.js';
 import { assertCallerMayUseTool, getAgentToolGrants } from '../services/openclaw-agent-tools.js';
 import { parseTenantOpenClawAgentId, resolveAgentFromOpenClawCallerId } from '../services/openclaw-tenant.js';
-import { resolveOwnerFromOpenClawSession, lookupOpenClawSessionActor } from '../services/tool-owner-scope.js';
+import { resolveOwnerFromOpenClawSession, lookupOpenClawSessionActor, lookupActiveDashboardChat } from '../services/tool-owner-scope.js';
 import { resolveChannelActor, loadCompanyActor } from '../services/channel-user-identity.js';
 import { executeKanbanUserAction } from '../services/kanban-user-actions.js';
 import { withLlmopsContext, getLlmopsContext, inferTraceId } from '../services/llmops-context.js';
@@ -50,7 +50,7 @@ function sanitizeTenantId(value) {
     .replace(/[^a-z0-9_-]+/g, '-')
     .replace(/^-+|-+$/g, '');
 }
-import { scheduleCeoRequestViaOpenClawCron } from '../services/delegation-queue.js';
+import { scheduleCeoRequestViaOpenClawCron, isUsableDelegationWorkOrder } from '../services/delegation-queue.js';
 import { getOrCreateDelegationHubStandup } from '../services/standup-hub.js';
 import {
   listChatTriggerableWorkflows,
@@ -2613,14 +2613,9 @@ router.post('/learnings-summary', optionalAuth, async (req, res) => {
 router.post('/intent-classify-and-delegate', optionalAuth, async (req, res) => {
   const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
   const requestPayload = req.body || {};
-  const message = (requestPayload.message || requestPayload.prompt || '').toString().trim();
+  let message = (requestPayload.message || requestPayload.prompt || '').toString().trim();
   let standupId = requestPayload.standup_id != null ? Number(requestPayload.standup_id) : null;
   try {
-    if (!message) {
-      const err = { error: 'message required' };
-      logTool(req,'intent_classify_and_delegate', requestPayload, err, 'error', source);
-      return res.status(400).json(err);
-    }
     const caller = getCallerAgent(req);
     if (!caller || !caller.is_coo) {
       const err = { error: 'Only COO can use intent-classify-and-delegate' };
@@ -2628,6 +2623,16 @@ router.post('/intent-classify-and-delegate', optionalAuth, async (req, res) => {
       return res.status(403).json(err);
     }
     const ownerUserId = resolveToolOwnerUserId(req, requestPayload, resolveAuthenticatedCeoUserId);
+    if (!isUsableDelegationWorkOrder(message)) {
+      const trustedTurn = lookupActiveDashboardChat(caller.id, ownerUserId)?.message || '';
+      if (isUsableDelegationWorkOrder(trustedTurn)) {
+        message = trustedTurn;
+      } else {
+        const err = { error: 'Delegation requires a self-contained work order; empty, placeholder, or contextless handoffs are rejected.' };
+        logTool(req,'intent_classify_and_delegate', { ...requestPayload, message: '[invalid handoff redacted]' }, err, 'error', source);
+        return res.status(400).json(err);
+      }
+    }
     if (standupId == null) {
       standupId = getOrCreateDelegationHubStandup(ownerUserId);
     } else {

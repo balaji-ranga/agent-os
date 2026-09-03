@@ -290,6 +290,21 @@ ${rolePart} Please provide a detailed response addressing this request only. Rep
 }
 
 /**
+ * Structural handoff contract. This deliberately does not inspect business
+ * keywords: a delegated work order must contain enough human-readable content
+ * to stand alone instead of punctuation, a tool placeholder, or a bare label.
+ */
+export function isUsableDelegationWorkOrder(value) {
+  const text = String(value || '')
+    .replace(/\[(?:ceo|owner)_user_id:[^\]]+\]/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const words = text.match(/[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu) || [];
+  const alphaNumericCount = (text.match(/[\p{L}\p{N}]/gu) || []).length;
+  return words.length >= 3 && alphaNumericCount >= 12;
+}
+
+/**
  * Get recent standup + CEO Dashboard chat context for intent classification.
  * Dashboard chats use chat_turns, not standup_messages — so without chat_turns
  * "delegate to MarketWatcher" loses Mag7 from the prior turn.
@@ -641,6 +656,18 @@ export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage, c
   }
 
   allocated = capAllocatedAgents(allocated, maxAgents);
+
+  // Repair only from the trusted current work order. If neither the allocator
+  // value nor current request is substantive, fail closed before persistence.
+  if (allocated && typeof allocated === 'object') {
+    const repaired = {};
+    for (const [id, query] of Object.entries(allocated)) {
+      if (isUsableDelegationWorkOrder(query)) repaired[id] = query;
+      else if (isUsableDelegationWorkOrder(scopedMessage)) repaired[id] = scopedMessage;
+      else console.warn('[delegation] rejected contextless allocated work order', { agent_id: id });
+    }
+    allocated = repaired;
+  }
 
   // Stitch prior standup thread into thin/meta task queries before external split or enqueue.
   if (allocated && typeof allocated === 'object' && context?.lastUserMessages?.length) {

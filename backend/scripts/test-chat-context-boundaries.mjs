@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { getDb } from '../src/db/schema.js';
-import { enrichTaskQueryWithPriorThread } from '../src/services/delegation-queue.js';
+import { enrichTaskQueryWithPriorThread, isUsableDelegationWorkOrder } from '../src/services/delegation-queue.js';
 import {
   DASHBOARD_CONTEXT_INSTRUCTION,
   dashboardGatewaySessionUser,
@@ -44,6 +44,9 @@ const staleDashboardHistory = [
   { id: 901, role: 'user', content: 'Open the weekly digest in Chrome.', work_unit_id: 'wu-old' },
   { id: 902, role: 'assistant', content: 'The browser task failed.', work_unit_id: 'wu-old' },
 ];
+assert.equal(isUsableDelegationWorkOrder('...'), false, 'placeholder delegation must be rejected');
+assert.equal(isUsableDelegationWorkOrder('delegate task'), false, 'bare routing label is not a work order');
+assert.equal(isUsableDelegationWorkOrder('Create a concise launch concept for the Flolah explainer.'), true);
 assert.equal(validateRouteDecision(null, []).ok, false, 'non-object router output is rejected');
 assert.equal(validateRouteDecision({ execution_mode: 'chat' }, []).ok, false, 'partial router output is rejected');
 assert.equal(validateRouteDecision({
