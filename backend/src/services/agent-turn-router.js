@@ -164,7 +164,10 @@ export async function routeAgentTurn({
         const { content } = await chatCompletions({
           ownerUserId,
           toolName: 'agent_turn_router',
-          maxTokens: 700,
+          // Reasoning-capable providers count hidden analysis against this
+          // budget even for response_format=json_object. Leave enough room for
+          // the final contract instead of receiving reasoning_content only.
+          maxTokens: 2400,
           temperature: 0,
           responseFormat: 'json_object',
           thinkingMode: 'disabled',
@@ -212,7 +215,7 @@ export async function routeAgentTurn({
         const { content } = await chatCompletions({
           ownerUserId,
           toolName: 'agent_turn_goal_adjudicator',
-          maxTokens: 180,
+          maxTokens: 900,
           temperature: 0,
           responseFormat: 'json_object',
           thinkingMode: 'disabled',

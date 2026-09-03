@@ -457,7 +457,7 @@ export async function applyHumanAssignmentPolicy(ownerUserId, prompt, steps = []
   try {
     const completion = await chatCompletions({
       ownerUserId,
-      maxTokens: 900,
+      maxTokens: 1800,
       toolName: 'goal_human_assignment',
       temperature: 0,
       responseFormat: 'json_object',
@@ -960,7 +960,7 @@ export function specialtyMessageContainsToolInstruction(message, toolName) {
   );
 }
 
-async function llmJsonIntents({ ownerUserId, system, user, maxTokens = 1400, toolName = 'goal_plan_intent' }) {
+async function llmJsonIntents({ ownerUserId, system, user, maxTokens = 2600, toolName = 'goal_plan_intent' }) {
   const { content } = await chatCompletions({
     ownerUserId,
     maxTokens,
@@ -1043,7 +1043,7 @@ async function classifyToolsMultiLabel(ownerUserId, prompt, tools) {
     const { intents: _ignore, textOut } = await (async () => {
       const { content } = await chatCompletions({
         ownerUserId,
-        maxTokens: 500,
+        maxTokens: 1400,
         toolName: 'goal_plan_intent',
         temperature: 0,
         responseFormat: 'json_object',

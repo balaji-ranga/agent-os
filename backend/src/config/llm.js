@@ -329,6 +329,7 @@ export async function chatCompletions({
       if (res.ok) {
         const data = await res.json();
         const msg = data?.choices?.[0]?.message || {};
+        const finishReason = String(data?.choices?.[0]?.finish_reason || '');
         let content = msg.content ?? '';
         if (Array.isArray(content)) {
           content = content
@@ -345,6 +346,20 @@ export async function chatCompletions({
         }
         const text =
           typeof content === 'string' ? content : String(content ?? '');
+        if (
+          responseFormat &&
+          finishReason === 'length' &&
+          !String(msg.content || '').trim() &&
+          (msg.reasoning_content || msg.reasoning)
+        ) {
+          lastErr = new Error('Structured LLM response exhausted its reasoning budget before emitting JSON');
+          console.warn('[llm] structured response truncated before final JSON', {
+            host: endpointHost(ep.baseUrl),
+            model: ep.model,
+            max_tokens: maxTokens,
+          });
+          continue;
+        }
         let usage = null;
         try {
           const { normalizeProviderUsage, meterChatCompletionsUsage } = await import(
