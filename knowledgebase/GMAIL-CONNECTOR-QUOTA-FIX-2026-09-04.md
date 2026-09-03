@@ -59,3 +59,35 @@ Configuration is documented in `deploy/.env.example` and passed by Compose:
 Live verification must use the affected CEO's agent and a read-only mailbox
 review. Do not send, trash, label or draft emails as part of this verification.
 Passing unit tests alone does not establish live agent success.
+
+## Live results
+
+Runtime deployed: `0810bc2` (connector fix `be77a10`, reproducible build adjustment
+`0810bc2`). Backend and OpenClaw healthy; public `/health` returned `ok`.
+The installed OpenClaw extension uses the generated tool timeout: backend
+300,000 ms, outer request 315,000 ms. No other service was recreated.
+
+Read-only Gmail Operations UI test prompt:
+
+> Please review my Gmail mailbox now: summarize the last 7 days and identify
+> emails that need my response, plus spam and older promotional cleanup
+> candidates. Read-only review only: do not send, draft, label, archive, move or
+> delete any email.
+
+Result: **PASS for the live Gmail connector review**. A real read-only review
+completed and its summary appeared in the Gmail Operations chat. Page-level
+rate-limit recovery succeeded without restarting earlier pages. No Gmail writes,
+OAuth changes, or cross-owner fallback occurred. Mailbox-specific counts, private
+execution identifiers, exact execution times and message content are deliberately
+excluded from this public report; the authenticated UI retains the evidence.
+
+Separate result: **FAIL for automatic COO routing**. The earlier natural-language
+COO read-only inbox request chose `direct_tool` and called CRM list tools instead
+of Gmail Operations. That is not an OAuth/connector error and is not fixed by
+this change. Do not describe this deployment as an end-to-end COO routing pass.
+
+Build observation: npm audit stalled after package installation during the first
+image build. Dockerfiles now use locked `npm ci --omit=dev --no-audit --no-fund`;
+dependency versions and GitHub vulnerability scanning are unchanged. Dependency
+installation then completed in approximately nine seconds. Focused tests also
+passed in a disposable network-disabled backend image before activation.
