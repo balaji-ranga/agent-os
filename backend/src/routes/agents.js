@@ -975,6 +975,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
             actingUser: req.authUser,
             parentWorkUnitId: turnRoute.id,
             parentAgentId: agentId,
+            targetAgentId: turnRoute.target_agent_id,
           })
         : null;
       if (delegated?.ok) {

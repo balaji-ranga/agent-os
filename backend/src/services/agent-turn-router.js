@@ -11,6 +11,12 @@ import { getPlatformTimeoutMs } from './platform-timeout-settings.js';
 
 const MODES = new Set(['chat', 'direct_tool', 'delegate', 'goal_plan']);
 const RELATIONS = new Set(['new_work', 'follow_up', 'correction', 'conversation']);
+const ROUTING_GENERIC_TOOLS = new Set([
+  'analyze_image', 'ceo_profile', 'company_communications_history', 'email_send',
+  'kanban_create_task', 'kanban_get_task', 'kanban_move_status', 'kanban_reassign_to_coo',
+  'learnings_summary', 'list_inbound_attachments', 'notify_ceo', 'summarize_url',
+  'voice_call_invite',
+]);
 
 function db() {
   ensureAgentTurnRouterSchema();
@@ -86,6 +92,7 @@ Return JSON only:
   "execution_mode":"chat|direct_tool|delegate|goal_plan",
   "relevant_turn_ids":[integer ids],
   "parent_work_unit_id":"id or null",
+  "target_agent_id":"exact roster agent id or null",
   "resolved_request":"standalone request preserving every user constraint",
   "restart_requested":false,
   "confidence":0.0
@@ -98,7 +105,9 @@ Rules:
 - conversation: greeting, acknowledgement, explanation, or ordinary dialogue that needs no executable work.
 - goal_plan: substantial durable execution with multiple meaningful stages, dependencies, agents, tools, workflows, asynchronous work, tracking, retry, or a composite final deliverable.
 - delegate: one specialist deliverable that the user assigns to, or that is best owned by, a different employee in the supplied organization roster. An explicit request for another named employee to do the work is delegate, not direct_tool.
-- direct_tool: one bounded action or lookup for the current agent to perform itself.
+- When execution_mode is delegate, target_agent_id is required and must be an exact id from the supplied organization roster. For every other mode it must be null.
+- An orchestrator coordinates work; it does not own every capability exposed anywhere in the company. If a roster employee's declared role or granted capabilities are a closer semantic fit than the current agent's declared role/capabilities, choose delegate even when the request has only one bounded deliverable.
+- direct_tool: one bounded action or lookup clearly owned by the current agent's declared role or granted capabilities. Do not choose it merely because some other employee has the needed tool.
 - chat: answer/explain/converse without durable execution.
 - Do not classify a detailed standalone specification as follow_up merely because its prose contains pronouns.
 - A terminal execution is historical evidence, not permission to restart it. Only select it when the current message semantically requests continuation/retry/status.
@@ -108,14 +117,14 @@ Rules:
 
 const DURABLE_GOAL_ADJUDICATOR = `Decide the execution boundary for the supplied request.
 Judge its meaning, current agent, available organization, and execution structure; never isolated keywords.
-Return JSON only: {"durable_goal":true|false,"stage_count":integer,"execution_mode":"direct_tool|delegate|goal_plan"}.
+Return JSON only: {"durable_goal":true|false,"stage_count":integer,"execution_mode":"direct_tool|delegate|goal_plan","target_agent_id":"exact roster agent id or null"}.
 durable_goal is true when completion requires two or more independently verifiable stages or outputs, dependencies, multiple agents/systems, asynchronous work, tracked retry, or a composite final deliverable.
 A bounded request handled by the current agent using its own tools is one deliverable and is direct_tool, even if it reads several records or returns several sections.
-Choose delegate when one bounded deliverable is best owned by a different employee in the supplied organization. The current agent must not substitute an unrelated tool when a roster specialist owns the requested capability. Choose goal_plan only for durable_goal=true.
+Choose delegate when one bounded deliverable is best owned by a different employee in the supplied organization. When delegating, target_agent_id is required and must exactly match that roster employee. An orchestrator's coordination role does not make it the owner of every company capability. The current agent must not substitute an unrelated tool when a roster specialist's role or granted capabilities are the closer semantic fit. Choose direct_tool only when the current agent's own declared role or capabilities clearly own the action. Choose goal_plan only for durable_goal=true; target_agent_id must be null for direct_tool and goal_plan.
 A requested state change across a collection may be durable when it necessarily requires separately tracked discovery, decision, and mutation stages; a read-only review plus summary is not durable by itself.
 A long explanation with only one answer is not a durable goal. A detailed specification remains durable even when formatted as one paragraph.`;
 
-export function validateRouteDecision(value, candidateTurnIds = []) {
+export function validateRouteDecision(value, candidateTurnIds = [], rosterAgentIds = []) {
   const errors = [];
   const allowedIds = new Set(candidateTurnIds.map(Number));
   if (!value || typeof value !== 'object' || Array.isArray(value)) return { ok: false, errors: ['response is not a JSON object'] };
@@ -125,12 +134,32 @@ export function validateRouteDecision(value, candidateTurnIds = []) {
   else if (value.relevant_turn_ids.some((id) => !Number.isInteger(Number(id)) || !allowedIds.has(Number(id)))) errors.push('relevant_turn_ids contains an unknown turn');
   if (!String(value.resolved_request || '').trim()) errors.push('resolved_request is empty');
   if (typeof value.restart_requested !== 'boolean') errors.push('restart_requested must be boolean');
+  const target = value.target_agent_id == null ? null : String(value.target_agent_id).trim();
+  const allowedAgents = new Set(rosterAgentIds.map((id) => String(id).toLowerCase()));
+  if (String(value.execution_mode || '') === 'delegate') {
+    if (!target) errors.push('target_agent_id is required for delegate');
+    else if (!allowedAgents.has(target.toLowerCase())) errors.push('target_agent_id is not in the organization roster');
+  } else if (target) {
+    errors.push('target_agent_id must be null unless execution_mode is delegate');
+  }
   const confidence = Number(value.confidence);
   if (!Number.isFinite(confidence) || confidence < 0 || confidence > 1) errors.push('confidence must be between 0 and 1');
   return { ok: errors.length === 0, errors };
 }
 
-function validateDurableDecision(value) {
+function compactAgentCapabilities(agentId, limit = 18) {
+  try {
+    return db().prepare('SELECT tool_name FROM agent_tool_grants WHERE agent_id=? ORDER BY tool_name')
+      .all(agentId || '')
+      .map((row) => String(row.tool_name || ''))
+      .filter((name) => name && !ROUTING_GENERIC_TOOLS.has(name) && !name.startsWith('master_data_'))
+      .slice(0, limit);
+  } catch (_) {
+    return [];
+  }
+}
+
+function validateDurableDecision(value, rosterAgentIds = []) {
   const errors = [];
   if (!value || typeof value !== 'object' || Array.isArray(value)) return { ok: false, errors: ['response is not a JSON object'] };
   if (typeof value.durable_goal !== 'boolean') errors.push('durable_goal must be boolean');
@@ -140,13 +169,21 @@ function validateDurableDecision(value) {
   }
   if (value?.durable_goal === true && value?.execution_mode !== 'goal_plan') errors.push('durable goal must use goal_plan');
   if (value?.durable_goal === false && value?.execution_mode === 'goal_plan') errors.push('non-durable work cannot use goal_plan');
+  const target = value?.target_agent_id == null ? null : String(value.target_agent_id).trim();
+  const allowedAgents = new Set(rosterAgentIds.map((id) => String(id).toLowerCase()));
+  if (String(value?.execution_mode || '') === 'delegate') {
+    if (!target) errors.push('target_agent_id is required for delegate');
+    else if (!allowedAgents.has(target.toLowerCase())) errors.push('target_agent_id is not in the organization roster');
+  } else if (target) {
+    errors.push('target_agent_id must be null unless execution_mode is delegate');
+  }
   return { ok: errors.length === 0, errors };
 }
 
 export function applyDurableAdjudication(route, durable) {
   if (!route || !durable) return route;
   if (durable.durable_goal === true && Number(durable.stage_count) >= 2) {
-    return { ...route, execution_mode: 'goal_plan', confidence: Math.max(Number(route.confidence) || 0, 0.8) };
+    return { ...route, execution_mode: 'goal_plan', target_agent_id: null, confidence: Math.max(Number(route.confidence) || 0, 0.8) };
   }
   if (durable.durable_goal === false && ['direct_tool', 'delegate'].includes(String(durable.execution_mode))) {
     // The adjudicator is a safeguard for under-routed or ambiguous work. It
@@ -156,7 +193,12 @@ export function applyDurableAdjudication(route, durable) {
     if (String(route.execution_mode || '') === 'goal_plan' && Number(route.confidence) >= 0.8) {
       return route;
     }
-    return { ...route, execution_mode: durable.execution_mode, confidence: Math.max(Number(route.confidence) || 0, 0.8) };
+    return {
+      ...route,
+      execution_mode: durable.execution_mode,
+      target_agent_id: durable.execution_mode === 'delegate' ? durable.target_agent_id : null,
+      confidence: Math.max(Number(route.confidence) || 0, 0.8),
+    };
   }
   return route;
 }
@@ -178,11 +220,25 @@ export async function routeAgentTurn({
   let organization = [];
   try {
     organization = db().prepare(`
-      SELECT a.id,a.name,a.role,a.department
+      SELECT a.id,a.name,a.role,a.department,COALESCE(a.is_orchestrator,0) AS is_orchestrator,
+             COALESCE(GROUP_CONCAT(atg.tool_name, '|'),'') AS granted_tools
       FROM user_agents ua JOIN agents a ON a.id=ua.agent_id
+      LEFT JOIN agent_tool_grants atg ON atg.agent_id=a.id
       WHERE ua.user_id=? AND ua.enabled=1 AND a.id<>?
+        AND (?=0 OR lower(COALESCE(a.parent_id,''))=lower(?))
+      GROUP BY a.id,a.name,a.role,a.department,a.is_orchestrator
       ORDER BY a.name LIMIT 80
-    `).all(ownerUserId, agent?.id || '');
+    `).all(ownerUserId, agent?.id || '', agent?.is_coo ? 1 : 0, agent?.id || '');
+    organization = organization.map((member) => ({
+      id: member.id,
+      name: member.name,
+      role: member.role || '',
+      department: member.department || '',
+      is_orchestrator: !!member.is_orchestrator,
+      capabilities: String(member.granted_tools || '').split('|')
+        .filter((name) => name && !ROUTING_GENERIC_TOOLS.has(name) && !name.startsWith('master_data_'))
+        .slice(0, 18),
+    }));
   } catch (_) {
     organization = [];
   }
@@ -208,7 +264,14 @@ export async function routeAgentTurn({
             {
               role: 'user',
               content: JSON.stringify({
-                agent: { id: agent?.id, name: agent?.name, role: agent?.role, is_coo: !!agent?.is_coo },
+                agent: {
+                  id: agent?.id,
+                  name: agent?.name,
+                  role: agent?.role,
+                  is_coo: !!agent?.is_coo,
+                  is_orchestrator: !!agent?.is_orchestrator,
+                  capabilities: compactAgentCapabilities(agent?.id),
+                },
                 organization,
                 current_message: String(message || ''),
                 candidate_turns: candidates,
@@ -218,7 +281,7 @@ export async function routeAgentTurn({
           ],
         });
         parsed = extractJson(content);
-        routeValidation = validateRouteDecision(parsed, candidates.map((turn) => turn.id));
+        routeValidation = validateRouteDecision(parsed, candidates.map((turn) => turn.id), organization.map((member) => member.id));
         routeAttempts.push({ attempt, raw: String(content || '').slice(0, 4000), errors: routeValidation.errors });
         if (routeValidation.ok && Number(parsed.confidence) >= 0.75) break;
         if (routeValidation.ok) routeValidation = { ok: false, errors: [`confidence ${Number(parsed.confidence)} is below 0.75`] };
@@ -252,7 +315,14 @@ export async function routeAgentTurn({
           messages: [
             { role: 'system', content: DURABLE_GOAL_ADJUDICATOR },
             { role: 'user', content: JSON.stringify({
-              current_agent: { id: agent?.id, name: agent?.name, role: agent?.role, is_coo: !!agent?.is_coo },
+              current_agent: {
+                id: agent?.id,
+                name: agent?.name,
+                role: agent?.role,
+                is_coo: !!agent?.is_coo,
+                is_orchestrator: !!agent?.is_orchestrator,
+                capabilities: compactAgentCapabilities(agent?.id),
+              },
               organization,
               request: String(message || ''),
               ...(attempt > 1 ? { repair_errors: durableValidation.errors, previous_response: routeAttempts.at(-1)?.raw } : {}),
@@ -260,7 +330,7 @@ export async function routeAgentTurn({
           ],
         });
         durable = extractJson(content);
-        durableValidation = validateDurableDecision(durable);
+        durableValidation = validateDurableDecision(durable, organization.map((member) => member.id));
         routeAttempts.push({ attempt, judge: true, raw: String(content || '').slice(0, 2000), errors: durableValidation.errors });
         if (durableValidation.ok) break;
       }
@@ -272,7 +342,7 @@ export async function routeAgentTurn({
           resolved_request: String(parsed?.resolved_request || message || '').trim(),
           restart_requested: false,
         }, durable);
-        routeValidation = validateRouteDecision(parsed, candidates.map((turn) => turn.id));
+        routeValidation = validateRouteDecision(parsed, candidates.map((turn) => turn.id), organization.map((member) => member.id));
       }
     } catch (e) {
       routeAttempts.push({ judge: true, error: String(e?.message || e).slice(0, 1000) });
@@ -318,6 +388,7 @@ export async function routeAgentTurn({
     resolved_request: resolvedRequest,
     confidence: Number(parsed?.confidence) || 0,
     restart_requested: restartRequested,
+    target_agent_id: executionMode === 'delegate' ? String(parsed?.target_agent_id || '').trim() || null : null,
     terminal_parent_guarded: terminalParent && !restartRequested,
     request_fingerprint: fingerprint,
     decision_attempts: routeAttempts,

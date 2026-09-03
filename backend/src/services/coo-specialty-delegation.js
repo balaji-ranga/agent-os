@@ -170,7 +170,7 @@ export async function classifyCooDelegationTargets(ownerUserId, ceoMessage) {
 export async function tryHandleCooSpecialtyDelegation(
   ownerUserId,
   ceoMessage,
-  { actingUser, parentWorkUnitId = null, parentAgentId = null } = {}
+  { actingUser, parentWorkUnitId = null, parentAgentId = null, targetAgentId = null } = {}
 ) {
   const t = String(ceoMessage || '').trim();
   if (!ownerUserId || !t || t.length < 8) return null;
@@ -188,23 +188,37 @@ export async function tryHandleCooSpecialtyDelegation(
     return null;
   }
 
+  const routedTarget = String(targetAgentId || '').trim().toLowerCase();
+
   // Intent: if a COO content tool matches (esp. status updates → status_checker), do not hard-delegate.
   // Lets OpenClaw/COO run the tool — same as WhatsApp channel path.
-  try {
-    const owned = await classifyCooOwnedToolIntent(ownerUserId, t);
-    if (owned?.tool) {
-      console.info('[coo-delegation] skip hard-delegate; COO tool owns intent', {
-        tool: owned.tool,
-        ownerUserId,
-      });
-      return null;
+  // A validated semantic-router target is authoritative and avoids repeating
+  // the same classification with another model call.
+  if (!routedTarget) {
+    try {
+      const owned = await classifyCooOwnedToolIntent(ownerUserId, t);
+      if (owned?.tool) {
+        console.info('[coo-delegation] skip hard-delegate; COO tool owns intent', {
+          tool: owned.tool,
+          ownerUserId,
+        });
+        return null;
+      }
+    } catch (e) {
+      console.warn('[coo-delegation] tool-ownership classify failed', e?.message || e);
     }
-  } catch (e) {
-    console.warn('[coo-delegation] tool-ownership classify failed', e?.message || e);
   }
 
   // Generic: match intent to agents listed in COO AGENTS.md (purposes), not keywords.
-  const allocated = await classifyCooDelegationTargets(ownerUserId, t);
+  let allocated;
+  if (routedTarget) {
+    const allowed = getAgentsUnderCooForCeo(ownerUserId).find(
+      (candidate) => String(candidate.id || '').toLowerCase() === routedTarget
+    );
+    allocated = allowed ? { [allowed.id]: t } : {};
+  } else {
+    allocated = await classifyCooDelegationTargets(ownerUserId, t);
+  }
   const { internal: rawInternal, leaf: rawLeaf } = splitAllocationByKind(allocated);
   let internal = rawInternal;
   let leaf = rawLeaf;

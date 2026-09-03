@@ -51,18 +51,27 @@ assert.equal(isUsableDelegationWorkOrder('Create a concise launch concept for th
 assert.equal(validateRouteDecision(null, []).ok, false, 'non-object router output is rejected');
 assert.equal(validateRouteDecision({ execution_mode: 'chat' }, []).ok, false, 'partial router output is rejected');
 assert.equal(validateRouteDecision({
-  relation: 'new_work', execution_mode: 'chat', relevant_turn_ids: [], resolved_request: 'test', restart_requested: false, confidence: 0,
+  relation: 'new_work', execution_mode: 'chat', target_agent_id: null, relevant_turn_ids: [], resolved_request: 'test', restart_requested: false, confidence: 0,
 }, []).ok, true, 'zero confidence is syntactically valid so the runtime can explicitly trigger repair');
 assert.equal(validateRouteDecision({
-  relation: 'new_work', execution_mode: 'goal_plan', relevant_turn_ids: [999], resolved_request: 'test', restart_requested: false, confidence: 0.9,
+  relation: 'new_work', execution_mode: 'goal_plan', target_agent_id: null, relevant_turn_ids: [999], resolved_request: 'test', restart_requested: false, confidence: 0.9,
 }, [901]).ok, false, 'unknown history IDs are rejected');
+assert.equal(validateRouteDecision({
+  relation: 'new_work', execution_mode: 'delegate', target_agent_id: 'gmail-operations', relevant_turn_ids: [], resolved_request: 'Organize the mailbox', restart_requested: false, confidence: 0.9,
+}, [], ['gmail-operations']).ok, true, 'delegate must bind to an exact owner roster agent');
+assert.equal(validateRouteDecision({
+  relation: 'new_work', execution_mode: 'delegate', target_agent_id: 'other-tenant-agent', relevant_turn_ids: [], resolved_request: 'Organize the mailbox', restart_requested: false, confidence: 0.9,
+}, [], ['gmail-operations']).ok, false, 'delegate cannot target outside the owner roster');
+assert.equal(validateRouteDecision({
+  relation: 'new_work', execution_mode: 'direct_tool', target_agent_id: 'gmail-operations', relevant_turn_ids: [], resolved_request: 'Organize the mailbox', restart_requested: false, confidence: 0.9,
+}, [], ['gmail-operations']).ok, false, 'non-delegation routes cannot retain a target agent');
 assert.equal(needsRouteAdjudication({ ok: true }, { confidence: 0.75 }), false, '75% confidence is accepted directly');
 assert.equal(needsRouteAdjudication({ ok: true }, { confidence: 0.749 }), true, 'below 75% confidence requires one adjudication');
 assert.equal(needsRouteAdjudication({ ok: false }, { confidence: 0.99 }), true, 'invalid route requires one adjudication');
 assert.equal(
   applyDurableAdjudication(
     { execution_mode: 'goal_plan', confidence: 0.7 },
-    { durable_goal: false, stage_count: 1, execution_mode: 'direct_tool' }
+    { durable_goal: false, stage_count: 1, execution_mode: 'direct_tool', target_agent_id: null }
   ).execution_mode,
   'direct_tool',
   'one bounded specialist deliverable must be downgraded from an over-classified goal'
@@ -70,7 +79,7 @@ assert.equal(
 assert.equal(
   applyDurableAdjudication(
     { execution_mode: 'goal_plan', confidence: 0.96 },
-    { durable_goal: false, stage_count: 1, execution_mode: 'delegate' }
+    { durable_goal: false, stage_count: 1, execution_mode: 'delegate', target_agent_id: 'specialist' }
   ).execution_mode,
   'goal_plan',
   'a high-confidence semantic goal decision must not be randomly downgraded by the adjudicator'
@@ -78,7 +87,7 @@ assert.equal(
 assert.equal(
   applyDurableAdjudication(
     { execution_mode: 'direct_tool', confidence: 0.7 },
-    { durable_goal: true, stage_count: 3, execution_mode: 'goal_plan' }
+    { durable_goal: true, stage_count: 3, execution_mode: 'goal_plan', target_agent_id: null }
   ).execution_mode,
   'goal_plan',
   'multi-stage durable work must still be promoted to a goal plan'
