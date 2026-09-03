@@ -9,6 +9,10 @@ import { resolveToolOwnerUserIdOrNull, resolveEntitledOwnerUserId } from './tool
 import { resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
 import { recordMissionEvent } from './goal-outcome.js';
 import { parseTenantOpenClawAgentId } from './openclaw-tenant.js';
+import {
+  connectorPolicyToolName,
+  getConnectorActionClassification,
+} from './connector-action-grants.js';
 
 export const ACTION_FAMILIES = Object.freeze([
   { id: 'read', label: 'Read / research', defaultMode: 'autonomous', defaultTier: 'R0' },
@@ -158,6 +162,13 @@ function explicitRiskForTool(toolName) {
 }
 
 export function resolveRiskForTool(toolName) {
+  const connectorAction = String(toolName || '').startsWith('connector_action:')
+    ? String(toolName).slice('connector_action:'.length)
+    : '';
+  if (connectorAction) {
+    const declared = getConnectorActionClassification(connectorAction);
+    if (declared) return { ...declared, source: 'connector_action_registry' };
+  }
   return explicitRiskForTool(toolName) || { ...inferRiskForTool(toolName), source: 'inferred' };
 }
 
@@ -495,6 +506,10 @@ export function actionPolicyMiddleware(req, res, next) {
   }
   if (!toolName) return next();
 
+  const policyToolName = toolName === 'connector_execute_action'
+    ? connectorPolicyToolName(req.body?.action_id || req.body?.actionId || req.body?.id)
+    : toolName;
+
   let ownerUserId = null;
   try {
     ownerUserId = resolveToolOwnerUserIdOrNull(req, req.body || {}, resolveAuthenticatedCeoUserId);
@@ -529,7 +544,7 @@ export function actionPolicyMiddleware(req, res, next) {
 
   const decision = evaluateActionPolicy({
     ownerUserId,
-    toolName,
+    toolName: policyToolName,
     body: req.body || {},
     goalRunId: req.body?.goal_run_id || req.body?.goalRunId || null,
     context: {

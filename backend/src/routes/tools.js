@@ -150,6 +150,7 @@ import {
   getConnectorActionGuide,
   searchConnectorApps,
 } from '../services/openconnector.js';
+import { assertCallerMayExecuteConnectorAction } from '../services/connector-action-grants.js';
 import {
   reviewGmailMailbox,
   executeGmailMailboxCleanup,
@@ -2782,6 +2783,17 @@ router.post('/connector-execute-action', optionalAuth, async (req, res) => {
       const err = { error: 'action_id required' };
       logTool(req, 'connector_execute_action', requestPayload, err, 'error', source);
       return res.status(400).json(err);
+    }
+    const actionGrant = assertCallerMayExecuteConnectorAction(source, actionId);
+    if (!actionGrant.ok) {
+      const err = {
+        ok: false,
+        error: actionGrant.error,
+        failure_class: 'connector_action_denial',
+        action_id: actionId,
+      };
+      logTool(req, 'connector_execute_action', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
     }
     const input =
       requestPayload.input && typeof requestPayload.input === 'object' ? requestPayload.input : {};

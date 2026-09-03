@@ -16,7 +16,12 @@ try {
     executeGmailMailboxCleanup,
     getGmailCleanupPlan,
   } = await import('../src/services/gmail-mailbox-operations.js');
-  const { inferRiskForTool } = await import('../src/services/action-policy.js');
+  const { inferRiskForTool, resolveRiskForTool } = await import('../src/services/action-policy.js');
+  const {
+    grantGmailOperationsConnectorActions,
+    assertCallerMayExecuteConnectorAction,
+    connectorPolicyToolName,
+  } = await import('../src/services/connector-action-grants.js');
   const { planRecipePublishFromChat } = await import('../src/services/agent-workflow-recipes.js');
 
   assert.equal(GMAIL_QUERIES.recent(7), 'newer_than:7d -in:spam -in:trash');
@@ -24,6 +29,31 @@ try {
   assert.equal(inferRiskForTool('gmail_mailbox_review').action_family, 'read');
   assert.equal(inferRiskForTool('gmail_mailbox_cleanup').action_family, 'financial_destructive');
   assert.equal(inferRiskForTool('gmail_mailbox_cleanup_status').action_family, 'read');
+  testDb.prepare(`INSERT INTO agents
+    (id, name, role, openclaw_agent_id, agent_type, owner_user_id, template_base_id)
+    VALUES (?, ?, ?, ?, 'custom', ?, ?)`)
+    .run('gmail-test', 'Gmail Operations', 'Mailbox operations', 'gmail-test', 'ceo-a', 'gmail-operations');
+  assert.ok(grantGmailOperationsConnectorActions() > 0);
+  assert.equal(
+    resolveRiskForTool(connectorPolicyToolName('gmail.create_email_draft')).action_family,
+    'write_internal',
+    'saving a Gmail draft must be an internal write'
+  );
+  assert.equal(
+    assertCallerMayExecuteConnectorAction('gmail-test', 'gmail.create_email_draft').ok,
+    true,
+    'Gmail Operations may save a draft through the generic connector'
+  );
+  assert.equal(
+    assertCallerMayExecuteConnectorAction('gmail-test', 'gmail.send_email').ok,
+    false,
+    'draft access must not grant send access'
+  );
+  assert.equal(
+    assertCallerMayExecuteConnectorAction('gmail-test', 'gmail.delete_message').ok,
+    false,
+    'draft access must not grant destructive actions'
+  );
   const recipe = planRecipePublishFromChat(
     'Create a workflow to organize Gmail, summarize it, and delete spam and promotions older than 7 days'
   );

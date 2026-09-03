@@ -106,6 +106,7 @@ import { initDb, getDb } from './db/schema.js';
 import { ensureExternalTokenTables } from './services/external-tokens.js';
 import { seedDefaultAgentsIfEmpty, seedAgentDepartmentsIfMissing } from './db/seed-default-agents.js';
 import { seedContentToolsMetaIfEmpty, seedKanbanToolsIfMissing, seedWorkflowToolsIfMissing, seedLearningsToolsIfMissing, seedEmailSendToolIfMissing, seedSpeechToolsIfMissing, seedVisionToolsIfMissing, seedNotifyCeoToolIfMissing, seedVoiceInviteToolIfMissing, seedOnboardingProposalToolsIfMissing, seedCeoProfileToolIfMissing, seedStatusCheckerToolIfMissing, seedThisWeekDigestToolIfMissing, seedOperationalEffectivenessToolIfMissing, seedLlmopsSummaryToolIfMissing, seedMasterDataToolsIfMissing, seedConnectorToolsIfMissing, seedGmailMailboxToolsIfMissing, seedVedicChartToolIfMissing, seedVideoStoryboardToolsIfMissing, updateKanbanToolPurposes, seedPlatformFeedbackToolsIfMissing, grantPlatformFeedbackTools, seedScheduledGoalToolsIfMissing, seedCrmToolsIfMissing, seedErpToolsIfMissing } from './db/seed-content-tools-meta.js';
+import { grantGmailOperationsConnectorActions } from './services/connector-action-grants.js';
 import businessCoreRoutes from './routes/business-core.js';
 import companyWorkspaceRoutes from './routes/company-workspace.js';
 import uiPrefsRoutes from './routes/ui-prefs.js';
@@ -355,6 +356,15 @@ seedVedicChartToolIfMissing();
 seedVideoStoryboardToolsIfMissing();
 seedConnectorToolsIfMissing();
 seedGmailMailboxToolsIfMissing();
+try {
+  const gmailConnectorGrants = grantGmailOperationsConnectorActions();
+  if (gmailConnectorGrants) {
+    console.log('[startup] granted Gmail Operations connector actions (%s grant(s))', gmailConnectorGrants);
+    syncAllowlistsFile();
+  }
+} catch (e) {
+  console.warn('[startup] Gmail Operations connector action grants:', e.message);
+}
 updateKanbanToolPurposes();
 seedJobApplicantToolsIfMissing();
 seedIbkrTradingToolsIfMissing();

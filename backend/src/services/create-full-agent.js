@@ -21,6 +21,7 @@ import { getOpenClawDir } from '../config/openclaw-paths.js';
 import { resolveWorkspaceTemplateBaseId } from './company-blueprints/standard-prefabs.js';
 import { getHireableRoleTemplate } from './hireable-role-templates.js';
 import { normalizeAgentAvatar } from '../lib/agent-avatar.js';
+import { grantConnectorActionsForAgent } from './connector-action-grants.js';
 
 const REPO_TEMPLATES = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'openclaw-workspace-templates');
 
@@ -267,6 +268,7 @@ export async function createFullAgent(input) {
   }
   try {
     setAgentToolGrants(row, toolsToGrant);
+    grantConnectorActionsForAgent(row);
   } catch (e) {
     console.warn('setAgentToolGrants failed for', id, e?.message);
   }

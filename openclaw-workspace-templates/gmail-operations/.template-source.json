@@ -6,6 +6,9 @@
     "gmail_mailbox_review",
     "gmail_mailbox_cleanup",
     "gmail_mailbox_cleanup_status",
+    "connector_search_actions",
+    "connector_get_action_guide",
+    "connector_execute_action",
     "kanban_move_status",
     "notify_ceo"
   ]

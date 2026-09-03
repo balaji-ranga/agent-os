@@ -824,6 +824,28 @@ export function initDb() {
     _db.exec(`CREATE INDEX IF NOT EXISTS idx_agent_tool_grants_agent ON agent_tool_grants(agent_id)`);
   } catch (_) {}
 
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS connector_action_registry (
+        action_id TEXT PRIMARY KEY,
+        risk_tier TEXT NOT NULL,
+        action_family TEXT NOT NULL,
+        description TEXT DEFAULT '',
+        updated_at TEXT DEFAULT (datetime('now'))
+      );
+      CREATE TABLE IF NOT EXISTS agent_connector_action_grants (
+        agent_id TEXT NOT NULL,
+        action_id TEXT NOT NULL,
+        created_at TEXT DEFAULT (datetime('now')),
+        PRIMARY KEY (agent_id, action_id),
+        FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE,
+        FOREIGN KEY (action_id) REFERENCES connector_action_registry(action_id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_agent_connector_actions_agent
+        ON agent_connector_action_grants(agent_id);
+    `);
+  } catch (_) {}
+
   // Tombstones for deliberately deleted agents. Startup catalog re-grants and
   // OpenClaw sync both recreate agents from leftover state, which resurrected
   // deleted agents; they consult this table before recreating an id.
