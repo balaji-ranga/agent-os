@@ -108,7 +108,11 @@ import {
   listToolApiRateLimitResets,
   toolApiRateLimitMiddleware,
 } from '../services/tool-api-rate-limits.js';
-import { actionPolicyMiddleware, evaluateActionPolicy } from '../services/action-policy.js';
+import {
+  actionPolicyMiddleware,
+  evaluateActionPolicy,
+  issueForwardedActionPolicyPass,
+} from '../services/action-policy.js';
 import {
   beginToolExecution,
   completeToolExecution,
@@ -3635,7 +3639,11 @@ router.post('/invoke', requireToolsAccess, async (req, res) => {
     if (row.auth_header && typeof row.auth_header === 'string' && row.auth_header.trim()) {
       headers['Authorization'] = row.auth_header.trim();
     }
-    if (targetUrl.startsWith(baseUrl)) Object.assign(headers, internalAuthHeaders());
+    if (targetUrl.startsWith(baseUrl)) {
+      Object.assign(headers, internalAuthHeaders());
+      const policyPass = issueForwardedActionPolicyPass({ ownerUserId, toolName, decision: policy });
+      if (policyPass) headers['x-flolah-action-policy-pass'] = policyPass;
+    }
     if (governed?.id) headers['x-flolah-execution-action-id'] = governed.id;
     const fetchOpts = {
       method,

@@ -52,7 +52,7 @@ function PoliciesPanel() {
   const [overrideBusy, setOverrideBusy] = useState(false);
   const [overrideDraft, setOverrideDraft] = useState({
     scope_type: 'tool', scope_ids: [], action_family: 'communicate_external', mode: 'autonomous',
-    permitted_email_ids: '', permitted_websites: '', expires_at: '', max_uses: '',
+    permitted_email_ids: '', permitted_websites: '', grant_lifetime: 'permanent', expires_at: '', max_uses: '1',
   });
   const [exceptionPolicy, setExceptionPolicy] = useState({
     retry_limit: 1,
@@ -178,12 +178,13 @@ function PoliciesPanel() {
       const results = await Promise.all(overrideDraft.scope_ids.map((scopeId) => api.ceoActionOverrideSave({
         scope_type: overrideDraft.scope_type, scope_id: scopeId, action_family: overrideDraft.action_family,
         mode: overrideDraft.mode, constraints: { permitted_email_ids: split(overrideDraft.permitted_email_ids), permitted_websites: split(overrideDraft.permitted_websites) },
-        expires_at: overrideDraft.expires_at ? new Date(overrideDraft.expires_at).toISOString() : null,
-        max_uses: overrideDraft.max_uses === '' ? null : Number(overrideDraft.max_uses),
+        expires_at: overrideDraft.grant_lifetime === 'limited' && overrideDraft.expires_at
+          ? new Date(overrideDraft.expires_at).toISOString() : null,
+        max_uses: overrideDraft.grant_lifetime === 'limited' ? Number(overrideDraft.max_uses) : null,
       })));
       const savedRows = results.map((result) => result.action_override);
       setActionOverrides((prev) => [...prev.filter((row) => !savedRows.some((saved) => row.id === saved.id || (row.scope_type === saved.scope_type && row.scope_id === saved.scope_id && row.action_family === saved.action_family))), ...savedRows]);
-      setOverrideDraft((prev) => ({ ...prev, scope_ids: [], permitted_email_ids: '', permitted_websites: '', expires_at: '', max_uses: '' }));
+      setOverrideDraft((prev) => ({ ...prev, scope_ids: [], permitted_email_ids: '', permitted_websites: '', grant_lifetime: 'permanent', expires_at: '', max_uses: '1' }));
       setMessage(`${savedRows.length} scoped override${savedRows.length === 1 ? '' : 's'} saved and effective immediately.`);
     } catch (err) {
       setError(err.message || String(err));
@@ -546,12 +547,20 @@ function PoliciesPanel() {
               <label><span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--muted)' }}>Permitted websites/domains</span>
                 <input value={overrideDraft.permitted_websites} onChange={(e) => setOverrideDraft((p) => ({ ...p, permitted_websites: e.target.value }))} placeholder="linkedin.com, medium.com" style={{ width: '100%', padding: '0.48rem', boxSizing: 'border-box' }} />
               </label>
-              <label><span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--muted)' }}>Expires (optional)</span>
-                <input type="datetime-local" value={overrideDraft.expires_at} onChange={(e) => setOverrideDraft((p) => ({ ...p, expires_at: e.target.value }))} style={{ width: '100%', padding: '0.48rem', boxSizing: 'border-box' }} />
+              <label><span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--muted)' }}>Grant lifetime</span>
+                <select aria-label="Grant lifetime" value={overrideDraft.grant_lifetime} onChange={(e) => setOverrideDraft((p) => ({ ...p, grant_lifetime: e.target.value }))} style={{ width: '100%', padding: '0.48rem' }}>
+                  <option value="permanent">Permanent — unlimited uses</option>
+                  <option value="limited">Limited number of uses</option>
+                </select>
               </label>
-              <label><span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--muted)' }}>Maximum uses (optional)</span>
-                <input type="number" min="1" max="100000" value={overrideDraft.max_uses} onChange={(e) => setOverrideDraft((p) => ({ ...p, max_uses: e.target.value }))} placeholder="90" style={{ width: '100%', padding: '0.48rem', boxSizing: 'border-box' }} />
-              </label>
+              {overrideDraft.grant_lifetime === 'limited' ? <>
+                <label><span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--muted)' }}>Maximum uses</span>
+                  <input aria-label="Maximum uses" required type="number" min="1" max="100000" value={overrideDraft.max_uses} onChange={(e) => setOverrideDraft((p) => ({ ...p, max_uses: e.target.value }))} style={{ width: '100%', padding: '0.48rem', boxSizing: 'border-box' }} />
+                </label>
+                <label><span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--muted)' }}>Expires (optional)</span>
+                  <input type="datetime-local" value={overrideDraft.expires_at} onChange={(e) => setOverrideDraft((p) => ({ ...p, expires_at: e.target.value }))} style={{ width: '100%', padding: '0.48rem', boxSizing: 'border-box' }} />
+                </label>
+              </> : null}
             </div>
             <button type="button" className="btn-primary" disabled={overrideBusy || !overrideDraft.scope_ids.length} onClick={saveOverride} style={{ marginTop: '0.9rem' }}>
               {overrideBusy ? 'Saving…' : `Apply to ${overrideDraft.scope_ids.length || 0} selected`}
@@ -559,7 +568,10 @@ function PoliciesPanel() {
             {actionOverrides.length > 0 && <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
               {actionOverrides.map((row) => <div key={row.id} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '0.65rem', display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                 <div><strong>{row.scope_type}: {row.scope_id}</strong><div style={{ color: 'var(--muted)', fontSize: '0.8rem' }}>
-                  {row.action_family} · {row.mode} · uses {row.use_count}{row.max_uses == null ? '/unbounded' : `/${row.max_uses}`}{row.expires_at ? ` · expires ${new Date(row.expires_at).toLocaleString()}` : ''}
+                  {row.action_family} · {row.mode} · {row.max_uses == null && !row.expires_at
+                    ? 'permanent'
+                    : `uses ${row.use_count}${row.max_uses == null ? '/unbounded' : `/${row.max_uses}`}`}
+                  {row.expires_at ? ` · expires ${new Date(row.expires_at).toLocaleString()}` : ''}
                   {row.constraints?.permitted_email_ids?.length ? ` · email: ${row.constraints.permitted_email_ids.join(', ')}` : ''}
                   {row.constraints?.permitted_websites?.length ? ` · sites: ${row.constraints.permitted_websites.join(', ')}` : ''}
                 </div></div>

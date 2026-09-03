@@ -20,6 +20,8 @@ try {
     createActionApprovalGrant,
     ensureActionPolicyTables,
     evaluateActionPolicy,
+    actionPolicyMiddleware,
+    issueForwardedActionPolicyPass,
     listActionPolicyOverrides,
     upsertActionPolicyOverride,
     upsertActionFamilyPolicies,
@@ -128,6 +130,48 @@ try {
   const exhausted = evaluateActionPolicy({ ownerUserId: owner, toolName: 'email_send', body: { to: 'daily@example.test' } });
   assert.equal(exhausted.ok, false, 'exhausted recurring grant falls back to company approval-required policy');
   assert.equal(exhausted.needs_approval, true);
+
+  // A proxy invocation consumes a bounded rule once. Its trusted, one-time
+  // forward pass reuses that decision at the concrete route without consuming
+  // the same allowance a second time.
+  const oneUseCleanup = upsertActionPolicyOverride(owner, {
+    scope_type: 'tool', scope_id: 'gmail_mailbox_cleanup', action_family: 'financial_destructive',
+    mode: 'autonomous', max_uses: 1,
+  });
+  const cleanupDecision = evaluateActionPolicy({ ownerUserId: owner, toolName: 'gmail_mailbox_cleanup', body: { plan_id: 'gcp-test' } });
+  assert.equal(cleanupDecision.ok, true);
+  const policyPass = issueForwardedActionPolicyPass({ ownerUserId: owner, toolName: 'gmail_mailbox_cleanup', decision: cleanupDecision });
+  let forwarded = false;
+  const forwardedReq = {
+    method: 'POST', path: '/gmail-mailbox-cleanup', body: { plan_id: 'gcp-test' }, isInternalService: true,
+    headers: { 'x-ceo-user-id': owner, 'x-flolah-action-policy-pass': policyPass },
+    authUser: { role: 'ceo', internal: true },
+  };
+  const forwardedRes = { statusCode: 200, body: null, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
+  actionPolicyMiddleware(forwardedReq, forwardedRes, () => { forwarded = true; });
+  assert.equal(forwarded, true);
+  assert.equal(forwardedReq.actionPolicy.forwarded_policy_pass, true);
+  let replayForwarded = false;
+  const replayRes = { statusCode: 200, body: null, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
+  actionPolicyMiddleware(forwardedReq, replayRes, () => { replayForwarded = true; });
+  assert.equal(replayForwarded, false, 'forward pass cannot be replayed');
+  assert.equal(replayRes.statusCode, 403);
+  assert.equal(listActionPolicyOverrides(owner).find((row) => row.id === oneUseCleanup.id).use_count, 1);
+  assert.equal(evaluateActionPolicy({ ownerUserId: owner, toolName: 'gmail_mailbox_cleanup', body: { plan_id: 'gcp-test' } }).ok, false);
+
+  // Re-saving an exhausted bounded rule explicitly rearms it from zero; a
+  // permanent rule is represented by a null maximum-use cap.
+  const rearmedCleanup = upsertActionPolicyOverride(owner, {
+    scope_type: 'tool', scope_id: 'gmail_mailbox_cleanup', action_family: 'financial_destructive',
+    mode: 'autonomous', max_uses: 2,
+  });
+  assert.equal(rearmedCleanup.use_count, 0);
+  assert.equal(rearmedCleanup.max_uses, 2);
+  const permanentCleanup = upsertActionPolicyOverride(owner, {
+    scope_type: 'tool', scope_id: 'gmail_mailbox_cleanup', action_family: 'financial_destructive',
+    mode: 'autonomous', max_uses: null, expires_at: null,
+  });
+  assert.equal(permanentCleanup.max_uses, null);
 
   upsertActionPolicyOverride(owner, {
     scope_type: 'tool', scope_id: 'social_post', action_family: 'communicate_external', mode: 'autonomous',

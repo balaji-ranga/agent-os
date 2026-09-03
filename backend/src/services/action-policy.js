@@ -21,6 +21,48 @@ export const POLICY_MODES = Object.freeze(['autonomous', 'approval_required', 'p
 export const POLICY_OVERRIDE_SCOPES = Object.freeze(['goal', 'workflow', 'agent', 'tool']);
 
 let _ready = false;
+const forwardedPolicyPasses = new Map();
+const FORWARDED_POLICY_PASS_TTL_MS = 30_000;
+
+function pruneForwardedPolicyPasses() {
+  const now = Date.now();
+  for (const [token, row] of forwardedPolicyPasses) {
+    if (!row || row.expiresAt <= now) forwardedPolicyPasses.delete(token);
+  }
+}
+
+/**
+ * The generic /tools/invoke proxy evaluates Action Control before forwarding to
+ * the concrete tool route. This one-time, in-memory pass lets that trusted
+ * internal hop reuse the decision without evaluating or consuming a bounded
+ * grant twice. Direct internal calls do not receive a pass and remain governed.
+ */
+export function issueForwardedActionPolicyPass({ ownerUserId, toolName, decision } = {}) {
+  const owner = String(ownerUserId || '').trim();
+  const tool = String(toolName || '').trim();
+  if (!owner || !tool || decision?.ok !== true) return null;
+  pruneForwardedPolicyPasses();
+  const token = `afp_${randomBytes(32).toString('base64url')}`;
+  forwardedPolicyPasses.set(token, {
+    ownerUserId: owner,
+    toolName: tool,
+    decision: { ...decision },
+    expiresAt: Date.now() + FORWARDED_POLICY_PASS_TTL_MS,
+  });
+  return token;
+}
+
+export function consumeForwardedActionPolicyPass(token, { ownerUserId, toolName } = {}) {
+  const raw = String(token || '').trim();
+  if (!raw) return null;
+  pruneForwardedPolicyPasses();
+  const row = forwardedPolicyPasses.get(raw);
+  forwardedPolicyPasses.delete(raw);
+  if (!row || row.expiresAt <= Date.now()) return null;
+  if (row.ownerUserId !== String(ownerUserId || '').trim()) return null;
+  if (row.toolName !== String(toolName || '').trim()) return null;
+  return { ...row.decision, forwarded_policy_pass: true };
+}
 
 export function ensureActionPolicyTables() {
   if (_ready) return;
@@ -230,7 +272,7 @@ export function upsertActionPolicyOverride(ownerUserId, input = {}) {
      ON CONFLICT(owner_user_id, scope_type, scope_id, action_family) DO UPDATE SET
        mode = excluded.mode, constraints_json = excluded.constraints_json,
        expires_at = excluded.expires_at, max_uses = excluded.max_uses,
-       enabled = excluded.enabled, updated_at = datetime('now')`
+       use_count = 0, enabled = excluded.enabled, updated_at = datetime('now')`
   ).run(id, owner, scopeType, scopeId, family, mode, JSON.stringify(constraints), expiresAt,
     maxUses, input.enabled === false ? 0 : 1);
   return overrideToPublic(getDb().prepare(
@@ -467,6 +509,23 @@ export function actionPolicyMiddleware(req, res, next) {
     }
   }
   if (!ownerUserId) return next();
+
+  const forwardedPass = req.isInternalService
+    ? String(req.headers['x-flolah-action-policy-pass'] || '').trim()
+    : '';
+  if (forwardedPass) {
+    const reused = consumeForwardedActionPolicyPass(forwardedPass, { ownerUserId, toolName });
+    if (!reused) {
+      return res.status(403).json({
+        ok: false,
+        status: 403,
+        error: 'Invalid or expired internal Action Control pass.',
+        failure_class: 'policy_denial',
+      });
+    }
+    req.actionPolicy = reused;
+    return next();
+  }
 
   const decision = evaluateActionPolicy({
     ownerUserId,
