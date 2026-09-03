@@ -5,7 +5,7 @@ import {
   DASHBOARD_CONTEXT_INSTRUCTION,
   dashboardGatewaySessionUser,
 } from '../src/services/dashboard-chat-context.js';
-import { applyDurableAdjudication, bindWorkUnitExecution, routeAgentTurn, validateRouteDecision } from '../src/services/agent-turn-router.js';
+import { applyDurableAdjudication, bindWorkUnitExecution, needsRouteAdjudication, routeAgentTurn, validateRouteDecision } from '../src/services/agent-turn-router.js';
 import { isPromptAuthoringAskForAgent } from '../src/services/specialty-referral.js';
 import { buildGoalBoundWorkflowInput, parseGoalSessionReference } from '../src/services/goal-workflow-context.js';
 
@@ -56,6 +56,9 @@ assert.equal(validateRouteDecision({
 assert.equal(validateRouteDecision({
   relation: 'new_work', execution_mode: 'goal_plan', relevant_turn_ids: [999], resolved_request: 'test', restart_requested: false, confidence: 0.9,
 }, [901]).ok, false, 'unknown history IDs are rejected');
+assert.equal(needsRouteAdjudication({ ok: true }, { confidence: 0.75 }), false, '75% confidence is accepted directly');
+assert.equal(needsRouteAdjudication({ ok: true }, { confidence: 0.749 }), true, 'below 75% confidence requires one adjudication');
+assert.equal(needsRouteAdjudication({ ok: false }, { confidence: 0.99 }), true, 'invalid route requires one adjudication');
 assert.equal(
   applyDurableAdjudication(
     { execution_mode: 'goal_plan', confidence: 0.7 },

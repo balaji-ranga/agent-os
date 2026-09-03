@@ -7,7 +7,7 @@
  * may repair it. Deterministic validation then fails closed on invalid IDs,
  * dependencies, or data/artifact/decision hand-offs.
  */
-import { chatCompletions, getLlmConfig, isLocalOllama } from '../config/llm.js';
+import { chatCompletions } from '../config/llm.js';
 import {
   listOrchestratorToolsForGoalPlan,
   listWorkflowCatalogForGoalPlan,
@@ -415,19 +415,6 @@ async function buildCatalog(ownerUserId, orchestratorAgentId) {
   };
 }
 
-function checkerPreference(ownerUserId, makerResult) {
-  const cfg = getLlmConfig(ownerUserId);
-  if (makerResult?.localModel || isLocalOllama(cfg.primary?.baseUrl)) return 'platform_primary';
-  if (makerResult?.endpointPreference === 'secondary') return 'platform_primary';
-  // If the maker had to fail over to the configured secondary, use the primary
-  // slot as the independent checker. Ollama remains the bounded fallback.
-  try {
-    const secondaryHost = new URL(String(cfg.secondary?.baseUrl || '')).hostname.toLowerCase();
-    if (secondaryHost && secondaryHost === String(makerResult?.endpointHost || '').toLowerCase()) return 'platform_primary';
-  } catch {}
-  return cfg.secondary?.baseUrl && cfg.secondary?.model ? 'secondary' : 'ollama';
-}
-
 /** A rejection is actionable only when the checker returns the complete
  * corrected contract it was explicitly asked to produce. */
 export function isCompleteCheckerVerdict(verdict) {
@@ -458,7 +445,7 @@ async function reportPlanProgress(onProgress, progress) {
   }
 }
 
-export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, prompt, candidateSteps, checkerEndpointPreference = null, onProgress = null }) {
+export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, prompt, candidateSteps, onProgress = null }) {
   const catalog = await buildCatalog(ownerUserId, orchestratorAgentId);
   // The catalog route is an emergency recovery point, not a semantic contract.
   // It may contain fuzzy matches that the LLM maker must be free to reject.
@@ -470,7 +457,7 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
   let rejectedRaw = '';
   let makerAttempts = 0;
   let makerContractFromLlm = false;
-  const makerMaxAttempts = 3;
+  const makerMaxAttempts = 1;
   const structuredTimeoutMs = getPlatformTimeoutMs('goal_plan_llm');
   for (let attempt = 1; attempt <= makerMaxAttempts; attempt += 1) {
     makerAttempts = attempt;
@@ -485,11 +472,7 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
       maker = await chatCompletions({
         ownerUserId,
         toolName: 'goal_plan_maker',
-        // Repair attempts deliberately target the independent secondary endpoint.
-        // The third round receives the exact prior contract errors again rather
-        // than degrading a recoverable LLM plan to the catalog baseline.
-        ...(attempt > 1 ? { endpointPreference: 'secondary' } : {}),
-        maxTokens: 12000,
+        maxTokens: 6000,
         temperature: 0,
         responseFormat: 'json_object',
         thinkingMode: 'disabled',
@@ -557,10 +540,10 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
     }
   }
 
-  const requestedChecker = ['ollama', 'secondary', 'platform_primary'].includes(String(checkerEndpointPreference || ''))
-    ? String(checkerEndpointPreference)
-    : null;
-  const preference = requestedChecker || checkerPreference(ownerUserId, maker);
+  // getLlmConfig exposes the admin-selected active slot as primary and the
+  // inactive slot as secondary. Planning always uses the former; independent
+  // checking always uses the latter. Local Ollama is deliberately excluded.
+  const checkerEndpoint = 'secondary';
   await reportPlanProgress(onProgress, {
     phase: 'checker',
     label: 'Validating plan independently',
@@ -570,10 +553,7 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
     ownerUserId,
     toolName: 'goal_plan_checker',
     endpointPreference,
-    // Reasoning-capable passive models may consume an internal preamble before
-    // emitting the small JSON verdict. Keep enough output room so a valid
-    // configured secondary is not mistaken for a malformed response.
-    maxTokens: 5000,
+    maxTokens: 2500,
     temperature: 0,
     responseFormat: 'json_object',
     thinkingMode: 'disabled',
@@ -584,13 +564,11 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
     ],
   });
   let check;
-  let checkerEndpoint = preference;
   let checkerDegraded = false;
-  const acceptDeterministicContract = (error, attemptedEndpoint) => {
+  const acceptDeterministicContract = (error) => {
     checkerDegraded = true;
-    checkerEndpoint = 'deterministic_contract';
     console.warn('[goal-plan-quality] independent checker unavailable; retaining deterministically valid maker contract', {
-      attempted_endpoint: attemptedEndpoint,
+      attempted_endpoint: checkerEndpoint,
       error: String(error?.message || error || 'checker unavailable').slice(0, 500),
     });
     return {
@@ -598,41 +576,18 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
       modelUsed: 'deterministic_contract',
     };
   };
-  const checkerFallbacks = preference === 'secondary'
-    ? ['secondary', 'ollama']
-    : preference === 'platform_primary'
-      // A secondary maker normally gets an independent primary checker. If
-      // that structured call is invalid, use the known JSON-capable secondary
-      // before the much slower local model. Deterministic-only acceptance is
-      // the final safety net, not the routine path.
-      ? ['platform_primary', 'secondary', 'ollama']
-      : ['ollama', 'secondary'];
-  let checkerError = null;
-  for (const endpoint of [...new Set(checkerFallbacks)]) {
-    checkerEndpoint = endpoint;
-    try {
-      check = await chatCompletions(checkerRequestFor(made, endpoint));
-      const parsed = parseJsonObject(check.content) || {};
-      if (!isExecutableCheckerVerdict(parsed, catalog)) {
-        throw new Error(
-          parsed.approved === false
-            ? 'Checker rejected the plan without an executable corrected plan'
-            : 'Checker did not emit a complete approval decision'
-        );
-      }
-      checkerError = null;
-      break;
-    } catch (error) {
-      checkerError = error;
-      await reportPlanProgress(onProgress, {
-        phase: 'checker_fallback',
-        label: 'Retrying plan validation',
-        detail: `Independent checker ${endpoint} was unavailable; trying the configured fallback`,
-      });
+  try {
+    check = await chatCompletions(checkerRequestFor(made, checkerEndpoint));
+    const parsed = parseJsonObject(check.content) || {};
+    if (!isExecutableCheckerVerdict(parsed, catalog)) {
+      throw new Error(
+        parsed.approved === false
+          ? 'Checker rejected the plan without an executable corrected plan'
+          : 'Checker did not emit a complete approval decision'
+      );
     }
-  }
-  if (!check || checkerError) {
-    check = acceptDeterministicContract(checkerError, checkerEndpoint);
+  } catch (error) {
+    check = acceptDeterministicContract(error);
   }
   let verdict = parseJsonObject(check.content) || {};
 
@@ -652,96 +607,14 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
     }
   }
   if (verdict.approved !== true && !acceptedCheckerRevision) {
-    // If the checker's proposed correction is not a valid typed contract,
-    // repair remains the maker's responsibility.
-    await reportPlanProgress(onProgress, {
-      phase: 'maker_repair',
-      label: 'Repairing plan after review',
-      detail: 'Maker is applying checker feedback',
+    // A malformed correction must not start another model round-trip. The
+    // maker contract already passed the deterministic safety/schema gate.
+    checkerDegraded = true;
+    console.warn('[goal-plan-quality] checker correction unusable; retaining deterministically valid maker plan', {
+      issues: Array.isArray(verdict.issues) ? verdict.issues.slice(0, 12) : [],
     });
-    let repair;
-    try {
-      repair = await chatCompletions({
-        ownerUserId,
-        toolName: 'goal_plan_maker',
-        maxTokens: 12000,
-        temperature: 0,
-        responseFormat: 'json_object',
-        thinkingMode: 'disabled',
-        timeoutMs: structuredTimeoutMs,
-        messages: [
-          { role: 'system', content: `You are the plan maker repairing a plan after an independent review. Resolve every checker issue without dropping correct work or stated constraints. Return JSON only as {"steps":[...]}. The steps must be complete, ordered, use only exact live catalog IDs, and pass this schema. Do not explain. ${PLAN_SCHEMA}` },
-          { role: 'user', content: `ORIGINAL GOAL:\n${clip(prompt, 9000)}\n\nLIVE CATALOG:\n${catalogPrompt(catalog)}\n\nMAKER PLAN:\n${clip(made, 12000)}\n\nCHECKER ISSUES:\n${clip(verdict.issues || [{ code: 'invalid_verdict', message: 'Checker did not return a valid approval decision.' }], 6000)}` },
-        ],
-      });
-    } catch (error) {
-      console.warn('[goal-plan-quality] maker review repair unavailable; retaining validated pre-review contract', error?.message || error);
-      repair = { content: '{}' };
-    }
-    const repairedJson = parseJsonObject(repair.content) || {};
-    selected = normalizeExecutorOutputKinds(repairCheckerExecutorAvailability(
-      normalizeTypedSteps(repairedJson.steps || repairedJson.revised_steps),
-      catalog
-    ), catalog);
-    selectedValidation = validateTypedGoalPlan(selected, catalog);
-    if (!selectedValidation.ok) {
-      let contractRepair;
-      try {
-        contractRepair = await chatCompletions({
-          ownerUserId,
-          toolName: 'goal_plan_maker',
-          maxTokens: 12000,
-          temperature: 0,
-          responseFormat: 'json_object',
-          thinkingMode: 'disabled',
-          timeoutMs: structuredTimeoutMs,
-          messages: [
-            { role: 'system', content: `Repair only the typed dependency-contract defects reported by the deterministic validator while preserving the complete original goal, constraints, and bounded human decision. Every required input key/kind must exactly match a declared output key/kind on its prior source step. Return JSON only as {"steps":[...]}. Use only exact live catalog IDs. ${PLAN_SCHEMA}` },
-            { role: 'user', content: `ORIGINAL GOAL:\n${clip(prompt, 9000)}\n\nLIVE CATALOG:\n${catalogPrompt(catalog)}\n\nPLAN WITH CONTRACT DEFECTS:\n${clip(selected, 12000)}\n\nDETERMINISTIC CONTRACT ERRORS:\n${selectedValidation.errors.join('; ')}` },
-          ],
-        });
-      } catch (error) {
-        console.warn('[goal-plan-quality] typed contract repair unavailable; retaining validated pre-review contract', error?.message || error);
-        contractRepair = { content: '{}' };
-      }
-      const contractJson = parseJsonObject(contractRepair.content) || {};
-      selected = normalizeExecutorOutputKinds(repairCheckerExecutorAvailability(
-        normalizeTypedSteps(contractJson.steps || contractJson.revised_steps),
-        catalog
-      ), catalog);
-      selectedValidation = validateTypedGoalPlan(selected, catalog);
-    }
-    if (selectedValidation.ok) {
-      await reportPlanProgress(onProgress, {
-        phase: 'final_checker',
-        label: 'Running final plan validation',
-        detail: 'Checker is validating the repaired plan',
-      });
-      let finalCheck;
-      try {
-        finalCheck = await chatCompletions(checkerRequestFor(selected, checkerEndpoint));
-      } catch (error) {
-        if (checkerEndpoint === 'secondary') {
-          checkerEndpoint = 'ollama';
-          try {
-            finalCheck = await chatCompletions(checkerRequestFor(selected, 'ollama'));
-          } catch (fallbackError) {
-            finalCheck = acceptDeterministicContract(fallbackError, 'ollama');
-          }
-        } else {
-          finalCheck = acceptDeterministicContract(error, checkerEndpoint);
-        }
-      }
-      const finalVerdict = parseJsonObject(finalCheck.content) || {};
-      check = finalCheck;
-      verdict = finalVerdict;
-      if (!isExecutableCheckerVerdict(finalVerdict, catalog) || finalVerdict.approved !== true) {
-        selectedValidation = {
-          ok: false,
-          errors: ['Independent checker rejected the repaired plan'],
-        };
-      }
-    }
+    selected = made;
+    selectedValidation = madeValidation;
   }
   if (!selectedValidation.ok) {
     const judgeIssues = Array.isArray(verdict.issues) ? verdict.issues.map((x) => x?.message).filter(Boolean) : [];
@@ -774,7 +647,7 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
   return {
     steps: selected,
     quality: {
-      maker_model: maker.modelUsed,
+      maker_model: maker?.modelUsed || 'deterministic_catalog',
       checker_model: check.modelUsed,
       checker_endpoint: checkerEndpoint,
       checker_degraded: checkerDegraded,

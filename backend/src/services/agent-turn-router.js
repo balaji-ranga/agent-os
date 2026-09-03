@@ -161,6 +161,10 @@ export function applyDurableAdjudication(route, durable) {
   return route;
 }
 
+export function needsRouteAdjudication(routeValidation, route, threshold = 0.75) {
+  return !routeValidation?.ok || Number(route?.confidence) < threshold;
+}
+
 export async function routeAgentTurn({
   ownerUserId,
   agent,
@@ -187,7 +191,7 @@ export async function routeAgentTurn({
   let routeValidation = parsed ? { ok: true, errors: [] } : { ok: false, errors: ['router has not run'] };
   try {
     if (!parsed) {
-      for (let attempt = 1; attempt <= 2; attempt += 1) {
+      for (let attempt = 1; attempt <= 1; attempt += 1) {
         const { content } = await chatCompletions({
           ownerUserId,
           toolName: 'agent_turn_router',
@@ -199,7 +203,6 @@ export async function routeAgentTurn({
           responseFormat: 'json_object',
           thinkingMode: 'disabled',
           timeoutMs: getPlatformTimeoutMs('semantic_router'),
-          ...(attempt > 1 ? { endpointPreference: 'secondary' } : {}),
           messages: [
             { role: 'system', content: ROUTER_SYSTEM },
             {
@@ -217,8 +220,8 @@ export async function routeAgentTurn({
         parsed = extractJson(content);
         routeValidation = validateRouteDecision(parsed, candidates.map((turn) => turn.id));
         routeAttempts.push({ attempt, raw: String(content || '').slice(0, 4000), errors: routeValidation.errors });
-        if (routeValidation.ok && Number(parsed.confidence) >= 0.55) break;
-        if (routeValidation.ok) routeValidation = { ok: false, errors: [`confidence ${Number(parsed.confidence)} is below 0.55`] };
+        if (routeValidation.ok && Number(parsed.confidence) >= 0.75) break;
+        if (routeValidation.ok) routeValidation = { ok: false, errors: [`confidence ${Number(parsed.confidence)} is below 0.75`] };
       }
     }
   } catch (e) {
@@ -231,15 +234,12 @@ export async function routeAgentTurn({
   // resolves execution structure without any domain or phrase rules.
   if (
     !semanticDecision &&
-    (!routeValidation.ok || (
-      String(parsed?.relation || '') === 'new_work' &&
-      String(parsed?.execution_mode || '') !== 'chat'
-    ))
+    needsRouteAdjudication(routeValidation, parsed)
   ) {
     try {
       let durable = null;
       let durableValidation = { ok: false, errors: ['adjudicator has not run'] };
-      for (let attempt = 1; attempt <= 2; attempt += 1) {
+      for (let attempt = 1; attempt <= 1; attempt += 1) {
         const { content } = await chatCompletions({
           ownerUserId,
           toolName: 'agent_turn_goal_adjudicator',
@@ -248,7 +248,7 @@ export async function routeAgentTurn({
           responseFormat: 'json_object',
           thinkingMode: 'disabled',
           timeoutMs: getPlatformTimeoutMs('goal_adjudicator'),
-          ...(attempt > 1 ? { endpointPreference: 'secondary' } : {}),
+          endpointPreference: 'secondary',
           messages: [
             { role: 'system', content: DURABLE_GOAL_ADJUDICATOR },
             { role: 'user', content: JSON.stringify({

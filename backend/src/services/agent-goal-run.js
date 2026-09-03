@@ -14,18 +14,9 @@ import { insertChatTurn } from './chat-history.js';
 import { triggerAgentWorkflowForOwner } from './agent-workflow-chat-tools.js';
 import { registerWorkflowRunWatch } from './agent-workflow-run-watch.js';
 import {
-  stripWorkflowPhrasesFromPrompt,
-  classifySpecialtyIntentsForPlan,
-  specialtyIntentsToSteps,
-  residualIsLetteredOrNumbered,
-  GOAL_PLAN_MAX_SPECIALTY,
-} from './goal-plan-specialty.js';
-import {
-  classifyGoalPlanIntents,
   listOrchestratorToolsForGoalPlan,
   matchWorkflowStepsFromCatalog,
   resolveCeoEmail,
-  isCooStyleOrchestrator,
   applyHumanAssignmentPolicy,
 } from './goal-plan-intent.js';
 import { invokeContentToolHttp } from './content-tool-http-invoke.js';
@@ -703,7 +694,7 @@ export async function planGoalStepsAsync(prompt, opts = {}) {
 }
 
 async function planGoalStepsAsyncInner(prompt, opts = {}) {
-  const { explicitSteps, ownerUserId = null, maxSpecialty = GOAL_PLAN_MAX_SPECIALTY, feedback = null } = opts;
+  const { explicitSteps, ownerUserId = null, feedback = null } = opts;
   if (Array.isArray(explicitSteps) && explicitSteps.length) {
     return planGoalStepsFromText(prompt, { explicitSteps, ownerUserId });
   }
@@ -717,76 +708,17 @@ async function planGoalStepsAsyncInner(prompt, opts = {}) {
       ']';
   }
 
-  // Primary: LLM intent classification with tools / workflows / org specialty catalog.
-  if (ownerUserId && fullPrompt.trim().length >= 8) {
-    try {
-      await opts.onProgress?.({
-        phase: 'intent',
-        label: 'Understanding goal requirements',
-        detail: 'Matching requested outcomes to available agents, tools, workflows, and humans',
-      });
-      const classified = await classifyGoalPlanIntents(ownerUserId, fullPrompt, {
-        orchestratorAgentId: opts.orchestratorAgentId || null,
-      });
-      if (Array.isArray(classified) && classified.length) {
-        const steps = enrichPlanSteps(
-          mergeRuntimeCapabilityStep(
-            mergeCapabilitySteps(classified.map(normalizeStepSpec), fullPrompt), ownerUserId, fullPrompt
-          ).map(normalizeStepSpec)
-        );
-        if (steps.length && !steps.some((s) => s.type === 'notify_ceo')) {
-          steps.push(normalizeStepSpec({ type: 'notify_ceo' }));
-        }
-        console.info('[goal-run] plan via intent classifier', {
-          steps: steps.map((x) => x.type + ':' + (x.label || '')).slice(0, 12),
-        });
-        const repaired = validateAndRepairGoalPlan(steps, fullPrompt, {
-          ownerUserId,
-          orchestratorAgentId: opts.orchestratorAgentId || null,
-        });
-        await opts.onProgress?.({
-          phase: 'assignment',
-          label: 'Applying work assignment policy',
-          detail: 'Checking executor fit and human/AI assignment rules',
-        });
-        const assigned = await applyHumanAssignmentPolicy(ownerUserId, fullPrompt, repaired);
-        const assured = await qualityAssureGoalPlan({
-          ownerUserId,
-          orchestratorAgentId: opts.orchestratorAgentId || null,
-          prompt: fullPrompt,
-          candidateSteps: assigned,
-          onProgress: opts.onProgress,
-        });
-        console.info('[goal-run] maker/checker plan accepted', assured.quality);
-        return assured.steps.map(normalizeStepSpec);
-      }
-    } catch (e) {
-      console.warn('[goal-run] intent classifier failed; catalog fallback', e?.message || e);
-    }
-  }
-
-  // Fallback: published chat-phrase catalog order + specialty residual (tenant catalog only).
+  // Build a cheap deterministic advisory seed. The active model is the only
+  // semantic maker and receives the complete live catalog below; a separate
+  // intent-classifier call would duplicate that work and multiply latency.
+  await opts.onProgress?.({
+    phase: 'intent',
+    label: 'Preparing goal context',
+    detail: 'Loading available agents, tools, workflows, and humans',
+  });
   let steps = matchWorkflowStepsFromCatalog(fullPrompt, ownerUserId).map(normalizeStepSpec);
   if (!steps.length && !ownerUserId) {
     steps = extractStructuralWorkflowSteps(fullPrompt).map(normalizeStepSpec);
-  }
-
-  const residual = stripWorkflowPhrasesFromPrompt(fullPrompt, ownerUserId).trim();
-  if (ownerUserId && residual.length >= 8 && isCooStyleOrchestrator(opts.orchestratorAgentId)) {
-    try {
-      const specialtyRaw = await classifySpecialtyIntentsForPlan(ownerUserId, residual, {
-        maxSpecialty,
-        orchestratorAgentId: opts.orchestratorAgentId || null,
-      });
-      const specialtySteps = specialtyIntentsToSteps(specialtyRaw, {
-        parallel: specialtyRaw.length > 1 && !residualIsLetteredOrNumbered(residual),
-      }).map(normalizeStepSpec);
-      if (specialtySteps.length) {
-        steps.push(...specialtySteps);
-      }
-    } catch (e) {
-      console.warn('[goal-run] specialty fallback failed', e?.message || e);
-    }
   }
 
   steps = enrichPlanSteps(

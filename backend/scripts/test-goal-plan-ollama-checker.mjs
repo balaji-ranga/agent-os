@@ -19,11 +19,11 @@ const orchestratorId = orchestrator.openclaw_agent_id || orchestrator.id;
 const tools = listOrchestratorToolsForGoalPlan(ownerId, orchestratorId);
 const tool = ['ceo_profile', 'status_checker'].map((name) => tools.find((item) => item.name === name)).find(Boolean)
   || tools.find((item) => /\b(read|list|status|profile)\b/i.test(`${item.name} ${item.purpose || ''}`));
-assert(tool?.name, 'No safe read-only tool is available for the Ollama checker regression');
+assert(tool?.name, 'No safe read-only tool is available for the inactive-slot checker regression');
 const agents = (await listSpecialtyAgentsForGoalPlan(ownerId, orchestratorId))
   .filter((agent) => String(agent.id).toLowerCase() !== String(orchestrator.id).toLowerCase());
 const specialist = agents.find((agent) => /research|analysis|technology/i.test(`${agent.name} ${agent.role}`)) || agents[0];
-assert(specialist?.id, 'No eligible specialist is available for the Ollama checker regression');
+assert(specialist?.id, 'No eligible specialist is available for the inactive-slot checker regression');
 
 const prompt = `Read-only planner regression: call exact tool ${tool.name}, pass its structured result to exact specialist ${specialist.id} (${specialist.name}) for a bounded factual interpretation, and return an outcome-rich final result to the CEO. Do not send email, publish, mutate records, or create external side effects.`;
 const candidateSteps = [
@@ -58,15 +58,14 @@ const result = await qualityAssureGoalPlan({
   orchestratorAgentId: orchestratorId,
   prompt,
   candidateSteps,
-  checkerEndpointPreference: 'ollama',
 });
-assert.equal(result.quality.checker_endpoint, 'ollama', `Expected Ollama checker, got ${result.quality.checker_endpoint}`);
-assert.equal(result.quality.checker_degraded, false, 'Ollama checker degraded to deterministic-only validation');
-assert(result.quality.checker_model && result.quality.checker_model !== 'deterministic_contract', 'Ollama checker model was not used');
+assert.equal(result.quality.checker_endpoint, 'secondary', `Expected inactive secondary slot checker, got ${result.quality.checker_endpoint}`);
+assert.equal(result.quality.checker_degraded, false, 'Inactive-slot checker degraded to deterministic-only validation');
+assert(result.quality.checker_model && result.quality.checker_model !== 'deterministic_contract', 'Inactive-slot checker model was not used');
 assert.equal(result.steps.at(-1)?.type, 'notify_ceo');
 assert(result.steps.some((step) => step.type === 'agent_tool' && step.spec?.tool_name === tool.name));
 assert(result.steps.some((step) => step.type === 'specialty_task' && String(step.spec?.agent_id).toLowerCase() === String(specialist.id).toLowerCase()));
-console.log('GOAL_PLAN_OLLAMA_CHECKER_OK', JSON.stringify({
+console.log('GOAL_PLAN_INACTIVE_CHECKER_OK', JSON.stringify({
   owner_user_id: ownerId,
   orchestrator_agent_id: orchestratorId,
   maker_model: result.quality.maker_model,
