@@ -16,6 +16,7 @@ import {
   withOpenConnectorOauthClientSeed,
 } from './openconnector-oauth-lease.js';
 import { classifyConnectorAction } from './connector-action-grants.js';
+import { connectorExecutionError, invokeConnectorTransport, readConnectorMessagePages, retryConnectorRead } from './connector-execution-policy.js';
 
 function db() {
   return getDb();
@@ -307,22 +308,19 @@ async function openConnectorFetch(path, { method = 'GET', headers = {}, body, au
     signal: AbortSignal.timeout(120000),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const msg =
-      typeof data.error === 'string'
-        ? data.error
-        : data.message || data.error?.message || JSON.stringify(data.error || data);
-    throw new Error(msg || `OpenConnector request failed (${res.status})`);
+  if (!res.ok || data.success === false || data.ok === false) {
+    throw connectorExecutionError(res.status, data, res.headers.get('retry-after'));
   }
   return data;
 }
 
-async function callOpenConnectorMcpTool(userId, toolName, args = {}) {
+async function callOpenConnectorMcpTool(userId, toolName, args = {}, connectionName = '') {
   const env = getOpenConnectorEnvConfig();
   if (!env.mcp_url) throw new Error('OPENCONNECTOR_MCP_URL not configured');
   const runtime = getRuntimeTokenForUser(userId);
-  const extraHeaders = runtime.connectionName
-    ? { 'x-oo-connector-alias': runtime.connectionName }
+  const alias = connectionName || runtime.connectionName;
+  const extraHeaders = alias
+    ? { 'x-oo-connector-alias': alias }
     : {};
   const client = new McpHttpClient(
     { url: env.mcp_url, transport: env.transport || 'streamable_http' },
@@ -332,7 +330,7 @@ async function callOpenConnectorMcpTool(userId, toolName, args = {}) {
   const raw = await client.callTool(toolName, args || {});
   const parsed = parseJsonRpcToolResult({ result: raw });
   if (parsed.is_error) {
-    throw new Error(parsed.text || `OpenConnector tool failed: ${toolName}`);
+    throw connectorExecutionError(502, parsed.structured || { message: parsed.text || `OpenConnector tool failed: ${toolName}` });
   }
   return parsed;
 }
@@ -656,6 +654,25 @@ export async function getConnectorActionGuide(userId, actionId) {
   };
 }
 
+// Reservations survive restarts and are shared by backend processes. No email
+// content or credentials are stored. Gmail list costs 5; each hydrated mail 20.
+async function paceGmailRead(userId, alias, input) {
+  const unitsPerMinute = Math.max(1000, Math.min(6000, Number(process.env.GMAIL_READ_QUOTA_UNITS_PER_MINUTE) || 4000));
+  const cost = 5 + (input.detail === 'ids' ? 0 : input.maxResults * 20);
+  db().exec('CREATE TABLE IF NOT EXISTS connector_read_budget (scope_key TEXT PRIMARY KEY, next_at INTEGER NOT NULL)');
+  const key = JSON.stringify([userId, alias, 'gmail']);
+  const delay = db().transaction(() => {
+    const now = Date.now();
+    db().prepare('DELETE FROM connector_read_budget WHERE next_at < ?').run(now - 60000);
+    const nextAt = Math.max(now, db().prepare('SELECT next_at FROM connector_read_budget WHERE scope_key = ?').get(key)?.next_at || 0);
+    if (nextAt - now > 60000) throw connectorExecutionError(429, { code: 'rate_limited', message: 'This mailbox already has queued reads. Retry after the current review finishes.' }, 60);
+    db().prepare('INSERT INTO connector_read_budget(scope_key, next_at) VALUES (?, ?) ON CONFLICT(scope_key) DO UPDATE SET next_at = excluded.next_at')
+      .run(key, nextAt + Math.ceil(cost * 60000 / unitsPerMinute));
+    return nextAt - now;
+  })();
+  if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
+}
+
 export async function executeConnectorAction(
   userId,
   actionId,
@@ -667,15 +684,17 @@ export async function executeConnectorAction(
   const custom =
     appGuess && userId ? resolveOpenConnectorOauthClientForAuthorize(appGuess, userId) : null;
 
-  const run = async () => {
+  const readOnly = classifyConnectorAction({ id }).action_family === 'read';
+  const run = async (actionInput = input) => {
     const runtime = getRuntimeTokenForUser(userId);
     const alias = String(connectionName || runtime.connectionName || '').trim();
     const headers = alias ? { 'x-oo-connector-alias': alias } : {};
     const body = {
       actionId: id,
-      input: input && typeof input === 'object' ? input : {},
+      input: actionInput && typeof actionInput === 'object' ? actionInput : {},
     };
-    try {
+    if (id === 'gmail.fetch_emails') await paceGmailRead(userId, alias, body.input);
+    return invokeConnectorTransport(async () => {
       const direct = await openConnectorFetch(`/v1/actions/${encodeURIComponent(id)}`, {
         method: 'POST',
         headers,
@@ -691,8 +710,8 @@ export async function executeConnectorAction(
         text: typeof direct === 'string' ? direct : JSON.stringify(direct, null, 2),
         transport: 'http',
       };
-    } catch (err) {
-      const mcp = await callOpenConnectorMcpTool(userId, 'execute_action', body);
+    }, async (err) => {
+      const mcp = await callOpenConnectorMcpTool(userId, 'execute_action', body, alias);
       return {
         ok: true,
         action_id: id,
@@ -702,7 +721,7 @@ export async function executeConnectorAction(
         transport: 'mcp',
         fallback_error: err.message,
       };
-    }
+    });
   };
 
   // Current OpenConnector images persist a connection-scoped OAuth client and
@@ -712,9 +731,12 @@ export async function executeConnectorAction(
   const legacyGlobalSeed = /^(1|true|yes)$/i.test(
     String(process.env.OPENCONNECTOR_LEGACY_GLOBAL_OAUTH_SEED || '')
   );
-  const invoke = () => custom && legacyGlobalSeed
-    ? withOpenConnectorOauthClientSeed(appGuess, custom, run)
-    : run();
+  const invokePage = (pageInput) => retryConnectorRead(() => custom && legacyGlobalSeed
+    ? withOpenConnectorOauthClientSeed(appGuess, custom, () => run(pageInput))
+    : run(pageInput), { readOnly });
+  const invoke = () => id === 'gmail.fetch_emails'
+    ? readConnectorMessagePages(input, invokePage)
+    : invokePage(input);
   const configuredDelays = Array.isArray(authorizationRetryDelaysMs)
     ? authorizationRetryDelaysMs
     : String(process.env.OPENCONNECTOR_AUTH_RETRY_DELAYS_MS || '1000,5000,15000')
@@ -728,7 +750,9 @@ export async function executeConnectorAction(
       return await invoke();
     } catch (error) {
       const message = String(error?.message || error || '');
-      const authorizationFailure = /(?:401|authorization[_ -]?failed|not connected|connect .*oauth)/i.test(message);
+      const authorizationFailure = !['rate_limited', 'quota_exceeded'].includes(error.code) &&
+        error.provider_status !== 403 && readOnly &&
+        (error.provider_status === 401 || /(?:401|authorization[_ -]?failed|not connected|connect .*oauth)/i.test(message));
       if (!authorizationFailure || !appGuess || !userId || retryIndex >= configuredDelays.length) throw error;
       // OAuth refresh can briefly make both execution and the connection list
       // report disconnected. Wait for the exact owner's grant to reappear

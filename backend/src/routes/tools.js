@@ -2715,7 +2715,9 @@ function resolveConnectorOwner(req, body = {}) {
 }
 
 function connectorToolError(req, toolName, requestPayload, res, e, source) {
-  const err = { error: e.message };
+  const err = { error: e.message, code: e.code || undefined,
+    provider_status: e.provider_status || undefined, retry_after_ms: e.retry_after_ms || undefined };
+  if (e.retry_after_ms) res.set('Retry-After', String(Math.ceil(e.retry_after_ms / 1000)));
   logTool(req, toolName, requestPayload, err, 'error', source);
   res.status(e.status || 400).json(err);
 }

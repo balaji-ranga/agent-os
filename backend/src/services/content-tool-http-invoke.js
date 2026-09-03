@@ -6,6 +6,7 @@ import { getToolMeta } from './content-tools-meta.js';
 import { getPublicBaseUrl } from '../config/public-url.js';
 import { internalAuthHeaders } from '../middleware/internal-auth.js';
 import { withBoundedRetry } from './tool-failure-class.js';
+import { getExecutionBehaviour } from './tool-execution-governor.js';
 
 function backendBaseUrl() {
   // Prefer internal loopback so container self-dispatch does not hairpin public HTTPS (502).
@@ -67,7 +68,7 @@ export async function invokeContentToolHttp(toolName, body, ownerUserId = null, 
     headers['Content-Type'] = headers['Content-Type'] || 'application/json';
   }
 
-  const timeoutMs = Number(opts.timeoutMs) > 0 ? Number(opts.timeoutMs) : 120000;
+  const timeoutMs = Number(opts.timeoutMs) > 0 ? Number(opts.timeoutMs) : Math.max(120000, getExecutionBehaviour(ownerUserId, toolName).timeout_ms + 15000);
   const runOnce = async () => {
     const response = await fetch(targetUrl, {
       method,

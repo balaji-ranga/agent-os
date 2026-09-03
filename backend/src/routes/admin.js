@@ -79,6 +79,7 @@ import {
   setOpenClawSessionCleanupPolicy,
 } from '../services/openclaw-session-cleanup.js';
 import { listPlatformTimeouts, updatePlatformTimeouts } from '../services/platform-timeout-settings.js';
+import { writeOpenClawToolsList } from '../services/content-tools-meta.js';
 
 const router = Router();
 
@@ -116,7 +117,9 @@ router.get('/platform-timeouts', (req, res) => {
 
 router.put('/platform-timeouts', (req, res) => {
   try {
-    res.json({ timeouts: updatePlatformTimeouts(req.body?.timeouts) });
+    const timeouts = updatePlatformTimeouts(req.body?.timeouts);
+    writeOpenClawToolsList();
+    res.json({ timeouts });
   } catch (e) {
     res.status(e.status || 400).json({ error: e.message });
   }

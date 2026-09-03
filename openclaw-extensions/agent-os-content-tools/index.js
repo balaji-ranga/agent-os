@@ -793,7 +793,8 @@ async function callInvoke(api, toolName, params, callerAgentId, toolCtx) {
       method: "POST",
       headers,
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(toolName.startsWith('browse_task_') ? 120000 : 90000),
+      signal: AbortSignal.timeout(Math.max(toolName.startsWith('browse_task_') ? 120000 : 90000,
+        Math.min(615000, Number(loadToolsFromFile().find((tool) => tool.name === toolName)?.timeout_ms) || 0))),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {

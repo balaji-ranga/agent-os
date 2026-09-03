@@ -6,6 +6,7 @@ import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { getOpenClawDir } from '../config/openclaw-paths.js';
 import { writeOpenClawConfigSafe } from './openclaw-config-safe.js';
+import { defaultExecutionBehaviour } from './tool-execution-governor.js';
 
 const OPENCLAW_DIR = getOpenClawDir();
 const DEFAULT_TOOLS_LIST_PATH = join(OPENCLAW_DIR, 'agent-os-tools.json');
@@ -227,7 +228,9 @@ export function writeOpenClawToolsList() {
   const path = getToolsListPath();
   const dir = join(path, '..');
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  writeFileSync(path, JSON.stringify(rows, null, 2), 'utf8');
+  // The outer OpenClaw request must outlive the governed backend action.
+  const timedRows = rows.map((row) => ({ ...row, timeout_ms: Math.max(90000, defaultExecutionBehaviour(row.name).timeout_ms + 15000) }));
+  writeFileSync(path, JSON.stringify(timedRows, null, 2), 'utf8');
   const names = rows.map((r) => r.name);
   syncContentToolsPluginContracts(names);
   syncGlobalToolsAllow(names);

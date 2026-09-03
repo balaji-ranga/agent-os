@@ -7,6 +7,7 @@
  */
 import { createHash, randomUUID } from 'crypto';
 import { getDb } from '../db/schema.js';
+import { getPlatformTimeoutMs } from './platform-timeout-settings.js';
 
 const OWNER_KEYS = new Set([
   'owner_user_id', 'ownerUserId', 'ceo_user_id', 'ceoUserId', 'user_id', 'userId',
@@ -97,7 +98,8 @@ export function defaultExecutionBehaviour(toolName) {
     capability,
     access: mutating ? 'mutating' : 'read_only',
     retry_limit: 1,
-    timeout_ms: /browse_|generate_video/.test(name) ? 90000 : 60000,
+    timeout_ms: ['connector_execute_action', 'gmail_mailbox_review', 'gmail_mailbox_cleanup'].includes(name)
+      ? getPlatformTimeoutMs('connector_operation') : /browse_|generate_video/.test(name) ? 90000 : 60000,
     duplicate_window_sec: POLL_OR_STATUS.test(name) ? 0 : 900,
     verification_mode: mutating ? 'read_back_or_receipt' : 'evidence_coverage',
     fallback_capabilities: FALLBACKS[capability] || ['clarification'],

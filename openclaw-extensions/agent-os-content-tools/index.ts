@@ -82,6 +82,7 @@ function isToolAllowedForAgent(agentId: string | null | undefined, toolName: str
 
 interface ToolEntry {
   name: string;
+  timeout_ms?: number;
   display_name?: string;
   endpoint?: string;
   method?: string;
@@ -438,7 +439,8 @@ async function callInvoke(
       method: "POST",
       headers,
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(90000),
+      signal: AbortSignal.timeout(Math.max(90000,
+        Math.min(615000, Number(loadToolsFromFile().find((tool) => tool.name === toolName)?.timeout_ms) || 0))),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {

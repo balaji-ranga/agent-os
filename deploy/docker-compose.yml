@@ -310,6 +310,9 @@ x-backend-env: &backend-env
   # for legacy images that require a global provider client during refresh.
   OPENCONNECTOR_LEGACY_GLOBAL_OAUTH_SEED: ${OPENCONNECTOR_LEGACY_GLOBAL_OAUTH_SEED:-0}
   OPENCONNECTOR_AUTH_RETRY_DELAYS_MS: ${OPENCONNECTOR_AUTH_RETRY_DELAYS_MS:-1000,5000,15000}
+  # Shared per-connection pacing for hydrated Gmail reads (agents and workflows).
+  GMAIL_READ_QUOTA_UNITS_PER_MINUTE: ${GMAIL_READ_QUOTA_UNITS_PER_MINUTE:-4000}
+  CONNECTOR_OPERATION_TIMEOUT_MS: ${CONNECTOR_OPERATION_TIMEOUT_MS:-300000}
   OOMOL_CONNECT_ALLOWED_CUSTOM_OAUTH: ${OOMOL_CONNECT_ALLOWED_CUSTOM_OAUTH:-*}
   # OpenSearch (document meta + RAG; internal Docker network only — no host ports)
   OPENSEARCH_ENABLED: ${OPENSEARCH_ENABLED:-1}

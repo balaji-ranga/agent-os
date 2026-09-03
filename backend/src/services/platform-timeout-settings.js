@@ -15,6 +15,7 @@ const DEFINITIONS = Object.freeze({
   browser_offline: { label: 'Browser worker offline threshold', category: 'Browser', env: 'BROWSER_WORKER_OFFLINE_MS', defaultMs: 90000, minMs: 15000, maxMs: 600000 },
   workflow_node: { label: 'Workflow node default', category: 'Workflows', env: 'WORKFLOW_NODE_TIMEOUT_MS', defaultMs: 1200000, minMs: 1000, maxMs: 86400000 },
   a2a_request: { label: 'A2A request', category: 'Agents', env: 'A2A_REQUEST_TIMEOUT_MS', defaultMs: 90000, minMs: 5000, maxMs: 900000 },
+  connector_operation: { label: 'Connector operation (includes provider pacing)', category: 'Connectors', env: 'CONNECTOR_OPERATION_TIMEOUT_MS', defaultMs: 300000, minMs: 30000, maxMs: 600000 },
 });
 
 function envDefault(definition) {
