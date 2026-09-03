@@ -2092,6 +2092,17 @@ export function bindWorkflowRunToGoalStep({ goalRunId, stepId, workflowRunId, ow
     err.status = 404;
     throw err;
   }
+
+  // A cancelled run/step is immutable. This keeps Cancel and Retry safe when
+  // an older synchronous executor returns after its work was superseded.
+  if (goal.status === 'cancelled' || step.status === 'cancelled') {
+    return {
+      ok: true,
+      skipped: true,
+      reason: 'goal_or_step_cancelled',
+      goal: getGoalRun(goalRunId, ownerUserId),
+    };
+  }
   const wfId = Number(workflowRunId);
   db()
     .prepare(
@@ -4444,16 +4455,6 @@ export async function createAndStartGoalRun(opts = {}) {
     }
   }
 
-  // A cancelled run/step is immutable. This also makes Cancel and Retry safe
-  // when an older synchronous executor returns after its work was superseded.
-  if (goal.status === 'cancelled' || step.status === 'cancelled') {
-    return {
-      ok: true,
-      skipped: true,
-      reason: 'goal_or_step_cancelled',
-      goal: getGoalRun(goalRunId, ownerUserId),
-    };
-  }
   const goal = createGoalRun({
     ...opts,
     steps,
