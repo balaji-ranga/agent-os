@@ -72,7 +72,12 @@ import { getPlatformTimeoutMs } from './platform-timeout-settings.js';
 import { createMediaArtifact } from './ceo-media-artifacts.js';
 
 const TERMINAL_WF = new Set(['completed', 'failed', 'cancelled', 'paused']);
+const activeGoalPlanningRuns = new Set();
 let _tablesReady = false;
+
+export function isGoalPlanningActive(goalRunId) {
+  return activeGoalPlanningRuns.has(String(goalRunId || ''));
+}
 
 function db() {
   return getDb();
@@ -1277,6 +1282,22 @@ export function createGoalPlanningRun({
     err.status = 400;
     throw err;
   }
+  // The control-plane call may outlive an OpenClaw/tool HTTP timeout. Reusing
+  // the exact active request prevents a client retry from creating a second
+  // durable goal while the first maker/checker is still working.
+  const recent = db().prepare(
+    `SELECT id FROM agent_goal_runs
+     WHERE owner_user_id=? AND agent_id=? AND prompt=?
+       AND status IN ('planning','pending','running','awaiting_approval')
+       AND COALESCE(scheduled_goal_run_id,'')=COALESCE(?,'')
+       AND datetime(COALESCE(created_at,updated_at)) >= datetime('now','-10 minutes')
+     ORDER BY datetime(COALESCE(created_at,updated_at)) DESC LIMIT 1`
+  ).get(owner, agent, String(prompt || ''), scheduledGoalRunId || null);
+  if (recent?.id) {
+    const reused = getGoalRun(recent.id, owner);
+    if (reused) reused.reused_active = true;
+    return reused;
+  }
   const id = `agr-${randomUUID().replace(/-/g, '').slice(0, 16)}`;
   const stepId = `ags-${randomUUID().replace(/-/g, '').slice(0, 16)}`;
   db().transaction(() => {
@@ -1535,12 +1556,11 @@ export function createGoalRun({
   const id = reusable?.id || `agr-${randomUUID().replace(/-/g, '').slice(0, 16)}`;
   if (reusable) {
     db().transaction(() => {
-      db().prepare('DELETE FROM agent_goal_steps WHERE goal_run_id=?').run(id);
-      db().prepare(
+      const claimed = db().prepare(
         `UPDATE agent_goal_runs SET agent_id=?, title=?, prompt=?, source=?, scheduled_goal_id=?,
          scheduled_goal_run_id=?, status='pending', context_json=?, current_step_index=0,
          error_message=NULL, completed_at=NULL, updated_at=datetime('now')
-         WHERE id=? AND owner_user_id=?`
+         WHERE id=? AND owner_user_id=? AND status='planning'`
       ).run(
         agent,
         String(title || '').trim() || clip(prompt, 120),
@@ -1552,6 +1572,10 @@ export function createGoalRun({
         id,
         owner
       );
+      if (!claimed.changes) {
+        throw Object.assign(new Error('Goal planning was already finalized or cancelled'), { status: 409 });
+      }
+      db().prepare('DELETE FROM agent_goal_steps WHERE goal_run_id=?').run(id);
     })();
   } else {
     db().prepare(
@@ -4137,7 +4161,29 @@ export async function startGoalRunExecution(goalRunId, opts = {}) {
     return { ok: true, skipped: true, reason: 'terminal', goal: serializeGoalRun(goal) };
   }
 
+  // A planning row is operational telemetry, never an executable business
+  // step. Recovery and overlapping HTTP calls must wait for maker/checker to
+  // atomically replace it with the approved plan.
+  if (goal.status === 'planning' || isGoalPlanningActive(goal.id)) {
+    return {
+      ok: true,
+      async: true,
+      skipped: true,
+      reason: 'planning_in_progress',
+      goal: getGoalRun(goal.id, goal.owner_user_id),
+    };
+  }
+
   const steps = loadGoalSteps(goalRunId);
+  if (steps.some((step) => step.step_type === 'planning')) {
+    return {
+      ok: true,
+      async: true,
+      skipped: true,
+      reason: 'planning_in_progress',
+      goal: getGoalRun(goal.id, goal.owner_user_id),
+    };
+  }
 
   const runningSpecialty = steps.filter(
     (s) => s.step_type === 'specialty_task' && s.status === 'running'
@@ -4456,34 +4502,96 @@ export async function onWorkflowTerminalForGoalRun(workflowRunId) {
   return { ok: false, failed: true, goal_run_id: goal.id, workflow_run_id: id };
 }
 
-export async function createAndStartGoalRun(opts = {}) {
-  let steps = opts.steps;
-  let planningGoal = null;
-  if (!Array.isArray(steps) || !steps.length) {
-    planningGoal = createGoalPlanningRun(opts);
+async function finishGoalPlanningAndStart(opts, planningGoal, { claimed = false } = {}) {
+  const goalId = String(planningGoal?.id || '');
+  if (!claimed) {
+    if (activeGoalPlanningRuns.has(goalId)) {
+      return {
+        async: true,
+        reused_active: true,
+        goal_run_id: goalId,
+        goal: getGoalRun(goalId, opts.ownerUserId),
+        execution: { async: true, skipped: true, reason: 'planning_in_progress' },
+      };
+    }
+    activeGoalPlanningRuns.add(goalId);
+  }
+  try {
     const reportProgress = async (progress) => {
-      updateGoalPlanningRun(planningGoal.id, opts.ownerUserId, progress);
+      updateGoalPlanningRun(goalId, opts.ownerUserId, progress);
       if (typeof opts.onProgress === 'function') await opts.onProgress(progress);
     };
-    try {
-      steps = await planGoalStepsAsync(opts.prompt || '', {
-        ownerUserId: opts.ownerUserId,
-        explicitSteps: opts.explicitSteps,
-        orchestratorAgentId: opts.orchestratorAgentId || opts.agentId || null,
-        onProgress: reportProgress,
-      });
-    } catch (error) {
-      failGoalPlanningRun(planningGoal.id, opts.ownerUserId, error);
-      throw error;
+    const steps = await planGoalStepsAsync(opts.prompt || '', {
+      ownerUserId: opts.ownerUserId,
+      explicitSteps: opts.explicitSteps,
+      orchestratorAgentId: opts.orchestratorAgentId || opts.agentId || null,
+      onProgress: reportProgress,
+    });
+    const goal = createGoalRun({
+      ...opts,
+      steps,
+      goalRunId: goalId,
+    });
+    const execution = await withLlmopsContext(
+      {
+        ownerUserId: goal.owner_user_id,
+        memberKey: goal.agent_id,
+        agentId: goal.agent_id,
+        source: 'goal_planner',
+        runId: goal.id,
+        traceId: goal.id,
+        goalRunId: goal.id,
+      },
+      () => startGoalRunExecution(goal.id, { ownerUserId: goal.owner_user_id })
+    );
+    return {
+      async: true,
+      goal_run_id: goal.id,
+      goal: getGoalRun(goal.id, goal.owner_user_id) || goal,
+      execution,
+    };
+  } catch (error) {
+    failGoalPlanningRun(goalId, opts.ownerUserId, error);
+    throw error;
+  } finally {
+    activeGoalPlanningRuns.delete(goalId);
+  }
+}
+
+export async function createAndStartGoalRun(opts = {}) {
+  const suppliedSteps = Array.isArray(opts.steps) && opts.steps.length ? opts.steps : null;
+  if (!suppliedSteps) {
+    const planningGoal = createGoalPlanningRun(opts);
+    if (planningGoal.reused_active && planningGoal.status !== 'planning') {
+      return {
+        async: true,
+        reused_active: true,
+        goal_run_id: planningGoal.id,
+        goal: planningGoal,
+        execution: { async: true, skipped: true, reason: 'active_goal_already_exists' },
+      };
     }
+    if (opts.backgroundPlanning === true) {
+      if (!activeGoalPlanningRuns.has(planningGoal.id)) {
+        activeGoalPlanningRuns.add(planningGoal.id);
+        setImmediate(() => void finishGoalPlanningAndStart(opts, planningGoal, { claimed: true }).catch((error) =>
+          console.error('[goal-run] background planning failed', planningGoal.id, error?.message || error)
+        ));
+      }
+      return {
+        async: true,
+        planning: true,
+        reused_active: planningGoal.reused_active === true,
+        goal_run_id: planningGoal.id,
+        goal: getGoalRun(planningGoal.id, opts.ownerUserId) || planningGoal,
+        execution: { async: true, planning: true },
+      };
+    }
+    return finishGoalPlanningAndStart(opts, planningGoal);
   }
 
-  const goal = createGoalRun({
-    ...opts,
-    steps,
-    goalRunId: planningGoal?.id || opts.goalRunId || null,
-  });
-  const exec = await withLlmopsContext(
+  const goal = createGoalRun({ ...opts, steps: suppliedSteps });
+  const execution = await withLlmopsContext(
     {
       ownerUserId: goal.owner_user_id,
       memberKey: goal.agent_id,
@@ -4499,7 +4607,7 @@ export async function createAndStartGoalRun(opts = {}) {
     async: true,
     goal_run_id: goal.id,
     goal: getGoalRun(goal.id, goal.owner_user_id) || goal,
-    execution: exec,
+    execution,
   };
 }
 

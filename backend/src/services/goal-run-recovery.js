@@ -10,6 +10,7 @@ import {
   onDelegationTerminalForGoalRun,
   onWorkflowTerminalForGoalRun,
   recoverStaleAgentContinueGoalSteps,
+  isGoalPlanningActive,
   retryGoalRun,
   startGoalRunExecution,
 } from './agent-goal-run.js';
@@ -31,7 +32,7 @@ function staleModifier(staleMs) {
 }
 
 function claimGoal(row) {
-  if (!row?.goal_run_id || activeRecoveries.has(row.goal_run_id)) return false;
+  if (!row?.goal_run_id || activeRecoveries.has(row.goal_run_id) || isGoalPlanningActive(row.goal_run_id)) return false;
   const changed = db().prepare(
     `UPDATE agent_goal_runs
      SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
@@ -113,8 +114,8 @@ export async function recoverStuckGoalRuns({
      FROM agent_goal_runs g
      JOIN agent_goal_steps s ON s.goal_run_id=g.id AND s.step_type='planning'
      WHERE g.status='planning' AND s.status='running'
-       AND datetime(COALESCE(s.started_at,g.created_at)) <= datetime('now', ?)
-     ORDER BY datetime(COALESCE(s.started_at,g.created_at)) ASC LIMIT ?`
+       AND datetime(COALESCE(g.updated_at,g.created_at)) <= datetime('now', ?)
+     ORDER BY datetime(COALESCE(g.updated_at,g.created_at)) ASC LIMIT ?`
   ).all(planningStale.sql, lim);
 
   for (const row of planningRows) {

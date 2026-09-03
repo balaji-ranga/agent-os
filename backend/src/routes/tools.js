@@ -3098,6 +3098,7 @@ router.post('/agent-workflow-trigger', optionalAuth, async (req, res) => {
             steps: null,
             source: 'tool_upgrade_from_workflow_trigger',
             context: { upgraded_from: 'agent_workflow_trigger' },
+            backgroundPlanning: true,
           });
           const goal = started?.goal || null;
           const out = {
@@ -3200,6 +3201,7 @@ router.post('/agent-goal-create', optionalAuth, async (req, res) => {
       steps: requestPayload.steps || null,
       source: requestPayload.source || 'tool',
       context: requestPayload.context || {},
+      backgroundPlanning: true,
     };
     let out;
     if (start) {

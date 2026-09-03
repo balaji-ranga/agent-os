@@ -601,7 +601,11 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
   const checkerFallbacks = preference === 'secondary'
     ? ['secondary', 'ollama']
     : preference === 'platform_primary'
-      ? ['platform_primary', 'ollama']
+      // A secondary maker normally gets an independent primary checker. If
+      // that structured call is invalid, use the known JSON-capable secondary
+      // before the much slower local model. Deterministic-only acceptance is
+      // the final safety net, not the routine path.
+      ? ['platform_primary', 'secondary', 'ollama']
       : ['ollama', 'secondary'];
   let checkerError = null;
   for (const endpoint of [...new Set(checkerFallbacks)]) {

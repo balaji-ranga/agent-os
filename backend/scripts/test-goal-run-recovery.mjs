@@ -7,7 +7,11 @@ const dataDir = mkdtempSync(join(tmpdir(), 'flolah-goal-recovery-'));
 process.env.AGENT_OS_DATA_DIR = dataDir;
 
 const { getDb } = await import('../src/db/schema.js');
-const { ensureAgentGoalRunTables } = await import('../src/services/agent-goal-run.js');
+const {
+  createGoalPlanningRun,
+  ensureAgentGoalRunTables,
+  startGoalRunExecution,
+} = await import('../src/services/agent-goal-run.js');
 const { recoverStuckGoalRuns } = await import('../src/services/goal-run-recovery.js');
 ensureAgentGoalRunTables();
 const db = getDb();
@@ -18,6 +22,24 @@ db.prepare(`INSERT INTO agents(id,name,role,is_coo,openclaw_agent_id,owner_user_
   .run('coo-recovery-test', 'Recovery COO', 'COO', 1, 'coo-recovery-test', 'ceo-recovery-test');
 db.prepare(`INSERT INTO user_agents(user_id,agent_id,enabled) VALUES(?,?,1)`)
   .run('ceo-recovery-test', 'coo-recovery-test');
+
+const planningPrompt = 'Create the same durable planning request exactly once.';
+const planningOne = createGoalPlanningRun({
+  ownerUserId: 'ceo-recovery-test',
+  agentId: 'coo-recovery-test',
+  prompt: planningPrompt,
+  source: 'retrying_client',
+});
+const planningTwo = createGoalPlanningRun({
+  ownerUserId: 'ceo-recovery-test',
+  agentId: 'coo-recovery-test',
+  prompt: planningPrompt,
+  source: 'retrying_client',
+});
+assert.equal(planningTwo.id, planningOne.id, 'an overlapping identical planning request must reuse its durable goal');
+assert.equal(planningTwo.reused_active, true);
+const planningGuard = await startGoalRunExecution(planningOne.id, { ownerUserId: 'ceo-recovery-test' });
+assert.equal(planningGuard.reason, 'planning_in_progress', 'planning telemetry must never execute as a business step');
 
 const old = '2020-01-01T00:00:00.000Z';
 const addGoal = (id, status = 'running') => db.prepare(

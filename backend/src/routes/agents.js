@@ -907,6 +907,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
           routed_relation: turnRoute.relation,
           requested_via_agent_id: agent.id,
         },
+        backgroundPlanning: true,
         onProgress: (progress) => liveScope && updateChatActivity(liveScope, progress),
       });
       const goal = started.goal;

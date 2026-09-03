@@ -66,6 +66,14 @@ assert.equal(
 );
 assert.equal(
   applyDurableAdjudication(
+    { execution_mode: 'goal_plan', confidence: 0.96 },
+    { durable_goal: false, stage_count: 1, execution_mode: 'delegate' }
+  ).execution_mode,
+  'goal_plan',
+  'a high-confidence semantic goal decision must not be randomly downgraded by the adjudicator'
+);
+assert.equal(
+  applyDurableAdjudication(
     { execution_mode: 'direct_tool', confidence: 0.7 },
     { durable_goal: true, stage_count: 3, execution_mode: 'goal_plan' }
   ).execution_mode,

@@ -112,6 +112,18 @@ export function mergeRuntimeCapabilityStep(existing, ownerUserId, prompt) {
   const resolution = resolveRuntimeCapability(ownerUserId, prompt);
   const selected = resolution.selected;
   if (!selected) return out;
+  const selectedName = String(selected.name || '').trim().toLowerCase();
+  const promptText = String(prompt || '').toLowerCase();
+  const explicitlyNamed = selectedName.length >= 4 && promptText.includes(selectedName);
+  const authoritativeTypes = new Set(['workflow_trigger', 'agent_tool', 'specialty_task', 'human_task']);
+  const hasAuthoritativeExecutor = out.some((step) =>
+    authoritativeTypes.has(String(step.type || step.step_type || ''))
+  );
+  // Word-overlap registry scoring is an emergency resolver, not a second plan
+  // author. Once semantic/catalog routing has selected an executable step, a
+  // fuzzy match may not append an unrelated employee or workflow. An exact
+  // catalog name in the CEO's request remains an explicit requirement.
+  if (hasAuthoritativeExecutor && selected.kind !== 'recipe' && !explicitlyNamed) return out;
   // A typed human step is already the policy decision for this work. Do not
   // append a semantically similar AI employee behind it through the independent
   // runtime registry path.
@@ -137,6 +149,7 @@ export function mergeRuntimeCapabilityStep(existing, ownerUserId, prompt) {
   const evidence = {
     resolver: 'runtime_registry_v1', candidate_id: selected.id, candidate_kind: selected.kind,
     score: selected.score, matched_terms: selected.decision_evidence.matched_terms,
+    explicitly_named: explicitlyNamed,
   };
   if (selected.kind === 'workflow') out.push({
     type: 'workflow_trigger', label: selected.name, phrase: selected.execution.phrase,

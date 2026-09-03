@@ -730,25 +730,29 @@ export async function executeConnectorAction(
       const message = String(error?.message || error || '');
       const authorizationFailure = /(?:401|authorization[_ -]?failed|not connected|connect .*oauth)/i.test(message);
       if (!authorizationFailure || !appGuess || !userId || retryIndex >= configuredDelays.length) throw error;
-      // A provider refresh can briefly return 401 while the owner-scoped
-      // connection still reports connected. Re-check the exact owner on every
-      // bounded retry and wait for the refreshed grant to become visible. A
-      // genuinely disconnected account still fails closed immediately.
-      const connections = await getConnectorConnectionsForUser(userId).catch(() => null);
-      const connected = connections?.connections?.some((item) =>
-        item.connected && String(item.app_id || '').toLowerCase() === appGuess.toLowerCase()
-      );
+      // OAuth refresh can briefly make both execution and the connection list
+      // report disconnected. Wait for the exact owner's grant to reappear
+      // across the bounded schedule; do not fail on the first transient read,
+      // and never borrow another owner's connection.
+      let connected = false;
+      while (!connected && retryIndex < configuredDelays.length) {
+        const delayMs = configuredDelays[retryIndex];
+        retryIndex += 1;
+        if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
+        const connections = await getConnectorConnectionsForUser(userId).catch(() => null);
+        connected = !!connections?.connections?.some((item) =>
+          item.connected && String(item.app_id || '').toLowerCase() === appGuess.toLowerCase()
+        );
+        console.warn('[openconnector] owner-scoped OAuth recovery check', {
+          user_id: userId,
+          app_id: appGuess,
+          action_id: id,
+          check: retryIndex,
+          connected,
+          delay_ms: delayMs,
+        });
+      }
       if (!connected) throw error;
-      const delayMs = configuredDelays[retryIndex];
-      retryIndex += 1;
-      console.warn('[openconnector] retrying action after connected OAuth authorization failure', {
-        user_id: userId,
-        app_id: appGuess,
-        action_id: id,
-        retry: retryIndex,
-        delay_ms: delayMs,
-      });
-      if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
   }
 }

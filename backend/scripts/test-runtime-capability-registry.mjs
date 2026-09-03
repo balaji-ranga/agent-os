@@ -39,6 +39,15 @@ try {
   ], owner, 'Publish a LinkedIn post using the saved automation');
   assert.equal(exclusive.length, 1);
   assert.equal(exclusive[0].tool_name, 'browse_recipe_run');
+  db.prepare(`INSERT INTO agents (id,name,role,department,planning_status) VALUES (?,?,?,?,?)`)
+    .run('erp-checker-test', 'ERP Checker', 'ERP validation and approvals', 'Finance', 'production');
+  db.prepare(`INSERT INTO user_agents (user_id,agent_id,enabled) VALUES (?,?,1)`)
+    .run(owner, 'erp-checker-test');
+  const preserved = mergeRuntimeCapabilityStep([
+    { type: 'specialty_task', agent_id: 'gmail-operations', message: 'Review the mailbox' },
+  ], owner, 'Create a summary for the CEO. Do not move or delete messages.');
+  assert.equal(preserved.length, 1, 'fuzzy employee overlap must not alter an existing semantic plan');
+  assert.equal(preserved[0].agent_id, 'gmail-operations');
   db.close();
   console.log('runtime capability registry tests passed');
 } finally {

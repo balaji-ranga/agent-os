@@ -149,6 +149,13 @@ export function applyDurableAdjudication(route, durable) {
     return { ...route, execution_mode: 'goal_plan', confidence: Math.max(Number(route.confidence) || 0, 0.8) };
   }
   if (durable.durable_goal === false && ['direct_tool', 'delegate'].includes(String(durable.execution_mode))) {
+    // The adjudicator is a safeguard for under-routed or ambiguous work. It
+    // must not overrule a confident, schema-valid goal decision from the main
+    // semantic router; doing so made identical requests randomly become a
+    // delegation whenever the two model calls disagreed.
+    if (String(route.execution_mode || '') === 'goal_plan' && Number(route.confidence) >= 0.8) {
+      return route;
+    }
     return { ...route, execution_mode: durable.execution_mode, confidence: Math.max(Number(route.confidence) || 0, 0.8) };
   }
   return route;
@@ -192,6 +199,7 @@ export async function routeAgentTurn({
           responseFormat: 'json_object',
           thinkingMode: 'disabled',
           timeoutMs: getPlatformTimeoutMs('semantic_router'),
+          ...(attempt > 1 ? { endpointPreference: 'secondary' } : {}),
           messages: [
             { role: 'system', content: ROUTER_SYSTEM },
             {
@@ -240,6 +248,7 @@ export async function routeAgentTurn({
           responseFormat: 'json_object',
           thinkingMode: 'disabled',
           timeoutMs: getPlatformTimeoutMs('goal_adjudicator'),
+          ...(attempt > 1 ? { endpointPreference: 'secondary' } : {}),
           messages: [
             { role: 'system', content: DURABLE_GOAL_ADJUDICATOR },
             { role: 'user', content: JSON.stringify({

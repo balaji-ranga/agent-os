@@ -295,11 +295,20 @@ export async function chatCompletions({
       }
       // DeepSeek V4 enables thinking by default. Machine-judgement calls need
       // the final structured verdict, not a token-consuming reasoning preamble.
+      const deepSeekTarget = /deepseek/i.test(
+        `${cfg.logical_model || ''} ${ep.baseUrl || ''} ${ep.model || ''}`
+      );
       if (
         (thinkingMode === 'enabled' || thinkingMode === 'disabled') &&
-        (routeAlias || /deepseek/i.test(String(ep.baseUrl || '')) || /deepseek/i.test(String(ep.model || '')))
+        deepSeekTarget
       ) {
         body.thinking = { type: thinkingMode };
+        // The primary DeepSeek deployment is exposed to LiteLLM as an
+        // OpenAI-compatible endpoint. `drop_params` may otherwise discard a
+        // provider extension before proxying it. extra_body tells LiteLLM to
+        // forward the same native switch while the top-level field preserves
+        // direct-DeepSeek compatibility.
+        if (cfg.routed_by === 'litellm') body.extra_body = { thinking: { type: thinkingMode } };
       }
       const requestTimeoutMs = Number(timeoutMs) > 0
         ? Number(timeoutMs)
