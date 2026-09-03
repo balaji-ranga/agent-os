@@ -843,6 +843,12 @@ export function initDb() {
       );
       CREATE INDEX IF NOT EXISTS idx_agent_connector_actions_agent
         ON agent_connector_action_grants(agent_id);
+      CREATE TABLE IF NOT EXISTS agent_connector_action_scopes (
+        agent_id TEXT PRIMARY KEY,
+        mode TEXT NOT NULL DEFAULT 'allowlist',
+        updated_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE
+      );
     `);
   } catch (_) {}
 

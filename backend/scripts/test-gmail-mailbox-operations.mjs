@@ -20,7 +20,10 @@ try {
   const {
     grantGmailOperationsConnectorActions,
     assertCallerMayExecuteConnectorAction,
+    classifyConnectorAction,
     connectorPolicyToolName,
+    getAgentConnectorActionGrants,
+    setAgentConnectorActionGrants,
   } = await import('../src/services/connector-action-grants.js');
   const { planRecipePublishFromChat } = await import('../src/services/agent-workflow-recipes.js');
 
@@ -53,6 +56,23 @@ try {
     assertCallerMayExecuteConnectorAction('gmail-test', 'gmail.delete_message').ok,
     false,
     'draft access must not grant destructive actions'
+  );
+  assert.equal(classifyConnectorAction({ id: 'gmail.list_drafts' }).risk_tier, 'R0');
+  assert.equal(classifyConnectorAction({ id: 'gmail.create_email_draft' }).risk_tier, 'R1');
+  assert.equal(classifyConnectorAction({ id: 'gmail.send_email' }).risk_tier, 'R2');
+  assert.equal(classifyConnectorAction({ id: 'gmail.delete_draft' }).risk_tier, 'R3');
+  assert.ok(getAgentConnectorActionGrants('gmail-test').length > 2);
+  setAgentConnectorActionGrants('gmail-test', [
+    { id: 'gmail.get_draft', description: 'Get a draft' },
+    { id: 'gmail.create_draft', description: 'Create a draft' },
+  ]);
+  assert.equal(assertCallerMayExecuteConnectorAction('gmail-test', 'gmail.create_draft').ok, true);
+  assert.equal(assertCallerMayExecuteConnectorAction('gmail-test', 'gmail.create_email_draft').ok, false);
+  setAgentConnectorActionGrants('gmail-test', []);
+  assert.equal(
+    assertCallerMayExecuteConnectorAction('gmail-test', 'gmail.create_draft').ok,
+    false,
+    'an explicit empty action allowlist must fail closed rather than restore broad legacy access'
   );
   const recipe = planRecipePublishFromChat(
     'Create a workflow to organize Gmail, summarize it, and delete spam and promotions older than 7 days'

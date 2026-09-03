@@ -7481,6 +7481,7 @@ button.ai-snip-info-btn:hover {
 @media(max-width:800px){.model-router-status{grid-template-columns:1fr}.admin-models-page .page-hero{align-items:stretch;flex-direction:column}.admin-models-page .page-hero button{width:100%}.model-deployment-card footer{align-items:stretch;flex-direction:column}.model-deployment-card footer button{width:100%}.model-events-pagination{align-items:stretch;flex-direction:column}.model-events-pagination button{width:auto}}
 
 @media (max-width: 720px) {
+  .connector-action-toolbar { grid-template-columns: 1fr !important; }
   .policy-eta-grid { grid-template-columns: 1fr; }
 }
 

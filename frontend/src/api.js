@@ -180,6 +180,10 @@ export const api = {
   agentToolsGet: (agentId) => get(`/agents/${encodeURIComponent(agentId)}/tools`),
   agentToolsSet: (agentId, tools, opts = {}) =>
     put(`/agents/${encodeURIComponent(agentId)}/tools`, { tools, ...opts }),
+  agentConnectorActionsGet: (agentId) =>
+    get(`/agents/${encodeURIComponent(agentId)}/connector-actions`),
+  agentConnectorActionsSet: (agentId, actions) =>
+    put(`/agents/${encodeURIComponent(agentId)}/connector-actions`, { actions }),
   agentToolsSyncTemplateMd: (agentId, templateId) =>
     post(`/agents/${encodeURIComponent(agentId)}/tools/sync-template-md`, templateId ? { template_id: templateId } : {}),
   agentWorkspaceTemplates: () => get('/agents/workspace-templates'),

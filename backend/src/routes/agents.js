@@ -60,6 +60,11 @@ import {
 } from '../services/chat-history.js';
 import { resolveLlmConfigForUser } from '../services/user-llm-settings.js';
 import { isPlatformLocalOllama } from '../services/platform-llm-settings.js';
+import { getConnectedConnectorApps, listConnectorActions } from '../services/openconnector.js';
+import {
+  getAgentConnectorActionGrants,
+  setAgentConnectorActionGrants,
+} from '../services/connector-action-grants.js';
 import { meterOpenClawUsage } from '../services/token-usage.js';
 import { withLlmopsContext } from '../services/llmops-context.js';
 import { BudgetBlockedError, enforceBudget } from '../services/agent-budgets.js';
@@ -761,6 +766,60 @@ router.get('/:id/chat/activity/:turnId', requireAuth, (req, res) => {
     return res.json({ ...activity, tool_calls: toolCalls });
   } catch (e) {
     return res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+// Per-agent OpenConnector action grants. Connector credentials remain CEO-owned;
+// this endpoint only controls which actions this employee may invoke.
+router.get('/:id/connector-actions', requireAuth, async (req, res) => {
+  try {
+    const agent = db().prepare('SELECT * FROM agents WHERE id = ?').get(req.params.id);
+    if (!agent) return res.status(404).json({ error: 'Agent not found' });
+    assertUserAgentAccess(req.authUser, agent.id);
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.query);
+    const connected = await getConnectedConnectorApps(ownerUserId);
+    res.json({
+      agent_id: agent.id,
+      grants: getAgentConnectorActionGrants(agent.id),
+      apps: connected.apps || [],
+      source: connected.source || null,
+    });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message });
+  }
+});
+
+router.put('/:id/connector-actions', requireAuth, requireCeoOrAdmin, async (req, res) => {
+  try {
+    const agent = db().prepare('SELECT * FROM agents WHERE id = ?').get(req.params.id);
+    if (!agent) return res.status(404).json({ error: 'Agent not found' });
+    assertUserAgentAccess(req.authUser, agent.id);
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.body || {});
+    const requested = [...new Set((Array.isArray(req.body?.actions) ? req.body.actions : [])
+      .map((item) => String(typeof item === 'string' ? item : item?.id || item?.action_id || '').trim())
+      .filter(Boolean))];
+    const catalog = new Map();
+    for (const appId of [...new Set(requested.map((id) => id.split('.')[0]).filter(Boolean))]) {
+      const listed = await listConnectorActions(ownerUserId, appId);
+      for (const action of listed.actions || []) catalog.set(String(action.id), action);
+    }
+    const missing = requested.filter((id) => !catalog.has(id));
+    if (missing.length) {
+      return res.status(400).json({ error: `Unknown or unavailable connector action: ${missing.join(', ')}` });
+    }
+    const grants = setAgentConnectorActionGrants(agent.id, requested.map((id) => catalog.get(id)));
+    const currentTools = new Set(agentTools.getAgentToolGrants(agent.id));
+    if (grants.length) {
+      currentTools.add('connector_search_actions');
+      currentTools.add('connector_get_action_guide');
+      currentTools.add('connector_execute_action');
+    } else {
+      currentTools.delete('connector_execute_action');
+    }
+    agentTools.setAgentToolGrants(agent, [...currentTools]);
+    res.json({ agent_id: agent.id, grants });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message });
   }
 });
 

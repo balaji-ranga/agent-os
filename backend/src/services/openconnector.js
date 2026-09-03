@@ -15,6 +15,7 @@ import {
   seedOpenConnectorOauthClientForAuthorize,
   withOpenConnectorOauthClientSeed,
 } from './openconnector-oauth-lease.js';
+import { classifyConnectorAction } from './connector-action-grants.js';
 
 function db() {
   return getDb();
@@ -566,6 +567,7 @@ export async function listConnectorActions(userId, appId, query = '') {
         app_id: appId,
         actions: actions.map((a) => ({
           ...a,
+          ...classifyConnectorAction(a),
           example_input: exampleInputFromSchema(a.input_schema || {}),
         })),
         source: 'http',
@@ -586,7 +588,8 @@ export async function listConnectorActions(userId, appId, query = '') {
         : [];
     const normalized = rows
       .map(normalizeActionHit)
-      .filter((item) => !service || item.app_id === service || item.id.startsWith(`${service}.`));
+      .filter((item) => !service || item.app_id === service || item.id.startsWith(`${service}.`))
+      .map((item) => ({ ...item, ...classifyConnectorAction(item) }));
     return {
       app_id: appId,
       actions: normalized,

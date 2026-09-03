@@ -24,6 +24,14 @@ export default function AgentWorkspace() {
   const [toolCatalog, setToolCatalog] = useState([]);
   const [toolGrants, setToolGrants] = useState(new Set());
   const [toolsSaving, setToolsSaving] = useState(false);
+  const [connectorApps, setConnectorApps] = useState([]);
+  const [connectorAppId, setConnectorAppId] = useState('');
+  const [connectorActions, setConnectorActions] = useState([]);
+  const [connectorActionGrants, setConnectorActionGrants] = useState(new Set());
+  const [connectorQuery, setConnectorQuery] = useState('');
+  const [connectorLoading, setConnectorLoading] = useState(false);
+  const [connectorSaving, setConnectorSaving] = useState(false);
+  const [connectorMessage, setConnectorMessage] = useState(null);
   const [syncingMd, setSyncingMd] = useState(false);
   const [orgDept, setOrgDept] = useState('');
   const [orgParentId, setOrgParentId] = useState('');
@@ -62,6 +70,37 @@ export default function AgentWorkspace() {
       .then((list) => setAllAgents(Array.isArray(list) ? list : list?.agents || []))
       .catch(() => setAllAgents([]));
   }, [agentId]);
+
+  useEffect(() => {
+    if (!agentId) return;
+    api.agentConnectorActionsGet(agentId)
+      .then((r) => {
+        const apps = r.apps || [];
+        const grants = new Set((r.grants || []).map((item) => String(item.action_id || item.id || item)));
+        setConnectorApps(apps);
+        setConnectorActionGrants(grants);
+        const grantedApp = [...grants][0]?.split('.')[0];
+        const initial = apps.find((app) => app.id === grantedApp) || apps.find((app) => app.connected) || apps[0];
+        if (initial) setConnectorAppId(String(initial.id));
+      })
+      .catch((e) => setConnectorMessage({ type: 'error', text: e.message }));
+  }, [agentId]);
+
+  useEffect(() => {
+    if (!connectorAppId) {
+      setConnectorActions([]);
+      return;
+    }
+    setConnectorLoading(true);
+    setConnectorMessage(null);
+    api.openconnectorActions(connectorAppId)
+      .then((r) => setConnectorActions(r.actions || []))
+      .catch((e) => {
+        setConnectorActions([]);
+        setConnectorMessage({ type: 'error', text: e.message });
+      })
+      .finally(() => setConnectorLoading(false));
+  }, [connectorAppId]);
 
   useEffect(() => {
     if (!agentId) return;
@@ -188,6 +227,31 @@ export default function AgentWorkspace() {
       })
       .catch((e) => setError(e.message))
       .finally(() => setToolsSaving(false));
+  };
+
+  const toggleConnectorAction = (id) => {
+    setConnectorActionGrants((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    setConnectorMessage(null);
+  };
+
+  const saveConnectorActions = () => {
+    setConnectorSaving(true);
+    setConnectorMessage(null);
+    api.agentConnectorActionsSet(agentId, [...connectorActionGrants])
+      .then(async (r) => {
+        setConnectorActionGrants(new Set((r.grants || []).map((item) => String(item.action_id || item.id || item))));
+        const tools = await api.agentToolsGet(agentId);
+        setToolCatalog(tools.tools || []);
+        setToolGrants(new Set((tools.grants || []).map(String)));
+        setConnectorMessage({ type: 'ok', text: 'Connector action access saved. Changes apply immediately.' });
+      })
+      .catch((e) => setConnectorMessage({ type: 'error', text: e.message }))
+      .finally(() => setConnectorSaving(false));
   };
 
   const syncTemplateMd = () => {
@@ -549,6 +613,83 @@ export default function AgentWorkspace() {
                   );
                 })()
               )}
+              <section style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                  <div>
+                    <h3 style={{ fontSize: '1rem', margin: 0 }}>Connector action access</h3>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--muted)', margin: '0.35rem 0 0' }}>
+                      Select the exact actions this agent may invoke through your connected apps. Action Control policies still decide whether an allowed action is autonomous, approval-required, or prohibited.
+                    </p>
+                  </div>
+                  <span style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>{connectorActionGrants.size} selected</span>
+                </div>
+                {connectorApps.length === 0 ? (
+                  <p style={{ color: 'var(--muted)' }}>No connector apps are available. Connect an app under Settings → Connectors first.</p>
+                ) : (
+                  <>
+                    <div className="connector-action-toolbar" style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 1fr) minmax(180px, 1.4fr)', gap: '0.65rem', margin: '0.85rem 0' }}>
+                      <select
+                        aria-label="Connector app"
+                        value={connectorAppId}
+                        onChange={(e) => { setConnectorAppId(e.target.value); setConnectorQuery(''); }}
+                        style={{ width: '100%', padding: '0.6rem 0.7rem', border: '1px solid var(--border)', borderRadius: 7, background: 'var(--bg)', color: 'var(--text)' }}
+                      >
+                        {connectorApps.map((app) => (
+                          <option key={app.id} value={app.id}>{app.name || app.id}{app.connected ? ' · connected' : ''}</option>
+                        ))}
+                      </select>
+                      <input
+                        aria-label="Search connector actions"
+                        type="search"
+                        value={connectorQuery}
+                        onChange={(e) => setConnectorQuery(e.target.value)}
+                        placeholder="Search actions…"
+                        style={{ width: '100%', padding: '0.6rem 0.7rem', border: '1px solid var(--border)', borderRadius: 7, background: 'var(--bg)', color: 'var(--text)' }}
+                      />
+                    </div>
+                    {connectorLoading ? (
+                      <p style={{ color: 'var(--muted)' }}>Loading actions…</p>
+                    ) : connectorActions.length === 0 ? (
+                      <p style={{ color: 'var(--muted)' }}>No actions returned for this connector.</p>
+                    ) : (
+                      <div style={{ maxHeight: 360, overflow: 'auto', border: '1px solid var(--border)', borderRadius: 8, padding: '0 0.75rem' }}>
+                        {connectorActions
+                          .filter((action) => {
+                            const q = connectorQuery.trim().toLowerCase();
+                            return !q || `${action.id} ${action.description || ''}`.toLowerCase().includes(q);
+                          })
+                          .map((action) => {
+                            const tier = action.risk_tier || 'R2';
+                            const tierColor = tier === 'R0' ? '#22c55e' : tier === 'R1' ? '#38bdf8' : tier === 'R2' ? '#f59e0b' : '#ef4444';
+                            return (
+                              <label key={action.id} style={{ display: 'flex', gap: '0.7rem', alignItems: 'flex-start', padding: '0.65rem 0', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}>
+                                <input type="checkbox" checked={connectorActionGrants.has(action.id)} onChange={() => toggleConnectorAction(action.id)} style={{ marginTop: 4 }} />
+                                <span style={{ minWidth: 0 }}>
+                                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+                                    <strong style={{ overflowWrap: 'anywhere' }}>{action.id}</strong>
+                                    <span title={action.action_family || ''} style={{ color: tierColor, border: `1px solid ${tierColor}`, borderRadius: 999, padding: '0.05rem 0.4rem', fontSize: '0.72rem' }}>{tier}</span>
+                                  </span>
+                                  {action.description && <span style={{ display: 'block', color: 'var(--muted)', fontSize: '0.84rem', marginTop: 3 }}>{action.description}</span>}
+                                </span>
+                              </label>
+                            );
+                          })}
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={saveConnectorActions}
+                      disabled={connectorSaving}
+                      style={{ marginTop: '0.75rem', padding: '0.55rem 1rem', background: connectorSaving ? 'var(--muted)' : 'var(--accent)', border: 'none', borderRadius: 6, color: '#fff' }}
+                    >
+                      {connectorSaving ? 'Saving…' : 'Save connector actions'}
+                    </button>
+                    {connectorMessage && (
+                      <span style={{ display: 'block', marginTop: '0.55rem', color: connectorMessage.type === 'error' ? '#f87171' : '#22c55e', fontSize: '0.85rem' }}>{connectorMessage.text}</span>
+                    )}
+                  </>
+                )}
+              </section>
             </div>
             <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
               <button
