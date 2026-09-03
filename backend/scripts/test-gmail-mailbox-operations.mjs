@@ -90,6 +90,8 @@ try {
   );
 
   const calls = [];
+  let activeFetches = 0;
+  let maxActiveFetches = 0;
   const execute = async (owner, action, input) => {
     calls.push({ owner, action, input });
     if (action === 'gmail.move_to_trash') {
@@ -97,6 +99,10 @@ try {
       return { ok: true };
     }
     const query = input.query || '';
+    activeFetches += 1;
+    maxActiveFetches = Math.max(maxActiveFetches, activeFetches);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    activeFetches -= 1;
     if (query === 'in:spam') return { data: { messages: [{ messageId: 'spam-1', subject: 'Spam', sender: 'bad@example.test', messageText: 'junk' }] } };
     if (query.includes('older_than')) return { data: { messages: [
       { messageId: 'promo-1', subject: 'Old sale', sender: 'shop@example.test', messageText: 'promotion content' },
@@ -108,6 +114,7 @@ try {
   const reviewed = await reviewGmailMailbox('ceo-a', { days: 7 }, { executeConnectorAction: execute, chatCompletions: llm });
   assert.equal(reviewed.report.recent_count, 1);
   assert.equal(reviewed.report.candidate_count, 3);
+  assert.equal(maxActiveFetches, 1, 'mailbox buckets must not race a CEO-scoped OAuth client lease');
   assert.match(reviewed.summary, /project decision/i);
   assert.equal(getGmailCleanupPlan('ceo-b', reviewed.plan_id), null, 'plans must be tenant isolated');
 

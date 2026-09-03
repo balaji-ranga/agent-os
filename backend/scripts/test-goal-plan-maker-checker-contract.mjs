@@ -156,6 +156,31 @@ const safe = safeGoalClarificationPlan();
 assert.equal(validateTypedGoalPlan(safe, noHumanCatalog).ok, true);
 assert.equal(safe.some((step) => step.type === 'agent_tool' || step.type === 'specialty_task' || step.type === 'human_task'), false);
 
+const { ensureAgentGoalRunTables, completeGoalStepAndContinue } = await import('../src/services/agent-goal-run.js');
+ensureAgentGoalRunTables();
+const testDb = (await import('../src/db/schema.js')).getDb();
+testDb.prepare(`INSERT INTO platform_users(id,email,password_hash,name,role,enabled) VALUES(?,?,?,?,?,1)`)
+  .run('ceo-resume-test', 'resume@example.test', 'x', 'Resume Test', 'ceo');
+testDb.prepare(`INSERT INTO agents(id,name,role,is_coo,openclaw_agent_id,owner_user_id) VALUES(?,?,?,?,?,?)`)
+  .run('coo-resume-test', 'Resume COO', 'COO', 1, 'coo-resume-test', 'ceo-resume-test');
+testDb.prepare(`INSERT INTO user_agents(user_id,agent_id,enabled) VALUES(?,?,1)`)
+  .run('ceo-resume-test', 'coo-resume-test');
+testDb.prepare(`INSERT INTO agent_goal_runs(id,owner_user_id,agent_id,title,prompt,status) VALUES(?,?,?,?,?,'running')`)
+  .run('agr-resume-test', 'ceo-resume-test', 'coo-resume-test', 'Resume test', 'Complete nested work then continue.');
+testDb.prepare(`INSERT INTO agent_goal_steps(id,goal_run_id,step_index,step_type,label,status) VALUES(?,?,?,?,?,'running')`)
+  .run('ags-resume-1', 'agr-resume-test', 0, 'specialty_task', 'Nested orchestrator');
+testDb.prepare(`INSERT INTO agent_goal_steps(id,goal_run_id,step_index,step_type,label,status) VALUES(?,?,?,?,?,'pending')`)
+  .run('ags-resume-2', 'agr-resume-test', 1, 'agent_tool', 'Next tool');
+let resumed = null;
+const resumedResult = await completeGoalStepAndContinue({
+  goalRunId: 'agr-resume-test', stepId: 'ags-resume-1', ownerUserId: 'ceo-resume-test', result: { ok: true },
+}, { executeNext: async (goalRunId, options) => {
+  resumed = { goalRunId, options };
+  return { ok: true, step_id: 'ags-resume-2' };
+} });
+assert.deepEqual(resumed, { goalRunId: 'agr-resume-test', options: { ownerUserId: 'ceo-resume-test' } });
+assert.equal(resumedResult.continuation.step_id, 'ags-resume-2', 'nested step completion must wake the parent goal');
+
 console.log('goal plan maker/checker typed contract tests passed');
 try { const { getDb } = await import('../src/db/schema.js'); getDb().close(); } catch {}
 rmSync(dataDir, { recursive: true, force: true });

@@ -700,11 +700,31 @@ export async function executeConnectorAction(userId, actionId, input = {}, { con
     }
   };
 
-  // When CEO BYOA is active and OC may refresh tokens using the global client, seed for the call.
-  if (custom) {
-    return withOpenConnectorOauthClientSeed(appGuess, custom, run);
+  const invoke = () => custom
+    ? withOpenConnectorOauthClientSeed(appGuess, custom, run)
+    : run();
+  try {
+    return await invoke();
+  } catch (error) {
+    const message = String(error?.message || error || '');
+    const authorizationFailure = /(?:401|authorization[_ -]?failed|not connected|connect .*oauth)/i.test(message);
+    if (!authorizationFailure || !appGuess || !userId) throw error;
+    // OAuth callbacks and provider token refreshes can become visible one request
+    // after the UI reports connected. Confirm the exact owner alias is connected,
+    // then perform one fresh-token retry. A genuinely disconnected account still
+    // fails closed and asks the user to reconnect.
+    const connections = await getConnectorConnectionsForUser(userId).catch(() => null);
+    const connected = connections?.connections?.some((item) =>
+      item.connected && String(item.app_id || '').toLowerCase() === appGuess.toLowerCase()
+    );
+    if (!connected) throw error;
+    console.warn('[openconnector] retrying action after connected OAuth authorization failure', {
+      user_id: userId,
+      app_id: appGuess,
+      action_id: id,
+    });
+    return invoke();
   }
-  return run();
 }
 
 export async function getConnectorConnectionsForUser(userId) {

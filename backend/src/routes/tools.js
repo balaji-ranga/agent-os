@@ -71,7 +71,7 @@ import {
   planGoalStepsFromText,
   listGoalRuns,
   getGoalRun,
-  completeGoalStep,
+  completeGoalStepAndContinue,
   bindWorkflowRunToGoalStep,
 } from '../services/agent-goal-run.js';
 import { applyWorkflowBuilderActions, getWorkflowDraftForAgent } from '../services/agent-workflow-builder.js';
@@ -3282,7 +3282,7 @@ router.post('/agent-goal-complete-step', optionalAuth, async (req, res) => {
       return res.status(403).json(err);
     }
     const ownerUserId = resolveWorkflowOwner(req, requestPayload);
-    const out = await completeGoalStep({
+    const out = await completeGoalStepAndContinue({
       goalRunId: requestPayload.goal_run_id || requestPayload.goalRunId,
       stepId: requestPayload.step_id || requestPayload.stepId,
       ownerUserId,

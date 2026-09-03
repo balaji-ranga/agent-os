@@ -132,11 +132,12 @@ export async function reviewGmailMailbox(ownerUserId, input = {}, deps = {}) {
   const cleanupLimit = clamp(input.cleanup_limit, DEFAULT_CLEANUP);
   const execute = deps.executeConnectorAction || executeConnectorAction;
 
-  const [recent, spamRaw, staleRaw] = await Promise.all([
-    fetchBucket(owner, GMAIL_QUERIES.recent(days), recentLimit, 'recent', execute),
-    fetchBucket(owner, GMAIL_QUERIES.spam, cleanupLimit, 'spam', execute),
-    fetchBucket(owner, GMAIL_QUERIES.stale_marketing(days), cleanupLimit, 'stale_marketing', execute),
-  ]);
+  // Gmail actions may temporarily seed a CEO-specific OAuth client into the
+  // connector gateway. Keep one mailbox review sequential so one company's
+  // OAuth lease and refresh cannot race three simultaneous requests.
+  const recent = await fetchBucket(owner, GMAIL_QUERIES.recent(days), recentLimit, 'recent', execute);
+  const spamRaw = await fetchBucket(owner, GMAIL_QUERIES.spam, cleanupLimit, 'spam', execute);
+  const staleRaw = await fetchBucket(owner, GMAIL_QUERIES.stale_marketing(days), cleanupLimit, 'stale_marketing', execute);
   const spam = dedupe(spamRaw);
   const stale = dedupe(staleRaw.filter((row) => !spam.some((item) => item.message_id === row.message_id)));
   const candidates = [...spam, ...stale];

@@ -3040,7 +3040,7 @@ function ensureOrgPeopleSchema(_db) {
       BEGIN
         UPDATE kanban_tasks SET
           eta_hours=COALESCE((SELECT standard_eta_hours FROM work_assignment_policies WHERE owner_user_id=NEW.owner_user_id),8),
-          due_at=datetime(COALESCE(NEW.created_at,datetime('now')), '+' || COALESCE((SELECT standard_eta_hours FROM work_assignment_policies WHERE owner_user_id=NEW.owner_user_id),8) || ' hours')
+          due_at=strftime('%Y-%m-%dT%H:%M:%fZ',COALESCE(NEW.created_at,datetime('now')), '+' || COALESCE((SELECT standard_eta_hours FROM work_assignment_policies WHERE owner_user_id=NEW.owner_user_id),8) || ' hours')
         WHERE id=NEW.id;
       END`);
     _db.exec(`DROP TRIGGER IF EXISTS trg_kanban_sla_terminal_cleanup`);

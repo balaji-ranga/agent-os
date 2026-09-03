@@ -418,12 +418,12 @@ async function buildCatalog(ownerUserId, orchestratorAgentId) {
 function checkerPreference(ownerUserId, makerResult) {
   const cfg = getLlmConfig(ownerUserId);
   if (makerResult?.localModel || isLocalOllama(cfg.primary?.baseUrl)) return 'platform_primary';
-  if (makerResult?.endpointPreference === 'secondary') return 'ollama';
-  // If the maker had to fail over to the configured secondary, do not use the
-  // same model as its own checker. Keep maker/checker independence with Ollama.
+  if (makerResult?.endpointPreference === 'secondary') return 'platform_primary';
+  // If the maker had to fail over to the configured secondary, use the primary
+  // slot as the independent checker. Ollama remains the bounded fallback.
   try {
     const secondaryHost = new URL(String(cfg.secondary?.baseUrl || '')).hostname.toLowerCase();
-    if (secondaryHost && secondaryHost === String(makerResult?.endpointHost || '').toLowerCase()) return 'ollama';
+    if (secondaryHost && secondaryHost === String(makerResult?.endpointHost || '').toLowerCase()) return 'platform_primary';
   } catch {}
   return cfg.secondary?.baseUrl && cfg.secondary?.model ? 'secondary' : 'ollama';
 }
@@ -451,7 +451,7 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
   let rejectedRaw = '';
   let makerAttempts = 0;
   let makerContractFromLlm = false;
-  const makerMaxAttempts = 2;
+  const makerMaxAttempts = 3;
   const structuredTimeoutMs = getPlatformTimeoutMs('goal_plan_llm');
   for (let attempt = 1; attempt <= makerMaxAttempts; attempt += 1) {
     makerAttempts = attempt;
@@ -466,9 +466,9 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
       maker = await chatCompletions({
         ownerUserId,
         toolName: 'goal_plan_maker',
-        // A second maker attempt deliberately targets the independent secondary
-        // endpoint. Transport slowness on the active model must not turn a valid
-        // goal into chat or abort before the checker can run.
+        // Repair attempts deliberately target the independent secondary endpoint.
+        // The third round receives the exact prior contract errors again rather
+        // than degrading a recoverable LLM plan to the catalog baseline.
         ...(attempt > 1 ? { endpointPreference: 'secondary' } : {}),
         maxTokens: 12000,
         temperature: 0,
@@ -583,35 +583,33 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
       modelUsed: 'deterministic_contract',
     };
   };
-  try {
-    check = await chatCompletions(checkerRequestFor(made, preference));
-  } catch (error) {
-    if (preference === 'secondary') {
-      checkerEndpoint = 'ollama';
+  const checkerFallbacks = preference === 'secondary'
+    ? ['secondary', 'ollama']
+    : preference === 'platform_primary'
+      ? ['platform_primary', 'ollama']
+      : ['ollama', 'secondary'];
+  let checkerError = null;
+  for (const endpoint of [...new Set(checkerFallbacks)]) {
+    checkerEndpoint = endpoint;
+    try {
+      check = await chatCompletions(checkerRequestFor(made, endpoint));
+      const parsed = parseJsonObject(check.content) || {};
+      if (typeof parsed.approved !== 'boolean') throw new Error('Checker did not emit an approval decision');
+      checkerError = null;
+      break;
+    } catch (error) {
+      checkerError = error;
       await reportPlanProgress(onProgress, {
         phase: 'checker_fallback',
         label: 'Retrying plan validation',
-        detail: 'The independent checker is using its configured fallback',
+        detail: `Independent checker ${endpoint} was unavailable; trying the configured fallback`,
       });
-      try {
-        check = await chatCompletions(checkerRequestFor(made, 'ollama'));
-      } catch (fallbackError) {
-        check = acceptDeterministicContract(fallbackError, 'ollama');
-      }
-    } else {
-      check = acceptDeterministicContract(error, preference);
     }
+  }
+  if (!check || checkerError) {
+    check = acceptDeterministicContract(checkerError, checkerEndpoint);
   }
   let verdict = parseJsonObject(check.content) || {};
-  if (typeof verdict.approved !== 'boolean' && preference === 'secondary' && checkerEndpoint !== 'ollama') {
-    checkerEndpoint = 'ollama';
-    try {
-      check = await chatCompletions(checkerRequestFor(made, 'ollama'));
-    } catch (fallbackError) {
-      check = acceptDeterministicContract(fallbackError, 'ollama');
-    }
-    verdict = parseJsonObject(check.content) || {};
-  }
 
   let selected = made;
   let selectedValidation = madeValidation;

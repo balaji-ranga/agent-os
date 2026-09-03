@@ -43,6 +43,21 @@ try {
   const taskId = Number(inserted.lastInsertRowid);
 
   const sla = await import('../src/services/kanban-sla.js');
+  const singaporeNow = Date.parse('2026-09-03T14:16:00Z');
+  assert.equal(sla.slaState({
+    status: 'in_progress',
+    eta_hours: 8,
+    created_at: '2026-09-03 14:11:23',
+    due_at: '2026-09-03 22:11:23',
+  }, singaporeNow), 'green', 'timezone-less SQLite UTC timestamps must not be parsed as browser-local time');
+  assert.equal(sla.parseUtcTimestamp('2026-09-03 22:11:23'), Date.parse('2026-09-03T22:11:23Z'));
+
+  const triggerTaskId = Number(database.prepare(
+    `INSERT INTO kanban_tasks (title,status,created_by,owner_user_id) VALUES(?,?,?,?)`
+  ).run('Trigger UTC format', 'in_progress', 'test', owner).lastInsertRowid);
+  const triggerTask = database.prepare('SELECT due_at FROM kanban_tasks WHERE id=?').get(triggerTaskId);
+  assert.match(triggerTask.due_at, /Z$/, 'default policy ETA trigger must persist an explicit UTC suffix');
+
   const monitored = await sla.runKanbanSlaMonitor();
   assert.equal(monitored.escalated, 1);
   const event = database.prepare(

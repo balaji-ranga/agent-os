@@ -3291,6 +3291,13 @@ export function completeGoalStep({ goalRunId, stepId, ownerUserId, result = null
   return { ok: true, done: false, goal: getGoalRun(goalRunId, ownerUserId) };
 }
 
+export async function completeGoalStepAndContinue(args, { executeNext = startGoalRunExecution } = {}) {
+  const completion = completeGoalStep(args);
+  if (completion.ok === false || completion.done) return completion;
+  const continuation = await executeNext(args.goalRunId, { ownerUserId: args.ownerUserId });
+  return { ...completion, continuation };
+}
+
 
 async function executeSpecialtyTaskStep(goal, step) {
   const spec = parseJson(step.spec_json);
