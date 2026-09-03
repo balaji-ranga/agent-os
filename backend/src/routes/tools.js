@@ -74,6 +74,10 @@ import {
   completeGoalStepAndContinue,
   bindWorkflowRunToGoalStep,
 } from '../services/agent-goal-run.js';
+import {
+  parseGoalSessionReference,
+  buildGoalBoundWorkflowInput,
+} from '../services/goal-workflow-context.js';
 import { applyWorkflowBuilderActions, getWorkflowDraftForAgent } from '../services/agent-workflow-builder.js';
 import { resolveAuthenticatedCeoUserId, attachAuthUser, requireAuth, requireCeoOrAdmin } from '../middleware/auth.js';
 import { requireToolsAccess, attachToolsAuth } from '../middleware/tools-auth.js';
@@ -3027,7 +3031,14 @@ router.post('/agent-workflow-trigger', optionalAuth, async (req, res) => {
       logTool(req,'agent_workflow_trigger', requestPayload, err, 'error', source);
       return res.status(403).json(err);
     }
-    const message = (requestPayload.message || requestPayload.input || '').toString().trim();
+    const suppliedInput = requestPayload.input;
+    const message = String(
+      requestPayload.message ||
+      requestPayload.workflow_name ||
+      requestPayload.workflowName ||
+      (typeof suppliedInput === 'string' ? suppliedInput : '') ||
+      ''
+    ).trim();
     const workflowId = requestPayload.workflow_id || requestPayload.workflowId || null;
     if (!message && !workflowId) {
       const err = { error: 'message or workflow_id required' };
@@ -3035,6 +3046,25 @@ router.post('/agent-workflow-trigger', optionalAuth, async (req, res) => {
       return res.status(400).json(err);
     }
     const ownerUserId = resolveWorkflowOwner(req, requestPayload);
+    const sessionGoal = parseGoalSessionReference(
+      req.headers['x-openclaw-session-user'] ||
+      req.headers['x-openclaw-session-key'] ||
+      req.headers['x-session-key'] ||
+      ''
+    );
+    const inferredGoalRunId = requestPayload.goal_run_id || requestPayload.goalRunId || sessionGoal?.goal_run_id || null;
+    const inferredStepId = requestPayload.step_id || requestPayload.stepId || requestPayload.goal_step_id || requestPayload.goalStepId || sessionGoal?.goal_step_id || null;
+    let runInput = suppliedInput !== undefined && suppliedInput !== null && String(suppliedInput).trim() !== ''
+      ? suppliedInput
+      : message;
+    if (inferredGoalRunId && inferredStepId) {
+      const goal = getGoalRun(String(inferredGoalRunId), ownerUserId);
+      const step = goal?.steps?.find((item) => String(item.id) === String(inferredStepId));
+      if (!goal || !step) {
+        return res.status(409).json({ error: 'Goal-bound workflow context could not be resolved for this owner' });
+      }
+      runInput = buildGoalBoundWorkflowInput({ goal, step, suppliedInput: runInput });
+    }
     const actor = {
       id: caller?.id || null,
       name: caller?.name || null,
@@ -3046,7 +3076,7 @@ router.post('/agent-workflow-trigger', optionalAuth, async (req, res) => {
     };
     // Multi-intent freeform: upgrade phrase triggers that describe 2+ workflows into a durable goal plan.
     // Prevents treating a numeric workflow run_id as a goal plan — only agr-… ids track Digest/step ladder.
-    const earlyGoalRunId = requestPayload.goal_run_id || requestPayload.goalRunId || null;
+    const earlyGoalRunId = inferredGoalRunId;
     const forceUpgrade =
       requestPayload.upgrade_to_goal === true ||
       requestPayload.as_goal_plan === true ||
@@ -3092,7 +3122,7 @@ router.post('/agent-workflow-trigger', optionalAuth, async (req, res) => {
     const run = await triggerAgentWorkflowForOwner(ownerUserId, {
       message,
       workflow_id: workflowId,
-      input: message,
+      input: runInput,
       actor,
     });
     // Non-blocking: never wait for terminal status in the HTTP tool path.
@@ -3101,8 +3131,8 @@ router.post('/agent-workflow-trigger', optionalAuth, async (req, res) => {
       actorAgentId: actor.id,
       actorName: actor.name,
     });
-    const goalRunId = requestPayload.goal_run_id || requestPayload.goalRunId || null;
-    const stepId = requestPayload.step_id || requestPayload.stepId || null;
+    const goalRunId = inferredGoalRunId;
+    const stepId = inferredStepId;
     let goal_bind = null;
     if (goalRunId && stepId) {
       try {

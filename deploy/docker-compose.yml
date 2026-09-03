@@ -306,6 +306,10 @@ x-backend-env: &backend-env
   OPENCONNECTOR_PUBLIC_ORIGIN: ${OPENCONNECTOR_PUBLIC_ORIGIN:-}
   # Mirror for status/UI; real gate is OOMOL_CONNECT_ALLOWED_CUSTOM_OAUTH on openconnector service
   OPENCONNECTOR_ALLOWED_CUSTOM_OAUTH: ${OPENCONNECTOR_ALLOWED_CUSTOM_OAUTH:-*}
+  # Current OpenConnector persists per-connection OAuth clients. Enable only
+  # for legacy images that require a global provider client during refresh.
+  OPENCONNECTOR_LEGACY_GLOBAL_OAUTH_SEED: ${OPENCONNECTOR_LEGACY_GLOBAL_OAUTH_SEED:-0}
+  OPENCONNECTOR_AUTH_RETRY_DELAYS_MS: ${OPENCONNECTOR_AUTH_RETRY_DELAYS_MS:-1000,5000,15000}
   OOMOL_CONNECT_ALLOWED_CUSTOM_OAUTH: ${OOMOL_CONNECT_ALLOWED_CUSTOM_OAUTH:-*}
   # OpenSearch (document meta + RAG; internal Docker network only — no host ports)
   OPENSEARCH_ENABLED: ${OPENSEARCH_ENABLED:-1}

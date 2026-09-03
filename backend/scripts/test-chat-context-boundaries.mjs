@@ -5,8 +5,9 @@ import {
   DASHBOARD_CONTEXT_INSTRUCTION,
   dashboardGatewaySessionUser,
 } from '../src/services/dashboard-chat-context.js';
-import { bindWorkUnitExecution, routeAgentTurn, validateRouteDecision } from '../src/services/agent-turn-router.js';
+import { applyDurableAdjudication, bindWorkUnitExecution, routeAgentTurn, validateRouteDecision } from '../src/services/agent-turn-router.js';
 import { isPromptAuthoringAskForAgent } from '../src/services/specialty-referral.js';
+import { buildGoalBoundWorkflowInput, parseGoalSessionReference } from '../src/services/goal-workflow-context.js';
 
 const polluted = [
   'Open LinkedIn in my Chrome and summarize the last two days.',
@@ -55,6 +56,45 @@ assert.equal(validateRouteDecision({
 assert.equal(validateRouteDecision({
   relation: 'new_work', execution_mode: 'goal_plan', relevant_turn_ids: [999], resolved_request: 'test', restart_requested: false, confidence: 0.9,
 }, [901]).ok, false, 'unknown history IDs are rejected');
+assert.equal(
+  applyDurableAdjudication(
+    { execution_mode: 'goal_plan', confidence: 0.7 },
+    { durable_goal: false, stage_count: 1, execution_mode: 'direct_tool' }
+  ).execution_mode,
+  'direct_tool',
+  'one bounded specialist deliverable must be downgraded from an over-classified goal'
+);
+assert.equal(
+  applyDurableAdjudication(
+    { execution_mode: 'direct_tool', confidence: 0.7 },
+    { durable_goal: true, stage_count: 3, execution_mode: 'goal_plan' }
+  ).execution_mode,
+  'goal_plan',
+  'multi-stage durable work must still be promoted to a goal plan'
+);
+assert.deepEqual(
+  parseGoalSessionReference('goal-agr-abc123-ags-def456'),
+  { goal_run_id: 'agr-abc123', goal_step_id: 'ags-def456' },
+  'isolated goal session must recover its goal and step identity'
+);
+const boundWorkflowInput = buildGoalBoundWorkflowInput({
+  goal: {
+    id: 'agr-abc123',
+    prompt: 'Create a Flolah explainer about humans and AI employees.',
+    steps: [{ id: 'ags-prior', step_index: 0, label: 'CEO profile', status: 'completed', result: { company: 'Flolah' } }],
+  },
+  step: {
+    id: 'ags-def456',
+    step_index: 1,
+    label: 'Create storyboard',
+    spec: { message: 'Delegate narrative to Story Agent and export the storyboard.' },
+  },
+  suppliedInput: 'run video storyboard',
+});
+assert.match(boundWorkflowInput, /Create a Flolah explainer/);
+assert.match(boundWorkflowInput, /Delegate narrative to Story Agent/);
+assert.match(boundWorkflowInput, /"company":"Flolah"/);
+assert.match(boundWorkflowInput, /run video storyboard/);
 const routeBase = {
   ownerUserId: `router-test-${Date.now()}`,
   agent: { id: 'test-agent', name: 'Test Agent', role: 'Tester', is_coo: 0 },

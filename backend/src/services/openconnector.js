@@ -705,12 +705,19 @@ export async function executeConnectorAction(
     }
   };
 
-  const invoke = () => custom
+  // Current OpenConnector images persist a connection-scoped OAuth client and
+  // use it for refresh. Re-seeding the global provider config before every
+  // action can race or reset an in-flight refresh and produce alternating 401s.
+  // Keep the old behavior behind an explicit compatibility flag only.
+  const legacyGlobalSeed = /^(1|true|yes)$/i.test(
+    String(process.env.OPENCONNECTOR_LEGACY_GLOBAL_OAUTH_SEED || '')
+  );
+  const invoke = () => custom && legacyGlobalSeed
     ? withOpenConnectorOauthClientSeed(appGuess, custom, run)
     : run();
   const configuredDelays = Array.isArray(authorizationRetryDelaysMs)
     ? authorizationRetryDelaysMs
-    : String(process.env.OPENCONNECTOR_AUTH_RETRY_DELAYS_MS || '1500,6000')
+    : String(process.env.OPENCONNECTOR_AUTH_RETRY_DELAYS_MS || '1000,5000,15000')
       .split(',')
       .map((value) => Number(value.trim()))
       .filter((value) => Number.isFinite(value) && value >= 0)

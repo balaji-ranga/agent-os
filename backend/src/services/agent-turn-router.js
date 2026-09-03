@@ -106,11 +106,13 @@ Rules:
 - resolved_request must be self-contained and must not add requirements.
 - relevant_turn_ids must come only from the supplied candidate list.`;
 
-const DURABLE_GOAL_ADJUDICATOR = `Decide whether the supplied request requires a durable goal plan.
-Judge its meaning and execution structure, never isolated keywords.
-Return JSON only: {"durable_goal":true|false,"stage_count":integer}.
+const DURABLE_GOAL_ADJUDICATOR = `Decide the execution boundary for the supplied request.
+Judge its meaning, current agent, available organization, and execution structure; never isolated keywords.
+Return JSON only: {"durable_goal":true|false,"stage_count":integer,"execution_mode":"direct_tool|delegate|goal_plan"}.
 durable_goal is true when completion requires two or more independently verifiable stages or outputs, dependencies, multiple agents/systems, asynchronous work, tracked retry, or a composite final deliverable.
-A requested state change across a collection is durable when it necessarily requires discovering items, deciding or classifying what applies, and then acting on the selected items.
+A bounded request handled by one specialist using one or more of its own tools is one deliverable and is direct_tool, even if it reads several records or returns several sections.
+Choose delegate for one bounded deliverable best owned by a different employee. Choose goal_plan only for durable_goal=true.
+A requested state change across a collection may be durable when it necessarily requires separately tracked discovery, decision, and mutation stages; a read-only review plus summary is not durable by itself.
 A long explanation with only one answer is not a durable goal. A detailed specification remains durable even when formatted as one paragraph.`;
 
 export function validateRouteDecision(value, candidateTurnIds = []) {
@@ -133,7 +135,23 @@ function validateDurableDecision(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return { ok: false, errors: ['response is not a JSON object'] };
   if (typeof value.durable_goal !== 'boolean') errors.push('durable_goal must be boolean');
   if (!Number.isInteger(Number(value.stage_count)) || Number(value.stage_count) < 0) errors.push('stage_count must be a non-negative integer');
+  if (!new Set(['direct_tool', 'delegate', 'goal_plan']).has(String(value.execution_mode || ''))) {
+    errors.push('execution_mode is missing or invalid');
+  }
+  if (value?.durable_goal === true && value?.execution_mode !== 'goal_plan') errors.push('durable goal must use goal_plan');
+  if (value?.durable_goal === false && value?.execution_mode === 'goal_plan') errors.push('non-durable work cannot use goal_plan');
   return { ok: errors.length === 0, errors };
+}
+
+export function applyDurableAdjudication(route, durable) {
+  if (!route || !durable) return route;
+  if (durable.durable_goal === true && Number(durable.stage_count) >= 2) {
+    return { ...route, execution_mode: 'goal_plan', confidence: Math.max(Number(route.confidence) || 0, 0.8) };
+  }
+  if (durable.durable_goal === false && ['direct_tool', 'delegate'].includes(String(durable.execution_mode))) {
+    return { ...route, execution_mode: durable.execution_mode, confidence: Math.max(Number(route.confidence) || 0, 0.8) };
+  }
+  return route;
 }
 
 export async function routeAgentTurn({
@@ -217,14 +235,19 @@ export async function routeAgentTurn({
         const { content } = await chatCompletions({
           ownerUserId,
           toolName: 'agent_turn_goal_adjudicator',
-          maxTokens: 2600,
+          maxTokens: 5200,
           temperature: 0,
           responseFormat: 'json_object',
           thinkingMode: 'disabled',
           timeoutMs: getPlatformTimeoutMs('goal_adjudicator'),
           messages: [
             { role: 'system', content: DURABLE_GOAL_ADJUDICATOR },
-            { role: 'user', content: JSON.stringify({ request: String(message || ''), ...(attempt > 1 ? { repair_errors: durableValidation.errors } : {}) }) },
+            { role: 'user', content: JSON.stringify({
+              current_agent: { id: agent?.id, name: agent?.name, role: agent?.role, is_coo: !!agent?.is_coo },
+              organization,
+              request: String(message || ''),
+              ...(attempt > 1 ? { repair_errors: durableValidation.errors, previous_response: routeAttempts.at(-1)?.raw } : {}),
+            }) },
           ],
         });
         durable = extractJson(content);
@@ -232,21 +255,14 @@ export async function routeAgentTurn({
         routeAttempts.push({ attempt, judge: true, raw: String(content || '').slice(0, 2000), errors: durableValidation.errors });
         if (durableValidation.ok) break;
       }
-      if (durableValidation.ok && durable.durable_goal === true && Number(durable.stage_count) >= 2) {
-        parsed = {
+      if (durableValidation.ok) {
+        parsed = applyDurableAdjudication({
           ...(parsed || {}),
           relation: 'new_work',
-          execution_mode: 'goal_plan',
           relevant_turn_ids: [],
           resolved_request: String(parsed?.resolved_request || message || '').trim(),
           restart_requested: false,
-          confidence: Math.max(Number(parsed?.confidence) || 0, 0.8),
-        };
-        routeValidation = validateRouteDecision(parsed, candidates.map((turn) => turn.id));
-      } else if (durableValidation.ok) {
-        // A second, valid semantic judgement may clear low confidence for a
-        // syntactically complete non-durable route. It must never rescue a
-        // malformed/partial router contract.
+        }, durable);
         routeValidation = validateRouteDecision(parsed, candidates.map((turn) => turn.id));
       }
     } catch (e) {
