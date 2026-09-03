@@ -6,6 +6,7 @@ const DEFINITIONS = Object.freeze({
   goal_adjudicator: { label: 'Goal adjudicator', category: 'Models', env: 'AGENT_TURN_ADJUDICATOR_TIMEOUT_MS', defaultMs: 45000, minMs: 5000, maxMs: 180000 },
   goal_plan_llm: { label: 'Goal maker / checker call', category: 'Goals', env: 'GOAL_PLAN_LLM_CALL_TIMEOUT_MS', defaultMs: 120000, minMs: 10000, maxMs: 300000 },
   goal_agent_step: { label: 'Goal agent step', category: 'Goals', env: 'GOAL_AGENT_CONTINUE_TIMEOUT_MS', defaultMs: 240000, minMs: 30000, maxMs: 1800000 },
+  goal_wakeup_stale: { label: 'Goal wake-up stale threshold', category: 'Goals', env: 'GOAL_RUN_WAKE_STALE_MS', defaultMs: 120000, minMs: 30000, maxMs: 3600000 },
   openclaw_chat: { label: 'OpenClaw gateway call', category: 'Agents', env: 'OPENCLAW_FETCH_TIMEOUT_MS', defaultMs: 240000, minMs: 30000, maxMs: 1800000 },
   openclaw_local_chat: { label: 'Local model agent chat', category: 'Agents', env: 'OPENCLAW_OLLAMA_CHAT_TIMEOUT_MS', defaultMs: 900000, minMs: 60000, maxMs: 3600000 },
   browser_job: { label: 'Browser executor job', category: 'Browser', env: 'BROWSER_WORKER_JOB_TIMEOUT_MS', defaultMs: 120000, minMs: 10000, maxMs: 1800000 },

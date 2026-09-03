@@ -55,6 +55,7 @@
     ,"test:chat-live-activity": "node scripts/test-chat-live-activity.mjs"
     ,"test:router-planner:nested-live": "node scripts/test-router-planner-nested-goal-live.mjs"
     ,"test:gmail-mailbox-operations": "node scripts/test-gmail-mailbox-operations.mjs"
+    ,"test:goal-run-recovery": "node scripts/test-goal-run-recovery.mjs"
   },
   "dependencies": {
     "@stoqey/ib": "^1.6.3",

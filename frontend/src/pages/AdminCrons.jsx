@@ -110,6 +110,8 @@ function CleanupPolicy({ cron, busy, onSaved }) {
 
 export default function AdminCrons() {
   const [crons, setCrons] = useState([]);
+  const [timeouts, setTimeouts] = useState([]);
+  const [timeoutDraft, setTimeoutDraft] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [busyId, setBusyId] = useState(null);
@@ -120,14 +122,23 @@ export default function AdminCrons() {
     load();
   };
 
-  const load = useCallback(() => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    api
-      .adminCrons()
-      .then((r) => setCrons(r.crons || []))
-      .catch((e) => setError(e.message || 'Failed to load crons'))
-      .finally(() => setLoading(false));
+    try {
+      const [cronResult, timeoutResult] = await Promise.all([
+        api.adminCrons(),
+        api.adminPlatformTimeoutsGet(),
+      ]);
+      setCrons(cronResult.crons || []);
+      const nextTimeouts = timeoutResult?.timeouts || [];
+      setTimeouts(nextTimeouts);
+      setTimeoutDraft(Object.fromEntries(nextTimeouts.map((item) => [item.id, item.value_ms])));
+    } catch (e) {
+      setError(e.message || 'Failed to load platform controls');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -152,6 +163,26 @@ export default function AdminCrons() {
       load();
     } catch (e) {
       setError(e.message || `Failed to ${action} ${id}`);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const saveTimeouts = async () => {
+    setBusyId('platform-timeouts');
+    setFlash(null);
+    setError(null);
+    try {
+      const payload = Object.fromEntries(
+        timeouts.map((item) => [item.id, Number(timeoutDraft[item.id])])
+      );
+      const result = await api.adminPlatformTimeoutsSave(payload);
+      const nextTimeouts = result?.timeouts || [];
+      setTimeouts(nextTimeouts);
+      setTimeoutDraft(Object.fromEntries(nextTimeouts.map((item) => [item.id, item.value_ms])));
+      setFlash('Platform timeout settings saved and active for new operations.');
+    } catch (e) {
+      setError(e.message || 'Failed to save platform timeout settings');
     } finally {
       setBusyId(null);
     }
@@ -184,6 +215,55 @@ export default function AdminCrons() {
           {loading ? 'Refreshing…' : 'Refresh'}
         </button>
       </div>
+
+      <section
+        style={{
+          border: '1px solid var(--border, #e2e8f0)',
+          borderRadius: 10,
+          padding: '1rem',
+          marginBottom: '1rem',
+          background: 'var(--surface, #fff)',
+        }}
+      >
+        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: '1.05rem' }}>Platform timeout settings</h2>
+            <p style={{ margin: '0.3rem 0 0', color: 'var(--muted)', fontSize: '0.86rem' }}>
+              Runtime limits used by models, agents, goals, browser jobs, workflows, and A2A calls. Values apply to new operations immediately.
+            </p>
+          </div>
+          <button type="button" className="mcp-pg-btn mcp-pg-btn-sm" disabled={busyId === 'platform-timeouts' || loading} onClick={saveTimeouts}>
+            {busyId === 'platform-timeouts' ? 'Saving…' : 'Save timeouts'}
+          </button>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '0.65rem', marginTop: '0.85rem' }}>
+          {timeouts.map((item) => (
+            <label key={item.id} style={{ border: '1px solid var(--border, #e2e8f0)', borderRadius: 8, padding: '0.7rem', minWidth: 0 }}>
+              <span style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'baseline' }}>
+                <strong style={{ fontSize: '0.84rem' }}>{item.label}</strong>
+                <small style={{ color: 'var(--muted)' }}>{item.category}</small>
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: '0.5rem' }}>
+                <input
+                  type="number"
+                  min={Math.ceil(item.min_ms / 1000)}
+                  max={Math.floor(item.max_ms / 1000)}
+                  value={Math.round(Number(timeoutDraft[item.id] || 0) / 1000)}
+                  onChange={(event) => setTimeoutDraft((current) => ({
+                    ...current,
+                    [item.id]: Number(event.target.value) * 1000,
+                  }))}
+                  style={{ width: 92, maxWidth: '45%', padding: '0.35rem 0.45rem', border: '1px solid var(--border)', borderRadius: 5 }}
+                />
+                <span style={{ fontSize: '0.8rem' }}>seconds</span>
+              </span>
+              <small style={{ display: 'block', color: 'var(--muted)', marginTop: 5 }}>
+                Allowed {Math.ceil(item.min_ms / 1000)}–{Math.floor(item.max_ms / 1000)}s
+              </small>
+            </label>
+          ))}
+        </div>
+      </section>
 
       {loading && !crons.length ? (
         <p style={{ color: 'var(--muted)' }}>Loading…</p>

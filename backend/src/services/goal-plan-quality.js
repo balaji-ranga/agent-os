@@ -428,6 +428,16 @@ function checkerPreference(ownerUserId, makerResult) {
   return cfg.secondary?.baseUrl && cfg.secondary?.model ? 'secondary' : 'ollama';
 }
 
+/** A rejection is actionable only when the checker returns the complete
+ * corrected contract it was explicitly asked to produce. */
+export function isCompleteCheckerVerdict(verdict) {
+  if (!verdict || typeof verdict.approved !== 'boolean') return false;
+  if (!Array.isArray(verdict.revised_steps)) return false;
+  return verdict.approved === true
+    ? verdict.revised_steps.length === 0
+    : verdict.revised_steps.length > 0;
+}
+
 async function reportPlanProgress(onProgress, progress) {
   if (typeof onProgress !== 'function') return;
   try {
@@ -594,7 +604,13 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
     try {
       check = await chatCompletions(checkerRequestFor(made, endpoint));
       const parsed = parseJsonObject(check.content) || {};
-      if (typeof parsed.approved !== 'boolean') throw new Error('Checker did not emit an approval decision');
+      if (!isCompleteCheckerVerdict(parsed)) {
+        throw new Error(
+          parsed.approved === false
+            ? 'Checker rejected the plan without a complete corrected plan'
+            : 'Checker did not emit a complete approval decision'
+        );
+      }
       checkerError = null;
       break;
     } catch (error) {
@@ -710,7 +726,7 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
       const finalVerdict = parseJsonObject(finalCheck.content) || {};
       check = finalCheck;
       verdict = finalVerdict;
-      if (finalVerdict.approved !== true) {
+      if (!isCompleteCheckerVerdict(finalVerdict) || finalVerdict.approved !== true) {
         selectedValidation = {
           ok: false,
           errors: ['Independent checker rejected the repaired plan'],

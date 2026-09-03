@@ -61,6 +61,13 @@ EOF
 EOF
     added=1
   fi
+  if ! grep -qF 'GOAL_RUN_RECOVERY_CRON' "$ENV_FILE"; then
+    cat >> "$ENV_FILE" <<'EOF'
+# GOAL_RUN_RECOVERY_CRON=*/15 * * * *      # wake stuck goals only when no active agent/workflow/human/approval blocks
+# GOAL_RUN_WAKE_STALE_MS=120000
+EOF
+    added=1
+  fi
   
   if ! grep -qF 'WORKFLOW_TERMINAL_WATCH_CRON' "$ENV_FILE"; then
     cat >> "$ENV_FILE" <<'EOF'

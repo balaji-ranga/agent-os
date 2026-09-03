@@ -881,6 +881,20 @@ registerPlatformCron({
   },
 });
 
+const stuckGoalRecoveryCron = process.env.GOAL_RUN_RECOVERY_CRON || '*/15 * * * *';
+registerPlatformCron({
+  id: 'goal_run_recovery',
+  name: 'Stuck goal wake-up recovery',
+  description:
+    'Every 15 min: resumes owner-scoped goals only when a terminal child callback was lost or pending work has no active agent, workflow, human, or approval blocker. Claims are idempotent.',
+  schedule: stuckGoalRecoveryCron,
+  envVar: 'GOAL_RUN_RECOVERY_CRON',
+  handler: async () => {
+    const { recoverStuckGoalRuns } = await import('./services/goal-run-recovery.js');
+    return recoverStuckGoalRuns();
+  },
+});
+
 const companyReviewPreparationCron = process.env.COMPANY_REVIEW_PREPARATION_CRON || '15 3 * * *';
 registerPlatformCron({
   id: 'company_review_preparation',

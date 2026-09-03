@@ -1,0 +1,79 @@
+import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+const dataDir = mkdtempSync(join(tmpdir(), 'flolah-goal-recovery-'));
+process.env.AGENT_OS_DATA_DIR = dataDir;
+
+const { getDb } = await import('../src/db/schema.js');
+const { ensureAgentGoalRunTables } = await import('../src/services/agent-goal-run.js');
+const { recoverStuckGoalRuns } = await import('../src/services/goal-run-recovery.js');
+ensureAgentGoalRunTables();
+const db = getDb();
+
+db.prepare(`INSERT INTO platform_users(id,email,password_hash,name,role,enabled) VALUES(?,?,?,?,?,1)`)
+  .run('ceo-recovery-test', 'recovery@example.test', 'x', 'Recovery Test', 'ceo');
+db.prepare(`INSERT INTO agents(id,name,role,is_coo,openclaw_agent_id,owner_user_id) VALUES(?,?,?,?,?,?)`)
+  .run('coo-recovery-test', 'Recovery COO', 'COO', 1, 'coo-recovery-test', 'ceo-recovery-test');
+db.prepare(`INSERT INTO user_agents(user_id,agent_id,enabled) VALUES(?,?,1)`)
+  .run('ceo-recovery-test', 'coo-recovery-test');
+
+const old = '2020-01-01T00:00:00.000Z';
+const addGoal = (id, status = 'running') => db.prepare(
+  `INSERT INTO agent_goal_runs(id,owner_user_id,agent_id,title,prompt,status,created_at,updated_at)
+   VALUES(?,?,?,?,?,?,?,?)`
+).run(id, 'ceo-recovery-test', 'coo-recovery-test', id, id, status, old, old);
+const addStep = (id, goalId, index, type, status) => db.prepare(
+  `INSERT INTO agent_goal_steps(id,goal_run_id,step_index,step_type,label,status,started_at)
+   VALUES(?,?,?,?,?,?,?)`
+).run(id, goalId, index, type, id, status, status === 'running' ? old : null);
+
+addGoal('agr-lost-wakeup');
+addStep('ags-lost-1', 'agr-lost-wakeup', 0, 'specialty_task', 'completed');
+addStep('ags-lost-2', 'agr-lost-wakeup', 1, 'agent_tool', 'pending');
+
+addGoal('agr-active-human');
+addStep('ags-human-1', 'agr-active-human', 0, 'human_task', 'running');
+addStep('ags-human-2', 'agr-active-human', 1, 'notify_ceo', 'pending');
+
+addGoal('agr-active-agent');
+addStep('ags-agent-1', 'agr-active-agent', 0, 'specialty_task', 'running');
+addStep('ags-agent-2', 'agr-active-agent', 1, 'notify_ceo', 'pending');
+
+addGoal('agr-active-workflow');
+addStep('ags-workflow-1', 'agr-active-workflow', 0, 'workflow_trigger', 'running');
+addStep('ags-workflow-2', 'agr-active-workflow', 1, 'notify_ceo', 'pending');
+
+addGoal('agr-awaiting-approval', 'awaiting_approval');
+addStep('ags-approval-1', 'agr-awaiting-approval', 0, 'agent_tool', 'awaiting_approval');
+addStep('ags-approval-2', 'agr-awaiting-approval', 1, 'notify_ceo', 'pending');
+
+const executions = [];
+const dependencies = {
+  executeGoal: async (goalRunId, options) => {
+    executions.push({ goalRunId, options });
+    return { ok: true, goal_run_id: goalRunId };
+  },
+  advanceDelegation: async () => ({ ok: true }),
+  advanceWorkflow: async () => ({ ok: true }),
+  recoverAgentContinue: async () => ({ scanned: 0, recovered: 0, details: [] }),
+};
+
+const first = await recoverStuckGoalRuns({ staleMs: 1000, ...dependencies });
+assert.equal(first.recovered, 1);
+assert.deepEqual(executions, [{
+  goalRunId: 'agr-lost-wakeup',
+  options: { ownerUserId: 'ceo-recovery-test' },
+}]);
+assert.equal(first.details[0].recovery, 'missing_wakeup');
+
+// The compare-and-update claim refreshes updated_at, so a second overlapping
+// sweep cannot immediately execute the same goal again.
+const second = await recoverStuckGoalRuns({ staleMs: 1000, ...dependencies });
+assert.equal(second.recovered, 0);
+assert.equal(executions.length, 1);
+
+console.log('stuck goal wake-up recovery tests passed');
+try { db.close(); } catch {}
+rmSync(dataDir, { recursive: true, force: true });
