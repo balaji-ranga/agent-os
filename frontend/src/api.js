@@ -1374,6 +1374,8 @@ export const api = {
   agentGoalRunsGet: (id) => get(`/agent-goal-runs/${encodeURIComponent(id)}`),
   agentGoalRunsEvents: (id) => get(`/agent-goal-runs/${encodeURIComponent(id)}/events`),
   agentGoalRunsAmend: (id, body) => post(`/agent-goal-runs/${encodeURIComponent(id)}/amend`, body),
+  agentGoalRunsCancel: (id, body = {}) => post(`/agent-goal-runs/${encodeURIComponent(id)}/cancel`, body),
+  agentGoalRunsRetry: (id, body = {}) => post(`/agent-goal-runs/${encodeURIComponent(id)}/retry`, body),
   companyReviewsList: (params = {}) => {
     const sp = new URLSearchParams();
     if (params.limit != null) sp.set('limit', String(params.limit));

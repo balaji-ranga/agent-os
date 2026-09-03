@@ -65,6 +65,9 @@ EOF
     cat >> "$ENV_FILE" <<'EOF'
 # GOAL_RUN_RECOVERY_CRON=*/15 * * * *      # wake stuck goals only when no active agent/workflow/human/approval blocks
 # GOAL_RUN_WAKE_STALE_MS=120000
+# GOAL_PLANNING_STALE_MS=900000
+# GOAL_EXECUTION_STALE_MS=600000
+# GOAL_RUN_RECOVERY_MAX_RETRIES=1
 EOF
     added=1
   fi

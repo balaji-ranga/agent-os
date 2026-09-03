@@ -10,6 +10,7 @@ import {
   onDelegationTerminalForGoalRun,
   onWorkflowTerminalForGoalRun,
   recoverStaleAgentContinueGoalSteps,
+  retryGoalRun,
   startGoalRunExecution,
 } from './agent-goal-run.js';
 
@@ -34,7 +35,7 @@ function claimGoal(row) {
   const changed = db().prepare(
     `UPDATE agent_goal_runs
      SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-     WHERE id = ? AND updated_at = ? AND status IN ('pending','running')`
+     WHERE id = ? AND updated_at = ? AND status IN ('planning','pending','running')`
   ).run(row.goal_run_id, row.goal_updated_at);
   if (!changed.changes) return false;
   activeRecoveries.add(row.goal_run_id);
@@ -56,6 +57,7 @@ export async function recoverStuckGoalRuns({
   advanceDelegation = onDelegationTerminalForGoalRun,
   advanceWorkflow = onWorkflowTerminalForGoalRun,
   recoverAgentContinue = recoverStaleAgentContinueGoalSteps,
+  retryGoal = retryGoalRun,
   executeGoal = startGoalRunExecution,
 } = {}) {
   ensureAgentGoalRunTables();
@@ -102,6 +104,55 @@ export async function recoverStuckGoalRuns({
   // Agent continuation has its own timeout and safe reclaim rules.
   const agentContinue = await recoverAgentContinue({ limit: lim });
 
+  // Planning is a durable visible phase, but a process restart can abandon the
+  // in-memory maker/checker promise. Re-run that same owner-scoped goal id once.
+  const planningStale = staleModifier(getPlatformTimeoutMs('goal_planning_stale'));
+  const planningRows = db().prepare(
+    `SELECT g.id AS goal_run_id, g.owner_user_id, g.updated_at AS goal_updated_at,
+            s.id AS step_id
+     FROM agent_goal_runs g
+     JOIN agent_goal_steps s ON s.goal_run_id=g.id AND s.step_type='planning'
+     WHERE g.status='planning' AND s.status='running'
+       AND datetime(COALESCE(s.started_at,g.created_at)) <= datetime('now', ?)
+     ORDER BY datetime(COALESCE(s.started_at,g.created_at)) ASC LIMIT ?`
+  ).all(planningStale.sql, lim);
+
+  for (const row of planningRows) {
+    const result = await runClaimed(row, () => retryGoal(row.goal_run_id, row.owner_user_id, {
+      reason: 'Automatic recovery of abandoned goal planning',
+      actorUserId: 'goal_run_recovery',
+      automatic: true,
+      background: true,
+    }));
+    details.push({ goal_run_id: row.goal_run_id, step_id: row.step_id, recovery: 'abandoned_planning', result });
+  }
+
+  // Synchronous steps do not have a child callback. If the process stops while
+  // awaiting one, the old row otherwise remains running forever. Only reclaim
+  // executor types that are safe to restart and have no bound child resource.
+  const executionStale = staleModifier(getPlatformTimeoutMs('goal_execution_stale'));
+  const synchronousRows = db().prepare(
+    `SELECT g.id AS goal_run_id, g.owner_user_id, g.updated_at AS goal_updated_at,
+            s.id AS step_id, s.step_type
+     FROM agent_goal_runs g
+     JOIN agent_goal_steps s ON s.goal_run_id=g.id AND s.step_index=g.current_step_index
+     WHERE g.status IN ('pending','running') AND s.status='running'
+       AND s.step_type IN ('agent_tool','notify_ceo','workflow_trigger')
+       AND s.child_workflow_run_id IS NULL AND s.child_delegation_task_id IS NULL
+       AND datetime(COALESCE(s.started_at,g.updated_at,g.created_at)) <= datetime('now', ?)
+     ORDER BY datetime(COALESCE(s.started_at,g.updated_at,g.created_at)) ASC LIMIT ?`
+  ).all(executionStale.sql, lim);
+
+  for (const row of synchronousRows) {
+    const result = await runClaimed(row, () => retryGoal(row.goal_run_id, row.owner_user_id, {
+      reason: `Automatic recovery of abandoned ${row.step_type} step`,
+      actorUserId: 'goal_run_recovery',
+      automatic: true,
+      background: true,
+    }));
+    details.push({ goal_run_id: row.goal_run_id, step_id: row.step_id, recovery: 'abandoned_synchronous_step', result });
+  }
+
   // This is the exact lost-wakeup case: at least one pending step remains, but
   // there is no legitimate running or approval-bound step to wait for.
   const readyRows = db().prepare(
@@ -129,7 +180,7 @@ export async function recoverStuckGoalRuns({
   return {
     ok: true,
     stale_ms: stale.milliseconds,
-    candidates: delegationRows.length + workflowRows.length + readyRows.length + Number(agentContinue?.scanned || 0),
+    candidates: delegationRows.length + workflowRows.length + planningRows.length + synchronousRows.length + readyRows.length + Number(agentContinue?.scanned || 0),
     recovered,
     agent_continue: agentContinue,
     details,

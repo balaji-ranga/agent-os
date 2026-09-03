@@ -4,7 +4,15 @@
  */
 import { Router } from 'express';
 import { attachAuthUser, requireAuth, requireCeoOrAdmin, resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
-import { listGoalRuns, getGoalRun, summarizeGoalProgress, amendGoalRunConstraints, listMissionEvents } from '../services/agent-goal-run.js';
+import {
+  listGoalRuns,
+  getGoalRun,
+  summarizeGoalProgress,
+  amendGoalRunConstraints,
+  listMissionEvents,
+  cancelGoalRun,
+  retryGoalRun,
+} from '../services/agent-goal-run.js';
 
 const router = Router();
 router.use(attachAuthUser, requireAuth, requireCeoOrAdmin);
@@ -99,6 +107,37 @@ router.post('/:id/amend', (req, res) => {
     res.json({ goal: withProgress(goal) });
   } catch (e) {
     console.warn('[agent-goal-runs] amend', e?.message || e);
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+router.post('/:id/cancel', async (req, res) => {
+  try {
+    const ownerUserId = ownerOr403(req, res);
+    if (!ownerUserId) return;
+    const result = await cancelGoalRun(req.params.id, ownerUserId, {
+      reason: req.body?.reason || 'Cancelled from Goal plans',
+      actorUserId: req.user?.id || null,
+    });
+    res.json({ ...result, goal: withProgress(result.goal) });
+  } catch (e) {
+    console.warn('[agent-goal-runs] cancel', e?.message || e);
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+router.post('/:id/retry', async (req, res) => {
+  try {
+    const ownerUserId = ownerOr403(req, res);
+    if (!ownerUserId) return;
+    const result = await retryGoalRun(req.params.id, ownerUserId, {
+      reason: req.body?.reason || 'Retried from Goal plans',
+      actorUserId: req.user?.id || null,
+      background: true,
+    });
+    res.status(202).json({ ...result, goal: withProgress(result.goal) });
+  } catch (e) {
+    console.warn('[agent-goal-runs] retry', e?.message || e);
     res.status(e.status || 500).json({ error: e.message });
   }
 });

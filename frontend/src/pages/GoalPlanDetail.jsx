@@ -22,6 +22,8 @@ export default function GoalPlanDetail() {
   const [events, setEvents] = useState([]);
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(true);
+  const [actionBusy, setActionBusy] = useState('');
+  const [actionMessage, setActionMessage] = useState('');
 
   useEffect(() => {
     const id = String(goalRunId || '').trim();
@@ -44,7 +46,7 @@ export default function GoalPlanDetail() {
           setEvents(eRes.events || []);
           setErr('');
           const st = String(g?.status || '').toLowerCase();
-          const stillLive = ['running', 'pending', 'in_progress'].includes(st);
+          const stillLive = ['planning', 'running', 'pending', 'in_progress', 'awaiting_approval'].includes(st);
           if (!stillLive && timer) {
             clearInterval(timer);
             timer = null;
@@ -72,6 +74,41 @@ export default function GoalPlanDetail() {
 
   const outcome = goal?.outcome || {};
   const retro = outcome.retrospective || goal?.retrospective || null;
+  const status = String(goal?.status || '').toLowerCase();
+  const canCancel = ['planning', 'pending', 'running', 'in_progress', 'awaiting_approval'].includes(status);
+  const canRetry = !!goal && status !== 'completed';
+
+  async function cancelRun() {
+    if (!goal || !window.confirm('Cancel this goal execution? Pending work and its Live Operations activity will be closed.')) return;
+    setActionBusy('cancel');
+    setActionMessage('');
+    try {
+      const result = await api.agentGoalRunsCancel(goal.id, { reason: 'Cancelled by CEO from Goal plans' });
+      setGoal(result.goal || goal);
+      setActionMessage('Goal execution cancelled.');
+    } catch (error) {
+      setActionMessage(error?.message || 'Could not cancel goal execution');
+    } finally {
+      setActionBusy('');
+    }
+  }
+
+  async function retryRun() {
+    if (!goal) return;
+    const active = ['planning', 'pending', 'running', 'in_progress', 'awaiting_approval'].includes(status);
+    if (active && !window.confirm('Retry this active goal? Its current abandoned work will be superseded; completed predecessor outputs are retained.')) return;
+    setActionBusy('retry');
+    setActionMessage('');
+    try {
+      const result = await api.agentGoalRunsRetry(goal.id, { reason: 'Retried by CEO from Goal plans' });
+      setGoal(result.goal || goal);
+      setActionMessage('Retry queued. This page will update as planning or execution advances.');
+    } catch (error) {
+      setActionMessage(error?.message || 'Could not retry goal execution');
+    } finally {
+      setActionBusy('');
+    }
+  }
 
   return (
     <div className="digest-page">
@@ -84,6 +121,16 @@ export default function GoalPlanDetail() {
           </p>
         </div>
         <div className="digest-header-tools">
+          {canRetry ? (
+            <button type="button" className="btn secondary" disabled={!!actionBusy} onClick={retryRun}>
+              {actionBusy === 'retry' ? 'Retrying…' : 'Retry execution'}
+            </button>
+          ) : null}
+          {canCancel ? (
+            <button type="button" className="btn danger" disabled={!!actionBusy} onClick={cancelRun}>
+              {actionBusy === 'cancel' ? 'Cancelling…' : 'Cancel execution'}
+            </button>
+          ) : null}
           <Link className="btn secondary" to="/goal-plans">
             ← All goal plans
           </Link>
@@ -99,6 +146,7 @@ export default function GoalPlanDetail() {
         </p>
       ) : null}
       {loading ? <p className="digest-muted">Loading…</p> : null}
+      {actionMessage ? <p className="digest-muted" role="status">{actionMessage}</p> : null}
       {!loading && !err && !goal ? <p className="digest-muted">Goal plan not found.</p> : null}
 
       {goal ? (

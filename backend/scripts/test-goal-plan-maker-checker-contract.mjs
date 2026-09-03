@@ -5,7 +5,7 @@ import { join } from 'node:path';
 
 const dataDir = mkdtempSync(join(tmpdir(), 'flolah-goal-quality-'));
 process.env.AGENT_OS_DATA_DIR = dataDir;
-const { validateTypedGoalPlan, validateCandidateGoalPlan, validateSeedRequirementCoverage, repairCheckerExecutorAvailability, safeGoalClarificationPlan, normalizeExecutorOutputKinds, isCompleteCheckerVerdict } = await import('../src/services/goal-plan-quality.js');
+const { validateTypedGoalPlan, validateCandidateGoalPlan, validateSeedRequirementCoverage, repairCheckerExecutorAvailability, safeGoalClarificationPlan, normalizeExecutorOutputKinds, isCompleteCheckerVerdict, isExecutableCheckerVerdict } = await import('../src/services/goal-plan-quality.js');
 const { isEfficiencyModeTool } = await import('../src/services/llm-efficiency-mode.js');
 const { resolveCapabilitiesFromPrompt } = await import('../src/services/business-capabilities.js');
 const { matchSelfToolsFromCatalog, specialtyMessageContainsToolInstruction } = await import('../src/services/goal-plan-intent.js');
@@ -34,6 +34,8 @@ const catalog = {
   agents: [{ id: 'erp-agent' }],
   humans: [{ id: 'human-raji' }],
 };
+assert.equal(isExecutableCheckerVerdict({ approved: true, issues: [], revised_steps: [] }, catalog), true);
+assert.equal(isExecutableCheckerVerdict({ approved: false, issues: [], revised_steps: [{ key: 'not-a-plan' }] }, catalog), false);
 
 const valid = [
   {

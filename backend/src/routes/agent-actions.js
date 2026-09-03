@@ -109,7 +109,7 @@ export function liveSnapshot(ownerUserId) {
             s.label AS step_label, s.status AS step_status, s.spec_json AS step_spec_json
      FROM agent_goal_runs g
      LEFT JOIN agent_goal_steps s ON s.goal_run_id = g.id AND s.step_index = g.current_step_index
-     WHERE g.owner_user_id = ? AND g.status IN ('pending','running')
+     WHERE g.owner_user_id = ? AND g.status IN ('planning','pending','running','awaiting_approval')
        AND NOT (
          s.step_type = 'human_task' AND s.status = 'running'
          AND (s.human_kanban_task_id IS NULL OR NOT EXISTS (
@@ -126,7 +126,8 @@ export function liveSnapshot(ownerUserId) {
       kind: 'goal', id: row.id, title: clip(row.step_label || row.title || row.prompt),
       status: row.step_status || row.status, at: iso(row.updated_at), link: `/goal-plans/${encodeURIComponent(row.id)}`,
     };
-    (row.status === 'pending' ? a.queued : a.current).push(item);
+    if (row.status === 'awaiting_approval') a.blocked.push(item);
+    else (row.status === 'pending' ? a.queued : a.current).push(item);
     const spec = parseJson(row.step_spec_json);
     const toolName = String(spec.tool_name || spec.toolName || '').trim();
     if (toolName) {

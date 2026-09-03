@@ -49,7 +49,15 @@ addGoal('agr-awaiting-approval', 'awaiting_approval');
 addStep('ags-approval-1', 'agr-awaiting-approval', 0, 'agent_tool', 'awaiting_approval');
 addStep('ags-approval-2', 'agr-awaiting-approval', 1, 'notify_ceo', 'pending');
 
+addGoal('agr-abandoned-planning', 'planning');
+addStep('ags-planning-1', 'agr-abandoned-planning', 0, 'planning', 'running');
+
+addGoal('agr-abandoned-tool');
+addStep('ags-tool-1', 'agr-abandoned-tool', 0, 'agent_tool', 'running');
+addStep('ags-tool-2', 'agr-abandoned-tool', 1, 'notify_ceo', 'pending');
+
 const executions = [];
+const retries = [];
 const dependencies = {
   executeGoal: async (goalRunId, options) => {
     executions.push({ goalRunId, options });
@@ -58,21 +66,34 @@ const dependencies = {
   advanceDelegation: async () => ({ ok: true }),
   advanceWorkflow: async () => ({ ok: true }),
   recoverAgentContinue: async () => ({ scanned: 0, recovered: 0, details: [] }),
+  retryGoal: async (goalRunId, ownerUserId, options) => {
+    retries.push({ goalRunId, ownerUserId, options });
+    db.prepare(`UPDATE agent_goal_steps SET started_at=datetime('now') WHERE goal_run_id=? AND status='running'`).run(goalRunId);
+    return { ok: true, queued: true, goal_run_id: goalRunId };
+  },
 };
 
 const first = await recoverStuckGoalRuns({ staleMs: 1000, ...dependencies });
-assert.equal(first.recovered, 1);
+assert.equal(first.recovered, 4);
 assert.deepEqual(executions, [{
   goalRunId: 'agr-lost-wakeup',
   options: { ownerUserId: 'ceo-recovery-test' },
 }]);
-assert.equal(first.details[0].recovery, 'missing_wakeup');
+assert.deepEqual(retries.map((entry) => entry.goalRunId).sort(), [
+  'agr-abandoned-planning',
+  'agr-abandoned-tool',
+  'agr-active-workflow',
+]);
+assert.ok(first.details.some((entry) => entry.recovery === 'missing_wakeup'));
+assert.ok(first.details.some((entry) => entry.recovery === 'abandoned_planning'));
+assert.ok(first.details.some((entry) => entry.recovery === 'abandoned_synchronous_step'));
 
 // The compare-and-update claim refreshes updated_at, so a second overlapping
 // sweep cannot immediately execute the same goal again.
 const second = await recoverStuckGoalRuns({ staleMs: 1000, ...dependencies });
 assert.equal(second.recovered, 0);
 assert.equal(executions.length, 1);
+assert.equal(retries.length, 3);
 
 console.log('stuck goal wake-up recovery tests passed');
 try { db.close(); } catch {}

@@ -2901,6 +2901,242 @@ export function completeGoalRun(goalRunId, { status = 'completed', error = null 
   return getGoalRun(goalRunId);
 }
 
+function activeGoalArtifacts(goalRunId) {
+  const steps = loadGoalSteps(goalRunId);
+  return {
+    steps,
+    delegationIds: steps.map((step) => Number(step.child_delegation_task_id)).filter((id) => id > 0),
+    workflowIds: steps.map((step) => Number(step.child_workflow_run_id)).filter((id) => id > 0),
+    stepIds: steps.map((step) => String(step.id)),
+  };
+}
+
+async function stopGoalArtifacts(goal, reason) {
+  const artifacts = activeGoalArtifacts(goal.id);
+  if (artifacts.delegationIds.length) {
+    const placeholders = artifacts.delegationIds.map(() => '?').join(',');
+    db().prepare(
+      `UPDATE agent_delegation_tasks SET status='failed', error_message=?, completed_at=datetime('now')
+       WHERE id IN (${placeholders}) AND status IN ('pending','processing')`
+    ).run(reason, ...artifacts.delegationIds);
+  }
+  for (const workflowRunId of artifacts.workflowIds) {
+    try {
+      const { pauseRun } = await import('./agent-workflow-run-manager.js');
+      pauseRun(workflowRunId, goal.owner_user_id, { id: 'goal-run-control', name: 'Goal run control' }, reason);
+    } catch (error) {
+      console.warn('[goal-run] child workflow stop failed', workflowRunId, error?.message || error);
+    }
+  }
+  if (artifacts.stepIds.length) {
+    const placeholders = artifacts.stepIds.map(() => '?').join(',');
+    const cards = db().prepare(
+      `SELECT id FROM kanban_tasks
+       WHERE owner_user_id=? AND goal_step_id IN (${placeholders})
+         AND status IN ('open','in_progress','awaiting_confirmation')`
+    ).all(goal.owner_user_id, ...artifacts.stepIds);
+    db().prepare(
+      `UPDATE kanban_tasks SET status='cancelled', updated_at=datetime('now')
+       WHERE owner_user_id=? AND goal_step_id IN (${placeholders})
+         AND status IN ('open','in_progress','awaiting_confirmation')`
+    ).run(goal.owner_user_id, ...artifacts.stepIds);
+    for (const card of cards) clearKanbanTaskNotification(card.id, goal.owner_user_id);
+  }
+  try {
+    db().prepare(
+      `UPDATE goal_action_approvals SET status='cancelled', decided_at=datetime('now')
+       WHERE owner_user_id=? AND goal_run_id=? AND status='pending'`
+    ).run(goal.owner_user_id, goal.id);
+  } catch (_) {}
+  return artifacts;
+}
+
+/** Owner-scoped, durable cancellation. Late executor callbacks cannot revive it. */
+export async function cancelGoalRun(goalRunId, ownerUserId, { reason = 'Cancelled by CEO', actorUserId = null } = {}) {
+  ensureAgentGoalRunTables();
+  const owner = String(ownerUserId || '').trim();
+  const goal = loadGoalRunRow(goalRunId, owner);
+  if (!goal) throw Object.assign(new Error('Goal run not found'), { status: 404 });
+  if (['completed', 'partial_success', 'failed', 'cancelled'].includes(String(goal.status))) {
+    return { ok: true, skipped: true, reason: 'already_terminal', goal: getGoalRun(goal.id, owner) };
+  }
+  const detail = clip(reason || 'Cancelled by CEO', 1000);
+  await stopGoalArtifacts(goal, detail);
+  db().transaction(() => {
+    db().prepare(
+      `UPDATE agent_goal_steps SET status='cancelled', error_message=?, completed_at=datetime('now')
+       WHERE goal_run_id=? AND status IN ('pending','running','awaiting_approval')`
+    ).run(detail, goal.id);
+    db().prepare(
+      `UPDATE agent_goal_runs SET status='cancelled', error_message=?, completed_at=datetime('now'), updated_at=datetime('now')
+       WHERE id=? AND owner_user_id=?`
+    ).run(detail, goal.id, owner);
+  })();
+  recordMissionEvent({
+    ownerUserId: owner,
+    goalRunId: goal.id,
+    event_type: 'goal_cancelled',
+    payload: { reason: detail, actor_user_id: actorUserId || null },
+  });
+  return { ok: true, cancelled: true, goal: getGoalRun(goal.id, owner) };
+}
+
+function selectRetryStep(steps, goalStatus) {
+  if (goalStatus === 'partial_success') {
+    return steps.find((step) => {
+      const result = parseJson(step.result_json, {});
+      return step.error_message || result.partial_success === true || result.ok === false;
+    }) || null;
+  }
+  return steps.find((step) => ['running', 'awaiting_approval', 'failed', 'cancelled', 'pending'].includes(String(step.status))) || null;
+}
+
+function resetPlanningGoal(goal) {
+  const stepId = `ags-${randomUUID().replace(/-/g, '').slice(0, 16)}`;
+  db().transaction(() => {
+    db().prepare('DELETE FROM agent_goal_steps WHERE goal_run_id=?').run(goal.id);
+    db().prepare(
+      `INSERT INTO agent_goal_steps
+       (id, goal_run_id, step_index, step_type, label, spec_json, status, started_at)
+       VALUES (?, ?, 0, 'planning', 'Replanning goal requirements', ?, 'running', datetime('now'))`
+    ).run(stepId, goal.id, JSON.stringify({ phase: 'intent', visibility: 'operational', retry: true }));
+    db().prepare(
+      `UPDATE agent_goal_runs SET status='planning', current_step_index=0, error_message=NULL,
+       completed_at=NULL, updated_at=datetime('now') WHERE id=? AND owner_user_id=?`
+    ).run(goal.id, goal.owner_user_id);
+  })();
+}
+
+function resetExecutionGoal(goal, steps, retryStep) {
+  const retryIndex = Number(retryStep.step_index);
+  const resetRows = steps.filter((step) => Number(step.step_index) >= retryIndex);
+  db().transaction(() => {
+    for (const step of resetRows) {
+      db().prepare('DELETE FROM agent_goal_steps WHERE id=? AND goal_run_id=?').run(step.id, goal.id);
+      db().prepare(
+        `INSERT INTO agent_goal_steps
+         (id, goal_run_id, step_index, step_type, label, spec_json, status,
+          child_workflow_run_id, child_delegation_task_id, result_json, error_message,
+          started_at, completed_at, exception_retry_count, exception_kanban_id, human_kanban_task_id)
+         VALUES (?, ?, ?, ?, ?, ?, 'pending', NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL)`
+      ).run(
+        `ags-${randomUUID().replace(/-/g, '').slice(0, 16)}`,
+        goal.id,
+        step.step_index,
+        step.step_type,
+        step.label,
+        step.spec_json
+      );
+    }
+    db().prepare(
+      `UPDATE agent_goal_runs SET status='pending', current_step_index=?, error_message=NULL,
+       completed_at=NULL, updated_at=datetime('now') WHERE id=? AND owner_user_id=?`
+    ).run(retryIndex, goal.id, goal.owner_user_id);
+  })();
+}
+
+async function executePlanningRetry(goal, { onProgress = null, planGoal = planGoalStepsAsync, executeGoal = startGoalRunExecution } = {}) {
+  const reportProgress = async (progress) => {
+    updateGoalPlanningRun(goal.id, goal.owner_user_id, progress);
+    if (typeof onProgress === 'function') await onProgress(progress);
+  };
+  try {
+    const steps = await planGoal(goal.prompt || '', {
+      ownerUserId: goal.owner_user_id,
+      orchestratorAgentId: goal.agent_id,
+      onProgress: reportProgress,
+    });
+    const finalized = createGoalRun({
+      ownerUserId: goal.owner_user_id,
+      agentId: goal.agent_id,
+      title: goal.title,
+      prompt: goal.prompt,
+      source: goal.source,
+      scheduledGoalId: goal.scheduled_goal_id,
+      scheduledGoalRunId: goal.scheduled_goal_run_id,
+      context: parseJson(goal.context_json, {}),
+      steps,
+      goalRunId: goal.id,
+    });
+    return executeGoal(finalized.id, { ownerUserId: goal.owner_user_id });
+  } catch (error) {
+    failGoalPlanningRun(goal.id, goal.owner_user_id, error);
+    throw error;
+  }
+}
+
+/** Retry the abandoned/failed portion while preserving valid predecessor outputs. */
+export async function retryGoalRun(goalRunId, ownerUserId, {
+  reason = 'Retried by CEO',
+  actorUserId = null,
+  automatic = false,
+  background = false,
+  planGoal = planGoalStepsAsync,
+  executeGoal = startGoalRunExecution,
+} = {}) {
+  ensureAgentGoalRunTables();
+  const owner = String(ownerUserId || '').trim();
+  const goal = loadGoalRunRow(goalRunId, owner);
+  if (!goal) throw Object.assign(new Error('Goal run not found'), { status: 404 });
+  if (goal.status === 'completed') throw Object.assign(new Error('A completed goal does not need retry'), { status: 409 });
+
+  const context = parseJson(goal.context_json, {});
+  const automaticAttempts = Number(context.stuck_recovery_attempts || 0);
+  const maxAutomaticAttempts = Math.max(0, Number(process.env.GOAL_RUN_RECOVERY_MAX_RETRIES ?? 1));
+  if (automatic && automaticAttempts >= maxAutomaticAttempts) {
+    const message = `Automatic stuck-goal recovery exhausted after ${automaticAttempts} attempt(s).`;
+    if (goal.status === 'planning') failGoalPlanningRun(goal.id, owner, message);
+    else {
+      const active = loadGoalSteps(goal.id).find((step) => ['running', 'pending'].includes(String(step.status)));
+      if (active) db().prepare(
+        `UPDATE agent_goal_steps SET status='failed', error_message=?, completed_at=datetime('now') WHERE id=?`
+      ).run(message, active.id);
+      completeGoalRun(goal.id, { status: 'failed', error: message });
+    }
+    return { ok: false, exhausted: true, goal: getGoalRun(goal.id, owner) };
+  }
+
+  await stopGoalArtifacts(goal, clip(reason, 1000));
+  const nextContext = {
+    ...context,
+    ...(automatic ? { stuck_recovery_attempts: automaticAttempts + 1 } : {}),
+    last_retry_at: new Date().toISOString(),
+    last_retry_reason: clip(reason, 500),
+  };
+  db().prepare('UPDATE agent_goal_runs SET context_json=? WHERE id=? AND owner_user_id=?')
+    .run(JSON.stringify(nextContext), goal.id, owner);
+
+  const planning = goal.status === 'planning' || loadGoalSteps(goal.id).every((step) => step.step_type === 'planning');
+  let execute;
+  if (planning) {
+    resetPlanningGoal({ ...goal, context_json: JSON.stringify(nextContext) });
+    execute = () => executePlanningRetry(
+      { ...goal, context_json: JSON.stringify(nextContext) },
+      { planGoal, executeGoal }
+    );
+  } else {
+    const steps = loadGoalSteps(goal.id);
+    const retryStep = selectRetryStep(steps, goal.status);
+    if (!retryStep) throw Object.assign(new Error('No retryable goal step found'), { status: 409 });
+    resetExecutionGoal(goal, steps, retryStep);
+    execute = () => executeGoal(goal.id, { ownerUserId: owner });
+  }
+  recordMissionEvent({
+    ownerUserId: owner,
+    goalRunId: goal.id,
+    event_type: automatic ? 'stuck_goal_retry' : 'goal_retry_requested',
+    payload: { reason: clip(reason, 500), actor_user_id: actorUserId || null, automatic },
+  });
+  if (background) {
+    setImmediate(() => void execute().catch((error) =>
+      console.error('[goal-run] background retry failed', goal.id, error?.message || error)
+    ));
+    return { ok: true, queued: true, goal: getGoalRun(goal.id, owner) };
+  }
+  const execution = await execute();
+  return { ok: true, retried: true, execution, goal: getGoalRun(goal.id, owner) };
+}
+
 
 
 /**
@@ -4206,6 +4442,17 @@ export async function createAndStartGoalRun(opts = {}) {
       failGoalPlanningRun(planningGoal.id, opts.ownerUserId, error);
       throw error;
     }
+  }
+
+  // A cancelled run/step is immutable. This also makes Cancel and Retry safe
+  // when an older synchronous executor returns after its work was superseded.
+  if (goal.status === 'cancelled' || step.status === 'cancelled') {
+    return {
+      ok: true,
+      skipped: true,
+      reason: 'goal_or_step_cancelled',
+      goal: getGoalRun(goalRunId, ownerUserId),
+    };
   }
   const goal = createGoalRun({
     ...opts,

@@ -438,6 +438,16 @@ export function isCompleteCheckerVerdict(verdict) {
     : verdict.revised_steps.length > 0;
 }
 
+export function isExecutableCheckerVerdict(verdict, catalog) {
+  if (!isCompleteCheckerVerdict(verdict)) return false;
+  if (verdict.approved === true) return true;
+  const revision = normalizeExecutorOutputKinds(
+    repairCheckerExecutorAvailability(normalizeTypedSteps(verdict.revised_steps), catalog),
+    catalog
+  );
+  return validateTypedGoalPlan(revision, catalog).ok;
+}
+
 async function reportPlanProgress(onProgress, progress) {
   if (typeof onProgress !== 'function') return;
   try {
@@ -604,10 +614,10 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
     try {
       check = await chatCompletions(checkerRequestFor(made, endpoint));
       const parsed = parseJsonObject(check.content) || {};
-      if (!isCompleteCheckerVerdict(parsed)) {
+      if (!isExecutableCheckerVerdict(parsed, catalog)) {
         throw new Error(
           parsed.approved === false
-            ? 'Checker rejected the plan without a complete corrected plan'
+            ? 'Checker rejected the plan without an executable corrected plan'
             : 'Checker did not emit a complete approval decision'
         );
       }
@@ -726,7 +736,7 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
       const finalVerdict = parseJsonObject(finalCheck.content) || {};
       check = finalCheck;
       verdict = finalVerdict;
-      if (!isCompleteCheckerVerdict(finalVerdict) || finalVerdict.approved !== true) {
+      if (!isExecutableCheckerVerdict(finalVerdict, catalog) || finalVerdict.approved !== true) {
         selectedValidation = {
           ok: false,
           errors: ['Independent checker rejected the repaired plan'],
