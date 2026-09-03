@@ -24,6 +24,7 @@ import { getDb } from '../db/schema.js';
 import { mergeCapabilitySteps } from './business-capabilities.js';
 import { getWorkAssignmentPolicy, listHumanWorkCandidates, chooseOverlappingExecutor } from './work-assignment-policy.js';
 import { goalWantsChatSynthesis } from './goal-plan-tool-args.js';
+import { getPlatformTimeoutMs } from './platform-timeout-settings.js';
 
 const MAX_INTENTS = Math.max(4, Math.min(20, Number(process.env.GOAL_PLAN_MAX_INTENTS) || 12));
 
@@ -462,7 +463,7 @@ export async function applyHumanAssignmentPolicy(ownerUserId, prompt, steps = []
       temperature: 0,
       responseFormat: 'json_object',
       thinkingMode: 'disabled',
-      timeoutMs: Number(process.env.GOAL_PLAN_INTENT_TIMEOUT_MS) || 25000,
+      timeoutMs: getPlatformTimeoutMs('goal_plan_llm'),
       messages: [
         { role: 'system', content: 'Match planned work to HUMAN employees only when their department, role, specialty or purpose genuinely fits. Classify task risk as high only for financial commitments/costs, legal/regulatory decisions, destructive operations, or binding external commitments. JSON only: {"matches":[{"step_index":0,"user_id":"exact id or empty","human_match_score":0-100,"agent_match_score":0-100,"risk":"normal|high","reason":"short"}]}.' },
         { role: 'user', content: `GOAL:\n${String(prompt || '').slice(0, 3500)}\n\nPLANNED AGENT STEPS:\n${stepBlock}\n\nHUMAN EMPLOYEES:\n${humanBlock}` },
@@ -968,7 +969,7 @@ async function llmJsonIntents({ ownerUserId, system, user, maxTokens = 2600, too
     temperature: 0,
     responseFormat: 'json_object',
     thinkingMode: 'disabled',
-    timeoutMs: Number(process.env.GOAL_PLAN_INTENT_TIMEOUT_MS) || 25000,
+    timeoutMs: getPlatformTimeoutMs('goal_plan_llm'),
     messages: [
       { role: 'system', content: system },
       { role: 'user', content: user },
@@ -1043,12 +1044,12 @@ async function classifyToolsMultiLabel(ownerUserId, prompt, tools) {
     const { intents: _ignore, textOut } = await (async () => {
       const { content } = await chatCompletions({
         ownerUserId,
-        maxTokens: 1400,
+        maxTokens: 4000,
         toolName: 'goal_plan_intent',
         temperature: 0,
         responseFormat: 'json_object',
         thinkingMode: 'disabled',
-        timeoutMs: Number(process.env.GOAL_PLAN_INTENT_TIMEOUT_MS) || 25000,
+        timeoutMs: getPlatformTimeoutMs('goal_plan_llm'),
         messages: [
           { role: 'system', content: system },
           { role: 'user', content: user },
@@ -1252,7 +1253,7 @@ export async function classifyGoalPlanIntents(ownerUserId, prompt, opts = {}) {
       ownerUserId: owner,
       system,
       user,
-      maxTokens: 1200,
+      maxTokens: 4000,
     });
 
     // Second pass when empty: tools-only forced enum
@@ -1264,7 +1265,7 @@ export async function classifyGoalPlanIntents(ownerUserId, prompt, opts = {}) {
       const enumLine = toolsForPrompt.map((t) => t.name).join('|');
       const r2 = await llmJsonIntents({
         ownerUserId: owner,
-        maxTokens: 900,
+        maxTokens: 2600,
         system:
           'JSON only. {"intents":[{"lane":"self_tool","label":"...","tool_name":"<exact>"}]}. ' +
           'tool_name one of: ' +
