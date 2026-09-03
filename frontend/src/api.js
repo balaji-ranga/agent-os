@@ -813,6 +813,8 @@ export const api = {
   adminPlatformLlmGet: () => get('/admin/platform-llm'),
   adminPlatformLlmSet: (llm_active_endpoint) =>
     put('/admin/platform-llm', { llm_active_endpoint }),
+  adminPlatformTimeoutsGet: () => get('/admin/platform-timeouts'),
+  adminPlatformTimeoutsSave: (timeouts) => put('/admin/platform-timeouts', { timeouts }),
   adminModelsGet: ({ eventPage = 1, eventPageSize = 25 } = {}) =>
     get(`/admin/models?event_page=${encodeURIComponent(eventPage)}&event_page_size=${encodeURIComponent(eventPageSize)}`),
   adminModelDeploymentSave: (id, payload) =>

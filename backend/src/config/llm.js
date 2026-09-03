@@ -6,6 +6,7 @@
  */
 import { resolveLlmConfigForUser } from '../services/user-llm-settings.js';
 import { getEffectivePlatformLlmEndpoints } from '../services/platform-llm-settings.js';
+import { getPlatformTimeoutMs } from '../services/platform-timeout-settings.js';
 import {
   shouldUseEfficiencyOllama,
   getEfficiencyOllamaLlmConfig,
@@ -302,7 +303,7 @@ export async function chatCompletions({
       }
       const requestTimeoutMs = Number(timeoutMs) > 0
         ? Number(timeoutMs)
-        : Number(process.env.LLM_CHAT_TIMEOUT_MS) || 120000;
+        : getPlatformTimeoutMs('llm_chat');
       let res = await fetch(chatUrl, {
         method: 'POST',
         headers,

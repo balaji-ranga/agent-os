@@ -3,10 +3,11 @@ import { randomUUID } from 'crypto';
 import { getDb } from '../db/schema.js';
 import { assertUrlAllowed } from './browser-url-policy.js';
 import { createMediaArtifact } from './ceo-media-artifacts.js';
+import { getPlatformTimeoutMs } from './platform-timeout-settings.js';
 
 function db() { return getDb(); }
-const OFFLINE_MS = () => Math.max(15_000, Number(process.env.BROWSER_WORKER_OFFLINE_MS || 90_000));
-const JOB_TIMEOUT_MS = () => Math.max(10_000, Number(process.env.BROWSER_WORKER_JOB_TIMEOUT_MS || 120_000));
+const OFFLINE_MS = () => getPlatformTimeoutMs('browser_offline');
+const JOB_TIMEOUT_MS = () => getPlatformTimeoutMs('browser_job');
 const DRIVER_PRIORITY = ['chrome_extension', 'playwright_chrome', 'playwright_persistent', 'playwright'];
 const nowIso = () => new Date().toISOString();
 

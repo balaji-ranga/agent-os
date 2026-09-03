@@ -78,6 +78,7 @@ import {
   getOpenClawSessionCleanupPolicy,
   setOpenClawSessionCleanupPolicy,
 } from '../services/openclaw-session-cleanup.js';
+import { listPlatformTimeouts, updatePlatformTimeouts } from '../services/platform-timeout-settings.js';
 
 const router = Router();
 
@@ -100,6 +101,22 @@ router.put('/platform-llm', (req, res) => {
     const endpoint = req.body?.llm_active_endpoint || req.body?.endpoint || req.body?.active;
     const result = setPlatformLlmActiveEndpoint(endpoint);
     res.json(result);
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message });
+  }
+});
+
+router.get('/platform-timeouts', (req, res) => {
+  try {
+    res.json({ timeouts: listPlatformTimeouts() });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.put('/platform-timeouts', (req, res) => {
+  try {
+    res.json({ timeouts: updatePlatformTimeouts(req.body?.timeouts) });
   } catch (e) {
     res.status(e.status || 400).json({ error: e.message });
   }

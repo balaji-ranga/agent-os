@@ -68,6 +68,7 @@ import {
 import { getExceptionPolicy } from './exception-policy.js';
 import { getAgentsUnderOrchestratorForCeo } from './org-context.js';
 import { qualityAssureGoalPlan } from './goal-plan-quality.js';
+import { getPlatformTimeoutMs } from './platform-timeout-settings.js';
 import { createMediaArtifact } from './ceo-media-artifacts.js';
 
 const TERMINAL_WF = new Set(['completed', 'failed', 'cancelled', 'paused']);
@@ -2751,7 +2752,7 @@ async function executeCompositionalToolViaAgent(goal, step, toolName) {
       injectLearningsInstruction: false,
       injectKanbanInstruction: true,
       injectSessionHistoryInstruction: false,
-      timeoutMs: Number(process.env.GOAL_AGENT_CONTINUE_TIMEOUT_MS || process.env.OPENCLAW_FETCH_TIMEOUT_MS || 240000),
+      timeoutMs: getPlatformTimeoutMs('goal_agent_step'),
     }
   );
   const reply = String(content || '').trim() || '(no response)';
@@ -3392,7 +3393,7 @@ export async function recoverStaleAgentContinueGoalSteps({
   ensureAgentGoalRunTables();
   const configured = Number(
     staleMs ?? process.env.GOAL_AGENT_CONTINUE_STALE_MS ??
-      (Number(process.env.GOAL_AGENT_CONTINUE_TIMEOUT_MS || process.env.OPENCLAW_FETCH_TIMEOUT_MS || 240000) + 60000)
+      (getPlatformTimeoutMs('goal_agent_step') + 60000)
   );
   const ageSeconds = Math.max(60, Math.ceil((Number.isFinite(configured) ? configured : 300000) / 1000));
   const owner = String(ownerUserId || '').trim();

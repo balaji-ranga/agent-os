@@ -7,6 +7,7 @@ import { randomUUID } from 'crypto';
 import { createHash } from 'crypto';
 import { getDb } from '../db/schema.js';
 import { chatCompletions } from '../config/llm.js';
+import { getPlatformTimeoutMs } from './platform-timeout-settings.js';
 
 const MODES = new Set(['chat', 'direct_tool', 'delegate', 'goal_plan']);
 const RELATIONS = new Set(['new_work', 'follow_up', 'correction', 'conversation']);
@@ -109,6 +110,7 @@ const DURABLE_GOAL_ADJUDICATOR = `Decide whether the supplied request requires a
 Judge its meaning and execution structure, never isolated keywords.
 Return JSON only: {"durable_goal":true|false,"stage_count":integer}.
 durable_goal is true when completion requires two or more independently verifiable stages or outputs, dependencies, multiple agents/systems, asynchronous work, tracked retry, or a composite final deliverable.
+A requested state change across a collection is durable when it necessarily requires discovering items, deciding or classifying what applies, and then acting on the selected items.
 A long explanation with only one answer is not a durable goal. A detailed specification remains durable even when formatted as one paragraph.`;
 
 export function validateRouteDecision(value, candidateTurnIds = []) {
@@ -167,11 +169,11 @@ export async function routeAgentTurn({
           // Reasoning-capable providers count hidden analysis against this
           // budget even for response_format=json_object. Leave enough room for
           // the final contract instead of receiving reasoning_content only.
-          maxTokens: 2400,
+          maxTokens: 5200,
           temperature: 0,
           responseFormat: 'json_object',
           thinkingMode: 'disabled',
-          timeoutMs: Number(process.env.AGENT_TURN_ROUTER_TIMEOUT_MS) || 30000,
+          timeoutMs: getPlatformTimeoutMs('semantic_router'),
           messages: [
             { role: 'system', content: ROUTER_SYSTEM },
             {
@@ -204,8 +206,8 @@ export async function routeAgentTurn({
   if (
     !semanticDecision &&
     (!routeValidation.ok || (
-      String(parsed?.execution_mode || '') !== 'goal_plan' &&
-      String(parsed?.relation || '') !== 'conversation'
+      String(parsed?.relation || '') === 'new_work' &&
+      String(parsed?.execution_mode || '') !== 'chat'
     ))
   ) {
     try {
@@ -215,11 +217,11 @@ export async function routeAgentTurn({
         const { content } = await chatCompletions({
           ownerUserId,
           toolName: 'agent_turn_goal_adjudicator',
-          maxTokens: 900,
+          maxTokens: 2600,
           temperature: 0,
           responseFormat: 'json_object',
           thinkingMode: 'disabled',
-          timeoutMs: Number(process.env.AGENT_TURN_ADJUDICATOR_TIMEOUT_MS) || 20000,
+          timeoutMs: getPlatformTimeoutMs('goal_adjudicator'),
           messages: [
             { role: 'system', content: DURABLE_GOAL_ADJUDICATOR },
             { role: 'user', content: JSON.stringify({ request: String(message || ''), ...(attempt > 1 ? { repair_errors: durableValidation.errors } : {}) }) },

@@ -7,15 +7,39 @@ export default function AdminModels() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [eventPage, setEventPage] = useState(1);
+  const [timeouts, setTimeouts] = useState([]);
+  const [timeoutDraft, setTimeoutDraft] = useState({});
 
   const load = async (page = eventPage) => {
     try {
       setError('');
-      const result = await api.adminModelsGet({ eventPage: page, eventPageSize: 25 });
+      const [result, timeoutResult] = await Promise.all([
+        api.adminModelsGet({ eventPage: page, eventPageSize: 25 }),
+        api.adminPlatformTimeoutsGet(),
+      ]);
       setData(result);
+      setTimeouts(timeoutResult?.timeouts || []);
+      setTimeoutDraft(Object.fromEntries((timeoutResult?.timeouts || []).map((item) => [item.id, item.value_ms])));
       setEventPage(result?.event_pagination?.page || page);
     } catch (e) {
       setError(e.message);
+    }
+  };
+
+  const saveTimeouts = async () => {
+    setBusy('timeouts');
+    setMessage('');
+    setError('');
+    try {
+      const payload = Object.fromEntries(timeouts.map((item) => [item.id, Number(timeoutDraft[item.id])]));
+      const result = await api.adminPlatformTimeoutsSave(payload);
+      setTimeouts(result?.timeouts || []);
+      setTimeoutDraft(Object.fromEntries((result?.timeouts || []).map((item) => [item.id, item.value_ms])));
+      setMessage('Platform timeout defaults saved. New operations use them immediately.');
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy('');
     }
   };
   useEffect(() => { load(1); }, []);
@@ -118,6 +142,33 @@ export default function AdminModels() {
                 </select>
               </label>
             </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel">
+        <header className="model-section-heading">
+          <div><h2>Operational timeouts</h2><p>Platform defaults for new operations. Explicit workflow-node or request overrides still take precedence.</p></div>
+          <button type="button" className="wf-btn" disabled={busy === 'timeouts'} onClick={saveTimeouts}>
+            {busy === 'timeouts' ? 'Saving…' : 'Save timeouts'}
+          </button>
+        </header>
+        <div className="model-timeout-grid">
+          {timeouts.map((item) => (
+            <label key={item.id} className="model-timeout-card">
+              <span><strong>{item.label}</strong><small>{item.category}</small></span>
+              <span className="model-timeout-input">
+                <input
+                  type="number"
+                  min={Math.ceil(item.min_ms / 1000)}
+                  max={Math.floor(item.max_ms / 1000)}
+                  value={Math.round(Number(timeoutDraft[item.id] || 0) / 1000)}
+                  onChange={(event) => setTimeoutDraft((current) => ({ ...current, [item.id]: Number(event.target.value) * 1000 }))}
+                />
+                seconds
+              </span>
+              <small>Allowed {Math.ceil(item.min_ms / 1000)}–{Math.floor(item.max_ms / 1000)}s · deployment default {Math.round(item.default_ms / 1000)}s</small>
+            </label>
           ))}
         </div>
       </section>

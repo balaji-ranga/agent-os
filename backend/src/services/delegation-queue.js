@@ -280,13 +280,13 @@ export function getPromptForFreshGoalRun(basePrompt) {
  */
 function buildDetailedPromptForAgent(relevantMessage, agentName, agentRole) {
   const rolePart = agentRole ? ` You are ${agentName} (${agentRole}).` : ` You are ${agentName}.`;
-  return `The CEO has requested the following for this standup (relevant part for you):
+  return `The originating orchestrator has delegated this owner-scoped work order to you:
 
 ---
 ${relevantMessage.trim()}
 ---
 
-${rolePart} Please provide a detailed response addressing this request only. Reply with concrete content for the CEO to review.`;
+${rolePart} Execute only this work order. Return concrete evidence and the completed deliverable to the originating orchestrator.`;
 }
 
 /**

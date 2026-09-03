@@ -2,7 +2,9 @@
  * Node completion timeout for Brain, API, MCP, and Custom Script steps.
  * Not a forced wait — the step proceeds as soon as work finishes; this is a max duration.
  */
-export const DEFAULT_NODE_TIMEOUT_MS = 20 * 60 * 1000; // 20 minutes
+import { getPlatformTimeoutMs } from './platform-timeout-settings.js';
+
+export const DEFAULT_NODE_TIMEOUT_MS = 20 * 60 * 1000; // schema/display fallback
 
 export const NODE_TIMEOUT_CONFIG_FIELDS = [
   {
@@ -48,7 +50,7 @@ export function isNodeTimeoutError(err) {
 export function resolveNodeTimeoutConfig(config = {}) {
   const rawMs = config.timeoutMs ?? config.nodeTimeoutMs ?? config.timeout_ms;
   let timeoutMs = Number(rawMs);
-  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) timeoutMs = DEFAULT_NODE_TIMEOUT_MS;
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) timeoutMs = getPlatformTimeoutMs('workflow_node');
   // Clamp: at least 1s, at most 24h
   timeoutMs = Math.min(Math.max(Math.floor(timeoutMs), 1000), 24 * 60 * 60 * 1000);
 

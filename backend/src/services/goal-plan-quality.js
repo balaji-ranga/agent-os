@@ -14,6 +14,7 @@ import {
   listSpecialtyAgentsForGoalPlan,
 } from './goal-plan-intent.js';
 import { listHumanWorkCandidates } from './work-assignment-policy.js';
+import { getPlatformTimeoutMs } from './platform-timeout-settings.js';
 
 const STEP_TYPES = new Set([
   'workflow_trigger',
@@ -449,28 +450,53 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
   let rejectedRaw = '';
   let makerAttempts = 0;
   let makerContractFromLlm = false;
-  for (let attempt = 1; attempt <= 3; attempt += 1) {
+  const makerMaxAttempts = 2;
+  const structuredTimeoutMs = getPlatformTimeoutMs('goal_plan_llm');
+  for (let attempt = 1; attempt <= makerMaxAttempts; attempt += 1) {
     makerAttempts = attempt;
     await reportPlanProgress(onProgress, {
       phase: 'maker',
       label: attempt === 1 ? 'Building executable plan' : 'Correcting maker plan',
-      detail: `Maker round ${attempt} of 3`,
+      detail: `Maker round ${attempt} of ${makerMaxAttempts}`,
       attempt,
-      max_attempts: 3,
+      max_attempts: makerMaxAttempts,
     });
-    maker = await chatCompletions({
-      ownerUserId,
-      toolName: 'goal_plan_maker',
-      maxTokens: 5200,
-      temperature: 0,
-      responseFormat: 'json_object',
-      thinkingMode: 'disabled',
-      timeoutMs: Number(process.env.GOAL_PLAN_LLM_CALL_TIMEOUT_MS) || 30000,
-      messages: [
-        { role: 'system', content: `You are the maker for an executable company goal plan. Return one JSON object whose top-level key is exactly "steps". Translate the complete goal into the smallest complete ordered dependency graph. Cover every requested prerequisite, output, constraint, human decision, nested delegation, and terminal delivery. When one orchestrator must delegate to its reportee, represent that reportee's work as its own specialty_task step and carry its output into the parent orchestrator's next action. Use only exact live catalog IDs. A named human receives only the specific work/decision intended for that human, never the whole goal when preparation is needed. A dependent action must consume the prior data/artifact/decision. Ordinary JSON, status, profile, list, and analysis results are data, not artifacts. Declare artifact only when the selected executor actually returns a file, attachment, media, document, or downloadable URL. Never invent completed evidence or artifacts. Do not return prose, analysis, status, tool calls, or an empty plan. ${PLAN_SCHEMA}` },
-        { role: 'user', content: `ORIGINAL GOAL:\n${clip(prompt, 9000)}\n\nLIVE CATALOG:\n${catalogPrompt(catalog)}\n\nDETERMINISTICALLY VALID BASELINE:\n${clip(seed.steps, 12000)}\nThe baseline is executable and may be returned unchanged. Improve it only where the original goal needs additional explicit stages.${attempt > 1 ? `\n\nPREVIOUS INVALID RESPONSE:\n${clip(rejectedRaw, 6000)}\n\nNORMALIZED INVALID PLAN:\n${clip(rejectedPlan, 8000)}\n\nEXACT VALIDATION ERRORS TO REPAIR:\n${madeValidation.errors.join('; ')}\nReturn the validated baseline unchanged if you cannot safely repair these errors.` : ''}` },
-      ],
-    });
+    try {
+      maker = await chatCompletions({
+        ownerUserId,
+        toolName: 'goal_plan_maker',
+        // A second maker attempt deliberately targets the independent secondary
+        // endpoint. Transport slowness on the active model must not turn a valid
+        // goal into chat or abort before the checker can run.
+        ...(attempt > 1 ? { endpointPreference: 'secondary' } : {}),
+        maxTokens: 5200,
+        temperature: 0,
+        responseFormat: 'json_object',
+        thinkingMode: 'disabled',
+        timeoutMs: structuredTimeoutMs,
+        messages: [
+          { role: 'system', content: `You are the maker for an executable company goal plan. Return one JSON object whose top-level key is exactly "steps". Translate the complete goal into the smallest complete ordered dependency graph. Cover every requested prerequisite, output, constraint, human decision, nested delegation, and terminal delivery. When one orchestrator must delegate to its reportee, represent that reportee's work as its own specialty_task step and carry its output into the parent orchestrator's next action. Use only exact live catalog IDs. A named human receives only the specific work/decision intended for that human, never the whole goal when preparation is needed. A dependent action must consume the prior data/artifact/decision. Ordinary JSON, status, profile, list, and analysis results are data, not artifacts. Declare artifact only when the selected executor actually returns a file, attachment, media, document, or downloadable URL. Never invent completed evidence or artifacts. Do not return prose, analysis, status, tool calls, or an empty plan. ${PLAN_SCHEMA}` },
+          { role: 'user', content: `ORIGINAL GOAL:\n${clip(prompt, 9000)}\n\nLIVE CATALOG:\n${catalogPrompt(catalog)}\n\nDETERMINISTICALLY VALID BASELINE:\n${clip(seed.steps, 12000)}\nThe baseline is executable and may be returned unchanged. Improve it only where the original goal needs additional explicit stages.${attempt > 1 ? `\n\nPREVIOUS INVALID RESPONSE:\n${clip(rejectedRaw, 6000)}\n\nNORMALIZED INVALID PLAN:\n${clip(rejectedPlan, 8000)}\n\nEXACT VALIDATION ERRORS TO REPAIR:\n${madeValidation.errors.join('; ')}\nReturn the validated baseline unchanged if you cannot safely repair these errors.` : ''}` },
+        ],
+      });
+    } catch (error) {
+      rejectedRaw = '';
+      rejectedPlan = [];
+      made = [];
+      madeValidation = {
+        ok: false,
+        errors: [`Maker request failed: ${String(error?.message || error || 'unknown error').slice(0, 300)}`],
+      };
+      await reportPlanProgress(onProgress, {
+        phase: 'maker_retry',
+        label: attempt < makerMaxAttempts ? 'Maker endpoint timed out; retrying safely' : 'Maker unavailable; validating catalog plan',
+        detail: madeValidation.errors[0],
+        attempt,
+        max_attempts: makerMaxAttempts,
+      });
+      console.warn('[goal-plan-quality] maker request failed', { attempt, error: madeValidation.errors[0] });
+      continue;
+    }
     rejectedRaw = String(maker.content || '');
     rejectedPlan = extractPlanSteps(maker.content);
     made = normalizeExecutorOutputKinds(normalizeTypedSteps(rejectedPlan), catalog);
@@ -491,7 +517,7 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
       label: 'Maker plan needs correction',
       detail: `Validation found ${madeValidation.errors.length} contract issue${madeValidation.errors.length === 1 ? '' : 's'}`,
       attempt,
-      max_attempts: 3,
+      max_attempts: makerMaxAttempts,
     });
     console.warn('[goal-plan-quality] maker contract retry', { attempt, errors: madeValidation.errors.slice(0, 12) });
   }
@@ -535,7 +561,7 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
     temperature: 0,
     responseFormat: 'json_object',
     thinkingMode: 'disabled',
-    timeoutMs: Number(process.env.GOAL_PLAN_LLM_CALL_TIMEOUT_MS) || 30000,
+    timeoutMs: structuredTimeoutMs,
     messages: [
       { role: 'system', content: `You are a static plan-quality API, not a conversational assistant and not a runtime monitor. Judge the proposed future execution design; do not claim that declared future inputs or outputs are currently missing or failed. Reject if the design omits a requested outcome or prerequisite, assigns work that does not fit the declared executor, gives a human the whole goal instead of a bounded decision, runs an action before its required data/artifact/decision exists, violates a stated constraint, or only reports status instead of delivering the requested outcome. Cross-functional hand-offs are expected: different dependent steps may and often should have different executors, and a human decision followed by an automated action necessarily crosses executors. Never reject merely because executor IDs differ when typed dependencies carry the output to the next step. The deterministic gate has already verified that executor IDs exist. Output exactly one JSON object and no reasoning: {"approved":true|false,"issues":[{"code":"short_code","step_key":"key or empty","message":"specific design defect"}],"revised_steps":[]}. When approved, revised_steps must be empty. When rejected, revised_steps must be the complete corrected plan using this schema and exact IDs from the supplied plan; do not invent another executor. ${PLAN_SCHEMA}` },
       { role: 'user', content: `ORIGINAL GOAL:\n${clip(prompt, 7000)}\n\nTYPED PLAN CONTRACT:\n${checkerPlanPrompt(plan)}` },
@@ -616,7 +642,7 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
       temperature: 0,
       responseFormat: 'json_object',
       thinkingMode: 'disabled',
-      timeoutMs: Number(process.env.GOAL_PLAN_LLM_CALL_TIMEOUT_MS) || 30000,
+      timeoutMs: structuredTimeoutMs,
       messages: [
         { role: 'system', content: `You are the plan maker repairing a plan after an independent review. Resolve every checker issue without dropping correct work or stated constraints. Return JSON only as {"steps":[...]}. The steps must be complete, ordered, use only exact live catalog IDs, and pass this schema. Do not explain. ${PLAN_SCHEMA}` },
         { role: 'user', content: `ORIGINAL GOAL:\n${clip(prompt, 9000)}\n\nLIVE CATALOG:\n${catalogPrompt(catalog)}\n\nMAKER PLAN:\n${clip(made, 12000)}\n\nCHECKER ISSUES:\n${clip(verdict.issues || [{ code: 'invalid_verdict', message: 'Checker did not return a valid approval decision.' }], 6000)}` },
@@ -636,7 +662,7 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
         temperature: 0,
         responseFormat: 'json_object',
         thinkingMode: 'disabled',
-        timeoutMs: Number(process.env.GOAL_PLAN_LLM_CALL_TIMEOUT_MS) || 30000,
+        timeoutMs: structuredTimeoutMs,
         messages: [
           { role: 'system', content: `Repair only the typed dependency-contract defects reported by the deterministic validator while preserving the complete original goal, constraints, and bounded human decision. Every required input key/kind must exactly match a declared output key/kind on its prior source step. Return JSON only as {"steps":[...]}. Use only exact live catalog IDs. ${PLAN_SCHEMA}` },
           { role: 'user', content: `ORIGINAL GOAL:\n${clip(prompt, 9000)}\n\nLIVE CATALOG:\n${catalogPrompt(catalog)}\n\nPLAN WITH CONTRACT DEFECTS:\n${clip(selected, 12000)}\n\nDETERMINISTIC CONTRACT ERRORS:\n${selectedValidation.errors.join('; ')}` },

@@ -10,6 +10,7 @@ import { join } from 'path';
 import http from 'node:http';
 import https from 'node:https';
 import { stripOpenClawDeliveryNoise } from '../services/openclaw-runtime-tools.js';
+import { getPlatformTimeoutMs } from '../services/platform-timeout-settings.js';
 
 const DEFAULT_PORT = 18789;
 let _cachedGatewayToken = null;
@@ -157,7 +158,7 @@ export async function chatCompletions(agentId, messages, sessionUser = null, str
   if (sessionUser) headers['x-openclaw-session-key'] = sessionKeyFor(agentId || 'main', sessionUser);
 
   const timeoutMs = Number(
-    options.timeoutMs || process.env.OPENCLAW_FETCH_TIMEOUT_MS || 240000
+    options.timeoutMs || getPlatformTimeoutMs('openclaw_chat')
   );
   const maxAttempts = Math.max(1, Number(options.retries ?? process.env.OPENCLAW_CHAT_RETRIES ?? 3));
   let res;
