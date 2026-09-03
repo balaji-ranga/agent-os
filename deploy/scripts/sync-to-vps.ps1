@@ -554,12 +554,12 @@ if ($Services -match "backend|openclaw") {
   scp @ssh -r "$Repo\openclaw-workspace-templates\jobdiscovery" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
   scp @ssh -r "$Repo\openclaw-workspace-templates\resumetailor" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
   scp @ssh -r "$Repo\openclaw-workspace-templates\bala" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
-  foreach ($callerTpl in @('slow-caller','realtime-caller')) {
-    $src = Join-Path $Repo "openclaw-workspace-templates\$callerTpl"
+  foreach ($hireableTpl in @('slow-caller','realtime-caller','gmail-operations')) {
+    $src = Join-Path $Repo "openclaw-workspace-templates\$hireableTpl"
     if (Test-Path $src) {
       scp @ssh -r $src "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
     } else {
-      Write-Warning "Missing workspace template folder: $callerTpl"
+      Write-Warning "Missing workspace template folder: $hireableTpl"
     }
   }
   if (Test-Path "$Repo\openclaw-workspace-templates\hireable-roles.json") {
