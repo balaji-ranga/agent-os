@@ -10,6 +10,7 @@ const sidebars = {
         'start/welcome',
         'start/company-os-capabilities',
         'start/how-the-company-runs',
+        'start/human-directed-agent-work',
         'start/access',
         'start/register',
         'start/sign-in-and-mfa',
