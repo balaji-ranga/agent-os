@@ -13,6 +13,14 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const BACKEND_ROOT = join(__dirname, '../..');
 const PACKAGE_ROOT = join(BACKEND_ROOT, 'local-browser-worker');
 
+export function getLocalBrowserWorkerVersion() {
+  try {
+    return JSON.parse(readFileSync(join(PACKAGE_ROOT, 'package.json'), 'utf8')).version || null;
+  } catch {
+    return null;
+  }
+}
+
 // browser-profile* = local Chrome user-data; never ship profile contents in zip.
 const SKIP_DIR_NAMES = new Set([
   'node_modules',
@@ -99,6 +107,7 @@ export async function buildLocalBrowserWorkerPackageZip({
 
   const meta = {
     format: 'agent-os-local-browser-worker',
+    worker_version: getLocalBrowserWorkerVersion(),
     version: 1.2,
     exported_at: new Date().toISOString(),
     owner_user_id: ownerUserId,

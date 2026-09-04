@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import { compareWorkerVersions } from '../src/utils/workerVersion.js';
+assert.equal(compareWorkerVersions('2.1.0', '2.1.2'), -1);
+assert.equal(compareWorkerVersions('2.1.2', '2.1.2'), 0);
+assert.equal(compareWorkerVersions('2.10.0', '2.9.0'), 1);
+assert.equal(compareWorkerVersions(null, '2.1.2'), null);
+assert.equal(compareWorkerVersions('2.1.2', null), null);
+assert.equal(compareWorkerVersions('invalid', '2.1.2'), null);
+const pkg = JSON.parse(fs.readFileSync(new URL('../../backend/local-browser-worker/package.json', import.meta.url), 'utf8'));
+const worker = fs.readFileSync(new URL('../../backend/local-browser-worker/src/server.js', import.meta.url), 'utf8');
+assert.equal(worker.match(/const WORKER_VERSION = '([^']+)'/)[1], pkg.version);
+const source = fs.readFileSync(new URL('../../backend/src/services/local-browser-worker-package.js', import.meta.url), 'utf8');
+const method = source.slice(source.indexOf('export function getLocalBrowserWorkerVersion'), source.indexOf('// browser-profile')).replace('export ', '');
+const readVersion = vm.runInNewContext(method+'\ngetLocalBrowserWorkerVersion', { readFileSync: () => JSON.stringify(pkg), join: () => '', PACKAGE_ROOT: '' });
+assert.equal(readVersion(), pkg.version);
+console.log('PASS: older/current/newer/unknown versions and server-package/runtime version consistency');

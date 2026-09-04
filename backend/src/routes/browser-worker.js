@@ -3,7 +3,7 @@
  */
 import { Router } from 'express';
 import { requireCeoOrAdmin } from '../middleware/auth.js';
-import { buildLocalBrowserWorkerPackageZip } from '../services/local-browser-worker-package.js';
+import { buildLocalBrowserWorkerPackageZip, getLocalBrowserWorkerVersion } from '../services/local-browser-worker-package.js';
 import { buildFlolahChromeExtensionZip } from '../services/flolah-chrome-extension-package.js';
 import {
   authenticateBrowserWorkerToken,
@@ -142,6 +142,7 @@ ceoRouter.get('/status', (req, res) => {
     res.json({
       ok: true,
       worker: node,
+      latest_worker_version: getLocalBrowserWorkerVersion(),
       nodes: listBrowserExecutorNodes(ownerUserId),
       tokens: listBrowserWorkerTokens(ownerUserId),
       ip_whitelist: listBrowserWorkerIpWhitelist(ownerUserId),

@@ -2,6 +2,7 @@
 import { api } from '../api';
 import { RequireAuth } from '../context/AuthContext';
 import WizardReturnBanner from '../components/WizardReturnBanner.jsx';
+import BrowserWorkerVersions from '../components/BrowserWorkerVersions.jsx';
 
 const PAGE_SIZE = 8;
 
@@ -426,6 +427,7 @@ function BrowserSessionPanel() {
             </ul>
           ) : <span style={{ color: 'var(--muted)' }}>No local browser executor paired yet.</span>}
         </div>
+        <BrowserWorkerVersions status={workerStatus} showDownloadLink />
       </section>
 
       <section style={{ marginBottom: '1.5rem' }}>

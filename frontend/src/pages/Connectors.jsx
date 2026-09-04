@@ -4,6 +4,7 @@ import { api } from '../api';
 import { useAuth, RequireAuth } from '../context/AuthContext';
 import WizardReturnBanner from '../components/WizardReturnBanner.jsx';
 import McpConnectorsPanel from '../components/connectors/McpConnectorsPanel.jsx';
+import BrowserWorkerVersions from '../components/BrowserWorkerVersions.jsx';
 
 const STARTERS = [
   { id: 'hackernews', name: 'Hacker News' },
@@ -583,22 +584,11 @@ function ConnectorsPanel() {
 
       <section style={{ marginTop: '1.25rem', padding: '1rem', border: '1px solid var(--border)', borderRadius: 8 }}>
         <h2 style={{ margin: '0 0 0.5rem', fontSize: '1.05rem' }}>Browser Session package (local worker)</h2>
+        <BrowserWorkerVersions status={bwStatus} />
         <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--muted)' }}>
           Long-lived Windows worker for multi-user Client Chrome. Playwright runs <strong>headed</strong> by default with a
           <strong>persistent profile</strong> (cookies/logins under browser-profile on your PC). Agents and recipes for{' '}
           <strong>your</strong> account route there while Online. Token is minted per download — never share the zip.
-        </p>
-        <p style={{ margin: '0.5rem 0 0', fontSize: '0.9rem' }}>
-          Status:{' '}
-          <strong style={{ color: bwStatus?.worker?.online ? '#16a34a' : 'var(--muted)' }}>
-            {bwStatus?.worker?.online ? 'Online' : 'Offline'}
-          </strong>
-          {bwStatus?.worker?.last_heartbeat_at
-            ? ` · last heartbeat ${bwStatus.worker.last_heartbeat_at}`
-            : ''}
-          {bwStatus?.worker?.worker_version
-            ? ` · v${bwStatus.worker.worker_version}`
-            : ''}
         </p>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: '0.75rem' }}>
           <button
