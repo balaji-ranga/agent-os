@@ -12,6 +12,7 @@ export default function MessageFeedback({
   messageContent = '',
   context = {},
   compact = false,
+  trailingAction = null,
 }) {
   const [rating, setRating] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -21,9 +22,10 @@ export default function MessageFeedback({
 
   if (!agentId || rating) {
     return rating ? (
-      <span style={{ fontSize: '0.7rem', color: 'var(--muted)', marginLeft: 6 }}>
-        Thanks for the feedback ({rating === 'up' ? '👍' : '👎'})
-      </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: compact ? 4 : 8 }}>
+        <span style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>Thanks for the feedback ({rating === 'up' ? '👍' : '👎'})</span>
+        {trailingAction}
+      </div>
     ) : null;
   }
 
@@ -79,6 +81,7 @@ export default function MessageFeedback({
         >
           👎
         </button>
+        {trailingAction}
       </div>
       {commentOpen && (
         <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>

@@ -62,6 +62,21 @@ export default function ChatMessageRow({
     : [];
   // Live plan when create/status tools used, or assistant mentions agr- id (scheduled plan text)
   const liveIds = goalRunIds.slice(0, 2);
+  const hasFeedback = !isUser && showFeedback && agentId;
+  const replyAction = onReply && Number.isSafeInteger(Number(messageId)) && Number(messageId) > 0 ? (
+    <button
+      type="button"
+      onClick={() => onReply(messageId, content)}
+      title="Reply to this message"
+      aria-label="Reply to this message"
+      style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', borderRadius: 4, padding: '2px 4px', cursor: 'pointer' }}
+    >
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="m9 5-6 6 6 6" />
+        <path d="M3 11h10a8 8 0 0 1 8 8" />
+      </svg>
+    </button>
+  ) : null;
 
   return (
     <div
@@ -84,9 +99,6 @@ export default function ChatMessageRow({
           <time dateTime={createdAt} style={{ fontSize: '0.7rem', color: 'var(--muted)' }} title={createdAt}>
             {formatChatTimestamp(createdAt)}
           </time>
-        )}
-        {onReply && Number.isSafeInteger(Number(messageId)) && Number(messageId) > 0 && (
-          <button type="button" onClick={() => onReply(messageId, content)} title={`Reply to message ${messageId}`}>Reply</button>
         )}
       </div>
       {attachments.length > 0 && <ChatMessageAttachments attachments={attachments} />}
@@ -121,7 +133,7 @@ export default function ChatMessageRow({
           <GoalPlanPanel key={id} goalRunId={id} compact pollMs={liveIds.length === 1 ? 12000 : 0} />
         ))}
       {!isUser && <ChatToolCalls toolCalls={toolCalls} showChartPreviews={false} showMediaPreviews={false} />}
-      {!isUser && showFeedback && agentId && (
+      {hasFeedback && (
         <MessageFeedback
           agentId={agentId}
           source={feedbackSource}
@@ -129,8 +141,10 @@ export default function ChatMessageRow({
           messageContent={content}
           context={feedbackContext}
           compact
+          trailingAction={replyAction}
         />
       )}
+      {!hasFeedback && replyAction && <div style={{ display: 'flex', marginTop: 4 }}>{replyAction}</div>}
     </div>
   );
 }
