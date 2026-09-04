@@ -415,6 +415,12 @@ export async function ragDocumentsForAgent(ownerUserId, params = {}) {
   ];
   const ceoHits = Number(ceoResult.hit_count || 0);
   const helpHits = Number(helpResult.hit_count || 0);
+  const relevance = {
+    status: chunks.length ? 'supported' : 'insufficient_evidence',
+    ceo: ceoResult.relevance,
+    platform_help: helpResult.relevance,
+    note: 'Only task-relevant excerpts are returned. Missing facts must not be invented or used for record creation.',
+  };
   let summary = ceoResult.summary;
   let text = ceoResult.text;
   if (wantSummarize) {
@@ -438,6 +444,7 @@ export async function ragDocumentsForAgent(ownerUserId, params = {}) {
     query,
     hit_count: chunks.length,
     ceo_hit_count: ceoHits,
+    relevance,
     platform_help_hit_count: helpHits,
     includes_platform_help: true,
     chunks,

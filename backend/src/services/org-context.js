@@ -218,7 +218,7 @@ export function formatOrgMd(ctx) {
     '',
     '## Tenant session keys (reach agents in this org)',
     '',
-    'Use these **tenant** keys with **sessions_send** / **sessions_history**. Never use bare ids like `agent::socialasstant:main`.',
+    'These runtime keys are diagnostic metadata, not delegation targets. Use **intent_classify_and_delegate** with the Flolah **target_agent_id** and a complete **message**. Do not use sessions_send or read other agents\' histories.',
     '',
     '| Agent | Session key |',
     '|-------|-------------|',
@@ -236,8 +236,8 @@ export function formatOrgMd(ctx) {
     '',
     '- COO may delegate to any agent reporting to COO (see Agents table).',
     '- **notify_ceo** is for reach-me / urgent blockers only — never for ordinary Dashboard chat replies (the CEO already sees your answer).',
-    '- Any agent may **sessions_send** to COO/peers using keys above when work is outside their specialty.',
-    '- Use **intent_classify_and_delegate** or **sessions_send** with tenant session keys for agent-to-agent work.',
+    '- Orchestrators delegate only to enabled reportees in this company through **intent_classify_and_delegate**. Other agents report results or blockers to their existing parent task.',
+    '- Pass **target_agent_id** and **message** containing the original goal, bounded deliverable, constraints and relevant outputs. Flolah manages isolated sessions and result callbacks; do not use **sessions_send**.',
     '- Never assume agents from other CEO accounts exist in this org.',
     '',
     '## CEO common guardrails',
@@ -318,7 +318,7 @@ function leafMembersForCoo(ctx) {
 /** Platform-owned roster blocks rebuilt from the live org on every sync. */
 export function buildManagedCooAgentsSections(ctx) {
   const agentsBody = [
-    'Use the **agent-send** skill (sessions_list, sessions_send, sessions_history) or **intent_classify_and_delegate** to delegate to these agents:',
+    'Use **intent_classify_and_delegate** with **target_agent_id** and a self-contained **message** to delegate to these reportees. Do not use sessions_send:',
     '',
     '| Agent ID | Name | Department | Role |',
     '|----------|------|------------|------|',
@@ -373,10 +373,8 @@ export function buildManagedCooAgentsSections(ctx) {
   sessionBody.push(
     '',
     `- **sessions_list**: List active sessions (\`messageLimit: 0\` for a quick list).`,
-    '- **sessions_send**: Send a message to another agent\'s **tenant session key** from the table above. Include `[ceo_user_id: ' +
-      ctx.ceo.id +
-      ']` in the message when asking them to call **notify_ceo**. Set `timeoutSeconds > 0` to wait for a reply.',
-    '- **sessions_history**: Read another session\'s transcript when you need context.'
+    '- **intent_classify_and_delegate**: Pass the reportee Flolah ID as **target_agent_id** and full current assignment as **message**. Owner identity is resolved by the authenticated platform, not message text.',
+    '- Do not use **sessions_send** or **sessions_history** for handoffs. Results arrive through the Flolah delegation callback.'
   );
   sections.push({
     heading: 'Session keys (sessions_send — required)',
@@ -421,7 +419,7 @@ function defaultCooAgentsUserSections(ctx) {
       lines: [
         'When the CEO asks you to have **another agent** reach/contact/notify them:',
         '1. Identify the best-matching agent from the table above (e.g. SocialAssistant / socialasstant for social media).',
-        '2. **sessions_send** to that agent\'s **tenant session key** with clear instructions to call **notify_ceo** (title/body + link_url `/agents/<their-id>/chat`) and continue the conversation with the CEO.',
+        '2. Use **intent_classify_and_delegate** with **target_agent_id** and a complete **message** asking that reportee to call **notify_ceo** (title/body + link_url `/agents/<their-id>/chat`).',
         '3. Include `[ceo_user_id: ' +
           ctx.ceo.id +
           ']` in the delegated message.',

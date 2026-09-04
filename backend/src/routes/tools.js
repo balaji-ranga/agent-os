@@ -2621,12 +2621,22 @@ router.post('/intent-classify-and-delegate', optionalAuth, async (req, res) => {
   let standupId = requestPayload.standup_id != null ? Number(requestPayload.standup_id) : null;
   try {
     const caller = getCallerAgent(req);
-    if (!caller || !caller.is_coo) {
-      const err = { error: 'Only COO can use intent-classify-and-delegate' };
+    if (!caller || !(caller.is_coo || caller.is_orchestrator)) {
+      const err = { error: 'Only an entitled orchestrator can delegate work' };
       logTool(req,'intent_classify_and_delegate', requestPayload, err, 'error', source);
       return res.status(403).json(err);
     }
     const ownerUserId = resolveToolOwnerUserId(req, requestPayload, resolveAuthenticatedCeoUserId);
+    const { getAgentsUnderOrchestratorForCeo } = await import('../services/org-context.js');
+    const { listOrgAgentMembers } = await import('../services/org-agent-members.js');
+    const reports = [
+      ...getAgentsUnderOrchestratorForCeo(ownerUserId, caller.id),
+      ...listOrgAgentMembers(ownerUserId, { enabledOnly: true }).filter(member => member.parent_id === caller.id),
+    ];
+    const target = typeof requestPayload.target_agent_id === 'string' ? requestPayload.target_agent_id.trim() : null;
+    if (!reports.length || (target && !reports.some(agent => agent.id === target))) {
+      return res.status(403).json({ error: 'Delegation target must be an enabled reportee in your company' });
+    }
     if (!isUsableDelegationWorkOrder(message)) {
       const trustedTurn = lookupActiveDashboardChat(caller.id, ownerUserId)?.message || '';
       if (isUsableDelegationWorkOrder(trustedTurn)) {
@@ -2653,13 +2663,26 @@ router.post('/intent-classify-and-delegate', optionalAuth, async (req, res) => {
         return res.status(403).json(err);
       }
     }
-    const result = await scheduleCeoRequestViaOpenClawCron(standupId, message, ownerUserId);
+    const sessionGoal = parseGoalSessionReference(req.headers['x-openclaw-session-key'] || req.headers['x-session-key']);
+    if (sessionGoal) {
+      const goal = getGoalRun(sessionGoal.goal_run_id, ownerUserId);
+      const step = goal?.steps?.find(item => item.id === sessionGoal.goal_step_id);
+      if (!step) return res.status(403).json({ error: 'Goal session is not available in your company' });
+      message = buildGoalBoundWorkflowInput({ goal, step, suppliedInput: message });
+    }
+    const result = await scheduleCeoRequestViaOpenClawCron(standupId, message, ownerUserId, {
+      parentAgentId: caller.id,
+      isolatedContext: true,
+      restrictToAgentIds: target ? [target] : reports.map(agent => agent.id),
+      ...(target ? { preAllocated: { [target]: message }, maxAgents: 1 } : {}),
+    });
     const out = {
-      ok: true,
+      ok: result.count > 0,
       request_id: result.requestId,
       count: result.count,
       agent_names: result.agentNames,
       kanban_task_ids: result.kanbanTaskIds || [],
+      ...(result.count > 0 ? {} : { error: 'No eligible delegation was scheduled', blocked: result.internalBlocked || [] }),
     };
     logTool(req,'intent_classify_and_delegate', requestPayload, out, 'ok', source);
     res.json(out);
@@ -3686,6 +3709,16 @@ router.post('/invoke', requireToolsAccess, async (req, res) => {
       const out = { ok: false, error: governed.observation.message, _execution: governed.observation };
       logTool(req, toolName, params, out, 'error', source);
       return res.status(409).json(out);
+    }
+    if (governed?.id) {
+      const { validateRetrievedWrite } = await import('../services/retrieval-write-guard.js');
+      const evidence = await validateRetrievedWrite(ownerUserId, governed);
+      if (!evidence.ok) {
+        const out = {ok:false,code:'EVIDENCE_REQUIRED',error:evidence.reason,evidence};
+        completeToolExecution(governed, {httpStatus:422,data:out});
+        logTool(req,toolName,params,out,'error',source);
+        return res.status(422).json(out);
+      }
     }
     if (row.auth_header && typeof row.auth_header === 'string' && row.auth_header.trim()) {
       headers['Authorization'] = row.auth_header.trim();

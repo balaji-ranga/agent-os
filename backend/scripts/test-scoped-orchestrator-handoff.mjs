@@ -1,0 +1,32 @@
+import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+const fixture=mkdtempSync(join(tmpdir(),'flolah-scoped-handoff-'));
+process.env.AGENT_OS_DATA_DIR=fixture;
+const { getDb }=await import('../src/db/schema.js');
+const { getAgentsUnderOrchestratorForCeo }=await import('../src/services/org-context.js');
+const { scheduleCeoRequestViaOpenClawCron }=await import('../src/services/delegation-queue.js');
+const db=getDb(); const nativeFetch=globalThis.fetch;
+globalThis.fetch=async()=>{throw new Error('No network permitted in dry-run handoff test');};
+try {
+  db.pragma('foreign_keys=OFF');
+  const insert=db.prepare('INSERT INTO agents (id,name,role,parent_id,is_orchestrator) VALUES (?,?,?,?,?)');
+  insert.run('handoff-coo','Coordinator','Coordinates company',null,1);
+  insert.run('handoff-orchestrator','Creative owner','Coordinates narrative','handoff-coo',1);
+  insert.run('handoff-story','Story specialist','Writes stories','handoff-orchestrator',0);
+  insert.run('handoff-other','Other tenant specialist','Writes stories','handoff-orchestrator',0);
+  const grant=db.prepare('INSERT INTO user_agents (user_id,agent_id,enabled) VALUES (?,?,1)');
+  for(const id of ['handoff-coo','handoff-orchestrator','handoff-story'])grant.run('handoff-owner',id);
+  grant.run('other-owner','handoff-other');
+  assert.deepEqual(getAgentsUnderOrchestratorForCeo('handoff-owner','handoff-coo').map(x=>x.id),['handoff-orchestrator']);
+  assert.deepEqual(getAgentsUnderOrchestratorForCeo('handoff-owner','handoff-orchestrator').map(x=>x.id),['handoff-story']);
+  const before=db.prepare('SELECT COUNT(*) n FROM agent_delegation_tasks').get().n;
+  const opts={persist:false,parentAgentId:'handoff-orchestrator',isolatedContext:true,restrictToAgentIds:['handoff-story'],preAllocated:{'handoff-story':'Write a narrative about humans and AI working together. Return the original goal and current step outputs.'}};
+  const out=await scheduleCeoRequestViaOpenClawCron(null,opts.preAllocated['handoff-story'],'handoff-owner',opts);
+  assert.equal(out.count,1);assert.deepEqual(out.agentNames,['Story specialist']);
+  const denied=await scheduleCeoRequestViaOpenClawCron(null,'Write a narrative about a company.','handoff-owner',{...opts,restrictToAgentIds:['handoff-other'],preAllocated:{'handoff-other':'Write a narrative about a company.'}});
+  assert.equal(denied.count,0);
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM agent_delegation_tasks').get().n,before);
+  console.log('PASS scoped orchestrator handoff: direct reports, nested reportee, tenant denial, zero persistence/network');
+} finally {globalThis.fetch=nativeFetch;db.close();rmSync(fixture,{recursive:true,force:true});}

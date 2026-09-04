@@ -406,6 +406,7 @@ export function normalizeStepSpec(raw) {
   }
   const nested = raw.spec && typeof raw.spec === "object" ? raw.spec : {};
   const contract = {
+    ...(nested.planner_quality ? { planner_quality: nested.planner_quality } : {}),
     quality_checked: raw.quality_checked === true || nested.quality_checked === true,
     explicit_executor_required:
       raw.explicit_executor_required === true || nested.explicit_executor_required === true,
@@ -744,8 +745,8 @@ async function planGoalStepsAsyncInner(prompt, opts = {}) {
     candidateSteps: assigned,
     onProgress: opts.onProgress,
   });
-  console.info('[goal-run] maker/checker fallback plan accepted', assured.quality);
-  return assured.steps.map(normalizeStepSpec);
+  console.info('[goal-run] maker/checker plan approved', assured.quality);
+  return assured.steps.map(step => normalizeStepSpec({ ...step, spec: { ...step.spec, planner_quality: assured.quality } }));
 }
 
 /**
@@ -1578,14 +1579,7 @@ export function createGoalRun({
     const persistedSpec = { ...(step.spec || {}) };
     ins.run(stepId, id, idx, step.type, step.label || step.type, JSON.stringify(persistedSpec));
   });
-  if (firstStepId) {
-    recordMissionEvent({
-      ownerUserId: owner,
-      goalRunId: id,
-      event_type: 'step_started',
-      payload: { step_id: firstStepId, label: planned[0]?.label || planned[0]?.type },
-    });
-  }
+  // Persisting a plan is not evidence that its first step has started.
 
   console.info('[goal-run] created', { id, owner, agent, steps: planned.length, source });
   return getGoalRun(id, owner);
@@ -4464,6 +4458,9 @@ async function finishGoalPlanningAndStart(opts, planningGoal, { claimed = false 
       steps,
       goalRunId: goalId,
     });
+    // The persisted executable plan replaces the planning placeholder before
+    // releasing this guard. Otherwise the executor blocks its own handoff.
+    activeGoalPlanningRuns.delete(goalId);
     const execution = await withLlmopsContext(
       {
         ownerUserId: goal.owner_user_id,

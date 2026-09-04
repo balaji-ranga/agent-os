@@ -618,7 +618,10 @@ export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage, c
   const notify = persist && opts.notify !== false;
   const scheduleOpenClaw = persist && opts.scheduleOpenClaw !== false;
   const ownerUserId = ceoUserId || getStandupOwnerUserId(standupId);
-  let agents = getAgentsUnderCoo(ownerUserId);
+  const { getAgentsUnderOrchestratorForCeo } = await import('./org-context.js');
+  let agents = opts.parentAgentId
+    ? getAgentsUnderOrchestratorForCeo(ownerUserId, opts.parentAgentId)
+    : getAgentsUnderCoo(ownerUserId);
   const maxAgents = Math.max(1, Math.min(100, Number(opts.maxAgents) || 2));
   const restrict = (opts.restrictToAgentIds || []).map((id) => String(id).toLowerCase()).filter(Boolean);
   if (restrict.length) {
@@ -689,7 +692,7 @@ export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage, c
       const { delegateToOrgMembers } = await import('./org-member-delegation.js');
       const { getCooAgentRow } = await import('./org-context.js');
       externalOutcome = await delegateToOrgMembers(ownerUserId, leafAllocated, {
-        callerAgentId: getCooAgentRow()?.id,
+        callerAgentId: opts.parentAgentId || getCooAgentRow()?.id,
       });
     } catch (e) {
       console.warn('[delegation] external member delegation failed:', e?.message || e);

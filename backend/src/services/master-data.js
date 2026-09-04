@@ -862,7 +862,8 @@ export async function purgeAllUserDocuments(ownerUserId) {
 /**
  * RAG over owner documents via OpenSearch hybrid search + optional LLM summary.
  *
- * `summarize` is opt-in: retrieval is free, the summary costs an LLM call per request.
+ * Retrieved excerpts require a bounded relevance-model check. `summarize` is
+ * opt-in and adds a separate synthesis call.
  * Callers that want a synthesized answer (CEO UI, workflow nodes) pass it explicitly.
  */
 export async function ragDocuments(
@@ -887,7 +888,7 @@ export async function ragDocuments(
     documentId: documentId || undefined,
   });
 
-  const hits = (rawChunks || []).map((c) => ({
+  const candidates = (rawChunks || []).map((c) => ({
     document_id: c.document_id,
     title: c.title,
     filename: c.filename,
@@ -895,6 +896,9 @@ export async function ragDocuments(
     content: c.content,
     score: c.score != null ? Number(c.score) : 0,
   }));
+  const { filterRelevantEvidence } = await import('./retrieval-relevance.js');
+  const vetted = await filterRelevantEvidence(owner, q, candidates);
+  const hits = vetted.chunks;
 
   const contextText = hits
     .map((h, i) => `[${i + 1}] (${h.title || h.filename})\n${h.content}`)
@@ -929,6 +933,7 @@ export async function ragDocuments(
     owner_user_id: owner,
     query: q,
     hit_count: hits.length,
+    relevance: vetted.relevance,
     chunks: hits,
     summary: summary || contextText.slice(0, 2000),
     text: summary || contextText.slice(0, 2000),

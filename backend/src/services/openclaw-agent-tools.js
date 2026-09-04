@@ -75,7 +75,7 @@ export function grantOrchestratorGoalToolsIfMissing() {
   const orchestrators = db
     .prepare(`SELECT id FROM agents WHERE COALESCE(is_orchestrator, 0) = 1 OR is_coo = 1`)
     .all();
-  const tools = ['agent_goal_create', 'agent_goal_list', 'agent_goal_status', 'agent_goal_complete_step'];
+  const tools = ['agent_goal_create', 'agent_goal_list', 'agent_goal_status', 'agent_goal_complete_step', 'intent_classify_and_delegate'];
   const available = contentToolNamesSet();
   const ins = db.prepare('INSERT OR IGNORE INTO agent_tool_grants (agent_id, tool_name) VALUES (?, ?)');
   let added = 0;

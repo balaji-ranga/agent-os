@@ -113,7 +113,7 @@ const BUILTIN_TOOLS = [
     display_name: 'Intent Classify and Delegate',
     endpoint: '/api/tools/intent-classify-and-delegate',
     method: 'POST',
-    purpose: 'API tool (COO only): classify message intent and delegate. Invoke by name with message and optional standup_id. Do not run via exec or shell.',
+    purpose: 'Orchestrator handoff to an enabled company reportee. Pass message (complete current assignment and relevant outputs), target_agent_id (exact Flolah agent ID, optional), and optional standup_id. Owner and caller are authenticated by Flolah. Returns durable task IDs; completion is delivered back to the orchestrator. Use this instead of sessions_send. Do not run via shell.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,

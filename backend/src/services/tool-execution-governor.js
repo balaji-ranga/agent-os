@@ -268,9 +268,18 @@ export function classifyToolObservation({ toolName, httpStatus, data, behaviour 
 
 export function completeToolExecution(action, { httpStatus, data }) {
   const observation = classifyToolObservation({ toolName: action.behaviour.tool_name, httpStatus, data, behaviour: action.behaviour });
+  const redacted = redactForStorage(data);
+  let stored = json(redacted, '{}');
+  if (stored.length > 8000) {
+    // Never truncate JSON mid-string: evidence consumers need a parseable,
+    // bounded source receipt even when the original excerpts are lengthy.
+    stored = json({truncated:true,preview:stored.slice(0,3000),
+      ...(data?.relevance ? {query:String(data.query||'').slice(0,1500),relevance:redacted.relevance,chunks:(redacted.chunks||[]).slice(0,20).map(c=>({document_id:c.document_id,relevance:c.relevance}))} : {}),
+    }, '{}');
+  }
   getDb().prepare(
     `UPDATE tool_execution_actions SET observation_status = ?, reason_code = ?, progress = ?,
        response_summary = ?, completed_at = datetime('now') WHERE id = ?`
-  ).run(observation.status, observation.reason_code, observation.progress ? 1 : 0, json(redactForStorage(data), '{}')?.slice(0, 8000), action.id);
+  ).run(observation.status, observation.reason_code, observation.progress ? 1 : 0, stored, action.id);
   return { ...observation, action_id: action.id, execution_key: action.execution_key, verification_mode: action.behaviour.verification_mode };
 }

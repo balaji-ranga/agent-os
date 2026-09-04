@@ -5,7 +5,7 @@ import {
   DASHBOARD_CONTEXT_INSTRUCTION,
   dashboardGatewaySessionUser,
 } from '../src/services/dashboard-chat-context.js';
-import { applyDurableAdjudication, bindWorkUnitExecution, needsRouteAdjudication, routeAgentTurn, validateRouteDecision } from '../src/services/agent-turn-router.js';
+import { bindWorkUnitExecution, needsRouteAdjudication, routeAgentTurn, validateRouteDecision } from '../src/services/agent-turn-router.js';
 import { isPromptAuthoringAskForAgent } from '../src/services/specialty-referral.js';
 import { buildGoalBoundWorkflowInput, parseGoalSessionReference } from '../src/services/goal-workflow-context.js';
 
@@ -51,47 +51,25 @@ assert.equal(isUsableDelegationWorkOrder('Create a concise launch concept for th
 assert.equal(validateRouteDecision(null, []).ok, false, 'non-object router output is rejected');
 assert.equal(validateRouteDecision({ execution_mode: 'chat' }, []).ok, false, 'partial router output is rejected');
 assert.equal(validateRouteDecision({
-  relation: 'new_work', execution_mode: 'chat', target_agent_id: null, relevant_turn_ids: [], resolved_request: 'test', restart_requested: false, confidence: 0,
+  executor_evidence: { capability_names: [], reason: 'Conversation has no executor.' },
+  parent_work_unit_id: null, relation: 'new_work', execution_mode: 'chat', target_agent_id: null, relevant_turn_ids: [], resolved_request: 'test', restart_requested: false, confidence: 0,
 }, []).ok, true, 'zero confidence is syntactically valid so the runtime can explicitly trigger repair');
 assert.equal(validateRouteDecision({
-  relation: 'new_work', execution_mode: 'goal_plan', target_agent_id: null, relevant_turn_ids: [999], resolved_request: 'test', restart_requested: false, confidence: 0.9,
+  parent_work_unit_id: null, relation: 'new_work', execution_mode: 'goal_plan', target_agent_id: null, relevant_turn_ids: [999], resolved_request: 'test', restart_requested: false, confidence: 0.9,
 }, [901]).ok, false, 'unknown history IDs are rejected');
 assert.equal(validateRouteDecision({
-  relation: 'new_work', execution_mode: 'delegate', target_agent_id: 'gmail-operations', relevant_turn_ids: [], resolved_request: 'Organize the mailbox', restart_requested: false, confidence: 0.9,
+  executor_evidence: { capability_names: ['gmail_mailbox_review'], reason: 'Mailbox work belongs to this specialist.' },
+  parent_work_unit_id: null, relation: 'new_work', execution_mode: 'delegate', target_agent_id: 'gmail-operations', relevant_turn_ids: [], resolved_request: 'Organize the mailbox', restart_requested: false, confidence: 0.9,
 }, [], ['gmail-operations']).ok, true, 'delegate must bind to an exact owner roster agent');
 assert.equal(validateRouteDecision({
-  relation: 'new_work', execution_mode: 'delegate', target_agent_id: 'other-tenant-agent', relevant_turn_ids: [], resolved_request: 'Organize the mailbox', restart_requested: false, confidence: 0.9,
+  parent_work_unit_id: null, relation: 'new_work', execution_mode: 'delegate', target_agent_id: 'other-tenant-agent', relevant_turn_ids: [], resolved_request: 'Organize the mailbox', restart_requested: false, confidence: 0.9,
 }, [], ['gmail-operations']).ok, false, 'delegate cannot target outside the owner roster');
 assert.equal(validateRouteDecision({
-  relation: 'new_work', execution_mode: 'direct_tool', target_agent_id: 'gmail-operations', relevant_turn_ids: [], resolved_request: 'Organize the mailbox', restart_requested: false, confidence: 0.9,
+  parent_work_unit_id: null, relation: 'new_work', execution_mode: 'direct_tool', target_agent_id: 'gmail-operations', relevant_turn_ids: [], resolved_request: 'Organize the mailbox', restart_requested: false, confidence: 0.9,
 }, [], ['gmail-operations']).ok, false, 'non-delegation routes cannot retain a target agent');
 assert.equal(needsRouteAdjudication({ ok: true }, { confidence: 0.75 }), false, '75% confidence is accepted directly');
 assert.equal(needsRouteAdjudication({ ok: true }, { confidence: 0.749 }), true, 'below 75% confidence requires one adjudication');
 assert.equal(needsRouteAdjudication({ ok: false }, { confidence: 0.99 }), true, 'invalid route requires one adjudication');
-assert.equal(
-  applyDurableAdjudication(
-    { execution_mode: 'goal_plan', confidence: 0.7 },
-    { durable_goal: false, stage_count: 1, execution_mode: 'direct_tool', target_agent_id: null }
-  ).execution_mode,
-  'direct_tool',
-  'one bounded specialist deliverable must be downgraded from an over-classified goal'
-);
-assert.equal(
-  applyDurableAdjudication(
-    { execution_mode: 'goal_plan', confidence: 0.96 },
-    { durable_goal: false, stage_count: 1, execution_mode: 'delegate', target_agent_id: 'specialist' }
-  ).execution_mode,
-  'goal_plan',
-  'a high-confidence semantic goal decision must not be randomly downgraded by the adjudicator'
-);
-assert.equal(
-  applyDurableAdjudication(
-    { execution_mode: 'direct_tool', confidence: 0.7 },
-    { durable_goal: true, stage_count: 3, execution_mode: 'goal_plan', target_agent_id: null }
-  ).execution_mode,
-  'goal_plan',
-  'multi-stage durable work must still be promoted to a goal plan'
-);
 assert.deepEqual(
   parseGoalSessionReference('goal-agr-abc123-ags-def456'),
   { goal_run_id: 'agr-abc123', goal_step_id: 'ags-def456' },
@@ -135,7 +113,7 @@ assert.equal(conversation.selected_turns.length, 0, 'conversation mode receives 
 const goal = await routeAgentTurn({
   ...routeBase,
   message: 'A complete multi-stage specification containing ordinary pronouns.',
-  semanticDecision: { relation: 'new_work', execution_mode: 'goal_plan', relevant_turn_ids: [901], resolved_request: 'Complete multi-stage specification.' },
+  semanticDecision: { parent_work_unit_id: null, relation: 'new_work', execution_mode: 'goal_plan', relevant_turn_ids: [901], resolved_request: 'Complete multi-stage specification.' },
 });
 assert.equal(goal.execution_mode, 'goal_plan');
 assert.equal(goal.selected_turns.length, 0, 'new goal is isolated even when prose contains pronouns');

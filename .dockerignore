@@ -27,3 +27,5 @@ npm-debug.log*
 
 # Dev / test artifacts (keep scripts and templates in image)
 agent-os/backend/data/
+tmp/
+backend/tmp/
