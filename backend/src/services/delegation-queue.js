@@ -8,7 +8,7 @@ import { join } from 'path';
 import { getDb } from '../db/schema.js';
 import * as openclaw from '../gateway/openclaw.js';
 import { isPlatformLocalOllama } from './platform-llm-settings.js';
-import { hasAnyActiveDashboardChat } from './tool-owner-scope.js';
+import { hasAnyActiveDashboardChat, registerOpenClawSessionOwner } from './tool-owner-scope.js';
 import { extractOwnerUserIdFromText } from './agent-chat-scope.js';
 import { insertChatTurn } from './chat-history.js';
 import { getActiveLearningPrompt, recordExecutionLearningVersions } from './agent-learning-rollout.js';
@@ -1201,6 +1201,10 @@ export async function processPendingDelegationTasksForCeo(ceoUserId, opts = {}) 
 
     try {
       const isDiscovery = String(task.to_agent_id).toLowerCase() === 'jobdiscovery';
+      registerOpenClawSessionOwner(openclaw.sessionKeyFor(runtimeOcId, sessionUser), ownerForTenant, null, 'delegation', {
+        original_request: task.prompt, resolved_request: task.prompt, delegation_task_id: task.id,
+        goal_run_id: goalIdentity?.goalRunId, goal_step_id: goalIdentity?.goalStepId,
+      });
       const discoveryTimeout = Number(process.env.OPENCLAW_DISCOVERY_TIMEOUT_MS || 900000);
       const { content, usage } = await openclaw.chatCompletions(
         runtimeOcId,

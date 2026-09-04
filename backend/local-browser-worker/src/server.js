@@ -13,7 +13,7 @@ import { chromium } from 'playwright';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
-const WORKER_VERSION = '2.1.1';
+const WORKER_VERSION = '2.1.2';
 const PROTOCOL_VERSION = 1;
 
 function loadEnvFile() {
@@ -500,7 +500,12 @@ async function runAction(action, args = {}) {
       return { ok: true, kind: 'scroll', direction: dir };
     }
     if (kind === 'evaluate' && (req.fn || req.expression || args.fn)) {
-      const result = await p.evaluate(String(req.fn || req.expression || args.fn));
+      const expression = String(req.fn || req.expression || args.fn);
+      const result = await p.evaluate((source) => {
+        const value = (0, eval)(source);
+        return typeof value === 'function' ? value() : value;
+      }, expression);
+      if (result === undefined) throw new Error('Browser evaluation returned no data');
       return { ok: true, kind: 'evaluate', result };
     }
     throw new Error('unsupported act kind: ' + kind);
@@ -508,7 +513,12 @@ async function runAction(action, args = {}) {
   if (act === 'evaluate') {
     const fnBody = String(args.fn || args.expression || '');
     if (!fnBody) throw new Error('fn required');
-    return { ok: true, result: await p.evaluate(fnBody) };
+    const result = await p.evaluate((source) => {
+      const value = (0, eval)(source);
+      return typeof value === 'function' ? value() : value;
+    }, fnBody);
+    if (result === undefined) throw new Error('Browser evaluation returned no data');
+    return { ok: true, result };
   }
   if (act === 'wait') {
     await new Promise((r) => setTimeout(r, Math.min(30000, Number(args.ms || args.timeout || 1500))));

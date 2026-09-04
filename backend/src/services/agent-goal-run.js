@@ -57,6 +57,7 @@ import {
   buildRetrospective,
 } from './goal-plan-runtime.js';
 import { getExceptionPolicy } from './exception-policy.js';
+import { validateStepOutcome, correctionContext } from './step-outcome-validation.js';
 import { getAgentsUnderOrchestratorForCeo } from './org-context.js';
 import { qualityAssureGoalPlan } from './goal-plan-quality.js';
 import { getPlatformTimeoutMs } from './platform-timeout-settings.js';
@@ -3522,6 +3523,9 @@ async function executeSpecialtyTaskStep(goal, step) {
     `- If an essential target, market, geography, audience, account, date range, or other required input is missing, ` +
     `do not guess. Reply with [NEEDS_CLARIFICATION] followed by the smallest specific question(s) needed.\n` +
     `- Otherwise return the concrete completed deliverable, not a future-tense acknowledgement.`;
+  if (Number(step.exception_retry_count || 0) > 0) {
+    message += '\n\n' + correctionContext({ attempt: Number(step.exception_retry_count) + 1, stepId: step.id, error: step.error_message, previousResult: step.result_json });
+  }
   message =
     message +
     `\n\n[goal_run_id: ${goal.id}]\n[goal_step_id: ${step.id}]\n[ceo_user_id: ${goal.owner_user_id}]`;
@@ -3685,16 +3689,24 @@ export async function onDelegationTerminalForGoalRun(taskId) {
   }
   const missingArtifact = requiredArtifact && !artifactRefs.size;
   const kanbanFailed = ['failed', 'cancelled'].includes(String(linkedKanban?.status || '').toLowerCase());
-  const failed = !task || isFailedDelegationOutcome({
+  let outcomeValidation = null;
+  if (task?.status === 'completed' && response && !needsClarification) {
+    outcomeValidation = await validateStepOutcome(
+      { assignment: spec.message || step.label, requiredOutputs: spec.produces, response },
+      (options) => platformChatCompletions({ ...options, ownerUserId: goal.owner_user_id, toolName: 'goal_outcome_validation', responseFormat: 'json_object', thinkingMode: 'disabled', temperature: 0 })
+    );
+  }
+  const failed = outcomeValidation?.satisfied === false || !task || isFailedDelegationOutcome({
     delegationStatus: task?.status,
     kanbanStatus: linkedKanban?.status,
     needsClarification,
     missingArtifact,
   });
-  const contractError = missingArtifact
+  const contractError = outcomeValidation?.satisfied === false ? outcomeValidation.reason : missingArtifact
     ? `Specialty response did not satisfy required artifact output ${requiredArtifact.key}: no real file or URL was returned`
     : null;
   const result = {
+    outcome_validation: outcomeValidation,
     delegation_task_id: Number(taskId),
     status: task?.status || 'missing',
     kanban_task_id: linkedKanban?.id || null,

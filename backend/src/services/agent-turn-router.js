@@ -173,9 +173,10 @@ export function buildRouterInput({ ownerUserId, agent, message, history = [] }) 
   };
 }
 
-export async function routeAgentTurn({ ownerUserId, agent, sessionId, message, history = [], semanticDecision = null }) {
+export async function routeAgentTurn({ ownerUserId, agent, sessionId, message, history = [], semanticDecision = null, replyToMessageId = null }) {
   ensureAgentTurnRouterSchema();
   const routeInput = buildRouterInput({ ownerUserId, agent, message, history });
+  if (replyToMessageId) routeInput.explicit_reply_to_message_id = replyToMessageId;
   const { organization, candidate_turns: candidates } = routeInput;
   const systemPrompt = `${ROUTER_SYSTEM}\n${routeContractPrompt(organization.map(member => member.id))}`;
   let parsed = semanticDecision && typeof semanticDecision === 'object' ? semanticDecision : null;
@@ -275,12 +276,13 @@ export async function routeAgentTurn({ ownerUserId, agent, sessionId, message, h
     throw error;
   }
 
-  const relation = RELATIONS.has(String(parsed?.relation)) ? String(parsed.relation) : 'new_work';
+  const explicitReply = replyToMessageId && candidates.some(t => t.id === replyToMessageId);
+  const relation = explicitReply ? 'follow_up' : RELATIONS.has(String(parsed?.relation)) ? String(parsed.relation) : 'new_work';
   let executionMode = MODES.has(String(parsed?.execution_mode)) ? String(parsed.execution_mode) : 'chat';
   const allowedIds = new Set(candidates.map((t) => t.id));
   const selectedIds = relation === 'new_work' || relation === 'conversation'
     ? []
-    : [...new Set((Array.isArray(parsed?.relevant_turn_ids) ? parsed.relevant_turn_ids : [])
+    : [...new Set([...(explicitReply ? [replyToMessageId] : []), ...(Array.isArray(parsed?.relevant_turn_ids) ? parsed.relevant_turn_ids : [])]
         .map(Number).filter((id) => Number.isFinite(id) && allowedIds.has(id)))];
   const selectedTurns = history.filter((t) => selectedIds.includes(Number(t.id)));
   // Never let a router paraphrase remove safety constraints from fresh work.

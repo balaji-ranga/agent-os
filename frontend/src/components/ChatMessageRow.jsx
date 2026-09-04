@@ -24,6 +24,7 @@ export default function ChatMessageRow({
   style = {},
   agentId = null,
   messageId = null,
+  onReply = null,
   feedbackSource = 'chat',
   feedbackContext = {},
   showFeedback = true,
@@ -83,6 +84,9 @@ export default function ChatMessageRow({
           <time dateTime={createdAt} style={{ fontSize: '0.7rem', color: 'var(--muted)' }} title={createdAt}>
             {formatChatTimestamp(createdAt)}
           </time>
+        )}
+        {onReply && Number.isSafeInteger(Number(messageId)) && Number(messageId) > 0 && (
+          <button type="button" onClick={() => onReply(messageId, content)} title={`Reply to message ${messageId}`}>Reply</button>
         )}
       </div>
       {attachments.length > 0 && <ChatMessageAttachments attachments={attachments} />}

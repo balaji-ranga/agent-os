@@ -13,6 +13,7 @@ import {
   userCanAccessAgent,
 } from '../services/agent-chat-scope.js';
 import { registerOpenClawSessionOwner, registerActiveDashboardChat, clearActiveDashboardChat } from '../services/tool-owner-scope.js';
+import { resolveChatReply, workUnitBrowserEvidence } from '../services/chat-reply-context.js';
 import * as openclaw from '../gateway/openclaw.js';
 import { tryTriggerWorkflowFromChat } from '../services/agent-workflow-runner.js';
 import * as workspace from '../workspace/adapter.js';
@@ -868,14 +869,26 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
       generateTitle: true,
     });
     const activeHistory = listActiveSessionTurns(agentId, ownerUserId, { limit: 24 }).turns;
+    const replyId = req.body?.reply_to_message_id || message.match(/^\[reply_to_message_id:(\d+)\]/)?.[1];
+    let replyContext = '';
+    let replyTurns = [];
+    if (replyId) {
+      const referenced = resolveChatReply(db(), { messageId: replyId, ownerUserId, agentId });
+      if (!referenced) return res.status(404).json({ error: 'Referenced message is unavailable in this conversation' });
+      replyContext = referenced.context;
+      replyTurns = referenced.turns;
+    }
     const turnRoute = await routeAgentTurn({
       ownerUserId,
       agent,
       sessionId: ensuredSession.session.id,
-      message: message.trim(),
-      history: activeHistory,
+      message: message.trim() + replyContext,
+      history: replyTurns.length ? replyTurns : activeHistory,
+      replyToMessageId: replyId ? Number(replyId) : null,
     });
-    const routedMessage = turnRoute.resolved_request || message.trim();
+    const resolvedMessage = turnRoute.resolved_request || message.trim();
+    const routedMessage = (resolvedMessage.includes(replyContext) ? resolvedMessage : resolvedMessage + replyContext)
+      + workUnitBrowserEvidence(db(), ownerUserId, turnRoute.parent_work_unit_id);
     const routeLabels = {
       goal_plan: ['planning', 'Preparing a goal plan'],
       delegate: ['delegation', 'Selecting the right specialist'],
@@ -1139,7 +1152,9 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     // history repeatedly or resuming stale tool state from an earlier request.
     const sessionUser = dashboardGatewaySessionUser(agentId, ownerUserId, threadId);
     const sessionKey = openclaw.sessionKeyFor(openclawAgentId, sessionUser);
-    registerOpenClawSessionOwner(sessionKey, ownerUserId, req.authUser.id, 'web');
+    registerOpenClawSessionOwner(sessionKey, ownerUserId, req.authUser.id, 'web', {
+      original_request: message.trim(), resolved_request: routedMessage, work_unit_id: turnRoute.id,
+    });
     registerActiveDashboardChat(agentId, ownerUserId, routedMessage);
     const isDiscovery = String(agentId).toLowerCase() === 'jobdiscovery';
     const discoveryTimeout = Number(process.env.OPENCLAW_DISCOVERY_TIMEOUT_MS || 900000);
@@ -1227,7 +1242,8 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
           openclaw.sessionKeyFor(openclawAgentId, retrySessionUser),
           ownerUserId,
           req.authUser.id,
-          'web'
+          'web',
+          { original_request: message.trim(), resolved_request: routedMessage, work_unit_id: turnRoute.id }
         );
         ({ content: reply, usage } = await withLlmopsContext(
           {

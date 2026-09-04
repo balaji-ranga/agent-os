@@ -64,15 +64,22 @@ function pruneSessionOwners() {
   }
 }
 
-export function registerOpenClawSessionOwner(sessionKey, ownerUserId, actorUserId = null, channel = null) {
+export function registerOpenClawSessionOwner(sessionKey, ownerUserId, actorUserId = null, channel = null, executionContext = null) {
   if (!sessionKey || !ownerUserId) return;
   pruneSessionOwners();
   sessionOwnerRegistry.set(String(sessionKey), {
     ownerUserId: String(ownerUserId).trim(),
     actorUserId: actorUserId ? String(actorUserId).trim() : null,
     channel: channel ? String(channel).trim().toLowerCase() : null,
+    executionContext,
     expiresAt: Date.now() + SESSION_OWNER_TTL_MS,
   });
+}
+
+export function lookupSessionExecutionContext(sessionKey, ownerUserId) {
+  pruneSessionOwners();
+  const row = sessionOwnerRegistry.get(String(sessionKey || ''));
+  return row?.ownerUserId === String(ownerUserId) ? row.executionContext : null;
 }
 
 /** Trusted human attached by the authenticated Dashboard chat route. */

@@ -13,7 +13,7 @@ import { getDb } from '../db/schema.js';
 import * as meta from '../services/content-tools-meta.js';
 import { assertCallerMayUseTool, getAgentToolGrants } from '../services/openclaw-agent-tools.js';
 import { parseTenantOpenClawAgentId, resolveAgentFromOpenClawCallerId } from '../services/openclaw-tenant.js';
-import { resolveOwnerFromOpenClawSession, lookupOpenClawSessionActor, lookupActiveDashboardChat } from '../services/tool-owner-scope.js';
+import { resolveOwnerFromOpenClawSession, lookupOpenClawSessionActor, lookupActiveDashboardChat, lookupSessionExecutionContext } from '../services/tool-owner-scope.js';
 import { resolveChannelActor, loadCompanyActor } from '../services/channel-user-identity.js';
 import { executeKanbanUserAction } from '../services/kanban-user-actions.js';
 import { withLlmopsContext, getLlmopsContext, inferTraceId } from '../services/llmops-context.js';
@@ -3872,8 +3872,22 @@ router.post('/browse-task-start', optionalAuth, async (req, res) => {
       }
     }
     const ownerUserId = resolveToolOwnerUserId(req, requestPayload);
+    const executionContext = lookupSessionExecutionContext(
+      req.headers['x-openclaw-session-key'] || req.headers['x-session-key'], ownerUserId
+    );
     const task = await startBrowserTask(ownerUserId, {
       ...requestPayload,
+      ...(executionContext ? {
+        input: { ...requestPayload.input, work_unit_id: executionContext.work_unit_id || null },
+        goal_run_id: executionContext.goal_run_id || requestPayload.goal_run_id,
+        goal_step_id: executionContext.goal_step_id || requestPayload.goal_step_id,
+      } : {}),
+      ...(executionContext ? { goal: [
+        'Original user request (preserve its outcomes and constraints):', executionContext.original_request,
+        'Resolved conversation context:', executionContext.resolved_request,
+        'Browser-specific assignment:', requestPayload.goal || requestPayload.goal_text || '',
+        'Perform only browser work relevant to this assignment. Do not execute unrelated actions from the broader request.',
+      ].join('\n') } : {}),
       agent_id: source || requestPayload.agent_id || 'workflowbuilder',
     });
     logTool(req, 'browse_task_start', requestPayload, { ok: true, id: task.id }, 'ok', source);

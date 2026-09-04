@@ -247,7 +247,7 @@ export const api = {
       mode,
     }),
   agentChatSend: (id, message, userId = 'default', profileId = null, options = {}) => {
-    const { clientTurnId, ...requestOptions } = options || {};
+    const { clientTurnId, replyToMessageId, ...requestOptions } = options || {};
     const tz =
       typeof Intl !== 'undefined'
         ? Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
@@ -260,6 +260,7 @@ export const api = {
         tz,
         ...(profileId ? { profile_id: profileId } : {}),
         ...(clientTurnId ? { client_turn_id: clientTurnId } : {}),
+        ...(replyToMessageId ? { reply_to_message_id: replyToMessageId } : {}),
       },
       requestOptions
     );

@@ -30,6 +30,8 @@ import {
   substituteRecipeInputs,
 } from './browser-recipes.js';
 import { storeFeedback } from './agent-feedback.js';
+import { getExceptionPolicy } from './exception-policy.js';
+import { correctionContext } from './step-outcome-validation.js';
 import { assertUrlAllowed } from './browser-url-policy.js';
 import {
   extractPublishBody,
@@ -936,6 +938,7 @@ Schema: {"action":"click|type|press|scroll|open|screenshot|done|wait_login|wait_
 Rules:
 - Prefer refs from the CURRENT accessibility snapshot only. Never reuse a ref that just failed.
 - If recent steps show act_failed / not found, pick a different control or use text of the control label if the schema allows (put label in reason and leave ref empty to try freeform).
+- If completion_verification rejected the last attempt, follow the correction instruction in history: perform only missing work, preserve successful results, and do not repeat completed side effects.
 - On flight search results (prices/airlines visible), action=done and put top options in summary (airline, stops, duration, price ascending). Do not book.
 - wait_login if a login wall blocks the goal (Sign in / Join / password form).
 - wait_approval only for pay, purchase, bank transfer, or sending money — NOT for social post Publish after the goal already says publish/post the copy.
@@ -1054,7 +1057,9 @@ async function verifyGoalCompletion({ ceoUserId, goal, plan, snapshot, history, 
           content:
             'Independently verify whether a browser goal is complete. Reply with only JSON: ' +
             '{"satisfied":true|false,"reason":"","evidence":[""],"missing_evidence":[""]}. ' +
-            'Require observable evidence from the snapshot and action history. Reject unsupported success claims.',
+            'Require observable evidence from the snapshot and action history. Reject unsupported success claims. ' +
+            'Tab cleanup is performed by the backend after verified completion, so it need not appear in pre-completion evidence. ' +
+            'For data extraction, require the requested values in the proposed summary, not merely a claim that the page opened.',
         },
         {
           role: 'user',
@@ -1616,6 +1621,10 @@ export function structuredReadOnlyDocumentEvidence(text) {
     try {
       const value = JSON.parse(candidate);
       if (value == null || typeof value !== 'object') continue;
+      // Worker control envelopes are not website content. In particular an
+      // undefined evaluate result disappears during JSON serialization.
+      if (!Array.isArray(value) && value.kind === 'evaluate' && 'ok' in value) continue;
+      if (!Array.isArray(value) && Object.keys(value).every((key) => ['ok', 'result_state'].includes(key))) continue;
       const keys = Array.isArray(value) ? value.length : Object.keys(value).length;
       if (!keys) continue;
       return {
@@ -1926,18 +1935,15 @@ async function runAutonomous(ceoUserId, taskId) {
         await summarizeGoalFromSnapshot(ceoUserId, task.goal_text, structured.text),
         task
       );
-      const verification = {
-        satisfied: true,
-        reason: 'The requested read-only structured document was retrieved and parsed successfully.',
-        evidence: [structured.kind, task.start_url],
-        verifier: 'deterministic_structured_document',
-      };
+      const verification = await verifyGoalCompletion({ ceoUserId, goal: task.goal_text,
+        plan: executionPlan, snapshot: structured.text, history: steps, proposedSummary: summary });
       steps.push({
         t: nowIso(),
         action: 'structured_document_retrieved',
         chars: structured.text.length,
         verification,
       });
+      if (verification.satisfied) {
       updateTask(ceoUserId, taskId, {
         status: 'completed',
         result: {
@@ -1957,6 +1963,7 @@ async function runAutonomous(ceoUserId, taskId) {
       });
       console.info('[browser-task] deterministic structured document id=%s chars=%s', taskId, structured.text.length);
       return;
+      }
     }
     if (combined.length > 800) {
       const summary = completedTaskSummary(
@@ -1964,6 +1971,10 @@ async function runAutonomous(ceoUserId, taskId) {
         task
       );
       steps.push({ t: nowIso(), action: 'early_summarize', chars: combined.length, dom_chars: domText.length });
+      const verification = await verifyGoalCompletion({ ceoUserId, goal: task.goal_text,
+        plan: executionPlan, snapshot: combined, history: steps, proposedSummary: summary });
+      steps.push({ t: nowIso(), action: 'completion_verification', verification });
+      if (verification.satisfied) {
       updateTask(ceoUserId, taskId, {
         status: 'completed',
         result: { summary, note: 'early_page_summarize', steps: steps.length },
@@ -1977,6 +1988,7 @@ async function runAutonomous(ceoUserId, taskId) {
       });
       console.info('[browser-task] early page summarize id=%s chars=%s', taskId, combined.length);
       return;
+      }
     }
   } else if (task.start_url && goalLooksInteractive(task.goal_text)) {
     console.info(
@@ -2136,13 +2148,10 @@ async function runAutonomous(ceoUserId, taskId) {
             decision.summary || (await summarizeGoalFromSnapshot(ceoUserId, task.goal_text, structured.text)),
             task
           );
-          const verification = {
-            satisfied: true,
-            reason: 'The requested read-only structured document was retrieved and parsed successfully.',
-            evidence: [structured.kind, task.start_url || 'current page'],
-            verifier: 'deterministic_structured_document',
-          };
+          const verification = await verifyGoalCompletion({ ceoUserId, goal: task.goal_text,
+            plan: executionPlan, snapshot: structured.text, history: steps, proposedSummary: summary });
           steps.push({ t: nowIso(), action: 'structured_document_retrieved', verification });
+          if (verification.satisfied) {
           updateTask(ceoUserId, taskId, {
             status: 'completed',
             result: { summary, note: 'structured_document_retrieved', verification, structured_data: structured.value, steps: steps.length },
@@ -2153,6 +2162,7 @@ async function runAutonomous(ceoUserId, taskId) {
             rating: 'up', comment: summary, note: 'structured_document_retrieved',
           });
           return;
+          }
         }
       }
       await sleep(800);
@@ -2183,7 +2193,7 @@ async function runAutonomous(ceoUserId, taskId) {
           (entry) => entry.action === 'completion_verification' && entry.verification?.satisfied === false
         ).length;
         updateTask(ceoUserId, taskId, { steps });
-        if (verification.hard_guard || rejected >= 3) {
+        if (verification.hard_guard || rejected > getExceptionPolicy(ceoUserId).retry_limit) {
           const reason = verification.reason || 'Goal completion could not be verified.';
           updateTask(ceoUserId, taskId, {
             status: 'failed',
@@ -2203,6 +2213,8 @@ async function runAutonomous(ceoUserId, taskId) {
           });
           return;
         }
+        steps.push({ t: nowIso(), action: 'correction', instruction: correctionContext({ attempt: rejected + 1, stepId: taskId, error: verification.reason, previousResult: JSON.stringify(verification) }) });
+        updateTask(ceoUserId, taskId, { steps });
         await sleep(800);
         continue;
       }

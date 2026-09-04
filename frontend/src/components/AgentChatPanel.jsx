@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { api } from '../api';
 import ChatMessageRow from './ChatMessageRow';
+import ChatReplyPreview from './ChatReplyPreview';
 import ChatComposeInput from './ChatComposeInput';
 import { useAuth } from '../context/AuthContext';
 import { buildMessageWithAttachments, uploadChatAttachments, buildDisplayAttachmentsFromFiles, revokeAttachmentPreviews } from '../utils/chatAttachments.js';
@@ -20,6 +21,7 @@ export default function AgentChatPanel({
   const { dataCeoUserId } = useAuth();
   const [turns, setTurns] = useState([]);
   const [input, setInput] = useState('');
+  const [replyTo, setReplyTo] = useState(null);
   const [attachments, setAttachments] = useState([]);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState(null);
@@ -51,6 +53,7 @@ export default function AgentChatPanel({
 
   useEffect(() => {
     if (!agentId) return;
+    setReplyTo(null);
     api
       .agentChatHistory(agentId)
       .then((r) => setTurns(Array.isArray(r) ? r : r.turns || []))
@@ -109,7 +112,9 @@ export default function AgentChatPanel({
       const r = await api.agentChatSend(agentId, outbound, dataCeoUserId || 'default', profileId, {
         signal: controller.signal,
         clientTurnId,
+        replyToMessageId: replyTo?.id,
       });
+      setReplyTo(null);
       const reply = r.reply;
       setTurns((prev) => [
         ...prev,
@@ -120,6 +125,7 @@ export default function AgentChatPanel({
           tool_calls: r.tool_calls || [],
         },
       ]);
+      api.agentChatHistory(agentId).then(history => setTurns(Array.isArray(history) ? history : history.turns || [])).catch(() => {});
       if (speakReply && reply && !calling) {
         playAssistantSpeech(reply);
       }
@@ -190,6 +196,7 @@ export default function AgentChatPanel({
         )}
         {turns.map((t, i) => (
           <ChatMessageRow
+                    onReply={(id, content) => setReplyTo({ id, content })}
             key={t.id || i}
             role={t.role}
             content={t.content}
@@ -236,6 +243,7 @@ export default function AgentChatPanel({
           ))}
         </div>
       )}
+      <ChatReplyPreview reply={replyTo} onClear={() => setReplyTo(null)} />
       <form onSubmit={send} style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-end' }}>
         <ChatComposeInput
           placeholder={`${placeholder} (Shift+Enter for new line)`}

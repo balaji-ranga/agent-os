@@ -3,6 +3,7 @@ import { useParams, Link, useSearchParams, useNavigate, useLocation } from 'reac
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import ChatMessageRow from '../components/ChatMessageRow';
+import ChatReplyPreview from '../components/ChatReplyPreview';
 import ChatComposeInput from '../components/ChatComposeInput';
 import BrowserTasksLive from '../components/BrowserTasksLive';
 import RobotAvatar from '../components/RobotAvatar.jsx';
@@ -324,6 +325,8 @@ export default function AgentChat() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [restoreBusyId, setRestoreBusyId] = useState(null);
   const [input, setInput] = useState('');
+  const [replyTo, setReplyTo] = useState(null);
+  useEffect(() => setReplyTo(null), [agentId]);
   const [attachments, setAttachments] = useState([]);
   const [sending, setSending] = useState(false);
   const [clearing, setClearing] = useState(false);
@@ -599,7 +602,9 @@ export default function AgentChat() {
       const r = await api.agentChatSend(agentId, outbound, dataCeoUserId || 'default', profileId, {
         signal: controller.signal,
         clientTurnId,
+        replyToMessageId: replyTo?.id,
       });
+      setReplyTo(null);
       if (r.session_reset?.auto_split) {
         revokeAttachmentPreviews(displayAttachments);
         setTurns([]);
@@ -1052,6 +1057,7 @@ export default function AgentChat() {
                 )}
                 {turns.map((t, i) => (
                   <ChatMessageRow
+                    onReply={(id, content) => setReplyTo({ id, content })}
                     key={t.id || i}
                     role={t.role}
                     content={t.content}
@@ -1076,6 +1082,7 @@ export default function AgentChat() {
               </div>
 
               <form onSubmit={send} style={{ flexShrink: 0 }}>
+                <ChatReplyPreview reply={replyTo} onClear={() => setReplyTo(null)} />
                 <div className="chat-compose-row">
                   <ChatComposeInput
                     placeholder={`Message ${agentLabel}…`}
@@ -1263,6 +1270,7 @@ export default function AgentChat() {
               )}
               {turns.map((t, i) => (
                 <ChatMessageRow
+                  onReply={(id, content) => setReplyTo({ id, content })}
                   key={t.id || i}
                   role={t.role}
                   content={t.content}
@@ -1287,6 +1295,7 @@ export default function AgentChat() {
             </div>
 
             <form onSubmit={send} style={{ flexShrink: 0 }}>
+              <ChatReplyPreview reply={replyTo} onClear={() => setReplyTo(null)} />
               <div className="chat-compose-row">
                 <ChatComposeInput
                   placeholder="Message… (Shift+Enter for new line)"
