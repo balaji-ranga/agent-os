@@ -1,5 +1,14 @@
 # Agent OS — Container deployment
 
+## Embeddings CPU quota
+
+The embeddings service defaults to a two-core Docker CPU quota via
+`EMBEDDING_CPU_LIMIT=2.0` in Compose. Override this value in the deployment
+environment when capacity permits. Recreate only `embeddings` with the canonical
+VPS Compose overlays to apply it; no image rebuild or backend restart is needed.
+The quota bounds aggregate CPU usage, not CPU affinity or memory. Heavy embedding
+requests can take longer. Ollama has a separate workload and is unchanged by this setting.
+
 Production stack for Agent OS: **nginx**, **frontend**, **backend**, **OpenClaw gateway**, **OpenSearch** (+ Dashboards BFF), plus optional **init**, **MCP**, **OpenConnector**, **Ollama**, and **browser-login** services.
 
 Open-source licenses and NOTICE text: repository root [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md). Public summary: `/legal/open-source.html`.

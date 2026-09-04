@@ -854,6 +854,8 @@ services:
       dockerfile: deploy/docker/qwen-embeddings.Dockerfile
     image: agent-os-qwen-embeddings:${IMAGE_TAG:-latest}
     restart: unless-stopped
+    # Bound CPU consumption on shared VPS hosts; persists across recreates.
+    cpus: ${EMBEDDING_CPU_LIMIT:-2.0}
     environment:
       EMBEDDING_MODEL_ID: ${EMBEDDING_MODEL_ID:-Qwen/Qwen3-Embedding-0.6B}
       EMBEDDING_PORT: "8080"
