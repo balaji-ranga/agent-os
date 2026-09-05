@@ -45,6 +45,9 @@ function MasterDataPanel() {
   const [docTags, setDocTags] = useState('');
   const [queryText, setQueryText] = useState('');
   const [ragResult, setRagResult] = useState(null);
+  const [ragBusy, setRagBusy] = useState(false);
+  const [inboundIndexingPath, setInboundIndexingPath] = useState(null);
+  const [inboundIndexResults, setInboundIndexResults] = useState({});
   const [tableQuery, setTableQuery] = useState('');
   const [queryActive, setQueryActive] = useState(false);
   const [queryOffset, setQueryOffset] = useState(0);
@@ -211,15 +214,16 @@ function MasterDataPanel() {
   const runRag = async (e) => {
     e.preventDefault();
     if (!queryText.trim()) return;
-    setBusy(true);
+    setRagBusy(true);
     setError(null);
+    setRagResult(null);
     try {
       const res = await api.masterDataRag({ query: queryText.trim(), topK: 5 });
       setRagResult(res);
     } catch (err) {
       setError(err.message);
     } finally {
-      setBusy(false);
+      setRagBusy(false);
     }
   };
 
@@ -944,14 +948,41 @@ function MasterDataPanel() {
           <form onSubmit={runRag} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <strong style={{ fontSize: '0.85rem' }}>RAG query</strong>
             <input style={fieldStyle} placeholder="Ask across your documents…" value={queryText} onChange={(e) => setQueryText(e.target.value)} />
-            <button type="submit" disabled={busy || !queryText.trim()} style={{ padding: '0.5rem', borderRadius: 6, border: 'none', background: 'var(--accent)', color: '#fff' }}>
-              Run RAG
+            <button type="submit" disabled={ragBusy || !queryText.trim()} style={{ padding: '0.5rem', borderRadius: 6, border: 'none', background: 'var(--accent)', color: '#fff' }}>
+              {ragBusy ? 'Searching…' : 'Run RAG'}
             </button>
           </form>
+          {ragBusy && (
+            <div role="status" aria-live="polite" style={{ marginTop: '0.75rem', color: 'var(--muted)', fontSize: '0.85rem' }}>
+              Searching indexed documents and checking relevance…
+            </div>
+          )}
           {ragResult && (
-            <pre style={{ marginTop: '0.75rem', whiteSpace: 'pre-wrap', fontSize: '0.8rem', background: 'var(--bg, #121216)', padding: '0.75rem', borderRadius: 8, maxHeight: 240, overflow: 'auto' }}>
-              {ragResult.summary || ragResult.text}
-            </pre>
+            <div role="status" aria-live="polite" style={{ marginTop: '0.75rem', border: '1px solid var(--border)', borderRadius: 8, padding: '0.75rem' }}>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: '0.5rem', fontSize: '0.8rem', color: 'var(--muted)' }}>
+                <strong style={{ color: 'var(--text)' }}>RAG response</strong>
+                <span>{ragResult.hit_count ?? (ragResult.chunks || []).length} hit(s)</span>
+                <span>Relevance: {ragResult.relevance?.status || 'not reported'}</span>
+              </div>
+              {(ragResult.summary || ragResult.text) ? (
+                <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontSize: '0.8rem', background: 'var(--bg, #121216)', color: 'var(--text)', padding: '0.75rem', borderRadius: 8, maxHeight: 320, overflow: 'auto' }}>
+                  {ragResult.summary || ragResult.text}
+                </pre>
+              ) : (ragResult.chunks || []).length ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {ragResult.chunks.map((chunk, index) => (
+                    <div key={`${chunk.document_id || 'chunk'}-${chunk.chunk_index ?? index}`} style={{ background: 'var(--bg)', borderRadius: 6, padding: '0.65rem', fontSize: '0.8rem' }}>
+                      <strong>{chunk.title || chunk.filename || `Result ${index + 1}`}</strong>
+                      <div style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{chunk.content}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>
+                  No relevant indexed evidence was found for this query.
+                </div>
+              )}
+            </div>
           )}
         </section>
       </div>
@@ -1058,39 +1089,57 @@ function MasterDataPanel() {
                   Download
                 </button>
                 {f.rag_indexable && (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={async () => {
-                      setBusy(true);
-                      setError(null);
-                      try {
-                        const res = await api.masterDataDocumentFromInbound({
-                          relative_path: f.relative_path,
-                          title: f.filename,
-                        });
-                        await refresh();
-                        flash(
-                          `Indexed ${res.document?.filename || f.filename} (${res.document?.chunk_count || 0} chunks)`
-                        );
-                      } catch (err) {
-                        setError(err.message);
-                      } finally {
-                        setBusy(false);
-                      }
-                    }}
-                    style={{
-                      background: 'var(--accent)',
-                      border: 'none',
-                      borderRadius: 6,
-                      color: '#fff',
-                      cursor: 'pointer',
-                      fontSize: '0.75rem',
-                      padding: '0.25rem 0.5rem',
-                    }}
-                  >
-                    Index to RAG
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      disabled={inboundIndexingPath === f.relative_path}
+                      onClick={async () => {
+                        setInboundIndexingPath(f.relative_path);
+                        setInboundIndexResults((current) => ({ ...current, [f.relative_path]: null }));
+                        setError(null);
+                        try {
+                          const res = await api.masterDataDocumentFromInbound({
+                            relative_path: f.relative_path,
+                            title: f.filename,
+                          });
+                          const result = {
+                            ok: true,
+                            filename: res.document?.filename || f.filename,
+                            chunks: res.document?.chunk_count || 0,
+                          };
+                          setInboundIndexResults((current) => ({ ...current, [f.relative_path]: result }));
+                          await refresh();
+                          flash(`Indexed ${result.filename} (${result.chunks} chunks)`);
+                        } catch (err) {
+                          setInboundIndexResults((current) => ({ ...current, [f.relative_path]: { ok: false, error: err.message } }));
+                          setError(err.message);
+                        } finally {
+                          setInboundIndexingPath(null);
+                        }
+                      }}
+                      style={{
+                        background: 'var(--accent)',
+                        border: 'none',
+                        borderRadius: 6,
+                        color: '#fff',
+                        cursor: inboundIndexingPath === f.relative_path ? 'wait' : 'pointer',
+                        fontSize: '0.75rem',
+                        padding: '0.25rem 0.5rem',
+                      }}
+                    >
+                      {inboundIndexingPath === f.relative_path ? 'Indexing…' : 'Index to RAG'}
+                    </button>
+                    {inboundIndexResults[f.relative_path]?.ok && (
+                      <span role="status" style={{ color: '#22c55e', fontSize: '0.75rem' }}>
+                        Indexed · {inboundIndexResults[f.relative_path].chunks} chunk(s)
+                      </span>
+                    )}
+                    {inboundIndexResults[f.relative_path]?.ok === false && (
+                      <span role="alert" style={{ color: '#f87171', fontSize: '0.75rem' }}>
+                        Index failed: {inboundIndexResults[f.relative_path].error}
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
             </li>
