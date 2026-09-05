@@ -9,6 +9,7 @@ const { runGoalPlanRounds, validateCoverage } = await import('../src/services/go
 const { applyRelevanceVerdict, filterRelevantEvidence, RELEVANCE_PROMPT } = await import('../src/services/retrieval-relevance.js');
 const { getDb } = await import('../src/db/schema.js');
 const { assessRetrievedWrite } = await import('../src/services/retrieval-write-guard.js');
+const { expandLexicalQuery } = await import('../src/services/opensearch/documents.js');
 let checks = 0;
 function check(label, fn) { fn(); checks++; console.log('PASS ' + label); }
 const prompt = 'Find relevant businesses, create verified leads, and save email drafts.';
@@ -20,6 +21,7 @@ const response = value => ({content:JSON.stringify(value),modelUsed:'fixture'});
 const base = {prompt,normalize:JSON.parse,validate: value=>({ok:value.every(x=>x.key),errors:['invalid key']})};
 try {
   check('product help is valid evidence for product how-to tasks',()=>assert.match(RELEVANCE_PROMPT,/valid evidence when the task itself asks how to use that product/i));
+  check('lexical RAG expands common plurals',()=>{assert.match(expandLexicalQuery('policies document'),/\bpolicy\b/);assert.match(expandLexicalQuery('contracts'),/\bcontract\b/);});
   let makerCalls=0, checkerCalls=0;
   const first=await runGoalPlanRounds({...base,make:async()=>{makerCalls++;return response(steps);},check:async()=>{checkerCalls++;return response(approved);}});
   check('complete plan exits after first approval',()=>{assert.equal(makerCalls,1);assert.equal(checkerCalls,1);assert.equal(first.quality.llm_maker_checker_succeeded,true);});

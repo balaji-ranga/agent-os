@@ -41,6 +41,16 @@ function normalizeTags(tags) {
   return [...new Set(tags.map((t) => String(t || '').trim()).filter(Boolean))];
 }
 
+export function expandLexicalQuery(query) {
+  const tokens = String(query || '').trim().split(/\s+/).filter(Boolean);
+  const variants = [];
+  for (const token of tokens) {
+    if (/^[\p{L}]+ies$/iu.test(token) && token.length > 4) variants.push(token.slice(0, -3) + 'y');
+    else if (/^[\p{L}]+s$/iu.test(token) && !/ss$/i.test(token) && token.length > 3) variants.push(token.slice(0, -1));
+  }
+  return [...new Set([...tokens, ...variants])].join(' ');
+}
+
 /**
  * Map an OpenSearch meta hit to the API shape used by the old SQLite mapDoc.
  * @param {object} hit
@@ -384,8 +394,10 @@ export async function searchDocuments(ownerUserId, { query, topK = 8, documentId
   if (q) {
     should.push({
       multi_match: {
-        query: q,
-        fields: ['content^2', 'title', 'filename', 'tags^1.5'],
+        query: expandLexicalQuery(q),
+        fields: ['content^2', 'title^2', 'filename', 'tags^1.5'],
+        fuzziness: 'AUTO',
+        prefix_length: 2,
       },
     });
     if (q.length >= 3 && q.length <= 80 && !/\s/.test(q) && /^[\p{L}\p{N}_.@+-]+$/u.test(q)) {
