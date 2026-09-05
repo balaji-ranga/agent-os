@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { useNotifications } from '../context/NotificationContext';
 import { formatChatTimestamp } from '../utils/formatDateTime';
+import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 
 const PANEL_WIDTH = 320;
 const PANEL_MAX_HEIGHT = 360;
@@ -38,8 +39,9 @@ function NotificationLink({ href, onNavigate, children }) {
 }
 
 export default function NotificationBell({ compact = false }) {
-  const { notifications, markPlatformRead, dismissAgentNotifications, clearAll } = useNotifications();
+  const { notifications, markPlatformRead, dismissAgentNotifications, clearAll, hasMoreNotifications, loadingMoreNotifications, loadMoreNotifications } = useNotifications();
   const [open, setOpen] = useState(false);
+  const notificationSentinelRef = useInfiniteScroll(loadMoreNotifications, open && hasMoreNotifications && !loadingMoreNotifications);
   const [panelPos, setPanelPos] = useState(null);
   const buttonRef = useRef(null);
 
@@ -109,7 +111,7 @@ export default function NotificationBell({ compact = false }) {
                 <div className="notification-overlay-empty">No unread notifications (last 3 days).</div>
               ) : (
                 <div className="notification-overlay-list">
-                  {notifications.slice(0, 20).map((n) => (
+                  {notifications.map((n) => (
                     <div key={n.feedId} className="notification-overlay-item">
                       {n.kind === 'platform' ? (
                         <>
@@ -218,6 +220,8 @@ export default function NotificationBell({ compact = false }) {
                       )}
                     </div>
                   ))}
+                  <div ref={notificationSentinelRef} style={{ minHeight: 1 }} aria-hidden="true" />
+                  {hasMoreNotifications && <button type="button" className="notification-overlay-clear" disabled={loadingMoreNotifications} onClick={loadMoreNotifications}>{loadingMoreNotifications ? 'Loading…' : 'Load more'}</button>}
                 </div>
               )}
             </div>

@@ -7,6 +7,7 @@ import { summarizeStepIo } from '../utils/workflowStepIo.js';
 import WorkflowRunGraph from '../components/workflow/WorkflowRunGraph.jsx';
 import ActionFeedbackBanner from '../components/ActionFeedbackBanner.jsx';
 import { useActionFeedback } from '../hooks/useActionFeedback.js';
+import { useInfiniteScroll } from '../hooks/useInfiniteScroll.js';
 import WorkflowAgentChat from '../components/workflow/WorkflowAgentChat.jsx';
 import {
   buildWorkflowExportDocument,
@@ -54,6 +55,8 @@ export default function AgentWorkflows() {
   const [runs, setRuns] = useState([]);
   const [runsMeta, setRunsMeta] = useState({ total: 0, page: 1, pages: 0, limit: 20 });
   const [defSearch, setDefSearch] = useState('');
+  const [defHasMore, setDefHasMore] = useState(false);
+  const [defLoadingMore, setDefLoadingMore] = useState(false);
   const [runSearch, setRunSearch] = useState('');
   const [runSearchDebounced, setRunSearchDebounced] = useState('');
   const [runPage, setRunPage] = useState(1);
@@ -73,10 +76,21 @@ export default function AgentWorkflows() {
 
   const loadDefinitions = useCallback(() => {
     return api
-      .agentWorkflowList({ q: defSearch.trim() || undefined, limit: 100, offset: 0 })
-      .then((wfRes) => setWorkflows(wfRes.workflows || []))
+      .agentWorkflowList({ q: defSearch.trim() || undefined, limit: 25, offset: 0 })
+      .then((wfRes) => { setWorkflows(wfRes.workflows || []); setDefHasMore(!!wfRes.has_more); })
       .catch((e) => showError(e.message || 'Failed to load workflows'));
   }, [defSearch, showError]);
+
+  const loadMoreDefinitions = useCallback(async () => {
+    if (!defHasMore || defLoadingMore) return;
+    setDefLoadingMore(true);
+    try {
+      const result = await api.agentWorkflowList({ q: defSearch.trim() || undefined, limit: 25, offset: workflows.length });
+      setWorkflows((current) => [...current, ...(result.workflows || [])]);
+      setDefHasMore(!!result.has_more);
+    } finally { setDefLoadingMore(false); }
+  }, [defHasMore, defLoadingMore, defSearch, workflows.length]);
+  const definitionsSentinelRef = useInfiniteScroll(loadMoreDefinitions, defHasMore && !defLoadingMore);
 
   const loadRuns = useCallback(() => {
     return api
@@ -515,6 +529,8 @@ export default function AgentWorkflows() {
             </p>
           )}
         </div>
+        <div ref={definitionsSentinelRef} style={{ minHeight: 1 }} aria-hidden="true" />
+        {defHasMore && <button type="button" className="wf-btn" disabled={defLoadingMore} onClick={loadMoreDefinitions}>{defLoadingMore ? 'Loading…' : 'Load more workflows'}</button>}
       </section>
 
       <section>

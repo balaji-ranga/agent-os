@@ -207,21 +207,38 @@ function serializeConversation(row, viewerUserId) {
 
 export function listHumanConversations(ownerUserId, userId, { archived = false, limit = 50, offset = 0 } = {}) {
   assertCompanyUser(ownerUserId, userId);
+  const lim = Math.min(100, Number(limit) || 50);
+  const off = Math.max(0, Number(offset) || 0);
+  const total = db().prepare(
+    `SELECT COUNT(*) AS n FROM human_conversations c JOIN human_conversation_participants p ON p.conversation_id=c.id
+     WHERE c.owner_user_id=? AND p.user_id=? AND ${archived ? 'p.archived_at IS NOT NULL' : 'p.archived_at IS NULL'}`
+  ).get(ownerUserId, userId)?.n ?? 0;
   const rows = db().prepare(
     `SELECT c.* FROM human_conversations c JOIN human_conversation_participants p ON p.conversation_id=c.id
      WHERE c.owner_user_id=? AND p.user_id=? AND ${archived ? 'p.archived_at IS NOT NULL' : 'p.archived_at IS NULL'}
      ORDER BY c.updated_at DESC LIMIT ? OFFSET ?`
-  ).all(ownerUserId, userId, Math.min(100, Number(limit) || 50), Math.max(0, Number(offset) || 0));
-  return rows.map((row) => serializeConversation(row, userId));
+  ).all(ownerUserId, userId, lim, off);
+  const conversations = rows.map((row) => serializeConversation(row, userId));
+  return { conversations, total, limit: lim, offset: off, has_more: off + conversations.length < total };
 }
 
-export function listHumanMessages(ownerUserId, userId, conversationId, { after = 0, limit = 100 } = {}) {
+export function listHumanMessages(ownerUserId, userId, conversationId, { after = 0, before = 0, limit = 100 } = {}) {
   if (!participant(conversationId, ownerUserId, userId)) throw Object.assign(new Error('Conversation not found'), { status: 404 });
-  const rows = db().prepare(
-    `SELECT m.*,u.name AS sender_name FROM human_messages m JOIN platform_users u ON u.id=m.sender_user_id
-     WHERE m.conversation_id=? AND m.owner_user_id=? AND m.id>? ORDER BY m.id ASC LIMIT ?`
-  ).all(conversationId, ownerUserId, Number(after) || 0, Math.min(250, Number(limit) || 100));
-  return rows.map((row) => ({ ...row, metadata: json(row.metadata_json, {}) }));
+  const lim = Math.min(250, Number(limit) || 100);
+  const afterId = Math.max(0, Number(after) || 0);
+  const beforeId = Math.max(0, Number(before) || 0);
+  let rows;
+  if (afterId) {
+    rows = db().prepare(`SELECT m.*,u.name AS sender_name FROM human_messages m JOIN platform_users u ON u.id=m.sender_user_id WHERE m.conversation_id=? AND m.owner_user_id=? AND m.id>? ORDER BY m.id ASC LIMIT ?`).all(conversationId, ownerUserId, afterId, lim);
+  } else {
+    const beforeSql = beforeId ? ' AND m.id<?' : '';
+    const params = beforeId ? [conversationId, ownerUserId, beforeId, lim] : [conversationId, ownerUserId, lim];
+    rows = db().prepare(`SELECT m.*,u.name AS sender_name FROM human_messages m JOIN platform_users u ON u.id=m.sender_user_id WHERE m.conversation_id=? AND m.owner_user_id=?${beforeSql} ORDER BY m.id DESC LIMIT ?`).all(...params).reverse();
+  }
+  const messages = rows.map((row) => ({ ...row, metadata: json(row.metadata_json, {}) }));
+  const firstId = messages[0]?.id || beforeId || Number.MAX_SAFE_INTEGER;
+  const hasOlder = !!db().prepare('SELECT 1 FROM human_messages WHERE conversation_id=? AND owner_user_id=? AND id<? LIMIT 1').get(conversationId, ownerUserId, firstId);
+  return { messages, limit: lim, has_more_older: hasOlder };
 }
 
 export function sendHumanMessage(ownerUserId, userId, conversationId, body, metadata = {}) {
@@ -232,7 +249,7 @@ export function sendHumanMessage(ownerUserId, userId, conversationId, body, meta
     `INSERT INTO human_messages(conversation_id,owner_user_id,sender_user_id,body,metadata_json) VALUES(?,?,?,?,?)`
   ).run(conversationId, ownerUserId, userId, text, JSON.stringify(metadata || {}));
   db().prepare("UPDATE human_conversations SET updated_at=datetime('now') WHERE id=?").run(conversationId);
-  const message = listHumanMessages(ownerUserId, userId, conversationId, { after: Number(out.lastInsertRowid) - 1, limit: 1 })[0];
+  const message = listHumanMessages(ownerUserId, userId, conversationId, { after: Number(out.lastInsertRowid) - 1, limit: 1 }).messages[0];
   const recipients = db().prepare('SELECT user_id FROM human_conversation_participants WHERE conversation_id=? AND user_id<>?').all(conversationId, userId).map((r) => r.user_id);
   if (recipients.length) {
     try { sendPlatformNotifications({ userIds: recipients, title: `Message from ${message.sender_name}`, body: text.slice(0, 240), linkUrl: `/people/${encodeURIComponent(userId)}/chat`, createdBy: userId, source: 'human_message', sourceKey: `${conversationId}:${message.id}` }); } catch (e) { console.warn('[human-comms] message notification failed', e?.message || e); }

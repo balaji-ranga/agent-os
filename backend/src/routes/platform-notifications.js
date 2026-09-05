@@ -12,9 +12,7 @@ router.use(requireAuth);
 
 router.get('/', (req, res) => {
   try {
-    const limit = req.query.limit;
-    const notifications = listNotificationsForUser(req.authUser.id, { limit });
-    res.json({ notifications });
+    res.json(listNotificationsForUser(req.authUser.id, { limit: req.query.limit, offset: req.query.offset }));
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

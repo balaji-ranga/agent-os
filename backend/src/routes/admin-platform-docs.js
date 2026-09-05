@@ -25,8 +25,10 @@ router.use(requireAuth, requireRole('admin'));
 
 router.get('/', async (req, res) => {
   try {
-    const documents = await osListDocuments(PLATFORM_OWNER_ID, { excludeProtected: false });
-    res.json({ documents, owner_user_id: PLATFORM_OWNER_ID });
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 15, 1), 200);
+    const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
+    const page = await osListDocuments(PLATFORM_OWNER_ID, { excludeProtected: false, limit, offset });
+    res.json({ ...page, owner_user_id: PLATFORM_OWNER_ID });
   } catch (e) {
     res.status(e.status || 400).json({ error: e.message, code: e.code || undefined });
   }

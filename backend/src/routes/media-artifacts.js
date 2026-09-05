@@ -29,7 +29,8 @@ router.get('/', requireAuth, requireCeoOrAdmin, (req, res) => {
     if (!owner) return;
     const kind = req.query.kind ? String(req.query.kind) : undefined;
     const limit = req.query.limit ? Number(req.query.limit) : 50;
-    res.json({ artifacts: listMediaArtifacts(owner, { kind, limit }) });
+    const offset = req.query.offset ? Number(req.query.offset) : 0;
+    res.json(listMediaArtifacts(owner, { kind, limit, offset }));
   } catch (e) {
     console.error('[media] list failed', e?.message || e);
     res.status(e.status || 500).json({ error: e.message || 'List failed' });

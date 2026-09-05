@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
 import ActionFeedbackBanner from '../components/ActionFeedbackBanner';
 import { useActionFeedback } from '../hooks/useActionFeedback';
+import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 
 export default function AdminPlatformFeedback() {
   const { feedback, showError, showSuccess, clearFeedback } = useActionFeedback();
@@ -12,19 +13,26 @@ export default function AdminPlatformFeedback() {
   const [q, setQ] = useState('');
   const [busyId, setBusyId] = useState(null);
   const [rejectReason, setRejectReason] = useState({});
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  const load = async () => {
+  const load = async (append = false) => {
     try {
       const data = await api.adminPlatformFeedbackList({
         status: status || undefined,
         category: category || undefined,
         q: q || undefined,
+        limit: 25,
+        offset: append ? items.length : 0,
       });
-      setItems(data.items || []);
+      setItems((current) => append ? [...current, ...(data.items || [])] : (data.items || []));
+      setHasMore(!!data.has_more);
     } catch (e) {
       showError(e.message || 'Failed to load feedback');
     }
   };
+  const loadMore = useCallback(async () => { if (!hasMore || loadingMore) return; setLoadingMore(true); try { await load(true); } finally { setLoadingMore(false); } }, [hasMore, loadingMore, items.length, status, category, q]);
+  const sentinelRef = useInfiniteScroll(loadMore, hasMore && !loadingMore);
 
   useEffect(() => {
     load();
@@ -146,6 +154,8 @@ export default function AdminPlatformFeedback() {
             </div>
           </div>
         ))}
+        <div ref={sentinelRef} style={{ minHeight: 1 }} aria-hidden="true" />
+        {hasMore && <button type="button" className="wf-btn" disabled={loadingMore} onClick={loadMore}>{loadingMore ? 'Loading…' : 'Load more feedback'}</button>}
       </div>
     </div>
   );

@@ -7,6 +7,7 @@ const DOC_PAGE_SIZE = 15;
 
 function AdminPlatformDocumentsPanel() {
   const [documents, setDocuments] = useState([]);
+  const [documentTotal, setDocumentTotal] = useState(0);
   const [docPage, setDocPage] = useState(0);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
@@ -17,14 +18,15 @@ function AdminPlatformDocumentsPanel() {
   const [ragResult, setRagResult] = useState(null);
   const [osConsoleBusy, setOsConsoleBusy] = useState(false);
 
-  const refresh = async () => {
-    const d = await api.adminPlatformDocuments();
+  const refresh = async (page = docPage) => {
+    const d = await api.adminPlatformDocuments({ limit: DOC_PAGE_SIZE, offset: page * DOC_PAGE_SIZE });
     setDocuments(d.documents || []);
+    setDocumentTotal(d.total ?? 0);
   };
 
   useEffect(() => {
-    refresh().catch((e) => setError(e.message));
-  }, []);
+    refresh(docPage).catch((e) => setError(e.message));
+  }, [docPage]);
 
   const flash = (msg) => {
     setMessage(msg);
@@ -143,9 +145,9 @@ function AdminPlatformDocumentsPanel() {
     }
   };
 
-  const pageCount = Math.max(1, Math.ceil(documents.length / DOC_PAGE_SIZE));
+  const pageCount = Math.max(1, Math.ceil(documentTotal / DOC_PAGE_SIZE));
   const safePage = Math.min(docPage, pageCount - 1);
-  const pageDocs = documents.slice(safePage * DOC_PAGE_SIZE, safePage * DOC_PAGE_SIZE + DOC_PAGE_SIZE);
+  const pageDocs = documents;
 
   return (
     <div className="mcp-pg">
@@ -231,7 +233,7 @@ function AdminPlatformDocumentsPanel() {
         }}
       >
         <h2 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem' }}>
-          Platform documents ({documents.length})
+          Platform documents ({documentTotal})
         </h2>
         {documents.length === 0 ? (
           <p style={{ color: 'var(--muted)' }}>No platform documents yet. Seed help or upload.</p>

@@ -457,7 +457,7 @@ export function getUserById(id) {
   return userPublic(row);
 }
 
-export function listUsers({ limit = null, offset = 0 } = {}) {
+export function listUsers({ limit = null, offset = 0, q = '' } = {}) {
   const baseSql = `SELECT id, email, name, country, region, mobile, role, enabled, ceo_db_mode, industry, industry_other, business_name, last_login_at, created_at, updated_at, terms_accepted_at, terms_version, privacy_version
        FROM platform_users`;
   const mapRow = (row) => {
@@ -470,18 +470,21 @@ export function listUsers({ limit = null, offset = 0 } = {}) {
       ceo_db_mode: row.role === 'ceo' ? row.ceo_db_mode || defaultCeoDbMode() : null,
     };
   };
+  const search = String(q || '').trim();
+  const whereSql = search ? ` WHERE name LIKE ? OR email LIKE ? OR role LIKE ? OR id LIKE ? OR country LIKE ? OR region LIKE ? OR mobile LIKE ? OR industry LIKE ? OR business_name LIKE ?` : '';
+  const searchParams = search ? Array(9).fill(`%${search}%`) : [];
   if (limit == null) {
     return getDb()
-      .prepare(`${baseSql} ORDER BY created_at DESC`)
-      .all()
+      .prepare(`${baseSql}${whereSql} ORDER BY created_at DESC`)
+      .all(...searchParams)
       .map(mapRow);
   }
   const lim = Math.min(Math.max(Number(limit) || 50, 1), 200);
   const off = Math.max(Number(offset) || 0, 0);
-  const total = getDb().prepare('SELECT COUNT(*) AS n FROM platform_users').get()?.n ?? 0;
+  const total = getDb().prepare(`SELECT COUNT(*) AS n FROM platform_users${whereSql}`).get(...searchParams)?.n ?? 0;
   const users = getDb()
-    .prepare(`${baseSql} ORDER BY created_at DESC LIMIT ? OFFSET ?`)
-    .all(lim, off)
+    .prepare(`${baseSql}${whereSql} ORDER BY created_at DESC LIMIT ? OFFSET ?`)
+    .all(...searchParams, lim, off)
     .map(mapRow);
   return {
     users,

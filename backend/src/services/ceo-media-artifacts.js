@@ -172,25 +172,31 @@ export function readMediaArtifactBuffer(ownerUserId, artifactId) {
   return { row, buffer: readFileSync(row.storage_path) };
 }
 
-export function listMediaArtifacts(ownerUserId, { kind, limit = 50 } = {}) {
+export function listMediaArtifacts(ownerUserId, { kind, limit = 50, offset = 0 } = {}) {
   ensureMediaArtifactsSchema();
   const owner = String(ownerUserId || '').trim();
   const lim = Math.min(Math.max(Number(limit) || 50, 1), 200);
+  const off = Math.max(Number(offset) || 0, 0);
+  const where = kind ? 'owner_user_id = ? AND kind = ?' : 'owner_user_id = ?';
+  const params = kind ? [owner, String(kind)] : [owner];
+  const total = getDb().prepare(`SELECT COUNT(*) AS n FROM ceo_media_artifacts WHERE ${where}`).get(...params)?.n ?? 0;
   if (kind) {
-    return getDb()
+    const artifacts = getDb()
       .prepare(
         `SELECT * FROM ceo_media_artifacts WHERE owner_user_id = ? AND kind = ?
-         ORDER BY created_at DESC LIMIT ?`
+         ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`
       )
-      .all(owner, String(kind), lim)
+      .all(owner, String(kind), lim, off)
       .map(toMediaRef);
+    return { artifacts, total, limit: lim, offset: off, has_more: off + artifacts.length < total };
   }
-  return getDb()
+  const artifacts = getDb()
     .prepare(
-      `SELECT * FROM ceo_media_artifacts WHERE owner_user_id = ? ORDER BY created_at DESC LIMIT ?`
+      `SELECT * FROM ceo_media_artifacts WHERE owner_user_id = ? ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`
     )
-    .all(owner, lim)
+    .all(owner, lim, off)
     .map(toMediaRef);
+  return { artifacts, total, limit: lim, offset: off, has_more: off + artifacts.length < total };
 }
 
 export function deleteMediaArtifact(ownerUserId, artifactId) {

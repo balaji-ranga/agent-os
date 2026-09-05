@@ -20,8 +20,8 @@ router.put('/directory/:userId/channels', (req, res) => handle(res, () => {
   return { person: updateHumanChannels(owner, req.params.userId, req.body || {}) };
 }));
 router.post('/conversations/direct', (req, res) => handle(res, () => { const { owner, userId } = ctx(req); return { conversation: getOrCreateDirectConversation(owner, userId, req.body?.user_id) }; }));
-router.get('/conversations', (req, res) => handle(res, () => { const { owner, userId } = ctx(req); return { conversations: listHumanConversations(owner, userId, req.query) }; }));
-router.get('/conversations/:id/messages', (req, res) => handle(res, () => { const { owner, userId } = ctx(req); return { messages: listHumanMessages(owner, userId, req.params.id, req.query) }; }));
+router.get('/conversations', (req, res) => handle(res, () => { const { owner, userId } = ctx(req); return listHumanConversations(owner, userId, req.query); }));
+router.get('/conversations/:id/messages', (req, res) => handle(res, () => { const { owner, userId } = ctx(req); return listHumanMessages(owner, userId, req.params.id, req.query); }));
 router.post('/conversations/:id/messages', (req, res) => handle(res, () => { const { owner, userId } = ctx(req); return { message: sendHumanMessage(owner, userId, req.params.id, req.body?.body, req.body?.metadata) }; }));
 router.post('/conversations/:id/read', (req, res) => handle(res, () => { const { owner, userId } = ctx(req); return markHumanConversationRead(owner, userId, req.params.id, req.body?.message_id); }));
 router.post('/conversations/:id/archive', (req, res) => handle(res, () => { const { owner, userId } = ctx(req); return archiveHumanConversation(owner, userId, req.params.id, req.body?.archived !== false); }));

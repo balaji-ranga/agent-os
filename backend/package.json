@@ -63,6 +63,7 @@
     ,"test:goal-run-control": "node scripts/test-goal-run-control.mjs"
     ,"test:agent-status-report": "node scripts/test-agent-status-report-contract.mjs"
     ,"test:goal-plan-human-review": "node scripts/test-goal-plan-human-review.mjs"
+    ,"test:growth-pagination": "node scripts/test-growth-pagination-contracts.mjs"
   },
   "dependencies": {
     "@stoqey/ib": "^1.6.3",

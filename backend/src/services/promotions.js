@@ -117,7 +117,7 @@ function hydrate(row) {
 
 function withTargets(db,row){const c=hydrate(row);if(c)c.target_user_ids=db.prepare('SELECT user_id FROM promotion_campaign_targets WHERE campaign_id=?').all(c.id).map(r=>r.user_id);return c;}
 export function getCampaign(id) { const db=ensurePromotionTables();return withTargets(db,db.prepare('SELECT * FROM promotion_campaigns WHERE id = ?').get(id)); }
-export function listCampaigns() { const db=ensurePromotionTables();return db.prepare('SELECT * FROM promotion_campaigns ORDER BY created_at DESC').all().map(r=>withTargets(db,r)); }
+export function listCampaigns({ limit = 20, offset = 0 } = {}) { const db=ensurePromotionTables();const lim=Math.min(100,Math.max(1,Number(limit)||20));const off=Math.max(0,Number(offset)||0);const total=db.prepare('SELECT COUNT(*) AS n FROM promotion_campaigns').get()?.n||0;const campaigns=db.prepare('SELECT * FROM promotion_campaigns ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?').all(lim,off).map(r=>withTargets(db,r));return {campaigns,total,limit:lim,offset:off,has_more:off+campaigns.length<total}; }
 
 export function recordPromotionEvent({ campaignId, userId, eventType, channel = 'popup', idempotencyKey, metadata = {} }) {
   if (!EVENT_TYPES.has(eventType)) throw Object.assign(new Error('Unsupported promotion event'), { status: 400 });

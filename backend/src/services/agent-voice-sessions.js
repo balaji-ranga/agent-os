@@ -88,12 +88,15 @@ export function ensureVoiceSessionsSchema() {
 export function listVoiceSessions(ownerUserId, agentId, { limit = 20, offset = 0 } = {}) {
   ensureVoiceSessionsSchema();
   assertAgentForOwner(ownerUserId, agentId);
+  const lim = Math.min(100, Math.max(1, Number(limit) || 20));
+  const off = Math.max(0, Number(offset) || 0);
+  const total = getDb().prepare('SELECT COUNT(*) AS n FROM ceo_voice_sessions WHERE owner_user_id=? AND agent_id=?').get(String(ownerUserId), String(agentId))?.n ?? 0;
   const rows = getDb().prepare(
     `SELECT id,status,created_at,ended_at,expires_at,is_guest,transcript_json
        FROM ceo_voice_sessions WHERE owner_user_id=? AND agent_id=?
        ORDER BY created_at DESC LIMIT ? OFFSET ?`
-  ).all(String(ownerUserId), String(agentId), Math.min(100, Math.max(1, Number(limit) || 20)), Math.max(0, Number(offset) || 0));
-  return rows.map((row) => {
+  ).all(String(ownerUserId), String(agentId), lim, off);
+  const sessions = rows.map((row) => {
     let transcript = [];
     try { transcript = JSON.parse(row.transcript_json || '[]'); } catch { transcript = []; }
     const started = Date.parse(row.created_at || '');
@@ -109,6 +112,7 @@ export function listVoiceSessions(ownerUserId, agentId, { limit = 20, offset = 0
       transcript,
     };
   });
+  return { sessions, total, limit: lim, offset: off, has_more: off + sessions.length < total };
 }
 
 function isRealtimeCapableBase(baseUrl) {

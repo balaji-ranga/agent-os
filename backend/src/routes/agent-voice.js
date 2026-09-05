@@ -82,7 +82,7 @@ router.get('/sessions', requireAuth, requireCeoOrAdmin, (req, res) => {
     const owner = resolveAuthenticatedCeoUserId(req);
     const agentId = String(req.params.id || '').trim();
     assertUserAgentAccess(req.authUser, agentId);
-    res.json({ sessions: listVoiceSessions(owner, agentId, req.query || {}) });
+    res.json(listVoiceSessions(owner, agentId, req.query || {}));
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message || 'Voice history failed' });
   }

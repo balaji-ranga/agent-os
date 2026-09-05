@@ -13,6 +13,8 @@ function AdminPanel() {
   const navigate = useNavigate();
   const { feedback, showSuccess, showError, clearFeedback } = useActionFeedback();
   const [users, setUsers] = useState([]);
+  const [selectorUsers, setSelectorUsers] = useState([]);
+  const [userTotal, setUserTotal] = useState(0);
   const [userSearch, setUserSearch] = useState('');
   const [userPage, setUserPage] = useState(0);
   const [selected, setSelected] = useState(null);
@@ -82,10 +84,15 @@ function AdminPanel() {
       .catch((e) => showError(e.message || 'Failed to load workspace templates'));
   };
 
-  const load = () => {
-    api.adminUsers({ limit: 200 })
-      .then((r) => setUsers(r.users || []))
+  const loadUsers = (page = userPage, search = userSearch) => {
+    api.adminUsers({ limit: USERS_PAGE_SIZE, offset: page * USERS_PAGE_SIZE, q: search.trim() || undefined })
+      .then((r) => { setUsers(r.users || []); setUserTotal(r.total ?? 0); })
       .catch((e) => showError(e.message || 'Failed to load users'));
+  };
+
+  const load = () => {
+    loadUsers();
+    api.adminUsers({ limit: 200 }).then((r) => setSelectorUsers(r.users || [])).catch(() => setSelectorUsers([]));
     api
       .adminPlatformLlmGet()
       .then(setPlatformLlm)
@@ -97,6 +104,11 @@ function AdminPanel() {
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => loadUsers(userPage, userSearch), 250);
+    return () => clearTimeout(timer);
+  }, [userPage, userSearch]);
 
   const loadUser = (userId) => {
     api.adminUserGet(userId).then((r) => {
@@ -277,29 +289,14 @@ function AdminPanel() {
     }
   };
 
-  const enabledUsers = users.filter((u) => u.enabled);
+  const enabledUsers = selectorUsers.filter((u) => u.enabled);
   const enabledCeos = enabledUsers.filter((u) => u.role === 'ceo');
 
-  const filteredUsers = useMemo(() => {
-    const q = userSearch.trim().toLowerCase();
-    if (!q) return users;
-    return users.filter((u) => {
-      const hay = [u.name, u.email, u.role, u.id, u.country, u.region, u.mobile, u.industry, u.business_name]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-      return hay.includes(q);
-    });
-  }, [users, userSearch]);
-
-  const userPageCount = Math.max(1, Math.ceil(filteredUsers.length / USERS_PAGE_SIZE));
+  const userPageCount = Math.max(1, Math.ceil(userTotal / USERS_PAGE_SIZE));
   const safeUserPage = Math.min(userPage, userPageCount - 1);
-  const pagedUsers = filteredUsers.slice(
-    safeUserPage * USERS_PAGE_SIZE,
-    safeUserPage * USERS_PAGE_SIZE + USERS_PAGE_SIZE
-  );
-  const userRangeStart = filteredUsers.length === 0 ? 0 : safeUserPage * USERS_PAGE_SIZE + 1;
-  const userRangeEnd = Math.min((safeUserPage + 1) * USERS_PAGE_SIZE, filteredUsers.length);
+  const pagedUsers = users;
+  const userRangeStart = userTotal === 0 ? 0 : safeUserPage * USERS_PAGE_SIZE + 1;
+  const userRangeEnd = Math.min((safeUserPage + 1) * USERS_PAGE_SIZE, userTotal);
 
   const switchPlatformLlm = async (endpoint) => {
     if (platformLlmBusy) return;
@@ -708,15 +705,14 @@ function AdminPanel() {
               className="mcp-pg-search"
               placeholder="Search users by name, email, role…"
               value={userSearch}
-              onChange={(e) => setUserSearch(e.target.value)}
+              onChange={(e) => { setUserSearch(e.target.value); setUserPage(0); }}
               aria-label="Search users"
             />
           </div>
           <p className="mcp-pg-count" style={{ marginTop: 0 }}>
-            {filteredUsers.length === 0
+            {userTotal === 0
               ? 'No users match'
-              : `Showing ${userRangeStart}–${userRangeEnd} of ${filteredUsers.length}`}
-            {userSearch.trim() ? ` (filtered from ${users.length})` : ''}
+              : `Showing ${userRangeStart}–${userRangeEnd} of ${userTotal}`}
           </p>
           <div style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
             {pagedUsers.map((u) => (
@@ -771,7 +767,7 @@ function AdminPanel() {
               </div>
             )}
           </div>
-          {filteredUsers.length > USERS_PAGE_SIZE && (
+          {userTotal > USERS_PAGE_SIZE && (
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: '0.65rem', flexWrap: 'wrap' }}>
               <button
                 type="button"

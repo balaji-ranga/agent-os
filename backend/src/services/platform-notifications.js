@@ -88,9 +88,13 @@ export function sendPlatformNotifications({
 }
 
 /** Unread notifications from the last NOTIFY_WINDOW_DAYS days. */
-export function listNotificationsForUser(userId, { limit = 30 } = {}) {
+export function listNotificationsForUser(userId, { limit = 30, offset = 0 } = {}) {
   const cap = Math.min(Math.max(Number(limit) || 30, 1), 100);
-  return db()
+  const off = Math.max(Number(offset) || 0, 0);
+  const windowArg = `-${NOTIFY_WINDOW_DAYS} days`;
+  const total = db().prepare(`SELECT COUNT(*) AS n FROM platform_user_notifications WHERE user_id = ? AND read_at IS NULL AND datetime(created_at) >= datetime('now', ?)`)
+    .get(userId, windowArg)?.n ?? 0;
+  const notifications = db()
     .prepare(
       `SELECT n.id, n.user_id, n.title, n.body, n.link_url, n.created_by, n.created_at,
               n.read_at, n.source, n.source_key,
@@ -103,9 +107,9 @@ export function listNotificationsForUser(userId, { limit = 30 } = {}) {
          AND n.read_at IS NULL
          AND datetime(n.created_at) >= datetime('now', ?)
        ORDER BY n.created_at DESC, n.id DESC
-       LIMIT ?`
+       LIMIT ? OFFSET ?`
     )
-    .all(userId, `-${NOTIFY_WINDOW_DAYS} days`, cap)
+    .all(userId, windowArg, cap, off)
     .map((row) => {
       const fromAgent = Number(row.created_by_is_agent) === 1 || row.source === 'agent_notify';
       let createdByName = row.created_by_name;
@@ -132,6 +136,7 @@ export function listNotificationsForUser(userId, { limit = 30 } = {}) {
         read: false,
       };
     });
+  return { notifications, total, limit: cap, offset: off, has_more: off + notifications.length < total };
 }
 
 export function markNotificationsRead(userId, ids = []) {

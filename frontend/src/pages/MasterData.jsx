@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { RequireAuth } from '../context/AuthContext';
+import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 
 const PAGE_SIZE = 50;
 const DOC_PAGE_SIZE = 10;
@@ -24,7 +25,11 @@ function emptyRowDraft(columns = []) {
 function MasterDataPanel() {
   const [tables, setTables] = useState([]);
   const [documents, setDocuments] = useState([]);
+  const [documentTotal, setDocumentTotal] = useState(0);
   const [inboundItems, setInboundItems] = useState([]);
+  const [inboundTotal, setInboundTotal] = useState(0);
+  const [inboundHasMore, setInboundHasMore] = useState(false);
+  const [inboundLoading, setInboundLoading] = useState(false);
   const [docPage, setDocPage] = useState(0);
   const [selectedTable, setSelectedTable] = useState(null);
   const [rows, setRows] = useState([]);
@@ -61,15 +66,36 @@ function MasterDataPanel() {
   const [csBusy, setCsBusy] = useState(false);
   const [csSeedSops, setCsSeedSops] = useState(true);
 
+  const loadDocuments = async (page = docPage) => {
+    const d = await api.masterDataDocuments({ limit: DOC_PAGE_SIZE, offset: page * DOC_PAGE_SIZE });
+    setDocuments(d.documents || []);
+    setDocumentTotal(d.total ?? 0);
+  };
+
+  const loadInbound = async ({ reset = false } = {}) => {
+    if (inboundLoading) return;
+    setInboundLoading(true);
+    try {
+      const offset = reset ? 0 : inboundItems.length;
+      const inbound = await api.inboundAttachmentsList({ limit: 25, offset });
+      setInboundItems((current) => reset ? (inbound.items || []) : [...current, ...(inbound.items || [])]);
+      setInboundTotal(inbound.total ?? 0);
+      setInboundHasMore(!!inbound.has_more);
+    } finally { setInboundLoading(false); }
+  };
+
   const refresh = async () => {
     const [t, d, inbound] = await Promise.all([
       api.masterDataTables(),
-      api.masterDataDocuments({ limit: 100, offset: 0 }),
-      api.inboundAttachmentsList({ limit: 100, offset: 0 }).catch(() => ({ items: [] })),
+      api.masterDataDocuments({ limit: DOC_PAGE_SIZE, offset: docPage * DOC_PAGE_SIZE }),
+      api.inboundAttachmentsList({ limit: 25, offset: 0 }).catch(() => ({ items: [] })),
     ]);
     setTables(t.tables || []);
     setDocuments(d.documents || []);
+    setDocumentTotal(d.total ?? 0);
     setInboundItems(inbound.items || []);
+    setInboundTotal(inbound.total ?? 0);
+    setInboundHasMore(!!inbound.has_more);
   };
 
   const loadCompanySetupKnowledge = async (industryId, blueprintId) => {
@@ -89,6 +115,9 @@ function MasterDataPanel() {
       /* non-fatal if route missing on older backend */
     });
   }, []);
+
+  useEffect(() => { loadDocuments(docPage).catch((e) => setError(e.message)); }, [docPage]);
+  const inboundSentinelRef = useInfiniteScroll(() => loadInbound(), inboundHasMore && !inboundLoading);
 
   const flash = (msg) => {
     setMessage(msg);
@@ -377,14 +406,11 @@ function MasterDataPanel() {
     else goBrowsePage(next);
   };
 
-  const docPageCount = Math.max(1, Math.ceil(documents.length / DOC_PAGE_SIZE));
+  const docPageCount = Math.max(1, Math.ceil(documentTotal / DOC_PAGE_SIZE));
   const safeDocPage = Math.min(docPage, docPageCount - 1);
-  const pagedDocuments = useMemo(
-    () => documents.slice(safeDocPage * DOC_PAGE_SIZE, safeDocPage * DOC_PAGE_SIZE + DOC_PAGE_SIZE),
-    [documents, safeDocPage]
-  );
-  const docRangeStart = documents.length === 0 ? 0 : safeDocPage * DOC_PAGE_SIZE + 1;
-  const docRangeEnd = Math.min((safeDocPage + 1) * DOC_PAGE_SIZE, documents.length);
+  const pagedDocuments = documents;
+  const docRangeStart = documentTotal === 0 ? 0 : safeDocPage * DOC_PAGE_SIZE + 1;
+  const docRangeEnd = Math.min((safeDocPage + 1) * DOC_PAGE_SIZE, documentTotal);
 
   useEffect(() => {
     setDocPage(0);
@@ -824,7 +850,7 @@ function MasterDataPanel() {
           <p style={{ margin: '0 0 0.5rem', fontSize: '0.85rem', color: 'var(--muted)' }}>
             {documents.length === 0
               ? 'No documents yet'
-              : `Showing ${docRangeStart}–${docRangeEnd} of ${documents.length}`}
+              : `Showing ${docRangeStart}–${docRangeEnd} of ${documentTotal}`}
           </p>
           <ul style={{ listStyle: 'none', padding: 0, margin: 0, marginBottom: '0.75rem' }}>
             {pagedDocuments.map((d) => (
@@ -921,7 +947,7 @@ function MasterDataPanel() {
             ))}
             {!pagedDocuments.length && <li style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>No documents yet.</li>}
           </ul>
-          {documents.length > DOC_PAGE_SIZE && (
+          {documentTotal > DOC_PAGE_SIZE && (
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap' }}>
               <button
                 type="button"
@@ -1005,8 +1031,10 @@ function MasterDataPanel() {
               setBusy(true);
               setError(null);
               try {
-                const r = await api.inboundAttachmentsList();
+                const r = await api.inboundAttachmentsList({ limit: 25, offset: 0 });
                 setInboundItems(r.items || []);
+                setInboundTotal(r.total ?? 0);
+                setInboundHasMore(!!r.has_more);
                 flash(`Loaded ${r.items?.length || 0} inbound file(s).`);
               } catch (err) {
                 setError(err.message);
@@ -1149,6 +1177,9 @@ function MasterDataPanel() {
               No inbound attachments yet.
             </li>
           )}
+          <div ref={inboundSentinelRef} style={{ minHeight: 1 }} aria-hidden="true" />
+          {inboundLoading && <p style={{ color: 'var(--muted)' }}>Loading more attachments…</p>}
+          {inboundHasMore && <button type="button" className="wf-btn" onClick={() => loadInbound()}>Load more ({inboundItems.length} of {inboundTotal})</button>}
         </ul>
       </section>
 

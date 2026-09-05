@@ -10,6 +10,7 @@ import RobotAvatar from '../components/RobotAvatar.jsx';
 import { buildMessageWithAttachments, uploadChatAttachments, buildDisplayAttachmentsFromFiles, revokeAttachmentPreviews } from '../utils/chatAttachments.js';
 import { parseApiDate } from '../utils/formatDateTime.js';
 import { useChatVoice, ChatVoiceBar, ChatVoiceCallOverlay } from '../components/ChatVoiceControls.jsx';
+import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import CompanyArchitecturePanel from '../components/CompanyArchitecturePanel.jsx';
 import ChatActivityIndicator, { useChatActivity } from '../components/ChatActivityIndicator.jsx';
 
@@ -323,6 +324,8 @@ export default function AgentChat() {
   const [history, setHistory] = useState([]);
   const [voiceHistory, setVoiceHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyHasMore, setHistoryHasMore] = useState(false);
+  const [voiceHasMore, setVoiceHasMore] = useState(false);
   const [restoreBusyId, setRestoreBusyId] = useState(null);
   const [input, setInput] = useState('');
   const [replyTo, setReplyTo] = useState(null);
@@ -473,11 +476,13 @@ export default function AgentChat() {
     setHistoryLoading(true);
     try {
       const [r, voice] = await Promise.all([
-        api.agentChatSessions(agentId, { limit: 100 }),
+        api.agentChatSessions(agentId, { limit: 25, offset: 0 }),
         api.agentVoiceSessions(agentId, { limit: 20 }).catch(() => ({ sessions: [] })),
       ]);
       setHistory(Array.isArray(r?.sessions) ? r.sessions : Array.isArray(r) ? r : []);
       setVoiceHistory(Array.isArray(voice?.sessions) ? voice.sessions : []);
+      setHistoryHasMore(!!r?.has_more);
+      setVoiceHasMore(!!voice?.has_more);
     } catch {
       setHistory([]);
       setVoiceHistory([]);
@@ -485,6 +490,22 @@ export default function AgentChat() {
       setHistoryLoading(false);
     }
   }, [agentId]);
+
+  const loadMoreHistory = useCallback(async () => {
+    if (!agentId || historyLoading || (!historyHasMore && !voiceHasMore)) return;
+    setHistoryLoading(true);
+    try {
+      const [r, voice] = await Promise.all([
+        historyHasMore ? api.agentChatSessions(agentId, { limit: 25, offset: history.length }) : Promise.resolve({ sessions: [], has_more: false }),
+        voiceHasMore ? api.agentVoiceSessions(agentId, { limit: 20, offset: voiceHistory.length }) : Promise.resolve({ sessions: [], has_more: false }),
+      ]);
+      setHistory((current) => [...current, ...(r.sessions || [])]);
+      setVoiceHistory((current) => [...current, ...(voice.sessions || [])]);
+      setHistoryHasMore(!!r.has_more);
+      setVoiceHasMore(!!voice.has_more);
+    } finally { setHistoryLoading(false); }
+  }, [agentId, historyLoading, historyHasMore, voiceHasMore, history.length, voiceHistory.length]);
+  const historySentinelRef = useInfiniteScroll(loadMoreHistory, showHistoryPanel && (historyHasMore || voiceHasMore) && !historyLoading);
 
   const loadActiveChat = useCallback(async () => {
     if (!agentId) return;
@@ -878,6 +899,8 @@ export default function AgentChat() {
                   </div>
                 </details>
               ))}
+              <div ref={historySentinelRef} style={{ minHeight: 1 }} aria-hidden="true" />
+              {(historyHasMore || voiceHasMore) && <button type="button" style={secondaryBtn} disabled={historyLoading} onClick={loadMoreHistory}>{historyLoading ? 'Loading…' : 'Load more history'}</button>}
             </div>
           </>
         )}

@@ -109,12 +109,14 @@ export function listPlatformFeedback(filters = {}) {
     const q = `%${String(filters.q).trim()}%`;
     params.push(q, q, q, q);
   }
-  const sql =
-    `SELECT * FROM platform_feedback` +
-    (where.length ? ` WHERE ${where.join(' AND ')}` : '') +
-    ` ORDER BY datetime(created_at) DESC LIMIT ?`;
-  params.push(Math.min(200, Math.max(1, Number(filters.limit) || 50)));
-  return db.prepare(sql).all(...params);
+  const whereSql = where.length ? ` WHERE ${where.join(' AND ')}` : '';
+  const total = db.prepare(`SELECT COUNT(*) AS n FROM platform_feedback${whereSql}`).get(...params)?.n ?? 0;
+  const limit = Math.min(200, Math.max(1, Number(filters.limit) || 25));
+  const offset = Math.max(0, Number(filters.offset) || 0);
+  const items = db.prepare(
+    `SELECT * FROM platform_feedback${whereSql} ORDER BY datetime(created_at) DESC, id DESC LIMIT ? OFFSET ?`
+  ).all(...params, limit, offset);
+  return { items, total, limit, offset, has_more: offset + items.length < total };
 }
 
 /**
@@ -124,13 +126,13 @@ export function enquirePlatformFeedback(body = {}) {
   ensurePlatformFeedbackTables();
   const id = String(body.id || body.feedback_id || '').trim();
   if (id) {
-    const row = listPlatformFeedback({ id, limit: 1 })[0];
+    const row = listPlatformFeedback({ id, limit: 1 }).items[0];
     if (!row) {
       return { ok: false, error: 'Feedback not found', id };
     }
     return { ok: true, feedback: row };
   }
-  const rows = listPlatformFeedback({
+  const page = listPlatformFeedback({
     status: body.status,
     category: body.category || body.type,
     q: body.query || body.q,
@@ -138,8 +140,8 @@ export function enquirePlatformFeedback(body = {}) {
   });
   return {
     ok: true,
-    count: rows.length,
-    items: rows.map((r) => ({
+    count: page.items.length,
+    items: page.items.map((r) => ({
       id: r.id,
       category: r.category,
       title: r.title,

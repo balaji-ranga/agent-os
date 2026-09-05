@@ -272,7 +272,10 @@ export const api = {
   },
   agentChatFromAgent: (toAgentId, fromAgentId, message) =>
     post(`/agents/${toAgentId}/chat/from-agent`, { from_agent_id: fromAgentId, message }),
-  agentActivities: (id) => get(`/agents/${id}/activities`),
+  agentActivities: (id, params = {}) => {
+    const q = new URLSearchParams(params).toString();
+    return get(`/agents/${id}/activities${q ? `?${q}` : ''}`);
+  },
   // Standups
   standupsList: async (limit = 50, offset = 0) => {
     const sp = new URLSearchParams();
@@ -296,8 +299,8 @@ export const api = {
   standupNotifications: (limit) => get(limit ? `/standups/notifications?limit=${limit}` : '/standups/notifications'),
   standupNotificationsDismiss: (ids) => post('/standups/notifications/dismiss', { ids }),
   standupNotificationsDismissAll: () => post('/standups/notifications/dismiss-all', {}),
-  platformNotifications: (limit) =>
-    get(limit ? `/platform-notifications?limit=${limit}` : '/platform-notifications'),
+  platformNotifications: (limit, offset = 0) =>
+    get(`/platform-notifications?limit=${limit || 30}&offset=${offset}`),
   platformNotificationsRead: (ids) => post('/platform-notifications/read', { ids }),
   platformNotificationsReadAll: () => post('/platform-notifications/read-all', {}),
   standupUpdate: (id, body) => patch(`/standups/${id}`, body),
@@ -784,6 +787,7 @@ export const api = {
     const q = new URLSearchParams();
     if (params.limit != null) q.set('limit', String(params.limit));
     if (params.offset != null) q.set('offset', String(params.offset));
+    if (params.q) q.set('q', String(params.q));
     const qs = q.toString();
     return get(`/admin/users${qs ? `?${qs}` : ''}`);
   },
@@ -800,6 +804,7 @@ export const api = {
     if (params.q) q.set("q", params.q);
     if (params.id) q.set("id", params.id);
     if (params.limit != null) q.set("limit", String(params.limit));
+    if (params.offset != null) q.set("offset", String(params.offset));
     const qs = q.toString();
     return get(`/admin/platform-feedback${qs ? `?${qs}` : ""}`);
   },
@@ -905,7 +910,10 @@ export const api = {
     del(`/integrations/openconnector/oauth/overrides/${encodeURIComponent(appId)}`),
   openconnectorConsoleLaunch: () => post('/integrations/openconnector/console-launch', {}),
   opensearchConsoleLaunch: () => post('/integrations/opensearch/console-launch', {}),
-  adminPlatformDocuments: () => get('/admin/platform-documents'),
+  adminPlatformDocuments: (params = {}) => {
+    const q = new URLSearchParams(params).toString();
+    return get(`/admin/platform-documents${q ? `?${q}` : ''}`);
+  },
   adminPlatformDocumentUpload: (body) => post('/admin/platform-documents', body),
   adminPlatformDocumentDelete: (id) => del(`/admin/platform-documents/${encodeURIComponent(id)}`),
   adminPlatformDocumentsReindexAll: () => post('/admin/platform-documents/reindex-all', {}),
@@ -1441,7 +1449,10 @@ export const api = {
   promotionsEvent: (id, body) => post(`/promotions/${encodeURIComponent(id)}/events`, body),
   promotionPreferences: () => get('/promotions/preferences'),
   promotionPreferencesSave: (body) => put('/promotions/preferences', body),
-  adminPromotionsList: () => get('/admin/promotions'),
+  adminPromotionsList: (params = {}) => {
+    const q = new URLSearchParams(params).toString();
+    return get(`/admin/promotions${q ? `?${q}` : ''}`);
+  },
   adminPromotionsCreate: (body) => post('/admin/promotions', body),
   adminPromotionsUpdate: (id, body) => put(`/admin/promotions/${encodeURIComponent(id)}`, body),
   adminPromotionAnalytics: (id, params = {}) => {

@@ -75,6 +75,8 @@ function mergeNotifications(platformRes, agentRes, localDismissed) {
 
 export function NotificationProvider({ children }) {
   const [notifications, setNotifications] = useState([]);
+  const [hasMoreNotifications, setHasMoreNotifications] = useState(false);
+  const [loadingMoreNotifications, setLoadingMoreNotifications] = useState(false);
   const [localDismissed, setLocalDismissed] = useState(() => loadLocalDismissed());
 
   const rememberDismissed = useCallback((items) => {
@@ -100,7 +102,24 @@ export function NotificationProvider({ children }) {
     const dismissed = loadLocalDismissed();
     setLocalDismissed(dismissed);
     setNotifications(mergeNotifications(platformRes, agentRes, dismissed));
+    setHasMoreNotifications(!!platformRes.has_more);
   }, []);
+
+  const loadMoreNotifications = useCallback(async () => {
+    if (!hasMoreNotifications || loadingMoreNotifications) return;
+    setLoadingMoreNotifications(true);
+    try {
+      const offset = notifications.filter((n) => n.kind === 'platform').length;
+      const response = await api.platformNotifications(30, offset);
+      const dismissed = loadLocalDismissed();
+      const extra = (response.notifications || []).map(normalizePlatformNotification).filter((n) => !dismissed.has(n.feedId));
+      setNotifications((current) => {
+        const ids = new Set(current.map((n) => n.feedId));
+        return [...current, ...extra.filter((n) => !ids.has(n.feedId))].sort((a, b) => String(b.sortAt).localeCompare(String(a.sortAt)));
+      });
+      setHasMoreNotifications(!!response.has_more);
+    } finally { setLoadingMoreNotifications(false); }
+  }, [hasMoreNotifications, loadingMoreNotifications, notifications]);
 
   useEffect(() => {
     fetchNotifications();
@@ -154,8 +173,11 @@ export function NotificationProvider({ children }) {
       markPlatformRead,
       dismissAgentNotifications,
       clearAll,
+      hasMoreNotifications,
+      loadingMoreNotifications,
+      loadMoreNotifications,
     }),
-    [notifications, fetchNotifications, markPlatformRead, dismissAgentNotifications, clearAll]
+    [notifications, fetchNotifications, markPlatformRead, dismissAgentNotifications, clearAll, hasMoreNotifications, loadingMoreNotifications, loadMoreNotifications]
   );
 
   return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>;

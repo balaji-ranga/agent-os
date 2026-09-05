@@ -165,7 +165,7 @@ router.get('/users', (req, res) => {
   try {
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
     const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
-    res.json(listUsers({ limit, offset }));
+    res.json(listUsers({ limit, offset, q: req.query.q }));
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -616,14 +616,15 @@ router.post('/users/:userId/reset-password', async (req, res) => {
 router.get('/platform-feedback', (req, res) => {
   try {
     ensurePlatformFeedbackTables();
-    const items = listPlatformFeedback({
+    const page = listPlatformFeedback({
       status: req.query.status,
       category: req.query.category,
       q: req.query.q,
       id: req.query.id,
       limit: req.query.limit,
+      offset: req.query.offset,
     });
-    res.json({ items, count: items.length });
+    res.json(page);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

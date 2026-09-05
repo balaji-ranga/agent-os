@@ -1414,9 +1414,12 @@ router.post('/:id/chat/from-agent', allowInternalOrAuth, async (req, res) => {
 router.get('/:id/activities', requireAuth, (req, res) => {
   try {
     assertUserAgentAccess(req.authUser, req.params.id);
-    const rows = db().prepare('SELECT * FROM activities WHERE agent_id = ? ORDER BY created_at DESC LIMIT 100')
-      .all(req.params.id);
-    res.json(rows);
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 30));
+    const offset = Math.max(0, Number(req.query.offset) || 0);
+    const total = db().prepare('SELECT COUNT(*) AS n FROM activities WHERE agent_id = ?').get(req.params.id)?.n ?? 0;
+    const activities = db().prepare('SELECT * FROM activities WHERE agent_id = ? ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?')
+      .all(req.params.id, limit, offset);
+    res.json({ activities, total, limit, offset, has_more: offset + activities.length < total });
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message });
   }
