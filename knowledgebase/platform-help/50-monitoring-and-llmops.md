@@ -90,6 +90,18 @@ Ask the COO about token burn or estimated LLM spend. Tool **`llmops_summary`** (
 
 Gateway health and feeder-queue drain are **not** on the LLMOps tab.
 
+### Admin models and routing
+
+Platform admins can open **Admin → Models & routing** (`/admin/models`) to inspect the model registry, logical routes, deployments, capability metadata, health, and sanitized routing history.
+
+- Logical aliases keep platform primary/secondary, owner BYOK, efficiency, realtime, and embedding consumers stable while deployments change.
+- A route can select a primary and optional fallback deployment. Disabled or capability-incompatible deployments cannot be selected.
+- LiteLLM is an internal OpenAI-compatible transport for platform-managed chat models; it has no public host port. Flolah avoids a second application retry loop when LiteLLM owns transport failover.
+- Route changes affect new platform-managed requests. Owner identifiers and secrets are omitted from routing history; registry records secret references, not provider keys.
+- Agent/route eligibility remains tenant-aware: an inactive model slot or unavailable capability is not advertised to the planner as executable.
+
+This is an operator capability, not a per-company model bill or replacement for **Efficiency → LLMOps**.
+
 Optional third-party trace UIs (if you use them) belong on **Connectors → MCPs** with your own keys — not a Flolah-only schema.
 
 ---

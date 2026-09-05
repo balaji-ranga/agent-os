@@ -37,6 +37,7 @@ Prefer the **COO** for work that should be planned or handed to a specialist. **
 
 1. Home (`/`) opens chat with the **COO by default**; use the **Chat with** picker for other agents. Home may show **OEI** (operational effectiveness 0–100) and related KPI chips — score is rules-only for your CEO scope; full explainability and goal-run KPIs: [36-operational-effectiveness.md](./36-operational-effectiveness.md). **My Org** (`/org`) has the org chart and standups.
 2. Type plain language and send. Use the **paperclip** to attach documents, images, audio, or video (size limits apply; ~40MB class). Attachments are stored as Master Data documents and mirrored under workspace **`inbound/attachments/`** so tools like `speech_stt` can use the path. Agent replies render common **markdown** in the web chat (bold, italics, lists, headings, `code`, links) — the same markup WhatsApp understands. Each assistant turn shows the employee **icon + name**.
+   - To answer a specific message, click its **Reply** icon. A preview above the composer identifies the source message; click **×** to cancel. Flolah sends the quoted message context with your new instruction so the employee can resolve “this”, corrections, and follow-ups without guessing. Reply context is scoped to the current company, employee, and chat session.
 3. **History** and **Browser session** side panes are **hidden by default**. Use the clock (history) and window (browser session) icons next to **New chat** to open or close them. **New chat** archives the current thread (title from the first user message). On local Ollama, that title is heuristic — the button should not stay on **Archiving…**.
 4. **Tool icons** under replies show which tools ran for that turn: **Agent OS content tools** (Master Data, notify, email, workflows, `speech_tts`, `generate_image`, `market_history`, …) **and native AgentSystem tools** when they appear in the agent session transcript (`browser`, `image`, `cron`). Expand a chip to see request/response (large browser payloads are truncated).
 5. **Generated media plays inline** while you are logged in: images, audio (TTS), and video use authenticated fetch (not a public link). Bare `/api/media` URLs without a session return 401. TTS plays **once** per clip — the `MEDIA:` line and the `speech_tts` tool result are the same file (not a second WAV artifact player). Gateway **Message failed** banners (native `message` tool, not the web copy) are hidden.
@@ -75,6 +76,17 @@ Workspace → **Tools access**: grant or revoke Agent OS content tools for that 
 
 - **Tools access** = enforcement (what the agent may call).  
 - **TOOLS.md** = instructions (how the LLM should use them). Use **Sync TOOLS.md from template** to refresh tool instructions from a workspace template without wiping SOUL/MEMORY.
+
+### Connector action access
+
+Workspace → **Tools access → Connector actions** controls the individual OpenConnector actions an employee may execute. The connected account and OAuth credentials remain owned by the CEO; this list only grants an employee specific actions.
+
+1. Connect the app under **Connectors** first.
+2. Select the connected app, search its action catalog, and tick only the actions this employee needs.
+3. Click **Save connector actions**. Flolah adds the connector discovery/guide tools and enables execution only for those saved action IDs.
+4. Removing every action removes the employee's connector execution capability; it does not disconnect the CEO's app.
+
+An ordinary **Tools access** grant for `connector_execute_action` is not a wildcard. Runtime enforcement also checks the saved action-level grant and Action Control policy. For Gmail examples and the standard Gmail Operations employee, see [52-governed-gmail-operations.md](./52-governed-gmail-operations.md).
 
 ### Workspace templates
 

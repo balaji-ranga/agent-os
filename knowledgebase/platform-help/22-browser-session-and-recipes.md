@@ -18,6 +18,8 @@ automation profile, while public tasks can continue in managed Playwright.
 2. **Client Chrome** ? your desktop Chrome with the AgentSystem Browser Relay extension (shared gateway WSS; exclusive lease).
 3. **Desktop Local worker** (recommended multi-user) ? long-lived Windows Playwright on **your** PC, online via Connectors package. Concurrent CEOs each run their own worker; no shared tab lease.
 
+The Browser Session and Connectors screens show the worker's **Installed** version beside the **Available** package version. A mismatch means the desktop package is behind the platform. Download the latest full/lite package, stop the old worker, preserve only the intended `.env`/profile settings, and restart. Confirm **Online** and matching versions before diagnosing recipe failures.
+
 Agents do **not** drive this with the built-in AgentSystem `browser` tool in chat (that path is denied for specialists). They use Agent OS **`browse_*` content tools**. When your desktop worker is **Online**, open/snapshot/act and many recipes route to the laptop; otherwise the backend uses managed AgentSystem / CDP (`browser-cdp`).
 
 ## CEO setup A ? Client Chrome (Browser Relay)

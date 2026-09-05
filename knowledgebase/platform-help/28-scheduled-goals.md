@@ -100,7 +100,7 @@ For "alert me when..." market conditions, combine hourly (or weekdays) + tools (
 | Target employee chat | `/agents/:id/chat` | Automatic and Run now replies appear here; multi-intent plans show as Goal Plan panel when `agr-…` id is present |
 | Digest | `/this-week` | **2** most recent **goal plans** for selected week; **Execution trace** on each; **View all plans** → `/goal-plans` |
 | Goal plans page | `/goal-plans` | Week list of `agent_goal_runs` (`from`/`to` or week start/end query); Ad-hoc and Scheduled labeled |
-| Goal execution trace | `/goal-plans/:id` | One run: steps, plan versions, KPI/spend, telemetry timeline (`goal_created` … `goal_completed`) |
+| Goal execution trace | `/goal-plans/:id` | One run: live status, steps, plan versions, KPI/spend, telemetry timeline, **Retry execution**, and **Cancel execution** |
 | Scheduled goals → Last plan | `/scheduled-goals` | Recent fires for that schedule; each panel links **Execution trace** |
 | API | `GET /api/agent-goal-runs` (± `from`/`to`) and `GET /api/agent-goal-runs/:id` (+ `/events`) | CEO owner-scoped list/get of durable plans and telemetry |
 
@@ -202,6 +202,14 @@ Goals are CEO-scoped (`owner_user_id`). Other CEOs never see your schedules. API
 - Hourly + expensive tools can consume tokens — use weekdays or fewer runs when possible.
 - **Run now** after create/edit to spot-check.
 - Platform operators: cron id `scheduled_goals` (`SCHEDULED_GOALS_CRON`). Pause goals in UI to turn CEO schedules off.
+
+## Live planning, cancel, retry, and recovery
+
+- A new multi-step run can briefly show **planning** while maker/checker rounds verify outcome coverage, dependencies, tool/workflow availability, and executor fit. Current-week Goal Plans and the chat plan card refresh automatically; this is not a stuck state by itself.
+- Open **Goal plans → Execution trace** to use **Cancel execution** while the run is planning, pending, running, in progress, or awaiting approval. Cancellation closes pending work and associated Live Operations activity but retains the trace.
+- Use **Retry execution** on any non-completed run. Retrying an active abandoned run supersedes its current work while retaining valid predecessor outputs and audit history.
+- A run may finish as **partial success** when verified work completed but the full objective did not. Treat that separately from completed and failed; read the outcome and blocked steps before retrying.
+- The owner-scoped recovery watcher repairs lost wake-ups and stale work after restarts. It advances terminal child workflows/delegations, retries reclaimable planning or synchronous tool work once, then fails safely rather than reporting false completion. Admin timeout settings are under **Admin → Crons**; see help **19**.
 
 ## Home OEI and “goal runs”
 

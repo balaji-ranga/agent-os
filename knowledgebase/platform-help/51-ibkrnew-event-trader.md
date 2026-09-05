@@ -17,6 +17,8 @@ IBKRNew0 can submit orders only when all of these are true:
 - the active policy is `paper` and live execution remains disabled;
 - the desktop bridge is explicitly enabled for paper execution;
 - the locally selected IBKR account is a paper account;
+
+An operator can now enroll one enabled CEO idempotently with `backend/scripts/enable-ibkrnew-owner.mjs`. Enrollment installs/enables that owner's complete IBKRNew0 paper capability—agents, reaction workflows, tool grants, workspace instructions, and baseline configuration—and verifies the result. It deliberately leaves both paper order submission and live trading disabled. The CEO still performs the desktop setup and explicitly enables paper execution locally after health checks.
 - the active goal, strategy, universe, market data and risk checks all permit the order.
 
 There is no live-account override in this release. Advisory and approval-required modes can further restrict execution.

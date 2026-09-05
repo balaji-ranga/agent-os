@@ -71,6 +71,14 @@ Prerequisite: the CEO who **runs** the workflow must have that app **connected**
 
 See also [07-workflow-nodes-reference.md](./07-workflow-nodes-reference.md) → Connector.
 
+### Grant connector actions to an AI employee
+
+For chat-driven agents, open **AI Employees → employee → Workspace → Tools access → Connector actions**. Select a connected app and save only the action IDs that employee may call. Credentials stay CEO-owned and are never copied into the employee workspace.
+
+Execution requires all three layers: the connector is connected for this CEO, the employee has the named action grant, and **Policies → Action control** permits the operation (or a valid bounded approval grant exists). Saving an action also provisions the connector catalog/guide tools needed to call it correctly. Revoking the action stops future calls without disconnecting the app or changing another employee.
+
+Gmail mailbox review, recoverable cleanup, and reply drafts use this model; see [52-governed-gmail-operations.md](./52-governed-gmail-operations.md).
+
 
 ### Browser Session package (local worker)
 
@@ -81,6 +89,8 @@ On **Connectors**, download a **Windows Browser Session worker** for multi-user 
 3. Defaults: headed (`BROWSER_HEADLESS=0`) + persistent profile (`BROWSER_USER_DATA_DIR=browser-profile`). Log into social sites **inside that window**.
 4. Optional IP rules: [33-ip-whitelists.md](./33-ip-whitelists.md). Revoke tokens: [34-tokens-management.md](./34-tokens-management.md).
 5. Agent `browse_*` tools and recipes use the worker while online.
+
+The card shows **Installed** and **Available** worker versions. If they differ, download the current package and replace/restart the local worker; a server deploy does not update software already running on the CEO's PC.
 
 CEO help: [22-browser-session-and-recipes.md](./22-browser-session-and-recipes.md). Ops: [BROWSER-SESSION-DESKTOP-LOCAL.md](../BROWSER-SESSION-DESKTOP-LOCAL.md).
 

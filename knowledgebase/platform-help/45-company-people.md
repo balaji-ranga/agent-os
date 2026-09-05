@@ -45,6 +45,25 @@ The agent filter also lists **people** (`user:…`) so COO tools can assign Kanb
 
 Treat people as employees. Prefer **AI employees** for work; send **approvals** to humans. If no specialist fits, assign the Kanban card to a person.
 
+## Human chat and browser voice
+
+From **My Org → People**, select a person to open their private company chat or create a **Voice call link**. Direct conversations have unread state and can be archived; archiving preserves a short summary for continuity. Only the company owner scope and conversation participants can read or write the messages.
+
+Voice uses browser-to-browser WebRTC. The copied guest link is opaque, short-lived (maximum one hour), contains no employee contact details or credentials, and can be consumed only for the intended company employee. Flolah stores call state/signalling metadata, not the peer-to-peer audio stream. The COO may also create a voice invite for an exact directory user through `voice_call_invite`; agent workspaces receive safe directory metadata, never email addresses or phone numbers.
+
+## AI and human work assignment
+
+Open **Policies → Work assignment** to decide what happens when both an AI employee and human employee credibly match a planned outcome:
+
+- **Equal weight** — choose the strongest capability fit.
+- **Prefer AI employee** — AI wins a close match.
+- **Prefer human employee** — a matched person wins a close match.
+- **Prefer AI, but route high-risk judgment to humans** — AI handles routine work while financial commitments, legal/regulatory judgment, destructive operations, and binding external commitments go to a matched person.
+
+You can also require a matched human for high-risk judgment and set default Kanban ETAs for urgent/high-risk, standard, and complex/research work. A task-specific ETA overrides the default. SLA delivery controls decide whether overdue work produces a bell, WhatsApp notice, or status-checker evidence; breach history remains available after the task changes state.
+
+For a human goal step, Flolah creates an owner-scoped Kanban card tied to the exact goal and step, including the original objective and only relevant predecessor output. The person uses **Complete task**, **Unable to complete**, or **Ask a question**. Only explicit authenticated completion resumes the goal—ordinary chat text cannot complete it. A question pauses visibly; inability returns the blocker to the orchestrator without an automatic human retry loop.
+
 ## Related
 
 - [02-navigation-and-chrome.md](./02-navigation-and-chrome.md) — nav filtered by role
@@ -52,3 +71,4 @@ Treat people as employees. Prefer **AI employees** for work; send **approvals** 
 - [04-kanban-standups-broadcast.md](./04-kanban-standups-broadcast.md) — department act rules
 - [18-agent-budgets-and-org-members.md](./18-agent-budgets-and-org-members.md) — Efficiency Agent / Department / User View
 - [32-business-core-crm-erp.md](./32-business-core-crm-erp.md) — CRM/ERP access + company SSO
+- [28-scheduled-goals.md](./28-scheduled-goals.md) — durable AI/human goal execution
