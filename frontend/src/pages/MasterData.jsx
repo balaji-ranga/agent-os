@@ -42,6 +42,7 @@ function MasterDataPanel() {
   const [csvText, setCsvText] = useState('');
   const [tablePurposeDraft, setTablePurposeDraft] = useState('');
   const [docTitle, setDocTitle] = useState('');
+  const [docTags, setDocTags] = useState('');
   const [queryText, setQueryText] = useState('');
   const [ragResult, setRagResult] = useState(null);
   const [tableQuery, setTableQuery] = useState('');
@@ -192,8 +193,10 @@ function MasterDataPanel() {
           filename: file.name,
           mimeType: file.type || 'application/octet-stream',
           contentBase64: base64,
+          tags: docTags.split(',').map((tag) => tag.trim()).filter(Boolean),
         });
         setDocTitle('');
+        setDocTags('');
         await refresh();
         flash(`Uploaded ${file.name}`);
       } catch (err) {
@@ -705,6 +708,7 @@ function MasterDataPanel() {
           <h2 style={{ marginTop: 0, fontSize: '1.05rem' }}>Documents (RAG)</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: '1rem' }}>
             <input style={fieldStyle} placeholder="Title (optional)" value={docTitle} onChange={(e) => setDocTitle(e.target.value)} />
+            <input style={fieldStyle} placeholder="Tags (optional, comma-separated)" value={docTags} onChange={(e) => setDocTags(e.target.value)} />
             <div>
               <div style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: 6 }}>Supported upload formats</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
@@ -843,7 +847,31 @@ function MasterDataPanel() {
                 <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
                   {d.filename} · {d.chunk_count} chunks · {d.id}
                 </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: 2 }}>
+                  Tags: {Array.isArray(d.tags) && d.tags.length ? d.tags.join(', ') : 'none'}
+                </div>
                 <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const value = window.prompt('Tags (comma-separated)', (d.tags || []).join(', '));
+                      if (value === null) return;
+                      setBusy(true);
+                      setError(null);
+                      try {
+                        await api.masterDataDocumentTags(d.id, value.split(',').map((tag) => tag.trim()).filter(Boolean));
+                        await refresh();
+                        flash(`Updated tags for ${d.title}`);
+                      } catch (err) {
+                        setError(err.message);
+                      } finally {
+                        setBusy(false);
+                      }
+                    }}
+                    style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--muted)', cursor: 'pointer', fontSize: '0.75rem' }}
+                  >
+                    Edit tags
+                  </button>
                   <button
                     type="button"
                     onClick={async () => {

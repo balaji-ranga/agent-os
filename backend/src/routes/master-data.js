@@ -357,6 +357,18 @@ router.post('/documents/:documentId/reindex', requireAuth, requireCeoOrAdmin, as
   }
 });
 
+router.put('/documents/:documentId/tags', requireAuth, requireCeoOrAdmin, async (req, res) => {
+  try {
+    const owner = ownerOr403(req, res);
+    if (!owner) return;
+    const document = await md.updateDocumentTags(owner, req.params.documentId, req.body?.tags);
+    res.json({ document });
+  } catch (e) {
+    const status = e.status || (e.code === 'OPENSEARCH_UNAVAILABLE' ? 503 : /not found/i.test(e.message || '') ? 404 : 400);
+    res.status(status).json({ error: e.message, code: e.code || undefined });
+  }
+});
+
 router.get('/documents/:documentId', requireAuth, requireCeoOrAdmin, async (req, res) => {
   try {
     const owner = ownerOr403(req, res);

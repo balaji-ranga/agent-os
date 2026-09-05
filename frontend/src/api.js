@@ -608,6 +608,7 @@ export const api = {
   },
   masterDataDocumentUpload: (body) => post('/master-data/documents', body),
   masterDataDocumentReindex: (id) => post(`/master-data/documents/${encodeURIComponent(id)}/reindex`, {}),
+  masterDataDocumentTags: (id, tags) => put(`/master-data/documents/${encodeURIComponent(id)}/tags`, { tags }),
   masterDataDocumentsReindexAll: () => post('/master-data/documents/reindex-all', {}),
   masterDataDocumentsPurgeAll: () => post('/master-data/documents/purge-all', {}),
   masterDataDocumentDelete: (id) => del(`/master-data/documents/${encodeURIComponent(id)}`),

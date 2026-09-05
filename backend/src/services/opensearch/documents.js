@@ -385,9 +385,14 @@ export async function searchDocuments(ownerUserId, { query, topK = 8, documentId
     should.push({
       multi_match: {
         query: q,
-        fields: ['content^2', 'title', 'filename'],
+        fields: ['content^2', 'title', 'filename', 'tags^1.5'],
       },
     });
+    if (q.length >= 3 && q.length <= 80 && !/\s/.test(q) && /^[\p{L}\p{N}_.@+-]+$/u.test(q)) {
+      for (const [field, boost] of [['content', 2], ['title', 1.5], ['filename', 1.5], ['tags', 1.25]]) {
+        should.push({ prefix: { [field]: { value: q.toLowerCase(), case_insensitive: true, boost } } });
+      }
+    }
   }
 
   let usedKnn = false;

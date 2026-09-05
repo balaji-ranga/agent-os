@@ -29,11 +29,35 @@ export function applyRelevanceVerdict(chunks, verdict) {
   return {chunks:accepted,rejected};
 }
 
+function isBareLookup(query) {
+  const value = String(query || '').trim();
+  return Boolean(value && value.length <= 80 && !/\s/.test(value) && /^[\p{L}\p{N}_.@+-]+$/u.test(value));
+}
+
+function identifierLookupMatch(chunk, query) {
+  const escaped = String(query).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = new RegExp(`(^|[^\\p{L}\\p{N}_])${escaped}[\\p{L}\\p{N}_]*($|[^\\p{L}\\p{N}_])`, 'iu');
+  return [chunk.content, chunk.title, chunk.filename, ...(Array.isArray(chunk.tags) ? chunk.tags : [])]
+    .some((value) => pattern.test(String(value || '')));
+}
+
 export async function filterRelevantEvidence(ownerUserId, query, chunks, {callModel=chatCompletions}={}) {
   if(!chunks.length)return {chunks:[],relevance:{status:'no_results',evaluated:0,rejected:0}};
   // Cap each excerpt sent and returned alike, so accepted quotes cannot refer
   // to unseen content outside the assessment budget.
   const candidates=chunks.slice(0,20).map(c=>({...c,content:String(c.content||'').slice(0,2400)}));
+  // A single identifier/name entered in the Knowledge search is an occurrence
+  // lookup, not a request to infer relationships. Exact token matches are
+  // already grounded by the returned excerpt and should not depend on an LLM
+  // deciding what the otherwise context-free word means.
+  if(isBareLookup(query)){
+    const accepted=candidates
+      .filter(chunk=>identifierLookupMatch(chunk,query))
+      .map(chunk=>({...chunk,relevance:{status:'supported',reason:'The lookup term matches the start of an indexed word or identifier in this document.'}}));
+    if(accepted.length){
+      return {chunks:accepted,rejected:candidates.filter(chunk=>!identifierLookupMatch(chunk,query)).map(chunk=>({document_id:chunk.document_id,chunk_index:chunk.chunk_index,reason:'The lookup term does not match the start of an indexed word or identifier in this excerpt.'})),relevance:{status:'supported',mode:'identifier_lookup',evaluated:candidates.length,rejected:candidates.length-accepted.length,note:'Identifier lookup matches prove only that the term or a longer word beginning with it occurs in the returned document; they do not prove identity or relationships.'}};
+    }
+  }
   try{
     const result = await callModel({
       ownerUserId, toolName: 'rag_relevance', maxTokens: 2200, temperature: 0,

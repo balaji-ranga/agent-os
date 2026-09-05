@@ -69,6 +69,9 @@ try {
   check('relevance model receives scoped query and untrusted excerpts',()=>{assert.equal(received.ownerUserId,'fixture-owner');assert.equal(JSON.parse(received.messages[1].content).task,'dental clinics in Tampines');assert.equal(filtered.chunks.length,1);});
   const unavailable=await filterRelevantEvidence('fixture-owner','dental clinics',chunks,{callModel:async()=>{throw new Error('simulated timeout');}});
   check('model failure never exposes unvetted search hits',()=>{assert.deepEqual(unavailable.chunks,[]);assert.equal(unavailable.relevance.status,'validation_unavailable');});
+  let bareLookupModelCalled=false;
+  const bareLookup=await filterRelevantEvidence('fixture-owner','Raji',[{document_id:'resume',content:'Candidate: RAJISRI is listed in this resume.'},{document_id:'other',content:'Rajesh is a different name.'}],{callModel:async()=>{bareLookupModelCalled=true;throw new Error('must not be called');}});
+  check('bare identifier lookup returns grounded prefix occurrences without an LLM relevance guess',()=>{assert.equal(bareLookupModelCalled,false);assert.equal(bareLookup.chunks.length,1);assert.equal(bareLookup.chunks[0].document_id,'resume');assert.equal(bareLookup.relevance.mode,'identifier_lookup');});
   const deniedWrite=await assessRetrievedWrite({ownerUserId:'fixture-owner',action:{name:'Unrelated Person'},retrieval:{chunks:[]},callModel:async()=>response({approved:false,unsupported_fields:['name'],reason:'No task-relevant identity evidence.'})});
   const unvalidatedWrite=await assessRetrievedWrite({ownerUserId:'fixture-owner',action:{},retrieval:{},callModel:async()=>{throw new Error('timeout');}});
   const validWrite=await assessRetrievedWrite({ownerUserId:'fixture-owner',action:{},retrieval:{},callModel:async()=>response({approved:true,unsupported_fields:[],reason:'All proposed fields have supporting evidence.'})});

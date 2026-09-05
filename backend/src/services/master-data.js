@@ -22,6 +22,7 @@ import {
   listDocuments as osListDocuments,
   getDocument as osGetDocument,
   deleteDocumentIndex,
+  updateDocumentTags as osUpdateDocumentTags,
   searchDocuments,
   isOpenSearchConfigured,
   waitForOpenSearch,
@@ -734,6 +735,16 @@ export async function uploadDocument(ownerUserId, input = {}) {
   }
 }
 
+export async function updateDocumentTags(ownerUserId, documentId, tags) {
+  assertOpenSearchReady();
+  const owner = String(ownerUserId || '').trim();
+  if (!owner) throw new Error('owner_user_id required');
+  const existing = await osGetDocument(owner, documentId);
+  if (!existing) throw new Error('Document not found');
+  await osUpdateDocumentTags(owner, documentId, normalizeTags(tags));
+  return osGetDocument(owner, documentId);
+}
+
 /**
  * Re-extract text from the file on disk and re-index into OpenSearch.
  */
@@ -893,6 +904,7 @@ export async function ragDocuments(
     title: c.title,
     filename: c.filename,
     chunk_index: c.chunk_index,
+    tags: c.tags,
     content: c.content,
     score: c.score != null ? Number(c.score) : 0,
   }));

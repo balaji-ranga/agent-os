@@ -34,6 +34,12 @@ Update those identity fields anytime via avatar → **Update Company Details** (
 - Upload policies, handbooks, and guides as **PDF, Word (.docx), Excel (.xlsx/.xls), or text** (`.txt`, `.md`, `.csv`, …).
 - Text is extracted on upload and indexed. Image-only PDFs and legacy `.doc` (not `.docx`) are not indexed well — convert or paste text.
 - Use **Reindex** (or **Reindex all for RAG**) on Master Data so chunks are rebuilt from the stored files.
+
+### Document tags
+
+Tags are optional metadata, not automatically generated classifications. Add comma-separated tags when uploading a document, or use **Edit tags** on an existing document. Flolah stores the tags on the document and copies them to every indexed chunk, so they can participate in retrieval. A document with no tags is still extracted, chunked, embedded and searchable by its content, title and filename.
+
+For a single name or identifier such as `Raji`, Knowledge also performs a word-prefix lookup, so it can retrieve indexed forms such as `RAJISRI`. This returns the matching evidence without asking the relevance model to infer what the bare name means. The result proves only that the term, or a longer word beginning with it, occurs in the document; it does not by itself establish identity or relationships.
 - Retrieval uses OpenSearch full-text (**BM25**) plus optional **k-NN vectors** from the **local Qwen** embedding container (`Qwen/Qwen3-Embedding-0.6B`, 1024-d). No OpenAI embedding API/key is used. If embeddings are disabled or the service is down, search falls back to BM25 only.
 - UI may offer a RAG query box; agents use **`master_data_list_documents`** then **`master_data_rag`**. For the **agent tool**, prefer omitting `summarize` (defaults **false**) and answer from returned `chunks[]` yourself. The **Master Data UI** RAG box and the workflow **Master Data** node default to `summarize: true` (LLM answer).
 
