@@ -119,7 +119,11 @@ export async function ensurePlatformHelpInOpenSearch() {
 
   let existingDocs = [];
   try {
-    existingDocs = await listDocuments(PLATFORM_OWNER_ID);
+    // The help corpus is larger than the generic 50-document page. Load the
+    // complete supported page so documents beyond the first page are not
+    // misclassified as missing and re-embedded on every backend restart.
+    const page = await listDocuments(PLATFORM_OWNER_ID, { limit: 200, offset: 0 });
+    existingDocs = Array.isArray(page) ? page : page.documents || [];
   } catch (e) {
     console.warn('[opensearch/platform-docs] list failed: %s', e?.message || e);
   }
