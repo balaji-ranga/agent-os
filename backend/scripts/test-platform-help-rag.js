@@ -41,6 +41,12 @@ if (docs.length < 5) {
   console.error('FAIL: too few help docs');
   process.exit(1);
 }
+for (const filename of ['platform-help-52-governed-gmail-operations.md', 'platform-help-53-announcements-and-mcp-universe.md']) {
+  if (!docs.some((doc) => String(doc.filename || '').toLowerCase() === filename)) {
+    console.error('FAIL: missing recent help document', filename);
+    process.exit(1);
+  }
+}
 
 const rag = await ragDocuments(PLATFORM_OWNER_ID, {
   query: 'IF node operators approved rejected workflow',
@@ -56,3 +62,16 @@ if (!/IF|approved|operator|ceo_approval/i.test(text)) {
 }
 console.log('PASS grant + RAG');
 console.log(text.slice(0, 800));
+
+for (const [label, query, expected] of [
+  ['Gmail Operations', 'Gmail Operations immutable cleanup plan Trash reply draft connector action grant', /cleanup|trash|draft|connector action/i],
+  ['Goal execution controls', 'Goal Plan planning live progress Cancel execution Retry execution partial success recovery', /cancel execution|retry execution|partial success|recovery/i],
+]) {
+  const recent = await ragDocuments(PLATFORM_OWNER_ID, { query, topK: 8, summarize: false });
+  const payload = JSON.stringify(recent);
+  if (!recent.hit_count || !expected.test(payload)) {
+    console.error(`FAIL: RAG did not retrieve ${label}`, payload.slice(0, 2000));
+    process.exit(1);
+  }
+  console.log(`OK recent help RAG: ${label}`, `hits=${recent.hit_count}`);
+}
