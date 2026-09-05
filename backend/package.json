@@ -50,6 +50,7 @@
     ,"test:company-communications-retention-eta": "node scripts/test-company-communications-retention-eta.mjs"
     ,"test:channel-user-kanban-actions": "node scripts/test-channel-user-kanban-actions.mjs"
     ,"test:ibkrnew-event-trader": "node scripts/test-ibkrnew-event-trader.mjs"
+    ,"test:ibkrnew-owner-enrollment": "node scripts/test-ibkrnew-owner-enrollment.mjs"
     ,"test:goal-plan-quality": "node scripts/test-goal-plan-maker-checker-contract.mjs"
     ,"test:goal-plan:inactive-checker": "node scripts/test-goal-plan-ollama-checker.mjs"
     ,"test:human-goal-kanban-delete": "node scripts/test-human-goal-kanban-delete-lifecycle.mjs"

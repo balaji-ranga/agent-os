@@ -257,12 +257,11 @@ export async function createFullAgent(input) {
   );
 
   let row = db.prepare('SELECT * FROM agents WHERE id = ?').get(id);
-  let toolsToGrant =
-    Array.isArray(input.tools) && input.tools.length
-      ? input.tools
-      : Array.isArray(hireTpl?.tools) && hireTpl.tools.length
-        ? hireTpl.tools
-        : DEFAULT_TOOLS_ALLOW;
+  let toolsToGrant = Array.isArray(input.tools)
+    ? input.tools
+    : Array.isArray(hireTpl?.tools) && hireTpl.tools.length
+      ? hireTpl.tools
+      : DEFAULT_TOOLS_ALLOW;
   if (isOrchestrator) {
     toolsToGrant = [...new Set([...toolsToGrant, 'agent_goal_create', 'agent_goal_list', 'agent_goal_status', 'agent_goal_complete_step'])];
   }
