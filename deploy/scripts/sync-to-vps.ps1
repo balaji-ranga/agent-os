@@ -610,6 +610,9 @@ if ($Services -match "backend|openclaw") {
   if (Test-Path "$Repo\knowledgebase\AI-COMPANY-OS-EXECUTION-PROGRAM.md") {
     scp @ssh "$Repo\knowledgebase\AI-COMPANY-OS-EXECUTION-PROGRAM.md" "root@${HostIp}:$RemoteRoot/knowledgebase/AI-COMPANY-OS-EXECUTION-PROGRAM.md"
   }
+  if (Test-Path "$Repo\knowledgebase\OPENCLAW-RECOVERY-AND-DRIFT-RUNBOOK.md") {
+    scp @ssh "$Repo\knowledgebase\OPENCLAW-RECOVERY-AND-DRIFT-RUNBOOK.md" "root@${HostIp}:$RemoteRoot/knowledgebase/OPENCLAW-RECOVERY-AND-DRIFT-RUNBOOK.md"
+  }
   scp @ssh `
     "$Repo\knowledgebase\AUTOMATED-PNL.md" `
     "$Repo\knowledgebase\MANAGEMENT-LAYER-PHASE1.md" `

@@ -12,6 +12,7 @@ import {
   listMissionEvents,
   cancelGoalRun,
   retryGoalRun,
+  submitGoalPlanReview,
 } from '../services/agent-goal-run.js';
 
 const router = Router();
@@ -139,6 +140,23 @@ router.post('/:id/retry', async (req, res) => {
   } catch (e) {
     console.warn('[agent-goal-runs] retry', e?.message || e);
     res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+router.post('/:id/plan-review', async (req, res) => {
+  try {
+    const ownerUserId = ownerOr403(req, res);
+    if (!ownerUserId) return;
+    const result = await submitGoalPlanReview(req.params.id, ownerUserId, {
+      action: req.body?.action || 'revise',
+      guidance: req.body?.guidance || '',
+      steps: req.body?.steps,
+      actorUserId: req.user?.id || null,
+    });
+    res.status(result.replanning ? 202 : 200).json({ ...result, goal: withProgress(result.goal) });
+  } catch (e) {
+    console.warn('[agent-goal-runs] plan review', e?.message || e);
+    res.status(e.status || 500).json({ error: e.message, details: e.details || null });
   }
 });
 

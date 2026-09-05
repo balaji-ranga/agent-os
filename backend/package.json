@@ -61,6 +61,8 @@
     ,"test:gmail-mailbox-operations": "node scripts/test-gmail-mailbox-operations.mjs"
     ,"test:goal-run-recovery": "node scripts/test-goal-run-recovery.mjs"
     ,"test:goal-run-control": "node scripts/test-goal-run-control.mjs"
+    ,"test:agent-status-report": "node scripts/test-agent-status-report-contract.mjs"
+    ,"test:goal-plan-human-review": "node scripts/test-goal-plan-human-review.mjs"
   },
   "dependencies": {
     "@stoqey/ib": "^1.6.3",

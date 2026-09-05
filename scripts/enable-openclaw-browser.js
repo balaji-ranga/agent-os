@@ -29,9 +29,10 @@ config.browser.enabled = true;
 config.browser.defaultProfile = config.browser.defaultProfile || 'openclaw';
 if (!config.browser.profiles) {
   config.browser.profiles = {
-    openclaw: { cdpPort: 18800, color: '#FF4500' },
+    openclaw: { cdpPort: 18800 },
   };
 }
+if (config.browser.profiles?.openclaw) delete config.browser.profiles.openclaw.color;
 
 // Bundled browser plugin is gated by plugins.allow — a restrictive allowlist without
 // "browser" makes isDefaultBrowserPluginEnabled() false → "browser control disabled".

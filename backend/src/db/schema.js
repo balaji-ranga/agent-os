@@ -2022,8 +2022,16 @@ export function initDb() {
     _db.exec(`ALTER TABLE content_tool_logs ADD COLUMN trace_id TEXT`);
   } catch (_) {}
   try {
+    _db.exec(`ALTER TABLE content_tool_logs ADD COLUMN goal_step_id TEXT`);
+  } catch (_) {}
+  try {
     _db.exec(
       `CREATE INDEX IF NOT EXISTS idx_content_tool_logs_trace ON content_tool_logs(owner_user_id, trace_id)`
+    );
+  } catch (_) {}
+  try {
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_content_tool_logs_goal_step ON content_tool_logs(owner_user_id, trace_id, goal_step_id)`
     );
   } catch (_) {}
   /**

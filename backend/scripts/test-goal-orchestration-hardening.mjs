@@ -66,6 +66,7 @@ try {
   const { looksStatusOnlyReply, replyHasUnresolvedBlocker } = await import('../src/services/kanban-reply-enrich.js');
   const acknowledgement = "I have updated the task to in_progress. Next, I'll proceed with the research and update you shortly.";
   assert.equal(looksStatusOnlyReply(acknowledgement), true);
+  assert.equal(looksStatusOnlyReply('### Task Completion\n\nThe Kanban task has been successfully updated to **completed** status.\n\nIf there is anything else you need, let me know!'), true);
   assert.equal(replyHasUnresolvedBlocker('Unable to continue: Brave quota usage limit exceeded.'), true);
 
   const { delegationSessionUserForPrompt, getPromptForFreshGoalRun } = await import('../src/services/delegation-queue.js');
@@ -101,6 +102,7 @@ try {
     validateAndRepairGoalPlan,
     assertRuntimeStepInputs,
     finalizeGoalStepContracts,
+    resumeGoalAfterValidatedRecovery,
   } = await import('../src/services/agent-goal-run.js');
   const provisional = createGoalPlanningRun({
     ownerUserId: owner,
@@ -338,6 +340,35 @@ try {
   assert.equal(retained.status, 'awaiting_confirmation');
   assert.equal(retained.blocked_unresolved, true);
 
+  const continuityGoal = createGoalRun({
+    ownerUserId: owner,
+    agentId: 'coo-test',
+    prompt: 'Recover this failed specialist output and continue to the next step.',
+    steps: [
+      { type: 'specialty_task', agent_id: 'finance-agent', message: 'Return a concrete evidence-backed report.' },
+      { type: 'agent_tool', label: 'Continue after recovery', tool_name: 'status_checker', depends_on: ['0'] },
+    ],
+  });
+  const continuityStep = db.prepare('SELECT * FROM agent_goal_steps WHERE goal_run_id=? ORDER BY step_index LIMIT 1').get(continuityGoal.id);
+  db.prepare("UPDATE agent_goal_steps SET status='failed', error_message='incomplete evidence' WHERE id=?").run(continuityStep.id);
+  db.prepare("UPDATE agent_goal_runs SET status='failed', error_message='incomplete evidence', completed_at=datetime('now') WHERE id=?").run(continuityGoal.id);
+  db.prepare(`INSERT INTO kanban_tasks(title,status,assigned_agent_id,created_by,owner_user_id,goal_run_id,goal_step_id)
+              VALUES(?,?,?,?,?,?,?)`).run('Goal recovery continuity', 'in_progress', 'finance-agent', 'exception-policy', owner, continuityGoal.id, continuityStep.id);
+  const continuityCard = Number(db.prepare('SELECT id FROM kanban_tasks ORDER BY id DESC LIMIT 1').get().id);
+  const resumedGoal = resumeGoalAfterValidatedRecovery({
+    goal: db.prepare('SELECT * FROM agent_goal_runs WHERE id=?').get(continuityGoal.id),
+    step: continuityStep,
+    taskId: 99991,
+    cardId: continuityCard,
+    response: 'Concrete recovered report with evidence record-77.',
+    validation: { satisfied: true, reason: 'required report supplied', missing_outcomes: [] },
+    capturedEvidence: { tool_calls: [{ evidence_id: 'record-77', tool_name: 'status_checker', status: 'ok' }] },
+  });
+  assert.equal(resumedGoal.status, 'running');
+  assert.equal(resumedGoal.steps[0].status, 'completed');
+  assert.equal(resumedGoal.steps[1].status, 'pending');
+  assert.equal(db.prepare('SELECT status FROM kanban_tasks WHERE id=?').get(continuityCard).status, 'completed');
+
   // Exception recovery must remain CEO-visible when its assigned agent cannot
   // run due to budget, and reopen automatically after the budget is cleared.
   const { setAgentBudget } = await import('../src/services/agent-budgets.js');
@@ -378,6 +409,7 @@ try {
     retry_cards: retryCards.map((r) => r.status),
     capability_plan_sources: ['adhoc_chat', 'scheduled_goal'],
     budget_recovery_card: 'awaiting_confirmation -> open',
+    recovery_continuity: 'validated recovery resumed original goal',
   });
 } finally {
   try { database?.close(); } catch {}

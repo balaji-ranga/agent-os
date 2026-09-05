@@ -184,9 +184,9 @@ if [[ "$CODE" == "404" ]]; then
   CODE=$(echo "$OUT" | sed -n "s/.*code=\([0-9]*\).*/\1/p" | head -1)
 fi
 
-if [[ "$CODE" == "404" || "$CODE" == "000" ]]; then
+if [[ ! "$CODE" =~ ^2[0-9][0-9]$ ]]; then
   echo "ERROR: OpenClaw chat endpoint not usable (http=$CODE)"
-  echo "    Expected POST /v1/chat/completions via gateway.http.endpoints.chatCompletions.enabled"
+  echo "    Expected a 2xx POST /v1/chat/completions response"
   exit 1
 fi
 

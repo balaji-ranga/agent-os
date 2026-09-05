@@ -198,11 +198,14 @@ if (Array.isArray(globalAllow) && globalAllow.length > 0) {
 } else {
   warn('global tools.allow cleared/empty (expected for browser CDP); agent allowlists + content-tools plugin carry grants');
 }
-if (config.plugins?.entries?.codex?.enabled) {
-  fail('plugins.entries.codex.enabled must be false (breaks Agent OS content tools)');
+if (config.plugins?.entries?.codex) {
+  fail('plugins.entries.codex must be absent (legacy harness breaks Agent OS content tools)');
 }
 if (Array.isArray(config.plugins?.allow) && config.plugins.allow.includes('codex')) {
   fail('plugins.allow must not include codex');
+}
+if (config.models?.providers?.openai?.agentRuntime?.id !== 'openclaw') {
+  fail('models.providers.openai.agentRuntime.id must be openclaw (preserves Agent OS custom tools)');
 }
 const balserve = (config.agents?.list || []).find((a) => String(a.id || '').toLowerCase() === 'balserve');
 if (balserve && !(balserve.tools?.allow || []).includes('learnings_summary')) {

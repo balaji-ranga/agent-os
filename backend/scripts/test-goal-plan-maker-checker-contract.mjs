@@ -7,12 +7,45 @@ const dataDir = mkdtempSync(join(tmpdir(), 'flolah-goal-quality-'));
 process.env.AGENT_OS_DATA_DIR = dataDir;
 const { validateTypedGoalPlan, validateCandidateGoalPlan, validateSeedRequirementCoverage, repairCheckerExecutorAvailability, safeGoalClarificationPlan, normalizeExecutorOutputKinds, isCompleteCheckerVerdict, isExecutableCheckerVerdict } = await import('../src/services/goal-plan-quality.js');
 const { isEfficiencyModeTool } = await import('../src/services/llm-efficiency-mode.js');
+const { outcomeValidationMessages } = await import('../src/services/step-outcome-validation.js');
+const { classifyToolFailure } = await import('../src/services/tool-failure-class.js');
 const { resolveCapabilitiesFromPrompt } = await import('../src/services/business-capabilities.js');
 const { matchSelfToolsFromCatalog, specialtyMessageContainsToolInstruction } = await import('../src/services/goal-plan-intent.js');
+const { runGoalPlanRounds } = await import('../src/services/goal-plan-rounds.js');
+let auditedChecklist = null;
+let makerAttempt = 0;
+const roundResult = await runGoalPlanRounds({
+  prompt: 'Produce a tested report.',
+  normalize: (content) => JSON.parse(content),
+  validate: () => ({ ok: true, errors: [] }),
+  make: async () => ({ content: JSON.stringify([{ key: 'report' }]), modelUsed: 'maker', attempt: ++makerAttempt }),
+  check: async ({ attempt, priorCorrectionChecklist }) => {
+    if (attempt === 1) return { content: JSON.stringify({ approved: false, issues: [{ message: 'Missing evidence', correction: 'Require evidence' }] }), modelUsed: 'checker' };
+    auditedChecklist = priorCorrectionChecklist;
+    return { content: JSON.stringify({ approved: true, issues: [], coverage: [{ requirement_id: 'r1', covered: true, step_keys: ['report'] }], step_checks: [{ step_key: 'report', instruction_preserves_goal: true, operation_mode_correct: true, deliverable_kind_correct: true, no_unrequested_action: true }] }), modelUsed: 'checker' };
+  },
+});
+assert.equal(roundResult.quality.maker_attempts, 2);
+assert(auditedChecklist.some((item) => /Missing evidence/.test(item)), 'the next checker must audit the prior mandatory correction checklist');
 assert.equal(isEfficiencyModeTool('goal_plan_intent'), false);
 assert.equal(isEfficiencyModeTool('goal_plan_maker'), false);
 assert.equal(isEfficiencyModeTool('goal_plan_checker'), false);
 assert.equal(isEfficiencyModeTool('goal_plan_tool_args'), true);
+const statusValidation = outcomeValidationMessages({
+  originalGoal: 'Report what the mailbox agent worked on last week.',
+  assignment: 'Return the mailbox agent activity report.',
+  objective: 'Summarize completed and blocked work from the last seven days.',
+  operationMode: 'query',
+  subject: 'mailbox agent activity history',
+  deliverableKind: 'status_report',
+  requiredOutputs: [{ key: 'mailbox_status', kind: 'data', required: true }],
+  response: 'Report: 49 messages reviewed. A prior cleanup was blocked by policy.',
+  executionEvidence: { delegation_status: 'completed', kanban_status: 'completed' },
+});
+assert.match(statusValidation[0].content, /reported subject status as the current step status/i);
+assert.equal(JSON.parse(statusValidation[1].content).current_step.deliverable_kind, 'status_report');
+assert.equal(classifyToolFailure({ message: 'A prior cleanup was denied by policy' }, { code: 'outcome_contract_incomplete' }).failure_class, 'outcome_incomplete');
+assert.equal(classifyToolFailure({ message: 'A prior cleanup was denied by policy' }, { code: 'outcome_contract_incomplete' }).retryable, true);
 assert.equal(isCompleteCheckerVerdict({ approved: true, issues: [], revised_steps: [] }), true);
 assert.equal(isCompleteCheckerVerdict({ approved: false, issues: [], revised_steps: [] }), false);
 assert.equal(isCompleteCheckerVerdict({ approved: false, issues: [], revised_steps: [{ key: 'fixed' }] }), true);

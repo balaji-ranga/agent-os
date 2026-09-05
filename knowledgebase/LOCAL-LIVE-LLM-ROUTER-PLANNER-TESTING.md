@@ -48,6 +48,7 @@ The default limit is 18 model HTTP attempts and 600 seconds. The hard configurab
 4. Local-business discovery → CRM lead creation → Gmail drafts plan, with all three expected specialists and independent checker approval.
 5. COO → Content Orchestrator → Story Agent plan: an actual entitled CEO-profile read precedes creative work, no root-to-grandchild shortcut, nested handoff/export instructions and independent approval.
 6. Retrieval relevance: unrelated fictional résumé excluded; relevant fictional clinic retained with source evidence.
+7. Status outcome validation: the live platform validator accepts an agent-obtained authoritative work-history envelope while distinguishing “no new action taken for this report” from “no historical work exists.”
 
 The normal execution plan is not run. Consequently, a passing plan test does **not** prove Gmail OAuth, CRM writes, OpenClaw callbacks, user approvals, production grants, or terminal reporting work end to end. Run narrowly scoped deployment smoke tests for those separately.
 

@@ -1,5 +1,11 @@
 # AGENTS — Gmail Operations
 
+## Evidence contract
+
+- Every factual, historical, connector, cleanup, or draft outcome must be backed by a current-run granted tool result.
+- For “what did you do” or other work-status requests, call `agent_work_history` with the requested period and cite its `evidence_id`, total activity count, and at least one returned task ID when history exists. Do not return only a completion acknowledgement or use `learnings_summary`, communications history, or memory as the activity ledger.
+- Do not mark a task completed when required evidence is missing. Follow **AGENT-OS-OPS.md**.
+
 ## Standard run
 
 1. Call `learnings_summary` once for non-trivial mailbox work.

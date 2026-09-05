@@ -1378,6 +1378,7 @@ export const api = {
   agentGoalRunsAmend: (id, body) => post(`/agent-goal-runs/${encodeURIComponent(id)}/amend`, body),
   agentGoalRunsCancel: (id, body = {}) => post(`/agent-goal-runs/${encodeURIComponent(id)}/cancel`, body),
   agentGoalRunsRetry: (id, body = {}) => post(`/agent-goal-runs/${encodeURIComponent(id)}/retry`, body),
+  agentGoalRunsPlanReview: (id, body = {}) => post(`/agent-goal-runs/${encodeURIComponent(id)}/plan-review`, body),
   companyReviewsList: (params = {}) => {
     const sp = new URLSearchParams();
     if (params.limit != null) sp.set('limit', String(params.limit));

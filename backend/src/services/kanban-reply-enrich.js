@@ -28,6 +28,13 @@ export function looksStatusOnlyReply(text) {
   if (FUTURE_ACK_RE.test(t) && !CONCRETE_EVIDENCE_RE.test(t)) return true;
   if (UNRESOLVED_BLOCKER_RE.test(t) && !CONCRETE_EVIDENCE_RE.test(t)) return true;
   if (t.length > 420) return false;
+  // Markdown headings/bullets do not make a task-status acknowledgement a
+  // deliverable. Agents sometimes format "Task Completion — Kanban updated"
+  // as a polished card; detect that before the structured-answer fast path.
+  if (
+    (STATUS_CHATTER_RE.test(t) || /\btask completion\b|\bkanban (?:task|card).{0,100}\bupdated\b.{0,80}\bcompleted\b/i.test(t)) &&
+    !CONCRETE_EVIDENCE_RE.test(t)
+  ) return true;
   // Real deliverables / structured answers — never treat as status-only.
   if (/!\[|\/api\/media\/|ingredients?:|instructions?:|#{1,3}\s|^\s*[-*]\s+\S/im.test(t)) return false;
   if (STATUS_ONLY_RE.test(t)) return true;

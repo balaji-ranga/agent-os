@@ -79,6 +79,7 @@ if (!existsSync(CONFIG_PATH)) {
   process.exit(1);
 }
 
+const originalConfigText = existsSync(CONFIG_PATH) ? readFileSync(CONFIG_PATH, 'utf8') : '';
 let config = loadJson(CONFIG_PATH);
 if (!config || typeof config !== 'object') {
   console.error('[ensure-openclaw-gateway] unreadable', CONFIG_PATH);
@@ -119,9 +120,28 @@ if (TOKEN) {
 } else if (!gw.auth?.token) {
   repairs.push('WARN: no OPENCLAW_GATEWAY_TOKEN and no gateway.auth.token');
 }
-if (!Array.isArray(gw.trustedProxies) || gw.trustedProxies.length === 0) {
-  gw.trustedProxies = ['127.0.0.1', '::1', '172.16.0.0/12', '10.0.0.0/8'];
+function dockerDefaultGateway() {
+  try {
+    const rows = readFileSync('/proc/net/route', 'utf8').trim().split(/\r?\n/).slice(1);
+    const route = rows.map((line) => line.trim().split(/\s+/)).find((cols) => cols[1] === '00000000');
+    const hex = route?.[2];
+    if (!/^[0-9A-Fa-f]{8}$/.test(hex || '')) return '';
+    return [6, 4, 2, 0].map((offset) => Number.parseInt(hex.slice(offset, offset + 2), 16)).join('.');
+  } catch {
+    return '';
+  }
 }
+
+const configuredTrustedProxies = String(process.env.OPENCLAW_TRUSTED_PROXIES || '')
+  .split(',')
+  .map((entry) => entry.trim())
+  .filter(Boolean);
+const exactGateway = dockerDefaultGateway();
+gw.trustedProxies = [...new Set(
+  configuredTrustedProxies.length > 0
+    ? configuredTrustedProxies
+    : ['127.0.0.1', '::1', exactGateway].filter(Boolean)
+)];
 
 if (!config.tools || typeof config.tools !== 'object') {
   config.tools = { sessions: { visibility: process.env.OPENCLAW_SESSION_VISIBILITY || 'agent' } };
@@ -139,11 +159,29 @@ if (!config.browser || typeof config.browser !== 'object') {
   config.browser = {
     enabled: true,
     defaultProfile: 'openclaw',
-    profiles: { openclaw: { cdpPort: 18800, color: '#FF4500' } },
+    profiles: { openclaw: { cdpPort: 18800 } },
     headless: true,
     noSandbox: true,
   };
   repairs.push('created browser');
+}
+if (config.plugins?.entries?.codex) {
+  delete config.plugins.entries.codex;
+  repairs.push('removed plugins.entries.codex');
+}
+if (!config.plugins.entries || typeof config.plugins.entries !== 'object') config.plugins.entries = {};
+if (String(process.env.OPENCLAW_ENABLE_DEEPSEEK_PLUGIN || '0') !== '1') {
+  config.plugins.entries.deepseek = { enabled: false };
+}
+if (Array.isArray(config.plugins?.allow)) {
+  const withoutCodex = config.plugins.allow.filter((id) => id !== 'codex');
+  if (withoutCodex.length !== config.plugins.allow.length) {
+    config.plugins.allow = withoutCodex;
+    repairs.push('removed codex from plugins.allow');
+  }
+}
+if (config.browser?.profiles?.openclaw) {
+  delete config.browser.profiles.openclaw.color;
 }
 
 if (providersEmpty(config.models) && bak?.models && !providersEmpty(bak.models)) {
@@ -152,6 +190,19 @@ if (providersEmpty(config.models) && bak?.models && !providersEmpty(bak.models))
 }
 
 if (!config.agents || typeof config.agents !== 'object') config.agents = { list: [] };
+if (config.agents.entries && typeof config.agents.entries === 'object') {
+  config.agents.ownership = 'explicit';
+}
+
+// Preserve Agent OS custom tool support on OpenClaw 2026.8+, whose implicit
+// policy otherwise selects the optional Codex harness for official OpenAI.
+if (config.models?.providers?.openai && typeof config.models.providers.openai === 'object') {
+  const currentRuntime = config.models.providers.openai.agentRuntime?.id;
+  if (currentRuntime !== 'openclaw') {
+    config.models.providers.openai.agentRuntime = { id: 'openclaw' };
+    repairs.push('models.providers.openai.agentRuntime=openclaw');
+  }
+}
 if (!config.agents.defaults || typeof config.agents.defaults !== 'object') {
   if (bak?.agents?.defaults) {
     config.agents.defaults = clone(bak.agents.defaults);
@@ -169,7 +220,9 @@ if (!md.primary) {
 }
 
 const after = JSON.stringify(config, null, 2) + '\n';
-writeFileSync(CONFIG_PATH, after, 'utf8');
+if (after.trim() !== originalConfigText.trim()) {
+  writeFileSync(CONFIG_PATH, after, 'utf8');
+}
 try {
   writeFileSync(CONFIG_PATH + '.last-good', after, 'utf8');
 } catch {

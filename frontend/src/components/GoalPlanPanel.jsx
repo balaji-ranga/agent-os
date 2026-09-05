@@ -8,6 +8,7 @@ function statusColor(status) {
   const s = String(status || '').toLowerCase();
   if (s === 'completed') return 'var(--success, #16a34a)';
   if (s === 'partial_success') return 'var(--warning, #d97706)';
+  if (s === 'awaiting_plan_review') return 'var(--warning, #d97706)';
   if (s === 'planning' || s === 'running' || s === 'in_progress') return 'var(--accent, #2563eb)';
   if (s === 'failed') return 'var(--danger, #dc2626)';
   return 'var(--muted)';
@@ -24,6 +25,10 @@ export default function GoalPlanPanel({
   const [goal, setGoal] = useState(goalProp);
   const [err, setErr] = useState(null);
   const [loading, setLoading] = useState(!goalProp && !!goalRunId);
+  const [reviewGuidance, setReviewGuidance] = useState('');
+  const [reviewBusy, setReviewBusy] = useState('');
+  const [reviewMessage, setReviewMessage] = useState('');
+  const [draftJson, setDraftJson] = useState('');
 
   useEffect(() => {
     if (goalProp) {
@@ -75,6 +80,23 @@ export default function GoalPlanPanel({
   const steps = goal.steps || [];
   const pct = progress.progress_pct != null ? progress.progress_pct : 0;
   const title = goal.title || String(goal.prompt || '').slice(0, 72) || goal.id;
+  const review = goal.plan_review || goal.context?.plan_review || null;
+
+  async function planReview(action, extra = {}) {
+    setReviewBusy(action);
+    setReviewMessage('');
+    try {
+      const result = action === 'cancel'
+        ? await api.agentGoalRunsCancel(goal.id, { reason: 'Cancelled during plan review' })
+        : await api.agentGoalRunsPlanReview(goal.id, { action, ...extra });
+      setGoal(result.goal || goal);
+      setReviewMessage(action === 'cancel' ? 'Goal cancelled.' : action === 'approve' ? 'Plan approved; execution is starting.' : 'Guidance accepted; maker/checker replanning has started.');
+    } catch (error) {
+      setReviewMessage(error?.message || 'Could not update the plan review');
+    } finally {
+      setReviewBusy('');
+    }
+  }
 
   return (
     <div
@@ -175,6 +197,68 @@ export default function GoalPlanPanel({
         >
           Maker/checker planning is in progress. Each round validates outcome coverage, dependencies, and executor fit before execution starts.
         </div>
+      ) : null}
+      {goal.status === 'awaiting_plan_review' && review ? (
+        <section
+          aria-label="Plan review required"
+          style={{ marginBottom: 10, padding: '0.7rem', border: '1px solid color-mix(in srgb, var(--warning, #d97706) 55%, var(--border))', borderRadius: 8, background: 'color-mix(in srgb, var(--warning, #d97706) 8%, var(--surface))' }}
+        >
+          <strong style={{ display: 'block', marginBottom: 4 }}>Planning needs your guidance</strong>
+          <p style={{ margin: '0 0 7px', fontSize: '0.76rem', color: 'var(--muted)' }}>
+            No business step ran. Review the maker proposal and checker findings, then correct, approve, retry, or cancel this same goal.
+          </p>
+          {(review.validation_errors || []).length ? (
+            <ul style={{ margin: '0 0 8px', paddingLeft: '1.1rem', fontSize: '0.76rem' }}>
+              {review.validation_errors.slice(0, compact ? 4 : 10).map((issue, index) => <li key={`${index}-${issue}`}>{issue}</li>)}
+            </ul>
+          ) : null}
+          {(review.candidate_steps || []).length ? (
+            <details style={{ marginBottom: 8 }}>
+              <summary style={{ cursor: 'pointer', fontSize: '0.77rem', fontWeight: 650 }}>Maker proposal ({review.candidate_steps.length} steps)</summary>
+              <ol style={{ margin: '6px 0 0', paddingLeft: '1.1rem', fontSize: '0.75rem' }}>
+                {review.candidate_steps.map((step) => (
+                  <li key={step.key}>{step.label || step.key} · {step.type} · {step.spec?.agent_id || step.spec?.workflow_id || step.spec?.tool_name || 'COO'}</li>
+                ))}
+              </ol>
+            </details>
+          ) : null}
+          <textarea
+            value={reviewGuidance}
+            onChange={(event) => setReviewGuidance(event.target.value)}
+            rows={compact ? 2 : 3}
+            placeholder="Tell the planner what to correct…"
+            style={{ width: '100%', resize: 'vertical', marginBottom: 7 }}
+          />
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <button type="button" className="btn" disabled={!!reviewBusy} onClick={() => planReview('apply_checker')}>
+              {reviewBusy === 'apply_checker' ? 'Applying…' : 'Apply checker recommendations'}
+            </button>
+            <button type="button" className="btn secondary" disabled={!!reviewBusy || !reviewGuidance.trim()} onClick={() => planReview('revise', { guidance: reviewGuidance.trim() })}>
+              {reviewBusy === 'revise' ? 'Replanning…' : 'Correct with my guidance'}
+            </button>
+            {review.candidate_schema_valid ? (
+              <button type="button" className="btn secondary" disabled={!!reviewBusy} onClick={() => planReview('approve')}>
+                {reviewBusy === 'approve' ? 'Approving…' : 'Approve valid proposal'}
+              </button>
+            ) : null}
+            <button type="button" className="btn danger" disabled={!!reviewBusy} onClick={() => planReview('cancel')}>Cancel goal</button>
+            {compact ? <Link className="btn secondary" to={goalPlanTracePath(goal.id)}>Edit detailed plan</Link> : null}
+          </div>
+          {!compact ? (
+            <details style={{ marginTop: 8 }} onToggle={(event) => {
+              if (event.currentTarget.open && !draftJson) setDraftJson(JSON.stringify(review.candidate_steps || [], null, 2));
+            }}>
+              <summary style={{ cursor: 'pointer', fontSize: '0.77rem', fontWeight: 650 }}>Advanced step editor</summary>
+              <p style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>Edit the typed proposal. Approval remains blocked until deterministic schema, dependency, catalog and safety validation passes.</p>
+              <textarea value={draftJson} onChange={(event) => setDraftJson(event.target.value)} rows={14} spellCheck={false} style={{ width: '100%', fontFamily: 'monospace', fontSize: '0.72rem' }} />
+              <button type="button" className="btn secondary" disabled={!!reviewBusy || !draftJson.trim()} onClick={() => {
+                try { planReview('approve', { steps: JSON.parse(draftJson) }); }
+                catch { setReviewMessage('The edited plan must be valid JSON.'); }
+              }}>Validate and approve edited plan</button>
+            </details>
+          ) : null}
+          {reviewMessage ? <p role="status" style={{ margin: '7px 0 0', fontSize: '0.75rem' }}>{reviewMessage}</p> : null}
+        </section>
       ) : null}
       <ol style={{ margin: 0, paddingLeft: '1.15rem', fontSize: '0.8rem' }}>
         {steps.map((s) => (

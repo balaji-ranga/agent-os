@@ -8,6 +8,31 @@ OC_DIR="${OPENCLAW_DIR:-/root/.openclaw}"
 
 mkdir -p "${OC_DIR}"
 
+# Old desktop/bootstrap builds could leave a sessions.json containing only a
+# filesystem path instead of JSON. New OpenClaw releases correctly refuse to
+# migrate that marker, which otherwise creates an endless gateway restart loop.
+# Quarantine only small, non-JSON, path-only markers; never touch valid stores.
+quarantine_invalid_session_path_markers() {
+  local agents_dir="${OC_DIR}/agents"
+  [[ -d "${agents_dir}" ]] || return 0
+  local file raw stamp backup
+  while IFS= read -r file; do
+    if node -e 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"))' "${file}" >/dev/null 2>&1; then
+      continue
+    fi
+    [[ "$(wc -c < "${file}" 2>/dev/null || echo 999999)" -le 1024 ]] || continue
+    raw="$(tr -d '\r\n' < "${file}" 2>/dev/null || true)"
+    if [[ "${raw}" != /* && ! "${raw}" =~ ^[A-Za-z]:[\\/] ]]; then
+      echo "[openclaw] WARN: invalid legacy session JSON is not a path marker; preserving ${file}" >&2
+      continue
+    fi
+    stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+    backup="${file}.invalid-path-marker-${stamp}"
+    mv -- "${file}" "${backup}"
+    echo "[openclaw] Quarantined invalid legacy session path marker: ${backup}"
+  done < <(find "${agents_dir}" -type f -path '*/sessions/sessions.json' -print 2>/dev/null)
+}
+
 # Refresh volume-mounted extensions from the image on every start so rebuilds
 # are repeatable without re-running the full init profile.
 sync_extensions_from_image() {
@@ -40,6 +65,10 @@ sync_extensions_from_image() {
   if [[ -f "${configure_js}" && -f "${config_path}" ]]; then
     echo "[openclaw] Applying container OpenClaw config from env..."
     node "${configure_js}" || echo "[openclaw] WARN: configure-openclaw-docker.js failed" >&2
+  fi
+  local cleanup_plugin_registry_js="${AGENT_OS_ROOT}/deploy/scripts/cleanup-openclaw-optional-plugin-registry.js"
+  if [[ -f "${cleanup_plugin_registry_js}" ]]; then
+    node "${cleanup_plugin_registry_js}" || echo "[openclaw] WARN: optional plugin registry cleanup failed" >&2
   fi
   # configure/apply can drop channels.whatsapp; restore from sidecar written by Agent OS backend.
   if [[ -f "${restore_channels_js}" && -f "${config_path}" ]]; then
@@ -177,10 +206,17 @@ run_gateway_with_platform_llm_watch() {
       gpid="${real_pid}"
       echo "[openclaw] Gateway pid=${gpid}"
     fi
-    # Warm chrome extension relay (binds 127.0.0.1:18799) so nginx→:18792 works immediately.
+    # Warm the Chrome extension relay only after the gateway is accepting
+    # requests. Starting a second OpenClaw CLI while gateway migrations hold
+    # the state lock can abort startup and create a restart loop.
     (
-      sleep 3
-      openclaw browser status --browser-profile chrome >/dev/null 2>&1 || true
+      for _ in $(seq 1 45); do
+        if curl -fsS "http://127.0.0.1:${GATEWAY_PORT}/health" >/dev/null 2>&1; then
+          openclaw browser status --browser-profile chrome >/dev/null 2>&1 || true
+          break
+        fi
+        sleep 1
+      done
     ) &
     local reloading=0
     while kill -0 "${gpid}" 2>/dev/null; do
@@ -229,6 +265,7 @@ run_gateway_with_platform_llm_watch() {
 
 case "${MODE}" in
   gateway)
+    quarantine_invalid_session_path_markers
     sync_extensions_from_image
     run_gateway_with_platform_llm_watch
     ;;

@@ -57,11 +57,16 @@ import {
   buildRetrospective,
 } from './goal-plan-runtime.js';
 import { getExceptionPolicy } from './exception-policy.js';
-import { validateStepOutcome, correctionContext } from './step-outcome-validation.js';
+import {
+  validateStepOutcome,
+  correctionContext,
+  statusReportExplicitlyDeniesRecordedHistory,
+} from './step-outcome-validation.js';
 import { getAgentsUnderOrchestratorForCeo } from './org-context.js';
-import { qualityAssureGoalPlan } from './goal-plan-quality.js';
+import { qualityAssureGoalPlan, validateGoalPlanDraft } from './goal-plan-quality.js';
 import { getPlatformTimeoutMs } from './platform-timeout-settings.js';
 import { createMediaArtifact } from './ceo-media-artifacts.js';
+import { compactAgentWorkHistoryEvidence } from './agent-work-history.js';
 
 const TERMINAL_WF = new Set(['completed', 'failed', 'cancelled', 'paused']);
 const activeGoalPlanningRuns = new Set();
@@ -112,6 +117,117 @@ export function selectExplicitFallbackUrl(text, failedItem = '') {
     if (exact) return exact;
   }
   return urls.length === 1 ? urls[0] : null;
+}
+
+const NON_SUBSTANTIVE_EVIDENCE_TOOLS = new Set([
+  'kanban_move_status',
+  'kanban_create_task',
+  'kanban_get_task',
+  'learnings_summary',
+  'notify_ceo',
+]);
+
+/** Tool evidence emitted by the agent in this exact isolated goal-step session. */
+export function listGoalStepToolEvidence({ ownerUserId, goalRunId, goalStepId, database = null } = {}) {
+  const owner = String(ownerUserId || '').trim();
+  const runId = String(goalRunId || '').trim();
+  const stepId = String(goalStepId || '').trim();
+  if (!owner || !runId || !stepId) return { tool_calls: [], substantive_tool_calls: [], work_history: null };
+  const conn = database || db();
+  let rows = [];
+  try {
+    rows = conn.prepare(
+      `SELECT id, tool_name, source, request_payload, response_payload, status, created_at
+         FROM content_tool_logs
+        WHERE owner_user_id = ? AND trace_id = ? AND goal_step_id = ?
+        ORDER BY id ASC`
+    ).all(owner, runId, stepId);
+  } catch (e) {
+    console.warn('[goal-run] goal-step tool evidence unavailable', e?.message || e);
+  }
+  const parsedRows = rows.map((row) => ({
+    row,
+    response: parseJson(row.response_payload, row.response_payload || null),
+  }));
+  const workHistoryEntry = [...parsedRows].reverse().find(
+    ({ row, response }) => row.tool_name === 'agent_work_history' && row.status === 'ok' && response?.ok !== false
+  );
+  const compactResponse = (toolName, response) => {
+    if (toolName === 'agent_work_history' && response && typeof response === 'object') {
+      return {
+        ok: response.ok !== false,
+        evidence_id: response.evidence_id || null,
+        captured_at: response.captured_at || null,
+        activity_count: Number(response.activity_count || 0),
+        counts: response.counts || {},
+        evidence_source: response.evidence_source || null,
+        excluded_goal_run_id: response.excluded_goal_run_id || null,
+      };
+    }
+    if (typeof response === 'string') return clip(response, 3500);
+    const serialized = JSON.stringify(response ?? null);
+    if (serialized.length <= 5000) return response;
+    return { truncated: true, summary: clip(serialized, 5000) };
+  };
+  const toolCalls = parsedRows.map(({ row, response }) => {
+    return {
+      evidence_log_id: Number(row.id),
+      evidence_id: response?.evidence_id || `tool-log-${row.id}`,
+      tool_name: row.tool_name,
+      source: row.source || null,
+      status: row.status,
+      request: parseJson(row.request_payload, row.request_payload || null),
+      response: compactResponse(row.tool_name, response),
+      created_at: row.created_at,
+    };
+  });
+  const seenEvidence = new Set();
+  const uniqueToolCalls = toolCalls.filter((row) => {
+    const identity = `${row.tool_name}:${row.evidence_id}`;
+    if (seenEvidence.has(identity)) return false;
+    seenEvidence.add(identity);
+    return true;
+  });
+  return {
+    tool_calls: uniqueToolCalls.slice(-30),
+    substantive_tool_calls: uniqueToolCalls.filter(
+      (row) => row.status === 'ok' && !NON_SUBSTANTIVE_EVIDENCE_TOOLS.has(String(row.tool_name || ''))
+    ).slice(-20),
+    work_history: workHistoryEntry ? compactAgentWorkHistoryEvidence(workHistoryEntry.response, 12) : null,
+    work_history_evidence_id: workHistoryEntry?.response?.evidence_id || (workHistoryEntry ? `tool-log-${workHistoryEntry.row.id}` : null),
+  };
+}
+
+/** Render evidence that the assigned agent actually obtained. This does not
+ * execute a tool or manufacture facts; it prevents a weak prose wrapper from
+ * discarding a valid structured status-report result. */
+export function enrichStatusReportWithWorkHistory(response, history) {
+  const text = String(response || '').trim();
+  if (!history || typeof history !== 'object') return text;
+  // A direct contradiction remains a validator failure and must be retried.
+  if (statusReportExplicitlyDeniesRecordedHistory(text)) return text;
+  const evidenceId = String(history.evidence_id || '').trim();
+  const activityCount = Number(history.activity_count || 0);
+  const items = Array.isArray(history.items) ? history.items : [];
+  const hasId = evidenceId && text.toLowerCase().includes(evidenceId.toLowerCase());
+  const hasCount = new RegExp(`\\b${activityCount}\\b`).test(text);
+  const hasItem = items.some((item) => String(item?.task_id || '') && text.includes(String(item.task_id)));
+  if (hasId && hasCount && (activityCount === 0 || !items.length || hasItem)) return text;
+  const counts = history.counts && typeof history.counts === 'object'
+    ? Object.entries(history.counts).filter(([, value]) => Number(value) > 0).map(([key, value]) => `${key}: ${value}`).join(', ')
+    : '';
+  const lines = [
+    text,
+    '',
+    '### Authoritative work-history evidence',
+    `- Evidence ID: ${evidenceId || 'not supplied'}`,
+    `- Recorded activities: ${activityCount}${counts ? ` (${counts})` : ''}`,
+    ...items.slice(0, 12).map((item) =>
+      `- Task ${item.task_id}: ${clip(item.title || 'Untitled task', 180)} — ${item.status || 'unknown'}${item.outcome ? ` — ${clip(item.outcome, 500)}` : ''}`
+    ),
+  ];
+  if (activityCount === 0) lines.push('- No matching activity was recorded in the requested owner-scoped period.');
+  return lines.filter((line, index) => line || index > 0).join('\n').trim();
 }
 
 /** Resolve a deterministic read-only provider URL when the CEO names a public
@@ -274,8 +390,10 @@ export function buildVerifiedMarketOutcome(steps = []) {
 
 export function buildOutcomeRichTerminalReport({ goal, steps, terminal = 'completed' } = {}) {
   const rows = Array.isArray(steps) ? steps : [];
-  const synthesis = [...rows].reverse().map(resultPayload).map(usefulReply)
-    .find((value) => value && value !== '(no response)');
+  const outcomes = rows.filter((step) => step.step_type !== 'notify_ceo').map((step) => ({
+    label: step.label || step.step_type || 'Step',
+    value: usefulReply(resultPayload(step)),
+  })).filter((item) => item.value && item.value !== '(no response)');
   const toolEvidence = [];
   const gaps = [];
   for (const step of rows) {
@@ -307,7 +425,7 @@ export function buildOutcomeRichTerminalReport({ goal, steps, terminal = 'comple
   return [
     `## Goal ${terminal}: \`${goal?.id || ''}\``,
     `**${title}**`,
-    synthesis ? `### Outcome\n${clip(synthesis, 5000)}` : '',
+    outcomes.length ? `### Outcomes\n${outcomes.slice(0, 12).map((item) => `#### ${item.label}\n${clip(item.value, 2400)}`).join('\n\n')}` : '',
     toolEvidence.length ? `### Evidence\n${toolEvidence.slice(0, 20).map((x) => `- ${x}`).join('\n')}` : '',
     gaps.length ? `### Gaps\n${gaps.slice(0, 12).map((x) => `- ${x}`).join('\n')}` : '',
   ].filter(Boolean).join('\n\n');
@@ -421,6 +539,10 @@ export function normalizeStepSpec(raw) {
     produces: Array.isArray(raw.produces || nested.produces)
       ? (raw.produces || nested.produces)
       : [],
+    objective: String(raw.objective || nested.objective || '').trim().slice(0, 1000) || null,
+    operation_mode: String(raw.operation_mode || nested.operation_mode || '').trim().toLowerCase() || null,
+    subject: String(raw.subject || nested.subject || '').trim().slice(0, 500) || null,
+    deliverable_kind: String(raw.deliverable_kind || nested.deliverable_kind || '').trim().toLowerCase() || null,
   };
   const type = String(raw.type || raw.step_type || "workflow_trigger").toLowerCase();
   if (type === "workflow_trigger" || type === "workflow") {
@@ -1102,6 +1224,7 @@ export function serializeGoalRun(row, steps = null) {
     scheduled_goal_run_id: row.scheduled_goal_run_id,
     status: row.status,
     context: ctx,
+    plan_review: ctx.plan_review || null,
     current_step_index: row.current_step_index,
     error_message: row.error_message,
     created_at: row.created_at,
@@ -1222,7 +1345,7 @@ export function createGoalPlanningRun({
   const recent = db().prepare(
     `SELECT id FROM agent_goal_runs
      WHERE owner_user_id=? AND agent_id=? AND prompt=?
-       AND status IN ('planning','pending','running','awaiting_approval')
+       AND status IN ('planning','pending','running','awaiting_approval','awaiting_plan_review')
        AND COALESCE(scheduled_goal_run_id,'')=COALESCE(?,'')
        AND datetime(COALESCE(created_at,updated_at)) >= datetime('now','-10 minutes')
      ORDER BY datetime(COALESCE(created_at,updated_at)) DESC LIMIT 1`
@@ -1307,6 +1430,102 @@ export function failGoalPlanningRun(goalRunId, ownerUserId, error) {
     `UPDATE agent_goal_steps SET status='failed', error_message=?, completed_at=datetime('now')
      WHERE goal_run_id=? AND step_type='planning' AND status='running'`
   ).run(message, goalRunId);
+  return getGoalRun(goalRunId, owner);
+}
+
+function compactPlanningRounds(error) {
+  return (Array.isArray(error?.details?.rounds) ? error.details.rounds : []).slice(-3).map((round) => ({
+    attempt: Number(round?.attempt) || null,
+    phase: String(round?.phase || 'checker'),
+    errors: (Array.isArray(round?.errors) ? round.errors : []).map((item) => clip(item, 700)).slice(0, 8),
+  }));
+}
+
+/** Preserve an unverified proposal for human guidance; never execute it. */
+export async function awaitGoalPlanningReview(goalRunId, ownerUserId, error) {
+  ensureAgentGoalRunTables();
+  const owner = String(ownerUserId || '').trim();
+  const row = loadGoalRunRow(goalRunId, owner);
+  if (!row) return null;
+  const ctx = parseJson(row.context_json, {});
+  const candidate = Array.isArray(error?.details?.last_candidate)
+    ? error.details.last_candidate.slice(0, 8)
+    : [];
+  const deterministic = candidate.length
+    ? await validateGoalPlanDraft({ ownerUserId: owner, orchestratorAgentId: row.agent_id, prompt: row.prompt, steps: candidate })
+    : { ok: false, errors: ['Maker returned no proposal'], steps: [] };
+  const rounds = compactPlanningRounds(error);
+  const lastIssues = rounds.at(-1)?.errors || [clip(error?.message || error, 900)];
+  const review = {
+    state: 'awaiting_plan_review',
+    version: Number(ctx.plan_review?.version || 0) + 1,
+    created_at: new Date().toISOString(),
+    candidate_steps: deterministic.steps,
+    candidate_schema_valid: deterministic.ok,
+    validation_errors: [...new Set([...(deterministic.errors || []), ...lastIssues])].slice(0, 12),
+    rounds,
+    guidance: '',
+  };
+  ctx.plan_review = review;
+
+  db().prepare(
+    `UPDATE agent_goal_runs SET status='awaiting_plan_review', context_json=?, error_message=?,
+       completed_at=NULL, updated_at=datetime('now') WHERE id=? AND owner_user_id=?`
+  ).run(JSON.stringify(ctx), clip(error?.message || error, 1000), goalRunId, owner);
+  db().prepare(
+    `UPDATE agent_goal_steps SET status='awaiting_plan_review', result_json=?, error_message=?, completed_at=NULL
+     WHERE goal_run_id=? AND step_type='planning'`
+  ).run(JSON.stringify({ candidate_steps: review.candidate_steps, checker_feedback: review.validation_errors }), clip(error?.message || error, 1000), goalRunId);
+
+  let kanbanId = Number(ctx.plan_review_kanban_id || 0) || null;
+  if (!kanbanId) {
+    const info = db().prepare(
+      `INSERT INTO kanban_tasks
+       (title, description, status, assigned_user_id, created_by, owner_user_id, goal_run_id)
+       VALUES (?, ?, 'awaiting_confirmation', ?, 'goal-plan-review', ?, ?)`
+    ).run(
+      clip(`Plan review required: ${row.title || goalRunId}`, 120),
+      [
+        '[goal_plan_review]',
+        `goal_run_id: ${goalRunId}`,
+        `Review link: /goal-plans/${goalRunId}`,
+        '',
+        'The automatic maker/checker rounds did not establish a safe executable plan.',
+        ...review.validation_errors.map((item) => `- ${item}`),
+      ].join('\n'),
+      owner,
+      owner,
+      goalRunId
+    );
+    kanbanId = Number(info.lastInsertRowid);
+    ctx.plan_review_kanban_id = kanbanId;
+    db().prepare(`UPDATE agent_goal_runs SET context_json=? WHERE id=? AND owner_user_id=?`)
+      .run(JSON.stringify(ctx), goalRunId, owner);
+    notifyKanbanTaskCreated({ userId: owner, task: { id: kanbanId, title: `Plan review required: ${row.title || goalRunId}`, assigned_user_id: owner } });
+  }
+  review.kanban_task_id = kanbanId;
+  recordMissionEvent({ ownerUserId: owner, goalRunId, event_type: 'awaiting_plan_review', payload: {
+    review_version: review.version,
+    kanban_task_id: kanbanId,
+    candidate_schema_valid: review.candidate_schema_valid,
+    issues: review.validation_errors,
+  } });
+
+  const chatAgentId = String(ctx.requested_via_agent_id || row.agent_id || '').trim();
+  if (chatAgentId) {
+    insertChatTurn({
+      agentId: chatAgentId,
+      ownerUserId: owner,
+      role: 'assistant',
+      sessionId: ctx.chat_session_id || null,
+      workUnitId: ctx.work_unit_id || null,
+      content: [
+        `Planning needs your guidance for goal \`${goalRunId}\`.`,
+        'The maker proposal was preserved and the checker findings are shown inline below.',
+        'Apply the checker guidance, add your own correction, edit the detailed plan, retry, or cancel. No business step has executed.',
+      ].join('\n'),
+    });
+  }
   return getGoalRun(goalRunId, owner);
 }
 
@@ -2927,7 +3146,7 @@ export async function cancelGoalRun(goalRunId, ownerUserId, { reason = 'Cancelle
   db().transaction(() => {
     db().prepare(
       `UPDATE agent_goal_steps SET status='cancelled', error_message=?, completed_at=datetime('now')
-       WHERE goal_run_id=? AND status IN ('pending','running','awaiting_approval')`
+      WHERE goal_run_id=? AND status IN ('pending','running','awaiting_approval','awaiting_plan_review')`
     ).run(detail, goal.id);
     db().prepare(
       `UPDATE agent_goal_runs SET status='cancelled', error_message=?, completed_at=datetime('now'), updated_at=datetime('now')
@@ -2940,6 +3159,7 @@ export async function cancelGoalRun(goalRunId, ownerUserId, { reason = 'Cancelle
     event_type: 'goal_cancelled',
     payload: { reason: detail, actor_user_id: actorUserId || null },
   });
+  updatePlanReviewKanban(goal, 'cancelled');
   return { ok: true, cancelled: true, goal: getGoalRun(goal.id, owner) };
 }
 
@@ -3022,9 +3242,116 @@ async function executePlanningRetry(goal, { onProgress = null, planGoal = planGo
     });
     return executeGoal(finalized.id, { ownerUserId: goal.owner_user_id });
   } catch (error) {
-    failGoalPlanningRun(goal.id, goal.owner_user_id, error);
+    if (error?.code === 'GOAL_PLAN_UNVERIFIED') await awaitGoalPlanningReview(goal.id, goal.owner_user_id, error);
+    else failGoalPlanningRun(goal.id, goal.owner_user_id, error);
     throw error;
   }
+}
+
+function updatePlanReviewKanban(goal, status) {
+  const ctx = parseJson(goal?.context_json, {});
+  const id = Number(ctx.plan_review_kanban_id || 0);
+  if (!id) return;
+  db().prepare(`UPDATE kanban_tasks SET status=?, updated_at=datetime('now') WHERE id=? AND owner_user_id=?`)
+    .run(status, id, goal.owner_user_id);
+  if (['completed', 'cancelled', 'failed'].includes(status)) clearKanbanTaskNotification(id, goal.owner_user_id);
+}
+
+export function resolvePlanReviewContext(context, { resolution, actorUserId } = {}) {
+  const ctx = { ...(context || {}) };
+  if (!ctx.plan_review) return ctx;
+  ctx.plan_review = {
+    ...ctx.plan_review,
+    state: 'resolved',
+    resolution: String(resolution || 'resolved'),
+    resolved_at: new Date().toISOString(),
+    resolved_by: actorUserId || null,
+  };
+  return ctx;
+}
+
+/** Human guidance/approval resumes the SAME durable goal; it never creates a duplicate. */
+export async function submitGoalPlanReview(goalRunId, ownerUserId, {
+  action = 'revise', guidance = '', steps = null, actorUserId = null,
+} = {}) {
+  ensureAgentGoalRunTables();
+  const owner = String(ownerUserId || '').trim();
+  const goal = loadGoalRunRow(goalRunId, owner);
+  if (!goal) throw Object.assign(new Error('Goal run not found'), { status: 404 });
+  if (goal.status !== 'awaiting_plan_review') {
+    throw Object.assign(new Error('Goal is not awaiting plan review'), { status: 409 });
+  }
+  if (action === 'cancel') return cancelGoalRun(goalRunId, owner, { reason: 'Cancelled during plan review', actorUserId });
+
+  const ctx = parseJson(goal.context_json, {});
+  const review = ctx.plan_review || {};
+  const supplied = Array.isArray(steps) ? steps : review.candidate_steps;
+  if (action === 'approve') {
+    const validated = await validateGoalPlanDraft({ ownerUserId: owner, orchestratorAgentId: goal.agent_id, prompt: goal.prompt, steps: supplied });
+    if (!validated.ok) {
+      const error = new Error(`Plan cannot be approved until its executable schema is valid: ${validated.errors.join('; ')}`);
+      error.status = 422;
+      error.details = { errors: validated.errors };
+      throw error;
+    }
+    Object.assign(ctx, resolvePlanReviewContext(ctx, {
+      resolution: 'approved_candidate', actorUserId: actorUserId || owner,
+    }));
+    db().prepare(`UPDATE agent_goal_runs SET context_json=? WHERE id=? AND owner_user_id=?`).run(JSON.stringify(ctx), goal.id, owner);
+    resetPlanningGoal({ ...goal, context_json: JSON.stringify(ctx) });
+    const finalized = createGoalRun({
+      ownerUserId: owner,
+      agentId: goal.agent_id,
+      title: goal.title,
+      prompt: goal.prompt,
+      source: goal.source,
+      scheduledGoalId: goal.scheduled_goal_id,
+      scheduledGoalRunId: goal.scheduled_goal_run_id,
+      context: ctx,
+      steps: validated.steps,
+      goalRunId: goal.id,
+    });
+    updatePlanReviewKanban(goal, 'completed');
+    recordMissionEvent({ ownerUserId: owner, goalRunId: goal.id, event_type: 'plan_review_approved', payload: { actor_user_id: actorUserId || owner } });
+    setImmediate(() => void startGoalRunExecution(finalized.id, { ownerUserId: owner }).catch((error) =>
+      console.error('[goal-run] reviewed plan execution failed', finalized.id, error?.message || error)
+    ));
+    return { ok: true, accepted: true, goal: getGoalRun(goal.id, owner) };
+  }
+
+  const requestedGuidance = String(guidance || '').trim();
+  const checkerGuidance = (review.validation_errors || []).join('\n- ');
+  const feedback = requestedGuidance || `Apply every checker correction below without dropping any valid step:\n- ${checkerGuidance}`;
+  if (!feedback.trim()) throw Object.assign(new Error('Plan guidance is required'), { status: 400 });
+  ctx.plan_review = { ...review, state: 'replanning', guidance: feedback.slice(0, 4000), revised_at: new Date().toISOString(), revised_by: actorUserId || owner };
+  db().prepare(`UPDATE agent_goal_runs SET context_json=? WHERE id=? AND owner_user_id=?`).run(JSON.stringify(ctx), goal.id, owner);
+  resetPlanningGoal({ ...goal, context_json: JSON.stringify(ctx) });
+  updatePlanReviewKanban(goal, 'in_progress');
+  recordMissionEvent({ ownerUserId: owner, goalRunId: goal.id, event_type: 'plan_review_guidance', payload: {
+    actor_user_id: actorUserId || owner,
+    action,
+    guidance: feedback.slice(0, 1000),
+  } });
+  const planningGoal = getGoalRun(goal.id, owner);
+  if (!activeGoalPlanningRuns.has(goal.id)) {
+    activeGoalPlanningRuns.add(goal.id);
+    const opts = {
+      ownerUserId: owner,
+      agentId: goal.agent_id,
+      orchestratorAgentId: goal.agent_id,
+      title: goal.title,
+      prompt: goal.prompt,
+      source: goal.source,
+      scheduledGoalId: goal.scheduled_goal_id,
+      scheduledGoalRunId: goal.scheduled_goal_run_id,
+      context: ctx,
+      feedback,
+    };
+    setImmediate(() => void finishGoalPlanningAndStart(opts, planningGoal, { claimed: true }).then(() => {
+      updatePlanReviewKanban(goal, 'completed');
+    }).catch((error) => console.error('[goal-run] reviewed replanning failed', goal.id, error?.message || error)));
+  }
+  return { ok: true, accepted: true, replanning: true, goal: getGoalRun(goal.id, owner) };
 }
 
 /** Retry the abandoned/failed portion while preserving valid predecessor outputs. */
@@ -3345,6 +3672,13 @@ export function completeGoalStep({ goalRunId, stepId, ownerUserId, result = null
            WHERE id = ?`
         )
         .run(JSON.stringify(spec), JSON.stringify(resultPayload), String(error || decision.reason).slice(0, 1000), stepId);
+      const retryCardId = Number(resultPayload?.kanban_task_id || 0);
+      if (retryCardId > 0) {
+        db().prepare(
+          `UPDATE kanban_tasks SET status='in_progress', updated_at=datetime('now')
+            WHERE id=? AND owner_user_id=? AND goal_run_id=? AND goal_step_id=?`
+        ).run(retryCardId, goal.owner_user_id, goalRunId, stepId);
+      }
       touchGoalRun(goalRunId, { status: 'running' });
       return { ok: true, recovered: true, decision, goal: getGoalRun(goalRunId, ownerUserId) };
     }
@@ -3510,10 +3844,23 @@ async function executeSpecialtyTaskStep(goal, step) {
   const outputContract = Array.isArray(spec.produces) && spec.produces.length
     ? spec.produces.map((output) => `- ${output.key}: ${output.kind || 'data'}${output.required === false ? ' (optional)' : ' (required)'}`).join('\n')
     : '- completed_deliverable: data (required)';
+  const semanticContract = [
+    spec.objective ? `Objective: ${spec.objective}` : null,
+    spec.operation_mode ? `Operation mode: ${spec.operation_mode}` : null,
+    spec.subject ? `Subject: ${spec.subject}` : null,
+    spec.deliverable_kind ? `Deliverable kind: ${spec.deliverable_kind}` : null,
+  ].filter(Boolean).join('\n');
   let message =
-    `Original CEO goal (verbatim):\n${originalGoal}\n\n` +
-    `Your assigned specialty deliverable:\n${assignedDeliverable}\n\n` +
+    `CURRENT ASSIGNED STEP — this is the only deliverable you own:\n${assignedDeliverable}\n` +
+    `Do not answer for another agent or another plan step, even when the original goal names them.\n\n` +
+    `Original CEO goal (verbatim, supplied only as global context):\n${originalGoal}\n\n` +
     `Typed output contract (your response is validated before the next step):\n${outputContract}\n` +
+    (semanticContract ? `Semantic execution contract:\n${semanticContract}\nA status/history report describes the subject's prior outcomes; reported failures or blockers do not mean this reporting step failed. Do not repeat an underlying mutation unless operation mode explicitly requires it.\n` : '') +
+    `Mandatory evidence contract:\n` +
+    `- You must obtain and use evidence for factual, historical, tool, API, browser, workflow, CRM, ERP, or external-action claims. Select and invoke the appropriate granted tool yourself; the goal executor will not call an agent-specific tool on your behalf merely to manufacture evidence.\n` +
+    `- For a status_report about your work, call agent_work_history with the requested day window and use its counts/items as the source of truth. Include its evidence_id, total activity count, and at least one returned task_id with its status/outcome when history exists. Do not substitute learnings_summary, communications history, or memory.\n` +
+    `- For an external action or record creation, report the returned execution/record identifier and read-back when available. For research/data, cite the successful tool/source results. For an artifact, return its real file/URL. A writing-only deliverable is evidenced by the concrete text itself.\n` +
+    `- Missing required evidence is an incomplete outcome and will be returned to this same isolated step for correction.\n` +
     `For an artifact output, return the real file/attachment/download URL in the response; a description of a future file is not an artifact.\n\n` +
     `An empty upstream result is still valid evidence. If you can accurately document that no records were found, produce the contracted data or exception artifact and a bounded recommendation; do not invent records or request clarification merely because the result set is empty.\n\n` +
     `Relevant completed outputs from THIS goal only:\n${prior || '(none — this is the first relevant step)'}\n\n` +
@@ -3532,10 +3879,20 @@ async function executeSpecialtyTaskStep(goal, step) {
 
   const standupId = getOrCreateDelegationHubStandup(goal.owner_user_id);
   if (!standupId) throw new Error('specialty_task could not resolve delegation hub standup');
+  const previousAttempt = parseJson(step.result_json, {});
+  const reusableKanbanId = Number(previousAttempt?.kanban_task_id || 0);
+  const reusableKanban = reusableKanbanId > 0
+    ? db().prepare(
+      `SELECT id FROM kanban_tasks
+        WHERE id=? AND owner_user_id=? AND goal_run_id=? AND goal_step_id=?`
+    ).get(reusableKanbanId, goal.owner_user_id, goal.id, step.id)
+    : null;
   const out = await scheduleCeoRequestViaOpenClawCron(standupId, message, goal.owner_user_id, {
     preAllocated: { [agentId]: message },
     restrictToAgentIds: [agentId],
     maxAgents: 1,
+    isolatedContext: true,
+    reuseKanbanTaskId: reusableKanban?.id || null,
   });
   let taskId = null;
   if (out?.requestId) {
@@ -3582,12 +3939,139 @@ export function findGoalStepByDelegationTask(taskId) {
   ensureAgentGoalRunTables();
   const id = Number(taskId);
   if (!Number.isFinite(id) || id <= 0) return null;
-  const step = db()
+  let step = db()
     .prepare('SELECT * FROM agent_goal_steps WHERE child_delegation_task_id = ? LIMIT 1')
     .get(id);
+  let recovery = false;
+  let recoveryKanbanId = null;
+  if (!step) {
+    const row = db().prepare(
+      `SELECT s.*, k.id AS recovery_kanban_id
+         FROM kanban_tasks k
+         JOIN agent_goal_steps s ON s.goal_run_id=k.goal_run_id AND s.id=k.goal_step_id
+        WHERE k.agent_delegation_task_id=? AND k.created_by='exception-policy'
+        ORDER BY k.id DESC LIMIT 1`
+    ).get(id);
+    if (row) {
+      recovery = true;
+      recoveryKanbanId = Number(row.recovery_kanban_id);
+      step = row;
+    }
+  }
   if (!step) return null;
   const goal = loadGoalRunRow(step.goal_run_id);
-  return goal ? { goal, step } : null;
+  return goal ? { goal, step, recovery, recoveryKanbanId } : null;
+}
+
+export function resumeGoalAfterValidatedRecovery({
+  goal, step, taskId, cardId = null, response = '', validation, capturedEvidence = {},
+} = {}) {
+  if (!goal?.id || !step?.id || validation?.satisfied !== true) {
+    throw new Error('Validated goal recovery requires a goal, step, and satisfied outcome contract');
+  }
+  const ctx = parseJson(goal.context_json, {});
+  ctx.failure_recovery_resolved_at = new Date().toISOString();
+  ctx.failure_recovery_resolved_task_id = Number(taskId);
+  db().transaction(() => {
+    db().prepare(
+      `UPDATE agent_goal_steps SET status='completed', result_json=?, error_message=NULL, completed_at=datetime('now')
+        WHERE id=? AND goal_run_id=?`
+    ).run(JSON.stringify({
+      ok: true,
+      recovered: true,
+      recovery_delegation_task_id: Number(taskId),
+      reply: clip(response, 12000),
+      reply_preview: clip(response, 2000),
+      outcome_validation: validation,
+      evidence: { tool_calls: capturedEvidence.tool_calls || [], work_history_summary: capturedEvidence.work_history || null },
+    }), step.id, goal.id);
+    db().prepare(
+      `UPDATE agent_goal_runs SET status='running', context_json=?, error_message=NULL,
+        completed_at=NULL, updated_at=datetime('now') WHERE id=? AND owner_user_id=?`
+    ).run(JSON.stringify(ctx), goal.id, goal.owner_user_id);
+    if (Number(cardId) > 0) db().prepare(
+      `UPDATE kanban_tasks SET status='completed', updated_at=datetime('now') WHERE id=? AND owner_user_id=?`
+    ).run(Number(cardId), goal.owner_user_id);
+  })();
+  if (Number(cardId) > 0) clearKanbanTaskNotification(Number(cardId), goal.owner_user_id);
+  recordMissionEvent({ ownerUserId: goal.owner_user_id, goalRunId: goal.id, event_type: 'goal_recovery_resumed', payload: {
+    step_id: step.id, kanban_task_id: Number(cardId) || null, delegation_task_id: Number(taskId),
+  } });
+  return getGoalRun(goal.id, goal.owner_user_id);
+}
+
+/** Resolve an exception-policy recovery card using an explicit CEO/delegate
+ * disposition. This is deliberately separate from human-task and workflow
+ * approval handling: the card is correlated to an already-existing goal step.
+ * Approval either accepts the recovery agent's concrete result or retries that
+ * exact step when no result exists; it never creates a replacement goal. */
+export async function respondToGoalRecoveryKanban({
+  ownerUserId, actorUserId, taskId, decision, comment = '',
+} = {}) {
+  ensureAgentGoalRunTables();
+  const owner = String(ownerUserId || '').trim();
+  const card = db().prepare(
+    `SELECT * FROM kanban_tasks
+      WHERE id=? AND owner_user_id=? AND created_by='exception-policy'
+        AND goal_run_id IS NOT NULL AND goal_step_id IS NOT NULL`
+  ).get(Number(taskId), owner);
+  if (!card) throw Object.assign(new Error('Goal recovery task not found'), { status: 404 });
+  const action = String(decision || '').toLowerCase();
+  if (!['approve', 'complete', 'reject', 'unable'].includes(action)) {
+    throw Object.assign(new Error('Recovery decision must be approve, complete, reject, or unable'), { status: 400 });
+  }
+  const goal = loadGoalRunRow(card.goal_run_id, owner);
+  const step = loadGoalSteps(card.goal_run_id).find((item) => item.id === card.goal_step_id);
+  if (!goal || !step) throw Object.assign(new Error('Recovery goal correlation is missing'), { status: 409 });
+  const note = clip(comment || `Recovery ${action} by ${actorUserId || owner}`, 4000);
+  db().prepare('INSERT INTO task_messages(task_id,role,content) VALUES (?,?,?)')
+    .run(card.id, actorUserId || owner, note);
+
+  if (['reject', 'unable'].includes(action)) {
+    db().transaction(() => {
+      db().prepare("UPDATE kanban_tasks SET status='failed', updated_at=datetime('now') WHERE id=?").run(card.id);
+      db().prepare("UPDATE agent_goal_runs SET status='failed', error_message=?, completed_at=datetime('now'), updated_at=datetime('now') WHERE id=? AND owner_user_id=?")
+        .run(note, goal.id, owner);
+    })();
+    clearKanbanTaskNotification(card.id, owner);
+    recordMissionEvent({ ownerUserId: owner, goalRunId: goal.id, event_type: 'goal_recovery_rejected', payload: {
+      step_id: step.id, kanban_task_id: card.id, actor_user_id: actorUserId || owner, reason: note,
+    } });
+    return { ok: true, resumed: false, rejected: true, goal: getGoalRun(goal.id, owner) };
+  }
+
+  const recoveryTask = Number(card.agent_delegation_task_id || 0) > 0
+    ? db().prepare('SELECT * FROM agent_delegation_tasks WHERE id=?').get(Number(card.agent_delegation_task_id))
+    : null;
+  const response = String(recoveryTask?.response_content || '').trim();
+  const captured = listGoalStepToolEvidence({ ownerUserId: owner, goalRunId: goal.id, goalStepId: step.id });
+  const acceptedText = response || note;
+  const effective = String(parseJson(step.spec_json, {}).deliverable_kind || '').toLowerCase() === 'status_report'
+    ? enrichStatusReportWithWorkHistory(acceptedText, captured.work_history)
+    : acceptedText;
+  resumeGoalAfterValidatedRecovery({
+    goal, step,
+    taskId: Number(recoveryTask?.id || card.agent_delegation_task_id || card.id),
+    cardId: card.id,
+    response: effective,
+    validation: {
+      satisfied: true,
+      reason: 'Company owner or delegate explicitly accepted the failed step outcome.',
+      missing_outcomes: [],
+      owner_override: true,
+      actor_user_id: actorUserId || owner,
+    },
+    capturedEvidence: captured,
+  });
+  const execution = await startGoalRunExecution(goal.id, { ownerUserId: owner });
+  return {
+    ok: true,
+    resumed: true,
+    accepted_recovery_result: Boolean(response),
+    accepted_failed_step: true,
+    execution,
+    goal: getGoalRun(goal.id, owner),
+  };
 }
 
 const activeAgentContinueSteps = new Set();
@@ -3643,8 +4127,8 @@ export function isFailedDelegationOutcome({ delegationStatus, kanbanStatus, need
 export async function onDelegationTerminalForGoalRun(taskId) {
   const found = findGoalStepByDelegationTask(taskId);
   if (!found) return { ok: false, skipped: true, reason: 'no_goal_step' };
-  const { goal, step } = found;
-  if (step.status === 'completed' || step.status === 'failed') {
+  const { goal, step, recovery = false } = found;
+  if (!recovery && (step.status === 'completed' || step.status === 'failed')) {
     return { ok: true, skipped: true, reason: 'step_already_terminal', goal_run_id: goal.id };
   }
   const task = db().prepare('SELECT * FROM agent_delegation_tasks WHERE id = ?').get(Number(taskId));
@@ -3654,6 +4138,52 @@ export async function onDelegationTerminalForGoalRun(taskId) {
   ).get(Number(taskId));
   const response = String(task?.response_content || '').trim();
   const spec = parseJson(step.spec_json, {});
+  if (recovery) {
+    const captured = listGoalStepToolEvidence({
+      ownerUserId: goal.owner_user_id,
+      goalRunId: goal.id,
+      goalStepId: step.id,
+    });
+    const effective = String(spec.deliverable_kind || '').toLowerCase() === 'status_report'
+      ? enrichStatusReportWithWorkHistory(response, captured.work_history)
+      : response;
+    const validation = task?.status === 'completed' && effective
+      ? await validateStepOutcome({
+        originalGoal: goal.prompt,
+        assignment: spec.message || step.label,
+        objective: spec.objective,
+        operationMode: spec.operation_mode,
+        subject: spec.subject,
+        deliverableKind: spec.deliverable_kind,
+        requiredInputs: spec.required_inputs,
+        requiredOutputs: spec.produces,
+        response: effective,
+        executionEvidence: { delegation_status: task.status, ...captured },
+      }, (options) => platformChatCompletions({
+        ...options,
+        ownerUserId: goal.owner_user_id,
+        toolName: 'goal_outcome_validation',
+        responseFormat: 'json_object',
+        thinkingMode: 'disabled',
+        temperature: 0,
+      }))
+      : { satisfied: false, reason: task?.error_message || 'Recovery agent returned no completed outcome', missing_outcomes: ['recovery_outcome'] };
+    const cardId = Number(found.recoveryKanbanId || 0);
+    if (!validation.satisfied) {
+      if (cardId) db().prepare(
+        `UPDATE kanban_tasks SET status='awaiting_confirmation', description=description || ?, updated_at=datetime('now')
+          WHERE id=? AND owner_user_id=?`
+      ).run(`\n\n[SYSTEM recovery_validation] ${clip(validation.reason, 900)}`, cardId, goal.owner_user_id);
+      recordMissionEvent({ ownerUserId: goal.owner_user_id, goalRunId: goal.id, event_type: 'recovery_validation_failed', payload: {
+        step_id: step.id, kanban_task_id: cardId || null, reason: validation.reason,
+      } });
+      return { ok: false, handled_recovery: true, blocked: true, goal_run_id: goal.id, validation };
+    }
+    resumeGoalAfterValidatedRecovery({
+      goal, step, taskId, cardId, response: effective, validation, capturedEvidence: captured,
+    });
+    return startGoalRunExecution(goal.id, { ownerUserId: goal.owner_user_id });
+  }
   const requiredArtifact = (Array.isArray(spec.produces) ? spec.produces : [])
     .find((output) => output?.required !== false && String(output?.kind || '') === 'artifact');
   const needsClarification = /\[NEEDS_CLARIFICATION\]/i.test(response);
@@ -3690,9 +4220,33 @@ export async function onDelegationTerminalForGoalRun(taskId) {
   const missingArtifact = requiredArtifact && !artifactRefs.size;
   const kanbanFailed = ['failed', 'cancelled'].includes(String(linkedKanban?.status || '').toLowerCase());
   let outcomeValidation = null;
+  let capturedEvidence = { tool_calls: [], substantive_tool_calls: [], work_history: null, work_history_evidence_id: null };
   if (task?.status === 'completed' && response && !needsClarification) {
+    capturedEvidence = listGoalStepToolEvidence({
+      ownerUserId: goal.owner_user_id,
+      goalRunId: goal.id,
+      goalStepId: step.id,
+    });
+    if (String(spec.deliverable_kind || '').toLowerCase() === 'status_report' && capturedEvidence.work_history) {
+      effectiveResponse = enrichStatusReportWithWorkHistory(effectiveResponse, capturedEvidence.work_history);
+    }
     outcomeValidation = await validateStepOutcome(
-      { assignment: spec.message || step.label, requiredOutputs: spec.produces, response },
+      {
+        originalGoal: goal.prompt,
+        assignment: spec.message || step.label,
+        objective: spec.objective,
+        operationMode: spec.operation_mode,
+        subject: spec.subject,
+        deliverableKind: spec.deliverable_kind,
+        requiredInputs: spec.required_inputs,
+        requiredOutputs: spec.produces,
+        response: effectiveResponse,
+        executionEvidence: {
+          delegation_status: task?.status || null,
+          kanban_status: linkedKanban?.status || null,
+          ...capturedEvidence,
+        },
+      },
       (options) => platformChatCompletions({ ...options, ownerUserId: goal.owner_user_id, toolName: 'goal_outcome_validation', responseFormat: 'json_object', thinkingMode: 'disabled', temperature: 0 })
     );
   }
@@ -3707,6 +4261,27 @@ export async function onDelegationTerminalForGoalRun(taskId) {
     : null;
   const result = {
     outcome_validation: outcomeValidation,
+    evidence: {
+      tool_calls: capturedEvidence.tool_calls.map((row) => ({
+        evidence_id: row.evidence_id,
+        tool_name: row.tool_name,
+        status: row.status,
+        created_at: row.created_at,
+      })),
+      substantive_count: capturedEvidence.substantive_tool_calls.length,
+      work_history_evidence_id: capturedEvidence.work_history_evidence_id,
+      work_history_summary: capturedEvidence.work_history ? {
+        evidence_id: capturedEvidence.work_history.evidence_id || capturedEvidence.work_history_evidence_id,
+        activity_count: Number(capturedEvidence.work_history.activity_count || 0),
+        counts: capturedEvidence.work_history.counts || {},
+        items: (capturedEvidence.work_history.items || []).slice(0, 5).map((item) => ({
+          task_id: item.task_id,
+          title: clip(item.title, 300),
+          status: item.status,
+          outcome: clip(item.outcome, 800),
+        })),
+      } : null,
+    },
     delegation_task_id: Number(taskId),
     status: task?.status || 'missing',
     kanban_task_id: linkedKanban?.id || null,
@@ -3718,6 +4293,7 @@ export async function onDelegationTerminalForGoalRun(taskId) {
       ? `Delegated work ended with Kanban status ${linkedKanban.status}`
       : needsClarification ? 'Needs CEO clarification' : null),
     needs_clarification: needsClarification,
+    ...(outcomeValidation?.satisfied === false ? { failure_code: 'outcome_contract_incomplete' } : {}),
   };
   const completion = await completeGoalStep({
     goalRunId: goal.id,
@@ -3731,6 +4307,18 @@ export async function onDelegationTerminalForGoalRun(taskId) {
         : needsClarification ? 'Needs CEO clarification' : task?.status || 'delegation failed')
       : null,
   });
+  if (linkedKanban?.id) {
+    const nextCardStatus = completion?.recovered
+      ? 'in_progress'
+      : failed ? 'failed' : 'completed';
+    db().prepare(
+      `UPDATE kanban_tasks SET status=?, updated_at=datetime('now')
+        WHERE id=? AND owner_user_id=?`
+    ).run(nextCardStatus, linkedKanban.id, goal.owner_user_id);
+    if (nextCardStatus === 'completed' || nextCardStatus === 'failed') {
+      clearKanbanTaskNotification(linkedKanban.id, goal.owner_user_id);
+    }
+  }
   if (completion?.recovered) {
     return startGoalRunExecution(goal.id, { ownerUserId: goal.owner_user_id });
   }
@@ -4462,14 +5050,35 @@ async function finishGoalPlanningAndStart(opts, planningGoal, { claimed = false 
     const steps = await planGoalStepsAsync(opts.prompt || '', {
       ownerUserId: opts.ownerUserId,
       explicitSteps: opts.explicitSteps,
+      feedback: opts.feedback,
       orchestratorAgentId: opts.orchestratorAgentId || opts.agentId || null,
       onProgress: reportProgress,
     });
+    let finalContext = { ...(opts.context || {}) };
+    if (finalContext.plan_review?.state === 'replanning') {
+      finalContext = resolvePlanReviewContext(finalContext, {
+        resolution: 'replanned_with_human_guidance',
+        actorUserId: finalContext.plan_review.revised_by || opts.ownerUserId,
+      });
+    }
     const goal = createGoalRun({
       ...opts,
+      context: finalContext,
       steps,
       goalRunId: goalId,
     });
+    if (finalContext.plan_review?.state === 'resolved') {
+      updatePlanReviewKanban(goal, 'completed');
+      recordMissionEvent({
+        ownerUserId: goal.owner_user_id,
+        goalRunId: goal.id,
+        event_type: 'plan_review_resolved',
+        payload: {
+          resolution: finalContext.plan_review.resolution,
+          actor_user_id: finalContext.plan_review.resolved_by || null,
+        },
+      });
+    }
     // The persisted executable plan replaces the planning placeholder before
     // releasing this guard. Otherwise the executor blocks its own handoff.
     activeGoalPlanningRuns.delete(goalId);
@@ -4492,7 +5101,11 @@ async function finishGoalPlanningAndStart(opts, planningGoal, { claimed = false 
       execution,
     };
   } catch (error) {
-    failGoalPlanningRun(goalId, opts.ownerUserId, error);
+    if (error?.code === 'GOAL_PLAN_UNVERIFIED') {
+      await awaitGoalPlanningReview(goalId, opts.ownerUserId, error);
+    } else {
+      failGoalPlanningRun(goalId, opts.ownerUserId, error);
+    }
     throw error;
   } finally {
     activeGoalPlanningRuns.delete(goalId);

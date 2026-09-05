@@ -102,8 +102,10 @@ function ensurePluginLoadPaths() {
     return;
   }
   let config;
+  let originalConfigText = '';
   try {
-    config = JSON.parse(readFileSync(configPath, 'utf8'));
+    originalConfigText = readFileSync(configPath, 'utf8');
+    config = JSON.parse(originalConfigText);
   } catch (e) {
     console.warn('Could not parse openclaw.json:', e.message);
     return;
@@ -162,7 +164,10 @@ function ensurePluginLoadPaths() {
     if (!config.plugins.allow.includes(id)) config.plugins.allow.push(id);
   }
 
-  writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
+  const serializedConfig = `${JSON.stringify(config, null, 2)}\n`;
+  if (serializedConfig.trim() !== originalConfigText.trim()) {
+    writeFileSync(configPath, serializedConfig, 'utf8');
+  }
   console.log('Ensured plugins.load.paths + enabled entries:', config.plugins.load.paths);
 }
 

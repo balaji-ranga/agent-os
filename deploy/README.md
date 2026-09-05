@@ -1,5 +1,7 @@
 # Agent OS — Container deployment
 
+For OpenClaw recovery, configuration drift, tenant-volume preservation, and safe validation, follow [the OpenClaw recovery and drift-control runbook](../knowledgebase/OPENCLAW-RECOVERY-AND-DRIFT-RUNBOOK.md). Do not repair generated OpenClaw configuration inside a running container.
+
 ## Embeddings CPU quota
 
 The embeddings service defaults to a two-core Docker CPU quota via
@@ -7,7 +9,15 @@ The embeddings service defaults to a two-core Docker CPU quota via
 environment when capacity permits. Recreate only `embeddings` with the canonical
 VPS Compose overlays to apply it; no image rebuild or backend restart is needed.
 The quota bounds aggregate CPU usage, not CPU affinity or memory. Heavy embedding
-requests can take longer. Ollama has a separate workload and is unchanged by this setting.
+requests can take longer. Ollama separately defaults to `OLLAMA_CPU_LIMIT=2.0`.
+
+Embedding inference retains its original threaded request processing and existing
+per-request model batching. Indexing/reindexing retains its original implementation;
+the proposed queue, worker and incremental-batching changes were withdrawn.
+Recreate Ollama to apply its CPU quota. The A2A result cache now expires after 15 minutes
+and is capped at 256 entries / 4 MiB serialized payload; durable task history is retained.
+Resource-bound changes require a backend rebuild. No functionality tests have been
+run for this change set; request focused validation before production deployment.
 
 Production stack for Agent OS: **nginx**, **frontend**, **backend**, **OpenClaw gateway**, **OpenSearch** (+ Dashboards BFF), plus optional **init**, **MCP**, **OpenConnector**, **Ollama**, and **browser-login** services.
 

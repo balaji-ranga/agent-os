@@ -1,6 +1,6 @@
 import { getDb } from '../db/schema.js';
 import { isCeoDelegate } from './org-permissions.js';
-import { respondToHumanGoalTask } from './agent-goal-run.js';
+import { respondToGoalRecoveryKanban, respondToHumanGoalTask } from './agent-goal-run.js';
 import { getGoalActionApprovalByKanban, respondToGoalActionApproval } from './goal-action-approval.js';
 import { clearKanbanTaskNotification } from './platform-notifications.js';
 
@@ -55,7 +55,16 @@ export async function executeKanbanUserAction(input) {
   assertActor(task, input.ownerUserId, input.actor);
   const evidenceMessage = `[${input.channel || 'web'}${input.proxyAgentId ? ` via COO ${input.proxyAgentId}` : ''}; user ${input.actor.id}] ${input.evidence}`;
   let result;
-  if (['complete','unable','question'].includes(action) && task.goal_run_id && task.goal_step_id) {
+  const isGoalRecovery = task.created_by === 'exception-policy' && task.goal_run_id && task.goal_step_id;
+  if (isGoalRecovery && ['approve','complete','reject','unable'].includes(action)) {
+    result = await respondToGoalRecoveryKanban({
+      ownerUserId: input.ownerUserId,
+      actorUserId: input.actor.id,
+      taskId: Number(task.id),
+      decision: action,
+      comment: evidenceMessage,
+    });
+  } else if (['complete','unable','question'].includes(action) && task.goal_run_id && task.goal_step_id) {
     result = await respondToHumanGoalTask({ ownerUserId: input.ownerUserId, actorUserId: input.actor.id, taskId: Number(task.id), action, outcome: evidenceMessage, authorizedActor: true });
   } else if (['approve','reject'].includes(action)) {
     const approval = getGoalActionApprovalByKanban(input.ownerUserId, task.id);

@@ -393,6 +393,13 @@ export function listWorkflowCatalogForGoalPlan(ownerUserId) {
       name: w.name || w.id,
       description: clip(w.description || '', 200),
       chat_trigger_phrase: String(w.chat_trigger_phrase || '').trim(),
+      input_schema: w.input_schema || null,
+      execution_contract: w.execution_contract || {
+        operation_mode: 'coordinate',
+        side_effects: 'defined_by_published_workflow',
+        runtime_outputs: ['workflow_run_id', 'status', 'summary'],
+        approval_gates: [],
+      },
     });
   }
   return [...byId.values()];

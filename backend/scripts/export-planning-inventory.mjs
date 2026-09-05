@@ -19,7 +19,7 @@ take('agent_connector_action_grants','agent_id,action_id',`WHERE agent_id ${inAg
 take('connector_action_registry','action_id,risk_tier,action_family,description');
 take('platform_users','id,name,role,role_title,department,specialty,purpose,owner_user_id,enabled','WHERE id=? OR owner_user_id=?',[owner,owner]);
 take('work_assignment_policies','owner_user_id,mode,high_risk_to_human,default_eta_hours,standard_eta_hours,complex_eta_hours','WHERE owner_user_id=?',[owner]);
-take('agent_workflow_definitions','id,owner_user_id,name,description,status,paused,trigger_modes,trigger_modes_json,chat_trigger_phrase','WHERE owner_user_id=?',[owner]);
+take('agent_workflow_definitions','id,owner_user_id,name,description,status,paused,trigger_modes,trigger_modes_json,chat_trigger_phrase,graph_json','WHERE owner_user_id=?',[owner]);
 const settings=db.prepare("SELECT * FROM platform_settings WHERE key='llm_active_endpoint'").all();
 console.log(JSON.stringify({owner,exported_at:new Date().toISOString(),tables,active_slot:settings[0]?.value||'primary'}));
 db.close();

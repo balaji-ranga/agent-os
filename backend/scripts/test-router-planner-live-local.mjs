@@ -13,6 +13,7 @@ const {values:args}=parseArgs({options:{
   'env-file':{type:'string'}, slot:{type:'string',default:'primary'}, suite:{type:'string',default:'all'},
   'primary-model':{type:'string'},'secondary-model':{type:'string'},
   'inventory-file':{type:'string'},
+  case:{type:'string'},
   'capture-request':{type:'string'},
   'max-calls':{type:'string',default:'18'},'timeout-seconds':{type:'string',default:'600'},
   report:{type:'string'},run:{type:'boolean',default:false},
@@ -21,7 +22,9 @@ if(!args['env-file'])throw new Error('Pass --env-file pointing to your EXISTING 
 if(!['primary','secondary'].includes(args.slot))throw new Error('slot must be primary or secondary');
 if(!['router','planner','rag','all'].includes(args.suite))throw new Error('suite must be router, planner, rag or all');
 const config=parseEnv(readFileSync(resolve(args['env-file'])));
-const inventory=args['inventory-file']?JSON.parse(readFileSync(resolve(args['inventory-file']),'utf8').replace(/^\uFEFF/,'')):null;
+const inventory=args['inventory-file']
+  ? JSON.parse(readFileSync(args['inventory-file']==='-' ? 0 : resolve(args['inventory-file']),'utf8').replace(/^\uFEFF/,''))
+  : null;
 if(inventory)args.slot=inventory.active_slot;
 // Import only model credentials/settings. Never load production database paths,
 // business connector secrets or service URLs from the deployment environment.
@@ -87,11 +90,12 @@ try {
   if(args.run){
     db.pragma('foreign_keys=OFF'); // Synthetic tenant only; no production DB is opened.
     const owner=inventory?.owner||'local-fixture-company';
-    const actualIds={'coordinator':'balserve','mail-specialist':'gmail-operations','discovery-specialist':'businessdiscovery','crm-specialist':'crm-s1-ceobala','creative-director':'video-orch-ceobala','narrative-writer':'video-story-ceobala'};
+    const actualIds={'coordinator':'balserve','mail-specialist':'gmail-operations','research-specialist':'techresearcher','discovery-specialist':'businessdiscovery','crm-specialist':'crm-s1-ceobala','erp-checker':'erp-ap-ceobala','creative-director':'video-orch-ceobala','narrative-writer':'video-story-ceobala'};
     const agentId=id=>inventory?(actualIds[id]||id):id;
     const agents=[
       ['coordinator','COO','Coordinate company specialists and consolidate outcomes',null,1,1],
       ['mail-specialist','Gmail Operations','Manage Gmail inbox, review mail and save drafts','coordinator',0,0],
+      ['research-specialist','Tech Researcher','Research technology topics and report recent agent work','coordinator',0,0],
       ['discovery-specialist','Business Discovery','Find and verify local businesses and contact information','coordinator',0,0],
       ['crm-specialist','CRM Maker','Create and verify CRM company, person and lead records','coordinator',0,0],
       ['creative-director','Content Orchestrator','Delegate narrative to Story Agent and export storyboards','coordinator',0,1],
@@ -102,6 +106,7 @@ try {
     const tools=[
       ['ceo_profile','Read CEO company profile and business context',['coordinator']],
       ['notify_ceo','Deliver an outcome report to CEO',['coordinator']],
+      ['agent_work_history','Read the calling agent\'s owner-scoped work history and return an immutable evidence snapshot',['coordinator','mail-specialist','research-specialist','discovery-specialist','crm-specialist','creative-director','narrative-writer']],
       ['gmail_mailbox_review','Read and summarize recent Gmail mail',['mail-specialist']],
       ['gmail_mailbox_cleanup','Organize or clean Gmail with policy-controlled changes',['mail-specialist']],
       ['connector_execute_action','Execute granted connector actions, including saving Gmail drafts',['mail-specialist']],
@@ -137,9 +142,20 @@ try {
       report.inventory={owner,exported_at:inventory.exported_at,counts:Object.fromEntries(allowed.map(t=>[t,(inventory.tables[t]||[]).length]))};
       console.log(JSON.stringify({inventory:report.inventory}));
     }
+    // Production enforces this grant for every enabled agent. Keep the safe
+    // local fixture equivalent so live-LLM planner tests see the same invariant.
+    db.prepare(`INSERT OR IGNORE INTO content_tools_meta (name,display_name,endpoint,purpose,enabled)
+                VALUES ('agent_work_history','Agent Work History','https://business-actions.invalid/agent_work_history',
+                        'Read owner- and agent-scoped work history as evidence for status reporting',1)`).run();
+    for(const row of db.prepare('SELECT agent_id FROM user_agents WHERE user_id = ? AND enabled = 1').all(owner)){
+      db.prepare(`INSERT OR IGNORE INTO agent_tool_grants (agent_id,tool_name) VALUES (?,'agent_work_history')`).run(row.agent_id);
+    }
     const {routeAgentTurn}=await import('../src/services/agent-turn-router.js');
     const {qualityAssureGoalPlan}=await import('../src/services/goal-plan-quality.js');
     const {filterRelevantEvidence}=await import('../src/services/retrieval-relevance.js');
+    const {validateStepOutcome}=await import('../src/services/step-outcome-validation.js');
+    const {enrichStatusReportWithWorkHistory}=await import('../src/services/agent-goal-run.js');
+    const {chatCompletions:platformChatCompletions}=await import('../src/config/llm.js');
     const launch='Create a concise launch concept for a 30-second Flolah explainer about humans and AI employees working together. Use ceo_profile for company context. Delegate creative ownership to Content Orchestrator, who must delegate narrative development to its Story Agent, use the returned narrative to create and export a draft storyboard using video_storyboard_export, and report to COO. COO must give the CEO the consolidated result with delegation trace and step outputs.';
     async function test(name,run){
       const at=Date.now();console.log('START '+name);
@@ -158,14 +174,30 @@ try {
     });
     if(['planner','all'].includes(args.suite))for(const [name,prompt,requiredAgents] of [
       ['discovery-crm-drafts','Find dental clinics in Tampines Singapore. Add them as CRM leads with verified email and phone. Save email drafts for those leads in my Gmail drafts. Do not send emails or fabricate missing details. Report the outcome to CEO.',['discovery-specialist','crm-specialist','mail-specialist']],
+      ['gmail-cleanup','Clean up my Gmail inbox spam folders, summarize what will be removed, and report the completed cleanup.',['mail-specialist']],
       ['nested-launch-plan',launch,['creative-director']],
-    ])await test(name,async()=>{
+      ['agent-seven-day-status','Get me status update from "gmail operator" and "tech researcher" on what they worked last 7days.',['mail-specialist','research-specialist']],
+      ['crm-workflow-erp-verification','Run a controlled TEST cross-system onboarding goal. Create one clearly labelled TEST CRM lead named "Flolah Goal Evidence Test Sep 5 2026" with email "no-reply+flolah-goal-test@example.com" through the existing published workflow "CRM: draft → CEO gate → check" (workflow id crm-mc-ceo-bala). Require the CRM maker/checker path to return the workflow run id plus the created CRM record id and read-back evidence. Then delegate ERP Checker to perform a read-only ERP verification and report whether any customer or invoice exists for that exact TEST name, with current-run tool evidence. Do not create, submit, post, pay, email, delete, or otherwise mutate anything in ERP. Finally consolidate the CRM workflow outcome and ERP verification, preserving prior-step outputs, and report the evidence-backed result to me in COO chat.',['erp-checker']],
+    ].filter(([name])=>!args.case||args.case===name))await test(name,async()=>{
       const plan=await qualityAssureGoalPlan({ownerUserId:owner,orchestratorAgentId:agentId('coordinator'),prompt,candidateSteps:[],onProgress:event=>console.log(JSON.stringify({test:name,...event}))});
       try {
       assert.equal(plan.quality.llm_maker_checker_succeeded,true);
       assert.equal(plan.quality.maker_degraded_to_catalog,false,'A fallback is not a successful live planner test');
       assert.equal(plan.steps.at(-1)?.type,'notify_ceo','Final result must be delivered to CEO');
       for(const id of requiredAgents)assert(plan.steps.some(s=>s.type==='specialty_task'&&(s.spec.agent_id===agentId(id)||(inventory&&id==='crm-specialist'&&s.spec.agent_id==='crm-s2-ceobala'))),`Missing expected specialist ${agentId(id)}`);
+      for(const step of plan.steps.filter(s=>s.type!=='notify_ceo')){
+        assert(step.spec.objective,`${name}: ${step.key} missing semantic objective`);
+        assert(step.spec.operation_mode,`${name}: ${step.key} missing operation_mode`);
+        assert(step.spec.subject,`${name}: ${step.key} missing subject`);
+        assert(step.spec.deliverable_kind,`${name}: ${step.key} missing deliverable_kind`);
+      }
+      if(name==='agent-seven-day-status'){
+        const reports=plan.steps.filter(s=>s.type==='specialty_task');
+        assert(reports.every(s=>['query','analyze'].includes(s.spec.operation_mode)),`Status request must not become a mutation: ${JSON.stringify(reports)}`);
+        assert(reports.every(s=>s.spec.deliverable_kind==='status_report'),`Status request must use semantic deliverable_kind=status_report: ${JSON.stringify(reports)}`);
+        assert(reports.every(s=>(s.produces||[]).every(output=>output.kind==='data')),`Status report transport must remain typed data: ${JSON.stringify(reports)}`);
+        assert(reports.every(s=>!/clean up|move .*trash|delete/i.test(String(s.spec.message||''))),`Status request must not repeat historical operations: ${JSON.stringify(reports)}`);
+      }
       if(name==='nested-launch-plan'){
         const profileIndex=plan.steps.findIndex(s=>s.type==='agent_tool'&&s.spec.tool_name==='ceo_profile');
         const creativeIndex=plan.steps.findIndex(s=>s.spec.agent_id===agentId('creative-director'));
@@ -174,8 +206,46 @@ try {
         const work=plan.steps.filter(s=>s.spec.agent_id===agentId('creative-director')).map(s=>s.spec.message).join(' ');
         assert.match(work,/Story Agent|narrative-writer/i);assert.match(work,/delegat/i);assert.match(work,/export/i);
       }
+      if(name==='crm-workflow-erp-verification'){
+        const workflow=plan.steps.find(s=>s.type==='workflow_trigger');
+        assert.equal(workflow?.spec?.workflow_id,'crm-mc-ceo-bala','Planner must select the requested published CRM workflow');
+        assert.equal(workflow?.spec?.operation_mode,'coordinate','Workflow trigger uses the canonical orchestration operation');
+        assert.match(String(workflow?.spec?.message||''),/Flolah Goal Evidence Test Sep 5 2026/);
+        assert.match(String(workflow?.spec?.message||''),/no-reply\+flolah-goal-test@example\.com/);
+        assert.match(JSON.stringify(plan.steps),/read[_ -]?back[_ -]?evidence/i,'Plan must preserve the explicitly requested CRM read-back evidence');
+        const erp=plan.steps.find(s=>s.type==='specialty_task'&&s.spec.agent_id===agentId('erp-checker'));
+        assert(erp,'ERP Checker read-only verification step is required');
+        assert(['query','analyze'].includes(erp.spec.operation_mode),'ERP verification must remain read-only');
+        assert.match(String(erp.spec.message||''),/Do not create|read-only|without mutat/i);
+      }
       } catch(error) { error.details={plan}; throw error; }
       return plan;
+    });
+    if(['planner','all'].includes(args.suite)&&(!args.case||args.case==='status-outcome-validator'))await test('status-outcome-validator',async()=>{
+      const history={
+        evidence_id:'aev-live-validator-fixture',captured_at:new Date().toISOString(),owner_user_id:owner,
+        agent_id:agentId('mail-specialist'),days:7,activity_count:2,
+        counts:{total:2,completed:1,failed:1,in_progress:0,open:0,awaiting_confirmation:0,cancelled:0},
+        evidence_source:'owner_scoped_kanban_and_delegation_ledger',
+        items:[
+          {task_id:9101,title:'Mailbox cleanup',status:'completed',outcome:'Removed old promotional mail after summary.'},
+          {task_id:9102,title:'Mailbox review',status:'failed',outcome:'OAuth authorization expired.'},
+        ],
+      };
+      const response=enrichStatusReportWithWorkHistory('No new action was taken while preparing this read-only report.',history);
+      let validatorModel=null;
+      const validation=await validateStepOutcome({
+        originalGoal:'Report the Gmail operator work status for the last 7 days.',assignment:'Return the historical status only.',
+        objective:'Report prior Gmail Operations work.',operationMode:'query',subject:'Gmail Operations work history',
+        deliverableKind:'status_report',requiredInputs:[],requiredOutputs:[{key:'gmail_status',kind:'data',required:true}],
+        response,executionEvidence:{work_history:history,substantive_tool_calls:[{tool_name:'agent_work_history',status:'ok',evidence_id:history.evidence_id}]},
+      },async options=>{
+        const result=await platformChatCompletions({...options,ownerUserId:owner,toolName:'goal_outcome_validation',responseFormat:'json_object',thinkingMode:'disabled',temperature:0});
+        validatorModel=result.modelUsed||result.model||null;
+        return result;
+      });
+      assert.equal(validation.satisfied,true,`Live validator rejected authoritative read-only history: ${JSON.stringify(validation)}`);
+      return {validation,validator_model:validatorModel,evidence_id:history.evidence_id,activity_count:history.activity_count};
     });
     if(['rag','all'].includes(args.suite))await test('rag-entity-relevance',async()=>{
       const result=await filterRelevantEvidence(owner,'Find dental clinics in Tampines Singapore',[

@@ -3,6 +3,7 @@
  * Secured agents use OAuth2 client credentials → Bearer access token.
  */
 import { createHash, randomBytes, randomUUID } from 'crypto';
+import { BoundedTaskCache } from './bounded-task-cache.js';
 import { getDb } from '../db/schema.js';
 import { getPublicBaseUrl } from '../config/public-url.js';
 import { hashPassword, verifyPassword } from './auth/password.js';
@@ -32,7 +33,7 @@ import { removeA2AScopedWhitelistEntries } from './owner-ip-whitelist.js';
 import { deleteOrgAgentMembersByRef } from './org-agent-members.js';
 
 /** In-memory cache for quick sync lookups; durable source of truth is workflow_a2a_tasks. */
-const a2aTasks = new Map();
+const a2aTasks = new BoundedTaskCache();
 const ACCESS_TOKEN_TTL_SEC = Math.max(
   60,
   Number(process.env.A2A_ACCESS_TOKEN_TTL_SEC) || 3600

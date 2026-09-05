@@ -122,6 +122,27 @@ function copyTemplateWorkspace(baseId, destDir) {
   copySharedDomainKnowledge(baseId, destDir);
 }
 
+const EVIDENCE_GUIDANCE_START = '<!-- FLOLAH_EVIDENCE_POLICY_START -->';
+const EVIDENCE_GUIDANCE_END = '<!-- FLOLAH_EVIDENCE_POLICY_END -->';
+
+function upsertEvidenceGuidance(filePath, body) {
+  if (!existsSync(filePath)) return;
+  const current = readFileSync(filePath, 'utf8');
+  const block = `${EVIDENCE_GUIDANCE_START}\n${body.trim()}\n${EVIDENCE_GUIDANCE_END}`;
+  const start = current.indexOf(EVIDENCE_GUIDANCE_START);
+  const end = current.indexOf(EVIDENCE_GUIDANCE_END);
+  const next = start >= 0 && end >= start
+    ? `${current.slice(0, start)}${block}${current.slice(end + EVIDENCE_GUIDANCE_END.length)}`
+    : `${current.trimEnd()}\n\n${block}\n`;
+  if (next !== current) writeFileSync(filePath, next, 'utf8');
+}
+
+/** Every runtime workspace receives the evidence rule even when its role pack is custom. */
+export function syncEvidenceGuidance(destDir) {
+  upsertEvidenceGuidance(join(destDir, 'TOOLS.md'), `## Evidence tools\n\n- **agent_work_history** — For reports about your own prior work, call with the requested \`days\` and report its \`evidence_id\`, counts, and material items.\n- Factual, historical, API, browser, workflow, CRM, ERP, and external-action outcomes require current-run tool evidence. Include material evidence/record/run/artifact identifiers. Never use memory, learnings, or Kanban status as proof.`);
+  upsertEvidenceGuidance(join(destDir, 'AGENTS.md'), `## Mandatory evidence contract\n\nEvery goal or task outcome must be evidence-backed. Invoke the relevant granted tool yourself; the goal executor will not call agent-specific tools merely to manufacture evidence. For status/work-history requests call \`agent_work_history\`. If required evidence is unavailable, report the precise blocker and do not claim completion. Follow **AGENT-OS-OPS.md**.`);
+}
+
 /** Keep standard-agent skill docs in sync. Never overwrite custom-agent identity with balserve. */
 export function syncEssentialWorkspaceDocs(baseId, destDir) {
   const ownTpl = join(REPO_TEMPLATES, baseId);
@@ -139,6 +160,7 @@ export function syncEssentialWorkspaceDocs(baseId, destDir) {
     }
   }
   copySharedDomainKnowledge(baseId, destDir);
+  syncEvidenceGuidance(destDir);
 
   // No agent-specific template ⇒ custom/onboarded agent. Do not sync from balserve fallback.
   if (!hasOwnTemplate) return;
@@ -197,6 +219,7 @@ export function syncEssentialWorkspaceDocs(baseId, destDir) {
     }
     if (shouldWrite) cpSync(from, to, { recursive: true });
   }
+  syncEvidenceGuidance(destDir);
 }
 
 /**
@@ -227,6 +250,7 @@ export function forcePushTemplateDocs(baseId, destDir, { forceIdentity = true } 
     cpSync(sharedOps, join(destDir, 'AGENT-OS-OPS.md'), { recursive: true });
     copied.push('AGENT-OS-OPS.md');
   }
+  syncEvidenceGuidance(destDir);
   if (copySharedDomainKnowledge(baseId, destDir)) copied.push('DOMAIN.md');
   return { template: ownTpl, copied };
 }

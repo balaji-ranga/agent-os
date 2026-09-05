@@ -85,6 +85,7 @@ import { internalAuthHeaders, isInternalRequest } from '../middleware/internal-a
 import { getPublicBaseUrl } from '../config/public-url.js';
 import { createVoiceInvite } from '../services/agent-voice-sessions.js';
 import { createHumanVoiceInvite, listHumanDirectory, listCompanyCommunicationHistory } from '../services/human-communications.js';
+import { listAgentWorkHistory } from '../services/agent-work-history.js';
 import { applyPolicyEtaToTask } from '../services/kanban-sla.js';
 import {
   fetchValidatedHttps,
@@ -266,7 +267,9 @@ function logContentTool(toolName, requestPayload, responsePayload, status, sourc
     const ctx = getLlmopsContext() || {};
     const traceId = inferTraceId(ctx);
     db.prepare(
-      `INSERT INTO content_tool_logs (tool_name, source, request_payload, response_payload, status, owner_user_id, trace_id) VALUES (?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO content_tool_logs
+       (tool_name, source, request_payload, response_payload, status, owner_user_id, trace_id, goal_step_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
       toolName,
       source || ctx.memberKey || ctx.agentId || null,
@@ -278,7 +281,8 @@ function logContentTool(toolName, requestPayload, responsePayload, status, sourc
       typeof responsePayload === 'string' ? responsePayload : JSON.stringify(responsePayload || {}),
       status,
       ownerUserId || ctx.ownerUserId || null,
-      traceId
+      traceId,
+      ctx.goalStepId || null
     );
   } catch (_) {}
 }
@@ -713,14 +717,14 @@ router.get('/logs', attachAuthUser, requireAuth, (req, res) => {
         .get(ownerUserId, tool).n;
       rows = db
         .prepare(
-          'SELECT id, tool_name, source, request_payload, response_payload, status, owner_user_id, created_at, trace_id FROM content_tool_logs WHERE owner_user_id = ? AND tool_name = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'
+          'SELECT id, tool_name, source, request_payload, response_payload, status, owner_user_id, created_at, trace_id, goal_step_id FROM content_tool_logs WHERE owner_user_id = ? AND tool_name = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'
         )
         .all(ownerUserId, tool, limit, offset);
     } else {
       total = db.prepare('SELECT COUNT(*) AS n FROM content_tool_logs WHERE owner_user_id = ?').get(ownerUserId).n;
       rows = db
         .prepare(
-          'SELECT id, tool_name, source, request_payload, response_payload, status, owner_user_id, created_at, trace_id FROM content_tool_logs WHERE owner_user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'
+          'SELECT id, tool_name, source, request_payload, response_payload, status, owner_user_id, created_at, trace_id, goal_step_id FROM content_tool_logs WHERE owner_user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'
         )
         .all(ownerUserId, limit, offset);
     }
@@ -775,8 +779,14 @@ router.use((req, res, next) => {
   const agent = header ? resolveAgentFromOpenClawCallerId(header) : null;
   const memberKey = agent?.id || parsed?.baseOpenClawId || null;
   const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const sessionGoal = parseGoalSessionReference(
+    req.headers['x-openclaw-session-user'] ||
+    req.headers['x-openclaw-session-key'] ||
+    req.headers['x-session-key'] ||
+    ''
+  );
   const incoming = String(
-    body.goal_run_id || body.trace_id || req.headers['x-llmops-trace-id'] || ''
+    body.goal_run_id || body.trace_id || req.headers['x-llmops-trace-id'] || sessionGoal?.goal_run_id || ''
   ).trim();
   withLlmopsContext(
     {
@@ -788,6 +798,7 @@ router.use((req, res, next) => {
       runId: incoming && /^\d+$/.test(incoming) ? incoming : null,
       traceId: incoming || null,
       goalRunId: incoming.startsWith('agr-') ? incoming : null,
+      goalStepId: body.goal_step_id || body.step_id || sessionGoal?.goal_step_id || null,
     },
     () => next()
   );
@@ -2841,6 +2852,50 @@ router.post('/connector-execute-action', optionalAuth, async (req, res) => {
     res.json(out);
   } catch (e) {
     connectorToolError(req, 'connector_execute_action', requestPayload, res, e, source);
+  }
+});
+
+/** Self-scoped work ledger; an entitled COO may inspect another entitled company agent. */
+router.post('/agent-work-history', optionalAuth, (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    const caller = getCallerAgent(req);
+    if (!caller) return res.status(403).json({ error: 'Verified agent caller required' });
+    const ownerUserId = resolveToolOwnerUserId(req, requestPayload, resolveAuthenticatedCeoUserId);
+    const callerEntitled = getDb().prepare(
+      `SELECT 1 AS ok FROM user_agents WHERE user_id = ? AND agent_id = ? AND enabled = 1`
+    ).get(ownerUserId, caller.id);
+    if (!callerEntitled) return res.status(403).json({ error: 'Agent is not entitled to this company' });
+    const requested = String(requestPayload.target_agent_id || '').trim();
+    if (requested && !caller.is_coo && requested.toLowerCase() !== String(caller.id).toLowerCase()) {
+      return res.status(403).json({ error: 'Agents may read only their own work history' });
+    }
+    const targetAgentId = requested || caller.id;
+    const targetEntitled = getDb().prepare(
+      `SELECT 1 AS ok FROM user_agents WHERE user_id = ? AND agent_id = ? AND enabled = 1`
+    ).get(ownerUserId, targetAgentId);
+    if (!targetEntitled) return res.status(404).json({ error: 'Company agent not found' });
+    const sessionGoal = parseGoalSessionReference(
+      req.headers['x-openclaw-session-user'] ||
+      req.headers['x-openclaw-session-key'] ||
+      req.headers['x-session-key'] ||
+      ''
+    );
+    const out = listAgentWorkHistory({
+      ownerUserId,
+      agentId: targetAgentId,
+      days: requestPayload.days,
+      limit: requestPayload.limit,
+      excludeGoalRunId: sessionGoal?.goal_run_id || null,
+    });
+    const evidenceId = `aev-${randomUUID()}`;
+    const response = { ok: true, evidence_id: evidenceId, captured_at: new Date().toISOString(), ...out };
+    logTool(req, 'agent_work_history', { target_agent_id: targetAgentId, days: out.days }, response, 'ok', source);
+    res.json(response);
+  } catch (e) {
+    logTool(req, 'agent_work_history', requestPayload, { error: e.message }, 'error', source);
+    res.status(e.status || 500).json({ error: e.message || 'Agent work history failed' });
   }
 });
 

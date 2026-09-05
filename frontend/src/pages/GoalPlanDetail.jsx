@@ -9,6 +9,7 @@ function statusColor(status) {
   const s = String(status || '').toLowerCase();
   if (s === 'completed') return 'var(--success, #16a34a)';
   if (s === 'running' || s === 'in_progress' || s === 'pending') return 'var(--accent, #2563eb)';
+  if (s === 'awaiting_plan_review') return 'var(--warning, #d97706)';
   if (s === 'failed') return 'var(--danger, #dc2626)';
   return 'var(--muted)';
 }
@@ -46,7 +47,7 @@ export default function GoalPlanDetail() {
           setEvents(eRes.events || []);
           setErr('');
           const st = String(g?.status || '').toLowerCase();
-          const stillLive = ['planning', 'running', 'pending', 'in_progress', 'awaiting_approval'].includes(st);
+          const stillLive = ['planning', 'running', 'pending', 'in_progress', 'awaiting_approval', 'awaiting_plan_review'].includes(st);
           if (!stillLive && timer) {
             clearInterval(timer);
             timer = null;
@@ -75,7 +76,7 @@ export default function GoalPlanDetail() {
   const outcome = goal?.outcome || {};
   const retro = outcome.retrospective || goal?.retrospective || null;
   const status = String(goal?.status || '').toLowerCase();
-  const canCancel = ['planning', 'pending', 'running', 'in_progress', 'awaiting_approval'].includes(status);
+  const canCancel = ['planning', 'pending', 'running', 'in_progress', 'awaiting_approval', 'awaiting_plan_review'].includes(status);
   const canRetry = !!goal && status !== 'completed';
 
   async function cancelRun() {
@@ -95,7 +96,7 @@ export default function GoalPlanDetail() {
 
   async function retryRun() {
     if (!goal) return;
-    const active = ['planning', 'pending', 'running', 'in_progress', 'awaiting_approval'].includes(status);
+    const active = ['planning', 'pending', 'running', 'in_progress', 'awaiting_approval', 'awaiting_plan_review'].includes(status);
     if (active && !window.confirm('Retry this active goal? Its current abandoned work will be superseded; completed predecessor outputs are retained.')) return;
     setActionBusy('retry');
     setActionMessage('');

@@ -511,6 +511,17 @@ const BUILTIN_TOOLS = [
     is_builtin: 1,
   },
   {
+    name: 'agent_work_history',
+    display_name: 'Agent Work History',
+    endpoint: '/api/tools/agent-work-history',
+    method: 'POST',
+    purpose:
+      'Authoritative owner-scoped work history. Any agent may read only its own Kanban/delegation ledger; COO may pass target_agent_id to report on a company agent. Optional days (1-365, default 7) and limit. Use for status, activity, progress, or prior-work reports; do not infer activity from learnings_summary.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
     name: 'onboarding_save_proposal',
     display_name: 'Save Onboarding Proposal',
     endpoint: '/api/tools/onboarding-save-proposal',
@@ -977,6 +988,7 @@ const SPEECH_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'speech_tts' || t.na
 const VISION_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'analyze_image');
 const NOTIFY_CEO_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'notify_ceo');
 const VOICE_INVITE_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'voice_call_invite' || t.name === 'company_communications_history');
+const AGENT_WORK_HISTORY_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'agent_work_history');
 const ONBOARDING_PROPOSAL_TOOLS = BUILTIN_TOOLS.filter((t) =>
   t.name === 'onboarding_save_proposal' || t.name === 'onboarding_apply_proposal'
 );
@@ -1364,6 +1376,26 @@ export function seedConnectorToolsIfMissing() {
   for (const t of CONNECTOR_TOOLS) {
     update.run(t.purpose, t.display_name, t.endpoint, t.method, t.name);
   }
+}
+
+/** Add self-scoped work history and grant it to all AI employees. */
+export function seedAgentWorkHistoryToolIfMissing() {
+  const db = getDb();
+  const stmt = db.prepare(
+    `INSERT OR IGNORE INTO content_tools_meta (name, display_name, endpoint, method, purpose, model_used, enabled, is_builtin)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+  const update = db.prepare(
+    'UPDATE content_tools_meta SET display_name = ?, endpoint = ?, method = ?, purpose = ?, model_used = ?, enabled = ?, is_builtin = ? WHERE name = ?'
+  );
+  for (const t of AGENT_WORK_HISTORY_TOOLS) {
+    stmt.run(t.name, t.display_name, t.endpoint, t.method, t.purpose, t.model_used, t.enabled, t.is_builtin);
+    update.run(t.display_name, t.endpoint, t.method, t.purpose, t.model_used, t.enabled, t.is_builtin, t.name);
+  }
+  const grant = db.prepare('INSERT OR IGNORE INTO agent_tool_grants (agent_id, tool_name) VALUES (?, ?)');
+  let granted = 0;
+  for (const row of db.prepare('SELECT id FROM agents').all()) granted += Number(grant.run(row.id, 'agent_work_history').changes || 0);
+  return granted;
 }
 
 /** Add narrow Gmail mailbox tools without granting them to unrelated agents. */

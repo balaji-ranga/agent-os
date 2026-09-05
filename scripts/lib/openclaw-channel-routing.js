@@ -114,8 +114,10 @@ export function restoreChannelRoutingIntoOpenClawJson(opts = {}) {
     return { ok: false, reason: 'missing-config' };
   }
   let config;
+  let originalConfigText = '';
   try {
-    config = JSON.parse(readFileSync(configPath, 'utf8'));
+    originalConfigText = readFileSync(configPath, 'utf8');
+    config = JSON.parse(originalConfigText);
   } catch (e) {
     console.warn('[openclaw-channel-routing] parse failed:', e?.message || e);
     return { ok: false, reason: 'parse-failed' };
@@ -125,7 +127,10 @@ export function restoreChannelRoutingIntoOpenClawJson(opts = {}) {
   if (!hasChannelRouting(extractChannelRouting(config))) {
     return { ok: true, changed: false, restored: false, before };
   }
-  writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
+  const serializedConfig = `${JSON.stringify(config, null, 2)}\n`;
+  if (serializedConfig.trim() !== originalConfigText.trim()) {
+    writeFileSync(configPath, serializedConfig, 'utf8');
+  }
   return {
     ok: true,
     changed: result.restored || !before,

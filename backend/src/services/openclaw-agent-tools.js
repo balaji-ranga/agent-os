@@ -33,6 +33,7 @@ const ALLOWLISTS_PATH = join(OPENCLAW_DIR, 'agent-tool-allowlists.json');
 const home = process.env.USERPROFILE || process.env.HOME || '';
 
 const NATIVE_OPENCLAW_TOOLS = new Set(NATIVE_OPENCLAW_TOOLS_LIST);
+export const MANDATORY_AGENT_EVIDENCE_TOOLS = Object.freeze(['agent_work_history']);
 
 function readConfig() {
   const c = readOpenClawConfigSafe();
@@ -367,7 +368,7 @@ export function setAgentToolGrants(agent, toolNames) {
       .map((t) => t.name)
   );
   const normalized = [...new Set(
-    (toolNames || [])
+    [...(toolNames || []), ...MANDATORY_AGENT_EVIDENCE_TOOLS]
       .map((t) => String(t).trim())
       .filter((t) => contentSet.has(t))
       .filter((t) => !!agent?.is_coo || !cooOnlyTools.has(t))
@@ -417,6 +418,9 @@ export function buildToolsMdContent(grantedToolNames) {
     '',
     '- **Match the tool to the request:** Read the user\'s message and choose the tool whose purpose best fits.',
     '- **If a tool\'s result is not good enough:** Try the next most relevant granted tool before giving up.',
+    '- **Evidence is mandatory:** For factual, historical, external-action, API, browser, workflow, CRM, or ERP outcomes, call the relevant granted tool and base the answer on its returned evidence. Never use memory as proof.',
+    '- **Status/work history:** Call `agent_work_history` with the requested `days`. Use the returned `evidence_id`, counts, and items. Do not substitute `learnings_summary` or communications history.',
+    '- **Completion:** Include material tool evidence or record/execution identifiers in the deliverable. Writing-only work is evidenced by the concrete returned content itself.',
     '',
     '---',
     '',

@@ -312,12 +312,14 @@ export function listNativeOpenClawToolCalls(agentId, ownerUserId, fromIso, toIso
 /**
  * Persist newly seen native session tools into content_tool_logs (deduped by call id).
  */
-export function persistNativeToolCallsToLogs(calls, ownerUserId) {
+export function persistNativeToolCallsToLogs(calls, ownerUserId, context = {}) {
   if (!ownerUserId || !Array.isArray(calls) || !calls.length) return 0;
   const db = getDb();
   let inserted = 0;
   const insert = db.prepare(
-    'INSERT INTO content_tool_logs (tool_name, source, request_payload, response_payload, status, owner_user_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    `INSERT INTO content_tool_logs
+      (tool_name, source, request_payload, response_payload, status, owner_user_id, created_at, trace_id, goal_step_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
   );
   const existsStmt = db.prepare(
     'SELECT id FROM content_tool_logs WHERE owner_user_id = ? AND tool_name = ? AND request_payload LIKE ? LIMIT 1'
@@ -336,7 +338,9 @@ export function persistNativeToolCallsToLogs(calls, ownerUserId) {
         JSON.stringify(c.response || {}),
         c.status === 'ok' ? 'ok' : c.status || 'error',
         ownerUserId,
-        toSqlUtc(c.created_at)
+        toSqlUtc(c.created_at),
+        context.traceId || context.goalRunId || null,
+        context.goalStepId || null
       );
       inserted += 1;
     } catch (e) {

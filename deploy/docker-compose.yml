@@ -764,6 +764,7 @@ services:
     profiles: ["optional-ollama"]
     image: ollama/ollama:latest
     restart: unless-stopped
+    cpus: ${OLLAMA_CPU_LIMIT:-2.0}
     environment:
       # Runtime KV. Catalog contextWindow stays OLLAMA_CONTEXT_WINDOW (65k precheck).
       # 8B@65k was SIGKILL'd on 16GB RAM (9.2GiB KV).

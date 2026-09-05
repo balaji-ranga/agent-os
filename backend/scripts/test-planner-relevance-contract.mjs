@@ -16,7 +16,7 @@ const prompt = 'Find relevant businesses, create verified leads, and save email 
 const steps = [{key:'discover'},{key:'leads'},{key:'drafts'}];
 const approved = {approved:true,issues:[],coverage:[
   {requirement_id:'r1',covered:true,step_keys:['discover','leads','drafts']},
-]};
+],step_checks:steps.map(step=>({step_key:step.key,instruction_preserves_goal:true,operation_mode_correct:true,deliverable_kind_correct:true,no_unrequested_action:true}))};
 const response = value => ({content:JSON.stringify(value),modelUsed:'fixture'});
 const base = {prompt,normalize:JSON.parse,validate: value=>({ok:value.every(x=>x.key),errors:['invalid key']})};
 try {

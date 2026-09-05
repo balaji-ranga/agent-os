@@ -18,7 +18,10 @@ RUN apt-get update \
     python3 make g++ \
   && rm -rf /var/lib/apt/lists/*
 
-RUN npm install -g openclaw@latest
+# Pin the gateway version.  Using @latest made ordinary Flolah deploys absorb
+# breaking OpenClaw schema migrations without a source change or review.
+ARG OPENCLAW_VERSION=2026.8.2
+RUN npm install -g "openclaw@${OPENCLAW_VERSION}"
 
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/playwright
 RUN mkdir -p "${PLAYWRIGHT_BROWSERS_PATH}" \

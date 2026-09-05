@@ -76,8 +76,10 @@ if (!existsSync(CONFIG_PATH)) {
 }
 
 let config;
+let originalConfigText = '';
 try {
-  config = JSON.parse(readFileSync(CONFIG_PATH, 'utf8'));
+  originalConfigText = readFileSync(CONFIG_PATH, 'utf8');
+  config = JSON.parse(originalConfigText);
 } catch (e) {
   console.error('Could not parse openclaw.json:', e.message);
   process.exit(1);
@@ -101,11 +103,16 @@ if (GATEWAY_TOKEN) {
   console.warn('OPENCLAW_GATEWAY_TOKEN not set — gateway may require device pairing (see GATEWAY-PAIRING-1008.md)');
 }
 
-// Codex app-server auto-enables for openai/* and rejects plugin tools with type "custom"
-// (OpenAI 400 invalid_request_error). Keep Agent OS content-tools on the embedded runner.
+// OpenClaw 2026.8+ implicitly selects its optional Codex app-server harness for
+// compatible openai/* routes. That harness rejects Agent OS plugin tools with
+// type "custom" (OpenAI 400 invalid_request_error), so Flolah deliberately uses
+// the embedded OpenClaw harness. The provider-level agentRuntime pin is applied
+// below after models.providers.openai is assembled.
 if (!config.plugins) config.plugins = {};
 if (!config.plugins.entries) config.plugins.entries = {};
-config.plugins.entries.codex = { ...(config.plugins.entries.codex || {}), enabled: false };
+// Do not retain even a disabled entry: OpenClaw validates its manifest path at
+// startup, so an uninstalled legacy plugin referenced here causes a crash loop.
+delete config.plugins.entries.codex;
 // Persist browser plugin enablement so gateway HTTP/WS routes (incl. /browser/extension)
 // register at startup instead of tool-only auto-enable.
 config.plugins.entries.browser = { ...(config.plugins.entries.browser || {}), enabled: true };
@@ -128,8 +135,22 @@ for (const id of [
 ]) {
   if (!config.plugins.allow.includes(id)) config.plugins.allow.push(id);
 }
-config.plugins.allow = config.plugins.allow.filter((id) => id !== 'codex');
-console.log('Disabled plugins.entries.codex; plugins.allow=', config.plugins.allow.join(', '));
+// DeepSeek models are exposed through Flolah's OpenAI-compatible provider
+// routing. The optional external OpenClaw DeepSeek plugin is therefore not
+// required and can independently drift beyond the pinned gateway API version,
+// preventing the gateway from starting. Keep it opt-in for installations that
+// explicitly need plugin-native DeepSeek behaviour.
+const enableDeepSeekPlugin = String(process.env.OPENCLAW_ENABLE_DEEPSEEK_PLUGIN || '0') === '1';
+config.plugins.allow = config.plugins.allow.filter(
+  (id) => id !== 'codex' && (enableDeepSeekPlugin || id !== 'deepseek')
+);
+if (!enableDeepSeekPlugin) {
+  // Keep an explicit disabled policy entry. Deleting it lets the official plugin
+  // catalog auto-discover DeepSeek and demand capability consent at gateway boot.
+  config.plugins.entries.deepseek = { enabled: false };
+  console.log('Disabled optional DeepSeek plugin; models remain available through provider routing');
+}
+console.log('Removed optional Codex harness configuration; plugins.allow=', config.plugins.allow.join(', '));
 
 // Root browser block is required for the built-in `browser` tool to register.
 // Without it, /tools/invoke returns "Tool not available: browser" for every agent.
@@ -137,10 +158,12 @@ if (!config.browser || typeof config.browser !== 'object') config.browser = {};
 config.browser.enabled = true;
 config.browser.defaultProfile = config.browser.defaultProfile || 'openclaw';
 if (!config.browser.profiles || typeof config.browser.profiles !== 'object') {
-  config.browser.profiles = { openclaw: { cdpPort: 18800, color: '#FF4500' } };
+  config.browser.profiles = { openclaw: { cdpPort: 18800 } };
 } else if (!config.browser.profiles.openclaw) {
-  config.browser.profiles.openclaw = { cdpPort: 18800, color: '#FF4500' };
+  config.browser.profiles.openclaw = { cdpPort: 18800 };
 }
+// OpenClaw 2026.9 removed the profile-level color field.
+delete config.browser.profiles.openclaw.color;
 if (config.browser.headless == null) config.browser.headless = true;
 if (config.browser.noSandbox == null) config.browser.noSandbox = true;
 console.log(
@@ -149,12 +172,32 @@ console.log(
   config.browser.headless
 );
 
-// Nginx (host network) + docker-proxy appear as these peers; without trustedProxies the
-// gateway warns and treats Browser Relay clients as remote.
-if (!Array.isArray(config.gateway.trustedProxies) || config.gateway.trustedProxies.length === 0) {
-  config.gateway.trustedProxies = ['127.0.0.1', '::1', '172.16.0.0/12', '10.0.0.0/8'];
-  console.log('Set gateway.trustedProxies for reverse-proxy / docker peers');
+function dockerDefaultGateway() {
+  try {
+    const rows = readFileSync('/proc/net/route', 'utf8').trim().split(/\r?\n/).slice(1);
+    const route = rows.map((line) => line.trim().split(/\s+/)).find((cols) => cols[1] === '00000000');
+    const hex = route?.[2];
+    if (!/^[0-9A-Fa-f]{8}$/.test(hex || '')) return '';
+    return [6, 4, 2, 0].map((offset) => Number.parseInt(hex.slice(offset, offset + 2), 16)).join('.');
+  } catch {
+    return '';
+  }
 }
+
+function resolveTrustedProxies() {
+  const configured = String(process.env.OPENCLAW_TRUSTED_PROXIES || '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  const gateway = dockerDefaultGateway();
+  return [...new Set(configured.length > 0 ? configured : ['127.0.0.1', '::1', gateway].filter(Boolean))];
+}
+
+// Trust only loopback and the container's exact default gateway (host-network nginx via
+// docker-proxy). Never trust whole private/Docker CIDRs: doing so misclassifies direct
+// backend calls as proxy traffic and OpenClaw correctly rejects them without client attribution.
+config.gateway.trustedProxies = resolveTrustedProxies();
+console.log('Set narrow gateway.trustedProxies=%j', config.gateway.trustedProxies);
 
 if (!config.tools) config.tools = {};
 if (!config.tools.sessions) config.tools.sessions = {};
@@ -217,10 +260,35 @@ function applyBrowserCdpAgentTools(agent) {
   agent.tools.deny = ['image'];
 }
 
+// OpenClaw can persist either the legacy agents.list roster or the newer
+// agents.entries map. Adapt in memory and write back in the same schema.
+const usesAgentEntries =
+  config.agents.entries && typeof config.agents.entries === 'object' && !Array.isArray(config.agents.entries);
+const agentRoster = usesAgentEntries
+  ? Object.entries(config.agents.entries).map(([id, entry]) => ({ id, ...(entry || {}) }))
+  : Array.isArray(config.agents.list)
+    ? config.agents.list
+    : [];
+// Multi-agent rosters require explicit ownership in supported pinned runtimes,
+// regardless of whether the roster is represented as list or entries.
+config.agents.ownership = 'explicit';
+function persistAgentRoster() {
+  if (usesAgentEntries) {
+    config.agents.entries = Object.fromEntries(
+      agentRoster.map((entry) => {
+        const { id, ...value } = entry;
+        return [String(id), value];
+      })
+    );
+    delete config.agents.list;
+  } else {
+    config.agents.list = agentRoster;
+  }
+}
+
 // Dedicated backend CDP agent: always allowed to use built-in browser tool.
-if (!Array.isArray(config.agents.list)) config.agents.list = [];
 {
-  const existing = config.agents.list.find(
+  const existing = agentRoster.find(
     (a) => String(a?.id || '').toLowerCase() === BROWSER_CDP_AGENT_ID.toLowerCase()
   );
   if (existing) {
@@ -233,13 +301,13 @@ if (!Array.isArray(config.agents.list)) config.agents.list = [];
       tools: {},
     };
     applyBrowserCdpAgentTools(cdpAgent);
-    config.agents.list.push(cdpAgent);
+    agentRoster.push(cdpAgent);
   }
   console.log('Ensured CDP browser agent:', BROWSER_CDP_AGENT_ID, '(profile=coding alsoAllow=browser)');
 }
 
-if (Array.isArray(config.agents?.list)) {
-  for (const agent of config.agents.list) {
+if (agentRoster.length) {
+  for (const agent of agentRoster) {
     const id = String(agent?.id || '').toLowerCase();
     const leafId = id.includes('--') ? id.split('--').pop() : id;
     const isCdpAgent = id === BROWSER_CDP_AGENT_ID.toLowerCase() || leafId === BROWSER_CDP_AGENT_ID.toLowerCase();
@@ -293,6 +361,7 @@ console.log('Set agent-os-content-tools baseUrl:', INTERNAL_API);
 {
   if (!config.models) config.models = {};
   if (!config.models.providers) config.models.providers = {};
+
   const ollamaIsPrimary =
     process.env.PLATFORM_USE_LOCAL_OLLAMA === '1' ||
     process.env.PLATFORM_USE_LOCAL_OLLAMA === 'true' ||
@@ -569,6 +638,16 @@ if (openaiKey && !primaryIsOllama && !isLocalOllamaBase(openaiBase)) {
   console.warn('OPENAI_API_KEY not set — openai/* models may fall back to ollama and overflow context');
 }
 
+// Keep Flolah agents on the embedded runtime for every OpenAI-compatible route.
+// This is provider-scoped (not agent-scoped), so Admin primary/secondary model
+// switching still works while all tenant agents retain Agent OS custom tools.
+// Apply after provider assembly because the custom/DeepSeek branch replaces the
+// provider object rather than spreading the previous value.
+if (config.models.providers.openai && typeof config.models.providers.openai === 'object') {
+  config.models.providers.openai.agentRuntime = { id: 'openclaw' };
+  console.log('Pinned models.providers.openai.agentRuntime=openclaw');
+}
+
 // Always align default primary model with OPENCLAW_MODEL_PRIMARY.
 if (!config.agents) config.agents = {};
 if (!config.agents.defaults) config.agents.defaults = {};
@@ -667,8 +746,7 @@ if (routing.restored) {
 }
 if (config.channels == null) delete config.channels;
 if (config.bindings == null) delete config.bindings;
-writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8');
-console.log('Updated', CONFIG_PATH);
+persistAgentRoster();
 if (config.channels?.whatsapp?.accounts) {
   console.log(
     'Preserved channels.whatsapp accounts:',
@@ -702,11 +780,18 @@ if (config.channels?.whatsapp?.accounts) {
       }
     }
   }
-  if (Array.isArray(config.agents?.list)) {
-    for (const entry of config.agents.list) {
+  const identityRoster = usesAgentEntries ? Object.values(config.agents.entries || {}) : config.agents.list || [];
+  if (Array.isArray(identityRoster)) {
+    for (const entry of identityRoster) {
       applyIdentityNameToAgentEntry(entry);
     }
   }
-  writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8');
+  const serializedConfig = `${JSON.stringify(config, null, 2)}\n`;
+  if (serializedConfig.trim() !== originalConfigText.trim()) {
+    writeFileSync(CONFIG_PATH, serializedConfig, 'utf8');
+    console.log('Updated', CONFIG_PATH);
+  } else {
+    console.log('Configuration already current; preserving file revision', CONFIG_PATH);
+  }
   console.log('Set WhatsApp/agents mediaMaxMb=', mediaMaxMb, 'responsePrefix=From: {identityName}');
 }

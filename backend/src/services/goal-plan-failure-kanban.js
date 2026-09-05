@@ -115,10 +115,16 @@ export function buildGoalPlanRecoveryPrompt(goal, { steps = [], error = null } =
   const ladder = buildGoalFailureLadder(steps);
   const original = String(goal?.prompt || '').trim();
   const failErr = error || goal?.error_message || '';
+  const failedStep = [...steps].reverse().find((step) => {
+    if (String(step.status) === 'failed') return true;
+    const result = step?.result && typeof step.result === 'object' ? step.result : parseJson(step?.result_json, {});
+    return result?.partial_success === true;
+  });
 
   return [
     `${TAG}`,
     `[goal_run_id: ${id}]`,
+    `[goal_step_id: ${failedStep?.id || ''}]`,
     `[owner_user_id: ${goal?.owner_user_id || ''}]`,
     `[ceo_user_id: ${goal?.owner_user_id || ''}]`,
     '',
@@ -131,7 +137,7 @@ export function buildGoalPlanRecoveryPrompt(goal, { steps = [], error = null } =
     '- Do NOT restart the failed goal plan engine.',
     '- Prefer completing pending / failed work with your tools + a CEO-facing reply in chat.',
     '- Use the step ladder below: do not redo successful steps unless needed for the report.',
-    '- When done, mark this Kanban done (kanban_move_status completed) and optionally notify_ceo briefly.',
+    '- Return the concrete corrected outcome and its evidence. The platform validates it and resumes the original goal before closing this Kanban.',
     '',
     `Incomplete plan: ${id}`,
     `Title: ${title}`,

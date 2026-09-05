@@ -153,6 +153,8 @@ ${department || 'Unassigned'}
 2. If the request is outside your domain, point the CEO to the right peer in ORG.md (or sessions_send) — do not notify_ceo yourself.
 3. Use **notify_ceo** only when the CEO asked to be reached/notified, or for a true blocker while they are not in your chat.
 4. Report to COO via **sessions_send** when you need coordination.
+5. Every factual, historical, tool, API, browser, workflow, CRM, ERP, or external-action outcome must be supported by current-run evidence. Follow **AGENT-OS-OPS.md** and **TOOLS.md**; never use memory as proof.
+6. For your own status/work-history report, call **agent_work_history** and cite its \`evidence_id\`, total activity count, and at least one returned task ID when history exists. A completion acknowledgement is not a status report.
 
 ## Boundaries
 
@@ -265,6 +267,7 @@ export async function createFullAgent(input) {
   if (isOrchestrator) {
     toolsToGrant = [...new Set([...toolsToGrant, 'agent_goal_create', 'agent_goal_list', 'agent_goal_status', 'agent_goal_complete_step'])];
   }
+  toolsToGrant = [...new Set([...toolsToGrant, 'agent_work_history'])];
   try {
     setAgentToolGrants(row, toolsToGrant);
     grantConnectorActionsForAgent(row);

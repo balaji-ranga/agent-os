@@ -29,6 +29,19 @@ function formatWorkflowForAgent(w) {
     schedule_cron: w.schedule_cron || '',
     status: w.status,
     paused: !!w.paused,
+    // Goal planning needs the executable contract, not only discovery text.
+    // These fields contain no workflow variables/secrets and stay owner scoped.
+    input_schema: w.input_schema || null,
+    execution_contract: {
+      operation_mode: 'coordinate',
+      side_effects: 'defined_by_published_workflow',
+      runtime_outputs: ['workflow_run_id', 'status', 'summary'],
+      business_outputs: 'The completed run result includes successful node outputs returned by the published actions, including record/run identifiers and read-back data when those actions return them. The outcome validator verifies the actual result; planning must not demand a receipt before execution.',
+      approval_gates: (w.published_graph?.nodes || [])
+        .filter((node) => String(node?.type || node?.data?.type || '').toLowerCase().includes('approval'))
+        .map((node) => String(node?.data?.label || node?.label || node?.id || 'approval'))
+        .slice(0, 8),
+    },
     chat_triggerable: !!chatTriggerable,
     trigger_hint: chatTriggerable
       ? `Use agent_workflow_trigger with message "${w.chat_trigger_phrase}" or workflow_id "${w.id}"`

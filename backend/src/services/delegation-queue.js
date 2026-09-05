@@ -58,6 +58,7 @@ import { notifyKanbanTaskCreated } from './platform-notifications.js';
 import { meterOpenClawUsage } from './token-usage.js';
 import { enforceBudget } from './agent-budgets.js';
 import { splitAllocationByKind } from './org-member-keys.js';
+import { listNativeOpenClawToolCalls, persistNativeToolCallsToLogs } from './openclaw-session-tools.js';
 
 const SESSION_USER = 'agent-os-delegation';
 const AGENTS_MD_NAME = 'AGENTS.md';
@@ -513,6 +514,7 @@ function enqueueAllocatedTasks({
   notify = true,
   parentWorkUnitId = null,
   parentAgentId = null,
+  reuseKanbanTaskId = null,
 }) {
   const taskRows = [];
   for (const a of agents) {
@@ -540,7 +542,19 @@ function enqueueAllocatedTasks({
         ownerUserId ? `owner_user_id: ${ownerUserId}` : '',
         (query || '').trim().slice(0, 4000),
       ].filter(Boolean);
-      kanbanIns.run(titleSource, descParts.join('\n\n'), a.id, standupId, row.id, ownerUserId || null);
+      const reusable = Number(reuseKanbanTaskId || 0);
+      if (reusable > 0 && taskRows.length === 1) {
+        const updated = db().prepare(
+          `UPDATE kanban_tasks
+              SET title=?, description=?, status='in_progress', assigned_agent_id=?, standup_id=?,
+                  agent_delegation_task_id=?,
+                  updated_at=datetime('now')
+            WHERE id=? AND owner_user_id=?`
+        ).run(titleSource, descParts.join('\n\n'), a.id, standupId, row.id, reusable, ownerUserId || null);
+        if (!updated.changes) kanbanIns.run(titleSource, descParts.join('\n\n'), a.id, standupId, row.id, ownerUserId || null);
+      } else {
+        kanbanIns.run(titleSource, descParts.join('\n\n'), a.id, standupId, row.id, ownerUserId || null);
+      }
       if (notify && ownerUserId) {
         const krow = db()
           .prepare('SELECT * FROM kanban_tasks WHERE agent_delegation_task_id = ?')
@@ -606,10 +620,11 @@ export async function scheduleStandupStatusFanout(standupId, ceoUserId = null, c
 async function maybeAdvanceGoalRunFromDelegation(taskId) {
   try {
     const { findGoalStepByDelegationTask, onDelegationTerminalForGoalRun } = await import('./agent-goal-run.js');
-    if (!findGoalStepByDelegationTask(taskId)) return;
-    await onDelegationTerminalForGoalRun(taskId);
+    if (!findGoalStepByDelegationTask(taskId)) return { handled: false };
+    return { handled: true, result: await onDelegationTerminalForGoalRun(taskId) };
   } catch (e) {
     console.warn('[goal-run] delegation terminal advance failed', e?.message || e);
+    return { handled: true, error: e?.message || String(e) };
   }
 }
 
@@ -783,6 +798,7 @@ export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage, c
           notify,
           parentWorkUnitId: opts.parentWorkUnitId || null,
           parentAgentId: opts.parentAgentId || null,
+          reuseKanbanTaskId: opts.reuseKanbanTaskId || null,
         })
       : [];
 
@@ -1201,6 +1217,7 @@ export async function processPendingDelegationTasksForCeo(ceoUserId, opts = {}) 
 
     try {
       const isDiscovery = String(task.to_agent_id).toLowerCase() === 'jobdiscovery';
+      const agentExecutionStartedAt = new Date().toISOString();
       registerOpenClawSessionOwner(openclaw.sessionKeyFor(runtimeOcId, sessionUser), ownerForTenant, null, 'delegation', {
         original_request: task.prompt, resolved_request: task.prompt, delegation_task_id: task.id,
         goal_run_id: goalIdentity?.goalRunId, goal_step_id: goalIdentity?.goalStepId,
@@ -1215,6 +1232,23 @@ export async function processPendingDelegationTasksForCeo(ceoUserId, opts = {}) 
           ? { timeoutMs: discoveryTimeout, injectLearningsInstruction: false, injectSessionHistoryInstruction: false }
           : { injectLearningsInstruction: false, injectSessionHistoryInstruction: false }
       );
+      if (goalIdentity) {
+        try {
+          const nativeCalls = listNativeOpenClawToolCalls(
+            task.to_agent_id,
+            ownerForTenant,
+            agentExecutionStartedAt,
+            new Date().toISOString()
+          );
+          persistNativeToolCallsToLogs(nativeCalls, ownerForTenant, {
+            traceId: goalIdentity.goalRunId,
+            goalRunId: goalIdentity.goalRunId,
+            goalStepId: goalIdentity.goalStepId,
+          });
+        } catch (e) {
+          console.warn('[delegation] native goal-step evidence capture skipped:', e?.message || e);
+        }
+      }
       meterOpenClawUsage(ownerForTenant, task.to_agent_id, {
         usage,
         source: 'delegation',
@@ -1248,7 +1282,7 @@ export async function processPendingDelegationTasksForCeo(ceoUserId, opts = {}) 
            WHERE id = ?`
         )
         .run('completed', responseText, now, task.id);
-      await maybeAdvanceGoalRunFromDelegation(task.id);
+      const goalAdvance = await maybeAdvanceGoalRunFromDelegation(task.id);
       if (isAgentWorkflowPrompt(task.prompt)) {
         completeAgentWorkflowKanbanForDelegation(task.id, { ok: true });
         try {
@@ -1256,7 +1290,7 @@ export async function processPendingDelegationTasksForCeo(ceoUserId, opts = {}) 
         } catch (wfErr) {
           console.warn('[agent-workflow] advance:', wfErr.message);
         }
-      } else {
+      } else if (!goalAdvance?.handled) {
         const kanbanResult = completePipelineKanbanForDelegation(task.id, {
           ok: true,
           replyText: responseText,
@@ -1319,11 +1353,11 @@ export async function processPendingDelegationTasksForCeo(ceoUserId, opts = {}) 
         }
       }
       db().prepare('UPDATE agent_delegation_tasks SET status = ?, error_message = ?, completed_at = ? WHERE id = ?').run('failed', errMsg, now, task.id);
-      await maybeAdvanceGoalRunFromDelegation(task.id);
+      const goalAdvance = await maybeAdvanceGoalRunFromDelegation(task.id);
       if (isAgentWorkflowPrompt(task.prompt)) {
         completeAgentWorkflowKanbanForDelegation(task.id, { ok: false });
         await failAgentWorkflowForDelegation({ ...task, status: 'failed', error_message: errMsg });
-      } else {
+      } else if (!goalAdvance?.handled) {
         completePipelineKanbanForDelegation(task.id, { ok: false });
         failPipelineWorkflowForDelegation({ ...task, status: 'failed', error_message: errMsg }, { error: errMsg });
       }

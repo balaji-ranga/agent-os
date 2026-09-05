@@ -105,7 +105,7 @@ import { ensureCeoDefaultMasterDataForAllCeos } from './services/ceo-default-mas
 import { initDb, getDb } from './db/schema.js';
 import { ensureExternalTokenTables } from './services/external-tokens.js';
 import { seedDefaultAgentsIfEmpty, seedAgentDepartmentsIfMissing } from './db/seed-default-agents.js';
-import { seedContentToolsMetaIfEmpty, seedKanbanToolsIfMissing, seedWorkflowToolsIfMissing, seedLearningsToolsIfMissing, seedEmailSendToolIfMissing, seedSpeechToolsIfMissing, seedVisionToolsIfMissing, seedNotifyCeoToolIfMissing, seedVoiceInviteToolIfMissing, seedOnboardingProposalToolsIfMissing, seedCeoProfileToolIfMissing, seedStatusCheckerToolIfMissing, seedThisWeekDigestToolIfMissing, seedOperationalEffectivenessToolIfMissing, seedLlmopsSummaryToolIfMissing, seedMasterDataToolsIfMissing, seedConnectorToolsIfMissing, seedGmailMailboxToolsIfMissing, seedVedicChartToolIfMissing, seedVideoStoryboardToolsIfMissing, updateKanbanToolPurposes, seedPlatformFeedbackToolsIfMissing, grantPlatformFeedbackTools, seedScheduledGoalToolsIfMissing, seedCrmToolsIfMissing, seedErpToolsIfMissing } from './db/seed-content-tools-meta.js';
+import { seedContentToolsMetaIfEmpty, seedKanbanToolsIfMissing, seedWorkflowToolsIfMissing, seedLearningsToolsIfMissing, seedEmailSendToolIfMissing, seedSpeechToolsIfMissing, seedVisionToolsIfMissing, seedNotifyCeoToolIfMissing, seedVoiceInviteToolIfMissing, seedAgentWorkHistoryToolIfMissing, seedOnboardingProposalToolsIfMissing, seedCeoProfileToolIfMissing, seedStatusCheckerToolIfMissing, seedThisWeekDigestToolIfMissing, seedOperationalEffectivenessToolIfMissing, seedLlmopsSummaryToolIfMissing, seedMasterDataToolsIfMissing, seedConnectorToolsIfMissing, seedGmailMailboxToolsIfMissing, seedVedicChartToolIfMissing, seedVideoStoryboardToolsIfMissing, updateKanbanToolPurposes, seedPlatformFeedbackToolsIfMissing, grantPlatformFeedbackTools, seedScheduledGoalToolsIfMissing, seedCrmToolsIfMissing, seedErpToolsIfMissing } from './db/seed-content-tools-meta.js';
 import { grantGmailOperationsConnectorActions } from './services/connector-action-grants.js';
 import businessCoreRoutes from './routes/business-core.js';
 import companyWorkspaceRoutes from './routes/company-workspace.js';
@@ -291,40 +291,44 @@ try {
   console.warn('[startup] tool credential provisioning:', e.message || e);
 }
 
-// OpenSearch: wait, seed platform help, migrate legacy SQLite docs
-try {
-  const osReady = await waitForOpenSearch({ attempts: 30, delayMs: 2000 });
-  if (osReady?.ok) {
-    try {
-      const help = await ensurePlatformHelpInOpenSearch();
-      console.info(
-        `[startup] platform help OpenSearch: created=${help.created} updated=${help.updated} skipped=${help.skipped}`
-      );
-    } catch (e) {
-      console.warn('[startup] platform help OpenSearch seed:', e.message);
-    }
-    try {
-      const ceoIds = getDb()
-        .prepare(`SELECT id FROM platform_users WHERE role = 'ceo'`)
-        .all()
-        .map((c) => c.id);
-      const mig = await migrateSqliteDocsForAllOwners(ceoIds);
-      if (mig.migrated || mig.failed) {
+// OpenSearch startup maintenance must never hold the API health port closed.
+// It keeps the same seed/migration behaviour, but runs after app.listen so a slow
+// local embedding request degrades RAG temporarily instead of taking down Flolah.
+async function initializeOpenSearchDocumentsAfterListen() {
+  try {
+    const osReady = await waitForOpenSearch({ attempts: 30, delayMs: 2000 });
+    if (osReady?.ok) {
+      try {
+        const help = await ensurePlatformHelpInOpenSearch();
         console.info(
-          `[startup] OpenSearch SQLite doc migrate: migrated=${mig.migrated} skipped=${mig.skipped} failed=${mig.failed}`
+          `[startup] platform help OpenSearch: created=${help.created} updated=${help.updated} skipped=${help.skipped}`
         );
+      } catch (e) {
+        console.warn('[startup] platform help OpenSearch seed:', e.message);
       }
-    } catch (e) {
-      console.warn('[startup] OpenSearch SQLite doc migrate:', e.message);
+      try {
+        const ceoIds = getDb()
+          .prepare(`SELECT id FROM platform_users WHERE role = 'ceo'`)
+          .all()
+          .map((c) => c.id);
+        const mig = await migrateSqliteDocsForAllOwners(ceoIds);
+        if (mig.migrated || mig.failed) {
+          console.info(
+            `[startup] OpenSearch SQLite doc migrate: migrated=${mig.migrated} skipped=${mig.skipped} failed=${mig.failed}`
+          );
+        }
+      } catch (e) {
+        console.warn('[startup] OpenSearch SQLite doc migrate:', e.message);
+      }
+    } else {
+      console.warn(
+        '[startup] OpenSearch not ready — document RAG unavailable until cluster is up (%s)',
+        osReady?.error || osReady?.status
+      );
     }
-  } else {
-    console.warn(
-      '[startup] OpenSearch not ready — document RAG unavailable until cluster is up (%s)',
-      osReady?.error || osReady?.status
-    );
+  } catch (e) {
+    console.warn('[startup] OpenSearch init:', e.message);
   }
-} catch (e) {
-  console.warn('[startup] OpenSearch init:', e.message);
 }
 seedContentToolsMetaIfEmpty();
 seedKanbanToolsIfMissing();
@@ -336,6 +340,15 @@ seedVisionToolsIfMissing();
 seedPlatformFeedbackToolsIfMissing();
 seedNotifyCeoToolIfMissing();
 seedVoiceInviteToolIfMissing();
+try {
+  const historyGranted = seedAgentWorkHistoryToolIfMissing();
+  if (historyGranted) {
+    console.log(`[startup] granted agent_work_history to ${historyGranted} agent(s)`);
+    syncAllowlistsFile();
+  }
+} catch (e) {
+  console.warn('[startup] agent_work_history grants:', e.message);
+}
 seedOnboardingProposalToolsIfMissing();
 seedCeoProfileToolIfMissing();
 seedStatusCheckerToolIfMissing();
@@ -1029,6 +1042,11 @@ app.listen(PORT, () => {
   if (getPlatformLogLevel() === 'off') {
     console.log(`Agent OS backend listening on http://127.0.0.1:${PORT} (pid ${process.pid}) PLATFORM_LOG_LEVEL=off`);
   }
+  setImmediate(() => {
+    initializeOpenSearchDocumentsAfterListen().catch((e) =>
+      console.warn('[startup] deferred OpenSearch init:', e?.message || e)
+    );
+  });
   try {
     startOpenClawInboundMediaSync({ intervalMs: 4000 });
   } catch (e) {

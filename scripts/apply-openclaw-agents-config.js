@@ -138,7 +138,15 @@ const OLLAMA_FALLBACK_ID = `ollama/${OLLAMA_FALLBACK}`;
 
 if (!config.agents) config.agents = {};
 // Merge AGENTS_LIST into existing list by id so we set tools for techresearcher/expensemanager/socialasstant like SocialAssistant, and don't drop other agents
-const existingList = Array.isArray(config.agents.list) ? config.agents.list : [];
+const usesAgentEntries =
+  config.agents.entries && typeof config.agents.entries === 'object' && !Array.isArray(config.agents.entries);
+const existingList = usesAgentEntries
+  ? Object.entries(config.agents.entries).map(([id, entry]) => ({ id, ...(entry || {}) }))
+  : Array.isArray(config.agents.list)
+    ? config.agents.list
+    : [];
+if (usesAgentEntries) config.agents.ownership = 'explicit';
+else delete config.agents.ownership;
 const byId = new Map(existingList.map((a) => [(a.id || '').toLowerCase(), a]));
 for (const agent of AGENTS_LIST) {
   const id = (agent.id || '').toLowerCase();
@@ -158,10 +166,21 @@ for (const agent of AGENTS_LIST) {
     byId.set(id, { ...agent });
   }
 }
-config.agents.list = Array.from(byId.values());
+const agentRoster = Array.from(byId.values());
+if (usesAgentEntries) {
+  config.agents.entries = Object.fromEntries(
+    agentRoster.map((entry) => {
+      const { id, ...value } = entry;
+      return [String(id), value];
+    })
+  );
+  delete config.agents.list;
+} else {
+  config.agents.list = agentRoster;
+}
 
 // Ensure per-agent tool allowlists don't contain stale entries.
-for (const a of config.agents.list) {
+for (const a of agentRoster) {
   if (a?.tools?.allow && Array.isArray(a.tools.allow)) {
     a.tools.allow = a.tools.allow.filter((t) => !REMOVE_FROM_ALLOWLIST.has(String(t)));
   }
@@ -364,6 +383,7 @@ if (!config.plugins.load) config.plugins.load = {};
 if (!Array.isArray(config.plugins.load.paths)) config.plugins.load.paths = [];
 if (!config.plugins.load.paths.includes(extensionsDir)) config.plugins.load.paths.push(extensionsDir);
 if (!config.plugins.entries) config.plugins.entries = {};
+delete config.plugins.entries.codex;
 const existingPlugin = config.plugins.entries['agent-os-content-tools'];
 config.plugins.entries['agent-os-content-tools'] = {
   ...existingPlugin,
@@ -371,6 +391,7 @@ config.plugins.entries['agent-os-content-tools'] = {
   config: existingPlugin?.config || {},
 };
 if (!config.plugins.allow) config.plugins.allow = [];
+config.plugins.allow = config.plugins.allow.filter((id) => id !== 'codex');
 if (!config.plugins.allow.includes('agent-os-content-tools')) config.plugins.allow.push('agent-os-content-tools');
 
 // Bootstrap watcher: hot-reload SOUL/AGENTS/TOOLS/MEMORY from disk (Workspace UI edits).
@@ -390,8 +411,17 @@ if (!config.browser) config.browser = {};
 config.browser.enabled = true;
 config.browser.defaultProfile = config.browser.defaultProfile || 'openclaw';
 if (!config.browser.profiles) {
-  config.browser.profiles = { openclaw: { cdpPort: 18800, color: '#FF4500' } };
+  config.browser.profiles = { openclaw: { cdpPort: 18800 } };
 }
+
+// OpenClaw 2026.8+ may implicitly select the optional Codex harness for
+// official OpenAI routes. Flolah agents require the embedded runtime so their
+// Agent OS custom tools remain available. Keep this provider-scoped so model
+// selection and Admin primary/secondary switching are unchanged.
+if (config.models.providers.openai && typeof config.models.providers.openai === 'object') {
+  config.models.providers.openai.agentRuntime = { id: 'openclaw' };
+}
+if (config.browser.profiles.openclaw) delete config.browser.profiles.openclaw.color;
 
 // Tools: allow content tools, kanban tools, intent-classify-and-delegate.
 // Note: OpenClaw will ignore the entire tools.allow if it contains unknown tool names.
@@ -412,7 +442,7 @@ if (existsSync(OVERRIDES_PATH)) {
     toolOverrides = JSON.parse(readFileSync(OVERRIDES_PATH, 'utf8'));
   } catch (_) {}
 }
-for (const a of config.agents.list) {
+for (const a of agentRoster) {
   const aid = (a.id || '').toLowerCase();
   if (aid === BROWSER_CDP_AGENT_ID.toLowerCase()) {
     delete a.tools?.allow;

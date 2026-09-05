@@ -21,6 +21,19 @@ export function validateCoverage(verdict, prompt, steps) {
     if(item.covered!==true||!Array.isArray(item.step_keys)||!item.step_keys.length||item.step_keys.some(k=>!keys.has(k)))errors.push('A requested outcome lacks an executable step');
   }
   for(const id of requirements)if(!covered.has(id))errors.push(`Original requirement ${id} has no coverage assessment`);
+  if(!Array.isArray(verdict.step_checks)||verdict.step_checks.length!==steps.length){
+    errors.push('Checker omitted one semantic contract assessment per step');
+  }else{
+    const expected=new Set(steps.map(step=>step.key));
+    const assessed=new Set();
+    for(const item of verdict.step_checks){
+      if(!expected.has(item?.step_key)||assessed.has(item?.step_key))errors.push('Checker semantic assessments must reference each actual step exactly once');
+      else assessed.add(item.step_key);
+      for(const field of ['instruction_preserves_goal','operation_mode_correct','deliverable_kind_correct','no_unrequested_action']){
+        if(item?.[field]!==true)errors.push(`Step ${item?.step_key||'(unknown)'} failed semantic check ${field}`);
+      }
+    }
+  }
   return errors;
 }
 
@@ -39,7 +52,13 @@ export async function runGoalPlanRounds({prompt,make,check,normalize,validate,on
       // Even a schema-invalid candidate needs semantic feedback in this round:
       // otherwise three local field repairs can consume all rounds before the
       // checker ever sees omitted requirements. Invalid steps never execute.
-      checker=await check({steps,attempt,validationErrors:deterministicErrors});
+      checker=await check({
+        steps,
+        attempt,
+        validationErrors:deterministicErrors,
+        priorCorrectionChecklist: errors,
+        previousVerdict: previous?.checker_response || null,
+      });
       const verdict=JSON.parse(String(checker.content).replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,''));
       errors=[...deterministicErrors,...validateCoverage(verdict,prompt,steps)];
       if(!errors.length){
@@ -57,6 +76,6 @@ export async function runGoalPlanRounds({prompt,make,check,normalize,validate,on
   }
   const error=new Error(`Goal planning could not establish a complete approved plan after 3 rounds: ${errors.join('; ').slice(0,800)}`);
   error.code='GOAL_PLAN_UNVERIFIED';
-  error.details={rounds,fallback:'stop_for_review',business_steps_executed:0};
+  error.details={rounds,last_candidate:previous?.steps||[],fallback:'stop_for_review',business_steps_executed:0};
   throw error;
 }

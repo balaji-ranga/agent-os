@@ -12,6 +12,7 @@ export const FAILURE_CLASSES = Object.freeze([
   'policy_denial',
   'model_uncertainty',
   'downstream_rejection',
+  'outcome_incomplete',
 ]);
 
 const FALLBACK_BY_CLASS = Object.freeze({
@@ -23,6 +24,7 @@ const FALLBACK_BY_CLASS = Object.freeze({
   policy_denial: null,
   model_uncertainty: null,
   downstream_rejection: null,
+  outcome_incomplete: null,
 });
 
 export function classifyToolFailure(err, extra = {}) {
@@ -36,6 +38,9 @@ export function classifyToolFailure(err, extra = {}) {
   }
   if (['invalid_input', 'schema_validation', 'invalid_schema'].includes(code)) {
     return pack('schema', status || 400, extra);
+  }
+  if (code === 'outcome_contract_incomplete') {
+    return pack('outcome_incomplete', status || 422, extra);
   }
 
   // A paid-plan/usage ceiling cannot recover by retrying. Keep this before the
@@ -79,9 +84,9 @@ function pack(failure_class, status, extra) {
   return {
     failure_class,
     http_status: status || null,
-    retryable: failure_class === 'transient' || failure_class === 'rate_limit',
+    retryable: failure_class === 'transient' || failure_class === 'rate_limit' || failure_class === 'outcome_incomplete',
     fallback_tool: FALLBACK_BY_CLASS[failure_class] || null,
-    bounded_retries: failure_class === 'rate_limit' ? 2 : failure_class === 'transient' ? 3 : 0,
+    bounded_retries: failure_class === 'rate_limit' ? 2 : failure_class === 'transient' ? 3 : failure_class === 'outcome_incomplete' ? 1 : 0,
     message: extra.message || null,
   };
 }

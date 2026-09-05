@@ -26,7 +26,23 @@ function providerStillReferenced(config, providerKey) {
   for (const entry of config?.agents?.list || []) {
     if (walk(entry?.model)) return true;
   }
+  for (const entry of Object.values(config?.agents?.entries || {})) {
+    if (walk(entry?.model)) return true;
+  }
   return false;
+}
+
+function entriesToList(entries) {
+  return Object.entries(entries || {}).map(([id, entry]) => ({ id, ...(entry || {}) }));
+}
+
+function listToEntries(list) {
+  return Object.fromEntries(
+    (list || []).map((entry) => {
+      const { id, ...value } = entry || {};
+      return [String(id || '').trim(), value];
+    }).filter(([id]) => id)
+  );
 }
 
 function readDiskConfig() {
@@ -85,6 +101,22 @@ export function preserveOpenClawCriticalSections(nextConfig) {
     }
   }
 
+  // OpenClaw 2026.9 persists agents as an entries map, while existing Flolah
+  // services operate on a list. Treat list as a compatibility view and always
+  // write back in the schema already used on disk. This keeps every existing
+  // org-sync/add/delete path working without allowing one writer to clobber
+  // the runtime roster.
+  if (prev?.agents?.entries && typeof prev.agents.entries === 'object') {
+    if (!c.agents || typeof c.agents !== 'object') c.agents = {};
+    if (Array.isArray(c.agents.list)) {
+      c.agents.entries = listToEntries(c.agents.list);
+      delete c.agents.list;
+    } else if (!c.agents.entries) {
+      c.agents.entries = { ...prev.agents.entries };
+    }
+    c.agents.ownership = 'explicit';
+  }
+
   if (c.gateway && typeof c.gateway === 'object') {
     const gw = { ...c.gateway };
     const http = { ...(gw.http || {}) };
@@ -107,7 +139,16 @@ export function preserveOpenClawCriticalSections(nextConfig) {
 
 export function readOpenClawConfigSafe() {
   const disk = readDiskConfig();
-  if (disk) return disk;
+  if (disk) {
+    if (
+      disk.agents?.entries &&
+      typeof disk.agents.entries === 'object' &&
+      !Array.isArray(disk.agents.list)
+    ) {
+      disk.agents.list = entriesToList(disk.agents.entries);
+    }
+    return disk;
+  }
   return { agents: { list: [] }, channels: {}, bindings: [] };
 }
 
@@ -117,7 +158,10 @@ export function writeOpenClawConfigSafe(config) {
   const prev = readDiskConfig();
   const merged = preserveOpenClawCriticalSections(config);
   const agents = merged?.agents;
-  const hasAgents = agents && typeof agents === 'object' && (agents.defaults || Array.isArray(agents.list));
+  const hasAgents =
+    agents &&
+    typeof agents === 'object' &&
+    (agents.defaults || Array.isArray(agents.list) || (agents.entries && typeof agents.entries === 'object'));
   if (!merged?.gateway || !hasAgents) {
     console.error(
       '[openclaw-config] refuse to write incomplete config (gateway=%s agents.defaults=%s list=%s)',

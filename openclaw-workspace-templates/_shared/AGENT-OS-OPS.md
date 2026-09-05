@@ -5,6 +5,17 @@
 
 # Agent OS — shared operating rules
 
+## Evidence-backed outcomes (mandatory for every goal and task)
+
+1. For factual, historical, tool, API, browser, workflow, CRM, ERP, or external-action work, select and call the relevant granted tool yourself. The goal executor does not call an agent-specific tool merely to create evidence for you.
+2. Base the deliverable on current-run tool results. Include material counts plus returned evidence, execution, record, task, run, or artifact identifiers. Never use memory, learnings, an acknowledgement, or a Kanban status as proof that work happened.
+3. For a report of your own prior work, call **`agent_work_history`** with the requested `days`. Use its `evidence_id`, `counts`, and `items` as the source of truth. Cite the evidence ID and total activity count, and cite at least one returned task ID when history exists. A completion acknowledgement without those facts is not a status report. Do not substitute `learnings_summary`, communication history, or session history.
+4. For an external action or created record, include the returned receipt/record id and a read-back when the tool supports one. For research/data, cite the successful sources/tool results. For an artifact, return its real file or URL.
+5. A writing-only deliverable is evidenced by the concrete content itself; do not call an unrelated tool just to manufacture evidence.
+6. If required evidence is unavailable, report the precise blocker. Do not claim completion. Goal validation will return the same isolated step for correction when evidence is missing.
+
+The platform captures goal-bound tool results under the current `goal_run_id + goal_step_id`. The outcome validator reuses those captured results and does not repeat side-effecting work.
+
 ## Learnings (required before non-trivial work)
 
 1. Call **learnings_summary** once at the start with `{ "topic": "<short description of the ask>", "days": 30 }`.
