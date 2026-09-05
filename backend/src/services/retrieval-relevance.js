@@ -18,7 +18,14 @@ export function applyRelevanceVerdict(chunks, verdict) {
     if(grounded)accepted.push({...chunk,relevance:{status:'supported',quote,reason}});
     else rejected.push({document_id:chunk.document_id,chunk_index:chunk.chunk_index,reason:reason||'No grounded support for the task'});
   }
-  if(seen.size!==chunks.length)throw new Error('Relevance assessment omitted excerpts');
+  // Some JSON-capable models return only supported assessments even when the
+  // prompt asks for every excerpt. Keep grounded supported items, but treat
+  // every omitted excerpt as rejected so partial output remains fail-closed.
+  for(let index=0;index<chunks.length;index+=1){
+    if(seen.has(index))continue;
+    const chunk=chunks[index];
+    rejected.push({document_id:chunk.document_id,chunk_index:chunk.chunk_index,reason:'Relevance assessment omitted this excerpt'});
+  }
   return {chunks:accepted,rejected};
 }
 

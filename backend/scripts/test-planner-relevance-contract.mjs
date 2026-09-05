@@ -56,8 +56,11 @@ try {
   const accepted=applyRelevanceVerdict(chunks,verdict);
   check('unrelated person removed; accepted evidence retains source and quote',()=>{assert.equal(accepted.chunks.length,1);assert.equal(accepted.chunks[0].document_id,'clinic-fixture');assert.equal(accepted.rejected[0].document_id,'resume-fixture');});
   check('fabricated supporting quote cannot pass',()=>assert.equal(applyRelevanceVerdict([chunks[0]],{assessments:[{index:0,supports_task:true,quote:'Alex runs a dental clinic',reason:'Claims unsupported ownership.'}]}).chunks.length,0));
-  check('incomplete or duplicate verdict rejected',()=>{
-    assert.throws(()=>applyRelevanceVerdict(chunks,{assessments:[]}));
+  check('incomplete verdict rejects omissions while duplicate verdict is rejected',()=>{
+    const omitted=applyRelevanceVerdict(chunks,{assessments:[verdict.assessments[1]]});
+    assert.equal(omitted.chunks.length,1);
+    assert.equal(omitted.rejected.length,1);
+    assert.match(omitted.rejected[0].reason,/omitted/i);
     assert.throws(()=>applyRelevanceVerdict(chunks,{assessments:[verdict.assessments[0],verdict.assessments[0]]}));
   });
   let received;
