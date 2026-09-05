@@ -6,6 +6,7 @@ import { initDb, getDb } from '../src/db/schema.js';
 import { grantStandardAgents, listStandardAgentIds } from '../src/services/users.js';
 import { ragDocuments, listDocuments } from '../src/services/master-data.js';
 import { PLATFORM_HELP_TITLE_PREFIX } from '../src/services/ceo-default-master-data.js';
+import { PLATFORM_OWNER_ID } from '../src/services/opensearch/indices.js';
 import { seedPlatformHelpAgent } from './seed-platform-help-agent.js';
 
 initDb();
@@ -34,14 +35,14 @@ if (!granted?.ok) {
 }
 console.log('OK granted to', ceo.id);
 
-const docs = listDocuments(ceo.id).filter((d) => String(d.title || '').startsWith(PLATFORM_HELP_TITLE_PREFIX));
+const docs = (await listDocuments(PLATFORM_OWNER_ID)).filter((d) => String(d.title || '').startsWith(PLATFORM_HELP_TITLE_PREFIX));
 console.log('help docs:', docs.length);
 if (docs.length < 5) {
   console.error('FAIL: too few help docs');
   process.exit(1);
 }
 
-const rag = await ragDocuments(ceo.id, {
+const rag = await ragDocuments(PLATFORM_OWNER_ID, {
   query: 'IF node operators approved rejected workflow',
   topK: 5,
   summarize: false,

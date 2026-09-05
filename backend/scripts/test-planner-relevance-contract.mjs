@@ -6,7 +6,7 @@ import { join } from 'node:path';
 const fixture = mkdtempSync(join(tmpdir(), 'flolah-plan-relevance-'));
 process.env.AGENT_OS_DATA_DIR = fixture;
 const { runGoalPlanRounds, validateCoverage } = await import('../src/services/goal-plan-rounds.js');
-const { applyRelevanceVerdict, filterRelevantEvidence } = await import('../src/services/retrieval-relevance.js');
+const { applyRelevanceVerdict, filterRelevantEvidence, RELEVANCE_PROMPT } = await import('../src/services/retrieval-relevance.js');
 const { getDb } = await import('../src/db/schema.js');
 const { assessRetrievedWrite } = await import('../src/services/retrieval-write-guard.js');
 let checks = 0;
@@ -19,6 +19,7 @@ const approved = {approved:true,issues:[],coverage:[
 const response = value => ({content:JSON.stringify(value),modelUsed:'fixture'});
 const base = {prompt,normalize:JSON.parse,validate: value=>({ok:value.every(x=>x.key),errors:['invalid key']})};
 try {
+  check('product help is valid evidence for product how-to tasks',()=>assert.match(RELEVANCE_PROMPT,/valid evidence when the task itself asks how to use that product/i));
   let makerCalls=0, checkerCalls=0;
   const first=await runGoalPlanRounds({...base,make:async()=>{makerCalls++;return response(steps);},check:async()=>{checkerCalls++;return response(approved);}});
   check('complete plan exits after first approval',()=>{assert.equal(makerCalls,1);assert.equal(checkerCalls,1);assert.equal(first.quality.llm_maker_checker_succeeded,true);});
