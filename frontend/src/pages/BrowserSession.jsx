@@ -3,6 +3,7 @@ import { api } from '../api';
 import { RequireAuth } from '../context/AuthContext';
 import WizardReturnBanner from '../components/WizardReturnBanner.jsx';
 import BrowserWorkerVersions from '../components/BrowserWorkerVersions.jsx';
+import { formatLocalDateTime } from '../utils/formatDateTime.js';
 
 const PAGE_SIZE = 8;
 
@@ -413,7 +414,7 @@ function BrowserSessionPanel() {
           <div style={{ marginTop: '0.75rem', padding: '0.75rem', borderRadius: 8, background: 'var(--surface, #fafafa)' }}>
             <div style={{ color: 'var(--muted)', fontSize: '0.82rem' }}>Enter this once in the Flolah extension:</div>
             <code style={{ display: 'block', marginTop: 4, fontSize: '1.3rem', letterSpacing: '0.15em' }}>{extensionPairing.code}</code>
-            <div style={{ color: 'var(--muted)', fontSize: '0.78rem', marginTop: 4 }}>Expires {new Date(extensionPairing.expires_at).toLocaleString()}</div>
+            <div style={{ color: 'var(--muted)', fontSize: '0.78rem', marginTop: 4 }}>Expires {formatLocalDateTime(extensionPairing.expires_at)}</div>
           </div>
         )}
         <div style={{ marginTop: '0.75rem', fontSize: '0.85rem' }}>

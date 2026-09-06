@@ -8,7 +8,7 @@ import ChatComposeInput from '../components/ChatComposeInput';
 import BrowserTasksLive from '../components/BrowserTasksLive';
 import RobotAvatar from '../components/RobotAvatar.jsx';
 import { buildMessageWithAttachments, uploadChatAttachments, buildDisplayAttachmentsFromFiles, revokeAttachmentPreviews } from '../utils/chatAttachments.js';
-import { parseApiDate } from '../utils/formatDateTime.js';
+import { parseApiDate, formatLocalDate, formatLocalDateTime } from '../utils/formatDateTime.js';
 import { useChatVoice, ChatVoiceBar, ChatVoiceCallOverlay } from '../components/ChatVoiceControls.jsx';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import CompanyArchitecturePanel from '../components/CompanyArchitecturePanel.jsx';
@@ -27,14 +27,7 @@ const secondaryBtn = {
 };
 
 function formatArchivedAt(iso) {
-  if (!iso) return '';
-  try {
-    const d = new Date(String(iso).includes('T') ? iso : `${String(iso).replace(' ', 'T')}Z`);
-    if (Number.isNaN(d.getTime())) return String(iso);
-    return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
-  } catch {
-    return String(iso);
-  }
+  return iso ? formatLocalDateTime(iso) : '';
 }
 
 function relativeTime(iso) {
@@ -44,7 +37,7 @@ function relativeTime(iso) {
   if (sec < 60) return 'just now';
   if (sec < 3600) return `${Math.floor(sec / 60)}m ago`;
   if (sec < 86400) return `${Math.floor(sec / 3600)}h ago`;
-  return d.toLocaleDateString();
+  return formatLocalDate(iso);
 }
 
 function sortAgentsForPicker(list = []) {

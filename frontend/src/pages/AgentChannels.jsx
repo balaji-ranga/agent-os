@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../api';
 import { RequireAuth } from '../context/AuthContext';
+import { formatLocalDateTime } from '../utils/formatDateTime.js';
 
 const WIZARD_STEPS = [
   { id: 1, title: 'Channel' },
@@ -450,7 +451,7 @@ function AgentChannelsPanel() {
                           )}
                         </>
                       )}
-                      {ch.last_test_at && <> · Last test: {new Date(ch.last_test_at).toLocaleString()}</>}
+                      {ch.last_test_at && <> · Last test: {formatLocalDateTime(ch.last_test_at)}</>}
                     </div>
                   </div>
                   <span style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { RequireAuth } from '../context/AuthContext';
+import { formatLocalDateTime } from '../utils/formatDateTime.js';
 
 const CLEAR_CONFIRM = 'CLEAR_IBKR_TRANSACTIONAL';
 
@@ -494,7 +495,7 @@ function IbkrSummaryPanel() {
                           <tbody>
                             {drill.order_events.map((ev) => (
                               <tr key={ev.id}>
-                                <td>{ev.created_at}</td>
+                                <td>{formatLocalDateTime(ev.created_at)}</td>
                                 <td>{ev.event_type}</td>
                                 <td>{ev.symbol_key || '—'}</td>
                                 <td>{ev.order_id ?? '—'}</td>
@@ -544,13 +545,13 @@ function IbkrSummaryPanel() {
               <div>
                 <span className="ibkr-truth-meta-k">Captured (broker book time)</span>
                 <span className="ibkr-truth-meta-v">
-                  {truthLoading ? '…' : truthSnap?.captured_at || '—'}
+                  {truthLoading ? '…' : (truthSnap?.captured_at ? formatLocalDateTime(truthSnap.captured_at) : '—')}
                 </span>
               </div>
               <div>
                 <span className="ibkr-truth-meta-k">Cache updated</span>
                 <span className="ibkr-truth-meta-v">
-                  {truthLoading ? '…' : truthSnap?.updated_at || '—'}
+                  {truthLoading ? '…' : (truthSnap?.updated_at ? formatLocalDateTime(truthSnap.updated_at) : '—')}
                 </span>
               </div>
               <div>

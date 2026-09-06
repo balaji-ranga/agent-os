@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '../api';
 import { RequireAuth } from '../context/AuthContext';
+import { formatLocalDateTime } from '../utils/formatDateTime.js';
 
 const PLACEHOLDER = `Examples:
 - Never share confidential financial data outside approved channels.
@@ -571,7 +572,7 @@ function PoliciesPanel() {
                   {row.action_family} · {row.mode} · {row.max_uses == null && !row.expires_at
                     ? 'permanent'
                     : `uses ${row.use_count}${row.max_uses == null ? '/unbounded' : `/${row.max_uses}`}`}
-                  {row.expires_at ? ` · expires ${new Date(row.expires_at).toLocaleString()}` : ''}
+                  {row.expires_at ? ` · expires ${formatLocalDateTime(row.expires_at)}` : ''}
                   {row.constraints?.permitted_email_ids?.length ? ` · email: ${row.constraints.permitted_email_ids.join(', ')}` : ''}
                   {row.constraints?.permitted_websites?.length ? ` · sites: ${row.constraints.permitted_websites.join(', ')}` : ''}
                 </div></div>

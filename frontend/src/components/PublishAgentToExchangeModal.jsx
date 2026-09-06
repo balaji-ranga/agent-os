@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
 import AgentAvatarPicker from './AgentAvatarPicker.jsx';
+import { formatLocalDateTime } from '../utils/formatDateTime.js';
 
 /**
  * Publish / unpublish an AI employee to Agent Exchange (Flolah or Public).
@@ -137,7 +138,7 @@ export default function PublishAgentToExchangeModal({ agent, onClose, onChanged 
         <AgentAvatarPicker value={avatar} name={name} onChange={setAvatar} />
         {existing && (
           <p className="page-muted" style={{ fontSize: '0.8rem' }}>
-            Published {existing.published_at ? new Date(existing.published_at).toLocaleString() : ''}
+            Published {existing.published_at ? formatLocalDateTime(existing.published_at) : ''}
             {existing.visibility ? ` · ${existing.visibility}` : ''}
           </p>
         )}

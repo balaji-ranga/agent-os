@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api';
 import BoardRuntime from '../components/workspace-builder/BoardRuntime.jsx';
+import { formatLocalDateTime } from '../utils/formatDateTime.js';
 
 const BIND_SOURCES = [
   { id: 'none', label: 'None' },
@@ -207,7 +208,7 @@ export default function WorkspaceDesigner() {
         {(boards || []).map((b) => (
           <button key={b.slug} type="button" className={'wsb-page-tab' + (b.slug === slug ? ' active' : '')} onClick={() => setParams({ slug: b.slug })}>
             <strong>{b.name}</strong>
-            <span>{b.is_default ? 'Default ? ' : ''}{b.updated_at ? 'Updated ' + String(b.updated_at).slice(0, 10) : 'Template'}</span>
+            <span>{b.is_default ? 'Default · ' : ''}{b.updated_at ? `Updated ${formatLocalDateTime(b.updated_at)}` : 'Template'}</span>
           </button>
         ))}
         <button type="button" className="wsb-page-tab add" onClick={createPage}>+ New Page</button>

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api';
+import { formatLocalDateTime } from '../utils/formatDateTime.js';
 
 const SCOPES = [
   { id: 'all', label: 'All (platform + CRM workspaces)' },
@@ -76,7 +77,7 @@ export default function AdminTlsCerts() {
       setStepup(r.stepup_token);
       setStepupExp(r.expires_at);
       setTotp('');
-      setFlash('Privileged actions unlocked until ' + r.expires_at);
+      setFlash('Privileged actions unlocked until ' + formatLocalDateTime(r.expires_at));
     } catch (e) {
       setStepup('');
       setStepupExp('');
@@ -326,7 +327,7 @@ export default function AdminTlsCerts() {
             <tbody>
               {jobs.map((j) => (
                 <tr key={j.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                  <td style={{ padding: '0.3rem' }}>{j.started_at}</td>
+                  <td style={{ padding: '0.3rem' }}>{formatLocalDateTime(j.started_at)}</td>
                   <td style={{ padding: '0.3rem' }}>{j.scope}</td>
                   <td style={{ padding: '0.3rem' }}>{j.status}</td>
                   <td style={{ padding: '0.3rem' }}>{j.exit_code ?? '—'}</td>

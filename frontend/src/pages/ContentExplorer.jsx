@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
+import { formatLocalDateTime } from '../utils/formatDateTime.js';
 
 const KIND_FILTERS = [
   { id: 'all', label: 'All' },
@@ -521,7 +522,7 @@ export default function ContentExplorer() {
                   {formatBytes(it.size)}
                 </td>
                 <td style={{ padding: '0.55rem 0.75rem', color: 'var(--muted)', fontSize: '0.8rem' }}>
-                  {it.mtime ? new Date(it.mtime).toLocaleString() : '—'}
+                  {it.mtime ? formatLocalDateTime(it.mtime) : '—'}
                 </td>
                 <td style={{ padding: '0.55rem 0.75rem', whiteSpace: 'nowrap' }}>
                   <button

@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
+import { formatLocalDateTime } from '../utils/formatDateTime.js';
 
 export default function HumanChat() {
   const { userId } = useParams();
@@ -38,7 +39,7 @@ export default function HumanChat() {
   return <div className="human-chat-page">
     <header className="human-chat-header"><div><Link to="/org">← Company</Link><h1>{person?.name || 'Human employee'}</h1><p>{[person?.role_title, person?.department].filter(Boolean).join(' · ') || 'Company user'}</p></div><div style={{display:'flex',gap:8,flexWrap:'wrap'}}><button onClick={archive} disabled={!conversation || conversation.archived}>Archive</button><button onClick={invite} disabled={!person?.channels?.voice}>☎ Voice call link</button></div></header>
     {error && <div className="error-box">{error}</div>}
-    <section className="human-chat-thread" aria-live="polite"><div ref={olderSentinelRef} style={{minHeight:1}} aria-hidden="true"/>{hasOlder&&<button type="button" onClick={loadOlder} disabled={olderLoading}>{olderLoading?'Loading…':'Load older messages'}</button>}{messages.length ? messages.map((m) => <article key={m.id} className={m.sender_user_id === user?.id ? 'mine' : ''}><strong>{m.sender_name}</strong><p>{m.body}</p><time>{m.created_at}</time></article>) : <div className="empty-state">Start a private company conversation. Messages are isolated to your company and these participants.</div>}</section>
+    <section className="human-chat-thread" aria-live="polite"><div ref={olderSentinelRef} style={{minHeight:1}} aria-hidden="true"/>{hasOlder&&<button type="button" onClick={loadOlder} disabled={olderLoading}>{olderLoading?'Loading…':'Load older messages'}</button>}{messages.length ? messages.map((m) => <article key={m.id} className={m.sender_user_id === user?.id ? 'mine' : ''}><strong>{m.sender_name}</strong><p>{m.body}</p><time>{formatLocalDateTime(m.created_at)}</time></article>) : <div className="empty-state">Start a private company conversation. Messages are isolated to your company and these participants.</div>}</section>
     <form className="human-chat-compose" onSubmit={send}><textarea value={input} onChange={(e) => setInput(e.target.value)} placeholder={`Message ${person?.name || 'employee'}…`} /><button disabled={busy || !input.trim()}>{busy ? 'Sending…' : 'Send'}</button></form>
   </div>;
 }

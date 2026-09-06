@@ -4,6 +4,7 @@ import { api } from '../api';
 import ActionFeedbackBanner from '../components/ActionFeedbackBanner';
 import { useActionFeedback } from '../hooks/useActionFeedback';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
+import { formatLocalDateTime } from '../utils/formatDateTime.js';
 
 export default function AdminPlatformFeedback() {
   const { feedback, showError, showSuccess, clearFeedback } = useActionFeedback();
@@ -112,7 +113,7 @@ export default function AdminPlatformFeedback() {
               {row.initiator_name || '?'}
               {row.initiator_email ? ` <${row.initiator_email}>` : ''}
               {row.initiator_agent_id ? ` · agent ${row.initiator_agent_id}` : ''}
-              {row.created_at ? ` · ${row.created_at}` : ''}
+              {row.created_at ? ` · ${formatLocalDateTime(row.created_at)}` : ''}
             </div>
             {row.body ? (
               <pre style={{ whiteSpace: 'pre-wrap', margin: '0.65rem 0 0', fontSize: '0.9rem' }}>{row.body}</pre>

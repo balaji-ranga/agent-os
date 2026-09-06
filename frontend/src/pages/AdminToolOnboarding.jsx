@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api';
+import { formatLocalDateTime } from '../utils/formatDateTime.js';
 
 const emptyForm = {
   name: '',
@@ -77,7 +78,7 @@ export default function AdminToolOnboarding() {
       setStepup(r.stepup_token);
       setStepupExp(r.expires_at);
       setTotp('');
-      setFlash('Privileged actions unlocked until ' + r.expires_at);
+      setFlash('Privileged actions unlocked until ' + formatLocalDateTime(r.expires_at));
     } catch (e) {
       setStepup('');
       setStepupExp('');
@@ -193,7 +194,7 @@ export default function AdminToolOnboarding() {
         <p style={{ color: 'var(--muted)', fontSize: '0.85rem', marginTop: 0 }}>
           Pull, deploy, stop, restart, declare, and delete stay locked until you unlock with your admin authenticator
           (same TOTP used at admin login). Health and Discover work without step-up.
-          {stepupExp ? ' Token expires ' + stepupExp + '.' : ''}
+          {stepupExp ? ` Token expires ${formatLocalDateTime(stepupExp)}.` : ''}
         </p>
         {!unlocked && (
           <p style={{ fontSize: '0.85rem', margin: '0 0 0.75rem', color: '#92400e' }}>

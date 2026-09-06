@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
+import { formatLocalDateTime } from '../utils/formatDateTime.js';
 
 const FILTERS = [
   { id: 'all', label: 'All' },
@@ -14,11 +15,7 @@ const FILTERS = [
 ];
 
 function fmtWhen(v) {
-  if (!v) return '—';
-  const raw = String(v);
-  const d = new Date(raw.includes('T') ? raw : raw.replace(' ', 'T') + 'Z');
-  if (Number.isNaN(d.getTime())) return raw;
-  return d.toLocaleString();
+  return v ? formatLocalDateTime(v) : '—';
 }
 
 function statusClass(status) {

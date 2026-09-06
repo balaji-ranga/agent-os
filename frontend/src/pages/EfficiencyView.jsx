@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api';
+import { formatLocalDateTime } from '../utils/formatDateTime.js';
 
 const RANGE_OPTIONS = [
   { value: '7', label: 'Last 7 days' },
@@ -1444,7 +1445,7 @@ function LlmopsView({ range, rangeLabelText }) {
                       <code>{t.trace_id}</code>
                     )}
                   </td>
-                  <td>{String(t.last_at || '').replace('T', ' ').slice(0, 19)}</td>
+                  <td>{t.last_at ? formatLocalDateTime(t.last_at) : '—'}</td>
                   <td>{formatCompact(t.tokens)}</td>
                   <td>{(t.sources || []).join(', ')}</td>
                 </tr>

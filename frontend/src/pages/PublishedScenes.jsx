@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
+import { formatLocalDateTime } from '../utils/formatDateTime.js';
 
 export default function PublishedScenes() {
   const [rooms, setRooms] = useState([]);
@@ -62,7 +63,7 @@ export default function PublishedScenes() {
                 <strong>{r.publish_title || r.name}</strong>
                 {r.published_at && (
                   <div style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
-                    Published {new Date(r.published_at).toLocaleString()}
+                    Published {formatLocalDateTime(r.published_at)}
                   </div>
                 )}
                 <div style={{ fontSize: '0.85rem', marginTop: 4 }}>

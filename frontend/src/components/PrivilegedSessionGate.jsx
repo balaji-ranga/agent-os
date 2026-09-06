@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { usePrivilegedSession } from '../context/PrivilegedSessionContext';
+import { formatLocalDateTime } from '../utils/formatDateTime.js';
 
 function formatRemain(ms) {
   const s = Math.max(0, Math.floor(ms / 1000));
@@ -87,7 +88,7 @@ export default function PrivilegedSessionGate({ children, title = 'Privileged ac
         >
           <span>
             Privileged session unlocked. Remaining {formatRemain(priv.remainingMs)}
-            {priv.expiresAt ? ` (until ${new Date(priv.expiresAt).toLocaleString()})` : ''}.
+            {priv.expiresAt ? ` (until ${formatLocalDateTime(priv.expiresAt)})` : ''}.
           </span>
           <button type="button" className="wf-btn wf-btn-ghost" onClick={priv.clear}>
             Lock

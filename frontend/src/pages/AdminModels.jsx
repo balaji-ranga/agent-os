@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api';
+import { formatLocalDateTime } from '../utils/formatDateTime.js';
 
 export default function AdminModels() {
   const [data, setData] = useState(null);
@@ -202,7 +203,7 @@ export default function AdminModels() {
             <thead><tr><th>Time</th><th>Route</th><th>Outcome</th><th>Model</th><th>Latency</th><th>Source</th></tr></thead>
             <tbody>
               {(data?.events || []).map((event) => (
-                <tr key={event.id}><td>{event.created_at}</td><td><code>{event.route_alias}</code></td><td>{event.outcome}</td><td>{event.model_used || '—'}</td><td>{event.latency_ms == null ? '—' : `${event.latency_ms} ms`}</td><td>{event.source || '—'}</td></tr>
+                <tr key={event.id}><td>{formatLocalDateTime(event.created_at)}</td><td><code>{event.route_alias}</code></td><td>{event.outcome}</td><td>{event.model_used || '—'}</td><td>{event.latency_ms == null ? '—' : `${event.latency_ms} ms`}</td><td>{event.source || '—'}</td></tr>
               ))}
               {!data?.events?.length && <tr><td colSpan="6">No routed calls recorded yet.</td></tr>}
             </tbody>

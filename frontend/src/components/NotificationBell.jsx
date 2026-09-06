@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { useNotifications } from '../context/NotificationContext';
-import { formatChatTimestamp } from '../utils/formatDateTime';
+import { formatChatTimestamp, formatLocalDate } from '../utils/formatDateTime';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 
 const PANEL_WIDTH = 320;
@@ -174,7 +174,7 @@ export default function NotificationBell({ compact = false }) {
                               </span>
                             )}
                             {' — '}
-                            {n.standup_title || new Date(n.scheduled_at).toLocaleDateString()}
+                            {n.standup_title || formatLocalDate(n.scheduled_at)}
                           </div>
                           {n.sortAt || n.completed_at || n.scheduled_at ? (
                             <time

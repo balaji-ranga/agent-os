@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { api } from '../../api';
 import { buildMcpAuthPayload } from '../MaskedSecretInput';
 import HttpHeadersEditor from '../HttpHeadersEditor';
+import { formatLocalTime } from '../../utils/formatDateTime.js';
 
 const EMPTY_AUTH = { httpHeadersJson: '{}' };
 
@@ -368,7 +369,7 @@ export default function McpTestView() {
                         {callLog.map((entry) => (
                           <details key={entry.id} className="mcp-pg-log-entry">
                             <summary>
-                              {entry.tool} · {entry.ms}ms · {new Date(entry.at).toLocaleTimeString()}
+                              {entry.tool} · {entry.ms}ms · {formatLocalTime(entry.at)}
                             </summary>
                             <pre>{JSON.stringify({ arguments: entry.args, response: entry.out }, null, 2)}</pre>
                           </details>

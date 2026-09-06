@@ -10,6 +10,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import { graphToFlow, workflowNodeTypes } from './WorkflowNodes.jsx';
 import { formatStepIoFull } from '../../utils/workflowStepIo.js';
+import { formatLocalDateTime } from '../../utils/formatDateTime.js';
 
 const STATUS_COLORS = {
   completed: '#16a34a',
@@ -186,7 +187,7 @@ export default function WorkflowRunGraph({
             <div style={{ marginBottom: 8 }}>
               <strong>Timing</strong>
               <div>
-                {selectedStep?.started_at || '—'} → {selectedStep?.completed_at || '—'}
+                {selectedStep?.started_at ? formatLocalDateTime(selectedStep.started_at) : '—'} → {selectedStep?.completed_at ? formatLocalDateTime(selectedStep.completed_at) : '—'}
               </div>
               {(selectedStep?.kanban_task_id || selectedStep?.delegation_task_id) && (
                 <div style={{ marginTop: 4 }}>

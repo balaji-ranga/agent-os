@@ -9,6 +9,7 @@ import {
 } from '../utils/a2aTestSample';
 import AddToOrgDialog from '../components/AddToOrgDialog';
 import RobotAvatar from '../components/RobotAvatar.jsx';
+import { formatLocalDateTime } from '../utils/formatDateTime.js';
 
 /** Inline ⋯ menu for AgentExchange card actions (keeps the card uncluttered). */
 function CardActionsMenu({ items }) {
@@ -201,13 +202,7 @@ function CallbackTip({ agent }) {
 }
 
 function PublishInfoTip({ agent }) {
-  const published = agent?.published_at
-    ? new Date(String(agent.published_at).includes('T') ? agent.published_at : `${agent.published_at}Z`)
-    : null;
-  const dateLabel =
-    published && !Number.isNaN(published.getTime())
-      ? published.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
-      : agent?.published_at || 'Unknown';
+  const dateLabel = agent?.published_at ? formatLocalDateTime(agent.published_at) : 'Unknown';
   const kind = agent?.listing_kind === 'agent' ? 'AI employee' : 'Workflow A2A';
   const vis =
     agent?.listing_kind === 'agent'
@@ -1018,7 +1013,7 @@ function PublishedAgentCard({
         <span>
           skill: <code>{a.skill_id}</code>
         </span>
-        {a.published_at && <span>{new Date(a.published_at).toLocaleString()}</span>}
+        {a.published_at && <span>{formatLocalDateTime(a.published_at)}</span>}
       </div>
       {orgMember && (
         <div className="mcp-pg-card-meta">

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { RequireAuth } from '../context/AuthContext';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
+import { formatLocalDateTime } from '../utils/formatDateTime.js';
 
 const PAGE_SIZE = 50;
 const DOC_PAGE_SIZE = 10;
@@ -1079,7 +1080,7 @@ function MasterDataPanel() {
                 <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
                   <code>{f.relative_path}</code>
                   {f.size != null ? ` · ${(f.size / 1024).toFixed(1)} KB` : ''}
-                  {f.mtime ? ` · ${f.mtime}` : ''}
+                  {f.mtime ? ` · ${formatLocalDateTime(f.mtime)}` : ''}
                   {f.is_media ? ' · media' : f.rag_indexable ? ' · RAG-able' : ' · not indexable'}
                 </div>
               </div>

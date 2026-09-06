@@ -17,7 +17,7 @@ export function parseApiDate(value) {
 
 /**
  * Format timestamp with timezone abbreviation.
- * Uses profile/platform display timezone when timeZone not passed.
+ * Uses profile/browser display timezone when timeZone is not passed.
  */
 export function formatServerDateTime(value, timeZone, opts = {}) {
   const d = parseApiDate(value);
@@ -36,15 +36,44 @@ export function formatServerDateTime(value, timeZone, opts = {}) {
   return new Intl.DateTimeFormat(undefined, options).format(d);
 }
 
-/** @param {object} [opts] - may include timeZone (IANA); defaults to user profile / platform */
+/** @param {object} [opts] - may include timeZone (IANA); defaults to user profile / browser */
 export function formatLocalDateTime(value, opts = {}) {
   const { timeZone, ...rest } = opts;
   return formatServerDateTime(value, timeZone, rest);
 }
 
+export function formatLocalDate(value, opts = {}) {
+  const d = parseApiDate(value);
+  if (!d) return '—';
+  const { timeZone, ...rest } = opts;
+  const tz = resolveDisplayTimeZone(timeZone);
+  return new Intl.DateTimeFormat(undefined, {
+    ...(tz ? { timeZone: tz } : {}),
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    ...rest,
+  }).format(d);
+}
+
+export function formatLocalTime(value, opts = {}) {
+  const d = parseApiDate(value);
+  if (!d) return '—';
+  const { timeZone, ...rest } = opts;
+  const tz = resolveDisplayTimeZone(timeZone);
+  return new Intl.DateTimeFormat(undefined, {
+    ...(tz ? { timeZone: tz } : {}),
+    hour: 'numeric',
+    minute: '2-digit',
+    second: '2-digit',
+    timeZoneName: 'short',
+    ...rest,
+  }).format(d);
+}
+
 /**
  * Compact timestamp for chat messages and activity feeds.
- * Uses profile/platform display timezone when timeZone not passed.
+ * Uses profile/browser display timezone when timeZone is not passed.
  */
 export function formatChatTimestamp(value, timeZone) {
   const d = parseApiDate(value);
@@ -104,7 +133,7 @@ export function taskUpdatedAtDisplay(task, timeZone) {
 
 /**
  * Timestamp of a row that may carry a server-rendered *_display field.
- * With a user/platform display timezone, always reformat from the raw UTC field.
+ * With a user/browser display timezone, always reformat from the raw UTC field.
  */
 export function rowTimestampDisplay(row, timeZone, field = 'created_at') {
   const tz = resolveDisplayTimeZone(timeZone);

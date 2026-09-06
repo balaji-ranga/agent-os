@@ -249,7 +249,7 @@ export function AuthProvider({ children }) {
         usesPlatformDb,
         impersonation,
         platformTimezone,
-        /** Effective IANA zone for all UI datetimes (user profile → platform → browser). */
+        /** Effective IANA zone for UI datetimes (user profile → browser). */
         displayTimezone,
         loading,
         login,

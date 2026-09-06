@@ -4,6 +4,7 @@ import { api } from '../api';
 import { RequireAuth, useAuth } from '../context/AuthContext';
 import MaskedSecretInput from '../components/MaskedSecretInput';
 import WizardReturnBanner from '../components/WizardReturnBanner.jsx';
+import { formatLocalDateTime } from '../utils/formatDateTime.js';
 
 function ApiKeysPanel() {
   const { user } = useAuth();
@@ -266,7 +267,7 @@ function ApiKeysPanel() {
                   )}
                 </td>
                 <td style={{ padding: '0.5rem' }}>{k.is_encrypted ? 'Yes' : 'No'}</td>
-                <td style={{ padding: '0.5rem', fontSize: '0.85rem' }}>{k.updated_at}</td>
+                <td style={{ padding: '0.5rem', fontSize: '0.85rem' }}>{formatLocalDateTime(k.updated_at)}</td>
                 <td style={{ padding: '0.5rem', whiteSpace: 'nowrap' }}>
                   <button type="button" onClick={() => startEdit(k)} style={{ marginRight: 6 }}>
                     Edit
