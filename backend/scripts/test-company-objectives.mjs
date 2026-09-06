@@ -15,8 +15,9 @@ try {
   assert.ok(registry.sources.find((source) => source.id === 'goal_plans').formulas.some((formula) => formula.id === 'completion_rate'));
   assert.ok(registry.sources.find((source) => source.id === 'custom_api').formulas.some((formula) => formula.id === 'average'));
   let companyRegistry = svc.upsertMeasurementRegistryEntry('ceo-demo-northstar', { kind: 'source', id: 'sales_warehouse', label: 'Sales warehouse', provider: 'Warehouse' });
-  companyRegistry = svc.upsertMeasurementRegistryEntry('ceo-demo-northstar', { kind: 'formula', id: 'qualified_rate', source_id: 'sales_warehouse', label: 'Qualified rate', description: 'Qualified divided by researched' });
+  companyRegistry = svc.upsertMeasurementRegistryEntry('ceo-demo-northstar', { kind: 'formula', id: 'qualified_rate', source_id: 'sales_warehouse', label: 'Qualified rate', expression: '100 * qualified_count / researched_count', description: 'Qualified divided by researched' });
   assert.ok(companyRegistry.sources.find((source) => source.id === 'sales_warehouse').formulas.some((item) => item.id === 'qualified_rate'), 'company registry source and formula are merged');
+  assert.equal(companyRegistry.sources.find((source) => source.id === 'sales_warehouse').formulas[0].expression, '100 * qualified_count / researched_count');
   svc.deleteMeasurementRegistryEntry('ceo-demo-northstar', 'formula', 'qualified_rate');
   assert.equal(svc.measurementRegistry('ceo-demo-northstar').sources.find((source) => source.id === 'sales_warehouse').formulas.length, 0);
   const boot = svc.bootstrapNorthstarDemo('ceo-demo-northstar', 'test');

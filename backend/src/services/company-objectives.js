@@ -18,7 +18,10 @@ const COMMON_FORMULAS = {
   completion_rate: ['completion_rate','Completion rate','Completed items divided by eligible items'], success_rate: ['success_rate','Success rate','Successful executions divided by completed executions'],
   cycle_time: ['cycle_time','Cycle time','Average elapsed time from start to completion'], error_rate: ['error_rate','Error rate','Failed executions divided by all completed executions'],
 };
-const formula = (id, label = null, description = null) => { const common = COMMON_FORMULAS[id]; return { id, label: label || common?.[1] || id, description: description || common?.[2] || '' }; };
+const FORMULA_EXPRESSIONS = {
+  count: 'count(distinct record_id)', sum: 'sum(value)', average: 'avg(value)', latest_value: 'latest(value, occurred_at)', change: 'latest(value) - baseline(value)', percentage: '100 * matching_count / eligible_count', completion_rate: '100 * completed_count / eligible_count', success_rate: '100 * successful_count / completed_count', cycle_time: 'avg(completed_at - started_at)', error_rate: '100 * failed_count / completed_count', weighted_pipeline: 'sum(opportunity.amount * opportunity.probability)', pipeline_value: 'sum(opportunity.amount)', conversion_rate: '100 * converted_count / eligible_count', revenue: 'sum(posted_revenue)', expenses: 'sum(posted_expense)', gross_margin: '100 * (revenue - direct_cost) / revenue', collection_rate: '100 * paid_value / due_value', cost: 'sum(cost)', tokens: 'sum(input_tokens + output_tokens)', latency: 'avg(duration_ms)', freshness: 'now() - max(evidence_at)', positive_response_rate: '100 * positive_reply_count / classified_reply_count', retrieval_success_rate: '100 * sufficient_evidence_queries / all_queries',
+};
+const formula = (id, label = null, description = null, expression = null) => { const common = COMMON_FORMULAS[id]; return { id, label: label || common?.[1] || id, expression: expression || FORMULA_EXPRESSIONS[id] || id, description: description || common?.[2] || '' }; };
 
 export function measurementRegistry(ownerUserId = null) {
   const sources = [
@@ -57,13 +60,13 @@ export function measurementRegistry(ownerUserId = null) {
     business_events: [{ id: 'business_events:owner', label: 'Objective evidence ledger' }], manual: [{ id: 'manual:owner', label: 'Human attestation' }],
   };
   const overrides = safeAll('SELECT * FROM company_measurement_registry WHERE owner_user_id=? ORDER BY kind,label', ownerUserId);
-  const customSources = overrides.filter((row) => row.kind === 'source').map((row) => ({ id: row.id, label: row.label, category: row.category || 'Company configured', provider: row.provider || 'Company configured', availability: row.enabled ? 'available' : 'disabled', formulas: overrides.filter((formulaRow) => formulaRow.kind === 'formula' && formulaRow.source_id === row.id && formulaRow.enabled).map((formulaRow) => formula(formulaRow.id, formulaRow.label, formulaRow.description)), instances: row.enabled ? [{ id: `${row.id}:company`, label: row.label }] : [], company_managed: true }));
+  const customSources = overrides.filter((row) => row.kind === 'source').map((row) => ({ id: row.id, label: row.label, category: row.category || 'Company configured', provider: row.provider || 'Company configured', availability: row.enabled ? 'available' : 'disabled', formulas: overrides.filter((formulaRow) => formulaRow.kind === 'formula' && formulaRow.source_id === row.id && formulaRow.enabled).map((formulaRow) => ({ ...formula(formulaRow.id, formulaRow.label, formulaRow.description, formulaRow.expression), company_managed: true })), instances: row.enabled ? [{ id: `${row.id}:company`, label: row.label }] : [], company_managed: true }));
   const sourceOverrides = new Map(overrides.filter((row) => row.kind === 'source_override').map((row) => [row.source_id, row]));
   return { version: 1, scope: 'company', owner_user_id: ownerUserId, sources: [...sources.map((source) => {
     const bound = instances[source.id] || [];
     const nativeWithoutBinding = ['goal_plans','tasks','knowledge','llmops','documents','business_events','manual'].includes(source.id);
     const override = sourceOverrides.get(source.id);
-    const companyFormulas = overrides.filter((row) => row.kind === 'formula' && row.source_id === source.id && row.enabled).map((row) => ({ ...formula(row.id, row.label, row.description), company_managed: true }));
+    const companyFormulas = overrides.filter((row) => row.kind === 'formula' && row.source_id === source.id && row.enabled).map((row) => ({ ...formula(row.id, row.label, row.description, row.expression), company_managed: true }));
     return { ...source, label: override?.label || source.label, formulas: [...source.formulas, ...companyFormulas], enabled: override ? Boolean(override.enabled) : true, instances: bound, availability: override && !override.enabled ? 'disabled' : bound.length || nativeWithoutBinding ? 'available' : 'configuration_required', system_managed: true };
   }), ...customSources] };
 }
@@ -77,8 +80,8 @@ export function upsertMeasurementRegistryEntry(ownerUserId, input = {}) {
   if (!label) throw Object.assign(new Error('Registry label is required'), { status: 400 });
   const sourceId = text(input.source_id, 120);
   if (kind === 'formula' && !sourceId) throw Object.assign(new Error('Formula source is required'), { status: 400 });
-  db().prepare(`INSERT INTO company_measurement_registry(id,owner_user_id,kind,source_id,label,category,provider,description,enabled,updated_at)
-    VALUES(?,?,?,?,?,?,?,?,?,datetime('now')) ON CONFLICT(owner_user_id,kind,id) DO UPDATE SET source_id=excluded.source_id,label=excluded.label,category=excluded.category,provider=excluded.provider,description=excluded.description,enabled=excluded.enabled,updated_at=datetime('now')`).run(entryId, ownerUserId, kind, sourceId || null, label, text(input.category, 120), text(input.provider, 200), text(input.description, 1000), input.enabled === false ? 0 : 1);
+  db().prepare(`INSERT INTO company_measurement_registry(id,owner_user_id,kind,source_id,label,category,provider,expression,description,enabled,updated_at)
+    VALUES(?,?,?,?,?,?,?,?,?,?,datetime('now')) ON CONFLICT(owner_user_id,kind,id) DO UPDATE SET source_id=excluded.source_id,label=excluded.label,category=excluded.category,provider=excluded.provider,expression=excluded.expression,description=excluded.description,enabled=excluded.enabled,updated_at=datetime('now')`).run(entryId, ownerUserId, kind, sourceId || null, label, text(input.category, 120), text(input.provider, 200), text(input.expression, 1000), text(input.description, 1000), input.enabled === false ? 0 : 1);
   return measurementRegistry(ownerUserId);
 }
 
@@ -193,6 +196,7 @@ export function ensureCompanyObjectiveTables() {
       label TEXT NOT NULL,
       category TEXT DEFAULT '',
       provider TEXT DEFAULT '',
+      expression TEXT DEFAULT '',
       description TEXT DEFAULT '',
       enabled INTEGER DEFAULT 1,
       created_at TEXT DEFAULT (datetime('now')),
@@ -277,6 +281,8 @@ export function ensureCompanyObjectiveTables() {
   for (const [column,type] of initiativeAdditions) if (!initiativeColumns.includes(column)) db().exec(`ALTER TABLE company_initiatives ADD COLUMN ${column} ${type}`);
   const mappingColumns = db().prepare('PRAGMA table_info(company_initiative_scheduled_goals)').all().map((column) => column.name);
   if (!mappingColumns.includes('initiative_goal_id')) db().exec('ALTER TABLE company_initiative_scheduled_goals ADD COLUMN initiative_goal_id TEXT');
+  const registryColumns = db().prepare('PRAGMA table_info(company_measurement_registry)').all().map((column) => column.name);
+  if (!registryColumns.includes('expression')) db().exec("ALTER TABLE company_measurement_registry ADD COLUMN expression TEXT DEFAULT ''");
 }
 
 function scheduleSpec(cadenceValue) {
