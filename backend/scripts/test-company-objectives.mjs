@@ -50,14 +50,20 @@ try {
   const schedule = active.initiatives[0].scheduled_goals[0];
   assert.equal(schedule.source, 'company_objective');
   for (let n = 1; n <= 3; n += 1) {
-    getDb().prepare(`INSERT INTO agent_goal_runs(id,owner_user_id,agent_id,title,prompt,source,scheduled_goal_id,status,created_at,completed_at) VALUES(?,?,?,?,?,?,?,?,datetime('now',?),datetime('now',?))`).run(`agr-scheduled-${n}`, 'ceo-demo-northstar', schedule.agent_id, `Scheduled run ${n}`, 'test', 'scheduled_goal', schedule.id, 'completed', `-${4-n} days`, `-${4-n} days`);
+    getDb().prepare(`INSERT INTO agent_goal_runs(id,owner_user_id,agent_id,title,prompt,source,scheduled_goal_id,status,created_at,completed_at) VALUES(?,?,?,?,?,?,?,?,?,?)`).run(`agr-scheduled-${n}`, 'ceo-demo-northstar', schedule.agent_id, `Scheduled run ${n}`, 'test', 'scheduled_goal', schedule.id, 'completed', `2026-10-0${n} 09:00:00`, `2026-10-0${n} 09:05:00`);
   }
-  getDb().prepare(`INSERT INTO agent_goal_runs(id,owner_user_id,agent_id,title,prompt,source,status,created_at,completed_at) VALUES(?,?,?,?,?,?,?,datetime('now'),datetime('now'))`).run('agr-adhoc-1', 'ceo-demo-northstar', schedule.agent_id, 'Ad-hoc qualification', 'test', 'objective_initiative', 'completed');
+  getDb().prepare(`INSERT INTO agent_goal_runs(id,owner_user_id,agent_id,title,prompt,source,status,created_at,completed_at) VALUES(?,?,?,?,?,?,?,?,?)`).run('agr-adhoc-1', 'ceo-demo-northstar', schedule.agent_id, 'Ad-hoc qualification', 'test', 'objective_initiative', 'completed', '2026-10-04 09:00:00', '2026-10-04 09:05:00');
   svc.linkGoalRun('ceo-demo-northstar', q4.id, { goal_run_id: 'agr-adhoc-1', initiative_id: active.initiatives[0].id });
   const hierarchy = svc.getObjective('ceo-demo-northstar', q4.id);
   assert.equal(hierarchy.initiatives[0].scheduled_goals[0].goal_plan_runs.length, 3, 'scheduled runs associate autonomously');
   assert.equal(hierarchy.initiatives[0].adhoc_goal_plans.length, 1, 'one-off plans sit under their initiative');
   assert.deepEqual(hierarchy.execution_summary, { goal_plan_runs: 4, completed_runs: 4, scheduled_goals: 1, adhoc_goal_plans: 1 });
+  getDb().prepare("UPDATE company_key_results SET source_type='goal_plans',formula='count',target=4 WHERE id=?").run(hierarchy.key_results[1].id);
+  getDb().prepare("UPDATE company_key_results SET source_type='goal_plans',formula='completion_rate',target=100 WHERE id=?").run(hierarchy.key_results[2].id);
+  const executionMeasured = svc.getObjective('ceo-demo-northstar', q4.id);
+  assert.equal(executionMeasured.key_results[1].current_value, 4, 'Goal Plan count is projected autonomously into its KR');
+  assert.equal(executionMeasured.key_results[2].current_value, 100, 'Goal Plan completion formula calculates from terminal runs');
+  assert.equal(svc.listRevenueEvidence('ceo-demo-northstar', q4.id, { recordType: 'goal_run' }).total, 4, 'each associated run creates one provenance-backed evidence record');
   assert.equal(svc.listObjectiveVersions('ceo-demo-northstar', q4.id).length, 2);
 
   svc.upsertRevenueEvidence('ceo-demo-northstar', q4.id, { record_type: 'candidate', external_id: 'candidate-1', account_name: 'Lion Logistics', status: 'researched', evidence: ['https://example.test/lion'] });

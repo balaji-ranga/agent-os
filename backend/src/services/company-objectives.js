@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'crypto';
 import { getDb } from '../db/schema.js';
 import { chatCompletions } from '../config/llm.js';
+import { createAndStartGoalRun } from './agent-goal-run.js';
 
 const PERIODS = new Set(['monthly', 'quarterly', 'half_yearly', 'annual']);
 const STATUSES = new Set(['draft', 'active', 'paused', 'completed', 'cancelled']);
@@ -458,13 +459,15 @@ export function listObjectives(ownerUserId, { limit = 20, offset = 0, periodType
   if (periodType) { where += ' AND period_type=?'; params.push(periodType); }
   if (status) { where += ' AND status=?'; params.push(status); }
   const total = db().prepare(`SELECT COUNT(*) AS n FROM company_objectives WHERE ${where}`).get(...params).n;
-  const rows = db().prepare(`SELECT * FROM company_objectives WHERE ${where} ORDER BY starts_on DESC,created_at DESC LIMIT ? OFFSET ?`).all(...params, lim, off).map((r) => serializeObjective(r, true));
+  const rows = db().prepare(`SELECT * FROM company_objectives WHERE ${where} ORDER BY starts_on DESC,created_at DESC LIMIT ? OFFSET ?`).all(...params, lim, off).map((r) => { syncObjectiveExecutionEvidence(ownerUserId, r.id); return serializeObjective(r, true); });
   return { objectives: rows, total, limit: lim, offset: off, has_more: off + rows.length < total };
 }
 
 export function getObjective(ownerUserId, objectiveId) {
   ensureCompanyObjectiveTables();
-  return serializeObjective(db().prepare('SELECT * FROM company_objectives WHERE id=? AND owner_user_id=?').get(objectiveId, ownerUserId), true);
+  const row = db().prepare('SELECT * FROM company_objectives WHERE id=? AND owner_user_id=?').get(objectiveId, ownerUserId);
+  if (row) syncObjectiveExecutionEvidence(ownerUserId, objectiveId);
+  return serializeObjective(row, true);
 }
 
 export function createObjective(ownerUserId, input = {}, actorUserId = null) {
@@ -677,6 +680,81 @@ export async function ideateObjective(ownerUserId, input = {}, { callModel = cha
   }
 }
 
+/** Materialise Goal Plan execution records as traceable Objective evidence and KR measurements. */
+function syncObjectiveExecutionEvidence(ownerUserId, objectiveId) {
+  const objective = db().prepare('SELECT starts_on,ends_on FROM company_objectives WHERE id=? AND owner_user_id=?').get(objectiveId, ownerUserId);
+  if (!objective) return;
+  const runs = db().prepare(`SELECT DISTINCT g.id,g.title,g.status,g.created_at,g.completed_at,g.scheduled_goal_id,
+      COALESCE(l.initiative_id,m.initiative_id) AS initiative_id
+    FROM agent_goal_runs g
+    LEFT JOIN company_objective_goal_runs l ON l.goal_run_id=g.id AND l.owner_user_id=g.owner_user_id AND l.objective_id=?
+    LEFT JOIN company_initiative_scheduled_goals m ON m.scheduled_goal_id=g.scheduled_goal_id AND m.owner_user_id=g.owner_user_id AND m.objective_id=?
+    WHERE g.owner_user_id=? AND (l.objective_id IS NOT NULL OR m.objective_id IS NOT NULL)
+      AND date(g.created_at)>=date(?) AND date(g.created_at)<=date(?)
+    ORDER BY g.created_at`).all(objectiveId, objectiveId, ownerUserId, objective.starts_on, objective.ends_on);
+  const terminal = new Set(['completed', 'partial_success', 'failed', 'cancelled']);
+  const successful = new Set(['completed', 'partial_success']);
+  const terminalRuns = runs.filter((run) => terminal.has(run.status));
+  const successfulRuns = runs.filter((run) => successful.has(run.status));
+  const failedRuns = runs.filter((run) => run.status === 'failed');
+  const durations = terminalRuns.map((run) => Date.parse(run.completed_at) - Date.parse(run.created_at)).filter((value) => Number.isFinite(value) && value >= 0);
+  const values = {
+    count: runs.length,
+    completion_rate: runs.length ? (100 * terminalRuns.length) / runs.length : 0,
+    success_rate: terminalRuns.length ? (100 * successfulRuns.length) / terminalRuns.length : 0,
+    error_rate: terminalRuns.length ? (100 * failedRuns.length) / terminalRuns.length : 0,
+    cycle_time: durations.length ? durations.reduce((sum, value) => sum + value, 0) / durations.length : 0,
+    evidence_count: runs.length,
+  };
+  const tx = db().transaction(() => {
+    const saveEvidence = db().prepare(`INSERT INTO company_revenue_evidence(id,objective_id,owner_user_id,record_type,external_id,account_name,status,amount,probability,cost,evidence_json,metadata_json,occurred_at)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(owner_user_id,objective_id,record_type,external_id) DO UPDATE SET account_name=excluded.account_name,status=excluded.status,evidence_json=excluded.evidence_json,metadata_json=excluded.metadata_json,occurred_at=excluded.occurred_at`);
+    for (const run of runs) saveEvidence.run(id('rev'), objectiveId, ownerUserId, 'goal_run', run.id, run.title, run.status, 0, 0, 0,
+      JSON.stringify([`goal-plan:${run.id}`]), JSON.stringify({ source_type: 'goal_plans', initiative_id: run.initiative_id, scheduled_goal_id: run.scheduled_goal_id || null, provenance: true }), run.completed_at || run.created_at);
+    const keyResults = db().prepare("SELECT * FROM company_key_results WHERE objective_id=? AND owner_user_id=? AND source_type='goal_plans'").all(objectiveId, ownerUserId);
+    const saveMeasurement = db().prepare(`INSERT INTO company_objective_measurements(id,objective_id,key_result_id,owner_user_id,value,delta,source_type,source_id,evidence_json,measured_at)
+      VALUES(?,?,?,?,?,?,?,?,?,datetime('now')) ON CONFLICT(key_result_id,source_type,source_id) DO UPDATE SET value=excluded.value,delta=excluded.delta,evidence_json=excluded.evidence_json,measured_at=excluded.measured_at`);
+    for (const kr of keyResults) {
+      if (!Object.hasOwn(values, kr.formula)) continue;
+      const value = Math.round(values[kr.formula] * 100) / 100;
+      const evidenceRefs = runs.map((run) => `goal-plan:${run.id}`);
+      saveMeasurement.run(id('measure'), objectiveId, kr.id, ownerUserId, value, value - num(kr.current_value), 'goal_plans', `objective:${objectiveId}:${kr.formula}`, JSON.stringify(evidenceRefs));
+      db().prepare("UPDATE company_key_results SET current_value=?,confidence='high',updated_at=datetime('now') WHERE id=? AND owner_user_id=?").run(value, kr.id, ownerUserId);
+    }
+  });
+  tx();
+}
+
+/** Execute one saved ad-hoc initiative goal through the existing Goal Plan engine. */
+export async function runInitiativeGoal(ownerUserId, objectiveId, initiativeGoalId) {
+  ensureCompanyObjectiveTables();
+  const goal = db().prepare(`SELECT g.*,i.name AS initiative_name,o.name AS objective_name,o.outcome
+    FROM company_initiative_goals g
+    JOIN company_initiatives i ON i.id=g.initiative_id AND i.owner_user_id=g.owner_user_id
+    JOIN company_objectives o ON o.id=g.objective_id AND o.owner_user_id=g.owner_user_id
+    WHERE g.id=? AND g.objective_id=? AND g.owner_user_id=?`).get(initiativeGoalId, objectiveId, ownerUserId);
+  if (!goal) throw Object.assign(new Error('Initiative goal not found'), { status: 404 });
+  if (goal.goal_type !== 'adhoc') throw Object.assign(new Error('Scheduled goals must be run from their schedule'), { status: 409 });
+  if (!goal.enabled) throw Object.assign(new Error('This goal is disabled'), { status: 409 });
+  const linkedKeyResults = json(goal.linked_key_result_ids_json, []);
+  const result = await createAndStartGoalRun({
+    ownerUserId,
+    agentId: goal.agent_id || ownerCooAgentId(ownerUserId),
+    title: goal.title,
+    prompt: goal.prompt,
+    source: 'objective_initiative',
+    backgroundPlanning: true,
+    context: { objective_id: objectiveId, objective_name: goal.objective_name, objective_outcome: goal.outcome, initiative_id: goal.initiative_id, initiative_name: goal.initiative_name, initiative_goal_id: goal.id, linked_key_result_ids: linkedKeyResults },
+  });
+  const goalRunId = result.goal_run_id || result.goal?.id;
+  if (!goalRunId) throw Object.assign(new Error('Goal Plan did not return a run identifier'), { status: 502 });
+  db().prepare(`INSERT INTO company_objective_goal_runs(objective_id,initiative_id,key_result_id,goal_run_id,owner_user_id) VALUES(?,?,?,?,?)
+    ON CONFLICT(objective_id,goal_run_id) DO UPDATE SET initiative_id=excluded.initiative_id,key_result_id=excluded.key_result_id`)
+    .run(objectiveId, goal.initiative_id, linkedKeyResults[0] || null, goalRunId, ownerUserId);
+  syncObjectiveExecutionEvidence(ownerUserId, objectiveId);
+  return { goal_run_id: goalRunId, status: result.goal?.status || 'planning', objective: getObjective(ownerUserId, objectiveId) };
+}
+
 export async function ideateInitiativeGoals(ownerUserId, input = {}, { callModel = chatCompletions } = {}) {
   ensureCompanyObjectiveTables();
   const objective = input.objective || {}, initiative = input.initiative || {}, keyResults = Array.isArray(input.key_results) ? input.key_results : [];
@@ -709,10 +787,10 @@ export function objectiveDigest(ownerUserId, { from = null, to = null, limit = 1
   let where = `owner_user_id=? AND status IN ('active','paused')`, args = [ownerUserId];
   if (from) { where += ' AND ends_on>=?'; args.push(from); }
   if (to) { where += ' AND starts_on<=?'; args.push(to); }
-  const objectives = db().prepare(`SELECT * FROM company_objectives WHERE ${where} ORDER BY CASE status WHEN 'active' THEN 0 ELSE 1 END,ends_on LIMIT ?`).all(...args, Math.min(50, Math.max(1, num(limit, 10)))).map((r) => serializeObjective(r, true));
+  const objectives = db().prepare(`SELECT * FROM company_objectives WHERE ${where} ORDER BY CASE status WHEN 'active' THEN 0 ELSE 1 END,ends_on LIMIT ?`).all(...args, Math.min(50, Math.max(1, num(limit, 10)))).map((r) => { syncObjectiveExecutionEvidence(ownerUserId, r.id); return serializeObjective(r, true); });
   return {
     objectives,
-    summary: { active: objectives.filter((o) => o.status === 'active').length, off_track: objectives.filter((o) => ['off_track', 'at_risk'].includes(o.health)).length, blocked: objectives.filter((o) => o.health === 'blocked').length, awaiting_approval: objectives.reduce((s, o) => s + num(o.revenue.awaiting_approval), 0), weighted_pipeline: objectives.reduce((s, o) => s + num(o.revenue.weighted_pipeline), 0), cost: objectives.reduce((s, o) => s + num(o.revenue.cost), 0) },
+    summary: { active: objectives.filter((o) => o.status === 'active').length, off_track: objectives.filter((o) => ['off_track', 'at_risk'].includes(o.health)).length, blocked: objectives.filter((o) => o.health === 'blocked').length, awaiting_approval: objectives.reduce((s, o) => s + num(o.revenue.awaiting_approval), 0), weighted_pipeline: objectives.reduce((s, o) => s + num(o.revenue.weighted_pipeline), 0), cost: objectives.reduce((s, o) => s + num(o.revenue.cost), 0), goal_plan_runs: objectives.reduce((s, o) => s + num(o.execution_summary?.goal_plan_runs), 0), completed_runs: objectives.reduce((s, o) => s + num(o.execution_summary?.completed_runs), 0), evidence_records: objectives.reduce((s, o) => s + num(o.revenue.evidence_records), 0) },
   };
 }
 

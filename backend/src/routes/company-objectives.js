@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAuth, requireCeoOrAdmin, resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
-import { bootstrapNorthstarDemo, createObjective, createObjectiveApproval, decideObjectiveApproval, deleteMeasurementRegistryEntry, ensureObjectiveOperatingModel, getObjective, ideateInitiativeGoals, ideateObjective, linkGoalRun, listObjectives, listObjectiveVersions, listRevenueEvidence, measureKeyResult, measurementRegistry, objectiveDigest, updateObjective, upsertMeasurementRegistryEntry, upsertRevenueEvidence } from '../services/company-objectives.js';
+import { bootstrapNorthstarDemo, createObjective, createObjectiveApproval, decideObjectiveApproval, deleteMeasurementRegistryEntry, ensureObjectiveOperatingModel, getObjective, ideateInitiativeGoals, ideateObjective, linkGoalRun, listObjectives, listObjectiveVersions, listRevenueEvidence, measureKeyResult, measurementRegistry, objectiveDigest, runInitiativeGoal, updateObjective, upsertMeasurementRegistryEntry, upsertRevenueEvidence } from '../services/company-objectives.js';
 
 const router = Router();
 router.use(requireAuth, requireCeoOrAdmin);
@@ -22,6 +22,7 @@ router.post('/:id/operating-model', wrap(async (req, res) => res.json({ objectiv
 router.get('/:id/versions', wrap(async (req, res) => res.json({ versions: listObjectiveVersions(owner(req), req.params.id) })));
 router.post('/:id/key-results/:keyResultId/measurements', wrap(async (req, res) => res.status(201).json({ objective: measureKeyResult(owner(req), req.params.id, req.params.keyResultId, req.body || {}) })));
 router.post('/:id/goal-runs', wrap(async (req, res) => res.status(201).json({ objective: linkGoalRun(owner(req), req.params.id, req.body || {}) })));
+router.post('/:id/initiative-goals/:goalId/run', wrap(async (req, res) => res.status(202).json(await runInitiativeGoal(owner(req), req.params.id, req.params.goalId))));
 router.post('/:id/revenue-evidence', wrap(async (req, res) => res.status(201).json({ objective: upsertRevenueEvidence(owner(req), req.params.id, req.body || {}) })));
 router.get('/:id/revenue-evidence', wrap(async (req, res) => res.json(listRevenueEvidence(owner(req), req.params.id, { limit: req.query.limit, offset: req.query.offset, recordType: req.query.record_type }))));
 router.post('/:id/approvals', wrap(async (req, res) => res.status(201).json({ approval: createObjectiveApproval(owner(req), req.params.id, req.body || {}) })));

@@ -1414,6 +1414,7 @@ export const api = {
   companyObjectiveVersions: (id) => get(`/company-objectives/${encodeURIComponent(id)}/versions`),
   companyObjectiveMeasure: (id, keyResultId, body) => post(`/company-objectives/${encodeURIComponent(id)}/key-results/${encodeURIComponent(keyResultId)}/measurements`, body),
   companyObjectiveLinkGoal: (id, body) => post(`/company-objectives/${encodeURIComponent(id)}/goal-runs`, body),
+  companyObjectiveRunInitiativeGoal: (id, goalId) => post(`/company-objectives/${encodeURIComponent(id)}/initiative-goals/${encodeURIComponent(goalId)}/run`, {}),
   companyObjectiveRevenueEvidence: (id, body) => post(`/company-objectives/${encodeURIComponent(id)}/revenue-evidence`, body),
   companyObjectiveEvidenceList: (id, params = {}) => get(`/company-objectives/${encodeURIComponent(id)}/revenue-evidence?${new URLSearchParams(params)}`),
   companyObjectiveApprovalCreate: (id, body) => post(`/company-objectives/${encodeURIComponent(id)}/approvals`, body),
