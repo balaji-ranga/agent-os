@@ -19,6 +19,17 @@ const ROUTING_GENERIC_TOOLS = new Set([
   'voice_call_invite',
 ]);
 
+/**
+ * Platform Help is a conversational product-help surface, not a durable work
+ * orchestrator. Keep this boundary deterministic even if a semantic routing
+ * model over-interprets a detailed help question as multi-stage execution.
+ */
+export function isDirectChatOnlyAgent(agent = {}) {
+  return [agent?.id, agent?.openclaw_agent_id]
+    .map((value) => String(value || '').trim().toLowerCase())
+    .some((id) => id === 'platformhelp' || id.endsWith('--platformhelp'));
+}
+
 function db() {
   ensureAgentTurnRouterSchema();
   return getDb();
@@ -98,6 +109,7 @@ Rules:
 - An orchestrator coordinates work; it does not own every capability exposed anywhere in the company. If a roster employee's declared role or granted capabilities are a closer semantic fit than the current agent's declared role/capabilities, choose delegate even when the request has only one bounded deliverable.
 - direct_tool: one bounded action or lookup clearly owned by the current agent's declared role or granted capabilities. Do not choose it merely because some other employee has the needed tool.
 - chat: answer/explain/converse without durable execution.
+- The platformhelp agent is a direct product-help conversation/tool-loop surface. For it, choose chat for explanations and direct_tool for one bounded help lookup; never choose goal_plan.
 - Do not classify a detailed standalone specification as follow_up merely because its prose contains pronouns.
 - A terminal execution is historical evidence, not permission to restart it. Only select it when the current message semantically requests continuation/retry/status.
 - restart_requested is true only when the user explicitly asks to retry, rerun, resume, or repeat terminal work; it is false for a status question or a new request.
@@ -179,7 +191,20 @@ export async function routeAgentTurn({ ownerUserId, agent, sessionId, message, h
   if (replyToMessageId) routeInput.explicit_reply_to_message_id = replyToMessageId;
   const { organization, candidate_turns: candidates } = routeInput;
   const systemPrompt = `${ROUTER_SYSTEM}\n${routeContractPrompt(organization.map(member => member.id))}`;
+  const directChatOnly = isDirectChatOnlyAgent(agent);
   let parsed = semanticDecision && typeof semanticDecision === 'object' ? semanticDecision : null;
+  // A selected Platform Help agent has an unambiguous destination. Avoid the
+  // semantic-router and adjudicator LLM round trips and enter its chat loop
+  // immediately. The help agent can still invoke its own bounded lookup tools.
+  if (!parsed && directChatOnly) {
+    parsed = {
+      relation: 'new_work', execution_mode: 'chat', relevant_turn_ids: [],
+      parent_work_unit_id: null, target_agent_id: null,
+      resolved_request: String(message || '').trim(), restart_requested: false,
+      confidence: 1,
+      executor_evidence: { capability_names: [], reason: 'Platform Help is a direct conversational help surface.' },
+    };
+  }
   const routeAttempts = [];
   let routeValidation = parsed ? { ok: true, errors: [] } : { ok: false, errors: ['router has not run'] };
   try {
@@ -293,6 +318,8 @@ export async function routeAgentTurn({ ownerUserId, agent, sessionId, message, h
   const parent = parentWorkUnitId ? db().prepare('SELECT status FROM chat_work_units WHERE id=? AND owner_user_id=?').get(parentWorkUnitId, ownerUserId) : null;
   const terminalParent = ['completed', 'partial_success', 'failed', 'cancelled'].includes(String(parent?.status || '').toLowerCase());
   const restartRequested = parsed?.restart_requested === true;
+  const directChatOnlyGuarded = directChatOnly && executionMode === 'goal_plan';
+  if (directChatOnlyGuarded) executionMode = 'chat';
   // The semantic router, not a phrase matcher, decides whether the CEO asked to
   // restart. Executable modes cannot silently relaunch terminal work.
   if (terminalParent && !restartRequested && executionMode !== 'chat') executionMode = 'chat';
@@ -313,6 +340,8 @@ export async function routeAgentTurn({ ownerUserId, agent, sessionId, message, h
     restart_requested: restartRequested,
     target_agent_id: executionMode === 'delegate' ? String(parsed?.target_agent_id || '').trim() || null : null,
     terminal_parent_guarded: terminalParent && !restartRequested,
+    direct_chat_only_guarded: directChatOnlyGuarded,
+    routing_model_bypassed: directChatOnly && !semanticDecision,
     request_fingerprint: fingerprint,
     decision_attempts: routeAttempts,
   };

@@ -15,7 +15,7 @@ process.env.OPENAI_SECONDARY_BASE_URL = 'https://checker.invalid/v1';
 process.env.OPENAI_SECONDARY_MODEL = 'test-checker';
 process.env.OPENAI_SECONDARY_API_KEY = 'fixture-only';
 const { getDb } = await import('../src/db/schema.js');
-const { routeAgentTurn, validateRouteDecision, needsRouteAdjudication, ROUTER_SYSTEM } = await import('../src/services/agent-turn-router.js');
+const { routeAgentTurn, validateRouteDecision, needsRouteAdjudication, ROUTER_SYSTEM, isDirectChatOnlyAgent } = await import('../src/services/agent-turn-router.js');
 const { buildRouteSchema, routeContractPrompt } = await import('../src/services/agent-route-contract.js');
 const db = getDb();
 const nativeFetch = globalThis.fetch;
@@ -35,6 +35,7 @@ try {
   db.pragma('foreign_keys = OFF'); // Only this disposable synthetic database.
   db.prepare("INSERT OR REPLACE INTO agents (id,name,role,is_coo,is_orchestrator,parent_id) VALUES ('router-coo','Coordinator','Coordinate specialists',1,1,NULL)").run();
   db.prepare("INSERT OR REPLACE INTO agents (id,name,role,parent_id) VALUES ('specialist','Mailbox specialist','Mailbox review','router-coo')").run();
+  db.prepare("INSERT OR REPLACE INTO agents (id,name,role,parent_id) VALUES ('platformhelp','Platform Help','Explain how to use Flolah',NULL)").run();
   db.prepare("INSERT OR REPLACE INTO user_agents (user_id,agent_id,enabled) VALUES ('router-owner','specialist',1)").run();
   db.prepare("INSERT OR IGNORE INTO agent_tool_grants (agent_id,tool_name) VALUES ('specialist','mailbox_review'),('router-coo','ceo_profile')").run();
   const agent = db.prepare("SELECT * FROM agents WHERE id='router-coo'").get();
@@ -58,6 +59,38 @@ try {
   for (const mode of ['chat','goal_plan']) {
     const result=await run([{...valid,execution_mode:mode,target_agent_id:null}]);
     check(`valid ${mode} skips adjudication`,()=>{assert.equal(calls.length,1);assert.equal(result.execution_mode,mode);});
+  }
+  const platformHelp = db.prepare("SELECT * FROM agents WHERE id='platformhelp'").get();
+  check('platform help is a direct-chat-only agent',()=>assert.equal(isDirectChatOnlyAgent(platformHelp),true));
+  const platformHelpGoal = await routeAgentTurn({
+    ownerUserId:'router-owner',
+    agent:platformHelp,
+    sessionId:'platform-help-fixture-session',
+    message:'Explain the full OKR setup flow and give me the steps.',
+    semanticDecision:{
+      relation:'new_work',execution_mode:'goal_plan',relevant_turn_ids:[],parent_work_unit_id:null,
+      target_agent_id:null,resolved_request:'Explain the full OKR setup flow and give me the steps.',
+      restart_requested:false,confidence:0.92,
+      executor_evidence:{capability_names:[],reason:'The request is about Flolah product help.'},
+    },
+  });
+  check('platform help goal-plan decision is forced to agent chat',()=>{
+    assert.equal(platformHelpGoal.execution_mode,'chat');
+    assert.equal(platformHelpGoal.direct_chat_only_guarded,true);
+  });
+  queue=[]; calls=[];
+  const platformHelpDirect = await routeAgentTurn({
+    ownerUserId:'router-owner',agent:platformHelp,sessionId:'platform-help-direct-session',
+    message:'How do Key Results work in Flolah?',
+  });
+  check('platform help bypasses routing and adjudication model calls',()=>{
+    assert.equal(calls.length,0);
+    assert.equal(platformHelpDirect.execution_mode,'chat');
+    assert.equal(platformHelpDirect.routing_model_bypassed,true);
+  });
+  check('ordinary agent goal planning remains available',()=>assert.equal(goalPlanModeForOrdinaryAgent(),'goal_plan'));
+  function goalPlanModeForOrdinaryAgent() {
+    return db.prepare("SELECT execution_mode FROM chat_work_units WHERE agent_id='router-coo' AND execution_mode='goal_plan' ORDER BY created_at DESC LIMIT 1").get()?.execution_mode;
   }
   const direct={...valid,execution_mode:'direct_tool',target_agent_id:null,executor_evidence:{capability_names:['ceo_profile'],reason:'The coordinator can read its CEO profile.'}};
   await run([direct,direct]);
