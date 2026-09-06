@@ -18,7 +18,7 @@ export function buildCeoNavCatalog({ showCrm = false, showErp = false } = {}) {
   const top = [
     { id: 'home', label: 'Home', to: '/', always: true, group: 'top' },
     { id: 'this-week', label: 'Digest', to: '/this-week', always: true, group: 'top' },
-    { id: 'objectives', label: 'Objectives', to: '/objectives', group: 'top', permission: 'this-week' },
+    { id: 'objectives', label: 'Objectives Key Results (OKR)', to: '/objectives', group: 'top', permission: 'this-week' },
     { id: 'work', label: 'Workspace', to: '/work', group: 'top' },
     { id: 'agent-actions', label: 'Live Operations', to: '/agent-actions', group: 'top' },
     { id: 'company-reviews', label: 'Reviews', to: '/reviews', group: 'top' },

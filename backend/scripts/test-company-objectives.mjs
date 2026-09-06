@@ -14,6 +14,11 @@ try {
   assert.ok(registry.sources.length >= 10, 'common Flolah and integration measurement sources are registered');
   assert.ok(registry.sources.find((source) => source.id === 'goal_plans').formulas.some((formula) => formula.id === 'completion_rate'));
   assert.ok(registry.sources.find((source) => source.id === 'custom_api').formulas.some((formula) => formula.id === 'average'));
+  let companyRegistry = svc.upsertMeasurementRegistryEntry('ceo-demo-northstar', { kind: 'source', id: 'sales_warehouse', label: 'Sales warehouse', provider: 'Warehouse' });
+  companyRegistry = svc.upsertMeasurementRegistryEntry('ceo-demo-northstar', { kind: 'formula', id: 'qualified_rate', source_id: 'sales_warehouse', label: 'Qualified rate', description: 'Qualified divided by researched' });
+  assert.ok(companyRegistry.sources.find((source) => source.id === 'sales_warehouse').formulas.some((item) => item.id === 'qualified_rate'), 'company registry source and formula are merged');
+  svc.deleteMeasurementRegistryEntry('ceo-demo-northstar', 'formula', 'qualified_rate');
+  assert.equal(svc.measurementRegistry('ceo-demo-northstar').sources.find((source) => source.id === 'sales_warehouse').formulas.length, 0);
   const boot = svc.bootstrapNorthstarDemo('ceo-demo-northstar', 'test');
   assert.equal(boot.created, true);
   assert.equal(boot.objectives.length, 4);
@@ -70,6 +75,11 @@ try {
   assert.equal(llm.proposal.authority.external_communications, 'approval_required', 'LLM cannot widen authority');
   assert.equal(llm.model_used, 'live-test-model');
 
+  const goalIdeas = await svc.ideateInitiativeGoals('ceo-demo-northstar', { objective: llm.proposal, initiative: llm.proposal.initiatives[0], key_results: llm.proposal.key_results }, { callModel: async () => ({ content: JSON.stringify([{ goal_type: 'scheduled', title: 'Research daily', prompt: 'Produce evidence-backed research and record exceptions.', cadence: 'weekdays', time_local: '09:00', linked_key_result_ids: [llm.proposal.key_results[0].id] }, { goal_type: 'adhoc', title: 'Seed target list', prompt: 'Create the initial reviewed target list.' }]), modelUsed: 'live-goal-model' }) });
+  assert.equal(goalIdeas.goals.length, 2, 'AI can recommend multiple goals for one initiative');
+  assert.equal(goalIdeas.goals[0].linked_key_result_ids.length, 1, 'AI goal retains valid KR links');
+  assert.equal(goalIdeas.model_used, 'live-goal-model');
+
   const fallback = await svc.ideateObjective('ceo-demo-northstar', { outcome: 'Generate S$100k qualified pipeline', period_type: 'quarterly', period_label: 'Q4 2026', starts_on: '2026-10-01', ends_on: '2026-12-31' }, { callModel: async () => { throw new Error('offline'); } });
   assert.equal(fallback.fallback, true);
   assert.equal(fallback.proposal.key_results.length, 6);
@@ -86,6 +96,6 @@ const appUrl = new URL('../../frontend/src/App.jsx', import.meta.url);
 const navUrl = new URL('../../frontend/src/utils/ceoNavCatalog.js', import.meta.url);
 if (existsSync(appUrl) && existsSync(navUrl)) {
   assert.match(readFileSync(appUrl, 'utf8'), /path="\/objectives"/);
-  assert.match(readFileSync(navUrl, 'utf8'), /label: 'Objectives'/);
+  assert.match(readFileSync(navUrl, 'utf8'), /label: 'Objectives Key Results \(OKR\)'/);
 }
 console.log('company objectives: PASS (kernel, four periods, isolation, evidence, LLM contract, fallback, UI routes)');

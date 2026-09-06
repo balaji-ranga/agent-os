@@ -56,11 +56,38 @@ export function measurementRegistry(ownerUserId = null) {
     custom_api: [...mcps, ...scripts.map((item) => ({ ...item, id: `script:${item.id}` }))], documents: [{ id: 'documents:owner', label: 'Company evidence documents' }],
     business_events: [{ id: 'business_events:owner', label: 'Objective evidence ledger' }], manual: [{ id: 'manual:owner', label: 'Human attestation' }],
   };
-  return { version: 1, scope: 'company', owner_user_id: ownerUserId, sources: sources.map((source) => {
+  const overrides = safeAll('SELECT * FROM company_measurement_registry WHERE owner_user_id=? ORDER BY kind,label', ownerUserId);
+  const customSources = overrides.filter((row) => row.kind === 'source').map((row) => ({ id: row.id, label: row.label, category: row.category || 'Company configured', provider: row.provider || 'Company configured', availability: row.enabled ? 'available' : 'disabled', formulas: overrides.filter((formulaRow) => formulaRow.kind === 'formula' && formulaRow.source_id === row.id && formulaRow.enabled).map((formulaRow) => formula(formulaRow.id, formulaRow.label, formulaRow.description)), instances: row.enabled ? [{ id: `${row.id}:company`, label: row.label }] : [], company_managed: true }));
+  const sourceOverrides = new Map(overrides.filter((row) => row.kind === 'source_override').map((row) => [row.source_id, row]));
+  return { version: 1, scope: 'company', owner_user_id: ownerUserId, sources: [...sources.map((source) => {
     const bound = instances[source.id] || [];
     const nativeWithoutBinding = ['goal_plans','tasks','knowledge','llmops','documents','business_events','manual'].includes(source.id);
-    return { ...source, instances: bound, availability: bound.length || nativeWithoutBinding ? 'available' : 'configuration_required' };
-  }) };
+    const override = sourceOverrides.get(source.id);
+    const companyFormulas = overrides.filter((row) => row.kind === 'formula' && row.source_id === source.id && row.enabled).map((row) => ({ ...formula(row.id, row.label, row.description), company_managed: true }));
+    return { ...source, label: override?.label || source.label, formulas: [...source.formulas, ...companyFormulas], enabled: override ? Boolean(override.enabled) : true, instances: bound, availability: override && !override.enabled ? 'disabled' : bound.length || nativeWithoutBinding ? 'available' : 'configuration_required', system_managed: true };
+  }), ...customSources] };
+}
+
+export function upsertMeasurementRegistryEntry(ownerUserId, input = {}) {
+  ensureCompanyObjectiveTables();
+  const kind = input.kind === 'formula' ? 'formula' : input.kind === 'source_override' ? 'source_override' : 'source';
+  const entryId = text(input.id, 120) || id(kind === 'formula' ? 'formula' : 'source');
+  if (!/^[a-zA-Z0-9:_-]+$/.test(entryId)) throw Object.assign(new Error('Registry id may contain only letters, numbers, colon, underscore and dash'), { status: 400 });
+  const label = text(input.label, 160);
+  if (!label) throw Object.assign(new Error('Registry label is required'), { status: 400 });
+  const sourceId = text(input.source_id, 120);
+  if (kind === 'formula' && !sourceId) throw Object.assign(new Error('Formula source is required'), { status: 400 });
+  db().prepare(`INSERT INTO company_measurement_registry(id,owner_user_id,kind,source_id,label,category,provider,description,enabled,updated_at)
+    VALUES(?,?,?,?,?,?,?,?,?,datetime('now')) ON CONFLICT(owner_user_id,kind,id) DO UPDATE SET source_id=excluded.source_id,label=excluded.label,category=excluded.category,provider=excluded.provider,description=excluded.description,enabled=excluded.enabled,updated_at=datetime('now')`).run(entryId, ownerUserId, kind, sourceId || null, label, text(input.category, 120), text(input.provider, 200), text(input.description, 1000), input.enabled === false ? 0 : 1);
+  return measurementRegistry(ownerUserId);
+}
+
+export function deleteMeasurementRegistryEntry(ownerUserId, kind, entryId) {
+  ensureCompanyObjectiveTables();
+  const safeKind = kind === 'formula' ? 'formula' : kind === 'source_override' ? 'source_override' : 'source';
+  db().prepare('DELETE FROM company_measurement_registry WHERE owner_user_id=? AND kind=? AND id=?').run(ownerUserId, safeKind, text(entryId, 120));
+  if (safeKind === 'source') db().prepare("DELETE FROM company_measurement_registry WHERE owner_user_id=? AND kind='formula' AND source_id=?").run(ownerUserId, text(entryId, 120));
+  return measurementRegistry(ownerUserId);
 }
 
 export function ensureCompanyObjectiveTables() {
@@ -158,14 +185,53 @@ export function ensureCompanyObjectiveTables() {
       created_at TEXT DEFAULT (datetime('now')),
       PRIMARY KEY(objective_id, goal_run_id)
     );
+    CREATE TABLE IF NOT EXISTS company_measurement_registry (
+      id TEXT NOT NULL,
+      owner_user_id TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      source_id TEXT,
+      label TEXT NOT NULL,
+      category TEXT DEFAULT '',
+      provider TEXT DEFAULT '',
+      description TEXT DEFAULT '',
+      enabled INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY(owner_user_id,kind,id)
+    );
     CREATE TABLE IF NOT EXISTS company_initiative_scheduled_goals (
       initiative_id TEXT NOT NULL,
       objective_id TEXT NOT NULL,
+      initiative_goal_id TEXT,
       scheduled_goal_id TEXT NOT NULL,
       owner_user_id TEXT NOT NULL,
       created_at TEXT DEFAULT (datetime('now')),
       PRIMARY KEY(initiative_id, scheduled_goal_id)
     );
+    CREATE TABLE IF NOT EXISTS company_initiative_goals (
+      id TEXT PRIMARY KEY,
+      initiative_id TEXT NOT NULL,
+      objective_id TEXT NOT NULL,
+      owner_user_id TEXT NOT NULL,
+      goal_type TEXT NOT NULL DEFAULT 'scheduled',
+      title TEXT NOT NULL,
+      prompt TEXT NOT NULL,
+      owner_label TEXT DEFAULT 'COO',
+      agent_id TEXT,
+      cadence TEXT DEFAULT '',
+      weekday INTEGER,
+      time_local TEXT DEFAULT '09:00',
+      timezone TEXT DEFAULT 'Asia/Singapore',
+      linked_key_result_ids_json TEXT DEFAULT '[]',
+      authority_json TEXT DEFAULT '{}',
+      approval_required INTEGER DEFAULT 0,
+      enabled INTEGER DEFAULT 1,
+      ordinal INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_company_initiative_goals_initiative
+      ON company_initiative_goals(initiative_id, owner_user_id, ordinal);
     CREATE INDEX IF NOT EXISTS idx_company_initiative_schedules_objective
       ON company_initiative_scheduled_goals(objective_id, owner_user_id);
     CREATE TABLE IF NOT EXISTS company_revenue_evidence (
@@ -209,6 +275,8 @@ export function ensureCompanyObjectiveTables() {
   const initiativeColumns = db().prepare('PRAGMA table_info(company_initiatives)').all().map((column) => column.name);
   const initiativeAdditions = [['schedule_enabled','INTEGER DEFAULT 0'],['scheduled_goal_title',"TEXT DEFAULT ''"],['scheduled_goal_prompt',"TEXT DEFAULT ''"],['scheduled_goal_cadence',"TEXT DEFAULT ''"],['scheduled_goal_time_local',"TEXT DEFAULT '09:00'"],['scheduled_goal_timezone',"TEXT DEFAULT 'Asia/Singapore'"]];
   for (const [column,type] of initiativeAdditions) if (!initiativeColumns.includes(column)) db().exec(`ALTER TABLE company_initiatives ADD COLUMN ${column} ${type}`);
+  const mappingColumns = db().prepare('PRAGMA table_info(company_initiative_scheduled_goals)').all().map((column) => column.name);
+  if (!mappingColumns.includes('initiative_goal_id')) db().exec('ALTER TABLE company_initiative_scheduled_goals ADD COLUMN initiative_goal_id TEXT');
 }
 
 function scheduleSpec(cadenceValue) {
@@ -246,14 +314,22 @@ export function ensureObjectiveOperatingModel(ownerUserId, objectiveId) {
   const tx = db().transaction(() => {
     db().prepare('UPDATE company_initiatives SET status=?,updated_at=datetime(\'now\') WHERE objective_id=? AND owner_user_id=?').run(initiativeState(objective.status), objectiveId, ownerUserId);
     for (const initiative of initiatives) {
-      const spec = initiative.schedule_enabled ? scheduleSpec(`${initiative.scheduled_goal_cadence} ${initiative.scheduled_goal_time_local}`) : scheduleSpec(initiative.cadence);
+      let goals = db().prepare(`SELECT * FROM company_initiative_goals WHERE initiative_id=? AND owner_user_id=? AND enabled=1 ORDER BY ordinal,id`).all(initiative.id, ownerUserId);
+      if (!goals.length && (initiative.schedule_enabled || scheduleSpec(initiative.cadence))) {
+        const legacyGoalId = `ig-${createHash('sha256').update(`${ownerUserId}:${initiative.id}:legacy`).digest('hex').slice(0, 24)}`;
+        db().prepare(`INSERT OR IGNORE INTO company_initiative_goals(id,initiative_id,objective_id,owner_user_id,goal_type,title,prompt,owner_label,cadence,time_local,timezone,enabled) VALUES(?,?,?,?,?,?,?,?,?,?,?,1)`).run(legacyGoalId, initiative.id, objectiveId, ownerUserId, 'scheduled', initiative.scheduled_goal_title || initiative.name, initiative.scheduled_goal_prompt || initiative.prompt, initiative.owner_label, initiative.scheduled_goal_cadence || scheduleSpec(initiative.cadence)?.cadence || 'weekdays', initiative.scheduled_goal_time_local || scheduleSpec(initiative.cadence)?.time_local || '09:00', initiative.scheduled_goal_timezone || 'Asia/Singapore');
+        goals = db().prepare(`SELECT * FROM company_initiative_goals WHERE initiative_id=? AND owner_user_id=? AND enabled=1 ORDER BY ordinal,id`).all(initiative.id, ownerUserId);
+      }
+      for (const goal of goals.filter((item) => item.goal_type === 'scheduled')) {
+      const spec = scheduleSpec(`${goal.cadence} ${goal.time_local}`);
       if (!spec) continue;
-      const scheduleId = `sg-obj-${createHash('sha256').update(`${ownerUserId}:${initiative.id}`).digest('hex').slice(0, 24)}`;
+      const scheduleId = `sg-obj-${createHash('sha256').update(`${ownerUserId}:${goal.id}`).digest('hex').slice(0, 24)}`;
       db().prepare(`INSERT INTO scheduled_goals(id,owner_user_id,title,prompt,agent_id,cadence,weekday,time_local,timezone,ends_at,status,source,plan_status,deliver_to)
         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET title=excluded.title,prompt=excluded.prompt,cadence=excluded.cadence,weekday=excluded.weekday,time_local=excluded.time_local,ends_at=excluded.ends_at,status=excluded.status,updated_at=datetime('now')`).run(
-        scheduleId, ownerUserId, initiative.scheduled_goal_title || initiative.name, initiative.scheduled_goal_prompt || initiative.prompt, agentId, spec.cadence, spec.weekday ?? null, initiative.scheduled_goal_time_local || spec.time_local, initiative.scheduled_goal_timezone || 'Asia/Singapore', `${objective.ends_on}T23:59:59.000Z`, scheduleStatus, 'company_objective', 'none', '["web"]'
+        scheduleId, ownerUserId, goal.title, goal.prompt, goal.agent_id || agentId, spec.cadence, goal.weekday ?? spec.weekday ?? null, goal.time_local || spec.time_local, goal.timezone || 'Asia/Singapore', `${objective.ends_on}T23:59:59.000Z`, scheduleStatus, 'company_objective', 'none', '["web"]'
       );
-      db().prepare(`INSERT OR IGNORE INTO company_initiative_scheduled_goals(initiative_id,objective_id,scheduled_goal_id,owner_user_id) VALUES(?,?,?,?)`).run(initiative.id, objectiveId, scheduleId, ownerUserId);
+      db().prepare(`INSERT INTO company_initiative_scheduled_goals(initiative_id,objective_id,initiative_goal_id,scheduled_goal_id,owner_user_id) VALUES(?,?,?,?,?) ON CONFLICT(initiative_id,scheduled_goal_id) DO UPDATE SET initiative_goal_id=excluded.initiative_goal_id`).run(initiative.id, objectiveId, goal.id, scheduleId, ownerUserId);
+      }
     }
     db().prepare(`UPDATE scheduled_goals SET status=?,updated_at=datetime('now') WHERE owner_user_id=? AND id IN
       (SELECT scheduled_goal_id FROM company_initiative_scheduled_goals WHERE objective_id=? AND owner_user_id=?)`).run(scheduleStatus, ownerUserId, objectiveId, ownerUserId);
@@ -286,12 +362,13 @@ function serializeObjective(row, full = false) {
   if (!full) return out;
   out.key_results = db().prepare('SELECT * FROM company_key_results WHERE objective_id=? AND owner_user_id=? ORDER BY ordinal,id').all(row.id, row.owner_user_id).map((kr) => { const result = { ...kr, measurement_config: json(kr.measurement_config_json, {}), baseline: num(kr.baseline), target: num(kr.target), current_value: num(kr.current_value), progress_pct: kr.target ? Math.max(0, Math.min(100, Math.round((num(kr.current_value) / num(kr.target)) * 1000) / 10)) : 0 }; delete result.measurement_config_json; return result; });
   out.initiatives = db().prepare('SELECT * FROM company_initiatives WHERE objective_id=? AND owner_user_id=? ORDER BY ordinal,id').all(row.id, row.owner_user_id).map((i) => {
-    const schedules = db().prepare(`SELECT sg.* FROM company_initiative_scheduled_goals m JOIN scheduled_goals sg ON sg.id=m.scheduled_goal_id AND sg.owner_user_id=m.owner_user_id WHERE m.initiative_id=? AND m.owner_user_id=? ORDER BY sg.created_at`).all(i.id, row.owner_user_id).map((sg) => ({
+    const goals = db().prepare(`SELECT * FROM company_initiative_goals WHERE initiative_id=? AND owner_user_id=? ORDER BY ordinal,id`).all(i.id, row.owner_user_id).map((goal) => ({ ...goal, enabled: Boolean(goal.enabled), approval_required: Boolean(goal.approval_required), linked_key_result_ids: json(goal.linked_key_result_ids_json, []), authority: json(goal.authority_json, {}), linked_key_result_ids_json: undefined, authority_json: undefined }));
+    const schedules = db().prepare(`SELECT m.initiative_goal_id,sg.* FROM company_initiative_scheduled_goals m JOIN scheduled_goals sg ON sg.id=m.scheduled_goal_id AND sg.owner_user_id=m.owner_user_id WHERE m.initiative_id=? AND m.owner_user_id=? ORDER BY sg.created_at`).all(i.id, row.owner_user_id).map((sg) => ({
       ...sg,
       goal_plan_runs: db().prepare(`SELECT id AS goal_run_id,title,status,created_at,completed_at FROM agent_goal_runs WHERE owner_user_id=? AND scheduled_goal_id=? ORDER BY created_at DESC LIMIT 20`).all(row.owner_user_id, sg.id),
     }));
     const adhocGoalPlans = db().prepare(`SELECT l.goal_run_id,g.title,g.status,g.created_at,g.completed_at FROM company_objective_goal_runs l JOIN agent_goal_runs g ON g.id=l.goal_run_id AND g.owner_user_id=l.owner_user_id WHERE l.objective_id=? AND l.initiative_id=? AND l.owner_user_id=? AND g.scheduled_goal_id IS NULL ORDER BY g.created_at DESC LIMIT 20`).all(row.id, i.id, row.owner_user_id);
-    return { ...i, schedule_enabled: Boolean(i.schedule_enabled), scheduled_goal_definition: i.schedule_enabled ? { title: i.scheduled_goal_title || i.name, prompt: i.scheduled_goal_prompt || i.prompt, cadence: i.scheduled_goal_cadence, time_local: i.scheduled_goal_time_local, timezone: i.scheduled_goal_timezone } : null, authority: json(i.authority_json, {}), budget_amount: num(i.budget_amount), scheduled_goals: schedules, adhoc_goal_plans: adhocGoalPlans };
+    return { ...i, schedule_enabled: Boolean(i.schedule_enabled), goals, authority: json(i.authority_json, {}), budget_amount: num(i.budget_amount), scheduled_goals: schedules, adhoc_goal_plans: adhocGoalPlans };
   });
   out.goal_runs = db().prepare(`SELECT l.*,g.title,g.status,g.created_at AS goal_created_at,g.completed_at FROM company_objective_goal_runs l LEFT JOIN agent_goal_runs g ON g.id=l.goal_run_id AND g.owner_user_id=l.owner_user_id WHERE l.objective_id=? AND l.owner_user_id=? ORDER BY l.created_at DESC LIMIT 100`).all(row.id, row.owner_user_id);
   out.approvals = db().prepare('SELECT * FROM company_objective_approvals WHERE objective_id=? AND owner_user_id=? ORDER BY created_at DESC LIMIT 100').all(row.id, row.owner_user_id).map((a) => ({ ...a, recipients: json(a.recipients_json, []), max_uses: num(a.max_uses), used_count: num(a.used_count), recipients_json: undefined }));
@@ -354,12 +431,16 @@ export function createObjective(ownerUserId, input = {}, actorUserId = null) {
 }
 
 function replaceChildren(ownerUserId, objectiveId, keyResults = [], initiatives = [], objectiveStatus = 'draft') {
+  db().prepare(`UPDATE scheduled_goals SET status='deleted',updated_at=datetime('now') WHERE owner_user_id=? AND id IN (SELECT scheduled_goal_id FROM company_initiative_scheduled_goals WHERE objective_id=? AND owner_user_id=?)`).run(ownerUserId, objectiveId, ownerUserId);
+  db().prepare('DELETE FROM company_initiative_scheduled_goals WHERE objective_id=? AND owner_user_id=?').run(objectiveId, ownerUserId);
+  db().prepare('DELETE FROM company_initiative_goals WHERE objective_id=? AND owner_user_id=?').run(objectiveId, ownerUserId);
   db().prepare('DELETE FROM company_key_results WHERE objective_id=? AND owner_user_id=?').run(objectiveId, ownerUserId);
   db().prepare('DELETE FROM company_initiatives WHERE objective_id=? AND owner_user_id=?').run(objectiveId, ownerUserId);
   const insKr = db().prepare(`INSERT INTO company_key_results(id,objective_id,owner_user_id,name,definition,baseline,target,current_value,unit,source_type,formula,confidence,owner_label,ordinal,measurement_config_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
   (keyResults || []).forEach((k, index) => insKr.run(k.id || id('kr'), objectiveId, ownerUserId, text(k.name, 220) || `Key result ${index + 1}`, text(k.definition, 1000), num(k.baseline), num(k.target, 1), num(k.current_value), text(k.unit, 40) || 'count', text(k.source_type, 60) || 'manual', text(k.formula, 1000), text(k.confidence, 20) || 'medium', text(k.owner_label, 120) || 'COO', index, JSON.stringify(k.measurement_config || { window: 'objective_period', refresh: 'event_driven', provenance: true })));
   const insI = db().prepare(`INSERT INTO company_initiatives(id,objective_id,owner_user_id,name,owner_label,cadence,authority_json,budget_amount,status,prompt,next_run_at,ordinal,schedule_enabled,scheduled_goal_title,scheduled_goal_prompt,scheduled_goal_cadence,scheduled_goal_time_local,scheduled_goal_timezone) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
-  (initiatives || []).forEach((i, index) => { const scheduled = i.scheduled_goal || i.scheduled_goal_definition || {}; insI.run(i.id || id('init'), objectiveId, ownerUserId, text(i.name, 220) || `Initiative ${index + 1}`, text(i.owner_label, 120) || 'COO', text(i.cadence, 120), JSON.stringify(i.authority || {}), Math.max(0, num(i.budget_amount)), initiativeState(objectiveStatus), text(i.prompt, 3000), i.next_run_at || null, index, scheduled.enabled === true || i.schedule_enabled === true ? 1 : 0, text(scheduled.title, 220), text(scheduled.prompt, 3000), text(scheduled.cadence, 30), text(scheduled.time_local, 5) || '09:00', text(scheduled.timezone, 80) || 'Asia/Singapore'); });
+  const insGoal = db().prepare(`INSERT INTO company_initiative_goals(id,initiative_id,objective_id,owner_user_id,goal_type,title,prompt,owner_label,agent_id,cadence,weekday,time_local,timezone,linked_key_result_ids_json,authority_json,approval_required,enabled,ordinal) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+  (initiatives || []).forEach((i, index) => { const initiativeId = i.id || id('init'), legacy = i.scheduled_goal || i.scheduled_goal_definition || {}; insI.run(initiativeId, objectiveId, ownerUserId, text(i.name, 220) || `Initiative ${index + 1}`, text(i.owner_label, 120) || 'COO', text(i.cadence, 120), JSON.stringify(i.authority || {}), Math.max(0, num(i.budget_amount)), initiativeState(objectiveStatus), text(i.prompt, 3000), i.next_run_at || null, index, 0, '', '', '', '09:00', 'Asia/Singapore'); const goals = Array.isArray(i.goals) ? i.goals : legacy.enabled ? [{ ...legacy, goal_type: 'scheduled' }] : []; goals.forEach((goal, goalIndex) => insGoal.run(goal.id || id('ig'), initiativeId, objectiveId, ownerUserId, goal.goal_type === 'adhoc' ? 'adhoc' : 'scheduled', text(goal.title, 220) || `${i.name} goal`, text(goal.prompt, 3000) || text(i.prompt, 3000), text(goal.owner_label, 120) || text(i.owner_label, 120) || 'COO', text(goal.agent_id, 160) || null, text(goal.cadence, 30), Number.isInteger(goal.weekday) ? goal.weekday : null, text(goal.time_local, 5) || '09:00', text(goal.timezone, 80) || 'Asia/Singapore', JSON.stringify(Array.isArray(goal.linked_key_result_ids) ? goal.linked_key_result_ids : []), JSON.stringify(goal.authority || {}), goal.approval_required ? 1 : 0, goal.enabled === false ? 0 : 1, goalIndex)); });
 }
 
 export function updateObjective(ownerUserId, objectiveId, patch = {}, actorUserId = null) {
@@ -521,7 +602,8 @@ function defaultProposal(input = {}) {
 
 export async function ideateObjective(ownerUserId, input = {}, { callModel = chatCompletions } = {}) {
   const fallback = defaultProposal(input);
-  if (input.use_llm === false) return { proposal: fallback, model_used: 'deterministic-template', fallback: false };
+  const identify = (proposal) => ({ ...proposal, key_results: (proposal.key_results || []).map((kr) => ({ ...kr, id: kr.id || id('kr') })), initiatives: (proposal.initiatives || []).map((initiative) => ({ ...initiative, id: initiative.id || id('init'), goals: Array.isArray(initiative.goals) ? initiative.goals.map((goal) => ({ ...goal, id: goal.id || id('ig') })) : [] })) });
+  if (input.use_llm === false) return { proposal: identify(fallback), model_used: 'deterministic-template', fallback: false };
   try {
     const result = await callModel({ ownerUserId, toolName: 'objective_studio', temperature: 0.2, messages: [
       { role: 'system', content: 'You design bounded company objectives. Return JSON only with name, outcome, assumptions[], constraints[], key_results[] and initiatives[]. Preserve the supplied period exactly. Key results require name,target,unit,source_type,formula,definition and should retain the source_type/formula pairs in the deterministic baseline unless the requested outcome clearly requires a different registered measurement. Initiatives require name,owner_label,cadence,prompt. Never grant external communication authority; it remains approval_required.' },
@@ -536,9 +618,36 @@ export async function ideateObjective(ownerUserId, input = {}, { callModel = cha
       const selectedFormula = source.formulas.some((item) => item.id === kr.formula) ? kr.formula : source.formulas[0].id;
       return { ...kr, source_type: source.id, formula: selectedFormula, measurement_config: { provider: source.provider, window: 'objective_period', refresh: 'event_driven', provenance: true } };
     });
-    return { proposal: { ...fallback, ...parsed, key_results: keyResults, periodType: fallback.periodType, periodLabel: fallback.periodLabel, startsOn: fallback.startsOn, endsOn: fallback.endsOn, authority: fallback.authority, budget_amount: fallback.budget_amount, currency: fallback.currency }, model_used: result?.modelUsed || 'configured-model', fallback: false };
+    return { proposal: identify({ ...fallback, ...parsed, key_results: keyResults, periodType: fallback.periodType, periodLabel: fallback.periodLabel, startsOn: fallback.startsOn, endsOn: fallback.endsOn, authority: fallback.authority, budget_amount: fallback.budget_amount, currency: fallback.currency }), model_used: result?.modelUsed || 'configured-model', fallback: false };
   } catch (error) {
-    return { proposal: fallback, model_used: 'deterministic-template', fallback: true, note: text(error.message, 300) };
+    return { proposal: identify(fallback), model_used: 'deterministic-template', fallback: true, note: text(error.message, 300) };
+  }
+}
+
+export async function ideateInitiativeGoals(ownerUserId, input = {}, { callModel = chatCompletions } = {}) {
+  ensureCompanyObjectiveTables();
+  const objective = input.objective || {}, initiative = input.initiative || {}, keyResults = Array.isArray(input.key_results) ? input.key_results : [];
+  if (!text(objective.outcome, 4000) || !text(initiative.name, 220)) throw Object.assign(new Error('Objective outcome and initiative are required'), { status: 400 });
+  const preferred = input.preferences || {};
+  const linkedIds = keyResults.map((kr) => kr.id).filter(Boolean);
+  const fallback = [
+    { id: id('ig'), goal_type: 'scheduled', title: `${initiative.name} operating cycle`, prompt: `${initiative.prompt || initiative.name}. Produce durable evidence, update only authorised systems, report measurable outcomes against the linked Key Results, and surface exceptions without inventing facts.`, owner_label: initiative.owner_label || 'COO', cadence: preferred.cadence || 'weekdays', time_local: preferred.time_local || '09:00', timezone: preferred.timezone || 'Asia/Singapore', linked_key_result_ids: linkedIds, approval_required: false, enabled: true },
+    { id: id('ig'), goal_type: 'adhoc', title: `${initiative.name} one-off sprint`, prompt: `Execute a bounded one-off request within ${initiative.name}. Confirm scope, retain source evidence, update the linked Key Results only from authoritative records, and return unresolved exceptions to the accountable owner.`, owner_label: initiative.owner_label || 'COO', cadence: '', time_local: '', timezone: preferred.timezone || 'Asia/Singapore', linked_key_result_ids: linkedIds, approval_required: false, enabled: true },
+  ];
+  if (input.use_llm === false) return { goals: fallback, model_used: 'deterministic-template', fallback: false };
+  const availableAgents = measurementRegistry(ownerUserId).sources.find((source) => source.id === 'agents')?.instances || [];
+  try {
+    const result = await callModel({ ownerUserId, toolName: 'objective_goal_designer', temperature: 0.15, messages: [
+      { role: 'system', content: 'Design 1-4 executable goals for one initiative. Return a JSON array only. Each item requires goal_type scheduled|adhoc, title, prompt, owner_label, cadence daily|weekdays|weekly or empty for adhoc, time_local HH:MM, timezone, linked_key_result_ids[], approval_required, enabled. A goal is an executable outcome, not an individual workflow step. Use scheduled only for stable recurring work; use adhoc for bounded one-off work. Prompts must state done criteria, evidence/provenance, target KR links, allowed writes, approval gates, and exception behavior. Avoid duplicate goals and never widen objective/company authority.' },
+      { role: 'user', content: JSON.stringify({ objective: { name: objective.name, outcome: objective.outcome, period: objective.period_label, starts_on: objective.starts_on, ends_on: objective.ends_on, budget_amount: objective.budget_amount, authority: objective.authority, constraints: objective.constraints }, initiative, key_results: keyResults.map((kr) => ({ id: kr.id, name: kr.name, target: kr.target, unit: kr.unit, source_type: kr.source_type, formula: kr.formula })), existing_goals: initiative.goals || [], available_agents: availableAgents, preferences: preferred }) },
+    ] });
+    const raw = String(result?.content || '').replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || !parsed.length) throw new Error('Goal designer returned no goals');
+    const goals = parsed.slice(0, 4).map((goal) => ({ id: id('ig'), goal_type: goal.goal_type === 'adhoc' ? 'adhoc' : 'scheduled', title: text(goal.title, 220), prompt: text(goal.prompt, 3000), owner_label: text(goal.owner_label, 120) || initiative.owner_label || 'COO', agent_id: availableAgents.some((agent) => agent.id === goal.agent_id) ? goal.agent_id : null, cadence: ['daily','weekdays','weekly'].includes(goal.cadence) ? goal.cadence : goal.goal_type === 'adhoc' ? '' : preferred.cadence || 'weekdays', time_local: /^\d{2}:\d{2}$/.test(goal.time_local || '') ? goal.time_local : preferred.time_local || '09:00', timezone: text(goal.timezone, 80) || preferred.timezone || 'Asia/Singapore', linked_key_result_ids: (Array.isArray(goal.linked_key_result_ids) ? goal.linked_key_result_ids : []).filter((krId) => linkedIds.includes(krId)), approval_required: Boolean(goal.approval_required), enabled: goal.enabled !== false }));
+    return { goals, model_used: result?.modelUsed || 'configured-model', fallback: false };
+  } catch (error) {
+    return { goals: fallback, model_used: 'deterministic-template', fallback: true, note: text(error.message, 300) };
   }
 }
 

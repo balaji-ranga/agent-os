@@ -6,7 +6,7 @@ import OperatingWorkspace from './pages/OperatingWorkspace';
 import ThisWeek from './pages/ThisWeek';
 import GoalPlans from './pages/GoalPlans';
 import GoalPlanDetail from './pages/GoalPlanDetail';
-import { ObjectiveDetail, ObjectivesList, ObjectiveStudio } from './pages/Objectives';
+import { MeasurementRegistryAdmin, ObjectiveDetail, ObjectivesList, ObjectiveStudio } from './pages/Objectives';
 import AgentActions from './pages/AgentActions';
 import CompanyReviews from './pages/CompanyReviews';
 import WorkspaceDesigner from './pages/WorkspaceDesigner';
@@ -415,6 +415,7 @@ function Shell() {
                 <Route path="/goal-plans" element={<Perm user={user} k="this-week"><GoalPlans /></Perm>} />
                 <Route path="/objectives" element={<Perm user={user} k="this-week"><ObjectivesList /></Perm>} />
                 <Route path="/objectives/new" element={<Perm user={user} k="this-week"><ObjectiveStudio /></Perm>} />
+                <Route path="/objectives/measurement-registry" element={<Perm user={user} k="this-week"><MeasurementRegistryAdmin /></Perm>} />
                 <Route path="/objectives/:objectiveId" element={<Perm user={user} k="this-week"><ObjectiveDetail /></Perm>} />
                 <Route path="/agent-actions" element={<TenantFull user={user}><AgentActions /></TenantFull>} />
                 <Route path="/reviews" element={<TenantFull user={user}><CompanyReviews /></TenantFull>} />

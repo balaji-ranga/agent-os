@@ -1403,7 +1403,10 @@ export const api = {
     return get(`/company-objectives/digest${q.size ? `?${q}` : ''}`);
   },
   companyObjectiveMeasurementRegistry: () => get('/company-objectives/measurement-registry'),
+  companyObjectiveMeasurementRegistrySave: (body) => put('/company-objectives/measurement-registry', body),
+  companyObjectiveMeasurementRegistryDelete: (kind, id) => del(`/company-objectives/measurement-registry/${encodeURIComponent(kind)}/${encodeURIComponent(id)}`),
   companyObjectiveIdeate: (body) => post('/company-objectives/ideate', body),
+  companyObjectiveIdeateGoals: (body) => post('/company-objectives/ideate-goals', body),
   companyObjectiveCreate: (body) => post('/company-objectives', body),
   companyObjectiveGet: (id) => get(`/company-objectives/${encodeURIComponent(id)}`),
   companyObjectiveUpdate: (id, body) => patch(`/company-objectives/${encodeURIComponent(id)}`, body),
