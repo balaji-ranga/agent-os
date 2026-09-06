@@ -216,6 +216,13 @@ function mergeNativeTools(existingAllow = [], contentGrants = []) {
   );
 }
 
+/** Preserve an explicitly enabled native browser without granting it to new agents. */
+export function mergeAgentRuntimeAllowlist(existingAllow = [], contentGrants = []) {
+  const merged = mergeNativeTools(existingAllow, contentGrants);
+  const hadBrowser = (existingAllow || []).some((t) => String(t) === 'browser');
+  return hadBrowser ? prioritizeCoreAgentTools([...merged, 'browser']) : merged;
+}
+
 export function syncOpenClawJsonForAgent(agent) {
   const ocId = resolveOpenClawAgentId(agent);
   if (!ocId) return null;
@@ -238,7 +245,7 @@ export function syncOpenClawJsonForAgent(agent) {
   }
   const prevAllow = Array.isArray(entry.tools?.allow) ? entry.tools.allow : [];
   entry.tools = entry.tools || {};
-  entry.tools.allow = mergeNativeTools(prevAllow, grants).filter((t) => String(t) !== 'browser');
+  entry.tools.allow = mergeAgentRuntimeAllowlist(prevAllow, grants);
   delete entry.tools.alsoAllow;
   if (!entry.tools.deny) entry.tools.deny = ['image'];
   writeConfig(config);

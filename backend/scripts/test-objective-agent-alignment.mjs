@@ -30,6 +30,8 @@ try {
   const toolsMd = agentTools.buildToolsMdContent(['company_objectives_query', 'objective_deviation_record', 'company_goal_link_objective']);
   assert.match(toolsMd, /do not delegate an objective lookup/i);
   assert.match(toolsMd, /Never claim it was recorded unless the tool returns `ok: true`/i);
+  assert(agentTools.mergeAgentRuntimeAllowlist(['browser'], ['company_objectives_query']).includes('browser'));
+  assert(!agentTools.mergeAgentRuntimeAllowlist([], ['company_objectives_query']).includes('browser'));
   db.prepare(`INSERT OR IGNORE INTO agents(id,name,role,is_coo,owner_user_id) VALUES('late-align','Late Specialist','Research',0,'ceo-align')`).run();
   alignment.grantObjectiveAgentTools('late-align');
   assert(db.prepare(`SELECT 1 ok FROM agent_tool_grants WHERE agent_id='late-align' AND tool_name='company_objectives_query'`).get()?.ok);
@@ -77,7 +79,8 @@ try {
   assert.equal(status.counts.objective_deviations_7d, 1);
   assert.match(formatDigestMarkdown(status), /Objective deviations/);
   assert.match(formatDigestHtml(status), /Objective deviations/);
-  const weekly = await buildThisWeekDigest('ceo-align');
+  const utcToday = new Date().toISOString().slice(0, 10);
+  const weekly = await buildThisWeekDigest('ceo-align', { weekStart: utcToday, weekEnd: utcToday });
   assert.equal(weekly.objective_deviations.count, 1);
 
   const sharedOps = readFileSync(new URL('../../openclaw-workspace-templates/_shared/AGENT-OS-OPS.md', import.meta.url), 'utf8');
