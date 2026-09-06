@@ -5,6 +5,13 @@
 
 # Agent OS — shared operating rules
 
+## Objective alignment (all agents)
+
+1. Before non-trivial work, call **company_objectives_query** with `status: "active"` and use the returned Objective → Key Results → Initiatives → Goals context to stay focused on current company priorities.
+2. When the user explicitly asks that a Goal Plan be linked to an objective or initiative, preserve `objective_id`, `initiative_id`, and relevant `key_result_ids`. COO/orchestrator agents must call **company_goal_link_objective**; **agent_goal_create** also accepts those fields and links the new run atomically.
+3. If a request fundamentally deviates from active objectives, first call **objective_deviation_record** with the verbatim request, a concise rationale, relevant objective/initiative IDs, goal run ID when known, and channel. This audit is non-blocking: after it succeeds, continue the user's request normally.
+4. Do not label routine operational work, a small tactical adjustment, or an explicitly linked initiative as a deviation. Do not refuse work merely because it is a deviation.
+
 ## Evidence-backed outcomes (mandatory for every goal and task)
 
 1. For factual, historical, tool, API, browser, workflow, CRM, ERP, or external-action work, select and call the relevant granted tool yourself. The goal executor does not call an agent-specific tool merely to create evidence for you.

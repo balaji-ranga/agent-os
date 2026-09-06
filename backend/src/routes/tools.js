@@ -139,6 +139,11 @@ import { executeCeoProfile } from '../services/ceo-profile.js';
 import { applyProposal, getState as getOnboardingState, saveAgentProposal, saveDraft } from '../services/onboarding-helper.js';
 import { runCooStatusChecker } from '../services/coo-status-checker.js';
 import { buildThisWeekDigest } from '../services/this-week-digest.js';
+import {
+  queryCompanyObjectives,
+  linkCompanyGoal,
+  recordObjectiveDeviation,
+} from '../services/objective-agent-tools.js';
 import { buildOperationalEffectiveness } from '../services/operational-effectiveness.js';
 import { getLlmopsSummary } from '../services/llmops-summary.js';
 import {
@@ -3266,6 +3271,13 @@ router.post('/agent-goal-create', optionalAuth, async (req, res) => {
       return res.status(403).json(err);
     }
     const ownerUserId = resolveWorkflowOwner(req, requestPayload);
+    const objectiveLinkRequested = Boolean(requestPayload.objective_id || requestPayload.initiative_id || requestPayload.key_result_id || requestPayload.key_result_ids);
+    const objectiveLinker = Boolean(caller?.is_coo || caller?.is_orchestrator) || /orchestrator/i.test(String(caller?.name || ''));
+    if (objectiveLinkRequested && !objectiveLinker) {
+      const err = { error: 'Only COO or orchestrator agents can create an objective-linked goal' };
+      logTool(req, 'agent_goal_create', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
     const prompt = String(requestPayload.prompt || requestPayload.message || requestPayload.input || '').trim();
     if (!prompt && !Array.isArray(requestPayload.steps)) {
       const err = { error: 'prompt or steps required' };
@@ -3316,12 +3328,88 @@ router.post('/agent-goal-create', optionalAuth, async (req, res) => {
         out.instruction ||
         'ASYNC ACK: Durable goal plan created (new goal_run_id agr-… every create). CRITICAL: always pass the CEO multiphase message VERBATIM as prompt (keep Platform Help / specialty asks) — do not trim to CRM+ERP only. This is a NEW plan — do not swap to an older agr- from chat/MEMORY. Quote goal_run_id + full plan steps (including specialty_task) to the CEO NOW and END THIS TURN. Do NOT poll status or chain freeform agent_workflow_trigger for later phases. Platform advances remaining steps on child terminals. Workflow run ids are not goal plans.',
     };
+    if (out.goal_run_id && requestPayload.objective_id) {
+      const linked = linkCompanyGoal(ownerUserId, {
+        goal_run_id: out.goal_run_id,
+        objective_id: requestPayload.objective_id,
+        initiative_id: requestPayload.initiative_id,
+        key_result_id: requestPayload.key_result_id,
+        key_result_ids: requestPayload.key_result_ids,
+        link_source: 'agent_goal_create_explicit_request',
+      });
+      out.objective_link = {
+        objective_id: requestPayload.objective_id,
+        initiative_id: requestPayload.initiative_id || null,
+        key_result_ids: requestPayload.key_result_ids || (requestPayload.key_result_id ? [requestPayload.key_result_id] : []),
+        linked: Boolean(linked),
+      };
+    }
     logTool(req, 'agent_goal_create', requestPayload, out, 'ok', source);
     res.json(out);
   } catch (e) {
     const err = { error: e.message };
     logTool(req, 'agent_goal_create', requestPayload, err, 'error', source);
     res.status(400).json(err);
+  }
+});
+
+/** All agents: owner-scoped objective, KR, initiative and goal discovery. */
+router.post('/company-objectives-query', optionalAuth, (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = req.body || {};
+  try {
+    const caller = getCallerAgent(req);
+    if (!caller || !callerHasToolGrant(caller, 'company_objectives_query')) return res.status(403).json({ error: 'Agent is not granted company_objectives_query' });
+    const ownerUserId = resolveWorkflowOwner(req, requestPayload);
+    const out = { ok: true, ...queryCompanyObjectives(ownerUserId, requestPayload) };
+    logTool(req, 'company_objectives_query', requestPayload, out, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'company_objectives_query', requestPayload, err, 'error', source);
+    res.status(e.status || 400).json(err);
+  }
+});
+
+/** COO / orchestrator only: explicitly bind an existing Goal Plan to objective structure. */
+router.post('/company-goal-link-objective', optionalAuth, (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = req.body || {};
+  try {
+    const caller = getCallerAgent(req);
+    const isOrchestrator = Boolean(caller?.is_coo || caller?.is_orchestrator) || /orchestrator/i.test(String(caller?.name || ''));
+    if (!isOrchestrator || !callerHasToolGrant(caller, 'company_goal_link_objective')) return res.status(403).json({ error: 'Only COO or orchestrator agents can link goals to objectives' });
+    const ownerUserId = resolveWorkflowOwner(req, requestPayload);
+    const objective = linkCompanyGoal(ownerUserId, requestPayload);
+    const out = { ok: true, linked: true, goal_run_id: requestPayload.goal_run_id, objective_id: requestPayload.objective_id, initiative_id: requestPayload.initiative_id || null, objective };
+    logTool(req, 'company_goal_link_objective', requestPayload, out, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'company_goal_link_objective', requestPayload, err, 'error', source);
+    res.status(e.status || 400).json(err);
+  }
+});
+
+/** All agents: non-blocking owner-scoped audit for fundamentally off-objective asks. */
+router.post('/objective-deviation-record', optionalAuth, (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = req.body || {};
+  try {
+    const caller = getCallerAgent(req);
+    if (!caller || !callerHasToolGrant(caller, 'objective_deviation_record')) return res.status(403).json({ error: 'Agent is not granted objective_deviation_record' });
+    const ownerUserId = resolveWorkflowOwner(req, requestPayload);
+    const out = recordObjectiveDeviation(ownerUserId, requestPayload, {
+      user_id: req.user?.id || ownerUserId,
+      agent_id: caller.id,
+      channel: requestPayload.channel || 'agent_tool',
+    });
+    logTool(req, 'objective_deviation_record', requestPayload, out, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'objective_deviation_record', requestPayload, err, 'error', source);
+    res.status(e.status || 400).json(err);
   }
 });
 

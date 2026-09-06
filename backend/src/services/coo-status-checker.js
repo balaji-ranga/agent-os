@@ -10,6 +10,7 @@ import { getOrCreateDelegationHubStandup } from './standup-hub.js';
 import { executeEmailSend } from './email-send.js';
 import { withSlaState, listRecentSlaBreaches } from './kanban-sla.js';
 import { getWorkAssignmentPolicy } from './work-assignment-policy.js';
+import { getObjectiveDeviationSummary } from './objective-agent-tools.js';
 
 const A2A_WORKING = new Set(['working', 'submitted', 'input-required', 'input_required', 'queued']);
 const A2A_FAILED = new Set(['failed', 'rejected', 'canceled', 'cancelled', 'unknown']);
@@ -356,6 +357,7 @@ export function buildStatusDigest(ownerUserId, { reconcile = true } = {}) {
   const open = listOpenTasks(owner);
   const failed = listFailedTasks(owner);
   const completed = listRecentlyCompleted(owner, 7);
+  const objectiveDeviations = getObjectiveDeviationSummary(owner, { limit: 10, since: new Date(Date.now() - 7 * 86400000).toISOString() });
 
   const awaitingCeo = open.filter((t) => isCeoApprovalTask(t) || t.status === 'awaiting_confirmation');
   const inProgress = open.filter((t) => t.status === 'in_progress' && !awaitingCeo.some((a) => a.id === t.id));
@@ -411,11 +413,13 @@ export function buildStatusDigest(ownerUserId, { reconcile = true } = {}) {
       red: sections.escalations.filter((t) => t.sla_state === 'red').length,
       sla_breaches_30d: sections.sla_breaches_30d.length,
       needs_attention: sections.awaiting_ceo.length + sections.failed.length,
+      objective_deviations_7d: objectiveDeviations.count,
     },
     sla_policy: {
       include_status_checker: slaPolicy.sla_include_status_checker,
     },
     sections,
+    objective_deviations: objectiveDeviations,
   };
 }
 
@@ -446,6 +450,11 @@ export function formatDigestMarkdown(digest) {
   lines.push('### Needs your input / approval');
   if (!digest.sections.awaiting_ceo.length) lines.push('_None_');
   else digest.sections.awaiting_ceo.forEach((t) => lines.push(formatTaskLine(t) + ' — please act on Kanban to continue.'));
+  lines.push('');
+
+  lines.push(`### Objective deviations (past 7 days): ${digest.objective_deviations?.count || 0}`);
+  for (const item of digest.objective_deviations?.recent || []) lines.push(`- ${item.data?.request || '(request)'} — ${item.data?.rationale || 'No rationale supplied'} · ${item.data?.agent_id || 'agent'} · ${item.data?.recorded_at || item.created_at}`);
+  if (!digest.objective_deviations?.count) lines.push('_None_');
   lines.push('');
 
   lines.push('### Failed — needs attention');
@@ -570,6 +579,8 @@ export function formatDigestHtml(digest) {
     emptyHint: digest.sla_policy?.include_status_checker === false ? 'Hidden by your Work Assignment Policy' : 'No SLA breaches in the past 30 days',
   })}
   <h3 style="margin:1.5rem 0 0.5rem;font-size:1.05rem;">Completed (past 7 days): ${digest.sections.completed_1d.length}</h3>
+  <h3 style="margin:1.5rem 0 0.5rem;font-size:1.05rem;">Objective deviations — past 7 days (${digest.objective_deviations?.count || 0})</h3>
+  ${(digest.objective_deviations?.recent || []).length ? `<ul>${digest.objective_deviations.recent.map((item) => `<li><strong>${escapeHtml(item.data?.request || '(request)')}</strong> — ${escapeHtml(item.data?.rationale || '')} · ${escapeHtml(item.data?.agent_id || 'agent')}</li>`).join('')}</ul>` : '<p style="color:#94a3b8;">None</p>'}
   <h3 style="margin:1.5rem 0 0.5rem;font-size:1.05rem;">Next steps</h3>
   <ul style="margin:0;padding-left:1.2rem;color:#334155;">
     <li>Open <strong>Kanban</strong> for cards that need approval or failed — act or reopen.</li>

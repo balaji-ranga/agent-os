@@ -66,6 +66,7 @@
     ,"test:growth-pagination": "node scripts/test-growth-pagination-contracts.mjs"
     ,"test:company-objectives": "node scripts/test-company-objectives.mjs"
     ,"test:company-objectives:api": "node scripts/test-company-objectives-api.mjs"
+    ,"test:objective-agent-alignment": "node scripts/test-objective-agent-alignment.mjs"
   },
   "dependencies": {
     "@stoqey/ib": "^1.6.3",

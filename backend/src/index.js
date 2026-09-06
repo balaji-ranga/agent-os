@@ -106,7 +106,7 @@ import { ensureCeoDefaultMasterDataForAllCeos } from './services/ceo-default-mas
 import { initDb, getDb } from './db/schema.js';
 import { ensureExternalTokenTables } from './services/external-tokens.js';
 import { seedDefaultAgentsIfEmpty, seedAgentDepartmentsIfMissing } from './db/seed-default-agents.js';
-import { seedContentToolsMetaIfEmpty, seedKanbanToolsIfMissing, seedWorkflowToolsIfMissing, seedLearningsToolsIfMissing, seedEmailSendToolIfMissing, seedSpeechToolsIfMissing, seedVisionToolsIfMissing, seedNotifyCeoToolIfMissing, seedVoiceInviteToolIfMissing, seedAgentWorkHistoryToolIfMissing, seedOnboardingProposalToolsIfMissing, seedCeoProfileToolIfMissing, seedStatusCheckerToolIfMissing, seedThisWeekDigestToolIfMissing, seedOperationalEffectivenessToolIfMissing, seedLlmopsSummaryToolIfMissing, seedMasterDataToolsIfMissing, seedConnectorToolsIfMissing, seedGmailMailboxToolsIfMissing, seedVedicChartToolIfMissing, seedVideoStoryboardToolsIfMissing, updateKanbanToolPurposes, seedPlatformFeedbackToolsIfMissing, grantPlatformFeedbackTools, seedScheduledGoalToolsIfMissing, seedCrmToolsIfMissing, seedErpToolsIfMissing } from './db/seed-content-tools-meta.js';
+import { seedContentToolsMetaIfEmpty, seedKanbanToolsIfMissing, seedWorkflowToolsIfMissing, seedObjectiveAgentToolsIfMissing, seedLearningsToolsIfMissing, seedEmailSendToolIfMissing, seedSpeechToolsIfMissing, seedVisionToolsIfMissing, seedNotifyCeoToolIfMissing, seedVoiceInviteToolIfMissing, seedAgentWorkHistoryToolIfMissing, seedOnboardingProposalToolsIfMissing, seedCeoProfileToolIfMissing, seedStatusCheckerToolIfMissing, seedThisWeekDigestToolIfMissing, seedOperationalEffectivenessToolIfMissing, seedLlmopsSummaryToolIfMissing, seedMasterDataToolsIfMissing, seedConnectorToolsIfMissing, seedGmailMailboxToolsIfMissing, seedVedicChartToolIfMissing, seedVideoStoryboardToolsIfMissing, updateKanbanToolPurposes, seedPlatformFeedbackToolsIfMissing, grantPlatformFeedbackTools, seedScheduledGoalToolsIfMissing, seedCrmToolsIfMissing, seedErpToolsIfMissing } from './db/seed-content-tools-meta.js';
 import { grantGmailOperationsConnectorActions } from './services/connector-action-grants.js';
 import businessCoreRoutes from './routes/business-core.js';
 import companyWorkspaceRoutes from './routes/company-workspace.js';
@@ -133,6 +133,7 @@ import {
   revokeUnauthorizedWorkflowToolGrants,
 } from './services/openclaw-agent-tools.js';
 import { grantLearningsSummaryToAllAgents, grantEmailSendToAllAgents, grantNotifyCeoToAllAgents, grantCeoProfileToAllAgents, grantAnalyzeImageToAllAgents, grantMasterDataToolsToAllAgents, grantKanbanToolsToAllAgents } from './services/agent-feedback.js';
+import { grantObjectiveAgentTools } from './services/objective-agent-tools.js';
 import feedbackRoutes from './routes/feedback.js';
 import masterDataRoutes from './routes/master-data.js';
 import ceoGuardrailsRoutes from './routes/ceo-guardrails.js';
@@ -334,6 +335,7 @@ async function initializeOpenSearchDocumentsAfterListen() {
 seedContentToolsMetaIfEmpty();
 seedKanbanToolsIfMissing();
 seedWorkflowToolsIfMissing();
+seedObjectiveAgentToolsIfMissing();
 seedLearningsToolsIfMissing();
 seedEmailSendToolIfMissing();
 seedSpeechToolsIfMissing();
@@ -466,6 +468,13 @@ try {
   if (mdGranted) syncAllowlistsFile();
 } catch (e) {
   console.warn('[startup] master_data tool grants:', e.message);
+}
+try {
+  const objectiveGranted = grantObjectiveAgentTools();
+  if (objectiveGranted) console.log(`[startup] granted objective alignment tools to ${objectiveGranted} grant(s)`);
+  if (objectiveGranted) syncAllowlistsFile();
+} catch (e) {
+  console.warn('[startup] objective alignment tool grants:', e.message);
 }
 writeOpenClawToolsList();
 try {
