@@ -19,6 +19,9 @@ export default function ObjectivePulse({ from = null, to = null, compact = false
       <div className="objective-pulse-summary">
         <span><strong>{summary.active || 0}</strong> active</span><span><strong>{summary.off_track || 0}</strong> need attention</span><span><strong>{summary.awaiting_approval || 0}</strong> approvals</span><span><strong>{money(summary.weighted_pipeline)}</strong> weighted pipeline</span><span><strong>{money(summary.cost)}</strong> cost</span>
       </div>
+      {!compact && <div className="objective-operating-chain" aria-label="Objective execution flow">
+        <span><b>01</b> Objective</span><i>→</i><span><b>02</b> Key results</span><i>→</i><span><b>03</b> Initiatives</span><i>→</i><span><b>04</b> Agents &amp; workflows</span><i>→</i><span><b>05</b> Evidence</span>
+      </div>}
       <div className="objective-pulse-grid">
         {data.objectives.map((o) => {
           const pipeline = o.key_results?.find((k) => k.formula === 'weighted_pipeline') || o.key_results?.[0];
