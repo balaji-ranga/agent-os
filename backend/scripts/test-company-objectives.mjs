@@ -26,6 +26,19 @@ try {
   assert.equal(q4.initiatives.length, 6);
   const active = svc.updateObjective('ceo-demo-northstar', q4.id, { status: 'active', reason: 'acceptance' }, 'ceo-demo-northstar');
   assert.equal(active.version, 2);
+  assert.equal(active.initiatives.every((initiative) => initiative.status === 'active'), true, 'initiatives inherit objective operating state');
+  assert.equal(active.initiatives[0].scheduled_goals.length, 1, 'recurring initiative materialises a scheduled goal');
+  const schedule = active.initiatives[0].scheduled_goals[0];
+  assert.equal(schedule.source, 'company_objective');
+  for (let n = 1; n <= 3; n += 1) {
+    getDb().prepare(`INSERT INTO agent_goal_runs(id,owner_user_id,agent_id,title,prompt,source,scheduled_goal_id,status,created_at,completed_at) VALUES(?,?,?,?,?,?,?,?,datetime('now',?),datetime('now',?))`).run(`agr-scheduled-${n}`, 'ceo-demo-northstar', schedule.agent_id, `Scheduled run ${n}`, 'test', 'scheduled_goal', schedule.id, 'completed', `-${4-n} days`, `-${4-n} days`);
+  }
+  getDb().prepare(`INSERT INTO agent_goal_runs(id,owner_user_id,agent_id,title,prompt,source,status,created_at,completed_at) VALUES(?,?,?,?,?,?,?,datetime('now'),datetime('now'))`).run('agr-adhoc-1', 'ceo-demo-northstar', schedule.agent_id, 'Ad-hoc qualification', 'test', 'objective_initiative', 'completed');
+  svc.linkGoalRun('ceo-demo-northstar', q4.id, { goal_run_id: 'agr-adhoc-1', initiative_id: active.initiatives[0].id });
+  const hierarchy = svc.getObjective('ceo-demo-northstar', q4.id);
+  assert.equal(hierarchy.initiatives[0].scheduled_goals[0].goal_plan_runs.length, 3, 'scheduled runs associate autonomously');
+  assert.equal(hierarchy.initiatives[0].adhoc_goal_plans.length, 1, 'one-off plans sit under their initiative');
+  assert.deepEqual(hierarchy.execution_summary, { goal_plan_runs: 4, completed_runs: 4, scheduled_goals: 1, adhoc_goal_plans: 1 });
   assert.equal(svc.listObjectiveVersions('ceo-demo-northstar', q4.id).length, 2);
 
   svc.upsertRevenueEvidence('ceo-demo-northstar', q4.id, { record_type: 'candidate', external_id: 'candidate-1', account_name: 'Lion Logistics', status: 'researched', evidence: ['https://example.test/lion'] });

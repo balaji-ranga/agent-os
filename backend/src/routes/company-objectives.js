@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAuth, requireCeoOrAdmin, resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
-import { bootstrapNorthstarDemo, createObjective, createObjectiveApproval, decideObjectiveApproval, getObjective, ideateObjective, linkGoalRun, listObjectives, listObjectiveVersions, listRevenueEvidence, measureKeyResult, objectiveDigest, updateObjective, upsertRevenueEvidence } from '../services/company-objectives.js';
+import { bootstrapNorthstarDemo, createObjective, createObjectiveApproval, decideObjectiveApproval, ensureObjectiveOperatingModel, getObjective, ideateObjective, linkGoalRun, listObjectives, listObjectiveVersions, listRevenueEvidence, measureKeyResult, objectiveDigest, updateObjective, upsertRevenueEvidence } from '../services/company-objectives.js';
 
 const router = Router();
 router.use(requireAuth, requireCeoOrAdmin);
@@ -14,6 +14,7 @@ router.post('/demo/northstar', wrap(async (req, res) => res.status(201).json(boo
 router.post('/', wrap(async (req, res) => res.status(201).json({ objective: createObjective(owner(req), req.body || {}, req.user?.id) })));
 router.get('/:id', wrap(async (req, res) => { const objective = getObjective(owner(req), req.params.id); if (!objective) return res.status(404).json({ error: 'Objective not found' }); res.json({ objective }); }));
 router.patch('/:id', wrap(async (req, res) => res.json({ objective: updateObjective(owner(req), req.params.id, req.body || {}, req.user?.id) })));
+router.post('/:id/operating-model', wrap(async (req, res) => res.json({ objective: ensureObjectiveOperatingModel(owner(req), req.params.id) })));
 router.get('/:id/versions', wrap(async (req, res) => res.json({ versions: listObjectiveVersions(owner(req), req.params.id) })));
 router.post('/:id/key-results/:keyResultId/measurements', wrap(async (req, res) => res.status(201).json({ objective: measureKeyResult(owner(req), req.params.id, req.params.keyResultId, req.body || {}) })));
 router.post('/:id/goal-runs', wrap(async (req, res) => res.status(201).json({ objective: linkGoalRun(owner(req), req.params.id, req.body || {}) })));

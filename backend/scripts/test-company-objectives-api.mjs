@@ -22,6 +22,10 @@ try {
   assert.equal(idea.response.status, 200); assert.equal(idea.body.proposal.authority.external_communications, 'approval_required');
   const created = await request('/api/company-objectives', { method: 'POST', body: JSON.stringify({ ...idea.body.proposal, period_type: idea.body.proposal.periodType, period_label: idea.body.proposal.periodLabel, starts_on: idea.body.proposal.startsOn, ends_on: idea.body.proposal.endsOn, status: 'active' }) });
   assert.equal(created.response.status, 201); const objective = created.body.objective; assert.ok(objective.id.startsWith('obj-'));
+  assert.equal(objective.initiatives[0].scheduled_goals.length, 1);
+  assert.equal(objective.initiatives[0].status, 'active');
+  const operating = await request(`/api/company-objectives/${objective.id}/operating-model`, { method: 'POST', body: '{}' });
+  assert.equal(operating.response.status, 200); assert.equal(operating.body.objective.execution_summary.scheduled_goals, 1, 'operating model is idempotent');
   assert.equal((await request('/api/company-objectives?limit=1&offset=0')).body.total, 1);
   const evidence = await request(`/api/company-objectives/${objective.id}/revenue-evidence`, { method: 'POST', body: JSON.stringify({ record_type: 'opportunity', external_id: 'api-opp-1', status: 'qualified', amount: 50000, probability: 0.5, evidence: ['crm:api-opp-1'] }) });
   assert.equal(evidence.body.objective.revenue.weighted_pipeline, 25000);

@@ -1406,6 +1406,7 @@ export const api = {
   companyObjectiveCreate: (body) => post('/company-objectives', body),
   companyObjectiveGet: (id) => get(`/company-objectives/${encodeURIComponent(id)}`),
   companyObjectiveUpdate: (id, body) => patch(`/company-objectives/${encodeURIComponent(id)}`, body),
+  companyObjectiveEnsureOperatingModel: (id) => post(`/company-objectives/${encodeURIComponent(id)}/operating-model`, {}),
   companyObjectiveVersions: (id) => get(`/company-objectives/${encodeURIComponent(id)}/versions`),
   companyObjectiveMeasure: (id, keyResultId, body) => post(`/company-objectives/${encodeURIComponent(id)}/key-results/${encodeURIComponent(keyResultId)}/measurements`, body),
   companyObjectiveLinkGoal: (id, body) => post(`/company-objectives/${encodeURIComponent(id)}/goal-runs`, body),

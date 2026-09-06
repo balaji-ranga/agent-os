@@ -107,6 +107,16 @@ export function ensureCompanyObjectiveTables() {
       created_at TEXT DEFAULT (datetime('now')),
       PRIMARY KEY(objective_id, goal_run_id)
     );
+    CREATE TABLE IF NOT EXISTS company_initiative_scheduled_goals (
+      initiative_id TEXT NOT NULL,
+      objective_id TEXT NOT NULL,
+      scheduled_goal_id TEXT NOT NULL,
+      owner_user_id TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY(initiative_id, scheduled_goal_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_company_initiative_schedules_objective
+      ON company_initiative_scheduled_goals(objective_id, owner_user_id);
     CREATE TABLE IF NOT EXISTS company_revenue_evidence (
       id TEXT PRIMARY KEY,
       objective_id TEXT NOT NULL,
@@ -145,6 +155,59 @@ export function ensureCompanyObjectiveTables() {
   `);
 }
 
+function scheduleSpec(cadenceValue) {
+  const value = text(cadenceValue, 120).trim();
+  const lower = value.toLowerCase();
+  const time = value.match(/\b([01]\d|2[0-3]):([0-5]\d)\b/)?.[0] || '09:00';
+  if (lower.startsWith('weekdays')) return { cadence: 'weekdays', time_local: time };
+  if (lower.startsWith('daily')) return { cadence: 'daily', time_local: time };
+  if (lower.startsWith('weekly')) return { cadence: 'weekly', time_local: time, weekday: 1 };
+  return null;
+}
+
+function initiativeState(objectiveStatus) {
+  if (objectiveStatus === 'active') return 'active';
+  if (objectiveStatus === 'completed') return 'completed';
+  if (objectiveStatus === 'cancelled') return 'cancelled';
+  return objectiveStatus === 'paused' ? 'paused' : 'draft';
+}
+
+function ownerCooAgentId(ownerUserId) {
+  return db().prepare(`SELECT a.id FROM agents a JOIN user_agents ua ON ua.agent_id=a.id
+    WHERE ua.user_id=? AND COALESCE(ua.enabled,1)=1 AND COALESCE(a.is_coo,0)=1 LIMIT 1`).get(ownerUserId)?.id
+    || db().prepare('SELECT id FROM agents WHERE COALESCE(is_coo,0)=1 ORDER BY id LIMIT 1').get()?.id
+    || 'coo';
+}
+
+/** Idempotently materialise recurring initiatives as native Scheduled Goals. */
+export function ensureObjectiveOperatingModel(ownerUserId, objectiveId) {
+  ensureCompanyObjectiveTables();
+  const objective = db().prepare('SELECT * FROM company_objectives WHERE id=? AND owner_user_id=?').get(objectiveId, ownerUserId);
+  if (!objective) throw Object.assign(new Error('Objective not found'), { status: 404 });
+  const initiatives = db().prepare('SELECT * FROM company_initiatives WHERE objective_id=? AND owner_user_id=? ORDER BY ordinal,id').all(objectiveId, ownerUserId);
+  const agentId = ownerCooAgentId(ownerUserId);
+  const scheduleStatus = objective.status === 'active' ? 'active' : objective.status === 'completed' || objective.status === 'cancelled' ? 'deleted' : 'paused';
+  const tx = db().transaction(() => {
+    db().prepare('UPDATE company_initiatives SET status=?,updated_at=datetime(\'now\') WHERE objective_id=? AND owner_user_id=?').run(initiativeState(objective.status), objectiveId, ownerUserId);
+    for (const initiative of initiatives) {
+      const spec = scheduleSpec(initiative.cadence);
+      if (!spec) continue;
+      const scheduleId = `sg-obj-${createHash('sha256').update(`${ownerUserId}:${initiative.id}`).digest('hex').slice(0, 24)}`;
+      db().prepare(`INSERT INTO scheduled_goals(id,owner_user_id,title,prompt,agent_id,cadence,weekday,time_local,timezone,ends_at,status,source,plan_status,deliver_to)
+        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET title=excluded.title,prompt=excluded.prompt,cadence=excluded.cadence,weekday=excluded.weekday,time_local=excluded.time_local,ends_at=excluded.ends_at,status=excluded.status,updated_at=datetime('now')`).run(
+        scheduleId, ownerUserId, initiative.name, initiative.prompt, agentId, spec.cadence, spec.weekday ?? null, spec.time_local, 'Asia/Singapore', `${objective.ends_on}T23:59:59.000Z`, scheduleStatus, 'company_objective', 'none', '["web"]'
+      );
+      db().prepare(`INSERT OR IGNORE INTO company_initiative_scheduled_goals(initiative_id,objective_id,scheduled_goal_id,owner_user_id) VALUES(?,?,?,?)`).run(initiative.id, objectiveId, scheduleId, ownerUserId);
+    }
+    db().prepare(`UPDATE scheduled_goals SET status=?,updated_at=datetime('now') WHERE owner_user_id=? AND id IN
+      (SELECT scheduled_goal_id FROM company_initiative_scheduled_goals WHERE objective_id=? AND owner_user_id=?)`).run(scheduleStatus, ownerUserId, objectiveId, ownerUserId);
+    const firstInitiative = initiatives[0]?.id;
+    if (firstInitiative) db().prepare(`UPDATE company_objective_goal_runs SET initiative_id=? WHERE objective_id=? AND owner_user_id=? AND initiative_id IS NULL`).run(firstInitiative, objectiveId, ownerUserId);
+  });
+  tx();
+  return serializeObjective(objective, true);
+}
+
 function validatePeriod(input) {
   const periodType = text(input.period_type || input.periodType, 32).toLowerCase();
   if (!PERIODS.has(periodType)) throw Object.assign(new Error('Period must be monthly, quarterly, half_yearly or annual'), { status: 400 });
@@ -166,10 +229,19 @@ function serializeObjective(row, full = false) {
   delete out.authority_json; delete out.constraints_json; delete out.assumptions_json;
   if (!full) return out;
   out.key_results = db().prepare('SELECT * FROM company_key_results WHERE objective_id=? AND owner_user_id=? ORDER BY ordinal,id').all(row.id, row.owner_user_id).map((kr) => ({ ...kr, baseline: num(kr.baseline), target: num(kr.target), current_value: num(kr.current_value), progress_pct: kr.target ? Math.max(0, Math.min(100, Math.round((num(kr.current_value) / num(kr.target)) * 1000) / 10)) : 0 }));
-  out.initiatives = db().prepare('SELECT * FROM company_initiatives WHERE objective_id=? AND owner_user_id=? ORDER BY ordinal,id').all(row.id, row.owner_user_id).map((i) => ({ ...i, authority: json(i.authority_json, {}), budget_amount: num(i.budget_amount) }));
+  out.initiatives = db().prepare('SELECT * FROM company_initiatives WHERE objective_id=? AND owner_user_id=? ORDER BY ordinal,id').all(row.id, row.owner_user_id).map((i) => {
+    const schedules = db().prepare(`SELECT sg.* FROM company_initiative_scheduled_goals m JOIN scheduled_goals sg ON sg.id=m.scheduled_goal_id AND sg.owner_user_id=m.owner_user_id WHERE m.initiative_id=? AND m.owner_user_id=? ORDER BY sg.created_at`).all(i.id, row.owner_user_id).map((sg) => ({
+      ...sg,
+      goal_plan_runs: db().prepare(`SELECT id AS goal_run_id,title,status,created_at,completed_at FROM agent_goal_runs WHERE owner_user_id=? AND scheduled_goal_id=? ORDER BY created_at DESC LIMIT 20`).all(row.owner_user_id, sg.id),
+    }));
+    const adhocGoalPlans = db().prepare(`SELECT l.goal_run_id,g.title,g.status,g.created_at,g.completed_at FROM company_objective_goal_runs l JOIN agent_goal_runs g ON g.id=l.goal_run_id AND g.owner_user_id=l.owner_user_id WHERE l.objective_id=? AND l.initiative_id=? AND l.owner_user_id=? AND g.scheduled_goal_id IS NULL ORDER BY g.created_at DESC LIMIT 20`).all(row.id, i.id, row.owner_user_id);
+    return { ...i, authority: json(i.authority_json, {}), budget_amount: num(i.budget_amount), scheduled_goals: schedules, adhoc_goal_plans: adhocGoalPlans };
+  });
   out.goal_runs = db().prepare(`SELECT l.*,g.title,g.status,g.created_at AS goal_created_at,g.completed_at FROM company_objective_goal_runs l LEFT JOIN agent_goal_runs g ON g.id=l.goal_run_id AND g.owner_user_id=l.owner_user_id WHERE l.objective_id=? AND l.owner_user_id=? ORDER BY l.created_at DESC LIMIT 100`).all(row.id, row.owner_user_id);
   out.approvals = db().prepare('SELECT * FROM company_objective_approvals WHERE objective_id=? AND owner_user_id=? ORDER BY created_at DESC LIMIT 100').all(row.id, row.owner_user_id).map((a) => ({ ...a, recipients: json(a.recipients_json, []), max_uses: num(a.max_uses), used_count: num(a.used_count), recipients_json: undefined }));
   out.revenue = revenueSummary(row.owner_user_id, row.id);
+  const allRuns = out.initiatives.flatMap((i) => [...i.scheduled_goals.flatMap((s) => s.goal_plan_runs), ...i.adhoc_goal_plans]);
+  out.execution_summary = { goal_plan_runs: allRuns.length, completed_runs: allRuns.filter((r) => r.status === 'completed').length, scheduled_goals: out.initiatives.reduce((n, i) => n + i.scheduled_goals.length, 0), adhoc_goal_plans: out.initiatives.reduce((n, i) => n + i.adhoc_goal_plans.length, 0) };
   out.health = deriveHealth(out);
   return out;
 }
@@ -218,19 +290,20 @@ export function createObjective(ownerUserId, input = {}, actorUserId = null) {
   const status = STATUSES.has(input.status) ? input.status : 'draft';
   const tx = db().transaction(() => {
     db().prepare(`INSERT INTO company_objectives(id,owner_user_id,name,outcome,period_type,period_label,starts_on,ends_on,status,owner_label,parent_objective_id,currency,budget_amount,authority_json,constraints_json,assumptions_json,approved_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(objectiveId, ownerUserId, name, outcome, p.periodType, p.periodLabel, p.startsOn, p.endsOn, status, text(input.owner_label, 120) || 'COO', text(input.parent_objective_id, 120) || null, text(input.currency, 8) || 'SGD', Math.max(0, num(input.budget_amount)), JSON.stringify(input.authority || {}), JSON.stringify(Array.isArray(input.constraints) ? input.constraints : []), JSON.stringify(Array.isArray(input.assumptions) ? input.assumptions : []), status === 'active' ? new Date().toISOString() : null);
-    replaceChildren(ownerUserId, objectiveId, input.key_results, input.initiatives);
+    replaceChildren(ownerUserId, objectiveId, input.key_results, input.initiatives, status);
     snapshot(ownerUserId, objectiveId, 'Objective created', actorUserId);
   }); tx();
+  if (status === 'active') ensureObjectiveOperatingModel(ownerUserId, objectiveId);
   return getObjective(ownerUserId, objectiveId);
 }
 
-function replaceChildren(ownerUserId, objectiveId, keyResults = [], initiatives = []) {
+function replaceChildren(ownerUserId, objectiveId, keyResults = [], initiatives = [], objectiveStatus = 'draft') {
   db().prepare('DELETE FROM company_key_results WHERE objective_id=? AND owner_user_id=?').run(objectiveId, ownerUserId);
   db().prepare('DELETE FROM company_initiatives WHERE objective_id=? AND owner_user_id=?').run(objectiveId, ownerUserId);
   const insKr = db().prepare(`INSERT INTO company_key_results(id,objective_id,owner_user_id,name,definition,baseline,target,current_value,unit,source_type,formula,confidence,owner_label,ordinal) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
   (keyResults || []).forEach((k, index) => insKr.run(k.id || id('kr'), objectiveId, ownerUserId, text(k.name, 220) || `Key result ${index + 1}`, text(k.definition, 1000), num(k.baseline), num(k.target, 1), num(k.current_value), text(k.unit, 40) || 'count', text(k.source_type, 60) || 'manual', text(k.formula, 1000), text(k.confidence, 20) || 'medium', text(k.owner_label, 120) || 'COO', index));
   const insI = db().prepare(`INSERT INTO company_initiatives(id,objective_id,owner_user_id,name,owner_label,cadence,authority_json,budget_amount,status,prompt,next_run_at,ordinal) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`);
-  (initiatives || []).forEach((i, index) => insI.run(i.id || id('init'), objectiveId, ownerUserId, text(i.name, 220) || `Initiative ${index + 1}`, text(i.owner_label, 120) || 'COO', text(i.cadence, 120), JSON.stringify(i.authority || {}), Math.max(0, num(i.budget_amount)), text(i.status, 30) || 'draft', text(i.prompt, 3000), i.next_run_at || null, index));
+  (initiatives || []).forEach((i, index) => insI.run(i.id || id('init'), objectiveId, ownerUserId, text(i.name, 220) || `Initiative ${index + 1}`, text(i.owner_label, 120) || 'COO', text(i.cadence, 120), JSON.stringify(i.authority || {}), Math.max(0, num(i.budget_amount)), initiativeState(objectiveStatus), text(i.prompt, 3000), i.next_run_at || null, index));
 }
 
 export function updateObjective(ownerUserId, objectiveId, patch = {}, actorUserId = null) {
@@ -243,9 +316,10 @@ export function updateObjective(ownerUserId, objectiveId, patch = {}, actorUserI
   const version = current.version + 1;
   const tx = db().transaction(() => {
     db().prepare(`UPDATE company_objectives SET name=?,outcome=?,period_type=?,period_label=?,starts_on=?,ends_on=?,status=?,owner_label=?,parent_objective_id=?,currency=?,budget_amount=?,authority_json=?,constraints_json=?,assumptions_json=?,version=?,approved_at=CASE WHEN ?='active' AND approved_at IS NULL THEN datetime('now') ELSE approved_at END,updated_at=datetime('now') WHERE id=? AND owner_user_id=?`).run(text(merged.name, 180), text(merged.outcome, 4000), p.periodType, p.periodLabel, p.startsOn, p.endsOn, status, text(merged.owner_label, 120) || 'COO', text(merged.parent_objective_id, 120) || null, text(merged.currency, 8) || 'SGD', Math.max(0, num(merged.budget_amount)), JSON.stringify(merged.authority || {}), JSON.stringify(merged.constraints || []), JSON.stringify(merged.assumptions || []), version, status, objectiveId, ownerUserId);
-    if (patch.key_results || patch.initiatives) replaceChildren(ownerUserId, objectiveId, patch.key_results || current.key_results, patch.initiatives || current.initiatives);
+    if (patch.key_results || patch.initiatives) replaceChildren(ownerUserId, objectiveId, patch.key_results || current.key_results, patch.initiatives || current.initiatives, status);
     snapshot(ownerUserId, objectiveId, patch.reason || `Objective updated to v${version}`, actorUserId);
   }); tx();
+  ensureObjectiveOperatingModel(ownerUserId, objectiveId);
   return getObjective(ownerUserId, objectiveId);
 }
 
@@ -420,7 +494,7 @@ export function objectiveDigest(ownerUserId, { from = null, to = null, limit = 1
 export function bootstrapNorthstarDemo(ownerUserId, actorUserId = null) {
   ensureCompanyObjectiveTables();
   const existing = db().prepare("SELECT id FROM company_objectives WHERE owner_user_id=? AND id LIKE 'obj-demo-northstar-%'").all(ownerUserId);
-  if (existing.length) return { created: false, objectives: existing.map((r) => getObjective(ownerUserId, r.id)) };
+  if (existing.length) return { created: false, objectives: existing.map((r) => ensureObjectiveOperatingModel(ownerUserId, r.id)) };
   const specs = [
     ['obj-demo-northstar-month-2026-09','Prove the Singapore SME revenue engine','monthly','September 2026','2026-09-01','2026-09-30',25000,100,60,24,12,'active'],
     ['obj-demo-northstar-q4-2026','Generate S$100k qualified pipeline in Singapore','quarterly','Q4 2026','2026-10-01','2026-12-31',100000,450,240,90,50,'draft'],
