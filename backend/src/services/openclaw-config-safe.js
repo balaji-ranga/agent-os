@@ -7,6 +7,8 @@ import { getOpenClawConfigPath, getOpenClawDir } from '../config/openclaw-paths.
 
 /** Sections that must not disappear when Agent OS rewrites openclaw.json. */
 const CRITICAL_SECTIONS = ['gateway', 'tools', 'plugins', 'browser'];
+let configBatchDepth = 0;
+let pendingOpenClawConfig = null;
 
 /** True when an AgentSystem model slug still points at this models.providers key. */
 function providerStillReferenced(config, providerKey) {
@@ -138,7 +140,9 @@ export function preserveOpenClawCriticalSections(nextConfig) {
 }
 
 export function readOpenClawConfigSafe() {
-  const disk = readDiskConfig();
+  const disk = pendingOpenClawConfig
+    ? JSON.parse(JSON.stringify(pendingOpenClawConfig))
+    : readDiskConfig();
   if (disk) {
     if (
       disk.agents?.entries &&
@@ -171,6 +175,10 @@ export function writeOpenClawConfigSafe(config) {
     );
     return prev || merged;
   }
+  if (configBatchDepth > 0) {
+    pendingOpenClawConfig = merged;
+    return merged;
+  }
   const path = getOpenClawConfigPath();
   const serialized = `${JSON.stringify(merged, null, 2)}\n`;
   let existing = '';
@@ -191,4 +199,24 @@ export function writeOpenClawConfigSafe(config) {
     writeFileSync(path, serialized, { encoding: 'utf8', mode: 0o600 });
   }
   return merged;
+}
+
+/**
+ * Coalesce a synchronous reconciliation pass into one final openclaw.json
+ * replacement. Reads inside the batch see the pending configuration, so each
+ * agent mutation accumulates instead of overwriting the prior mutation.
+ */
+export function withOpenClawConfigBatch(callback) {
+  if (typeof callback !== 'function') throw new TypeError('callback is required');
+  configBatchDepth += 1;
+  try {
+    return callback();
+  } finally {
+    configBatchDepth -= 1;
+    if (configBatchDepth === 0 && pendingOpenClawConfig) {
+      const finalConfig = pendingOpenClawConfig;
+      pendingOpenClawConfig = null;
+      writeOpenClawConfigSafe(finalConfig);
+    }
+  }
 }

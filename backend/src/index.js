@@ -132,6 +132,7 @@ import {
   getAgentToolGrants,
   revokeUnauthorizedWorkflowToolGrants,
 } from './services/openclaw-agent-tools.js';
+import { withOpenClawConfigBatch } from './services/openclaw-config-safe.js';
 import { grantLearningsSummaryToAllAgents, grantEmailSendToAllAgents, grantNotifyCeoToAllAgents, grantCeoProfileToAllAgents, grantAnalyzeImageToAllAgents, grantMasterDataToolsToAllAgents, grantKanbanToolsToAllAgents } from './services/agent-feedback.js';
 import { grantObjectiveAgentTools } from './services/objective-agent-tools.js';
 import feedbackRoutes from './routes/feedback.js';
@@ -497,11 +498,13 @@ try {
   // Persist DB grants into openclaw.json per-agent tools.allow (volume-safe across deploys).
   const agents = getDb().prepare('SELECT * FROM agents').all();
   let synced = 0;
-  for (const agent of agents) {
-    if (!getAgentToolGrants(agent.id).length) continue;
-    syncOpenClawJsonForAgent(agent);
-    synced += 1;
-  }
+  withOpenClawConfigBatch(() => {
+    for (const agent of agents) {
+      if (!getAgentToolGrants(agent.id).length) continue;
+      syncOpenClawJsonForAgent(agent);
+      synced += 1;
+    }
+  });
   if (synced) console.log(`[startup] synced openclaw.json tools.allow for ${synced} agent(s)`);
   if (imported) console.log(`[startup] imported ${imported} agent tool grant(s) from openclaw.json`);
 } catch (e) {
@@ -528,7 +531,9 @@ function reconcileObjectiveAgentRuntime(reason = 'startup') {
   writeOpenClawToolsList();
   syncAllowlistsFile();
   const agents = getDb().prepare('SELECT * FROM agents').all();
-  for (const agent of agents) syncOpenClawJsonForAgent(agent);
+  withOpenClawConfigBatch(() => {
+    for (const agent of agents) syncOpenClawJsonForAgent(agent);
+  });
   console.log(
     `[startup] objective agent runtime reconciled (${reason}): ${granted} new grant(s), ${agents.length} agent(s) synced`
   );

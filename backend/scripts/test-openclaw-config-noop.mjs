@@ -9,7 +9,7 @@ const fixtureDir = mkdtempSync(join(tmpdir(), 'flolah-openclaw-config-noop-'));
 process.env.OPENCLAW_DIR = fixtureDir;
 process.env.OPENCLAW_CONFIG_PATH = join(fixtureDir, 'openclaw.json');
 
-const { writeOpenClawConfigSafe } = await import('../src/services/openclaw-config-safe.js');
+const { writeOpenClawConfigSafe, withOpenClawConfigBatch } = await import('../src/services/openclaw-config-safe.js');
 
 try {
   const initial = {
@@ -32,6 +32,15 @@ try {
   writeOpenClawConfigSafe({ ...normalized, gateway: { ...normalized.gateway, port: 18790 } });
   assert.equal(JSON.parse(readFileSync(process.env.OPENCLAW_CONFIG_PATH, 'utf8')).gateway.port, 18790);
   assert.notEqual(statSync(process.env.OPENCLAW_CONFIG_PATH).mtimeMs, before, 'real change must be persisted');
+
+  const batchBaseline = statSync(process.env.OPENCLAW_CONFIG_PATH).mtimeMs;
+  withOpenClawConfigBatch(() => {
+    const first = writeOpenClawConfigSafe({ ...normalized, gateway: { ...normalized.gateway, port: 18791 } });
+    writeOpenClawConfigSafe({ ...first, gateway: { ...first.gateway, port: 18792 } });
+    assert.equal(statSync(process.env.OPENCLAW_CONFIG_PATH).mtimeMs, batchBaseline, 'batch must not write incrementally');
+  });
+  assert.equal(JSON.parse(readFileSync(process.env.OPENCLAW_CONFIG_PATH, 'utf8')).gateway.port, 18792);
+  assert.notEqual(statSync(process.env.OPENCLAW_CONFIG_PATH).mtimeMs, batchBaseline, 'batch must persist its final state once');
   console.log('OPENCLAW_CONFIG_NOOP_OK');
 } finally {
   rmSync(fixtureDir, { recursive: true, force: true });

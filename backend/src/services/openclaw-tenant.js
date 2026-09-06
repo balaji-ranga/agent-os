@@ -25,7 +25,7 @@ import {
 } from './user-llm-settings.js';
 import { COO_CONTENT_TOOLS_ALLOW } from '../lib/content-tools-allow.js';
 import { syncOrgContextToWorkspace, isGeneratedCooAgentsMd } from './org-context.js';
-import { readOpenClawConfigSafe, writeOpenClawConfigSafe } from './openclaw-config-safe.js';
+import { readOpenClawConfigSafe, writeOpenClawConfigSafe, withOpenClawConfigBatch } from './openclaw-config-safe.js';
 import { resolveWorkspaceTemplateBaseId } from './company-blueprints/standard-prefabs.js';
 import {
   NATIVE_OPENCLAW_TOOLS as NATIVE_OPENCLAW_TOOLS_LIST,
@@ -445,25 +445,29 @@ export function ensureAllTenantOpenClawAgentsForCeo(ceoUserId) {
        INNER JOIN user_agents ua ON ua.agent_id = a.id AND ua.user_id = ? AND ua.enabled = 1`
     )
     .all(ceoUserId);
-  let n = 0;
-  for (const agent of rows) {
-    try {
-      ensureTenantOpenClawAgent(agent, ceoUserId);
-      n += 1;
-    } catch (e) {
-      console.warn('[openclaw-tenant] ensure failed', agent.id, ceoUserId, e?.message || e);
+  return withOpenClawConfigBatch(() => {
+    let n = 0;
+    for (const agent of rows) {
+      try {
+        ensureTenantOpenClawAgent(agent, ceoUserId);
+        n += 1;
+      } catch (e) {
+        console.warn('[openclaw-tenant] ensure failed', agent.id, ceoUserId, e?.message || e);
+      }
     }
-  }
-  return n;
+    return n;
+  });
 }
 
 export function ensureAllTenantOpenClawAgentsForAllCeos() {
   const ceos = getDb()
     .prepare(`SELECT id FROM platform_users WHERE role = 'ceo' AND enabled = 1`)
     .all();
-  let total = 0;
-  for (const { id } of ceos) total += ensureAllTenantOpenClawAgentsForCeo(id);
-  return total;
+  return withOpenClawConfigBatch(() => {
+    let total = 0;
+    for (const { id } of ceos) total += ensureAllTenantOpenClawAgentsForCeo(id);
+    return total;
+  });
 }
 
 export async function writeTenantToolsMd(agent, ceoUserId, buildToolsMdContent) {
