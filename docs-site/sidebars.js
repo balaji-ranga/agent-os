@@ -41,6 +41,7 @@ const sidebars = {
         'run/chat-and-coo',
         'run/kanban-standups',
         'run/notifications-digest',
+        'run/objectives-key-results',
         'run/scheduled-goals',
         'run/operating-effectiveness',
         'run/broadcast',
