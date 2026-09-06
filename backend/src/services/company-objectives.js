@@ -206,6 +206,9 @@ export function ensureCompanyObjectiveTables() {
   `);
   const krColumns = db().prepare('PRAGMA table_info(company_key_results)').all().map((column) => column.name);
   if (!krColumns.includes('measurement_config_json')) db().exec("ALTER TABLE company_key_results ADD COLUMN measurement_config_json TEXT DEFAULT '{}'");
+  const initiativeColumns = db().prepare('PRAGMA table_info(company_initiatives)').all().map((column) => column.name);
+  const initiativeAdditions = [['schedule_enabled','INTEGER DEFAULT 0'],['scheduled_goal_title',"TEXT DEFAULT ''"],['scheduled_goal_prompt',"TEXT DEFAULT ''"],['scheduled_goal_cadence',"TEXT DEFAULT ''"],['scheduled_goal_time_local',"TEXT DEFAULT '09:00'"],['scheduled_goal_timezone',"TEXT DEFAULT 'Asia/Singapore'"]];
+  for (const [column,type] of initiativeAdditions) if (!initiativeColumns.includes(column)) db().exec(`ALTER TABLE company_initiatives ADD COLUMN ${column} ${type}`);
 }
 
 function scheduleSpec(cadenceValue) {
@@ -243,12 +246,12 @@ export function ensureObjectiveOperatingModel(ownerUserId, objectiveId) {
   const tx = db().transaction(() => {
     db().prepare('UPDATE company_initiatives SET status=?,updated_at=datetime(\'now\') WHERE objective_id=? AND owner_user_id=?').run(initiativeState(objective.status), objectiveId, ownerUserId);
     for (const initiative of initiatives) {
-      const spec = scheduleSpec(initiative.cadence);
+      const spec = initiative.schedule_enabled ? scheduleSpec(`${initiative.scheduled_goal_cadence} ${initiative.scheduled_goal_time_local}`) : scheduleSpec(initiative.cadence);
       if (!spec) continue;
       const scheduleId = `sg-obj-${createHash('sha256').update(`${ownerUserId}:${initiative.id}`).digest('hex').slice(0, 24)}`;
       db().prepare(`INSERT INTO scheduled_goals(id,owner_user_id,title,prompt,agent_id,cadence,weekday,time_local,timezone,ends_at,status,source,plan_status,deliver_to)
         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET title=excluded.title,prompt=excluded.prompt,cadence=excluded.cadence,weekday=excluded.weekday,time_local=excluded.time_local,ends_at=excluded.ends_at,status=excluded.status,updated_at=datetime('now')`).run(
-        scheduleId, ownerUserId, initiative.name, initiative.prompt, agentId, spec.cadence, spec.weekday ?? null, spec.time_local, 'Asia/Singapore', `${objective.ends_on}T23:59:59.000Z`, scheduleStatus, 'company_objective', 'none', '["web"]'
+        scheduleId, ownerUserId, initiative.scheduled_goal_title || initiative.name, initiative.scheduled_goal_prompt || initiative.prompt, agentId, spec.cadence, spec.weekday ?? null, initiative.scheduled_goal_time_local || spec.time_local, initiative.scheduled_goal_timezone || 'Asia/Singapore', `${objective.ends_on}T23:59:59.000Z`, scheduleStatus, 'company_objective', 'none', '["web"]'
       );
       db().prepare(`INSERT OR IGNORE INTO company_initiative_scheduled_goals(initiative_id,objective_id,scheduled_goal_id,owner_user_id) VALUES(?,?,?,?)`).run(initiative.id, objectiveId, scheduleId, ownerUserId);
     }
@@ -288,7 +291,7 @@ function serializeObjective(row, full = false) {
       goal_plan_runs: db().prepare(`SELECT id AS goal_run_id,title,status,created_at,completed_at FROM agent_goal_runs WHERE owner_user_id=? AND scheduled_goal_id=? ORDER BY created_at DESC LIMIT 20`).all(row.owner_user_id, sg.id),
     }));
     const adhocGoalPlans = db().prepare(`SELECT l.goal_run_id,g.title,g.status,g.created_at,g.completed_at FROM company_objective_goal_runs l JOIN agent_goal_runs g ON g.id=l.goal_run_id AND g.owner_user_id=l.owner_user_id WHERE l.objective_id=? AND l.initiative_id=? AND l.owner_user_id=? AND g.scheduled_goal_id IS NULL ORDER BY g.created_at DESC LIMIT 20`).all(row.id, i.id, row.owner_user_id);
-    return { ...i, authority: json(i.authority_json, {}), budget_amount: num(i.budget_amount), scheduled_goals: schedules, adhoc_goal_plans: adhocGoalPlans };
+    return { ...i, schedule_enabled: Boolean(i.schedule_enabled), scheduled_goal_definition: i.schedule_enabled ? { title: i.scheduled_goal_title || i.name, prompt: i.scheduled_goal_prompt || i.prompt, cadence: i.scheduled_goal_cadence, time_local: i.scheduled_goal_time_local, timezone: i.scheduled_goal_timezone } : null, authority: json(i.authority_json, {}), budget_amount: num(i.budget_amount), scheduled_goals: schedules, adhoc_goal_plans: adhocGoalPlans };
   });
   out.goal_runs = db().prepare(`SELECT l.*,g.title,g.status,g.created_at AS goal_created_at,g.completed_at FROM company_objective_goal_runs l LEFT JOIN agent_goal_runs g ON g.id=l.goal_run_id AND g.owner_user_id=l.owner_user_id WHERE l.objective_id=? AND l.owner_user_id=? ORDER BY l.created_at DESC LIMIT 100`).all(row.id, row.owner_user_id);
   out.approvals = db().prepare('SELECT * FROM company_objective_approvals WHERE objective_id=? AND owner_user_id=? ORDER BY created_at DESC LIMIT 100').all(row.id, row.owner_user_id).map((a) => ({ ...a, recipients: json(a.recipients_json, []), max_uses: num(a.max_uses), used_count: num(a.used_count), recipients_json: undefined }));
@@ -355,8 +358,8 @@ function replaceChildren(ownerUserId, objectiveId, keyResults = [], initiatives 
   db().prepare('DELETE FROM company_initiatives WHERE objective_id=? AND owner_user_id=?').run(objectiveId, ownerUserId);
   const insKr = db().prepare(`INSERT INTO company_key_results(id,objective_id,owner_user_id,name,definition,baseline,target,current_value,unit,source_type,formula,confidence,owner_label,ordinal,measurement_config_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
   (keyResults || []).forEach((k, index) => insKr.run(k.id || id('kr'), objectiveId, ownerUserId, text(k.name, 220) || `Key result ${index + 1}`, text(k.definition, 1000), num(k.baseline), num(k.target, 1), num(k.current_value), text(k.unit, 40) || 'count', text(k.source_type, 60) || 'manual', text(k.formula, 1000), text(k.confidence, 20) || 'medium', text(k.owner_label, 120) || 'COO', index, JSON.stringify(k.measurement_config || { window: 'objective_period', refresh: 'event_driven', provenance: true })));
-  const insI = db().prepare(`INSERT INTO company_initiatives(id,objective_id,owner_user_id,name,owner_label,cadence,authority_json,budget_amount,status,prompt,next_run_at,ordinal) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`);
-  (initiatives || []).forEach((i, index) => insI.run(i.id || id('init'), objectiveId, ownerUserId, text(i.name, 220) || `Initiative ${index + 1}`, text(i.owner_label, 120) || 'COO', text(i.cadence, 120), JSON.stringify(i.authority || {}), Math.max(0, num(i.budget_amount)), initiativeState(objectiveStatus), text(i.prompt, 3000), i.next_run_at || null, index));
+  const insI = db().prepare(`INSERT INTO company_initiatives(id,objective_id,owner_user_id,name,owner_label,cadence,authority_json,budget_amount,status,prompt,next_run_at,ordinal,schedule_enabled,scheduled_goal_title,scheduled_goal_prompt,scheduled_goal_cadence,scheduled_goal_time_local,scheduled_goal_timezone) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+  (initiatives || []).forEach((i, index) => { const scheduled = i.scheduled_goal || i.scheduled_goal_definition || {}; insI.run(i.id || id('init'), objectiveId, ownerUserId, text(i.name, 220) || `Initiative ${index + 1}`, text(i.owner_label, 120) || 'COO', text(i.cadence, 120), JSON.stringify(i.authority || {}), Math.max(0, num(i.budget_amount)), initiativeState(objectiveStatus), text(i.prompt, 3000), i.next_run_at || null, index, scheduled.enabled === true || i.schedule_enabled === true ? 1 : 0, text(scheduled.title, 220), text(scheduled.prompt, 3000), text(scheduled.cadence, 30), text(scheduled.time_local, 5) || '09:00', text(scheduled.timezone, 80) || 'Asia/Singapore'); });
 }
 
 export function updateObjective(ownerUserId, objectiveId, patch = {}, actorUserId = null) {

@@ -21,12 +21,14 @@ try {
   const registry = await request('/api/company-objectives/measurement-registry'); assert.equal(registry.response.status, 200); assert.ok(registry.body.sources.length >= 10); assert.equal(registry.body.scope, 'company'); assert.equal(registry.body.owner_user_id, 'ceo-api-test'); assert.equal(registry.body.sources.find((source) => source.id === 'goal_plans').availability, 'available');
   const idea = await request('/api/company-objectives/ideate', { method: 'POST', body: JSON.stringify({ use_llm: false, outcome: 'Generate S$100k qualified pipeline without unapproved sends', period_type: 'quarterly', period_label: 'Q4 2026', starts_on: '2026-10-01', ends_on: '2026-12-31' }) });
   assert.equal(idea.response.status, 200); assert.equal(idea.body.proposal.authority.external_communications, 'approval_required');
-  const created = await request('/api/company-objectives', { method: 'POST', body: JSON.stringify({ ...idea.body.proposal, period_type: idea.body.proposal.periodType, period_label: idea.body.proposal.periodLabel, starts_on: idea.body.proposal.startsOn, ends_on: idea.body.proposal.endsOn, status: 'active' }) });
+  const scheduledInitiatives = idea.body.proposal.initiatives.slice(0, 3).map((initiative, index) => ({ ...initiative, cadence: 'Continuous', scheduled_goal: { enabled: true, title: `${initiative.name} cycle`, prompt: initiative.prompt, cadence: index === 2 ? 'daily' : 'weekdays', time_local: ['09:00','14:00','17:00'][index], timezone: 'Asia/Singapore' } }));
+  const created = await request('/api/company-objectives', { method: 'POST', body: JSON.stringify({ ...idea.body.proposal, initiatives: scheduledInitiatives, period_type: idea.body.proposal.periodType, period_label: idea.body.proposal.periodLabel, starts_on: idea.body.proposal.startsOn, ends_on: idea.body.proposal.endsOn, status: 'active' }) });
   assert.equal(created.response.status, 201); const objective = created.body.objective; assert.ok(objective.id.startsWith('obj-'));
-  assert.equal(objective.initiatives[0].scheduled_goals.length, 1);
+  assert.equal(objective.execution_summary.scheduled_goals, 3);
+  assert.equal(objective.initiatives[1].scheduled_goal_definition.time_local, '14:00');
   assert.equal(objective.initiatives[0].status, 'active');
   const operating = await request(`/api/company-objectives/${objective.id}/operating-model`, { method: 'POST', body: '{}' });
-  assert.equal(operating.response.status, 200); assert.equal(operating.body.objective.execution_summary.scheduled_goals, 1, 'operating model is idempotent');
+  assert.equal(operating.response.status, 200); assert.equal(operating.body.objective.execution_summary.scheduled_goals, 3, 'operating model is idempotent');
   assert.equal((await request('/api/company-objectives?limit=1&offset=0')).body.total, 1);
   const evidence = await request(`/api/company-objectives/${objective.id}/revenue-evidence`, { method: 'POST', body: JSON.stringify({ record_type: 'opportunity', external_id: 'api-opp-1', status: 'qualified', amount: 50000, probability: 0.5, evidence: ['crm:api-opp-1'] }) });
   assert.equal(evidence.body.objective.revenue.weighted_pipeline, 25000);
