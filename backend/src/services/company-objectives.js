@@ -750,28 +750,22 @@ export async function ideateObjective(ownerUserId, input = {}, { callModel = cha
 function syncObjectiveExecutionEvidence(ownerUserId, objectiveId) {
   const objective = db().prepare('SELECT starts_on,ends_on FROM company_objectives WHERE id=? AND owner_user_id=?').get(objectiveId, ownerUserId);
   if (!objective) return;
-  const runs = db().prepare(`SELECT DISTINCT g.id,g.title,g.status,g.created_at,g.completed_at,g.scheduled_goal_id,
-      COALESCE(l.initiative_id,m.initiative_id) AS initiative_id
+  const runs = db().prepare(`SELECT DISTINCT g.id,g.title,g.status,g.created_at,g.completed_at,g.scheduled_goal_id,g.context_json,
+      COALESCE(l.initiative_id,m.initiative_id) AS initiative_id,l.key_result_id,ig.linked_key_result_ids_json
     FROM agent_goal_runs g
     LEFT JOIN company_objective_goal_runs l ON l.goal_run_id=g.id AND l.owner_user_id=g.owner_user_id AND l.objective_id=?
     LEFT JOIN company_initiative_scheduled_goals m ON m.scheduled_goal_id=g.scheduled_goal_id AND m.owner_user_id=g.owner_user_id AND m.objective_id=?
+    LEFT JOIN company_initiative_goals ig ON ig.id=m.initiative_goal_id AND ig.owner_user_id=g.owner_user_id
     WHERE g.owner_user_id=? AND (l.objective_id IS NOT NULL OR m.objective_id IS NOT NULL)
       AND date(g.created_at)>=date(?) AND date(g.created_at)<=date(?)
     ORDER BY g.created_at`).all(objectiveId, objectiveId, ownerUserId, objective.starts_on, objective.ends_on);
   const terminal = new Set(['completed', 'partial_success', 'failed', 'cancelled']);
   const successful = new Set(['completed', 'partial_success']);
-  const terminalRuns = runs.filter((run) => terminal.has(run.status));
-  const successfulRuns = runs.filter((run) => successful.has(run.status));
-  const failedRuns = runs.filter((run) => run.status === 'failed');
-  const durations = terminalRuns.map((run) => Date.parse(run.completed_at) - Date.parse(run.created_at)).filter((value) => Number.isFinite(value) && value >= 0);
-  const values = {
-    count: runs.length,
-    completion_rate: runs.length ? (100 * successfulRuns.length) / runs.length : 0,
-    success_rate: terminalRuns.length ? (100 * successfulRuns.length) / terminalRuns.length : 0,
-    error_rate: terminalRuns.length ? (100 * failedRuns.length) / terminalRuns.length : 0,
-    cycle_time: durations.length ? durations.reduce((sum, value) => sum + value, 0) / durations.length : 0,
-    evidence_count: runs.length,
-  };
+  const linkedKeyResultIds = (run) => { const saved = json(run.linked_key_result_ids_json, []), contextual = json(run.context_json, {})?.linked_key_result_ids; return [...new Set([
+    ...(Array.isArray(saved) ? saved : []),
+    ...(Array.isArray(contextual) ? contextual : []),
+    ...(run.key_result_id ? [run.key_result_id] : []),
+  ])]; };
   const tx = db().transaction(() => {
     const saveEvidence = db().prepare(`INSERT INTO company_revenue_evidence(id,objective_id,owner_user_id,record_type,external_id,account_name,status,amount,probability,cost,evidence_json,metadata_json,occurred_at)
       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(owner_user_id,objective_id,record_type,external_id) DO UPDATE SET account_name=excluded.account_name,status=excluded.status,evidence_json=excluded.evidence_json,metadata_json=excluded.metadata_json,occurred_at=excluded.occurred_at`);
@@ -781,9 +775,22 @@ function syncObjectiveExecutionEvidence(ownerUserId, objectiveId) {
     const saveMeasurement = db().prepare(`INSERT INTO company_objective_measurements(id,objective_id,key_result_id,owner_user_id,value,delta,source_type,source_id,evidence_json,measured_at)
       VALUES(?,?,?,?,?,?,?,?,?,datetime('now')) ON CONFLICT(key_result_id,source_type,source_id) DO UPDATE SET value=excluded.value,delta=excluded.delta,evidence_json=excluded.evidence_json,measured_at=excluded.measured_at`);
     for (const kr of keyResults) {
+      const krRuns = runs.filter((run) => linkedKeyResultIds(run).includes(kr.id));
+      const terminalRuns = krRuns.filter((run) => terminal.has(run.status));
+      const successfulRuns = krRuns.filter((run) => successful.has(run.status));
+      const failedRuns = krRuns.filter((run) => run.status === 'failed');
+      const durations = terminalRuns.map((run) => Date.parse(run.completed_at) - Date.parse(run.created_at)).filter((value) => Number.isFinite(value) && value >= 0);
+      const values = {
+        count: successfulRuns.length,
+        completion_rate: krRuns.length ? (100 * successfulRuns.length) / krRuns.length : 0,
+        success_rate: terminalRuns.length ? (100 * successfulRuns.length) / terminalRuns.length : 0,
+        error_rate: terminalRuns.length ? (100 * failedRuns.length) / terminalRuns.length : 0,
+        cycle_time: durations.length ? durations.reduce((sum, value) => sum + value, 0) / durations.length : 0,
+        evidence_count: krRuns.length,
+      };
       if (!Object.hasOwn(values, kr.formula)) continue;
       const value = Math.round(values[kr.formula] * 100) / 100;
-      const evidenceRefs = runs.map((run) => `goal-plan:${run.id}`);
+      const evidenceRefs = krRuns.map((run) => `goal-plan:${run.id}`);
       saveMeasurement.run(id('measure'), objectiveId, kr.id, ownerUserId, value, value - num(kr.current_value), 'goal_plans', `objective:${objectiveId}:${kr.formula}`, JSON.stringify(evidenceRefs));
       db().prepare("UPDATE company_key_results SET current_value=?,confidence='high',updated_at=datetime('now') WHERE id=? AND owner_user_id=?").run(value, kr.id, ownerUserId);
     }

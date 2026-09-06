@@ -68,13 +68,17 @@ try {
   assert.equal(hierarchy.initiatives[0].scheduled_goals[0].goal_plan_runs.length, 3, 'scheduled runs associate autonomously');
   assert.equal(hierarchy.initiatives[0].adhoc_goal_plans.length, 1, 'one-off plans sit under their initiative');
   assert.deepEqual(hierarchy.execution_summary, { goal_plan_runs: 4, completed_runs: 4, scheduled_goals: 1, adhoc_goal_plans: 1 });
+  const linkedExecutionKrs = [hierarchy.key_results[1].id, hierarchy.key_results[2].id];
+  getDb().prepare("UPDATE agent_goal_runs SET context_json=? WHERE id IN ('agr-scheduled-1','agr-scheduled-2','agr-scheduled-3','agr-adhoc-1')").run(JSON.stringify({ linked_key_result_ids: linkedExecutionKrs }));
   getDb().prepare("UPDATE company_key_results SET source_type='goal_plans',formula='count',target=4 WHERE id=?").run(hierarchy.key_results[1].id);
   getDb().prepare("UPDATE company_key_results SET source_type='goal_plans',formula='completion_rate',target=100 WHERE id=?").run(hierarchy.key_results[2].id);
   const executionMeasured = svc.getObjective('ceo-demo-northstar', q4.id);
   assert.equal(executionMeasured.key_results[1].current_value, 4, 'Goal Plan count is projected autonomously into its KR');
   assert.equal(executionMeasured.key_results[2].current_value, 100, 'Goal Plan completion formula calculates from successful eligible runs');
   getDb().prepare("UPDATE agent_goal_runs SET status='failed' WHERE id='agr-scheduled-3'").run();
-  assert.equal(svc.getObjective('ceo-demo-northstar', q4.id).key_results[2].current_value, 75, 'failed runs reduce completion rate while remaining traceable evidence');
+  const failedMeasured = svc.getObjective('ceo-demo-northstar', q4.id);
+  assert.equal(failedMeasured.key_results[1].current_value, 3, 'failed runs remain evidence but do not increase the successful Goal Plan count');
+  assert.equal(failedMeasured.key_results[2].current_value, 75, 'failed runs reduce completion rate while remaining traceable evidence');
   assert.equal(svc.listRevenueEvidence('ceo-demo-northstar', q4.id, { recordType: 'goal_run' }).total, 4, 'each associated run creates one provenance-backed evidence record');
   assert.equal(svc.listObjectiveVersions('ceo-demo-northstar', q4.id).length, 2);
 

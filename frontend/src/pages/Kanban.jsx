@@ -20,6 +20,7 @@ import ChatMessageContent from '../components/ChatMessageContent.jsx';
 import ChatMessageAttachments from '../components/ChatMessageAttachments.jsx';
 import { buildMessageWithAttachments, uploadChatAttachments, splitChatAttachmentContent } from '../utils/chatAttachments.js';
 import { useAuth } from '../context/AuthContext';
+import GoalPlanPanel from '../components/GoalPlanPanel.jsx';
 
 const STATUSES = ['open', 'awaiting_confirmation', 'in_progress', 'completed', 'failed'];
 const STATUS_LABELS = {
@@ -537,6 +538,12 @@ export default function Kanban() {
   };
 
   const selectedCanMutate = selectedTask?.can_mutate !== false;
+  const selectedIsGoalPlanReview = Boolean(
+    selectedTask &&
+    (taskDetail?.status ?? selectedTask.status) === 'awaiting_confirmation' &&
+    String(taskDetail?.description || selectedTask.description || '').includes('[goal_plan_review]') &&
+    (taskDetail?.goal_run_id || selectedTask.goal_run_id)
+  );
 
   const selectedIsWorkflowApproval =
     selectedTask &&
@@ -1055,7 +1062,12 @@ export default function Kanban() {
                 flexDirection: 'column',
               }}
             >
-            {(taskDetail || selectedTask)?.assigned_user_id && (taskDetail || selectedTask)?.goal_run_id && ['in_progress','awaiting_confirmation'].includes((taskDetail || selectedTask)?.status) && (
+            {selectedIsGoalPlanReview && (
+              <section style={{ margin: '1rem 1rem 0' }}>
+                <GoalPlanPanel goalRunId={(taskDetail || selectedTask).goal_run_id} compact={false} pollMs={3000} />
+              </section>
+            )}
+            {!selectedIsGoalPlanReview && (taskDetail || selectedTask)?.assigned_user_id && (taskDetail || selectedTask)?.goal_run_id && ['in_progress','awaiting_confirmation'].includes((taskDetail || selectedTask)?.status) && (
               <section style={{ margin: '1rem 1rem 0', padding: '1rem', border: '1px solid color-mix(in srgb,var(--accent) 45%,var(--border))', borderRadius: 12, background: 'color-mix(in srgb,var(--accent) 7%,var(--surface))' }}>
                 <strong>{user?.role === 'ceo' ? 'CEO task disposition' : 'Human outcome required'}</strong><p style={{ color: 'var(--muted)', margin: '.35rem 0 .65rem', fontSize: '.84rem' }}>{user?.role === 'ceo' ? 'Your explicit decision is authoritative, audited, and will complete or fail the linked goal step.' : 'Your response is bound to this exact goal step. Completing it automatically continues the orchestrator’s plan.'}</p>
                 <textarea value={humanOutcome} onChange={(e) => setHumanOutcome(e.target.value)} placeholder="Outcome delivered, blocker, or question…" style={{ width: '100%', minHeight: 82, boxSizing: 'border-box' }} />
