@@ -5,6 +5,7 @@ import { formatChatTimestamp } from '../utils/formatDateTime.js';
 import GoalPlanPanel from '../components/GoalPlanPanel';
 import { goalOriginLabel } from '../components/GoalPlanTelemetry';
 import ExecutionHistory from '../components/ExecutionHistory.jsx';
+import ObjectivePulse from '../components/ObjectivePulse.jsx';
 
 function KpiIcon({ name }) {
   const common = { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' };
@@ -498,6 +499,10 @@ export default function ThisWeek() {
                 View all AI Workers →
               </Link>
             </article>
+          </section>
+
+          <section className="digest-row">
+            <ObjectivePulse from={data.window?.start_date || data.from} to={data.window?.end_date || data.to} />
           </section>
 
           <section className="digest-row">

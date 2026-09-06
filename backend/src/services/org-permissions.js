@@ -302,6 +302,7 @@ export function matchApiPermission(method, path) {
     { prefix: '/workspace-boards', permission: 'work' },
     { prefix: '/this-week-digest', permission: 'this-week' },
     { prefix: '/agent-goal-runs', permission: 'this-week' },
+    { prefix: '/company-objectives', permission: 'this-week' },
     { prefix: '/ui-prefs', permission: 'nav-menus' },
     { prefix: '/user-api-keys', permission: 'api-keys' },
     { prefix: '/ceo-guardrails', permission: 'policies' },

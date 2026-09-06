@@ -52,6 +52,28 @@
         "master_data_rag",
         "notify_ceo"
       ]
+    },
+    {
+      "name": "Outreach Executor",
+      "role": "Send only exact CEO-approved outreach; enforce recipient, content, expiry, suppression, rate-limit and idempotency boundaries; retain provider receipts",
+      "department": "Revenue",
+      "tools": [
+        "email_send",
+        "kanban_get_task",
+        "kanban_move_status",
+        "notify_ceo"
+      ]
+    },
+    {
+      "name": "Response Monitor",
+      "role": "Correlate inbound responses to approved outreach, classify intent, update CRM within policy and escalate sensitive or positive replies",
+      "department": "Revenue",
+      "tools": [
+        "gmail_mailbox_search",
+        "master_data_rag",
+        "kanban_create_task",
+        "notify_ceo"
+      ]
     }
   ],
   "workflows": [
@@ -62,7 +84,23 @@
     "Connect CRM on Company setup Systems if you want verified records in the system of record.",
     "Set Policies → Action control: external messages = Approval required."
   ],
-  "knowledge_tables": [],
+  "knowledge_tables": [
+    {
+      "name": "revenue_icp",
+      "description": "Versioned ideal-customer profile, inclusions, exclusions and qualification rules.",
+      "columns": ["version", "market", "employee_band", "included_industries", "exclusions", "minimum_acv", "status", "approved_at"]
+    },
+    {
+      "name": "revenue_candidates",
+      "description": "Candidate account evidence and qualification ledger around the CRM system of record.",
+      "columns": ["candidate_id", "account_name", "dedup_key", "location", "industry", "employee_band", "evidence_urls", "qualification_status", "score", "rejection_reason", "crm_record_id", "updated_at"]
+    },
+    {
+      "name": "revenue_outreach_ledger",
+      "description": "Draft, approval, send receipt and response correlation ledger. It does not replace CRM activities.",
+      "columns": ["outreach_id", "candidate_id", "channel", "content_hash", "status", "approval_id", "approval_expires_at", "provider_receipt", "response_class", "crm_activity_id", "updated_at"]
+    }
+  ],
   "sop_documents": [
     {
       "title": "Revenue pack — first outcome",

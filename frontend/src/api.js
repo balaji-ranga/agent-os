@@ -1387,6 +1387,33 @@ export const api = {
   agentGoalRunsCancel: (id, body = {}) => post(`/agent-goal-runs/${encodeURIComponent(id)}/cancel`, body),
   agentGoalRunsRetry: (id, body = {}) => post(`/agent-goal-runs/${encodeURIComponent(id)}/retry`, body),
   agentGoalRunsPlanReview: (id, body = {}) => post(`/agent-goal-runs/${encodeURIComponent(id)}/plan-review`, body),
+  companyObjectivesList: (params = {}) => {
+    const q = new URLSearchParams();
+    if (params.limit != null) q.set('limit', String(params.limit));
+    if (params.offset != null) q.set('offset', String(params.offset));
+    if (params.period_type) q.set('period_type', params.period_type);
+    if (params.status) q.set('status', params.status);
+    return get(`/company-objectives${q.size ? `?${q}` : ''}`);
+  },
+  companyObjectivesDigest: (params = {}) => {
+    const q = new URLSearchParams();
+    if (params.from) q.set('from', String(params.from).slice(0, 10));
+    if (params.to) q.set('to', String(params.to).slice(0, 10));
+    if (params.limit != null) q.set('limit', String(params.limit));
+    return get(`/company-objectives/digest${q.size ? `?${q}` : ''}`);
+  },
+  companyObjectiveIdeate: (body) => post('/company-objectives/ideate', body),
+  companyObjectiveCreate: (body) => post('/company-objectives', body),
+  companyObjectiveGet: (id) => get(`/company-objectives/${encodeURIComponent(id)}`),
+  companyObjectiveUpdate: (id, body) => patch(`/company-objectives/${encodeURIComponent(id)}`, body),
+  companyObjectiveVersions: (id) => get(`/company-objectives/${encodeURIComponent(id)}/versions`),
+  companyObjectiveMeasure: (id, keyResultId, body) => post(`/company-objectives/${encodeURIComponent(id)}/key-results/${encodeURIComponent(keyResultId)}/measurements`, body),
+  companyObjectiveLinkGoal: (id, body) => post(`/company-objectives/${encodeURIComponent(id)}/goal-runs`, body),
+  companyObjectiveRevenueEvidence: (id, body) => post(`/company-objectives/${encodeURIComponent(id)}/revenue-evidence`, body),
+  companyObjectiveEvidenceList: (id, params = {}) => get(`/company-objectives/${encodeURIComponent(id)}/revenue-evidence?${new URLSearchParams(params)}`),
+  companyObjectiveApprovalCreate: (id, body) => post(`/company-objectives/${encodeURIComponent(id)}/approvals`, body),
+  companyObjectiveApprovalDecide: (id, approvalId, decision) => post(`/company-objectives/${encodeURIComponent(id)}/approvals/${encodeURIComponent(approvalId)}/decision`, { decision }),
+  companyObjectiveBootstrapNorthstar: () => post('/company-objectives/demo/northstar', {}),
   companyReviewsList: (params = {}) => {
     const sp = new URLSearchParams();
     if (params.limit != null) sp.set('limit', String(params.limit));
