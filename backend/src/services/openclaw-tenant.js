@@ -356,7 +356,14 @@ export function ensureTenantOpenClawAgent(agent, ceoUserId) {
   entry.tools = entry.tools || {};
   entry.tools.allow = mergeNativeTools(entry.tools.allow, grants);
   if (!entry.tools.deny) entry.tools.deny = ['image'];
-  applyIdentityNameToAgentEntry(entry, agent.name || baseOcId);
+  // Several read-only request paths intentionally load only id/openclaw_agent_id.
+  // Do not let those partial rows replace a configured display name with the
+  // technical base id; alternating read/send requests would otherwise rewrite
+  // openclaw.json and trigger a full gateway reload on every UI poll.
+  const explicitDisplayName = String(agent.name || '').trim();
+  applyIdentityNameToAgentEntry(entry, explicitDisplayName || baseOcId, {
+    overwrite: Boolean(explicitDisplayName),
+  });
   applyByokModelToAgentEntry(entry, ceoUserId);
   writeOpenClawConfig(config);
 

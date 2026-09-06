@@ -10,6 +10,7 @@ process.env.OPENCLAW_DIR = fixtureDir;
 process.env.OPENCLAW_CONFIG_PATH = join(fixtureDir, 'openclaw.json');
 
 const { writeOpenClawConfigSafe, withOpenClawConfigBatch } = await import('../src/services/openclaw-config-safe.js');
+const { applyIdentityNameToAgentEntry } = await import('../../scripts/lib/openclaw-whatsapp-from-prefix.js');
 
 try {
   const initial = {
@@ -41,6 +42,16 @@ try {
   });
   assert.equal(JSON.parse(readFileSync(process.env.OPENCLAW_CONFIG_PATH, 'utf8')).gateway.port, 18792);
   assert.notEqual(statSync(process.env.OPENCLAW_CONFIG_PATH).mtimeMs, batchBaseline, 'batch must persist its final state once');
+
+  const configuredAgent = { identity: { name: 'COO / BalServe' } };
+  applyIdentityNameToAgentEntry(configuredAgent, 'balserve', { overwrite: false });
+  assert.equal(
+    configuredAgent.identity.name,
+    'COO / BalServe',
+    'partial agent rows must not replace a configured identity with a technical id'
+  );
+  applyIdentityNameToAgentEntry(configuredAgent, 'Updated COO');
+  assert.equal(configuredAgent.identity.name, 'Updated COO', 'explicit display-name updates must still apply');
   console.log('OPENCLAW_CONFIG_NOOP_OK');
 } finally {
   rmSync(fixtureDir, { recursive: true, force: true });

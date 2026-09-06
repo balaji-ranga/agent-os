@@ -38,8 +38,10 @@ export function displayNameFromOpenClawAgentEntry(entry) {
   return stripped || raw || 'AI employee';
 }
 
-export function applyIdentityNameToAgentEntry(entry, displayName) {
+export function applyIdentityNameToAgentEntry(entry, displayName, { overwrite = true } = {}) {
   if (!entry || typeof entry !== 'object') return entry;
+  const existingName = String(entry?.identity?.name || '').trim();
+  if (!overwrite && existingName) return entry;
   const name =
     String(displayName || '').trim() || displayNameFromOpenClawAgentEntry(entry);
   if (!name) return entry;
