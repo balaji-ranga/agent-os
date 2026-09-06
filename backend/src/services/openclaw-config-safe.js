@@ -2,7 +2,7 @@
  * Safe read/write helpers for ~/.openclaw/openclaw.json.
  * Preserve critical gateway sections so partial rewrites never disable chatCompletions.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'fs';
 import { getOpenClawConfigPath, getOpenClawDir } from '../config/openclaw-paths.js';
 
 /** Sections that must not disappear when Agent OS rewrites openclaw.json. */
@@ -172,6 +172,23 @@ export function writeOpenClawConfigSafe(config) {
     return prev || merged;
   }
   const path = getOpenClawConfigPath();
-  writeFileSync(path, `${JSON.stringify(merged, null, 2)}\n`, 'utf8');
+  const serialized = `${JSON.stringify(merged, null, 2)}\n`;
+  let existing = '';
+  try { existing = existsSync(path) ? readFileSync(path, 'utf8') : ''; } catch (_) {}
+  // Reconciliation touches every logical and tenant agent. An identical write
+  // still wakes OpenClaw's config watcher, so skipping it prevents hundreds of
+  // no-op hot reloads and the associated heap/context churn.
+  if (existing === serialized) return merged;
+
+  const tempPath = `${path}.tmp-${process.pid}`;
+  writeFileSync(tempPath, serialized, { encoding: 'utf8', mode: 0o600 });
+  try {
+    renameSync(tempPath, path);
+  } catch (error) {
+    try { unlinkSync(tempPath); } catch (_) {}
+    // Windows development environments may not atomically replace an existing
+    // file. Keep the production atomic path and retain a portable fallback.
+    writeFileSync(path, serialized, { encoding: 'utf8', mode: 0o600 });
+  }
   return merged;
 }

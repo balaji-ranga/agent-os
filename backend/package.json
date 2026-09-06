@@ -38,6 +38,7 @@
     ,"test:chat-work-units": "node scripts/test-chat-context-boundaries.mjs && node scripts/test-delegation-result-callback.mjs",
     "test:goal-hardening": "node scripts/test-goal-orchestration-hardening.mjs",
     "test:openclaw-session-cleanup": "node scripts/test-openclaw-session-cleanup.mjs"
+    ,"test:openclaw-config-noop": "node scripts/test-openclaw-config-noop.mjs"
     ,"test:company-reviews": "node scripts/test-company-reviews.mjs"
     ,"test:agent-actions-live": "node scripts/test-agent-actions-live.mjs"
     ,"test:efficiency-ollama-utilities": "node scripts/test-efficiency-ollama-utilities.mjs"

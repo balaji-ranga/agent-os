@@ -102,6 +102,27 @@ check('merge still lists leaf member', after.includes('ext:ops-echo'));
 check('merge still has session keys section', after.includes('## Session keys (sessions_send — required)'));
 check('merge refreshes Tools to point at AGENT-OS-OPS', after.includes('AGENT-OS-OPS.md'));
 
+const legacyToolBlock = `
+## Choosing the right tool
+
+- legacy duplicated tool guidance
+
+## Master Data & RAG (owner-scoped)
+
+- legacy duplicated RAG guidance
+
+## Evidence tools
+
+- legacy duplicated evidence guidance
+`;
+const corrupted = `${after}\n${legacyToolBlock.repeat(5)}\n## Guardrails\n\n${CUSTOM_GUARD}\nhistory.\ny.\n`;
+const repaired = mergeCooAgentsMd(corrupted, fakeCtx());
+check('oversized legacy tool sections are removed', !repaired.includes('legacy duplicated tool guidance'));
+check('platform Guardrails are emitted once', (repaired.match(/^## Guardrails$/gm) || []).length === 1);
+check('custom Guardrails survive corruption repair', repaired.includes(CUSTOM_GUARD));
+check('corrupt non-bullet fragments are removed', !repaired.includes('\nhistory.\n'));
+check('COO bootstrap stays below OpenClaw injection limit', repaired.length < 20000, `${repaired.length} chars`);
+
 const withoutLeaves = mergeCooAgentsMd(after, fakeCtx({ leaf_members: [] }));
 check(
   'merge removes leaf section when org has no leaf members',

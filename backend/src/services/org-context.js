@@ -264,6 +264,42 @@ export const COO_AGENTS_MD_MANAGED_HEADINGS = [
   'Session keys (sessions_send — required)',
 ];
 
+// Older releases copied shared tool documentation into the COO contract. Those
+// sections now live canonically in AGENT-OS-OPS.md and must not be preserved by
+// an org refresh, otherwise every sync retains (and historically duplicated)
+// tens of thousands of characters in the model bootstrap.
+const LEGACY_SHARED_COO_HEADINGS = new Set([
+  'objective alignment (all agents)',
+  'evidence-backed outcomes (mandatory for every goal and task)',
+  'mandatory evidence contract',
+  'learnings (required before non-trivial work)',
+  'agent workflow runs (coo / workflow builder / content orchestrator)',
+  'summarize_url failures',
+  'master data',
+  'chat / whatsapp / channel attachments → rag',
+  'whatsapp pa (text + voice)',
+  'slow caller (whatsapp voice notes + chat mic)',
+  'realtime caller (live webrtc)',
+  'master_data_rag — read the excerpts yourself',
+  "notify_ceo — when to ring the ceo's bell",
+  'ceo profile — identity & contact (required)',
+  'exception recovery tasks',
+  'client browser session (browse_*)',
+  'voice channel capability',
+  'virtual room / avatar media',
+  'choosing the right tool',
+  'send email & calendar invites (email_send)',
+  'master data & rag (owner-scoped)',
+  'notify ceo user (notify_ceo)',
+  'speech (free whisper stt + piper tts)',
+  'watch a kanban task + notify when done (coo cron)',
+  'browser voice call link (`voice_call_invite`)',
+  'scheduled goals (recurring ceo prompts)',
+  'custom agent workflows (workflows ui)',
+  'browser automation (openclaw + playwright)',
+  'evidence tools',
+]);
+
 export function isGeneratedCooAgentsMd(text) {
   return String(text || '').includes(GENERATED_COO_AGENTS_MARKER);
 }
@@ -506,6 +542,18 @@ export function mergeCooAgentsMd(existingText, ctx) {
   const defaults = defaultCooAgentsUserSections(ctx);
   const priorities = defaults.find((s) => normalizeHeading(s.heading) === 'priorities');
   const tools = defaults.find((s) => normalizeHeading(s.heading).startsWith('tools'));
+  const critical = defaults.find((s) => normalizeHeading(s.heading).startsWith('critical —'));
+  const guardrailsDefault = defaults.find((s) => normalizeHeading(s.heading) === 'guardrails');
+
+  const platformGuardrailPattern = /obey \*\*policy\.md|clarify only when specialty|never change other agents|delegate execution|only delegate to agents|handoff .*must contain|use only provided standup|summarize and report|sessions_send/i;
+  const customGuardrails = sections
+    .filter((s) => normalizeHeading(s.heading) === 'guardrails')
+    .flatMap((s) => trimSectionBody(s.lines))
+    .map((line) => String(line || '').trim())
+    .filter((line) => /^[-*]\s+/.test(line) && !platformGuardrailPattern.test(line));
+  const guardrails = guardrailsDefault
+    ? { ...guardrailsDefault, lines: [...guardrailsDefault.lines, ...new Set(customGuardrails)] }
+    : null;
 
   function dropForLeanRefresh(heading) {
     const n = normalizeHeading(heading);
@@ -513,15 +561,26 @@ export function mergeCooAgentsMd(existingText, ctx) {
       n === 'priorities' ||
       n === 'tools (agent os)' ||
       n === 'tools' ||
+      n === 'guardrails' ||
+      n === 'shared operating rules' ||
+      n.startsWith('critical —') ||
       n.startsWith('specialty-first') ||
       n.startsWith('handoff message') ||
-      n.includes('workflow-terminal')
+      n.includes('workflow-terminal') ||
+      n.startsWith('kanban —') ||
+      LEGACY_SHARED_COO_HEADINGS.has(n)
     );
   }
 
+  const seenPreservedHeadings = new Set();
   const preserved = sections.filter(
     (s) => !isManagedCooAgentsHeading(s.heading) && !dropForLeanRefresh(s.heading)
-  );
+  ).filter((s) => {
+    const n = normalizeHeading(s.heading);
+    if (seenPreservedHeadings.has(n)) return false;
+    seenPreservedHeadings.add(n);
+    return true;
+  });
   const roleIdx = preserved.findIndex((s) => normalizeHeading(s.heading) === 'role');
 
   const ordered = [];
@@ -530,6 +589,8 @@ export function mergeCooAgentsMd(existingText, ctx) {
     ordered.push(...managed);
     if (priorities) ordered.push(priorities);
     if (tools) ordered.push(tools);
+    if (critical) ordered.push(critical);
+    if (guardrails) ordered.push(guardrails);
     for (let i = 0; i < preserved.length; i++) {
       if (i === roleIdx) continue;
       ordered.push(preserved[i]);
@@ -538,6 +599,8 @@ export function mergeCooAgentsMd(existingText, ctx) {
     ordered.push(...managed);
     if (priorities) ordered.push(priorities);
     if (tools) ordered.push(tools);
+    if (critical) ordered.push(critical);
+    if (guardrails) ordered.push(guardrails);
     for (const s of preserved) ordered.push(s);
   }
 
