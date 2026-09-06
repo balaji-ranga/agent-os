@@ -3292,7 +3292,15 @@ router.post('/agent-goal-create', optionalAuth, async (req, res) => {
       prompt,
       steps: requestPayload.steps || null,
       source: requestPayload.source || 'tool',
-      context: requestPayload.context || {},
+      context: {
+        ...(requestPayload.context || {}),
+        ...(requestPayload.objective_id ? {
+          objective_id: requestPayload.objective_id,
+          initiative_id: requestPayload.initiative_id || null,
+          linked_key_result_ids: requestPayload.key_result_ids || (requestPayload.key_result_id ? [requestPayload.key_result_id] : []),
+          objective_link_source: 'agent_goal_create_explicit_request',
+        } : {}),
+      },
       backgroundPlanning: true,
     };
     let out;

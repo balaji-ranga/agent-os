@@ -157,7 +157,7 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/agent-goal-create',
     method: 'POST',
     purpose:
-      'Create+start a durable goal plan. Params: prompt (required, verbatim CEO ask), title?, steps[{type,label,spec}]?. Returns agr-… async:true — quote id, end turn. New agr- every call; do not reuse MEMORY plans.',
+      'Create+start a durable goal plan. Params: prompt (required, verbatim CEO ask), title?, steps[{type,label,spec}]?, objective_id?, initiative_id?, key_result_ids?. COO/orchestrator explicit objective fields are retained and linked. Returns agr-… async:true — quote id, end turn. New agr- every call; do not reuse MEMORY plans.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,
