@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAuth, requireCeoOrAdmin, resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
-import { bootstrapNorthstarDemo, createObjective, createObjectiveApproval, decideObjectiveApproval, ensureObjectiveOperatingModel, getObjective, ideateObjective, linkGoalRun, listObjectives, listObjectiveVersions, listRevenueEvidence, measureKeyResult, objectiveDigest, updateObjective, upsertRevenueEvidence } from '../services/company-objectives.js';
+import { bootstrapNorthstarDemo, createObjective, createObjectiveApproval, decideObjectiveApproval, ensureObjectiveOperatingModel, getObjective, ideateObjective, linkGoalRun, listObjectives, listObjectiveVersions, listRevenueEvidence, measureKeyResult, measurementRegistry, objectiveDigest, updateObjective, upsertRevenueEvidence } from '../services/company-objectives.js';
 
 const router = Router();
 router.use(requireAuth, requireCeoOrAdmin);
@@ -9,6 +9,7 @@ const wrap = (fn) => async (req, res) => { try { await fn(req, res); } catch (er
 
 router.get('/', wrap(async (req, res) => res.json(listObjectives(owner(req), { limit: req.query.limit, offset: req.query.offset, periodType: req.query.period_type, status: req.query.status }))));
 router.get('/digest', wrap(async (req, res) => res.json(objectiveDigest(owner(req), { from: req.query.from, to: req.query.to, limit: req.query.limit }))));
+router.get('/measurement-registry', wrap(async (req, res) => res.json(measurementRegistry(owner(req)))));
 router.post('/ideate', wrap(async (req, res) => res.json(await ideateObjective(owner(req), req.body || {}))));
 router.post('/demo/northstar', wrap(async (req, res) => res.status(201).json(bootstrapNorthstarDemo(owner(req), req.user?.id))));
 router.post('/', wrap(async (req, res) => res.status(201).json({ objective: createObjective(owner(req), req.body || {}, req.user?.id) })));

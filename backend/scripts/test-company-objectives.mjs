@@ -10,6 +10,10 @@ initDb();
 const svc = await import('../src/services/company-objectives.js');
 
 try {
+  const registry = svc.measurementRegistry();
+  assert.ok(registry.sources.length >= 10, 'common Flolah and integration measurement sources are registered');
+  assert.ok(registry.sources.find((source) => source.id === 'goal_plans').formulas.some((formula) => formula.id === 'completion_rate'));
+  assert.ok(registry.sources.find((source) => source.id === 'custom_api').formulas.some((formula) => formula.id === 'average'));
   const boot = svc.bootstrapNorthstarDemo('ceo-demo-northstar', 'test');
   assert.equal(boot.created, true);
   assert.equal(boot.objectives.length, 4);
@@ -23,6 +27,7 @@ try {
   const q4 = svc.getObjective('ceo-demo-northstar', 'obj-demo-northstar-q4-2026');
   assert.equal(q4.authority.external_communications, 'approval_required');
   assert.equal(q4.key_results.length, 5);
+  assert.equal(q4.key_results[0].measurement_config.provenance, true, 'measurement contract is retained with the KR');
   assert.equal(q4.initiatives.length, 6);
   const active = svc.updateObjective('ceo-demo-northstar', q4.id, { status: 'active', reason: 'acceptance' }, 'ceo-demo-northstar');
   assert.equal(active.version, 2);

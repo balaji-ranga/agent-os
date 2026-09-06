@@ -12,6 +12,57 @@ const json = (value, fallback) => { try { return JSON.parse(value); } catch { re
 const text = (value, max = 4000) => String(value ?? '').trim().slice(0, max);
 const num = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 
+const COMMON_FORMULAS = {
+  count: ['count','Record count','Count unique matching records'], sum: ['sum','Sum','Sum a numeric field'], average: ['average','Average','Average a numeric field'],
+  latest_value: ['latest_value','Latest value','Use the latest authoritative value'], change: ['change','Change','Difference from the period baseline'], percentage: ['percentage','Percentage','Matching records as a percentage of the population'],
+  completion_rate: ['completion_rate','Completion rate','Completed items divided by eligible items'], success_rate: ['success_rate','Success rate','Successful executions divided by completed executions'],
+  cycle_time: ['cycle_time','Cycle time','Average elapsed time from start to completion'], error_rate: ['error_rate','Error rate','Failed executions divided by all completed executions'],
+};
+const formula = (id, label = null, description = null) => { const common = COMMON_FORMULAS[id]; return { id, label: label || common?.[1] || id, description: description || common?.[2] || '' }; };
+
+export function measurementRegistry(ownerUserId = null) {
+  const sources = [
+    { id: 'flolah_crm', label: 'CRM', category: 'Business data', provider: 'Flolah CRM / Twenty', availability: 'native', formulas: [formula('weighted_pipeline','Weighted pipeline','Sum opportunity amount multiplied by probability'),formula('pipeline_value','Pipeline value','Sum matching opportunity amounts'),formula('count'),formula('conversion_rate','Conversion rate','Converted records divided by eligible records'),formula('cycle_time')] },
+    { id: 'flolah_erp', label: 'ERP', category: 'Business data', provider: 'Flolah ERP / ERPNext', availability: 'native', formulas: [formula('revenue','Revenue','Sum posted revenue in the objective period'),formula('expenses','Expenses','Sum posted expenses in the objective period'),formula('gross_margin','Gross margin','Revenue less direct cost as a percentage'),formula('invoice_count','Invoice count','Count matching invoices'),formula('collection_rate','Collection rate','Paid invoice value divided by due invoice value'),formula('sum'),formula('average')] },
+    { id: 'business_events', label: 'Outcome evidence ledger', category: 'Business data', provider: 'Flolah objective evidence', availability: 'native', formulas: [formula('researched','Researched records','Count uniquely researched business records'),formula('qualified','Qualified records','Count evidence-qualified business records'),formula('drafts','Prepared drafts','Count evidence-backed draft artifacts'),formula('positive_responses','Positive responses','Count positively classified responses'),formula('weighted_pipeline','Weighted pipeline','Sum opportunity amount multiplied by probability'),formula('cost','Recorded cost','Sum costs attached to objective evidence')] },
+    { id: 'goal_plans', label: 'Goal Plans', category: 'Execution data', provider: 'Flolah Goal Plans', availability: 'native', formulas: [formula('count'),formula('completion_rate'),formula('success_rate'),formula('cycle_time'),formula('evidence_count','Evidence count','Count durable evidence records produced by linked runs')] },
+    { id: 'workflows', label: 'Workflows', category: 'Execution data', provider: 'Flolah Workflows', availability: 'native', formulas: [formula('count'),formula('completion_rate'),formula('success_rate'),formula('cycle_time'),formula('error_rate')] },
+    { id: 'tasks', label: 'Tasks', category: 'Execution data', provider: 'Flolah Kanban', availability: 'native', formulas: [formula('count'),formula('completion_rate'),formula('overdue_count','Overdue count','Count unfinished tasks past due'),formula('cycle_time')] },
+    { id: 'knowledge', label: 'Knowledge', category: 'Company data', provider: 'Flolah Knowledge / RAG', availability: 'native', formulas: [formula('document_count','Document count','Count matching owner-scoped documents'),formula('indexed_count','Indexed count','Count documents available to retrieval'),formula('retrieval_success_rate','Retrieval success rate','Queries with sufficient evidence divided by all queries'),formula('freshness','Freshness','Age of the newest qualifying evidence')] },
+    { id: 'agents', label: 'AI employees', category: 'Execution data', provider: 'Flolah Agents', availability: 'native', formulas: [formula('activity_count','Activity count','Count matching agent activities'),formula('success_rate'),formula('error_rate'),formula('cycle_time')] },
+    { id: 'communications', label: 'Communications', category: 'Channel data', provider: 'Email / WhatsApp / connected channels', availability: 'connection_dependent', formulas: [formula('sent_count','Sent count','Count receipt-backed external sends'),formula('reply_count','Reply count','Count correlated inbound replies'),formula('positive_response_rate','Positive response rate','Positive replies divided by classified replies'),formula('approval_queue','Approval queue','Count external actions awaiting approval')] },
+    { id: 'llmops', label: 'AI and tool telemetry', category: 'Platform telemetry', provider: 'Flolah LLMOps', availability: 'native', formulas: [formula('cost','Cost','Total model and tool cost'),formula('tokens','Token usage','Total input and output tokens'),formula('error_rate'),formula('latency','Latency','Average execution latency')] },
+    { id: 'events', label: 'Events and webhooks', category: 'Integration data', provider: 'Registered event stream', availability: 'configuration_required', formulas: [formula('count'),formula('sum'),formula('average'),formula('latest_value'),formula('change'),formula('percentage')] },
+    { id: 'custom_api', label: 'Custom API or MCP', category: 'Integration data', provider: 'Registered API / MCP tool', availability: 'configuration_required', formulas: [formula('count'),formula('sum'),formula('average'),formula('latest_value'),formula('change'),formula('percentage')] },
+    { id: 'documents', label: 'Evidence documents', category: 'Evidence', provider: 'Uploaded or agent-generated documents', availability: 'native', formulas: [formula('document_count','Document count'),formula('count'),formula('latest_value'),formula('percentage')] },
+    { id: 'manual', label: 'Manual evidence', category: 'Fallback', provider: 'Human attestation', availability: 'fallback', formulas: [formula('latest_value'),formula('change'),formula('percentage'),formula('count')] },
+  ];
+  if (!ownerUserId) return { version: 1, scope: 'system', sources };
+  ensureCompanyObjectiveTables();
+  const safeAll = (sql, ...params) => { try { return db().prepare(sql).all(...params); } catch { return []; } };
+  const safeGet = (sql, ...params) => { try { return db().prepare(sql).get(...params) || {}; } catch { return {}; } };
+  const profile = safeGet('SELECT crm_provider,erp_provider FROM company_business_profiles WHERE owner_user_id=?', ownerUserId);
+  const workflows = safeAll(`SELECT id,name,status FROM agent_workflow_definitions WHERE owner_user_id=? ORDER BY updated_at DESC LIMIT 100`, ownerUserId).map((row) => ({ id: row.id, label: row.name, status: row.status }));
+  const agents = safeAll(`SELECT a.id,a.name,a.role FROM agents a JOIN user_agents ua ON ua.agent_id=a.id WHERE ua.user_id=? AND COALESCE(ua.enabled,1)=1 ORDER BY a.name LIMIT 100`, ownerUserId).map((row) => ({ id: row.id, label: row.name, detail: row.role }));
+  const mcps = safeAll(`SELECT id,name,status,is_platform FROM mcp_servers WHERE (owner_user_id=? OR is_platform=1) AND status='healthy' ORDER BY is_platform DESC,name LIMIT 100`, ownerUserId).map((row) => ({ id: row.id, label: row.name, status: row.status, platform: Boolean(row.is_platform) }));
+  const scripts = safeAll(`SELECT id,name,status FROM custom_scripts WHERE owner_user_id=? AND status='approved' AND scan_status='approved' ORDER BY name LIMIT 100`, ownerUserId).map((row) => ({ id: row.id, label: row.name, status: row.status }));
+  const channels = mcps.filter((item) => /gmail|email|whatsapp|slack|linkedin|meta|message/i.test(item.label));
+  const instances = {
+    flolah_crm: profile.crm_provider && profile.crm_provider !== 'none' ? [{ id: `crm:${profile.crm_provider}`, label: `${profile.crm_provider} CRM` }] : [],
+    flolah_erp: profile.erp_provider && profile.erp_provider !== 'none' ? [{ id: `erp:${profile.erp_provider}`, label: `${profile.erp_provider} ERP` }] : [],
+    goal_plans: [{ id: 'goal_plans:owner', label: 'Company Goal Plans' }], workflows,
+    tasks: [{ id: 'kanban:owner', label: 'Company Kanban tasks' }], knowledge: [{ id: 'knowledge:owner', label: 'Company Knowledge' }], agents,
+    communications: channels, llmops: [{ id: 'llmops:owner', label: 'Company AI/tool telemetry' }], events: mcps,
+    custom_api: [...mcps, ...scripts.map((item) => ({ ...item, id: `script:${item.id}` }))], documents: [{ id: 'documents:owner', label: 'Company evidence documents' }],
+    business_events: [{ id: 'business_events:owner', label: 'Objective evidence ledger' }], manual: [{ id: 'manual:owner', label: 'Human attestation' }],
+  };
+  return { version: 1, scope: 'company', owner_user_id: ownerUserId, sources: sources.map((source) => {
+    const bound = instances[source.id] || [];
+    const nativeWithoutBinding = ['goal_plans','tasks','knowledge','llmops','documents','business_events','manual'].includes(source.id);
+    return { ...source, instances: bound, availability: bound.length || nativeWithoutBinding ? 'available' : 'configuration_required' };
+  }) };
+}
+
 export function ensureCompanyObjectiveTables() {
   db().exec(`
     CREATE TABLE IF NOT EXISTS company_objectives (
@@ -153,6 +204,8 @@ export function ensureCompanyObjectiveTables() {
     CREATE INDEX IF NOT EXISTS idx_company_objective_approvals_objective
       ON company_objective_approvals(objective_id, status, created_at DESC);
   `);
+  const krColumns = db().prepare('PRAGMA table_info(company_key_results)').all().map((column) => column.name);
+  if (!krColumns.includes('measurement_config_json')) db().exec("ALTER TABLE company_key_results ADD COLUMN measurement_config_json TEXT DEFAULT '{}'");
 }
 
 function scheduleSpec(cadenceValue) {
@@ -228,7 +281,7 @@ function serializeObjective(row, full = false) {
   };
   delete out.authority_json; delete out.constraints_json; delete out.assumptions_json;
   if (!full) return out;
-  out.key_results = db().prepare('SELECT * FROM company_key_results WHERE objective_id=? AND owner_user_id=? ORDER BY ordinal,id').all(row.id, row.owner_user_id).map((kr) => ({ ...kr, baseline: num(kr.baseline), target: num(kr.target), current_value: num(kr.current_value), progress_pct: kr.target ? Math.max(0, Math.min(100, Math.round((num(kr.current_value) / num(kr.target)) * 1000) / 10)) : 0 }));
+  out.key_results = db().prepare('SELECT * FROM company_key_results WHERE objective_id=? AND owner_user_id=? ORDER BY ordinal,id').all(row.id, row.owner_user_id).map((kr) => { const result = { ...kr, measurement_config: json(kr.measurement_config_json, {}), baseline: num(kr.baseline), target: num(kr.target), current_value: num(kr.current_value), progress_pct: kr.target ? Math.max(0, Math.min(100, Math.round((num(kr.current_value) / num(kr.target)) * 1000) / 10)) : 0 }; delete result.measurement_config_json; return result; });
   out.initiatives = db().prepare('SELECT * FROM company_initiatives WHERE objective_id=? AND owner_user_id=? ORDER BY ordinal,id').all(row.id, row.owner_user_id).map((i) => {
     const schedules = db().prepare(`SELECT sg.* FROM company_initiative_scheduled_goals m JOIN scheduled_goals sg ON sg.id=m.scheduled_goal_id AND sg.owner_user_id=m.owner_user_id WHERE m.initiative_id=? AND m.owner_user_id=? ORDER BY sg.created_at`).all(i.id, row.owner_user_id).map((sg) => ({
       ...sg,
@@ -300,8 +353,8 @@ export function createObjective(ownerUserId, input = {}, actorUserId = null) {
 function replaceChildren(ownerUserId, objectiveId, keyResults = [], initiatives = [], objectiveStatus = 'draft') {
   db().prepare('DELETE FROM company_key_results WHERE objective_id=? AND owner_user_id=?').run(objectiveId, ownerUserId);
   db().prepare('DELETE FROM company_initiatives WHERE objective_id=? AND owner_user_id=?').run(objectiveId, ownerUserId);
-  const insKr = db().prepare(`INSERT INTO company_key_results(id,objective_id,owner_user_id,name,definition,baseline,target,current_value,unit,source_type,formula,confidence,owner_label,ordinal) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
-  (keyResults || []).forEach((k, index) => insKr.run(k.id || id('kr'), objectiveId, ownerUserId, text(k.name, 220) || `Key result ${index + 1}`, text(k.definition, 1000), num(k.baseline), num(k.target, 1), num(k.current_value), text(k.unit, 40) || 'count', text(k.source_type, 60) || 'manual', text(k.formula, 1000), text(k.confidence, 20) || 'medium', text(k.owner_label, 120) || 'COO', index));
+  const insKr = db().prepare(`INSERT INTO company_key_results(id,objective_id,owner_user_id,name,definition,baseline,target,current_value,unit,source_type,formula,confidence,owner_label,ordinal,measurement_config_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+  (keyResults || []).forEach((k, index) => insKr.run(k.id || id('kr'), objectiveId, ownerUserId, text(k.name, 220) || `Key result ${index + 1}`, text(k.definition, 1000), num(k.baseline), num(k.target, 1), num(k.current_value), text(k.unit, 40) || 'count', text(k.source_type, 60) || 'manual', text(k.formula, 1000), text(k.confidence, 20) || 'medium', text(k.owner_label, 120) || 'COO', index, JSON.stringify(k.measurement_config || { window: 'objective_period', refresh: 'event_driven', provenance: true })));
   const insI = db().prepare(`INSERT INTO company_initiatives(id,objective_id,owner_user_id,name,owner_label,cadence,authority_json,budget_amount,status,prompt,next_run_at,ordinal) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`);
   (initiatives || []).forEach((i, index) => insI.run(i.id || id('init'), objectiveId, ownerUserId, text(i.name, 220) || `Initiative ${index + 1}`, text(i.owner_label, 120) || 'COO', text(i.cadence, 120), JSON.stringify(i.authority || {}), Math.max(0, num(i.budget_amount)), initiativeState(objectiveStatus), text(i.prompt, 3000), i.next_run_at || null, index));
 }
@@ -445,11 +498,11 @@ function defaultProposal(input = {}) {
     constraints: ['Do not invent contact data or personalisation claims.', 'Do not send external communications without a matching approval.', 'Keep all records company-scoped.'],
     assumptions: ['Pipeline progress uses probability-weighted accepted CRM opportunities.', 'The CRM and at least one research source must be connected before activation.'],
     key_results: [
-      { name: `Create ${pipelineTarget.toLocaleString('en-SG')} SGD qualified pipeline`, target: pipelineTarget, unit: 'SGD', source_type: 'crm', formula: 'weighted_pipeline', definition: 'Probability-weighted accepted CRM opportunities.' },
-      { name: 'Research target accounts', target: 240, unit: 'accounts', source_type: 'revenue_evidence', formula: 'researched' },
-      { name: 'Qualify accounts with evidence', target: 90, unit: 'accounts', source_type: 'revenue_evidence', formula: 'qualified' },
-      { name: 'Prepare personalised outreach', target: 50, unit: 'drafts', source_type: 'revenue_evidence', formula: 'drafts' },
-      { name: 'Positive responses', target: 12, unit: 'responses', source_type: 'revenue_evidence', formula: 'positive_responses' },
+      { name: `Create ${pipelineTarget.toLocaleString('en-SG')} SGD qualified pipeline`, target: pipelineTarget, unit: 'SGD', source_type: 'flolah_crm', formula: 'weighted_pipeline', definition: 'Probability-weighted accepted CRM opportunities.' },
+      { name: 'Research target accounts', target: 240, unit: 'accounts', source_type: 'business_events', formula: 'researched' },
+      { name: 'Qualify accounts with evidence', target: 90, unit: 'accounts', source_type: 'business_events', formula: 'qualified' },
+      { name: 'Prepare personalised outreach', target: 50, unit: 'drafts', source_type: 'business_events', formula: 'drafts' },
+      { name: 'Positive responses', target: 12, unit: 'responses', source_type: 'business_events', formula: 'positive_responses' },
       { name: 'Stay within AI/tool budget', target: Math.max(0, num(input.budget_amount, 450)), unit: 'SGD cost ceiling', source_type: 'llmops', formula: 'cost' },
     ],
     initiatives: [
@@ -468,12 +521,19 @@ export async function ideateObjective(ownerUserId, input = {}, { callModel = cha
   if (input.use_llm === false) return { proposal: fallback, model_used: 'deterministic-template', fallback: false };
   try {
     const result = await callModel({ ownerUserId, toolName: 'objective_studio', temperature: 0.2, messages: [
-      { role: 'system', content: 'You design bounded company objectives. Return JSON only with name, outcome, assumptions[], constraints[], key_results[] and initiatives[]. Preserve the supplied period exactly. Key results require name,target,unit,source_type,formula,definition. Initiatives require name,owner_label,cadence,prompt. Never grant external communication authority; it remains approval_required.' },
+      { role: 'system', content: 'You design bounded company objectives. Return JSON only with name, outcome, assumptions[], constraints[], key_results[] and initiatives[]. Preserve the supplied period exactly. Key results require name,target,unit,source_type,formula,definition and should retain the source_type/formula pairs in the deterministic baseline unless the requested outcome clearly requires a different registered measurement. Initiatives require name,owner_label,cadence,prompt. Never grant external communication authority; it remains approval_required.' },
       { role: 'user', content: JSON.stringify({ request: input.outcome || input.prompt, period: { type: fallback.periodType, label: fallback.periodLabel, starts_on: fallback.startsOn, ends_on: fallback.endsOn }, currency: fallback.currency, budget: fallback.budget_amount, deterministic_baseline: fallback }) },
     ] });
     const raw = String(result?.content || '').replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
     const parsed = JSON.parse(raw);
-    return { proposal: { ...fallback, ...parsed, periodType: fallback.periodType, periodLabel: fallback.periodLabel, startsOn: fallback.startsOn, endsOn: fallback.endsOn, authority: fallback.authority, budget_amount: fallback.budget_amount, currency: fallback.currency }, model_used: result?.modelUsed || 'configured-model', fallback: false };
+    const registered = measurementRegistry().sources;
+    const keyResults = (Array.isArray(parsed.key_results) ? parsed.key_results : fallback.key_results).map((kr) => {
+      const knownSource = registered.find((source) => source.id === kr.source_type && source.formulas.some((item) => item.id === kr.formula));
+      const source = knownSource || registered.find((candidate) => candidate.formulas.some((item) => item.id === kr.formula)) || registered.find((candidate) => candidate.id === 'manual');
+      const selectedFormula = source.formulas.some((item) => item.id === kr.formula) ? kr.formula : source.formulas[0].id;
+      return { ...kr, source_type: source.id, formula: selectedFormula, measurement_config: { provider: source.provider, window: 'objective_period', refresh: 'event_driven', provenance: true } };
+    });
+    return { proposal: { ...fallback, ...parsed, key_results: keyResults, periodType: fallback.periodType, periodLabel: fallback.periodLabel, startsOn: fallback.startsOn, endsOn: fallback.endsOn, authority: fallback.authority, budget_amount: fallback.budget_amount, currency: fallback.currency }, model_used: result?.modelUsed || 'configured-model', fallback: false };
   } catch (error) {
     return { proposal: fallback, model_used: 'deterministic-template', fallback: true, note: text(error.message, 300) };
   }
@@ -502,10 +562,10 @@ export function bootstrapNorthstarDemo(ownerUserId, actorUserId = null) {
     ['obj-demo-northstar-fy2027','Make AI-assisted revenue operations dependable','annual','FY2027','2027-01-01','2027-12-31',750000,3600,720,180,240,'draft'],
   ];
   const objectives = specs.map(([objectiveId,name,period_type,period_label,starts_on,ends_on,pipeline,budget,research,qualified,drafts,status]) => createObjective(ownerUserId, { id: objectiveId, name, outcome: `${name}. Target Singapore SMEs in approved industries. Do not send external communications without approval.`, period_type, period_label, starts_on, ends_on, currency: 'SGD', budget_amount: budget, status, authority: { internal_research: 'allowed', reversible_crm_writes: 'allowed', external_communications: 'approval_required' }, constraints: ['Never invent contact data.', 'No external send without exact approval.', 'Do not double-count CRM opportunities across aligned objectives.'], key_results: [
-    { name: `Qualified pipeline ${pipeline.toLocaleString('en-SG')} SGD`, target: pipeline, unit: 'SGD', source_type: 'crm', formula: 'weighted_pipeline' },
-    { name: `Research ${research} accounts`, target: research, unit: 'accounts', source_type: 'revenue_evidence', formula: 'researched' },
-    { name: `Qualify ${qualified} accounts`, target: qualified, unit: 'accounts', source_type: 'revenue_evidence', formula: 'qualified' },
-    { name: `Prepare ${drafts} outreach drafts`, target: drafts, unit: 'drafts', source_type: 'revenue_evidence', formula: 'drafts' },
+    { name: `Qualified pipeline ${pipeline.toLocaleString('en-SG')} SGD`, target: pipeline, unit: 'SGD', source_type: 'flolah_crm', formula: 'weighted_pipeline' },
+    { name: `Research ${research} accounts`, target: research, unit: 'accounts', source_type: 'business_events', formula: 'researched' },
+    { name: `Qualify ${qualified} accounts`, target: qualified, unit: 'accounts', source_type: 'business_events', formula: 'qualified' },
+    { name: `Prepare ${drafts} outreach drafts`, target: drafts, unit: 'drafts', source_type: 'business_events', formula: 'drafts' },
     { name: `Stay within S$${budget} AI/tool cost`, target: budget, unit: 'SGD cost ceiling', source_type: 'llmops', formula: 'cost' },
   ], initiatives: defaultProposal({ outcome: name, period_type, period_label, starts_on, ends_on, budget_amount: budget }).initiatives }, actorUserId));
   return { created: true, company: { name: 'Northstar Growth Systems Pte. Ltd.', slug: 'demo-northstar-growth', reference_ceo_user_id: 'ceo-demo-northstar' }, objectives };

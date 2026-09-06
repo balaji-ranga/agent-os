@@ -18,6 +18,7 @@ const request = async (path, options = {}) => { const response = await fetch(bas
 
 try {
   assert.equal((await request('/unauth')).response.status, 401);
+  const registry = await request('/api/company-objectives/measurement-registry'); assert.equal(registry.response.status, 200); assert.ok(registry.body.sources.length >= 10); assert.equal(registry.body.scope, 'company'); assert.equal(registry.body.owner_user_id, 'ceo-api-test'); assert.equal(registry.body.sources.find((source) => source.id === 'goal_plans').availability, 'available');
   const idea = await request('/api/company-objectives/ideate', { method: 'POST', body: JSON.stringify({ use_llm: false, outcome: 'Generate S$100k qualified pipeline without unapproved sends', period_type: 'quarterly', period_label: 'Q4 2026', starts_on: '2026-10-01', ends_on: '2026-12-31' }) });
   assert.equal(idea.response.status, 200); assert.equal(idea.body.proposal.authority.external_communications, 'approval_required');
   const created = await request('/api/company-objectives', { method: 'POST', body: JSON.stringify({ ...idea.body.proposal, period_type: idea.body.proposal.periodType, period_label: idea.body.proposal.periodLabel, starts_on: idea.body.proposal.startsOn, ends_on: idea.body.proposal.endsOn, status: 'active' }) });

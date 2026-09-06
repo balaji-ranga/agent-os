@@ -1402,6 +1402,7 @@ export const api = {
     if (params.limit != null) q.set('limit', String(params.limit));
     return get(`/company-objectives/digest${q.size ? `?${q}` : ''}`);
   },
+  companyObjectiveMeasurementRegistry: () => get('/company-objectives/measurement-registry'),
   companyObjectiveIdeate: (body) => post('/company-objectives/ideate', body),
   companyObjectiveCreate: (body) => post('/company-objectives', body),
   companyObjectiveGet: (id) => get(`/company-objectives/${encodeURIComponent(id)}`),
