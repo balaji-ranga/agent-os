@@ -522,6 +522,27 @@ try {
 } catch (e) {
   console.warn('[startup] onboarding helper agent seed:', e.message);
 }
+
+function reconcileObjectiveAgentRuntime(reason = 'startup') {
+  const granted = grantObjectiveAgentTools();
+  writeOpenClawToolsList();
+  syncAllowlistsFile();
+  const agents = getDb().prepare('SELECT * FROM agents').all();
+  for (const agent of agents) syncOpenClawJsonForAgent(agent);
+  console.log(
+    `[startup] objective agent runtime reconciled (${reason}): ${granted} new grant(s), ${agents.length} agent(s) synced`
+  );
+  return granted;
+}
+
+try {
+  // The specialist seeds above run after the first grant pass. Reconcile once all
+  // synchronous startup agents exist so every current and newly-created agent has
+  // the query/deviation tools and orchestrators have explicit goal linkage.
+  reconcileObjectiveAgentRuntime('post-agent-seed');
+} catch (e) {
+  console.warn('[startup] post-seed objective agent runtime:', e.message);
+}
 try {
   seedSocialResearchExchangeAgents()
     .then((r) => {
@@ -534,6 +555,7 @@ try {
       } else if (r?.skipped) {
         console.log('[startup] social research Exchange seed skipped: %s', r.reason);
       }
+      reconcileObjectiveAgentRuntime('post-social-research-seed');
     })
     .catch((e) => console.warn('[startup] social research Exchange seed:', e.message));
 } catch (e) {

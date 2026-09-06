@@ -33,7 +33,11 @@ const ALLOWLISTS_PATH = join(OPENCLAW_DIR, 'agent-tool-allowlists.json');
 const home = process.env.USERPROFILE || process.env.HOME || '';
 
 const NATIVE_OPENCLAW_TOOLS = new Set(NATIVE_OPENCLAW_TOOLS_LIST);
-export const MANDATORY_AGENT_EVIDENCE_TOOLS = Object.freeze(['agent_work_history']);
+export const MANDATORY_AGENT_EVIDENCE_TOOLS = Object.freeze([
+  'agent_work_history',
+  'company_objectives_query',
+  'objective_deviation_record',
+]);
 
 function readConfig() {
   const c = readOpenClawConfigSafe();
@@ -180,6 +184,9 @@ export function syncAllowlistsFile() {
 
 /** Keep multi-intent goal tools near the front of allow lists (visibility under tool caps). */
 const CORE_PRIORITY_TOOLS = [
+  'company_objectives_query',
+  'objective_deviation_record',
+  'company_goal_link_objective',
   'agent_goal_create',
   'agent_goal_list',
   'agent_goal_status',
@@ -420,6 +427,9 @@ export function buildToolsMdContent(grantedToolNames) {
     '- **If a tool\'s result is not good enough:** Try the next most relevant granted tool before giving up.',
     '- **Evidence is mandatory:** For factual, historical, external-action, API, browser, workflow, CRM, or ERP outcomes, call the relevant granted tool and base the answer on its returned evidence. Never use memory as proof.',
     '- **Status/work history:** Call `agent_work_history` with the requested `days`. Use the returned `evidence_id`, counts, and items. Do not substitute `learnings_summary` or communications history.',
+    '- **Objective alignment:** Before non-trivial work, call `company_objectives_query` with `{ "status": "active" }`. Use the returned objective, key-result, initiative, scheduled-goal, and goal-plan IDs as evidence; do not delegate an objective lookup to another agent.',
+    '- **Objective linkage:** If the user explicitly asks to link a goal, preserve their objective/initiative IDs. COO/orchestrator calls `company_goal_link_objective` with `goal_run_id`, `objective_id`, optional `initiative_id`, and optional `key_result_ids`.',
+    '- **Deviations:** If a request materially departs from active objectives or initiatives, call `objective_deviation_record` with the exact request and rationale, then continue. This audit is non-blocking. Never claim it was recorded unless the tool returns `ok: true` together with the table/row and `recorded_at` evidence.',
     '- **Completion:** Include material tool evidence or record/execution identifiers in the deliverable. Writing-only work is evidenced by the concrete returned content itself.',
     '',
     '---',

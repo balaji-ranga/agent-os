@@ -146,6 +146,40 @@ function ownerUserIdFromSessionKey(sessionKey) {
 }
 
 const PARAM_SCHEMAS = {
+  company_objectives_query: {
+    type: "object",
+    properties: {
+      status: { type: "string", enum: ["draft", "active", "paused", "completed", "cancelled"] },
+      period_type: { type: "string", enum: ["monthly", "quarterly", "half_yearly", "annual"] },
+      limit: { type: "integer", minimum: 1, maximum: 50 },
+      offset: { type: "integer", minimum: 0 },
+    },
+    additionalProperties: false,
+  },
+  company_goal_link_objective: {
+    type: "object",
+    properties: {
+      goal_run_id: { type: "string", description: "Existing goal-plan run id (agr-...)." },
+      objective_id: { type: "string", description: "Objective id returned by company_objectives_query." },
+      initiative_id: { type: "string", description: "Optional initiative belonging to the objective." },
+      key_result_ids: { type: "array", items: { type: "string" } },
+    },
+    required: ["goal_run_id", "objective_id"],
+    additionalProperties: false,
+  },
+  objective_deviation_record: {
+    type: "object",
+    properties: {
+      request: { type: "string", description: "Exact user request that materially departs from active objectives." },
+      rationale: { type: "string", description: "Why the request deviates from active objectives or initiatives." },
+      objective_ids: { type: "array", items: { type: "string" } },
+      initiative_ids: { type: "array", items: { type: "string" } },
+      goal_run_id: { type: "string" },
+      channel: { type: "string" },
+    },
+    required: ["request", "rationale"],
+    additionalProperties: false,
+  },
   kanban_user_action: {
     type: "object",
     properties: {

@@ -11,6 +11,7 @@ const objective = await import('../src/services/company-objectives.js');
 const alignment = await import('../src/services/objective-agent-tools.js');
 const { buildStatusDigest, formatDigestMarkdown, formatDigestHtml } = await import('../src/services/coo-status-checker.js');
 const { buildThisWeekDigest } = await import('../src/services/this-week-digest.js');
+const agentTools = await import('../src/services/openclaw-agent-tools.js');
 
 try {
   const db = getDb();
@@ -22,6 +23,26 @@ try {
   assert(db.prepare(`SELECT 1 ok FROM agent_tool_grants WHERE agent_id='research-align' AND tool_name='objective_deviation_record'`).get()?.ok);
   assert(!db.prepare(`SELECT 1 ok FROM agent_tool_grants WHERE agent_id='research-align' AND tool_name='company_goal_link_objective'`).get());
   assert(db.prepare(`SELECT 1 ok FROM agent_tool_grants WHERE agent_id='coo-align' AND tool_name='company_goal_link_objective'`).get()?.ok);
+  assert.deepEqual(
+    new Set(agentTools.MANDATORY_AGENT_EVIDENCE_TOOLS),
+    new Set(['agent_work_history', 'company_objectives_query', 'objective_deviation_record'])
+  );
+  const toolsMd = agentTools.buildToolsMdContent(['company_objectives_query', 'objective_deviation_record', 'company_goal_link_objective']);
+  assert.match(toolsMd, /do not delegate an objective lookup/i);
+  assert.match(toolsMd, /Never claim it was recorded unless the tool returns `ok: true`/i);
+  db.prepare(`INSERT OR IGNORE INTO agents(id,name,role,is_coo,owner_user_id) VALUES('late-align','Late Specialist','Research',0,'ceo-align')`).run();
+  alignment.grantObjectiveAgentTools('late-align');
+  assert(db.prepare(`SELECT 1 ok FROM agent_tool_grants WHERE agent_id='late-align' AND tool_name='company_objectives_query'`).get()?.ok);
+  assert(db.prepare(`SELECT 1 ok FROM agent_tool_grants WHERE agent_id='late-align' AND tool_name='objective_deviation_record'`).get()?.ok);
+  assert(!db.prepare(`SELECT 1 ok FROM agent_tool_grants WHERE agent_id='late-align' AND tool_name='company_goal_link_objective'`).get());
+
+  for (const extension of ['index.js', 'index.ts']) {
+    const extensionText = readFileSync(new URL(`../../openclaw-extensions/agent-os-content-tools/${extension}`, import.meta.url), 'utf8');
+    assert.match(extensionText, /company_objectives_query:\s*\{/);
+    assert.match(extensionText, /company_goal_link_objective:\s*\{/);
+    assert.match(extensionText, /objective_deviation_record:\s*\{/);
+    assert.match(extensionText, /required:\s*\["request",\s*"rationale"\]/);
+  }
 
   const created = objective.createObjective('ceo-align', {
     name: 'Grow qualified pipeline', outcome: 'Create measurable qualified pipeline',

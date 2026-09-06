@@ -267,9 +267,16 @@ export async function createFullAgent(input) {
   if (isOrchestrator) {
     toolsToGrant = [...new Set([...toolsToGrant, 'agent_goal_create', 'agent_goal_list', 'agent_goal_status', 'agent_goal_complete_step'])];
   }
-  toolsToGrant = [...new Set([...toolsToGrant, 'agent_work_history'])];
+  toolsToGrant = [...new Set([
+    ...toolsToGrant,
+    'agent_work_history',
+    'company_objectives_query',
+    'objective_deviation_record',
+    ...(isOrchestrator ? ['company_goal_link_objective'] : []),
+  ])];
   try {
-    setAgentToolGrants(row, toolsToGrant);
+    const grantResult = setAgentToolGrants(row, toolsToGrant);
+    toolsToGrant = grantResult.grants;
     grantConnectorActionsForAgent(row);
   } catch (e) {
     console.warn('setAgentToolGrants failed for', id, e?.message);

@@ -76,9 +76,11 @@ export function getObjectiveDeviationSummary(ownerUserId, { limit = 10, since = 
   return { count: recent.length, total: page.total, recent, table_id: table.id, table_name: table.name };
 }
 
-export function grantObjectiveAgentTools() {
+export function grantObjectiveAgentTools(agentId = null) {
   const db = getDb();
-  const agents = db.prepare('SELECT id,is_coo,is_orchestrator,name FROM agents').all();
+  const agents = agentId
+    ? db.prepare('SELECT id,is_coo,is_orchestrator,name FROM agents WHERE id=?').all(agentId)
+    : db.prepare('SELECT id,is_coo,is_orchestrator,name FROM agents').all();
   const insert = db.prepare('INSERT OR IGNORE INTO agent_tool_grants(agent_id,tool_name) VALUES(?,?)');
   let changes = 0;
   for (const agent of agents) {

@@ -128,6 +128,9 @@ Your Tool access panel controls which tools you may call. Typical tools include:
 - **notify_ceo** — Only when asked to reach the CEO, or a true blocker. Follow **AGENT-OS-OPS.md** (when to send / how to avoid noise). Prefer \`link_url\` = \`/agents/<your-id>/chat\`.
 - **master_data_*** — Call **master_data_list_tables** first for structured tables.
 - **master_data_rag** — Document questions: \`{ "query": "<question keywords>" }\`. **Omit \`summarize\`** (defaults \`false\`) and answer from \`chunks[]\` in your own words; pass \`summarize: true\` only when the excerpts are too long or scattered to answer directly. Answer only from excerpts — never invent document content.
+- **company_objectives_query** — Before non-trivial work, query active objectives with \`{ "status": "active" }\`. Use returned objective, KR, initiative, scheduled-goal, and goal-plan IDs; do not delegate an objective lookup.
+- **company_goal_link_objective** — COO/orchestrator only. Link an existing goal using \`goal_run_id\`, \`objective_id\`, optional \`initiative_id\`, and optional \`key_result_ids\` when the user explicitly requests linkage.
+- **objective_deviation_record** — When a request materially departs from active objectives/initiatives, record the exact request and rationale and then continue. Never say it was recorded unless the tool returns \`ok: true\`, table/row evidence, and \`recorded_at\`.
 - **email_send** — One-off email / calendar invite when granted.
 
 ## Client browser session (\`browse_*\`)
