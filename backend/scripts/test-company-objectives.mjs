@@ -13,6 +13,7 @@ try {
   const boot = svc.bootstrapNorthstarDemo('ceo-demo-northstar', 'test');
   assert.equal(boot.created, true);
   assert.equal(boot.objectives.length, 4);
+  assert.equal(boot.objectives.filter((o) => o.status === 'active').length, 2, 'current reference periods are immediately visible in Digest');
   assert.deepEqual(new Set(boot.objectives.map((o) => o.period_type)), new Set(['monthly','quarterly','half_yearly','annual']));
   assert.equal(svc.bootstrapNorthstarDemo('ceo-demo-northstar', 'test').created, false, 'demo bootstrap is idempotent');
   assert.equal(svc.listObjectives('ceo-demo-northstar', { limit: 2 }).objectives.length, 2);

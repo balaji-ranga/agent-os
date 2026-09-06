@@ -422,12 +422,12 @@ export function bootstrapNorthstarDemo(ownerUserId, actorUserId = null) {
   const existing = db().prepare("SELECT id FROM company_objectives WHERE owner_user_id=? AND id LIKE 'obj-demo-northstar-%'").all(ownerUserId);
   if (existing.length) return { created: false, objectives: existing.map((r) => getObjective(ownerUserId, r.id)) };
   const specs = [
-    ['obj-demo-northstar-month-2026-09','Prove the Singapore SME revenue engine','monthly','September 2026','2026-09-01','2026-09-30',25000,100,60,24,12],
-    ['obj-demo-northstar-q4-2026','Generate S$100k qualified pipeline in Singapore','quarterly','Q4 2026','2026-10-01','2026-12-31',100000,450,240,90,50],
-    ['obj-demo-northstar-h2-2026','Establish a repeatable founder-supervised revenue operation','half_yearly','H2 2026','2026-07-01','2026-12-31',300000,900,360,120,80],
-    ['obj-demo-northstar-fy2027','Make AI-assisted revenue operations dependable','annual','FY2027','2027-01-01','2027-12-31',750000,3600,720,180,240],
+    ['obj-demo-northstar-month-2026-09','Prove the Singapore SME revenue engine','monthly','September 2026','2026-09-01','2026-09-30',25000,100,60,24,12,'active'],
+    ['obj-demo-northstar-q4-2026','Generate S$100k qualified pipeline in Singapore','quarterly','Q4 2026','2026-10-01','2026-12-31',100000,450,240,90,50,'draft'],
+    ['obj-demo-northstar-h2-2026','Establish a repeatable founder-supervised revenue operation','half_yearly','H2 2026','2026-07-01','2026-12-31',300000,900,360,120,80,'active'],
+    ['obj-demo-northstar-fy2027','Make AI-assisted revenue operations dependable','annual','FY2027','2027-01-01','2027-12-31',750000,3600,720,180,240,'draft'],
   ];
-  const objectives = specs.map(([objectiveId,name,period_type,period_label,starts_on,ends_on,pipeline,budget,research,qualified,drafts]) => createObjective(ownerUserId, { id: objectiveId, name, outcome: `${name}. Target Singapore SMEs in approved industries. Do not send external communications without approval.`, period_type, period_label, starts_on, ends_on, currency: 'SGD', budget_amount: budget, status: 'draft', authority: { internal_research: 'allowed', reversible_crm_writes: 'allowed', external_communications: 'approval_required' }, constraints: ['Never invent contact data.', 'No external send without exact approval.', 'Do not double-count CRM opportunities across aligned objectives.'], key_results: [
+  const objectives = specs.map(([objectiveId,name,period_type,period_label,starts_on,ends_on,pipeline,budget,research,qualified,drafts,status]) => createObjective(ownerUserId, { id: objectiveId, name, outcome: `${name}. Target Singapore SMEs in approved industries. Do not send external communications without approval.`, period_type, period_label, starts_on, ends_on, currency: 'SGD', budget_amount: budget, status, authority: { internal_research: 'allowed', reversible_crm_writes: 'allowed', external_communications: 'approval_required' }, constraints: ['Never invent contact data.', 'No external send without exact approval.', 'Do not double-count CRM opportunities across aligned objectives.'], key_results: [
     { name: `Qualified pipeline ${pipeline.toLocaleString('en-SG')} SGD`, target: pipeline, unit: 'SGD', source_type: 'crm', formula: 'weighted_pipeline' },
     { name: `Research ${research} accounts`, target: research, unit: 'accounts', source_type: 'revenue_evidence', formula: 'researched' },
     { name: `Qualify ${qualified} accounts`, target: qualified, unit: 'accounts', source_type: 'revenue_evidence', formula: 'qualified' },
