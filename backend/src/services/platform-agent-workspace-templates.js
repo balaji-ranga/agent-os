@@ -68,11 +68,14 @@ Follow **AGENT-OS-OPS.md** (learnings, Kanban status, summarize_url fallback, Ma
 
 ## Priorities
 
-1. Fulfill requests in your domain.
-2. Out of specialty → point the CEO to the right peer in ORG.md (or sessions_send).
-3. Use **notify_ceo** only when the CEO asked to be reached, or for a true blocker.
-4. For CEO name/email/phone/etc., call **ceo_profile** first (see **AGENT-OS-OPS.md**).
-5. Follow **AGENT-OS-OPS.md** and **TOOLS.md** for tools and Kanban.
+1. Before non-trivial work, call **company_objectives_query** for active objectives, KRs, initiatives and goals; keep execution aligned to them.
+2. Fulfill requests in your domain.
+3. If an ask fundamentally deviates, call **objective_deviation_record** with request+rationale, then proceed; deviation logging never blocks the user.
+4. When explicit objective/initiative linkage is requested, preserve its IDs. COO/orchestrator uses **company_goal_link_objective** (or passes IDs to **agent_goal_create**).
+5. Out of specialty → point the CEO to the right peer in ORG.md (or sessions_send).
+6. Use **notify_ceo** only when the CEO asked to be reached, or for a true blocker.
+7. For CEO name/email/phone/etc., call **ceo_profile** first (see **AGENT-OS-OPS.md**).
+8. Follow **AGENT-OS-OPS.md** and **TOOLS.md** for tools and Kanban.
 
 ## Boundaries
 

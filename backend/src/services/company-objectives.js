@@ -599,9 +599,34 @@ export function linkGoalRun(ownerUserId, objectiveId, input = {}) {
   ensureCompanyObjectiveTables();
   if (!getObjective(ownerUserId, objectiveId)) throw Object.assign(new Error('Objective not found'), { status: 404 });
   const goalRunId = text(input.goal_run_id, 160);
-  const goal = db().prepare('SELECT id FROM agent_goal_runs WHERE id=? AND owner_user_id=?').get(goalRunId, ownerUserId);
+  const goal = db().prepare('SELECT id,context_json FROM agent_goal_runs WHERE id=? AND owner_user_id=?').get(goalRunId, ownerUserId);
   if (!goal) throw Object.assign(new Error('Owner-scoped Goal Plan not found'), { status: 404 });
-  db().prepare(`INSERT INTO company_objective_goal_runs(objective_id,initiative_id,key_result_id,goal_run_id,owner_user_id) VALUES(?,?,?,?,?) ON CONFLICT(objective_id,goal_run_id) DO UPDATE SET initiative_id=excluded.initiative_id,key_result_id=excluded.key_result_id`).run(objectiveId, text(input.initiative_id, 160) || null, text(input.key_result_id, 160) || null, goalRunId, ownerUserId);
+  const initiativeId = text(input.initiative_id, 160) || null;
+  if (initiativeId && !db().prepare('SELECT 1 FROM company_initiatives WHERE id=? AND objective_id=? AND owner_user_id=?').get(initiativeId, objectiveId, ownerUserId)) {
+    throw Object.assign(new Error('Initiative does not belong to the objective'), { status: 400 });
+  }
+  const requestedKrIds = [...new Set([
+    ...(Array.isArray(input.key_result_ids) ? input.key_result_ids : []),
+    input.key_result_id,
+  ].map((value) => text(value, 160)).filter(Boolean))];
+  for (const krId of requestedKrIds) {
+    if (!db().prepare('SELECT 1 FROM company_key_results WHERE id=? AND objective_id=? AND owner_user_id=?').get(krId, objectiveId, ownerUserId)) {
+      throw Object.assign(new Error(`Key result does not belong to the objective: ${krId}`), { status: 400 });
+    }
+  }
+  const context = json(goal.context_json, {});
+  const nextContext = {
+    ...context,
+    objective_id: objectiveId,
+    initiative_id: initiativeId,
+    linked_key_result_ids: requestedKrIds,
+    objective_link_source: text(input.link_source, 80) || 'explicit_user_request',
+    objective_linked_at: new Date().toISOString(),
+  };
+  db().transaction(() => {
+    db().prepare(`INSERT INTO company_objective_goal_runs(objective_id,initiative_id,key_result_id,goal_run_id,owner_user_id) VALUES(?,?,?,?,?) ON CONFLICT(objective_id,goal_run_id) DO UPDATE SET initiative_id=excluded.initiative_id,key_result_id=excluded.key_result_id`).run(objectiveId, initiativeId, requestedKrIds[0] || null, goalRunId, ownerUserId);
+    db().prepare('UPDATE agent_goal_runs SET context_json=?,updated_at=datetime(\'now\') WHERE id=? AND owner_user_id=?').run(JSON.stringify(nextContext), goalRunId, ownerUserId);
+  })();
   return getObjective(ownerUserId, objectiveId);
 }
 

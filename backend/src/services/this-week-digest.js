@@ -10,6 +10,7 @@ import { getBusinessProfile } from './company-business-profile.js';
 import { buildThisWeekInsights } from './this-week-digest-insights.js';
 import { buildDigestEstimatesExplain } from './this-week-digest-explain.js';
 import { listGoalRuns, summarizeGoalProgress } from './agent-goal-run.js';
+import { getObjectiveDeviationSummary } from './objective-agent-tools.js';
 
 const COMPLETED = new Set(['completed', 'done']);
 const FAILED = new Set(['failed']);
@@ -769,6 +770,7 @@ export async function buildThisWeekDigest(ownerUserId, opts = {}) {
     },
     goal_plans: goalPlans,
     goal_plans_total: goalPlansTotal,
+    objective_deviations: getObjectiveDeviationSummary(owner, { limit: 10, since: `${weekStart}T00:00:00.000Z` }),
     top_workflows: topWorkflows,
     performance: {
       ...performance,

@@ -157,7 +157,7 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/agent-goal-create',
     method: 'POST',
     purpose:
-      'Create+start a durable goal plan. Params: prompt (required, verbatim CEO ask), title?, steps[{type,label,spec}]?. Returns agr-… async:true — quote id, end turn. New agr- every call; do not reuse MEMORY plans.',
+      'Create+start a durable goal plan. Params: prompt (required, verbatim CEO ask), title?, steps[{type,label,spec}]?, objective_id?, initiative_id?, key_result_ids?. COO/orchestrator explicit objective fields are retained and linked. Returns agr-… async:true — quote id, end turn. New agr- every call; do not reuse MEMORY plans.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,
@@ -172,6 +172,30 @@ const BUILTIN_TOOLS = [
     model_used: '',
     enabled: 1,
     is_builtin: 1,
+  },
+  {
+    name: 'company_objectives_query',
+    display_name: 'Query Company Objectives',
+    endpoint: '/api/tools/company-objectives-query',
+    method: 'POST',
+    purpose: 'All agents: owner-scoped query of objectives, Key Results, initiatives, initiative goals, schedules, and linked Goal Plan runs. Optional status, period_type, limit, offset. Use before non-trivial work to understand active company priorities.',
+    model_used: '', enabled: 1, is_builtin: 1,
+  },
+  {
+    name: 'company_goal_link_objective',
+    display_name: 'Link Goal to Objective',
+    endpoint: '/api/tools/company-goal-link-objective',
+    method: 'POST',
+    purpose: 'COO/orchestrator only: bind an owner-scoped goal_run_id to objective_id and optional initiative_id/key_result_ids. Use whenever the user explicitly requests objective or initiative linkage.',
+    model_used: '', enabled: 1, is_builtin: 1,
+  },
+  {
+    name: 'objective_deviation_record',
+    display_name: 'Record Objective Deviation',
+    endpoint: '/api/tools/objective-deviation-record',
+    method: 'POST',
+    purpose: 'All agents: non-blocking audit when an ask fundamentally deviates from active objectives/initiatives. Required request and rationale; optional objective_ids, initiative_ids, goal_run_id, channel. Record first, then continue the user ask.',
+    model_used: '', enabled: 1, is_builtin: 1,
   },
   {
     name: 'agent_goal_status',
@@ -981,6 +1005,9 @@ const WORKFLOW_TOOLS = BUILTIN_TOOLS.filter((t) =>
     'content_tools_enquire',
   ].includes(t.name)
 );
+const OBJECTIVE_AGENT_TOOLS = BUILTIN_TOOLS.filter((t) =>
+  ['company_objectives_query', 'company_goal_link_objective', 'objective_deviation_record'].includes(t.name)
+);
 
 const LEARNINGS_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'learnings_summary');
 const EMAIL_SEND_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'email_send');
@@ -1084,6 +1111,16 @@ export function seedWorkflowToolsIfMissing() {
   }
   if (coos.length) {
     console.info('[seed] agent_goal_* + workflow runners granted to %s COO agent(s)', coos.length);
+  }
+}
+
+export function seedObjectiveAgentToolsIfMissing() {
+  const db = getDb();
+  const insert = db.prepare(`INSERT OR IGNORE INTO content_tools_meta (name,display_name,endpoint,method,purpose,model_used,enabled,is_builtin) VALUES(?,?,?,?,?,?,?,?)`);
+  const update = db.prepare(`UPDATE content_tools_meta SET display_name=?,endpoint=?,method=?,purpose=?,model_used=?,enabled=?,is_builtin=? WHERE name=?`);
+  for (const tool of OBJECTIVE_AGENT_TOOLS) {
+    insert.run(tool.name, tool.display_name, tool.endpoint, tool.method, tool.purpose, tool.model_used, tool.enabled, tool.is_builtin);
+    update.run(tool.display_name, tool.endpoint, tool.method, tool.purpose, tool.model_used, tool.enabled, tool.is_builtin, tool.name);
   }
 }
 
