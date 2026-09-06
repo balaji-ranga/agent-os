@@ -271,3 +271,10 @@ Run the reference company through deterministic fixtures and a bounded live tria
 ## Definition of spectacular
 
 The demo succeeds when the CEO can provide the outcome once, approve a clear operating contract, and then manage by exception. The next-morning report must be generated from durable records—not narrative inference—and every number must be inspectable. A viewer should see objective alignment, governed execution, company systems of record, evidence, decisions, cost and learning in one coherent loop without opening Workflow Builder.
+# Measurement object catalogue and cross-system rules
+
+The Measurement Registry does not treat an attribute name as an arbitrary text label. A supported attribute is a canonical mapping with four parts: measurement source, provider object, registry attribute ID, and provider response path. For example, the Gmail connector maps `gmail.sender` to `gmail.message → sender`; the Web Crawler MCP maps `web.page_domain` to `web.crawl → pages[].domain`; CRM maps `crm.opportunity_amount` to `crm.opportunity → amount`; and ERP maps `erp.grand_total` to `erp.sales_invoice → grand_total`.
+
+Administrators select these fields from the platform catalogue. The backend rejects a field that is not in the selected object's catalogue. Platform baseline objects and formulas are read-only. A company formula may reference only registered attributes and supported aggregate functions.
+
+The reference cross-system rule, **Evidence-backed invoiced opportunity rate**, demonstrates a governed mapping across Web Crawler MCP, Gmail, CRM, and ERP. It correlates crawl evidence by company domain, Gmail evidence by contact email, won CRM opportunities by opportunity ID, and submitted ERP invoices through a configured `crm_opportunity_id` field. Registry validation proves that its objects, fields, filters, and correlation keys are supported; it does not claim that the rule is calculating a Key Result until a runtime measurement evaluator is connected.

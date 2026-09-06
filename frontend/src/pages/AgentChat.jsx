@@ -12,7 +12,6 @@ import { parseApiDate } from '../utils/formatDateTime.js';
 import { useChatVoice, ChatVoiceBar, ChatVoiceCallOverlay } from '../components/ChatVoiceControls.jsx';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import CompanyArchitecturePanel from '../components/CompanyArchitecturePanel.jsx';
-import ObjectivePulse from '../components/ObjectivePulse.jsx';
 import ChatActivityIndicator, { useChatActivity } from '../components/ChatActivityIndicator.jsx';
 
 const secondaryBtn = {
@@ -916,7 +915,6 @@ export default function AgentChat() {
       {isHome && (
         <div className="home-dashboard-with-arch">
         <CompanyArchitecturePanel variant="compact" />
-        <ObjectivePulse compact />
         <div className="home-dashboard-layout">
           <div className="home-primary-column">
             <div className="home-mobile-greet">

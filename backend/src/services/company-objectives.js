@@ -24,7 +24,7 @@ const FORMULA_EXPRESSIONS = {
 };
 const formula = (id, label = null, description = null, expression = null) => { const common = COMMON_FORMULAS[id]; return { id, label: label || common?.[1] || id, expression: expression || FORMULA_EXPRESSIONS[id] || id, description: description || common?.[2] || '' }; };
 
-const attribute = (id, label, dataType, description) => ({ id, label, data_type: dataType, description });
+const attribute = (id, label, dataType, description, objectId = '', path = '') => ({ id, label, data_type: dataType, description, object_id: objectId, path: path || id });
 const SOURCE_ATTRIBUTES = {
   flolah_crm: [attribute('record_id','Record ID','string','Stable CRM record identifier'),attribute('opportunity.amount','Opportunity amount','currency','Opportunity amount in company currency'),attribute('opportunity.probability','Opportunity probability','decimal','Probability from 0 to 1'),attribute('converted_count','Converted records','integer','Records converted in the objective window'),attribute('eligible_count','Eligible records','integer','Records eligible for conversion'),attribute('started_at','Started at','datetime','Lifecycle start time'),attribute('completed_at','Completed at','datetime','Lifecycle completion time')],
   flolah_erp: [attribute('invoice_id','Invoice ID','string','Posted invoice identifier'),attribute('posted_revenue','Posted revenue','currency','Recognised posted revenue'),attribute('posted_expense','Posted expense','currency','Posted expense amount'),attribute('revenue','Revenue','currency','Revenue used for margin calculation'),attribute('direct_cost','Direct cost','currency','Direct cost used for margin calculation'),attribute('paid_value','Paid value','currency','Value collected'),attribute('due_value','Due value','currency','Value due'),attribute('value','Numeric value','number','Configured ERP numeric measure')],
@@ -34,12 +34,29 @@ const SOURCE_ATTRIBUTES = {
   tasks: [attribute('record_id','Task ID','string','Task identifier'),attribute('completed_count','Completed tasks','integer','Completed tasks'),attribute('eligible_count','Eligible tasks','integer','Eligible tasks'),attribute('overdue_count','Overdue tasks','integer','Unfinished tasks past due'),attribute('started_at','Started at','datetime','Task start'),attribute('completed_at','Completed at','datetime','Task completion')],
   knowledge: [attribute('document_id','Document ID','string','Owner-scoped document identifier'),attribute('indexed_count','Indexed documents','integer','Documents available to retrieval'),attribute('sufficient_evidence_queries','Supported queries','integer','Queries with sufficient evidence'),attribute('all_queries','All queries','integer','All evaluated retrieval queries'),attribute('evidence_at','Evidence timestamp','datetime','Evidence creation or refresh time')],
   agents: [attribute('activity_id','Activity ID','string','Agent activity identifier'),attribute('successful_count','Successful activities','integer','Successful completed activities'),attribute('completed_count','Completed activities','integer','Completed activities'),attribute('failed_count','Failed activities','integer','Failed activities'),attribute('started_at','Started at','datetime','Activity start'),attribute('completed_at','Completed at','datetime','Activity completion')],
-  communications: [attribute('sent_count','Sent count','integer','Receipt-backed sends'),attribute('reply_count','Reply count','integer','Correlated replies'),attribute('positive_reply_count','Positive replies','integer','Positively classified replies'),attribute('classified_reply_count','Classified replies','integer','All classified replies'),attribute('pending_approval_count','Pending approvals','integer','External actions awaiting approval')],
+  communications: [attribute('sent_count','Sent count','integer','Receipt-backed sends'),attribute('reply_count','Reply count','integer','Correlated replies'),attribute('positive_reply_count','Positive replies','integer','Positively classified replies'),attribute('classified_reply_count','Classified replies','integer','All classified replies'),attribute('pending_approval_count','Pending approvals','integer','External actions awaiting approval'),attribute('gmail.message_id','Gmail message ID','string','Normalized Gmail message identifier','gmail.message','message_id'),attribute('gmail.thread_id','Gmail thread ID','string','Normalized Gmail thread identifier','gmail.message','thread_id'),attribute('gmail.sender','Gmail sender','string','Normalized sender/from address','gmail.message','sender'),attribute('gmail.timestamp','Gmail timestamp','datetime','Normalized Gmail message timestamp','gmail.message','timestamp'),attribute('gmail.labels','Gmail labels','string','Normalized Gmail label collection','gmail.message','labels')],
   llmops: [attribute('cost','Cost','currency','Model and tool cost'),attribute('input_tokens','Input tokens','integer','Input token usage'),attribute('output_tokens','Output tokens','integer','Output token usage'),attribute('failed_count','Failed calls','integer','Failed completed calls'),attribute('completed_count','Completed calls','integer','Completed calls'),attribute('duration_ms','Duration','duration_ms','Execution duration in milliseconds')],
   events: [attribute('record_id','Event ID','string','Registered event identifier'),attribute('value','Value','number','Configured numeric event value'),attribute('occurred_at','Occurred at','datetime','Event occurrence time'),attribute('baseline_value','Baseline value','number','Value at the measurement baseline'),attribute('matching_count','Matching count','integer','Events matching configured filters'),attribute('eligible_count','Eligible count','integer','Eligible events')],
-  custom_api: [attribute('record_id','Record ID','string','Adapter-provided record identifier'),attribute('value','Value','number','Adapter-provided numeric value'),attribute('occurred_at','Occurred at','datetime','Adapter-provided occurrence time'),attribute('baseline_value','Baseline value','number','Adapter-provided baseline'),attribute('matching_count','Matching count','integer','Records matching adapter filters'),attribute('eligible_count','Eligible count','integer','Eligible adapter records')],
+  custom_api: [attribute('record_id','Record ID','string','Adapter-provided record identifier'),attribute('value','Value','number','Adapter-provided numeric value'),attribute('occurred_at','Occurred at','datetime','Adapter-provided occurrence time'),attribute('baseline_value','Baseline value','number','Adapter-provided baseline'),attribute('matching_count','Matching count','integer','Records matching adapter filters'),attribute('eligible_count','Eligible count','integer','Eligible adapter records'),attribute('web.page_url','Crawled page URL','string','Canonical URL returned in pages','web.crawl','pages[].url'),attribute('web.page_domain','Crawled page domain','string','Normalized domain derived from page URL','web.crawl','pages[].domain'),attribute('web.match_phrase','Matched phrase','string','Phrase returned in matches','web.crawl','matches[].phrase'),attribute('web.match_count','Matched page count','integer','Number of matching crawl results','web.crawl','stats.match_count')],
   documents: [attribute('document_id','Document ID','string','Evidence document identifier'),attribute('record_id','Record ID','string','Evidence record identifier'),attribute('value','Extracted value','number','Validated value extracted from evidence'),attribute('occurred_at','Evidence time','datetime','Evidence timestamp'),attribute('matching_count','Matching count','integer','Matching evidence records'),attribute('eligible_count','Eligible count','integer','Eligible evidence records')],
   manual: [attribute('record_id','Attestation ID','string','Human attestation identifier'),attribute('value','Attested value','number','Human-attested numeric value'),attribute('occurred_at','Attested at','datetime','Attestation time'),attribute('baseline_value','Baseline value','number','Attested baseline'),attribute('matching_count','Matching count','integer','Matching attestations'),attribute('eligible_count','Eligible count','integer','Eligible attestations')],
+};
+const PLATFORM_OBJECTS = {
+  flolah_crm: [{ id: 'crm.opportunity', label: 'CRM Opportunity', provider_object: 'Twenty Opportunity', attributes: [attribute('crm.opportunity_id','Opportunity ID','string','Twenty opportunity identifier','crm.opportunity','id'),attribute('crm.opportunity_name','Opportunity name','string','Twenty opportunity name','crm.opportunity','name'),attribute('crm.opportunity_amount','Opportunity amount','currency','Twenty opportunity amount','crm.opportunity','amount'),attribute('crm.opportunity_probability','Opportunity probability','decimal','Configured probability','crm.opportunity','probability'),attribute('crm.opportunity_stage','Opportunity stage','string','Twenty opportunity stage','crm.opportunity','stage'),attribute('crm.company_id','Company ID','string','Linked Twenty company identifier','crm.opportunity','companyId'),attribute('crm.contact_id','Point of contact ID','string','Linked Twenty person identifier','crm.opportunity','pointOfContactId'),attribute('crm.close_date','Close date','date','Expected close date','crm.opportunity','closeDate')] }],
+  flolah_erp: [{ id: 'erp.sales_invoice', label: 'ERP Sales Invoice', provider_object: 'ERPNext Sales Invoice', attributes: [attribute('erp.invoice_id','Invoice ID','string','ERPNext document name','erp.sales_invoice','name'),attribute('erp.customer','Customer','string','Invoice customer','erp.sales_invoice','customer'),attribute('erp.grand_total','Grand total','currency','Invoice grand total','erp.sales_invoice','grand_total'),attribute('erp.outstanding_amount','Outstanding amount','currency','Unpaid invoice amount','erp.sales_invoice','outstanding_amount'),attribute('erp.status','Invoice status','string','ERPNext invoice status','erp.sales_invoice','status'),attribute('erp.docstatus','Document status','integer','0 draft, 1 submitted, 2 cancelled','erp.sales_invoice','docstatus'),attribute('erp.posting_date','Posting date','date','Invoice posting date','erp.sales_invoice','posting_date'),attribute('erp.crm_opportunity_id','CRM opportunity link','string','Configured correlation field linking the invoice to CRM','erp.sales_invoice','crm_opportunity_id')] }],
+  communications: [{ id: 'gmail.message', label: 'Gmail Message', provider_object: 'OpenConnector gmail.fetch_emails normalized message', attributes: SOURCE_ATTRIBUTES.communications.filter((item) => item.object_id === 'gmail.message') }],
+  custom_api: [{ id: 'web.crawl', label: 'Web Crawler Result', provider_object: 'web_scrape MCP / Crawlee result', attributes: SOURCE_ATTRIBUTES.custom_api.filter((item) => item.object_id === 'web.crawl') }],
+};
+const EVIDENCE_BACKED_INVOICE_RULE = {
+  kind: 'composite_rule', id: 'evidence_backed_invoiced_opportunity_rate', label: 'Evidence-backed invoiced opportunity rate',
+  description: 'Percentage of won CRM opportunities with retained web evidence, a correlated Gmail message, and a submitted linked ERP Sales Invoice.',
+  expression: '100 * evidence_backed_invoiced_opportunities / eligible_won_opportunities',
+  mappings: [
+    { source_id: 'custom_api', object_id: 'web.crawl', attribute_id: 'web.page_domain', correlation_key: 'company_domain' },
+    { source_id: 'communications', object_id: 'gmail.message', attribute_id: 'gmail.sender', correlation_key: 'contact_email' },
+    { source_id: 'flolah_crm', object_id: 'crm.opportunity', attribute_id: 'crm.opportunity_id', correlation_key: 'opportunity_id', filters: { 'crm.opportunity_stage': 'WON' } },
+    { source_id: 'flolah_erp', object_id: 'erp.sales_invoice', attribute_id: 'erp.crm_opportunity_id', correlation_key: 'opportunity_id', filters: { 'erp.docstatus': 1 } },
+  ],
 };
 const ALLOWED_FORMULA_FUNCTIONS = new Set(['sum','avg','count','latest','min','max','now']);
 export function validateFormulaExpression(source, expression) {
@@ -53,6 +70,25 @@ export function validateFormulaExpression(source, expression) {
   const ignored = new Set([...functionNames, 'true', 'false', 'null']);
   const unknownAttributes = [...new Set(tokens.filter((token) => !ignored.has(token) && !attributes.has(token)))];
   return { valid: !unsupportedFunctions.length && !unknownAttributes.length, unknown_attributes: unknownAttributes, unsupported_functions: unsupportedFunctions, error: unsupportedFunctions.length || unknownAttributes.length ? 'Formula references unsupported functions or attributes' : null };
+}
+
+function validateCompositeRule(sources, rule) {
+  const errors = [];
+  const mappings = Array.isArray(rule?.mappings) ? rule.mappings : [];
+  if (mappings.length < 2) errors.push('A composite rule requires at least two source mappings');
+  for (const mapping of mappings) {
+    const source = sources.find((item) => item.id === mapping.source_id);
+    const object = source?.objects?.find((item) => item.id === mapping.object_id);
+    const field = object?.attributes?.find((item) => item.id === mapping.attribute_id);
+    if (!source) errors.push(`Unknown source ${mapping.source_id}`);
+    else if (!object) errors.push(`Unknown object ${mapping.source_id}.${mapping.object_id}`);
+    else if (!field) errors.push(`Unknown attribute ${mapping.source_id}.${mapping.object_id}.${mapping.attribute_id}`);
+    for (const filterAttribute of Object.keys(mapping.filters || {})) {
+      if (!object?.attributes?.some((item) => item.id === filterAttribute)) errors.push(`Unknown filter attribute ${mapping.source_id}.${mapping.object_id}.${filterAttribute}`);
+    }
+    if (!text(mapping.correlation_key, 120)) errors.push(`Missing correlation key for ${mapping.attribute_id || mapping.object_id || mapping.source_id}`);
+  }
+  return { schema_valid: errors.length === 0, errors, status: errors.length ? 'invalid' : 'schema_validated', evaluator_connected: false };
 }
 
 export function measurementRegistry(ownerUserId = null) {
@@ -74,11 +110,12 @@ export function measurementRegistry(ownerUserId = null) {
   ];
   for (const source of sources) {
     source.attributes = SOURCE_ATTRIBUTES[source.id] || [];
+    source.objects = PLATFORM_OBJECTS[source.id] || [];
     source.formulas = source.formulas.map((item) => ({ ...item, validation: validateFormulaExpression(source, item.expression) }));
     const invalid = source.formulas.find((item) => !item.validation.valid);
     if (invalid) throw new Error(`Invalid platform formula ${source.id}.${invalid.id}: ${invalid.validation.unknown_attributes.join(', ') || invalid.validation.unsupported_functions.join(', ')}`);
   }
-  if (!ownerUserId) return { version: 1, scope: 'system', sources };
+  if (!ownerUserId) return { version: 2, scope: 'system', sources, rule_templates: [{ ...EVIDENCE_BACKED_INVOICE_RULE, validation: validateCompositeRule(sources, EVIDENCE_BACKED_INVOICE_RULE) }] };
   ensureCompanyObjectiveTables();
   const safeAll = (sql, ...params) => { try { return db().prepare(sql).all(...params); } catch { return []; } };
   const safeGet = (sql, ...params) => { try { return db().prepare(sql).get(...params) || {}; } catch { return {}; } };
@@ -98,42 +135,65 @@ export function measurementRegistry(ownerUserId = null) {
     business_events: [{ id: 'business_events:owner', label: 'Objective evidence ledger' }], manual: [{ id: 'manual:owner', label: 'Human attestation' }],
   };
   const overrides = safeAll('SELECT * FROM company_measurement_registry WHERE owner_user_id=? ORDER BY kind,label', ownerUserId);
-  const customSources = overrides.filter((row) => row.kind === 'source').map((row) => { const attributes = overrides.filter((attributeRow) => attributeRow.kind === 'attribute' && attributeRow.source_id === row.id && attributeRow.enabled).map((attributeRow) => attribute(attributeRow.id, attributeRow.label, attributeRow.data_type || 'number', attributeRow.description)); return { id: row.id, label: row.label, category: row.category || 'Company configured', provider: row.provider || 'Company configured', availability: row.enabled ? 'available' : 'disabled', attributes, formulas: overrides.filter((formulaRow) => formulaRow.kind === 'formula' && formulaRow.source_id === row.id && formulaRow.enabled).map((formulaRow) => { const item = { ...formula(formulaRow.id, formulaRow.label, formulaRow.description, formulaRow.expression), company_managed: true }; return { ...item, validation: validateFormulaExpression({ attributes }, item.expression) }; }), instances: row.enabled ? [{ id: `${row.id}:company`, label: row.label }] : [], company_managed: true }; });
+  const customSources = overrides.filter((row) => row.kind === 'source').map((row) => { const attributes = overrides.filter((attributeRow) => attributeRow.kind === 'attribute' && attributeRow.source_id === row.id && attributeRow.enabled).map((attributeRow) => attribute(attributeRow.id, attributeRow.label, attributeRow.data_type || 'number', attributeRow.description, attributeRow.object_id, attributeRow.mapping_path)); return { id: row.id, label: row.label, category: row.category || 'Company configured', provider: row.provider || 'Company configured', availability: row.enabled ? 'available' : 'disabled', attributes, objects: [], formulas: overrides.filter((formulaRow) => formulaRow.kind === 'formula' && formulaRow.source_id === row.id && formulaRow.enabled).map((formulaRow) => { const item = { ...formula(formulaRow.id, formulaRow.label, formulaRow.description, formulaRow.expression), company_managed: true }; return { ...item, validation: validateFormulaExpression({ attributes }, item.expression) }; }), instances: row.enabled ? [{ id: `${row.id}:company`, label: row.label }] : [], company_managed: true }; });
   const sourceOverrides = new Map(overrides.filter((row) => row.kind === 'source_override').map((row) => [row.source_id, row]));
-  return { version: 1, scope: 'company', owner_user_id: ownerUserId, sources: [...sources.map((source) => {
+  const mergedSources = [...sources.map((source) => {
     const bound = instances[source.id] || [];
     const nativeWithoutBinding = ['goal_plans','tasks','knowledge','llmops','documents','business_events','manual'].includes(source.id);
     const override = sourceOverrides.get(source.id);
-    const companyAttributes = overrides.filter((row) => row.kind === 'attribute' && row.source_id === source.id && row.enabled).map((row) => ({ ...attribute(row.id, row.label, row.data_type || 'number', row.description), company_managed: true }));
+    const companyAttributes = overrides.filter((row) => row.kind === 'attribute' && row.source_id === source.id && row.enabled).map((row) => ({ ...attribute(row.id, row.label, row.data_type || 'number', row.description, row.object_id, row.mapping_path), company_managed: true }));
     const attributes = [...source.attributes, ...companyAttributes];
     const companyFormulas = overrides.filter((row) => row.kind === 'formula' && row.source_id === source.id && row.enabled).map((row) => { const item = { ...formula(row.id, row.label, row.description, row.expression), company_managed: true }; return { ...item, validation: validateFormulaExpression({ attributes }, item.expression) }; });
     return { ...source, label: override?.label || source.label, attributes, formulas: [...source.formulas, ...companyFormulas], enabled: override ? Boolean(override.enabled) : true, instances: bound, availability: override && !override.enabled ? 'disabled' : bound.length || nativeWithoutBinding ? 'available' : 'configuration_required', system_managed: true };
-  }), ...customSources] };
+  }), ...customSources];
+  const rules = overrides.filter((row) => row.kind === 'composite_rule' && row.enabled).map((row) => { const rule = { kind: row.kind, id: row.id, label: row.label, description: row.description, expression: row.expression, mappings: json(row.mapping_json, []), company_managed: true }; return { ...rule, validation: validateCompositeRule(mergedSources, rule) }; });
+  return { version: 2, scope: 'company', owner_user_id: ownerUserId, sources: mergedSources, rules, rule_templates: [{ ...EVIDENCE_BACKED_INVOICE_RULE, validation: validateCompositeRule(mergedSources, EVIDENCE_BACKED_INVOICE_RULE) }] };
 }
 
 export function upsertMeasurementRegistryEntry(ownerUserId, input = {}) {
   ensureCompanyObjectiveTables();
-  const kind = ['formula','attribute','source_override'].includes(input.kind) ? input.kind : 'source';
+  const kind = ['formula','attribute','source_override','composite_rule'].includes(input.kind) ? input.kind : 'source';
   const entryId = text(input.id, 120) || id(kind === 'formula' ? 'formula' : 'source');
-  if (!/^[a-zA-Z0-9:_-]+$/.test(entryId)) throw Object.assign(new Error('Registry id may contain only letters, numbers, colon, underscore and dash'), { status: 400 });
-  const label = text(input.label, 160);
+  if (!/^[a-zA-Z0-9:_.-]+$/.test(entryId)) throw Object.assign(new Error('Registry id may contain only letters, numbers, colon, dot, underscore and dash'), { status: 400 });
+  let label = text(input.label, 160);
   if (!label) throw Object.assign(new Error('Registry label is required'), { status: 400 });
   const sourceId = text(input.source_id, 120);
   if (['formula','attribute'].includes(kind) && !sourceId) throw Object.assign(new Error(`${kind === 'formula' ? 'Formula' : 'Attribute'} source is required`), { status: 400 });
+  let dataType = text(input.data_type, 40);
+  let description = text(input.description, 1000);
+  let objectId = text(input.object_id, 160);
+  let mappingPath = text(input.mapping_path, 300);
+  let mappings = [];
+  if (kind === 'attribute') {
+    const source = measurementRegistry(ownerUserId).sources.find((item) => item.id === sourceId);
+    const object = source?.objects?.find((item) => item.id === objectId);
+    const supported = object?.attributes?.find((item) => item.id === entryId);
+    if (!supported) throw Object.assign(new Error('Attribute is not present in the selected platform object catalogue. Import or discover the provider schema before using custom attributes.'), { status: 400 });
+    label = supported.label;
+    dataType = supported.data_type;
+    description = supported.description;
+    objectId = supported.object_id;
+    mappingPath = supported.path;
+  }
   if (kind === 'formula') {
     const source = measurementRegistry(ownerUserId).sources.find((item) => item.id === sourceId);
     if (!source) throw Object.assign(new Error('Formula source is not registered'), { status: 400 });
     const validation = validateFormulaExpression(source, input.expression);
     if (!validation.valid) throw Object.assign(new Error(`Unsupported formula reference: ${[...validation.unknown_attributes, ...validation.unsupported_functions].join(', ') || validation.error}`), { status: 400 });
   }
-  db().prepare(`INSERT INTO company_measurement_registry(id,owner_user_id,kind,source_id,label,category,provider,data_type,expression,description,enabled,updated_at)
-    VALUES(?,?,?,?,?,?,?,?,?,?,?,datetime('now')) ON CONFLICT(owner_user_id,kind,id) DO UPDATE SET source_id=excluded.source_id,label=excluded.label,category=excluded.category,provider=excluded.provider,data_type=excluded.data_type,expression=excluded.expression,description=excluded.description,enabled=excluded.enabled,updated_at=datetime('now')`).run(entryId, ownerUserId, kind, sourceId || null, label, text(input.category, 120), text(input.provider, 200), text(input.data_type, 40), text(input.expression, 1000), text(input.description, 1000), input.enabled === false ? 0 : 1);
+  if (kind === 'composite_rule') {
+    mappings = Array.isArray(input.mappings) ? input.mappings : [];
+    const validation = validateCompositeRule(measurementRegistry(ownerUserId).sources, { ...input, mappings });
+    if (!validation.schema_valid) throw Object.assign(new Error(`Invalid composite rule: ${validation.errors.join('; ')}`), { status: 400 });
+  }
+  db().prepare(`INSERT INTO company_measurement_registry(id,owner_user_id,kind,source_id,label,category,provider,data_type,object_id,mapping_path,mapping_json,expression,description,enabled,updated_at)
+    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now')) ON CONFLICT(owner_user_id,kind,id) DO UPDATE SET source_id=excluded.source_id,label=excluded.label,category=excluded.category,provider=excluded.provider,data_type=excluded.data_type,object_id=excluded.object_id,mapping_path=excluded.mapping_path,mapping_json=excluded.mapping_json,expression=excluded.expression,description=excluded.description,enabled=excluded.enabled,updated_at=datetime('now')`).run(entryId, ownerUserId, kind, sourceId || null, label, text(input.category, 120), text(input.provider, 200), dataType, objectId, mappingPath, JSON.stringify(mappings), text(input.expression, 1000), description, input.enabled === false ? 0 : 1);
   return measurementRegistry(ownerUserId);
 }
 
 export function deleteMeasurementRegistryEntry(ownerUserId, kind, entryId) {
   ensureCompanyObjectiveTables();
-  const safeKind = ['formula','attribute','source_override'].includes(kind) ? kind : 'source';
+  const safeKind = ['formula','attribute','source_override','composite_rule'].includes(kind) ? kind : 'source';
   db().prepare('DELETE FROM company_measurement_registry WHERE owner_user_id=? AND kind=? AND id=?').run(ownerUserId, safeKind, text(entryId, 120));
   if (safeKind === 'source') db().prepare("DELETE FROM company_measurement_registry WHERE owner_user_id=? AND kind IN ('formula','attribute') AND source_id=?").run(ownerUserId, text(entryId, 120));
   return measurementRegistry(ownerUserId);
@@ -243,6 +303,9 @@ export function ensureCompanyObjectiveTables() {
       category TEXT DEFAULT '',
       provider TEXT DEFAULT '',
       data_type TEXT DEFAULT '',
+      object_id TEXT DEFAULT '',
+      mapping_path TEXT DEFAULT '',
+      mapping_json TEXT DEFAULT '[]',
       expression TEXT DEFAULT '',
       description TEXT DEFAULT '',
       enabled INTEGER DEFAULT 1,
@@ -331,6 +394,9 @@ export function ensureCompanyObjectiveTables() {
   const registryColumns = db().prepare('PRAGMA table_info(company_measurement_registry)').all().map((column) => column.name);
   if (!registryColumns.includes('expression')) db().exec("ALTER TABLE company_measurement_registry ADD COLUMN expression TEXT DEFAULT ''");
   if (!registryColumns.includes('data_type')) db().exec("ALTER TABLE company_measurement_registry ADD COLUMN data_type TEXT DEFAULT ''");
+  if (!registryColumns.includes('object_id')) db().exec("ALTER TABLE company_measurement_registry ADD COLUMN object_id TEXT DEFAULT ''");
+  if (!registryColumns.includes('mapping_path')) db().exec("ALTER TABLE company_measurement_registry ADD COLUMN mapping_path TEXT DEFAULT ''");
+  if (!registryColumns.includes('mapping_json')) db().exec("ALTER TABLE company_measurement_registry ADD COLUMN mapping_json TEXT DEFAULT '[]'");
 }
 
 function scheduleSpec(cadenceValue) {
