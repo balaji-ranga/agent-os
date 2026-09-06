@@ -8,6 +8,8 @@ Documentation lives here so Cursor and humans can find it. **GitHub landing:** r
 |------|---------|
 | **PROJECT.md** | Full product map, CEO UI overview, API, DB scripts, project layout (moved from root README). |
 | **AI-COMPANY-OS.md** | **Canonical** category (AI Company OS), golden messaging layers, terminology (AI employee vs agent API), OS primitives, screen map, design rule for new features, Phase A–F roadmap. Refer for portal/website copy. |
+| **AI-REVENUE-COMPANY-OBJECTIVES-IMPLEMENTATION.md** | Flagship company-in-a-box plan: mission → monthly/quarterly/half-yearly/annual objectives → key results → initiatives → Goal Plans → evidence; Objective Studio/cockpit, existing Home/Digest integration, channels, revenue execution and delivery slices. |
+| **AI-REVENUE-COMPANY-DEMO-REFERENCE.md** | Canonical Northstar Growth Systems demo company and CEO user reference, ICP, aligned monthly/quarterly/half-yearly/annual objectives, measurable key results, daily briefing, demo script and acceptance gates. |
 | **PHASE-D-E-F-OPERATE.md** | Phase D Day 0 operating model + Day 1 autonomy install; Phase E harden; Phase F self-improve. |
 | **BUSINESS-CORE-WORKSPACE-PLAN.md** | Business Core (Twenty/ERPNext + optional profile), tenancy maps, prefab CRM/ERP agents, Home vs Workspace (`/work`), Phase 1–2; entitlements rules. **Validate Phase 1 before Phase 2.** Prefab packs: `backend/src/services/company-blueprints/standard/`. |
 | **AUTOMATED-PNL.md** | Company P&L: **estimated LLM $** (Efficiency LLMOps / price book) shipped; income events + ERP period close still design. |
