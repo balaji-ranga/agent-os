@@ -30,6 +30,9 @@ try {
 
   assert.equal(first.enabled_agents, 6);
   assert.equal(first.enabled_workflows, 6);
+  assert.equal(first.visible_workflows, 6);
+  assert.equal(first.workflow_definitions.length, 6);
+  assert.equal(second.visible_workflows, 6);
   assert.equal(first.config_kinds.length, 5);
   assert.equal(first.agents.filter((agent) => agent.created).length, 6);
   assert.equal(second.agents.filter((agent) => agent.created).length, 0);
@@ -39,6 +42,28 @@ try {
   assert.equal(getDb().prepare(
     `SELECT COUNT(*) count FROM agent_tool_grants g JOIN agents a ON a.id = g.agent_id WHERE a.owner_user_id = ? AND a.source_kind = 'ibkrnew'`
   ).get(owner.id).count, 0);
+  const visibleWorkflows = getDb().prepare(
+    `SELECT id, name, status, trigger_modes, draft_graph_json, published_graph_json, variables_json
+       FROM agent_workflow_definitions
+      WHERE owner_user_id = ? AND id LIKE 'IBKRNew%'
+      ORDER BY id`
+  ).all(owner.id);
+  assert.equal(visibleWorkflows.length, 6);
+  for (const workflow of visibleWorkflows) {
+    assert.equal(workflow.status, 'published');
+    assert.equal(workflow.trigger_modes, 'event');
+    const draft = JSON.parse(workflow.draft_graph_json);
+    const published = JSON.parse(workflow.published_graph_json);
+    const variables = JSON.parse(workflow.variables_json);
+    assert.equal(draft.nodes.length, 1);
+    assert.equal(published.nodes.length, 1);
+    assert.equal(published.nodes[0].type, 'trigger');
+    assert.equal(variables.ibkrnew_managed, true);
+    assert.equal(variables.ibkrnew_execution_owner, 'ibkrnew_event_engine');
+    assert.ok(variables.ibkrnew_agent_id);
+    assert.ok(Array.isArray(variables.ibkrnew_subscriptions));
+    assert.ok(variables.ibkrnew_subscriptions.length > 0);
+  }
   assert.deepEqual(getUiNavHidden(owner.id), ['workflows']);
   assert.equal(first.bridge_created, false);
   assert.equal(first.execution_enabled, false);

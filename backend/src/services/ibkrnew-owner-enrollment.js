@@ -1,5 +1,11 @@
 import { createHash } from 'node:crypto';
 import { getDb } from '../db/schema.js';
+import {
+  createDefinition,
+  getDefinition,
+  publishDefinition,
+  updateDraft,
+} from './agent-workflow-store.js';
 import { createFullAgent } from './create-full-agent.js';
 import {
   getIbkrNewAgentTemplateBlueprints,
@@ -30,6 +36,71 @@ function logicalAgentId(templateBaseId, ownerUserId) {
     .replace(/^-+|-+$/g, '')
     .toLowerCase();
   return `${base}-${ownerSuffix(ownerUserId)}`;
+}
+
+function logicalWorkflowId(workflowId, ownerUserId) {
+  return `${String(workflowId || '').trim()}-${ownerSuffix(ownerUserId)}`;
+}
+
+function workflowProjectionGraph(workflow) {
+  return {
+    nodes: [
+      {
+        id: 'trigger',
+        type: 'trigger',
+        position: { x: 80, y: 120 },
+        data: {
+          label: `IBKRNew events (${workflow.subscriptions.length})`,
+          triggerModes: ['event'],
+          subscriptions: [...workflow.subscriptions],
+          outputs: [
+            { id: 'text', label: 'Event payload' },
+            { id: 'trigger_input', label: 'Event payload' },
+          ],
+        },
+      },
+    ],
+    edges: [],
+    viewport: { x: 0, y: 0, zoom: 1 },
+  };
+}
+
+function ensureVisibleWorkflowDefinition(ownerUserId, workflow, agent) {
+  const definitionId = logicalWorkflowId(workflow.workflow_id, ownerUserId);
+  const actor = { id: 'system', name: 'IBKRNew owner enrollment' };
+  const patch = {
+    name: workflow.workflow_id,
+    description:
+      `${workflow.responsibility} Assigned agent: ${workflow.agent_name}. ` +
+      `Subscriptions: ${workflow.subscriptions.join(', ')}. ` +
+      'System-managed catalog view only; broker execution remains in the fail-closed IBKRNew event engine.',
+    graph: workflowProjectionGraph(workflow),
+    trigger_modes: ['event'],
+    variables: {
+      ibkrnew_managed: true,
+      ibkrnew_workflow_id: workflow.workflow_id,
+      ibkrnew_agent_id: agent.id,
+      ibkrnew_agent_name: workflow.agent_name,
+      ibkrnew_subscriptions: [...workflow.subscriptions],
+      ibkrnew_execution_owner: 'ibkrnew_event_engine',
+    },
+  };
+  const existing = getDefinition(definitionId);
+  if (existing && existing.owner_user_id !== ownerUserId) {
+    throw new Error(`IBKRNew workflow id collision: ${definitionId}`);
+  }
+  if (existing) updateDraft(definitionId, ownerUserId, patch, actor);
+  else createDefinition({ ...patch, id: definitionId, ownerUserId, actor });
+  const published = publishDefinition(definitionId, ownerUserId, actor);
+  return {
+    id: published.id,
+    name: published.name,
+    status: published.status,
+    trigger_modes: published.trigger_modes,
+    agent_id: agent.id,
+    agent_name: workflow.agent_name,
+    subscriptions: [...workflow.subscriptions],
+  };
 }
 
 function findOwnerCoo(db, ownerUserId) {
@@ -74,6 +145,7 @@ export async function enrollIbkrNewOwner(ownerUserId) {
   const templates = getIbkrNewAgentTemplateBlueprints();
   const cooId = findOwnerCoo(db, ownerId);
   const provisioned = [];
+  const workflowDefinitions = [];
 
   for (const template of templates) {
     const workflow = workflowsByAgent.get(template.agent_name);
@@ -107,6 +179,7 @@ export async function enrollIbkrNewOwner(ownerUserId) {
     const ensured = ensureTenantOpenClawAgent(agent, ownerId);
     setAgentToolGrants(agent, []);
     forcePushTemplateDocs(template.template_base_id, ensured.workspacePath, { forceIdentity: true });
+    workflowDefinitions.push(ensureVisibleWorkflowDefinition(ownerId, workflow, agent));
     provisioned.push({
       id: agent.id,
       name: agent.name,
@@ -132,8 +205,17 @@ export async function enrollIbkrNewOwner(ownerUserId) {
        JOIN agents a ON a.id = ua.agent_id
       WHERE ua.user_id = ? AND ua.enabled = 1 AND a.owner_user_id = ? AND a.source_kind = 'ibkrnew'`
   ).get(ownerId, ownerId).count;
+  const visibleWorkflowCount = workflowDefinitions.filter(
+    (workflow) => workflow.status === 'published' && workflow.trigger_modes.includes('event')
+  ).length;
 
-  if (configKinds.length !== 5 || reactionCount !== 6 || grantCount !== 6 || provisioned.length !== 6) {
+  if (
+    configKinds.length !== 5 ||
+    reactionCount !== 6 ||
+    grantCount !== 6 ||
+    provisioned.length !== 6 ||
+    visibleWorkflowCount !== 6
+  ) {
     throw new Error('IBKRNew enrollment verification failed');
   }
 
@@ -143,6 +225,8 @@ export async function enrollIbkrNewOwner(ownerUserId) {
     environment: 'paper',
     config_kinds: configKinds,
     enabled_workflows: reactionCount,
+    visible_workflows: visibleWorkflowCount,
+    workflow_definitions: workflowDefinitions,
     enabled_agents: grantCount,
     agents: provisioned,
     navigation_visible: true,
