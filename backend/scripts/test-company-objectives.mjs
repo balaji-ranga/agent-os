@@ -62,7 +62,9 @@ try {
   getDb().prepare("UPDATE company_key_results SET source_type='goal_plans',formula='completion_rate',target=100 WHERE id=?").run(hierarchy.key_results[2].id);
   const executionMeasured = svc.getObjective('ceo-demo-northstar', q4.id);
   assert.equal(executionMeasured.key_results[1].current_value, 4, 'Goal Plan count is projected autonomously into its KR');
-  assert.equal(executionMeasured.key_results[2].current_value, 100, 'Goal Plan completion formula calculates from terminal runs');
+  assert.equal(executionMeasured.key_results[2].current_value, 100, 'Goal Plan completion formula calculates from successful eligible runs');
+  getDb().prepare("UPDATE agent_goal_runs SET status='failed' WHERE id='agr-scheduled-3'").run();
+  assert.equal(svc.getObjective('ceo-demo-northstar', q4.id).key_results[2].current_value, 75, 'failed runs reduce completion rate while remaining traceable evidence');
   assert.equal(svc.listRevenueEvidence('ceo-demo-northstar', q4.id, { recordType: 'goal_run' }).total, 4, 'each associated run creates one provenance-backed evidence record');
   assert.equal(svc.listObjectiveVersions('ceo-demo-northstar', q4.id).length, 2);
 

@@ -700,7 +700,7 @@ function syncObjectiveExecutionEvidence(ownerUserId, objectiveId) {
   const durations = terminalRuns.map((run) => Date.parse(run.completed_at) - Date.parse(run.created_at)).filter((value) => Number.isFinite(value) && value >= 0);
   const values = {
     count: runs.length,
-    completion_rate: runs.length ? (100 * terminalRuns.length) / runs.length : 0,
+    completion_rate: runs.length ? (100 * successfulRuns.length) / runs.length : 0,
     success_rate: terminalRuns.length ? (100 * successfulRuns.length) / terminalRuns.length : 0,
     error_rate: terminalRuns.length ? (100 * failedRuns.length) / terminalRuns.length : 0,
     cycle_time: durations.length ? durations.reduce((sum, value) => sum + value, 0) / durations.length : 0,
