@@ -19,9 +19,40 @@ const COMMON_FORMULAS = {
   cycle_time: ['cycle_time','Cycle time','Average elapsed time from start to completion'], error_rate: ['error_rate','Error rate','Failed executions divided by all completed executions'],
 };
 const FORMULA_EXPRESSIONS = {
-  count: 'count(distinct record_id)', sum: 'sum(value)', average: 'avg(value)', latest_value: 'latest(value, occurred_at)', change: 'latest(value) - baseline(value)', percentage: '100 * matching_count / eligible_count', completion_rate: '100 * completed_count / eligible_count', success_rate: '100 * successful_count / completed_count', cycle_time: 'avg(completed_at - started_at)', error_rate: '100 * failed_count / completed_count', weighted_pipeline: 'sum(opportunity.amount * opportunity.probability)', pipeline_value: 'sum(opportunity.amount)', conversion_rate: '100 * converted_count / eligible_count', revenue: 'sum(posted_revenue)', expenses: 'sum(posted_expense)', gross_margin: '100 * (revenue - direct_cost) / revenue', collection_rate: '100 * paid_value / due_value', cost: 'sum(cost)', tokens: 'sum(input_tokens + output_tokens)', latency: 'avg(duration_ms)', freshness: 'now() - max(evidence_at)', positive_response_rate: '100 * positive_reply_count / classified_reply_count', retrieval_success_rate: '100 * sufficient_evidence_queries / all_queries',
+  count: 'count(record_id)', sum: 'sum(value)', average: 'avg(value)', latest_value: 'latest(value, occurred_at)', change: 'latest(value) - baseline_value', percentage: '100 * matching_count / eligible_count', completion_rate: '100 * completed_count / eligible_count', success_rate: '100 * successful_count / completed_count', cycle_time: 'avg(completed_at - started_at)', error_rate: '100 * failed_count / completed_count', weighted_pipeline: 'sum(opportunity.amount * opportunity.probability)', pipeline_value: 'sum(opportunity.amount)', conversion_rate: '100 * converted_count / eligible_count', revenue: 'sum(posted_revenue)', expenses: 'sum(posted_expense)', gross_margin: '100 * (revenue - direct_cost) / revenue', invoice_count: 'count(invoice_id)', collection_rate: '100 * paid_value / due_value', researched: 'researched_count', qualified: 'qualified_count', drafts: 'draft_count', positive_responses: 'positive_response_count', evidence_count: 'count(evidence_id)', overdue_count: 'overdue_count', document_count: 'count(document_id)', indexed_count: 'indexed_count', activity_count: 'count(activity_id)', sent_count: 'sent_count', reply_count: 'reply_count', approval_queue: 'pending_approval_count', cost: 'sum(cost)', tokens: 'sum(input_tokens + output_tokens)', latency: 'avg(duration_ms)', freshness: 'now() - max(evidence_at)', positive_response_rate: '100 * positive_reply_count / classified_reply_count', retrieval_success_rate: '100 * sufficient_evidence_queries / all_queries',
 };
 const formula = (id, label = null, description = null, expression = null) => { const common = COMMON_FORMULAS[id]; return { id, label: label || common?.[1] || id, expression: expression || FORMULA_EXPRESSIONS[id] || id, description: description || common?.[2] || '' }; };
+
+const attribute = (id, label, dataType, description) => ({ id, label, data_type: dataType, description });
+const SOURCE_ATTRIBUTES = {
+  flolah_crm: [attribute('record_id','Record ID','string','Stable CRM record identifier'),attribute('opportunity.amount','Opportunity amount','currency','Opportunity amount in company currency'),attribute('opportunity.probability','Opportunity probability','decimal','Probability from 0 to 1'),attribute('converted_count','Converted records','integer','Records converted in the objective window'),attribute('eligible_count','Eligible records','integer','Records eligible for conversion'),attribute('started_at','Started at','datetime','Lifecycle start time'),attribute('completed_at','Completed at','datetime','Lifecycle completion time')],
+  flolah_erp: [attribute('invoice_id','Invoice ID','string','Posted invoice identifier'),attribute('posted_revenue','Posted revenue','currency','Recognised posted revenue'),attribute('posted_expense','Posted expense','currency','Posted expense amount'),attribute('revenue','Revenue','currency','Revenue used for margin calculation'),attribute('direct_cost','Direct cost','currency','Direct cost used for margin calculation'),attribute('paid_value','Paid value','currency','Value collected'),attribute('due_value','Due value','currency','Value due'),attribute('value','Numeric value','number','Configured ERP numeric measure')],
+  business_events: [attribute('researched_count','Researched count','integer','Unique researched accounts'),attribute('qualified_count','Qualified count','integer','Evidence-qualified accounts'),attribute('draft_count','Draft count','integer','Evidence-backed draft artifacts'),attribute('positive_response_count','Positive response count','integer','Positively classified responses'),attribute('opportunity.amount','Opportunity amount','currency','Accepted opportunity amount'),attribute('opportunity.probability','Opportunity probability','decimal','Accepted probability from 0 to 1'),attribute('cost','Recorded cost','currency','Evidence-linked cost')],
+  goal_plans: [attribute('record_id','Goal Plan ID','string','Goal Plan run identifier'),attribute('completed_count','Completed runs','integer','Completed eligible runs'),attribute('eligible_count','Eligible runs','integer','Runs in the measurement window'),attribute('successful_count','Successful runs','integer','Successfully completed runs'),attribute('started_at','Started at','datetime','Run start'),attribute('completed_at','Completed at','datetime','Run completion'),attribute('evidence_id','Evidence ID','string','Durable evidence identifier')],
+  workflows: [attribute('record_id','Workflow run ID','string','Workflow run identifier'),attribute('completed_count','Completed runs','integer','Completed workflow runs'),attribute('eligible_count','Eligible runs','integer','Eligible workflow runs'),attribute('successful_count','Successful runs','integer','Successful workflow runs'),attribute('failed_count','Failed runs','integer','Failed workflow runs'),attribute('started_at','Started at','datetime','Run start'),attribute('completed_at','Completed at','datetime','Run completion')],
+  tasks: [attribute('record_id','Task ID','string','Task identifier'),attribute('completed_count','Completed tasks','integer','Completed tasks'),attribute('eligible_count','Eligible tasks','integer','Eligible tasks'),attribute('overdue_count','Overdue tasks','integer','Unfinished tasks past due'),attribute('started_at','Started at','datetime','Task start'),attribute('completed_at','Completed at','datetime','Task completion')],
+  knowledge: [attribute('document_id','Document ID','string','Owner-scoped document identifier'),attribute('indexed_count','Indexed documents','integer','Documents available to retrieval'),attribute('sufficient_evidence_queries','Supported queries','integer','Queries with sufficient evidence'),attribute('all_queries','All queries','integer','All evaluated retrieval queries'),attribute('evidence_at','Evidence timestamp','datetime','Evidence creation or refresh time')],
+  agents: [attribute('activity_id','Activity ID','string','Agent activity identifier'),attribute('successful_count','Successful activities','integer','Successful completed activities'),attribute('completed_count','Completed activities','integer','Completed activities'),attribute('failed_count','Failed activities','integer','Failed activities'),attribute('started_at','Started at','datetime','Activity start'),attribute('completed_at','Completed at','datetime','Activity completion')],
+  communications: [attribute('sent_count','Sent count','integer','Receipt-backed sends'),attribute('reply_count','Reply count','integer','Correlated replies'),attribute('positive_reply_count','Positive replies','integer','Positively classified replies'),attribute('classified_reply_count','Classified replies','integer','All classified replies'),attribute('pending_approval_count','Pending approvals','integer','External actions awaiting approval')],
+  llmops: [attribute('cost','Cost','currency','Model and tool cost'),attribute('input_tokens','Input tokens','integer','Input token usage'),attribute('output_tokens','Output tokens','integer','Output token usage'),attribute('failed_count','Failed calls','integer','Failed completed calls'),attribute('completed_count','Completed calls','integer','Completed calls'),attribute('duration_ms','Duration','duration_ms','Execution duration in milliseconds')],
+  events: [attribute('record_id','Event ID','string','Registered event identifier'),attribute('value','Value','number','Configured numeric event value'),attribute('occurred_at','Occurred at','datetime','Event occurrence time'),attribute('baseline_value','Baseline value','number','Value at the measurement baseline'),attribute('matching_count','Matching count','integer','Events matching configured filters'),attribute('eligible_count','Eligible count','integer','Eligible events')],
+  custom_api: [attribute('record_id','Record ID','string','Adapter-provided record identifier'),attribute('value','Value','number','Adapter-provided numeric value'),attribute('occurred_at','Occurred at','datetime','Adapter-provided occurrence time'),attribute('baseline_value','Baseline value','number','Adapter-provided baseline'),attribute('matching_count','Matching count','integer','Records matching adapter filters'),attribute('eligible_count','Eligible count','integer','Eligible adapter records')],
+  documents: [attribute('document_id','Document ID','string','Evidence document identifier'),attribute('record_id','Record ID','string','Evidence record identifier'),attribute('value','Extracted value','number','Validated value extracted from evidence'),attribute('occurred_at','Evidence time','datetime','Evidence timestamp'),attribute('matching_count','Matching count','integer','Matching evidence records'),attribute('eligible_count','Eligible count','integer','Eligible evidence records')],
+  manual: [attribute('record_id','Attestation ID','string','Human attestation identifier'),attribute('value','Attested value','number','Human-attested numeric value'),attribute('occurred_at','Attested at','datetime','Attestation time'),attribute('baseline_value','Baseline value','number','Attested baseline'),attribute('matching_count','Matching count','integer','Matching attestations'),attribute('eligible_count','Eligible count','integer','Eligible attestations')],
+};
+const ALLOWED_FORMULA_FUNCTIONS = new Set(['sum','avg','count','latest','min','max','now']);
+export function validateFormulaExpression(source, expression) {
+  const formulaText = text(expression, 1000);
+  if (!formulaText) return { valid: false, unknown_attributes: [], unsupported_functions: [], error: 'Formula expression is required' };
+  const scrubbed = formulaText.replace(/(['"]).*?\1/g, '');
+  const functionNames = [...scrubbed.matchAll(/\b([A-Za-z_][\w]*)\s*\(/g)].map((match) => match[1]);
+  const unsupportedFunctions = [...new Set(functionNames.filter((name) => !ALLOWED_FORMULA_FUNCTIONS.has(name)))];
+  const attributes = new Set((source?.attributes || []).map((item) => item.id));
+  const tokens = [...scrubbed.matchAll(/\b[A-Za-z_][\w]*(?:\.[A-Za-z_][\w]*)*\b/g)].map((match) => match[0]);
+  const ignored = new Set([...functionNames, 'true', 'false', 'null']);
+  const unknownAttributes = [...new Set(tokens.filter((token) => !ignored.has(token) && !attributes.has(token)))];
+  return { valid: !unsupportedFunctions.length && !unknownAttributes.length, unknown_attributes: unknownAttributes, unsupported_functions: unsupportedFunctions, error: unsupportedFunctions.length || unknownAttributes.length ? 'Formula references unsupported functions or attributes' : null };
+}
 
 export function measurementRegistry(ownerUserId = null) {
   const sources = [
@@ -40,6 +71,12 @@ export function measurementRegistry(ownerUserId = null) {
     { id: 'documents', label: 'Evidence documents', category: 'Evidence', provider: 'Uploaded or agent-generated documents', availability: 'native', formulas: [formula('document_count','Document count'),formula('count'),formula('latest_value'),formula('percentage')] },
     { id: 'manual', label: 'Manual evidence', category: 'Fallback', provider: 'Human attestation', availability: 'fallback', formulas: [formula('latest_value'),formula('change'),formula('percentage'),formula('count')] },
   ];
+  for (const source of sources) {
+    source.attributes = SOURCE_ATTRIBUTES[source.id] || [];
+    source.formulas = source.formulas.map((item) => ({ ...item, validation: validateFormulaExpression(source, item.expression) }));
+    const invalid = source.formulas.find((item) => !item.validation.valid);
+    if (invalid) throw new Error(`Invalid platform formula ${source.id}.${invalid.id}: ${invalid.validation.unknown_attributes.join(', ') || invalid.validation.unsupported_functions.join(', ')}`);
+  }
   if (!ownerUserId) return { version: 1, scope: 'system', sources };
   ensureCompanyObjectiveTables();
   const safeAll = (sql, ...params) => { try { return db().prepare(sql).all(...params); } catch { return []; } };
@@ -60,36 +97,44 @@ export function measurementRegistry(ownerUserId = null) {
     business_events: [{ id: 'business_events:owner', label: 'Objective evidence ledger' }], manual: [{ id: 'manual:owner', label: 'Human attestation' }],
   };
   const overrides = safeAll('SELECT * FROM company_measurement_registry WHERE owner_user_id=? ORDER BY kind,label', ownerUserId);
-  const customSources = overrides.filter((row) => row.kind === 'source').map((row) => ({ id: row.id, label: row.label, category: row.category || 'Company configured', provider: row.provider || 'Company configured', availability: row.enabled ? 'available' : 'disabled', formulas: overrides.filter((formulaRow) => formulaRow.kind === 'formula' && formulaRow.source_id === row.id && formulaRow.enabled).map((formulaRow) => ({ ...formula(formulaRow.id, formulaRow.label, formulaRow.description, formulaRow.expression), company_managed: true })), instances: row.enabled ? [{ id: `${row.id}:company`, label: row.label }] : [], company_managed: true }));
+  const customSources = overrides.filter((row) => row.kind === 'source').map((row) => { const attributes = overrides.filter((attributeRow) => attributeRow.kind === 'attribute' && attributeRow.source_id === row.id && attributeRow.enabled).map((attributeRow) => attribute(attributeRow.id, attributeRow.label, attributeRow.data_type || 'number', attributeRow.description)); return { id: row.id, label: row.label, category: row.category || 'Company configured', provider: row.provider || 'Company configured', availability: row.enabled ? 'available' : 'disabled', attributes, formulas: overrides.filter((formulaRow) => formulaRow.kind === 'formula' && formulaRow.source_id === row.id && formulaRow.enabled).map((formulaRow) => { const item = { ...formula(formulaRow.id, formulaRow.label, formulaRow.description, formulaRow.expression), company_managed: true }; return { ...item, validation: validateFormulaExpression({ attributes }, item.expression) }; }), instances: row.enabled ? [{ id: `${row.id}:company`, label: row.label }] : [], company_managed: true }; });
   const sourceOverrides = new Map(overrides.filter((row) => row.kind === 'source_override').map((row) => [row.source_id, row]));
   return { version: 1, scope: 'company', owner_user_id: ownerUserId, sources: [...sources.map((source) => {
     const bound = instances[source.id] || [];
     const nativeWithoutBinding = ['goal_plans','tasks','knowledge','llmops','documents','business_events','manual'].includes(source.id);
     const override = sourceOverrides.get(source.id);
-    const companyFormulas = overrides.filter((row) => row.kind === 'formula' && row.source_id === source.id && row.enabled).map((row) => ({ ...formula(row.id, row.label, row.description, row.expression), company_managed: true }));
-    return { ...source, label: override?.label || source.label, formulas: [...source.formulas, ...companyFormulas], enabled: override ? Boolean(override.enabled) : true, instances: bound, availability: override && !override.enabled ? 'disabled' : bound.length || nativeWithoutBinding ? 'available' : 'configuration_required', system_managed: true };
+    const companyAttributes = overrides.filter((row) => row.kind === 'attribute' && row.source_id === source.id && row.enabled).map((row) => ({ ...attribute(row.id, row.label, row.data_type || 'number', row.description), company_managed: true }));
+    const attributes = [...source.attributes, ...companyAttributes];
+    const companyFormulas = overrides.filter((row) => row.kind === 'formula' && row.source_id === source.id && row.enabled).map((row) => { const item = { ...formula(row.id, row.label, row.description, row.expression), company_managed: true }; return { ...item, validation: validateFormulaExpression({ attributes }, item.expression) }; });
+    return { ...source, label: override?.label || source.label, attributes, formulas: [...source.formulas, ...companyFormulas], enabled: override ? Boolean(override.enabled) : true, instances: bound, availability: override && !override.enabled ? 'disabled' : bound.length || nativeWithoutBinding ? 'available' : 'configuration_required', system_managed: true };
   }), ...customSources] };
 }
 
 export function upsertMeasurementRegistryEntry(ownerUserId, input = {}) {
   ensureCompanyObjectiveTables();
-  const kind = input.kind === 'formula' ? 'formula' : input.kind === 'source_override' ? 'source_override' : 'source';
+  const kind = ['formula','attribute','source_override'].includes(input.kind) ? input.kind : 'source';
   const entryId = text(input.id, 120) || id(kind === 'formula' ? 'formula' : 'source');
   if (!/^[a-zA-Z0-9:_-]+$/.test(entryId)) throw Object.assign(new Error('Registry id may contain only letters, numbers, colon, underscore and dash'), { status: 400 });
   const label = text(input.label, 160);
   if (!label) throw Object.assign(new Error('Registry label is required'), { status: 400 });
   const sourceId = text(input.source_id, 120);
-  if (kind === 'formula' && !sourceId) throw Object.assign(new Error('Formula source is required'), { status: 400 });
-  db().prepare(`INSERT INTO company_measurement_registry(id,owner_user_id,kind,source_id,label,category,provider,expression,description,enabled,updated_at)
-    VALUES(?,?,?,?,?,?,?,?,?,?,datetime('now')) ON CONFLICT(owner_user_id,kind,id) DO UPDATE SET source_id=excluded.source_id,label=excluded.label,category=excluded.category,provider=excluded.provider,expression=excluded.expression,description=excluded.description,enabled=excluded.enabled,updated_at=datetime('now')`).run(entryId, ownerUserId, kind, sourceId || null, label, text(input.category, 120), text(input.provider, 200), text(input.expression, 1000), text(input.description, 1000), input.enabled === false ? 0 : 1);
+  if (['formula','attribute'].includes(kind) && !sourceId) throw Object.assign(new Error(`${kind === 'formula' ? 'Formula' : 'Attribute'} source is required`), { status: 400 });
+  if (kind === 'formula') {
+    const source = measurementRegistry(ownerUserId).sources.find((item) => item.id === sourceId);
+    if (!source) throw Object.assign(new Error('Formula source is not registered'), { status: 400 });
+    const validation = validateFormulaExpression(source, input.expression);
+    if (!validation.valid) throw Object.assign(new Error(`Unsupported formula reference: ${[...validation.unknown_attributes, ...validation.unsupported_functions].join(', ') || validation.error}`), { status: 400 });
+  }
+  db().prepare(`INSERT INTO company_measurement_registry(id,owner_user_id,kind,source_id,label,category,provider,data_type,expression,description,enabled,updated_at)
+    VALUES(?,?,?,?,?,?,?,?,?,?,?,datetime('now')) ON CONFLICT(owner_user_id,kind,id) DO UPDATE SET source_id=excluded.source_id,label=excluded.label,category=excluded.category,provider=excluded.provider,data_type=excluded.data_type,expression=excluded.expression,description=excluded.description,enabled=excluded.enabled,updated_at=datetime('now')`).run(entryId, ownerUserId, kind, sourceId || null, label, text(input.category, 120), text(input.provider, 200), text(input.data_type, 40), text(input.expression, 1000), text(input.description, 1000), input.enabled === false ? 0 : 1);
   return measurementRegistry(ownerUserId);
 }
 
 export function deleteMeasurementRegistryEntry(ownerUserId, kind, entryId) {
   ensureCompanyObjectiveTables();
-  const safeKind = kind === 'formula' ? 'formula' : kind === 'source_override' ? 'source_override' : 'source';
+  const safeKind = ['formula','attribute','source_override'].includes(kind) ? kind : 'source';
   db().prepare('DELETE FROM company_measurement_registry WHERE owner_user_id=? AND kind=? AND id=?').run(ownerUserId, safeKind, text(entryId, 120));
-  if (safeKind === 'source') db().prepare("DELETE FROM company_measurement_registry WHERE owner_user_id=? AND kind='formula' AND source_id=?").run(ownerUserId, text(entryId, 120));
+  if (safeKind === 'source') db().prepare("DELETE FROM company_measurement_registry WHERE owner_user_id=? AND kind IN ('formula','attribute') AND source_id=?").run(ownerUserId, text(entryId, 120));
   return measurementRegistry(ownerUserId);
 }
 
@@ -196,6 +241,7 @@ export function ensureCompanyObjectiveTables() {
       label TEXT NOT NULL,
       category TEXT DEFAULT '',
       provider TEXT DEFAULT '',
+      data_type TEXT DEFAULT '',
       expression TEXT DEFAULT '',
       description TEXT DEFAULT '',
       enabled INTEGER DEFAULT 1,
@@ -283,6 +329,7 @@ export function ensureCompanyObjectiveTables() {
   if (!mappingColumns.includes('initiative_goal_id')) db().exec('ALTER TABLE company_initiative_scheduled_goals ADD COLUMN initiative_goal_id TEXT');
   const registryColumns = db().prepare('PRAGMA table_info(company_measurement_registry)').all().map((column) => column.name);
   if (!registryColumns.includes('expression')) db().exec("ALTER TABLE company_measurement_registry ADD COLUMN expression TEXT DEFAULT ''");
+  if (!registryColumns.includes('data_type')) db().exec("ALTER TABLE company_measurement_registry ADD COLUMN data_type TEXT DEFAULT ''");
 }
 
 function scheduleSpec(cadenceValue) {

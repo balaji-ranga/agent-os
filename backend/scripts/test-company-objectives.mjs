@@ -14,10 +14,18 @@ try {
   assert.ok(registry.sources.length >= 10, 'common Flolah and integration measurement sources are registered');
   assert.ok(registry.sources.find((source) => source.id === 'goal_plans').formulas.some((formula) => formula.id === 'completion_rate'));
   assert.ok(registry.sources.find((source) => source.id === 'custom_api').formulas.some((formula) => formula.id === 'average'));
+  assert.ok(registry.sources.every((source) => source.attributes.length > 0), 'every platform source publishes an attribute catalogue');
+  assert.ok(registry.sources.flatMap((source) => source.formulas).every((item) => item.validation.valid), 'every platform baseline formula is constructed only from supported attributes/functions');
+  assert.equal(registry.sources.find((source) => source.id === 'flolah_crm').formulas.find((item) => item.id === 'weighted_pipeline').expression, 'sum(opportunity.amount * opportunity.probability)');
+  assert.equal(registry.sources.find((source) => source.id === 'flolah_erp').formulas.find((item) => item.id === 'gross_margin').validation.valid, true);
+  assert.equal(registry.sources.find((source) => source.id === 'llmops').formulas.find((item) => item.id === 'tokens').validation.valid, true);
   let companyRegistry = svc.upsertMeasurementRegistryEntry('ceo-demo-northstar', { kind: 'source', id: 'sales_warehouse', label: 'Sales warehouse', provider: 'Warehouse' });
+  svc.upsertMeasurementRegistryEntry('ceo-demo-northstar', { kind: 'attribute', id: 'qualified_count', source_id: 'sales_warehouse', label: 'Qualified count', data_type: 'integer', description: 'Qualified records' });
+  svc.upsertMeasurementRegistryEntry('ceo-demo-northstar', { kind: 'attribute', id: 'researched_count', source_id: 'sales_warehouse', label: 'Researched count', data_type: 'integer', description: 'Researched records' });
   companyRegistry = svc.upsertMeasurementRegistryEntry('ceo-demo-northstar', { kind: 'formula', id: 'qualified_rate', source_id: 'sales_warehouse', label: 'Qualified rate', expression: '100 * qualified_count / researched_count', description: 'Qualified divided by researched' });
   assert.ok(companyRegistry.sources.find((source) => source.id === 'sales_warehouse').formulas.some((item) => item.id === 'qualified_rate'), 'company registry source and formula are merged');
   assert.equal(companyRegistry.sources.find((source) => source.id === 'sales_warehouse').formulas[0].expression, '100 * qualified_count / researched_count');
+  assert.throws(() => svc.upsertMeasurementRegistryEntry('ceo-demo-northstar', { kind: 'formula', id: 'bad_formula', source_id: 'sales_warehouse', label: 'Bad formula', expression: 'sum(unknown_field)' }), /Unsupported formula reference/);
   svc.deleteMeasurementRegistryEntry('ceo-demo-northstar', 'formula', 'qualified_rate');
   assert.equal(svc.measurementRegistry('ceo-demo-northstar').sources.find((source) => source.id === 'sales_warehouse').formulas.length, 0);
   const boot = svc.bootstrapNorthstarDemo('ceo-demo-northstar', 'test');
