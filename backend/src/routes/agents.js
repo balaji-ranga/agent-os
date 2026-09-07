@@ -72,7 +72,11 @@ import { withLlmopsContext } from '../services/llmops-context.js';
 import { BudgetBlockedError, enforceBudget } from '../services/agent-budgets.js';
 import {
   DASHBOARD_CONTEXT_INSTRUCTION,
+  PLATFORM_HELP_CONTEXT_INSTRUCTION,
+  boundPlatformHelpHistory,
   dashboardGatewaySessionUser,
+  isSimpleCourtesyMessage,
+  simpleCourtesyReply,
 } from '../services/dashboard-chat-context.js';
 import { routeAgentTurn, bindWorkUnitExecution } from '../services/agent-turn-router.js';
 import { createAndStartGoalRun } from '../services/agent-goal-run.js';
@@ -869,6 +873,26 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
         String(req.body?.tz || req.headers['x-timezone'] || process.env.TZ || 'UTC').trim() || 'UTC',
       generateTitle: true,
     });
+    // Courtesy turns are complete conversations, not routing or retrieval jobs.
+    // Resolve them before semantic routing so a greeting remains instant even
+    // when an LLM endpoint or OpenClaw is unavailable.
+    if (isSimpleCourtesyMessage(message)) {
+      const replyText = simpleCourtesyReply(message);
+      insertChatTurn({ agentId, ownerUserId, role: 'user', content: message, sessionId: ensuredSession.session.id });
+      insertChatTurn({ agentId, ownerUserId, role: 'assistant', content: replyText, sessionId: ensuredSession.session.id });
+      if (liveScope) finishChatActivity(liveScope, { label: 'Response ready' });
+      return res.json({
+        reply: replyText,
+        usage: { input_tokens: 0, output_tokens: 0, total_tokens: 0 },
+        agent_id: agentId,
+        work_unit: null,
+        tool_calls: [],
+        thread_id: getChatThreadId(agentId, ownerUserId),
+        session_reset: null,
+        topic_hint: null,
+        workflow_triggered: null,
+      });
+    }
     const activeHistory = listRecentActiveSessionTurns(agentId, ownerUserId, { limit: 24 }).turns;
     const replyId = req.body?.reply_to_message_id || message.match(/^\[reply_to_message_id:(\d+)\]/)?.[1];
     let replyContext = '';
@@ -890,6 +914,8 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     const resolvedMessage = turnRoute.resolved_request || message.trim();
     const routedMessage = (resolvedMessage.includes(replyContext) ? resolvedMessage : resolvedMessage + replyContext)
       + workUnitBrowserEvidence(db(), ownerUserId, turnRoute.parent_work_unit_id);
+    const isPlatformHelp = String(agentId || '').toLowerCase() === 'platformhelp' ||
+      String(agent.openclaw_agent_id || '').toLowerCase().endsWith('platformhelp');
     const routeLabels = {
       goal_plan: ['planning', 'Preparing a goal plan'],
       delegate: ['delegation', 'Selecting the right specialist'],
@@ -1061,6 +1087,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     const userId = resolveCeoDataUserIdFromRequest(req, req.body || {});
     const profileId = req.body?.profile_id || req.body?.profileId || null;
     let history = turnRoute.selected_turns.map((t) => ({ role: t.role, content: t.content }));
+    if (isPlatformHelp) history = boundPlatformHelpHistory(history);
 
     let sessionMeta = null;
     let topicHint = null;
@@ -1089,6 +1116,9 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
       role: 'system',
       content: DASHBOARD_CONTEXT_INSTRUCTION,
     });
+    if (isPlatformHelp) {
+      messages.unshift({ role: 'system', content: PLATFORM_HELP_CONTEXT_INSTRUCTION });
+    }
     const jobApplicantAgents = new Set(['jobdiscovery', 'fitscorer', 'resumetailor', 'applicationagent']);
     let userContent = routedMessage;
     const llmForOwner = resolveLlmConfigForUser(ownerUserId);
@@ -1165,6 +1195,16 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     // Ollama BYOK is slow/fragile with extra tool-bootstrap instructions on small VPS hosts.
     let chatOpts = isDiscovery ? { timeoutMs: discoveryTimeout } : {};
     chatOpts.injectSessionHistoryInstruction = false;
+    if (isPlatformHelp) {
+      chatOpts = {
+        ...chatOpts,
+        injectLearningsInstruction: false,
+        injectSessionHistoryInstruction: false,
+        injectBrowserInstruction: false,
+        injectKanbanInstruction: false,
+        retries: 0,
+      };
+    }
     try {
       const llm = llmForOwner || resolveLlmConfigForUser(ownerUserId);
       const localOllama =
@@ -1182,14 +1222,15 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
           injectSessionHistoryInstruction: false,
           injectBrowserInstruction: false,
           injectKanbanInstruction: false,
-          retries: 1,
+          retries: isPlatformHelp ? 0 : 1,
           timeoutMs,
         };
         console.info(
-          '[agents] local Ollama chat agent=%s owner=%s timeoutMs=%s retries=1',
+          '[agents] local Ollama chat agent=%s owner=%s timeoutMs=%s retries=%s',
           openclawAgentId,
           ownerUserId,
-          timeoutMs
+          timeoutMs,
+          chatOpts.retries
         );
       }
     } catch (_) {

@@ -54,6 +54,28 @@ try {
     (failure) => failure.status === 422,
     'An invalid human-selected proposal must not bypass deterministic validation'
   );
+  await assert.rejects(
+    goals.submitGoalPlanReview(planning.id, 'review-owner', { action: 'apply_checker' }),
+    (failure) => failure.status === 422 && /No complete checker-corrected plan/.test(failure.message),
+    'Apply checker must never start another maker/checker loop when no complete correction exists'
+  );
+  assert.equal(goals.planUsesGoalRunMode([{ type: 'agent_continue' }]), true, 'a one-step approved schedule plan must use durable goal-run execution');
+  db.prepare(`INSERT INTO scheduled_goals
+    (id,owner_user_id,title,prompt,agent_id,cadence,time_local,status,source)
+    VALUES ('review-schedule','review-owner','Review schedule','Prepare a report.','review-coo','daily','09:00','active','test')`).run();
+  assert.equal(goals.persistReviewedScheduleBaseline({
+    id: planning.id,
+    owner_user_id: 'review-owner',
+    scheduled_goal_id: 'review-schedule',
+    prompt: 'Prepare a report.',
+  }, [{
+    key: 'prepare', type: 'agent_continue', label: 'Prepare', depends_on: [], required_inputs: [],
+    produces: [{ key: 'report', kind: 'data', required: true }], spec: { message: 'Prepare the report.' },
+  }], 'review-owner'), true);
+  const baseline = db.prepare('SELECT plan_json,plan_status,plan_version FROM scheduled_goals WHERE id=?').get('review-schedule');
+  assert.equal(baseline.plan_status, 'approved');
+  assert.equal(JSON.parse(baseline.plan_json).approved_from_goal_run_id, planning.id);
+  assert.equal(JSON.parse(baseline.plan_json).uses_goal_run_mode, true);
   const cancelled = await goals.submitGoalPlanReview(planning.id, 'review-owner', { action: 'cancel' });
   assert.equal(cancelled.goal.status, 'cancelled');
   const card = db.prepare('SELECT status FROM kanban_tasks WHERE id=?').get(awaiting.context.plan_review_kanban_id);

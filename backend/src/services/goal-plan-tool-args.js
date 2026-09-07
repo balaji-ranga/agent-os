@@ -6,6 +6,7 @@
  */
 import { chatCompletions } from '../config/llm.js';
 import { listEnabledContentTools } from './content-tools-meta.js';
+import { promptForbidsNotifyCeo } from './goal-plan-constraints.js';
 
 /** Magnificent 7 — common CEO shorthand MAG7 / MAGS / Magnificent 7. */
 export const MAG7_SYMBOLS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NVDA', 'TSLA'];
@@ -287,12 +288,6 @@ export function goalWantsAgentInterpretation(prompt) {
   );
 }
 
-function promptForbidsNotifyCeoText(prompt) {
-  return /\bdo\s+not\s+call\s+notify[_ ]?ceo\b|\bdon'?t\s+call\s+notify[_ ]?ceo\b|\bdo\s+not\s+notify(_ceo)?\b/i.test(
-    String(prompt || '')
-  );
-}
-
 function stepToolName(step) {
   if (!step || typeof step !== 'object') return '';
   return String(step.tool_name || step.spec?.tool_name || '').trim();
@@ -314,7 +309,7 @@ export function rewriteCompositionalToolsForAgentInterpretation(steps, prompt = 
   let out = steps.map((s) => (s && typeof s === 'object' ? { ...s } : s));
   const text = String(prompt || '');
 
-  if (promptForbidsNotifyCeoText(text)) {
+  if (promptForbidsNotifyCeo(text)) {
     out = out.filter((s) => {
       if (!s || typeof s !== 'object') return true;
       if (s.type === 'notify_ceo') return false;

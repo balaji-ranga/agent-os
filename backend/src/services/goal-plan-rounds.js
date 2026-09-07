@@ -38,7 +38,7 @@ export function validateCoverage(verdict, prompt, steps) {
 }
 
 export async function runGoalPlanRounds({prompt,make,check,normalize,validate,onProgress=async()=>{}}) {
-  let previous=null, errors=[], maker=null, checker=null;
+  let previous=null, errors=[], maker=null, checker=null, checkerRecommended=null;
   const rounds=[];
   for(let attempt=1;attempt<=3;attempt++){
     await onProgress({phase:'maker',detail:`Maker round ${attempt} of 3`,attempt,max_attempts:3});
@@ -65,7 +65,18 @@ export async function runGoalPlanRounds({prompt,make,check,normalize,validate,on
         await onProgress({phase:'complete',detail:`${steps.length} independently approved executable steps`,attempt,max_attempts:3,status:'completed'});
         return {steps,quality:{maker_model:maker.modelUsed,checker_model:checker.modelUsed,checker_endpoint:'secondary',checker_degraded:false,checker_approved_maker:true,maker_attempts:attempt,maker_contract_valid:true,maker_degraded_to_catalog:false,llm_maker_checker_succeeded:true,requirements:buildGoalRequirements(prompt),coverage:verdict.coverage,rounds,issues:[]}};
       }
-      previous={maker_response:maker.content,steps,checker_response:verdict};
+      let nextSteps=steps;
+      if(verdict.approved===false&&Array.isArray(verdict.revised_steps)&&verdict.revised_steps.length){
+        const revised=normalize(JSON.stringify(verdict.revised_steps));
+        const revisedValidation=validate(revised);
+        if(revised.length&&revisedValidation.ok){
+          checkerRecommended=revised;
+          nextSteps=revised;
+        }else if(revisedValidation.errors?.length){
+          errors.push(...revisedValidation.errors.map(item=>`Checker correction invalid: ${item}`));
+        }
+      }
+      previous={maker_response:maker.content,steps:nextSteps,checker_response:verdict};
       rounds.push({attempt,phase:'checker',errors});
     }catch(error){
       errors=[String(error.message||error)];
@@ -76,6 +87,6 @@ export async function runGoalPlanRounds({prompt,make,check,normalize,validate,on
   }
   const error=new Error(`Goal planning could not establish a complete approved plan after 3 rounds: ${errors.join('; ').slice(0,800)}`);
   error.code='GOAL_PLAN_UNVERIFIED';
-  error.details={rounds,last_candidate:previous?.steps||[],fallback:'stop_for_review',business_steps_executed:0};
+  error.details={rounds,last_candidate:checkerRecommended||previous?.steps||[],checker_recommended_steps:checkerRecommended||[],fallback:'stop_for_review',business_steps_executed:0};
   throw error;
 }

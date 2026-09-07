@@ -220,7 +220,7 @@ export default function GoalPlanDetail() {
             <p className="digest-muted">
               From a <Link to="/scheduled-goals">scheduled goal</Link>
               {' · '}
-              each fire is a new run (this id does not reuse yesterday’s plan).
+              each fire creates a new execution run and reuses the approved schedule plan. An approved edit to a linked run becomes the next schedule baseline.
             </p>
           ) : (
             <p className="digest-muted">Ad-hoc run (COO chat / tool), not a recurring schedule.</p>

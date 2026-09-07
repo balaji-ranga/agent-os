@@ -4,7 +4,11 @@ import { listRecentSessionTurns } from '../src/services/chat-history.js';
 import { enrichTaskQueryWithPriorThread, isUsableDelegationWorkOrder } from '../src/services/delegation-queue.js';
 import {
   DASHBOARD_CONTEXT_INSTRUCTION,
+  PLATFORM_HELP_CONTEXT_INSTRUCTION,
+  boundPlatformHelpHistory,
   dashboardGatewaySessionUser,
+  isSimpleCourtesyMessage,
+  simpleCourtesyReply,
 } from '../src/services/dashboard-chat-context.js';
 import { bindWorkUnitExecution, buildCapabilityReferences, needsRouteAdjudication, routeAgentTurn, validateRouteDecision } from '../src/services/agent-turn-router.js';
 import { adjudicatorInput } from '../src/services/agent-route-contract.js';
@@ -43,6 +47,16 @@ const second = dashboardGatewaySessionUser('balserve', 'ceo-bala', stableThread,
 assert.notEqual(first, second, 'each Dashboard request must have an isolated gateway session');
 assert.match(DASHBOARD_CONTEXT_INSTRUCTION, /final user message as the current ask/i);
 assert.match(DASHBOARD_CONTEXT_INSTRUCTION, /Do not call sessions_history/i);
+assert.match(PLATFORM_HELP_CONTEXT_INSTRUCTION, /at most once/i);
+assert.match(PLATFORM_HELP_CONTEXT_INSTRUCTION, /Never call master_data_list_documents/i);
+assert.equal(isSimpleCourtesyMessage('Thanks!'), true);
+assert.equal(isSimpleCourtesyMessage('Thanks, now show objectives'), false);
+assert.equal(simpleCourtesyReply('Thanks'), 'You’re welcome.');
+const boundedHelp = boundPlatformHelpHistory(
+  Array.from({ length: 12 }, (_, index) => ({ role: index % 2 ? 'assistant' : 'user', content: `turn-${index}-${'x'.repeat(1500)}` }))
+);
+assert.equal(boundedHelp.length, 4, 'history is bounded by the total character budget as well as turn count');
+assert(boundedHelp.reduce((sum, turn) => sum + turn.content.length, 0) <= 6000);
 assert.deepEqual(
   summarizeLlmContext([{ role: 'system', content: '1234' }, { role: 'user', content: '12345678' }]),
   { messages: 2, chars: 12, estimated_tokens: 3, largest_message_chars: 8, chars_by_role: { system: 4, user: 8 } }

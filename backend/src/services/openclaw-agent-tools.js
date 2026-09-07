@@ -176,7 +176,7 @@ export function syncAllowlistsFile() {
     const grants = getAgentToolGrants(a.id);
     if (!grants.length) continue;
     const ocId = resolveOpenClawAgentId(a);
-    if (ocId) out[ocId] = prioritizeCoreAgentTools(grants);
+    if (ocId) out[ocId] = prioritizeOpenClawAllowList(grants);
   }
   out = syncTenantAllowlists(out);
   if (!existsSync(OPENCLAW_DIR)) mkdirSync(OPENCLAW_DIR, { recursive: true });

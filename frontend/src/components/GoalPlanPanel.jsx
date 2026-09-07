@@ -90,7 +90,13 @@ export default function GoalPlanPanel({
         ? await api.agentGoalRunsCancel(goal.id, { reason: 'Cancelled during plan review' })
         : await api.agentGoalRunsPlanReview(goal.id, { action, ...extra });
       setGoal(result.goal || goal);
-      setReviewMessage(action === 'cancel' ? 'Goal cancelled.' : action === 'approve' ? 'Plan approved; execution is starting.' : 'Guidance accepted; maker/checker replanning has started.');
+      setReviewMessage(
+        action === 'cancel'
+          ? 'Goal cancelled.'
+          : action === 'approve' || action === 'apply_checker'
+            ? 'Plan approved; execution is starting.'
+            : 'Guidance accepted; maker/checker replanning has started.'
+      );
     } catch (error) {
       setReviewMessage(error?.message || 'Could not update the plan review');
     } finally {
@@ -214,7 +220,9 @@ export default function GoalPlanPanel({
           ) : null}
           {(review.candidate_steps || []).length ? (
             <details style={{ marginBottom: 8 }}>
-              <summary style={{ cursor: 'pointer', fontSize: '0.77rem', fontWeight: 650 }}>Maker proposal ({review.candidate_steps.length} steps)</summary>
+              <summary style={{ cursor: 'pointer', fontSize: '0.77rem', fontWeight: 650 }}>
+                {review.candidate_source === 'checker_corrected' ? 'Checker-corrected proposal' : 'Maker proposal'} ({review.candidate_steps.length} steps)
+              </summary>
               <ol style={{ margin: '6px 0 0', paddingLeft: '1.1rem', fontSize: '0.75rem' }}>
                 {review.candidate_steps.map((step) => (
                   <li key={step.key}>{step.label || step.key} · {step.type} · {step.spec?.agent_id || step.spec?.workflow_id || step.spec?.tool_name || 'COO'}</li>
@@ -230,9 +238,11 @@ export default function GoalPlanPanel({
             style={{ width: '100%', resize: 'vertical', marginBottom: 7 }}
           />
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            <button type="button" className="btn" disabled={!!reviewBusy} onClick={() => planReview('apply_checker')}>
-              {reviewBusy === 'apply_checker' ? 'Applying…' : 'Apply checker recommendations'}
-            </button>
+            {review.candidate_source === 'checker_corrected' && review.candidate_schema_valid ? (
+              <button type="button" className="btn" disabled={!!reviewBusy} onClick={() => planReview('apply_checker')}>
+                {reviewBusy === 'apply_checker' ? 'Approving…' : 'Approve checker-corrected plan'}
+              </button>
+            ) : null}
             <button type="button" className="btn secondary" disabled={!!reviewBusy || !reviewGuidance.trim()} onClick={() => planReview('revise', { guidance: reviewGuidance.trim() })}>
               {reviewBusy === 'revise' ? 'Replanning…' : 'Correct with my guidance'}
             </button>

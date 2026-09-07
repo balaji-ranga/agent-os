@@ -93,8 +93,16 @@ function mapListedDocument(d, corpus) {
   };
 }
 
-function tagChunks(chunks, corpus) {
-  return (Array.isArray(chunks) ? chunks : []).map((c) => ({ ...c, corpus }));
+function tagChunks(chunks, corpus, { maxChunks = null, maxContentChars = null } = {}) {
+  const rows = (Array.isArray(chunks) ? chunks : []).slice(
+    0,
+    maxChunks == null ? undefined : Math.max(0, Number(maxChunks) || 0)
+  );
+  return rows.map((c) => ({
+    ...c,
+    ...(maxContentChars == null ? {} : { content: String(c.content || '').slice(0, maxContentChars) }),
+    corpus,
+  }));
 }
 
 function excerptsFromChunks(chunks) {
@@ -283,6 +291,7 @@ export async function listDocumentsForAgent(ownerUserId, opts = {}) {
   const agentId = opts.agentId || opts.agent_id || opts.source || null;
   if (isPlatformHelpAgent(agentId || opts.source)) {
     const documents = await md.listDocuments(PLATFORM_OWNER_ID);
+    const limit = Math.min(50, Math.max(1, Number(opts.limit) || 20));
     return {
       ok: true,
       count: documents.length,
@@ -290,7 +299,12 @@ export async function listDocumentsForAgent(ownerUserId, opts = {}) {
       includes_platform_help: true,
       corpus: 'platform-help',
       note: PLATFORM_HELP_AGENT_NOTE,
-      documents: documents.map((d) => mapListedDocument(d, 'platform-help')),
+      truncated: documents.length > limit,
+      documents: documents.slice(0, limit).map((d) => {
+        const listed = mapListedDocument(d, 'platform-help');
+        delete listed.text_excerpt;
+        return listed;
+      }),
     };
   }
 
@@ -335,9 +349,10 @@ export async function ragDocumentsForAgent(ownerUserId, params = {}) {
   const wantSummarize = wantsRagSummarize(params);
 
   if (isPlatformHelpAgent(agentId)) {
+    const boundedTopK = Math.min(4, Math.max(1, Number(topK) || 3));
     const result = await md.ragDocuments(PLATFORM_OWNER_ID, {
       query,
-      topK,
+      topK: boundedTopK,
       documentId,
       summarize: wantSummarize,
     });
@@ -347,7 +362,7 @@ export async function ragDocumentsForAgent(ownerUserId, params = {}) {
       includes_platform_help: true,
       note: PLATFORM_HELP_AGENT_NOTE,
       ...result,
-      chunks: tagChunks(result.chunks, 'platform-help'),
+      chunks: tagChunks(result.chunks, 'platform-help', { maxChunks: boundedTopK, maxContentChars: 2500 }),
     };
   }
 

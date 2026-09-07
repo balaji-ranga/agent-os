@@ -2478,6 +2478,7 @@ router.post('/master-data-list-documents', optionalAuth, async (req, res) => {
     const out = await listDocumentsForAgent(ownerUserId, {
       source,
       agentId: source || requestPayload.agent_id || requestPayload.agentId || null,
+      limit: requestPayload.limit,
     });
     logTool(req, 'master_data_list_documents', { ...requestPayload, owner_user_id: ownerUserId }, out, 'ok', source);
     res.json(out);

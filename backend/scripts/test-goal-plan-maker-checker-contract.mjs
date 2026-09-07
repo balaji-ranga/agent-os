@@ -12,6 +12,7 @@ const { classifyToolFailure } = await import('../src/services/tool-failure-class
 const { resolveCapabilitiesFromPrompt } = await import('../src/services/business-capabilities.js');
 const { matchSelfToolsFromCatalog, specialtyMessageContainsToolInstruction } = await import('../src/services/goal-plan-intent.js');
 const { runGoalPlanRounds } = await import('../src/services/goal-plan-rounds.js');
+const { promptForbidsNotifyCeo } = await import('../src/services/goal-plan-constraints.js');
 let auditedChecklist = null;
 let makerAttempt = 0;
 const roundResult = await runGoalPlanRounds({
@@ -27,6 +28,22 @@ const roundResult = await runGoalPlanRounds({
 });
 assert.equal(roundResult.quality.maker_attempts, 2);
 assert(auditedChecklist.some((item) => /Missing evidence/.test(item)), 'the next checker must audit the prior mandatory correction checklist');
+assert.equal(promptForbidsNotifyCeo('Do not send notifications or external communications.'), true);
+assert.equal(promptForbidsNotifyCeo('Send a final notification to the CEO.'), false);
+let correctionAttempt = 0;
+await assert.rejects(
+  runGoalPlanRounds({
+    prompt: 'Produce a tested report.',
+    normalize: (content) => JSON.parse(content),
+    validate: (steps) => ({ ok: steps?.[0]?.key === 'checker-fixed', errors: ['not checker-fixed'] }),
+    make: async () => ({ content: JSON.stringify([{ key: `maker-${++correctionAttempt}` }]), modelUsed: 'maker' }),
+    check: async () => ({ content: JSON.stringify({ approved: false, issues: [{ message: 'Fix it' }], revised_steps: [{ key: 'checker-fixed' }] }), modelUsed: 'checker' }),
+  }),
+  (failure) => failure.code === 'GOAL_PLAN_UNVERIFIED' &&
+    failure.details.checker_recommended_steps?.[0]?.key === 'checker-fixed' &&
+    failure.details.last_candidate?.[0]?.key === 'checker-fixed',
+  'a complete checker correction must survive bounded rounds for one-click CEO approval'
+);
 assert.equal(isEfficiencyModeTool('goal_plan_intent'), false);
 assert.equal(isEfficiencyModeTool('goal_plan_maker'), false);
 assert.equal(isEfficiencyModeTool('goal_plan_checker'), false);
@@ -195,7 +212,12 @@ const safe = safeGoalClarificationPlan();
 assert.equal(validateTypedGoalPlan(safe, noHumanCatalog).ok, true);
 assert.equal(safe.some((step) => step.type === 'agent_tool' || step.type === 'specialty_task' || step.type === 'human_task'), false);
 
-const { ensureAgentGoalRunTables, completeGoalStepAndContinue, isFailedDelegationOutcome } = await import('../src/services/agent-goal-run.js');
+const { ensureAgentGoalRunTables, completeGoalStepAndContinue, isFailedDelegationOutcome, planGoalStepsFromText } = await import('../src/services/agent-goal-run.js');
+assert.equal(
+  planGoalStepsFromText('Summarize this locally. Do not send notifications or external communications.').some((step) => step.type === 'notify_ceo'),
+  false,
+  'notification opt-out must be honored before maker/checker validation'
+);
 assert.equal(isFailedDelegationOutcome({ delegationStatus: 'completed', kanbanStatus: 'completed' }), false);
 assert.equal(
   isFailedDelegationOutcome({ delegationStatus: 'completed', kanbanStatus: 'failed' }),

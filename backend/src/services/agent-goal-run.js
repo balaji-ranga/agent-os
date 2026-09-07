@@ -64,6 +64,7 @@ import {
 } from './step-outcome-validation.js';
 import { getAgentsUnderOrchestratorForCeo } from './org-context.js';
 import { qualityAssureGoalPlan, validateGoalPlanDraft } from './goal-plan-quality.js';
+import { promptForbidsNotifyCeo } from './goal-plan-constraints.js';
 import { getPlatformTimeoutMs } from './platform-timeout-settings.js';
 import { createMediaArtifact } from './ceo-media-artifacts.js';
 import { compactAgentWorkHistoryEvidence } from './agent-work-history.js';
@@ -680,7 +681,7 @@ export function planGoalStepsFromText(prompt, { explicitSteps, ownerUserId = nul
     ).map(
       normalizeStepSpec
     );
-    if (steps.length >= 1 && !steps.some((s) => s.type === 'notify_ceo')) {
+    if (steps.length >= 1 && !promptForbidsNotifyCeo(prompt) && !steps.some((s) => s.type === 'notify_ceo')) {
       steps.push(normalizeStepSpec({ type: 'notify_ceo' }));
     }
     return validateAndRepairGoalPlan(steps, prompt, { ownerUserId });
@@ -740,7 +741,7 @@ export function planGoalStepsFromText(prompt, { explicitSteps, ownerUserId = nul
   }
 
   const merged = mergeRuntimeCapabilityStep(mergeCapabilitySteps(steps, text), ownerUserId, text).map(normalizeStepSpec);
-  if (merged.length >= 1 && !merged.some((s) => s.type === 'notify_ceo')) {
+  if (merged.length >= 1 && !promptForbidsNotifyCeo(prompt) && !merged.some((s) => s.type === 'notify_ceo')) {
     merged.push(normalizeStepSpec({ type: 'notify_ceo' }));
   }
 
@@ -852,7 +853,7 @@ async function planGoalStepsAsyncInner(prompt, opts = {}) {
     steps.push(normalizeStepSpec({ type: 'agent_continue' }));
     steps = enrichPlanSteps(steps);
   }
-  if (steps.length && !steps.some((s) => s.type === 'notify_ceo')) {
+  if (steps.length && !promptForbidsNotifyCeo(fullPrompt) && !steps.some((s) => s.type === 'notify_ceo')) {
     steps.push(normalizeStepSpec({ type: 'notify_ceo' }));
   }
   const repaired = validateAndRepairGoalPlan(steps, fullPrompt, {
@@ -1109,7 +1110,7 @@ export function validateAndRepairGoalPlan(
   // terminal notifications.
   const notifySteps = out.filter((step) => step.type === 'notify_ceo');
   out = out.filter((step) => step.type !== 'notify_ceo');
-  if (out.length || notifySteps.length) {
+  if (!promptForbidsNotifyCeo(text) && (out.length || notifySteps.length)) {
     const terminal = notifySteps.find((step) => step.spec?.body || step.spec?.title) || notifySteps[0];
     out.push(terminal || normalizeStepSpec({ type: 'notify_ceo' }));
   }
@@ -1180,13 +1181,7 @@ export function validateAndRepairGoalPlan(
 
 /** Whether a planned step list warrants durable goal_run_plan mode. */
 export function planUsesGoalRunMode(planned) {
-  const steps = Array.isArray(planned) ? planned : [];
-  if (steps.some((s) => (s.type || s.step_type) === 'workflow_trigger')) return true;
-  if (steps.some((s) => (s.type || s.step_type) === 'specialty_task')) return true;
-  if (steps.some((s) => (s.type || s.step_type) === 'human_task')) return true;
-  if (steps.some((s) => (s.type || s.step_type) === 'agent_tool')) return true;
-  const real = steps.filter((s) => (s.type || s.step_type) !== 'notify_ceo');
-  return real.length >= 2;
+  return Array.isArray(planned) && planned.length > 0;
 }
 
 function loadGoalRunRow(id, ownerUserId = null) {
@@ -1461,6 +1456,9 @@ export async function awaitGoalPlanningReview(goalRunId, ownerUserId, error) {
     version: Number(ctx.plan_review?.version || 0) + 1,
     created_at: new Date().toISOString(),
     candidate_steps: deterministic.steps,
+    candidate_source: Array.isArray(error?.details?.checker_recommended_steps) && error.details.checker_recommended_steps.length
+      ? 'checker_corrected'
+      : 'maker',
     candidate_schema_valid: deterministic.ok,
     validation_errors: [...new Set([...(deterministic.errors || []), ...lastIssues])].slice(0, 12),
     rounds,
@@ -2175,12 +2173,6 @@ async function deliverPriorEmailArtifactIfNeeded(goal, step) {
     tool: artifact.tool,
     result: out,
   };
-}
-
-function promptForbidsNotifyCeo(prompt) {
-  return /\bdo\s+not\s+call\s+notify[_ ]?ceo\b|\bdon'?t\s+call\s+notify[_ ]?ceo\b|\bdo\s+not\s+notify(_ceo)?\b/i.test(
-    String(prompt || '')
-  );
 }
 
 function looksLikeGoalPlanDumpEmail(text) {
@@ -3270,6 +3262,46 @@ export function resolvePlanReviewContext(context, { resolution, actorUserId } = 
   return ctx;
 }
 
+export function persistReviewedScheduleBaseline(goal, steps, actorUserId) {
+  const scheduleId = String(goal?.scheduled_goal_id || '').trim();
+  if (!scheduleId) return false;
+  const schedule = db().prepare(
+    'SELECT plan_version FROM scheduled_goals WHERE id=? AND owner_user_id=?'
+  ).get(scheduleId, goal.owner_user_id);
+  if (!schedule) return false;
+  const version = Number(schedule.plan_version || 0) + 1;
+  const plan = {
+    version,
+    prompt: goal.prompt,
+    steps: (Array.isArray(steps) ? steps : []).map((step, step_index) => ({
+      step_index,
+      key: step.key,
+      type: step.type,
+      label: step.label,
+      depends_on: step.depends_on || [],
+      required_inputs: step.required_inputs || [],
+      produces: step.produces || [],
+      spec: step.spec || {},
+    })),
+    uses_goal_run_mode: true,
+    amended_manually: true,
+    approved_from_goal_run_id: goal.id,
+    approved_by: actorUserId || goal.owner_user_id,
+    generated_at: new Date().toISOString(),
+  };
+  db().prepare(
+    `UPDATE scheduled_goals SET plan_json=?, plan_status='approved', plan_version=?, status='active',
+       updated_at=datetime('now') WHERE id=? AND owner_user_id=?`
+  ).run(JSON.stringify(plan), version, scheduleId, goal.owner_user_id);
+  recordMissionEvent({
+    ownerUserId: goal.owner_user_id,
+    goalRunId: goal.id,
+    event_type: 'scheduled_plan_baseline_updated',
+    payload: { scheduled_goal_id: scheduleId, plan_version: version, actor_user_id: actorUserId || goal.owner_user_id },
+  });
+  return true;
+}
+
 /** Human guidance/approval resumes the SAME durable goal; it never creates a duplicate. */
 export async function submitGoalPlanReview(goalRunId, ownerUserId, {
   action = 'revise', guidance = '', steps = null, actorUserId = null,
@@ -3286,7 +3318,10 @@ export async function submitGoalPlanReview(goalRunId, ownerUserId, {
   const ctx = parseJson(goal.context_json, {});
   const review = ctx.plan_review || {};
   const supplied = Array.isArray(steps) ? steps : review.candidate_steps;
-  if (action === 'approve') {
+  if (action === 'approve' || action === 'apply_checker') {
+    if (action === 'apply_checker' && review.candidate_source !== 'checker_corrected') {
+      throw Object.assign(new Error('No complete checker-corrected plan is available. Add guidance or edit the proposal.'), { status: 422 });
+    }
     const validated = await validateGoalPlanDraft({ ownerUserId: owner, orchestratorAgentId: goal.agent_id, prompt: goal.prompt, steps: supplied });
     if (!validated.ok) {
       const error = new Error(`Plan cannot be approved until its executable schema is valid: ${validated.errors.join('; ')}`);
@@ -3295,7 +3330,8 @@ export async function submitGoalPlanReview(goalRunId, ownerUserId, {
       throw error;
     }
     Object.assign(ctx, resolvePlanReviewContext(ctx, {
-      resolution: 'approved_candidate', actorUserId: actorUserId || owner,
+      resolution: action === 'apply_checker' ? 'approved_checker_correction' : 'approved_candidate',
+      actorUserId: actorUserId || owner,
     }));
     db().prepare(`UPDATE agent_goal_runs SET context_json=? WHERE id=? AND owner_user_id=?`).run(JSON.stringify(ctx), goal.id, owner);
     resetPlanningGoal({ ...goal, context_json: JSON.stringify(ctx) });
@@ -3311,8 +3347,13 @@ export async function submitGoalPlanReview(goalRunId, ownerUserId, {
       steps: validated.steps,
       goalRunId: goal.id,
     });
+    const scheduleBaselineUpdated = persistReviewedScheduleBaseline(goal, validated.steps, actorUserId || owner);
     updatePlanReviewKanban(goal, 'completed');
-    recordMissionEvent({ ownerUserId: owner, goalRunId: goal.id, event_type: 'plan_review_approved', payload: { actor_user_id: actorUserId || owner } });
+    recordMissionEvent({ ownerUserId: owner, goalRunId: goal.id, event_type: 'plan_review_approved', payload: {
+      actor_user_id: actorUserId || owner,
+      resolution: action === 'apply_checker' ? 'approved_checker_correction' : 'approved_candidate',
+      scheduled_plan_baseline_updated: scheduleBaselineUpdated,
+    } });
     setImmediate(() => void startGoalRunExecution(finalized.id, { ownerUserId: owner }).catch((error) =>
       console.error('[goal-run] reviewed plan execution failed', finalized.id, error?.message || error)
     ));

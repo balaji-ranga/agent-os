@@ -16,6 +16,7 @@ import {
 } from './goal-plan-intent.js';
 import { listHumanWorkCandidates } from './work-assignment-policy.js';
 import { getPlatformTimeoutMs } from './platform-timeout-settings.js';
+import { promptForbidsNotifyCeo } from './goal-plan-constraints.js';
 import { validateWorkflowInput } from './workflow-input-schema.js';
 
 const STEP_TYPES = new Set([
@@ -45,7 +46,7 @@ function normalizeStepOperationMode(type, value) {
 
 function normalizeDeliverableKind(value) {
   const kind = String(value || '').trim().toLowerCase();
-  return ({ report: 'status_report', summary: 'status_report', notification: 'status_report', message: 'status_report', dataset: 'data', json: 'data', record: 'record_created', action: 'external_action' })[kind] || kind || null;
+  return ({ report: 'status_report', summary: 'status_report', notification: 'status_report', message: 'status_report', text: 'status_report', text_output: 'status_report', dataset: 'data', json: 'data', record: 'record_created', action: 'external_action' })[kind] || kind || null;
 }
 
 function isStatusHistoryContract(raw = {}, spec = {}) {
@@ -641,8 +642,7 @@ export function isCompleteCheckerVerdict(verdict) {
 
 /** Deterministic, owner-scoped validation for a CEO-edited planning proposal. */
 function validateTerminalDelivery(steps, prompt = '') {
-  const explicitOptOut = /\b(?:do not|don't|never|must not)\s+(?:call|use|send|invoke)?\s*notify[_\s-]?ceo\b/i.test(String(prompt || ''));
-  if (explicitOptOut) return [];
+  if (promptForbidsNotifyCeo(prompt)) return [];
   return steps.at(-1)?.type === 'notify_ceo'
     ? []
     : ['Plan must end with notify_ceo so the originating orchestrator delivers the consolidated goal outcome'];
@@ -705,7 +705,7 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
     check: ({ steps, attempt, validationErrors, priorCorrectionChecklist, previousVerdict }) => chatCompletions({
       ...options, toolName: 'goal_plan_checker', endpointPreference: 'secondary', maxTokens: 2600,
       messages: [
-        { role: 'system', content: `Validate the proposed FUTURE plan against the original goal and live catalog. You are a bounded correctness checker, NOT a brainstorming reviewer. Return a short JSON verdict under 1200 words, with at most 6 DISTINCT blocking issues; never repeat an issue. Do not return revised_steps or a replacement plan.
+        { role: 'system', content: `Validate the proposed FUTURE plan against the original goal and live catalog. You are a bounded correctness checker, NOT a brainstorming reviewer. Return a short JSON verdict under 1200 words, with at most 6 DISTINCT blocking issues; never repeat an issue. If approved, return revised_steps:[]. If rejected, also return revised_steps containing the complete minimally corrected typed plan; use only the schema enums and live catalog IDs supplied here.
 NON-NEGOTIABLE RUNTIME FACT: a specialty_task assigned to a direct-report orchestrator automatically returns that orchestrator's response to the current executor. When its message names a catalog reportee and explicitly requires delegating to it, waiting for and consuming its result, completing the remaining work, and returning outputs plus trace, this IS the executable nested delegation. Mark it covered. Never demand a top-level step for that reportee, a separate callback/report-to-current-executor step, or a communication tool that does not exist.
 NON-NEGOTIABLE CONTEXT FACT: the runtime sends the complete original goal verbatim to every specialty executor as REFERENCE-ONLY context alongside its bounded step and prior-step inputs. The bounded step is the only executable assignment. Do not reject a faithful step merely because it does not repeat wording already present in the original goal. Reject only a real contradiction, unrequested action, ambiguity that changes execution, missing executor/output/dependency, or a step that narrows away a requested outcome.
 NON-NEGOTIABLE WORKFLOW FACT: workflow_trigger always has operation_mode=coordinate. Validate its message against workflows[].input_schema and execution_contract, never invent another operation_mode for that step.
@@ -717,7 +717,7 @@ RUNTIME RESPONSIBILITY BOUNDARY: do not require plan steps, branches or prose fo
 Capability truth is in agents[].capabilities (exact name strings, descriptions in capability_definitions) AND agents[].connector_actions, and nested delegation targets are in reportees. Read these before alleging unavailable capabilities. Never claim a capability is absent when its exact name appears in that executor's list. Naming a capable agent with an unambiguous operation is sufficient; explicit tool naming is helpful but not mandatory. current_executor_tools are ONLY for direct agent_tool steps. Agents use their own capabilities inside specialty_task. A workflow supplies only its explicitly described behavior. Missing contact information may be reported/omitted rather than fabricated; do not invent a requirement to drop otherwise valid records or consult a human.
 Nested handoffs are represented by a specialty_task to the direct-report ORCHESTRATOR whose message instructs it to delegate to its reportee and consume the returned result. That is a valid executable contract: do NOT demand a separate top-level step targeting that grandchild. The originating executor is current_executor; its own tool reads are agent_tool, its synthesis is agent_continue and its final delivery is notify_ceo. Include supplied deterministic_errors AND any missing semantic requirements in the same bounded correction response so the maker can fix both together.
 One combined orchestrator assignment OR multiple dependent assignments to that SAME direct-report orchestrator are both valid. Do not reject a plan merely for splitting its work: verify the narrative/result is passed to the following step and used there. Each specialty_task returns its declared output to the originating orchestrator via the runtime callback. No extra report-back step is required if that output feeds the originating orchestrator's synthesis/final report. Never demand an extra callback step and then reject it for splitting work.
-Return {"approved":true,"issues":[],"coverage":[{"requirement_id":"r1","covered":true,"step_keys":["actual step key"]}],"step_checks":[{"step_key":"actual step key","instruction_preserves_goal":true,"operation_mode_correct":true,"deliverable_kind_correct":true,"no_unrequested_action":true}]}. Include exactly one step_checks entry for EVERY proposed step. A missing objective, operation_mode, subject or deliverable_kind makes its corresponding semantic check false. Set a boolean false and add a concrete correction issue whenever that semantic property is wrong; never approve while any is false. Cover EVERY supplied original_requirements ID. Each ID may contain several requested outcomes; covered=true only if ALL are addressed by its mapped steps. Labels may be paraphrased, IDs must be exact. If a real blocking gap exists, approved=false and each issue is {"requirement_id":"r1","step_key":"actual step key","grounding":"exact original-goal, catalog, or deterministic-schema fact violated","message":"specific grounded problem","correction":"exact minimal change"}. Do not reject for stylistic preference, speculative policy or extra optional features. Never approve missing requested outcomes.` },
+Return {"approved":true,"issues":[],"coverage":[{"requirement_id":"r1","covered":true,"step_keys":["actual step key"]}],"step_checks":[{"step_key":"actual step key","instruction_preserves_goal":true,"operation_mode_correct":true,"deliverable_kind_correct":true,"no_unrequested_action":true}],"revised_steps":[]}. Include exactly one step_checks entry for EVERY proposed step. A missing objective, operation_mode, subject or deliverable_kind makes its corresponding semantic check false. Set a boolean false and add a concrete correction issue whenever that semantic property is wrong; never approve while any is false. Cover EVERY supplied original_requirements ID. Each ID may contain several requested outcomes; covered=true only if ALL are addressed by its mapped steps. Labels may be paraphrased, IDs must be exact. If a real blocking gap exists, approved=false and each issue is {"requirement_id":"r1","step_key":"actual step key","grounding":"exact original-goal, catalog, or deterministic-schema fact violated","message":"specific grounded problem","correction":"exact minimal change"}, and revised_steps must be the complete corrected plan—not a fragment. The deterministic schema and enums override prose in an issue. Do not reject for stylistic preference, speculative policy or extra optional features. Never approve missing requested outcomes.` },
         { role: 'user', content: JSON.stringify({
           original_goal: prompt,
           original_requirements: buildGoalRequirements(prompt),
