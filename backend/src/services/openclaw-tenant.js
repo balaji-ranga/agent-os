@@ -283,31 +283,8 @@ export function copySharedDomainKnowledge(baseId, destDir) {
   }
 }
 
-const GOAL_PRIORITY_TOOLS = [
-  'agent_goal_create',
-  'agent_goal_list',
-  'agent_goal_status',
-  'agent_goal_complete_step',
-  'agent_workflow_trigger',
-  'agent_workflow_list',
-  'agent_workflow_enquire',
-  'agent_workflow_runs',
-  'notify_ceo',
-];
-
-function prioritizeGoalToolsFirst(names = []) {
-  const rank = new Map(GOAL_PRIORITY_TOOLS.map((t, i) => [t, i]));
-  return [...new Set(names)].sort((a, b) => {
-    const ra = rank.has(a) ? rank.get(a) : 1000;
-    const rb = rank.has(b) ? rank.get(b) : 1000;
-    return ra - rb || String(a).localeCompare(String(b));
-  });
-}
-
 function mergeNativeTools(existingAllow = [], contentGrants = []) {
-  return prioritizeGoalToolsFirst(
-    mergeOpenClawAllowList(existingAllow, contentGrants, { dropImage: true, dropBrowser: false })
-  );
+  return mergeOpenClawAllowList(existingAllow, contentGrants, { dropImage: true, dropBrowser: false });
 }
 
 /**

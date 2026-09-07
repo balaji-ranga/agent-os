@@ -26,6 +26,37 @@ export const ESSENTIAL_OPENCLAW_RUNTIME_TOOLS = [
   'message',
 ];
 
+/**
+ * One ordering contract for every writer of agents.*.tools.allow. Different
+ * writers previously used different priority lists, so otherwise identical
+ * allowlists kept waking OpenClaw's full config reload path.
+ */
+export const OPENCLAW_TOOL_PRIORITY = [
+  'company_objectives_query',
+  'objective_deviation_record',
+  'company_goal_link_objective',
+  'agent_goal_create',
+  'agent_goal_list',
+  'agent_goal_status',
+  'agent_goal_complete_step',
+  'agent_workflow_list',
+  'agent_workflow_enquire',
+  'agent_workflow_trigger',
+  'agent_workflow_runs',
+  'agent_workflow_watch',
+  'agent_workflow_watch_tick',
+  'notify_ceo',
+];
+
+export function prioritizeOpenClawAllowList(names = []) {
+  const rank = new Map(OPENCLAW_TOOL_PRIORITY.map((tool, index) => [tool, index]));
+  return [...new Set((names || []).map((tool) => String(tool)).filter(Boolean))].sort((a, b) => {
+    const ra = rank.has(a) ? rank.get(a) : 1000;
+    const rb = rank.has(b) ? rank.get(b) : 1000;
+    return ra - rb || a.localeCompare(b);
+  });
+}
+
 export function mergeOpenClawAllowList(existingAllow = [], contentGrants = [], opts = {}) {
   const dropImage = opts.dropImage !== false;
   const dropBrowser = opts.dropBrowser === true;
@@ -42,7 +73,7 @@ export function mergeOpenClawAllowList(existingAllow = [], contentGrants = [], o
     if (dropBrowser && t === 'browser') return false;
     return true;
   });
-  return merged;
+  return prioritizeOpenClawAllowList(merged);
 }
 
 /** True when the gateway substituted its empty-payload placeholder. */

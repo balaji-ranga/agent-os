@@ -14,6 +14,7 @@ The context controls below preserve this contract. They reduce redundant input b
 - Feedback-learning comments, Kanban notes, and topic focus are bounded before entering a prompt.
 - Direct platform LLM calls and OpenClaw gateway calls emit a rate-limited warning at `LLM_CONTEXT_WARN_CHARS` (default 80,000 characters). The warning contains counts, roles, source, tool, and agent identifiers only—never prompt text.
 - Repeated agent reconciliation no longer rewrites an unchanged `agent-tool-allowlists.json`, avoiding unnecessary OpenClaw reload work.
+- Backend tenant, startup, and container configuration writers use one canonical tool-allowlist order. Equivalent tool sets can no longer alternate order and trigger full-roster reloads.
 - The OpenClaw container health check now fails until `/health` responds instead of reporting success while the gateway port is unavailable.
 - `npm run audit:token-context -- 7` reports token totals by source, the largest metered calls, and the largest stored chat sessions. It is read-only.
 

@@ -18,10 +18,11 @@ import {
   ensureTenantOpenClawAgent,
 } from './openclaw-tenant.js';
 import { COO_CONTENT_TOOLS_ALLOW } from '../lib/content-tools-allow.js';
-import { readOpenClawConfigSafe, writeOpenClawConfigSafe } from './openclaw-config-safe.js';
+import { readOpenClawConfigSafe, writeOpenClawConfigSafe, writeOpenClawTextFileIfChanged } from './openclaw-config-safe.js';
 import {
   NATIVE_OPENCLAW_TOOLS as NATIVE_OPENCLAW_TOOLS_LIST,
   mergeOpenClawAllowList,
+  prioritizeOpenClawAllowList,
 } from './openclaw-runtime-tools.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -178,49 +179,19 @@ export function syncAllowlistsFile() {
   }
   out = syncTenantAllowlists(out);
   if (!existsSync(OPENCLAW_DIR)) mkdirSync(OPENCLAW_DIR, { recursive: true });
-  writeFileSync(ALLOWLISTS_PATH, JSON.stringify(out, null, 2), 'utf8');
+  writeOpenClawTextFileIfChanged(ALLOWLISTS_PATH, `${JSON.stringify(out, null, 2)}\n`);
   return out;
 }
 
-/** Keep multi-intent goal tools near the front of allow lists (visibility under tool caps). */
-const CORE_PRIORITY_TOOLS = [
-  'company_objectives_query',
-  'objective_deviation_record',
-  'company_goal_link_objective',
-  'agent_goal_create',
-  'agent_goal_list',
-  'agent_goal_status',
-  'agent_goal_complete_step',
-  'agent_workflow_list',
-  'agent_workflow_enquire',
-  'agent_workflow_trigger',
-  'agent_workflow_runs',
-  'agent_workflow_watch',
-  'agent_workflow_watch_tick',
-  'notify_ceo',
-];
-
-function prioritizeCoreAgentTools(names = []) {
-  const list = [...new Set((names || []).map((t) => String(t)))];
-  const rank = new Map(CORE_PRIORITY_TOOLS.map((t, i) => [t, i]));
-  return list.sort((a, b) => {
-    const ra = rank.has(a) ? rank.get(a) : 1000;
-    const rb = rank.has(b) ? rank.get(b) : 1000;
-    return ra - rb || a.localeCompare(b);
-  });
-}
-
 function mergeNativeTools(existingAllow = [], contentGrants = []) {
-  return prioritizeCoreAgentTools(
-    mergeOpenClawAllowList(existingAllow, contentGrants, { dropImage: true, dropBrowser: true })
-  );
+  return mergeOpenClawAllowList(existingAllow, contentGrants, { dropImage: true, dropBrowser: true });
 }
 
 /** Preserve an explicitly enabled native browser without granting it to new agents. */
 export function mergeAgentRuntimeAllowlist(existingAllow = [], contentGrants = []) {
   const merged = mergeNativeTools(existingAllow, contentGrants);
   const hadBrowser = (existingAllow || []).some((t) => String(t) === 'browser');
-  return hadBrowser ? prioritizeCoreAgentTools([...merged, 'browser']) : merged;
+  return hadBrowser ? prioritizeOpenClawAllowList([...merged, 'browser']) : merged;
 }
 
 export function syncOpenClawJsonForAgent(agent) {

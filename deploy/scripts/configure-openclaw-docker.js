@@ -20,6 +20,7 @@ import {
   applyWhatsAppFromPrefixToChannel,
   applyIdentityNameToAgentEntry,
 } from '../../scripts/lib/openclaw-whatsapp-from-prefix.js';
+import { prioritizeOpenClawAllowList } from '../../backend/src/services/openclaw-runtime-tools.js';
 import {
   REQUIRED_GLOBAL_CONTENT_TOOLS,
   COO_CONTENT_TOOLS_ALLOW,
@@ -329,6 +330,7 @@ if (agentRoster.length) {
         added += 1;
       }
     }
+    agent.tools.allow = prioritizeOpenClawAllowList(agent.tools.allow);
     const deny = Array.isArray(agent.tools.deny) ? agent.tools.deny : [];
     const mustDenyBrowser = BROWSER_DENIED_AGENT_IDS.has(id) || BROWSER_DENIED_AGENT_IDS.has(leafId);
     if (required || mustDenyBrowser) {

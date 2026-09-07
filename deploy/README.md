@@ -511,6 +511,7 @@ On VPS after sync (or after `git pull` on the box), `vps-deploy-latest.sh` rebui
 **Prevention (shipped):**
 - Backend writes use `backend/src/services/openclaw-config-safe.js` (never drop `gateway` / `tools` / `plugins` / `browser`)
 - Unchanged OpenClaw JSON and tool-allowlist sidecars are not rewritten, preventing reload amplification during repeated chat/API reconciliation
+- Tenant, startup, and container writers share one canonical per-agent tool order, so equivalent allowlists do not alternate and reload the full roster
 - OpenClaw entrypoint: `ensure-openclaw-gateway-config.js` (also restores empty **models** from bak) → `configure-openclaw-docker.js` → channel restore
 - Compose health uses the gateway `/health` endpoint and fails while the port is unavailable
 - Every deploy: `vps-verify-openclaw-chat.sh` (auto-repair + live probe; configure if catalog empty)

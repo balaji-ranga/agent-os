@@ -11,6 +11,7 @@ process.env.OPENCLAW_CONFIG_PATH = join(fixtureDir, 'openclaw.json');
 
 const { writeOpenClawConfigSafe, writeOpenClawTextFileIfChanged, withOpenClawConfigBatch } = await import('../src/services/openclaw-config-safe.js');
 const { applyIdentityNameToAgentEntry } = await import('../../scripts/lib/openclaw-whatsapp-from-prefix.js');
+const { mergeOpenClawAllowList } = await import('../src/services/openclaw-runtime-tools.js');
 
 try {
   const initial = {
@@ -58,6 +59,11 @@ try {
   const allowBefore = statSync(allowPath).mtimeMs;
   assert.equal(writeOpenClawTextFileIfChanged(allowPath, '{"agent":[]}\n'), false);
   assert.equal(statSync(allowPath).mtimeMs, allowBefore, 'identical sidecar config must be a no-op');
+  assert.deepEqual(
+    mergeOpenClawAllowList(['write', 'agent_goal_list'], ['company_objectives_query', 'write'], { dropBrowser: false }),
+    mergeOpenClawAllowList(['company_objectives_query', 'write'], ['agent_goal_list'], { dropBrowser: false }),
+    'all config writers must produce one canonical tool order'
+  );
   console.log('OPENCLAW_CONFIG_NOOP_OK');
 } finally {
   rmSync(fixtureDir, { recursive: true, force: true });
