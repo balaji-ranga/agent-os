@@ -86,6 +86,7 @@ import {
   finishChatActivity,
   getChatActivity,
 } from '../services/chat-live-activity.js';
+import { answerPlatformHelp } from '../services/platform-help-chat.js';
 import {
   listPublishedTemplates,
   getTemplate,
@@ -967,6 +968,75 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
         thread_id: getChatThreadId(agentId, ownerUserId),
         work_unit: turnRoute,
         goal_plan: goal,
+        workflow_triggered: null,
+      });
+    }
+
+    // Product help needs one retrieval and one synthesis, not an open-ended
+    // autonomous tool loop. This keeps latency and context stable while retaining
+    // the same owner-scoped RAG evidence and audit trail.
+    if (isPlatformHelp) {
+      const toolsSince = new Date().toISOString();
+      if (liveScope) updateChatActivity(liveScope, {
+        phase: 'tool_selection',
+        label: 'Searching Flolah Help',
+      });
+      const result = await withLlmopsContext(
+        {
+          ownerUserId,
+          memberKey: agentId,
+          agentId,
+          source: 'platform_help_bounded_rag',
+          sessionId: ensuredSession.session.id,
+          traceId: `sess:${ensuredSession.session.id}`,
+        },
+        () => answerPlatformHelp({
+          ownerUserId,
+          question: routedMessage,
+          history: boundPlatformHelpHistory(turnRoute.selected_turns, { maxTurns: 2, maxChars: 1600 }),
+          sessionId: ensuredSession.session.id,
+        })
+      );
+      const loggedResponse = {
+        ok: true,
+        corpus: 'platform-help',
+        hit_count: Number(result.rag?.hit_count || 0),
+        evidence_titles: result.evidenceTitles,
+      };
+      try {
+        db().prepare(
+          `INSERT INTO content_tool_logs
+             (tool_name, source, request_payload, response_payload, status, owner_user_id, trace_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`
+        ).run(
+          'master_data_rag',
+          agentId,
+          JSON.stringify({ query: routedMessage, top_k: 3 }),
+          JSON.stringify(loggedResponse),
+          'ok',
+          ownerUserId,
+          `sess:${ensuredSession.session.id}`
+        );
+      } catch (logErr) {
+        console.warn('[platform-help] RAG audit log failed:', logErr?.message || logErr);
+      }
+      const replyText = toAgentSystemUserMessage(
+        result.reply || 'I could not find sufficient Platform Help evidence for that question.'
+      );
+      bindWorkUnitExecution(turnRoute.id, null, 'completed');
+      insertChatTurn({ agentId, ownerUserId, role: 'user', content: message, sessionId: ensuredSession.session.id, workUnitId: turnRoute.id });
+      insertChatTurn({ agentId, ownerUserId, role: 'assistant', content: replyText, sessionId: ensuredSession.session.id, workUnitId: turnRoute.id });
+      const tool_calls = listToolCallsSince(agentId, ownerUserId, toolsSince);
+      if (liveScope) finishChatActivity(liveScope, { label: 'Response ready' });
+      return res.json({
+        reply: replyText,
+        usage: result.usage,
+        agent_id: agentId,
+        work_unit: turnRoute,
+        tool_calls,
+        thread_id: getChatThreadId(agentId, ownerUserId),
+        session_reset: null,
+        topic_hint: null,
         workflow_triggered: null,
       });
     }

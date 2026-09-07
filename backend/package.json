@@ -70,6 +70,7 @@
     ,"test:objective-agent-alignment": "node scripts/test-objective-agent-alignment.mjs"
     ,"audit:token-context": "node scripts/audit-token-context-creep.mjs"
     ,"test:platform-help-memory": "node scripts/test-platform-help-memory-context.mjs"
+    ,"test:platform-help-bounded-context": "node scripts/test-platform-help-bounded-context.mjs"
   },
   "dependencies": {
     "@stoqey/ib": "^1.6.3",
