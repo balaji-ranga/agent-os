@@ -976,7 +976,6 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     // autonomous tool loop. This keeps latency and context stable while retaining
     // the same owner-scoped RAG evidence and audit trail.
     if (isPlatformHelp) {
-      const toolsSince = new Date().toISOString();
       if (liveScope) updateChatActivity(liveScope, {
         phase: 'tool_selection',
         label: 'Searching Flolah Help',
@@ -1003,8 +1002,9 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
         hit_count: Number(result.rag?.hit_count || 0),
         evidence_titles: result.evidenceTitles,
       };
+      let ragAuditId = null;
       try {
-        db().prepare(
+        const audit = db().prepare(
           `INSERT INTO content_tool_logs
              (tool_name, source, request_payload, response_payload, status, owner_user_id, trace_id)
            VALUES (?, ?, ?, ?, ?, ?, ?)`
@@ -1017,6 +1017,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
           ownerUserId,
           `sess:${ensuredSession.session.id}`
         );
+        ragAuditId = audit.lastInsertRowid;
       } catch (logErr) {
         console.warn('[platform-help] RAG audit log failed:', logErr?.message || logErr);
       }
@@ -1026,7 +1027,15 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
       bindWorkUnitExecution(turnRoute.id, null, 'completed');
       insertChatTurn({ agentId, ownerUserId, role: 'user', content: message, sessionId: ensuredSession.session.id, workUnitId: turnRoute.id });
       insertChatTurn({ agentId, ownerUserId, role: 'assistant', content: replyText, sessionId: ensuredSession.session.id, workUnitId: turnRoute.id });
-      const tool_calls = listToolCallsSince(agentId, ownerUserId, toolsSince);
+      const tool_calls = [{
+        id: ragAuditId,
+        tool_name: 'master_data_rag',
+        source: agentId,
+        status: 'ok',
+        request: { query: routedMessage, top_k: 3 },
+        response: loggedResponse,
+        created_at: new Date().toISOString(),
+      }];
       if (liveScope) finishChatActivity(liveScope, { label: 'Response ready' });
       return res.json({
         reply: replyText,

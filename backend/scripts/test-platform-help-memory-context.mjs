@@ -55,7 +55,8 @@ try {
 
   const helpRows = results.filter((row) => row.kind === 'rag_help');
   assert(helpRows.every((row) => !row.tool_names.includes('master_data_list_documents')), 'Platform Help must not list the entire corpus as a RAG fallback');
-  assert(helpRows.every((row) => row.input_tokens < 40000), `Platform Help input context exceeded 40k tokens: ${JSON.stringify(helpRows)}`);
+  assert(helpRows.every((row) => row.tool_names.length === 1 && row.tool_names[0] === 'master_data_rag'), `Platform Help must retrieve exactly once: ${JSON.stringify(helpRows)}`);
+  assert(helpRows.every((row) => row.input_tokens < 10000), `Platform Help input context exceeded 10k tokens: ${JSON.stringify(helpRows)}`);
   const tokenSeries = helpRows.map((row) => row.input_tokens);
   console.log(JSON.stringify({
     ok: true,
