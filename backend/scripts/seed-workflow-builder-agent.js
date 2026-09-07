@@ -9,7 +9,7 @@ import { existsSync, mkdirSync, copyFileSync, readFileSync, writeFileSync } from
 const __dirname = dirname(fileURLToPath(import.meta.url));
 import { initDb, getDb } from '../src/db/schema.js';
 import { seedWorkflowToolsIfMissing } from '../src/db/seed-content-tools-meta.js';
-import { setAgentToolGrants } from '../src/services/openclaw-agent-tools.js';
+import { getAgentToolGrants, setAgentToolGrants } from '../src/services/openclaw-agent-tools.js';
 
 initDb();
 const db = getDb();
@@ -68,7 +68,10 @@ export function seedWorkflowBuilderAgent() {
   }
   const agent = db.prepare('SELECT * FROM agents WHERE id = ?').get('workflowbuilder');
   try {
-    setAgentToolGrants(agent, WORKFLOW_BUILDER_TOOLS);
+    // Startup seeding is additive. Replacing the persisted grant set here made
+    // later startup reconcilers add legitimate grants back, producing two
+    // OpenClaw hot reloads and avoidable heap growth on every backend restart.
+    setAgentToolGrants(agent, [...getAgentToolGrants(agent.id), ...WORKFLOW_BUILDER_TOOLS]);
   } catch (e) {
     console.warn('[seed-workflow-builder] tool grants:', e.message);
   }

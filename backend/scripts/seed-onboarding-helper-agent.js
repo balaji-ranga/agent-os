@@ -8,7 +8,7 @@ import { existsSync, mkdirSync, copyFileSync, readFileSync, writeFileSync } from
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 import { initDb, getDb } from '../src/db/schema.js';
-import { setAgentToolGrants } from '../src/services/openclaw-agent-tools.js';
+import { getAgentToolGrants, setAgentToolGrants } from '../src/services/openclaw-agent-tools.js';
 
 initDb();
 const db = getDb();
@@ -71,7 +71,7 @@ export function seedOnboardingHelperAgent() {
   }
   const agent = db.prepare('SELECT * FROM agents WHERE id = ?').get('onboardinghelper');
   try {
-    setAgentToolGrants(agent, ONBOARDING_HELPER_TOOLS);
+    setAgentToolGrants(agent, [...getAgentToolGrants(agent.id), ...ONBOARDING_HELPER_TOOLS]);
   } catch (e) {
     console.warn('[seed-onboarding-helper] tool grants:', e.message);
   }

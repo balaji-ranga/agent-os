@@ -8,7 +8,7 @@ import { existsSync, mkdirSync, copyFileSync, readFileSync, writeFileSync } from
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 import { initDb, getDb } from '../src/db/schema.js';
-import { setAgentToolGrants } from '../src/services/openclaw-agent-tools.js';
+import { getAgentToolGrants, setAgentToolGrants } from '../src/services/openclaw-agent-tools.js';
 
 initDb();
 const db = getDb();
@@ -73,7 +73,7 @@ export function seedPlatformHelpAgent() {
   }
   const agent = db.prepare('SELECT * FROM agents WHERE id = ?').get('platformhelp');
   try {
-    setAgentToolGrants(agent, PLATFORM_HELP_TOOLS);
+    setAgentToolGrants(agent, [...getAgentToolGrants(agent.id), ...PLATFORM_HELP_TOOLS]);
   } catch (e) {
     console.warn('[seed-platform-help] tool grants:', e.message);
   }

@@ -16,6 +16,7 @@ The context controls below preserve this contract. They reduce redundant input b
 - Repeated agent reconciliation no longer rewrites an unchanged `agent-tool-allowlists.json`, avoiding unnecessary OpenClaw reload work.
 - Backend tenant, startup, and container configuration writers use one canonical tool-allowlist order. Equivalent tool sets can no longer alternate order and trigger full-roster reloads.
 - Runtime reconciliation compares allowlists as permission sets and preserves the existing serialized order when permissions are unchanged.
+- Built-in agent startup seeds now add their required baseline grants instead of replacing the full persisted grant set. This prevents later reconcilers from restoring objective or administrator grants and triggering another gateway reload during the same backend start.
 - The OpenClaw container health check now fails until `/health` responds instead of reporting success while the gateway port is unavailable.
 - `npm run audit:token-context -- 7` reports token totals by source, the largest metered calls, and the largest stored chat sessions. It is read-only.
 
