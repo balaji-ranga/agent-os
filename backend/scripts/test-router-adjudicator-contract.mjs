@@ -14,6 +14,7 @@ process.env.OPENAI_PRIMARY_API_KEY = 'fixture-only';
 process.env.OPENAI_SECONDARY_BASE_URL = 'https://checker.invalid/v1';
 process.env.OPENAI_SECONDARY_MODEL = 'test-checker';
 process.env.OPENAI_SECONDARY_API_KEY = 'fixture-only';
+process.env.MODEL_ROUTING_ENABLED = '0';
 const { getDb } = await import('../src/db/schema.js');
 const { routeAgentTurn, validateRouteDecision, needsRouteAdjudication, ROUTER_SYSTEM, isDirectChatOnlyAgent } = await import('../src/services/agent-turn-router.js');
 const { buildRouteSchema, routeContractPrompt } = await import('../src/services/agent-route-contract.js');
