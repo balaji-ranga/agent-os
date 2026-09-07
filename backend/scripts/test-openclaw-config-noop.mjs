@@ -11,7 +11,7 @@ process.env.OPENCLAW_CONFIG_PATH = join(fixtureDir, 'openclaw.json');
 
 const { writeOpenClawConfigSafe, writeOpenClawTextFileIfChanged, withOpenClawConfigBatch } = await import('../src/services/openclaw-config-safe.js');
 const { applyIdentityNameToAgentEntry } = await import('../../scripts/lib/openclaw-whatsapp-from-prefix.js');
-const { mergeOpenClawAllowList } = await import('../src/services/openclaw-runtime-tools.js');
+const { mergeOpenClawAllowList, sameOpenClawToolSet } = await import('../src/services/openclaw-runtime-tools.js');
 
 try {
   const initial = {
@@ -64,6 +64,8 @@ try {
     mergeOpenClawAllowList(['company_objectives_query', 'write'], ['agent_goal_list'], { dropBrowser: false }),
     'all config writers must produce one canonical tool order'
   );
+  assert.equal(sameOpenClawToolSet(['write', 'read'], ['read', 'write', 'read']), true);
+  assert.equal(sameOpenClawToolSet(['write'], ['write', 'read']), false);
   console.log('OPENCLAW_CONFIG_NOOP_OK');
 } finally {
   rmSync(fixtureDir, { recursive: true, force: true });

@@ -57,6 +57,12 @@ export function prioritizeOpenClawAllowList(names = []) {
   });
 }
 
+export function sameOpenClawToolSet(left = [], right = []) {
+  const a = new Set((left || []).map((tool) => String(tool)).filter(Boolean));
+  const b = new Set((right || []).map((tool) => String(tool)).filter(Boolean));
+  return a.size === b.size && [...a].every((tool) => b.has(tool));
+}
+
 export function mergeOpenClawAllowList(existingAllow = [], contentGrants = [], opts = {}) {
   const dropImage = opts.dropImage !== false;
   const dropBrowser = opts.dropBrowser === true;
