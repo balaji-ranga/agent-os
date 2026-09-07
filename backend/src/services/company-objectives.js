@@ -2,6 +2,12 @@ import { createHash, randomUUID } from 'crypto';
 import { getDb } from '../db/schema.js';
 import { chatCompletions } from '../config/llm.js';
 import { createAndStartGoalRun } from './agent-goal-run.js';
+import {
+  MEASUREMENT_OBJECT_CATALOGUE,
+  measurementObjectsForSource,
+  toMeasurementRegistryObjects,
+} from './business-measurement-catalogue.js';
+import { executeFormula } from './measurement-formula-engine.js';
 
 const PERIODS = new Set(['monthly', 'quarterly', 'half_yearly', 'annual']);
 const STATUSES = new Set(['draft', 'active', 'paused', 'completed', 'cancelled']);
@@ -40,13 +46,13 @@ const SOURCE_ATTRIBUTES = {
   custom_api: [attribute('record_id','Record ID','string','Adapter-provided record identifier'),attribute('value','Value','number','Adapter-provided numeric value'),attribute('occurred_at','Occurred at','datetime','Adapter-provided occurrence time'),attribute('baseline_value','Baseline value','number','Adapter-provided baseline'),attribute('matching_count','Matching count','integer','Records matching adapter filters'),attribute('eligible_count','Eligible count','integer','Eligible adapter records'),attribute('web.page_url','Crawled page URL','string','Canonical URL returned in pages','web.crawl','pages[].url'),attribute('web.page_domain','Crawled page domain','string','Normalized domain derived from page URL','web.crawl','pages[].domain'),attribute('web.match_phrase','Matched phrase','string','Phrase returned in matches','web.crawl','matches[].phrase'),attribute('web.match_count','Matched page count','integer','Number of matching crawl results','web.crawl','stats.match_count')],
   documents: [attribute('document_id','Document ID','string','Evidence document identifier'),attribute('record_id','Record ID','string','Evidence record identifier'),attribute('value','Extracted value','number','Validated value extracted from evidence'),attribute('occurred_at','Evidence time','datetime','Evidence timestamp'),attribute('matching_count','Matching count','integer','Matching evidence records'),attribute('eligible_count','Eligible count','integer','Eligible evidence records')],
   manual: [attribute('record_id','Attestation ID','string','Human attestation identifier'),attribute('value','Attested value','number','Human-attested numeric value'),attribute('occurred_at','Attested at','datetime','Attestation time'),attribute('baseline_value','Baseline value','number','Attested baseline'),attribute('matching_count','Matching count','integer','Matching attestations'),attribute('eligible_count','Eligible count','integer','Eligible attestations')],
+  objectives: [attribute('record_id','Objective record ID','string','Objective, KR, initiative or measurement identifier'),attribute('completed_count','Completed objectives','integer','Completed records in the objective window'),attribute('eligible_count','Eligible objectives','integer','Eligible records in the objective window'),attribute('successful_count','Successful results','integer','Successful objective results'),attribute('failed_count','Failed results','integer','Failed or off-track results'),attribute('value','Measured value','number','Current Key Result or measurement value'),attribute('baseline_value','Baseline value','number','Value at the objective baseline'),attribute('occurred_at','Measurement time','datetime','Objective measurement timestamp')],
+  org: [attribute('record_id','Member ID','string','Organization member identifier'),attribute('completed_count','Completed invocations','integer','Completed organization invocations'),attribute('eligible_count','Eligible invocations','integer','Eligible organization invocations'),attribute('successful_count','Successful invocations','integer','Successful organization invocations'),attribute('failed_count','Failed invocations','integer','Failed organization invocations'),attribute('started_at','Started at','datetime','Invocation start'),attribute('completed_at','Completed at','datetime','Invocation completion')],
+  governance: [attribute('record_id','Policy or approval ID','string','Governance record identifier'),attribute('completed_count','Decided approvals','integer','Approvals with a decision'),attribute('eligible_count','Requested approvals','integer','All requested approvals'),attribute('successful_count','Approved actions','integer','Approved decisions'),attribute('failed_count','Rejected actions','integer','Rejected decisions'),attribute('started_at','Requested at','datetime','Approval request time'),attribute('completed_at','Decided at','datetime','Decision time')],
+  feedback: [attribute('record_id','Feedback ID','string','Platform feedback identifier'),attribute('completed_count','Resolved feedback','integer','Resolved feedback items'),attribute('eligible_count','Submitted feedback','integer','Submitted feedback items'),attribute('successful_count','Implemented feedback','integer','Implemented feedback items'),attribute('failed_count','Rejected feedback','integer','Rejected feedback items'),attribute('started_at','Created at','datetime','Feedback creation time'),attribute('completed_at','Resolved at','datetime','Feedback resolution time')],
+  promotions: [attribute('record_id','Campaign ID','string','Promotion campaign identifier'),attribute('value','Campaign value','number','Configured campaign result value'),attribute('cost','Campaign cost','currency','Campaign spend'),attribute('matching_count','Converted recipients','integer','Recipients meeting the result criterion'),attribute('eligible_count','Eligible recipients','integer','Eligible campaign recipients'),attribute('started_at','Started at','datetime','Campaign start'),attribute('completed_at','Completed at','datetime','Campaign end')],
 };
-const PLATFORM_OBJECTS = {
-  flolah_crm: [{ id: 'crm.opportunity', label: 'CRM Opportunity', provider_object: 'Twenty Opportunity', attributes: [attribute('crm.opportunity_id','Opportunity ID','string','Twenty opportunity identifier','crm.opportunity','id'),attribute('crm.opportunity_name','Opportunity name','string','Twenty opportunity name','crm.opportunity','name'),attribute('crm.opportunity_amount','Opportunity amount','currency','Twenty opportunity amount','crm.opportunity','amount'),attribute('crm.opportunity_probability','Opportunity probability','decimal','Configured probability','crm.opportunity','probability'),attribute('crm.opportunity_stage','Opportunity stage','string','Twenty opportunity stage','crm.opportunity','stage'),attribute('crm.company_id','Company ID','string','Linked Twenty company identifier','crm.opportunity','companyId'),attribute('crm.contact_id','Point of contact ID','string','Linked Twenty person identifier','crm.opportunity','pointOfContactId'),attribute('crm.close_date','Close date','date','Expected close date','crm.opportunity','closeDate')] }],
-  flolah_erp: [{ id: 'erp.sales_invoice', label: 'ERP Sales Invoice', provider_object: 'ERPNext Sales Invoice', attributes: [attribute('erp.invoice_id','Invoice ID','string','ERPNext document name','erp.sales_invoice','name'),attribute('erp.customer','Customer','string','Invoice customer','erp.sales_invoice','customer'),attribute('erp.grand_total','Grand total','currency','Invoice grand total','erp.sales_invoice','grand_total'),attribute('erp.outstanding_amount','Outstanding amount','currency','Unpaid invoice amount','erp.sales_invoice','outstanding_amount'),attribute('erp.status','Invoice status','string','ERPNext invoice status','erp.sales_invoice','status'),attribute('erp.docstatus','Document status','integer','0 draft, 1 submitted, 2 cancelled','erp.sales_invoice','docstatus'),attribute('erp.posting_date','Posting date','date','Invoice posting date','erp.sales_invoice','posting_date'),attribute('erp.crm_opportunity_id','CRM opportunity link','string','Configured correlation field linking the invoice to CRM','erp.sales_invoice','crm_opportunity_id')] }],
-  communications: [{ id: 'gmail.message', label: 'Gmail Message', provider_object: 'OpenConnector gmail.fetch_emails normalized message', attributes: SOURCE_ATTRIBUTES.communications.filter((item) => item.object_id === 'gmail.message') }],
-  custom_api: [{ id: 'web.crawl', label: 'Web Crawler Result', provider_object: 'web_scrape MCP / Crawlee result', attributes: SOURCE_ATTRIBUTES.custom_api.filter((item) => item.object_id === 'web.crawl') }],
-};
+const PLATFORM_OBJECTS = Object.fromEntries(Object.keys(MEASUREMENT_OBJECT_CATALOGUE.sources).map((sourceId) => [sourceId, toMeasurementRegistryObjects(measurementObjectsForSource(sourceId), attribute)]));
 const EVIDENCE_BACKED_INVOICE_RULE = {
   kind: 'composite_rule', id: 'evidence_backed_invoiced_opportunity_rate', label: 'Evidence-backed invoiced opportunity rate',
   description: 'Percentage of won CRM opportunities with retained web evidence, a correlated Gmail message, and a submitted linked ERP Sales Invoice.',
@@ -107,6 +113,11 @@ export function measurementRegistry(ownerUserId = null) {
     { id: 'custom_api', label: 'Custom API or MCP', category: 'Integration data', provider: 'Registered API / MCP tool', availability: 'configuration_required', formulas: [formula('count'),formula('sum'),formula('average'),formula('latest_value'),formula('change'),formula('percentage')] },
     { id: 'documents', label: 'Evidence documents', category: 'Evidence', provider: 'Uploaded or agent-generated documents', availability: 'native', formulas: [formula('document_count','Document count'),formula('count'),formula('latest_value'),formula('percentage')] },
     { id: 'manual', label: 'Manual evidence', category: 'Fallback', provider: 'Human attestation', availability: 'fallback', formulas: [formula('latest_value'),formula('change'),formula('percentage'),formula('count')] },
+    { id: 'objectives', label: 'Objectives and Key Results', category: 'Strategy data', provider: 'Flolah OKR', availability: 'native', formulas: [formula('count'),formula('completion_rate'),formula('success_rate'),formula('error_rate'),formula('latest_value'),formula('change')] },
+    { id: 'org', label: 'Organization', category: 'Company data', provider: 'Flolah Org', availability: 'native', formulas: [formula('count'),formula('completion_rate'),formula('success_rate'),formula('error_rate'),formula('cycle_time')] },
+    { id: 'governance', label: 'Policies and approvals', category: 'Governance data', provider: 'Flolah Governance', availability: 'native', formulas: [formula('count'),formula('completion_rate'),formula('success_rate'),formula('error_rate'),formula('cycle_time')] },
+    { id: 'feedback', label: 'Platform feedback', category: 'Platform data', provider: 'Flolah Feedback', availability: 'native', formulas: [formula('count'),formula('completion_rate'),formula('success_rate'),formula('error_rate'),formula('cycle_time')] },
+    { id: 'promotions', label: 'Promotion campaigns', category: 'Business data', provider: 'Flolah Promotions', availability: 'native', formulas: [formula('count'),formula('sum'),formula('percentage'),formula('cost')] },
   ];
   for (const source of sources) {
     source.attributes = SOURCE_ATTRIBUTES[source.id] || [];
@@ -115,7 +126,7 @@ export function measurementRegistry(ownerUserId = null) {
     const invalid = source.formulas.find((item) => !item.validation.valid);
     if (invalid) throw new Error(`Invalid platform formula ${source.id}.${invalid.id}: ${invalid.validation.unknown_attributes.join(', ') || invalid.validation.unsupported_functions.join(', ')}`);
   }
-  if (!ownerUserId) return { version: 2, scope: 'system', sources, rule_templates: [{ ...EVIDENCE_BACKED_INVOICE_RULE, validation: validateCompositeRule(sources, EVIDENCE_BACKED_INVOICE_RULE) }] };
+  if (!ownerUserId) return { version: MEASUREMENT_OBJECT_CATALOGUE.version, scope: 'system', sources, rule_templates: [{ ...EVIDENCE_BACKED_INVOICE_RULE, validation: validateCompositeRule(sources, EVIDENCE_BACKED_INVOICE_RULE) }] };
   ensureCompanyObjectiveTables();
   const safeAll = (sql, ...params) => { try { return db().prepare(sql).all(...params); } catch { return []; } };
   const safeGet = (sql, ...params) => { try { return db().prepare(sql).get(...params) || {}; } catch { return {}; } };
@@ -133,13 +144,14 @@ export function measurementRegistry(ownerUserId = null) {
     communications: channels, llmops: [{ id: 'llmops:owner', label: 'Company AI/tool telemetry' }], events: mcps,
     custom_api: [...mcps, ...scripts.map((item) => ({ ...item, id: `script:${item.id}` }))], documents: [{ id: 'documents:owner', label: 'Company evidence documents' }],
     business_events: [{ id: 'business_events:owner', label: 'Objective evidence ledger' }], manual: [{ id: 'manual:owner', label: 'Human attestation' }],
+    objectives: [{ id: 'objectives:owner', label: 'Company objectives and Key Results' }], org: [{ id: 'org:owner', label: 'Company organization' }], governance: [{ id: 'governance:owner', label: 'Company policies and approvals' }], feedback: [{ id: 'feedback:owner', label: 'Company platform feedback' }], promotions: [{ id: 'promotions:owner', label: 'Company promotion campaigns' }],
   };
   const overrides = safeAll('SELECT * FROM company_measurement_registry WHERE owner_user_id=? ORDER BY kind,label', ownerUserId);
   const customSources = overrides.filter((row) => row.kind === 'source').map((row) => { const attributes = overrides.filter((attributeRow) => attributeRow.kind === 'attribute' && attributeRow.source_id === row.id && attributeRow.enabled).map((attributeRow) => attribute(attributeRow.id, attributeRow.label, attributeRow.data_type || 'number', attributeRow.description, attributeRow.object_id, attributeRow.mapping_path)); return { id: row.id, label: row.label, category: row.category || 'Company configured', provider: row.provider || 'Company configured', availability: row.enabled ? 'available' : 'disabled', attributes, objects: [], formulas: overrides.filter((formulaRow) => formulaRow.kind === 'formula' && formulaRow.source_id === row.id && formulaRow.enabled).map((formulaRow) => { const item = { ...formula(formulaRow.id, formulaRow.label, formulaRow.description, formulaRow.expression), company_managed: true }; return { ...item, validation: validateFormulaExpression({ attributes }, item.expression) }; }), instances: row.enabled ? [{ id: `${row.id}:company`, label: row.label }] : [], company_managed: true }; });
   const sourceOverrides = new Map(overrides.filter((row) => row.kind === 'source_override').map((row) => [row.source_id, row]));
   const mergedSources = [...sources.map((source) => {
     const bound = instances[source.id] || [];
-    const nativeWithoutBinding = ['goal_plans','tasks','knowledge','llmops','documents','business_events','manual'].includes(source.id);
+    const nativeWithoutBinding = ['goal_plans','tasks','knowledge','llmops','documents','business_events','manual','objectives','org','governance','feedback','promotions'].includes(source.id);
     const override = sourceOverrides.get(source.id);
     const companyAttributes = overrides.filter((row) => row.kind === 'attribute' && row.source_id === source.id && row.enabled).map((row) => ({ ...attribute(row.id, row.label, row.data_type || 'number', row.description, row.object_id, row.mapping_path), company_managed: true }));
     const attributes = [...source.attributes, ...companyAttributes];
@@ -147,7 +159,7 @@ export function measurementRegistry(ownerUserId = null) {
     return { ...source, label: override?.label || source.label, attributes, formulas: [...source.formulas, ...companyFormulas], enabled: override ? Boolean(override.enabled) : true, instances: bound, availability: override && !override.enabled ? 'disabled' : bound.length || nativeWithoutBinding ? 'available' : 'configuration_required', system_managed: true };
   }), ...customSources];
   const rules = overrides.filter((row) => row.kind === 'composite_rule' && row.enabled).map((row) => { const rule = { kind: row.kind, id: row.id, label: row.label, description: row.description, expression: row.expression, mappings: json(row.mapping_json, []), company_managed: true }; return { ...rule, validation: validateCompositeRule(mergedSources, rule) }; });
-  return { version: 2, scope: 'company', owner_user_id: ownerUserId, sources: mergedSources, rules, rule_templates: [{ ...EVIDENCE_BACKED_INVOICE_RULE, validation: validateCompositeRule(mergedSources, EVIDENCE_BACKED_INVOICE_RULE) }] };
+  return { version: MEASUREMENT_OBJECT_CATALOGUE.version, scope: 'company', owner_user_id: ownerUserId, sources: mergedSources, rules, rule_templates: [{ ...EVIDENCE_BACKED_INVOICE_RULE, validation: validateCompositeRule(mergedSources, EVIDENCE_BACKED_INVOICE_RULE) }] };
 }
 
 export function upsertMeasurementRegistryEntry(ownerUserId, input = {}) {
@@ -586,8 +598,23 @@ export function measureKeyResult(ownerUserId, objectiveId, keyResultId, input = 
   ensureCompanyObjectiveTables();
   const kr = db().prepare('SELECT * FROM company_key_results WHERE id=? AND objective_id=? AND owner_user_id=?').get(keyResultId, objectiveId, ownerUserId);
   if (!kr) throw Object.assign(new Error('Key result not found'), { status: 404 });
-  const value = num(input.value), measurementId = id('measure');
-  const sourceType = text(input.source_type, 80) || 'manual', sourceId = text(input.source_id, 160) || measurementId;
+  const sourceType = text(input.source_type, 80) || kr.source_type || 'manual';
+  const registrySource = measurementRegistry(ownerUserId).sources.find((source) => source.id === sourceType);
+  let value;
+  if (Array.isArray(input.records)) {
+    if (!registrySource) throw Object.assign(new Error(`Measurement source is not registered: ${sourceType}`), { status: 400 });
+    const selectedFormula = registrySource.formulas.find((item) => item.id === kr.formula);
+    if (!selectedFormula?.validation?.valid) throw Object.assign(new Error(`Key Result formula is not valid for ${sourceType}: ${kr.formula}`), { status: 400 });
+    const objectId = text(input.object_id, 160);
+    const selectedObject = objectId ? registrySource.objects.find((object) => object.id === objectId) : null;
+    if (objectId && !selectedObject) throw Object.assign(new Error(`Measurement object is not registered for ${sourceType}: ${objectId}`), { status: 400 });
+    const attributes = [...registrySource.attributes, ...(selectedObject?.attributes || [])];
+    value = executeFormula({ expression: selectedFormula.expression, records: input.records, attributes });
+  } else {
+    value = num(input.value);
+  }
+  const measurementId = id('measure');
+  const sourceId = text(input.source_id, 160) || measurementId;
   const tx = db().transaction(() => {
     db().prepare(`INSERT INTO company_objective_measurements(id,objective_id,key_result_id,owner_user_id,value,delta,source_type,source_id,evidence_json,measured_at) VALUES(?,?,?,?,?,?,?,?,?,COALESCE(?,datetime('now'))) ON CONFLICT(key_result_id,source_type,source_id) DO UPDATE SET value=excluded.value,delta=excluded.delta,evidence_json=excluded.evidence_json,measured_at=excluded.measured_at`).run(measurementId, objectiveId, keyResultId, ownerUserId, value, value - num(kr.current_value), sourceType, sourceId, JSON.stringify(input.evidence || []), input.measured_at || null);
     db().prepare(`UPDATE company_key_results SET current_value=?,confidence=?,updated_at=datetime('now') WHERE id=? AND owner_user_id=?`).run(value, text(input.confidence, 20) || kr.confidence, keyResultId, ownerUserId);

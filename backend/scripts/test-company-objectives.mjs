@@ -8,9 +8,11 @@ process.env.AGENT_OS_DATA_DIR = dir;
 const { initDb, getDb } = await import('../src/db/schema.js');
 initDb();
 const svc = await import('../src/services/company-objectives.js');
+const { executeFormula } = await import('../src/services/measurement-formula-engine.js');
 
 try {
   const registry = svc.measurementRegistry();
+  assert.equal(registry.version, 4, 'registry exposes the versioned JSON catalogue');
   assert.ok(registry.sources.length >= 10, 'common Flolah and integration measurement sources are registered');
   assert.ok(registry.sources.find((source) => source.id === 'goal_plans').formulas.some((formula) => formula.id === 'completion_rate'));
   assert.ok(registry.sources.find((source) => source.id === 'custom_api').formulas.some((formula) => formula.id === 'average'));
@@ -19,15 +21,27 @@ try {
   assert.equal(registry.sources.find((source) => source.id === 'flolah_crm').formulas.find((item) => item.id === 'weighted_pipeline').expression, 'sum(opportunity.amount * opportunity.probability)');
   assert.equal(registry.sources.find((source) => source.id === 'flolah_erp').formulas.find((item) => item.id === 'gross_margin').validation.valid, true);
   assert.equal(registry.sources.find((source) => source.id === 'llmops').formulas.find((item) => item.id === 'tokens').validation.valid, true);
-  assert.equal(registry.sources.find((source) => source.id === 'communications').objects[0].attributes.find((item) => item.id === 'gmail.sender').path, 'sender');
-  assert.equal(registry.sources.find((source) => source.id === 'custom_api').objects[0].attributes.find((item) => item.id === 'web.page_domain').path, 'pages[].domain');
-  assert.equal(registry.sources.find((source) => source.id === 'flolah_crm').objects[0].attributes.find((item) => item.id === 'crm.opportunity_amount').path, 'amount');
-  assert.equal(registry.sources.find((source) => source.id === 'flolah_erp').objects[0].attributes.find((item) => item.id === 'erp.grand_total').path, 'grand_total');
+  const sourceObject = (sourceId, objectId) => registry.sources.find((source) => source.id === sourceId).objects.find((object) => object.id === objectId);
+  assert.equal(sourceObject('communications', 'gmail.message').attributes.find((item) => item.id === 'gmail.sender').path, 'sender');
+  assert.equal(sourceObject('custom_api', 'web.crawl').attributes.find((item) => item.id === 'web.page_domain').path, 'pages[].domain');
+  assert.equal(sourceObject('flolah_crm', 'crm.opportunity').attributes.find((item) => item.id === 'crm.opportunity_amount').path, 'amount.amountMicros');
+  assert.equal(sourceObject('flolah_erp', 'erp.sales_invoice').attributes.find((item) => item.id === 'erp.grand_total').path, 'grand_total');
+  assert.deepEqual(new Set(registry.sources.find((source) => source.id === 'flolah_crm').objects.map((item) => item.id)), new Set(['crm.person','crm.company','crm.opportunity','crm.lead','crm.note','crm.task']));
+  for (const objectId of ['erp.customer','erp.supplier','erp.contact','erp.lead','erp.opportunity','erp.quotation','erp.sales_order','erp.sales_invoice','erp.purchase_order','erp.purchase_invoice','erp.payment_entry','erp.gl_entry']) assert.ok(sourceObject('flolah_erp', objectId), `${objectId} is published`);
+  for (const [sourceId, objectId] of [['objectives','okr.key_result'],['goal_plans','goal.scheduled'],['goal_plans','goal.run'],['workflows','workflow.definition'],['workflows','workflow.run'],['knowledge','knowledge.document'],['agents','agent.chat_session'],['agents','agent.voice_session'],['custom_api','browser.session'],['documents','document.inbound_attachment']]) assert.ok(sourceObject(sourceId, objectId), `${sourceId}.${objectId} is published`);
+  for (const source of registry.sources) {
+    assert.ok(source.objects.length > 0, `${source.id} publishes at least one object`);
+    const ids = source.objects.flatMap((object) => object.attributes.map((item) => item.id));
+    assert.equal(new Set(ids).size, ids.length, `${source.id} attribute ids are unique`);
+  }
+  assert.equal(executeFormula({ expression: 'sum(crm.opportunity_amount)', attributes: sourceObject('flolah_crm', 'crm.opportunity').attributes, records: [{ amount: { amountMicros: 12000000 } }, { amount: { amountMicros: 8000000 } }] }), 20, 'formula executor resolves and normalizes provider-native object paths');
+  assert.equal(executeFormula({ expression: '100 * completed_count / eligible_count', attributes: registry.sources.find((source) => source.id === 'goal_plans').attributes, records: [{ completed_count: 8, eligible_count: 10 }] }), 80, 'formula executor calculates supported source attributes');
+  assert.throws(() => executeFormula({ expression: 'sum(unsupported.secret)', attributes: [], records: [{}] }), /Unsupported formula attribute/);
   assert.equal(registry.rule_templates[0].validation.schema_valid, true, 'reference MCP/connector/CRM/ERP rule is backed by the platform object catalogue');
   assert.equal(registry.rule_templates[0].validation.evaluator_connected, false, 'mapping validation does not claim a runtime evaluator exists');
   let companyRegistry = svc.upsertMeasurementRegistryEntry('ceo-demo-northstar', { kind: 'attribute', id: 'crm.opportunity_amount', source_id: 'flolah_crm', object_id: 'crm.opportunity', label: 'ignored' });
   const mapped = companyRegistry.sources.find((source) => source.id === 'flolah_crm').attributes.find((item) => item.company_managed && item.id === 'crm.opportunity_amount');
-  assert.equal(mapped.path, 'amount');
+  assert.equal(mapped.path, 'amount.amountMicros');
   assert.equal(mapped.data_type, 'currency');
   assert.throws(() => svc.upsertMeasurementRegistryEntry('ceo-demo-northstar', { kind: 'attribute', id: 'made.up', source_id: 'flolah_crm', object_id: 'crm.opportunity', label: 'Made up' }), /not present in the selected platform object catalogue/);
   companyRegistry = svc.upsertMeasurementRegistryEntry('ceo-demo-northstar', { kind: 'formula', id: 'selected_pipeline', source_id: 'flolah_crm', label: 'Selected pipeline', expression: 'sum(crm.opportunity_amount)', description: 'Sum selected catalogue field' });
@@ -53,6 +67,9 @@ try {
   assert.equal(q4.key_results.length, 5);
   assert.equal(q4.key_results[0].measurement_config.provenance, true, 'measurement contract is retained with the KR');
   assert.equal(q4.initiatives.length, 6);
+  const weightedKr = q4.key_results.find((item) => item.formula === 'weighted_pipeline');
+  const formulaMeasured = svc.measureKeyResult('ceo-demo-northstar', q4.id, weightedKr.id, { source_type: 'business_events', source_id: 'formula-engine-test', object_id: 'evidence.outcome', records: [{ opportunity: { amount: 200, probability: 0.5 } }], evidence: ['test:formula-engine'] });
+  assert.equal(formulaMeasured.key_results.find((item) => item.id === weightedKr.id).current_value, 100, 'KR measurement endpoint executes its validated formula over supported records');
   const active = svc.updateObjective('ceo-demo-northstar', q4.id, { status: 'active', reason: 'acceptance' }, 'ceo-demo-northstar');
   assert.equal(active.version, 2);
   assert.equal(active.initiatives.every((initiative) => initiative.status === 'active'), true, 'initiatives inherit objective operating state');

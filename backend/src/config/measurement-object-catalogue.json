@@ -1,0 +1,5009 @@
+{
+  "version": 4,
+  "description": "Authoritative source, object and attribute paths supported by the Flolah Measurement Registry.",
+  "sources": {
+    "flolah_crm": [
+      {
+        "id": "crm.person",
+        "label": "Person / Contact",
+        "provider_object": "Twenty People",
+        "fields": [
+          {
+            "id": "crm.person_id",
+            "label": "Person ID",
+            "data_type": "string",
+            "path": "id",
+            "description": "Twenty person identifier"
+          },
+          {
+            "id": "crm.person_first_name",
+            "label": "First name",
+            "data_type": "string",
+            "path": "name.firstName",
+            "description": ""
+          },
+          {
+            "id": "crm.person_last_name",
+            "label": "Last name",
+            "data_type": "string",
+            "path": "name.lastName",
+            "description": ""
+          },
+          {
+            "id": "crm.person_email",
+            "label": "Primary email",
+            "data_type": "string",
+            "path": "emails.primaryEmail",
+            "description": ""
+          },
+          {
+            "id": "crm.person_phone",
+            "label": "Primary phone",
+            "data_type": "string",
+            "path": "phones.primaryPhoneNumber",
+            "description": ""
+          },
+          {
+            "id": "crm.person_company_id",
+            "label": "Company ID",
+            "data_type": "string",
+            "path": "companyId",
+            "description": ""
+          },
+          {
+            "id": "crm.person_created_at",
+            "label": "Created at",
+            "data_type": "datetime",
+            "path": "createdAt",
+            "description": ""
+          },
+          {
+            "id": "crm.person_updated_at",
+            "label": "Updated at",
+            "data_type": "datetime",
+            "path": "updatedAt",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "crm.company",
+        "label": "Company / Account",
+        "provider_object": "Twenty Companies",
+        "fields": [
+          {
+            "id": "crm.company_record_id",
+            "label": "Company ID",
+            "data_type": "string",
+            "path": "id",
+            "description": "Twenty company identifier"
+          },
+          {
+            "id": "crm.company_name",
+            "label": "Company name",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "crm.company_domain",
+            "label": "Domain",
+            "data_type": "string",
+            "path": "domainName",
+            "description": ""
+          },
+          {
+            "id": "crm.company_employees",
+            "label": "Employee count",
+            "data_type": "integer",
+            "path": "employees",
+            "description": ""
+          },
+          {
+            "id": "crm.company_address",
+            "label": "Address",
+            "data_type": "string",
+            "path": "address",
+            "description": ""
+          },
+          {
+            "id": "crm.company_created_at",
+            "label": "Created at",
+            "data_type": "datetime",
+            "path": "createdAt",
+            "description": ""
+          },
+          {
+            "id": "crm.company_updated_at",
+            "label": "Updated at",
+            "data_type": "datetime",
+            "path": "updatedAt",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "crm.opportunity",
+        "label": "Opportunity / Deal",
+        "provider_object": "Twenty Opportunities (crm_list_deals is an alias)",
+        "fields": [
+          {
+            "id": "crm.opportunity_id",
+            "label": "Opportunity ID",
+            "data_type": "string",
+            "path": "id",
+            "description": "Twenty opportunity identifier"
+          },
+          {
+            "id": "crm.opportunity_name",
+            "label": "Opportunity name",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "crm.opportunity_amount",
+            "label": "Opportunity amount",
+            "data_type": "currency",
+            "path": "amount.amountMicros",
+            "description": "Amount in micros; normalized to currency units by the formula engine",
+            "scale": 0.000001
+          },
+          {
+            "id": "crm.opportunity_currency",
+            "label": "Currency",
+            "data_type": "string",
+            "path": "amount.currencyCode",
+            "description": ""
+          },
+          {
+            "id": "crm.opportunity_probability",
+            "label": "Probability",
+            "data_type": "decimal",
+            "path": "probability",
+            "description": ""
+          },
+          {
+            "id": "crm.opportunity_stage",
+            "label": "Pipeline stage",
+            "data_type": "string",
+            "path": "stage",
+            "description": ""
+          },
+          {
+            "id": "crm.company_id",
+            "label": "Company ID",
+            "data_type": "string",
+            "path": "companyId",
+            "description": ""
+          },
+          {
+            "id": "crm.contact_id",
+            "label": "Point of contact ID",
+            "data_type": "string",
+            "path": "pointOfContactId",
+            "description": ""
+          },
+          {
+            "id": "crm.close_date",
+            "label": "Expected close date",
+            "data_type": "date",
+            "path": "closeDate",
+            "description": ""
+          },
+          {
+            "id": "crm.opportunity_created_at",
+            "label": "Created at",
+            "data_type": "datetime",
+            "path": "createdAt",
+            "description": ""
+          },
+          {
+            "id": "crm.opportunity_updated_at",
+            "label": "Updated at",
+            "data_type": "datetime",
+            "path": "updatedAt",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "crm.lead",
+        "label": "Lead",
+        "provider_object": "Twenty Opportunity filtered to early pipeline stages",
+        "fields": [
+          {
+            "id": "crm.lead_id",
+            "label": "Lead opportunity ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "crm.lead_name",
+            "label": "Lead name",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "crm.lead_stage",
+            "label": "Lead stage",
+            "data_type": "string",
+            "path": "stage",
+            "description": ""
+          },
+          {
+            "id": "crm.lead_amount",
+            "label": "Potential amount",
+            "data_type": "currency",
+            "path": "amount.amountMicros",
+            "description": "Potential amount normalized from micros to currency units",
+            "scale": 0.000001
+          },
+          {
+            "id": "crm.lead_currency",
+            "label": "Currency",
+            "data_type": "string",
+            "path": "amount.currencyCode",
+            "description": ""
+          },
+          {
+            "id": "crm.lead_company_id",
+            "label": "Company ID",
+            "data_type": "string",
+            "path": "companyId",
+            "description": ""
+          },
+          {
+            "id": "crm.lead_contact_id",
+            "label": "Contact ID",
+            "data_type": "string",
+            "path": "pointOfContactId",
+            "description": ""
+          },
+          {
+            "id": "crm.lead_created_at",
+            "label": "Created at",
+            "data_type": "datetime",
+            "path": "createdAt",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "crm.note",
+        "label": "Note",
+        "provider_object": "Twenty Notes",
+        "fields": [
+          {
+            "id": "crm.note_id",
+            "label": "Note ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "crm.note_title",
+            "label": "Title",
+            "data_type": "string",
+            "path": "title",
+            "description": ""
+          },
+          {
+            "id": "crm.note_body",
+            "label": "Body",
+            "data_type": "string",
+            "path": "body",
+            "description": ""
+          },
+          {
+            "id": "crm.note_created_at",
+            "label": "Created at",
+            "data_type": "datetime",
+            "path": "createdAt",
+            "description": ""
+          },
+          {
+            "id": "crm.note_updated_at",
+            "label": "Updated at",
+            "data_type": "datetime",
+            "path": "updatedAt",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "crm.task",
+        "label": "CRM Task",
+        "provider_object": "Twenty Tasks",
+        "fields": [
+          {
+            "id": "crm.task_id",
+            "label": "Task ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "crm.task_title",
+            "label": "Title",
+            "data_type": "string",
+            "path": "title",
+            "description": ""
+          },
+          {
+            "id": "crm.task_body",
+            "label": "Body",
+            "data_type": "string",
+            "path": "body",
+            "description": ""
+          },
+          {
+            "id": "crm.task_status",
+            "label": "Status",
+            "data_type": "string",
+            "path": "status",
+            "description": ""
+          },
+          {
+            "id": "crm.task_due_at",
+            "label": "Due at",
+            "data_type": "datetime",
+            "path": "dueAt",
+            "description": ""
+          },
+          {
+            "id": "crm.task_created_at",
+            "label": "Created at",
+            "data_type": "datetime",
+            "path": "createdAt",
+            "description": ""
+          },
+          {
+            "id": "crm.task_updated_at",
+            "label": "Updated at",
+            "data_type": "datetime",
+            "path": "updatedAt",
+            "description": ""
+          }
+        ]
+      }
+    ],
+    "flolah_erp": [
+      {
+        "id": "erp.company",
+        "label": "Company",
+        "provider_object": "ERPNext Company",
+        "fields": [
+          {
+            "id": "erp.company_id",
+            "label": "Company ID",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "erp.company_name",
+            "label": "Company name",
+            "data_type": "string",
+            "path": "company_name",
+            "description": ""
+          },
+          {
+            "id": "erp.company_abbr",
+            "label": "Abbreviation",
+            "data_type": "string",
+            "path": "abbr",
+            "description": ""
+          },
+          {
+            "id": "erp.company_currency",
+            "label": "Default currency",
+            "data_type": "string",
+            "path": "default_currency",
+            "description": ""
+          },
+          {
+            "id": "erp.company_country",
+            "label": "Country",
+            "data_type": "string",
+            "path": "country",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "erp.fiscal_year",
+        "label": "Fiscal Year",
+        "provider_object": "ERPNext Fiscal Year",
+        "fields": [
+          {
+            "id": "erp.fiscal_year_id",
+            "label": "Fiscal year ID",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "erp.fiscal_year_start_date",
+            "label": "Start date",
+            "data_type": "date",
+            "path": "year_start_date",
+            "description": ""
+          },
+          {
+            "id": "erp.fiscal_year_end_date",
+            "label": "End date",
+            "data_type": "date",
+            "path": "year_end_date",
+            "description": ""
+          },
+          {
+            "id": "erp.fiscal_year_disabled",
+            "label": "Disabled",
+            "data_type": "boolean",
+            "path": "disabled",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "erp.account",
+        "label": "Account",
+        "provider_object": "ERPNext Account",
+        "fields": [
+          {
+            "id": "erp.account_id",
+            "label": "Account ID",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "erp.account_name",
+            "label": "Account name",
+            "data_type": "string",
+            "path": "account_name",
+            "description": ""
+          },
+          {
+            "id": "erp.account_number",
+            "label": "Account number",
+            "data_type": "string",
+            "path": "account_number",
+            "description": ""
+          },
+          {
+            "id": "erp.account_root_type",
+            "label": "Root type",
+            "data_type": "string",
+            "path": "root_type",
+            "description": ""
+          },
+          {
+            "id": "erp.account_account_type",
+            "label": "Account type",
+            "data_type": "string",
+            "path": "account_type",
+            "description": ""
+          },
+          {
+            "id": "erp.account_parent",
+            "label": "Parent account",
+            "data_type": "string",
+            "path": "parent_account",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "erp.customer",
+        "label": "Customer",
+        "provider_object": "ERPNext Customer",
+        "fields": [
+          {
+            "id": "erp.customer_id",
+            "label": "Customer ID",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "erp.customer_name",
+            "label": "Customer name",
+            "data_type": "string",
+            "path": "customer_name",
+            "description": ""
+          },
+          {
+            "id": "erp.customer_type",
+            "label": "Customer type",
+            "data_type": "string",
+            "path": "customer_type",
+            "description": ""
+          },
+          {
+            "id": "erp.customer_group",
+            "label": "Customer group",
+            "data_type": "string",
+            "path": "customer_group",
+            "description": ""
+          },
+          {
+            "id": "erp.customer_territory",
+            "label": "Territory",
+            "data_type": "string",
+            "path": "territory",
+            "description": ""
+          },
+          {
+            "id": "erp.customer_disabled",
+            "label": "Disabled",
+            "data_type": "boolean",
+            "path": "disabled",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "erp.supplier",
+        "label": "Supplier",
+        "provider_object": "ERPNext Supplier",
+        "fields": [
+          {
+            "id": "erp.supplier_id",
+            "label": "Supplier ID",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "erp.supplier_name",
+            "label": "Supplier name",
+            "data_type": "string",
+            "path": "supplier_name",
+            "description": ""
+          },
+          {
+            "id": "erp.supplier_group",
+            "label": "Supplier group",
+            "data_type": "string",
+            "path": "supplier_group",
+            "description": ""
+          },
+          {
+            "id": "erp.supplier_type",
+            "label": "Supplier type",
+            "data_type": "string",
+            "path": "supplier_type",
+            "description": ""
+          },
+          {
+            "id": "erp.supplier_disabled",
+            "label": "Disabled",
+            "data_type": "boolean",
+            "path": "disabled",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "erp.lead",
+        "label": "Lead",
+        "provider_object": "ERPNext Lead",
+        "fields": [
+          {
+            "id": "erp.lead_id",
+            "label": "Lead ID",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "erp.lead_name",
+            "label": "Lead name",
+            "data_type": "string",
+            "path": "lead_name",
+            "description": ""
+          },
+          {
+            "id": "erp.lead_company",
+            "label": "Company name",
+            "data_type": "string",
+            "path": "company_name",
+            "description": ""
+          },
+          {
+            "id": "erp.lead_email",
+            "label": "Email",
+            "data_type": "string",
+            "path": "email_id",
+            "description": ""
+          },
+          {
+            "id": "erp.lead_mobile",
+            "label": "Mobile",
+            "data_type": "string",
+            "path": "mobile_no",
+            "description": ""
+          },
+          {
+            "id": "erp.lead_status",
+            "label": "Status",
+            "data_type": "string",
+            "path": "status",
+            "description": ""
+          },
+          {
+            "id": "erp.lead_source",
+            "label": "Source",
+            "data_type": "string",
+            "path": "source",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "erp.contact",
+        "label": "Contact",
+        "provider_object": "ERPNext Contact",
+        "fields": [
+          {
+            "id": "erp.contact_id",
+            "label": "Contact ID",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "erp.contact_first_name",
+            "label": "First name",
+            "data_type": "string",
+            "path": "first_name",
+            "description": ""
+          },
+          {
+            "id": "erp.contact_last_name",
+            "label": "Last name",
+            "data_type": "string",
+            "path": "last_name",
+            "description": ""
+          },
+          {
+            "id": "erp.contact_email",
+            "label": "Email",
+            "data_type": "string",
+            "path": "email_id",
+            "description": ""
+          },
+          {
+            "id": "erp.contact_mobile",
+            "label": "Mobile",
+            "data_type": "string",
+            "path": "mobile_no",
+            "description": ""
+          },
+          {
+            "id": "erp.contact_company",
+            "label": "Company name",
+            "data_type": "string",
+            "path": "company_name",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "erp.address",
+        "label": "Address",
+        "provider_object": "ERPNext Address",
+        "fields": [
+          {
+            "id": "erp.address_id",
+            "label": "Address ID",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "erp.address_title",
+            "label": "Address title",
+            "data_type": "string",
+            "path": "address_title",
+            "description": ""
+          },
+          {
+            "id": "erp.address_type",
+            "label": "Address type",
+            "data_type": "string",
+            "path": "address_type",
+            "description": ""
+          },
+          {
+            "id": "erp.address_line_1",
+            "label": "Address line 1",
+            "data_type": "string",
+            "path": "address_line1",
+            "description": ""
+          },
+          {
+            "id": "erp.address_city",
+            "label": "City",
+            "data_type": "string",
+            "path": "city",
+            "description": ""
+          },
+          {
+            "id": "erp.address_state",
+            "label": "State",
+            "data_type": "string",
+            "path": "state",
+            "description": ""
+          },
+          {
+            "id": "erp.address_country",
+            "label": "Country",
+            "data_type": "string",
+            "path": "country",
+            "description": ""
+          },
+          {
+            "id": "erp.address_postal_code",
+            "label": "Postal code",
+            "data_type": "string",
+            "path": "pincode",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "erp.opportunity",
+        "label": "Opportunity",
+        "provider_object": "ERPNext Opportunity",
+        "fields": [
+          {
+            "id": "erp.opportunity_id",
+            "label": "Opportunity ID",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "erp.opportunity_party_type",
+            "label": "Opportunity from",
+            "data_type": "string",
+            "path": "opportunity_from",
+            "description": ""
+          },
+          {
+            "id": "erp.opportunity_party",
+            "label": "Party",
+            "data_type": "string",
+            "path": "party_name",
+            "description": ""
+          },
+          {
+            "id": "erp.opportunity_type",
+            "label": "Opportunity type",
+            "data_type": "string",
+            "path": "opportunity_type",
+            "description": ""
+          },
+          {
+            "id": "erp.opportunity_status",
+            "label": "Status",
+            "data_type": "string",
+            "path": "status",
+            "description": ""
+          },
+          {
+            "id": "erp.opportunity_closing_date",
+            "label": "Expected closing",
+            "data_type": "date",
+            "path": "expected_closing",
+            "description": ""
+          },
+          {
+            "id": "erp.opportunity_amount",
+            "label": "Opportunity amount",
+            "data_type": "currency",
+            "path": "opportunity_amount",
+            "description": ""
+          },
+          {
+            "id": "erp.opportunity_probability",
+            "label": "Probability",
+            "data_type": "decimal",
+            "path": "probability",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "erp.item",
+        "label": "Item",
+        "provider_object": "ERPNext Item",
+        "fields": [
+          {
+            "id": "erp.item_id",
+            "label": "Item ID",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "erp.item_code",
+            "label": "Item code",
+            "data_type": "string",
+            "path": "item_code",
+            "description": ""
+          },
+          {
+            "id": "erp.item_name",
+            "label": "Item name",
+            "data_type": "string",
+            "path": "item_name",
+            "description": ""
+          },
+          {
+            "id": "erp.item_group",
+            "label": "Item group",
+            "data_type": "string",
+            "path": "item_group",
+            "description": ""
+          },
+          {
+            "id": "erp.item_stock_uom",
+            "label": "Stock unit",
+            "data_type": "string",
+            "path": "stock_uom",
+            "description": ""
+          },
+          {
+            "id": "erp.item_disabled",
+            "label": "Disabled",
+            "data_type": "boolean",
+            "path": "disabled",
+            "description": ""
+          },
+          {
+            "id": "erp.item_valuation_rate",
+            "label": "Valuation rate",
+            "data_type": "currency",
+            "path": "valuation_rate",
+            "description": ""
+          },
+          {
+            "id": "erp.item_standard_rate",
+            "label": "Standard selling rate",
+            "data_type": "currency",
+            "path": "standard_rate",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "erp.item_price",
+        "label": "Item Price",
+        "provider_object": "ERPNext Item Price",
+        "fields": [
+          {
+            "id": "erp.item_price_id",
+            "label": "Price ID",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "erp.item_price_item_code",
+            "label": "Item code",
+            "data_type": "string",
+            "path": "item_code",
+            "description": ""
+          },
+          {
+            "id": "erp.item_price_price_list",
+            "label": "Price list",
+            "data_type": "string",
+            "path": "price_list",
+            "description": ""
+          },
+          {
+            "id": "erp.item_price_rate",
+            "label": "Price list rate",
+            "data_type": "currency",
+            "path": "price_list_rate",
+            "description": ""
+          },
+          {
+            "id": "erp.item_price_currency",
+            "label": "Currency",
+            "data_type": "string",
+            "path": "currency",
+            "description": ""
+          },
+          {
+            "id": "erp.item_price_valid_from",
+            "label": "Valid from",
+            "data_type": "date",
+            "path": "valid_from",
+            "description": ""
+          },
+          {
+            "id": "erp.item_price_valid_upto",
+            "label": "Valid until",
+            "data_type": "date",
+            "path": "valid_upto",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "erp.quotation",
+        "label": "Quotation",
+        "provider_object": "ERPNext Quotation",
+        "fields": [
+          {
+            "id": "erp.quotation_id",
+            "label": "Quotation ID",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "erp.quotation_party_type",
+            "label": "Quotation to",
+            "data_type": "string",
+            "path": "quotation_to",
+            "description": ""
+          },
+          {
+            "id": "erp.quotation_party",
+            "label": "Party name",
+            "data_type": "string",
+            "path": "party_name",
+            "description": ""
+          },
+          {
+            "id": "erp.quotation_date",
+            "label": "Transaction date",
+            "data_type": "date",
+            "path": "transaction_date",
+            "description": ""
+          },
+          {
+            "id": "erp.quotation_valid_until",
+            "label": "Valid until",
+            "data_type": "date",
+            "path": "valid_till",
+            "description": ""
+          },
+          {
+            "id": "erp.quotation_status",
+            "label": "Status",
+            "data_type": "string",
+            "path": "status",
+            "description": ""
+          },
+          {
+            "id": "erp.quotation_net_total",
+            "label": "Net total",
+            "data_type": "currency",
+            "path": "net_total",
+            "description": ""
+          },
+          {
+            "id": "erp.quotation_grand_total",
+            "label": "Grand total",
+            "data_type": "currency",
+            "path": "grand_total",
+            "description": ""
+          },
+          {
+            "id": "erp.quotation_currency",
+            "label": "Currency",
+            "data_type": "string",
+            "path": "currency",
+            "description": ""
+          },
+          {
+            "id": "erp.quotation_docstatus",
+            "label": "Document status",
+            "data_type": "integer",
+            "path": "docstatus",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "erp.sales_order",
+        "label": "Sales Order",
+        "provider_object": "ERPNext Sales Order",
+        "fields": [
+          {
+            "id": "erp.sales_order_id",
+            "label": "Sales order ID",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "erp.sales_order_customer",
+            "label": "Customer",
+            "data_type": "string",
+            "path": "customer",
+            "description": ""
+          },
+          {
+            "id": "erp.sales_order_date",
+            "label": "Transaction date",
+            "data_type": "date",
+            "path": "transaction_date",
+            "description": ""
+          },
+          {
+            "id": "erp.sales_order_delivery_date",
+            "label": "Delivery date",
+            "data_type": "date",
+            "path": "delivery_date",
+            "description": ""
+          },
+          {
+            "id": "erp.sales_order_status",
+            "label": "Status",
+            "data_type": "string",
+            "path": "status",
+            "description": ""
+          },
+          {
+            "id": "erp.sales_order_grand_total",
+            "label": "Grand total",
+            "data_type": "currency",
+            "path": "grand_total",
+            "description": ""
+          },
+          {
+            "id": "erp.sales_order_delivered_pct",
+            "label": "Delivered percentage",
+            "data_type": "percentage",
+            "path": "per_delivered",
+            "description": ""
+          },
+          {
+            "id": "erp.sales_order_billed_pct",
+            "label": "Billed percentage",
+            "data_type": "percentage",
+            "path": "per_billed",
+            "description": ""
+          },
+          {
+            "id": "erp.sales_order_docstatus",
+            "label": "Document status",
+            "data_type": "integer",
+            "path": "docstatus",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "erp.delivery_note",
+        "label": "Delivery Note",
+        "provider_object": "ERPNext Delivery Note",
+        "fields": [
+          {
+            "id": "erp.delivery_note_id",
+            "label": "Delivery note ID",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "erp.delivery_note_customer",
+            "label": "Customer",
+            "data_type": "string",
+            "path": "customer",
+            "description": ""
+          },
+          {
+            "id": "erp.delivery_note_posting_date",
+            "label": "Posting date",
+            "data_type": "date",
+            "path": "posting_date",
+            "description": ""
+          },
+          {
+            "id": "erp.delivery_note_status",
+            "label": "Status",
+            "data_type": "string",
+            "path": "status",
+            "description": ""
+          },
+          {
+            "id": "erp.delivery_note_grand_total",
+            "label": "Grand total",
+            "data_type": "currency",
+            "path": "grand_total",
+            "description": ""
+          },
+          {
+            "id": "erp.delivery_note_billed_pct",
+            "label": "Billed percentage",
+            "data_type": "percentage",
+            "path": "per_billed",
+            "description": ""
+          },
+          {
+            "id": "erp.delivery_note_docstatus",
+            "label": "Document status",
+            "data_type": "integer",
+            "path": "docstatus",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "erp.sales_invoice",
+        "label": "Sales Invoice",
+        "provider_object": "ERPNext Sales Invoice",
+        "fields": [
+          {
+            "id": "erp.invoice_id",
+            "label": "Invoice ID",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "erp.customer",
+            "label": "Customer",
+            "data_type": "string",
+            "path": "customer",
+            "description": ""
+          },
+          {
+            "id": "erp.grand_total",
+            "label": "Grand total",
+            "data_type": "currency",
+            "path": "grand_total",
+            "description": ""
+          },
+          {
+            "id": "erp.outstanding_amount",
+            "label": "Outstanding amount",
+            "data_type": "currency",
+            "path": "outstanding_amount",
+            "description": ""
+          },
+          {
+            "id": "erp.status",
+            "label": "Invoice status",
+            "data_type": "string",
+            "path": "status",
+            "description": ""
+          },
+          {
+            "id": "erp.docstatus",
+            "label": "Document status",
+            "data_type": "integer",
+            "path": "docstatus",
+            "description": ""
+          },
+          {
+            "id": "erp.posting_date",
+            "label": "Posting date",
+            "data_type": "date",
+            "path": "posting_date",
+            "description": ""
+          },
+          {
+            "id": "erp.due_date",
+            "label": "Due date",
+            "data_type": "date",
+            "path": "due_date",
+            "description": ""
+          },
+          {
+            "id": "erp.currency",
+            "label": "Currency",
+            "data_type": "string",
+            "path": "currency",
+            "description": ""
+          },
+          {
+            "id": "erp.crm_opportunity_id",
+            "label": "CRM opportunity link",
+            "data_type": "string",
+            "path": "crm_opportunity_id",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "erp.purchase_order",
+        "label": "Purchase Order",
+        "provider_object": "ERPNext Purchase Order",
+        "fields": [
+          {
+            "id": "erp.purchase_order_id",
+            "label": "Purchase order ID",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "erp.purchase_order_supplier",
+            "label": "Supplier",
+            "data_type": "string",
+            "path": "supplier",
+            "description": ""
+          },
+          {
+            "id": "erp.purchase_order_date",
+            "label": "Transaction date",
+            "data_type": "date",
+            "path": "transaction_date",
+            "description": ""
+          },
+          {
+            "id": "erp.purchase_order_schedule_date",
+            "label": "Required by",
+            "data_type": "date",
+            "path": "schedule_date",
+            "description": ""
+          },
+          {
+            "id": "erp.purchase_order_status",
+            "label": "Status",
+            "data_type": "string",
+            "path": "status",
+            "description": ""
+          },
+          {
+            "id": "erp.purchase_order_grand_total",
+            "label": "Grand total",
+            "data_type": "currency",
+            "path": "grand_total",
+            "description": ""
+          },
+          {
+            "id": "erp.purchase_order_received_pct",
+            "label": "Received percentage",
+            "data_type": "percentage",
+            "path": "per_received",
+            "description": ""
+          },
+          {
+            "id": "erp.purchase_order_billed_pct",
+            "label": "Billed percentage",
+            "data_type": "percentage",
+            "path": "per_billed",
+            "description": ""
+          },
+          {
+            "id": "erp.purchase_order_docstatus",
+            "label": "Document status",
+            "data_type": "integer",
+            "path": "docstatus",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "erp.purchase_invoice",
+        "label": "Purchase Invoice",
+        "provider_object": "ERPNext Purchase Invoice",
+        "fields": [
+          {
+            "id": "erp.purchase_invoice_id",
+            "label": "Purchase invoice ID",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "erp.purchase_invoice_supplier",
+            "label": "Supplier",
+            "data_type": "string",
+            "path": "supplier",
+            "description": ""
+          },
+          {
+            "id": "erp.purchase_invoice_posting_date",
+            "label": "Posting date",
+            "data_type": "date",
+            "path": "posting_date",
+            "description": ""
+          },
+          {
+            "id": "erp.purchase_invoice_due_date",
+            "label": "Due date",
+            "data_type": "date",
+            "path": "due_date",
+            "description": ""
+          },
+          {
+            "id": "erp.purchase_invoice_status",
+            "label": "Status",
+            "data_type": "string",
+            "path": "status",
+            "description": ""
+          },
+          {
+            "id": "erp.purchase_invoice_grand_total",
+            "label": "Grand total",
+            "data_type": "currency",
+            "path": "grand_total",
+            "description": ""
+          },
+          {
+            "id": "erp.purchase_invoice_outstanding_amount",
+            "label": "Outstanding amount",
+            "data_type": "currency",
+            "path": "outstanding_amount",
+            "description": ""
+          },
+          {
+            "id": "erp.purchase_invoice_docstatus",
+            "label": "Document status",
+            "data_type": "integer",
+            "path": "docstatus",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "erp.payment_entry",
+        "label": "Payment Entry",
+        "provider_object": "ERPNext Payment Entry",
+        "fields": [
+          {
+            "id": "erp.payment_entry_id",
+            "label": "Payment entry ID",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "erp.payment_entry_type",
+            "label": "Payment type",
+            "data_type": "string",
+            "path": "payment_type",
+            "description": ""
+          },
+          {
+            "id": "erp.payment_entry_party_type",
+            "label": "Party type",
+            "data_type": "string",
+            "path": "party_type",
+            "description": ""
+          },
+          {
+            "id": "erp.payment_entry_party",
+            "label": "Party",
+            "data_type": "string",
+            "path": "party",
+            "description": ""
+          },
+          {
+            "id": "erp.payment_entry_posting_date",
+            "label": "Posting date",
+            "data_type": "date",
+            "path": "posting_date",
+            "description": ""
+          },
+          {
+            "id": "erp.payment_entry_paid_amount",
+            "label": "Paid amount",
+            "data_type": "currency",
+            "path": "paid_amount",
+            "description": ""
+          },
+          {
+            "id": "erp.payment_entry_received_amount",
+            "label": "Received amount",
+            "data_type": "currency",
+            "path": "received_amount",
+            "description": ""
+          },
+          {
+            "id": "erp.payment_entry_unallocated_amount",
+            "label": "Unallocated amount",
+            "data_type": "currency",
+            "path": "unallocated_amount",
+            "description": ""
+          },
+          {
+            "id": "erp.payment_entry_reference",
+            "label": "Reference number",
+            "data_type": "string",
+            "path": "reference_no",
+            "description": ""
+          },
+          {
+            "id": "erp.payment_entry_docstatus",
+            "label": "Document status",
+            "data_type": "integer",
+            "path": "docstatus",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "erp.journal_entry",
+        "label": "Journal Entry",
+        "provider_object": "ERPNext Journal Entry",
+        "fields": [
+          {
+            "id": "erp.journal_entry_id",
+            "label": "Journal entry ID",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "erp.journal_entry_posting_date",
+            "label": "Posting date",
+            "data_type": "date",
+            "path": "posting_date",
+            "description": ""
+          },
+          {
+            "id": "erp.journal_entry_type",
+            "label": "Voucher type",
+            "data_type": "string",
+            "path": "voucher_type",
+            "description": ""
+          },
+          {
+            "id": "erp.journal_entry_total_debit",
+            "label": "Total debit",
+            "data_type": "currency",
+            "path": "total_debit",
+            "description": ""
+          },
+          {
+            "id": "erp.journal_entry_total_credit",
+            "label": "Total credit",
+            "data_type": "currency",
+            "path": "total_credit",
+            "description": ""
+          },
+          {
+            "id": "erp.journal_entry_docstatus",
+            "label": "Document status",
+            "data_type": "integer",
+            "path": "docstatus",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "erp.material_request",
+        "label": "Material Request",
+        "provider_object": "ERPNext Material Request",
+        "fields": [
+          {
+            "id": "erp.material_request_id",
+            "label": "Material request ID",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "erp.material_request_type",
+            "label": "Request type",
+            "data_type": "string",
+            "path": "material_request_type",
+            "description": ""
+          },
+          {
+            "id": "erp.material_request_date",
+            "label": "Transaction date",
+            "data_type": "date",
+            "path": "transaction_date",
+            "description": ""
+          },
+          {
+            "id": "erp.material_request_schedule_date",
+            "label": "Schedule date",
+            "data_type": "date",
+            "path": "schedule_date",
+            "description": ""
+          },
+          {
+            "id": "erp.material_request_status",
+            "label": "Status",
+            "data_type": "string",
+            "path": "status",
+            "description": ""
+          },
+          {
+            "id": "erp.material_request_ordered_pct",
+            "label": "Ordered percentage",
+            "data_type": "percentage",
+            "path": "per_ordered",
+            "description": ""
+          },
+          {
+            "id": "erp.material_request_docstatus",
+            "label": "Document status",
+            "data_type": "integer",
+            "path": "docstatus",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "erp.stock_entry",
+        "label": "Stock Entry",
+        "provider_object": "ERPNext Stock Entry",
+        "fields": [
+          {
+            "id": "erp.stock_entry_id",
+            "label": "Stock entry ID",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "erp.stock_entry_type",
+            "label": "Stock entry type",
+            "data_type": "string",
+            "path": "stock_entry_type",
+            "description": ""
+          },
+          {
+            "id": "erp.stock_entry_posting_date",
+            "label": "Posting date",
+            "data_type": "date",
+            "path": "posting_date",
+            "description": ""
+          },
+          {
+            "id": "erp.stock_entry_outgoing_value",
+            "label": "Outgoing value",
+            "data_type": "currency",
+            "path": "total_outgoing_value",
+            "description": ""
+          },
+          {
+            "id": "erp.stock_entry_incoming_value",
+            "label": "Incoming value",
+            "data_type": "currency",
+            "path": "total_incoming_value",
+            "description": ""
+          },
+          {
+            "id": "erp.stock_entry_value_difference",
+            "label": "Value difference",
+            "data_type": "currency",
+            "path": "value_difference",
+            "description": ""
+          },
+          {
+            "id": "erp.stock_entry_docstatus",
+            "label": "Document status",
+            "data_type": "integer",
+            "path": "docstatus",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "erp.project",
+        "label": "Project",
+        "provider_object": "ERPNext Project",
+        "fields": [
+          {
+            "id": "erp.project_id",
+            "label": "Project ID",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "erp.project_name",
+            "label": "Project name",
+            "data_type": "string",
+            "path": "project_name",
+            "description": ""
+          },
+          {
+            "id": "erp.project_status",
+            "label": "Status",
+            "data_type": "string",
+            "path": "status",
+            "description": ""
+          },
+          {
+            "id": "erp.project_type",
+            "label": "Project type",
+            "data_type": "string",
+            "path": "project_type",
+            "description": ""
+          },
+          {
+            "id": "erp.project_start_date",
+            "label": "Expected start",
+            "data_type": "date",
+            "path": "expected_start_date",
+            "description": ""
+          },
+          {
+            "id": "erp.project_end_date",
+            "label": "Expected end",
+            "data_type": "date",
+            "path": "expected_end_date",
+            "description": ""
+          },
+          {
+            "id": "erp.project_completion_pct",
+            "label": "Completion percentage",
+            "data_type": "percentage",
+            "path": "percent_complete",
+            "description": ""
+          },
+          {
+            "id": "erp.project_estimated_cost",
+            "label": "Estimated cost",
+            "data_type": "currency",
+            "path": "estimated_costing",
+            "description": ""
+          },
+          {
+            "id": "erp.project_total_cost",
+            "label": "Total cost",
+            "data_type": "currency",
+            "path": "total_costing_amount",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "erp.task",
+        "label": "Project Task",
+        "provider_object": "ERPNext Task",
+        "fields": [
+          {
+            "id": "erp.task_id",
+            "label": "Task ID",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "erp.task_subject",
+            "label": "Subject",
+            "data_type": "string",
+            "path": "subject",
+            "description": ""
+          },
+          {
+            "id": "erp.task_status",
+            "label": "Status",
+            "data_type": "string",
+            "path": "status",
+            "description": ""
+          },
+          {
+            "id": "erp.task_priority",
+            "label": "Priority",
+            "data_type": "string",
+            "path": "priority",
+            "description": ""
+          },
+          {
+            "id": "erp.task_start_date",
+            "label": "Expected start",
+            "data_type": "date",
+            "path": "exp_start_date",
+            "description": ""
+          },
+          {
+            "id": "erp.task_end_date",
+            "label": "Expected end",
+            "data_type": "date",
+            "path": "exp_end_date",
+            "description": ""
+          },
+          {
+            "id": "erp.task_progress",
+            "label": "Progress",
+            "data_type": "percentage",
+            "path": "progress",
+            "description": ""
+          },
+          {
+            "id": "erp.task_project",
+            "label": "Project",
+            "data_type": "string",
+            "path": "project",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "erp.gl_entry",
+        "label": "General Ledger Entry",
+        "provider_object": "ERPNext GL Entry",
+        "fields": [
+          {
+            "id": "erp.gl_entry_id",
+            "label": "GL entry ID",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "erp.gl_entry_posting_date",
+            "label": "Posting date",
+            "data_type": "date",
+            "path": "posting_date",
+            "description": ""
+          },
+          {
+            "id": "erp.gl_entry_account",
+            "label": "Account",
+            "data_type": "string",
+            "path": "account",
+            "description": ""
+          },
+          {
+            "id": "erp.gl_entry_party_type",
+            "label": "Party type",
+            "data_type": "string",
+            "path": "party_type",
+            "description": ""
+          },
+          {
+            "id": "erp.gl_entry_party",
+            "label": "Party",
+            "data_type": "string",
+            "path": "party",
+            "description": ""
+          },
+          {
+            "id": "erp.gl_entry_debit",
+            "label": "Debit",
+            "data_type": "currency",
+            "path": "debit",
+            "description": ""
+          },
+          {
+            "id": "erp.gl_entry_credit",
+            "label": "Credit",
+            "data_type": "currency",
+            "path": "credit",
+            "description": ""
+          },
+          {
+            "id": "erp.gl_entry_voucher_type",
+            "label": "Voucher type",
+            "data_type": "string",
+            "path": "voucher_type",
+            "description": ""
+          },
+          {
+            "id": "erp.gl_entry_voucher_no",
+            "label": "Voucher number",
+            "data_type": "string",
+            "path": "voucher_no",
+            "description": ""
+          },
+          {
+            "id": "erp.gl_entry_cancelled",
+            "label": "Cancelled",
+            "data_type": "boolean",
+            "path": "is_cancelled",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "erp.department",
+        "label": "Department",
+        "provider_object": "ERPNext Department",
+        "fields": [
+          {
+            "id": "erp.department_id",
+            "label": "Department ID",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "erp.department_name",
+            "label": "Department name",
+            "data_type": "string",
+            "path": "department_name",
+            "description": ""
+          },
+          {
+            "id": "erp.department_parent",
+            "label": "Parent department",
+            "data_type": "string",
+            "path": "parent_department",
+            "description": ""
+          },
+          {
+            "id": "erp.department_is_group",
+            "label": "Is group",
+            "data_type": "boolean",
+            "path": "is_group",
+            "description": ""
+          },
+          {
+            "id": "erp.department_disabled",
+            "label": "Disabled",
+            "data_type": "boolean",
+            "path": "disabled",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "erp.employee",
+        "label": "Employee",
+        "provider_object": "ERPNext Employee",
+        "fields": [
+          {
+            "id": "erp.employee_id",
+            "label": "Employee ID",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "erp.employee_name",
+            "label": "Employee name",
+            "data_type": "string",
+            "path": "employee_name",
+            "description": ""
+          },
+          {
+            "id": "erp.employee_status",
+            "label": "Status",
+            "data_type": "string",
+            "path": "status",
+            "description": ""
+          },
+          {
+            "id": "erp.employee_department",
+            "label": "Department",
+            "data_type": "string",
+            "path": "department",
+            "description": ""
+          },
+          {
+            "id": "erp.employee_designation",
+            "label": "Designation",
+            "data_type": "string",
+            "path": "designation",
+            "description": ""
+          },
+          {
+            "id": "erp.employee_joining_date",
+            "label": "Date of joining",
+            "data_type": "date",
+            "path": "date_of_joining",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "erp.cost_center",
+        "label": "Cost Center",
+        "provider_object": "ERPNext Cost Center",
+        "fields": [
+          {
+            "id": "erp.cost_center_id",
+            "label": "Cost center ID",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "erp.cost_center_name",
+            "label": "Cost center name",
+            "data_type": "string",
+            "path": "cost_center_name",
+            "description": ""
+          },
+          {
+            "id": "erp.cost_center_parent",
+            "label": "Parent cost center",
+            "data_type": "string",
+            "path": "parent_cost_center",
+            "description": ""
+          },
+          {
+            "id": "erp.cost_center_is_group",
+            "label": "Is group",
+            "data_type": "boolean",
+            "path": "is_group",
+            "description": ""
+          },
+          {
+            "id": "erp.cost_center_disabled",
+            "label": "Disabled",
+            "data_type": "boolean",
+            "path": "disabled",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "erp.warehouse",
+        "label": "Warehouse",
+        "provider_object": "ERPNext Warehouse",
+        "fields": [
+          {
+            "id": "erp.warehouse_id",
+            "label": "Warehouse ID",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "erp.warehouse_name",
+            "label": "Warehouse name",
+            "data_type": "string",
+            "path": "warehouse_name",
+            "description": ""
+          },
+          {
+            "id": "erp.warehouse_parent",
+            "label": "Parent warehouse",
+            "data_type": "string",
+            "path": "parent_warehouse",
+            "description": ""
+          },
+          {
+            "id": "erp.warehouse_is_group",
+            "label": "Is group",
+            "data_type": "boolean",
+            "path": "is_group",
+            "description": ""
+          },
+          {
+            "id": "erp.warehouse_disabled",
+            "label": "Disabled",
+            "data_type": "boolean",
+            "path": "disabled",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "erp.bank_account",
+        "label": "Bank Account",
+        "provider_object": "ERPNext Bank Account",
+        "fields": [
+          {
+            "id": "erp.bank_account_id",
+            "label": "Bank account ID",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "erp.bank_account_account_name",
+            "label": "Account name",
+            "data_type": "string",
+            "path": "account_name",
+            "description": ""
+          },
+          {
+            "id": "erp.bank_account_bank",
+            "label": "Bank",
+            "data_type": "string",
+            "path": "bank",
+            "description": ""
+          },
+          {
+            "id": "erp.bank_account_account_number",
+            "label": "Account number",
+            "data_type": "string",
+            "path": "bank_account_no",
+            "description": ""
+          },
+          {
+            "id": "erp.bank_account_currency",
+            "label": "Currency",
+            "data_type": "string",
+            "path": "currency",
+            "description": ""
+          },
+          {
+            "id": "erp.bank_account_default",
+            "label": "Default account",
+            "data_type": "boolean",
+            "path": "is_default",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "erp.budget",
+        "label": "Budget",
+        "provider_object": "ERPNext Budget",
+        "fields": [
+          {
+            "id": "erp.budget_id",
+            "label": "Budget ID",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "erp.budget_fiscal_year",
+            "label": "Fiscal year",
+            "data_type": "string",
+            "path": "fiscal_year",
+            "description": ""
+          },
+          {
+            "id": "erp.budget_cost_center",
+            "label": "Cost center",
+            "data_type": "string",
+            "path": "cost_center",
+            "description": ""
+          },
+          {
+            "id": "erp.budget_project",
+            "label": "Project",
+            "data_type": "string",
+            "path": "project",
+            "description": ""
+          },
+          {
+            "id": "erp.budget_action_monthly",
+            "label": "Monthly exceed action",
+            "data_type": "string",
+            "path": "action_if_accumulated_monthly_budget_exceeded",
+            "description": ""
+          },
+          {
+            "id": "erp.budget_action_annual",
+            "label": "Annual exceed action",
+            "data_type": "string",
+            "path": "action_if_accumulated_annual_budget_exceeded",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "erp.profit_and_loss",
+        "label": "Profit and Loss Statement",
+        "provider_object": "ERPNext Profit and Loss report",
+        "fields": [
+          {
+            "id": "erp.profit_and_loss_from_date",
+            "label": "From date",
+            "data_type": "date",
+            "path": "from_date",
+            "description": ""
+          },
+          {
+            "id": "erp.profit_and_loss_to_date",
+            "label": "To date",
+            "data_type": "date",
+            "path": "to_date",
+            "description": ""
+          },
+          {
+            "id": "erp.profit_and_loss_income",
+            "label": "Total income",
+            "data_type": "currency",
+            "path": "summary.total_income",
+            "description": ""
+          },
+          {
+            "id": "erp.profit_and_loss_expense",
+            "label": "Total expense",
+            "data_type": "currency",
+            "path": "summary.total_expense",
+            "description": ""
+          },
+          {
+            "id": "erp.profit_and_loss_net_profit",
+            "label": "Net profit",
+            "data_type": "currency",
+            "path": "summary.net_profit",
+            "description": ""
+          }
+        ]
+      }
+    ],
+    "business_events": [
+      {
+        "id": "evidence.outcome",
+        "label": "Objective Outcome Evidence",
+        "provider_object": "company_revenue_evidence",
+        "fields": [
+          {
+            "id": "evidence.outcome.id",
+            "label": "Evidence ID",
+            "data_type": "string",
+            "path": "id",
+            "description": "Durable evidence identifier"
+          },
+          {
+            "id": "evidence.outcome.objective_id",
+            "label": "Objective ID",
+            "data_type": "string",
+            "path": "objective_id",
+            "description": "Linked objective"
+          },
+          {
+            "id": "evidence.outcome.record_type",
+            "label": "Record type",
+            "data_type": "string",
+            "path": "record_type",
+            "description": "Candidate, qualification, opportunity, draft, send or goal run"
+          },
+          {
+            "id": "evidence.outcome.external_id",
+            "label": "External record ID",
+            "data_type": "string",
+            "path": "external_id",
+            "description": "Source-system identifier"
+          },
+          {
+            "id": "evidence.outcome.account_name",
+            "label": "Account name",
+            "data_type": "string",
+            "path": "account_name",
+            "description": "Evidence subject"
+          },
+          {
+            "id": "evidence.outcome.status",
+            "label": "Status",
+            "data_type": "string",
+            "path": "status",
+            "description": "Observed evidence status"
+          },
+          {
+            "id": "evidence.outcome.amount",
+            "label": "Amount",
+            "data_type": "currency",
+            "path": "amount",
+            "description": "Evidence-backed amount"
+          },
+          {
+            "id": "evidence.outcome.probability",
+            "label": "Probability",
+            "data_type": "decimal",
+            "path": "probability",
+            "description": "Accepted probability"
+          },
+          {
+            "id": "evidence.outcome.cost",
+            "label": "Cost",
+            "data_type": "currency",
+            "path": "cost",
+            "description": "Evidence-linked cost"
+          },
+          {
+            "id": "evidence.outcome.occurred_at",
+            "label": "Occurred at",
+            "data_type": "datetime",
+            "path": "occurred_at",
+            "description": "Evidence timestamp"
+          }
+        ]
+      }
+    ],
+    "objectives": [
+      {
+        "id": "okr.objective",
+        "label": "Objective",
+        "provider_object": "company_objectives",
+        "fields": [
+          {
+            "id": "okr.objective.id",
+            "label": "Objective ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "okr.objective.name",
+            "label": "Name",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "okr.objective.outcome",
+            "label": "Outcome",
+            "data_type": "string",
+            "path": "outcome",
+            "description": ""
+          },
+          {
+            "id": "okr.objective.period_type",
+            "label": "Period type",
+            "data_type": "string",
+            "path": "period_type",
+            "description": ""
+          },
+          {
+            "id": "okr.objective.starts_on",
+            "label": "Starts on",
+            "data_type": "date",
+            "path": "starts_on",
+            "description": ""
+          },
+          {
+            "id": "okr.objective.ends_on",
+            "label": "Ends on",
+            "data_type": "date",
+            "path": "ends_on",
+            "description": ""
+          },
+          {
+            "id": "okr.objective.status",
+            "label": "Status",
+            "data_type": "string",
+            "path": "status",
+            "description": ""
+          },
+          {
+            "id": "okr.objective.budget_amount",
+            "label": "Budget",
+            "data_type": "currency",
+            "path": "budget_amount",
+            "description": ""
+          },
+          {
+            "id": "okr.objective.created_at",
+            "label": "Created at",
+            "data_type": "datetime",
+            "path": "created_at",
+            "description": ""
+          },
+          {
+            "id": "okr.objective.updated_at",
+            "label": "Updated at",
+            "data_type": "datetime",
+            "path": "updated_at",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "okr.key_result",
+        "label": "Key Result",
+        "provider_object": "company_key_results",
+        "fields": [
+          {
+            "id": "okr.key_result.id",
+            "label": "Key result ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "okr.key_result.objective_id",
+            "label": "Objective ID",
+            "data_type": "string",
+            "path": "objective_id",
+            "description": ""
+          },
+          {
+            "id": "okr.key_result.name",
+            "label": "Name",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "okr.key_result.target",
+            "label": "Target",
+            "data_type": "number",
+            "path": "target",
+            "description": ""
+          },
+          {
+            "id": "okr.key_result.current_value",
+            "label": "Current value",
+            "data_type": "number",
+            "path": "current_value",
+            "description": ""
+          },
+          {
+            "id": "okr.key_result.unit",
+            "label": "Unit",
+            "data_type": "string",
+            "path": "unit",
+            "description": ""
+          },
+          {
+            "id": "okr.key_result.source_type",
+            "label": "Measurement source",
+            "data_type": "string",
+            "path": "source_type",
+            "description": ""
+          },
+          {
+            "id": "okr.key_result.formula",
+            "label": "Formula",
+            "data_type": "string",
+            "path": "formula",
+            "description": ""
+          },
+          {
+            "id": "okr.key_result.confidence",
+            "label": "Confidence",
+            "data_type": "string",
+            "path": "confidence",
+            "description": ""
+          },
+          {
+            "id": "okr.key_result.health",
+            "label": "Health",
+            "data_type": "string",
+            "path": "health",
+            "description": ""
+          },
+          {
+            "id": "okr.key_result.updated_at",
+            "label": "Updated at",
+            "data_type": "datetime",
+            "path": "updated_at",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "okr.initiative",
+        "label": "Initiative",
+        "provider_object": "company_initiatives",
+        "fields": [
+          {
+            "id": "okr.initiative.id",
+            "label": "Initiative ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "okr.initiative.objective_id",
+            "label": "Objective ID",
+            "data_type": "string",
+            "path": "objective_id",
+            "description": ""
+          },
+          {
+            "id": "okr.initiative.name",
+            "label": "Name",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "okr.initiative.owner_label",
+            "label": "Owner",
+            "data_type": "string",
+            "path": "owner_label",
+            "description": ""
+          },
+          {
+            "id": "okr.initiative.cadence",
+            "label": "Cadence",
+            "data_type": "string",
+            "path": "cadence",
+            "description": ""
+          },
+          {
+            "id": "okr.initiative.status",
+            "label": "Status",
+            "data_type": "string",
+            "path": "status",
+            "description": ""
+          },
+          {
+            "id": "okr.initiative.created_at",
+            "label": "Created at",
+            "data_type": "datetime",
+            "path": "created_at",
+            "description": ""
+          },
+          {
+            "id": "okr.initiative.updated_at",
+            "label": "Updated at",
+            "data_type": "datetime",
+            "path": "updated_at",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "okr.measurement",
+        "label": "Key Result Measurement",
+        "provider_object": "company_objective_measurements",
+        "fields": [
+          {
+            "id": "okr.measurement.id",
+            "label": "Measurement ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "okr.measurement.objective_id",
+            "label": "Objective ID",
+            "data_type": "string",
+            "path": "objective_id",
+            "description": ""
+          },
+          {
+            "id": "okr.measurement.key_result_id",
+            "label": "Key result ID",
+            "data_type": "string",
+            "path": "key_result_id",
+            "description": ""
+          },
+          {
+            "id": "okr.measurement.value",
+            "label": "Measured value",
+            "data_type": "number",
+            "path": "value",
+            "description": ""
+          },
+          {
+            "id": "okr.measurement.delta",
+            "label": "Delta",
+            "data_type": "number",
+            "path": "delta",
+            "description": ""
+          },
+          {
+            "id": "okr.measurement.source_type",
+            "label": "Source type",
+            "data_type": "string",
+            "path": "source_type",
+            "description": ""
+          },
+          {
+            "id": "okr.measurement.source_id",
+            "label": "Source record ID",
+            "data_type": "string",
+            "path": "source_id",
+            "description": ""
+          },
+          {
+            "id": "okr.measurement.measured_at",
+            "label": "Measured at",
+            "data_type": "datetime",
+            "path": "measured_at",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "okr.deviation",
+        "label": "Objective Deviation",
+        "provider_object": "Objective_deviation knowledge table",
+        "fields": [
+          {
+            "id": "okr.deviation.id",
+            "label": "Deviation ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "okr.deviation.objective_id",
+            "label": "Objective ID",
+            "data_type": "string",
+            "path": "objective_id",
+            "description": ""
+          },
+          {
+            "id": "okr.deviation.initiative_id",
+            "label": "Initiative ID",
+            "data_type": "string",
+            "path": "initiative_id",
+            "description": ""
+          },
+          {
+            "id": "okr.deviation.agent_id",
+            "label": "Agent ID",
+            "data_type": "string",
+            "path": "agent_id",
+            "description": ""
+          },
+          {
+            "id": "okr.deviation.prompt",
+            "label": "Prompt",
+            "data_type": "string",
+            "path": "prompt",
+            "description": ""
+          },
+          {
+            "id": "okr.deviation.rationale",
+            "label": "Rationale",
+            "data_type": "string",
+            "path": "rationale",
+            "description": ""
+          },
+          {
+            "id": "okr.deviation.actor_user_id",
+            "label": "User ID",
+            "data_type": "string",
+            "path": "actor_user_id",
+            "description": ""
+          },
+          {
+            "id": "okr.deviation.created_at",
+            "label": "Recorded at",
+            "data_type": "datetime",
+            "path": "created_at",
+            "description": ""
+          }
+        ]
+      }
+    ],
+    "goal_plans": [
+      {
+        "id": "goal.scheduled",
+        "label": "Scheduled Goal",
+        "provider_object": "scheduled_goals",
+        "fields": [
+          {
+            "id": "goal.scheduled.id",
+            "label": "Scheduled goal ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "goal.scheduled.title",
+            "label": "Title",
+            "data_type": "string",
+            "path": "title",
+            "description": ""
+          },
+          {
+            "id": "goal.scheduled.prompt",
+            "label": "Prompt",
+            "data_type": "string",
+            "path": "prompt",
+            "description": ""
+          },
+          {
+            "id": "goal.scheduled.agent_id",
+            "label": "Agent ID",
+            "data_type": "string",
+            "path": "agent_id",
+            "description": ""
+          },
+          {
+            "id": "goal.scheduled.cadence",
+            "label": "Cadence",
+            "data_type": "string",
+            "path": "cadence",
+            "description": ""
+          },
+          {
+            "id": "goal.scheduled.weekday",
+            "label": "Weekday",
+            "data_type": "integer",
+            "path": "weekday",
+            "description": ""
+          },
+          {
+            "id": "goal.scheduled.time_local",
+            "label": "Local time",
+            "data_type": "string",
+            "path": "time_local",
+            "description": ""
+          },
+          {
+            "id": "goal.scheduled.timezone",
+            "label": "Timezone",
+            "data_type": "string",
+            "path": "timezone",
+            "description": ""
+          },
+          {
+            "id": "goal.scheduled.ends_at",
+            "label": "Ends at",
+            "data_type": "datetime",
+            "path": "ends_at",
+            "description": ""
+          },
+          {
+            "id": "goal.scheduled.status",
+            "label": "Status",
+            "data_type": "string",
+            "path": "status",
+            "description": ""
+          },
+          {
+            "id": "goal.scheduled.last_run_at",
+            "label": "Last run at",
+            "data_type": "datetime",
+            "path": "last_run_at",
+            "description": ""
+          },
+          {
+            "id": "goal.scheduled.last_run_status",
+            "label": "Last run status",
+            "data_type": "string",
+            "path": "last_run_status",
+            "description": ""
+          },
+          {
+            "id": "goal.scheduled.run_count",
+            "label": "Run count",
+            "data_type": "integer",
+            "path": "run_count",
+            "description": ""
+          },
+          {
+            "id": "goal.scheduled.source",
+            "label": "Source",
+            "data_type": "string",
+            "path": "source",
+            "description": ""
+          },
+          {
+            "id": "goal.scheduled.created_at",
+            "label": "Created at",
+            "data_type": "datetime",
+            "path": "created_at",
+            "description": ""
+          },
+          {
+            "id": "goal.scheduled.updated_at",
+            "label": "Updated at",
+            "data_type": "datetime",
+            "path": "updated_at",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "goal.run",
+        "label": "Goal Plan Run",
+        "provider_object": "agent_goal_runs",
+        "fields": [
+          {
+            "id": "goal.run.id",
+            "label": "Goal run ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "goal.run.agent_id",
+            "label": "Agent ID",
+            "data_type": "string",
+            "path": "agent_id",
+            "description": ""
+          },
+          {
+            "id": "goal.run.scheduled_goal_id",
+            "label": "Scheduled goal ID",
+            "data_type": "string",
+            "path": "scheduled_goal_id",
+            "description": ""
+          },
+          {
+            "id": "goal.run.scheduled_goal_run_id",
+            "label": "Scheduled execution ID",
+            "data_type": "string",
+            "path": "scheduled_goal_run_id",
+            "description": ""
+          },
+          {
+            "id": "goal.run.title",
+            "label": "Title",
+            "data_type": "string",
+            "path": "title",
+            "description": ""
+          },
+          {
+            "id": "goal.run.source",
+            "label": "Source",
+            "data_type": "string",
+            "path": "source",
+            "description": ""
+          },
+          {
+            "id": "goal.run.status",
+            "label": "Status",
+            "data_type": "string",
+            "path": "status",
+            "description": ""
+          },
+          {
+            "id": "goal.run.current_step_index",
+            "label": "Current step",
+            "data_type": "integer",
+            "path": "current_step_index",
+            "description": ""
+          },
+          {
+            "id": "goal.run.error_message",
+            "label": "Error",
+            "data_type": "string",
+            "path": "error_message",
+            "description": ""
+          },
+          {
+            "id": "goal.run.created_at",
+            "label": "Created at",
+            "data_type": "datetime",
+            "path": "created_at",
+            "description": ""
+          },
+          {
+            "id": "goal.run.updated_at",
+            "label": "Updated at",
+            "data_type": "datetime",
+            "path": "updated_at",
+            "description": ""
+          },
+          {
+            "id": "goal.run.completed_at",
+            "label": "Completed at",
+            "data_type": "datetime",
+            "path": "completed_at",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "goal.step",
+        "label": "Goal Plan Step",
+        "provider_object": "agent_goal_steps",
+        "fields": [
+          {
+            "id": "goal.step.id",
+            "label": "Step ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "goal.step.goal_run_id",
+            "label": "Goal run ID",
+            "data_type": "string",
+            "path": "goal_run_id",
+            "description": ""
+          },
+          {
+            "id": "goal.step.step_index",
+            "label": "Step index",
+            "data_type": "integer",
+            "path": "step_index",
+            "description": ""
+          },
+          {
+            "id": "goal.step.step_type",
+            "label": "Step type",
+            "data_type": "string",
+            "path": "step_type",
+            "description": ""
+          },
+          {
+            "id": "goal.step.label",
+            "label": "Label",
+            "data_type": "string",
+            "path": "label",
+            "description": ""
+          },
+          {
+            "id": "goal.step.status",
+            "label": "Status",
+            "data_type": "string",
+            "path": "status",
+            "description": ""
+          },
+          {
+            "id": "goal.step.started_at",
+            "label": "Started at",
+            "data_type": "datetime",
+            "path": "started_at",
+            "description": ""
+          },
+          {
+            "id": "goal.step.completed_at",
+            "label": "Completed at",
+            "data_type": "datetime",
+            "path": "completed_at",
+            "description": ""
+          },
+          {
+            "id": "goal.step.error_message",
+            "label": "Error",
+            "data_type": "string",
+            "path": "error_message",
+            "description": ""
+          }
+        ]
+      }
+    ],
+    "workflows": [
+      {
+        "id": "workflow.definition",
+        "label": "Workflow Definition",
+        "provider_object": "agent_workflow_definitions",
+        "fields": [
+          {
+            "id": "workflow.definition.id",
+            "label": "Workflow ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "workflow.definition.name",
+            "label": "Name",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "workflow.definition.description",
+            "label": "Description",
+            "data_type": "string",
+            "path": "description",
+            "description": ""
+          },
+          {
+            "id": "workflow.definition.status",
+            "label": "Status",
+            "data_type": "string",
+            "path": "status",
+            "description": ""
+          },
+          {
+            "id": "workflow.definition.schedule_cron",
+            "label": "Schedule",
+            "data_type": "string",
+            "path": "schedule_cron",
+            "description": ""
+          },
+          {
+            "id": "workflow.definition.trigger_modes",
+            "label": "Trigger modes",
+            "data_type": "string",
+            "path": "trigger_modes",
+            "description": ""
+          },
+          {
+            "id": "workflow.definition.created_at",
+            "label": "Created at",
+            "data_type": "datetime",
+            "path": "created_at",
+            "description": ""
+          },
+          {
+            "id": "workflow.definition.updated_at",
+            "label": "Updated at",
+            "data_type": "datetime",
+            "path": "updated_at",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "workflow.run",
+        "label": "Workflow Run",
+        "provider_object": "agent_workflow_runs",
+        "fields": [
+          {
+            "id": "workflow.run.id",
+            "label": "Workflow run ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "workflow.run.run_number",
+            "label": "Run number",
+            "data_type": "integer",
+            "path": "run_number",
+            "description": ""
+          },
+          {
+            "id": "workflow.run.definition_id",
+            "label": "Workflow ID",
+            "data_type": "string",
+            "path": "definition_id",
+            "description": ""
+          },
+          {
+            "id": "workflow.run.status",
+            "label": "Status",
+            "data_type": "string",
+            "path": "status",
+            "description": ""
+          },
+          {
+            "id": "workflow.run.trigger",
+            "label": "Trigger",
+            "data_type": "string",
+            "path": "trigger",
+            "description": ""
+          },
+          {
+            "id": "workflow.run.progress_pct",
+            "label": "Progress",
+            "data_type": "percentage",
+            "path": "progress_pct",
+            "description": ""
+          },
+          {
+            "id": "workflow.run.started_at",
+            "label": "Started at",
+            "data_type": "datetime",
+            "path": "started_at",
+            "description": ""
+          },
+          {
+            "id": "workflow.run.completed_at",
+            "label": "Completed at",
+            "data_type": "datetime",
+            "path": "completed_at",
+            "description": ""
+          },
+          {
+            "id": "workflow.run.error_message",
+            "label": "Error",
+            "data_type": "string",
+            "path": "error_message",
+            "description": ""
+          },
+          {
+            "id": "workflow.run.updated_at",
+            "label": "Updated at",
+            "data_type": "datetime",
+            "path": "updated_at",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "workflow.step",
+        "label": "Workflow Run Step",
+        "provider_object": "agent_workflow_run_steps",
+        "fields": [
+          {
+            "id": "workflow.step.id",
+            "label": "Step ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "workflow.step.run_id",
+            "label": "Workflow run ID",
+            "data_type": "string",
+            "path": "run_id",
+            "description": ""
+          },
+          {
+            "id": "workflow.step.node_id",
+            "label": "Node ID",
+            "data_type": "string",
+            "path": "node_id",
+            "description": ""
+          },
+          {
+            "id": "workflow.step.node_type",
+            "label": "Node type",
+            "data_type": "string",
+            "path": "node_type",
+            "description": ""
+          },
+          {
+            "id": "workflow.step.node_label",
+            "label": "Node label",
+            "data_type": "string",
+            "path": "node_label",
+            "description": ""
+          },
+          {
+            "id": "workflow.step.status",
+            "label": "Status",
+            "data_type": "string",
+            "path": "status",
+            "description": ""
+          },
+          {
+            "id": "workflow.step.started_at",
+            "label": "Started at",
+            "data_type": "datetime",
+            "path": "started_at",
+            "description": ""
+          },
+          {
+            "id": "workflow.step.completed_at",
+            "label": "Completed at",
+            "data_type": "datetime",
+            "path": "completed_at",
+            "description": ""
+          },
+          {
+            "id": "workflow.step.error_message",
+            "label": "Error",
+            "data_type": "string",
+            "path": "error_message",
+            "description": ""
+          }
+        ]
+      }
+    ],
+    "tasks": [
+      {
+        "id": "task.kanban",
+        "label": "Kanban Task",
+        "provider_object": "kanban_tasks",
+        "fields": [
+          {
+            "id": "task.kanban.id",
+            "label": "Task ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "task.kanban.title",
+            "label": "Title",
+            "data_type": "string",
+            "path": "title",
+            "description": ""
+          },
+          {
+            "id": "task.kanban.description",
+            "label": "Description",
+            "data_type": "string",
+            "path": "description",
+            "description": ""
+          },
+          {
+            "id": "task.kanban.status",
+            "label": "Status",
+            "data_type": "string",
+            "path": "status",
+            "description": ""
+          },
+          {
+            "id": "task.kanban.assigned_agent_id",
+            "label": "Assigned agent ID",
+            "data_type": "string",
+            "path": "assigned_agent_id",
+            "description": ""
+          },
+          {
+            "id": "task.kanban.assigned_member_key",
+            "label": "Assigned member",
+            "data_type": "string",
+            "path": "assigned_member_key",
+            "description": ""
+          },
+          {
+            "id": "task.kanban.created_by",
+            "label": "Created by",
+            "data_type": "string",
+            "path": "created_by",
+            "description": ""
+          },
+          {
+            "id": "task.kanban.goal_run_id",
+            "label": "Goal run ID",
+            "data_type": "string",
+            "path": "goal_run_id",
+            "description": ""
+          },
+          {
+            "id": "task.kanban.goal_step_id",
+            "label": "Goal step ID",
+            "data_type": "string",
+            "path": "goal_step_id",
+            "description": ""
+          },
+          {
+            "id": "task.kanban.due_date",
+            "label": "Due date",
+            "data_type": "date",
+            "path": "due_date",
+            "description": ""
+          },
+          {
+            "id": "task.kanban.created_at",
+            "label": "Created at",
+            "data_type": "datetime",
+            "path": "created_at",
+            "description": ""
+          },
+          {
+            "id": "task.kanban.updated_at",
+            "label": "Updated at",
+            "data_type": "datetime",
+            "path": "updated_at",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "task.message",
+        "label": "Task Message",
+        "provider_object": "task_messages",
+        "fields": [
+          {
+            "id": "task.message.id",
+            "label": "Message ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "task.message.task_id",
+            "label": "Task ID",
+            "data_type": "string",
+            "path": "task_id",
+            "description": ""
+          },
+          {
+            "id": "task.message.role",
+            "label": "Role",
+            "data_type": "string",
+            "path": "role",
+            "description": ""
+          },
+          {
+            "id": "task.message.content",
+            "label": "Content",
+            "data_type": "string",
+            "path": "content",
+            "description": ""
+          },
+          {
+            "id": "task.message.created_at",
+            "label": "Created at",
+            "data_type": "datetime",
+            "path": "created_at",
+            "description": ""
+          }
+        ]
+      }
+    ],
+    "knowledge": [
+      {
+        "id": "knowledge.table",
+        "label": "Knowledge Table",
+        "provider_object": "master_data_tables",
+        "fields": [
+          {
+            "id": "knowledge.table.id",
+            "label": "Table ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "knowledge.table.name",
+            "label": "Name",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "knowledge.table.description",
+            "label": "Description",
+            "data_type": "string",
+            "path": "description",
+            "description": ""
+          },
+          {
+            "id": "knowledge.table.row_count",
+            "label": "Row count",
+            "data_type": "integer",
+            "path": "row_count",
+            "description": ""
+          },
+          {
+            "id": "knowledge.table.source",
+            "label": "Source",
+            "data_type": "string",
+            "path": "source",
+            "description": ""
+          },
+          {
+            "id": "knowledge.table.created_at",
+            "label": "Created at",
+            "data_type": "datetime",
+            "path": "created_at",
+            "description": ""
+          },
+          {
+            "id": "knowledge.table.updated_at",
+            "label": "Updated at",
+            "data_type": "datetime",
+            "path": "updated_at",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "knowledge.row",
+        "label": "Knowledge Record",
+        "provider_object": "master_data_rows",
+        "fields": [
+          {
+            "id": "knowledge.row.id",
+            "label": "Record ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "knowledge.row.table_id",
+            "label": "Table ID",
+            "data_type": "string",
+            "path": "table_id",
+            "description": ""
+          },
+          {
+            "id": "knowledge.row.row_json",
+            "label": "Record data",
+            "data_type": "json",
+            "path": "row_json",
+            "description": ""
+          },
+          {
+            "id": "knowledge.row.created_at",
+            "label": "Created at",
+            "data_type": "datetime",
+            "path": "created_at",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "knowledge.document",
+        "label": "Knowledge Document",
+        "provider_object": "master_data_documents",
+        "fields": [
+          {
+            "id": "knowledge.document.id",
+            "label": "Document ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "knowledge.document.title",
+            "label": "Title",
+            "data_type": "string",
+            "path": "title",
+            "description": ""
+          },
+          {
+            "id": "knowledge.document.filename",
+            "label": "Filename",
+            "data_type": "string",
+            "path": "filename",
+            "description": ""
+          },
+          {
+            "id": "knowledge.document.mime_type",
+            "label": "MIME type",
+            "data_type": "string",
+            "path": "mime_type",
+            "description": ""
+          },
+          {
+            "id": "knowledge.document.size_bytes",
+            "label": "Size",
+            "data_type": "integer",
+            "path": "size_bytes",
+            "description": ""
+          },
+          {
+            "id": "knowledge.document.text_excerpt",
+            "label": "Text excerpt",
+            "data_type": "string",
+            "path": "text_excerpt",
+            "description": ""
+          },
+          {
+            "id": "knowledge.document.chunk_count",
+            "label": "Chunk count",
+            "data_type": "integer",
+            "path": "chunk_count",
+            "description": ""
+          },
+          {
+            "id": "knowledge.document.created_at",
+            "label": "Created at",
+            "data_type": "datetime",
+            "path": "created_at",
+            "description": ""
+          },
+          {
+            "id": "knowledge.document.updated_at",
+            "label": "Updated at",
+            "data_type": "datetime",
+            "path": "updated_at",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "knowledge.chunk",
+        "label": "RAG Chunk",
+        "provider_object": "master_data_doc_chunks",
+        "fields": [
+          {
+            "id": "knowledge.chunk.id",
+            "label": "Chunk ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "knowledge.chunk.document_id",
+            "label": "Document ID",
+            "data_type": "string",
+            "path": "document_id",
+            "description": ""
+          },
+          {
+            "id": "knowledge.chunk.chunk_index",
+            "label": "Chunk index",
+            "data_type": "integer",
+            "path": "chunk_index",
+            "description": ""
+          },
+          {
+            "id": "knowledge.chunk.content",
+            "label": "Content",
+            "data_type": "string",
+            "path": "content",
+            "description": ""
+          },
+          {
+            "id": "knowledge.chunk.created_at",
+            "label": "Created at",
+            "data_type": "datetime",
+            "path": "created_at",
+            "description": ""
+          }
+        ]
+      }
+    ],
+    "agents": [
+      {
+        "id": "agent.employee",
+        "label": "AI Employee",
+        "provider_object": "agents + user_agents",
+        "fields": [
+          {
+            "id": "agent.employee.id",
+            "label": "Agent ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "agent.employee.name",
+            "label": "Name",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "agent.employee.role",
+            "label": "Role",
+            "data_type": "string",
+            "path": "role",
+            "description": ""
+          },
+          {
+            "id": "agent.employee.parent_id",
+            "label": "Parent agent ID",
+            "data_type": "string",
+            "path": "parent_id",
+            "description": ""
+          },
+          {
+            "id": "agent.employee.is_coo",
+            "label": "COO",
+            "data_type": "boolean",
+            "path": "is_coo",
+            "description": ""
+          },
+          {
+            "id": "agent.employee.is_orchestrator",
+            "label": "Orchestrator",
+            "data_type": "boolean",
+            "path": "is_orchestrator",
+            "description": ""
+          },
+          {
+            "id": "agent.employee.created_at",
+            "label": "Created at",
+            "data_type": "datetime",
+            "path": "created_at",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "agent.activity",
+        "label": "Agent Activity",
+        "provider_object": "activities",
+        "fields": [
+          {
+            "id": "agent.activity.id",
+            "label": "Activity ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "agent.activity.agent_id",
+            "label": "Agent ID",
+            "data_type": "string",
+            "path": "agent_id",
+            "description": ""
+          },
+          {
+            "id": "agent.activity.type",
+            "label": "Activity type",
+            "data_type": "string",
+            "path": "type",
+            "description": ""
+          },
+          {
+            "id": "agent.activity.payload",
+            "label": "Activity payload",
+            "data_type": "json",
+            "path": "payload",
+            "description": ""
+          },
+          {
+            "id": "agent.activity.created_at",
+            "label": "Created at",
+            "data_type": "datetime",
+            "path": "created_at",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "agent.chat_session",
+        "label": "Agent Chat Session",
+        "provider_object": "chat_sessions",
+        "fields": [
+          {
+            "id": "agent.chat_session.id",
+            "label": "Chat session ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "agent.chat_session.agent_id",
+            "label": "Agent ID",
+            "data_type": "string",
+            "path": "agent_id",
+            "description": ""
+          },
+          {
+            "id": "agent.chat_session.title",
+            "label": "Title",
+            "data_type": "string",
+            "path": "title",
+            "description": ""
+          },
+          {
+            "id": "agent.chat_session.status",
+            "label": "Status",
+            "data_type": "string",
+            "path": "status",
+            "description": ""
+          },
+          {
+            "id": "agent.chat_session.started_at",
+            "label": "Started at",
+            "data_type": "datetime",
+            "path": "started_at",
+            "description": ""
+          },
+          {
+            "id": "agent.chat_session.archived_at",
+            "label": "Archived at",
+            "data_type": "datetime",
+            "path": "archived_at",
+            "description": ""
+          },
+          {
+            "id": "agent.chat_session.created_at",
+            "label": "Created at",
+            "data_type": "datetime",
+            "path": "created_at",
+            "description": ""
+          },
+          {
+            "id": "agent.chat_session.updated_at",
+            "label": "Updated at",
+            "data_type": "datetime",
+            "path": "updated_at",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "agent.voice_session",
+        "label": "Agent Voice-call Session",
+        "provider_object": "ceo_voice_sessions",
+        "fields": [
+          {
+            "id": "agent.voice_session.id",
+            "label": "Voice session ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "agent.voice_session.agent_id",
+            "label": "Agent ID",
+            "data_type": "string",
+            "path": "agent_id",
+            "description": ""
+          },
+          {
+            "id": "agent.voice_session.channel_id",
+            "label": "Channel ID",
+            "data_type": "string",
+            "path": "channel_id",
+            "description": ""
+          },
+          {
+            "id": "agent.voice_session.status",
+            "label": "Status",
+            "data_type": "string",
+            "path": "status",
+            "description": ""
+          },
+          {
+            "id": "agent.voice_session.created_at",
+            "label": "Created at",
+            "data_type": "datetime",
+            "path": "created_at",
+            "description": ""
+          },
+          {
+            "id": "agent.voice_session.ended_at",
+            "label": "Ended at",
+            "data_type": "datetime",
+            "path": "ended_at",
+            "description": ""
+          },
+          {
+            "id": "agent.voice_session.expires_at",
+            "label": "Expires at",
+            "data_type": "datetime",
+            "path": "expires_at",
+            "description": ""
+          },
+          {
+            "id": "agent.voice_session.is_guest",
+            "label": "Guest call",
+            "data_type": "boolean",
+            "path": "is_guest",
+            "description": ""
+          }
+        ]
+      }
+    ],
+    "communications": [
+      {
+        "id": "gmail.message",
+        "label": "Gmail Message",
+        "provider_object": "OpenConnector gmail.fetch_emails normalized message",
+        "fields": [
+          {
+            "id": "gmail.message_id",
+            "label": "Gmail message ID",
+            "data_type": "string",
+            "path": "message_id",
+            "description": ""
+          },
+          {
+            "id": "gmail.thread_id",
+            "label": "Gmail thread ID",
+            "data_type": "string",
+            "path": "thread_id",
+            "description": ""
+          },
+          {
+            "id": "gmail.sender",
+            "label": "Sender",
+            "data_type": "string",
+            "path": "sender",
+            "description": ""
+          },
+          {
+            "id": "gmail.recipients",
+            "label": "Recipients",
+            "data_type": "string",
+            "path": "recipients",
+            "description": ""
+          },
+          {
+            "id": "gmail.subject",
+            "label": "Subject",
+            "data_type": "string",
+            "path": "subject",
+            "description": ""
+          },
+          {
+            "id": "gmail.timestamp",
+            "label": "Timestamp",
+            "data_type": "datetime",
+            "path": "timestamp",
+            "description": ""
+          },
+          {
+            "id": "gmail.labels",
+            "label": "Labels",
+            "data_type": "string",
+            "path": "labels",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "communication.notification",
+        "label": "Notification",
+        "provider_object": "platform_user_notifications",
+        "fields": [
+          {
+            "id": "communication.notification.id",
+            "label": "Notification ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "communication.notification.title",
+            "label": "Title",
+            "data_type": "string",
+            "path": "title",
+            "description": ""
+          },
+          {
+            "id": "communication.notification.body",
+            "label": "Body",
+            "data_type": "string",
+            "path": "body",
+            "description": ""
+          },
+          {
+            "id": "communication.notification.link_url",
+            "label": "Link URL",
+            "data_type": "string",
+            "path": "link_url",
+            "description": ""
+          },
+          {
+            "id": "communication.notification.created_by",
+            "label": "Created by",
+            "data_type": "string",
+            "path": "created_by",
+            "description": ""
+          },
+          {
+            "id": "communication.notification.source",
+            "label": "Source",
+            "data_type": "string",
+            "path": "source",
+            "description": ""
+          },
+          {
+            "id": "communication.notification.source_key",
+            "label": "Source key",
+            "data_type": "string",
+            "path": "source_key",
+            "description": ""
+          },
+          {
+            "id": "communication.notification.created_at",
+            "label": "Created at",
+            "data_type": "datetime",
+            "path": "created_at",
+            "description": ""
+          },
+          {
+            "id": "communication.notification.read_at",
+            "label": "Read at",
+            "data_type": "datetime",
+            "path": "read_at",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "communication.broadcast",
+        "label": "Broadcast",
+        "provider_object": "broadcast delivery records",
+        "fields": [
+          {
+            "id": "communication.broadcast.id",
+            "label": "Broadcast ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "communication.broadcast.channel",
+            "label": "Channel",
+            "data_type": "string",
+            "path": "channel",
+            "description": ""
+          },
+          {
+            "id": "communication.broadcast.status",
+            "label": "Status",
+            "data_type": "string",
+            "path": "status",
+            "description": ""
+          },
+          {
+            "id": "communication.broadcast.recipient_count",
+            "label": "Recipient count",
+            "data_type": "integer",
+            "path": "recipient_count",
+            "description": ""
+          },
+          {
+            "id": "communication.broadcast.sent_count",
+            "label": "Sent count",
+            "data_type": "integer",
+            "path": "sent_count",
+            "description": ""
+          },
+          {
+            "id": "communication.broadcast.failed_count",
+            "label": "Failed count",
+            "data_type": "integer",
+            "path": "failed_count",
+            "description": ""
+          },
+          {
+            "id": "communication.broadcast.created_at",
+            "label": "Created at",
+            "data_type": "datetime",
+            "path": "created_at",
+            "description": ""
+          }
+        ]
+      }
+    ],
+    "llmops": [
+      {
+        "id": "llm.usage",
+        "label": "LLM Token Usage",
+        "provider_object": "token_usage",
+        "fields": [
+          {
+            "id": "llm.usage.id",
+            "label": "Usage ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "llm.usage.member_key",
+            "label": "Member",
+            "data_type": "string",
+            "path": "member_key",
+            "description": ""
+          },
+          {
+            "id": "llm.usage.agent_id",
+            "label": "Agent ID",
+            "data_type": "string",
+            "path": "agent_id",
+            "description": ""
+          },
+          {
+            "id": "llm.usage.source",
+            "label": "Source",
+            "data_type": "string",
+            "path": "source",
+            "description": ""
+          },
+          {
+            "id": "llm.usage.model_id",
+            "label": "Model",
+            "data_type": "string",
+            "path": "model_id",
+            "description": ""
+          },
+          {
+            "id": "llm.usage.input_tokens",
+            "label": "Input tokens",
+            "data_type": "integer",
+            "path": "input_tokens",
+            "description": ""
+          },
+          {
+            "id": "llm.usage.output_tokens",
+            "label": "Output tokens",
+            "data_type": "integer",
+            "path": "output_tokens",
+            "description": ""
+          },
+          {
+            "id": "llm.usage.total_tokens",
+            "label": "Total tokens",
+            "data_type": "integer",
+            "path": "total_tokens",
+            "description": ""
+          },
+          {
+            "id": "llm.usage.tokens_estimated",
+            "label": "Estimated",
+            "data_type": "boolean",
+            "path": "tokens_estimated",
+            "description": ""
+          },
+          {
+            "id": "llm.usage.session_id",
+            "label": "Session ID",
+            "data_type": "string",
+            "path": "session_id",
+            "description": ""
+          },
+          {
+            "id": "llm.usage.run_id",
+            "label": "Run ID",
+            "data_type": "string",
+            "path": "run_id",
+            "description": ""
+          },
+          {
+            "id": "llm.usage.trace_id",
+            "label": "Trace ID",
+            "data_type": "string",
+            "path": "trace_id",
+            "description": ""
+          },
+          {
+            "id": "llm.usage.created_at",
+            "label": "Created at",
+            "data_type": "datetime",
+            "path": "created_at",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "llm.cost_line",
+        "label": "Cost Line",
+        "provider_object": "cost_lines",
+        "fields": [
+          {
+            "id": "llm.cost_line.id",
+            "label": "Cost line ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "llm.cost_line.period",
+            "label": "Period",
+            "data_type": "string",
+            "path": "period",
+            "description": ""
+          },
+          {
+            "id": "llm.cost_line.category",
+            "label": "Category",
+            "data_type": "string",
+            "path": "category",
+            "description": ""
+          },
+          {
+            "id": "llm.cost_line.source",
+            "label": "Source",
+            "data_type": "string",
+            "path": "source",
+            "description": ""
+          },
+          {
+            "id": "llm.cost_line.model_id",
+            "label": "Model",
+            "data_type": "string",
+            "path": "model_id",
+            "description": ""
+          },
+          {
+            "id": "llm.cost_line.member_key",
+            "label": "Member",
+            "data_type": "string",
+            "path": "member_key",
+            "description": ""
+          },
+          {
+            "id": "llm.cost_line.units_input",
+            "label": "Input units",
+            "data_type": "integer",
+            "path": "units_input",
+            "description": ""
+          },
+          {
+            "id": "llm.cost_line.units_output",
+            "label": "Output units",
+            "data_type": "integer",
+            "path": "units_output",
+            "description": ""
+          },
+          {
+            "id": "llm.cost_line.amount_usd",
+            "label": "Amount USD",
+            "data_type": "currency",
+            "path": "amount_usd",
+            "description": ""
+          },
+          {
+            "id": "llm.cost_line.currency",
+            "label": "Currency",
+            "data_type": "string",
+            "path": "currency",
+            "description": ""
+          },
+          {
+            "id": "llm.cost_line.confidence",
+            "label": "Confidence",
+            "data_type": "string",
+            "path": "confidence",
+            "description": ""
+          },
+          {
+            "id": "llm.cost_line.created_at",
+            "label": "Created at",
+            "data_type": "datetime",
+            "path": "created_at",
+            "description": ""
+          },
+          {
+            "id": "llm.cost_line.updated_at",
+            "label": "Updated at",
+            "data_type": "datetime",
+            "path": "updated_at",
+            "description": ""
+          }
+        ]
+      }
+    ],
+    "events": [
+      {
+        "id": "event.goal_mission",
+        "label": "Goal Mission Event",
+        "provider_object": "goal_mission_events",
+        "fields": [
+          {
+            "id": "event.goal_mission.id",
+            "label": "Event ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "event.goal_mission.goal_run_id",
+            "label": "Goal run ID",
+            "data_type": "string",
+            "path": "goal_run_id",
+            "description": ""
+          },
+          {
+            "id": "event.goal_mission.event_type",
+            "label": "Event type",
+            "data_type": "string",
+            "path": "event_type",
+            "description": ""
+          },
+          {
+            "id": "event.goal_mission.status",
+            "label": "Status",
+            "data_type": "string",
+            "path": "status",
+            "description": ""
+          },
+          {
+            "id": "event.goal_mission.created_at",
+            "label": "Created at",
+            "data_type": "datetime",
+            "path": "created_at",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "event.webhook",
+        "label": "Webhook Event",
+        "provider_object": "registered inbound event",
+        "fields": [
+          {
+            "id": "event.webhook.id",
+            "label": "Event ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "event.webhook.event_type",
+            "label": "Event type",
+            "data_type": "string",
+            "path": "event_type",
+            "description": ""
+          },
+          {
+            "id": "event.webhook.source",
+            "label": "Source",
+            "data_type": "string",
+            "path": "source",
+            "description": ""
+          },
+          {
+            "id": "event.webhook.status",
+            "label": "Status",
+            "data_type": "string",
+            "path": "status",
+            "description": ""
+          },
+          {
+            "id": "event.webhook.occurred_at",
+            "label": "Occurred at",
+            "data_type": "datetime",
+            "path": "occurred_at",
+            "description": ""
+          }
+        ]
+      }
+    ],
+    "custom_api": [
+      {
+        "id": "integration.mcp_server",
+        "label": "MCP Server",
+        "provider_object": "mcp_servers",
+        "fields": [
+          {
+            "id": "integration.mcp_server.id",
+            "label": "Server ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "integration.mcp_server.name",
+            "label": "Name",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "integration.mcp_server.status",
+            "label": "Status",
+            "data_type": "string",
+            "path": "status",
+            "description": ""
+          },
+          {
+            "id": "integration.mcp_server.is_platform",
+            "label": "Platform managed",
+            "data_type": "boolean",
+            "path": "is_platform",
+            "description": ""
+          },
+          {
+            "id": "integration.mcp_server.created_at",
+            "label": "Created at",
+            "data_type": "datetime",
+            "path": "created_at",
+            "description": ""
+          },
+          {
+            "id": "integration.mcp_server.updated_at",
+            "label": "Updated at",
+            "data_type": "datetime",
+            "path": "updated_at",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "integration.mcp_call",
+        "label": "MCP Tool Call",
+        "provider_object": "mcp_call_logs",
+        "fields": [
+          {
+            "id": "integration.mcp_call.id",
+            "label": "Call ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "integration.mcp_call.server_id",
+            "label": "Server ID",
+            "data_type": "string",
+            "path": "server_id",
+            "description": ""
+          },
+          {
+            "id": "integration.mcp_call.tool_name",
+            "label": "Tool name",
+            "data_type": "string",
+            "path": "tool_name",
+            "description": ""
+          },
+          {
+            "id": "integration.mcp_call.user_id",
+            "label": "User ID",
+            "data_type": "string",
+            "path": "user_id",
+            "description": ""
+          },
+          {
+            "id": "integration.mcp_call.status",
+            "label": "Status",
+            "data_type": "string",
+            "path": "status",
+            "description": ""
+          },
+          {
+            "id": "integration.mcp_call.latency_ms",
+            "label": "Latency",
+            "data_type": "duration_ms",
+            "path": "latency_ms",
+            "description": ""
+          },
+          {
+            "id": "integration.mcp_call.created_at",
+            "label": "Created at",
+            "data_type": "datetime",
+            "path": "created_at",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "browser.session",
+        "label": "Browser Session",
+        "provider_object": "ceo_browser_session",
+        "fields": [
+          {
+            "id": "browser.session.ceo_user_id",
+            "label": "Owner user ID",
+            "data_type": "string",
+            "path": "ceo_user_id",
+            "description": ""
+          },
+          {
+            "id": "browser.session.mode",
+            "label": "Mode",
+            "data_type": "string",
+            "path": "mode",
+            "description": ""
+          },
+          {
+            "id": "browser.session.profile",
+            "label": "Profile",
+            "data_type": "string",
+            "path": "profile",
+            "description": ""
+          },
+          {
+            "id": "browser.session.session_ready",
+            "label": "Ready",
+            "data_type": "boolean",
+            "path": "session_ready",
+            "description": ""
+          },
+          {
+            "id": "browser.session.last_attached_at",
+            "label": "Last attached at",
+            "data_type": "datetime",
+            "path": "last_attached_at",
+            "description": ""
+          },
+          {
+            "id": "browser.session.updated_at",
+            "label": "Updated at",
+            "data_type": "datetime",
+            "path": "updated_at",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "browser.task",
+        "label": "Browser Task",
+        "provider_object": "browser_tasks",
+        "fields": [
+          {
+            "id": "browser.task.id",
+            "label": "Browser task ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "browser.task.agent_id",
+            "label": "Agent ID",
+            "data_type": "string",
+            "path": "agent_id",
+            "description": ""
+          },
+          {
+            "id": "browser.task.recipe_id",
+            "label": "Recipe ID",
+            "data_type": "string",
+            "path": "recipe_id",
+            "description": ""
+          },
+          {
+            "id": "browser.task.mode",
+            "label": "Mode",
+            "data_type": "string",
+            "path": "mode",
+            "description": ""
+          },
+          {
+            "id": "browser.task.status",
+            "label": "Status",
+            "data_type": "string",
+            "path": "status",
+            "description": ""
+          },
+          {
+            "id": "browser.task.goal_text",
+            "label": "Goal",
+            "data_type": "string",
+            "path": "goal_text",
+            "description": ""
+          },
+          {
+            "id": "browser.task.start_url",
+            "label": "Start URL",
+            "data_type": "string",
+            "path": "start_url",
+            "description": ""
+          },
+          {
+            "id": "browser.task.wait_reason",
+            "label": "Wait reason",
+            "data_type": "string",
+            "path": "wait_reason",
+            "description": ""
+          },
+          {
+            "id": "browser.task.error",
+            "label": "Error",
+            "data_type": "string",
+            "path": "error",
+            "description": ""
+          },
+          {
+            "id": "browser.task.created_at",
+            "label": "Created at",
+            "data_type": "datetime",
+            "path": "created_at",
+            "description": ""
+          },
+          {
+            "id": "browser.task.updated_at",
+            "label": "Updated at",
+            "data_type": "datetime",
+            "path": "updated_at",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "web.crawl",
+        "label": "Web Crawler Result",
+        "provider_object": "web_scrape MCP / Crawlee result",
+        "fields": [
+          {
+            "id": "web.page_url",
+            "label": "Page URL",
+            "data_type": "string",
+            "path": "pages[].url",
+            "description": ""
+          },
+          {
+            "id": "web.page_domain",
+            "label": "Page domain",
+            "data_type": "string",
+            "path": "pages[].domain",
+            "description": ""
+          },
+          {
+            "id": "web.match_phrase",
+            "label": "Matched phrase",
+            "data_type": "string",
+            "path": "matches[].phrase",
+            "description": ""
+          },
+          {
+            "id": "web.match_count",
+            "label": "Matched page count",
+            "data_type": "integer",
+            "path": "stats.match_count",
+            "description": ""
+          }
+        ]
+      }
+    ],
+    "documents": [
+      {
+        "id": "document.evidence",
+        "label": "Evidence Document",
+        "provider_object": "company_revenue_evidence / uploaded evidence",
+        "fields": [
+          {
+            "id": "document.evidence.id",
+            "label": "Document ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "document.evidence.objective_id",
+            "label": "Objective ID",
+            "data_type": "string",
+            "path": "objective_id",
+            "description": ""
+          },
+          {
+            "id": "document.evidence.record_type",
+            "label": "Record type",
+            "data_type": "string",
+            "path": "record_type",
+            "description": ""
+          },
+          {
+            "id": "document.evidence.external_id",
+            "label": "External ID",
+            "data_type": "string",
+            "path": "external_id",
+            "description": ""
+          },
+          {
+            "id": "document.evidence.status",
+            "label": "Status",
+            "data_type": "string",
+            "path": "status",
+            "description": ""
+          },
+          {
+            "id": "document.evidence.occurred_at",
+            "label": "Evidence time",
+            "data_type": "datetime",
+            "path": "occurred_at",
+            "description": ""
+          },
+          {
+            "id": "document.evidence.created_at",
+            "label": "Created at",
+            "data_type": "datetime",
+            "path": "created_at",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "document.media",
+        "label": "Media Artifact",
+        "provider_object": "ceo_media_artifacts",
+        "fields": [
+          {
+            "id": "document.media.id",
+            "label": "Artifact ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "document.media.kind",
+            "label": "Kind",
+            "data_type": "string",
+            "path": "kind",
+            "description": ""
+          },
+          {
+            "id": "document.media.mime_type",
+            "label": "MIME type",
+            "data_type": "string",
+            "path": "mime_type",
+            "description": ""
+          },
+          {
+            "id": "document.media.filename",
+            "label": "Filename",
+            "data_type": "string",
+            "path": "filename",
+            "description": ""
+          },
+          {
+            "id": "document.media.size_bytes",
+            "label": "Size",
+            "data_type": "integer",
+            "path": "size_bytes",
+            "description": ""
+          },
+          {
+            "id": "document.media.duration_ms",
+            "label": "Duration",
+            "data_type": "duration_ms",
+            "path": "duration_ms",
+            "description": ""
+          },
+          {
+            "id": "document.media.created_at",
+            "label": "Created at",
+            "data_type": "datetime",
+            "path": "created_at",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "document.inbound_attachment",
+        "label": "Inbound Attachment",
+        "provider_object": "inbound channel attachment",
+        "fields": [
+          {
+            "id": "document.inbound_attachment.id",
+            "label": "Attachment ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "document.inbound_attachment.message_id",
+            "label": "Message ID",
+            "data_type": "string",
+            "path": "message_id",
+            "description": ""
+          },
+          {
+            "id": "document.inbound_attachment.filename",
+            "label": "Filename",
+            "data_type": "string",
+            "path": "filename",
+            "description": ""
+          },
+          {
+            "id": "document.inbound_attachment.mime_type",
+            "label": "MIME type",
+            "data_type": "string",
+            "path": "mime_type",
+            "description": ""
+          },
+          {
+            "id": "document.inbound_attachment.size_bytes",
+            "label": "Size",
+            "data_type": "integer",
+            "path": "size_bytes",
+            "description": ""
+          },
+          {
+            "id": "document.inbound_attachment.index_status",
+            "label": "RAG index status",
+            "data_type": "string",
+            "path": "index_status",
+            "description": ""
+          },
+          {
+            "id": "document.inbound_attachment.received_at",
+            "label": "Received at",
+            "data_type": "datetime",
+            "path": "received_at",
+            "description": ""
+          }
+        ]
+      }
+    ],
+    "org": [
+      {
+        "id": "org.member",
+        "label": "Organization Member",
+        "provider_object": "platform_users / org_agent_members",
+        "fields": [
+          {
+            "id": "org.member.id",
+            "label": "Member ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "org.member.name",
+            "label": "Name",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "org.member.type",
+            "label": "Member type",
+            "data_type": "string",
+            "path": "type",
+            "description": ""
+          },
+          {
+            "id": "org.member.role",
+            "label": "Role",
+            "data_type": "string",
+            "path": "role",
+            "description": ""
+          },
+          {
+            "id": "org.member.status",
+            "label": "Status",
+            "data_type": "string",
+            "path": "status",
+            "description": ""
+          },
+          {
+            "id": "org.member.created_at",
+            "label": "Created at",
+            "data_type": "datetime",
+            "path": "created_at",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "org.role",
+        "label": "Organization Role",
+        "provider_object": "org_roles",
+        "fields": [
+          {
+            "id": "org.role.id",
+            "label": "Role ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "org.role.name",
+            "label": "Name",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "org.role.status",
+            "label": "Status",
+            "data_type": "string",
+            "path": "status",
+            "description": ""
+          },
+          {
+            "id": "org.role.created_at",
+            "label": "Created at",
+            "data_type": "datetime",
+            "path": "created_at",
+            "description": ""
+          },
+          {
+            "id": "org.role.updated_at",
+            "label": "Updated at",
+            "data_type": "datetime",
+            "path": "updated_at",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "org.invocation",
+        "label": "Organization Invocation",
+        "provider_object": "org_member_invocations",
+        "fields": [
+          {
+            "id": "org.invocation.id",
+            "label": "Invocation ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "org.invocation.member_key",
+            "label": "Member",
+            "data_type": "string",
+            "path": "member_key",
+            "description": ""
+          },
+          {
+            "id": "org.invocation.source",
+            "label": "Source",
+            "data_type": "string",
+            "path": "source",
+            "description": ""
+          },
+          {
+            "id": "org.invocation.status",
+            "label": "Status",
+            "data_type": "string",
+            "path": "status",
+            "description": ""
+          },
+          {
+            "id": "org.invocation.error_message",
+            "label": "Error",
+            "data_type": "string",
+            "path": "error_message",
+            "description": ""
+          },
+          {
+            "id": "org.invocation.latency_ms",
+            "label": "Latency",
+            "data_type": "duration_ms",
+            "path": "latency_ms",
+            "description": ""
+          },
+          {
+            "id": "org.invocation.task_id",
+            "label": "Task ID",
+            "data_type": "string",
+            "path": "task_id",
+            "description": ""
+          },
+          {
+            "id": "org.invocation.created_at",
+            "label": "Created at",
+            "data_type": "datetime",
+            "path": "created_at",
+            "description": ""
+          }
+        ]
+      }
+    ],
+    "governance": [
+      {
+        "id": "governance.policy",
+        "label": "Policy",
+        "provider_object": "exception/action/work-assignment policies",
+        "fields": [
+          {
+            "id": "governance.policy.id",
+            "label": "Policy ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "governance.policy.policy_type",
+            "label": "Policy type",
+            "data_type": "string",
+            "path": "policy_type",
+            "description": ""
+          },
+          {
+            "id": "governance.policy.name",
+            "label": "Name",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "governance.policy.status",
+            "label": "Status",
+            "data_type": "string",
+            "path": "status",
+            "description": ""
+          },
+          {
+            "id": "governance.policy.created_at",
+            "label": "Created at",
+            "data_type": "datetime",
+            "path": "created_at",
+            "description": ""
+          },
+          {
+            "id": "governance.policy.updated_at",
+            "label": "Updated at",
+            "data_type": "datetime",
+            "path": "updated_at",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": "governance.approval",
+        "label": "Approval",
+        "provider_object": "goal_action_approvals / action_approval_grants",
+        "fields": [
+          {
+            "id": "governance.approval.id",
+            "label": "Approval ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "governance.approval.action_family",
+            "label": "Action family",
+            "data_type": "string",
+            "path": "action_family",
+            "description": ""
+          },
+          {
+            "id": "governance.approval.status",
+            "label": "Status",
+            "data_type": "string",
+            "path": "status",
+            "description": ""
+          },
+          {
+            "id": "governance.approval.requested_at",
+            "label": "Requested at",
+            "data_type": "datetime",
+            "path": "requested_at",
+            "description": ""
+          },
+          {
+            "id": "governance.approval.decided_at",
+            "label": "Decided at",
+            "data_type": "datetime",
+            "path": "decided_at",
+            "description": ""
+          }
+        ]
+      }
+    ],
+    "feedback": [
+      {
+        "id": "feedback.platform",
+        "label": "Platform Feedback",
+        "provider_object": "platform feedback records",
+        "fields": [
+          {
+            "id": "feedback.platform.id",
+            "label": "Feedback ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "feedback.platform.category",
+            "label": "Category",
+            "data_type": "string",
+            "path": "category",
+            "description": ""
+          },
+          {
+            "id": "feedback.platform.title",
+            "label": "Title",
+            "data_type": "string",
+            "path": "title",
+            "description": ""
+          },
+          {
+            "id": "feedback.platform.body",
+            "label": "Body",
+            "data_type": "string",
+            "path": "body",
+            "description": ""
+          },
+          {
+            "id": "feedback.platform.status",
+            "label": "Status",
+            "data_type": "string",
+            "path": "status",
+            "description": ""
+          },
+          {
+            "id": "feedback.platform.status_reason",
+            "label": "Status reason",
+            "data_type": "string",
+            "path": "status_reason",
+            "description": ""
+          },
+          {
+            "id": "feedback.platform.initiator_user_id",
+            "label": "Initiator user ID",
+            "data_type": "string",
+            "path": "initiator_user_id",
+            "description": ""
+          },
+          {
+            "id": "feedback.platform.initiator_agent_id",
+            "label": "Initiator agent ID",
+            "data_type": "string",
+            "path": "initiator_agent_id",
+            "description": ""
+          },
+          {
+            "id": "feedback.platform.created_at",
+            "label": "Created at",
+            "data_type": "datetime",
+            "path": "created_at",
+            "description": ""
+          },
+          {
+            "id": "feedback.platform.updated_at",
+            "label": "Updated at",
+            "data_type": "datetime",
+            "path": "updated_at",
+            "description": ""
+          }
+        ]
+      }
+    ],
+    "promotions": [
+      {
+        "id": "promotion.campaign",
+        "label": "Promotion Campaign",
+        "provider_object": "promotion campaigns",
+        "fields": [
+          {
+            "id": "promotion.campaign.id",
+            "label": "Campaign ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "promotion.campaign.name",
+            "label": "Name",
+            "data_type": "string",
+            "path": "name",
+            "description": ""
+          },
+          {
+            "id": "promotion.campaign.advertiser",
+            "label": "Advertiser",
+            "data_type": "string",
+            "path": "advertiser",
+            "description": ""
+          },
+          {
+            "id": "promotion.campaign.delivery",
+            "label": "Delivery",
+            "data_type": "string",
+            "path": "delivery",
+            "description": ""
+          },
+          {
+            "id": "promotion.campaign.audience",
+            "label": "Audience",
+            "data_type": "string",
+            "path": "audience",
+            "description": ""
+          },
+          {
+            "id": "promotion.campaign.frequency",
+            "label": "Frequency",
+            "data_type": "string",
+            "path": "frequency",
+            "description": ""
+          },
+          {
+            "id": "promotion.campaign.frequency_cap",
+            "label": "Frequency cap",
+            "data_type": "integer",
+            "path": "frequency_cap",
+            "description": ""
+          },
+          {
+            "id": "promotion.campaign.priority",
+            "label": "Priority",
+            "data_type": "integer",
+            "path": "priority",
+            "description": ""
+          },
+          {
+            "id": "promotion.campaign.starts_at",
+            "label": "Starts at",
+            "data_type": "datetime",
+            "path": "starts_at",
+            "description": ""
+          },
+          {
+            "id": "promotion.campaign.ends_at",
+            "label": "Ends at",
+            "data_type": "datetime",
+            "path": "ends_at",
+            "description": ""
+          },
+          {
+            "id": "promotion.campaign.timezone",
+            "label": "Timezone",
+            "data_type": "string",
+            "path": "timezone",
+            "description": ""
+          },
+          {
+            "id": "promotion.campaign.state",
+            "label": "State",
+            "data_type": "string",
+            "path": "state",
+            "description": ""
+          },
+          {
+            "id": "promotion.campaign.approved_at",
+            "label": "Approved at",
+            "data_type": "datetime",
+            "path": "approved_at",
+            "description": ""
+          },
+          {
+            "id": "promotion.campaign.created_at",
+            "label": "Created at",
+            "data_type": "datetime",
+            "path": "created_at",
+            "description": ""
+          },
+          {
+            "id": "promotion.campaign.updated_at",
+            "label": "Updated at",
+            "data_type": "datetime",
+            "path": "updated_at",
+            "description": ""
+          }
+        ]
+      }
+    ],
+    "manual": [
+      {
+        "id": "manual.attestation",
+        "label": "Manual Attestation",
+        "provider_object": "company_objective_measurements",
+        "fields": [
+          {
+            "id": "manual.attestation.id",
+            "label": "Attestation ID",
+            "data_type": "string",
+            "path": "id",
+            "description": ""
+          },
+          {
+            "id": "manual.attestation.value",
+            "label": "Value",
+            "data_type": "number",
+            "path": "value",
+            "description": ""
+          },
+          {
+            "id": "manual.attestation.baseline_value",
+            "label": "Baseline value",
+            "data_type": "number",
+            "path": "baseline_value",
+            "description": ""
+          },
+          {
+            "id": "manual.attestation.occurred_at",
+            "label": "Attested at",
+            "data_type": "datetime",
+            "path": "occurred_at",
+            "description": ""
+          },
+          {
+            "id": "manual.attestation.actor_user_id",
+            "label": "User ID",
+            "data_type": "string",
+            "path": "actor_user_id",
+            "description": ""
+          }
+        ]
+      }
+    ]
+  }
+}

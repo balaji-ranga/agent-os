@@ -51,7 +51,7 @@ Each KR should define exactly what counts, exclusions, period/window, and eviden
 3. Formula supported by that source.
 4. Baseline, target, unit, and definition.
 
-Standard source families include CRM, ERP, outcome evidence, Goal Plans, workflows, agents, Knowledge/RAG, notifications, media, connectors such as Gmail, MCPs such as Web Crawler, custom APIs, documents, and manual evidence. Availability is company/owner scoped.
+Standard source families include CRM, ERP, Objectives/KRs, outcome evidence, scheduled Goals and Goal Plans, workflow definitions/runs/steps, Kanban tasks, agents and chat/voice sessions, Knowledge/RAG, Org, policies/approvals, notifications, media and inbound attachments, connectors such as Gmail, MCPs, browser sessions/tasks, feedback, promotions, custom APIs, documents, and manual evidence. Availability is company/owner scoped.
 
 Flolah uses the Objective period as the measurement window and requires provenance. Linked execution evidence is synchronized when list/detail/digest data is loaded. The KR card displays current value, target, percentage progress, source, and confidence. **Refresh evidence** reloads an already-open Objective.
 
@@ -72,9 +72,15 @@ Expand any baseline source to see:
 
 An attribute is not arbitrary free text. It identifies a catalogue field backed by a supported platform object. For a company attribute, choose Source → Object → Supported field; the UI fills the stable ID, mapping path, type, and description read-only.
 
+The authoritative catalogue is a versioned JSON contract in the deployed backend. CRM includes People/Contacts, Companies/Accounts, Opportunities/Deals, Leads, Notes, and Tasks. In Twenty, **Deal** is the user-facing alias of an Opportunity and a Lead is represented by an Opportunity in an early pipeline stage. ERP publishes the supported ERPNext functional DocTypes, including customers, suppliers, contacts, leads, opportunities, items/prices, quotations, sales and purchase documents, payments, journals, inventory, projects/tasks, GL entries, organization dimensions, budgets, and Profit and Loss output.
+
+Every listed field has a stable registry ID and a provider-native path. Platform objects and fields are visible read-only under **Platform baseline**; selecting a field adds that supported mapping to the company's formula attributes. The UI reports both object count and total catalogue-field count so baseline fields are not confused with the smaller set of currently enabled formula attributes.
+
 ### Company sources and formulas
 
 An administrator can register a reusable source and formula. Formula expressions are declarative contracts, not executable JavaScript or SQL. They must use source-supported attributes, have stable IDs, and describe the intended window and calculation. Existing KRs retain their stored configuration if a company registry entry is later removed.
+
+The formula engine supports arithmetic and the safe functions `sum`, `avg`, `count`, `latest`, `min`, `max`, and `now`. It resolves each referenced attribute through the selected source/object catalogue, reads either normalized records or the provider path, and rejects unknown attributes, unsupported functions, arbitrary JavaScript, and SQL. A measurement adapter can submit source records to the KR measurement endpoint; the backend calculates and records the numeric result with its evidence references. This generic evaluator is distinct from a cross-system correlation rule, which additionally needs a correlation adapter.
 
 The reference cross-system rule correlates Web Crawler MCP evidence, Gmail connector messages, CRM opportunities, and ERP invoices. Its mappings validate against provider catalogues before installation. It currently displays **Evaluator not connected**: schema validation proves the referenced mappings exist, but the rule does not calculate a KR until a calculation adapter is connected.
 
