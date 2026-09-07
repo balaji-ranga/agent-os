@@ -308,6 +308,31 @@ export function listSessionTurns(sessionId, { limit = 200, offset = 0 } = {}) {
     );
 }
 
+/**
+ * Return the newest N turns while preserving chronological order for an LLM.
+ * UI pagination intentionally starts at the oldest row; model context must not
+ * reuse that query or a long-running chat will silently lose its latest turns.
+ */
+export function listRecentSessionTurns(sessionId, { limit = 24 } = {}) {
+  const lim = Math.min(Math.max(Number(limit) || 24, 1), 100);
+  return db()
+    .prepare(
+      `SELECT id, agent_id, owner_user_id, role, content, created_at, session_id, work_unit_id
+       FROM (
+         SELECT id, agent_id, owner_user_id, role, content, created_at, session_id, work_unit_id
+         FROM chat_turns WHERE session_id = ?
+         ORDER BY created_at DESC, id DESC LIMIT ?
+       ) recent
+       ORDER BY created_at ASC, id ASC`
+    )
+    .all(sessionId, lim)
+    .map((row) =>
+      row.role === 'assistant'
+        ? { ...row, content: stripOpenClawDeliveryNoise(row.content) }
+        : row
+    );
+}
+
 export function listActiveSessionTurns(agentId, ownerUserId, { limit = 200, offset = 0 } = {}) {
   const active = backfillActiveSession(agentId, ownerUserId);
   const lim = Math.min(Math.max(Number(limit) || 200, 1), 500);
@@ -320,6 +345,14 @@ export function listActiveSessionTurns(agentId, ownerUserId, { limit = 200, offs
     limit: lim,
     offset: off,
     has_more: off + Math.min(lim, Math.max(0, total - off)) < total,
+  };
+}
+
+export function listRecentActiveSessionTurns(agentId, ownerUserId, { limit = 24 } = {}) {
+  const active = backfillActiveSession(agentId, ownerUserId);
+  return {
+    session: active,
+    turns: listRecentSessionTurns(active.id, { limit }),
   };
 }
 

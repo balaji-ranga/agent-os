@@ -12,13 +12,6 @@ import { routeContractPrompt, validateContractTypes, validateExecutorEvidence, r
 
 const MODES = new Set(['chat', 'direct_tool', 'delegate', 'goal_plan']);
 const RELATIONS = new Set(['new_work', 'follow_up', 'correction', 'conversation']);
-const ROUTING_GENERIC_TOOLS = new Set([
-  'analyze_image', 'ceo_profile', 'company_communications_history', 'email_send',
-  'kanban_create_task', 'kanban_get_task', 'kanban_move_status', 'kanban_reassign_to_coo',
-  'learnings_summary', 'list_inbound_attachments', 'notify_ceo', 'summarize_url',
-  'voice_call_invite',
-]);
-
 /**
  * Platform Help is a conversational product-help surface, not a durable work
  * orchestrator. Keep this boundary deterministic even if a semantic routing
@@ -99,6 +92,7 @@ export const ROUTER_SYSTEM = `You are Flolah's control-plane router for an AI em
 Classify the current user message by meaning, not by matching isolated words.
 
 Rules:
+- Agent capability arrays contain capability names. Use capability_catalog to resolve each name's shared description.
 - new_work: a self-contained request independent of earlier work. Select no prior turns.
 - follow_up: the user intentionally continues, retries, answers, or modifies a specific earlier work unit. Select only turns needed for that unit.
 - correction: the user rejects or corrects a prior response. Select only the corrected unit, never unrelated work.
@@ -149,6 +143,29 @@ export function compactAgentCapabilities(agentId) {
   }
 }
 
+/**
+ * Losslessly de-duplicate capability descriptions across an organization.
+ * Agent rows reference names; the description is transmitted once in the
+ * shared catalogue instead of once per agent that owns the same tool.
+ */
+export function buildCapabilityReferences(capabilityLists = []) {
+  const catalogue = new Map();
+  const references = capabilityLists.map((items = []) =>
+    items.map((item) => {
+      const name = typeof item === 'string' ? item : String(item?.name || '');
+      const description = typeof item === 'string' ? '' : String(item?.description || '');
+      if (name && (!catalogue.has(name) || (!catalogue.get(name) && description))) {
+        catalogue.set(name, description);
+      }
+      return name;
+    }).filter(Boolean)
+  );
+  return {
+    references,
+    capability_catalog: [...catalogue.entries()].map(([name, description]) => ({ name, description })),
+  };
+}
+
 export function needsRouteAdjudication(routeValidation, route, threshold = 0.75) {
   return !routeValidation?.ok || typeof route?.confidence !== 'number' || !Number.isFinite(route.confidence) || route.confidence < threshold;
 }
@@ -177,11 +194,21 @@ export function buildRouterInput({ ownerUserId, agent, message, history = [] }) 
   } catch (_) {
     organization = [];
   }
+  const currentCapabilities = compactAgentCapabilities(agent?.id);
+  const { references, capability_catalog } = buildCapabilityReferences([
+    currentCapabilities,
+    ...organization.map((member) => member.capabilities),
+  ]);
   return {
     agent: { id: agent?.id, name: agent?.name, role: agent?.role,
       is_coo: !!agent?.is_coo, is_orchestrator: !!agent?.is_orchestrator,
-      capabilities: compactAgentCapabilities(agent?.id) },
-    organization, current_message: String(message || ''), candidate_turns: compactTurns(history),
+      capabilities: references[0] || [] },
+    organization: organization.map((member, index) => ({
+      ...member,
+      capabilities: references[index + 1] || [],
+    })),
+    capability_catalog,
+    current_message: String(message || ''), candidate_turns: compactTurns(history),
   };
 }
 

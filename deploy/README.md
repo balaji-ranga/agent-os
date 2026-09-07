@@ -506,12 +506,26 @@ On VPS after sync (or after `git pull` on the box), `vps-deploy-latest.sh` rebui
 |---------|--------|
 | `POST /api/agents/*/chat` → **502**, gateway body **404 Not Found** | `openclaw.json` lost `gateway` (or `gateway.http.endpoints.chatCompletions.enabled`) |
 | `POST /api/agents/*/chat` → **502**, `Unknown model: openai/…` | `models.providers` catalog empty after recreate; `OPENCLAW_MODEL_PRIMARY` not registered |
-| OpenClaw container still healthy | Healthcheck only curls `/` (Control UI), not chat API |
+| OpenClaw container remains `starting` or becomes `unhealthy` | The real `/health` probe cannot reach the gateway; inspect startup migrations/configuration before serving chat |
 
 **Prevention (shipped):**
 - Backend writes use `backend/src/services/openclaw-config-safe.js` (never drop `gateway` / `tools` / `plugins` / `browser`)
+- Unchanged OpenClaw JSON and tool-allowlist sidecars are not rewritten, preventing reload amplification during repeated chat/API reconciliation
 - OpenClaw entrypoint: `ensure-openclaw-gateway-config.js` (also restores empty **models** from bak) → `configure-openclaw-docker.js` → channel restore
+- Compose health uses the gateway `/health` endpoint and fails while the port is unavailable
 - Every deploy: `vps-verify-openclaw-chat.sh` (auto-repair + live probe; configure if catalog empty)
+
+### LLM context growth audit
+
+`LLM_CONTEXT_WARN_CHARS` defaults to `80000`. Direct platform and OpenClaw-bound LLM calls log metadata-only size warnings (no prompt content), including source, agent/tool, message count, character count, and an approximate token count. Successful-call usage continues to be recorded in `token_usage` for Efficiency → LLMOps.
+
+Run the read-only audit from the backend image or `backend/` directory:
+
+```bash
+npm run audit:token-context -- 7
+```
+
+The command groups recent input/output tokens by source and lists the largest metered calls and stored chat sessions. See `knowledgebase/LLM-CONTEXT-AND-TOKEN-CREEP-REVIEW.md` for the safe controls and the higher-risk changes that require design approval.
 
 **Manual repair:**
 ```bash

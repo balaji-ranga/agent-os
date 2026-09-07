@@ -68,6 +68,7 @@
     ,"test:company-objectives": "node scripts/test-company-objectives.mjs"
     ,"test:company-objectives:api": "node scripts/test-company-objectives-api.mjs"
     ,"test:objective-agent-alignment": "node scripts/test-objective-agent-alignment.mjs"
+    ,"audit:token-context": "node scripts/audit-token-context-creep.mjs"
   },
   "dependencies": {
     "@stoqey/ib": "^1.6.3",

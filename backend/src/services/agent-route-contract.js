@@ -65,7 +65,15 @@ export function requiresExecutorFitCheck(value, input) {
 }
 
 export function adjudicatorInput(input, candidate, raw, errors) {
-  return { ...input, candidate_decision: candidate, previous_response: raw || null, validation_errors: errors };
+  // A parsed candidate already contains the complete decision. Re-sending its
+  // raw JSON duplicates context without adding evidence; retain raw only when
+  // parsing failed and it is the sole diagnostic artifact.
+  return {
+    ...input,
+    candidate_decision: candidate,
+    previous_response: candidate ? null : raw || null,
+    validation_errors: errors,
+  };
 }
 
 export const ADJUDICATOR_INSTRUCTION = `Adjudicate the rejected router decision using the original request, agent capabilities, organization and candidate turns below. Return the SAME complete route contract, including your own confidence. You may choose chat, direct_tool, delegate or goal_plan. Diagnose the supplied validation errors and candidate decision; do not merely remove a target ID to make a contradictory decision syntactically valid. Re-evaluate capability ownership. Preserve relevant follow-up/correction context and restart intent instead of resetting the request to new_work. If evidence is insufficient, report confidence below 0.75 rather than inventing certainty.`;

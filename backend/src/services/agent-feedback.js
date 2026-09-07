@@ -417,7 +417,7 @@ function feedbackToLines(feedback) {
     (f, i) =>
       `${i + 1}. [${f.rating}] agent=${f.agent_id} source=${f.source} at=${f.created_at}` +
       `\n   response: ${String(f.message_content || '').slice(0, 400)}` +
-      (f.comment ? `\n   user comment: ${f.comment}` : '')
+      (f.comment ? `\n   user comment: ${String(f.comment).slice(0, 800)}` : '')
   );
 }
 
@@ -437,13 +437,13 @@ function kanbanToLines(kanbanActions) {
   return kanbanActions.map(
     (a, i) =>
       `${i + 1}. ${a.type} task=#${a.task_id} "${a.task_title}" agent=${a.agent_id || 'n/a'} at=${a.created_at}` +
-      (a.comment ? `\n   note: ${a.comment}` : '')
+      (a.comment ? `\n   note: ${String(a.comment).slice(0, 800)}` : '')
   );
 }
 
 /** Deterministic per-call topic note (no LLM). Hybrid: general cache + topic focus. */
 function topicFocusNote(topic) {
-  const t = String(topic || '').trim();
+  const t = String(topic || '').trim().slice(0, 800);
   if (!t) return '';
   return `\n\n---\nFocus for this request: "${t}". Apply the do/don't learnings above to this topic; prefer the "liked" patterns and avoid the "disliked" ones.`;
 }

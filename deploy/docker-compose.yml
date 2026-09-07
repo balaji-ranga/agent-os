@@ -98,6 +98,8 @@ x-backend-env: &backend-env
   NODE_ENV: production
   # Platform API access logs: off | error | info (default info)
   PLATFORM_LOG_LEVEL: ${PLATFORM_LOG_LEVEL:-info}
+  # Warn with metadata only (never prompt content) when one LLM request is unexpectedly large.
+  LLM_CONTEXT_WARN_CHARS: ${LLM_CONTEXT_WARN_CHARS:-80000}
   HOME: /root
   OPENCLAW_DIR: /root/.openclaw
   OPENCLAW_CONFIG_PATH: /root/.openclaw/openclaw.json
@@ -391,7 +393,9 @@ services:
     security_opt:
       - no-new-privileges:true
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:18789/ >/dev/null 2>&1 || exit 0"]
+      # Fail until the gateway is actually listening. The former `|| exit 0`
+      # reported healthy during migrations while every chat connection failed.
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:18789/health >/dev/null 2>&1"]
       interval: 30s
       timeout: 10s
       retries: 5

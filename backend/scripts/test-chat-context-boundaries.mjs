@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
 import { getDb } from '../src/db/schema.js';
+import { listRecentSessionTurns } from '../src/services/chat-history.js';
 import { enrichTaskQueryWithPriorThread, isUsableDelegationWorkOrder } from '../src/services/delegation-queue.js';
 import {
   DASHBOARD_CONTEXT_INSTRUCTION,
   dashboardGatewaySessionUser,
 } from '../src/services/dashboard-chat-context.js';
-import { bindWorkUnitExecution, needsRouteAdjudication, routeAgentTurn, validateRouteDecision } from '../src/services/agent-turn-router.js';
+import { bindWorkUnitExecution, buildCapabilityReferences, needsRouteAdjudication, routeAgentTurn, validateRouteDecision } from '../src/services/agent-turn-router.js';
+import { adjudicatorInput } from '../src/services/agent-route-contract.js';
+import { summarizeLlmContext } from '../src/services/llm-context-audit.js';
 import { isPromptAuthoringAskForAgent } from '../src/services/specialty-referral.js';
 import { buildGoalBoundWorkflowInput, parseGoalSessionReference } from '../src/services/goal-workflow-context.js';
 
@@ -40,6 +43,35 @@ const second = dashboardGatewaySessionUser('balserve', 'ceo-bala', stableThread,
 assert.notEqual(first, second, 'each Dashboard request must have an isolated gateway session');
 assert.match(DASHBOARD_CONTEXT_INSTRUCTION, /final user message as the current ask/i);
 assert.match(DASHBOARD_CONTEXT_INSTRUCTION, /Do not call sessions_history/i);
+assert.deepEqual(
+  summarizeLlmContext([{ role: 'system', content: '1234' }, { role: 'user', content: '12345678' }]),
+  { messages: 2, chars: 12, estimated_tokens: 3, largest_message_chars: 8, chars_by_role: { system: 4, user: 8 } }
+);
+
+const recentSessionId = `recent-context-${Date.now()}`;
+const recentAgentId = `context-test-agent-${Date.now()}`;
+getDb().prepare(`INSERT INTO agents(id,name,role,openclaw_agent_id) VALUES (?,?,?,?)`)
+  .run(recentAgentId, 'Context Test Agent', 'test', recentAgentId);
+for (let i = 1; i <= 30; i += 1) {
+  getDb().prepare(`INSERT INTO chat_turns(agent_id,owner_user_id,role,content,session_id) VALUES (?,?,?,?,?)`)
+    .run(recentAgentId, 'context-test-owner', i % 2 ? 'user' : 'assistant', `turn-${i}`, recentSessionId);
+}
+assert.deepEqual(
+  listRecentSessionTurns(recentSessionId, { limit: 5 }).map((turn) => turn.content),
+  ['turn-26', 'turn-27', 'turn-28', 'turn-29', 'turn-30'],
+  'model context must contain the newest turns in chronological order'
+);
+getDb().prepare('DELETE FROM chat_turns WHERE session_id=?').run(recentSessionId);
+getDb().prepare('DELETE FROM agents WHERE id=?').run(recentAgentId);
+
+const capabilityRefs = buildCapabilityReferences([
+  [{ name: 'shared_tool', description: 'Shared description' }, { name: 'agent_a', description: 'A' }],
+  [{ name: 'shared_tool', description: 'Shared description' }, { name: 'agent_b', description: 'B' }],
+]);
+assert.deepEqual(capabilityRefs.references, [['shared_tool', 'agent_a'], ['shared_tool', 'agent_b']]);
+assert.equal(capabilityRefs.capability_catalog.filter((item) => item.name === 'shared_tool').length, 1);
+assert.equal(adjudicatorInput({ current_message: 'x' }, { execution_mode: 'chat' }, '{"execution_mode":"chat"}', []).previous_response, null);
+assert.equal(adjudicatorInput({ current_message: 'x' }, null, 'not-json', ['parse']).previous_response, 'not-json');
 
 const staleDashboardHistory = [
   { id: 901, role: 'user', content: 'Open the weekly digest in Chrome.', work_unit_id: 'wu-old' },

@@ -7,6 +7,7 @@
 import { resolveLlmConfigForUser } from '../services/user-llm-settings.js';
 import { getEffectivePlatformLlmEndpoints } from '../services/platform-llm-settings.js';
 import { getPlatformTimeoutMs } from '../services/platform-timeout-settings.js';
+import { warnOnLargeLlmContext } from '../services/llm-context-audit.js';
 import {
   shouldUseEfficiencyOllama,
   getEfficiencyOllamaLlmConfig,
@@ -260,6 +261,11 @@ export async function chatCompletions({
   thinkingMode = null,
   timeoutMs = null,
 }) {
+  warnOnLargeLlmContext(messages, {
+    source: source || 'direct_chat_completions',
+    tool: toolName,
+    agent: memberKey,
+  });
   const { cfg, effectiveModel, efficiencyMode, routeAlias = null } = await resolveChatCompletionsConfig({
     ownerUserId,
     toolName,

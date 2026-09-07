@@ -11,6 +11,7 @@ import http from 'node:http';
 import https from 'node:https';
 import { stripOpenClawDeliveryNoise } from '../services/openclaw-runtime-tools.js';
 import { getPlatformTimeoutMs } from '../services/platform-timeout-settings.js';
+import { warnOnLargeLlmContext } from '../services/llm-context-audit.js';
 
 const DEFAULT_PORT = 18789;
 let _cachedGatewayToken = null;
@@ -141,6 +142,10 @@ export async function chatCompletions(agentId, messages, sessionUser = null, str
   const outMessages = systemParts.length > 0
     ? [{ role: 'system', content: systemParts.join('\n\n') }, ...messages]
     : messages;
+  warnOnLargeLlmContext(outMessages, {
+    source: 'openclaw_gateway',
+    agent: agentId || 'main',
+  });
 
   const body = {
     model: 'openclaw',

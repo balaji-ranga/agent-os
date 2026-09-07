@@ -54,6 +54,7 @@ import {
 import {
   ensureActiveChatSession,
   listActiveSessionTurns,
+  listRecentActiveSessionTurns,
   listArchivedChatSessions,
   restoreChatSession,
   insertChatTurn,
@@ -868,7 +869,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
         String(req.body?.tz || req.headers['x-timezone'] || process.env.TZ || 'UTC').trim() || 'UTC',
       generateTitle: true,
     });
-    const activeHistory = listActiveSessionTurns(agentId, ownerUserId, { limit: 24 }).turns;
+    const activeHistory = listRecentActiveSessionTurns(agentId, ownerUserId, { limit: 24 }).turns;
     const replyId = req.body?.reply_to_message_id || message.match(/^\[reply_to_message_id:(\d+)\]/)?.[1];
     let replyContext = '';
     let replyTurns = [];
@@ -1077,7 +1078,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
         ownerUserId,
         historyTurns: history,
       });
-      history = listActiveSessionTurns(agentId, ownerUserId, { limit: 20 }).turns.map((t) => ({
+      history = listRecentActiveSessionTurns(agentId, ownerUserId, { limit: 20 }).turns.map((t) => ({
         role: t.role,
         content: t.content,
       }));
@@ -1387,7 +1388,7 @@ router.post('/:id/chat/from-agent', allowInternalOrAuth, async (req, res) => {
       generateTitle: true,
     });
 
-    let history = listActiveSessionTurns(agentId, ownerUserId, { limit: 20 }).turns.map((t) => ({
+    let history = listRecentActiveSessionTurns(agentId, ownerUserId, { limit: 20 }).turns.map((t) => ({
       role: t.role,
       content: t.content,
     }));

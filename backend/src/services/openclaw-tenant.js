@@ -25,7 +25,7 @@ import {
 } from './user-llm-settings.js';
 import { COO_CONTENT_TOOLS_ALLOW } from '../lib/content-tools-allow.js';
 import { syncOrgContextToWorkspace, isGeneratedCooAgentsMd } from './org-context.js';
-import { readOpenClawConfigSafe, writeOpenClawConfigSafe, withOpenClawConfigBatch } from './openclaw-config-safe.js';
+import { readOpenClawConfigSafe, writeOpenClawConfigSafe, writeOpenClawTextFileIfChanged, withOpenClawConfigBatch } from './openclaw-config-safe.js';
 import { resolveWorkspaceTemplateBaseId } from './company-blueprints/standard-prefabs.js';
 import {
   NATIVE_OPENCLAW_TOOLS as NATIVE_OPENCLAW_TOOLS_LIST,
@@ -383,7 +383,7 @@ export function ensureTenantOpenClawAgent(agent, ceoUserId) {
     }
   }
   allow[runtimeOcId] = mergeNativeTools([], grants);
-  writeFileSync(allowPath, JSON.stringify(allow, null, 2), 'utf8');
+  writeOpenClawTextFileIfChanged(allowPath, `${JSON.stringify(allow, null, 2)}\n`);
 
   syncOrgContextToWorkspace(agent, ceoUserId, workspacePath).catch((e) => {
     console.warn('[openclaw-tenant] org sync:', e?.message || e);

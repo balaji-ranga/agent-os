@@ -9,7 +9,7 @@ const fixtureDir = mkdtempSync(join(tmpdir(), 'flolah-openclaw-config-noop-'));
 process.env.OPENCLAW_DIR = fixtureDir;
 process.env.OPENCLAW_CONFIG_PATH = join(fixtureDir, 'openclaw.json');
 
-const { writeOpenClawConfigSafe, withOpenClawConfigBatch } = await import('../src/services/openclaw-config-safe.js');
+const { writeOpenClawConfigSafe, writeOpenClawTextFileIfChanged, withOpenClawConfigBatch } = await import('../src/services/openclaw-config-safe.js');
 const { applyIdentityNameToAgentEntry } = await import('../../scripts/lib/openclaw-whatsapp-from-prefix.js');
 
 try {
@@ -52,6 +52,12 @@ try {
   );
   applyIdentityNameToAgentEntry(configuredAgent, 'Updated COO');
   assert.equal(configuredAgent.identity.name, 'Updated COO', 'explicit display-name updates must still apply');
+
+  const allowPath = join(fixtureDir, 'agent-tool-allowlists.json');
+  assert.equal(writeOpenClawTextFileIfChanged(allowPath, '{"agent":[]}\n'), true);
+  const allowBefore = statSync(allowPath).mtimeMs;
+  assert.equal(writeOpenClawTextFileIfChanged(allowPath, '{"agent":[]}\n'), false);
+  assert.equal(statSync(allowPath).mtimeMs, allowBefore, 'identical sidecar config must be a no-op');
   console.log('OPENCLAW_CONFIG_NOOP_OK');
 } finally {
   rmSync(fixtureDir, { recursive: true, force: true });

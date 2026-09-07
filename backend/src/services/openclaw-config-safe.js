@@ -201,6 +201,23 @@ export function writeOpenClawConfigSafe(config) {
   return merged;
 }
 
+/** Content-aware atomic writer for OpenClaw sidecar configuration files. */
+export function writeOpenClawTextFileIfChanged(path, content, { mode = 0o600 } = {}) {
+  const serialized = String(content ?? '');
+  let existing = '';
+  try { existing = existsSync(path) ? readFileSync(path, 'utf8') : ''; } catch (_) {}
+  if (existing === serialized) return false;
+  const tempPath = `${path}.tmp-${process.pid}`;
+  writeFileSync(tempPath, serialized, { encoding: 'utf8', mode });
+  try {
+    renameSync(tempPath, path);
+  } catch (_) {
+    try { unlinkSync(tempPath); } catch (_) {}
+    writeFileSync(path, serialized, { encoding: 'utf8', mode });
+  }
+  return true;
+}
+
 /**
  * Coalesce a synchronous reconciliation pass into one final openclaw.json
  * replacement. Reads inside the batch see the pending configuration, so each
