@@ -17,7 +17,12 @@ process.env.OPENAI_SECONDARY_API_KEY = 'fixture-only';
 const { getDb } = await import('../src/db/schema.js');
 const { routeAgentTurn, validateRouteDecision, needsRouteAdjudication, ROUTER_SYSTEM, isDirectChatOnlyAgent } = await import('../src/services/agent-turn-router.js');
 const { buildRouteSchema, routeContractPrompt } = await import('../src/services/agent-route-contract.js');
+const { ensurePlatformSettingsTable, setPlatformSetting } = await import('../src/services/platform-llm-settings.js');
 const db = getDb();
+// Production may select the secondary platform slot. Keep this mocked harness
+// pinned to its synthetic primary endpoints regardless of host configuration.
+ensurePlatformSettingsTable();
+setPlatformSetting('llm_active_endpoint', 'primary');
 const nativeFetch = globalThis.fetch;
 let queue = [], calls = [], checks = 0;
 function check(label, fn) { fn(); checks++; console.log('PASS ' + label); }
