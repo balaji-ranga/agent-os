@@ -346,20 +346,51 @@ export function listToolsCatalogForAgent(agentId) {
     }));
 }
 
-export function setAgentToolGrants(agent, toolNames) {
-  const db = getDb();
+function normalizeAgentToolNames(agent, toolNames) {
   const contentSet = contentToolNamesSet();
   const cooOnlyTools = new Set(
     meta.listToolsMeta()
       .filter((t) => /\bCOO\s+only\b/i.test(String(t.purpose || '')))
       .map((t) => t.name)
   );
-  const normalized = [...new Set(
+  return [...new Set(
     [...(toolNames || []), ...MANDATORY_AGENT_EVIDENCE_TOOLS]
       .map((t) => String(t).trim())
       .filter((t) => contentSet.has(t))
       .filter((t) => !!agent?.is_coo || !cooOnlyTools.has(t))
   )];
+}
+
+/** Ensure baseline grants without revoking user/admin choices. Safe for startup seeds. */
+export function addAgentToolGrantsIfMissing(agent, toolNames) {
+  const db = getDb();
+  const normalized = normalizeAgentToolNames(agent, toolNames);
+  const ins = db.prepare('INSERT OR IGNORE INTO agent_tool_grants (agent_id, tool_name) VALUES (?, ?)');
+  let added = 0;
+  for (const t of normalized) added += Number(ins.run(agent.id, t).changes || 0);
+  if (!added) {
+    return {
+      added: 0,
+      grants: getAgentToolGrants(agent.id),
+      openclaw_allow: openClawAllowForAgent(resolveOpenClawAgentId(agent)),
+    };
+  }
+  syncAllowlistsFile();
+  const allow = syncOpenClawJsonForAgent(agent);
+  const ceos = db
+    .prepare(`SELECT user_id FROM user_agents WHERE agent_id = ? AND enabled = 1`)
+    .all(agent.id);
+  for (const { user_id } of ceos) {
+    try {
+      ensureTenantOpenClawAgent(agent, user_id);
+    } catch (_) {}
+  }
+  return { added, grants: getAgentToolGrants(agent.id), openclaw_allow: allow };
+}
+
+export function setAgentToolGrants(agent, toolNames) {
+  const db = getDb();
+  const normalized = normalizeAgentToolNames(agent, toolNames);
   db.prepare('DELETE FROM agent_tool_grants WHERE agent_id = ?').run(agent.id);
   const ins = db.prepare('INSERT INTO agent_tool_grants (agent_id, tool_name) VALUES (?, ?)');
   for (const t of normalized) ins.run(agent.id, t);

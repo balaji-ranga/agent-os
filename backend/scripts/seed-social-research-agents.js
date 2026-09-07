@@ -12,7 +12,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 import { initDb, getDb } from '../src/db/schema.js';
 import { createFullAgent } from '../src/services/create-full-agent.js';
-import { getAgentToolGrants, setAgentToolGrants } from '../src/services/openclaw-agent-tools.js';
+import { addAgentToolGrantsIfMissing } from '../src/services/openclaw-agent-tools.js';
 import { grantUserAgent } from '../src/services/users.js';
 import { publishAgentToExchange } from '../src/services/agent-a2a-publish.js';
 import {
@@ -134,7 +134,7 @@ async function ensureAgent(ownerUserId, def) {
       // A seed guarantees its baseline; it must not revoke user/admin grants.
       // Destructive replacement caused objective tools to be removed and then
       // re-added by the post-seed reconciler on every backend restart.
-      setAgentToolGrants(existing, [...getAgentToolGrants(existing.id), ...def.tools]);
+      addAgentToolGrantsIfMissing(existing, def.tools);
     } catch (e) {
       console.warn('[seed-social-research] grants', existing.id, e.message);
     }
