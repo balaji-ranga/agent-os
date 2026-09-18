@@ -1320,6 +1320,24 @@ export default function VirtualRoom() {
     three.camera.position.set(center.x, center.y + Math.min(0.35, size.y * 0.2), box.max.z + distance);
     three.camera.lookAt(center);
     three.controls.update();
+    // Imported room models can contain walls/furniture between the camera and
+    // a correctly placed member. Keep only the selected member visible through
+    // that geometry so the user can always find and interact with it.
+    for (const [id, candidate] of Object.entries(membersRuntimeRef.current)) {
+      const selected = String(id) === String(avatarId);
+      candidate?.root?.traverse?.((object) => {
+        if (!object?.isMesh) return;
+        object.renderOrder = selected ? 100 : 0;
+        const materials = Array.isArray(object.material) ? object.material : [object.material];
+        materials.filter(Boolean).forEach((material) => {
+          if (material.userData.__vrDepthTest == null) material.userData.__vrDepthTest = material.depthTest;
+          if (material.userData.__vrDepthWrite == null) material.userData.__vrDepthWrite = material.depthWrite;
+          material.depthTest = selected ? false : material.userData.__vrDepthTest;
+          material.depthWrite = selected ? false : material.userData.__vrDepthWrite;
+          material.needsUpdate = true;
+        });
+      });
+    }
     setSelectedAvatarId(avatarId);
     inputRef.current?.focus();
   }
