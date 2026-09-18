@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { buildAvatarInboundGraph, buildAvatarOutboundGraph } from '../src/services/agent-workflow-templates.js';
-import { buildDefaultAnimationPlan } from '../src/services/avatar-animation-catalog.js';
+import {
+  buildDefaultAnimationPlan,
+  sanitizeAnimationPlan,
+} from '../src/services/avatar-animation-catalog.js';
 
 const voiceId = 'CwhRBWXzGAHq8TQ4Fs17';
 const animationCatalog = ['HumanArmature|Man_Clapping', 'HumanArmature|Man_Idle'];
@@ -63,6 +66,20 @@ assert.equal(
 assert.equal(
   buildDefaultAnimationPlan(safeCatalog, 'Ready when you are.').clips[0]?.name,
   'HumanArmature|Man_Standing'
+);
+assert.deepEqual(
+  sanitizeAnimationPlan(
+    { clips: [], idle: 'HumanArmature|Man_Idle', visemes: [] },
+    safeCatalog,
+    'Hello and welcome.'
+  ).clips,
+  [],
+  'an explicit empty planner clip list must remain idle-only, never become the first catalog gesture'
+);
+assert.deepEqual(
+  sanitizeAnimationPlan({}, safeCatalog, 'Hello and welcome.').clips,
+  [],
+  'a malformed neutral plan must degrade to idle instead of clapping'
 );
 
 console.log('Avatar voice configuration checks passed.');

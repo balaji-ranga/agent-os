@@ -98,6 +98,7 @@ export function sanitizeAnimationPlan(raw, catalog = [], replyText = '', opts = 
   const classified = classifyAnimationCatalog(catalog);
   const preferredIdle = opts.preferredIdle || null;
   const base = raw && typeof raw === 'object' ? raw : {};
+  const hasExplicitClips = Array.isArray(raw?.clips);
   const clipsIn = Array.isArray(base.clips) ? base.clips : [];
   const clips = [];
   let mouthFromClips = null;
@@ -147,8 +148,8 @@ export function sanitizeAnimationPlan(raw, catalog = [], replyText = '', opts = 
     visemes = synthesizeMouthVisemes(mouthClip, dur, replyText);
   }
 
-  if (!clips.length && classified.gestures[0]) {
-    clips.push({ name: classified.gestures[0], weight: 1, loop: false, timeScale: 1 });
+  if (!clips.length && !hasExplicitClips) {
+    clips.push(...buildDefaultAnimationPlan(catalog, replyText).clips);
   }
 
   return {
