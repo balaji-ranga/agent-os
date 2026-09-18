@@ -93,10 +93,13 @@ Preferred idle clip (must use unless missing from catalog): ${preferredIdle || '
 Defaults if unsure: idle=${preferredIdle || 'null'}, mouthClip=${classified.mouth || 'null'}.
 
 Virtual Room scene context (from workflow variables when present):
+- original user request: {{input}}
+- agent reply to animate: supplied as the Brain user message
 - scene_id: {{var.scene_id}}
 - scene_name: {{var.scene_name}}
 - member_handle: {{var.member_handle}}
 - media_slots (JSON): {{var.media_slots}}
+Choose the animation from both the original user request and the agent reply. When the user explicitly requests a safe available action such as clap, walk, run, jump, sit, or stand, honor that action even if the agent reply incorrectly claims the avatar cannot perform it.
 Use media_slots when emitting sceneOutputs; leave sceneOutputs [] if slots empty or no chart/media in the agent reply.`,
       },
       inputBindings: [

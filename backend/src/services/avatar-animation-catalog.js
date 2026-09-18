@@ -60,6 +60,9 @@ export function buildDefaultAnimationPlan(catalog = [], replyText = '') {
   } else if (/\b(?:death|dead|die|collapse)\b/i.test(text)) {
     gesture = findGesture(/death|die|collapse/i);
   }
+  if (!gesture && text) {
+    gesture = findGesture(/stand|talk|speak|gesture|nod|look/i);
+  }
   const durationSec = Math.max(1.2, Math.min(12, text.length / 13 || 2));
   const visemes = mouth ? synthesizeMouthVisemes(mouth, durationSec, text) : [];
   return {
@@ -98,7 +101,6 @@ export function sanitizeAnimationPlan(raw, catalog = [], replyText = '', opts = 
   const classified = classifyAnimationCatalog(catalog);
   const preferredIdle = opts.preferredIdle || null;
   const base = raw && typeof raw === 'object' ? raw : {};
-  const hasExplicitClips = Array.isArray(raw?.clips);
   const clipsIn = Array.isArray(base.clips) ? base.clips : [];
   const clips = [];
   let mouthFromClips = null;
@@ -148,7 +150,7 @@ export function sanitizeAnimationPlan(raw, catalog = [], replyText = '', opts = 
     visemes = synthesizeMouthVisemes(mouthClip, dur, replyText);
   }
 
-  if (!clips.length && !hasExplicitClips) {
+  if (!clips.length) {
     clips.push(...buildDefaultAnimationPlan(catalog, replyText).clips);
   }
 
@@ -183,7 +185,8 @@ Rules:
 2. clips = body gestures matching the actual reply intent. Do NOT put mouth clips or the idle clip in clips.
    - Use Clapping only for explicit applause, congratulations, celebration, or achievement—not ordinary greetings or friendly speech.
    - Use Jump, Run, Walk, Sitting, Punch, SwordSlash, or Death only when the reply explicitly calls for that action.
-   - For neutral speech or greetings without a safe matching gesture, return clips:[] and rely on idle.
+   - Every non-empty spoken reply should get one safe, visible, non-looping body clip when the catalog permits it.
+   - For neutral speech or greetings without a more specific safe gesture, prefer Standing / Talk / Nod; never use Clapping as the generic fallback.
    - Body gestures must be short and non-looping; never loop Clapping or other action clips.
 3. visemes = timed mouth open weights while speaking (t in seconds from speech start, weight 0..1). Use mouthClip name.
 4. Estimate ~13 characters per second of speech from the reply text length.

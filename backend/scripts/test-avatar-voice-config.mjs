@@ -32,6 +32,11 @@ assert.equal(
   'avatar OpenAI BYOK must not inherit the platform LiteLLM endpoint'
 );
 assert.equal(outbound.nodes.find((node) => node.id === 'brain-1')?.data?.taskConfig?.thinkingMode, 'off');
+assert.match(
+  outbound.nodes.find((node) => node.id === 'brain-1')?.data?.taskConfig?.systemPrompt || '',
+  /original user request: \{\{input\}\}/,
+  'animation planning must retain the original user request as well as the agent reply'
+);
 assert.equal(inbound.nodes.find((node) => node.id === 'brain-1')?.data?.taskConfig?.modelSource, 'openai');
 assert.equal(
   inbound.nodes.find((node) => node.id === 'brain-1')?.data?.taskConfig?.apiEndpoint,
@@ -55,9 +60,9 @@ const safeCatalog = [
   'HumanArmature|Man_Standing',
 ];
 assert.deepEqual(
-  buildDefaultAnimationPlan(safeCatalog, 'Hello, great to see you.').clips,
-  [],
-  'neutral greetings must not fall back to clapping'
+  buildDefaultAnimationPlan(safeCatalog, 'Hello, great to see you.').clips.map((clip) => clip.name),
+  ['HumanArmature|Man_Standing'],
+  'neutral greetings must use a safe visible fallback, never clapping'
 );
 assert.equal(
   buildDefaultAnimationPlan(safeCatalog, 'Congratulations on the achievement!').clips[0]?.name,
@@ -72,14 +77,14 @@ assert.deepEqual(
     { clips: [], idle: 'HumanArmature|Man_Idle', visemes: [] },
     safeCatalog,
     'Hello and welcome.'
-  ).clips,
-  [],
-  'an explicit empty planner clip list must remain idle-only, never become the first catalog gesture'
+  ).clips.map((clip) => clip.name),
+  ['HumanArmature|Man_Standing'],
+  'an explicit empty planner clip list must use the safe contextual fallback, never the first catalog gesture'
 );
 assert.deepEqual(
-  sanitizeAnimationPlan({}, safeCatalog, 'Hello and welcome.').clips,
-  [],
-  'a malformed neutral plan must degrade to idle instead of clapping'
+  sanitizeAnimationPlan({}, safeCatalog, 'Hello and welcome.').clips.map((clip) => clip.name),
+  ['HumanArmature|Man_Standing'],
+  'a malformed neutral plan must degrade to a safe visible gesture instead of clapping'
 );
 
 console.log('Avatar voice configuration checks passed.');
