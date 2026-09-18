@@ -37,7 +37,24 @@ try {
     kanbanActionDecisionFromMessage,
   } = await import('../src/services/chat-action-approval.js');
   const { resolveChannelActor } = await import('../src/services/channel-user-identity.js');
+  const { resolveCompanyEmailRecipients } = await import('../src/services/email-send.js');
   ensureActionPolicyTables();
+
+  assert.deepEqual(
+    resolveCompanyEmailRecipients({ to: owner }, owner).to,
+    [`${owner}@example.test`],
+    'a company user id resolves to its profile mailbox before SMTP'
+  );
+  assert.deepEqual(
+    resolveCompanyEmailRecipients({ to: 'CEO' }, owner).to,
+    [`${owner}@example.test`],
+    'the CEO alias resolves within the authenticated company'
+  );
+  assert.throws(
+    () => resolveCompanyEmailRecipients({ to: 'not-a-mailbox-or-user' }, owner),
+    /Invalid email recipient/,
+    'an unresolved recipient fails before SMTP RCPT'
+  );
 
   assert.equal(kanbanActionDecisionFromMessage({
     task: { status: 'awaiting_confirmation', description: '[CHAT_ACTION_APPROVAL]' },

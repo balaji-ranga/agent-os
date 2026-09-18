@@ -4,12 +4,58 @@
 import { randomUUID } from 'crypto';
 import { createConnection } from 'net';
 import { connect as tlsConnect } from 'tls';
+import { getDb } from '../db/schema.js';
 import { smtpFromEnv } from './agent-workflow-tasks.js';
 
 function normalizeRecipients(value) {
   if (value == null || value === '') return [];
   const list = Array.isArray(value) ? value : String(value).split(/[,;]/);
   return [...new Set(list.map((v) => String(v || '').trim()).filter(Boolean))];
+}
+
+function isMailbox(value) {
+  const parsed = parseEmailAddress(value).email;
+  return /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(parsed);
+}
+
+/**
+ * Resolve a company user reference (user id, unique display name, CEO/me) to
+ * its profile email before SMTP. Literal mailbox addresses remain unchanged.
+ * Unknown values fail before an invalid RCPT command can reach the server.
+ */
+export function resolveCompanyEmailRecipients(body = {}, ownerUserId = null) {
+  const owner = String(ownerUserId || '').trim();
+  const people = owner
+    ? getDb().prepare(
+        `SELECT id,email,name FROM platform_users
+         WHERE enabled=1 AND (id=? OR owner_user_id=?)`
+      ).all(owner, owner)
+    : [];
+  const ownerRow = people.find((row) => String(row.id) === owner) || null;
+
+  function resolveOne(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return null;
+    if (isMailbox(raw)) return raw;
+    const key = raw.toLowerCase();
+    if (['ceo', 'owner', 'me', 'myself'].includes(key) && ownerRow?.email && isMailbox(ownerRow.email)) {
+      return ownerRow.email;
+    }
+    const matches = people.filter((row) =>
+      String(row.id || '').toLowerCase() === key || String(row.name || '').trim().toLowerCase() === key
+    );
+    if (matches.length === 1 && matches[0].email && isMailbox(matches[0].email)) return matches[0].email;
+    const error = new Error(`Invalid email recipient "${raw}". Use a mailbox address or an unambiguous user in this company.`);
+    error.status = 400;
+    throw error;
+  }
+
+  const next = { ...body };
+  for (const field of ['to', 'cc', 'bcc']) {
+    if (body[field] == null || body[field] === '') continue;
+    next[field] = normalizeRecipients(body[field]).map(resolveOne).filter(Boolean);
+  }
+  return next;
 }
 
 function resolveSmtpConfig(body = {}) {

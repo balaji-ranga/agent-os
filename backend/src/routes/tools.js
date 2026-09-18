@@ -134,7 +134,7 @@ import jobApplicantTools from './job-applicant-tools.js';
 import crmTools from './crm-tools.js';
 import erpTools from './erp-tools.js';
 import { summarizeLearnings } from '../services/agent-feedback.js';
-import { executeEmailSend } from '../services/email-send.js';
+import { executeEmailSend, resolveCompanyEmailRecipients } from '../services/email-send.js';
 import { executeNotifyCeo } from '../services/notify-ceo.js';
 import { executeCeoProfile } from '../services/ceo-profile.js';
 import { applyProposal, getState as getOnboardingState, saveAgentProposal, saveDraft } from '../services/onboarding-helper.js';
@@ -1787,7 +1787,9 @@ router.post('/email-send', optionalAuth, async (req, res) => {
   const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
   const requestPayload = req.body || {};
   try {
-  const out = await executeEmailSend(requestPayload);
+    const ownerUserId = resolveToolOwnerUserId(req, requestPayload, resolveAuthenticatedCeoUserId);
+    const resolvedPayload = resolveCompanyEmailRecipients(requestPayload, ownerUserId);
+    const out = await executeEmailSend(resolvedPayload);
     const status = out.sent ? 'ok' : out.attempted ? 'error' : 'error';
     logTool(req, 'email_send', requestPayload, out, status, source);
     if (!out.sent && out.error) return res.status(out.attempted ? 502 : 400).json(out);
@@ -1795,7 +1797,7 @@ router.post('/email-send', optionalAuth, async (req, res) => {
   } catch (e) {
     const err = { error: e.message };
     logTool(req, 'email_send', requestPayload, err, 'error', source);
-    res.status(500).json(err);
+    res.status(e.status || 500).json(err);
   }
 });
 
