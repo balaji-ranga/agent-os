@@ -78,7 +78,10 @@ function brainAnimationNode(id, x, y, catalog = [], idleClip = null, apiKeyRef =
       taskConfig: {
         modelSource: apiKeyRef ? 'openai' : 'ollama',
         model: apiKeyRef ? 'gpt-4o-mini' : 'llama3.2',
-        ...(apiKeyRef ? { apiKeyRef } : {}),
+        // A user OpenAI BYOK key must go to OpenAI directly. Do not inherit the
+        // platform OPENAI_BASE_URL, which may point at the internal LiteLLM
+        // gateway and expects its own virtual key.
+        ...(apiKeyRef ? { apiKeyRef, apiEndpoint: 'https://api.openai.com/v1' } : {}),
         thinkingMode: 'off',
         maxTokens: 500,
         systemPrompt: `${buildAnimationPlannerPrompt(catalog)}
