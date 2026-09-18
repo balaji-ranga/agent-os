@@ -69,6 +69,7 @@ export default function Avatars() {
   const [roomName, setRoomName] = useState('');
   const [roomSceneId, setRoomSceneId] = useState('');
   const [memberPick, setMemberPick] = useState({});
+  const [voiceDrafts, setVoiceDrafts] = useState({});
 
   async function refresh() {
     const [a, ag, h, sc, rm] = await Promise.all([
@@ -171,6 +172,20 @@ export default function Avatars() {
     try {
       await api.avatarsUpdate(avatarId, { idleClip: idleClip || null });
       setMessage(idleClip ? `Idle animation set to ${idleClip}` : 'Idle animation cleared (auto)');
+      await refresh();
+    } catch (err) {
+      setError(err.message || String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onVoiceId(avatarId, voiceId) {
+    setBusy(true);
+    setError('');
+    try {
+      await api.avatarsUpdate(avatarId, { voiceId: String(voiceId || '').trim() || null });
+      setMessage(voiceId ? 'ElevenLabs voice saved; avatar workflows refreshed' : 'Custom voice cleared');
       await refresh();
     } catch (err) {
       setError(err.message || String(err));
@@ -475,6 +490,23 @@ export default function Avatars() {
                       </option>
                     ))}
                   </select>
+                  <label style={{ fontSize: '0.8rem', display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                    Voice ID
+                    <input
+                      value={voiceDrafts[a.id] ?? a.voice_id ?? ''}
+                      onChange={(e) => setVoiceDrafts((drafts) => ({ ...drafts, [a.id]: e.target.value }))}
+                      placeholder="ElevenLabs voice ID"
+                      aria-label={`Voice ID for ${a.name}`}
+                      style={{ width: 210 }}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => onVoiceId(a.id, voiceDrafts[a.id] ?? a.voice_id ?? '')}
+                    disabled={busy}
+                  >
+                    Apply voice
+                  </button>
                   {a.agent_id ? (
                     <Link to={`/agents/${a.agent_id}/virtual-room`}>Virtual Room</Link>
                   ) : (

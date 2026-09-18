@@ -61,6 +61,11 @@ export function ensureAvatarsSchema() {
   } catch (_) {
     /* already migrated */
   }
+  try {
+    getDb().prepare(`ALTER TABLE ceo_avatars ADD COLUMN voice_id TEXT`).run();
+  } catch (_) {
+    /* already migrated */
+  }
 }
 
 function newId() {
@@ -120,6 +125,7 @@ function rowToAvatar(row) {
     source: row.source,
     animation_catalog: catalog,
     idle_clip: row.idle_clip || null,
+    voice_id: row.voice_id || null,
     agent_id: row.agent_id || null,
     inbound_workflow_id: row.inbound_workflow_id || null,
     outbound_workflow_id: row.outbound_workflow_id || null,
@@ -220,6 +226,7 @@ export function updateAvatarMeta(ownerUserId, avatarId, patch = {}) {
   if (!row) return null;
   const name = patch.name != null ? String(patch.name).slice(0, 120) : row.name;
   let idleClip = row.idle_clip || null;
+  let voiceId = row.voice_id || null;
   if (Object.prototype.hasOwnProperty.call(patch, 'idleClip') || Object.prototype.hasOwnProperty.call(patch, 'idle_clip')) {
     const raw = patch.idleClip != null ? patch.idleClip : patch.idle_clip;
     const next = raw == null || raw === '' ? null : String(raw).trim();
@@ -239,15 +246,28 @@ export function updateAvatarMeta(ownerUserId, avatarId, patch = {}) {
       idleClip = null;
     }
   }
+  if (Object.prototype.hasOwnProperty.call(patch, 'voiceId') || Object.prototype.hasOwnProperty.call(patch, 'voice_id')) {
+    const raw = patch.voiceId != null ? patch.voiceId : patch.voice_id;
+    const next = raw == null || raw === '' ? null : String(raw).trim();
+    if (next && !/^[A-Za-z0-9_-]{10,64}$/.test(next)) {
+      throw Object.assign(new Error('voiceId must be a valid ElevenLabs voice ID'), { status: 400 });
+    }
+    voiceId = next;
+  }
   getDb()
     .prepare(
-      `UPDATE ceo_avatars SET name = ?, idle_clip = ?, updated_at = datetime('now') WHERE id = ? AND owner_user_id = ?`
+      `UPDATE ceo_avatars SET name = ?, idle_clip = ?, voice_id = ?, updated_at = datetime('now') WHERE id = ? AND owner_user_id = ?`
     )
-    .run(name, idleClip, row.id, row.owner_user_id);
-  console.info('[avatars] meta updated', { id: row.id, idle_clip: idleClip });
+    .run(name, idleClip, voiceId, row.id, row.owner_user_id);
+  console.info('[avatars] meta updated', { id: row.id, idle_clip: idleClip, voice_id: voiceId });
   const updated = rowToAvatar(getAvatarForOwner(ownerUserId, avatarId));
-  // idle change refresh — rebuild speak graphs so Brain prefers the new idle
-  if (updated?.agent_id && (patch.idleClip != null || patch.idle_clip != null)) {
+  // Voice/idle changes refresh both generated workflows from the current template.
+  const refreshWorkflow =
+    Object.prototype.hasOwnProperty.call(patch, 'idleClip') ||
+    Object.prototype.hasOwnProperty.call(patch, 'idle_clip') ||
+    Object.prototype.hasOwnProperty.call(patch, 'voiceId') ||
+    Object.prototype.hasOwnProperty.call(patch, 'voice_id');
+  if (updated?.agent_id && refreshWorkflow) {
     try {
       assignAvatarAgent(ownerUserId, updated.id, updated.agent_id, { id: ownerUserId, name: 'idle-refresh' });
       return rowToAvatar(getAvatarForOwner(ownerUserId, avatarId));
@@ -339,6 +359,7 @@ export function assignAvatarAgent(ownerUserId, avatarId, agentId, actor = null) 
     avatarId: avatar.id,
     animationCatalog,
     idleClip: avatar.idle_clip || null,
+    voiceId: avatar.voice_id || null,
   });
 
   if (!outboundId) {
@@ -371,6 +392,7 @@ export function assignAvatarAgent(ownerUserId, avatarId, agentId, actor = null) 
     outboundWorkflowId: outboundId,
     animationCatalog,
     idleClip: avatar.idle_clip || null,
+    voiceId: avatar.voice_id || null,
   });
 
   if (!inboundId) {

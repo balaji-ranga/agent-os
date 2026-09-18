@@ -167,6 +167,7 @@ export function buildAvatarOutboundGraph({
   avatarId = '',
   animationCatalog = [],
   idleClip = null,
+  voiceId = null,
 } = {}) {
   return {
     nodes: [
@@ -224,7 +225,7 @@ User message:
         position: { x: 680, y: 60 },
         data: {
           label: 'ElevenLabs TTS (Flash)',
-          taskConfig: { ...FAST_TTS_CONFIG },
+          taskConfig: { ...FAST_TTS_CONFIG, ...(voiceId ? { voiceId } : {}) },
           inputBindings: [
             {
               id: 'text',
@@ -277,6 +278,7 @@ export function buildAvatarInboundGraph({
   outboundWorkflowId = '',
   animationCatalog = [],
   idleClip = null,
+  voiceId = null,
 } = {}) {
   return {
     nodes: [
@@ -348,7 +350,7 @@ User message:
         position: { x: 900, y: 60 },
         data: {
           label: 'ElevenLabs TTS (Flash)',
-          taskConfig: { ...FAST_TTS_CONFIG },
+          taskConfig: { ...FAST_TTS_CONFIG, ...(voiceId ? { voiceId } : {}) },
           inputBindings: [
             {
               id: 'text',
