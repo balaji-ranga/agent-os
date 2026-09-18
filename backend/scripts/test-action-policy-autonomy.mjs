@@ -274,6 +274,31 @@ try {
     globalThis.fetch = realFetch;
   }
 
+  const failedExecution = recordPendingChatAction({
+    ownerUserId: owner, agentId: 'balserve', channel: 'web', toolName: 'email_send',
+    actionFamily: 'communicate_external', body: { to: owner, subject: 'Failure state', body: 'test' },
+  });
+  decideChatActionApproval({
+    ownerUserId: owner, approvalId: failedExecution.id, decision: 'approve',
+    actor: { id: owner, role: 'ceo' }, channel: 'web', evidence: 'Approved',
+  });
+  globalThis.fetch = async () => ({
+    ok: false, status: 502, json: async () => ({ error: 'SMTP rejected recipient' }),
+  });
+  try {
+    await assert.rejects(
+      executeApprovedChatAction({ ownerUserId: owner, approvalId: failedExecution.id }),
+      /SMTP rejected recipient/
+    );
+    assert.equal(
+      db.prepare('SELECT status FROM kanban_tasks WHERE id=?').get(failedExecution.kanban_task_id).status,
+      'failed',
+      'a failed external execution must not leave the approval task completed'
+    );
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+
   const prohibited = evaluateActionPolicy({
     ownerUserId: owner,
     toolName: 'delete_customer',

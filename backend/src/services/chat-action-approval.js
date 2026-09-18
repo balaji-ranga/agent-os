@@ -226,14 +226,31 @@ export async function executeApprovedChatAction({ ownerUserId, approvalId } = {}
   let args = {};
   try { args = JSON.parse(row.args_json || '{}') || {}; } catch (_) {}
   const { invokeContentToolHttp } = await import('./content-tool-http-invoke.js');
-  const result = await invokeContentToolHttp(row.tool_name, args, row.owner_user_id, {
-    agentId: row.agent_id,
-    openclawAgentId: row.agent_id,
-  });
-  return {
-    ok: true,
-    approval_id: row.id,
-    tool_name: row.tool_name,
-    result,
-  };
+  try {
+    const result = await invokeContentToolHttp(row.tool_name, args, row.owner_user_id, {
+      agentId: row.agent_id,
+      openclawAgentId: row.agent_id,
+    });
+    return {
+      ok: true,
+      approval_id: row.id,
+      tool_name: row.tool_name,
+      result,
+    };
+  } catch (error) {
+    // The policy middleware consumes a one-shot approval before invoking the
+    // external tool. If that tool then fails, reflect the real terminal state
+    // on Kanban without rearming or replaying the authorization.
+    if (row.kanban_task_id) {
+      const reason = String(error?.message || 'External action failed').slice(0, 1000);
+      db().transaction(() => {
+        db().prepare("UPDATE kanban_tasks SET status='failed',updated_at=datetime('now') WHERE id=?")
+          .run(row.kanban_task_id);
+        db().prepare("INSERT INTO task_messages(task_id,role,content) VALUES (?,'system',?)")
+          .run(row.kanban_task_id, `[Action execution failed] ${reason}`);
+      })();
+      clearKanbanTaskNotification(row.kanban_task_id, row.owner_user_id);
+    }
+    throw error;
+  }
 }
