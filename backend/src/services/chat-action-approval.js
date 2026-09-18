@@ -141,6 +141,19 @@ export function isChatActionDecisionMessage(message) {
   return null;
 }
 
+/**
+ * Interpret a Kanban chat reply as an approval decision only when the task is
+ * an explicit, still-pending action approval. This keeps ordinary task
+ * comments such as "approved" from changing unrelated work.
+ */
+export function kanbanActionDecisionFromMessage({ task, role = 'user', message } = {}) {
+  if (!task || String(role).toLowerCase() !== 'user') return null;
+  if (String(task.status || '') !== 'awaiting_confirmation') return null;
+  const description = String(task.description || '');
+  if (!description.includes('[CHAT_ACTION_APPROVAL]') && !description.includes('[GOAL_ACTION_APPROVAL]')) return null;
+  return isChatActionDecisionMessage(message);
+}
+
 export function decideChatActionApproval({ ownerUserId, agentId = null, approvalId = null, kanbanTaskId = null, decision, actor, channel = 'web', evidence = '' } = {}) {
   ensureChatActionApprovalTable();
   if (!authorizedActor(actor)) throw Object.assign(new Error('Only the CEO or a CEO delegate may approve this external action'), { status: 403 });

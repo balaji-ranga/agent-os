@@ -38,6 +38,7 @@ import {
   reinitiateKanbanDelegation,
 } from '../services/kanban-orphan-watcher.js';
 import { executeKanbanUserAction } from '../services/kanban-user-actions.js';
+import { kanbanActionDecisionFromMessage } from '../services/chat-action-approval.js';
 import {
   resolveKanbanEtaHours,
   computeDueAt,
@@ -643,8 +644,6 @@ router.post('/tasks/:id/messages', async (req, res) => {
     const { role, content } = req.body;
     const r = (role || 'user').toString().toLowerCase();
     const c = content != null ? (typeof content === 'string' ? content : JSON.stringify(content)) : '';
-    db().prepare('INSERT INTO task_messages (task_id, role, content) VALUES (?, ?, ?)').run(req.params.id, r, c);
-    const userRow = db().prepare('SELECT id, role, content, created_at FROM task_messages WHERE task_id = ? ORDER BY id DESC LIMIT 1').get(req.params.id);
 
     let ownerUserId = task.owner_user_id || null;
     if (!ownerUserId && req.authUser?.role === 'ceo') ownerUserId = req.authUser.id;
@@ -655,6 +654,30 @@ router.post('/tasks/:id/messages', async (req, res) => {
         ownerUserId = null;
       }
     }
+
+    // Task-chat approval is equivalent to pressing the explicit action button,
+    // but only for a tagged approval task and a strict, unambiguous reply.
+    // executeKanbanUserAction retains tenant/RBAC checks, captures evidence,
+    // and executes only the exact payload bound to the pending approval.
+    const actionDecision = kanbanActionDecisionFromMessage({ task, role: r, message: c });
+    if (actionDecision) {
+      if (!ownerUserId) return res.status(400).json({ error: 'Unable to resolve the company owner for this approval' });
+      const actionResult = await executeKanbanUserAction({
+        ownerUserId,
+        actor: req.authUser,
+        taskId: Number(req.params.id),
+        action: actionDecision,
+        evidence: c,
+        channel: 'web_task_chat',
+      });
+      const decisionRow = db().prepare(
+        'SELECT id, role, content, created_at FROM task_messages WHERE task_id = ? ORDER BY id DESC LIMIT 1'
+      ).get(req.params.id);
+      return res.status(201).json({ ...decisionRow, action_result: actionResult });
+    }
+
+    db().prepare('INSERT INTO task_messages (task_id, role, content) VALUES (?, ?, ?)').run(req.params.id, r, c);
+    const userRow = db().prepare('SELECT id, role, content, created_at FROM task_messages WHERE task_id = ? ORDER BY id DESC LIMIT 1').get(req.params.id);
 
     if (task.assigned_agent_id && r === 'user' && ownerUserId) {
       mirrorKanbanTurnToAgentChat({

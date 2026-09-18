@@ -34,9 +34,27 @@ try {
     decidePendingChatActionFromMessage,
     consumeApprovedChatAction,
     executeApprovedChatAction,
+    kanbanActionDecisionFromMessage,
   } = await import('../src/services/chat-action-approval.js');
   const { resolveChannelActor } = await import('../src/services/channel-user-identity.js');
   ensureActionPolicyTables();
+
+  assert.equal(kanbanActionDecisionFromMessage({
+    task: { status: 'awaiting_confirmation', description: '[CHAT_ACTION_APPROVAL]' },
+    role: 'user', message: 'Approved',
+  }), 'approve');
+  assert.equal(kanbanActionDecisionFromMessage({
+    task: { status: 'awaiting_confirmation', description: '[GOAL_ACTION_APPROVAL]' },
+    role: 'user', message: 'Reject',
+  }), 'reject');
+  assert.equal(kanbanActionDecisionFromMessage({
+    task: { status: 'open', description: '[CHAT_ACTION_APPROVAL]' },
+    role: 'user', message: 'Approved',
+  }), null, 'only a pending approval task may interpret chat as a decision');
+  assert.equal(kanbanActionDecisionFromMessage({
+    task: { status: 'awaiting_confirmation', description: 'ordinary task' },
+    role: 'user', message: 'Approved',
+  }), null, 'ordinary task chat must remain a comment');
 
   const { seedErpToolsIfMissing, seedEmailSendToolIfMissing } = await import('../src/db/seed-content-tools-meta.js');
   seedErpToolsIfMissing();

@@ -499,12 +499,15 @@ export default function Kanban() {
     try {
       const uploaded = files.length ? await uploadChatAttachments(files) : [];
       const content = buildMessageWithAttachments(trimmed, uploaded);
-      await api.kanbanTaskAddMessage(selectedTask.id, 'user', content);
+      const sent = await api.kanbanTaskAddMessage(selectedTask.id, 'user', content);
       const detail = await api.kanbanTaskGet(selectedTask.id);
       setTaskDetail(detail);
+      setSelectedTask(detail);
       setMessageInput('');
       setMessageAttachments([]);
-      showSuccess('Message sent');
+      if (sent?.action_result?.decision === 'approved') showSuccess('Approved — the exact pending action was executed');
+      else if (sent?.action_result?.decision === 'rejected') showSuccess('Rejected — the pending action was stopped');
+      else showSuccess('Message sent');
     } catch (err) {
       const msg = err?.message || 'Failed to send message';
       setTaskChatError(msg);
@@ -1167,7 +1170,7 @@ export default function Kanban() {
                 </div>
               </div>
             )}
-            {drawerTab === 'details' && selectedIsGoalActionApproval && (
+            {selectedIsGoalActionApproval && (
               <div style={{ position: 'sticky', top: 0, zIndex: 2, margin: '-1rem -1rem 1rem', padding: '0.75rem 1rem', borderBottom: '1px solid #ca8a04', background: 'rgba(202,138,4,0.12)' }}>
                 <strong>Action approval required</strong>
                 <div style={{ fontSize: '0.8rem', color: 'var(--muted)', margin: '4px 0 8px' }}>
