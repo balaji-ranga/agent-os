@@ -6,6 +6,7 @@ import {
   extractMediaUrlsFromText,
   normalizeMediaUrl,
 } from '../utils/resolveMediaSrc.js';
+import { resolveAvatarSpawn } from '../utils/virtualRoomPlacement.js';
 
 async function ensureThree() {
   if (window.__THREE__) return window.__THREE__;
@@ -263,6 +264,7 @@ export default function VirtualRoom() {
   const [error, setError] = useState('');
   const [recording, setRecording] = useState(false);
   const [typed, setTyped] = useState('');
+  const [selectedAvatarId, setSelectedAvatarId] = useState(null);
   /** Closable HTML media cards pinned to an avatar (newest first). */
   const [avatarCards, setAvatarCards] = useState([]);
   const mediaRecRef = useRef(null);
@@ -602,7 +604,7 @@ export default function VirtualRoom() {
     layoutTimerRef.current = setTimeout(() => {
       api
         .vrRoomsPatchLayout(rid, {
-          members: { [avatarId]: { x: position.x, y: position.y, z: position.z } },
+          members: { [avatarId]: { x: position.x, y: position.y, z: position.z, manual: true } },
         })
         .catch((e) => console.warn('[VirtualRoom] layout save failed', e?.message || e));
     }, 400);
@@ -721,15 +723,32 @@ export default function VirtualRoom() {
           const m = members[i];
           if (!m.model_url) continue;
           const gltf = await loadGlb(m.model_url);
-          const root = gltf.scene;
-          const box = new THREE.Box3().setFromObject(root);
+          const model = gltf.scene;
+          const box = new THREE.Box3().setFromObject(model);
           const size = box.getSize(new THREE.Vector3());
           const scale = 1.6 / Math.max(size.y, 0.001);
-          root.scale.setScalar(scale);
-          const pos = m.position || { x: i * 1.4 - (members.length - 1) * 0.7, y: 0, z: 0 };
+          model.scale.setScalar(scale);
+          const scaledBox = new THREE.Box3().setFromObject(model);
+          const scaledCenter = scaledBox.getCenter(new THREE.Vector3());
+          model.position.x -= scaledCenter.x;
+          model.position.y -= scaledBox.min.y;
+          model.position.z -= scaledCenter.z;
+          model.traverse?.((object) => {
+            if (object?.isMesh) object.frustumCulled = false;
+          });
+          const root = new THREE.Group();
+          root.add(model);
+          const pos = resolveAvatarSpawn({
+            member: m,
+            index: i,
+            count: members.length,
+            sceneJson: roomData.scene?.scene_json || {},
+            hasEnvironment: Boolean(roomData.scene?.model_url),
+          });
           root.position.set(Number(pos.x) || 0, Number(pos.y) || 0, Number(pos.z) || 0);
           root.userData.avatarId = m.avatar_id;
           root.userData.draggable = true;
+          root.userData.spawnSource = pos.source;
           scene.add(root);
           const mixer = new THREE.AnimationMixer(root);
           mixersRef.current.push(mixer);
@@ -760,10 +779,14 @@ export default function VirtualRoom() {
           while (obj && !obj.userData?.draggable) obj = obj.parent;
           if (!obj) return;
           controls.enabled = false;
-          dragRef.current = { root: obj, avatarId: obj.userData.avatarId };
+          setSelectedAvatarId(obj.userData.avatarId);
+          dragRef.current = { root: obj, avatarId: obj.userData.avatarId, startX: ev.clientX, startY: ev.clientY, moved: false };
         }
         function onPointerMove(ev) {
           if (!dragRef.current) return;
+          if (Math.hypot(ev.clientX - dragRef.current.startX, ev.clientY - dragRef.current.startY) > 5) {
+            dragRef.current.moved = true;
+          }
           const rect = renderer.domElement.getBoundingClientRect();
           pointer.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
           pointer.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
@@ -775,10 +798,11 @@ export default function VirtualRoom() {
         }
         function onPointerUp() {
           if (!dragRef.current) return;
-          const { root, avatarId } = dragRef.current;
+          const { root, avatarId, moved } = dragRef.current;
           dragRef.current = null;
           controls.enabled = true;
-          scheduleLayoutSave(avatarId, root.position);
+          if (moved) scheduleLayoutSave(avatarId, root.position);
+          else focusAvatar(avatarId);
         }
         renderer.domElement.addEventListener('pointerdown', onPointerDown);
         window.addEventListener('pointermove', onPointerMove);
@@ -787,6 +811,10 @@ export default function VirtualRoom() {
         sceneRef.current = { scene, camera, renderer, controls, envRoot, floor, loadGlb, THREE };
         clockRef.current = new THREE.Clock();
         setStatus('Ready');
+        if (members[0]?.avatar_id) {
+          setSelectedAvatarId(members[0].avatar_id);
+          requestAnimationFrame(() => focusAvatar(members[0].avatar_id));
+        }
 
         const projectVec = new THREE.Vector3();
         const tick = () => {
@@ -860,6 +888,20 @@ export default function VirtualRoom() {
         three.envRoot.add(gltf.scene);
         three.floor.visible = false;
       }
+      (next.members || []).forEach((member, index) => {
+        const runtime = membersRuntimeRef.current[member.avatar_id];
+        if (!runtime?.root) return;
+        const pos = resolveAvatarSpawn({
+          member,
+          index,
+          count: next.members.length,
+          sceneJson: next.scene?.scene_json || {},
+          hasEnvironment: Boolean(next.scene?.model_url),
+        });
+        runtime.root.position.set(pos.x, pos.y, pos.z);
+      });
+      const focusId = selectedAvatarId || next.members?.[0]?.avatar_id;
+      if (focusId) requestAnimationFrame(() => focusAvatar(focusId));
       setStatus('Ready');
     } catch (e) {
       setError(e.message || String(e));
@@ -1014,6 +1056,9 @@ export default function VirtualRoom() {
           member: parsed.member,
         },
       ];
+    } else if (selectedAvatarId && members.some((member) => member.avatar_id === selectedAvatarId)) {
+      const selected = members.find((member) => member.avatar_id === selectedAvatarId);
+      assignments = [{ ...selected, query: text, member: selected }];
     } else if (members.length === 1) {
       assignments = [
         {
@@ -1263,6 +1308,22 @@ export default function VirtualRoom() {
       ? `Type @ to pick, or send without @ to auto-route…`
       : 'Type a message…';
 
+  function focusAvatar(avatarId) {
+    const runtime = membersRuntimeRef.current[String(avatarId || '')];
+    const three = sceneRef.current;
+    if (!runtime?.root || !three?.THREE || !three?.camera || !three?.controls) return;
+    const box = new three.THREE.Box3().setFromObject(runtime.root);
+    const center = box.getCenter(new three.THREE.Vector3());
+    const size = box.getSize(new three.THREE.Vector3());
+    const distance = Math.max(2.2, size.y * 1.7, size.x * 2.2);
+    three.controls.target.copy(center);
+    three.camera.position.set(center.x, center.y + Math.min(0.35, size.y * 0.2), box.max.z + distance);
+    three.camera.lookAt(center);
+    three.controls.update();
+    setSelectedAvatarId(avatarId);
+    inputRef.current?.focus();
+  }
+
   return (
     <div style={{ position: 'fixed', inset: 0, display: 'flex', background: '#0f1419', color: '#e8eaed', zIndex: 50 }}>
       <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
@@ -1382,6 +1443,33 @@ export default function VirtualRoom() {
         <div style={{ fontSize: 12, opacity: 0.75 }}>
           {(room?.members || []).map((m) => `@${m.handle}`).join(', ') || 'No members'} · {status}
         </div>
+        {(room?.members || []).length > 0 && (
+          <div role="group" aria-label="Room members" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {(room?.members || []).map((member) => {
+              const active = selectedAvatarId === member.avatar_id;
+              return (
+                <button
+                  key={member.avatar_id}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => focusAvatar(member.avatar_id)}
+                  title={`Select and focus ${member.name || member.handle}`}
+                  style={{
+                    border: `1px solid ${active ? '#38bdf8' : '#475569'}`,
+                    background: active ? '#0c4a6e' : '#1e293b',
+                    color: '#e2e8f0',
+                    borderRadius: 999,
+                    padding: '5px 9px',
+                    cursor: 'pointer',
+                    fontSize: 12,
+                  }}
+                >
+                  @{member.handle}{active ? ' · selected' : ''}
+                </button>
+              );
+            })}
+          </div>
+        )}
         <label style={{ fontSize: 12, display: 'flex', gap: 6, alignItems: 'center' }}>
           Scene
           <select
@@ -1405,8 +1493,8 @@ export default function VirtualRoom() {
           </select>
         </label>
         <div style={{ fontSize: 11, opacity: 0.65 }}>
-          Drag avatars to reposition. Media from an avatar stacks as closable cards above them (× to dismiss).
-          Type <code>@</code> to mention; without @ the room auto-routes (no Kanban).
+          Click an avatar or its member chip to select and focus it; drag to reposition. Messages go to the selected
+          member. Use <code>@</code> to target another member; with no selection the room auto-routes (no Kanban).
         </div>
         {error && <div style={{ color: '#f87171', fontSize: 13 }}>{error}</div>}
         <div style={{ flex: 1, overflow: 'auto', fontSize: 13, display: 'flex', flexDirection: 'column', gap: 6 }}>

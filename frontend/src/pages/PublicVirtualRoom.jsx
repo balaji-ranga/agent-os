@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { api, resolveFetchUrl } from '../api';
+import { resolveAvatarSpawn } from '../utils/virtualRoomPlacement.js';
 
 async function ensureThree() {
   if (window.__THREE__) return window.__THREE__;
@@ -205,16 +206,28 @@ export default function PublicVirtualRoom() {
           if (!m.model_url) continue;
           try {
             const gltf = await loadGlb(m.model_url);
-            const root = gltf.scene;
-            const box = new THREE.Box3().setFromObject(root);
+            const model = gltf.scene;
+            const box = new THREE.Box3().setFromObject(model);
             const size = box.getSize(new THREE.Vector3());
             const scale = 1.6 / Math.max(size.y, 0.001);
-            root.scale.setScalar(scale);
-            const pos = m.position || {
-              x: i * 1.4 - (members.length - 1) * 0.7,
-              y: 0,
-              z: 0,
-            };
+            model.scale.setScalar(scale);
+            const scaledBox = new THREE.Box3().setFromObject(model);
+            const scaledCenter = scaledBox.getCenter(new THREE.Vector3());
+            model.position.x -= scaledCenter.x;
+            model.position.y -= scaledBox.min.y;
+            model.position.z -= scaledCenter.z;
+            model.traverse?.((object) => {
+              if (object?.isMesh) object.frustumCulled = false;
+            });
+            const root = new THREE.Group();
+            root.add(model);
+            const pos = resolveAvatarSpawn({
+              member: m,
+              index: i,
+              count: members.length,
+              sceneJson: data.scene?.scene_json || {},
+              hasEnvironment: Boolean(data.scene?.model_url),
+            });
             root.position.set(Number(pos.x) || 0, Number(pos.y) || 0, Number(pos.z) || 0);
             scene.add(root);
 
