@@ -35,7 +35,7 @@ const directTts = ttsPlaybackFromSteps(
 assert.equal(directTts.audioUrl, '/audio/a1');
 assert.equal(directTts.avatarId, 'avatar-1');
 assert.equal(directTts.idle, 'HumanArmature|Man_Idle');
-assert.equal(directTts.animations[0]?.name, 'HumanArmature|Man_Clapping');
+assert.deepEqual(directTts.animations, [], 'early speech must not guess a gesture before the planner finishes');
 assert.equal(animationOnlyPlayback({ audioUrl: '/audio/a1', animations: [{ name: 'Wave' }] }, true).audioUrl, null);
 assert.equal(animationOnlyPlayback({ audioUrl: '/audio/a1' }, false).audioUrl, '/audio/a1');
 

@@ -16,17 +16,15 @@ export function ttsPlaybackFromSteps(steps = [], avatarId = null, animationCatal
     names.find((name) => /idle|blink|breathe|look[_ -]?around|stand|rest/i.test(name) && !isMouth(name)) ||
     names.find((name) => !isMouth(name)) ||
     null;
-  const reply = String(list.find((candidate) => candidate?.node_type === 'agent')?.output?.text || '');
-  const positiveReply = /\b(?:hello|hi|welcome|thank|great|glad|congrat|delicious|happy)\b/i.test(reply);
-  const gesture = positiveReply
-    ? names.find((name) => /wave|clap|nod|greet/i.test(name) && name !== idle && !isMouth(name))
-    : names.find((name) => /talk|speak|gesture|nod/i.test(name) && name !== idle && !isMouth(name));
   return {
     avatarId,
     audioUrl,
     audioArtifactId: audio.artifactId || audio.artifact_id || null,
     animationCatalog: names,
-    animations: gesture ? [{ name: gesture, weight: 1, loop: false, timeScale: 1 }] : [],
+    // This path exists only to start speech promptly. Gesture selection belongs
+    // to the completed animation planner; guessing here made the first matching
+    // positive clip (often Clapping) run for nearly every friendly response.
+    animations: [],
     idle,
   };
 }

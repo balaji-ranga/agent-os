@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { buildAvatarInboundGraph, buildAvatarOutboundGraph } from '../src/services/agent-workflow-templates.js';
+import { buildDefaultAnimationPlan } from '../src/services/avatar-animation-catalog.js';
 
 const voiceId = 'CwhRBWXzGAHq8TQ4Fs17';
 const animationCatalog = ['HumanArmature|Man_Clapping', 'HumanArmature|Man_Idle'];
@@ -41,6 +42,27 @@ assert.equal(
   buildAvatarOutboundGraph({ agentId: 'trainer' }).nodes.some((node) => node.id === 'brain-1'),
   false,
   'without an OpenAI BYOK key the workflow must use deterministic animation, never Ollama'
+);
+
+const safeCatalog = [
+  'HumanArmature|Man_Clapping',
+  'HumanArmature|Man_Death',
+  'HumanArmature|Man_Idle',
+  'HumanArmature|Man_Run',
+  'HumanArmature|Man_Standing',
+];
+assert.deepEqual(
+  buildDefaultAnimationPlan(safeCatalog, 'Hello, great to see you.').clips,
+  [],
+  'neutral greetings must not fall back to clapping'
+);
+assert.equal(
+  buildDefaultAnimationPlan(safeCatalog, 'Congratulations on the achievement!').clips[0]?.name,
+  'HumanArmature|Man_Clapping'
+);
+assert.equal(
+  buildDefaultAnimationPlan(safeCatalog, 'Ready when you are.').clips[0]?.name,
+  'HumanArmature|Man_Standing'
 );
 
 console.log('Avatar voice configuration checks passed.');

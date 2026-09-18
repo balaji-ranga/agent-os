@@ -36,10 +36,30 @@ export function classifyAnimationCatalog(catalog = []) {
 export function buildDefaultAnimationPlan(catalog = [], replyText = '') {
   const { mouth, idle, gestures } = classifyAnimationCatalog(catalog);
   const text = String(replyText || '').trim();
-  const gesture =
-    gestures.find((n) => /wave|nod|point|gesture|talk|speak/i.test(n)) ||
-    gestures[0] ||
-    null;
+  const findGesture = (pattern) => gestures.find((name) => pattern.test(name)) || null;
+  // A missing/malformed planner result should degrade to a neutral idle, not
+  // the first catalog entry. Select expressive clips only when the reply makes
+  // that action appropriate; potentially alarming clips require explicit text.
+  let gesture = null;
+  if (/\b(?:congrat|celebrat|applause|clap|well done|achievement)\b/i.test(text)) {
+    gesture = findGesture(/clap|cheer|celebrat/i) || findGesture(/jump/i);
+  } else if (/\b(?:jump|leap)\b/i.test(text)) {
+    gesture = findGesture(/jump/i);
+  } else if (/\b(?:run|sprint|hurry|race)\b/i.test(text)) {
+    gesture = findGesture(/run/i);
+  } else if (/\b(?:walk|stroll|move forward)\b/i.test(text)) {
+    gesture = findGesture(/walk/i);
+  } else if (/\b(?:sit|seated|take a seat)\b/i.test(text)) {
+    gesture = findGesture(/sit/i);
+  } else if (/\b(?:stand|ready|attention)\b/i.test(text)) {
+    gesture = findGesture(/stand/i);
+  } else if (/\b(?:sword|slash)\b/i.test(text)) {
+    gesture = findGesture(/sword|slash/i);
+  } else if (/\b(?:punch|fight)\b/i.test(text)) {
+    gesture = findGesture(/punch|fight/i);
+  } else if (/\b(?:death|dead|die|collapse)\b/i.test(text)) {
+    gesture = findGesture(/death|die|collapse/i);
+  }
   const durationSec = Math.max(1.2, Math.min(12, text.length / 13 || 2));
   const visemes = mouth ? synthesizeMouthVisemes(mouth, durationSec, text) : [];
   return {
@@ -159,7 +179,11 @@ Return ONLY valid JSON (no markdown):
 
 Rules:
 1. idle must NOT be a mouth/lip clip. Prefer Blink / Look_Around / Idle.
-2. clips = body gestures matching reply mood (wave, nod, look). Do NOT put mouth clips in clips.
+2. clips = body gestures matching the actual reply intent. Do NOT put mouth clips or the idle clip in clips.
+   - Use Clapping only for explicit applause, congratulations, celebration, or achievement—not ordinary greetings or friendly speech.
+   - Use Jump, Run, Walk, Sitting, Punch, SwordSlash, or Death only when the reply explicitly calls for that action.
+   - For neutral speech or greetings without a safe matching gesture, return clips:[] and rely on idle.
+   - Body gestures must be short and non-looping; never loop Clapping or other action clips.
 3. visemes = timed mouth open weights while speaking (t in seconds from speech start, weight 0..1). Use mouthClip name.
 4. Estimate ~13 characters per second of speech from the reply text length.
 5. If catalog empty: {"clips":[],"idle":null,"mouthClip":null,"visemes":[],"lookAt":null,"sceneOutputs":[]}
