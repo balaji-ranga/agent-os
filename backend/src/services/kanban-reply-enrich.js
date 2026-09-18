@@ -19,6 +19,8 @@ const FUTURE_ACK_RE =
   /\b(i (?:will|'ll|am going to)|next[, ]+i(?:'ll| will)|i(?:'ll| will) (?:proceed|start|work|investigate|update)|will update (?:you|the ceo)|shortly|once (?:this|that) is done)\b/i;
 const UNRESOLVED_BLOCKER_RE =
   /\b(blocked|cannot|can't|unable|quota|usage limit|payment required|access denied|not logged in|credentials? (?:missing|required)|awaiting (?:access|approval|input)|needs? clarification)\b/i;
+const TERMINAL_BLOCKER_RE =
+  /\b(?:i\s+(?:cannot|can't|could not|was unable to)|unable to\s+(?:complete|finish|fulfill|execute|create|send)|current issue|would you like me to|should i escalate|needs? clarification|awaiting\s+(?:access|approval|input))\b/i;
 const CONCRETE_EVIDENCE_RE =
   /\b(result|deliverable|found|created|published|sent|generated|completed output|evidence|source|https?:\/\/|task[_ -]?id|record[_ -]?id)\b/i;
 
@@ -46,7 +48,7 @@ export function looksStatusOnlyReply(text) {
 /** A terminal-looking reply that still names an external blocker is not success. */
 export function replyHasUnresolvedBlocker(text) {
   const t = String(text || '').trim();
-  return !!t && UNRESOLVED_BLOCKER_RE.test(t) && !CONCRETE_EVIDENCE_RE.test(t);
+  return !!t && (TERMINAL_BLOCKER_RE.test(t) || (UNRESOLVED_BLOCKER_RE.test(t) && !CONCRETE_EVIDENCE_RE.test(t)));
 }
 
 /** True when the card/ask expects a real answer (not a greet) — used for Kanban chat nudge. */
@@ -65,6 +67,7 @@ export function taskExpectsRichDeliverable(title, description, userText) {
 export function shouldCompleteKanbanForReply(reply) {
   const t = String(reply || '').trim();
   if (!t || t === '(no response)' || t === '(no content)') return false;
+  if (replyHasUnresolvedBlocker(t)) return false;
   return !looksStatusOnlyReply(t);
 }
 

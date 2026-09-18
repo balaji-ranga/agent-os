@@ -13,6 +13,10 @@ import {
   connectorPolicyToolName,
   getConnectorActionClassification,
 } from './connector-action-grants.js';
+import {
+  consumeApprovedChatAction,
+  recordPendingChatAction,
+} from './chat-action-approval.js';
 
 export const ACTION_FAMILIES = Object.freeze([
   { id: 'read', label: 'Read / research', defaultMode: 'autonomous', defaultTier: 'R0' },
@@ -129,6 +133,10 @@ export function inferRiskForTool(toolName) {
   if (!n) return { risk_tier: 'R0', action_family: 'read' };
   if (
     n === 'gmail_mailbox_cleanup' ||
+    n === 'erp_create_payment_entry' ||
+    n === 'erp_create_journal_entry' ||
+    n === 'erp_submit_doc' ||
+    n === 'erp_cancel_doc' ||
     /delete|\btrash\b|refund|submit_document|cancel_order|ibkr_.*?(order|execute|trade)|discount|destructive/.test(n)
   ) {
     return { risk_tier: 'R3', action_family: 'financial_destructive' };
@@ -141,7 +149,7 @@ export function inferRiskForTool(toolName) {
   if (/(_list|_get|_status|search|discover|summarize|enquire|history|rag|read)/.test(n)) {
     return { risk_tier: 'R0', action_family: 'read' };
   }
-  if (/create|update|upsert|kanban_create|kanban_move|kanban_assign|crm_|erp_/.test(n)) {
+  if (n === 'action_approval_decide' || /create|update|upsert|kanban_create|kanban_move|kanban_assign|crm_|erp_/.test(n)) {
     return { risk_tier: 'R1', action_family: 'write_internal' };
   }
   return { risk_tier: 'R0', action_family: 'read' };
@@ -371,6 +379,39 @@ export function getActionFamilyPolicies(ownerUserId) {
   }));
 }
 
+/**
+ * Resolve the effective classification/mode without consuming an approval
+ * grant or bounded override. This is for scheduling preflight only; the
+ * concrete tool route must still call evaluateActionPolicy before execution.
+ */
+export function previewActionPolicy({
+  ownerUserId,
+  toolName,
+  body = {},
+  context = {},
+} = {}) {
+  ensureActionPolicyTables();
+  const tool = String(toolName || '').trim();
+  if (!tool) return { ok: true, skipped: true, reason: 'no_tool' };
+  const inferred = resolveRiskForTool(tool);
+  const families = getActionFamilyPolicies(ownerUserId);
+  const companyRow = families.find((f) => f.family === inferred.action_family) || families[0];
+  const override = resolveActiveOverride(ownerUserId, inferred.action_family, tool, body, context);
+  const mode = override?.public?.mode || companyRow?.mode || 'autonomous';
+  const constraintsOk = override ? override.constraints_ok : true;
+  return {
+    ok: mode !== 'prohibited' && constraintsOk,
+    mode,
+    risk_tier: inferred.risk_tier,
+    action_family: inferred.action_family,
+    classification_source: inferred.source,
+    constraints_ok: constraintsOk,
+    policy_scope: override?.public?.scope_type || 'company',
+    policy_scope_id: override?.public?.scope_id || null,
+    override_id: override?.public?.id || null,
+  };
+}
+
 export function upsertActionFamilyPolicies(ownerUserId, policies) {
   ensureActionPolicyTables();
   const owner = String(ownerUserId || '').trim();
@@ -405,6 +446,7 @@ export function evaluateActionPolicy({
   body = {},
   goalRunId = null,
   context = {},
+  approvalGrant = null,
 } = {}) {
   ensureActionPolicyTables();
   const tool = String(toolName || '').trim();
@@ -419,11 +461,11 @@ export function evaluateActionPolicy({
   }
   const mode = override?.public?.mode || companyRow?.mode || 'autonomous';
   const approval = mode === 'approval_required'
-    ? consumeActionApprovalGrant(ownerUserId, body?.approval_token, {
+    ? (approvalGrant?.ok === true ? approvalGrant : consumeActionApprovalGrant(ownerUserId, body?.approval_token, {
         family: inferred.action_family,
         toolName: tool,
         body,
-      })
+      }))
     : { ok: true };
 
   if (mode === 'prohibited') {
@@ -509,6 +551,12 @@ export function actionPolicyMiddleware(req, res, next) {
   const policyToolName = toolName === 'connector_execute_action'
     ? connectorPolicyToolName(req.body?.action_id || req.body?.actionId || req.body?.id)
     : toolName;
+  const rawAgentId = String(
+    req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || req.body?.agent_id || ''
+  ).trim();
+  const policyAgentId = parseTenantOpenClawAgentId(rawAgentId)?.baseOpenClawId || rawAgentId;
+  const sessionKey = String(req.headers['x-openclaw-session-key'] || req.headers['x-session-key'] || '').trim();
+  const channel = String(req.headers['x-openclaw-message-channel'] || req.headers['x-flolah-actor-channel'] || 'web').trim().toLowerCase();
 
   let ownerUserId = null;
   try {
@@ -542,11 +590,25 @@ export function actionPolicyMiddleware(req, res, next) {
     return next();
   }
 
+  const preview = previewActionPolicy({
+    ownerUserId,
+    toolName: policyToolName,
+    body: req.body || {},
+    context: {
+      goalId: req.headers['x-flolah-goal-id'] || req.body?.goal_id || req.body?.goal_run_id || req.body?.goalRunId,
+      workflowId: req.headers['x-flolah-workflow-id'] || req.body?.workflow_id || req.body?.definition_id || req.body?.workflowId,
+      agentId: policyAgentId,
+    },
+  });
+  const boundApproval = preview.mode === 'approval_required' && !req.body?.approval_token
+    ? consumeApprovedChatAction({ ownerUserId, agentId: policyAgentId, toolName: policyToolName, body: req.body || {} })
+    : null;
   const decision = evaluateActionPolicy({
     ownerUserId,
     toolName: policyToolName,
     body: req.body || {},
     goalRunId: req.body?.goal_run_id || req.body?.goalRunId || null,
+    approvalGrant: boundApproval,
     context: {
       goalId: req.headers['x-flolah-goal-id'] || req.body?.goal_id || req.body?.goal_run_id || req.body?.goalRunId,
       workflowId: req.headers['x-flolah-workflow-id'] || req.body?.workflow_id || req.body?.definition_id || req.body?.workflowId,
@@ -557,7 +619,30 @@ export function actionPolicyMiddleware(req, res, next) {
     },
   });
   if (decision?.ok === false) {
-    return res.status(Number(decision.status) || 403).json(decision);
+    const hasDurableExecutionContext = Boolean(
+      req.headers['x-flolah-goal-id'] || req.body?.goal_id || req.body?.goal_run_id || req.body?.goalRunId ||
+      req.headers['x-flolah-workflow-id'] || req.body?.workflow_id || req.body?.definition_id || req.body?.workflowId
+    );
+    const pending = decision.needs_approval && policyAgentId && !hasDurableExecutionContext
+      ? recordPendingChatAction({
+          ownerUserId,
+          agentId: policyAgentId,
+          sessionKey,
+          channel,
+          toolName: policyToolName,
+          actionFamily: decision.action_family,
+          body: req.body || {},
+        })
+      : null;
+    return res.status(Number(decision.status) || 403).json({
+      ...decision,
+      ...(pending ? {
+        pending_approval_id: pending.id,
+        approval_kanban_task_id: pending.kanban_task_id,
+        approval_expires_at: pending.expires_at,
+        approval_instruction: 'Ask the authorized user to approve this exact pending action in the same COO chat or use Approve in Kanban.',
+      } : {}),
+    });
   }
   req.actionPolicy = decision;
   return next();

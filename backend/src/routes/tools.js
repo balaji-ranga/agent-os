@@ -16,6 +16,7 @@ import { parseTenantOpenClawAgentId, resolveAgentFromOpenClawCallerId } from '..
 import { resolveOwnerFromOpenClawSession, lookupOpenClawSessionActor, lookupActiveDashboardChat, lookupSessionExecutionContext } from '../services/tool-owner-scope.js';
 import { resolveChannelActor, loadCompanyActor } from '../services/channel-user-identity.js';
 import { executeKanbanUserAction } from '../services/kanban-user-actions.js';
+import { decideChatActionApproval, executeApprovedChatAction } from '../services/chat-action-approval.js';
 import { withLlmopsContext, getLlmopsContext, inferTraceId } from '../services/llmops-context.js';
 import {
   startBrowserTask,
@@ -1997,6 +1998,43 @@ router.post('/kanban-user-action', optionalAuth, async (req, res) => {
   } catch (e) {
     const err = { error: e.message };
     logTool(req, 'kanban_user_action', req.body || {}, err, 'error', source);
+    res.status(e.status || 400).json(err);
+  }
+});
+
+/** COO-only decision for an exact pending Action Control request (web or mapped channel user). */
+router.post('/action-approval-decide', optionalAuth, async (req, res) => {
+  const source = String(req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || '').trim();
+  try {
+    if (!req.isInternalService) return res.status(403).json({ error: 'Internal verified tool hop required' });
+    const caller = getCallerAgent(req);
+    if (!caller?.is_coo) return res.status(403).json({ error: 'Only the COO may relay a user action approval' });
+    const ownerUserId = resolveToolOwnerUserIdOrNull(req, req.body || {}, resolveAuthenticatedCeoUserId);
+    const actorUserId = String(req.headers['x-flolah-actor-user-id'] || '').trim();
+    const channel = String(req.headers['x-openclaw-message-channel'] || req.headers['x-flolah-actor-channel'] || 'web').toLowerCase();
+    const actor = actorUserId
+      ? loadCompanyActor(ownerUserId, actorUserId)
+      : resolveChannelActor({ ownerUserId, senderId: req.headers['x-openclaw-requester-sender-id'], channel });
+    const evidence = String(req.body?.evidence || '').trim();
+    if (!evidence) return res.status(400).json({ error: 'Exact user approval or rejection evidence is required' });
+    const out = decideChatActionApproval({
+      ownerUserId,
+      agentId: caller.id,
+      approvalId: req.body?.pending_action_id || req.body?.approval_id || null,
+      decision: req.body?.decision,
+      actor,
+      channel,
+      evidence,
+    });
+    const execution = out.decision === 'approved'
+      ? await executeApprovedChatAction({ ownerUserId, approvalId: out.approval_id })
+      : null;
+    const response = { ...out, evidence_captured: true, actor_user_id: actor.id, execution };
+    logTool(req, 'action_approval_decide', req.body || {}, response, 'ok', source);
+    res.json(response);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'action_approval_decide', req.body || {}, err, 'error', source);
     res.status(e.status || 400).json(err);
   }
 });

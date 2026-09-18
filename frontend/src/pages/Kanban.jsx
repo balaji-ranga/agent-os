@@ -590,8 +590,8 @@ export default function Kanban() {
     api.kanbanActionApprovalRespond(selectedTask.id, { decision, comment: wfApprovalComment.trim() })
       .then((result) => {
         const msg = decision === 'approve'
-          ? `Approved — resumed goal ${result.goal_run_id}`
-          : `Rejected — stopped goal ${result.goal_run_id}`;
+          ? (result.goal_run_id ? `Approved — resumed goal ${result.goal_run_id}` : 'Approved — the exact pending action may continue once')
+          : (result.goal_run_id ? `Rejected — stopped goal ${result.goal_run_id}` : 'Rejected — the pending action will not run');
         setApproveSuccess(msg);
         showSuccess(msg);
         setWfApprovalComment('');
@@ -1171,7 +1171,7 @@ export default function Kanban() {
               <div style={{ position: 'sticky', top: 0, zIndex: 2, margin: '-1rem -1rem 1rem', padding: '0.75rem 1rem', borderBottom: '1px solid #ca8a04', background: 'rgba(202,138,4,0.12)' }}>
                 <strong>Action approval required</strong>
                 <div style={{ fontSize: '0.8rem', color: 'var(--muted)', margin: '4px 0 8px' }}>
-                  Approve resumes this exact paused goal step with a one-use grant. Reject stops the step.
+                  Approve permits only this exact pending action once. For a goal, execution resumes at the paused step. Reject stops the action.
                 </div>
                 {approveError && <div style={{ fontSize: '0.85rem', color: '#dc2626', marginBottom: 6 }}>{approveError}</div>}
                 {approveSuccess && <div style={{ fontSize: '0.85rem', color: '#166534', marginBottom: 6 }}>{approveSuccess}</div>}

@@ -30,6 +30,12 @@ import {
       'Platform RAG is keyword chunk retrieval via master_data_rag — not vector embeddings.'
     )
   );
+  assert.ok(
+    !shouldCompleteKanbanForReply(
+      'I attempted the payment entry and found the customer record. I was unable to fulfill the required exchange-rate field. Would you like me to seek clarification, or should I escalate this issue?'
+    ),
+    'a detailed attempt that still ends in an unresolved blocker must not complete Kanban'
+  );
   console.log('PASS status-only detection');
 }
 

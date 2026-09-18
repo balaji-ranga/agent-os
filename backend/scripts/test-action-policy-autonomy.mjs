@@ -15,18 +15,32 @@ try {
     db.prepare(`INSERT INTO platform_users (id,email,password_hash,name,role) VALUES (?,?,?,?,?)`)
       .run(id, `${id}@example.test`, 'x', id, 'ceo');
   }
+  db.prepare('UPDATE platform_users SET mobile=? WHERE id=?').run('+6590057664', owner);
 
   const {
     createActionApprovalGrant,
     ensureActionPolicyTables,
     evaluateActionPolicy,
+    previewActionPolicy,
     actionPolicyMiddleware,
     issueForwardedActionPolicyPass,
     listActionPolicyOverrides,
     upsertActionPolicyOverride,
     upsertActionFamilyPolicies,
   } = await import('../src/services/action-policy.js');
+  const {
+    recordPendingChatAction,
+    decideChatActionApproval,
+    decidePendingChatActionFromMessage,
+    consumeApprovedChatAction,
+    executeApprovedChatAction,
+  } = await import('../src/services/chat-action-approval.js');
+  const { resolveChannelActor } = await import('../src/services/channel-user-identity.js');
   ensureActionPolicyTables();
+
+  const { seedErpToolsIfMissing, seedEmailSendToolIfMissing } = await import('../src/db/seed-content-tools-meta.js');
+  seedErpToolsIfMissing();
+  seedEmailSendToolIfMissing();
 
   const policies = [
     { family: 'read', mode: 'autonomous' },
@@ -92,6 +106,139 @@ try {
     body: { approval_token: crossOwner.token },
   }).ok, false, 'approval grants are owner scoped');
 
+  // A normal chat confirmation is bound to the exact blocked action. It is
+  // owner + agent scoped, permits one identical retry, and cannot authorize a
+  // changed recipient/content or a replay.
+  const statusEmail = {
+    to: 'ceo@example.test',
+    subject: 'COO status report',
+    html: '<h1>Status</h1><p>Exact generated digest</p>',
+  };
+  const pendingChatAction = recordPendingChatAction({
+    ownerUserId: owner,
+    agentId: 'balserve',
+    sessionKey: 'agent::t-ceo-action-policy-test--balserve:chat-test',
+    channel: 'web',
+    toolName: 'email_send',
+    actionFamily: 'communicate_external',
+    body: statusEmail,
+  });
+  assert(pendingChatAction?.id);
+  const chatDecision = decidePendingChatActionFromMessage({
+    ownerUserId: owner,
+    agentId: 'balserve',
+    actor: { id: owner, role: 'ceo' },
+    channel: 'web',
+    message: 'Approved',
+  });
+  assert.equal(chatDecision?.decision, 'approved');
+  assert.equal(consumeApprovedChatAction({
+    ownerUserId: owner,
+    agentId: 'balserve',
+    toolName: 'email_send',
+    body: { ...statusEmail, to: 'changed@example.test' },
+  }), null, 'changed arguments cannot consume the bound approval');
+  const boundChatGrant = consumeApprovedChatAction({
+    ownerUserId: owner,
+    agentId: 'balserve',
+    toolName: 'email_send',
+    body: statusEmail,
+  });
+  assert.equal(boundChatGrant?.ok, true);
+  assert.equal(evaluateActionPolicy({
+    ownerUserId: owner,
+    toolName: 'email_send',
+    body: statusEmail,
+    approvalGrant: boundChatGrant,
+  }).ok, true, 'the identical approved email passes the execution gate');
+  assert.equal(consumeApprovedChatAction({
+    ownerUserId: owner,
+    agentId: 'balserve',
+    toolName: 'email_send',
+    body: statusEmail,
+  }), null, 'bound chat approval is one-use');
+
+  const whatsappEmail = { ...statusEmail, subject: 'WhatsApp-approved status report' };
+  const whatsappPending = recordPendingChatAction({
+    ownerUserId: owner, agentId: 'balserve', channel: 'whatsapp', toolName: 'email_send',
+    actionFamily: 'communicate_external', body: whatsappEmail,
+  });
+  const whatsappActor = resolveChannelActor({ ownerUserId: owner, senderId: 'whatsapp:+6590057664', channel: 'whatsapp' });
+  decideChatActionApproval({
+    ownerUserId: owner, approvalId: whatsappPending.id, decision: 'approve', actor: whatsappActor,
+    channel: 'whatsapp', evidence: 'Approved',
+  });
+  assert.equal(consumeApprovedChatAction({
+    ownerUserId: owner, agentId: 'balserve', toolName: 'email_send', body: whatsappEmail,
+  })?.ok, true, 'mapped WhatsApp CEO approval is accepted for the exact pending action');
+
+  const middlewareEmail = { ...statusEmail, subject: 'Middleware-bound status report' };
+  recordPendingChatAction({
+    ownerUserId: owner, agentId: 'balserve', channel: 'web', toolName: 'email_send',
+    actionFamily: 'communicate_external', body: middlewareEmail,
+  });
+  decidePendingChatActionFromMessage({
+    ownerUserId: owner, agentId: 'balserve', actor: { id: owner, role: 'ceo' },
+    channel: 'web', message: 'yes proceed',
+  });
+  const middlewareRequest = {
+    method: 'POST', path: '/email-send', body: middlewareEmail,
+    headers: { 'x-ceo-user-id': owner, 'x-openclaw-agent-id': `t-${owner}--balserve` },
+    authUser: { role: 'ceo', internal: true },
+  };
+  const responseStub = () => ({
+    statusCode: 200, body: null,
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; return this; },
+  });
+  let middlewareAllowed = false;
+  actionPolicyMiddleware(middlewareRequest, responseStub(), () => { middlewareAllowed = true; });
+  assert.equal(middlewareAllowed, true, 'middleware consumes the exact approved chat action');
+  assert.equal(middlewareRequest.actionPolicy.approval_grant_id?.startsWith('caa-'), true);
+  let middlewareReplayAllowed = false;
+  const middlewareReplayResponse = responseStub();
+  actionPolicyMiddleware({ ...middlewareRequest, actionPolicy: undefined }, middlewareReplayResponse, () => { middlewareReplayAllowed = true; });
+  assert.equal(middlewareReplayAllowed, false, 'middleware blocks replay after the bound approval is consumed');
+  assert.equal(middlewareReplayResponse.body?.needs_approval, true);
+
+  const exactExecutionEmail = {
+    to: 'ceo@example.test',
+    subject: 'Exact saved payload',
+    html: '<p>Do not regenerate this body.</p>',
+  };
+  const exactPending = recordPendingChatAction({
+    ownerUserId: owner, agentId: 'balserve', channel: 'web', toolName: 'email_send',
+    actionFamily: 'communicate_external', body: exactExecutionEmail,
+  });
+  assert.throws(() => decideChatActionApproval({
+    ownerUserId: owner,
+    approvalId: exactPending.id,
+    decision: 'approve',
+    actor: { id: 'ordinary-employee', role: 'org_user' },
+    channel: 'web',
+    evidence: 'Approved',
+  }), /Only the CEO or a CEO delegate/);
+  decideChatActionApproval({
+    ownerUserId: owner, approvalId: exactPending.id, decision: 'approve',
+    actor: { id: owner, role: 'ceo' }, channel: 'web', evidence: 'Approved',
+  });
+  const realFetch = globalThis.fetch;
+  let capturedApprovedRequest = null;
+  globalThis.fetch = async (url, options) => {
+    capturedApprovedRequest = { url: String(url), options };
+    return { ok: true, status: 200, json: async () => ({ sent: true, to: [exactExecutionEmail.to], subject: exactExecutionEmail.subject }) };
+  };
+  try {
+    const executed = await executeApprovedChatAction({ ownerUserId: owner, approvalId: exactPending.id });
+    assert.equal(executed.result.sent, true);
+    assert.deepEqual(JSON.parse(capturedApprovedRequest.options.body), exactExecutionEmail,
+      'approval continuation dispatches the exact saved payload rather than model-regenerated arguments');
+    assert.equal(capturedApprovedRequest.options.headers['x-ceo-user-id'], owner);
+    assert.equal(capturedApprovedRequest.options.headers['x-agent-id'], 'balserve');
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+
   const prohibited = evaluateActionPolicy({
     ownerUserId: owner,
     toolName: 'delete_customer',
@@ -100,6 +247,64 @@ try {
   assert.equal(prohibited.ok, false);
   assert.equal(prohibited.mode, 'prohibited');
   assert.equal(prohibited.needs_approval, false);
+
+  for (const toolName of ['erp_create_payment_entry', 'erp_create_journal_entry', 'erp_submit_doc', 'erp_cancel_doc']) {
+    const financial = evaluateActionPolicy({ ownerUserId: owner, toolName, body: { amount: 100 } });
+    assert.equal(financial.ok, false, `${toolName} must be blocked at the execution boundary`);
+    assert.equal(financial.mode, 'prohibited');
+    assert.equal(financial.risk_tier, 'R3');
+    assert.equal(financial.action_family, 'financial_destructive');
+  }
+  const paymentRead = evaluateActionPolicy({ ownerUserId: owner, toolName: 'erp_list_payment_entries', body: {} });
+  assert.equal(paymentRead.ok, true, 'read-only payment listing remains available');
+  assert.equal(paymentRead.action_family, 'read');
+
+  const preview = previewActionPolicy({ ownerUserId: owner, toolName: 'erp_create_payment_entry' });
+  assert.equal(preview.ok, false);
+  assert.equal(preview.mode, 'prohibited');
+  const { preflightRoutedCapabilities } = await import('../src/services/route-action-policy.js');
+  const routedPayment = preflightRoutedCapabilities({
+    ownerUserId: owner,
+    requestText: 'Make a payment from my card',
+    route: {
+      target_agent_id: 'erp-invoice-agent',
+      executor_evidence: { capability_names: ['erp_list_payment_entries', 'erp_create_payment_entry'] },
+    },
+  });
+  assert.equal(routedPayment.ok, false, 'prohibited routed capability must stop before delegation');
+  assert.equal(routedPayment.blocked.tool_name, 'erp_create_payment_entry');
+  const routedRead = preflightRoutedCapabilities({
+    ownerUserId: owner,
+    route: { target_agent_id: 'erp-invoice-agent', executor_evidence: { capability_names: ['erp_list_payment_entries'] } },
+  });
+  assert.equal(routedRead.ok, true, 'read-only delegation remains available');
+
+  upsertActionFamilyPolicies(owner, [{ family: 'financial_destructive', mode: 'autonomous' }]);
+  const autonomousPaymentRoute = preflightRoutedCapabilities({
+    ownerUserId: owner,
+    requestText: 'Record the approved payment',
+    route: {
+      target_agent_id: 'erp-invoice-agent',
+      executor_evidence: { capability_names: ['erp_create_payment_entry'] },
+    },
+  });
+  assert.equal(autonomousPaymentRoute.ok, true, 'Autonomous company policy permits ERP payment delegation');
+  const autonomousPaymentExecution = evaluateActionPolicy({
+    ownerUserId: owner,
+    toolName: 'erp_create_payment_entry',
+    body: { paid_amount: 100, received_amount: 100 },
+  });
+  assert.equal(autonomousPaymentExecution.ok, true, 'Autonomous company policy permits ERP payment execution');
+  assert.equal(autonomousPaymentExecution.mode, 'autonomous');
+  upsertActionFamilyPolicies(owner, [{ family: 'financial_destructive', mode: 'prohibited' }]);
+  assert.equal(
+    preflightRoutedCapabilities({
+      ownerUserId: owner,
+      route: { target_agent_id: 'erp-invoice-agent', executor_evidence: { capability_names: ['erp_create_payment_entry'] } },
+    }).ok,
+    false,
+    'restoring Prohibited closes the delegation gate again'
+  );
 
   db.prepare(
     `INSERT INTO content_tools_meta
@@ -226,8 +431,15 @@ try {
   console.log(JSON.stringify({
     passed: true,
     autonomous: ['company_search', 'kanban_create'],
-    approval_required: { tool: 'email_send', self_approval_blocked: true, scoped_grant_consumed: true, replay_blocked: true },
-    prohibited: ['delete_customer', 'innocent_lookup_name'],
+    approval_required: {
+      tool: 'email_send', self_approval_blocked: true, scoped_grant_consumed: true,
+      chat_confirmation_bound: true, exact_saved_payload_dispatched: true,
+      whatsapp_identity_verified: true, unauthorized_employee_blocked: true,
+      changed_action_blocked: true, replay_blocked: true,
+    },
+    prohibited: ['delete_customer', 'innocent_lookup_name', 'erp_create_payment_entry', 'erp_create_journal_entry', 'erp_submit_doc', 'erp_cancel_doc'],
+    routed_financial_preflight: true,
+    autonomous_financial_route_and_execution: true,
     owner_isolation: true,
     scoped_overrides: {
       precedence: ['goal', 'workflow', 'agent', 'tool', 'company'],
@@ -239,5 +451,5 @@ try {
   }, null, 2));
   db.close();
 } finally {
-  rmSync(dataDir, { recursive: true, force: true });
+  try { rmSync(dataDir, { recursive: true, force: true }); } catch (_) {}
 }

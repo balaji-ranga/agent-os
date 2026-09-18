@@ -61,7 +61,8 @@ export function isWorkflowCeoApprovalTask(task) {
 }
 
 export function isGoalActionApprovalTask(task) {
-  return String(task?.description || '').includes('[GOAL_ACTION_APPROVAL]');
+  const description = String(task?.description || '');
+  return description.includes('[GOAL_ACTION_APPROVAL]') || description.includes('[CHAT_ACTION_APPROVAL]');
 }
 
 export function isCeoJobReviewTask(task) {

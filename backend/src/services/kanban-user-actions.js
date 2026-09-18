@@ -2,6 +2,7 @@ import { getDb } from '../db/schema.js';
 import { isCeoDelegate } from './org-permissions.js';
 import { respondToGoalRecoveryKanban, respondToHumanGoalTask } from './agent-goal-run.js';
 import { getGoalActionApprovalByKanban, respondToGoalActionApproval } from './goal-action-approval.js';
+import { getChatActionApprovalByKanban, decideChatActionApproval, executeApprovedChatAction } from './chat-action-approval.js';
 import { clearKanbanTaskNotification } from './platform-notifications.js';
 
 function db() { return getDb(); }
@@ -67,8 +68,15 @@ export async function executeKanbanUserAction(input) {
   } else if (['complete','unable','question'].includes(action) && task.goal_run_id && task.goal_step_id) {
     result = await respondToHumanGoalTask({ ownerUserId: input.ownerUserId, actorUserId: input.actor.id, taskId: Number(task.id), action, outcome: evidenceMessage, authorizedActor: true });
   } else if (['approve','reject'].includes(action)) {
+    const chatApproval = getChatActionApprovalByKanban(input.ownerUserId, task.id);
     const approval = getGoalActionApprovalByKanban(input.ownerUserId, task.id);
-    if (approval) result = await respondToGoalActionApproval({ ownerUserId: input.ownerUserId, kanbanTaskId: task.id, decision: action, comment: evidenceMessage, actor: input.actor });
+    if (chatApproval) {
+      result = decideChatActionApproval({ ownerUserId: input.ownerUserId, kanbanTaskId: task.id, decision: action, actor: input.actor, channel: input.channel, evidence: evidenceMessage });
+      if (result.decision === 'approved') {
+        result.execution = await executeApprovedChatAction({ ownerUserId: input.ownerUserId, approvalId: result.approval_id });
+      }
+    }
+    else if (approval) result = await respondToGoalActionApproval({ ownerUserId: input.ownerUserId, kanbanTaskId: task.id, decision: action, comment: evidenceMessage, actor: input.actor });
     else {
       const { completeCeoApprovalResponse } = await import('./agent-workflow-runner.js');
       result = await completeCeoApprovalResponse({ kanbanTaskId: task.id, decision: action, comment: evidenceMessage, actor: input.actor, ownerUserId: input.ownerUserId });

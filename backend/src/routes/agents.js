@@ -79,6 +79,8 @@ import {
   simpleCourtesyReply,
 } from '../services/dashboard-chat-context.js';
 import { routeAgentTurn, bindWorkUnitExecution } from '../services/agent-turn-router.js';
+import { preflightRoutedCapabilities, prohibitedRouteReply } from '../services/route-action-policy.js';
+import { decidePendingChatActionFromMessage, executeApprovedChatAction } from '../services/chat-action-approval.js';
 import { createAndStartGoalRun } from '../services/agent-goal-run.js';
 import {
   beginChatActivity,
@@ -874,6 +876,48 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
         String(req.body?.tz || req.headers['x-timezone'] || process.env.TZ || 'UTC').trim() || 'UTC',
       generateTitle: true,
     });
+    const chatActionDecision = decidePendingChatActionFromMessage({
+      ownerUserId,
+      agentId: agent.id,
+      actor: req.authUser,
+      channel: 'web',
+      message,
+    });
+    if (chatActionDecision) {
+      insertChatTurn({ agentId, ownerUserId, role: 'user', content: message, sessionId: ensuredSession.session.id });
+      let replyText;
+      let approvalExecution = null;
+      if (chatActionDecision.decision === 'approved') {
+        try {
+          approvalExecution = await executeApprovedChatAction({
+            ownerUserId,
+            approvalId: chatActionDecision.approval_id,
+          });
+          const result = approvalExecution.result || {};
+          const destination = Array.isArray(result.to) ? result.to.join(', ') : (result.to || 'the approved destination');
+          replyText = result.sent === true
+            ? `Approved and completed. The email was sent to ${destination}${result.subject ? ` with subject “${result.subject}”` : ''}.`
+            : `Approved and completed the exact pending ${chatActionDecision.tool_name} action.`;
+        } catch (approvalError) {
+          replyText = `Your approval was recorded, but the exact ${chatActionDecision.tool_name} action failed: ${approvalError.message}`;
+          approvalExecution = { ok: false, error: approvalError.message };
+        }
+      } else {
+        replyText = `Rejected. The pending ${chatActionDecision.tool_name} action was not executed.`;
+      }
+      insertChatTurn({ agentId, ownerUserId, role: 'assistant', content: replyText, sessionId: ensuredSession.session.id });
+      if (liveScope) finishChatActivity(liveScope, { label: chatActionDecision.decision === 'approved' ? 'Approved action completed' : 'Action rejected' });
+      return res.json({
+        reply: replyText,
+        usage: { input_tokens: 0, output_tokens: 0, total_tokens: 0 },
+        agent_id: agentId,
+        work_unit: null,
+        tool_calls: [],
+        thread_id: getChatThreadId(agentId, ownerUserId),
+        action_approval: { ...chatActionDecision, execution: approvalExecution },
+        workflow_triggered: null,
+      });
+    }
     // Courtesy turns are complete conversations, not routing or retrieval jobs.
     // Resolve them before semantic routing so a greeting remains instant even
     // when an LLM endpoint or OpenClaw is unavailable.
@@ -913,7 +957,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
       replyToMessageId: replyId ? Number(replyId) : null,
     });
     const resolvedMessage = turnRoute.resolved_request || message.trim();
-    const routedMessage = (resolvedMessage.includes(replyContext) ? resolvedMessage : resolvedMessage + replyContext)
+    let routedMessage = (resolvedMessage.includes(replyContext) ? resolvedMessage : resolvedMessage + replyContext)
       + workUnitBrowserEvidence(db(), ownerUserId, turnRoute.parent_work_unit_id);
     const isPlatformHelp = String(agentId || '').toLowerCase() === 'platformhelp' ||
       String(agent.openclaw_agent_id || '').toLowerCase().endsWith('platformhelp');
@@ -1089,6 +1133,27 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
       }
 
       // Hard path: specialty work / "delegate …" — schedule real agents, don't let COO do the work
+      if (turnRoute.execution_mode === 'delegate') {
+        const policyPreflight = preflightRoutedCapabilities({
+          ownerUserId,
+          route: turnRoute,
+          requestText: routedMessage,
+        });
+        if (!policyPreflight.ok) {
+          const reply = prohibitedRouteReply(policyPreflight.blocked);
+          bindWorkUnitExecution(turnRoute.id, null, 'completed');
+          insertChatTurn({ agentId, ownerUserId, role: 'user', content: message, workUnitId: turnRoute.id });
+          insertChatTurn({ agentId, ownerUserId, role: 'assistant', content: reply, workUnitId: turnRoute.id });
+          if (liveScope) finishChatActivity(liveScope, { label: 'Blocked by company policy' });
+          return res.json({
+            reply,
+            agent_id: agentId,
+            work_unit: turnRoute,
+            policy_denial: policyPreflight.blocked,
+            workflow_triggered: null,
+          });
+        }
+      }
       const delegated = turnRoute.execution_mode === 'delegate'
         ? await tryHandleCooSpecialtyDelegation(ownerUserId, routedMessage, {
             actingUser: req.authUser,

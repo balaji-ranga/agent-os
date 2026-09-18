@@ -46,6 +46,14 @@ const BUILTIN_TOOLS = [
     model_used: '', enabled: 1, is_builtin: 1,
   },
   {
+    name: 'action_approval_decide',
+    display_name: 'Approve or Reject Pending Action',
+    endpoint: '/api/tools/action-approval-decide',
+    method: 'POST',
+    purpose: 'COO-only API tool for an explicit approval/rejection received from the verified current web or WhatsApp user. Body: {decision:"approve"|"reject", pending_action_id?, evidence:"exact user confirmation"}. Omit pending_action_id only to decide the latest unexpired action in this COO conversation. Approval permits only the identical blocked tool arguments once; never call without an explicit current user confirmation.',
+    model_used: '', risk_tier: 'R1', action_family: 'write_internal', enabled: 1, is_builtin: 1,
+  },
+  {
     name: 'kanban_move_status',
     display_name: 'Kanban Move Status',
     endpoint: '/api/tools/kanban-move-status',
@@ -973,6 +981,7 @@ const BUILTIN_TOOLS = [
 const KANBAN_TOOLS = BUILTIN_TOOLS.filter((t) =>
   [
     'kanban_user_action',
+    'action_approval_decide',
     'kanban_move_status',
     'kanban_reassign_to_coo',
     'kanban_assign_task',
@@ -1977,8 +1986,10 @@ const ERP_TOOLS_META = [
     display_name: 'ERP Create Payment Entry',
     endpoint: '/api/tools/erp-create-payment-entry',
     method: 'POST',
-    purpose: 'Create Payment Entry (use Checker for large posts).',
+    purpose: 'Create an ERP Payment Entry. This is a financial transaction record and is governed by the Financial / destructive Action Control policy.',
     model_used: '',
+    risk_tier: 'R3',
+    action_family: 'financial_destructive',
     enabled: 1,
     is_builtin: 1,
   },
@@ -1999,6 +2010,8 @@ const ERP_TOOLS_META = [
     method: 'POST',
     purpose: 'Create Journal Entry draft.',
     model_used: '',
+    risk_tier: 'R3',
+    action_family: 'financial_destructive',
     enabled: 1,
     is_builtin: 1,
   },
@@ -2169,6 +2182,8 @@ const ERP_TOOLS_META = [
     method: 'POST',
     purpose: 'Submit Frappe document (docstatus 1). Prefer Checker for cash impact.',
     model_used: '',
+    risk_tier: 'R3',
+    action_family: 'financial_destructive',
     enabled: 1,
     is_builtin: 1,
   },
@@ -2179,6 +2194,8 @@ const ERP_TOOLS_META = [
     method: 'POST',
     purpose: 'Cancel submitted Frappe document. Prefer Checker approval.',
     model_used: '',
+    risk_tier: 'R3',
+    action_family: 'financial_destructive',
     enabled: 1,
     is_builtin: 1,
   },
@@ -2208,6 +2225,12 @@ export function seedErpToolsIfMissing() {
   );
   for (const t of ERP_TOOLS_META) {
     update.run(t.purpose, t.display_name, t.endpoint, t.method, t.name);
+    try {
+      db.prepare('UPDATE content_tools_meta SET risk_tier = ?, action_family = ? WHERE name = ?')
+        .run(t.risk_tier || '', t.action_family || '', t.name);
+    } catch (_) {
+      // Older databases add these columns lazily in action-policy initialization.
+    }
   }
 }
 
