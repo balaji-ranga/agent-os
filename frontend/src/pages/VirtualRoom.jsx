@@ -1025,7 +1025,8 @@ export default function VirtualRoom() {
         ((failedSteps.length > 0 && failedSteps.every((step) => step.node_type === 'model3d')) ||
           /elevenlabs|\btts\b|text.?to.?speech/i.test(failureText));
       if (optionalVoiceFailure) {
-        setError(`Voice unavailable; text response completed. ${failureText}`);
+        console.warn('[VirtualRoom] optional voice output failed', failureText);
+        setError('Voice unavailable; text response completed.');
       } else {
         throw new Error(failureText);
       }
