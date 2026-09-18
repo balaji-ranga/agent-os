@@ -1017,7 +1017,19 @@ export default function VirtualRoom() {
       }
       if (final.status === 'completed' || final.status === 'failed') break;
     }
-    if (final.status === 'failed') throw new Error(final.error_message || 'Outbound run failed');
+    if (final.status === 'failed') {
+      const failedSteps = (final.steps || []).filter((step) => step.status === 'failed');
+      const failureText = String(final.error_message || 'Outbound run failed');
+      const optionalVoiceFailure =
+        transcriptAdded &&
+        ((failedSteps.length > 0 && failedSteps.every((step) => step.node_type === 'model3d')) ||
+          /elevenlabs|\btts\b|text.?to.?speech/i.test(failureText));
+      if (optionalVoiceFailure) {
+        setError(`Voice unavailable; text response completed. ${failureText}`);
+      } else {
+        throw new Error(failureText);
+      }
+    }
     if (!played) {
       const step = (final.steps || []).find((s) => s.node_type === 'model3d' && s.status === 'completed');
       const playback = step?.output?.playback || step?.output?.result;
