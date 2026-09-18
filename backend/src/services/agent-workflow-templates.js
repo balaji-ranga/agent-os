@@ -65,7 +65,7 @@ const FAST_STT_CONFIG = {
   apiKeyRef: ELEVENLABS_KEY_REF,
 };
 
-function brainAnimationNode(id, x, y, catalog = [], idleClip = null) {
+function brainAnimationNode(id, x, y, catalog = [], idleClip = null, apiKeyRef = null) {
   const catalogText = JSON.stringify(catalog || [], null, 2);
   const classified = classifyAnimationCatalog(catalog);
   const preferredIdle = idleClip || classified.idle;
@@ -76,9 +76,11 @@ function brainAnimationNode(id, x, y, catalog = [], idleClip = null) {
     data: {
       label: 'Animation + visemes',
       taskConfig: {
-        modelSource: 'ollama',
-        model: 'llama3.2',
-        maxTokens: 900,
+        modelSource: apiKeyRef ? 'openai' : 'ollama',
+        model: apiKeyRef ? 'gpt-4o-mini' : 'llama3.2',
+        ...(apiKeyRef ? { apiKeyRef } : {}),
+        thinkingMode: 'off',
+        maxTokens: 500,
         systemPrompt: `${buildAnimationPlannerPrompt(catalog)}
 
 Full catalog JSON:
@@ -112,7 +114,7 @@ Use media_slots when emitting sceneOutputs; leave sceneOutputs [] if slots empty
   };
 }
 
-function model3dSpeakNode(id, x, y, avatarId, audioSourceId, animSourceId) {
+function model3dSpeakNode(id, x, y, avatarId, audioSourceId, animSourceId = null) {
   return {
     id,
     type: 'model3d',
@@ -129,14 +131,21 @@ function model3dSpeakNode(id, x, y, avatarId, audioSourceId, animSourceId) {
           sourceOutputKey: 'audio',
           value: '',
         },
-        {
-          id: 'animation',
-          label: 'Animation',
-          mode: 'dynamic',
-          sourceNodeId: animSourceId,
-          sourceOutputKey: 'text',
-          value: '',
-        },
+        animSourceId
+          ? {
+              id: 'animation',
+              label: 'Animation',
+              mode: 'dynamic',
+              sourceNodeId: animSourceId,
+              sourceOutputKey: 'text',
+              value: '',
+            }
+          : {
+              id: 'animation',
+              label: 'Animation',
+              mode: 'static',
+              value: '{}',
+            },
         {
           id: 'text',
           label: 'Reply text (viseme hint)',
@@ -160,7 +169,7 @@ function model3dSpeakNode(id, x, y, avatarId, audioSourceId, animSourceId) {
   };
 }
 
-/** Avatar speaks: agent → parallel(TTS + Brain anim/visemes) → merge → model3d */
+/** Avatar speaks: TTS is independent; optional OpenAI BYOK animation joins before model3d. */
 export function buildAvatarOutboundGraph({
   agentId = '',
   agentName = 'Agent',
@@ -168,6 +177,7 @@ export function buildAvatarOutboundGraph({
   animationCatalog = [],
   idleClip = null,
   voiceId = null,
+  animationPlannerKeyRef = null,
 } = {}) {
   return {
     nodes: [
@@ -210,19 +220,9 @@ User message:
         ),
       },
       {
-        id: 'parallel-1',
-        type: 'parallel',
-        position: { x: 460, y: 160 },
-        data: {
-          label: 'TTS ∥ Animation',
-          inputBindings: [],
-          outputs: [{ id: 'parallel', label: 'Branches' }],
-        },
-      },
-      {
         id: 'elevenlabs-1',
         type: 'elevenlabs',
-        position: { x: 680, y: 60 },
+        position: { x: animationPlannerKeyRef ? 680 : 500, y: animationPlannerKeyRef ? 60 : 160 },
         data: {
           label: 'ElevenLabs TTS (Flash)',
           taskConfig: { ...FAST_TTS_CONFIG, ...(voiceId ? { voiceId } : {}) },
@@ -242,34 +242,43 @@ User message:
           ],
         },
       },
-      brainAnimationNode('brain-1', 680, 260, animationCatalog, idleClip),
-      {
-        id: 'merge-1',
-        type: 'merge',
-        position: { x: 920, y: 160 },
-        data: {
-          label: 'Merge',
-          inputBindings: [],
-          outputs: [{ id: 'merged', label: 'Merged' }],
-        },
-      },
-      model3dSpeakNode('model3d-1', 1120, 160, avatarId, 'elevenlabs-1', 'brain-1'),
+      ...(animationPlannerKeyRef
+        ? [
+            brainAnimationNode('brain-1', 680, 260, animationCatalog, idleClip, animationPlannerKeyRef),
+            {
+              id: 'merge-1',
+              type: 'merge',
+              position: { x: 920, y: 160 },
+              data: {
+                label: 'Merge',
+                inputBindings: [],
+                outputs: [{ id: 'merged', label: 'Merged' }],
+              },
+            },
+            model3dSpeakNode('model3d-1', 1120, 160, avatarId, 'elevenlabs-1', 'brain-1'),
+          ]
+        : [model3dSpeakNode('model3d-1', 760, 160, avatarId, 'elevenlabs-1')]),
     ],
-    edges: [
-      { id: 'e1', source: 'trigger-1', target: 'agent-1' },
-      { id: 'e2', source: 'agent-1', target: 'parallel-1' },
-      { id: 'e3', source: 'parallel-1', target: 'elevenlabs-1' },
-      { id: 'e4', source: 'parallel-1', target: 'brain-1' },
-      { id: 'e5', source: 'elevenlabs-1', target: 'merge-1' },
-      { id: 'e6', source: 'brain-1', target: 'merge-1' },
-      { id: 'e7', source: 'merge-1', target: 'model3d-1' },
-    ],
+    edges: animationPlannerKeyRef
+      ? [
+          { id: 'e1', source: 'trigger-1', target: 'agent-1' },
+          { id: 'e2', source: 'agent-1', target: 'elevenlabs-1' },
+          { id: 'e3', source: 'agent-1', target: 'brain-1' },
+          { id: 'e4', source: 'elevenlabs-1', target: 'merge-1' },
+          { id: 'e5', source: 'brain-1', target: 'merge-1' },
+          { id: 'e6', source: 'merge-1', target: 'model3d-1' },
+        ]
+      : [
+          { id: 'e1', source: 'trigger-1', target: 'agent-1' },
+          { id: 'e2', source: 'agent-1', target: 'elevenlabs-1' },
+          { id: 'e3', source: 'elevenlabs-1', target: 'model3d-1' },
+        ],
     viewport: { x: 0, y: 0, zoom: 0.8 },
   };
 }
 
 /**
- * Avatar listens: STT → agent → parallel(TTS + Brain) → merge → model3d
+ * Avatar listens: STT + agent, then independent TTS and optional OpenAI BYOK animation.
  */
 export function buildAvatarInboundGraph({
   agentId = '',
@@ -279,6 +288,7 @@ export function buildAvatarInboundGraph({
   animationCatalog = [],
   idleClip = null,
   voiceId = null,
+  animationPlannerKeyRef = null,
 } = {}) {
   return {
     nodes: [
@@ -335,19 +345,9 @@ User message:
         ),
       },
       {
-        id: 'parallel-1',
-        type: 'parallel',
-        position: { x: 680, y: 160 },
-        data: {
-          label: 'TTS ∥ Animation',
-          inputBindings: [],
-          outputs: [{ id: 'parallel', label: 'Branches' }],
-        },
-      },
-      {
         id: 'elevenlabs-tts',
         type: 'elevenlabs',
-        position: { x: 900, y: 60 },
+        position: { x: animationPlannerKeyRef ? 900 : 720, y: animationPlannerKeyRef ? 60 : 160 },
         data: {
           label: 'ElevenLabs TTS (Flash)',
           taskConfig: { ...FAST_TTS_CONFIG, ...(voiceId ? { voiceId } : {}) },
@@ -367,29 +367,39 @@ User message:
           ],
         },
       },
-      brainAnimationNode('brain-1', 900, 260, animationCatalog, idleClip),
-      {
-        id: 'merge-1',
-        type: 'merge',
-        position: { x: 1140, y: 160 },
-        data: {
-          label: 'Merge',
-          inputBindings: [],
-          outputs: [{ id: 'merged', label: 'Merged' }],
-        },
-      },
-      model3dSpeakNode('model3d-1', 1340, 160, avatarId, 'elevenlabs-tts', 'brain-1'),
+      ...(animationPlannerKeyRef
+        ? [
+            brainAnimationNode('brain-1', 900, 260, animationCatalog, idleClip, animationPlannerKeyRef),
+            {
+              id: 'merge-1',
+              type: 'merge',
+              position: { x: 1140, y: 160 },
+              data: {
+                label: 'Merge',
+                inputBindings: [],
+                outputs: [{ id: 'merged', label: 'Merged' }],
+              },
+            },
+            model3dSpeakNode('model3d-1', 1340, 160, avatarId, 'elevenlabs-tts', 'brain-1'),
+          ]
+        : [model3dSpeakNode('model3d-1', 980, 160, avatarId, 'elevenlabs-tts')]),
     ],
-    edges: [
-      { id: 'e1', source: 'trigger-1', target: 'elevenlabs-stt' },
-      { id: 'e2', source: 'elevenlabs-stt', target: 'agent-1' },
-      { id: 'e3', source: 'agent-1', target: 'parallel-1' },
-      { id: 'e4', source: 'parallel-1', target: 'elevenlabs-tts' },
-      { id: 'e5', source: 'parallel-1', target: 'brain-1' },
-      { id: 'e6', source: 'elevenlabs-tts', target: 'merge-1' },
-      { id: 'e7', source: 'brain-1', target: 'merge-1' },
-      { id: 'e8', source: 'merge-1', target: 'model3d-1' },
-    ],
+    edges: animationPlannerKeyRef
+      ? [
+          { id: 'e1', source: 'trigger-1', target: 'elevenlabs-stt' },
+          { id: 'e2', source: 'elevenlabs-stt', target: 'agent-1' },
+          { id: 'e3', source: 'agent-1', target: 'elevenlabs-tts' },
+          { id: 'e4', source: 'agent-1', target: 'brain-1' },
+          { id: 'e5', source: 'elevenlabs-tts', target: 'merge-1' },
+          { id: 'e6', source: 'brain-1', target: 'merge-1' },
+          { id: 'e7', source: 'merge-1', target: 'model3d-1' },
+        ]
+      : [
+          { id: 'e1', source: 'trigger-1', target: 'elevenlabs-stt' },
+          { id: 'e2', source: 'elevenlabs-stt', target: 'agent-1' },
+          { id: 'e3', source: 'agent-1', target: 'elevenlabs-tts' },
+          { id: 'e4', source: 'elevenlabs-tts', target: 'model3d-1' },
+        ],
     viewport: { x: 0, y: 0, zoom: 0.75 },
     meta: { outboundWorkflowId: outboundWorkflowId || null },
   };

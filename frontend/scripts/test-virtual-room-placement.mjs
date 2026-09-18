@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { findSceneSpawn, resolveAvatarSpawn } from '../src/utils/virtualRoomPlacement.js';
+import { animationOnlyPlayback, ttsPlaybackFromSteps } from '../src/utils/virtualRoomPlayback.js';
 
 const member = { avatar_id: 'avatar-1', handle: 'trainer', position: { x: -0.7, y: 0, z: 0 } };
 assert.deepEqual(
@@ -23,3 +24,19 @@ assert.equal(
 );
 console.log('Virtual Room placement checks passed.');
 
+const directTts = ttsPlaybackFromSteps(
+  [
+    { node_type: 'agent', status: 'completed', output: { text: 'Hello and welcome.' } },
+    { node_type: 'elevenlabs', status: 'completed', output: { audio: { artifactId: 'a1', url: '/audio/a1' } } },
+  ],
+  'avatar-1',
+  ['HumanArmature|Man_Clapping', 'HumanArmature|Man_Idle']
+);
+assert.equal(directTts.audioUrl, '/audio/a1');
+assert.equal(directTts.avatarId, 'avatar-1');
+assert.equal(directTts.idle, 'HumanArmature|Man_Idle');
+assert.equal(directTts.animations[0]?.name, 'HumanArmature|Man_Clapping');
+assert.equal(animationOnlyPlayback({ audioUrl: '/audio/a1', animations: [{ name: 'Wave' }] }, true).audioUrl, null);
+assert.equal(animationOnlyPlayback({ audioUrl: '/audio/a1' }, false).audioUrl, '/audio/a1');
+
+console.log('Virtual Room early playback checks passed.');

@@ -350,6 +350,23 @@ function extractChartLikeFromContext(context) {
   return extractChartLikePayload(text);
 }
 
+/** Reject hallucinated/example media references before they can suppress real generation. */
+export function isUsableAvatarMediaUrl(raw) {
+  const value = String(raw || '').trim();
+  if (!value) return false;
+  if (/^<[^>]+>$/.test(value)) return false;
+  if (/\b(?:image|video|media)[_-]?(?:url|link)[_-]?(?:here|placeholder)\b/i.test(value)) return false;
+  if (/\b(?:placeholder|example|your[_ -]?url|insert[_ -]?url)\b/i.test(value)) return false;
+  return (
+    /^https?:\/\//i.test(value) ||
+    /^\/?api\/media\//i.test(value) ||
+    /^MEDIA:\s*(?:\/|sandbox:)/i.test(value) ||
+    /^sandbox:(?:\/api\/media\/|\/media\/)/i.test(value) ||
+    /(?:^|\/)\.openclaw\/media\//i.test(value) ||
+    /\.(?:png|jpe?g|gif|webp|mp4|webm)(?:\?|$)/i.test(value)
+  );
+}
+
 /** Pull image/video URLs from agent markdown or plain absolute/API paths. */
 function extractMediaUrlsFromText(text) {
   const s = String(text || '');
@@ -369,8 +386,9 @@ function extractMediaUrlsFromText(text) {
     return u;
   };
   const push = (url, kindHint) => {
+    if (!isUsableAvatarMediaUrl(url)) return;
     const u = normalize(url);
-    if (!u) return;
+    if (!u || !isUsableAvatarMediaUrl(u)) return;
     const kind = kindHint || (/\.(mp4|webm)(\?|$)/i.test(u) ? 'video' : 'image');
     if (!out.some((x) => x.url === u)) out.push({ kind, url: u });
   };
@@ -379,6 +397,8 @@ function extractMediaUrlsFromText(text) {
   while ((m = mdImg.exec(s))) push(m[1], 'image');
   const mdLink = /\[[^\]]*\]\(([^)]*api\/media\/[^)]+)\)/gi;
   while ((m = mdLink.exec(s))) push(m[1]);
+  const mediaLine = /MEDIA:\s*((?:\/|sandbox:)[^\s)\]"'<>]+)/gi;
+  while ((m = mediaLine.exec(s))) push(`MEDIA:${m[1]}`);
   const urlRe =
     /(?:https?:\/\/[^\s)\]"'<>]+)|(?:\/?api\/media\/[^\s)\]"'<>]*?\.(?:\s*)(?:png|jpe?g|gif|webp|mp4|webm))/gi;
   while ((m = urlRe.exec(s))) push(m[0]);
@@ -570,17 +590,17 @@ async function fulfillRequestedMedia(owner, userInput, replyHint, sceneOutputs, 
   }
 
   const imageCount = () =>
-    outs.filter((o) => String(o.kind).toLowerCase() === 'image' && (o.payload?.url || o.payload?.mediaUrl) && !/chart/i.test(String(o.slotId || ''))).length;
+    outs.filter((o) => String(o.kind).toLowerCase() === 'image' && isUsableAvatarMediaUrl(o.payload?.url || o.payload?.mediaUrl) && !/chart/i.test(String(o.slotId || ''))).length;
   const videoCount = () =>
-    outs.filter((o) => String(o.kind).toLowerCase() === 'video' && (o.payload?.url || o.payload?.mediaUrl)).length;
+    outs.filter((o) => String(o.kind).toLowerCase() === 'video' && isUsableAvatarMediaUrl(o.payload?.url || o.payload?.mediaUrl)).length;
   const hasChartVisual = () =>
     outs.some((o) => {
       if (/chart|graph/i.test(String(o.kind || ''))) {
         const chart = o.payload?.chart || (o.payload?.values ? o.payload : null);
         if (isPlaceholderChart(chart)) return false;
-        if (chart || o.payload?.url || o.payload?.mediaUrl) return true;
+        if (chart || isUsableAvatarMediaUrl(o.payload?.url || o.payload?.mediaUrl)) return true;
       }
-      return /chart/i.test(String(o.slotId || '')) && (o.payload?.url || o.payload?.mediaUrl);
+      return /chart/i.test(String(o.slotId || '')) && isUsableAvatarMediaUrl(o.payload?.url || o.payload?.mediaUrl);
     });
 
   const needImages = Math.max(0, intents.images.length - imageCount());
@@ -704,9 +724,14 @@ async function fulfillRequestedMedia(owner, userInput, replyHint, sceneOutputs, 
     }
   }
 
-  // Drop accidental Demo placeholder charts.
+  // Drop accidental Demo placeholder charts and hallucinated media URLs.
   outs = outs.filter((o) => {
     const c = o?.payload?.chart;
+    const kind = String(o?.kind || '').toLowerCase();
+    if ((kind === 'image' || kind === 'video') && !isUsableAvatarMediaUrl(o?.payload?.url || o?.payload?.mediaUrl)) {
+      console.warn('[model3d] dropping placeholder media reference', o?.payload?.url || o?.payload?.mediaUrl || 'empty');
+      return false;
+    }
     if (!c) return true;
     if (isPlaceholderChart(c)) {
       console.warn('[model3d] dropping placeholder Demo chart');

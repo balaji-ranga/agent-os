@@ -7,6 +7,7 @@ import { join, dirname, extname, basename } from 'path';
 import { fileURLToPath } from 'url';
 import { getDb } from '../db/schema.js';
 import { createDefinition, updateDraft, publishDefinition } from './agent-workflow-store.js';
+import { tryResolveUserApiKey } from './user-api-keys.js';
 import {
   buildAvatarInboundGraph,
   buildAvatarOutboundGraph,
@@ -352,6 +353,9 @@ export function assignAvatarAgent(ownerUserId, avatarId, agentId, actor = null) 
       return [];
     }
   })();
+  const animationPlannerKeyRef = ['openAI_key', 'openai-key', 'OPENAI_API_KEY'].find(
+    (keyName) => !!tryResolveUserApiKey(owner, keyName)?.value
+  ) || null;
 
   const outboundGraph = buildAvatarOutboundGraph({
     agentId: agent,
@@ -360,6 +364,7 @@ export function assignAvatarAgent(ownerUserId, avatarId, agentId, actor = null) 
     animationCatalog,
     idleClip: avatar.idle_clip || null,
     voiceId: avatar.voice_id || null,
+    animationPlannerKeyRef,
   });
 
   if (!outboundId) {
@@ -393,6 +398,7 @@ export function assignAvatarAgent(ownerUserId, avatarId, agentId, actor = null) 
     animationCatalog,
     idleClip: avatar.idle_clip || null,
     voiceId: avatar.voice_id || null,
+    animationPlannerKeyRef,
   });
 
   if (!inboundId) {

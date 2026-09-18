@@ -9,6 +9,7 @@
     "start": "node src/index.js",
     "dev": "node src/index.js",
     "seed": "node scripts/seed-all.js",
+    "avatars:refresh-workflows": "node scripts/refresh-avatar-workflows.mjs",
     "test:smoke": "node ../tests/api-smoke.js",
     "test:router-contract": "node scripts/test-router-adjudicator-contract.mjs",
     "test:router-planner:focused": "node scripts/test-router-planner-focused.mjs",

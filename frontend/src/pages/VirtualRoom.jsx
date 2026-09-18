@@ -7,6 +7,7 @@ import {
   normalizeMediaUrl,
 } from '../utils/resolveMediaSrc.js';
 import { resolveAvatarSpawn } from '../utils/virtualRoomPlacement.js';
+import { animationOnlyPlayback, ttsPlaybackFromSteps } from '../utils/virtualRoomPlayback.js';
 
 async function ensureThree() {
   if (window.__THREE__) return window.__THREE__;
@@ -464,11 +465,12 @@ export default function VirtualRoom() {
         Object.values(membersRuntimeRef.current)[0];
       if (!runtime) return;
 
-      if (visemeRafByAvatarRef.current[runtime.avatarId]) {
+      const replacingAudio = Boolean(playback.audioUrl);
+      if (replacingAudio && visemeRafByAvatarRef.current[runtime.avatarId]) {
         cancelAnimationFrame(visemeRafByAvatarRef.current[runtime.avatarId]);
         delete visemeRafByAvatarRef.current[runtime.avatarId];
       }
-      if (audioByAvatarRef.current[runtime.avatarId]) {
+      if (replacingAudio && audioByAvatarRef.current[runtime.avatarId]) {
         try {
           audioByAvatarRef.current[runtime.avatarId].pause();
         } catch (_) {}
@@ -991,7 +993,8 @@ export default function VirtualRoom() {
     });
     const runId = run.id || run.run_id;
     let final = run;
-    let played = false;
+    let playedAudioUrl = null;
+    let appliedModelPlayback = false;
     let transcriptAdded = false;
     for (let i = 0; i < 240; i++) {
       await new Promise((r) => setTimeout(r, 500));
@@ -1009,11 +1012,22 @@ export default function VirtualRoom() {
         ]);
         setStatus(`@${member.handle} speaking…`);
       }
+      const directTtsPlayback = ttsPlaybackFromSteps(
+        final.steps || [],
+        member.avatar_id,
+        member.animation_catalog || []
+      );
+      if (directTtsPlayback?.audioUrl && !playedAudioUrl) {
+        playedAudioUrl = directTtsPlayback.audioUrl;
+        await playPlayback(directTtsPlayback, member.avatar_id);
+        setStatus(`@${member.handle} speaking…`);
+      }
       const step = (final.steps || []).find((s) => s.node_type === 'model3d' && s.status === 'completed');
       const playback = step?.output?.playback || step?.output?.result;
-      if (playback?.audioUrl && !played) {
-        played = true;
-        await playPlayback(playback, member.avatar_id);
+      if (playback && !appliedModelPlayback) {
+        appliedModelPlayback = true;
+        await playPlayback(animationOnlyPlayback(playback, Boolean(playedAudioUrl)), member.avatar_id);
+        if (!playedAudioUrl && playback.audioUrl) playedAudioUrl = playback.audioUrl;
       }
       if (final.status === 'completed' || final.status === 'failed') break;
     }
@@ -1031,10 +1045,12 @@ export default function VirtualRoom() {
         throw new Error(failureText);
       }
     }
-    if (!played) {
+    if (!appliedModelPlayback) {
       const step = (final.steps || []).find((s) => s.node_type === 'model3d' && s.status === 'completed');
       const playback = step?.output?.playback || step?.output?.result;
-      if (playback) await playPlayback(playback, member.avatar_id);
+      if (playback) {
+        await playPlayback(animationOnlyPlayback(playback, Boolean(playedAudioUrl)), member.avatar_id);
+      }
     }
     const mediaOuts = extractMediaFromRun(final, member.avatar_id);
     if (mediaOuts.length) {
