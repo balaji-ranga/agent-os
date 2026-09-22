@@ -101,10 +101,16 @@ const loginSession = createSession(ids.today, {
   ipCountryName: 'United States of America',
 });
 revokeSession(loginSession.token);
+const capturedLoginAt = db
+  .prepare(`SELECT last_login_at FROM platform_users WHERE id = ?`)
+  .get(ids.today)?.last_login_at;
 
-// A platform-generated session without an HTTP request origin must not erase
-// the latest captured real-login origin.
+// A platform-generated session without an HTTP request origin must not alter
+// the latest captured real-login timestamp or origin.
 createSession(ids.today);
+const afterInternalSession = db
+  .prepare(`SELECT last_login_at FROM platform_users WHERE id = ?`)
+  .get(ids.today)?.last_login_at;
 
 // An impersonation session captures its own origin but must not replace the
 // user's retained real-login origin.
@@ -145,6 +151,11 @@ try {
   const originUser = data.newest.find((u) => u.id === ids.today);
   assert(originUser?.last_login_ip === '8.8.8.8', 'revoked real-login IP remains listed');
   assert(originUser?.last_login_country_code === 'US', 'revoked real-login country remains listed');
+  passed += 1;
+  assert(
+    afterInternalSession === capturedLoginAt,
+    'platform-generated session does not alter real-login timestamp'
+  );
   passed += 1;
   assert(
     INSIGHTS_EXCLUDE_NAME_PREFIXES.includes('SR Import') &&

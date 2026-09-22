@@ -39,14 +39,6 @@ export function createSession(
           String(ipCountryName || '').slice(0, 100) || null,
           userId
         );
-      } else {
-        // Internal test/support sessions have no request origin. They retain the
-        // most recent captured HTTP login origin instead of erasing it.
-        db.prepare(
-          `UPDATE platform_users
-           SET last_login_at = datetime('now'), updated_at = datetime('now')
-           WHERE id = ?`
-        ).run(userId);
       }
     } catch (_) {
       /* column may be missing on very old DBs before migrate */
