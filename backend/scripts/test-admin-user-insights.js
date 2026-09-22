@@ -102,6 +102,10 @@ const loginSession = createSession(ids.today, {
 });
 revokeSession(loginSession.token);
 
+// A platform-generated session without an HTTP request origin must not erase
+// the latest captured real-login origin.
+createSession(ids.today);
+
 // An impersonation session captures its own origin but must not replace the
 // user's retained real-login origin.
 createSession(ids.today, {

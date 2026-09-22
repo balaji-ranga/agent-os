@@ -23,20 +23,31 @@ export function createSession(
   // Real logins only (not admin impersonation)
   if (!impersonatorUserId) {
     try {
-      db.prepare(
-        `UPDATE platform_users
-         SET last_login_at = datetime('now'),
-             last_login_ip = ?,
-             last_login_country_code = ?,
-             last_login_country_name = ?,
-             updated_at = datetime('now')
-         WHERE id = ?`
-      ).run(
-        String(clientIp || '').slice(0, 45) || null,
-        String(ipCountryCode || '').slice(0, 2).toUpperCase() || null,
-        String(ipCountryName || '').slice(0, 100) || null,
-        userId
-      );
+      const normalizedClientIp = String(clientIp || '').slice(0, 45) || null;
+      if (normalizedClientIp) {
+        db.prepare(
+          `UPDATE platform_users
+           SET last_login_at = datetime('now'),
+               last_login_ip = ?,
+               last_login_country_code = ?,
+               last_login_country_name = ?,
+               updated_at = datetime('now')
+           WHERE id = ?`
+        ).run(
+          normalizedClientIp,
+          String(ipCountryCode || '').slice(0, 2).toUpperCase() || null,
+          String(ipCountryName || '').slice(0, 100) || null,
+          userId
+        );
+      } else {
+        // Internal test/support sessions have no request origin. They retain the
+        // most recent captured HTTP login origin instead of erasing it.
+        db.prepare(
+          `UPDATE platform_users
+           SET last_login_at = datetime('now'), updated_at = datetime('now')
+           WHERE id = ?`
+        ).run(userId);
+      }
     } catch (_) {
       /* column may be missing on very old DBs before migrate */
     }
