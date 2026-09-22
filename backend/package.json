@@ -24,8 +24,8 @@
     "test:goal-plan:intent": "node scripts/test-goal-plan-intent-classify.mjs",
     "test:ssrf": "node scripts/test-ssrf-outbound.js",
     "test:security:critical": "node scripts/test-critical-security-hardening.mjs",
-    "test:blueprint-secrets": "node scripts/test-blueprint-secret-sanitize.js && node scripts/scan-blueprint-secrets.js"
-    ,"test:browser-executors": "node scripts/test-browser-executor-multinode.js",
+    "test:blueprint-secrets": "node scripts/test-blueprint-secret-sanitize.js && node scripts/scan-blueprint-secrets.js",
+    "test:browser-executors": "node scripts/test-browser-executor-multinode.js",
     "test:browser-recipe-inputs": "node scripts/test-browser-recipe-inputs.mjs",
     "test:browser-task-routing": "node scripts/test-browser-task-routing.mjs",
     "test:company-executions": "node scripts/test-company-executions.mjs",
@@ -35,45 +35,45 @@
     "test:browser-maturity": "node scripts/test-browser-maturity-contract.mjs",
     "test:exception-policy": "node scripts/test-exception-policy.mjs",
     "test:action-policy": "node scripts/test-action-policy-autonomy.mjs",
-    "test:company-llm-design": "node scripts/test-company-llm-design.mjs"
-    ,"test:chat-work-units": "node scripts/test-chat-context-boundaries.mjs && node scripts/test-delegation-result-callback.mjs",
+    "test:company-llm-design": "node scripts/test-company-llm-design.mjs",
+    "test:chat-work-units": "node scripts/test-chat-context-boundaries.mjs && node scripts/test-delegation-result-callback.mjs",
     "test:goal-hardening": "node scripts/test-goal-orchestration-hardening.mjs",
-    "test:openclaw-session-cleanup": "node scripts/test-openclaw-session-cleanup.mjs"
-    ,"test:openclaw-config-noop": "node scripts/test-openclaw-config-noop.mjs"
-    ,"test:company-reviews": "node scripts/test-company-reviews.mjs"
-    ,"test:agent-actions-live": "node scripts/test-agent-actions-live.mjs"
-    ,"test:efficiency-ollama-utilities": "node scripts/test-efficiency-ollama-utilities.mjs"
-    ,"test:agent-reasoning-patterns": "node scripts/vps-test-agent-reasoning-patterns.mjs"
-    ,"test:execution-governor": "node scripts/test-tool-execution-governor.mjs"
-    ,"test:promotions-mcp-universe": "node scripts/test-promotions-mcp-universe.mjs"
-    ,"test:channel-capability-session": "node scripts/test-channel-capability-session.mjs"
-    ,"test:workflow-contract-validation": "node scripts/test-workflow-contract-validation.mjs"
-    ,"test:human-company-execution": "node scripts/test-human-company-execution.mjs"
-    ,"test:company-communications-retention-eta": "node scripts/test-company-communications-retention-eta.mjs"
-    ,"test:channel-user-kanban-actions": "node scripts/test-channel-user-kanban-actions.mjs"
-    ,"test:ibkrnew-event-trader": "node scripts/test-ibkrnew-event-trader.mjs"
-    ,"test:ibkrnew-owner-enrollment": "node scripts/test-ibkrnew-owner-enrollment.mjs"
-    ,"test:goal-plan-quality": "node scripts/test-goal-plan-maker-checker-contract.mjs"
-    ,"test:goal-plan:inactive-checker": "node scripts/test-goal-plan-ollama-checker.mjs"
-    ,"test:human-goal-kanban-delete": "node scripts/test-human-goal-kanban-delete-lifecycle.mjs"
-    ,"test:goal-plan:stress": "node scripts/test-goal-planning-execution-stress.mjs"
-    ,"test:model-routing": "node scripts/test-model-routing-registry.mjs"
-    ,"test:llm-cross-provider-fallback": "node scripts/test-llm-cross-provider-fallback.mjs"
-    ,"test:chat-live-activity": "node scripts/test-chat-live-activity.mjs"
-    ,"test:router-planner:nested-live": "node scripts/test-router-planner-nested-goal-live.mjs"
-    ,"test:gmail-mailbox-operations": "node scripts/test-gmail-mailbox-operations.mjs"
-    ,"test:goal-run-recovery": "node scripts/test-goal-run-recovery.mjs"
-    ,"test:goal-run-control": "node scripts/test-goal-run-control.mjs"
-    ,"test:agent-status-report": "node scripts/test-agent-status-report-contract.mjs"
-    ,"test:goal-plan-human-review": "node scripts/test-goal-plan-human-review.mjs"
-    ,"test:growth-pagination": "node scripts/test-growth-pagination-contracts.mjs"
-    ,"test:company-objectives": "node scripts/test-company-objectives.mjs"
-    ,"test:company-objectives:api": "node scripts/test-company-objectives-api.mjs"
-    ,"test:objective-agent-alignment": "node scripts/test-objective-agent-alignment.mjs"
-    ,"audit:token-context": "node scripts/audit-token-context-creep.mjs"
-    ,"test:platform-help-memory": "node scripts/test-platform-help-memory-context.mjs"
-    ,"test:platform-help-bounded-context": "node scripts/test-platform-help-bounded-context.mjs"
-    ,"test:openclaw-context-memory": "node scripts/test-openclaw-context-memory-stress.mjs"
+    "test:openclaw-session-cleanup": "node scripts/test-openclaw-session-cleanup.mjs",
+    "test:openclaw-config-noop": "node scripts/test-openclaw-config-noop.mjs",
+    "test:company-reviews": "node scripts/test-company-reviews.mjs",
+    "test:agent-actions-live": "node scripts/test-agent-actions-live.mjs",
+    "test:efficiency-ollama-utilities": "node scripts/test-efficiency-ollama-utilities.mjs",
+    "test:agent-reasoning-patterns": "node scripts/vps-test-agent-reasoning-patterns.mjs",
+    "test:execution-governor": "node scripts/test-tool-execution-governor.mjs",
+    "test:promotions-mcp-universe": "node scripts/test-promotions-mcp-universe.mjs",
+    "test:channel-capability-session": "node scripts/test-channel-capability-session.mjs",
+    "test:workflow-contract-validation": "node scripts/test-workflow-contract-validation.mjs",
+    "test:human-company-execution": "node scripts/test-human-company-execution.mjs",
+    "test:company-communications-retention-eta": "node scripts/test-company-communications-retention-eta.mjs",
+    "test:channel-user-kanban-actions": "node scripts/test-channel-user-kanban-actions.mjs",
+    "test:ibkrnew-event-trader": "node scripts/test-ibkrnew-event-trader.mjs",
+    "test:ibkrnew-owner-enrollment": "node scripts/test-ibkrnew-owner-enrollment.mjs",
+    "test:goal-plan-quality": "node scripts/test-goal-plan-maker-checker-contract.mjs",
+    "test:goal-plan:inactive-checker": "node scripts/test-goal-plan-ollama-checker.mjs",
+    "test:human-goal-kanban-delete": "node scripts/test-human-goal-kanban-delete-lifecycle.mjs",
+    "test:goal-plan:stress": "node scripts/test-goal-planning-execution-stress.mjs",
+    "test:model-routing": "node scripts/test-model-routing-registry.mjs",
+    "test:llm-cross-provider-fallback": "node scripts/test-llm-cross-provider-fallback.mjs",
+    "test:chat-live-activity": "node scripts/test-chat-live-activity.mjs",
+    "test:router-planner:nested-live": "node scripts/test-router-planner-nested-goal-live.mjs",
+    "test:gmail-mailbox-operations": "node scripts/test-gmail-mailbox-operations.mjs",
+    "test:goal-run-recovery": "node scripts/test-goal-run-recovery.mjs",
+    "test:goal-run-control": "node scripts/test-goal-run-control.mjs",
+    "test:agent-status-report": "node scripts/test-agent-status-report-contract.mjs",
+    "test:goal-plan-human-review": "node scripts/test-goal-plan-human-review.mjs",
+    "test:growth-pagination": "node scripts/test-growth-pagination-contracts.mjs",
+    "test:company-objectives": "node scripts/test-company-objectives.mjs",
+    "test:company-objectives:api": "node scripts/test-company-objectives-api.mjs",
+    "test:objective-agent-alignment": "node scripts/test-objective-agent-alignment.mjs",
+    "audit:token-context": "node scripts/audit-token-context-creep.mjs",
+    "test:platform-help-memory": "node scripts/test-platform-help-memory-context.mjs",
+    "test:platform-help-bounded-context": "node scripts/test-platform-help-bounded-context.mjs",
+    "test:openclaw-context-memory": "node scripts/test-openclaw-context-memory-stress.mjs"
   },
   "dependencies": {
     "@stoqey/ib": "^1.6.3",
@@ -82,6 +82,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.22.2",
+    "geoip-lite": "^1.4.10",
     "iso-3166": "^4.4.0",
     "mammoth": "^1.12.0",
     "node-cron": "^4.6.0",

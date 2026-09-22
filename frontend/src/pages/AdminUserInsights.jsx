@@ -47,6 +47,8 @@ function UserTable({ title, rows, empty }) {
                 <th style={{ padding: '0.5rem 0.7rem' }}>Role</th>
                 <th style={{ padding: '0.5rem 0.7rem' }}>Registered</th>
                 <th style={{ padding: '0.5rem 0.7rem' }}>Last used</th>
+                <th style={{ padding: '0.5rem 0.7rem' }}>Login IP</th>
+                <th style={{ padding: '0.5rem 0.7rem' }}>Country</th>
                 <th style={{ padding: '0.5rem 0.7rem' }}>Idle</th>
               </tr>
             </thead>
@@ -63,6 +65,17 @@ function UserTable({ title, rows, empty }) {
                   <td style={{ padding: '0.5rem 0.7rem' }}>{u.role === 'org_user' ? 'employee' : u.role}</td>
                   <td style={{ padding: '0.5rem 0.7rem' }}>{formatLocalDateTime(u.created_at)}</td>
                   <td style={{ padding: '0.5rem 0.7rem' }}>{formatLocalDateTime(u.last_login_at)}</td>
+                  <td style={{ padding: '0.5rem 0.7rem', fontFamily: 'ui-monospace, monospace' }}>
+                    {u.last_login_ip || '—'}
+                  </td>
+                  <td style={{ padding: '0.5rem 0.7rem' }}>
+                    {u.last_login_country_name || u.last_login_country_code || 'Unknown'}
+                    {u.last_login_country_name && u.last_login_country_code ? (
+                      <div style={{ color: 'var(--muted)', fontSize: '0.76rem' }}>
+                        {u.last_login_country_code}
+                      </div>
+                    ) : null}
+                  </td>
                   <td style={{ padding: '0.5rem 0.7rem' }}>
                     {u.days_idle != null ? `${u.days_idle}d` : '—'}
                   </td>
@@ -120,6 +133,10 @@ export default function AdminUserInsights() {
           than {data?.inactive_after_days || 7} days (never-logged-in accounts older than 7 days count). Test
           names starting with {(data?.exclude_name_prefixes || ['SR Import', 'Connector Test']).join(' / ')} are
           excluded.
+        </p>
+        <p style={{ margin: '0.35rem 0 0', color: 'var(--muted)', maxWidth: 780, fontSize: '0.86rem' }}>
+          Login IP and country show the latest real login session. Country is resolved locally and may be
+          unknown for private addresses or when the local GeoIP data has no match.
         </p>
       </header>
 

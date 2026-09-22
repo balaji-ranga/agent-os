@@ -50,8 +50,22 @@ function publicUserRow(row) {
     days_idle: row.days_idle != null ? Number(row.days_idle) : null,
     industry: row.industry || '',
     business_name: row.business_name || '',
+    last_login_ip: row.last_login_ip || '',
+    last_login_country_code: row.last_login_country_code || '',
+    last_login_country_name: row.last_login_country_name || '',
   };
 }
+
+const latestLoginOriginSql = `
+  (SELECT ps.client_ip FROM platform_sessions ps
+   WHERE ps.user_id = platform_users.id AND ps.impersonator_user_id IS NULL
+   ORDER BY datetime(ps.created_at) DESC, ps.rowid DESC LIMIT 1) AS last_login_ip,
+  (SELECT ps.ip_country_code FROM platform_sessions ps
+   WHERE ps.user_id = platform_users.id AND ps.impersonator_user_id IS NULL
+   ORDER BY datetime(ps.created_at) DESC, ps.rowid DESC LIMIT 1) AS last_login_country_code,
+  (SELECT ps.ip_country_name FROM platform_sessions ps
+   WHERE ps.user_id = platform_users.id AND ps.impersonator_user_id IS NULL
+   ORDER BY datetime(ps.created_at) DESC, ps.rowid DESC LIMIT 1) AS last_login_country_name`;
 
 /**
  * UTC windows: today (calendar day), this ISO week (Monday 00:00), this month.
@@ -218,6 +232,7 @@ export function getAdminUserInsights() {
   const newest = allRows(
     db,
     `SELECT id, name, email, role, enabled, created_at, last_login_at, industry, business_name,
+            ${latestLoginOriginSql},
             CAST((julianday('now') - julianday(COALESCE(last_login_at, created_at))) AS INTEGER) AS days_idle
      FROM platform_users
      WHERE ${peopleWhere}
@@ -229,6 +244,7 @@ export function getAdminUserInsights() {
   const inactive = allRows(
     db,
     `SELECT id, name, email, role, enabled, created_at, last_login_at, industry, business_name,
+            ${latestLoginOriginSql},
             CAST((julianday('now') - julianday(${lastUsed})) AS INTEGER) AS days_idle
      FROM platform_users
      WHERE ${peopleWhere} AND ${inactivePred}

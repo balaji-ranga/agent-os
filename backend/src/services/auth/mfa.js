@@ -293,14 +293,14 @@ async function sendLoginOtpEmail(user, code) {
 /**
  * After password success: issue session, or MFA challenge (email OTP / TOTP).
  */
-export async function finishLoginAfterPassword(user) {
+export async function finishLoginAfterPassword(user, sessionOptions = {}) {
   ensureMfaTables();
   const row = getUserMfa(user.id);
   const resolved = resolveUserMfa(row);
   const mode = resolved.mode;
 
   if (!resolved.enabled) {
-    const session = createSession(user.id);
+    const session = createSession(user.id, sessionOptions);
     return { user, session, mfa_mode: mode, mfa: resolved };
   }
 
@@ -382,7 +382,7 @@ export async function resendEmailOtp({ mfa_token }) {
   };
 }
 
-export function verifyMfaLogin({ mfa_token, code }) {
+export function verifyMfaLogin({ mfa_token, code, sessionOptions = {} }) {
   const challenge = consumeMfaChallenge(mfa_token, 'login');
   if (!challenge) {
     const err = new Error('Invalid or expired MFA challenge');
@@ -408,7 +408,7 @@ export function verifyMfaLogin({ mfa_token, code }) {
     }
   }
 
-  const session = createSession(row.id);
+  const session = createSession(row.id, sessionOptions);
   const user = getDb()
     .prepare(
       `SELECT id, email, name, role, region, mobile, created_at FROM platform_users WHERE id = ?`
@@ -507,8 +507,8 @@ function ensureTotpPendingSecret(user) {
   };
 }
 
-function finishAfterSetup(userId) {
-  const session = createSession(userId);
+function finishAfterSetup(userId, sessionOptions = {}) {
+  const session = createSession(userId, sessionOptions);
   const user = getDb()
     .prepare(
       `SELECT id, email, name, role, region, mobile, created_at FROM platform_users WHERE id = ?`
@@ -519,7 +519,7 @@ function finishAfterSetup(userId) {
 }
 
 /** Forced TOTP enrollment when effective mode is TOTP and secret missing. */
-export function mfaSetupChallengeStep({ mfa_token, code }) {
+export function mfaSetupChallengeStep({ mfa_token, code, sessionOptions = {} }) {
   ensureMfaTables();
   const challengeRow = getDb().prepare(`SELECT * FROM mfa_challenges WHERE token = ?`).get(mfa_token);
   if (!challengeRow || challengeRow.purpose !== 'setup') {
@@ -583,7 +583,7 @@ export function mfaSetupChallengeStep({ mfa_token, code }) {
     )
     .run(user.mfa_pending_secret, challengeRow.user_id);
   getDb().prepare(`DELETE FROM mfa_challenges WHERE token = ?`).run(mfa_token);
-  return finishAfterSetup(challengeRow.user_id);
+  return finishAfterSetup(challengeRow.user_id, sessionOptions);
 }
 
 export async function disableMfa(userId, code) {

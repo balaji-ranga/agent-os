@@ -25,10 +25,10 @@
     <h2>2. Data we collect</h2>
     <ul>
       <li><strong>Account data:</strong> name, email, password hash, optional region/mobile, company/industry, role.</li>
-      <li><strong>Security:</strong> MFA settings, sessions, password-reset tokens, login times.</li>
+      <li><strong>Security:</strong> MFA settings, sessions, password-reset tokens, login times, login IP addresses, and country derived locally from the login IP.</li>
       <li><strong>Usage:</strong> feature activity, workflow runs, tool invocations, operational logs (secrets redacted where designed).</li>
       <li><strong>Content you provide:</strong> chats, documents, media, configs, vault API keys you store.</li>
-      <li><strong>Technical:</strong> IP and user agent may appear in logs for security.</li>
+      <li><strong>Technical:</strong> IP and user agent may appear in logs for security. Login-country lookup is local and does not send the IP to an external lookup API.</li>
       <li><strong>Promotions:</strong> eligible delivery, impression, viewable, expand, dismiss, suppression, CTA, and channel-delivery evidence. Rendering is not treated as proof that you read an announcement.</li>
       <li><strong>MCP Universe:</strong> public searches, listing interactions, moderated submissions and reports, human-verification evidence, and pseudonymous abuse-control identifiers.</li>
       <li><strong>Legal acceptance:</strong> timestamp and Terms/Privacy version IDs when you accept at registration.</li>

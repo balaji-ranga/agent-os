@@ -34,6 +34,7 @@ import { getLlmCatalogPublic } from '../services/user-llm-settings.js';
 import { getServerTimezone } from '../utils/format-datetime.js';
 import { getLegalVersionsPublic } from '../services/legal-terms.js';
 import { authRateLimit } from '../middleware/auth-rate-limit.js';
+import { loginOriginFromRequest } from '../services/auth/login-origin.js';
 
 const router = Router();
 
@@ -121,7 +122,7 @@ router.post('/register', authRateLimit('register', { ipLimit: 5, accountLimit: 3
     } catch (e) {
       console.warn('[auth/register] OpenClaw provision:', e.message);
     }
-    const loginResult = await finishLoginAfterPassword(user);
+    const loginResult = await finishLoginAfterPassword(user, loginOriginFromRequest(req));
     res.status(201).json({
       ...loginResult,
       openclaw,
@@ -141,7 +142,7 @@ router.post('/login', authRateLimit('login', { ipLimit: 30, accountLimit: 10, wi
     if (user.role !== 'ceo' && user.role !== 'org_user') {
       return res.status(403).json({ error: 'Use admin login for admin accounts' });
     }
-    res.json(await finishLoginAfterPassword(user));
+    res.json(await finishLoginAfterPassword(user, loginOriginFromRequest(req)));
   } catch (e) {
     res.status(e.status || 400).json({ error: e.message });
   }
@@ -154,7 +155,7 @@ router.post('/admin/login', authRateLimit('admin-login', { ipLimit: 15, accountL
     const user = authenticateUser(email, password);
     if (!user) return res.status(401).json({ error: 'Invalid email or password' });
     if (user.role !== 'admin') return res.status(403).json({ error: 'Admin role required' });
-    res.json(await finishLoginAfterPassword(user));
+    res.json(await finishLoginAfterPassword(user, loginOriginFromRequest(req)));
   } catch (e) {
     res.status(e.status || 400).json({ error: e.message });
   }
@@ -165,7 +166,7 @@ router.post('/mfa/verify', authRateLimit('mfa-verify', { ipLimit: 20, accountLim
   try {
     const { mfa_token, code } = req.body || {};
     if (!mfa_token || !code) return res.status(400).json({ error: 'mfa_token and code required' });
-    res.json(verifyMfaLogin({ mfa_token, code }));
+    res.json(verifyMfaLogin({ mfa_token, code, sessionOptions: loginOriginFromRequest(req) }));
   } catch (e) {
     res.status(e.status || 400).json({ error: e.message });
   }
@@ -187,7 +188,11 @@ router.post('/mfa/setup-challenge', (req, res) => {
   try {
     const { mfa_token, code } = req.body || {};
     if (!mfa_token) return res.status(400).json({ error: 'mfa_token required' });
-    res.json(mfaSetupChallengeStep({ mfa_token, code }));
+    res.json(mfaSetupChallengeStep({
+      mfa_token,
+      code,
+      sessionOptions: loginOriginFromRequest(req),
+    }));
   } catch (e) {
     res.status(e.status || 400).json({ error: e.message });
   }

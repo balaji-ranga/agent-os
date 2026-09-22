@@ -14,6 +14,7 @@ config({ path: join(__dirname, '..', '.env') });
 
 import { initDb, getDb } from '../src/db/schema.js';
 import { hashPassword } from '../src/services/auth/password.js';
+import { createSession } from '../src/services/auth/session.js';
 import {
   getAdminUserInsights,
   INSIGHTS_EXCLUDE_NAME_PREFIXES,
@@ -94,6 +95,28 @@ ins.run(
   'Noise'
 );
 
+createSession(ids.today, {
+  clientIp: '8.8.8.8',
+  ipCountryCode: 'US',
+  ipCountryName: 'United States of America',
+});
+
+// A later impersonation session must not replace the user's real-login origin.
+db.prepare(
+  `INSERT INTO platform_sessions
+    (token, user_id, expires_at, created_at, impersonator_user_id, client_ip, ip_country_code, ip_country_name)
+   VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+).run(
+  `ins-impersonation-${stamp}`,
+  ids.today,
+  utcSql(24 * 60 * 60 * 1000),
+  utcSql(1000),
+  ids.testNoise,
+  '1.1.1.1',
+  'AU',
+  'Australia'
+);
+
 let passed = 0;
 try {
   const data = getAdminUserInsights();
@@ -121,6 +144,10 @@ try {
     'idle CEO listed'
   );
   passed += 1;
+  const originUser = data.newest.find((u) => u.id === ids.today);
+  assert(originUser?.last_login_ip === '8.8.8.8', 'latest real-login IP listed');
+  assert(originUser?.last_login_country_code === 'US', 'latest real-login country listed');
+  passed += 1;
   assert(
     INSIGHTS_EXCLUDE_NAME_PREFIXES.includes('SR Import') &&
       INSIGHTS_EXCLUDE_NAME_PREFIXES.includes('Connector Test'),
@@ -141,6 +168,7 @@ try {
     )
   );
 } finally {
+  db.prepare('DELETE FROM platform_sessions WHERE user_id IN (?, ?)').run(ids.today, ids.inactive);
   const del = db.prepare('DELETE FROM platform_users WHERE id = ?');
   for (const id of Object.values(ids)) del.run(id);
 }

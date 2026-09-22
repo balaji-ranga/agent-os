@@ -395,6 +395,9 @@ export function initDb() {
         token TEXT PRIMARY KEY,
         user_id TEXT NOT NULL,
         expires_at TEXT NOT NULL,
+        client_ip TEXT,
+        ip_country_code TEXT,
+        ip_country_name TEXT,
         created_at TEXT DEFAULT (datetime('now')),
         FOREIGN KEY (user_id) REFERENCES platform_users(id)
       )
@@ -1171,6 +1174,21 @@ export function initDb() {
 
   try {
     _db.exec(`ALTER TABLE platform_sessions ADD COLUMN impersonator_user_id TEXT`);
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE platform_sessions ADD COLUMN client_ip TEXT`);
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE platform_sessions ADD COLUMN ip_country_code TEXT`);
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE platform_sessions ADD COLUMN ip_country_name TEXT`);
+  } catch (_) {}
+  try {
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_platform_sessions_user_created
+       ON platform_sessions(user_id, created_at DESC)`
+    );
   } catch (_) {}
 
   try {

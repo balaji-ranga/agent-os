@@ -3,13 +3,23 @@ import { getDb } from '../../db/schema.js';
 
 const SESSION_DAYS = Number(process.env.AGENT_OS_SESSION_DAYS || 14);
 
-export function createSession(userId, { impersonatorUserId = null } = {}) {
+export function createSession(
+  userId,
+  { impersonatorUserId = null, clientIp = '', ipCountryCode = '', ipCountryName = '' } = {}
+) {
   const db = getDb();
   const token = randomBytes(32).toString('hex');
   const expires = new Date(Date.now() + SESSION_DAYS * 86400000).toISOString();
   db.prepare(
-    `INSERT INTO platform_sessions (token, user_id, expires_at, impersonator_user_id) VALUES (?, ?, ?, ?)`
-  ).run(token, userId, expires, impersonatorUserId || null);
+    `INSERT INTO platform_sessions
+       (token, user_id, expires_at, impersonator_user_id, client_ip, ip_country_code, ip_country_name)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    token, userId, expires, impersonatorUserId || null,
+    String(clientIp || '').slice(0, 45) || null,
+    String(ipCountryCode || '').slice(0, 2).toUpperCase() || null,
+    String(ipCountryName || '').slice(0, 100) || null
+  );
   // Real logins only (not admin impersonation)
   if (!impersonatorUserId) {
     try {
