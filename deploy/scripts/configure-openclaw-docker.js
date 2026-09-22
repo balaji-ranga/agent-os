@@ -471,8 +471,16 @@ const forceLocalOllama =
   process.env.PLATFORM_USE_LOCAL_OLLAMA === '1' ||
   process.env.PLATFORM_USE_LOCAL_OLLAMA === 'true' ||
   envPrimary.toLowerCase().startsWith('ollama/');
+const routingEnabled =
+  (process.env.MODEL_ROUTING_ENABLED === '1' || process.env.MODEL_ROUTING_ENABLED === 'true') &&
+  Boolean(String(process.env.LITELLM_MASTER_KEY || '').trim());
+const useLiteLlmPlatform =
+  !forceLocalOllama &&
+  routingEnabled &&
+  markerPrimarySlug.toLowerCase().startsWith('litellm/');
 const useSecondaryPlatform =
   !forceLocalOllama &&
+  !useLiteLlmPlatform &&
   platformActive === 'secondary' &&
   String(process.env.OPENAI_SECONDARY_API_KEY || '').trim() &&
   String(process.env.OPENAI_SECONDARY_MODEL || '').trim();
@@ -484,7 +492,9 @@ const primarySlug = useSecondaryPlatform
   ? markerPrimarySlug && markerPrimarySlug.startsWith('openai/')
     ? markerPrimarySlug
     : `openai/${String(process.env.OPENAI_SECONDARY_MODEL || 'gpt-4o').trim().replace(/^[^/]+\//, '')}`
-  : useLocalOllamaPrimary
+  : useLiteLlmPlatform
+    ? markerPrimarySlug
+    : useLocalOllamaPrimary
     ? envPrimary
     : markerPrimarySlug || envPrimary;
 const primaryId = primarySlug.includes('/')
@@ -524,7 +534,40 @@ if (useSecondaryPlatform) {
     openaiBase
   );
 }
-if (openaiKey && !primaryIsOllama && !isLocalOllamaBase(openaiBase)) {
+if (useLiteLlmPlatform) {
+  if (!config.models) config.models = {};
+  if (!config.models.providers) config.models.providers = {};
+  const existing = config.models.providers.litellm || {};
+  const liteBaseRaw = String(process.env.LITELLM_BASE_URL || 'http://litellm:4000/v1')
+    .trim()
+    .replace(/\/$/, '');
+  const liteBase = liteBaseRaw.endsWith('/v1') ? liteBaseRaw : `${liteBaseRaw}/v1`;
+  const routeId = primaryId;
+  const existingModels = Array.isArray(existing.models) ? existing.models : [];
+  const routeModel = existingModels.find((model) =>
+    String(typeof model === 'string' ? model : model?.id || '') === routeId
+  );
+  config.models.providers.litellm = {
+    ...existing,
+    baseUrl: liteBase,
+    apiKey: String(process.env.LITELLM_MASTER_KEY || '').trim(),
+    api: 'openai-completions',
+    agentRuntime: { id: 'openclaw' },
+    models: [{
+      ...(typeof routeModel === 'object' && routeModel ? routeModel : {}),
+      id: routeId,
+      name: routeId,
+      reasoning: false,
+      input: ['text'],
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      contextWindow: 128000,
+      maxTokens: 16384,
+      api: 'openai-completions',
+    }],
+  };
+  config.models.mode = 'replace';
+  console.log('Honoring platform LiteLLM route → primary=', primarySlug, 'base=', liteBase);
+} else if (openaiKey && !primaryIsOllama && !isLocalOllamaBase(openaiBase)) {
   if (!config.models) config.models = {};
   if (!config.models.providers) config.models.providers = {};
   const existing = config.models.providers.openai || {};
@@ -648,6 +691,10 @@ if (openaiKey && !primaryIsOllama && !isLocalOllamaBase(openaiBase)) {
 if (config.models.providers.openai && typeof config.models.providers.openai === 'object') {
   config.models.providers.openai.agentRuntime = { id: 'openclaw' };
   console.log('Pinned models.providers.openai.agentRuntime=openclaw');
+}
+if (config.models.providers.litellm && typeof config.models.providers.litellm === 'object') {
+  config.models.providers.litellm.agentRuntime = { id: 'openclaw' };
+  console.log('Pinned models.providers.litellm.agentRuntime=openclaw');
 }
 
 // Always align default primary model with OPENCLAW_MODEL_PRIMARY.

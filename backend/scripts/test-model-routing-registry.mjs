@@ -81,6 +81,7 @@ try {
   const openclawConfig = JSON.parse(readFileSync(process.env.OPENCLAW_CONFIG_PATH, 'utf8'));
   assert(openclawConfig.models.providers.litellm);
   assert.equal(openclawConfig.models.providers.litellm.baseUrl, 'http://litellm:4000/v1');
+  assert.equal(openclawConfig.models.providers.litellm.agentRuntime?.id, 'openclaw');
 
   const changed = registry.saveModelRoute('flolah-platform-primary', {
     capability: 'chat', primary_deployment_id: 'ollama-efficiency',

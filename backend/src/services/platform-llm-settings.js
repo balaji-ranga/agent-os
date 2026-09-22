@@ -219,6 +219,9 @@ function applyPlatformOpenAiProvider(config, ep) {
       baseUrl: base.endsWith('/v1') ? base : `${base}/v1`,
       apiKey: ep.apiKey,
       api: 'openai-completions',
+      // Keep tenant agents on Flolah's embedded runtime so routed models retain
+      // the same platform tools as direct OpenAI/DeepSeek providers.
+      agentRuntime: { id: 'openclaw' },
       models: [{
         id: modelId,
         name: modelId,

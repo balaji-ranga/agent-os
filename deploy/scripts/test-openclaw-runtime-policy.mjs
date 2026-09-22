@@ -6,7 +6,7 @@ import { spawnSync } from 'node:child_process';
 
 const script = resolve('deploy/scripts/configure-openclaw-docker.js');
 
-function runCase({ name, baseUrl, model }) {
+function runCase({ name, baseUrl, model, marker = null, routing = false }) {
   const dir = mkdtempSync(join(tmpdir(), `flolah-openclaw-runtime-${name}-`));
   const configPath = join(dir, 'openclaw.json');
   const originalAgent = {
@@ -26,6 +26,9 @@ function runCase({ name, baseUrl, model }) {
     }, null, 2)}\n`,
     'utf8'
   );
+  if (marker) {
+    writeFileSync(join(dir, 'platform-llm-active.json'), `${JSON.stringify(marker)}\n`, 'utf8');
+  }
 
   try {
     const result = spawnSync(process.execPath, [script], {
@@ -38,13 +41,23 @@ function runCase({ name, baseUrl, model }) {
         OPENAI_API_KEY: 'test-key-not-secret',
         OPENAI_BASE_URL: baseUrl,
         OPENCLAW_MODEL_PRIMARY: model,
+        MODEL_ROUTING_ENABLED: routing ? '1' : '0',
+        LITELLM_BASE_URL: 'http://litellm:4000/v1',
+        LITELLM_MASTER_KEY: routing ? 'test-litellm-key-not-secret' : '',
         OPENCLAW_ENABLE_DEEPSEEK_PLUGIN: '0',
         OPENCLAW_TRUSTED_PROXIES: '127.0.0.1,::1,172.18.0.1',
       },
     });
     assert.equal(result.status, 0, `${name}: configure failed\n${result.stderr}\n${result.stdout}`);
     const configured = JSON.parse(readFileSync(configPath, 'utf8'));
-    assert.equal(configured.models.providers.openai.agentRuntime?.id, 'openclaw');
+    const expectedProvider = routing ? 'litellm' : 'openai';
+    assert.equal(configured.models.providers[expectedProvider].agentRuntime?.id, 'openclaw');
+    if (routing) {
+      assert.equal(configured.agents.defaults.model.primary, marker.primary);
+      assert.equal(configured.models.providers.litellm.baseUrl, 'http://litellm:4000/v1');
+      assert.equal(configured.models.providers.litellm.models[0].id, 'flolah-platform-secondary');
+      assert.equal(configured.models.providers.litellm.api, 'openai-completions');
+    }
     assert.equal(configured.plugins.entries.codex, undefined);
     assert.equal(configured.plugins.entries.deepseek?.enabled, false);
     assert.equal(configured.plugins.allow.includes('codex'), false);
@@ -62,6 +75,17 @@ runCase({
   name: 'official-openai',
   baseUrl: 'https://api.openai.com/v1',
   model: 'openai/gpt-4o-mini',
+});
+runCase({
+  name: 'litellm-secondary-marker',
+  baseUrl: 'https://api.deepseek.com/v1',
+  model: 'openai/deepseek-v4-flash',
+  routing: true,
+  marker: {
+    active: 'secondary',
+    primary: 'litellm/flolah-platform-secondary',
+    fallbacks: [],
+  },
 });
 runCase({
   name: 'deepseek-compatible',
