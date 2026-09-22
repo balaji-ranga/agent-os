@@ -13,7 +13,7 @@ You do not need APIs or Docker for everyday use as a CEO. Public walkthrough: [W
 
 ## License
 
-Flolah application code is **[Apache License 2.0](./LICENSE)**. Copyright 2026 Balaji Ranganathan. See [`NOTICE`](./NOTICE).
+Flolah application code is **[Apache License 2.0](./LICENSE)**.  See [`NOTICE`](./NOTICE).
 
 Third-party and optional sidecars (OpenSearch, Open Connector, optional Twenty/ERPNext, and others) keep **their own** licenses — [`THIRD_PARTY_NOTICES.md`](./THIRD_PARTY_NOTICES.md) and [open-source notices](https://flolah.cloud/legal/open-source.html).
 
