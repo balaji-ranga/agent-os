@@ -135,8 +135,9 @@ export default function AdminUserInsights() {
           excluded.
         </p>
         <p style={{ margin: '0.35rem 0 0', color: 'var(--muted)', maxWidth: 780, fontSize: '0.86rem' }}>
-          Login IP and country show the latest real login session. Country is resolved locally and may be
-          unknown for private addresses or when the local GeoIP data has no match.
+          Login IP and country show the latest real login and remain available after logout. Admin “View as
+          user” sessions are impersonation activity and do not replace the user’s real-login origin. Country
+          is resolved locally and may be unknown for private addresses or when the local GeoIP data has no match.
         </p>
       </header>
 

@@ -24,8 +24,19 @@ export function createSession(
   if (!impersonatorUserId) {
     try {
       db.prepare(
-        `UPDATE platform_users SET last_login_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`
-      ).run(userId);
+        `UPDATE platform_users
+         SET last_login_at = datetime('now'),
+             last_login_ip = ?,
+             last_login_country_code = ?,
+             last_login_country_name = ?,
+             updated_at = datetime('now')
+         WHERE id = ?`
+      ).run(
+        String(clientIp || '').slice(0, 45) || null,
+        String(ipCountryCode || '').slice(0, 2).toUpperCase() || null,
+        String(ipCountryName || '').slice(0, 100) || null,
+        userId
+      );
     } catch (_) {
       /* column may be missing on very old DBs before migrate */
     }

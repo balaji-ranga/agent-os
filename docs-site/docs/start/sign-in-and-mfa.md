@@ -15,7 +15,7 @@ Use **Forgot password?** on the same page if you cannot sign in.
 
 **Admin login** on that page is for platform operators only, not for CEOs.
 
-For account security and operational insight, Flolah records the client IP and a locally resolved country with each successful login session. Country resolution does not send the IP to an external lookup service. Private addresses or an address without a local match may show an unknown country. These details are restricted to platform administrators and follow session/account cleanup.
+For account security and operational insight, Flolah records the client IP and a locally resolved country with each successful login session. The latest real-login origin remains available after logout; an administrator's **View as user** session does not replace it. Country resolution does not send the IP to an external lookup service. Private addresses or an address without a local match may show an unknown country. These details are restricted to platform administrators and are removed with account offboarding.
 
 ## Multi-factor authentication (MFA)
 

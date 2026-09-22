@@ -57,15 +57,18 @@ function publicUserRow(row) {
 }
 
 const latestLoginOriginSql = `
-  (SELECT ps.client_ip FROM platform_sessions ps
-   WHERE ps.user_id = platform_users.id AND ps.impersonator_user_id IS NULL
-   ORDER BY datetime(ps.created_at) DESC, ps.rowid DESC LIMIT 1) AS last_login_ip,
-  (SELECT ps.ip_country_code FROM platform_sessions ps
-   WHERE ps.user_id = platform_users.id AND ps.impersonator_user_id IS NULL
-   ORDER BY datetime(ps.created_at) DESC, ps.rowid DESC LIMIT 1) AS last_login_country_code,
-  (SELECT ps.ip_country_name FROM platform_sessions ps
-   WHERE ps.user_id = platform_users.id AND ps.impersonator_user_id IS NULL
-   ORDER BY datetime(ps.created_at) DESC, ps.rowid DESC LIMIT 1) AS last_login_country_name`;
+  COALESCE(NULLIF(platform_users.last_login_ip, ''),
+    (SELECT ps.client_ip FROM platform_sessions ps
+     WHERE ps.user_id = platform_users.id AND ps.impersonator_user_id IS NULL
+     ORDER BY datetime(ps.created_at) DESC, ps.rowid DESC LIMIT 1)) AS last_login_ip,
+  COALESCE(NULLIF(platform_users.last_login_country_code, ''),
+    (SELECT ps.ip_country_code FROM platform_sessions ps
+     WHERE ps.user_id = platform_users.id AND ps.impersonator_user_id IS NULL
+     ORDER BY datetime(ps.created_at) DESC, ps.rowid DESC LIMIT 1)) AS last_login_country_code,
+  COALESCE(NULLIF(platform_users.last_login_country_name, ''),
+    (SELECT ps.ip_country_name FROM platform_sessions ps
+     WHERE ps.user_id = platform_users.id AND ps.impersonator_user_id IS NULL
+     ORDER BY datetime(ps.created_at) DESC, ps.rowid DESC LIMIT 1)) AS last_login_country_name`;
 
 /**
  * UTC windows: today (calendar day), this ISO week (Monday 00:00), this month.

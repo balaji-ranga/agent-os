@@ -386,6 +386,9 @@ export function initDb() {
         mobile TEXT DEFAULT '',
         role TEXT NOT NULL CHECK (role IN ('admin', 'ceo', 'org_user')),
         enabled INTEGER DEFAULT 1,
+        last_login_ip TEXT,
+        last_login_country_code TEXT,
+        last_login_country_name TEXT,
         created_at TEXT DEFAULT (datetime('now')),
         updated_at TEXT DEFAULT (datetime('now'))
       )
@@ -1183,6 +1186,15 @@ export function initDb() {
   } catch (_) {}
   try {
     _db.exec(`ALTER TABLE platform_sessions ADD COLUMN ip_country_name TEXT`);
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE platform_users ADD COLUMN last_login_ip TEXT`);
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE platform_users ADD COLUMN last_login_country_code TEXT`);
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE platform_users ADD COLUMN last_login_country_name TEXT`);
   } catch (_) {}
   try {
     _db.exec(

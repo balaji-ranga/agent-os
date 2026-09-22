@@ -14,7 +14,7 @@ config({ path: join(__dirname, '..', '.env') });
 
 import { initDb, getDb } from '../src/db/schema.js';
 import { hashPassword } from '../src/services/auth/password.js';
-import { createSession } from '../src/services/auth/session.js';
+import { createSession, revokeSession } from '../src/services/auth/session.js';
 import {
   getAdminUserInsights,
   INSIGHTS_EXCLUDE_NAME_PREFIXES,
@@ -95,27 +95,21 @@ ins.run(
   'Noise'
 );
 
-createSession(ids.today, {
+const loginSession = createSession(ids.today, {
   clientIp: '8.8.8.8',
   ipCountryCode: 'US',
   ipCountryName: 'United States of America',
 });
+revokeSession(loginSession.token);
 
-// A later impersonation session must not replace the user's real-login origin.
-db.prepare(
-  `INSERT INTO platform_sessions
-    (token, user_id, expires_at, created_at, impersonator_user_id, client_ip, ip_country_code, ip_country_name)
-   VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-).run(
-  `ins-impersonation-${stamp}`,
-  ids.today,
-  utcSql(24 * 60 * 60 * 1000),
-  utcSql(1000),
-  ids.testNoise,
-  '1.1.1.1',
-  'AU',
-  'Australia'
-);
+// An impersonation session captures its own origin but must not replace the
+// user's retained real-login origin.
+createSession(ids.today, {
+  impersonatorUserId: ids.testNoise,
+  clientIp: '1.1.1.1',
+  ipCountryCode: 'AU',
+  ipCountryName: 'Australia',
+});
 
 let passed = 0;
 try {
@@ -145,8 +139,8 @@ try {
   );
   passed += 1;
   const originUser = data.newest.find((u) => u.id === ids.today);
-  assert(originUser?.last_login_ip === '8.8.8.8', 'latest real-login IP listed');
-  assert(originUser?.last_login_country_code === 'US', 'latest real-login country listed');
+  assert(originUser?.last_login_ip === '8.8.8.8', 'revoked real-login IP remains listed');
+  assert(originUser?.last_login_country_code === 'US', 'revoked real-login country remains listed');
   passed += 1;
   assert(
     INSIGHTS_EXCLUDE_NAME_PREFIXES.includes('SR Import') &&

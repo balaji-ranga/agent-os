@@ -21,9 +21,9 @@ Windows are **UTC**: today (calendar day), this week (Monday 00:00 through now),
 
 **Highlights:** enabled companies, new companies today/week, employees invited, never logged in (older than 1 day), CEO activation % (logged in at least once), Company setup done, CRM/ERP enabled, Connectors linked, companies with AI employee grants, industry mix.
 
-Tables list **newest accounts** and **inactive accounts** (name, email, role, registered, last used, latest login IP, and country). The origin is an immutable snapshot on each real login session; a platform-admin impersonation session does not replace it. Existing sessions from before this feature show an empty IP and **Unknown** country. Private/local addresses or an address absent from the bundled local GeoIP data can also show **Unknown**.
+Tables list **newest accounts** and **inactive accounts** (name, email, role, registered, last used, latest login IP, and country). The latest real-login origin is retained when that session is revoked or the user logs out. A platform-admin **View as user** session is captured as impersonation activity but does not replace the user's real-login origin. Accounts that have not completed a new real login since this feature was deployed show an empty IP and **Unknown** country. Private/local addresses or an address absent from the bundled local GeoIP data can also show **Unknown**.
 
-Country resolution runs locally and never sends the login IP to an external lookup API. Login continues if resolution has no match. Only the admin-only insights endpoint returns these fields; normal session/profile APIs do not. Session cleanup and user offboarding remove the associated snapshots. No passwords or API keys are exposed.
+Country resolution runs locally and never sends the login IP to an external lookup API. Login continues if resolution has no match. Only the admin-only insights endpoint returns these fields; normal session/profile APIs do not. Session cleanup removes per-session snapshots while retaining the latest real-login origin on the account; user offboarding removes both. No passwords or API keys are exposed.
 
 Automated leftover names starting with **SR Import** or **Connector Test** are excluded so e2e users do not inflate adoption.
 

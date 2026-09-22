@@ -29,6 +29,7 @@ import {
 } from '../services/company-blueprint-publish.js';
 import { sendPlatformNotifications } from '../services/platform-notifications.js';
 import { createSession } from '../services/auth/session.js';
+import { loginOriginFromRequest } from '../services/auth/login-origin.js';
 import { getDb } from '../db/schema.js';
 import { clearAgentTombstone } from '../services/agent-delete.js';
 import { initCeoDb } from '../db/ceo-db.js';
@@ -279,7 +280,10 @@ router.post('/users/:userId/impersonate', (req, res) => {
     if (target.id === req.authUser.id) {
       return res.status(400).json({ error: 'Cannot impersonate yourself' });
     }
-    const session = createSession(target.id, { impersonatorUserId: req.authUser.id });
+    const session = createSession(target.id, {
+      impersonatorUserId: req.authUser.id,
+      ...loginOriginFromRequest(req),
+    });
     res.json({
       user: { ...target, impersonation: { admin_id: req.authUser.id, admin_name: req.authUser.name, admin_email: req.authUser.email } },
       session,
