@@ -338,6 +338,35 @@ export async function chatCompletions({
         body: JSON.stringify(body),
         signal: AbortSignal.timeout(requestTimeoutMs),
       });
+      // A LiteLLM route can fail over between providers. Provider-native
+      // controls that are valid for the selected model (for example
+      // DeepSeek's `thinking`) may be rejected by a cross-provider fallback
+      // such as OpenAI. Retry the same route once without only that optional
+      // control so an otherwise healthy fallback remains usable.
+      if (!res.ok && body.thinking) {
+        const errPeek = await res.text();
+        const incompatibleThinking = /thinking/i.test(errPeek) &&
+          /unrecognized|unsupported|unknown|unexpected|invalid\s+(?:request\s+)?(?:argument|parameter)|not\s+(?:allowed|supported)/i.test(errPeek);
+        if (incompatibleThinking) {
+          delete body.thinking;
+          if (body.extra_body && typeof body.extra_body === 'object') {
+            delete body.extra_body.thinking;
+            if (!Object.keys(body.extra_body).length) delete body.extra_body;
+          }
+          console.warn('[llm] retrying route without provider-specific thinking control', {
+            host: endpointHost(ep.baseUrl),
+            model: ep.model,
+          });
+          res = await fetch(chatUrl, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(body),
+            signal: AbortSignal.timeout(requestTimeoutMs),
+          });
+        } else {
+          res = new Response(errPeek, { status: res.status, statusText: res.statusText });
+        }
+      }
       // Some providers reject response_format; retry without it.
       if (!res.ok && body.response_format) {
         const errPeek = await res.text();
