@@ -171,13 +171,22 @@ function writeOpenClawConfig(config) {
   writeOpenClawConfigSafe(config);
 }
 
+function liteLlmProviderKeyForModel(model) {
+  const id = String(model || '').replace(/^[^/]+\//, '').toLowerCase();
+  if (id === 'flolah-platform-primary') return 'litellm-primary';
+  if (id === 'flolah-platform-secondary') return 'litellm-secondary';
+  return 'litellm';
+}
+
 function openClawSlugForEndpoint(ep) {
   if (!ep?.baseUrl) return null;
   const model = String(ep.model || 'gpt-4o-mini').replace(/^[^/]+\//, '');
   if (isLocalOllama(ep.baseUrl)) return `ollama/${model}`;
   try {
     const host = new URL(ep.baseUrl).hostname.toLowerCase();
-    if (host === 'litellm' || host.includes('litellm')) return `litellm/${model}`;
+    if (host === 'litellm' || host.includes('litellm')) {
+      return `${liteLlmProviderKeyForModel(model)}/${model}`;
+    }
     if (host.includes('openrouter')) return `openrouter/${model.includes('/') ? model : `openai/${model}`}`;
     if (host.includes('deepseek')) return `deepseek/${model}`;
   } catch {
@@ -215,7 +224,11 @@ function applyPlatformOpenAiProvider(config, ep) {
   let endpointHost = '';
   try { endpointHost = new URL(base).hostname.toLowerCase(); } catch { /* ignore */ }
   if (endpointHost === 'litellm' || endpointHost.includes('litellm')) {
-    config.models.providers.litellm = {
+    // Keep each Admin slot under a distinct OpenClaw provider identity. OpenClaw
+    // applies billing/auth cooldowns at provider scope; sharing one `litellm`
+    // identity allowed a primary failure to disable a healthy secondary route.
+    const providerKey = liteLlmProviderKeyForModel(modelId);
+    config.models.providers[providerKey] = {
       baseUrl: base.endsWith('/v1') ? base : `${base}/v1`,
       apiKey: ep.apiKey,
       api: 'openai-completions',
@@ -233,7 +246,7 @@ function applyPlatformOpenAiProvider(config, ep) {
         api: 'openai-completions',
       }],
     };
-    return { mode: 'litellm', modelId, baseUrl: config.models.providers.litellm.baseUrl };
+    return { mode: 'litellm', providerKey, modelId, baseUrl: config.models.providers[providerKey].baseUrl };
   }
   const providerKey = isOfficialOpenAiBase(base) ? 'openai' : 'deepseek';
   const existing = config.models.providers[providerKey] || {};

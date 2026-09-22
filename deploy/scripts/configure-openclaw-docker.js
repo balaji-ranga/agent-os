@@ -477,7 +477,7 @@ const routingEnabled =
 const useLiteLlmPlatform =
   !forceLocalOllama &&
   routingEnabled &&
-  markerPrimarySlug.toLowerCase().startsWith('litellm/');
+  /^litellm(?:-[a-z0-9_-]+)?\//i.test(markerPrimarySlug);
 const useSecondaryPlatform =
   !forceLocalOllama &&
   !useLiteLlmPlatform &&
@@ -537,7 +537,8 @@ if (useSecondaryPlatform) {
 if (useLiteLlmPlatform) {
   if (!config.models) config.models = {};
   if (!config.models.providers) config.models.providers = {};
-  const existing = config.models.providers.litellm || {};
+  const liteProviderKey = primarySlug.slice(0, primarySlug.indexOf('/')) || 'litellm';
+  const existing = config.models.providers[liteProviderKey] || {};
   const liteBaseRaw = String(process.env.LITELLM_BASE_URL || 'http://litellm:4000/v1')
     .trim()
     .replace(/\/$/, '');
@@ -547,7 +548,7 @@ if (useLiteLlmPlatform) {
   const routeModel = existingModels.find((model) =>
     String(typeof model === 'string' ? model : model?.id || '') === routeId
   );
-  config.models.providers.litellm = {
+  config.models.providers[liteProviderKey] = {
     ...existing,
     baseUrl: liteBase,
     apiKey: String(process.env.LITELLM_MASTER_KEY || '').trim(),
@@ -692,9 +693,11 @@ if (config.models.providers.openai && typeof config.models.providers.openai === 
   config.models.providers.openai.agentRuntime = { id: 'openclaw' };
   console.log('Pinned models.providers.openai.agentRuntime=openclaw');
 }
-if (config.models.providers.litellm && typeof config.models.providers.litellm === 'object') {
-  config.models.providers.litellm.agentRuntime = { id: 'openclaw' };
-  console.log('Pinned models.providers.litellm.agentRuntime=openclaw');
+for (const [providerId, provider] of Object.entries(config.models.providers || {})) {
+  if ((providerId === 'litellm' || providerId.startsWith('litellm-')) && provider && typeof provider === 'object') {
+    provider.agentRuntime = { id: 'openclaw' };
+    console.log(`Pinned models.providers.${providerId}.agentRuntime=openclaw`);
+  }
 }
 
 // Always align default primary model with OPENCLAW_MODEL_PRIMARY.

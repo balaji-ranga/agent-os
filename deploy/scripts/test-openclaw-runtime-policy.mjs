@@ -50,13 +50,13 @@ function runCase({ name, baseUrl, model, marker = null, routing = false }) {
     });
     assert.equal(result.status, 0, `${name}: configure failed\n${result.stderr}\n${result.stdout}`);
     const configured = JSON.parse(readFileSync(configPath, 'utf8'));
-    const expectedProvider = routing ? 'litellm' : 'openai';
+    const expectedProvider = routing ? 'litellm-secondary' : 'openai';
     assert.equal(configured.models.providers[expectedProvider].agentRuntime?.id, 'openclaw');
     if (routing) {
       assert.equal(configured.agents.defaults.model.primary, marker.primary);
-      assert.equal(configured.models.providers.litellm.baseUrl, 'http://litellm:4000/v1');
-      assert.equal(configured.models.providers.litellm.models[0].id, 'flolah-platform-secondary');
-      assert.equal(configured.models.providers.litellm.api, 'openai-completions');
+      assert.equal(configured.models.providers['litellm-secondary'].baseUrl, 'http://litellm:4000/v1');
+      assert.equal(configured.models.providers['litellm-secondary'].models[0].id, 'flolah-platform-secondary');
+      assert.equal(configured.models.providers['litellm-secondary'].api, 'openai-completions');
     }
     assert.equal(configured.plugins.entries.codex, undefined);
     assert.equal(configured.plugins.entries.deepseek?.enabled, false);
@@ -83,7 +83,7 @@ runCase({
   routing: true,
   marker: {
     active: 'secondary',
-    primary: 'litellm/flolah-platform-secondary',
+    primary: 'litellm-secondary/flolah-platform-secondary',
     fallbacks: [],
   },
 });
