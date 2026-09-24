@@ -80,6 +80,65 @@ function parseJson(raw, fallback) {
   }
 }
 
+/**
+ * Preserve valid Unicode while replacing isolated UTF-16 surrogate code units.
+ * Provider SDKs encode prompts as UTF-8 and reject malformed surrogate input.
+ */
+export function sanitizeUtf8Text(value) {
+  const input = String(value ?? '');
+  let output = '';
+  for (let index = 0; index < input.length; index += 1) {
+    const code = input.charCodeAt(index);
+    if (code >= 0xd800 && code <= 0xdbff) {
+      const next = input.charCodeAt(index + 1);
+      if (next >= 0xdc00 && next <= 0xdfff) {
+        output += input[index] + input[index + 1];
+        index += 1;
+      } else {
+        output += '\ufffd';
+      }
+    } else if (code >= 0xdc00 && code <= 0xdfff) {
+      output += '\ufffd';
+    } else {
+      output += input[index];
+    }
+  }
+  return output;
+}
+
+/** Accept native objects and JSON-encoded objects from tool callers uniformly. */
+export function normalizeBrowserTaskInput(value) {
+  if (value == null || value === '') return {};
+  let parsed = value;
+  if (typeof parsed === 'string') {
+    try {
+      parsed = JSON.parse(parsed);
+    } catch {
+      const error = new Error('input must be an object or a JSON-encoded object');
+      error.code = 'BROWSER_INPUT_INVALID_JSON';
+      error.status = 400;
+      throw error;
+    }
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    const error = new Error('input must be a JSON object');
+    error.code = 'BROWSER_INPUT_INVALID_TYPE';
+    error.status = 400;
+    throw error;
+  }
+  return parsed;
+}
+
+async function browserChatCompletions(options = {}) {
+  const messages = Array.isArray(options.messages)
+    ? options.messages.map((message) => ({
+        ...message,
+        content: sanitizeUtf8Text(message?.content),
+      }))
+    : options.messages;
+  return chatCompletions({ ...options, messages });
+}
+
 function getTask(ceoUserId, taskId) {
   const db = getDb();
   const row = db
@@ -1003,7 +1062,7 @@ Recent steps: ${JSON.stringify(history.slice(-8))}
 Snapshot (truncated):
 ${String(snapshot || '').slice(0, 12000)}`;
 
-  const { content } = await chatCompletions({
+  const { content } = await browserChatCompletions({
     messages: [
       { role: 'system', content: system },
       { role: 'user', content: user },
@@ -1034,7 +1093,7 @@ ${String(snapshot || '').slice(0, 12000)}`;
 
 async function createExecutionPlan(ceoUserId, goal, startUrl) {
   try {
-    const { content } = await chatCompletions({
+    const { content } = await browserChatCompletions({
       messages: [
         {
           role: 'system',
@@ -1086,7 +1145,7 @@ async function verifyGoalCompletion({ ceoUserId, goal, plan, snapshot, history, 
     };
   }
   try {
-    const { content } = await chatCompletions({
+    const { content } = await browserChatCompletions({
       messages: [
         {
           role: 'system',
@@ -1435,9 +1494,7 @@ export async function startBrowserTask(ceoUserId, body = {}) {
 
   const taskInput = mode === 'recipe_replay'
     ? normalizeRecipeInputs(body.inputs ?? body.input ?? {})
-    : body.input && typeof body.input === 'object'
-      ? body.input
-      : {};
+    : normalizeBrowserTaskInput(body.input);
   const structuredPublish = structuredSocialPublishInput(taskInput);
   if (structuredPublish && !structuredPublish.valid) {
     const err = new Error('input.operation=social_publish requires a supported platform, body of at least 20 characters, and all safe-publish constraints enabled with max_submissions=1');
@@ -1791,7 +1848,7 @@ export function snapshotSummaryPrompt(goal, snapshot) {
 }
 
 async function summarizeGoalFromSnapshot(ceoUserId, goal, snapshot) {
-  const { content } = await chatCompletions({
+  const { content } = await browserChatCompletions({
     messages: [
       {
         role: 'user',
@@ -2353,7 +2410,7 @@ async function runAutonomous(ceoUserId, taskId) {
   }
 
   const finalSnap = await takeSnapshot(ceoUserId, agentId);
-  const { content: summary } = await chatCompletions({
+  const { content: summary } = await browserChatCompletions({
     messages: [
       {
         role: 'user',

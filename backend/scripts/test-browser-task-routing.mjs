@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import {
   assertPreferredBrowserExecutor,
   goalLooksInteractive,
+  normalizeBrowserTaskInput,
+  sanitizeUtf8Text,
   snapshotSummaryPrompt,
   structuredDocumentError,
   structuredReadOnlyDocumentEvidence,
@@ -50,5 +52,25 @@ assert.throws(
   () => assertPreferredBrowserExecutor({ driver_mode: 'chrome_extension' }, 'playwright_chrome', false),
   /Required browser executor is offline/
 );
+
+const nativeInput = { operation: 'social_publish', body: 'A sufficiently long test post body.' };
+assert.equal(normalizeBrowserTaskInput(nativeInput), nativeInput);
+assert.deepEqual(normalizeBrowserTaskInput(JSON.stringify(nativeInput)), nativeInput);
+assert.deepEqual(normalizeBrowserTaskInput(undefined), {});
+assert.throws(
+  () => normalizeBrowserTaskInput('{not-json}'),
+  (error) => error?.code === 'BROWSER_INPUT_INVALID_JSON' && error?.status === 400
+);
+assert.throws(
+  () => normalizeBrowserTaskInput([]),
+  (error) => error?.code === 'BROWSER_INPUT_INVALID_TYPE' && error?.status === 400
+);
+
+const validPair = String.fromCharCode(0xd83d, 0xde80);
+const loneHigh = String.fromCharCode(0xd835);
+const loneLow = String.fromCharCode(0xdc00);
+assert.equal(sanitizeUtf8Text(`launch ${validPair}`), `launch ${validPair}`);
+assert.equal(sanitizeUtf8Text(`before${loneHigh}after`), 'before\ufffdafter');
+assert.equal(sanitizeUtf8Text(`before${loneLow}after`), 'before\ufffdafter');
 
 console.log('browser task routing tests passed');

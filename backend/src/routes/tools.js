@@ -20,6 +20,7 @@ import { decideChatActionApproval, executeApprovedChatAction } from '../services
 import { withLlmopsContext, getLlmopsContext, inferTraceId } from '../services/llmops-context.js';
 import {
   startBrowserTask,
+  normalizeBrowserTaskInput,
   getBrowserTask,
   waitForBrowserTask,
   listBrowserTasks,
@@ -4121,13 +4122,14 @@ router.post('/browse-task-start', optionalAuth, async (req, res) => {
     const executionContext = lookupSessionExecutionContext(
       req.headers['x-openclaw-session-key'] || req.headers['x-session-key'], ownerUserId
     );
+    const normalizedInput = normalizeBrowserTaskInput(requestPayload.input);
     const task = await startBrowserTask(ownerUserId, {
       ...requestPayload,
       ...(executionContext ? {
-        input: { ...requestPayload.input, work_unit_id: executionContext.work_unit_id || null },
+        input: { ...normalizedInput, work_unit_id: executionContext.work_unit_id || null },
         goal_run_id: executionContext.goal_run_id || requestPayload.goal_run_id,
         goal_step_id: executionContext.goal_step_id || requestPayload.goal_step_id,
-      } : {}),
+      } : { input: normalizedInput }),
       ...(executionContext ? { goal: [
         'Original user request (preserve its outcomes and constraints):', executionContext.original_request,
         'Resolved conversation context:', executionContext.resolved_request,
