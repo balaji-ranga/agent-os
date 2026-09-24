@@ -17,6 +17,7 @@ import {
   semanticComposerRetryRequest,
   structuredSnapshotContainsExactBody,
   structuredSnapshotEditableValueEquals,
+  verifiedEditorActivationRequest,
 } from '../src/services/browser-social-publish.js';
 
 const recipe = { steps: [
@@ -174,6 +175,26 @@ assert.equal(
   null,
   'semantic retry must fail closed when the target is ambiguous'
 );
+assert.deepEqual(
+  verifiedEditorActivationRequest({ kind: 'click', text: 'Open composer' }),
+  {
+    kind: 'click',
+    text: 'Open composer',
+    effect: 'open_editor',
+    destructive: false,
+    fallback: 'focused_keyboard_activation',
+    verify_transition: {
+      any: ['dialog_opened', 'editable_appeared', 'editable_focused'],
+      timeout_ms: 5000,
+    },
+  },
+  'composer activation must be generic, observed, and explicitly non-destructive'
+);
+assert.deepEqual(
+  verifiedEditorActivationRequest({ kind: 'type', text: 'body' }),
+  { kind: 'type', text: 'body' },
+  'verified activation must never decorate type or submit operations'
+);
 
 const linkedInRecipe = {
   name: 'LinkedIn dynamic post',
@@ -229,7 +250,7 @@ assert(unverifiedMutation.missing_evidence.includes('action_state:act'));
 
 const extensionPath = fileURLToPath(new URL('../flolah-chrome-extension/background.js', import.meta.url));
 const extension = readFileSync(extensionPath, 'utf8');
-for (const marker of ["'screenshot'", "'task_cleanup'", "'tabs'", "'focus'", 'resumable_tasks: true', 'tab_discovery: true', 'tab_selection: true', 'allowedTabSummaries', 'selectedTabId', 'visible_text_excerpt', 'in_dialog', 'result_state', 'AMBIGUOUS_TARGET', 'Page.captureScreenshot', 'DOM.getFlattenedDocument', 'pierce: true', 'Input.insertText', 'Input.dispatchMouseEvent', 'windowsVirtualKeyCode', 'preserveAllow: true']) {
+for (const marker of ["'screenshot'", "'task_cleanup'", "'tabs'", "'focus'", 'resumable_tasks: true', 'tab_discovery: true', 'tab_selection: true', 'verified_activation: true', 'allowedTabSummaries', 'selectedTabId', 'visible_text_excerpt', 'in_dialog', 'result_state', 'AMBIGUOUS_TARGET', 'ACTION_NOT_OBSERVED', 'action_observed', 'DOM.focus', 'DOM.scrollIntoViewIfNeeded', 'focused_keyboard_activation', 'Page.captureScreenshot', 'DOM.getFlattenedDocument', 'pierce: true', 'Input.insertText', 'Input.dispatchMouseEvent', 'windowsVirtualKeyCode', 'preserveAllow: true']) {
   assert(extension.includes(marker), `extension missing ${marker}`);
 }
 assert(extension.includes('args.tab_id || args.tabId || args.targetId'), 'extension focus must honor targetId aliases');
@@ -237,4 +258,17 @@ assert(extension.indexOf('const requested = Number(args.tab_id || args.tabId || 
 assert(extension.includes('if(el.shadowRoot)queue.push'), 'extension snapshots must traverse open shadow roots');
 assert(extension.includes("if(el.tagName==='IFRAME')"), 'extension snapshots must traverse same-origin child frames');
 assert(extension.includes("roots.push(el.shadowRoot)"), 'extension ref actions must resolve controls in shadow roots');
+assert(extension.includes("request.effect === 'open_editor'"), 'keyboard fallback must be limited to a caller-declared editor-opening effect');
+assert(extension.includes('request.destructive !== true'), 'keyboard fallback must reject destructive activation');
+assert(!extension.includes("request.effect === 'submit'"), 'submit controls must never receive automatic keyboard fallback');
+const extensionManifest = JSON.parse(readFileSync(fileURLToPath(new URL('../flolah-chrome-extension/manifest.json', import.meta.url)), 'utf8'));
+assert.equal(extensionManifest.version, '1.1.8');
+const socialPublishSource = readFileSync(fileURLToPath(new URL('../src/services/browser-social-publish.js', import.meta.url)), 'utf8');
+assert(socialPublishSource.includes('getBrowserExecutorNode(ownerId, context.selectedNodeId)'), 'social replay must stay pinned to the task executor');
+assert(socialPublishSource.includes("failure_code: 'EXECUTOR_OFFLINE'"), 'social replay must fail closed when its pinned executor disconnects');
+const toolsRouteSource = readFileSync(fileURLToPath(new URL('../src/routes/tools.js', import.meta.url)), 'utf8');
+const browserSessionRouteSource = readFileSync(fileURLToPath(new URL('../src/routes/browser-session.js', import.meta.url)), 'utf8');
+assert(toolsRouteSource.includes("mode: 'recipe_replay'"), 'COO browse_recipe_run must use recipe_replay mode');
+assert(toolsRouteSource.includes('startBrowserTask(ownerUserId'), 'COO browse_recipe_run must use the shared browser task service');
+assert(browserSessionRouteSource.includes('startBrowserTask(ceoUserId'), 'UI Replay must use the shared browser task service');
 console.log('browser maturity contract tests passed');

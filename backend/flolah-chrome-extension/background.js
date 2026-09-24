@@ -42,6 +42,7 @@ function capabilities() {
     tab_consent: true,
     tab_discovery: true,
     tab_selection: true,
+    verified_activation: true,
   };
 }
 async function register() {
@@ -203,6 +204,20 @@ async function flattenedClickPoint(tabId, label) {
   }
   for (const { node } of selected) {
     try {
+      await chrome.debugger.sendCommand(
+        { tabId },
+        'DOM.scrollIntoViewIfNeeded',
+        { backendNodeId: node.backendNodeId }
+      );
+      let focused = false;
+      try {
+        await chrome.debugger.sendCommand(
+          { tabId },
+          'DOM.focus',
+          { backendNodeId: node.backendNodeId }
+        );
+        focused = true;
+      } catch { /* some pointer-only controls cannot receive focus */ }
       const { model } = await chrome.debugger.sendCommand(
         { tabId },
         'DOM.getBoxModel',
@@ -220,16 +235,73 @@ async function flattenedClickPoint(tabId, label) {
           role: String(attrs.role || node.nodeName || '').toLowerCase(),
           name: String(attrs['aria-label'] || attrs.title || attrs.value || nodeText(node.nodeId) || '').replace(/\s+/g, ' ').trim().slice(0, 180),
           match: exact.length ? 'exact' : 'unique_partial',
+          backend_node_id: node.backendNodeId,
+          focused,
         },
       };
     } catch { /* try the next matching control */ }
   }
   return null;
 }
+function activationState(payload, targetName = '') {
+  const structured = payload?.structured_snapshot || {};
+  const elements = Array.isArray(structured.elements) ? structured.elements : [];
+  const landmarks = Array.isArray(structured.landmarks) ? structured.landmarks : [];
+  const wanted = String(targetName || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  const named = wanted
+    ? elements.filter((element) => String(element?.name || '').replace(/\s+/g, ' ').trim().toLowerCase() === wanted)
+    : [];
+  return {
+    url: String(structured.page?.url || ''),
+    navigation_generation: Number(structured.page?.navigation_generation || 0),
+    dialog_count: landmarks.filter((landmark) => String(landmark?.role || '').toLowerCase() === 'dialog').length,
+    editable_count: elements.filter((element) => element?.editable && element?.sensitive !== true && element?.visible !== false).length,
+    focused_editable_count: elements.filter((element) => element?.editable && element?.focused).length,
+    target_count: named.length,
+  };
+}
+function observedActivationTransitions(before, after) {
+  const observed = [];
+  if (after.url && before.url && after.url !== before.url) observed.push('url_changed');
+  if (after.navigation_generation !== before.navigation_generation) observed.push('navigation_changed');
+  if (after.dialog_count > before.dialog_count) observed.push('dialog_opened');
+  if (after.editable_count > before.editable_count) observed.push('editable_appeared');
+  if (after.focused_editable_count > before.focused_editable_count) observed.push('editable_focused');
+  if (after.target_count < before.target_count) observed.push('target_disappeared');
+  return observed;
+}
+async function waitForActivationTransition(tabId, before, verify, targetName) {
+  const expected = Array.isArray(verify?.any) ? verify.any.map((item) => String(item)) : [];
+  if (!expected.length) return { observed: true, transitions: [], state: before };
+  const timeoutMs = Math.max(250, Math.min(8000, Number(verify.timeout_ms) || 4000));
+  const deadline = Date.now() + timeoutMs;
+  let after = before;
+  let transitions = [];
+  do {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    after = activationState(await snapshot(tabId, 30000), targetName);
+    transitions = observedActivationTransitions(before, after);
+    if (expected.some((transition) => transitions.includes(transition))) {
+      return { observed: true, transitions, state: after };
+    }
+  } while (Date.now() < deadline);
+  return { observed: false, transitions, state: after };
+}
+async function dispatchFocusedKeyboardActivation(tabId) {
+  const keyData = { key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13, text: '\r' };
+  await chrome.debugger.sendCommand({ tabId }, 'Input.dispatchKeyEvent', { type: 'keyDown', ...keyData });
+  await chrome.debugger.sendCommand({ tabId }, 'Input.dispatchKeyEvent', { type: 'keyUp', ...keyData, text: undefined });
+}
 async function dispatchTrustedClick(tabId, point) {
-  await chrome.debugger.sendCommand({ tabId }, 'Input.dispatchMouseEvent', { type: 'mouseMoved', x: point.x, y: point.y });
-  await chrome.debugger.sendCommand({ tabId }, 'Input.dispatchMouseEvent', { type: 'mousePressed', x: point.x, y: point.y, button: 'left', clickCount: 1 });
-  await chrome.debugger.sendCommand({ tabId }, 'Input.dispatchMouseEvent', { type: 'mouseReleased', x: point.x, y: point.y, button: 'left', clickCount: 1 });
+  await chrome.debugger.sendCommand({ tabId }, 'Input.dispatchMouseEvent', {
+    type: 'mouseMoved', x: point.x, y: point.y, button: 'none', buttons: 0, pointerType: 'mouse',
+  });
+  await chrome.debugger.sendCommand({ tabId }, 'Input.dispatchMouseEvent', {
+    type: 'mousePressed', x: point.x, y: point.y, button: 'left', buttons: 1, clickCount: 1, pointerType: 'mouse',
+  });
+  await chrome.debugger.sendCommand({ tabId }, 'Input.dispatchMouseEvent', {
+    type: 'mouseReleased', x: point.x, y: point.y, button: 'left', buttons: 0, clickCount: 1, pointerType: 'mouse',
+  });
 }
 async function act(tabId, request) {
   const kind = String(request.kind || request.action || '').toLowerCase();
@@ -241,11 +313,15 @@ async function act(tabId, request) {
   if (kind === 'click') {
     let point = null;
     let identity = null;
+    const verify = request.verify_transition && typeof request.verify_transition === 'object'
+      ? request.verify_transition
+      : null;
+    let before = null;
     if (local) {
-      const result = await evaluate(tabId, `(() => { const el=${target}; if(el==='STALE_REF')return {error:'STALE_REF'}; if(!el) return {error:'TARGET_NOT_FOUND'}; el.scrollIntoView({block:'center',inline:'center'}); const r=el.getBoundingClientRect(); if(r.width<=0||r.height<=0)return {error:'TARGET_NOT_VISIBLE'};let x=r.left+r.width/2,y=r.top+r.height/2,view=el.ownerDocument?.defaultView;while(view&&view!==view.top){const frame=view.frameElement;if(!frame)break;const fr=frame.getBoundingClientRect();x+=fr.left;y+=fr.top;view=frame.ownerDocument?.defaultView}return {x,y,role:(el.getAttribute('role')||el.tagName||'').toLowerCase(),name:String(el.getAttribute('aria-label')||el.innerText||el.getAttribute('title')||'').replace(/\\s+/g,' ').trim().slice(0,180)}; })()`);
+      const result = await evaluate(tabId, `(() => { const el=${target}; if(el==='STALE_REF')return {error:'STALE_REF'}; if(!el) return {error:'TARGET_NOT_FOUND'}; el.scrollIntoView({block:'center',inline:'center'}); let focused=false;try{el.focus({preventScroll:true});focused=el.ownerDocument?.activeElement===el}catch{} const r=el.getBoundingClientRect(); if(r.width<=0||r.height<=0)return {error:'TARGET_NOT_VISIBLE'};let x=r.left+r.width/2,y=r.top+r.height/2,view=el.ownerDocument?.defaultView;while(view&&view!==view.top){const frame=view.frameElement;if(!frame)break;const fr=frame.getBoundingClientRect();x+=fr.left;y+=fr.top;view=frame.ownerDocument?.defaultView}return {x,y,focused,role:(el.getAttribute('role')||el.tagName||'').toLowerCase(),name:String(el.getAttribute('aria-label')||el.innerText||el.getAttribute('title')||'').replace(/\\s+/g,' ').trim().slice(0,180)}; })()`);
       if (result?.error) throw Object.assign(new Error('Target not found'), { code: result.error });
       point = { x: result.x, y: result.y };
-      identity = { ref, role: result.role, name: result.name, match: 'ref' };
+      identity = { ref, role: result.role, name: result.name, match: 'ref', focused: result.focused === true };
     } else {
       const label = request.label || request.target || request.text || (ref && !refMatch ? ref : '');
       const resolved = await flattenedClickPoint(tabId, label);
@@ -253,8 +329,41 @@ async function act(tabId, request) {
       identity = resolved?.target || null;
     }
     if (!point) throw Object.assign(new Error('Target not found'), { code: 'TARGET_NOT_FOUND' });
+    if (verify) before = activationState(await snapshot(tabId, 30000), identity?.name || '');
     await dispatchTrustedClick(tabId, point);
-    return { ok: true, kind, x: Math.round(point.x), y: Math.round(point.y), target: identity, result_state: 'action_applied' };
+    if (!verify) {
+      return { ok: true, kind, x: Math.round(point.x), y: Math.round(point.y), target: identity, result_state: 'action_dispatched' };
+    }
+    let receipt = await waitForActivationTransition(tabId, before, verify, identity?.name || '');
+    let fallback = null;
+    const safeFallback =
+      request.fallback === 'focused_keyboard_activation' &&
+      request.effect === 'open_editor' &&
+      request.destructive !== true &&
+      (identity?.focused === true || identity?.backend_node_id);
+    if (!receipt.observed && safeFallback) {
+      if (identity?.backend_node_id) {
+        await chrome.debugger.sendCommand({ tabId }, 'DOM.focus', { backendNodeId: identity.backend_node_id });
+      }
+      await dispatchFocusedKeyboardActivation(tabId);
+      fallback = 'focused_keyboard_activation';
+      receipt = await waitForActivationTransition(tabId, before, verify, identity?.name || '');
+    }
+    if (!receipt.observed) {
+      throw Object.assign(new Error('Target received input but the requested state transition was not observed'), {
+        code: 'ACTION_NOT_OBSERVED',
+      });
+    }
+    return {
+      ok: true,
+      kind,
+      x: Math.round(point.x),
+      y: Math.round(point.y),
+      target: identity,
+      observed_transitions: receipt.transitions,
+      fallback,
+      result_state: 'action_observed',
+    };
   }
   if (kind === 'type') {
     const text = JSON.stringify(String(request.text ?? ''));
@@ -300,7 +409,14 @@ async function runAction(action, args = {}) {
   }
   const tabId = await taskTab(args);
   await attachAllowed(tabId);
-  if (name === 'status') return { ok: true, tab_id: tabId, driver: DRIVER_MODE, tabs: await allowedTabSummaries() };
+  if (name === 'status') return {
+    ok: true,
+    tab_id: tabId,
+    driver: DRIVER_MODE,
+    worker_version: chrome.runtime.getManifest().version,
+    capabilities: capabilities(),
+    tabs: await allowedTabSummaries(),
+  };
   if (name === 'open') {
     const url = String(args.url || args.targetUrl || '');
     if (!/^https?:\/\//i.test(url)) throw Object.assign(new Error('Only HTTP(S) URLs are supported'), { code: 'POLICY_BLOCKED' });

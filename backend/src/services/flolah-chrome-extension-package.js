@@ -7,6 +7,11 @@ import { buildZipBuffer } from './zip-store.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '../..', 'flolah-chrome-extension');
 
+export function getFlolahChromeExtensionVersion() {
+  const manifest = JSON.parse(readFileSync(join(ROOT, 'manifest.json'), 'utf8'));
+  return String(manifest.version || '');
+}
+
 function files(dir, base = dir) {
   const output = [];
   for (const name of readdirSync(dir)) {

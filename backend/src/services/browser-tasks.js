@@ -1870,6 +1870,7 @@ async function runAutonomous(ceoUserId, taskId) {
       body: publishBody,
       platform: structuredPublish?.platform || null,
       taskId,
+      selectedNodeId: task.selected_node_id || null,
     });
     for (const s of pub.steps || []) steps.push(s);
     updateTask(ceoUserId, taskId, {
@@ -2543,6 +2544,7 @@ async function runRecipeReplay(ceoUserId, taskId) {
       body: social.body,
       platform: social.platform,
       taskId,
+      selectedNodeId: task.selected_node_id || null,
       composerRequest: social.composer_request,
     });
     const submissionCount = Number(pub.fill?.submission_count || (pub.fill?.submitted_once ? 1 : 0));
@@ -2551,7 +2553,7 @@ async function runRecipeReplay(ceoUserId, taskId) {
       satisfied: verified,
       reason: verified
         ? `Verified ${social.platform} publish through the structured social recipe contract.`
-        : `Social recipe did not produce durable ${social.platform} outcome evidence.`,
+        : `Social recipe failed at ${pub.fill?.stage || 'outcome_verification'} and did not produce durable ${social.platform} outcome evidence.`,
       evidence: [
         { type: 'platform', value: social.platform },
         { type: 'submission_count', value: submissionCount },
@@ -2580,7 +2582,7 @@ async function runRecipeReplay(ceoUserId, taskId) {
         verification,
         publish: { platform: pub.platform, fill: pub.fill, confirm: pub.confirm, tab_close: pub.tab_close },
       },
-      error: verified ? null : verification.reason,
+      error: verified ? null : `${verification.reason}${pub.fill?.error ? ` ${pub.fill.error}` : ''}`,
     });
     recordBrowserTaskOutcome(ceoUserId, getTask(ceoUserId, taskId), {
       rating: verified ? 'up' : 'down',

@@ -23,6 +23,7 @@ import {
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { resolveBrowserProfile } from './client-browser-session.js';
 import {
+  getBrowserExecutorNode,
   isBrowserWorkerOnline,
   invokeViaBrowserWorker,
 } from './browser-worker-dispatch.js';
@@ -71,8 +72,26 @@ async function cdp(action, extra = {}) {
   try {
     return await Promise.race([
       (async () => {
-        if (ownerId && isBrowserWorkerOnline(ownerId)) {
-          return invokeViaBrowserWorker(ownerId, action, routedExtra);
+        if (ownerId) {
+          const pinnedNode = context.selectedNodeId
+            ? getBrowserExecutorNode(ownerId, context.selectedNodeId)
+            : null;
+          if (context.selectedNodeId && !pinnedNode?.online) {
+            return {
+              ok: false,
+              status: 503,
+              text: 'Pinned browser executor is offline',
+              failure_code: 'EXECUTOR_OFFLINE',
+            };
+          }
+          if (pinnedNode || isBrowserWorkerOnline(ownerId)) {
+            return invokeViaBrowserWorker(
+              ownerId,
+              action,
+              routedExtra,
+              pinnedNode ? { node: pinnedNode } : {}
+            );
+          }
         }
         return invokeBrowserAction(action, BROWSER_CDP_AGENT_ID, routedExtra);
       })(),
@@ -728,6 +747,26 @@ export function semanticComposerRetryRequest(state) {
   return { kind: 'click', text };
 }
 
+/**
+ * Ask a capable executor to prove that a non-destructive activation opened an
+ * editor. The contract is expressed entirely as observable UI transitions;
+ * it contains no website labels or selectors and is reusable for any recipe
+ * that opens a composer/form before typing.
+ */
+export function verifiedEditorActivationRequest(request) {
+  if (!request || String(request.kind || '').toLowerCase() !== 'click') return request;
+  return {
+    ...request,
+    effect: 'open_editor',
+    destructive: false,
+    fallback: 'focused_keyboard_activation',
+    verify_transition: {
+      any: ['dialog_opened', 'editable_appeared', 'editable_focused'],
+      timeout_ms: 5000,
+    },
+  };
+}
+
 async function chromeExtensionSocialPublish(
   ceoUserId,
   platform,
@@ -782,14 +821,19 @@ async function chromeExtensionSocialPublish(
     // owner's tab. Reuse that contract first instead of substituting a
     // snapshot-scoped ref that the site may replace between observation and
     // dispatch.
-    const open = await cdp('act', withOwner(ceoUserId, { request: composerRequest }));
+    const activationRequest = verifiedEditorActivationRequest(composerRequest);
+    const open = await cdp('act', withOwner(ceoUserId, { request: activationRequest }));
+    const openPayload = browserWorkerPayload(open);
     steps.push({
       action: `${platform}_open_composer_recorded_semantic`,
       ok: open?.ok !== false,
       target: composerRequest.text,
+      result_state: openPayload.result_state || null,
+      observed_transitions: openPayload.observed_transitions || [],
+      fallback: openPayload.fallback || null,
     });
     if (open?.ok === false) {
-      return { ok: false, stage: 'composer_not_found', error: parseInvokeText(open), steps };
+      return { ok: false, stage: 'composer_activation_not_observed', error: parseInvokeText(open), steps };
     }
     for (const waitMs of [1800, 1800, 3000]) {
       await cdp('wait', withOwner(ceoUserId, { ms: waitMs }));
@@ -806,11 +850,20 @@ async function chromeExtensionSocialPublish(
         steps,
       };
     }
+    const activationRequest = verifiedEditorActivationRequest({ kind: 'click', ref: firstState.trigger.ref });
     const open = await cdp('act', withOwner(ceoUserId, {
-      request: { kind: 'click', ref: firstState.trigger.ref },
+      request: activationRequest,
     }));
-    steps.push({ action: `${platform}_open_composer`, ok: open?.ok !== false, ref: firstState.trigger.ref });
-    if (open?.ok === false) return { ok: false, stage: 'composer_not_found', error: parseInvokeText(open), steps };
+    const openPayload = browserWorkerPayload(open);
+    steps.push({
+      action: `${platform}_open_composer`,
+      ok: open?.ok !== false,
+      ref: firstState.trigger.ref,
+      result_state: openPayload.result_state || null,
+      observed_transitions: openPayload.observed_transitions || [],
+      fallback: openPayload.fallback || null,
+    });
+    if (open?.ok === false) return { ok: false, stage: 'composer_activation_not_observed', error: parseInvokeText(open), steps };
     // Modern sites often mount composers asynchronously in a portal, shadow
     // root, or child frame. Poll the structured state instead of treating the
     // first post-click snapshot as final. This remains read-only and never
@@ -825,11 +878,16 @@ async function chromeExtensionSocialPublish(
   if (!composerState.editor?.ref || composerState.editor_count !== 1) {
     const retryRequest = composerRequest ? null : semanticComposerRetryRequest(composerState);
     if (retryRequest) {
-      const retry = await cdp('act', withOwner(ceoUserId, { request: retryRequest }));
+      const activationRequest = verifiedEditorActivationRequest(retryRequest);
+      const retry = await cdp('act', withOwner(ceoUserId, { request: activationRequest }));
+      const retryPayload = browserWorkerPayload(retry);
       steps.push({
         action: `${platform}_open_composer_semantic_retry`,
         ok: retry?.ok !== false,
         target: retryRequest.text,
+        result_state: retryPayload.result_state || null,
+        observed_transitions: retryPayload.observed_transitions || [],
+        fallback: retryPayload.fallback || null,
       });
       if (retry?.ok !== false) {
         for (const waitMs of [1800, 1800, 3000]) {
@@ -1644,17 +1702,30 @@ async function confirmPosted(ceoUserId, platform, bodySnippet = '') {
  */
 export async function runAutonomousSocialPublish(
   ceoUserId,
-  { goalText, startUrl, body, platform: requestedPlatform = null, taskId = '', composerRequest = null }
+  {
+    goalText,
+    startUrl,
+    body,
+    platform: requestedPlatform = null,
+    taskId = '',
+    selectedNodeId = null,
+    composerRequest = null,
+  }
 ) {
   if (!socialPublishContext.getStore()) {
     return socialPublishContext.run(
-      { ceoUserId, taskId: String(taskId || '').trim() },
+      {
+        ceoUserId,
+        taskId: String(taskId || '').trim(),
+        selectedNodeId: String(selectedNodeId || '').trim() || null,
+      },
       () => runAutonomousSocialPublish(ceoUserId, {
         goalText,
         startUrl,
         body,
         platform: requestedPlatform,
         taskId,
+        selectedNodeId,
         composerRequest,
       })
     );
@@ -1703,10 +1774,19 @@ export async function runAutonomousSocialPublish(
     extensionMode = status.driver === 'chrome_extension';
 
     if ((platform === 'facebook' || platform === 'linkedin') && extensionMode) {
-      filled = await chromeExtensionSocialPublish(ceoUserId, platform, publishBody, {
-        expectedTab: tab,
-        composerRequest,
-      });
+      filled = status.capabilities?.verified_activation === true
+        ? await chromeExtensionSocialPublish(ceoUserId, platform, publishBody, {
+            expectedTab: tab,
+            composerRequest,
+          })
+        : {
+            ok: false,
+            stage: 'extension_update_required',
+            error: `Flolah Browser extension ${status.worker_version || 'version unknown'} cannot verify UI activation; install the latest extension package before replaying a publishing recipe.`,
+            submission_count: 0,
+            submitted_once: false,
+            steps: [],
+          };
       confirm = { success: filled.ok === true, conf: { retained: filled.retained, toast_hit: filled.toast_hit } };
       steps.push(...(filled.steps || []).map((entry) => ({ t: nowIso(), ...entry })));
       steps.push({ t: nowIso(), action: `${platform}_extension_publish`, filled, confirm });
