@@ -766,9 +766,16 @@ async function chromeExtensionSocialPublish(ceoUserId, platform, bodyText, { exp
     }));
     steps.push({ action: `${platform}_open_composer`, ok: open?.ok !== false, ref: firstState.trigger.ref });
     if (open?.ok === false) return { ok: false, stage: 'composer_not_found', error: parseInvokeText(open), steps };
-    await cdp('wait', withOwner(ceoUserId, { ms: 1800 }));
-    composer = await snapshot(`${platform}_snapshot_composer`);
-    composerState = extensionSocialSnapshotState(composer, platform, body);
+    // Modern sites often mount composers asynchronously in a portal, shadow
+    // root, or child frame. Poll the structured state instead of treating the
+    // first post-click snapshot as final. This remains read-only and never
+    // repeats the opening click.
+    for (const waitMs of [1800, 1800, 3000]) {
+      await cdp('wait', withOwner(ceoUserId, { ms: waitMs }));
+      composer = await snapshot(`${platform}_snapshot_composer`);
+      composerState = extensionSocialSnapshotState(composer, platform, body);
+      if (composerState.editor?.ref && composerState.editor_count === 1) break;
+    }
   }
   if (!composerState.editor?.ref || composerState.editor_count !== 1) {
     return {

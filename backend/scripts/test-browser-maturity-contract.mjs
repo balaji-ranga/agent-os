@@ -159,4 +159,7 @@ for (const marker of ["'screenshot'", "'task_cleanup'", "'tabs'", "'focus'", 're
 }
 assert(extension.includes('args.tab_id || args.tabId || args.targetId'), 'extension focus must honor targetId aliases');
 assert(extension.indexOf('const requested = Number(args.tab_id || args.tabId || args.targetId || 0)') < extension.indexOf('const pinned = taskId'), 'explicit focus target must take precedence over a stale task pin');
+assert(extension.includes('if(el.shadowRoot)queue.push'), 'extension snapshots must traverse open shadow roots');
+assert(extension.includes("if(el.tagName==='IFRAME')"), 'extension snapshots must traverse same-origin child frames');
+assert(extension.includes("roots.push(el.shadowRoot)"), 'extension ref actions must resolve controls in shadow roots');
 console.log('browser maturity contract tests passed');
