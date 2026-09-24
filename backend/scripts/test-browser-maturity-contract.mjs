@@ -311,6 +311,10 @@ assert.equal(extensionManifest.version, '1.1.8');
 const socialPublishSource = readFileSync(fileURLToPath(new URL('../src/services/browser-social-publish.js', import.meta.url)), 'utf8');
 assert(socialPublishSource.includes('getBrowserExecutorNode(ownerId, context.selectedNodeId)'), 'social replay must stay pinned to the task executor');
 assert(socialPublishSource.includes("failure_code: 'EXECUTOR_OFFLINE'"), 'social replay must fail closed when its pinned executor disconnects');
+assert(
+  socialPublishSource.includes("action: 'refresh_extension_attachment_after_navigation'"),
+  'extension publishing must refresh and re-pin the selected tab after navigation before mutation'
+);
 const toolsRouteSource = readFileSync(fileURLToPath(new URL('../src/routes/tools.js', import.meta.url)), 'utf8');
 const browserSessionRouteSource = readFileSync(fileURLToPath(new URL('../src/routes/browser-session.js', import.meta.url)), 'utf8');
 assert(toolsRouteSource.includes("mode: 'recipe_replay'"), 'COO browse_recipe_run must use recipe_replay mode');

@@ -1856,19 +1856,48 @@ export async function runAutonomousSocialPublish(
     extensionMode = status.driver === 'chrome_extension';
 
     if ((platform === 'facebook' || platform === 'linkedin') && extensionMode) {
-      filled = status.capabilities?.verified_activation === true
-        ? await chromeExtensionSocialPublish(ceoUserId, platform, publishBody, {
-            expectedTab: tab,
-            composerRequest,
-          })
-        : {
+      let attachmentReady = true;
+      if (tab.targetId) {
+        // Chrome can preserve a debugger attachment across a top-level
+        // navigation while the page's input routing belongs to the replaced
+        // document. Refresh the attachment before the first mutation, then
+        // explicitly re-pin the same owner-approved tab to this task.
+        const detached = await cdp('task_cleanup', withOwner(ceoUserId));
+        const refocused = detached?.ok !== false
+          ? await focusChromeTab(ceoUserId, tab.targetId)
+          : { ok: false, error: parseInvokeText(detached) };
+        attachmentReady = detached?.ok !== false && refocused?.ok === true;
+        steps.push({
+          t: nowIso(),
+          action: 'refresh_extension_attachment_after_navigation',
+          ok: attachmentReady,
+          target_id: String(tab.targetId),
+          detached: detached?.ok !== false,
+          refocused: refocused?.ok === true,
+        });
+      }
+      filled = !attachmentReady
+        ? {
+            ok: false,
+            stage: 'extension_attachment_refresh_failed',
+            error: 'Could not refresh the selected browser tab attachment after navigation.',
+            submission_count: 0,
+            submitted_once: false,
+            steps: [],
+          }
+        : status.capabilities?.verified_activation === true
+          ? await chromeExtensionSocialPublish(ceoUserId, platform, publishBody, {
+              expectedTab: tab,
+              composerRequest,
+            })
+          : {
             ok: false,
             stage: 'extension_update_required',
             error: `Flolah Browser extension ${status.worker_version || 'version unknown'} cannot verify UI activation; install the latest extension package before replaying a publishing recipe.`,
             submission_count: 0,
             submitted_once: false,
             steps: [],
-          };
+            };
       confirm = { success: filled.ok === true, conf: { retained: filled.retained, toast_hit: filled.toast_hit } };
       steps.push(...(filled.steps || []).map((entry) => ({ t: nowIso(), ...entry })));
       steps.push({ t: nowIso(), action: `${platform}_extension_publish`, filled, confirm });
