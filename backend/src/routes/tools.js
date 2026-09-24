@@ -4316,6 +4316,9 @@ router.post('/browse-recipe-run', optionalAuth, async (req, res) => {
       goal: requestPayload.goal || (recipeName ? `Replay recipe: ${recipeName}` : `Replay recipe ${recipeId}`),
       agent_id: source || requestPayload.agent_id || 'workflowbuilder',
       inputs: prepared.resolved_inputs,
+      preferred_driver: requestPayload.preferred_driver || requestPayload.preferredDriver,
+      allow_fallback: requestPayload.allow_fallback ?? requestPayload.allowFallback,
+      excluded_drivers: requestPayload.excluded_drivers || requestPayload.excludedDrivers,
     });
     const waitMs = Math.min(90000, Math.max(Number(requestPayload.wait_ms ?? requestPayload.waitMs) || 0, 0));
     const finalTask = waitMs ? await waitForBrowserTask(ownerUserId, String(task.id), waitMs) : task;

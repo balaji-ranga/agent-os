@@ -377,5 +377,17 @@ const toolsRouteSource = readFileSync(fileURLToPath(new URL('../src/routes/tools
 const browserSessionRouteSource = readFileSync(fileURLToPath(new URL('../src/routes/browser-session.js', import.meta.url)), 'utf8');
 assert(toolsRouteSource.includes("mode: 'recipe_replay'"), 'COO browse_recipe_run must use recipe_replay mode');
 assert(toolsRouteSource.includes('startBrowserTask(ownerUserId'), 'COO browse_recipe_run must use the shared browser task service');
+assert(
+  toolsRouteSource.includes('preferred_driver: requestPayload.preferred_driver || requestPayload.preferredDriver'),
+  'COO browse_recipe_run must preserve the requested executor driver'
+);
+assert(
+  toolsRouteSource.includes('allow_fallback: requestPayload.allow_fallback ?? requestPayload.allowFallback'),
+  'COO browse_recipe_run must preserve fail-closed executor routing'
+);
+assert(
+  toolsRouteSource.includes('excluded_drivers: requestPayload.excluded_drivers || requestPayload.excludedDrivers'),
+  'COO browse_recipe_run must preserve excluded executor drivers'
+);
 assert(browserSessionRouteSource.includes('startBrowserTask(ceoUserId'), 'UI Replay must use the shared browser task service');
 console.log('browser maturity contract tests passed');
