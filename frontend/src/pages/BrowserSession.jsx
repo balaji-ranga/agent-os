@@ -81,6 +81,7 @@ function BrowserSessionPanel() {
   const [message, setMessage] = useState(null);
   const [copied, setCopied] = useState(false);
   const [renameDrafts, setRenameDrafts] = useState({});
+  const [replayDraft, setReplayDraft] = useState(null);
   const [showUrlPolicy, setShowUrlPolicy] = useState(false);
   const [allowlistDraft, setAllowlistDraft] = useState('');
   const [denylistDraft, setDenylistDraft] = useState('');
@@ -176,6 +177,34 @@ function BrowserSessionPanel() {
       });
       setActiveTask(task);
     }, 'Autonomous task started');
+
+  const startRecipeReplay = (recipe, inputs = {}) =>
+    run(async () => {
+      const { task } = await api.browserSessionStartTask({
+        mode: 'recipe_replay',
+        recipe_name: recipe.name,
+        recipe_id: recipe.id,
+        goal: `Replay ${recipe.name}`,
+        inputs,
+      });
+      setReplayDraft(null);
+      setActiveTask(task);
+      setMainTab('run');
+    }, `Replay "${recipe.name}" started`);
+
+  const openRecipeReplay = (recipe) => {
+    const requiredInputs = Array.isArray(recipe.required_inputs) ? recipe.required_inputs : [];
+    if (!requiredInputs.length) {
+      startRecipeReplay(recipe);
+      return;
+    }
+    setError(null);
+    setMessage(null);
+    setReplayDraft({
+      recipe,
+      inputs: Object.fromEntries(requiredInputs.map((name) => [name, ''])),
+    });
+  };
 
   const openRecordWizard = () => {
     setMainTab('record');
@@ -1111,25 +1140,7 @@ function BrowserSessionPanel() {
                 <button
                   type="button"
                   disabled={busy}
-                  onClick={() =>
-                    run(async () => {
-                      const inputs = {};
-                      for (const name of r.required_inputs || []) {
-                        const value = window.prompt(`Value for recipe input “${name}”`);
-                        if (value == null) throw new Error(`Replay cancelled: ${name} is required`);
-                        inputs[name] = value;
-                      }
-                      const { task } = await api.browserSessionStartTask({
-                        mode: 'recipe_replay',
-                        recipe_name: r.name,
-                        recipe_id: r.id,
-                        goal: `Replay ${r.name}`,
-                        inputs,
-                      });
-                      setActiveTask(task);
-                      setMainTab('run');
-                    }, `Replay "${r.name}" started`)
-                  }
+                  onClick={() => openRecipeReplay(r)}
                 >
                   Replay
                 </button>
@@ -1164,6 +1175,53 @@ function BrowserSessionPanel() {
                   Save name
                 </button>
               </div>
+              {replayDraft?.recipe?.id === r.id && (
+                <div
+                  style={{
+                    marginTop: '0.65rem',
+                    padding: '0.75rem',
+                    border: '1px solid var(--border, #ddd)',
+                    borderRadius: 8,
+                    background: 'var(--surface, transparent)',
+                    maxWidth: 680,
+                  }}
+                >
+                  <strong>Replay inputs</strong>
+                  {(r.required_inputs || []).map((name) => (
+                    <label key={name} style={{ display: 'grid', gap: '0.3rem', marginTop: '0.6rem' }}>
+                      <span><code>{name}</code></span>
+                      <textarea
+                        value={replayDraft.inputs[name] || ''}
+                        onChange={(event) =>
+                          setReplayDraft((current) => ({
+                            ...current,
+                            inputs: { ...current.inputs, [name]: event.target.value },
+                          }))
+                        }
+                        rows={name === 'post_content' ? 5 : 2}
+                        aria-label={`Value for recipe input ${name}`}
+                        placeholder={`Enter ${name}`}
+                        style={{ width: '100%', resize: 'vertical' }}
+                      />
+                    </label>
+                  ))}
+                  <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.7rem' }}>
+                    <button
+                      type="button"
+                      disabled={
+                        busy ||
+                        (r.required_inputs || []).some((name) => !(replayDraft.inputs[name] || '').length)
+                      }
+                      onClick={() => startRecipeReplay(r, replayDraft.inputs)}
+                    >
+                      Run replay
+                    </button>
+                    <button type="button" disabled={busy} onClick={() => setReplayDraft(null)}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
             </li>
           ))}
           {!recipes.length && (
