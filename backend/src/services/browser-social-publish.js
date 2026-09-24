@@ -620,13 +620,13 @@ export function structuredSnapshotEditableValueEquals(payload, bodyText) {
 
 const EXTENSION_SOCIAL_CONTROLS = {
   linkedin: {
-    trigger: /^(?:start|create) a post$/i,
+    trigger: /^(?:start|create) a post(?:\b.*)?$/i,
     editor: /talk about|text editor|create a post|write something/i,
     submit: /^(?:post|publish)$/i,
     success: /post (?:was )?(?:successful|published|shared)|your post (?:is|was) (?:live|published)|post shared/i,
   },
   facebook: {
-    trigger: /^(?:what.?s on your mind.*|create a post)$/i,
+    trigger: /^(?:what.?s on your mind.*|create a post(?:\b.*)?)$/i,
     editor: /what.?s on your mind|create (?:a )?post|write something/i,
     submit: /^post$/i,
     success: /post (?:was|is)? ?(?:published|shared|created)|your post (?:is|was) (?:live|published)/i,
@@ -656,9 +656,19 @@ export function extensionSocialSnapshotState(payload, platform, bodyText = '') {
   );
   const visibleText = normalizeSocialText(snapshot.visible_text_excerpt || payload?.text || '');
   const landmarks = Array.isArray(snapshot.landmarks) ? snapshot.landmarks : [];
+  // Pages such as LinkedIn keep unrelated overlays (for example Messaging) in
+  // role=dialog containers. Treat only a dialog containing a recognised social
+  // editor/submit control, or one explicitly named as a post composer, as the
+  // composer. Otherwise a persistent unrelated dialog can block both entry and
+  // durable post verification forever.
+  const composerDialogNamed = landmarks.some((landmark) =>
+    String(landmark?.role || '').toLowerCase() === 'dialog' &&
+    /(?:create|share|write).*post|post.*(?:create|share|write)/i.test(String(landmark?.name || ''))
+  );
   const dialogOpen =
-    landmarks.some((landmark) => String(landmark?.role || '').toLowerCase() === 'dialog') ||
-    elements.some((element) => element?.in_dialog === true);
+    composerDialogNamed ||
+    namedEditors.some((element) => element?.in_dialog === true) ||
+    submitPool.some((element) => element?.in_dialog === true);
   const editor = editorPool.length === 1
     ? editorPool[0]
     : editorPool.find((element) => element?.focused) || null;
@@ -694,6 +704,9 @@ async function chromeExtensionSocialPublish(ceoUserId, platform, bodyText, { exp
       exact_editor_value: state.exact_editor_value,
       exact_body_visible: state.exact_body_visible,
       success_signal: state.success_signal,
+      trigger_count: state.trigger_count,
+      editor_count: state.editor_count,
+      submit_count: state.submit_count,
     });
     return payload;
   };
@@ -714,23 +727,30 @@ async function chromeExtensionSocialPublish(ceoUserId, platform, bodyText, { exp
   steps.push({ action: `${platform}_url_verified`, ok: true, url: firstUrl, source: urlSource });
 
   const firstState = extensionSocialSnapshotState(first, platform, body);
-  if (!firstState.trigger?.ref || firstState.trigger_count !== 1) {
-    return {
-      ok: false,
-      stage: firstState.trigger_count > 1 ? 'ambiguous_composer_trigger' : 'composer_trigger_not_found',
-      error: `Expected one ${platform} composer trigger; found ${firstState.trigger_count}`,
-      steps,
-    };
+  let composer = first;
+  let composerState = firstState;
+  if (firstState.dialog_open && firstState.editor?.ref && firstState.editor_count === 1) {
+    // A previous safe/aborted attempt may have left the real composer open.
+    // Resume it without looking for (or clicking) the feed trigger underneath.
+    steps.push({ action: `${platform}_resume_open_composer`, ok: true, ref: firstState.editor.ref });
+  } else {
+    if (!firstState.trigger?.ref || firstState.trigger_count !== 1) {
+      return {
+        ok: false,
+        stage: firstState.trigger_count > 1 ? 'ambiguous_composer_trigger' : 'composer_trigger_not_found',
+        error: `Expected one ${platform} composer trigger; found ${firstState.trigger_count}`,
+        steps,
+      };
+    }
+    const open = await cdp('act', withOwner(ceoUserId, {
+      request: { kind: 'click', ref: firstState.trigger.ref },
+    }));
+    steps.push({ action: `${platform}_open_composer`, ok: open?.ok !== false, ref: firstState.trigger.ref });
+    if (open?.ok === false) return { ok: false, stage: 'composer_not_found', error: parseInvokeText(open), steps };
+    await cdp('wait', withOwner(ceoUserId, { ms: 1800 }));
+    composer = await snapshot(`${platform}_snapshot_composer`);
+    composerState = extensionSocialSnapshotState(composer, platform, body);
   }
-  const open = await cdp('act', withOwner(ceoUserId, {
-    request: { kind: 'click', ref: firstState.trigger.ref },
-  }));
-  steps.push({ action: `${platform}_open_composer`, ok: open?.ok !== false, ref: firstState.trigger.ref });
-  if (open?.ok === false) return { ok: false, stage: 'composer_not_found', error: parseInvokeText(open), steps };
-  await cdp('wait', withOwner(ceoUserId, { ms: 1800 }));
-
-  const composer = await snapshot(`${platform}_snapshot_composer`);
-  const composerState = extensionSocialSnapshotState(composer, platform, body);
   if (!composerState.editor?.ref || composerState.editor_count !== 1) {
     return {
       ok: false,

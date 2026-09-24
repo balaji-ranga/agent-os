@@ -105,9 +105,24 @@ const socialSnapshot = {
 assert.equal(structuredSnapshotEditableValueEquals(socialSnapshot, 'Testing exact body'), true);
 assert.equal(structuredSnapshotEditableValueEquals(socialSnapshot, 'Testing'), false);
 assert.equal(extensionSocialSnapshotState(socialSnapshot, 'linkedin', 'Testing exact body').submit.ref, 'g1-e2');
+assert.equal(extensionSocialSnapshotState(socialSnapshot, 'linkedin', 'Testing exact body').dialog_open, true);
 const ambiguousSocialSnapshot = structuredClone(socialSnapshot);
 ambiguousSocialSnapshot.structured_snapshot.elements.push({ ref: 'g1-e3', role: 'button', name: 'Post', enabled: true, visible: true, in_dialog: true });
 assert.equal(extensionSocialSnapshotState(ambiguousSocialSnapshot, 'linkedin', 'Testing exact body').submit, null);
+const linkedInWithUnrelatedDialog = {
+  structured_snapshot: {
+    page: { url: 'https://www.linkedin.com/feed/', title: 'Feed | LinkedIn' },
+    landmarks: [{ role: 'dialog', name: 'Messaging' }],
+    visible_text_excerpt: 'Messaging Start a post',
+    elements: [
+      { ref: 'g2-e1', role: 'button', name: 'Start a post, opens a dialog', enabled: true, visible: true, in_dialog: false },
+      { ref: 'g2-e2', role: 'textbox', name: 'Write a message', editable: true, sensitive: false, value: '', visible: true, in_dialog: true },
+    ],
+  },
+};
+const unrelatedDialogState = extensionSocialSnapshotState(linkedInWithUnrelatedDialog, 'linkedin', 'New post');
+assert.equal(unrelatedDialogState.dialog_open, false);
+assert.equal(unrelatedDialogState.trigger.ref, 'g2-e1');
 
 const linkedInRecipe = {
   name: 'LinkedIn dynamic post',
