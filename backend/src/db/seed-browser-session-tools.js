@@ -21,7 +21,7 @@ const BROWSER_TOOLS = [
     endpoint: '/api/tools/browse-task-start',
     method: 'POST',
     purpose:
-      'API tool: start a browser task (async). Pass goal, optional start_url, mode autonomous|recorder|recipe_replay. For social publishing, NEVER rely on wording or keyword extraction: also pass input={operation:"social_publish",platform:"linkedin|facebook|instagram",body:"exact unmodified post text",constraints:{max_submissions:1,preserve_audience:true,require_exact_editor_value:true,require_durable_confirmation:true}}. Before starting, call browse_session_status. When the CEO requires a specific driver, pass preferred_driver and allow_fallback:false. Prefer browse_recipe_run for saved recipes. Then call browse_task_status once with wait_ms up to 90000. Never use the built-in browser tool before or after browse_* in the same request. Do not use exec.',
+      'API tool: start a browser task (async). Pass goal, optional start_url, mode autonomous|recorder|recipe_replay. Browser Action Control is effect-based: pass input.operation using the documented exact operation contract (read_page|read_feed|read_notifications|navigate|search|inspect|snapshot, draft|compose_draft|form_fill, social_publish|external_publish|external_message_send|external_comment|external_reaction|external_form_submit, purchase|payment|transfer|trade|order_submit|destructive_delete|account_delete). Do not infer the risk family from a website name. For social publishing, NEVER rely on wording or keyword extraction: also pass input={operation:"social_publish",platform:"linkedin|facebook|instagram",body:"exact unmodified post text",constraints:{max_submissions:1,preserve_audience:true,require_exact_editor_value:true,require_durable_confirmation:true}}. Before starting, call browse_session_status. When the CEO requires a specific driver, pass preferred_driver and allow_fallback:false. Prefer browse_recipe_run for saved recipes. Then call browse_task_status once with wait_ms up to 90000. Never use the built-in browser tool before or after browse_* in the same request. Do not use exec.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,
@@ -52,7 +52,7 @@ const BROWSER_TOOLS = [
     display_name: 'Browse act',
     endpoint: '/api/tools/browse-act',
     method: 'POST',
-    purpose: 'API tool: perform a browser action (click/type/open) or enumerate/focus explicitly authorized tabs on the CEO session. Use action=tabs to inspect authorized tabs and action=focus with targetId/tabId to select one. Prefer browse_task_start for multi-step goals. Do not use exec.',
+    purpose: 'API tool: perform a browser action (click/type/open) or enumerate/focus explicitly authorized tabs on the CEO session. For an externally consequential or financial/destructive action, pass the exact operation/action_effect contract documented by browse_task_start so Action Control applies the action effect rather than the transport name. Use action=tabs to inspect authorized tabs and action=focus with targetId/tabId to select one. Prefer browse_task_start for multi-step goals. Do not use exec.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,
@@ -74,7 +74,7 @@ const BROWSER_TOOLS = [
     endpoint: '/api/tools/browse-recipe-run',
     method: 'POST',
     purpose:
-      'API tool: prepare or run a saved browser recipe for this CEO. For draft/prepare/preview/do-not-publish requests, pass prepare_only:true with recipe_name or recipe_id and all inferred inputs; it validates bindings and never creates a browser task. For execution, omit prepare_only, supply every required input under inputs, and optionally wait_ms up to 90000. Missing inputs are rejected before task creation. Multiple placeholders are passed together, e.g. {"recipe_name":"Social post","inputs":{"post_content":"Exact text","first_comment":"Exact comment"}}. This tool does not add blanket approval: follow the existing action policy and the CEO request. Do not use exec.',
+      'API tool: prepare or run a saved browser recipe for this CEO. For draft/prepare/preview/do-not-publish requests, pass prepare_only:true with recipe_name or recipe_id and all inferred inputs; it validates bindings and never creates a browser task. For execution, omit prepare_only, pass operation/action_effect from the exact effect contract documented by browse_task_start, supply every required input under inputs, and optionally wait_ms up to 90000. Missing inputs are rejected before task creation. Multiple placeholders are passed together, e.g. {"recipe_name":"Social post","operation":"social_publish","inputs":{"post_content":"Exact text","first_comment":"Exact comment"}}. This tool does not add blanket approval: follow the existing action policy and the CEO request. Do not use exec.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,

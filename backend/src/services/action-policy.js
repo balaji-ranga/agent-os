@@ -1,6 +1,7 @@
 /**
  * Generic action-family policy: Autonomous / Approval required / Prohibited.
- * Risk tiers R0–R3 inferred from tool names; CEO Control overrides per family.
+ * Risk tiers R0–R3 resolved from explicit tool metadata/name and, for
+ * effect-aware tools such as browser execution, a structured operation.
  * Owner-scoped. Does not trust body ceo_user_id for authorization.
  */
 import { createHash, randomBytes, randomUUID } from 'crypto';
@@ -180,6 +181,90 @@ export function resolveRiskForTool(toolName) {
   return explicitRiskForTool(toolName) || { ...inferRiskForTool(toolName), source: 'inferred' };
 }
 
+const RISK_TIER_ORDER = Object.freeze({ R0: 0, R1: 1, R2: 2, R3: 3 });
+
+/**
+ * Browser tools are transports: the same tool may read a feed or publish a
+ * message. Classify an exact, structured operation rather than guessing from
+ * a website, goal text, selector label, or user-supplied risk tier.
+ *
+ * Unknown operations retain the tool's normal classification. An operation
+ * may only upgrade that classification, never downgrade explicit tool
+ * metadata or an intrinsically higher-risk tool.
+ */
+const BROWSER_EFFECT_AWARE_TOOLS = new Set([
+  'browse_task_start',
+  'browse_recipe_run',
+  'browse_act',
+]);
+
+const BROWSER_OPERATION_RISKS = Object.freeze({
+  read: { risk_tier: 'R0', action_family: 'read' },
+  read_page: { risk_tier: 'R0', action_family: 'read' },
+  read_feed: { risk_tier: 'R0', action_family: 'read' },
+  read_notifications: { risk_tier: 'R0', action_family: 'read' },
+  navigate: { risk_tier: 'R0', action_family: 'read' },
+  search: { risk_tier: 'R0', action_family: 'read' },
+  inspect: { risk_tier: 'R0', action_family: 'read' },
+  snapshot: { risk_tier: 'R0', action_family: 'read' },
+  draft: { risk_tier: 'R1', action_family: 'write_internal' },
+  compose_draft: { risk_tier: 'R1', action_family: 'write_internal' },
+  form_fill: { risk_tier: 'R1', action_family: 'write_internal' },
+  social_publish: { risk_tier: 'R2', action_family: 'communicate_external' },
+  external_publish: { risk_tier: 'R2', action_family: 'communicate_external' },
+  external_message_send: { risk_tier: 'R2', action_family: 'communicate_external' },
+  external_comment: { risk_tier: 'R2', action_family: 'communicate_external' },
+  external_reaction: { risk_tier: 'R2', action_family: 'communicate_external' },
+  external_form_submit: { risk_tier: 'R2', action_family: 'communicate_external' },
+  purchase: { risk_tier: 'R3', action_family: 'financial_destructive' },
+  payment: { risk_tier: 'R3', action_family: 'financial_destructive' },
+  transfer: { risk_tier: 'R3', action_family: 'financial_destructive' },
+  trade: { risk_tier: 'R3', action_family: 'financial_destructive' },
+  order_submit: { risk_tier: 'R3', action_family: 'financial_destructive' },
+  destructive_delete: { risk_tier: 'R3', action_family: 'financial_destructive' },
+  account_delete: { risk_tier: 'R3', action_family: 'financial_destructive' },
+});
+
+function structuredObject(value) {
+  if (value && typeof value === 'object' && !Array.isArray(value)) return value;
+  if (typeof value !== 'string') return {};
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function structuredBrowserOperation(toolName, body = {}) {
+  const tool = String(toolName || '').trim().toLowerCase();
+  if (!BROWSER_EFFECT_AWARE_TOOLS.has(tool)) return '';
+  if (body?.prepare_only === true || body?.prepareOnly === true) return 'read';
+  const input = structuredObject(body?.input);
+  return String(
+    input.operation || input.action_effect || input.actionEffect ||
+    body?.operation || body?.action_effect || body?.actionEffect || ''
+  ).trim().toLowerCase();
+}
+
+export function resolveRiskForAction(toolName, body = {}) {
+  const base = resolveRiskForTool(toolName);
+  const operation = structuredBrowserOperation(toolName, body);
+  const operationRisk = BROWSER_OPERATION_RISKS[operation];
+  if (!operationRisk) return base;
+  const operationOrder = RISK_TIER_ORDER[operationRisk.risk_tier] ?? 0;
+  const baseOrder = RISK_TIER_ORDER[base.risk_tier] ?? 0;
+  if (operationOrder < baseOrder) {
+    return base;
+  }
+  if (operationOrder === baseOrder && operationRisk.action_family !== base.action_family) return base;
+  return {
+    ...operationRisk,
+    source: `browser_operation:${operation}`,
+    operation,
+  };
+}
+
 const approvalHash = (token) => createHash('sha256').update(String(token || '')).digest('hex');
 
 export function createActionApprovalGrant(ownerUserId, {
@@ -211,7 +296,11 @@ export function createActionApprovalGrant(ownerUserId, {
 
 function constraintsMatch(constraints, body) {
   const c = constraints && typeof constraints === 'object' ? constraints : {};
-  const recipient = String(body?.recipient || body?.to || body?.email || body?.phone || '').trim().toLowerCase();
+  const nested = structuredObject(body?.input);
+  const recipient = String(
+    body?.recipient || body?.to || body?.email || body?.phone ||
+    nested?.recipient || nested?.to || nested?.email || nested?.phone || ''
+  ).trim().toLowerCase();
   const allowed = Array.isArray(c.allowed_recipients) ? c.allowed_recipients.map((v) => String(v).trim().toLowerCase()) : [];
   if (allowed.length && (!recipient || !allowed.includes(recipient))) return false;
   if (c.max_amount != null) {
@@ -223,7 +312,10 @@ function constraintsMatch(constraints, body) {
     ? c.permitted_email_ids.map((value) => String(value).trim().toLowerCase()).filter(Boolean)
     : [];
   if (permittedEmails.length && (!recipient || !permittedEmails.includes(recipient))) return false;
-  const rawUrl = String(body?.url || body?.target_url || body?.targetUrl || body?.website || body?.link_url || '').trim();
+  const rawUrl = String(
+    body?.url || body?.start_url || body?.startUrl || body?.target_url || body?.targetUrl || body?.website || body?.link_url ||
+    nested?.url || nested?.start_url || nested?.startUrl || nested?.target_url || nested?.targetUrl || nested?.website || nested?.link_url || ''
+  ).trim();
   const permittedWebsites = Array.isArray(c.permitted_websites)
     ? c.permitted_websites.map((value) => String(value).trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '')).filter(Boolean)
     : [];
@@ -393,7 +485,7 @@ export function previewActionPolicy({
   ensureActionPolicyTables();
   const tool = String(toolName || '').trim();
   if (!tool) return { ok: true, skipped: true, reason: 'no_tool' };
-  const inferred = resolveRiskForTool(tool);
+  const inferred = resolveRiskForAction(tool, body);
   const families = getActionFamilyPolicies(ownerUserId);
   const companyRow = families.find((f) => f.family === inferred.action_family) || families[0];
   const override = resolveActiveOverride(ownerUserId, inferred.action_family, tool, body, context);
@@ -451,7 +543,7 @@ export function evaluateActionPolicy({
   ensureActionPolicyTables();
   const tool = String(toolName || '').trim();
   if (!tool) return { ok: true, skipped: true, reason: 'no_tool' };
-  const inferred = resolveRiskForTool(tool);
+  const inferred = resolveRiskForAction(tool, body);
   const families = getActionFamilyPolicies(ownerUserId);
   const companyRow = families.find((f) => f.family === inferred.action_family) || families[0];
   const override = resolveActiveOverride(ownerUserId, inferred.action_family, tool, body, context);

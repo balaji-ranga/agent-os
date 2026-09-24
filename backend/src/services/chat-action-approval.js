@@ -63,6 +63,15 @@ export function actionArgsHash(toolName, body = {}) {
 
 function safeSummary(body = {}) {
   const source = approvalBody(body);
+  let nested = source?.input && typeof source.input === 'object' && !Array.isArray(source.input)
+    ? source.input
+    : {};
+  if (typeof source?.input === 'string') {
+    try {
+      const parsed = JSON.parse(source.input);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) nested = parsed;
+    } catch (_) {}
+  }
   const summary = {};
   for (const key of ['to', 'recipient', 'email', 'phone', 'subject', 'amount', 'total', 'value', 'campaign_id']) {
     if (source[key] != null && source[key] !== '') summary[key] = String(source[key]).slice(0, 300);
@@ -72,6 +81,18 @@ function safeSummary(body = {}) {
       .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
     summary.content_preview = content.slice(0, 500);
   }
+  const operation = String(nested.operation || source.operation || '').trim();
+  if (operation) summary.operation = operation.slice(0, 100);
+  const platform = String(nested.platform || source.platform || '').trim();
+  if (platform) summary.platform = platform.slice(0, 100);
+  const startUrl = String(source.start_url || source.startUrl || nested.start_url || nested.startUrl || '').trim();
+  if (startUrl) summary.website = startUrl.slice(0, 500);
+  if (!summary.content_preview && (nested.body || nested.text || nested.message)) {
+    summary.content_preview = String(nested.body || nested.text || nested.message)
+      .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 500);
+  }
+  const audience = String(nested.audience || source.audience || '').trim();
+  if (audience) summary.audience = audience.slice(0, 200);
   if (Array.isArray(source.attachments)) summary.attachment_count = source.attachments.length;
   return summary;
 }

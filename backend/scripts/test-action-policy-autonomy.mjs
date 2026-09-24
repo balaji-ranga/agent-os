@@ -22,6 +22,7 @@ try {
     ensureActionPolicyTables,
     evaluateActionPolicy,
     previewActionPolicy,
+    resolveRiskForAction,
     actionPolicyMiddleware,
     issueForwardedActionPolicyPass,
     listActionPolicyOverrides,
@@ -85,6 +86,101 @@ try {
   ];
   upsertActionFamilyPolicies(owner, policies);
   upsertActionFamilyPolicies(other, policies);
+
+  const browserReadBody = {
+    goal: 'Read the current feed',
+    start_url: 'https://www.linkedin.com/feed/',
+    input: { operation: 'read_feed' },
+  };
+  const browserPublishBody = (platform, startUrl, content = `Exact ${platform} test content`) => ({
+    goal: `Execute the supplied structured ${platform} operation`,
+    start_url: startUrl,
+    input: {
+      operation: 'social_publish',
+      platform,
+      body: content,
+      constraints: {
+        max_submissions: 1,
+        preserve_audience: true,
+        require_exact_editor_value: true,
+        require_durable_confirmation: true,
+      },
+    },
+  });
+
+  assert.deepEqual(
+    resolveRiskForAction('browse_task_start', browserReadBody),
+    { risk_tier: 'R0', action_family: 'read', source: 'browser_operation:read_feed', operation: 'read_feed' },
+    'read-only browser operations stay R0 regardless of website'
+  );
+  for (const [platform, startUrl] of [
+    ['linkedin', 'https://www.linkedin.com/feed/'],
+    ['facebook', 'https://www.facebook.com/'],
+  ]) {
+    const classified = resolveRiskForAction('browse_task_start', browserPublishBody(platform, startUrl));
+    assert.equal(classified.risk_tier, 'R2', `${platform} publish must be R2`);
+    assert.equal(classified.action_family, 'communicate_external');
+    assert.equal(classified.source, 'browser_operation:social_publish');
+  }
+  assert.equal(
+    resolveRiskForAction('browse_task_start', {
+      start_url: 'https://community.example.test/',
+      input: { operation: 'external_message_send', body: 'Generic external message' },
+    }).action_family,
+    'communicate_external',
+    'external effects are classified independently of website or platform name'
+  );
+  assert.equal(
+    resolveRiskForAction('browse_task_start', {
+      start_url: 'https://social.example.test/',
+      input: JSON.stringify({ operation: 'social_publish', platform: 'generic', body: 'Encoded input contract' }),
+    }).risk_tier,
+    'R2',
+    'JSON-encoded structured input receives the same policy classification as a native object'
+  );
+  assert.equal(
+    resolveRiskForAction('browse_recipe_run', {
+      prepare_only: true,
+      operation: 'social_publish',
+      recipe_name: 'Publish recipe',
+    }).action_family,
+    'read',
+    'prepare-only recipe validation does not become an external action'
+  );
+
+  const browserRead = evaluateActionPolicy({
+    ownerUserId: owner,
+    toolName: 'browse_task_start',
+    body: browserReadBody,
+  });
+  assert.equal(browserRead.ok, true);
+  assert.equal(browserRead.mode, 'autonomous');
+  assert.equal(browserRead.action_family, 'read');
+
+  const browserPublish = evaluateActionPolicy({
+    ownerUserId: owner,
+    toolName: 'browse_task_start',
+    body: browserPublishBody('linkedin', 'https://www.linkedin.com/feed/'),
+  });
+  assert.equal(browserPublish.ok, false);
+  assert.equal(browserPublish.mode, 'approval_required');
+  assert.equal(browserPublish.risk_tier, 'R2');
+  assert.equal(browserPublish.action_family, 'communicate_external');
+  assert.equal(browserPublish.needs_approval, true);
+
+  const browserPurchase = evaluateActionPolicy({
+    ownerUserId: owner,
+    toolName: 'browse_task_start',
+    body: {
+      goal: 'Execute the supplied structured operation',
+      start_url: 'https://shop.example.test/checkout',
+      input: { operation: 'purchase', amount: 10 },
+    },
+  });
+  assert.equal(browserPurchase.ok, false);
+  assert.equal(browserPurchase.mode, 'prohibited');
+  assert.equal(browserPurchase.risk_tier, 'R3');
+  assert.equal(browserPurchase.action_family, 'financial_destructive');
 
   // These are representative agent tool actions, not UI-only policy evaluations.
   const read = evaluateActionPolicy({ ownerUserId: owner, toolName: 'company_search', body: { query: 'pipeline' } });
@@ -235,6 +331,50 @@ try {
   actionPolicyMiddleware({ ...middlewareRequest, actionPolicy: undefined }, middlewareReplayResponse, () => { middlewareReplayAllowed = true; });
   assert.equal(middlewareReplayAllowed, false, 'middleware blocks replay after the bound approval is consumed');
   assert.equal(middlewareReplayResponse.body?.needs_approval, true);
+
+  const browserApprovalBody = browserPublishBody(
+    'linkedin',
+    'https://www.linkedin.com/feed/',
+    'Browser Action Control middleware approval test'
+  );
+  const browserRequest = {
+    method: 'POST', path: '/browse-task-start', body: browserApprovalBody,
+    headers: { 'x-ceo-user-id': owner, 'x-openclaw-agent-id': `t-${owner}--browserpublisher` },
+    authUser: { role: 'ceo', internal: true },
+  };
+  const browserBlockedResponse = responseStub();
+  let browserStartedWithoutApproval = false;
+  actionPolicyMiddleware(browserRequest, browserBlockedResponse, () => { browserStartedWithoutApproval = true; });
+  assert.equal(browserStartedWithoutApproval, false, 'R2 browser publish is stopped before browser task creation');
+  assert.equal(browserBlockedResponse.body?.risk_tier, 'R2');
+  assert.equal(browserBlockedResponse.body?.action_family, 'communicate_external');
+  assert(browserBlockedResponse.body?.pending_approval_id, 'blocked COO browser publish creates an exact-action approval');
+  assert(browserBlockedResponse.body?.approval_kanban_task_id, 'blocked COO browser publish creates a Kanban approval task');
+  const browserApprovalRow = db.prepare('SELECT args_summary_json FROM chat_action_approvals WHERE id=?')
+    .get(browserBlockedResponse.body.pending_approval_id);
+  const browserApprovalSummary = JSON.parse(browserApprovalRow.args_summary_json);
+  assert.equal(browserApprovalSummary.operation, 'social_publish');
+  assert.equal(browserApprovalSummary.platform, 'linkedin');
+  assert.equal(browserApprovalSummary.website, 'https://www.linkedin.com/feed/');
+  assert.equal(browserApprovalSummary.content_preview, 'Browser Action Control middleware approval test');
+  decideChatActionApproval({
+    ownerUserId: owner,
+    approvalId: browserBlockedResponse.body.pending_approval_id,
+    decision: 'approve',
+    actor: { id: owner, role: 'ceo' },
+    channel: 'web',
+    evidence: 'Approved exact browser publish',
+  });
+  let browserStartedAfterApproval = false;
+  const browserApprovedRequest = { ...browserRequest, actionPolicy: undefined };
+  actionPolicyMiddleware(browserApprovedRequest, responseStub(), () => { browserStartedAfterApproval = true; });
+  assert.equal(browserStartedAfterApproval, true, 'identical approved browser publish continues exactly once');
+  assert.equal(browserApprovedRequest.actionPolicy?.approval_grant_id?.startsWith('caa-'), true);
+  const browserReplayResponse = responseStub();
+  let browserReplayStarted = false;
+  actionPolicyMiddleware({ ...browserRequest, actionPolicy: undefined }, browserReplayResponse, () => { browserReplayStarted = true; });
+  assert.equal(browserReplayStarted, false, 'browser publish approval cannot be replayed');
+  assert.equal(browserReplayResponse.body?.needs_approval, true);
 
   const exactExecutionEmail = {
     to: 'ceo@example.test',
@@ -396,6 +536,44 @@ try {
   assert.equal(exhausted.ok, false, 'exhausted recurring grant falls back to company approval-required policy');
   assert.equal(exhausted.needs_approval, true);
 
+  // Effect-derived R2 browser actions participate in the same scoped override
+  // system. Nested start_url is checked by the generic website constraint.
+  const browserOverride = upsertActionPolicyOverride(owner, {
+    scope_type: 'tool',
+    scope_id: 'browse_task_start',
+    action_family: 'communicate_external',
+    mode: 'autonomous',
+    constraints: { permitted_websites: ['linkedin.com'] },
+    max_uses: 1,
+    expires_at: new Date(Date.now() + 3600000).toISOString(),
+  });
+  const blockedFacebookOverride = evaluateActionPolicy({
+    ownerUserId: owner,
+    toolName: 'browse_task_start',
+    body: browserPublishBody('facebook', 'https://www.facebook.com/'),
+  });
+  assert.equal(blockedFacebookOverride.ok, false, 'website-constrained override rejects a different website');
+  assert.equal(blockedFacebookOverride.policy_scope, 'tool');
+  assert.match(blockedFacebookOverride.error, /does not match/);
+  const allowedLinkedInOverride = evaluateActionPolicy({
+    ownerUserId: owner,
+    toolName: 'browse_task_start',
+    body: browserPublishBody('linkedin', 'https://www.linkedin.com/feed/'),
+  });
+  assert.equal(allowedLinkedInOverride.ok, true, 'matching browser publish uses the scoped override');
+  assert.equal(allowedLinkedInOverride.mode, 'autonomous');
+  assert.equal(allowedLinkedInOverride.override_id, browserOverride.id);
+  const exhaustedBrowserOverride = evaluateActionPolicy({
+    ownerUserId: owner,
+    toolName: 'browse_task_start',
+    body: browserPublishBody('linkedin', 'https://www.linkedin.com/feed/'),
+  });
+  assert.equal(exhaustedBrowserOverride.ok, false, 'bounded browser override falls back after one use');
+  assert.equal(exhaustedBrowserOverride.mode, 'approval_required');
+  assert.equal(exhaustedBrowserOverride.needs_approval, true);
+  const persistedBrowserOverride = listActionPolicyOverrides(owner).find((row) => row.id === browserOverride.id);
+  assert.equal(persistedBrowserOverride?.use_count, 1, 'browser override consumption is audited');
+
   // A proxy invocation consumes a bounded rule once. Its trusted, one-time
   // forward pass reuses that decision at the concrete route without consuming
   // the same allowance a second time.
@@ -506,6 +684,15 @@ try {
       recurring_email_max_uses: 2,
       permitted_email_enforced: true,
       permitted_website_enforced: true,
+    },
+    browser_effect_policy: {
+      read_operation_risk: 'R0',
+      external_operation_risk: 'R2',
+      financial_operation_risk: 'R3',
+      sites_tested: ['linkedin.com', 'facebook.com', 'community.example.test'],
+      kanban_exact_action_approval: true,
+      approval_replay_blocked: true,
+      bounded_override_and_website_constraint: true,
     },
     audited_decisions: events.length,
   }, null, 2));
