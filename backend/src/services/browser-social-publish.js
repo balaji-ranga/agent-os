@@ -133,7 +133,14 @@ export function inferSocialPlatform(goalText, startUrl = '') {
   for (const p of Object.values(PLATFORM_REGISTRY)) {
     if (p.hostRe.test(explicitUrl)) return p.id;
   }
-  const g = String(goalText || '').toLowerCase();
+  const fullGoal = String(goalText || '');
+  // COO task envelopes may append previous browser results as data. Those
+  // results can contain phrases such as "not Facebook" and must never override
+  // the current user's positive platform instruction.
+  const currentInstruction = fullGoal.match(
+    /Current user instruction \(verbatim\):\s*([\s\S]*?)(?:\nBackend browser results\b|\nBrowser-specific assignment\b|$)/i
+  )?.[1];
+  const g = String(currentInstruction || fullGoal).toLowerCase();
   const denied = new Set();
   for (const p of Object.values(PLATFORM_REGISTRY)) {
     const label = p.id === 'linkedin' ? 'linked\\s*in|linkedin' : p.id;
