@@ -709,6 +709,25 @@ export function extensionSocialSnapshotState(payload, platform, bodyText = '') {
   };
 }
 
+/**
+ * Build a semantic retry from the executor's structured accessibility data.
+ *
+ * Chrome-extension refs are snapshot-scoped and a site can replace the
+ * underlying node between snapshot and click while still returning a valid
+ * transport receipt.  A recorded semantic click does not have that weakness:
+ * the extension resolves the current, visible control by its exact accessible
+ * name.  Keep this metadata-driven (never infer a website or label from the
+ * user's prompt) and only retry when the first click produced no composer.
+ */
+export function semanticComposerRetryRequest(state) {
+  const trigger = state?.trigger;
+  const text = normalizeSocialText(trigger?.name);
+  if (!trigger?.ref || state?.trigger_count !== 1 || state?.dialog_open || state?.editor_count > 0 || !text) {
+    return null;
+  }
+  return { kind: 'click', text };
+}
+
 async function chromeExtensionSocialPublish(ceoUserId, platform, bodyText, { expectedTab = null } = {}) {
   const body = String(bodyText || '').trim();
   const steps = [];
@@ -776,6 +795,25 @@ async function chromeExtensionSocialPublish(ceoUserId, platform, bodyText, { exp
       composer = await snapshot(`${platform}_snapshot_composer`);
       composerState = extensionSocialSnapshotState(composer, platform, body);
       if (composerState.editor?.ref && composerState.editor_count === 1) break;
+    }
+  }
+  if (!composerState.editor?.ref || composerState.editor_count !== 1) {
+    const retryRequest = semanticComposerRetryRequest(composerState);
+    if (retryRequest) {
+      const retry = await cdp('act', withOwner(ceoUserId, { request: retryRequest }));
+      steps.push({
+        action: `${platform}_open_composer_semantic_retry`,
+        ok: retry?.ok !== false,
+        target: retryRequest.text,
+      });
+      if (retry?.ok !== false) {
+        for (const waitMs of [1800, 1800, 3000]) {
+          await cdp('wait', withOwner(ceoUserId, { ms: waitMs }));
+          composer = await snapshot(`${platform}_snapshot_composer_retry`);
+          composerState = extensionSocialSnapshotState(composer, platform, body);
+          if (composerState.editor?.ref && composerState.editor_count === 1) break;
+        }
+      }
     }
   }
   if (!composerState.editor?.ref || composerState.editor_count !== 1) {

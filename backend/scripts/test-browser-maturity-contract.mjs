@@ -14,6 +14,7 @@ import {
   extensionSocialSnapshotState,
   extractPublishBody,
   inferSocialPlatform,
+  semanticComposerRetryRequest,
   structuredSnapshotContainsExactBody,
   structuredSnapshotEditableValueEquals,
 } from '../src/services/browser-social-publish.js';
@@ -159,6 +160,20 @@ const unrelatedDialogState = extensionSocialSnapshotState(linkedInWithUnrelatedD
 assert.equal(unrelatedDialogState.dialog_open, false);
 assert.equal(unrelatedDialogState.trigger.ref, 'g2-e1');
 assert.equal(unrelatedDialogState.editor_count, 0);
+assert.deepEqual(
+  semanticComposerRetryRequest(unrelatedDialogState),
+  { kind: 'click', text: 'Start a post, opens a dialog' }
+);
+assert.equal(
+  semanticComposerRetryRequest({ ...unrelatedDialogState, dialog_open: true }),
+  null,
+  'semantic retry must not click behind an already-open composer'
+);
+assert.equal(
+  semanticComposerRetryRequest({ ...unrelatedDialogState, trigger_count: 2 }),
+  null,
+  'semantic retry must fail closed when the target is ambiguous'
+);
 
 const linkedInRecipe = {
   name: 'LinkedIn dynamic post',
