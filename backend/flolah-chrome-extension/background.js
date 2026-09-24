@@ -114,9 +114,12 @@ async function act(tabId, request) {
   const generation = Number(refMatch?.[1] || 0);
   const target = local ? `((Number(globalThis.__flolahSnapshotState?.generation||0)===${generation})?document.querySelector('[data-flolah-ref="${local.replace(/"/g, '')}"]'):'STALE_REF')` : 'null';
   if (kind === 'click') {
-    const result = await evaluate(tabId, `(() => { const el=${target}; if(el==='STALE_REF')return {error:'STALE_REF'}; if(!el) return {error:'TARGET_NOT_FOUND'}; el.click(); return {clicked:true}; })()`);
+    const result = await evaluate(tabId, `(() => { const el=${target}; if(el==='STALE_REF')return {error:'STALE_REF'}; if(!el) return {error:'TARGET_NOT_FOUND'}; el.scrollIntoView({block:'center',inline:'center'}); const r=el.getBoundingClientRect(); if(r.width<=0||r.height<=0)return {error:'TARGET_NOT_VISIBLE'}; return {x:r.left+r.width/2,y:r.top+r.height/2}; })()`);
     if (result?.error) throw Object.assign(new Error('Target not found'), { code: result.error });
-    return { ok: true, kind };
+    await chrome.debugger.sendCommand({ tabId }, 'Input.dispatchMouseEvent', { type: 'mouseMoved', x: result.x, y: result.y });
+    await chrome.debugger.sendCommand({ tabId }, 'Input.dispatchMouseEvent', { type: 'mousePressed', x: result.x, y: result.y, button: 'left', buttons: 1, clickCount: 1 });
+    await chrome.debugger.sendCommand({ tabId }, 'Input.dispatchMouseEvent', { type: 'mouseReleased', x: result.x, y: result.y, button: 'left', buttons: 0, clickCount: 1 });
+    return { ok: true, kind, x: Math.round(result.x), y: Math.round(result.y) };
   }
   if (kind === 'type') {
     const text = JSON.stringify(String(request.text ?? ''));
@@ -125,8 +128,15 @@ async function act(tabId, request) {
     return { ok: true, kind, length: String(request.text ?? '').length };
   }
   if (kind === 'press') {
-    await chrome.debugger.sendCommand({ tabId }, 'Input.dispatchKeyEvent', { type: 'keyDown', key: request.key || 'Enter' });
-    await chrome.debugger.sendCommand({ tabId }, 'Input.dispatchKeyEvent', { type: 'keyUp', key: request.key || 'Enter' });
+    const key = String(request.key || 'Enter');
+    const keyData = {
+      Enter: { code: 'Enter', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13, text: '\r' },
+      Tab: { code: 'Tab', windowsVirtualKeyCode: 9, nativeVirtualKeyCode: 9 },
+      Escape: { code: 'Escape', windowsVirtualKeyCode: 27, nativeVirtualKeyCode: 27 },
+      ' ': { code: 'Space', windowsVirtualKeyCode: 32, nativeVirtualKeyCode: 32, text: ' ' },
+    }[key] || { code: key.length === 1 ? `Key${key.toUpperCase()}` : key, text: key.length === 1 ? key : undefined };
+    await chrome.debugger.sendCommand({ tabId }, 'Input.dispatchKeyEvent', { type: 'keyDown', key, ...keyData });
+    await chrome.debugger.sendCommand({ tabId }, 'Input.dispatchKeyEvent', { type: 'keyUp', key, ...keyData, text: undefined });
     return { ok: true, kind };
   }
   if (kind === 'scroll') {

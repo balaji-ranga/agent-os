@@ -35,7 +35,7 @@ assert.equal(browserExecutorSupportsEvaluate({ driver_mode: 'playwright_chrome',
 
 const extensionPath = fileURLToPath(new URL('../flolah-chrome-extension/background.js', import.meta.url));
 const extension = readFileSync(extensionPath, 'utf8');
-for (const marker of ["'screenshot'", "'task_cleanup'", 'resumable_tasks: true', 'visible_text_excerpt', 'Page.captureScreenshot', 'preserveAllow: true']) {
+for (const marker of ["'screenshot'", "'task_cleanup'", 'resumable_tasks: true', 'visible_text_excerpt', 'Page.captureScreenshot', 'Input.dispatchMouseEvent', 'windowsVirtualKeyCode', 'preserveAllow: true']) {
   assert(extension.includes(marker), `extension missing ${marker}`);
 }
 console.log('browser maturity contract tests passed');
