@@ -35,6 +35,7 @@ import { correctionContext } from './step-outcome-validation.js';
 import { assertUrlAllowed } from './browser-url-policy.js';
 import {
   extractPublishBody,
+  inferSocialPlatform,
   runAutonomousSocialPublish,
 } from './browser-social-publish.js';
 
@@ -1360,7 +1361,7 @@ export function inferLinkedInStartUrl(goal, startUrl = '') {
   const existing = String(startUrl || '').trim();
   if (existing) return existing;
   const g = String(goal || '');
-  if (!/linkedin|linked\s*in/i.test(g)) return '';
+  if (inferSocialPlatform(g, '') !== 'linkedin') return '';
   if (/notification/i.test(g)) {
     const url = 'https://www.linkedin.com/notifications/';
     console.info('[browser-task] inferred linkedin notifications url → %s', url);
@@ -1825,6 +1826,7 @@ async function runAutonomous(ceoUserId, taskId) {
       goalText: task.goal_text,
       startUrl: task.start_url,
       body: publishBody,
+      taskId,
     });
     for (const s of pub.steps || []) steps.push(s);
     updateTask(ceoUserId, taskId, {

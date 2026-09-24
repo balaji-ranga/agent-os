@@ -10,6 +10,12 @@ The extension uses your normally launched Chrome and existing login. It does not
 other tabs. The Desktop Browser Session package remains available when you prefer a separate persistent
 automation profile, while public tasks can continue in managed Playwright.
 
+When several tabs are allowed, extension v1.1.3 and later reports the authorized tab URLs to the task
+runner. The runner selects the tab whose hostname matches the requested platform and pins that tab for the
+task; it must not silently fall back to the first allowed tab or reinterpret “not LinkedIn” as a LinkedIn
+request. Extension social actions use snapshots, trusted clicks, typing, and key events only. Arbitrary page
+JavaScript evaluation is deliberately not exposed to the extension.
+
 ## What it is
 
 **Browser Session** (`/browser-session`) lets you run natural-language browser work in:

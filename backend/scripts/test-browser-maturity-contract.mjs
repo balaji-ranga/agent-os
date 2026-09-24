@@ -4,8 +4,10 @@ import { fileURLToPath } from 'node:url';
 import {
   browserExecutorSupportsEvaluate,
   browserTaskResumeState,
+  inferLinkedInStartUrl,
   verifyRecipeReplayOutcome,
 } from '../src/services/browser-tasks.js';
+import { extractPublishBody, inferSocialPlatform } from '../src/services/browser-social-publish.js';
 
 const recipe = { steps: [
   { action: 'open', args: { url: 'https://example.com', expect_url: '^https://example\\.com' } },
@@ -33,9 +35,19 @@ assert.equal(browserExecutorSupportsEvaluate({ driver_mode: 'chrome_extension', 
 assert.equal(browserExecutorSupportsEvaluate({ driver_mode: 'chrome_extension', capabilities: { actions: ['act', 'evaluate'] } }), true);
 assert.equal(browserExecutorSupportsEvaluate({ driver_mode: 'playwright_chrome', capabilities: { actions: ['act'] } }), true);
 
+const facebookOnlyGoal = 'Create exactly one Facebook post. Target Facebook, not LinkedIn. Do not post anywhere else.';
+assert.equal(inferSocialPlatform(facebookOnlyGoal), 'facebook');
+assert.equal(inferLinkedInStartUrl(facebookOnlyGoal), '');
+assert.equal(inferSocialPlatform('Post this on LinkedIn, not Facebook.'), 'linkedin');
+assert.equal(inferSocialPlatform('Post this', 'https://www.facebook.com/'), 'facebook');
+assert.equal(
+  extractPublishBody('Create one Facebook post with this exact text: Testing Flolah Browser Session recipe — automated test post. #FlolahTest\n\nTarget the authorized Facebook tab, not LinkedIn.\n\nPreserve the audience.'),
+  'Testing Flolah Browser Session recipe — automated test post. #FlolahTest'
+);
+
 const extensionPath = fileURLToPath(new URL('../flolah-chrome-extension/background.js', import.meta.url));
 const extension = readFileSync(extensionPath, 'utf8');
-for (const marker of ["'screenshot'", "'task_cleanup'", 'resumable_tasks: true', 'visible_text_excerpt', 'Page.captureScreenshot', 'DOM.getFlattenedDocument', 'pierce: true', 'Input.insertText', 'Input.dispatchMouseEvent', 'windowsVirtualKeyCode', 'preserveAllow: true']) {
+for (const marker of ["'screenshot'", "'task_cleanup'", "'tabs'", "'focus'", 'resumable_tasks: true', 'tab_discovery: true', 'tab_selection: true', 'allowedTabSummaries', 'selectedTabId', 'visible_text_excerpt', 'Page.captureScreenshot', 'DOM.getFlattenedDocument', 'pierce: true', 'Input.insertText', 'Input.dispatchMouseEvent', 'windowsVirtualKeyCode', 'preserveAllow: true']) {
   assert(extension.includes(marker), `extension missing ${marker}`);
 }
 console.log('browser maturity contract tests passed');

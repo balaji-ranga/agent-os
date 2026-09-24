@@ -8,7 +8,7 @@ const storageGet = (keys) => chrome.storage.local.get(keys);
 const storageSet = (value) => chrome.storage.local.set(value);
 
 async function state() {
-  const value = await storageGet(['baseUrl', 'token', 'nodeId', 'allowedTabs', 'taskTabs', 'online']);
+  const value = await storageGet(['baseUrl', 'token', 'nodeId', 'allowedTabs', 'taskTabs', 'selectedTabId', 'online']);
   if (!value.nodeId) {
     value.nodeId = crypto.randomUUID();
     await storageSet({ nodeId: value.nodeId });
@@ -34,12 +34,14 @@ async function api(path, { method = 'GET', body = null, auth = true } = {}) {
 function capabilities() {
   return {
     protocol_version: PROTOCOL_VERSION,
-    actions: ['open', 'snapshot', 'screenshot', 'act', 'action_batch', 'status', 'wait', 'task_cleanup'],
+    actions: ['open', 'snapshot', 'screenshot', 'act', 'action_batch', 'status', 'wait', 'task_cleanup', 'tabs', 'focus'],
     structured_snapshot: true,
     action_batch: true,
     screenshots: true,
     resumable_tasks: true,
     tab_consent: true,
+    tab_discovery: true,
+    tab_selection: true,
   };
 }
 async function register() {
@@ -77,9 +79,42 @@ async function taskTab(args = {}) {
   }
   const allowedIds = Object.keys(s.allowedTabs).filter((id) => s.allowedTabs[id]?.allowed).map(Number);
   if (!allowedIds.length) throw Object.assign(new Error('Allow a Chrome tab from the Flolah extension first'), { code: 'TAB_NOT_ALLOWED' });
-  const selected = allowedIds[0];
+  const selectedStored = Number(s.selectedTabId || 0);
+  const active = await activeTab();
+  const selected =
+    (selectedStored && allowedIds.includes(selectedStored) && selectedStored) ||
+    (active?.id && allowedIds.includes(active.id) && active.id) ||
+    allowedIds[0];
   if (taskId) { s.taskTabs[taskId] = selected; await storageSet({ taskTabs: s.taskTabs }); }
   return selected;
+}
+async function allowedTabSummaries() {
+  const s = await state();
+  const tabs = [];
+  let changed = false;
+  for (const [rawId, consent] of Object.entries(s.allowedTabs)) {
+    if (!consent?.allowed) continue;
+    const tabId = Number(rawId);
+    try {
+      const tab = await chrome.tabs.get(tabId);
+      tabs.push({
+        id: tabId,
+        tabId,
+        targetId: String(tabId),
+        url: String(tab.url || ''),
+        title: String(tab.title || ''),
+        active: tab.active === true,
+        selected: Number(s.selectedTabId || 0) === tabId,
+        allowed: true,
+      });
+    } catch {
+      delete s.allowedTabs[rawId];
+      for (const [taskId, id] of Object.entries(s.taskTabs)) if (Number(id) === tabId) delete s.taskTabs[taskId];
+      changed = true;
+    }
+  }
+  if (changed) await storageSet({ allowedTabs: s.allowedTabs, taskTabs: s.taskTabs });
+  return tabs;
 }
 async function evaluate(tabId, expression) {
   const out = await chrome.debugger.sendCommand({ tabId }, 'Runtime.evaluate', {
@@ -227,10 +262,22 @@ async function act(tabId, request) {
   throw Object.assign(new Error(`Unsupported action: ${kind}`), { code: 'CAPABILITY_UNAVAILABLE' });
 }
 async function runAction(action, args = {}) {
+  const name = String(action || '').toLowerCase();
+  if (name === 'tabs') return { ok: true, tabs: await allowedTabSummaries(), driver: DRIVER_MODE };
+  if (name === 'focus') {
+    const tabId = await taskTab(args);
+    await attachAllowed(tabId);
+    const s = await state();
+    s.selectedTabId = tabId;
+    const taskId = String(args.task_id || '').trim();
+    if (taskId) s.taskTabs[taskId] = tabId;
+    await storageSet({ selectedTabId: tabId, taskTabs: s.taskTabs });
+    const tab = await chrome.tabs.get(tabId);
+    return { ok: true, tab_id: tabId, targetId: String(tabId), url: tab.url || '', title: tab.title || '', result_state: 'action_applied' };
+  }
   const tabId = await taskTab(args);
   await attachAllowed(tabId);
-  const name = String(action || '').toLowerCase();
-  if (name === 'status') return { ok: true, tab_id: tabId, driver: DRIVER_MODE };
+  if (name === 'status') return { ok: true, tab_id: tabId, driver: DRIVER_MODE, tabs: await allowedTabSummaries() };
   if (name === 'open') {
     const url = String(args.url || args.targetUrl || '');
     if (!/^https?:\/\//i.test(url)) throw Object.assign(new Error('Only HTTP(S) URLs are supported'), { code: 'POLICY_BLOCKED' });
@@ -306,16 +353,17 @@ chrome.runtime.onMessage.addListener((message, _sender, respond) => {
     if (message.type === 'allow_active_tab') {
       const s = await state(); const tab = await activeTab(); if (!tab) throw new Error('No active tab');
       s.allowedTabs[String(tab.id)] = { allowed: true, origin: new URL(tab.url).origin, allowed_at: new Date().toISOString() };
-      await storageSet({ allowedTabs: s.allowedTabs }); await attachAllowed(tab.id); return { ok: true };
+      await storageSet({ allowedTabs: s.allowedTabs, selectedTabId: tab.id }); await attachAllowed(tab.id); return { ok: true };
     }
     if (message.type === 'pause_active_tab') {
       const s = await state(); const tab = await activeTab(); if (tab) { delete s.allowedTabs[String(tab.id)]; await detach(tab.id); }
       for (const [taskId, id] of Object.entries(s.taskTabs)) if (Number(id) === tab.id) delete s.taskTabs[taskId];
-      await storageSet({ allowedTabs: s.allowedTabs, taskTabs: s.taskTabs }); return { ok: true };
+      const selectedTabId = Number(s.selectedTabId || 0) === tab.id ? null : s.selectedTabId;
+      await storageSet({ allowedTabs: s.allowedTabs, taskTabs: s.taskTabs, selectedTabId }); return { ok: true };
     }
     if (message.type === 'stop_all') {
       const s = await state(); for (const id of Object.keys(s.allowedTabs)) await detach(Number(id));
-      await storageSet({ allowedTabs: {}, taskTabs: {} }); return { ok: true };
+      await storageSet({ allowedTabs: {}, taskTabs: {}, selectedTabId: null }); return { ok: true };
     }
     if (message.type === 'unpair') {
       const s = await state(); for (const id of Object.keys(s.allowedTabs)) await detach(Number(id));
@@ -325,7 +373,7 @@ chrome.runtime.onMessage.addListener((message, _sender, respond) => {
   })().then(respond).catch((error) => respond({ ok: false, error: error.message }));
   return true;
 });
-chrome.tabs.onRemoved.addListener(async (tabId) => { const s = await state(); if (s.allowedTabs[String(tabId)]) delete s.allowedTabs[String(tabId)]; for (const [taskId, id] of Object.entries(s.taskTabs)) if (Number(id) === tabId) delete s.taskTabs[taskId]; await storageSet({ allowedTabs: s.allowedTabs, taskTabs: s.taskTabs }); });
+chrome.tabs.onRemoved.addListener(async (tabId) => { const s = await state(); if (s.allowedTabs[String(tabId)]) delete s.allowedTabs[String(tabId)]; for (const [taskId, id] of Object.entries(s.taskTabs)) if (Number(id) === tabId) delete s.taskTabs[taskId]; const selectedTabId = Number(s.selectedTabId || 0) === tabId ? null : s.selectedTabId; await storageSet({ allowedTabs: s.allowedTabs, taskTabs: s.taskTabs, selectedTabId }); });
 chrome.debugger.onDetach.addListener(async ({ tabId }) => { if (intentionalDetaches.has(Number(tabId))) return; const s = await state(); if (s.allowedTabs[String(tabId)]) { delete s.allowedTabs[String(tabId)]; await storageSet({ allowedTabs: s.allowedTabs }); } });
 chrome.runtime.onInstalled.addListener(() => chrome.alarms.create(POLL_ALARM, { periodInMinutes: 0.5 }));
 chrome.runtime.onStartup.addListener(async () => { await register().catch(() => {}); poll(); });

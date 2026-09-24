@@ -19,6 +19,7 @@ import {
   parseInvokeText,
   sleep,
 } from './job-browser-auth.js';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { resolveBrowserProfile } from './client-browser-session.js';
 import {
   isBrowserWorkerOnline,
@@ -26,6 +27,7 @@ import {
 } from './browser-worker-dispatch.js';
 
 const BROWSER_CDP_AGENT_ID = process.env.BROWSER_TASK_CDP_AGENT_ID || 'browser-cdp';
+const socialPublishContext = new AsyncLocalStorage();
 
 /** Registry: extend this map to add websites without touching the act loop core. */
 export const PLATFORM_REGISTRY = {
@@ -59,14 +61,19 @@ function nowIso() {
 
 async function cdp(action, extra = {}) {
   let timer;
-  const ownerId = String(extra.ceoUserId || extra.ownerUserId || '').trim();
+  const context = socialPublishContext.getStore() || {};
+  const ownerId = String(extra.ceoUserId || extra.ownerUserId || context.ceoUserId || '').trim();
+  const routedExtra = {
+    ...extra,
+    ...(context.taskId && !extra.task_id ? { task_id: context.taskId } : {}),
+  };
   try {
     return await Promise.race([
       (async () => {
         if (ownerId && isBrowserWorkerOnline(ownerId)) {
-          return invokeViaBrowserWorker(ownerId, action, extra);
+          return invokeViaBrowserWorker(ownerId, action, routedExtra);
         }
-        return invokeBrowserAction(action, BROWSER_CDP_AGENT_ID, extra);
+        return invokeBrowserAction(action, BROWSER_CDP_AGENT_ID, routedExtra);
       })(),
       new Promise((_, reject) => {
         timer = setTimeout(() => reject(new Error('cdp_timeout_' + action)), 30000);
@@ -122,9 +129,20 @@ function looksFailed(result) {
 }
 
 export function inferSocialPlatform(goalText, startUrl = '') {
-  const g = `${goalText || ''} ${startUrl || ''}`.toLowerCase();
+  const explicitUrl = String(startUrl || '').toLowerCase();
   for (const p of Object.values(PLATFORM_REGISTRY)) {
-    if (p.matches(g) || p.hostRe.test(g)) return p.id;
+    if (p.hostRe.test(explicitUrl)) return p.id;
+  }
+  const g = String(goalText || '').toLowerCase();
+  const denied = new Set();
+  for (const p of Object.values(PLATFORM_REGISTRY)) {
+    const label = p.id === 'linkedin' ? 'linked\\s*in|linkedin' : p.id;
+    if (new RegExp(`(?:not|never|do\\s+not|don['’]?t)\\s+(?:use\\s+|target\\s+|post\\s+(?:to|on)\\s+)?(?:${label})`, 'i').test(g)) {
+      denied.add(p.id);
+    }
+  }
+  for (const p of Object.values(PLATFORM_REGISTRY)) {
+    if (!denied.has(p.id) && (p.matches(g) || p.hostRe.test(g))) return p.id;
   }
   return null;
 }
@@ -133,8 +151,8 @@ export function extractPublishBody(goalText) {
   const g = String(goalText || '').replace(/\r\n/g, '\n').trim();
   if (!g) return '';
   const patterns = [
-    /EXACT text[:\s]*\n+([\s\S]+?)(?:\n\nWhen published|\n\nFingerprint:|\n\nstart_url:|\n\nFACEBOOK|\n\nLINKEDIN|$)/i,
-    /Body(?:\s*\(post this EXACT text[^)]*\))?[:\s]*\n+([\s\S]+?)(?:\n\nWhen published|\n\nFingerprint:|\n\nstart_url:|$)/i,
+    /EXACT text[:\s]*\n+([\s\S]+?)(?:\n\nWhen published|\n\nFingerprint:|\n\nstart_url:|\n\nTarget\b|\n\nPreserve\b|\n\nSubmit\b|\n\nIf the target\b|\n\nFACEBOOK|\n\nLINKEDIN|$)/i,
+    /Body(?:\s*\(post this EXACT text[^)]*\))?[:\s]*\n+([\s\S]+?)(?:\n\nWhen published|\n\nFingerprint:|\n\nstart_url:|\n\nTarget\b|\n\nPreserve\b|\n\nSubmit\b|$)/i,
     /post this EXACT text as the (?:LinkedIn|Facebook) post\)?:\s*\n+([\s\S]+?)(?:\n\nWhen published|\n\nFingerprint:|$)/i,
   ];
   for (const re of patterns) {
@@ -142,7 +160,7 @@ export function extractPublishBody(goalText) {
     if (m?.[1]?.trim()?.length > 20) return m[1].trim();
   }
   const oneLine = g.match(
-    /EXACT text:\s*([\s\S]+?)(?:\n\nWhen published|\s+When published|\n\nFingerprint:|\s+Fingerprint:|$)/i
+    /EXACT text:\s*([\s\S]+?)(?:\n\nWhen published|\s+When published|\n\nFingerprint:|\s+Fingerprint:|\n\nTarget\b|\n\nPreserve\b|\n\nSubmit\b|\n\nIf the target\b|$)/i
   );
   if (oneLine?.[1]?.trim()?.length > 20) return oneLine[1].trim();
   return '';
@@ -533,6 +551,86 @@ export async function ensurePlatformTab(ceoUserId, platform, { preferFresh = fal
     url,
     recycled: false,
     opened: true,
+  };
+}
+
+function browserWorkerPayload(result) {
+  const raw = parseInvokeText(result) || result?.text || '';
+  try { return JSON.parse(raw); } catch { return {}; }
+}
+
+async function chromeExtensionFacebookPublish(ceoUserId, bodyText) {
+  const body = String(bodyText || '').trim();
+  const steps = [];
+  const snapshot = async (label) => {
+    const result = await cdp('snapshot', withOwner(ceoUserId, { limit: 30000 }));
+    const payload = browserWorkerPayload(result);
+    steps.push({ action: label, ok: result?.ok !== false, url: payload?.structured_snapshot?.page?.url || '' });
+    return payload;
+  };
+  const first = await snapshot('facebook_snapshot_before');
+  const firstUrl = String(first?.structured_snapshot?.page?.url || '');
+  if (!PLATFORM_REGISTRY.facebook.hostRe.test(firstUrl)) {
+    return { ok: false, stage: 'wrong_tab', error: `Selected tab is not Facebook: ${firstUrl || 'unknown'}`, steps };
+  }
+
+  const open = await cdp('act', withOwner(ceoUserId, {
+    request: { kind: 'click', text: "What's on your mind" },
+  }));
+  steps.push({ action: 'facebook_open_composer', ok: open?.ok !== false, detail: String(parseInvokeText(open) || '').slice(0, 240) });
+  if (open?.ok === false) return { ok: false, stage: 'composer_not_found', error: parseInvokeText(open), steps };
+  await cdp('wait', withOwner(ceoUserId, { ms: 1800 }));
+
+  const composer = await snapshot('facebook_snapshot_composer');
+  const elements = composer?.structured_snapshot?.elements || [];
+  const editor = elements.find((el) =>
+    el?.editable && /what.?s on your mind|create (?:a )?post/i.test(String(el.name || ''))
+  ) || elements.find((el) => el?.editable && el?.role === 'textbox');
+  if (editor?.ref) {
+    const focus = await cdp('act', withOwner(ceoUserId, { request: { kind: 'click', ref: editor.ref } }));
+    steps.push({ action: 'facebook_focus_editor', ok: focus?.ok !== false, ref: editor.ref });
+    if (focus?.ok === false) return { ok: false, stage: 'editor_focus_failed', error: parseInvokeText(focus), steps };
+  }
+
+  const typed = await cdp('act', withOwner(ceoUserId, { request: { kind: 'type', text: body } }));
+  steps.push({ action: 'facebook_type_once', ok: typed?.ok !== false, length: body.length });
+  if (typed?.ok === false) return { ok: false, stage: 'type_failed', error: parseInvokeText(typed), steps };
+  await cdp('wait', withOwner(ceoUserId, { ms: 900 }));
+
+  const filled = await snapshot('facebook_snapshot_filled');
+  const filledText = String(filled?.structured_snapshot?.visible_text_excerpt || filled?.text || '').replace(/\s+/g, ' ');
+  const normalizedBody = body.replace(/\s+/g, ' ');
+  if (!filledText.includes(normalizedBody)) {
+    return { ok: false, stage: 'body_not_verified', error: 'Exact body was not visible before submission', steps };
+  }
+  const filledElements = filled?.structured_snapshot?.elements || [];
+  const post = filledElements
+    .filter((el) => el?.role === 'button' && /^post$/i.test(String(el.name || '').trim()) && el.enabled !== false)
+    .sort((a, b) => Number(b.bounds?.y || 0) - Number(a.bounds?.y || 0))[0];
+  if (!post?.ref) return { ok: false, stage: 'post_button_not_found', error: 'Enabled Facebook Post button not found', steps };
+
+  const submitted = await cdp('act', withOwner(ceoUserId, { request: { kind: 'click', ref: post.ref } }));
+  steps.push({ action: 'facebook_submit_once', ok: submitted?.ok !== false, ref: post.ref });
+  if (submitted?.ok === false) return { ok: false, stage: 'submit_failed', error: parseInvokeText(submitted), steps };
+  await cdp('wait', withOwner(ceoUserId, { ms: 4500 }));
+
+  const after = await snapshot('facebook_snapshot_after');
+  const afterText = String(after?.structured_snapshot?.visible_text_excerpt || after?.text || '').replace(/\s+/g, ' ');
+  const afterElements = after?.structured_snapshot?.elements || [];
+  const composerPostStillOpen = afterElements.some((el) =>
+    el?.role === 'button' && /^post$/i.test(String(el.name || '').trim()) && el.enabled !== false
+  );
+  const retained = afterText.includes(normalizedBody);
+  const toastHit = /post (?:was |is )?(?:published|shared|created)|your post/i.test(afterText);
+  const success = !composerPostStillOpen && (retained || toastHit);
+  return {
+    ok: success,
+    stage: success ? 'posted_and_verified' : 'outcome_not_verified',
+    error: success ? null : 'Facebook submission was issued once, but retention could not be verified',
+    submitted_once: true,
+    retained,
+    toast_hit: toastHit,
+    steps,
   };
 }
 
@@ -1279,7 +1377,13 @@ async function confirmPosted(ceoUserId, platform, bodySnippet = '') {
  * Full autonomous publish: focus platform tab → open composer → fill → post → recycle tab.
  * @returns {{ ok: boolean, summary: string, steps: any[], note: string }}
  */
-export async function runAutonomousSocialPublish(ceoUserId, { goalText, startUrl, body }) {
+export async function runAutonomousSocialPublish(ceoUserId, { goalText, startUrl, body, taskId = '' }) {
+  if (!socialPublishContext.getStore()) {
+    return socialPublishContext.run(
+      { ceoUserId, taskId: String(taskId || '').trim() },
+      () => runAutonomousSocialPublish(ceoUserId, { goalText, startUrl, body, taskId })
+    );
+  }
   const steps = [];
   const platform = inferSocialPlatform(goalText, startUrl);
   const publishBody = String(body || extractPublishBody(goalText) || '').trim();
@@ -1295,6 +1399,7 @@ export async function runAutonomousSocialPublish(ceoUserId, { goalText, startUrl
   let filled = { ok: false };
   let confirm = null;
   let closeout = { ok: true, remaining: 0, closed: 0, steps: [] };
+  let extensionMode = false;
 
   let earlyExit = null;
   try {
@@ -1319,7 +1424,15 @@ export async function runAutonomousSocialPublish(ceoUserId, { goalText, startUrl
       };
     } else {
     if (tab.targetId) await focusChromeTab(ceoUserId, tab.targetId);
+    const status = browserWorkerPayload(await cdp('status', withOwner(ceoUserId)));
+    extensionMode = status.driver === 'chrome_extension';
 
+    if (platform === 'facebook' && extensionMode) {
+      filled = await chromeExtensionFacebookPublish(ceoUserId, publishBody);
+      confirm = { success: filled.ok === true, conf: { retained: filled.retained, toast_hit: filled.toast_hit } };
+      steps.push(...(filled.steps || []).map((entry) => ({ t: nowIso(), ...entry })));
+      steps.push({ t: nowIso(), action: 'facebook_extension_publish', filled, confirm });
+    } else {
     const maxAttempts = platform === 'facebook' ? 2 : 4;
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       if (tab.targetId) await focusChromeTab(ceoUserId, tab.targetId);
@@ -1381,6 +1494,8 @@ export async function runAutonomousSocialPublish(ceoUserId, { goalText, startUrl
       await sleep(1200);
     }
 
+    } // end extension-safe / legacy publish selection
+
     if (!confirm?.success && platform === 'linkedin' && filled.ok && /share-actions__primary/i.test(String(filled.cls || ''))) {
       await sleep(3000);
       confirm = await confirmPosted(ceoUserId, platform, publishBody);
@@ -1388,9 +1503,15 @@ export async function runAutonomousSocialPublish(ceoUserId, { goalText, startUrl
     }
     } // end else tab available
   } finally {
-    // Always close platform tabs after the workflow ends (success, fail, or exception).
+    // Extension tabs are user-owned and explicitly authorized: release the task pin but preserve the tab.
+    // Managed/desktop social tabs retain the historical close-after-task behavior.
     try {
-      closeout = await closePlatformTabsAfterTask(ceoUserId, platform, tab?.targetId || null);
+      if (extensionMode) {
+        const cleanup = await cdp('task_cleanup', withOwner(ceoUserId));
+        closeout = { ok: cleanup?.ok !== false, remaining: 1, closed: 0, preserved: true, steps: [] };
+      } else {
+        closeout = await closePlatformTabsAfterTask(ceoUserId, platform, tab?.targetId || null);
+      }
       steps.push({ t: nowIso(), action: 'close_tabs_after_task', closeout });
     } catch (e) {
       steps.push({ t: nowIso(), action: 'close_tabs_after_task', error: e.message });
@@ -1422,8 +1543,8 @@ export async function runAutonomousSocialPublish(ceoUserId, { goalText, startUrl
     (confirm?.conf?.brand_in_dialog ? 'brand still in composer dialog' : '') ||
     (confirm?.conf?.dialog_open ? 'composer dialog still open' : '');
   const summary = success
-    ? `Autonomous ${platform} publish completed. Platform tabs closed after task (remaining=${closeout.remaining}).`
-    : `Autonomous ${platform} publish failed at stage=${failStage}: ${String(failHint).slice(0, 160)} (tabs closed remaining=${closeout.remaining})`;
+    ? `Autonomous ${platform} publish completed. ${closeout.preserved ? 'Authorized extension tab preserved.' : `Platform tabs closed after task (remaining=${closeout.remaining}).`}`
+    : `Autonomous ${platform} publish failed at stage=${failStage}: ${String(failHint).slice(0, 160)} (${closeout.preserved ? 'authorized extension tab preserved' : `tabs closed remaining=${closeout.remaining}`})`;
 
   console.info(
     '[browser-social] done ceo=%s platform=%s success=%s stage=%s confirm=%s tabs_remaining=%s',
