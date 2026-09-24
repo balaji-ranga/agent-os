@@ -15,14 +15,17 @@ const OPENCLAW_DIR = resolveOpenClawDir();
 const CONFIG_PATH = resolveOpenClawConfigPath();
 
 const REQUIRED_AGENTS = [
-  'bala',
   'balserve',
   'workflowbuilder',
   'platformhelp',
   'techresearcher',
   'expensemanager',
-  'socialasstant',
 ];
+
+// Historical templates may still exist on disk, but these IDs were replaced
+// by the COO (balserve) and tenant-scoped social/research agents. They must not
+// be recreated as duplicate global agents merely to satisfy deployment checks.
+const RETIRED_GLOBAL_AGENTS = ['bala', 'socialasstant'];
 
 const OPTIONAL_JOB_AGENTS = ['jobdiscovery', 'fitscorer', 'resumetailor', 'applicationagent'];
 
@@ -250,6 +253,9 @@ if (platformhelp) {
 const agentIds = agentRoster.map((a) => String(a.id || '').toLowerCase());
 for (const id of REQUIRED_AGENTS) {
   if (!agentIds.includes(id)) fail(`agent roster missing: ${id}`);
+}
+for (const id of RETIRED_GLOBAL_AGENTS) {
+  if (agentIds.includes(id)) warn(`retired global agent remains configured: ${id}`);
 }
 const jobPresent = OPTIONAL_JOB_AGENTS.filter((id) => agentIds.includes(id));
 if (jobPresent.length === 0) {
