@@ -121,10 +121,13 @@ function BrowserSessionPanel() {
       setRecipesTotal(rPage.total || 0);
       if (activeTask?.id) {
         const one = await api.browserSessionTaskGet(activeTask.id);
-        setActiveTask(one.task);
-        if (one.task?.mode === 'recorder' && one.task?.recipe_id) {
-          await loadRecipeSteps(one.task.recipe_id);
-        }
+        // A refresh that started for the previous task may finish after the
+        // user has started or selected another task. Never let that stale
+        // response restore the old task. Recorder steps are loaded by the
+        // active-task effect below after the accepted task is committed.
+        setActiveTask((current) =>
+          current?.id === one.task?.id ? one.task : current
+        );
       }
     } catch (e) {
       setError(e.message || String(e));
