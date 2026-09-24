@@ -1033,7 +1033,10 @@ async function chromeExtensionSocialPublish(
   steps.push({ action: `${platform}_submit_once`, ok: submitted?.ok !== false, ref: filledState.submit.ref });
   if (submitted?.ok === false) return { ok: false, stage: 'submit_failed', error: parseInvokeText(submitted), steps };
   let afterState = null;
-  for (const waitMs of [1800, 3000, 4500]) {
+  // Submission is single-shot. Continue with read-only observation long enough
+  // for asynchronous feeds to surface their success toast or newly inserted
+  // post; never compensate for slow evidence by clicking submit again.
+  for (const waitMs of [1800, 3000, 4500, 7000, 10000]) {
     await cdp('wait', withOwner(ceoUserId, { ms: waitMs }));
     const after = await snapshot(`${platform}_snapshot_after`);
     afterState = extensionSocialSnapshotState(after, platform, body);

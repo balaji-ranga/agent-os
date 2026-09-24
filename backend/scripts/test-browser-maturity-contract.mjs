@@ -320,6 +320,10 @@ assert(
   socialPublishSource.includes("action: 'refresh_extension_attachment_after_navigation'"),
   'extension publishing must refresh and re-pin the selected tab after navigation before mutation'
 );
+assert(
+  socialPublishSource.includes('[1800, 3000, 4500, 7000, 10000]'),
+  'single-submit social publishing must allow delayed durable evidence without resubmitting'
+);
 const toolsRouteSource = readFileSync(fileURLToPath(new URL('../src/routes/tools.js', import.meta.url)), 'utf8');
 const browserSessionRouteSource = readFileSync(fileURLToPath(new URL('../src/routes/browser-session.js', import.meta.url)), 'utf8');
 assert(toolsRouteSource.includes("mode: 'recipe_replay'"), 'COO browse_recipe_run must use recipe_replay mode');
