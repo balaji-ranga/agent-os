@@ -14,6 +14,7 @@ import {
   extensionSocialSnapshotState,
   extractPublishBody,
   inferSocialPlatform,
+  selectComposerActivationRequest,
   semanticComposerRetryRequest,
   structuredSnapshotContainsExactBody,
   structuredSnapshotEditableValueEquals,
@@ -194,6 +195,33 @@ assert.deepEqual(
   verifiedEditorActivationRequest({ kind: 'type', text: 'body' }),
   { kind: 'type', text: 'body' },
   'verified activation must never decorate type or submit operations'
+);
+assert.deepEqual(
+  selectComposerActivationRequest(unrelatedDialogState, { kind: 'click', text: 'Recorded composer' }),
+  {
+    request: { kind: 'click', ref: 'g2-e1' },
+    source: 'current_snapshot_ref',
+  },
+  'a unique fresh snapshot ref must take precedence over a recorded semantic label'
+);
+assert.deepEqual(
+  selectComposerActivationRequest(
+    { ...unrelatedDialogState, trigger: null, trigger_count: 0 },
+    { kind: 'click', text: 'Recorded composer' }
+  ),
+  {
+    request: { kind: 'click', text: 'Recorded composer' },
+    source: 'recorded_semantic',
+  },
+  'the recorded semantic label remains the generic fallback when no live ref exists'
+);
+assert.equal(
+  selectComposerActivationRequest(
+    { ...unrelatedDialogState, trigger_count: 2 },
+    { kind: 'click', text: '' }
+  ),
+  null,
+  'activation must fail closed when neither a unique live ref nor semantic fallback exists'
 );
 
 const linkedInRecipe = {

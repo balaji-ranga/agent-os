@@ -767,6 +767,32 @@ export function verifiedEditorActivationRequest(request) {
   };
 }
 
+/**
+ * Resolve a composer-opening action against the current page state.
+ *
+ * Recorded labels are useful when a current snapshot cannot expose a unique
+ * control, but modern applications can render duplicate/off-screen semantic
+ * nodes whose accessible names are identical. A fresh snapshot ref identifies
+ * the exact visible control that was just inspected, so prefer it whenever it
+ * is unique. This is metadata-driven and applies to every supported social
+ * publisher without website-specific selectors or labels.
+ */
+export function selectComposerActivationRequest(state, recordedRequest = null) {
+  if (state?.trigger?.ref && state?.trigger_count === 1) {
+    return {
+      request: { kind: 'click', ref: state.trigger.ref },
+      source: 'current_snapshot_ref',
+    };
+  }
+  if (recordedRequest?.kind === 'click' && normalizeSocialText(recordedRequest.text)) {
+    return {
+      request: { kind: 'click', text: normalizeSocialText(recordedRequest.text) },
+      source: 'recorded_semantic',
+    };
+  }
+  return null;
+}
+
 async function chromeExtensionSocialPublish(
   ceoUserId,
   platform,
@@ -817,17 +843,27 @@ async function chromeExtensionSocialPublish(
     // Resume it without looking for (or clicking) the feed trigger underneath.
     steps.push({ action: `${platform}_resume_open_composer`, ok: true, ref: firstState.editor.ref });
   } else if (composerRequest?.kind === 'click' && composerRequest.text) {
-    // A recorded recipe already proved this semantic action against the
-    // owner's tab. Reuse that contract first instead of substituting a
-    // snapshot-scoped ref that the site may replace between observation and
-    // dispatch.
-    const activationRequest = verifiedEditorActivationRequest(composerRequest);
+    // Resolve the recorded action against the just-inspected page. A unique,
+    // current ref is more precise than a label that may also exist in an
+    // off-screen or duplicated application tree. Fall back to the recorded
+    // semantic label only when the current snapshot has no unique trigger.
+    const selectedActivation = selectComposerActivationRequest(firstState, composerRequest);
+    if (!selectedActivation) {
+      return {
+        ok: false,
+        stage: firstState.trigger_count > 1 ? 'ambiguous_composer_trigger' : 'composer_trigger_not_found',
+        error: `Expected one ${platform} composer trigger; found ${firstState.trigger_count}`,
+        steps,
+      };
+    }
+    const activationRequest = verifiedEditorActivationRequest(selectedActivation.request);
     const open = await cdp('act', withOwner(ceoUserId, { request: activationRequest }));
     const openPayload = browserWorkerPayload(open);
     steps.push({
-      action: `${platform}_open_composer_recorded_semantic`,
+      action: `${platform}_open_composer_recorded`,
       ok: open?.ok !== false,
-      target: composerRequest.text,
+      activation_source: selectedActivation.source,
+      target: selectedActivation.request.text || selectedActivation.request.ref,
       result_state: openPayload.result_state || null,
       observed_transitions: openPayload.observed_transitions || [],
       fallback: openPayload.fallback || null,
