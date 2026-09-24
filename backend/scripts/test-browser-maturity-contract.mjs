@@ -5,13 +5,16 @@ import {
   browserExecutorSupportsEvaluate,
   browserTaskResumeState,
   inferLinkedInStartUrl,
+  socialPublishRecipeDescriptor,
   verifyRecipeReplayOutcome,
 } from '../src/services/browser-tasks.js';
 import {
   browserWorkerPayload,
+  extensionSocialSnapshotState,
   extractPublishBody,
   inferSocialPlatform,
   structuredSnapshotContainsExactBody,
+  structuredSnapshotEditableValueEquals,
 } from '../src/services/browser-social-publish.js';
 
 const recipe = { steps: [
@@ -88,9 +91,54 @@ assert.equal(structuredSnapshotContainsExactBody({
   },
 }, 'secret'), false);
 
+const socialSnapshot = {
+  structured_snapshot: {
+    page: { url: 'https://www.linkedin.com/feed/', title: 'Feed | LinkedIn' },
+    landmarks: [{ role: 'dialog', name: 'Create a post' }],
+    visible_text_excerpt: 'Create a post Testing exact body Post',
+    elements: [
+      { ref: 'g1-e1', role: 'textbox', name: 'Text editor for creating content', editable: true, sensitive: false, value: 'Testing exact body', visible: true, in_dialog: true },
+      { ref: 'g1-e2', role: 'button', name: 'Post', enabled: true, visible: true, in_dialog: true },
+    ],
+  },
+};
+assert.equal(structuredSnapshotEditableValueEquals(socialSnapshot, 'Testing exact body'), true);
+assert.equal(structuredSnapshotEditableValueEquals(socialSnapshot, 'Testing'), false);
+assert.equal(extensionSocialSnapshotState(socialSnapshot, 'linkedin', 'Testing exact body').submit.ref, 'g1-e2');
+const ambiguousSocialSnapshot = structuredClone(socialSnapshot);
+ambiguousSocialSnapshot.structured_snapshot.elements.push({ ref: 'g1-e3', role: 'button', name: 'Post', enabled: true, visible: true, in_dialog: true });
+assert.equal(extensionSocialSnapshotState(ambiguousSocialSnapshot, 'linkedin', 'Testing exact body').submit, null);
+
+const linkedInRecipe = {
+  name: 'LinkedIn dynamic post',
+  start_url: 'https://www.linkedin.com/feed/',
+  steps: [
+    { action: 'open', args: { url: 'https://www.linkedin.com/feed/' } },
+    { action: 'act', args: { request: { kind: 'type', text: '{{post_content}}' } } },
+    { action: 'act', args: { request: { kind: 'click', text: 'Post' } } },
+  ],
+};
+assert.deepEqual(
+  socialPublishRecipeDescriptor(linkedInRecipe, { post_content: 'Verified body' }),
+  { platform: 'linkedin', start_url: 'https://www.linkedin.com/feed/', body: 'Verified body', input_name: 'post_content' }
+);
+assert.deepEqual(
+  socialPublishRecipeDescriptor({ ...linkedInRecipe, start_url: 'https://www.facebook.com/' }, { post_content: 'Verified Facebook body' }),
+  { platform: 'facebook', start_url: 'https://www.facebook.com/', body: 'Verified Facebook body', input_name: 'post_content' }
+);
+assert.equal(socialPublishRecipeDescriptor({ ...linkedInRecipe, start_url: 'https://example.com/' }, { post_content: 'x' }), null);
+
+const unverifiedMutation = verifyRecipeReplayOutcome(
+  { steps: [{ action: 'act', args: { request: { kind: 'click', text: 'Submit' } } }] },
+  [{ action: 'act', ok: true, evidence: { kind: 'click' } }],
+  'URL: https://example.com/\nTitle: Example'
+);
+assert.equal(unverifiedMutation.satisfied, false);
+assert(unverifiedMutation.missing_evidence.includes('action_state:act'));
+
 const extensionPath = fileURLToPath(new URL('../flolah-chrome-extension/background.js', import.meta.url));
 const extension = readFileSync(extensionPath, 'utf8');
-for (const marker of ["'screenshot'", "'task_cleanup'", "'tabs'", "'focus'", 'resumable_tasks: true', 'tab_discovery: true', 'tab_selection: true', 'allowedTabSummaries', 'selectedTabId', 'visible_text_excerpt', 'value,enabled', 'Page.captureScreenshot', 'DOM.getFlattenedDocument', 'pierce: true', 'Input.insertText', 'Input.dispatchMouseEvent', 'windowsVirtualKeyCode', 'preserveAllow: true']) {
+for (const marker of ["'screenshot'", "'task_cleanup'", "'tabs'", "'focus'", 'resumable_tasks: true', 'tab_discovery: true', 'tab_selection: true', 'allowedTabSummaries', 'selectedTabId', 'visible_text_excerpt', 'in_dialog', 'result_state', 'AMBIGUOUS_TARGET', 'Page.captureScreenshot', 'DOM.getFlattenedDocument', 'pierce: true', 'Input.insertText', 'Input.dispatchMouseEvent', 'windowsVirtualKeyCode', 'preserveAllow: true']) {
   assert(extension.includes(marker), `extension missing ${marker}`);
 }
 console.log('browser maturity contract tests passed');

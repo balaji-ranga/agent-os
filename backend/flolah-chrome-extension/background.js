@@ -130,7 +130,7 @@ function snapshotExpression(limit) {
     if(s.href!==location.href){s.href=location.href;s.generation++;s.counter=0} globalThis.__flolahSnapshotState=s;
     const q='a[href],button,input,textarea,select,[contenteditable="true"],[role="button"],[role="link"],[role="textbox"],[role="menuitem"],[tabindex]';
     const elements=[];
-    for(const el of document.querySelectorAll(q)){if(elements.length>=max)break;const r=el.getBoundingClientRect(),cs=getComputedStyle(el);if(r.width<=0||r.height<=0||cs.display==='none'||cs.visibility==='hidden')continue;let id=el.getAttribute('data-flolah-ref');if(!id){id=String(++s.counter);el.setAttribute('data-flolah-ref',id)}const type=String(el.getAttribute('type')||'').toLowerCase();const editable=el.matches('input,textarea,[contenteditable="true"]');const sensitive=type==='password'||/password|secret|token|card number|cvv/i.test(String(el.getAttribute('aria-label')||el.getAttribute('name')||''));const value=editable&&!sensitive?String(('value' in el?el.value:(el.innerText||el.textContent||''))).trim().slice(0,4000):'';elements.push({ref:'g'+s.generation+'-e'+id,role:el.getAttribute('role')||({A:'link',BUTTON:'button',INPUT:'textbox',TEXTAREA:'textbox',SELECT:'combobox'}[el.tagName]||el.tagName.toLowerCase()),name:String(el.getAttribute('aria-label')||el.innerText||el.getAttribute('placeholder')||el.getAttribute('name')||'').trim().slice(0,180),value,enabled:!el.disabled,visible:true,editable,sensitive,focused:document.activeElement===el,bounds:{x:Math.round(r.x),y:Math.round(r.y),width:Math.round(r.width),height:Math.round(r.height)}})}
+    for(const el of document.querySelectorAll(q)){if(elements.length>=max)break;const r=el.getBoundingClientRect(),cs=getComputedStyle(el);if(r.width<=0||r.height<=0||cs.display==='none'||cs.visibility==='hidden')continue;let id=el.getAttribute('data-flolah-ref');if(!id){id=String(++s.counter);el.setAttribute('data-flolah-ref',id)}const type=String(el.getAttribute('type')||'').toLowerCase();const editable=el.matches('input,textarea,[contenteditable="true"]');const sensitive=type==='password'||/password|secret|token|card number|cvv/i.test(String(el.getAttribute('aria-label')||el.getAttribute('name')||''));const value=editable&&!sensitive?String(('value' in el?el.value:(el.innerText||el.textContent||''))).trim().slice(0,4000):'';const dialog=el.closest('[role="dialog"],[aria-modal="true"]');elements.push({ref:'g'+s.generation+'-e'+id,role:el.getAttribute('role')||({A:'link',BUTTON:'button',INPUT:'textbox',TEXTAREA:'textbox',SELECT:'combobox'}[el.tagName]||el.tagName.toLowerCase()),name:String(el.getAttribute('aria-label')||el.innerText||el.getAttribute('placeholder')||el.getAttribute('name')||'').trim().slice(0,180),value,enabled:!el.disabled&&el.getAttribute('aria-disabled')!=='true',visible:true,editable,sensitive,focused:document.activeElement===el,in_dialog:!!dialog,dialog_name:dialog?String(dialog.getAttribute('aria-label')||dialog.getAttribute('name')||'').slice(0,120):'',bounds:{x:Math.round(r.x),y:Math.round(r.y),width:Math.round(r.width),height:Math.round(r.height)}})}
     const landmarks=Array.from(document.querySelectorAll('main,nav,header,footer,form,[role="main"],[role="navigation"],[role="dialog"]')).slice(0,40).map(el=>({role:el.getAttribute('role')||el.tagName.toLowerCase(),name:String(el.getAttribute('aria-label')||el.getAttribute('name')||'').slice(0,120)}));
     const visible_text=String(document.body?.innerText||'').replace(/\s+/g,' ').trim().slice(0,4000);
     return {protocol_version:2,page:{url:location.href,title:document.title,navigation_generation:s.generation},landmarks,visible_text_excerpt:visible_text,elements};
@@ -190,7 +190,12 @@ async function flattenedClickPoint(tabId, label) {
     if (exact || rendered.includes(wanted)) candidates.push({ node, exact, length: rendered.length });
   }
   candidates.sort((a, b) => Number(b.exact) - Number(a.exact) || a.length - b.length);
-  for (const { node } of candidates) {
+  const exact = candidates.filter((candidate) => candidate.exact);
+  const selected = exact.length ? exact : candidates;
+  if (selected.length > 1) {
+    throw Object.assign(new Error(`Ambiguous target: ${label}`), { code: 'AMBIGUOUS_TARGET' });
+  }
+  for (const { node } of selected) {
     try {
       const { model } = await chrome.debugger.sendCommand(
         { tabId },
@@ -199,9 +204,17 @@ async function flattenedClickPoint(tabId, label) {
       );
       const quad = model?.border || model?.content;
       if (!quad || quad.length < 8) continue;
+      const attrs = nodeAttributes(node);
       return {
-        x: (quad[0] + quad[2] + quad[4] + quad[6]) / 4,
-        y: (quad[1] + quad[3] + quad[5] + quad[7]) / 4,
+        point: {
+          x: (quad[0] + quad[2] + quad[4] + quad[6]) / 4,
+          y: (quad[1] + quad[3] + quad[5] + quad[7]) / 4,
+        },
+        target: {
+          role: String(attrs.role || node.nodeName || '').toLowerCase(),
+          name: String(attrs['aria-label'] || attrs.title || attrs.value || nodeText(node.nodeId) || '').replace(/\s+/g, ' ').trim().slice(0, 180),
+          match: exact.length ? 'exact' : 'unique_partial',
+        },
       };
     } catch { /* try the next matching control */ }
   }
@@ -221,27 +234,31 @@ async function act(tabId, request) {
   const target = local ? `((Number(globalThis.__flolahSnapshotState?.generation||0)===${generation})?document.querySelector('[data-flolah-ref="${local.replace(/"/g, '')}"]'):'STALE_REF')` : 'null';
   if (kind === 'click') {
     let point = null;
+    let identity = null;
     if (local) {
-      const result = await evaluate(tabId, `(() => { const el=${target}; if(el==='STALE_REF')return {error:'STALE_REF'}; if(!el) return {error:'TARGET_NOT_FOUND'}; el.scrollIntoView({block:'center',inline:'center'}); const r=el.getBoundingClientRect(); if(r.width<=0||r.height<=0)return {error:'TARGET_NOT_VISIBLE'}; return {x:r.left+r.width/2,y:r.top+r.height/2}; })()`);
+      const result = await evaluate(tabId, `(() => { const el=${target}; if(el==='STALE_REF')return {error:'STALE_REF'}; if(!el) return {error:'TARGET_NOT_FOUND'}; el.scrollIntoView({block:'center',inline:'center'}); const r=el.getBoundingClientRect(); if(r.width<=0||r.height<=0)return {error:'TARGET_NOT_VISIBLE'}; return {x:r.left+r.width/2,y:r.top+r.height/2,role:(el.getAttribute('role')||el.tagName||'').toLowerCase(),name:String(el.getAttribute('aria-label')||el.innerText||el.getAttribute('title')||'').replace(/\\s+/g,' ').trim().slice(0,180)}; })()`);
       if (result?.error) throw Object.assign(new Error('Target not found'), { code: result.error });
-      point = result;
+      point = { x: result.x, y: result.y };
+      identity = { ref, role: result.role, name: result.name, match: 'ref' };
     } else {
       const label = request.label || request.target || request.text || (ref && !refMatch ? ref : '');
-      point = await flattenedClickPoint(tabId, label);
+      const resolved = await flattenedClickPoint(tabId, label);
+      point = resolved?.point || null;
+      identity = resolved?.target || null;
     }
     if (!point) throw Object.assign(new Error('Target not found'), { code: 'TARGET_NOT_FOUND' });
     await dispatchTrustedClick(tabId, point);
-    return { ok: true, kind, x: Math.round(point.x), y: Math.round(point.y) };
+    return { ok: true, kind, x: Math.round(point.x), y: Math.round(point.y), target: identity, result_state: 'action_applied' };
   }
   if (kind === 'type') {
     const text = JSON.stringify(String(request.text ?? ''));
     if (!local) {
       await chrome.debugger.sendCommand({ tabId }, 'Input.insertText', { text: String(request.text ?? '') });
-      return { ok: true, kind, length: String(request.text ?? '').length, target: 'focused_element' };
+      return { ok: true, kind, length: String(request.text ?? '').length, target: 'focused_element', result_state: 'action_applied' };
     }
     const result = await evaluate(tabId, `(() => { const el=${target}; if(el==='STALE_REF')return {error:'STALE_REF'}; if(!el) return {error:'TARGET_NOT_FOUND'}; el.focus(); const v=${text}; if('value' in el){const set=Object.getOwnPropertyDescriptor(el instanceof HTMLTextAreaElement?HTMLTextAreaElement.prototype:HTMLInputElement.prototype,'value')?.set; set?set.call(el,v):(el.value=v)}else el.textContent=v; el.dispatchEvent(new InputEvent('input',{bubbles:true,inputType:'insertText',data:v})); el.dispatchEvent(new Event('change',{bubbles:true})); return {typed:true}; })()`);
     if (result?.error) throw Object.assign(new Error('Target not found'), { code: result.error });
-    return { ok: true, kind, length: String(request.text ?? '').length };
+    return { ok: true, kind, length: String(request.text ?? '').length, target: { ref }, result_state: 'action_applied' };
   }
   if (kind === 'press') {
     const key = String(request.key || 'Enter');
@@ -253,11 +270,11 @@ async function act(tabId, request) {
     }[key] || { code: key.length === 1 ? `Key${key.toUpperCase()}` : key, text: key.length === 1 ? key : undefined };
     await chrome.debugger.sendCommand({ tabId }, 'Input.dispatchKeyEvent', { type: 'keyDown', key, ...keyData });
     await chrome.debugger.sendCommand({ tabId }, 'Input.dispatchKeyEvent', { type: 'keyUp', key, ...keyData, text: undefined });
-    return { ok: true, kind };
+    return { ok: true, kind, result_state: 'action_applied' };
   }
   if (kind === 'scroll') {
     await evaluate(tabId, `scrollBy(0, ${String(request.direction || 'down').toLowerCase() === 'up' ? -800 : 800})`);
-    return { ok: true, kind };
+    return { ok: true, kind, result_state: 'action_applied' };
   }
   throw Object.assign(new Error(`Unsupported action: ${kind}`), { code: 'CAPABILITY_UNAVAILABLE' });
 }

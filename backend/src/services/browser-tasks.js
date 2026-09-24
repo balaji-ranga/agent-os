@@ -2373,7 +2373,11 @@ export function verifyRecipeReplayOutcome(recipe, actionResults, snapshot) {
   if (title) evidence.push({ type: 'page_title', value: title });
   for (const result of results) {
     if (!result.ok) missing.push(`action_receipt:${result.action}`);
-    else evidence.push({ type: 'action_receipt', action: result.action, result_state: result.evidence?.result_state || null });
+    else if (!result.evidence?.result_state && ['act', 'click', 'type', 'press'].includes(result.action)) {
+      missing.push(`action_state:${result.action}`);
+    } else {
+      evidence.push({ type: 'action_receipt', action: result.action, result_state: result.evidence?.result_state || null });
+    }
     if (result.action === 'screenshot') {
       const artifact = result.evidence?.artifact || result.evidence?.artifact_url;
       if (artifact) evidence.push({ type: 'artifact', value: artifact.url || artifact });
@@ -2392,11 +2396,34 @@ export function verifyRecipeReplayOutcome(recipe, actionResults, snapshot) {
   }
   return {
     satisfied: missing.length === 0,
-    reason: missing.length ? `Recipe finished without required evidence: ${missing.join(', ')}` : 'All recipe actions and typed outputs were observed.',
+    reason: missing.length ? `Recipe finished without required evidence: ${missing.join(', ')}` : 'Recipe actions completed with required evidence.',
     evidence,
     missing_evidence: missing,
     outputs: { final_url: url, page_title: title, action_receipts: results.length },
   };
+}
+
+export function socialPublishRecipeDescriptor(recipe, inputs = {}) {
+  const steps = Array.isArray(recipe?.steps) ? recipe.steps : [];
+  const openUrl = String(
+    recipe?.start_url ||
+    steps.find((step) => String(step?.action || '').toLowerCase() === 'open')?.args?.url ||
+    ''
+  ).trim();
+  const platform = inferSocialPlatform('', openUrl);
+  if (!['facebook', 'linkedin'].includes(platform)) return null;
+  const serialized = JSON.stringify(steps);
+  const hasBodyInput = /\{\{\s*post_content\s*\}\}/i.test(serialized);
+  const hasSubmit = steps.some((step) => {
+    const action = String(step?.action || '').toLowerCase();
+    const request = step?.args?.request || step?.args || {};
+    const kind = String(request.kind || action).toLowerCase();
+    const target = String(request.text || request.label || request.target || '').trim();
+    return ['act', 'click'].includes(action) && kind === 'click' && /^(?:post|publish|share)$/i.test(target);
+  });
+  if (!hasBodyInput || !hasSubmit) return null;
+  const body = String(inputs.post_content || '').trim();
+  return { platform, start_url: openUrl, body, input_name: 'post_content' };
 }
 
 async function runRecipeReplay(ceoUserId, taskId) {
@@ -2434,6 +2461,67 @@ async function runRecipeReplay(ceoUserId, taskId) {
       rating: 'down',
       comment: msg,
       note: 'recipe_empty_actionable',
+    });
+    return;
+  }
+  const social = socialPublishRecipeDescriptor(recipe, inputs);
+  if (social) {
+    if (!social.body) {
+      const error = 'Social publish recipe requires a non-empty post_content input';
+      updateTask(ceoUserId, taskId, {
+        status: 'failed',
+        error,
+        result: { summary: error, recipe_id: recipe.id, recipe_name: recipe.name },
+      });
+      return;
+    }
+    const pub = await runAutonomousSocialPublish(ceoUserId, {
+      goalText: `Publish the supplied recipe content to ${social.platform}.`,
+      startUrl: social.start_url,
+      body: social.body,
+      taskId,
+    });
+    const submissionCount = Number(pub.fill?.submission_count || (pub.fill?.submitted_once ? 1 : 0));
+    const verified = Boolean(pub.ok && pub.confirm?.success === true && submissionCount === 1);
+    const verification = {
+      satisfied: verified,
+      reason: verified
+        ? `Verified ${social.platform} publish through the structured social recipe contract.`
+        : `Social recipe did not produce durable ${social.platform} outcome evidence.`,
+      evidence: [
+        { type: 'platform', value: social.platform },
+        { type: 'submission_count', value: submissionCount },
+        { type: 'provider_or_feed_confirmation', value: pub.confirm?.success === true },
+      ],
+      missing_evidence: verified ? [] : ['durable_social_publish_outcome'],
+      outputs: { platform: social.platform, submission_count: submissionCount },
+    };
+    const steps = [
+      { t: nowIso(), action: 'social_recipe_contract', recipe_id: recipe.id, platform: social.platform },
+      ...(pub.steps || []),
+    ];
+    const summary = verified
+      ? `Replayed social recipe "${recipe.name}" and verified one ${social.platform} submission.`
+      : `Social recipe "${recipe.name}" stopped without verified publication.`;
+    updateTask(ceoUserId, taskId, {
+      status: verified ? 'completed' : 'failed',
+      steps,
+      result: {
+        summary,
+        recipe_id: recipe.id,
+        recipe_name: recipe.name,
+        actionable_steps: actionable.length,
+        used_inputs: requiredInputs,
+        outputs: verification.outputs,
+        verification,
+        publish: { platform: pub.platform, fill: pub.fill, confirm: pub.confirm, tab_close: pub.tab_close },
+      },
+      error: verified ? null : verification.reason,
+    });
+    recordBrowserTaskOutcome(ceoUserId, getTask(ceoUserId, taskId), {
+      rating: verified ? 'up' : 'down',
+      comment: summary,
+      note: verified ? 'social_recipe_verified' : 'social_recipe_unverified',
     });
     return;
   }

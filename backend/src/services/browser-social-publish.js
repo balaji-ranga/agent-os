@@ -605,16 +605,99 @@ export function structuredSnapshotContainsExactBody(payload, bodyText) {
   });
 }
 
-async function chromeExtensionFacebookPublish(ceoUserId, bodyText, { expectedTab = null } = {}) {
+function normalizeSocialText(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+export function structuredSnapshotEditableValueEquals(payload, bodyText) {
+  const body = normalizeSocialText(bodyText);
+  if (!body) return false;
+  return (payload?.structured_snapshot?.elements || []).some((element) => {
+    if (!element?.editable || element?.sensitive) return false;
+    return normalizeSocialText(element.value) === body;
+  });
+}
+
+const EXTENSION_SOCIAL_CONTROLS = {
+  linkedin: {
+    trigger: /^(?:start|create) a post$/i,
+    editor: /talk about|text editor|create a post|write something/i,
+    submit: /^(?:post|publish)$/i,
+    success: /post (?:was )?(?:successful|published|shared)|your post (?:is|was) (?:live|published)|post shared/i,
+  },
+  facebook: {
+    trigger: /^(?:what.?s on your mind.*|create a post)$/i,
+    editor: /what.?s on your mind|create (?:a )?post|write something/i,
+    submit: /^post$/i,
+    success: /post (?:was|is)? ?(?:published|shared|created)|your post (?:is|was) (?:live|published)/i,
+  },
+};
+
+function socialControlName(element) {
+  return normalizeSocialText(element?.name);
+}
+
+function preferDialogScoped(elements) {
+  const scoped = elements.filter((element) => element?.in_dialog === true);
+  return scoped.length ? scoped : elements;
+}
+
+export function extensionSocialSnapshotState(payload, platform, bodyText = '') {
+  const controls = EXTENSION_SOCIAL_CONTROLS[platform] || EXTENSION_SOCIAL_CONTROLS.linkedin;
+  const snapshot = payload?.structured_snapshot || {};
+  const elements = Array.isArray(snapshot.elements) ? snapshot.elements : [];
+  const buttons = elements.filter((element) => element?.role === 'button' && element?.visible !== false);
+  const triggers = buttons.filter((element) => controls.trigger.test(socialControlName(element)));
+  const editable = elements.filter((element) => element?.editable && !element?.sensitive && element?.visible !== false);
+  const namedEditors = editable.filter((element) => controls.editor.test(socialControlName(element)));
+  const editorPool = preferDialogScoped(namedEditors.length ? namedEditors : editable);
+  const submitPool = preferDialogScoped(
+    buttons.filter((element) => controls.submit.test(socialControlName(element)) && element?.enabled !== false)
+  );
+  const visibleText = normalizeSocialText(snapshot.visible_text_excerpt || payload?.text || '');
+  const landmarks = Array.isArray(snapshot.landmarks) ? snapshot.landmarks : [];
+  const dialogOpen =
+    landmarks.some((landmark) => String(landmark?.role || '').toLowerCase() === 'dialog') ||
+    elements.some((element) => element?.in_dialog === true);
+  const editor = editorPool.length === 1
+    ? editorPool[0]
+    : editorPool.find((element) => element?.focused) || null;
+  const submit = submitPool.length === 1 ? submitPool[0] : null;
+  return {
+    url: String(snapshot.page?.url || ''),
+    title: String(snapshot.page?.title || ''),
+    trigger: triggers.length === 1 ? triggers[0] : null,
+    trigger_count: triggers.length,
+    editor,
+    editor_count: editorPool.length,
+    submit,
+    submit_count: submitPool.length,
+    dialog_open: dialogOpen,
+    exact_editor_value: structuredSnapshotEditableValueEquals(payload, bodyText),
+    exact_body_visible: Boolean(normalizeSocialText(bodyText) && visibleText.includes(normalizeSocialText(bodyText))),
+    success_signal: controls.success.test(visibleText),
+  };
+}
+
+async function chromeExtensionSocialPublish(ceoUserId, platform, bodyText, { expectedTab = null } = {}) {
   const body = String(bodyText || '').trim();
   const steps = [];
   const snapshot = async (label) => {
     const result = await cdp('snapshot', withOwner(ceoUserId, { limit: 30000 }));
     const payload = browserWorkerPayload(result);
-    steps.push({ action: label, ok: result?.ok !== false, url: payload?.structured_snapshot?.page?.url || '' });
+    const state = extensionSocialSnapshotState(payload, platform, body);
+    steps.push({
+      action: label,
+      ok: result?.ok !== false,
+      url: state.url,
+      dialog_open: state.dialog_open,
+      exact_editor_value: state.exact_editor_value,
+      exact_body_visible: state.exact_body_visible,
+      success_signal: state.success_signal,
+    });
     return payload;
   };
-  const first = await snapshot('facebook_snapshot_before');
+  const first = await snapshot(`${platform}_snapshot_before`);
   let firstUrl = String(first?.structured_snapshot?.page?.url || '');
   let urlSource = firstUrl ? 'snapshot' : '';
   if (!firstUrl && expectedTab?.targetId) {
@@ -623,66 +706,83 @@ async function chromeExtensionFacebookPublish(ceoUserId, bodyText, { expectedTab
     const pinned = tabs.find((item) => String(item.targetId || item.tabId || '') === expectedId);
     firstUrl = String(pinned?.url || '');
     if (firstUrl) urlSource = 'task_pinned_tab';
-    steps.push({ action: 'facebook_url_fallback', ok: Boolean(firstUrl), expected_target_id: expectedId, url: firstUrl });
+    steps.push({ action: `${platform}_url_fallback`, ok: Boolean(firstUrl), expected_target_id: expectedId, url: firstUrl });
   }
-  if (!PLATFORM_REGISTRY.facebook.hostRe.test(firstUrl)) {
-    return { ok: false, stage: 'wrong_tab', error: `Selected tab is not Facebook: ${firstUrl || 'unknown'}`, steps };
+  if (!PLATFORM_REGISTRY[platform]?.hostRe.test(firstUrl)) {
+    return { ok: false, stage: 'wrong_tab', error: `Selected tab is not ${platform}: ${firstUrl || 'unknown'}`, steps };
   }
-  steps.push({ action: 'facebook_url_verified', ok: true, url: firstUrl, source: urlSource });
+  steps.push({ action: `${platform}_url_verified`, ok: true, url: firstUrl, source: urlSource });
 
+  const firstState = extensionSocialSnapshotState(first, platform, body);
+  if (!firstState.trigger?.ref || firstState.trigger_count !== 1) {
+    return {
+      ok: false,
+      stage: firstState.trigger_count > 1 ? 'ambiguous_composer_trigger' : 'composer_trigger_not_found',
+      error: `Expected one ${platform} composer trigger; found ${firstState.trigger_count}`,
+      steps,
+    };
+  }
   const open = await cdp('act', withOwner(ceoUserId, {
-    request: { kind: 'click', text: "What's on your mind" },
+    request: { kind: 'click', ref: firstState.trigger.ref },
   }));
-  steps.push({ action: 'facebook_open_composer', ok: open?.ok !== false, detail: String(parseInvokeText(open) || '').slice(0, 240) });
+  steps.push({ action: `${platform}_open_composer`, ok: open?.ok !== false, ref: firstState.trigger.ref });
   if (open?.ok === false) return { ok: false, stage: 'composer_not_found', error: parseInvokeText(open), steps };
   await cdp('wait', withOwner(ceoUserId, { ms: 1800 }));
 
-  const composer = await snapshot('facebook_snapshot_composer');
-  const elements = composer?.structured_snapshot?.elements || [];
-  const editor = elements.find((el) =>
-    el?.editable && /what.?s on your mind|create (?:a )?post/i.test(String(el.name || ''))
-  ) || elements.find((el) => el?.editable && el?.role === 'textbox');
-  if (editor?.ref) {
-    const focus = await cdp('act', withOwner(ceoUserId, { request: { kind: 'click', ref: editor.ref } }));
-    steps.push({ action: 'facebook_focus_editor', ok: focus?.ok !== false, ref: editor.ref });
-    if (focus?.ok === false) return { ok: false, stage: 'editor_focus_failed', error: parseInvokeText(focus), steps };
+  const composer = await snapshot(`${platform}_snapshot_composer`);
+  const composerState = extensionSocialSnapshotState(composer, platform, body);
+  if (!composerState.editor?.ref || composerState.editor_count !== 1) {
+    return {
+      ok: false,
+      stage: composerState.editor_count > 1 ? 'ambiguous_editor' : 'editor_not_found',
+      error: `Expected one ${platform} composer editor; found ${composerState.editor_count}`,
+      steps,
+    };
   }
+  const focus = await cdp('act', withOwner(ceoUserId, { request: { kind: 'click', ref: composerState.editor.ref } }));
+  steps.push({ action: `${platform}_focus_editor`, ok: focus?.ok !== false, ref: composerState.editor.ref });
+  if (focus?.ok === false) return { ok: false, stage: 'editor_focus_failed', error: parseInvokeText(focus), steps };
 
-  const typed = await cdp('act', withOwner(ceoUserId, { request: { kind: 'type', text: body } }));
-  steps.push({ action: 'facebook_type_once', ok: typed?.ok !== false, length: body.length });
+  const typed = await cdp('act', withOwner(ceoUserId, {
+    request: { kind: 'type', text: body },
+  }));
+  steps.push({ action: `${platform}_type_once`, ok: typed?.ok !== false, ref: composerState.editor.ref, length: body.length });
   if (typed?.ok === false) return { ok: false, stage: 'type_failed', error: parseInvokeText(typed), steps };
   await cdp('wait', withOwner(ceoUserId, { ms: 900 }));
 
-  const filled = await snapshot('facebook_snapshot_filled');
-  const normalizedBody = body.replace(/\s+/g, ' ');
-  if (!structuredSnapshotContainsExactBody(filled, body)) {
-    return { ok: false, stage: 'body_not_verified', error: 'Exact body was not visible before submission', steps };
+  const filled = await snapshot(`${platform}_snapshot_filled`);
+  const filledState = extensionSocialSnapshotState(filled, platform, body);
+  if (!filledState.exact_editor_value) {
+    return { ok: false, stage: 'body_not_verified', error: 'Exact body was not present in the structured editable value before submission', steps };
   }
-  const filledElements = filled?.structured_snapshot?.elements || [];
-  const post = filledElements
-    .filter((el) => el?.role === 'button' && /^post$/i.test(String(el.name || '').trim()) && el.enabled !== false)
-    .sort((a, b) => Number(b.bounds?.y || 0) - Number(a.bounds?.y || 0))[0];
-  if (!post?.ref) return { ok: false, stage: 'post_button_not_found', error: 'Enabled Facebook Post button not found', steps };
+  if (!filledState.submit?.ref || filledState.submit_count !== 1) {
+    return {
+      ok: false,
+      stage: filledState.submit_count > 1 ? 'ambiguous_submit_target' : 'post_button_not_found',
+      error: `Expected one enabled ${platform} submit control; found ${filledState.submit_count}`,
+      steps,
+    };
+  }
 
-  const submitted = await cdp('act', withOwner(ceoUserId, { request: { kind: 'click', ref: post.ref } }));
-  steps.push({ action: 'facebook_submit_once', ok: submitted?.ok !== false, ref: post.ref });
+  const submitted = await cdp('act', withOwner(ceoUserId, { request: { kind: 'click', ref: filledState.submit.ref } }));
+  steps.push({ action: `${platform}_submit_once`, ok: submitted?.ok !== false, ref: filledState.submit.ref });
   if (submitted?.ok === false) return { ok: false, stage: 'submit_failed', error: parseInvokeText(submitted), steps };
-  await cdp('wait', withOwner(ceoUserId, { ms: 4500 }));
-
-  const after = await snapshot('facebook_snapshot_after');
-  const afterText = String(after?.structured_snapshot?.visible_text_excerpt || after?.text || '').replace(/\s+/g, ' ');
-  const afterElements = after?.structured_snapshot?.elements || [];
-  const composerPostStillOpen = afterElements.some((el) =>
-    el?.role === 'button' && /^post$/i.test(String(el.name || '').trim()) && el.enabled !== false
-  );
-  const retained = afterText.includes(normalizedBody);
-  const toastHit = /post (?:was |is )?(?:published|shared|created)|your post/i.test(afterText);
-  const success = !composerPostStillOpen && (retained || toastHit);
+  let afterState = null;
+  for (const waitMs of [1800, 3000, 4500]) {
+    await cdp('wait', withOwner(ceoUserId, { ms: waitMs }));
+    const after = await snapshot(`${platform}_snapshot_after`);
+    afterState = extensionSocialSnapshotState(after, platform, body);
+    if (!afterState.dialog_open && (afterState.exact_body_visible || afterState.success_signal)) break;
+  }
+  const retained = Boolean(afterState?.exact_body_visible);
+  const toastHit = Boolean(afterState?.success_signal);
+  const success = Boolean(afterState && !afterState.dialog_open && (retained || toastHit));
   return {
     ok: success,
     stage: success ? 'posted_and_verified' : 'outcome_not_verified',
-    error: success ? null : 'Facebook submission was issued once, but retention could not be verified',
+    error: success ? null : `${platform} submission was issued once, but durable outcome evidence was not observed`,
     submitted_once: true,
+    submission_count: 1,
     retained,
     toast_hit: toastHit,
     steps,
@@ -1482,11 +1582,11 @@ export async function runAutonomousSocialPublish(ceoUserId, { goalText, startUrl
     const status = browserWorkerPayload(await cdp('status', withOwner(ceoUserId)));
     extensionMode = status.driver === 'chrome_extension';
 
-    if (platform === 'facebook' && extensionMode) {
-      filled = await chromeExtensionFacebookPublish(ceoUserId, publishBody, { expectedTab: tab });
+    if ((platform === 'facebook' || platform === 'linkedin') && extensionMode) {
+      filled = await chromeExtensionSocialPublish(ceoUserId, platform, publishBody, { expectedTab: tab });
       confirm = { success: filled.ok === true, conf: { retained: filled.retained, toast_hit: filled.toast_hit } };
       steps.push(...(filled.steps || []).map((entry) => ({ t: nowIso(), ...entry })));
-      steps.push({ t: nowIso(), action: 'facebook_extension_publish', filled, confirm });
+      steps.push({ t: nowIso(), action: `${platform}_extension_publish`, filled, confirm });
     } else {
     const maxAttempts = platform === 'facebook' ? 2 : 4;
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -1583,10 +1683,7 @@ export async function runAutonomousSocialPublish(ceoUserId, { goalText, startUrl
     };
   }
 
-  const success =
-    platform === 'facebook'
-      ? Boolean(filled.ok && confirm?.success === true)
-      : Boolean(filled.ok && (confirm?.success || (filled.ok && !confirm?.conf?.dialog_open && filled.filled_len > 20)));
+  const success = Boolean(filled.ok && confirm?.success === true);
   const failStage =
     filled.stage ||
     (confirm?.conf?.dialog_open ? 'dialog_still_open' : null) ||

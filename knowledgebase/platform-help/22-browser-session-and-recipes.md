@@ -16,6 +16,13 @@ task; it must not silently fall back to the first allowed tab or reinterpret “
 request. Extension social actions use snapshots, trusted clicks, typing, and key events only. Arbitrary page
 JavaScript evaluation is deliberately not exposed to the extension.
 
+Extension v1.1.5 and later records stable target identity for clicks and rejects ambiguous text matches.
+For LinkedIn and Facebook dynamic-post recipes, replay uses the shared verified social-publish contract
+instead of stored screen coordinates: it identifies the composer and editor from a structured snapshot,
+reads back the exact `post_content` value before one submit, and requires a provider confirmation or the
+exact body in the feed afterward. A click receipt or a closed composer alone is **not** success; without
+durable evidence the task is failed/unverified and is never retried automatically.
+
 ## What it is
 
 **Browser Session** (`/browser-session`) lets you run natural-language browser work in:
@@ -103,6 +110,11 @@ While the worker runs: `POST http://127.0.0.1:3020/v1/open` (and snapshot/act/st
 2. Known saved pattern ? list, name-match, run; else autonomous and say so.
 3. One-off goals ? **`browse_task_start`** autonomous.
 4. Agents must not invent recipe names.
+
+For reliable social posting, use an owner-scoped published recipe with a `post_content` input and a
+LinkedIn or Facebook start URL. Admins can provision missing defaults idempotently with
+`node scripts/ensure-social-browser-recipes.mjs --owner-id <CEO_ID>`. The runtime compiles these recipes
+to stable element references, so old coordinate-only recordings are not trusted for the final submit.
 
 Live task progress appears in agent chat **History** (Browser Tasks strip) when a `task_id` is active.
 

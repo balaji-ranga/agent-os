@@ -13,6 +13,11 @@ Playwright remains available for a separate persistent profile, and managed Play
 or isolated fallback. Each browser task is pinned to its selected executor; an uncertain side effect is not
 silently replayed on another browser.
 
+For LinkedIn and Facebook publishing, extension v1.1.5 uses one shared structured contract for both
+autonomous and recipe execution. It resolves the composer/editor/submit controls by snapshot reference,
+requires exact editable-value readback before submitting once, and requires durable post-submit evidence.
+Raw coordinates, an `ok` click receipt, or disappearance of the composer do not prove publication.
+
 ## Multi-user / exclusive Client Chrome lease
 
 Recipes, tasks, and URL policy are scoped by `ceo_user_id` (each CEO only sees their own).
@@ -58,6 +63,10 @@ Grant **list** vs **run** separately in **Agent Workspace → Tool access**. Rec
 ## Recipe vs autonomous
 
 Named recipe / replay / saved trail → **`browse_recipe_run`**. Known pattern (e.g. LinkedIn notifications) → list + match. One-off goals → autonomous `browse_task_start`. Never invent recipe names.
+
+Dynamic social-post recipes must contain `{{post_content}}`, a Facebook or LinkedIn start URL, and a
+submit step. The runtime recognizes that shape and executes the verified social adapter rather than
+replaying recorded coordinates. Missing durable provider/feed evidence returns failure, not completion.
 
 ## Chat thumbs → learnings
 
