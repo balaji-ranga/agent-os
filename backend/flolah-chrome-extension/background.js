@@ -70,13 +70,13 @@ async function detach(tabId, { preserveAllow = false } = {}) {
 async function taskTab(args = {}) {
   const s = await state();
   const taskId = String(args.task_id || '').trim();
-  const pinned = taskId ? Number(s.taskTabs[taskId] || 0) : 0;
-  if (pinned && s.allowedTabs[String(pinned)]?.allowed) return pinned;
-  const requested = Number(args.tab_id || args.tabId || 0);
+  const requested = Number(args.tab_id || args.tabId || args.targetId || 0);
   if (requested && s.allowedTabs[String(requested)]?.allowed) {
     if (taskId) { s.taskTabs[taskId] = requested; await storageSet({ taskTabs: s.taskTabs }); }
     return requested;
   }
+  const pinned = taskId ? Number(s.taskTabs[taskId] || 0) : 0;
+  if (pinned && s.allowedTabs[String(pinned)]?.allowed) return pinned;
   const allowedIds = Object.keys(s.allowedTabs).filter((id) => s.allowedTabs[id]?.allowed).map(Number);
   if (!allowedIds.length) throw Object.assign(new Error('Allow a Chrome tab from the Flolah extension first'), { code: 'TAB_NOT_ALLOWED' });
   const selectedStored = Number(s.selectedTabId || 0);

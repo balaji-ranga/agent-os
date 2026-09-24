@@ -219,11 +219,22 @@ export async function listChromeTabs(ceoUserId) {
 
 export async function focusChromeTab(ceoUserId, targetId) {
   if (!targetId) return { ok: false };
-  const res = await cdp('focus', withOwner(ceoUserId, { targetId }));
-  if (!looksFailed(res)) return { ok: true, raw: parseInvokeText(res) };
-  // Extension path may use tabId
-  const res2 = await cdp('focus', withOwner(ceoUserId, { tabId: targetId, targetId }));
-  return { ok: !looksFailed(res2), raw: parseInvokeText(res2) };
+  // Send all supported aliases. Extension <=1.1.5 understands tabId/tab_id,
+  // while other executors use targetId.
+  const res = await cdp('focus', withOwner(ceoUserId, {
+    tab_id: targetId,
+    tabId: targetId,
+    targetId,
+  }));
+  const payload = browserWorkerPayload(res);
+  const actualId = payload.targetId || payload.tab_id || payload.tabId || null;
+  const matched = actualId == null || String(actualId) === String(targetId);
+  return {
+    ok: !looksFailed(res) && matched,
+    expected_target_id: String(targetId),
+    actual_target_id: actualId == null ? null : String(actualId),
+    raw: parseInvokeText(res),
+  };
 }
 
 /**
@@ -555,7 +566,10 @@ export async function ensurePlatformTab(ceoUserId, platform, { preferFresh = fal
   }
 
   if (match?.targetId) {
-    await focusChromeTab(ceoUserId, match.targetId);
+    const focused = await focusChromeTab(ceoUserId, match.targetId);
+    if (!focused.ok) {
+      return { ok: false, targetId: match.targetId, url: match.url, error: 'selected_tab_focus_mismatch', focused };
+    }
     await sleep(600);
     return { ok: true, targetId: match.targetId, url: match.url, recycled: false };
   }

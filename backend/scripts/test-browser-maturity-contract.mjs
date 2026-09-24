@@ -157,4 +157,6 @@ const extension = readFileSync(extensionPath, 'utf8');
 for (const marker of ["'screenshot'", "'task_cleanup'", "'tabs'", "'focus'", 'resumable_tasks: true', 'tab_discovery: true', 'tab_selection: true', 'allowedTabSummaries', 'selectedTabId', 'visible_text_excerpt', 'in_dialog', 'result_state', 'AMBIGUOUS_TARGET', 'Page.captureScreenshot', 'DOM.getFlattenedDocument', 'pierce: true', 'Input.insertText', 'Input.dispatchMouseEvent', 'windowsVirtualKeyCode', 'preserveAllow: true']) {
   assert(extension.includes(marker), `extension missing ${marker}`);
 }
+assert(extension.includes('args.tab_id || args.tabId || args.targetId'), 'extension focus must honor targetId aliases');
+assert(extension.indexOf('const requested = Number(args.tab_id || args.tabId || args.targetId || 0)') < extension.indexOf('const pinned = taskId'), 'explicit focus target must take precedence over a stale task pin');
 console.log('browser maturity contract tests passed');
