@@ -122,6 +122,10 @@ x-backend-env: &backend-env
   BROWSER_TASK_CDP_AGENT_ID: ${BROWSER_TASK_CDP_AGENT_ID:-browser-cdp}
   # Stable across restarts — required for workflow runner / tools / cron-callback auth
   AGENT_OS_INTERNAL_TOKEN: ${AGENT_OS_INTERNAL_TOKEN:-}
+  # OpenClaw tools obtain short-lived owner+agent+session+tool leases from the backend.
+  # Legacy shared ftc_ credential files stay disabled and are removed on startup.
+  TOOLS_LEGACY_FTC_ENABLED: ${TOOLS_LEGACY_FTC_ENABLED:-0}
+  TOOLS_LEGACY_FTC_PURGE_ON_START: ${TOOLS_LEGACY_FTC_PURGE_ON_START:-1}
   OPENAI_COO_MODEL: ${OPENAI_COO_MODEL:-}
   OPENAI_INTENT_MODEL: ${OPENAI_INTENT_MODEL:-}
   OPENROUTER_HTTP_REFERER: ${OPENROUTER_HTTP_REFERER:-}

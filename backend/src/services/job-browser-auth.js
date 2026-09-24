@@ -7,6 +7,7 @@ import { homedir } from 'os';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { buildDiscoverySearchUrls } from './job-portal-search-urls.js';
+import { getOpenClawGatewayRuntimeToken } from './platform-runtime-secrets.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const AGENT_OS_ROOT = join(__dirname, '..', '..', '..');
@@ -101,7 +102,7 @@ export function markPortalLoggedIn({ linkedin = null, jobstreet = null, notes = 
 
 function gatewayConfig() {
   const gatewayUrl = (process.env.OPENCLAW_GATEWAY_URL || 'http://127.0.0.1:18789').replace(/\/$/, '');
-  let token = process.env.OPENCLAW_GATEWAY_TOKEN || '';
+  let token = getOpenClawGatewayRuntimeToken();
   const cfgPath = join(openclawDir(), 'openclaw.json');
   if (!token && existsSync(cfgPath)) {
     try {

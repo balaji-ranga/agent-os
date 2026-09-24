@@ -19,7 +19,15 @@ import { resolveOpenClawDir } from '../../scripts/lib/openclaw-paths.js';
 
 const OPENCLAW_DIR = resolveOpenClawDir();
 const CONFIG_PATH = process.env.OPENCLAW_CONFIG_PATH || join(OPENCLAW_DIR, 'openclaw.json');
-const TOKEN = String(process.env.OPENCLAW_GATEWAY_TOKEN || '').trim();
+function runtimeGatewayToken() {
+  try {
+    const store = JSON.parse(readFileSync(join(OPENCLAW_DIR, 'platform-runtime-secrets.json'), 'utf8'));
+    return String(store?.secrets?.openclaw_gateway?.value || '').trim();
+  } catch {
+    return '';
+  }
+}
+const TOKEN = runtimeGatewayToken() || String(process.env.OPENCLAW_GATEWAY_TOKEN || '').trim();
 const GATEWAY_PORT = Number(process.env.OPENCLAW_GATEWAY_PORT || 18789);
 const PRIMARY =
   String(process.env.OPENCLAW_MODEL_PRIMARY || '').trim() || 'openai/deepseek-v4-flash';

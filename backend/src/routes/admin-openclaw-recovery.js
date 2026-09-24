@@ -21,6 +21,8 @@ import {
   removeGatewayCron,
   setFailureKanbanKillSwitch,
   listCeoAgents,
+  getCredentialSecurityStatus,
+  rotateManagedCredential,
 } from '../services/openclaw-admin-recovery.js';
 
 const router = Router();
@@ -79,6 +81,32 @@ router.get('/gateway-crons', async (req, res) => {
     assertPureAdmin(req);
     res.json(await listGatewayCrons());
   } catch (e) {
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+router.get('/credential-security', (req, res) => {
+  try {
+    assertPureAdmin(req);
+    res.json(getCredentialSecurityStatus());
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+router.post('/credential-security/rotate', requirePriv, async (req, res) => {
+  try {
+    const name = String(req.body?.name || '').trim();
+    const out = await rotateManagedCredential(name);
+    audit(req, 'rotate_credential', {
+      name,
+      rotated_at: out.rotated_at,
+      restart_required: out.restart_required,
+      restarted: out.restarted || false,
+    });
+    res.json(out);
+  } catch (e) {
+    console.warn('[openclaw-recovery] credential rotation failed:', e.message);
     res.status(e.status || 500).json({ error: e.message });
   }
 });

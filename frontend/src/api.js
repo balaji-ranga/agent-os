@@ -959,6 +959,11 @@ export const api = {
   adminOpenclawRecoveryAgents: (ceoUserId) =>
     get(`/admin/openclaw-recovery/agents?ceo_user_id=${encodeURIComponent(ceoUserId || '')}`),
   adminOpenclawRecoveryGatewayCrons: () => get('/admin/openclaw-recovery/gateway-crons'),
+  adminOpenclawCredentialSecurity: () => get('/admin/openclaw-recovery/credential-security'),
+  adminOpenclawRotateCredential: (token, name) =>
+    post('/admin/openclaw-recovery/credential-security/rotate', { name }, {
+      headers: { 'X-Agent-OS-Privileged-Session': token },
+    }),
   adminOpenclawRecoveryDrain: (token, body) =>
     post('/admin/openclaw-recovery/drain', body || {}, {
       headers: { 'X-Agent-OS-Privileged-Session': token },

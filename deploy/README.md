@@ -209,18 +209,18 @@ Guides: MCP OAuth setup `knowledgebase/platform-help/31-mcp-connectors-oauth.md`
 
 ## Environment & LLM secrets
 
-All secrets live in **`deploy/.env`** (gitignored). Compose injects them as **runtime environment variables** — they are **not** baked into images. Only **`OPENCLAW_GATEWAY_TOKEN`** is written into `openclaw.json`; content-tool credentials are random per owner+agent and hash-registered by the backend.
+Bootstrap and provider secrets live in **`deploy/.env`** (gitignored). Compose injects them as **runtime environment variables** — they are **not** baked into images. Platform-managed gateway and tool-broker secrets can be rotated from **Admin → AgentSystem recovery → Security credentials** and are stored root-only in the shared OpenClaw volume. Agent content tools use short-lived owner+agent+session+tool leases; the former shared per-agent `ftc_` credential file is disabled and removed.
 
 ### Shared keys: backend ↔ OpenClaw
 
 | Key | Backend | OpenClaw |
 |-----|---------|----------|
 | `OPENCLAW_GATEWAY_TOKEN` | `OPENCLAW_GATEWAY_TOKEN` env | `gateway.auth.token` in openclaw.json; required for Agent Chat + chatCompletions endpoint (keep in sync via configure/ensure) |
-| `TOOLS_API_KEY` | Transitional internal-sidecar auth only | Not exposed to OpenClaw |
+| `TOOLS_API_KEY` | Transitional internal-sidecar auth only | Not exposed to OpenClaw; agents use brokered `ftl_` leases |
 | `TOOLS_BASE_URL` | backend tool self-dispatch (default `http://127.0.0.1:3001`) | — (backend-only) |
 | `AGENT_OS_INTERNAL_TOKEN` | workflow runner / tools / cron | — (backend-only; must be stable) |
 
-The gateway key must match. Without a stable `AGENT_OS_INTERNAL_TOKEN`, workflow/internal auth breaks after every backend restart.
+The gateway key must match. Admin rotation writes the protected runtime override and restarts only OpenClaw so the backend and gateway switch atomically. Without a stable `AGENT_OS_INTERNAL_TOKEN`, workflow/internal auth breaks after every backend restart.
 
 **First deploy / auto-generate:**
 

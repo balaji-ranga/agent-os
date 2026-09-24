@@ -23,6 +23,7 @@ import {
   NATIVE_OPENCLAW_TOOLS as NATIVE_OPENCLAW_TOOLS_LIST,
   mergeOpenClawAllowList,
   prioritizeOpenClawAllowList,
+  SENSITIVE_OPENCLAW_RUNTIME_TOOLS,
   sameOpenClawToolSet,
 } from './openclaw-runtime-tools.js';
 
@@ -220,7 +221,10 @@ export function syncOpenClawJsonForAgent(agent) {
   const desiredAllow = mergeAgentRuntimeAllowlist(prevAllow, grants);
   entry.tools.allow = sameOpenClawToolSet(prevAllow, desiredAllow) ? prevAllow : desiredAllow;
   delete entry.tools.alsoAllow;
-  if (!entry.tools.deny) entry.tools.deny = ['image'];
+  const deny = new Set(Array.isArray(entry.tools.deny) ? entry.tools.deny : ['image']);
+  deny.add('image');
+  for (const name of SENSITIVE_OPENCLAW_RUNTIME_TOOLS) deny.add(name);
+  entry.tools.deny = [...deny];
   writeConfig(config);
   return entry.tools.allow;
 }

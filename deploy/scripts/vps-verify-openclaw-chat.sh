@@ -141,10 +141,14 @@ fi
 
 probe() {
   docker compose exec -T openclaw sh -c '
-TOKEN="${OPENCLAW_GATEWAY_TOKEN:-}"
+TOKEN=""
+if [ -f /root/.openclaw/platform-runtime-secrets.json ]; then
+  TOKEN=$(node -e "try{const c=require(\"/root/.openclaw/platform-runtime-secrets.json\");process.stdout.write((c.secrets&&c.secrets.openclaw_gateway&&c.secrets.openclaw_gateway.value)||\"\")}catch(e){}")
+fi
 if [ -z "$TOKEN" ] && [ -f /root/.openclaw/openclaw.json ]; then
   TOKEN=$(node -e "try{const c=require(\"/root/.openclaw/openclaw.json\");process.stdout.write((c.gateway&&c.gateway.auth&&c.gateway.auth.token)||\"\")}catch(e){}")
 fi
+if [ -z "$TOKEN" ]; then TOKEN="${OPENCLAW_GATEWAY_TOKEN:-}"; fi
 AGENT="'"$AGENT_ID"'"
 code=$(curl -sS -o /tmp/oc-chat-body.txt -w "%{http_code}" --max-time 45 \
   -X POST "http://127.0.0.1:${OPENCLAW_GATEWAY_PORT:-18789}/v1/chat/completions" \

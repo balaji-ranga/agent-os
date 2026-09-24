@@ -17,6 +17,7 @@ import {
 import { ensureTenantOpenClawAgent } from './openclaw-tenant.js';
 import { getCeoGeneratedMediaDir } from './content-explorer.js';
 import { toWhatsAppSafeAudio } from './audio-convert.js';
+import { getOpenClawGatewayRuntimeToken } from './platform-runtime-secrets.js';
 
 export const CHANNEL_DELIVER_OPTIONS = ['web', 'whatsapp', 'slack'];
 const MAX_TEXT_CHARS = 3500;
@@ -370,8 +371,7 @@ export function resolveAgentChannelTarget(ownerUserId, agentId, channel) {
 
 function gatewayUrlAndToken() {
   const base = String(process.env.OPENCLAW_GATEWAY_URL || 'http://127.0.0.1:18789').replace(/\/$/, '');
-  const token =
-    process.env.OPENCLAW_GATEWAY_TOKEN || process.env.OPENCLAW_GATEWAY_PASSWORD || '';
+  const token = getOpenClawGatewayRuntimeToken();
   return { base, token };
 }
 

@@ -9,8 +9,16 @@ import { isInternalRequest, internalServiceUser } from '../middleware/internal-a
 import { verifyToolScopedToken } from '../services/tool-scoped-token.js';
 
 function applyScopedToolAuth(req, token) {
-  const scoped = verifyToolScopedToken(token);
+  const scoped = verifyToolScopedToken(token, {
+    requestedTool: req.body?.tool_name || '',
+    sessionKey: req.headers?.['x-openclaw-session-key'] || req.headers?.['x-session-key'] || '',
+  });
   if (!scoped) return false;
+  // Short-lived OpenClaw leases authorize only the canonical dispatcher. Direct
+  // routes have different contracts and must never infer scope from a caller-
+  // supplied body.tool_name.
+  const requestPath = String(req.path || req.url || '').split('?')[0];
+  if (scoped.lease && requestPath !== '/invoke') return false;
   const requestedOwner = String(
     req.headers?.['x-ceo-user-id'] || req.headers?.['x-agent-os-user-id'] || ''
   ).trim();

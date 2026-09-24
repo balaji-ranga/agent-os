@@ -30,6 +30,7 @@ import { resolveWorkspaceTemplateBaseId } from './company-blueprints/standard-pr
 import {
   NATIVE_OPENCLAW_TOOLS as NATIVE_OPENCLAW_TOOLS_LIST,
   mergeOpenClawAllowList,
+  SENSITIVE_OPENCLAW_RUNTIME_TOOLS,
   sameOpenClawToolSet,
 } from './openclaw-runtime-tools.js';
 import { applyIdentityNameToAgentEntry } from '../../../scripts/lib/openclaw-whatsapp-from-prefix.js';
@@ -335,7 +336,10 @@ export function ensureTenantOpenClawAgent(agent, ceoUserId) {
   const existingAllow = Array.isArray(entry.tools.allow) ? entry.tools.allow : [];
   const desiredAllow = mergeNativeTools(existingAllow, grants);
   entry.tools.allow = sameOpenClawToolSet(existingAllow, desiredAllow) ? existingAllow : desiredAllow;
-  if (!entry.tools.deny) entry.tools.deny = ['image'];
+  const deny = new Set(Array.isArray(entry.tools.deny) ? entry.tools.deny : ['image']);
+  deny.add('image');
+  for (const name of SENSITIVE_OPENCLAW_RUNTIME_TOOLS) deny.add(name);
+  entry.tools.deny = [...deny];
   // Several read-only request paths intentionally load only id/openclaw_agent_id.
   // Do not let those partial rows replace a configured display name with the
   // technical base id; alternating read/send requests would otherwise rewrite

@@ -157,7 +157,12 @@ import { healStuckKanbanForCompletedDelegations } from './services/kanban-workfl
 import { requeueStuckStatusOnlyKanbanCards, rependInfraFailedStatusOnlyRetries } from './services/delegation-status-only-retry.js';
 import { seedPlatformStandardWorkspaceTemplate } from './services/platform-agent-workspace-templates.js';
 import { startOpenClawInboundMediaSync } from './services/openclaw-inbound-media-sync.js';
-import { ensureAllToolServiceCredentials } from './services/tool-scoped-token.js';
+import {
+  ensureAllToolServiceCredentials,
+  getToolBrokerSecret,
+  legacyToolCredentialsEnabled,
+  revokeAllLegacyToolCredentials,
+} from './services/tool-scoped-token.js';
 import { syncMcpUniverse } from './services/mcp-universe.js';
 import { dispatchDueWhatsappPromotions } from './services/promotions.js';
 
@@ -288,8 +293,16 @@ try {
   console.warn('[startup] CEO default master data:', e.message);
 }
 try {
-  const credentialCount = ensureAllToolServiceCredentials();
-  console.log(`[startup] ensured ${credentialCount} owner/agent tool credential binding(s)`);
+  getToolBrokerSecret();
+  if (legacyToolCredentialsEnabled()) {
+    const credentialCount = ensureAllToolServiceCredentials();
+    console.log(`[startup] ensured ${credentialCount} legacy owner/agent tool credential binding(s)`);
+  } else if (String(process.env.TOOLS_LEGACY_FTC_PURGE_ON_START || '') === '1') {
+    const purged = revokeAllLegacyToolCredentials({ removeFile: true });
+    console.log(`[startup] short-lived tool broker enabled; revoked ${purged.revoked} legacy credential(s)`);
+  } else {
+    console.log('[startup] short-lived tool broker enabled; legacy ftc authentication disabled');
+  }
 } catch (e) {
   console.warn('[startup] tool credential provisioning:', e.message || e);
 }

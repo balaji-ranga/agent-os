@@ -43,6 +43,17 @@ import {
 import { saveInboundAttachment } from '../services/inbound-attachments.js';
 import socialResearchTools from './social-research-tools.js';
 import webScrapeTools from './web-scrape-tools.js';
+import {
+  issueToolCredentialLease,
+  verifyToolBrokerSecret,
+} from '../services/tool-scoped-token.js';
+
+function isDirectPrivateServiceRequest(req) {
+  if (req.headers?.['x-forwarded-for'] || req.headers?.forwarded) return false;
+  const ip = String(req.socket?.remoteAddress || '').replace(/^::ffff:/, '');
+  return ip === '127.0.0.1' || ip === '::1' || ip.startsWith('10.') || ip.startsWith('192.168.') ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(ip);
+}
 
 function sanitizeTenantId(value) {
   return String(value || '')
@@ -766,6 +777,49 @@ router.delete('/logs', attachAuthUser, requireAuth, (req, res) => {
     res.json({ deleted, owner_user_id: ownerUserId });
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+/**
+ * Exchange the protected OpenClaw-plugin broker secret for a short-lived,
+ * one-tool, owner+agent+session-bound lease. Nothing in this contract is model-visible.
+ */
+router.post('/lease', (req, res) => {
+  try {
+    if (!isDirectPrivateServiceRequest(req)) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+    if (!verifyToolBrokerSecret(req.headers['x-agent-os-tool-broker'])) {
+      return res.status(401).json({ error: 'Tool credential broker authentication failed' });
+    }
+    const callerAgentId = String(req.body?.caller_agent_id || '').trim();
+    const sessionKey = String(req.body?.session_key || '').trim();
+    const toolName = String(req.body?.tool_name || '').trim();
+    if (!callerAgentId || !sessionKey || !toolName) {
+      return res.status(400).json({ error: 'caller_agent_id, session_key, and tool_name are required' });
+    }
+    const sessionMatch = sessionKey.match(/^agent::?([^:]+):/);
+    if (!sessionMatch || sessionMatch[1] !== callerAgentId) {
+      return res.status(403).json({ error: 'Session agent does not match caller agent' });
+    }
+    const tenant = parseTenantOpenClawAgentId(callerAgentId);
+    const ownerFromSession = resolveOwnerFromOpenClawSession({
+      headers: { 'x-openclaw-session-key': sessionKey },
+    });
+    const ownerUserId = String(tenant?.ceoUserId || ownerFromSession || '').trim();
+    if (!ownerUserId || (tenant?.ceoUserId && ownerFromSession && tenant.ceoUserId !== ownerFromSession)) {
+      return res.status(403).json({ error: 'Unable to establish one authoritative owner for this session' });
+    }
+    const lease = issueToolCredentialLease({ ownerUserId, agentId: callerAgentId, sessionKey, toolName });
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json({
+      access_token: lease.token,
+      token_type: 'Bearer',
+      expires_in: lease.expiresIn,
+      expires_at: lease.expiresAt,
+    });
+  } catch (e) {
+    return res.status(e.status || 500).json({ error: e.message || String(e) });
   }
 });
 

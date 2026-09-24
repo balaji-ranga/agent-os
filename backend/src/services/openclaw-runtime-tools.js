@@ -10,11 +10,6 @@ export const NATIVE_OPENCLAW_TOOLS = ['browser', 'image', 'cron', 'cron_add'];
 /** Always merge into per-agent tools.allow (content grants alone are not enough). */
 export const ESSENTIAL_OPENCLAW_RUNTIME_TOOLS = [
   'read',
-  'write',
-  'edit',
-  'apply_patch',
-  'exec',
-  'process',
   'sessions_history',
   'sessions_list',
   'sessions_send',
@@ -24,6 +19,15 @@ export const ESSENTIAL_OPENCLAW_RUNTIME_TOOLS = [
   'agents_list',
   'subagents',
   'message',
+];
+
+/** Never expose host/container filesystem or command execution to ordinary tenant agents. */
+export const SENSITIVE_OPENCLAW_RUNTIME_TOOLS = [
+  'write',
+  'edit',
+  'apply_patch',
+  'exec',
+  'process',
 ];
 
 /**
@@ -66,6 +70,7 @@ export function sameOpenClawToolSet(left = [], right = []) {
 export function mergeOpenClawAllowList(existingAllow = [], contentGrants = [], opts = {}) {
   const dropImage = opts.dropImage !== false;
   const dropBrowser = opts.dropBrowser === true;
+  const dropSensitive = opts.dropSensitive !== false;
   const merged = [
     ...new Set([
       ...(existingAllow || []).map((t) => String(t)),
@@ -77,6 +82,7 @@ export function mergeOpenClawAllowList(existingAllow = [], contentGrants = [], o
     if (!t) return false;
     if (dropImage && t === 'image') return false;
     if (dropBrowser && t === 'browser') return false;
+    if (dropSensitive && SENSITIVE_OPENCLAW_RUNTIME_TOOLS.includes(t)) return false;
     return true;
   });
   return prioritizeOpenClawAllowList(merged);

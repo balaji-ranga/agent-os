@@ -33,13 +33,18 @@ export default function AdminOpenclawRecovery() {
   const [error, setError] = useState(null);
   const [flash, setFlash] = useState(null);
   const [restartOnUnblock, setRestartOnUnblock] = useState(true);
+  const [credentialSecurity, setCredentialSecurity] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const st = await api.adminOpenclawRecoveryStatus(ceoId || undefined);
+      const [st, security] = await Promise.all([
+        api.adminOpenclawRecoveryStatus(ceoId || undefined),
+        api.adminOpenclawCredentialSecurity(),
+      ]);
       setStatus(st);
+      setCredentialSecurity(security);
       if (!ceoId && st.ceos?.length) {
         const firstBusy = st.ceos.find((c) => (c.queues?.open_delegations || 0) > 0) || st.ceos[0];
         if (firstBusy?.id) setCeoId(firstBusy.id);
@@ -210,6 +215,77 @@ export default function AdminOpenclawRecovery() {
       </section>
 
       <PrivilegedSessionGate title="Unlock recovery actions">
+        <section
+          style={{
+            padding: '1rem',
+            border: '1px solid var(--border)',
+            borderRadius: 8,
+            marginBottom: '1rem',
+          }}
+        >
+          <h2 style={{ margin: '0 0 0.5rem', fontSize: '1.05rem' }}>Security credentials</h2>
+          <p style={{ margin: '0 0 0.75rem', color: 'var(--muted)', fontSize: '0.85rem' }}>
+            Rotate platform-managed secrets without displaying their values. Tool leases rotate live;
+            gateway-token rotation safely restarts AgentSystem. Deployment-managed provider and
+            connector keys are reported below but must be replaced at their issuing provider.
+          </p>
+          <div style={{ display: 'grid', gap: 7, fontSize: '0.86rem', marginBottom: 12 }}>
+            <div>
+              Short-lived tool broker {badge(!!credentialSecurity?.tool_credentials?.broker_configured, 'configured', 'missing')}
+              {' '}· active leases {credentialSecurity?.tool_credentials?.active_leases ?? '—'}
+            </div>
+            <div>
+              Legacy ftc_ file {badge(!credentialSecurity?.tool_credentials?.legacy_file_present, 'removed', 'present')}
+              {' '}· active legacy tokens {credentialSecurity?.tool_credentials?.legacy_active ?? '—'}
+            </div>
+            <div style={{ color: 'var(--muted)' }}>
+              Deployment-managed: {(credentialSecurity?.externally_managed || []).map((item) =>
+                `${item.name}=${item.configured ? 'configured' : 'missing'}`).join(' · ') || '—'}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="wf-btn"
+              disabled={!!busy}
+              onClick={() => {
+                if (!window.confirm('Rotate the tool broker secret and revoke all current short-lived leases?')) return;
+                return run('Rotate tool broker', () =>
+                  api.adminOpenclawRotateCredential(priv.token, 'tool_broker')
+                );
+              }}
+            >
+              Rotate tool broker
+            </button>
+            <button
+              type="button"
+              className="wf-btn"
+              disabled={!!busy}
+              onClick={() => {
+                if (!window.confirm('Rotate the AgentSystem gateway token? The gateway will restart and in-flight chats may drop.')) return;
+                return run('Rotate gateway token', () =>
+                  api.adminOpenclawRotateCredential(priv.token, 'openclaw_gateway')
+                );
+              }}
+            >
+              Rotate gateway token + restart
+            </button>
+            <button
+              type="button"
+              className="wf-btn wf-btn-danger"
+              disabled={!!busy || !credentialSecurity?.tool_credentials?.legacy_file_present}
+              onClick={() => {
+                if (!window.confirm('Permanently revoke old ftc_ tokens and remove the shared credential file?')) return;
+                return run('Remove legacy ftc', () =>
+                  api.adminOpenclawRotateCredential(priv.token, 'legacy_ftc')
+                );
+              }}
+            >
+              Revoke + remove legacy ftc_
+            </button>
+          </div>
+        </section>
+
         <section
           style={{
             padding: '1rem',

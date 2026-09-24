@@ -1,8 +1,8 @@
 {
   "id": "agent-os-content-tools",
   "name": "Agent OS Content Tools",
-  "description": "Register Agent OS content/workflow/kanban tools that call the backend with owner/agent-scoped credentials.",
-  "version": "1.2.0",
+  "description": "Register Agent OS content/workflow/kanban tools using short-lived owner/agent/session/tool-scoped leases.",
+  "version": "1.3.0",
   "activation": {
     "onStartup": true
   },

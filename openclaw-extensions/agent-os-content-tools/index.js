@@ -9,29 +9,64 @@ import { join } from "path";
 // Node; OpenClaw's loader can, but absolute path works in both contexts.
 import { definePluginEntry } from "/usr/local/lib/node_modules/openclaw/dist/plugin-sdk/plugin-entry.js";
 
-const OPENCLAW_DIR = join(process.env.USERPROFILE || process.env.HOME || "", ".openclaw");
+const OPENCLAW_DIR = process.env.OPENCLAW_DIR || join(process.env.USERPROFILE || process.env.HOME || "", ".openclaw");
 const DEFAULT_TOOLS_LIST_PATH = join(OPENCLAW_DIR, "agent-os-tools.json");
 const ALLOWLISTS_PATH = join(OPENCLAW_DIR, "agent-tool-allowlists.json");
 const OPENCLAW_CONFIG_PATH = process.env.OPENCLAW_CONFIG_PATH || join(OPENCLAW_DIR, "openclaw.json");
-const TOOL_CREDENTIALS_PATH = process.env.OPENCLAW_TOOL_CREDENTIALS_PATH || join(OPENCLAW_DIR, "agent-os-tool-credentials.json");
+const PLATFORM_RUNTIME_SECRETS_PATH = process.env.PLATFORM_RUNTIME_SECRETS_PATH || join(OPENCLAW_DIR, "platform-runtime-secrets.json");
 
 let allowlistsCache = { mtime: 0, data: {} };
 let openclawConfigCache = { mtime: 0, byAgent: {} };
-let toolCredentialsCache = { mtime: 0, credentials: {} };
+let runtimeSecretsCache = { mtime: 0, secrets: {} };
+const toolLeaseCache = new Map();
 
-function loadToolCredentials() {
+function loadRuntimeSecrets() {
   try {
-    const st = statSync(TOOL_CREDENTIALS_PATH);
-    if (st.mtimeMs === toolCredentialsCache.mtime) return toolCredentialsCache.credentials;
-    const parsed = JSON.parse(readFileSync(TOOL_CREDENTIALS_PATH, "utf8"));
-    const credentials = parsed?.version === 1 && parsed.credentials && typeof parsed.credentials === "object"
-      ? parsed.credentials
+    const st = statSync(PLATFORM_RUNTIME_SECRETS_PATH);
+    if (st.mtimeMs === runtimeSecretsCache.mtime) return runtimeSecretsCache.secrets;
+    const parsed = JSON.parse(readFileSync(PLATFORM_RUNTIME_SECRETS_PATH, "utf8"));
+    const secrets = parsed?.version === 1 && parsed.secrets && typeof parsed.secrets === "object"
+      ? parsed.secrets
       : {};
-    toolCredentialsCache = { mtime: st.mtimeMs, credentials };
-    return credentials;
+    runtimeSecretsCache = { mtime: st.mtimeMs, secrets };
+    return secrets;
   } catch {
     return {};
   }
+}
+
+function loadToolBrokerSecret() {
+  return String(
+    loadRuntimeSecrets()?.tool_broker?.value || process.env.AGENT_OS_TOOL_BROKER_TOKEN || ""
+  ).trim();
+}
+
+async function acquireToolLease(url, { callerAgentId, sessionKey, toolName, force = false }) {
+  const cacheKey = `${callerAgentId}\u0000${sessionKey}\u0000${toolName}`;
+  const cached = toolLeaseCache.get(cacheKey);
+  if (!force && cached?.token && cached.expiresAt > Date.now() + 15000) return cached.token;
+  const brokerSecret = loadToolBrokerSecret();
+  if (!brokerSecret) throw new Error("Tool credential broker is not configured.");
+  const response = await fetch(`${url}/api/tools/lease`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-agent-os-tool-broker": brokerSecret,
+    },
+    body: JSON.stringify({
+      caller_agent_id: callerAgentId,
+      session_key: sessionKey,
+      tool_name: toolName,
+    }),
+    signal: AbortSignal.timeout(15000),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.access_token) {
+    throw new Error(data.error || `Tool credential broker returned HTTP ${response.status}`);
+  }
+  const expiresAt = Date.parse(data.expires_at || '') || (Date.now() + Number(data.expires_in || 60) * 1000);
+  toolLeaseCache.set(cacheKey, { token: data.access_token, expiresAt });
+  return data.access_token;
 }
 
 function getToolsListPath() {
@@ -758,8 +793,6 @@ function resolvePluginConfig(api) {
 }
 
 function resolveCallerAgentId(api, params, toolCtx) {
-  const fromParams = params?.__openclaw_agent_id || params?.caller_agent_id || params?.agent_id || null;
-  if (fromParams && String(fromParams).trim()) return String(fromParams).trim();
   if (toolCtx?.agentId && String(toolCtx.agentId).trim()) return String(toolCtx.agentId).trim();
   const fromSession = agentIdFromSessionKey(toolCtx?.sessionKey);
   if (fromSession) return fromSession;
@@ -799,38 +832,39 @@ async function callInvoke(api, toolName, params, callerAgentId, toolCtx) {
     ownerUserId = ceoUserIdFromOpenClawAgentId(callerAgentId);
   }
   if (ownerUserId) headers["x-ceo-user-id"] = ownerUserId;
-  if (!headers["x-openclaw-session-key"] && !ownerUserId) {
+  if (!headers["x-openclaw-session-key"]) {
     return {
       ok: false,
       error:
         "OpenClaw session key unavailable — cannot scope this tool to the current CEO. Chat from Agent OS UI so the session is bound to the user, or use a tenant session key (agent::t-{ceoId}--{agentId}:main).",
     };
   }
-  if (!headers["x-openclaw-session-key"] && ownerUserId && callerAgentId) {
-    headers["x-openclaw-session-key"] = `agent:${callerAgentId}:tenant-scoped`;
-  }
   if (!callerAgentId) {
     return { ok: false, error: "Calling agent identity unavailable; cannot authorize this tool." };
   }
-  const scopedCredential = loadToolCredentials()?.[ownerUserId]?.[callerAgentId];
-  if (!scopedCredential) {
-    return {
-      ok: false,
-      error: "Owner/agent tool credential unavailable. Restart the Flolah backend once to provision credentials.",
-    };
-  }
-  headers.Authorization = `Bearer ${scopedCredential}`;
   const body = { tool_name: toolName, ...params };
   if (callerAgentId) body.caller_agent_id = callerAgentId;
   try {
-    const res = await fetch(`${url}/api/tools/invoke`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(Math.max(toolName.startsWith('browse_task_') ? 120000 : 90000,
-        Math.min(615000, Number(loadToolsFromFile().find((tool) => tool.name === toolName)?.timeout_ms) || 0))),
-    });
-    const data = await res.json().catch(() => ({}));
+    const invoke = async (forceLease = false) => {
+      const scopedCredential = await acquireToolLease(url, {
+        callerAgentId,
+        sessionKey: headers["x-openclaw-session-key"],
+        toolName,
+        force: forceLease,
+      });
+      const invokeHeaders = { ...headers, Authorization: `Bearer ${scopedCredential}` };
+      const res = await fetch(`${url}/api/tools/invoke`, {
+        method: "POST",
+        headers: invokeHeaders,
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(Math.max(toolName.startsWith('browse_task_') ? 120000 : 90000,
+          Math.min(615000, Number(loadToolsFromFile().find((tool) => tool.name === toolName)?.timeout_ms) || 0))),
+      });
+      const data = await res.json().catch(() => ({}));
+      return { res, data };
+    };
+    let { res, data } = await invoke(false);
+    if (res.status === 401) ({ res, data } = await invoke(true));
     if (!res.ok) {
       return { ok: false, error: data.error || res.statusText, data };
     }
@@ -843,7 +877,10 @@ async function callInvoke(api, toolName, params, callerAgentId, toolCtx) {
 
 function modelVisibleSchema(schema) {
   const copy = JSON.parse(JSON.stringify(schema || { type: "object", properties: {} }));
-  const hidden = new Set(["owner_user_id", "ownerUserId", "ceo_user_id", "ceoUserId", "user_id", "userId"]);
+  const hidden = new Set([
+    "owner_user_id", "ownerUserId", "ceo_user_id", "ceoUserId", "user_id", "userId",
+    "__openclaw_agent_id", "caller_agent_id", "agent_id",
+  ]);
   if (copy.properties) {
     for (const key of hidden) delete copy.properties[key];
   }

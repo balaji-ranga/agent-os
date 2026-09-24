@@ -73,7 +73,8 @@
     "audit:token-context": "node scripts/audit-token-context-creep.mjs",
     "test:platform-help-memory": "node scripts/test-platform-help-memory-context.mjs",
     "test:platform-help-bounded-context": "node scripts/test-platform-help-bounded-context.mjs",
-    "test:openclaw-context-memory": "node scripts/test-openclaw-context-memory-stress.mjs"
+    "test:openclaw-context-memory": "node scripts/test-openclaw-context-memory-stress.mjs",
+    "test:tool-credential-broker": "node scripts/test-tool-credential-broker.mjs"
   },
   "dependencies": {
     "@stoqey/ib": "^1.6.3",

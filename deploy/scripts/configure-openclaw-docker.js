@@ -20,7 +20,10 @@ import {
   applyWhatsAppFromPrefixToChannel,
   applyIdentityNameToAgentEntry,
 } from '../../scripts/lib/openclaw-whatsapp-from-prefix.js';
-import { prioritizeOpenClawAllowList } from '../../backend/src/services/openclaw-runtime-tools.js';
+import {
+  prioritizeOpenClawAllowList,
+  SENSITIVE_OPENCLAW_RUNTIME_TOOLS,
+} from '../../backend/src/services/openclaw-runtime-tools.js';
 import {
   REQUIRED_GLOBAL_CONTENT_TOOLS,
   COO_CONTENT_TOOLS_ALLOW,
@@ -36,7 +39,15 @@ import {
 const OPENCLAW_DIR = resolveOpenClawDir();
 const CONFIG_PATH = process.env.OPENCLAW_CONFIG_PATH || join(OPENCLAW_DIR, 'openclaw.json');
 
-const GATEWAY_TOKEN = String(process.env.OPENCLAW_GATEWAY_TOKEN || '').trim();
+function runtimeGatewayToken() {
+  try {
+    const store = JSON.parse(readFileSync(join(OPENCLAW_DIR, 'platform-runtime-secrets.json'), 'utf8'));
+    return String(store?.secrets?.openclaw_gateway?.value || '').trim();
+  } catch {
+    return '';
+  }
+}
+const GATEWAY_TOKEN = runtimeGatewayToken() || String(process.env.OPENCLAW_GATEWAY_TOKEN || '').trim();
 const INTERNAL_API = String(process.env.AGENT_OS_INTERNAL_API_URL || 'http://backend:3001').replace(/\/$/, '');
 const OLLAMA_BASE = String(process.env.OLLAMA_BASE_URL || 'http://ollama:11434')
   .replace(/\/?$/, '')
@@ -99,7 +110,7 @@ if (!config.gateway.http.endpoints.chatCompletions) {
 
 if (GATEWAY_TOKEN) {
   config.gateway.auth = { ...(config.gateway.auth || {}), token: GATEWAY_TOKEN };
-  console.log('Set gateway.auth.token from OPENCLAW_GATEWAY_TOKEN');
+  console.log('Set gateway.auth.token from protected runtime secret or OPENCLAW_GATEWAY_TOKEN');
 } else {
   console.warn('OPENCLAW_GATEWAY_TOKEN not set — gateway may require device pairing (see GATEWAY-PAIRING-1008.md)');
 }
@@ -201,6 +212,7 @@ config.gateway.trustedProxies = resolveTrustedProxies();
 console.log('Set narrow gateway.trustedProxies=%j', config.gateway.trustedProxies);
 
 if (!config.tools) config.tools = {};
+config.tools.fs = { ...(config.tools.fs || {}), workspaceOnly: true };
 if (!config.tools.sessions) config.tools.sessions = {};
 config.tools.sessions.visibility = SESSION_VISIBILITY;
 console.log('Set tools.sessions.visibility:', SESSION_VISIBILITY);
@@ -258,7 +270,7 @@ function applyBrowserCdpAgentTools(agent) {
   delete agent.tools.allow;
   agent.tools.profile = 'coding';
   agent.tools.alsoAllow = ['browser'];
-  agent.tools.deny = ['image'];
+  agent.tools.deny = ['image', ...SENSITIVE_OPENCLAW_RUNTIME_TOOLS];
 }
 
 // OpenClaw can persist either the legacy agents.list roster or the newer
@@ -321,6 +333,7 @@ if (agentRoster.length) {
     if (!Array.isArray(agent.tools.allow)) agent.tools.allow = [];
     // Keep allowlists free of the unavailable core `browser` entry.
     agent.tools.allow = agent.tools.allow.filter((name) => String(name) !== 'browser');
+    agent.tools.allow = agent.tools.allow.filter((name) => !SENSITIVE_OPENCLAW_RUNTIME_TOOLS.includes(String(name)));
     delete agent.tools.alsoAllow;
     let added = 0;
     for (const name of required || []) {
@@ -335,6 +348,9 @@ if (agentRoster.length) {
     const mustDenyBrowser = BROWSER_DENIED_AGENT_IDS.has(id) || BROWSER_DENIED_AGENT_IDS.has(leafId);
     if (required || mustDenyBrowser) {
       if (!deny.includes('image')) deny.push('image');
+    }
+    for (const sensitive of SENSITIVE_OPENCLAW_RUNTIME_TOOLS) {
+      if (!deny.includes(sensitive)) deny.push(sensitive);
     }
     if (mustDenyBrowser) {
       if (!deny.includes('browser')) deny.push('browser');

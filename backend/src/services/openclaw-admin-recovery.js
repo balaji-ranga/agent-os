@@ -9,7 +9,7 @@ import { fileURLToPath } from 'url';
 import { spawn } from 'child_process';
 import { getDb } from '../db/schema.js';
 import { getOpenClawDir, getOpenClawConfigPath } from '../config/openclaw-paths.js';
-import { readOpenClawConfigSafe } from './openclaw-config-safe.js';
+import { readOpenClawConfigSafe, writeOpenClawConfigSafe } from './openclaw-config-safe.js';
 import { pingDocker, listContainers, restartContainer } from './docker-engine.js';
 import { listOpenClawCronJobs, removeOpenClawCronJob } from './kanban-watch.js';
 import { ensureTenantOpenClawAgent } from './openclaw-tenant.js';
@@ -22,6 +22,18 @@ import {
   setGoalPlanFailureKanbanEnabled,
 } from './goal-plan-failure-kanban.js';
 import { getPlatformSetting } from './platform-llm-settings.js';
+import {
+  getOpenClawGatewayRuntimeToken,
+  platformRuntimeSecretStatus,
+  rotatePlatformRuntimeSecret,
+  setPlatformRuntimeSecret,
+} from './platform-runtime-secrets.js';
+import {
+  getToolBrokerSecret,
+  revokeAllLegacyToolCredentials,
+  revokeAllToolCredentialLeases,
+  toolCredentialSecurityStatus,
+} from './tool-scoped-token.js';
 
 const OPEN_DEL = `status IN ('processing','pending','running','queued')`;
 const OPEN_GOAL = `status IN ('running','in_progress','pending','blocked','awaiting')`;
@@ -60,7 +72,7 @@ function gatewayBase() {
 }
 
 function gatewayToken() {
-  return String(process.env.OPENCLAW_GATEWAY_TOKEN || process.env.OPENCLAW_GATEWAY_PASSWORD || '').trim();
+  return getOpenClawGatewayRuntimeToken();
 }
 
 async function probeGateway() {
@@ -360,6 +372,80 @@ export async function restartOpenClawGateway() {
   const name = (target.Names || [])[0] || target.Id.slice(0, 12);
   console.info('[openclaw-recovery] restarted gateway container=%s', name);
   return { ok: true, container: name };
+}
+
+async function waitForGatewayReady({ attempts = 40, delayMs = 3000 } = {}) {
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const response = await fetch(`${gatewayBase()}/health`, { signal: AbortSignal.timeout(5000) });
+      if (response.ok) return { ok: true, attempts: attempt };
+    } catch (_) {}
+    if (attempt < attempts) await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+  const err = new Error('AgentSystem did not become healthy after credential rotation');
+  err.status = 503;
+  throw err;
+}
+
+export function getCredentialSecurityStatus() {
+  getToolBrokerSecret();
+  return {
+    runtime_secrets: platformRuntimeSecretStatus(),
+    tool_credentials: toolCredentialSecurityStatus(),
+    externally_managed: [
+      { name: 'agent_os_internal', configured: Boolean(process.env.AGENT_OS_INTERNAL_TOKEN), restart_required: true },
+      { name: 'tools_api_key', configured: Boolean(process.env.TOOLS_API_KEY), restart_required: true, transitional: true },
+      { name: 'erpnext_api', configured: Boolean(process.env.ERPNEXT_API_KEY && process.env.ERPNEXT_API_SECRET), restart_required: true },
+      { name: 'openconnector_admin', configured: Boolean(process.env.OPENCONNECTOR_ADMIN_TOKEN), restart_required: true },
+    ],
+  };
+}
+
+/** Rotate platform-managed credentials. Secret values never leave this service. */
+export async function rotateManagedCredential(name) {
+  const key = String(name || '').trim();
+  if (key === 'tool_broker') {
+    const rotated = rotatePlatformRuntimeSecret('tool_broker');
+    const revokedLeases = revokeAllToolCredentialLeases();
+    return { name: key, rotated_at: rotated.rotated_at, restart_required: false, revoked_leases: revokedLeases };
+  }
+  if (key === 'legacy_ftc') {
+    const out = revokeAllLegacyToolCredentials({ removeFile: true });
+    return { name: key, rotated_at: new Date().toISOString(), restart_required: false, ...out };
+  }
+  if (key === 'openclaw_gateway') {
+    const previous = getOpenClawGatewayRuntimeToken();
+    const rotated = rotatePlatformRuntimeSecret('openclaw_gateway');
+    try {
+      const config = readOpenClawConfigSafe();
+      config.gateway ||= {};
+      config.gateway.auth ||= {};
+      config.gateway.auth.token = rotated.value;
+      writeOpenClawConfigSafe(config);
+      const restart = await restartOpenClawGateway();
+      const health = await waitForGatewayReady();
+      return { name: key, rotated_at: rotated.rotated_at, restart_required: true, restarted: true, restart, health };
+    } catch (e) {
+      if (previous) {
+        setPlatformRuntimeSecret('openclaw_gateway', previous);
+        try {
+          const config = readOpenClawConfigSafe();
+          config.gateway ||= {};
+          config.gateway.auth ||= {};
+          config.gateway.auth.token = previous;
+          writeOpenClawConfigSafe(config);
+          try {
+            await restartOpenClawGateway();
+            await waitForGatewayReady({ attempts: 20, delayMs: 3000 });
+          } catch (_) {}
+        } catch (_) {}
+      }
+      throw e;
+    }
+  }
+  const err = new Error('Unsupported managed credential');
+  err.status = 400;
+  throw err;
 }
 
 function repoRoot() {

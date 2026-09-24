@@ -1,7 +1,8 @@
 /**
  * OpenClaw Gateway cron tool - schedule one-shot or recurring jobs via POST /tools/invoke.
  * See https://docs.openclaw.ai/cron-jobs and https://docs.openclaw.ai/gateway/tools-invoke-http-api
- */
+*/
+import { getOpenClawGatewayRuntimeToken } from '../services/platform-runtime-secrets.js';
 
 const DEFAULT_PORT = 18789;
 
@@ -11,7 +12,7 @@ function getGatewayUrl() {
 }
 
 function getGatewayToken() {
-  return process.env.OPENCLAW_GATEWAY_TOKEN || process.env.OPENCLAW_GATEWAY_PASSWORD || '';
+  return getOpenClawGatewayRuntimeToken();
 }
 
 /**

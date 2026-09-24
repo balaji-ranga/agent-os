@@ -57,7 +57,8 @@ const toSlash = (p) => p.replace(/\\/g, '/');
 // IMPORTANT: keep this list to actual TOOL NAMES only. Non-tool entries can cause OpenClaw
 // to ignore the allowlist and the agent will not see the tools.
 const CONTENT_TOOLS_ALLOW = [...COO_CONTENT_TOOLS_ALLOW];
-const CONTENT_TOOLS_CONFIG = { allow: [...CONTENT_TOOLS_ALLOW], deny: ['image'] };
+const SENSITIVE_NATIVE_TOOLS = ['write', 'edit', 'apply_patch', 'exec', 'process'];
+const CONTENT_TOOLS_CONFIG = { allow: [...CONTENT_TOOLS_ALLOW], deny: ['image', ...SENSITIVE_NATIVE_TOOLS] };
 const BROWSER_DENIED_AGENT_IDS = new Set(['techresearcher', 'balserve', 'workflowbuilder', 'platformhelp']);
 const BROWSER_CDP_AGENT_ID = String(process.env.BROWSER_TASK_CDP_AGENT_ID || 'browser-cdp').trim() || 'browser-cdp';
 
@@ -73,7 +74,7 @@ const AGENTS_LIST = [
     workspace: toSlash(join(OPENCLAW_DIR, 'workspace-workflowbuilder')),
     tools: {
       allow: [...WORKFLOW_BUILDER_CONTENT_TOOLS_ALLOW],
-      deny: ['image', 'browser'],
+      deny: ['image', 'browser', ...SENSITIVE_NATIVE_TOOLS],
     },
   },
   {
@@ -82,14 +83,14 @@ const AGENTS_LIST = [
     workspace: toSlash(join(OPENCLAW_DIR, 'workspace-platformhelp')),
     tools: {
       allow: [...PLATFORM_HELP_CONTENT_TOOLS_ALLOW],
-      deny: ['image', 'browser'],
+      deny: ['image', 'browser', ...SENSITIVE_NATIVE_TOOLS],
     },
   },
   {
     id: 'techresearcher',
     name: 'TechResearcher',
     workspace: toSlash(join(OPENCLAW_DIR, 'workspace-techresearcher')),
-    tools: { allow: [...CONTENT_TOOLS_ALLOW], deny: ['image', 'browser'] },
+    tools: { allow: [...CONTENT_TOOLS_ALLOW], deny: ['image', 'browser', ...SENSITIVE_NATIVE_TOOLS] },
   },
   { id: 'expensemanager', name: 'ExpenseManager', workspace: toSlash(join(OPENCLAW_DIR, 'workspace-expenses')), tools: { ...CONTENT_TOOLS_CONFIG } },
   { id: 'socialasstant', name: 'SocialAssistant', workspace: toSlash(join(OPENCLAW_DIR, 'workspace-socialasstant')), tools: { ...CONTENT_TOOLS_CONFIG } },
@@ -137,6 +138,8 @@ const OLLAMA_FALLBACK = process.env.OPENCLAW_OLLAMA_FALLBACK_MODEL || 'llama3.2'
 const OLLAMA_FALLBACK_ID = `ollama/${OLLAMA_FALLBACK}`;
 
 if (!config.agents) config.agents = {};
+if (!config.tools) config.tools = {};
+config.tools.fs = { ...(config.tools.fs || {}), workspaceOnly: true };
 // Merge AGENTS_LIST into existing list by id so we set tools for techresearcher/expensemanager/socialasstant like SocialAssistant, and don't drop other agents
 const usesAgentEntries =
   config.agents.entries && typeof config.agents.entries === 'object' && !Array.isArray(config.agents.entries);
@@ -187,7 +190,7 @@ for (const a of agentRoster) {
   if (BROWSER_DENIED_AGENT_IDS.has(String(a?.id || '').toLowerCase())) {
     a.tools = a.tools || {};
     const deny = Array.isArray(a.tools.deny) ? a.tools.deny : [];
-    for (const tool of ['image', 'browser']) {
+    for (const tool of ['image', 'browser', ...SENSITIVE_NATIVE_TOOLS]) {
       if (!deny.includes(tool)) deny.push(tool);
     }
     a.tools.deny = deny;

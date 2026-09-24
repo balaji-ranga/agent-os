@@ -12,9 +12,9 @@ import https from 'node:https';
 import { stripOpenClawDeliveryNoise } from '../services/openclaw-runtime-tools.js';
 import { getPlatformTimeoutMs } from '../services/platform-timeout-settings.js';
 import { warnOnLargeLlmContext } from '../services/llm-context-audit.js';
+import { getOpenClawGatewayRuntimeToken } from '../services/platform-runtime-secrets.js';
 
 const DEFAULT_PORT = 18789;
-let _cachedGatewayToken = null;
 
 /** System instruction: get session history for context before responding (injected into chat when backend sends to gateway). */
 export const CHAT_INSTRUCTION_SESSION_HISTORY =
@@ -99,10 +99,8 @@ function getGatewayUrl() {
 }
 
 function getGatewayToken() {
-  if (_cachedGatewayToken) return _cachedGatewayToken;
-  const fromEnv = process.env.OPENCLAW_GATEWAY_TOKEN || process.env.OPENCLAW_GATEWAY_PASSWORD || '';
+  const fromEnv = getOpenClawGatewayRuntimeToken();
   if (fromEnv) {
-    _cachedGatewayToken = fromEnv;
     return fromEnv;
   }
   const homedir = process.env.USERPROFILE || process.env.HOME || '';
@@ -111,7 +109,6 @@ function getGatewayToken() {
     try {
       const token = JSON.parse(readFileSync(cfgPath, 'utf8'))?.gateway?.auth?.token || '';
       if (token) {
-        _cachedGatewayToken = token;
         return token;
       }
     } catch (_) {}

@@ -7,6 +7,8 @@ const dataDir = mkdtempSync(join(tmpdir(), 'flolah-security-test-'));
 process.env.AGENT_OS_DATA_DIR = dataDir;
 process.env.TOOLS_API_KEY = 'test-tools-key-that-is-long-and-random-enough';
 process.env.OPENCLAW_TOOL_CREDENTIALS_PATH = join(dataDir, 'tool-credentials.json');
+// Exercise the emergency compatibility switch explicitly; production defaults off.
+process.env.TOOLS_LEGACY_FTC_ENABLED = '1';
 process.env.NODE_ENV = 'production';
 delete process.env.CUSTOM_SCRIPT_RUNNER_URL;
 delete process.env.CUSTOM_SCRIPT_RUNNER_TOKEN;

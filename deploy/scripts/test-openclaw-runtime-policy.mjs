@@ -29,6 +29,10 @@ function runCase({ name, baseUrl, model, marker = null, routing = false }) {
   if (marker) {
     writeFileSync(join(dir, 'platform-llm-active.json'), `${JSON.stringify(marker)}\n`, 'utf8');
   }
+  writeFileSync(join(dir, 'platform-runtime-secrets.json'), JSON.stringify({
+    version: 1,
+    secrets: { openclaw_gateway: { value: 'runtime-gateway-token' } },
+  }), 'utf8');
 
   try {
     const result = spawnSync(process.execPath, [script], {
@@ -46,6 +50,7 @@ function runCase({ name, baseUrl, model, marker = null, routing = false }) {
         LITELLM_MASTER_KEY: routing ? 'test-litellm-key-not-secret' : '',
         OPENCLAW_ENABLE_DEEPSEEK_PLUGIN: '0',
         OPENCLAW_TRUSTED_PROXIES: '127.0.0.1,::1,172.18.0.1',
+        OPENCLAW_GATEWAY_TOKEN: 'stale-bootstrap-token',
       },
     });
     assert.equal(result.status, 0, `${name}: configure failed\n${result.stderr}\n${result.stdout}`);
@@ -62,10 +67,17 @@ function runCase({ name, baseUrl, model, marker = null, routing = false }) {
     assert.equal(configured.plugins.entries.deepseek?.enabled, false);
     assert.equal(configured.plugins.allow.includes('codex'), false);
     assert.deepEqual(configured.gateway.trustedProxies, ['127.0.0.1', '::1', '172.18.0.1']);
+    assert.equal(configured.gateway.auth.token, 'runtime-gateway-token');
     assert.equal(configured.gateway.trustedProxies.includes('172.16.0.0/12'), false);
     assert.equal(configured.gateway.trustedProxies.includes('10.0.0.0/8'), false);
+    assert.equal(configured.tools.fs.workspaceOnly, true);
     assert.ok(configured.agents.list.some((agent) => agent.id === originalAgent.id));
-    assert.equal(configured.agents.list.find((agent) => agent.id === originalAgent.id).workspace, originalAgent.workspace);
+    const configuredAgent = configured.agents.list.find((agent) => agent.id === originalAgent.id);
+    assert.equal(configuredAgent.workspace, originalAgent.workspace);
+    for (const denied of ['write', 'edit', 'apply_patch', 'exec', 'process']) {
+      assert.equal(configuredAgent.tools.allow.includes(denied), false);
+      assert.equal(configuredAgent.tools.deny.includes(denied), true);
+    }
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

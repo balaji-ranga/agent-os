@@ -137,9 +137,13 @@ if (!baseUrl) {
 if (contentTools?.config?.apiKey) {
   fail('agent-os-content-tools still contains legacy shared apiKey — re-run configure-openclaw-docker.js');
 }
-const scopedCredentials = join(OPENCLAW_DIR, 'agent-os-tool-credentials.json');
-if (!existsSync(scopedCredentials)) {
-  fail('owner/agent tool credentials missing — restart backend to provision them');
+const legacyCredentials = join(OPENCLAW_DIR, 'agent-os-tool-credentials.json');
+if (existsSync(legacyCredentials)) {
+  fail('retired agent-os-tool-credentials.json remains present — revoke legacy credentials and remove the file');
+}
+const runtimeSecrets = join(OPENCLAW_DIR, 'platform-runtime-secrets.json');
+if (!existsSync(runtimeSecrets)) {
+  fail('platform runtime secret store missing — start the backend to provision the short-lived credential broker');
 }
 
 // OpenClaw 2026.7+ content-tools must use definePluginEntry + contracts.tools
