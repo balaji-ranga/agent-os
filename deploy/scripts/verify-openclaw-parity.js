@@ -39,7 +39,7 @@ const REQUIRED_GLOBAL_TOOLS = [
 
 // Soft-check the full content-tool floor (configure-openclaw-docker maintains these).
 const EXPECTED_GLOBAL_CONTENT_TOOLS = REQUIRED_GLOBAL_CONTENT_TOOLS;
-const REQUIRED_SKILLS = ['agent-send', 'agent-os-content-tools', 'browser-automation'];
+const REQUIRED_SKILLS = ['agent-send', 'agent-os-content-tools'];
 
 const REQUIRED_PLUGINS = ['agent-os-content-tools', 'agent-os-bootstrap-watcher'];
 
@@ -69,6 +69,15 @@ try {
   process.exit(1);
 }
 
+// OpenClaw 2026.8 persists the roster as agents.entries. Older supported
+// releases used agents.list, so normalize both without mutating the config.
+const agentRoster =
+  config.agents?.entries && typeof config.agents.entries === 'object' && !Array.isArray(config.agents.entries)
+    ? Object.entries(config.agents.entries).map(([id, entry]) => ({ id, ...(entry || {}) }))
+    : Array.isArray(config.agents?.list)
+      ? config.agents.list
+      : [];
+
 // Gateway
 if (!config.gateway?.http?.endpoints?.chatCompletions?.enabled) {
   fail('gateway.http.endpoints.chatCompletions.enabled is not true');
@@ -85,11 +94,11 @@ if (!config.browser?.enabled) {
 // Dedicated CDP agent for backend browse_* / job portal tools/invoke
 const BROWSER_CDP_AGENT_ID = String(process.env.BROWSER_TASK_CDP_AGENT_ID || 'browser-cdp').trim() || 'browser-cdp';
 {
-  const cdp = (config.agents?.list || []).find(
+  const cdp = agentRoster.find(
     (a) => String(a?.id || '').toLowerCase() === BROWSER_CDP_AGENT_ID.toLowerCase()
   );
   if (!cdp) {
-    fail(`agents.list missing CDP browser agent "${BROWSER_CDP_AGENT_ID}"`);
+    fail(`agent roster missing CDP browser agent "${BROWSER_CDP_AGENT_ID}"`);
   } else {
     const also = cdp.tools?.alsoAllow || [];
     if (!also.includes('browser')) {
@@ -114,7 +123,13 @@ if (vis && vis !== 'agent' && vis !== 'all') {
 for (const skill of REQUIRED_SKILLS) {
   const skillDir = join(OPENCLAW_DIR, 'skills', skill);
   if (!existsSync(skillDir)) fail(`missing skill directory: ${skillDir}`);
-  if (!config.skills?.entries?.[skill]?.enabled) fail(`skill not enabled in config: ${skill}`);
+  // Current OpenClaw discovers skills from disk. An explicit config entry is
+  // optional, but when present it must not disable the required skill.
+  if (config.skills?.entries?.[skill]?.enabled === false) fail(`skill disabled in config: ${skill}`);
+}
+
+if (!config.plugins?.entries?.browser?.enabled) {
+  fail('browser plugin not enabled (replaces the retired browser-automation skill)');
 }
 
 // Extensions on disk + plugins
@@ -211,7 +226,7 @@ if (Array.isArray(config.plugins?.allow) && config.plugins.allow.includes('codex
 if (config.models?.providers?.openai?.agentRuntime?.id !== 'openclaw') {
   fail('models.providers.openai.agentRuntime.id must be openclaw (preserves Agent OS custom tools)');
 }
-const balserve = (config.agents?.list || []).find((a) => String(a.id || '').toLowerCase() === 'balserve');
+const balserve = agentRoster.find((a) => String(a.id || '').toLowerCase() === 'balserve');
 if (balserve && !(balserve.tools?.allow || []).includes('learnings_summary')) {
   fail('balserve tools.allow missing learnings_summary');
 }
@@ -221,20 +236,20 @@ if (balserve) {
     if (!allow.includes(bt)) warn(`balserve tools.allow missing ${bt} (backend grants sync on next start)`);
   }
 }
-const platformhelp = (config.agents?.list || []).find((a) => String(a.id || '').toLowerCase() === 'platformhelp');
+const platformhelp = agentRoster.find((a) => String(a.id || '').toLowerCase() === 'platformhelp');
 if (platformhelp) {
   const allow = platformhelp.tools?.allow || [];
   for (const t of ['master_data_rag', 'master_data_list_documents', 'notify_ceo']) {
     if (!allow.includes(t)) fail(`platformhelp tools.allow missing ${t}`);
   }
 } else {
-  fail('agents.list missing platformhelp (cannot check tools.allow)');
+  fail('agent roster missing platformhelp (cannot check tools.allow)');
 }
 
 // Agents
-const agentIds = (config.agents?.list || []).map((a) => String(a.id || '').toLowerCase());
+const agentIds = agentRoster.map((a) => String(a.id || '').toLowerCase());
 for (const id of REQUIRED_AGENTS) {
-  if (!agentIds.includes(id)) fail(`agents.list missing: ${id}`);
+  if (!agentIds.includes(id)) fail(`agent roster missing: ${id}`);
 }
 const jobPresent = OPTIONAL_JOB_AGENTS.filter((id) => agentIds.includes(id));
 if (jobPresent.length === 0) {
