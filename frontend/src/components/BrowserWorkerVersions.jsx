@@ -6,6 +6,7 @@ export default function BrowserWorkerVersions({ status, showDownloadLink = false
   const nodes = Array.isArray(status?.nodes) ? status.nodes : status?.worker ? [status.worker] : [];
   const desktop = nodes.filter(node => node.driver_mode !== 'chrome_extension');
   const extensions = nodes.filter(node => node.driver_mode === 'chrome_extension');
+  const onlineExtensions = extensions.filter(node => node.online);
   const latestExtension = status?.latest_extension_version;
   const updateNeeded = desktop.some(node => compareWorkerVersions(node.worker_version, latest) === -1);
   return <div style={{ marginTop: '0.65rem', padding: '0.75rem', border: '1px solid var(--border)', borderRadius: 8, overflowWrap: 'anywhere' }}>
@@ -25,7 +26,7 @@ export default function BrowserWorkerVersions({ status, showDownloadLink = false
         {node.device_name || 'Flolah Chrome extension'} — {node.online ? 'Online' : 'Offline'} {node.worker_version ? `v${node.worker_version}` : 'version unknown'} · <strong>{label}</strong>
       </li>;
     })}</ul> : <p style={{ margin: '0.5rem 0', color: 'var(--muted)' }}>No Flolah Chrome extension reported yet.</p>}
-    {extensions.some(node => compareWorkerVersions(node.worker_version, latestExtension) === -1) && <p role="status" style={{ margin: '0.5rem 0 0', color: 'var(--danger, #b91c1c)' }}>Publishing recipe replay is blocked until you download the latest Flolah extension, replace the unpacked files, reload it in Chrome, and allow the target tab again.</p>}
+    {onlineExtensions.length > 0 && onlineExtensions.every(node => compareWorkerVersions(node.worker_version, latestExtension) === -1) && <p role="status" style={{ margin: '0.5rem 0 0', color: 'var(--danger, #b91c1c)' }}>Publishing recipe replay is blocked until you download the latest Flolah extension, replace the unpacked files, reload it in Chrome, and allow the target tab again.</p>}
     {updateNeeded && <p role="status" style={{ margin: '0.5rem 0 0', color: 'var(--text)' }}>To update, stop the old worker, download the latest package, and start it. Keep your existing browser profile safe to preserve logins. Updating the server does not update your PC automatically.</p>}
     {showDownloadLink && <Link to="/connectors">Download Desktop worker from Connectors →</Link>}
   </div>;
