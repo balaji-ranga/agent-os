@@ -567,6 +567,21 @@ export async function openChromeUrl(ceoUserId, url) {
   return { ok: !looksFailed(res), targetId, raw: text };
 }
 
+export function browserNavigationRequired(currentUrl, targetUrl) {
+  try {
+    const current = new URL(String(currentUrl || ''));
+    const target = new URL(String(targetUrl || ''));
+    current.hash = '';
+    target.hash = '';
+    const normalizedPath = (value) => value.length > 1 ? value.replace(/\/+$/, '') : value;
+    current.pathname = normalizedPath(current.pathname);
+    target.pathname = normalizedPath(target.pathname);
+    return current.href !== target.href;
+  } catch {
+    return true;
+  }
+}
+
 /**
  * Prefer an existing platform tab; else open a fresh URL.
  * Always focus before acting so agents never drive FB while goal is LI.
@@ -1834,10 +1849,20 @@ export async function runAutonomousSocialPublish(
     tab = await ensurePlatformTab(ceoUserId, platform, { preferFresh: false });
     steps.push({ t: nowIso(), action: 'ensure_platform_tab', platform, tab });
 
-    // When tabs API is empty (relay flake), still force-open feed URL
-    const openFeed = await openChromeUrl(ceoUserId, feedUrl);
+    // Reuse an authorized tab that is already at the exact recipe start URL.
+    // Unnecessary SPA reloads replace the inspected document and can briefly
+    // expose controls before their activation listeners are ready.
+    const navigationRequired = !tab.ok || browserNavigationRequired(tab.url, feedUrl);
+    const openFeed = navigationRequired
+      ? { ...(await openChromeUrl(ceoUserId, feedUrl)), navigated: true }
+      : {
+          ok: true,
+          targetId: tab.targetId || null,
+          raw: 'navigation_skipped_current_url',
+          navigated: false,
+        };
     steps.push({ t: nowIso(), action: 'open_feed', url: feedUrl, openFeed });
-    await sleep(4500);
+    await sleep(navigationRequired ? 4500 : 600);
     if (!tab.ok && openFeed.ok) {
       tab = { ok: true, targetId: openFeed.targetId || null, url: feedUrl, opened: true };
     }
@@ -1857,7 +1882,7 @@ export async function runAutonomousSocialPublish(
 
     if ((platform === 'facebook' || platform === 'linkedin') && extensionMode) {
       let attachmentReady = true;
-      if (tab.targetId) {
+      if (tab.targetId && openFeed.navigated) {
         // Chrome can preserve a debugger attachment across a top-level
         // navigation while the page's input routing belongs to the replaced
         // document. Refresh the attachment before the first mutation, then

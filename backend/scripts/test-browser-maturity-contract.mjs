@@ -11,6 +11,7 @@ import {
 } from '../src/services/browser-tasks.js';
 import {
   browserWorkerPayload,
+  browserNavigationRequired,
   extensionSocialSnapshotState,
   extractPublishBody,
   inferSocialPlatform,
@@ -26,6 +27,10 @@ const recipe = { steps: [
   { action: 'open', args: { url: 'https://example.com', expect_url: '^https://example\\.com' } },
   { action: 'screenshot', args: {} },
 ] };
+assert.equal(browserNavigationRequired('https://example.com/feed/', 'https://example.com/feed'), false);
+assert.equal(browserNavigationRequired('https://example.com/feed/#latest', 'https://example.com/feed/'), false);
+assert.equal(browserNavigationRequired('https://example.com/profile', 'https://example.com/feed/'), true);
+assert.equal(browserNavigationRequired('', 'https://example.com/feed/'), true);
 const verified = verifyRecipeReplayOutcome(recipe, [
   { action: 'open', ok: true, evidence: { result_state: 'action_applied' } },
   { action: 'screenshot', ok: true, evidence: { artifact: { url: '/api/media-artifacts/a' }, result_state: 'artifact_observed' } },
