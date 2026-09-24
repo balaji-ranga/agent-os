@@ -708,6 +708,12 @@ export function extensionSocialSnapshotState(
   const editable = elements.filter((element) => element?.editable && !element?.sensitive && element?.visible !== false);
   const namedEditors = editable.filter((element) => controls.editor.test(socialControlName(element)));
   const dialogEditors = editable.filter((element) => element?.in_dialog === true);
+  const submitControls = buttons.filter((element) => controls.submit.test(socialControlName(element)));
+  const dialogSubmitControls = submitControls.filter((element) => element?.in_dialog === true);
+  const structurallyBoundDialogEditor =
+    dialogEditors.length === 1 && dialogSubmitControls.length === 1
+      ? dialogEditors[0]
+      : null;
   // Never fall back to an arbitrary editable control. On a social feed that
   // would commonly select global search or chat input as the post editor.
   // A newly opened dialog is different: when the executor has independently
@@ -715,11 +721,15 @@ export function extensionSocialSnapshotState(
   // is a structurally safe target even when the site omits/localises its
   // accessible name. Ambiguous dialog editables still fail closed.
   const namedEditorPool = preferDialogScoped(namedEditors);
-  const editorPool = allowVerifiedDialogEditor && namedEditorPool.length === 0
-    ? dialogEditors
-    : namedEditorPool;
+  const editorPool = namedEditorPool.length > 0
+    ? namedEditorPool
+    : allowVerifiedDialogEditor
+      ? dialogEditors
+      : structurallyBoundDialogEditor
+        ? [structurallyBoundDialogEditor]
+        : [];
   const submitPool = preferDialogScoped(
-    buttons.filter((element) => controls.submit.test(socialControlName(element)) && element?.enabled !== false)
+    submitControls.filter((element) => element?.enabled !== false)
   );
   const visibleText = normalizeSocialText(snapshot.visible_text_excerpt || payload?.text || '');
   const landmarks = Array.isArray(snapshot.landmarks) ? snapshot.landmarks : [];
@@ -734,6 +744,7 @@ export function extensionSocialSnapshotState(
   );
   const dialogOpen =
     composerDialogNamed ||
+    Boolean(structurallyBoundDialogEditor) ||
     namedEditors.some((element) => element?.in_dialog === true) ||
     submitPool.some((element) => element?.in_dialog === true);
   const editor = editorPool.length === 1

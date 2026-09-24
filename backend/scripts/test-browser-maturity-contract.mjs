@@ -164,10 +164,18 @@ const unnamedVerifiedDialogEditor = {
     ],
   },
 };
+const unnamedUnboundDialogEditor = structuredClone(unnamedVerifiedDialogEditor);
+unnamedUnboundDialogEditor.structured_snapshot.elements =
+  unnamedUnboundDialogEditor.structured_snapshot.elements.filter((element) => element.role !== 'button');
 assert.equal(
-  extensionSocialSnapshotState(unnamedVerifiedDialogEditor, 'facebook', '').editor_count,
+  extensionSocialSnapshotState(unnamedUnboundDialogEditor, 'facebook', '').editor_count,
   0,
-  'an unnamed dialog editor must not be trusted without an observed activation transition'
+  'an unnamed dialog editor must not be trusted without verified activation or a unique submit control'
+);
+assert.equal(
+  extensionSocialSnapshotState(unnamedVerifiedDialogEditor, 'facebook', '').editor.ref,
+  'g4-e1',
+  'a unique dialog editor bound to one recipe submit control may resume safely'
 );
 assert.equal(
   extensionSocialSnapshotState(
