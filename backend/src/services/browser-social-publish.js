@@ -5,7 +5,8 @@
  * - Generic path: browser-tasks autonomous loop + optional recipes (recorded steps).
  * - This module: site-specific publish engines (LinkedIn / Facebook / …) for
  *   reliability where a11y + scroll loops thrash share composers.
- * - Called from browser-tasks.js only when goalLooksSocialPublish + EXACT body present.
+ * - Called from browser-tasks.js with a structured publish contract. Legacy
+ *   natural-language inference remains only for older callers.
  *
  * Adding a new site tomorrow:
  * 1) Add entry to PLATFORM_REGISTRY below (host regex + start URLs).
@@ -1578,17 +1579,17 @@ async function confirmPosted(ceoUserId, platform, bodySnippet = '') {
  * Full autonomous publish: focus platform tab → open composer → fill → post → recycle tab.
  * @returns {{ ok: boolean, summary: string, steps: any[], note: string }}
  */
-export async function runAutonomousSocialPublish(ceoUserId, { goalText, startUrl, body, taskId = '' }) {
+export async function runAutonomousSocialPublish(ceoUserId, { goalText, startUrl, body, platform: requestedPlatform = null, taskId = '' }) {
   if (!socialPublishContext.getStore()) {
     return socialPublishContext.run(
       { ceoUserId, taskId: String(taskId || '').trim() },
-      () => runAutonomousSocialPublish(ceoUserId, { goalText, startUrl, body, taskId })
+      () => runAutonomousSocialPublish(ceoUserId, { goalText, startUrl, body, platform: requestedPlatform, taskId })
     );
   }
   const steps = [];
-  const platform = inferSocialPlatform(goalText, startUrl);
+  const platform = String(requestedPlatform || '').trim().toLowerCase() || inferSocialPlatform(goalText, startUrl);
   const publishBody = String(body || extractPublishBody(goalText) || '').trim();
-  if (!platform) {
+  if (!PLATFORM_REGISTRY[platform]) {
     return { ok: false, note: 'no_platform', summary: 'Could not infer LinkedIn/Facebook/Instagram from goal.', steps };
   }
   if (publishBody.length < 20) {

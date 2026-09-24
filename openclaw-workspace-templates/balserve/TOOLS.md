@@ -203,3 +203,8 @@ Pass multiple dynamic values together in the same object. Preserve CEO text verb
 "do not publish", use `prepare_only:true` (or only list and preview) so no browser task is created. Never invoke an
 ordinary replay with missing inputs as a trial. Routine execution remains governed by the existing action policy; this
 contract does not require a new CEO confirmation for every browser run.
+
+For autonomous social publishing, always pass the exact content separately under
+`input: { operation: "social_publish", platform, body, constraints }`; do not rely on the natural-language goal to
+carry or recover the post body. Set `max_submissions: 1`, `preserve_audience: true`,
+`require_exact_editor_value: true`, and `require_durable_confirmation: true`.

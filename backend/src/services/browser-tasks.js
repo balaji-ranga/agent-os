@@ -34,6 +34,7 @@ import { getExceptionPolicy } from './exception-policy.js';
 import { correctionContext } from './step-outcome-validation.js';
 import { assertUrlAllowed } from './browser-url-policy.js';
 import {
+  PLATFORM_REGISTRY,
   extractPublishBody,
   inferSocialPlatform,
   runAutonomousSocialPublish,
@@ -440,6 +441,40 @@ function goalLooksSocialPublish(goalText) {
     /\b(linkedin|facebook|fb\.com|instagram|twitter|x\.com)\b/i.test(g) &&
     /\b(publish|post|compose|share)\b/i.test(g)
   );
+}
+
+/**
+ * Machine-readable social publishing contract. Natural-language extraction is
+ * retained only for legacy callers; new agents should supply this object so
+ * exact content and safety constraints survive chat/agent rewording.
+ */
+export function structuredSocialPublishInput(input = {}) {
+  const operation = String(input?.operation || '').trim().toLowerCase();
+  if (operation !== 'social_publish') return null;
+  const platform = String(input?.platform || '').trim().toLowerCase();
+  // Preserve the supplied content byte-for-byte. Trimming here would make the
+  // machine-readable contract just as lossy as the prose extraction it replaces.
+  const body = String(input?.body ?? '');
+  const constraints = input?.constraints && typeof input.constraints === 'object'
+    ? input.constraints
+    : {};
+  const normalizedConstraints = {
+    max_submissions: Number(constraints.max_submissions ?? 1),
+    preserve_audience: constraints.preserve_audience ?? true,
+    require_exact_editor_value: constraints.require_exact_editor_value ?? true,
+    require_durable_confirmation: constraints.require_durable_confirmation ?? true,
+  };
+  const safeConstraints = normalizedConstraints.max_submissions === 1 &&
+    normalizedConstraints.preserve_audience === true &&
+    normalizedConstraints.require_exact_editor_value === true &&
+    normalizedConstraints.require_durable_confirmation === true;
+  return {
+    operation,
+    platform,
+    body,
+    constraints: normalizedConstraints,
+    valid: Object.hasOwn(PLATFORM_REGISTRY, platform) && body.trim().length >= 20 && safeConstraints,
+  };
 }
 
 function goalLooksGoogleFlow(goalText) {
@@ -1403,6 +1438,12 @@ export async function startBrowserTask(ceoUserId, body = {}) {
     : body.input && typeof body.input === 'object'
       ? body.input
       : {};
+  const structuredPublish = structuredSocialPublishInput(taskInput);
+  if (structuredPublish && !structuredPublish.valid) {
+    const err = new Error('input.operation=social_publish requires a supported platform, body of at least 20 characters, and all safe-publish constraints enabled with max_submissions=1');
+    err.status = 400;
+    throw err;
+  }
   const db = getDb();
   const id = `bt-${randomUUID()}`;
   const agentId = String(body.agent_id || 'workflowbuilder');
@@ -1808,8 +1849,9 @@ async function runAutonomous(ceoUserId, taskId) {
   const steps = resumeState.steps;
   let parseFallbackStreak = 0;
   let exitNote = 'max_steps_reached';
-  const socialPublish = goalLooksSocialPublish(task.goal_text);
-  const publishBody = extractPublishBodyFromGoal(task.goal_text);
+  const structuredPublish = structuredSocialPublishInput(task.input);
+  const socialPublish = Boolean(structuredPublish?.valid) || goalLooksSocialPublish(task.goal_text);
+  const publishBody = structuredPublish?.body || extractPublishBodyFromGoal(task.goal_text);
   const executionPlan = resumeState.execution_plan ||
     await createExecutionPlan(ceoUserId, task.goal_text, task.start_url);
   steps.push(resumed
@@ -1826,6 +1868,7 @@ async function runAutonomous(ceoUserId, taskId) {
       goalText: task.goal_text,
       startUrl: task.start_url,
       body: publishBody,
+      platform: structuredPublish?.platform || null,
       taskId,
     });
     for (const s of pub.steps || []) steps.push(s);
@@ -2479,6 +2522,7 @@ async function runRecipeReplay(ceoUserId, taskId) {
       goalText: `Publish the supplied recipe content to ${social.platform}.`,
       startUrl: social.start_url,
       body: social.body,
+      platform: social.platform,
       taskId,
     });
     const submissionCount = Number(pub.fill?.submission_count || (pub.fill?.submitted_once ? 1 : 0));

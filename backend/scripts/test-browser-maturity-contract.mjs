@@ -6,6 +6,7 @@ import {
   browserTaskResumeState,
   inferLinkedInStartUrl,
   socialPublishRecipeDescriptor,
+  structuredSocialPublishInput,
   verifyRecipeReplayOutcome,
 } from '../src/services/browser-tasks.js';
 import {
@@ -30,6 +31,40 @@ assert.equal(verified.outputs.final_url, 'https://example.com/');
 const missing = verifyRecipeReplayOutcome(recipe, [{ action: 'open', ok: true, evidence: {} }], 'Title: Example');
 assert.equal(missing.satisfied, false);
 assert(missing.missing_evidence.includes('final_url'));
+
+assert.deepEqual(
+  structuredSocialPublishInput({
+    operation: 'social_publish',
+    platform: 'linkedin',
+    body: '  Exact content survives any coordinator rewording.  ',
+    constraints: { max_submissions: 1 },
+  }),
+  {
+    operation: 'social_publish',
+    platform: 'linkedin',
+    body: '  Exact content survives any coordinator rewording.  ',
+    constraints: {
+      max_submissions: 1,
+      preserve_audience: true,
+      require_exact_editor_value: true,
+      require_durable_confirmation: true,
+    },
+    valid: true,
+  }
+);
+assert.equal(structuredSocialPublishInput({
+  operation: 'social_publish',
+  platform: 'linkedin',
+  body: 'Unsafe contracts are rejected instead of silently weakened.',
+  constraints: { max_submissions: 2 },
+})?.valid, false);
+assert.equal(structuredSocialPublishInput({
+  operation: 'social_publish',
+  platform: 'linkedin',
+  body: 'Audience mutation must never be enabled through this contract.',
+  constraints: { preserve_audience: false },
+})?.valid, false);
+assert.equal(structuredSocialPublishInput({ operation: 'research', body: 'not a publish' }), null);
 
 const resume = browserTaskResumeState({ steps: [
   { action: 'plan', plan: { steps: [{ goal: 'Open' }] } },

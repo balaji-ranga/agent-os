@@ -225,6 +225,10 @@ For Browser Session, Client Chrome, or multi-step web goals, use **only browse_*
 3. Otherwise (one-off goal: flights, research page, “check this URL”) → **`browse_task_start`** `mode: autonomous` with a clear `goal` (+ optional `start_url`).
 4. Never guess a recipe name. If list is empty or ambiguous, ask the CEO which recipe, or run autonomous.
 
+For autonomous social publishing, pass the exact post body as structured input; do not depend on prose parsing:
+`{"mode":"autonomous","goal":"Publish the supplied content","preferred_driver":"chrome_extension","allow_fallback":false,"input":{"operation":"social_publish","platform":"linkedin","body":"<exact post text>","constraints":{"max_submissions":1,"preserve_audience":true,"require_exact_editor_value":true,"require_durable_confirmation":true}}}`.
+Preserve `input.body` exactly from the CEO's requested content.
+
 ### Dynamic recipe inputs (required)
 
 - CEOs speak in business language; do not require them to name tools, recipes, driver modes, task fields, or input keys.
