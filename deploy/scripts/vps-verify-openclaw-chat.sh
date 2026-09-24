@@ -67,7 +67,9 @@ const hasCatalog = Object.keys(providers).some(function (n) {
 });
 const primary = (c && c.agents && c.agents.defaults && c.agents.defaults.model && c.agents.defaults.model.primary) || "";
 const ok = !!(c && c.gateway && c.gateway.mode && chat && chat.enabled === true && hasCatalog && primary);
-const agent = ((c && c.agents && c.agents.list) || []).map(function (a) { return a.id; }).find(Boolean) || "";
+const entries = (c && c.agents && c.agents.entries) || {};
+const legacy = (c && c.agents && c.agents.list) || [];
+const agent = Object.keys(entries).find(Boolean) || legacy.map(function (a) { return a.id; }).find(Boolean) || "";
 process.stdout.write(JSON.stringify({
   ok: ok,
   keys: Object.keys(c || {}).sort(),
@@ -107,7 +109,9 @@ const hasCatalog = Object.keys(providers).some(function (n) {
 });
 const primary = (c && c.agents && c.agents.defaults && c.agents.defaults.model && c.agents.defaults.model.primary) || "";
 const ok = !!(c && c.gateway && c.gateway.mode && chat && chat.enabled === true && hasCatalog && primary);
-const agent = ((c && c.agents && c.agents.list) || []).map(function (a) { return a.id; }).find(Boolean) || "";
+const entries = (c && c.agents && c.agents.entries) || {};
+const legacy = (c && c.agents && c.agents.list) || [];
+const agent = Object.keys(entries).find(Boolean) || legacy.map(function (a) { return a.id; }).find(Boolean) || "";
 process.stdout.write(JSON.stringify({
   ok: ok,
   keys: Object.keys(c || {}).sort(),
