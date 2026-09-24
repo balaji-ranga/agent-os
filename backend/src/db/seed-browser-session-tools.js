@@ -52,7 +52,7 @@ const BROWSER_TOOLS = [
     display_name: 'Browse act',
     endpoint: '/api/tools/browse-act',
     method: 'POST',
-    purpose: 'API tool: perform a browser action (click/type/open) on the CEO session. Prefer browse_task_start for multi-step goals. Do not use exec.',
+    purpose: 'API tool: perform a browser action (click/type/open) or enumerate/focus explicitly authorized tabs on the CEO session. Use action=tabs to inspect authorized tabs and action=focus with targetId/tabId to select one. Prefer browse_task_start for multi-step goals. Do not use exec.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,

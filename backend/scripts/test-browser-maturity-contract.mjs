@@ -7,7 +7,7 @@ import {
   inferLinkedInStartUrl,
   verifyRecipeReplayOutcome,
 } from '../src/services/browser-tasks.js';
-import { extractPublishBody, inferSocialPlatform } from '../src/services/browser-social-publish.js';
+import { browserWorkerPayload, extractPublishBody, inferSocialPlatform } from '../src/services/browser-social-publish.js';
 
 const recipe = { steps: [
   { action: 'open', args: { url: 'https://example.com', expect_url: '^https://example\\.com' } },
@@ -47,6 +47,17 @@ assert.equal(
 assert.equal(
   extractPublishBody('The Client Chrome lease is ready. Proceed with the single actual browser attempt: publish exactly once with the exact text `Testing Flolah Browser Session recipe — automated test post. #FlolahTest`, preserve the existing audience, and verify retention. Do not use LinkedIn.'),
   'Testing Flolah Browser Session recipe — automated test post. #FlolahTest'
+);
+const extensionSnapshot = {
+  ok: true,
+  text: 'URL: https://www.facebook.com/\nTitle: Facebook',
+  snapshot: 'URL: https://www.facebook.com/\nTitle: Facebook',
+  structured_snapshot: { page: { url: 'https://www.facebook.com/', title: 'Facebook' }, elements: [] },
+};
+assert.equal(
+  browserWorkerPayload({ ok: true, via: 'chrome_extension', text: JSON.stringify(extensionSnapshot) })
+    .structured_snapshot.page.url,
+  'https://www.facebook.com/'
 );
 
 const extensionPath = fileURLToPath(new URL('../flolah-chrome-extension/background.js', import.meta.url));

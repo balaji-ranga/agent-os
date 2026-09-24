@@ -2665,11 +2665,20 @@ export async function toolBrowseAct(ceoUserId, body = {}) {
   if (openUrl) {
     await browserInvoke(ceoUserId, 'open', { url: openUrl, targetUrl: openUrl }, 'workflowbuilder');
   }
-  const result = await browserInvoke(
-    ceoUserId,
-    'act',
-    { request: actionBody.request || actionBody.instruction || actionBody, ...actionBody },
-    'workflowbuilder'
-  );
+  const requestedAction = String(actionBody.action || actionBody.request?.kind || '').trim().toLowerCase();
+  const directAction = ['tabs', 'focus'].includes(requestedAction) ? requestedAction : '';
+  const result = directAction
+    ? await browserInvoke(
+        ceoUserId,
+        directAction,
+        { ...actionBody, ...(actionBody.request && typeof actionBody.request === 'object' ? actionBody.request : {}) },
+        'workflowbuilder'
+      )
+    : await browserInvoke(
+        ceoUserId,
+        'act',
+        { request: actionBody.request || actionBody.instruction || actionBody, ...actionBody },
+        'workflowbuilder'
+      );
   return { ok: result.ok, profile: resolveBrowserProfile(ceoUserId).profile, raw: parseInvokeText(result).slice(0, 4000) };
 }

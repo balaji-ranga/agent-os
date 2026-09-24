@@ -567,12 +567,25 @@ export async function ensurePlatformTab(ceoUserId, platform, { preferFresh = fal
   };
 }
 
-function browserWorkerPayload(result) {
+export function browserWorkerPayload(result) {
+  // Local executors return the full structured result as result.text. The
+  // generic parseInvokeText helper intentionally flattens snapshots for LLM
+  // consumption, so inspect the transport envelope first or page.url and
+  // element refs are lost.
+  try {
+    const direct = JSON.parse(String(result?.text || ''));
+    if (direct && typeof direct === 'object') {
+      if (direct.structured_snapshot || direct.snapshot != null || direct.tabs || direct.driver) return direct;
+      if (direct.result && typeof direct.result === 'object') return direct.result;
+    }
+  } catch {
+    /* fall through to gateway/plain-text parsing */
+  }
   const raw = parseInvokeText(result) || result?.text || '';
   try { return JSON.parse(raw); } catch { return {}; }
 }
 
-async function chromeExtensionFacebookPublish(ceoUserId, bodyText) {
+async function chromeExtensionFacebookPublish(ceoUserId, bodyText, { expectedTab = null } = {}) {
   const body = String(bodyText || '').trim();
   const steps = [];
   const snapshot = async (label) => {
@@ -582,10 +595,20 @@ async function chromeExtensionFacebookPublish(ceoUserId, bodyText) {
     return payload;
   };
   const first = await snapshot('facebook_snapshot_before');
-  const firstUrl = String(first?.structured_snapshot?.page?.url || '');
+  let firstUrl = String(first?.structured_snapshot?.page?.url || '');
+  let urlSource = firstUrl ? 'snapshot' : '';
+  if (!firstUrl && expectedTab?.targetId) {
+    const expectedId = String(expectedTab.targetId);
+    const tabs = await listChromeTabs(ceoUserId);
+    const pinned = tabs.find((item) => String(item.targetId || item.tabId || '') === expectedId);
+    firstUrl = String(pinned?.url || '');
+    if (firstUrl) urlSource = 'task_pinned_tab';
+    steps.push({ action: 'facebook_url_fallback', ok: Boolean(firstUrl), expected_target_id: expectedId, url: firstUrl });
+  }
   if (!PLATFORM_REGISTRY.facebook.hostRe.test(firstUrl)) {
     return { ok: false, stage: 'wrong_tab', error: `Selected tab is not Facebook: ${firstUrl || 'unknown'}`, steps };
   }
+  steps.push({ action: 'facebook_url_verified', ok: true, url: firstUrl, source: urlSource });
 
   const open = await cdp('act', withOwner(ceoUserId, {
     request: { kind: 'click', text: "What's on your mind" },
@@ -1441,7 +1464,7 @@ export async function runAutonomousSocialPublish(ceoUserId, { goalText, startUrl
     extensionMode = status.driver === 'chrome_extension';
 
     if (platform === 'facebook' && extensionMode) {
-      filled = await chromeExtensionFacebookPublish(ceoUserId, publishBody);
+      filled = await chromeExtensionFacebookPublish(ceoUserId, publishBody, { expectedTab: tab });
       confirm = { success: filled.ok === true, conf: { retained: filled.retained, toast_hit: filled.toast_hit } };
       steps.push(...(filled.steps || []).map((entry) => ({ t: nowIso(), ...entry })));
       steps.push({ t: nowIso(), action: 'facebook_extension_publish', filled, confirm });
