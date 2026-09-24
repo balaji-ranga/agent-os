@@ -216,6 +216,55 @@ const PARAM_SCHEMAS: Record<string, Record<string, unknown>> = {
     },
     required: ["action"], additionalProperties: false,
   },
+  browse_task_start: {
+    type: "object",
+    properties: {
+      goal: { type: "string" },
+      start_url: { type: "string" },
+      mode: { type: "string", enum: ["autonomous", "recorder", "recipe_replay"] },
+      recipe_id: { type: "string" },
+      recipe_name: { type: "string", description: "For recipe_replay: exact recipe name (preferred over recipe_id)." },
+      operation: { type: "string", description: "Exact Action Control operation/effect contract." },
+      input: { type: "object", description: "Structured task input, including operation and safe-publish constraints." },
+      preferred_driver: {
+        type: "string",
+        enum: ["chrome_extension", "playwright_chrome", "playwright_persistent", "playwright"],
+        description: "Required executor driver when the CEO requests a specific route.",
+      },
+      allow_fallback: { type: "boolean", description: "Set false to fail closed if preferred_driver is unavailable." },
+      excluded_drivers: {
+        type: "array",
+        items: { type: "string", enum: ["chrome_extension", "playwright_chrome", "playwright_persistent", "playwright"] },
+        description: "Executor drivers that must not receive this task.",
+      },
+    },
+    additionalProperties: true,
+  },
+  browse_recipe_run: {
+    type: "object",
+    properties: {
+      recipe_name: { type: "string", description: "Exact saved recipe name (preferred)." },
+      recipe_id: { type: "string", description: "Recipe id if name is unknown." },
+      start_url: { type: "string", description: "Optional override start URL." },
+      wait_ms: { type: "number", maximum: 90000, description: "Optional wait for terminal status in one call." },
+      goal: { type: "string", description: "Optional label for the replay task." },
+      operation: { type: "string", description: "Exact Action Control operation/effect contract." },
+      inputs: { type: "object", description: "Values for every required saved-recipe input." },
+      prepare_only: { type: "boolean", description: "Validate inputs without creating or executing a browser task." },
+      preferred_driver: {
+        type: "string",
+        enum: ["chrome_extension", "playwright_chrome", "playwright_persistent", "playwright"],
+        description: "Required executor driver when the CEO requests a specific route.",
+      },
+      allow_fallback: { type: "boolean", description: "Set false to fail closed if preferred_driver is unavailable." },
+      excluded_drivers: {
+        type: "array",
+        items: { type: "string", enum: ["chrome_extension", "playwright_chrome", "playwright_persistent", "playwright"] },
+        description: "Executor drivers that must not receive this task.",
+      },
+    },
+    additionalProperties: true,
+  },
   kanban_move_status: {
     type: "object",
     properties: {

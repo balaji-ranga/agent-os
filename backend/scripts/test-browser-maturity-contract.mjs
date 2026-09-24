@@ -362,6 +362,22 @@ assert(extension.includes('request.destructive !== true'), 'keyboard fallback mu
 assert(!extension.includes("request.effect === 'submit'"), 'submit controls must never receive automatic keyboard fallback');
 const extensionManifest = JSON.parse(readFileSync(fileURLToPath(new URL('../flolah-chrome-extension/manifest.json', import.meta.url)), 'utf8'));
 assert.equal(extensionManifest.version, '1.1.8');
+const contentToolsExtensionSource = readFileSync(
+  fileURLToPath(new URL('../../openclaw-extensions/agent-os-content-tools/index.js', import.meta.url)),
+  'utf8'
+);
+const contentToolsExtensionTs = readFileSync(
+  fileURLToPath(new URL('../../openclaw-extensions/agent-os-content-tools/index.ts', import.meta.url)),
+  'utf8'
+);
+for (const source of [contentToolsExtensionSource, contentToolsExtensionTs]) {
+  assert(source.includes('browse_recipe_run:'), 'content-tools schema must expose browse_recipe_run');
+  assert(source.includes('preferred_driver:'), 'browser tool schemas must expose preferred_driver');
+  assert(source.includes('allow_fallback:'), 'browser tool schemas must expose fail-closed routing');
+  assert(source.includes('excluded_drivers:'), 'browser tool schemas must expose driver exclusions');
+  assert(source.includes('operation:'), 'browser tool schemas must expose the Action Control operation');
+  assert(source.includes('inputs:'), 'recipe tool schema must expose dynamic recipe inputs');
+}
 const socialPublishSource = readFileSync(fileURLToPath(new URL('../src/services/browser-social-publish.js', import.meta.url)), 'utf8');
 assert(socialPublishSource.includes('getBrowserExecutorNode(ownerId, context.selectedNodeId)'), 'social replay must stay pinned to the task executor');
 assert(socialPublishSource.includes("failure_code: 'EXECUTOR_OFFLINE'"), 'social replay must fail closed when its pinned executor disconnects');
