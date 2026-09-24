@@ -33,6 +33,7 @@ import { storeFeedback } from './agent-feedback.js';
 import { getExceptionPolicy } from './exception-policy.js';
 import { correctionContext } from './step-outcome-validation.js';
 import { assertUrlAllowed } from './browser-url-policy.js';
+import { isReadOnlyBrowserAction } from './action-policy.js';
 import {
   PLATFORM_REGISTRY,
   extractPublishBody,
@@ -1025,8 +1026,8 @@ async function confirmSocialPostResult(ceoUserId, agentId) {
   };
 }
 
-async function decideNextAction({ ceoUserId, goal, snapshot, history, startUrl, modalOpen = false }) {
-  const interactive = goalLooksInteractive(goal);
+async function decideNextAction({ ceoUserId, goal, snapshot, history, startUrl, modalOpen = false, readOnly = false }) {
+  const interactive = goalLooksInteractive(goal, { readOnly });
   const flowGoal = goalLooksGoogleFlow(goal);
   const system = `You drive a browser for a CEO. Reply with ONLY one minified JSON object. No markdown fences, no commentary.
 Schema: {"action":"click|type|press|scroll|open|screenshot|done|wait_login|wait_approval","ref":"","text":"","url":"","key":"","summary":"","reason":""}
@@ -1041,6 +1042,7 @@ Rules:
 - done when the goal is satisfied; put the answer (or post URL / honest blocker) in summary.
 - If the goal requests a screenshot or PNG, choose screenshot before done. Never claim a screenshot exists without screenshot artifact evidence in recent steps.
 - Never invent credentials or fake post URLs. Keep JSON under 500 characters when possible.
+${readOnly ? '- AUTHORITATIVE READ-ONLY CONTRACT: never open a composer/form, type, paste, submit, publish, message, react, connect, follow, upload, or change settings. Only read, navigate, scroll, inspect, or capture evidence.' : ''}
 ${interactive ? '- This goal is interactive (publish/compose/reply). Do not mark done after only opening the page.' : ''}
 ${
   flowGoal
@@ -1661,11 +1663,36 @@ function browserArtifactsFromSteps(steps) {
  * Goals that require click/type/submit (publish, compose, reply) must run the act loop.
  * early_page_summarize only helps pure read/research (and Cheapflights accelerator).
  */
-export function goalLooksInteractive(goalText) {
+export function goalLooksInteractive(goalText, { readOnly = false } = {}) {
+  if (readOnly) return false;
   const g = String(goalText || '');
   return /\b(publish|post|compose|submit|share|create a (new )?(post|tweet|update)|reply|comment|type|fill|click|upload|message|send|like|follow|connect|apply|paste|download|generate|capture|screen\s*shot|png|save (?:an? )?(?:image|screen\s*shot)|prompt box|prompt text|start generation|scene\s+\d+|google flow|labs\.google\/fx\/tools\/flow)\b/i.test(
     g
   );
+}
+
+/**
+ * Resolve the task's structured effect before interpreting free-form text.
+ * A contradictory read_only=true + mutating operation fails closed here: the
+ * browser runtime may read, but may not activate any mutating accelerator.
+ */
+export function browserTaskIsAuthoritativelyReadOnly(input = {}) {
+  return isReadOnlyBrowserAction('browse_task_start', { input: normalizeBrowserTaskInput(input) });
+}
+
+/**
+ * Fail closed when a controller proposes an action that can directly create or
+ * submit user content during a structured read-only task. Navigation clicks
+ * remain available because reading feeds and paginated content requires them.
+ */
+export function readOnlyBrowserDecisionAllowed(decision = {}) {
+  const action = String(decision?.action || '').trim().toLowerCase();
+  if (action === 'type') return false;
+  if (action === 'press') {
+    const key = String(decision?.key || decision?.text || '').trim().toLowerCase();
+    if (['enter', 'return', 'space', 'spacebar'].includes(key)) return false;
+  }
+  return true;
 }
 
 /**
@@ -1906,8 +1933,10 @@ async function runAutonomous(ceoUserId, taskId) {
   const steps = resumeState.steps;
   let parseFallbackStreak = 0;
   let exitNote = 'max_steps_reached';
+  const readOnly = browserTaskIsAuthoritativelyReadOnly(task.input);
+  const interactive = goalLooksInteractive(task.goal_text, { readOnly });
   const structuredPublish = structuredSocialPublishInput(task.input);
-  const socialPublish = Boolean(structuredPublish?.valid) || goalLooksSocialPublish(task.goal_text);
+  const socialPublish = !readOnly && (Boolean(structuredPublish?.valid) || goalLooksSocialPublish(task.goal_text));
   const publishBody = structuredPublish?.body || extractPublishBodyFromGoal(task.goal_text);
   const executionPlan = resumeState.execution_plan ||
     await createExecutionPlan(ceoUserId, task.goal_text, task.start_url);
@@ -1957,12 +1986,12 @@ async function runAutonomous(ceoUserId, taskId) {
   if (task.start_url && !resumed) {
     await browserInvoke(ceoUserId, 'open', { url: task.start_url, targetUrl: task.start_url }, agentId);
     steps.push({ t: nowIso(), action: 'open', url: task.start_url });
-    await sleep(goalLooksInteractive(task.goal_text) ? 5000 : 3500);
+    await sleep(interactive ? 5000 : 3500);
   } else if (!resumed) {
     await browserInvoke(ceoUserId, 'start', {}, agentId).catch(() => {});
   }
 
-  if (goalLooksInteractive(task.goal_text) && !resumed) {
+  if (interactive && !resumed) {
     await tryLinkedInComposerBootstrap(ceoUserId, agentId, task.goal_text, steps);
     const flowBoot = await tryGoogleFlowBootstrap(ceoUserId, agentId, task.goal_text, steps);
     updateTask(ceoUserId, taskId, { steps });
@@ -2000,7 +2029,7 @@ async function runAutonomous(ceoUserId, taskId) {
   if (
     task.start_url &&
     !/cheapflights\.com\/flight-search\//i.test(String(task.start_url)) &&
-    !goalLooksInteractive(task.goal_text)
+    !interactive
   ) {
     const structuredText = await extractStructuredDocumentText(ceoUserId, agentId);
     const snapshot = await takeSnapshot(ceoUserId, agentId, { limit: 18000 });
@@ -2093,7 +2122,7 @@ async function runAutonomous(ceoUserId, taskId) {
       return;
       }
     }
-  } else if (task.start_url && goalLooksInteractive(task.goal_text)) {
+  } else if (task.start_url && interactive) {
     console.info(
       '[browser-task] skip early summarize (interactive goal) id=%s goal_len=%s',
       taskId,
@@ -2205,11 +2234,22 @@ async function runAutonomous(ceoUserId, taskId) {
       history: steps,
       startUrl: task.start_url,
       modalOpen: Boolean(modalState.open),
+      readOnly,
     });
     steps.push({ t: nowIso(), decision, modalOpen: Boolean(modalState.open) });
     updateTask(ceoUserId, taskId, { steps });
 
     const act = String(decision.action || '').toLowerCase();
+    if (readOnly && !readOnlyBrowserDecisionAllowed(decision)) {
+      steps.push({
+        t: nowIso(),
+        action: 'read_only_action_blocked',
+        proposed_action: act,
+        reason: 'structured_read_only_contract',
+      });
+      updateTask(ceoUserId, taskId, { steps });
+      continue;
+    }
     // Hard block scroll when modal is open
     if (act === 'scroll' && modalState.open) {
       steps.push({ t: nowIso(), action: 'scroll_suppressed_modal_open' });
@@ -2221,7 +2261,7 @@ async function runAutonomous(ceoUserId, taskId) {
       parseFallbackStreak += 1;
       // A controller formatting failure must not discard an already-observed,
       // valid JSON/API document for a pure read/research goal.
-      if (!goalLooksInteractive(task.goal_text)) {
+      if (!interactive) {
         const structuredText = await extractStructuredDocumentText(ceoUserId, agentId);
         const structured = structuredReadOnlyDocumentEvidence(structuredText || snapshot);
         if (structured) {

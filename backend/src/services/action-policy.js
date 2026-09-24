@@ -202,6 +202,7 @@ const BROWSER_OPERATION_RISKS = Object.freeze({
   read: { risk_tier: 'R0', action_family: 'read' },
   read_page: { risk_tier: 'R0', action_family: 'read' },
   read_feed: { risk_tier: 'R0', action_family: 'read' },
+  read_research: { risk_tier: 'R0', action_family: 'read' },
   read_notifications: { risk_tier: 'R0', action_family: 'read' },
   navigate: { risk_tier: 'R0', action_family: 'read' },
   search: { risk_tier: 'R0', action_family: 'read' },
@@ -236,7 +237,7 @@ function structuredObject(value) {
   }
 }
 
-function structuredBrowserOperation(toolName, body = {}) {
+export function structuredBrowserOperation(toolName, body = {}) {
   const tool = String(toolName || '').trim().toLowerCase();
   if (!BROWSER_EFFECT_AWARE_TOOLS.has(tool)) return '';
   if (body?.prepare_only === true || body?.prepareOnly === true) return 'read';
@@ -245,6 +246,25 @@ function structuredBrowserOperation(toolName, body = {}) {
     input.operation || input.action_effect || input.actionEffect ||
     body?.operation || body?.action_effect || body?.actionEffect || ''
   ).trim().toLowerCase();
+}
+
+/**
+ * Authoritative browser read contract. Natural-language goal text is not
+ * considered here because negated safety constraints such as "no posting"
+ * must never be mistaken for requested mutations.
+ */
+export function isReadOnlyBrowserAction(toolName, body = {}) {
+  const tool = String(toolName || '').trim().toLowerCase();
+  if (!BROWSER_EFFECT_AWARE_TOOLS.has(tool)) return false;
+  const input = structuredObject(body?.input);
+  if (
+    body?.prepare_only === true || body?.prepareOnly === true ||
+    body?.read_only === true || body?.readOnly === true ||
+    input?.read_only === true || input?.readOnly === true
+  ) return true;
+  const operation = structuredBrowserOperation(toolName, body);
+  const operationRisk = BROWSER_OPERATION_RISKS[operation];
+  return Boolean(operation && operationRisk?.risk_tier === 'R0' && operationRisk?.action_family === 'read');
 }
 
 export function resolveRiskForAction(toolName, body = {}) {
