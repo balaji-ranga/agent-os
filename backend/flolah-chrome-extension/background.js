@@ -106,6 +106,77 @@ async function snapshot(tabId, limit = 12000) {
   const text = `URL: ${structured.page.url}\nTitle: ${structured.page.title}\n\n` + structured.elements.map((e) => `- ${e.role} "${e.name}" [ref=${e.ref}]${e.enabled ? '' : ' [disabled]'}`).join('\n');
   return { ok: true, text: text.slice(0, limit), snapshot: text.slice(0, limit), structured_snapshot: structured };
 }
+function nodeAttributes(node) {
+  const attrs = {};
+  for (let i = 0; i < (node?.attributes || []).length; i += 2) {
+    attrs[String(node.attributes[i] || '').toLowerCase()] = String(node.attributes[i + 1] || '');
+  }
+  return attrs;
+}
+async function flattenedClickPoint(tabId, label) {
+  const wanted = String(label || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  if (!wanted) return null;
+  await chrome.debugger.sendCommand({ tabId }, 'DOM.enable');
+  const { nodes = [] } = await chrome.debugger.sendCommand(
+    { tabId },
+    'DOM.getFlattenedDocument',
+    { depth: -1, pierce: true }
+  );
+  const byId = new Map(nodes.map((node) => [node.nodeId, node]));
+  const children = new Map();
+  for (const node of nodes) {
+    if (!node.parentId) continue;
+    if (!children.has(node.parentId)) children.set(node.parentId, []);
+    children.get(node.parentId).push(node.nodeId);
+  }
+  const textMemo = new Map();
+  const nodeText = (id) => {
+    if (textMemo.has(id)) return textMemo.get(id);
+    const node = byId.get(id);
+    if (!node) return '';
+    const own = node.nodeType === 3 ? String(node.nodeValue || '') : '';
+    const nested = (children.get(id) || []).map(nodeText).join(' ');
+    const value = `${own} ${nested}`.replace(/\s+/g, ' ').trim();
+    textMemo.set(id, value);
+    return value;
+  };
+  const candidates = [];
+  for (const node of nodes) {
+    if (node.nodeType !== 1) continue;
+    const attrs = nodeAttributes(node);
+    const tag = String(node.nodeName || '').toLowerCase();
+    const role = String(attrs.role || '').toLowerCase();
+    if (!(tag === 'button' || tag === 'a' || ['button', 'link', 'menuitem'].includes(role))) continue;
+    if (Object.prototype.hasOwnProperty.call(attrs, 'disabled') || String(attrs['aria-disabled']).toLowerCase() === 'true') continue;
+    const rendered = [attrs['aria-label'], attrs.title, attrs.value, nodeText(node.nodeId)]
+      .filter(Boolean).join(' ').replace(/\s+/g, ' ').trim().toLowerCase();
+    if (!rendered) continue;
+    const exact = rendered === wanted || String(attrs['aria-label'] || '').trim().toLowerCase() === wanted;
+    if (exact || rendered.includes(wanted)) candidates.push({ node, exact, length: rendered.length });
+  }
+  candidates.sort((a, b) => Number(b.exact) - Number(a.exact) || a.length - b.length);
+  for (const { node } of candidates) {
+    try {
+      const { model } = await chrome.debugger.sendCommand(
+        { tabId },
+        'DOM.getBoxModel',
+        { backendNodeId: node.backendNodeId }
+      );
+      const quad = model?.border || model?.content;
+      if (!quad || quad.length < 8) continue;
+      return {
+        x: (quad[0] + quad[2] + quad[4] + quad[6]) / 4,
+        y: (quad[1] + quad[3] + quad[5] + quad[7]) / 4,
+      };
+    } catch { /* try the next matching control */ }
+  }
+  return null;
+}
+async function dispatchTrustedClick(tabId, point) {
+  await chrome.debugger.sendCommand({ tabId }, 'Input.dispatchMouseEvent', { type: 'mouseMoved', x: point.x, y: point.y });
+  await chrome.debugger.sendCommand({ tabId }, 'Input.dispatchMouseEvent', { type: 'mousePressed', x: point.x, y: point.y, button: 'left', clickCount: 1 });
+  await chrome.debugger.sendCommand({ tabId }, 'Input.dispatchMouseEvent', { type: 'mouseReleased', x: point.x, y: point.y, button: 'left', clickCount: 1 });
+}
 async function act(tabId, request) {
   const kind = String(request.kind || request.action || '').toLowerCase();
   const ref = String(request.ref || '');
@@ -114,15 +185,25 @@ async function act(tabId, request) {
   const generation = Number(refMatch?.[1] || 0);
   const target = local ? `((Number(globalThis.__flolahSnapshotState?.generation||0)===${generation})?document.querySelector('[data-flolah-ref="${local.replace(/"/g, '')}"]'):'STALE_REF')` : 'null';
   if (kind === 'click') {
-    const result = await evaluate(tabId, `(() => { const el=${target}; if(el==='STALE_REF')return {error:'STALE_REF'}; if(!el) return {error:'TARGET_NOT_FOUND'}; el.scrollIntoView({block:'center',inline:'center'}); const r=el.getBoundingClientRect(); if(r.width<=0||r.height<=0)return {error:'TARGET_NOT_VISIBLE'}; return {x:r.left+r.width/2,y:r.top+r.height/2}; })()`);
-    if (result?.error) throw Object.assign(new Error('Target not found'), { code: result.error });
-    await chrome.debugger.sendCommand({ tabId }, 'Input.dispatchMouseEvent', { type: 'mouseMoved', x: result.x, y: result.y });
-    await chrome.debugger.sendCommand({ tabId }, 'Input.dispatchMouseEvent', { type: 'mousePressed', x: result.x, y: result.y, button: 'left', buttons: 1, clickCount: 1 });
-    await chrome.debugger.sendCommand({ tabId }, 'Input.dispatchMouseEvent', { type: 'mouseReleased', x: result.x, y: result.y, button: 'left', buttons: 0, clickCount: 1 });
-    return { ok: true, kind, x: Math.round(result.x), y: Math.round(result.y) };
+    let point = null;
+    if (local) {
+      const result = await evaluate(tabId, `(() => { const el=${target}; if(el==='STALE_REF')return {error:'STALE_REF'}; if(!el) return {error:'TARGET_NOT_FOUND'}; el.scrollIntoView({block:'center',inline:'center'}); const r=el.getBoundingClientRect(); if(r.width<=0||r.height<=0)return {error:'TARGET_NOT_VISIBLE'}; return {x:r.left+r.width/2,y:r.top+r.height/2}; })()`);
+      if (result?.error) throw Object.assign(new Error('Target not found'), { code: result.error });
+      point = result;
+    } else {
+      const label = request.label || request.target || request.text || (ref && !refMatch ? ref : '');
+      point = await flattenedClickPoint(tabId, label);
+    }
+    if (!point) throw Object.assign(new Error('Target not found'), { code: 'TARGET_NOT_FOUND' });
+    await dispatchTrustedClick(tabId, point);
+    return { ok: true, kind, x: Math.round(point.x), y: Math.round(point.y) };
   }
   if (kind === 'type') {
     const text = JSON.stringify(String(request.text ?? ''));
+    if (!local) {
+      await chrome.debugger.sendCommand({ tabId }, 'Input.insertText', { text: String(request.text ?? '') });
+      return { ok: true, kind, length: String(request.text ?? '').length, target: 'focused_element' };
+    }
     const result = await evaluate(tabId, `(() => { const el=${target}; if(el==='STALE_REF')return {error:'STALE_REF'}; if(!el) return {error:'TARGET_NOT_FOUND'}; el.focus(); const v=${text}; if('value' in el){const set=Object.getOwnPropertyDescriptor(el instanceof HTMLTextAreaElement?HTMLTextAreaElement.prototype:HTMLInputElement.prototype,'value')?.set; set?set.call(el,v):(el.value=v)}else el.textContent=v; el.dispatchEvent(new InputEvent('input',{bubbles:true,inputType:'insertText',data:v})); el.dispatchEvent(new Event('change',{bubbles:true})); return {typed:true}; })()`);
     if (result?.error) throw Object.assign(new Error('Target not found'), { code: result.error });
     return { ok: true, kind, length: String(request.text ?? '').length };
