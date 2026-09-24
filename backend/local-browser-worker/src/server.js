@@ -273,13 +273,18 @@ async function structuredSnapshot(p, limit = 12000) {
       const role = el.getAttribute('role') || ({ A: 'link', BUTTON: 'button', INPUT: 'textbox', TEXTAREA: 'textbox', SELECT: 'combobox' }[el.tagName] || el.tagName.toLowerCase());
       const type = String(el.getAttribute('type') || '').toLowerCase();
       const sensitive = type === 'password' || /password|secret|token|card number|cvv/i.test(String(el.getAttribute('aria-label') || el.getAttribute('name') || ''));
+      const editable = el.matches('input,textarea,[contenteditable="true"]');
+      const value = editable && !sensitive
+        ? String('value' in el ? el.value : (el.innerText || el.textContent || '')).trim().slice(0, 4000)
+        : '';
       elements.push({
         ref: `g${state.generation}-e${localRef}`,
         role,
         name: String(el.getAttribute('aria-label') || el.innerText || el.getAttribute('placeholder') || el.getAttribute('name') || '').trim().slice(0, 180),
+        value,
         enabled: !el.disabled,
         visible: true,
-        editable: el.matches('input,textarea,[contenteditable="true"]'),
+        editable,
         sensitive,
         focused: document.activeElement === el,
         bounds: { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height) },

@@ -7,7 +7,12 @@ import {
   inferLinkedInStartUrl,
   verifyRecipeReplayOutcome,
 } from '../src/services/browser-tasks.js';
-import { browserWorkerPayload, extractPublishBody, inferSocialPlatform } from '../src/services/browser-social-publish.js';
+import {
+  browserWorkerPayload,
+  extractPublishBody,
+  inferSocialPlatform,
+  structuredSnapshotContainsExactBody,
+} from '../src/services/browser-social-publish.js';
 
 const recipe = { steps: [
   { action: 'open', args: { url: 'https://example.com', expect_url: '^https://example\\.com' } },
@@ -70,10 +75,22 @@ assert.equal(
     .structured_snapshot.page.url,
   'https://www.facebook.com/'
 );
+assert.equal(structuredSnapshotContainsExactBody({
+  structured_snapshot: {
+    visible_text_excerpt: 'Create post',
+    elements: [{ editable: true, sensitive: false, value: 'Testing Flolah Browser Session recipe — automated test post. #FlolahTest' }],
+  },
+}, 'Testing Flolah Browser Session recipe — automated test post. #FlolahTest'), true);
+assert.equal(structuredSnapshotContainsExactBody({
+  structured_snapshot: {
+    visible_text_excerpt: 'Create post',
+    elements: [{ editable: true, sensitive: true, value: 'secret' }],
+  },
+}, 'secret'), false);
 
 const extensionPath = fileURLToPath(new URL('../flolah-chrome-extension/background.js', import.meta.url));
 const extension = readFileSync(extensionPath, 'utf8');
-for (const marker of ["'screenshot'", "'task_cleanup'", "'tabs'", "'focus'", 'resumable_tasks: true', 'tab_discovery: true', 'tab_selection: true', 'allowedTabSummaries', 'selectedTabId', 'visible_text_excerpt', 'Page.captureScreenshot', 'DOM.getFlattenedDocument', 'pierce: true', 'Input.insertText', 'Input.dispatchMouseEvent', 'windowsVirtualKeyCode', 'preserveAllow: true']) {
+for (const marker of ["'screenshot'", "'task_cleanup'", "'tabs'", "'focus'", 'resumable_tasks: true', 'tab_discovery: true', 'tab_selection: true', 'allowedTabSummaries', 'selectedTabId', 'visible_text_excerpt', 'value,enabled', 'Page.captureScreenshot', 'DOM.getFlattenedDocument', 'pierce: true', 'Input.insertText', 'Input.dispatchMouseEvent', 'windowsVirtualKeyCode', 'preserveAllow: true']) {
   assert(extension.includes(marker), `extension missing ${marker}`);
 }
 console.log('browser maturity contract tests passed');

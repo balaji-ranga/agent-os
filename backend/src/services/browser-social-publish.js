@@ -592,6 +592,19 @@ export function browserWorkerPayload(result) {
   try { return JSON.parse(raw); } catch { return {}; }
 }
 
+export function structuredSnapshotContainsExactBody(payload, bodyText) {
+  const body = String(bodyText || '').replace(/\s+/g, ' ').trim();
+  if (!body) return false;
+  const snapshot = payload?.structured_snapshot || {};
+  const visible = String(snapshot.visible_text_excerpt || payload?.text || '').replace(/\s+/g, ' ').trim();
+  if (visible.includes(body)) return true;
+  return (snapshot.elements || []).some((element) => {
+    if (!element?.editable || element?.sensitive) return false;
+    const value = String(element.value || '').replace(/\s+/g, ' ').trim();
+    return value.includes(body);
+  });
+}
+
 async function chromeExtensionFacebookPublish(ceoUserId, bodyText, { expectedTab = null } = {}) {
   const body = String(bodyText || '').trim();
   const steps = [];
@@ -641,9 +654,8 @@ async function chromeExtensionFacebookPublish(ceoUserId, bodyText, { expectedTab
   await cdp('wait', withOwner(ceoUserId, { ms: 900 }));
 
   const filled = await snapshot('facebook_snapshot_filled');
-  const filledText = String(filled?.structured_snapshot?.visible_text_excerpt || filled?.text || '').replace(/\s+/g, ' ');
   const normalizedBody = body.replace(/\s+/g, ' ');
-  if (!filledText.includes(normalizedBody)) {
+  if (!structuredSnapshotContainsExactBody(filled, body)) {
     return { ok: false, stage: 'body_not_verified', error: 'Exact body was not visible before submission', steps };
   }
   const filledElements = filled?.structured_snapshot?.elements || [];
