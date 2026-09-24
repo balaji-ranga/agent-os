@@ -793,6 +793,16 @@ export function selectComposerActivationRequest(state, recordedRequest = null) {
   return null;
 }
 
+export function shouldRetryUnobservedComposerActivation(state) {
+  return Boolean(
+    !state?.dialog_open &&
+    !state?.editor?.ref &&
+    Number(state?.editor_count || 0) === 0 &&
+    state?.trigger?.ref &&
+    state?.trigger_count === 1
+  );
+}
+
 async function chromeExtensionSocialPublish(
   ceoUserId,
   platform,
@@ -857,8 +867,8 @@ async function chromeExtensionSocialPublish(
       };
     }
     const activationRequest = verifiedEditorActivationRequest(selectedActivation.request);
-    const open = await cdp('act', withOwner(ceoUserId, { request: activationRequest }));
-    const openPayload = browserWorkerPayload(open);
+    let open = await cdp('act', withOwner(ceoUserId, { request: activationRequest }));
+    let openPayload = browserWorkerPayload(open);
     steps.push({
       action: `${platform}_open_composer_recorded`,
       ok: open?.ok !== false,
@@ -869,7 +879,43 @@ async function chromeExtensionSocialPublish(
       fallback: openPayload.fallback || null,
     });
     if (open?.ok === false) {
-      return { ok: false, stage: 'composer_activation_not_observed', error: parseInvokeText(open), steps };
+      // A just-navigated SPA can expose its final control before hydration has
+      // attached the activation listener. Re-snapshot after the failed action:
+      // if an editor appeared, continue without clicking again; otherwise
+      // resolve the current unique control and make one bounded retry. This is
+      // only for the explicitly non-destructive open-editor contract.
+      await cdp('wait', withOwner(ceoUserId, { ms: 800 }));
+      composer = await snapshot(`${platform}_snapshot_after_unobserved_activation`);
+      composerState = extensionSocialSnapshotState(composer, platform, body);
+      if (shouldRetryUnobservedComposerActivation(composerState)) {
+        const retrySelection = selectComposerActivationRequest(composerState, composerRequest);
+        if (!retrySelection) {
+          return { ok: false, stage: 'composer_activation_not_observed', error: parseInvokeText(open), steps };
+        }
+        const retryRequest = verifiedEditorActivationRequest(retrySelection.request);
+        open = await cdp('act', withOwner(ceoUserId, { request: retryRequest }));
+        openPayload = browserWorkerPayload(open);
+        steps.push({
+          action: `${platform}_open_composer_recorded_retry`,
+          ok: open?.ok !== false,
+          activation_source: retrySelection.source,
+          target: retrySelection.request.text || retrySelection.request.ref,
+          result_state: openPayload.result_state || null,
+          observed_transitions: openPayload.observed_transitions || [],
+          fallback: openPayload.fallback || null,
+        });
+        if (open?.ok === false) {
+          return { ok: false, stage: 'composer_activation_not_observed', error: parseInvokeText(open), steps };
+        }
+      } else if (composerState.editor?.ref && composerState.editor_count === 1) {
+        steps.push({
+          action: `${platform}_composer_observed_after_activation_error`,
+          ok: true,
+          ref: composerState.editor.ref,
+        });
+      } else {
+        return { ok: false, stage: 'composer_activation_not_observed', error: parseInvokeText(open), steps };
+      }
     }
     for (const waitMs of [1800, 1800, 3000]) {
       await cdp('wait', withOwner(ceoUserId, { ms: waitMs }));

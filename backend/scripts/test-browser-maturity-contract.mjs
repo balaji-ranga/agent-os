@@ -16,6 +16,7 @@ import {
   inferSocialPlatform,
   selectComposerActivationRequest,
   semanticComposerRetryRequest,
+  shouldRetryUnobservedComposerActivation,
   structuredSnapshotContainsExactBody,
   structuredSnapshotEditableValueEquals,
   verifiedEditorActivationRequest,
@@ -222,6 +223,22 @@ assert.equal(
   ),
   null,
   'activation must fail closed when neither a unique live ref nor semantic fallback exists'
+);
+assert.equal(shouldRetryUnobservedComposerActivation(unrelatedDialogState), true);
+assert.equal(
+  shouldRetryUnobservedComposerActivation({ ...unrelatedDialogState, dialog_open: true }),
+  false,
+  'a visible dialog must block a second opening click'
+);
+assert.equal(
+  shouldRetryUnobservedComposerActivation({ ...unrelatedDialogState, editor: { ref: 'g3-e1' }, editor_count: 1 }),
+  false,
+  'an observed editor must block a second opening click'
+);
+assert.equal(
+  shouldRetryUnobservedComposerActivation({ ...unrelatedDialogState, trigger_count: 2 }),
+  false,
+  'an ambiguous trigger must block a second opening click'
 );
 
 const linkedInRecipe = {
