@@ -840,10 +840,16 @@ async function chromeExtensionSocialPublish(
   const body = String(bodyText || '').trim();
   const steps = [];
   let allowVerifiedDialogEditor = false;
+  const currentState = (payload) => extensionSocialSnapshotState(
+    payload,
+    platform,
+    body,
+    { allowVerifiedDialogEditor }
+  );
   const snapshot = async (label) => {
     const result = await cdp('snapshot', withOwner(ceoUserId, { limit: 30000 }));
     const payload = browserWorkerPayload(result);
-    const state = extensionSocialSnapshotState(payload, platform, body, { allowVerifiedDialogEditor });
+    const state = currentState(payload);
     steps.push({
       action: label,
       ok: result?.ok !== false,
@@ -874,7 +880,7 @@ async function chromeExtensionSocialPublish(
   }
   steps.push({ action: `${platform}_url_verified`, ok: true, url: firstUrl, source: urlSource });
 
-  const firstState = extensionSocialSnapshotState(first, platform, body, { allowVerifiedDialogEditor });
+  const firstState = currentState(first);
   let composer = first;
   let composerState = firstState;
   if (firstState.dialog_open && firstState.editor?.ref && firstState.editor_count === 1) {
@@ -923,7 +929,7 @@ async function chromeExtensionSocialPublish(
       // only for the explicitly non-destructive open-editor contract.
       await cdp('wait', withOwner(ceoUserId, { ms: 800 }));
       composer = await snapshot(`${platform}_snapshot_after_unobserved_activation`);
-      composerState = extensionSocialSnapshotState(composer, platform, body);
+      composerState = currentState(composer);
       if (shouldRetryUnobservedComposerActivation(composerState)) {
         const retrySelection = selectComposerActivationRequest(composerState, composerRequest);
         if (!retrySelection) {
@@ -965,7 +971,7 @@ async function chromeExtensionSocialPublish(
     for (const waitMs of [1800, 1800, 3000]) {
       await cdp('wait', withOwner(ceoUserId, { ms: waitMs }));
       composer = await snapshot(`${platform}_snapshot_composer`);
-      composerState = extensionSocialSnapshotState(composer, platform, body);
+      composerState = currentState(composer);
       if (composerState.editor?.ref && composerState.editor_count === 1) break;
     }
   } else {
@@ -1006,7 +1012,7 @@ async function chromeExtensionSocialPublish(
     for (const waitMs of [1800, 1800, 3000]) {
       await cdp('wait', withOwner(ceoUserId, { ms: waitMs }));
       composer = await snapshot(`${platform}_snapshot_composer`);
-      composerState = extensionSocialSnapshotState(composer, platform, body);
+      composerState = currentState(composer);
       if (composerState.editor?.ref && composerState.editor_count === 1) break;
     }
   }
@@ -1028,7 +1034,7 @@ async function chromeExtensionSocialPublish(
         for (const waitMs of [1800, 1800, 3000]) {
           await cdp('wait', withOwner(ceoUserId, { ms: waitMs }));
           composer = await snapshot(`${platform}_snapshot_composer_retry`);
-          composerState = extensionSocialSnapshotState(composer, platform, body);
+          composerState = currentState(composer);
           if (composerState.editor?.ref && composerState.editor_count === 1) break;
         }
       }
@@ -1054,7 +1060,7 @@ async function chromeExtensionSocialPublish(
   await cdp('wait', withOwner(ceoUserId, { ms: 900 }));
 
   const filled = await snapshot(`${platform}_snapshot_filled`);
-  const filledState = extensionSocialSnapshotState(filled, platform, body);
+  const filledState = currentState(filled);
   if (!filledState.exact_editor_value) {
     return { ok: false, stage: 'body_not_verified', error: 'Exact body was not present in the structured editable value before submission', steps };
   }
@@ -1077,7 +1083,7 @@ async function chromeExtensionSocialPublish(
   for (const waitMs of [1800, 3000, 4500, 7000, 10000]) {
     await cdp('wait', withOwner(ceoUserId, { ms: waitMs }));
     const after = await snapshot(`${platform}_snapshot_after`);
-    afterState = extensionSocialSnapshotState(after, platform, body);
+    afterState = currentState(after);
     if (!afterState.dialog_open && (afterState.exact_body_visible || afterState.success_signal)) break;
   }
   const retained = Boolean(afterState?.exact_body_visible);
