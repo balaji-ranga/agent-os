@@ -2457,6 +2457,7 @@ export function socialPublishRecipeDescriptor(recipe, inputs = {}) {
   if (!['facebook', 'linkedin'].includes(platform)) return null;
   const serialized = JSON.stringify(steps);
   const hasBodyInput = /\{\{\s*post_content\s*\}\}/i.test(serialized);
+  const bodyStepIndex = steps.findIndex((step) => /\{\{\s*post_content\s*\}\}/i.test(JSON.stringify(step)));
   const hasSubmit = steps.some((step) => {
     const action = String(step?.action || '').toLowerCase();
     const request = step?.args?.request || step?.args || {};
@@ -2465,8 +2466,26 @@ export function socialPublishRecipeDescriptor(recipe, inputs = {}) {
     return ['act', 'click'].includes(action) && kind === 'click' && /^(?:post|publish|share)$/i.test(target);
   });
   if (!hasBodyInput || !hasSubmit) return null;
+  const composerStep = steps
+    .slice(0, bodyStepIndex < 0 ? 0 : bodyStepIndex)
+    .reverse()
+    .find((step) => {
+      const action = String(step?.action || '').toLowerCase();
+      const request = step?.args?.request || step?.args || {};
+      return ['act', 'click'].includes(action) && String(request.kind || action).toLowerCase() === 'click';
+    });
+  const composerSource = composerStep?.args?.request || composerStep?.args || {};
+  const composerText = String(
+    composerSource.text || composerSource.label || composerSource.target || ''
+  ).trim();
   const body = String(inputs.post_content || '').trim();
-  return { platform, start_url: openUrl, body, input_name: 'post_content' };
+  return {
+    platform,
+    start_url: openUrl,
+    body,
+    input_name: 'post_content',
+    composer_request: composerText ? { kind: 'click', text: composerText } : null,
+  };
 }
 
 async function runRecipeReplay(ceoUserId, taskId) {
@@ -2524,6 +2543,7 @@ async function runRecipeReplay(ceoUserId, taskId) {
       body: social.body,
       platform: social.platform,
       taskId,
+      composerRequest: social.composer_request,
     });
     const submissionCount = Number(pub.fill?.submission_count || (pub.fill?.submitted_once ? 1 : 0));
     const verified = Boolean(pub.ok && pub.confirm?.success === true && submissionCount === 1);

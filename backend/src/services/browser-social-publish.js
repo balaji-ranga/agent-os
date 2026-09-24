@@ -728,7 +728,12 @@ export function semanticComposerRetryRequest(state) {
   return { kind: 'click', text };
 }
 
-async function chromeExtensionSocialPublish(ceoUserId, platform, bodyText, { expectedTab = null } = {}) {
+async function chromeExtensionSocialPublish(
+  ceoUserId,
+  platform,
+  bodyText,
+  { expectedTab = null, composerRequest = null } = {}
+) {
   const body = String(bodyText || '').trim();
   const steps = [];
   const snapshot = async (label) => {
@@ -772,6 +777,26 @@ async function chromeExtensionSocialPublish(ceoUserId, platform, bodyText, { exp
     // A previous safe/aborted attempt may have left the real composer open.
     // Resume it without looking for (or clicking) the feed trigger underneath.
     steps.push({ action: `${platform}_resume_open_composer`, ok: true, ref: firstState.editor.ref });
+  } else if (composerRequest?.kind === 'click' && composerRequest.text) {
+    // A recorded recipe already proved this semantic action against the
+    // owner's tab. Reuse that contract first instead of substituting a
+    // snapshot-scoped ref that the site may replace between observation and
+    // dispatch.
+    const open = await cdp('act', withOwner(ceoUserId, { request: composerRequest }));
+    steps.push({
+      action: `${platform}_open_composer_recorded_semantic`,
+      ok: open?.ok !== false,
+      target: composerRequest.text,
+    });
+    if (open?.ok === false) {
+      return { ok: false, stage: 'composer_not_found', error: parseInvokeText(open), steps };
+    }
+    for (const waitMs of [1800, 1800, 3000]) {
+      await cdp('wait', withOwner(ceoUserId, { ms: waitMs }));
+      composer = await snapshot(`${platform}_snapshot_composer`);
+      composerState = extensionSocialSnapshotState(composer, platform, body);
+      if (composerState.editor?.ref && composerState.editor_count === 1) break;
+    }
   } else {
     if (!firstState.trigger?.ref || firstState.trigger_count !== 1) {
       return {
@@ -798,7 +823,7 @@ async function chromeExtensionSocialPublish(ceoUserId, platform, bodyText, { exp
     }
   }
   if (!composerState.editor?.ref || composerState.editor_count !== 1) {
-    const retryRequest = semanticComposerRetryRequest(composerState);
+    const retryRequest = composerRequest ? null : semanticComposerRetryRequest(composerState);
     if (retryRequest) {
       const retry = await cdp('act', withOwner(ceoUserId, { request: retryRequest }));
       steps.push({
@@ -1617,11 +1642,21 @@ async function confirmPosted(ceoUserId, platform, bodySnippet = '') {
  * Full autonomous publish: focus platform tab → open composer → fill → post → recycle tab.
  * @returns {{ ok: boolean, summary: string, steps: any[], note: string }}
  */
-export async function runAutonomousSocialPublish(ceoUserId, { goalText, startUrl, body, platform: requestedPlatform = null, taskId = '' }) {
+export async function runAutonomousSocialPublish(
+  ceoUserId,
+  { goalText, startUrl, body, platform: requestedPlatform = null, taskId = '', composerRequest = null }
+) {
   if (!socialPublishContext.getStore()) {
     return socialPublishContext.run(
       { ceoUserId, taskId: String(taskId || '').trim() },
-      () => runAutonomousSocialPublish(ceoUserId, { goalText, startUrl, body, platform: requestedPlatform, taskId })
+      () => runAutonomousSocialPublish(ceoUserId, {
+        goalText,
+        startUrl,
+        body,
+        platform: requestedPlatform,
+        taskId,
+        composerRequest,
+      })
     );
   }
   const steps = [];
@@ -1668,7 +1703,10 @@ export async function runAutonomousSocialPublish(ceoUserId, { goalText, startUrl
     extensionMode = status.driver === 'chrome_extension';
 
     if ((platform === 'facebook' || platform === 'linkedin') && extensionMode) {
-      filled = await chromeExtensionSocialPublish(ceoUserId, platform, publishBody, { expectedTab: tab });
+      filled = await chromeExtensionSocialPublish(ceoUserId, platform, publishBody, {
+        expectedTab: tab,
+        composerRequest,
+      });
       confirm = { success: filled.ok === true, conf: { retained: filled.retained, toast_hit: filled.toast_hit } };
       steps.push(...(filled.steps || []).map((entry) => ({ t: nowIso(), ...entry })));
       steps.push({ t: nowIso(), action: `${platform}_extension_publish`, filled, confirm });

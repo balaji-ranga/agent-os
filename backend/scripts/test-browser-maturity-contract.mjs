@@ -186,11 +186,36 @@ const linkedInRecipe = {
 };
 assert.deepEqual(
   socialPublishRecipeDescriptor(linkedInRecipe, { post_content: 'Verified body' }),
-  { platform: 'linkedin', start_url: 'https://www.linkedin.com/feed/', body: 'Verified body', input_name: 'post_content' }
+  {
+    platform: 'linkedin',
+    start_url: 'https://www.linkedin.com/feed/',
+    body: 'Verified body',
+    input_name: 'post_content',
+    composer_request: null,
+  }
 );
 assert.deepEqual(
   socialPublishRecipeDescriptor({ ...linkedInRecipe, start_url: 'https://www.facebook.com/' }, { post_content: 'Verified Facebook body' }),
-  { platform: 'facebook', start_url: 'https://www.facebook.com/', body: 'Verified Facebook body', input_name: 'post_content' }
+  {
+    platform: 'facebook',
+    start_url: 'https://www.facebook.com/',
+    body: 'Verified Facebook body',
+    input_name: 'post_content',
+    composer_request: null,
+  }
+);
+const recordedSocialRecipe = {
+  ...linkedInRecipe,
+  steps: [
+    linkedInRecipe.steps[0],
+    { action: 'act', args: { request: { kind: 'click', text: 'Create update' } } },
+    ...linkedInRecipe.steps.slice(1),
+  ],
+};
+assert.deepEqual(
+  socialPublishRecipeDescriptor(recordedSocialRecipe, { post_content: 'Verified body' })?.composer_request,
+  { kind: 'click', text: 'Create update' },
+  'recorded semantic composer action must be reused without platform keyword inference'
 );
 assert.equal(socialPublishRecipeDescriptor({ ...linkedInRecipe, start_url: 'https://example.com/' }, { post_content: 'x' }), null);
 
