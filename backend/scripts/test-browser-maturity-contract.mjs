@@ -44,6 +44,10 @@ assert.equal(
   extractPublishBody('Create one Facebook post with this exact text: Testing Flolah Browser Session recipe — automated test post. #FlolahTest\n\nTarget the authorized Facebook tab, not LinkedIn.\n\nPreserve the audience.'),
   'Testing Flolah Browser Session recipe — automated test post. #FlolahTest'
 );
+assert.equal(
+  extractPublishBody('The Client Chrome lease is ready. Proceed with the single actual browser attempt: publish exactly once with the exact text `Testing Flolah Browser Session recipe — automated test post. #FlolahTest`, preserve the existing audience, and verify retention. Do not use LinkedIn.'),
+  'Testing Flolah Browser Session recipe — automated test post. #FlolahTest'
+);
 
 const extensionPath = fileURLToPath(new URL('../flolah-chrome-extension/background.js', import.meta.url));
 const extension = readFileSync(extensionPath, 'utf8');

@@ -150,6 +150,19 @@ export function inferSocialPlatform(goalText, startUrl = '') {
 export function extractPublishBody(goalText) {
   const g = String(goalText || '').replace(/\r\n/g, '\n').trim();
   if (!g) return '';
+  // Follow-up chat turns commonly carry the exact body inline in Markdown
+  // backticks or quotes instead of on the next line. Recognize those forms
+  // deterministically so social publishes stay on the capability-safe path.
+  const inlineQuotedPatterns = [
+    /exact text\s*[:=]?\s*`([^`]+)`/i,
+    /exact text\s*[:=]?\s*"([^"]+)"/i,
+    /exact text\s*[:=]?\s*“([^”]+)”/i,
+    /exact text\s*[:=]?\s*'([^']+)'/i,
+  ];
+  for (const re of inlineQuotedPatterns) {
+    const m = g.match(re);
+    if (m?.[1]?.trim()?.length > 20) return m[1].trim();
+  }
   const patterns = [
     /EXACT text[:\s]*\n+([\s\S]+?)(?:\n\nWhen published|\n\nFingerprint:|\n\nstart_url:|\n\nTarget\b|\n\nPreserve\b|\n\nSubmit\b|\n\nIf the target\b|\n\nFACEBOOK|\n\nLINKEDIN|$)/i,
     /Body(?:\s*\(post this EXACT text[^)]*\))?[:\s]*\n+([\s\S]+?)(?:\n\nWhen published|\n\nFingerprint:|\n\nstart_url:|\n\nTarget\b|\n\nPreserve\b|\n\nSubmit\b|$)/i,
