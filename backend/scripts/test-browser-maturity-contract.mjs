@@ -123,6 +123,7 @@ const linkedInWithUnrelatedDialog = {
 const unrelatedDialogState = extensionSocialSnapshotState(linkedInWithUnrelatedDialog, 'linkedin', 'New post');
 assert.equal(unrelatedDialogState.dialog_open, false);
 assert.equal(unrelatedDialogState.trigger.ref, 'g2-e1');
+assert.equal(unrelatedDialogState.editor_count, 0);
 
 const linkedInRecipe = {
   name: 'LinkedIn dynamic post',

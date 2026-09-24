@@ -647,10 +647,15 @@ export function extensionSocialSnapshotState(payload, platform, bodyText = '') {
   const snapshot = payload?.structured_snapshot || {};
   const elements = Array.isArray(snapshot.elements) ? snapshot.elements : [];
   const buttons = elements.filter((element) => element?.role === 'button' && element?.visible !== false);
-  const triggers = buttons.filter((element) => controls.trigger.test(socialControlName(element)));
+  const triggerControls = elements.filter(
+    (element) => ['button', 'link'].includes(String(element?.role || '').toLowerCase()) && element?.visible !== false
+  );
+  const triggers = triggerControls.filter((element) => controls.trigger.test(socialControlName(element)));
   const editable = elements.filter((element) => element?.editable && !element?.sensitive && element?.visible !== false);
   const namedEditors = editable.filter((element) => controls.editor.test(socialControlName(element)));
-  const editorPool = preferDialogScoped(namedEditors.length ? namedEditors : editable);
+  // Never fall back to an arbitrary editable control. On a social feed that
+  // would commonly select global search or chat input as the post editor.
+  const editorPool = preferDialogScoped(namedEditors);
   const submitPool = preferDialogScoped(
     buttons.filter((element) => controls.submit.test(socialControlName(element)) && element?.enabled !== false)
   );
