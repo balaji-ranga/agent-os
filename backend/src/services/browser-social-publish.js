@@ -691,7 +691,12 @@ function preferDialogScoped(elements) {
   return scoped.length ? scoped : elements;
 }
 
-export function extensionSocialSnapshotState(payload, platform, bodyText = '') {
+export function extensionSocialSnapshotState(
+  payload,
+  platform,
+  bodyText = '',
+  { allowVerifiedDialogEditor = false } = {}
+) {
   const controls = EXTENSION_SOCIAL_CONTROLS[platform] || EXTENSION_SOCIAL_CONTROLS.linkedin;
   const snapshot = payload?.structured_snapshot || {};
   const elements = Array.isArray(snapshot.elements) ? snapshot.elements : [];
@@ -702,9 +707,17 @@ export function extensionSocialSnapshotState(payload, platform, bodyText = '') {
   const triggers = triggerControls.filter((element) => controls.trigger.test(socialControlName(element)));
   const editable = elements.filter((element) => element?.editable && !element?.sensitive && element?.visible !== false);
   const namedEditors = editable.filter((element) => controls.editor.test(socialControlName(element)));
+  const dialogEditors = editable.filter((element) => element?.in_dialog === true);
   // Never fall back to an arbitrary editable control. On a social feed that
   // would commonly select global search or chat input as the post editor.
-  const editorPool = preferDialogScoped(namedEditors);
+  // A newly opened dialog is different: when the executor has independently
+  // proved the open-editor transition, a single editable inside that dialog
+  // is a structurally safe target even when the site omits/localises its
+  // accessible name. Ambiguous dialog editables still fail closed.
+  const namedEditorPool = preferDialogScoped(namedEditors);
+  const editorPool = allowVerifiedDialogEditor && namedEditorPool.length === 0
+    ? dialogEditors
+    : namedEditorPool;
   const submitPool = preferDialogScoped(
     buttons.filter((element) => controls.submit.test(socialControlName(element)) && element?.enabled !== false)
   );
@@ -826,10 +839,11 @@ async function chromeExtensionSocialPublish(
 ) {
   const body = String(bodyText || '').trim();
   const steps = [];
+  let allowVerifiedDialogEditor = false;
   const snapshot = async (label) => {
     const result = await cdp('snapshot', withOwner(ceoUserId, { limit: 30000 }));
     const payload = browserWorkerPayload(result);
-    const state = extensionSocialSnapshotState(payload, platform, body);
+    const state = extensionSocialSnapshotState(payload, platform, body, { allowVerifiedDialogEditor });
     steps.push({
       action: label,
       ok: result?.ok !== false,
@@ -860,7 +874,7 @@ async function chromeExtensionSocialPublish(
   }
   steps.push({ action: `${platform}_url_verified`, ok: true, url: firstUrl, source: urlSource });
 
-  const firstState = extensionSocialSnapshotState(first, platform, body);
+  const firstState = extensionSocialSnapshotState(first, platform, body, { allowVerifiedDialogEditor });
   let composer = first;
   let composerState = firstState;
   if (firstState.dialog_open && firstState.editor?.ref && firstState.editor_count === 1) {
@@ -884,6 +898,14 @@ async function chromeExtensionSocialPublish(
     const activationRequest = verifiedEditorActivationRequest(selectedActivation.request);
     let open = await cdp('act', withOwner(ceoUserId, { request: activationRequest }));
     let openPayload = browserWorkerPayload(open);
+    if (
+      open?.ok !== false &&
+      (openPayload.observed_transitions || []).some((item) =>
+        ['dialog_opened', 'editable_appeared', 'editable_focused'].includes(String(item))
+      )
+    ) {
+      allowVerifiedDialogEditor = true;
+    }
     steps.push({
       action: `${platform}_open_composer_recorded`,
       ok: open?.ok !== false,
@@ -910,6 +932,14 @@ async function chromeExtensionSocialPublish(
         const retryRequest = verifiedEditorActivationRequest(retrySelection.request);
         open = await cdp('act', withOwner(ceoUserId, { request: retryRequest }));
         openPayload = browserWorkerPayload(open);
+        if (
+          open?.ok !== false &&
+          (openPayload.observed_transitions || []).some((item) =>
+            ['dialog_opened', 'editable_appeared', 'editable_focused'].includes(String(item))
+          )
+        ) {
+          allowVerifiedDialogEditor = true;
+        }
         steps.push({
           action: `${platform}_open_composer_recorded_retry`,
           ok: open?.ok !== false,
@@ -952,6 +982,14 @@ async function chromeExtensionSocialPublish(
       request: activationRequest,
     }));
     const openPayload = browserWorkerPayload(open);
+    if (
+      open?.ok !== false &&
+      (openPayload.observed_transitions || []).some((item) =>
+        ['dialog_opened', 'editable_appeared', 'editable_focused'].includes(String(item))
+      )
+    ) {
+      allowVerifiedDialogEditor = true;
+    }
     steps.push({
       action: `${platform}_open_composer`,
       ok: open?.ok !== false,

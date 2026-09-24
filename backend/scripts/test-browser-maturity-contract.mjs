@@ -153,6 +153,47 @@ assert.equal(extensionSocialSnapshotState(socialSnapshot, 'linkedin', 'Testing e
 const ambiguousSocialSnapshot = structuredClone(socialSnapshot);
 ambiguousSocialSnapshot.structured_snapshot.elements.push({ ref: 'g1-e3', role: 'button', name: 'Post', enabled: true, visible: true, in_dialog: true });
 assert.equal(extensionSocialSnapshotState(ambiguousSocialSnapshot, 'linkedin', 'Testing exact body').submit, null);
+const unnamedVerifiedDialogEditor = {
+  structured_snapshot: {
+    page: { url: 'https://social.example/feed', title: 'Social feed' },
+    landmarks: [{ role: 'dialog', name: '' }],
+    visible_text_excerpt: '',
+    elements: [
+      { ref: 'g4-e1', role: 'textbox', name: '', editable: true, sensitive: false, value: '', visible: true, in_dialog: true },
+      { ref: 'g4-e2', role: 'button', name: 'Post', enabled: false, visible: true, in_dialog: true },
+    ],
+  },
+};
+assert.equal(
+  extensionSocialSnapshotState(unnamedVerifiedDialogEditor, 'facebook', '').editor_count,
+  0,
+  'an unnamed dialog editor must not be trusted without an observed activation transition'
+);
+assert.equal(
+  extensionSocialSnapshotState(
+    unnamedVerifiedDialogEditor,
+    'facebook',
+    '',
+    { allowVerifiedDialogEditor: true }
+  ).editor.ref,
+  'g4-e1',
+  'a verified newly-opened dialog may use its one structural editable without site wording'
+);
+const ambiguousVerifiedDialogEditors = structuredClone(unnamedVerifiedDialogEditor);
+ambiguousVerifiedDialogEditors.structured_snapshot.elements.push({
+  ref: 'g4-e3', role: 'textbox', name: '', editable: true, sensitive: false,
+  value: '', visible: true, in_dialog: true,
+});
+assert.equal(
+  extensionSocialSnapshotState(
+    ambiguousVerifiedDialogEditors,
+    'facebook',
+    '',
+    { allowVerifiedDialogEditor: true }
+  ).editor,
+  null,
+  'multiple structural dialog editables must remain ambiguous'
+);
 const linkedInWithUnrelatedDialog = {
   structured_snapshot: {
     page: { url: 'https://www.linkedin.com/feed/', title: 'Feed | LinkedIn' },
