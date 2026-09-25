@@ -1,157 +1,175 @@
 WEBVTT
 
-00:00:00.000 --> 00:00:03.565
+00:00:00.000 --> 00:00:03.542
 Meet Northstar Industrial, a growing industrial technology company.
 
-00:00:03.565 --> 00:00:12.925
+00:00:03.542 --> 00:00:12.840
 Maya Tan, the CEO, wants higher sales, lower operating cost, and faster execution—but without creating another disconnected collection of AI tools.
 
-00:00:12.925 --> 00:00:16.490
+00:00:12.840 --> 00:00:16.383
 Northstar uses Flolah as a single operating layer.
 
-00:00:16.490 --> 00:00:22.284
+00:00:16.383 --> 00:00:22.139
 Company context, objectives, agents, workflows, business systems, policies, budgets, and channels stay connected.
 
-00:00:22.284 --> 00:00:24.958
+00:00:22.139 --> 00:00:24.795
 This is Maya's normal user view.
 
-00:00:24.958 --> 00:00:35.654
+00:00:24.795 --> 00:00:35.422
 She can see the operating pulse of the company immediately, while the shared Knowledge area gives every authorised agent the same governed business context.
 
-00:00:35.654 --> 00:00:40.670
+00:00:35.422 --> 00:00:40.479
 Northstar's organisation is designed as one team of people and AI workers.
 
-00:00:40.670 --> 00:00:43.595
+00:00:40.479 --> 00:00:43.429
 Maya and her operations lead remain accountable.
 
-00:00:43.595 --> 00:00:49.447
+00:00:43.429 --> 00:00:49.328
 Specialist agents cover sales development, revenue operations, customer success, procurement, finance, and operating coordination.
 
-00:00:49.447 --> 00:00:55.298
+00:00:49.328 --> 00:00:55.228
 Each agent has a clear role, an owner, permitted tools, and an explicit budget.
 
-00:00:55.298 --> 00:01:02.404
+00:00:55.228 --> 00:01:02.392
 This avoids the common AI journey where separate teams buy separate assistants, duplicate work, and lose accountability.
 
-00:01:02.404 --> 00:01:09.509
+00:01:02.392 --> 00:01:09.555
 In Flolah, delegation follows the organisation, and the CEO can see who—or what—is responsible for each outcome.
 
-00:01:09.509 --> 00:01:14.117
+00:01:09.555 --> 00:01:14.179
 Northstar's yearly direction is translated into quarterly objectives and measurable key results.
 
-00:01:14.117 --> 00:01:21.798
+00:01:14.179 --> 00:01:21.886
 The leadership team can see targets for qualified pipeline, conversion, customer retention, procurement savings, and operating efficiency in one place.
 
-00:01:21.798 --> 00:01:26.022
+00:01:21.886 --> 00:01:26.124
 Objectives are not presentation slides that disappear after a review meeting.
 
-00:01:26.022 --> 00:01:31.399
+00:01:26.124 --> 00:01:31.519
 Goals and work are linked back to the measure they are expected to move.
 
-00:01:31.399 --> 00:01:37.543
+00:01:31.519 --> 00:01:37.684
 Progress can be updated from business events, CRM and ERP records, workflow results, and agent reports.
 
-00:01:37.543 --> 00:01:44.072
+00:01:37.684 --> 00:01:44.234
 When a measure drifts, the company can respond while there is still time to change the outcome.
 
-00:01:44.072 --> 00:01:46.576
+00:01:44.234 --> 00:01:46.386
+Objectives become action through explicit goals.
+
+00:01:46.386 --> 00:01:52.481
+Northstar's active goals are linked to quarterly initiatives and assigned to the agent accountable for the result.
+
+00:01:52.481 --> 00:01:55.708
+The sales team follows up qualified pipeline on weekdays.
+
+00:01:55.708 --> 00:01:57.500
+Collections works the receivables cycle.
+
+00:01:57.500 --> 00:02:02.520
+Inventory watches replenishment and the operating team reviews the OKR control tower every week.
+
+00:02:02.520 --> 00:02:10.049
+Each goal has a cadence, an end date aligned to the objective period, and a clear prompt describing the expected evidence.
+
+00:02:10.049 --> 00:02:17.578
+This is the bridge between a measure on a dashboard and autonomous work that happens without Maya repeatedly asking for it.
+
+00:02:17.578 --> 00:02:20.094
 Objectives become repeatable execution through workflows.
 
-00:01:46.576 --> 00:01:54.506
+00:02:20.094 --> 00:02:28.061
 Northstar has flows for lead qualification, opportunity follow-up, customer risk, procurement review, invoice follow-up, and the executive operating rhythm.
 
-00:01:54.506 --> 00:02:02.853
+00:02:28.061 --> 00:02:36.447
 A workflow is more than a scheduled automation: it gives agents a governed sequence of events, decisions, actions, and evidence.
 
-00:02:02.853 --> 00:02:07.862
+00:02:36.447 --> 00:02:41.478
 The same process can run consistently every day, while exceptions are visible.
 
-00:02:07.862 --> 00:02:16.626
+00:02:41.478 --> 00:02:50.284
 Teams can improve the workflow once and let every future run benefit, instead of relying on tribal knowledge or one-off prompts.
 
-00:02:16.626 --> 00:02:23.517
-For sales growth, Northstar keeps governed CRM evidence connected to the customer and opportunity system of record.
+00:02:50.284 --> 00:02:56.680
+For sales growth, Northstar keeps governed CRM activity in the customer and opportunity system of record.
 
-00:02:23.517 --> 00:02:30.408
-This view shows the synthetic opportunity pipeline created by the demo pack, including stage, value, and probability.
+00:02:56.680 --> 00:03:03.475
+This is the live CRM module, opened directly on Northstar's synthetic opportunity list—not a copied reporting table.
 
-00:02:30.408 --> 00:02:36.894
+00:03:03.475 --> 00:03:08.672
+The company label and SSO permission keep Maya inside the Northstar tenant boundary.
+
+00:03:08.672 --> 00:03:15.068
 Sales agents can prioritise follow-up, prepare account context, and report pipeline movement against the quarterly objective.
 
-00:02:36.894 --> 00:02:44.191
-CRM evidence stays connected to the operating model, rather than being copied into private spreadsheets or chat threads.
-
-00:02:44.191 --> 00:02:54.730
+00:03:15.068 --> 00:03:25.462
 Maya can move from the objective to the underlying commercial activity and see whether the company is building enough qualified pipeline to reach the revenue target.
 
-00:02:54.730 --> 00:03:01.492
-Northstar's governed ERP evidence connects suppliers, items, invoices, and operational records to the same company context.
+00:03:25.462 --> 00:03:31.528
+Northstar's ERP connects suppliers, items, invoices, and operational records to the same company context.
 
-00:03:01.492 --> 00:03:06.986
-Here, Maya can inspect synthetic invoice and collection data from the demo pack.
+00:03:31.528 --> 00:03:39.761
+This is the live Sales Invoice list, opened directly inside the Northstar company rather than the generic ERP home.
 
-00:03:06.986 --> 00:03:16.284
+00:03:39.761 --> 00:03:49.293
 Procurement and finance agents can monitor supplier decisions, cost-saving opportunities, and invoice follow-up while preserving ERP as the transactional source of truth.
 
-00:03:16.284 --> 00:03:27.273
+00:03:49.293 --> 00:04:00.559
 This is how Northstar reduces cost without losing control: agents analyse and coordinate the work, workflows standardise it, and the business system retains the authoritative record.
 
-00:03:27.273 --> 00:03:33.612
-The CEO sees commercial growth and operational efficiency as two sides of the same plan.
-
-00:03:33.612 --> 00:03:40.017
+00:04:00.559 --> 00:04:06.816
 Northstar is configured for end-to-end autonomous operation where the company has decided autonomy is appropriate.
 
-00:03:40.017 --> 00:03:45.569
+00:04:06.816 --> 00:04:12.239
 Read, internal-write, and approved external communication actions can proceed without routine human approval.
 
-00:03:45.569 --> 00:03:48.558
+00:04:12.239 --> 00:04:15.159
 High-impact financial or destructive actions remain prohibited.
 
-00:03:48.558 --> 00:03:53.255
+00:04:15.159 --> 00:04:19.748
 These rules are centrally visible and apply across agents and workflows.
 
-00:03:53.255 --> 00:03:56.244
+00:04:19.748 --> 00:04:22.668
 Autonomy therefore does not mean removing control.
 
-00:03:56.244 --> 00:04:04.785
+00:04:22.668 --> 00:04:31.012
 It means deciding the control model once, making it explicit, and allowing routine work to move quickly inside those boundaries.
 
-00:04:04.785 --> 00:04:07.523
+00:04:31.012 --> 00:04:33.734
 AI work must also be economically accountable.
 
-00:04:07.523 --> 00:04:13.000
+00:04:33.734 --> 00:04:39.179
 Northstar assigns token and operating budgets by agent, then measures usage, errors, and efficiency.
 
-00:04:13.000 --> 00:04:21.606
+00:04:39.179 --> 00:04:47.736
 The company can invest more in agents that move important key results and investigate agents that consume resources without producing enough value.
 
-00:04:21.606 --> 00:04:24.344
+00:04:47.736 --> 00:04:50.458
 This connects AI cost to operating outcomes.
 
-00:04:24.344 --> 00:04:32.951
+00:04:50.458 --> 00:04:59.015
 Instead of discovering an uncontrolled bill at month end, Maya has a live view of the capacity allocated across her digital workforce.
 
-00:04:32.951 --> 00:04:37.399
+00:04:59.015 --> 00:05:03.409
 Maya does not need to visit every screen to run the company.
 
-00:04:37.399 --> 00:04:44.442
+00:05:03.409 --> 00:05:10.365
 Flolah can channel requests, exceptions, summaries, and progress updates through the COO agent and connected channels such as WhatsApp.
 
-00:04:44.442 --> 00:04:53.339
+00:05:10.365 --> 00:05:19.152
 A request can be routed to the right agent, executed through the right workflow, checked against policy and budget, and reported back with evidence.
 
-00:04:53.339 --> 00:05:04.089
+00:05:19.152 --> 00:05:29.770
 The UI remains available for inspection and control, while the day-to-day executive experience is simple: ask, review the outcome, and intervene only when the system surfaces a real exception.
 
-00:05:04.089 --> 00:05:13.289
+00:05:29.770 --> 00:05:38.981
 Without this operating layer, Northstar's AI journey would fragment across chat tools, spreadsheets, CRM automations, ERP scripts, and personal assistants.
 
-00:05:13.289 --> 00:05:19.729
+00:05:38.981 --> 00:05:45.429
 Context would drift, ownership would blur, and every integration would become a new island.
 
-00:05:19.729 --> 00:05:30.769
+00:05:45.429 --> 00:05:56.483
 With Flolah, objectives provide direction; agents provide specialised capacity; workflows provide repeatability; CRM and ERP provide business truth; and policies and budgets provide control.
 
-00:05:30.769 --> 00:05:41.809
+00:05:56.483 --> 00:06:07.537
 The result is a company that can pursue sales growth, cost reduction, and operating efficiency as one coordinated system—and improve that system every quarter.
