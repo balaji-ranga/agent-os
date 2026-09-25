@@ -38,6 +38,7 @@ try {
   assert.equal(validation.workflows, 7);
   assert.equal(validation.monthly_token_budget, 6_200_000);
   assert.equal(planDemoSeedPack({ includeExternal: false }).resources.crm_people, 20);
+  assert.equal(planDemoSeedPack({ includeExternal: false }).resources.objective_linked_goals, 7);
   const unsafe = structuredClone(pack);
   unsafe.policies.find((item) => item.family === 'financial_destructive').mode = 'autonomous';
   assert.throws(() => validateDemoSeedPack(unsafe), /financial_destructive/);
@@ -53,6 +54,8 @@ try {
   assert.equal(getDemoSeedPackInstall(user.id)?.status, 'installed');
   assert.equal(db.prepare("SELECT COUNT(*) AS n FROM agents WHERE owner_user_id=? AND source_publish_id=?").get(user.id, pack.pack_id).n, 8);
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM company_objectives WHERE owner_user_id=? AND id LIKE ?').get(user.id, 'demo-ns-%-objective-%').n, 5);
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM scheduled_goals WHERE owner_user_id=? AND source='company_objective'").get(user.id).n, 4);
+  assert.equal(getDemoSeedPackInstall(user.id)?.resources?.scheduled_goals?.length, 4);
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM agent_workflow_definitions WHERE owner_user_id=? AND id LIKE ?').get(user.id, 'demo-ns-%-workflow-%').n, 7);
   assert.equal(getCeoDb(user.id).prepare("SELECT COUNT(*) AS n FROM master_data_tables WHERE owner_user_id=? AND name LIKE 'demo_northstar_%'").get(user.id).n, 7);
   assert.equal(db.prepare("SELECT mode FROM action_family_policies WHERE owner_user_id=? AND family='communicate_external'").get(user.id).mode, 'autonomous');

@@ -123,6 +123,10 @@ export function getErpnextPublicBase() {
   return sameOriginTlsPort('ERPNEXT_PUBLIC_HTTPS_PORT', '8444');
 }
 
+// Open a useful, company-scoped list instead of ERPNext's generic workspace.
+export const ERPNEXT_CRM_LANDING_PATH = '/app/opportunity/view/list';
+export const ERPNEXT_ERP_LANDING_PATH = '/app/sales-invoice/view/list';
+
 async function probeHttp(url, { timeoutMs = 2500 } = {}) {
   if (!url) return { ok: false, status: 0, error: 'no_url' };
   try {
@@ -236,8 +240,7 @@ export async function getCrmEmbedForOwner(ownerUserId, { flolahUser } = {}) {
         const launch = await buildErpSsoHandoff(owner, {
           flolahUser: flolahUser || getUserById(owner) || undefined,
           publicBase: base,
-          // Landing on CRM workspace when available; Desk falls back to /app
-          redirectPath: '/app/crm',
+          redirectPath: ERPNEXT_CRM_LANDING_PATH,
         });
         if (launch.company_id) companyId = launch.company_id;
         if (launch.company_name) companyName = launch.company_name;
@@ -263,8 +266,8 @@ export async function getCrmEmbedForOwner(ownerUserId, { flolahUser } = {}) {
               'Passwordless ERPNext CRM (Sales) desk via Flolah session; company-scoped user.',
           };
         } else {
-          open_url = base + '/app/crm';
-          iframe_url = base + '/login?redirect-to=' + encodeURIComponent('/app/crm');
+          open_url = base + ERPNEXT_CRM_LANDING_PATH;
+          iframe_url = base + '/login?redirect-to=' + encodeURIComponent(ERPNEXT_CRM_LANDING_PATH);
           sso = {
             mode: 'login_redirect',
             ok: false,
@@ -275,7 +278,7 @@ export async function getCrmEmbedForOwner(ownerUserId, { flolahUser } = {}) {
         void isErpnextSsoEnabled;
       } catch (e) {
         console.warn('[business-embed] erpnext crm sso failed', e?.message || e);
-        iframe_url = base + '/login?redirect-to=' + encodeURIComponent('/app/crm');
+        iframe_url = base + '/login?redirect-to=' + encodeURIComponent(ERPNEXT_CRM_LANDING_PATH);
         open_url = iframe_url;
         sso = { mode: 'login_redirect', ok: false, reason: e?.message || 'sso_failed' };
       }
@@ -443,6 +446,7 @@ export async function getErpEmbedForOwner(ownerUserId, { flolahUser, flolahUserI
       const launch = await buildErpSsoHandoff(owner, {
         flolahUser: flolahUser || getUserById(owner) || { id: flolahUserId || owner },
         publicBase: base,
+        redirectPath: ERPNEXT_ERP_LANDING_PATH,
       });
       if (launch.company_id) companyId = launch.company_id;
       if (launch.company_name) companyName = launch.company_name;
@@ -473,9 +477,9 @@ export async function getErpEmbedForOwner(ownerUserId, { flolahUser, flolahUserI
           companyName || companyId
             ? '?company=' + encodeURIComponent(companyName || companyId)
             : '';
-        open_url = base + '/app' + companyQs;
+        open_url = base + ERPNEXT_ERP_LANDING_PATH + companyQs;
         iframe_url =
-          base + '/login?redirect-to=' + encodeURIComponent('/app' + companyQs);
+          base + '/login?redirect-to=' + encodeURIComponent(ERPNEXT_ERP_LANDING_PATH + companyQs);
         sso = {
           mode: 'login_redirect',
           ok: false,
@@ -492,9 +496,9 @@ export async function getErpEmbedForOwner(ownerUserId, { flolahUser, flolahUserI
         companyName || companyId
           ? '?company=' + encodeURIComponent(companyName || companyId)
           : '';
-      open_url = base + '/app' + companyQs;
+      open_url = base + ERPNEXT_ERP_LANDING_PATH + companyQs;
       iframe_url =
-        base + '/login?redirect-to=' + encodeURIComponent('/app' + companyQs);
+        base + '/login?redirect-to=' + encodeURIComponent(ERPNEXT_ERP_LANDING_PATH + companyQs);
       sso = {
         mode: 'login_redirect',
         ok: false,

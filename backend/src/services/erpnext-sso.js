@@ -57,6 +57,23 @@ function genPassword() {
   return 'Fl-' + crypto.randomBytes(12).toString('base64url') + '!a1';
 }
 
+export function planCompanyPermissionReconciliation(rows = [], companyName = '') {
+  const companyPerms = Array.isArray(rows) ? rows.filter((row) => row?.name) : [];
+  const target = companyPerms.find((row) => row.for_value === companyName) || companyPerms[0] || null;
+  const update = target
+    ? {
+        ...(target.for_value !== companyName ? { for_value: companyName } : {}),
+        ...(!Number(target.is_default) ? { is_default: 1 } : {}),
+        ...(!Number(target.apply_to_all_doctypes) ? { apply_to_all_doctypes: 1 } : {}),
+      }
+    : null;
+  return {
+    target,
+    update,
+    stale: companyPerms.filter((row) => row.name !== target?.name),
+  };
+}
+
 
 /** Ensure Company + self User permissions (desk cannot list other SSO users).
  * Company User Permission must have is_default=1 so Selling/Buying modules get a
@@ -140,18 +157,42 @@ export async function ensureSsoUserPermissions(userId, companyName) {
 
   if (companyName) {
     try {
-      const r = await ensurePerm({
-        allow: 'Company',
-        for_value: companyName,
-        apply_to_all_doctypes: 1,
-        is_default: 1,
-      });
+      // A Flolah SSO user is deliberately bound to one company. Older binds or
+      // company renames can otherwise leave several Company permissions and let
+      // Desk select the wrong default company. Reconcile to exactly one here.
+      const companyPerms = await listPerms('Company');
+      const reconciliation = planCompanyPermissionReconciliation(companyPerms, companyName);
+      const { target } = reconciliation;
+      let r;
+      if (target?.name) {
+        const body = reconciliation.update;
+        if (Object.keys(body).length) {
+          await frappeFetch('/api/resource/User Permission/' + encodeURIComponent(target.name), {
+            method: 'PUT', body,
+          });
+        }
+        r = { created: false, updated: Boolean(Object.keys(body).length), name: target.name };
+      } else {
+        r = await ensurePerm({
+          allow: 'Company',
+          for_value: companyName,
+          apply_to_all_doctypes: 1,
+          is_default: 1,
+        });
+      }
+      const stale = reconciliation.stale;
+      for (const permission of stale) {
+        await frappeFetch('/api/resource/User Permission/' + encodeURIComponent(permission.name), {
+          method: 'DELETE',
+        });
+      }
       console.info(
-        '[erpnext-sso] company user permission user=%s company=%s created=%s updated=%s',
+        '[erpnext-sso] company user permission user=%s company=%s created=%s updated=%s stale_removed=%s',
         userId,
         companyName,
         !!r.created,
-        !!r.updated
+        !!r.updated,
+        stale.length
       );
     } catch (e) {
       console.warn('[erpnext-sso] company user permission', e && e.message ? e.message : e);

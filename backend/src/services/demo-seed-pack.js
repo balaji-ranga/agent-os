@@ -151,6 +151,7 @@ export function planDemoSeedPack({ ownerUserId = '', includeExternal = true } = 
       human_users: PACK.people.length,
       ai_agents: PACK.agents.length,
       objective_records: PACK.objectives.length,
+      objective_linked_goals: PACK.workflows.length,
       workflows: PACK.workflows.length,
       knowledge_tables: 7,
       crm_companies: PACK.crm.companies.length,
@@ -294,6 +295,13 @@ function seedObjectives(ownerUserId, agentIds, resources) {
     if (existing && existing.owner_user_id !== ownerUserId) throw new Error(`Cross-owner objective collision: ${id}`);
     if (!existing) createObjective(ownerUserId, objectiveInput(ownerUserId, spec, agentIds), ownerUserId);
     resources.objectives.push(id);
+  }
+  if (resources.objectives.length) {
+    const marks = resources.objectives.map(() => '?').join(',');
+    resources.scheduled_goals = db().prepare(
+      `SELECT scheduled_goal_id FROM company_initiative_scheduled_goals
+       WHERE owner_user_id=? AND objective_id IN (${marks}) ORDER BY scheduled_goal_id`
+    ).all(ownerUserId, ...resources.objectives).map((row) => row.scheduled_goal_id);
   }
 }
 
@@ -505,7 +513,7 @@ export async function seedDemoSeedPack({ ownerUserId, includeExternal = true, al
   const installId = `dsp-${randomUUID()}`;
   const resources = {
     install_id: installId, marker: PACK.marker, owner_created: false,
-    people: [], agents: [], objectives: [], workflows: [], master_tables: [],
+    people: [], agents: [], objectives: [], scheduled_goals: [], workflows: [], master_tables: [],
     external: { crm: { companies: [], people: [], opportunities: [] }, crm_backend: null, erp: [] },
     previous: {
       user_profile: db().prepare('SELECT business_name,country,region,industry,industry_other FROM platform_users WHERE id=?').get(owner) || null,
@@ -652,7 +660,7 @@ export async function cleanupDemoSeedPack({ ownerUserId, includeExternal = true,
   }
   return {
     ok: errors.length === 0,
-    cleaned: { people: resources.people?.length || 0, agents: resources.agents?.length || 0, objectives: resources.objectives?.length || 0, workflows: resources.workflows?.length || 0, master_tables: resources.master_tables?.length || 0 },
+    cleaned: { people: resources.people?.length || 0, agents: resources.agents?.length || 0, objectives: resources.objectives?.length || 0, scheduled_goals: resources.scheduled_goals?.length || 0, workflows: resources.workflows?.length || 0, master_tables: resources.master_tables?.length || 0 },
     retained: ['CEO account', 'Twenty workspace', 'ERPNext company', 'provider credentials and .env files'],
     errors,
   };

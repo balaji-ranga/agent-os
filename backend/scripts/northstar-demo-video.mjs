@@ -48,9 +48,10 @@ const SCENES = [
   { name: 'One operating context', routes: ['/master-data'], seconds: 34 },
   { name: 'Human and AI organisation', routes: ['/org'], seconds: 34 },
   { name: 'Objectives and key results', routes: ['/objectives'], seconds: 42 },
+  { name: 'Objective-linked goals', routes: ['/scheduled-goals'], seconds: 36 },
   { name: 'Repeatable workflows', routes: ['/workflows'], seconds: 38 },
-  { name: 'Revenue and CRM', routes: ['/master-data'], table: 'demo_northstar_crm_opportunities', seconds: 42 },
-  { name: 'Cost, fulfilment and ERP', routes: ['/master-data'], table: 'demo_northstar_erp_invoices', seconds: 42 },
+  { name: 'Revenue and CRM', routes: ['/crm'], embed: 'CRM', evidence: /opportunit/i, seconds: 42 },
+  { name: 'Cost, fulfilment and ERP', routes: ['/erp'], embed: 'ERP', evidence: /sales invoice/i, seconds: 42 },
   { name: 'Autonomy with policy', routes: ['/policies'], seconds: 36 },
   { name: 'Agent budgets and efficiency', routes: ['/efficiency'], seconds: 34 },
   { name: 'CEO channel', routes: ['/workspace'], seconds: 38 },
@@ -118,6 +119,24 @@ async function loadPlaywright() {
   throw new Error('Playwright Core was not found; run capture inside the openclaw container');
 }
 
+async function verifyBusinessEmbed(page, scene) {
+  const frame = page.frameLocator(`iframe[title="${scene.embed}"]`);
+  await frame.locator('body').waitFor({ state: 'visible', timeout: 60000 });
+  let evidence = '';
+  const deadline = Date.now() + 60000;
+  while (Date.now() < deadline) {
+    evidence = await frame.locator('body').innerText().catch(() => '');
+    if (scene.evidence.test(evidence)) break;
+    await page.waitForTimeout(1500);
+  }
+  const outer = await page.locator('body').innerText().catch(() => '');
+  if (!/Northstar Industrial Supplies/i.test(outer)) throw new Error(`${scene.embed} company label is not Northstar`);
+  if (!scene.evidence.test(evidence)) throw new Error(`${scene.embed} did not reach its seeded record list`);
+  if (/Tenery|Tenergy|Let.?s begin your journey|login to erpnext|sign in to erpnext/i.test(evidence)) {
+    throw new Error(`${scene.embed} exposed a stale company, onboarding, or login screen`);
+  }
+}
+
 async function capture() {
   if (!existsSync(TOKEN_FILE)) throw new Error('temporary capture session is missing');
   mkdirSync(WORK_ROOT, { recursive: true });
@@ -150,6 +169,7 @@ async function capture() {
         if (bannerCount) throw new Error('impersonation banner detected; refusing to record Admin context');
         const bodyText = await page.locator('body').innerText().catch(() => '');
         if (/sign in|login to flolah/i.test(bodyText.slice(0, 1200))) throw new Error(`capture session was not accepted on ${route}`);
+        if (scene.embed) await verifyBusinessEmbed(page, scene);
         if (scene.table) {
           const tableButton = page.getByRole('button', { name: new RegExp(`^${scene.table}\\b`, 'i') }).first();
           await tableButton.waitFor({ state: 'visible', timeout: 30000 });
