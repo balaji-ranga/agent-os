@@ -27,7 +27,7 @@ This end-to-end demonstration follows Northstar Industrial Supplies from yearly 
     srcLang="en"
     label="English"
   />
-  Your browser does not support embedded video. [Download the Northstar demonstration](/docs/media/13-northstar-ai-native-company.mp4).
+  Your browser does not support embedded video.
 </video>
 
 The demonstration uses synthetic company data and shows the product from the CEO's user view.
