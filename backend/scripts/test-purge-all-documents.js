@@ -31,6 +31,7 @@ try {
   check(isProtectedPlatformDocument({ title: 'Flolah User Guide', filename: 'PROJECT.md' }), 'User Guide protected');
   check(isProtectedPlatformDocument({ title: 'Flolah User Guide', filename: 'README.md' }), 'legacy README filename protected');
   check(isProtectedPlatformDocument({ title: 'Flolah Help — Getting Started', filename: 'platform-help-01-getting-started.md' }), 'Help doc protected');
+  check(isProtectedPlatformDocument({ title: 'Flolah Public Guide — Workflows', filename: 'public-guide-systems--workflows.md' }), 'Public guide doc protected');
   check(isProtectedPlatformDocument({ title: 'Flowlah Help — Old', filename: 'x.md' }), 'legacy help protected');
   check(!isProtectedPlatformDocument({ title: 'My Policy', filename: 'policy.pdf' }), 'user upload not protected');
 

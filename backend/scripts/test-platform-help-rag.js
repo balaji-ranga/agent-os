@@ -35,7 +35,8 @@ if (!granted?.ok) {
 }
 console.log('OK granted to', ceo.id);
 
-const docs = (await listDocuments(PLATFORM_OWNER_ID)).filter((d) => String(d.title || '').startsWith(PLATFORM_HELP_TITLE_PREFIX));
+const allDocs = await listDocuments(PLATFORM_OWNER_ID);
+const docs = allDocs.filter((d) => String(d.title || '').startsWith(PLATFORM_HELP_TITLE_PREFIX));
 console.log('help docs:', docs.length);
 if (docs.length < 5) {
   console.error('FAIL: too few help docs');
@@ -46,6 +47,10 @@ for (const filename of ['platform-help-52-governed-gmail-operations.md', 'platfo
     console.error('FAIL: missing recent help document', filename);
     process.exit(1);
   }
+}
+if (!allDocs.some((doc) => String(doc.filename || '').toLowerCase() === 'public-guide-systems--social-publishing.md')) {
+  console.error('FAIL: public static guide is not mirrored into Platform Help RAG');
+  process.exit(1);
 }
 
 const rag = await ragDocuments(PLATFORM_OWNER_ID, {
@@ -66,6 +71,7 @@ console.log(text.slice(0, 800));
 for (const [label, query, expected] of [
   ['Gmail Operations', 'Gmail Operations immutable cleanup plan Trash reply draft connector action grant', /cleanup|trash|draft|connector action/i],
   ['Goal execution controls', 'Goal Plan planning live progress Cancel execution Retry execution partial success recovery', /cancel execution|retry execution|partial success|recovery/i],
+  ['Facebook publishing typo', 'how to eate a facebook post', /browser recipe|meta graph|create_page_post|facebook page/i],
 ]) {
   const recent = await ragDocuments(PLATFORM_OWNER_ID, { query, topK: 8, summarize: false });
   const payload = JSON.stringify(recent);

@@ -9,6 +9,7 @@
 export const FLOLAH_GUIDE_TITLE = 'Flolah User Guide';
 export const FLOLAH_GUIDE_FILENAME = 'PROJECT.md';
 export const PLATFORM_HELP_TITLE_PREFIX = 'Flolah Help —';
+export const PUBLIC_DOCS_TITLE_PREFIX = 'Flolah Public Guide —';
 export const LEGACY_PLATFORM_HELP_TITLE_PREFIX = 'Flowlah Help —';
 export const LEGACY_USER_GUIDE_TITLE = 'Flowlah User Guide';
 
@@ -23,6 +24,7 @@ export function isProtectedPlatformDocument(doc) {
 
   if (title === FLOLAH_GUIDE_TITLE || title === LEGACY_USER_GUIDE_TITLE) return true;
   if (title.startsWith(PLATFORM_HELP_TITLE_PREFIX)) return true;
+  if (title.startsWith(PUBLIC_DOCS_TITLE_PREFIX)) return true;
   if (title.startsWith(LEGACY_PLATFORM_HELP_TITLE_PREFIX)) return true;
   if (title.startsWith('Flowlah Help -')) return true;
 
@@ -30,6 +32,7 @@ export function isProtectedPlatformDocument(doc) {
   if (fn === FLOLAH_GUIDE_FILENAME.toLowerCase()) return true;
   if (fn === 'readme.md') return true;
   if (fn.startsWith('platform-help-')) return true;
+  if (fn.startsWith('public-guide-')) return true;
 
   return false;
 }

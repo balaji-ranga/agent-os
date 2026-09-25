@@ -13,7 +13,7 @@ This corpus is written for the public website. It does **not** include operator 
 | Surface | Location | Audience |
 |---------|----------|----------|
 | **Public docs** (this folder) | Built into `deploy/static/flolah-home/docs/` | Anyone on the marketing / login sites |
-| **In-app Platform Help** | `knowledgebase/platform-help/` (RAG) | Logged-in CEOs chatting with Platform Help |
+| **In-app Platform Help** | Curated `knowledgebase/platform-help/` plus every sensitivity-scanned page in `docs-site/docs/` (one platform RAG index) | Logged-in CEOs chatting with Platform Help |
 
 Keep public pages sequenced: access → register → setup → run → operate.
 

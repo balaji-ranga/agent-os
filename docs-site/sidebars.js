@@ -58,6 +58,7 @@ const sidebars = {
         'systems/crm-and-erp',
         'systems/channels',
         'systems/browser-session',
+        'systems/social-publishing',
         'systems/ibkrnew-event-trader',
         'systems/content-and-media',
         'systems/policies',

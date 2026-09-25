@@ -4,15 +4,17 @@
  */
 import { createHash } from 'crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'fs';
-import { dirname, join } from 'path';
+import { dirname, join, relative } from 'path';
 import { fileURLToPath } from 'url';
 import {
   FLOLAH_GUIDE_FILENAME,
   FLOLAH_GUIDE_TITLE,
   PLATFORM_HELP_DOCUMENTS,
   PLATFORM_HELP_TITLE_PREFIX,
+  PUBLIC_DOCS_TITLE_PREFIX,
   readDefaultReadmeContent,
   resolvePlatformHelpDir,
+  resolvePublicDocsDir,
 } from '../ceo-default-master-data.js';
 import { getDocument, indexDocument, listDocuments } from './documents.js';
 import { PLATFORM_OWNER_ID, ensurePlatformIndices } from './indices.js';
@@ -56,7 +58,14 @@ function findExistingByTitleOrFilename(docs, title, filename) {
 /**
  * Write markdown to disk and upsert into OpenSearch if content hash changed.
  */
-async function upsertPlatformMarkdown({ title, filename, content, existingDocs }) {
+async function upsertPlatformMarkdown({
+  title,
+  filename,
+  content,
+  existingDocs,
+  source = 'platform',
+  tags = ['platform-help'],
+}) {
   if (!content) {
     return { document: null, created: false, updated: false, skipped: 'content_missing' };
   }
@@ -88,10 +97,10 @@ async function upsertPlatformMarkdown({ title, filename, content, existingDocs }
     sizeBytes: buffer.length,
     storagePath,
     text: content,
-    source: 'platform',
+    source,
     uploadedByType: 'system',
     uploadedById: 'platform-seed',
-    tags: ['platform-help'],
+    tags,
     contentSha256: sha,
   });
 
@@ -103,8 +112,57 @@ async function upsertPlatformMarkdown({ title, filename, content, existingDocs }
   };
 }
 
+function markdownTitle(content, fallback) {
+  const text = String(content || '');
+  const frontmatter = text.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
+  const title = frontmatter?.[1]?.match(/^title:\s*["']?([^\r\n"']+)["']?\s*$/im);
+  if (title?.[1]) return title[1].trim();
+  const heading = text.match(/^#\s+(.+)$/m);
+  return heading?.[1]?.trim() || fallback;
+}
+
+function markdownFilesRecursive(root) {
+  const files = [];
+  function visit(dir) {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const fullPath = join(dir, entry.name);
+      if (entry.isDirectory()) visit(fullPath);
+      else if (entry.isFile() && /\.mdx?$/i.test(entry.name)) files.push(fullPath);
+    }
+  }
+  visit(root);
+  return files.sort((a, b) => a.localeCompare(b));
+}
+
 /**
- * Ensure Flolah User Guide + knowledgebase/platform-help/*.md are indexed
+ * Public static docs are a second, sensitivity-scanned source for Platform Help.
+ * Keeping discovery automatic prevents new website help pages from silently
+ * remaining invisible to the in-product help agent.
+ */
+export function listPublicGuideSources() {
+  const dir = resolvePublicDocsDir();
+  if (!dir) return [];
+  return markdownFilesRecursive(dir).map((path) => {
+    const relativePath = relative(dir, path).replace(/\\/g, '/');
+    const content = readFileSync(path, 'utf8');
+    const fallback = relativePath
+      .replace(/\.mdx?$/i, '')
+      .split('/')
+      .map((part) => part.replace(/[-_]+/g, ' '))
+      .join(' — ');
+    return {
+      title: `${PUBLIC_DOCS_TITLE_PREFIX}${markdownTitle(content, fallback)}`,
+      filename: `public-guide-${relativePath.replace(/\//g, '--')}`,
+      content,
+      source: 'platform-public-docs',
+      tags: ['platform-help', 'public-docs'],
+    };
+  });
+}
+
+/**
+ * Ensure Flolah User Guide + knowledgebase/platform-help/*.md + the public
+ * docs-site guide are indexed
  * under PLATFORM_OWNER_ID. Skips docs whose content_sha256 matches.
  *
  * @returns {Promise<{ created: number, updated: number, skipped: number, docs: object[] }>}
@@ -187,6 +245,22 @@ export async function ensurePlatformHelpInOpenSearch() {
       title: entry.title,
       filename,
       content,
+      existingDocs,
+    });
+    docs.push(result);
+    if (result.created) created += 1;
+    else if (result.updated) updated += 1;
+    else skipped += 1;
+    if (result.document) {
+      const idx = existingDocs.findIndex((d) => d.id === result.document.id);
+      if (idx >= 0) existingDocs[idx] = result.document;
+      else existingDocs.push(result.document);
+    }
+  }
+
+  for (const entry of listPublicGuideSources()) {
+    const result = await upsertPlatformMarkdown({
+      ...entry,
       existingDocs,
     });
     docs.push(result);

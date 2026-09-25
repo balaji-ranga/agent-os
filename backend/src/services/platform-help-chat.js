@@ -1,7 +1,8 @@
 import { chatCompletions } from '../config/llm.js';
 import { ragDocumentsForAgent } from './master-data-tools.js';
 
-const MAX_EVIDENCE_CHARS = 7500;
+const MAX_EVIDENCE_CHARS = 10000;
+const MAX_EVIDENCE_CHUNKS = 5;
 const MAX_HISTORY_CHARS = 1600;
 
 function clipped(value, limit) {
@@ -10,7 +11,7 @@ function clipped(value, limit) {
 
 export function buildPlatformHelpEvidencePrompt({ question, history = [], rag = {} }) {
   let evidenceRemaining = MAX_EVIDENCE_CHARS;
-  const evidence = (Array.isArray(rag.chunks) ? rag.chunks : []).slice(0, 3).map((chunk, index) => {
+  const evidence = (Array.isArray(rag.chunks) ? rag.chunks : []).slice(0, MAX_EVIDENCE_CHUNKS).map((chunk, index) => {
     const title = clipped(chunk.document_title || chunk.title || chunk.document_name || `Help document ${index + 1}`, 180);
     const content = clipped(chunk.content || chunk.text || chunk.chunk_text || '', evidenceRemaining);
     evidenceRemaining -= content.length;
@@ -42,7 +43,7 @@ export function buildPlatformHelpEvidencePrompt({ question, history = [], rag = 
         ].filter(Boolean).join('\n\n'),
       },
     ],
-    evidenceTitles: (Array.isArray(rag.chunks) ? rag.chunks : []).slice(0, 3)
+    evidenceTitles: (Array.isArray(rag.chunks) ? rag.chunks : []).slice(0, MAX_EVIDENCE_CHUNKS)
       .map((chunk, index) => clipped(chunk.document_title || chunk.title || chunk.document_name || `Help document ${index + 1}`, 180)),
   };
 }
@@ -53,7 +54,7 @@ export async function answerPlatformHelp({ ownerUserId, question, history = [], 
     query: question,
     agentId: 'platformhelp',
     source: 'platformhelp',
-    top_k: 3,
+    top_k: 6,
     summarize: false,
   });
   const { messages, evidenceTitles } = buildPlatformHelpEvidencePrompt({ question, history, rag });

@@ -349,7 +349,7 @@ export async function ragDocumentsForAgent(ownerUserId, params = {}) {
   const wantSummarize = wantsRagSummarize(params);
 
   if (isPlatformHelpAgent(agentId)) {
-    const boundedTopK = Math.min(4, Math.max(1, Number(topK) || 3));
+    const boundedTopK = Math.min(8, Math.max(1, Number(topK) || 5));
     const result = await md.ragDocuments(PLATFORM_OWNER_ID, {
       query,
       topK: boundedTopK,

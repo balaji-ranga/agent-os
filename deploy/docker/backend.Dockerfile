@@ -59,6 +59,7 @@ COPY NOTICE ./NOTICE
 COPY THIRD_PARTY_NOTICES.md ./THIRD_PARTY_NOTICES.md
 # Platform Help corpus → Master Data RAG (Platform Help agent / master_data_rag; protected from purge/delete)
 COPY knowledgebase/platform-help ./knowledgebase/platform-help
+COPY docs-site/docs ./docs-site/docs
 COPY knowledgebase/video-tours ./knowledgebase/video-tours
 
 WORKDIR /opt/agent-os/backend

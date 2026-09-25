@@ -392,7 +392,7 @@ All proxied under `/api` (rebuild backend + frontend images after upgrade):
 | Lean Kanban board | Generic task board for agent / workflow / pipeline cards — no Job applications filter button or job-pipeline status banner (job setup stays under Job profiles / Job workflows) |
 | Lean CEO onboard | Default grants: COO (`balserve`) + Workflow Builder + Platform Help; `pruneSharedStandardAgentGrants` at boot; Dashboard **OrgDesigner** for departments / agents |
 | Master Data + RAG | Tables in SQLite; documents in OpenSearch (`master_data_*` tools). Per-user meta+search indices; admin **Documents RAG** for platform index. Specialists merge Flolah Help (`corpus=platform-help`); CEO Documents UI stays uploads-only |
-| Platform Help | Agent `platformhelp` + `knowledgebase/platform-help/` → **platform** OpenSearch indices (not per-CEO copies); **answer-first** (no hard peer specialty referral). CRM/ERP SME playbooks **39** O2C/P2P / **40** Lead→Order |
+| Platform Help | Agent `platformhelp` + curated `knowledgebase/platform-help/` **and all sensitivity-scanned `docs-site/docs/` pages** → **platform** OpenSearch indices (not per-CEO copies); **answer-first** bounded retrieval (up to 6 hits / 5 evidence chunks; no hard peer specialty referral). Rebuild backend and run `reupload-platform-help-docs.js` after either source changes. CRM/ERP SME playbooks **39** O2C/P2P / **40** Lead→Order |
 | Agent chat tools UI | Assistant bubbles show gear pills for Agent OS tool calls (`content_tool_logs`) plus native OpenClaw tools (`browser`/`image`/`cron` from session `.jsonl` under `OPENCLAW_DIR`) |
 | Notification tooltips | Bell panel snippet hover shows full title/body / agent response |
 | AgentExchange | `GET /api/agent-exchange` (CEO/Admin), UI `/agent-exchange` — Public vs Secured badges; **Test agent** panel; IP policy default **deny_all** (allow_all / whitelist); owner unpublish; Admin **A2A logs** `/admin/a2a-invocations` |
@@ -484,7 +484,7 @@ Until login DNS + cert complete, SPA remains reachable on apex paths other than 
 | acme.sh `--alpn` | 443 | **Preferred** (`vps-expand-login-cert.sh`) |
 
 Nginx production confs listen on both `0.0.0.0` and `[::]` for 80/443 so IPv4 + IPv6 DNS work.
-The backend image (`deploy/docker/backend.Dockerfile`) **COPY**s `knowledgebase/platform-help` so Master Data RAG seeding works inside the container.
+The backend image (`deploy/docker/backend.Dockerfile`) **COPY**s both `knowledgebase/platform-help` and `docs-site/docs` so the curated help and complete public guide can be seeded into Platform Help RAG inside the container.
 
 On VPS after sync (or after `git pull` on the box), `vps-deploy-latest.sh` rebuilds images and runs:
 

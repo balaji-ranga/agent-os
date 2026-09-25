@@ -8,9 +8,10 @@ const built = buildPlatformHelpEvidencePrompt({
   rag: { chunks: Array.from({ length: 8 }, (_, index) => ({ document_title: `Document ${index + 1}`, content: huge })) },
 });
 const serialized = JSON.stringify(built.messages);
-assert.equal(built.evidenceTitles.length, 3);
-assert(serialized.length < 13000, `bounded Platform Help context too large: ${serialized.length}`);
+assert.equal(built.evidenceTitles.length, 5);
+assert(serialized.length < 16000, `bounded Platform Help context too large: ${serialized.length}`);
 assert(serialized.includes('Current question'));
 assert(serialized.includes('Document 1'));
-assert(!serialized.includes('Document 4'));
+assert(serialized.includes('Document 5'));
+assert(!serialized.includes('Document 6'));
 console.log(`PASS Platform Help bounded context chars=${serialized.length}`);

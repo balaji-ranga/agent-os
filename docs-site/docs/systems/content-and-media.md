@@ -28,7 +28,7 @@ Approve CEO-review cards before the pipeline continues. Desktop Chrome may be re
 
 ## Content creator / social
 
-Facebook Page via **Connectors → MCPs**, then operate workflows for publish, comment triage, and a weekly ops rollup in the **bell**.
+Facebook Page via **Connectors → MCPs**, then operate workflows for publish, comment triage, and a weekly ops rollup in the **bell**. For website-UI publishing through Chrome or the Desktop worker, use a saved browser recipe. See [Social publishing](./social-publishing.md).
 
 ## Avatars and published scenes
 

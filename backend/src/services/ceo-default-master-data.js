@@ -49,6 +49,8 @@ export const FLOLAH_GUIDE_FILENAME = 'PROJECT.md';
 
 /** Title prefix for Platform Help RAG documents. */
 export const PLATFORM_HELP_TITLE_PREFIX = 'Flolah Help —';
+/** Title prefix for public docs mirrored into the same Platform Help RAG corpus. */
+export const PUBLIC_DOCS_TITLE_PREFIX = 'Flolah Public Guide —';
 /** Legacy title prefix (pre-rename); removed on refresh. */
 export const LEGACY_PLATFORM_HELP_TITLE_PREFIX = 'Flowlah Help —';
 export const LEGACY_USER_GUIDE_TITLE = 'Flowlah User Guide';
@@ -210,6 +212,22 @@ export const PLATFORM_HELP_DOCUMENTS = Object.freeze([
     filename: '51-ibkrnew-event-trader.md',
     title: `${PLATFORM_HELP_TITLE_PREFIX} IBKRNew Event Driven Paper Trader`,
   },
+  {
+    filename: '52-governed-gmail-operations.md',
+    title: `${PLATFORM_HELP_TITLE_PREFIX}Governed Gmail Operations`,
+  },
+  {
+    filename: '53-announcements-and-mcp-universe.md',
+    title: `${PLATFORM_HELP_TITLE_PREFIX}Announcements And MCP Universe`,
+  },
+  {
+    filename: '54-objectives-key-results-okr.md',
+    title: `${PLATFORM_HELP_TITLE_PREFIX}Objectives Key Results OKR`,
+  },
+  {
+    filename: '55-social-publishing-facebook-linkedin.md',
+    title: `${PLATFORM_HELP_TITLE_PREFIX}Social Publishing Facebook LinkedIn`,
+  },
 ]);
 
 /** Resolve long-form project guide (knowledgebase/PROJECT.md; Docker: /opt/agent-os/knowledgebase/PROJECT.md). */
@@ -234,6 +252,19 @@ export function resolvePlatformHelpDir() {
     process.env.AGENT_OS_PLATFORM_HELP_DIR,
     join(REPO_ROOT, 'knowledgebase', 'platform-help'),
     '/opt/agent-os/knowledgebase/platform-help',
+  ].filter(Boolean);
+  for (const p of candidates) {
+    if (existsSync(p)) return p;
+  }
+  return null;
+}
+
+/** Resolve the public Docusaurus guide source that is safe to expose through Platform Help. */
+export function resolvePublicDocsDir() {
+  const candidates = [
+    process.env.AGENT_OS_PUBLIC_DOCS_DIR,
+    join(REPO_ROOT, 'docs-site', 'docs'),
+    '/opt/agent-os/docs-site/docs',
   ].filter(Boolean);
   for (const p of candidates) {
     if (existsSync(p)) return p;

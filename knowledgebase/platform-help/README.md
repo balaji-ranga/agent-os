@@ -61,6 +61,7 @@
 | [52-governed-gmail-operations.md](./52-governed-gmail-operations.md) | **Gmail Operations** employee — owner-scoped mailbox review, immutable cleanup plans, recoverable Trash, verified reply drafts, connector action grants, Action Control, quota-safe reads |
 | [53-announcements-and-mcp-universe.md](./53-announcements-and-mcp-universe.md) | Public **MCP Universe** provenance/discovery vs actual connection; product/sponsored announcement controls, WhatsApp opt-in, bounded interaction evidence |
 | [54-objectives-key-results-okr.md](./54-objectives-key-results-okr.md) | **Objectives Key Results (OKR)** — Objective → KRs + Initiatives → scheduled/ad-hoc Goals → Goal Plan runs → evidence; Objective Studio, autonomous measurement, admin registry/catalogues, agent linkage/deviations, Digest, troubleshooting |
+| [55-social-publishing-facebook-linkedin.md](./55-social-publishing-facebook-linkedin.md) | **Social publishing** — Facebook/LinkedIn browser recipes, Chrome extension vs Desktop worker, Meta Graph MCP Page publishing, workflow inputs, Action control approvals, durable verification, troubleshooting |
 
 **Video Tours (UI):** User menu → **Help → Video Tours** (/video-tours) — playlist of short CEO tours (script/captions now; mp4 when exported). Not ingested as RAG docs.
 
