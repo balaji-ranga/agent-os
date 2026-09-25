@@ -50,8 +50,8 @@ const SCENES = [
   { name: 'Objectives and key results', routes: ['/objectives'], seconds: 42 },
   { name: 'Objective-linked goals', routes: ['/scheduled-goals'], seconds: 36 },
   { name: 'Repeatable workflows', routes: ['/workflows'], seconds: 38 },
-  { name: 'Revenue and CRM', routes: ['/crm'], embed: 'CRM', evidence: /opportunit/i, seconds: 42 },
-  { name: 'Cost, fulfilment and ERP', routes: ['/erp'], embed: 'ERP', evidence: /sales invoice/i, seconds: 42 },
+  { name: 'Revenue and CRM', routes: ['/crm'], embed: 'CRM', heading: /opportunit/i, evidence: /GreenGrid Hotels/i, seconds: 42 },
+  { name: 'Cost, fulfilment and ERP', routes: ['/erp'], embed: 'ERP', heading: /sales invoice/i, evidence: /GreenGrid Hotels/i, seconds: 42 },
   { name: 'Autonomy with policy', routes: ['/policies'], seconds: 36 },
   { name: 'Agent budgets and efficiency', routes: ['/efficiency'], seconds: 34 },
   { name: 'CEO channel', routes: ['/workspace'], seconds: 38 },
@@ -126,12 +126,12 @@ async function verifyBusinessEmbed(page, scene) {
   const deadline = Date.now() + 60000;
   while (Date.now() < deadline) {
     evidence = await frame.locator('body').innerText().catch(() => '');
-    if (scene.evidence.test(evidence)) break;
+    if (scene.heading.test(evidence) && scene.evidence.test(evidence)) break;
     await page.waitForTimeout(1500);
   }
   const outer = await page.locator('body').innerText().catch(() => '');
   if (!/Northstar Industrial Supplies/i.test(outer)) throw new Error(`${scene.embed} company label is not Northstar`);
-  if (!scene.evidence.test(evidence)) throw new Error(`${scene.embed} did not reach its seeded record list`);
+  if (!scene.heading.test(evidence) || !scene.evidence.test(evidence)) throw new Error(`${scene.embed} did not show seeded Northstar rows`);
   if (/Tenery|Tenergy|Let.?s begin your journey|login to erpnext|sign in to erpnext/i.test(evidence)) {
     throw new Error(`${scene.embed} exposed a stale company, onboarding, or login screen`);
   }

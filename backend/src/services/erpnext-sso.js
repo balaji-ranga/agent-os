@@ -74,6 +74,11 @@ export function planCompanyPermissionReconciliation(rows = [], companyName = '')
   };
 }
 
+export function normalizeErpDeskRedirectPath(value = '/app') {
+  const raw = String(value || '/app').trim() || '/app';
+  return raw.startsWith('/') ? raw : '/' + raw;
+}
+
 
 /** Ensure Company + self User permissions (desk cannot list other SSO users).
  * Company User Permission must have is_default=1 so Selling/Buying modules get a
@@ -412,13 +417,12 @@ export async function buildErpSsoHandoff(ownerUserId, opts) {
   const session = await loginForSid(ssoUser.email, ssoUser.password);
 
   const expires = new Date(Date.now() + TOKEN_TTL_MS).toISOString();
-  const rawRedirect = String(opts.redirectPath || opts.redirect_path || '/app').trim() || '/app';
-  const redirectBase = rawRedirect.startsWith('/') ? rawRedirect : '/' + rawRedirect;
-  const redirectPath =
-    redirectBase +
-    (companyName
-      ? (redirectBase.includes('?') ? '&' : '?') + 'company=' + encodeURIComponent(companyName)
-      : '');
+  const rawRedirect = opts.redirectPath || opts.redirect_path || '/app';
+  // Company isolation/defaulting is enforced by the reconciled ERPNext User
+  // Permission. Appending ?company= to Desk list routes creates a client-side
+  // filter; on Opportunity it can bind to a custom tenant field and hide valid
+  // rows even though the session is correctly company-scoped.
+  const redirectPath = normalizeErpDeskRedirectPath(rawRedirect);
 
   // Separate tokens for embed vs top-level open path.
   const insertTok = getDb().prepare(

@@ -3,7 +3,10 @@ import {
   ERPNEXT_CRM_LANDING_PATH,
   ERPNEXT_ERP_LANDING_PATH,
 } from '../src/services/business-embed.js';
-import { planCompanyPermissionReconciliation } from '../src/services/erpnext-sso.js';
+import {
+  normalizeErpDeskRedirectPath,
+  planCompanyPermissionReconciliation,
+} from '../src/services/erpnext-sso.js';
 
 assert.equal(ERPNEXT_CRM_LANDING_PATH, '/app/opportunity/view/list');
 assert.equal(ERPNEXT_ERP_LANDING_PATH, '/app/sales-invoice/view/list');
@@ -32,4 +35,8 @@ assert.deepEqual(renamed.update, {
   apply_to_all_doctypes: 1,
 });
 
-console.log(JSON.stringify({ ok: true, cases: 3 }));
+assert.equal(normalizeErpDeskRedirectPath('app/opportunity/view/list'), '/app/opportunity/view/list');
+assert.equal(normalizeErpDeskRedirectPath('/app/opportunity/view/list'), '/app/opportunity/view/list');
+assert.doesNotMatch(normalizeErpDeskRedirectPath('/app/opportunity/view/list'), /[?&]company=/);
+
+console.log(JSON.stringify({ ok: true, cases: 4 }));
