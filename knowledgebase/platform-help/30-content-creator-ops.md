@@ -4,13 +4,18 @@
 
 **What is Company Operate?** After Company setup (or from the operate page), Flolah can provision day-to-day operate workflows and goals for packs such as **content_creator** — content production, social publish, comment ingest, community triage, and a weekly ops rollup.
 
-**How do I post to Facebook?** Connect **Facebook** under **Connectors → MCPs** (platform server `mcp-meta-graph`). Graph API can post to a **Facebook Page** you manage — not a personal profile timeline. Use a **Page ID** from Graph (`/me/accounts` or Page settings), not the numeric id in a personal `profile.php?id=…` URL.
+**How do I create or post to Facebook?** Choose the destination and route:
+
+- **Website UI, including a personal profile:** bring the Chrome extension or Desktop Browser Session worker online, record or use a saved Facebook recipe with required input `post_content`, and ask the employee/COO to run that exact recipe. Verify durable publication; an open composer is not success.
+- **Managed Facebook Page:** connect **Facebook** under **Connectors → MCPs** (platform server `mcp-meta-graph`) and run `content-publish-social`, or use an MCP workflow node with `create_page_post`. Use a Page ID from Graph (`/me/accounts` or Page settings), not a personal `profile.php?id=…` id.
+
+Both routes require the employee's tool/action grants and **Policies → Action control** permission or approval. Full route selection and browser instructions: **[55-social-publishing-facebook-linkedin.md](./55-social-publishing-facebook-linkedin.md)**.
 
 Full MCP / OAuth / App ID setup (admin platform defaults, optional CEO App ID override, callback URL): **[31-mcp-connectors-oauth.md](./31-mcp-connectors-oauth.md)**.
 
 **Where do I put `page_id`?** In the **content production / publish workflow run input** (or in the weekly COO content goal text if your graph reads it from the trigger). There is no separate Channel Publisher goal field just for `page_id`.
 
-**Does social publish use OpenConnector?** Facebook Page posts use an **MCP tool** node (`mcp-meta-graph`, e.g. `create_page_post`). LinkedIn (and similar) may use **OpenConnector** when that connector is linked. Browser Session is for browser automation paths, not the default Meta Graph path.
+**Does social publish use OpenConnector?** Facebook Page posts use an **MCP tool** node (`mcp-meta-graph`, e.g. `create_page_post`). LinkedIn (and similar) may use **OpenConnector** when that connector is linked. Browser Session is the website-UI route; Meta Graph remains the preferred repeatable Facebook Page route.
 
 OpenConnector SaaS setup (GitHub, Gmail, LI when certified, Connector node): see **OpenConnector** sections in [16-connectors-openconnector.md](./16-connectors-openconnector.md) and operator detail [OPENCONNECTOR-WEBHOOKS.md](../OPENCONNECTOR-WEBHOOKS.md).
 

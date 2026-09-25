@@ -68,14 +68,14 @@ if (!/IF|approved|operator|ceo_approval/i.test(text)) {
 console.log('PASS grant + RAG');
 console.log(text.slice(0, 800));
 
-for (const [label, query, expected] of [
-  ['Gmail Operations', 'Gmail Operations immutable cleanup plan Trash reply draft connector action grant', /cleanup|trash|draft|connector action/i],
-  ['Goal execution controls', 'Goal Plan planning live progress Cancel execution Retry execution partial success recovery', /cancel execution|retry execution|partial success|recovery/i],
-  ['Facebook publishing typo', 'how to eate a facebook post', /browser recipe|meta graph|create_page_post|facebook page/i],
+for (const [label, query, expectedPatterns] of [
+  ['Gmail Operations', 'Gmail Operations immutable cleanup plan Trash reply draft connector action grant', [/cleanup|trash|draft|connector action/i]],
+  ['Goal execution controls', 'Goal Plan planning live progress Cancel execution Retry execution partial success recovery', [/cancel execution|retry execution|partial success|recovery/i]],
+  ['Facebook publishing typo', 'how to eate a facebook post', [/browser recipe/i, /meta graph|create_page_post|facebook page/i]],
 ]) {
   const recent = await ragDocuments(PLATFORM_OWNER_ID, { query, topK: 8, summarize: false });
   const payload = JSON.stringify(recent);
-  if (!recent.hit_count || !expected.test(payload)) {
+  if (!recent.hit_count || !expectedPatterns.every((pattern) => pattern.test(payload))) {
     console.error(`FAIL: RAG did not retrieve ${label}`, payload.slice(0, 2000));
     process.exit(1);
   }
