@@ -74,6 +74,8 @@ check "public docs IBKRNew event trader" test -f "$ROOT/docs-site/docs/systems/i
 check "public docs no OpenClaw" test -z "$(grep -Rli --include='*.md' --include='*.mdx' --include='*.js' 'openclaw' "$ROOT/docs-site/docs" "$ROOT/docs-site/docusaurus.config.js" "$ROOT/docs-site/sidebars.js" 2>/dev/null || true)"
 check "nginx public docs route" grep -q 'location ^~ /docs/' "$ROOT/deploy/nginx/nginx.conf"
 check "nginx host-network public docs" grep -q 'location ^~ /docs/' "$ROOT/deploy/nginx/nginx.host-network.conf"
+check "nginx docs video MIME" grep -q 'video/mp4 mp4; image/png png; text/vtt vtt' "$ROOT/deploy/nginx/nginx.conf"
+check "nginx host docs video MIME" grep -q 'video/mp4 mp4; image/png png; text/vtt vtt' "$ROOT/deploy/nginx/nginx.host-network.conf"
 check "marketing Docs nav" grep -q 'href="/docs/"' "$ROOT/deploy/static/flolah-home/index.html"
 check "build-public-docs script" test -f "$ROOT/deploy/scripts/build-public-docs.sh"
 check "frontend public legal terms" test -f "$ROOT/frontend/public/legal/terms.html"
