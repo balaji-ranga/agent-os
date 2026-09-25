@@ -1555,8 +1555,8 @@ export async function ensureErpnextCompanyForOwner(ownerUserId, { displayName } 
           .toUpperCase() || 'FL';
       // country is mandatory on ERPNext Company; missing it left CEOs on local_bind-only (no real Company doc).
       const country = resolveErpnextCountryName(owner);
-      console.info('[erpnext] company country owner=%s country=%s currency=%s', owner, country, currency);
       const currency = resolveErpnextCurrency(owner);
+      console.info('[erpnext] company country owner=%s country=%s currency=%s', owner, country, currency);
       let data = null;
       let lastErr = null;
       for (let i = 0; i < 6; i++) {
