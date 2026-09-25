@@ -8,11 +8,22 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 DOCS_SRC="${ROOT}/docs-site"
 OUT_DOCS="${ROOT}/deploy/static/flolah-home/docs"
 OUT_BLOG="${ROOT}/deploy/static/flolah-home/blog"
+FEATURE_VIDEO_STEM="13-northstar-ai-native-company"
+FEATURE_VIDEO="${ROOT}/knowledgebase/video-tours/assets/${FEATURE_VIDEO_STEM}.mp4"
+FEATURE_POSTER="${ROOT}/knowledgebase/video-tours/assets/${FEATURE_VIDEO_STEM}-poster.png"
+FEATURE_CAPTIONS="${ROOT}/knowledgebase/video-tours/scripts/${FEATURE_VIDEO_STEM}.vtt"
 
 if [[ ! -f "${DOCS_SRC}/package.json" ]]; then
   echo "ERROR: docs-site/package.json missing" >&2
   exit 1
 fi
+
+for asset in "${FEATURE_VIDEO}" "${FEATURE_POSTER}" "${FEATURE_CAPTIONS}"; do
+  if [[ ! -s "${asset}" ]]; then
+    echo "ERROR: featured Welcome video asset missing or empty: ${asset}" >&2
+    exit 1
+  fi
+done
 
 SCAN_PATHS=(
   "${DOCS_SRC}/docs"
@@ -84,6 +95,17 @@ if [[ ! -f "${OUT_DOCS}/index.html" ]]; then
 fi
 if [[ ! -f "${OUT_BLOG}/index.html" ]]; then
   echo "ERROR: blog build missing index.html at ${OUT_BLOG}" >&2
+  exit 1
+fi
+# Publish the featured demonstration from its canonical video-tour source. Keeping
+# this copy in the build output avoids a second 20 MB media file in Git history.
+mkdir -p "${OUT_DOCS}/media"
+install -m 0644 "${FEATURE_VIDEO}" "${OUT_DOCS}/media/${FEATURE_VIDEO_STEM}.mp4"
+install -m 0644 "${FEATURE_POSTER}" "${OUT_DOCS}/media/${FEATURE_VIDEO_STEM}-poster.png"
+install -m 0644 "${FEATURE_CAPTIONS}" "${OUT_DOCS}/media/${FEATURE_VIDEO_STEM}.vtt"
+
+if [[ ! -s "${OUT_DOCS}/media/${FEATURE_VIDEO_STEM}.mp4" ]]; then
+  echo "ERROR: featured Welcome video was not published into the docs output" >&2
   exit 1
 fi
 if grep -Rqi --include='*.html' --include='*.js' 'openclaw' "${OUT_DOCS}" "${OUT_BLOG}"; then

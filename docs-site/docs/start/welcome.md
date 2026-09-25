@@ -9,6 +9,29 @@ title: Welcome to Flolah
 
 Flolah is **open source** under the **Apache License 2.0**. The source is on GitHub: [https://github.com/balaji-ranga/agent-os](https://github.com/balaji-ranga/agent-os).
 
+## See an AI-native company operate in Flolah
+
+This end-to-end demonstration follows Northstar Industrial Supplies from yearly and quarterly objectives through scheduled goals, AI employees, multi-step workflows, live CRM and ERP operations, policies, budgets, and CEO oversight.
+
+<video
+  controls
+  preload="metadata"
+  poster="/docs/media/13-northstar-ai-native-company-poster.png"
+  style={{width: '100%', borderRadius: '12px', border: '1px solid var(--ifm-color-emphasis-200)'}}
+  aria-label="Northstar Industrial AI-native company demonstration"
+>
+  <source src="/docs/media/13-northstar-ai-native-company.mp4" type="video/mp4" />
+  <track
+    src="/docs/media/13-northstar-ai-native-company.vtt"
+    kind="captions"
+    srcLang="en"
+    label="English"
+  />
+  Your browser does not support embedded video. [Download the Northstar demonstration](/docs/media/13-northstar-ai-native-company.mp4).
+</video>
+
+The demonstration uses synthetic company data and shows the product from the CEO's user view.
+
 This public guide walks you from first access through running the company:
 
 1. **Access** the product and create your account
