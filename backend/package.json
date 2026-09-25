@@ -77,7 +77,8 @@
     "test:openclaw-context-memory": "node scripts/test-openclaw-context-memory-stress.mjs",
     "test:tool-credential-broker": "node scripts/test-tool-credential-broker.mjs",
     "test:northstar-okr-demo-seed": "node scripts/test-northstar-okr-demo-seed.mjs",
-    "demo:northstar-okr": "node scripts/northstar-okr-demo-seed.js"
+    "demo:northstar-okr": "node scripts/northstar-okr-demo-seed.js",
+    "demo:northstar-video": "node scripts/northstar-demo-video.mjs"
   },
   "dependencies": {
     "@stoqey/ib": "^1.6.3",

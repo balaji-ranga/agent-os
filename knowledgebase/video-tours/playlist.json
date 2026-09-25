@@ -13,6 +13,7 @@
     { "stem": "09-browser-content-explorer", "number": 9, "title": "Browser Session & Content Explorer", "goal": "Recipes + where uploads/generated land", "production": "tts" },
     { "stem": "10-efficiency-budgets", "number": 10, "title": "Efficiency, budgets & retention", "goal": "Token/error budgets; storage; purge", "production": "tts" },
     { "stem": "11-avatars-scenes-speech", "number": 11, "title": "Avatars, Published Scenes & speech", "goal": "VR/public slug; STT/TTS briefly", "production": "tts" },
-    { "stem": "12-efficient-org-content-studio", "number": 12, "title": "Efficient org — content studio", "goal": "End-state using content-creation blueprint", "production": "real" }
+    { "stem": "12-efficient-org-content-studio", "number": 12, "title": "Efficient org — content studio", "goal": "End-state using content-creation blueprint", "production": "real" },
+    { "stem": "13-northstar-ai-native-company", "number": 13, "title": "Northstar Industrial — AI-native company", "goal": "Featured end-to-end OKR, agent, workflow, CRM, ERP, policy, budget, and CEO-channel demonstration", "production": "live-ui", "max_seconds": 360 }
   ]
 }
