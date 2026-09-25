@@ -37,7 +37,7 @@ The fictional company is **Northstar Industrial Supplies Pte. Ltd.**, a Singapor
 - External cleanup uses only the exact Twenty/ERPNext IDs recorded during the install.
 - A full Twenty workspace never gets deleted or recycled automatically. When the platform workspace ceiling is reached, the pack safely selects ERPNext CRM and records that choice as `external.crm_backend` with an `external_warnings` entry.
 - Cleanup requires `--confirm-owner` equal to the target CEO ID.
-- Cleanup retains the CEO account, Twenty workspace, ERPNext company, credentials, and `.env` files. This makes reseed safe and prevents credential loss.
+- Cleanup retains the CEO account, Twenty workspace, ERPNext company, credentials, `.env` files, and any standard ERPNext foundation fixtures initialized on a minimal site (supplier group, opportunity type, and sales stages). This makes reseed safe and prevents provider damage or credential loss.
 - The pack never stores, prints, or copies API keys, passwords, WhatsApp sessions, or provider secrets.
 - A newly created demo CEO receives a random discarded password. Use Admin **View as user** or the normal password-reset flow.
 - Live CRM/ERP failures are reported as `external_errors`; the complete in-platform evidence dataset still exists in Knowledge.

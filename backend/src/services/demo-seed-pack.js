@@ -398,11 +398,40 @@ async function provisionBusinessCore(ownerUserId, resources) {
           const id = externalId(result);
           if (id) resources.external.erp.push({ doctype: 'Contact', name: id });
         }
+        // Minimal ERPNext images can omit these standard CRM fixtures even though
+        // Opportunity applies them as defaults. Ensure only the conventional
+        // shared foundation records that are missing; pack cleanup retains them.
+        const opportunityTypes = await erp.erpList(ownerUserId, 'Opportunity Type', {
+          limit: 100,
+          fields: ['name'],
+        });
+        if (!(opportunityTypes?.data || []).some((row) => row?.name === 'Sales')) {
+          await erp.erpCreate(ownerUserId, 'Opportunity Type', {
+            name: 'Sales',
+            opportunity_type: 'Sales',
+          });
+        }
+        const salesStages = await erp.erpList(ownerUserId, 'Sales Stage', {
+          limit: 100,
+          fields: ['name'],
+        });
+        const existingSalesStages = new Set((salesStages?.data || []).map((row) => row?.name));
+        for (const [stageName, probability] of [['Prospecting', 25], ['Qualification', 50], ['Proposal/Quotation', 75]]) {
+          if (!existingSalesStages.has(stageName)) {
+            await erp.erpCreate(ownerUserId, 'Sales Stage', {
+              name: stageName,
+              stage_name: stageName,
+              probability,
+            });
+          }
+        }
         for (const [index, amount] of PACK.crm.opportunities.entries()) {
           const companyName = PACK.crm.companies[index];
           const result = await erp.erpCreateOpportunity(ownerUserId, {
             opportunity_from: 'Customer',
             party_name: customerNames.get(companyName),
+            opportunity_type: 'Sales',
+            sales_stage: ['Prospecting', 'Qualification', 'Proposal/Quotation'][index % 3],
             status: 'Open',
             probability: [25, 50, 75][index % 3],
             opportunity_amount: amount,
