@@ -403,8 +403,8 @@ async function provisionBusinessCore(ownerUserId, resources) {
           const result = await erp.erpCreateOpportunity(ownerUserId, {
             opportunity_from: 'Customer',
             party_name: customerNames.get(companyName),
-            opportunity_type: 'Sales',
-            sales_stage: ['Prospecting', 'Qualification', 'Proposal/Quotation'][index % 3],
+            status: 'Open',
+            probability: [25, 50, 75][index % 3],
             opportunity_amount: amount,
             currency: PACK.company.currency,
             title: `${companyName} supply programme ${PACK.marker}`,
