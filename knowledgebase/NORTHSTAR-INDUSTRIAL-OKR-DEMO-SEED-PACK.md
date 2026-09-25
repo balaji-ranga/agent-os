@@ -47,6 +47,45 @@ The fictional company is **Northstar Industrial Supplies Pte. Ltd.**, a Singapor
 
 Run these inside the backend container or from `backend/` with production environment variables already loaded. Do not copy or replace `.env`.
 
+### VPS copy/paste commands
+
+These commands run the packaged operator CLI through the deployed backend container. They do not load, copy, or replace an `.env` file.
+
+```bash
+cd /opt/agent-os/deploy
+
+# Preview the resource plan without writing data
+docker compose exec -T backend npm run demo:northstar-okr -- \
+  --mode preview
+
+# Show the current installation ledger and resource IDs
+docker compose exec -T backend npm run demo:northstar-okr -- \
+  --mode status \
+  --owner-email maya.tan@northstar-demo.example
+
+# First installation only: create the dedicated CEO and seed the pack
+docker compose exec -T backend npm run demo:northstar-okr -- \
+  --mode seed \
+  --create-owner \
+  --owner-email maya.tan@northstar-demo.example \
+  --owner-name "Maya Tan"
+
+# Remove only records held in this pack's exact installation ledger
+docker compose exec -T backend npm run demo:northstar-okr -- \
+  --mode cleanup \
+  --owner-email maya.tan@northstar-demo.example \
+  --confirm-owner ceo-maya-tan-6a2232
+
+# Confirmed cleanup followed by a fresh seed
+docker compose exec -T backend npm run demo:northstar-okr -- \
+  --mode reseed \
+  --owner-email maya.tan@northstar-demo.example
+```
+
+The current VPS demo CEO ID is `ceo-maya-tan-6a2232`. On another installation, run Status first and replace the `--confirm-owner` value with that environment's returned CEO ID. Cleanup refuses to run when the confirmation does not exactly match the resolved owner.
+
+The shorter commands below are equivalent when the shell is already inside the backend container or is running from `backend/` with the production environment loaded.
+
 ### Preview only
 
 ```bash
