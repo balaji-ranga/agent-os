@@ -6,7 +6,7 @@ All company, people, customer, supplier, opportunity, invoice, objective, and pe
 
 ## Scene 1 — One operating context
 
-**Route:** Home (`/`), then Knowledge (`/master-data`)
+**Route:** Knowledge (`/master-data`)
 
 ### Voiceover
 
@@ -38,19 +38,19 @@ Objectives become repeatable execution through workflows. Northstar has flows fo
 
 ## Scene 5 — Revenue execution stays connected to CRM
 
-**Route:** CRM (`/crm`)
+**Route:** Knowledge (`/master-data`) → `demo_northstar_crm_opportunities`
 
 ### Voiceover
 
-For sales growth, Northstar's CRM provides the customer and opportunity system of record. The seed scenario includes accounts, contacts, and an active opportunity pipeline. Sales agents can prioritise follow-up, prepare account context, and report pipeline movement against the quarterly objective. CRM data stays connected to the operating model, rather than being copied into private spreadsheets or chat threads. Maya can move from the objective to the underlying commercial activity and see whether the company is building enough qualified pipeline to reach the revenue target.
+For sales growth, Northstar keeps governed CRM evidence connected to the customer and opportunity system of record. This view shows the synthetic opportunity pipeline created by the demo pack, including stage, value, and probability. Sales agents can prioritise follow-up, prepare account context, and report pipeline movement against the quarterly objective. CRM evidence stays connected to the operating model, rather than being copied into private spreadsheets or chat threads. Maya can move from the objective to the underlying commercial activity and see whether the company is building enough qualified pipeline to reach the revenue target.
 
 ## Scene 6 — Cost and fulfilment connect to ERP
 
-**Route:** ERP (`/erp`)
+**Route:** Knowledge (`/master-data`) → `demo_northstar_erp_invoices`
 
 ### Voiceover
 
-Northstar's ERP view connects suppliers, items, invoices, and operational records to the same company context. Procurement and finance agents can monitor supplier decisions, cost-saving opportunities, and invoice follow-up while preserving the ERP as the transactional source of truth. This is how Northstar reduces cost without losing control: agents analyse and coordinate the work, workflows standardise it, and the business system retains the authoritative record. The CEO sees commercial growth and operational efficiency as two sides of the same plan.
+Northstar's governed ERP evidence connects suppliers, items, invoices, and operational records to the same company context. Here, Maya can inspect synthetic invoice and collection data from the demo pack. Procurement and finance agents can monitor supplier decisions, cost-saving opportunities, and invoice follow-up while preserving ERP as the transactional source of truth. This is how Northstar reduces cost without losing control: agents analyse and coordinate the work, workflows standardise it, and the business system retains the authoritative record. The CEO sees commercial growth and operational efficiency as two sides of the same plan.
 
 ## Scene 7 — Autonomy is governed by policy
 
@@ -70,7 +70,7 @@ AI work must also be economically accountable. Northstar assigns token and opera
 
 ## Scene 9 — The CEO operates through one channel
 
-**Route:** Channels (`/channels`), then Home (`/`)
+**Route:** AI Employees (`/workspace`), where each employee exposes its Channels setup
 
 ### Voiceover
 
@@ -78,7 +78,7 @@ Maya does not need to visit every screen to run the company. Flolah can channel 
 
 ## Scene 10 — One system, compounding improvement
 
-**Route:** Objectives (`/objectives`), then Home (`/`)
+**Route:** Objectives (`/objectives`)
 
 ### Voiceover
 

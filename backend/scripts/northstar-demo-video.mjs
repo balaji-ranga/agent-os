@@ -33,6 +33,8 @@ const TOKEN_FILE = process.env.NORTHSTAR_CAPTURE_TOKEN_FILE || join(WORK_ROOT, '
 const CAPTURE_FILE = join(WORK_ROOT, 'northstar-live-ui.webm');
 const FINAL_FILE = join(WORK_ROOT, '13-northstar-ai-native-company.mp4');
 const QA_FILE = join(WORK_ROOT, '13-northstar-ai-native-company-final-frame.png');
+const PERSISTENT_ASSET_DIR = join(DATA_ROOT, 'video-tours', 'assets');
+const PERSISTENT_FILE = join(PERSISTENT_ASSET_DIR, '13-northstar-ai-native-company.mp4');
 const OWNER_ID = process.env.NORTHSTAR_DEMO_OWNER_ID || 'ceo-maya-tan-6a2232';
 const BASE_URL = (process.env.NORTHSTAR_DEMO_BASE_URL || 'https://login.flolah.cloud').replace(/\/$/, '');
 const TTS_URL = (process.env.SPEECH_TTS_URL || 'http://piper:5500').replace(/\/$/, '');
@@ -43,16 +45,16 @@ const MIRROR_VTT = join(MIRROR_DIR, '13-northstar-ai-native-company.vtt');
 const CAPTION_SOURCE = join(REPO_ROOT, 'knowledgebase', 'video-tours', 'scripts', '13-northstar-ai-native-company.vtt');
 
 const SCENES = [
-  { name: 'One operating context', routes: ['/', '/master-data'], seconds: 34 },
+  { name: 'One operating context', routes: ['/master-data'], seconds: 34 },
   { name: 'Human and AI organisation', routes: ['/org'], seconds: 34 },
   { name: 'Objectives and key results', routes: ['/objectives'], seconds: 42 },
   { name: 'Repeatable workflows', routes: ['/workflows'], seconds: 38 },
-  { name: 'Revenue and CRM', routes: ['/crm'], seconds: 42 },
-  { name: 'Cost, fulfilment and ERP', routes: ['/erp'], seconds: 42 },
+  { name: 'Revenue and CRM', routes: ['/master-data'], table: 'demo_northstar_crm_opportunities', seconds: 42 },
+  { name: 'Cost, fulfilment and ERP', routes: ['/master-data'], table: 'demo_northstar_erp_invoices', seconds: 42 },
   { name: 'Autonomy with policy', routes: ['/policies'], seconds: 36 },
   { name: 'Agent budgets and efficiency', routes: ['/efficiency'], seconds: 34 },
-  { name: 'CEO channel', routes: ['/channels', '/'], seconds: 38 },
-  { name: 'Compounding improvement', routes: ['/objectives', '/'], seconds: 40 },
+  { name: 'CEO channel', routes: ['/workspace'], seconds: 38 },
+  { name: 'Compounding improvement', routes: ['/objectives'], seconds: 40 },
 ];
 
 function log(message, detail = '') {
@@ -148,6 +150,15 @@ async function capture() {
         if (bannerCount) throw new Error('impersonation banner detected; refusing to record Admin context');
         const bodyText = await page.locator('body').innerText().catch(() => '');
         if (/sign in|login to flolah/i.test(bodyText.slice(0, 1200))) throw new Error(`capture session was not accepted on ${route}`);
+        if (scene.table) {
+          const tableButton = page.getByRole('button', { name: new RegExp(`^${scene.table}\\b`, 'i') }).first();
+          await tableButton.waitFor({ state: 'visible', timeout: 30000 });
+          await tableButton.click();
+          const selectedHeading = page.getByRole('heading', { name: new RegExp(`^${scene.table}\\b`, 'i') }).last();
+          await selectedHeading.waitFor({ state: 'visible', timeout: 30000 });
+          await selectedHeading.scrollIntoViewIfNeeded();
+          await page.waitForTimeout(1800);
+        }
         await page.mouse.move(1720, 180, { steps: 12 });
         await page.waitForTimeout(Math.max(1200, perRouteMs - 7000));
         await page.mouse.wheel(0, 420);
@@ -246,8 +257,10 @@ async function render() {
     '-c:v', 'libx264', '-preset', 'medium', '-crf', '20', '-pix_fmt', 'yuv420p',
     '-c:a', 'aac', '-b:a', '160k', '-ar', '48000', '-movflags', '+faststart', FINAL_FILE,
   ]);
+  mkdirSync(PERSISTENT_ASSET_DIR, { recursive: true });
   mkdirSync(MIRROR_DIR, { recursive: true });
   writeFileSync(CAPTION_SOURCE, buildVtt(voiceScenes, sceneDurations), 'utf8');
+  copyFileSync(FINAL_FILE, PERSISTENT_FILE);
   copyFileSync(FINAL_FILE, MIRROR_FILE);
   copyFileSync(CAPTION_SOURCE, MIRROR_VTT);
   log('final video ready', `${FINAL_FILE} (${statSync(FINAL_FILE).size} bytes)`);
