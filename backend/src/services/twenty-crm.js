@@ -528,7 +528,13 @@ async function twentySoftDelete(ownerUserId, object, recId) {
   } catch (e) {
     const status = Number(e?.status) || 0;
     if (status !== 404 && status !== 405 && status !== 400) throw e;
-    const typeName = object === 'people' ? 'People' : object === 'companies' ? 'Companies' : object;
+    const typeName = object === 'people'
+      ? 'People'
+      : object === 'companies'
+        ? 'Companies'
+        : object === 'opportunities'
+          ? 'Opportunities'
+          : object;
     const data = await twentyFetch('/graphql', {
       method: 'POST',
       apiKey: auth.apiKey,
@@ -568,6 +574,18 @@ export async function crmDeleteCompany(ownerUserId, { id, confirm } = {}) {
   const { auth, data, via } = await twentySoftDelete(ownerUserId, 'companies', recId);
   console.info('[twenty-crm] deleteCompany owner workspace=%s company=%s via=%s', auth.workspaceId, recId, via);
   return { ...scopeMeta(auth), mode: 'live', deleted: true, id: recId, company: data?.data || data, via };
+}
+
+/** Soft-delete an opportunity (Twenty deletedAt / archive). Checker-only grant. */
+export async function crmDeleteOpportunity(ownerUserId, { id, confirm } = {}) {
+  if (!isTwentyConfigured()) {
+    throw Object.assign(new Error('TWENTY_API_URL not configured'), { status: 503 });
+  }
+  assertConfirm(confirm);
+  const recId = assertRecordId(id);
+  const { auth, data, via } = await twentySoftDelete(ownerUserId, 'opportunities', recId);
+  console.info('[twenty-crm] deleteOpportunity owner workspace=%s opportunity=%s via=%s', auth.workspaceId, recId, via);
+  return { ...scopeMeta(auth), mode: 'live', deleted: true, id: recId, opportunity: data?.data || data, via };
 }
 
 export async function crmUpdateOpportunity(ownerUserId, { id, patch } = {}) {

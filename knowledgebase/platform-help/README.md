@@ -62,6 +62,7 @@
 | [53-announcements-and-mcp-universe.md](./53-announcements-and-mcp-universe.md) | Public **MCP Universe** provenance/discovery vs actual connection; product/sponsored announcement controls, WhatsApp opt-in, bounded interaction evidence |
 | [54-objectives-key-results-okr.md](./54-objectives-key-results-okr.md) | **Objectives Key Results (OKR)** — Objective → KRs + Initiatives → scheduled/ad-hoc Goals → Goal Plan runs → evidence; Objective Studio, autonomous measurement, admin registry/catalogues, agent linkage/deviations, Digest, troubleshooting |
 | [55-social-publishing-facebook-linkedin.md](./55-social-publishing-facebook-linkedin.md) | **Social publishing** — Facebook/LinkedIn browser recipes, Chrome extension vs Desktop worker, Meta Graph MCP Page publishing, workflow inputs, Action control approvals, durable verification, troubleshooting |
+| [56-okr-company-demo-seed-pack.md](./56-okr-company-demo-seed-pack.md) | **OKR company demo pack** — Northstar Industrial seed inventory; objective-linked agents/workflows, CRM/ERP evidence, autonomous policies, budgets, cleanup/reseed safety |
 
 **Video Tours (UI):** User menu → **Help → Video Tours** (/video-tours) — playlist of short CEO tours (script/captions now; mp4 when exported). Not ingested as RAG docs.
 

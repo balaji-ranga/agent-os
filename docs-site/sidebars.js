@@ -74,6 +74,7 @@ const sidebars = {
         'operate/announcements',
         'operate/maker-checker',
         'operate/example-stress-test-run',
+        'operate/okr-company-demo-pack',
         'operate/budgets',
         'operate/monitoring-and-llmops',
         'operate/security-tokens',

@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "pack_id": "northstar-industrial-okr-demo",
+  "pack_version": "1.0.0",
+  "marker": "[FLOLAH-DEMO:northstar-industrial-okr-demo:v1]",
+  "company": {
+    "name": "Northstar Industrial Supplies Pte. Ltd.",
+    "industry": "Industrial distribution",
+    "country": "SG",
+    "region": "SG-01",
+    "currency": "SGD",
+    "mission": "Deliver dependable industrial supplies while agents improve revenue, margin, cash collection, and on-time-in-full fulfilment.",
+    "management_style": "autonomous",
+    "crm_provider": "twenty",
+    "erp_provider": "erpnext"
+  },
+  "people": [
+    { "key": "sales-ops", "name": "Daniel Lim", "email": "daniel.lim@northstar-demo.example", "department": "Sales", "specialty": "Sales operations", "purpose": "Own account data quality and commercial exceptions." },
+    { "key": "finance", "name": "Aisha Rahman", "email": "aisha.rahman@northstar-demo.example", "department": "Finance", "specialty": "Finance control", "purpose": "Own finance controls, collections exceptions, and close quality." }
+  ],
+  "agents": [
+    { "key": "sales-lead", "name": "Northstar Sales Lead", "role": "Pipeline and conversion owner", "department": "Sales", "monthly_token_budget": 1100000, "error_budget_pct": 8 },
+    { "key": "crm-researcher", "name": "Northstar CRM Researcher", "role": "Account research and qualification", "department": "Sales", "monthly_token_budget": 750000, "error_budget_pct": 8 },
+    { "key": "customer-success", "name": "Northstar Customer Success", "role": "Customer follow-up and service recovery", "department": "Customer", "monthly_token_budget": 700000, "error_budget_pct": 7 },
+    { "key": "finance-controller", "name": "Northstar Finance Controller", "role": "Margin, invoicing, and finance control", "department": "Finance", "monthly_token_budget": 850000, "error_budget_pct": 5 },
+    { "key": "collections", "name": "Northstar Collections Agent", "role": "Receivables and DSO improvement", "department": "Finance", "monthly_token_budget": 650000, "error_budget_pct": 6 },
+    { "key": "inventory", "name": "Northstar Inventory Planner", "role": "Stock availability and replenishment planning", "department": "Operations", "monthly_token_budget": 800000, "error_budget_pct": 6 },
+    { "key": "procurement", "name": "Northstar Procurement Agent", "role": "Supplier and purchase planning", "department": "Operations", "monthly_token_budget": 650000, "error_budget_pct": 6 },
+    { "key": "fulfilment", "name": "Northstar Fulfilment Agent", "role": "OTIF and delivery exception owner", "department": "Operations", "monthly_token_budget": 700000, "error_budget_pct": 6 }
+  ],
+  "objectives": [
+    {
+      "key": "fy2026", "name": "Grow profitably while improving cash and fulfilment", "outcome": "Finish FY2026 at S$2.4M revenue, 35% gross margin, DSO at or below 35 days, and OTIF at or above 97%.",
+      "period_type": "annual", "period_label": "FY2026", "starts_on": "2026-01-01", "ends_on": "2026-12-31", "status": "active", "budget_amount": 180000,
+      "key_results": [
+        { "key": "revenue", "name": "Revenue", "baseline": 1800000, "target": 2400000, "current_value": 1520000, "unit": "SGD", "source_type": "erpnext", "formula": "revenue" },
+        { "key": "margin", "name": "Gross margin", "baseline": 31, "target": 35, "current_value": 33.2, "unit": "%", "source_type": "erpnext", "formula": "gross_margin" },
+        { "key": "dso", "name": "Days sales outstanding improvement", "baseline": 48, "target": 35, "current_value": 41, "unit": "days", "source_type": "erpnext", "formula": "latest_value" },
+        { "key": "otif", "name": "On-time-in-full fulfilment", "baseline": 92, "target": 97, "current_value": 95.1, "unit": "%", "source_type": "erpnext", "formula": "percentage" }
+      ]
+    },
+    { "key": "q1-2026", "parent": "fy2026", "name": "Q1 establish clean commercial data", "outcome": "Create a trustworthy CRM and order baseline.", "period_type": "quarterly", "period_label": "Q1 2026", "starts_on": "2026-01-01", "ends_on": "2026-03-31", "status": "completed", "budget_amount": 35000, "key_results": [{ "key": "pipeline", "name": "Qualified pipeline", "baseline": 0, "target": 900000, "current_value": 940000, "unit": "SGD", "source_type": "flolah_crm", "formula": "weighted_pipeline" }] },
+    { "key": "q2-2026", "parent": "fy2026", "name": "Q2 improve win rate and margin", "outcome": "Convert the clean pipeline without margin leakage.", "period_type": "quarterly", "period_label": "Q2 2026", "starts_on": "2026-04-01", "ends_on": "2026-06-30", "status": "completed", "budget_amount": 40000, "key_results": [{ "key": "margin", "name": "Gross margin", "baseline": 31.5, "target": 33, "current_value": 33.1, "unit": "%", "source_type": "erpnext", "formula": "gross_margin" }] },
+    {
+      "key": "q3-2026", "parent": "fy2026", "name": "Q3 accelerate revenue, cash, and fulfilment", "outcome": "Deliver S$650k revenue, S$1.6M qualified pipeline, DSO at or below 38 days, and OTIF at or above 96%.", "period_type": "quarterly", "period_label": "Q3 2026", "starts_on": "2026-07-01", "ends_on": "2026-09-30", "status": "active", "budget_amount": 55000,
+      "key_results": [
+        { "key": "revenue", "name": "Quarter revenue", "baseline": 0, "target": 650000, "current_value": 482000, "unit": "SGD", "source_type": "erpnext", "formula": "revenue" },
+        { "key": "pipeline", "name": "Qualified pipeline", "baseline": 720000, "target": 1600000, "current_value": 1180000, "unit": "SGD", "source_type": "flolah_crm", "formula": "weighted_pipeline" },
+        { "key": "dso", "name": "DSO ceiling", "baseline": 44, "target": 38, "current_value": 41, "unit": "days", "source_type": "erpnext", "formula": "latest_value" },
+        { "key": "otif", "name": "OTIF", "baseline": 93.5, "target": 96, "current_value": 95.1, "unit": "%", "source_type": "erpnext", "formula": "percentage" }
+      ]
+    },
+    { "key": "q4-2026", "parent": "fy2026", "name": "Q4 close the annual gap", "outcome": "Close the remaining FY2026 gaps without exceeding operating budgets.", "period_type": "quarterly", "period_label": "Q4 2026", "starts_on": "2026-10-01", "ends_on": "2026-12-31", "status": "draft", "budget_amount": 50000, "key_results": [{ "key": "revenue", "name": "Quarter revenue", "baseline": 0, "target": 680000, "current_value": 0, "unit": "SGD", "source_type": "erpnext", "formula": "revenue" }] }
+  ],
+  "workflows": [
+    { "key": "lead-to-opportunity", "name": "Northstar · Lead to qualified opportunity", "agents": ["crm-researcher", "sales-lead"], "objective": "q3-2026", "key_results": ["pipeline"], "cadence": "manual" },
+    { "key": "pipeline-follow-up", "name": "Northstar · Pipeline follow-up", "agents": ["sales-lead", "customer-success"], "objective": "q3-2026", "key_results": ["pipeline"], "cadence": "weekdays" },
+    { "key": "order-to-cash", "name": "Northstar · Order to cash", "agents": ["sales-lead", "finance-controller", "fulfilment"], "objective": "q3-2026", "key_results": ["revenue", "otif"], "cadence": "manual" },
+    { "key": "collections-recovery", "name": "Northstar · Collections recovery", "agents": ["collections", "finance-controller"], "objective": "q3-2026", "key_results": ["dso"], "cadence": "weekdays" },
+    { "key": "inventory-replenishment", "name": "Northstar · Inventory replenishment", "agents": ["inventory", "procurement"], "objective": "q3-2026", "key_results": ["otif"], "cadence": "weekdays" },
+    { "key": "otif-exception", "name": "Northstar · OTIF exception recovery", "agents": ["fulfilment", "customer-success"], "objective": "q3-2026", "key_results": ["otif"], "cadence": "manual" },
+    { "key": "okr-control-tower", "name": "Northstar · Weekly OKR control tower", "agents": ["sales-lead", "finance-controller", "inventory", "fulfilment"], "objective": "q3-2026", "key_results": ["revenue", "pipeline", "dso", "otif"], "cadence": "weekly" }
+  ],
+  "policies": [
+    { "family": "read", "mode": "autonomous" },
+    { "family": "write_internal", "mode": "autonomous" },
+    { "family": "communicate_external", "mode": "autonomous" },
+    { "family": "financial_destructive", "mode": "prohibited" }
+  ],
+  "crm": {
+    "companies": ["GreenGrid Hotels", "Apex Marine Services", "MetroBuild Engineering", "LionCity Facilities", "HarbourWorks Pte Ltd", "Vertex Automation", "Eastern Precision", "Summit Food Equipment", "Orchid Healthcare Systems", "Nova Data Centres", "Keystone Logistics", "Straits Property Services"],
+    "opportunities": [80000, 125000, 210000, 95000, 160000, 70000, 55000, 110000, 145000, 185000, 65000, 90000]
+  },
+  "erp": {
+    "customers": ["GreenGrid Hotels", "Apex Marine Services", "MetroBuild Engineering", "LionCity Facilities", "HarbourWorks Pte Ltd", "Vertex Automation"],
+    "suppliers": ["NS Demo Bearings Asia", "NS Demo SafetySource", "NS Demo Motion Controls"],
+    "items": [["NSD-BEARING-6205", "Industrial bearing 6205", 48], ["NSD-SAFETY-GLOVE", "Cut-resistant safety gloves", 18], ["NSD-SENSOR-TEMP", "Industrial temperature sensor", 135], ["NSD-MOTOR-2KW", "2kW industrial motor", 680], ["NSD-VALVE-SS", "Stainless process valve", 245], ["NSD-BELT-A42", "Drive belt A42", 32], ["NSD-LUBE-20L", "Industrial lubricant 20L", 210], ["NSD-PANEL-IP65", "IP65 control panel", 420]]
+  }
+}
