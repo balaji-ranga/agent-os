@@ -2,7 +2,7 @@
 
 Administrators can install the **Northstar Industrial Supplies** demo to show Flolah's key differentiator: objectives and key results drive goals, multi-agent workflows, CRM/ERP evidence, CEO updates, policies, and per-agent budgets.
 
-The pack creates a dedicated fictional Singapore distributor with a CEO, two synthetic human employees, eight AI employees, one annual and four quarterly objectives, seven multi-node workflows, seven Knowledge evidence tables, and optional Twenty CRM / ERPNext mirrors. It uses only reserved `.example` contacts.
+The pack creates a dedicated fictional Singapore distributor with a CEO, two synthetic human employees, eight AI employees, one annual and four quarterly objectives, seven multi-node workflows, seven Knowledge evidence tables, and optional live CRM / ERPNext mirrors. Twenty is the preferred CRM; when the platform cannot provision another isolated Twenty workspace, the pack automatically uses the tenant's ERPNext Sales CRM instead. It never deletes or reuses another tenant's workspace. It uses only reserved `.example` contacts.
 
 The active Q3 objective measures revenue, qualified pipeline, DSO, and OTIF. The workflows explicitly carry objective and key-result identifiers, so a demo can start from the objective, inspect its goal/workflow evidence, and then ask the COO for the next action.
 

@@ -12,7 +12,7 @@ An administrator installs a fictional Singapore distributor with:
 - a CEO, two synthetic human employees, and eight AI employees;
 - annual and quarterly objectives with revenue, margin, pipeline, DSO, and OTIF key results;
 - seven objective-linked, multi-node workflows;
-- synthetic CRM and ERP evidence plus optional live Twenty and ERPNext mirrors;
+- synthetic CRM and ERP evidence plus live provider mirrors; Twenty is preferred for CRM and ERPNext Sales CRM is the safe fallback when an isolated Twenty workspace is unavailable;
 - autonomous read, internal-write, and synthetic-communication policies;
 - prohibited financial/destructive actions; and
 - monthly token and error budgets for every AI employee.

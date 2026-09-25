@@ -16,7 +16,7 @@ The fictional company is **Northstar Industrial Supplies Pte. Ltd.**, a Singapor
 
 | Area | Seeded state |
 |---|---|
-| Company | CEO Maya Tan, Singapore profile, autonomous management style, Twenty CRM + ERPNext selected |
+| Company | CEO Maya Tan, Singapore profile, autonomous management style, Twenty-preferred CRM + ERPNext selected |
 | People | Daniel Lim (Sales Ops) and Aisha Rahman (Finance Controller), disabled synthetic logins |
 | Organization | Existing COO plus 8 pack-owned AI employees across Sales, Customer, Finance, and Operations |
 | Budgets | 6.2M monthly tokens total; per-agent token and error budgets |
@@ -24,7 +24,7 @@ The fictional company is **Northstar Industrial Supplies Pte. Ltd.**, a Singapor
 | Key results | Revenue, gross margin, qualified pipeline, DSO, and OTIF |
 | Workflows | 7 multi-node, multi-agent workflows tied to Q3 key results |
 | Knowledge | 7 evidence tables: CRM accounts/contacts/opportunities, ERP customers/suppliers/invoices, OKR measurements |
-| CRM | Optional live Twenty mirror: 12 companies, 20 people, 12 opportunities |
+| CRM | Optional live mirror: 12 companies, 20 people, 12 opportunities. Twenty is preferred; ERPNext Sales CRM is the automatic fallback when a dedicated Twenty workspace cannot be provisioned. |
 | ERP | Optional live ERPNext mirror: 6 customers, 3 suppliers, 8 items, 3 draft invoices |
 | Policies | Read, internal writes, and external communication autonomous; financial/destructive actions prohibited |
 | WhatsApp | CEO operating pattern documented; device QR/pairing is intentionally not automated or copied |
@@ -35,6 +35,7 @@ The fictional company is **Northstar Industrial Supplies Pte. Ltd.**, a Singapor
 - Every created resource has a stable pack namespace or exact provider ID in `demo_seed_pack_installs`.
 - Local cleanup always includes `owner_user_id`; it cannot delete another tenant's data.
 - External cleanup uses only the exact Twenty/ERPNext IDs recorded during the install.
+- A full Twenty workspace never gets deleted or recycled automatically. When the platform workspace ceiling is reached, the pack safely selects ERPNext CRM and records that choice as `external.crm_backend` with an `external_warnings` entry.
 - Cleanup requires `--confirm-owner` equal to the target CEO ID.
 - Cleanup retains the CEO account, Twenty workspace, ERPNext company, credentials, and `.env` files. This makes reseed safe and prevents credential loss.
 - The pack never stores, prints, or copies API keys, passwords, WhatsApp sessions, or provider secrets.
@@ -127,7 +128,7 @@ After a VPS seed, verify:
 5. Knowledge shows seven `demo_northstar_*` tables.
 6. Efficiency Agent View shows all eight budgets.
 7. Policies shows External messages/publish = Autonomous and Financial/destructive = Prohibited.
-8. CRM/ERP show the optional provider mirrors, or Status reports a clear external error.
+8. CRM/ERP show the provider mirrors. Status identifies `twenty` or `erpnext` as the live CRM backend and reports any external warning or error.
 9. Channels explains that WhatsApp still needs the CEO to pair a device; no session secret is seeded.
 
 ## Rollback

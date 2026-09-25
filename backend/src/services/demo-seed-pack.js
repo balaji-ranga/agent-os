@@ -331,6 +331,7 @@ function seedKnowledge(ownerUserId, resources) {
 async function provisionBusinessCore(ownerUserId, resources) {
   updateBusinessProviders(ownerUserId, { crm_provider: 'twenty', erp_provider: 'erpnext' });
   const errors = [];
+  let crmFallbackReason = null;
   try {
     const crm = await import('./twenty-crm.js');
     await crm.ensureTwentyWorkspaceForCompany(ownerUserId, { displayName: PACK.company.name });
@@ -351,17 +352,74 @@ async function provisionBusinessCore(ownerUserId, resources) {
       const id = externalId(result?.opportunity || result?.deal || {});
       if (id) resources.external.crm.opportunities.push(id);
     }
+    resources.external.crm_backend = 'twenty';
   } catch (error) {
-    errors.push(`CRM: ${error?.message || error}`);
+    crmFallbackReason = String(error?.message || error);
   }
   try {
     const erp = await import('./erpnext-erp.js');
+    if (crmFallbackReason) {
+      updateBusinessProviders(ownerUserId, { crm_provider: 'erpnext', erp_provider: 'erpnext' });
+    }
     await erp.ensureErpnextCompanyForOwner(ownerUserId, { displayName: PACK.company.name });
+    const customerNames = new Map();
     for (const name of PACK.erp.customers) {
       try {
         const result = await erp.erpCreateCustomer(ownerUserId, { customer_name: `${name} ${PACK.marker}`, customer_type: 'Company' });
-        const id = externalId(result); if (id) resources.external.erp.push({ doctype: 'Customer', name: id });
+        const id = externalId(result);
+        if (id) {
+          customerNames.set(name, id);
+          resources.external.erp.push({ doctype: 'Customer', name: id });
+        }
       } catch (error) { if (!/already exists/i.test(String(error?.message || error))) throw error; }
+    }
+    if (crmFallbackReason) {
+      try {
+        for (const name of PACK.crm.companies) {
+          if (customerNames.has(name)) continue;
+          const result = await erp.erpCreateCustomer(ownerUserId, {
+            customer_name: `${name} ${PACK.marker}`,
+            customer_type: 'Company',
+          });
+          const id = externalId(result);
+          if (id) {
+            customerNames.set(name, id);
+            resources.external.erp.push({ doctype: 'Customer', name: id });
+          }
+        }
+        for (let index = 0; index < 20; index += 1) {
+          const companyName = PACK.crm.companies[index % PACK.crm.companies.length];
+          const result = await erp.erpCreateContact(ownerUserId, {
+            first_name: 'Demo',
+            last_name: `Contact ${index + 1}`,
+            email_id: `contact${index + 1}@northstar-demo.example`,
+            links: [{ link_doctype: 'Customer', link_name: customerNames.get(companyName) }],
+          });
+          const id = externalId(result);
+          if (id) resources.external.erp.push({ doctype: 'Contact', name: id });
+        }
+        for (const [index, amount] of PACK.crm.opportunities.entries()) {
+          const companyName = PACK.crm.companies[index];
+          const result = await erp.erpCreateOpportunity(ownerUserId, {
+            opportunity_from: 'Customer',
+            party_name: customerNames.get(companyName),
+            opportunity_type: 'Sales',
+            sales_stage: ['Prospecting', 'Qualification', 'Proposal/Quotation'][index % 3],
+            opportunity_amount: amount,
+            currency: PACK.company.currency,
+            title: `${companyName} supply programme ${PACK.marker}`,
+          });
+          const id = externalId(result);
+          if (id) resources.external.erp.push({ doctype: 'Opportunity', name: id });
+        }
+        resources.external.crm_backend = 'erpnext';
+        resources.external_warnings = [
+          ...(resources.external_warnings || []),
+          `Twenty CRM was unavailable (${crmFallbackReason}); the live CRM mirror was seeded in ERPNext Sales CRM instead.`,
+        ];
+      } catch (fallbackError) {
+        errors.push(`CRM: Twenty unavailable (${crmFallbackReason}); ERPNext CRM fallback failed: ${fallbackError?.message || fallbackError}`);
+      }
     }
     // ERPNext sites created from minimal images may not contain the standard Supplier
     // Group fixture. Resolve a site-provided group, or create the conventional root
@@ -419,7 +477,7 @@ export async function seedDemoSeedPack({ ownerUserId, includeExternal = true, al
   const resources = {
     install_id: installId, marker: PACK.marker, owner_created: false,
     people: [], agents: [], objectives: [], workflows: [], master_tables: [],
-    external: { crm: { companies: [], people: [], opportunities: [] }, erp: [] },
+    external: { crm: { companies: [], people: [], opportunities: [] }, crm_backend: null, erp: [] },
     previous: {
       user_profile: db().prepare('SELECT business_name,country,region,industry,industry_other FROM platform_users WHERE id=?').get(owner) || null,
       strategic: db().prepare('SELECT * FROM ceo_org_strategy WHERE owner_user_id=?').get(owner) || null,
