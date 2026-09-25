@@ -363,9 +363,27 @@ async function provisionBusinessCore(ownerUserId, resources) {
         const id = externalId(result); if (id) resources.external.erp.push({ doctype: 'Customer', name: id });
       } catch (error) { if (!/already exists/i.test(String(error?.message || error))) throw error; }
     }
+    // ERPNext sites created from minimal images may not contain the standard Supplier
+    // Group fixture. Resolve a site-provided group, or create the conventional root
+    // once as provider foundation. The root is deliberately not pack-owned and is
+    // retained by cleanup, just like the Company and provider workspace.
+    const supplierGroupResult = await erp.erpList(ownerUserId, 'Supplier Group', {
+      limit: 100,
+      fields: ['name', 'is_group'],
+    });
+    let supplierGroup = (supplierGroupResult?.data || []).find((row) => !Number(row?.is_group))?.name
+      || supplierGroupResult?.data?.[0]?.name;
+    if (!supplierGroup) {
+      const createdGroup = await erp.erpCreate(ownerUserId, 'Supplier Group', {
+        supplier_group_name: 'All Supplier Groups',
+        is_group: 1,
+      });
+      supplierGroup = externalId(createdGroup);
+    }
+    if (!supplierGroup) throw new Error('Unable to resolve or initialize an ERPNext Supplier Group');
     for (const name of PACK.erp.suppliers) {
       try {
-        const result = await erp.erpCreate(ownerUserId, 'Supplier', { supplier_name: `${name} ${PACK.marker}`, supplier_group: 'All Supplier Groups', supplier_type: 'Company' });
+        const result = await erp.erpCreate(ownerUserId, 'Supplier', { supplier_name: `${name} ${PACK.marker}`, supplier_group: supplierGroup, supplier_type: 'Company' });
         const id = externalId(result); if (id) resources.external.erp.push({ doctype: 'Supplier', name: id });
       } catch (error) { if (!/already exists/i.test(String(error?.message || error))) throw error; }
     }
