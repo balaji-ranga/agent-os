@@ -80,7 +80,8 @@
     "test:event-productivity-pack": "node scripts/test-event-productivity-pack.mjs",
     "test:erpnext-company-session-isolation": "node scripts/test-erpnext-company-session-isolation.mjs",
     "demo:northstar-okr": "node scripts/northstar-okr-demo-seed.js",
-    "demo:northstar-video": "node scripts/northstar-demo-video.mjs"
+    "demo:northstar-video": "node scripts/northstar-demo-video.mjs",
+    "test:workflow-messaging": "node scripts/test-workflow-messaging.mjs"
   },
   "dependencies": {
     "@stoqey/ib": "^1.6.3",

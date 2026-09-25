@@ -122,6 +122,9 @@ x-backend-env: &backend-env
   BROWSER_TASK_CDP_AGENT_ID: ${BROWSER_TASK_CDP_AGENT_ID:-browser-cdp}
   # Stable across restarts — required for workflow runner / tools / cron-callback auth
   AGENT_OS_INTERNAL_TOKEN: ${AGENT_OS_INTERNAL_TOKEN:-}
+  MESSAGING_SERVICE_URL: http://messaging-listener:8090
+  MESSAGING_SERVICE_TOKEN: ${MESSAGING_SERVICE_TOKEN:-}
+  MESSAGING_SERVICE_TIMEOUT_MS: ${MESSAGING_SERVICE_TIMEOUT_MS:-15000}
   # OpenClaw tools obtain short-lived owner+agent+session+tool leases from the backend.
   # Legacy shared ftc_ credential files stay disabled and are removed on startup.
   TOOLS_LEGACY_FTC_ENABLED: ${TOOLS_LEGACY_FTC_ENABLED:-0}
@@ -485,12 +488,70 @@ services:
         required: false
       custom-script-runner:
         condition: service_healthy
+      messaging-listener:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3001/health"]
       interval: 30s
       timeout: 5s
       retries: 5
       start_period: 45s
+
+  messaging-listener:
+    build:
+      context: ..
+      dockerfile: deploy/docker/messaging-listener.Dockerfile
+    image: agent-os-messaging-listener:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      PORT: "8090"
+      BACKEND_INTERNAL_URL: http://backend:3001/api/internal/messaging
+      JMS_ADAPTER_URL: http://jms-adapter:8091
+      MESSAGING_SERVICE_TOKEN: ${MESSAGING_SERVICE_TOKEN:-}
+      MESSAGING_RECONCILE_MS: ${MESSAGING_RECONCILE_MS:-15000}
+      MESSAGING_ALLOW_PRIVATE_BROKERS: ${MESSAGING_ALLOW_PRIVATE_BROKERS:-0}
+    expose:
+      - "8090"
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8090/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  jms-adapter:
+    build:
+      context: ..
+      dockerfile: deploy/docker/jms-adapter.Dockerfile
+    image: agent-os-jms-adapter:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      PORT: "8091"
+      BACKEND_INTERNAL_URL: http://backend:3001/api/internal/messaging
+      MESSAGING_SERVICE_TOKEN: ${MESSAGING_SERVICE_TOKEN:-}
+    expose:
+      - "8091"
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 384m
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8091/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
   custom-script-runner:
     build:

@@ -41,6 +41,9 @@ import speechRoutes from './routes/speech.js';
 import agentChannelsRoutes from './routes/agent-channels.js';
 import jobApplicantRoutes from './routes/job-applicant.js';
 import agentWorkflowRoutes from './routes/agent-workflows.js';
+import workflowMessagingRoutes from './routes/workflow-messaging.js';
+import workflowMessagingInternalRoutes from './routes/workflow-messaging-internal.js';
+import { ensureWorkflowMessagingSchema } from './services/workflow-messaging.js';
 import agentWorkflowHookRoutes from './routes/agent-workflow-hooks.js';
 import agentWorkflowDesktopRoutes from './routes/agent-workflow-desktop.js';
 import mcpIntegrationsRoutes, { mcpOauthCallbackHandler } from './routes/mcp-integrations.js';
@@ -647,6 +650,11 @@ const healthHandler = (req, res) => {
 };
 app.get('/health', healthHandler);
 
+// Private broker-listener control plane. It authenticates with its own service token
+// and is intentionally mounted before user/org middleware.
+ensureWorkflowMessagingSchema();
+app.use('/api/internal/messaging', workflowMessagingInternalRoutes);
+
 // Single /api router so all /api/* routes are registered in one place
 const apiRouter = express.Router();
 apiRouter.use(enforceOrgUserApiPermissions);
@@ -710,6 +718,7 @@ apiRouter.use('/job-applicant', jobApplicantRoutes);
 apiRouter.use('/agent-workflows/hooks', agentWorkflowHookRoutes);
 apiRouter.use('/agent-workflows/desktop/v1', agentWorkflowDesktopRoutes);
 apiRouter.use('/agent-workflows', agentWorkflowRoutes);
+apiRouter.use('/integrations/messaging', workflowMessagingRoutes);
 // Public MCP OAuth callback (provider redirect; no session cookie).
 apiRouter.get('/integrations/mcp/oauth/callback', mcpOauthCallbackHandler);
 apiRouter.use('/integrations/mcp', mcpIntegrationsRoutes);

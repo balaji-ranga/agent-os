@@ -11,9 +11,10 @@ import {
   resolveOllamaChatModel,
   sanitizeWorkflowGraphSecrets,
 } from './agent-workflow-secrets.js';
+import { getMessagingConnection } from './workflow-messaging.js';
 
 const NODE_PURPOSE = {
-  trigger: 'Entry point. Starts runs via manual button, chat phrase, cron schedule, or webhook.',
+  trigger: 'Entry point. Starts runs via manual button, chat phrase, cron schedule, webhook, or a configured broker message.',
   agent: 'Delegates work to a workspace agent with a prompt template. Use {{input}} for prior step text.',
   tool: 'Runs a registered content tool by exact toolName (see Content tools catalog / enquire_content_tools).',
   mcp_tool: 'Calls a tool on an MCP server. Requires mcpServerId + toolName from Runtime environment.',
@@ -35,6 +36,7 @@ const NODE_PURPOSE = {
   if: 'Branches on condition — true/false source handles.',
   while: 'Loops while condition holds — loop/exit source handles.',
   connector: 'Calls a connected SaaS app (Connectors). Prefer apps the CEO already connected; Hacker News needs no key.',
+  message_send: 'Publishes a message through an owner-scoped Messaging connection. Credentials are resolved from API Keys Vault.',
   brain: 'Direct LLM call. Default to free local Ollama (no API key). For paid providers bind apiKeyRef to Settings → API Keys — never paste the secret into the node.',
 };
 
@@ -379,12 +381,22 @@ export function analyzeWorkflowForPublish(graph, ownerUserId = null) {
     }
 
     const cfg = node.data?.taskConfig || {};
+    if (node.type === 'trigger' && (node.data?.triggerModes || []).includes('message')) {
+      const triggerConnectionId = String(node.data?.messageConnectionId || '').trim();
+      const triggerDestination = String(node.data?.messageDestination || '').trim();
+      if (!triggerConnectionId) issues.push({ code: 'required_config_missing', node_id: node.id, field: 'messageConnectionId', message: `${label} → messageConnectionId is required for Message trigger.` });
+      if (!triggerDestination) issues.push({ code: 'required_config_missing', node_id: node.id, field: 'messageDestination', message: `${label} → messageDestination is required for Message trigger.` });
+      if (ownerUserId && triggerConnectionId && !getMessagingConnection(ownerUserId, triggerConnectionId)) {
+        issues.push({ code: 'invalid_connection', node_id: node.id, field: 'messageConnectionId', message: `${label} → messaging connection is unavailable for this workflow owner.` });
+      }
+    }
     const identityRequirements = {
       agent: [['agentId', node.data?.agentId]],
       tool: [['toolName', node.data?.toolName]],
       mcp_tool: [['mcpServerId', cfg.mcpServerId], ['toolName', cfg.toolName]],
       custom_script: [['customScriptId', cfg.customScriptId]],
       connector: [['appId', cfg.appId], ['actionId', cfg.actionId]],
+      message_send: [['connectionId', cfg.connectionId], ['destination', cfg.destination]],
       sub_workflow: [['targetWorkflowId', cfg.targetWorkflowId]],
       externalAgent: [['externalAgentId', cfg.externalAgentId]],
     };
@@ -397,6 +409,9 @@ export function analyzeWorkflowForPublish(graph, ownerUserId = null) {
           message: `${label} → ${field} must be set to an exact catalog ID.`,
         });
       }
+    }
+    if (ownerUserId && node.type === 'message_send' && cfg.connectionId && !getMessagingConnection(ownerUserId, cfg.connectionId)) {
+      issues.push({ code: 'invalid_connection', node_id: node.id, field: 'connectionId', message: `${label} → messaging connection is unavailable for this workflow owner.` });
     }
   }
 
@@ -445,7 +460,7 @@ export function tryCatalogQueryResponse(message) {
   const contentToolsHit = tryContentToolsQueryResponse(t);
   if (contentToolsHit) return contentToolsHit;
 
-  const typeMatch = t.match(/\b(trigger|agent|brain|tool|mcp_tool|mcp_listen|sse_listen|sub_workflow|email|api|externalAgent|custom_script|masterdata|filesystem|web_scrape|parallel|merge|ceo_approval|if|while)\b/i);
+  const typeMatch = t.match(/\b(trigger|agent|brain|tool|mcp_tool|mcp_listen|sse_listen|sub_workflow|email|api|message_send|externalAgent|custom_script|masterdata|filesystem|web_scrape|parallel|merge|ceo_approval|if|while)\b/i);
   const asksCatalog =
     /(?:what|explain|describe|how\s+(?:do|does)|tell\s+me\s+about).*(?:node|nodes|step|steps|catalog|attribute|config|task_config)/i.test(t) ||
     /(?:node|nodes)\s+(?:types?|catalog|reference)/i.test(t) ||

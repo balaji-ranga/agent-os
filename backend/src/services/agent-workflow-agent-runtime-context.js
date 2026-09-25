@@ -8,6 +8,7 @@ import { getWorkflowTemplates } from './agent-workflow-templates.js';
 import { defaultNodeConfig, getTaskCatalog } from './agent-workflow-task-catalog.js';
 import { listUserApiKeys } from './user-api-keys.js';
 import { getConnectedConnectorApps } from './openconnector.js';
+import { listMessagingConnections } from './workflow-messaging.js';
 import {
   lastOllamaAvailable,
   lastOllamaModel,
@@ -122,6 +123,9 @@ export async function buildWorkflowAgentRuntimeContext(ownerUserId) {
     vaultKeys = [];
   }
   const ollama = ollamaAvailabilitySnapshot();
+  const messagingConnections = listMessagingConnections(ownerUserId)
+    .filter((connection) => connection.enabled)
+    .map(({ id, name, protocol }) => ({ id, name, protocol }));
 
   return {
     agents,
@@ -131,6 +135,7 @@ export async function buildWorkflowAgentRuntimeContext(ownerUserId) {
     templates,
     vaultKeys,
     connectors,
+    messagingConnections,
     defaults: {
       brain,
       firstMcpId: firstMcp,
@@ -175,6 +180,12 @@ export function formatRuntimeContextForPrompt(ctx) {
     lines.push(
       '\nConnectors: none connected for this CEO — skip connector nodes; use Browser Session content tools for signed-in sites'
     );
+  }
+
+  if (ctx.messagingConnections?.length) {
+    lines.push('\nMessaging connections (message trigger / message_send nodes; exact owner-scoped IDs):', ctx.messagingConnections.map((c) => `- ${c.name} (id: ${c.id}, protocol: ${c.protocol})`).join('\n'));
+  } else {
+    lines.push('\nMessaging connections: none configured — do not invent connection IDs.');
   }
 
   if (ctx.mcpServers?.length) {

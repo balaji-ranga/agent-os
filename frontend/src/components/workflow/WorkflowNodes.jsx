@@ -172,6 +172,11 @@ export function ConnectorNode({ id, data }) {
   );
 }
 
+export function MessageSendNode({ id, data }) {
+  const cfg = data.taskConfig || {};
+  return <NodeShell nodeId={id} color="#0f766e" icon="📨" title={data.label || 'Send Message'} subtitle={`${cfg.destinationType || 'queue'} · ${cfg.destination || 'select destination'}`} />;
+}
+
 export function ExternalAgentNode({ id, data }) {
   const cfg = data.taskConfig || {};
   const name = cfg.externalAgentName || cfg.externalAgentId || 'select agent';
@@ -379,6 +384,7 @@ export const workflowNodeTypes = {
   speech_tts: SpeechTtsNode,
   model3d: Model3dNode,
   connector: ConnectorNode,
+  message_send: MessageSendNode,
   externalAgent: ExternalAgentNode,
   custom_script: CustomScriptNode,
   masterdata: MasterDataNode,
@@ -406,6 +412,7 @@ export const PALETTE_ITEMS = [
   { type: 'speech_tts', label: 'Speech TTS', color: '#047857', desc: 'Local Piper TTS — free alternative to ElevenLabs' },
   { type: 'model3d', label: '3D Model', color: '#a855f7', desc: 'Build Virtual Room playback (audio + animation clips)' },
   { type: 'connector', label: 'Connector', color: '#f59e0b', desc: 'Run an OpenConnector app action as this CEO' },
+  { type: 'message_send', label: 'Send Message', color: '#0f766e', desc: 'Publish to Kafka, MQTT, AMQP, STOMP or JMS' },
   { type: 'externalAgent', label: 'External Agent (A2A)', color: '#059669', desc: 'Invoke external agent via A2A protocol' },
   { type: 'custom_script', label: 'Custom Script', color: '#b45309', desc: 'Run approved LangGraph / Python / JS in sandbox' },
   { type: 'masterdata', label: 'Master Data', color: '#0f766e', desc: 'Query CEO tables (CSV) or RAG over uploaded documents' },
@@ -432,7 +439,7 @@ export function defaultNodeData(type, extra = {}) {
   if (type === 'tool') {
     data = { ...data, toolName: '', toolPayload: {} };
   }
-  if (type === 'email' || type === 'brain' || type === 'ceo_approval' || type === 'mcp_tool' || type === 'mcp_listen' || type === 'sse_listen' || type === 'sub_workflow' || type === 'externalAgent' || type === 'custom_script' || type === 'masterdata' || type === 'filesystem' || type === 'web_scrape' || type === 'connector' || type === 'elevenlabs' || type === 'speech_stt' || type === 'speech_tts' || type === 'model3d' || type === 'api') {
+  if (type === 'email' || type === 'brain' || type === 'ceo_approval' || type === 'mcp_tool' || type === 'mcp_listen' || type === 'sse_listen' || type === 'sub_workflow' || type === 'externalAgent' || type === 'custom_script' || type === 'masterdata' || type === 'filesystem' || type === 'web_scrape' || type === 'connector' || type === 'message_send' || type === 'elevenlabs' || type === 'speech_stt' || type === 'speech_tts' || type === 'model3d' || type === 'api') {
     data = { ...data, inputBindings: data.inputBindings || [], outputs: data.outputs || [], taskConfig: data.taskConfig || {} };
   }
   if (type === 'filesystem') {
@@ -589,6 +596,16 @@ export function defaultNodeData(type, extra = {}) {
           { id: 'action_id', label: 'Executed action ID' },
           { id: 'transport', label: 'Transport used' },
         ];
+  }
+  if (type === 'message_send') {
+    data.taskConfig = { connectionId: '', destination: '', destinationType: 'queue', headersJson: '{}', key: '', correlationId: '', replyTo: '', qos: 1, persistent: true, ttlMs: '', partition: '', timeoutMs: 120000, timeoutAction: 'fail', ...(data.taskConfig || {}) };
+    data.inputBindings = data.inputBindings?.length ? data.inputBindings : [
+      { id: 'destination', label: 'Destination override', mode: 'static', value: '', sourceNodeId: '', sourceOutputKey: 'text' },
+      { id: 'payload', label: 'Message payload', mode: 'dynamic', value: '{{input}}', sourceNodeId: '', sourceOutputKey: 'text' },
+      { id: 'headers', label: 'Headers (JSON)', mode: 'static', value: '{}', sourceNodeId: '', sourceOutputKey: 'result' },
+      { id: 'key', label: 'Routing / partition key', mode: 'static', value: '', sourceNodeId: '', sourceOutputKey: 'text' },
+    ];
+    data.outputs = [{ id: 'ok', label: 'Published' }, { id: 'message_id', label: 'Broker message ID' }, { id: 'result', label: 'Publish receipt' }, { id: 'text', label: 'Summary' }];
   }
   if (type === 'if' || type === 'while') {
     data = {

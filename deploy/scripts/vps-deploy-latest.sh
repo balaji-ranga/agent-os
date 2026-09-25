@@ -38,7 +38,7 @@ source "$ROOT/deploy/scripts/compose-file-defaults.sh"
 export_vps_compose_file "$ROOT/deploy/.env"
 cd "$ROOT/deploy"
 
-SERVICES="${SERVICES:-frontend backend openclaw}"
+SERVICES="${SERVICES:-frontend backend openclaw messaging-listener jms-adapter}"
 SKIP_GIT="${SKIP_GIT:-0}"
 SKIP_SMOKE="${SKIP_SMOKE:-0}"
 NO_CACHE="${NO_CACHE:-0}"
@@ -47,6 +47,8 @@ if [[ -z "$PUBLIC_URL" && -f "$ROOT/deploy/.env" ]]; then
   PUBLIC_URL="$(grep -E '^AGENT_OS_PUBLIC_URL=' "$ROOT/deploy/.env" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '\r' || true)"
 fi
 PUBLIC_URL="${PUBLIC_URL:-https://127.0.0.1}"
+
+node "$ROOT/scripts/ensure-deploy-secrets.js" --env-file "$ROOT/deploy/.env"
 
 if [[ -f "$ROOT/deploy/scripts/ensure-deepseek-env.sh" ]]; then
   sed -i 's/\r$//' "$ROOT/deploy/scripts/ensure-deepseek-env.sh" 2>/dev/null || true

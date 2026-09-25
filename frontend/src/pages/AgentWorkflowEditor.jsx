@@ -132,7 +132,7 @@ function withConnectorActionInput(data, jsonText, { forceStatic = false } = {}) 
   return bindings;
 }
 
-function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connectorApps, connectorSearchResults, connectorActions, connectorGuide, connectorInputSchema, connectorExampleInput, connectorActionDescription, connectorLoadError, connectorSearchQuery, onConnectorSearchChange, externalAgents, externalAgentsLoadError, customScripts, customScriptsLoadError, taskCatalog, allNodes, edges, hookInfo, onChange, onDelete, onRegenerateHookSecret, onFetchHookInfo, regeneratingSecret, vaultKeys = [] }) {
+function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connectorApps, connectorSearchResults, connectorActions, connectorGuide, connectorInputSchema, connectorExampleInput, connectorActionDescription, connectorLoadError, connectorSearchQuery, onConnectorSearchChange, externalAgents, externalAgentsLoadError, customScripts, customScriptsLoadError, taskCatalog, allNodes, edges, hookInfo, onChange, onDelete, onRegenerateHookSecret, onFetchHookInfo, regeneratingSecret, vaultKeys = [], messagingConnections = [] }) {
   const [secretVisible, setSecretVisible] = useState(false);
   // Keep a string draft for trigger input schema so typing isn't fought by JSON.parse→stringify.
   const [inputSchemaDraft, setInputSchemaDraft] = useState('');
@@ -271,7 +271,7 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
         <>
           <fieldset className="wf-field">
             <legend>Trigger modes</legend>
-            {['manual', 'schedule', 'chat', 'event'].map((mode) => (
+            {['manual', 'schedule', 'chat', 'event', 'message'].map((mode) => (
               <label key={mode} style={{ display: 'block', marginBottom: 4 }}>
                 <input
                   type="checkbox"
@@ -359,6 +359,15 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
                 </div>
               )}
             </div>
+          )}
+          {(data.triggerModes || []).includes('message') && (
+            <fieldset className="wf-field"><legend>Message trigger</legend>
+              <label className="wf-field">Connection<select value={data.messageConnectionId || ''} onChange={(e) => set({ messageConnectionId: e.target.value })}><option value="">— select —</option>{messagingConnections.map((c) => <option key={c.id} value={c.id}>{c.name} · {c.protocol}</option>)}</select></label>
+              <label className="wf-field">Destination<input value={data.messageDestination || ''} onChange={(e) => set({ messageDestination: e.target.value })} placeholder="orders.created" /></label>
+              <label className="wf-field">Destination type<select value={data.messageDestinationType || 'queue'} onChange={(e) => set({ messageDestinationType: e.target.value })}><option value="queue">Queue</option><option value="topic">Topic</option></select></label>
+              <label className="wf-field">Consumer group<input value={data.messageConsumerGroup || ''} onChange={(e) => set({ messageConsumerGroup: e.target.value })} placeholder="workflow-consumer" /></label>
+              <small>Each accepted broker message starts one durable workflow run. Duplicate message IDs are ignored.</small>
+            </fieldset>
           )}
           <label className="wf-field">
             Schedule (cron)
@@ -1413,6 +1422,15 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
           </small>
         </>
       )}
+      {node.type === 'message_send' && (
+        <fieldset className="wf-field"><legend>Broker publish</legend>
+          <label className="wf-field">Connection<select value={data.taskConfig?.connectionId || ''} onChange={(e) => set({ taskConfig: { ...data.taskConfig, connectionId: e.target.value } })}><option value="">— select —</option>{messagingConnections.map((c) => <option key={c.id} value={c.id}>{c.name} · {c.protocol}</option>)}</select></label>
+          <label className="wf-field">Destination<input value={data.taskConfig?.destination || ''} onChange={(e) => set({ taskConfig: { ...data.taskConfig, destination: e.target.value } })} /></label>
+          <label className="wf-field">Destination type<select value={data.taskConfig?.destinationType || 'queue'} onChange={(e) => set({ taskConfig: { ...data.taskConfig, destinationType: e.target.value } })}><option value="queue">Queue</option><option value="topic">Topic</option></select></label>
+          <label className="wf-field">Headers JSON<textarea value={data.taskConfig?.headersJson || '{}'} onChange={(e) => set({ taskConfig: { ...data.taskConfig, headersJson: e.target.value } })} /></label>
+          <label className="wf-field">Routing / partition key<input value={data.taskConfig?.key || ''} onChange={(e) => set({ taskConfig: { ...data.taskConfig, key: e.target.value } })} /></label>
+        </fieldset>
+      )}
 
       {node.type === 'sub_workflow' && (
         <>
@@ -1861,11 +1879,16 @@ function analyzeGraphReadinessClient(nodes, edges, taskCatalog) {
       mcp_tool: [['MCP server', cfg.mcpServerId], ['MCP tool', cfg.toolName]],
       custom_script: [['Custom script', cfg.customScriptId]],
       connector: [['Connector app', cfg.appId], ['Connector action', cfg.actionId]],
+      message_send: [['Messaging connection', cfg.connectionId], ['Destination', cfg.destination]],
       sub_workflow: [['Target workflow', cfg.targetWorkflowId]],
       externalAgent: [['External agent', cfg.externalAgentId]],
     };
     for (const [field, value] of identities[node.type] || []) {
       if (!String(value || '').trim()) issues.push({ nodeId: node.id, message: `${label} → ${field} is required.` });
+    }
+    if (node.type === 'trigger' && (node.data?.triggerModes || []).includes('message')) {
+      if (!String(node.data?.messageConnectionId || '').trim()) issues.push({ nodeId: node.id, message: `${label} → Messaging connection is required.` });
+      if (!String(node.data?.messageDestination || '').trim()) issues.push({ nodeId: node.id, message: `${label} → Message destination is required.` });
     }
   }
   return issues;
@@ -1912,6 +1935,7 @@ function EditorInner({ workflowId }) {
   const [a2aModalOpen, setA2aModalOpen] = useState(false);
   const [desktopModalOpen, setDesktopModalOpen] = useState(false);
   const [vaultKeys, setVaultKeys] = useState([]);
+  const [messagingConnections, setMessagingConnections] = useState([]);
 
   useEffect(() => {
     api
@@ -1919,6 +1943,7 @@ function EditorInner({ workflowId }) {
       .then((r) => setVaultKeys(r.keys || []))
       .catch(() => setVaultKeys([]));
   }, [workflowId]);
+  useEffect(() => { api.messagingConnections().then((r) => setMessagingConnections(r.connections || [])).catch(() => setMessagingConnections([])); }, [workflowId]);
 
   useEffect(() => {
     propsPaneWidthRef.current = propsPaneWidth;
@@ -2974,6 +2999,7 @@ function EditorInner({ workflowId }) {
             onFetchHookInfo={() => refreshHookInfo(workflow)}
             regeneratingSecret={regeneratingSecret}
             vaultKeys={vaultKeys}
+            messagingConnections={messagingConnections}
           />
 
           <WorkflowVariablesPanel

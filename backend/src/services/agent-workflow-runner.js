@@ -44,6 +44,7 @@ import {
 import { getMcpServerForWorkflow, callMcpServerTool, callMcpServerPrompt, callMcpServerResource } from './mcp-servers.js';
 import { parseMcpAuthFromNodeConfig } from './mcp-auth.js';
 import { executeConnectorAction } from './openconnector.js';
+import { publishWorkflowMessage } from './workflow-messaging.js';
 import { isUserEnabled } from './user-enabled.js';
 import { withLlmopsContext, getLlmopsContext } from './llmops-context.js';
 import { notifyA2ARunTerminal } from './workflow-a2a-async.js';
@@ -625,6 +626,7 @@ const RESUMABLE_IN_PROGRESS_TYPES = new Set([
   'externalAgent',
   'tool',
   'connector',
+  'message_send',
   'filesystem',
   'web_scrape',
   'masterdata',
@@ -825,6 +827,9 @@ export async function startAgentWorkflowRun(
   }
   if (trigger === 'event' && !def.trigger_modes.includes('event')) {
     throw new Error('Event trigger is disabled for this workflow');
+  }
+  if (trigger === 'message' && !def.trigger_modes.includes('message')) {
+    throw new Error('Message trigger is disabled for this workflow');
   }
   if (def.status !== 'published' || !def.published_graph) {
     throw new Error('Workflow must be published before running');
@@ -1343,6 +1348,43 @@ async function executeNode(runId, nodeId, graph, context, def, runRow) {
         nodeLabel: node.data?.label || config.appName || config.appId || 'Connector',
         summary: `${outputs.action_id || actionId} completed`,
         detail: { inputs: inputRecord.summary, outputs },
+      }),
+    });
+    return;
+  }
+
+  if (node.type === 'message_send') {
+    const inputRecord = buildStepInputRecord(node, graph, context);
+    const config = node.data?.taskConfig || node.data?.config || {};
+    const parseHeaders = () => {
+      const value = inputRecord.resolved?.headers ?? config.headersJson ?? config.headers ?? {};
+      if (!value) return {};
+      if (typeof value === 'object') return value;
+      try { return JSON.parse(renderPayloadTemplates(value, context)); }
+      catch { throw new Error('Send Message headers must be valid JSON'); }
+    };
+    const payloadValue = inputRecord.resolved?.payload ?? config.payload ?? '';
+    await completeTimedNodeStep({
+      runId, node, nodeId, def, runRow, context, inputRecord,
+      work: async () => {
+        const out = await publishWorkflowMessage(runRow.owner_user_id, {
+          connectionId: config.connectionId,
+          destination: renderPayloadTemplates(inputRecord.resolved?.destination ?? config.destination ?? '', context),
+          destinationType: config.destinationType || 'queue',
+          payload: renderPayloadTemplates(payloadValue, context),
+          headers: parseHeaders(),
+          key: renderPayloadTemplates(inputRecord.resolved?.key ?? config.key ?? '', context),
+          correlationId: renderPayloadTemplates(config.correlationId || '', context),
+          replyTo: renderPayloadTemplates(config.replyTo || '', context),
+          qos: config.qos, persistent: config.persistent,
+          ttlMs: config.ttlMs, partition: config.partition,
+        });
+        return { ok: true, message_id: out.messageId || out.message_id || '', result: out, text: 'Message published' };
+      },
+      kanban: (outputs) => ({
+        nodeLabel: node.data?.label || 'Send Message',
+        summary: `Message published to ${config.destination || 'configured destination'}`,
+        detail: { inputs: inputRecord.summary, message_id: outputs.message_id },
       }),
     });
     return;

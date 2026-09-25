@@ -12,6 +12,7 @@ import { executeBrainTask } from './agent-workflow-brain.js';
 import { executeEmailTask, executeApiTask, executeFilesystemTask } from './agent-workflow-tasks.js';
 import { executeWebScrapeTask } from './agent-workflow-web-scrape.js';
 import { executeConnectorAction } from './openconnector.js';
+import { publishWorkflowMessage } from './workflow-messaging.js';
 import { executeCustomScriptTask } from './custom-scripts.js';
 import { executeExternalAgentTask } from './agent-workflow-external-agent.js';
 import { runMasterDataQuery } from './master-data.js';
@@ -40,6 +41,7 @@ const REMOTE_NODE_TYPES = new Set([
   'email',
   'api',
   'connector',
+  'message_send',
   'mcp_tool',
   'custom_script',
   'masterdata',
@@ -442,6 +444,20 @@ async function runRemoteNodeWork(node, graph, context, inputRecord, meta) {
         action_id: out.action_id || actionId,
         transport: out.transport || 'http',
       };
+    }
+    case 'message_send': {
+      let headers = inputRecord.resolved?.headers ?? config.headersJson ?? {};
+      if (typeof headers === 'string') headers = JSON.parse(renderPayloadTemplates(headers, context) || '{}');
+      const out = await publishWorkflowMessage(meta.ownerUserId, {
+        connectionId: config.connectionId,
+        destination: renderPayloadTemplates(inputRecord.resolved?.destination ?? config.destination ?? '', context),
+        destinationType: config.destinationType || 'queue',
+        payload: renderPayloadTemplates(inputRecord.resolved?.payload ?? config.payload ?? '', context),
+        headers, key: renderPayloadTemplates(inputRecord.resolved?.key ?? config.key ?? '', context),
+        correlationId: renderPayloadTemplates(config.correlationId || '', context), replyTo: renderPayloadTemplates(config.replyTo || '', context),
+        qos: config.qos, persistent: config.persistent, ttlMs: config.ttlMs, partition: config.partition,
+      });
+      return { ok: true, message_id: out.messageId || out.message_id || '', result: out, text: 'Message published' };
     }
     case 'mcp_tool': {
       const mcpServerId = config.mcpServerId || config.mcp_server_id;

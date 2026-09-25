@@ -1517,4 +1517,9 @@ export const api = {
   adminMcpUniverseSync: () => post('/admin/mcp-universe/sync', {}),
   adminMcpUniverseSubmissions: () => get('/admin/mcp-universe/submissions'),
   adminMcpUniverseModerate: (id, body) => post(`/admin/mcp-universe/submissions/${encodeURIComponent(id)}/moderate`, body),
+  messagingConnections: () => get('/integrations/messaging'),
+  messagingConnectionCreate: (body) => post('/integrations/messaging', body),
+  messagingConnectionUpdate: (id, body) => put(`/integrations/messaging/${encodeURIComponent(id)}`, body),
+  messagingConnectionDelete: (id) => del(`/integrations/messaging/${encodeURIComponent(id)}`),
+  messagingConnectionTest: (id) => post(`/integrations/messaging/${encodeURIComponent(id)}/test`, {}),
 };

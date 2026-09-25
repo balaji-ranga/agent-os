@@ -219,6 +219,7 @@ Bootstrap and provider secrets live in **`deploy/.env`** (gitignored). Compose i
 | `TOOLS_API_KEY` | Transitional internal-sidecar auth only | Not exposed to OpenClaw; agents use brokered `ftl_` leases |
 | `TOOLS_BASE_URL` | backend tool self-dispatch (default `http://127.0.0.1:3001`) | — (backend-only) |
 | `AGENT_OS_INTERNAL_TOKEN` | workflow runner / tools / cron | — (backend-only; must be stable) |
+| `MESSAGING_SERVICE_TOKEN` | workflow backend ↔ messaging/JMS sidecars | — (internal-only; auto-generated) |
 
 The gateway key must match. Admin rotation writes the protected runtime override and restarts only OpenClaw so the backend and gateway switch atomically. Without a stable `AGENT_OS_INTERNAL_TOKEN`, workflow/internal auth breaks after every backend restart.
 
@@ -231,6 +232,10 @@ cp .env.example .env
 node ../scripts/ensure-deploy-secrets.js --env-file .env
 docker compose --profile init run --rm init
 ```
+
+### Workflow messaging sidecars
+
+`messaging-listener` provides Kafka, MQTT, AMQP 0.9.1/1.0 and STOMP workflow triggers/publishing. `jms-adapter` provides Jakarta Messaging for Qpid JMS and ActiveMQ Artemis. Neither publishes a host port. Broker credentials are referenced by API Keys Vault name and are never stored in workflow graphs or connection JSON. See `knowledgebase/WORKFLOW-MESSAGING-TRIGGERS-AND-NODES.md`.
 
 **Local dev (non-Docker):**
 

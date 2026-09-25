@@ -693,6 +693,17 @@ export function findApiKeyDependencies(ownerUserId, keyName) {
     }
   } catch (_) {}
 
+  try {
+    const connections = db()
+      .prepare(`SELECT id, name, vault_refs_json FROM workflow_messaging_connections WHERE owner_user_id = ?`)
+      .all(owner);
+    for (const connection of connections) {
+      if (Object.values(JSON.parse(connection.vault_refs_json || '{}')).includes(name)) {
+        deps.push({ type: 'messaging_connection', id: connection.id, name: connection.name || connection.id, detail: 'broker credential' });
+      }
+    }
+  } catch (_) {}
+
   if (name === PLATFORM_BYOK_KEY_NAME) {
     const u = db()
       .prepare(`SELECT id, llm_provider FROM platform_users WHERE id = ?`)

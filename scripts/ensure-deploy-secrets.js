@@ -10,6 +10,7 @@
  *   TOOLS_BASE_URL          — backend tool self-dispatch loopback (default http://127.0.0.1:3001)
  *   USER_API_KEYS_KEK       — wraps optional API Key vault encryption phrases
  *   PROMOTION_TRACKING_SECRET — signs WhatsApp promotion CTA tracking links
+ *   MESSAGING_SERVICE_TOKEN — backend ↔ broker/JMS sidecars
  *
  * For local openclaw.json sync of TOOLS_API_KEY, use ensure-tools-api-key.js.
  */
@@ -32,7 +33,7 @@ function parseArgs(argv) {
     if (arg === '-h' || arg === '--help') {
       console.log(`Usage: node scripts/ensure-deploy-secrets.js [--env-file PATH]
 
-Ensures TOOLS_API_KEY, AGENT_OS_INTERNAL_TOKEN, TOOLS_BASE_URL, USER_API_KEYS_KEK, and PROMOTION_TRACKING_SECRET in the env file.
+Ensures TOOLS_API_KEY, AGENT_OS_INTERNAL_TOKEN, TOOLS_BASE_URL, USER_API_KEYS_KEK, PROMOTION_TRACKING_SECRET, and MESSAGING_SERVICE_TOKEN in the env file.
 Default: deploy/.env`);
       process.exit(0);
     }
@@ -113,6 +114,12 @@ ensureSecret(
   'PROMOTION_TRACKING_SECRET',
   32,
   'Signs WhatsApp promotion CTA tracking links (auto-generated)'
+);
+ensureSecret(
+  envFile,
+  'MESSAGING_SERVICE_TOKEN',
+  32,
+  'Internal auth — backend and workflow messaging sidecars (auto-generated)'
 );
 
 // Loopback self-dispatch for /api/tools/invoke (avoid public HTTPS / self-signed hairpin).

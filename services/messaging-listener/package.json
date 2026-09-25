@@ -1,0 +1,16 @@
+{
+  "name": "flolah-messaging-listener",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "start": "node src/index.js", "test": "node --test test/*.test.js" },
+  "dependencies": {
+    "amqplib": "^0.10.8",
+    "express": "^4.22.1",
+    "kafkajs": "^2.2.4",
+    "mqtt": "^5.14.1",
+    "rhea-promise": "^3.0.3",
+    "stompit": "0.21.0"
+  },
+  "overrides": { "stompit": { "qs": "6.16.0" } }
+}

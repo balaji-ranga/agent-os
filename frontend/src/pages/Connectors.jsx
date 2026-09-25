@@ -6,6 +6,7 @@ import WizardReturnBanner from '../components/WizardReturnBanner.jsx';
 import McpConnectorsPanel from '../components/connectors/McpConnectorsPanel.jsx';
 import BrowserWorkerVersions from '../components/BrowserWorkerVersions.jsx';
 import EventProductivityPanel from '../components/connectors/EventProductivityPanel.jsx';
+import MessagingConnectionsPanel from '../components/connectors/MessagingConnectionsPanel.jsx';
 
 const STARTERS = [
   { id: 'hackernews', name: 'Hacker News' },
@@ -22,12 +23,13 @@ function ConnectorsPanel() {
       const q = new URLSearchParams(window.location.search).get('tab');
       if (q === 'mcps' || q === 'mcp') return 'mcps';
       if (q === 'events' || q === 'productivity') return 'events';
+      if (q === 'messaging') return 'messaging';
       if (window.location.hash === '#mcps' || window.location.hash === '#mcp') return 'mcps';
     } catch {
       /* ignore */
     }
     return 'openconnector';
-  }); // openconnector | mcps | events
+  }); // openconnector | mcps | messaging | events
   const isAdmin = user?.role === 'admin';
   const [link, setLink] = useState(null);
   const [connections, setConnections] = useState([]);
@@ -466,6 +468,7 @@ function ConnectorsPanel() {
           { id: 'openconnector', label: 'OpenConnector' },
           { id: 'mcps', label: 'MCPs (OAuth)' },
           ...(!isAdmin ? [{ id: 'events', label: 'Events & Productivity' }] : []),
+          { id: 'messaging', label: 'Messaging & IoT' },
         ].map((t) => (
           <button
             key={t.id}
@@ -476,6 +479,7 @@ function ConnectorsPanel() {
                 const url = new URL(window.location.href);
                 if (t.id === 'mcps') url.searchParams.set('tab', 'mcps');
                 else if (t.id === 'events') url.searchParams.set('tab', 'events');
+                else if (t.id === 'messaging') url.searchParams.set('tab', 'messaging');
                 else url.searchParams.delete('tab');
                 window.history.replaceState({}, '', url.pathname + url.search);
               } catch {
@@ -522,6 +526,9 @@ function ConnectorsPanel() {
         <div style={{ marginTop: '1rem' }}>
           <McpConnectorsPanel />
         </div>
+      )}
+      {mainTab === 'messaging' && (
+        <div style={{ marginTop: '1rem' }}><MessagingConnectionsPanel /></div>
       )}
 
       {!isAdmin && mainTab === 'events' && <EventProductivityPanel />}

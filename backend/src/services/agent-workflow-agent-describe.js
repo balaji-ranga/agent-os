@@ -8,7 +8,7 @@ import { resolveWorkflowForTrigger, enquireWorkflows } from './agent-workflow-ch
 import { isCronDue } from './agent-workflow-scheduler.js';
 
 const NODE_PURPOSE = {
-  trigger: 'Entry point — starts runs via manual, chat phrase, schedule, or webhook.',
+  trigger: 'Entry point — starts runs via manual, chat phrase, schedule, webhook, or broker message.',
   agent: 'Delegates a prompt to a workspace agent.',
   brain: 'Direct LLM call (OpenAI, Anthropic, Ollama, OpenRouter); optional MCP tool-calling.',
   tool: 'Invokes a registered content tool.',
@@ -18,6 +18,7 @@ const NODE_PURPOSE = {
   sub_workflow: 'Invokes another published workflow as a child run.',
   email: 'Sends email via SMTP.',
   api: 'HTTP request to an external API.',
+  message_send: 'Publishes to an owner-scoped Kafka, MQTT, AMQP, STOMP or JMS connection.',
   externalAgent: 'Invokes a registered external agent via A2A JSON-RPC.',
   custom_script: 'Runs an approved custom Python/JS/LangGraph script in a sandbox.',
   parallel: 'Fans out to multiple branches concurrently.',
