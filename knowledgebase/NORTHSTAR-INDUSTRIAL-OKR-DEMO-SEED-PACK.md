@@ -21,6 +21,7 @@ The fictional company is **Northstar Industrial Supplies Pte. Ltd.**, a Singapor
 | Organization | Existing COO plus 8 pack-owned AI employees across Sales, Customer, Finance, and Operations |
 | Budgets | 6.2M monthly tokens total; per-agent token and error budgets |
 | Objectives | FY2026 annual objective; completed Q1/Q2, active Q3, draft Q4 |
+| Goals | 4 active scheduled goals bound to the Q3 objective and key-result evidence |
 | Key results | Revenue, gross margin, qualified pipeline, DSO, and OTIF |
 | Workflows | 7 multi-node, multi-agent workflows tied to Q3 key results |
 | Knowledge | 7 evidence tables: CRM accounts/contacts/opportunities, ERP customers/suppliers/invoices, OKR measurements |
@@ -158,17 +159,28 @@ npm run test:northstar-okr-demo-seed
 
 It validates the manifest, seeds an isolated database, checks objective/workflow/agent/table/policy counts, verifies a second seed is idempotent, rejects a wrong-owner cleanup confirmation, cleans, reseeds, and cleans again.
 
+ERPNext company/session isolation test:
+
+```bash
+npm run test:erpnext-company-session-isolation
+```
+
+It validates company-scoped SSO permissions, self-User permission scoping, and CRM/ERP list-route isolation without requiring live provider credentials.
+
 After a VPS seed, verify:
 
 1. Admin User Insights shows Maya Tan and **View as user** works.
 2. My Org shows the two humans and eight Northstar AI employees under the existing COO.
 3. Objectives shows FY2026 and Q1–Q4 with Q3 active.
-4. Workflows shows seven published multi-node Northstar workflows.
-5. Knowledge shows seven `demo_northstar_*` tables.
-6. Efficiency Agent View shows all eight budgets.
-7. Policies shows External messages/publish = Autonomous and Financial/destructive = Prohibited.
-8. CRM/ERP show the provider mirrors. Status identifies `twenty` or `erpnext` as the live CRM backend and reports any external warning or error.
-9. Channels explains that WhatsApp still needs the CEO to pair a device; no session secret is seeded.
+4. Goals shows four active scheduled goals linked to the Q3 objective and key results.
+5. Workflows shows seven published multi-node Northstar workflows.
+6. Knowledge shows seven `demo_northstar_*` tables.
+7. Efficiency Agent View shows all eight budgets.
+8. Policies shows External messages/publish = Autonomous and Financial/destructive = Prohibited.
+9. CRM shows 12 Northstar opportunities in the selected live backend; ERPNext fallback opens the Sales CRM list without a client-side `?company=` filter.
+10. ERP shows three Northstar Sales Invoices for the bound company.
+11. Status identifies `twenty` or `erpnext` as the live CRM backend and reports any external warning or error.
+12. Channels explains that WhatsApp still needs the CEO to pair a device; no session secret is seeded.
 
 ## Rollback
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Source-controlled backend-only release. Does not run the full regression pack.
+# Source-controlled backend-only release. Runs focused release gates before cutover.
 # Usage: bash deploy/scripts/vps-deploy-backend-focused.sh
 set -euo pipefail
 ROOT="${AGENT_OS_ROOT:-/opt/agent-os}"
@@ -19,6 +19,8 @@ cd "$ROOT/deploy"
 # Build and test before touching the healthy running backend.
 docker compose build backend
 docker run --rm --network none --entrypoint node "$image_tag" scripts/test-router-planner-focused.mjs
+docker run --rm --network none --entrypoint node "$image_tag" scripts/test-erpnext-company-session-isolation.mjs
+docker run --rm --network none --entrypoint node "$image_tag" scripts/test-northstar-okr-demo-seed.mjs
 docker compose up -d --no-deps --force-recreate backend
 for attempt in $(seq 1 140); do
   status="$(docker inspect --format '{{.State.Health.Status}}' agent-os-backend-1)"

@@ -13,7 +13,7 @@ CEO-centric clips (normally <= 1 min each) plus explicitly identified featured d
 
 Videos are **navigational walkthroughs**: each clip advances through FloLah UI mock frames (left nav highlight, scene panels, orange pointer callouts) timed to the voice track — not a static title card.
 
-`13-northstar-ai-native-company` is a featured 5–6 minute live-product recording. It uses a short-lived, non-impersonated CEO session, performs read-only navigation, verifies that no Admin impersonation banner is present, and revokes the capture session after production. Its reusable capture/render harness is `backend/scripts/northstar-demo-video.mjs`.
+`13-northstar-ai-native-company` is a featured 6–7 minute live-product recording. It uses a short-lived, non-impersonated CEO session, performs read-only navigation, verifies that no Admin impersonation banner is present, and revokes the capture session after production. The recording must show the four active scheduled goals, 12 ERPNext CRM opportunities, and three ERPNext Sales Invoices created by the Northstar seed pack. Its reusable capture/render harness is `backend/scripts/northstar-demo-video.mjs`.
 
 Generate it on the VPS without rebuilding or restarting services:
 
@@ -22,7 +22,7 @@ cd /opt/agent-os
 bash deploy/scripts/vps-generate-northstar-demo.sh
 ```
 
-The helper performs focused file copies into the running browser and backend containers, stores no credentials in the repository, and does not read or modify `deploy/.env`.
+The helper runs the isolated seed lifecycle and ERPNext company/session isolation gates before capture, performs focused file copies into the running browser and backend containers, validates the rendered artifact, stores no credentials in the repository, and does not read or modify `deploy/.env`.
 
 **Re-export on VPS** (after script or storyboard edits):
 

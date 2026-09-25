@@ -117,6 +117,8 @@ ERPNEXT_ADMIN_PASSWORD=admin   # initial Administrator password from create-site
 | Agents / MCP | API key + `X-Ceo-User-Id` → same bound company filters as desk (cannot list peer masters) |
 | Org sync | `erp_sync_org` / `crm_sync_org`: Departments + **Employees** (not desk Users) under company |
 
+**ERPNext SSO permission invariant:** the company User Permission must be the user's single default company permission. The self User permission must set `applicable_for=User`; leaving it globally applicable causes ERPNext list queries for Opportunity and Sales Invoice to filter their `owner` field by the signed-in email and hide valid company records. Company isolation is enforced server-side by ERPNext User Permissions, so CRM/ERP Desk list handoffs must use the canonical list route and must not append a client-side `?company=` query parameter.
+
 Remaining shared setup masters (Item Group, Mode of Payment, …) are not `flolah_company`-tagged yet — see platform-help **32**.
 
 **Prefab agents:** CRM Maker A/B + Checker (Twenty `crm_*` or ERPNext sales `erp_*`); ERP Maker A (finance/setup: company + fiscal write + money path), Maker B (ops/stock, company/fiscal read), Checker (submit/cancel + Kanban/workflow approvals), plus P&L / Invoice / Project specialists. A∪B ≈ CEO desk ops for the bound company.
