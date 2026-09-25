@@ -5,6 +5,7 @@ import {
 } from '../src/services/business-embed.js';
 import {
   normalizeErpDeskRedirectPath,
+  planExistingPermissionUpdate,
   planCompanyPermissionReconciliation,
 } from '../src/services/erpnext-sso.js';
 
@@ -39,4 +40,12 @@ assert.equal(normalizeErpDeskRedirectPath('app/opportunity/view/list'), '/app/op
 assert.equal(normalizeErpDeskRedirectPath('/app/opportunity/view/list'), '/app/opportunity/view/list');
 assert.doesNotMatch(normalizeErpDeskRedirectPath('/app/opportunity/view/list'), /[?&]company=/);
 
-console.log(JSON.stringify({ ok: true, cases: 4 }));
+assert.deepEqual(
+  planExistingPermissionUpdate(
+    { is_default: 0, apply_to_all_doctypes: 0, applicable_for: null },
+    { is_default: 0, apply_to_all_doctypes: 0, applicable_for: 'User' }
+  ),
+  { applicable_for: 'User' }
+);
+
+console.log(JSON.stringify({ ok: true, cases: 5 }));

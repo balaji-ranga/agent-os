@@ -79,6 +79,16 @@ export function normalizeErpDeskRedirectPath(value = '/app') {
   return raw.startsWith('/') ? raw : '/' + raw;
 }
 
+export function planExistingPermissionUpdate(existing = {}, desired = {}) {
+  const body = {};
+  if (desired.is_default && !Number(existing.is_default)) body.is_default = 1;
+  if (desired.apply_to_all_doctypes && !Number(existing.apply_to_all_doctypes)) body.apply_to_all_doctypes = 1;
+  if (desired.applicable_for && existing.applicable_for !== desired.applicable_for) {
+    body.applicable_for = desired.applicable_for;
+  }
+  return body;
+}
+
 
 /** Ensure Company + self User permissions (desk cannot list other SSO users).
  * Company User Permission must have is_default=1 so Selling/Buying modules get a
@@ -113,13 +123,12 @@ export async function ensureSsoUserPermissions(userId, companyName) {
     const rows = await listPerms(allow, for_value);
     const existing = rows[0] || null;
     if (existing && existing.name) {
-      const needDefault = !!is_default && !Number(existing.is_default);
-      const needApply =
-        !!apply_to_all_doctypes && !Number(existing.apply_to_all_doctypes);
-      if (needDefault || needApply) {
-        const body = {};
-        if (needDefault) body.is_default = 1;
-        if (needApply) body.apply_to_all_doctypes = 1;
+      const body = planExistingPermissionUpdate(existing, {
+        is_default,
+        apply_to_all_doctypes,
+        applicable_for,
+      });
+      if (Object.keys(body).length) {
         await frappeFetch('/api/resource/User Permission/' + encodeURIComponent(existing.name), {
           method: 'PUT',
           body,
@@ -215,7 +224,13 @@ export async function ensureSsoUserPermissions(userId, companyName) {
   }
   // Restrict User list/read to self only (Company UP does not hide User doctype).
   try {
-    await ensurePerm({ allow: 'User', for_value: userId, apply_to_all_doctypes: 0, is_default: 0 });
+    await ensurePerm({
+      allow: 'User',
+      for_value: userId,
+      apply_to_all_doctypes: 0,
+      applicable_for: 'User',
+      is_default: 0,
+    });
   } catch (e) {
     console.warn('[erpnext-sso] self user permission', e && e.message ? e.message : e);
   }
