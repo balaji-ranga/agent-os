@@ -70,6 +70,8 @@ export async function purgeOwnerRetention(ownerUserId, { days = null } = {}) {
     ibkrnew_goal_trade_links: 0,
     ibkrnew_goal_cycles: 0,
     ibkrnew_goals: 0,
+    productivity_events: 0,
+    productivity_action_receipts: 0,
   };
 
   deleted.chat_turns =
@@ -110,6 +112,17 @@ export async function purgeOwnerRetention(ownerUserId, { days = null } = {}) {
     deleted.ibkrnew_goals = db.prepare(`DELETE FROM ibkrnew_goals WHERE owner_user_id=? AND status='COMPLETED' AND datetime(updated_at)<datetime('now',?) AND NOT EXISTS(SELECT 1 FROM ibkrnew_goal_cycles c WHERE c.goal_id=ibkrnew_goals.goal_id)`).run(owner, cutoff).changes || 0;
   } catch (_) {
     /* IBKRNew tables are lazy-created when the feature is first opened. */
+  }
+
+  try {
+    deleted.productivity_events = db.prepare(
+      `DELETE FROM productivity_events WHERE owner_user_id=? AND status IN ('completed','dead_letter','acknowledged','ignored') AND datetime(received_at)<datetime('now',?)`
+    ).run(owner, cutoff).changes || 0;
+    deleted.productivity_action_receipts = db.prepare(
+      `DELETE FROM productivity_action_receipts WHERE owner_user_id=? AND status IN ('completed','failed') AND datetime(created_at)<datetime('now',?)`
+    ).run(owner, cutoff).changes || 0;
+  } catch (_) {
+    /* Event & Productivity tables are lazy-created at feature startup. */
   }
 
   // Human/voice communications belong to the CEO company, including employee activity.

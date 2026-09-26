@@ -54,6 +54,8 @@ import ibkrNewEventTraderRoutes from './routes/ibkrnew-event-trader.js';
 import marketDataRoutes from './routes/market-data.js';
 import emailInboundRoutes from './routes/email-inbound.js';
 import openconnectorRoutes from './routes/openconnector.js';
+import eventProductivityRoutes from './routes/event-productivity.js';
+import eventProductivityWebhookRoutes from './routes/event-productivity-webhooks.js';
 import ibkrBridgePackageRoutes from './routes/ibkr-bridge-package.js';
 import settingsIpWhitelistRoutes from './routes/settings-ip-whitelists.js';
 import settingsExternalTokensRoutes from './routes/settings-external-tokens.js';
@@ -122,6 +124,8 @@ import { seedBraveSearchToolIfMissing, grantBraveSearchToolToDefaultAgents } fro
 import { seedSocialResearchToolsIfMissing, grantSocialResearchToolsToAgents } from './db/seed-social-research-tools.js';
 import { seedWebScrapeToolsIfMissing } from './db/seed-web-scrape-tools.js';
 import { seedMarketDataToolsIfMissing } from './db/seed-market-data-tools.js';
+import { seedEventProductivityToolsIfMissing } from './db/seed-event-productivity-tools.js';
+import { ensureEventProductivitySchema } from './services/event-productivity.js';
 import { writeOpenClawToolsList } from './services/content-tools-meta.js';
 import {
   importGrantsFromOpenClawConfig,
@@ -399,6 +403,12 @@ updateKanbanToolPurposes();
 seedJobApplicantToolsIfMissing();
 seedIbkrTradingToolsIfMissing();
 seedMarketDataToolsIfMissing();
+seedEventProductivityToolsIfMissing();
+try {
+  ensureEventProductivitySchema();
+} catch (e) {
+  console.warn('[startup] event productivity schema:', e.message);
+}
 seedBrowserSessionToolsIfMissing();
 try {
   const browserGranted = grantBrowserSessionToolsToAllAgents();
@@ -710,6 +720,8 @@ apiRouter.use('/a2a-callback-inbox', a2aCallbackInboxRoutes);
 apiRouter.use('/a2a', workflowA2aRoutes);
 apiRouter.use('/integrations/email-inbound', emailInboundRoutes);
 apiRouter.use('/integrations/openconnector', openconnectorRoutes);
+apiRouter.use('/event-productivity/webhooks', eventProductivityWebhookRoutes);
+apiRouter.use('/event-productivity', eventProductivityRoutes);
 apiRouter.use('/integrations/ibkr-bridge', ibkrBridgePackageRoutes);
 apiRouter.use('/settings/ip-whitelists', settingsIpWhitelistRoutes);
 apiRouter.use('/settings/external-tokens', settingsExternalTokensRoutes);
@@ -1060,6 +1072,22 @@ registerPlatformCron({
   handler: async () => {
     const { applyDueToolRateLimitResets } = await import('./services/tool-api-rate-limits.js');
     return applyDueToolRateLimitResets({ resetBy: 'cron' });
+  },
+});
+
+const eventProductivityRetryCron = process.env.EVENT_PRODUCTIVITY_RETRY_CRON || '*/1 * * * *';
+registerPlatformCron({
+  id: 'event_productivity_retry',
+  kind: 'event',
+  eventWhen: 'retry failed productivity events',
+  name: 'Event & Productivity retry worker',
+  description:
+    'Retries failed owner-scoped calendar, document, message, workflow, and goal events with bounded backoff; terminal failures remain in the dead-letter inbox.',
+  schedule: eventProductivityRetryCron,
+  envVar: 'EVENT_PRODUCTIVITY_RETRY_CRON',
+  handler: async () => {
+    const { processDueProductivityEvents } = await import('./services/event-productivity.js');
+    return processDueProductivityEvents();
   },
 });
 

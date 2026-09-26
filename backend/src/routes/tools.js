@@ -145,6 +145,7 @@ import { resolveKanbanTaskOwnerId } from '../services/kanban-user-scope.js';
 import jobApplicantTools from './job-applicant-tools.js';
 import crmTools from './crm-tools.js';
 import erpTools from './erp-tools.js';
+import eventProductivityTools from './event-productivity-tools.js';
 import { summarizeLearnings } from '../services/agent-feedback.js';
 import { executeEmailSend, resolveCompanyEmailRecipients } from '../services/email-send.js';
 import { executeNotifyCeo } from '../services/notify-ceo.js';
@@ -870,6 +871,7 @@ router.use(toolApiRateLimitMiddleware);
 router.use(jobApplicantTools);
 router.use(crmTools);
 router.use(erpTools);
+router.use(eventProductivityTools);
 
 /**
  * POST /summarize-url

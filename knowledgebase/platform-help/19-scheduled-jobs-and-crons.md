@@ -19,7 +19,7 @@ another's — each pass is owner-scoped (`owner_user_id`).
 All keys are **optional** — each has a code default, so a fresh install schedules everything with no
 `.env` changes. They are listed commented in `deploy/.env`, `deploy/.env.example` and
 `backend/.env.example` for reference (`deploy/scripts/ensure-cron-env.sh` keeps `.env` in sync on
-every deploy). **Compose:** cron keys plus `GOAL_PLAN_*`, `SCHEDULED_GOAL_CHAT_TIMEOUT_MS`, `SCHEDULED_GOAL_STUCK_MINUTES`, `GOAL_AGENT_CONTINUE_TIMEOUT_MS`, `WORKFLOW_COO_WAKE_ON_TERMINAL`, and `TOOL_API_RATE_LIMIT_RESET_CRON` are injected in `deploy/docker-compose.yml` backend environment. Comment-only `.env` changes need a container recreate.
+every deploy). **Compose:** cron keys plus `GOAL_PLAN_*`, `SCHEDULED_GOAL_CHAT_TIMEOUT_MS`, `SCHEDULED_GOAL_STUCK_MINUTES`, `GOAL_AGENT_CONTINUE_TIMEOUT_MS`, `WORKFLOW_COO_WAKE_ON_TERMINAL`, `TOOL_API_RATE_LIMIT_RESET_CRON`, and `EVENT_PRODUCTIVITY_RETRY_CRON` are injected in `deploy/docker-compose.yml` backend environment. Comment-only `.env` changes need a container recreate.
 
 | Env var | Default | What runs on each tick | Per-user behaviour |
 |---------|---------|------------------------|--------------------|
@@ -42,6 +42,7 @@ every deploy). **Compose:** cron keys plus `GOAL_PLAN_*`, `SCHEDULED_GOAL_CHAT_T
 | `WORKFLOW_TERMINAL_WATCH_CRON` | `*/5 * * * *` | **Workflow terminal watch** (event + safety sweep) | Live: agent-workflow terminal → **CEO bell**, optional **orchestrator wake** (triggering COO / Workflow Builder / Content Orchestrator), goal-plan step advance. Agent wakes respect Knowledge **`agent_workflow_notify_prefs`** (no rows for agent = all workflows; rows = allowlist). Unbound video/storyboard wakes prefer Content Orchestrator and are **status-only** (no digest / `status_checker` / `email_send`). CRM→ERP continuation still wakes COO when applicable. **Admin Pause** kills notify/wake (goal advance still runs). Run now re-advances stuck steps. |
 | `GOAL_PLAN_COMPLETION_NUDGE_CRON` | `*/10 * * * *` | **Goal plan completion chat nudge** (event + safety sweep) | Live: when a goal plan reaches completed/failed, one COO chat ladder + CEO bell. Pause disables. Run now backfills missing nudges. Hard-off: `GOAL_PLAN_COO_COMPLETION_NUDGE=0`. |
 | `WORKFLOW_TIMEOUT_WATCHDOG_CRON` | `*/1 * * * *` | **Workflow timeout watchdog** | Reaps in_progress workflow nodes past timeout (also ~30s in-process interval). Pause disables reaper. |
+| `EVENT_PRODUCTIVITY_RETRY_CRON` | `*/1 * * * *` | **Event & Productivity retry worker** | Retries failed owner-scoped calendar/document/message events with bounded backoff; five failures remain in the dead-letter inbox for correction and replay. |
 
 Admin operators can **list / pause / resume / Run now** every platform cron **and event watcher** under **Admin → Crons** (`/admin/crons`). The same page exposes the configurable platform timeout catalog. Event watchers show an **event** badge; pause is a kill-switch for the live path; schedule is a safety-net sweep.
 

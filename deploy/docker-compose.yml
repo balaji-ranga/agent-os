@@ -263,6 +263,7 @@ x-backend-env: &backend-env
   WORKFLOW_TIMEOUT_WATCHDOG_CRON: ${WORKFLOW_TIMEOUT_WATCHDOG_CRON:-}
   WORKFLOW_COO_WAKE_ON_TERMINAL: ${WORKFLOW_COO_WAKE_ON_TERMINAL:-}
   TOOL_API_RATE_LIMIT_RESET_CRON: ${TOOL_API_RATE_LIMIT_RESET_CRON:-}
+  EVENT_PRODUCTIVITY_RETRY_CRON: ${EVENT_PRODUCTIVITY_RETRY_CRON:-}
   # Timezone for cron expressions + chat day boundaries (default UTC)
   TZ: ${TZ:-UTC}
   # Timezone used to render dates for users (Kanban, task chat, reports); falls back to TZ

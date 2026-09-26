@@ -909,6 +909,22 @@ export const api = {
   openconnectorOauthOverrideClear: (appId) =>
     del(`/integrations/openconnector/oauth/overrides/${encodeURIComponent(appId)}`),
   openconnectorConsoleLaunch: () => post('/integrations/openconnector/console-launch', {}),
+  eventProductivitySummary: () => get('/event-productivity/summary'),
+  eventProductivitySubscriptions: () => get('/event-productivity/subscriptions'),
+  eventProductivitySubscriptionCreate: (body) => post('/event-productivity/subscriptions', body),
+  eventProductivitySubscriptionUpdate: (id, body) => patch(`/event-productivity/subscriptions/${encodeURIComponent(id)}`, body),
+  eventProductivitySubscriptionDelete: (id) => del(`/event-productivity/subscriptions/${encodeURIComponent(id)}`),
+  eventProductivitySecretRotate: (id) => post(`/event-productivity/subscriptions/${encodeURIComponent(id)}/rotate-secret`, {}),
+  eventProductivityEvents: (params = {}) => {
+    const q = new URLSearchParams(params).toString();
+    return get(`/event-productivity/events${q ? `?${q}` : ''}`);
+  },
+  eventProductivityEventAcknowledge: (id) => post(`/event-productivity/events/${encodeURIComponent(id)}/acknowledge`, {}),
+  eventProductivityEventReplay: (id) => post(`/event-productivity/events/${encodeURIComponent(id)}/replay`, {}),
+  eventProductivityBindings: () => get('/event-productivity/bindings'),
+  eventProductivityBindingSave: (body) => put('/event-productivity/bindings', body),
+  eventProductivityBindingDelete: (id) => del(`/event-productivity/bindings/${encodeURIComponent(id)}`),
+  eventProductivityReceipts: () => get('/event-productivity/receipts'),
   opensearchConsoleLaunch: () => post('/integrations/opensearch/console-launch', {}),
   adminPlatformDocuments: (params = {}) => {
     const q = new URLSearchParams(params).toString();
