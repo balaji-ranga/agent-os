@@ -4,6 +4,7 @@ import { api } from '../api';
 import { RequireAuth } from '../context/AuthContext';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import { formatLocalDateTime } from '../utils/formatDateTime.js';
+import './MasterData.css';
 
 const PAGE_SIZE = 50;
 const DOC_PAGE_SIZE = 10;
@@ -418,26 +419,126 @@ function MasterDataPanel() {
   }, [documents.length]);
 
   return (
-    <div className="mcp-pg">
-      <Link to="/org" style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>
-        ← My Org
-      </Link>
-      <h1 style={{ margin: '0.5rem 0 0.25rem' }}>Knowledge</h1>
-      <p style={{ color: 'var(--muted)', marginTop: 0 }}>
-        Company knowledge (Master Data): create tables, upload CSV, and store documents under your tenant.
-        AI employees can list tables and CRUD rows / search documents via tools — scoped to your CEO only.
-        Table schema alter/drop is not available to AI employees.
-      </p>
+    <div className="mcp-pg knowledge-page">
+      <header className="knowledge-hero">
+        <div className="knowledge-hero-copy">
+          <Link to="/org" className="knowledge-back-link">
+            ← Company workspace
+          </Link>
+          <p className="knowledge-eyebrow">Company intelligence</p>
+          <h1>Your organization’s shared knowledge</h1>
+          <p>
+            Give leaders and AI employees one trusted place to find company facts, operating documents,
+            and structured business data.
+          </p>
+          <nav className="knowledge-quick-actions" aria-label="Knowledge quick actions">
+            <a className="knowledge-primary-action" href="#knowledge-ask">Ask knowledge</a>
+            <a href="#knowledge-documents">Add a document</a>
+            <a href="#knowledge-tables">Create a table</a>
+            <a href="#knowledge-inbound">Review inbox</a>
+          </nav>
+        </div>
+        <div className="knowledge-hero-orbit" aria-hidden="true">
+          <span className="knowledge-orbit-core">K</span>
+          <span className="knowledge-orbit-node knowledge-orbit-node-a">DOC</span>
+          <span className="knowledge-orbit-node knowledge-orbit-node-b">DATA</span>
+          <span className="knowledge-orbit-node knowledge-orbit-node-c">AI</span>
+        </div>
+      </header>
 
-      {error && <div style={{ color: '#f87171', marginBottom: '0.75rem' }}>{error}</div>}
-      {message && <div style={{ color: '#22c55e', marginBottom: '0.75rem' }}>{message}</div>}
+      <section className="knowledge-metrics" aria-label="Knowledge overview">
+        <article>
+          <span className="knowledge-metric-icon knowledge-metric-violet" aria-hidden="true">▦</span>
+          <div><strong>{tables.length}</strong><span>Data tables</span></div>
+        </article>
+        <article>
+          <span className="knowledge-metric-icon knowledge-metric-blue" aria-hidden="true">≡</span>
+          <div><strong>{documentTotal}</strong><span>Indexed documents</span></div>
+        </article>
+        <article>
+          <span className="knowledge-metric-icon knowledge-metric-amber" aria-hidden="true">↓</span>
+          <div><strong>{inboundTotal}</strong><span>Inbound files</span></div>
+        </article>
+        <article>
+          <span className="knowledge-metric-icon knowledge-metric-green" aria-hidden="true">✓</span>
+          <div>
+            <strong>{csKnowledge ? (csKnowledge.missing_count === 0 ? 'Ready' : `${csKnowledge.missing_count} missing`) : '—'}</strong>
+            <span>Knowledge foundation</span>
+          </div>
+        </article>
+      </section>
+
+      <section id="knowledge-ask" className="knowledge-ask-panel">
+        <div className="knowledge-ask-heading">
+          <span className="knowledge-ask-mark" aria-hidden="true">✦</span>
+          <div>
+            <p className="knowledge-eyebrow">Ask company knowledge</p>
+            <h2>Get an evidence-backed answer</h2>
+            <p>Search across indexed policies, plans, reports and operating documents.</p>
+          </div>
+        </div>
+        <form onSubmit={runRag} className="knowledge-ask-form">
+          <label htmlFor="knowledge-query" className="sr-only">Question for company knowledge</label>
+          <input
+            id="knowledge-query"
+            placeholder="For example: What are our current sales priorities?"
+            value={queryText}
+            onChange={(e) => setQueryText(e.target.value)}
+          />
+          <button type="submit" disabled={ragBusy || !queryText.trim()} className="knowledge-ask-submit">
+            {ragBusy ? 'Searching…' : 'Ask knowledge'}
+          </button>
+        </form>
+        <div className="knowledge-suggestions" aria-label="Suggested questions">
+          <span>Try asking</span>
+          {[
+            'What are our strategic priorities?',
+            'Summarize our operating policies',
+            'What changed in the latest plan?',
+          ].map((suggestion) => (
+            <button key={suggestion} type="button" onClick={() => setQueryText(suggestion)}>{suggestion}</button>
+          ))}
+        </div>
+        {ragBusy && (
+          <div role="status" aria-live="polite" className="knowledge-query-status">
+            Searching indexed documents and checking relevance…
+          </div>
+        )}
+        {ragResult && (
+          <div role="status" aria-live="polite" className="knowledge-answer">
+            <div className="knowledge-answer-meta">
+              <strong>Knowledge answer</strong>
+              <span>{ragResult.hit_count ?? (ragResult.chunks || []).length} source match(es)</span>
+              <span>Relevance: {ragResult.relevance?.status || 'not reported'}</span>
+            </div>
+            {(ragResult.summary || ragResult.text) ? (
+              <pre>{ragResult.summary || ragResult.text}</pre>
+            ) : (ragResult.chunks || []).length ? (
+              <div className="knowledge-answer-chunks">
+                {ragResult.chunks.map((chunk, index) => (
+                  <article key={`${chunk.document_id || 'chunk'}-${chunk.chunk_index ?? index}`}>
+                    <strong>{chunk.title || chunk.filename || `Result ${index + 1}`}</strong>
+                    <div>{chunk.content}</div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="knowledge-empty-inline">No relevant indexed evidence was found for this query.</div>
+            )}
+          </div>
+        )}
+      </section>
+
+      {error && <div className="knowledge-alert knowledge-alert-error" role="alert">{error}</div>}
+      {message && <div className="knowledge-alert knowledge-alert-success" role="status">{message}</div>}
       {hasDuplicateNames && (
-        <div style={{ color: '#fbbf24', marginBottom: '0.75rem', fontSize: '0.9rem' }}>
+        <div className="knowledge-alert knowledge-alert-warning" role="status">
           Duplicate table names detected. Keep one and delete the extras — new tables must use unique names (case-insensitive).
         </div>
       )}
 
       <section
+        className="knowledge-card knowledge-foundation"
         style={{
           background: 'var(--surface)',
           border: '1px solid var(--border)',
@@ -446,13 +547,27 @@ function MasterDataPanel() {
           marginBottom: '1rem',
         }}
       >
-        <h2 style={{ marginTop: 0, fontSize: '1.05rem' }}>Company setup knowledge tables</h2>
-        <p style={{ color: 'var(--muted)', fontSize: '0.9rem', marginTop: 0 }}>
-          New companies get pack tables (and <code>company_memory</code>) when Company Setup is applied. Accounts created
-          before that wizard often skip these tables. Reseed creates missing pack metadata; if tables already exist you
-          must confirm overwrite (clears existing rows, then re-seeds).
-        </p>
-        {csKnowledge ? (
+        <details className="knowledge-foundation-details">
+          <summary>
+            <span>
+              <small>Advanced setup</small>
+              <strong>Company knowledge foundation</strong>
+            </span>
+            <span className="knowledge-foundation-state">
+              {csKnowledge
+                ? csKnowledge.missing_count === 0
+                  ? 'Ready'
+                  : `${csKnowledge.missing_count} table(s) need attention`
+                : 'Checking…'}
+            </span>
+          </summary>
+          <div className="knowledge-foundation-body">
+            <p style={{ color: 'var(--muted)', fontSize: '0.9rem', marginTop: 0 }}>
+              New companies get pack tables (and <code>company_memory</code>) when Company Setup is applied. Accounts created
+              before that wizard often skip these tables. Reseed creates missing pack metadata; if tables already exist you
+              must confirm overwrite (clears existing rows, then re-seeds).
+            </p>
+            {csKnowledge ? (
           <>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 10, fontSize: '0.9rem' }}>
               <label>
@@ -658,13 +773,15 @@ function MasterDataPanel() {
               </button>
             ) : null}
           </>
-        ) : (
-          <p style={{ color: 'var(--muted)', fontSize: '0.9rem', margin: 0 }}>Loading company knowledge status…</p>
-        )}
+            ) : (
+              <p style={{ color: 'var(--muted)', fontSize: '0.9rem', margin: 0 }}>Loading company knowledge status…</p>
+            )}
+          </div>
+        </details>
       </section>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-        <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '1rem' }}>
+      <div className="knowledge-content-grid">
+        <section id="knowledge-tables" className="knowledge-card knowledge-tables" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '1rem' }}>
           <h2 style={{ marginTop: 0, fontSize: '1.05rem' }}>Tables</h2>
           <form onSubmit={createTable} style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: '1rem' }}>
             <input style={fieldStyle} placeholder="Table name" value={newTableName} onChange={(e) => setNewTableName(e.target.value)} />
@@ -735,7 +852,7 @@ function MasterDataPanel() {
           </ul>
         </section>
 
-        <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '1rem' }}>
+        <section id="knowledge-documents" className="knowledge-card knowledge-documents" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '1rem' }}>
           <h2 style={{ marginTop: 0, fontSize: '1.05rem' }}>Documents (RAG)</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: '1rem' }}>
             <input style={fieldStyle} placeholder="Title (optional)" value={docTitle} onChange={(e) => setDocTitle(e.target.value)} />
@@ -972,49 +1089,12 @@ function MasterDataPanel() {
             </div>
           )}
 
-          <form onSubmit={runRag} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <strong style={{ fontSize: '0.85rem' }}>RAG query</strong>
-            <input style={fieldStyle} placeholder="Ask across your documents…" value={queryText} onChange={(e) => setQueryText(e.target.value)} />
-            <button type="submit" disabled={ragBusy || !queryText.trim()} style={{ padding: '0.5rem', borderRadius: 6, border: 'none', background: 'var(--accent)', color: '#fff' }}>
-              {ragBusy ? 'Searching…' : 'Run RAG'}
-            </button>
-          </form>
-          {ragBusy && (
-            <div role="status" aria-live="polite" style={{ marginTop: '0.75rem', color: 'var(--muted)', fontSize: '0.85rem' }}>
-              Searching indexed documents and checking relevance…
-            </div>
-          )}
-          {ragResult && (
-            <div role="status" aria-live="polite" style={{ marginTop: '0.75rem', border: '1px solid var(--border)', borderRadius: 8, padding: '0.75rem' }}>
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: '0.5rem', fontSize: '0.8rem', color: 'var(--muted)' }}>
-                <strong style={{ color: 'var(--text)' }}>RAG response</strong>
-                <span>{ragResult.hit_count ?? (ragResult.chunks || []).length} hit(s)</span>
-                <span>Relevance: {ragResult.relevance?.status || 'not reported'}</span>
-              </div>
-              {(ragResult.summary || ragResult.text) ? (
-                <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontSize: '0.8rem', background: 'var(--bg, #121216)', color: 'var(--text)', padding: '0.75rem', borderRadius: 8, maxHeight: 320, overflow: 'auto' }}>
-                  {ragResult.summary || ragResult.text}
-                </pre>
-              ) : (ragResult.chunks || []).length ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {ragResult.chunks.map((chunk, index) => (
-                    <div key={`${chunk.document_id || 'chunk'}-${chunk.chunk_index ?? index}`} style={{ background: 'var(--bg)', borderRadius: 6, padding: '0.65rem', fontSize: '0.8rem' }}>
-                      <strong>{chunk.title || chunk.filename || `Result ${index + 1}`}</strong>
-                      <div style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{chunk.content}</div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>
-                  No relevant indexed evidence was found for this query.
-                </div>
-              )}
-            </div>
-          )}
         </section>
       </div>
 
       <section
+        id="knowledge-inbound"
+        className="knowledge-card knowledge-inbound"
         style={{
           marginTop: '1rem',
           background: 'var(--surface)',
