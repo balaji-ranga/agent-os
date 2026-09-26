@@ -242,6 +242,16 @@ export const api = {
     const q = sp.toString();
     return get(q ? `/agents/${encodeURIComponent(id)}/chat/history?${q}` : `/agents/${encodeURIComponent(id)}/chat/history`);
   },
+  agentWorkHistory: (id, params = {}) => {
+    const sp = new URLSearchParams();
+    if (params.limit != null) sp.set('limit', String(params.limit));
+    if (params.offset != null) sp.set('offset', String(params.offset));
+    if (params.days != null) sp.set('days', String(params.days));
+    const q = sp.toString();
+    return get(q ? `/agents/${encodeURIComponent(id)}/work-history?${q}` : `/agents/${encodeURIComponent(id)}/work-history`);
+  },
+  agentWorkHistoryDetail: (id, taskId) =>
+    get(`/agents/${encodeURIComponent(id)}/work-history/${encodeURIComponent(taskId)}`),
   agentChatRestore: (id, sessionId, mode = 'as_is') =>
     post(`/agents/${encodeURIComponent(id)}/chat/history/${encodeURIComponent(sessionId)}/restore`, {
       mode,

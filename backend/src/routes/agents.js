@@ -71,6 +71,10 @@ import { meterOpenClawUsage } from '../services/token-usage.js';
 import { withLlmopsContext } from '../services/llmops-context.js';
 import { BudgetBlockedError, enforceBudget } from '../services/agent-budgets.js';
 import {
+  getAgentDelegatedWorkHistory,
+  listAgentDelegatedWorkHistory,
+} from '../services/agent-work-history.js';
+import {
   DASHBOARD_CONTEXT_INSTRUCTION,
   PLATFORM_HELP_CONTEXT_INSTRUCTION,
   boundPlatformHelpHistory,
@@ -494,6 +498,56 @@ router.get('/:id/chat/history', requireAuth, (req, res) => {
       limit: page.limit,
       offset: page.offset,
       has_more: page.has_more,
+    });
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+function ownerRetentionDays(ownerUserId) {
+  const value = Number(
+    db().prepare('SELECT data_retention_days FROM platform_users WHERE id = ?').get(ownerUserId)?.data_retention_days
+  );
+  return Number.isFinite(value) && value > 0 ? Math.min(365, Math.floor(value)) : 90;
+}
+
+// GET /api/agents/:id/work-history — Kanban/delegation work visible from Agent Chat
+router.get('/:id/work-history', requireAuth, (req, res) => {
+  try {
+    const ownerUserId = resolveChatOwnerUserId(req, req.query || {});
+    assertUserAgentAccess(req.authUser, req.params.id);
+    const retentionDays = ownerRetentionDays(ownerUserId);
+    const requestedDays = Math.max(1, parseInt(req.query?.days, 10) || retentionDays);
+    const page = listAgentDelegatedWorkHistory({
+      ownerUserId,
+      agentId: req.params.id,
+      days: Math.min(retentionDays, requestedDays),
+      limit: req.query?.limit,
+      offset: req.query?.offset,
+    });
+    res.json({ ...page, retention_days: retentionDays });
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+// GET /api/agents/:id/work-history/:taskId — isolated execution transcript + Kanban context
+router.get('/:id/work-history/:taskId', requireAuth, (req, res) => {
+  try {
+    const ownerUserId = resolveChatOwnerUserId(req, req.query || {});
+    assertUserAgentAccess(req.authUser, req.params.id);
+    const retentionDays = ownerRetentionDays(ownerUserId);
+    const item = getAgentDelegatedWorkHistory({
+      ownerUserId,
+      agentId: req.params.id,
+      taskId: req.params.taskId,
+      days: retentionDays,
+    });
+    if (!item) return res.status(404).json({ error: 'Work history item not found' });
+    res.json({
+      ...item,
+      retention_days: retentionDays,
+      turns: attachToolCallsToChatTurns(item.turns || [], req.params.id, ownerUserId),
     });
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message });

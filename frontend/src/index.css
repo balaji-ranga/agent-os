@@ -1685,6 +1685,31 @@ html.auth-route #root {
   color: var(--muted);
   font-size: 0.75rem;
 }
+.chat-history-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem;
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 88%, var(--accent) 12%);
+}
+.chat-history-tabs button {
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 0.45rem 0.55rem;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.chat-history-tabs button.is-active {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+}
 .chat-history-scroll {
   flex: 1 1 0;
   min-height: 0;
@@ -1733,6 +1758,149 @@ html.auth-route #root {
 .chat-history-actions button {
   padding: 0.3rem 0.55rem !important;
   font-size: 0.78rem !important;
+}
+.agent-work-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+}
+.agent-work-item:hover,
+.agent-work-item:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  background: color-mix(in srgb, var(--surface) 88%, var(--accent) 12%);
+  outline: none;
+}
+.agent-work-item:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+.agent-work-item__topline {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.agent-work-item__topline .chat-history-title {
+  flex: 1 1 auto;
+}
+.agent-work-item__preview {
+  display: -webkit-box;
+  margin-top: 0.45rem;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+.agent-work-status {
+  flex: 0 0 auto;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.16rem 0.42rem;
+  color: var(--muted);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  text-transform: capitalize;
+}
+.agent-work-status.is-completed {
+  border-color: rgba(34, 197, 94, 0.34);
+  background: rgba(34, 197, 94, 0.1);
+  color: #15803d;
+}
+.agent-work-status.is-failed,
+.agent-work-status.is-cancelled {
+  border-color: rgba(239, 68, 68, 0.34);
+  background: rgba(239, 68, 68, 0.1);
+  color: #b91c1c;
+}
+.agent-work-status.is-in_progress,
+.agent-work-status.is-processing {
+  border-color: rgba(59, 130, 246, 0.34);
+  background: rgba(59, 130, 246, 0.1);
+  color: #1d4ed8;
+}
+.agent-work-detail {
+  padding: 0.25rem;
+}
+.agent-work-back {
+  border: 0;
+  padding: 0.35rem 0.25rem 0.65rem;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.agent-work-detail__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.agent-work-detail__heading h3 {
+  margin: 0.15rem 0 0;
+  color: var(--text);
+  font-size: 1rem;
+  line-height: 1.35;
+}
+.agent-work-detail__eyebrow,
+.agent-work-detail__meta {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+.agent-work-detail__meta {
+  margin-top: 0.35rem;
+}
+.agent-work-detail__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0.75rem 0;
+}
+.agent-work-link {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 8px;
+  padding: 0.45rem 0.7rem;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+.agent-work-transcript {
+  display: grid;
+  gap: 0.65rem;
+  padding-top: 0.25rem;
+}
+.agent-work-block {
+  margin-top: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.65rem;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.agent-work-block h4 {
+  margin: 0 0 0.45rem;
+  font-size: 0.78rem;
+}
+.agent-work-task-message + .agent-work-task-message {
+  margin-top: 0.45rem;
+  padding-top: 0.45rem;
+  border-top: 1px solid var(--border);
 }
 @media (max-width: 900px) {
   .page-chat-with-history {

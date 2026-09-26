@@ -316,9 +316,14 @@ export default function AgentChat() {
   const [turns, setTurns] = useState([]);
   const [history, setHistory] = useState([]);
   const [voiceHistory, setVoiceHistory] = useState([]);
+  const [workHistory, setWorkHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyHasMore, setHistoryHasMore] = useState(false);
   const [voiceHasMore, setVoiceHasMore] = useState(false);
+  const [workHistoryHasMore, setWorkHistoryHasMore] = useState(false);
+  const [historyTab, setHistoryTab] = useState('work');
+  const [selectedWork, setSelectedWork] = useState(null);
+  const [selectedWorkLoading, setSelectedWorkLoading] = useState(false);
   const [restoreBusyId, setRestoreBusyId] = useState(null);
   const [input, setInput] = useState('');
   const [replyTo, setReplyTo] = useState(null);
@@ -468,37 +473,51 @@ export default function AgentChat() {
     if (!agentId) return;
     setHistoryLoading(true);
     try {
-      const [r, voice] = await Promise.all([
+      const [r, voice, work] = await Promise.all([
         api.agentChatSessions(agentId, { limit: 25, offset: 0 }),
         api.agentVoiceSessions(agentId, { limit: 20 }).catch(() => ({ sessions: [] })),
+        api.agentWorkHistory(agentId, { limit: 25, offset: 0 }).catch(() => ({ items: [] })),
       ]);
       setHistory(Array.isArray(r?.sessions) ? r.sessions : Array.isArray(r) ? r : []);
       setVoiceHistory(Array.isArray(voice?.sessions) ? voice.sessions : []);
+      setWorkHistory(Array.isArray(work?.items) ? work.items : []);
       setHistoryHasMore(!!r?.has_more);
       setVoiceHasMore(!!voice?.has_more);
+      setWorkHistoryHasMore(!!work?.has_more);
     } catch {
       setHistory([]);
       setVoiceHistory([]);
+      setWorkHistory([]);
     } finally {
       setHistoryLoading(false);
     }
   }, [agentId]);
 
   const loadMoreHistory = useCallback(async () => {
-    if (!agentId || historyLoading || (!historyHasMore && !voiceHasMore)) return;
+    const wantsWork = historyTab === 'work';
+    if (!agentId || historyLoading || (wantsWork ? !workHistoryHasMore : (!historyHasMore && !voiceHasMore))) return;
     setHistoryLoading(true);
     try {
-      const [r, voice] = await Promise.all([
-        historyHasMore ? api.agentChatSessions(agentId, { limit: 25, offset: history.length }) : Promise.resolve({ sessions: [], has_more: false }),
-        voiceHasMore ? api.agentVoiceSessions(agentId, { limit: 20, offset: voiceHistory.length }) : Promise.resolve({ sessions: [], has_more: false }),
-      ]);
-      setHistory((current) => [...current, ...(r.sessions || [])]);
-      setVoiceHistory((current) => [...current, ...(voice.sessions || [])]);
-      setHistoryHasMore(!!r.has_more);
-      setVoiceHasMore(!!voice.has_more);
+      if (wantsWork) {
+        const work = await api.agentWorkHistory(agentId, { limit: 25, offset: workHistory.length });
+        setWorkHistory((current) => [...current, ...(work.items || [])]);
+        setWorkHistoryHasMore(!!work.has_more);
+      } else {
+        const [r, voice] = await Promise.all([
+          historyHasMore ? api.agentChatSessions(agentId, { limit: 25, offset: history.length }) : Promise.resolve({ sessions: [], has_more: false }),
+          voiceHasMore ? api.agentVoiceSessions(agentId, { limit: 20, offset: voiceHistory.length }) : Promise.resolve({ sessions: [], has_more: false }),
+        ]);
+        setHistory((current) => [...current, ...(r.sessions || [])]);
+        setVoiceHistory((current) => [...current, ...(voice.sessions || [])]);
+        setHistoryHasMore(!!r.has_more);
+        setVoiceHasMore(!!voice.has_more);
+      }
     } finally { setHistoryLoading(false); }
-  }, [agentId, historyLoading, historyHasMore, voiceHasMore, history.length, voiceHistory.length]);
-  const historySentinelRef = useInfiniteScroll(loadMoreHistory, showHistoryPanel && (historyHasMore || voiceHasMore) && !historyLoading);
+  }, [agentId, historyLoading, historyTab, workHistoryHasMore, historyHasMore, voiceHasMore, workHistory.length, history.length, voiceHistory.length]);
+  const historySentinelRef = useInfiniteScroll(
+    loadMoreHistory,
+    showHistoryPanel && (historyTab === 'work' ? workHistoryHasMore : (historyHasMore || voiceHasMore)) && !historyLoading
+  );
 
   const loadActiveChat = useCallback(async () => {
     if (!agentId) return;
@@ -555,6 +574,7 @@ export default function AgentChat() {
     if (!agentId) return;
     setBanner(null);
     setError(null);
+    setSelectedWork(null);
     loadActiveChat().catch(() => setTurns([]));
   }, [agentId, loadActiveChat]);
 
@@ -766,6 +786,31 @@ export default function AgentChat() {
     }
   };
 
+  const openWorkHistoryItem = async (item) => {
+    if (!agentId || !item?.task_id || selectedWorkLoading) return;
+    setSelectedWorkLoading(true);
+    setError(null);
+    try {
+      setSelectedWork(await api.agentWorkHistoryDetail(agentId, item.task_id));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSelectedWorkLoading(false);
+    }
+  };
+
+  const continueFromWork = (work) => {
+    if (!work) return;
+    const previous = String(work.response || work.error || '').trim();
+    const context = previous.length > 3500 ? `${previous.slice(0, 3500)}…` : previous;
+    setInput(
+      `Continue from delegated Kanban task #${work.task_id}: ${work.title || 'assigned work'}.` +
+        (context ? `\n\nPrevious result:\n${context}\n\n` : '\n\n')
+    );
+    setShowHistoryPanel(false);
+    if (isHome && isNarrow) setMobileChatOpen(true);
+  };
+
   const cancelSend = () => {
     const controller = abortControllerRef.current;
     if (!controller) return;
@@ -846,20 +891,126 @@ export default function AgentChat() {
           <>
             <div className="chat-history-header">
               <h2>History</h2>
-              <span className="chat-history-meta">Last 30 days</span>
+              <span className="chat-history-meta">Scoped to your company</span>
+            </div>
+            <div className="chat-history-tabs" role="tablist" aria-label="Agent history">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={historyTab === 'work'}
+                className={historyTab === 'work' ? 'is-active' : ''}
+                onClick={() => { setHistoryTab('work'); setSelectedWork(null); }}
+              >
+                Assigned work
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={historyTab === 'chats'}
+                className={historyTab === 'chats' ? 'is-active' : ''}
+                onClick={() => { setHistoryTab('chats'); setSelectedWork(null); }}
+              >
+                Conversations
+              </button>
             </div>
             <div className="chat-history-scroll">
               {historyLoading && <div className="chat-history-empty">Loading…</div>}
-              {!historyLoading && history.length === 0 && (
-                <div className="chat-history-empty">
-                  No archived chats yet. Use New chat to archive the current conversation.
+              {historyTab === 'work' && selectedWork && (
+                <div className="agent-work-detail">
+                  <button type="button" className="agent-work-back" onClick={() => setSelectedWork(null)}>
+                    ← Assigned work
+                  </button>
+                  <div className="agent-work-detail__heading">
+                    <div>
+                      <div className="agent-work-detail__eyebrow">Kanban task #{selectedWork.task_id}</div>
+                      <h3>{selectedWork.title || `Task #${selectedWork.task_id}`}</h3>
+                    </div>
+                    <span className={`agent-work-status is-${String(selectedWork.status || 'open').replace(/[^a-z0-9_-]/gi, '-')}`}>
+                      {String(selectedWork.status || 'open').replaceAll('_', ' ')}
+                    </span>
+                  </div>
+                  <div className="agent-work-detail__meta">
+                    {formatArchivedAt(selectedWork.completed_at || selectedWork.updated_at || selectedWork.created_at)}
+                    {selectedWork.goal_run_id ? ` · Goal ${selectedWork.goal_run_id}` : ''}
+                  </div>
+                  <div className="agent-work-detail__actions">
+                    <Link to={`/kanban?task=${encodeURIComponent(selectedWork.task_id)}`} className="agent-work-link">
+                      Open in Kanban
+                    </Link>
+                    <button type="button" style={secondaryBtn} onClick={() => continueFromWork(selectedWork)}>
+                      Continue with {agentLabel}
+                    </button>
+                  </div>
+                  {(selectedWork.turns || []).length > 0 ? (
+                    <div className="agent-work-transcript" aria-label="Delegated execution transcript">
+                      {(selectedWork.turns || []).map((turn) => (
+                        <ChatMessageRow
+                          key={turn.id}
+                          role={turn.role}
+                          roleLabel={turn.role === 'assistant' ? agentLabel : 'Delegated request'}
+                          content={turn.content}
+                          createdAt={turn.created_at}
+                          agentId={agentId}
+                          agentName={agentLabel}
+                          agentAvatar={agent?.avatar_image}
+                          showFeedback={false}
+                          toolCalls={turn.tool_calls || []}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <>
+                      <section className="agent-work-block">
+                        <h4>Request</h4>
+                        <div>{selectedWork.request || selectedWork.description || 'No request text retained.'}</div>
+                      </section>
+                      <section className="agent-work-block">
+                        <h4>{selectedWork.error ? 'Execution error' : 'Agent response'}</h4>
+                        <div>{selectedWork.response || selectedWork.error || 'No response has been recorded yet.'}</div>
+                      </section>
+                    </>
+                  )}
+                  {(selectedWork.task_messages || []).length > 0 && (
+                    <section className="agent-work-block">
+                      <h4>Task activity</h4>
+                      {(selectedWork.task_messages || []).map((message) => (
+                        <div key={message.id} className="agent-work-task-message">
+                          <strong>{message.role === 'assistant' ? agentLabel : 'You'}:</strong> {message.content}
+                        </div>
+                      ))}
+                    </section>
+                  )}
                 </div>
               )}
-              {history.map((s) => (
+              {historyTab === 'work' && !selectedWork && !historyLoading && workHistory.length === 0 && (
+                <div className="chat-history-empty">No assigned Kanban work is retained for this agent yet.</div>
+              )}
+              {historyTab === 'work' && !selectedWork && workHistory.map((item) => (
+                <button
+                  type="button"
+                  key={item.task_id}
+                  className="chat-history-item agent-work-item"
+                  onClick={() => openWorkHistoryItem(item)}
+                  disabled={selectedWorkLoading}
+                >
+                  <span className="agent-work-item__topline">
+                    <span className="chat-history-title" title={item.title}>{item.title || `Task #${item.task_id}`}</span>
+                    <span className={`agent-work-status is-${String(item.status || 'open').replace(/[^a-z0-9_-]/gi, '-')}`}>
+                      {String(item.status || 'open').replaceAll('_', ' ')}
+                    </span>
+                  </span>
+                  <span className="chat-history-date">
+                    #{item.task_id} · {formatArchivedAt(item.completed_at || item.updated_at || item.created_at)}
+                  </span>
+                  {item.outcome_preview && <span className="agent-work-item__preview">{item.outcome_preview}</span>}
+                </button>
+              ))}
+              {historyTab === 'chats' && !historyLoading && history.length === 0 && (
+                <div className="chat-history-empty">No archived chats yet. Use New chat to archive the current conversation.</div>
+              )}
+              {historyTab === 'chats' && history.map((s) => (
                 <div key={s.id} className="chat-history-item">
-                  <div className="chat-history-title" title={s.title}>
-                    {s.title || 'Untitled chat'}
-                  </div>
+                  <div className="chat-history-title" title={s.title}>{s.title || 'Untitled chat'}</div>
                   <div className="chat-history-date">{formatArchivedAt(s.archived_at || s.started_at)}</div>
                   <div className="chat-history-actions">
                     <button
@@ -881,8 +1032,8 @@ export default function AgentChat() {
                   </div>
                 </div>
               ))}
-              {voiceHistory.length > 0 && <div className="chat-history-header"><h2>Voice calls</h2><span className="chat-history-meta">Transcripts</span></div>}
-              {voiceHistory.map((call) => (
+              {historyTab === 'chats' && voiceHistory.length > 0 && <div className="chat-history-header"><h2>Voice calls</h2><span className="chat-history-meta">Transcripts</span></div>}
+              {historyTab === 'chats' && voiceHistory.map((call) => (
                 <details key={call.id} className="chat-history-item">
                   <summary className="chat-history-title">Voice call · {formatArchivedAt(call.ended_at || call.created_at)}</summary>
                   <div className="chat-history-date">{call.duration_seconds != null ? `${call.duration_seconds}s` : call.status}{call.is_guest ? ' · guest' : ''}</div>
@@ -893,7 +1044,11 @@ export default function AgentChat() {
                 </details>
               ))}
               <div ref={historySentinelRef} style={{ minHeight: 1 }} aria-hidden="true" />
-              {(historyHasMore || voiceHasMore) && <button type="button" style={secondaryBtn} disabled={historyLoading} onClick={loadMoreHistory}>{historyLoading ? 'Loading…' : 'Load more history'}</button>}
+              {!selectedWork && (historyTab === 'work' ? workHistoryHasMore : (historyHasMore || voiceHasMore)) && (
+                <button type="button" style={secondaryBtn} disabled={historyLoading} onClick={loadMoreHistory}>
+                  {historyLoading ? 'Loading…' : 'Load more history'}
+                </button>
+              )}
             </div>
           </>
         )}

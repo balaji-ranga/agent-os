@@ -66,6 +66,7 @@
     "test:goal-run-recovery": "node scripts/test-goal-run-recovery.mjs",
     "test:goal-run-control": "node scripts/test-goal-run-control.mjs",
     "test:agent-status-report": "node scripts/test-agent-status-report-contract.mjs",
+    "test:agent-chat-work-history": "node scripts/test-agent-chat-work-history.mjs",
     "test:goal-plan-human-review": "node scripts/test-goal-plan-human-review.mjs",
     "test:growth-pagination": "node scripts/test-growth-pagination-contracts.mjs",
     "test:company-objectives": "node scripts/test-company-objectives.mjs",
