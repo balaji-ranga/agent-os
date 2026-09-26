@@ -378,6 +378,7 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\test-openconnector-connectors-e2e.js" `
     "$Repo\backend\scripts\test-openconnector-selfservice.js" `
     "$Repo\backend\scripts\test-openconnector-oauth-override.js" `
+    "$Repo\backend\scripts\test-event-productivity-pack.mjs" `
     "$Repo\backend\scripts\probe-oc-custom-oauth.js" `
     "$Repo\backend\scripts\provision-openconnector-ceos.js" `
     "$Repo\backend\scripts\vps-test-balaji-agents-kanban.js" `
@@ -623,6 +624,7 @@ if ($Services -match "backend|openclaw") {
     "$Repo\knowledgebase\CONTENT-CREATION-ORG-BLUEPRINT.md" `
     "$Repo\knowledgebase\VIDEO-CONTENT-GENERATION-PLAN.md" `
     "$Repo\knowledgebase\BUSINESS-CORE-WORKSPACE-PLAN.md" `
+    "$Repo\knowledgebase\EVENT-PRODUCTIVITY-PACK-V1.md" `
     "root@${HostIp}:$RemoteRoot/knowledgebase/"
   if (Test-Path "$Repo\knowledgebase\video-tours") {
     scp @ssh -r "$Repo\knowledgebase\video-tours" "root@${HostIp}:$RemoteRoot/knowledgebase/"
