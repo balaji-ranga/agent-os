@@ -115,6 +115,7 @@ export default function ContentToolsLogs() {
   const [tools, setTools] = useState([]);
   const [toolsLoading, setToolsLoading] = useState(true);
   const [toolsError, setToolsError] = useState(null);
+  const [toolsQuery, setToolsQuery] = useState('');
   const [testName, setTestName] = useState(null);
   const [testBody, setTestBody] = useState('{}');
   const [testResult, setTestResult] = useState(null);
@@ -396,6 +397,18 @@ export default function ContentToolsLogs() {
       .finally(() => setExecutionSaving(false));
   };
 
+  const normalizedToolsQuery = toolsQuery.trim().toLowerCase();
+  const filteredTools = normalizedToolsQuery
+    ? tools.filter((tool) => [
+        tool.display_name,
+        tool.name,
+        tool.endpoint,
+        tool.purpose,
+        tool.model_used,
+        tool.method,
+      ].some((value) => String(value || '').toLowerCase().includes(normalizedToolsQuery)))
+    : tools;
+
   if (toolsLoading && tools.length === 0) {
     return (
       <div style={{ padding: '2rem' }}>Loading…</div>
@@ -424,7 +437,14 @@ export default function ContentToolsLogs() {
 
       <section style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-          <h2 style={{ margin: 0, fontSize: '1.1rem' }}>Tools registry</h2>
+          <div>
+            <h2 style={{ margin: 0, fontSize: '1.1rem' }}>Tools registry</h2>
+            <span style={{ color: 'var(--muted)', fontSize: '0.78rem' }}>
+              {filteredTools.length === tools.length
+                ? `${tools.length} tool${tools.length === 1 ? '' : 's'}`
+                : `${filteredTools.length} of ${tools.length} tools`}
+            </span>
+          </div>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             <button
               type="button"
@@ -489,6 +509,22 @@ export default function ContentToolsLogs() {
           </div>
         </div>
 
+        <div className="tools-registry-search">
+          <span aria-hidden="true">⌕</span>
+          <input
+            type="search"
+            aria-label="Search tools registry"
+            placeholder="Search by tool name, endpoint, purpose, model, or method…"
+            value={toolsQuery}
+            onChange={(event) => setToolsQuery(event.target.value)}
+          />
+          {toolsQuery && (
+            <button type="button" onClick={() => setToolsQuery('')} aria-label="Clear tools search">
+              Clear
+            </button>
+          )}
+        </div>
+
         <div
           style={{
             background: 'var(--surface)',
@@ -509,7 +545,7 @@ export default function ContentToolsLogs() {
               </tr>
             </thead>
             <tbody>
-              {tools.map((t) => (
+              {filteredTools.map((t) => (
                 <tr key={t.name} style={{ borderBottom: '1px solid var(--border)' }}>
                   <td style={{ padding: '0.6rem 1rem' }}>
                     <span style={{ fontWeight: 500 }}>{t.display_name || t.name}</span>
@@ -562,9 +598,11 @@ export default function ContentToolsLogs() {
               ))}
             </tbody>
           </table>
-          {tools.length === 0 && (
+          {filteredTools.length === 0 && (
             <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--muted)' }}>
-              No tools in registry. Onboard a new tool or ensure the backend has run the content tools seed.
+              {tools.length === 0
+                ? 'No tools in registry. Onboard a new tool or ensure the backend has run the content tools seed.'
+                : `No tools match “${toolsQuery.trim()}”. Try a different search.`}
             </div>
           )}
         </div>

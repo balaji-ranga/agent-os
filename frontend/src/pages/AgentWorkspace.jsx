@@ -46,6 +46,21 @@ export default function AgentWorkspace() {
   const [templateMessage, setTemplateMessage] = useState(null);
   const [showPublish, setShowPublish] = useState(false);
   const [avatarSaving, setAvatarSaving] = useState(false);
+  const [editorFullscreen, setEditorFullscreen] = useState(false);
+
+  useEffect(() => {
+    if (!editorFullscreen) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setEditorFullscreen(false);
+    };
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [editorFullscreen]);
 
   const clearSessions = () => {
     if (!window.confirm('Clear all AgentSystem sessions for this agent? Chat and task session history will be reset.')) return;
@@ -528,39 +543,41 @@ export default function AgentWorkspace() {
         )}
       </section>
 
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-        {activeTabs.map((name) => (
+      <section className={`agent-workspace-editor-shell${editorFullscreen ? ' is-fullscreen' : ''}`}>
+        <div className="agent-workspace-editor-toolbar">
+          <div className="agent-workspace-editor-tabs">
+            {activeTabs.map((name) => (
+              <button
+                key={name}
+                type="button"
+                onClick={() => setSelected(name)}
+                className={selected === name ? 'is-active' : ''}
+              >
+                {name}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setSelected(TOOLS_TAB)}
+              className={showToolsPanel ? 'is-active' : ''}
+            >
+              Tool access
+            </button>
+          </div>
           <button
-            key={name}
             type="button"
-            onClick={() => setSelected(name)}
-            style={{
-              padding: '0.5rem 1rem',
-              background: selected === name ? 'var(--accent)' : 'var(--surface)',
-              border: `1px solid ${selected === name ? 'var(--accent)' : 'var(--border)'}`,
-              borderRadius: 6,
-              color: selected === name ? '#fff' : 'var(--text)',
-            }}
+            className="agent-workspace-fullscreen-btn"
+            onClick={() => setEditorFullscreen((value) => !value)}
+            aria-pressed={editorFullscreen}
+            aria-label={editorFullscreen ? 'Exit full screen editor' : 'Open editor full screen'}
+            title={editorFullscreen ? 'Restore workspace view (Esc)' : 'Use full screen'}
           >
-            {name}
+            <span aria-hidden="true">{editorFullscreen ? '↙' : '↗'}</span>
+            {editorFullscreen ? 'Restore' : 'Full screen'}
           </button>
-        ))}
-        <button
-          type="button"
-          onClick={() => setSelected(TOOLS_TAB)}
-          style={{
-            padding: '0.5rem 1rem',
-            background: showToolsPanel ? 'var(--accent)' : 'var(--surface)',
-            border: `1px solid ${showToolsPanel ? 'var(--accent)' : 'var(--border)'}`,
-            borderRadius: 6,
-            color: showToolsPanel ? '#fff' : 'var(--text)',
-          }}
-        >
-          Tool access
-        </button>
-      </div>
+        </div>
 
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 400 }}>
+        <div className="agent-workspace-editor-content">
         {showToolsPanel ? (
           <>
             <p style={{ color: 'var(--muted)', marginTop: 0 }}>
@@ -777,7 +794,8 @@ export default function AgentWorkspace() {
             </div>
           </>
         )}
-      </div>
+        </div>
+      </section>
       {showPublish && agent && (
         <PublishAgentToExchangeModal
           agent={agent}
