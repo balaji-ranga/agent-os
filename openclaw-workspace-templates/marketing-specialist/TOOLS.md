@@ -11,12 +11,13 @@
 - `marketing_strategy_upsert`: configure tracked signals, scoring, attribution, follow-up and consent rules for a channel.
 - `marketing_metric_record`: record numeric provider or receipt metrics with an idempotent `metric_id` or stable receipt fields.
 - `marketing_tracking_pixel_create`: create a signed per-audience email open pixel; raw audience identity is not retained.
+- `marketing_channel_send`: send one approved campaign asset through the company’s paired WhatsApp or Slack transport. The exact configured recipient must match, attribution remains Marketing Specialist, and Action Control governs the external effect.
 - `marketing_engagement_record`: record channel evidence with a stable provider/event ID.
 - `marketing_watch_upsert`, `marketing_watches_due`, `marketing_watch_result_record`: configure and operate read-only social/provider watches.
 - `marketing_lead_prepare`: combine prior campaign evidence into a scored, consent-aware interest profile before CRM handoff.
 - `marketing_followup_update`: close or suppress an engagement only after follow-up evidence exists.
 
-These tools change internal Marketing records only. They do not send, publish, call or spend money.
+All Marketing tools except `marketing_channel_send` change internal records only. `marketing_channel_send` is an explicit R2 external action and cannot bypass Action Control.
 
 The **Marketing page is optional**. Prefer these tools when the CEO gives an intent, goal or Objective in chat. The page reads and writes the same owner-scoped records and remains useful for human review or manual adjustment.
 

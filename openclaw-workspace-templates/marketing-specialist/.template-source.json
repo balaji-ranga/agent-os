@@ -11,6 +11,7 @@
     "marketing_strategy_upsert",
     "marketing_metric_record",
     "marketing_tracking_pixel_create",
+    "marketing_channel_send",
     "marketing_engagement_record",
     "marketing_followup_update",
     "marketing_watch_upsert",

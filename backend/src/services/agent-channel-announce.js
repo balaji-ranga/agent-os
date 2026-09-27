@@ -484,6 +484,7 @@ async function sendViaOpenClaw({ channel, to, accountId, message, mediaFile, ide
 export async function announceOnAgentChannel({
   ownerUserId,
   agentId,
+  actorAgentId = null,
   channel,
   text,
   idempotencyKey,
@@ -501,7 +502,10 @@ export async function announceOnAgentChannel({
       });
       return { ok: true, skipped: true, reason: resolved.reason, channel: ch };
     }
-    const agentName = resolveAgentDisplayName(ownerUserId, agentId);
+    // The company may deliberately reuse one paired transport (for example the
+    // COO WhatsApp account) for another specialist. Keep transport ownership
+    // separate from message attribution so recipients see the real actor.
+    const agentName = resolveAgentDisplayName(ownerUserId, actorAgentId || agentId);
     const prefixed = prefixFromAgentName(text, agentName);
     const split = splitMediaLines(prefixed);
     let mediaLines = split.mediaLines;

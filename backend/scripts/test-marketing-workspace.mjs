@@ -24,8 +24,8 @@ try {
 
   handle.prepare(`INSERT INTO agents(id,name,role,template_base_id) VALUES (?,?,?,?)`).run('marketing-specialist-test', 'Marketing Specialist Test', 'Marketing', 'marketing-specialist');
   const grantSync = seedMarketingWorkspaceToolsIfMissing();
-  assert.equal(grantSync.grants_added, 15, 'existing hired Marketing Specialists inherit newly introduced Marketing tools');
-  assert.equal(handle.prepare(`SELECT COUNT(*) AS count FROM agent_tool_grants WHERE agent_id = ? AND tool_name LIKE 'marketing_%'`).get('marketing-specialist-test').count, 15);
+  assert.equal(grantSync.grants_added, 16, 'existing hired Marketing Specialists inherit newly introduced Marketing tools');
+  assert.equal(handle.prepare(`SELECT COUNT(*) AS count FROM agent_tool_grants WHERE agent_id = ? AND tool_name LIKE 'marketing_%'`).get('marketing-specialist-test').count, 16);
 
   const ownerA = 'marketing-owner-a';
   const ownerB = 'marketing-owner-b';
@@ -128,13 +128,16 @@ try {
   assert.ok(role.tools.includes('marketing_campaign_configure'));
   assert.ok(role.tools.includes('marketing_campaign_run_prepare'));
   assert.ok(role.tools.includes('marketing_strategy_upsert'));
+  assert.ok(role.tools.includes('marketing_channel_send'));
   assert.ok(role.tools.includes('connector_execute_action'));
 
   const toolRows = handle.prepare(`SELECT name,risk_tier,action_family FROM content_tools_meta WHERE name LIKE 'marketing_%' ORDER BY name`).all();
   const toolNames = toolRows.map((row) => row.name);
-  assert.equal(toolNames.length, 15);
+  assert.equal(toolNames.length, 16);
   assert.equal(toolRows.find((row) => row.name === 'marketing_workspace_read')?.action_family, 'read');
   assert.equal(toolRows.find((row) => row.name === 'marketing_campaign_upsert')?.action_family, 'write_internal');
+  assert.equal(toolRows.find((row) => row.name === 'marketing_channel_send')?.action_family, 'communicate_external');
+  assert.equal(toolRows.find((row) => row.name === 'marketing_channel_send')?.risk_tier, 'R2');
   assert.equal(svc.getMarketingWorkspace(ownerA).records.strategies.length, 7, 'each supported channel has an effectiveness strategy');
   svc.upsertMarketingRecord(ownerA, 'engagements', { event_id: 'old-event', channel: 'email', event_type: 'open_signal', observed_at: '2020-01-01T00:00:00.000Z' });
   const purged = await purgeOwnerRetention(ownerA, { days: 30 });

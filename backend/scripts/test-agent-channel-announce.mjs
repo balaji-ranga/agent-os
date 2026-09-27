@@ -1,5 +1,5 @@
 /**
- * Unit checks for scheduled-goal channel fan-out helpers (no gateway / WhatsApp required).
+ * Unit checks for generic agent channel fan-out helpers (no gateway / WhatsApp required).
  * Run: node scripts/test-agent-channel-announce.mjs
  */
 import {
