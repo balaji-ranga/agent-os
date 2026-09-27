@@ -3,6 +3,7 @@
  * and CEO Content Explorer media (inbound uploads + generated files on disk).
  */
 import { getDb } from '../db/schema.js';
+import { getDbForCeo } from '../db/request-db.js';
 import { purgeAgedContentExplorerMedia } from './content-explorer.js';
 import { listDocuments, deleteDocument, isOpenSearchConfigured } from './master-data.js';
 
@@ -72,6 +73,7 @@ export async function purgeOwnerRetention(ownerUserId, { days = null } = {}) {
     ibkrnew_goals: 0,
     productivity_events: 0,
     productivity_action_receipts: 0,
+    marketing_engagement_events: 0,
   };
 
   deleted.chat_turns =
@@ -123,6 +125,17 @@ export async function purgeOwnerRetention(ownerUserId, { days = null } = {}) {
     ).run(owner, cutoff).changes || 0;
   } catch (_) {
     /* Event & Productivity tables are lazy-created at feature startup. */
+  }
+
+  try {
+    const marketingDb = getDbForCeo(owner);
+    const table = marketingDb.prepare(`SELECT id FROM master_data_tables WHERE owner_user_id=? AND lower(name)='marketing_engagement_events' LIMIT 1`).get(owner);
+    if (table?.id) {
+      deleted.marketing_engagement_events = marketingDb.prepare(`DELETE FROM master_data_rows WHERE owner_user_id=? AND table_id=? AND datetime(COALESCE(json_extract(row_json,'$.observed_at'),created_at))<datetime('now',?)`).run(owner, table.id, cutoff).changes || 0;
+      marketingDb.prepare(`UPDATE master_data_tables SET row_count=(SELECT COUNT(*) FROM master_data_rows WHERE owner_user_id=? AND table_id=?),updated_at=datetime('now') WHERE id=? AND owner_user_id=?`).run(owner, table.id, table.id, owner);
+    }
+  } catch (_) {
+    /* Marketing Knowledge tables are lazy-created when the workspace is first opened. */
   }
 
   // Human/voice communications belong to the CEO company, including employee activity.

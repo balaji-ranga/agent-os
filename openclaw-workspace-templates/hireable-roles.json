@@ -22,6 +22,13 @@
       "role": "Mailbox operations and space management",
       "department": "Operations",
       "description": "Owner-scoped Gmail review, 7-day organization and recoverable Spam/old Promotions cleanup through the connected Gmail account. Summarizes before moving anything to Trash and obeys Action Control."
+    },
+    {
+      "id": "marketing-specialist",
+      "name": "Marketing Specialist",
+      "role": "AI-native multi-channel marketing operations",
+      "department": "Marketing",
+      "description": "Plans OKR-linked campaigns, manages CRM audience references and reusable assets, coordinates email, WhatsApp, Facebook, Google Ads, LinkedIn, Instagram and telemarketing execution, and records measurable outcomes under Action Control."
     }
   ]
 }

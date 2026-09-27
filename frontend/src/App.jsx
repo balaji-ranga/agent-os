@@ -47,6 +47,7 @@ import CustomScripts from './pages/CustomScripts';
 import ExternalAgents from './pages/ExternalAgents';
 import AgentExchange from './pages/AgentExchange';
 import MasterData from './pages/MasterData';
+import MarketingWorkspace from './pages/MarketingWorkspace';
 import ContentExplorer from './pages/ContentExplorer';
 import Onboarding from './pages/Onboarding';
 import CompanySetup from './pages/CompanySetup';
@@ -440,6 +441,7 @@ function Shell() {
                 <Route path="/broadcast" element={<Perm user={user} k="broadcast"><Broadcast /></Perm>} />
                 <Route path="/kanban" element={<Kanban />} />
                 <Route path="/master-data" element={<Perm user={user} k="master-data"><MasterData /></Perm>} />
+                <Route path="/marketing" element={<Perm user={user} k="marketing"><MarketingWorkspace /></Perm>} />
                 <Route path="/content-explorer" element={<Perm user={user} k="content-explorer"><ContentExplorer /></Perm>} />
                 <Route path="/company-setup" element={<TenantFull user={user}><CompanySetup /></TenantFull>} />
                 <Route path="/update-company-details" element={<TenantFull user={user}><UpdateCompanySetup /></TenantFull>} />

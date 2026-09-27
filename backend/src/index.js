@@ -125,7 +125,10 @@ import { seedSocialResearchToolsIfMissing, grantSocialResearchToolsToAgents } fr
 import { seedWebScrapeToolsIfMissing } from './db/seed-web-scrape-tools.js';
 import { seedMarketDataToolsIfMissing } from './db/seed-market-data-tools.js';
 import { seedEventProductivityToolsIfMissing } from './db/seed-event-productivity-tools.js';
+import { seedMarketingWorkspaceToolsIfMissing } from './db/seed-marketing-workspace-tools.js';
 import { ensureEventProductivitySchema } from './services/event-productivity.js';
+import marketingRoutes from './routes/marketing.js';
+import publicMarketingRoutes from './routes/public-marketing.js';
 import { writeOpenClawToolsList } from './services/content-tools-meta.js';
 import {
   importGrantsFromOpenClawConfig,
@@ -404,6 +407,7 @@ seedJobApplicantToolsIfMissing();
 seedIbkrTradingToolsIfMissing();
 seedMarketDataToolsIfMissing();
 seedEventProductivityToolsIfMissing();
+seedMarketingWorkspaceToolsIfMissing();
 try {
   ensureEventProductivitySchema();
 } catch (e) {
@@ -666,6 +670,8 @@ apiRouter.use('/user-api-keys', userApiKeysRoutes);
 apiRouter.use('/home', homeRoutes);
 apiRouter.use('/feedback', feedbackRoutes);
 apiRouter.use('/master-data', masterDataRoutes);
+apiRouter.use('/marketing', marketingRoutes);
+apiRouter.use('/public/marketing', publicMarketingRoutes);
 apiRouter.use('/admin/platform-documents', adminPlatformDocsRoutes);
 apiRouter.use('/admin/tool-onboarding', adminToolOnboardingRoutes);
 apiRouter.use('/admin/tls-certs', adminTlsCertsRoutes);

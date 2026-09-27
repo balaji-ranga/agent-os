@@ -4,6 +4,10 @@ title: Hire AI employees
 
 # Hire AI employees
 
+## Standard Marketing Specialist
+
+Select **Marketing Specialist** to onboard an AI-native multi-channel operator for email, WhatsApp, Facebook, Google Ads, LinkedIn, Instagram and telemarketing. It uses **Run & Operate → Marketing** for campaign plans, reusable assets, channel references and metrics; CRM for audiences and outcomes; and Knowledge/RAG for approved company context. External publishing and messaging remain subject to the employee's tool grants and Action Control.
+
 AI employees are durable roles: name, purpose, workspace instructions, and **tool access**. They are not disposable chatbots.
 
 ## Where to hire

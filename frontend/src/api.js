@@ -565,6 +565,17 @@ export const api = {
     return get(`/feedback${qs ? `?${qs}` : ''}`);
   },
   masterDataTables: () => get('/master-data/tables'),
+  marketingWorkspace: () => get('/marketing/workspace'),
+  marketingCampaignUpsert: (body) => post('/marketing/campaigns', body),
+  marketingAssetUpsert: (body) => post('/marketing/assets', body),
+  marketingChannelUpsert: (body) => post('/marketing/channels', body),
+  marketingMetricRecord: (body) => post('/marketing/metrics', body),
+  marketingEngagementRecord: (body) => post('/marketing/engagements', body),
+  marketingWatchUpsert: (body) => post('/marketing/watches', body),
+  marketingStrategyUpsert: (body) => post('/marketing/strategies', body),
+  marketingOpenPixelCreate: (body) => post('/marketing/tracking/open-pixel', body),
+  marketingLeadPrepare: (body) => post('/marketing/leads/prepare', body),
+  marketingFollowupUpdate: (body) => post('/marketing/engagements/followup', body),
   masterDataTableCreate: (body) => post('/master-data/tables', body),
   masterDataTableUpdate: (id, body) => patch(`/master-data/tables/${encodeURIComponent(id)}`, body),
   masterDataTableGet: (id, params = {}) => {

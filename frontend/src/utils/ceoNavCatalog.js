@@ -34,6 +34,7 @@ export function buildCeoNavCatalog({ showCrm = false, showErp = false } = {}) {
     run.push({ id: 'erp', label: 'ERP', to: '/erp', group: 'Run & Operate', entitlement: 'erp' });
   }
   run.push(
+    { id: 'marketing', label: 'Marketing', to: '/marketing', group: 'Run & Operate' },
     { id: 'scheduled-goals', label: 'Scheduled goals', to: '/scheduled-goals', group: 'Run & Operate' },
     {
       id: 'goal-plans',

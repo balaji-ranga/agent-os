@@ -39,6 +39,7 @@ Top-level (always shown; cannot hide in Menu visibility):
 |-------|-------|---------|
 | My Org / Dashboard | `/org` | Architecture diagrams, org chart, standups + COO chat, **People** (invite employees / sub-users — help **45**), Resync ORG/AGENTS |
 | Kanban | `/kanban` | Work tasks (Weekly default; agent filter / Select all / task ID), CEO approvals, artifacts; deep-link `?task=` from global search |
+| **Marketing** | `/marketing` | Campaigns, reusable templates/assets, non-secret channel setup and campaign analytics. Reuses CRM and Knowledge; help **58**. |
 | **Scheduled goals** | `/scheduled-goals` | Recurring CEO prompts (**hourly** / daily / weekdays / weekly); create **and edit**; **Generate draft plan is COO-only** (other employees **Save & schedule**); pause survives restarts. Also via COO chat. See [28-scheduled-goals.md](./28-scheduled-goals.md) |
 | **Goal plans** | `/goal-plans` | Week list of durable plans (`agr-…`); **Execution trace** (`/goal-plans/:id`) shows KPI, plan version, and telemetry for ad-hoc and scheduled fires |
 | Broadcast | `/broadcast` | Message many AI employees at once |

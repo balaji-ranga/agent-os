@@ -56,6 +56,7 @@ const sidebars = {
         'systems/mcp-universe',
         'systems/agent-exchange',
         'systems/crm-and-erp',
+        'systems/marketing',
         'systems/channels',
         'systems/browser-session',
         'systems/social-publishing',
