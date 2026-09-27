@@ -185,6 +185,14 @@ echo "              Marketing apex flolah.cloud + public Free Tools + app login.
 echo "              Admin company blueprints: secret scrub on publish/export (secret-sanitize.js),"
 echo "              CRM/ERP Maker-Checker ceo_approval HITL + async agent_workflow_trigger/run-watch"
 
+# Named Agent OS tools are registered by the OpenClaw plugin at gateway startup.
+# Capture the live catalogue hash so a backend-only deployment can perform one
+# controlled gateway restart only when that catalogue actually changes.
+openclaw_tools_hash_before=""
+if docker ps --format '{{.Names}}' | grep -q '^agent-os-openclaw-1$'; then
+  openclaw_tools_hash_before="$(docker exec agent-os-openclaw-1 sha256sum /root/.openclaw/agent-os-tools.json 2>/dev/null | awk '{print $1}' || true)"
+fi
+
 if [[ "$SKIP_GIT" != "1" ]]; then
   if [[ -d "$ROOT/.git" ]]; then
     echo "==> git pull"
@@ -311,6 +319,29 @@ if echo " $SERVICES " | grep -q " backend "; then
     docker compose ps backend || true
     docker compose logs --tail=80 backend || true
     exit 1
+  fi
+
+  if ! echo " $SERVICES " | grep -q " openclaw " && [[ "${OPENCLAW_TOOL_CATALOG_RESTART:-1}" != "0" ]]; then
+    openclaw_tools_hash_after="$(docker exec agent-os-openclaw-1 sha256sum /root/.openclaw/agent-os-tools.json 2>/dev/null | awk '{print $1}' || true)"
+    if [[ -n "$openclaw_tools_hash_after" && "$openclaw_tools_hash_after" != "$openclaw_tools_hash_before" ]]; then
+      echo "==> Agent OS named-tool catalogue changed; controlled OpenClaw restart"
+      docker compose restart openclaw
+      openclaw_ok=0
+      for i in $(seq 1 60); do
+        openclaw_status="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' agent-os-openclaw-1 2>/dev/null || echo missing)"
+        if [[ "$openclaw_status" == "healthy" ]]; then
+          echo "    OpenClaw healthy after ${i} checks"
+          openclaw_ok=1
+          break
+        fi
+        sleep 3
+      done
+      if [[ "$openclaw_ok" != "1" ]]; then
+        echo "ERROR: OpenClaw did not become healthy after named-tool catalogue reload (status=${openclaw_status:-unknown})"
+        docker compose logs --tail=100 openclaw || true
+        exit 1
+      fi
+    fi
   fi
 fi
 # shellcheck disable=SC2086

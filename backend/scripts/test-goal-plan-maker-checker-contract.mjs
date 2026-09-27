@@ -7,7 +7,7 @@ const dataDir = mkdtempSync(join(tmpdir(), 'flolah-goal-quality-'));
 process.env.AGENT_OS_DATA_DIR = dataDir;
 const { validateTypedGoalPlan, validateCandidateGoalPlan, validateSeedRequirementCoverage, repairCheckerExecutorAvailability, safeGoalClarificationPlan, normalizeExecutorOutputKinds, isCompleteCheckerVerdict, isExecutableCheckerVerdict } = await import('../src/services/goal-plan-quality.js');
 const { isEfficiencyModeTool } = await import('../src/services/llm-efficiency-mode.js');
-const { outcomeValidationMessages } = await import('../src/services/step-outcome-validation.js');
+const { outcomeValidationMessages, validateStepOutcome } = await import('../src/services/step-outcome-validation.js');
 const { classifyToolFailure } = await import('../src/services/tool-failure-class.js');
 const { resolveCapabilitiesFromPrompt } = await import('../src/services/business-capabilities.js');
 const { matchSelfToolsFromCatalog, specialtyMessageContainsToolInstruction } = await import('../src/services/goal-plan-intent.js');
@@ -61,6 +61,21 @@ const statusValidation = outcomeValidationMessages({
 });
 assert.match(statusValidation[0].content, /reported subject status as the current step status/i);
 assert.equal(JSON.parse(statusValidation[1].content).current_step.deliverable_kind, 'status_report');
+const missingRequiredTool = await validateStepOutcome({
+  requiredTools: ['marketing_campaign_run_prepare'],
+  executionEvidence: {
+    substantive_tool_calls: [{ tool_name: 'master_data_list_rows', status: 'ok' }],
+  },
+}, async () => ({ content: '{"satisfied":true,"reason":"Should not be reached","missing_outcomes":[]}' }));
+assert.equal(missingRequiredTool.satisfied, false);
+assert.match(missingRequiredTool.reason, /marketing_campaign_run_prepare/);
+const presentRequiredTool = await validateStepOutcome({
+  requiredTools: ['marketing_campaign_run_prepare'],
+  executionEvidence: {
+    substantive_tool_calls: [{ tool_name: 'marketing_campaign_run_prepare', status: 'ok' }],
+  },
+}, async () => ({ content: '{"satisfied":true,"reason":"Exact tool evidence matches","missing_outcomes":[]}' }));
+assert.equal(presentRequiredTool.satisfied, true);
 assert.equal(classifyToolFailure({ message: 'A prior cleanup was denied by policy' }, { code: 'outcome_contract_incomplete' }).failure_class, 'outcome_incomplete');
 assert.equal(classifyToolFailure({ message: 'A prior cleanup was denied by policy' }, { code: 'outcome_contract_incomplete' }).retryable, true);
 assert.equal(isCompleteCheckerVerdict({ approved: true, issues: [], revised_steps: [] }), true);
@@ -212,7 +227,17 @@ const safe = safeGoalClarificationPlan();
 assert.equal(validateTypedGoalPlan(safe, noHumanCatalog).ok, true);
 assert.equal(safe.some((step) => step.type === 'agent_tool' || step.type === 'specialty_task' || step.type === 'human_task'), false);
 
-const { ensureAgentGoalRunTables, completeGoalStepAndContinue, isFailedDelegationOutcome, planGoalStepsFromText } = await import('../src/services/agent-goal-run.js');
+const { ensureAgentGoalRunTables, completeGoalStepAndContinue, isFailedDelegationOutcome, planGoalStepsFromText, exactNamedRequiredTools } = await import('../src/services/agent-goal-run.js');
+assert.deepEqual(exactNamedRequiredTools({
+  assignment: 'Call marketing_campaign_run_prepare, then report readiness.',
+  operationMode: 'create',
+  candidateTools: ['marketing_campaign_run_prepare', 'email_send'],
+}), ['marketing_campaign_run_prepare']);
+assert.deepEqual(exactNamedRequiredTools({
+  assignment: 'Report the prior marketing_campaign_run_prepare output.',
+  operationMode: 'query',
+  candidateTools: ['marketing_campaign_run_prepare'],
+}), []);
 assert.equal(
   planGoalStepsFromText('Summarize this locally. Do not send notifications or external communications.').some((step) => step.type === 'notify_ceo'),
   false,

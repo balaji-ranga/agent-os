@@ -120,6 +120,20 @@ export function selectExplicitFallbackUrl(text, failedItem = '') {
   return urls.length === 1 ? urls[0] : null;
 }
 
+/** Exact, catalog-driven evidence requirements for mutating specialist work. */
+export function exactNamedRequiredTools({ assignment = '', operationMode = '', candidateTools = [] } = {}) {
+  const mode = String(operationMode || '').trim().toLowerCase();
+  if (!['create', 'update', 'mutate', 'execute', 'action'].includes(mode)) return [];
+  const text = String(assignment || '');
+  return [...new Set((candidateTools || [])
+    .map((tool) => String(tool || '').trim().toLowerCase())
+    .filter(Boolean))]
+    .filter((tool) => {
+      const escaped = tool.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      return new RegExp(`(^|[^a-z0-9_])${escaped}([^a-z0-9_]|$)`, 'i').test(text);
+    });
+}
+
 const NON_SUBSTANTIVE_EVIDENCE_TOOLS = new Set([
   'kanban_move_status',
   'kanban_create_task',
@@ -1146,7 +1160,6 @@ export function validateAndRepairGoalPlan(
     .map(({ step }) => step);
   out = out.map((step) => {
     const spec = { ...(step.spec || {}) };
-    if (spec.selection_rationale) return { ...step, spec };
     if (step.type === 'specialty_task') {
       const agentId = String(spec.agent_id || '').trim();
       const agent = db().prepare(
@@ -1156,17 +1169,30 @@ export function validateAndRepairGoalPlan(
       ).get(ownerUserId, agentId);
       const grants = new Set(getAgentToolGrants(agent?.id || agentId).map((x) => String(x).toLowerCase()));
       const matched = goalRequiredTools.filter((tool) => grants.has(tool));
+      const namedRequiredTools = exactNamedRequiredTools({
+        assignment: spec.message,
+        operationMode: spec.operation_mode,
+        candidateTools: matched,
+      });
+      if (namedRequiredTools.length) {
+        spec.required_tool_names = [...new Set([
+          ...(Array.isArray(spec.required_tool_names) ? spec.required_tool_names : []),
+          ...namedRequiredTools,
+        ].map((tool) => String(tool || '').trim().toLowerCase()).filter(Boolean))];
+      }
       const role = String(agent?.role || '').trim();
-      spec.selection_rationale = matched.length
-        ? `Selected because this goal needs ${matched.join(', ')} and ${agent?.name || agentId} can use ${matched.join(', ')}.${role ? ` Role: ${role}` : ''}`
-        : `Selected as the best-fit specialist from your company${role ? ` for the role: ${role}` : '.'}`;
-    } else if (step.type === 'agent_tool') {
+      if (!spec.selection_rationale) {
+        spec.selection_rationale = matched.length
+          ? `Selected because this goal needs ${matched.join(', ')} and ${agent?.name || agentId} can use ${matched.join(', ')}.${role ? ` Role: ${role}` : ''}`
+          : `Selected as the best-fit specialist from your company${role ? ` for the role: ${role}` : '.'}`;
+      }
+    } else if (!spec.selection_rationale && step.type === 'agent_tool') {
       spec.selection_rationale = `Selected because the goal explicitly needs the ${spec.tool_name || 'configured'} tool capability.`;
-    } else if (step.type === 'workflow_trigger') {
+    } else if (!spec.selection_rationale && step.type === 'workflow_trigger') {
       spec.selection_rationale = `Selected because the goal matched the published workflow trigger “${spec.phrase || step.label}”.`;
-    } else if (step.type === 'notify_ceo') {
+    } else if (!spec.selection_rationale && step.type === 'notify_ceo') {
       spec.selection_rationale = 'Selected to return the consolidated final outcome to the CEO after execution finishes.';
-    } else {
+    } else if (!spec.selection_rationale) {
       spec.selection_rationale = 'Selected so the orchestrator can combine prior step outputs and complete the requested outcome.';
     }
     return { ...step, spec };
@@ -3885,6 +3911,9 @@ async function executeSpecialtyTaskStep(goal, step) {
   const outputContract = Array.isArray(spec.produces) && spec.produces.length
     ? spec.produces.map((output) => `- ${output.key}: ${output.kind || 'data'}${output.required === false ? ' (optional)' : ' (required)'}`).join('\n')
     : '- completed_deliverable: data (required)';
+  const requiredToolEvidence = Array.isArray(spec.required_tool_names)
+    ? [...new Set(spec.required_tool_names.map((tool) => String(tool || '').trim()).filter(Boolean))]
+    : [];
   const semanticContract = [
     spec.objective ? `Objective: ${spec.objective}` : null,
     spec.operation_mode ? `Operation mode: ${spec.operation_mode}` : null,
@@ -3902,6 +3931,9 @@ async function executeSpecialtyTaskStep(goal, step) {
     `- For a status_report about your work, call agent_work_history with the requested day window and use its counts/items as the source of truth. Include its evidence_id, total activity count, and at least one returned task_id with its status/outcome when history exists. Do not substitute learnings_summary, communications history, or memory.\n` +
     `- For an external action or record creation, report the returned execution/record identifier and read-back when available. For research/data, cite the successful tool/source results. For an artifact, return its real file/URL. A writing-only deliverable is evidenced by the concrete text itself.\n` +
     `- Missing required evidence is an incomplete outcome and will be returned to this same isolated step for correction.\n` +
+    (requiredToolEvidence.length
+      ? `- This step specifically requires successful captured evidence from: ${requiredToolEvidence.join(', ')}. Other tool calls do not satisfy this contract.\n`
+      : '') +
     `For an artifact output, return the real file/attachment/download URL in the response; a description of a future file is not an artifact.\n\n` +
     `An empty upstream result is still valid evidence. If you can accurately document that no records were found, produce the contracted data or exception artifact and a bounded recommendation; do not invent records or request clarification merely because the result set is empty.\n\n` +
     `Relevant completed outputs from THIS goal only:\n${prior || '(none — this is the first relevant step)'}\n\n` +
@@ -4196,6 +4228,7 @@ export async function onDelegationTerminalForGoalRun(taskId) {
         operationMode: spec.operation_mode,
         subject: spec.subject,
         deliverableKind: spec.deliverable_kind,
+        requiredTools: spec.required_tool_names,
         requiredInputs: spec.required_inputs,
         requiredOutputs: spec.produces,
         response: effective,
@@ -4279,6 +4312,7 @@ export async function onDelegationTerminalForGoalRun(taskId) {
         operationMode: spec.operation_mode,
         subject: spec.subject,
         deliverableKind: spec.deliverable_kind,
+        requiredTools: spec.required_tool_names,
         requiredInputs: spec.required_inputs,
         requiredOutputs: spec.produces,
         response: effectiveResponse,
