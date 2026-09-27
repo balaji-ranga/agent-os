@@ -4,8 +4,11 @@ import { writeOpenClawToolsList } from '../services/content-tools-meta.js';
 export const MARKETING_WORKSPACE_TOOLS = [
   ['marketing_workspace_read', 'Marketing workspace read', '/api/tools/marketing-workspace-read', 'Read owner-scoped campaigns, reusable assets, channel readiness and aggregate metrics.', 'R0', 'read'],
   ['marketing_campaign_upsert', 'Marketing campaign upsert', '/api/tools/marketing-campaign-upsert', 'Create or update an owner-scoped campaign plan by campaign_id. This does not publish externally.', 'R1', 'write_internal'],
+  ['marketing_campaign_configure', 'Marketing campaign configure', '/api/tools/marketing-campaign-configure', 'Configure an owner-scoped campaign plus its assets, channel references, watches and strategies from a CEO intent or Objective. This never performs an external action.', 'R1', 'write_internal'],
+  ['marketing_campaign_run_prepare', 'Marketing campaign run prepare', '/api/tools/marketing-campaign-run-prepare', 'Validate objective, budgets, enabled channel readiness and approved assets; return the channel action plan before policy-controlled execution.', 'R0', 'read'],
   ['marketing_asset_upsert', 'Marketing asset upsert', '/api/tools/marketing-asset-upsert', 'Create or update a reusable email, social, ad, WhatsApp or call asset by asset_id. This does not publish externally.', 'R1', 'write_internal'],
   ['marketing_channel_config_upsert', 'Marketing channel config upsert', '/api/tools/marketing-channel-config-upsert', 'Store non-secret channel setup and connector references. Credentials must stay in Connectors.', 'R1', 'write_internal'],
+  ['marketing_strategy_upsert', 'Marketing effectiveness strategy upsert', '/api/tools/marketing-strategy-upsert', 'Configure channel signals, scoring, attribution, follow-up and consent strategy.', 'R1', 'write_internal'],
   ['marketing_metric_record', 'Marketing metric record', '/api/tools/marketing-metric-record', 'Idempotently record a numeric campaign metric for analytics.', 'R1', 'write_internal'],
   ['marketing_tracking_pixel_create', 'Marketing tracking pixel create', '/api/tools/marketing-tracking-pixel-create', 'Create a signed privacy-preserving email open pixel for one campaign asset and audience reference. The raw audience reference is not persisted.', 'R1', 'write_internal'],
   ['marketing_engagement_record', 'Marketing engagement record', '/api/tools/marketing-engagement-record', 'Idempotently record owner-scoped channel evidence such as click, reply, conversion, comment or call outcome.', 'R1', 'write_internal'],
@@ -27,6 +30,17 @@ export function seedMarketingWorkspaceToolsIfMissing() {
     insert.run(name, label, endpoint, purpose, tier, family);
     update.run(label, endpoint, purpose, tier, family, name);
   }
+  let grantsAdded = 0;
+  const agentColumns = db.prepare('PRAGMA table_info(agents)').all().map((column) => column.name);
+  if (agentColumns.includes('template_base_id')) {
+    const specialists = db.prepare(
+      `SELECT id FROM agents WHERE LOWER(COALESCE(template_base_id, '')) = 'marketing-specialist'`
+    ).all();
+    const grant = db.prepare('INSERT OR IGNORE INTO agent_tool_grants (agent_id, tool_name) VALUES (?, ?)');
+    for (const specialist of specialists) {
+      for (const [name] of MARKETING_WORKSPACE_TOOLS) grantsAdded += grant.run(specialist.id, name).changes;
+    }
+  }
   writeOpenClawToolsList();
-  return { tools: MARKETING_WORKSPACE_TOOLS.length };
+  return { tools: MARKETING_WORKSPACE_TOOLS.length, grants_added: grantsAdded };
 }

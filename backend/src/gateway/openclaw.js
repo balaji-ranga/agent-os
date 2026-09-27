@@ -11,6 +11,7 @@ import http from 'node:http';
 import https from 'node:https';
 import { stripOpenClawDeliveryNoise } from '../services/openclaw-runtime-tools.js';
 import { getPlatformTimeoutMs } from '../services/platform-timeout-settings.js';
+import { activatePersistedOpenClawRuntimeAgent } from '../services/openclaw-agent-activation.js';
 import { warnOnLargeLlmContext } from '../services/llm-context-audit.js';
 import { getOpenClawGatewayRuntimeToken } from '../services/platform-runtime-secrets.js';
 
@@ -162,9 +163,11 @@ export async function chatCompletions(agentId, messages, sessionUser = null, str
   const timeoutMs = Number(
     options.timeoutMs || getPlatformTimeoutMs('openclaw_chat')
   );
-  const maxAttempts = Math.max(1, Number(options.retries ?? process.env.OPENCLAW_CHAT_RETRIES ?? 3));
+  let maxAttempts = Math.max(1, Number(options.retries ?? process.env.OPENCLAW_CHAT_RETRIES ?? 3));
+  let unknownAgentRecoveryUsed = false;
   let res;
   let lastErrText = '';
+  let activationFailure = null;
   const payload = JSON.stringify(body);
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
@@ -192,6 +195,23 @@ export async function chatCompletions(agentId, messages, sessionUser = null, str
 
     lastErrText = await res.text();
     // Transient 404 / Not Found during gateway agent reload after deploy or tenant sync
+    const unknownAgent = res.status === 400 && /unknown agent/i.test(lastErrText);
+    if (unknownAgent && !unknownAgentRecoveryUsed && agentId) {
+      unknownAgentRecoveryUsed = true;
+      try {
+        await activatePersistedOpenClawRuntimeAgent(agentId, { forceVerify: true });
+        // Preserve the caller's retry budget and add exactly one recovery call.
+        maxAttempts = Math.max(maxAttempts, attempt + 1);
+        continue;
+      } catch (activationError) {
+        activationFailure = activationError;
+        console.warn(
+          '[openclaw] unknown-agent activation failed agent=%s err=%s',
+          agentId,
+          activationError?.message || activationError
+        );
+      }
+    }
     const transient =
       res.status === 404 ||
       res.status === 502 ||
@@ -212,6 +232,7 @@ export async function chatCompletions(agentId, messages, sessionUser = null, str
   }
 
   if (!res?.ok) {
+    if (activationFailure) throw activationFailure;
     let errJson;
     try {
       errJson = JSON.parse(lastErrText);

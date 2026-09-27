@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAuth, resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
-import { createMarketingOpenPixel, getMarketingWorkspace, listDueMarketingWatches, prepareMarketingLead, recordMarketingWatchResult, updateMarketingFollowup, upsertMarketingRecord } from '../services/marketing-workspace.js';
+import { configureMarketingCampaign, createMarketingOpenPixel, getMarketingWorkspace, listDueMarketingWatches, prepareMarketingCampaignRun, prepareMarketingLead, recordMarketingWatchResult, updateMarketingFollowup, upsertMarketingRecord } from '../services/marketing-workspace.js';
 
 const router = Router();
 
@@ -15,6 +15,15 @@ router.get('/workspace', requireAuth, (req, res) => {
     const ownerUserId = owner(req, res); if (!ownerUserId) return;
     res.json(getMarketingWorkspace(ownerUserId));
   } catch (error) { res.status(error.status || 500).json({ error: error.message, code: error.code }); }
+});
+
+router.post('/campaigns/configure', requireAuth, (req, res) => {
+  try { const ownerUserId = owner(req, res); if (!ownerUserId) return; res.status(201).json(configureMarketingCampaign(ownerUserId, req.body || {})); }
+  catch (error) { res.status(error.status || 400).json({ error: error.message, code: error.code, campaign_id: error.campaign_id, readiness: error.readiness }); }
+});
+router.post('/campaigns/run-prepare', requireAuth, (req, res) => {
+  try { const ownerUserId = owner(req, res); if (!ownerUserId) return; res.json(prepareMarketingCampaignRun(ownerUserId, req.body || {})); }
+  catch (error) { res.status(error.status || 400).json({ error: error.message, code: error.code }); }
 });
 
 for (const kind of ['campaigns', 'assets', 'channels', 'metrics', 'engagements', 'watches', 'strategies']) {

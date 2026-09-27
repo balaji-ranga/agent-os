@@ -4,8 +4,11 @@
   "tools": [
     "marketing_workspace_read",
     "marketing_campaign_upsert",
+    "marketing_campaign_configure",
+    "marketing_campaign_run_prepare",
     "marketing_asset_upsert",
     "marketing_channel_config_upsert",
+    "marketing_strategy_upsert",
     "marketing_metric_record",
     "marketing_tracking_pixel_create",
     "marketing_engagement_record",

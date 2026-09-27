@@ -22,6 +22,11 @@ try {
   handle = initDb();
   seedMarketingWorkspaceToolsIfMissing();
 
+  handle.prepare(`INSERT INTO agents(id,name,role,template_base_id) VALUES (?,?,?,?)`).run('marketing-specialist-test', 'Marketing Specialist Test', 'Marketing', 'marketing-specialist');
+  const grantSync = seedMarketingWorkspaceToolsIfMissing();
+  assert.equal(grantSync.grants_added, 15, 'existing hired Marketing Specialists inherit newly introduced Marketing tools');
+  assert.equal(handle.prepare(`SELECT COUNT(*) AS count FROM agent_tool_grants WHERE agent_id = ? AND tool_name LIKE 'marketing_%'`).get('marketing-specialist-test').count, 15);
+
   const ownerA = 'marketing-owner-a';
   const ownerB = 'marketing-owner-b';
   handle.prepare(`INSERT INTO platform_users(id,email,password_hash,name,role,enabled,data_retention_days) VALUES (?,?,?,?,'ceo',1,30)`).run(ownerA, 'marketing-a@example.invalid', 'test-only', 'Marketing A');
@@ -78,21 +83,63 @@ try {
   assert.ok(Date.parse(watchResult.watch.next_check_at) > Date.now());
   assert.equal(svc.getMarketingWorkspace(ownerB).records.engagements.length, 0, 'cross-owner engagement data is not visible');
 
+  const configured = svc.configureMarketingCampaign(ownerB, {
+    campaign: {
+      campaign_id: 'agent-configured-campaign',
+      name: 'Agent configured demand campaign',
+      objective_id: 'objective-growth',
+      goal: 'Generate five qualified leads',
+      channels: ['email', 'facebook'],
+      budget_total: 500,
+      budget_daily: 25,
+    },
+    assets: [
+      { asset_id: 'agent-email', name: 'Agent email', channel: 'email', content: 'Hello {{first_name}}', approval_status: 'approved' },
+      { asset_id: 'agent-facebook', name: 'Agent social post', channel: 'facebook', asset_type: 'post', content: 'Evidence-backed campaign post', approval_status: 'approved' },
+    ],
+    channels: [
+      { channel: 'email', enabled: true, execution_mode: 'policy_controlled', connector_type: 'agent_tool', connector_id: 'email_send', readiness_status: 'ready' },
+      { channel: 'facebook', enabled: true, execution_mode: 'policy_controlled', connector_type: 'browser_recipe', connector_id: 'browse_recipe_run', sender_reference: 'Facebook verified dynamic post', readiness_status: 'ready' },
+    ],
+    watches: [{ watch_id: 'agent-facebook-watch', channel: 'facebook', target_reference: 'provider-post-after-publish', recipe_name: 'Facebook post insights', enabled: false }],
+    strategies: [{ channel: 'facebook', tracked_signals: ['comment', 'message'], score_rules: { comment: 5, message: 10 }, attribution_window_days: 30, followup_rules: { qualified_score: 10 }, consent_required: true }],
+    activate: true,
+  });
+  assert.equal(configured.campaign.status, 'active');
+  assert.equal(configured.readiness.ready, true, 'agent can configure a runnable campaign without the UI');
+  assert.equal(configured.readiness.actions.length, 2);
+  assert.equal(configured.assets.length, 2);
+  assert.equal(svc.prepareMarketingCampaignRun(ownerB, { campaign_id: configured.campaign.campaign_id }).ready, true);
+
+  assert.throws(
+    () => svc.configureMarketingCampaign(ownerB, {
+      campaign: { campaign_id: 'blocked-paid-campaign', name: 'Blocked paid campaign', goal: 'Acquire leads', channels: ['google_ads'] },
+      assets: [{ name: 'Paid creative', channel: 'google_ads', content: 'Ad', approval_status: 'approved' }],
+      channels: [{ channel: 'google_ads', enabled: true, readiness_status: 'ready' }],
+      activate: true,
+    }),
+    (error) => error.code === 'MARKETING_CAMPAIGN_NOT_READY' && error.readiness.blockers.some((item) => /positive total campaign budget/i.test(item)),
+    'agentic activation fails safely when paid-channel budget is missing'
+  );
+
   const role = getHireableRoleTemplate('marketing-specialist');
   assert.equal(role?.department, 'Marketing');
   assert.ok(role.tools.includes('marketing_workspace_read'));
+  assert.ok(role.tools.includes('marketing_campaign_configure'));
+  assert.ok(role.tools.includes('marketing_campaign_run_prepare'));
+  assert.ok(role.tools.includes('marketing_strategy_upsert'));
   assert.ok(role.tools.includes('connector_execute_action'));
 
   const toolRows = handle.prepare(`SELECT name,risk_tier,action_family FROM content_tools_meta WHERE name LIKE 'marketing_%' ORDER BY name`).all();
   const toolNames = toolRows.map((row) => row.name);
-  assert.equal(toolNames.length, 12);
+  assert.equal(toolNames.length, 15);
   assert.equal(toolRows.find((row) => row.name === 'marketing_workspace_read')?.action_family, 'read');
   assert.equal(toolRows.find((row) => row.name === 'marketing_campaign_upsert')?.action_family, 'write_internal');
   assert.equal(svc.getMarketingWorkspace(ownerA).records.strategies.length, 7, 'each supported channel has an effectiveness strategy');
   svc.upsertMarketingRecord(ownerA, 'engagements', { event_id: 'old-event', channel: 'email', event_type: 'open_signal', observed_at: '2020-01-01T00:00:00.000Z' });
   const purged = await purgeOwnerRetention(ownerA, { days: 30 });
   assert.ok(purged.deleted.marketing_engagement_events >= 1, 'engagement history follows owner retention');
-  console.log(JSON.stringify({ ok: true, checks: ['knowledge-backed-storage', 'upsert-idempotency', 'metric-idempotency', 'owner-isolation', 'secret-rejection', 'signed-open-pixel', 'pixel-idempotency', 'cross-campaign-lead-correlation', 'distinct-opportunities', 'suppression-gate', 'browser-watch-cycle', 'channel-strategies', 'retention', 'hireable-template', 'tool-registry'] }, null, 2));
+  console.log(JSON.stringify({ ok: true, checks: ['knowledge-backed-storage', 'upsert-idempotency', 'metric-idempotency', 'owner-isolation', 'secret-rejection', 'signed-open-pixel', 'pixel-idempotency', 'cross-campaign-lead-correlation', 'distinct-opportunities', 'suppression-gate', 'browser-watch-cycle', 'agentic-campaign-configuration', 'run-readiness-contract', 'paid-budget-gate', 'channel-strategies', 'retention', 'hireable-template', 'existing-template-grant-reconciliation', 'tool-registry'] }, null, 2));
 } finally {
   try { handle?.close(); } catch {}
   rmSync(root, { recursive: true, force: true });

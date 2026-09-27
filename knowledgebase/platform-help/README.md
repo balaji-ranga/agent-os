@@ -64,7 +64,7 @@
 | [55-social-publishing-facebook-linkedin.md](./55-social-publishing-facebook-linkedin.md) | **Social publishing** — Facebook/LinkedIn browser recipes, Chrome extension vs Desktop worker, Meta Graph MCP Page publishing, workflow inputs, Action control approvals, durable verification, troubleshooting |
 | [56-okr-company-demo-seed-pack.md](./56-okr-company-demo-seed-pack.md) | **OKR company demo pack** — Northstar Industrial seed inventory; objective-linked agents/workflows, CRM/ERP evidence, autonomous policies, budgets, cleanup/reseed safety |
 | [57-event-productivity-pack.md](./57-event-productivity-pack.md) | **Events & Productivity** — Google/Microsoft calendars, files, Docs/Word, Sheets/Excel, Slack/Teams; durable inbox → workflow/goal; exact connector bindings, Action Control, testing and dead letters |
-| [58-marketing-operations.md](./58-marketing-operations.md) | **Marketing Operations** — Run & Operate Marketing workspace; standard Marketing Specialist hire template; campaigns, reusable assets, channel references, CRM/Knowledge reuse, metrics and Action Control |
+| [58-marketing-operations.md](./58-marketing-operations.md) | **Marketing Operations** — agentic setup from CEO intent/OKRs with optional UI; standard Marketing Specialist template; campaigns, assets, channel references, CRM/Knowledge reuse, readiness, metrics and Action Control |
 
 **Video Tours (UI):** User menu → **Help → Video Tours** (/video-tours) — playlist of short CEO tours (script/captions now; mp4 when exported). Not ingested as RAG docs.
 

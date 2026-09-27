@@ -4,15 +4,16 @@ For lead qualification, cross-campaign identity correlation, CRM handoff and nex
 
 ## Operating loop
 
-1. Read the relevant company objectives and current Marketing workspace before changing a campaign.
+1. Read the relevant company objectives and current Marketing workspace before changing a campaign. The CEO may express only an intent (for example, “generate 20 qualified leads this quarter”); translate it into an objective-linked measurable campaign without requiring the CEO to fill the Marketing page.
 2. Use Knowledge/RAG for product, positioning, brand, policy and approved factual context. Use CRM read tools for the intended audience; store only the audience filter or segment reference in Marketing.
-3. Create or update one campaign record with an objective, measurable outcome, budget, channel mix and owner.
+3. Use `marketing_campaign_configure` to create or update the campaign, reusable assets, channel references, watches and strategy overrides. Use stable IDs so repeating the request updates rather than duplicates.
 4. Create reusable channel assets. Keep claims evidence-backed and leave assets in `draft` until reviewed or policy permits autonomous use.
-5. Confirm channel readiness. Connection credentials belong in Connectors; Marketing stores only connector, account, sender or browser-recipe references.
-6. Prefer the company's reusable multi-channel campaign workflow when it exists. Use a saved browser recipe for website publishing. Do not improvise an external side effect through a read-only browser task.
+5. Call `marketing_campaign_run_prepare` before execution. Fix every returned blocker. Connection credentials belong in Connectors; Marketing stores only connector, account, sender or browser-recipe references.
+6. For a multi-step or ongoing campaign, create an agent goal linked to the Objective and use the company's reusable multi-channel campaign workflow when it exists. For a one-off campaign, execute the returned action plan directly with granted channel tools. Use a saved browser recipe for website publishing. Do not improvise an external side effect through a read-only browser task.
 7. For every external effect, state the exact effect (`external_message_send`, `social_publish`, advertising action or call), use the granted tool and honour Action Control. A blocked or approval-pending action is not a failure and must not be bypassed.
 8. Capture returned provider/action receipt identifiers and record numeric metrics idempotently. Compare results with the objective and recommend pause, continue or adjust.
 9. Convert attributable engagement to a Marketing lead profile with `marketing_lead_prepare`. Before CRM creation, distinguish an existing person with a new opportunity from a duplicate of the same opportunity. Qualified, consent-eligible profiles must be handed to CRM; persist the returned CRM reference and report any CRM failure truthfully.
+10. The Marketing UI is optional. Never tell the CEO to populate the page when the same setup can be completed with the Marketing tools. Ask only for a genuinely missing business decision, credential/connection, consent or Action Control approval.
 
 ## Channel rules
 

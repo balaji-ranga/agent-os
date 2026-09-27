@@ -22,6 +22,7 @@ import { resolveWorkspaceTemplateBaseId } from './company-blueprints/standard-pr
 import { getHireableRoleTemplate } from './hireable-role-templates.js';
 import { normalizeAgentAvatar } from '../lib/agent-avatar.js';
 import { grantConnectorActionsForAgent } from './connector-action-grants.js';
+import { activatePersistedOpenClawRuntimeAgent } from './openclaw-agent-activation.js';
 
 const REPO_TEMPLATES = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'openclaw-workspace-templates');
 
@@ -389,11 +390,29 @@ export async function createFullAgent(input) {
   }
   db.prepare('UPDATE agents SET workspace_path = ? WHERE id = ?').run(ensured.workspacePath, id);
 
+  let runtimeActivation = { active: false, runtime_id: ensured.openclawAgentId, source: 'pending' };
+  try {
+    runtimeActivation = await activatePersistedOpenClawRuntimeAgent(ensured.openclawAgentId);
+  } catch (error) {
+    // Keep the successfully created employee. The generic gateway recovery path
+    // retries activation on first use and reports a clear 503 if the control
+    // plane remains unavailable; the hire is never silently treated as ready.
+    console.warn('[create-full-agent] runtime activation pending agent=%s err=%s', id, error?.message || error);
+    runtimeActivation = {
+      active: false,
+      runtime_id: ensured.openclawAgentId,
+      source: 'pending',
+      error_code: error?.code || 'OPENCLAW_AGENT_ACTIVATION_FAILED',
+    };
+  }
+
   return {
     ...db.prepare('SELECT * FROM agents WHERE id = ?').get(id),
     openclaw_runtime_id: ensured.openclawAgentId || runtimeId,
     tenant_session_key: tenantSessionKeyForAgent(ownerUserId, id),
     tenant_workspace_path: ensured.workspacePath,
     granted_to_user_id: ownerUserId,
+    openclaw_runtime_ready: runtimeActivation.active === true,
+    openclaw_runtime_activation: runtimeActivation.source,
   };
 }

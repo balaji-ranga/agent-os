@@ -175,6 +175,120 @@ export function getMarketingWorkspace(ownerUserId) {
   };
 }
 
+/**
+ * Validate the internal campaign state before the agent invokes any external
+ * channel capability. This is deliberately side-effect free: Action Control
+ * remains authoritative for sends, publishing, calls and advertising spend.
+ */
+export function prepareMarketingCampaignRun(ownerUserId, input = {}) {
+  const campaignId = text(input.campaign_id, 100);
+  if (!campaignId) fail('campaign_id is required');
+  const workspace = getMarketingWorkspace(ownerUserId);
+  const campaign = workspace.records.campaigns.find((row) => row.campaign_id === campaignId);
+  if (!campaign) fail('Campaign not found', 404);
+  const requestedChannels = parseJsonArray(campaign.channels_json);
+  const blockers = [];
+  if (!campaign.objective_id && !campaign.goal) blockers.push('Add an Objective ID or measurable outcome goal.');
+  if (!requestedChannels.length) blockers.push('Select at least one campaign channel.');
+  if (!['active', 'draft'].includes(campaign.status)) blockers.push(`Campaign status '${campaign.status}' cannot be prepared for execution.`);
+
+  const totalBudget = Number(campaign.budget_total || 0);
+  const dailyBudget = Number(campaign.budget_daily || 0);
+  if (totalBudget < 0 || dailyBudget < 0) blockers.push('Campaign budgets cannot be negative.');
+  if (totalBudget > 0 && dailyBudget > totalBudget) blockers.push('Daily budget cannot exceed total campaign budget.');
+  if (requestedChannels.includes('google_ads') && totalBudget <= 0) blockers.push('Google Ads requires a positive total campaign budget.');
+
+  const actions = requestedChannels.map((channel) => {
+    const setup = workspace.records.channels.find((row) => row.channel === channel);
+    const assets = workspace.records.assets.filter(
+      (row) => row.channel === channel && (!row.campaign_id || row.campaign_id === campaignId)
+    );
+    const approvedAssets = assets.filter((row) => row.approval_status === 'approved');
+    if (!setup) blockers.push(`${channel}: channel setup is missing.`);
+    else {
+      if (setup.enabled !== 'true') blockers.push(`${channel}: channel is disabled.`);
+      if (setup.readiness_status !== 'ready') blockers.push(`${channel}: readiness is '${setup.readiness_status || 'not_configured'}'.`);
+    }
+    if (!approvedAssets.length) blockers.push(`${channel}: no approved campaign or reusable asset is available.`);
+    return {
+      channel,
+      execution_mode: setup?.execution_mode || 'draft_only',
+      connector_type: setup?.connector_type || '',
+      connector_id: setup?.connector_id || '',
+      account_reference: setup?.account_reference || '',
+      sender_reference: setup?.sender_reference || '',
+      approved_assets: approvedAssets.map((asset) => ({
+        asset_id: asset.asset_id,
+        name: asset.name,
+        asset_type: asset.asset_type,
+        subject: asset.subject,
+        version: asset.version,
+      })),
+    };
+  });
+
+  return {
+    campaign,
+    ready: blockers.length === 0,
+    blockers: unique(blockers),
+    actions,
+    execution_contract: {
+      external_effects_require_action_control: true,
+      internal_configuration_only: true,
+      evidence_required: ['provider/action receipt', 'recorded marketing metric or engagement evidence'],
+    },
+  };
+}
+
+/**
+ * Agent-oriented equivalent of the Marketing UI forms. One owner-scoped call
+ * can configure a campaign and its supporting assets/channels/watches/
+ * strategies from a CEO intent or Objective. It never performs an external
+ * send, publish, phone call or advertising action.
+ */
+export function configureMarketingCampaign(ownerUserId, input = {}) {
+  const campaignInput = input.campaign && typeof input.campaign === 'object'
+    ? { ...input.campaign }
+    : { ...input };
+  delete campaignInput.campaign;
+  delete campaignInput.assets;
+  delete campaignInput.channels;
+  delete campaignInput.watches;
+  delete campaignInput.strategies;
+  delete campaignInput.activate;
+  const selectedChannels = campaignInput.channels_json ?? input.campaign?.channels ?? input.channel_mix;
+  if (selectedChannels != null) campaignInput.channels = selectedChannels;
+  if (!campaignInput.objective_id && input.objective_id) campaignInput.objective_id = input.objective_id;
+  if (!campaignInput.goal && input.goal) campaignInput.goal = input.goal;
+  if (!campaignInput.owner_agent) campaignInput.owner_agent = text(input.owner_agent, 120) || 'marketing-specialist';
+  campaignInput.status = input.activate === true ? 'draft' : (campaignInput.status || 'draft');
+
+  const campaign = upsertMarketingRecord(ownerUserId, 'campaigns', campaignInput).record;
+  const campaignId = campaign.campaign_id;
+  const saveMany = (kind, values, defaults = {}) => (Array.isArray(values) ? values.slice(0, 100) : [])
+    .map((value) => upsertMarketingRecord(ownerUserId, kind, { ...defaults, ...(value || {}) }).record);
+  const assets = saveMany('assets', input.assets, { campaign_id: campaignId });
+  const channels = saveMany('channels', input.channels);
+  const watches = saveMany('watches', input.watches, { campaign_id: campaignId });
+  const strategies = saveMany('strategies', input.strategies);
+
+  let readiness = prepareMarketingCampaignRun(ownerUserId, { campaign_id: campaignId });
+  let finalCampaign = campaign;
+  if (input.activate === true) {
+    if (!readiness.ready) {
+      const error = new Error(`Campaign saved as draft; activation blocked: ${readiness.blockers.join(' ')}`);
+      error.status = 409;
+      error.code = 'MARKETING_CAMPAIGN_NOT_READY';
+      error.campaign_id = campaignId;
+      error.readiness = readiness;
+      throw error;
+    }
+    finalCampaign = upsertMarketingRecord(ownerUserId, 'campaigns', { ...campaign, status: 'active' }).record;
+    readiness = prepareMarketingCampaignRun(ownerUserId, { campaign_id: campaignId });
+  }
+  return { campaign: finalCampaign, assets, channels, watches, strategies, readiness };
+}
+
 function stableMetricId(data) {
   const raw = [data.campaign_id, data.channel, data.metric_name, data.period_start, data.period_end, data.source, data.receipt_id].map((v) => text(v, 200)).join('|');
   return `metric-${createHash('sha256').update(raw || randomUUID()).digest('hex').slice(0, 20)}`;

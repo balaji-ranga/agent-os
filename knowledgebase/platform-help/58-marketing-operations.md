@@ -45,6 +45,12 @@ The Marketing Specialist uses the `marketing-lead-intelligence` skill. It report
 
 The template includes Marketing APIs, CRM reads, Knowledge/RAG, objective/goal context, reusable workflow controls, connector discovery/execution, browser recipes, content generation, Kanban, notifications and work-history reporting.
 
+## Agentic setup — the page is optional
+
+The **Marketing page is optional**. A CEO can describe the desired outcome directly to the Marketing Specialist. The agent reads the linked Objective, Knowledge/RAG and CRM context, then uses the same owner-scoped APIs as the page to configure campaigns, assets/templates, channel references, watches and effectiveness strategies.
+
+For a complete setup from chat, the agent uses `marketing_campaign_configure`. Before any send, publish, call or advertising action it uses `marketing_campaign_run_prepare` to validate the Objective/goal, budgets, enabled channel readiness and approved assets. External effects still run through the existing email, connector, browser-recipe, workflow or calling tools and remain governed by Action Control.
+
 ## Build a campaign
 
 1. In **Marketing → Campaigns**, link the campaign to an objective, choose channels, set outcome and budget, and reference a CRM segment/filter.
@@ -61,8 +67,11 @@ The template includes Marketing APIs, CRM reads, Knowledge/RAG, objective/goal c
 |---|---|---|
 | `marketing_workspace_read` | Read campaigns, assets, channel readiness and metrics | R0 |
 | `marketing_campaign_upsert` | Create/update internal campaign plans | R1 |
+| `marketing_campaign_configure` | Configure a campaign plus assets, channel references, watches and strategies from an intent or Objective | R1 |
+| `marketing_campaign_run_prepare` | Validate objective, budget, channels and approved assets before execution | R0 |
 | `marketing_asset_upsert` | Create/update reusable internal assets | R1 |
 | `marketing_channel_config_upsert` | Store non-secret channel references/settings | R1 |
+| `marketing_strategy_upsert` | Configure evidence, scoring, attribution, consent and follow-up strategy | R1 |
 | `marketing_metric_record` | Idempotently record a numeric observation | R1 |
 | `marketing_tracking_pixel_create` | Create signed email open-signal HTML without storing raw audience identity | R1 |
 | `marketing_engagement_record` | Record an attributable channel event | R1 |
