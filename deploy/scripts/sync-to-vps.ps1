@@ -534,7 +534,7 @@ if ($Services -match "backend|openclaw") {
   scp @ssh -r "$Repo\openclaw-extensions\agent-os-content-tools" "root@${HostIp}:$RemoteRoot/openclaw-extensions/"
   scp @ssh -r "$Repo\openclaw-extensions\agent-os-bootstrap-watcher" "root@${HostIp}:$RemoteRoot/openclaw-extensions/"
   Write-Host "==> Sync workspace templates (shared ops + lean + Business Core CRM/ERP + specialty agents) + skills + platform-help KB"
-  ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/openclaw-workspace-templates $RemoteRoot/openclaw-skills/agent-os-content-tools $RemoteRoot/openclaw-skills/agent-send $RemoteRoot/openclaw-skills/ibkrnew-trade-strategy"
+  ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/openclaw-workspace-templates $RemoteRoot/openclaw-skills/agent-os-content-tools $RemoteRoot/openclaw-skills/agent-send $RemoteRoot/openclaw-skills/ibkrnew-trade-strategy $RemoteRoot/openclaw-skills/marketing-lead-intelligence"
   scp @ssh -r "$Repo\openclaw-workspace-templates\_shared" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
   scp @ssh -r "$Repo\openclaw-workspace-templates\balserve" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
   scp @ssh -r "$Repo\openclaw-workspace-templates\techresearcher" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
@@ -555,7 +555,7 @@ if ($Services -match "backend|openclaw") {
   scp @ssh -r "$Repo\openclaw-workspace-templates\jobdiscovery" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
   scp @ssh -r "$Repo\openclaw-workspace-templates\resumetailor" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
   scp @ssh -r "$Repo\openclaw-workspace-templates\bala" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
-  foreach ($hireableTpl in @('slow-caller','realtime-caller','gmail-operations')) {
+  foreach ($hireableTpl in @('slow-caller','realtime-caller','gmail-operations','marketing-specialist')) {
     $src = Join-Path $Repo "openclaw-workspace-templates\$hireableTpl"
     if (Test-Path $src) {
       scp @ssh -r $src "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
@@ -646,6 +646,7 @@ if ($Services -match "backend|openclaw") {
   }
   scp @ssh -r "$Repo\openclaw-skills\agent-os-content-tools" "root@${HostIp}:$RemoteRoot/openclaw-skills/"
   scp @ssh -r "$Repo\openclaw-skills\agent-send" "root@${HostIp}:$RemoteRoot/openclaw-skills/"
+  scp @ssh -r "$Repo\openclaw-skills\marketing-lead-intelligence" "root@${HostIp}:$RemoteRoot/openclaw-skills/"
   scp @ssh -r "$Repo\.cursor\skills\ibkrnew-trade-strategy" "root@${HostIp}:$RemoteRoot/openclaw-skills/"
 }
 
