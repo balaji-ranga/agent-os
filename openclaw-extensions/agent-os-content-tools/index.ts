@@ -193,10 +193,23 @@ function ownerUserIdFromSessionKey(sessionKey: string | undefined): string | nul
 type ToolCtx = { agentId?: string; sessionKey?: string; messageChannel?: string; agentAccountId?: string; requesterSenderId?: string; deliveryContext?: { channel?: string } };
 type PluginApi = {
   registerTool: Function;
+  on?: (hookName: string, handler: Function, options?: Record<string, unknown>) => void;
+  logger?: { info?: (message: string) => void; warn?: (message: string) => void };
   config: Record<string, unknown>;
   context?: unknown;
   sessionKey?: string;
   getSessionKey?: () => string;
+};
+
+type PromptBuildEvent = { prompt?: string };
+type PromptBuildContext = {
+  runId?: string;
+  agentId?: string;
+  sessionKey?: string;
+  channel?: string;
+  channelId?: string;
+  accountId?: string;
+  senderId?: string;
 };
 
 const PARAM_SCHEMAS: Record<string, Record<string, unknown>> = {
@@ -592,6 +605,48 @@ async function callInvoke(
   }
 }
 
+async function correlateInboundCampaign(
+  api: PluginApi,
+  event: PromptBuildEvent,
+  ctx: PromptBuildContext
+): Promise<Record<string, any> | null> {
+  const channel = String(ctx.channel || ctx.channelId || "").trim().toLowerCase();
+  const callerAgentId = String(ctx.agentId || agentIdFromSessionKey(ctx.sessionKey) || "").trim();
+  const sessionKey = String(ctx.sessionKey || safeApiSessionKey(api) || "").trim();
+  const senderId = String(ctx.senderId || "").trim();
+  const content = String(event.prompt || "").trim();
+  if (!["whatsapp", "facebook", "linkedin", "instagram", "email"].includes(channel)) return null;
+  if (!callerAgentId || !sessionKey || !senderId || !content) return null;
+  const brokerSecret = loadToolBrokerSecret();
+  const { baseUrl } = resolvePluginConfig(api);
+  const url = String(baseUrl || "").trim().replace(/\/$/, "");
+  if (!brokerSecret || !url) return null;
+  try {
+    const response = await fetch(`${url}/api/tools/marketing-inbound-event`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-agent-os-tool-broker": brokerSecret },
+      body: JSON.stringify({
+        caller_agent_id: callerAgentId,
+        session_key: sessionKey,
+        channel,
+        account_id: ctx.accountId,
+        sender_id: senderId,
+        message_id: ctx.runId,
+        run_id: ctx.runId,
+        content,
+        observed_at: new Date().toISOString(),
+      }),
+      signal: AbortSignal.timeout(10000),
+    });
+    const data = await response.json().catch(() => ({})) as Record<string, any>;
+    if (!response.ok) throw new Error(String(data.error || response.statusText));
+    return data;
+  } catch (error) {
+    api.logger?.warn?.(`[agent-os-content-tools] inbound campaign correlation failed: ${error instanceof Error ? error.message : String(error)}`);
+    return null;
+  }
+}
+
 function modelVisibleSchema(schema: Record<string, unknown>): Record<string, unknown> {
   const copy = JSON.parse(JSON.stringify(schema || { type: "object", properties: {} })) as {
     properties?: Record<string, unknown>;
@@ -612,6 +667,31 @@ export default definePluginEntry({
   description:
     "Register Agent OS content/workflow/kanban tools with owner/agent-scoped backend credentials.",
   register(api: PluginApi) {
+    if (typeof api.on === "function") {
+      api.on("before_prompt_build", async (event: PromptBuildEvent, ctx: PromptBuildContext) => {
+        const result = await correlateInboundCampaign(api, event, ctx);
+        if (!result?.matched) return;
+        const campaign = result.campaign || {};
+        const lead = result.lead || {};
+        const classification = result.classification || {};
+        const suppression = classification.outcome_type === "opt_out";
+        const companyUser = result.identity?.kind === "company_user";
+        return {
+          prependContext: [
+            "Trusted Agent OS campaign attribution:",
+            `This inbound message was matched to campaign ${campaign.name || campaign.campaign_id || "(unknown)"}.`,
+            companyUser
+              ? "The sender is a verified company user. The response was recorded as internal campaign-test evidence; no sales lead was created."
+              : `The campaign response was recorded and lead ${lead.lead_id || "(pending)"} is owned by ${campaign.owner_agent || "Marketing Specialist"}.`,
+            suppression
+              ? "The sender opted out. Do not send any promotional follow-up. Acknowledge the opt-out only."
+              : companyUser
+                ? "Continue as a normal COO conversation and do not create a CRM marketing lead for the company user."
+                : "Acknowledge the response concisely. Do not independently create another lead or run a separate campaign; Marketing Specialist owns the targeted follow-up.",
+          ].join("\n"),
+        };
+      }, { priority: 50, timeoutMs: 12000 });
+    }
     const tools = loadRuntimeToolDescriptors();
     const apiToolNote =
       " Invoke this tool by name with JSON parameters (API call); do not use exec or run as a shell command.";

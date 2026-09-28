@@ -2,7 +2,7 @@
   "id": "agent-os-content-tools",
   "name": "Agent OS Content Tools",
   "description": "Register Agent OS content/workflow/kanban tools using short-lived owner/agent/session/tool-scoped leases.",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "activation": {
     "onStartup": true
   },

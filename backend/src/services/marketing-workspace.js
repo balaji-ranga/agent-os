@@ -1036,5 +1036,189 @@ export function prepareMarketingLead(ownerUserId, input = {}) {
   };
 }
 
+function inboundReplyIntent(content) {
+  const normalized = text(content, 4000).toLowerCase().replace(/[\u2018\u2019]/g, "'").replace(/\s+/g, ' ').trim();
+  const optOut = /^(?:stop|unsubscribe|cancel|end|quit|opt[ -]?out|remove me|do not contact(?: me)?|don't contact(?: me)?)(?:[.!\s]|$)/i.test(normalized);
+  const positive = !optOut && /(?:^|\b)(?:interested|yes|tell me more|more information|book a call|contact me|sign me up|learn more)(?:\b|$)/i.test(normalized);
+  return { outcomeType: optOut ? 'opt_out' : 'reply', intent: optOut ? 'opt_out' : positive ? 'positive_interest' : 'campaign_reply' };
+}
+
+function campaignResponseKeywords(asset) {
+  const variables = parseJsonObject(asset?.variables_json);
+  const configured = [variables.response_keywords, variables.reply_keywords, variables.responseKeywords, variables.replyKeywords]
+    .flatMap((value) => Array.isArray(value) ? value : value ? [value] : [])
+    .map((value) => text(value, 80).toLowerCase())
+    .filter(Boolean);
+  const copy = text(asset?.content, 20000);
+  const inferred = [...copy.matchAll(/\breply(?:\s+with)?\s+["'“”]?([a-z0-9][a-z0-9_-]{1,31})["'“”]?/gi)]
+    .map((match) => String(match[1] || '').toLowerCase());
+  return unique([...configured, ...inferred]);
+}
+
+/**
+ * Attribute an inbound channel message to the most recent eligible campaign
+ * send for the same consented audience member. The raw message is deliberately
+ * not retained; only a content hash, size and coarse intent are persisted.
+ */
+export function correlateMarketingInbound(ownerUserId, input = {}) {
+  const channel = text(input.channel, 60).toLowerCase();
+  const rawSender = text(input.sender_id ?? input.from ?? input.audience_reference, 1000);
+  const channelSender = ['whatsapp', 'telemarketing'].includes(channel)
+    ? rawSender.split('@')[0].split(':')[0]
+    : rawSender;
+  const sender = normalizedDestination(channel, channelSender);
+  const content = text(input.content ?? input.message, 4000);
+  const observedAt = text(input.observed_at ?? input.received_at, 40) || now();
+  const providerReference = text(input.message_id ?? input.provider_reference ?? input.run_id, 300)
+    || `inbound-${createHash('sha256').update(`${channel}|${sender}|${content}|${observedAt.slice(0, 16)}`).digest('hex').slice(0, 28)}`;
+  if (!channel || !sender || !content) return { matched: false, reason: 'channel_sender_and_content_required' };
+
+  const workspace = getMarketingWorkspace(ownerUserId);
+  const senderHash = audienceHash(ownerUserId, sender);
+  const member = workspace.records.distributionMembers.find((row) =>
+    row.channel === channel && row.destination_hash === senderHash
+  );
+  if (!member) return { matched: false, reason: 'sender_not_in_distribution_lists' };
+
+  const strategy = workspace.records.strategies.find((row) => row.channel === channel);
+  const attributionDays = Math.min(Math.max(Number(strategy?.attribution_window_days) || 30, 1), 365);
+  const receivedMs = parseTimestamp(observedAt);
+  const cutoff = (Number.isFinite(receivedMs) ? receivedMs : Date.now()) - attributionDays * 86400000;
+  const candidates = workspace.records.campaigns.flatMap((campaign) => {
+    if (campaign.status !== 'active' || !parseJsonArray(campaign.audience_list_ids_json).includes(member.list_id)) return [];
+    if (campaign.start_date && Number.isFinite(parseTimestamp(campaign.start_date)) && parseTimestamp(campaign.start_date) > (Number.isFinite(receivedMs) ? receivedMs : Date.now())) return [];
+    if (campaign.end_date && Number.isFinite(parseTimestamp(campaign.end_date)) && parseTimestamp(campaign.end_date) < (Number.isFinite(receivedMs) ? receivedMs : Date.now())) return [];
+    const sends = workspace.records.outcomes
+      .filter((row) => row.campaign_id === campaign.campaign_id && row.channel === channel && ['send_accepted', 'sent', 'delivered'].includes(row.outcome_type) && row.audience_hash === senderHash)
+      .map((row) => ({ row, at: parseTimestamp(row.observed_at || row.created_at) }))
+      .filter(({ at }) => Number.isFinite(at) && at >= cutoff && (!Number.isFinite(receivedMs) || at <= receivedMs))
+      .sort((a, b) => b.at - a.at);
+    return sends.length ? [{ campaign, send: sends[0].row, at: sends[0].at }] : [];
+  }).sort((a, b) => b.at - a.at);
+  if (!candidates.length) return { matched: false, reason: 'no_recent_campaign_send' };
+
+  const { campaign, send } = candidates[0];
+  const { outcomeType, intent } = inboundReplyIntent(content);
+  const companyActor = input.company_actor && typeof input.company_actor === 'object' ? input.company_actor : null;
+  const sentAsset = workspace.records.assets.find((row) => row.asset_id === send.asset_id);
+  const responseKeywords = campaignResponseKeywords(sentAsset);
+  const normalizedContent = content.toLowerCase();
+  const matchedResponseContract = responseKeywords.some((keyword) => normalizedContent.includes(keyword));
+  if (companyActor && outcomeType !== 'opt_out' && !matchedResponseContract) {
+    return {
+      matched: false,
+      reason: 'company_user_normal_chat',
+      identity: { kind: 'company_user', user_id: text(companyActor.user_id, 160), role: text(companyActor.role, 60) },
+    };
+  }
+  const stableId = createHash('sha256').update(`${ownerUserId}|${channel}|${providerReference}`).digest('hex').slice(0, 28);
+  const eventId = `marketing-inbound-${stableId}`;
+  const metadata = {
+    intent,
+    content_hash: createHash('sha256').update(content).digest('hex'),
+    content_length: content.length,
+    attributed_send_outcome_id: send.outcome_id,
+    attribution_candidate_count: candidates.length,
+    response_contract_matched: matchedResponseContract,
+    account_id: text(input.account_id, 200),
+    transport_agent_id: text(input.transport_agent_id, 160),
+  };
+  const engagement = upsertMarketingRecord(ownerUserId, 'engagements', {
+    event_id: eventId,
+    campaign_id: campaign.campaign_id,
+    asset_id: send.asset_id,
+    channel,
+    event_type: outcomeType,
+    audience_hash: senderHash,
+    provider_reference: providerReference,
+    value: 1,
+    metadata,
+    source: 'channel_inbound_hook',
+    observed_at: observedAt,
+    followup_status: outcomeType === 'opt_out' ? 'suppressed' : 'pending',
+  });
+  const outcome = recordMarketingOutcome(ownerUserId, {
+    outcome_id: eventId,
+    campaign_id: campaign.campaign_id,
+    asset_id: send.asset_id,
+    channel,
+    outcome_type: outcomeType,
+    audience_hash: senderHash,
+    recipient_label: member.display_label,
+    destination_masked: member.destination_masked,
+    provider_reference: providerReference,
+    observed_at: observedAt,
+    metadata,
+    source: 'channel_inbound_hook',
+  });
+
+  if (outcomeType === 'opt_out' && member.consent_status !== 'denied') {
+    upsertMarketingRecord(ownerUserId, 'distributionMembers', {
+      ...member,
+      destination: member.destination,
+      consent_status: 'denied',
+      consent_source: 'Inbound channel opt-out',
+      consent_at: observedAt,
+    });
+  }
+
+
+  if (companyActor) {
+    return {
+      matched: true,
+      idempotent: !engagement.created,
+      normal_chat: true,
+      campaign: { campaign_id: campaign.campaign_id, name: campaign.name, owner_agent: campaign.owner_agent || 'marketing-specialist' },
+      audience: { member_id: member.member_id, display_label: member.display_label, destination_masked: member.destination_masked },
+      identity: { kind: 'company_user', user_id: text(companyActor.user_id, 160), role: text(companyActor.role, 60), name: text(companyActor.name, 200) },
+      attribution: { send_outcome_id: send.outcome_id, candidate_count: candidates.length, window_days: attributionDays, response_contract_matched: matchedResponseContract },
+      classification: { outcome_type: outcomeType, intent },
+      engagement: engagement.record,
+      outcome: outcome.record,
+      lead: null,
+    };
+  }
+
+  const topics = parseJsonArray(campaign.content_topics_json);
+  const interests = unique([
+    ...topics,
+    intent === 'positive_interest' ? 'positive campaign interest' : 'campaign response',
+  ]);
+  const dueAt = new Date((Number.isFinite(receivedMs) ? receivedMs : Date.now()) + 24 * 60 * 60 * 1000).toISOString();
+  const lead = prepareMarketingLead(ownerUserId, {
+    identity_reference: sender,
+    crm_person_reference: member.crm_person_reference,
+    display_label: member.display_label || member.destination_masked,
+    opportunity_key: campaign.campaign_id,
+    opportunity_summary: campaign.goal || campaign.name,
+    campaign_ids: [campaign.campaign_id],
+    channels: [channel],
+    interests,
+    engagement_event_ids: [eventId],
+    lifecycle_stage: outcomeType === 'opt_out' ? 'suppressed' : 'marketing_qualified',
+    consent: { [channel]: outcomeType === 'opt_out' ? 'opted_out' : 'granted' },
+    followup_status: outcomeType === 'opt_out' ? 'suppressed' : 'pending',
+    followup_channel: channel,
+    followup_due_at: outcomeType === 'opt_out' ? '' : dueAt,
+    next_action: outcomeType === 'opt_out'
+      ? 'No contact permitted.'
+      : `Marketing Specialist should prepare a targeted follow-up for ${campaign.name} using the recorded interests and prior campaign evidence.`,
+    owner_agent: campaign.owner_agent || 'marketing-specialist',
+  });
+
+  return {
+    matched: true,
+    idempotent: !engagement.created,
+    campaign: { campaign_id: campaign.campaign_id, name: campaign.name, owner_agent: campaign.owner_agent || 'marketing-specialist' },
+    audience: { member_id: member.member_id, display_label: member.display_label, destination_masked: member.destination_masked },
+    identity: { kind: 'marketing_contact' },
+    attribution: { send_outcome_id: send.outcome_id, candidate_count: candidates.length, window_days: attributionDays, response_contract_matched: matchedResponseContract },
+    classification: { outcome_type: outcomeType, intent },
+    engagement: engagement.record,
+    outcome: outcome.record,
+    lead: lead.record,
+  };
+}
+
 function parseJsonArray(value) { try { const parsed = JSON.parse(value || '[]'); return Array.isArray(parsed) ? parsed : []; } catch { return []; } }
 function parseJsonObject(value) { if (value && typeof value === 'object') return value; try { const parsed = JSON.parse(value || '{}'); return parsed && typeof parsed === 'object' ? parsed : {}; } catch { return {}; } }

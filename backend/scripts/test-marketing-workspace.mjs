@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -105,12 +106,41 @@ try {
   assert.equal(crossChannelReport.channel_outcomes.facebook.comment, 1);
   assert.equal(svc.getMarketingWorkspace(ownerB).records.outcomes.length, 0, 'cross-owner campaign outcomes are not visible');
 
+  svc.upsertMarketingRecord(ownerB, 'distributionLists', { list_id: 'wa-replies', name: 'WhatsApp campaign replies', default_channel: 'whatsapp' });
+  svc.upsertMarketingRecord(ownerB, 'distributionMembers', { member_id: 'wa-reply-member', list_id: 'wa-replies', display_label: 'Interested WhatsApp prospect', channel: 'whatsapp', destination: '+6590057664', consent_status: 'granted', consent_source: 'Owner-provided campaign contact' });
+  svc.upsertMarketingRecord(ownerB, 'campaigns', { campaign_id: 'wa-agentic-campaign', name: 'WhatsApp agentic campaign', goal: 'Generate qualified automation leads', status: 'active', channels: ['whatsapp'], audience_list_ids: ['wa-replies'], content_topics: ['AI operations'], owner_agent: 'marketing-specialist-test' });
+  svc.upsertMarketingRecord(ownerB, 'assets', { asset_id: 'wa-agentic-asset', campaign_id: 'wa-agentic-campaign', name: 'WhatsApp campaign message', channel: 'whatsapp', content: 'Reply INTERESTED to learn more', approval_status: 'approved' });
+  const waHash = createHash('sha256').update(`${ownerB}:6590057664`).digest('hex');
+  svc.recordMarketingOutcome(ownerB, { campaign_id: 'wa-agentic-campaign', asset_id: 'wa-agentic-asset', channel: 'whatsapp', outcome_type: 'send_accepted', audience_hash: waHash, recipient_label: 'Interested WhatsApp prospect', provider_reference: 'wa-send-1', observed_at: '2026-09-28T14:18:00.000Z' });
+  const normalCompanyChat = svc.correlateMarketingInbound(ownerB, { channel: 'whatsapp', sender_id: '+6590057664', content: 'What are my open tasks?', message_id: 'wa-owner-chat-1', observed_at: '2026-09-28T14:20:00.000Z', company_actor: { user_id: ownerB, role: 'ceo', name: 'Marketing B' } });
+  assert.equal(normalCompanyChat.matched, false);
+  assert.equal(normalCompanyChat.reason, 'company_user_normal_chat', 'ordinary CEO chat is not converted into a campaign response');
+  const internalCampaignTest = svc.correlateMarketingInbound(ownerB, { channel: 'whatsapp', sender_id: '+6590057664', content: 'INTERESTED', message_id: 'wa-owner-campaign-test-1', observed_at: '2026-09-28T14:20:30.000Z', company_actor: { user_id: ownerB, role: 'ceo', name: 'Marketing B' } });
+  assert.equal(internalCampaignTest.matched, true);
+  assert.equal(internalCampaignTest.normal_chat, true);
+  assert.equal(internalCampaignTest.lead, null, 'a CEO campaign-response test is evidence, not a sales lead');
+  const inbound = svc.correlateMarketingInbound(ownerB, { channel: 'whatsapp', sender_id: '6590057664:1@s.whatsapp.net', content: 'INTERESTED', message_id: 'wa-inbound-1', observed_at: '2026-09-28T14:21:33.000Z', transport_agent_id: 'balserve' });
+  assert.equal(inbound.matched, true, 'an inbound reply is attributed to the recent send for the same audience member');
+  assert.equal(inbound.classification.intent, 'positive_interest');
+  assert.equal(inbound.lead.status, 'qualified', 'a consented WhatsApp reply prepares a qualified lead');
+  assert.equal(inbound.lead.followup_status, 'pending');
+  assert.equal(inbound.lead.owner_agent, 'marketing-specialist-test', 'campaign owner agent owns follow-up instead of the transport agent');
+  assert.equal(svc.correlateMarketingInbound(ownerB, { channel: 'whatsapp', sender_id: '+6590057664', content: 'INTERESTED', message_id: 'wa-inbound-1', observed_at: '2026-09-28T14:21:33.000Z' }).idempotent, true, 'gateway retries do not duplicate inbound evidence');
+  assert.equal(svc.getMarketingWorkspace(ownerB).records.engagements.filter((row) => row.event_id === inbound.engagement.event_id).length, 1);
+  assert.equal(svc.correlateMarketingInbound(ownerB, { channel: 'whatsapp', sender_id: '+6599998888', content: 'INTERESTED', message_id: 'wa-inbound-unmatched', observed_at: '2026-09-28T14:22:00.000Z' }).reason, 'sender_not_in_distribution_lists', 'unknown senders are not assigned to a campaign');
+
+  const optOut = svc.correlateMarketingInbound(ownerB, { channel: 'whatsapp', sender_id: '+6590057664', content: 'STOP', message_id: 'wa-inbound-stop', observed_at: '2026-09-28T14:23:00.000Z' });
+  assert.equal(optOut.classification.outcome_type, 'opt_out');
+  assert.equal(optOut.lead.status, 'suppressed');
+  assert.equal(optOut.lead.eligible_for_followup, 'false');
+  assert.equal(svc.getMarketingWorkspace(ownerB).records.distributionMembers.find((row) => row.member_id === 'wa-reply-member').consent_status, 'denied', 'standard opt-out suppresses future campaign contact');
+
   const audienceList = svc.upsertMarketingRecord(ownerB, 'distributionLists', { list_id: 'manual-prospects', name: 'Manual prospects', default_channel: 'email' });
   assert.equal(audienceList.created, true);
   const audienceMember = svc.upsertMarketingRecord(ownerB, 'distributionMembers', { member_id: 'manual-prospect-1', list_id: 'manual-prospects', display_label: 'Manual prospect', channel: 'email', destination: 'prospect@example.invalid', consent_status: 'granted', consent_source: 'Owner-provided test contact' });
   assert.equal(audienceMember.record.destination_encrypted, undefined, 'encrypted destination is not returned by the upsert contract');
   const manualAudienceWorkspace = svc.getMarketingWorkspace(ownerB);
-  assert.equal(manualAudienceWorkspace.records.distributionMembers[0].destination, 'prospect@example.invalid', 'authorized workspace resolves encrypted contact destination');
+  assert.equal(manualAudienceWorkspace.records.distributionMembers.find((row) => row.member_id === 'manual-prospect-1').destination, 'prospect@example.invalid', 'authorized workspace resolves encrypted contact destination');
   const storedMember = handle.prepare(`SELECT row_json FROM master_data_rows WHERE owner_user_id=? AND table_id=(SELECT id FROM master_data_tables WHERE owner_user_id=? AND name='marketing_distribution_list_members') LIMIT 1`).get(ownerB, ownerB);
   assert.doesNotMatch(storedMember.row_json, /prospect@example\.invalid/, 'manual contact destination is encrypted at rest');
   assert.equal(svc.getMarketingWorkspace(ownerA).records.distributionMembers.length, 0, 'manual audience lists are owner isolated');
@@ -269,7 +299,7 @@ try {
   assert.ok(purged.deleted.marketing_engagement_events >= 1, 'engagement history follows owner retention');
   assert.ok(purged.deleted.marketing_campaign_outcomes >= 1, 'campaign outcome ledger follows owner retention');
   assert.ok(purged.deleted.marketing_distribution_list_members >= 1, 'manual audience contacts follow owner retention');
-  console.log(JSON.stringify({ ok: true, checks: ['configured-channel-transport-resolution', 'knowledge-backed-storage', 'upsert-idempotency', 'metric-idempotency', 'outcome-ledger-idempotency', 'cross-channel-outcomes', 'legacy-email-reconciliation', 'owner-isolation', 'secret-rejection', 'signed-open-pixel', 'pixel-idempotency', 'cross-campaign-lead-correlation', 'distinct-opportunities', 'structured-followup-update', 'suppression-gate', 'browser-watch-cycle', 'agentic-campaign-configuration', 'run-readiness-contract', 'paid-budget-gate', 'channel-strategies', 'retention', 'hireable-template', 'existing-template-grant-reconciliation', 'tool-registry'] }, null, 2));
+  console.log(JSON.stringify({ ok: true, checks: ['configured-channel-transport-resolution', 'knowledge-backed-storage', 'upsert-idempotency', 'metric-idempotency', 'outcome-ledger-idempotency', 'cross-channel-outcomes', 'company-user-vs-contact-precedence', 'campaign-response-contract', 'inbound-campaign-attribution', 'inbound-idempotency', 'inbound-opt-out-suppression', 'marketing-followup-ownership', 'legacy-email-reconciliation', 'owner-isolation', 'secret-rejection', 'signed-open-pixel', 'pixel-idempotency', 'cross-campaign-lead-correlation', 'distinct-opportunities', 'structured-followup-update', 'suppression-gate', 'browser-watch-cycle', 'agentic-campaign-configuration', 'run-readiness-contract', 'paid-budget-gate', 'channel-strategies', 'retention', 'hireable-template', 'existing-template-grant-reconciliation', 'tool-registry'] }, null, 2));
 } finally {
   try { handle?.close(); } catch {}
   rmSync(root, { recursive: true, force: true });

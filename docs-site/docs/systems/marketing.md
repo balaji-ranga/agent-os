@@ -57,6 +57,14 @@ Legacy email receipts without campaign IDs are inferred only when there is one u
 - Google Ads uses provider impressions, clicks, lead forms, conversions and spend.
 - Telemarketing records connected, interested, callback, qualified and do-not-call outcomes.
 
+### How an inbound WhatsApp campaign reply is handled
+
+When a consented distribution-list member replies after a recent campaign send, Flolah first checks whether that phone number belongs to the CEO or an active company user. Company identity takes precedence over Marketing identity. It then matches eligible external contacts to the latest campaign send inside that channel's attribution window. Before the channel-bound employee responds, Flolah records the reply in the Campaign Outcome Ledger, prepares or updates the campaign opportunity under **Leads & follow-up**, and assigns the targeted follow-up to the campaign's Marketing Specialist. The COO may acknowledge the reply because it owns the WhatsApp transport, but it does not create a competing lead or campaign.
+
+If the CEO's own number was deliberately included in a campaign test, an explicit response requested by the asset (for example, a configured reply keyword) is recorded as internal test evidence while the conversation remains a normal COO chat. It does not create a sales lead for the CEO. Ordinary COO messages from that number are not attributed to Marketing even when a campaign was sent recently.
+
+Attribution requires a real prior send receipt for that campaign and recipient. Unknown senders or replies with no recent campaign send are left as normal channel conversations; Flolah does not guess. Gateway retries are idempotent. Standard opt-out replies suppress the lead and revoke that distribution member's marketing consent. Raw reply text is not stored in Marketing evidence: the ledger keeps a content hash, length and coarse intent together with the privacy-safe audience identity.
+
 ## Manage multiple leads and opportunities
 
 Open **Marketing → Leads & follow-up** for the campaign-to-CRM pipeline. The portfolio can contain many lead/opportunity rows from one campaign. The same CRM person can also have several distinct opportunities, while shared prior interests remain visible for next-best-action advice.

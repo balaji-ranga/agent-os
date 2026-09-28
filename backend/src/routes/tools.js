@@ -149,7 +149,7 @@ import eventProductivityTools from './event-productivity-tools.js';
 import marketingTools from './marketing-tools.js';
 import { summarizeLearnings } from '../services/agent-feedback.js';
 import { executeEmailSend, resolveCompanyEmailRecipients } from '../services/email-send.js';
-import { createMarketingOpenPixel, getMarketingWorkspace, recordMarketingOutcome } from '../services/marketing-workspace.js';
+import { correlateMarketingInbound, createMarketingOpenPixel, getMarketingWorkspace, recordMarketingOutcome } from '../services/marketing-workspace.js';
 import { executeNotifyCeo } from '../services/notify-ceo.js';
 import { executeCeoProfile } from '../services/ceo-profile.js';
 import { applyProposal, getState as getOnboardingState, saveAgentProposal, saveDraft } from '../services/onboarding-helper.js';
@@ -824,6 +824,55 @@ router.post('/lease', (req, res) => {
     });
   } catch (e) {
     return res.status(e.status || 500).json({ error: e.message || String(e) });
+  }
+});
+
+/**
+ * Private OpenClaw hook endpoint. This is intentionally not a model-visible
+ * content tool: channel metadata and sender identity must come from the
+ * gateway hook, not from agent-authored parameters.
+ */
+router.post('/marketing-inbound-event', async (req, res) => {
+  try {
+    if (!isDirectPrivateServiceRequest(req)) return res.status(404).json({ error: 'Not found' });
+    if (!verifyToolBrokerSecret(req.headers['x-agent-os-tool-broker'])) {
+      return res.status(401).json({ error: 'Tool credential broker authentication failed' });
+    }
+    const callerAgentId = String(req.body?.caller_agent_id || '').trim();
+    const sessionKey = String(req.body?.session_key || '').trim();
+    if (!callerAgentId || !sessionKey) return res.status(400).json({ error: 'caller_agent_id and session_key are required' });
+    const sessionMatch = sessionKey.match(/^agent::?([^:]+):/);
+    if (!sessionMatch || sessionMatch[1] !== callerAgentId) return res.status(403).json({ error: 'Session agent does not match caller agent' });
+    const tenant = parseTenantOpenClawAgentId(callerAgentId);
+    const ownerFromSession = resolveOwnerFromOpenClawSession({ headers: { 'x-openclaw-session-key': sessionKey } });
+    const ownerUserId = String(tenant?.ceoUserId || ownerFromSession || '').trim();
+    if (!ownerUserId || (tenant?.ceoUserId && ownerFromSession && tenant.ceoUserId !== ownerFromSession)) {
+      return res.status(403).json({ error: 'Unable to establish one authoritative owner for this session' });
+    }
+    let companyActor = null;
+    try {
+      const actor = resolveChannelActor({ ownerUserId, senderId: req.body?.sender_id, channel: req.body?.channel });
+      companyActor = actor ? { user_id: actor.id, role: actor.role, name: actor.name } : null;
+    } catch (identityError) {
+      if (!/not mapped to an active company user/i.test(String(identityError?.message || ''))) {
+        return res.status(identityError.status || 403).json({ ok: false, error: 'Channel sender identity is ambiguous; campaign attribution was not attempted' });
+      }
+    }
+    const result = correlateMarketingInbound(ownerUserId, {
+      channel: req.body?.channel,
+      account_id: req.body?.account_id,
+      sender_id: req.body?.sender_id,
+      message_id: req.body?.message_id,
+      run_id: req.body?.run_id,
+      content: req.body?.content,
+      observed_at: req.body?.observed_at,
+      transport_agent_id: callerAgentId,
+      company_actor: companyActor,
+    });
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json({ ok: true, ...result });
+  } catch (e) {
+    return res.status(e.status || 500).json({ ok: false, error: e.message || String(e), code: e.code });
   }
 });
 
