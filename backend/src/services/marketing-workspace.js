@@ -64,7 +64,7 @@ const TABLES = Object.freeze({
     name: 'marketing_lead_profiles',
     description: 'Cross-campaign interest profiles linked to CRM by reference, without storing raw channel credentials.',
     key: 'lead_id',
-    columns: ['lead_id', 'crm_person_reference', 'crm_lead_reference', 'identity_hash', 'display_label', 'opportunity_key', 'opportunity_summary', 'campaign_ids_json', 'channels_json', 'opportunity_interests_json', 'interests_json', 'engagement_event_ids_json', 'score', 'status', 'consent_json', 'eligible_for_followup', 'last_engagement_at', 'recommended_followup', 'owner_agent', 'created_at', 'updated_at'],
+    columns: ['lead_id', 'crm_person_reference', 'crm_lead_reference', 'crm_opportunity_reference', 'identity_hash', 'display_label', 'opportunity_key', 'opportunity_summary', 'campaign_ids_json', 'channels_json', 'opportunity_interests_json', 'interests_json', 'engagement_event_ids_json', 'score', 'status', 'lifecycle_stage', 'consent_json', 'eligible_for_followup', 'last_engagement_at', 'followup_status', 'followup_channel', 'followup_due_at', 'recommended_followup', 'next_action', 'owner_agent', 'created_at', 'updated_at'],
   },
 });
 
@@ -487,12 +487,13 @@ function normalize(kind, input = {}) {
   if (kind === 'leads') {
     if (!text(input.identity_hash, 128) && !text(input.crm_person_reference, 200) && !text(input.crm_lead_reference, 200)) fail('A privacy-safe identity hash or CRM reference is required');
     return {
-      lead_id: text(input.lead_id, 120) || `marketing-lead-${randomUUID()}`, crm_person_reference: text(input.crm_person_reference, 200), crm_lead_reference: text(input.crm_lead_reference, 200),
+      lead_id: text(input.lead_id, 120) || `marketing-lead-${randomUUID()}`, crm_person_reference: text(input.crm_person_reference, 200), crm_lead_reference: text(input.crm_lead_reference, 200), crm_opportunity_reference: text(input.crm_opportunity_reference, 200),
       identity_hash: text(input.identity_hash, 128), display_label: text(input.display_label, 200), opportunity_key: text(input.opportunity_key, 200) || 'general', opportunity_summary: text(input.opportunity_summary, 1000), campaign_ids_json: jsonText(input.campaign_ids_json ?? input.campaign_ids ?? []),
       channels_json: jsonText(input.channels_json ?? input.channels ?? []), opportunity_interests_json: jsonText(input.opportunity_interests_json ?? input.opportunity_interests ?? []), interests_json: jsonText(input.interests_json ?? input.interests ?? []), engagement_event_ids_json: jsonText(input.engagement_event_ids_json ?? input.engagement_event_ids ?? []),
-      score: String(Number(input.score) || 0), status: text(input.status, 40) || 'identified', consent_json: jsonText(input.consent_json ?? input.consent ?? {}),
+      score: String(Number(input.score) || 0), status: text(input.status, 40) || 'identified', lifecycle_stage: text(input.lifecycle_stage, 60) || 'new', consent_json: jsonText(input.consent_json ?? input.consent ?? {}),
       eligible_for_followup: String(input.eligible_for_followup === true || String(input.eligible_for_followup).toLowerCase() === 'true'), last_engagement_at: text(input.last_engagement_at, 40),
-      recommended_followup: text(input.recommended_followup, 2000), owner_agent: text(input.owner_agent, 120), created_at: text(input.created_at, 40) || created, updated_at: created,
+      followup_status: text(input.followup_status, 60) || 'not_ready', followup_channel: text(input.followup_channel, 60), followup_due_at: text(input.followup_due_at, 40),
+      recommended_followup: text(input.recommended_followup, 2000), next_action: text(input.next_action, 2000), owner_agent: text(input.owner_agent, 120), created_at: text(input.created_at, 40) || created, updated_at: created,
     };
   }
   fail('Unsupported marketing record type');
@@ -745,13 +746,16 @@ function unique(values) { return [...new Set(values.map((v) => text(v, 300)).fil
 
 export function prepareMarketingLead(ownerUserId, input = {}) {
   const workspace = getMarketingWorkspace(ownerUserId);
+  const requestedLeadId = text(input.lead_id, 120);
+  const requestedLead = requestedLeadId ? workspace.records.leads.find((row) => row.lead_id === requestedLeadId) : null;
+  if (requestedLeadId && !requestedLead) fail('Marketing lead/opportunity record not found', 404);
   const identityReference = text(input.identity_reference, 1000);
-  const identityHash = text(input.identity_hash, 128) || (identityReference ? createHash('sha256').update(`${ownerUserId}:${identityReference}`).digest('hex') : '');
-  const crmPerson = text(input.crm_person_reference, 200);
+  const identityHash = text(input.identity_hash, 128) || (identityReference ? createHash('sha256').update(`${ownerUserId}:${identityReference}`).digest('hex') : '') || requestedLead?.identity_hash;
+  const crmPerson = text(input.crm_person_reference, 200) || requestedLead?.crm_person_reference;
   if (!identityHash && !crmPerson) fail('identity_reference or crm_person_reference is required');
-  const opportunityKey = text(input.opportunity_key, 200) || text(input.campaign_ids?.[0], 100) || 'general';
+  const opportunityKey = text(input.opportunity_key, 200) || requestedLead?.opportunity_key || text(input.campaign_ids?.[0], 100) || 'general';
   const samePerson = workspace.records.leads.filter((row) => (identityHash && row.identity_hash === identityHash) || (crmPerson && row.crm_person_reference === crmPerson));
-  const existing = samePerson.find((row) => (row.opportunity_key || 'general') === opportunityKey);
+  const existing = requestedLead || samePerson.find((row) => (row.opportunity_key || 'general') === opportunityKey);
   const eventIds = unique([...(parseJsonArray(existing?.engagement_event_ids_json)), ...(Array.isArray(input.engagement_event_ids) ? input.engagement_event_ids : [])]);
   const events = workspace.records.engagements.filter((event) => eventIds.includes(event.event_id) || (identityHash && event.audience_hash === identityHash));
   const strategyByChannel = new Map(workspace.records.strategies.map((row) => [row.channel, row]));
@@ -763,7 +767,7 @@ export function prepareMarketingLead(ownerUserId, input = {}) {
     const followup = parseJsonObject(strategy?.followup_rules_json);
     if ((followup.suppress_on || []).includes(event.event_type)) suppressed = true;
   }
-  const consent = { ...parseJsonObject(existing?.consent_json), ...parseJsonObject(input.consent) };
+  const consent = { ...Object.assign({}, ...samePerson.map((row) => parseJsonObject(row.consent_json))), ...parseJsonObject(existing?.consent_json), ...parseJsonObject(input.consent) };
   if (Object.values(consent).some((value) => ['opted_out', 'unsubscribed', 'do_not_call', 'denied'].includes(String(value).toLowerCase()))) suppressed = true;
   const channels = unique([...(parseJsonArray(existing?.channels_json)), ...events.map((event) => event.channel), ...(Array.isArray(input.channels) ? input.channels : [])]);
   const campaigns = unique([...(parseJsonArray(existing?.campaign_ids_json)), ...events.map((event) => event.campaign_id), ...(Array.isArray(input.campaign_ids) ? input.campaign_ids : [])]);
@@ -771,14 +775,20 @@ export function prepareMarketingLead(ownerUserId, input = {}) {
   const historicalInterests = unique(samePerson.flatMap((row) => parseJsonArray(row.interests_json || row.opportunity_interests_json)));
   const interests = unique([...historicalInterests, ...opportunityInterests]);
   const threshold = Math.min(...channels.map((channel) => Number(parseJsonObject(strategyByChannel.get(channel)?.followup_rules_json).qualified_score || 10)), 10);
-  const eligible = !suppressed && score >= threshold;
+  const consentRequired = channels.some((channel) => String(strategyByChannel.get(channel)?.consent_required).toLowerCase() !== 'false');
+  const consentGranted = Object.values(consent).some((value) => ['granted', 'consented', 'opted_in', 'true'].includes(String(value).toLowerCase()));
+  const eligible = !suppressed && (!consentRequired || consentGranted) && score >= threshold;
+  const followupStatus = suppressed ? 'suppressed' : text(input.followup_status, 60) || existing?.followup_status || (eligible ? 'pending' : 'not_ready');
   const saved = upsertMarketingRecord(ownerUserId, 'leads', {
-    ...(existing || {}), lead_id: existing?.lead_id, crm_person_reference: crmPerson || existing?.crm_person_reference, crm_lead_reference: text(input.crm_lead_reference, 200) || existing?.crm_lead_reference,
+    ...(existing || {}), lead_id: existing?.lead_id, crm_person_reference: crmPerson || existing?.crm_person_reference, crm_lead_reference: text(input.crm_lead_reference, 200) || existing?.crm_lead_reference, crm_opportunity_reference: text(input.crm_opportunity_reference, 200) || existing?.crm_opportunity_reference,
     identity_hash: identityHash || existing?.identity_hash, display_label: input.display_label || existing?.display_label, opportunity_key: opportunityKey, opportunity_summary: input.opportunity_summary || existing?.opportunity_summary,
     campaign_ids: campaigns, channels, opportunity_interests: opportunityInterests, interests,
-    engagement_event_ids: unique([...eventIds, ...events.map((event) => event.event_id)]), score, status: existing?.crm_lead_reference ? 'crm_synced' : eligible ? 'qualified' : suppressed ? 'suppressed' : 'nurture',
+    engagement_event_ids: unique([...eventIds, ...events.map((event) => event.event_id)]), score, status: suppressed ? 'suppressed' : existing?.crm_lead_reference ? 'crm_synced' : eligible ? 'qualified' : 'nurture',
     consent, eligible_for_followup: eligible, last_engagement_at: events.map((event) => event.observed_at).sort().at(-1) || existing?.last_engagement_at,
+    lifecycle_stage: text(input.lifecycle_stage, 60) || existing?.lifecycle_stage || (eligible ? 'marketing_qualified' : 'new'), followup_status: followupStatus,
+    followup_channel: text(input.followup_channel, 60) || existing?.followup_channel || channels.at(-1), followup_due_at: text(input.followup_due_at, 40) || existing?.followup_due_at,
     recommended_followup: suppressed ? 'Do not contact; respect the recorded suppression.' : input.recommended_followup || (eligible ? `Follow up using ${channels.at(-1) || 'the consented channel'} and reference interests: ${interests.join(', ') || 'recent campaign engagement'}.` : 'Continue consented nurture until qualification threshold is met.'),
+    next_action: suppressed ? 'No contact permitted.' : text(input.next_action, 2000) || existing?.next_action,
     owner_agent: input.owner_agent || existing?.owner_agent || 'marketing-specialist', created_at: existing?.created_at,
   });
   return {

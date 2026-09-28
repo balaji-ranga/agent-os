@@ -11,7 +11,9 @@ const EMPTY_CHANNEL = { channel: 'email', enabled: false, execution_mode: 'draft
 const EMPTY_METRIC = { campaign_id: '', channel: 'email', metric_name: 'impressions', value: '', unit: 'count', period_start: '', period_end: '', source: 'manual', receipt_id: '' };
 const EMPTY_WATCH = { campaign_id: '', asset_id: '', channel: 'facebook', target_reference: '', recipe_name: '', cadence_minutes: '60', enabled: true };
 const EMPTY_TRACKING = { campaign_id: '', asset_id: '', audience_reference: '', recipient_label: '', expires_days: '90' };
-const EMPTY_LEAD = { identity_reference: '', crm_person_reference: '', display_label: '', opportunity_key: '', opportunity_summary: '', interests: '', engagement_event_ids: '', owner_agent: 'marketing-specialist' };
+const EMPTY_LEAD = { lead_id: '', identity_reference: '', identity_hash: '', crm_person_reference: '', crm_lead_reference: '', crm_opportunity_reference: '', display_label: '', opportunity_key: '', opportunity_summary: '', campaign_ids: [], channels: [], interests: [], engagement_event_ids: [], lifecycle_stage: 'new', consent_state: 'unknown', followup_status: 'not_ready', followup_channel: '', followup_due_at: '', next_action: '', owner_agent: 'marketing-specialist' };
+const LIFECYCLE_STAGES = ['new', 'engaged', 'marketing_qualified', 'sales_qualified', 'proposal', 'converted', 'closed'];
+const FOLLOWUP_STATES = ['not_ready', 'pending', 'scheduled', 'in_progress', 'completed', 'suppressed'];
 
 function dataRows(workspace, key) { return workspace?.records?.[key] || []; }
 function money(value, currency = 'USD') {
@@ -34,10 +36,18 @@ export default function MarketingWorkspace() {
   const [trackingResult, setTrackingResult] = useState(null);
   const [analyticsCampaignId, setAnalyticsCampaignId] = useState('');
   const [lead, setLead] = useState(EMPTY_LEAD);
+  const [crmOptions, setCrmOptions] = useState({ available: false, people: [], opportunities: [], mode: 'loading' });
+  const [leadSearch, setLeadSearch] = useState('');
+  const [leadCampaignFilter, setLeadCampaignFilter] = useState('');
+  const [leadStatusFilter, setLeadStatusFilter] = useState('');
+  const [followupFilter, setFollowupFilter] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
-    try { setWorkspace(await api.marketingWorkspace()); setMessage(null); }
+    try {
+      setWorkspace(await api.marketingWorkspace()); setMessage(null);
+      api.marketingCrmOptions().then(setCrmOptions).catch((error) => setCrmOptions({ available: false, people: [], opportunities: [], mode: 'unavailable', error: error.message }));
+    }
     catch (error) { setMessage({ type: 'error', text: error.message || 'Could not load Marketing.' }); }
     finally { setLoading(false); }
   }, []);
@@ -67,6 +77,39 @@ export default function MarketingWorkspace() {
   const campaignReports = summary.campaign_reports || [];
   const selectedReport = campaignReports.find((row) => row.campaign_id === analyticsCampaignId) || campaignReports[0] || null;
   const selectedOutcomes = outcomes.filter((row) => !selectedReport || row.campaign_id === selectedReport.campaign_id).slice().reverse();
+  const filteredLeads = useMemo(() => leads.filter((row) => {
+    const search = leadSearch.trim().toLowerCase();
+    const haystack = `${row.display_label || ''} ${row.opportunity_summary || ''} ${row.opportunity_key || ''} ${row.crm_person_reference || ''}`.toLowerCase();
+    return (!search || haystack.includes(search))
+      && (!leadCampaignFilter || parseJson(row.campaign_ids_json, []).includes(leadCampaignFilter))
+      && (!leadStatusFilter || row.status === leadStatusFilter)
+      && (!followupFilter || row.followup_status === followupFilter);
+  }), [leads, leadSearch, leadCampaignFilter, leadStatusFilter, followupFilter]);
+  const dueFollowups = useMemo(() => leads.filter((row) => ['pending', 'scheduled', 'in_progress'].includes(row.followup_status) && row.followup_due_at).sort((a, b) => String(a.followup_due_at).localeCompare(String(b.followup_due_at))), [leads]);
+  const selectedPersonRecords = useMemo(() => leads.filter((row) => row.lead_id !== lead.lead_id && ((lead.crm_person_reference && row.crm_person_reference === lead.crm_person_reference) || (lead.identity_hash && row.identity_hash === lead.identity_hash))), [leads, lead]);
+  const relevantEngagements = useMemo(() => engagements.filter((row) => (!lead.campaign_ids.length || lead.campaign_ids.includes(row.campaign_id)) && (!lead.identity_hash || !row.audience_hash || row.audience_hash === lead.identity_hash)), [engagements, lead.campaign_ids, lead.identity_hash]);
+  const suggestedInterests = useMemo(() => [...new Set([
+    ...selectedPersonRecords.flatMap((row) => parseJson(row.interests_json, [])),
+    ...assets.filter((row) => lead.campaign_ids.includes(row.campaign_id)).flatMap((row) => [row.subject, row.name]),
+  ].map((value) => String(value || '').trim()).filter(Boolean))].slice(0, 20), [selectedPersonRecords, assets, lead.campaign_ids]);
+
+  const selectLead = (row) => setLead(leadFromRecord(row));
+  const selectCrmPerson = (reference) => {
+    const person = crmOptions.people.find((row) => row.id === reference);
+    setLead((current) => ({ ...current, crm_person_reference: reference, display_label: person?.label || current.display_label, identity_reference: '' }));
+  };
+  const selectCrmOpportunity = (reference) => {
+    const opportunity = crmOptions.opportunities.find((row) => row.id === reference);
+    setLead((current) => ({ ...current, crm_opportunity_reference: reference, opportunity_key: reference || current.opportunity_key, opportunity_summary: opportunity?.label || current.opportunity_summary, lifecycle_stage: normalizeLifecycle(opportunity?.stage) || current.lifecycle_stage }));
+  };
+  const saveLead = (event) => {
+    event.preventDefault();
+    save('Lead', api.marketingLeadPrepare, {
+      ...lead,
+      consent: { overall: lead.consent_state },
+      recommended_followup: lead.next_action,
+    }, () => setLead(EMPTY_LEAD));
+  };
 
   if (loading && !workspace) return <main className="marketing-page"><div className="marketing-loading">Preparing your marketing workspace…</div></main>;
 
@@ -234,22 +277,74 @@ export default function MarketingWorkspace() {
         </div>
       </section>}
 
-      {tab === 'Leads & follow-up' && <section className="marketing-section marketing-two-col">
-        <Panel title="Prepare or correlate a lead" subtitle="The same CRM person may have multiple opportunities; prior interests remain available without duplicating the person.">
-          <form onSubmit={(e) => { e.preventDefault(); save('Lead', api.marketingLeadPrepare, { ...lead, interests: lead.interests.split(',').map((x) => x.trim()).filter(Boolean), engagement_event_ids: lead.engagement_event_ids.split(',').map((x) => x.trim()).filter(Boolean) }, () => setLead(EMPTY_LEAD)); }} className="marketing-form">
-            <Field label="Identity reference"><input placeholder="CRM person ID, consented email/phone, or provider identity" value={lead.identity_reference} onChange={(e) => setLead({ ...lead, identity_reference: e.target.value })} /></Field>
-            <Field label="Existing CRM person reference"><input value={lead.crm_person_reference} onChange={(e) => setLead({ ...lead, crm_person_reference: e.target.value })} /></Field>
-            <Field label="Display label"><input value={lead.display_label} onChange={(e) => setLead({ ...lead, display_label: e.target.value })} /></Field>
-            <Field label="Opportunity key"><input required placeholder="Stable product / need / opportunity identifier" value={lead.opportunity_key} onChange={(e) => setLead({ ...lead, opportunity_key: e.target.value })} /></Field>
-            <Field label="Opportunity summary"><textarea rows="3" value={lead.opportunity_summary} onChange={(e) => setLead({ ...lead, opportunity_summary: e.target.value })} /></Field>
-            <Field label="Demonstrated interests (comma separated)"><input value={lead.interests} onChange={(e) => setLead({ ...lead, interests: e.target.value })} /></Field>
-            <Field label="Engagement event IDs (comma separated)"><textarea className="marketing-code" rows="3" value={lead.engagement_event_ids} onChange={(e) => setLead({ ...lead, engagement_event_ids: e.target.value })} /></Field>
-            <FormActions busy={busy === 'Lead'} edit={false} clear={() => setLead(EMPTY_LEAD)} />
-          </form>
+      {tab === 'Leads & follow-up' && <section className="marketing-section">
+        <div className="marketing-stat-grid">
+          <Stat label="Lead opportunities" value={leads.length} detail={`${new Set(leads.map((row) => row.crm_person_reference || row.identity_hash).filter(Boolean)).size} distinct people`} />
+          <Stat label="Qualified" value={leads.filter((row) => ['qualified', 'crm_synced'].includes(row.status)).length} detail="Eligible or already in CRM" />
+          <Stat label="Follow-ups due" value={dueFollowups.filter((row) => Date.parse(row.followup_due_at) <= Date.now()).length} detail={`${dueFollowups.length} scheduled in total`} />
+          <Stat label="CRM linked" value={leads.filter((row) => row.crm_person_reference || row.crm_opportunity_reference).length} detail={crmOptions.available ? `${label(crmOptions.provider)} connected` : 'CRM selection unavailable'} />
+        </div>
+
+        <aside className={`marketing-crm-status ${crmOptions.available ? 'ready' : 'warning'}`}>
+          <div><strong>{crmOptions.available ? `${label(crmOptions.provider)} CRM is connected` : 'CRM records are not currently available'}</strong><span>{crmOptions.available ? 'People and opportunities below are selected from the company CRM; Marketing keeps only their references and campaign evidence.' : (crmOptions.error || 'You can retain privacy-safe campaign leads and link them after CRM is configured.')}</span></div>
+          <Link to="/crm" className="marketing-secondary">Open CRM</Link>
+        </aside>
+
+        <Panel title="Lead and opportunity portfolio" subtitle="One campaign can create many records. The same person may also have separate opportunities without losing cross-campaign history.">
+          <div className="marketing-lead-toolbar">
+            <Field label="Search"><input type="search" placeholder="Person, opportunity or CRM reference" value={leadSearch} onChange={(e) => setLeadSearch(e.target.value)} /></Field>
+            <Field label="Campaign"><select value={leadCampaignFilter} onChange={(e) => setLeadCampaignFilter(e.target.value)}><option value="">All campaigns</option>{campaigns.map((row) => <option key={row.campaign_id} value={row.campaign_id}>{row.name}</option>)}</select></Field>
+            <Field label="Qualification"><select value={leadStatusFilter} onChange={(e) => setLeadStatusFilter(e.target.value)}><option value="">All qualification states</option>{[...new Set(leads.map((row) => row.status).filter(Boolean))].map((value) => <option key={value} value={value}>{label(value)}</option>)}</select></Field>
+            <Field label="Follow-up"><select value={followupFilter} onChange={(e) => setFollowupFilter(e.target.value)}><option value="">All follow-up states</option>{FOLLOWUP_STATES.map((value) => <option key={value} value={value}>{label(value)}</option>)}</select></Field>
+            <button className="marketing-primary marketing-add-lead" type="button" onClick={() => setLead(EMPTY_LEAD)}>Add lead / opportunity</button>
+          </div>
+          <div className="marketing-table-wrap"><table className="marketing-table marketing-lead-table"><thead><tr><th>Person</th><th>Opportunity</th><th>Campaigns</th><th>Stage</th><th>Score</th><th>Follow-up</th><th></th></tr></thead><tbody>{filteredLeads.length ? filteredLeads.map((row) => <tr key={row.lead_id} className={lead.lead_id === row.lead_id ? 'selected' : ''}>
+            <td><strong>{row.display_label || row.crm_person_reference || 'Privacy-safe lead'}</strong><small>{row.crm_person_reference ? 'CRM linked' : 'Marketing identity'}</small></td>
+            <td><strong>{row.opportunity_summary || label(row.opportunity_key)}</strong><small>{row.crm_opportunity_reference ? `CRM · ${row.crm_opportunity_reference}` : label(row.status)}</small></td>
+            <td>{parseJson(row.campaign_ids_json, []).map((id) => campaigns.find((item) => item.campaign_id === id)?.name || id).join(', ') || 'Unattributed'}</td>
+            <td>{label(row.lifecycle_stage || 'new')}</td><td>{row.score || 0}</td>
+            <td>{label(row.followup_status || 'not_ready')}<small>{formatDate(row.followup_due_at)}</small></td>
+            <td><button className="marketing-row-action" type="button" onClick={() => selectLead(row)}>View</button></td>
+          </tr>) : <tr><td colSpan="7">No lead opportunities match these filters.</td></tr>}</tbody></table></div>
         </Panel>
-        <Panel title="Qualified follow-up portfolio" subtitle="CRM references and cumulative interests guide the next best action.">
-          {leads.length ? leads.map((row) => <RecordLine key={row.row_id} title={row.display_label || row.crm_person_reference || 'Privacy-safe lead'} badge={`${row.status} · score ${row.score}`} detail={`${row.opportunity_summary || row.opportunity_key} · Interests: ${parseJson(row.interests_json, []).join(', ') || 'not established'} · ${row.recommended_followup}`} />) : <Empty text="No correlated leads yet." />}
-        </Panel>
+
+        <div className="marketing-lead-layout">
+          <Panel title={lead.lead_id ? 'Edit lead opportunity' : 'Add lead opportunity'} subtitle="Choose CRM and campaign records wherever possible. Narrative fields are reserved for context and the next action.">
+            <form onSubmit={saveLead} className="marketing-form">
+              <div className="marketing-form-row">
+                <Field label="CRM person"><select value={lead.crm_person_reference} onChange={(e) => selectCrmPerson(e.target.value)}><option value="">Select a CRM person</option>{crmOptions.people.map((row) => <option key={row.id} value={row.id}>{row.label}{row.company_label ? ` · ${row.company_label}` : ''}{row.email ? ` · ${row.email}` : ''}</option>)}</select></Field>
+                <Field label="CRM opportunity"><select value={lead.crm_opportunity_reference} onChange={(e) => selectCrmOpportunity(e.target.value)}><option value="">Create or correlate in Marketing</option>{crmOptions.opportunities.filter((row) => !lead.crm_person_reference || !row.person_reference || row.person_reference === lead.crm_person_reference).map((row) => <option key={row.id} value={row.id}>{row.label}{row.stage ? ` · ${row.stage}` : ''}</option>)}</select></Field>
+              </div>
+              {!crmOptions.available && <div className="marketing-form-row"><Field label="Consented identity reference"><input placeholder="Email, phone, or provider identity" value={lead.identity_reference} onChange={(e) => setLead({ ...lead, identity_reference: e.target.value })} /></Field><Field label="Display label"><input value={lead.display_label} onChange={(e) => setLead({ ...lead, display_label: e.target.value })} /></Field></div>}
+              <Field label="Marketing opportunity"><select required value={lead.opportunity_key} onChange={(e) => setLead({ ...lead, opportunity_key: e.target.value })}><option value="">Select the need or campaign opportunity</option>{lead.opportunity_key && !crmOptions.opportunities.some((row) => row.id === lead.opportunity_key) && !campaigns.some((row) => `campaign:${row.campaign_id}` === lead.opportunity_key) && <option value={lead.opportunity_key}>{label(lead.opportunity_key)}</option>}{crmOptions.opportunities.map((row) => <option key={`crm-${row.id}`} value={row.id}>{row.label} (CRM)</option>)}{campaigns.map((row) => <option key={`campaign-${row.campaign_id}`} value={`campaign:${row.campaign_id}`}>{row.name} opportunity</option>)}</select></Field>
+              <Field label="Attributed campaigns"><ChoiceList values={lead.campaign_ids} options={campaigns.map((row) => ({ value: row.campaign_id, label: row.name }))} onChange={(values) => setLead({ ...lead, campaign_ids: values })} empty="Create a campaign first." /></Field>
+              <Field label="Observed channels"><ChoiceList values={lead.channels} options={CHANNELS.map((value) => ({ value, label: label(value) }))} onChange={(values) => setLead({ ...lead, channels: values })} /></Field>
+              <Field label="Engagement evidence"><ChoiceList values={lead.engagement_event_ids} options={relevantEngagements.map((row) => ({ value: row.event_id, label: `${label(row.channel)} · ${label(row.event_type)} · ${formatDate(row.observed_at)}` }))} onChange={(values) => setLead({ ...lead, engagement_event_ids: values })} empty="No matching campaign engagement has been observed." /></Field>
+              <Field label="Demonstrated interests"><TagEditor values={lead.interests} suggestions={suggestedInterests} onChange={(values) => setLead({ ...lead, interests: values })} /></Field>
+              <div className="marketing-form-row"><Field label="Lifecycle stage"><select value={lead.lifecycle_stage} onChange={(e) => setLead({ ...lead, lifecycle_stage: e.target.value })}>{LIFECYCLE_STAGES.map((value) => <option key={value} value={value}>{label(value)}</option>)}</select></Field><Field label="Contact permission"><select value={lead.consent_state} onChange={(e) => setLead({ ...lead, consent_state: e.target.value })}><option value="unknown">Unknown — do not send</option><option value="granted">Granted</option><option value="denied">Denied / opted out</option></select></Field></div>
+              <Field label="Opportunity context"><textarea rows="3" placeholder="What business need or intent did the campaign reveal?" value={lead.opportunity_summary} onChange={(e) => setLead({ ...lead, opportunity_summary: e.target.value })} /></Field>
+              <div className="marketing-followup-box">
+                <strong>Follow-up plan</strong>
+                <div className="marketing-form-row"><Field label="State"><select value={lead.followup_status} onChange={(e) => setLead({ ...lead, followup_status: e.target.value })}>{FOLLOWUP_STATES.map((value) => <option key={value} value={value}>{label(value)}</option>)}</select></Field><Field label="Channel"><select value={lead.followup_channel} onChange={(e) => setLead({ ...lead, followup_channel: e.target.value })}><option value="">Select consented channel</option>{CHANNELS.map((value) => <option key={value} value={value}>{label(value)}</option>)}</select></Field></div>
+                <Field label="Due date and time"><input type="datetime-local" value={lead.followup_due_at} onChange={(e) => setLead({ ...lead, followup_due_at: e.target.value })} /></Field>
+                <Field label="Next action"><textarea rows="3" placeholder="Concrete next step for the owner or Marketing Specialist" value={lead.next_action} onChange={(e) => setLead({ ...lead, next_action: e.target.value })} /></Field>
+              </div>
+              <FormActions busy={busy === 'Lead'} edit={!!lead.lead_id} clear={() => setLead(EMPTY_LEAD)} />
+            </form>
+          </Panel>
+
+          <div className="marketing-lead-side">
+            <Panel title="Person and campaign correlation" subtitle="Separate opportunities share prior interests and history, not one combined sales record.">
+              {lead.lead_id || lead.crm_person_reference || lead.identity_hash ? <>
+                <div className="marketing-correlation-summary"><span>Other opportunities <strong>{selectedPersonRecords.length}</strong></span><span>Linked campaigns <strong>{lead.campaign_ids.length}</strong></span><span>Evidence selected <strong>{lead.engagement_event_ids.length}</strong></span></div>
+                {selectedPersonRecords.length ? selectedPersonRecords.map((row) => <RecordLine key={row.lead_id} title={row.opportunity_summary || label(row.opportunity_key)} badge={label(row.status)} detail={`${parseJson(row.interests_json, []).join(', ') || 'No interests'} · ${label(row.lifecycle_stage || 'new')}`} action={() => selectLead(row)} />) : <Empty text="No other opportunities are correlated with this person yet." />}
+              </> : <Empty text="Select a portfolio row or CRM person to see cross-campaign correlation." />}
+            </Panel>
+            <Panel title="Scheduled follow-up queue" subtitle="Due work across every lead and opportunity, ordered by date.">
+              {dueFollowups.length ? dueFollowups.slice(0, 12).map((row) => <RecordLine key={row.lead_id} title={row.display_label || 'Privacy-safe lead'} badge={label(row.followup_status)} detail={`${formatDate(row.followup_due_at)} · ${row.opportunity_summary || label(row.opportunity_key)} · ${label(row.followup_channel || 'channel pending')}`} action={() => selectLead(row)} />) : <Empty text="No follow-ups are scheduled." />}
+            </Panel>
+          </div>
+        </div>
       </section>}
     </main>
   );
@@ -258,10 +353,15 @@ export default function MarketingWorkspace() {
 function parseJson(value, fallback) { try { return JSON.parse(value || '') ?? fallback; } catch { return fallback; } }
 function label(value) { return String(value || '').replaceAll('_', ' ').replace(/\b\w/g, (m) => m.toUpperCase()); }
 function formatDate(value) { if (!value) return '—'; const date = new Date(value); return Number.isNaN(date.getTime()) ? value : date.toLocaleString(); }
+function toLocalDateTime(value) { if (!value) return ''; const date = new Date(value); if (Number.isNaN(date.getTime())) return String(value).slice(0, 16); const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000); return local.toISOString().slice(0, 16); }
+function normalizeLifecycle(value) { const normalized = String(value || '').toLowerCase().replace(/[^a-z]+/g, '_').replace(/^_|_$/g, ''); return LIFECYCLE_STAGES.includes(normalized) ? normalized : ''; }
+function leadFromRecord(row) { const consent = parseJson(row.consent_json, {}); return { ...EMPTY_LEAD, ...row, campaign_ids: parseJson(row.campaign_ids_json, []), channels: parseJson(row.channels_json, []), interests: parseJson(row.opportunity_interests_json || row.interests_json, []), engagement_event_ids: parseJson(row.engagement_event_ids_json, []), consent_state: consent.overall || 'unknown', followup_due_at: toLocalDateTime(row.followup_due_at), next_action: row.next_action || row.recommended_followup || '' }; }
 function Stat({ label: name, value, detail }) { return <article className="marketing-stat"><span>{name}</span><strong>{value}</strong><small>{detail}</small></article>; }
 function Panel({ title, subtitle, children }) { return <article className="marketing-panel"><header><h2>{title}</h2>{subtitle && <p>{subtitle}</p>}</header><div className="marketing-panel-body">{children}</div></article>; }
-function Field({ label: name, children }) { return <label className="marketing-field"><span>{name}</span>{children}</label>; }
+function Field({ label: name, children }) { return <div className="marketing-field"><span>{name}</span>{children}</div>; }
 function ChannelSelect({ value, onChange }) { return <select value={value} onChange={(e) => onChange(e.target.value)}>{CHANNELS.map((name) => <option key={name} value={name}>{label(name)}</option>)}</select>; }
 function FormActions({ busy, edit, clear }) { return <div className="marketing-form-actions"><button className="marketing-primary" disabled={busy} type="submit">{busy ? 'Saving…' : edit ? 'Update' : 'Save'}</button><button className="marketing-secondary" type="button" onClick={clear}>Clear</button></div>; }
 function RecordLine({ title, badge, detail, action }) { return <div className="marketing-record"><div><strong>{title}</strong><span>{detail}</span></div><div className="marketing-record-side"><em>{badge}</em>{action && <button onClick={action}>Edit</button>}</div></div>; }
 function Empty({ text, action }) { return <div className="marketing-empty"><p>{text}</p>{action && <button className="marketing-secondary" onClick={action}>Get started</button>}</div>; }
+function ChoiceList({ values, options, onChange, empty }) { return options.length ? <div className="marketing-choice-list">{options.map((option) => <label key={option.value}><input type="checkbox" checked={values.includes(option.value)} onChange={(event) => onChange(event.target.checked ? [...values, option.value] : values.filter((value) => value !== option.value))} /><span>{option.label}</span></label>)}</div> : <span className="marketing-inline-empty">{empty || 'No options available.'}</span>; }
+function TagEditor({ values, suggestions, onChange }) { const [draft, setDraft] = useState(''); const add = () => { const value = draft.trim(); if (value && !values.includes(value)) onChange([...values, value]); setDraft(''); }; return <div className="marketing-tag-editor"><div className="marketing-tags">{values.map((value) => <button key={value} type="button" onClick={() => onChange(values.filter((item) => item !== value))}>{value}<span aria-hidden="true">×</span></button>)}</div>{suggestions.filter((value) => !values.includes(value)).length > 0 && <div className="marketing-tag-suggestions">{suggestions.filter((value) => !values.includes(value)).map((value) => <button key={value} type="button" onClick={() => onChange([...values, value])}>+ {value}</button>)}</div>}<div className="marketing-tag-input"><input value={draft} placeholder="Add a specific interest" onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); add(); } }} /><button type="button" onClick={add}>Add</button></div></div>; }

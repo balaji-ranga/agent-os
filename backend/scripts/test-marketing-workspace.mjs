@@ -95,9 +95,18 @@ try {
   assert.equal(legacyReport.recipients[0].recipient_label, 'Legacy Person');
   assert.equal(legacyReport.recipients[0].destination_masked, 'l***@example.invalid');
   svc.upsertMarketingRecord(ownerA, 'engagements', { event_id: 'email-reply-1', campaign_id: 'campaign-growth-q4', asset_id: 'asset-email-1', channel: 'email', event_type: 'reply', audience_hash: identityHash, source: 'provider_webhook' });
-  const qualified = svc.prepareMarketingLead(ownerA, { identity_reference: 'crm-person-1', crm_person_reference: 'person-1', display_label: 'Existing CRM person', opportunity_key: 'platform-adoption', opportunity_summary: 'Platform adoption', interests: ['automation'], engagement_event_ids: [opened.record.event_id, 'email-reply-1'] });
+  const qualified = svc.prepareMarketingLead(ownerA, { identity_reference: 'crm-person-1', crm_person_reference: 'person-1', crm_opportunity_reference: 'opportunity-1', display_label: 'Existing CRM person', opportunity_key: 'platform-adoption', opportunity_summary: 'Platform adoption', campaign_ids: ['campaign-growth-q4'], channels: ['email'], interests: ['automation'], engagement_event_ids: [opened.record.event_id, 'email-reply-1'], lifecycle_stage: 'marketing_qualified', consent: { overall: 'granted' }, followup_status: 'pending', followup_channel: 'email', followup_due_at: '2026-10-01T09:00:00.000Z', next_action: 'Send the product-fit brief.' });
   assert.equal(qualified.record.status, 'qualified');
   assert.equal(qualified.correlation.person_match, 'new_person');
+  assert.equal(qualified.record.crm_opportunity_reference, 'opportunity-1');
+  assert.equal(qualified.record.lifecycle_stage, 'marketing_qualified');
+  assert.equal(qualified.record.followup_status, 'pending');
+  assert.equal(qualified.record.next_action, 'Send the product-fit brief.');
+  const updatedQualified = svc.prepareMarketingLead(ownerA, { lead_id: qualified.record.lead_id, followup_status: 'scheduled', followup_due_at: '2026-10-02T09:30:00.000Z', next_action: 'Run the scheduled discovery call.' });
+  assert.equal(updatedQualified.created, false, 'an explicit lead id updates one portfolio row instead of duplicating it');
+  assert.equal(updatedQualified.record.lead_id, qualified.record.lead_id);
+  assert.equal(updatedQualified.record.followup_status, 'scheduled');
+  assert.equal(updatedQualified.record.next_action, 'Run the scheduled discovery call.');
   const otherOpportunity = svc.prepareMarketingLead(ownerA, { identity_reference: 'crm-person-1', crm_person_reference: 'person-1', opportunity_key: 'analytics-expansion', opportunity_summary: 'Analytics expansion', interests: ['campaign analytics'], engagement_event_ids: ['email-reply-1'] });
   assert.equal(otherOpportunity.correlation.person_match, 'existing_person');
   assert.equal(otherOpportunity.correlation.opportunity_match, 'new_opportunity_for_existing_person');
@@ -177,7 +186,7 @@ try {
   const purged = await purgeOwnerRetention(ownerA, { days: 30 });
   assert.ok(purged.deleted.marketing_engagement_events >= 1, 'engagement history follows owner retention');
   assert.ok(purged.deleted.marketing_campaign_outcomes >= 1, 'campaign outcome ledger follows owner retention');
-  console.log(JSON.stringify({ ok: true, checks: ['knowledge-backed-storage', 'upsert-idempotency', 'metric-idempotency', 'outcome-ledger-idempotency', 'cross-channel-outcomes', 'legacy-email-reconciliation', 'owner-isolation', 'secret-rejection', 'signed-open-pixel', 'pixel-idempotency', 'cross-campaign-lead-correlation', 'distinct-opportunities', 'suppression-gate', 'browser-watch-cycle', 'agentic-campaign-configuration', 'run-readiness-contract', 'paid-budget-gate', 'channel-strategies', 'retention', 'hireable-template', 'existing-template-grant-reconciliation', 'tool-registry'] }, null, 2));
+  console.log(JSON.stringify({ ok: true, checks: ['knowledge-backed-storage', 'upsert-idempotency', 'metric-idempotency', 'outcome-ledger-idempotency', 'cross-channel-outcomes', 'legacy-email-reconciliation', 'owner-isolation', 'secret-rejection', 'signed-open-pixel', 'pixel-idempotency', 'cross-campaign-lead-correlation', 'distinct-opportunities', 'structured-followup-update', 'suppression-gate', 'browser-watch-cycle', 'agentic-campaign-configuration', 'run-readiness-contract', 'paid-budget-gate', 'channel-strategies', 'retention', 'hireable-template', 'existing-template-grant-reconciliation', 'tool-registry'] }, null, 2));
 } finally {
   try { handle?.close(); } catch {}
   rmSync(root, { recursive: true, force: true });

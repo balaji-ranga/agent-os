@@ -43,6 +43,12 @@ The ledger keeps channel-native outcomes rather than forcing every channel into 
 - Google Ads uses provider impressions, clicks, lead forms, conversions and spend.
 - Telemarketing records connected, interested, callback, qualified and do-not-call outcomes.
 
-The Marketing Specialist correlates these events with the CRM person. The same person can have multiple opportunities, while prior campaign interests remain available for next-best-action advice. Uncertain identity matches are not auto-merged. Qualified, consent-eligible profiles are handed to CRM; suppressions always override score.
+## Manage multiple leads and opportunities
+
+Open **Marketing → Leads & follow-up** for the campaign-to-CRM pipeline. The portfolio can contain many lead/opportunity rows from one campaign. The same CRM person can also have several distinct opportunities, while shared prior interests remain visible for next-best-action advice.
+
+Use the filters to narrow by campaign, qualification or follow-up state, then select a row to edit it. CRM people and opportunities, campaigns, channels and engagement evidence are selected from existing records rather than retyped as IDs. Lifecycle stage, contact permission, follow-up state, channel and due date use controlled choices. The correlation panel shows other opportunities for the same person, and the scheduled queue shows due work across the portfolio.
+
+CRM remains the system of record for people and sales pipeline. Marketing stores the CRM references, attribution, privacy-safe evidence, qualification and follow-up plan. Uncertain identity matches are not auto-merged. Qualified, consent-eligible profiles are handed to CRM; suppressions always override score.
 
 Marketing rejects password, token, secret and API-key fields. Do not paste credentials into templates or channel settings.

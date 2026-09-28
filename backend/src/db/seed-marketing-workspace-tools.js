@@ -18,7 +18,7 @@ export const MARKETING_WORKSPACE_TOOLS = [
   ['marketing_watch_upsert', 'Marketing watch upsert', '/api/tools/marketing-watch-upsert', 'Configure a read-only periodic channel watch tied to a campaign asset, live post reference and saved browser recipe.', 'R1', 'write_internal'],
   ['marketing_watches_due', 'Marketing watches due', '/api/tools/marketing-watches-due', 'List owner-scoped enabled channel watches due for read-only inspection.', 'R0', 'read'],
   ['marketing_watch_result_record', 'Marketing watch result record', '/api/tools/marketing-watch-result-record', 'Record a read-only watch snapshot, insight and idempotent engagement events.', 'R1', 'write_internal'],
-  ['marketing_lead_prepare', 'Marketing lead prepare', '/api/tools/marketing-lead-prepare', 'Merge cross-campaign engagement into a privacy-safe interest profile, score it with channel strategy, enforce suppression, and prepare a qualified CRM follow-up.', 'R1', 'write_internal'],
+  ['marketing_lead_prepare', 'Marketing lead prepare', '/api/tools/marketing-lead-prepare', 'Create or update one multi-entry lead/opportunity portfolio row, correlate cross-campaign evidence and CRM references, score with channel strategy, enforce suppression, and schedule a qualified follow-up.', 'R1', 'write_internal'],
 ];
 
 export function seedMarketingWorkspaceToolsIfMissing() {

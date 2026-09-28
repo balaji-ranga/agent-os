@@ -15,7 +15,7 @@
 - `marketing_channel_send`: send one approved campaign asset through the company’s paired WhatsApp or Slack transport. The exact configured recipient must match, attribution remains Marketing Specialist, and Action Control governs the external effect.
 - `marketing_engagement_record`: record follow-up evidence with a stable provider/event ID; campaign-bound evidence is also mirrored to the outcome ledger.
 - `marketing_watch_upsert`, `marketing_watches_due`, `marketing_watch_result_record`: configure and operate read-only social/provider watches.
-- `marketing_lead_prepare`: combine prior campaign evidence into a scored, consent-aware interest profile before CRM handoff.
+- `marketing_lead_prepare`: create or update one row in the multi-entry lead/opportunity portfolio. Use `lead_id` to update an exact row and include CRM person/opportunity references, campaign and evidence IDs, lifecycle stage, consent, follow-up state/channel/due date and next action. The tool combines prior campaign evidence into a scored, consent-aware profile before CRM handoff.
 - `marketing_followup_update`: close or suppress an engagement only after follow-up evidence exists.
 
 All Marketing tools except `marketing_channel_send` change internal records only. `marketing_channel_send` is an explicit R2 external action and cannot bypass Action Control.

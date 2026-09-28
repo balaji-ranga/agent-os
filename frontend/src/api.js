@@ -566,6 +566,7 @@ export const api = {
   },
   masterDataTables: () => get('/master-data/tables'),
   marketingWorkspace: () => get('/marketing/workspace'),
+  marketingCrmOptions: () => get('/marketing/crm-options'),
   marketingCampaignUpsert: (body) => post('/marketing/campaigns', body),
   marketingAssetUpsert: (body) => post('/marketing/assets', body),
   marketingChannelUpsert: (body) => post('/marketing/channels', body),

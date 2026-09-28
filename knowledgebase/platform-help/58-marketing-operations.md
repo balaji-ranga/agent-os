@@ -46,13 +46,21 @@ Every supported channel has a configurable strategy defining tracked signals, sc
 
 Engagement and campaign outcome history follow the company profile retention period.
 
-## Leads, prior interests and CRM
+## Leads & follow-up portfolio, prior interests and CRM
 
-Use **Marketing → Leads & follow-up** or `marketing_lead_prepare` to correlate evidence. Identity and opportunity are separate:
+Use **Marketing → Leads & follow-up** or `marketing_lead_prepare` to correlate evidence. This is a multi-record portfolio: one campaign may create many lead/opportunity rows, and one CRM person may hold several rows for materially different opportunities. It is not a single lead form.
+
+The page provides campaign, qualification and follow-up filters; a portfolio table; CRM-backed person and opportunity selectors; campaign/channel/evidence multi-selects; lifecycle and contact-permission choices; a dated follow-up queue; and a correlation panel showing the selected person's other opportunities. Marketing stores CRM references and campaign evidence while CRM remains the system of record.
+
+Identity and opportunity are separate:
 
 - the same CRM person and the same need updates an existing opportunity;
 - the same CRM person with a materially different need creates a distinct opportunity without duplicating the person;
 - uncertain name/handle matches are reported for verification and are never automatically merged.
+
+Select a CRM person and opportunity when they exist. If CRM is unavailable, a consented identity reference can be used temporarily and linked later. Choose campaign and engagement records instead of typing their IDs. Free text is limited to useful narrative context, a specific interest not already suggested, and the next action. Contact permission marked **Denied / opted out** forces suppression regardless of score.
+
+Each portfolio row can carry `lifecycle_stage`, `followup_status`, `followup_channel`, `followup_due_at`, `next_action`, `crm_person_reference`, and `crm_opportunity_reference`. Passing its stable `lead_id` to `marketing_lead_prepare` updates that exact row instead of creating another opportunity.
 
 The Marketing Specialist uses the `marketing-lead-intelligence` skill. It reports prior campaign interests, strongest evidence, consented channel, confidence, duplicate/fatigue/suppression risk and the recommended next action. Qualified eligible leads are created or updated in CRM using the agent's CRM tools, and the returned CRM reference is written back to the Marketing lead profile.
 
@@ -97,7 +105,7 @@ For a complete setup from chat, the agent uses `marketing_campaign_configure`. B
 | `marketing_tracking_pixel_create` | Create signed email open-signal HTML without storing raw audience identity | R1 |
 | `marketing_engagement_record` | Record an attributable channel event | R1 |
 | `marketing_watch_upsert` / `marketing_watches_due` / `marketing_watch_result_record` | Configure and operate read-only social/provider monitoring | R1 / R0 / R1 |
-| `marketing_lead_prepare` | Correlate prior interests, score, suppress and prepare CRM follow-up | R1 |
+| `marketing_lead_prepare` | Create or update one lead/opportunity portfolio row; correlate campaigns and prior interests, score, suppress and schedule CRM follow-up | R1 |
 | `marketing_followup_update` | Close or suppress follow-up with evidence | R1 |
 
 Publishing is deliberately separate. The specialist must use the specific `email_send`, connector action, browser recipe, advertising or calling tool. Those tools keep their own grants and Action Control classification.
