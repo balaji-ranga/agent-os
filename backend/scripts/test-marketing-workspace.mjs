@@ -32,6 +32,7 @@ try {
   const ownerB = 'marketing-owner-b';
   handle.prepare(`INSERT INTO platform_users(id,email,password_hash,name,role,enabled,data_retention_days) VALUES (?,?,?,?,'ceo',1,30)`).run(ownerA, 'marketing-a@example.invalid', 'test-only', 'Marketing A');
   handle.prepare(`INSERT INTO platform_users(id,email,password_hash,name,role,enabled,data_retention_days) VALUES (?,?,?,?,'ceo',1,30)`).run(ownerB, 'marketing-b@example.invalid', 'test-only', 'Marketing B');
+  handle.prepare(`INSERT INTO user_agents(user_id,agent_id,enabled) VALUES (?,?,1)`).run(ownerB, 'marketing-specialist-test');
   const campaign = svc.upsertMarketingRecord(ownerA, 'campaigns', {
     campaign_id: 'campaign-growth-q4', name: 'Q4 qualified demand', status: 'active', channels: ['email', 'linkedin'], budget_total: 5000,
   });
@@ -91,7 +92,7 @@ try {
   svc.upsertMarketingRecord(ownerB, 'campaigns', { campaign_id: 'legacy-email-campaign', name: 'Legacy email campaign', status: 'active', channels: ['email'], goal: 'Validate legacy receipts', audience_crm_person_refs: ['crm-person-legacy'], created_at: '2026-09-27T10:00:00.000Z' });
   svc.upsertMarketingRecord(ownerB, 'assets', { asset_id: 'legacy-email-asset', campaign_id: 'legacy-email-campaign', name: 'Legacy email', channel: 'email', content: '<p>Hello</p>', approval_status: 'approved', created_at: '2026-09-27T10:00:00.000Z' });
   const legacyPixel = svc.createMarketingOpenPixel(ownerB, { campaign_id: 'legacy-email-campaign', asset_id: 'legacy-email-asset', audience_reference: 'legacy.person@example.invalid' });
-  const legacySendAt = new Date().toISOString();
+  const legacySendAt = new Date().toISOString().replace('T', ' ').replace('Z', '');
   handle.prepare(`INSERT INTO content_tool_logs(tool_name,request_payload,response_payload,status,owner_user_id,created_at) VALUES('email_send',?,?, 'ok',?,?)`).run(
     JSON.stringify({ to: 'legacy.person@example.invalid', subject: 'Legacy campaign' }),
     JSON.stringify({ sent: true, messageId: 'legacy-message-1', to: ['legacy.person@example.invalid'] }),
@@ -171,6 +172,23 @@ try {
   assert.equal(configured.readiness.actions.length, 2);
   assert.equal(configured.assets.length, 2);
   assert.equal(svc.prepareMarketingCampaignRun(ownerB, { campaign_id: configured.campaign.campaign_id }).ready, true);
+  const scheduled = await svc.upsertMarketingCampaignSchedule(ownerB, {
+    campaign_id: configured.campaign.campaign_id,
+    strategy_brief: 'Educate operations leaders with evidence-backed AI automation posts.',
+    content_topics_json: ['objective-led automation', 'operating efficiency'],
+    stop_conditions_json: ['campaign end date', 'five qualified leads'],
+    cadence: 'weekdays',
+    time_local: '09:30',
+    timezone: 'Asia/Singapore',
+    content_per_run: 1,
+  }, 'marketing-specialist-test');
+  assert.equal(scheduled.schedule.status, 'active');
+  assert.equal(scheduled.schedule.agent_id, 'marketing-specialist-test');
+  assert.equal(scheduled.campaign.scheduled_goal_id, scheduled.schedule.id);
+  assert.equal(scheduled.managed_in, '/scheduled-goals');
+  const pausedSchedule = await svc.upsertMarketingCampaignSchedule(ownerB, { campaign_id: configured.campaign.campaign_id, status: 'paused' }, 'marketing-specialist-test');
+  assert.equal(pausedSchedule.schedule.id, scheduled.schedule.id, 'campaign schedule updates instead of duplicating');
+  assert.equal(pausedSchedule.schedule.status, 'paused');
 
   svc.upsertMarketingRecord(ownerB, 'distributionLists', { list_id: 'blocked-audience', name: 'Blocked audience', default_channel: 'email' });
   svc.upsertMarketingRecord(ownerB, 'distributionMembers', { member_id: 'blocked-audience-1', list_id: 'blocked-audience', display_label: 'No consent recipient', channel: 'email', destination: 'no-consent@example.invalid', consent_status: 'unknown' });
@@ -201,11 +219,12 @@ try {
   assert.ok(role.tools.includes('marketing_campaign_outcome_record'));
   assert.ok(role.tools.includes('marketing_audience_list_upsert'));
   assert.ok(role.tools.includes('marketing_audience_member_upsert'));
+  assert.ok(role.tools.includes('marketing_campaign_schedule_upsert'));
   assert.ok(role.tools.includes('connector_execute_action'));
 
   const toolRows = handle.prepare(`SELECT name,risk_tier,action_family FROM content_tools_meta WHERE name LIKE 'marketing_%' ORDER BY name`).all();
   const toolNames = toolRows.map((row) => row.name);
-  assert.equal(toolNames.length, 19);
+  assert.equal(toolNames.length, 20);
   assert.equal(toolRows.find((row) => row.name === 'marketing_workspace_read')?.action_family, 'read');
   assert.equal(toolRows.find((row) => row.name === 'marketing_campaign_upsert')?.action_family, 'write_internal');
   assert.equal(toolRows.find((row) => row.name === 'marketing_channel_send')?.action_family, 'communicate_external');

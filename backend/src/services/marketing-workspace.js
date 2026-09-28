@@ -10,13 +10,14 @@ import {
 import { getPublicBaseUrl } from '../config/public-url.js';
 import { getInternalToken } from '../middleware/internal-auth.js';
 import { getDb } from '../db/schema.js';
+import { createScheduledGoal, getScheduledGoal, updateScheduledGoal } from './scheduled-goals.js';
 
 const TABLES = Object.freeze({
   campaigns: {
     name: 'marketing_campaigns',
     description: 'Marketing campaign plans linked to company objectives and CRM audiences.',
     key: 'campaign_id',
-    columns: ['campaign_id', 'name', 'objective_id', 'status', 'start_date', 'end_date', 'channels_json', 'audience_list_ids_json', 'audience_crm_filter', 'audience_crm_person_refs_json', 'crm_reference', 'budget_total', 'budget_daily', 'currency', 'goal', 'owner_agent', 'notes', 'created_at', 'updated_at'],
+    columns: ['campaign_id', 'name', 'objective_id', 'status', 'start_date', 'end_date', 'channels_json', 'audience_list_ids_json', 'audience_crm_filter', 'audience_crm_person_refs_json', 'crm_reference', 'budget_total', 'budget_daily', 'currency', 'goal', 'strategy_brief', 'content_topics_json', 'content_cadence', 'content_per_run', 'stop_conditions_json', 'scheduled_goal_id', 'owner_agent', 'notes', 'created_at', 'updated_at'],
   },
   distributionLists: {
     name: 'marketing_distribution_lists',
@@ -123,6 +124,15 @@ function assertNoSecrets(value, path = 'config') {
 }
 
 function now() { return new Date().toISOString(); }
+
+function parseTimestamp(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return NaN;
+  const normalized = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?$/.test(raw)
+    ? `${raw.replace(' ', 'T')}Z`
+    : raw;
+  return Date.parse(normalized);
+}
 
 const CONTACT_ENCRYPTION_PREFIX = 'enc:g1:';
 
@@ -490,7 +500,10 @@ function normalize(kind, input = {}, ownerUserId = '') {
         [...new Set((input.audience_crm_person_refs ?? parseJsonArray(input.audience_crm_person_refs_json)).map((value) => text(value, 200)).filter(Boolean))].slice(0, 500)
       ),
       crm_reference: text(input.crm_reference, 500), budget_total: text(input.budget_total, 60),
-      budget_daily: text(input.budget_daily, 60), currency: text(input.currency, 12) || 'USD', goal: text(input.goal, 2000), owner_agent: text(input.owner_agent, 120),
+      budget_daily: text(input.budget_daily, 60), currency: text(input.currency, 12) || 'USD', goal: text(input.goal, 2000),
+      strategy_brief: text(input.strategy_brief, 5000), content_topics_json: jsonText(input.content_topics_json ?? input.content_topics ?? []),
+      content_cadence: text(input.content_cadence, 40), content_per_run: String(Math.min(Math.max(Number(input.content_per_run) || 1, 1), 20)),
+      stop_conditions_json: jsonText(input.stop_conditions_json ?? input.stop_conditions ?? []), scheduled_goal_id: text(input.scheduled_goal_id, 120), owner_agent: text(input.owner_agent, 120),
       notes: text(input.notes, 4000), created_at: text(input.created_at, 40) || created, updated_at: created,
     };
   }
@@ -626,6 +639,82 @@ export function upsertMarketingRecord(ownerUserId, kind, input = {}) {
 
 export const MARKETING_RECORD_TYPES = Object.freeze(Object.keys(TABLES));
 
+export async function upsertMarketingCampaignSchedule(ownerUserId, input = {}, actorAgentId = '') {
+  const campaignId = text(input.campaign_id, 100);
+  const agentId = text(actorAgentId, 120);
+  if (!campaignId || !agentId) fail('campaign_id and calling agent are required');
+  const workspace = getMarketingWorkspace(ownerUserId);
+  const campaign = workspace.records.campaigns.find((row) => row.campaign_id === campaignId);
+  if (!campaign) fail('Campaign not found', 404);
+  const cadence = text(input.cadence ?? campaign.content_cadence, 40) || 'weekdays';
+  if (!['hourly', 'daily', 'weekdays', 'weekly'].includes(cadence)) fail('cadence must be hourly, daily, weekdays, or weekly');
+  const contentPerRun = Math.min(Math.max(Number(input.content_per_run ?? campaign.content_per_run) || 1, 1), 20);
+  const requestedTopics = input.content_topics ?? input.content_topics_json;
+  const topics = Array.isArray(requestedTopics)
+    ? requestedTopics.map((value) => text(value, 300)).filter(Boolean)
+    : parseJsonArray(input.content_topics_json ?? campaign.content_topics_json);
+  const requestedStopConditions = input.stop_conditions ?? input.stop_conditions_json;
+  const stopConditions = Array.isArray(requestedStopConditions)
+    ? requestedStopConditions.map((value) => text(value, 500)).filter(Boolean)
+    : parseJsonArray(input.stop_conditions_json ?? campaign.stop_conditions_json);
+  const strategyBrief = text(input.strategy_brief ?? campaign.strategy_brief, 5000);
+  if (!strategyBrief && !campaign.goal) fail('Save a campaign strategy brief or outcome goal before scheduling');
+  const channels = parseJsonArray(campaign.channels_json);
+  const prompt = [
+    `Operate marketing campaign ${campaign.campaign_id} (${campaign.name}).`,
+    `Outcome goal: ${campaign.goal || 'Use the saved campaign objective.'}`,
+    `Strategy: ${strategyBrief || campaign.goal}`,
+    `Channels: ${channels.join(', ') || 'Use the saved campaign channels.'}`,
+    `Topics: ${topics.join(', ') || 'Derive the next topic from the saved strategy and recent evidence.'}`,
+    `Generate at most ${contentPerRun} new content item${contentPerRun === 1 ? '' : 's'} in this run.`,
+    `Stop conditions: ${stopConditions.join('; ') || 'campaign end date, objective achieved, budget exhausted, policy block, or campaign no longer active'}.`,
+    'First call marketing_workspace_read and marketing_campaign_run_prepare. If the campaign is blocked, stopped, completed, outside its window, or has met a stop condition, do not publish; report the reason and mark this campaign schedule completed with marketing_campaign_schedule_upsert when the stop is terminal.',
+    'Review prior campaign assets and outcome evidence. Generate only the next non-duplicate asset using current Knowledge/RAG and the saved brand strategy. Use the configured provider adapter or saved browser recipe for the channel. External actions remain governed by Action Control.',
+    'Record the provider receipt with marketing_campaign_outcome_record, configure/update the read-only watch when applicable, and summarize what should change on the next run.',
+  ].join('\n');
+  const requestedStatus = text(input.status, 40).toLowerCase();
+  if (requestedStatus && !['active', 'paused', 'completed'].includes(requestedStatus)) fail('status must be active, paused, or completed');
+  let schedule = campaign.scheduled_goal_id ? getScheduledGoal(ownerUserId, campaign.scheduled_goal_id) : null;
+  if (schedule && schedule.agent_id !== agentId) fail('Campaign schedule belongs to a different agent', 409, 'MARKETING_SCHEDULE_AGENT_MISMATCH');
+  const endsAt = input.ends_at !== undefined ? input.ends_at : (text(campaign.end_date, 40) || schedule?.ends_at || 'perpetual');
+  if (schedule) {
+    schedule = updateScheduledGoal(ownerUserId, schedule.id, {
+      title: `Marketing · ${campaign.name}`,
+      prompt,
+      cadence,
+      weekday: input.weekday,
+      time_local: text(input.time_local, 10) || schedule.time_local,
+      timezone: text(input.timezone, 80) || schedule.timezone,
+      ends_at: endsAt,
+      status: requestedStatus || schedule.status,
+    });
+  } else {
+    schedule = await createScheduledGoal(ownerUserId, {
+      title: `Marketing · ${campaign.name}`,
+      prompt,
+      agent_id: agentId,
+      cadence,
+      weekday: input.weekday,
+      time_local: text(input.time_local, 10) || '09:00',
+      timezone: text(input.timezone, 80),
+      ends_at: endsAt,
+      source: 'marketing',
+      skip_plan_review: true,
+    });
+    if (requestedStatus && requestedStatus !== schedule.status) schedule = updateScheduledGoal(ownerUserId, schedule.id, { status: requestedStatus });
+  }
+  const savedCampaign = upsertMarketingRecord(ownerUserId, 'campaigns', {
+    ...campaign,
+    scheduled_goal_id: schedule.id,
+    content_cadence: cadence,
+    content_per_run: String(contentPerRun),
+    strategy_brief: strategyBrief,
+    content_topics_json: JSON.stringify(topics),
+    stop_conditions_json: JSON.stringify(stopConditions),
+  }).record;
+  return { campaign: savedCampaign, schedule, managed_in: '/scheduled-goals' };
+}
+
 function audienceHash(ownerUserId, audienceReference) {
   return createHash('sha256').update(`${ownerUserId}:${text(audienceReference, 1000)}`).digest('hex');
 }
@@ -700,7 +789,7 @@ export function reconcileMarketingToolOutcomes(ownerUserId) {
   for (const outcome of workspace.records.outcomes) {
     if (outcome.channel !== 'email' || outcome.outcome_type !== 'tracking_prepared' || !outcome.audience_hash || !outcome.campaign_id) continue;
     const key = `${outcome.audience_hash}|${outcome.campaign_id}|${outcome.asset_id || ''}`;
-    const observed = Date.parse(outcome.observed_at || outcome.created_at || '');
+    const observed = parseTimestamp(outcome.observed_at || outcome.created_at);
     if (Number.isFinite(observed)) trackingPreparedByTarget.set(key, Math.max(trackingPreparedByTarget.get(key) || 0, observed));
   }
   for (const event of workspace.records.engagements) {
@@ -708,7 +797,7 @@ export function reconcileMarketingToolOutcomes(ownerUserId) {
     const key = event.audience_hash;
     const target = `${event.campaign_id}|${event.asset_id || ''}`;
     if (!openByHash.has(key)) openByHash.set(key, new Map());
-    const observed = Date.parse(event.observed_at || event.created_at || '');
+    const observed = parseTimestamp(event.observed_at || event.created_at);
     const prior = openByHash.get(key).get(target);
     openByHash.get(key).set(target, {
       first_opened_at: Number.isFinite(observed) ? Math.min(prior?.first_opened_at ?? observed, observed) : prior?.first_opened_at,
@@ -732,7 +821,7 @@ export function reconcileMarketingToolOutcomes(ownerUserId) {
     const recipients = [...new Set([response.to ?? request.to, response.cc ?? request.cc, response.bcc ?? request.bcc].flatMap((value) => Array.isArray(value) ? value : String(value || '').split(/[,;]/)).map((value) => text(value, 320)).filter(Boolean))];
     for (const recipient of recipients) {
       const hash = audienceHash(owner, recipient);
-      const logTime = Date.parse(log.created_at || '');
+      const logTime = parseTimestamp(log.created_at);
       let targets = [];
       if (request.campaign_id && request.asset_id) {
         targets = [`${text(request.campaign_id, 100)}|${text(request.asset_id, 100)}`];
@@ -744,8 +833,8 @@ export function reconcileMarketingToolOutcomes(ownerUserId) {
             const asset = assetId ? assetById.get(assetId) : null;
             if (!campaign || (assetId && (!asset || (asset.campaign_id && asset.campaign_id !== campaignId)))) return false;
             const createdBoundary = Math.max(
-              Date.parse(campaign.created_at || '') || 0,
-              Date.parse(asset?.created_at || '') || 0,
+              parseTimestamp(campaign.created_at) || 0,
+              parseTimestamp(asset?.created_at) || 0,
               trackingPreparedByTarget.get(`${hash}|${campaignId}|${assetId}`) || 0,
             );
             return logTime >= createdBoundary && (!Number.isFinite(evidence.first_opened_at) || logTime <= evidence.first_opened_at);

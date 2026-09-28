@@ -25,6 +25,8 @@ When editing a saved campaign, **Observed run recipients** separately lists reci
 
 To run a campaign, make it active, approve an asset for each channel, configure the channel, and select **Validate for run**. The validator checks the Objective/goal, budgets, assets, connections, audience destinations and consent. Then open the Marketing Specialist from the result and ask it to run the campaign; every external send or publish still passes Action Control.
 
+For recurring campaigns, describe the desired result to the Marketing Specialist and answer only the missing strategy questions: audience, window, offer, tone, topics, cadence, content volume, budget and stop conditions. The agent saves that strategy and creates one standard Scheduled Goal. Each run rereads current evidence, creates only the next non-duplicate content, uses the configured channel capability, and records its receipt. Manage pause, resume, completion or deletion in **Run & Operate → Scheduled Goals**. Marketing does not add a separate calendar.
+
 The records are stored in your company-scoped Knowledge tables. CRM remains the source of truth for people, companies, consent, pipeline and revenue.
 
 ## Hire the AI Marketing Specialist

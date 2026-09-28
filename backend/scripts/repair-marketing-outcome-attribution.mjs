@@ -10,6 +10,12 @@ const ownerUserId = valueAfter('--owner');
 const apply = args.includes('--apply');
 const backupDir = valueAfter('--backup-dir');
 
+function parseTimestamp(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return NaN;
+  return Date.parse(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?$/.test(raw) ? `${raw.replace(' ', 'T')}Z` : raw);
+}
+
 if (!ownerUserId) throw new Error('Usage: node scripts/repair-marketing-outcome-attribution.mjs --owner <owner-id> [--apply --backup-dir <directory>]');
 if (apply && !backupDir) throw new Error('--backup-dir is required with --apply');
 
@@ -24,9 +30,9 @@ try {
   const assets = new Map(workspace.records.assets.map((row) => [row.asset_id, row]));
   const invalid = workspace.records.outcomes.filter((row) => {
     if (row.source !== 'email_send_reconciliation') return false;
-    const observedAt = Date.parse(row.observed_at || row.created_at || '');
-    const campaignCreatedAt = Date.parse(campaigns.get(row.campaign_id)?.created_at || '');
-    const assetCreatedAt = Date.parse(assets.get(row.asset_id)?.created_at || '');
+    const observedAt = parseTimestamp(row.observed_at || row.created_at);
+    const campaignCreatedAt = parseTimestamp(campaigns.get(row.campaign_id)?.created_at);
+    const assetCreatedAt = parseTimestamp(assets.get(row.asset_id)?.created_at);
     const boundary = Math.max(Number.isFinite(campaignCreatedAt) ? campaignCreatedAt : 0, Number.isFinite(assetCreatedAt) ? assetCreatedAt : 0);
     return Number.isFinite(observedAt) && boundary > 0 && observedAt < boundary;
   });

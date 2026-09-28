@@ -6,6 +6,7 @@
 - `marketing_campaign_upsert`: create or update a campaign by `campaign_id`.
 - `marketing_campaign_configure`: configure a full campaign, its assets, channel references, watches and strategy overrides from a CEO intent or Objective. This is the agent-facing equivalent of completing the Marketing forms.
 - `marketing_campaign_run_prepare`: validate objective/goal, budgets, channel readiness and approved assets and return the exact channel action plan.
+- `marketing_campaign_schedule_upsert`: create or update this Marketing Specialist's campaign cadence in the shared Scheduled Goals scheduler. The CEO manages it under Scheduled Goals.
 - `marketing_audience_list_upsert`: create or update a reusable manual distribution list independently of CRM.
 - `marketing_audience_member_upsert`: add or update one encrypted, consent-tagged channel destination in a distribution list.
 - `marketing_asset_upsert`: create or update a channel asset by `asset_id`.

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { createHash } from 'crypto';
 import { resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
 import { resolveToolOwnerUserId } from '../services/tool-owner-scope.js';
-import { configureMarketingCampaign, createMarketingOpenPixel, getMarketingWorkspace, listDueMarketingWatches, prepareMarketingCampaignRun, prepareMarketingLead, reconcileMarketingToolOutcomes, recordMarketingOutcome, recordMarketingWatchResult, updateMarketingFollowup, upsertMarketingRecord } from '../services/marketing-workspace.js';
+import { configureMarketingCampaign, createMarketingOpenPixel, getMarketingWorkspace, listDueMarketingWatches, prepareMarketingCampaignRun, prepareMarketingLead, reconcileMarketingToolOutcomes, recordMarketingOutcome, recordMarketingWatchResult, updateMarketingFollowup, upsertMarketingCampaignSchedule, upsertMarketingRecord } from '../services/marketing-workspace.js';
 import { announceOnAgentChannel, resolveAgentChannelTarget } from '../services/agent-channel-announce.js';
 import { getDb } from '../db/schema.js';
 import { parseTenantOpenClawAgentId } from '../services/openclaw-tenant.js';
@@ -64,6 +64,11 @@ router.post('/marketing-audience-list-upsert', (req, res) => run(res, async () =
 router.post('/marketing-audience-member-upsert', (req, res) => run(res, async () => upsertMarketingRecord(owner(req), 'distributionMembers', req.body || {})));
 router.post('/marketing-campaign-configure', (req, res) => run(res, async () => configureMarketingCampaign(owner(req), req.body || {})));
 router.post('/marketing-campaign-run-prepare', (req, res) => run(res, async () => ({ readiness: prepareMarketingCampaignRun(owner(req), req.body || {}) })));
+router.post('/marketing-campaign-schedule-upsert', (req, res) => run(res, async () => {
+  const ownerUserId = owner(req);
+  const caller = resolveCallerAgent(req, ownerUserId);
+  return upsertMarketingCampaignSchedule(ownerUserId, req.body || {}, caller.id);
+}));
 router.post('/marketing-asset-upsert', (req, res) => run(res, async () => upsertMarketingRecord(owner(req), 'assets', req.body || {})));
 router.post('/marketing-channel-config-upsert', (req, res) => run(res, async () => upsertMarketingRecord(owner(req), 'channels', req.body || {})));
 router.post('/marketing-strategy-upsert', (req, res) => run(res, async () => upsertMarketingRecord(owner(req), 'strategies', req.body || {})));

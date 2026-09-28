@@ -6,6 +6,8 @@ title: Scheduled goals
 
 A **scheduled goal** is a prompt you write once. Flolah delivers it on a cadence to the **COO** (or another employee) without building a workflow.
 
+Recurring Marketing campaigns use this same scheduler. After the CEO and Marketing Specialist agree the campaign strategy, cadence and stop conditions, the agent creates a linked Scheduled Goal. Manage its pause, resume, completion or deletion here; Marketing does not maintain a separate calendar.
+
 Path: **Management → Scheduled goals**, or ask the COO in plain language:
 
 - “Every weekday at 9, prepare market insights for the blog and LinkedIn.”

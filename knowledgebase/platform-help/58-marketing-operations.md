@@ -87,7 +87,15 @@ The template includes Marketing APIs, CRM reads, Knowledge/RAG, objective/goal c
 
 The **Marketing page is optional**. A CEO can describe the desired outcome directly to the Marketing Specialist. The agent reads the linked Objective, Knowledge/RAG and CRM context, then uses the same owner-scoped APIs as the page to configure campaigns, assets/templates, channel references, watches and effectiveness strategies.
 
-For a complete setup from chat, the agent uses `marketing_campaign_configure`. Before any send, publish, call or advertising action it uses `marketing_campaign_run_prepare` to validate the Objective/goal, budgets, enabled channel readiness and approved assets. External effects still run through the existing email, connector, browser-recipe, workflow or calling tools and remain governed by Action Control.
+For a complete setup from chat, the agent asks only for missing decisions such as the outcome, audience, campaign window, channels, offer, tone, topics, cadence, content volume, budget and stop conditions. It then uses `marketing_campaign_configure`. Before any send, publish, call or advertising action it uses `marketing_campaign_run_prepare` to validate the Objective/goal, budgets, enabled channel readiness and approved assets. External effects still run through the existing email, connector, browser-recipe, workflow or calling tools and remain governed by Action Control.
+
+### Recurring campaigns use Scheduled Goals
+
+Flolah does not maintain a second Marketing scheduler. When the agreed strategy is recurring, the Marketing Specialist calls `marketing_campaign_schedule_upsert`. This creates or updates one normal Scheduled Goal owned by that Marketing Specialist and links its ID back to the campaign.
+
+On every scheduled run, the agent rereads the latest campaign, approved assets and outcome evidence; creates only the next non-duplicate content item(s); executes through the configured channel capability; records the receipt and monitoring evidence; and uses the results to adjust the next run. It stops publishing when the campaign ends, its measurable objective is reached, its budget is exhausted, the campaign is paused/completed, policy blocks execution, or another saved stop condition is met.
+
+The CEO manages the schedule only under **Run & Operate → Scheduled Goals**. That existing page is where the CEO can pause, resume, complete or delete it. The campaign page shows the saved strategy and links to Scheduled Goals when a schedule exists; it does not contain a separate calendar.
 
 ## Build a campaign
 
@@ -97,7 +105,7 @@ For a complete setup from chat, the agent uses `marketing_campaign_configure`. B
 4. In **Channels**, select the execution mode and store only a connector, account, sender or recipe reference. Company-page publishing uses this account; advertising can use a provider audience reference.
 5. Add OAuth/API credentials under **Connectors**, never in Marketing.
 6. Edit the campaign and select **Validate for run**. Resolve every audience, consent, channel, asset, objective and budget blocker.
-7. Open the Marketing Specialist from the readiness result and ask it to run the campaign. Longer campaigns may use a goal/workflow.
+7. Open the Marketing Specialist from the readiness result and ask it to run the campaign. For a recurring campaign, ask it to schedule the agreed strategy; the resulting entry is managed in **Scheduled Goals**.
 8. External sends, posts, calls, ad changes and submissions must pass **Policies → Action control**. Internal campaign/template/config changes do not themselves publish anything.
 9. Record provider receipts in the Campaign Outcome Ledger and numeric metrics in campaign metrics. **Analytics** aggregates these observations; CRM remains the source for optional lead and revenue attribution.
 
@@ -111,6 +119,7 @@ For a complete setup from chat, the agent uses `marketing_campaign_configure`. B
 | `marketing_audience_member_upsert` | Add/update one encrypted, consent-tagged channel destination | R1 |
 | `marketing_campaign_configure` | Configure a campaign plus assets, channel references, watches and strategies from an intent or Objective | R1 |
 | `marketing_campaign_run_prepare` | Validate objective, budget, channels and approved assets before execution | R0 |
+| `marketing_campaign_schedule_upsert` | Create/update this agent's recurring campaign in the shared Scheduled Goals scheduler | R1 |
 | `marketing_asset_upsert` | Create/update reusable internal assets | R1 |
 | `marketing_channel_config_upsert` | Store non-secret channel references/settings | R1 |
 | `marketing_strategy_upsert` | Configure evidence, scoring, attribution, consent and follow-up strategy | R1 |
