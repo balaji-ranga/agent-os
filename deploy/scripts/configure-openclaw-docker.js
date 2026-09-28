@@ -38,6 +38,9 @@ import {
 
 const OPENCLAW_DIR = resolveOpenClawDir();
 const CONFIG_PATH = process.env.OPENCLAW_CONFIG_PATH || join(OPENCLAW_DIR, 'openclaw.json');
+const MARKETING_INBOUND_ATTRIBUTION_ENABLED = ['1', 'true'].includes(
+  String(process.env.MARKETING_INBOUND_ATTRIBUTION_ENABLED || '').trim().toLowerCase()
+);
 
 function runtimeGatewayToken() {
   try {
@@ -374,7 +377,9 @@ config.plugins.entries['agent-os-content-tools'] = {
   enabled: true,
   hooks: {
     ...(plugin.hooks || {}),
-    allowConversationAccess: true,
+    // Fail closed until the channel identity registry can distinguish a
+    // verified company user from a campaign contact.
+    allowConversationAccess: MARKETING_INBOUND_ATTRIBUTION_ENABLED,
   },
   config: pluginConfig,
 };

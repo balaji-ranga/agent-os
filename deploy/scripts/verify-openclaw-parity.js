@@ -155,7 +155,10 @@ if (!baseUrl) {
 if (contentTools?.config?.apiKey) {
   fail('agent-os-content-tools still contains legacy shared apiKey — re-run configure-openclaw-docker.js');
 }
-if (contentTools?.hooks?.allowConversationAccess !== true) {
+const marketingInboundAttributionEnabled = ['1', 'true'].includes(
+  String(process.env.MARKETING_INBOUND_ATTRIBUTION_ENABLED || '').trim().toLowerCase()
+);
+if (marketingInboundAttributionEnabled && contentTools?.hooks?.allowConversationAccess !== true) {
   fail('agent-os-content-tools hooks.allowConversationAccess must be true for trusted inbound attribution');
 }
 const legacyCredentials = join(OPENCLAW_DIR, 'agent-os-tool-credentials.json');

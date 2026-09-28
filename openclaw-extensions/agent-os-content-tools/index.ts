@@ -629,6 +629,7 @@ async function correlateInboundCampaign(
   event: PromptBuildEvent,
   ctx: PromptBuildContext
 ): Promise<Record<string, any> | null> {
+  if (!["1", "true"].includes(String(process.env.MARKETING_INBOUND_ATTRIBUTION_ENABLED || "").trim().toLowerCase())) return null;
   const channel = String(ctx.channel || ctx.channelId || "").trim().toLowerCase();
   const callerAgentId = String(ctx.agentId || agentIdFromSessionKey(ctx.sessionKey) || "").trim();
   const sessionKey = String(ctx.sessionKey || safeApiSessionKey(api) || "").trim();
