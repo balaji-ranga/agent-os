@@ -20,8 +20,34 @@ try {
   const { purgeOwnerRetention } = await import('../src/services/data-retention.js');
   const { getHireableRoleTemplate } = await import('../src/services/hireable-role-templates.js');
   const { seedMarketingWorkspaceToolsIfMissing } = await import('../src/db/seed-marketing-workspace-tools.js');
+  const { resolveMarketingCampaignRecipient, resolveMarketingTransportAgentId } = await import('../src/routes/marketing-tools.js');
   handle = initDb();
   seedMarketingWorkspaceToolsIfMissing();
+
+  assert.equal(resolveMarketingTransportAgentId({
+    ownerUserId: 'marketing-owner-a',
+    setup: { account_reference: 't-marketing-owner-a--balserve' },
+    callerAgentId: 'marketing-specialist-test',
+  }), 'balserve', 'configured owner-scoped company channel supplies the default transport agent');
+  assert.equal(resolveMarketingTransportAgentId({
+    ownerUserId: 'marketing-owner-a',
+    explicitTransportAgentId: 'explicit-sender',
+    setup: { account_reference: 't-marketing-owner-a--balserve' },
+    callerAgentId: 'marketing-specialist-test',
+  }), 'explicit-sender', 'an explicit transport agent takes precedence');
+  assert.equal(resolveMarketingTransportAgentId({
+    ownerUserId: 'marketing-owner-a',
+    setup: { account_reference: 't-marketing-owner-b--balserve' },
+    callerAgentId: 'marketing-specialist-test',
+  }), 'marketing-specialist-test', 'a cross-owner account reference is never inherited');
+  const campaignAudienceWorkspace = { records: { distributionMembers: [
+    { member_id: 'wa-member-approved', list_id: 'wa-list', channel: 'whatsapp', destination: '+6593482490', consent_status: 'granted' },
+    { member_id: 'wa-member-blocked', list_id: 'wa-list', channel: 'whatsapp', destination: '+6591112222', consent_status: 'denied' },
+  ] } };
+  const campaignAudience = { audience_list_ids_json: '["wa-list"]' };
+  assert.equal(resolveMarketingCampaignRecipient({ workspace: campaignAudienceWorkspace, campaign: campaignAudience, channel: 'whatsapp', requestedTo: '+65 9348 2490', boundTarget: '+6590057664' }).member?.member_id, 'wa-member-approved', 'a consent-granted campaign member may use the configured sender transport');
+  assert.equal(resolveMarketingCampaignRecipient({ workspace: campaignAudienceWorkspace, campaign: campaignAudience, channel: 'whatsapp', requestedTo: '+6591112222', boundTarget: '+6590057664' }).reason, 'campaign_audience_consent_missing', 'a campaign member without consent is blocked');
+  assert.equal(resolveMarketingCampaignRecipient({ workspace: campaignAudienceWorkspace, campaign: campaignAudience, channel: 'whatsapp', requestedTo: '+6599998888', boundTarget: '+6590057664' }).reason, 'not_in_campaign_audience', 'an arbitrary destination cannot use the company transport');
 
   handle.prepare(`INSERT INTO agents(id,name,role,template_base_id) VALUES (?,?,?,?)`).run('marketing-specialist-test', 'Marketing Specialist Test', 'Marketing', 'marketing-specialist');
   const grantSync = seedMarketingWorkspaceToolsIfMissing();
@@ -243,7 +269,7 @@ try {
   assert.ok(purged.deleted.marketing_engagement_events >= 1, 'engagement history follows owner retention');
   assert.ok(purged.deleted.marketing_campaign_outcomes >= 1, 'campaign outcome ledger follows owner retention');
   assert.ok(purged.deleted.marketing_distribution_list_members >= 1, 'manual audience contacts follow owner retention');
-  console.log(JSON.stringify({ ok: true, checks: ['knowledge-backed-storage', 'upsert-idempotency', 'metric-idempotency', 'outcome-ledger-idempotency', 'cross-channel-outcomes', 'legacy-email-reconciliation', 'owner-isolation', 'secret-rejection', 'signed-open-pixel', 'pixel-idempotency', 'cross-campaign-lead-correlation', 'distinct-opportunities', 'structured-followup-update', 'suppression-gate', 'browser-watch-cycle', 'agentic-campaign-configuration', 'run-readiness-contract', 'paid-budget-gate', 'channel-strategies', 'retention', 'hireable-template', 'existing-template-grant-reconciliation', 'tool-registry'] }, null, 2));
+  console.log(JSON.stringify({ ok: true, checks: ['configured-channel-transport-resolution', 'knowledge-backed-storage', 'upsert-idempotency', 'metric-idempotency', 'outcome-ledger-idempotency', 'cross-channel-outcomes', 'legacy-email-reconciliation', 'owner-isolation', 'secret-rejection', 'signed-open-pixel', 'pixel-idempotency', 'cross-campaign-lead-correlation', 'distinct-opportunities', 'structured-followup-update', 'suppression-gate', 'browser-watch-cycle', 'agentic-campaign-configuration', 'run-readiness-contract', 'paid-budget-gate', 'channel-strategies', 'retention', 'hireable-template', 'existing-template-grant-reconciliation', 'tool-registry'] }, null, 2));
 } finally {
   try { handle?.close(); } catch {}
   rmSync(root, { recursive: true, force: true });

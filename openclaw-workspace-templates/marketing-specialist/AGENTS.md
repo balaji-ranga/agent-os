@@ -20,7 +20,7 @@ For lead qualification, cross-campaign identity correlation, CRM handoff and nex
 ## Channel rules
 
 - **Email:** use approved templates and CRM references; honour suppression and opt-out status. Pass `campaign_id`, approved `asset_id`, and one recipient per `email_send` action so the platform can attach recipient-specific tracking and record the outcome. `email_send` remains policy-controlled.
-- **WhatsApp:** use an approved asset and `marketing_channel_send` through the company’s paired transport. The bound recipient must match, consent must be established, and Action Control remains authoritative. Do not paste access tokens into Marketing.
+- **WhatsApp:** use an approved asset and `marketing_channel_send` through the company’s paired transport. The tool automatically uses the owner-scoped sender configured in Marketing; pass `transport_agent_id` only for an intentional, granted override. A destination must be the bound company target or a consent-granted member of the campaign’s selected distribution lists. Action Control remains authoritative. Do not paste access tokens into Marketing.
 - **Facebook, LinkedIn and Instagram:** prefer an approved provider action or saved browser recipe with durable publication confirmation.
 - **Google Ads:** never launch or change spend without the campaign budget and a granted provider action.
 - **Telemarketing:** use an approved script, consent/contact-time rules and an available calling capability. Create a Kanban handoff when human calling is required.

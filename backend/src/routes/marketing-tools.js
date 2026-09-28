@@ -5,7 +5,7 @@ import { resolveToolOwnerUserId } from '../services/tool-owner-scope.js';
 import { configureMarketingCampaign, createMarketingOpenPixel, getMarketingWorkspace, listDueMarketingWatches, prepareMarketingCampaignRun, prepareMarketingLead, reconcileMarketingToolOutcomes, recordMarketingOutcome, recordMarketingWatchResult, updateMarketingFollowup, upsertMarketingCampaignSchedule, upsertMarketingRecord } from '../services/marketing-workspace.js';
 import { announceOnAgentChannel, resolveAgentChannelTarget } from '../services/agent-channel-announce.js';
 import { getDb } from '../db/schema.js';
-import { parseTenantOpenClawAgentId } from '../services/openclaw-tenant.js';
+import { parseTenantOpenClawAgentId, tenantOpenClawAgentId } from '../services/openclaw-tenant.js';
 
 const router = Router();
 const owner = (req) => resolveToolOwnerUserId(req, req.body || {}, resolveAuthenticatedCeoUserId);
@@ -23,6 +23,16 @@ function normalizedPhone(value) {
   return digits.length >= 8 && digits.length <= 15 ? digits : '';
 }
 
+function jsonArray(value) {
+  if (Array.isArray(value)) return value;
+  try {
+    const parsed = JSON.parse(String(value || '[]'));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 function resolveCallerAgent(req, ownerUserId) {
   const raw = String(req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || '').trim();
   const base = parseTenantOpenClawAgentId(raw)?.baseOpenClawId || raw;
@@ -36,6 +46,44 @@ function resolveCallerAgent(req, ownerUserId) {
   `).get(ownerUserId, base, base);
   if (!agent) fail('Calling agent is not granted to this company', 403, 'MARKETING_AGENT_NOT_GRANTED');
   return agent;
+}
+
+export function resolveMarketingTransportAgentId({ ownerUserId, explicitTransportAgentId, setup, callerAgentId } = {}) {
+  const explicit = String(explicitTransportAgentId || '').trim();
+  if (explicit) return explicit;
+
+  // Marketing channel configuration may point at an owner-scoped OpenClaw
+  // account such as `t-company--coo`. This lets a specialist own campaign
+  // decisions while a separately bound company agent supplies the transport.
+  const accountReference = String(setup?.account_reference || '').trim().toLowerCase();
+  const parsed = parseTenantOpenClawAgentId(accountReference);
+  if (parsed && tenantOpenClawAgentId(ownerUserId, parsed.baseOpenClawId) === accountReference) {
+    return parsed.baseOpenClawId;
+  }
+
+  return String(callerAgentId || '').trim();
+}
+
+export function resolveMarketingCampaignRecipient({ workspace, campaign, channel, requestedTo, boundTarget } = {}) {
+  const requested = String(requestedTo || '').trim();
+  const bound = String(boundTarget || '').trim();
+  if (!requested) return bound ? { ok: true, to: bound, source: 'bound_company_target', member: null } : { ok: false, reason: 'recipient_required' };
+
+  const sameAsBound = channel === 'whatsapp'
+    ? normalizedPhone(requested) && normalizedPhone(requested) === normalizedPhone(bound)
+    : requested === bound;
+  if (sameAsBound) return { ok: true, to: bound, source: 'bound_company_target', member: null };
+
+  const listIds = new Set(jsonArray(campaign?.audience_list_ids_json).map((value) => String(value || '').trim()).filter(Boolean));
+  const wanted = channel === 'whatsapp' ? normalizedPhone(requested) : requested;
+  const member = (workspace?.records?.distributionMembers || []).find((row) => {
+    if (!listIds.has(String(row.list_id || '')) || String(row.channel || '').toLowerCase() !== channel) return false;
+    const destination = channel === 'whatsapp' ? normalizedPhone(row.destination) : String(row.destination || '').trim();
+    return destination && destination === wanted;
+  });
+  if (!member) return { ok: false, reason: 'not_in_campaign_audience' };
+  if (String(member.consent_status || '').toLowerCase() !== 'granted') return { ok: false, reason: 'campaign_audience_consent_missing', member };
+  return { ok: true, to: String(member.destination || requested).trim(), source: 'consent_granted_campaign_audience', member };
 }
 
 function normalizeMedia(input) {
@@ -85,15 +133,6 @@ router.post('/marketing-channel-send', (req, res) => run(res, async () => {
   if (!campaignId || !assetId) fail('campaign_id and asset_id are required');
 
   const caller = resolveCallerAgent(req, ownerUserId);
-  const transportAgentId = String(body.transport_agent_id || caller.id).trim();
-  const transport = getDb().prepare(`
-    SELECT a.id
-    FROM agents a
-    JOIN user_agents ua ON ua.agent_id = a.id AND ua.user_id = ? AND ua.enabled = 1
-    WHERE a.id = ?
-  `).get(ownerUserId, transportAgentId);
-  if (!transport) fail('Transport agent is not granted to this company', 403, 'MARKETING_TRANSPORT_NOT_GRANTED');
-
   const workspace = getMarketingWorkspace(ownerUserId);
   const campaign = workspace.records.campaigns.find((row) => row.campaign_id === campaignId);
   if (!campaign || campaign.status !== 'active') fail('Campaign must exist and be active', 409, 'MARKETING_CAMPAIGN_NOT_ACTIVE');
@@ -102,15 +141,31 @@ router.post('/marketing-channel-send', (req, res) => run(res, async () => {
   const setup = workspace.records.channels.find((row) => row.channel === channel);
   if (!setup || setup.enabled !== 'true' || setup.readiness_status !== 'ready') fail('Marketing channel is not enabled and ready', 409, 'MARKETING_CHANNEL_NOT_READY');
 
+  const transportAgentId = resolveMarketingTransportAgentId({
+    ownerUserId,
+    explicitTransportAgentId: body.transport_agent_id,
+    setup,
+    callerAgentId: caller.id,
+  });
+  const transport = getDb().prepare(`
+    SELECT a.id
+    FROM agents a
+    JOIN user_agents ua ON ua.agent_id = a.id AND ua.user_id = ? AND ua.enabled = 1
+    WHERE a.id = ?
+  `).get(ownerUserId, transportAgentId);
+  if (!transport) fail('Transport agent is not granted to this company', 403, 'MARKETING_TRANSPORT_NOT_GRANTED');
+
   const resolved = resolveAgentChannelTarget(ownerUserId, transportAgentId, channel);
   if (!resolved.ok) fail(`Company channel is unavailable: ${resolved.reason}`, 409, 'MARKETING_CHANNEL_UNAVAILABLE');
   const requestedTo = String(body.to || body.recipient || '').trim();
-  if (requestedTo) {
-    const exact = channel === 'whatsapp'
-      ? normalizedPhone(requestedTo) && normalizedPhone(requestedTo) === normalizedPhone(resolved.to)
-      : requestedTo === resolved.to;
-    if (!exact) fail('Requested recipient does not match the configured company channel target', 403, 'MARKETING_RECIPIENT_MISMATCH');
-  }
+  const recipient = resolveMarketingCampaignRecipient({ workspace, campaign, channel, requestedTo, boundTarget: resolved.to });
+  if (!recipient.ok) fail(
+    recipient.reason === 'campaign_audience_consent_missing'
+      ? 'Requested campaign recipient does not have granted consent'
+      : 'Requested recipient is not an authorized member of this campaign audience',
+    403,
+    recipient.reason === 'campaign_audience_consent_missing' ? 'MARKETING_RECIPIENT_CONSENT_REQUIRED' : 'MARKETING_RECIPIENT_MISMATCH',
+  );
 
   const text = String(body.text || asset.content || '').trim();
   if (!text) fail('Campaign message text is required');
@@ -123,10 +178,19 @@ router.post('/marketing-channel-send', (req, res) => run(res, async () => {
     text,
     idempotencyKey,
     mediaFiles: normalizeMedia(body.media),
+    authorizedTo: recipient.to,
   });
   if (!sent.ok || sent.skipped) fail(sent.error || `Channel send failed: ${sent.reason || 'unknown'}`, 502, 'MARKETING_CHANNEL_SEND_FAILED');
 
-  const audienceHash = createHash('sha256').update(`${ownerUserId}:${resolved.to}`).digest('hex');
+  const audienceHash = createHash('sha256').update(`${ownerUserId}:${recipient.to}`).digest('hex');
+  const sendMetadata = {
+    method: sent.method,
+    media_sent: sent.media_sent || 0,
+    actor_agent_id: caller.id,
+    transport_agent_id: transportAgentId,
+    recipient_source: recipient.source,
+    audience_member_id: recipient.member?.member_id || null,
+  };
   const evidence = upsertMarketingRecord(ownerUserId, 'engagements', {
     event_id: `marketing-send-${createHash('sha256').update(idempotencyKey).digest('hex').slice(0, 24)}`,
     campaign_id: campaignId,
@@ -135,7 +199,7 @@ router.post('/marketing-channel-send', (req, res) => run(res, async () => {
     event_type: 'send_accepted',
     audience_hash: audienceHash,
     value: 1,
-    metadata: { method: sent.method, media_sent: sent.media_sent || 0, actor_agent_id: caller.id, transport_agent_id: transportAgentId },
+    metadata: sendMetadata,
     source: 'marketing_channel_send',
     followup_status: 'pending',
   });
@@ -145,11 +209,11 @@ router.post('/marketing-channel-send', (req, res) => run(res, async () => {
     channel,
     outcome_type: 'send_accepted',
     audience_hash: audienceHash,
-    audience_reference: resolved.to,
-    recipient_label: body.recipient_label,
+    audience_reference: recipient.to,
+    recipient_label: body.recipient_label || recipient.member?.display_label,
     provider_reference: evidence.record.event_id,
     observed_at: evidence.record.observed_at,
-    metadata: { method: sent.method, media_sent: sent.media_sent || 0, actor_agent_id: caller.id, transport_agent_id: transportAgentId },
+    metadata: sendMetadata,
     source: 'marketing_channel_send',
   });
   return { sent, engagement: evidence.record, outcome: outcome.record };

@@ -489,6 +489,7 @@ export async function announceOnAgentChannel({
   text,
   idempotencyKey,
   mediaFiles: suppliedMediaFiles = [],
+  authorizedTo = null,
 } = {}) {
   const ch = String(channel || '').toLowerCase();
   try {
@@ -502,6 +503,12 @@ export async function announceOnAgentChannel({
       });
       return { ok: true, skipped: true, reason: resolved.reason, channel: ch };
     }
+    const sendTo = authorizedTo == null || authorizedTo === ''
+      ? resolved.to
+      : ch === 'whatsapp'
+        ? normalizeWhatsAppTarget(authorizedTo)
+        : String(authorizedTo || '').trim();
+    if (!sendTo) return { ok: true, skipped: true, reason: 'invalid_authorized_target', channel: ch };
     // The company may deliberately reuse one paired transport (for example the
     // COO WhatsApp account) for another specialist. Keep transport ownership
     // separate from message attribution so recipients see the real actor.
@@ -544,7 +551,7 @@ export async function announceOnAgentChannel({
     } catch (_) {}
     const sent = await sendViaOpenClaw({
       channel: ch,
-      to: resolved.to,
+      to: sendTo,
       accountId: resolved.accountId,
       message: body,
       idempotencyKey,
@@ -559,7 +566,7 @@ export async function announceOnAgentChannel({
         const packed = packMediaForSend(ready);
         await sendViaOpenClaw({
           channel: ch,
-          to: resolved.to,
+          to: sendTo,
           accountId: resolved.accountId,
           message: '',
           mediaFile: packed,
@@ -608,7 +615,7 @@ export async function announceOnAgentChannel({
       channel: ch,
       method: sent.method,
       media_sent: mediaSent,
-      to: String(resolved.to).replace(/\d(?=\d{4})/g, '•'),
+      to: String(sendTo).replace(/\d(?=\d{4})/g, '•'),
     });
     return {
       ok: true,
