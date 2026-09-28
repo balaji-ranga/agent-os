@@ -9,14 +9,29 @@ OC_DIR="${OPENCLAW_DIR:-/root/.openclaw}"
 mkdir -p "${OC_DIR}"
 
 # Old desktop/bootstrap builds could leave a sessions.json containing only a
-# filesystem path instead of JSON. New OpenClaw releases correctly refuse to
-# migrate that marker, which otherwise creates an endless gateway restart loop.
-# Quarantine only small, non-JSON, path-only markers; never touch valid stores.
-quarantine_invalid_session_path_markers() {
+# filesystem path, or a valid but empty `{}` / `[]` legacy store. New OpenClaw
+# releases correctly refuse to migrate those markers, which otherwise creates
+# an endless gateway restart loop. Quarantine only provably empty JSON stores or
+# small non-JSON path markers; preserve every non-empty valid store.
+quarantine_legacy_session_markers() {
   local agents_dir="${OC_DIR}/agents"
   [[ -d "${agents_dir}" ]] || return 0
   local file raw stamp backup
   while IFS= read -r file; do
+    if node -e '
+      const fs = require("fs");
+      const value = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+      const empty = Array.isArray(value)
+        ? value.length === 0
+        : Boolean(value) && typeof value === "object" && Object.keys(value).length === 0;
+      process.exit(empty ? 0 : 1);
+    ' "${file}" >/dev/null 2>&1; then
+      stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+      backup="${file}.empty-legacy-${stamp}"
+      mv -- "${file}" "${backup}"
+      echo "[openclaw] Preserved empty legacy session marker: ${backup}"
+      continue
+    fi
     if node -e 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"))' "${file}" >/dev/null 2>&1; then
       continue
     fi
@@ -265,7 +280,7 @@ run_gateway_with_platform_llm_watch() {
 
 case "${MODE}" in
   gateway)
-    quarantine_invalid_session_path_markers
+    quarantine_legacy_session_markers
     sync_extensions_from_image
     run_gateway_with_platform_llm_watch
     ;;
