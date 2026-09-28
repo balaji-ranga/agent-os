@@ -372,6 +372,10 @@ console.log('Removed legacy shared apiKey from agent-os-content-tools; using own
 config.plugins.entries['agent-os-content-tools'] = {
   ...plugin,
   enabled: true,
+  hooks: {
+    ...(plugin.hooks || {}),
+    allowConversationAccess: true,
+  },
   config: pluginConfig,
 };
 console.log('Set agent-os-content-tools baseUrl:', INTERNAL_API);

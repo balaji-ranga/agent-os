@@ -65,6 +65,11 @@ function runCase({ name, baseUrl, model, marker = null, routing = false }) {
     }
     assert.equal(configured.plugins.entries.codex, undefined);
     assert.equal(configured.plugins.entries.deepseek?.enabled, false);
+    assert.equal(
+      configured.plugins.entries['agent-os-content-tools']?.hooks?.allowConversationAccess,
+      true,
+      `${name}: inbound correlation hook must be permitted to inspect channel conversation context`
+    );
     assert.equal(configured.plugins.allow.includes('codex'), false);
     assert.deepEqual(configured.gateway.trustedProxies, ['127.0.0.1', '::1', '172.18.0.1']);
     assert.equal(configured.gateway.auth.token, 'runtime-gateway-token');

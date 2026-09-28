@@ -155,6 +155,9 @@ if (!baseUrl) {
 if (contentTools?.config?.apiKey) {
   fail('agent-os-content-tools still contains legacy shared apiKey — re-run configure-openclaw-docker.js');
 }
+if (contentTools?.hooks?.allowConversationAccess !== true) {
+  fail('agent-os-content-tools hooks.allowConversationAccess must be true for trusted inbound attribution');
+}
 const legacyCredentials = join(OPENCLAW_DIR, 'agent-os-tool-credentials.json');
 if (existsSync(legacyCredentials)) {
   fail('retired agent-os-tool-credentials.json remains present — revoke legacy credentials and remove the file');
