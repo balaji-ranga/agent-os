@@ -45,6 +45,26 @@
 .marketing-code { font-family: ui-monospace,SFMono-Regular,Consolas,monospace !important; font-size: .85rem !important; }
 .marketing-checks { display: flex; flex-wrap: wrap; gap: 8px; }
 .marketing-checks label { display: flex; gap: 6px; align-items: center; padding: 7px 9px; border: 1px solid var(--border); border-radius: 9px; font-size: .82rem; }
+.marketing-audience-picker { display: grid; gap: 7px; max-height: 220px; overflow: auto; padding: 8px; border: 1px solid var(--border); border-radius: 10px; background: color-mix(in srgb,var(--text) 2%,var(--surface)); }
+.marketing-audience-picker label { display: flex; align-items: flex-start; gap: 9px; padding: 8px; border-radius: 8px; cursor: pointer; }
+.marketing-audience-picker label:hover { background: color-mix(in srgb,var(--accent) 7%,var(--surface)); }
+.marketing-audience-picker span,.marketing-run-audience span { display: flex; flex-direction: column; gap: 2px; }
+.marketing-audience-picker small,.marketing-run-audience small { color: var(--muted); }
+.marketing-run-audience { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+.marketing-run-audience h3 { margin: 0 0 5px; font-size: 1rem; }
+.marketing-run-audience > p { margin: 0 0 10px; color: var(--muted); font-size: .82rem; line-height: 1.45; }
+.marketing-run-audience > div { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-top: 1px solid var(--border); font-size: .82rem; }
+.marketing-run-audience em { color: var(--muted); font-style: normal; text-align: right; }
+.marketing-run-box { display: grid; gap: 12px; margin-top: 16px; padding: 15px; border: 1px solid var(--border); border-radius: 12px; background: color-mix(in srgb,var(--accent) 4%,var(--surface)); }
+.marketing-run-box h3,.marketing-run-box p { margin: 0; }
+.marketing-run-box p,.marketing-run-box li { color: var(--muted); font-size: .82rem; line-height: 1.45; }
+.marketing-run-box button { justify-self: start; }
+.marketing-run-box .ready,.marketing-run-box .blocked { padding: 11px; border-radius: 9px; background: var(--surface); }
+.marketing-run-box .ready strong { color: #16824b; }
+.marketing-run-box .blocked strong { color: #b45b09; }
+.marketing-run-box ul { margin: 7px 0; padding-left: 19px; }
+.marketing-run-box a { color: var(--accent); font-weight: 650; font-size: .84rem; }
+.marketing-table button { border: 1px solid var(--border); border-radius: 8px; padding: 6px 9px; background: var(--surface); color: var(--text); cursor: pointer; }
 .marketing-switch { display: flex; align-items: center; gap: 9px; font-weight: 700; }
 .marketing-form-actions { display: flex; gap: 9px; padding-top: 4px; }
 .marketing-empty { padding: 30px 12px; text-align: center; color: var(--muted); }

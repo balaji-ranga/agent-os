@@ -1,4 +1,4 @@
-import { createHash, createHmac, randomUUID, timingSafeEqual } from 'crypto';
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from 'crypto';
 import {
   createTable,
   ensureTableColumns,
@@ -16,7 +16,19 @@ const TABLES = Object.freeze({
     name: 'marketing_campaigns',
     description: 'Marketing campaign plans linked to company objectives and CRM audiences.',
     key: 'campaign_id',
-    columns: ['campaign_id', 'name', 'objective_id', 'status', 'start_date', 'end_date', 'channels_json', 'audience_crm_filter', 'crm_reference', 'budget_total', 'budget_daily', 'currency', 'goal', 'owner_agent', 'notes', 'created_at', 'updated_at'],
+    columns: ['campaign_id', 'name', 'objective_id', 'status', 'start_date', 'end_date', 'channels_json', 'audience_list_ids_json', 'audience_crm_filter', 'audience_crm_person_refs_json', 'crm_reference', 'budget_total', 'budget_daily', 'currency', 'goal', 'owner_agent', 'notes', 'created_at', 'updated_at'],
+  },
+  distributionLists: {
+    name: 'marketing_distribution_lists',
+    description: 'Reusable manual or imported marketing distribution lists, independent of CRM.',
+    key: 'list_id',
+    columns: ['list_id', 'name', 'description', 'status', 'default_channel', 'created_at', 'updated_at'],
+  },
+  distributionMembers: {
+    name: 'marketing_distribution_list_members',
+    description: 'Retention-managed campaign recipients with encrypted destinations and explicit consent evidence.',
+    key: 'member_id',
+    columns: ['member_id', 'list_id', 'display_label', 'channel', 'destination_encrypted', 'destination_hash', 'destination_masked', 'provider', 'provider_reference', 'crm_person_reference', 'consent_status', 'consent_source', 'consent_at', 'tags_json', 'created_at', 'updated_at'],
   },
   assets: {
     name: 'marketing_assets',
@@ -112,6 +124,41 @@ function assertNoSecrets(value, path = 'config') {
 
 function now() { return new Date().toISOString(); }
 
+const CONTACT_ENCRYPTION_PREFIX = 'enc:g1:';
+
+function contactEncryptionKey(ownerUserId) {
+  const kek = text(process.env.USER_API_KEYS_KEK, 10000);
+  if (!kek) fail('Contact encryption is unavailable until USER_API_KEYS_KEK is configured', 503, 'MARKETING_CONTACT_ENCRYPTION_UNAVAILABLE');
+  return createHash('sha256').update(`${kek}:${ownerUserId}:marketing-distribution`).digest();
+}
+
+function encryptContact(ownerUserId, value) {
+  const plain = text(value, 1000);
+  if (!plain) return '';
+  const iv = randomBytes(12);
+  const cipher = createCipheriv('aes-256-gcm', contactEncryptionKey(ownerUserId), iv);
+  const encrypted = Buffer.concat([cipher.update(plain, 'utf8'), cipher.final()]);
+  return CONTACT_ENCRYPTION_PREFIX + Buffer.concat([iv, cipher.getAuthTag(), encrypted]).toString('base64');
+}
+
+function decryptContact(ownerUserId, value) {
+  const stored = String(value || '');
+  if (!stored) return '';
+  if (!stored.startsWith(CONTACT_ENCRYPTION_PREFIX)) return stored;
+  const buffer = Buffer.from(stored.slice(CONTACT_ENCRYPTION_PREFIX.length), 'base64');
+  if (buffer.length < 29) fail('Stored campaign contact is invalid', 500, 'MARKETING_CONTACT_DECRYPT_FAILED');
+  const decipher = createDecipheriv('aes-256-gcm', contactEncryptionKey(ownerUserId), buffer.subarray(0, 12));
+  decipher.setAuthTag(buffer.subarray(12, 28));
+  return Buffer.concat([decipher.update(buffer.subarray(28)), decipher.final()]).toString('utf8');
+}
+
+function normalizedDestination(channel, value) {
+  const raw = text(value, 1000);
+  if (channel === 'email') return raw.toLowerCase();
+  if (['whatsapp', 'telemarketing'].includes(channel)) return raw.replace(/\D/g, '');
+  return raw;
+}
+
 function ensureTable(ownerUserId, spec) {
   let table = findTableByName(ownerUserId, spec.name);
   if (!table) table = createTable(ownerUserId, spec);
@@ -151,9 +198,13 @@ function campaignReports(records) {
     if (!campaignId) return null;
     if (!reportByCampaign.has(campaignId)) {
       const campaign = records.campaigns.find((row) => row.campaign_id === campaignId);
+      const audienceListIds = parseJsonArray(campaign?.audience_list_ids_json);
+      const manualAudienceCount = new Set(records.distributionMembers.filter((row) => audienceListIds.includes(row.list_id)).map((row) => row.destination_hash || row.member_id)).size;
       reportByCampaign.set(campaignId, {
         campaign_id: campaignId,
         campaign_name: campaign?.name || campaignId,
+        configured_audience_count: parseJsonArray(campaign?.audience_crm_person_refs_json).length + manualAudienceCount,
+        audience_list_count: audienceListIds.length,
         emails_sent: 0,
         unique_open_signals: 0,
         open_signal_count: 0,
@@ -275,6 +326,10 @@ function analytics(records) {
 export function getMarketingWorkspace(ownerUserId) {
   const tables = ensureMarketingWorkspace(ownerUserId);
   const records = Object.fromEntries(Object.entries(tables).map(([kind, table]) => [kind, allRows(ownerUserId, table)]));
+  records.distributionMembers = records.distributionMembers.map(({ destination_encrypted, ...row }) => ({
+    ...row,
+    destination: decryptContact(ownerUserId, destination_encrypted),
+  }));
   return {
     storage: { type: 'knowledge_tables', tables: Object.fromEntries(Object.entries(tables).map(([k, v]) => [k, v.name])) },
     records,
@@ -294,10 +349,14 @@ export function prepareMarketingCampaignRun(ownerUserId, input = {}) {
   const campaign = workspace.records.campaigns.find((row) => row.campaign_id === campaignId);
   if (!campaign) fail('Campaign not found', 404);
   const requestedChannels = parseJsonArray(campaign.channels_json);
+  const selectedListIds = parseJsonArray(campaign.audience_list_ids_json);
+  const selectedLists = workspace.records.distributionLists.filter((row) => selectedListIds.includes(row.list_id) && row.status !== 'inactive');
+  const selectedMembers = workspace.records.distributionMembers.filter((row) => selectedListIds.includes(row.list_id));
   const blockers = [];
   if (!campaign.objective_id && !campaign.goal) blockers.push('Add an Objective ID or measurable outcome goal.');
   if (!requestedChannels.length) blockers.push('Select at least one campaign channel.');
   if (!['active', 'draft'].includes(campaign.status)) blockers.push(`Campaign status '${campaign.status}' cannot be prepared for execution.`);
+  for (const listId of selectedListIds) if (!selectedLists.some((row) => row.list_id === listId)) blockers.push(`Audience list '${listId}' is missing or inactive.`);
 
   const totalBudget = Number(campaign.budget_total || 0);
   const dailyBudget = Number(campaign.budget_daily || 0);
@@ -317,6 +376,15 @@ export function prepareMarketingCampaignRun(ownerUserId, input = {}) {
       if (setup.readiness_status !== 'ready') blockers.push(`${channel}: readiness is '${setup.readiness_status || 'not_configured'}'.`);
     }
     if (!approvedAssets.length) blockers.push(`${channel}: no approved campaign or reusable asset is available.`);
+    const audienceMembers = selectedMembers.filter((row) => row.channel === channel);
+    if (['email', 'whatsapp', 'telemarketing'].includes(channel)) {
+      const hasAlternativeAudience = parseJsonArray(campaign.audience_crm_person_refs_json).length > 0 || !!campaign.audience_crm_filter || !!campaign.crm_reference;
+      if (!audienceMembers.length && !hasAlternativeAudience) blockers.push(`${channel}: select a distribution list or CRM audience.`);
+      for (const member of audienceMembers) {
+        if (!member.destination) blockers.push(`${channel}: ${member.display_label || member.member_id} has no destination.`);
+        if (member.consent_status !== 'granted') blockers.push(`${channel}: ${member.display_label || member.destination_masked || member.member_id} does not have granted consent.`);
+      }
+    }
     return {
       channel,
       execution_mode: setup?.execution_mode || 'draft_only',
@@ -324,6 +392,13 @@ export function prepareMarketingCampaignRun(ownerUserId, input = {}) {
       connector_id: setup?.connector_id || '',
       account_reference: setup?.account_reference || '',
       sender_reference: setup?.sender_reference || '',
+      audience: {
+        distribution_lists: selectedLists.filter((row) => row.default_channel === channel || audienceMembers.some((member) => member.list_id === row.list_id)).map((row) => ({ list_id: row.list_id, name: row.name })),
+        ready_member_count: audienceMembers.filter((row) => row.destination && row.consent_status === 'granted').length,
+        blocked_member_count: audienceMembers.filter((row) => !row.destination || row.consent_status !== 'granted').length,
+        crm_reference_count: parseJsonArray(campaign.audience_crm_person_refs_json).length,
+        has_crm_filter_or_segment: !!campaign.audience_crm_filter || !!campaign.crm_reference,
+      },
       approved_assets: approvedAssets.map((asset) => ({
         asset_id: asset.asset_id,
         name: asset.name,
@@ -401,7 +476,7 @@ function stableMetricId(data) {
   return `metric-${createHash('sha256').update(raw || randomUUID()).digest('hex').slice(0, 20)}`;
 }
 
-function normalize(kind, input = {}) {
+function normalize(kind, input = {}, ownerUserId = '') {
   const created = now();
   if (kind === 'campaigns') {
     if (!text(input.name, 160)) fail('Campaign name is required');
@@ -409,9 +484,41 @@ function normalize(kind, input = {}) {
       campaign_id: text(input.campaign_id, 100) || `campaign-${randomUUID()}`,
       name: text(input.name, 160), objective_id: text(input.objective_id, 120), status: text(input.status, 40) || 'draft',
       start_date: text(input.start_date, 40), end_date: text(input.end_date, 40), channels_json: jsonText(input.channels_json ?? input.channels ?? []),
-      audience_crm_filter: text(input.audience_crm_filter, 2000), crm_reference: text(input.crm_reference, 500), budget_total: text(input.budget_total, 60),
+      audience_list_ids_json: jsonText([...new Set((input.audience_list_ids ?? parseJsonArray(input.audience_list_ids_json)).map((value) => text(value, 120)).filter(Boolean))].slice(0, 200)),
+      audience_crm_filter: text(input.audience_crm_filter, 2000),
+      audience_crm_person_refs_json: jsonText(
+        [...new Set((input.audience_crm_person_refs ?? parseJsonArray(input.audience_crm_person_refs_json)).map((value) => text(value, 200)).filter(Boolean))].slice(0, 500)
+      ),
+      crm_reference: text(input.crm_reference, 500), budget_total: text(input.budget_total, 60),
       budget_daily: text(input.budget_daily, 60), currency: text(input.currency, 12) || 'USD', goal: text(input.goal, 2000), owner_agent: text(input.owner_agent, 120),
       notes: text(input.notes, 4000), created_at: text(input.created_at, 40) || created, updated_at: created,
+    };
+  }
+  if (kind === 'distributionLists') {
+    if (!text(input.name, 160)) fail('Distribution list name is required');
+    const status = text(input.status, 40) || 'active';
+    if (!['active', 'inactive'].includes(status)) fail('Distribution list status must be active or inactive');
+    return {
+      list_id: text(input.list_id, 120) || `audience-list-${randomUUID()}`,
+      name: text(input.name, 160), description: text(input.description, 2000), status,
+      default_channel: text(input.default_channel, 60).toLowerCase() || 'email', created_at: text(input.created_at, 40) || created, updated_at: created,
+    };
+  }
+  if (kind === 'distributionMembers') {
+    const channel = text(input.channel, 60).toLowerCase();
+    const destination = normalizedDestination(channel, input.destination);
+    if (!text(input.list_id, 120) || !channel || !destination) fail('Distribution list, channel and destination are required');
+    if (!['email', 'whatsapp', 'facebook', 'google_ads', 'linkedin', 'instagram', 'telemarketing'].includes(channel)) fail('Unsupported distribution channel');
+    if (channel === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(destination)) fail('A valid email address is required');
+    if (['whatsapp', 'telemarketing'].includes(channel) && (destination.length < 8 || destination.length > 15)) fail('A valid international phone number is required');
+    const consentStatus = text(input.consent_status, 40) || 'unknown';
+    if (!['unknown', 'granted', 'denied'].includes(consentStatus)) fail('Consent status must be unknown, granted, or denied');
+    return {
+      member_id: text(input.member_id, 120) || `audience-member-${randomUUID()}`, list_id: text(input.list_id, 120), display_label: text(input.display_label, 200), channel,
+      destination_encrypted: encryptContact(ownerUserId, destination), destination_hash: createHash('sha256').update(`${ownerUserId}:${destination}`).digest('hex'), destination_masked: maskDestination(destination),
+      provider: text(input.provider, 80) || 'manual', provider_reference: text(input.provider_reference, 500), crm_person_reference: text(input.crm_person_reference, 200),
+      consent_status: consentStatus, consent_source: text(input.consent_source, 300), consent_at: text(input.consent_at, 40), tags_json: jsonText(input.tags_json ?? input.tags ?? []),
+      created_at: text(input.created_at, 40) || created, updated_at: created,
     };
   }
   if (kind === 'assets') {
@@ -503,12 +610,18 @@ export function upsertMarketingRecord(ownerUserId, kind, input = {}) {
   const spec = TABLES[kind];
   if (!spec) fail('Unsupported marketing record type');
   const tables = ensureMarketingWorkspace(ownerUserId);
-  const data = normalize(kind, input);
+  const data = normalize(kind, input, ownerUserId);
+  if (kind === 'distributionMembers' && !allRows(ownerUserId, tables.distributionLists).some((row) => row.list_id === data.list_id)) fail('Distribution list not found', 404);
   const existing = allRows(ownerUserId, tables[kind]).find((row) => String(row[spec.key]) === String(data[spec.key]));
   const result = existing
     ? updateRow(ownerUserId, tables[kind].id, existing.row_id, data)
     : insertRow(ownerUserId, tables[kind].id, data);
-  return { kind, created: !existing, record: { row_id: result.row.id, ...result.row.data } };
+  let record = { row_id: result.row.id, ...result.row.data };
+  if (kind === 'distributionMembers') {
+    const { destination_encrypted, ...safeRecord } = record;
+    record = { ...safeRecord, destination: decryptContact(ownerUserId, destination_encrypted) };
+  }
+  return { kind, created: !existing, record };
 }
 
 export const MARKETING_RECORD_TYPES = Object.freeze(Object.keys(TABLES));
@@ -571,7 +684,9 @@ export function recordMarketingOutcome(ownerUserId, input = {}) {
 /**
  * Reconcile successful legacy email_send receipts with existing recipient-specific
  * open signals. This makes pre-ledger campaigns reportable without retaining raw
- * destinations in the outcome ledger. Ambiguous cross-campaign matches are skipped.
+ * destinations in the outcome ledger. Inferred matches are restricted to the
+ * campaign/asset lifetime and must precede the matching open signal; this prevents
+ * unrelated historical sends to the same address from being attributed later.
  */
 export function reconcileMarketingToolOutcomes(ownerUserId) {
   const owner = text(ownerUserId, 200);
@@ -579,12 +694,25 @@ export function reconcileMarketingToolOutcomes(ownerUserId) {
   const workspace = getMarketingWorkspace(owner);
   const existingKeys = new Set(workspace.records.outcomes.map((row) => `${row.campaign_id}|${row.asset_id}|${row.channel}|${row.outcome_type}|${row.provider_reference}`));
   const openByHash = new Map();
+  const campaignById = new Map(workspace.records.campaigns.map((row) => [row.campaign_id, row]));
+  const assetById = new Map(workspace.records.assets.map((row) => [row.asset_id, row]));
+  const trackingPreparedByTarget = new Map();
+  for (const outcome of workspace.records.outcomes) {
+    if (outcome.channel !== 'email' || outcome.outcome_type !== 'tracking_prepared' || !outcome.audience_hash || !outcome.campaign_id) continue;
+    const key = `${outcome.audience_hash}|${outcome.campaign_id}|${outcome.asset_id || ''}`;
+    const observed = Date.parse(outcome.observed_at || outcome.created_at || '');
+    if (Number.isFinite(observed)) trackingPreparedByTarget.set(key, Math.max(trackingPreparedByTarget.get(key) || 0, observed));
+  }
   for (const event of workspace.records.engagements) {
     if (event.channel !== 'email' || event.event_type !== 'open_signal' || !event.audience_hash || !event.campaign_id) continue;
     const key = event.audience_hash;
     const target = `${event.campaign_id}|${event.asset_id || ''}`;
-    if (!openByHash.has(key)) openByHash.set(key, new Set());
-    openByHash.get(key).add(target);
+    if (!openByHash.has(key)) openByHash.set(key, new Map());
+    const observed = Date.parse(event.observed_at || event.created_at || '');
+    const prior = openByHash.get(key).get(target);
+    openByHash.get(key).set(target, {
+      first_opened_at: Number.isFinite(observed) ? Math.min(prior?.first_opened_at ?? observed, observed) : prior?.first_opened_at,
+    });
   }
   let logs = [];
   try {
@@ -604,9 +732,26 @@ export function reconcileMarketingToolOutcomes(ownerUserId) {
     const recipients = [...new Set([response.to ?? request.to, response.cc ?? request.cc, response.bcc ?? request.bcc].flatMap((value) => Array.isArray(value) ? value : String(value || '').split(/[,;]/)).map((value) => text(value, 320)).filter(Boolean))];
     for (const recipient of recipients) {
       const hash = audienceHash(owner, recipient);
+      const logTime = Date.parse(log.created_at || '');
       let targets = [];
-      if (request.campaign_id && request.asset_id) targets = [`${text(request.campaign_id, 100)}|${text(request.asset_id, 100)}`];
-      else targets = [...(openByHash.get(hash) || [])];
+      if (request.campaign_id && request.asset_id) {
+        targets = [`${text(request.campaign_id, 100)}|${text(request.asset_id, 100)}`];
+      } else if (Number.isFinite(logTime)) {
+        targets = [...(openByHash.get(hash) || new Map()).entries()]
+          .filter(([target, evidence]) => {
+            const [campaignId, assetId] = target.split('|');
+            const campaign = campaignById.get(campaignId);
+            const asset = assetId ? assetById.get(assetId) : null;
+            if (!campaign || (assetId && (!asset || (asset.campaign_id && asset.campaign_id !== campaignId)))) return false;
+            const createdBoundary = Math.max(
+              Date.parse(campaign.created_at || '') || 0,
+              Date.parse(asset?.created_at || '') || 0,
+              trackingPreparedByTarget.get(`${hash}|${campaignId}|${assetId}`) || 0,
+            );
+            return logTime >= createdBoundary && (!Number.isFinite(evidence.first_opened_at) || logTime <= evidence.first_opened_at);
+          })
+          .map(([target]) => target);
+      }
       if (targets.length !== 1) { skipped += 1; continue; }
       const [campaignId, assetId] = targets[0].split('|');
       if (!campaignId) { skipped += 1; continue; }

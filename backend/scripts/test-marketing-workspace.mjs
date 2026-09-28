@@ -10,6 +10,7 @@ process.env.HOME = join(root, 'home');
 process.env.OPENCLAW_CONFIG_PATH = join(root, 'home', '.openclaw', 'openclaw.json');
 process.env.OPENSEARCH_ENABLED = '0';
 process.env.AGENT_OS_INTERNAL_TOKEN = 'test-marketing-internal-token-not-a-production-secret';
+process.env.USER_API_KEYS_KEK = 'test-marketing-contact-encryption-key';
 process.env.AGENT_OS_BASE_URL = 'https://marketing.example.invalid';
 
 let handle;
@@ -24,8 +25,8 @@ try {
 
   handle.prepare(`INSERT INTO agents(id,name,role,template_base_id) VALUES (?,?,?,?)`).run('marketing-specialist-test', 'Marketing Specialist Test', 'Marketing', 'marketing-specialist');
   const grantSync = seedMarketingWorkspaceToolsIfMissing();
-  assert.equal(grantSync.grants_added, 17, 'existing hired Marketing Specialists inherit newly introduced Marketing tools');
-  assert.equal(handle.prepare(`SELECT COUNT(*) AS count FROM agent_tool_grants WHERE agent_id = ? AND tool_name LIKE 'marketing_%'`).get('marketing-specialist-test').count, 17);
+  assert.equal(grantSync.grants_added, grantSync.tools, 'existing hired Marketing Specialists inherit newly introduced Marketing tools');
+  assert.equal(handle.prepare(`SELECT COUNT(*) AS count FROM agent_tool_grants WHERE agent_id = ? AND tool_name LIKE 'marketing_%'`).get('marketing-specialist-test').count, grantSync.tools);
 
   const ownerA = 'marketing-owner-a';
   const ownerB = 'marketing-owner-b';
@@ -77,20 +78,38 @@ try {
   assert.equal(crossChannelReport.channel_outcomes.facebook.comment, 1);
   assert.equal(svc.getMarketingWorkspace(ownerB).records.outcomes.length, 0, 'cross-owner campaign outcomes are not visible');
 
-  svc.upsertMarketingRecord(ownerB, 'campaigns', { campaign_id: 'legacy-email-campaign', name: 'Legacy email campaign', status: 'active', channels: ['email'], goal: 'Validate legacy receipts' });
-  svc.upsertMarketingRecord(ownerB, 'assets', { asset_id: 'legacy-email-asset', campaign_id: 'legacy-email-campaign', name: 'Legacy email', channel: 'email', content: '<p>Hello</p>', approval_status: 'approved' });
+  const audienceList = svc.upsertMarketingRecord(ownerB, 'distributionLists', { list_id: 'manual-prospects', name: 'Manual prospects', default_channel: 'email' });
+  assert.equal(audienceList.created, true);
+  const audienceMember = svc.upsertMarketingRecord(ownerB, 'distributionMembers', { member_id: 'manual-prospect-1', list_id: 'manual-prospects', display_label: 'Manual prospect', channel: 'email', destination: 'prospect@example.invalid', consent_status: 'granted', consent_source: 'Owner-provided test contact' });
+  assert.equal(audienceMember.record.destination_encrypted, undefined, 'encrypted destination is not returned by the upsert contract');
+  const manualAudienceWorkspace = svc.getMarketingWorkspace(ownerB);
+  assert.equal(manualAudienceWorkspace.records.distributionMembers[0].destination, 'prospect@example.invalid', 'authorized workspace resolves encrypted contact destination');
+  const storedMember = handle.prepare(`SELECT row_json FROM master_data_rows WHERE owner_user_id=? AND table_id=(SELECT id FROM master_data_tables WHERE owner_user_id=? AND name='marketing_distribution_list_members') LIMIT 1`).get(ownerB, ownerB);
+  assert.doesNotMatch(storedMember.row_json, /prospect@example\.invalid/, 'manual contact destination is encrypted at rest');
+  assert.equal(svc.getMarketingWorkspace(ownerA).records.distributionMembers.length, 0, 'manual audience lists are owner isolated');
+
+  svc.upsertMarketingRecord(ownerB, 'campaigns', { campaign_id: 'legacy-email-campaign', name: 'Legacy email campaign', status: 'active', channels: ['email'], goal: 'Validate legacy receipts', audience_crm_person_refs: ['crm-person-legacy'], created_at: '2026-09-27T10:00:00.000Z' });
+  svc.upsertMarketingRecord(ownerB, 'assets', { asset_id: 'legacy-email-asset', campaign_id: 'legacy-email-campaign', name: 'Legacy email', channel: 'email', content: '<p>Hello</p>', approval_status: 'approved', created_at: '2026-09-27T10:00:00.000Z' });
   const legacyPixel = svc.createMarketingOpenPixel(ownerB, { campaign_id: 'legacy-email-campaign', asset_id: 'legacy-email-asset', audience_reference: 'legacy.person@example.invalid' });
-  svc.consumeMarketingOpenPixel(new URL(legacyPixel.pixel_url).searchParams.get('t'));
+  const legacySendAt = new Date().toISOString();
   handle.prepare(`INSERT INTO content_tool_logs(tool_name,request_payload,response_payload,status,owner_user_id,created_at) VALUES('email_send',?,?, 'ok',?,?)`).run(
     JSON.stringify({ to: 'legacy.person@example.invalid', subject: 'Legacy campaign' }),
     JSON.stringify({ sent: true, messageId: 'legacy-message-1', to: ['legacy.person@example.invalid'] }),
     ownerB,
-    '2026-09-27T12:00:00.000Z'
+    legacySendAt
   );
+  handle.prepare(`INSERT INTO content_tool_logs(tool_name,request_payload,response_payload,status,owner_user_id,created_at) VALUES('email_send',?,?, 'ok',?,?)`).run(
+    JSON.stringify({ to: 'legacy.person@example.invalid', subject: 'Unrelated historical email' }),
+    JSON.stringify({ sent: true, messageId: 'historical-message-before-campaign', to: ['legacy.person@example.invalid'] }),
+    ownerB,
+    '2026-08-27T12:00:00.000Z'
+  );
+  svc.consumeMarketingOpenPixel(new URL(legacyPixel.pixel_url).searchParams.get('t'));
   assert.equal(svc.reconcileMarketingToolOutcomes(ownerB).reconciled, 1, 'legacy successful email receipt is reconciled generically');
   assert.equal(svc.reconcileMarketingToolOutcomes(ownerB).reconciled, 0, 'legacy receipt reconciliation is idempotent');
   const legacyReport = svc.getMarketingWorkspace(ownerB).analytics.campaign_reports.find((row) => row.campaign_id === 'legacy-email-campaign');
   assert.equal(legacyReport.emails_sent, 1);
+  assert.equal(legacyReport.configured_audience_count, 1);
   assert.equal(legacyReport.unique_open_signals, 1);
   assert.equal(legacyReport.recipients[0].recipient_label, 'Legacy Person');
   assert.equal(legacyReport.recipients[0].destination_masked, 'l***@example.invalid');
@@ -131,6 +150,7 @@ try {
       objective_id: 'objective-growth',
       goal: 'Generate five qualified leads',
       channels: ['email', 'facebook'],
+      audience_list_ids: ['manual-prospects'],
       budget_total: 500,
       budget_daily: 25,
     },
@@ -152,6 +172,14 @@ try {
   assert.equal(configured.assets.length, 2);
   assert.equal(svc.prepareMarketingCampaignRun(ownerB, { campaign_id: configured.campaign.campaign_id }).ready, true);
 
+  svc.upsertMarketingRecord(ownerB, 'distributionLists', { list_id: 'blocked-audience', name: 'Blocked audience', default_channel: 'email' });
+  svc.upsertMarketingRecord(ownerB, 'distributionMembers', { member_id: 'blocked-audience-1', list_id: 'blocked-audience', display_label: 'No consent recipient', channel: 'email', destination: 'no-consent@example.invalid', consent_status: 'unknown' });
+  svc.upsertMarketingRecord(ownerB, 'assets', { asset_id: 'reusable-consent-test', name: 'Reusable consent test', channel: 'email', content: 'Consent test', approval_status: 'approved' });
+  svc.upsertMarketingRecord(ownerB, 'campaigns', { campaign_id: 'consent-blocked-campaign', name: 'Consent blocked campaign', goal: 'Test consent gate', status: 'active', channels: ['email'], audience_list_ids: ['blocked-audience'] });
+  const consentBlocked = svc.prepareMarketingCampaignRun(ownerB, { campaign_id: 'consent-blocked-campaign' });
+  assert.equal(consentBlocked.ready, false);
+  assert.ok(consentBlocked.blockers.some((item) => /does not have granted consent/i.test(item)), 'run preparation blocks manual recipients without consent');
+
   assert.throws(
     () => svc.configureMarketingCampaign(ownerB, {
       campaign: { campaign_id: 'blocked-paid-campaign', name: 'Blocked paid campaign', goal: 'Acquire leads', channels: ['google_ads'] },
@@ -171,11 +199,13 @@ try {
   assert.ok(role.tools.includes('marketing_strategy_upsert'));
   assert.ok(role.tools.includes('marketing_channel_send'));
   assert.ok(role.tools.includes('marketing_campaign_outcome_record'));
+  assert.ok(role.tools.includes('marketing_audience_list_upsert'));
+  assert.ok(role.tools.includes('marketing_audience_member_upsert'));
   assert.ok(role.tools.includes('connector_execute_action'));
 
   const toolRows = handle.prepare(`SELECT name,risk_tier,action_family FROM content_tools_meta WHERE name LIKE 'marketing_%' ORDER BY name`).all();
   const toolNames = toolRows.map((row) => row.name);
-  assert.equal(toolNames.length, 17);
+  assert.equal(toolNames.length, 19);
   assert.equal(toolRows.find((row) => row.name === 'marketing_workspace_read')?.action_family, 'read');
   assert.equal(toolRows.find((row) => row.name === 'marketing_campaign_upsert')?.action_family, 'write_internal');
   assert.equal(toolRows.find((row) => row.name === 'marketing_channel_send')?.action_family, 'communicate_external');
@@ -183,9 +213,12 @@ try {
   assert.equal(svc.getMarketingWorkspace(ownerA).records.strategies.length, 7, 'each supported channel has an effectiveness strategy');
   svc.upsertMarketingRecord(ownerA, 'engagements', { event_id: 'old-event', channel: 'email', event_type: 'open_signal', observed_at: '2020-01-01T00:00:00.000Z' });
   svc.recordMarketingOutcome(ownerA, { outcome_id: 'old-outcome', campaign_id: 'campaign-growth-q4', channel: 'facebook', outcome_type: 'reaction', observed_at: '2020-01-01T00:00:00.000Z' });
+  svc.upsertMarketingRecord(ownerA, 'distributionLists', { list_id: 'old-list', name: 'Old list', default_channel: 'email' });
+  svc.upsertMarketingRecord(ownerA, 'distributionMembers', { member_id: 'old-member', list_id: 'old-list', display_label: 'Old member', channel: 'email', destination: 'old@example.invalid', consent_status: 'granted', created_at: '2020-01-01T00:00:00.000Z' });
   const purged = await purgeOwnerRetention(ownerA, { days: 30 });
   assert.ok(purged.deleted.marketing_engagement_events >= 1, 'engagement history follows owner retention');
   assert.ok(purged.deleted.marketing_campaign_outcomes >= 1, 'campaign outcome ledger follows owner retention');
+  assert.ok(purged.deleted.marketing_distribution_list_members >= 1, 'manual audience contacts follow owner retention');
   console.log(JSON.stringify({ ok: true, checks: ['knowledge-backed-storage', 'upsert-idempotency', 'metric-idempotency', 'outcome-ledger-idempotency', 'cross-channel-outcomes', 'legacy-email-reconciliation', 'owner-isolation', 'secret-rejection', 'signed-open-pixel', 'pixel-idempotency', 'cross-campaign-lead-correlation', 'distinct-opportunities', 'structured-followup-update', 'suppression-gate', 'browser-watch-cycle', 'agentic-campaign-configuration', 'run-readiness-contract', 'paid-budget-gate', 'channel-strategies', 'retention', 'hireable-template', 'existing-template-grant-reconciliation', 'tool-registry'] }, null, 2));
 } finally {
   try { handle?.close(); } catch {}

@@ -15,6 +15,16 @@ Open **Run & Operate → Marketing** to coordinate multi-channel work without cr
 - Channel effectiveness strategies, attributable engagement evidence and follow-up status
 - Cross-campaign interest profiles linked to CRM people and opportunities
 
+## Campaign audiences
+
+In **Marketing → Audience lists**, create reusable distribution lists without depending on CRM. Each entry has a channel destination (email, WhatsApp/phone, or a provider identity/audience reference), consent state/source, and an optional CRM link. Destinations are encrypted at rest and list entries follow the company retention policy.
+
+In **Marketing → Campaigns**, select one or more Marketing distribution lists and optionally add named CRM people, a CRM segment/list reference, or an audience filter. CRM remains useful for enrichment and sales follow-up, but it is not required to run a campaign.
+
+When editing a saved campaign, **Observed run recipients** separately lists recipients proven by send receipts, using a display label and masked destination. This matters when an agent or workflow received email addresses directly at execution time: they were used for that run, but were not silently added to the campaign's planned audience. The campaign portfolio shows planned and observed recipient counts so the difference is visible.
+
+To run a campaign, make it active, approve an asset for each channel, configure the channel, and select **Validate for run**. The validator checks the Objective/goal, budgets, assets, connections, audience destinations and consent. Then open the Marketing Specialist from the result and ask it to run the campaign; every external send or publish still passes Action Control.
+
 The records are stored in your company-scoped Knowledge tables. CRM remains the source of truth for people, companies, consent, pipeline and revenue.
 
 ## Hire the AI Marketing Specialist
@@ -36,6 +46,8 @@ Planning is not publishing. External email, social posts, WhatsApp messages, ad 
 Open **Marketing → Analytics → Campaign outcome report** and select a campaign. The report shows receipt-backed email sends, unique open signals, open-signal rate, recipient status, per-channel totals and the evidence ledger.
 
 The ledger keeps channel-native outcomes rather than forcing every channel into email terminology. Email contributes send/open/click/reply/bounce evidence; WhatsApp contributes sent/delivered/read/reply/opt-out evidence; social channels contribute publish/reaction/comment/share/message/lead evidence; ads contribute impression/click/conversion/spend; and telemarketing contributes attempted/connected/interested/qualified/do-not-call outcomes. Records follow your company data-retention policy.
+
+Legacy email receipts without campaign IDs are inferred only when there is one unambiguous recipient-specific tracking trail and the send falls inside that campaign's lifetime. A historical email to the same address is not attributed to a campaign created later.
 
 - **Email open tracking setup** creates a recipient-specific signed invisible image tag for an HTML email. It is a setup utility, not the report. An image request is an open signal, not guaranteed human reading, because mail clients may proxy, cache or block images.
 - WhatsApp uses delivery/read/reply receipts from its connected channel.

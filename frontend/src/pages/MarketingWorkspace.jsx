@@ -4,8 +4,10 @@ import { api } from '../api';
 import './MarketingWorkspace.css';
 
 const CHANNELS = ['email', 'whatsapp', 'facebook', 'google_ads', 'linkedin', 'instagram', 'telemarketing'];
-const TABS = ['Overview', 'Campaigns', 'Templates & assets', 'Channels', 'Analytics', 'Leads & follow-up'];
-const EMPTY_CAMPAIGN = { name: '', objective_id: '', status: 'draft', channels: [], audience_crm_filter: '', crm_reference: '', budget_total: '', budget_daily: '', currency: 'USD', goal: '', owner_agent: '', notes: '' };
+const TABS = ['Overview', 'Campaigns', 'Audience lists', 'Templates & assets', 'Channels', 'Analytics', 'Leads & follow-up'];
+const EMPTY_CAMPAIGN = { name: '', objective_id: '', status: 'draft', channels: [], audience_list_ids: [], audience_crm_filter: '', audience_crm_person_refs: [], crm_reference: '', budget_total: '', budget_daily: '', currency: 'USD', goal: '', owner_agent: '', notes: '' };
+const EMPTY_AUDIENCE_LIST = { name: '', description: '', status: 'active', default_channel: 'email' };
+const EMPTY_AUDIENCE_MEMBER = { list_id: '', display_label: '', channel: 'email', destination: '', provider: 'manual', provider_reference: '', crm_person_reference: '', consent_status: 'unknown', consent_source: '', consent_at: '', tags: [] };
 const EMPTY_ASSET = { name: '', campaign_id: '', channel: 'email', asset_type: 'template', subject: '', content: '', variables_json: '{\n  "first_name": "Customer"\n}', approval_status: 'draft', version: '1' };
 const EMPTY_CHANNEL = { channel: 'email', enabled: false, execution_mode: 'draft_only', connector_type: 'open_connector', connector_id: '', account_reference: '', sender_reference: '', config_json: '{}', readiness_status: 'not_configured' };
 const EMPTY_METRIC = { campaign_id: '', channel: 'email', metric_name: 'impressions', value: '', unit: 'count', period_start: '', period_end: '', source: 'manual', receipt_id: '' };
@@ -21,6 +23,31 @@ function money(value, currency = 'USD') {
   return Number.isFinite(amount) ? new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(amount) : '—';
 }
 
+function contactPoints(person) {
+  const profiles = person.channel_profiles || {};
+  return [
+    person.email && `Email: ${person.email}`,
+    person.phone && `WhatsApp/phone: ${person.phone}`,
+    profiles.facebook && `Facebook: ${profiles.facebook}`,
+    profiles.linkedin && `LinkedIn: ${profiles.linkedin}`,
+    profiles.instagram && `Instagram: ${profiles.instagram}`,
+  ].filter(Boolean).join(' · ') || person.company_label || 'No channel contact point in CRM';
+}
+
+function destinationLabel(channel) {
+  if (channel === 'email') return 'Email address';
+  if (['whatsapp', 'telemarketing'].includes(channel)) return 'International phone number';
+  if (channel === 'google_ads') return 'Provider audience ID';
+  return 'Provider identity / profile reference';
+}
+
+function destinationPlaceholder(channel) {
+  if (channel === 'email') return 'name@example.com';
+  if (['whatsapp', 'telemarketing'].includes(channel)) return '+6591234567';
+  if (channel === 'google_ads') return 'Customer match or audience reference';
+  return 'Provider profile, user, or audience reference';
+}
+
 export default function MarketingWorkspace() {
   const [tab, setTab] = useState('Overview');
   const [workspace, setWorkspace] = useState(null);
@@ -28,6 +55,9 @@ export default function MarketingWorkspace() {
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState(null);
   const [campaign, setCampaign] = useState(EMPTY_CAMPAIGN);
+  const [audienceList, setAudienceList] = useState(EMPTY_AUDIENCE_LIST);
+  const [audienceMember, setAudienceMember] = useState(EMPTY_AUDIENCE_MEMBER);
+  const [runCheck, setRunCheck] = useState(null);
   const [asset, setAsset] = useState(EMPTY_ASSET);
   const [channel, setChannel] = useState(EMPTY_CHANNEL);
   const [metric, setMetric] = useState(EMPTY_METRIC);
@@ -65,6 +95,8 @@ export default function MarketingWorkspace() {
 
   const summary = workspace?.analytics || {};
   const campaigns = dataRows(workspace, 'campaigns');
+  const distributionLists = dataRows(workspace, 'distributionLists');
+  const distributionMembers = dataRows(workspace, 'distributionMembers');
   const assets = dataRows(workspace, 'assets');
   const channels = dataRows(workspace, 'channels');
   const metrics = dataRows(workspace, 'metrics');
@@ -76,6 +108,7 @@ export default function MarketingWorkspace() {
   const metricCards = useMemo(() => Object.entries(summary.totals || {}).slice(0, 8), [summary.totals]);
   const campaignReports = summary.campaign_reports || [];
   const selectedReport = campaignReports.find((row) => row.campaign_id === analyticsCampaignId) || campaignReports[0] || null;
+  const editedCampaignReport = campaignReports.find((row) => row.campaign_id === campaign.campaign_id) || null;
   const selectedOutcomes = outcomes.filter((row) => !selectedReport || row.campaign_id === selectedReport.campaign_id).slice().reverse();
   const filteredLeads = useMemo(() => leads.filter((row) => {
     const search = leadSearch.trim().toLowerCase();
@@ -110,6 +143,13 @@ export default function MarketingWorkspace() {
       recommended_followup: lead.next_action,
     }, () => setLead(EMPTY_LEAD));
   };
+  const validateCampaignRun = async () => {
+    if (!campaign.campaign_id) return;
+    setBusy('RunCheck'); setMessage(null);
+    try { setRunCheck(await api.marketingCampaignRunPrepare({ campaign_id: campaign.campaign_id })); }
+    catch (error) { setMessage({ type: 'error', text: error.message || 'Could not validate campaign readiness.' }); }
+    finally { setBusy(''); }
+  };
 
   if (loading && !workspace) return <main className="marketing-page"><div className="marketing-loading">Preparing your marketing workspace…</div></main>;
 
@@ -119,7 +159,7 @@ export default function MarketingWorkspace() {
         <div>
           <span className="marketing-eyebrow">Run &amp; Operate</span>
           <h1>Marketing</h1>
-          <p>Plan campaigns, reuse channel-ready content, coordinate CRM audiences, and measure outcomes in one company workspace.</p>
+          <p>Plan campaigns, build reusable distribution lists, coordinate optional CRM audiences, and measure outcomes in one company workspace.</p>
         </div>
         <div className="marketing-hero-actions">
           <Link to="/crm" className="marketing-link">Open CRM</Link>
@@ -156,21 +196,67 @@ export default function MarketingWorkspace() {
       </section>}
 
       {tab === 'Campaigns' && <section className="marketing-section marketing-two-col">
-        <Panel title={campaign.campaign_id ? 'Edit campaign' : 'New campaign'} subtitle="Link execution to an OKR and a CRM audience without copying customer data.">
+        <Panel title={campaign.campaign_id ? 'Edit campaign' : 'New campaign'} subtitle="Link execution to an OKR and select manual, CRM, or provider-native audiences.">
           <form onSubmit={(e) => { e.preventDefault(); save('Campaign', api.marketingCampaignUpsert, campaign, () => setCampaign(EMPTY_CAMPAIGN)); }} className="marketing-form">
             <Field label="Campaign name"><input required value={campaign.name} onChange={(e) => setCampaign({ ...campaign, name: e.target.value })} /></Field>
             <div className="marketing-form-row"><Field label="Objective ID"><input value={campaign.objective_id} onChange={(e) => setCampaign({ ...campaign, objective_id: e.target.value })} /></Field><Field label="Status"><select value={campaign.status} onChange={(e) => setCampaign({ ...campaign, status: e.target.value })}><option>draft</option><option>active</option><option>paused</option><option>completed</option></select></Field></div>
             <Field label="Channels"><div className="marketing-checks">{CHANNELS.map((name) => <label key={name}><input type="checkbox" checked={campaign.channels.includes(name)} onChange={(e) => setCampaign({ ...campaign, channels: e.target.checked ? [...campaign.channels, name] : campaign.channels.filter((x) => x !== name) })} />{label(name)}</label>)}</div></Field>
+            <Field label="Marketing distribution lists"><div className="marketing-audience-picker">{distributionLists.length ? distributionLists.filter((row) => row.status !== 'inactive').map((row) => <label key={row.list_id}><input type="checkbox" checked={campaign.audience_list_ids.includes(row.list_id)} onChange={(e) => setCampaign({ ...campaign, audience_list_ids: e.target.checked ? [...campaign.audience_list_ids, row.list_id] : campaign.audience_list_ids.filter((id) => id !== row.list_id) })} /><span><strong>{row.name}</strong><small>{label(row.default_channel)} · {distributionMembers.filter((member) => member.list_id === row.list_id).length} entries</small></span></label>) : <small>No manual lists yet. Create one under Audience lists.</small>}</div></Field>
             <Field label="CRM audience filter"><input placeholder="Example: lifecycleStage=Customer; country=SG" value={campaign.audience_crm_filter} onChange={(e) => setCampaign({ ...campaign, audience_crm_filter: e.target.value })} /></Field>
             <Field label="CRM list or segment reference"><input value={campaign.crm_reference} onChange={(e) => setCampaign({ ...campaign, crm_reference: e.target.value })} /></Field>
+            <Field label="Optional named CRM recipients">
+              <div className="marketing-audience-picker">
+                {crmOptions.people.length ? crmOptions.people.map((person) => <label key={person.id}>
+                  <input type="checkbox" checked={campaign.audience_crm_person_refs.includes(person.id)} onChange={(e) => setCampaign({ ...campaign, audience_crm_person_refs: e.target.checked ? [...campaign.audience_crm_person_refs, person.id] : campaign.audience_crm_person_refs.filter((id) => id !== person.id) })} />
+                  <span><strong>{person.label}</strong><small>{contactPoints(person)}</small></span>
+                </label>) : <small>{crmOptions.available ? 'No CRM people are available.' : 'CRM is unavailable. Manual distribution lists remain available.'}</small>}
+              </div>
+            </Field>
             <div className="marketing-form-row"><Field label="Total budget"><input type="number" min="0" step="0.01" value={campaign.budget_total} onChange={(e) => setCampaign({ ...campaign, budget_total: e.target.value })} /></Field><Field label="Daily budget"><input type="number" min="0" step="0.01" value={campaign.budget_daily} onChange={(e) => setCampaign({ ...campaign, budget_daily: e.target.value })} /></Field></div>
             <Field label="Outcome goal"><textarea rows="3" value={campaign.goal} onChange={(e) => setCampaign({ ...campaign, goal: e.target.value })} /></Field>
             <FormActions busy={busy === 'Campaign'} edit={!!campaign.campaign_id} clear={() => setCampaign(EMPTY_CAMPAIGN)} />
           </form>
+          {campaign.campaign_id && <div className="marketing-run-audience">
+            <h3>Observed run recipients</h3>
+            <p>These recipients came from recorded send receipts. They may have been supplied by an agent at run time rather than saved in this campaign’s planned CRM audience.</p>
+            {editedCampaignReport?.recipients?.length ? editedCampaignReport.recipients.map((row) => <div key={row.audience_hash || row.outcome_id}><span><strong>{row.recipient_label}</strong><small>{row.destination_masked || 'Identity protected'}</small></span><em>{label(row.delivery_status)} · {row.open_count} open signal{row.open_count === 1 ? '' : 's'}</em></div>) : <small>No recipient-level send evidence has been recorded.</small>}
+          </div>}
+          {campaign.campaign_id && <div className="marketing-run-box"><div><h3>Run this campaign</h3><p>Validate first, then ask the Marketing Specialist to execute the ready channel actions. External sends and publishing still pass through Action Control.</p></div><button type="button" className="marketing-primary" disabled={busy === 'RunCheck'} onClick={validateCampaignRun}>{busy === 'RunCheck' ? 'Checking…' : 'Validate for run'}</button>{runCheck && <div className={runCheck.ready ? 'ready' : 'blocked'}><strong>{runCheck.ready ? 'Ready for agent execution' : 'Not ready'}</strong>{runCheck.blockers?.length ? <ul>{runCheck.blockers.map((blocker) => <li key={blocker}>{blocker}</li>)}</ul> : <p>{runCheck.actions?.map((item) => `${label(item.channel)} (${item.audience?.ready_member_count || 0} list recipients)`).join(' · ')}</p>}<Link to={`/agents/marketing-specialist/chat?message=${encodeURIComponent(`Run marketing campaign ${campaign.campaign_id}. First validate it with marketing_campaign_run_prepare, then execute only the ready channel actions using the selected audience and approved assets. Record every provider receipt and outcome.`)}`}>Open Marketing Specialist with run request</Link></div>}</div>}
         </Panel>
         <Panel title="Campaign portfolio" subtitle="Edit a plan without duplicating it.">
-          {campaigns.length ? campaigns.map((row) => <RecordLine key={row.row_id} title={row.name} badge={row.status} detail={`${money(row.budget_total, row.currency)} · ${row.goal || 'No outcome goal'}`} action={() => { setCampaign({ ...EMPTY_CAMPAIGN, ...row, channels: parseJson(row.channels_json, []) }); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />) : <Empty text="No campaigns yet." />}
+          {campaigns.length ? campaigns.map((row) => { const report = campaignReports.find((item) => item.campaign_id === row.campaign_id); return <RecordLine key={row.row_id} title={row.name} badge={row.status} detail={`${report?.configured_audience_count || 0} planned · ${report?.recipients?.length || 0} observed recipients · ${money(row.budget_total, row.currency)} · ${row.goal || 'No outcome goal'}`} action={() => { setCampaign({ ...EMPTY_CAMPAIGN, ...row, channels: parseJson(row.channels_json, []), audience_list_ids: parseJson(row.audience_list_ids_json, []), audience_crm_person_refs: parseJson(row.audience_crm_person_refs_json, []) }); setRunCheck(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />; }) : <Empty text="No campaigns yet." />}
         </Panel>
+      </section>}
+
+      {tab === 'Audience lists' && <section className="marketing-section">
+        <aside className="marketing-safety"><strong>CRM is optional:</strong> create reusable lists here, select CRM people in a campaign, or combine both. Manual destinations are encrypted at rest and list members follow the company data-retention policy. A destination is usable only when consent is granted.</aside>
+        <div className="marketing-two-col">
+          <Panel title={audienceList.list_id ? 'Edit distribution list' : 'New distribution list'} subtitle="Create a reusable campaign audience independently of CRM.">
+            <form onSubmit={(e) => { e.preventDefault(); save('Audience list', api.marketingAudienceListUpsert, audienceList, () => setAudienceList(EMPTY_AUDIENCE_LIST)); }} className="marketing-form">
+              <Field label="List name"><input required value={audienceList.name} onChange={(e) => setAudienceList({ ...audienceList, name: e.target.value })} /></Field>
+              <div className="marketing-form-row"><Field label="Default channel"><ChannelSelect value={audienceList.default_channel} onChange={(default_channel) => setAudienceList({ ...audienceList, default_channel })} /></Field><Field label="Status"><select value={audienceList.status} onChange={(e) => setAudienceList({ ...audienceList, status: e.target.value })}><option value="active">active</option><option value="inactive">inactive</option></select></Field></div>
+              <Field label="Description"><textarea rows="3" value={audienceList.description} onChange={(e) => setAudienceList({ ...audienceList, description: e.target.value })} /></Field>
+              <FormActions busy={busy === 'Audience list'} edit={!!audienceList.list_id} clear={() => setAudienceList(EMPTY_AUDIENCE_LIST)} />
+            </form>
+          </Panel>
+          <Panel title="Saved distribution lists" subtitle={`${distributionLists.length} reusable list${distributionLists.length === 1 ? '' : 's'}`}>
+            {distributionLists.length ? distributionLists.map((row) => <RecordLine key={row.list_id} title={row.name} badge={row.status} detail={`${label(row.default_channel)} · ${distributionMembers.filter((member) => member.list_id === row.list_id).length} entries · ${row.description || 'No description'}`} action={() => { setAudienceList({ ...EMPTY_AUDIENCE_LIST, ...row }); setAudienceMember((current) => ({ ...current, list_id: row.list_id, channel: current.member_id ? current.channel : row.default_channel })); }} />) : <Empty text="No distribution lists yet." />}
+          </Panel>
+          <Panel title={audienceMember.member_id ? 'Edit list entry' : 'Add list entry'} subtitle="Add email addresses, WhatsApp/phone numbers, or provider identities with consent evidence.">
+            <form onSubmit={(e) => { e.preventDefault(); save('Audience member', api.marketingAudienceMemberUpsert, audienceMember, () => setAudienceMember({ ...EMPTY_AUDIENCE_MEMBER, list_id: audienceMember.list_id })); }} className="marketing-form">
+              <Field label="Distribution list"><select required value={audienceMember.list_id} onChange={(e) => { const selected = distributionLists.find((row) => row.list_id === e.target.value); setAudienceMember({ ...audienceMember, list_id: e.target.value, channel: selected?.default_channel || audienceMember.channel }); }}><option value="">Select list</option>{distributionLists.map((row) => <option key={row.list_id} value={row.list_id}>{row.name}</option>)}</select></Field>
+              <div className="marketing-form-row"><Field label="Display name"><input value={audienceMember.display_label} onChange={(e) => setAudienceMember({ ...audienceMember, display_label: e.target.value })} /></Field><Field label="Channel"><ChannelSelect value={audienceMember.channel} onChange={(channel) => setAudienceMember({ ...audienceMember, channel, destination: '' })} /></Field></div>
+              <Field label={destinationLabel(audienceMember.channel)}><input required placeholder={destinationPlaceholder(audienceMember.channel)} value={audienceMember.destination} onChange={(e) => setAudienceMember({ ...audienceMember, destination: e.target.value })} /></Field>
+              <div className="marketing-form-row"><Field label="Consent"><select value={audienceMember.consent_status} onChange={(e) => setAudienceMember({ ...audienceMember, consent_status: e.target.value })}><option value="unknown">unknown</option><option value="granted">granted</option><option value="denied">denied / opted out</option></select></Field><Field label="Consent date"><input type="date" value={(audienceMember.consent_at || '').slice(0, 10)} onChange={(e) => setAudienceMember({ ...audienceMember, consent_at: e.target.value })} /></Field></div>
+              <Field label="Consent source"><input placeholder="Example: web signup form, owner-provided test contact" value={audienceMember.consent_source} onChange={(e) => setAudienceMember({ ...audienceMember, consent_source: e.target.value })} /></Field>
+              <Field label="Optional CRM person"><select value={audienceMember.crm_person_reference} onChange={(e) => setAudienceMember({ ...audienceMember, crm_person_reference: e.target.value })}><option value="">Not linked to CRM</option>{crmOptions.people.map((person) => <option key={person.id} value={person.id}>{person.label}</option>)}</select></Field>
+              <FormActions busy={busy === 'Audience member'} edit={!!audienceMember.member_id} clear={() => setAudienceMember(EMPTY_AUDIENCE_MEMBER)} />
+            </form>
+          </Panel>
+          <Panel title="Distribution entries" subtitle="Campaign execution resolves channel destinations from selected lists.">
+            <div className="marketing-table-wrap"><table className="marketing-table"><thead><tr><th>List</th><th>Person / target</th><th>Channel</th><th>Destination</th><th>Consent</th><th></th></tr></thead><tbody>{distributionMembers.length ? distributionMembers.map((row) => <tr key={row.member_id}><td>{distributionLists.find((list) => list.list_id === row.list_id)?.name || row.list_id}</td><td>{row.display_label || 'Unnamed'}</td><td>{label(row.channel)}</td><td>{row.destination}</td><td>{label(row.consent_status)}</td><td><button type="button" onClick={() => setAudienceMember({ ...EMPTY_AUDIENCE_MEMBER, ...row, tags: parseJson(row.tags_json, []) })}>Edit</button></td></tr>) : <tr><td colSpan="6">No manual distribution entries yet.</td></tr>}</tbody></table></div>
+          </Panel>
+        </div>
       </section>}
 
       {tab === 'Templates & assets' && <section className="marketing-section marketing-two-col">

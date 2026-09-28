@@ -27,6 +27,11 @@ function displayName(value) {
   return [value.firstName, value.lastName].filter(Boolean).join(' ') || value.name || '';
 }
 
+function firstScalar(...values) {
+  const value = values.find((candidate) => ['string', 'number'].includes(typeof candidate) && String(candidate).trim());
+  return value == null ? '' : String(value).trim();
+}
+
 router.get('/crm-options', requireAuth, async (req, res) => {
   const ownerUserId = owner(req, res); if (!ownerUserId) return;
   try {
@@ -39,7 +44,13 @@ router.get('/crm-options', requireAuth, async (req, res) => {
     const people = (peopleResult.people || []).map((row) => ({
       id: String(row.id || row.name || ''),
       label: displayName(row.name) || displayName(row) || row.email || row.email_id || 'Unnamed CRM person',
-      email: row.email || row.email_id || row.emails?.primaryEmail || row.raw?.email_id || '',
+      email: firstScalar(row.email, row.email_id, row.emails?.primaryEmail, row.raw?.email_id),
+      phone: firstScalar(row.phone, row.phoneNumber, row.phones?.primaryPhoneNumber, row.mobile_no, row.raw?.mobile_no, row.raw?.phone),
+      channel_profiles: {
+        facebook: firstScalar(row.facebook, row.facebook_url, row.raw?.facebook, row.raw?.facebook_url),
+        linkedin: firstScalar(row.linkedin, row.linkedin_url, row.raw?.linkedin, row.raw?.linkedin_url),
+        instagram: firstScalar(row.instagram, row.instagram_url, row.raw?.instagram, row.raw?.instagram_url),
+      },
       company_label: displayName(row.company?.name || row.company) || row.companyName || row.raw?.company_name || '',
     })).filter((row) => row.id);
     const opportunities = (opportunityResult.opportunities || opportunityResult.deals || []).map((row) => ({
@@ -69,6 +80,16 @@ router.post('/campaigns/run-prepare', requireAuth, (req, res) => {
 
 for (const kind of ['campaigns', 'assets', 'channels', 'metrics', 'engagements', 'watches', 'strategies']) {
   router.post(`/${kind}`, requireAuth, (req, res) => {
+    try {
+      const ownerUserId = owner(req, res); if (!ownerUserId) return;
+      const result = upsertMarketingRecord(ownerUserId, kind, req.body || {});
+      res.status(result.created ? 201 : 200).json(result);
+    } catch (error) { res.status(error.status || 400).json({ error: error.message, code: error.code }); }
+  });
+}
+
+for (const [path, kind] of [['audience-lists', 'distributionLists'], ['audience-members', 'distributionMembers']]) {
+  router.post(`/${path}`, requireAuth, (req, res) => {
     try {
       const ownerUserId = owner(req, res); if (!ownerUserId) return;
       const result = upsertMarketingRecord(ownerUserId, kind, req.body || {});

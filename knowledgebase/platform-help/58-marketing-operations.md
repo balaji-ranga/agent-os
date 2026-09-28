@@ -14,6 +14,14 @@
 
 The page uses tenant-scoped Knowledge tables for campaigns, assets, channels, metrics, engagement events, a generic campaign outcome ledger, watch definitions, effectiveness strategies and lead interest profiles. CRM remains the source of truth for people, companies, consent, segments, leads, opportunities and revenue outcomes.
 
+## Planned audience versus observed recipients
+
+Open **Marketing → Audience lists** to create a reusable distribution list without CRM. Add one entry per channel destination: an email address, WhatsApp/telephone number, provider audience ID, or provider identity/profile reference. Every entry records consent status and source; destinations are encrypted at rest and entries follow the company data-retention policy. A CRM person link is optional.
+
+Open **Marketing → Campaigns** and edit a campaign. Select one or more Marketing distribution lists, optional named CRM people, a CRM filter, or a CRM list/segment. CRM is an enrichment and sales-handoff option, not a prerequisite.
+
+**Observed run recipients** shows privacy-safe recipient evidence captured from completed sends. It can include recipients supplied directly to an agent or workflow at run time even when the original campaign had no saved named audience. Flolah shows the display label and masked destination from the receipt, not a newly copied raw email address. Planned and observed counts are deliberately separate so an operator can see configuration drift.
+
 ## Campaign Outcome Ledger and reports
 
 Open **Run & Operate → Marketing → Analytics**, then select a campaign under **Campaign outcome report**. The report shows receipt-backed email sends, unique open signals, open-signal rate, recipient status, per-channel outcome totals and the underlying evidence ledger.
@@ -27,6 +35,8 @@ The ledger is generic; each channel keeps its native outcome types:
 - telemarketing: `attempted`, `connected`, `interested`, `callback_requested`, `qualified`, `do_not_call`.
 
 Provider webhooks, connector responses, saved browser watches and agents write the evidence through `marketing_campaign_outcome_record`. Campaign-bound `marketing_engagement_record` calls are mirrored into the ledger automatically. The ledger stores a privacy-safe identity hash, optional human-readable CRM/display label and masked destination; it does not store the raw destination as its identity key. Outcome records follow the CEO profile's data-retention period.
+
+For older email tool receipts that did not carry campaign IDs, Flolah reconciles a send only when exactly one recipient-specific tracking trail matches and the send occurred after that campaign/asset/tracking setup and before its open signal. Earlier emails to the same address are not retrospectively attached to a new campaign.
 
 ### What “Email open tracking setup” does
 
@@ -81,13 +91,15 @@ For a complete setup from chat, the agent uses `marketing_campaign_configure`. B
 
 ## Build a campaign
 
-1. In **Marketing → Campaigns**, link the campaign to an objective, choose channels, set outcome and budget, and reference a CRM segment/filter.
-2. In **Templates & assets**, save approved reusable content. Template variables are JSON and can be filled by a workflow or agent.
-3. In **Channels**, select the execution mode and store only a connector, account, sender or recipe reference.
-4. Add OAuth/API credentials under **Connectors**, never in Marketing.
-5. Use one reusable multi-channel workflow or the Marketing Specialist to select the correct asset and channel action.
-6. External sends, posts, calls, ad changes and submissions must pass **Policies → Action control**. Internal campaign/template/config changes do not themselves publish anything.
-7. Record provider receipts in the Campaign Outcome Ledger and numeric metrics in campaign metrics. **Analytics** aggregates these observations; CRM remains the source for lead and revenue attribution.
+1. In **Marketing → Audience lists**, create reusable manual lists with channel destinations and consent evidence. CRM is optional.
+2. In **Marketing → Campaigns**, link the campaign to an objective, choose channels, set outcome and budget, and select Marketing lists and/or CRM audiences.
+3. In **Templates & assets**, save approved reusable content. Template variables are JSON and can be filled by a workflow or agent.
+4. In **Channels**, select the execution mode and store only a connector, account, sender or recipe reference. Company-page publishing uses this account; advertising can use a provider audience reference.
+5. Add OAuth/API credentials under **Connectors**, never in Marketing.
+6. Edit the campaign and select **Validate for run**. Resolve every audience, consent, channel, asset, objective and budget blocker.
+7. Open the Marketing Specialist from the readiness result and ask it to run the campaign. Longer campaigns may use a goal/workflow.
+8. External sends, posts, calls, ad changes and submissions must pass **Policies → Action control**. Internal campaign/template/config changes do not themselves publish anything.
+9. Record provider receipts in the Campaign Outcome Ledger and numeric metrics in campaign metrics. **Analytics** aggregates these observations; CRM remains the source for optional lead and revenue attribution.
 
 ## Agent tools
 
@@ -95,6 +107,8 @@ For a complete setup from chat, the agent uses `marketing_campaign_configure`. B
 |---|---|---|
 | `marketing_workspace_read` | Read campaigns, assets, channel readiness and metrics | R0 |
 | `marketing_campaign_upsert` | Create/update internal campaign plans | R1 |
+| `marketing_audience_list_upsert` | Create/update a reusable manual distribution list | R1 |
+| `marketing_audience_member_upsert` | Add/update one encrypted, consent-tagged channel destination | R1 |
 | `marketing_campaign_configure` | Configure a campaign plus assets, channel references, watches and strategies from an intent or Objective | R1 |
 | `marketing_campaign_run_prepare` | Validate objective, budget, channels and approved assets before execution | R0 |
 | `marketing_asset_upsert` | Create/update reusable internal assets | R1 |

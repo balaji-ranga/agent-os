@@ -4,6 +4,8 @@
   "tools": [
     "marketing_workspace_read",
     "marketing_campaign_upsert",
+    "marketing_audience_list_upsert",
+    "marketing_audience_member_upsert",
     "marketing_campaign_configure",
     "marketing_campaign_run_prepare",
     "marketing_asset_upsert",

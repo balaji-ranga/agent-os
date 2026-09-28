@@ -60,6 +60,8 @@ function normalizeMedia(input) {
 
 router.post('/marketing-workspace-read', (req, res) => run(res, async () => { const ownerUserId = owner(req); reconcileMarketingToolOutcomes(ownerUserId); return { workspace: getMarketingWorkspace(ownerUserId) }; }));
 router.post('/marketing-campaign-upsert', (req, res) => run(res, async () => upsertMarketingRecord(owner(req), 'campaigns', req.body || {})));
+router.post('/marketing-audience-list-upsert', (req, res) => run(res, async () => upsertMarketingRecord(owner(req), 'distributionLists', req.body || {})));
+router.post('/marketing-audience-member-upsert', (req, res) => run(res, async () => upsertMarketingRecord(owner(req), 'distributionMembers', req.body || {})));
 router.post('/marketing-campaign-configure', (req, res) => run(res, async () => configureMarketingCampaign(owner(req), req.body || {})));
 router.post('/marketing-campaign-run-prepare', (req, res) => run(res, async () => ({ readiness: prepareMarketingCampaignRun(owner(req), req.body || {}) })));
 router.post('/marketing-asset-upsert', (req, res) => run(res, async () => upsertMarketingRecord(owner(req), 'assets', req.body || {})));
