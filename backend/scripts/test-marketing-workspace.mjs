@@ -189,6 +189,11 @@ try {
   const pausedSchedule = await svc.upsertMarketingCampaignSchedule(ownerB, { campaign_id: configured.campaign.campaign_id, status: 'paused' }, 'marketing-specialist-test');
   assert.equal(pausedSchedule.schedule.id, scheduled.schedule.id, 'campaign schedule updates instead of duplicating');
   assert.equal(pausedSchedule.schedule.status, 'paused');
+  await assert.rejects(
+    () => svc.upsertMarketingCampaignSchedule(ownerA, { campaign_id: campaign.record.campaign_id, strategy_brief: 'Cross-owner schedule attempt' }, 'marketing-specialist-test'),
+    /not available|not granted/i,
+    'an agent granted to another owner cannot create a campaign schedule',
+  );
 
   svc.upsertMarketingRecord(ownerB, 'distributionLists', { list_id: 'blocked-audience', name: 'Blocked audience', default_channel: 'email' });
   svc.upsertMarketingRecord(ownerB, 'distributionMembers', { member_id: 'blocked-audience-1', list_id: 'blocked-audience', display_label: 'No consent recipient', channel: 'email', destination: 'no-consent@example.invalid', consent_status: 'unknown' });
