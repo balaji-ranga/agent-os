@@ -227,7 +227,9 @@ export function notifyKanbanTaskCreated({ userId, task }) {
       title: `Kanban: ${task.title || `Task #${task.id}`}`,
       body: task.assigned_agent_id
         ? `Assigned to ${task.assigned_agent_id}`
-        : 'New task on your board',
+        : task.assigned_user_id
+          ? 'Assigned to you'
+          : 'New task on your board',
       linkUrl: `/kanban`,
       createdBy: 'system',
       source: 'kanban_task',

@@ -78,7 +78,7 @@ const BUILTIN_TOOLS = [
     display_name: 'Kanban Assign Task',
     endpoint: '/api/tools/kanban-assign-task',
     method: 'POST',
-    purpose: 'API tool (COO only): assign a Kanban task to an agent. Invoke by name with task_id and to_agent_id. Sets status to open so the agent (or orphan watcher) can start; agent moves to awaiting_confirmation when CEO input is needed. Do not run via exec or shell.',
+    purpose: 'API tool: assign a Kanban task to an enabled human employee in the same company using task_id plus assigned_user_id (preferred) or to_user_id; any agent granted this tool may do so. COO may alternatively assign another AI employee using to_agent_id. Human and AI assignments start open. Do not run via exec or shell.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,
@@ -89,7 +89,7 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/kanban-create-task',
     method: 'POST',
     purpose:
-      'API tool: create a Kanban task for the CEO. Invoke by name with title (required), optional description, optional assign_to (agent id or "coo"/omit for CEO inbox). New cards start as open (even when assigned); the assigned agent moves to awaiting_confirmation only when they need CEO input. Do not run via exec or shell.',
+      'API tool: create a Kanban task. Invoke by name with title (required), optional description, and either assigned_user_id/to_user_id for an enabled human employee in the same company, or assign_to for an AI agent ("coo"/omit keeps it in the CEO inbox). Employee id or exact employee name is accepted. New cards start open. Do not run via exec or shell.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,

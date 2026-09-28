@@ -142,6 +142,7 @@ import {
   clearKanbanTaskNotification,
 } from '../services/platform-notifications.js';
 import { resolveKanbanTaskOwnerId } from '../services/kanban-user-scope.js';
+import { humanAssignmentTarget, resolveCompanyEmployee } from '../services/kanban-human-assignment.js';
 import jobApplicantTools from './job-applicant-tools.js';
 import crmTools from './crm-tools.js';
 import erpTools from './erp-tools.js';
@@ -1606,7 +1607,8 @@ router.post('/kanban-reassign-to-coo', optionalAuth, (req, res) => {
 
 /**
  * Kanban tool: create a task for the CEO (any granted agent may use if tool is granted).
- * Body: title (required), description?, assign_to? (agent id | "coo" | omit for CEO inbox).
+ * Body: title (required), description?, assign_to? (agent id | "coo"),
+ * assigned_user_id?/to_user_id? (enabled employee id or exact employee name).
  */
 router.post('/kanban-create-task', optionalAuth, (req, res) => {
   const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
@@ -1645,11 +1647,14 @@ router.post('/kanban-create-task', optionalAuth, (req, res) => {
       .trim();
 
     let assignedAgentId = null;
-    const assignTo = String(requestPayload.assign_to || requestPayload.assigned_agent_id || '')
-      .trim()
-      .toLowerCase();
-    if (assignTo && assignTo !== 'coo' && assignTo !== 'ceo') {
-      const db = getDb();
+    let assignedUser = null;
+    const humanTarget = humanAssignmentTarget(requestPayload);
+    const assignToRaw = String(requestPayload.assign_to || requestPayload.assigned_agent_id || '').trim();
+    const assignTo = assignToRaw.toLowerCase();
+    const db = getDb();
+    if (humanTarget) {
+      assignedUser = resolveCompanyEmployee(ownerUserId, humanTarget, db);
+    } else if (assignTo && assignTo !== 'coo' && assignTo !== 'ceo') {
       const agent = db
         .prepare('SELECT id FROM agents WHERE LOWER(id) = ? OR LOWER(openclaw_agent_id) = ?')
         .get(assignTo, assignTo);
@@ -1664,13 +1669,12 @@ router.post('/kanban-create-task', optionalAuth, (req, res) => {
     // Always start as open. Agents move to awaiting_confirmation when they need CEO input;
     // orphan watcher can pick up assigned open cards that never got a delegation run.
     const status = 'open';
-    const db = getDb();
     db.prepare(
-      `INSERT INTO kanban_tasks (title, description, status, assigned_agent_id, created_by, due_date, owner_user_id,
+      `INSERT INTO kanban_tasks (title, description, status, assigned_agent_id, assigned_user_id, created_by, due_date, owner_user_id,
         goal_run_id, goal_step_id, trace_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
-      title, description, status, assignedAgentId, caller.id, null, ownerUserId,
+      title, description, status, assignedAgentId, assignedUser?.id || null, caller.id, null, ownerUserId,
       requestPayload.goal_run_id || requestPayload.goalRunId || null,
       requestPayload.goal_step_id || requestPayload.goalStepId || null,
       requestPayload.trace_id || requestPayload.goal_run_id || requestPayload.goalRunId || null
@@ -1678,13 +1682,15 @@ router.post('/kanban-create-task', optionalAuth, (req, res) => {
     const row = db.prepare('SELECT * FROM kanban_tasks ORDER BY id DESC LIMIT 1').get();
     const sla = applyPolicyEtaToTask(row.id, ownerUserId, { etaHours: requestPayload.eta_hours, context: `${title}\n${description}` });
     Object.assign(row, sla || {});
-    notifyKanbanTaskCreated({ userId: ownerUserId, task: row });
+    notifyKanbanTaskCreated({ userId: assignedUser?.id || ownerUserId, task: row });
     const out = {
       ok: true,
       task_id: row.id,
       title: row.title,
       status: row.status,
       assigned_agent_id: row.assigned_agent_id,
+      assigned_user_id: row.assigned_user_id,
+      assigned_user_name: assignedUser?.name || null,
       owner_user_id: ownerUserId,
       created_by: row.created_by,
     };
@@ -1693,7 +1699,7 @@ router.post('/kanban-create-task', optionalAuth, (req, res) => {
   } catch (e) {
     const err = { error: e.message };
     logTool(req, 'kanban_create_task', requestPayload, err, 'error', source);
-    res.status(500).json(err);
+    res.status(e.status || 500).json(err);
   }
 });
 
@@ -1811,26 +1817,28 @@ router.post('/kanban-watch-tick', optionalAuth, async (req, res) => {
 });
 
 /**
- * Kanban tool: assign task to an agent. Only COO can assign to another agent.
+ * Kanban tool: assign a task. Any granted agent may assign an enabled employee
+ * in its own company; only COO can assign to another AI agent.
  */
 router.post('/kanban-assign-task', optionalAuth, (req, res) => {
   const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
   const requestPayload = req.body || {};
   const taskId = Number(requestPayload.task_id);
-    const assignTo = String(
+  const humanTarget = humanAssignmentTarget(requestPayload);
+  const assignTo = String(
       requestPayload.to_agent_id || requestPayload.agent_id || requestPayload.assign_to || ''
     )
       .trim()
       .toLowerCase();
     try {
-    if (!taskId || !assignTo) {
-      const err = { error: 'task_id and to_agent_id (or assign_to) required' };
+    if (!taskId || (!assignTo && !humanTarget)) {
+      const err = { error: 'task_id and an employee target (assigned_user_id/to_user_id) or to_agent_id are required' };
       logTool(req,'kanban_assign_task', requestPayload, err, 'error', source);
       return res.status(400).json(err);
     }
     const caller = getCallerAgent(req);
-    if (!caller || !caller.is_coo) {
-      const err = { error: 'Only COO can assign a task to another agent' };
+    if (!caller) {
+      const err = { error: 'Calling agent required (x-openclaw-agent-id)' };
       logTool(req,'kanban_assign_task', requestPayload, err, 'error', source);
       return res.status(403).json(err);
     }
@@ -1848,26 +1856,21 @@ router.post('/kanban-assign-task', optionalAuth, (req, res) => {
       logTool(req, 'kanban_assign_task', requestPayload, err, 'error', source);
       return res.status(e.status || 403).json(err);
     }
-    if (assignTo.startsWith('user:')) {
-      const userId = String(requestPayload.to_agent_id || requestPayload.assign_to || '')
-        .trim()
-        .replace(/^user:/i, '');
-      const person = db
-        .prepare(
-          `SELECT id FROM platform_users WHERE id = ? AND (id = ? OR owner_user_id = ?) AND enabled = 1`
-        )
-        .get(userId, task.owner_user_id, task.owner_user_id);
-      if (!person) {
-        const err = { error: 'Employee not found in this company' };
-        logTool(req,'kanban_assign_task', requestPayload, err, 'error', source);
-        return res.status(404).json(err);
-      }
+    if (humanTarget) {
+      const person = resolveCompanyEmployee(task.owner_user_id, humanTarget, db);
       db.prepare(
-        "UPDATE kanban_tasks SET assigned_user_id = ?, assigned_agent_id = NULL, status = 'awaiting_confirmation', updated_at = datetime('now') WHERE id = ?"
+        "UPDATE kanban_tasks SET assigned_user_id = ?, assigned_agent_id = NULL, status = 'open', updated_at = datetime('now') WHERE id = ?"
       ).run(person.id, taskId);
-      const out = { ok: true, task_id: taskId, assigned_user_id: person.id };
+      const updated = db.prepare('SELECT * FROM kanban_tasks WHERE id = ?').get(taskId);
+      notifyKanbanTaskCreated({ userId: person.id, task: updated });
+      const out = { ok: true, task_id: taskId, status: 'open', assigned_user_id: person.id, assigned_user_name: person.name };
       logTool(req,'kanban_assign_task', requestPayload, out, 'ok', source);
       return res.json(out);
+    }
+    if (!caller.is_coo) {
+      const err = { error: 'Only COO can assign a task to another AI agent' };
+      logTool(req,'kanban_assign_task', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
     }
     const agent = db.prepare('SELECT id FROM agents WHERE LOWER(id) = ? OR LOWER(openclaw_agent_id) = ?').get(assignTo, assignTo);
     if (!agent) {
@@ -1884,7 +1887,7 @@ router.post('/kanban-assign-task', optionalAuth, (req, res) => {
   } catch (e) {
     const err = { error: e.message };
     logTool(req,'kanban_assign_task', requestPayload, err, 'error', source);
-    res.status(500).json(err);
+    res.status(e.status || 500).json(err);
   }
 });
 

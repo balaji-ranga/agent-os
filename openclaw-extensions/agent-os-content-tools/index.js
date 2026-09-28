@@ -323,7 +323,26 @@ const PARAM_SCHEMAS = {
   },
   kanban_assign_task: {
     type: "object",
-    properties: { task_id: { type: "number" }, to_agent_id: { type: "string" } },
+    properties: {
+      task_id: { type: "number", description: "Kanban task ID." },
+      assigned_user_id: { type: "string", description: "Enabled human employee id or exact employee name in this company." },
+      to_user_id: { type: "string", description: "Alias for assigned_user_id." },
+      to_agent_id: { type: "string", description: "AI agent id; COO-only." },
+    },
+    required: ["task_id"],
+    additionalProperties: true,
+  },
+  kanban_create_task: {
+    type: "object",
+    properties: {
+      title: { type: "string", description: "Task title (required)." },
+      description: { type: "string", description: "Concrete work order and expected outcome." },
+      assigned_user_id: { type: "string", description: "Enabled human employee id or exact employee name in this company." },
+      to_user_id: { type: "string", description: "Alias for assigned_user_id." },
+      assign_to: { type: "string", description: "AI agent id, coo, or user:<employee-id>." },
+      eta_hours: { type: "number", description: "Optional SLA in hours; company policy applies when omitted." },
+    },
+    required: ["title"],
     additionalProperties: true,
   },
   kanban_get_task: {
