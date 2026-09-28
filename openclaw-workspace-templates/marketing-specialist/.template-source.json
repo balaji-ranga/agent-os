@@ -10,6 +10,7 @@
     "marketing_channel_config_upsert",
     "marketing_strategy_upsert",
     "marketing_metric_record",
+    "marketing_campaign_outcome_record",
     "marketing_tracking_pixel_create",
     "marketing_channel_send",
     "marketing_engagement_record",

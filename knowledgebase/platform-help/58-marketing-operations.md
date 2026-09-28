@@ -7,12 +7,32 @@
 - objective-linked campaign plans and budgets;
 - reusable email templates, social posts, WhatsApp messages, ad copy, creative briefs and telemarketing scripts;
 - channel readiness for email, WhatsApp, Facebook, Google Ads, LinkedIn, Instagram and telemarketing;
-- campaign metrics and channel-level analytics;
+- campaign metrics, recipient-level email evidence and cross-channel outcome analytics;
 - privacy-safe engagement evidence, periodic social/provider watches and follow-up status;
 - cross-campaign lead correlation, interest profiles and CRM handoff;
 - CRM audience references and Knowledge/RAG context without duplicating those systems.
 
-The page uses tenant-scoped Knowledge tables for campaigns, assets, channels, metrics, engagement events, watch definitions, effectiveness strategies and lead interest profiles. CRM remains the source of truth for people, companies, consent, segments, leads, opportunities and revenue outcomes.
+The page uses tenant-scoped Knowledge tables for campaigns, assets, channels, metrics, engagement events, a generic campaign outcome ledger, watch definitions, effectiveness strategies and lead interest profiles. CRM remains the source of truth for people, companies, consent, segments, leads, opportunities and revenue outcomes.
+
+## Campaign Outcome Ledger and reports
+
+Open **Run & Operate → Marketing → Analytics**, then select a campaign under **Campaign outcome report**. The report shows receipt-backed email sends, unique open signals, open-signal rate, recipient status, per-channel outcome totals and the underlying evidence ledger.
+
+The ledger is generic; each channel keeps its native outcome types:
+
+- email: `send_accepted`, `open_signal`, `link_click`, `reply`, `bounce`, `unsubscribe`;
+- WhatsApp: `send_accepted`, `delivered`, `read`, `link_click`, `reply`, `opt_out`;
+- Facebook, LinkedIn and Instagram: `published`, `reaction`, `comment`, `share`, `link_click`, `message`, `lead_form`;
+- Google Ads: `impression`, `click`, `conversion`, `lead_form`, `spend`;
+- telemarketing: `attempted`, `connected`, `interested`, `callback_requested`, `qualified`, `do_not_call`.
+
+Provider webhooks, connector responses, saved browser watches and agents write the evidence through `marketing_campaign_outcome_record`. Campaign-bound `marketing_engagement_record` calls are mirrored into the ledger automatically. The ledger stores a privacy-safe identity hash, optional human-readable CRM/display label and masked destination; it does not store the raw destination as its identity key. Outcome records follow the CEO profile's data-retention period.
+
+### What “Email open tracking setup” does
+
+This section is a setup utility, not the report. It creates a signed, recipient-specific invisible image tag for an HTML email. When the recipient's mail client or image proxy retrieves the image, Flolah records an `open_signal` in the Campaign Outcome Ledger. Image blocking can miss a real open, and mail proxying/caching can produce a signal without proving that a person read the message.
+
+For a Marketing Specialist send, pass `campaign_id`, the approved `asset_id`, and one recipient per `email_send` action. Flolah adds the recipient-specific pixel when one is not already present, records the send receipt and later joins any open signal to the same privacy-safe recipient row.
 
 ## Channel effectiveness
 
@@ -24,7 +44,7 @@ Every supported channel has a configurable strategy defining tracked signals, sc
 - Google Ads: impressions, clicks, conversions, lead forms and spend from the connected provider.
 - Telemarketing: attempted, connected, interested, callback, qualified and do-not-call outcomes.
 
-Engagement history follows the company profile retention period.
+Engagement and campaign outcome history follow the company profile retention period.
 
 ## Leads, prior interests and CRM
 
@@ -59,7 +79,7 @@ For a complete setup from chat, the agent uses `marketing_campaign_configure`. B
 4. Add OAuth/API credentials under **Connectors**, never in Marketing.
 5. Use one reusable multi-channel workflow or the Marketing Specialist to select the correct asset and channel action.
 6. External sends, posts, calls, ad changes and submissions must pass **Policies → Action control**. Internal campaign/template/config changes do not themselves publish anything.
-7. Record provider receipts and numeric metrics. **Analytics** aggregates these observations; CRM remains the source for lead and revenue attribution.
+7. Record provider receipts in the Campaign Outcome Ledger and numeric metrics in campaign metrics. **Analytics** aggregates these observations; CRM remains the source for lead and revenue attribution.
 
 ## Agent tools
 
@@ -73,6 +93,7 @@ For a complete setup from chat, the agent uses `marketing_campaign_configure`. B
 | `marketing_channel_config_upsert` | Store non-secret channel references/settings | R1 |
 | `marketing_strategy_upsert` | Configure evidence, scoring, attribution, consent and follow-up strategy | R1 |
 | `marketing_metric_record` | Idempotently record a numeric observation | R1 |
+| `marketing_campaign_outcome_record` | Record idempotent channel-specific campaign evidence in the generic outcome ledger | R1 |
 | `marketing_tracking_pixel_create` | Create signed email open-signal HTML without storing raw audience identity | R1 |
 | `marketing_engagement_record` | Record an attributable channel event | R1 |
 | `marketing_watch_upsert` / `marketing_watches_due` / `marketing_watch_result_record` | Configure and operate read-only social/provider monitoring | R1 / R0 / R1 |

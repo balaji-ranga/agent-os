@@ -11,7 +11,7 @@ Open **Run & Operate → Marketing** to coordinate multi-channel work without cr
 - Campaign plans linked to objectives, budgets and CRM audience references
 - Reusable email templates, social content, WhatsApp copy, ad copy, creative briefs and call scripts
 - Channel readiness for email, WhatsApp, Facebook, Google Ads, LinkedIn, Instagram and telemarketing
-- Campaign metrics and channel-level totals
+- Campaign metrics, recipient-level email status and a generic cross-channel Campaign Outcome Ledger
 - Channel effectiveness strategies, attributable engagement evidence and follow-up status
 - Cross-campaign interest profiles linked to CRM people and opportunities
 
@@ -33,7 +33,11 @@ Planning is not publishing. External email, social posts, WhatsApp messages, ad 
 
 ## Track effectiveness and prepare follow-up
 
-- Email templates can include a signed open pixel created under **Analytics**. An image request is an open signal, not guaranteed human reading, because mail clients may proxy or block images.
+Open **Marketing → Analytics → Campaign outcome report** and select a campaign. The report shows receipt-backed email sends, unique open signals, open-signal rate, recipient status, per-channel totals and the evidence ledger.
+
+The ledger keeps channel-native outcomes rather than forcing every channel into email terminology. Email contributes send/open/click/reply/bounce evidence; WhatsApp contributes sent/delivered/read/reply/opt-out evidence; social channels contribute publish/reaction/comment/share/message/lead evidence; ads contribute impression/click/conversion/spend; and telemarketing contributes attempted/connected/interested/qualified/do-not-call outcomes. Records follow your company data-retention policy.
+
+- **Email open tracking setup** creates a recipient-specific signed invisible image tag for an HTML email. It is a setup utility, not the report. An image request is an open signal, not guaranteed human reading, because mail clients may proxy, cache or block images.
 - WhatsApp uses delivery/read/reply receipts from its connected channel.
 - Facebook, LinkedIn and Instagram can use provider APIs or a saved read-only browser recipe tied to the stored campaign asset and live post reference.
 - Google Ads uses provider impressions, clicks, lead forms, conversions and spend.

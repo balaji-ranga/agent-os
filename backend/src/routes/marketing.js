@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAuth, resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
-import { configureMarketingCampaign, createMarketingOpenPixel, getMarketingWorkspace, listDueMarketingWatches, prepareMarketingCampaignRun, prepareMarketingLead, recordMarketingWatchResult, updateMarketingFollowup, upsertMarketingRecord } from '../services/marketing-workspace.js';
+import { configureMarketingCampaign, createMarketingOpenPixel, getMarketingWorkspace, listDueMarketingWatches, prepareMarketingCampaignRun, prepareMarketingLead, reconcileMarketingToolOutcomes, recordMarketingWatchResult, updateMarketingFollowup, upsertMarketingRecord } from '../services/marketing-workspace.js';
 
 const router = Router();
 
@@ -13,6 +13,7 @@ function owner(req, res) {
 router.get('/workspace', requireAuth, (req, res) => {
   try {
     const ownerUserId = owner(req, res); if (!ownerUserId) return;
+    reconcileMarketingToolOutcomes(ownerUserId);
     res.json(getMarketingWorkspace(ownerUserId));
   } catch (error) { res.status(error.status || 500).json({ error: error.message, code: error.code }); }
 });

@@ -24,8 +24,8 @@ try {
 
   handle.prepare(`INSERT INTO agents(id,name,role,template_base_id) VALUES (?,?,?,?)`).run('marketing-specialist-test', 'Marketing Specialist Test', 'Marketing', 'marketing-specialist');
   const grantSync = seedMarketingWorkspaceToolsIfMissing();
-  assert.equal(grantSync.grants_added, 16, 'existing hired Marketing Specialists inherit newly introduced Marketing tools');
-  assert.equal(handle.prepare(`SELECT COUNT(*) AS count FROM agent_tool_grants WHERE agent_id = ? AND tool_name LIKE 'marketing_%'`).get('marketing-specialist-test').count, 16);
+  assert.equal(grantSync.grants_added, 17, 'existing hired Marketing Specialists inherit newly introduced Marketing tools');
+  assert.equal(handle.prepare(`SELECT COUNT(*) AS count FROM agent_tool_grants WHERE agent_id = ? AND tool_name LIKE 'marketing_%'`).get('marketing-specialist-test').count, 17);
 
   const ownerA = 'marketing-owner-a';
   const ownerB = 'marketing-owner-b';
@@ -62,6 +62,38 @@ try {
   assert.equal(opened.record.event_type, 'open_signal');
   assert.equal(svc.consumeMarketingOpenPixel(token).created, false, 'pixel replay is idempotent');
   const identityHash = opened.record.audience_hash;
+  svc.recordMarketingOutcome(ownerA, { campaign_id: 'campaign-growth-q4', asset_id: 'asset-email-1', channel: 'email', outcome_type: 'send_accepted', audience_hash: identityHash, recipient_label: 'CRM person one', destination_masked: 'c***@example.invalid', provider_reference: 'message-1', observed_at: '2026-09-28T10:00:00.000Z', source: 'email_send' });
+  const emailReport = svc.getMarketingWorkspace(ownerA).analytics.campaign_reports.find((row) => row.campaign_id === 'campaign-growth-q4');
+  assert.equal(emailReport.emails_sent, 1);
+  assert.equal(emailReport.unique_open_signals, 1);
+  assert.equal(emailReport.open_rate_percent, 100);
+  assert.equal(emailReport.recipients[0].recipient_label, 'CRM person one');
+  const firstRead = svc.recordMarketingOutcome(ownerA, { campaign_id: 'campaign-growth-q4', asset_id: 'asset-email-1', channel: 'whatsapp', outcome_type: 'read', audience_hash: identityHash, recipient_label: 'CRM person one', provider_reference: 'wa-read-1' });
+  const repeatedRead = svc.recordMarketingOutcome(ownerA, { campaign_id: 'campaign-growth-q4', asset_id: 'asset-email-1', channel: 'whatsapp', outcome_type: 'read', audience_hash: identityHash, recipient_label: 'CRM person one', provider_reference: 'wa-read-1' });
+  assert.equal(firstRead.record.outcome_id, repeatedRead.record.outcome_id, 'provider outcome replay is idempotent');
+  svc.recordMarketingOutcome(ownerA, { campaign_id: 'campaign-growth-q4', asset_id: 'asset-email-1', channel: 'facebook', outcome_type: 'comment', provider_reference: 'fb-comment-outcome-1' });
+  const crossChannelReport = svc.getMarketingWorkspace(ownerA).analytics.campaign_reports.find((row) => row.campaign_id === 'campaign-growth-q4');
+  assert.equal(crossChannelReport.channel_outcomes.whatsapp.read, 1);
+  assert.equal(crossChannelReport.channel_outcomes.facebook.comment, 1);
+  assert.equal(svc.getMarketingWorkspace(ownerB).records.outcomes.length, 0, 'cross-owner campaign outcomes are not visible');
+
+  svc.upsertMarketingRecord(ownerB, 'campaigns', { campaign_id: 'legacy-email-campaign', name: 'Legacy email campaign', status: 'active', channels: ['email'], goal: 'Validate legacy receipts' });
+  svc.upsertMarketingRecord(ownerB, 'assets', { asset_id: 'legacy-email-asset', campaign_id: 'legacy-email-campaign', name: 'Legacy email', channel: 'email', content: '<p>Hello</p>', approval_status: 'approved' });
+  const legacyPixel = svc.createMarketingOpenPixel(ownerB, { campaign_id: 'legacy-email-campaign', asset_id: 'legacy-email-asset', audience_reference: 'legacy.person@example.invalid' });
+  svc.consumeMarketingOpenPixel(new URL(legacyPixel.pixel_url).searchParams.get('t'));
+  handle.prepare(`INSERT INTO content_tool_logs(tool_name,request_payload,response_payload,status,owner_user_id,created_at) VALUES('email_send',?,?, 'ok',?,?)`).run(
+    JSON.stringify({ to: 'legacy.person@example.invalid', subject: 'Legacy campaign' }),
+    JSON.stringify({ sent: true, messageId: 'legacy-message-1', to: ['legacy.person@example.invalid'] }),
+    ownerB,
+    '2026-09-27T12:00:00.000Z'
+  );
+  assert.equal(svc.reconcileMarketingToolOutcomes(ownerB).reconciled, 1, 'legacy successful email receipt is reconciled generically');
+  assert.equal(svc.reconcileMarketingToolOutcomes(ownerB).reconciled, 0, 'legacy receipt reconciliation is idempotent');
+  const legacyReport = svc.getMarketingWorkspace(ownerB).analytics.campaign_reports.find((row) => row.campaign_id === 'legacy-email-campaign');
+  assert.equal(legacyReport.emails_sent, 1);
+  assert.equal(legacyReport.unique_open_signals, 1);
+  assert.equal(legacyReport.recipients[0].recipient_label, 'Legacy Person');
+  assert.equal(legacyReport.recipients[0].destination_masked, 'l***@example.invalid');
   svc.upsertMarketingRecord(ownerA, 'engagements', { event_id: 'email-reply-1', campaign_id: 'campaign-growth-q4', asset_id: 'asset-email-1', channel: 'email', event_type: 'reply', audience_hash: identityHash, source: 'provider_webhook' });
   const qualified = svc.prepareMarketingLead(ownerA, { identity_reference: 'crm-person-1', crm_person_reference: 'person-1', display_label: 'Existing CRM person', opportunity_key: 'platform-adoption', opportunity_summary: 'Platform adoption', interests: ['automation'], engagement_event_ids: [opened.record.event_id, 'email-reply-1'] });
   assert.equal(qualified.record.status, 'qualified');
@@ -81,7 +113,7 @@ try {
   const watchResult = svc.recordMarketingWatchResult(ownerA, { watch_id: watch.record.watch_id, insight: 'One new comment', snapshot: { comments: 1 }, events: [{ event_id: 'fb-comment-1', event_type: 'comment', value: 1 }] });
   assert.equal(watchResult.events.length, 1);
   assert.ok(Date.parse(watchResult.watch.next_check_at) > Date.now());
-  assert.equal(svc.getMarketingWorkspace(ownerB).records.engagements.length, 0, 'cross-owner engagement data is not visible');
+  assert.equal(svc.getMarketingWorkspace(ownerB).records.engagements.some((row) => row.event_id === 'fb-comment-1'), false, 'cross-owner engagement data is not visible');
 
   const configured = svc.configureMarketingCampaign(ownerB, {
     campaign: {
@@ -129,20 +161,23 @@ try {
   assert.ok(role.tools.includes('marketing_campaign_run_prepare'));
   assert.ok(role.tools.includes('marketing_strategy_upsert'));
   assert.ok(role.tools.includes('marketing_channel_send'));
+  assert.ok(role.tools.includes('marketing_campaign_outcome_record'));
   assert.ok(role.tools.includes('connector_execute_action'));
 
   const toolRows = handle.prepare(`SELECT name,risk_tier,action_family FROM content_tools_meta WHERE name LIKE 'marketing_%' ORDER BY name`).all();
   const toolNames = toolRows.map((row) => row.name);
-  assert.equal(toolNames.length, 16);
+  assert.equal(toolNames.length, 17);
   assert.equal(toolRows.find((row) => row.name === 'marketing_workspace_read')?.action_family, 'read');
   assert.equal(toolRows.find((row) => row.name === 'marketing_campaign_upsert')?.action_family, 'write_internal');
   assert.equal(toolRows.find((row) => row.name === 'marketing_channel_send')?.action_family, 'communicate_external');
   assert.equal(toolRows.find((row) => row.name === 'marketing_channel_send')?.risk_tier, 'R2');
   assert.equal(svc.getMarketingWorkspace(ownerA).records.strategies.length, 7, 'each supported channel has an effectiveness strategy');
   svc.upsertMarketingRecord(ownerA, 'engagements', { event_id: 'old-event', channel: 'email', event_type: 'open_signal', observed_at: '2020-01-01T00:00:00.000Z' });
+  svc.recordMarketingOutcome(ownerA, { outcome_id: 'old-outcome', campaign_id: 'campaign-growth-q4', channel: 'facebook', outcome_type: 'reaction', observed_at: '2020-01-01T00:00:00.000Z' });
   const purged = await purgeOwnerRetention(ownerA, { days: 30 });
   assert.ok(purged.deleted.marketing_engagement_events >= 1, 'engagement history follows owner retention');
-  console.log(JSON.stringify({ ok: true, checks: ['knowledge-backed-storage', 'upsert-idempotency', 'metric-idempotency', 'owner-isolation', 'secret-rejection', 'signed-open-pixel', 'pixel-idempotency', 'cross-campaign-lead-correlation', 'distinct-opportunities', 'suppression-gate', 'browser-watch-cycle', 'agentic-campaign-configuration', 'run-readiness-contract', 'paid-budget-gate', 'channel-strategies', 'retention', 'hireable-template', 'existing-template-grant-reconciliation', 'tool-registry'] }, null, 2));
+  assert.ok(purged.deleted.marketing_campaign_outcomes >= 1, 'campaign outcome ledger follows owner retention');
+  console.log(JSON.stringify({ ok: true, checks: ['knowledge-backed-storage', 'upsert-idempotency', 'metric-idempotency', 'outcome-ledger-idempotency', 'cross-channel-outcomes', 'legacy-email-reconciliation', 'owner-isolation', 'secret-rejection', 'signed-open-pixel', 'pixel-idempotency', 'cross-campaign-lead-correlation', 'distinct-opportunities', 'suppression-gate', 'browser-watch-cycle', 'agentic-campaign-configuration', 'run-readiness-contract', 'paid-budget-gate', 'channel-strategies', 'retention', 'hireable-template', 'existing-template-grant-reconciliation', 'tool-registry'] }, null, 2));
 } finally {
   try { handle?.close(); } catch {}
   rmSync(root, { recursive: true, force: true });

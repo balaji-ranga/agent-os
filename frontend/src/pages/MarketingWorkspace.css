@@ -48,5 +48,20 @@
 .marketing-switch { display: flex; align-items: center; gap: 9px; font-weight: 700; }
 .marketing-form-actions { display: flex; gap: 9px; padding-top: 4px; }
 .marketing-empty { padding: 30px 12px; text-align: center; color: var(--muted); }
+.marketing-report-toolbar { max-width: 440px; margin-bottom: 18px; }
+.marketing-report-stats { margin-bottom: 18px; }
+.marketing-channel-outcomes { display: grid; grid-template-columns: repeat(auto-fit,minmax(210px,1fr)); gap: 12px; margin: 4px 0 20px; }
+.marketing-channel-card { padding: 15px; border: 1px solid var(--border); border-radius: 12px; background: color-mix(in srgb,var(--accent) 4%,var(--surface)); }
+.marketing-channel-card > strong { display: block; margin-bottom: 9px; }
+.marketing-channel-card > div { display: flex; flex-wrap: wrap; gap: 7px; }
+.marketing-channel-card span { padding: 5px 8px; border-radius: 999px; color: var(--muted); background: var(--surface); border: 1px solid var(--border); font-size: .78rem; }
+.marketing-channel-card b { color: var(--text); }
+.marketing-subheading { margin: 22px 0 9px; font-size: .95rem; }
+.marketing-table-wrap { width: 100%; overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; }
+.marketing-table { width: 100%; border-collapse: collapse; min-width: 700px; }
+.marketing-table th,.marketing-table td { padding: 11px 13px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; font-size: .84rem; }
+.marketing-table th { color: var(--muted); background: color-mix(in srgb,var(--text) 3%,var(--surface)); font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; }
+.marketing-table tbody tr:last-child td { border-bottom: 0; }
+.marketing-table td small { display: block; margin-top: 3px; color: var(--muted); }
 @media (max-width: 950px) { .marketing-stat-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } .marketing-two-col { grid-template-columns: 1fr; } .marketing-hero { align-items: flex-start; flex-direction: column; } .marketing-hero-actions { justify-content: flex-start; } }
 @media (max-width: 600px) { .marketing-page { padding: 14px; } .marketing-hero { padding: 20px; border-radius: 16px; } .marketing-stat-grid,.marketing-form-row { grid-template-columns: 1fr; } .marketing-hero-actions { width: 100%; } .marketing-hero-actions > * { flex: 1; text-align: center; } .marketing-record { align-items: flex-start; } .marketing-record-side { align-items: flex-end; flex-direction: column; } }

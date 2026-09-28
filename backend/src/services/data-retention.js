@@ -74,6 +74,7 @@ export async function purgeOwnerRetention(ownerUserId, { days = null } = {}) {
     productivity_events: 0,
     productivity_action_receipts: 0,
     marketing_engagement_events: 0,
+    marketing_campaign_outcomes: 0,
   };
 
   deleted.chat_turns =
@@ -129,9 +130,14 @@ export async function purgeOwnerRetention(ownerUserId, { days = null } = {}) {
 
   try {
     const marketingDb = getDbForCeo(owner);
-    const table = marketingDb.prepare(`SELECT id FROM master_data_tables WHERE owner_user_id=? AND lower(name)='marketing_engagement_events' LIMIT 1`).get(owner);
-    if (table?.id) {
-      deleted.marketing_engagement_events = marketingDb.prepare(`DELETE FROM master_data_rows WHERE owner_user_id=? AND table_id=? AND datetime(COALESCE(json_extract(row_json,'$.observed_at'),created_at))<datetime('now',?)`).run(owner, table.id, cutoff).changes || 0;
+    const retentionTables = [
+      ['marketing_engagement_events', 'marketing_engagement_events'],
+      ['marketing_campaign_outcomes', 'marketing_campaign_outcomes'],
+    ];
+    for (const [tableName, resultKey] of retentionTables) {
+      const table = marketingDb.prepare(`SELECT id FROM master_data_tables WHERE owner_user_id=? AND lower(name)=? LIMIT 1`).get(owner, tableName);
+      if (!table?.id) continue;
+      deleted[resultKey] = marketingDb.prepare(`DELETE FROM master_data_rows WHERE owner_user_id=? AND table_id=? AND datetime(COALESCE(json_extract(row_json,'$.observed_at'),created_at))<datetime('now',?)`).run(owner, table.id, cutoff).changes || 0;
       marketingDb.prepare(`UPDATE master_data_tables SET row_count=(SELECT COUNT(*) FROM master_data_rows WHERE owner_user_id=? AND table_id=?),updated_at=datetime('now') WHERE id=? AND owner_user_id=?`).run(owner, table.id, table.id, owner);
     }
   } catch (_) {

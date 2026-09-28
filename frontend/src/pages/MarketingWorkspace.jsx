@@ -10,7 +10,7 @@ const EMPTY_ASSET = { name: '', campaign_id: '', channel: 'email', asset_type: '
 const EMPTY_CHANNEL = { channel: 'email', enabled: false, execution_mode: 'draft_only', connector_type: 'open_connector', connector_id: '', account_reference: '', sender_reference: '', config_json: '{}', readiness_status: 'not_configured' };
 const EMPTY_METRIC = { campaign_id: '', channel: 'email', metric_name: 'impressions', value: '', unit: 'count', period_start: '', period_end: '', source: 'manual', receipt_id: '' };
 const EMPTY_WATCH = { campaign_id: '', asset_id: '', channel: 'facebook', target_reference: '', recipe_name: '', cadence_minutes: '60', enabled: true };
-const EMPTY_TRACKING = { campaign_id: '', asset_id: '', audience_reference: '', expires_days: '90' };
+const EMPTY_TRACKING = { campaign_id: '', asset_id: '', audience_reference: '', recipient_label: '', expires_days: '90' };
 const EMPTY_LEAD = { identity_reference: '', crm_person_reference: '', display_label: '', opportunity_key: '', opportunity_summary: '', interests: '', engagement_event_ids: '', owner_agent: 'marketing-specialist' };
 
 function dataRows(workspace, key) { return workspace?.records?.[key] || []; }
@@ -32,6 +32,7 @@ export default function MarketingWorkspace() {
   const [watch, setWatch] = useState(EMPTY_WATCH);
   const [tracking, setTracking] = useState(EMPTY_TRACKING);
   const [trackingResult, setTrackingResult] = useState(null);
+  const [analyticsCampaignId, setAnalyticsCampaignId] = useState('');
   const [lead, setLead] = useState(EMPTY_LEAD);
 
   const load = useCallback(async () => {
@@ -58,10 +59,14 @@ export default function MarketingWorkspace() {
   const channels = dataRows(workspace, 'channels');
   const metrics = dataRows(workspace, 'metrics');
   const engagements = dataRows(workspace, 'engagements');
+  const outcomes = dataRows(workspace, 'outcomes');
   const watches = dataRows(workspace, 'watches');
   const strategies = dataRows(workspace, 'strategies');
   const leads = dataRows(workspace, 'leads');
   const metricCards = useMemo(() => Object.entries(summary.totals || {}).slice(0, 8), [summary.totals]);
+  const campaignReports = summary.campaign_reports || [];
+  const selectedReport = campaignReports.find((row) => row.campaign_id === analyticsCampaignId) || campaignReports[0] || null;
+  const selectedOutcomes = outcomes.filter((row) => !selectedReport || row.campaign_id === selectedReport.campaign_id).slice().reverse();
 
   if (loading && !workspace) return <main className="marketing-page"><div className="marketing-loading">Preparing your marketing workspace…</div></main>;
 
@@ -176,6 +181,26 @@ export default function MarketingWorkspace() {
       </section>}
 
       {tab === 'Analytics' && <section className="marketing-section">
+        <Panel title="Campaign outcome report" subtitle="One campaign view across email, WhatsApp, social, ads and telemarketing. Provider receipts and channel-specific signals feed the same retention-managed ledger.">
+          <div className="marketing-report-toolbar">
+            <Field label="Campaign"><select value={selectedReport?.campaign_id || ''} onChange={(e) => setAnalyticsCampaignId(e.target.value)}><option value="">Select campaign</option>{campaignReports.map((row) => <option key={row.campaign_id} value={row.campaign_id}>{row.campaign_name}</option>)}</select></Field>
+          </div>
+          {selectedReport ? <>
+            <div className="marketing-stat-grid marketing-report-stats">
+              <Stat label="Emails sent" value={selectedReport.emails_sent} detail="Receipt-backed sends" />
+              <Stat label="Unique email open signals" value={selectedReport.unique_open_signals} detail="Privacy-safe recipient count" />
+              <Stat label="Email open rate" value={selectedReport.open_rate_percent == null ? '—' : `${selectedReport.open_rate_percent}%`} detail="Signal only; mail proxies may affect accuracy" />
+              <Stat label="Ledger outcomes" value={selectedOutcomes.filter((row) => row.outcome_type !== 'tracking_prepared').length} detail="All channels" />
+            </div>
+            <div className="marketing-channel-outcomes">
+              {Object.entries(selectedReport.channel_outcomes || {}).map(([channelName, channelMetrics]) => <div className="marketing-channel-card" key={channelName}><strong>{label(channelName)}</strong><div>{Object.entries(channelMetrics).filter(([name]) => name !== 'tracking_prepared').map(([name, value]) => <span key={name}>{label(name)} <b>{Number(value).toLocaleString()}</b></span>)}</div></div>)}
+            </div>
+            <h3 className="marketing-subheading">Email recipient status</h3>
+            <div className="marketing-table-wrap"><table className="marketing-table"><thead><tr><th>Recipient</th><th>Delivery</th><th>Open signals</th><th>Last open signal</th></tr></thead><tbody>{selectedReport.recipients.length ? selectedReport.recipients.map((row) => <tr key={row.audience_hash || row.outcome_id}><td><strong>{row.recipient_label}</strong><small>{row.destination_masked || 'Identity protected'}</small></td><td>{label(row.delivery_status)}</td><td>{row.open_count}</td><td>{formatDate(row.last_opened_at)}</td></tr>) : <tr><td colSpan="4">No recipient-level email evidence yet.</td></tr>}</tbody></table></div>
+            <h3 className="marketing-subheading">Campaign outcome ledger</h3>
+            <div className="marketing-table-wrap"><table className="marketing-table"><thead><tr><th>Channel</th><th>Outcome</th><th>Audience</th><th>Evidence time</th><th>Source</th></tr></thead><tbody>{selectedOutcomes.length ? selectedOutcomes.map((row) => <tr key={row.outcome_id}><td>{label(row.channel)}</td><td><strong>{label(row.outcome_type)}</strong></td><td>{row.recipient_label || row.destination_masked || (row.audience_hash ? `Recipient ${row.audience_hash.slice(0, 8)}` : 'Campaign-wide')}</td><td>{formatDate(row.observed_at)}</td><td>{label(row.source)}</td></tr>) : <tr><td colSpan="5">No outcomes have been captured for this campaign.</td></tr>}</tbody></table></div>
+          </> : <Empty text="No campaign outcome report is available yet." />}
+        </Panel>
         <div className="marketing-stat-grid">{metricCards.length ? metricCards.map(([name, value]) => <Stat key={name} label={label(name)} value={Number(value).toLocaleString()} detail="Recorded total" />) : <Stat label="No metrics yet" value="—" detail="Record provider results below" />}</div>
         <div className="marketing-two-col">
           <Panel title="Record a campaign metric" subtitle="Provider adapters and agents can use the same idempotent API.">
@@ -193,11 +218,12 @@ export default function MarketingWorkspace() {
           </Panel>
         </div>
         <div className="marketing-two-col">
-          <Panel title="Email open signal" subtitle="Generate a signed, recipient-specific pixel for an email template. Image retrieval is a signal, not proof of reading.">
+          <Panel title="Email open tracking setup" subtitle="This setup utility creates the invisible signed image placed in one recipient's HTML email. When a mail client retrieves it, the Campaign Outcome Ledger records an open signal—not guaranteed proof that a person read the message.">
             <form onSubmit={async (e) => { e.preventDefault(); setBusy('Tracking'); try { setTrackingResult(await api.marketingOpenPixelCreate(tracking)); setMessage({ type: 'success', text: 'Signed tracking pixel created.' }); } catch (error) { setMessage({ type: 'error', text: error.message }); } finally { setBusy(''); } }} className="marketing-form">
               <Field label="Campaign"><select required value={tracking.campaign_id} onChange={(e) => setTracking({ ...tracking, campaign_id: e.target.value, asset_id: '' })}><option value="">Select campaign</option>{campaigns.map((x) => <option key={x.campaign_id} value={x.campaign_id}>{x.name}</option>)}</select></Field>
               <Field label="Email asset"><select required value={tracking.asset_id} onChange={(e) => setTracking({ ...tracking, asset_id: e.target.value })}><option value="">Select email template</option>{assets.filter((x) => x.channel === 'email' && (!tracking.campaign_id || !x.campaign_id || x.campaign_id === tracking.campaign_id)).map((x) => <option key={x.asset_id} value={x.asset_id}>{x.name}</option>)}</select></Field>
               <Field label="CRM person / audience reference"><input required value={tracking.audience_reference} onChange={(e) => setTracking({ ...tracking, audience_reference: e.target.value })} /></Field>
+              <Field label="Recipient display label"><input placeholder="Example: Priya Shah" value={tracking.recipient_label} onChange={(e) => setTracking({ ...tracking, recipient_label: e.target.value })} /></Field>
               <button className="marketing-primary" disabled={busy === 'Tracking'} type="submit">{busy === 'Tracking' ? 'Generating…' : 'Generate pixel HTML'}</button>
               {trackingResult && <Field label="Paste into the HTML email template"><textarea className="marketing-code" readOnly rows="4" value={trackingResult.html} /></Field>}
             </form>
@@ -231,6 +257,7 @@ export default function MarketingWorkspace() {
 
 function parseJson(value, fallback) { try { return JSON.parse(value || '') ?? fallback; } catch { return fallback; } }
 function label(value) { return String(value || '').replaceAll('_', ' ').replace(/\b\w/g, (m) => m.toUpperCase()); }
+function formatDate(value) { if (!value) return '—'; const date = new Date(value); return Number.isNaN(date.getTime()) ? value : date.toLocaleString(); }
 function Stat({ label: name, value, detail }) { return <article className="marketing-stat"><span>{name}</span><strong>{value}</strong><small>{detail}</small></article>; }
 function Panel({ title, subtitle, children }) { return <article className="marketing-panel"><header><h2>{title}</h2>{subtitle && <p>{subtitle}</p>}</header><div className="marketing-panel-body">{children}</div></article>; }
 function Field({ label: name, children }) { return <label className="marketing-field"><span>{name}</span>{children}</label>; }

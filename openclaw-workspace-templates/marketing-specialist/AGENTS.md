@@ -11,13 +11,13 @@ For lead qualification, cross-campaign identity correlation, CRM handoff and nex
 5. Call `marketing_campaign_run_prepare` before execution. Fix every returned blocker. Connection credentials belong in Connectors; Marketing stores only connector, account, sender or browser-recipe references.
 6. For a multi-step or ongoing campaign, create an agent goal linked to the Objective and use the company's reusable multi-channel campaign workflow when it exists. For a one-off campaign, execute the returned action plan directly with granted channel tools. Use a saved browser recipe for website publishing. Do not improvise an external side effect through a read-only browser task.
 7. For every external effect, state the exact effect (`external_message_send`, `social_publish`, advertising action or call), use the granted tool and honour Action Control. A blocked or approval-pending action is not a failure and must not be bypassed.
-8. Capture returned provider/action receipt identifiers and record numeric metrics idempotently. Compare results with the objective and recommend pause, continue or adjust.
+8. Capture every returned provider/action receipt in `marketing_campaign_outcome_record` using the channel's native outcome type. Record aggregate numeric metrics idempotently, compare results with the objective, and recommend pause, continue or adjust.
 9. Convert attributable engagement to a Marketing lead profile with `marketing_lead_prepare`. Before CRM creation, distinguish an existing person with a new opportunity from a duplicate of the same opportunity. Qualified, consent-eligible profiles must be handed to CRM; persist the returned CRM reference and report any CRM failure truthfully.
 10. The Marketing UI is optional. Never tell the CEO to populate the page when the same setup can be completed with the Marketing tools. Ask only for a genuinely missing business decision, credential/connection, consent or Action Control approval.
 
 ## Channel rules
 
-- **Email:** use approved templates and CRM references; honour suppression and opt-out status. `email_send` remains policy-controlled.
+- **Email:** use approved templates and CRM references; honour suppression and opt-out status. Pass `campaign_id`, approved `asset_id`, and one recipient per `email_send` action so the platform can attach recipient-specific tracking and record the outcome. `email_send` remains policy-controlled.
 - **WhatsApp:** use an approved asset and `marketing_channel_send` through the company’s paired transport. The bound recipient must match, consent must be established, and Action Control remains authoritative. Do not paste access tokens into Marketing.
 - **Facebook, LinkedIn and Instagram:** prefer an approved provider action or saved browser recipe with durable publication confirmation.
 - **Google Ads:** never launch or change spend without the campaign budget and a granted provider action.

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { createHash } from 'crypto';
 import { resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
 import { resolveToolOwnerUserId } from '../services/tool-owner-scope.js';
-import { configureMarketingCampaign, createMarketingOpenPixel, getMarketingWorkspace, listDueMarketingWatches, prepareMarketingCampaignRun, prepareMarketingLead, recordMarketingWatchResult, updateMarketingFollowup, upsertMarketingRecord } from '../services/marketing-workspace.js';
+import { configureMarketingCampaign, createMarketingOpenPixel, getMarketingWorkspace, listDueMarketingWatches, prepareMarketingCampaignRun, prepareMarketingLead, reconcileMarketingToolOutcomes, recordMarketingOutcome, recordMarketingWatchResult, updateMarketingFollowup, upsertMarketingRecord } from '../services/marketing-workspace.js';
 import { announceOnAgentChannel, resolveAgentChannelTarget } from '../services/agent-channel-announce.js';
 import { getDb } from '../db/schema.js';
 import { parseTenantOpenClawAgentId } from '../services/openclaw-tenant.js';
@@ -58,7 +58,7 @@ function normalizeMedia(input) {
   }];
 }
 
-router.post('/marketing-workspace-read', (req, res) => run(res, async () => ({ workspace: getMarketingWorkspace(owner(req)) })));
+router.post('/marketing-workspace-read', (req, res) => run(res, async () => { const ownerUserId = owner(req); reconcileMarketingToolOutcomes(ownerUserId); return { workspace: getMarketingWorkspace(ownerUserId) }; }));
 router.post('/marketing-campaign-upsert', (req, res) => run(res, async () => upsertMarketingRecord(owner(req), 'campaigns', req.body || {})));
 router.post('/marketing-campaign-configure', (req, res) => run(res, async () => configureMarketingCampaign(owner(req), req.body || {})));
 router.post('/marketing-campaign-run-prepare', (req, res) => run(res, async () => ({ readiness: prepareMarketingCampaignRun(owner(req), req.body || {}) })));
@@ -66,6 +66,7 @@ router.post('/marketing-asset-upsert', (req, res) => run(res, async () => upsert
 router.post('/marketing-channel-config-upsert', (req, res) => run(res, async () => upsertMarketingRecord(owner(req), 'channels', req.body || {})));
 router.post('/marketing-strategy-upsert', (req, res) => run(res, async () => upsertMarketingRecord(owner(req), 'strategies', req.body || {})));
 router.post('/marketing-metric-record', (req, res) => run(res, async () => upsertMarketingRecord(owner(req), 'metrics', req.body || {})));
+router.post('/marketing-campaign-outcome-record', (req, res) => run(res, async () => recordMarketingOutcome(owner(req), req.body || {})));
 router.post('/marketing-tracking-pixel-create', (req, res) => run(res, async () => createMarketingOpenPixel(owner(req), req.body || {})));
 router.post('/marketing-channel-send', (req, res) => run(res, async () => {
   const ownerUserId = owner(req);
@@ -131,9 +132,34 @@ router.post('/marketing-channel-send', (req, res) => run(res, async () => {
     source: 'marketing_channel_send',
     followup_status: 'pending',
   });
-  return { sent, engagement: evidence.record };
+  const outcome = recordMarketingOutcome(ownerUserId, {
+    campaign_id: campaignId,
+    asset_id: assetId,
+    channel,
+    outcome_type: 'send_accepted',
+    audience_hash: audienceHash,
+    audience_reference: resolved.to,
+    recipient_label: body.recipient_label,
+    provider_reference: evidence.record.event_id,
+    observed_at: evidence.record.observed_at,
+    metadata: { method: sent.method, media_sent: sent.media_sent || 0, actor_agent_id: caller.id, transport_agent_id: transportAgentId },
+    source: 'marketing_channel_send',
+  });
+  return { sent, engagement: evidence.record, outcome: outcome.record };
 }));
-router.post('/marketing-engagement-record', (req, res) => run(res, async () => upsertMarketingRecord(owner(req), 'engagements', req.body || {})));
+router.post('/marketing-engagement-record', (req, res) => run(res, async () => {
+  const ownerUserId = owner(req);
+  const input = req.body || {};
+  const engagement = upsertMarketingRecord(ownerUserId, 'engagements', input);
+  const outcome = input.campaign_id ? recordMarketingOutcome(ownerUserId, {
+    ...input,
+    outcome_id: input.outcome_id || input.event_id,
+    outcome_type: input.outcome_type || input.event_type,
+    provider_reference: input.provider_reference || engagement.record.event_id,
+    observed_at: input.observed_at || engagement.record.observed_at,
+  }) : null;
+  return { ...engagement, outcome: outcome?.record || null };
+}));
 router.post('/marketing-followup-update', (req, res) => run(res, async () => updateMarketingFollowup(owner(req), req.body || {})));
 router.post('/marketing-watch-upsert', (req, res) => run(res, async () => upsertMarketingRecord(owner(req), 'watches', req.body || {})));
 router.post('/marketing-watches-due', (req, res) => run(res, async () => ({ watches: listDueMarketingWatches(owner(req), req.body || {}) })));

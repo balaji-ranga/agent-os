@@ -149,6 +149,7 @@ import eventProductivityTools from './event-productivity-tools.js';
 import marketingTools from './marketing-tools.js';
 import { summarizeLearnings } from '../services/agent-feedback.js';
 import { executeEmailSend, resolveCompanyEmailRecipients } from '../services/email-send.js';
+import { createMarketingOpenPixel, getMarketingWorkspace, recordMarketingOutcome } from '../services/marketing-workspace.js';
 import { executeNotifyCeo } from '../services/notify-ceo.js';
 import { executeCeoProfile } from '../services/ceo-profile.js';
 import { applyProposal, getState as getOnboardingState, saveAgentProposal, saveDraft } from '../services/onboarding-helper.js';
@@ -1848,7 +1849,59 @@ router.post('/email-send', optionalAuth, async (req, res) => {
   try {
     const ownerUserId = resolveToolOwnerUserId(req, requestPayload, resolveAuthenticatedCeoUserId);
     const resolvedPayload = resolveCompanyEmailRecipients(requestPayload, ownerUserId);
+    const campaignId = String(requestPayload.campaign_id || '').trim();
+    const assetId = String(requestPayload.asset_id || '').trim();
+    const marketingRecipients = [...(resolvedPayload.to || []), ...(resolvedPayload.cc || []), ...(resolvedPayload.bcc || [])];
+    if (campaignId || assetId) {
+      if (!campaignId || !assetId) {
+        const error = new Error('Marketing email requires both campaign_id and asset_id');
+        error.status = 400;
+        throw error;
+      }
+      if (marketingRecipients.length !== 1) {
+        const error = new Error('Tracked marketing email must be sent to one recipient per action so recipient-level opens remain attributable');
+        error.status = 400;
+        throw error;
+      }
+      const workspace = getMarketingWorkspace(ownerUserId);
+      const campaign = workspace.records.campaigns.find((row) => row.campaign_id === campaignId);
+      const asset = workspace.records.assets.find((row) => row.asset_id === assetId && row.channel === 'email' && (!row.campaign_id || row.campaign_id === campaignId));
+      if (!campaign || campaign.status !== 'active') {
+        const error = new Error('Marketing campaign must exist and be active');
+        error.status = 409;
+        throw error;
+      }
+      if (!asset || asset.approval_status !== 'approved') {
+        const error = new Error('An approved email asset for this campaign is required');
+        error.status = 409;
+        throw error;
+      }
+      if (requestPayload.marketing_tracking !== false && !String(resolvedPayload.html || '').includes('/api/public/marketing/open.gif')) {
+        const pixel = createMarketingOpenPixel(ownerUserId, {
+          campaign_id: campaignId,
+          asset_id: assetId,
+          audience_reference: marketingRecipients[0],
+          recipient_label: requestPayload.recipient_label,
+        });
+        resolvedPayload.html = `${String(resolvedPayload.html || resolvedPayload.body || asset.content || '')}\n${pixel.html}`;
+      }
+    }
     const out = await executeEmailSend(resolvedPayload);
+    if (campaignId && assetId && marketingRecipients.length === 1) {
+      recordMarketingOutcome(ownerUserId, {
+        campaign_id: campaignId,
+        asset_id: assetId,
+        channel: 'email',
+        outcome_type: out.sent ? 'send_accepted' : 'send_failed',
+        audience_reference: marketingRecipients[0],
+        recipient_label: requestPayload.recipient_label,
+        provider_reference: out.messageId,
+        status: out.sent ? 'accepted' : 'failed',
+        observed_at: new Date().toISOString(),
+        metadata: { smtp_reply: out.smtpReply || '', attachments_sent: out.attachmentsSent || 0 },
+        source: 'email_send',
+      });
+    }
     const status = out.sent ? 'ok' : out.attempted ? 'error' : 'error';
     logTool(req, 'email_send', requestPayload, out, status, source);
     if (!out.sent && out.error) return res.status(out.attempted ? 502 : 400).json(out);

@@ -9,6 +9,7 @@ import {
 } from './master-data.js';
 import { getPublicBaseUrl } from '../config/public-url.js';
 import { getInternalToken } from '../middleware/internal-auth.js';
+import { getDb } from '../db/schema.js';
 
 const TABLES = Object.freeze({
   campaigns: {
@@ -40,6 +41,12 @@ const TABLES = Object.freeze({
     description: 'Retention-managed engagement evidence with hashed audience references and follow-up status.',
     key: 'event_id',
     columns: ['event_id', 'campaign_id', 'asset_id', 'channel', 'event_type', 'audience_hash', 'provider_reference', 'value', 'metadata_json', 'source', 'observed_at', 'followup_status', 'followup_note', 'followup_at'],
+  },
+  outcomes: {
+    name: 'marketing_campaign_outcomes',
+    description: 'Retention-managed, cross-channel campaign outcome ledger with channel-specific evidence and privacy-safe audience attribution.',
+    key: 'outcome_id',
+    columns: ['outcome_id', 'campaign_id', 'asset_id', 'channel', 'outcome_type', 'audience_hash', 'recipient_label', 'destination_masked', 'provider_reference', 'value', 'unit', 'status', 'observed_at', 'metadata_json', 'source', 'created_at', 'updated_at'],
   },
   watches: {
     name: 'marketing_channel_watches',
@@ -138,6 +145,104 @@ function allRows(ownerUserId, table) {
   return rows.map((row) => ({ row_id: row.id, ...row.data, created_at: row.data.created_at || row.created_at }));
 }
 
+function campaignReports(records) {
+  const reportByCampaign = new Map();
+  const ensureReport = (campaignId) => {
+    if (!campaignId) return null;
+    if (!reportByCampaign.has(campaignId)) {
+      const campaign = records.campaigns.find((row) => row.campaign_id === campaignId);
+      reportByCampaign.set(campaignId, {
+        campaign_id: campaignId,
+        campaign_name: campaign?.name || campaignId,
+        emails_sent: 0,
+        unique_open_signals: 0,
+        open_signal_count: 0,
+        open_rate_percent: null,
+        recipients: [],
+        channel_outcomes: {},
+      });
+    }
+    return reportByCampaign.get(campaignId);
+  };
+  const recipientByCampaign = new Map();
+  const recipientKey = (campaignId, audienceHash, fallback = '') => `${campaignId}|${audienceHash || fallback}`;
+  const leadLabels = new Map(records.leads.filter((row) => row.identity_hash).map((row) => [row.identity_hash, row.display_label || row.crm_person_reference || '']));
+  for (const campaign of records.campaigns) ensureReport(campaign.campaign_id);
+
+  for (const outcome of records.outcomes) {
+    const report = ensureReport(outcome.campaign_id);
+    if (!report) continue;
+    report.channel_outcomes[outcome.channel] ||= {};
+    report.channel_outcomes[outcome.channel][outcome.outcome_type] = (report.channel_outcomes[outcome.channel][outcome.outcome_type] || 0) + (Number(outcome.value) || 1);
+    if (outcome.channel !== 'email') continue;
+    if (['send_accepted', 'sent'].includes(outcome.outcome_type)) report.emails_sent += Number(outcome.value) || 1;
+    const key = recipientKey(outcome.campaign_id, outcome.audience_hash, outcome.outcome_id);
+    const existing = recipientByCampaign.get(key) || {
+      outcome_id: outcome.outcome_id,
+      audience_hash: outcome.audience_hash,
+      recipient_label: outcome.recipient_label || leadLabels.get(outcome.audience_hash) || `Recipient ${String(outcome.audience_hash || '').slice(0, 8)}`,
+      destination_masked: outcome.destination_masked || '',
+      delivery_status: 'unknown',
+      provider_reference: outcome.provider_reference || '',
+      sent_at: '', open_count: 0, first_opened_at: '', last_opened_at: '', outcomes: [],
+    };
+    existing.recipient_label = outcome.recipient_label || existing.recipient_label;
+    existing.destination_masked = outcome.destination_masked || existing.destination_masked;
+    existing.outcomes.push({ type: outcome.outcome_type, at: outcome.observed_at, status: outcome.status });
+    if (['send_accepted', 'sent', 'delivered'].includes(outcome.outcome_type)) {
+      existing.delivery_status = outcome.outcome_type;
+      existing.sent_at = outcome.observed_at || existing.sent_at;
+      existing.provider_reference = outcome.provider_reference || existing.provider_reference;
+    }
+    if (outcome.outcome_type === 'open_signal') {
+      existing.open_count += 1;
+      existing.first_opened_at = !existing.first_opened_at || outcome.observed_at < existing.first_opened_at ? outcome.observed_at : existing.first_opened_at;
+      existing.last_opened_at = !existing.last_opened_at || outcome.observed_at > existing.last_opened_at ? outcome.observed_at : existing.last_opened_at;
+    }
+    recipientByCampaign.set(key, existing);
+  }
+
+  for (const event of records.engagements) {
+    if (event.channel !== 'email' || event.event_type !== 'open_signal') continue;
+    const report = ensureReport(event.campaign_id);
+    if (!report) continue;
+    const alreadyLedgered = records.outcomes.some((outcome) => outcome.source === event.source && outcome.provider_reference === event.event_id);
+    if (alreadyLedgered) continue;
+    report.open_signal_count += 1;
+    const key = recipientKey(event.campaign_id, event.audience_hash, event.event_id);
+    const existing = recipientByCampaign.get(key) || {
+      outcome_id: '',
+      audience_hash: event.audience_hash,
+      recipient_label: leadLabels.get(event.audience_hash) || `Recipient ${String(event.audience_hash || '').slice(0, 8)}`,
+      destination_masked: '',
+      delivery_status: 'receipt_unavailable',
+      provider_reference: '',
+      sent_at: '',
+      open_count: 0,
+      first_opened_at: '',
+      last_opened_at: '',
+      outcomes: [],
+    };
+    existing.open_count += 1;
+    existing.first_opened_at = !existing.first_opened_at || event.observed_at < existing.first_opened_at ? event.observed_at : existing.first_opened_at;
+    existing.last_opened_at = !existing.last_opened_at || event.observed_at > existing.last_opened_at ? event.observed_at : existing.last_opened_at;
+    recipientByCampaign.set(key, existing);
+  }
+
+  for (const report of reportByCampaign.values()) {
+    report.recipients = [...recipientByCampaign.entries()]
+      .filter(([key]) => key.startsWith(`${report.campaign_id}|`))
+      .map(([, recipient]) => recipient)
+      .sort((a, b) => String(b.sent_at || b.last_opened_at).localeCompare(String(a.sent_at || a.last_opened_at)));
+    report.unique_open_signals = report.recipients.filter((row) => row.open_count > 0).length;
+    report.open_signal_count = report.recipients.reduce((sum, row) => sum + row.open_count, 0);
+    report.open_rate_percent = report.emails_sent > 0
+      ? Number(((report.unique_open_signals / report.emails_sent) * 100).toFixed(1))
+      : null;
+  }
+  return [...reportByCampaign.values()];
+}
+
 function analytics(records) {
   const totals = {};
   const byChannel = {};
@@ -156,12 +261,14 @@ function analytics(records) {
     enabled_channel_count: records.channels.filter((x) => x.enabled === 'true').length,
     metric_count: records.metrics.length,
     engagement_count: records.engagements.length,
+    outcome_count: records.outcomes.length,
     pending_followup_count: records.engagements.filter((x) => x.followup_status === 'pending').length,
     enabled_watch_count: records.watches.filter((x) => x.enabled === 'true').length,
     qualified_lead_count: records.leads.filter((x) => ['qualified', 'crm_synced'].includes(x.status)).length,
     followup_lead_count: records.leads.filter((x) => x.eligible_for_followup === 'true' && x.status !== 'closed').length,
     totals,
     by_channel: byChannel,
+    campaign_reports: campaignReports(records),
   };
 }
 
@@ -347,6 +454,17 @@ function normalize(kind, input = {}) {
       followup_status: text(input.followup_status, 40) || 'pending', followup_note: text(input.followup_note, 2000), followup_at: text(input.followup_at, 40),
     };
   }
+  if (kind === 'outcomes') {
+    if (!text(input.campaign_id, 100) || !text(input.channel, 60) || !text(input.outcome_type ?? input.event_type, 80)) fail('Outcome campaign, channel and outcome type are required');
+    return {
+      outcome_id: text(input.outcome_id ?? input.event_id, 140) || `outcome-${randomUUID()}`,
+      campaign_id: text(input.campaign_id, 100), asset_id: text(input.asset_id, 100), channel: text(input.channel, 60).toLowerCase(),
+      outcome_type: text(input.outcome_type ?? input.event_type, 80).toLowerCase(), audience_hash: text(input.audience_hash, 128), recipient_label: text(input.recipient_label ?? input.audience_label, 200), destination_masked: text(input.destination_masked, 320),
+      provider_reference: text(input.provider_reference, 300), value: text(input.value, 80) || '1', unit: text(input.unit, 40) || 'count', status: text(input.status, 60) || 'observed', observed_at: text(input.observed_at, 40) || created,
+      metadata_json: jsonText(input.metadata_json ?? input.metadata ?? {}), source: text(input.source, 100) || 'marketing_workspace',
+      created_at: text(input.created_at, 40) || created, updated_at: created,
+    };
+  }
   if (kind === 'watches') {
     if (!text(input.channel, 60) || !text(input.target_reference, 1000)) fail('Watch channel and target reference are required');
     const cadence = Math.min(Math.max(Number(input.cadence_minutes) || 60, 15), 10080);
@@ -394,6 +512,124 @@ export function upsertMarketingRecord(ownerUserId, kind, input = {}) {
 
 export const MARKETING_RECORD_TYPES = Object.freeze(Object.keys(TABLES));
 
+function audienceHash(ownerUserId, audienceReference) {
+  return createHash('sha256').update(`${ownerUserId}:${text(audienceReference, 1000)}`).digest('hex');
+}
+
+function maskDestination(value) {
+  const raw = text(value, 320);
+  const email = raw.match(/^([^@]+)@(.+)$/);
+  if (email) return `${email[1].slice(0, 1)}***@${email[2]}`;
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length >= 4) return `***${digits.slice(-4)}`;
+  return raw ? '***' : '';
+}
+
+function inferredRecipientLabel(value) {
+  const local = text(value, 320).split('@')[0].replace(/[._+-]+/g, ' ').trim();
+  return local ? local.replace(/\b\w/g, (char) => char.toUpperCase()).slice(0, 200) : 'Campaign recipient';
+}
+
+function stableOutcomeId(campaignId, assetId, channel, outcomeType, hash, providerReference = '') {
+  return `outcome-${createHash('sha256').update(`${campaignId}|${assetId}|${channel}|${outcomeType}|${hash}|${providerReference}`).digest('hex').slice(0, 28)}`;
+}
+
+export function recordMarketingOutcome(ownerUserId, input = {}) {
+  const campaignId = text(input.campaign_id, 100);
+  const assetId = text(input.asset_id, 100);
+  const channel = text(input.channel, 60).toLowerCase();
+  const outcomeType = text(input.outcome_type ?? input.event_type, 80).toLowerCase();
+  const reference = text(input.audience_reference ?? input.recipient ?? input.to, 1000);
+  const hash = text(input.audience_hash, 128) || (reference ? audienceHash(ownerUserId, reference) : '');
+  if (!campaignId || !channel || !outcomeType) fail('campaign_id, channel and outcome_type are required');
+  const providerReference = text(input.provider_reference, 300);
+  const outcomeId = text(input.outcome_id ?? input.event_id, 140) || stableOutcomeId(campaignId, assetId, channel, outcomeType, hash, providerReference);
+  const workspace = getMarketingWorkspace(ownerUserId);
+  if (!workspace.records.campaigns.some((row) => row.campaign_id === campaignId)) fail('Campaign not found', 404);
+  if (assetId && !workspace.records.assets.some((row) => row.asset_id === assetId && (!row.campaign_id || row.campaign_id === campaignId))) fail('Campaign asset not found', 404);
+  const existing = workspace.records.outcomes.find((row) => row.outcome_id === outcomeId) || {};
+  return upsertMarketingRecord(ownerUserId, 'outcomes', {
+    ...existing,
+    outcome_id: outcomeId,
+    campaign_id: campaignId,
+    asset_id: assetId,
+    channel,
+    outcome_type: outcomeType,
+    audience_hash: hash,
+    recipient_label: text(input.recipient_label, 200) || existing.recipient_label || inferredRecipientLabel(reference),
+    destination_masked: text(input.destination_masked, 320) || existing.destination_masked || maskDestination(reference),
+    provider_reference: providerReference || existing.provider_reference,
+    value: text(input.value, 80) || existing.value || '1', unit: text(input.unit, 40) || existing.unit || 'count',
+    status: text(input.status, 60) || existing.status || 'observed', observed_at: text(input.observed_at, 40) || existing.observed_at || now(),
+    metadata: input.metadata ?? parseJsonObject(existing.metadata_json),
+    source: text(input.source, 100) || existing.source || 'marketing_outcome',
+    created_at: existing.created_at,
+  });
+}
+
+/**
+ * Reconcile successful legacy email_send receipts with existing recipient-specific
+ * open signals. This makes pre-ledger campaigns reportable without retaining raw
+ * destinations in the outcome ledger. Ambiguous cross-campaign matches are skipped.
+ */
+export function reconcileMarketingToolOutcomes(ownerUserId) {
+  const owner = text(ownerUserId, 200);
+  if (!owner) return { reconciled: 0, skipped: 0 };
+  const workspace = getMarketingWorkspace(owner);
+  const existingKeys = new Set(workspace.records.outcomes.map((row) => `${row.campaign_id}|${row.asset_id}|${row.channel}|${row.outcome_type}|${row.provider_reference}`));
+  const openByHash = new Map();
+  for (const event of workspace.records.engagements) {
+    if (event.channel !== 'email' || event.event_type !== 'open_signal' || !event.audience_hash || !event.campaign_id) continue;
+    const key = event.audience_hash;
+    const target = `${event.campaign_id}|${event.asset_id || ''}`;
+    if (!openByHash.has(key)) openByHash.set(key, new Set());
+    openByHash.get(key).add(target);
+  }
+  let logs = [];
+  try {
+    logs = getDb().prepare(`
+      SELECT id,request_payload,response_payload,created_at
+      FROM content_tool_logs
+      WHERE owner_user_id=? AND tool_name='email_send' AND status='ok'
+      ORDER BY id DESC LIMIT 1000
+    `).all(owner);
+  } catch { return { reconciled: 0, skipped: 0 }; }
+  let reconciled = 0;
+  let skipped = 0;
+  for (const log of logs) {
+    let request; let response;
+    try { request = JSON.parse(log.request_payload || '{}'); response = JSON.parse(log.response_payload || '{}'); } catch { skipped += 1; continue; }
+    if (response.sent !== true) continue;
+    const recipients = [...new Set([response.to ?? request.to, response.cc ?? request.cc, response.bcc ?? request.bcc].flatMap((value) => Array.isArray(value) ? value : String(value || '').split(/[,;]/)).map((value) => text(value, 320)).filter(Boolean))];
+    for (const recipient of recipients) {
+      const hash = audienceHash(owner, recipient);
+      let targets = [];
+      if (request.campaign_id && request.asset_id) targets = [`${text(request.campaign_id, 100)}|${text(request.asset_id, 100)}`];
+      else targets = [...(openByHash.get(hash) || [])];
+      if (targets.length !== 1) { skipped += 1; continue; }
+      const [campaignId, assetId] = targets[0].split('|');
+      if (!campaignId) { skipped += 1; continue; }
+      const providerReference = response.messageId || `content-tool-log-${log.id}`;
+      const evidenceKey = `${campaignId}|${assetId}|email|send_accepted|${providerReference}`;
+      if (existingKeys.has(evidenceKey)) continue;
+      const result = recordMarketingOutcome(owner, {
+        campaign_id: campaignId,
+        asset_id: assetId,
+        channel: 'email',
+        outcome_type: 'send_accepted',
+        audience_reference: recipient,
+        recipient_label: request.recipient_label,
+        provider_reference: providerReference,
+        observed_at: log.created_at,
+        metadata: { reconciled_from: 'content_tool_logs' },
+        source: 'email_send_reconciliation',
+      });
+      if (result.created) { reconciled += 1; existingKeys.add(evidenceKey); }
+    }
+  }
+  return { reconciled, skipped };
+}
+
 function trackingSecret() {
   const secret = getInternalToken();
   if (!secret) fail('Marketing tracking is unavailable until the platform internal secret is configured', 503, 'MARKETING_TRACKING_NOT_CONFIGURED');
@@ -426,19 +662,39 @@ export function createMarketingOpenPixel(ownerUserId, input = {}) {
   if (!workspace.records.campaigns.some((row) => row.campaign_id === campaignId)) fail('Campaign not found', 404);
   if (!workspace.records.assets.some((row) => row.asset_id === assetId)) fail('Asset not found', 404);
   const audience = text(input.audience_reference, 1000);
-  const audienceHash = audience ? createHash('sha256').update(`${ownerUserId}:${audience}`).digest('hex') : '';
+  const hashedAudience = audience ? audienceHash(ownerUserId, audience) : '';
+  if (!hashedAudience) fail('audience_reference is required');
+  recordMarketingOutcome(ownerUserId, {
+    campaign_id: campaignId,
+    asset_id: assetId,
+    channel: 'email',
+    audience_hash: hashedAudience,
+    audience_reference: audience,
+    recipient_label: input.recipient_label || input.audience_label,
+    outcome_type: 'tracking_prepared',
+    status: 'configured',
+    source: 'tracking_pixel_setup',
+  });
   const days = Math.min(Math.max(Number(input.expires_days) || 90, 1), 365);
-  const token = signTrackingPayload({ owner: String(ownerUserId), campaign_id: campaignId, asset_id: assetId, audience_hash: audienceHash, jti: randomUUID(), exp: Date.now() + days * 86400000 });
+  const token = signTrackingPayload({ owner: String(ownerUserId), campaign_id: campaignId, asset_id: assetId, audience_hash: hashedAudience, jti: randomUUID(), exp: Date.now() + days * 86400000 });
   const pixelUrl = `${getPublicBaseUrl()}/api/public/marketing/open.gif?t=${encodeURIComponent(token)}`;
   return { pixel_url: pixelUrl, html: `<img src="${pixelUrl}" width="1" height="1" alt="" style="display:none" />`, expires_at: new Date(Date.now() + days * 86400000).toISOString(), reliability_note: 'Image retrieval indicates an open signal; mail proxies or blocked images can create false positives or negatives.' };
 }
 
 export function consumeMarketingOpenPixel(token, { userAgent = '' } = {}) {
   const payload = verifyTrackingToken(token);
-  return upsertMarketingRecord(payload.owner, 'engagements', {
+  const engagement = upsertMarketingRecord(payload.owner, 'engagements', {
     event_id: `email-open-${payload.jti}`, campaign_id: payload.campaign_id, asset_id: payload.asset_id, channel: 'email', event_type: 'open_signal', audience_hash: payload.audience_hash,
     metadata: { user_agent_hash: userAgent ? createHash('sha256').update(String(userAgent)).digest('hex') : '', reliability: 'pixel_signal' }, source: 'tracking_pixel', followup_status: 'pending',
   });
+  const workspace = getMarketingWorkspace(payload.owner);
+  const prepared = workspace.records.outcomes.find((row) => row.campaign_id === payload.campaign_id && row.asset_id === payload.asset_id && row.audience_hash === payload.audience_hash && row.outcome_type === 'tracking_prepared');
+  recordMarketingOutcome(payload.owner, {
+    campaign_id: payload.campaign_id, asset_id: payload.asset_id, channel: 'email', outcome_type: 'open_signal', audience_hash: payload.audience_hash,
+    recipient_label: prepared?.recipient_label, destination_masked: prepared?.destination_masked, provider_reference: engagement.record.event_id,
+    observed_at: engagement.record.observed_at, metadata: { reliability: 'pixel_signal' }, source: 'tracking_pixel',
+  });
+  return engagement;
 }
 
 export function listDueMarketingWatches(ownerUserId, { at = now() } = {}) {
@@ -460,7 +716,20 @@ export function recordMarketingWatchResult(ownerUserId, input = {}) {
     ...event, event_id: event.event_id || `watch-${watchId}-${createHash('sha256').update(JSON.stringify(event)).digest('hex').slice(0, 20)}`, campaign_id: watch.campaign_id, asset_id: watch.asset_id,
     channel: watch.channel, provider_reference: watch.target_reference, source: 'browser_watch', observed_at: event.observed_at || checkedAt,
   }).record) : [];
-  return { watch: updated.record, events };
+  const outcomes = events.filter((event) => event.campaign_id).map((event) => recordMarketingOutcome(ownerUserId, {
+    outcome_id: event.event_id,
+    campaign_id: event.campaign_id,
+    asset_id: event.asset_id,
+    channel: event.channel,
+    outcome_type: event.event_type,
+    audience_hash: event.audience_hash,
+    provider_reference: event.provider_reference || event.event_id,
+    value: event.value || 1,
+    observed_at: event.observed_at,
+    metadata_json: event.metadata_json,
+    source: event.source,
+  }).record);
+  return { watch: updated.record, events, outcomes };
 }
 
 export function updateMarketingFollowup(ownerUserId, input = {}) {

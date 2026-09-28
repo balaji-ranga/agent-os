@@ -449,7 +449,7 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/email-send',
     method: 'POST',
     purpose:
-      'Send email via SMTP. For calendar invites pass calendar:{title,start,end,...} as ISO 8601 JSON — never paste BEGIN:VCALENDAR text in body. Optional attachments:[{filename,content}] or ics shortcut. Uses WORKFLOW_SMTP_* env.',
+      'Send email via SMTP. For tracked marketing email, include campaign_id and approved asset_id and send one recipient per action; the platform adds recipient-specific open tracking and records the send outcome. For calendar invites pass calendar:{title,start,end,...} as ISO 8601 JSON — never paste BEGIN:VCALENDAR text in body. Optional attachments:[{filename,content}] or ics shortcut. Uses WORKFLOW_SMTP_* env.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,

@@ -10,9 +10,10 @@
 - `marketing_channel_config_upsert`: store only non-secret connector and operating references by channel.
 - `marketing_strategy_upsert`: configure tracked signals, scoring, attribution, follow-up and consent rules for a channel.
 - `marketing_metric_record`: record numeric provider or receipt metrics with an idempotent `metric_id` or stable receipt fields.
+- `marketing_campaign_outcome_record`: append idempotent, campaign-bound channel evidence to the generic outcome ledger. Use channel-native outcome types such as email `send_accepted/open_signal/link_click/reply`, WhatsApp `send_accepted/delivered/read/reply`, social `published/reaction/comment/share/message/lead_form`, ads `impression/click/conversion/spend`, and telemarketing `attempted/connected/interested/qualified/do_not_call`.
 - `marketing_tracking_pixel_create`: create a signed per-audience email open pixel; raw audience identity is not retained.
 - `marketing_channel_send`: send one approved campaign asset through the company’s paired WhatsApp or Slack transport. The exact configured recipient must match, attribution remains Marketing Specialist, and Action Control governs the external effect.
-- `marketing_engagement_record`: record channel evidence with a stable provider/event ID.
+- `marketing_engagement_record`: record follow-up evidence with a stable provider/event ID; campaign-bound evidence is also mirrored to the outcome ledger.
 - `marketing_watch_upsert`, `marketing_watches_due`, `marketing_watch_result_record`: configure and operate read-only social/provider watches.
 - `marketing_lead_prepare`: combine prior campaign evidence into a scored, consent-aware interest profile before CRM handoff.
 - `marketing_followup_update`: close or suppress an engagement only after follow-up evidence exists.
