@@ -89,7 +89,10 @@ function loadOpenClawAllowByAgent(): Record<string, string[]> {
     if (st.mtimeMs === openclawConfigCache.mtime) return openclawConfigCache.byAgent;
     const config = JSON.parse(readFileSync(OPENCLAW_CONFIG_PATH, "utf8"));
     const byAgent: Record<string, string[]> = {};
-    for (const a of config?.agents?.list || []) {
+    const entries = config?.agents?.entries && typeof config.agents.entries === "object"
+      ? Object.entries(config.agents.entries).map(([id, entry]) => ({ id, ...((entry || {}) as object) }))
+      : (config?.agents?.list || []);
+    for (const a of entries) {
       const id = String(a?.id || "").toLowerCase();
       if (!id) continue;
       byAgent[id] = Array.isArray(a?.tools?.allow) ? a.tools.allow : [];
@@ -102,13 +105,13 @@ function loadOpenClawAllowByAgent(): Record<string, string[]> {
 }
 
 function isToolAllowedForAgent(agentId: string | null | undefined, toolName: string): boolean {
-  if (!agentId) return true;
+  if (!agentId) return false;
   const key = String(agentId).toLowerCase();
   const allowlists = loadAllowlists();
   if (Array.isArray(allowlists[key])) return allowlists[key].includes(toolName);
   const fromConfig = loadOpenClawAllowByAgent()[key];
   if (Array.isArray(fromConfig)) return fromConfig.includes(toolName);
-  return true;
+  return false;
 }
 
 interface ToolEntry {
@@ -129,6 +132,31 @@ function loadToolsFromFile(): ToolEntry[] {
     return Array.isArray(data) ? data : [];
   } catch {
     return [];
+  }
+}
+
+function loadRuntimeToolDescriptors(): ToolEntry[] {
+  const byName = new Map<string, ToolEntry>();
+  for (const descriptor of loadToolsFromFile()) {
+    const name = String(descriptor?.name || "").trim();
+    if (name) byName.set(name, descriptor);
+  }
+  for (const granted of Object.values(loadAllowlists())) {
+    if (!Array.isArray(granted)) continue;
+    for (const rawName of granted) {
+      const name = String(rawName || "").trim();
+      if (!name || byName.has(name)) continue;
+      byName.set(name, { name, display_name: name.replaceAll("_", " "), purpose: `Agent OS tool ${name}.` });
+    }
+  }
+  return [...byName.values()];
+}
+
+function safeApiSessionKey(api: PluginApi): string | null | undefined {
+  try {
+    return (typeof api.getSessionKey === "function" ? api.getSessionKey() : api.sessionKey) as string | undefined;
+  } catch {
+    return api.sessionKey as string | undefined;
   }
 }
 
@@ -485,9 +513,7 @@ function resolveCallerAgentId(
   if (toolCtx?.agentId && String(toolCtx.agentId).trim()) return String(toolCtx.agentId).trim();
   const fromSession = agentIdFromSessionKey(toolCtx?.sessionKey);
   if (fromSession) return fromSession;
-  const sessionKey = (typeof api.getSessionKey === "function" ? api.getSessionKey() : api.sessionKey) as
-    | string
-    | undefined;
+  const sessionKey = safeApiSessionKey(api);
   const fromApiSession = agentIdFromSessionKey(sessionKey);
   if (fromApiSession) return fromApiSession;
   const ctx = api.context as Record<string, unknown> | undefined;
@@ -520,7 +546,7 @@ async function callInvoke(
   if (toolCtx?.requesterSenderId) headers["x-openclaw-requester-sender-id"] = String(toolCtx.requesterSenderId);
   const sessionKey =
     toolCtx?.sessionKey ||
-    (typeof api.getSessionKey === "function" ? api.getSessionKey() : api.sessionKey);
+    safeApiSessionKey(api);
   let ownerUserId: string | null = null;
   if (sessionKey) {
     headers["x-openclaw-session-key"] = sessionKey;
@@ -586,7 +612,7 @@ export default definePluginEntry({
   description:
     "Register Agent OS content/workflow/kanban tools with owner/agent-scoped backend credentials.",
   register(api: PluginApi) {
-    const tools = loadToolsFromFile();
+    const tools = loadRuntimeToolDescriptors();
     const apiToolNote =
       " Invoke this tool by name with JSON parameters (API call); do not use exec or run as a shell command.";
     for (const t of tools) {

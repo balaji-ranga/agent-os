@@ -2,7 +2,7 @@
  * Per-agent content tool grants — DB source of truth, hot-sync to OpenClaw without gateway restart.
  * - agent_tool_grants table
  * - ~/.openclaw/agent-tool-allowlists.json (plugin reads on each tool factory call)
- * - openclaw.json agents.list[].tools.allow (persistence / fallback)
+ * - openclaw.json agents.entries / legacy agents.list tools.allow (persistence / fallback)
  */
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
@@ -51,6 +51,31 @@ function readConfig() {
 
 function writeConfig(config) {
   writeOpenClawConfigSafe(config);
+}
+
+function getOpenClawAgentEntry(config, ocId) {
+  const key = String(ocId || '').trim().toLowerCase();
+  const entries = config?.agents?.entries;
+  if (entries && typeof entries === 'object' && !Array.isArray(entries)) {
+    return entries[key] || Object.entries(entries).find(([id]) => String(id).toLowerCase() === key)?.[1] || null;
+  }
+  return (config?.agents?.list || []).find((entry) => String(entry?.id || '').toLowerCase() === key) || null;
+}
+
+function ensureOpenClawAgentEntry(config, ocId, defaults) {
+  config.agents = config.agents && typeof config.agents === 'object' ? config.agents : {};
+  const usesEntries = config.agents.entries && typeof config.agents.entries === 'object' && !Array.isArray(config.agents.entries);
+  let entry = getOpenClawAgentEntry(config, ocId);
+  if (entry) return entry;
+  if (usesEntries) {
+    entry = { ...defaults };
+    config.agents.entries[ocId] = entry;
+    return entry;
+  }
+  if (!Array.isArray(config.agents.list)) config.agents.list = [];
+  entry = { id: ocId, ...defaults };
+  config.agents.list.push(entry);
+  return entry;
 }
 
 export function resolveOpenClawAgentId(agent) {
@@ -108,7 +133,7 @@ export function getAgentToolGrants(agentId) {
 
 function openClawAllowForAgent(ocId) {
   const config = readConfig();
-  const entry = (config.agents?.list || []).find((a) => String(a.id || '').toLowerCase() === String(ocId).toLowerCase());
+  const entry = getOpenClawAgentEntry(config, ocId);
   return Array.isArray(entry?.tools?.allow) ? entry.tools.allow : null;
 }
 
@@ -206,16 +231,10 @@ export function syncOpenClawJsonForAgent(agent) {
   }
   const grants = getAgentToolGrants(agent.id);
   const config = readConfig();
-  if (!Array.isArray(config.agents?.list)) config.agents = { list: [] };
-  let entry = config.agents.list.find((a) => String(a.id || '').toLowerCase() === ocId);
-  if (!entry) {
-    entry = {
-      id: ocId,
-      name: agent.name || ocId,
-      workspace: agent.workspace_path || join(OPENCLAW_DIR, `workspace-${ocId}`).replace(/\\/g, '/'),
-    };
-    config.agents.list.push(entry);
-  }
+  const entry = ensureOpenClawAgentEntry(config, ocId, {
+    name: agent.name || ocId,
+    workspace: agent.workspace_path || join(OPENCLAW_DIR, `workspace-${ocId}`).replace(/\\/g, '/'),
+  });
   const prevAllow = Array.isArray(entry.tools?.allow) ? entry.tools.allow : [];
   entry.tools = entry.tools || {};
   const desiredAllow = mergeAgentRuntimeAllowlist(prevAllow, grants);
@@ -243,7 +262,7 @@ export function importGrantsFromOpenClawConfig() {
     const existing = getAgentToolGrants(agent.id);
     if (existing.length) continue;
     const ocId = resolveOpenClawAgentId(agent);
-    const entry = (config.agents?.list || []).find((a) => String(a.id || '').toLowerCase() === ocId);
+    const entry = getOpenClawAgentEntry(config, ocId);
     const allow = entry?.tools?.allow || [];
     for (const t of allow) {
       if (contentSet.has(t)) {

@@ -8,6 +8,12 @@ import { join } from "path";
 // Volume-mounted extensions cannot resolve the `openclaw` package name via bare
 // Node; OpenClaw's loader can, but absolute path works in both contexts.
 import { definePluginEntry } from "/usr/local/lib/node_modules/openclaw/dist/plugin-sdk/plugin-entry.js";
+import {
+  isToolGranted,
+  mergeRuntimeToolDescriptors,
+  safeApiSessionKey,
+  toolAllowByAgentFromConfig,
+} from "./runtime-access.js";
 
 const OPENCLAW_DIR = process.env.OPENCLAW_DIR || join(process.env.USERPROFILE || process.env.HOME || "", ".openclaw");
 const DEFAULT_TOOLS_LIST_PATH = join(OPENCLAW_DIR, "agent-os-tools.json");
@@ -92,12 +98,7 @@ function loadOpenClawAllowByAgent() {
     const st = statSync(OPENCLAW_CONFIG_PATH);
     if (st.mtimeMs === openclawConfigCache.mtime) return openclawConfigCache.byAgent;
     const config = JSON.parse(readFileSync(OPENCLAW_CONFIG_PATH, "utf8"));
-    const byAgent = {};
-    for (const a of config?.agents?.list || []) {
-      const id = String(a?.id || "").toLowerCase();
-      if (!id) continue;
-      byAgent[id] = Array.isArray(a?.tools?.allow) ? a.tools.allow : [];
-    }
+    const byAgent = toolAllowByAgentFromConfig(config);
     openclawConfigCache = { mtime: st.mtimeMs, byAgent };
     return byAgent;
   } catch {
@@ -106,13 +107,8 @@ function loadOpenClawAllowByAgent() {
 }
 
 function isToolAllowedForAgent(agentId, toolName) {
-  if (!agentId) return true;
-  const key = String(agentId).toLowerCase();
   const allowlists = loadAllowlists();
-  if (Array.isArray(allowlists[key])) return allowlists[key].includes(toolName);
-  const fromConfig = loadOpenClawAllowByAgent()[key];
-  if (Array.isArray(fromConfig)) return fromConfig.includes(toolName);
-  return true;
+  return isToolGranted(agentId, toolName, allowlists, loadOpenClawAllowByAgent());
 }
 
 function loadToolsFromFile() {
@@ -125,6 +121,17 @@ function loadToolsFromFile() {
   } catch {
     return [];
   }
+}
+
+/**
+ * Runtime registration must not depend only on the mutable catalog file. The
+ * backend rewrites that file while OpenClaw is already running and, during a
+ * rolling deploy, it can temporarily contain only a subset of tools. Agent
+ * grants are the durable access-control source written by Workspace -> Tool
+ * access, so register the union and enforce the grant again per invocation.
+ */
+function loadRuntimeToolDescriptors() {
+  return mergeRuntimeToolDescriptors(loadToolsFromFile(), loadAllowlists());
 }
 
 /** Parse `agent:<id>:<user>` and legacy `agent::<id>:<user>`. */
@@ -823,7 +830,7 @@ function resolveCallerAgentId(api, params, toolCtx) {
   if (toolCtx?.agentId && String(toolCtx.agentId).trim()) return String(toolCtx.agentId).trim();
   const fromSession = agentIdFromSessionKey(toolCtx?.sessionKey);
   if (fromSession) return fromSession;
-  const sessionKey = typeof api.getSessionKey === "function" ? api.getSessionKey() : api.sessionKey;
+  const sessionKey = safeApiSessionKey(api);
   const fromApiSession = agentIdFromSessionKey(sessionKey);
   if (fromApiSession) return fromApiSession;
   const ctx = api.context;
@@ -849,7 +856,7 @@ async function callInvoke(api, toolName, params, callerAgentId, toolCtx) {
   if (toolCtx?.agentAccountId) headers["x-openclaw-account-id"] = String(toolCtx.agentAccountId);
   if (toolCtx?.requesterSenderId) headers["x-openclaw-requester-sender-id"] = String(toolCtx.requesterSenderId);
   const sessionKey =
-    toolCtx?.sessionKey || (typeof api.getSessionKey === "function" ? api.getSessionKey() : api.sessionKey);
+    toolCtx?.sessionKey || safeApiSessionKey(api);
   let ownerUserId = null;
   if (sessionKey) {
     headers["x-openclaw-session-key"] = sessionKey;
@@ -921,7 +928,7 @@ export default definePluginEntry({
   description:
     "Register Agent OS content/workflow/kanban tools with owner/agent-scoped backend credentials.",
   register(api) {
-    const tools = loadToolsFromFile().slice().sort((a, b) => {
+    const tools = loadRuntimeToolDescriptors().sort((a, b) => {
       const rank = (n) =>
         String(n || "").startsWith("agent_goal_")
           ? 0

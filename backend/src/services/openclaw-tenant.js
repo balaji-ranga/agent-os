@@ -316,18 +316,23 @@ export function ensureTenantOpenClawAgent(agent, ceoUserId) {
   }
 
   let config = readOpenClawConfig();
-  if (!Array.isArray(config.agents?.list)) config.agents = { list: [] };
+  config.agents = config.agents && typeof config.agents === 'object' ? config.agents : {};
+  const usesEntries = config.agents.entries && typeof config.agents.entries === 'object' && !Array.isArray(config.agents.entries);
+  if (!usesEntries && !Array.isArray(config.agents.list)) config.agents.list = [];
   config = ensureByokProviderInConfig(config, ceoUserId);
 
-  let entry = config.agents.list.find((a) => String(a.id || '').toLowerCase() === runtimeOcId);
+  let entry = usesEntries
+    ? config.agents.entries[runtimeOcId]
+    : config.agents.list.find((a) => String(a.id || '').toLowerCase() === runtimeOcId);
   if (!entry) {
     entry = {
-      id: runtimeOcId,
+      ...(usesEntries ? {} : { id: runtimeOcId }),
       name: `${agent.name || baseOcId} (${ceoUserId})`,
       workspace: workspacePosix,
       tools: { allow: [], deny: ['image'] },
     };
-    config.agents.list.push(entry);
+    if (usesEntries) config.agents.entries[runtimeOcId] = entry;
+    else config.agents.list.push(entry);
   } else {
     entry.workspace = workspacePosix;
     entry.name = entry.name || `${agent.name || baseOcId} (${ceoUserId})`;

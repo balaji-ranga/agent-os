@@ -1,6 +1,6 @@
 /**
- * Seed content_tools_meta with built-in tools if table is empty.
- * Called from initDb or on startup.
+ * Reconcile missing built-in content tools without changing existing enablement
+ * or user-managed metadata. Called from initDb or on every startup.
  */
 import { getDb } from './schema.js';
 
@@ -1058,10 +1058,8 @@ const VIDEO_STORYBOARD_TOOLS = BUILTIN_TOOLS.filter(
 
 export function seedContentToolsMetaIfEmpty() {
   const db = getDb();
-  const count = db.prepare('SELECT COUNT(*) AS n FROM content_tools_meta').get().n;
-  if (count > 0) return;
   const stmt = db.prepare(
-    `INSERT INTO content_tools_meta (name, display_name, endpoint, method, purpose, model_used, enabled, is_builtin)
+    `INSERT OR IGNORE INTO content_tools_meta (name, display_name, endpoint, method, purpose, model_used, enabled, is_builtin)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
   );
   for (const t of BUILTIN_TOOLS) {
