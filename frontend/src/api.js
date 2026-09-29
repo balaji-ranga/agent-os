@@ -579,6 +579,7 @@ export const api = {
   marketingStrategyUpsert: (body) => post('/marketing/strategies', body),
   marketingOpenPixelCreate: (body) => post('/marketing/tracking/open-pixel', body),
   marketingLeadPrepare: (body) => post('/marketing/leads/prepare', body),
+  marketingLeadCrmHandoff: (leadId) => post(`/marketing/leads/${encodeURIComponent(leadId)}/crm-handoff`, {}),
   marketingFollowupUpdate: (body) => post('/marketing/engagements/followup', body),
   masterDataTableCreate: (body) => post('/master-data/tables', body),
   masterDataTableUpdate: (id, body) => patch(`/master-data/tables/${encodeURIComponent(id)}`, body),

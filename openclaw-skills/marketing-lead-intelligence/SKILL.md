@@ -31,11 +31,10 @@ Use this skill when campaign engagement must become a lead, an existing lead ret
 
 When the prepared profile is qualified and eligible:
 
-1. Search CRM for the referenced person and an opportunity representing the same need.
-2. Update the existing opportunity when it is the same need; otherwise create a new lead/opportunity against the existing person.
-3. Include an evidence summary: campaign names/IDs, demonstrated interests, strongest interactions, previous relevant campaigns, last engagement time and recommended next step.
-4. Store the returned CRM lead/opportunity reference back in the Marketing lead profile.
-5. If CRM is unavailable, create a Kanban handoff and keep the Marketing lead status qualified; do not claim CRM sync succeeded.
+1. Call `marketing_crm_handoff` with the stable Marketing `lead_id`. Do not separately sequence CRM person and opportunity creation.
+2. The handoff reuses the selected or exact-matching CRM person, otherwise creates a person only from a verified campaign identity, creates the lead/opportunity idempotently, and stores the returned references on the Marketing row.
+3. Read the returned person and lead/opportunity IDs and report them. A retry with the same `lead_id` must return the same linked record rather than duplicate it.
+4. If CRM is unavailable, create a Kanban handoff and keep the Marketing lead status qualified; do not claim CRM sync succeeded.
 
 ## CEO recommendation
 

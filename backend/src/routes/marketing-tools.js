@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { createHash } from 'crypto';
 import { resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
 import { resolveToolOwnerUserId } from '../services/tool-owner-scope.js';
-import { configureMarketingCampaign, createMarketingOpenPixel, getMarketingWorkspace, listDueMarketingWatches, prepareMarketingCampaignRun, prepareMarketingLead, reconcileMarketingToolOutcomes, recordMarketingOutcome, recordMarketingWatchResult, updateMarketingFollowup, upsertMarketingCampaignSchedule, upsertMarketingRecord } from '../services/marketing-workspace.js';
+import { configureMarketingCampaign, createMarketingOpenPixel, getMarketingWorkspace, handoffMarketingLeadToCrm, listDueMarketingWatches, prepareMarketingCampaignRun, prepareMarketingLead, reconcileMarketingToolOutcomes, recordMarketingOutcome, recordMarketingWatchResult, updateMarketingFollowup, upsertMarketingCampaignSchedule, upsertMarketingRecord } from '../services/marketing-workspace.js';
 import { announceOnAgentChannel, resolveAgentChannelTarget } from '../services/agent-channel-announce.js';
 import { getDb } from '../db/schema.js';
 import { parseTenantOpenClawAgentId, tenantOpenClawAgentId } from '../services/openclaw-tenant.js';
@@ -236,5 +236,6 @@ router.post('/marketing-watch-upsert', (req, res) => run(res, async () => upsert
 router.post('/marketing-watches-due', (req, res) => run(res, async () => ({ watches: listDueMarketingWatches(owner(req), req.body || {}) })));
 router.post('/marketing-watch-result-record', (req, res) => run(res, async () => recordMarketingWatchResult(owner(req), req.body || {})));
 router.post('/marketing-lead-prepare', (req, res) => run(res, async () => prepareMarketingLead(owner(req), req.body || {})));
+router.post('/marketing-crm-handoff', (req, res) => run(res, async () => handoffMarketingLeadToCrm(owner(req), req.body || {})));
 
 export default router;

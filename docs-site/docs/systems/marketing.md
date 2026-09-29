@@ -71,6 +71,8 @@ Open **Marketing → Leads & follow-up** for the campaign-to-CRM pipeline. The p
 
 Use the filters to narrow by campaign, qualification or follow-up state, then select a row to edit it. CRM people and opportunities, campaigns, channels and engagement evidence are selected from existing records rather than retyped as IDs. Lifecycle stage, contact permission, follow-up state, channel and due date use controlled choices. The correlation panel shows other opportunities for the same person, and the scheduled queue shows due work across the portfolio.
 
+When a row is qualified, consent-eligible and not suppressed, select **Send qualified lead to CRM**. The action reuses an exact CRM person match or creates the verified contact, creates the CRM lead/opportunity idempotently, and links the CRM IDs back to the Marketing row. If the action is unavailable, the panel explains whether qualification, consent or CRM connectivity is missing. The Marketing Specialist uses the same `marketing_crm_handoff` tool, so chat-driven and UI-driven handoffs have the same checks and result.
+
 CRM remains the system of record for people and sales pipeline. Marketing stores the CRM references, attribution, privacy-safe evidence, qualification and follow-up plan. Uncertain identity matches are not auto-merged. Qualified, consent-eligible profiles are handed to CRM; suppressions always override score.
 
 Marketing rejects password, token, secret and API-key fields. Do not paste credentials into templates or channel settings.

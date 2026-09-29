@@ -1031,6 +1031,8 @@ export function prepareMarketingLead(ownerUserId, input = {}) {
   const identityReference = text(input.identity_reference, 1000);
   const identityHash = text(input.identity_hash, 128) || (identityReference ? createHash('sha256').update(`${ownerUserId}:${identityReference}`).digest('hex') : '') || requestedLead?.identity_hash;
   const crmPerson = text(input.crm_person_reference, 200) || requestedLead?.crm_person_reference;
+  const crmLead = text(input.crm_lead_reference, 200) || requestedLead?.crm_lead_reference;
+  const crmOpportunity = text(input.crm_opportunity_reference, 200) || requestedLead?.crm_opportunity_reference;
   if (!identityHash && !crmPerson) fail('identity_reference or crm_person_reference is required');
   const opportunityKey = text(input.opportunity_key, 200) || requestedLead?.opportunity_key || text(input.campaign_ids?.[0], 100) || 'general';
   const samePerson = workspace.records.leads.filter((row) => (identityHash && row.identity_hash === identityHash) || (crmPerson && row.crm_person_reference === crmPerson));
@@ -1059,10 +1061,10 @@ export function prepareMarketingLead(ownerUserId, input = {}) {
   const eligible = !suppressed && (!consentRequired || consentGranted) && score >= threshold;
   const followupStatus = suppressed ? 'suppressed' : text(input.followup_status, 60) || existing?.followup_status || (eligible ? 'pending' : 'not_ready');
   const saved = upsertMarketingRecord(ownerUserId, 'leads', {
-    ...(existing || {}), lead_id: existing?.lead_id, crm_person_reference: crmPerson || existing?.crm_person_reference, crm_lead_reference: text(input.crm_lead_reference, 200) || existing?.crm_lead_reference, crm_opportunity_reference: text(input.crm_opportunity_reference, 200) || existing?.crm_opportunity_reference,
+    ...(existing || {}), lead_id: existing?.lead_id, crm_person_reference: crmPerson || existing?.crm_person_reference, crm_lead_reference: crmLead, crm_opportunity_reference: crmOpportunity,
     identity_hash: identityHash || existing?.identity_hash, display_label: input.display_label || existing?.display_label, opportunity_key: opportunityKey, opportunity_summary: input.opportunity_summary || existing?.opportunity_summary,
     campaign_ids: campaigns, channels, opportunity_interests: opportunityInterests, interests,
-    engagement_event_ids: unique([...eventIds, ...events.map((event) => event.event_id)]), score, status: suppressed ? 'suppressed' : existing?.crm_lead_reference ? 'crm_synced' : eligible ? 'qualified' : 'nurture',
+    engagement_event_ids: unique([...eventIds, ...events.map((event) => event.event_id)]), score, status: suppressed ? 'suppressed' : (crmLead || crmOpportunity) ? 'crm_synced' : eligible ? 'qualified' : 'nurture',
     consent, eligible_for_followup: eligible, last_engagement_at: events.map((event) => event.observed_at).sort().at(-1) || existing?.last_engagement_at,
     lifecycle_stage: text(input.lifecycle_stage, 60) || existing?.lifecycle_stage || (eligible ? 'marketing_qualified' : 'new'), followup_status: followupStatus,
     followup_channel: text(input.followup_channel, 60) || existing?.followup_channel || channels.at(-1), followup_due_at: text(input.followup_due_at, 40) || existing?.followup_due_at,
@@ -1262,6 +1264,137 @@ export function correlateMarketingInbound(ownerUserId, input = {}) {
     engagement: engagement.record,
     outcome: outcome.record,
     lead: lead.record,
+  };
+}
+
+function crmRecordId(value) {
+  const record = value?.person || value?.lead || value?.opportunity || value?.deal || value?.data || value;
+  return text(record?.id || record?.name, 200);
+}
+
+function crmPersonEmail(person) {
+  return text(person?.email || person?.email_id || person?.emails?.primaryEmail || person?.raw?.email_id, 320).toLowerCase();
+}
+
+function crmPersonPhone(person) {
+  return normalizedDestination('whatsapp', person?.phone || person?.phoneNumber || person?.phones?.primaryPhoneNumber || person?.mobile_no || person?.raw?.mobile_no || person?.raw?.phone);
+}
+
+async function liveMarketingCrmAdapter(ownerUserId) {
+  const { assertCrmEntitled } = await import('./company-business-profile.js');
+  const { isErpnextCrmOwner, erpCrmCreateLead, erpCrmCreatePerson, erpCrmListPeople } = await import('./erpnext-crm-facade.js');
+  const { crmCreateLead, crmCreatePerson, crmListPeople } = await import('./twenty-crm.js');
+  assertCrmEntitled(ownerUserId);
+  if (isErpnextCrmOwner(ownerUserId)) {
+    return {
+      provider: 'erpnext',
+      listPeople: (options) => erpCrmListPeople(ownerUserId, options),
+      createPerson: (body) => erpCrmCreatePerson(ownerUserId, body),
+      createLead: (body) => erpCrmCreateLead(ownerUserId, body),
+    };
+  }
+  return {
+    provider: 'twenty',
+    listPeople: (options) => crmListPeople(ownerUserId, options),
+    createPerson: (body) => crmCreatePerson(ownerUserId, body),
+    createLead: (body) => crmCreateLead(ownerUserId, body),
+  };
+}
+
+/**
+ * Move one qualified, consent-eligible Marketing lead into the configured CRM.
+ * The stable Marketing lead id is the idempotency boundary for both CRM writes.
+ * UI and agent tools share this contract so neither path needs to orchestrate
+ * person creation, duplicate checks, CRM lead creation and reference writeback.
+ */
+export async function handoffMarketingLeadToCrm(ownerUserId, input = {}, dependencies = {}) {
+  const leadId = text(input.lead_id, 120);
+  if (!leadId) fail('lead_id is required');
+  const workspace = getMarketingWorkspace(ownerUserId);
+  const lead = workspace.records.leads.find((row) => row.lead_id === leadId);
+  if (!lead) fail('Marketing lead/opportunity record not found', 404, 'MARKETING_LEAD_NOT_FOUND');
+  if (lead.status === 'suppressed' || lead.followup_status === 'suppressed') fail('Suppressed leads cannot be sent to CRM', 409, 'MARKETING_LEAD_SUPPRESSED');
+  if (!['qualified', 'crm_synced'].includes(lead.status) || lead.eligible_for_followup !== 'true') {
+    fail('Lead must be qualified, consent-granted and eligible for follow-up before CRM handoff', 409, 'MARKETING_LEAD_NOT_READY');
+  }
+
+  if (lead.crm_lead_reference || lead.crm_opportunity_reference) {
+    return {
+      created: false,
+      idempotent: true,
+      provider: text(input.crm_provider, 40),
+      person_id: lead.crm_person_reference || '',
+      lead_id: lead.crm_lead_reference || lead.crm_opportunity_reference,
+      opportunity_id: lead.crm_opportunity_reference || '',
+      lead,
+    };
+  }
+
+  const adapter = dependencies.adapter || await liveMarketingCrmAdapter(ownerUserId);
+  const channels = parseJsonArray(lead.channels_json);
+  const preferredChannel = lead.followup_channel || channels.at(-1) || '';
+  const member = workspace.records.distributionMembers.find((row) => row.destination_hash && row.destination_hash === lead.identity_hash);
+  const destination = text(member?.destination, 1000);
+  const destinationChannel = member?.channel || preferredChannel;
+  const email = destinationChannel === 'email' ? normalizedDestination('email', destination) : '';
+  const phone = ['whatsapp', 'telemarketing'].includes(destinationChannel) ? normalizedDestination('whatsapp', destination) : '';
+  let personId = text(lead.crm_person_reference, 200);
+  let personCreated = false;
+
+  if (!personId) {
+    if (!email && !phone) fail('Select an existing CRM person or provide a verified email/phone campaign identity before handoff', 409, 'MARKETING_CRM_PERSON_REQUIRED');
+    const peopleResult = await adapter.listPeople({ limit: 100 });
+    if (peopleResult?.error || ['error', 'off', 'unavailable'].includes(String(peopleResult?.mode || '').toLowerCase())) {
+      fail(peopleResult?.error || 'CRM people are unavailable', 503, 'MARKETING_CRM_UNAVAILABLE');
+    }
+    const existingPerson = (peopleResult?.people || []).find((person) =>
+      (email && crmPersonEmail(person) === email) || (phone && crmPersonPhone(person) === phone)
+    );
+    personId = crmRecordId(existingPerson);
+    if (!personId) {
+      const personResult = await adapter.createPerson({
+        name: lead.display_label || member?.display_label || 'Marketing lead',
+        email: email || undefined,
+        phone: phone || undefined,
+        idempotency_key: `marketing-crm-person:${leadId}`,
+      });
+      personId = crmRecordId(personResult);
+      if (!personId) fail('CRM did not return a person identifier', 502, 'MARKETING_CRM_PERSON_FAILED');
+      personCreated = true;
+    }
+  }
+
+  const campaignId = parseJsonArray(lead.campaign_ids_json).at(-1);
+  const campaign = workspace.records.campaigns.find((row) => row.campaign_id === campaignId);
+  const strategy = workspace.records.strategies.find((row) => row.channel === preferredChannel);
+  const leadResult = await adapter.createLead({
+    name: text(lead.opportunity_summary || campaign?.name || `${lead.display_label || 'Marketing lead'} opportunity`, 180),
+    email: email || undefined,
+    phone: phone || undefined,
+    pointOfContactId: personId,
+    personId,
+    stage: strategy?.crm_stage || 'NEW',
+    source: `Marketing campaign ${campaignId || 'unattributed'}`,
+    idempotency_key: `marketing-crm-lead:${leadId}`,
+  });
+  const crmLeadId = crmRecordId(leadResult);
+  if (!crmLeadId) fail('CRM did not return a lead or opportunity identifier', 502, 'MARKETING_CRM_LEAD_FAILED');
+  const opportunityId = adapter.provider === 'twenty' ? crmLeadId : '';
+  const saved = prepareMarketingLead(ownerUserId, {
+    lead_id: leadId,
+    crm_person_reference: personId,
+    crm_lead_reference: crmLeadId,
+    crm_opportunity_reference: opportunityId,
+  });
+  return {
+    created: true,
+    idempotent: false,
+    provider: adapter.provider,
+    person_created: personCreated,
+    person_id: personId,
+    lead_id: crmLeadId,
+    opportunity_id: opportunityId,
+    lead: saved.record,
   };
 }
 

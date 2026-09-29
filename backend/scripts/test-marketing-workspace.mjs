@@ -185,7 +185,7 @@ try {
   assert.equal(legacyReport.recipients[0].destination_masked, 'l***@example.invalid');
   svc.upsertMarketingRecord(ownerA, 'engagements', { event_id: 'email-reply-1', campaign_id: 'campaign-growth-q4', asset_id: 'asset-email-1', channel: 'email', event_type: 'reply', audience_hash: identityHash, source: 'provider_webhook' });
   const qualified = svc.prepareMarketingLead(ownerA, { identity_reference: 'crm-person-1', crm_person_reference: 'person-1', crm_opportunity_reference: 'opportunity-1', display_label: 'Existing CRM person', opportunity_key: 'platform-adoption', opportunity_summary: 'Platform adoption', campaign_ids: ['campaign-growth-q4'], channels: ['email'], interests: ['automation'], engagement_event_ids: [opened.record.event_id, 'email-reply-1'], lifecycle_stage: 'marketing_qualified', consent: { overall: 'granted' }, followup_status: 'pending', followup_channel: 'email', followup_due_at: '2026-10-01T09:00:00.000Z', next_action: 'Send the product-fit brief.' });
-  assert.equal(qualified.record.status, 'qualified');
+  assert.equal(qualified.record.status, 'crm_synced', 'an existing CRM opportunity marks the Marketing row as linked');
   assert.equal(qualified.correlation.person_match, 'new_person');
   assert.equal(qualified.record.crm_opportunity_reference, 'opportunity-1');
   assert.equal(qualified.record.lifecycle_stage, 'marketing_qualified');
@@ -196,6 +196,42 @@ try {
   assert.equal(updatedQualified.record.lead_id, qualified.record.lead_id);
   assert.equal(updatedQualified.record.followup_status, 'scheduled');
   assert.equal(updatedQualified.record.next_action, 'Run the scheduled discovery call.');
+
+  svc.upsertMarketingRecord(ownerA, 'distributionLists', { list_id: 'crm-handoff-list', name: 'CRM handoff prospects', default_channel: 'email' });
+  const handoffMember = svc.upsertMarketingRecord(ownerA, 'distributionMembers', { member_id: 'crm-handoff-member', list_id: 'crm-handoff-list', display_label: 'Qualified handoff prospect', channel: 'email', destination: 'qualified.handoff@example.invalid', consent_status: 'granted', consent_source: 'Test consent' }).record;
+  svc.upsertMarketingRecord(ownerA, 'campaigns', { campaign_id: 'crm-handoff-campaign', name: 'CRM handoff campaign', status: 'active', goal: 'Validate one-click CRM handoff', channels: ['email'], audience_list_ids: ['crm-handoff-list'] });
+  svc.upsertMarketingRecord(ownerA, 'engagements', { event_id: 'crm-handoff-reply', campaign_id: 'crm-handoff-campaign', channel: 'email', event_type: 'reply', audience_hash: handoffMember.destination_hash, source: 'provider_webhook' });
+  const handoffReady = svc.prepareMarketingLead(ownerA, { identity_reference: 'qualified.handoff@example.invalid', display_label: 'Qualified handoff prospect', opportunity_key: 'crm-handoff-campaign', opportunity_summary: 'Qualified campaign response', campaign_ids: ['crm-handoff-campaign'], channels: ['email'], engagement_event_ids: ['crm-handoff-reply'], consent: { email: 'granted' }, followup_status: 'pending', followup_channel: 'email' });
+  assert.equal(handoffReady.record.status, 'qualified');
+  assert.equal(handoffReady.record.eligible_for_followup, 'true');
+  let crmPersonCreates = 0;
+  let crmLeadCreates = 0;
+  const crmAdapter = {
+    provider: 'twenty',
+    listPeople: async () => ({ mode: 'live', people: [] }),
+    createPerson: async ({ email, idempotency_key }) => { crmPersonCreates += 1; assert.equal(email, 'qualified.handoff@example.invalid'); assert.equal(idempotency_key, `marketing-crm-person:${handoffReady.record.lead_id}`); return { person: { id: 'crm-person-handoff-1' } }; },
+    createLead: async ({ pointOfContactId, idempotency_key }) => { crmLeadCreates += 1; assert.equal(pointOfContactId, 'crm-person-handoff-1'); assert.equal(idempotency_key, `marketing-crm-lead:${handoffReady.record.lead_id}`); return { opportunity: { id: 'crm-lead-handoff-1' } }; },
+  };
+  const handedOff = await svc.handoffMarketingLeadToCrm(ownerA, { lead_id: handoffReady.record.lead_id }, { adapter: crmAdapter });
+  assert.equal(handedOff.lead.status, 'crm_synced');
+  assert.equal(handedOff.lead.crm_person_reference, 'crm-person-handoff-1');
+  assert.equal(handedOff.lead.crm_lead_reference, 'crm-lead-handoff-1');
+  assert.equal(handedOff.lead.crm_opportunity_reference, 'crm-lead-handoff-1');
+  const handoffRetry = await svc.handoffMarketingLeadToCrm(ownerA, { lead_id: handoffReady.record.lead_id }, { adapter: crmAdapter });
+  assert.equal(handoffRetry.idempotent, true, 'CRM handoff retry returns the linked record');
+  assert.equal(crmPersonCreates, 1, 'CRM person is created once');
+  assert.equal(crmLeadCreates, 1, 'CRM lead is created once');
+  await assert.rejects(
+    () => svc.handoffMarketingLeadToCrm(ownerB, { lead_id: handoffReady.record.lead_id }, { adapter: crmAdapter }),
+    (error) => error.code === 'MARKETING_LEAD_NOT_FOUND',
+    'CRM handoff cannot access another owner lead',
+  );
+  const notReady = svc.prepareMarketingLead(ownerA, { identity_reference: 'open.only@example.invalid', display_label: 'Open only', opportunity_key: 'open-only', channels: ['email'], engagement_event_ids: [opened.record.event_id], consent: { email: 'granted' }, followup_channel: 'email' });
+  await assert.rejects(
+    () => svc.handoffMarketingLeadToCrm(ownerA, { lead_id: notReady.record.lead_id }, { adapter: crmAdapter }),
+    (error) => error.code === 'MARKETING_LEAD_NOT_READY',
+    'unqualified evidence cannot be handed to CRM',
+  );
   const otherOpportunity = svc.prepareMarketingLead(ownerA, { identity_reference: 'crm-person-1', crm_person_reference: 'person-1', opportunity_key: 'analytics-expansion', opportunity_summary: 'Analytics expansion', interests: ['campaign analytics'], engagement_event_ids: ['email-reply-1'] });
   assert.equal(otherOpportunity.correlation.person_match, 'existing_person');
   assert.equal(otherOpportunity.correlation.opportunity_match, 'new_opportunity_for_existing_person');
@@ -294,15 +330,17 @@ try {
   assert.ok(role.tools.includes('marketing_audience_list_upsert'));
   assert.ok(role.tools.includes('marketing_audience_member_upsert'));
   assert.ok(role.tools.includes('marketing_campaign_schedule_upsert'));
+  assert.ok(role.tools.includes('marketing_crm_handoff'));
   assert.ok(role.tools.includes('connector_execute_action'));
 
   const toolRows = handle.prepare(`SELECT name,risk_tier,action_family FROM content_tools_meta WHERE name LIKE 'marketing_%' ORDER BY name`).all();
   const toolNames = toolRows.map((row) => row.name);
-  assert.equal(toolNames.length, 20);
+  assert.equal(toolNames.length, 21);
   assert.equal(toolRows.find((row) => row.name === 'marketing_workspace_read')?.action_family, 'read');
   assert.equal(toolRows.find((row) => row.name === 'marketing_campaign_upsert')?.action_family, 'write_internal');
   assert.equal(toolRows.find((row) => row.name === 'marketing_channel_send')?.action_family, 'communicate_external');
   assert.equal(toolRows.find((row) => row.name === 'marketing_channel_send')?.risk_tier, 'R2');
+  assert.equal(toolRows.find((row) => row.name === 'marketing_crm_handoff')?.risk_tier, 'R1');
   assert.equal(svc.getMarketingWorkspace(ownerA).records.strategies.length, 7, 'each supported channel has an effectiveness strategy');
   svc.upsertMarketingRecord(ownerA, 'engagements', { event_id: 'old-event', channel: 'email', event_type: 'open_signal', observed_at: '2020-01-01T00:00:00.000Z' });
   svc.recordMarketingOutcome(ownerA, { outcome_id: 'old-outcome', campaign_id: 'campaign-growth-q4', channel: 'facebook', outcome_type: 'reaction', observed_at: '2020-01-01T00:00:00.000Z' });
@@ -312,7 +350,7 @@ try {
   assert.ok(purged.deleted.marketing_engagement_events >= 1, 'engagement history follows owner retention');
   assert.ok(purged.deleted.marketing_campaign_outcomes >= 1, 'campaign outcome ledger follows owner retention');
   assert.ok(purged.deleted.marketing_distribution_list_members >= 1, 'manual audience contacts follow owner retention');
-  console.log(JSON.stringify({ ok: true, checks: ['configured-channel-transport-resolution', 'knowledge-backed-storage', 'upsert-idempotency', 'metric-idempotency', 'outcome-ledger-idempotency', 'cross-channel-outcomes', 'company-user-vs-contact-precedence', 'campaign-response-contract', 'inbound-campaign-attribution', 'inbound-idempotency', 'inbound-opt-out-suppression', 'marketing-followup-ownership', 'legacy-audience-identity-repair', 'legacy-send-receipt-identity-repair', 'legacy-email-reconciliation', 'owner-isolation', 'secret-rejection', 'signed-open-pixel', 'pixel-idempotency', 'cross-campaign-lead-correlation', 'distinct-opportunities', 'structured-followup-update', 'suppression-gate', 'browser-watch-cycle', 'agentic-campaign-configuration', 'run-readiness-contract', 'paid-budget-gate', 'channel-strategies', 'retention', 'hireable-template', 'existing-template-grant-reconciliation', 'tool-registry'] }, null, 2));
+  console.log(JSON.stringify({ ok: true, checks: ['configured-channel-transport-resolution', 'knowledge-backed-storage', 'upsert-idempotency', 'metric-idempotency', 'outcome-ledger-idempotency', 'cross-channel-outcomes', 'company-user-vs-contact-precedence', 'campaign-response-contract', 'inbound-campaign-attribution', 'inbound-idempotency', 'inbound-opt-out-suppression', 'marketing-followup-ownership', 'legacy-audience-identity-repair', 'legacy-send-receipt-identity-repair', 'legacy-email-reconciliation', 'owner-isolation', 'secret-rejection', 'signed-open-pixel', 'pixel-idempotency', 'cross-campaign-lead-correlation', 'distinct-opportunities', 'structured-followup-update', 'crm-handoff', 'crm-handoff-idempotency', 'crm-handoff-owner-isolation', 'crm-handoff-readiness-gate', 'suppression-gate', 'browser-watch-cycle', 'agentic-campaign-configuration', 'run-readiness-contract', 'paid-budget-gate', 'channel-strategies', 'retention', 'hireable-template', 'existing-template-grant-reconciliation', 'tool-registry'] }, null, 2));
 } finally {
   try { handle?.close(); } catch {}
   rmSync(root, { recursive: true, force: true });

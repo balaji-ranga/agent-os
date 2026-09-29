@@ -137,11 +137,33 @@ export default function MarketingWorkspace() {
   };
   const saveLead = (event) => {
     event.preventDefault();
-    save('Lead', api.marketingLeadPrepare, {
+    setBusy('Lead'); setMessage(null);
+    api.marketingLeadPrepare({
       ...lead,
       consent: { overall: lead.consent_state },
       recommended_followup: lead.next_action,
-    }, () => setLead(EMPTY_LEAD));
+    }).then(async (result) => {
+      await load();
+      setLead(leadFromRecord(result.record));
+      setMessage({ type: 'success', text: 'Lead saved. Qualification and consent were recalculated from the selected evidence.' });
+    }).catch((error) => setMessage({ type: 'error', text: error.message || 'Could not save lead.' }))
+      .finally(() => setBusy(''));
+  };
+  const handoffLeadToCrm = async () => {
+    if (!lead.lead_id) return;
+    setBusy('CrmHandoff'); setMessage(null);
+    try {
+      const saved = await api.marketingLeadPrepare({
+        ...lead,
+        consent: { overall: lead.consent_state },
+        recommended_followup: lead.next_action,
+      });
+      const result = await api.marketingLeadCrmHandoff(saved.record.lead_id);
+      await load();
+      setLead(leadFromRecord(result.lead));
+      setMessage({ type: 'success', text: `Lead sent to ${label(result.provider || 'CRM')}. CRM lead ${result.lead_id} is now linked.` });
+    } catch (error) { setMessage({ type: 'error', text: error.message || 'Could not send lead to CRM.' }); }
+    finally { setBusy(''); }
   };
   const validateCampaignRun = async () => {
     if (!campaign.campaign_id) return;
@@ -421,6 +443,12 @@ export default function MarketingWorkspace() {
                 <Field label="Next action"><textarea rows="3" placeholder="Concrete next step for the owner or Marketing Specialist" value={lead.next_action} onChange={(e) => setLead({ ...lead, next_action: e.target.value })} /></Field>
               </div>
               <FormActions busy={busy === 'Lead'} edit={!!lead.lead_id} clear={() => setLead(EMPTY_LEAD)} />
+              <CrmHandoff
+                lead={lead}
+                crmAvailable={crmOptions.available}
+                busy={busy === 'CrmHandoff'}
+                onHandoff={handoffLeadToCrm}
+              />
             </form>
           </Panel>
 
@@ -446,7 +474,33 @@ function label(value) { return String(value || '').replaceAll('_', ' ').replace(
 function formatDate(value) { if (!value) return '—'; const date = new Date(value); return Number.isNaN(date.getTime()) ? value : date.toLocaleString(); }
 function toLocalDateTime(value) { if (!value) return ''; const date = new Date(value); if (Number.isNaN(date.getTime())) return String(value).slice(0, 16); const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000); return local.toISOString().slice(0, 16); }
 function normalizeLifecycle(value) { const normalized = String(value || '').toLowerCase().replace(/[^a-z]+/g, '_').replace(/^_|_$/g, ''); return LIFECYCLE_STAGES.includes(normalized) ? normalized : ''; }
-function leadFromRecord(row) { const consent = parseJson(row.consent_json, {}); return { ...EMPTY_LEAD, ...row, campaign_ids: parseJson(row.campaign_ids_json, []), channels: parseJson(row.channels_json, []), interests: parseJson(row.opportunity_interests_json || row.interests_json, []), engagement_event_ids: parseJson(row.engagement_event_ids_json, []), consent_state: consent.overall || 'unknown', followup_due_at: toLocalDateTime(row.followup_due_at), next_action: row.next_action || row.recommended_followup || '' }; }
+function normalizedConsentState(value) {
+  const state = String(value || '').toLowerCase();
+  if (['granted', 'consented', 'opted_in', 'true'].includes(state)) return 'granted';
+  if (['denied', 'opted_out', 'unsubscribed', 'do_not_call', 'false'].includes(state)) return 'denied';
+  return 'unknown';
+}
+function leadFromRecord(row) {
+  const consent = parseJson(row.consent_json, {});
+  const channels = parseJson(row.channels_json, []);
+  const preferredConsent = consent.overall || consent[row.followup_channel] || channels.map((channel) => consent[channel]).find(Boolean) || Object.values(consent).find(Boolean);
+  return { ...EMPTY_LEAD, ...row, campaign_ids: parseJson(row.campaign_ids_json, []), channels, interests: parseJson(row.opportunity_interests_json || row.interests_json, []), engagement_event_ids: parseJson(row.engagement_event_ids_json, []), consent_state: normalizedConsentState(preferredConsent), followup_due_at: toLocalDateTime(row.followup_due_at), next_action: row.next_action || row.recommended_followup || '' };
+}
+
+function CrmHandoff({ lead, crmAvailable, busy, onHandoff }) {
+  const synced = !!(lead.crm_lead_reference || lead.crm_opportunity_reference);
+  const ready = !!lead.lead_id && ['qualified', 'crm_synced'].includes(lead.status) && String(lead.eligible_for_followup) === 'true' && crmAvailable && !synced;
+  let detail = 'Save the lead first. Flolah will then show whether it is ready for CRM.';
+  if (lead.lead_id && synced) detail = `Linked to CRM ${lead.crm_lead_reference || lead.crm_opportunity_reference}. Future saves keep this reference.`;
+  else if (lead.lead_id && !crmAvailable) detail = 'CRM is unavailable. Check the company CRM connection before handoff.';
+  else if (lead.lead_id && !['qualified', 'crm_synced'].includes(lead.status)) detail = 'Not ready: add attributable evidence until the lead qualifies.';
+  else if (lead.lead_id && String(lead.eligible_for_followup) !== 'true') detail = 'Not ready: grant contact permission and resolve any suppression before handoff.';
+  else if (ready) detail = 'Ready: Flolah will reuse an exact CRM person match or create one, create the CRM lead, and link both records.';
+  return <div className={`marketing-crm-handoff ${synced ? 'synced' : ready ? 'ready' : 'blocked'}`}>
+    <div><strong>{synced ? 'CRM linked' : 'Send to CRM'}</strong><span>{detail}</span></div>
+    {synced ? <Link to="/crm" className="marketing-secondary">Open CRM</Link> : <button className="marketing-primary" type="button" disabled={!ready || busy} onClick={onHandoff}>{busy ? 'Sending to CRM…' : 'Send qualified lead to CRM'}</button>}
+  </div>;
+}
 function Stat({ label: name, value, detail }) { return <article className="marketing-stat"><span>{name}</span><strong>{value}</strong><small>{detail}</small></article>; }
 function Panel({ title, subtitle, children }) { return <article className="marketing-panel"><header><h2>{title}</h2>{subtitle && <p>{subtitle}</p>}</header><div className="marketing-panel-body">{children}</div></article>; }
 function Field({ label: name, children }) { return <div className="marketing-field"><span>{name}</span>{children}</div>; }

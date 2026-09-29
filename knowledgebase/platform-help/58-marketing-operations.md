@@ -72,7 +72,9 @@ Select a CRM person and opportunity when they exist. If CRM is unavailable, a co
 
 Each portfolio row can carry `lifecycle_stage`, `followup_status`, `followup_channel`, `followup_due_at`, `next_action`, `crm_person_reference`, and `crm_opportunity_reference`. Passing its stable `lead_id` to `marketing_lead_prepare` updates that exact row instead of creating another opportunity.
 
-The Marketing Specialist uses the `marketing-lead-intelligence` skill. It reports prior campaign interests, strongest evidence, consented channel, confidence, duplicate/fatigue/suppression risk and the recommended next action. Qualified eligible leads are created or updated in CRM using the agent's CRM tools, and the returned CRM reference is written back to the Marketing lead profile.
+The Marketing Specialist uses the `marketing-lead-intelligence` skill. It reports prior campaign interests, strongest evidence, consented channel, confidence, duplicate/fatigue/suppression risk and the recommended next action.
+
+For a qualified, consent-eligible portfolio row, select **View** and then **Send qualified lead to CRM**. Flolah reuses the selected or exact matching CRM person when possible, creates the CRM lead/opportunity with an idempotent handoff, and immediately writes both CRM references back to the Marketing row. The button explains why it is disabled when evidence, consent, CRM availability or suppression blocks the handoff. A linked row shows **CRM linked** and provides **Open CRM**. The Marketing Specialist performs the identical operation with `marketing_crm_handoff { lead_id }`; it must not recreate the orchestration with separate CRM calls.
 
 ## Hire the Marketing Specialist
 
@@ -118,6 +120,7 @@ The CEO manages the schedule only under **Run & Operate → Scheduled Goals**. T
 | `marketing_audience_list_upsert` | Create/update a reusable manual distribution list | R1 |
 | `marketing_audience_member_upsert` | Add/update one encrypted, consent-tagged channel destination | R1 |
 | `marketing_campaign_configure` | Configure a campaign plus assets, channel references, watches and strategies from an intent or Objective | R1 |
+| `marketing_crm_handoff` | Idempotently move one qualified, consent-eligible Marketing lead into CRM and persist the returned references | R1 |
 | `marketing_campaign_run_prepare` | Validate objective, budget, channels and approved assets before execution | R0 |
 | `marketing_campaign_schedule_upsert` | Create/update this agent's recurring campaign in the shared Scheduled Goals scheduler | R1 |
 | `marketing_asset_upsert` | Create/update reusable internal assets | R1 |

@@ -102,6 +102,12 @@
 .marketing-choice-list input { width: auto; margin-top: 2px; }
 .marketing-inline-empty { padding: 11px; border: 1px dashed var(--border); border-radius: 10px; color: var(--muted); font-size: .84rem; }
 .marketing-followup-box { display: grid; gap: 13px; padding: 15px; border: 1px solid color-mix(in srgb,var(--accent) 25%,var(--border)); border-radius: 12px; background: color-mix(in srgb,var(--accent) 4%,var(--surface)); }
+.marketing-crm-handoff { display: flex; justify-content: space-between; gap: 14px; align-items: center; padding: 15px; border: 1px solid var(--border); border-radius: 12px; background: color-mix(in srgb,var(--text) 2%,var(--surface)); }
+.marketing-crm-handoff.ready { border-color: color-mix(in srgb,#10b981 38%,var(--border)); background: color-mix(in srgb,#10b981 6%,var(--surface)); }
+.marketing-crm-handoff.synced { border-color: color-mix(in srgb,var(--accent) 38%,var(--border)); background: color-mix(in srgb,var(--accent) 6%,var(--surface)); }
+.marketing-crm-handoff > div { display: grid; gap: 4px; }
+.marketing-crm-handoff span { color: var(--muted); font-size: .82rem; line-height: 1.45; }
+.marketing-crm-handoff > button,.marketing-crm-handoff > a { flex: 0 0 auto; }
 .marketing-correlation-summary { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 10px; }
 .marketing-correlation-summary span { display: grid; gap: 6px; padding: 11px; border: 1px solid var(--border); border-radius: 10px; color: var(--muted); font-size: .76rem; }
 .marketing-correlation-summary strong { color: var(--text); font-size: 1.15rem; }
@@ -116,4 +122,4 @@
 @media (max-width: 950px) { .marketing-stat-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } .marketing-two-col { grid-template-columns: 1fr; } .marketing-hero { align-items: flex-start; flex-direction: column; } .marketing-hero-actions { justify-content: flex-start; } }
 @media (max-width: 1150px) { .marketing-lead-toolbar { grid-template-columns: repeat(2,minmax(0,1fr)); } .marketing-add-lead { width: 100%; } .marketing-lead-layout { grid-template-columns: 1fr; } }
 @media (max-width: 950px) { .marketing-crm-status { align-items: flex-start; flex-direction: column; } }
-@media (max-width: 600px) { .marketing-page { padding: 14px; } .marketing-hero { padding: 20px; border-radius: 16px; } .marketing-stat-grid,.marketing-form-row,.marketing-lead-toolbar { grid-template-columns: 1fr; } .marketing-hero-actions { width: 100%; } .marketing-hero-actions > * { flex: 1; text-align: center; } .marketing-record { align-items: flex-start; } .marketing-record-side { align-items: flex-end; flex-direction: column; } .marketing-correlation-summary { grid-template-columns: 1fr; } }
+@media (max-width: 600px) { .marketing-page { padding: 14px; } .marketing-hero { padding: 20px; border-radius: 16px; } .marketing-stat-grid,.marketing-form-row,.marketing-lead-toolbar { grid-template-columns: 1fr; } .marketing-hero-actions { width: 100%; } .marketing-hero-actions > * { flex: 1; text-align: center; } .marketing-record { align-items: flex-start; } .marketing-record-side { align-items: flex-end; flex-direction: column; } .marketing-correlation-summary { grid-template-columns: 1fr; } .marketing-crm-handoff { align-items: stretch; flex-direction: column; } .marketing-crm-handoff > button,.marketing-crm-handoff > a { width: 100%; text-align: center; } }

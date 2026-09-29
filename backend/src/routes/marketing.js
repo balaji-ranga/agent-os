@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAuth, resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
-import { configureMarketingCampaign, createMarketingOpenPixel, getMarketingWorkspace, listDueMarketingWatches, prepareMarketingCampaignRun, prepareMarketingLead, reconcileMarketingToolOutcomes, recordMarketingWatchResult, updateMarketingFollowup, upsertMarketingRecord } from '../services/marketing-workspace.js';
+import { configureMarketingCampaign, createMarketingOpenPixel, getMarketingWorkspace, handoffMarketingLeadToCrm, listDueMarketingWatches, prepareMarketingCampaignRun, prepareMarketingLead, reconcileMarketingToolOutcomes, recordMarketingWatchResult, updateMarketingFollowup, upsertMarketingRecord } from '../services/marketing-workspace.js';
 import { assertCrmEntitled } from '../services/company-business-profile.js';
 import { crmListOpportunities, crmListPeople } from '../services/twenty-crm.js';
 import { erpCrmListOpportunities, erpCrmListPeople, isErpnextCrmOwner } from '../services/erpnext-crm-facade.js';
@@ -76,6 +76,12 @@ router.post('/campaigns/configure', requireAuth, (req, res) => {
 router.post('/campaigns/run-prepare', requireAuth, (req, res) => {
   try { const ownerUserId = owner(req, res); if (!ownerUserId) return; res.json(prepareMarketingCampaignRun(ownerUserId, req.body || {})); }
   catch (error) { res.status(error.status || 400).json({ error: error.message, code: error.code }); }
+});
+router.post('/leads/:leadId/crm-handoff', requireAuth, async (req, res) => {
+  try {
+    const ownerUserId = owner(req, res); if (!ownerUserId) return;
+    res.json(await handoffMarketingLeadToCrm(ownerUserId, { ...(req.body || {}), lead_id: req.params.leadId }));
+  } catch (error) { res.status(error.status || 400).json({ error: error.message, code: error.code }); }
 });
 
 for (const kind of ['campaigns', 'assets', 'channels', 'metrics', 'engagements', 'watches', 'strategies']) {
