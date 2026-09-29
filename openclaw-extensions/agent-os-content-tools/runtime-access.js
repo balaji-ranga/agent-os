@@ -40,6 +40,24 @@ export function isToolGranted(agentId, toolName, allowlists, configAllowByAgent)
   return false;
 }
 
+export function isToolGrantedForSession(
+  agentId,
+  toolName,
+  sessionKey,
+  allowlists,
+  configAllowByAgent,
+  sessionScopes,
+  at = Date.now()
+) {
+  if (!isToolGranted(agentId, toolName, allowlists, configAllowByAgent)) return false;
+  const key = String(sessionKey || '').trim();
+  const scope = key ? sessionScopes?.[key] : null;
+  if (!scope || !Array.isArray(scope.tools)) return true;
+  const expiresAt = Date.parse(scope.expires_at || '');
+  if (!Number.isFinite(expiresAt) || expiresAt <= at) return true;
+  return scope.tools.includes(toolName);
+}
+
 export function safeApiSessionKey(api) {
   try {
     return typeof api?.getSessionKey === "function" ? api.getSessionKey() : api?.sessionKey;

@@ -9,7 +9,7 @@ import { join } from "path";
 // Node; OpenClaw's loader can, but absolute path works in both contexts.
 import { definePluginEntry } from "/usr/local/lib/node_modules/openclaw/dist/plugin-sdk/plugin-entry.js";
 import {
-  isToolGranted,
+  isToolGrantedForSession,
   mergeRuntimeToolDescriptors,
   safeApiSessionKey,
   toolAllowByAgentFromConfig,
@@ -18,10 +18,12 @@ import {
 const OPENCLAW_DIR = process.env.OPENCLAW_DIR || join(process.env.USERPROFILE || process.env.HOME || "", ".openclaw");
 const DEFAULT_TOOLS_LIST_PATH = join(OPENCLAW_DIR, "agent-os-tools.json");
 const ALLOWLISTS_PATH = join(OPENCLAW_DIR, "agent-tool-allowlists.json");
+const SESSION_ALLOWLISTS_PATH = join(OPENCLAW_DIR, "agent-tool-session-allowlists.json");
 const OPENCLAW_CONFIG_PATH = process.env.OPENCLAW_CONFIG_PATH || join(OPENCLAW_DIR, "openclaw.json");
 const PLATFORM_RUNTIME_SECRETS_PATH = process.env.PLATFORM_RUNTIME_SECRETS_PATH || join(OPENCLAW_DIR, "platform-runtime-secrets.json");
 
 let allowlistsCache = { mtime: 0, data: {} };
+let sessionAllowlistsCache = { mtime: 0, data: {} };
 let openclawConfigCache = { mtime: 0, byAgent: {} };
 let runtimeSecretsCache = { mtime: 0, secrets: {} };
 const toolLeaseCache = new Map();
@@ -92,6 +94,19 @@ function loadAllowlists() {
   }
 }
 
+function loadSessionAllowlists() {
+  try {
+    if (!existsSync(SESSION_ALLOWLISTS_PATH)) return {};
+    const st = statSync(SESSION_ALLOWLISTS_PATH);
+    if (st.mtimeMs === sessionAllowlistsCache.mtime) return sessionAllowlistsCache.data;
+    const data = JSON.parse(readFileSync(SESSION_ALLOWLISTS_PATH, "utf8"));
+    sessionAllowlistsCache = { mtime: st.mtimeMs, data: data && typeof data === "object" ? data : {} };
+    return sessionAllowlistsCache.data;
+  } catch {
+    return {};
+  }
+}
+
 function loadOpenClawAllowByAgent() {
   try {
     if (!existsSync(OPENCLAW_CONFIG_PATH)) return {};
@@ -106,9 +121,16 @@ function loadOpenClawAllowByAgent() {
   }
 }
 
-function isToolAllowedForAgent(agentId, toolName) {
+function isToolAllowedForAgent(agentId, toolName, sessionKey = null) {
   const allowlists = loadAllowlists();
-  return isToolGranted(agentId, toolName, allowlists, loadOpenClawAllowByAgent());
+  return isToolGrantedForSession(
+    agentId,
+    toolName,
+    sessionKey,
+    allowlists,
+    loadOpenClawAllowByAgent(),
+    loadSessionAllowlists()
+  );
 }
 
 function loadToolsFromFile() {
@@ -1030,7 +1052,7 @@ export default definePluginEntry({
       api.registerTool(
         (toolCtx) => {
           const callerAgentId = resolveCallerAgentId(api, {}, toolCtx);
-          if (!isToolAllowedForAgent(callerAgentId, name)) return null;
+          if (!isToolAllowedForAgent(callerAgentId, name, toolCtx?.sessionKey)) return null;
           return {
             name,
             description:

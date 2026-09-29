@@ -83,6 +83,11 @@ import {
   simpleCourtesyReply,
 } from '../services/dashboard-chat-context.js';
 import { routeAgentTurn, bindWorkUnitExecution } from '../services/agent-turn-router.js';
+import {
+  installSessionToolScope,
+  removeSessionToolScope,
+  selectSessionContentTools,
+} from '../services/openclaw-session-tool-scope.js';
 import { preflightRoutedCapabilities, prohibitedRouteReply } from '../services/route-action-policy.js';
 import { decidePendingChatActionFromMessage, executeApprovedChatAction } from '../services/chat-action-approval.js';
 import { createAndStartGoalRun } from '../services/agent-goal-run.js';
@@ -1385,6 +1390,21 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
       original_request: message.trim(), resolved_request: routedMessage, work_unit_id: turnRoute.id,
     });
     registerActiveDashboardChat(agentId, ownerUserId, routedMessage);
+    const sessionToolSelection = selectSessionContentTools({
+      agentId: agent.id,
+      message: routedMessage,
+      route: turnRoute,
+    });
+    installSessionToolScope(sessionKey, sessionToolSelection);
+    if (sessionToolSelection.scoped) {
+      console.info(
+        '[agents] bounded session tools agent=%s owner=%s selected=%s grants=%s',
+        openclawAgentId,
+        ownerUserId,
+        sessionToolSelection.selected_count,
+        sessionToolSelection.grants_count
+      );
+    }
     const isDiscovery = String(agentId).toLowerCase() === 'jobdiscovery';
     const discoveryTimeout = Number(process.env.OPENCLAW_DISCOVERY_TIMEOUT_MS || 900000);
     const toolsSince = new Date().toISOString();
@@ -1478,33 +1498,40 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
           threadId,
           `empty-retry-${Date.now()}`
         );
+        const retrySessionKey = openclaw.sessionKeyFor(openclawAgentId, retrySessionUser);
         registerOpenClawSessionOwner(
-          openclaw.sessionKeyFor(openclawAgentId, retrySessionUser),
+          retrySessionKey,
           ownerUserId,
           req.authUser.id,
           'web',
           { original_request: message.trim(), resolved_request: routedMessage, work_unit_id: turnRoute.id }
         );
-        ({ content: reply, usage } = await withLlmopsContext(
-          {
-            ownerUserId,
-            memberKey: agentId,
-            agentId,
-            source: 'openclaw_chat',
-            sessionId: threadId,
-            traceId: threadId ? `sess:${threadId}` : null,
-          },
-          () =>
-            openclaw.chatCompletions(
-              openclawAgentId,
-              messages,
-              retrySessionUser,
-              false,
-              chatOpts
-            )
-        ));
+        installSessionToolScope(retrySessionKey, sessionToolSelection);
+        try {
+          ({ content: reply, usage } = await withLlmopsContext(
+            {
+              ownerUserId,
+              memberKey: agentId,
+              agentId,
+              source: 'openclaw_chat',
+              sessionId: threadId,
+              traceId: threadId ? `sess:${threadId}` : null,
+            },
+            () =>
+              openclaw.chatCompletions(
+                openclawAgentId,
+                messages,
+                retrySessionUser,
+                false,
+                chatOpts
+              )
+          ));
+        } finally {
+          removeSessionToolScope(retrySessionKey);
+        }
       }
     } finally {
+      removeSessionToolScope(sessionKey);
       clearActiveDashboardChat(agentId, ownerUserId);
     }
     if (isOpenClawEmptyResponse(reply)) {

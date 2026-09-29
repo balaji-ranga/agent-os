@@ -18,6 +18,8 @@ Available capability families are Google Workspace (Calendar, Drive, Docs, Sheet
 
 **App ID** and **Action ID** are picklists rather than free text. App ID shows compatible applications connected for your company through OpenConnector. After you select an app, Action ID shows the actions that connector reports as supported. The optional verification-action picklist uses the same live catalog.
 
+Compatibility is checked for both the provider and the selected operation. For example, an Outlook **mail** connection is not offered for `calendar_list_events`; that capability requires a connected app that actually publishes calendar actions, such as `outlook_calendar`. Flolah rejects an action ID from a different app instead of allowing a semantically incorrect binding.
+
 The capability is the stable intent an agent or workflow requests, such as `calendar_list_events`. The binding is the company-owned routing rule from that intent and provider to an exact connector action. At run time Flolah resolves the owner-scoped binding, applies Action Control, executes only the selected action, suppresses a retry with the same idempotency key, and stores an action receipt. Flolah does not guess an App ID or Action ID from prompt keywords.
 
 ## Create an event subscription
@@ -43,6 +45,8 @@ Start read-only: list a small date window or search a uniquely named test docume
 ## Troubleshooting
 
 - **No enabled binding**: configure the exact operation/provider binding.
+- **No compatible app is listed**: the connected account does not publish actions for that operation. Connect the matching calendar/file/document app; do not bind an unrelated mail action as a workaround.
+- **Agent has many tool grants**: Flolah keeps the grants but sends a bounded, request-relevant tool subset to the model for that chat turn. This prevents provider tool-count limits without permanently removing employee access.
 - **Invalid webhook secret**: rotate the subscription secret and update the sender.
 - **Failed/dead-letter event**: open the inbox error, correct the connector or target, and choose Replay.
 - **Approval required**: approve the generated action request or create a bounded Action Control override; replay after approval.

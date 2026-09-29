@@ -37,9 +37,11 @@ export default function EventProductivityPanel() {
     .map(([name]) => name), [operationCatalog, binding.provider]);
   const connectedApps = data.summary?.connected_apps || [];
   const compatibleApps = useMemo(() => {
-    const supported = new Set(providers[binding.provider]?.apps || []);
+    const providerApps = new Set(providers[binding.provider]?.apps || []);
+    const operationApps = new Set(operationCatalog[binding.operation]?.apps || []);
+    const supported = new Set([...providerApps].filter((appId) => operationApps.has(appId)));
     return connectedApps.filter((app) => supported.has(app.id));
-  }, [connectedApps, providers, binding.provider]);
+  }, [connectedApps, providers, operationCatalog, binding.provider, binding.operation]);
 
   useEffect(() => {
     if (providerEventTypes.length && !providerEventTypes.some((event) => event.id === sub.event_type)) {

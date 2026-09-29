@@ -4,29 +4,35 @@ import { executeConnectorAction, getConnectedConnectorApps } from './openconnect
 import { triggerWorkflowFromHook } from './agent-workflow-webhooks.js';
 import { createAndStartGoalRun } from './agent-goal-run.js';
 
+const CALENDAR_APPS = ['google_calendar', 'outlook_calendar'];
+const FILE_APPS = ['google_drive', 'onedrive', 'sharepoint'];
+const DOCUMENT_APPS = ['google_docs', 'google_drive', 'word', 'onedrive', 'sharepoint'];
+const SPREADSHEET_APPS = ['google_sheets', 'google_drive', 'excel', 'onedrive', 'sharepoint'];
+const MESSAGE_APPS = ['slack', 'microsoft_teams'];
+
 export const PRODUCTIVITY_OPERATIONS = Object.freeze({
-  productivity_capabilities: { family: 'read', tier: 'R0', providers: ['google_workspace', 'microsoft_365', 'slack', 'microsoft_teams'] },
-  calendar_list_events: { family: 'read', tier: 'R0', providers: ['google_workspace', 'microsoft_365'] },
-  calendar_find_slots: { family: 'read', tier: 'R0', providers: ['google_workspace', 'microsoft_365'] },
-  calendar_create_event: { family: 'communicate_external', tier: 'R2', providers: ['google_workspace', 'microsoft_365'] },
-  calendar_update_event: { family: 'communicate_external', tier: 'R2', providers: ['google_workspace', 'microsoft_365'] },
-  calendar_cancel_event: { family: 'communicate_external', tier: 'R2', providers: ['google_workspace', 'microsoft_365'] },
-  file_search: { family: 'read', tier: 'R0', providers: ['google_workspace', 'microsoft_365'] },
-  file_get_metadata: { family: 'read', tier: 'R0', providers: ['google_workspace', 'microsoft_365'] },
-  document_create: { family: 'write_internal', tier: 'R1', providers: ['google_workspace', 'microsoft_365'] },
-  document_read: { family: 'read', tier: 'R0', providers: ['google_workspace', 'microsoft_365'] },
-  document_update: { family: 'write_internal', tier: 'R1', providers: ['google_workspace', 'microsoft_365'] },
-  document_comment: { family: 'communicate_external', tier: 'R2', providers: ['google_workspace', 'microsoft_365'] },
-  document_export: { family: 'read', tier: 'R0', providers: ['google_workspace', 'microsoft_365'] },
-  spreadsheet_read: { family: 'read', tier: 'R0', providers: ['google_workspace', 'microsoft_365'] },
-  spreadsheet_write: { family: 'write_internal', tier: 'R1', providers: ['google_workspace', 'microsoft_365'] },
-  spreadsheet_append: { family: 'write_internal', tier: 'R1', providers: ['google_workspace', 'microsoft_365'] },
-  spreadsheet_set_formula: { family: 'write_internal', tier: 'R1', providers: ['google_workspace', 'microsoft_365'] },
-  spreadsheet_export: { family: 'read', tier: 'R0', providers: ['google_workspace', 'microsoft_365'] },
-  message_search: { family: 'read', tier: 'R0', providers: ['slack', 'microsoft_teams'] },
-  message_get_thread: { family: 'read', tier: 'R0', providers: ['slack', 'microsoft_teams'] },
-  message_send: { family: 'communicate_external', tier: 'R2', providers: ['slack', 'microsoft_teams'] },
-  message_reply: { family: 'communicate_external', tier: 'R2', providers: ['slack', 'microsoft_teams'] },
+  productivity_capabilities: { family: 'read', tier: 'R0', providers: ['google_workspace', 'microsoft_365', 'slack', 'microsoft_teams'], apps: [] },
+  calendar_list_events: { family: 'read', tier: 'R0', providers: ['google_workspace', 'microsoft_365'], apps: CALENDAR_APPS },
+  calendar_find_slots: { family: 'read', tier: 'R0', providers: ['google_workspace', 'microsoft_365'], apps: CALENDAR_APPS },
+  calendar_create_event: { family: 'communicate_external', tier: 'R2', providers: ['google_workspace', 'microsoft_365'], apps: CALENDAR_APPS },
+  calendar_update_event: { family: 'communicate_external', tier: 'R2', providers: ['google_workspace', 'microsoft_365'], apps: CALENDAR_APPS },
+  calendar_cancel_event: { family: 'communicate_external', tier: 'R2', providers: ['google_workspace', 'microsoft_365'], apps: CALENDAR_APPS },
+  file_search: { family: 'read', tier: 'R0', providers: ['google_workspace', 'microsoft_365'], apps: FILE_APPS },
+  file_get_metadata: { family: 'read', tier: 'R0', providers: ['google_workspace', 'microsoft_365'], apps: FILE_APPS },
+  document_create: { family: 'write_internal', tier: 'R1', providers: ['google_workspace', 'microsoft_365'], apps: DOCUMENT_APPS },
+  document_read: { family: 'read', tier: 'R0', providers: ['google_workspace', 'microsoft_365'], apps: DOCUMENT_APPS },
+  document_update: { family: 'write_internal', tier: 'R1', providers: ['google_workspace', 'microsoft_365'], apps: DOCUMENT_APPS },
+  document_comment: { family: 'communicate_external', tier: 'R2', providers: ['google_workspace', 'microsoft_365'], apps: DOCUMENT_APPS },
+  document_export: { family: 'read', tier: 'R0', providers: ['google_workspace', 'microsoft_365'], apps: DOCUMENT_APPS },
+  spreadsheet_read: { family: 'read', tier: 'R0', providers: ['google_workspace', 'microsoft_365'], apps: SPREADSHEET_APPS },
+  spreadsheet_write: { family: 'write_internal', tier: 'R1', providers: ['google_workspace', 'microsoft_365'], apps: SPREADSHEET_APPS },
+  spreadsheet_append: { family: 'write_internal', tier: 'R1', providers: ['google_workspace', 'microsoft_365'], apps: SPREADSHEET_APPS },
+  spreadsheet_set_formula: { family: 'write_internal', tier: 'R1', providers: ['google_workspace', 'microsoft_365'], apps: SPREADSHEET_APPS },
+  spreadsheet_export: { family: 'read', tier: 'R0', providers: ['google_workspace', 'microsoft_365'], apps: SPREADSHEET_APPS },
+  message_search: { family: 'read', tier: 'R0', providers: ['slack', 'microsoft_teams'], apps: MESSAGE_APPS },
+  message_get_thread: { family: 'read', tier: 'R0', providers: ['slack', 'microsoft_teams'], apps: MESSAGE_APPS },
+  message_send: { family: 'communicate_external', tier: 'R2', providers: ['slack', 'microsoft_teams'], apps: MESSAGE_APPS },
+  message_reply: { family: 'communicate_external', tier: 'R2', providers: ['slack', 'microsoft_teams'], apps: MESSAGE_APPS },
 });
 
 export const PRODUCTIVITY_PROVIDER_CATALOG = Object.freeze({
@@ -376,20 +382,34 @@ export function listProductivityBindings(ownerUserId) {
   return db().prepare(`SELECT * FROM productivity_action_bindings WHERE owner_user_id=? ORDER BY operation,provider`).all(assertOwner(ownerUserId)).map(bindingRow);
 }
 
+function assertProductivityBindingCompatibility(operation, provider, appId, actionId, verifyActionId = '') {
+  const spec = PRODUCTIVITY_OPERATIONS[operation];
+  if (!spec || operation === 'productivity_capabilities') throw Object.assign(new Error('Unsupported productivity operation'), { status: 400 });
+  if (!spec.providers.includes(provider)) throw Object.assign(new Error('Provider does not support this operation'), { status: 400 });
+  if (!(PRODUCTIVITY_PROVIDER_CATALOG[provider]?.apps || []).includes(appId) || !(spec.apps || []).includes(appId)) {
+    throw Object.assign(new Error(`App "${appId}" does not support ${operation}`), { status: 400, code: 'PRODUCTIVITY_BINDING_INCOMPATIBLE' });
+  }
+  if (!actionId.startsWith(`${appId}.`) || (verifyActionId && !verifyActionId.startsWith(`${appId}.`))) {
+    throw Object.assign(new Error('Action IDs must belong to the selected app'), { status: 400, code: 'PRODUCTIVITY_BINDING_INCOMPATIBLE' });
+  }
+}
+
 export function upsertProductivityBinding(ownerUserId, input = {}) {
   ensureEventProductivitySchema();
   const owner = assertOwner(ownerUserId);
   const operation = String(input.operation || '').trim();
   const provider = String(input.provider || '').trim();
-  if (!PRODUCTIVITY_OPERATIONS[operation] || operation === 'productivity_capabilities') throw Object.assign(new Error('Unsupported productivity operation'), { status: 400 });
-  if (!PRODUCTIVITY_OPERATIONS[operation].providers.includes(provider)) throw Object.assign(new Error('Provider does not support this operation'), { status: 400 });
   if (!String(input.action_id || '').trim() || !String(input.app_id || '').trim()) throw Object.assign(new Error('app_id and action_id are required'), { status: 400 });
+  const appId = String(input.app_id).trim();
+  const actionId = String(input.action_id).trim();
+  const verifyActionId = String(input.verify_action_id || '').trim();
+  assertProductivityBindingCompatibility(operation, provider, appId, actionId, verifyActionId);
   const existing = db().prepare(`SELECT id FROM productivity_action_bindings WHERE owner_user_id=? AND operation=? AND provider=?`).get(owner, operation, provider);
   const id = existing?.id || `epb-${randomUUID()}`;
   db().prepare(`INSERT INTO productivity_action_bindings
     (id,owner_user_id,operation,provider,app_id,action_id,connection_name,input_template_json,verify_action_id,verify_input_template_json,enabled)
     VALUES (?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(owner_user_id,operation,provider) DO UPDATE SET app_id=excluded.app_id,action_id=excluded.action_id,connection_name=excluded.connection_name,input_template_json=excluded.input_template_json,verify_action_id=excluded.verify_action_id,verify_input_template_json=excluded.verify_input_template_json,enabled=excluded.enabled,updated_at=datetime('now')`).run(
-      id, owner, operation, provider, String(input.app_id).trim(), String(input.action_id).trim(), String(input.connection_name || '').trim(), JSON.stringify(input.input_template || {}), String(input.verify_action_id || '').trim(), JSON.stringify(input.verify_input_template || {}), input.enabled === false ? 0 : 1
+      id, owner, operation, provider, appId, actionId, String(input.connection_name || '').trim(), JSON.stringify(input.input_template || {}), verifyActionId, JSON.stringify(input.verify_input_template || {}), input.enabled === false ? 0 : 1
     );
   return bindingRow(db().prepare(`SELECT * FROM productivity_action_bindings WHERE owner_user_id=? AND operation=? AND provider=?`).get(owner, operation, provider));
 }
@@ -413,6 +433,7 @@ export async function executeProductivityOperation(ownerUserId, operation, input
   const provider = String(input.provider || '').trim();
   const binding = db().prepare(`SELECT * FROM productivity_action_bindings WHERE owner_user_id=? AND operation=? AND provider=? AND enabled=1`).get(owner, operation, provider);
   if (!binding) throw Object.assign(new Error(`No enabled binding for ${operation} on ${provider}`), { status: 409, code: 'PRODUCTIVITY_BINDING_REQUIRED' });
+  assertProductivityBindingCompatibility(operation, provider, binding.app_id, binding.action_id, binding.verify_action_id);
   const actionInput = applyTemplate(json(binding.input_template_json), input.input || input.parameters || {});
   const requestHash = hash(JSON.stringify(stable(actionInput)));
   const contextKey = String(input.event_id || input.goal_run_id || input.workflow_run_id || '').trim();

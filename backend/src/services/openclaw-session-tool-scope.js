@@ -1,0 +1,107 @@
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'fs';
+import { dirname, join } from 'path';
+import { getOpenClawDir } from '../config/openclaw-paths.js';
+import { enquireContentTools } from './content-tools-meta.js';
+import { getAgentToolGrants } from './openclaw-agent-tools.js';
+import { OPENCLAW_TOOL_PRIORITY } from './openclaw-runtime-tools.js';
+
+export const SESSION_TOOL_SCOPES_PATH = join(
+  getOpenClawDir(),
+  'agent-tool-session-allowlists.json'
+);
+export const MAX_SESSION_CONTENT_TOOLS = 96;
+
+const BASELINE_CONTENT_TOOLS = Object.freeze([
+  'learnings_summary',
+  'content_tools_enquire',
+  'ceo_profile',
+  'productivity_capabilities',
+  'agent_goal_status',
+  'agent_workflow_enquire',
+  'agent_workflow_runs',
+  'kanban_get_task',
+]);
+
+function readScopes() {
+  try {
+    if (!existsSync(SESSION_TOOL_SCOPES_PATH)) return {};
+    const parsed = JSON.parse(readFileSync(SESSION_TOOL_SCOPES_PATH, 'utf8'));
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function pruneExpired(scopes, at = Date.now()) {
+  return Object.fromEntries(
+    Object.entries(scopes || {}).filter(([, scope]) => {
+      const expiry = Date.parse(scope?.expires_at || '');
+      return Number.isFinite(expiry) && expiry > at && Array.isArray(scope?.tools);
+    })
+  );
+}
+
+function writeScopes(scopes) {
+  mkdirSync(dirname(SESSION_TOOL_SCOPES_PATH), { recursive: true });
+  const temp = `${SESSION_TOOL_SCOPES_PATH}.${process.pid}.tmp`;
+  writeFileSync(temp, `${JSON.stringify(scopes, null, 2)}\n`, 'utf8');
+  renameSync(temp, SESSION_TOOL_SCOPES_PATH);
+}
+
+function routeCapabilityNames(route) {
+  const names = route?.executor_evidence?.capability_names;
+  return Array.isArray(names) ? names.map((name) => String(name || '').trim()).filter(Boolean) : [];
+}
+
+export function selectSessionContentTools({ agentId, message = '', route = null, maxTools = MAX_SESSION_CONTENT_TOOLS }) {
+  const limit = Math.max(8, Math.min(112, Number(maxTools) || MAX_SESSION_CONTENT_TOOLS));
+  const grants = getAgentToolGrants(agentId);
+  if (grants.length <= limit) return { scoped: false, tools: grants, grants_count: grants.length };
+
+  const granted = new Set(grants);
+  const selected = [];
+  const add = (name) => {
+    const value = String(name || '').trim();
+    if (value && granted.has(value) && !selected.includes(value) && selected.length < limit) selected.push(value);
+  };
+
+  for (const name of routeCapabilityNames(route)) add(name);
+  const ranked = enquireContentTools(
+    [message, ...routeCapabilityNames(route)].filter(Boolean).join(' '),
+    { limit }
+  );
+  for (const tool of ranked.tools || []) add(tool.name);
+  for (const name of BASELINE_CONTENT_TOOLS) add(name);
+  for (const name of OPENCLAW_TOOL_PRIORITY) add(name);
+  for (const name of grants) add(name);
+
+  return {
+    scoped: true,
+    tools: selected,
+    grants_count: grants.length,
+    selected_count: selected.length,
+  };
+}
+
+export function installSessionToolScope(sessionKey, selection, ttlMs = 15 * 60 * 1000) {
+  const key = String(sessionKey || '').trim();
+  if (!key || !selection?.scoped) return selection || { scoped: false, tools: [] };
+  const scopes = pruneExpired(readScopes());
+  scopes[key] = {
+    tools: [...new Set((selection.tools || []).map(String).filter(Boolean))],
+    expires_at: new Date(Date.now() + Math.max(60_000, Number(ttlMs) || 0)).toISOString(),
+  };
+  writeScopes(scopes);
+  return selection;
+}
+
+export function removeSessionToolScope(sessionKey) {
+  const key = String(sessionKey || '').trim();
+  if (!key) return false;
+  const scopes = pruneExpired(readScopes());
+  if (!Object.prototype.hasOwnProperty.call(scopes, key)) return false;
+  delete scopes[key];
+  writeScopes(scopes);
+  return true;
+}
+

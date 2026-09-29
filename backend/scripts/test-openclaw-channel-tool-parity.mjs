@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   isToolGranted,
+  isToolGrantedForSession,
   mergeRuntimeToolDescriptors,
   safeApiSessionKey,
   toolAllowByAgentFromConfig,
@@ -20,6 +21,20 @@ assert.equal(isToolGranted(tenantId, 'email_send', grants, {}), false,
   'Workspace Tool access denial must be enforced');
 assert.equal(isToolGranted(null, 'agent_workflow_list', grants, {}), false,
   'missing caller identity must fail closed');
+const scopedSession = 'agent:t-ceo-bala--balserve:fixture';
+const sessionScopes = {
+  [scopedSession]: { tools: ['agent_workflow_list'], expires_at: new Date(Date.now() + 60_000).toISOString() },
+};
+assert.equal(isToolGrantedForSession(tenantId, 'agent_workflow_list', scopedSession, grants, {}, sessionScopes), true);
+assert.equal(isToolGrantedForSession(tenantId, 'email_send', scopedSession, grants, {}, sessionScopes), false);
+assert.equal(isToolGrantedForSession(tenantId, 'agent_workflow_list', scopedSession, grants, {}, {
+  [scopedSession]: { tools: [], expires_at: new Date(Date.now() + 60_000).toISOString() },
+}), false, 'active session scope narrows but never expands permanent grants');
+assert.equal(isToolGrantedForSession(tenantId, 'agent_workflow_list', scopedSession, grants, {}, {
+  [scopedSession]: { tools: [], expires_at: new Date(Date.now() - 60_000).toISOString() },
+}), true, 'expired session scope cannot strand an agent');
+assert.equal(isToolGrantedForSession(tenantId, 'agent_workflow_list', `${scopedSession}-other`, grants, {}, sessionScopes), true,
+  'one request scope must not narrow another request or tenant session');
 
 const entriesConfig = {
   agents: { entries: { [tenantId]: { tools: { allow: ['agent_workflow_list'] } } } },

@@ -12,10 +12,15 @@ import { definePluginEntry } from "/usr/local/lib/node_modules/openclaw/dist/plu
 const OPENCLAW_DIR = process.env.OPENCLAW_DIR || join(process.env.USERPROFILE || process.env.HOME || "", ".openclaw");
 const DEFAULT_TOOLS_LIST_PATH = join(OPENCLAW_DIR, "agent-os-tools.json");
 const ALLOWLISTS_PATH = join(OPENCLAW_DIR, "agent-tool-allowlists.json");
+const SESSION_ALLOWLISTS_PATH = join(OPENCLAW_DIR, "agent-tool-session-allowlists.json");
 const OPENCLAW_CONFIG_PATH = process.env.OPENCLAW_CONFIG_PATH || join(OPENCLAW_DIR, "openclaw.json");
 const PLATFORM_RUNTIME_SECRETS_PATH = process.env.PLATFORM_RUNTIME_SECRETS_PATH || join(OPENCLAW_DIR, "platform-runtime-secrets.json");
 
 let allowlistsCache: { mtime: number; data: Record<string, string[]> } = { mtime: 0, data: {} };
+let sessionAllowlistsCache: {
+  mtime: number;
+  data: Record<string, { tools?: string[]; expires_at?: string }>;
+} = { mtime: 0, data: {} };
 let openclawConfigCache: { mtime: number; byAgent: Record<string, string[]> } = { mtime: 0, byAgent: {} };
 let runtimeSecretsCache: { mtime: number; secrets: Record<string, { value?: string }> } = { mtime: 0, secrets: {} };
 const toolLeaseCache = new Map<string, { token: string; expiresAt: number }>();
@@ -82,6 +87,22 @@ function loadAllowlists(): Record<string, string[]> {
   }
 }
 
+function loadSessionAllowlists(): Record<string, { tools?: string[]; expires_at?: string }> {
+  try {
+    if (!existsSync(SESSION_ALLOWLISTS_PATH)) return {};
+    const st = statSync(SESSION_ALLOWLISTS_PATH);
+    if (st.mtimeMs === sessionAllowlistsCache.mtime) return sessionAllowlistsCache.data;
+    const data = JSON.parse(readFileSync(SESSION_ALLOWLISTS_PATH, "utf8"));
+    sessionAllowlistsCache = {
+      mtime: st.mtimeMs,
+      data: data && typeof data === "object" ? data : {},
+    };
+    return sessionAllowlistsCache.data;
+  } catch {
+    return {};
+  }
+}
+
 function loadOpenClawAllowByAgent(): Record<string, string[]> {
   try {
     if (!existsSync(OPENCLAW_CONFIG_PATH)) return {};
@@ -104,14 +125,24 @@ function loadOpenClawAllowByAgent(): Record<string, string[]> {
   }
 }
 
-function isToolAllowedForAgent(agentId: string | null | undefined, toolName: string): boolean {
+function isToolAllowedForAgent(
+  agentId: string | null | undefined,
+  toolName: string,
+  sessionKey?: string | null
+): boolean {
   if (!agentId) return false;
   const key = String(agentId).toLowerCase();
   const allowlists = loadAllowlists();
-  if (Array.isArray(allowlists[key])) return allowlists[key].includes(toolName);
   const fromConfig = loadOpenClawAllowByAgent()[key];
-  if (Array.isArray(fromConfig)) return fromConfig.includes(toolName);
-  return false;
+  const permanentlyGranted = Array.isArray(allowlists[key])
+    ? allowlists[key].includes(toolName)
+    : Array.isArray(fromConfig) && fromConfig.includes(toolName);
+  if (!permanentlyGranted) return false;
+  const scope = sessionKey ? loadSessionAllowlists()[String(sessionKey)] : null;
+  if (!scope || !Array.isArray(scope.tools)) return true;
+  const expiresAt = Date.parse(scope.expires_at || "");
+  if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) return true;
+  return scope.tools.includes(toolName);
 }
 
 interface ToolEntry {
@@ -726,7 +757,7 @@ export default definePluginEntry({
       api.registerTool(
         (toolCtx: ToolCtx) => {
           const callerAgentId = resolveCallerAgentId(api, {}, toolCtx);
-          if (!isToolAllowedForAgent(callerAgentId, name)) return null;
+          if (!isToolAllowedForAgent(callerAgentId, name, toolCtx?.sessionKey)) return null;
           return {
             name,
             description:

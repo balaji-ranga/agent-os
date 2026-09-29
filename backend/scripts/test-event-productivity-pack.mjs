@@ -84,7 +84,17 @@ try {
   assert.equal(svc.getProductivityEvent(ownerA, failed.id).status, 'dead_letter', 'bounded retries terminate');
 
   const bind = svc.upsertProductivityBinding(ownerA, { operation: 'calendar_list_events', provider: 'google_workspace', app_id: 'google_calendar', action_id: 'google_calendar.list_events' });
-  assert.equal(svc.listProductivityBindings(ownerB).length, 0, 'cross-owner binding hidden');
+  assert.throws(() => svc.upsertProductivityBinding(ownerA, { operation: 'calendar_list_events', provider: 'microsoft_365', app_id: 'outlook', action_id: 'outlook.list_messages' }), /does not support calendar_list_events/);
+  assert.throws(() => svc.upsertProductivityBinding(ownerA, { operation: 'calendar_list_events', provider: 'google_workspace', app_id: 'google_calendar', action_id: 'outlook.list_messages' }), /belong to the selected app/);
+  handle.prepare(`INSERT INTO productivity_action_bindings
+    (id,owner_user_id,operation,provider,app_id,action_id,enabled) VALUES (?,?,?,?,?,?,1)`)
+    .run('legacy-invalid-binding', ownerB, 'calendar_list_events', 'microsoft_365', 'outlook', 'outlook.list_messages');
+  await assert.rejects(
+    () => svc.executeProductivityOperation(ownerB, 'calendar_list_events', { provider: 'microsoft_365' }, { executeAction: async () => { throw new Error('must not execute'); } }),
+    /does not support calendar_list_events/,
+    'legacy incompatible bindings fail closed before connector execution'
+  );
+  assert.equal(svc.listProductivityBindings(ownerA).some((row) => row.id === 'legacy-invalid-binding'), false, 'cross-owner binding hidden');
   let calls = 0;
   const executeAction = async () => { calls += 1; return { ok: true, data: { id: 'external-1' }, transport: 'fixture' }; };
   const first = await svc.executeProductivityOperation(ownerA, 'calendar_list_events', { provider: 'google_workspace', input: { days: 7 }, idempotency_key: 'same-call' }, { executeAction });
@@ -110,7 +120,7 @@ try {
   assert.ok(purged.deleted.productivity_events >= 1);
   assert.ok(purged.deleted.productivity_action_receipts >= 1);
 
-  console.log(JSON.stringify({ ok: true, checks: ['provider-event-catalog', 'provider-event-validation', 'owner-isolation', 'trusted-ingestion-owner-check', 'secret-auth', 'payload-redaction', 'structured-filter', 'event-idempotency', 'workflow-dispatch', 'goal-dispatch', 'retry-dead-letter', 'binding-isolation', 'action-idempotency', 'risk-contract', 'action-policy-approval', 'action-policy-override', 'retention'], binding_id: bind.id }, null, 2));
+  console.log(JSON.stringify({ ok: true, checks: ['provider-event-catalog', 'provider-event-validation', 'owner-isolation', 'trusted-ingestion-owner-check', 'secret-auth', 'payload-redaction', 'structured-filter', 'event-idempotency', 'workflow-dispatch', 'goal-dispatch', 'retry-dead-letter', 'binding-isolation', 'operation-app-compatibility', 'legacy-binding-fail-closed', 'action-idempotency', 'risk-contract', 'action-policy-approval', 'action-policy-override', 'retention'], binding_id: bind.id }, null, 2));
 } finally {
   try { handle?.close(); } catch {}
   rmSync(root, { recursive: true, force: true });

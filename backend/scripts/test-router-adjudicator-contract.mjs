@@ -16,7 +16,7 @@ process.env.OPENAI_SECONDARY_MODEL = 'test-checker';
 process.env.OPENAI_SECONDARY_API_KEY = 'fixture-only';
 process.env.MODEL_ROUTING_ENABLED = '0';
 const { getDb } = await import('../src/db/schema.js');
-const { routeAgentTurn, validateRouteDecision, needsRouteAdjudication, ROUTER_SYSTEM, isDirectChatOnlyAgent } = await import('../src/services/agent-turn-router.js');
+const { routeAgentTurn, validateRouteDecision, needsRouteAdjudication, normalizeRouteDecision, ROUTER_SYSTEM, isDirectChatOnlyAgent } = await import('../src/services/agent-turn-router.js');
 const { buildRouteSchema, routeContractPrompt } = await import('../src/services/agent-route-contract.js');
 const { ensurePlatformSettingsTable, setPlatformSetting } = await import('../src/services/platform-llm-settings.js');
 const db = getDb();
@@ -50,6 +50,15 @@ try {
     return routeAgentTurn({ownerUserId:'router-owner',agent,sessionId:'fixture-session',message:valid.resolved_request,...extra});
   };
   check('valid specialist route',()=>assert.equal(validateRouteDecision(valid,[],roster).ok,true));
+  check('missing relation on fresh work is repaired without changing execution mode',()=>{
+    const { relation, execution_mode } = normalizeRouteDecision({ ...valid, relation: undefined }, { message: valid.resolved_request });
+    assert.equal(relation, 'new_work');
+    assert.equal(execution_mode, 'delegate');
+  });
+  check('missing relation with selected context is repaired as follow-up',()=>{
+    const repairedRoute = normalizeRouteDecision({ ...valid, relation: undefined, relevant_turn_ids: [45] }, { message: valid.resolved_request });
+    assert.equal(repairedRoute.relation, 'follow_up');
+  });
   for (const confidence of [null,undefined,'0.9','',false,NaN,Infinity,-0.1,1.1]) check(`reject invalid confidence ${String(confidence)}`,()=>assert.equal(validateRouteDecision({...valid,confidence},[],roster).ok,false));
   for (const mode of ['chat','direct_tool','goal_plan']) check(`reject ${mode} plus target`,()=>assert.equal(validateRouteDecision({...valid,execution_mode:mode},[],roster).ok,false));
   for (const target of [null,'outsider','SPECIALIST',' specialist ']) check(`reject invalid delegate target ${target}`,()=>assert.equal(validateRouteDecision({...valid,target_agent_id:target},[],roster).ok,false));

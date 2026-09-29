@@ -70,6 +70,28 @@ function extractJson(raw) {
   return null;
 }
 
+/**
+ * Repair only structurally missing control-plane fields. The router still owns
+ * execution-mode and executor selection; this helper never upgrades a chat to
+ * executable work or chooses a specialist. It makes fresh requests resilient
+ * to models that return an otherwise valid contract without relation metadata.
+ */
+export function normalizeRouteDecision(value, { message = '', replyToMessageId = null } = {}) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+  const repaired = { ...value };
+  const ids = Array.isArray(repaired.relevant_turn_ids) ? repaired.relevant_turn_ids : [];
+  if (!RELATIONS.has(String(repaired.relation || ''))) {
+    repaired.relation = replyToMessageId || ids.length ? 'follow_up' : 'new_work';
+  }
+  if (!Array.isArray(repaired.relevant_turn_ids)) repaired.relevant_turn_ids = [];
+  if (repaired.target_agent_id === undefined && repaired.execution_mode !== 'delegate') {
+    repaired.target_agent_id = null;
+  }
+  if (typeof repaired.restart_requested !== 'boolean') repaired.restart_requested = false;
+  if (!String(repaired.resolved_request || '').trim()) repaired.resolved_request = String(message || '').trim();
+  return repaired;
+}
+
 function compactTurns(turns = []) {
   const compact = turns.slice(-12).map((t) => ({
     id: Number(t.id),
@@ -256,7 +278,7 @@ export async function routeAgentTurn({ ownerUserId, agent, sessionId, message, h
             },
           ],
         });
-        parsed = extractJson(content);
+        parsed = normalizeRouteDecision(extractJson(content), { message, replyToMessageId });
         routeValidation = validateRouteDecision(parsed, candidates.map((turn) => turn.id), organization.map((member) => member.id));
         if(routeValidation.ok){
           const evidenceErrors=validateExecutorEvidence(parsed,routeInput);
@@ -298,7 +320,7 @@ export async function routeAgentTurn({ ownerUserId, agent, sessionId, message, h
             { role: 'user', content: JSON.stringify(adjudicatorInput(routeInput, parsed, routeAttempts.at(-1)?.raw, routeValidation.errors)) },
           ],
         });
-        durable = extractJson(content);
+        durable = normalizeRouteDecision(extractJson(content), { message, replyToMessageId });
         durableValidation = validateRouteDecision(durable, candidates.map(turn => turn.id), organization.map(member => member.id));
         if(durableValidation.ok){
           const evidenceErrors=validateExecutorEvidence(durable,routeInput);
