@@ -88,6 +88,9 @@ x-openclaw-env: &openclaw-env
   OPENCLAW_GATEWAY_PORT: "18789"
   OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
   AGENT_OS_INTERNAL_API_URL: http://backend:3001
+  # Campaign replies may inspect trusted channel metadata only after the CEO's
+  # profile/contact identity mapping is configured and explicitly enabled.
+  MARKETING_INBOUND_ATTRIBUTION_ENABLED: ${MARKETING_INBOUND_ATTRIBUTION_ENABLED:-0}
   BROWSER_TASK_CDP_AGENT_ID: ${BROWSER_TASK_CDP_AGENT_ID:-browser-cdp}
   # Applied by configure-openclaw-docker.js to agents.defaults + WhatsApp accounts
   OPENCLAW_MEDIA_MAX_MB: ${OPENCLAW_MEDIA_MAX_MB:-128}
