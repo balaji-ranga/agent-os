@@ -11,6 +11,7 @@ export default function EventProductivityPanel() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [actionNotice, setActionNotice] = useState(null);
   const [secret, setSecret] = useState('');
   const [connectorActions, setConnectorActions] = useState([]);
   const [actionsBusy, setActionsBusy] = useState(false);
@@ -96,19 +97,38 @@ export default function EventProductivityPanel() {
     setBinding((current) => ({ ...current, app_id: appId, action_id: '', verify_action_id: '' }));
   }
 
-  async function act(fn, success) {
+  async function act(fn, success, working = 'Working…') {
     setBusy(true); setError(''); setMessage('');
-    try { const result = await fn(); if (result?.webhook_secret) setSecret(result.webhook_secret); setMessage(success); await refresh(); }
-    catch (e) { setError(e.message); }
+    setActionNotice({ tone: 'progress', text: working });
+    try {
+      const result = await fn();
+      if (result?.webhook_secret) setSecret(result.webhook_secret);
+      setMessage(success);
+      setActionNotice({ tone: 'success', text: success });
+      await refresh();
+      return result;
+    }
+    catch (e) {
+      const detail = e?.message || 'Action failed.';
+      setError(detail);
+      setActionNotice({ tone: 'error', text: detail });
+      return null;
+    }
     finally { setBusy(false); }
   }
 
   async function showHistory(row) {
     setHistoryBusy(true); setError('');
+    setActionNotice({ tone: 'progress', text: `Loading event history for ${row.name}…` });
     try {
       const result = await api.eventProductivityEvents({ subscription_id: row.id, limit: 100 });
       setHistory({ subscription: row, events: result.events || [] });
-    } catch (e) { setError(e.message); }
+      setActionNotice({ tone: 'success', text: `History loaded: ${(result.events || []).length} processed event${(result.events || []).length === 1 ? '' : 's'}.` });
+    } catch (e) {
+      const detail = e?.message || 'Unable to load event history.';
+      setError(detail);
+      setActionNotice({ tone: 'error', text: detail });
+    }
     finally { setHistoryBusy(false); }
   }
 
@@ -122,6 +142,21 @@ export default function EventProductivityPanel() {
 
   return (
     <div style={{ marginTop: '1rem' }}>
+      {actionNotice && <div
+        role="status"
+        aria-live="polite"
+        style={{
+          position: 'fixed', right: 20, bottom: 20, zIndex: 1200, maxWidth: 440,
+          padding: '12px 42px 12px 14px', borderRadius: 10, boxShadow: '0 12px 30px rgba(15,23,42,.24)',
+          color: actionNotice.tone === 'error' ? '#991b1b' : actionNotice.tone === 'success' ? '#166534' : '#92400e',
+          background: actionNotice.tone === 'error' ? '#fee2e2' : actionNotice.tone === 'success' ? '#dcfce7' : '#fef3c7',
+          border: `1px solid ${actionNotice.tone === 'error' ? '#fca5a5' : actionNotice.tone === 'success' ? '#86efac' : '#fcd34d'}`,
+        }}
+      >
+        <strong>{actionNotice.tone === 'error' ? 'Failed' : actionNotice.tone === 'success' ? 'Success' : 'In progress'}</strong>
+        <div style={{ marginTop: 2 }}>{actionNotice.text}</div>
+        <button type="button" aria-label="Dismiss action message" onClick={() => setActionNotice(null)} style={{ position: 'absolute', top: 8, right: 8, border: 0, background: 'transparent', cursor: 'pointer', fontSize: 18 }}>×</button>
+      </div>}
       <p style={{ color: 'var(--muted)' }}>
         Normalize provider events into one durable inbox, trigger an owner-scoped workflow or goal, and run exact calendar/document/spreadsheet/message actions through existing connector links. R2 external actions still follow Action Control.
       </p>
@@ -166,11 +201,11 @@ export default function EventProductivityPanel() {
             <div style={{ fontSize: '.78rem', color: 'var(--muted)' }}>Deduplication: provider object ID · skipped repeats: {row.listener_duplicate_count || 0} · source: {row.source_disposition === 'trash' ? 'move Gmail to Trash' : 'retain'}</div>
             {row.listener_last_error && <div style={{ fontSize: '.8rem', color: '#dc2626', marginTop: 4 }}>{row.listener_last_error}</div>}
             <div style={{ fontSize: '.8rem', color: 'var(--muted)', wordBreak: 'break-all', margin: '5px 0' }}>Webhook fallback: POST /api/event-productivity/webhooks/{row.id}</div>
-            <button className="wf-btn" disabled={busy} onClick={() => act(() => api.eventProductivitySubscriptionUpdate(row.id, { listener_enabled: !row.listener_enabled }), row.listener_enabled ? 'Listener disabled.' : 'Listener enabled.')} style={{ marginRight: 6 }}>{row.listener_enabled ? 'Disable listener' : 'Enable listener'}</button>
-            <button className="wf-btn" disabled={busy || !row.listener_enabled} onClick={() => act(() => api.eventProductivityListenerCheck(row.id), 'Listener check completed.')} style={{ marginRight: 6 }}>Check now</button>
+            <button className="wf-btn" disabled={busy} onClick={() => act(() => api.eventProductivitySubscriptionUpdate(row.id, { listener_enabled: !row.listener_enabled }), row.listener_enabled ? 'Listener disabled successfully.' : 'Listener enabled successfully.', row.listener_enabled ? 'Disabling listener…' : 'Enabling listener…')} style={{ marginRight: 6 }}>{row.listener_enabled ? 'Disable listener' : 'Enable listener'}</button>
+            <button className="wf-btn" disabled={busy || !row.listener_enabled} onClick={() => act(() => api.eventProductivityListenerCheck(row.id), 'Listener check completed successfully.', 'Checking the provider for new events…')} style={{ marginRight: 6 }}>Check now</button>
             <button className="wf-btn" disabled={busy || historyBusy} onClick={() => showHistory(row)} style={{ marginRight: 6 }}>History</button>
-            <button className="wf-btn" disabled={busy} onClick={() => act(() => api.eventProductivitySecretRotate(row.id), 'Secret rotated.')} style={{ marginRight: 6 }}>Rotate secret</button>
-            <button className="wf-btn" disabled={busy} onClick={() => window.confirm('Delete this subscription?') && act(() => api.eventProductivitySubscriptionDelete(row.id), 'Subscription deleted.')}>Delete</button>
+            <button className="wf-btn" disabled={busy} onClick={() => act(() => api.eventProductivitySecretRotate(row.id), 'Webhook secret rotated successfully. Copy the new secret from the highlighted panel.', 'Rotating webhook secret…')} style={{ marginRight: 6 }}>Rotate secret</button>
+            <button className="wf-btn" disabled={busy} onClick={() => window.confirm('Delete this subscription?') && act(() => api.eventProductivitySubscriptionDelete(row.id), 'Subscription deleted successfully.', 'Deleting subscription…')}>Delete</button>
           </div>;
         })}
       </section>
