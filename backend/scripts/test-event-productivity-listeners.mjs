@@ -9,6 +9,7 @@ process.env.USERPROFILE = join(root, 'home');
 process.env.HOME = join(root, 'home');
 process.env.OPENCLAW_CONFIG_PATH = join(root, 'home', '.openclaw', 'openclaw.json');
 process.env.OPENSEARCH_ENABLED = '0';
+process.env.USER_API_KEYS_KEK = 'test-only-calendar-url-encryption-key';
 
 let handle;
 try {
@@ -82,6 +83,43 @@ try {
   const changed = await listeners.pollProductivitySubscription(owner, calendar.id, {}, calendarDeps);
   assert.equal(changed.emitted, 1);
   assert.equal(events.listProductivityEvents(owner, { subscription_id: calendar.id })[0].event_type, 'calendar.event.changed');
+
+  assert.throws(() => events.createEventSubscription(owner, {
+    name: 'Google view URL', provider: 'calendar_url', event_type: 'calendar.event.changed', target_type: 'inbox',
+    source_url: 'https://calendar.google.com/calendar/u/0?cid=example',
+  }), /viewing link/);
+  assert.throws(() => events.createEventSubscription(owner, {
+    name: 'Private URL', provider: 'calendar_url', event_type: 'calendar.event.changed', target_type: 'inbox',
+    source_url: 'https://127.0.0.1/calendar.ics',
+  }), /host is not allowed/);
+
+  const publishedCalendar = events.createEventSubscription(owner, {
+    name: 'Published ICS changes', provider: 'calendar_url', event_type: 'calendar.event.changed', target_type: 'inbox',
+    source_url: 'webcal://calendar.example.invalid/private-token/basic.ics', listener_enabled: true, listener_poll_seconds: 60,
+  }).subscription;
+  assert.equal(publishedCalendar.source_url_configured, true);
+  assert.equal(publishedCalendar.source_url_host, 'calendar.example.invalid');
+  assert.equal(Object.hasOwn(publishedCalendar, 'source_url_encrypted'), false, 'private feed URL is never returned by the API model');
+  let feedVersion = 1;
+  let conditionalEtag = '';
+  const ics = () => `BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nUID:published-1\r\nSUMMARY:Planning${feedVersion === 2 ? ' updated' : ''}\r\nDTSTART:20260930T010000Z\r\nDTEND:20260930T020000Z\r\nCREATED:20260901T000000Z\r\nLAST-MODIFIED:2026092${feedVersion}T000000Z\r\nSTATUS:CONFIRMED\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n`;
+  const publishedDeps = { requestCalendarUrl: async (url, options) => {
+    assert.equal(url, 'https://calendar.example.invalid/private-token/basic.ics');
+    conditionalEtag = options.headers['If-None-Match'] || '';
+    return { status: 200, ok: true, headers: { etag: `"v${feedVersion}"`, 'content-type': 'text/calendar' }, text: async () => ics() };
+  } };
+  assert.equal((await listeners.pollProductivitySubscription(owner, publishedCalendar.id, {}, publishedDeps)).emitted, 0, 'published feed starts with a baseline');
+  feedVersion = 2;
+  const publishedChanged = await listeners.pollProductivitySubscription(owner, publishedCalendar.id, {}, publishedDeps);
+  assert.equal(conditionalEtag, '"v1"');
+  assert.equal(publishedChanged.emitted, 1);
+  assert.equal(events.listProductivityEvents(owner, { subscription_id: publishedCalendar.id })[0].event_type, 'calendar.event.changed');
+  const unchanged = await listeners.pollProductivitySubscription(owner, publishedCalendar.id, {}, { requestCalendarUrl: async (_url, options) => {
+    assert.equal(options.headers['If-None-Match'], '"v2"');
+    return { status: 304, ok: false, headers: { etag: '"v2"' }, text: async () => '' };
+  } });
+  assert.equal(unchanged.not_modified, true);
+  assert.equal(unchanged.emitted, 0);
 
   const fileCreated = events.createEventSubscription(owner, {
     name: 'Drive file created', provider: 'google_workspace', event_type: 'file.created', target_type: 'inbox',
@@ -188,11 +226,11 @@ try {
   handle.prepare(`UPDATE productivity_events SET received_at='2020-01-01',processed_at='2020-01-01' WHERE owner_user_id=?`).run(owner);
   const purged = await purgeOwnerRetention(owner);
   assert.equal(purged.retention_days, 90);
-  assert.equal(purged.deleted.productivity_events, 8);
+  assert.equal(purged.deleted.productivity_events, 9);
   assert.equal(events.listProductivityEvents(owner).length, 0);
 
   console.log(JSON.stringify({ ok: true, checks: [
-    'shared-listener-email', 'gmail-and-microsoft-inbox-adapters', 'provider-id-deduplication', 'gmail-recoverable-trash', 'calendar-change-detection',
+    'shared-listener-email', 'gmail-and-microsoft-inbox-adapters', 'provider-id-deduplication', 'gmail-recoverable-trash', 'calendar-change-detection', 'published-ics-calendar-listener', 'calendar-url-encryption-and-redaction', 'calendar-http-cache',
     'google-drive-file-created', 'microsoft-file-changed', 'incomplete-snapshot-safety', 'two-snapshot-file-deletion', 'provider-file-tombstone', 'file-binding-required', 'file-listener-owner-binding-execution',
     'listener-active-status', 'listener-disable', 'subscription-history-filter', 'ceo-profile-retention',
   ] }, null, 2));

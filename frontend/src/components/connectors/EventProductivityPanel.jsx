@@ -16,7 +16,7 @@ export default function EventProductivityPanel() {
   const [connectorActions, setConnectorActions] = useState([]);
   const [actionsBusy, setActionsBusy] = useState(false);
   const [actionsError, setActionsError] = useState('');
-  const [sub, setSub] = useState({ name: '', provider: 'google_workspace', event_type: 'calendar.event.changed', target_type: 'inbox', target_id: '', goal_prompt_template: '', listener_enabled: false, listener_poll_seconds: 300, dedupe_mode: 'provider_object_id', source_disposition: 'retain' });
+  const [sub, setSub] = useState({ name: '', provider: 'google_workspace', event_type: 'calendar.event.changed', target_type: 'inbox', target_id: '', goal_prompt_template: '', source_url: '', listener_enabled: false, listener_poll_seconds: 300, dedupe_mode: 'provider_object_id', source_disposition: 'retain' });
   const [history, setHistory] = useState(null);
   const [historyBusy, setHistoryBusy] = useState(false);
   const [binding, setBinding] = useState({ operation: 'calendar_list_events', provider: 'google_workspace', app_id: '', action_id: '', connection_name: '', verify_action_id: '' });
@@ -43,6 +43,8 @@ export default function EventProductivityPanel() {
   const isFileEvent = sub.event_type.startsWith('file.');
   const fileBindingReady = data.bindings.some((row) => row.operation === 'file_search' && row.provider === sub.provider && row.enabled !== false);
   const fileListenerBlocked = isFileEvent && sub.listener_enabled && !fileBindingReady;
+  const calendarUrlMissing = sub.provider === 'calendar_url' && !sub.source_url.trim();
+  const bindingProviders = useMemo(() => Object.entries(providers).filter(([, provider]) => (provider.apps || []).length), [providers]);
   const compatibleApps = useMemo(() => {
     const providerApps = new Set(providers[binding.provider]?.apps || []);
     const operationApps = new Set(operationCatalog[binding.operation]?.apps || []);
@@ -187,6 +189,9 @@ export default function EventProductivityPanel() {
             {!providerEventTypes.length && <option value="">No supported event types</option>}
             {providerEventTypes.map((event) => <option key={event.id} value={event.id}>{event.label} ({event.id})</option>)}
           </select>
+          {sub.provider === 'calendar_url' && <label style={{ gridColumn: '1 / -1' }}>Published calendar ICS URL
+            <input style={input} type="url" autoComplete="off" placeholder="https://…/calendar.ics or webcal://…" value={sub.source_url} onChange={(e) => setSub({ ...sub, source_url: e.target.value })} />
+          </label>}
           <select value={sub.target_type} onChange={(e) => setSub({ ...sub, target_type: e.target.value })}><option value="inbox">Inbox only</option><option value="workflow">Workflow</option><option value="goal">Goal</option></select>
           <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}><input type="checkbox" checked={sub.listener_enabled} onChange={(e) => setSub({ ...sub, listener_enabled: e.target.checked })} /> Enable provider listener</label>
           <label>Check interval<select style={input} value={sub.listener_poll_seconds} onChange={(e) => setSub({ ...sub, listener_poll_seconds: Number(e.target.value) })}><option value={60}>Every minute</option><option value={300}>Every 5 minutes</option><option value={900}>Every 15 minutes</option><option value={3600}>Every hour</option></select></label>
@@ -195,18 +200,22 @@ export default function EventProductivityPanel() {
           {sub.target_type !== 'inbox' && <input style={input} placeholder={sub.target_type === 'workflow' ? 'Workflow ID' : 'Agent ID (default balserve)'} value={sub.target_id} onChange={(e) => setSub({ ...sub, target_id: e.target.value })} />}
           {sub.target_type === 'goal' && <input style={input} placeholder="Goal prompt; supports {{event_id}}" value={sub.goal_prompt_template} onChange={(e) => setSub({ ...sub, goal_prompt_template: e.target.value })} />}
         </div>
+        {sub.provider === 'calendar_url' && <div style={{ marginTop: 10, padding: '9px 11px', borderRadius: 8, border: '1px solid #93c5fd', background: '#eff6ff', color: '#1e40af', fontSize: '.82rem', lineHeight: 1.45 }}>
+          Use the calendar provider&apos;s <strong>published/private iCal address</strong> ending in <code>.ics</code> (a <code>webcal://</code> address is accepted). A normal Google Calendar viewing link with <code>?cid=</code> is not a feed. URL calendars are read-only: Flolah can listen for created, changed, and cancelled events, but creating or editing events requires OAuth.
+        </div>}
         {isFileEvent && <div style={{ marginTop: 10, padding: '9px 11px', borderRadius: 8, border: `1px solid ${fileBindingReady ? '#86efac' : '#fbbf24'}`, background: fileBindingReady ? '#f0fdf4' : '#fffbeb', color: fileBindingReady ? '#166534' : '#92400e', fontSize: '.82rem' }}>
           {fileBindingReady
             ? `File listener ready: the enabled file_search binding for ${sub.provider} will provide the provider snapshot.`
             : `Before enabling this file listener, create an enabled file_search capability binding for ${sub.provider} below. You can still create a listener-disabled subscription for webhook delivery.`}
         </div>}
-        <button className="wf-btn-primary" disabled={busy || !sub.name.trim() || !sub.event_type || fileListenerBlocked} onClick={() => act(() => api.eventProductivitySubscriptionCreate(sub), 'Subscription created.') } style={{ marginTop: 10 }}>Create subscription</button>
+        <button className="wf-btn-primary" disabled={busy || !sub.name.trim() || !sub.event_type || fileListenerBlocked || calendarUrlMissing} onClick={() => act(() => api.eventProductivitySubscriptionCreate(sub), 'Subscription created.') } style={{ marginTop: 10 }}>Create subscription</button>
         {data.subscriptions.map((row) => {
           const status = listenerStatus(row);
           return <div key={row.id} style={{ borderTop: '1px solid var(--border)', marginTop: 10, paddingTop: 10 }}>
             <div><strong>{row.name}</strong> · {row.provider} · {row.event_type} → {row.target_type}</div>
             <div style={{ fontSize: '.82rem', margin: '5px 0', color: status.color }}><strong>{status.label}</strong>{row.listener_last_check_at ? ` · Last check ${formatLocalDateTime(row.listener_last_check_at)}` : ''}{row.last_event_at ? ` · Last event ${formatLocalDateTime(row.last_event_at)}` : ''}</div>
             <div style={{ fontSize: '.78rem', color: 'var(--muted)' }}>Deduplication: provider object ID · skipped repeats: {row.listener_duplicate_count || 0} · source: {row.source_disposition === 'trash' ? 'move Gmail to Trash' : 'retain'}</div>
+            {row.provider === 'calendar_url' && <div style={{ fontSize: '.78rem', color: 'var(--muted)' }}>Published ICS feed: {row.source_url_configured ? row.source_url_host || 'configured' : 'not configured'} · read-only</div>}
             {row.listener_last_error && <div style={{ fontSize: '.8rem', color: '#dc2626', marginTop: 4 }}>{row.listener_last_error}</div>}
             <div style={{ fontSize: '.8rem', color: 'var(--muted)', wordBreak: 'break-all', margin: '5px 0' }}>Webhook fallback: POST /api/event-productivity/webhooks/{row.id}</div>
             <button className="wf-btn" disabled={busy} onClick={() => act(() => api.eventProductivitySubscriptionUpdate(row.id, { listener_enabled: !row.listener_enabled }), row.listener_enabled ? 'Listener disabled successfully.' : 'Listener enabled successfully.', row.listener_enabled ? 'Disabling listener…' : 'Enabling listener…')} style={{ marginRight: 6 }}>{row.listener_enabled ? 'Disable listener' : 'Enable listener'}</button>
@@ -262,7 +271,7 @@ export default function EventProductivityPanel() {
         </p>
         <div style={grid}>
           <select value={binding.operation} onChange={(e) => setBinding({ ...binding, operation: e.target.value })}>{operations.map((name) => <option key={name}>{name}</option>)}</select>
-          <select aria-label="Binding provider" value={binding.provider} onChange={(e) => selectBindingProvider(e.target.value)}>{Object.entries(providers).map(([id, p]) => <option key={id} value={id}>{p.label}</option>)}</select>
+          <select aria-label="Binding provider" value={binding.provider} onChange={(e) => selectBindingProvider(e.target.value)}>{bindingProviders.map(([id, p]) => <option key={id} value={id}>{p.label}</option>)}</select>
           <select aria-label="Connected app" value={binding.app_id} onChange={(e) => selectBindingApp(e.target.value)} disabled={!compatibleApps.length}>
             {!compatibleApps.length && <option value="">No compatible connected app</option>}
             {compatibleApps.map((app) => <option key={app.id} value={app.id}>{app.name || app.id} ({app.id})</option>)}

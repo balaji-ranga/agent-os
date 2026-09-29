@@ -90,6 +90,14 @@ Gmail mailbox review, recoverable cleanup, and reply drafts use this model; see 
 
 Created and changed files emit immediately after the baseline. Explicit provider tombstones emit deletion immediately. When a provider only returns a full current snapshot, Flolah requires the same file to be absent from **two consecutive complete snapshots** before emitting `file.deleted`; incomplete/paginated snapshots never infer deletion. Provider object IDs and the existing event ledger prevent duplicate processing. The CEO profile retention policy cleans processed event history.
 
+### Published calendar URL listeners (without OAuth)
+
+For a read-only calendar that is shared as an iCalendar feed, choose **Published calendar URL (ICS)** under **Connectors → Events & Productivity**. Paste the provider's **Public address in iCal format** or **Secret address in iCal format** (`https://…ics` or `webcal://…`), select created/changed/cancelled, choose the Inbox / Workflow / Goal target, and enable the listener.
+
+A browser viewing link such as `https://calendar.google.com/calendar/u/0?cid=…` is not an event feed and cannot be polled. In Google Calendar, open the calendar's **Settings and sharing → Integrate calendar** and copy an iCal address instead. Treat a secret iCal address like a password: Flolah encrypts it at rest and displays only its host.
+
+The first successful check establishes a baseline. Later checks use the event UID and metadata fingerprint to emit changes without reprocessing the same version. HTTPS public hosts are required; private-network and loopback destinations are blocked. Conditional ETag/Last-Modified requests reduce traffic. A published calendar is read-only, so creating, updating, or cancelling provider events still requires a connected OAuth calendar.
+
 
 ### Browser Session package (local worker)
 

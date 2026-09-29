@@ -1,5 +1,6 @@
-import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'crypto';
+import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID, timingSafeEqual } from 'crypto';
 import { getDb } from '../db/schema.js';
+import { parsePublicHttpsUrl } from '../lib/ssrf.js';
 import { executeConnectorAction, getConnectedConnectorApps } from './openconnector.js';
 import { triggerWorkflowFromHook } from './agent-workflow-webhooks.js';
 import { createAndStartGoalRun } from './agent-goal-run.js';
@@ -36,6 +37,9 @@ export const PRODUCTIVITY_OPERATIONS = Object.freeze({
 });
 
 export const PRODUCTIVITY_PROVIDER_CATALOG = Object.freeze({
+  calendar_url: {
+    label: 'Published calendar URL (ICS)', apps: [], scopes: [], read_only: true,
+  },
   google_workspace: {
     label: 'Google Workspace', apps: ['gmail', 'google_calendar', 'google_drive', 'google_docs', 'google_sheets'],
     scopes: ['gmail.readonly', 'gmail.send', 'calendar.readonly', 'calendar.events', 'drive.metadata.readonly', 'drive.file'],
@@ -49,6 +53,11 @@ export const PRODUCTIVITY_PROVIDER_CATALOG = Object.freeze({
 });
 
 export const PRODUCTIVITY_EVENT_TYPES = Object.freeze({
+  calendar_url: Object.freeze([
+    { id: 'calendar.event.created', label: 'Calendar event created' },
+    { id: 'calendar.event.changed', label: 'Calendar event changed' },
+    { id: 'calendar.event.cancelled', label: 'Calendar event cancelled' },
+  ]),
   google_workspace: Object.freeze([
     { id: 'email.message.received', label: 'Email message received' },
     { id: 'calendar.event.created', label: 'Calendar event created' },
@@ -92,6 +101,44 @@ function stable(value) {
   return value;
 }
 function now() { return new Date().toISOString(); }
+const CALENDAR_URL_ENCRYPTION_PREFIX = 'enc:calendar-url:v1:';
+function calendarUrlKey() {
+  const value = String(process.env.USER_API_KEYS_KEK || '').trim();
+  if (!value) throw Object.assign(new Error('Calendar URL encryption requires USER_API_KEYS_KEK'), { status: 503 });
+  return createHash('sha256').update(value, 'utf8').digest();
+}
+function normalizeCalendarSourceUrl(value) {
+  const raw = String(value || '').trim();
+  if (!raw) throw Object.assign(new Error('A published calendar ICS URL is required'), { status: 400 });
+  const normalized = raw.replace(/^webcal:\/\//i, 'https://');
+  let parsed;
+  try { parsed = new URL(normalized); } catch { throw Object.assign(new Error('Enter a valid published calendar ICS URL'), { status: 400 }); }
+  if (parsed.protocol !== 'https:' || parsed.username || parsed.password) {
+    throw Object.assign(new Error('Published calendar URLs must use HTTPS'), { status: 400 });
+  }
+  if (parsed.hostname === 'calendar.google.com' && /^\/calendar\/u\//.test(parsed.pathname) && parsed.searchParams.has('cid')) {
+    throw Object.assign(new Error('This is a Google Calendar viewing link. In Google Calendar settings, copy the Secret address in iCal format or Public address in iCal format.'), { status: 400 });
+  }
+  parsePublicHttpsUrl(parsed.toString());
+  return parsed.toString();
+}
+function encryptCalendarSourceUrl(owner, subscriptionId, value) {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv('aes-256-gcm', calendarUrlKey(), iv);
+  cipher.setAAD(Buffer.from(`${owner}:${subscriptionId}`, 'utf8'));
+  const encrypted = Buffer.concat([cipher.update(normalizeCalendarSourceUrl(value), 'utf8'), cipher.final()]);
+  return CALENDAR_URL_ENCRYPTION_PREFIX + Buffer.concat([iv, cipher.getAuthTag(), encrypted]).toString('base64');
+}
+export function resolveCalendarSubscriptionUrl(row) {
+  const stored = String(row?.source_url_encrypted || '');
+  if (!stored.startsWith(CALENDAR_URL_ENCRYPTION_PREFIX)) throw Object.assign(new Error('Published calendar URL is not configured'), { status: 409 });
+  const packed = Buffer.from(stored.slice(CALENDAR_URL_ENCRYPTION_PREFIX.length), 'base64');
+  if (packed.length < 29) throw new Error('Published calendar URL is invalid');
+  const decipher = createDecipheriv('aes-256-gcm', calendarUrlKey(), packed.subarray(0, 12));
+  decipher.setAAD(Buffer.from(`${row.owner_user_id}:${row.id}`, 'utf8'));
+  decipher.setAuthTag(packed.subarray(12, 28));
+  return decipher.update(packed.subarray(28), undefined, 'utf8') + decipher.final('utf8');
+}
 function assertOwner(owner) { const value = String(owner || '').trim(); if (!value) throw Object.assign(new Error('Owner context required'), { status: 403 }); return value; }
 function assertSupportedEventType(provider, eventType) {
   const providerId = String(provider || '').trim();
@@ -179,6 +226,7 @@ export function ensureEventProductivitySchema() {
     listener_duplicate_count: 'INTEGER NOT NULL DEFAULT 0',
     dedupe_mode: "TEXT NOT NULL DEFAULT 'provider_object_id'",
     source_disposition: "TEXT NOT NULL DEFAULT 'retain'",
+    source_url_encrypted: "TEXT NOT NULL DEFAULT ''",
   };
   for (const [column, definition] of Object.entries(listenerColumns)) {
     if (!subscriptionColumns.has(column)) db().exec(`ALTER TABLE productivity_event_subscriptions ADD COLUMN ${column} ${definition}`);
@@ -217,8 +265,15 @@ function subscriptionRow(row) {
   const pollSeconds = Math.max(60, Number(row.listener_poll_seconds) || 300);
   const lastSuccessMs = Date.parse(row.listener_last_success_at || '');
   const listenerFresh = Number.isFinite(lastSuccessMs) && Date.now() - lastSuccessMs <= Math.max(pollSeconds * 3, 300) * 1000;
+  const { source_url_encrypted, ...safeRow } = row;
+  let sourceUrlHost = '';
+  if (source_url_encrypted) {
+    try { sourceUrlHost = new URL(resolveCalendarSubscriptionUrl(row)).hostname; } catch { sourceUrlHost = 'configured'; }
+  }
   return {
-    ...row,
+    ...safeRow,
+    source_url_configured: !!source_url_encrypted,
+    source_url_host: sourceUrlHost,
     enabled: !!row.enabled,
     listener_enabled: !!row.listener_enabled,
     listener_active: !!row.listener_enabled && row.listener_status === 'active' && listenerFresh,
@@ -268,15 +323,16 @@ export function createEventSubscription(ownerUserId, input = {}) {
     throw Object.assign(new Error('Move source to Trash is supported only for Gmail message events'), { status: 400 });
   }
   const listenerCursor = listenerEnabled ? { enabled_at: now() } : {};
+  const sourceUrlEncrypted = providerId === 'calendar_url' ? encryptCalendarSourceUrl(owner, id, input.source_url) : '';
   db().prepare(`INSERT INTO productivity_event_subscriptions
     (id,owner_user_id,name,provider,connection_name,event_type,filters_json,target_type,target_id,goal_prompt_template,objective_id,key_result_ids_json,enabled,secret_hash,
-     listener_enabled,listener_status,listener_poll_seconds,listener_next_poll_at,listener_cursor_json,dedupe_mode,source_disposition)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+     listener_enabled,listener_status,listener_poll_seconds,listener_next_poll_at,listener_cursor_json,dedupe_mode,source_disposition,source_url_encrypted)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
       id, owner, String(input.name).trim(), providerId, String(input.connection_name || '').trim(),
       eventTypeId, JSON.stringify(input.filters || {}), targetType, input.target_id || null,
       String(input.goal_prompt_template || '').trim(), input.objective_id || null, JSON.stringify(input.key_result_ids || []),
       input.enabled === false ? 0 : 1, hash(secret), listenerEnabled ? 1 : 0, listenerEnabled ? 'starting' : 'disabled',
-      pollSeconds, listenerEnabled ? now() : null, JSON.stringify(listenerCursor), dedupeMode, sourceDisposition
+      pollSeconds, listenerEnabled ? now() : null, JSON.stringify(listenerCursor), dedupeMode, sourceDisposition, sourceUrlEncrypted
     );
   return { subscription: subscriptionRow(db().prepare(`SELECT * FROM productivity_event_subscriptions WHERE id=?`).get(id)), webhook_secret: secret };
 }
@@ -310,12 +366,16 @@ export function updateEventSubscription(ownerUserId, id, input = {}) {
   const listenerStatus = listenerEnabled ? (listenerWasEnabled ? row.listener_status || 'starting' : 'starting') : 'disabled';
   const listenerNextPollAt = listenerEnabled ? (!listenerWasEnabled ? now() : row.listener_next_poll_at || now()) : null;
   const listenerCursor = listenerEnabled && !listenerWasEnabled ? { enabled_at: now() } : json(row.listener_cursor_json);
+  const sourceUrlEncrypted = providerId === 'calendar_url'
+    ? (String(input.source_url || '').trim() ? encryptCalendarSourceUrl(owner, id, input.source_url) : row.source_url_encrypted)
+    : '';
+  if (providerId === 'calendar_url' && !sourceUrlEncrypted) throw Object.assign(new Error('A published calendar ICS URL is required'), { status: 400 });
   db().prepare(`UPDATE productivity_event_subscriptions SET name=?,provider=?,connection_name=?,event_type=?,filters_json=?,target_type=?,target_id=?,goal_prompt_template=?,objective_id=?,key_result_ids_json=?,enabled=?,
-    listener_enabled=?,listener_status=?,listener_poll_seconds=?,listener_next_poll_at=?,listener_cursor_json=?,listener_last_error=?,dedupe_mode=?,source_disposition=?,updated_at=datetime('now') WHERE id=? AND owner_user_id=?`).run(
+    listener_enabled=?,listener_status=?,listener_poll_seconds=?,listener_next_poll_at=?,listener_cursor_json=?,listener_last_error=?,dedupe_mode=?,source_disposition=?,source_url_encrypted=?,updated_at=datetime('now') WHERE id=? AND owner_user_id=?`).run(
     String(merged.name).trim(), providerId, merged.connection_name || '', eventTypeId, JSON.stringify(merged.filters || {}), target,
     merged.target_id || null, merged.goal_prompt_template || '', merged.objective_id || null, JSON.stringify(merged.key_result_ids || []), merged.enabled === false ? 0 : 1,
     listenerEnabled ? 1 : 0, listenerStatus, pollSeconds, listenerNextPollAt, JSON.stringify(listenerCursor), listenerEnabled ? row.listener_last_error : null,
-    dedupeMode, sourceDisposition, id, owner
+    dedupeMode, sourceDisposition, sourceUrlEncrypted, id, owner
   );
   return subscriptionRow(db().prepare(`SELECT * FROM productivity_event_subscriptions WHERE id=?`).get(id));
 }

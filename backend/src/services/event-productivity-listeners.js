@@ -1,10 +1,12 @@
 import { createHash } from 'crypto';
 import { getDb } from '../db/schema.js';
 import { executeConnectorAction } from './openconnector.js';
+import { requestValidatedHttps } from '../lib/ssrf.js';
 import {
   ensureEventProductivitySchema,
   executeProductivityOperation,
   ingestTrustedProductivityEvent,
+  resolveCalendarSubscriptionUrl,
 } from './event-productivity.js';
 
 const running = new Set();
@@ -21,6 +23,8 @@ const FILE_EVENTS = new Set([
 ]);
 const FILE_SNAPSHOT_LIMIT = 250;
 const FILE_CURSOR_LIMIT = 5_000;
+const CALENDAR_FEED_MAX_BYTES = 5 * 1024 * 1024;
+const CALENDAR_FEED_MAX_EVENTS = 5_000;
 
 function db() { return getDb(); }
 function now() { return new Date().toISOString(); }
@@ -84,8 +88,86 @@ function normalizeCalendar(row = {}) {
     end: row.end || null,
     organizer: row.organizer || row.creator || null,
     location: row.location || null,
+    sequence: Number(row.sequence || 0),
   };
   return { ...payload, fingerprint: hash(JSON.stringify(payload)) };
+}
+
+function unescapeIcsText(value) {
+  return String(value || '').replace(/\\[nN]/g, '\n').replace(/\\,/g, ',').replace(/\\;/g, ';').replace(/\\\\/g, '\\');
+}
+function icsDate(value) {
+  const raw = String(value || '').trim();
+  const match = raw.match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?(Z)?)?$/);
+  if (!match) return timestamp(raw, '1970-01-01T00:00:00.000Z');
+  const [, year, month, day, hour = '00', minute = '00', second = '00'] = match;
+  return new Date(Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second))).toISOString();
+}
+export function parseIcalendarFeed(value) {
+  const unfolded = String(value || '').replace(/\r\n[ \t]/g, '').replace(/\n[ \t]/g, '').split(/\r?\n/);
+  const events = [];
+  let current = null;
+  for (const line of unfolded) {
+    if (line === 'BEGIN:VEVENT') { current = {}; continue; }
+    if (line === 'END:VEVENT') {
+      if (current?.UID) {
+        const id = current['RECURRENCE-ID'] ? `${current.UID}:${current['RECURRENCE-ID']}` : current.UID;
+        events.push(normalizeCalendar({
+          uid: id,
+          summary: unescapeIcsText(current.SUMMARY),
+          status: current.STATUS || 'confirmed',
+          created: icsDate(current.CREATED || current.DTSTART),
+          updated: icsDate(current['LAST-MODIFIED'] || current.DTSTAMP || current.DTSTART),
+          start: icsDate(current.DTSTART),
+          end: current.DTEND ? icsDate(current.DTEND) : null,
+          organizer: current.ORGANIZER ? unescapeIcsText(current.ORGANIZER.replace(/^mailto:/i, '')) : null,
+          location: current.LOCATION ? unescapeIcsText(current.LOCATION) : null,
+          sequence: Number(current.SEQUENCE || 0),
+        }));
+      }
+      current = null;
+      if (events.length >= CALENDAR_FEED_MAX_EVENTS) break;
+      continue;
+    }
+    if (!current) continue;
+    const colon = line.indexOf(':');
+    if (colon < 1) continue;
+    const name = line.slice(0, colon).split(';')[0].toUpperCase();
+    current[name] = line.slice(colon + 1);
+  }
+  return events.filter((row) => row.provider_event_id);
+}
+
+async function fetchCalendarUrl(sub, cursor, deps) {
+  const request = deps.requestCalendarUrl || requestValidatedHttps;
+  let url = resolveCalendarSubscriptionUrl(sub);
+  const headers = { Accept: 'text/calendar, text/plain;q=0.9' };
+  if (cursor.calendar_http?.etag) headers['If-None-Match'] = cursor.calendar_http.etag;
+  if (cursor.calendar_http?.last_modified) headers['If-Modified-Since'] = cursor.calendar_http.last_modified;
+  for (let redirects = 0; redirects <= 3; redirects += 1) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 20_000);
+    let response;
+    try {
+      response = await request(url, { headers, signal: controller.signal, maxBytes: CALENDAR_FEED_MAX_BYTES });
+    } finally { clearTimeout(timer); }
+    if ([301, 302, 303, 307, 308].includes(response.status)) {
+      const location = response.headers?.location;
+      if (!location || redirects === 3) throw listenerError('Published calendar URL redirected too many times', 'CALENDAR_URL_FETCH_FAILED');
+      url = new URL(location, url).toString();
+      continue;
+    }
+    const http = {
+      etag: text(response.headers?.etag, 500),
+      last_modified: text(response.headers?.['last-modified'], 500),
+    };
+    if (response.status === 304) return { rows: [], not_modified: true, http };
+    if (!response.ok) throw listenerError(`Published calendar returned HTTP ${response.status}`, 'CALENDAR_URL_FETCH_FAILED');
+    const body = await response.text();
+    if (!/^\s*BEGIN:VCALENDAR/m.test(body)) throw listenerError('The URL did not return an iCalendar (ICS) feed', 'CALENDAR_URL_INVALID_FEED');
+    return { rows: parseIcalendarFeed(body), not_modified: false, http };
+  }
+  throw listenerError('Published calendar could not be fetched', 'CALENDAR_URL_FETCH_FAILED');
 }
 function normalizeFile(row = {}) {
   const id = text(row.id || row.fileId || row.file_id || row.itemId || row.item_id || row.driveItemId, 500);
@@ -151,7 +233,8 @@ async function fetchEmail(sub, cursor, execute) {
   return unwrap(result).map((row) => normalizeEmail(sub.provider, row)).filter((row) => row.id);
 }
 
-async function fetchCalendar(sub, cursor, execute) {
+async function fetchCalendar(sub, cursor, execute, deps) {
+  if (sub.provider === 'calendar_url') return fetchCalendarUrl(sub, cursor, deps);
   const actionId = sub.provider === 'google_workspace'
     ? 'google_calendar.list_events'
     : sub.provider === 'microsoft_365'
@@ -169,7 +252,7 @@ async function fetchCalendar(sub, cursor, execute) {
       showDeleted: true,
       orderBy: 'updated',
     }, { connectionName: sub.connection_name || '' });
-    return unwrap(result).map(normalizeCalendar).filter((row) => row.provider_event_id);
+    return { rows: unwrap(result).map(normalizeCalendar).filter((row) => row.provider_event_id), not_modified: false, http: null };
   } catch (error) {
     if (/not found|unknown action|action.*missing|404/i.test(String(error?.message || error))) {
       throw listenerError(
@@ -275,6 +358,19 @@ async function ingestCalendarRows(sub, cursor, rows, deps) {
   }
   const bounded = Object.fromEntries(Object.entries(current).slice(-1000));
   return { result, cursor: { ...cursor, objects: bounded, last_checked_at: now() } };
+}
+
+async function processCalendar(sub, cursor, execute, deps) {
+  const fetched = await fetchCalendar(sub, cursor, execute, deps);
+  if (fetched.not_modified) {
+    return {
+      result: { fetched: 0, emitted: 0, duplicates: 0, not_modified: true },
+      cursor: { ...cursor, last_checked_at: now(), calendar_http: { ...cursor.calendar_http, ...fetched.http } },
+    };
+  }
+  const processed = await ingestCalendarRows(sub, cursor, fetched.rows, deps);
+  processed.cursor.calendar_http = { ...cursor.calendar_http, ...(fetched.http || {}) };
+  return processed;
 }
 
 async function ingestFileRows(sub, cursor, fetched, deps) {
@@ -393,7 +489,7 @@ export async function pollProductivitySubscription(ownerUserId, subscriptionId, 
     const processed = sub.event_type === EMAIL_EVENT
       ? await ingestEmailRows(sub, cursor, await fetchEmail(sub, cursor, execute), deps)
       : CALENDAR_EVENTS.has(sub.event_type)
-        ? await ingestCalendarRows(sub, cursor, await fetchCalendar(sub, cursor, execute), deps)
+        ? await processCalendar(sub, cursor, execute, deps)
         : FILE_EVENTS.has(sub.event_type)
           ? await ingestFileRows(sub, cursor, await fetchFiles(sub, cursor, deps), deps)
         : (() => { throw listenerError(`No active listener adapter is available for ${sub.event_type}`); })();
