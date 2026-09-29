@@ -336,10 +336,27 @@ function analytics(records) {
 export function getMarketingWorkspace(ownerUserId) {
   const tables = ensureMarketingWorkspace(ownerUserId);
   const records = Object.fromEntries(Object.entries(tables).map(([kind, table]) => [kind, allRows(ownerUserId, table)]));
-  records.distributionMembers = records.distributionMembers.map(({ destination_encrypted, ...row }) => ({
-    ...row,
-    destination: decryptContact(ownerUserId, destination_encrypted),
-  }));
+  records.distributionMembers = records.distributionMembers.map(({ destination_encrypted, ...row }) => {
+    const destination = decryptContact(ownerUserId, destination_encrypted);
+    const normalized = normalizedDestination(row.channel, destination);
+    const expectedHash = normalized
+      ? createHash('sha256').update(`${ownerUserId}:${normalized}`).digest('hex')
+      : '';
+    const expectedMask = destination ? maskDestination(destination) : '';
+    // Rows created before encrypted campaign audiences gained identity hashes
+    // cannot be correlated with inbound receipts. Repair only derived values;
+    // the encrypted destination remains unchanged and raw contact data is not
+    // added to the stored row.
+    if (row.row_id && expectedHash && (row.destination_hash !== expectedHash || !row.destination_masked)) {
+      updateRow(ownerUserId, tables.distributionMembers.id, row.row_id, {
+        destination_hash: expectedHash,
+        destination_masked: row.destination_masked || expectedMask,
+      });
+      row.destination_hash = expectedHash;
+      row.destination_masked = row.destination_masked || expectedMask;
+    }
+    return { ...row, destination };
+  });
   return {
     storage: { type: 'knowledge_tables', tables: Object.fromEntries(Object.entries(tables).map(([k, v]) => [k, v.name])) },
     records,

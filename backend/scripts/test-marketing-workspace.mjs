@@ -139,8 +139,15 @@ try {
   assert.equal(audienceList.created, true);
   const audienceMember = svc.upsertMarketingRecord(ownerB, 'distributionMembers', { member_id: 'manual-prospect-1', list_id: 'manual-prospects', display_label: 'Manual prospect', channel: 'email', destination: 'prospect@example.invalid', consent_status: 'granted', consent_source: 'Owner-provided test contact' });
   assert.equal(audienceMember.record.destination_encrypted, undefined, 'encrypted destination is not returned by the upsert contract');
+  const legacyMemberRow = handle.prepare(`SELECT id,row_json FROM master_data_rows WHERE owner_user_id=? AND table_id=(SELECT id FROM master_data_tables WHERE owner_user_id=? AND name='marketing_distribution_list_members') AND json_extract(row_json,'$.member_id')='manual-prospect-1'`).get(ownerB, ownerB);
+  const legacyMemberData = JSON.parse(legacyMemberRow.row_json);
+  legacyMemberData.destination_hash = '';
+  handle.prepare(`UPDATE master_data_rows SET row_json=? WHERE id=?`).run(JSON.stringify(legacyMemberData), legacyMemberRow.id);
   const manualAudienceWorkspace = svc.getMarketingWorkspace(ownerB);
   assert.equal(manualAudienceWorkspace.records.distributionMembers.find((row) => row.member_id === 'manual-prospect-1').destination, 'prospect@example.invalid', 'authorized workspace resolves encrypted contact destination');
+  assert.equal(manualAudienceWorkspace.records.distributionMembers.find((row) => row.member_id === 'manual-prospect-1').destination_hash, createHash('sha256').update(`${ownerB}:prospect@example.invalid`).digest('hex'), 'legacy audience identity hash is repaired from the encrypted destination');
+  const repairedMemberData = JSON.parse(handle.prepare(`SELECT row_json FROM master_data_rows WHERE id=?`).get(legacyMemberRow.id).row_json);
+  assert.notEqual(repairedMemberData.destination_hash, '', 'legacy identity repair persists for later inbound correlation');
   const storedMember = handle.prepare(`SELECT row_json FROM master_data_rows WHERE owner_user_id=? AND table_id=(SELECT id FROM master_data_tables WHERE owner_user_id=? AND name='marketing_distribution_list_members') LIMIT 1`).get(ownerB, ownerB);
   assert.doesNotMatch(storedMember.row_json, /prospect@example\.invalid/, 'manual contact destination is encrypted at rest');
   assert.equal(svc.getMarketingWorkspace(ownerA).records.distributionMembers.length, 0, 'manual audience lists are owner isolated');
@@ -299,7 +306,7 @@ try {
   assert.ok(purged.deleted.marketing_engagement_events >= 1, 'engagement history follows owner retention');
   assert.ok(purged.deleted.marketing_campaign_outcomes >= 1, 'campaign outcome ledger follows owner retention');
   assert.ok(purged.deleted.marketing_distribution_list_members >= 1, 'manual audience contacts follow owner retention');
-  console.log(JSON.stringify({ ok: true, checks: ['configured-channel-transport-resolution', 'knowledge-backed-storage', 'upsert-idempotency', 'metric-idempotency', 'outcome-ledger-idempotency', 'cross-channel-outcomes', 'company-user-vs-contact-precedence', 'campaign-response-contract', 'inbound-campaign-attribution', 'inbound-idempotency', 'inbound-opt-out-suppression', 'marketing-followup-ownership', 'legacy-email-reconciliation', 'owner-isolation', 'secret-rejection', 'signed-open-pixel', 'pixel-idempotency', 'cross-campaign-lead-correlation', 'distinct-opportunities', 'structured-followup-update', 'suppression-gate', 'browser-watch-cycle', 'agentic-campaign-configuration', 'run-readiness-contract', 'paid-budget-gate', 'channel-strategies', 'retention', 'hireable-template', 'existing-template-grant-reconciliation', 'tool-registry'] }, null, 2));
+  console.log(JSON.stringify({ ok: true, checks: ['configured-channel-transport-resolution', 'knowledge-backed-storage', 'upsert-idempotency', 'metric-idempotency', 'outcome-ledger-idempotency', 'cross-channel-outcomes', 'company-user-vs-contact-precedence', 'campaign-response-contract', 'inbound-campaign-attribution', 'inbound-idempotency', 'inbound-opt-out-suppression', 'marketing-followup-ownership', 'legacy-audience-identity-repair', 'legacy-email-reconciliation', 'owner-isolation', 'secret-rejection', 'signed-open-pixel', 'pixel-idempotency', 'cross-campaign-lead-correlation', 'distinct-opportunities', 'structured-followup-update', 'suppression-gate', 'browser-watch-cycle', 'agentic-campaign-configuration', 'run-readiness-contract', 'paid-budget-gate', 'channel-strategies', 'retention', 'hireable-template', 'existing-template-grant-reconciliation', 'tool-registry'] }, null, 2));
 } finally {
   try { handle?.close(); } catch {}
   rmSync(root, { recursive: true, force: true });
