@@ -210,12 +210,36 @@ export default function EventProductivityPanel() {
         })}
       </section>
 
-      {history && <div role="dialog" aria-modal="true" aria-label="Subscription event history" style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15,23,42,.58)', display: 'grid', placeItems: 'center', padding: 16 }} onClick={() => setHistory(null)}>
-        <div style={{ width: 'min(900px,96vw)', maxHeight: '82vh', overflow: 'auto', background: 'var(--panel, var(--background))', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 12, padding: 18 }} onClick={(e) => e.stopPropagation()}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}><h2 style={{ margin: 0, fontSize: '1.1rem' }}>{history.subscription.name} · event history</h2><button className="wf-btn" onClick={() => setHistory(null)}>Close</button></div>
-          <p style={{ color: 'var(--muted)', fontSize: '.82rem' }}>Retained using the CEO company profile retention period. Repeated provider object IDs are skipped and counted on the subscription.</p>
-          {!history.events.length && <p>No events processed by this listener yet.</p>}
-          {history.events.map((event) => <div key={event.id} style={{ borderTop: '1px solid var(--border)', padding: '10px 0' }}><strong>{event.event_type}</strong> · {event.status}<div style={{ color: 'var(--muted)', fontSize: '.8rem' }}>{formatLocalDateTime(event.received_at)} · Object {event.subject_id || event.provider_event_id}</div>{event.payload?.subject && <div style={{ marginTop: 4 }}>{event.payload.subject}</div>}{event.last_error && <div style={{ color: '#dc2626', fontSize: '.8rem' }}>{event.last_error}</div>}</div>)}
+      {history && <div role="dialog" aria-modal="true" aria-label="Subscription event history" style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15,23,42,.66)', display: 'grid', placeItems: 'center', padding: 16 }} onClick={() => setHistory(null)}>
+        <div style={{ width: 'min(900px,96vw)', maxHeight: '82vh', overflow: 'auto', background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 14, padding: 18, boxShadow: '0 24px 60px rgba(15,23,42,.34)' }} onClick={(e) => e.stopPropagation()}>
+          <div style={{ position: 'sticky', top: -18, zIndex: 1, display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', margin: '-18px -18px 0', padding: '16px 18px', background: 'var(--surface)', borderBottom: '1px solid var(--border)', borderRadius: '14px 14px 0 0' }}><h2 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text)' }}>{history.subscription.name} · event history</h2><button className="wf-btn" onClick={() => setHistory(null)}>Close</button></div>
+          <p style={{ color: 'var(--muted)', fontSize: '.82rem', lineHeight: 1.5 }}>Retained using the CEO company profile retention period. Repeated provider object IDs are skipped and counted on the subscription.</p>
+          {!history.events.length && <div style={{ padding: '18px 14px', border: '1px dashed var(--border)', borderRadius: 10, background: 'var(--surface-muted)', color: 'var(--muted)' }}>No events processed by this listener yet.</div>}
+          <div style={{ display: 'grid', gap: 10 }}>
+            {history.events.map((event) => {
+              const payload = event.payload || {};
+              const heading = payload.subject || payload.title || '(No subject or title)';
+              const sender = payload.sender || payload.organizer?.emailAddress?.address || payload.organizer?.email || payload.organizer?.displayName || '';
+              const preview = String(payload.body_text || payload.bodyPreview || payload.snippet || '').replace(/\s+/g, ' ').trim().slice(0, 320);
+              const objectId = event.subject_id || event.provider_event_id || '—';
+              return <article key={event.id} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px', background: 'var(--surface-muted)', color: 'var(--text)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: '.75rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.04em' }}>{event.event_type}</div>
+                    <strong style={{ display: 'block', marginTop: 3, overflowWrap: 'anywhere' }}>{heading}</strong>
+                  </div>
+                  <span style={{ flex: '0 0 auto', padding: '3px 8px', borderRadius: 999, fontSize: '.75rem', fontWeight: 700, color: event.status === 'completed' ? '#166534' : 'var(--text)', background: event.status === 'completed' ? '#dcfce7' : 'var(--surface)', border: '1px solid var(--border)' }}>{event.status}</span>
+                </div>
+                <div style={{ marginTop: 7, color: 'var(--muted)', fontSize: '.8rem', lineHeight: 1.45 }}>
+                  <div>{formatLocalDateTime(event.received_at)}{sender ? ` · From ${sender}` : ''}</div>
+                  {(payload.start || payload.end) && <div>{payload.start?.dateTime || payload.start || '—'} → {payload.end?.dateTime || payload.end || '—'}</div>}
+                  <div style={{ marginTop: 3 }}>Object <code style={{ whiteSpace: 'normal', overflowWrap: 'anywhere', color: 'var(--text)' }}>{objectId}</code></div>
+                </div>
+                {preview && <p style={{ margin: '9px 0 0', padding: '8px 10px', borderRadius: 8, background: 'var(--surface)', color: 'var(--text)', lineHeight: 1.45, overflowWrap: 'anywhere' }}>{preview}{String(payload.body_text || payload.bodyPreview || payload.snippet || '').length > 320 ? '…' : ''}</p>}
+                {event.last_error && <div style={{ marginTop: 8, color: '#b91c1c', background: '#fee2e2', border: '1px solid #fecaca', borderRadius: 8, padding: '7px 9px', fontSize: '.8rem', overflowWrap: 'anywhere' }}>{event.last_error}</div>}
+              </article>;
+            })}
+          </div>
         </div>
       </div>}
 
