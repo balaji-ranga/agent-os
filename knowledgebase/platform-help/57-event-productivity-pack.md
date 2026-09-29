@@ -16,7 +16,9 @@ Available capability families are Google Workspace (Calendar, Drive, Docs, Sheet
 4. Select the semantic operation, provider, app ID, action ID, and connection name when needed.
 5. For writes, add a read/get action as the verification action when the provider offers one.
 
-Flolah uses the binding exactly. It does not guess an action from prompt keywords.
+**App ID** and **Action ID** are picklists rather than free text. App ID shows compatible applications connected for your company through OpenConnector. After you select an app, Action ID shows the actions that connector reports as supported. The optional verification-action picklist uses the same live catalog.
+
+The capability is the stable intent an agent or workflow requests, such as `calendar_list_events`. The binding is the company-owned routing rule from that intent and provider to an exact connector action. At run time Flolah resolves the owner-scoped binding, applies Action Control, executes only the selected action, suppresses a retry with the same idempotency key, and stores an action receipt. Flolah does not guess an App ID or Action ID from prompt keywords.
 
 ## Create an event subscription
 

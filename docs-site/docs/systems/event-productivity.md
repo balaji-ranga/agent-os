@@ -11,7 +11,7 @@ The generic flow is:
 
 `provider event → durable inbox → workflow or goal → policy check → connector action → receipt and verification`
 
-Connect Google Workspace, Microsoft 365, Slack, or Teams under **OpenConnector**, then bind each semantic operation to an exact connector action ID. Exact bindings prevent agents from guessing an external action from keywords.
+Connect Google Workspace, Microsoft 365, Slack, or Teams under **OpenConnector**, then bind each semantic operation to an exact connector action ID. App ID is selected from compatible apps connected for your company; Action ID and the optional verification action are selected from the live action catalog reported by that app. Exact bindings prevent agents from guessing an external action from keywords. At run time Flolah resolves the owner-scoped binding, applies Action Control, executes only the selected action, suppresses duplicate retries, and stores an action receipt.
 
 Subscriptions can retain an event for inspection, start a published event-enabled workflow owned by your company, or start a durable goal plan. The event type is selected from a provider-aware dropdown; arbitrary free-text values and unsupported provider/event combinations are rejected. Google Workspace and Microsoft 365 offer email, calendar, and file triggers. Slack and Microsoft Teams offer message and reaction triggers. The webhook secret is displayed once and stored only as a hash.
 

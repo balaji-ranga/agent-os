@@ -80,6 +80,7 @@
     "test:tool-credential-broker": "node scripts/test-tool-credential-broker.mjs",
     "test:northstar-okr-demo-seed": "node scripts/test-northstar-okr-demo-seed.mjs",
     "test:event-productivity-pack": "node scripts/test-event-productivity-pack.mjs",
+    "test:event-productivity-agentic-binding": "node scripts/test-event-productivity-agentic-binding.mjs",
     "test:marketing-workspace": "node scripts/test-marketing-workspace.mjs",
     "test:erpnext-company-session-isolation": "node scripts/test-erpnext-company-session-isolation.mjs",
     "demo:northstar-okr": "node scripts/northstar-okr-demo-seed.js",

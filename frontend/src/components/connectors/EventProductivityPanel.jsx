@@ -11,8 +11,11 @@ export default function EventProductivityPanel() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [secret, setSecret] = useState('');
+  const [connectorActions, setConnectorActions] = useState([]);
+  const [actionsBusy, setActionsBusy] = useState(false);
+  const [actionsError, setActionsError] = useState('');
   const [sub, setSub] = useState({ name: '', provider: 'google_workspace', event_type: 'calendar.event.changed', target_type: 'inbox', target_id: '', goal_prompt_template: '' });
-  const [binding, setBinding] = useState({ operation: 'calendar_list_events', provider: 'google_workspace', app_id: 'google_calendar', action_id: '', connection_name: '', verify_action_id: '' });
+  const [binding, setBinding] = useState({ operation: 'calendar_list_events', provider: 'google_workspace', app_id: '', action_id: '', connection_name: '', verify_action_id: '' });
 
   const refresh = useCallback(async () => {
     setError('');
@@ -25,16 +28,49 @@ export default function EventProductivityPanel() {
   }, []);
   useEffect(() => { refresh(); }, [refresh]);
 
-  const operations = useMemo(() => Object.keys(data.summary?.capabilities?.operations || {}).filter((name) => name !== 'productivity_capabilities'), [data.summary]);
+  const operationCatalog = data.summary?.capabilities?.operations || {};
   const providers = data.summary?.capabilities?.providers || {};
   const eventTypesByProvider = data.summary?.capabilities?.event_types || {};
   const providerEventTypes = useMemo(() => eventTypesByProvider[sub.provider] || [], [eventTypesByProvider, sub.provider]);
+  const operations = useMemo(() => Object.entries(operationCatalog)
+    .filter(([name, spec]) => name !== 'productivity_capabilities' && (spec.providers || []).includes(binding.provider))
+    .map(([name]) => name), [operationCatalog, binding.provider]);
+  const connectedApps = data.summary?.connected_apps || [];
+  const compatibleApps = useMemo(() => {
+    const supported = new Set(providers[binding.provider]?.apps || []);
+    return connectedApps.filter((app) => supported.has(app.id));
+  }, [connectedApps, providers, binding.provider]);
 
   useEffect(() => {
     if (providerEventTypes.length && !providerEventTypes.some((event) => event.id === sub.event_type)) {
       setSub((current) => ({ ...current, event_type: providerEventTypes[0].id }));
     }
   }, [providerEventTypes, sub.event_type]);
+
+  useEffect(() => {
+    setBinding((current) => {
+      const operation = operations.includes(current.operation) ? current.operation : (operations[0] || '');
+      const appId = compatibleApps.some((app) => app.id === current.app_id) ? current.app_id : (compatibleApps[0]?.id || '');
+      if (operation === current.operation && appId === current.app_id) return current;
+      return { ...current, operation, app_id: appId, action_id: '', verify_action_id: '' };
+    });
+  }, [operations, compatibleApps]);
+
+  useEffect(() => {
+    let active = true;
+    if (!binding.app_id) {
+      setConnectorActions([]);
+      setActionsError('');
+      return () => { active = false; };
+    }
+    setActionsBusy(true);
+    setActionsError('');
+    api.openconnectorActions(binding.app_id)
+      .then((result) => { if (active) setConnectorActions(result.actions || []); })
+      .catch((e) => { if (active) { setConnectorActions([]); setActionsError(e.message || 'Unable to load connector actions.'); } })
+      .finally(() => { if (active) setActionsBusy(false); });
+    return () => { active = false; };
+  }, [binding.app_id]);
 
   function selectProvider(provider) {
     const supported = eventTypesByProvider[provider] || [];
@@ -43,6 +79,16 @@ export default function EventProductivityPanel() {
       provider,
       event_type: supported.some((event) => event.id === current.event_type) ? current.event_type : (supported[0]?.id || ''),
     }));
+  }
+
+  function selectBindingProvider(provider) {
+    setConnectorActions([]);
+    setBinding((current) => ({ ...current, provider, app_id: '', action_id: '', verify_action_id: '' }));
+  }
+
+  function selectBindingApp(appId) {
+    setConnectorActions([]);
+    setBinding((current) => ({ ...current, app_id: appId, action_id: '', verify_action_id: '' }));
   }
 
   async function act(fn, success) {
@@ -91,16 +137,32 @@ export default function EventProductivityPanel() {
 
       <section style={box}>
         <h2 style={{ marginTop: 0, fontSize: '1.05rem' }}>Capability binding</h2>
-        <p style={{ color: 'var(--muted)', fontSize: '.85rem' }}>Select an exact action ID discovered from OpenConnector. This prevents a model from guessing which external action to run.</p>
+        <p style={{ color: 'var(--muted)', fontSize: '.85rem' }}>
+          A capability is the stable intent an agent or workflow requests, such as <code>calendar_list_events</code>. A binding is your company&apos;s routing rule from that intent and provider to one exact action exposed by a connected app. At run time Flolah resolves the binding, applies Action Control, executes only that action, prevents duplicate execution with an idempotency key, and stores an action receipt. Agents never guess an App ID or Action ID.
+        </p>
+        <p style={{ color: 'var(--muted)', fontSize: '.82rem' }}>
+          App ID lists the compatible apps currently connected under OpenConnector. Action ID lists the actions reported by the selected app. An optional verification action reads the provider result back after a write.
+        </p>
         <div style={grid}>
           <select value={binding.operation} onChange={(e) => setBinding({ ...binding, operation: e.target.value })}>{operations.map((name) => <option key={name}>{name}</option>)}</select>
-          <select value={binding.provider} onChange={(e) => setBinding({ ...binding, provider: e.target.value })}>{Object.entries(providers).map(([id, p]) => <option key={id} value={id}>{p.label}</option>)}</select>
-          <input style={input} placeholder="App ID" value={binding.app_id} onChange={(e) => setBinding({ ...binding, app_id: e.target.value })} />
-          <input style={input} placeholder="Exact action ID" value={binding.action_id} onChange={(e) => setBinding({ ...binding, action_id: e.target.value })} />
+          <select aria-label="Binding provider" value={binding.provider} onChange={(e) => selectBindingProvider(e.target.value)}>{Object.entries(providers).map(([id, p]) => <option key={id} value={id}>{p.label}</option>)}</select>
+          <select aria-label="Connected app" value={binding.app_id} onChange={(e) => selectBindingApp(e.target.value)} disabled={!compatibleApps.length}>
+            {!compatibleApps.length && <option value="">No compatible connected app</option>}
+            {compatibleApps.map((app) => <option key={app.id} value={app.id}>{app.name || app.id} ({app.id})</option>)}
+          </select>
+          <select aria-label="Connector action" value={binding.action_id} onChange={(e) => setBinding({ ...binding, action_id: e.target.value })} disabled={!binding.app_id || actionsBusy || !connectorActions.length}>
+            <option value="">{actionsBusy ? 'Loading actions…' : 'Select an action'}</option>
+            {connectorActions.map((action) => <option key={action.id} value={action.id}>{action.id}{action.description ? ` — ${action.description.slice(0, 80)}` : ''}</option>)}
+          </select>
           <input style={input} placeholder="Connection name (optional)" value={binding.connection_name} onChange={(e) => setBinding({ ...binding, connection_name: e.target.value })} />
-          <input style={input} placeholder="Verification action ID (optional)" value={binding.verify_action_id} onChange={(e) => setBinding({ ...binding, verify_action_id: e.target.value })} />
+          <select aria-label="Verification action" value={binding.verify_action_id} onChange={(e) => setBinding({ ...binding, verify_action_id: e.target.value })} disabled={!binding.app_id || actionsBusy || !connectorActions.length}>
+            <option value="">No verification action</option>
+            {connectorActions.map((action) => <option key={action.id} value={action.id}>{action.id}{action.description ? ` — ${action.description.slice(0, 80)}` : ''}</option>)}
+          </select>
         </div>
-        <button className="wf-btn-primary" disabled={busy || !binding.action_id.trim()} onClick={() => act(() => api.eventProductivityBindingSave(binding), 'Binding saved.') } style={{ marginTop: 10 }}>Save binding</button>
+        {!compatibleApps.length && <p style={{ color: '#d97706', fontSize: '.82rem' }}>Connect a compatible app under OpenConnector before creating this provider binding.</p>}
+        {actionsError && <p style={{ color: '#dc2626', fontSize: '.82rem' }}>{actionsError}</p>}
+        <button className="wf-btn-primary" disabled={busy || actionsBusy || !binding.operation || !binding.app_id || !binding.action_id} onClick={() => act(() => api.eventProductivityBindingSave(binding), 'Binding saved.') } style={{ marginTop: 10 }}>Save binding</button>
         {data.bindings.map((row) => <div key={row.id} style={{ borderTop: '1px solid var(--border)', marginTop: 10, paddingTop: 10 }}><strong>{row.operation}</strong> · {row.provider} → <code>{row.action_id}</code>{row.verify_action_id && <> · verify <code>{row.verify_action_id}</code></>} <button className="wf-btn" disabled={busy} onClick={() => act(() => api.eventProductivityBindingDelete(row.id), 'Binding deleted.')}>Delete</button></div>)}
       </section>
 
