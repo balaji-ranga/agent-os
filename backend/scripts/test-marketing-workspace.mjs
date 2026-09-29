@@ -112,6 +112,12 @@ try {
   svc.upsertMarketingRecord(ownerB, 'assets', { asset_id: 'wa-agentic-asset', campaign_id: 'wa-agentic-campaign', name: 'WhatsApp campaign message', channel: 'whatsapp', content: 'Reply INTERESTED to learn more', approval_status: 'approved' });
   const waHash = createHash('sha256').update(`${ownerB}:6590057664`).digest('hex');
   svc.recordMarketingOutcome(ownerB, { campaign_id: 'wa-agentic-campaign', asset_id: 'wa-agentic-asset', channel: 'whatsapp', outcome_type: 'send_accepted', audience_hash: waHash, recipient_label: 'Interested WhatsApp prospect', provider_reference: 'wa-send-1', observed_at: '2026-09-28T14:18:00.000Z' });
+  const legacySendRow = handle.prepare(`SELECT id,row_json FROM master_data_rows WHERE owner_user_id=? AND table_id=(SELECT id FROM master_data_tables WHERE owner_user_id=? AND name='marketing_campaign_outcomes') AND json_extract(row_json,'$.provider_reference')='wa-send-1'`).get(ownerB, ownerB);
+  const legacySendData = JSON.parse(legacySendRow.row_json);
+  legacySendData.audience_hash = createHash('sha256').update(`${ownerB}:+6590057664`).digest('hex');
+  handle.prepare(`UPDATE master_data_rows SET row_json=? WHERE id=?`).run(JSON.stringify(legacySendData), legacySendRow.id);
+  const repairedSend = svc.getMarketingWorkspace(ownerB).records.outcomes.find((row) => row.provider_reference === 'wa-send-1');
+  assert.equal(repairedSend.audience_hash, waHash, 'legacy send receipt hash is normalized through its unique campaign audience member');
   const normalCompanyChat = svc.correlateMarketingInbound(ownerB, { channel: 'whatsapp', sender_id: '+6590057664', content: 'What are my open tasks?', message_id: 'wa-owner-chat-1', observed_at: '2026-09-28T14:20:00.000Z', company_actor: { user_id: ownerB, role: 'ceo', name: 'Marketing B' } });
   assert.equal(normalCompanyChat.matched, false);
   assert.equal(normalCompanyChat.reason, 'company_user_normal_chat', 'ordinary CEO chat is not converted into a campaign response');
@@ -306,7 +312,7 @@ try {
   assert.ok(purged.deleted.marketing_engagement_events >= 1, 'engagement history follows owner retention');
   assert.ok(purged.deleted.marketing_campaign_outcomes >= 1, 'campaign outcome ledger follows owner retention');
   assert.ok(purged.deleted.marketing_distribution_list_members >= 1, 'manual audience contacts follow owner retention');
-  console.log(JSON.stringify({ ok: true, checks: ['configured-channel-transport-resolution', 'knowledge-backed-storage', 'upsert-idempotency', 'metric-idempotency', 'outcome-ledger-idempotency', 'cross-channel-outcomes', 'company-user-vs-contact-precedence', 'campaign-response-contract', 'inbound-campaign-attribution', 'inbound-idempotency', 'inbound-opt-out-suppression', 'marketing-followup-ownership', 'legacy-audience-identity-repair', 'legacy-email-reconciliation', 'owner-isolation', 'secret-rejection', 'signed-open-pixel', 'pixel-idempotency', 'cross-campaign-lead-correlation', 'distinct-opportunities', 'structured-followup-update', 'suppression-gate', 'browser-watch-cycle', 'agentic-campaign-configuration', 'run-readiness-contract', 'paid-budget-gate', 'channel-strategies', 'retention', 'hireable-template', 'existing-template-grant-reconciliation', 'tool-registry'] }, null, 2));
+  console.log(JSON.stringify({ ok: true, checks: ['configured-channel-transport-resolution', 'knowledge-backed-storage', 'upsert-idempotency', 'metric-idempotency', 'outcome-ledger-idempotency', 'cross-channel-outcomes', 'company-user-vs-contact-precedence', 'campaign-response-contract', 'inbound-campaign-attribution', 'inbound-idempotency', 'inbound-opt-out-suppression', 'marketing-followup-ownership', 'legacy-audience-identity-repair', 'legacy-send-receipt-identity-repair', 'legacy-email-reconciliation', 'owner-isolation', 'secret-rejection', 'signed-open-pixel', 'pixel-idempotency', 'cross-campaign-lead-correlation', 'distinct-opportunities', 'structured-followup-update', 'suppression-gate', 'browser-watch-cycle', 'agentic-campaign-configuration', 'run-readiness-contract', 'paid-budget-gate', 'channel-strategies', 'retention', 'hireable-template', 'existing-template-grant-reconciliation', 'tool-registry'] }, null, 2));
 } finally {
   try { handle?.close(); } catch {}
   rmSync(root, { recursive: true, force: true });

@@ -357,6 +357,34 @@ export function getMarketingWorkspace(ownerUserId) {
     }
     return { ...row, destination };
   });
+  records.outcomes = records.outcomes.map((row) => {
+    if (!row.row_id || !row.campaign_id || !row.channel) return row;
+    const campaign = records.campaigns.find((candidate) => candidate.campaign_id === row.campaign_id);
+    if (!campaign) return row;
+    const audienceListIds = new Set(parseJsonArray(campaign.audience_list_ids_json));
+    if (!audienceListIds.size) return row;
+    const eligibleMembers = records.distributionMembers.filter((member) =>
+      audienceListIds.has(member.list_id) && member.channel === row.channel && member.destination_hash
+    );
+    const candidates = eligibleMembers.filter((member) => {
+      const normalized = normalizedDestination(member.channel, member.destination);
+      const legacyValues = unique([
+        member.destination,
+        ['whatsapp', 'telemarketing'].includes(member.channel) && normalized ? `+${normalized}` : '',
+      ]).filter(Boolean);
+      const legacyHashes = legacyValues.map((value) =>
+        createHash('sha256').update(`${ownerUserId}:${value}`).digest('hex')
+      );
+      if (row.audience_hash && legacyHashes.includes(row.audience_hash)) return true;
+      return !row.audience_hash && row.destination_masked
+        && maskDestination(member.destination) === row.destination_masked;
+    });
+    if (candidates.length !== 1 || row.audience_hash === candidates[0].destination_hash) return row;
+    updateRow(ownerUserId, tables.outcomes.id, row.row_id, {
+      audience_hash: candidates[0].destination_hash,
+    });
+    return { ...row, audience_hash: candidates[0].destination_hash };
+  });
   return {
     storage: { type: 'knowledge_tables', tables: Object.fromEntries(Object.entries(tables).map(([k, v]) => [k, v.name])) },
     records,
