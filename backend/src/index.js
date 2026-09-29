@@ -1108,6 +1108,22 @@ registerPlatformCron({
   },
 });
 
+const eventProductivityListenerCron = process.env.EVENT_PRODUCTIVITY_LISTENER_CRON || '*/1 * * * *';
+registerPlatformCron({
+  id: 'event_productivity_listener',
+  kind: 'event',
+  eventWhen: 'poll enabled productivity event subscriptions',
+  name: 'Event subscription listener',
+  description:
+    'One shared owner-scoped worker polls enabled email and calendar subscriptions, deduplicates provider object IDs, and routes new events to the configured inbox, workflow, or goal.',
+  schedule: eventProductivityListenerCron,
+  envVar: 'EVENT_PRODUCTIVITY_LISTENER_CRON',
+  handler: async () => {
+    const { pollDueProductivitySubscriptions } = await import('./services/event-productivity-listeners.js');
+    return pollDueProductivitySubscriptions();
+  },
+});
+
 registerPlatformCron({
   id: 'company_email_inbox_sync',
   kind: 'event',

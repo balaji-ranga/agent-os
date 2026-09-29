@@ -116,6 +116,7 @@ EOF
   if ! grep -qF 'EVENT_PRODUCTIVITY_RETRY_CRON' "$ENV_FILE"; then
     cat >> "$ENV_FILE" <<'EOF'
 # EVENT_PRODUCTIVITY_RETRY_CRON=*/1 * * * * # retry failed productivity events; dead-letter after five attempts
+# EVENT_PRODUCTIVITY_LISTENER_CRON=*/1 * * * * # shared due-listener sweep; per-subscription interval is configured in UI
 EOF
     added=1
   fi

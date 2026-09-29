@@ -949,6 +949,7 @@ export const api = {
   eventProductivitySubscriptionUpdate: (id, body) => patch(`/event-productivity/subscriptions/${encodeURIComponent(id)}`, body),
   eventProductivitySubscriptionDelete: (id) => del(`/event-productivity/subscriptions/${encodeURIComponent(id)}`),
   eventProductivitySecretRotate: (id) => post(`/event-productivity/subscriptions/${encodeURIComponent(id)}/rotate-secret`, {}),
+  eventProductivityListenerCheck: (id) => post(`/event-productivity/subscriptions/${encodeURIComponent(id)}/listener/check`, {}),
   eventProductivityEvents: (params = {}) => {
     const q = new URLSearchParams(params).toString();
     return get(`/event-productivity/events${q ? `?${q}` : ''}`);

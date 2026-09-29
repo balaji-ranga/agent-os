@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../../api';
+import { formatLocalDateTime } from '../../utils/formatDateTime.js';
 
 const box = { border: '1px solid var(--border)', borderRadius: 8, padding: '1rem', marginTop: '1rem' };
 const grid = { display: 'grid', gap: 8, gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))' };
@@ -14,7 +15,9 @@ export default function EventProductivityPanel() {
   const [connectorActions, setConnectorActions] = useState([]);
   const [actionsBusy, setActionsBusy] = useState(false);
   const [actionsError, setActionsError] = useState('');
-  const [sub, setSub] = useState({ name: '', provider: 'google_workspace', event_type: 'calendar.event.changed', target_type: 'inbox', target_id: '', goal_prompt_template: '' });
+  const [sub, setSub] = useState({ name: '', provider: 'google_workspace', event_type: 'calendar.event.changed', target_type: 'inbox', target_id: '', goal_prompt_template: '', listener_enabled: false, listener_poll_seconds: 300, dedupe_mode: 'provider_object_id', source_disposition: 'retain' });
+  const [history, setHistory] = useState(null);
+  const [historyBusy, setHistoryBusy] = useState(false);
   const [binding, setBinding] = useState({ operation: 'calendar_list_events', provider: 'google_workspace', app_id: '', action_id: '', connection_name: '', verify_action_id: '' });
 
   const refresh = useCallback(async () => {
@@ -100,6 +103,23 @@ export default function EventProductivityPanel() {
     finally { setBusy(false); }
   }
 
+  async function showHistory(row) {
+    setHistoryBusy(true); setError('');
+    try {
+      const result = await api.eventProductivityEvents({ subscription_id: row.id, limit: 100 });
+      setHistory({ subscription: row, events: result.events || [] });
+    } catch (e) { setError(e.message); }
+    finally { setHistoryBusy(false); }
+  }
+
+  const listenerStatus = (row) => {
+    if (!row.listener_enabled) return { label: 'Listener disabled', color: '#64748b' };
+    if (row.listener_status === 'active' && row.listener_active) return { label: 'Listener active', color: '#16a34a' };
+    if (row.listener_status === 'checking' || row.listener_status === 'starting') return { label: row.listener_status === 'checking' ? 'Checking now' : 'Starting', color: '#d97706' };
+    if (row.listener_status === 'error') return { label: 'Listener error', color: '#dc2626' };
+    return { label: row.listener_status || 'Listener stale', color: '#d97706' };
+  };
+
   return (
     <div style={{ marginTop: '1rem' }}>
       <p style={{ color: 'var(--muted)' }}>
@@ -130,12 +150,39 @@ export default function EventProductivityPanel() {
             {providerEventTypes.map((event) => <option key={event.id} value={event.id}>{event.label} ({event.id})</option>)}
           </select>
           <select value={sub.target_type} onChange={(e) => setSub({ ...sub, target_type: e.target.value })}><option value="inbox">Inbox only</option><option value="workflow">Workflow</option><option value="goal">Goal</option></select>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}><input type="checkbox" checked={sub.listener_enabled} onChange={(e) => setSub({ ...sub, listener_enabled: e.target.checked })} /> Enable provider listener</label>
+          <label>Check interval<select style={input} value={sub.listener_poll_seconds} onChange={(e) => setSub({ ...sub, listener_poll_seconds: Number(e.target.value) })}><option value={60}>Every minute</option><option value={300}>Every 5 minutes</option><option value={900}>Every 15 minutes</option><option value={3600}>Every hour</option></select></label>
+          <label>Duplicate handling<select style={input} value={sub.dedupe_mode} onChange={(e) => setSub({ ...sub, dedupe_mode: e.target.value })}><option value="provider_object_id">Store provider object ID and skip repeats</option></select></label>
+          {sub.provider === 'google_workspace' && sub.event_type === 'email.message.received' && <label>After processing<select style={input} value={sub.source_disposition} onChange={(e) => setSub({ ...sub, source_disposition: e.target.value })}><option value="retain">Keep source email</option><option value="trash">Move source email to Trash</option></select></label>}
           {sub.target_type !== 'inbox' && <input style={input} placeholder={sub.target_type === 'workflow' ? 'Workflow ID' : 'Agent ID (default balserve)'} value={sub.target_id} onChange={(e) => setSub({ ...sub, target_id: e.target.value })} />}
           {sub.target_type === 'goal' && <input style={input} placeholder="Goal prompt; supports {{event_id}}" value={sub.goal_prompt_template} onChange={(e) => setSub({ ...sub, goal_prompt_template: e.target.value })} />}
         </div>
         <button className="wf-btn-primary" disabled={busy || !sub.name.trim() || !sub.event_type} onClick={() => act(() => api.eventProductivitySubscriptionCreate(sub), 'Subscription created.') } style={{ marginTop: 10 }}>Create subscription</button>
-        {data.subscriptions.map((row) => <div key={row.id} style={{ borderTop: '1px solid var(--border)', marginTop: 10, paddingTop: 10 }}><strong>{row.name}</strong> · {row.provider} · {row.event_type} → {row.target_type}<div style={{ fontSize: '.8rem', color: 'var(--muted)', wordBreak: 'break-all' }}>POST /api/event-productivity/webhooks/{row.id}</div><button className="wf-btn" disabled={busy} onClick={() => act(() => api.eventProductivitySecretRotate(row.id), 'Secret rotated.')} style={{ marginRight: 6 }}>Rotate secret</button><button className="wf-btn" disabled={busy} onClick={() => window.confirm('Delete this subscription?') && act(() => api.eventProductivitySubscriptionDelete(row.id), 'Subscription deleted.')}>Delete</button></div>)}
+        {data.subscriptions.map((row) => {
+          const status = listenerStatus(row);
+          return <div key={row.id} style={{ borderTop: '1px solid var(--border)', marginTop: 10, paddingTop: 10 }}>
+            <div><strong>{row.name}</strong> · {row.provider} · {row.event_type} → {row.target_type}</div>
+            <div style={{ fontSize: '.82rem', margin: '5px 0', color: status.color }}><strong>{status.label}</strong>{row.listener_last_check_at ? ` · Last check ${formatLocalDateTime(row.listener_last_check_at)}` : ''}{row.last_event_at ? ` · Last event ${formatLocalDateTime(row.last_event_at)}` : ''}</div>
+            <div style={{ fontSize: '.78rem', color: 'var(--muted)' }}>Deduplication: provider object ID · skipped repeats: {row.listener_duplicate_count || 0} · source: {row.source_disposition === 'trash' ? 'move Gmail to Trash' : 'retain'}</div>
+            {row.listener_last_error && <div style={{ fontSize: '.8rem', color: '#dc2626', marginTop: 4 }}>{row.listener_last_error}</div>}
+            <div style={{ fontSize: '.8rem', color: 'var(--muted)', wordBreak: 'break-all', margin: '5px 0' }}>Webhook fallback: POST /api/event-productivity/webhooks/{row.id}</div>
+            <button className="wf-btn" disabled={busy} onClick={() => act(() => api.eventProductivitySubscriptionUpdate(row.id, { listener_enabled: !row.listener_enabled }), row.listener_enabled ? 'Listener disabled.' : 'Listener enabled.')} style={{ marginRight: 6 }}>{row.listener_enabled ? 'Disable listener' : 'Enable listener'}</button>
+            <button className="wf-btn" disabled={busy || !row.listener_enabled} onClick={() => act(() => api.eventProductivityListenerCheck(row.id), 'Listener check completed.')} style={{ marginRight: 6 }}>Check now</button>
+            <button className="wf-btn" disabled={busy || historyBusy} onClick={() => showHistory(row)} style={{ marginRight: 6 }}>History</button>
+            <button className="wf-btn" disabled={busy} onClick={() => act(() => api.eventProductivitySecretRotate(row.id), 'Secret rotated.')} style={{ marginRight: 6 }}>Rotate secret</button>
+            <button className="wf-btn" disabled={busy} onClick={() => window.confirm('Delete this subscription?') && act(() => api.eventProductivitySubscriptionDelete(row.id), 'Subscription deleted.')}>Delete</button>
+          </div>;
+        })}
       </section>
+
+      {history && <div role="dialog" aria-modal="true" aria-label="Subscription event history" style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15,23,42,.58)', display: 'grid', placeItems: 'center', padding: 16 }} onClick={() => setHistory(null)}>
+        <div style={{ width: 'min(900px,96vw)', maxHeight: '82vh', overflow: 'auto', background: 'var(--panel, var(--background))', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 12, padding: 18 }} onClick={(e) => e.stopPropagation()}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}><h2 style={{ margin: 0, fontSize: '1.1rem' }}>{history.subscription.name} · event history</h2><button className="wf-btn" onClick={() => setHistory(null)}>Close</button></div>
+          <p style={{ color: 'var(--muted)', fontSize: '.82rem' }}>Retained using the CEO company profile retention period. Repeated provider object IDs are skipped and counted on the subscription.</p>
+          {!history.events.length && <p>No events processed by this listener yet.</p>}
+          {history.events.map((event) => <div key={event.id} style={{ borderTop: '1px solid var(--border)', padding: '10px 0' }}><strong>{event.event_type}</strong> · {event.status}<div style={{ color: 'var(--muted)', fontSize: '.8rem' }}>{formatLocalDateTime(event.received_at)} · Object {event.subject_id || event.provider_event_id}</div>{event.payload?.subject && <div style={{ marginTop: 4 }}>{event.payload.subject}</div>}{event.last_error && <div style={{ color: '#dc2626', fontSize: '.8rem' }}>{event.last_error}</div>}</div>)}
+        </div>
+      </div>}
 
       <section style={box}>
         <h2 style={{ marginTop: 0, fontSize: '1.05rem' }}>Capability binding</h2>

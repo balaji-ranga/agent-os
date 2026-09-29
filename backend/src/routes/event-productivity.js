@@ -17,6 +17,7 @@ import {
   updateEventSubscription,
   upsertProductivityBinding,
 } from '../services/event-productivity.js';
+import { pollProductivitySubscription } from '../services/event-productivity-listeners.js';
 
 const router = Router();
 router.use(requireAuth, requireCeoOrAdmin);
@@ -38,6 +39,7 @@ router.post('/subscriptions', (req, res) => run(res, () => createEventSubscripti
 router.patch('/subscriptions/:id', (req, res) => run(res, () => ({ subscription: updateEventSubscription(owner(req), req.params.id, req.body || {}) })));
 router.delete('/subscriptions/:id', (req, res) => run(res, () => deleteEventSubscription(owner(req), req.params.id)));
 router.post('/subscriptions/:id/rotate-secret', (req, res) => run(res, () => rotateEventSubscriptionSecret(owner(req), req.params.id)));
+router.post('/subscriptions/:id/listener/check', (req, res) => run(res, () => pollProductivitySubscription(owner(req), req.params.id)));
 
 router.get('/events', (req, res) => run(res, () => ({ events: listProductivityEvents(owner(req), req.query || {}) })));
 router.get('/events/:id', (req, res) => run(res, () => ({ event: getProductivityEvent(owner(req), req.params.id) })));

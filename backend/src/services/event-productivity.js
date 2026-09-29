@@ -143,7 +143,7 @@ export function ensureEventProductivitySchema() {
       status TEXT NOT NULL DEFAULT 'pending', attempts INTEGER NOT NULL DEFAULT 0,
       next_retry_at TEXT, processed_at TEXT, acknowledged_at TEXT, last_error TEXT,
       trigger_run_type TEXT, trigger_run_id TEXT, expires_at TEXT,
-      UNIQUE(owner_user_id, provider, provider_event_id)
+      UNIQUE(owner_user_id, subscription_id, provider_event_id)
     );
     CREATE INDEX IF NOT EXISTS idx_productivity_events_owner_status ON productivity_events(owner_user_id, status, received_at DESC);
     CREATE TABLE IF NOT EXISTS productivity_action_bindings (
@@ -166,12 +166,66 @@ export function ensureEventProductivitySchema() {
     );
     CREATE INDEX IF NOT EXISTS idx_productivity_receipts_owner ON productivity_action_receipts(owner_user_id, created_at DESC);
   `);
+  const subscriptionColumns = new Set(db().prepare('PRAGMA table_info(productivity_event_subscriptions)').all().map((column) => column.name));
+  const listenerColumns = {
+    listener_enabled: 'INTEGER NOT NULL DEFAULT 0',
+    listener_status: "TEXT NOT NULL DEFAULT 'disabled'",
+    listener_poll_seconds: 'INTEGER NOT NULL DEFAULT 300',
+    listener_next_poll_at: 'TEXT',
+    listener_last_check_at: 'TEXT',
+    listener_last_success_at: 'TEXT',
+    listener_last_error: 'TEXT',
+    listener_cursor_json: "TEXT NOT NULL DEFAULT '{}'",
+    listener_duplicate_count: 'INTEGER NOT NULL DEFAULT 0',
+    dedupe_mode: "TEXT NOT NULL DEFAULT 'provider_object_id'",
+    source_disposition: "TEXT NOT NULL DEFAULT 'retain'",
+  };
+  for (const [column, definition] of Object.entries(listenerColumns)) {
+    if (!subscriptionColumns.has(column)) db().exec(`ALTER TABLE productivity_event_subscriptions ADD COLUMN ${column} ${definition}`);
+  }
+  const eventsTableSql = String(db().prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='productivity_events'`).get()?.sql || '').replace(/\s+/g, '').toLowerCase();
+  if (eventsTableSql.includes('unique(owner_user_id,provider,provider_event_id)')) {
+    db().transaction(() => {
+      db().exec(`
+        ALTER TABLE productivity_events RENAME TO productivity_events_legacy_unique;
+        CREATE TABLE productivity_events (
+          id TEXT PRIMARY KEY, owner_user_id TEXT NOT NULL, subscription_id TEXT NOT NULL,
+          provider TEXT NOT NULL, provider_event_id TEXT NOT NULL, event_type TEXT NOT NULL,
+          subject_type TEXT DEFAULT '', subject_id TEXT DEFAULT '', correlation_key TEXT DEFAULT '',
+          payload_json TEXT NOT NULL DEFAULT '{}', occurred_at TEXT, received_at TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'pending', attempts INTEGER NOT NULL DEFAULT 0,
+          next_retry_at TEXT, processed_at TEXT, acknowledged_at TEXT, last_error TEXT,
+          trigger_run_type TEXT, trigger_run_id TEXT, expires_at TEXT,
+          UNIQUE(owner_user_id, subscription_id, provider_event_id)
+        );
+        INSERT INTO productivity_events
+          (id,owner_user_id,subscription_id,provider,provider_event_id,event_type,subject_type,subject_id,correlation_key,payload_json,occurred_at,received_at,status,attempts,next_retry_at,processed_at,acknowledged_at,last_error,trigger_run_type,trigger_run_id,expires_at)
+        SELECT id,owner_user_id,subscription_id,provider,provider_event_id,event_type,subject_type,subject_id,correlation_key,payload_json,occurred_at,received_at,status,attempts,next_retry_at,processed_at,acknowledged_at,last_error,trigger_run_type,trigger_run_id,expires_at
+        FROM productivity_events_legacy_unique;
+        DROP TABLE productivity_events_legacy_unique;
+        CREATE INDEX idx_productivity_events_owner_status ON productivity_events(owner_user_id, status, received_at DESC);
+      `);
+    })();
+  }
+  db().exec(`CREATE INDEX IF NOT EXISTS idx_productivity_subscriptions_listener
+    ON productivity_event_subscriptions(listener_enabled, listener_next_poll_at)`);
   ready = true;
 }
 
 function subscriptionRow(row) {
   if (!row) return null;
-  return { ...row, enabled: !!row.enabled, filters: json(row.filters_json), key_result_ids: json(row.key_result_ids_json, []) };
+  const pollSeconds = Math.max(60, Number(row.listener_poll_seconds) || 300);
+  const lastSuccessMs = Date.parse(row.listener_last_success_at || '');
+  const listenerFresh = Number.isFinite(lastSuccessMs) && Date.now() - lastSuccessMs <= Math.max(pollSeconds * 3, 300) * 1000;
+  return {
+    ...row,
+    enabled: !!row.enabled,
+    listener_enabled: !!row.listener_enabled,
+    listener_active: !!row.listener_enabled && row.listener_status === 'active' && listenerFresh,
+    listener_poll_seconds: pollSeconds,
+    filters: json(row.filters_json),
+    key_result_ids: json(row.key_result_ids_json, []),
+  };
 }
 function eventRow(row) { return row ? { ...row, payload: json(row.payload_json) } : null; }
 function bindingRow(row) { return row ? { ...row, enabled: !!row.enabled, input_template: json(row.input_template_json), verify_input_template: json(row.verify_input_template_json) } : null; }
@@ -204,13 +258,25 @@ export function createEventSubscription(ownerUserId, input = {}) {
   if (targetType !== 'inbox' && !String(input.target_id || '').trim() && targetType === 'workflow') throw Object.assign(new Error('target_id required for workflow target'), { status: 400 });
   const id = `eps-${randomUUID()}`;
   const secret = `eps_${randomBytes(32).toString('base64url')}`;
+  const listenerEnabled = input.listener_enabled === true;
+  const pollSeconds = Math.max(60, Math.min(3600, Number(input.listener_poll_seconds) || 300));
+  const dedupeMode = String(input.dedupe_mode || 'provider_object_id');
+  if (dedupeMode !== 'provider_object_id') throw Object.assign(new Error('dedupe_mode must be provider_object_id'), { status: 400 });
+  const sourceDisposition = String(input.source_disposition || 'retain');
+  if (!['retain', 'trash'].includes(sourceDisposition)) throw Object.assign(new Error('source_disposition must be retain or trash'), { status: 400 });
+  if (sourceDisposition === 'trash' && !(providerId === 'google_workspace' && eventTypeId === 'email.message.received')) {
+    throw Object.assign(new Error('Move source to Trash is supported only for Gmail message events'), { status: 400 });
+  }
+  const listenerCursor = listenerEnabled ? { enabled_at: now() } : {};
   db().prepare(`INSERT INTO productivity_event_subscriptions
-    (id,owner_user_id,name,provider,connection_name,event_type,filters_json,target_type,target_id,goal_prompt_template,objective_id,key_result_ids_json,enabled,secret_hash)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+    (id,owner_user_id,name,provider,connection_name,event_type,filters_json,target_type,target_id,goal_prompt_template,objective_id,key_result_ids_json,enabled,secret_hash,
+     listener_enabled,listener_status,listener_poll_seconds,listener_next_poll_at,listener_cursor_json,dedupe_mode,source_disposition)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
       id, owner, String(input.name).trim(), providerId, String(input.connection_name || '').trim(),
       eventTypeId, JSON.stringify(input.filters || {}), targetType, input.target_id || null,
       String(input.goal_prompt_template || '').trim(), input.objective_id || null, JSON.stringify(input.key_result_ids || []),
-      input.enabled === false ? 0 : 1, hash(secret)
+      input.enabled === false ? 0 : 1, hash(secret), listenerEnabled ? 1 : 0, listenerEnabled ? 'starting' : 'disabled',
+      pollSeconds, listenerEnabled ? now() : null, JSON.stringify(listenerCursor), dedupeMode, sourceDisposition
     );
   return { subscription: subscriptionRow(db().prepare(`SELECT * FROM productivity_event_subscriptions WHERE id=?`).get(id)), webhook_secret: secret };
 }
@@ -231,9 +297,25 @@ export function updateEventSubscription(ownerUserId, id, input = {}) {
   if (!String(merged.name || '').trim()) throw Object.assign(new Error('name is required'), { status: 400 });
   const { providerId, eventTypeId } = assertSupportedEventType(merged.provider, merged.event_type);
   if (target === 'workflow' && !String(merged.target_id || '').trim()) throw Object.assign(new Error('target_id required for workflow target'), { status: 400 });
-  db().prepare(`UPDATE productivity_event_subscriptions SET name=?,provider=?,connection_name=?,event_type=?,filters_json=?,target_type=?,target_id=?,goal_prompt_template=?,objective_id=?,key_result_ids_json=?,enabled=?,updated_at=datetime('now') WHERE id=? AND owner_user_id=?`).run(
+  const listenerEnabled = merged.listener_enabled === true;
+  const listenerWasEnabled = !!row.listener_enabled;
+  const pollSeconds = Math.max(60, Math.min(3600, Number(merged.listener_poll_seconds) || 300));
+  const dedupeMode = String(merged.dedupe_mode || 'provider_object_id');
+  if (dedupeMode !== 'provider_object_id') throw Object.assign(new Error('dedupe_mode must be provider_object_id'), { status: 400 });
+  const sourceDisposition = String(merged.source_disposition || 'retain');
+  if (!['retain', 'trash'].includes(sourceDisposition)) throw Object.assign(new Error('source_disposition must be retain or trash'), { status: 400 });
+  if (sourceDisposition === 'trash' && !(providerId === 'google_workspace' && eventTypeId === 'email.message.received')) {
+    throw Object.assign(new Error('Move source to Trash is supported only for Gmail message events'), { status: 400 });
+  }
+  const listenerStatus = listenerEnabled ? (listenerWasEnabled ? row.listener_status || 'starting' : 'starting') : 'disabled';
+  const listenerNextPollAt = listenerEnabled ? (!listenerWasEnabled ? now() : row.listener_next_poll_at || now()) : null;
+  const listenerCursor = listenerEnabled && !listenerWasEnabled ? { enabled_at: now() } : json(row.listener_cursor_json);
+  db().prepare(`UPDATE productivity_event_subscriptions SET name=?,provider=?,connection_name=?,event_type=?,filters_json=?,target_type=?,target_id=?,goal_prompt_template=?,objective_id=?,key_result_ids_json=?,enabled=?,
+    listener_enabled=?,listener_status=?,listener_poll_seconds=?,listener_next_poll_at=?,listener_cursor_json=?,listener_last_error=?,dedupe_mode=?,source_disposition=?,updated_at=datetime('now') WHERE id=? AND owner_user_id=?`).run(
     String(merged.name).trim(), providerId, merged.connection_name || '', eventTypeId, JSON.stringify(merged.filters || {}), target,
-    merged.target_id || null, merged.goal_prompt_template || '', merged.objective_id || null, JSON.stringify(merged.key_result_ids || []), merged.enabled === false ? 0 : 1, id, owner
+    merged.target_id || null, merged.goal_prompt_template || '', merged.objective_id || null, JSON.stringify(merged.key_result_ids || []), merged.enabled === false ? 0 : 1,
+    listenerEnabled ? 1 : 0, listenerStatus, pollSeconds, listenerNextPollAt, JSON.stringify(listenerCursor), listenerEnabled ? row.listener_last_error : null,
+    dedupeMode, sourceDisposition, id, owner
   );
   return subscriptionRow(db().prepare(`SELECT * FROM productivity_event_subscriptions WHERE id=?`).get(id));
 }
@@ -280,7 +362,7 @@ async function ingestForSubscription(sub, input = {}, deps = {}) {
     VALUES (?,?,?,?,?,?,?,?,?,?,?,?, 'pending')`).run(id, sub.owner_user_id, sub.id, sub.provider, providerEventId, envelope.event_type, envelope.subject_type, envelope.subject_id, envelope.correlation_key, JSON.stringify(envelope.payload), envelope.occurred_at, now());
   db().prepare(`UPDATE productivity_event_subscriptions SET last_event_at=datetime('now'),last_error=NULL WHERE id=?`).run(sub.id);
   if (!inserted.changes) {
-    const existing = db().prepare(`SELECT * FROM productivity_events WHERE owner_user_id=? AND provider=? AND provider_event_id=?`).get(sub.owner_user_id, sub.provider, providerEventId);
+    const existing = db().prepare(`SELECT * FROM productivity_events WHERE owner_user_id=? AND subscription_id=? AND provider_event_id=?`).get(sub.owner_user_id, sub.id, providerEventId);
     return { accepted: true, duplicate: true, event: eventRow(existing) };
   }
   const event = eventRow(db().prepare(`SELECT * FROM productivity_events WHERE id=?`).get(id));
@@ -356,11 +438,16 @@ export async function processDueProductivityEvents({ limit = 25 } = {}) {
   return { processed: results.length, results };
 }
 
-export function listProductivityEvents(ownerUserId, { status = '', limit = 100 } = {}) {
+export function listProductivityEvents(ownerUserId, { status = '', subscription_id: subscriptionIdInput = '', limit = 100 } = {}) {
   ensureEventProductivitySchema();
   const owner = assertOwner(ownerUserId);
   const n = Math.max(1, Math.min(250, Number(limit) || 100));
-  const rows = status ? db().prepare(`SELECT * FROM productivity_events WHERE owner_user_id=? AND status=? ORDER BY received_at DESC LIMIT ?`).all(owner, status, n) : db().prepare(`SELECT * FROM productivity_events WHERE owner_user_id=? ORDER BY received_at DESC LIMIT ?`).all(owner, n);
+  const subscriptionId = String(subscriptionIdInput || '').trim();
+  const clauses = ['owner_user_id=?'];
+  const params = [owner];
+  if (status) { clauses.push('status=?'); params.push(status); }
+  if (subscriptionId) { clauses.push('subscription_id=?'); params.push(subscriptionId); }
+  const rows = db().prepare(`SELECT * FROM productivity_events WHERE ${clauses.join(' AND ')} ORDER BY received_at DESC LIMIT ?`).all(...params, n);
   return rows.map(eventRow);
 }
 
