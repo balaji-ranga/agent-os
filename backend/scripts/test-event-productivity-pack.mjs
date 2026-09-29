@@ -23,6 +23,8 @@ try {
   const ownerB = 'test-company-b';
   handle.prepare(`INSERT INTO platform_users(id,email,password_hash,name,role,enabled,data_retention_days) VALUES (?,?,?,?,'ceo',1,30)`).run(ownerA, 'a@example.invalid', 'test-only', 'A');
   handle.prepare(`INSERT INTO platform_users(id,email,password_hash,name,role,enabled,data_retention_days) VALUES (?,?,?,?,'ceo',1,30)`).run(ownerB, 'b@example.invalid', 'test-only', 'B');
+  handle.prepare(`INSERT INTO agents(id,name,role,is_coo,openclaw_agent_id) VALUES ('balserve','Company A COO','COO',1,'balserve'),('other-coo','Company B COO','COO',1,'other-coo')`).run();
+  handle.prepare(`INSERT INTO user_agents(user_id,agent_id,enabled) VALUES (?,'balserve',1),(?,'other-coo',1)`).run(ownerA, ownerB);
   seedEventProductivityToolsIfMissing();
 
   const capabilities = svc.listProductivityCapabilities();
@@ -67,17 +69,23 @@ try {
   assert.equal(workflowEvent.event.trigger_run_type, 'workflow');
   assert.equal(Number(workflowEvent.event.trigger_run_id), 101);
 
-  const goalSub = svc.createEventSubscription(ownerA, { name: 'Goal event', provider: 'slack', event_type: 'message.flagged', target_type: 'goal', target_id: 'balserve', goal_prompt_template: 'Handle {{event_type}} at {{event_id}}' });
+  const goalSub = svc.createEventSubscription(ownerA, { name: 'Goal event', provider: 'slack', event_type: 'message.flagged', target_type: 'goal', target_id: 'balserve', goal_prompt_template: 'Handle {{event.event_type}} from {{event.payload.sender}} at {{event.id}}' });
   let goalDispatch;
-  const goalEvent = await svc.ingestProductivityEvent(goalSub.subscription.id, goalSub.webhook_secret, { provider_event_id: 'evt-goal', event_type: 'message.flagged', payload: { channel_id: 'c1' } }, { createGoal: async (opts) => { goalDispatch = opts; return { goal_run_id: 'agr-test' }; } });
+  const goalEvent = await svc.ingestProductivityEvent(goalSub.subscription.id, goalSub.webhook_secret, { provider_event_id: 'evt-goal', event_type: 'message.flagged', payload: { channel_id: 'c1', sender: 'operator@example.invalid' } }, { createGoal: async (opts) => { goalDispatch = opts; return { goal_run_id: 'agr-test' }; } });
   assert.match(goalDispatch.prompt, /message\.flagged/);
+  assert.match(goalDispatch.prompt, /operator@example\.invalid/);
   assert.equal(goalDispatch.context.productivity_event.payload.channel_id, 'c1');
   assert.equal(goalEvent.event.trigger_run_type, 'goal');
   assert.equal(goalEvent.event.trigger_run_id, 'agr-test');
+  assert.throws(() => svc.createEventSubscription(ownerA, { name: 'Wrong owner agent', provider: 'slack', event_type: 'message.flagged', target_type: 'goal', target_id: 'other-coo' }), /not enabled for this company/);
 
   handle.prepare(`INSERT INTO agent_workflow_definitions(id,owner_user_id,name,status,paused,trigger_modes) VALUES (?,?,?,'published',0,'manual,event')`).run('wf-owned-by-b', ownerB, 'B workflow');
-  const wfSub = svc.createEventSubscription(ownerA, { name: 'Wrong owner workflow', provider: 'google_workspace', event_type: 'file.changed', target_type: 'workflow', target_id: 'wf-owned-by-b' });
-  await assert.rejects(() => svc.ingestProductivityEvent(wfSub.subscription.id, wfSub.webhook_secret, { provider_event_id: 'evt-cross', event_type: 'file.changed', payload: {} }), /not owned/);
+  assert.throws(() => svc.createEventSubscription(ownerA, { name: 'Wrong owner workflow', provider: 'google_workspace', event_type: 'file.changed', target_type: 'workflow', target_id: 'wf-owned-by-b' }), /not owned/);
+  handle.prepare(`INSERT INTO agent_workflow_definitions(id,owner_user_id,name,status,paused,trigger_modes) VALUES (?,?,?,'draft',0,'manual,event')`).run('wf-draft-a', ownerA, 'Draft workflow');
+  assert.throws(() => svc.createEventSubscription(ownerA, { name: 'Draft workflow', provider: 'google_workspace', event_type: 'file.changed', target_type: 'workflow', target_id: 'wf-draft-a' }), /published, active/);
+  const driftSub = svc.createEventSubscription(ownerA, { name: 'Runtime drift', provider: 'google_workspace', event_type: 'file.changed', target_type: 'workflow', target_id: 'wf-owned-by-a' });
+  handle.prepare(`UPDATE productivity_event_subscriptions SET target_id='wf-owned-by-b' WHERE id=?`).run(driftSub.subscription.id);
+  await assert.rejects(() => svc.ingestProductivityEvent(driftSub.subscription.id, driftSub.webhook_secret, { provider_event_id: 'evt-cross', event_type: 'file.changed', payload: {} }), /not owned/);
   const failed = svc.listProductivityEvents(ownerA, { status: 'failed' }).find((row) => row.provider_event_id === 'evt-cross');
   assert.ok(failed?.next_retry_at, 'retry scheduled');
   for (let i = 0; i < 4; i += 1) await svc.processProductivityEvent(ownerA, failed.id, { suppressThrow: true });
@@ -120,7 +128,7 @@ try {
   assert.ok(purged.deleted.productivity_events >= 1);
   assert.ok(purged.deleted.productivity_action_receipts >= 1);
 
-  console.log(JSON.stringify({ ok: true, checks: ['provider-event-catalog', 'provider-event-validation', 'owner-isolation', 'trusted-ingestion-owner-check', 'secret-auth', 'payload-redaction', 'structured-filter', 'event-idempotency', 'workflow-dispatch', 'goal-dispatch', 'retry-dead-letter', 'binding-isolation', 'operation-app-compatibility', 'legacy-binding-fail-closed', 'action-idempotency', 'risk-contract', 'action-policy-approval', 'action-policy-override', 'retention'], binding_id: bind.id }, null, 2));
+  console.log(JSON.stringify({ ok: true, checks: ['provider-event-catalog', 'provider-event-validation', 'owner-isolation', 'trusted-ingestion-owner-check', 'secret-auth', 'payload-redaction', 'structured-filter', 'event-idempotency', 'workflow-target-validation', 'workflow-dispatch', 'goal-agent-entitlement', 'nested-event-template', 'goal-dispatch', 'retry-dead-letter', 'binding-isolation', 'operation-app-compatibility', 'legacy-binding-fail-closed', 'action-idempotency', 'risk-contract', 'action-policy-approval', 'action-policy-override', 'retention'], binding_id: bind.id }, null, 2));
 } finally {
   try { handle?.close(); } catch {}
   rmSync(root, { recursive: true, force: true });

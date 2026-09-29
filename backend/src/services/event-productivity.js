@@ -290,6 +290,47 @@ export function listProductivityCapabilities() {
   return { providers: PRODUCTIVITY_PROVIDER_CATALOG, event_types: PRODUCTIVITY_EVENT_TYPES, operations: PRODUCTIVITY_OPERATIONS };
 }
 
+function workflowSupportsEvents(triggerModes) {
+  const modes = Array.isArray(triggerModes)
+    ? triggerModes
+    : String(triggerModes || '').split(',').map((value) => value.trim()).filter(Boolean);
+  return modes.includes('event');
+}
+
+function assertSubscriptionTarget(ownerUserId, targetType, targetId) {
+  const owner = assertOwner(ownerUserId);
+  const id = String(targetId || '').trim();
+  if (targetType === 'inbox') return null;
+  if (!id) throw Object.assign(new Error(`${targetType === 'workflow' ? 'Workflow' : 'Goal orchestrator'} target is required`), { status: 400 });
+  if (targetType === 'workflow') {
+    const workflow = db().prepare(`SELECT id,owner_user_id,status,paused,trigger_modes FROM agent_workflow_definitions WHERE id=?`).get(id);
+    if (!workflow || workflow.owner_user_id !== owner) throw Object.assign(new Error('Workflow target is not owned by this company'), { status: 403 });
+    if (workflow.status !== 'published' || Number(workflow.paused) === 1 || !workflowSupportsEvents(workflow.trigger_modes)) {
+      throw Object.assign(new Error('Workflow target must be published, active, and allow event triggers'), { status: 400 });
+    }
+    return id;
+  }
+  const agent = db().prepare(`SELECT a.id FROM agents a JOIN user_agents ua ON ua.agent_id=a.id WHERE a.id=? AND ua.user_id=? AND ua.enabled=1`).get(id, owner);
+  if (!agent) throw Object.assign(new Error('Goal orchestrator is not enabled for this company'), { status: 403 });
+  return id;
+}
+
+function eventPathValue(event, path) {
+  const parts = String(path || '').split('.').filter(Boolean);
+  if (!parts.length || parts[0] !== 'event' || parts.some((part) => ['__proto__', 'prototype', 'constructor'].includes(part))) return undefined;
+  return parts.slice(1).reduce((value, part) => value != null && typeof value === 'object' ? value[part] : undefined, event);
+}
+
+export function renderProductivityEventPrompt(template, event) {
+  const source = String(template || `Handle {{event.event_type}} from {{event.provider}}. Review the complete structured event in context.productivity_event and report the outcome with evidence.`);
+  const legacy = source.replaceAll('{{event_id}}', String(event?.id || '')).replaceAll('{{event_type}}', String(event?.event_type || ''));
+  return legacy.replace(/\{\{\s*(event(?:\.[A-Za-z0-9_]+)+)\s*\}\}/g, (_match, path) => {
+    const value = eventPathValue(event, path);
+    if (value == null) return '';
+    return typeof value === 'object' ? JSON.stringify(value) : String(value);
+  });
+}
+
 export async function getProductivitySummary(ownerUserId) {
   ensureEventProductivitySchema();
   const owner = assertOwner(ownerUserId);
@@ -310,7 +351,7 @@ export function createEventSubscription(ownerUserId, input = {}) {
   if (!['inbox', 'workflow', 'goal'].includes(targetType)) throw Object.assign(new Error('target_type must be inbox, workflow, or goal'), { status: 400 });
   if (!String(input.name || '').trim() || !String(input.provider || '').trim() || !String(input.event_type || '').trim()) throw Object.assign(new Error('name, provider, and event_type are required'), { status: 400 });
   const { providerId, eventTypeId } = assertSupportedEventType(input.provider, input.event_type);
-  if (targetType !== 'inbox' && !String(input.target_id || '').trim() && targetType === 'workflow') throw Object.assign(new Error('target_id required for workflow target'), { status: 400 });
+  const targetId = assertSubscriptionTarget(owner, targetType, input.target_id);
   const id = `eps-${randomUUID()}`;
   const secret = `eps_${randomBytes(32).toString('base64url')}`;
   const listenerEnabled = input.listener_enabled === true;
@@ -329,7 +370,7 @@ export function createEventSubscription(ownerUserId, input = {}) {
      listener_enabled,listener_status,listener_poll_seconds,listener_next_poll_at,listener_cursor_json,dedupe_mode,source_disposition,source_url_encrypted)
     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
       id, owner, String(input.name).trim(), providerId, String(input.connection_name || '').trim(),
-      eventTypeId, JSON.stringify(input.filters || {}), targetType, input.target_id || null,
+      eventTypeId, JSON.stringify(input.filters || {}), targetType, targetId,
       String(input.goal_prompt_template || '').trim(), input.objective_id || null, JSON.stringify(input.key_result_ids || []),
       input.enabled === false ? 0 : 1, hash(secret), listenerEnabled ? 1 : 0, listenerEnabled ? 'starting' : 'disabled',
       pollSeconds, listenerEnabled ? now() : null, JSON.stringify(listenerCursor), dedupeMode, sourceDisposition, sourceUrlEncrypted
@@ -352,7 +393,7 @@ export function updateEventSubscription(ownerUserId, id, input = {}) {
   if (!['inbox', 'workflow', 'goal'].includes(target)) throw Object.assign(new Error('Invalid target_type'), { status: 400 });
   if (!String(merged.name || '').trim()) throw Object.assign(new Error('name is required'), { status: 400 });
   const { providerId, eventTypeId } = assertSupportedEventType(merged.provider, merged.event_type);
-  if (target === 'workflow' && !String(merged.target_id || '').trim()) throw Object.assign(new Error('target_id required for workflow target'), { status: 400 });
+  const targetId = assertSubscriptionTarget(owner, target, merged.target_id);
   const listenerEnabled = merged.listener_enabled === true;
   const listenerWasEnabled = !!row.listener_enabled;
   const pollSeconds = Math.max(60, Math.min(3600, Number(merged.listener_poll_seconds) || 300));
@@ -373,7 +414,7 @@ export function updateEventSubscription(ownerUserId, id, input = {}) {
   db().prepare(`UPDATE productivity_event_subscriptions SET name=?,provider=?,connection_name=?,event_type=?,filters_json=?,target_type=?,target_id=?,goal_prompt_template=?,objective_id=?,key_result_ids_json=?,enabled=?,
     listener_enabled=?,listener_status=?,listener_poll_seconds=?,listener_next_poll_at=?,listener_cursor_json=?,listener_last_error=?,dedupe_mode=?,source_disposition=?,source_url_encrypted=?,updated_at=datetime('now') WHERE id=? AND owner_user_id=?`).run(
     String(merged.name).trim(), providerId, merged.connection_name || '', eventTypeId, JSON.stringify(merged.filters || {}), target,
-    merged.target_id || null, merged.goal_prompt_template || '', merged.objective_id || null, JSON.stringify(merged.key_result_ids || []), merged.enabled === false ? 0 : 1,
+    targetId, merged.goal_prompt_template || '', merged.objective_id || null, JSON.stringify(merged.key_result_ids || []), merged.enabled === false ? 0 : 1,
     listenerEnabled ? 1 : 0, listenerStatus, pollSeconds, listenerNextPollAt, JSON.stringify(listenerCursor), listenerEnabled ? row.listener_last_error : null,
     dedupeMode, sourceDisposition, sourceUrlEncrypted, id, owner
   );
@@ -469,13 +510,13 @@ export async function processProductivityEvent(ownerUserId, eventId, deps = {}) 
     let runId = null;
     const normalized = { id: event.id, provider: event.provider, event_type: event.event_type, subject_type: event.subject_type, subject_id: event.subject_id, correlation_key: event.correlation_key, occurred_at: event.occurred_at, payload: json(event.payload_json) };
     if (sub.target_type === 'workflow') {
-      const workflow = db().prepare(`SELECT owner_user_id FROM agent_workflow_definitions WHERE id=?`).get(sub.target_id);
-      if (!workflow || workflow.owner_user_id !== owner) throw Object.assign(new Error('Workflow target is not owned by this company'), { status: 403 });
+      assertSubscriptionTarget(owner, 'workflow', sub.target_id);
       const result = await (deps.triggerWorkflow || triggerWorkflowFromHook)(sub.target_id, normalized, { actor: { id: 'event-productivity', name: 'Event & Productivity', type: 'system' } });
       runType = 'workflow'; runId = result?.id || result?.run?.id || result?.run_id || null;
     } else if (sub.target_type === 'goal') {
-      const prompt = String(sub.goal_prompt_template || `Handle ${event.event_type} event from ${event.provider}.`).replaceAll('{{event_id}}', event.id).replaceAll('{{event_type}}', event.event_type);
-      const result = await (deps.createGoal || createAndStartGoalRun)({ ownerUserId: owner, agentId: sub.target_id || 'balserve', title: `Event: ${event.event_type}`, prompt, source: 'productivity_event', context: { productivity_event: normalized, objective_id: sub.objective_id, key_result_ids: json(sub.key_result_ids_json, []) }, backgroundPlanning: true });
+      const agentId = assertSubscriptionTarget(owner, 'goal', sub.target_id);
+      const prompt = renderProductivityEventPrompt(sub.goal_prompt_template, normalized);
+      const result = await (deps.createGoal || createAndStartGoalRun)({ ownerUserId: owner, agentId, title: `Event: ${event.event_type}`, prompt, source: 'productivity_event', context: { productivity_event: normalized, objective_id: sub.objective_id, key_result_ids: json(sub.key_result_ids_json, []) }, backgroundPlanning: true });
       runType = 'goal'; runId = result?.goal_run_id || result?.id || null;
     }
     db().prepare(`UPDATE productivity_events SET status='completed',processed_at=datetime('now'),trigger_run_type=?,trigger_run_id=?,next_retry_at=NULL WHERE id=?`).run(runType, runId, eventId);

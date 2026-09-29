@@ -7,7 +7,7 @@ const grid = { display: 'grid', gap: 8, gridTemplateColumns: 'repeat(auto-fit,mi
 const input = { width: '100%', boxSizing: 'border-box' };
 
 export default function EventProductivityPanel() {
-  const [data, setData] = useState({ summary: null, subscriptions: [], events: [], bindings: [], receipts: [] });
+  const [data, setData] = useState({ summary: null, subscriptions: [], events: [], bindings: [], receipts: [], agents: [], workflows: [] });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -24,10 +24,19 @@ export default function EventProductivityPanel() {
   const refresh = useCallback(async () => {
     setError('');
     try {
-      const [summary, subscriptions, events, bindings, receipts] = await Promise.all([
+      const [summary, subscriptions, events, bindings, receipts, agentsResult, workflowsResult] = await Promise.all([
         api.eventProductivitySummary(), api.eventProductivitySubscriptions(), api.eventProductivityEvents({ limit: 50 }), api.eventProductivityBindings(), api.eventProductivityReceipts(),
+        api.agentsList(), api.agentWorkflowList({ limit: 500, offset: 0 }),
       ]);
-      setData({ summary, subscriptions: subscriptions.subscriptions || [], events: events.events || [], bindings: bindings.bindings || [], receipts: receipts.receipts || [] });
+      setData({
+        summary,
+        subscriptions: subscriptions.subscriptions || [],
+        events: events.events || [],
+        bindings: bindings.bindings || [],
+        receipts: receipts.receipts || [],
+        agents: Array.isArray(agentsResult) ? agentsResult : agentsResult?.agents || [],
+        workflows: workflowsResult?.workflows || [],
+      });
     } catch (e) { setError(e.message); }
   }, []);
   useEffect(() => { refresh(); }, [refresh]);
@@ -40,6 +49,15 @@ export default function EventProductivityPanel() {
     .filter(([name, spec]) => name !== 'productivity_capabilities' && (spec.providers || []).includes(binding.provider))
     .map(([name]) => name), [operationCatalog, binding.provider]);
   const connectedApps = data.summary?.connected_apps || [];
+  const eligibleWorkflows = useMemo(() => data.workflows.filter((workflow) => {
+    const modes = Array.isArray(workflow.trigger_modes) ? workflow.trigger_modes : String(workflow.trigger_modes || '').split(',').map((value) => value.trim());
+    return workflow.status === 'published' && !workflow.paused && modes.includes('event');
+  }), [data.workflows]);
+  const eligibleAgents = useMemo(() => [...data.agents].sort((a, b) => {
+    const aCoo = Number(a.is_coo) === 1 || a.is_coo === true;
+    const bCoo = Number(b.is_coo) === 1 || b.is_coo === true;
+    return Number(bCoo) - Number(aCoo) || String(a.name || '').localeCompare(String(b.name || ''));
+  }), [data.agents]);
   const isFileEvent = sub.event_type.startsWith('file.');
   const fileBindingReady = data.bindings.some((row) => row.operation === 'file_search' && row.provider === sub.provider && row.enabled !== false);
   const fileListenerBlocked = isFileEvent && sub.listener_enabled && !fileBindingReady;
@@ -122,6 +140,13 @@ export default function EventProductivityPanel() {
     finally { setBusy(false); }
   }
 
+  function selectTargetType(targetType) {
+    const targetId = targetType === 'workflow'
+      ? (eligibleWorkflows[0]?.id || '')
+      : targetType === 'goal' ? (eligibleAgents[0]?.id || '') : '';
+    setSub((current) => ({ ...current, target_type: targetType, target_id: targetId }));
+  }
+
   async function showHistory(row) {
     setHistoryBusy(true); setError('');
     setActionNotice({ tone: 'progress', text: `Loading event history for ${row.name}…` });
@@ -192,14 +217,32 @@ export default function EventProductivityPanel() {
           {sub.provider === 'calendar_url' && <label style={{ gridColumn: '1 / -1' }}>Published calendar ICS URL
             <input style={input} type="url" autoComplete="off" placeholder="https://…/calendar.ics or webcal://…" value={sub.source_url} onChange={(e) => setSub({ ...sub, source_url: e.target.value })} />
           </label>}
-          <select value={sub.target_type} onChange={(e) => setSub({ ...sub, target_type: e.target.value })}><option value="inbox">Inbox only</option><option value="workflow">Workflow</option><option value="goal">Goal</option></select>
+          <select aria-label="Event destination" value={sub.target_type} onChange={(e) => selectTargetType(e.target.value)}><option value="inbox">Inbox only</option><option value="workflow">Run workflow</option><option value="goal">Create goal for agent</option></select>
           <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}><input type="checkbox" checked={sub.listener_enabled} onChange={(e) => setSub({ ...sub, listener_enabled: e.target.checked })} /> Enable provider listener</label>
           <label>Check interval<select style={input} value={sub.listener_poll_seconds} onChange={(e) => setSub({ ...sub, listener_poll_seconds: Number(e.target.value) })}><option value={60}>Every minute</option><option value={300}>Every 5 minutes</option><option value={900}>Every 15 minutes</option><option value={3600}>Every hour</option></select></label>
           <label>Duplicate handling<select style={input} value={sub.dedupe_mode} onChange={(e) => setSub({ ...sub, dedupe_mode: e.target.value })}><option value="provider_object_id">Store provider object ID and skip repeats</option></select></label>
           {sub.provider === 'google_workspace' && sub.event_type === 'email.message.received' && <label>After processing<select style={input} value={sub.source_disposition} onChange={(e) => setSub({ ...sub, source_disposition: e.target.value })}><option value="retain">Keep source email</option><option value="trash">Move source email to Trash</option></select></label>}
-          {sub.target_type !== 'inbox' && <input style={input} placeholder={sub.target_type === 'workflow' ? 'Workflow ID' : 'Agent ID (default balserve)'} value={sub.target_id} onChange={(e) => setSub({ ...sub, target_id: e.target.value })} />}
-          {sub.target_type === 'goal' && <input style={input} placeholder="Goal prompt; supports {{event_id}}" value={sub.goal_prompt_template} onChange={(e) => setSub({ ...sub, goal_prompt_template: e.target.value })} />}
+          {sub.target_type === 'workflow' && <label>Workflow
+            <select aria-label="Target workflow" style={input} value={sub.target_id} onChange={(e) => setSub({ ...sub, target_id: e.target.value })}>
+              {!eligibleWorkflows.length && <option value="">No published event-enabled workflows</option>}
+              {eligibleWorkflows.map((workflow) => <option key={workflow.id} value={workflow.id}>{workflow.name || workflow.id}</option>)}
+            </select>
+          </label>}
+          {sub.target_type === 'goal' && <label>Goal orchestrator
+            <select aria-label="Goal orchestrator" style={input} value={sub.target_id} onChange={(e) => setSub({ ...sub, target_id: e.target.value })}>
+              {!eligibleAgents.length && <option value="">No enabled agents</option>}
+              {eligibleAgents.map((agent) => <option key={agent.id} value={agent.id}>{agent.name || agent.id}{agent.role ? ` · ${agent.role}` : ''}</option>)}
+            </select>
+          </label>}
+          {sub.target_type === 'goal' && <label style={{ gridColumn: '1 / -1' }}>Goal prompt template
+            <textarea style={{ ...input, minHeight: 76, resize: 'vertical' }} placeholder="Review {{event.payload.subject}} from {{event.payload.sender}} and act on the complete event context." value={sub.goal_prompt_template} onChange={(e) => setSub({ ...sub, goal_prompt_template: e.target.value })} />
+          </label>}
         </div>
+        {sub.target_type !== 'inbox' && <div style={{ marginTop: 10, padding: '9px 11px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-muted)', color: 'var(--muted)', fontSize: '.82rem', lineHeight: 1.5 }}>
+          {sub.target_type === 'workflow'
+            ? <>The workflow receives the complete normalized event as its input: <code>id</code>, <code>provider</code>, <code>event_type</code>, <code>subject_id</code>, <code>occurred_at</code>, and <code>payload</code> (including fields such as email subject, sender, and body).</>
+            : <>The goal receives the complete event at <code>context.productivity_event</code>. The prompt can reference nested values such as <code>{'{{event.payload.subject}}'}</code>, <code>{'{{event.payload.sender}}'}</code>, <code>{'{{event.payload.body_text}}'}</code>, <code>{'{{event.id}}'}</code>, and <code>{'{{event.event_type}}'}</code>.</>}
+        </div>}
         {sub.provider === 'calendar_url' && <div style={{ marginTop: 10, padding: '9px 11px', borderRadius: 8, border: '1px solid #93c5fd', background: '#eff6ff', color: '#1e40af', fontSize: '.82rem', lineHeight: 1.45 }}>
           Use the calendar provider&apos;s <strong>published/private iCal address</strong> ending in <code>.ics</code> (a <code>webcal://</code> address is accepted). A normal Google Calendar viewing link with <code>?cid=</code> is not a feed. URL calendars are read-only: Flolah can listen for created, changed, and cancelled events, but creating or editing events requires OAuth.
         </div>}
@@ -208,7 +251,7 @@ export default function EventProductivityPanel() {
             ? `File listener ready: the enabled file_search binding for ${sub.provider} will provide the provider snapshot.`
             : `Before enabling this file listener, create an enabled file_search capability binding for ${sub.provider} below. You can still create a listener-disabled subscription for webhook delivery.`}
         </div>}
-        <button className="wf-btn-primary" disabled={busy || !sub.name.trim() || !sub.event_type || fileListenerBlocked || calendarUrlMissing} onClick={() => act(() => api.eventProductivitySubscriptionCreate(sub), 'Subscription created.') } style={{ marginTop: 10 }}>Create subscription</button>
+        <button className="wf-btn-primary" disabled={busy || !sub.name.trim() || !sub.event_type || fileListenerBlocked || calendarUrlMissing || (sub.target_type !== 'inbox' && !sub.target_id)} onClick={() => act(() => api.eventProductivitySubscriptionCreate(sub), 'Subscription created.') } style={{ marginTop: 10 }}>Create subscription</button>
         {data.subscriptions.map((row) => {
           const status = listenerStatus(row);
           return <div key={row.id} style={{ borderTop: '1px solid var(--border)', marginTop: 10, paddingTop: 10 }}>
