@@ -8,7 +8,7 @@ const CAPABILITIES = [
   { number: 5, verb: 'Employ', system: 'HCM', description: 'Attract, develop, engage, pay, and support people across their employee lifecycle.' },
   { number: 6, verb: 'Serve', system: 'Customer Service', description: 'Deliver customer support across channels and resolve issues to build loyalty and trust.' },
   { number: 7, verb: 'Plan', system: 'EPM', description: 'Plan, forecast, model, and analyze financial and operational performance to guide strategy and resources.' },
-  { number: 8, verb: 'Market', system: 'Marketing Operations', description: 'Plan and execute marketing programs, manage campaigns, and measure impact across channels.' },
+  { number: 8, verb: 'Market', system: 'Marketing Operations', description: 'Plan and execute marketing programs, manage campaigns, and measure impact across channels.', existing: true },
   { number: 9, verb: 'Govern', system: 'GRC', description: 'Manage risk, ensure compliance, maintain policies, and provide assurance across the enterprise.' },
   { number: 10, verb: 'Contract', system: 'Legal / CLM', description: 'Create, negotiate, manage, and analyze contracts and legal obligations across the lifecycle.' },
   { number: 11, verb: 'Build', system: 'Product and Portfolio', description: 'Define strategy, build products, and manage the portfolio from idea to value.' },
