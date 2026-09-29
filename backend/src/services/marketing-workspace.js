@@ -489,6 +489,7 @@ export function prepareMarketingCampaignRun(ownerUserId, input = {}) {
  * send, publish, phone call or advertising action.
  */
 export function configureMarketingCampaign(ownerUserId, input = {}) {
+  const rawTopLevelChannels = input.channels;
   const campaignInput = input.campaign && typeof input.campaign === 'object'
     ? { ...input.campaign }
     : { ...input };
@@ -498,7 +499,11 @@ export function configureMarketingCampaign(ownerUserId, input = {}) {
   delete campaignInput.watches;
   delete campaignInput.strategies;
   delete campaignInput.activate;
-  const selectedChannels = campaignInput.channels_json ?? input.campaign?.channels ?? input.channel_mix;
+  const flatChannelMix = Array.isArray(rawTopLevelChannels)
+    && rawTopLevelChannels.every((value) => typeof value === 'string')
+    ? rawTopLevelChannels
+    : undefined;
+  const selectedChannels = campaignInput.channels_json ?? input.campaign?.channels ?? input.channel_mix ?? flatChannelMix;
   if (selectedChannels != null) campaignInput.channels = selectedChannels;
   if (!campaignInput.objective_id && input.objective_id) campaignInput.objective_id = input.objective_id;
   if (!campaignInput.goal && input.goal) campaignInput.goal = input.goal;
@@ -510,7 +515,11 @@ export function configureMarketingCampaign(ownerUserId, input = {}) {
   const saveMany = (kind, values, defaults = {}) => (Array.isArray(values) ? values.slice(0, 100) : [])
     .map((value) => upsertMarketingRecord(ownerUserId, kind, { ...defaults, ...(value || {}) }).record);
   const assets = saveMany('assets', input.assets, { campaign_id: campaignId });
-  const channels = saveMany('channels', input.channels);
+  const channelConfigs = Array.isArray(rawTopLevelChannels)
+    && rawTopLevelChannels.every((value) => value && typeof value === 'object' && !Array.isArray(value))
+    ? rawTopLevelChannels
+    : [];
+  const channels = saveMany('channels', input.channel_configs ?? channelConfigs);
   const watches = saveMany('watches', input.watches, { campaign_id: campaignId });
   const strategies = saveMany('strategies', input.strategies);
 

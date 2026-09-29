@@ -306,6 +306,18 @@ try {
   assert.equal(configured.readiness.actions.length, 2);
   assert.equal(configured.assets.length, 2);
   assert.equal(svc.prepareMarketingCampaignRun(ownerB, { campaign_id: configured.campaign.campaign_id }).ready, true);
+  const flatConfigured = svc.configureMarketingCampaign(ownerB, {
+    campaign_id: 'agent-flat-configured-campaign',
+    name: 'Agent flat configured email campaign',
+    goal: 'Validate the agent-facing flat channel shorthand',
+    channels: ['email'],
+    audience_list_ids: ['manual-prospects'],
+    assets: [{ asset_id: 'agent-flat-email', name: 'Agent flat email', channel: 'email', content: 'Hello', approval_status: 'approved' }],
+    activate: true,
+  });
+  assert.equal(flatConfigured.campaign.status, 'active', 'a top-level string channel list activates the campaign');
+  assert.deepEqual(JSON.parse(flatConfigured.campaign.channels_json), ['email'], 'top-level string channels are treated as campaign channel selection');
+  assert.equal(flatConfigured.channels.length, 0, 'top-level string channels are not misread as channel configuration records');
   const scheduled = await svc.upsertMarketingCampaignSchedule(ownerB, {
     campaign_id: configured.campaign.campaign_id,
     strategy_brief: 'Educate operations leaders with evidence-backed AI automation posts.',

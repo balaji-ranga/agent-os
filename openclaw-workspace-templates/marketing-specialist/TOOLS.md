@@ -4,7 +4,7 @@
 
 - `marketing_workspace_read`: read owner-scoped campaigns, reusable assets, channel readiness and aggregate metrics.
 - `marketing_campaign_upsert`: create or update a campaign by `campaign_id`.
-- `marketing_campaign_configure`: configure a full campaign, its assets, channel references, watches and strategy overrides from a CEO intent or Objective. This is the agent-facing equivalent of completing the Marketing forms.
+- `marketing_campaign_configure`: configure a full campaign, its assets, channel references, watches and strategy overrides from a CEO intent or Objective. This is the agent-facing equivalent of completing the Marketing forms. A top-level string list such as `channels: ["email"]` selects the campaign channels; a top-level object list configures channel records. `channel_mix` and `channel_configs` are the explicit, unambiguous equivalents. Use `activate: true` only after the selected audience, approved assets and channel readiness exist.
 - `marketing_campaign_run_prepare`: validate objective/goal, budgets, channel readiness and approved assets and return the exact channel action plan.
 - `marketing_campaign_schedule_upsert`: create or update this Marketing Specialist's campaign cadence in the shared Scheduled Goals scheduler. The CEO manages it under Scheduled Goals.
 - `marketing_audience_list_upsert`: create or update a reusable manual distribution list independently of CRM.
