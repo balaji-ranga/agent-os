@@ -305,6 +305,12 @@ export function purgeOwnerScopedRows(db, ownerUserId) {
   counts.mfa_challenges = tryRun(db, `DELETE FROM mfa_challenges WHERE user_id = ?`, [ownerUserId]);
   counts.password_reset_tokens = tryRun(db, `DELETE FROM password_reset_tokens WHERE user_id = ?`, [ownerUserId]);
   counts.ceo_agent_channels = tryRun(db, `DELETE FROM ceo_agent_channels WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.company_email_channel_receipts = tryRun(db, `DELETE FROM company_email_channel_receipts WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.company_email_channels = tryRun(db, `DELETE FROM company_email_channels WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.productivity_events = tryRun(db, `DELETE FROM productivity_events WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.productivity_action_receipts = tryRun(db, `DELETE FROM productivity_action_receipts WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.productivity_action_bindings = tryRun(db, `DELETE FROM productivity_action_bindings WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.productivity_event_subscriptions = tryRun(db, `DELETE FROM productivity_event_subscriptions WHERE owner_user_id = ?`, [ownerUserId]);
   counts.ceo_media_artifacts = tryRun(db, `DELETE FROM ceo_media_artifacts WHERE owner_user_id = ?`, [ownerUserId]);
   counts.ceo_avatars = tryRun(db, `DELETE FROM ceo_avatars WHERE owner_user_id = ?`, [ownerUserId]);
   counts.ceo_vr_scenes = tryRun(db, `DELETE FROM ceo_vr_scenes WHERE owner_user_id = ?`, [ownerUserId]);

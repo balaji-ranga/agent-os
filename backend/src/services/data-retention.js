@@ -73,6 +73,7 @@ export async function purgeOwnerRetention(ownerUserId, { days = null } = {}) {
     ibkrnew_goals: 0,
     productivity_events: 0,
     productivity_action_receipts: 0,
+    company_email_channel_receipts: 0,
     marketing_engagement_events: 0,
     marketing_campaign_outcomes: 0,
     marketing_distribution_list_members: 0,
@@ -127,6 +128,15 @@ export async function purgeOwnerRetention(ownerUserId, { days = null } = {}) {
     ).run(owner, cutoff).changes || 0;
   } catch (_) {
     /* Event & Productivity tables are lazy-created at feature startup. */
+  }
+
+  try {
+    deleted.company_email_channel_receipts = db.prepare(
+      `DELETE FROM company_email_channel_receipts
+       WHERE owner_user_id=? AND datetime(COALESCE(received_at,created_at))<datetime('now',?)`
+    ).run(owner, cutoff).changes || 0;
+  } catch (_) {
+    /* Company Email tables are lazy-created at feature startup. */
   }
 
   try {

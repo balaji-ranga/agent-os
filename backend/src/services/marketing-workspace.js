@@ -1150,6 +1150,7 @@ export function correlateMarketingInbound(ownerUserId, input = {}) {
   if (!candidates.length) return { matched: false, reason: 'no_recent_campaign_send' };
 
   const { campaign, send } = candidates[0];
+  const followupOwner = text(input.owner_agent, 120) || campaign.owner_agent || 'marketing-specialist';
   const { outcomeType, intent } = inboundReplyIntent(content);
   const companyActor = input.company_actor && typeof input.company_actor === 'object' ? input.company_actor : null;
   const sentAsset = workspace.records.assets.find((row) => row.asset_id === send.asset_id);
@@ -1220,7 +1221,7 @@ export function correlateMarketingInbound(ownerUserId, input = {}) {
       matched: true,
       idempotent: !engagement.created,
       normal_chat: true,
-      campaign: { campaign_id: campaign.campaign_id, name: campaign.name, owner_agent: campaign.owner_agent || 'marketing-specialist' },
+      campaign: { campaign_id: campaign.campaign_id, name: campaign.name, owner_agent: followupOwner },
       audience: { member_id: member.member_id, display_label: member.display_label, destination_masked: member.destination_masked },
       identity: { kind: 'company_user', user_id: text(companyActor.user_id, 160), role: text(companyActor.role, 60), name: text(companyActor.name, 200) },
       attribution: { send_outcome_id: send.outcome_id, candidate_count: candidates.length, window_days: attributionDays, response_contract_matched: matchedResponseContract },
@@ -1255,13 +1256,13 @@ export function correlateMarketingInbound(ownerUserId, input = {}) {
     next_action: outcomeType === 'opt_out'
       ? 'No contact permitted.'
       : `Marketing Specialist should prepare a targeted follow-up for ${campaign.name} using the recorded interests and prior campaign evidence.`,
-    owner_agent: campaign.owner_agent || 'marketing-specialist',
+    owner_agent: followupOwner,
   });
 
   return {
     matched: true,
     idempotent: !engagement.created,
-    campaign: { campaign_id: campaign.campaign_id, name: campaign.name, owner_agent: campaign.owner_agent || 'marketing-specialist' },
+    campaign: { campaign_id: campaign.campaign_id, name: campaign.name, owner_agent: followupOwner },
     audience: { member_id: member.member_id, display_label: member.display_label, destination_masked: member.destination_masked },
     identity: { kind: 'marketing_contact' },
     attribution: { send_outcome_id: send.outcome_id, candidate_count: candidates.length, window_days: attributionDays, response_contract_matched: matchedResponseContract },

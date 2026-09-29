@@ -305,6 +305,10 @@ export default function MarketingWorkspace() {
       </section>}
 
       {tab === 'Channels' && <section className="marketing-section marketing-two-col">
+        <Panel title="Company Email inbox" subtitle="Email OAuth, mailbox ownership and inbound routing are configured once at company level—not duplicated in Marketing.">
+          <p>Campaign replies are attributed here automatically. Other messages remain in the Events &amp; Productivity inbox.</p>
+          <Link className="marketing-primary" to="/connectors?tab=channels" style={{ display: 'inline-block' }}>Configure company Email channel</Link>
+        </Panel>
         <Panel title="Channel operating setup" subtitle="Reference an existing connection; do not enter credentials here.">
           <form onSubmit={(e) => { e.preventDefault(); save('Channel', api.marketingChannelUpsert, channel, () => setChannel(EMPTY_CHANNEL)); }} className="marketing-form">
             <div className="marketing-form-row"><Field label="Channel"><ChannelSelect value={channel.channel} onChange={(value) => setChannel({ ...channel, channel: value })} /></Field><Field label="Execution mode"><select value={channel.execution_mode} onChange={(e) => setChannel({ ...channel, execution_mode: e.target.value })}><option value="draft_only">Draft only</option><option value="approval_required">Approval required</option><option value="policy_controlled">Policy controlled</option></select></Field></div>

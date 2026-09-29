@@ -48,6 +48,9 @@ try {
   });
   assert.equal(duplicate.duplicate, true, 'provider event deduplicated');
   assert.throws(() => svc.getProductivityEvent(ownerB, accepted.event.id), /Event not found/, 'cross-owner event hidden');
+  await assert.rejects(() => svc.ingestTrustedProductivityEvent(ownerB, created.subscription.id, {
+    provider_event_id: 'trusted-cross-owner', event_type: 'calendar.event.changed', payload: { calendar_id: 'primary' },
+  }), /not found/i, 'trusted internal ingestion still enforces subscription ownership');
 
   handle.prepare(`INSERT INTO agent_workflow_definitions(id,owner_user_id,name,status,paused,trigger_modes) VALUES (?,?,?,'published',0,'manual,event')`).run('wf-owned-by-a', ownerA, 'A workflow');
   const ownedWfSub = svc.createEventSubscription(ownerA, { name: 'Owned workflow', provider: 'google_workspace', event_type: 'file.created', target_type: 'workflow', target_id: 'wf-owned-by-a' });
@@ -100,7 +103,7 @@ try {
   assert.ok(purged.deleted.productivity_events >= 1);
   assert.ok(purged.deleted.productivity_action_receipts >= 1);
 
-  console.log(JSON.stringify({ ok: true, checks: ['owner-isolation', 'secret-auth', 'payload-redaction', 'structured-filter', 'event-idempotency', 'workflow-dispatch', 'goal-dispatch', 'retry-dead-letter', 'binding-isolation', 'action-idempotency', 'risk-contract', 'action-policy-approval', 'action-policy-override', 'retention'], binding_id: bind.id }, null, 2));
+  console.log(JSON.stringify({ ok: true, checks: ['owner-isolation', 'trusted-ingestion-owner-check', 'secret-auth', 'payload-redaction', 'structured-filter', 'event-idempotency', 'workflow-dispatch', 'goal-dispatch', 'retry-dead-letter', 'binding-isolation', 'action-idempotency', 'risk-contract', 'action-policy-approval', 'action-policy-override', 'retention'], binding_id: bind.id }, null, 2));
 } finally {
   try { handle?.close(); } catch {}
   rmSync(root, { recursive: true, force: true });

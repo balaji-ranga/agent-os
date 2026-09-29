@@ -65,6 +65,7 @@
 | [56-okr-company-demo-seed-pack.md](./56-okr-company-demo-seed-pack.md) | **OKR company demo pack** — Northstar Industrial seed inventory; objective-linked agents/workflows, CRM/ERP evidence, autonomous policies, budgets, cleanup/reseed safety |
 | [57-event-productivity-pack.md](./57-event-productivity-pack.md) | **Events & Productivity** — Google/Microsoft calendars, files, Docs/Word, Sheets/Excel, Slack/Teams; durable inbox → workflow/goal; exact connector bindings, Action Control, testing and dead letters |
 | [58-marketing-operations.md](./58-marketing-operations.md) | **Marketing Operations** — agentic setup from CEO intent/OKRs with optional UI; standard Marketing Specialist template; campaigns, assets, channel references, CRM/Knowledge reuse, readiness, metrics and Action Control |
+| [59-company-email-channels.md](./59-company-email-channels.md) | **Company Email channels** — owner-scoped Gmail/Microsoft 365 OAuth, test/enable/sync, campaign-reply attribution, Events & Productivity inbox routing, retention and Action Control |
 
 **Video Tours (UI):** User menu → **Help → Video Tours** (/video-tours) — playlist of short CEO tours (script/captions now; mp4 when exported). Not ingested as RAG docs.
 

@@ -46,9 +46,9 @@ For a Marketing Specialist send, pass `campaign_id`, the approved `asset_id`, an
 
 ### How email replies become Leads & follow-up
 
-SMTP sending cannot read replies by itself. Configure the receiving mailbox provider (for example SendGrid Inbound Parse or Mailgun Routes), or a trusted mailbox listener, to POST received messages to the campaign workflow's **email inbound URL** shown in its event-trigger settings. Authenticate it with that workflow's webhook secret or the platform email-inbound secret.
+SMTP sending cannot read replies by itself. Open **Connectors → Company channels**, add the CEO company's Gmail or Microsoft 365 mailbox, complete OAuth, test it, and enable it. Flolah polls only that owner's mailbox through OpenConnector; OAuth tokens remain in the connector vault.
 
-For every authenticated inbound email Flolah still starts the configured event-driven workflow. It also extracts the sender address and tries to match it to the latest eligible send receipt for the same consented distribution-list member inside the email attribution window. A match records `reply` or `opt_out` evidence, prepares or updates **Marketing → Leads & follow-up**, and assigns the next action to the campaign's Marketing Specialist. Unknown senders and messages with no recent matching send remain ordinary workflow email events and are not guessed into a campaign.
+For every authenticated inbound email Flolah extracts the sender address and tries to match it to the latest eligible send receipt for the same consented distribution-list member inside the email attribution window. A match records `reply` or `opt_out` evidence, prepares or updates **Marketing → Leads & follow-up**, and assigns the next action to the campaign's Marketing Specialist. Unknown senders and messages with no recent matching send enter **Connectors → Events & Productivity → Live event inbox** and follow the company's configured inbox, workflow, or goal route; Flolah does not guess them into a campaign.
 
 Marketing does not retain the reply body as lead evidence. It stores a content hash, length, coarse intent, provider message reference and privacy-safe recipient identity. Provider retries are idempotent. A reply such as `INTERESTED` qualifies according to the saved email strategy; `STOP`/`UNSUBSCRIBE` suppresses the contact.
 

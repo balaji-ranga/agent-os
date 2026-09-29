@@ -119,6 +119,12 @@ EOF
 EOF
     added=1
   fi
+  if ! grep -qF 'COMPANY_EMAIL_SYNC_CRON' "$ENV_FILE"; then
+    cat >> "$ENV_FILE" <<'EOF'
+# COMPANY_EMAIL_SYNC_CRON=*/5 * * * *      # poll enabled owner-scoped Gmail/Microsoft 365 inboxes
+EOF
+    added=1
+  fi
   if [[ "$added" -eq 1 ]]; then
     echo "ENSURE_CRON_ENV_KEYS_ADDED file=$ENV_FILE"
   fi
@@ -146,6 +152,7 @@ cat >> "$ENV_FILE" <<'EOF'
 # COO_STATUS_CHECKER_CRON=0 9 * * *        # daily CEO status report -> standup chat + HTML email
 # TOOL_API_RATE_LIMIT_RESET_CRON=5 0 * * * # audit+zero per-user tool API call actuals at day/month roll (Tools → Rate limits)
 # EVENT_PRODUCTIVITY_RETRY_CRON=*/1 * * * * # retry failed calendar/document/message events; dead-letter after five attempts
+# COMPANY_EMAIL_SYNC_CRON=*/5 * * * *      # poll enabled owner-scoped Gmail/Microsoft 365 inboxes
 # DATA_RETENTION_CRON=15 3 * * *           # daily purge: chats/standup msgs/workflow runs + aged Content Explorer media (hard delete)
 # OPENCLAW_SESSION_CLEANUP_CRON=30 2 * * * # execution-session audit/cleanup (Admin → Crons; dry-run default)
 # OPENCLAW_SESSION_CLEANUP_DRY_RUN=1

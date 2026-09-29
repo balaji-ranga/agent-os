@@ -334,6 +334,7 @@ export function matchApiPermission(method, path) {
     { prefix: '/agent-exchange', permission: 'agent-exchange' },
     { prefix: '/integrations/openconnector', permission: 'connectors' },
     { prefix: '/integrations/email-inbound', permission: 'connectors' },
+    { prefix: '/company-email-channels', permission: 'connectors' },
     { prefix: '/integrations/ibkr-bridge', permission: 'ibkr-summary' },
     { prefix: '/integrations/browser-worker', permission: 'browser-session' },
     { prefix: '/integrations/opensearch', permission: 'master-data' },

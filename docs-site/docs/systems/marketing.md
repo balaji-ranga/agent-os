@@ -67,7 +67,7 @@ Attribution requires a real prior send receipt for that campaign and recipient. 
 
 ### How an inbound email campaign reply is handled
 
-Sending through SMTP does not read the recipient's mailbox. Configure SendGrid Inbound Parse, Mailgun Routes, or a trusted mailbox listener to POST received messages to the event-enabled workflow's **email inbound URL**, using the workflow webhook secret or platform email-inbound secret. Flolah starts the normal email-received workflow and, independently, matches the sender to the latest eligible campaign send for that consented distribution-list member. A match records reply or opt-out evidence and prepares **Leads & follow-up** for the campaign's Marketing Specialist. Unknown or unmatched senders remain normal workflow email events.
+Sending through SMTP does not read the recipient's mailbox. Configure the CEO company's Gmail or Microsoft 365 inbox under **Connectors → Company channels**, complete OAuth, test it and enable it. Flolah matches inbound senders to recent eligible campaign send receipts. A match records reply or opt-out evidence and prepares **Leads & follow-up** for the campaign's Marketing Specialist. Unknown or unmatched senders enter the existing **Events & Productivity** Live Event Inbox and follow the selected inbox, workflow or goal route.
 
 The Marketing evidence stores a content hash, length, coarse intent and provider reference—not the raw reply body. Retries are idempotent. To let only the Marketing Specialist send without Kanban approval, add an Agent-scoped **External messages / publish → Autonomous** override in **Policies → Action control**; other agents retain their normal policy.
 

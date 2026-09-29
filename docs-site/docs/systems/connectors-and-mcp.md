@@ -36,6 +36,8 @@ You can use the **platform** OAuth app, or optionally supply **your own** app id
 
 Disconnect from the same page when you no longer want workflows to use that app.
 
+For a CEO company mailbox, use **Connectors → Company channels** after connecting Gmail or Outlook. This adds health, test/enable/sync and inbound routing without creating a second inbox. See [Company Email channels](./company-email-channels.md).
+
 ### Use in a workflow
 
 1. Edit a workflow → add a **Connector** node.

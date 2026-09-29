@@ -31,12 +31,12 @@ export const PRODUCTIVITY_OPERATIONS = Object.freeze({
 
 export const PRODUCTIVITY_PROVIDER_CATALOG = Object.freeze({
   google_workspace: {
-    label: 'Google Workspace', apps: ['google_calendar', 'google_drive', 'google_docs', 'google_sheets'],
-    scopes: ['calendar.readonly', 'calendar.events', 'drive.metadata.readonly', 'drive.file'],
+    label: 'Google Workspace', apps: ['gmail', 'google_calendar', 'google_drive', 'google_docs', 'google_sheets'],
+    scopes: ['gmail.readonly', 'gmail.send', 'calendar.readonly', 'calendar.events', 'drive.metadata.readonly', 'drive.file'],
   },
   microsoft_365: {
-    label: 'Microsoft 365', apps: ['outlook_calendar', 'onedrive', 'sharepoint', 'word', 'excel'],
-    scopes: ['Calendars.Read', 'Calendars.ReadWrite', 'Files.Read.All', 'Files.ReadWrite.All', 'Sites.Read.All'],
+    label: 'Microsoft 365', apps: ['outlook', 'outlook_calendar', 'onedrive', 'sharepoint', 'word', 'excel'],
+    scopes: ['Mail.Read', 'Mail.Send', 'Calendars.Read', 'Calendars.ReadWrite', 'Files.Read.All', 'Files.ReadWrite.All', 'Sites.Read.All'],
   },
   slack: { label: 'Slack', apps: ['slack'], scopes: ['search:read', 'channels:history', 'chat:write'] },
   microsoft_teams: { label: 'Microsoft Teams', apps: ['microsoft_teams'], scopes: ['ChannelMessage.Read.All', 'ChannelMessage.Send'] },
@@ -215,18 +215,14 @@ function filterMatches(filters, envelope) {
   });
 }
 
-export async function ingestProductivityEvent(subscriptionId, providedSecret, input = {}, deps = {}) {
-  ensureEventProductivitySchema();
-  const sub = db().prepare(`SELECT * FROM productivity_event_subscriptions WHERE id=?`).get(subscriptionId);
-  if (!sub || !sub.enabled) throw Object.assign(new Error('Subscription not found or disabled'), { status: 404 });
-  if (!secretsMatch(providedSecret, sub.secret_hash)) throw Object.assign(new Error('Invalid webhook secret'), { status: 401 });
+async function ingestForSubscription(sub, input = {}, deps = {}) {
   const envelope = {
     event_type: String(input.event_type || sub.event_type), subject_type: String(input.subject_type || ''),
     subject_id: String(input.subject_id || ''), correlation_key: String(input.correlation_key || ''),
     occurred_at: input.occurred_at || now(), payload: sanitizeEventPayload(input.payload && typeof input.payload === 'object' ? input.payload : input),
   };
   if (envelope.event_type !== sub.event_type || !filterMatches(json(sub.filters_json), envelope)) return { accepted: false, ignored: true, reason: 'event_filter_mismatch' };
-  const providerEventId = String(input.provider_event_id || '').trim() || hash(JSON.stringify(stable({ subscriptionId, ...envelope })));
+  const providerEventId = String(input.provider_event_id || '').trim() || hash(JSON.stringify(stable({ subscriptionId: sub.id, ...envelope })));
   const id = `epe-${randomUUID()}`;
   const inserted = db().prepare(`INSERT OR IGNORE INTO productivity_events
     (id,owner_user_id,subscription_id,provider,provider_event_id,event_type,subject_type,subject_id,correlation_key,payload_json,occurred_at,received_at,status)
@@ -239,6 +235,32 @@ export async function ingestProductivityEvent(subscriptionId, providedSecret, in
   const event = eventRow(db().prepare(`SELECT * FROM productivity_events WHERE id=?`).get(id));
   const processed = await processProductivityEvent(sub.owner_user_id, id, deps);
   return { accepted: true, duplicate: false, event: processed || event };
+}
+
+export async function ingestProductivityEvent(subscriptionId, providedSecret, input = {}, deps = {}) {
+  ensureEventProductivitySchema();
+  const sub = db().prepare(`SELECT * FROM productivity_event_subscriptions WHERE id=?`).get(subscriptionId);
+  if (!sub || !sub.enabled) throw Object.assign(new Error('Subscription not found or disabled'), { status: 404 });
+  if (!secretsMatch(providedSecret, sub.secret_hash)) throw Object.assign(new Error('Invalid webhook secret'), { status: 401 });
+  return ingestForSubscription(sub, input, deps);
+}
+
+/**
+ * Trusted internal event ingestion for platform-owned adapters such as the
+ * company Email channel poller. The caller must supply the authenticated CEO
+ * owner; the subscription is still resolved and checked against that owner.
+ * This deliberately does not accept an owner from provider payload data.
+ */
+export async function ingestTrustedProductivityEvent(ownerUserId, subscriptionId, input = {}, deps = {}) {
+  ensureEventProductivitySchema();
+  const owner = assertOwner(ownerUserId);
+  const sub = db().prepare(
+    `SELECT * FROM productivity_event_subscriptions WHERE id=? AND owner_user_id=?`
+  ).get(String(subscriptionId || '').trim(), owner);
+  if (!sub || !sub.enabled) {
+    throw Object.assign(new Error('Subscription not found or disabled for this company'), { status: 404 });
+  }
+  return ingestForSubscription(sub, input, deps);
 }
 
 export async function processProductivityEvent(ownerUserId, eventId, deps = {}) {

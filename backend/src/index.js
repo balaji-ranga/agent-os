@@ -56,6 +56,7 @@ import emailInboundRoutes from './routes/email-inbound.js';
 import openconnectorRoutes from './routes/openconnector.js';
 import eventProductivityRoutes from './routes/event-productivity.js';
 import eventProductivityWebhookRoutes from './routes/event-productivity-webhooks.js';
+import companyEmailChannelsRoutes from './routes/company-email-channels.js';
 import ibkrBridgePackageRoutes from './routes/ibkr-bridge-package.js';
 import settingsIpWhitelistRoutes from './routes/settings-ip-whitelists.js';
 import settingsExternalTokensRoutes from './routes/settings-external-tokens.js';
@@ -127,6 +128,10 @@ import { seedMarketDataToolsIfMissing } from './db/seed-market-data-tools.js';
 import { seedEventProductivityToolsIfMissing } from './db/seed-event-productivity-tools.js';
 import { seedMarketingWorkspaceToolsIfMissing } from './db/seed-marketing-workspace-tools.js';
 import { ensureEventProductivitySchema } from './services/event-productivity.js';
+import {
+  ensureCompanyEmailChannelsSchema,
+  syncEnabledCompanyEmailChannels,
+} from './services/company-email-channels.js';
 import marketingRoutes from './routes/marketing.js';
 import publicMarketingRoutes from './routes/public-marketing.js';
 import { writeOpenClawToolsList } from './services/content-tools-meta.js';
@@ -412,6 +417,11 @@ try {
   ensureEventProductivitySchema();
 } catch (e) {
   console.warn('[startup] event productivity schema:', e.message);
+}
+try {
+  ensureCompanyEmailChannelsSchema();
+} catch (e) {
+  console.warn('[startup] company email channels schema:', e.message);
 }
 seedBrowserSessionToolsIfMissing();
 try {
@@ -726,6 +736,7 @@ apiRouter.use('/a2a-callback-inbox', a2aCallbackInboxRoutes);
 apiRouter.use('/a2a', workflowA2aRoutes);
 apiRouter.use('/integrations/email-inbound', emailInboundRoutes);
 apiRouter.use('/integrations/openconnector', openconnectorRoutes);
+apiRouter.use('/company-email-channels', companyEmailChannelsRoutes);
 apiRouter.use('/event-productivity/webhooks', eventProductivityWebhookRoutes);
 apiRouter.use('/event-productivity', eventProductivityRoutes);
 apiRouter.use('/integrations/ibkr-bridge', ibkrBridgePackageRoutes);
@@ -1095,6 +1106,18 @@ registerPlatformCron({
     const { processDueProductivityEvents } = await import('./services/event-productivity.js');
     return processDueProductivityEvents();
   },
+});
+
+registerPlatformCron({
+  id: 'company_email_inbox_sync',
+  kind: 'event',
+  eventWhen: 'new messages in an enabled company Email channel',
+  name: 'Company Email inbox sync',
+  description:
+    'Reads each enabled owner-scoped Gmail or Microsoft 365 mailbox through its OAuth connector. Campaign replies update Marketing; other mail enters Events & Productivity and follows the configured inbox/workflow/goal route.',
+  schedule: process.env.COMPANY_EMAIL_SYNC_CRON || '*/5 * * * *',
+  envVar: 'COMPANY_EMAIL_SYNC_CRON',
+  handler: async () => syncEnabledCompanyEmailChannels(),
 });
 
 // Keep registry sync/logging here; master tick is owned by platform-cron-registry (Admin pause/resume).

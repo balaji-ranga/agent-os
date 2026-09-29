@@ -53,6 +53,7 @@ const sidebars = {
       items: [
         'systems/workflows',
         'systems/connectors-and-mcp',
+        'systems/company-email-channels',
         'systems/mcp-universe',
         'systems/agent-exchange',
         'systems/crm-and-erp',
