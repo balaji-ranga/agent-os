@@ -21,6 +21,7 @@ router.post('/event-inbox-list', (req, res) => run(res, async () => ({ events: l
 router.post('/event-inbox-get', (req, res) => run(res, async () => ({ event: getProductivityEvent(owner(req), req.body?.event_id) })));
 
 const operations = [
+  'email-list-messages',
   'calendar-list-events', 'calendar-find-slots', 'calendar-create-event', 'calendar-update-event', 'calendar-cancel-event',
   'file-search', 'file-get-metadata',
   'document-create', 'document-read', 'document-update', 'document-comment', 'document-export',
