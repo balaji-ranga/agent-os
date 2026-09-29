@@ -202,6 +202,7 @@ run_gateway_with_platform_llm_watch() {
   start_extension_relay_bridge
   local last_mtime
   last_mtime="$(marker_mtime)"
+  local convergence_restarts=0
   while true; do
     echo "[openclaw] Starting gateway on port ${GATEWAY_PORT}..."
     openclaw gateway --port "${GATEWAY_PORT}" &
@@ -271,9 +272,22 @@ run_gateway_with_platform_llm_watch() {
       continue
     fi
     # Gateway exited on its own (crash) — propagate so Docker restart policy can recover
-    wait "${gpid}" 2>/dev/null || true
-    local code=$?
+    local code=0
+    set +e
+    wait "${gpid}" 2>/dev/null
+    code=$?
+    set -e
     echo "[openclaw] Gateway exited with code ${code}"
+    # OpenClaw can intentionally exit cleanly after applying a safe startup
+    # migration and asks for one fresh gateway process. Restart it in this
+    # container so the entrypoint does not rewrite the plugin/config inputs
+    # between migration rounds and create a Docker restart loop.
+    if [[ "${code}" == "0" && "${convergence_restarts}" -lt 5 ]]; then
+      convergence_restarts=$((convergence_restarts + 1))
+      echo "[openclaw] Clean startup-convergence exit — retry ${convergence_restarts}/5 without resyncing config"
+      sleep 2
+      continue
+    fi
     exit "${code}"
   done
 }
