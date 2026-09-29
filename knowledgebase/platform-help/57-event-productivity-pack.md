@@ -20,7 +20,9 @@ Flolah uses the binding exactly. It does not guess an action from prompt keyword
 
 ## Create an event subscription
 
-Choose a provider, event type, and target:
+Choose a provider, event type, and target. **Event type** is a provider-aware dropdown so the subscription always uses a canonical supported trigger. Changing the provider refreshes the choices; arbitrary free-text event names and unsupported provider/event combinations are rejected by the API.
+
+Google Workspace and Microsoft 365 support email received, calendar created/changed/cancelled, and file created/changed/deleted triggers. Slack and Microsoft Teams support message created/updated/flagged and reaction-added triggers.
 
 - **Inbox only** lets agents inspect and acknowledge it.
 - **Workflow** needs a workflow ID owned by your company; the workflow must be published and event-enabled.
@@ -43,4 +45,3 @@ Start read-only: list a small date window or search a uniquely named test docume
 - **Failed/dead-letter event**: open the inbox error, correct the connector or target, and choose Replay.
 - **Approval required**: approve the generated action request or create a bounded Action Control override; replay after approval.
 - **Nothing reaches the workflow**: confirm the workflow belongs to the same company, is published, is not paused, and has event triggers enabled.
-

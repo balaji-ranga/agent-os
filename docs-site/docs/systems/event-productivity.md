@@ -13,7 +13,7 @@ The generic flow is:
 
 Connect Google Workspace, Microsoft 365, Slack, or Teams under **OpenConnector**, then bind each semantic operation to an exact connector action ID. Exact bindings prevent agents from guessing an external action from keywords.
 
-Subscriptions can retain an event for inspection, start a published event-enabled workflow owned by your company, or start a durable goal plan. The webhook secret is displayed once and stored only as a hash.
+Subscriptions can retain an event for inspection, start a published event-enabled workflow owned by your company, or start a durable goal plan. The event type is selected from a provider-aware dropdown; arbitrary free-text values and unsupported provider/event combinations are rejected. Google Workspace and Microsoft 365 offer email, calendar, and file triggers. Slack and Microsoft Teams offer message and reaction triggers. The webhook secret is displayed once and stored only as a hash.
 
 Reads and searches are R0. Internal document/spreadsheet writes are R1. Calendar invitations, external comments, and Slack/Teams sends are R2 and follow Action Control approval and scoped overrides. The pack does not expose destructive or financial operations.
 

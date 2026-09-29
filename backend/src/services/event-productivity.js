@@ -42,6 +42,39 @@ export const PRODUCTIVITY_PROVIDER_CATALOG = Object.freeze({
   microsoft_teams: { label: 'Microsoft Teams', apps: ['microsoft_teams'], scopes: ['ChannelMessage.Read.All', 'ChannelMessage.Send'] },
 });
 
+export const PRODUCTIVITY_EVENT_TYPES = Object.freeze({
+  google_workspace: Object.freeze([
+    { id: 'email.message.received', label: 'Email message received' },
+    { id: 'calendar.event.created', label: 'Calendar event created' },
+    { id: 'calendar.event.changed', label: 'Calendar event changed' },
+    { id: 'calendar.event.cancelled', label: 'Calendar event cancelled' },
+    { id: 'file.created', label: 'File created' },
+    { id: 'file.changed', label: 'File changed' },
+    { id: 'file.deleted', label: 'File deleted' },
+  ]),
+  microsoft_365: Object.freeze([
+    { id: 'email.message.received', label: 'Email message received' },
+    { id: 'calendar.event.created', label: 'Calendar event created' },
+    { id: 'calendar.event.changed', label: 'Calendar event changed' },
+    { id: 'calendar.event.cancelled', label: 'Calendar event cancelled' },
+    { id: 'file.created', label: 'File created' },
+    { id: 'file.changed', label: 'File changed' },
+    { id: 'file.deleted', label: 'File deleted' },
+  ]),
+  slack: Object.freeze([
+    { id: 'message.created', label: 'Message created' },
+    { id: 'message.updated', label: 'Message updated' },
+    { id: 'message.flagged', label: 'Message flagged' },
+    { id: 'reaction.added', label: 'Reaction added' },
+  ]),
+  microsoft_teams: Object.freeze([
+    { id: 'message.created', label: 'Message created' },
+    { id: 'message.updated', label: 'Message updated' },
+    { id: 'message.flagged', label: 'Message flagged' },
+    { id: 'reaction.added', label: 'Reaction added' },
+  ]),
+});
+
 let ready = false;
 function db() { return getDb(); }
 function json(value, fallback = {}) { try { return JSON.parse(value || ''); } catch { return fallback; } }
@@ -54,6 +87,15 @@ function stable(value) {
 }
 function now() { return new Date().toISOString(); }
 function assertOwner(owner) { const value = String(owner || '').trim(); if (!value) throw Object.assign(new Error('Owner context required'), { status: 403 }); return value; }
+function assertSupportedEventType(provider, eventType) {
+  const providerId = String(provider || '').trim();
+  const eventTypeId = String(eventType || '').trim();
+  if (!PRODUCTIVITY_PROVIDER_CATALOG[providerId]) throw Object.assign(new Error('Unsupported productivity provider'), { status: 400 });
+  if (!(PRODUCTIVITY_EVENT_TYPES[providerId] || []).some((event) => event.id === eventTypeId)) {
+    throw Object.assign(new Error(`Unsupported event_type "${eventTypeId}" for provider "${providerId}"`), { status: 400 });
+  }
+  return { providerId, eventTypeId };
+}
 function sanitizeEventValue(value, depth = 0) {
   if (depth > 8) return '[depth-limited]';
   if (Array.isArray(value)) return value.slice(0, 250).map((item) => sanitizeEventValue(item, depth + 1));
@@ -130,7 +172,7 @@ function bindingRow(row) { return row ? { ...row, enabled: !!row.enabled, input_
 function receiptRow(row) { return row ? { ...row, request_summary: json(row.request_summary_json), response_summary: json(row.response_summary_json) } : null; }
 
 export function listProductivityCapabilities() {
-  return { providers: PRODUCTIVITY_PROVIDER_CATALOG, operations: PRODUCTIVITY_OPERATIONS };
+  return { providers: PRODUCTIVITY_PROVIDER_CATALOG, event_types: PRODUCTIVITY_EVENT_TYPES, operations: PRODUCTIVITY_OPERATIONS };
 }
 
 export async function getProductivitySummary(ownerUserId) {
@@ -152,15 +194,15 @@ export function createEventSubscription(ownerUserId, input = {}) {
   const targetType = String(input.target_type || 'inbox');
   if (!['inbox', 'workflow', 'goal'].includes(targetType)) throw Object.assign(new Error('target_type must be inbox, workflow, or goal'), { status: 400 });
   if (!String(input.name || '').trim() || !String(input.provider || '').trim() || !String(input.event_type || '').trim()) throw Object.assign(new Error('name, provider, and event_type are required'), { status: 400 });
-  if (!PRODUCTIVITY_PROVIDER_CATALOG[String(input.provider).trim()]) throw Object.assign(new Error('Unsupported productivity provider'), { status: 400 });
+  const { providerId, eventTypeId } = assertSupportedEventType(input.provider, input.event_type);
   if (targetType !== 'inbox' && !String(input.target_id || '').trim() && targetType === 'workflow') throw Object.assign(new Error('target_id required for workflow target'), { status: 400 });
   const id = `eps-${randomUUID()}`;
   const secret = `eps_${randomBytes(32).toString('base64url')}`;
   db().prepare(`INSERT INTO productivity_event_subscriptions
     (id,owner_user_id,name,provider,connection_name,event_type,filters_json,target_type,target_id,goal_prompt_template,objective_id,key_result_ids_json,enabled,secret_hash)
     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
-      id, owner, String(input.name).trim(), String(input.provider).trim(), String(input.connection_name || '').trim(),
-      String(input.event_type).trim(), JSON.stringify(input.filters || {}), targetType, input.target_id || null,
+      id, owner, String(input.name).trim(), providerId, String(input.connection_name || '').trim(),
+      eventTypeId, JSON.stringify(input.filters || {}), targetType, input.target_id || null,
       String(input.goal_prompt_template || '').trim(), input.objective_id || null, JSON.stringify(input.key_result_ids || []),
       input.enabled === false ? 0 : 1, hash(secret)
     );
@@ -180,8 +222,11 @@ export function updateEventSubscription(ownerUserId, id, input = {}) {
   const merged = { ...subscriptionRow(row), ...input };
   const target = String(merged.target_type || 'inbox');
   if (!['inbox', 'workflow', 'goal'].includes(target)) throw Object.assign(new Error('Invalid target_type'), { status: 400 });
+  if (!String(merged.name || '').trim()) throw Object.assign(new Error('name is required'), { status: 400 });
+  const { providerId, eventTypeId } = assertSupportedEventType(merged.provider, merged.event_type);
+  if (target === 'workflow' && !String(merged.target_id || '').trim()) throw Object.assign(new Error('target_id required for workflow target'), { status: 400 });
   db().prepare(`UPDATE productivity_event_subscriptions SET name=?,provider=?,connection_name=?,event_type=?,filters_json=?,target_type=?,target_id=?,goal_prompt_template=?,objective_id=?,key_result_ids_json=?,enabled=?,updated_at=datetime('now') WHERE id=? AND owner_user_id=?`).run(
-    merged.name, merged.provider, merged.connection_name || '', merged.event_type, JSON.stringify(merged.filters || {}), target,
+    String(merged.name).trim(), providerId, merged.connection_name || '', eventTypeId, JSON.stringify(merged.filters || {}), target,
     merged.target_id || null, merged.goal_prompt_template || '', merged.objective_id || null, JSON.stringify(merged.key_result_ids || []), merged.enabled === false ? 0 : 1, id, owner
   );
   return subscriptionRow(db().prepare(`SELECT * FROM productivity_event_subscriptions WHERE id=?`).get(id));

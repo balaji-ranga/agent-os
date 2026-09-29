@@ -27,6 +27,23 @@ export default function EventProductivityPanel() {
 
   const operations = useMemo(() => Object.keys(data.summary?.capabilities?.operations || {}).filter((name) => name !== 'productivity_capabilities'), [data.summary]);
   const providers = data.summary?.capabilities?.providers || {};
+  const eventTypesByProvider = data.summary?.capabilities?.event_types || {};
+  const providerEventTypes = useMemo(() => eventTypesByProvider[sub.provider] || [], [eventTypesByProvider, sub.provider]);
+
+  useEffect(() => {
+    if (providerEventTypes.length && !providerEventTypes.some((event) => event.id === sub.event_type)) {
+      setSub((current) => ({ ...current, event_type: providerEventTypes[0].id }));
+    }
+  }, [providerEventTypes, sub.event_type]);
+
+  function selectProvider(provider) {
+    const supported = eventTypesByProvider[provider] || [];
+    setSub((current) => ({
+      ...current,
+      provider,
+      event_type: supported.some((event) => event.id === current.event_type) ? current.event_type : (supported[0]?.id || ''),
+    }));
+  }
 
   async function act(fn, success) {
     setBusy(true); setError(''); setMessage('');
@@ -59,13 +76,16 @@ export default function EventProductivityPanel() {
         <h2 style={{ marginTop: 0, fontSize: '1.05rem' }}>Event subscription</h2>
         <div style={grid}>
           <input style={input} placeholder="Subscription name" value={sub.name} onChange={(e) => setSub({ ...sub, name: e.target.value })} />
-          <select value={sub.provider} onChange={(e) => setSub({ ...sub, provider: e.target.value })}>{Object.entries(providers).map(([id, p]) => <option key={id} value={id}>{p.label}</option>)}</select>
-          <input style={input} placeholder="Event type" value={sub.event_type} onChange={(e) => setSub({ ...sub, event_type: e.target.value })} />
+          <select aria-label="Event provider" value={sub.provider} onChange={(e) => selectProvider(e.target.value)}>{Object.entries(providers).map(([id, p]) => <option key={id} value={id}>{p.label}</option>)}</select>
+          <select aria-label="Event type" value={sub.event_type} onChange={(e) => setSub({ ...sub, event_type: e.target.value })} disabled={!providerEventTypes.length}>
+            {!providerEventTypes.length && <option value="">No supported event types</option>}
+            {providerEventTypes.map((event) => <option key={event.id} value={event.id}>{event.label} ({event.id})</option>)}
+          </select>
           <select value={sub.target_type} onChange={(e) => setSub({ ...sub, target_type: e.target.value })}><option value="inbox">Inbox only</option><option value="workflow">Workflow</option><option value="goal">Goal</option></select>
           {sub.target_type !== 'inbox' && <input style={input} placeholder={sub.target_type === 'workflow' ? 'Workflow ID' : 'Agent ID (default balserve)'} value={sub.target_id} onChange={(e) => setSub({ ...sub, target_id: e.target.value })} />}
           {sub.target_type === 'goal' && <input style={input} placeholder="Goal prompt; supports {{event_id}}" value={sub.goal_prompt_template} onChange={(e) => setSub({ ...sub, goal_prompt_template: e.target.value })} />}
         </div>
-        <button className="wf-btn-primary" disabled={busy || !sub.name.trim()} onClick={() => act(() => api.eventProductivitySubscriptionCreate(sub), 'Subscription created.') } style={{ marginTop: 10 }}>Create subscription</button>
+        <button className="wf-btn-primary" disabled={busy || !sub.name.trim() || !sub.event_type} onClick={() => act(() => api.eventProductivitySubscriptionCreate(sub), 'Subscription created.') } style={{ marginTop: 10 }}>Create subscription</button>
         {data.subscriptions.map((row) => <div key={row.id} style={{ borderTop: '1px solid var(--border)', marginTop: 10, paddingTop: 10 }}><strong>{row.name}</strong> · {row.provider} · {row.event_type} → {row.target_type}<div style={{ fontSize: '.8rem', color: 'var(--muted)', wordBreak: 'break-all' }}>POST /api/event-productivity/webhooks/{row.id}</div><button className="wf-btn" disabled={busy} onClick={() => act(() => api.eventProductivitySecretRotate(row.id), 'Secret rotated.')} style={{ marginRight: 6 }}>Rotate secret</button><button className="wf-btn" disabled={busy} onClick={() => window.confirm('Delete this subscription?') && act(() => api.eventProductivitySubscriptionDelete(row.id), 'Subscription deleted.')}>Delete</button></div>)}
       </section>
 

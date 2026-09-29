@@ -25,6 +25,13 @@ try {
   handle.prepare(`INSERT INTO platform_users(id,email,password_hash,name,role,enabled,data_retention_days) VALUES (?,?,?,?,'ceo',1,30)`).run(ownerB, 'b@example.invalid', 'test-only', 'B');
   seedEventProductivityToolsIfMissing();
 
+  const capabilities = svc.listProductivityCapabilities();
+  assert.ok(capabilities.event_types.microsoft_365.some((event) => event.id === 'email.message.received'));
+  assert.ok(capabilities.event_types.microsoft_365.some((event) => event.id === 'calendar.event.changed'));
+  assert.throws(() => svc.createEventSubscription(ownerA, {
+    name: 'Unsupported combination', provider: 'microsoft_365', event_type: 'message.flagged', target_type: 'inbox',
+  }), /Unsupported event_type/);
+
   const created = svc.createEventSubscription(ownerA, {
     name: 'Calendar changes', provider: 'google_workspace', event_type: 'calendar.event.changed',
     filters: { 'payload.calendar_id': 'primary' }, target_type: 'inbox',
@@ -103,7 +110,7 @@ try {
   assert.ok(purged.deleted.productivity_events >= 1);
   assert.ok(purged.deleted.productivity_action_receipts >= 1);
 
-  console.log(JSON.stringify({ ok: true, checks: ['owner-isolation', 'trusted-ingestion-owner-check', 'secret-auth', 'payload-redaction', 'structured-filter', 'event-idempotency', 'workflow-dispatch', 'goal-dispatch', 'retry-dead-letter', 'binding-isolation', 'action-idempotency', 'risk-contract', 'action-policy-approval', 'action-policy-override', 'retention'], binding_id: bind.id }, null, 2));
+  console.log(JSON.stringify({ ok: true, checks: ['provider-event-catalog', 'provider-event-validation', 'owner-isolation', 'trusted-ingestion-owner-check', 'secret-auth', 'payload-redaction', 'structured-filter', 'event-idempotency', 'workflow-dispatch', 'goal-dispatch', 'retry-dead-letter', 'binding-isolation', 'action-idempotency', 'risk-contract', 'action-policy-approval', 'action-policy-override', 'retention'], binding_id: bind.id }, null, 2));
 } finally {
   try { handle?.close(); } catch {}
   rmSync(root, { recursive: true, force: true });
