@@ -79,6 +79,17 @@ Execution requires all three layers: the connector is connected for this CEO, th
 
 Gmail mailbox review, recoverable cleanup, and reply drafts use this model; see [52-governed-gmail-operations.md](./52-governed-gmail-operations.md).
 
+### File event listeners
+
+**Connectors → Events & Productivity** supports `file.created`, `file.changed`, and `file.deleted` for Google Workspace and Microsoft 365.
+
+1. Connect **Google Drive**, **OneDrive**, or **SharePoint** under OpenConnector.
+2. Under **Capability binding**, bind the stable `file_search` capability to the connected provider's read/list/search-files action.
+3. Create the file event subscription, select Inbox / Workflow / Goal, and enable its provider listener.
+4. Run **Check now** once to establish a baseline. Later checks compare provider IDs and metadata fingerprints.
+
+Created and changed files emit immediately after the baseline. Explicit provider tombstones emit deletion immediately. When a provider only returns a full current snapshot, Flolah requires the same file to be absent from **two consecutive complete snapshots** before emitting `file.deleted`; incomplete/paginated snapshots never infer deletion. Provider object IDs and the existing event ledger prevent duplicate processing. The CEO profile retention policy cleans processed event history.
+
 
 ### Browser Session package (local worker)
 

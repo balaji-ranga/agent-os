@@ -83,6 +83,102 @@ try {
   assert.equal(changed.emitted, 1);
   assert.equal(events.listProductivityEvents(owner, { subscription_id: calendar.id })[0].event_type, 'calendar.event.changed');
 
+  const fileCreated = events.createEventSubscription(owner, {
+    name: 'Drive file created', provider: 'google_workspace', event_type: 'file.created', target_type: 'inbox',
+    listener_enabled: true, listener_poll_seconds: 60,
+  }).subscription;
+  const oldFileTime = new Date(Date.now() - 60_000).toISOString();
+  let googleFiles = [{ id: 'drive-existing', name: 'Existing.txt', createdTime: oldFileTime, modifiedTime: oldFileTime, mimeType: 'text/plain' }];
+  const googleFileDeps = { executeProductivityOperation: async (_owner, operation, input) => {
+    assert.equal(operation, 'file_search');
+    assert.equal(input.provider, 'google_workspace');
+    return { result: { data: { files: googleFiles } } };
+  } };
+  const fileBaseline = await listeners.pollProductivitySubscription(owner, fileCreated.id, {}, googleFileDeps);
+  assert.equal(fileBaseline.emitted, 0, 'existing Drive file is a baseline, not a false create');
+  const newFileTime = new Date().toISOString();
+  googleFiles = [...googleFiles, { id: 'drive-new', name: 'New.txt', createdTime: newFileTime, modifiedTime: newFileTime, mimeType: 'text/plain' }];
+  const fileCreateResult = await listeners.pollProductivitySubscription(owner, fileCreated.id, {}, googleFileDeps);
+  assert.equal(fileCreateResult.emitted, 1);
+  assert.equal(events.listProductivityEvents(owner, { subscription_id: fileCreated.id })[0].event_type, 'file.created');
+
+  const fileChanged = events.createEventSubscription(owner, {
+    name: 'OneDrive file changed', provider: 'microsoft_365', event_type: 'file.changed', target_type: 'inbox',
+    listener_enabled: true, listener_poll_seconds: 60,
+  }).subscription;
+  let microsoftFiles = [{ id: 'onedrive-1', name: 'Proposal.docx', createdDateTime: oldFileTime, lastModifiedDateTime: oldFileTime, eTag: 'v1' }];
+  let microsoftHasMore = false;
+  const microsoftFileDeps = { executeProductivityOperation: async (_owner, operation, input) => {
+    assert.equal(operation, 'file_search');
+    assert.equal(input.provider, 'microsoft_365');
+    return { result: { data: { value: microsoftFiles, ...(microsoftHasMore ? { '@odata.nextLink': 'https://provider.invalid/next' } : {}) } } };
+  } };
+  assert.equal((await listeners.pollProductivitySubscription(owner, fileChanged.id, {}, microsoftFileDeps)).emitted, 0);
+  microsoftFiles = [{ ...microsoftFiles[0], lastModifiedDateTime: new Date().toISOString(), eTag: 'v2' }];
+  const fileChangeResult = await listeners.pollProductivitySubscription(owner, fileChanged.id, {}, microsoftFileDeps);
+  assert.equal(fileChangeResult.emitted, 1);
+  assert.equal(events.listProductivityEvents(owner, { subscription_id: fileChanged.id })[0].event_type, 'file.changed');
+
+  const fileDeleted = events.createEventSubscription(owner, {
+    name: 'OneDrive file deleted', provider: 'microsoft_365', event_type: 'file.deleted', target_type: 'inbox',
+    listener_enabled: true, listener_poll_seconds: 60,
+  }).subscription;
+  microsoftFiles = [{ id: 'onedrive-delete', name: 'Old.docx', createdDateTime: oldFileTime, lastModifiedDateTime: oldFileTime, eTag: 'v1' }];
+  assert.equal((await listeners.pollProductivitySubscription(owner, fileDeleted.id, {}, microsoftFileDeps)).emitted, 0);
+  microsoftFiles = [];
+  microsoftHasMore = true;
+  const incompleteMissing = await listeners.pollProductivitySubscription(owner, fileDeleted.id, {}, microsoftFileDeps);
+  assert.equal(incompleteMissing.emitted, 0, 'an incomplete provider page never infers deletion');
+  assert.equal(incompleteMissing.pending_deletions, 0);
+  microsoftHasMore = false;
+  const firstMissing = await listeners.pollProductivitySubscription(owner, fileDeleted.id, {}, microsoftFileDeps);
+  assert.equal(firstMissing.emitted, 0, 'one missing snapshot does not emit a false delete');
+  assert.equal(firstMissing.pending_deletions, 1);
+  const confirmedMissing = await listeners.pollProductivitySubscription(owner, fileDeleted.id, {}, microsoftFileDeps);
+  assert.equal(confirmedMissing.emitted, 1, 'two complete missing snapshots confirm deletion');
+  assert.equal(events.listProductivityEvents(owner, { subscription_id: fileDeleted.id })[0].event_type, 'file.deleted');
+  assert.equal((await listeners.pollProductivitySubscription(owner, fileDeleted.id, {}, microsoftFileDeps)).emitted, 0, 'confirmed deletion is not emitted again');
+
+  const providerTombstone = events.createEventSubscription(owner, {
+    name: 'Drive provider tombstone', provider: 'google_workspace', event_type: 'file.deleted', target_type: 'inbox',
+    listener_enabled: true, listener_poll_seconds: 60,
+  }).subscription;
+  const tombstoneTime = new Date().toISOString();
+  const tombstoneResult = await listeners.pollProductivitySubscription(owner, providerTombstone.id, {}, {
+    executeProductivityOperation: async () => ({ result: { data: { files: [{ id: 'drive-deleted', name: 'Removed.txt', trashed: true, modifiedTime: tombstoneTime }] } } }),
+  });
+  assert.equal(tombstoneResult.emitted, 1, 'provider tombstones emit deletion immediately');
+
+  const missingBinding = events.createEventSubscription(owner, {
+    name: 'Drive binding required', provider: 'google_workspace', event_type: 'file.created', target_type: 'inbox',
+    listener_enabled: true, listener_poll_seconds: 60,
+  }).subscription;
+  await assert.rejects(
+    () => listeners.pollProductivitySubscription(owner, missingBinding.id, {}, {
+      executeProductivityOperation: async () => { throw Object.assign(new Error('No enabled binding for file_search on google_workspace'), { code: 'PRODUCTIVITY_BINDING_REQUIRED' }); },
+    }),
+    (error) => error.code === 'LISTENER_BINDING_REQUIRED' && /file_search capability binding/.test(error.message)
+  );
+
+  events.upsertProductivityBinding(owner, {
+    operation: 'file_search', provider: 'google_workspace', app_id: 'google_drive', action_id: 'google_drive.list_files', enabled: true,
+  });
+  let boundFiles = [{ id: 'bound-existing', name: 'Baseline.pdf', createdTime: oldFileTime, modifiedTime: oldFileTime, mimeType: 'application/pdf' }];
+  const boundActions = [];
+  const boundDeps = { productivityDeps: { executeAction: async (_owner, action, input) => {
+    boundActions.push({ action, input });
+    return { data: { files: boundFiles } };
+  } } };
+  const boundBaseline = await listeners.pollProductivitySubscription(owner, missingBinding.id, {}, boundDeps);
+  assert.equal(boundBaseline.emitted, 0);
+  const boundNewTime = new Date().toISOString();
+  boundFiles = [...boundFiles, { id: 'bound-new', name: 'Uploaded.pdf', createdTime: boundNewTime, modifiedTime: boundNewTime, mimeType: 'application/pdf' }];
+  const boundCreate = await listeners.pollProductivitySubscription(owner, missingBinding.id, {}, boundDeps);
+  assert.equal(boundCreate.emitted, 1);
+  assert.deepEqual(boundActions.map((row) => row.action), ['google_drive.list_files', 'google_drive.list_files']);
+  assert.equal(events.listProductivityEvents(owner, { subscription_id: missingBinding.id })[0].event_type, 'file.created');
+  assert.equal(events.listProductivityReceipts(owner).filter((row) => row.operation === 'file_search' && row.status === 'completed').length, 2);
+
   const active = events.listEventSubscriptions(owner).find((row) => row.id === calendar.id);
   assert.equal(active.listener_status, 'active');
   assert.equal(active.listener_active, true);
@@ -92,11 +188,12 @@ try {
   handle.prepare(`UPDATE productivity_events SET received_at='2020-01-01',processed_at='2020-01-01' WHERE owner_user_id=?`).run(owner);
   const purged = await purgeOwnerRetention(owner);
   assert.equal(purged.retention_days, 90);
-  assert.equal(purged.deleted.productivity_events, 3);
+  assert.equal(purged.deleted.productivity_events, 8);
   assert.equal(events.listProductivityEvents(owner).length, 0);
 
   console.log(JSON.stringify({ ok: true, checks: [
     'shared-listener-email', 'gmail-and-microsoft-inbox-adapters', 'provider-id-deduplication', 'gmail-recoverable-trash', 'calendar-change-detection',
+    'google-drive-file-created', 'microsoft-file-changed', 'incomplete-snapshot-safety', 'two-snapshot-file-deletion', 'provider-file-tombstone', 'file-binding-required', 'file-listener-owner-binding-execution',
     'listener-active-status', 'listener-disable', 'subscription-history-filter', 'ceo-profile-retention',
   ] }, null, 2));
 } finally {

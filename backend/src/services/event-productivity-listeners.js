@@ -3,6 +3,7 @@ import { getDb } from '../db/schema.js';
 import { executeConnectorAction } from './openconnector.js';
 import {
   ensureEventProductivitySchema,
+  executeProductivityOperation,
   ingestTrustedProductivityEvent,
 } from './event-productivity.js';
 
@@ -13,6 +14,13 @@ const CALENDAR_EVENTS = new Set([
   'calendar.event.changed',
   'calendar.event.cancelled',
 ]);
+const FILE_EVENTS = new Set([
+  'file.created',
+  'file.changed',
+  'file.deleted',
+]);
+const FILE_SNAPSHOT_LIMIT = 250;
+const FILE_CURSOR_LIMIT = 5_000;
 
 function db() { return getDb(); }
 function now() { return new Date().toISOString(); }
@@ -30,7 +38,7 @@ function unwrap(value) {
   let current = value?.data ?? value;
   for (let i = 0; i < 6; i += 1) {
     if (Array.isArray(current)) return current;
-    for (const key of ['messages', 'events', 'items', 'value', 'results']) {
+    for (const key of ['messages', 'events', 'files', 'documents', 'entries', 'children', 'items', 'value', 'results']) {
       if (Array.isArray(current?.[key])) return current[key];
     }
     if (current?.data && typeof current.data === 'object') current = current.data;
@@ -78,6 +86,44 @@ function normalizeCalendar(row = {}) {
     location: row.location || null,
   };
   return { ...payload, fingerprint: hash(JSON.stringify(payload)) };
+}
+function normalizeFile(row = {}) {
+  const id = text(row.id || row.fileId || row.file_id || row.itemId || row.item_id || row.driveItemId, 500);
+  const status = text(row.status || row.state || '', 80).toLowerCase();
+  const deleted = Boolean(
+    row.deleted || row.isDeleted || row.is_deleted || row.trashed || row.removed || /deleted|trashed|removed/.test(status)
+  );
+  const createdRaw = row.createdDateTime || row.createdTime || row.created_at || row.created || row.creationTime || '';
+  const updatedRaw = row.lastModifiedDateTime || row.modifiedTime || row.updated_at || row.updated || row.modified || createdRaw;
+  const createdAt = timestamp(createdRaw, '1970-01-01T00:00:00.000Z');
+  const updatedAt = timestamp(updatedRaw, createdAt);
+  const parent = row.parentReference || row.parents || row.parent || null;
+  const payload = {
+    provider_file_id: id,
+    name: text(row.name || row.fileName || row.filename || row.title || '(unnamed file)', 1_000),
+    status,
+    deleted,
+    created_at: createdAt,
+    updated_at: updatedAt,
+    mime_type: text(row.mimeType || row.mime_type || row.file?.mimeType || row.file?.mime_type, 250),
+    size: Number(row.size || row.fileSize || row.file_size) || 0,
+    is_folder: Boolean(row.folder || row.isFolder || row.is_folder),
+    parent,
+    web_url: text(row.webUrl || row.web_url || row.url || row.webViewLink, 2_000),
+    etag: text(row.eTag || row.etag || row.cTag || row.md5Checksum || row.checksum, 500),
+  };
+  return { ...payload, fingerprint: hash(JSON.stringify(payload)) };
+}
+function hasNextPage(value, depth = 0) {
+  if (!value || typeof value !== 'object' || depth > 6) return false;
+  if (
+    value.nextPageToken || value.next_page_token || value.nextLink || value.next_link || value['@odata.nextLink'] ||
+    value.hasMore === true || value.has_more === true
+  ) return true;
+  for (const key of ['data', 'result', 'response']) {
+    if (value[key] && hasNextPage(value[key], depth + 1)) return true;
+  }
+  return false;
 }
 function nextPollAt(seconds) { return new Date(Date.now() + Math.max(60, Number(seconds) || 300) * 1000).toISOString(); }
 
@@ -131,6 +177,31 @@ async function fetchCalendar(sub, cursor, execute) {
           ? 'Connect an Outlook Calendar provider that exposes outlook_calendar.list_events before enabling this listener.'
           : 'Connect Google Calendar before enabling this listener.',
         'LISTENER_CONNECTOR_REQUIRED'
+      );
+    }
+    throw error;
+  }
+}
+
+async function fetchFiles(sub, cursor, deps) {
+  const executeOperation = deps.executeProductivityOperation || executeProductivityOperation;
+  try {
+    const response = await executeOperation(sub.owner_user_id, 'file_search', {
+      provider: sub.provider,
+      input: {},
+      idempotency_key: `file-listener:${sub.id}:${now()}`,
+    }, deps.productivityDeps || {});
+    const rows = unwrap(response).map(normalizeFile).filter((row) => row.provider_file_id);
+    return {
+      rows,
+      complete_snapshot: !hasNextPage(response) && rows.length < FILE_SNAPSHOT_LIMIT,
+      checked_at: now(),
+    };
+  } catch (error) {
+    if (error?.code === 'PRODUCTIVITY_BINDING_REQUIRED' || /no enabled binding/i.test(String(error?.message || error))) {
+      throw listenerError(
+        `Configure an enabled file_search capability binding for ${sub.provider} before enabling this file listener.`,
+        'LISTENER_BINDING_REQUIRED'
       );
     }
     throw error;
@@ -206,6 +277,106 @@ async function ingestCalendarRows(sub, cursor, rows, deps) {
   return { result, cursor: { ...cursor, objects: bounded, last_checked_at: now() } };
 }
 
+async function ingestFileRows(sub, cursor, fetched, deps) {
+  const ingest = deps.ingestEvent || ingestTrustedProductivityEvent;
+  const prior = cursor.objects && typeof cursor.objects === 'object' ? cursor.objects : {};
+  const current = {};
+  const missingCounts = cursor.missing_counts && typeof cursor.missing_counts === 'object' ? cursor.missing_counts : {};
+  const deletedIds = new Set(Array.isArray(cursor.deleted_ids) ? cursor.deleted_ids : []);
+  const enabledAt = Date.parse(cursor.enabled_at || sub.updated_at || now());
+  const initialized = cursor.files_initialized === true;
+  const result = {
+    fetched: fetched.rows.length,
+    emitted: 0,
+    duplicates: 0,
+    snapshot_complete: fetched.complete_snapshot,
+    pending_deletions: 0,
+  };
+
+  const emit = async (item, detected, occurredAt, payload = item) => {
+    if (detected !== sub.event_type) return;
+    const event = await ingest(sub.owner_user_id, sub.id, {
+      provider_event_id: `${item.provider_file_id}:${detected}:${item.fingerprint}`,
+      event_type: detected,
+      subject_type: 'file',
+      subject_id: item.provider_file_id,
+      correlation_key: item.provider_file_id,
+      occurred_at: occurredAt,
+      payload: { ...payload, fingerprint: undefined },
+    }, deps.eventDeps || {});
+    if (event.duplicate) result.duplicates += 1;
+    else result.emitted += 1;
+  };
+
+  for (const item of fetched.rows) {
+    const before = prior[item.provider_file_id];
+    if (item.deleted) {
+      await emit(item, 'file.deleted', item.updated_at || fetched.checked_at);
+      deletedIds.add(item.provider_file_id);
+      delete missingCounts[item.provider_file_id];
+      continue;
+    }
+    deletedIds.delete(item.provider_file_id);
+    delete missingCounts[item.provider_file_id];
+    current[item.provider_file_id] = {
+      fingerprint: item.fingerprint,
+      created_at: item.created_at,
+      updated_at: item.updated_at,
+      name: item.name,
+      mime_type: item.mime_type,
+      web_url: item.web_url,
+    };
+    let detected = null;
+    if (!before && (initialized || Date.parse(item.created_at) >= enabledAt)) detected = 'file.created';
+    else if (before && before.fingerprint !== item.fingerprint) detected = 'file.changed';
+    if (detected) await emit(item, detected, item.updated_at || fetched.checked_at);
+  }
+
+  const nextObjects = fetched.complete_snapshot ? { ...current } : { ...prior, ...current };
+  if (fetched.complete_snapshot) {
+    for (const [id, before] of Object.entries(prior)) {
+      if (current[id] || deletedIds.has(id)) continue;
+      const misses = Number(missingCounts[id] || 0) + 1;
+      missingCounts[id] = misses;
+      if (misses < 2) {
+        nextObjects[id] = before;
+        result.pending_deletions += 1;
+        continue;
+      }
+      const tombstone = {
+        provider_file_id: id,
+        name: before.name || '(deleted file)',
+        status: 'deleted',
+        deleted: true,
+        created_at: before.created_at || '1970-01-01T00:00:00.000Z',
+        updated_at: fetched.checked_at,
+        mime_type: before.mime_type || '',
+        web_url: before.web_url || '',
+        fingerprint: hash(JSON.stringify([id, before.fingerprint, 'missing-confirmed'])),
+        deletion_detection: 'missing_from_two_complete_snapshots',
+      };
+      await emit(tombstone, 'file.deleted', fetched.checked_at, tombstone);
+      deletedIds.add(id);
+      delete missingCounts[id];
+      delete nextObjects[id];
+    }
+  }
+
+  const bounded = Object.fromEntries(Object.entries(nextObjects).slice(-FILE_CURSOR_LIMIT));
+  const boundedMissing = Object.fromEntries(Object.entries(missingCounts).slice(-FILE_CURSOR_LIMIT));
+  return {
+    result,
+    cursor: {
+      ...cursor,
+      files_initialized: true,
+      objects: bounded,
+      missing_counts: boundedMissing,
+      deleted_ids: [...deletedIds].slice(-FILE_CURSOR_LIMIT),
+      last_checked_at: fetched.checked_at,
+    },
+  };
+}
+
 export async function pollProductivitySubscription(ownerUserId, subscriptionId, options = {}, deps = {}) {
   const owner = text(ownerUserId, 200);
   const id = text(subscriptionId, 200);
@@ -223,6 +394,8 @@ export async function pollProductivitySubscription(ownerUserId, subscriptionId, 
       ? await ingestEmailRows(sub, cursor, await fetchEmail(sub, cursor, execute), deps)
       : CALENDAR_EVENTS.has(sub.event_type)
         ? await ingestCalendarRows(sub, cursor, await fetchCalendar(sub, cursor, execute), deps)
+        : FILE_EVENTS.has(sub.event_type)
+          ? await ingestFileRows(sub, cursor, await fetchFiles(sub, cursor, deps), deps)
         : (() => { throw listenerError(`No active listener adapter is available for ${sub.event_type}`); })();
     const duplicateCount = Number(sub.listener_duplicate_count || 0) + Number(processed.result.duplicates || 0);
     const successAt = now();

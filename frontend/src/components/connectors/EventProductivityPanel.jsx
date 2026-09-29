@@ -40,6 +40,9 @@ export default function EventProductivityPanel() {
     .filter(([name, spec]) => name !== 'productivity_capabilities' && (spec.providers || []).includes(binding.provider))
     .map(([name]) => name), [operationCatalog, binding.provider]);
   const connectedApps = data.summary?.connected_apps || [];
+  const isFileEvent = sub.event_type.startsWith('file.');
+  const fileBindingReady = data.bindings.some((row) => row.operation === 'file_search' && row.provider === sub.provider && row.enabled !== false);
+  const fileListenerBlocked = isFileEvent && sub.listener_enabled && !fileBindingReady;
   const compatibleApps = useMemo(() => {
     const providerApps = new Set(providers[binding.provider]?.apps || []);
     const operationApps = new Set(operationCatalog[binding.operation]?.apps || []);
@@ -192,7 +195,12 @@ export default function EventProductivityPanel() {
           {sub.target_type !== 'inbox' && <input style={input} placeholder={sub.target_type === 'workflow' ? 'Workflow ID' : 'Agent ID (default balserve)'} value={sub.target_id} onChange={(e) => setSub({ ...sub, target_id: e.target.value })} />}
           {sub.target_type === 'goal' && <input style={input} placeholder="Goal prompt; supports {{event_id}}" value={sub.goal_prompt_template} onChange={(e) => setSub({ ...sub, goal_prompt_template: e.target.value })} />}
         </div>
-        <button className="wf-btn-primary" disabled={busy || !sub.name.trim() || !sub.event_type} onClick={() => act(() => api.eventProductivitySubscriptionCreate(sub), 'Subscription created.') } style={{ marginTop: 10 }}>Create subscription</button>
+        {isFileEvent && <div style={{ marginTop: 10, padding: '9px 11px', borderRadius: 8, border: `1px solid ${fileBindingReady ? '#86efac' : '#fbbf24'}`, background: fileBindingReady ? '#f0fdf4' : '#fffbeb', color: fileBindingReady ? '#166534' : '#92400e', fontSize: '.82rem' }}>
+          {fileBindingReady
+            ? `File listener ready: the enabled file_search binding for ${sub.provider} will provide the provider snapshot.`
+            : `Before enabling this file listener, create an enabled file_search capability binding for ${sub.provider} below. You can still create a listener-disabled subscription for webhook delivery.`}
+        </div>}
+        <button className="wf-btn-primary" disabled={busy || !sub.name.trim() || !sub.event_type || fileListenerBlocked} onClick={() => act(() => api.eventProductivitySubscriptionCreate(sub), 'Subscription created.') } style={{ marginTop: 10 }}>Create subscription</button>
         {data.subscriptions.map((row) => {
           const status = listenerStatus(row);
           return <div key={row.id} style={{ borderTop: '1px solid var(--border)', marginTop: 10, paddingTop: 10 }}>
@@ -218,7 +226,7 @@ export default function EventProductivityPanel() {
           <div style={{ display: 'grid', gap: 10 }}>
             {history.events.map((event) => {
               const payload = event.payload || {};
-              const heading = payload.subject || payload.title || '(No subject or title)';
+              const heading = payload.subject || payload.title || payload.name || '(No subject, title, or file name)';
               const sender = payload.sender || payload.organizer?.emailAddress?.address || payload.organizer?.email || payload.organizer?.displayName || '';
               const preview = String(payload.body_text || payload.bodyPreview || payload.snippet || '').replace(/\s+/g, ' ').trim().slice(0, 320);
               const objectId = event.subject_id || event.provider_event_id || '—';
@@ -233,6 +241,7 @@ export default function EventProductivityPanel() {
                 <div style={{ marginTop: 7, color: 'var(--muted)', fontSize: '.8rem', lineHeight: 1.45 }}>
                   <div>{formatLocalDateTime(event.received_at)}{sender ? ` · From ${sender}` : ''}</div>
                   {(payload.start || payload.end) && <div>{payload.start?.dateTime || payload.start || '—'} → {payload.end?.dateTime || payload.end || '—'}</div>}
+                  {payload.mime_type && <div>{payload.mime_type}{payload.size ? ` · ${Number(payload.size).toLocaleString()} bytes` : ''}</div>}
                   <div style={{ marginTop: 3 }}>Object <code style={{ whiteSpace: 'normal', overflowWrap: 'anywhere', color: 'var(--text)' }}>{objectId}</code></div>
                 </div>
                 {preview && <p style={{ margin: '9px 0 0', padding: '8px 10px', borderRadius: 8, background: 'var(--surface)', color: 'var(--text)', lineHeight: 1.45, overflowWrap: 'anywhere' }}>{preview}{String(payload.body_text || payload.bodyPreview || payload.snippet || '').length > 320 ? '…' : ''}</p>}
