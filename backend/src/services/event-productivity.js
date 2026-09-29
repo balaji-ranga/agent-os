@@ -6,6 +6,7 @@ import { triggerWorkflowFromHook } from './agent-workflow-webhooks.js';
 import { createAndStartGoalRun } from './agent-goal-run.js';
 
 const CALENDAR_APPS = ['google_calendar', 'outlook_calendar'];
+const EMAIL_APPS = ['gmail', 'outlook'];
 const FILE_APPS = ['google_drive', 'onedrive', 'sharepoint'];
 const DOCUMENT_APPS = ['google_docs', 'google_drive', 'word', 'onedrive', 'sharepoint'];
 const SPREADSHEET_APPS = ['google_sheets', 'google_drive', 'excel', 'onedrive', 'sharepoint'];
@@ -13,6 +14,7 @@ const MESSAGE_APPS = ['slack', 'microsoft_teams'];
 
 export const PRODUCTIVITY_OPERATIONS = Object.freeze({
   productivity_capabilities: { family: 'read', tier: 'R0', providers: ['google_workspace', 'microsoft_365', 'slack', 'microsoft_teams'], apps: [] },
+  email_list_messages: { family: 'read', tier: 'R0', providers: ['google_workspace', 'microsoft_365'], apps: EMAIL_APPS },
   calendar_list_events: { family: 'read', tier: 'R0', providers: ['google_workspace', 'microsoft_365'], apps: CALENDAR_APPS },
   calendar_find_slots: { family: 'read', tier: 'R0', providers: ['google_workspace', 'microsoft_365'], apps: CALENDAR_APPS },
   calendar_create_event: { family: 'communicate_external', tier: 'R2', providers: ['google_workspace', 'microsoft_365'], apps: CALENDAR_APPS },

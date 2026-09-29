@@ -92,6 +92,8 @@ try {
   assert.equal(svc.getProductivityEvent(ownerA, failed.id).status, 'dead_letter', 'bounded retries terminate');
 
   const bind = svc.upsertProductivityBinding(ownerA, { operation: 'calendar_list_events', provider: 'google_workspace', app_id: 'google_calendar', action_id: 'google_calendar.list_events' });
+  const emailBind = svc.upsertProductivityBinding(ownerA, { operation: 'email_list_messages', provider: 'google_workspace', app_id: 'gmail', action_id: 'gmail.fetch_emails' });
+  assert.equal(emailBind.action_id, 'gmail.fetch_emails');
   assert.throws(() => svc.upsertProductivityBinding(ownerA, { operation: 'calendar_list_events', provider: 'microsoft_365', app_id: 'outlook', action_id: 'outlook.list_messages' }), /does not support calendar_list_events/);
   assert.throws(() => svc.upsertProductivityBinding(ownerA, { operation: 'calendar_list_events', provider: 'google_workspace', app_id: 'google_calendar', action_id: 'outlook.list_messages' }), /belong to the selected app/);
   handle.prepare(`INSERT INTO productivity_action_bindings
@@ -128,7 +130,7 @@ try {
   assert.ok(purged.deleted.productivity_events >= 1);
   assert.ok(purged.deleted.productivity_action_receipts >= 1);
 
-  console.log(JSON.stringify({ ok: true, checks: ['provider-event-catalog', 'provider-event-validation', 'owner-isolation', 'trusted-ingestion-owner-check', 'secret-auth', 'payload-redaction', 'structured-filter', 'event-idempotency', 'workflow-target-validation', 'workflow-dispatch', 'goal-agent-entitlement', 'nested-event-template', 'goal-dispatch', 'retry-dead-letter', 'binding-isolation', 'operation-app-compatibility', 'legacy-binding-fail-closed', 'action-idempotency', 'risk-contract', 'action-policy-approval', 'action-policy-override', 'retention'], binding_id: bind.id }, null, 2));
+  console.log(JSON.stringify({ ok: true, checks: ['provider-event-catalog', 'provider-event-validation', 'owner-isolation', 'trusted-ingestion-owner-check', 'secret-auth', 'payload-redaction', 'structured-filter', 'event-idempotency', 'workflow-target-validation', 'workflow-dispatch', 'goal-agent-entitlement', 'nested-event-template', 'goal-dispatch', 'retry-dead-letter', 'binding-isolation', 'email-read-binding', 'operation-app-compatibility', 'legacy-binding-fail-closed', 'action-idempotency', 'risk-contract', 'action-policy-approval', 'action-policy-override', 'retention'], binding_id: bind.id }, null, 2));
 } finally {
   try { handle?.close(); } catch {}
   rmSync(root, { recursive: true, force: true });
