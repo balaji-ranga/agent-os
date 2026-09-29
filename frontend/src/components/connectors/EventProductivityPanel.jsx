@@ -5,6 +5,7 @@ import { formatLocalDateTime } from '../../utils/formatDateTime.js';
 const box = { border: '1px solid var(--border)', borderRadius: 8, padding: '1rem', marginTop: '1rem' };
 const grid = { display: 'grid', gap: 8, gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))' };
 const input = { width: '100%', boxSizing: 'border-box' };
+const initialSubscription = { name: '', provider: 'google_workspace', event_type: 'calendar.event.changed', target_type: 'inbox', target_id: '', goal_prompt_template: '', source_url: '', listener_enabled: false, listener_poll_seconds: 300, dedupe_mode: 'provider_object_id', source_disposition: 'retain' };
 
 export default function EventProductivityPanel() {
   const [data, setData] = useState({ summary: null, subscriptions: [], events: [], bindings: [], receipts: [], agents: [], workflows: [] });
@@ -16,7 +17,9 @@ export default function EventProductivityPanel() {
   const [connectorActions, setConnectorActions] = useState([]);
   const [actionsBusy, setActionsBusy] = useState(false);
   const [actionsError, setActionsError] = useState('');
-  const [sub, setSub] = useState({ name: '', provider: 'google_workspace', event_type: 'calendar.event.changed', target_type: 'inbox', target_id: '', goal_prompt_template: '', source_url: '', listener_enabled: false, listener_poll_seconds: 300, dedupe_mode: 'provider_object_id', source_disposition: 'retain' });
+  const [sub, setSub] = useState(initialSubscription);
+  const [editingSubscriptionId, setEditingSubscriptionId] = useState('');
+  const [editingSourceUrlConfigured, setEditingSourceUrlConfigured] = useState(false);
   const [history, setHistory] = useState(null);
   const [historyBusy, setHistoryBusy] = useState(false);
   const [binding, setBinding] = useState({ operation: 'calendar_list_events', provider: 'google_workspace', app_id: '', action_id: '', connection_name: '', verify_action_id: '' });
@@ -61,7 +64,7 @@ export default function EventProductivityPanel() {
   const isFileEvent = sub.event_type.startsWith('file.');
   const fileBindingReady = data.bindings.some((row) => row.operation === 'file_search' && row.provider === sub.provider && row.enabled !== false);
   const fileListenerBlocked = isFileEvent && sub.listener_enabled && !fileBindingReady;
-  const calendarUrlMissing = sub.provider === 'calendar_url' && !sub.source_url.trim();
+  const calendarUrlMissing = sub.provider === 'calendar_url' && !sub.source_url.trim() && !(editingSubscriptionId && editingSourceUrlConfigured);
   const bindingProviders = useMemo(() => Object.entries(providers).filter(([, provider]) => (provider.apps || []).length), [providers]);
   const compatibleApps = useMemo(() => {
     const providerApps = new Set(providers[binding.provider]?.apps || []);
@@ -147,6 +150,42 @@ export default function EventProductivityPanel() {
     setSub((current) => ({ ...current, target_type: targetType, target_id: targetId }));
   }
 
+  function editSubscription(row) {
+    setEditingSubscriptionId(row.id);
+    setEditingSourceUrlConfigured(!!row.source_url_configured);
+    setSub({
+      name: row.name || '',
+      provider: row.provider || 'google_workspace',
+      event_type: row.event_type || '',
+      target_type: row.target_type || 'inbox',
+      target_id: row.target_id || '',
+      goal_prompt_template: row.goal_prompt_template || '',
+      source_url: '',
+      listener_enabled: !!row.listener_enabled,
+      listener_poll_seconds: Number(row.listener_poll_seconds) || 300,
+      dedupe_mode: row.dedupe_mode || 'provider_object_id',
+      source_disposition: row.source_disposition || 'retain',
+    });
+    document.getElementById('event-subscription-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function cancelSubscriptionEdit() {
+    setEditingSubscriptionId('');
+    setEditingSourceUrlConfigured(false);
+    setSub(initialSubscription);
+  }
+
+  async function saveSubscription() {
+    const payload = { ...sub };
+    if (editingSubscriptionId && sub.provider === 'calendar_url' && !sub.source_url.trim()) delete payload.source_url;
+    const result = await act(
+      () => editingSubscriptionId ? api.eventProductivitySubscriptionUpdate(editingSubscriptionId, payload) : api.eventProductivitySubscriptionCreate(payload),
+      editingSubscriptionId ? 'Subscription updated successfully.' : 'Subscription created.',
+      editingSubscriptionId ? 'Saving subscription changes…' : 'Creating subscription…'
+    );
+    if (result && editingSubscriptionId) cancelSubscriptionEdit();
+  }
+
   async function showHistory(row) {
     setHistoryBusy(true); setError('');
     setActionNotice({ tone: 'progress', text: `Loading event history for ${row.name}…` });
@@ -205,8 +244,8 @@ export default function EventProductivityPanel() {
         <button className="wf-btn" disabled={busy} onClick={refresh} style={{ marginTop: 12 }}>Refresh</button>
       </section>
 
-      <section style={box}>
-        <h2 style={{ marginTop: 0, fontSize: '1.05rem' }}>Event subscription</h2>
+      <section id="event-subscription-editor" style={box}>
+        <h2 style={{ marginTop: 0, fontSize: '1.05rem' }}>{editingSubscriptionId ? 'Edit event subscription' : 'Event subscription'}</h2>
         <div style={grid}>
           <input style={input} placeholder="Subscription name" value={sub.name} onChange={(e) => setSub({ ...sub, name: e.target.value })} />
           <select aria-label="Event provider" value={sub.provider} onChange={(e) => selectProvider(e.target.value)}>{Object.entries(providers).map(([id, p]) => <option key={id} value={id}>{p.label}</option>)}</select>
@@ -215,7 +254,7 @@ export default function EventProductivityPanel() {
             {providerEventTypes.map((event) => <option key={event.id} value={event.id}>{event.label} ({event.id})</option>)}
           </select>
           {sub.provider === 'calendar_url' && <label style={{ gridColumn: '1 / -1' }}>Published calendar ICS URL
-            <input style={input} type="url" autoComplete="off" placeholder="https://…/calendar.ics or webcal://…" value={sub.source_url} onChange={(e) => setSub({ ...sub, source_url: e.target.value })} />
+            <input style={input} type="url" autoComplete="off" placeholder={editingSubscriptionId && editingSourceUrlConfigured ? 'Leave blank to keep the saved ICS URL' : 'https://…/calendar.ics or webcal://…'} value={sub.source_url} onChange={(e) => setSub({ ...sub, source_url: e.target.value })} />
           </label>}
           <select aria-label="Event destination" value={sub.target_type} onChange={(e) => selectTargetType(e.target.value)}><option value="inbox">Inbox only</option><option value="workflow">Run workflow</option><option value="goal">Create goal for agent</option></select>
           <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}><input type="checkbox" checked={sub.listener_enabled} onChange={(e) => setSub({ ...sub, listener_enabled: e.target.checked })} /> Enable provider listener</label>
@@ -251,7 +290,8 @@ export default function EventProductivityPanel() {
             ? `File listener ready: the enabled file_search binding for ${sub.provider} will provide the provider snapshot.`
             : `Before enabling this file listener, create an enabled file_search capability binding for ${sub.provider} below. You can still create a listener-disabled subscription for webhook delivery.`}
         </div>}
-        <button className="wf-btn-primary" disabled={busy || !sub.name.trim() || !sub.event_type || fileListenerBlocked || calendarUrlMissing || (sub.target_type !== 'inbox' && !sub.target_id)} onClick={() => act(() => api.eventProductivitySubscriptionCreate(sub), 'Subscription created.') } style={{ marginTop: 10 }}>Create subscription</button>
+        <button className="wf-btn-primary" disabled={busy || !sub.name.trim() || !sub.event_type || fileListenerBlocked || calendarUrlMissing || (sub.target_type !== 'inbox' && !sub.target_id)} onClick={saveSubscription} style={{ marginTop: 10 }}>{editingSubscriptionId ? 'Save changes' : 'Create subscription'}</button>
+        {editingSubscriptionId && <button className="wf-btn" disabled={busy} onClick={cancelSubscriptionEdit} style={{ marginTop: 10, marginLeft: 8 }}>Cancel</button>}
         {data.subscriptions.map((row) => {
           const status = listenerStatus(row);
           return <div key={row.id} style={{ borderTop: '1px solid var(--border)', marginTop: 10, paddingTop: 10 }}>
@@ -264,6 +304,7 @@ export default function EventProductivityPanel() {
             <button className="wf-btn" disabled={busy} onClick={() => act(() => api.eventProductivitySubscriptionUpdate(row.id, { listener_enabled: !row.listener_enabled }), row.listener_enabled ? 'Listener disabled successfully.' : 'Listener enabled successfully.', row.listener_enabled ? 'Disabling listener…' : 'Enabling listener…')} style={{ marginRight: 6 }}>{row.listener_enabled ? 'Disable listener' : 'Enable listener'}</button>
             <button className="wf-btn" disabled={busy || !row.listener_enabled} onClick={() => act(() => api.eventProductivityListenerCheck(row.id), 'Listener check completed successfully.', 'Checking the provider for new events…')} style={{ marginRight: 6 }}>Check now</button>
             <button className="wf-btn" disabled={busy || historyBusy} onClick={() => showHistory(row)} style={{ marginRight: 6 }}>History</button>
+            <button className="wf-btn" disabled={busy} onClick={() => editSubscription(row)} style={{ marginRight: 6 }}>Edit</button>
             <button className="wf-btn" disabled={busy} onClick={() => act(() => api.eventProductivitySecretRotate(row.id), 'Webhook secret rotated successfully. Copy the new secret from the highlighted panel.', 'Rotating webhook secret…')} style={{ marginRight: 6 }}>Rotate secret</button>
             <button className="wf-btn" disabled={busy} onClick={() => window.confirm('Delete this subscription?') && act(() => api.eventProductivitySubscriptionDelete(row.id), 'Subscription deleted successfully.', 'Deleting subscription…')}>Delete</button>
           </div>;
