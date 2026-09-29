@@ -22,17 +22,25 @@ function secretsMatch(provided, expected) {
 }
 
 export function verifyHookSecret(definitionId, providedSecret) {
+  const context = resolveEventHookOwner(definitionId);
+  if (!context.ok) return context;
+  const row = context.row;
+  if (!row.webhook_secret) return { ok: false, error: 'Webhook secret not configured — re-save triggers with event mode enabled' };
+  if (!secretsMatch(providedSecret, row.webhook_secret)) {
+    return { ok: false, error: 'Invalid hook secret' };
+  }
+  return { ok: true, ownerUserId: row.owner_user_id };
+}
+
+/** Resolve the authoritative owner for an existing, event-enabled workflow. */
+export function resolveEventHookOwner(definitionId) {
   const row = db().prepare('SELECT webhook_secret, trigger_modes, owner_user_id FROM agent_workflow_definitions WHERE id = ?').get(definitionId);
   if (!row) return { ok: false, error: 'Workflow not found' };
   const modes = String(row.trigger_modes || '')
     .split(',')
     .map((s) => s.trim());
   if (!modes.includes('event')) return { ok: false, error: 'Event trigger is disabled for this workflow' };
-  if (!row.webhook_secret) return { ok: false, error: 'Webhook secret not configured — re-save triggers with event mode enabled' };
-  if (!secretsMatch(providedSecret, row.webhook_secret)) {
-    return { ok: false, error: 'Invalid hook secret' };
-  }
-  return { ok: true, ownerUserId: row.owner_user_id };
+  return { ok: true, ownerUserId: row.owner_user_id, row };
 }
 
 export async function triggerWorkflowFromHook(definitionId, payload = {}, { actor = null } = {}) {
@@ -145,4 +153,13 @@ export function normalizeEmailInboundPayload(body = {}, headers = {}) {
     raw: b,
     received_at: new Date().toISOString(),
   };
+}
+
+/** Extract a normalized address from provider mailbox forms such as `Name <a@b.com>`. */
+export function extractMailboxEmail(value) {
+  const raw = String(Array.isArray(value) ? value[0] || '' : value || '').trim();
+  if (!raw) return '';
+  const angle = raw.match(/<\s*([^<>\s]+@[^<>\s]+)\s*>/);
+  const plain = raw.match(/(?:^|[\s,;])([^\s,;<>]+@[^\s,;<>]+)(?:$|[\s,;])/);
+  return String(angle?.[1] || plain?.[1] || raw).trim().toLowerCase();
 }

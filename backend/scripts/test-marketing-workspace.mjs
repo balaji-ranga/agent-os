@@ -22,8 +22,12 @@ try {
   const { getHireableRoleTemplate } = await import('../src/services/hireable-role-templates.js');
   const { seedMarketingWorkspaceToolsIfMissing } = await import('../src/db/seed-marketing-workspace-tools.js');
   const { resolveMarketingCampaignRecipient, resolveMarketingTransportAgentId } = await import('../src/routes/marketing-tools.js');
+  const { extractMailboxEmail } = await import('../src/services/agent-workflow-webhooks.js');
   handle = initDb();
   seedMarketingWorkspaceToolsIfMissing();
+
+  assert.equal(extractMailboxEmail('Interested Prospect <Reply.Prospect@Example.Invalid>'), 'reply.prospect@example.invalid');
+  assert.equal(extractMailboxEmail('reply.prospect@example.invalid'), 'reply.prospect@example.invalid');
 
   assert.equal(resolveMarketingTransportAgentId({
     ownerUserId: 'marketing-owner-a',
@@ -134,6 +138,18 @@ try {
   assert.equal(svc.correlateMarketingInbound(ownerB, { channel: 'whatsapp', sender_id: '+6590057664', content: 'INTERESTED', message_id: 'wa-inbound-1', observed_at: '2026-09-28T14:21:33.000Z' }).idempotent, true, 'gateway retries do not duplicate inbound evidence');
   assert.equal(svc.getMarketingWorkspace(ownerB).records.engagements.filter((row) => row.event_id === inbound.engagement.event_id).length, 1);
   assert.equal(svc.correlateMarketingInbound(ownerB, { channel: 'whatsapp', sender_id: '+6599998888', content: 'INTERESTED', message_id: 'wa-inbound-unmatched', observed_at: '2026-09-28T14:22:00.000Z' }).reason, 'sender_not_in_distribution_lists', 'unknown senders are not assigned to a campaign');
+
+  svc.upsertMarketingRecord(ownerB, 'distributionLists', { list_id: 'email-replies', name: 'Email campaign replies', default_channel: 'email' });
+  svc.upsertMarketingRecord(ownerB, 'distributionMembers', { member_id: 'email-reply-member', list_id: 'email-replies', display_label: 'Interested email prospect', channel: 'email', destination: 'reply.prospect@example.invalid', consent_status: 'granted', consent_source: 'Owner-provided campaign contact' });
+  svc.upsertMarketingRecord(ownerB, 'campaigns', { campaign_id: 'email-agentic-campaign', name: 'Email agentic campaign', goal: 'Generate qualified email leads', status: 'active', channels: ['email'], audience_list_ids: ['email-replies'], content_topics: ['AI operations'], owner_agent: 'marketing-specialist-test' });
+  svc.upsertMarketingRecord(ownerB, 'assets', { asset_id: 'email-agentic-asset', campaign_id: 'email-agentic-campaign', name: 'Email reply campaign', channel: 'email', content: 'Reply INTERESTED to learn more', variables: { response_keywords: ['interested'] }, approval_status: 'approved' });
+  const emailReplyHash = createHash('sha256').update(`${ownerB}:reply.prospect@example.invalid`).digest('hex');
+  svc.recordMarketingOutcome(ownerB, { campaign_id: 'email-agentic-campaign', asset_id: 'email-agentic-asset', channel: 'email', outcome_type: 'send_accepted', audience_hash: emailReplyHash, recipient_label: 'Interested email prospect', provider_reference: 'email-send-1', observed_at: '2026-09-28T15:00:00.000Z' });
+  const emailInbound = svc.correlateMarketingInbound(ownerB, { channel: 'email', sender_id: 'reply.prospect@example.invalid', content: 'INTERESTED — please send me details.', message_id: 'email-reply-provider-1', observed_at: '2026-09-28T15:10:00.000Z' });
+  assert.equal(emailInbound.matched, true, 'an inbound email reply is attributed to the most recent send for the same address');
+  assert.equal(emailInbound.classification.intent, 'positive_interest');
+  assert.equal(emailInbound.lead.status, 'qualified', 'a consented email reply prepares a qualified Marketing lead');
+  assert.equal(emailInbound.lead.owner_agent, 'marketing-specialist-test');
 
   const optOut = svc.correlateMarketingInbound(ownerB, { channel: 'whatsapp', sender_id: '+6590057664', content: 'STOP', message_id: 'wa-inbound-stop', observed_at: '2026-09-28T14:23:00.000Z' });
   assert.equal(optOut.classification.outcome_type, 'opt_out');

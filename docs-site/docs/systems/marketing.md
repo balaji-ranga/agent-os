@@ -65,6 +65,12 @@ If the CEO's own number was deliberately included in a campaign test, an explici
 
 Attribution requires a real prior send receipt for that campaign and recipient. Unknown senders or replies with no recent campaign send are left as normal channel conversations; Flolah does not guess. Gateway retries are idempotent. Standard opt-out replies suppress the lead and revoke that distribution member's marketing consent. Raw reply text is not stored in Marketing evidence: the ledger keeps a content hash, length and coarse intent together with the privacy-safe audience identity.
 
+### How an inbound email campaign reply is handled
+
+Sending through SMTP does not read the recipient's mailbox. Configure SendGrid Inbound Parse, Mailgun Routes, or a trusted mailbox listener to POST received messages to the event-enabled workflow's **email inbound URL**, using the workflow webhook secret or platform email-inbound secret. Flolah starts the normal email-received workflow and, independently, matches the sender to the latest eligible campaign send for that consented distribution-list member. A match records reply or opt-out evidence and prepares **Leads & follow-up** for the campaign's Marketing Specialist. Unknown or unmatched senders remain normal workflow email events.
+
+The Marketing evidence stores a content hash, length, coarse intent and provider reference—not the raw reply body. Retries are idempotent. To let only the Marketing Specialist send without Kanban approval, add an Agent-scoped **External messages / publish → Autonomous** override in **Policies → Action control**; other agents retain their normal policy.
+
 ## Manage multiple leads and opportunities
 
 Open **Marketing → Leads & follow-up** for the campaign-to-CRM pipeline. The portfolio can contain many lead/opportunity rows from one campaign. The same CRM person can also have several distinct opportunities, while shared prior interests remain visible for next-best-action advice.
