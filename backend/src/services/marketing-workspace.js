@@ -169,6 +169,11 @@ function normalizedDestination(channel, value) {
   return raw;
 }
 
+function crmPhoneDestination(value) {
+  const digits = normalizedDestination('whatsapp', value);
+  return digits ? `+${digits}` : '';
+}
+
 function ensureTable(ownerUserId, spec) {
   let table = findTableByName(ownerUserId, spec.name);
   if (!table) table = createTable(ownerUserId, spec);
@@ -1337,7 +1342,8 @@ export async function handoffMarketingLeadToCrm(ownerUserId, input = {}, depende
   const destination = text(member?.destination, 1000);
   const destinationChannel = member?.channel || preferredChannel;
   const email = destinationChannel === 'email' ? normalizedDestination('email', destination) : '';
-  const phone = ['whatsapp', 'telemarketing'].includes(destinationChannel) ? normalizedDestination('whatsapp', destination) : '';
+  const phoneIdentity = ['whatsapp', 'telemarketing'].includes(destinationChannel) ? normalizedDestination('whatsapp', destination) : '';
+  const phone = phoneIdentity ? crmPhoneDestination(phoneIdentity) : '';
   let personId = text(lead.crm_person_reference, 200);
   let personCreated = false;
 
@@ -1348,7 +1354,7 @@ export async function handoffMarketingLeadToCrm(ownerUserId, input = {}, depende
       fail(peopleResult?.error || 'CRM people are unavailable', 503, 'MARKETING_CRM_UNAVAILABLE');
     }
     const existingPerson = (peopleResult?.people || []).find((person) =>
-      (email && crmPersonEmail(person) === email) || (phone && crmPersonPhone(person) === phone)
+      (email && crmPersonEmail(person) === email) || (phoneIdentity && crmPersonPhone(person) === phoneIdentity)
     );
     personId = crmRecordId(existingPerson);
     if (!personId) {

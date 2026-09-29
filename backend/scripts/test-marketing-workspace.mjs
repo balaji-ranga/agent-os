@@ -221,6 +221,19 @@ try {
   assert.equal(handoffRetry.idempotent, true, 'CRM handoff retry returns the linked record');
   assert.equal(crmPersonCreates, 1, 'CRM person is created once');
   assert.equal(crmLeadCreates, 1, 'CRM lead is created once');
+  svc.upsertMarketingRecord(ownerA, 'distributionMembers', { member_id: 'crm-handoff-whatsapp-member', list_id: 'crm-handoff-list', display_label: 'Qualified WhatsApp prospect', channel: 'whatsapp', destination: '6593482490', consent_status: 'granted', consent_source: 'Test consent' });
+  const whatsappMember = svc.getMarketingWorkspace(ownerA).records.distributionMembers.find((row) => row.member_id === 'crm-handoff-whatsapp-member');
+  svc.upsertMarketingRecord(ownerA, 'campaigns', { campaign_id: 'crm-handoff-whatsapp-campaign', name: 'CRM WhatsApp handoff campaign', status: 'active', goal: 'Validate E.164 CRM handoff', channels: ['whatsapp'], audience_list_ids: ['crm-handoff-list'] });
+  svc.upsertMarketingRecord(ownerA, 'engagements', { event_id: 'crm-handoff-whatsapp-reply', campaign_id: 'crm-handoff-whatsapp-campaign', channel: 'whatsapp', event_type: 'reply', audience_hash: whatsappMember.destination_hash, source: 'provider_webhook' });
+  const whatsappHandoffReady = svc.prepareMarketingLead(ownerA, { identity_reference: '6593482490', display_label: 'Qualified WhatsApp prospect', opportunity_key: 'crm-handoff-whatsapp-campaign', opportunity_summary: 'Qualified WhatsApp response', campaign_ids: ['crm-handoff-whatsapp-campaign'], channels: ['whatsapp'], engagement_event_ids: ['crm-handoff-whatsapp-reply'], consent: { whatsapp: 'granted' }, followup_status: 'pending', followup_channel: 'whatsapp' });
+  const whatsappCrmAdapter = {
+    provider: 'twenty',
+    listPeople: async () => ({ mode: 'live', people: [] }),
+    createPerson: async ({ phone }) => { assert.equal(phone, '+6593482490', 'CRM person phone uses E.164 format'); return { person: { id: 'crm-person-whatsapp-1' } }; },
+    createLead: async ({ phone, pointOfContactId }) => { assert.equal(phone, '+6593482490', 'CRM lead phone uses E.164 format'); assert.equal(pointOfContactId, 'crm-person-whatsapp-1'); return { opportunity: { id: 'crm-lead-whatsapp-1' } }; },
+  };
+  const whatsappHandedOff = await svc.handoffMarketingLeadToCrm(ownerA, { lead_id: whatsappHandoffReady.record.lead_id }, { adapter: whatsappCrmAdapter });
+  assert.equal(whatsappHandedOff.lead.status, 'crm_synced');
   await assert.rejects(
     () => svc.handoffMarketingLeadToCrm(ownerB, { lead_id: handoffReady.record.lead_id }, { adapter: crmAdapter }),
     (error) => error.code === 'MARKETING_LEAD_NOT_FOUND',
