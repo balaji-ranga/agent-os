@@ -628,7 +628,7 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/status-checker',
     method: 'POST',
     purpose:
-      'COO only: Kanban/A2A task-count digest (HTML) to standup. Counts only — not Digest dollars (use this_week_digest). Optional post_standup (default true). Does not email.',
+      'COO only: get the latest status or general company task status as a Kanban/A2A task-count digest (HTML) to standup. Counts only — not Digest dollars (use this_week_digest). Optional post_standup (default true). Does not email.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,

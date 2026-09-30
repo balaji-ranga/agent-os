@@ -5,6 +5,7 @@ import { buildBrainApprovalTestGraph } from '../../scripts/seed-brain-approval-w
 import { buildBrainMcpLoopGraph } from '../../scripts/seed-brain-mcp-loop-workflow.js';
 import { JOB_APPLICANT_TEMPLATE_ID, JOB_APPLICANT_CHAT_PHRASE } from './agent-workflow-templates.js';
 import { defaultBrainConfig } from './agent-workflow-agent-runtime-context.js';
+import { getTaskTypeDef } from './agent-workflow-task-catalog.js';
 import { BRAIN_PROVIDERS } from './agent-workflow-brain-providers.js';
 import { PLATFORM_BYOK_KEY_NAME } from './user-api-keys.js';
 import { suggestedBindKeyName } from './agent-workflow-secrets.js';
@@ -1271,6 +1272,8 @@ export function enrichCreateWorkflowActions(message, actions, runtime) {
   const createAction = list.find((a) => a.action === 'create_workflow');
   if (!createAction) return list;
 
+  repairCatalogDrivenCreateGraph(message, createAction, runtime);
+
   const nodeCount = createAction.graph?.nodes?.length || 0;
   const hasFollowUpNodes = list.some((a) =>
     ['add_node', 'update_node', 'add_edge', 'connect', 'connect_nodes'].includes(a.action)
@@ -1296,4 +1299,218 @@ export function enrichCreateWorkflowActions(message, actions, runtime) {
     out.push(recipeActions.find((a) => a.action === 'test_workflow'));
   }
   return out;
+}
+
+const TOOL_INTENT_STOP_WORDS = new Set([
+  'a', 'an', 'and', 'build', 'content', 'create', 'for', 'from', 'get', 'i', 'in', 'latest',
+  'make', 'new', 'of', 'please', 'the', 'to', 'tool', 'use', 'using', 'workflow',
+]);
+
+function normalizeIntentText(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+/**
+ * Keep delivery instructions (email/notify/publish) out of content-tool ranking.
+ * The source capability and the delivery node are separate stages in the graph.
+ */
+function sourceCapabilityQuery(message) {
+  let text = String(message || '');
+  text = text.split(/\b(?:and\s+then|then|and)\s+(?:send|email|notify|publish|post|deliver)\b/i)[0];
+  text = text
+    .replace(/^.*?\bworkflow\b\s*(?:that|which|to|for)?\s*/i, '')
+    .replace(/\b(?:from|using|via)\s+(?:the\s+)?content\s+tool\b/gi, ' ')
+    .replace(/\bcontent\s+tool\b/gi, ' ');
+  return normalizeIntentText(text);
+}
+
+function contentToolIntentScore(tool, query, fullMessage) {
+  const name = normalizeIntentText(tool?.name);
+  const display = normalizeIntentText(tool?.display_name);
+  const purpose = normalizeIntentText(tool?.purpose);
+  const hay = `${name} ${display} ${purpose}`.trim();
+  if (!name || !query) return 0;
+
+  let score = 0;
+  const full = normalizeIntentText(fullMessage);
+  if (full.includes(name)) score += 100;
+  if (hay.includes(query)) score += 18;
+
+  const tokens = query
+    .split(/\s+/)
+    .filter((token) => token.length >= 3 && !TOOL_INTENT_STOP_WORDS.has(token));
+  for (const token of tokens) {
+    if (name.split(' ').includes(token)) score += 9;
+    else if (name.includes(token)) score += 7;
+    if (display.includes(token)) score += 5;
+    if (purpose.includes(token)) score += 3;
+  }
+  return score;
+}
+
+function recommendContentTool(message, runtime = {}) {
+  const tools = Array.isArray(runtime?.contentTools) ? runtime.contentTools : [];
+  const query = sourceCapabilityQuery(message);
+  if (!tools.length || !query) return null;
+  return tools
+    .map((tool) => ({ tool, score: contentToolIntentScore(tool, query, message) }))
+    .filter((entry) => entry.score > 0)
+    .sort((a, b) => b.score - a.score || String(a.tool.name).localeCompare(String(b.tool.name)))[0] || null;
+}
+
+function bindingIsUsable(binding) {
+  if (!binding) return false;
+  const mode = String(binding.mode || 'static').toLowerCase();
+  if (mode === 'static') return String(binding.value || '').trim().length > 0;
+  if (mode === 'workflow_variable' || mode === 'variable') {
+    return String(binding.variableKey || binding.sourceOutputKey || binding.id || '').trim().length > 0;
+  }
+  if (mode === 'dynamic') return String(binding.sourceNodeId || '').trim().length > 0;
+  return false;
+}
+
+function upsertBinding(node, id, nextBinding, { replace = false } = {}) {
+  node.data = node.data && typeof node.data === 'object' ? node.data : {};
+  const bindings = Array.isArray(node.data.inputBindings) ? [...node.data.inputBindings] : [];
+  const index = bindings.findIndex((binding) => binding?.id === id);
+  if (!replace && index >= 0 && bindingIsUsable(bindings[index])) return;
+  const label = getTaskTypeDef(node.type)?.inputs?.find((input) => input.id === id)?.label || id;
+  const binding = { id, label, ...nextBinding };
+  if (index >= 0) bindings[index] = binding;
+  else bindings.push(binding);
+  node.data.inputBindings = bindings;
+}
+
+function explicitEmailAddress(message) {
+  return String(message || '').match(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i)?.[0] || '';
+}
+
+function nextGraphId(nodes, prefix) {
+  let index = 1;
+  const ids = new Set(nodes.map((node) => node?.id));
+  while (ids.has(`${prefix}-${index}`)) index += 1;
+  return `${prefix}-${index}`;
+}
+
+function ensureEdge(graph, source, target) {
+  if (!source || !target || source === target) return;
+  graph.edges = Array.isArray(graph.edges) ? graph.edges : [];
+  if (graph.edges.some((edge) => edge?.source === source && edge?.target === target)) return;
+  graph.edges.push({ id: `e-${source}-${target}`, source, target });
+}
+
+function preferredTextOutput(node) {
+  const outputs = getTaskTypeDef(node?.type)?.outputs || node?.data?.outputs || [];
+  if (outputs.some((output) => output.id === 'text')) return 'text';
+  if (outputs.some((output) => output.id === 'result')) return 'result';
+  return outputs[0]?.id || 'text';
+}
+
+function repairCatalogDrivenCreateGraph(message, createAction, runtime = {}) {
+  const graph = createAction?.graph;
+  if (!graph || !Array.isArray(graph.nodes) || !graph.nodes.length) return;
+  graph.edges = Array.isArray(graph.edges) ? graph.edges : [];
+
+  const asksForContentTool = /\bcontent\s+tool\b/i.test(String(message || ''));
+  const asksForEmail = /\b(?:send|email|deliver)\b[\s\S]{0,40}\bemail\b|\bemail\b[\s\S]{0,40}\b(?:send|deliver|result|status|report)\b/i.test(String(message || ''));
+  const recommendation = asksForContentTool ? recommendContentTool(message, runtime) : null;
+  let toolNodes = graph.nodes.filter((node) => node?.type === 'tool');
+
+  if (asksForContentTool && recommendation && toolNodes.length === 0) {
+    const id = nextGraphId(graph.nodes, 'tool');
+    const trigger = graph.nodes.find((node) => node?.type === 'trigger');
+    const node = {
+      id,
+      type: 'tool',
+      position: { x: 320, y: 160 },
+      data: {
+        label: recommendation.tool.display_name || recommendation.tool.name,
+        toolName: recommendation.tool.name,
+        toolPayload: {},
+        inputBindings: [],
+      },
+    };
+    graph.nodes.push(node);
+    toolNodes = [node];
+    ensureEdge(graph, trigger?.id, id);
+  }
+
+  // A single requested content-tool stage must match the catalog purpose. This repairs
+  // plausible-looking but unrelated LLM choices without rewriting intentional multi-tool graphs.
+  if (asksForContentTool && recommendation && toolNodes.length === 1) {
+    const node = toolNodes[0];
+    const currentName = String(node?.data?.toolName || node?.toolName || '').trim();
+    const currentTool = (runtime.contentTools || []).find((tool) => tool.name === currentName);
+    const currentScore = currentTool ? contentToolIntentScore(currentTool, sourceCapabilityQuery(message), message) : 0;
+    if (!currentTool || recommendation.score >= currentScore + 4) {
+      node.data = node.data && typeof node.data === 'object' ? node.data : {};
+      node.data.toolName = recommendation.tool.name;
+      node.data.label = recommendation.tool.display_name || recommendation.tool.name;
+      delete node.toolName;
+      delete node.tool_name;
+    }
+  }
+
+  let emailNodes = graph.nodes.filter((node) => node?.type === 'email');
+  if (asksForEmail && emailNodes.length === 0) {
+    const id = nextGraphId(graph.nodes, 'email');
+    const node = {
+      id,
+      type: 'email',
+      position: { x: 600, y: 160 },
+      data: { label: 'Send Email', taskConfig: { useEnvSmtp: true }, inputBindings: [] },
+    };
+    graph.nodes.push(node);
+    emailNodes = [node];
+  }
+
+  for (const email of emailNodes) {
+    const source = toolNodes[toolNodes.length - 1] || graph.nodes.find((node) => node?.type !== 'trigger' && node?.id !== email.id);
+    const address = explicitEmailAddress(message);
+    upsertBinding(
+      email,
+      'to',
+      address
+        ? { mode: 'static', value: address }
+        : { mode: 'dynamic', sourceNodeId: graph.nodes.find((node) => node?.type === 'trigger')?.id || 'trigger-1', sourceOutputKey: 'trigger_input.recipient_email' }
+    );
+    upsertBinding(email, 'subject', {
+      mode: 'static',
+      value: `${String(createAction.name || 'Workflow').trim()} result`,
+    });
+    if (source) {
+      upsertBinding(email, 'body', {
+        mode: 'dynamic',
+        sourceNodeId: source.id,
+        sourceOutputKey: preferredTextOutput(source),
+      }, { replace: asksForContentTool });
+      ensureEdge(graph, source.id, email.id);
+    }
+    email.data.taskConfig = { useEnvSmtp: true, ...(email.data.taskConfig || {}) };
+  }
+
+  if (asksForEmail && !explicitEmailAddress(message)) {
+    const trigger = graph.nodes.find((node) => node?.type === 'trigger');
+    if (trigger) {
+      trigger.data = trigger.data && typeof trigger.data === 'object' ? trigger.data : {};
+      const existing = trigger.data.inputSchema || trigger.data.input_schema;
+      if (!existing) {
+        trigger.data.inputSchema = {
+          type: 'object',
+          properties: {
+            recipient_email: {
+              type: 'string',
+              format: 'email',
+              description: 'Email address that receives the workflow result',
+            },
+          },
+          required: ['recipient_email'],
+          additionalProperties: true,
+        };
+      }
+    }
+  }
 }

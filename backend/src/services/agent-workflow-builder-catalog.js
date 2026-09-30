@@ -366,8 +366,9 @@ export function analyzeWorkflowForPublish(graph, ownerUserId = null) {
         const source = nodesById.get(binding.sourceNodeId);
         if (!source) continue;
         const outputKey = binding.sourceOutputKey || 'text';
+        const rootOutputKey = String(outputKey).split('.')[0];
         const outputs = getTaskTypeDef(source.type)?.outputs || source.data?.outputs || [];
-        if (outputs.length && !outputs.some((output) => output.id === outputKey)) {
+        if (outputs.length && !outputs.some((output) => output.id === rootOutputKey)) {
           issues.push({
             code: 'invalid_output_binding',
             node_id: node.id,
