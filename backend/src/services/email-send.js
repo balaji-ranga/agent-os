@@ -722,3 +722,22 @@ export async function executeEmailSend(body = {}) {
     attachmentNames: attachments.map((a) => a.filename),
   };
 }
+
+/**
+ * Apply the immutable, approved Marketing asset to an email payload.
+ *
+ * A tracked campaign send may also contain an agent-authored `body` or `html`
+ * value for the plain-text alternative. Those values must never replace the
+ * approved asset: approval applies to the stored asset content, not to text
+ * generated later by the calling agent. The tracking pixel is the only
+ * platform-managed HTML appended after approval.
+ */
+export function applyApprovedMarketingEmailAsset(payload = {}, assetContent = '', pixelHtml = '') {
+  const approvedHtml = String(assetContent || '').trim();
+  if (!approvedHtml) throw new Error('Approved marketing email asset content is empty');
+  const trackingHtml = String(pixelHtml || '').trim();
+  return {
+    ...payload,
+    html: trackingHtml ? `${approvedHtml}\n${trackingHtml}` : approvedHtml,
+  };
+}

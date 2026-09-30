@@ -12,7 +12,7 @@ config({ path: join(__dirname, '..', '.env') });
 import { initDb, getDb } from '../src/db/schema.js';
 import { seedEmailSendToolIfMissing } from '../src/db/seed-content-tools-meta.js';
 import { grantEmailSendToAllAgents } from '../src/services/agent-feedback.js';
-import { executeEmailSend, buildCalendarInvite } from '../src/services/email-send.js';
+import { applyApprovedMarketingEmailAsset, executeEmailSend, buildCalendarInvite } from '../src/services/email-send.js';
 
 initDb();
 seedEmailSendToolIfMissing();
@@ -52,6 +52,23 @@ const attNorm = normalizeAttachments({
 });
 if (attNorm.length !== 1 || attNorm[0].filename !== 'meeting.ics') throw new Error('attachment normalize failed');
 console.log('OK: attachments normalize');
+
+const approvedMarketingHtml = '<html><body><h1>Approved campaign</h1><a href="https://flolah.cloud">Learn more</a></body></html>';
+const trackingPixel = '<img src="https://marketing.example.invalid/api/public/marketing/open.gif?t=test" width="1" height="1" alt="" />';
+const marketingPayload = applyApprovedMarketingEmailAsset(
+  { body: 'Agent-authored plain-text fallback', html: '<p>Unapproved agent HTML</p>' },
+  approvedMarketingHtml,
+  trackingPixel
+);
+if (!marketingPayload.html.startsWith(approvedMarketingHtml)) throw new Error('approved Marketing asset was not used as HTML');
+if (marketingPayload.html.includes('Unapproved agent HTML')) throw new Error('agent HTML replaced the approved Marketing asset');
+if (!marketingPayload.html.endsWith(trackingPixel)) throw new Error('tracking pixel was not appended to the approved Marketing asset');
+const untrackedMarketingPayload = applyApprovedMarketingEmailAsset(
+  { body: 'Agent-authored plain-text fallback' },
+  approvedMarketingHtml
+);
+if (untrackedMarketingPayload.html !== approvedMarketingHtml) throw new Error('untracked Marketing email did not use the approved asset');
+console.log('OK: approved Marketing asset remains the authoritative HTML body');
 
 const missing = await executeEmailSend({ subject: 'x', body: 'y' });
 if (missing.error !== 'At least one recipient (to, cc, or bcc) is required') {

@@ -149,7 +149,7 @@ import erpTools from './erp-tools.js';
 import eventProductivityTools from './event-productivity-tools.js';
 import marketingTools from './marketing-tools.js';
 import { summarizeLearnings } from '../services/agent-feedback.js';
-import { executeEmailSend, resolveCompanyEmailRecipients } from '../services/email-send.js';
+import { applyApprovedMarketingEmailAsset, executeEmailSend, resolveCompanyEmailRecipients } from '../services/email-send.js';
 import { correlateMarketingInbound, createMarketingOpenPixel, getMarketingWorkspace, recordMarketingOutcome } from '../services/marketing-workspace.js';
 import { executeNotifyCeo } from '../services/notify-ceo.js';
 import { executeCeoProfile } from '../services/ceo-profile.js';
@@ -1928,15 +1928,17 @@ router.post('/email-send', optionalAuth, async (req, res) => {
         error.status = 409;
         throw error;
       }
-      if (requestPayload.marketing_tracking !== false && !String(resolvedPayload.html || '').includes('/api/public/marketing/open.gif')) {
+      let pixelHtml = '';
+      if (requestPayload.marketing_tracking !== false) {
         const pixel = createMarketingOpenPixel(ownerUserId, {
           campaign_id: campaignId,
           asset_id: assetId,
           audience_reference: marketingRecipients[0],
           recipient_label: requestPayload.recipient_label,
         });
-        resolvedPayload.html = `${String(resolvedPayload.html || resolvedPayload.body || asset.content || '')}\n${pixel.html}`;
+        pixelHtml = pixel.html;
       }
+      resolvedPayload.html = applyApprovedMarketingEmailAsset(resolvedPayload, asset.content, pixelHtml).html;
     }
     const out = await executeEmailSend(resolvedPayload);
     if (campaignId && assetId && marketingRecipients.length === 1) {
