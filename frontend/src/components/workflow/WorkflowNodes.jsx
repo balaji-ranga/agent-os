@@ -96,7 +96,10 @@ export function ToolNode({ id, data }) {
 }
 
 export function EmailNode({ id, data }) {
-  const to = data.inputBindings?.find((b) => b.id === 'to')?.value || '(configure To)';
+  const toBinding = data.inputBindings?.find((binding) => binding.id === 'to');
+  const to = toBinding?.mode === 'dynamic'
+    ? `${toBinding.sourceOutputKey || 'runtime value'} (run input)`
+    : toBinding?.value || '(configure To)';
   return (
     <NodeShell nodeId={id} color="#dc2626" icon="✉" title={data.label || 'Send Email'} subtitle={`To: ${to}`} />
   );
