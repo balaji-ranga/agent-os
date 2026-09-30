@@ -1475,7 +1475,11 @@ function repairCatalogDrivenCreateGraph(message, createAction, runtime = {}) {
       'to',
       address
         ? { mode: 'static', value: address }
-        : { mode: 'dynamic', sourceNodeId: graph.nodes.find((node) => node?.type === 'trigger')?.id || 'trigger-1', sourceOutputKey: 'trigger_input.recipient_email' }
+        : { mode: 'dynamic', sourceNodeId: graph.nodes.find((node) => node?.type === 'trigger')?.id || 'trigger-1', sourceOutputKey: 'trigger_input.recipient_email' },
+      // The model must not invent or reuse an account address when the user did
+      // not name a recipient. An explicit address is authoritative; otherwise the
+      // workflow asks for one at run time.
+      { replace: true }
     );
     upsertBinding(email, 'subject', {
       mode: 'static',
@@ -1497,20 +1501,27 @@ function repairCatalogDrivenCreateGraph(message, createAction, runtime = {}) {
     if (trigger) {
       trigger.data = trigger.data && typeof trigger.data === 'object' ? trigger.data : {};
       const existing = trigger.data.inputSchema || trigger.data.input_schema;
-      if (!existing) {
-        trigger.data.inputSchema = {
-          type: 'object',
-          properties: {
-            recipient_email: {
-              type: 'string',
-              format: 'email',
-              description: 'Email address that receives the workflow result',
-            },
+      const existingSchema = existing && typeof existing === 'object' ? existing : {};
+      trigger.data.inputSchema = {
+        ...existingSchema,
+        type: 'object',
+        properties: {
+          ...(existingSchema.properties && typeof existingSchema.properties === 'object'
+            ? existingSchema.properties
+            : {}),
+          recipient_email: {
+            type: 'string',
+            format: 'email',
+            description: 'Email address that receives the workflow result',
           },
-          required: ['recipient_email'],
-          additionalProperties: true,
-        };
-      }
+        },
+        required: Array.from(new Set([
+          ...(Array.isArray(existingSchema.required) ? existingSchema.required : []),
+          'recipient_email',
+        ])),
+        additionalProperties: existingSchema.additionalProperties ?? true,
+      };
+      delete trigger.data.input_schema;
     }
   }
 }

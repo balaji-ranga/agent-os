@@ -129,6 +129,39 @@ assert.deepEqual(
 );
 assert.equal(explicitGraph.nodes.find((node) => node.type === 'trigger').data.inputSchema, undefined);
 
+const guessedRecipientActions = brokenLlmActions();
+guessedRecipientActions[0].graph.nodes
+  .find((node) => node.type === 'email')
+  .data.inputBindings.find((binding) => binding.id === 'to').value = 'account-owner@example.com';
+guessedRecipientActions[0].graph.nodes.find((node) => node.type === 'trigger').data.inputSchema = {
+  type: 'object',
+  properties: { report_scope: { type: 'string' } },
+  required: ['report_scope'],
+};
+const guessedRecipientGraph = normalizeWorkflowGraph(
+  enrichCreateWorkflowActions(prompt, guessedRecipientActions, runtime)[0].graph
+);
+const guessedRecipientEmail = guessedRecipientGraph.nodes.find((node) => node.type === 'email');
+const guessedRecipientTrigger = guessedRecipientGraph.nodes.find((node) => node.type === 'trigger');
+assert.deepEqual(
+  guessedRecipientEmail.data.inputBindings.find((binding) => binding.id === 'to'),
+  {
+    id: 'to',
+    label: 'To address',
+    mode: 'dynamic',
+    sourceNodeId: 'trigger-1',
+    sourceOutputKey: 'trigger_input.recipient_email',
+  },
+  'an address guessed by the model must be replaced when the prompt did not name a recipient'
+);
+assert.deepEqual(
+  guessedRecipientTrigger.data.inputSchema.required,
+  ['report_scope', 'recipient_email'],
+  'recipient input must merge with an existing trigger schema'
+);
+assert.equal(guessedRecipientTrigger.data.inputSchema.properties.report_scope.type, 'string');
+assert.equal(guessedRecipientTrigger.data.inputSchema.properties.recipient_email.format, 'email');
+
 const namedToolActions = brokenLlmActions();
 namedToolActions[0].graph.nodes[1].data.toolName = 'summarize_url';
 const namedTool = enrichCreateWorkflowActions(

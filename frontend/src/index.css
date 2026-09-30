@@ -4008,11 +4008,25 @@ body.wf-props-resizing .react-flow {
 }
 
 .wf-agent-input-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.5rem;
   padding: 0.65rem;
   border-top: 1px solid var(--border);
   align-items: flex-end;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.wf-agent-input-row > .chat-compose-attach-wrap {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.wf-agent-input-row > .wf-btn-primary {
+  flex: none;
+  white-space: nowrap;
 }
 
 .wf-agent-input-row textarea {
