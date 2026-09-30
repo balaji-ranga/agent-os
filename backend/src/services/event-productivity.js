@@ -333,6 +333,19 @@ export function renderProductivityEventPrompt(template, event) {
   });
 }
 
+function appendProductivityEventGoalContext(prompt, event) {
+  const eventId = String(event?.id || '').trim();
+  if (!eventId) return String(prompt || '');
+  return [
+    String(prompt || '').trim(),
+    '',
+    'Authoritative platform event context:',
+    `- event_id: ${eventId}`,
+    '- The normalized event is available in context.productivity_event.',
+    '- If event_inbox_get is used, pass this exact event_id. Do not infer or invent another event identifier.',
+  ].join('\n');
+}
+
 export async function getProductivitySummary(ownerUserId) {
   ensureEventProductivitySchema();
   const owner = assertOwner(ownerUserId);
@@ -517,8 +530,24 @@ export async function processProductivityEvent(ownerUserId, eventId, deps = {}) 
       runType = 'workflow'; runId = result?.id || result?.run?.id || result?.run_id || null;
     } else if (sub.target_type === 'goal') {
       const agentId = assertSubscriptionTarget(owner, 'goal', sub.target_id);
-      const prompt = renderProductivityEventPrompt(sub.goal_prompt_template, normalized);
-      const result = await (deps.createGoal || createAndStartGoalRun)({ ownerUserId: owner, agentId, title: `Event: ${event.event_type}`, prompt, source: 'productivity_event', context: { productivity_event: normalized, objective_id: sub.objective_id, key_result_ids: json(sub.key_result_ids_json, []) }, backgroundPlanning: true });
+      const prompt = appendProductivityEventGoalContext(
+        renderProductivityEventPrompt(sub.goal_prompt_template, normalized),
+        normalized
+      );
+      const result = await (deps.createGoal || createAndStartGoalRun)({
+        ownerUserId: owner,
+        agentId,
+        title: `Event: ${event.event_type}`,
+        prompt,
+        source: 'productivity_event',
+        context: {
+          productivity_event_id: normalized.id,
+          productivity_event: normalized,
+          objective_id: sub.objective_id,
+          key_result_ids: json(sub.key_result_ids_json, []),
+        },
+        backgroundPlanning: true,
+      });
       runType = 'goal'; runId = result?.goal_run_id || result?.id || null;
     }
     db().prepare(`UPDATE productivity_events SET status='completed',processed_at=datetime('now'),trigger_run_type=?,trigger_run_id=?,next_retry_at=NULL WHERE id=?`).run(runType, runId, eventId);

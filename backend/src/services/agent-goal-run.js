@@ -27,6 +27,7 @@ import { deliverScheduledGoalOutcome } from './agent-channel-announce.js';
 import { scheduleCeoRequestViaOpenClawCron } from './delegation-queue.js';
 import {
   resolveAgentToolArgsForGoal,
+  bindToolArgsFromGoalContext,
   isCompositionalTool,
   toolNeedsAgentInterpretation,
   goalWantsChatSynthesis,
@@ -2682,6 +2683,12 @@ async function executeAgentToolStep(goal, step) {
   } catch (e) {
     console.warn('[goal-run] tool arg resolve failed', toolName, e?.message || e);
   }
+
+  args = bindToolArgsFromGoalContext({
+    toolName,
+    args,
+    goalContext: goalContextObject(goal),
+  });
 
   // Re-assert digest HTML after LLM arg fill — models often paste the goal dump into body.
   if (toolName === 'email_send') {

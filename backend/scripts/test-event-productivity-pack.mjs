@@ -74,6 +74,9 @@ try {
   const goalEvent = await svc.ingestProductivityEvent(goalSub.subscription.id, goalSub.webhook_secret, { provider_event_id: 'evt-goal', event_type: 'message.flagged', payload: { channel_id: 'c1', sender: 'operator@example.invalid' } }, { createGoal: async (opts) => { goalDispatch = opts; return { goal_run_id: 'agr-test' }; } });
   assert.match(goalDispatch.prompt, /message\.flagged/);
   assert.match(goalDispatch.prompt, /operator@example\.invalid/);
+  assert.match(goalDispatch.prompt, new RegExp(`event_id: ${goalDispatch.context.productivity_event.id}`));
+  assert.match(goalDispatch.prompt, /pass this exact event_id/i);
+  assert.equal(goalDispatch.context.productivity_event_id, goalDispatch.context.productivity_event.id);
   assert.equal(goalDispatch.context.productivity_event.payload.channel_id, 'c1');
   assert.equal(goalEvent.event.trigger_run_type, 'goal');
   assert.equal(goalEvent.event.trigger_run_id, 'agr-test');

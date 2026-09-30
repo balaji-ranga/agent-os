@@ -397,6 +397,29 @@ export function toolNeedsAgentInterpretation(toolName, { hasPriorSteps = false }
 }
 
 /**
+ * Bind trusted, owner-scoped goal context to tool arguments after planner/LLM
+ * argument resolution. Explicit step arguments always win. This prevents a
+ * planner from dropping identifiers that were supplied by the platform event
+ * which created the goal.
+ */
+export function bindToolArgsFromGoalContext({ toolName, args = {}, goalContext = {} } = {}) {
+  const name = String(toolName || '').trim();
+  const next = args && typeof args === 'object' && !Array.isArray(args) ? { ...args } : {};
+  const context = goalContext && typeof goalContext === 'object' && !Array.isArray(goalContext)
+    ? goalContext
+    : {};
+
+  if (name === 'event_inbox_get' && !String(next.event_id || '').trim()) {
+    const eventId = String(
+      context.productivity_event_id || context.productivity_event?.id || ''
+    ).trim();
+    if (eventId) next.event_id = eventId;
+  }
+
+  return next;
+}
+
+/**
  * Resolve args (+ optional multi-symbol list) before content-tool HTTP invoke.
  * @returns {Promise<{ args: object, symbols?: string[] }>}
  */

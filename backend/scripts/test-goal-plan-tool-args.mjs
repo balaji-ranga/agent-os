@@ -11,6 +11,7 @@ import {
   isCompositionalTool,
   rewriteCompositionalToolsForAgentInterpretation,
   toolNeedsAgentInterpretation,
+  bindToolArgsFromGoalContext,
   resolveAgentToolArgsForGoal,
 } from '../src/services/goal-plan-tool-args.js';
 
@@ -102,5 +103,34 @@ assert(!unrelated.symbols, 'non-market tool must not receive multi-symbol fan-ou
 assert(!('symbols' in unrelated.args), 'non-market tool strips symbols');
 assert(!('symbol' in unrelated.args), 'non-market tool strips symbol');
 assert(!('ticker' in unrelated.args), 'non-market tool strips ticker');
+
+const eventId = 'epe-test-event-context';
+const boundEvent = bindToolArgsFromGoalContext({
+  toolName: 'event_inbox_get',
+  args: {},
+  goalContext: { productivity_event_id: eventId, productivity_event: { id: 'ignored-fallback' } },
+});
+assert(boundEvent.event_id === eventId, 'event_inbox_get binds the authoritative goal event id');
+
+const explicitEvent = bindToolArgsFromGoalContext({
+  toolName: 'event_inbox_get',
+  args: { event_id: 'explicit-event-id' },
+  goalContext: { productivity_event_id: eventId },
+});
+assert(explicitEvent.event_id === 'explicit-event-id', 'explicit step event id remains authoritative');
+
+const nestedEvent = bindToolArgsFromGoalContext({
+  toolName: 'event_inbox_get',
+  args: {},
+  goalContext: { productivity_event: { id: 'nested-event-id' } },
+});
+assert(nestedEvent.event_id === 'nested-event-id', 'legacy nested event context remains supported');
+
+const unrelatedContext = bindToolArgsFromGoalContext({
+  toolName: 'crm_status',
+  args: {},
+  goalContext: { productivity_event_id: eventId },
+});
+assert(!('event_id' in unrelatedContext), 'event context is not leaked into unrelated tools');
 
 console.log('ok', { tickers, basket_len: basket.length, rewritten: rewritten.map((s) => s.type) });
