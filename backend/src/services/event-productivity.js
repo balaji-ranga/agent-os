@@ -4,6 +4,8 @@ import { parsePublicHttpsUrl } from '../lib/ssrf.js';
 import { executeConnectorAction, getConnectedConnectorApps } from './openconnector.js';
 import { triggerWorkflowFromHook } from './agent-workflow-webhooks.js';
 import { createAndStartGoalRun } from './agent-goal-run.js';
+import { fetchIcalendarFeed } from './calendar-url-source.js';
+import { getPlatformTimezone } from '../utils/format-datetime.js';
 
 const CALENDAR_APPS = ['google_calendar', 'outlook_calendar'];
 const EMAIL_APPS = ['gmail', 'outlook'];
@@ -15,8 +17,8 @@ const MESSAGE_APPS = ['slack', 'microsoft_teams'];
 export const PRODUCTIVITY_OPERATIONS = Object.freeze({
   productivity_capabilities: { family: 'read', tier: 'R0', providers: ['google_workspace', 'microsoft_365', 'slack', 'microsoft_teams'], apps: [] },
   email_list_messages: { family: 'read', tier: 'R0', providers: ['google_workspace', 'microsoft_365'], apps: EMAIL_APPS },
-  calendar_list_events: { family: 'read', tier: 'R0', providers: ['google_workspace', 'microsoft_365'], apps: CALENDAR_APPS },
-  calendar_find_slots: { family: 'read', tier: 'R0', providers: ['google_workspace', 'microsoft_365'], apps: CALENDAR_APPS },
+  calendar_list_events: { family: 'read', tier: 'R0', providers: ['calendar_url', 'google_workspace', 'microsoft_365'], apps: CALENDAR_APPS },
+  calendar_find_slots: { family: 'read', tier: 'R0', providers: ['calendar_url', 'google_workspace', 'microsoft_365'], apps: CALENDAR_APPS },
   calendar_create_event: { family: 'communicate_external', tier: 'R2', providers: ['google_workspace', 'microsoft_365'], apps: CALENDAR_APPS },
   calendar_update_event: { family: 'communicate_external', tier: 'R2', providers: ['google_workspace', 'microsoft_365'], apps: CALENDAR_APPS },
   calendar_cancel_event: { family: 'communicate_external', tier: 'R2', providers: ['google_workspace', 'microsoft_365'], apps: CALENDAR_APPS },
@@ -643,6 +645,163 @@ export function deleteProductivityBinding(ownerUserId, id) {
 function applyTemplate(template, input) { return { ...(template || {}), ...(input || {}) }; }
 function externalId(data) { const value = data?.data || data; return value?.id || value?.eventId || value?.event_id || value?.fileId || value?.file_id || value?.messageId || value?.message_id || null; }
 
+const CALENDAR_URL_READ_OPERATIONS = new Set(['calendar_list_events', 'calendar_find_slots']);
+function validDate(value, fallback) {
+  const date = new Date(value || fallback);
+  return Number.isNaN(date.getTime()) ? new Date(fallback) : date;
+}
+function calendarReadRange(input = {}) {
+  const start = validDate(input.timeMin || input.time_min || input.range_start || input.from || input.start, Date.now());
+  const fallbackEnd = new Date(start.getTime() + Math.max(1, Math.min(366, Number(input.days) || 7)) * 86_400_000);
+  const end = validDate(input.timeMax || input.time_max || input.range_end || input.to || input.end, fallbackEnd);
+  if (end <= start) throw Object.assign(new Error('Calendar query end must be after start'), { status: 400 });
+  return { start, end };
+}
+function calendarEventRange(row) {
+  const start = validDate(typeof row.start === 'object' ? row.start?.dateTime || row.start?.date : row.start, 0);
+  const explicitEnd = typeof row.end === 'object' ? row.end?.dateTime || row.end?.date : row.end;
+  const end = validDate(explicitEnd, new Date(start.getTime() + 30 * 60_000));
+  return { start, end: end > start ? end : new Date(start.getTime() + 30 * 60_000) };
+}
+function localDateKey(date, timeZone) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+    timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(date).filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]));
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+function zonedDateTime(dateKey, time, timeZone) {
+  const [year, month, day] = dateKey.split('-').map(Number);
+  const [hour, minute] = String(time || '00:00').split(':').map(Number);
+  const target = Date.UTC(year, month - 1, day, hour || 0, minute || 0, 0);
+  let guess = target;
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
+  });
+  for (let pass = 0; pass < 3; pass += 1) {
+    const values = Object.fromEntries(formatter.formatToParts(new Date(guess)).filter((part) => part.type !== 'literal').map((part) => [part.type, Number(part.value)]));
+    const rendered = Date.UTC(values.year, values.month - 1, values.day, values.hour, values.minute, values.second);
+    guess += target - rendered;
+  }
+  return new Date(guess);
+}
+function eachLocalDate(start, end, timeZone) {
+  const first = localDateKey(start, timeZone);
+  const last = localDateKey(new Date(end.getTime() - 1), timeZone);
+  const dates = [];
+  let cursor = new Date(`${first}T00:00:00Z`);
+  const final = new Date(`${last}T00:00:00Z`);
+  while (cursor <= final && dates.length < 367) {
+    dates.push(cursor.toISOString().slice(0, 10));
+    cursor = new Date(cursor.getTime() + 86_400_000);
+  }
+  return dates;
+}
+function findCalendarSlots(events, input, range, defaultTimeZone = 'UTC') {
+  const durationMinutes = Math.max(5, Math.min(480, Number(input.duration_minutes || input.durationMinutes) || 30));
+  const maxResults = Math.max(1, Math.min(100, Number(input.max_results || input.maxResults) || 20));
+  const timeZone = String(input.timezone || input.time_zone || defaultTimeZone || 'UTC');
+  try { new Intl.DateTimeFormat('en', { timeZone }).format(range.start); } catch { throw Object.assign(new Error('Enter a valid IANA timezone'), { status: 400 }); }
+  const workdayStart = String(input.working_hours_start || input.workday_start || '09:00');
+  const workdayEnd = String(input.working_hours_end || input.workday_end || '18:00');
+  const weekdaysOnly = input.weekdays_only !== false;
+  const busy = events
+    .filter((row) => row.status !== 'cancelled' && row.transparency !== 'transparent')
+    .map(calendarEventRange)
+    .filter((row) => row.end > range.start && row.start < range.end)
+    .sort((a, b) => a.start - b.start);
+  const slots = [];
+  for (const dateKey of eachLocalDate(range.start, range.end, timeZone)) {
+    const dayStartRaw = zonedDateTime(dateKey, workdayStart, timeZone);
+    const dayEndRaw = zonedDateTime(dateKey, workdayEnd, timeZone);
+    if (weekdaysOnly) {
+      const weekday = new Intl.DateTimeFormat('en-US', { timeZone, weekday: 'short' }).format(dayStartRaw);
+      if (weekday === 'Sat' || weekday === 'Sun') continue;
+    }
+    const dayStart = new Date(Math.max(dayStartRaw.getTime(), range.start.getTime()));
+    const dayEnd = new Date(Math.min(dayEndRaw.getTime(), range.end.getTime()));
+    if (dayEnd <= dayStart) continue;
+    const dayBusy = busy.filter((row) => row.end > dayStart && row.start < dayEnd);
+    let cursor = dayStart;
+    for (const interval of dayBusy) {
+      const busyStart = new Date(Math.max(interval.start.getTime(), dayStart.getTime()));
+      if (busyStart.getTime() - cursor.getTime() >= durationMinutes * 60_000) {
+        slots.push({ start: cursor.toISOString(), end: new Date(cursor.getTime() + durationMinutes * 60_000).toISOString(), available_until: busyStart.toISOString() });
+        if (slots.length >= maxResults) return { slots, durationMinutes, timeZone, workdayStart, workdayEnd };
+      }
+      if (interval.end > cursor) cursor = interval.end;
+    }
+    if (dayEnd.getTime() - cursor.getTime() >= durationMinutes * 60_000) {
+      slots.push({ start: cursor.toISOString(), end: new Date(cursor.getTime() + durationMinutes * 60_000).toISOString(), available_until: dayEnd.toISOString() });
+      if (slots.length >= maxResults) break;
+    }
+  }
+  return { slots, durationMinutes, timeZone, workdayStart, workdayEnd };
+}
+function calendarUrlSubscriptions(owner, subscriptionId = '') {
+  const params = [owner];
+  let clause = '';
+  if (subscriptionId) { clause = ' AND id=?'; params.push(subscriptionId); }
+  return db().prepare(`SELECT * FROM productivity_event_subscriptions WHERE owner_user_id=? AND provider='calendar_url' AND enabled=1 AND source_url_encrypted<>''${clause} ORDER BY created_at`).all(...params);
+}
+async function executeCalendarUrlRead(owner, operation, input, deps, subscriptions) {
+  const actionInput = input.input || input.parameters || {};
+  const range = calendarReadRange(actionInput);
+  const requestHash = hash(JSON.stringify(stable(actionInput)));
+  const contextKey = String(input.event_id || input.goal_run_id || input.workflow_run_id || '').trim();
+  const idempotencyKey = String(input.idempotency_key || '').trim() || (contextKey
+    ? hash(JSON.stringify([operation, 'calendar_url', requestHash, input.event_id || '', input.goal_run_id || '', input.workflow_run_id || '']))
+    : `ephemeral-${randomUUID()}`);
+  const existing = db().prepare(`SELECT * FROM productivity_action_receipts WHERE owner_user_id=? AND idempotency_key=?`).get(owner, idempotencyKey);
+  if (existing) return { duplicate: true, receipt: receiptRow(existing) };
+  const receiptId = `epr-${randomUUID()}`;
+  const bindingId = `calendar-url:${subscriptions.map((row) => row.id).join(',')}`;
+  db().prepare(`INSERT INTO productivity_action_receipts
+    (id,owner_user_id,binding_id,operation,provider,action_id,event_id,goal_run_id,workflow_run_id,idempotency_key,request_hash,request_summary_json,status)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?, 'running')`).run(
+    receiptId, owner, bindingId, operation, 'calendar_url', 'calendar_url.read', input.event_id || null, input.goal_run_id || null,
+    input.workflow_run_id || null, idempotencyKey, requestHash, JSON.stringify({ keys: Object.keys(actionInput), source_count: subscriptions.length })
+  );
+  try {
+    const sourceResults = [];
+    const byUrl = new Map();
+    for (const subscription of subscriptions) {
+      const url = resolveCalendarSubscriptionUrl(subscription);
+      if (!byUrl.has(url)) byUrl.set(url, []);
+      byUrl.get(url).push(subscription);
+    }
+    for (const [url, rows] of byUrl.entries()) {
+      const feed = await fetchIcalendarFeed({ url, request: deps.requestCalendarUrl });
+      sourceResults.push({ subscription_ids: rows.map((row) => row.id), name: rows[0].name, events: feed.rows });
+    }
+    const unique = new Map();
+    for (const source of sourceResults) for (const event of source.events) {
+      const eventRange = calendarEventRange(event);
+      if (eventRange.end > range.start && eventRange.start < range.end) unique.set(`${event.provider_event_id}:${event.start}`, event);
+    }
+    const events = [...unique.values()].sort((a, b) => calendarEventRange(a).start - calendarEventRange(b).start);
+    const limit = Math.max(1, Math.min(500, Number(actionInput.max_results || actionInput.maxResults) || 250));
+    const ownerTimeZone = db().prepare(`SELECT display_timezone FROM platform_users WHERE id=?`).get(owner)?.display_timezone || getPlatformTimezone();
+    const data = operation === 'calendar_find_slots'
+      ? { ...findCalendarSlots(events, actionInput, range, ownerTimeZone), busy_event_count: events.filter((row) => row.status !== 'cancelled' && row.transparency !== 'transparent').length }
+      : { events: events.slice(0, limit), count: Math.min(events.length, limit), total_matching: events.length };
+    const result = {
+      ok: true,
+      data: {
+        ...data, provider: 'calendar_url', read_only: true, source: 'configured_ics',
+        range: { start: range.start.toISOString(), end: range.end.toISOString() },
+        subscriptions: sourceResults.map((row) => ({ subscription_ids: row.subscription_ids, name: row.name, event_count: row.events.length })),
+      },
+    };
+    db().prepare(`UPDATE productivity_action_receipts SET status='completed',verification_status='not_configured',response_summary_json=?,completed_at=datetime('now'),updated_at=datetime('now') WHERE id=?`).run(
+      JSON.stringify({ ok: true, source: 'configured_ics', event_count: events.length, slot_count: result.data.slots?.length || 0 }), receiptId
+    );
+    return { duplicate: false, result, requested_provider: String(input.provider || ''), resolved_provider: 'calendar_url', receipt: receiptRow(db().prepare(`SELECT * FROM productivity_action_receipts WHERE id=?`).get(receiptId)) };
+  } catch (error) {
+    db().prepare(`UPDATE productivity_action_receipts SET status='failed',error=?,updated_at=datetime('now') WHERE id=?`).run(clip(error.message), receiptId);
+    throw error;
+  }
+}
+
 export async function executeProductivityOperation(ownerUserId, operation, input = {}, deps = {}) {
   ensureEventProductivitySchema();
   const owner = assertOwner(ownerUserId);
@@ -651,6 +810,10 @@ export async function executeProductivityOperation(ownerUserId, operation, input
   if (!spec) throw Object.assign(new Error('Unsupported productivity operation'), { status: 400 });
   const provider = String(input.provider || '').trim();
   const binding = db().prepare(`SELECT * FROM productivity_action_bindings WHERE owner_user_id=? AND operation=? AND provider=? AND enabled=1`).get(owner, operation, provider);
+  if (!binding && CALENDAR_URL_READ_OPERATIONS.has(operation) && (!provider || spec.providers.includes(provider))) {
+    const subscriptions = calendarUrlSubscriptions(owner, String(input.subscription_id || input.input?.subscription_id || input.parameters?.subscription_id || '').trim());
+    if (subscriptions.length) return executeCalendarUrlRead(owner, operation, input, deps, subscriptions);
+  }
   if (!binding) throw Object.assign(new Error(`No enabled binding for ${operation} on ${provider}`), { status: 409, code: 'PRODUCTIVITY_BINDING_REQUIRED' });
   assertProductivityBindingCompatibility(operation, provider, binding.app_id, binding.action_id, binding.verify_action_id);
   const actionInput = applyTemplate(json(binding.input_template_json), input.input || input.parameters || {});

@@ -8,6 +8,8 @@ The pack receives provider events in one durable inbox. A subscription can keep 
 
 Available capability families are Google Workspace (Calendar, Drive, Docs, Sheets), Microsoft 365 (Outlook Calendar, OneDrive, SharePoint, Word, Excel), Slack, and Microsoft Teams. The required account must first be connected under **Connectors → OpenConnector**.
 
+A configured **Published calendar URL (ICS)** is a read-only calendar source. It can trigger calendar-change subscriptions and it automatically supplies `calendar_list_events` and `calendar_find_slots` when no OAuth calendar binding is available. It cannot create, reschedule, invite attendees, or cancel events.
+
 ## Configure an action
 
 1. Connect the application under **Connectors → OpenConnector**.
@@ -21,6 +23,8 @@ Available capability families are Google Workspace (Calendar, Drive, Docs, Sheet
 Compatibility is checked for both the provider and the selected operation. For example, an Outlook **mail** connection is not offered for `calendar_list_events`; that capability requires a connected app that actually publishes calendar actions, such as `outlook_calendar`. Flolah rejects an action ID from a different app instead of allowing a semantically incorrect binding.
 
 The capability is the stable intent an agent or workflow requests, such as `calendar_list_events`. The binding is the company-owned routing rule from that intent and provider to an exact connector action. At run time Flolah resolves the owner-scoped binding, applies Action Control, executes only the selected action, suppresses a retry with the same idempotency key, and stores an action receipt. Flolah does not guess an App ID or Action ID from prompt keywords.
+
+The only binding exception is the internal read-only ICS adapter: an enabled published calendar subscription supplies calendar list/free-slot reads directly. Calendar writes still require exact Google Calendar or Outlook Calendar OAuth bindings: `calendar_create_event`, `calendar_update_event`, and `calendar_cancel_event`.
 
 ## Create an event subscription
 
@@ -44,7 +48,7 @@ Start read-only: list a small date window or search a uniquely named test docume
 
 ## Troubleshooting
 
-- **No enabled binding**: configure the exact operation/provider binding.
+- **No enabled binding**: configure the exact operation/provider binding. For calendar reads only, an enabled published ICS subscription is also accepted; calendar writes always need OAuth.
 - **No compatible app is listed**: the connected account does not publish actions for that operation. Connect the matching calendar/file/document app; do not bind an unrelated mail action as a workaround.
 - **Agent has many tool grants**: Flolah keeps the grants but sends a bounded, request-relevant tool subset to the model for that chat turn. This prevents provider tool-count limits without permanently removing employee access.
 - **Invalid webhook secret**: rotate the subscription secret and update the sender.

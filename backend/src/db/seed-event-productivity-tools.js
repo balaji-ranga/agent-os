@@ -15,7 +15,9 @@ export const EVENT_PRODUCTIVITY_TOOLS = [
     label: name.split('_').map((part) => part[0].toUpperCase() + part.slice(1)).join(' '),
     purpose: name === 'productivity_capabilities'
       ? 'List supported calendar, files, documents, spreadsheets, Slack, and Teams capabilities and provider requirements.'
-      : `Run the configured owner-scoped ${name} connector binding. Body: { provider, input, idempotency_key? }. Exact provider action binding is required; no fuzzy or keyword action selection.`,
+      : ['calendar_list_events', 'calendar_find_slots'].includes(name)
+        ? `Run the owner-scoped ${name} capability. Body: { provider, input, idempotency_key? }. An exact OAuth binding is preferred; when none exists, an enabled configured published ICS calendar is used as a read-only source.`
+        : `Run the configured owner-scoped ${name} connector binding. Body: { provider, input, idempotency_key? }. Exact provider action binding is required; no fuzzy or keyword action selection.`,
     tier: spec.tier,
     family: spec.family,
   })),

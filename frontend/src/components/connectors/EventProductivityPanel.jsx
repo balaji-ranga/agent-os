@@ -283,7 +283,7 @@ export default function EventProductivityPanel() {
             : <>The goal receives the complete event at <code>context.productivity_event</code>. The prompt can reference nested values such as <code>{'{{event.payload.subject}}'}</code>, <code>{'{{event.payload.sender}}'}</code>, <code>{'{{event.payload.body_text}}'}</code>, <code>{'{{event.id}}'}</code>, and <code>{'{{event.event_type}}'}</code>.</>}
         </div>}
         {sub.provider === 'calendar_url' && <div style={{ marginTop: 10, padding: '9px 11px', borderRadius: 8, border: '1px solid #93c5fd', background: '#eff6ff', color: '#1e40af', fontSize: '.82rem', lineHeight: 1.45 }}>
-          Use the calendar provider&apos;s <strong>published/private iCal address</strong> ending in <code>.ics</code> (a <code>webcal://</code> address is accepted). A normal Google Calendar viewing link with <code>?cid=</code> is not a feed. URL calendars are read-only: Flolah can listen for created, changed, and cancelled events, but creating or editing events requires OAuth.
+          Use the calendar provider&apos;s <strong>published/private iCal address</strong> ending in <code>.ics</code> (a <code>webcal://</code> address is accepted). A normal Google Calendar viewing link with <code>?cid=</code> is not a feed. URL calendars are read-only: Flolah can listen for changes and agents can list events or find free slots. Creating, rescheduling, inviting attendees, or cancelling events requires an OAuth calendar binding.
         </div>}
         {isFileEvent && <div style={{ marginTop: 10, padding: '9px 11px', borderRadius: 8, border: `1px solid ${fileBindingReady ? '#86efac' : '#fbbf24'}`, background: fileBindingReady ? '#f0fdf4' : '#fffbeb', color: fileBindingReady ? '#166534' : '#92400e', fontSize: '.82rem' }}>
           {fileBindingReady
@@ -349,6 +349,9 @@ export default function EventProductivityPanel() {
         <h2 style={{ marginTop: 0, fontSize: '1.05rem' }}>Capability binding</h2>
         <p style={{ color: 'var(--muted)', fontSize: '.85rem' }}>
           A capability is the stable intent an agent or workflow requests, such as <code>calendar_list_events</code>. A binding is your company&apos;s routing rule from that intent and provider to one exact action exposed by a connected app. At run time Flolah resolves the binding, applies Action Control, executes only that action, prevents duplicate execution with an idempotency key, and stores an action receipt. Agents never guess an App ID or Action ID.
+        </p>
+        <p style={{ color: 'var(--muted)', fontSize: '.82rem' }}>
+          Exception: an enabled published ICS calendar automatically supplies read-only <code>calendar_list_events</code> and <code>calendar_find_slots</code>. It does not appear in this binding picker because it cannot perform write actions. Use Google Calendar or Outlook Calendar OAuth bindings for create, update, reschedule, invite, and cancel operations.
         </p>
         <p style={{ color: 'var(--muted)', fontSize: '.82rem' }}>
           App ID lists the compatible apps currently connected under OpenConnector. Action ID lists the actions reported by the selected app. An optional verification action reads the provider result back after a write.

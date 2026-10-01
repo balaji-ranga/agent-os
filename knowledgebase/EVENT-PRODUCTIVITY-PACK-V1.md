@@ -18,12 +18,15 @@ Agents run productivity operations through exact bindings to the existing OpenCo
 
 | Family | Connector applications | Read examples | Write examples |
 |---|---|---|---|
+| Published ICS calendar | HTTPS/webcal iCalendar feed | list events, find slots | not supported; OAuth required |
 | Google Workspace | Google Calendar, Drive, Docs, Sheets | list events, find slots, file search, document/sheet read | create/update/cancel event, create/update/comment document, sheet write |
 | Microsoft 365 | Outlook Calendar, OneDrive, SharePoint, Word, Excel | list events, find slots, file search, document/sheet read | create/update/cancel event, Word/Excel write/comment |
 | Slack | Slack | search messages, get thread | send or reply |
 | Microsoft Teams | Teams | search/read thread | send or reply |
 
 OpenConnector action IDs can change between connector releases. Therefore the platform does not guess or hardcode them. A CEO selects the precise `app_id`, `action_id`, optional `connection_name`, and optional verification action in **Connectors → Events & Productivity**.
+
+An enabled published ICS calendar is the deliberate read-only exception. The internal calendar adapter can service `calendar_list_events` and `calendar_find_slots` without an OpenConnector binding and records a normal read receipt. If an exact OAuth read binding exists for the requested provider, that binding takes precedence. ICS is never used for writes. Creating, rescheduling, inviting attendees, and cancelling require exact Google Calendar or Outlook Calendar OAuth bindings.
 
 ## Action Control
 
@@ -69,7 +72,7 @@ Filters are structured exact matches such as `payload.calendar_id = primary`; no
 
 1. Deterministic harness: fake connector executor, provider payload fixtures, owner A/B isolation, invalid secret, structured filter, duplicate delivery, retry/dead-letter, exact binding, action idempotency, risk metadata, retention.
 2. Provider contract test: a fake Calendar/Drive/Graph/Slack service checks request and response mappings without external accounts.
-3. VPS read-only integration: after OAuth is connected, list calendars/events, search a uniquely named test file, read metadata/content, and search a test message. Record no secrets or content in logs.
+3. VPS read-only integration: use either a configured published ICS source or a connected OAuth calendar to list events and find slots; after OAuth is connected, also search a uniquely named test file, read metadata/content, and search a test message. Record no secrets or content in logs.
 4. Live write validation, only when explicitly authorized: create a uniquely prefixed temporary event/document/sheet/message, verify it through the configured read action, and delete/clean it up using a separately authorized path. R2 actions must demonstrate approval-required and approved-override cases.
 
 If OAuth is unavailable, report that live-provider validation is pending. A stub/harness pass must never be described as live connector validation.

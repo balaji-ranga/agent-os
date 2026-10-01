@@ -9,6 +9,7 @@ process.env.USERPROFILE = join(root, 'home');
 process.env.HOME = join(root, 'home');
 process.env.OPENCLAW_CONFIG_PATH = join(root, 'home', '.openclaw', 'openclaw.json');
 process.env.OPENSEARCH_ENABLED = '0';
+process.env.USER_API_KEYS_KEK = 'test-only-calendar-url-encryption-key';
 
 let handle;
 try {
@@ -116,6 +117,36 @@ try {
   assert.equal(second.duplicate, true);
   assert.equal(calls, 1, 'idempotent action executes once');
   await assert.rejects(() => svc.executeProductivityOperation(ownerB, 'calendar_list_events', { provider: 'google_workspace' }, { executeAction }), /No enabled binding/);
+
+  const published = svc.createEventSubscription(ownerA, {
+    name: 'Read-only company calendar', provider: 'calendar_url', event_type: 'calendar.event.changed', target_type: 'inbox',
+    source_url: 'https://calendar.example.invalid/company/basic.ics', enabled: true,
+  }).subscription;
+  const calendarFeed = `BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nUID:busy-1\r\nSUMMARY:Customer meeting\r\nDTSTART:20261005T100000Z\r\nDTEND:20261005T110000Z\r\nSTATUS:CONFIRMED\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n`;
+  const requestCalendarUrl = async (url) => {
+    assert.equal(url, 'https://calendar.example.invalid/company/basic.ics');
+    return { status: 200, ok: true, headers: { 'content-type': 'text/calendar' }, text: async () => calendarFeed };
+  };
+  const listed = await svc.executeProductivityOperation(ownerA, 'calendar_list_events', {
+    provider: 'microsoft_365', input: { subscription_id: published.id, timeMin: '2026-10-05T09:00:00Z', timeMax: '2026-10-05T12:00:00Z' },
+  }, { requestCalendarUrl });
+  assert.equal(listed.resolved_provider, 'calendar_url', 'configured ICS is the read-only fallback when the requested OAuth binding is absent');
+  assert.equal(listed.result.data.events.length, 1);
+  assert.equal(listed.result.data.events[0].title, 'Customer meeting');
+  const free = await svc.executeProductivityOperation(ownerA, 'calendar_find_slots', {
+    provider: 'google_workspace', input: {
+      subscription_id: published.id, timeMin: '2026-10-05T09:00:00Z', timeMax: '2026-10-05T12:00:00Z',
+      duration_minutes: 30, timezone: 'UTC', working_hours_start: '09:00', working_hours_end: '12:00',
+    },
+  }, { requestCalendarUrl });
+  assert.equal(free.result.data.slots[0].start, '2026-10-05T09:00:00.000Z');
+  assert.ok(free.result.data.slots.every((slot) => slot.start < '2026-10-05T10:00:00.000Z' || slot.start >= '2026-10-05T11:00:00.000Z'), 'free slots never overlap the busy event');
+  assert.equal(free.receipt.action_id, 'calendar_url.read');
+  await assert.rejects(
+    () => svc.executeProductivityOperation(ownerA, 'calendar_create_event', { provider: 'calendar_url', input: { title: 'Must not write' } }, { requestCalendarUrl }),
+    /No enabled binding/,
+    'published ICS is never a write fallback'
+  );
   assert.equal(svc.PRODUCTIVITY_OPERATIONS.calendar_create_event.tier, 'R2');
   assert.equal(svc.PRODUCTIVITY_OPERATIONS.document_read.tier, 'R0');
   upsertActionFamilyPolicies(ownerA, [{ family: 'communicate_external', mode: 'approval_required' }]);
@@ -133,7 +164,7 @@ try {
   assert.ok(purged.deleted.productivity_events >= 1);
   assert.ok(purged.deleted.productivity_action_receipts >= 1);
 
-  console.log(JSON.stringify({ ok: true, checks: ['provider-event-catalog', 'provider-event-validation', 'owner-isolation', 'trusted-ingestion-owner-check', 'secret-auth', 'payload-redaction', 'structured-filter', 'event-idempotency', 'workflow-target-validation', 'workflow-dispatch', 'goal-agent-entitlement', 'nested-event-template', 'goal-dispatch', 'retry-dead-letter', 'binding-isolation', 'email-read-binding', 'operation-app-compatibility', 'legacy-binding-fail-closed', 'action-idempotency', 'risk-contract', 'action-policy-approval', 'action-policy-override', 'retention'], binding_id: bind.id }, null, 2));
+  console.log(JSON.stringify({ ok: true, checks: ['provider-event-catalog', 'provider-event-validation', 'owner-isolation', 'trusted-ingestion-owner-check', 'secret-auth', 'payload-redaction', 'structured-filter', 'event-idempotency', 'workflow-target-validation', 'workflow-dispatch', 'goal-agent-entitlement', 'nested-event-template', 'goal-dispatch', 'retry-dead-letter', 'binding-isolation', 'email-read-binding', 'operation-app-compatibility', 'legacy-binding-fail-closed', 'action-idempotency', 'ics-read-fallback', 'ics-free-slot-search', 'ics-write-denied', 'risk-contract', 'action-policy-approval', 'action-policy-override', 'retention'], binding_id: bind.id }, null, 2));
 } finally {
   try { handle?.close(); } catch {}
   rmSync(root, { recursive: true, force: true });
