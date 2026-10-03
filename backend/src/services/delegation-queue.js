@@ -59,6 +59,11 @@ import { meterOpenClawUsage } from './token-usage.js';
 import { enforceBudget } from './agent-budgets.js';
 import { splitAllocationByKind } from './org-member-keys.js';
 import { listNativeOpenClawToolCalls, persistNativeToolCallsToLogs } from './openclaw-session-tools.js';
+import {
+  buildAgentSkillRuntimeInstruction,
+  extractSkillUsageMarker,
+  recordSkillExecutionSelection,
+} from './agent-skills.js';
 
 const SESSION_USER = 'agent-os-delegation';
 const AGENTS_MD_NAME = 'AGENTS.md';
@@ -1191,6 +1196,19 @@ export async function processPendingDelegationTasksForCeo(ceoUserId, opts = {}) 
         console.warn('[delegation] governed learning injection skipped:', e?.message || e);
       }
     }
+    let pinnedSkillRefs = [];
+    if (goalIdentity?.goalStepId) {
+      try {
+        const skillStep = db().prepare('SELECT spec_json FROM agent_goal_steps WHERE id=?').get(goalIdentity.goalStepId);
+        pinnedSkillRefs = JSON.parse(skillStep?.spec_json || '{}')?.skill_refs || [];
+      } catch {
+        pinnedSkillRefs = [];
+      }
+    }
+    const skillRuntime = buildAgentSkillRuntimeInstruction(ownerForTenant, task.to_agent_id, task.prompt, {
+      pinnedRefs: pinnedSkillRefs,
+    });
+    if (!avatarVr && skillRuntime.instruction) promptWithMemory += skillRuntime.instruction;
     const budgetState = enforceBudget(ownerForTenant, task.to_agent_id, {
       action: 'delegation',
       memberLabel: agent.name,
@@ -1274,6 +1292,26 @@ export async function processPendingDelegationTasksForCeo(ceoUserId, opts = {}) 
             `[delegation] status-only reply after nudge task=${task.id} agent=${task.to_agent_id}`
           );
         }
+      }
+      const skillUsage = extractSkillUsageMarker(responseText, skillRuntime.allowed);
+      responseText = skillUsage.reply;
+      const auditedSkillRefs = skillUsage.used.length ? skillUsage.used : skillRuntime.recommended;
+      if (auditedSkillRefs.length) {
+        recordSkillExecutionSelection({
+          ownerUserId: ownerForTenant,
+          agentId: task.to_agent_id,
+          skillRefs: auditedSkillRefs,
+          selectedBy: pinnedSkillRefs.length ? 'goal_planner' : skillUsage.used.length ? 'agent' : 'router_recommendation',
+          selectionReason: pinnedSkillRefs.length
+            ? 'Skill version was pinned by the validated goal plan.'
+            : skillUsage.used.length
+              ? 'Agent selected assigned skills from the Flolah runtime manifest.'
+              : 'Assigned skill was recommended, but the runtime response did not confirm the usage marker.',
+          goalRunId: goalIdentity?.goalRunId || null,
+          goalStepId: goalIdentity?.goalStepId || null,
+          delegationTaskId: task.id,
+          status: skillUsage.used.length ? 'completed' : pinnedSkillRefs.length ? 'selected' : 'selection_unconfirmed',
+        });
       }
       db()
         .prepare(

@@ -10,6 +10,7 @@ import { listAgentMcpCapabilitySummaries } from './agent-mcp-tool-grants.js';
 import { chatCompletions } from '../config/llm.js';
 import { getPlatformTimeoutMs } from './platform-timeout-settings.js';
 import { routeContractPrompt, validateContractTypes, validateExecutorEvidence, requiresExecutorFitCheck, adjudicatorInput, ADJUDICATOR_INSTRUCTION } from './agent-route-contract.js';
+import { compactAgentSkillManifest } from './agent-skills.js';
 
 const MODES = new Set(['chat', 'direct_tool', 'delegate', 'goal_plan']);
 const RELATIONS = new Set(['new_work', 'follow_up', 'correction', 'conversation']);
@@ -116,6 +117,7 @@ Classify the current user message by meaning, not by matching isolated words.
 
 Rules:
 - Agent capability arrays contain capability names. Use capability_catalog to resolve each name's shared description.
+- Agent skill arrays contain assigned reusable operating procedures. Use them to judge specialist fit, but remember a skill is not a tool permission.
 - new_work: a self-contained request independent of earlier work. Select no prior turns.
 - follow_up: the user intentionally continues, retries, answers, or modifies a specific earlier work unit. Select only turns needed for that unit.
 - correction: the user rejects or corrects a prior response. Select only the corrected unit, never unrelated work.
@@ -214,11 +216,13 @@ export function buildRouterInput({ ownerUserId, agent, message, history = [] }) 
       department: member.department || '',
       is_orchestrator: !!member.is_orchestrator,
       capabilities: compactAgentCapabilities(member.id, ownerUserId),
+      skills: compactAgentSkillManifest(ownerUserId, member.id).map((skill) => ({ id: skill.id, name: skill.name, description: skill.description, ready: skill.ready })),
     }));
   } catch (_) {
     organization = [];
   }
   const currentCapabilities = compactAgentCapabilities(agent?.id, ownerUserId);
+  const currentSkills = compactAgentSkillManifest(ownerUserId, agent?.id).map((skill) => ({ id: skill.id, name: skill.name, description: skill.description, ready: skill.ready }));
   const { references, capability_catalog } = buildCapabilityReferences([
     currentCapabilities,
     ...organization.map((member) => member.capabilities),
@@ -226,7 +230,7 @@ export function buildRouterInput({ ownerUserId, agent, message, history = [] }) 
   return {
     agent: { id: agent?.id, name: agent?.name, role: agent?.role,
       is_coo: !!agent?.is_coo, is_orchestrator: !!agent?.is_orchestrator,
-      capabilities: references[0] || [] },
+      capabilities: references[0] || [], skills: currentSkills },
     organization: organization.map((member, index) => ({
       ...member,
       capabilities: references[index + 1] || [],

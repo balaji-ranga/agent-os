@@ -2,7 +2,7 @@
 import { join } from 'path';
 import { existsSync, rmSync, writeFileSync, readFileSync, readdirSync } from 'fs';
 import { getDb } from '../db/schema.js';
-import { requireAuth, requireCeoOrAdmin, resolveAuthenticatedCeoUserId, resolveCeoDataUserIdFromRequest } from '../middleware/auth.js';
+import { requireAuth, requireCeoOrAdmin, requireTenantFullAccess, resolveAuthenticatedCeoUserId, resolveCeoDataUserIdFromRequest } from '../middleware/auth.js';
 import { allowInternalOrAuth } from '../middleware/internal-auth.js';
 import { listAgentsForUser } from '../services/users.js';
 import { listEntitledAgentsForActor } from '../services/org-permissions.js';
@@ -109,6 +109,17 @@ import {
   publishAgentWorkspaceAsTemplate,
   applyTemplateToAgentWorkspace,
 } from '../services/platform-agent-workspace-templates.js';
+import {
+  addCompanySkillVersion,
+  buildAgentSkillRuntimeInstruction,
+  createCompanySkill,
+  extractSkillUsageMarker,
+  listAgentSkillAssignments,
+  listAgentSkillsCatalog,
+  listSkillExecutionAudit,
+  recordSkillExecutionSelection,
+  setAgentSkillAssignments,
+} from '../services/agent-skills.js';
 
 const router = Router();
 
@@ -288,6 +299,34 @@ router.get('/hire-templates', requireAuth, requireCeoOrAdmin, (req, res) => {
   }
 });
 
+/** Company + read-only platform SKILL.md registry. Must remain before /:id. */
+router.get('/skills/catalog', requireAuth, requireTenantFullAccess, (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.query || {});
+    res.json({ skills: listAgentSkillsCatalog(ownerUserId, { includeMarkdown: req.query.include_markdown === '1' }) });
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+router.post('/skills', requireAuth, requireTenantFullAccess, (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.body || {});
+    res.status(201).json(createCompanySkill(ownerUserId, req.body || {}, req.authUser.id));
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message });
+  }
+});
+
+router.post('/skills/:skillId/versions', requireAuth, requireTenantFullAccess, (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.body || {});
+    res.status(201).json(addCompanySkillVersion(ownerUserId, req.params.skillId, req.body || {}, req.authUser.id));
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message });
+  }
+});
+
 router.use('/:id/voice', agentVoiceRoutes);
 
 router.get('/workspace-templates/:templateId', requireAuth, requireCeoOrAdmin, (req, res) => {
@@ -310,6 +349,39 @@ router.get('/:id', requireAuth, (req, res) => {
     res.json(row);
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+router.get('/:id/skills', requireAuth, requireTenantFullAccess, (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.query || {});
+    assertUserAgentAccess(req.authUser, req.params.id);
+    res.json({ assignments: listAgentSkillAssignments(ownerUserId, req.params.id), skills: listAgentSkillsCatalog(ownerUserId) });
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+router.get('/:id/skills/audit', requireAuth, requireTenantFullAccess, (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.query || {});
+    assertUserAgentAccess(req.authUser, req.params.id);
+    res.json({ rows: listSkillExecutionAudit(ownerUserId, req.params.id, { limit: req.query.limit }) });
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+router.put('/:id/skills', requireAuth, requireTenantFullAccess, (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.body || {});
+    assertUserAgentAccess(req.authUser, req.params.id);
+    const assignments = setAgentSkillAssignments(ownerUserId, req.params.id, req.body?.assignments || [], req.authUser.id);
+    const agent = db().prepare('SELECT * FROM agents WHERE id=?').get(req.params.id);
+    const runtime = ensureTenantOpenClawAgent(agent, ownerUserId);
+    res.json({ assignments, runtime });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message });
   }
 });
 
@@ -1395,6 +1467,10 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
       if (profileId) tags.push(`[profile_id: ${profileId}]`);
       userContent = `${tags.join('\n')}\n${routedMessage}`;
     }
+    const skillRuntime = buildAgentSkillRuntimeInstruction(ownerUserId, agent.id, routedMessage);
+    if (skillRuntime.instruction) {
+      messages.unshift({ role: 'system', content: skillRuntime.instruction });
+    }
     messages.push({ role: 'user', content: userContent });
 
     if (workflowTrigger && agent.is_coo) {
@@ -1595,9 +1671,25 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
       sessionId: threadId,
       traceId: threadId ? `sess:${threadId}` : null,
     });
-    const replyText = toAgentSystemUserMessage(
+    let replyText = toAgentSystemUserMessage(
       stripEchoedCeoScope(normalizeReplyContent(reply))
     );
+    const skillUsage = extractSkillUsageMarker(replyText, skillRuntime.allowed);
+    replyText = skillUsage.reply;
+    const auditedSkillRefs = skillUsage.used.length ? skillUsage.used : skillRuntime.recommended;
+    if (auditedSkillRefs.length) {
+      recordSkillExecutionSelection({
+        ownerUserId,
+        agentId: agent.id,
+        skillRefs: auditedSkillRefs,
+        selectedBy: skillUsage.used.length ? 'agent' : 'router_recommendation',
+        selectionReason: skillUsage.used.length
+          ? 'Agent selected assigned skills from the Flolah runtime manifest.'
+          : 'Assigned skill was recommended, but the runtime response did not confirm the usage marker.',
+        workUnitId: turnRoute.id,
+        status: skillUsage.used.length ? 'completed' : 'selection_unconfirmed',
+      });
+    }
     const tool_calls = listToolCallsSince(agentId, ownerUserId, toolsSince);
     if (liveScope && tool_calls.length) {
       updateChatActivity(liveScope, {
@@ -1641,6 +1733,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
             definition_name: workflowTrigger.definition_name,
           }
         : null,
+      skills_used: skillUsage.used,
     });
   } catch (e) {
     const raw = e?.message || String(e);

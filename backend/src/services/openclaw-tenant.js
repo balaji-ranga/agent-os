@@ -35,6 +35,7 @@ import {
 } from './openclaw-runtime-tools.js';
 import { applyIdentityNameToAgentEntry } from '../../../scripts/lib/openclaw-whatsapp-from-prefix.js';
 import { getAgentMcpBridgeGrants, MCP_AGENT_BRIDGE_TOOLS } from './agent-mcp-tool-grants.js';
+import { syncAgentSkillsToWorkspace } from './agent-skills.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_TEMPLATES = join(__dirname, '..', '..', '..', 'openclaw-workspace-templates');
@@ -317,6 +318,14 @@ export function ensureTenantOpenClawAgent(agent, ceoUserId) {
     mkdirSync(workspacePath, { recursive: true });
   }
   syncEssentialWorkspaceDocs(templateBaseId, workspacePath);
+  let skillsSync = { assigned: 0, written: 0, removed: 0, workspace_path: workspacePath };
+  try {
+    skillsSync = syncAgentSkillsToWorkspace(String(ceoUserId), agent.id, workspacePath);
+  } catch (e) {
+    // Do not take an otherwise healthy employee offline because a workspace
+    // refresh failed. Assignment writes validate first and will surface errors.
+    console.warn('[openclaw-tenant] skill sync:', e?.message || e);
+  }
 
   let grants = grantsForAgentId(agent.id);
   if (!grants.length && agent.is_coo) grants = [...COO_CONTENT_TOOLS_ALLOW];
@@ -392,6 +401,7 @@ export function ensureTenantOpenClawAgent(agent, ceoUserId) {
     baseOpenClawId: baseOcId,
     openclawAgentId: runtimeOcId,
     workspacePath,
+    skillsSync,
   };
 }
 

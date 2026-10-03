@@ -195,6 +195,16 @@ export const api = {
     get(`/agents/${encodeURIComponent(agentId)}/mcp-tools`),
   agentMcpToolsSet: (agentId, grants) =>
     put(`/agents/${encodeURIComponent(agentId)}/mcp-tools`, { grants }),
+  agentSkillsCatalog: (includeMarkdown = false) =>
+    get(`/agents/skills/catalog${includeMarkdown ? '?include_markdown=1' : ''}`),
+  agentSkillCreate: (body) => post('/agents/skills', body),
+  agentSkillAddVersion: (skillId, body) =>
+    post(`/agents/skills/${encodeURIComponent(skillId)}/versions`, body),
+  agentSkillsGet: (agentId) => get(`/agents/${encodeURIComponent(agentId)}/skills`),
+  agentSkillsSet: (agentId, assignments) =>
+    put(`/agents/${encodeURIComponent(agentId)}/skills`, { assignments }),
+  agentSkillsAudit: (agentId, limit = 30) =>
+    get(`/agents/${encodeURIComponent(agentId)}/skills/audit?limit=${encodeURIComponent(limit)}`),
   agentToolsSyncTemplateMd: (agentId, templateId) =>
     post(`/agents/${encodeURIComponent(agentId)}/tools/sync-template-md`, templateId ? { template_id: templateId } : {}),
   agentWorkspaceTemplates: () => get('/agents/workspace-templates'),

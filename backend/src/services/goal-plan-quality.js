@@ -20,6 +20,7 @@ import { promptForbidsNotifyCeo } from './goal-plan-constraints.js';
 import { validateWorkflowInput } from './workflow-input-schema.js';
 import { listAgentMcpCapabilitySummaries } from './agent-mcp-tool-grants.js';
 import { requestedBrowserDriver } from './goal-plan-tool-args.js';
+import { compactAgentSkillManifest } from './agent-skills.js';
 
 const STEP_TYPES = new Set([
   'workflow_trigger',
@@ -135,6 +136,15 @@ function normalizeTypedSteps(rawSteps) {
     const phrase = String(raw?.phrase || spec.phrase || '').trim();
     const agentId = String(raw?.agent_id || spec.agent_id || '').trim();
     const userId = String(raw?.user_id || spec.user_id || '').trim();
+    const skillRefs = (Array.isArray(raw?.skill_refs || spec.skill_refs) ? (raw.skill_refs || spec.skill_refs) : [])
+      .slice(0, 5)
+      .map((item) => typeof item === 'string' ? { skill_id: item } : item || {})
+      .map((item) => ({
+        skill_id: String(item.skill_id || item.id || '').trim(),
+        version_id: String(item.version_id || '').trim() || null,
+        version: Number.isFinite(Number(item.version)) ? Number(item.version) : null,
+      }))
+      .filter((item) => item.skill_id);
     return {
       type,
       label: String(raw?.label || spec.label || type || `Step ${index + 1}`).trim().slice(0, 180),
@@ -161,6 +171,7 @@ function normalizeTypedSteps(rawSteps) {
         ...(phrase ? { phrase } : {}),
         ...(agentId ? { agent_id: agentId } : {}),
         ...(userId ? { user_id: userId } : {}),
+        ...(skillRefs.length ? { skill_refs: skillRefs } : {}),
         ...(normalizedMessage ? { message: normalizedMessage } : {}),
         selection_rationale: String(raw?.selection_rationale || spec.selection_rationale || '').trim().slice(0, 600) || null,
       },
@@ -309,6 +320,19 @@ export function validateTypedGoalPlan(steps, catalog) {
     }
     if (step.type === 'specialty_task' && !String(step.spec?.message || '').trim()) errors.push(`Specialty step ${step.key} has no bounded work instruction`);
     if (step.type === 'specialty_task') {
+      const selectedAgent = (catalog.agents || []).find((item) => String(item.id).toLowerCase() === String(step.spec?.agent_id || '').toLowerCase());
+      const allowedSkills = new Map((selectedAgent?.skills || []).map((skill) => [String(skill.id), skill]));
+      for (const ref of step.spec?.skill_refs || []) {
+        const skillId = String(ref.skill_id || ref.id || '');
+        const skill = allowedSkills.get(skillId);
+        if (!skill) {
+          errors.push(`Step ${step.key} uses skill ${skillId || '(missing)'} that is not assigned to agent ${step.spec?.agent_id}`);
+          continue;
+        }
+        if (!skill.ready) errors.push(`Step ${step.key} uses skill ${skill.id}, but its required tools or connector actions are not granted to agent ${step.spec?.agent_id}`);
+        if (ref.version_id && String(ref.version_id) !== String(skill.version_id)) errors.push(`Step ${step.key} uses unavailable skill version ${ref.version_id}; expected ${skill.version_id}`);
+        if (ref.version != null && Number(ref.version) !== Number(skill.version)) errors.push(`Step ${step.key} uses unavailable ${skill.id} version ${ref.version}; expected ${skill.version}`);
+      }
       const delegatedText = String(step.spec?.message || '').toLowerCase();
       const delegatedWorkflow = (catalog.workflows || []).find((workflow) =>
         delegatedText.includes(String(workflow.id || '').toLowerCase())
@@ -540,7 +564,8 @@ function projectCatalogForPrompt(catalog, prompt = '', candidateSteps = []) {
       score:
         relevanceScore(`${agent.id} ${agent.name} ${agent.role}`, wanted) * 12 +
         relevanceScore((agent.connector_actions || []).map(action => `${action.action_id} ${action.description || ''}`).join(' '), wanted) * 3 +
-        relevanceScore((agent.capabilities || []).map(capability => `${capability.name} ${capability.purpose || ''}`).join(' '), wanted),
+        relevanceScore((agent.capabilities || []).map(capability => `${capability.name} ${capability.purpose || ''}`).join(' '), wanted) +
+        relevanceScore((agent.skills || []).map(skill => `${skill.id} ${skill.name} ${skill.description || ''} ${(skill.trigger_hints || []).join(' ')}`).join(' '), wanted) * 4,
     }))
     .sort((a, b) => b.score - a.score || a.index - b.index)
     .slice(0, 8)
@@ -548,6 +573,7 @@ function projectCatalogForPrompt(catalog, prompt = '', candidateSteps = []) {
     .map((agent) => ({
       ...agent,
       capabilities: ranked(agent.capabilities || [], (capability) => `${capability.name} ${capability.purpose || ''}`, (capability) => capability.name, 20),
+      skills: ranked(agent.skills || [], (skill) => `${skill.id} ${skill.name} ${skill.description || ''} ${(skill.trigger_hints || []).join(' ')}`, (skill) => skill.id, 12),
     }));
   return {
     ...catalog,
@@ -566,11 +592,11 @@ export function catalogPrompt(catalog, { prompt = '', candidateSteps = [] } = {}
   return JSON.stringify({
     current_executor: projected.current_executor,
     current_executor_tools: projected.tools.map((x) => ({ name: x.name, purpose: x.purpose })),
-    execution_rules: 'agent_tool may use ONLY current_executor_tools. agents[].capabilities describe work owned by THAT specialist: use specialty_task with spec.agent_id and spec.message to request it. Capabilities are not additional direct tools. A workflow is only the behavior explicitly described in its catalog entry.',
+    execution_rules: 'agent_tool may use ONLY current_executor_tools. agents[].capabilities describe work owned by THAT specialist: use specialty_task with spec.agent_id and spec.message to request it. agents[].skills are assigned operating procedures, not additional tool permissions; include only matching ready skills in specialty_task.spec.skill_refs. A workflow is only the behavior explicitly described in its catalog entry.',
     workflows: projected.workflows,
     capability_definitions: Object.fromEntries(projected.agents.flatMap(x=>x.capabilities||[]).map(c=>[c.name,clip(c.purpose||'',240)])),
     agent_directory: (catalog.agents || []).map((x) => ({ id: x.id, name: x.name, role: clip(x.role || '', 160) })),
-    agents: projected.agents.filter(x=>!nestedIds.has(x.id)).map((x) => ({ id: x.id, name: x.name, role: x.role, capabilities: x.capabilities.map(c=>c.name), connector_actions: x.connector_actions, reportees: x.reportees })),
+    agents: projected.agents.filter(x=>!nestedIds.has(x.id)).map((x) => ({ id: x.id, name: x.name, role: x.role, capabilities: x.capabilities.map(c=>c.name), skills: (x.skills || []).map(s=>({ id:s.id,name:s.name,description:s.description,version:s.version,version_id:s.version_id,trigger_hints:s.trigger_hints,required_tools:s.required_tools,required_connector_actions:s.required_connector_actions,ready:s.ready })), connector_actions: x.connector_actions, reportees: x.reportees })),
     humans: projected.humans.map((x) => ({ id: x.id, name: x.name, department: x.department, role_title: x.role_title, specialty: x.specialty, purpose: x.purpose })),
   });
 }
@@ -692,7 +718,7 @@ const PLAN_SCHEMA = `Return one concise JSON object with a steps array of at mos
 Every executable step spec also includes objective (the bounded outcome), operation_mode (query|analyze|create|modify|delete|communicate|coordinate), subject (what is queried or acted upon), and deliverable_kind (status_report|data|artifact|external_action|approval|record_created). These are semantic guardrails; they do not replace the executor fields below. status_report means a human-readable summary of activity, history, progress, outcomes, blockers or current state. data means a factual dataset consumed as machine input and MUST NOT be used for a requested status/history/activity summary. A request to report or summarize prior work is a query/analyze status_report, even when the report truthfully describes failed, blocked, denied, or incomplete historical work. Never convert such a reporting request into re-execution of the historical operation. A mutation is allowed only when the original goal requests it.
 Choose EXACTLY ONE of these mutually exclusive execution shapes:
 1. type=agent_tool: spec={tool_name: EXACT name from current_executor_tools ONLY, message: bounded instruction, args: executable JSON arguments, selection_rationale: reason}. NEVER put another agent's capability here. Preserve an explicitly requested browser executor in args.preferred_driver (desktop worker=playwright_chrome; Chrome extension=chrome_extension) with args.allow_fallback=false. For browse_task_start external publishing, args must contain mode, start_url, and input={operation:"social_publish",platform,body:"{{required_input_key}}",constraints:{max_submissions:1,preserve_audience:true,require_exact_editor_value:true,require_durable_confirmation:true}}. Use the exact required input key as the template; never invent the body.
-2. type=specialty_task: spec={agent_id: EXACT id from agents, message: full specialist assignment including which of ITS capabilities/connector_actions to use, selection_rationale: reason}. Do NOT add tool_name.
+2. type=specialty_task: spec={agent_id: EXACT id from agents, skill_refs:[{skill_id,version_id,version}] selected only from that agent's ready assigned skills (empty when none genuinely match), message: full specialist assignment including which of ITS capabilities/connector_actions and selected skills to use, selection_rationale: reason}. Do NOT add tool_name. A skill is an operating procedure, never a tool permission.
 3. type=workflow_trigger: spec={workflow_id: EXACT catalog id, phrase: catalog trigger phrase, message: full workflow input, selection_rationale: reason}. Its operation_mode is ALWAYS coordinate because the published workflow owns its internal side effects. Populate every required field from workflows[].input_schema in message and require the workflow run id plus its declared business result/read-back evidence.
 4. type=human_task: spec={user_id: EXACT human id, message: requested human decision, selection_rationale: reason}. Use only for an actual assigned human action, NOT a CEO report or humans mentioned in content being written.
 5. type=agent_continue: spec={message: synthesis or clarification task for the originating orchestrator, selection_rationale: reason}.
@@ -712,6 +738,7 @@ async function buildCatalog(ownerUserId, orchestratorAgentId) {
         ...listAgentMcpCapabilitySummaries(ownerUserId, agent.id),
       ],
       connector_actions: getDb().prepare('SELECT g.action_id,r.description,r.action_family FROM agent_connector_action_grants g JOIN connector_action_registry r ON r.action_id=g.action_id WHERE g.agent_id=? ORDER BY g.action_id').all(agent.id),
+      skills: compactAgentSkillManifest(ownerUserId, agent.id),
       reportees: getDb().prepare('SELECT a.id,a.name,a.role FROM agents a JOIN user_agents ua ON ua.agent_id=a.id AND ua.user_id=? AND ua.enabled=1 WHERE a.parent_id=? ORDER BY a.name').all(ownerUserId,agent.id),
     })),
     humans: listHumanWorkCandidates(ownerUserId),

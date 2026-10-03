@@ -660,6 +660,10 @@ export function normalizeStepSpec(raw) {
       spec: {
         ...contract,
         agent_id: agentId,
+        skill_refs: (Array.isArray(raw.skill_refs || nested.skill_refs) ? (raw.skill_refs || nested.skill_refs) : [])
+          .slice(0, 5)
+          .map((item) => typeof item === 'string' ? { skill_id: item } : item)
+          .filter((item) => item?.skill_id || item?.id),
         message: message || null,
         parallel_group: Number.isFinite(pg) ? pg : null,
         phase: raw.phase || nested.phase || "specialty",
