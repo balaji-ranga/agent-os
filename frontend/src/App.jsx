@@ -421,7 +421,12 @@ function Shell() {
                 <div className="immersive-top-actions">
                   <span className="immersive-live-pill"><i aria-hidden />Company live</span>
                   <NotificationBell compact />
-                  <button type="button" className="immersive-all-capabilities" onClick={() => setCapabilityLauncherOpen(true)}>
+                  <button
+                    type="button"
+                    className="immersive-all-capabilities"
+                    onPointerDown={() => setCapabilityLauncherOpen(true)}
+                    onClick={() => setCapabilityLauncherOpen(true)}
+                  >
                     All capabilities <kbd>Ctrl K</kbd>
                   </button>
                   <button type="button" className="immersive-ask-coo" onClick={() => window.dispatchEvent(new Event('agent-os-open-coo'))}>
