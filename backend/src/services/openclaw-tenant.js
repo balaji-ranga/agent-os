@@ -34,6 +34,7 @@ import {
   sameOpenClawToolSet,
 } from './openclaw-runtime-tools.js';
 import { applyIdentityNameToAgentEntry } from '../../../scripts/lib/openclaw-whatsapp-from-prefix.js';
+import { getAgentMcpBridgeGrants, MCP_AGENT_BRIDGE_TOOLS } from './agent-mcp-tool-grants.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_TEMPLATES = join(__dirname, '..', '..', '..', 'openclaw-workspace-templates');
@@ -58,6 +59,13 @@ function grantsForAgentId(agentId) {
     .prepare('SELECT tool_name FROM agent_tool_grants WHERE agent_id = ? ORDER BY tool_name')
     .all(agentId)
     .map((r) => r.tool_name);
+}
+
+function tenantGrantsForAgent(ownerUserId, agentId) {
+  return [...new Set([
+    ...grantsForAgentId(agentId),
+    ...getAgentMcpBridgeGrants(ownerUserId, agentId),
+  ])].sort();
 }
 
 /** Runtime OpenClaw agent id for a CEO + logical agent. */
@@ -311,9 +319,8 @@ export function ensureTenantOpenClawAgent(agent, ceoUserId) {
   syncEssentialWorkspaceDocs(templateBaseId, workspacePath);
 
   let grants = grantsForAgentId(agent.id);
-  if (!grants.length && agent.is_coo) {
-    grants = [...COO_CONTENT_TOOLS_ALLOW];
-  }
+  if (!grants.length && agent.is_coo) grants = [...COO_CONTENT_TOOLS_ALLOW];
+  grants = [...new Set([...grants, ...getAgentMcpBridgeGrants(ceoUserId, agent.id)])].sort();
 
   let config = readOpenClawConfig();
   config.agents = config.agents && typeof config.agents === 'object' ? config.agents : {};
@@ -338,7 +345,8 @@ export function ensureTenantOpenClawAgent(agent, ceoUserId) {
     entry.name = entry.name || `${agent.name || baseOcId} (${ceoUserId})`;
   }
   entry.tools = entry.tools || {};
-  const existingAllow = Array.isArray(entry.tools.allow) ? entry.tools.allow : [];
+  const existingAllow = (Array.isArray(entry.tools.allow) ? entry.tools.allow : [])
+    .filter((tool) => !MCP_AGENT_BRIDGE_TOOLS.includes(String(tool)));
   const desiredAllow = mergeNativeTools(existingAllow, grants);
   entry.tools.allow = sameOpenClawToolSet(existingAllow, desiredAllow) ? existingAllow : desiredAllow;
   const deny = new Set(Array.isArray(entry.tools.deny) ? entry.tools.deny : ['image']);
@@ -420,7 +428,7 @@ export function syncTenantAllowlists(baseAllowlists = {}) {
     .all();
 
   for (const row of rows) {
-    const grants = grantsForAgentId(row.agent_id);
+    const grants = tenantGrantsForAgent(row.user_id, row.agent_id);
     if (!grants.length) continue;
     const base = baseOcIdFromAgent({
       id: row.agent_id,

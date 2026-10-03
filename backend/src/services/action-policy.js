@@ -9,7 +9,7 @@ import { getDb } from '../db/schema.js';
 import { resolveToolOwnerUserIdOrNull, resolveEntitledOwnerUserId } from './tool-owner-scope.js';
 import { resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
 import { recordMissionEvent } from './goal-outcome.js';
-import { parseTenantOpenClawAgentId } from './openclaw-tenant.js';
+import { parseTenantOpenClawAgentId, resolveAgentFromOpenClawCallerId } from './openclaw-tenant.js';
 import {
   connectorPolicyToolName,
   getConnectorActionClassification,
@@ -18,6 +18,7 @@ import {
   consumeApprovedChatAction,
   recordPendingChatAction,
 } from './chat-action-approval.js';
+import { getBoundMcpPolicy } from './agent-mcp-tool-grants.js';
 
 export const ACTION_FAMILIES = Object.freeze([
   { id: 'read', label: 'Read / research', defaultMode: 'autonomous', defaultTier: 'R0' },
@@ -171,6 +172,10 @@ function explicitRiskForTool(toolName) {
 }
 
 export function resolveRiskForTool(toolName) {
+  const mcpBound = String(toolName || '').match(/^mcp_bound_action\|(R[0-3])\|(read|write_internal|communicate_external|financial_destructive)\|/);
+  if (mcpBound) {
+    return { risk_tier: mcpBound[1], action_family: mcpBound[2], source: 'agent_mcp_binding' };
+  }
   const connectorAction = String(toolName || '').startsWith('connector_action:')
     ? String(toolName).slice('connector_action:'.length)
     : '';
@@ -660,7 +665,7 @@ export function actionPolicyMiddleware(req, res, next) {
   }
   if (!toolName) return next();
 
-  const policyToolName = toolName === 'connector_execute_action'
+  let policyToolName = toolName === 'connector_execute_action'
     ? connectorPolicyToolName(req.body?.action_id || req.body?.actionId || req.body?.id)
     : toolName;
   const rawAgentId = String(
@@ -684,6 +689,22 @@ export function actionPolicyMiddleware(req, res, next) {
     }
   }
   if (!ownerUserId) return next();
+
+  if (toolName === 'mcp_bound_tool_call' && policyAgentId) {
+    const serverId = String(req.body?.server_id || req.body?.serverId || '').trim();
+    const mcpToolName = String(req.body?.mcp_tool_name || req.body?.mcpToolName || '').trim();
+    const bindingAgentId = resolveAgentFromOpenClawCallerId(rawAgentId)?.id || policyAgentId;
+    const binding = getBoundMcpPolicy(ownerUserId, bindingAgentId, serverId, mcpToolName);
+    if (!binding) {
+      return res.status(403).json({
+        ok: false,
+        status: 403,
+        error: 'This MCP tool is not bound to the calling agent for this company.',
+        failure_class: 'capability_denial',
+      });
+    }
+    policyToolName = `mcp_bound_action|${binding.risk_tier}|${binding.action_family}|${serverId}|${mcpToolName}`;
+  }
 
   const forwardedPass = req.isInternalService
     ? String(req.headers['x-flolah-action-policy-pass'] || '').trim()

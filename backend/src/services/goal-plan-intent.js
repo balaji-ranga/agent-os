@@ -25,6 +25,10 @@ import { mergeCapabilitySteps } from './business-capabilities.js';
 import { getWorkAssignmentPolicy, listHumanWorkCandidates, chooseOverlappingExecutor } from './work-assignment-policy.js';
 import { goalWantsChatSynthesis } from './goal-plan-tool-args.js';
 import { getPlatformTimeoutMs } from './platform-timeout-settings.js';
+import {
+  getAgentMcpBridgeGrants,
+  listAgentMcpCapabilitySummaries,
+} from './agent-mcp-tool-grants.js';
 
 const MAX_INTENTS = Math.max(4, Math.min(20, Number(process.env.GOAL_PLAN_MAX_INTENTS) || 12));
 
@@ -341,7 +345,14 @@ function resolveCeoEmail(ownerUserId) {
  * Catalog of tool names the goal owner agent may self-execute on plan steps.
  */
 export function listOrchestratorToolsForGoalPlan(ownerUserId, orchestratorAgentId = null) {
-  const grants = grantsForOrchestrator(orchestratorAgentId, ownerUserId);
+  const baseAgentId = orchestratorBaseId(orchestratorAgentId);
+  const logicalAgentId = getDb().prepare(
+    'SELECT id FROM agents WHERE lower(id) = lower(?) OR lower(openclaw_agent_id) = lower(?) LIMIT 1'
+  ).get(baseAgentId, baseAgentId)?.id || baseAgentId;
+  const grants = [
+    ...grantsForOrchestrator(orchestratorAgentId, ownerUserId),
+    ...getAgentMcpBridgeGrants(ownerUserId, logicalAgentId),
+  ];
   const grantSet = new Set(grants.map((g) => String(g).toLowerCase()));
   const enabled = listEnabledContentTools();
   const tools = enabled

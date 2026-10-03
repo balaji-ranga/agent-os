@@ -26,6 +26,7 @@ import {
   SENSITIVE_OPENCLAW_RUNTIME_TOOLS,
   sameOpenClawToolSet,
 } from './openclaw-runtime-tools.js';
+import { MCP_AGENT_BRIDGE_TOOLS, hasAgentMcpToolBindings } from './agent-mcp-tool-grants.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_TEMPLATES = join(__dirname, '..', '..', '..', 'openclaw-workspace-templates');
@@ -171,6 +172,11 @@ export function assertCallerMayUseTool(source, toolName) {
         ok: false,
         error: `Agent "${caller.id}" is not granted to tenant "${parsed.ceoUserId}"`,
       };
+    }
+    if (MCP_AGENT_BRIDGE_TOOLS.includes(toolName)) {
+      return hasAgentMcpToolBindings(parsed.ceoUserId, caller.id)
+        ? { ok: true }
+        : { ok: false, error: `No MCP tools are bound to agent "${source}" for this company` };
     }
     if (isToolGrantedToAgent(source, toolName)) return { ok: true };
     if (getAgentToolGrants(caller.id).includes(toolName)) return { ok: true };
@@ -359,7 +365,7 @@ export function listToolsCatalogForAgent(agentId) {
   const granted = new Set(getAgentToolGrants(agentId));
   return meta
     .listToolsMeta()
-    .filter((t) => t.enabled)
+    .filter((t) => t.enabled && !MCP_AGENT_BRIDGE_TOOLS.includes(t.name))
     .map((t) => ({
       name: t.name,
       display_name: t.display_name,
@@ -380,6 +386,7 @@ function normalizeAgentToolNames(agent, toolNames) {
     [...(toolNames || []), ...MANDATORY_AGENT_EVIDENCE_TOOLS]
       .map((t) => String(t).trim())
       .filter((t) => contentSet.has(t))
+      .filter((t) => !MCP_AGENT_BRIDGE_TOOLS.includes(t))
       .filter((t) => !!agent?.is_coo || !cooOnlyTools.has(t))
   )];
 }

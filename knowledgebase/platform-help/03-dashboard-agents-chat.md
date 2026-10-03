@@ -57,6 +57,12 @@ Tips:
 
 **Add agent / Hire AI employee** — creates a full AgentSystem tenant agent for your CEO account (custom agent), with workspace files and default tool grants. Optionally set a **monthly token budget** and **error budget %** at creation (see [18-agent-budgets-and-org-members.md](./18-agent-budgets-and-org-members.md)). Choose an **icon or image** (default robot icon if none). The same icon shows in chat (next to the employee name), Agent Workspace, and Agent Exchange.
 
+### Give an agent access to a registered MCP tool
+
+Open the employee’s **Workspace → Tool access → MCP tool access**. Choose a healthy MCP server and tick only the exact tools that employee may use, then select **Save MCP tool access**. This is separate from merely registering or OAuth-connecting the MCP server: connection makes the server available to the company; the binding decides which AI employee may invoke which action.
+
+The employee discovers the allowed actions through `mcp_bound_tools_list` and invokes them through `mcp_bound_tool_call` using `server_id`, `mcp_tool_name`, and `arguments`. Flolah derives the company and employee from the authenticated runtime; an agent cannot select another CEO’s identity. The bridge rechecks the exact binding, healthy tenant-visible server, saved OAuth/auth, and Action Control on every call. Removing a tick revokes access immediately. MCP action receipts follow the CEO profile’s data-retention period.
+
 **Publish to Agent Exchange** — from the employee list or workspace, publish as **Flolah** (other Flolah CEOs can Add to org → imported into their workspace + org) or **Public** (internet A2A). Unpublish from the same modal or Exchange **⋯**. Workflow A2A publish is separate and unchanged — see [09-a2a-agent-exchange.md](./09-a2a-agent-exchange.md).
 
 Edit personality and operating docs:

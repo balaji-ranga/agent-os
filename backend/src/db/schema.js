@@ -815,6 +815,38 @@ export function initDb() {
     _db.exec(`CREATE INDEX IF NOT EXISTS idx_mcp_servers_owner ON mcp_servers(owner_user_id)`);
     _db.exec(`CREATE INDEX IF NOT EXISTS idx_mcp_servers_platform ON mcp_servers(is_platform)`);
     _db.exec(`CREATE INDEX IF NOT EXISTS idx_mcp_call_logs_server ON mcp_call_logs(server_id, created_at DESC)`);
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS agent_mcp_tool_grants (
+        owner_user_id TEXT NOT NULL,
+        agent_id TEXT NOT NULL,
+        server_id TEXT NOT NULL,
+        tool_name TEXT NOT NULL,
+        risk_tier TEXT NOT NULL DEFAULT 'R2' CHECK (risk_tier IN ('R0', 'R1', 'R2', 'R3')),
+        action_family TEXT NOT NULL DEFAULT 'communicate_external'
+          CHECK (action_family IN ('read', 'write_internal', 'communicate_external', 'financial_destructive')),
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        PRIMARY KEY (owner_user_id, agent_id, server_id, tool_name),
+        FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE,
+        FOREIGN KEY (server_id) REFERENCES mcp_servers(id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_agent_mcp_grants_owner_agent
+        ON agent_mcp_tool_grants(owner_user_id, agent_id);
+      CREATE TABLE IF NOT EXISTS agent_mcp_action_receipts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        owner_user_id TEXT NOT NULL,
+        agent_id TEXT NOT NULL,
+        server_id TEXT NOT NULL,
+        tool_name TEXT NOT NULL,
+        status TEXT NOT NULL CHECK (status IN ('ok', 'error', 'denied')),
+        request_json TEXT DEFAULT '{}',
+        response_json TEXT DEFAULT '{}',
+        latency_ms INTEGER,
+        created_at TEXT DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_agent_mcp_receipts_owner_agent
+        ON agent_mcp_action_receipts(owner_user_id, agent_id, created_at DESC);
+    `);
   } catch (_) {}
 
   try {

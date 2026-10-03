@@ -77,6 +77,7 @@ export async function purgeOwnerRetention(ownerUserId, { days = null } = {}) {
     marketing_engagement_events: 0,
     marketing_campaign_outcomes: 0,
     marketing_distribution_list_members: 0,
+    agent_mcp_action_receipts: 0,
   };
 
   deleted.chat_turns =
@@ -128,6 +129,14 @@ export async function purgeOwnerRetention(ownerUserId, { days = null } = {}) {
     ).run(owner, cutoff).changes || 0;
   } catch (_) {
     /* Event & Productivity tables are lazy-created at feature startup. */
+  }
+
+  try {
+    deleted.agent_mcp_action_receipts = db.prepare(
+      `DELETE FROM agent_mcp_action_receipts WHERE owner_user_id=? AND datetime(created_at)<datetime('now',?)`
+    ).run(owner, cutoff).changes || 0;
+  } catch (_) {
+    /* Agent MCP binding tables are created with the MCP registry schema. */
   }
 
   try {

@@ -7,6 +7,7 @@
 - Workflow **MCP** nodes
 - Workflow **SSE Listen** nodes (event streams)
 - **Brain** nodes with MCP tool-calling enabled
+- Direct AI employee chat after an explicit **Agent Workspace → Tool access → MCP tool access** binding
 
 ## Register an MCP server
 
@@ -45,6 +46,18 @@ Path: **MCP** → `/integrations/mcp`.
 2. Enable `mcpToolCalling`.
 3. Set `mcpServerIds` (JSON array of server ids), optional allowlist, max rounds, per-server auth.
 4. The LLM may call MCP tools in a loop; inspect `mcp_tool_calls` output.
+
+### Direct agent + MCP capability binding
+
+Registration, authentication, and agent authorization are deliberately separate:
+
+1. Register and connect the MCP server under **MCP** / **Connectors → MCPs**.
+2. Open **AI Employees → employee → Workspace → Tool access**.
+3. In **MCP tool access**, select the server and the exact actions this employee may invoke.
+4. The System 1 router and goal planner can now see those bound capabilities for that company and employee.
+5. At execution, Flolah’s generic MCP bridge validates company ownership, employee entitlement, the exact server/tool tuple, live server health, saved company OAuth/auth, and Action Control. Unknown MCP operations default conservatively to R2 external-action control.
+
+This binding is tenant-scoped even when the same logical employee template is used by several CEOs. A binding made by one CEO is never inherited by another CEO. Workflow MCP nodes continue to use their existing workflow-scoped configuration and are not changed by this feature.
 
 ### SSE Listen
 

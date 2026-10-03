@@ -18,6 +18,7 @@ import { listHumanWorkCandidates } from './work-assignment-policy.js';
 import { getPlatformTimeoutMs } from './platform-timeout-settings.js';
 import { promptForbidsNotifyCeo } from './goal-plan-constraints.js';
 import { validateWorkflowInput } from './workflow-input-schema.js';
+import { listAgentMcpCapabilitySummaries } from './agent-mcp-tool-grants.js';
 
 const STEP_TYPES = new Set([
   'workflow_trigger',
@@ -622,7 +623,10 @@ async function buildCatalog(ownerUserId, orchestratorAgentId) {
     tools: listOrchestratorToolsForGoalPlan(ownerUserId, orchestratorAgentId),
     workflows: listWorkflowCatalogForGoalPlan(ownerUserId),
     agents: (await listSpecialtyAgentsForGoalPlan(ownerUserId, orchestratorAgentId)).map(agent => ({...agent,
-      capabilities: getDb().prepare('SELECT g.tool_name AS name,m.purpose FROM agent_tool_grants g LEFT JOIN content_tools_meta m ON m.name=g.tool_name WHERE g.agent_id=? AND COALESCE(m.enabled,1)=1 ORDER BY g.tool_name').all(agent.id),
+      capabilities: [
+        ...getDb().prepare('SELECT g.tool_name AS name,m.purpose FROM agent_tool_grants g LEFT JOIN content_tools_meta m ON m.name=g.tool_name WHERE g.agent_id=? AND COALESCE(m.enabled,1)=1 ORDER BY g.tool_name').all(agent.id),
+        ...listAgentMcpCapabilitySummaries(ownerUserId, agent.id),
+      ],
       connector_actions: getDb().prepare('SELECT g.action_id,r.description,r.action_family FROM agent_connector_action_grants g JOIN connector_action_registry r ON r.action_id=g.action_id WHERE g.agent_id=? ORDER BY g.action_id').all(agent.id),
       reportees: getDb().prepare('SELECT a.id,a.name,a.role FROM agents a JOIN user_agents ua ON ua.agent_id=a.id AND ua.user_id=? AND ua.enabled=1 WHERE a.parent_id=? ORDER BY a.name').all(ownerUserId,agent.id),
     })),

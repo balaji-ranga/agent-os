@@ -32,6 +32,11 @@ export default function AgentWorkspace() {
   const [connectorLoading, setConnectorLoading] = useState(false);
   const [connectorSaving, setConnectorSaving] = useState(false);
   const [connectorMessage, setConnectorMessage] = useState(null);
+  const [mcpServers, setMcpServers] = useState([]);
+  const [mcpServerId, setMcpServerId] = useState('');
+  const [mcpToolGrants, setMcpToolGrants] = useState(new Set());
+  const [mcpSaving, setMcpSaving] = useState(false);
+  const [mcpMessage, setMcpMessage] = useState(null);
   const [syncingMd, setSyncingMd] = useState(false);
   const [orgDept, setOrgDept] = useState('');
   const [orgParentId, setOrgParentId] = useState('');
@@ -99,6 +104,18 @@ export default function AgentWorkspace() {
         if (initial) setConnectorAppId(String(initial.id));
       })
       .catch((e) => setConnectorMessage({ type: 'error', text: e.message }));
+  }, [agentId]);
+
+  useEffect(() => {
+    if (!agentId) return;
+    api.agentMcpToolsGet(agentId)
+      .then((r) => {
+        const servers = r.servers || [];
+        setMcpServers(servers);
+        setMcpServerId((current) => current || servers[0]?.id || '');
+        setMcpToolGrants(new Set((r.grants || []).map((item) => `${item.server_id}\u0000${item.tool_name}`)));
+      })
+      .catch((e) => setMcpMessage({ type: 'error', text: e.message }));
   }, [agentId]);
 
   useEffect(() => {
@@ -267,6 +284,34 @@ export default function AgentWorkspace() {
       })
       .catch((e) => setConnectorMessage({ type: 'error', text: e.message }))
       .finally(() => setConnectorSaving(false));
+  };
+
+  const toggleMcpTool = (serverId, toolName) => {
+    const key = `${serverId}\u0000${toolName}`;
+    setMcpToolGrants((previous) => {
+      const next = new Set(previous);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+    setMcpMessage(null);
+  };
+
+  const saveMcpTools = () => {
+    setMcpSaving(true);
+    setMcpMessage(null);
+    const grants = [...mcpToolGrants].map((key) => {
+      const [server_id, tool_name] = key.split('\u0000');
+      return { server_id, tool_name };
+    });
+    api.agentMcpToolsSet(agentId, grants)
+      .then((r) => {
+        setMcpServers(r.servers || []);
+        setMcpToolGrants(new Set((r.grants || []).map((item) => `${item.server_id}\u0000${item.tool_name}`)));
+        setMcpMessage({ type: 'ok', text: 'MCP tool access saved. The tenant agent runtime is updated immediately.' });
+      })
+      .catch((e) => setMcpMessage({ type: 'error', text: e.message }))
+      .finally(() => setMcpSaving(false));
   };
 
   const syncTemplateMd = () => {
@@ -703,6 +748,63 @@ export default function AgentWorkspace() {
                     </button>
                     {connectorMessage && (
                       <span style={{ display: 'block', marginTop: '0.55rem', color: connectorMessage.type === 'error' ? '#f87171' : '#22c55e', fontSize: '0.85rem' }}>{connectorMessage.text}</span>
+                    )}
+                  </>
+                )}
+              </section>
+              <section style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                  <div>
+                    <h3 style={{ fontSize: '1rem', margin: 0 }}>MCP tool access</h3>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--muted)', margin: '0.35rem 0 0' }}>
+                      Bind exact tools from healthy MCP servers visible to your company. The agent uses Flolah&apos;s generic MCP bridge; tenant isolation, saved OAuth/auth, server health and Action Control remain enforced.
+                    </p>
+                  </div>
+                  <span style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>{mcpToolGrants.size} selected</span>
+                </div>
+                {mcpServers.length === 0 ? (
+                  <p style={{ color: 'var(--muted)' }}>No healthy MCP servers are available. Register and connect one under MCP first.</p>
+                ) : (
+                  <>
+                    <select
+                      aria-label="MCP server"
+                      value={mcpServerId}
+                      onChange={(event) => setMcpServerId(event.target.value)}
+                      style={{ width: '100%', maxWidth: 440, margin: '0.85rem 0', padding: '0.6rem 0.7rem', border: '1px solid var(--border)', borderRadius: 7, background: 'var(--bg)', color: 'var(--text)' }}
+                    >
+                      {mcpServers.map((server) => (
+                        <option key={server.id} value={server.id}>{server.name || server.id}{server.is_platform ? ' · platform' : ''}</option>
+                      ))}
+                    </select>
+                    <div style={{ maxHeight: 360, overflow: 'auto', border: '1px solid var(--border)', borderRadius: 8, padding: '0 0.75rem' }}>
+                      {(mcpServers.find((server) => server.id === mcpServerId)?.tools || []).map((tool) => {
+                        const key = `${mcpServerId}\u0000${tool.name}`;
+                        const tier = tool.risk_tier || 'R2';
+                        const tierColor = tier === 'R0' ? '#22c55e' : tier === 'R1' ? '#38bdf8' : tier === 'R2' ? '#f59e0b' : '#ef4444';
+                        return (
+                          <label key={tool.name} style={{ display: 'flex', gap: '0.7rem', alignItems: 'flex-start', padding: '0.65rem 0', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}>
+                            <input type="checkbox" checked={mcpToolGrants.has(key)} onChange={() => toggleMcpTool(mcpServerId, tool.name)} style={{ marginTop: 4 }} />
+                            <span style={{ minWidth: 0 }}>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+                                <strong style={{ overflowWrap: 'anywhere' }}>{tool.name}</strong>
+                                <span title={tool.action_family || ''} style={{ color: tierColor, border: `1px solid ${tierColor}`, borderRadius: 999, padding: '0.05rem 0.4rem', fontSize: '0.72rem' }}>{tier}</span>
+                              </span>
+                              {tool.description && <span style={{ display: 'block', color: 'var(--muted)', fontSize: '0.84rem', marginTop: 3 }}>{tool.description}</span>}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={saveMcpTools}
+                      disabled={mcpSaving}
+                      style={{ marginTop: '0.75rem', padding: '0.55rem 1rem', background: mcpSaving ? 'var(--muted)' : 'var(--accent)', border: 'none', borderRadius: 6, color: '#fff' }}
+                    >
+                      {mcpSaving ? 'Saving…' : 'Save MCP tool access'}
+                    </button>
+                    {mcpMessage && (
+                      <span style={{ display: 'block', marginTop: '0.55rem', color: mcpMessage.type === 'error' ? '#f87171' : '#22c55e', fontSize: '0.85rem' }}>{mcpMessage.text}</span>
                     )}
                   </>
                 )}

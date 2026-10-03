@@ -184,6 +184,10 @@ export const api = {
     get(`/agents/${encodeURIComponent(agentId)}/connector-actions`),
   agentConnectorActionsSet: (agentId, actions) =>
     put(`/agents/${encodeURIComponent(agentId)}/connector-actions`, { actions }),
+  agentMcpToolsGet: (agentId) =>
+    get(`/agents/${encodeURIComponent(agentId)}/mcp-tools`),
+  agentMcpToolsSet: (agentId, grants) =>
+    put(`/agents/${encodeURIComponent(agentId)}/mcp-tools`, { grants }),
   agentToolsSyncTemplateMd: (agentId, templateId) =>
     post(`/agents/${encodeURIComponent(agentId)}/tools/sync-template-md`, templateId ? { template_id: templateId } : {}),
   agentWorkspaceTemplates: () => get('/agents/workspace-templates'),

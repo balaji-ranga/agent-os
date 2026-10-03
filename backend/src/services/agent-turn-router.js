@@ -6,6 +6,7 @@
 import { randomUUID } from 'crypto';
 import { createHash } from 'crypto';
 import { getDb } from '../db/schema.js';
+import { listAgentMcpCapabilitySummaries } from './agent-mcp-tool-grants.js';
 import { chatCompletions } from '../config/llm.js';
 import { getPlatformTimeoutMs } from './platform-timeout-settings.js';
 import { routeContractPrompt, validateContractTypes, validateExecutorEvidence, requiresExecutorFitCheck, adjudicatorInput, ADJUDICATOR_INSTRUCTION } from './agent-route-contract.js';
@@ -154,12 +155,13 @@ export function validateRouteDecision(value, candidateTurnIds = [], rosterAgentI
   return { ok: errors.length === 0, errors };
 }
 
-export function compactAgentCapabilities(agentId) {
+export function compactAgentCapabilities(agentId, ownerUserId = null) {
   try {
-    return db().prepare('SELECT g.tool_name,m.purpose FROM agent_tool_grants g LEFT JOIN content_tools_meta m ON m.name=g.tool_name WHERE g.agent_id=? AND COALESCE(m.enabled,1)=1 ORDER BY g.tool_name')
+    const content = db().prepare('SELECT g.tool_name,m.purpose FROM agent_tool_grants g LEFT JOIN content_tools_meta m ON m.name=g.tool_name WHERE g.agent_id=? AND COALESCE(m.enabled,1)=1 ORDER BY g.tool_name')
       .all(agentId || '')
       .map(row => ({name:String(row.tool_name||''),description:String(row.purpose||'').slice(0,160)}))
       .filter(item => item.name);
+    return [...content, ...listAgentMcpCapabilitySummaries(ownerUserId, agentId)];
   } catch (_) {
     return [];
   }
@@ -211,12 +213,12 @@ export function buildRouterInput({ ownerUserId, agent, message, history = [] }) 
       role: member.role || '',
       department: member.department || '',
       is_orchestrator: !!member.is_orchestrator,
-      capabilities: compactAgentCapabilities(member.id),
+      capabilities: compactAgentCapabilities(member.id, ownerUserId),
     }));
   } catch (_) {
     organization = [];
   }
-  const currentCapabilities = compactAgentCapabilities(agent?.id);
+  const currentCapabilities = compactAgentCapabilities(agent?.id, ownerUserId);
   const { references, capability_catalog } = buildCapabilityReferences([
     currentCapabilities,
     ...organization.map((member) => member.capabilities),

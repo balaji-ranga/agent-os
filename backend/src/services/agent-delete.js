@@ -45,6 +45,7 @@ const AGENT_REFERRERS = [
   { table: 'standup_responses', column: 'agent_id', mode: 'delete' },
   { table: 'user_agents', column: 'agent_id', mode: 'delete' },
   { table: 'agent_tool_grants', column: 'agent_id', mode: 'delete' },
+  { table: 'agent_mcp_tool_grants', column: 'agent_id', mode: 'delete' },
   { table: 'kanban_tasks', column: 'assigned_agent_id', mode: 'null' },
 ];
 
@@ -52,6 +53,7 @@ const AGENT_REFERRERS = [
 const AGENT_ORPHANS = [
   { table: 'chat_sessions', column: 'agent_id' },
   { table: 'agent_ops_budgets', column: 'agent_id' },
+  { table: 'agent_mcp_action_receipts', column: 'agent_id' },
 ];
 
 /**

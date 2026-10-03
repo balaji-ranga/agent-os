@@ -68,6 +68,10 @@ import {
   setAgentConnectorActionGrants,
 } from '../services/connector-action-grants.js';
 import { meterOpenClawUsage } from '../services/token-usage.js';
+import {
+  listAgentMcpToolAccess,
+  setAgentMcpToolGrants,
+} from '../services/agent-mcp-tool-grants.js';
 import { withLlmopsContext } from '../services/llmops-context.js';
 import { BudgetBlockedError, enforceBudget } from '../services/agent-budgets.js';
 import {
@@ -506,6 +510,36 @@ router.get('/:id/chat/history', requireAuth, (req, res) => {
     });
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+// Company-scoped Agent -> registered MCP tool bindings. Unlike content-tool grants,
+// these always include owner_user_id because a logical agent may be shared by CEOs.
+router.get('/:id/mcp-tools', requireAuth, requireCeoOrAdmin, (req, res) => {
+  try {
+    const agent = db().prepare('SELECT * FROM agents WHERE id = ?').get(req.params.id);
+    if (!agent) return res.status(404).json({ error: 'Agent not found' });
+    if (req.authUser.role === 'ceo' && !userCanAccessAgent(req.authUser, agent.id)) return res.status(404).json({ error: 'Agent not found' });
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.body || {});
+    res.json(listAgentMcpToolAccess(ownerUserId, agent.id));
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+router.put('/:id/mcp-tools', requireAuth, requireCeoOrAdmin, (req, res) => {
+  try {
+    const agent = db().prepare('SELECT * FROM agents WHERE id = ?').get(req.params.id);
+    if (!agent) return res.status(404).json({ error: 'Agent not found' });
+    if (req.authUser.role === 'ceo' && !userCanAccessAgent(req.authUser, agent.id)) return res.status(404).json({ error: 'Agent not found' });
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.body || {});
+    const grants = Array.isArray(req.body?.grants) ? req.body.grants : [];
+    const result = setAgentMcpToolGrants(ownerUserId, agent.id, grants);
+    agentTools.syncAllowlistsFile();
+    ensureTenantOpenClawAgent(agent, ownerUserId);
+    res.json(result);
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message });
   }
 });
 

@@ -179,6 +179,10 @@ import {
 } from '../services/openconnector.js';
 import { assertCallerMayExecuteConnectorAction } from '../services/connector-action-grants.js';
 import {
+  callBoundMcpTool,
+  listBoundMcpTools,
+} from '../services/agent-mcp-tool-grants.js';
+import {
   reviewGmailMailbox,
   executeGmailMailboxCleanup,
   getGmailCleanupPlan,
@@ -925,6 +929,36 @@ router.use(crmTools);
 router.use(erpTools);
 router.use(eventProductivityTools);
 router.use(marketingTools);
+
+router.post('/mcp-bound-tools-list', async (req, res) => {
+  const source = String(req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || '').trim();
+  try {
+    const caller = resolveAgentFromOpenClawCallerId(source);
+    if (!caller) return res.status(403).json({ ok: false, error: 'A recognized calling agent is required' });
+    const ownerUserId = resolveToolOwnerUserId(req, {}, resolveAuthenticatedCeoUserId);
+    const tools = listBoundMcpTools(ownerUserId, caller.id);
+    return res.json({ ok: true, agent_id: caller.id, tools });
+  } catch (e) {
+    return res.status(e.status || 400).json({ ok: false, error: e.message });
+  }
+});
+
+router.post('/mcp-bound-tool-call', async (req, res) => {
+  const source = String(req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || '').trim();
+  try {
+    const caller = resolveAgentFromOpenClawCallerId(source);
+    if (!caller) return res.status(403).json({ ok: false, error: 'A recognized calling agent is required' });
+    const ownerUserId = resolveToolOwnerUserId(req, {}, resolveAuthenticatedCeoUserId);
+    const out = await callBoundMcpTool(ownerUserId, caller.id, {
+      server_id: req.body?.server_id || req.body?.serverId,
+      tool_name: req.body?.mcp_tool_name || req.body?.mcpToolName || req.body?.tool_name || req.body?.toolName,
+      arguments: req.body?.arguments || req.body?.args || {},
+    });
+    return res.json(out);
+  } catch (e) {
+    return res.status(e.status || 400).json({ ok: false, error: e.message });
+  }
+});
 
 /**
  * POST /summarize-url

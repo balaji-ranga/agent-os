@@ -242,6 +242,8 @@ export function purgeOwnerScopedRows(db, ownerUserId) {
   counts.model_route_events = tryRun(db, `DELETE FROM model_route_events WHERE owner_user_id = ?`, [ownerUserId]);
 
   // Integrations / scripts / MCP
+  counts.agent_mcp_action_receipts = tryRun(db, `DELETE FROM agent_mcp_action_receipts WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.agent_mcp_tool_grants = tryRun(db, `DELETE FROM agent_mcp_tool_grants WHERE owner_user_id = ?`, [ownerUserId]);
   counts.mcp_servers = tryRun(db, `DELETE FROM mcp_servers WHERE owner_user_id = ?`, [ownerUserId]);
   counts.mcp_call_logs = tryRun(db, `DELETE FROM mcp_call_logs WHERE user_id = ?`, [ownerUserId]);
   counts.org_member_invocations = tryRun(

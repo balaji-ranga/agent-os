@@ -127,6 +127,7 @@ import { seedWebScrapeToolsIfMissing } from './db/seed-web-scrape-tools.js';
 import { seedMarketDataToolsIfMissing } from './db/seed-market-data-tools.js';
 import { seedEventProductivityToolsIfMissing } from './db/seed-event-productivity-tools.js';
 import { seedMarketingWorkspaceToolsIfMissing } from './db/seed-marketing-workspace-tools.js';
+import { seedAgentMcpBridgeToolsIfMissing } from './db/seed-agent-mcp-tools.js';
 import { ensureEventProductivitySchema } from './services/event-productivity.js';
 import {
   ensureCompanyEmailChannelsSchema,
@@ -413,6 +414,7 @@ seedIbkrTradingToolsIfMissing();
 seedMarketDataToolsIfMissing();
 seedEventProductivityToolsIfMissing();
 seedMarketingWorkspaceToolsIfMissing();
+seedAgentMcpBridgeToolsIfMissing();
 try {
   ensureEventProductivitySchema();
 } catch (e) {
