@@ -48,23 +48,54 @@ function validTier(value, fallback = 'R2') {
 function criticalPrivilegedRisk(text) {
   const normalized = String(text || '').toLowerCase().replace(/[_-]+/g, ' ');
   const privilegedObject = /\b(account|identity|credential|secret|api key|access token|permission|role|administrator|admin|deployment|production|system|tenant)\b/;
-  const privilegedEffect = /\b(delete|destroy|purge|revoke|rotate|reset|replace|grant|assign|elevate|deploy|uninstall|execute)\b/;
+  const privilegedEffect = /\b(create|add|update|set|delete|destroy|purge|revoke|rotate|reset|replace|grant|assign|elevate|deploy|uninstall|execute)\b/;
   return privilegedObject.test(normalized) && privilegedEffect.test(normalized);
 }
 
-/** Conservative default used only when the authoritative source has no valid tier. */
+function strongReadOperation(candidate = {}) {
+  const capabilityId = String(candidate.capability_id || candidate.id || candidate.name || '')
+    .trim()
+    .toLowerCase()
+    .split(/[.:|]/)
+    .pop()
+    .replace(/[-\s]+/g, '_');
+  const readVerbs = new Set(['get', 'list', 'read', 'fetch', 'find', 'search', 'query', 'inspect', 'check', 'status', 'history', 'summarize', 'lookup', 'download', 'compare', 'research']);
+  const mutationVerbs = new Set(['create', 'add', 'update', 'upsert', 'write', 'set', 'edit', 'append', 'assign', 'schedule', 'move', 'archive', 'draft', 'send', 'publish', 'post', 'message', 'email', 'invite', 'notify', 'comment', 'reply', 'share', 'delete', 'destroy', 'purge', 'trash', 'refund', 'transfer', 'trade', 'submit', 'cancel']);
+  const semanticVerb = capabilityId.split('_').find((token) => readVerbs.has(token) || mutationVerbs.has(token));
+  return readVerbs.has(semanticVerb);
+}
+
+/**
+ * Interpret operation semantics conservatively. Critical/destructive/external effects win first;
+ * a strong read verb may then repair stale legacy metadata (for example get_* incorrectly saved as R3).
+ */
 export function inferToolRiskMapping(candidate = {}) {
   const text = `${candidate.capability_id || candidate.id || candidate.name || ''} ${candidate.display_name || ''} ${candidate.description || ''}`;
   if (criticalPrivilegedRisk(text)) return { risk_tier: 'R4', action_family: 'financial_destructive' };
   const declared = validTier(candidate.risk_tier || candidate.inferred_risk_tier, '');
-  if (declared) return { risk_tier: declared, action_family: actionFamilyForRiskTier(declared) };
+  if (declared === 'R4') return { risk_tier: 'R4', action_family: 'financial_destructive' };
   const normalized = text.toLowerCase().replace(/[_-]+/g, ' ');
-  if (/\b(delete|destroy|purge|trash|refund|payment|transfer|trade|submit|cancel)\b/.test(normalized)) {
+  if (/\b(delete|destroy|purge|trash|refund|transfer|submit|cancel)\b/.test(normalized)) {
     return { risk_tier: 'R3', action_family: 'financial_destructive' };
   }
-  if (/\b(send|publish|post|message|email|invite|notify|comment|reply|share)\b/.test(normalized)) {
+  if (/\b(send|publish|invite|notify|reply|share)\b/.test(normalized)) {
     return { risk_tier: 'R2', action_family: 'communicate_external' };
   }
+  const sourceCanHaveLegacyMetadata = ['mcp_tool', 'connector_action']
+    .includes(String(candidate.capability_type || candidate.type || '').trim());
+  if (strongReadOperation(candidate) && (!declared || sourceCanHaveLegacyMetadata)) {
+    return { risk_tier: 'R0', action_family: 'read' };
+  }
+  if (declared && !sourceCanHaveLegacyMetadata) {
+    return { risk_tier: declared, action_family: actionFamilyForRiskTier(declared) };
+  }
+  if (/\b(payment|trade)\b/.test(normalized)) {
+    return { risk_tier: 'R3', action_family: 'financial_destructive' };
+  }
+  if (/\b(post|message|email|comment)\b/.test(normalized)) {
+    return { risk_tier: 'R2', action_family: 'communicate_external' };
+  }
+  if (declared) return { risk_tier: declared, action_family: actionFamilyForRiskTier(declared) };
   if (/\b(create|update|upsert|write|set|edit|append|assign|schedule|move|archive|draft)\b/.test(normalized)) {
     return { risk_tier: 'R1', action_family: 'write_internal' };
   }

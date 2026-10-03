@@ -13,6 +13,7 @@ try {
   testDb = db;
   const {
     TOOL_RISK_TIERS,
+    inferToolRiskMapping,
     listToolRiskMappings,
     resolveToolRiskMapping,
     setToolRiskMappingOverride,
@@ -36,6 +37,14 @@ try {
     .run('production_secret_rotate', 'Rotate production secret', '/fixture/rotate', 'Rotate a production credential', 'R3', 'financial_destructive');
 
   assert.deepEqual(TOOL_RISK_TIERS.map((row) => row.id), ['R0', 'R1', 'R2', 'R3', 'R4']);
+  assert.equal(inferToolRiskMapping({ capability_type: 'mcp_tool', capability_id: 'get_indicator', risk_tier: 'R3' }).risk_tier, 'R0',
+    'strong read semantics repair stale higher-risk metadata');
+  assert.equal(inferToolRiskMapping({ capability_type: 'connector_action', capability_id: 'github.check_pull_request_merged', risk_tier: 'R2' }).risk_tier, 'R0',
+    'namespaced check operations are interpreted as read only');
+  assert.equal(inferToolRiskMapping({ capability_type: 'mcp_tool', capability_id: 'erp_list_payment_entries', risk_tier: 'R3' }).risk_tier, 'R0',
+    'financial records remain read only when the operation itself is an explicit list');
+  assert.equal(inferToolRiskMapping({ capability_id: 'get_and_delete_secret', risk_tier: 'R0' }).risk_tier, 'R4',
+    'privileged destructive semantics take precedence over a read prefix');
   const ownerA = 'ceo-risk-a';
   const ownerB = 'ceo-risk-b';
   let rowsA = listToolRiskMappings(ownerA);
