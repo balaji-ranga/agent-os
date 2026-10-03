@@ -44,6 +44,16 @@ assert.match(
   /immersive-top-actions[\s\S]*?<ProfileMenu user=\{user\} logout=\{logout\} \/>/,
   'Immersive must retain direct access to the account and profile menu'
 );
+assert.match(
+  styles,
+  /@media \(max-width: 900px\)[\s\S]*?\.design-immersive:not\(\.shell-focus-mode\) > \.app-nav\s*\{[\s\S]*?position:\s*fixed;[\s\S]*?height:\s*100dvh;/,
+  'the immersive mobile rail must stay out of the shell flex flow'
+);
+assert.match(
+  styles,
+  /@media \(max-width: 640px\)[\s\S]*?\.design-immersive \.app-mobile-topbar \.global-search-compact\s*\{\s*display:\s*none;/,
+  'narrow immersive headers must preserve direct access to the account menu'
+);
 assert.doesNotMatch(
   styles,
   /\.design-classic\s[^,{]*[{,]/,

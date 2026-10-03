@@ -8694,13 +8694,39 @@ html[data-design-system="immersive"] body {
 
 @media (max-width: 900px) {
   .design-immersive:not(.shell-focus-mode) { gap: 0; padding: 0; }
-  .design-immersive:not(.shell-focus-mode) .app-nav { width: min(310px, 88vw); height: 100%; border-radius: 0 22px 22px 0; }
-  .design-immersive .app-content { border: 0; border-radius: 0; }
+  /*
+   * Keep the immersive rail out of the mobile flex flow. The desktop rule that
+   * raises direct shell children to position:relative is more specific than
+   * the shared mobile drawer rule. Without this override the off-canvas rail
+   * still consumes a full viewport and pushes app-content below #root, whose
+   * overflow is intentionally clipped.
+   */
+  .design-immersive:not(.shell-focus-mode) > .app-nav {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 100;
+    width: min(310px, 88vw);
+    height: 100dvh;
+    border-radius: 0 22px 22px 0;
+  }
+  .design-immersive:not(.shell-focus-mode) > .app-mobile-topbar {
+    position: relative;
+    z-index: 40;
+  }
+  .design-immersive:not(.shell-focus-mode) > .app-content {
+    width: 100%;
+    min-height: 0;
+    border: 0;
+    border-radius: 0;
+  }
   .immersive-capability-overlay { padding: 8px; }
   .immersive-capability-launcher { width: 100%; max-height: 96vh; border-radius: 18px; }
 }
 
 @media (max-width: 640px) {
+  /* Prioritise the account escape path on narrow phones. Search remains in
+     All capabilities / the desktop header once there is room for it. */
+  .design-immersive .app-mobile-topbar .global-search-compact { display: none; }
   .immersive-capability-groups { grid-template-columns: 1fr; padding-inline: 14px; }
   .immersive-launcher-intro { align-items: flex-start; flex-direction: column; padding-inline: 16px; }
 }
