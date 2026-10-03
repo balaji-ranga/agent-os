@@ -421,6 +421,7 @@ function Shell() {
                 <div className="immersive-top-actions">
                   <span className="immersive-live-pill"><i aria-hidden />Company live</span>
                   <NotificationBell compact />
+                  <ProfileMenu user={user} logout={logout} />
                   <button
                     type="button"
                     className="immersive-all-capabilities"

@@ -39,6 +39,11 @@ assert.match(
   /<CeoNavMenu collapsed=\{menuCollapsed\} \/>/,
   'Classic must retain the existing full navigation component'
 );
+assert.match(
+  app,
+  /immersive-top-actions[\s\S]*?<ProfileMenu user=\{user\} logout=\{logout\} \/>/,
+  'Immersive must retain direct access to the account and profile menu'
+);
 assert.doesNotMatch(
   styles,
   /\.design-classic\s[^,{]*[{,]/,
