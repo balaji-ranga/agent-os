@@ -1,13 +1,41 @@
 import { IBApi, EventName, OrderAction, OrderType, SecType, TimeInForce, WhatToShow } from '@stoqey/ib';
 
+const ACCOUNT_VALUE_KEYS = new Set(['NetLiquidation', 'TotalCashValue', 'RealizedPnL', 'UnrealizedPnL']);
+
+export function normalizeAccountValuesToUsd(accountValues) {
+  const entries = accountValues instanceof Map ? accountValues : new Map();
+  const usdExchangeRate = Number(entries.get('$LEDGER-ExchangeRate:USD')?.value);
+  const baseCurrency = String(entries.get('NetLiquidation')?.currency || '').toUpperCase();
+  const toUsd = (key) => {
+    const baseLedger = entries.get(`$LEDGER-${key}:BASE`);
+    const entry = entries.get(key) || entries.get(`$LEDGER-${key}:USD`) || (baseLedger ? { ...baseLedger, currency: baseCurrency } : null);
+    const value = Number(entry?.value);
+    if (!Number.isFinite(value)) return 0;
+    if (String(entry?.currency || '').toUpperCase() === 'USD') return value;
+    if (Number.isFinite(usdExchangeRate) && usdExchangeRate > 0) return Number((value / usdExchangeRate).toFixed(6));
+    return 0;
+  };
+  return {
+    eligible_capital_usd: toUsd('NetLiquidation'),
+    cash_usd: toUsd('TotalCashValue'),
+    realized_pnl_day_usd: toUsd('RealizedPnL'),
+    unrealized_pnl_usd: toUsd('UnrealizedPnL'),
+  };
+}
+
 export class IBKRNewGateway {
-  constructor(config, onEvent) { this.config = config; this.onEvent = onEvent; this.nextOrderId = null; this.connected = false; this.positions = []; this.openOrders = []; this.account = {}; this.orderMap = new Map(); this.executionMap = new Map(); this.ib = new IBApi({ host: config.host, port: config.port, clientId: config.clientId }); }
+  constructor(config, onEvent) { this.config = config; this.onEvent = onEvent; this.nextOrderId = null; this.connected = false; this.positions = []; this.openOrders = []; this.accountValues = new Map(); this.orderMap = new Map(); this.executionMap = new Map(); this.ib = new IBApi({ host: config.host, port: config.port, clientId: config.clientId }); }
   connect() { return new Promise((resolve, reject) => { const timeout = setTimeout(() => reject(new Error('IBKRNew Gateway connection timeout')), 15000); this.ib.on(EventName.error, (e, code, reqId) => { if (Number(code) >= 500 && Number(reqId) === -1) this.onEvent('bridge.gateway_error', { component_id: 'IBKRNewGateway', component_type: 'ibkr_gateway', code, message: e?.message || String(e) }); }); this.ib.on(EventName.disconnected, () => { this.connected = false; this.onEvent('bridge.gateway_disconnected', { component_id: 'IBKRNewGateway', component_type: 'ibkr_gateway', message: 'IBKR Gateway disconnected' }); }); this.ib.on(EventName.nextValidId, (orderId) => { clearTimeout(timeout); this.connected = true; this.nextOrderId = Number(orderId); this.installCallbacks(); resolve(); }); this.ib.connect(); }); }
   installCallbacks() {
-    this.ib.on(EventName.updateAccountValue, (key, value, currency) => { if (currency === 'USD' || !currency) this.account[key] = Number(value); });
+    this.ib.on(EventName.updateAccountValue, (key, value, currency) => {
+      const normalizedKey = String(key || '');
+      const normalizedCurrency = String(currency || '').toUpperCase();
+      if (ACCOUNT_VALUE_KEYS.has(normalizedKey)) this.accountValues.set(normalizedKey, { value: Number(value), currency: normalizedCurrency });
+      if (['$LEDGER-ExchangeRate', '$LEDGER-RealizedPnL', '$LEDGER-UnrealizedPnL'].includes(normalizedKey)) this.accountValues.set(`${normalizedKey}:${normalizedCurrency}`, { value: Number(value), currency: normalizedCurrency });
+    });
     this.ib.on(EventName.updatePortfolio, (contract, position, marketPrice, marketValue, averageCost, unrealizedPNL, realizedPNL) => { const item = { con_id: contract.conId, symbol: contract.symbol, security_type: contract.secType, quantity: position, market_price: marketPrice, market_value: marketValue, average_cost: averageCost, unrealized_pnl_usd: unrealizedPNL, realized_pnl_usd: realizedPNL, multiplier: contract.multiplier }; this.positions = this.positions.filter((p) => p.con_id !== item.con_id); if (Number(position)) this.positions.push(item); this.onEvent('position.changed', { positions: this.positions }); });
     this.ib.on(EventName.openOrder, (orderId, contract, order, orderState) => { this.openOrders = this.openOrders.filter((x) => x.order_id !== Number(orderId)); this.openOrders.push({ order_id: Number(orderId), order_ref: order.orderRef, symbol: contract.symbol, status: orderState?.status, parent_id: order.parentId }); });
-    this.ib.on(EventName.accountDownloadEnd, () => this.onEvent('account.snapshot', { eligible_capital_usd: this.account.NetLiquidation || 0, cash_usd: this.account.TotalCashValue || 0, realized_pnl_day_usd: this.account.RealizedPnL || 0, unrealized_pnl_usd: this.account.UnrealizedPnL || 0, positions: this.positions, open_orders: this.openOrders }));
+    this.ib.on(EventName.accountDownloadEnd, () => this.onEvent('account.snapshot', { ...normalizeAccountValuesToUsd(this.accountValues), positions: this.positions, open_orders: this.openOrders }));
     this.ib.on(EventName.orderStatus, (orderId, status, filled, remaining, avgFillPrice) => this.onEvent('order.status_changed', { order_id: orderId, ...this.orderMap.get(Number(orderId)), status, filled, remaining, average_fill_price: avgFillPrice }));
     this.ib.on(EventName.execDetails, (requestId, contract, execution) => { const mapped = this.orderMap.get(Number(execution.orderId)) || {}; const payload = { execution_id: execution.execId, order_id: execution.orderId, ...mapped, symbol: contract.symbol, side: execution.side, quantity: execution.shares, price: execution.price, occurred_at: execution.time }; this.executionMap.set(String(execution.execId), payload); this.onEvent('execution.fill', payload); });
     this.ib.on(EventName.commissionReport, (report) => { const mapped = this.executionMap.get(String(report.execId)) || {}; this.onEvent('commission.report', { execution_id: report.execId, ...mapped, commission_usd: report.commission, realized_pnl_usd: report.realizedPNL, currency: report.currency }); });

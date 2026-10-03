@@ -4,7 +4,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import crypto from 'crypto';
 import { IBKRNewBridgeCore, IBKRNewFeatureEngine, buildBarFeatures, commandMatchesBootstrap, selectUniverseProfiles } from '../src/core.js';
-import { IBKRNewGateway } from '../src/gateway.js';
+import { IBKRNewGateway, normalizeAccountValuesToUsd } from '../src/gateway.js';
 
 const dir = mkdtempSync(join(tmpdir(), 'ibkrnew-'));
 let calls = 0;
@@ -35,6 +35,18 @@ for (let minute = 0; minute < 23; minute++) for (let tick = 0; tick < 12; tick++
 assert.equal(closed.symbol, 'AAPL'); assert.ok(closed.quantity > 0); assert.ok(closed.protection.stop_price < closed.last);
 const gateway = Object.create(IBKRNewGateway.prototype); gateway.connected = true; gateway.positions = []; gateway.openOrders = []; gateway.config = { accountId: 'DU1234567' };
 assert.deepEqual(gateway.health(), { connected: true, positions: 0, open_orders: 0 }, 'desktop health must not transmit the local IBKR account identifier');
+assert.deepEqual(normalizeAccountValuesToUsd(new Map([
+  ['NetLiquidation', { value: 1278.6874, currency: 'SGD' }],
+  ['TotalCashValue', { value: 639.3437, currency: 'SGD' }],
+  ['$LEDGER-RealizedPnL:BASE', { value: 12.786874, currency: 'BASE' }],
+  ['$LEDGER-UnrealizedPnL:BASE', { value: -6.393437, currency: 'BASE' }],
+  ['$LEDGER-ExchangeRate:USD', { value: 1.2786874, currency: 'USD' }],
+])), { eligible_capital_usd: 1000, cash_usd: 500, realized_pnl_day_usd: 10, unrealized_pnl_usd: -5 });
+assert.deepEqual(normalizeAccountValuesToUsd(new Map([
+  ['NetLiquidation', { value: 2000, currency: 'USD' }],
+  ['TotalCashValue', { value: 750, currency: 'USD' }],
+])), { eligible_capital_usd: 2000, cash_usd: 750, realized_pnl_day_usd: 0, unrealized_pnl_usd: 0 });
+assert.equal(normalizeAccountValuesToUsd(new Map([['NetLiquidation', { value: 2000, currency: 'SGD' }]])).eligible_capital_usd, 0, 'non-USD capital must fail closed when the USD exchange rate is unavailable');
 const privacyDir = mkdtempSync(join(tmpdir(), 'ibkrnew-privacy-')); const sentBodies = [];
 const privacyCore = new IBKRNewBridgeCore({ apiUrl: 'https://example.test/api/ibkrnew-event-trader', bridgeId: 'IBKRNewBridge_privacy', token: 'secret', spoolDir: privacyDir, fetchImpl: async (_url, request) => { sentBodies.push(request?.body || ''); return { ok: true, status: 202, json: async () => ({}) }; } });
 privacyCore.emit('bridge.gateway_error', { account_id: 'DU1234567', message: 'Account DU1234567 is invalid', nested: [{ acctCode: 'DU1234567' }] });
