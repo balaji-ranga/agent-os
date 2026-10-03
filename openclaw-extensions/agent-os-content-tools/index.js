@@ -210,6 +210,21 @@ function ownerUserIdFromSessionKey(sessionKey) {
 }
 
 const PARAM_SCHEMAS = {
+  mcp_bound_tools_list: {
+    type: "object",
+    properties: {},
+    additionalProperties: false,
+  },
+  mcp_bound_tool_call: {
+    type: "object",
+    properties: {
+      server_id: { type: "string", description: "Exact bound MCP server id returned by mcp_bound_tools_list or the trusted execution context." },
+      mcp_tool_name: { type: "string", description: "Exact bound MCP tool name." },
+      arguments: { type: "object", description: "Arguments conforming to the bound MCP tool input schema." },
+    },
+    required: ["server_id", "mcp_tool_name", "arguments"],
+    additionalProperties: false,
+  },
   company_objectives_query: {
     type: "object",
     properties: {

@@ -128,6 +128,7 @@ import { seedMarketDataToolsIfMissing } from './db/seed-market-data-tools.js';
 import { seedEventProductivityToolsIfMissing } from './db/seed-event-productivity-tools.js';
 import { seedMarketingWorkspaceToolsIfMissing } from './db/seed-marketing-workspace-tools.js';
 import { seedAgentMcpBridgeToolsIfMissing } from './db/seed-agent-mcp-tools.js';
+import { refreshAgentMcpGrantClassifications } from './services/agent-mcp-tool-grants.js';
 import { ensureEventProductivitySchema } from './services/event-productivity.js';
 import {
   ensureCompanyEmailChannelsSchema,
@@ -415,6 +416,12 @@ seedMarketDataToolsIfMissing();
 seedEventProductivityToolsIfMissing();
 seedMarketingWorkspaceToolsIfMissing();
 seedAgentMcpBridgeToolsIfMissing();
+try {
+  const refreshedMcpGrants = refreshAgentMcpGrantClassifications();
+  if (refreshedMcpGrants) console.log('[startup] refreshed MCP grant classifications (%s grant(s))', refreshedMcpGrants);
+} catch (e) {
+  console.warn('[startup] MCP grant classification refresh:', e.message);
+}
 try {
   ensureEventProductivitySchema();
 } catch (e) {

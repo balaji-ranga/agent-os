@@ -3,6 +3,7 @@ import { dirname, join } from 'path';
 import { getOpenClawDir } from '../config/openclaw-paths.js';
 import { enquireContentTools } from './content-tools-meta.js';
 import { getAgentToolGrants } from './openclaw-agent-tools.js';
+import { getAgentMcpBridgeGrants } from './agent-mcp-tool-grants.js';
 import { OPENCLAW_TOOL_PRIORITY } from './openclaw-runtime-tools.js';
 
 export const SESSION_TOOL_SCOPES_PATH = join(
@@ -53,9 +54,21 @@ function routeCapabilityNames(route) {
   return Array.isArray(names) ? names.map((name) => String(name || '').trim()).filter(Boolean) : [];
 }
 
-export function selectSessionContentTools({ agentId, message = '', route = null, maxTools = MAX_SESSION_CONTENT_TOOLS }) {
+export function selectSessionContentTools({ agentId, ownerUserId = null, message = '', route = null, maxTools = MAX_SESSION_CONTENT_TOOLS }) {
   const limit = Math.max(8, Math.min(112, Number(maxTools) || MAX_SESSION_CONTENT_TOOLS));
-  const grants = getAgentToolGrants(agentId);
+  const bridgeGrants = getAgentMcpBridgeGrants(ownerUserId, agentId);
+  const grants = [...new Set([...getAgentToolGrants(agentId), ...bridgeGrants])];
+  const routeNames = routeCapabilityNames(route);
+  const selectedMcpCapabilities = routeNames.filter((name) => name.startsWith('mcp:'));
+  if (selectedMcpCapabilities.length && bridgeGrants.length) {
+    return {
+      scoped: true,
+      tools: [...bridgeGrants],
+      grants_count: grants.length,
+      selected_count: bridgeGrants.length,
+      selected_mcp_capabilities: selectedMcpCapabilities,
+    };
+  }
   if (grants.length <= limit) return { scoped: false, tools: grants, grants_count: grants.length };
 
   const granted = new Set(grants);
@@ -65,7 +78,7 @@ export function selectSessionContentTools({ agentId, message = '', route = null,
     if (value && granted.has(value) && !selected.includes(value) && selected.length < limit) selected.push(value);
   };
 
-  for (const name of routeCapabilityNames(route)) add(name);
+  for (const name of routeNames) add(name);
   const ranked = enquireContentTools(
     [message, ...routeCapabilityNames(route)].filter(Boolean).join(' '),
     { limit }
@@ -104,4 +117,3 @@ export function removeSessionToolScope(sessionKey) {
   writeScopes(scopes);
   return true;
 }
-

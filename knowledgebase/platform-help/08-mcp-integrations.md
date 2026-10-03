@@ -57,6 +57,8 @@ Registration, authentication, and agent authorization are deliberately separate:
 4. The System 1 router and goal planner can now see those bound capabilities for that company and employee.
 5. At execution, Flolah’s generic MCP bridge validates company ownership, employee entitlement, the exact server/tool tuple, live server health, saved company OAuth/auth, and Action Control. Unknown MCP operations default conservatively to R2 external-action control.
 
+When the System 1 router selects a bound MCP capability for a chat turn, Flolah narrows that turn to the MCP bridge tools and supplies the exact server id, tool name, description, risk tier, and input schema to the agent. Other lookup tools such as web search are not substitutes for the selected MCP capability. The agent invokes the registered server through `mcp_bound_tool_call`; stored OAuth or authentication remains server-side.
+
 This binding is tenant-scoped even when the same logical employee template is used by several CEOs. A binding made by one CEO is never inherited by another CEO. Workflow MCP nodes continue to use their existing workflow-scoped configuration and are not changed by this feature.
 
 ### SSE Listen

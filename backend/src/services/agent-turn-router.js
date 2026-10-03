@@ -369,11 +369,15 @@ export async function routeAgentTurn({ ownerUserId, agent, sessionId, message, h
   const parent = parentWorkUnitId ? db().prepare('SELECT status FROM chat_work_units WHERE id=? AND owner_user_id=?').get(parentWorkUnitId, ownerUserId) : null;
   const terminalParent = ['completed', 'partial_success', 'failed', 'cancelled'].includes(String(parent?.status || '').toLowerCase());
   const restartRequested = parsed?.restart_requested === true;
+  const selectedBoundMcpCapability = listAgentMcpCapabilitySummaries(ownerUserId, agent?.id)
+    .some((capability) => (parsed?.executor_evidence?.capability_names || []).includes(capability.name));
   const directChatOnlyGuarded = directChatOnly && executionMode === 'goal_plan';
   if (directChatOnlyGuarded) executionMode = 'chat';
   // The semantic router, not a phrase matcher, decides whether the CEO asked to
   // restart. Executable modes cannot silently relaunch terminal work.
-  if (terminalParent && !restartRequested && executionMode !== 'chat') executionMode = 'chat';
+  const terminalParentGuarded = terminalParent && !restartRequested && executionMode !== 'chat' &&
+    !(executionMode === 'direct_tool' && selectedBoundMcpCapability);
+  if (terminalParentGuarded) executionMode = 'chat';
   const id = `wu-${randomUUID()}`;
   const fingerprint = createHash('sha256')
     .update(`${ownerUserId}\n${agent?.id}\n${sessionId}\n${String(message || '').trim()}`)
@@ -390,7 +394,7 @@ export async function routeAgentTurn({ ownerUserId, agent, sessionId, message, h
     executor_evidence: parsed?.executor_evidence || null,
     restart_requested: restartRequested,
     target_agent_id: executionMode === 'delegate' ? String(parsed?.target_agent_id || '').trim() || null : null,
-    terminal_parent_guarded: terminalParent && !restartRequested,
+    terminal_parent_guarded: terminalParentGuarded,
     direct_chat_only_guarded: directChatOnlyGuarded,
     routing_model_bypassed: directChatOnly && !semanticDecision,
     request_fingerprint: fingerprint,

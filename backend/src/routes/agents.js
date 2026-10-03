@@ -69,6 +69,7 @@ import {
 } from '../services/connector-action-grants.js';
 import { meterOpenClawUsage } from '../services/token-usage.js';
 import {
+  buildAgentMcpExecutionContext,
   listAgentMcpToolAccess,
   setAgentMcpToolGrants,
 } from '../services/agent-mcp-tool-grants.js';
@@ -1353,6 +1354,14 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
       role: 'system',
       content: DASHBOARD_CONTEXT_INSTRUCTION,
     });
+    const mcpExecutionContext = buildAgentMcpExecutionContext(
+      ownerUserId,
+      agent.id,
+      turnRoute.executor_evidence?.capability_names || []
+    );
+    if (mcpExecutionContext) {
+      messages.unshift({ role: 'system', content: mcpExecutionContext });
+    }
     if (isPlatformHelp) {
       messages.unshift({ role: 'system', content: PLATFORM_HELP_CONTEXT_INSTRUCTION });
     }
@@ -1426,6 +1435,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     registerActiveDashboardChat(agentId, ownerUserId, routedMessage);
     const sessionToolSelection = selectSessionContentTools({
       agentId: agent.id,
+      ownerUserId,
       message: routedMessage,
       route: turnRoute,
     });

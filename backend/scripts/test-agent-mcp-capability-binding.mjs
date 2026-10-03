@@ -32,6 +32,7 @@ let db;
 try {
   const { initDb } = await import('../src/db/schema.js');
   const {
+    buildAgentMcpExecutionContext,
     callBoundMcpTool,
     classifyMcpTool,
     getAgentMcpBridgeGrants,
@@ -41,7 +42,9 @@ try {
     setAgentMcpToolGrants,
   } = await import('../src/services/agent-mcp-tool-grants.js');
   const { evaluateActionPolicy, resolveRiskForTool, upsertActionPolicyOverride } = await import('../src/services/action-policy.js');
+  const { bindWorkUnitExecution, routeAgentTurn } = await import('../src/services/agent-turn-router.js');
   const { assertCallerMayUseTool } = await import('../src/services/openclaw-agent-tools.js');
+  const { selectSessionContentTools } = await import('../src/services/openclaw-session-tool-scope.js');
   db = initDb();
   for (const owner of ['ceo-a', 'ceo-b']) {
     db.prepare(`INSERT INTO platform_users(id,email,password_hash,name,role,enabled) VALUES (?,?,?,?,'ceo',1)`)
@@ -63,6 +66,10 @@ try {
   addTool.run('mcp-private-a', 'opaque_operation', 'Performs an operation', JSON.stringify({ type: 'object' }));
 
   assert.deepEqual(classifyMcpTool({ name: 'ticket_status_get' }), { risk_tier: 'R0', action_family: 'read' });
+  assert.deepEqual(
+    classifyMcpTool({ name: 'get_available_symbols', description: 'Returns the authoritative list of assets.' }),
+    { risk_tier: 'R0', action_family: 'read' }
+  );
   assert.deepEqual(classifyMcpTool({ name: 'opaque_operation' }), { risk_tier: 'R2', action_family: 'communicate_external' });
 
   const before = listAgentMcpToolAccess('ceo-a', 'research-agent');
@@ -79,6 +86,47 @@ try {
   assert.equal(assertCallerMayUseTool('t-ceo-b--research', 'mcp_bound_tool_call').ok, false);
   assert.equal(listBoundMcpTools('ceo-a', 'research-agent').length, 2);
   assert.equal(listAgentMcpCapabilitySummaries('ceo-a', 'research-agent').length, 2);
+  const selectedCapability = 'mcp:mcp-private-a:ticket_status_get';
+  const executionContext = buildAgentMcpExecutionContext('ceo-a', 'research-agent', [selectedCapability]);
+  assert.match(executionContext, /Do not claim they are unavailable/);
+  assert.match(executionContext, /"selected_for_this_turn":true/);
+  db.prepare(`INSERT OR IGNORE INTO agent_tool_grants(agent_id,tool_name) VALUES ('research-agent','brave_web_search')`).run();
+  const sessionScope = selectSessionContentTools({
+    ownerUserId: 'ceo-a',
+    agentId: 'research-agent',
+    message: 'Get the status from the bound source',
+    route: { executor_evidence: { capability_names: [selectedCapability] } },
+  });
+  assert.equal(sessionScope.scoped, true);
+  assert.deepEqual(sessionScope.tools, ['mcp_bound_tools_list', 'mcp_bound_tool_call']);
+  assert.equal(sessionScope.tools.includes('brave_web_search'), false);
+  const originalRoute = await routeAgentTurn({
+    ownerUserId: 'ceo-a',
+    agent: { id: 'research-agent', name: 'Research Agent' },
+    sessionId: 'mcp-route-test',
+    message: 'Get the ticket status',
+    history: [],
+    semanticDecision: {
+      relation: 'new_work', execution_mode: 'direct_tool', relevant_turn_ids: [],
+      resolved_request: 'Get the ticket status', restart_requested: false,
+      executor_evidence: { capability_names: [selectedCapability], reason: 'Exact bound capability' },
+    },
+  });
+  bindWorkUnitExecution(originalRoute.id, null, 'completed');
+  const correctedRoute = await routeAgentTurn({
+    ownerUserId: 'ceo-a',
+    agent: { id: 'research-agent', name: 'Research Agent' },
+    sessionId: 'mcp-route-test',
+    message: 'Use the bound MCP tool',
+    history: [{ id: 1, role: 'user', content: 'Get the ticket status', work_unit_id: originalRoute.id }],
+    semanticDecision: {
+      relation: 'follow_up', execution_mode: 'direct_tool', relevant_turn_ids: [1],
+      resolved_request: 'Use the bound MCP tool', restart_requested: false,
+      executor_evidence: { capability_names: [selectedCapability], reason: 'Exact bound capability' },
+    },
+  });
+  assert.equal(correctedRoute.execution_mode, 'direct_tool');
+  assert.equal(correctedRoute.terminal_parent_guarded, false);
 
   const externalGrant = saved.grants.find((item) => item.tool_name === 'announcement_publish');
   const policy = resolveRiskForTool(`mcp_bound_action|${externalGrant.risk_tier}|${externalGrant.action_family}|mcp-private-a|announcement_publish`);
@@ -123,6 +171,8 @@ try {
     ok: true,
     tenant_visibility: 'passed',
     exact_binding: 'passed',
+    selected_mcp_route_enforcement: 'passed',
+    completed_turn_mcp_correction: 'passed',
     stored_auth_merge: 'passed',
     action_control_classification_and_override: 'passed',
     revocation: 'passed',

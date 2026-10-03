@@ -11,6 +11,11 @@ export const MCP_AGENT_BRIDGE_TOOLS = Object.freeze([
 
 const VALID_FAMILIES = new Set(['read', 'write_internal', 'communicate_external', 'financial_destructive']);
 
+function matchesAction(text, patterns) {
+  const normalized = String(text || '').toLowerCase().replace(/[_-]+/g, ' ');
+  return patterns.some((pattern) => pattern.test(normalized));
+}
+
 function ownerAuth(ownerUserId) {
   return { id: String(ownerUserId || '').trim(), role: 'ceo' };
 }
@@ -29,16 +34,35 @@ function requireScope(ownerUserId, agentId) {
 /** Conservative, domain-neutral action classification. Unknown MCP actions are R2. */
 export function classifyMcpTool(tool = {}) {
   const text = `${tool.name || tool.tool_name || ''} ${tool.description || ''}`.toLowerCase();
-  if (/delete|destroy|purge|remove|revoke|cancel|refund|payment|transfer|trade|order_submit|execute_order/.test(text)) {
+  if (matchesAction(text, [
+    /\bdelet(?:e|es|ed|ing)\b/, /\bdestroy(?:s|ed|ing)?\b/, /\bpurge(?:s|d|ing)?\b/,
+    /\bremov(?:e|es|ed|ing)\b/, /\brevok(?:e|es|ed|ing)\b/, /\bcancel(?:s|led|ing)?\b/,
+    /\brefund(?:s|ed|ing)?\b/, /\bpayments?\b/, /\btransfer(?:s|red|ring)?\b/,
+    /\btrad(?:e|es|ed|ing)\b/, /\border submit\b/, /\bexecute order\b/,
+  ])) {
     return { risk_tier: 'R3', action_family: 'financial_destructive' };
   }
-  if (/send|publish|post|message|email|sms|whatsapp|invite|comment|reply|share_external|external/.test(text)) {
+  if (matchesAction(text, [
+    /\bsend(?:s|ing)?\b/, /\bsent\b/, /\bpublish(?:es|ed|ing)?\b/, /\bpost(?:s|ed|ing)?\b/,
+    /\bmessages?\b/, /\bemails?\b/, /\bsms\b/, /\bwhatsapp\b/, /\binvit(?:e|es|ed|ing)\b/,
+    /\bcomments?\b/, /\brepl(?:y|ies|ied|ying)\b/, /\bshare external\b/, /\bexternal\b/,
+  ])) {
     return { risk_tier: 'R2', action_family: 'communicate_external' };
   }
-  if (/create|update|write|upsert|set|edit|append|assign|schedule|reschedule|move/.test(text)) {
+  if (matchesAction(text, [
+    /\bcreat(?:e|es|ed|ing)\b/, /\bupdat(?:e|es|ed|ing)\b/, /\bwrit(?:e|es|ten|ing)\b/,
+    /\bupsert(?:s|ed|ing)?\b/, /\bset(?:s|ting)?\b/, /\bedit(?:s|ed|ing)?\b/,
+    /\bappend(?:s|ed|ing)?\b/, /\bassign(?:s|ed|ing)?\b/, /\bschedul(?:e|es|ed|ing)\b/,
+    /\breschedul(?:e|es|ed|ing)\b/, /\bmov(?:e|es|ed|ing)\b/,
+  ])) {
     return { risk_tier: 'R1', action_family: 'write_internal' };
   }
-  if (/read|list|get|fetch|find|search|query|inspect|status|history|summari[sz]e|lookup|download/.test(text)) {
+  if (matchesAction(text, [
+    /\bread(?:s|ing)?\b/, /\blist(?:s|ed|ing)?\b/, /\bget(?:s|ting)?\b/, /\bfetched?\b/,
+    /\bfetch(?:es|ing)?\b/, /\bfind(?:s|ing)?\b/, /\bfound\b/, /\bsearch(?:es|ed|ing)?\b/,
+    /\bquer(?:y|ies|ied|ying)\b/, /\binspect(?:s|ed|ing)?\b/, /\bstatus\b/, /\bhistory\b/,
+    /\bsummari(?:s|z)(?:e|es|ed|ing)\b/, /\blookup(?:s|ed|ing)?\b/, /\bdownload(?:s|ed|ing)?\b/,
+  ])) {
     return { risk_tier: 'R0', action_family: 'read' };
   }
   return { risk_tier: 'R2', action_family: 'communicate_external' };
@@ -126,6 +150,32 @@ export function getAgentMcpBridgeGrants(ownerUserId, agentId) {
   return hasAgentMcpToolBindings(ownerUserId, agentId) ? [...MCP_AGENT_BRIDGE_TOOLS] : [];
 }
 
+export function refreshAgentMcpGrantClassifications() {
+  const db = getDb();
+  const rows = db.prepare(
+    `SELECT g.owner_user_id, g.agent_id, g.server_id, g.tool_name, g.risk_tier, g.action_family,
+            c.description
+     FROM agent_mcp_tool_grants g
+     LEFT JOIN mcp_tools_cache c ON c.server_id = g.server_id AND c.tool_name = g.tool_name`
+  ).all();
+  const update = db.prepare(
+    `UPDATE agent_mcp_tool_grants SET risk_tier = ?, action_family = ?, updated_at = datetime('now')
+     WHERE owner_user_id = ? AND agent_id = ? AND server_id = ? AND tool_name = ?`
+  );
+  let changed = 0;
+  db.transaction(() => {
+    for (const row of rows) {
+      const next = classifyMcpTool(row);
+      if (next.risk_tier === row.risk_tier && next.action_family === row.action_family) continue;
+      changed += update.run(
+        next.risk_tier, next.action_family,
+        row.owner_user_id, row.agent_id, row.server_id, row.tool_name
+      ).changes;
+    }
+  })();
+  return changed;
+}
+
 export function listBoundMcpTools(ownerUserId, agentId) {
   const { owner, agent } = requireScope(ownerUserId, agentId);
   const visible = new Set(listMcpServersForWorkflow(ownerAuth(owner)).map((server) => server.id));
@@ -206,4 +256,39 @@ export function listAgentMcpCapabilitySummaries(ownerUserId, agentId) {
   } catch {
     return [];
   }
+}
+
+export function buildAgentMcpExecutionContext(ownerUserId, agentId, selectedCapabilityNames = []) {
+  let tools = [];
+  try {
+    tools = listBoundMcpTools(ownerUserId, agentId);
+  } catch {
+    return '';
+  }
+  if (!tools.length) return '';
+  const selected = new Set((selectedCapabilityNames || []).map((name) => String(name || '').trim()));
+  const rows = tools.slice(0, 40).map((item) => {
+    const capability = `mcp:${item.server_id}:${item.tool_name}`;
+    const schema = JSON.stringify(item.input_schema || {});
+    return {
+      capability,
+      server_id: item.server_id,
+      mcp_tool_name: item.tool_name,
+      description: String(item.description || '').replace(/\s+/g, ' ').trim().slice(0, 700),
+      input_schema: schema.length > 1200 ? `${schema.slice(0, 1200)}...` : schema,
+      risk_tier: item.risk_tier,
+      selected_for_this_turn: selected.has(capability),
+    };
+  });
+  const selectedRows = rows.filter((row) => row.selected_for_this_turn);
+  return [
+    'Trusted tenant-bound MCP execution contract:',
+    'The following MCP tools are already authorized for this company and this agent. Do not claim they are unavailable.',
+    'Invoke an exact tool with `mcp_bound_tool_call` using `server_id`, `mcp_tool_name`, and `arguments` matching its input schema.',
+    '`mcp_bound_tools_list` may be used to refresh the catalogue. Prefer the matching bound MCP tool over web search or another substitute.',
+    selectedRows.length
+      ? 'The System 1 router selected the row marked `selected_for_this_turn: true`; call that exact MCP tool for this turn.'
+      : 'Choose a bound MCP tool only when its description and schema match the request.',
+    JSON.stringify(rows),
+  ].join('\n');
 }
