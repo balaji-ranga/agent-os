@@ -58,6 +58,37 @@ export function isToolGrantedForSession(
   return scope.tools.includes(toolName);
 }
 
+function parseMcpCapability(value) {
+  const raw = String(value || '').trim();
+  if (!raw.startsWith('mcp:')) return null;
+  const separator = raw.indexOf(':', 4);
+  if (separator <= 4 || separator >= raw.length - 1) return null;
+  return {
+    server_id: raw.slice(4, separator),
+    mcp_tool_name: raw.slice(separator + 1),
+  };
+}
+
+/**
+ * A direct-tool route may select one exact bound MCP capability. Pin the
+ * bridge target from that trusted backend-owned session scope so the model
+ * cannot mistype or substitute the server/tool identifiers.
+ */
+export function pinSelectedMcpTarget(params, sessionKey, sessionScopes, at = Date.now()) {
+  const input = params && typeof params === 'object' && !Array.isArray(params) ? params : {};
+  const key = String(sessionKey || '').trim();
+  const scope = key ? sessionScopes?.[key] : null;
+  if (!scope) return input;
+  const expiresAt = Date.parse(scope.expires_at || '');
+  if (!Number.isFinite(expiresAt) || expiresAt <= at) return input;
+  const selected = Array.isArray(scope.selected_mcp_capabilities)
+    ? [...new Set(scope.selected_mcp_capabilities.map(String).filter(Boolean))]
+    : [];
+  if (selected.length !== 1) return input;
+  const target = parseMcpCapability(selected[0]);
+  return target ? { ...input, ...target } : input;
+}
+
 export function safeApiSessionKey(api) {
   try {
     return typeof api?.getSessionKey === "function" ? api.getSessionKey() : api?.sessionKey;

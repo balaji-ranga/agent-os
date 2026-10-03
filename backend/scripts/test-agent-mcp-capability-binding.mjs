@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -44,7 +44,12 @@ try {
   const { evaluateActionPolicy, resolveRiskForTool, upsertActionPolicyOverride } = await import('../src/services/action-policy.js');
   const { bindWorkUnitExecution, routeAgentTurn } = await import('../src/services/agent-turn-router.js');
   const { assertCallerMayUseTool } = await import('../src/services/openclaw-agent-tools.js');
-  const { selectSessionContentTools } = await import('../src/services/openclaw-session-tool-scope.js');
+  const {
+    installSessionToolScope,
+    selectSessionContentTools,
+    SESSION_TOOL_SCOPES_PATH,
+  } = await import('../src/services/openclaw-session-tool-scope.js');
+  const { pinSelectedMcpTarget } = await import('../../openclaw-extensions/agent-os-content-tools/runtime-access.js');
   db = initDb();
   for (const owner of ['ceo-a', 'ceo-b']) {
     db.prepare(`INSERT INTO platform_users(id,email,password_hash,name,role,enabled) VALUES (?,?,?,?,'ceo',1)`)
@@ -100,6 +105,18 @@ try {
   assert.equal(sessionScope.scoped, true);
   assert.deepEqual(sessionScope.tools, ['mcp_bound_tools_list', 'mcp_bound_tool_call']);
   assert.equal(sessionScope.tools.includes('brave_web_search'), false);
+  const scopedSessionKey = 'agent:t-ceo-a--research:main';
+  installSessionToolScope(scopedSessionKey, sessionScope);
+  const savedScopes = JSON.parse(readFileSync(SESSION_TOOL_SCOPES_PATH, 'utf8'));
+  assert.deepEqual(savedScopes[scopedSessionKey].selected_mcp_capabilities, [selectedCapability]);
+  assert.deepEqual(
+    pinSelectedMcpTarget(
+      { server_id: 'mistyped-server', mcp_tool_name: 'mistyped-tool', arguments: { ticket: 'T-42' } },
+      scopedSessionKey,
+      savedScopes
+    ),
+    { server_id: 'mcp-private-a', mcp_tool_name: 'ticket_status_get', arguments: { ticket: 'T-42' } }
+  );
   const originalRoute = await routeAgentTurn({
     ownerUserId: 'ceo-a',
     agent: { id: 'research-agent', name: 'Research Agent' },
@@ -172,6 +189,7 @@ try {
     tenant_visibility: 'passed',
     exact_binding: 'passed',
     selected_mcp_route_enforcement: 'passed',
+    selected_mcp_target_pinning: 'passed',
     completed_turn_mcp_correction: 'passed',
     stored_auth_merge: 'passed',
     action_control_classification_and_override: 'passed',

@@ -102,6 +102,9 @@ export function installSessionToolScope(sessionKey, selection, ttlMs = 15 * 60 *
   const scopes = pruneExpired(readScopes());
   scopes[key] = {
     tools: [...new Set((selection.tools || []).map(String).filter(Boolean))],
+    selected_mcp_capabilities: [...new Set(
+      (selection.selected_mcp_capabilities || []).map(String).filter((name) => name.startsWith('mcp:'))
+    )],
     expires_at: new Date(Date.now() + Math.max(60_000, Number(ttlMs) || 0)).toISOString(),
   };
   writeScopes(scopes);
