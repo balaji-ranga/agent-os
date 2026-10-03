@@ -1131,9 +1131,10 @@ function getIbkrNewAgentActivity(ownerUserId) {
   const latestSignal = recent.find((row) => ['market.signal','market.bar_closed'].includes(row.event_type));
   const signalStages = latestSignal ? lifecycleStages(latestSignal, parse(latestSignal.payload_json, {}), parse(latestSignal.reaction_json, null)) : [];
   return IBKRNEW_WORKFLOWS.map((workflow) => {
-    const direct = recent.find((row) => workflow.subscriptions.includes(row.event_type)); const derived = signalStages.find((stage) => stage.agent_name === workflow.agent_name);
+    const direct = recent.find((row) => workflow.subscriptions.includes(row.event_type) || primaryAgentForEvent(row.event_type) === workflow.agent_name); const derived = signalStages.find((stage) => stage.agent_name === workflow.agent_name);
     const useDerived = derived && (!direct || Date.parse(latestSignal.occurred_at) >= Date.parse(direct.occurred_at));
-    return { agent_name: workflow.agent_name, workflow_id: workflow.workflow_id, responsibility: workflow.responsibility, subscriptions: workflow.subscriptions, status: useDerived ? derived.status : direct ? (direct.status === 'accepted' ? 'completed' : direct.status) : 'waiting', last_event_id: useDerived ? latestSignal.event_id : direct?.event_id || null, last_event_type: useDerived ? latestSignal.event_type : direct?.event_type || null, last_seen_at: useDerived ? latestSignal.occurred_at : direct?.occurred_at || null, summary: useDerived ? derived.summary : direct ? eventDescription(direct, parse(direct.payload_json, {}), parse(direct.reaction_json, null)) : 'Waiting for a subscribed event.' };
+    const directStatus = direct?.status === 'accepted' ? (workflow.agent_name === 'IBKRNewTradingSupervisor' ? 'monitoring' : 'completed') : direct?.status;
+    return { agent_name: workflow.agent_name, workflow_id: workflow.workflow_id, responsibility: workflow.responsibility, subscriptions: workflow.subscriptions, status: useDerived ? derived.status : direct ? directStatus : 'waiting', last_event_id: useDerived ? latestSignal.event_id : direct?.event_id || null, last_event_type: useDerived ? latestSignal.event_type : direct?.event_type || null, last_seen_at: useDerived ? latestSignal.occurred_at : direct?.occurred_at || null, summary: useDerived ? derived.summary : direct ? eventDescription(direct, parse(direct.payload_json, {}), parse(direct.reaction_json, null)) : 'Waiting for a subscribed event.' };
   });
 }
 

@@ -197,6 +197,7 @@ assert.ok(summary.trades[0].required_profitable_exit_price > 100);
 const live = service.getIbkrNewLiveOperations(approvalOwner);
 assert.equal(live.dashboard.events.length, 0, 'Live Operations loads the event timeline through its paginated endpoint');
 assert.equal(live.agent_activity.length, 6); assert.deepEqual(new Set(live.agent_activity.map((item) => item.agent_name)), new Set(workflowBlueprints.map((workflow) => workflow.agent_name)));
+assert.equal(live.agent_activity.find((item) => item.agent_name === 'IBKRNewTradingSupervisor').status, 'monitoring', 'normal bridge heartbeats show active supervision');
 assert.ok(live.health.some((component) => component.component_id === 'IBKRNewSpool'));
 assert.ok(live.errors.some((error) => error.error_code === 'TEST_DISCONNECT'));
 assert.match(live.errors.find((error) => error.error_code === 'TEST_DISCONNECT').message, /REDACTED_IBKR_ACCOUNT/);
