@@ -46,10 +46,10 @@ try {
   const { assertCallerMayUseTool } = await import('../src/services/openclaw-agent-tools.js');
   const {
     installSessionToolScope,
+    resolveSessionMcpTarget,
     selectSessionContentTools,
     SESSION_TOOL_SCOPES_PATH,
   } = await import('../src/services/openclaw-session-tool-scope.js');
-  const { pinSelectedMcpTarget } = await import('../../openclaw-extensions/agent-os-content-tools/runtime-access.js');
   db = initDb();
   for (const owner of ['ceo-a', 'ceo-b']) {
     db.prepare(`INSERT INTO platform_users(id,email,password_hash,name,role,enabled) VALUES (?,?,?,?,'ceo',1)`)
@@ -110,12 +110,8 @@ try {
   const savedScopes = JSON.parse(readFileSync(SESSION_TOOL_SCOPES_PATH, 'utf8'));
   assert.deepEqual(savedScopes[scopedSessionKey].selected_mcp_capabilities, [selectedCapability]);
   assert.deepEqual(
-    pinSelectedMcpTarget(
-      { server_id: 'mistyped-server', mcp_tool_name: 'mistyped-tool', arguments: { ticket: 'T-42' } },
-      scopedSessionKey,
-      savedScopes
-    ),
-    { server_id: 'mcp-private-a', mcp_tool_name: 'ticket_status_get', arguments: { ticket: 'T-42' } }
+    resolveSessionMcpTarget(scopedSessionKey),
+    { server_id: 'mcp-private-a', mcp_tool_name: 'ticket_status_get' }
   );
   const originalRoute = await routeAgentTurn({
     ownerUserId: 'ceo-a',

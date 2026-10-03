@@ -11,7 +11,6 @@ import { definePluginEntry } from "/usr/local/lib/node_modules/openclaw/dist/plu
 import {
   isToolGrantedForSession,
   mergeRuntimeToolDescriptors,
-  pinSelectedMcpTarget,
   safeApiSessionKey,
   toolAllowByAgentFromConfig,
 } from "./runtime-access.js";
@@ -1078,10 +1077,7 @@ export default definePluginEntry({
               const raw = params || {};
               const invokeCaller = resolveCallerAgentId(api, raw, toolCtx);
               const { __openclaw_agent_id, caller_agent_id, agent_id, ...rest } = raw;
-              const invokeParams = name === "mcp_bound_tool_call"
-                ? pinSelectedMcpTarget(rest, toolCtx?.sessionKey || safeApiSessionKey(api), loadSessionAllowlists())
-                : rest;
-              const result = await callInvoke(api, name, invokeParams, invokeCaller, toolCtx);
+              const result = await callInvoke(api, name, rest, invokeCaller, toolCtx);
               if (!result.ok) {
                 return { content: [{ type: "text", text: JSON.stringify(result.data || { error: result.error }) }] };
               }

@@ -54,6 +54,30 @@ function routeCapabilityNames(route) {
   return Array.isArray(names) ? names.map((name) => String(name || '').trim()).filter(Boolean) : [];
 }
 
+function parseMcpCapability(value) {
+  const raw = String(value || '').trim();
+  if (!raw.startsWith('mcp:')) return null;
+  const separator = raw.indexOf(':', 4);
+  if (separator <= 4 || separator >= raw.length - 1) return null;
+  return {
+    server_id: raw.slice(4, separator),
+    mcp_tool_name: raw.slice(separator + 1),
+  };
+}
+
+/** Resolve one exact MCP target selected by the trusted turn router. */
+export function resolveSessionMcpTarget(sessionKey, at = Date.now()) {
+  const key = String(sessionKey || '').trim();
+  const scope = key ? readScopes()?.[key] : null;
+  if (!scope) return null;
+  const expiresAt = Date.parse(scope.expires_at || '');
+  if (!Number.isFinite(expiresAt) || expiresAt <= at) return null;
+  const selected = Array.isArray(scope.selected_mcp_capabilities)
+    ? [...new Set(scope.selected_mcp_capabilities.map(String).filter(Boolean))]
+    : [];
+  return selected.length === 1 ? parseMcpCapability(selected[0]) : null;
+}
+
 export function selectSessionContentTools({ agentId, ownerUserId = null, message = '', route = null, maxTools = MAX_SESSION_CONTENT_TOOLS }) {
   const limit = Math.max(8, Math.min(112, Number(maxTools) || MAX_SESSION_CONTENT_TOOLS));
   const bridgeGrants = getAgentMcpBridgeGrants(ownerUserId, agentId);

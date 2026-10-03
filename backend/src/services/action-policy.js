@@ -19,6 +19,7 @@ import {
   recordPendingChatAction,
 } from './chat-action-approval.js';
 import { getBoundMcpPolicy } from './agent-mcp-tool-grants.js';
+import { resolveSessionMcpTarget } from './openclaw-session-tool-scope.js';
 
 export const ACTION_FAMILIES = Object.freeze([
   { id: 'read', label: 'Read / research', defaultMode: 'autonomous', defaultTier: 'R0' },
@@ -691,6 +692,11 @@ export function actionPolicyMiddleware(req, res, next) {
   if (!ownerUserId) return next();
 
   if (toolName === 'mcp_bound_tool_call' && policyAgentId) {
+    const selectedTarget = resolveSessionMcpTarget(sessionKey);
+    if (selectedTarget) {
+      req.body.server_id = selectedTarget.server_id;
+      req.body.mcp_tool_name = selectedTarget.mcp_tool_name;
+    }
     const serverId = String(req.body?.server_id || req.body?.serverId || '').trim();
     const mcpToolName = String(req.body?.mcp_tool_name || req.body?.mcpToolName || '').trim();
     const bindingAgentId = resolveAgentFromOpenClawCallerId(rawAgentId)?.id || policyAgentId;
