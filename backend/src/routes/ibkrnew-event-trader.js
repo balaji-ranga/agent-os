@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAuth, requireCeoOrAdmin, requireTenantFullAccess, resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
-import { approveAuthorization, authenticateBridge, acknowledgeCommand, claimCommands, ensureIbkrNewDefaults, getDashboard, getIbkrNewGoalState, getIbkrNewLiveOperations, getIbkrNewSummary, ingestBridgeEvent, pauseIbkrNewGoal, publishConfig, registerBridge, resumeIbkrNewGoal, revokeBridge, setIbkrNewGoal } from '../services/ibkrnew-event-trader.js';
+import { approveAuthorization, authenticateBridge, acknowledgeCommand, claimCommands, ensureIbkrNewDefaults, getDashboard, getIbkrNewEventDetail, getIbkrNewEventTimeline, getIbkrNewGoalState, getIbkrNewLiveOperations, getIbkrNewSummary, ingestBridgeEvent, pauseIbkrNewGoal, publishConfig, registerBridge, resumeIbkrNewGoal, revokeBridge, setIbkrNewGoal } from '../services/ibkrnew-event-trader.js';
 import { buildIbkrNewEventBridgePackageZip } from '../services/ibkrnew-event-bridge-package.js';
 
 const router = Router();
@@ -19,6 +19,8 @@ function handle(res, fn) { try { return fn(); } catch (e) { return res.status(e.
 router.get('/dashboard', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json(getDashboard(owner(req)))));
 router.get('/summary', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json(getIbkrNewSummary(owner(req)))));
 router.get('/live-operations', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json(getIbkrNewLiveOperations(owner(req), { limit: req.query.limit }))));
+router.get('/events', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json(getIbkrNewEventTimeline(owner(req), { page: req.query.page, pageSize: req.query.page_size, eventType: req.query.event_type, status: req.query.status }))));
+router.get('/events/:eventId', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json(getIbkrNewEventDetail(owner(req), req.params.eventId))));
 router.get('/goal', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json(getIbkrNewGoalState(owner(req)))));
 router.put('/goal', requireAuth, requireTenantFullAccess, (req, res) => handle(res, () => res.json(setIbkrNewGoal(owner(req), req.body || {}))));
 router.post('/goal/pause', requireAuth, requireTenantFullAccess, (req, res) => handle(res, () => res.json(pauseIbkrNewGoal(owner(req)))));

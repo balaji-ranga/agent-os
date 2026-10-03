@@ -126,7 +126,11 @@ The package runs one IBKRNew bridge service/process. The six event reactions run
 
 ## Monitor and troubleshoot
 
-**Summary** shows commission-adjusted outcomes, goal-cycle progress and allocation decisions. **Live Operations** shows bridge/Gateway/component health, heartbeats, cached instrument profiles, positions, executions, approvals, errors and recent history. Records follow the owner’s configured retention policy.
+**Summary** shows commission-adjusted outcomes, goal-cycle progress and allocation decisions. **Live Operations** is the authoritative runtime audit rather than an agent-chat transcript. Its six-agent activity cards show the current state and latest correlated event for Market Observer, Strategy Planner, Risk Checker, Execution Operator, Position Monitor and Trading Supervisor.
+
+The causal event timeline is loaded with server-side pagination (20 events per page), event-type and status filters. Each row explains what happened in plain language. **View lifecycle** loads one event's detail on demand and shows the ordered six-role lifecycle, persisted planner/risk decision, authorization, command, trade and execution evidence using a common correlation ID. Health, snapshots, profiles, approvals and executions refresh separately, so an ever-growing event history is never downloaded into the page. All event and decision evidence remains owner-scoped and follows the owner’s configured retention and offboarding policy.
+
+The current account projection is refreshed frequently for the risk gate, but historical snapshot rows are compacted: a new row is retained when position/order structure changes or when the five-minute checkpoint is due. Valuation-only refreshes inside that window update current state without adding redundant snapshot history. The daily retention job removes snapshots and events older than the CEO profile's 30, 60, 90, 120 or 365-day selection (90 days by default).
 
 Before expecting a paper order, verify:
 

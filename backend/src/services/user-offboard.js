@@ -282,6 +282,7 @@ export function purgeOwnerScopedRows(db, ownerUserId) {
   counts.ibkrnew_component_health = tryRun(db, `DELETE FROM ibkrnew_component_health WHERE owner_user_id = ?`, [ownerUserId]);
   counts.ibkrnew_authorizations = tryRun(db, `DELETE FROM ibkrnew_authorizations WHERE owner_user_id = ?`, [ownerUserId]);
   counts.ibkrnew_reservations = tryRun(db, `DELETE FROM ibkrnew_budget_reservations WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.ibkrnew_event_reactions = tryRun(db, `DELETE FROM ibkrnew_event_reactions WHERE owner_user_id = ?`, [ownerUserId]);
   counts.ibkrnew_events = tryRun(db, `DELETE FROM ibkrnew_events WHERE owner_user_id = ?`, [ownerUserId]);
   counts.ibkrnew_account_state = tryRun(db, `DELETE FROM ibkrnew_account_state WHERE owner_user_id = ?`, [ownerUserId]);
   counts.ibkrnew_breakers = tryRun(db, `DELETE FROM ibkrnew_circuit_breakers WHERE owner_user_id = ?`, [ownerUserId]);

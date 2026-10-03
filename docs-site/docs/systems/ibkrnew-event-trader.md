@@ -42,7 +42,7 @@ Open **Prebuilt Workflows → IBKRNew0**:
 
 - **Strategy** configures the outcome goal, trading logic/skill, risk policy, universe and market-data requirements.
 - **Summary** reports goal progress, realized results after commissions and allocation decisions.
-- **Live Operations** reports bridge and Gateway health, positions, executions, approvals, errors and retained history.
+- **Live Operations** reports bridge and Gateway health, positions, executions, approvals and errors, plus the correlated state of all six runtime roles. Its causal timeline is paginated on the server, describes each event in plain language and loads the ordered role-by-role lifecycle only when you open an event.
 
 Saving a configuration publishes a new version for your company. Existing authorizations remain tied to the exact versions used for their checks.
 
@@ -84,6 +84,14 @@ IBKR supplies executable quotes, bars and broker/account truth through the deskt
 7. Explicitly enable local paper execution only after those checks pass.
 
 One bridge service runs on the desktop. The six reactions run in Flolah, so there is no separate workflow package to download. Revoke an old bridge from Live Operations or Tokens management if a machine is retired or credentials may have been exposed.
+
+### Read the six-role audit
+
+The six cards in **Live Operations** are service-driven trading roles, not generated chat messages. They show what each role last handled, its workflow identity, responsibility and current state. Open **View lifecycle** on a causal event to see the same signal move through observation, planning, deterministic risk checks, approval/command delivery, position monitoring and supervision. Evidence IDs correlate the original event with any authorization, command, trade and execution.
+
+Only one page of timeline events is returned at a time. Event payloads and persisted decision detail are fetched on demand, while health and account projections use a separate bounded refresh. The timeline and its decision evidence follow the CEO profile's retention setting.
+
+Frequent account refreshes keep the deterministic risk gate current. They do not create an equivalent number of historical snapshot rows: Flolah retains a snapshot when position/order structure changes and a checkpoint at most every five minutes. A daily purge applies the CEO profile's selected 30, 60, 90, 120 or 365-day retention period; the default is 90 days.
 
 ## Paper trading only
 

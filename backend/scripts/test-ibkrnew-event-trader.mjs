@@ -77,6 +77,7 @@ const packageToken = packageEnv.match(/^IBKRNEW_BRIDGE_TOKEN=(.+)$/m)?.[1];
 assert.equal(packaged.filename, 'IBKRNewBridge-lite.zip');
 assert.match(packageEnv, /^IBKRNEW_API_URL=https:\/\/flolah\.example\/api\/ibkrnew-event-trader$/m);
 assert.match(packageEnv, /^IBKRNEW_ACCOUNT_ID=$/m, 'real IBKR account remains desktop-only and blank');
+assert.match(packageEnv, /^IBKRNEW_ACCOUNT_SNAPSHOT_INTERVAL_MS=15000$/m);
 assert.ok(packageToken?.startsWith('ibkrnew_'));
 assert.doesNotMatch(packageMetaText, new RegExp(packageToken));
 assert.equal(packageMeta.bridge_id, packaged.bridge_id);
@@ -156,6 +157,15 @@ service.ingestBridgeEvent(approvalBridge, { event_id: 'approval-1', sequence: 1,
 service.ingestBridgeEvent(approvalBridge, { event_id: 'approval-profile-2', sequence: 2, event_type: 'instrument.profile_refreshed', occurred_at: new Date().toISOString(), payload: healthyStockProfile('MSFT') });
 const pending = service.ingestBridgeEvent(approvalBridge, { event_id: 'approval-3', sequence: 3, event_type: 'market.signal', occurred_at: new Date().toISOString(), payload: { expression: 'LONG_STOCK', symbol: 'MSFT', security_type: 'STK', quantity: 1, bid: 99.9, ask: 100, last: 100, limit_price: 100, average_daily_volume: 5000000, quote_at: new Date().toISOString(), planned_loss_usd: 5, protection: { stop_price: 95, targets: [{ limit_price: 112, quantity: 1 }] } } });
 assert.equal(pending.reaction.decision, 'pending_approval'); assert.equal(service.claimCommands(approvalBridge, 10, 2).length, 0);
+assert.equal(getDb().prepare(`SELECT decision FROM ibkrnew_event_reactions WHERE event_id=?`).get(pending.event_id).decision, 'pending_approval');
+const firstTimelinePage = service.getIbkrNewEventTimeline(approvalOwner, { page: 1, pageSize: 5 });
+assert.equal(firstTimelinePage.pagination.page_size, 5); assert.equal(firstTimelinePage.items.length, 3); assert.equal(firstTimelinePage.items[0].description.length > 20, true);
+const signalTimelineItem = firstTimelinePage.items.find((item) => item.event_id === pending.event_id);
+assert.equal(signalTimelineItem.agent_name, 'IBKRNewStrategyPlanner'); assert.equal(signalTimelineItem.decision, 'pending_approval'); assert.equal(signalTimelineItem.authorization_status, 'pending_approval');
+const signalDetailBeforeApproval = service.getIbkrNewEventDetail(approvalOwner, pending.event_id);
+assert.equal(signalDetailBeforeApproval.lifecycle.length, 6); assert.equal(signalDetailBeforeApproval.lifecycle.find((stage) => stage.agent_name === 'IBKRNewExecutionOperator').status, 'waiting_approval');
+assert.equal(service.getIbkrNewLiveOperations(approvalOwner).agent_activity.find((item) => item.agent_name === 'IBKRNewExecutionOperator').status, 'waiting_approval');
+assert.throws(() => service.getIbkrNewEventDetail(other, pending.event_id), /not found/);
 assert.throws(() => service.approveAuthorization(other, pending.reaction.authorization_id), /not found/);
 assert.ok(service.approveAuthorization(approvalOwner, pending.reaction.authorization_id).command_id.startsWith('IBKRNewCommand'));
 service.ingestBridgeEvent(approvalBridge, { event_id: 'approval-4', sequence: 4, event_type: 'bridge.heartbeat', occurred_at: new Date().toISOString(), payload: { gateway_connected: true, bridge_version: '1.1.0', components: [{ component_id: 'IBKRNewSpool', component_type: 'durable_spool', status: 'online', depth: 0 }] } });
@@ -166,6 +176,17 @@ service.ingestBridgeEvent(approvalBridge, { event_id: 'approval-8', sequence: 8,
 const transferredReservation = getDb().prepare(`SELECT gross_reserved_usd,gross_released_usd FROM ibkrnew_budget_reservations WHERE authorization_id=?`).get(pending.reaction.authorization_id);
 assert.equal(transferredReservation.gross_released_usd, transferredReservation.gross_reserved_usd, 'broker position replaces pending gross reservation without double counting');
 service.ingestBridgeEvent(approvalBridge, { event_id: 'approval-9', sequence: 9, event_type: 'desktop.component_error', occurred_at: new Date().toISOString(), payload: { component_id: 'IBKRNewGateway', component_type: 'ibkr_gateway', accountNumber: privacySentinel, code: 'TEST_DISCONNECT', message: `test gateway ${privacySentinel} disconnect`, detail: [{ acct_no: privacySentinel }] } });
+const approvalTimelinePageOne = service.getIbkrNewEventTimeline(approvalOwner, { page: 1, pageSize: 5 });
+const approvalTimelinePageTwo = service.getIbkrNewEventTimeline(approvalOwner, { page: 2, pageSize: 5 });
+assert.equal(approvalTimelinePageOne.pagination.total_items, 9); assert.equal(approvalTimelinePageOne.items.length, 5); assert.equal(approvalTimelinePageTwo.items.length, 4);
+assert.equal(new Set([...approvalTimelinePageOne.items, ...approvalTimelinePageTwo.items].map((item) => item.event_id)).size, 9, 'server pages do not repeat timeline events');
+const filteredTimeline = service.getIbkrNewEventTimeline(approvalOwner, { eventType: 'execution.fill', status: 'accepted' });
+assert.equal(filteredTimeline.pagination.total_items, 1); assert.equal(filteredTimeline.items[0].event_type, 'execution.fill');
+const refreshedAccount = { eligible_capital_usd: 10000, cash_usd: 9900, positions: [{ symbol: 'MSFT', security_type: 'STK', quantity: 1, average_cost: 100, market_price: 101 }], open_orders: [] };
+service.ingestBridgeEvent(approvalBridge, { event_id: 'approval-10', sequence: 10, event_type: 'account.snapshot', occurred_at: new Date().toISOString(), payload: refreshedAccount });
+const snapshotsAfterMaterialChange = Number(getDb().prepare(`SELECT COUNT(*) count FROM ibkrnew_position_snapshots WHERE owner_user_id=? AND snapshot_type='account'`).get(approvalOwner).count);
+service.ingestBridgeEvent(approvalBridge, { event_id: 'approval-11', sequence: 11, event_type: 'account.snapshot', occurred_at: new Date().toISOString(), payload: { ...refreshedAccount, unrealized_pnl_usd: 1.5, positions: [{ ...refreshedAccount.positions[0], market_price: 101.5 }] } });
+assert.equal(Number(getDb().prepare(`SELECT COUNT(*) count FROM ibkrnew_position_snapshots WHERE owner_user_id=? AND snapshot_type='account'`).get(approvalOwner).count), snapshotsAfterMaterialChange, 'frequent valuation-only account refreshes do not create redundant history snapshots');
 const summary = service.getIbkrNewSummary(approvalOwner);
 assert.equal(summary.totals.trade_count, 1);
 assert.equal(summary.totals.actual_commission_usd, 1.25);
@@ -174,6 +195,8 @@ assert.equal(summary.trades[0].gross_pnl_usd, 0, 'an open position must not repo
 assert.equal(summary.trades[0].net_pnl_usd, -1.25, 'open net P&L reflects incurred commission until realized P&L arrives');
 assert.ok(summary.trades[0].required_profitable_exit_price > 100);
 const live = service.getIbkrNewLiveOperations(approvalOwner);
+assert.equal(live.dashboard.events.length, 0, 'Live Operations loads the event timeline through its paginated endpoint');
+assert.equal(live.agent_activity.length, 6); assert.deepEqual(new Set(live.agent_activity.map((item) => item.agent_name)), new Set(workflowBlueprints.map((workflow) => workflow.agent_name)));
 assert.ok(live.health.some((component) => component.component_id === 'IBKRNewSpool'));
 assert.ok(live.errors.some((error) => error.error_code === 'TEST_DISCONNECT'));
 assert.match(live.errors.find((error) => error.error_code === 'TEST_DISCONNECT').message, /REDACTED_IBKR_ACCOUNT/);
@@ -181,6 +204,7 @@ assert.ok(live.snapshots.some((snapshot) => snapshot.snapshot_type === 'position
 assert.equal(live.executions[0].commission_usd, 1.25);
 assert.ok(live.instrument_profiles.some((profile) => profile.symbol === 'MSFT'));
 assert.equal(service.getIbkrNewSummary(other).totals.trade_count, 0, 'reports remain owner scoped');
+assert.equal(service.getIbkrNewEventTimeline(other).pagination.total_items, 0, 'event timeline remains owner scoped');
 
 const goalOwner = 'IBKRNewOwner_GoalLifecycle'; const goalCredentials = service.registerBridge(goalOwner); const goalBridge = service.authenticateBridge(goalCredentials.bridge_id, goalCredentials.token);
 service.ingestBridgeEvent(goalBridge, { event_id: 'goal-1', sequence: 1, event_type: 'account.snapshot', occurred_at: new Date().toISOString(), payload: { eligible_capital_usd: 10000, cash_usd: 10000, positions: [], open_orders: [] } });

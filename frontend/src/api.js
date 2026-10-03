@@ -152,7 +152,14 @@ export const api = {
   health: () => get('/health'),
   ibkrNewDashboard: () => get('/ibkrnew-event-trader/dashboard'),
   ibkrNewSummary: () => get('/ibkrnew-event-trader/summary'),
-  ibkrNewLiveOperations: (limit = 200) => get(`/ibkrnew-event-trader/live-operations?limit=${encodeURIComponent(limit)}`),
+  ibkrNewLiveOperations: (limit = 50) => get(`/ibkrnew-event-trader/live-operations?limit=${encodeURIComponent(limit)}`),
+  ibkrNewEvents: ({ page = 1, pageSize = 20, eventType = '', status = '' } = {}) => {
+    const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
+    if (eventType) params.set('event_type', eventType);
+    if (status) params.set('status', status);
+    return get(`/ibkrnew-event-trader/events?${params.toString()}`);
+  },
+  ibkrNewEventDetail: (eventId) => get(`/ibkrnew-event-trader/events/${encodeURIComponent(eventId)}`),
   ibkrNewInitialize: () => post('/ibkrnew-event-trader/initialize', {}),
   ibkrNewGoal: () => get('/ibkrnew-event-trader/goal'),
   ibkrNewSetGoal: (goal) => put('/ibkrnew-event-trader/goal', goal),

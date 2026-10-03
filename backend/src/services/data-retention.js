@@ -58,6 +58,7 @@ export async function purgeOwnerRetention(ownerUserId, { days = null } = {}) {
     kanban_user_action_audit: 0,
     opensearch_documents: 0,
     ibkrnew_events: 0,
+    ibkrnew_event_reactions: 0,
     ibkrnew_commands: 0,
     ibkrnew_authorizations: 0,
     ibkrnew_reservations: 0,
@@ -102,6 +103,7 @@ export async function purgeOwnerRetention(ownerUserId, { days = null } = {}) {
 
   // Retain active safety state; purge only aged audit events and terminal execution records.
   try {
+    deleted.ibkrnew_event_reactions = db.prepare(`DELETE FROM ibkrnew_event_reactions WHERE owner_user_id=? AND datetime(created_at)<datetime('now',?)`).run(owner, cutoff).changes || 0;
     deleted.ibkrnew_events = db.prepare(`DELETE FROM ibkrnew_events WHERE owner_user_id=? AND datetime(created_at)<datetime('now',?)`).run(owner, cutoff).changes || 0;
     deleted.ibkrnew_commands = db.prepare(`DELETE FROM ibkrnew_command_outbox WHERE owner_user_id=? AND status IN ('expired','rejected','cancelled','filled') AND datetime(created_at)<datetime('now',?)`).run(owner, cutoff).changes || 0;
     deleted.ibkrnew_authorizations = db.prepare(`DELETE FROM ibkrnew_authorizations WHERE owner_user_id=? AND status IN ('expired','rejected','cancelled','filled') AND datetime(created_at)<datetime('now',?)`).run(owner, cutoff).changes || 0;
