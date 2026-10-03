@@ -11,6 +11,8 @@ import {
   sanitizeUnsupportedItemClaims,
   buildVerifiedMarketOutcome,
   buildOutcomeRichTerminalReport,
+  normalizeStepSpec,
+  browserTaskTerminalFailure,
 } from '../src/services/agent-goal-run.js';
 
 const prompt = [
@@ -133,4 +135,23 @@ assert.match(report, /VOOG closed at 405\.21/);
 assert.match(report, /browser fallback completed/);
 assert.match(report, /provider HTTP 402/);
 assert.match(report, /Human: Raji: Customer confirmed payment on 3 September/);
+
+const normalizedBrowserStep = normalizeStepSpec({
+  type: 'agent_tool',
+  label: 'Publish via desktop worker',
+  tool_name: 'browse_task_start',
+  message: 'Use the desktop worker and publish {{post_content}}.',
+  args: { preferred_driver: 'playwright_chrome', allow_fallback: false },
+});
+assert.equal(normalizedBrowserStep.spec.message, 'Use the desktop worker and publish {{post_content}}.');
+assert.equal(normalizedBrowserStep.spec.args.preferred_driver, 'playwright_chrome');
+assert.equal(browserTaskTerminalFailure({ status: 'completed' }), null);
+assert.match(
+  browserTaskTerminalFailure({ status: 'failed', error: 'No authorized tab' }),
+  /No authorized tab/
+);
+assert.match(
+  browserTaskTerminalFailure({ status: 'pending' }),
+  /did not reach a terminal result/
+);
 console.log('goal browser fallback + terminal report tests passed');

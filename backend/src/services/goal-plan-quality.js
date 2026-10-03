@@ -19,6 +19,7 @@ import { getPlatformTimeoutMs } from './platform-timeout-settings.js';
 import { promptForbidsNotifyCeo } from './goal-plan-constraints.js';
 import { validateWorkflowInput } from './workflow-input-schema.js';
 import { listAgentMcpCapabilitySummaries } from './agent-mcp-tool-grants.js';
+import { requestedBrowserDriver } from './goal-plan-tool-args.js';
 
 const STEP_TYPES = new Set([
   'workflow_trigger',
@@ -230,6 +231,35 @@ export function validateTypedGoalPlan(steps, catalog) {
       const name = String(step.spec?.tool_name || '(missing)');
       const owners = (catalog.agents || []).filter(agent => (agent.capabilities || []).some(capability => capability.name === name)).map(agent => agent.id);
       errors.push(`Step ${step.key}: agent_tool ${name} is NOT in current_executor_tools. ${owners.length ? `It belongs to specialist(s) ${owners.join(', ')}. Replace this with specialty_task, spec.agent_id set to the capable specialist, and spec.message describing this action and required inputs; remove spec.tool_name.` : 'Select an exact current_executor_tools name or a capable specialist with specialty_task. Never borrow an agent capability as a direct tool.'}`);
+    }
+    if (step.type === 'agent_tool' && String(step.spec?.tool_name || '') === 'browse_task_start') {
+      const args = step.spec?.args && typeof step.spec.args === 'object' && !Array.isArray(step.spec.args)
+        ? step.spec.args
+        : {};
+      if (!Object.keys(args).length) {
+        errors.push(`Step ${step.key} browse_task_start has no executable args; provide mode, goal/start_url, executor preference when requested, and a structured input action contract`);
+      }
+      const requestedDriver = requestedBrowserDriver(step.spec?.message || '');
+      const plannedDriver = String(args.preferred_driver || args.preferredDriver || '').trim();
+      if (requestedDriver && plannedDriver !== requestedDriver) {
+        errors.push(`Step ${step.key} requests browser executor ${requestedDriver}, but args.preferred_driver does not preserve it`);
+      }
+      if (requestedDriver && args.allow_fallback !== false && args.allowFallback !== false) {
+        errors.push(`Step ${step.key} explicitly selects a browser executor but does not set allow_fallback=false`);
+      }
+      if (step.spec?.deliverable_kind === 'external_action') {
+        const operation = String(args.input?.operation || '').trim();
+        if (!operation) errors.push(`Step ${step.key} external browser action has no args.input.operation policy contract`);
+        if (operation === 'social_publish') {
+          const body = args.input?.body;
+          const constraints = args.input?.constraints || {};
+          if (typeof body !== 'string' || !body.trim()) errors.push(`Step ${step.key} social_publish has no exact args.input.body or required-input template`);
+          if (Number(constraints.max_submissions) !== 1 || constraints.preserve_audience !== true ||
+              constraints.require_exact_editor_value !== true || constraints.require_durable_confirmation !== true) {
+            errors.push(`Step ${step.key} social_publish must include the bounded single-submit and durable-confirmation constraints`);
+          }
+        }
+      }
     }
     if (step.type === 'workflow_trigger' && !workflows.has(String(step.spec?.workflow_id || ''))) errors.push(`Step ${step.key} uses an unavailable workflow`);
     if (step.type === 'workflow_trigger') {
@@ -502,6 +532,7 @@ function checkerPlanPrompt(plan) {
     produces: step.produces,
     executor: step.spec?.tool_name || step.spec?.workflow_id || step.spec?.agent_id || step.spec?.user_id || null,
     work: step.spec?.message || null,
+    args: step.spec?.args || null,
     objective: step.spec?.objective || null,
     operation_mode: step.spec?.operation_mode || null,
     subject: step.spec?.subject || null,
@@ -607,7 +638,7 @@ export function normalizeExecutorOutputKinds(steps, catalog) {
 const PLAN_SCHEMA = `Return one concise JSON object with a steps array of at most 8 steps. Do not output prose. Keep every spec.message under 700 characters. Every step has key (unique string), type, label, depends_on (prior step keys), required_inputs, produces, spec.
 Every executable step spec also includes objective (the bounded outcome), operation_mode (query|analyze|create|modify|delete|communicate|coordinate), subject (what is queried or acted upon), and deliverable_kind (status_report|data|artifact|external_action|approval|record_created). These are semantic guardrails; they do not replace the executor fields below. status_report means a human-readable summary of activity, history, progress, outcomes, blockers or current state. data means a factual dataset consumed as machine input and MUST NOT be used for a requested status/history/activity summary. A request to report or summarize prior work is a query/analyze status_report, even when the report truthfully describes failed, blocked, denied, or incomplete historical work. Never convert such a reporting request into re-execution of the historical operation. A mutation is allowed only when the original goal requests it.
 Choose EXACTLY ONE of these mutually exclusive execution shapes:
-1. type=agent_tool: spec={tool_name: EXACT name from current_executor_tools ONLY, message: bounded instruction, selection_rationale: reason}. NEVER put another agent's capability here.
+1. type=agent_tool: spec={tool_name: EXACT name from current_executor_tools ONLY, message: bounded instruction, args: executable JSON arguments, selection_rationale: reason}. NEVER put another agent's capability here. Preserve an explicitly requested browser executor in args.preferred_driver (desktop worker=playwright_chrome; Chrome extension=chrome_extension) with args.allow_fallback=false. For browse_task_start external publishing, args must contain mode, start_url, and input={operation:"social_publish",platform,body:"{{required_input_key}}",constraints:{max_submissions:1,preserve_audience:true,require_exact_editor_value:true,require_durable_confirmation:true}}. Use the exact required input key as the template; never invent the body.
 2. type=specialty_task: spec={agent_id: EXACT id from agents, message: full specialist assignment including which of ITS capabilities/connector_actions to use, selection_rationale: reason}. Do NOT add tool_name.
 3. type=workflow_trigger: spec={workflow_id: EXACT catalog id, phrase: catalog trigger phrase, message: full workflow input, selection_rationale: reason}. Its operation_mode is ALWAYS coordinate because the published workflow owns its internal side effects. Populate every required field from workflows[].input_schema in message and require the workflow run id plus its declared business result/read-back evidence.
 4. type=human_task: spec={user_id: EXACT human id, message: requested human decision, selection_rationale: reason}. Use only for an actual assigned human action, NOT a CEO report or humans mentioned in content being written.

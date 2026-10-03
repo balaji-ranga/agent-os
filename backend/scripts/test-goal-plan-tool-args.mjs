@@ -13,6 +13,8 @@ import {
   toolNeedsAgentInterpretation,
   bindToolArgsFromGoalContext,
   resolveAgentToolArgsForGoal,
+  requestedBrowserDriver,
+  buildBrowserTaskArgsForGoal,
 } from '../src/services/goal-plan-tool-args.js';
 
 const prompt =
@@ -132,5 +134,29 @@ const unrelatedContext = bindToolArgsFromGoalContext({
   goalContext: { productivity_event_id: eventId },
 });
 assert(!('event_id' in unrelatedContext), 'event context is not leaked into unrelated tools');
+
+assert(
+  requestedBrowserDriver('Use the browsertools desktop worker for this task') === 'playwright_chrome',
+  'desktop worker resolves to the canonical local Playwright driver'
+);
+assert(
+  requestedBrowserDriver('Use the paired Chrome extension tab') === 'chrome_extension',
+  'Chrome extension remains explicitly selectable'
+);
+const exactPost = 'AI is improving financial analysis while accountable humans retain approval and oversight.';
+const browserArgs = buildBrowserTaskArgsForGoal({
+  args: {
+    mode: 'autonomous',
+    start_url: 'https://www.linkedin.com/',
+    input: { operation: 'social_publish', platform: 'linkedin', body: '{{post_content}}' },
+  },
+  goalPrompt: 'Post the generated content to LinkedIn using the browsertools desktop worker.',
+  stepInstruction: 'Publish {{post_content}} and return durable confirmation.',
+  requiredInputValues: { post_content: exactPost },
+});
+assert(browserArgs.preferred_driver === 'playwright_chrome', 'explicit desktop executor is preserved');
+assert(browserArgs.allow_fallback === false, 'explicit executor must not silently fall back');
+assert(browserArgs.input.body === exactPost, 'prior-step content remains exact in the browser action contract');
+assert(browserArgs.input.constraints.max_submissions === 1, 'social publishing is bounded to one submission');
 
 console.log('ok', { tickers, basket_len: basket.length, rewritten: rewritten.map((s) => s.type) });

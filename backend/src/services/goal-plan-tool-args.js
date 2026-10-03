@@ -7,6 +7,7 @@
 import { chatCompletions } from '../config/llm.js';
 import { listEnabledContentTools } from './content-tools-meta.js';
 import { promptForbidsNotifyCeo } from './goal-plan-constraints.js';
+import { inferSocialPlatform } from './browser-social-publish.js';
 
 /** Magnificent 7 — common CEO shorthand MAG7 / MAGS / Magnificent 7. */
 export const MAG7_SYMBOLS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NVDA', 'TSLA'];
@@ -178,6 +179,83 @@ function argsMissingSymbol(args) {
   const s = a.symbol || a.ticker || a.symbols;
   if (Array.isArray(s)) return !s.length;
   return !String(s || '').trim();
+}
+
+function replaceInputTemplates(value, inputValues) {
+  if (Array.isArray(value)) return value.map((item) => replaceInputTemplates(item, inputValues));
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, replaceInputTemplates(item, inputValues)]));
+  }
+  if (typeof value !== 'string') return value;
+  const exact = value.match(/^\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}$/);
+  if (exact && Object.hasOwn(inputValues, exact[1])) return inputValues[exact[1]];
+  return value.replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g, (match, key) =>
+    Object.hasOwn(inputValues, key) ? String(inputValues[key]) : match
+  );
+}
+
+function firstHttpUrl(text) {
+  const match = String(text || '').match(/https?:\/\/[^\s<>"')\]]+/i);
+  return match?.[0]?.replace(/[.,;]+$/, '') || '';
+}
+
+/** Canonical executor aliases are transport configuration, not business-keyword
+ * routing. They let any goal explicitly select one of the registered browser
+ * driver families without depending on the global executor priority. */
+export function requestedBrowserDriver(text, current = null) {
+  const explicit = String(current || '').trim();
+  if (explicit) return explicit;
+  const instruction = String(text || '');
+  if (/\b(?:desktop|local)\s+(?:browser\s+)?worker\b|\bbrowsertools?\s+desktop\b|\bplaywright[_\s-]?chrome\b/i.test(instruction)) {
+    return 'playwright_chrome';
+  }
+  if (/\bchrome\s+extension\b|\bflolah\s+extension\b/i.test(instruction)) return 'chrome_extension';
+  return null;
+}
+
+export function buildBrowserTaskArgsForGoal({
+  args = {}, goalPrompt = '', stepInstruction = '', requiredInputValues = {},
+} = {}) {
+  let next = replaceInputTemplates({ ...(args || {}) }, requiredInputValues || {});
+  const instruction = replaceInputTemplates(String(stepInstruction || ''), requiredInputValues || {});
+  const combined = [goalPrompt, instruction].filter(Boolean).join('\n');
+  if (!next.goal && instruction) next.goal = instruction;
+  if (!next.goal) next.goal = String(goalPrompt || '').trim();
+  if (!next.start_url) next.start_url = firstHttpUrl(instruction) || firstHttpUrl(goalPrompt);
+  if (!next.mode) next.mode = 'autonomous';
+
+  const preferred = requestedBrowserDriver(combined, next.preferred_driver || next.preferredDriver);
+  if (preferred) {
+    next.preferred_driver = preferred;
+    if (next.allow_fallback == null && next.allowFallback == null) next.allow_fallback = false;
+  }
+
+  const platform = inferSocialPlatform(combined, next.start_url || '');
+  const requestsPublish = String(next.input?.operation || '').toLowerCase() === 'social_publish' ||
+    (/\b(?:publish|post|share)\b/i.test(combined) && Boolean(platform));
+  if (requestsPublish) {
+    const values = Object.values(requiredInputValues || {});
+    const suppliedBody = next.input?.body;
+    const boundBody = suppliedBody != null
+      ? replaceInputTemplates(suppliedBody, requiredInputValues || {})
+      : values.find((value) => typeof value === 'string' && value.trim().length >= 20);
+    if (typeof boundBody === 'string' && boundBody.trim().length >= 20) {
+      next.input = {
+        ...(next.input && typeof next.input === 'object' ? next.input : {}),
+        operation: 'social_publish',
+        platform,
+        body: boundBody,
+        constraints: {
+          max_submissions: 1,
+          preserve_audience: true,
+          require_exact_editor_value: true,
+          require_durable_confirmation: true,
+          ...(next.input?.constraints || {}),
+        },
+      };
+    }
+  }
+  return next;
 }
 
 /**
@@ -430,10 +508,20 @@ export async function resolveAgentToolArgsForGoal({
   goalTitle = '',
   priorSummary = '',
   ownerUserId = null,
+  stepInstruction = '',
+  requiredInputValues = {},
 }) {
   const name = String(toolName || '').trim();
   let next =
     args && typeof args === 'object' && !Array.isArray(args) ? { ...args } : {};
+  if (name === 'browse_task_start') {
+    next = buildBrowserTaskArgsForGoal({
+      args: next,
+      goalPrompt,
+      stepInstruction,
+      requiredInputValues,
+    });
+  }
   const purpose = toolPurpose(name);
 
   // Explicit multi from plan

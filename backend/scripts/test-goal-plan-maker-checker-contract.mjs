@@ -102,6 +102,60 @@ const catalog = {
 assert.equal(isExecutableCheckerVerdict({ approved: true, issues: [], revised_steps: [] }, catalog), true);
 assert.equal(isExecutableCheckerVerdict({ approved: false, issues: [], revised_steps: [{ key: 'not-a-plan' }] }, catalog), false);
 
+const browserCatalog = {
+  tools: [{ name: 'browse_task_start' }],
+  workflows: [],
+  agents: [],
+  humans: [],
+};
+const browserPublishPlan = [
+  {
+    key: 'write_post', type: 'agent_continue', label: 'Write the post', depends_on: [], required_inputs: [],
+    produces: [{ key: 'post_content', kind: 'data', required: true }],
+    spec: { message: 'Write the exact LinkedIn post body.', operation_mode: 'create', deliverable_kind: 'data' },
+  },
+  {
+    key: 'publish_post', type: 'agent_tool', label: 'Publish through desktop worker', depends_on: ['write_post'],
+    required_inputs: [{ key: 'post_content', kind: 'data', source_step_key: 'write_post', required: true }],
+    produces: [{ key: 'post_result', kind: 'data', required: true }],
+    spec: {
+      tool_name: 'browse_task_start',
+      message: 'Use browsertools desktop worker to publish the exact post_content on LinkedIn.',
+      operation_mode: 'create',
+      deliverable_kind: 'external_action',
+      args: {
+        mode: 'autonomous',
+        start_url: 'https://www.linkedin.com/feed/',
+        preferred_driver: 'playwright_chrome',
+        allow_fallback: false,
+        input: {
+          operation: 'social_publish',
+          platform: 'linkedin',
+          body: '{{post_content}}',
+          constraints: {
+            max_submissions: 1,
+            preserve_audience: true,
+            require_exact_editor_value: true,
+            require_durable_confirmation: true,
+          },
+        },
+      },
+    },
+  },
+  {
+    key: 'report', type: 'notify_ceo', label: 'Report the publish outcome', depends_on: ['publish_post'],
+    required_inputs: [{ key: 'post_result', kind: 'data', source_step_key: 'publish_post', required: true }],
+    produces: [], spec: {},
+  },
+];
+assert.deepEqual(validateTypedGoalPlan(browserPublishPlan, browserCatalog), { ok: true, errors: [] });
+const unboundBrowserPlan = structuredClone(browserPublishPlan);
+unboundBrowserPlan[1].spec.args = {};
+const unboundBrowserValidation = validateTypedGoalPlan(unboundBrowserPlan, browserCatalog);
+assert.equal(unboundBrowserValidation.ok, false);
+assert(unboundBrowserValidation.errors.some((error) => /no executable args/i.test(error)));
+assert(unboundBrowserValidation.errors.some((error) => /does not preserve/i.test(error)));
+
 const valid = [
   {
     key: 'retrieve_invoice', type: 'agent_tool', label: 'Retrieve invoice', depends_on: [], required_inputs: [],

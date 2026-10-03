@@ -622,6 +622,9 @@ export function normalizeStepSpec(raw) {
     const argsRaw = raw.args != null ? raw.args : nested.args != null ? nested.args : raw.tool_args != null ? raw.tool_args : nested.tool_args;
     const args =
       argsRaw && typeof argsRaw === "object" && !Array.isArray(argsRaw) ? { ...argsRaw } : {};
+    const message = String(
+      raw.message || raw.prompt || nested.message || nested.prompt || ""
+    ).trim();
     return {
       type: "agent_tool",
       label: String(raw.label || toolName || "Run tool").trim(),
@@ -629,6 +632,7 @@ export function normalizeStepSpec(raw) {
         ...contract,
         tool_name: toolName || null,
         args,
+        message: message || null,
         capability_id: raw.capability_id || nested.capability_id || null,
         required_inputs: raw.required_inputs || nested.required_inputs || [],
         resolution_evidence: raw.resolution_evidence || nested.resolution_evidence || null,
@@ -1907,6 +1911,84 @@ export function priorStepSummaries(goalRunId, beforeIndex = Infinity) {
   return lines.join('\n');
 }
 
+/** Resolve typed dependency values without asking an LLM to paraphrase them.
+ * A direct named field wins. For a single-output agent step, its durable reply
+ * is the value of that declared output. This keeps generated content byte-for-
+ * byte available to a later browser/email/action step. */
+export function requiredInputValuesForGoalStep(goalRunId, step) {
+  const spec = parseJson(step?.spec_json, {});
+  const requirements = Array.isArray(spec.required_inputs) ? spec.required_inputs : [];
+  if (!requirements.length) return {};
+  const prior = loadGoalSteps(goalRunId).filter((row) => row.step_index < step.step_index);
+  const byKey = new Map(prior.map((row) => [String(parseJson(row.spec_json, {}).step_key || ''), row]));
+  const values = {};
+  for (const requirement of requirements) {
+    const key = String(requirement?.key || '').trim();
+    const sourceKey = String(requirement?.source_step_key || '').trim();
+    if (!key || !sourceKey) continue;
+    const source = byKey.get(sourceKey);
+    if (!source || source.status !== 'completed') continue;
+    const sourceSpec = parseJson(source.spec_json, {});
+    const result = parseJson(source.result_json, {});
+    const direct = result?.[key] ?? result?.result?.[key] ?? result?.outputs?.[key];
+    if (direct != null) {
+      values[key] = direct;
+      continue;
+    }
+    const declared = Array.isArray(sourceSpec.produces) ? sourceSpec.produces : [];
+    if (declared.length === 1 && String(declared[0]?.key || '') === key) {
+      const single = result?.reply_preview ?? result?.body ?? result?.result ?? result?.summary;
+      if (single != null && (typeof single !== 'object' || Array.isArray(single))) values[key] = single;
+    }
+  }
+  return values;
+}
+
+export function browserTaskTerminalFailure(task) {
+  const status = String(task?.status || '').trim().toLowerCase();
+  if (status === 'completed') return null;
+  if (status === 'failed' || status === 'cancelled') {
+    return String(task?.error || task?.result?.error || `Browser task ${status}`);
+  }
+  if (status === 'blocked_on_input') {
+    return String(task?.wait_reason || task?.result?.message || 'Browser task requires user input');
+  }
+  return `Browser task did not reach a terminal result (status=${status || 'unknown'})`;
+}
+
+async function awaitBrowserToolTerminalResult(started, goal, step, invokeOpts) {
+  const taskId = String(started?.task_id || started?.task?.id || '').trim();
+  if (!taskId) {
+    const error = new Error('browse_task_start did not return a task_id');
+    error.status = 503;
+    error.code = 'BROWSER_TASK_MISSING';
+    throw error;
+  }
+  let task = started?.task || null;
+  const terminal = new Set(['completed', 'failed', 'blocked_on_input', 'cancelled']);
+  for (let poll = 0; poll < 4 && !terminal.has(String(task?.status || '')); poll += 1) {
+    const status = await invokeContentToolHttp(
+      'browse_task_status',
+      { task_id: taskId, wait_ms: 80000 },
+      goal.owner_user_id,
+      invokeOpts
+    );
+    task = status?.task || task;
+  }
+  const failure = browserTaskTerminalFailure(task);
+  if (failure) {
+    const error = new Error(failure);
+    error.status = 503;
+    error.code = String(task?.status || '') === 'blocked_on_input'
+      ? 'BROWSER_TASK_BLOCKED'
+      : 'BROWSER_TASK_FAILED';
+    error.actionArgs = { task_id: taskId, selected_driver_mode: task?.selected_driver_mode || null };
+    error.partialResult = { ok: false, task_id: taskId, task };
+    throw error;
+  }
+  return { ...started, task_id: taskId, task };
+}
+
 /** Keep every peer result while bounding large time-series for the next agent. */
 export function compactGoalToolContext(value, depth = 0) {
   if (value == null || typeof value !== 'object') return value;
@@ -2603,6 +2685,7 @@ async function executeAgentToolStep(goal, step) {
 
   let args =
     spec.args && typeof spec.args === 'object' && !Array.isArray(spec.args) ? { ...spec.args } : {};
+  const requiredInputValues = requiredInputValuesForGoalStep(goal.id, step);
 
   if (toolName === 'email_send') {
     if (!args.to && !args.cc && !args.bcc) {
@@ -2677,6 +2760,8 @@ async function executeAgentToolStep(goal, step) {
       goalTitle: goal.title || '',
       priorSummary: prior || '',
       ownerUserId: goal.owner_user_id,
+      stepInstruction: spec.message || '',
+      requiredInputValues,
     });
     args = resolved.args || args;
     multiSymbols = resolved.symbols;
@@ -2853,7 +2938,10 @@ async function executeAgentToolStep(goal, step) {
 
   try {
     const out = await invokeContentToolHttp(toolName, args, goal.owner_user_id, invokeOpts);
-    return { ok: true, tool_name: toolName, result: out };
+    const result = toolName === 'browse_task_start'
+      ? await awaitBrowserToolTerminalResult(out, goal, step, invokeOpts)
+      : out;
+    return { ok: true, tool_name: toolName, result };
   } catch (e) {
     e.actionArgs = { ...args };
     throw e;
