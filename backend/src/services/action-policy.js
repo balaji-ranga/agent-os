@@ -666,6 +666,19 @@ export function actionPolicyMiddleware(req, res, next) {
   }
   if (!toolName) return next();
 
+  if (toolName === 'connector_execute_action') {
+    const actionId = String(req.body?.action_id || req.body?.actionId || req.body?.id || '').trim();
+    if (!actionId) {
+      return res.status(400).json({
+        ok: false,
+        status: 400,
+        error: 'action_id required',
+        failure_class: 'invalid_tool_arguments',
+        needs_approval: false,
+      });
+    }
+  }
+
   let policyToolName = toolName === 'connector_execute_action'
     ? connectorPolicyToolName(req.body?.action_id || req.body?.actionId || req.body?.id)
     : toolName;
@@ -769,6 +782,7 @@ export function actionPolicyMiddleware(req, res, next) {
           sessionKey,
           channel,
           toolName: policyToolName,
+          executionToolName: toolName,
           actionFamily: decision.action_family,
           body: req.body || {},
         })

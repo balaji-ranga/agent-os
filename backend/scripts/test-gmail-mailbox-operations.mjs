@@ -48,6 +48,11 @@ try {
     'Gmail Operations may save a draft through the generic connector'
   );
   assert.equal(
+    assertCallerMayExecuteConnectorAction('gmail-test', 'gmail.delete_draft').ok,
+    true,
+    'Gmail Operations may permanently delete a draft through the exact provider action'
+  );
+  assert.equal(
     assertCallerMayExecuteConnectorAction('gmail-test', 'gmail.send_email').ok,
     false,
     'draft access must not grant send access'

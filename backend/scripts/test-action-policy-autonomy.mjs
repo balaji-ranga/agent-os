@@ -74,9 +74,16 @@ try {
     role: 'user', message: 'Approved',
   }), null, 'ordinary task chat must remain a comment');
 
-  const { seedErpToolsIfMissing, seedEmailSendToolIfMissing } = await import('../src/db/seed-content-tools-meta.js');
+  const { seedConnectorToolsIfMissing, seedErpToolsIfMissing, seedEmailSendToolIfMissing } = await import('../src/db/seed-content-tools-meta.js');
   seedErpToolsIfMissing();
   seedEmailSendToolIfMissing();
+  seedConnectorToolsIfMissing();
+  const { GMAIL_OPERATIONS_CONNECTOR_ACTIONS } = await import('../src/services/connector-action-grants.js');
+  assert.equal(
+    GMAIL_OPERATIONS_CONNECTOR_ACTIONS.some((action) => action.action_id === 'gmail.delete_draft' && action.risk_tier === 'R3'),
+    true,
+    'Gmail Operations explicitly grants the provider-backed permanent draft deletion action as R3'
+  );
 
   const policies = [
     { family: 'read', mode: 'autonomous' },
@@ -322,6 +329,24 @@ try {
     status(code) { this.statusCode = code; return this; },
     json(body) { this.body = body; return this; },
   });
+  const malformedConnectorApprovalCount = db.prepare(
+    "SELECT COUNT(*) AS n FROM chat_action_approvals WHERE owner_user_id=? AND agent_id='gmail-operations'"
+  ).get(owner).n;
+  const malformedConnectorResponse = responseStub();
+  let malformedConnectorAllowed = false;
+  actionPolicyMiddleware({
+    method: 'POST', path: '/invoke', body: { tool_name: 'connector_execute_action' },
+    headers: { 'x-ceo-user-id': owner, 'x-openclaw-agent-id': `t-${owner}--gmail-operations` },
+    authUser: { role: 'ceo', internal: true },
+  }, malformedConnectorResponse, () => { malformedConnectorAllowed = true; });
+  assert.equal(malformedConnectorAllowed, false, 'a malformed connector call never reaches execution');
+  assert.equal(malformedConnectorResponse.statusCode, 400);
+  assert.equal(malformedConnectorResponse.body?.error, 'action_id required');
+  assert.equal(malformedConnectorResponse.body?.needs_approval, false,
+    'malformed connector calls must not create misleading approval requests');
+  assert.equal(db.prepare(
+    "SELECT COUNT(*) AS n FROM chat_action_approvals WHERE owner_user_id=? AND agent_id='gmail-operations'"
+  ).get(owner).n, malformedConnectorApprovalCount);
   let middlewareAllowed = false;
   actionPolicyMiddleware(middlewareRequest, responseStub(), () => { middlewareAllowed = true; });
   assert.equal(middlewareAllowed, true, 'middleware consumes the exact approved chat action');
@@ -410,6 +435,38 @@ try {
       'approval continuation dispatches the exact saved payload rather than model-regenerated arguments');
     assert.equal(capturedApprovedRequest.options.headers['x-ceo-user-id'], owner);
     assert.equal(capturedApprovedRequest.options.headers['x-agent-id'], 'balserve');
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+
+  const connectorDeleteBody = {
+    action_id: 'gmail.delete_draft',
+    input: { draftId: 'draft-fixture-1' },
+  };
+  const connectorPending = recordPendingChatAction({
+    ownerUserId: owner,
+    agentId: 'gmail-operations',
+    channel: 'web',
+    toolName: 'connector_action:gmail.delete_draft',
+    executionToolName: 'connector_execute_action',
+    actionFamily: 'financial_destructive',
+    body: connectorDeleteBody,
+  });
+  decideChatActionApproval({
+    ownerUserId: owner, approvalId: connectorPending.id, decision: 'approve',
+    actor: { id: owner, role: 'ceo' }, channel: 'web', evidence: 'Approved exact draft deletion',
+  });
+  let capturedConnectorRequest = null;
+  globalThis.fetch = async (url, options) => {
+    capturedConnectorRequest = { url: String(url), options };
+    return { ok: true, status: 200, json: async () => ({ success: true, deleted: true }) };
+  };
+  try {
+    const executed = await executeApprovedChatAction({ ownerUserId: owner, approvalId: connectorPending.id });
+    assert.equal(executed.execution_tool_name, 'connector_execute_action');
+    assert.match(capturedConnectorRequest.url, /\/api\/tools\/connector-execute-action$/);
+    assert.deepEqual(JSON.parse(capturedConnectorRequest.options.body), connectorDeleteBody,
+      'connector approval continuation retains the exact action id and provider input');
   } finally {
     globalThis.fetch = realFetch;
   }

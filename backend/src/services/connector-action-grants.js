@@ -19,6 +19,7 @@ export const GMAIL_OPERATIONS_CONNECTOR_ACTIONS = Object.freeze([
   { action_id: 'gmail.get_thread', risk_tier: 'R0', action_family: 'read' },
   { action_id: 'gmail.list_drafts', risk_tier: 'R0', action_family: 'read' },
   { action_id: 'gmail.get_draft', risk_tier: 'R0', action_family: 'read' },
+  { action_id: 'gmail.delete_draft', risk_tier: 'R3', action_family: 'financial_destructive' },
   { action_id: 'gmail.create_draft', risk_tier: 'R1', action_family: 'write_internal' },
   { action_id: 'gmail.create_email_draft', risk_tier: 'R1', action_family: 'write_internal' },
   { action_id: 'gmail.update_draft', risk_tier: 'R1', action_family: 'write_internal' },

@@ -16,6 +16,7 @@ export function ensureChatActionApprovalTable() {
       session_key TEXT,
       channel TEXT NOT NULL DEFAULT 'web',
       tool_name TEXT NOT NULL,
+      execution_tool_name TEXT,
       action_family TEXT NOT NULL,
       args_hash TEXT NOT NULL,
       args_json TEXT NOT NULL DEFAULT '{}',
@@ -37,6 +38,7 @@ export function ensureChatActionApprovalTable() {
   try {
     const columns = db().prepare('PRAGMA table_info(chat_action_approvals)').all().map((row) => row.name);
     if (!columns.includes('args_json')) db().exec("ALTER TABLE chat_action_approvals ADD COLUMN args_json TEXT NOT NULL DEFAULT '{}'");
+    if (!columns.includes('execution_tool_name')) db().exec('ALTER TABLE chat_action_approvals ADD COLUMN execution_tool_name TEXT');
   } catch (_) {}
 }
 
@@ -101,11 +103,12 @@ function live(row) {
   return row && Date.parse(row.expires_at) > Date.now();
 }
 
-export function recordPendingChatAction({ ownerUserId, agentId, sessionKey = null, channel = 'web', toolName, actionFamily, body = {} } = {}) {
+export function recordPendingChatAction({ ownerUserId, agentId, sessionKey = null, channel = 'web', toolName, executionToolName = null, actionFamily, body = {} } = {}) {
   ensureChatActionApprovalTable();
   const owner = String(ownerUserId || '').trim();
   const agent = String(agentId || '').trim();
   const tool = String(toolName || '').trim();
+  const executionTool = String(executionToolName || tool).trim();
   if (!owner || !agent || !tool) return null;
   const hash = actionArgsHash(tool, body);
   const rows = db().prepare(`SELECT * FROM chat_action_approvals
@@ -123,6 +126,7 @@ export function recordPendingChatAction({ ownerUserId, agentId, sessionKey = nul
     '[CHAT_ACTION_APPROVAL]',
     `approval_id: ${id}`,
     `tool: ${tool}`,
+    `execution_tool: ${executionTool}`,
     `action_family: ${actionFamily}`,
     `agent_id: ${agent}`,
     `expires_at: ${expiresAt}`,
@@ -137,9 +141,9 @@ export function recordPendingChatAction({ ownerUserId, agentId, sessionKey = nul
     VALUES (?,?,'awaiting_confirmation',?,'action_policy',?) RETURNING *`)
     .get(`Approval required: ${tool}`.slice(0, 240), description, owner, owner);
   db().prepare(`INSERT INTO chat_action_approvals
-    (id,owner_user_id,agent_id,session_key,channel,tool_name,action_family,args_hash,args_json,args_summary_json,status,kanban_task_id,requested_at,expires_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?,'pending',?,?,?)`)
-    .run(id, owner, agent, sessionKey ? String(sessionKey) : null, String(channel || 'web'), tool,
+    (id,owner_user_id,agent_id,session_key,channel,tool_name,execution_tool_name,action_family,args_hash,args_json,args_summary_json,status,kanban_task_id,requested_at,expires_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,'pending',?,?,?)`)
+    .run(id, owner, agent, sessionKey ? String(sessionKey) : null, String(channel || 'web'), tool, executionTool,
       String(actionFamily || ''), hash, JSON.stringify(approvalBody(body)), JSON.stringify(summary), task.id, requestedAt, expiresAt);
   try { notifyKanbanTaskCreated({ userId: owner, task }); } catch (_) {}
   return db().prepare('SELECT * FROM chat_action_approvals WHERE id=?').get(id);
@@ -246,9 +250,15 @@ export async function executeApprovedChatAction({ ownerUserId, approvalId } = {}
   if (!row || !live(row)) throw Object.assign(new Error('Approved action is unavailable or expired'), { status: 409 });
   let args = {};
   try { args = JSON.parse(row.args_json || '{}') || {}; } catch (_) {}
+  const executionToolName = String(
+    row.execution_tool_name ||
+    (String(row.tool_name || '').startsWith('connector_action:') ? 'connector_execute_action' : '') ||
+    (String(row.tool_name || '').startsWith('mcp_bound_action|') ? 'mcp_bound_tool_call' : '') ||
+    row.tool_name || ''
+  ).trim();
   const { invokeContentToolHttp } = await import('./content-tool-http-invoke.js');
   try {
-    const result = await invokeContentToolHttp(row.tool_name, args, row.owner_user_id, {
+    const result = await invokeContentToolHttp(executionToolName, args, row.owner_user_id, {
       agentId: row.agent_id,
       openclawAgentId: row.agent_id,
     });
@@ -256,6 +266,7 @@ export async function executeApprovedChatAction({ ownerUserId, approvalId } = {}
       ok: true,
       approval_id: row.id,
       tool_name: row.tool_name,
+      execution_tool_name: executionToolName,
       result,
     };
   } catch (error) {

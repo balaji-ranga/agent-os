@@ -244,6 +244,32 @@ type PromptBuildContext = {
 };
 
 const PARAM_SCHEMAS: Record<string, Record<string, unknown>> = {
+  connector_search_actions: {
+    type: "object",
+    properties: {
+      query: { type: "string", description: "Describe the connector action to find, for example gmail delete draft." },
+    },
+    required: ["query"],
+    additionalProperties: false,
+  },
+  connector_get_action_guide: {
+    type: "object",
+    properties: {
+      action_id: { type: "string", description: "Exact connector action id returned by connector_search_actions." },
+    },
+    required: ["action_id"],
+    additionalProperties: false,
+  },
+  connector_execute_action: {
+    type: "object",
+    properties: {
+      action_id: { type: "string", description: "Exact connector action id that is granted to this agent." },
+      input: { type: "object", description: "Action input matching connector_get_action_guide." },
+      connection_name: { type: "string", description: "Optional connected-account alias; normally omit to use the CEO default." },
+    },
+    required: ["action_id", "input"],
+    additionalProperties: false,
+  },
   company_objectives_query: {
     type: "object",
     properties: {
