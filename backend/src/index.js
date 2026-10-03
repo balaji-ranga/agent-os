@@ -60,6 +60,7 @@ import companyEmailChannelsRoutes from './routes/company-email-channels.js';
 import ibkrBridgePackageRoutes from './routes/ibkr-bridge-package.js';
 import settingsIpWhitelistRoutes from './routes/settings-ip-whitelists.js';
 import settingsExternalTokensRoutes from './routes/settings-external-tokens.js';
+import settingsToolRiskMappingsRoutes from './routes/settings-tool-risk-mappings.js';
 import {
   browserWorkerCeoRoutes,
   browserWorkerV1Routes,
@@ -751,6 +752,7 @@ apiRouter.use('/event-productivity', eventProductivityRoutes);
 apiRouter.use('/integrations/ibkr-bridge', ibkrBridgePackageRoutes);
 apiRouter.use('/settings/ip-whitelists', settingsIpWhitelistRoutes);
 apiRouter.use('/settings/external-tokens', settingsExternalTokensRoutes);
+apiRouter.use('/settings/tool-risk-mappings', settingsToolRiskMappingsRoutes);
 apiRouter.use('/integrations/browser-worker', browserWorkerCeoRoutes);
 // Worker laptop client (bearer bwk_ token + IP whitelist; no CEO session cookie).
 apiRouter.use('/browser-worker/v1', browserWorkerV1Routes);

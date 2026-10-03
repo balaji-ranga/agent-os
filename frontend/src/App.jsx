@@ -13,6 +13,7 @@ import WorkspaceDesigner from './pages/WorkspaceDesigner';
 import NavMenuManager from './pages/NavMenuManager';
 import IpWhitelists from './pages/IpWhitelists';
 import TokensManagement from './pages/TokensManagement';
+import ToolRiskMappings from './pages/ToolRiskMappings';
 import { CrmPage, ErpPage } from './pages/BusinessEmbed';
 import AgentWorkspace from './pages/AgentWorkspace';
 import AgentChat from './pages/AgentChat';
@@ -424,6 +425,7 @@ function Shell() {
                 <Route path="/nav-menus" element={<Perm user={user} k="nav-menus"><NavMenuManager /></Perm>} />
                 <Route path="/settings/ip-whitelists" element={<Perm user={user} k="ip-whitelists"><IpWhitelists /></Perm>} />
                 <Route path="/settings/tokens" element={<Perm user={user} k="tokens-management"><TokensManagement /></Perm>} />
+                <Route path="/settings/risk-classifications" element={<Perm user={user} k="risk-classifications"><ToolRiskMappings /></Perm>} />
                 <Route path="/work" element={<Perm user={user} k="work"><OperatingWorkspace /></Perm>} />
                 <Route path="/crm" element={<Perm user={user} k="crm"><CrmPage /></Perm>} />
                 <Route path="/erp" element={<Perm user={user} k="erp"><ErpPage /></Perm>} />

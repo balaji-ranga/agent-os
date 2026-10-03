@@ -27,6 +27,7 @@ import {
   sameOpenClawToolSet,
 } from './openclaw-runtime-tools.js';
 import { MCP_AGENT_BRIDGE_TOOLS, hasAgentMcpToolBindings } from './agent-mcp-tool-grants.js';
+import { resolveToolRiskMapping } from './tool-risk-mappings.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_TEMPLATES = join(__dirname, '..', '..', '..', 'openclaw-workspace-templates');
@@ -361,18 +362,29 @@ export function revokeUnauthorizedWorkflowToolGrants() {
   return revoked;
 }
 
-export function listToolsCatalogForAgent(agentId) {
+export function listToolsCatalogForAgent(agentId, ownerUserId = null) {
   const granted = new Set(getAgentToolGrants(agentId));
   return meta
     .listToolsMeta()
     .filter((t) => t.enabled && !MCP_AGENT_BRIDGE_TOOLS.includes(t.name))
-    .map((t) => ({
-      name: t.name,
-      display_name: t.display_name,
-      purpose: t.purpose,
-      is_builtin: !!t.is_builtin,
-      granted: granted.has(t.name),
-    }));
+    .map((t) => {
+      const mapped = resolveToolRiskMapping(ownerUserId, 'content_tool', t.name, {
+        risk_tier: t.risk_tier,
+        capability_id: t.name,
+        display_name: t.display_name,
+        description: t.purpose,
+      });
+      return {
+        name: t.name,
+        display_name: t.display_name,
+        purpose: t.purpose,
+        is_builtin: !!t.is_builtin,
+        granted: granted.has(t.name),
+        risk_tier: mapped.risk_tier,
+        action_family: mapped.action_family,
+        mapping_source: mapped.mapping_source,
+      };
+    });
 }
 
 function normalizeAgentToolNames(agent, toolNames) {

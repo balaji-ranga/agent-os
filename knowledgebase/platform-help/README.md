@@ -66,6 +66,7 @@
 | [57-event-productivity-pack.md](./57-event-productivity-pack.md) | **Events & Productivity** — Google/Microsoft calendars, files, Docs/Word, Sheets/Excel, Slack/Teams; durable inbox → workflow/goal; exact connector bindings, Action Control, testing and dead letters |
 | [58-marketing-operations.md](./58-marketing-operations.md) | **Marketing Operations** — agentic setup from CEO intent/OKRs with optional UI; standard Marketing Specialist template; campaigns, assets, channel references, CRM/Knowledge reuse, readiness, metrics and Action Control |
 | [59-company-email-channels.md](./59-company-email-channels.md) | **Company Email channels** — owner-scoped Gmail/Microsoft 365 OAuth, test/enable/sync, campaign-reply attribution, Events & Productivity inbox routing, retention and Action Control |
+| [60-risk-classifications.md](./60-risk-classifications.md) | **Settings → Risk classifications** — interpreted and company-overridden R0–R4 mappings for platform tools, MCP tools, and connector actions; Tool Access display and Action Control enforcement |
 
 **Video Tours (UI):** User menu → **Help → Video Tours** (/video-tours) — playlist of short CEO tours (script/captions now; mp4 when exported). Not ingested as RAG docs.
 

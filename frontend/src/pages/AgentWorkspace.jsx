@@ -8,6 +8,7 @@ import RobotAvatar from '../components/RobotAvatar.jsx';
 
 const FILE_NAMES = ['soul', 'agents', 'memory', 'tools', 'ops', 'identity'];
 const TOOLS_TAB = '__tool_access__';
+const riskTierColor = (tier) => ({ R0: '#22c55e', R1: '#38bdf8', R2: '#f59e0b', R3: '#ef4444', R4: '#a855f7' }[tier] || '#94a3b8');
 
 export default function AgentWorkspace() {
   const { agentId } = useParams();
@@ -630,6 +631,7 @@ export default function AgentWorkspace() {
               Changes write to <code>~/.openclaw/agent-tool-allowlists.json</code> and sync <code>openclaw.json</code>.
               Client browser relay tools (<code>browse_*</code>) are optional for custom agents (auto-granted to COO, Workflow Builder, Platform Help, TechResearcher) — enable them so this agent can run free-text
               goals or replay recorded recipes on the CEO&apos;s attached Chrome / managed session.
+              {' '}Risk labels come from <Link to="/settings/risk-classifications">Settings → Risk classifications</Link>.
             </p>
             <div style={{ flex: 1, overflow: 'auto', border: '1px solid var(--border)', borderRadius: 8, padding: '1rem', background: 'var(--surface)' }}>
               {toolCatalog.length === 0 ? (
@@ -650,7 +652,11 @@ export default function AgentWorkspace() {
                         style={{ marginTop: 4 }}
                       />
                       <span>
-                        <strong>{t.display_name || t.name}</strong>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+                          <strong>{t.display_name || t.name}</strong>
+                          <span title={t.action_family || ''} style={{ color: riskTierColor(t.risk_tier), border: `1px solid ${riskTierColor(t.risk_tier)}`, borderRadius: 999, padding: '0.05rem 0.4rem', fontSize: '0.72rem' }}>{t.risk_tier || 'R2'}</span>
+                          {t.mapping_source === 'user_override' && <span style={{ color: 'var(--accent)', fontSize: '0.7rem' }}>override</span>}
+                        </span>
                         <code style={{ marginLeft: '0.5rem', fontSize: '0.85rem', color: 'var(--muted)' }}>{t.name}</code>
                         {t.purpose && <div style={{ fontSize: '0.9rem', color: 'var(--muted)', marginTop: 4 }}>{t.purpose}</div>}
                       </span>
@@ -722,7 +728,7 @@ export default function AgentWorkspace() {
                           })
                           .map((action) => {
                             const tier = action.risk_tier || 'R2';
-                            const tierColor = tier === 'R0' ? '#22c55e' : tier === 'R1' ? '#38bdf8' : tier === 'R2' ? '#f59e0b' : '#ef4444';
+                            const tierColor = riskTierColor(tier);
                             return (
                               <label key={action.id} style={{ display: 'flex', gap: '0.7rem', alignItems: 'flex-start', padding: '0.65rem 0', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}>
                                 <input type="checkbox" checked={connectorActionGrants.has(action.id)} onChange={() => toggleConnectorAction(action.id)} style={{ marginTop: 4 }} />
@@ -730,6 +736,7 @@ export default function AgentWorkspace() {
                                   <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
                                     <strong style={{ overflowWrap: 'anywhere' }}>{action.id}</strong>
                                     <span title={action.action_family || ''} style={{ color: tierColor, border: `1px solid ${tierColor}`, borderRadius: 999, padding: '0.05rem 0.4rem', fontSize: '0.72rem' }}>{tier}</span>
+                                    {action.mapping_source === 'user_override' && <span style={{ color: 'var(--accent)', fontSize: '0.7rem' }}>override</span>}
                                   </span>
                                   {action.description && <span style={{ display: 'block', color: 'var(--muted)', fontSize: '0.84rem', marginTop: 3 }}>{action.description}</span>}
                                 </span>
@@ -780,7 +787,7 @@ export default function AgentWorkspace() {
                       {(mcpServers.find((server) => server.id === mcpServerId)?.tools || []).map((tool) => {
                         const key = `${mcpServerId}\u0000${tool.name}`;
                         const tier = tool.risk_tier || 'R2';
-                        const tierColor = tier === 'R0' ? '#22c55e' : tier === 'R1' ? '#38bdf8' : tier === 'R2' ? '#f59e0b' : '#ef4444';
+                        const tierColor = riskTierColor(tier);
                         return (
                           <label key={tool.name} style={{ display: 'flex', gap: '0.7rem', alignItems: 'flex-start', padding: '0.65rem 0', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}>
                             <input type="checkbox" checked={mcpToolGrants.has(key)} onChange={() => toggleMcpTool(mcpServerId, tool.name)} style={{ marginTop: 4 }} />
@@ -788,6 +795,7 @@ export default function AgentWorkspace() {
                               <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
                                 <strong style={{ overflowWrap: 'anywhere' }}>{tool.name}</strong>
                                 <span title={tool.action_family || ''} style={{ color: tierColor, border: `1px solid ${tierColor}`, borderRadius: 999, padding: '0.05rem 0.4rem', fontSize: '0.72rem' }}>{tier}</span>
+                                {tool.mapping_source === 'user_override' && <span style={{ color: 'var(--accent)', fontSize: '0.7rem' }}>override</span>}
                               </span>
                               {tool.description && <span style={{ display: 'block', color: 'var(--muted)', fontSize: '0.84rem', marginTop: 3 }}>{tool.description}</span>}
                             </span>

@@ -1396,6 +1396,17 @@ export const api = {
       `/settings/external-tokens/${encodeURIComponent(kind)}/${encodeURIComponent(id)}`
     ),
 
+  /** Settings → Risk classifications (tenant-scoped tools, MCP tools, connector actions). */
+  toolRiskMappingsList: (params = {}) => {
+    const sp = new URLSearchParams();
+    if (params.type) sp.set('type', params.type);
+    if (params.q) sp.set('q', params.q);
+    const q = sp.toString();
+    return get(q ? `/settings/tool-risk-mappings?${q}` : '/settings/tool-risk-mappings');
+  },
+  toolRiskMappingSave: (body) => put('/settings/tool-risk-mappings', body),
+  toolRiskMappingReset: (body) => post('/settings/tool-risk-mappings/reset', body),
+
   customScriptsList: (opts = {}) => {
     const q = opts.forWorkflow ? '?for_workflow=1' : '';
     return get(`/integrations/custom-scripts${q}`);

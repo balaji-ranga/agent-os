@@ -17,6 +17,7 @@ import {
 } from './openconnector-oauth-lease.js';
 import { classifyConnectorAction } from './connector-action-grants.js';
 import { connectorExecutionError, invokeConnectorTransport, readConnectorMessagePages, retryConnectorRead } from './connector-execution-policy.js';
+import { resolveToolRiskMapping } from './tool-risk-mappings.js';
 
 function db() {
   return getDb();
@@ -56,6 +57,17 @@ function normalizeActionHit(hit = {}) {
     input_schema: hit.inputSchema || hit.input_schema || null,
     raw: hit,
   };
+}
+
+function withOwnerRiskMapping(userId, action = {}) {
+  const base = classifyConnectorAction(action);
+  const mapped = resolveToolRiskMapping(userId, 'connector_action', action.id, {
+    ...base,
+    capability_id: action.id,
+    display_name: action.id,
+    description: action.description || '',
+  });
+  return { ...action, risk_tier: mapped.risk_tier, action_family: mapped.action_family, mapping_source: mapped.mapping_source };
 }
 
 function dedupeApps(rows = []) {
@@ -563,9 +575,8 @@ export async function listConnectorActions(userId, appId, query = '') {
     if (actions.length) {
       return {
         app_id: appId,
-        actions: actions.map((a) => ({
+        actions: actions.map((a) => withOwnerRiskMapping(userId, {
           ...a,
-          ...classifyConnectorAction(a),
           example_input: exampleInputFromSchema(a.input_schema || {}),
         })),
         source: 'http',
@@ -587,7 +598,7 @@ export async function listConnectorActions(userId, appId, query = '') {
     const normalized = rows
       .map(normalizeActionHit)
       .filter((item) => !service || item.app_id === service || item.id.startsWith(`${service}.`))
-      .map((item) => ({ ...item, ...classifyConnectorAction(item) }));
+      .map((item) => withOwnerRiskMapping(userId, item));
     return {
       app_id: appId,
       actions: normalized,

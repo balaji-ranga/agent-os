@@ -83,6 +83,7 @@
     "test:event-productivity-pack": "node scripts/test-event-productivity-pack.mjs",
     "test:event-productivity-agentic-binding": "node scripts/test-event-productivity-agentic-binding.mjs",
     "test:agent-mcp-binding": "node scripts/test-agent-mcp-capability-binding.mjs",
+    "test:tool-risk-mappings": "node scripts/test-tool-risk-mappings.mjs",
     "test:event-productivity-listeners": "node scripts/test-event-productivity-listeners.mjs",
     "test:marketing-workspace": "node scripts/test-marketing-workspace.mjs",
     "test:erpnext-company-session-isolation": "node scripts/test-erpnext-company-session-isolation.mjs",

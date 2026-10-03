@@ -321,10 +321,11 @@ router.get('/:id/tools', requireAuth, (req, res) => {
     if (req.authUser.role === 'ceo' && !userCanAccessAgent(req.authUser, agent.id)) {
       return res.status(404).json({ error: 'Agent not found' });
     }
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.query || {});
     res.json({
       grants: agentTools.getAgentToolGrants(agent.id),
       openclaw_agent_id: agentTools.resolveOpenClawAgentId(agent),
-      tools: agentTools.listToolsCatalogForAgent(agent.id),
+      tools: agentTools.listToolsCatalogForAgent(agent.id, ownerUserId),
     });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -338,6 +339,7 @@ router.put('/:id/tools', requireAuth, async (req, res) => {
     if (req.authUser.role === 'ceo' && !userCanAccessAgent(req.authUser, agent.id)) {
       return res.status(404).json({ error: 'Agent not found' });
     }
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.body || {});
     const names = Array.isArray(req.body?.tools) ? req.body.tools : req.body?.grants || [];
     const result = agentTools.setAgentToolGrants(agent, names);
     if (req.body?.sync_tools_md) {
@@ -345,7 +347,7 @@ router.put('/:id/tools', requireAuth, async (req, res) => {
     }
     res.json({
       ...result,
-      tools: agentTools.listToolsCatalogForAgent(agent.id),
+      tools: agentTools.listToolsCatalogForAgent(agent.id, ownerUserId),
     });
   } catch (e) {
     res.status(400).json({ error: e.message });
@@ -1755,3 +1757,4 @@ router.post('/:id/activities', requireAuth, (req, res) => {
 });
 
 export default router;
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.body || {});

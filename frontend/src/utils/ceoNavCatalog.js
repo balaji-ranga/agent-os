@@ -10,6 +10,7 @@ export const CEO_NAV_ALWAYS = new Set([
   'workspace-designer',
   'ip-whitelists',
   'tokens-management',
+  'risk-classifications',
   'api-keys',
 ]);
 
@@ -96,6 +97,13 @@ export function buildCeoNavCatalog({ showCrm = false, showErp = false } = {}) {
       id: 'tokens-management',
       label: 'Tokens management',
       to: '/settings/tokens',
+      always: true,
+      group: 'Settings',
+    },
+    {
+      id: 'risk-classifications',
+      label: 'Risk classifications',
+      to: '/settings/risk-classifications',
       always: true,
       group: 'Settings',
     },

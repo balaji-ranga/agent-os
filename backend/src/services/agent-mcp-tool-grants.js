@@ -3,6 +3,7 @@ import {
   callMcpServerTool,
   listMcpServersForWorkflow,
 } from './mcp-servers.js';
+import { resolveToolRiskMapping } from './tool-risk-mappings.js';
 
 export const MCP_AGENT_BRIDGE_TOOLS = Object.freeze([
   'mcp_bound_tools_list',
@@ -93,7 +94,14 @@ export function listAgentMcpToolAccess(ownerUserId, agentId) {
     tools: (server.tools || []).map((tool) => {
       const key = `${server.id}\u0000${tool.name}`;
       const existing = selected.get(key);
-      const classification = existing || classifyMcpTool(tool);
+      const base = existing || classifyMcpTool(tool);
+      const classification = resolveToolRiskMapping(owner, 'mcp_tool', `${server.id}::${tool.name}`, {
+        ...base,
+        source_id: server.id,
+        capability_id: tool.name,
+        display_name: tool.name,
+        description: tool.description || '',
+      });
       return {
         name: tool.name,
         description: tool.description || '',
@@ -101,10 +109,19 @@ export function listAgentMcpToolAccess(ownerUserId, agentId) {
         granted: !!existing,
         risk_tier: classification.risk_tier,
         action_family: classification.action_family,
+        mapping_source: classification.mapping_source,
       };
     }),
   }));
-  return { owner_user_id: owner, agent_id: agent, grants: [...selected.values()], servers };
+  const grants = [...selected.values()].map((row) => ({
+    ...row,
+    ...resolveToolRiskMapping(owner, 'mcp_tool', `${row.server_id}::${row.tool_name}`, {
+      ...row,
+      source_id: row.server_id,
+      capability_id: row.tool_name,
+    }),
+  }));
+  return { owner_user_id: owner, agent_id: agent, grants, servers };
 }
 
 export function setAgentMcpToolGrants(ownerUserId, agentId, requested = []) {
@@ -187,15 +204,23 @@ export function listBoundMcpTools(ownerUserId, agentId) {
      JOIN mcp_tools_cache c ON c.server_id = g.server_id AND c.tool_name = g.tool_name
      WHERE g.owner_user_id = ? AND g.agent_id = ? AND s.status = 'healthy'
      ORDER BY s.name, g.tool_name`
-  ).all(owner, agent).filter((row) => visible.has(row.server_id)).map((row) => ({
-    server_id: row.server_id,
-    server_name: row.server_name,
-    tool_name: row.tool_name,
-    description: row.description || '',
-    input_schema: (() => { try { return JSON.parse(row.input_schema_json || '{}'); } catch { return {}; } })(),
-    risk_tier: row.risk_tier,
-    action_family: row.action_family,
-  }));
+  ).all(owner, agent).filter((row) => visible.has(row.server_id)).map((row) => {
+    const mapped = resolveToolRiskMapping(owner, 'mcp_tool', `${row.server_id}::${row.tool_name}`, {
+      ...row,
+      source_id: row.server_id,
+      capability_id: row.tool_name,
+    });
+    return {
+      server_id: row.server_id,
+      server_name: row.server_name,
+      tool_name: row.tool_name,
+      description: row.description || '',
+      input_schema: (() => { try { return JSON.parse(row.input_schema_json || '{}'); } catch { return {}; } })(),
+      risk_tier: mapped.risk_tier,
+      action_family: mapped.action_family,
+      mapping_source: mapped.mapping_source,
+    };
+  });
 }
 
 export function getBoundMcpPolicy(ownerUserId, agentId, serverId, toolName) {
@@ -205,7 +230,12 @@ export function getBoundMcpPolicy(ownerUserId, agentId, serverId, toolName) {
      WHERE owner_user_id = ? AND agent_id = ? AND server_id = ? AND tool_name = ?`
   ).get(String(ownerUserId), String(agentId), String(serverId), String(toolName));
   if (!row || !/^R[0-3]$/.test(row.risk_tier) || !VALID_FAMILIES.has(row.action_family)) return null;
-  return row;
+  const mapped = resolveToolRiskMapping(ownerUserId, 'mcp_tool', `${serverId}::${toolName}`, {
+    ...row,
+    source_id: serverId,
+    capability_id: toolName,
+  });
+  return { risk_tier: mapped.risk_tier, action_family: mapped.action_family, mapping_source: mapped.mapping_source };
 }
 
 function receipt({ owner, agent, serverId, toolName, status, args, result, started }) {

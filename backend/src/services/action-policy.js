@@ -1,6 +1,6 @@
 /**
  * Generic action-family policy: Autonomous / Approval required / Prohibited.
- * Risk tiers R0–R3 resolved from explicit tool metadata/name and, for
+ * Risk tiers R0–R4 resolved from explicit tool metadata/name and, for
  * effect-aware tools such as browser execution, a structured operation.
  * Owner-scoped. Does not trust body ceo_user_id for authorization.
  */
@@ -20,6 +20,7 @@ import {
 } from './chat-action-approval.js';
 import { getBoundMcpPolicy } from './agent-mcp-tool-grants.js';
 import { resolveSessionMcpTarget } from './openclaw-session-tool-scope.js';
+import { resolvePolicyToolRiskMapping } from './tool-risk-mappings.js';
 
 export const ACTION_FAMILIES = Object.freeze([
   { id: 'read', label: 'Read / research', defaultMode: 'autonomous', defaultTier: 'R0' },
@@ -172,22 +173,31 @@ function explicitRiskForTool(toolName) {
   return null;
 }
 
-export function resolveRiskForTool(toolName) {
-  const mcpBound = String(toolName || '').match(/^mcp_bound_action\|(R[0-3])\|(read|write_internal|communicate_external|financial_destructive)\|/);
+export function resolveRiskForTool(toolName, ownerUserId = null) {
+  const mcpBound = String(toolName || '').match(/^mcp_bound_action\|(R[0-4])\|(read|write_internal|communicate_external|financial_destructive)\|/);
+  let base = null;
   if (mcpBound) {
-    return { risk_tier: mcpBound[1], action_family: mcpBound[2], source: 'agent_mcp_binding' };
+    base = { risk_tier: mcpBound[1], action_family: mcpBound[2], source: 'agent_mcp_binding' };
   }
   const connectorAction = String(toolName || '').startsWith('connector_action:')
     ? String(toolName).slice('connector_action:'.length)
     : '';
-  if (connectorAction) {
+  if (!base && connectorAction) {
     const declared = getConnectorActionClassification(connectorAction);
-    if (declared) return { ...declared, source: 'connector_action_registry' };
+    if (declared) base = { ...declared, source: 'connector_action_registry' };
   }
-  return explicitRiskForTool(toolName) || { ...inferRiskForTool(toolName), source: 'inferred' };
+  if (!base) base = explicitRiskForTool(toolName) || { ...inferRiskForTool(toolName), source: 'inferred' };
+  if (!ownerUserId) return base;
+  const mapped = resolvePolicyToolRiskMapping(ownerUserId, toolName, base);
+  return {
+    risk_tier: mapped.risk_tier,
+    action_family: mapped.action_family,
+    source: mapped.mapping_source || base.source,
+    mapping_source: mapped.mapping_source,
+  };
 }
 
-const RISK_TIER_ORDER = Object.freeze({ R0: 0, R1: 1, R2: 2, R3: 3 });
+const RISK_TIER_ORDER = Object.freeze({ R0: 0, R1: 1, R2: 2, R3: 3, R4: 4 });
 
 /**
  * Browser tools are transports: the same tool may read a feed or publish a
@@ -273,8 +283,8 @@ export function isReadOnlyBrowserAction(toolName, body = {}) {
   return Boolean(operation && operationRisk?.risk_tier === 'R0' && operationRisk?.action_family === 'read');
 }
 
-export function resolveRiskForAction(toolName, body = {}) {
-  const base = resolveRiskForTool(toolName);
+export function resolveRiskForAction(toolName, body = {}, ownerUserId = null) {
+  const base = resolveRiskForTool(toolName, ownerUserId);
   const operation = structuredBrowserOperation(toolName, body);
   const operationRisk = BROWSER_OPERATION_RISKS[operation];
   if (!operationRisk) return base;
@@ -511,11 +521,15 @@ export function previewActionPolicy({
   ensureActionPolicyTables();
   const tool = String(toolName || '').trim();
   if (!tool) return { ok: true, skipped: true, reason: 'no_tool' };
-  const inferred = resolveRiskForAction(tool, body);
+  const inferred = resolveRiskForAction(tool, body, ownerUserId);
   const families = getActionFamilyPolicies(ownerUserId);
   const companyRow = families.find((f) => f.family === inferred.action_family) || families[0];
-  const override = resolveActiveOverride(ownerUserId, inferred.action_family, tool, body, context);
-  const mode = override?.public?.mode || companyRow?.mode || 'autonomous';
+  const override = inferred.risk_tier === 'R4'
+    ? null
+    : resolveActiveOverride(ownerUserId, inferred.action_family, tool, body, context);
+  const mode = inferred.risk_tier === 'R4'
+    ? 'prohibited'
+    : (override?.public?.mode || companyRow?.mode || 'autonomous');
   const constraintsOk = override ? override.constraints_ok : true;
   return {
     ok: mode !== 'prohibited' && constraintsOk,
@@ -569,15 +583,19 @@ export function evaluateActionPolicy({
   ensureActionPolicyTables();
   const tool = String(toolName || '').trim();
   if (!tool) return { ok: true, skipped: true, reason: 'no_tool' };
-  const inferred = resolveRiskForAction(tool, body);
+  const inferred = resolveRiskForAction(tool, body, ownerUserId);
   const families = getActionFamilyPolicies(ownerUserId);
   const companyRow = families.find((f) => f.family === inferred.action_family) || families[0];
-  const override = resolveActiveOverride(ownerUserId, inferred.action_family, tool, body, context);
+  const override = inferred.risk_tier === 'R4'
+    ? null
+    : resolveActiveOverride(ownerUserId, inferred.action_family, tool, body, context);
   if (override && !override.constraints_ok) {
     return deny(ownerUserId, tool, inferred, override.public.mode, goalRunId,
       'Action does not match the permitted recipients, websites, amount, or campaign for this override.', override.public);
   }
-  const mode = override?.public?.mode || companyRow?.mode || 'autonomous';
+  const mode = inferred.risk_tier === 'R4'
+    ? 'prohibited'
+    : (override?.public?.mode || companyRow?.mode || 'autonomous');
   const approval = mode === 'approval_required'
     ? (approvalGrant?.ok === true ? approvalGrant : consumeActionApprovalGrant(ownerUserId, body?.approval_token, {
         family: inferred.action_family,

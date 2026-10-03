@@ -64,6 +64,7 @@ const sidebars = {
         'systems/ibkrnew-event-trader',
         'systems/content-and-media',
         'systems/policies',
+        'systems/risk-classifications',
         'systems/event-productivity',
       ],
     },
