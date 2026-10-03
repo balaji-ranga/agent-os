@@ -48,6 +48,7 @@ import {
   issueToolCredentialLease,
   verifyToolBrokerSecret,
 } from '../services/tool-scoped-token.js';
+import { resolveBrowserTaskExecutorPreference } from '../services/goal-plan-tool-args.js';
 
 function isDirectPrivateServiceRequest(req) {
   if (req.headers?.['x-forwarded-for'] || req.headers?.forwarded) return false;
@@ -4268,6 +4269,7 @@ router.post('/browse-task-start', optionalAuth, async (req, res) => {
       req.headers['x-openclaw-session-key'] || req.headers['x-session-key'], ownerUserId
     );
     const normalizedInput = normalizeBrowserTaskInput(requestPayload.input);
+    const executorPreference = resolveBrowserTaskExecutorPreference(requestPayload, executionContext);
     const task = await startBrowserTask(ownerUserId, {
       ...requestPayload,
       ...(executionContext ? {
@@ -4275,6 +4277,7 @@ router.post('/browse-task-start', optionalAuth, async (req, res) => {
         goal_run_id: executionContext.goal_run_id || requestPayload.goal_run_id,
         goal_step_id: executionContext.goal_step_id || requestPayload.goal_step_id,
       } : { input: normalizedInput }),
+      ...executorPreference,
       ...(executionContext ? { goal: [
         'Original user request (preserve its outcomes and constraints):', executionContext.original_request,
         'Resolved conversation context:', executionContext.resolved_request,

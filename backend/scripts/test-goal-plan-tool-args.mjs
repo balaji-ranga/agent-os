@@ -14,6 +14,7 @@ import {
   bindToolArgsFromGoalContext,
   resolveAgentToolArgsForGoal,
   requestedBrowserDriver,
+  resolveBrowserTaskExecutorPreference,
   buildBrowserTaskArgsForGoal,
 } from '../src/services/goal-plan-tool-args.js';
 
@@ -143,6 +144,20 @@ assert(
   requestedBrowserDriver('Use the paired Chrome extension tab') === 'chrome_extension',
   'Chrome extension remains explicitly selectable'
 );
+const delegatedPreference = resolveBrowserTaskExecutorPreference(
+  { goal: 'Open Example Website', start_url: 'https://example.com' },
+  {
+    original_request: 'Use browsertools desktop worker to read https://example.com.',
+    resolved_request: 'Browser-specific assignment: Open Example Website',
+  }
+);
+assert(delegatedPreference.preferred_driver === 'playwright_chrome', 'delegated browser calls retain the owner-requested desktop executor');
+assert(delegatedPreference.allow_fallback === false, 'delegated explicit executor cannot silently fall back');
+const callerPreference = resolveBrowserTaskExecutorPreference({
+  goal: 'Open Example Website', preferred_driver: 'chrome_extension', allow_fallback: true,
+});
+assert(callerPreference.preferred_driver === 'chrome_extension', 'caller-supplied executor remains supported');
+assert(callerPreference.allow_fallback === true, 'caller fallback policy remains supported without a conflicting contextual instruction');
 const exactPost = 'AI is improving financial analysis while accountable humans retain approval and oversight.';
 const browserArgs = buildBrowserTaskArgsForGoal({
   args: {

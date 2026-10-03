@@ -213,6 +213,28 @@ export function requestedBrowserDriver(text, current = null) {
   return null;
 }
 
+/** Preserve an executor explicitly named anywhere in the owner-scoped execution
+ * context, even when a delegated agent submits a shortened browse_task_start
+ * goal. This is the final API-boundary guard shared by web, WhatsApp, goals,
+ * workflows and specialist delegation. */
+export function resolveBrowserTaskExecutorPreference(requestPayload = {}, executionContext = null) {
+  const supplied = String(requestPayload.preferred_driver || requestPayload.preferredDriver || '').trim();
+  const contextText = [
+    executionContext?.original_request,
+    executionContext?.resolved_request,
+    requestPayload.goal,
+    requestPayload.goal_text,
+  ].filter(Boolean).join('\n');
+  const requested = requestedBrowserDriver(contextText, supplied || null);
+  if (!requested) return {};
+  const explicitlyNamedInContext = Boolean(requestedBrowserDriver(contextText));
+  const suppliedFallback = requestPayload.allow_fallback ?? requestPayload.allowFallback;
+  return {
+    preferred_driver: requested,
+    allow_fallback: explicitlyNamedInContext ? false : suppliedFallback,
+  };
+}
+
 export function buildBrowserTaskArgsForGoal({
   args = {}, goalPrompt = '', stepInstruction = '', requiredInputValues = {},
 } = {}) {
