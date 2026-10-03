@@ -104,6 +104,7 @@ try {
   rowsA = listToolRiskMappings(ownerA);
   assert(rowsA.some((row) => row.capability_type === 'connector_action' && row.capability_id === 'gmail.delete_draft'));
   assert(rowsA.some((row) => row.capability_type === 'mcp_tool' && row.capability_id === 'get_symbols'));
+  await import('../src/routes/agents.js');
   console.log(`tool risk mappings tests: PASS (${rowsA.length} mapped capabilities)`);
 } finally {
   try { testDb?.close(); } catch (_) {}

@@ -1757,4 +1757,3 @@ router.post('/:id/activities', requireAuth, (req, res) => {
 });
 
 export default router;
-    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.body || {});
