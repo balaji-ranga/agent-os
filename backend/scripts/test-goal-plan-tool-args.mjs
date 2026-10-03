@@ -158,6 +158,12 @@ const callerPreference = resolveBrowserTaskExecutorPreference({
 });
 assert(callerPreference.preferred_driver === 'chrome_extension', 'caller-supplied executor remains supported');
 assert(callerPreference.allow_fallback === true, 'caller fallback policy remains supported without a conflicting contextual instruction');
+const conflictingDelegatedPreference = resolveBrowserTaskExecutorPreference(
+  { goal: 'Open Example Website', preferred_driver: 'chrome_extension', allow_fallback: true },
+  { original_request: 'Use browsertools desktop worker to read https://example.com.' }
+);
+assert(conflictingDelegatedPreference.preferred_driver === 'playwright_chrome', 'owner-scoped executor overrides a delegated agent conflict');
+assert(conflictingDelegatedPreference.allow_fallback === false, 'owner-scoped executor remains fail-closed');
 const exactPost = 'AI is improving financial analysis while accountable humans retain approval and oversight.';
 const browserArgs = buildBrowserTaskArgsForGoal({
   args: {

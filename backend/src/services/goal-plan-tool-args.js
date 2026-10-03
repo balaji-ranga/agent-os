@@ -225,13 +225,16 @@ export function resolveBrowserTaskExecutorPreference(requestPayload = {}, execut
     requestPayload.goal,
     requestPayload.goal_text,
   ].filter(Boolean).join('\n');
-  const requested = requestedBrowserDriver(contextText, supplied || null);
+  // The owner/orchestrator's complete request is authoritative. A delegated
+  // agent may shorten or incorrectly reconstruct tool args, but it must not
+  // override an executor explicitly selected in the original work order.
+  const contextRequested = requestedBrowserDriver(contextText);
+  const requested = contextRequested || supplied || null;
   if (!requested) return {};
-  const explicitlyNamedInContext = Boolean(requestedBrowserDriver(contextText));
   const suppliedFallback = requestPayload.allow_fallback ?? requestPayload.allowFallback;
   return {
     preferred_driver: requested,
-    allow_fallback: explicitlyNamedInContext ? false : suppliedFallback,
+    allow_fallback: contextRequested ? false : suppliedFallback,
   };
 }
 
