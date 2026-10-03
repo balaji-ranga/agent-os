@@ -42,6 +42,7 @@ try {
     description: 'Research and qualify target accounts with cited evidence.',
     trigger_hints: ['account research', 'qualify leads'],
     required_tools: ['brave_web_search'],
+    required_mcp_tools: ['research-mcp::lookup_account'],
     skill_md: `---\nname: qualified-account-research\ndescription: Research and qualify accounts.\n---\n\n# Procedure\n\nUse the approved research tool and cite evidence.\n`,
   }, 'ceo-skills-a');
   assert.equal(created.scope, 'company');
@@ -53,7 +54,13 @@ try {
   assert.equal(assignments.length, 1);
   assert.equal(assignments[0].ready, false, 'missing required tool keeps skill unavailable for execution');
   assert.deepEqual(assignments[0].missing_tools, ['brave_web_search']);
+  assert.deepEqual(assignments[0].missing_mcp_tools, ['research-mcp::lookup_account']);
   database.prepare(`INSERT INTO agent_tool_grants(agent_id,tool_name) VALUES ('skills-agent','brave_web_search')`).run();
+  assignments = listAgentSkillAssignments('ceo-skills-a', 'skills-agent', { includeMarkdown: true });
+  assert.equal(assignments[0].ready, false, 'missing required MCP tool keeps skill unavailable for execution');
+  database.prepare(`INSERT INTO mcp_servers(id,name,owner_user_id,owner_role,status) VALUES ('research-mcp','Research MCP','ceo-skills-a','ceo','healthy')`).run();
+  database.prepare(`INSERT INTO mcp_tools_cache(server_id,tool_name,description,input_schema_json) VALUES ('research-mcp','lookup_account','Look up an account','{}')`).run();
+  database.prepare(`INSERT INTO agent_mcp_tool_grants(owner_user_id,agent_id,server_id,tool_name,risk_tier,action_family) VALUES ('ceo-skills-a','skills-agent','research-mcp','lookup_account','R0','read')`).run();
   assignments = listAgentSkillAssignments('ceo-skills-a', 'skills-agent', { includeMarkdown: true });
   assert.equal(assignments[0].ready, true);
   assert.equal(compactAgentSkillManifest('ceo-skills-a', 'skills-agent')[0].id, created.id);

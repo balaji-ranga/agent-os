@@ -11,6 +11,40 @@ const TOOLS_TAB = '__tool_access__';
 const SKILLS_TAB = '__skills__';
 const riskTierColor = (tier) => ({ R0: '#22c55e', R1: '#38bdf8', R2: '#f59e0b', R3: '#ef4444', R4: '#a855f7' }[tier] || '#94a3b8');
 
+function CapabilityMultiSelect({ label, options = [], values = [], onChange, emptyText = 'No capabilities available' }) {
+  const [query, setQuery] = useState('');
+  const selected = new Set(values || []);
+  const normalized = String(query || '').trim().toLowerCase();
+  const filtered = options.filter((option) => !normalized || `${option.label} ${option.value} ${option.description || ''} ${option.group || ''}`.toLowerCase().includes(normalized));
+  const toggle = (value) => onChange(selected.has(value) ? values.filter((item) => item !== value) : [...values, value]);
+  return (
+    <fieldset style={{ minWidth: 0, margin: 0, padding: '0.75rem', border: '1px solid var(--border)', borderRadius: 8 }}>
+      <legend style={{ padding: '0 0.35rem', fontSize: '0.82rem', color: 'var(--muted)' }}>{label}</legend>
+      {values.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginBottom: '0.55rem' }}>
+          {values.map((value) => {
+            const option = options.find((item) => item.value === value);
+            return <button key={value} type="button" onClick={() => toggle(value)} title="Remove" style={{ padding: '0.2rem 0.45rem', border: '1px solid var(--accent)', borderRadius: 999, background: 'color-mix(in srgb, var(--accent) 10%, var(--surface))', color: 'var(--text)', fontSize: '0.72rem' }}>{option?.label || value} ×</button>;
+          })}
+        </div>
+      )}
+      <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search and select…" aria-label={`Search ${label}`} style={{ width: '100%', boxSizing: 'border-box', padding: '0.55rem 0.65rem', border: '1px solid var(--border)', borderRadius: 7, background: 'var(--bg)', color: 'var(--text)' }} />
+      <div style={{ maxHeight: 180, overflow: 'auto', marginTop: '0.45rem', borderTop: '1px solid var(--border)' }}>
+        {filtered.map((option) => (
+          <label key={option.value} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '0.55rem', padding: '0.5rem 0.2rem', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}>
+            <input type="checkbox" checked={selected.has(option.value)} onChange={() => toggle(option.value)} style={{ marginTop: 3 }} />
+            <span style={{ minWidth: 0 }}>
+              <strong style={{ display: 'block', fontSize: '0.8rem', overflowWrap: 'anywhere' }}>{option.label}</strong>
+              {(option.group || option.description) && <span style={{ display: 'block', color: 'var(--muted)', fontSize: '0.72rem', overflowWrap: 'anywhere' }}>{[option.group, option.description].filter(Boolean).join(' · ')}</span>}
+            </span>
+          </label>
+        ))}
+        {filtered.length === 0 && <p style={{ color: 'var(--muted)', fontSize: '0.78rem', margin: '0.65rem 0.2rem' }}>{emptyText}</p>}
+      </div>
+    </fieldset>
+  );
+}
+
 export default function AgentWorkspace() {
   const { agentId } = useParams();
   const [agent, setAgent] = useState(null);
@@ -29,6 +63,7 @@ export default function AgentWorkspace() {
   const [connectorApps, setConnectorApps] = useState([]);
   const [connectorAppId, setConnectorAppId] = useState('');
   const [connectorActions, setConnectorActions] = useState([]);
+  const [skillConnectorActions, setSkillConnectorActions] = useState([]);
   const [connectorActionGrants, setConnectorActionGrants] = useState(new Set());
   const [connectorQuery, setConnectorQuery] = useState('');
   const [connectorLoading, setConnectorLoading] = useState(false);
@@ -61,9 +96,10 @@ export default function AgentWorkspace() {
   const [skillsSaving, setSkillsSaving] = useState(false);
   const [skillsMessage, setSkillsMessage] = useState(null);
   const [showSkillCreate, setShowSkillCreate] = useState(false);
-  const emptySkillDraft = { name: '', description: '', trigger_hints: '', required_tools: '', required_connector_actions: '', skill_md: '---\nname: company-skill\ndescription: Describe when this skill should be used.\n---\n\n# Company skill\n\n## When to use\n\n## Procedure\n' };
+  const emptySkillDraft = { name: '', description: '', trigger_hints: '', required_tools: [], required_connector_actions: [], required_mcp_tools: [], skill_md: '---\nname: company-skill\ndescription: Describe when this skill should be used.\n---\n\n# Company skill\n\n## When to use\n\n## Procedure\n' };
   const [skillDraft, setSkillDraft] = useState(emptySkillDraft);
   const [editingSkillId, setEditingSkillId] = useState(null);
+  const [skillEditorReadOnly, setSkillEditorReadOnly] = useState(false);
 
   useEffect(() => {
     if (!editorFullscreen) return undefined;
@@ -145,6 +181,20 @@ export default function AgentWorkspace() {
       })
       .finally(() => setConnectorLoading(false));
   }, [connectorAppId]);
+
+  useEffect(() => {
+    if (!connectorApps.length) {
+      setSkillConnectorActions([]);
+      return;
+    }
+    let cancelled = false;
+    Promise.all(connectorApps.map((app) => api.openconnectorActions(app.id).then((result) => ({ app, actions: result.actions || [] })).catch(() => ({ app, actions: [] }))))
+      .then((groups) => {
+        if (cancelled) return;
+        setSkillConnectorActions(groups.flatMap(({ app, actions }) => actions.map((action) => ({ ...action, app_id: app.id, app_name: app.name || app.display_name || app.id }))));
+      });
+    return () => { cancelled = true; };
+  }, [connectorApps]);
 
   useEffect(() => {
     if (!agentId) return;
@@ -377,8 +427,9 @@ export default function AgentWorkspace() {
     api.agentSkillCreate({
       ...skillDraft,
       trigger_hints: skillDraft.trigger_hints.split(/[\n,]/).map((item) => item.trim()).filter(Boolean),
-      required_tools: skillDraft.required_tools.split(/[\n,]/).map((item) => item.trim()).filter(Boolean),
-      required_connector_actions: skillDraft.required_connector_actions.split(/[\n,]/).map((item) => item.trim()).filter(Boolean),
+      required_tools: skillDraft.required_tools,
+      required_connector_actions: skillDraft.required_connector_actions,
+      required_mcp_tools: skillDraft.required_mcp_tools,
     })
       .then(async (created) => {
         await refreshSkills();
@@ -391,20 +442,22 @@ export default function AgentWorkspace() {
       .finally(() => setSkillsSaving(false));
   };
 
-  const editSkillVersion = async (skill) => {
+  const openSkillEditor = async (skill) => {
     setSkillsMessage(null);
     try {
       const result = await api.agentSkillsCatalog(true);
       const current = (result.skills || []).find((item) => item.id === skill.id);
       if (!current) throw new Error('Skill version could not be loaded');
       setEditingSkillId(skill.id);
+      setSkillEditorReadOnly(skill.scope === 'platform');
       setShowSkillCreate(false);
       setSkillDraft({
         name: current.name || '',
         description: current.description || '',
         trigger_hints: (current.trigger_hints || []).join(', '),
-        required_tools: (current.required_tools || []).join(', '),
-        required_connector_actions: (current.required_connector_actions || []).join(', '),
+        required_tools: current.required_tools || [],
+        required_connector_actions: current.required_connector_actions || [],
+        required_mcp_tools: current.required_mcp_tools || [],
         skill_md: current.skill_md || '',
       });
     } catch (e) {
@@ -419,12 +472,14 @@ export default function AgentWorkspace() {
       description: skillDraft.description,
       skill_md: skillDraft.skill_md,
       trigger_hints: skillDraft.trigger_hints.split(/[\n,]/).map((item) => item.trim()).filter(Boolean),
-      required_tools: skillDraft.required_tools.split(/[\n,]/).map((item) => item.trim()).filter(Boolean),
-      required_connector_actions: skillDraft.required_connector_actions.split(/[\n,]/).map((item) => item.trim()).filter(Boolean),
+      required_tools: skillDraft.required_tools,
+      required_connector_actions: skillDraft.required_connector_actions,
+      required_mcp_tools: skillDraft.required_mcp_tools,
     })
       .then(async (updated) => {
         await refreshSkills();
         setEditingSkillId(null);
+        setSkillEditorReadOnly(false);
         setSkillDraft(emptySkillDraft);
         setSkillsMessage({ type: 'ok', text: `${updated.name} version ${updated.version} created. Save assignments to pin the employee to it.` });
       })
@@ -482,6 +537,9 @@ export default function AgentWorkspace() {
   const activeTabs = tabs.length ? tabs : FILE_NAMES;
   const showToolsPanel = selected === TOOLS_TAB;
   const showSkillsPanel = selected === SKILLS_TAB;
+  const skillToolOptions = toolCatalog.map((tool) => ({ value: tool.name, label: tool.display_name || tool.name, description: tool.purpose || '', group: 'Flolah tool' }));
+  const skillConnectorOptions = skillConnectorActions.map((action) => ({ value: action.id, label: action.name || action.display_name || action.id, description: action.description || '', group: action.app_name || action.app_id }));
+  const skillMcpOptions = mcpServers.flatMap((server) => (server.tools || []).map((tool) => ({ value: `${server.id}::${tool.name}`, label: tool.name, description: tool.description || '', group: server.name || server.id })));
 
   return (
     <div style={{ padding: '2rem', height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -755,12 +813,12 @@ export default function AgentWorkspace() {
               <div>
                 <h2 style={{ margin: 0, fontSize: '1.15rem' }}>Employee skills</h2>
                 <p style={{ color: 'var(--muted)', margin: '0.4rem 0 0', maxWidth: 820 }}>
-                  Assign reusable <code>SKILL.md</code> operating procedures to this employee. Flolah recommends matching skills for chat and goal work; the employee loads the selected version at execution time. Skills never grant tools or connector actions.
+                  Assign reusable <code>SKILL.md</code> operating procedures to this employee. Flolah recommends matching skills for chat and goal work; the employee loads the selected version at execution time. Skill requirements validate access but never grant Flolah tools, connector actions, or MCP tools.
                 </p>
               </div>
               <button
                 type="button"
-                onClick={() => { setEditingSkillId(null); setSkillDraft(emptySkillDraft); setShowSkillCreate((value) => !value); }}
+                onClick={() => { setEditingSkillId(null); setSkillEditorReadOnly(false); setSkillDraft(emptySkillDraft); setShowSkillCreate((value) => !value); }}
                 style={{ padding: '0.55rem 0.9rem', background: showSkillCreate ? 'transparent' : 'var(--accent)', border: '1px solid var(--accent)', borderRadius: 7, color: showSkillCreate ? 'var(--accent)' : '#fff' }}
               >
                 {showSkillCreate ? 'Cancel' : 'Create company skill'}
@@ -770,38 +828,37 @@ export default function AgentWorkspace() {
             {(showSkillCreate || editingSkillId) && (
               <section style={{ marginTop: '1rem', padding: '1rem', border: '1px solid var(--accent)', borderRadius: 10, background: 'color-mix(in srgb, var(--accent) 6%, var(--surface))' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'center' }}>
-                  <h3 style={{ margin: '0 0 0.75rem', fontSize: '1rem' }}>{editingSkillId ? 'Create a new skill version' : 'New company skill'}</h3>
-                  {editingSkillId && <button type="button" onClick={() => { setEditingSkillId(null); setSkillDraft(emptySkillDraft); }} style={{ border: 0, background: 'transparent', color: 'var(--muted)' }}>Cancel</button>}
+                  <h3 style={{ margin: '0 0 0.75rem', fontSize: '1rem' }}>{skillEditorReadOnly ? 'View platform skill' : editingSkillId ? 'Edit company skill' : 'New company skill'}</h3>
+                  {editingSkillId && <button type="button" onClick={() => { setEditingSkillId(null); setSkillEditorReadOnly(false); setSkillDraft(emptySkillDraft); }} style={{ border: 0, background: 'transparent', color: 'var(--muted)' }}>Close</button>}
                 </div>
+                {editingSkillId && !skillEditorReadOnly && <p style={{ color: 'var(--muted)', fontSize: '0.82rem', margin: '0 0 0.75rem' }}>Saving preserves the existing version and creates the next immutable version for auditability.</p>}
+                {skillEditorReadOnly && <p style={{ color: 'var(--muted)', fontSize: '0.82rem', margin: '0 0 0.75rem' }}>Platform skills are managed centrally and cannot be changed by a company.</p>}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem' }}>
                   <label style={{ display: 'grid', gap: 5 }}>
                     <span style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>Name</span>
-                    <input value={skillDraft.name} disabled={!!editingSkillId} onChange={(e) => setSkillDraft((value) => ({ ...value, name: e.target.value }))} placeholder="Quarterly account research" style={{ padding: '0.6rem 0.7rem', border: '1px solid var(--border)', borderRadius: 7, background: 'var(--bg)', color: 'var(--text)', opacity: editingSkillId ? 0.7 : 1 }} />
+                    <input value={skillDraft.name} disabled={!!editingSkillId || skillEditorReadOnly} onChange={(e) => setSkillDraft((value) => ({ ...value, name: e.target.value }))} placeholder="Quarterly account research" style={{ padding: '0.6rem 0.7rem', border: '1px solid var(--border)', borderRadius: 7, background: 'var(--bg)', color: 'var(--text)', opacity: editingSkillId ? 0.7 : 1 }} />
                   </label>
                   <label style={{ display: 'grid', gap: 5 }}>
                     <span style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>When to recommend it</span>
-                    <input value={skillDraft.trigger_hints} onChange={(e) => setSkillDraft((value) => ({ ...value, trigger_hints: e.target.value }))} placeholder="account research, qualify leads" style={{ padding: '0.6rem 0.7rem', border: '1px solid var(--border)', borderRadius: 7, background: 'var(--bg)', color: 'var(--text)' }} />
+                    <input value={skillDraft.trigger_hints} disabled={skillEditorReadOnly} onChange={(e) => setSkillDraft((value) => ({ ...value, trigger_hints: e.target.value }))} placeholder="account research, qualify leads" style={{ padding: '0.6rem 0.7rem', border: '1px solid var(--border)', borderRadius: 7, background: 'var(--bg)', color: 'var(--text)' }} />
                   </label>
-                  <label style={{ display: 'grid', gap: 5 }}>
-                    <span style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>Required tool names (optional)</span>
-                    <input value={skillDraft.required_tools} onChange={(e) => setSkillDraft((value) => ({ ...value, required_tools: e.target.value }))} placeholder="brave_web_search" style={{ padding: '0.6rem 0.7rem', border: '1px solid var(--border)', borderRadius: 7, background: 'var(--bg)', color: 'var(--text)' }} />
-                  </label>
-                  <label style={{ display: 'grid', gap: 5 }}>
-                    <span style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>Required connector actions (optional)</span>
-                    <input value={skillDraft.required_connector_actions} onChange={(e) => setSkillDraft((value) => ({ ...value, required_connector_actions: e.target.value }))} placeholder="gmail.messages.list" style={{ padding: '0.6rem 0.7rem', border: '1px solid var(--border)', borderRadius: 7, background: 'var(--bg)', color: 'var(--text)' }} />
-                  </label>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '0.75rem', marginTop: '0.75rem', pointerEvents: skillEditorReadOnly ? 'none' : 'auto', opacity: skillEditorReadOnly ? 0.72 : 1 }}>
+                  <CapabilityMultiSelect label="Required Flolah tools" options={skillToolOptions} values={skillDraft.required_tools} onChange={(required_tools) => setSkillDraft((value) => ({ ...value, required_tools }))} emptyText="No Flolah tools are registered" />
+                  <CapabilityMultiSelect label="Required connector actions" options={skillConnectorOptions} values={skillDraft.required_connector_actions} onChange={(required_connector_actions) => setSkillDraft((value) => ({ ...value, required_connector_actions }))} emptyText="No actions are available from connected apps" />
+                  <CapabilityMultiSelect label="Required MCP tools" options={skillMcpOptions} values={skillDraft.required_mcp_tools} onChange={(required_mcp_tools) => setSkillDraft((value) => ({ ...value, required_mcp_tools }))} emptyText="No healthy MCP tools are visible to this company" />
                 </div>
                 <label style={{ display: 'grid', gap: 5, marginTop: '0.75rem' }}>
                   <span style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>Description</span>
-                  <input value={skillDraft.description} onChange={(e) => setSkillDraft((value) => ({ ...value, description: e.target.value }))} placeholder="A concise statement of the outcome and when this procedure applies." style={{ padding: '0.6rem 0.7rem', border: '1px solid var(--border)', borderRadius: 7, background: 'var(--bg)', color: 'var(--text)' }} />
+                  <input value={skillDraft.description} disabled={skillEditorReadOnly} onChange={(e) => setSkillDraft((value) => ({ ...value, description: e.target.value }))} placeholder="A concise statement of the outcome and when this procedure applies." style={{ padding: '0.6rem 0.7rem', border: '1px solid var(--border)', borderRadius: 7, background: 'var(--bg)', color: 'var(--text)' }} />
                 </label>
                 <label style={{ display: 'grid', gap: 5, marginTop: '0.75rem' }}>
                   <span style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>SKILL.md</span>
-                  <textarea value={skillDraft.skill_md} onChange={(e) => setSkillDraft((value) => ({ ...value, skill_md: e.target.value }))} spellCheck={false} style={{ minHeight: 230, padding: '0.75rem', border: '1px solid var(--border)', borderRadius: 7, background: 'var(--bg)', color: 'var(--text)', fontFamily: 'ui-monospace, monospace', resize: 'vertical' }} />
+                  <textarea value={skillDraft.skill_md} disabled={skillEditorReadOnly} onChange={(e) => setSkillDraft((value) => ({ ...value, skill_md: e.target.value }))} spellCheck={false} style={{ minHeight: 230, padding: '0.75rem', border: '1px solid var(--border)', borderRadius: 7, background: 'var(--bg)', color: 'var(--text)', fontFamily: 'ui-monospace, monospace', resize: 'vertical' }} />
                 </label>
-                <button type="button" onClick={editingSkillId ? saveSkillVersion : createSkill} disabled={skillsSaving || !skillDraft.name.trim() || !skillDraft.skill_md.trim()} style={{ marginTop: '0.75rem', padding: '0.55rem 1rem', background: 'var(--accent)', border: 'none', borderRadius: 7, color: '#fff' }}>
-                  {skillsSaving ? 'Saving…' : editingSkillId ? 'Create version' : 'Create skill'}
-                </button>
+                {!skillEditorReadOnly && <button type="button" onClick={editingSkillId ? saveSkillVersion : createSkill} disabled={skillsSaving || !skillDraft.name.trim() || !skillDraft.skill_md.trim()} style={{ marginTop: '0.75rem', padding: '0.55rem 1rem', background: 'var(--accent)', border: 'none', borderRadius: 7, color: '#fff' }}>
+                  {skillsSaving ? 'Saving…' : editingSkillId ? 'Save new version' : 'Create skill'}
+                </button>}
               </section>
             )}
 
@@ -822,9 +879,9 @@ export default function AgentWorkspace() {
                         <span style={{ color: 'var(--muted)', fontSize: '0.72rem' }}>v{skill.version || '—'}</span>
                       </span>
                       <span style={{ display: 'block', color: 'var(--muted)', fontSize: '0.84rem', marginTop: 5 }}>{skill.description || 'Reusable operating procedure'}</span>
-                      {assigned && !ready && <span style={{ display: 'block', color: '#f59e0b', fontSize: '0.78rem', marginTop: 6 }}>Not execution-ready: {[...(assigned.missing_tools || []), ...(assigned.missing_connector_actions || [])].join(', ') || 'required capability missing'}</span>}
+                      {assigned && !ready && <span style={{ display: 'block', color: '#f59e0b', fontSize: '0.78rem', marginTop: 6 }}>Not execution-ready: {[...(assigned.missing_tools || []), ...(assigned.missing_connector_actions || []), ...(assigned.missing_mcp_tools || [])].join(', ') || 'required capability missing'}</span>}
                       {(skill.trigger_hints || []).length > 0 && <span style={{ display: 'block', color: 'var(--muted)', fontSize: '0.75rem', marginTop: 6 }}>Use for: {skill.trigger_hints.join(' · ')}</span>}
-                      {skill.scope === 'company' && <button type="button" onClick={() => editSkillVersion(skill)} style={{ marginTop: '0.65rem', padding: '0.35rem 0.6rem', border: '1px solid var(--border)', borderRadius: 6, background: 'transparent', color: 'var(--text)', fontSize: '0.78rem' }}>Create new version</button>}
+                      <button type="button" onClick={() => openSkillEditor(skill)} style={{ marginTop: '0.65rem', padding: '0.35rem 0.6rem', border: '1px solid var(--border)', borderRadius: 6, background: 'transparent', color: 'var(--text)', fontSize: '0.78rem' }}>{skill.scope === 'company' ? 'Open / edit' : 'View'}</button>
                     </span>
                   </div>
                 );

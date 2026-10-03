@@ -596,7 +596,7 @@ export function catalogPrompt(catalog, { prompt = '', candidateSteps = [] } = {}
     workflows: projected.workflows,
     capability_definitions: Object.fromEntries(projected.agents.flatMap(x=>x.capabilities||[]).map(c=>[c.name,clip(c.purpose||'',240)])),
     agent_directory: (catalog.agents || []).map((x) => ({ id: x.id, name: x.name, role: clip(x.role || '', 160) })),
-    agents: projected.agents.filter(x=>!nestedIds.has(x.id)).map((x) => ({ id: x.id, name: x.name, role: x.role, capabilities: x.capabilities.map(c=>c.name), skills: (x.skills || []).map(s=>({ id:s.id,name:s.name,description:s.description,version:s.version,version_id:s.version_id,trigger_hints:s.trigger_hints,required_tools:s.required_tools,required_connector_actions:s.required_connector_actions,ready:s.ready })), connector_actions: x.connector_actions, reportees: x.reportees })),
+    agents: projected.agents.filter(x=>!nestedIds.has(x.id)).map((x) => ({ id: x.id, name: x.name, role: x.role, capabilities: x.capabilities.map(c=>c.name), skills: (x.skills || []).map(s=>({ id:s.id,name:s.name,description:s.description,version:s.version,version_id:s.version_id,trigger_hints:s.trigger_hints,required_tools:s.required_tools,required_connector_actions:s.required_connector_actions,required_mcp_tools:s.required_mcp_tools,ready:s.ready })), connector_actions: x.connector_actions, reportees: x.reportees })),
     humans: projected.humans.map((x) => ({ id: x.id, name: x.name, department: x.department, role_title: x.role_title, specialty: x.specialty, purpose: x.purpose })),
   });
 }

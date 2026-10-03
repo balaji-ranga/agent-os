@@ -88,6 +88,7 @@ export function ensureAgentSkillsSchema() {
       trigger_hints_json TEXT DEFAULT '[]',
       required_tools_json TEXT DEFAULT '[]',
       required_connector_actions_json TEXT DEFAULT '[]',
+      required_mcp_tools_json TEXT DEFAULT '[]',
       checksum TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('draft','active','retired')),
       created_by TEXT DEFAULT '',
@@ -131,6 +132,10 @@ export function ensureAgentSkillsSchema() {
     CREATE INDEX IF NOT EXISTS idx_agent_skill_assignments_agent ON agent_skill_assignments(owner_user_id, agent_id, enabled);
     CREATE INDEX IF NOT EXISTS idx_agent_skill_audit_work ON agent_skill_execution_audit(owner_user_id, agent_id, created_at DESC);
   `);
+  const versionColumns = new Set(conn.prepare('PRAGMA table_info(agent_skill_versions)').all().map((row) => row.name));
+  if (!versionColumns.has('required_mcp_tools_json')) {
+    conn.exec("ALTER TABLE agent_skill_versions ADD COLUMN required_mcp_tools_json TEXT DEFAULT '[]'");
+  }
   schemaReady = true;
 }
 
@@ -180,9 +185,9 @@ export function seedPlatformAgentSkills({ force = false } = {}) {
       }
       const version = Number(latest?.version || 0) + 1;
       conn.prepare(`INSERT INTO agent_skill_versions
-        (id,skill_id,version,skill_md,trigger_hints_json,required_tools_json,required_connector_actions_json,checksum,status,created_by)
-        VALUES (?,?,?,?,?,?,?,?,?,?)`).run(
-          `${id}:v${version}`, id, version, skillMd, '[]', '[]', '[]', digest, 'active', 'source'
+        (id,skill_id,version,skill_md,trigger_hints_json,required_tools_json,required_connector_actions_json,required_mcp_tools_json,checksum,status,created_by)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?)`).run(
+          `${id}:v${version}`, id, version, skillMd, '[]', '[]', '[]', '[]', digest, 'active', 'source'
         );
       seeded += 1;
     }
@@ -242,6 +247,7 @@ function serializeSkill(skill, version = null) {
     trigger_hints: json(version?.trigger_hints_json, []),
     required_tools: json(version?.required_tools_json, []),
     required_connector_actions: json(version?.required_connector_actions_json, []),
+    required_mcp_tools: json(version?.required_mcp_tools_json, []),
     checksum: version?.checksum || null,
   };
 }
@@ -275,12 +281,13 @@ export function createCompanySkill(ownerUserId, body = {}, actorId = '') {
         body.status === 'draft' ? 'draft' : 'active', 'company', actorId
       );
     conn.prepare(`INSERT INTO agent_skill_versions
-      (id,skill_id,version,skill_md,trigger_hints_json,required_tools_json,required_connector_actions_json,checksum,status,created_by)
-      VALUES (?,?,?,?,?,?,?,?,?,?)`).run(
+      (id,skill_id,version,skill_md,trigger_hints_json,required_tools_json,required_connector_actions_json,required_mcp_tools_json,checksum,status,created_by)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?)`).run(
         versionId, id, 1, skillMd,
         JSON.stringify(stringList(body.trigger_hints || body.triggerHints)),
         JSON.stringify(stringList(body.required_tools || body.requiredTools)),
         JSON.stringify(stringList(body.required_connector_actions || body.requiredConnectorActions)),
+        JSON.stringify(stringList(body.required_mcp_tools || body.requiredMcpTools)),
         checksum(skillMd), body.status === 'draft' ? 'draft' : 'active', actorId
       );
   })();
@@ -300,12 +307,13 @@ export function addCompanySkillVersion(ownerUserId, skillId, body = {}, actorId 
   const version = Number(prior?.version || 0) + 1;
   const versionId = `${skillId}:v${version}`;
   db().prepare(`INSERT INTO agent_skill_versions
-    (id,skill_id,version,skill_md,trigger_hints_json,required_tools_json,required_connector_actions_json,checksum,status,created_by)
-    VALUES (?,?,?,?,?,?,?,?,?,?)`).run(
+    (id,skill_id,version,skill_md,trigger_hints_json,required_tools_json,required_connector_actions_json,required_mcp_tools_json,checksum,status,created_by)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?)`).run(
       versionId, skillId, version, skillMd,
       JSON.stringify(stringList(body.trigger_hints || body.triggerHints)),
       JSON.stringify(stringList(body.required_tools || body.requiredTools)),
       JSON.stringify(stringList(body.required_connector_actions || body.requiredConnectorActions)),
+      JSON.stringify(stringList(body.required_mcp_tools || body.requiredMcpTools)),
       checksum(skillMd), body.status === 'draft' ? 'draft' : 'active', actorId
     );
   db().prepare(`UPDATE agent_skills SET description=COALESCE(NULLIF(?,''),description),status=?,updated_at=datetime('now') WHERE id=?`)
@@ -321,10 +329,13 @@ export function listAgentSkillAssignments(ownerUserId, agentId, { includeMarkdow
     WHERE asa.owner_user_id=? AND asa.agent_id=? ORDER BY asa.priority,s.name`).all(ownerUserId, agentId);
   const toolSet = new Set(db().prepare('SELECT tool_name FROM agent_tool_grants WHERE agent_id=?').all(agentId).map((r) => r.tool_name));
   const actionSet = new Set(db().prepare('SELECT action_id FROM agent_connector_action_grants WHERE agent_id=?').all(agentId).map((r) => r.action_id));
+  const mcpToolSet = new Set(db().prepare('SELECT server_id,tool_name FROM agent_mcp_tool_grants WHERE owner_user_id=? AND agent_id=?')
+    .all(ownerUserId, agentId).map((r) => `${r.server_id}::${r.tool_name}`));
   return assigned.map((row) => {
     const version = versionForAssignment(row);
     const requiredTools = json(version?.required_tools_json, []);
     const requiredActions = json(version?.required_connector_actions_json, []);
+    const requiredMcpTools = json(version?.required_mcp_tools_json, []);
     const value = {
       skill_id: row.skill_id,
       slug: row.slug,
@@ -340,12 +351,14 @@ export function listAgentSkillAssignments(ownerUserId, agentId, { includeMarkdow
       trigger_hints: json(version?.trigger_hints_json, []),
       required_tools: requiredTools,
       required_connector_actions: requiredActions,
+      required_mcp_tools: requiredMcpTools,
       missing_tools: requiredTools.filter((item) => !toolSet.has(item)),
       missing_connector_actions: requiredActions.filter((item) => !actionSet.has(item)),
+      missing_mcp_tools: requiredMcpTools.filter((item) => !mcpToolSet.has(item)),
       checksum: version?.checksum || null,
       status: row.skill_status,
     };
-    value.ready = !!version && !value.missing_tools.length && !value.missing_connector_actions.length && row.skill_status === 'active';
+    value.ready = !!version && !value.missing_tools.length && !value.missing_connector_actions.length && !value.missing_mcp_tools.length && row.skill_status === 'active';
     if (includeMarkdown) value.skill_md = version?.skill_md || '';
     return value;
   });
@@ -398,6 +411,7 @@ export function compactAgentSkillManifest(ownerUserId, agentId) {
       trigger_hints: item.trigger_hints,
       required_tools: item.required_tools,
       required_connector_actions: item.required_connector_actions,
+      required_mcp_tools: item.required_mcp_tools,
       ready: item.ready,
       auto_select: item.auto_select,
     }));
