@@ -8344,3 +8344,361 @@ table tbody tr:hover {
   .mcp-pg-hero { align-items: stretch; flex-direction: column; }
   .page-hero-action { width: 100%; }
 }
+
+/* Immersive Command Space v2 — intentionally isolated from Classic Flolah. */
+html[data-design-system="immersive"] {
+  color-scheme: dark;
+  --bg: #080914;
+  --surface: #111126;
+  --surface-muted: #18162e;
+  --surface-subtle: #151329;
+  --border: rgba(196, 181, 253, 0.17);
+  --text: #f7f5ff;
+  --muted: #aaa5bf;
+  --accent: #9b75ff;
+  --accent-hover: #ad8cff;
+  --accent-soft: rgba(139, 92, 246, 0.16);
+  --on-accent: #fff;
+  --nav-hover: rgba(139, 92, 246, 0.11);
+  --nav-active: rgba(139, 92, 246, 0.23);
+  --shadow-sm: 0 18px 48px rgba(0, 0, 0, 0.3);
+}
+
+html[data-design-system="immersive"] body {
+  background: #080914;
+}
+
+.design-immersive:not(.shell-focus-mode) {
+  gap: 16px;
+  padding: 16px;
+  background:
+    radial-gradient(circle at 78% 4%, rgba(102, 54, 190, 0.25), transparent 34rem),
+    radial-gradient(circle at 18% 96%, rgba(20, 184, 166, 0.09), transparent 38rem),
+    #080914;
+}
+
+.design-immersive:not(.shell-focus-mode) .app-nav {
+  width: 180px;
+  height: calc(100% - 0px);
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid rgba(196, 181, 253, 0.17);
+  border-radius: 24px;
+  background: linear-gradient(170deg, rgba(22, 17, 43, 0.98), rgba(12, 11, 29, 0.98));
+  box-shadow: 18px 24px 70px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.design-immersive.nav-collapsed:not(.shell-focus-mode) .app-nav,
+.design-immersive:not(.shell-focus-mode) .app-nav.collapsed {
+  width: 76px;
+}
+
+.design-immersive .app-nav-header {
+  min-height: 82px;
+  padding: 18px 14px 12px;
+}
+
+.design-immersive .app-nav-brand-mark {
+  width: 46px;
+  height: 46px;
+  font-size: 1.08rem;
+  border-radius: 15px;
+}
+
+.design-immersive .app-nav-brand-name,
+.design-immersive .desktop-nav-toggle {
+  display: none;
+}
+
+.design-immersive .app-nav-links {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: 14px 12px;
+}
+
+.immersive-primary-navigation {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.immersive-primary-link {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-height: 48px;
+  padding: 9px 11px;
+  border: 1px solid transparent;
+  border-radius: 13px;
+  color: #b9b4ca;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.18;
+  text-decoration: none;
+  transition: transform 160ms ease, color 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+
+.immersive-primary-link:hover {
+  transform: translateX(2px);
+  border-color: rgba(196, 181, 253, 0.14);
+  background: rgba(139, 92, 246, 0.1);
+  color: #fff;
+}
+
+.immersive-primary-link.active {
+  border-color: rgba(196, 181, 253, 0.18);
+  background: linear-gradient(120deg, rgba(124, 58, 237, 0.37), rgba(76, 44, 130, 0.2));
+  color: #fff;
+  box-shadow: 0 10px 28px rgba(78, 38, 140, 0.24), inset 2px 0 0 #a78bfa;
+}
+
+.immersive-primary-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 23px;
+  width: 23px;
+  height: 23px;
+  color: #d8cdfc;
+  font-size: 1rem;
+}
+
+.design-immersive .app-nav.collapsed .immersive-primary-link {
+  justify-content: center;
+  padding-inline: 5px;
+  font-size: 0;
+}
+
+.design-immersive .app-nav.collapsed .immersive-primary-icon { font-size: 1rem; }
+
+.design-immersive .app-nav-footer-user {
+  margin: 10px 13px 15px;
+  padding: 10px;
+  border: 1px solid rgba(196, 181, 253, 0.14);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.design-immersive .app-content {
+  overflow: hidden;
+  border: 1px solid rgba(196, 181, 253, 0.11);
+  border-radius: 24px;
+  background: rgba(10, 9, 24, 0.72);
+  box-shadow: 18px 24px 70px rgba(0, 0, 0, 0.28);
+}
+
+.design-immersive .app-topbar {
+  min-height: 92px;
+  height: 92px;
+  justify-content: space-between;
+  padding: 0 22px;
+  border-bottom: 1px solid rgba(196, 181, 253, 0.13);
+  background: rgba(14, 12, 31, 0.78);
+}
+
+.immersive-page-heading {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.immersive-page-heading span,
+.immersive-launcher-eyebrow {
+  color: #51ddd2;
+  font-size: 0.68rem;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.immersive-page-heading strong {
+  max-width: 540px;
+  overflow: hidden;
+  color: #fff;
+  font-size: clamp(1.18rem, 2vw, 1.72rem);
+  font-weight: 780;
+  letter-spacing: -0.035em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.immersive-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.immersive-live-pill,
+.immersive-all-capabilities,
+.immersive-ask-coo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 1px solid rgba(196, 181, 253, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.035);
+  color: #e8e4f5;
+  font-size: 0.77rem;
+  font-weight: 750;
+}
+
+.immersive-live-pill i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #89ee4a;
+  box-shadow: 0 0 12px rgba(137, 238, 74, 0.75);
+}
+
+.immersive-all-capabilities,
+.immersive-ask-coo { cursor: pointer; }
+.immersive-all-capabilities:hover { border-color: rgba(196, 181, 253, 0.36); background: rgba(139, 92, 246, 0.12); }
+.immersive-all-capabilities kbd { color: #928ca5; font: inherit; font-size: 0.67rem; }
+
+.immersive-ask-coo {
+  border-color: rgba(196, 181, 253, 0.28);
+  background: linear-gradient(135deg, #a77bff, #7747e5);
+  color: #fff;
+  box-shadow: 0 10px 28px rgba(107, 60, 210, 0.3);
+}
+
+.design-immersive .app-main {
+  padding: 0;
+  background:
+    radial-gradient(circle at 84% 4%, rgba(111, 60, 196, 0.13), transparent 31rem),
+    rgba(7, 7, 17, 0.18);
+}
+
+.design-immersive .app-main > :where(.page, .agent-actions-page, .company-reviews, .page-dashboard, .page-workspace, .page-settings, .page-kanban, .page-content-tools) {
+  max-width: 1520px;
+  padding: 20px 22px 34px;
+}
+
+.design-immersive :where(.panel, .card, .home-kpi-card, .home-side-card, .mcp-pg-card, .mcp-pg-toolbar, .this-week-card, .ops-panel, .ops-metrics > div, .agent-actions-metric) {
+  border-color: rgba(196, 181, 253, 0.15);
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(28, 25, 52, 0.88), rgba(16, 15, 35, 0.92));
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+.immersive-capability-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 420;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(3, 3, 10, 0.78);
+  backdrop-filter: blur(18px);
+}
+
+.immersive-capability-launcher {
+  display: flex;
+  flex-direction: column;
+  width: min(1040px, 96vw);
+  max-height: min(780px, 92vh);
+  overflow: hidden;
+  border: 1px solid rgba(196, 181, 253, 0.24);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 82% 0, rgba(115, 68, 210, 0.23), transparent 31rem),
+    #100e23;
+  color: #f8f6ff;
+  box-shadow: 0 36px 120px rgba(0, 0, 0, 0.62);
+}
+
+.immersive-launcher-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 17px 19px;
+  border-bottom: 1px solid rgba(196, 181, 253, 0.14);
+}
+
+.immersive-launcher-head label {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  border: 1px solid rgba(196, 181, 253, 0.17);
+  border-radius: 13px;
+  background: rgba(4, 4, 13, 0.46);
+}
+
+.immersive-launcher-head input {
+  width: 100%;
+  border: 0 !important;
+  outline: 0;
+  background: transparent !important;
+  color: #fff;
+}
+
+.immersive-launcher-head > button {
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(196, 181, 253, 0.17);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #fff;
+  font-size: 1.35rem;
+  cursor: pointer;
+}
+
+.immersive-launcher-intro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px 24px 14px;
+}
+
+.immersive-launcher-intro h2 { margin: 5px 0; font-size: 1.55rem; }
+.immersive-launcher-intro p { margin: 0; color: #aaa5bf; }
+.immersive-role-badge { padding: 7px 11px; border: 1px solid rgba(81, 221, 210, 0.25); border-radius: 999px; color: #7be9df; font-size: 0.72rem; white-space: nowrap; }
+
+.immersive-capability-groups {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 15px;
+  padding: 12px 24px 26px;
+  overflow: auto;
+}
+
+.immersive-capability-group {
+  padding: 14px;
+  border: 1px solid rgba(196, 181, 253, 0.13);
+  border-radius: 17px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.immersive-capability-group h3 { margin: 0 0 10px; color: #a99bcf; font-size: 0.72rem; letter-spacing: 0.09em; text-transform: uppercase; }
+.immersive-capability-group > div { display: flex; flex-direction: column; gap: 7px; }
+.immersive-capability-group a { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 11px; border: 1px solid transparent; border-radius: 11px; color: #eeebf8; text-decoration: none; }
+.immersive-capability-group a:hover { border-color: rgba(196, 181, 253, 0.16); background: rgba(139, 92, 246, 0.12); }
+.immersive-capability-group a small { color: #8d86a1; font-size: 0.65rem; }
+.immersive-launcher-empty { grid-column: 1 / -1; padding: 30px; color: #aaa5bf; text-align: center; }
+
+@media (max-width: 1000px) {
+  .immersive-page-heading strong { max-width: 340px; }
+  .immersive-live-pill { display: none; }
+  .immersive-capability-groups { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 900px) {
+  .design-immersive:not(.shell-focus-mode) { gap: 0; padding: 0; }
+  .design-immersive:not(.shell-focus-mode) .app-nav { width: min(310px, 88vw); height: 100%; border-radius: 0 22px 22px 0; }
+  .design-immersive .app-content { border: 0; border-radius: 0; }
+  .immersive-capability-overlay { padding: 8px; }
+  .immersive-capability-launcher { width: 100%; max-height: 96vh; border-radius: 18px; }
+}
+
+@media (max-width: 640px) {
+  .immersive-capability-groups { grid-template-columns: 1fr; padding-inline: 14px; }
+  .immersive-launcher-intro { align-items: flex-start; flex-direction: column; padding-inline: 16px; }
+}

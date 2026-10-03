@@ -79,6 +79,7 @@ import GlobalSearch from './components/GlobalSearch';
 import CooAssistantWidget from './components/CooAssistantWidget';
 import HumanIncomingCall from './components/HumanIncomingCall';
 import { AdminNavMenu, CeoNavMenu } from './components/AppNavMenu';
+import { ImmersiveCapabilityLauncher, ImmersivePrimaryNavigation } from './components/ImmersiveNavigation';
 import ImpersonationBanner from './components/ImpersonationBanner';
 import PromotionPopup from './components/PromotionPopup';
 import { useAuth } from './context/AuthContext';
@@ -119,6 +120,30 @@ function TenantFull({ user, children }) {
   return children;
 }
 
+function immersiveRouteMeta(pathname) {
+  const routes = [
+    ['/', 'Company pulse', 'Your company, distilled.'],
+    ['/this-week', 'Daily Digest', 'What changed, what matters, what needs you.'],
+    ['/work', 'Workspace', 'Move work from intent to outcome.'],
+    ['/objectives', 'Objectives & Key Results', 'Connect strategy to execution evidence.'],
+    ['/agent-actions', 'Live Operations', 'See the company working in real time.'],
+    ['/reviews', 'Reviews', 'Decide with context and evidence.'],
+    ['/org', 'People & AI', 'Reporting lines, roles and company structure.'],
+    ['/kanban', 'Work board', 'Tasks, ownership, SLA and evidence.'],
+    ['/goal-plans', 'Goal plans', 'Plan, execute and validate outcomes.'],
+    ['/workflows', 'Workflows', 'Design and operate repeatable execution.'],
+    ['/workspace', 'AI Employees', 'Build and govern your AI workforce.'],
+    ['/connectors', 'Connections', 'Connect company systems and event sources.'],
+  ];
+  const match = pathname === '/'
+    ? routes[0]
+    : routes.find(([prefix]) => prefix !== '/' && pathname.startsWith(prefix));
+  return match ? match.slice(1) : [
+    'Company capability',
+    'Operate with full context and COO assistance.',
+  ];
+}
+
 function Shell() {
   const { user, logout, loading } = useAuth();
   const { designSystem, isImmersive } = useDesignSystem();
@@ -129,6 +154,7 @@ function Shell() {
     typeof window !== 'undefined' ? window.matchMedia('(max-width: 900px)').matches : false
   );
   const [setupGatePending, setSetupGatePending] = useState(null);
+  const [capabilityLauncherOpen, setCapabilityLauncherOpen] = useState(false);
 
   /** Workflow editor / run audit / VR use the full viewport — hide platform nav/topbar. */
   const focusMode =
@@ -162,6 +188,19 @@ function Shell() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [mobileNavOpen]);
+
+  useEffect(() => {
+    if (!isImmersive || !isCompanyUser(user)) return undefined;
+    const onKeyDown = (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setCapabilityLauncherOpen(true);
+      }
+      if (event.key === 'Escape') setCapabilityLauncherOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isImmersive, user]);
 
   // Admin tables are rendered by several independent pages. Attach semantic
   // mobile labels from their own headers so all current and future Admin data
@@ -252,6 +291,7 @@ function Shell() {
   const hour = new Date().getHours();
   const greet =
     hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const immersiveMeta = immersiveRouteMeta(location.pathname);
 
   return (
     <NotificationProvider>
@@ -325,7 +365,9 @@ function Shell() {
         <div className="app-nav-links" onClick={closeMobileNav}>
           {user.role === 'admin' && <AdminNavMenu collapsed={menuCollapsed} />}
           {isCompanyUser(user) && (
-            <>
+            isImmersive ? (
+              <ImmersivePrimaryNavigation onNavigate={closeMobileNav} />
+            ) : <>
               <NavLink
                 to="/"
                 end
@@ -370,32 +412,47 @@ function Shell() {
       <div className="app-content">
         {!focusMode && !isNarrow && (
           <header className="app-topbar">
-            <div className="app-topbar-left">
-              {isImmersive && (
-                <div className="immersive-command-context">
-                  <span className="immersive-command-pulse" aria-hidden />
-                  <span>Company command space</span>
+            {isImmersive && isCompanyUser(user) ? (
+              <>
+                <div className="immersive-page-heading">
+                  <span>{immersiveMeta[0]}</span>
+                  <strong>{immersiveMeta[1]}</strong>
                 </div>
-              )}
-              {isHomeRoute && (
-                <div className="app-topbar-greet">
-                  <div className="app-topbar-greet-title">
-                    {greet}, {firstName}! <span aria-hidden>👋</span>
-                  </div>
-                  <div className="app-topbar-greet-sub">
-                    Here&apos;s what&apos;s happening with your AI company today.
-                  </div>
+                <div className="immersive-top-actions">
+                  <span className="immersive-live-pill"><i aria-hidden />Company live</span>
+                  <NotificationBell compact />
+                  <button type="button" className="immersive-all-capabilities" onClick={() => setCapabilityLauncherOpen(true)}>
+                    All capabilities <kbd>Ctrl K</kbd>
+                  </button>
+                  <button type="button" className="immersive-ask-coo" onClick={() => window.dispatchEvent(new Event('agent-os-open-coo'))}>
+                    Ask COO
+                  </button>
                 </div>
-              )}
-            </div>
-            <div className="app-topbar-center">
-              {isCompanyUser(user) && <GlobalSearch />}
-            </div>
-            <div className="app-topbar-actions">
-              <ThemeToggle />
-              <NotificationBell compact />
-              <ProfileMenu user={user} logout={logout} />
-            </div>
+              </>
+            ) : (
+              <>
+                <div className="app-topbar-left">
+                  {isHomeRoute && (
+                    <div className="app-topbar-greet">
+                      <div className="app-topbar-greet-title">
+                        {greet}, {firstName}! <span aria-hidden>👋</span>
+                      </div>
+                      <div className="app-topbar-greet-sub">
+                        Here&apos;s what&apos;s happening with your AI company today.
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="app-topbar-center">
+                  {isCompanyUser(user) && <GlobalSearch />}
+                </div>
+                <div className="app-topbar-actions">
+                  <ThemeToggle />
+                  <NotificationBell compact />
+                  <ProfileMenu user={user} logout={logout} />
+                </div>
+              </>
+            )}
           </header>
         )}
         <main id="main-content" className="app-main" tabIndex={-1}>
@@ -498,6 +555,9 @@ function Shell() {
       <PromotionPopup enabled={isCompanyUser(user)} />
       {isCompanyUser(user) && <CooAssistantWidget />}
       {isCompanyUser(user) && <HumanIncomingCall />}
+      {isImmersive && isCompanyUser(user) && (
+        <ImmersiveCapabilityLauncher open={capabilityLauncherOpen} onClose={() => setCapabilityLauncherOpen(false)} />
+      )}
     </div>
     </NotificationProvider>
   );
