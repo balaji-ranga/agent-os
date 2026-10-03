@@ -417,6 +417,7 @@ export function userPublic(row) {
     role: row.role,
     role_title: String(row.role_title || '').trim(),
     display_timezone: String(row.display_timezone || '').trim(),
+    ui_design_system: row.ui_design_system === 'immersive' ? 'immersive' : 'classic',
     ui_nav_hidden: (() => {
       try {
         const v = JSON.parse(row.ui_nav_hidden || '[]');
@@ -610,6 +611,7 @@ export function updateUserProfile(
     mobile,
     role_title,
     display_timezone,
+    ui_design_system,
     current_password,
     new_password,
     mfa_policy,
@@ -652,6 +654,13 @@ export function updateUserProfile(
   }
   if (display_timezone !== undefined) {
     updates.display_timezone = normalizeDisplayTimezone(display_timezone);
+  }
+  if (ui_design_system !== undefined) {
+    const designSystem = String(ui_design_system || '').trim().toLowerCase();
+    if (!['classic', 'immersive'].includes(designSystem)) {
+      throw Object.assign(new Error('ui_design_system must be classic or immersive'), { status: 400 });
+    }
+    updates.ui_design_system = designSystem;
   }
   if (clear_profile_image || profile_image !== undefined) {
     const next = normalizeProfileImage(profile_image, { clear: !!clear_profile_image });

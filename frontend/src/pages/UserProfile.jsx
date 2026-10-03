@@ -7,6 +7,7 @@ import { COMMON_DISPLAY_TIMEZONES } from '../utils/commonTimezones.js';
 import { formatLocalDateTime } from '../utils/formatDateTime.js';
 import RobotAvatar, { fileToDataUrl } from '../components/RobotAvatar.jsx';
 import ThemePicker from '../components/ThemePicker.jsx';
+import DesignSystemPicker from '../components/DesignSystemPicker.jsx';
 import IsoCountryRegionSelect from '../components/IsoCountryRegionSelect.jsx';
 
 function UserProfilePanel() {
@@ -391,6 +392,7 @@ function UserProfilePanel() {
       {message && <div style={{ color: '#22c55e', marginTop: '1rem' }}>{message}</div>}
 
       <div id="appearance" style={{ marginTop: '1.25rem' }}>
+        <DesignSystemPicker />
         <ThemePicker />
       </div>
 

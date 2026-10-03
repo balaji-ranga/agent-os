@@ -7805,6 +7805,309 @@ body {
   background: transparent;
 }
 
+/* Profile-selectable application composition. Classic remains the unmodified default. */
+.design-system-picker {
+  margin-bottom: 1rem;
+  padding: 1.05rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.design-system-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.design-system-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(118px, 0.9fr) minmax(0, 1.2fr);
+  align-items: center;
+  gap: 0.9rem;
+  min-height: 136px;
+  padding: 0.9rem;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  background: var(--surface-muted);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.design-system-card:hover:not(:disabled) {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  box-shadow: 0 16px 32px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.design-system-card.is-selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 15%, transparent);
+}
+
+.design-system-preview {
+  display: flex;
+  height: 92px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+  border-radius: 11px;
+  background: var(--bg);
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.14);
+}
+
+.design-system-preview-nav {
+  width: 25%;
+  background: color-mix(in srgb, var(--surface) 82%, var(--accent));
+}
+
+.design-system-preview-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+}
+
+.design-system-preview-hero {
+  display: block;
+  height: 24px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 20%, var(--surface));
+}
+
+.design-system-preview-cards {
+  display: flex;
+  gap: 5px;
+  flex: 1;
+}
+
+.design-system-preview-cards span {
+  flex: 1;
+  border-radius: 5px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.design-system-card[data-design-preview="immersive"] .design-system-preview {
+  perspective: 240px;
+  background:
+    radial-gradient(circle at 72% 18%, rgba(168, 85, 247, 0.38), transparent 38%),
+    linear-gradient(145deg, #080b19, #16102d);
+}
+
+.design-system-card[data-design-preview="immersive"] .design-system-preview-nav {
+  background: linear-gradient(180deg, rgba(139, 92, 246, 0.82), rgba(29, 18, 63, 0.92));
+}
+
+.design-system-card[data-design-preview="immersive"] .design-system-preview-body {
+  transform: rotateX(2deg) rotateY(-4deg);
+  transform-origin: center;
+}
+
+.design-system-card[data-design-preview="immersive"] .design-system-preview-hero,
+.design-system-card[data-design-preview="immersive"] .design-system-preview-cards span {
+  border-color: rgba(196, 181, 253, 0.24);
+  background: linear-gradient(145deg, rgba(124, 58, 237, 0.35), rgba(30, 41, 59, 0.82));
+  box-shadow: 4px 7px 13px rgba(0, 0, 0, 0.28);
+}
+
+.design-system-saving {
+  position: absolute;
+  right: 0.75rem;
+  bottom: 0.55rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.design-system-feedback {
+  min-height: 1.25rem;
+  padding-top: 0.55rem;
+  font-size: 0.82rem;
+}
+
+.design-system-success { color: #16a34a; }
+.design-system-error { color: #dc2626; }
+
+.design-immersive {
+  isolation: isolate;
+  position: relative;
+  background:
+    radial-gradient(circle at 78% 8%, color-mix(in srgb, #8b5cf6 18%, transparent), transparent 30rem),
+    radial-gradient(circle at 28% 92%, color-mix(in srgb, #06b6d4 10%, transparent), transparent 35rem),
+    var(--bg);
+}
+
+.immersive-ambient {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.immersive-orb {
+  position: absolute;
+  display: block;
+  border-radius: 50%;
+  filter: blur(12px);
+  opacity: 0.55;
+}
+
+.immersive-orb-one {
+  top: -12rem;
+  right: -8rem;
+  width: 32rem;
+  height: 32rem;
+  background: radial-gradient(circle, color-mix(in srgb, #8b5cf6 30%, transparent), transparent 68%);
+}
+
+.immersive-orb-two {
+  left: 22%;
+  bottom: -18rem;
+  width: 38rem;
+  height: 38rem;
+  background: radial-gradient(circle, color-mix(in srgb, #06b6d4 18%, transparent), transparent 70%);
+}
+
+.immersive-grid-plane {
+  position: absolute;
+  right: -5%;
+  bottom: -24%;
+  width: 75%;
+  height: 55%;
+  opacity: 0.12;
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--accent) 45%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--accent) 45%, transparent) 1px, transparent 1px);
+  background-size: 38px 38px;
+  transform: perspective(500px) rotateX(62deg);
+  transform-origin: center bottom;
+  mask-image: linear-gradient(to top, #000, transparent 85%);
+}
+
+.design-immersive > .app-nav,
+.design-immersive > .app-content,
+.design-immersive > .app-mobile-topbar {
+  position: relative;
+  z-index: 1;
+}
+
+.design-immersive .app-nav {
+  border-right-color: color-mix(in srgb, var(--accent) 22%, var(--border));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface) 88%, #6d28d9 12%), color-mix(in srgb, var(--surface) 96%, transparent));
+  box-shadow: 12px 0 48px color-mix(in srgb, #312e81 18%, transparent);
+  backdrop-filter: blur(24px) saturate(135%);
+}
+
+.design-immersive .app-nav-brand-mark {
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 13px;
+  background: linear-gradient(145deg, #a855f7, #6d28d9 58%, #312e81);
+  box-shadow: 0 10px 26px rgba(124, 58, 237, 0.42), inset 0 1px 1px rgba(255, 255, 255, 0.3);
+  transform: translateZ(0);
+}
+
+.design-immersive .nav-link {
+  border: 1px solid transparent;
+  border-radius: 12px;
+}
+
+.design-immersive .nav-link:hover {
+  border-color: color-mix(in srgb, var(--accent) 18%, var(--border));
+  background: linear-gradient(100deg, color-mix(in srgb, var(--accent) 10%, var(--surface)), transparent);
+  transform: translateX(2px);
+}
+
+.design-immersive .nav-link.active {
+  border-color: color-mix(in srgb, var(--accent) 32%, var(--border));
+  background: linear-gradient(100deg, color-mix(in srgb, var(--accent) 24%, var(--surface)), color-mix(in srgb, var(--accent) 5%, transparent));
+  box-shadow: inset 3px 0 0 var(--accent), 0 8px 20px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.design-immersive .app-content {
+  perspective: 1600px;
+}
+
+.design-immersive .app-topbar,
+.design-immersive .app-mobile-topbar {
+  border-bottom-color: color-mix(in srgb, var(--accent) 18%, var(--border));
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  box-shadow: 0 10px 38px color-mix(in srgb, #312e81 10%, transparent);
+  backdrop-filter: blur(26px) saturate(145%);
+}
+
+.immersive-command-context {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: color-mix(in srgb, var(--text) 82%, var(--accent));
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.immersive-command-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #34d399;
+  box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.12), 0 0 16px rgba(52, 211, 153, 0.65);
+}
+
+.design-immersive .app-main {
+  position: relative;
+  background: transparent;
+}
+
+.design-immersive :where(.panel, .card, .home-kpi-card, .home-side-card, .mcp-pg-card, .mcp-pg-toolbar, .this-week-card) {
+  border-color: color-mix(in srgb, var(--accent) 18%, var(--border));
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--surface) 95%, #fff 5%), color-mix(in srgb, var(--surface) 94%, var(--accent) 6%));
+  box-shadow:
+    0 18px 45px color-mix(in srgb, #111827 14%, transparent),
+    inset 0 1px 0 color-mix(in srgb, #fff 20%, transparent);
+  backdrop-filter: blur(18px) saturate(120%);
+}
+
+.design-immersive :where(.panel, .card, .home-kpi-card, .home-side-card, .mcp-pg-card, .this-week-card):hover {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
+  box-shadow:
+    0 24px 54px color-mix(in srgb, #111827 18%, transparent),
+    0 0 28px color-mix(in srgb, var(--accent) 7%, transparent),
+    inset 0 1px 0 color-mix(in srgb, #fff 24%, transparent);
+}
+
+.design-immersive .coo-assistant-toggle {
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: linear-gradient(135deg, #a855f7, #6d28d9 55%, #4338ca);
+  box-shadow: 0 14px 40px rgba(109, 40, 217, 0.42), 0 0 0 5px rgba(139, 92, 246, 0.1);
+}
+
+.design-immersive .coo-assistant-panel {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  box-shadow: 0 28px 90px rgba(24, 16, 60, 0.44);
+  backdrop-filter: blur(28px) saturate(135%);
+}
+
+@media (max-width: 760px) {
+  .design-system-picker-grid { grid-template-columns: 1fr; }
+  .design-system-card { grid-template-columns: 110px minmax(0, 1fr); }
+  .immersive-command-context { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .design-immersive .nav-link,
+  .design-system-card { transition: none; }
+}
+
 .app-nav {
   padding-top: 0.55rem;
   background: color-mix(in srgb, var(--surface) 94%, transparent);

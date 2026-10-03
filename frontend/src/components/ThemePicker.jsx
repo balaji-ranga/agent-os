@@ -1,7 +1,7 @@
 import { THEME_OPTIONS, useTheme } from '../context/ThemeContext';
 
 /**
- * Appearance theme grid for Profile (Day/Night + advanced 3D themes).
+ * Color theme grid for Profile (Day/Night + advanced themes).
  * Choice is stored in the browser (localStorage); no server round-trip.
  */
 export default function ThemePicker({ className = '' }) {
@@ -10,10 +10,10 @@ export default function ThemePicker({ className = '' }) {
   return (
     <section className={`theme-picker ${className}`.trim()} aria-labelledby="theme-picker-heading">
       <h2 id="theme-picker-heading" className="theme-picker-heading">
-        Appearance
+        Color theme
       </h2>
       <p className="theme-picker-help">
-        Default is Day/Night. Advanced themes add glass and 3D depth effects. Saved in this browser.
+        Choose the color treatment within your selected design system. Saved in this browser.
       </p>
       <div className="theme-picker-grid" role="listbox" aria-label="Theme">
         {THEME_OPTIONS.map((opt) => {

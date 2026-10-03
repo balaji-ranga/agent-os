@@ -2290,6 +2290,10 @@ export function initDb() {
   } catch (_) {}
 
   try {
+    _db.exec(`ALTER TABLE platform_users ADD COLUMN ui_design_system TEXT DEFAULT 'classic'`);
+  } catch (_) {}
+
+  try {
     _db.exec(`
       CREATE TABLE IF NOT EXISTS company_workspace_boards (
         owner_user_id TEXT NOT NULL,

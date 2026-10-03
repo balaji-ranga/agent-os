@@ -86,6 +86,7 @@
     "test:tool-risk-mappings": "node scripts/test-tool-risk-mappings.mjs",
     "test:event-productivity-listeners": "node scripts/test-event-productivity-listeners.mjs",
     "test:marketing-workspace": "node scripts/test-marketing-workspace.mjs",
+    "test:user-design-system": "node scripts/test-user-design-system.mjs",
     "test:erpnext-company-session-isolation": "node scripts/test-erpnext-company-session-isolation.mjs",
     "demo:northstar-okr": "node scripts/northstar-okr-demo-seed.js",
     "demo:northstar-video": "node scripts/northstar-demo-video.mjs"

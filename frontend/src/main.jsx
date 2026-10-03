@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { PrivilegedSessionProvider } from './context/PrivilegedSessionContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { DesignSystemProvider } from './context/DesignSystemContext';
 import App from './App';
 import './index.css';
 
@@ -12,9 +13,11 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <BrowserRouter>
       <ThemeProvider>
         <AuthProvider>
-          <PrivilegedSessionProvider>
-            <App />
-          </PrivilegedSessionProvider>
+          <DesignSystemProvider>
+            <PrivilegedSessionProvider>
+              <App />
+            </PrivilegedSessionProvider>
+          </DesignSystemProvider>
         </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>

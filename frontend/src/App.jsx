@@ -84,6 +84,7 @@ import PromotionPopup from './components/PromotionPopup';
 import { useAuth } from './context/AuthContext';
 import { api } from './api';
 import { NotificationProvider } from './context/NotificationContext';
+import { useDesignSystem } from './context/DesignSystemContext';
 import { userRoleTitle } from './utils/userRoleTitle.js';
 import { isCompanyUser, isTenantFullAccess, hasPermission } from './utils/orgAccess.js';
 
@@ -120,6 +121,7 @@ function TenantFull({ user, children }) {
 
 function Shell() {
   const { user, logout, loading } = useAuth();
+  const { designSystem, isImmersive } = useDesignSystem();
   const location = useLocation();
   const [navCollapsed, setNavCollapsed] = useState(() => localStorage.getItem('agent-os-nav-collapsed') === '1');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -253,7 +255,14 @@ function Shell() {
 
   return (
     <NotificationProvider>
-    <div className={`app-shell ${user.role === 'admin' ? 'role-admin' : 'role-company'} ${navCollapsed && !isNarrow ? 'nav-collapsed' : ''} ${mobileNavOpen ? 'mobile-nav-open' : ''} ${focusMode ? 'shell-focus-mode' : ''}`}>
+    <div className={`app-shell design-${designSystem} ${user.role === 'admin' ? 'role-admin' : 'role-company'} ${navCollapsed && !isNarrow ? 'nav-collapsed' : ''} ${mobileNavOpen ? 'mobile-nav-open' : ''} ${focusMode ? 'shell-focus-mode' : ''}`}>
+      {isImmersive && !focusMode && (
+        <div className="immersive-ambient" aria-hidden>
+          <span className="immersive-orb immersive-orb-one" />
+          <span className="immersive-orb immersive-orb-two" />
+          <span className="immersive-grid-plane" />
+        </div>
+      )}
       <a href="#main-content" className="skip-link">
         Skip to main content
       </a>
@@ -362,6 +371,12 @@ function Shell() {
         {!focusMode && !isNarrow && (
           <header className="app-topbar">
             <div className="app-topbar-left">
+              {isImmersive && (
+                <div className="immersive-command-context">
+                  <span className="immersive-command-pulse" aria-hidden />
+                  <span>Company command space</span>
+                </div>
+              )}
               {isHomeRoute && (
                 <div className="app-topbar-greet">
                   <div className="app-topbar-greet-title">
