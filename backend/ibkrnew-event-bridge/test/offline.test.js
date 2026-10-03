@@ -35,6 +35,12 @@ for (let minute = 0; minute < 23; minute++) for (let tick = 0; tick < 12; tick++
 assert.equal(closed.symbol, 'AAPL'); assert.ok(closed.quantity > 0); assert.ok(closed.protection.stop_price < closed.last);
 const gateway = Object.create(IBKRNewGateway.prototype); gateway.connected = true; gateway.positions = []; gateway.openOrders = []; gateway.config = { accountId: 'DU1234567' };
 assert.deepEqual(gateway.health(), { connected: true, positions: 0, open_orders: 0 }, 'desktop health must not transmit the local IBKR account identifier');
+gateway.accountValues = new Map([
+  ['NetLiquidation', { value: 1278.6874, currency: 'SGD' }],
+  ['TotalCashValue', { value: 639.3437, currency: 'SGD' }],
+  ['$LEDGER-ExchangeRate:USD', { value: 1.2786874, currency: 'USD' }],
+]);
+assert.deepEqual(gateway.snapshot(), { eligible_capital_usd: 1000, cash_usd: 500, realized_pnl_day_usd: 0, unrealized_pnl_usd: 0, positions: [], open_orders: [] });
 assert.deepEqual(normalizeAccountValuesToUsd(new Map([
   ['NetLiquidation', { value: 1278.6874, currency: 'SGD' }],
   ['TotalCashValue', { value: 639.3437, currency: 'SGD' }],

@@ -2,7 +2,7 @@
 
 This is the dedicated, outbound-only Windows desktop runtime for **IBKRNew Event Trader**. It has its own bridge ID, token, spool, API namespace, and IBKR client ID. It does not call or share credentials with the legacy monthly bridge.
 
-The runtime is fail-closed unless either `IBKRNEW_MOCK=1`, or `IBKRNEW_PAPER_EXECUTION_ENABLED=1` with a paper account whose ID starts with `DU`. It streams Gateway callbacks, spools outbound events, verifies command signatures and expiry, revalidates commands, and submits a parent limit order with a broker-hosted protective stop. Live trading is unavailable.
+The runtime is fail-closed unless either `IBKRNEW_MOCK=1`, or `IBKRNEW_PAPER_EXECUTION_ENABLED=1` with a paper account whose ID starts with `DU`. It streams Gateway callbacks, spools outbound events, verifies command signatures and expiry, revalidates commands, and submits a parent limit order with a broker-hosted protective stop. Live trading is unavailable. While connected, it republishes the locally refreshed account snapshot every 15 seconds by default so the server-side freshness gate remains valid; override this with `IBKRNEW_ACCOUNT_SNAPSHOT_INTERVAL_MS` (minimum 5000 ms).
 
 1. Download the full `IBKRNewBridge` package from **Connectors**. It includes a one-time bridge identity, production dependencies, and portable Node. The lite package requires Node 18+ and `npm ci`.
 2. In the downloaded `.env`, set the real paper account only in local `IBKRNEW_ACCOUNT_ID`, then explicitly set `IBKRNEW_PAPER_EXECUTION_ENABLED=1` when ready. Flolah never asks for or receives that account identifier.

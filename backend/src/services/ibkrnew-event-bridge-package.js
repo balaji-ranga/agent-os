@@ -71,6 +71,7 @@ export async function buildIbkrNewEventBridgePackageZip({ ownerUserId, includeRu
       'IBKRNEW_CLIENT_ID=41',
       'IBKRNEW_ACCOUNT_ID=',
       'IBKRNEW_SPOOL_DIR=./data',
+      'IBKRNEW_ACCOUNT_SNAPSHOT_INTERVAL_MS=15000',
       'IBKRNEW_INSTRUMENT_PROFILES_FILE=./IBKRNew-instrument-profiles.json',
       'IBKRNEW_MOCK=0',
       'IBKRNEW_PAPER_EXECUTION_ENABLED=0',
