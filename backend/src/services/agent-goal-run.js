@@ -860,7 +860,9 @@ async function planGoalStepsAsyncInner(prompt, opts = {}) {
     label: 'Preparing goal context',
     detail: 'Loading available agents, tools, workflows, and humans',
   });
-  let steps = matchWorkflowStepsFromCatalog(fullPrompt, ownerUserId).map(normalizeStepSpec);
+  let steps = Array.isArray(opts.reviewCandidateSteps) && opts.reviewCandidateSteps.length
+    ? opts.reviewCandidateSteps.map(normalizeStepSpec)
+    : matchWorkflowStepsFromCatalog(fullPrompt, ownerUserId).map(normalizeStepSpec);
   if (!steps.length && !ownerUserId) {
     steps = extractStructuralWorkflowSteps(fullPrompt).map(normalizeStepSpec);
   }
@@ -884,8 +886,12 @@ async function planGoalStepsAsyncInner(prompt, opts = {}) {
   const assured = await qualityAssureGoalPlan({
     ownerUserId,
     orchestratorAgentId: opts.orchestratorAgentId || null,
-    prompt: fullPrompt,
+    // Keep the CEO's original goal and later plan-review guidance as separate
+    // contracts. Treating the guidance as another goal sentence made the
+    // checker assess it as a new business requirement and could create loops.
+    prompt: String(prompt || ''),
     candidateSteps: assigned,
+    humanGuidance: feedback || '',
     onProgress: opts.onProgress,
   });
   console.info('[goal-run] maker/checker plan approved', assured.quality);
@@ -3508,6 +3514,7 @@ export async function submitGoalPlanReview(goalRunId, ownerUserId, {
       scheduledGoalRunId: goal.scheduled_goal_run_id,
       context: ctx,
       feedback,
+      reviewCandidateSteps: review.candidate_steps || [],
     };
     setImmediate(() => void finishGoalPlanningAndStart(opts, planningGoal, { claimed: true }).then(() => {
       updatePlanReviewKanban(goal, 'completed');

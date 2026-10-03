@@ -5,7 +5,7 @@ import { join } from 'node:path';
 
 const dataDir = mkdtempSync(join(tmpdir(), 'flolah-goal-quality-'));
 process.env.AGENT_OS_DATA_DIR = dataDir;
-const { validateTypedGoalPlan, validateCandidateGoalPlan, validateSeedRequirementCoverage, repairCheckerExecutorAvailability, safeGoalClarificationPlan, normalizeExecutorOutputKinds, isCompleteCheckerVerdict, isExecutableCheckerVerdict } = await import('../src/services/goal-plan-quality.js');
+const { validateTypedGoalPlan, validateCandidateGoalPlan, validateSeedRequirementCoverage, repairCheckerExecutorAvailability, safeGoalClarificationPlan, normalizeExecutorOutputKinds, isCompleteCheckerVerdict, isExecutableCheckerVerdict, validateExplicitBrowserExecutor } = await import('../src/services/goal-plan-quality.js');
 const { isEfficiencyModeTool } = await import('../src/services/llm-efficiency-mode.js');
 const { outcomeValidationMessages, validateStepOutcome } = await import('../src/services/step-outcome-validation.js');
 const { classifyToolFailure } = await import('../src/services/tool-failure-class.js');
@@ -149,6 +149,27 @@ const browserPublishPlan = [
   },
 ];
 assert.deepEqual(validateTypedGoalPlan(browserPublishPlan, browserCatalog), { ok: true, errors: [] });
+assert.deepEqual(
+  validateExplicitBrowserExecutor(
+    browserPublishPlan,
+    'Publish this using the browsertools desktop worker.',
+    browserCatalog
+  ),
+  []
+);
+assert.match(
+  validateExplicitBrowserExecutor(
+    [browserPublishPlan[0], browserPublishPlan[2]],
+    'Publish this using the browsertools desktop worker.',
+    browserCatalog
+  )[0],
+  /direct agent_tool browse_task_start/i
+);
+const genericModeBrowserPlan = structuredClone(browserPublishPlan);
+genericModeBrowserPlan[1].spec.operation_mode = 'execute';
+const normalizedGenericMode = validateCandidateGoalPlan(genericModeBrowserPlan, browserCatalog);
+assert.equal(normalizedGenericMode.steps[1].spec.operation_mode, 'communicate');
+assert.equal(normalizedGenericMode.validation.ok, true);
 const unboundBrowserPlan = structuredClone(browserPublishPlan);
 unboundBrowserPlan[1].spec.args = {};
 const unboundBrowserValidation = validateTypedGoalPlan(unboundBrowserPlan, browserCatalog);

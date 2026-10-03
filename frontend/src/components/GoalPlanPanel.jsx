@@ -242,7 +242,13 @@ export default function GoalPlanPanel({
               <button type="button" className="btn" disabled={!!reviewBusy} onClick={() => planReview('apply_checker')}>
                 {reviewBusy === 'apply_checker' ? 'Approving…' : 'Approve checker-corrected plan'}
               </button>
-            ) : null}
+            ) : (
+              <button type="button" className="btn" disabled={!!reviewBusy || !(review.validation_errors || []).length} onClick={() => planReview('revise', {
+                guidance: `Apply every checker correction below without dropping valid steps:\n- ${(review.validation_errors || []).join('\n- ')}`,
+              })}>
+                {reviewBusy === 'revise' ? 'Applying checker guidance…' : 'Apply checker guidance'}
+              </button>
+            )}
             <button type="button" className="btn secondary" disabled={!!reviewBusy || !reviewGuidance.trim()} onClick={() => planReview('revise', { guidance: reviewGuidance.trim() })}>
               {reviewBusy === 'revise' ? 'Replanning…' : 'Correct with my guidance'}
             </button>

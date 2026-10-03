@@ -38,12 +38,31 @@ function normalizeOperationMode(value) {
   return ({ read: 'query', search: 'query', report: 'analyze', summarise: 'analyze', summarize: 'analyze', synthesize: 'analyze', synthesise: 'analyze', consolidate: 'analyze', compile: 'analyze', write: 'create', update: 'modify', notify: 'communicate', notify_ceo: 'communicate' })[mode] || mode || null;
 }
 
-function normalizeStepOperationMode(type, value) {
+function normalizeStepOperationMode(type, value, { deliverableKind = null, text = '', toolName = '' } = {}) {
   // A workflow step coordinates an already-published executable graph. The
   // graph owns its internal create/modify/delete semantics and policy gates.
   // Do not spend maker rounds debating synonyms such as "trigger".
   if (type === 'workflow_trigger') return 'coordinate';
-  return normalizeOperationMode(value);
+  const normalized = normalizeOperationMode(value);
+  if (OPERATION_MODES.has(normalized)) return normalized;
+
+  // Models often use generic verbs such as "execute" or "act" even though
+  // the runtime contract deliberately uses semantic modes. Canonicalize only
+  // those generic aliases from the typed deliverable and bounded instruction;
+  // unknown domain-specific values still fail closed below.
+  if (!['act', 'execute', 'perform', 'run'].includes(normalized)) return normalized;
+  if (type === 'notify_ceo') return 'communicate';
+  const semanticText = `${text} ${toolName}`.toLowerCase();
+  if (/\b(delete|remove|purge|trash)\b/.test(semanticText)) return 'delete';
+  if (/\b(update|modify|edit|change)\b/.test(semanticText)) return 'modify';
+  if (/\b(send|email|message|notify|publish|post|share)\b/.test(semanticText)) return 'communicate';
+  if (/\b(create|generate|draft|write|add|insert)\b/.test(semanticText)) return 'create';
+  if (deliverableKind === 'status_report') return 'analyze';
+  if (deliverableKind === 'data') return 'query';
+  if (deliverableKind === 'record_created' || deliverableKind === 'artifact') return 'create';
+  if (deliverableKind === 'approval') return 'coordinate';
+  if (deliverableKind === 'external_action') return 'create';
+  return normalized;
 }
 
 function normalizeDeliverableKind(value) {
@@ -129,7 +148,12 @@ function normalizeTypedSteps(rawSteps) {
         ...spec,
         quality_checked: true,
         objective: String(raw?.objective || spec.objective || '').trim().slice(0, 1000) || null,
-        operation_mode: normalizeStepOperationMode(type, raw?.operation_mode || spec.operation_mode),
+        operation_mode: normalizeStepOperationMode(type, raw?.operation_mode || spec.operation_mode, {
+          deliverableKind: semanticDeliverable,
+          toolName,
+          text: [raw?.label, raw?.objective, raw?.subject, normalizedMessage, spec.selection_rationale]
+            .filter(Boolean).join(' '),
+        }),
         subject: String(raw?.subject || spec.subject || '').trim().slice(0, 500) || null,
         deliverable_kind: semanticDeliverable,
         ...(toolName ? { tool_name: toolName } : {}),
@@ -330,6 +354,35 @@ export function validateTypedGoalPlan(steps, catalog) {
     }
   }
   return { ok: errors.length === 0, errors };
+}
+
+/** The CEO may explicitly choose a browser executor independently of the
+ * business domain. That transport choice is authoritative and must survive
+ * maker/checker rewrites. */
+export function validateExplicitBrowserExecutor(steps, prompt, catalog) {
+  const requested = requestedBrowserDriver(prompt);
+  if (!requested) return [];
+  const errors = [];
+  const available = (catalog.tools || []).some((tool) => tool.name === 'browse_task_start');
+  if (!available) {
+    return [`The goal explicitly requires browser executor ${requested}, but browse_task_start is not available to the current executor`];
+  }
+  const browserSteps = (steps || []).filter(
+    (step) => step.type === 'agent_tool' && step.spec?.tool_name === 'browse_task_start'
+  );
+  if (!browserSteps.length) {
+    return [`The goal explicitly requires browser executor ${requested}; add a direct agent_tool browse_task_start step instead of delegating the browser action to a specialist`];
+  }
+  for (const step of browserSteps) {
+    const args = step.spec?.args && typeof step.spec.args === 'object' ? step.spec.args : {};
+    if (String(args.preferred_driver || args.preferredDriver || '') !== requested) {
+      errors.push(`Step ${step.key} must preserve the explicitly requested browser executor as args.preferred_driver=${requested}`);
+    }
+    if (args.allow_fallback !== false && args.allowFallback !== false) {
+      errors.push(`Step ${step.key} explicitly selects browser executor ${requested} and must set args.allow_fallback=false`);
+    }
+  }
+  return errors;
 }
 
 function extractPlanSteps(text) {
@@ -690,7 +743,11 @@ export async function validateGoalPlanDraft({ ownerUserId, orchestratorAgentId, 
     catalog
   );
   const validation = validateTypedGoalPlan(normalized, catalog);
-  const errors = [...validation.errors, ...validateTerminalDelivery(normalized, prompt)];
+  const errors = [
+    ...validation.errors,
+    ...validateExplicitBrowserExecutor(normalized, prompt, catalog),
+    ...validateTerminalDelivery(normalized, prompt),
+  ];
   return { steps: normalized, ok: errors.length === 0, errors };
 }
 
@@ -714,7 +771,7 @@ async function reportPlanProgress(onProgress, progress) {
   }
 }
 
-export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, prompt, candidateSteps, onProgress = null }) {
+export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, prompt, candidateSteps, humanGuidance = '', onProgress = null }) {
   const catalog = await buildCatalog(ownerUserId, orchestratorAgentId);
   const seed = validateCandidateGoalPlan(candidateSteps, catalog);
   const promptCatalog = JSON.parse(catalogPrompt(catalog, { prompt, candidateSteps: seed.steps }));
@@ -725,15 +782,19 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
     normalize: content => normalizeExecutorOutputKinds(normalizeTypedSteps(extractPlanSteps(content)), catalog),
     validate: steps => {
       const structural = validateTypedGoalPlan(steps, catalog);
-      const errors = [...structural.errors, ...validateTerminalDelivery(steps, prompt)];
+      const errors = [
+        ...structural.errors,
+        ...validateExplicitBrowserExecutor(steps, prompt, catalog),
+        ...validateTerminalDelivery(steps, prompt),
+      ];
       return { ok: errors.length === 0, errors };
     },
     onProgress: progress => reportPlanProgress(onProgress, progress),
     make: ({ attempt, previous, errors }) => chatCompletions({
       ...options, toolName: 'goal_plan_maker', endpointPreference: 'primary', maxTokens: 4000,
       messages: [
-        { role: 'system', content: `You create the smallest COMPLETE executable company goal plan. Cover every requested discovery, verification, data write, draft, handoff, constraint and final delivery. A plan that is valid JSON but omits an outcome is invalid. Every explicitly named identifier, receipt, evidence item or result in the original goal must appear in the responsible step's produces contract and be consumed by the terminal report. Select executors by their declared capabilities, not shared words. The advisory candidate may be irrelevant: discard it when it does not cover the original goal. Each specialist gets a bounded assignment and consumes prior step outputs. Preserve nested orchestrator delegation inside its work contract. Carry source provenance and verified facts through discovery to writes. Never invent contact data or substitute unrelated retrieved records. Drafting is not sending. An LLM response alone is not evidence of a successful external action: require returned record/artifact IDs and verification. Preserve the original goal's speech act: asking for status/history/reporting does not authorize repeating the work being reported, and asking to act must not be reduced to reporting. For deliverable_kind=status_report, assign the relevant specialist a query/analyze operation that calls its agent_work_history capability and returns the evidence_id, counts and relevant records; never ask it to repeat the historical work. Preserve every explicit time range, entity, location, quantity and no-send/no-delete constraint in the bounded instruction that owns it. Use only live catalog IDs. ${PLAN_SCHEMA}` },
-        { role: 'user', content: JSON.stringify({ original_goal: prompt, original_requirements: buildGoalRequirements(prompt), live_catalog: promptCatalog, advisory_candidate: seed.steps, round: attempt, previous_attempt: previous ? { steps: previous.steps, checker_response: previous.checker_response } : null, corrections_required: errors, repair_contract: 'If previous_attempt exists, edit that plan minimally, retaining every already-correct assignment, dependency, instruction and outcome. Apply ALL corrections together. The deterministic schema and enumerated values in the system message override any conflicting checker suggestion. Never rebuild a shorter plan that drops previous obligations. Before returning, check EVERY original requirement against the final instructions, including nested delegation, use of returned outputs, export and reporting if requested. Keep stable step keys when retaining a step. Include specific tool/action names from the selected specialist capability list in its message and require it to return evidence of completion. Capabilities are exact name strings; descriptions are in capability_definitions.' }) },
+        { role: 'system', content: `You create the smallest COMPLETE executable company goal plan. Cover every requested discovery, verification, data write, draft, handoff, constraint and final delivery. A plan that is valid JSON but omits an outcome is invalid. Every explicitly named identifier, receipt, evidence item or result in the original goal must appear in the responsible step's produces contract and be consumed by the terminal report. Select executors by their declared capabilities, not shared words. The advisory candidate may be irrelevant: discard it when it does not cover the original goal. Each specialist gets a bounded assignment and consumes prior step outputs. Preserve nested orchestrator delegation inside its work contract. Carry source provenance and verified facts through discovery to writes. Never invent contact data or substitute unrelated retrieved records. Drafting is not sending. An LLM response alone is not evidence of a successful external action: require returned record/artifact IDs and verification. Preserve the original goal's speech act: asking for status/history/reporting does not authorize repeating the work being reported, and asking to act must not be reduced to reporting. For deliverable_kind=status_report, assign the relevant specialist a query/analyze operation that calls its agent_work_history capability and returns the evidence_id, counts and relevant records; never ask it to repeat the historical work. Preserve every explicit time range, entity, location, quantity and no-send/no-delete constraint in the bounded instruction that owns it. When the original goal explicitly names a browser executor, the browser action MUST be a direct agent_tool browse_task_start step with that preferred_driver and allow_fallback=false; a specialty agent may create content but must never replace that browser step. Human plan-review guidance is authoritative within the original goal and schema: apply every item, do not ignore or paraphrase it away. Use only live catalog IDs. ${PLAN_SCHEMA}` },
+        { role: 'user', content: JSON.stringify({ original_goal: prompt, original_requirements: buildGoalRequirements(prompt), authoritative_human_guidance: humanGuidance || null, live_catalog: promptCatalog, advisory_candidate: seed.steps, round: attempt, previous_attempt: previous ? { steps: previous.steps, checker_response: previous.checker_response } : null, corrections_required: errors, repair_contract: 'If previous_attempt exists, edit that plan minimally, retaining every already-correct assignment, dependency, instruction and outcome. Apply ALL corrections together. The deterministic schema and enumerated values in the system message override any conflicting checker suggestion. Human guidance is authoritative when supplied and must be reflected in the returned plan. Never rebuild a shorter plan that drops previous obligations. Before returning, check EVERY original requirement against the final instructions, including nested delegation, use of returned outputs, export and reporting if requested. Keep stable step keys when retaining a step. Include specific tool/action names from the selected specialist capability list in its message and require it to return evidence of completion. Capabilities are exact name strings; descriptions are in capability_definitions.' }) },
         { role: 'user', content: `Before emitting JSON, enforce this scope: top-level specialty_task.agent_id must be one of ${promptCatalog.agents.map(a=>a.id).join(', ')}. A reportee nested inside one of these agents is NOT a top-level target. If a request describes internal delegation followed by more work by the same manager, put the entire sequence in that manager's ONE spec.message, not extra steps. Direct agent_tool names must be one of ${promptCatalog.current_executor_tools.map(t=>t.name).join(', ')}. Each source_step_key must name a step.key you actually emitted. Return the complete corrected JSON, preserving the original goal above.` },
       ],
     }),
@@ -755,6 +816,7 @@ One combined orchestrator assignment OR multiple dependent assignments to that S
 Return {"approved":true,"issues":[],"coverage":[{"requirement_id":"r1","covered":true,"step_keys":["actual step key"]}],"step_checks":[{"step_key":"actual step key","instruction_preserves_goal":true,"operation_mode_correct":true,"deliverable_kind_correct":true,"no_unrequested_action":true}],"revised_steps":[]}. Include exactly one step_checks entry for EVERY proposed step. A missing objective, operation_mode, subject or deliverable_kind makes its corresponding semantic check false. Set a boolean false and add a concrete correction issue whenever that semantic property is wrong; never approve while any is false. Cover EVERY supplied original_requirements ID. Each ID may contain several requested outcomes; covered=true only if ALL are addressed by its mapped steps. Labels may be paraphrased, IDs must be exact. If a real blocking gap exists, approved=false and each issue is {"requirement_id":"r1","step_key":"actual step key","grounding":"exact original-goal, catalog, or deterministic-schema fact violated","message":"specific grounded problem","correction":"exact minimal change"}, and revised_steps must be the complete corrected plan—not a fragment. The deterministic schema and enums override prose in an issue. Do not reject for stylistic preference, speculative policy or extra optional features. Never approve missing requested outcomes.` },
         { role: 'user', content: JSON.stringify({
           original_goal: prompt,
+          authoritative_human_guidance: humanGuidance || null,
           original_requirements: buildGoalRequirements(prompt),
           live_catalog: promptCatalog,
           proposed_plan: steps,
