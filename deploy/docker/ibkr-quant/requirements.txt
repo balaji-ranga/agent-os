@@ -1,4 +1,4 @@
-flask==3.1.0
+flask==3.1.3
 numpy==2.2.2
 lightgbm==4.6.0
 # CPU-only VPS image; avoid the CUDA/NCCL dependency pulled by newer wheels.
