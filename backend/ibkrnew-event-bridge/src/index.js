@@ -11,7 +11,10 @@ const packagePath = (value, fallback) => {
   return isAbsolute(configured) ? configured : resolve(packageRoot, configured);
 };
 
-loadDotEnv({ path: resolve(packageRoot, '.env'), override: false });
+// The installer validates and protects this owner-scoped file. Task Scheduler
+// can retain an old environment block across upgrades, so inherited IBKRNEW_*
+// values must never override the installed package configuration.
+loadDotEnv({ path: resolve(packageRoot, '.env'), override: true });
 
 const httpTimeoutMs = Math.max(1000, Number(process.env.IBKRNEW_HTTP_TIMEOUT_MS) || 15000);
 const cfg = {

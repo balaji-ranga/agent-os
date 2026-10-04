@@ -94,6 +94,8 @@ assert.deepEqual(normalizeAccountValuesToUsd(new Map([
 ])), { eligible_capital_usd: 2000, cash_usd: 750, realized_pnl_day_usd: 0, unrealized_pnl_usd: 0 });
 assert.equal(normalizeAccountValuesToUsd(new Map([['NetLiquidation', { value: 2000, currency: 'SGD' }]])).eligible_capital_usd, 0, 'non-USD capital must fail closed when the USD exchange rate is unavailable');
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
+const runtimeSource = readFileSync(join(packageRoot, 'src', 'index.js'), 'utf8');
+assert.match(runtimeSource, /loadDotEnv\(\{ path: resolve\(packageRoot, '\.env'\), override: true \}\)/, 'the protected installed configuration must override stale Task Scheduler environment values');
 const installerPath = join(packageRoot, 'scripts', 'Install-IBKRNewBridgeTask.ps1');
 const runnerPath = join(packageRoot, 'scripts', 'Run-IBKRNewBridgeTask.ps1');
 assert.equal(existsSync(installerPath), true, 'Windows Scheduled Task installer must ship with the bridge package');
