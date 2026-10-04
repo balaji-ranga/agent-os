@@ -128,6 +128,8 @@ assert.doesNotMatch(installer, /icacls\.exe \$Path[^\r\n]+ '\/T'/, 'the root ACL
 const supervisor = readFileSync(runnerPath, 'utf8');
 assert.match(supervisor, /while \(\$true\)/);
 assert.match(supervisor, /\$PackageRoot = Split-Path -Parent \$PSScriptRoot/);
+assert.match(supervisor, /\$EntryPoint = Join-Path \$PackageRoot 'src\\index\.js'/, 'the scheduled supervisor must invoke the installed entry point by absolute path');
+assert.match(supervisor, /& \$Node \$EntryPoint/, 'Task Scheduler must not depend on an inherited working directory to select bridge source');
 assert.match(supervisor, /Restarting in \$delaySeconds seconds/);
 assert.doesNotMatch(supervisor, /IBKRNEW_BRIDGE_TOKEN|IBKRNEW_ACCOUNT_ID/);
 const privacyDir = mkdtempSync(join(tmpdir(), 'ibkrnew-privacy-')); const sentBodies = [];

@@ -30,6 +30,7 @@ if (-not (Test-Path -LiteralPath $EnvFile)) {
 
 $BundledNode = Join-Path $PackageRoot 'runtime\node.exe'
 $Node = if (Test-Path -LiteralPath $BundledNode) { $BundledNode } else { (Get-Command node -ErrorAction Stop).Source }
+$EntryPoint = Join-Path $PackageRoot 'src\index.js'
 if (-not (Test-Path -LiteralPath (Join-Path $PackageRoot 'node_modules'))) {
   Write-SupervisorLog 'Stopped: node_modules is missing.'
   throw 'IBKRNew bridge dependencies are missing. Reinstall the full desktop package.'
@@ -44,7 +45,7 @@ while ($true) {
   $startedAt = Get-Date
   Write-SupervisorLog 'Starting dedicated IBKRNew bridge runtime.'
   try {
-    & $Node 'src\index.js' *>> $RuntimeLog
+    & $Node $EntryPoint *>> $RuntimeLog
     $exitCode = $LASTEXITCODE
     Write-SupervisorLog "Bridge runtime exited with code $exitCode."
   } catch {
