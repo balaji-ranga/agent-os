@@ -2,7 +2,7 @@ import { config as loadDotEnv } from 'dotenv';
 import { existsSync, readFileSync } from 'fs';
 import { isAbsolute, resolve } from 'path';
 import { fileURLToPath } from 'url';
-import { IBKRNewBridgeCore, IBKRNewFeatureEngine, bridgeRuntimeStalled, commandMatchesBootstrap, selectUniverseProfiles } from './core.js';
+import { IBKRNewBridgeCore, IBKRNewFeatureEngine, bridgeRuntimeStalled, buildMarketSubscriptionComponent, commandMatchesBootstrap, selectUniverseProfiles } from './core.js';
 import { IBKRNewGateway } from './gateway.js';
 
 const packageRoot = fileURLToPath(new URL('..', import.meta.url));
@@ -39,6 +39,7 @@ let boot = null;
 let lastAccountSnapshotAt = 0;
 let reconnectAttempt = 0;
 let cycleStartedAt = Date.now();
+let activeSubscriptionSymbols = [];
 
 const watchdog = setInterval(() => {
   if (!bridgeRuntimeStalled({ cycleStartedAt, stallTimeoutMs })) return;
@@ -86,7 +87,8 @@ async function connectGateway({ reconnect = false } = {}) {
     const profiles = loadUniverseProfiles();
     for (const profile of profiles) core.emitInstrumentProfile(profile);
     const symbols = [...new Set([...(boot.configs.universe.allowlist || []), ...profiles.map((profile) => profile.symbol)])];
-    symbols.slice(0, boot.configs.universe.maximum_active_subscriptions || 40).forEach((symbol, i) => candidate.subscribe(symbol, 1000 + i));
+    activeSubscriptionSymbols = symbols.slice(0, boot.configs.universe.maximum_active_subscriptions || 40);
+    activeSubscriptionSymbols.forEach((symbol, i) => candidate.subscribe(symbol, 1000 + i));
     const previous = gateway;
     gateway = candidate;
     reconnectAttempt = 0;
@@ -137,6 +139,7 @@ async function runCycle() {
         { component_id: 'IBKRNewDesktopRuntime', component_type: 'desktop_runtime', status: 'online', version: process.version },
         { component_id: 'IBKRNewDurableSpool', component_type: 'event_spool', status: 'online', depth: core.spoolDepth() },
         { component_id: 'IBKRNewGateway', component_type: 'ibkr_gateway', status: gatewayHealth.connected ? 'online' : 'offline', ...gatewayHealth },
+        buildMarketSubscriptionComponent(activeSubscriptionSymbols),
       ],
     });
     if (gatewayHealth.connected && Date.now() - lastAccountSnapshotAt >= accountSnapshotIntervalMs) {

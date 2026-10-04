@@ -4,7 +4,7 @@ import { tmpdir } from 'os';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
-import { IBKRNewBridgeCore, IBKRNewFeatureEngine, bridgeRuntimeStalled, buildBarFeatures, commandMatchesBootstrap, selectUniverseProfiles } from '../src/core.js';
+import { IBKRNewBridgeCore, IBKRNewFeatureEngine, bridgeRuntimeStalled, buildBarFeatures, buildMarketSubscriptionComponent, commandMatchesBootstrap, selectUniverseProfiles } from '../src/core.js';
 import { IBKRNewGateway, applyReconciliationState, evaluateAccountAttestation, normalizeAccountValuesToUsd } from '../src/gateway.js';
 
 const dir = mkdtempSync(join(tmpdir(), 'ibkrnew-'));
@@ -53,6 +53,11 @@ assert.equal(profileEvent.event_type, 'instrument.profile_refreshed'); assert.eq
 assert.throws(() => core.emitInstrumentProfile({ symbol: 'SPY', security_type: 'OPT' }), /STK or ETF/);
 const selected = selectUniverseProfiles([{ symbol: 'AAPL', security_type: 'STK', index_memberships: ['SPX'] }, { symbol: 'MSFT', security_type: 'STK', index_memberships: ['NDX'] }, { symbol: 'SPY', security_type: 'ETF', etf_categories: ['EQUITY'] }], { allowlist: [], denylist: [], filters: { stock: { enabled: true, indexes: ['NDX'], index_match: 'ANY' }, etf: { enabled: true, allowlist: [], denylist: [], categories: ['EQUITY'] } } });
 assert.deepEqual(selected.map((item) => item.symbol), ['MSFT', 'SPY']);
+assert.deepEqual(buildMarketSubscriptionComponent(['spy', 'QQQ', 'SPY']), {
+  component_id: 'IBKRNewMarketSubscriptions', component_type: 'market_subscriptions', status: 'online', subscription_count: 2, symbols: ['SPY', 'QQQ'], message: '2 configured market subscription(s) are active.',
+});
+assert.equal(buildMarketSubscriptionComponent([]).status, 'degraded');
+assert.match(buildMarketSubscriptionComponent([]).message, /no price-driven entry signals/i);
 const bars = Array.from({ length: 21 }, (_, i) => ({ close: 100 + i, volume: 1000, at: new Date().toISOString() }));
 const features = buildBarFeatures({ bars, relativeVolume: 1.5, confirmed15m: true });
 assert.ok(features.ema_fast > features.ema_slow); assert.ok(features.vwap > 0);

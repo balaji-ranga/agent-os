@@ -171,6 +171,20 @@ export function selectUniverseProfiles(profiles, universe) {
   });
 }
 
+export function buildMarketSubscriptionComponent(symbols) {
+  const activeSymbols = [...new Set((symbols || []).map((symbol) => String(symbol || '').trim().toUpperCase()).filter(Boolean))];
+  return {
+    component_id: 'IBKRNewMarketSubscriptions',
+    component_type: 'market_subscriptions',
+    status: activeSymbols.length ? 'online' : 'degraded',
+    subscription_count: activeSymbols.length,
+    symbols: activeSymbols,
+    message: activeSymbols.length
+      ? `${activeSymbols.length} configured market subscription(s) are active.`
+      : 'No market subscriptions are configured. Account monitoring remains active, but no price-driven entry signals can be produced.',
+  };
+}
+
 export class IBKRNewFeatureEngine {
   constructor() { this.current = new Map(); this.history = new Map(); this.shortable = new Map(); }
   setShortable(symbol, value) { this.shortable.set(symbol, value === true); }
