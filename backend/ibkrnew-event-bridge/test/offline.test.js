@@ -1,7 +1,8 @@
 import assert from 'assert/strict';
-import { mkdtempSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
-import { join } from 'path';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 import { IBKRNewBridgeCore, IBKRNewFeatureEngine, buildBarFeatures, commandMatchesBootstrap, selectUniverseProfiles } from '../src/core.js';
 import { IBKRNewGateway, normalizeAccountValuesToUsd } from '../src/gateway.js';
@@ -53,6 +54,19 @@ assert.deepEqual(normalizeAccountValuesToUsd(new Map([
   ['TotalCashValue', { value: 750, currency: 'USD' }],
 ])), { eligible_capital_usd: 2000, cash_usd: 750, realized_pnl_day_usd: 0, unrealized_pnl_usd: 0 });
 assert.equal(normalizeAccountValuesToUsd(new Map([['NetLiquidation', { value: 2000, currency: 'SGD' }]])).eligible_capital_usd, 0, 'non-USD capital must fail closed when the USD exchange rate is unavailable');
+const packageRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
+const installerPath = join(packageRoot, 'scripts', 'Install-IBKRNewBridgeTask.ps1');
+const runnerPath = join(packageRoot, 'scripts', 'Run-IBKRNewBridgeTask.ps1');
+assert.equal(existsSync(installerPath), true, 'Windows Scheduled Task installer must ship with the bridge package');
+assert.equal(existsSync(runnerPath), true, 'Windows Scheduled Task supervisor must ship with the bridge package');
+const installer = readFileSync(installerPath, 'utf8');
+assert.match(installer, /New-ScheduledTaskTrigger -AtLogOn/);
+assert.match(installer, /-StartWhenAvailable/);
+assert.match(installer, /-RestartCount 999/);
+assert.match(installer, /-WakeToRun/);
+const supervisor = readFileSync(runnerPath, 'utf8');
+assert.match(supervisor, /while \(\$true\)/);
+assert.doesNotMatch(supervisor, /IBKRNEW_BRIDGE_TOKEN|IBKRNEW_ACCOUNT_ID/);
 const privacyDir = mkdtempSync(join(tmpdir(), 'ibkrnew-privacy-')); const sentBodies = [];
 const privacyCore = new IBKRNewBridgeCore({ apiUrl: 'https://example.test/api/ibkrnew-event-trader', bridgeId: 'IBKRNewBridge_privacy', token: 'secret', spoolDir: privacyDir, fetchImpl: async (_url, request) => { sentBodies.push(request?.body || ''); return { ok: true, status: 202, json: async () => ({}) }; } });
 privacyCore.emit('bridge.gateway_error', { account_id: 'DU1234567', message: 'Account DU1234567 is invalid', nested: [{ acctCode: 'DU1234567' }] });

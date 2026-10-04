@@ -80,10 +80,11 @@ IBKR supplies executable quotes, bars and broker/account truth through the deskt
 3. In Flolah, open **Connectors → IBKRNew Event Bridge** and download the full or lite package.
 4. Extract it into a private folder and configure the local Gateway connection.
 5. Keep the downloaded token and environment file private. Enter the paper account only on the desktop—not in Flolah.
-6. Start observe-only and confirm healthy Gateway, market-data and reconciliation status in **IBKRNew0 → Live Operations**.
-7. Explicitly enable local paper execution only after those checks pass.
+6. Run the offline test and then `scripts\Install-IBKRNewBridgeTask.ps1`. This creates the supervised `IBKRNewBridge` Windows Scheduled Task under the signed-in user and starts it.
+7. Confirm healthy Gateway, market-data and reconciliation status in **IBKRNew0 → Live Operations**. Local task status is available through `scripts\Get-IBKRNewBridgeTaskStatus.ps1`.
+8. Explicitly enable local paper execution only after those checks pass.
 
-One bridge service runs on the desktop. The six reactions run in Flolah, so there is no separate workflow package to download. Revoke an old bridge from Live Operations or Tokens management if a machine is retired or credentials may have been exposed.
+One supervised bridge process runs on the desktop. It starts at Windows sign-in, retries after process failure or a missed start, and reconnects to Gateway after Modern Standby. Gateway authentication remains interactive: if the broker session expires, new trading fails closed until the user signs in again. The six reactions run in Flolah, so there is no separate workflow package to download. Revoke an old bridge from Live Operations or Tokens management if a machine is retired or credentials may have been exposed.
 
 ### Read the six-role audit
 

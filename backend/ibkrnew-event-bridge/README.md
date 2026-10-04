@@ -6,9 +6,16 @@ The runtime is fail-closed unless either `IBKRNEW_MOCK=1`, or `IBKRNEW_PAPER_EXE
 
 1. Download the full `IBKRNewBridge` package from **Connectors**. It includes a one-time bridge identity, production dependencies, and portable Node. The lite package requires Node 18+ and `npm ci`.
 2. In the downloaded `.env`, set the real paper account only in local `IBKRNEW_ACCOUNT_ID`, then explicitly set `IBKRNEW_PAPER_EXECUTION_ENABLED=1` when ready. Flolah never asks for or receives that account identifier.
-3. Run `scripts\Test-IBKRNewBridge.ps1`, then `scripts\Start-IBKRNewBridge.ps1`. For an offline mock, set `IBKRNEW_MOCK=1` and leave paper execution disabled.
+3. Run `scripts\Test-IBKRNewBridge.ps1`.
+4. Run `scripts\Install-IBKRNewBridgeTask.ps1`. It installs the owner-scoped package under `%LOCALAPPDATA%\Flolah\IBKRNewBridge`, protects that directory for the current user and SYSTEM, creates the `IBKRNewBridge` Scheduled Task, and starts it. Use `scripts\Get-IBKRNewBridgeTaskStatus.ps1` to inspect the task. `scripts\Uninstall-IBKRNewBridgeTask.ps1` removes only the task and retains local configuration, spool, and logs.
+
+`scripts\Start-IBKRNewBridge.ps1` remains available for an intentional foreground diagnostic run. Do not run it at the same time as the scheduled task. For an offline mock, set `IBKRNEW_MOCK=1` and leave paper execution disabled.
+
+The scheduled task runs only in the signed-in Windows user's interactive session because IB Gateway is a local desktop application. It starts at sign-in, starts missed runs when Windows becomes available, may wake the computer, retries a failed process, and does not stop on battery power. The bridge runtime also reconnects to IB Gateway after a disconnect or Modern Standby. If Gateway authentication itself expires, the task stays supervised but trading remains fail-closed until the user signs in to Gateway again.
 
 No inbound server or public port is opened. Events are written to `IBKRNew-events.jsonl` before transmission and removed only after server acknowledgement.
+
+Runtime logs are local at `%LOCALAPPDATA%\Flolah\IBKRNewBridge\logs`. Each log rotates at 10 MiB with at most five archives and must not contain the bridge token or local account identifier.
 
 The real IBKR account identifier is desktop-only. It is never entered in the Flolah browser UI, included in bridge health/events/errors, or stored on the VPS. Flolah generates an opaque, bridge-scoped `IBKRNewAccount_*` reference for server-side joins and reports. Do not add the local account identifier to custom profile or event payloads; the server also strips account-number fields and redacts recognizable IBKR account values as defense in depth.
 

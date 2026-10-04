@@ -119,10 +119,11 @@ Only symbols assigned by the active universe should be subscribed. Data entitlem
 3. Download the full package (portable runtime included) or lite package (local compatible runtime required).
 4. Extract it to a private local folder. Keep the generated environment file and token private.
 5. Configure the Gateway host/port, a dedicated client ID, and the paper account **only on that PC**.
-6. Start in observe-only mode. Confirm Gateway, bridge and market-data health in **Live Operations**.
-7. Enable paper execution locally only after subscriptions, account state, positions and reconciliation are healthy.
+6. Run the package's offline test, then run `scripts\Install-IBKRNewBridgeTask.ps1`. It installs the bridge in the signed-in user's Local App Data, registers the `IBKRNewBridge` Windows Scheduled Task and starts it.
+7. Confirm Gateway, bridge and market-data health in **Live Operations**. Use `scripts\Get-IBKRNewBridgeTaskStatus.ps1` for local task status.
+8. Enable paper execution locally only after subscriptions, account state, positions and reconciliation are healthy.
 
-The package runs one IBKRNew bridge service/process. The six event reactions run in Flolah; no workflow package is downloaded to the desktop. Revoking a bridge in Live Operations invalidates its token and pending commands.
+The package runs one supervised IBKRNew bridge process. The task starts at user sign-in, restarts a failed process, starts missed runs when Windows becomes available and reconnects to Gateway after Modern Standby. IB Gateway still requires an authenticated desktop session; if that session expires, new exposure remains blocked until the user signs in again. The six event reactions run in Flolah; no workflow package is downloaded to the desktop. Revoking a bridge in Live Operations invalidates its token and pending commands.
 
 ## Monitor and troubleshoot
 
@@ -143,6 +144,8 @@ Before expecting a paper order, verify:
 7. Any required CEO approval is still within its expiry window.
 
 On disconnect or uncertain submission, do not manually replay a command. Restore Gateway/bridge connectivity and let reconciliation resolve open orders, executions and positions before enabling new entries.
+
+If Live Operations shows the bridge offline, check the `IBKRNewBridge` Scheduled Task first. Local supervisor/runtime logs are under `%LOCALAPPDATA%\Flolah\IBKRNewBridge\logs`; they rotate automatically and should never be copied into public help or source control.
 
 ## Privacy and sensitive data
 
