@@ -89,6 +89,7 @@ assert.doesNotMatch(installer, /New-ScheduledTaskAction[^\r\n]+-WorkingDirectory
 assert.match(installer, /New-ScheduledTaskAction -Execute \$PowerShell -Argument/);
 assert.match(installer, /Run-IBKRNewBridgeTask\.ps1/);
 assert.doesNotMatch(installer, /New-ScheduledTaskAction -Execute \$Node/, 'the durable supervisor must own and restart the Node child');
+assert.match(installer, /InstalledNode[\s\S]+Invoke-CimMethod[\s\S]+Terminate/, 'upgrades must terminate the prior bundled bridge runtime left behind by Task Scheduler');
 assert.match(installer, /-StartWhenAvailable/);
 assert.match(installer, /-RestartCount 999/);
 assert.match(installer, /-WakeToRun/);

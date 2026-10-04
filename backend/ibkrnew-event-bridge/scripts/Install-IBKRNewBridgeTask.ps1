@@ -53,11 +53,28 @@ if (-not (Test-Path -LiteralPath (Join-Path $SourceRoot 'node_modules'))) {
   throw 'Dependencies are missing. Download the full desktop package or run npm ci before installing.'
 }
 
-$ExistingTask = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
-if ($ExistingTask) { Stop-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue }
-
 $ResolvedSource = [IO.Path]::GetFullPath($SourceRoot).TrimEnd('\')
 $ResolvedInstall = [IO.Path]::GetFullPath($InstallRoot).TrimEnd('\')
+$ExistingTask = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+if ($ExistingTask) {
+  Stop-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+  Start-Sleep -Seconds 1
+}
+
+# Task Scheduler stops the PowerShell supervisor but can leave its child Node
+# process running. Terminate only the bridge's bundled runtime before copying an
+# upgrade so an old process cannot keep emitting stale heartbeats indefinitely.
+$InstalledNode = [IO.Path]::GetFullPath((Join-Path $ResolvedInstall 'runtime\node.exe'))
+Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue |
+  Where-Object {
+    $_.ExecutablePath -and
+    [IO.Path]::GetFullPath($_.ExecutablePath).Equals($InstalledNode, [StringComparison]::OrdinalIgnoreCase)
+  } |
+  ForEach-Object {
+    $result = Invoke-CimMethod -InputObject $_ -MethodName Terminate -ErrorAction Stop
+    if ($result.ReturnValue -ne 0) { throw "Unable to stop existing IBKRNew bridge process $($_.ProcessId)." }
+  }
+
 if ($ResolvedSource -ne $ResolvedInstall) {
   New-Item -ItemType Directory -Path $ResolvedInstall -Force | Out-Null
   Protect-InstallAcl $ResolvedInstall
