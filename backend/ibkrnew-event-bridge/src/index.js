@@ -21,6 +21,9 @@ const cfg = {
 };
 const core = new IBKRNewBridgeCore(cfg);
 const mock = process.env.IBKRNEW_MOCK === '1';
+const tradingMode = String(process.env.IBKRNEW_TRADING_MODE || 'paper').trim().toLowerCase();
+if (!['paper', 'live'].includes(tradingMode)) throw new Error('IBKRNEW_TRADING_MODE must be paper or live');
+const localExecutionEnabled = tradingMode === 'live' ? process.env.IBKRNEW_LIVE_EXECUTION_ENABLED === '1' : process.env.IBKRNEW_PAPER_EXECUTION_ENABLED === '1';
 const featureEngine = new IBKRNewFeatureEngine();
 const accountSnapshotIntervalMs = Math.max(5000, Number(process.env.IBKRNEW_ACCOUNT_SNAPSHOT_INTERVAL_MS || 15000));
 const cycleIntervalMs = Math.max(1000, Number(process.env.IBKRNEW_CYCLE_INTERVAL_MS || 5000));
@@ -32,9 +35,11 @@ let reconnectAttempt = 0;
 function gatewayConfig() {
   return {
     host: process.env.IBKRNEW_GATEWAY_HOST || '127.0.0.1',
-    port: Number(process.env.IBKRNEW_GATEWAY_PORT || 4002),
+    port: Number(process.env.IBKRNEW_GATEWAY_PORT || (tradingMode === 'live' ? 4001 : 4002)),
     clientId: Number(process.env.IBKRNEW_CLIENT_ID || 41),
     accountId: process.env.IBKRNEW_ACCOUNT_ID,
+    environment: tradingMode,
+    executionEnabled: localExecutionEnabled,
   };
 }
 
@@ -56,11 +61,12 @@ function loadUniverseProfiles() {
   return selectUniverseProfiles(JSON.parse(readFileSync(profileFile, 'utf8')), boot.configs.universe);
 }
 
-async function connectPaperGateway({ reconnect = false } = {}) {
+async function connectGateway({ reconnect = false } = {}) {
   const candidate = new IBKRNewGateway(gatewayConfig(), onGatewayEvent);
   try {
     await candidate.connect();
     boot = await core.bootstrap();
+    if (boot.environment !== tradingMode) throw new Error('ACCOUNT_ENVIRONMENT_MISMATCH');
     const profiles = loadUniverseProfiles();
     for (const profile of profiles) core.emitInstrumentProfile(profile);
     const symbols = [...new Set([...(boot.configs.universe.allowlist || []), ...profiles.map((profile) => profile.symbol)])];
@@ -88,7 +94,7 @@ async function ensureGatewayConnected() {
   if (mock || gateway?.health().connected) return;
   reconnectAttempt += 1;
   try {
-    await connectPaperGateway({ reconnect: true });
+    await connectGateway({ reconnect: true });
   } catch (error) {
     core.emit('desktop.component_error', {
       component_id: 'IBKRNewGateway',
@@ -107,7 +113,8 @@ async function runCycle() {
     core.emit('bridge.heartbeat', {
       bridge_version: '1.2.0',
       gateway_connected: gatewayHealth.connected,
-      mode: mock ? 'paper_mock' : 'paper',
+      mode: mock ? `${tradingMode}_mock` : tradingMode,
+      account_attestation: gatewayHealth.account_attestation || { status: mock ? 'verified' : 'failed', environment: tradingMode, execution_ready: mock, reason_code: mock ? null : 'GATEWAY_NOT_ATTESTED' },
       spool_depth: core.spoolDepth(),
       components: [
         { component_id: 'IBKRNewDesktopRuntime', component_type: 'desktop_runtime', status: 'online', version: process.version },
@@ -120,6 +127,7 @@ async function runCycle() {
       lastAccountSnapshotAt = Date.now();
     }
     await core.flush();
+    if (gatewayHealth.account_attestation?.execution_ready !== true) return;
     for (const command of await core.claim(10)) {
       if (!gatewayHealth.connected) continue;
       const seen = core.commandSeen(command.command_id);
@@ -149,13 +157,13 @@ async function runCycle() {
 }
 
 if (!mock) {
-  if (process.env.IBKRNEW_PAPER_EXECUTION_ENABLED !== '1' || !String(process.env.IBKRNEW_ACCOUNT_ID || '').startsWith('DU')) {
-    throw new Error('IBKRNew real adapter requires the explicit paper gate and a DU paper account');
-  }
-  await connectPaperGateway();
+  const accountId = String(process.env.IBKRNEW_ACCOUNT_ID || '').trim();
+  if (!localExecutionEnabled) throw new Error(`IBKRNew ${tradingMode} execution requires its explicit local execution gate`);
+  if (!accountId || tradingMode === 'paper' && !accountId.toUpperCase().startsWith('DU') || tradingMode === 'live' && accountId.toUpperCase().startsWith('DU')) throw new Error('ACCOUNT_ENVIRONMENT_MISMATCH');
+  await connectGateway();
 }
 
-console.log(`IBKRNew bridge ${cfg.bridgeId} started in ${mock ? 'mock' : 'paper Gateway'} mode; no public listener is opened.`);
+console.log(`IBKRNew bridge ${cfg.bridgeId} started in ${mock ? `${tradingMode} mock` : `${tradingMode} Gateway`} mode; no public listener is opened.`);
 setTimeout(runCycle, 0);
 
 for (const signal of ['SIGINT', 'SIGTERM']) {

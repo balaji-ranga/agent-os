@@ -1,6 +1,6 @@
 ---
 name: ibkrnew-trade-strategy
-description: Evaluates IBKRNew market events, commission-adjusted profitability, risk, and daily-budget allocation for the IBKRNewStrategyPlanner. Use when proposing IBKRNew paper trades or reviewing its strategy decisions.
+description: Evaluates IBKRNew market events, commission-adjusted profitability, risk, and daily-budget allocation for the IBKRNewStrategyPlanner. Use when proposing IBKRNew paper or live-mode trades or reviewing its strategy decisions.
 ---
 
 # IBKRNew Trade Strategy
@@ -57,4 +57,4 @@ Return no proposal when required data is stale or unavailable.
 }
 ```
 
-Do not include an executable broker command, owner override, raw `placeOrder` arguments, or live-trading instruction.
+Do not include an executable broker command, owner override, raw `placeOrder` arguments, or instructions that bypass the selected execution mode and deterministic risk gates.

@@ -1,14 +1,14 @@
 # IBKRNew live trading implementation plan
 
-**Status:** Proposed; not approved for implementation
+**Status:** Approved and implemented locally; pending VPS deployment and supervised acceptance
 
-**Version:** 1.1
+**Version:** 1.2
 
-**Date:** 2026-09-02
+**Date:** 2026-10-04
 
 **Related baseline:** [IBKR-EVENT-TRADER-FUNCTIONAL-SPEC.md](./IBKR-EVENT-TRADER-FUNCTIONAL-SPEC.md)
 
-**Existing release:** `IBKRNew0` remains paper-only until the live execution gates in this plan are implemented and accepted
+**Implementation status:** Source implementation and local harness acceptance completed; VPS deployment is the next step, followed by a supervised live-Gateway canary
 
 ## 1. Executive decision
 

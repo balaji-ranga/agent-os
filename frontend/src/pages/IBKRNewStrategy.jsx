@@ -3,6 +3,7 @@ import { api } from '../api';
 
 const KINDS = ['goal', 'strategy_skill', 'strategy', 'policy', 'universe', 'market_data'];
 const label = (value) => value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+const statusLabel = (value = '') => label(String(value).toLowerCase());
 const list = (value) => String(value || '').split(',').map((item) => item.trim().toUpperCase()).filter(Boolean);
 const listText = (value) => (value || []).join(', ');
 function validateDocument(value, schema, path = '$') {
@@ -67,15 +68,37 @@ export default function IBKRNewStrategy() {
   };
   const saveGoal = () => actGoal(async () => { await api.ibkrNewSetGoal({ ...goalDraft, duration_basis: 'CALENDAR_DAYS', capital_basis: 'CYCLE_START_ELIGIBLE_CAPITAL_CAPPED_BY_TOTAL_BUDGET', profit_basis: 'NET_REALIZED_AFTER_COMMISSIONS' }); setNotice('A new immutable goal and cycle were activated.'); });
   const actGoal = async (fn) => { setBusy(true); setNotice(''); try { await fn(); await load(); } catch (e) { setError(e.message); } finally { setBusy(false); } };
+  const switchMode = (mode) => actGoal(async () => {
+    if (mode === 'live') {
+      const confirmed = window.confirm('Enable LIVE trading for this IBKRNew0 configuration? Real orders may be submitted after a matching live desktop bridge verifies the logged-in IBKR account. Existing goals, strategy, universe, budgets, and risk controls remain in force.');
+      if (!confirmed) return;
+      const result = await api.ibkrNewSetExecutionMode('live', true);
+      setNotice(result.activation_state === 'LIVE_ACTIVE' ? 'LIVE trading is active on the attested live bridge.' : 'LIVE mode selected. Trading remains blocked until a matching live bridge completes local account attestation.');
+    } else {
+      const result = await api.ibkrNewSetExecutionMode('paper', false);
+      setNotice(`Paper mode is active. ${result.cancelled_authorizations || 0} unsubmitted live authorization(s) were cancelled.`);
+    }
+  });
+  const downloadBridge = (environment) => actGoal(async () => { await api.ibkrNewBridgePackageDownload({ includeRuntime: true, environment }); setNotice(`${label(environment)} desktop bridge downloaded with fresh owner-scoped credentials.`); });
+  const executionMode = data?.execution_mode || { requested_mode: 'paper', active_mode: 'paper', activation_state: 'PAPER_ACTIVE' };
   const universe = kind === 'universe' ? parsed : null;
   const stock = universe?.filters?.stock; const fundamentals = stock?.fundamentals; const events = stock?.corporate_events; const etf = universe?.filters?.etf;
   const numberField = (caption, path, value, options = {}) => <label className="ibkrnew-field"><span>{caption}</span><input type="number" min={options.min ?? 0} step={options.step ?? 'any'} value={value ?? ''} onChange={(e) => update(path, Number(e.target.value))} /></label>;
   const checkField = (caption, path, checked, hint) => <label className="ibkrnew-check"><input type="checkbox" checked={checked === true} onChange={(e) => update(path, e.target.checked)} /><span><strong>{caption}</strong>{hint && <small>{hint}</small>}</span></label>;
 
   return <div className="page page-wide ibkrnew-page">
-    <header className="page-hero"><div className="page-hero-top"><div className="page-hero-titles"><p className="page-hero-kicker">Prebuilt Workflows · IBKRNew0</p><h1>Goal, strategy &amp; universe</h1></div><span className="ibkrnew-environment" title="IBKRNew can submit orders only to an IBKR paper account. Live-account execution is disabled in policy, API validation and the desktop bridge.">Paper trading only</span></div><p className="page-hero-sub">The goal owns the outcome and cycle; strategy chooses how to pursue it; deterministic risk gates enforce both.</p></header>
+    <header className="page-hero"><div className="page-hero-top"><div className="page-hero-titles"><p className="page-hero-kicker">Prebuilt Workflows · IBKRNew0</p><h1>Goal, strategy &amp; universe</h1></div><span className={`ibkrnew-environment is-${executionMode.requested_mode}`}>{executionMode.requested_mode === 'live' ? `LIVE · ${statusLabel(executionMode.activation_state)}` : 'PAPER'}</span></div><p className="page-hero-sub">The goal owns the outcome and cycle; strategy chooses how to pursue it; deterministic risk gates enforce both.</p></header>
     {error && <div className="page-banner page-banner-error" role="alert"><span>{error}</span><button type="button" className="btn-ghost" onClick={() => setError('')}>Dismiss</button></div>}
     {notice && <div className="page-banner ibkrnew-success" role="status"><span>{notice}</span><button type="button" className="btn-ghost" onClick={() => setNotice('')}>Dismiss</button></div>}
+    <section className={`panel ibkrnew-mode-panel is-${executionMode.requested_mode}`}>
+      <div><p className="page-hero-kicker">Broker execution environment</p><h2>Trading mode</h2><p className="page-muted">The same goal, strategy, universe, daily budget, total exposure ceiling, and deterministic risk checks apply in both modes. Paper and live broker activity remain isolated.</p></div>
+      <div className="ibkrnew-mode-controls" role="group" aria-label="Trading mode">
+        <button type="button" className={executionMode.requested_mode === 'paper' ? 'btn-primary' : 'btn-secondary'} disabled={busy || executionMode.requested_mode === 'paper'} onClick={() => switchMode('paper')}>Paper</button>
+        <button type="button" className={executionMode.requested_mode === 'live' ? 'btn-danger' : 'btn-secondary'} disabled={busy || executionMode.requested_mode === 'live'} onClick={() => switchMode('live')}>Live</button>
+      </div>
+      <dl className="ibkrnew-mode-state"><div><dt>Requested mode</dt><dd>{executionMode.requested_mode}</dd></div><div><dt>Execution state</dt><dd>{statusLabel(executionMode.activation_state)}</dd></div><div><dt>Executable mode</dt><dd>{executionMode.execution_enabled ? executionMode.active_mode : 'Blocked'}</dd></div><div><dt>Account attestation</dt><dd>{executionMode.attestation_status || 'Waiting'}</dd></div></dl>
+      {executionMode.requested_mode === 'live' && executionMode.activation_state !== 'LIVE_ACTIVE' && <div className="page-banner page-banner-warning"><span>Live orders are blocked. Download the live bridge, configure the desktop-only live account, enable its local live gate, and connect it to a live IB Gateway session.</span><button type="button" className="btn-secondary" disabled={busy} onClick={() => downloadBridge('live')}>Download live bridge</button></div>}
+    </section>
     <nav className="ibkrnew-tabs" aria-label="IBKRNew configuration sections">{KINDS.map((item) => <button type="button" key={item} className={kind === item ? 'btn-primary' : 'btn-secondary'} aria-current={kind === item ? 'page' : undefined} onClick={() => { setKind(item); setValidationErrors([]); }}>{label(item)}</button>)}<button type="button" className="btn-ghost ibkrnew-info-button" title="Show the schema and allowed values" aria-label="Show schema" onClick={() => setSchemaOpen(true)}>ⓘ Schema</button></nav>
 
     {kind === 'goal' ? <section className="panel ibkrnew-section">

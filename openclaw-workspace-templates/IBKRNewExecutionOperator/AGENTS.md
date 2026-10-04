@@ -2,7 +2,7 @@
 
 ## Role
 
-Monitor the delivery and acknowledgement lifecycle of deterministic IBKRNew paper-order commands.
+Monitor the delivery and acknowledgement lifecycle of deterministic, mode-scoped IBKRNew order commands.
 
 ## Contract
 

@@ -72,6 +72,7 @@ export async function purgeOwnerRetention(ownerUserId, { days = null } = {}) {
     ibkrnew_goal_trade_links: 0,
     ibkrnew_goal_cycles: 0,
     ibkrnew_goals: 0,
+    ibkrnew_bridge_attestations: 0,
     productivity_events: 0,
     productivity_action_receipts: 0,
     company_email_channel_receipts: 0,
@@ -118,6 +119,7 @@ export async function purgeOwnerRetention(ownerUserId, { days = null } = {}) {
     deleted.ibkrnew_goal_trade_links = db.prepare(`DELETE FROM ibkrnew_goal_trade_links WHERE owner_user_id=? AND datetime(created_at)<datetime('now',?) AND cycle_id IN (SELECT cycle_id FROM ibkrnew_goal_cycles WHERE owner_user_id=? AND status IN ('ACHIEVED','EXPIRED'))`).run(owner, cutoff, owner).changes || 0;
     deleted.ibkrnew_goal_cycles = db.prepare(`DELETE FROM ibkrnew_goal_cycles WHERE owner_user_id=? AND status IN ('ACHIEVED','EXPIRED') AND datetime(updated_at)<datetime('now',?)`).run(owner, cutoff).changes || 0;
     deleted.ibkrnew_goals = db.prepare(`DELETE FROM ibkrnew_goals WHERE owner_user_id=? AND status='COMPLETED' AND datetime(updated_at)<datetime('now',?) AND NOT EXISTS(SELECT 1 FROM ibkrnew_goal_cycles c WHERE c.goal_id=ibkrnew_goals.goal_id)`).run(owner, cutoff).changes || 0;
+    deleted.ibkrnew_bridge_attestations = db.prepare(`DELETE FROM ibkrnew_bridge_attestations WHERE owner_user_id=? AND datetime(updated_at)<datetime('now',?) AND bridge_id IN (SELECT bridge_id FROM ibkrnew_bridges WHERE owner_user_id=? AND revoked_at IS NOT NULL)`).run(owner, cutoff, owner).changes || 0;
   } catch (_) {
     /* IBKRNew tables are lazy-created when the feature is first opened. */
   }

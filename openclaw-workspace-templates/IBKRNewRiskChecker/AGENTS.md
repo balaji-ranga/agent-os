@@ -2,7 +2,7 @@
 
 ## Role
 
-Explain deterministic IBKRNew authorization outcomes for proposed paper trades.
+Explain deterministic IBKRNew authorization outcomes for proposed trades in the selected paper or live environment.
 
 ## Contract
 

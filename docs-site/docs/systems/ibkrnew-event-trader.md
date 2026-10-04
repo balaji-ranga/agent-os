@@ -1,20 +1,20 @@
 ---
-title: IBKRNew event-driven paper trading
+title: IBKRNew event-driven Paper and Live trading
 ---
 
-# IBKRNew event-driven paper trading
+# IBKRNew event-driven Paper and Live trading
 
-IBKRNew0 is Flolah’s event-driven workflow for Interactive Brokers paper accounts. It supports long and short US stocks plus long calls and puts, with configurable goals, strategies, universes, budgets and risk limits.
+IBKRNew0 is Flolah’s event-driven workflow for Interactive Brokers Paper and Live accounts. It supports long and short US stocks plus long calls and puts, with configurable goals, strategies, universes, budgets and risk limits.
 
 It is a separate product flow from the older monthly IBKR workflows. It does not change or reuse their plans, ledgers or desktop credentials.
 
-> Trading involves risk. This feature is paper-only and does not promise a return. Test the full lifecycle with your own paper account and data permissions.
+> Trading involves risk and no return is promised. Paper is the default. Test the full lifecycle and verify your broker permissions before deliberately enabling Live.
 
 ## Why a desktop bridge is required
 
 IB Gateway and TWS expose their trading API on your computer. Flolah’s cloud service cannot connect directly to that local socket.
 
-The downloadable **IBKRNew Event Bridge** runs beside Gateway/TWS and makes outbound secure connections to Flolah. It receives broker callbacks, calculates configured market features, sends events, claims short-lived paper commands, rechecks them locally and submits eligible orders to the paper account. It opens no public listener.
+The downloadable **IBKRNew Event Bridge** runs beside Gateway/TWS and makes outbound secure connections to Flolah. It receives broker callbacks, calculates configured market features, sends events, claims short-lived mode-scoped commands, rechecks them locally and submits eligible orders to the selected environment. It opens no public listener.
 
 If the bridge, Gateway, account snapshot or required market data is stale, new entries stop. Existing broker-hosted protective orders remain at IBKR, and reconciliation resumes when the connection returns.
 
@@ -27,10 +27,10 @@ flowchart LR
   Events --> Observe[Observe and normalize]
   Observe --> Strategy[Goal-bound strategy proposal]
   Strategy --> Risk[Budget, risk and commission gates]
-  Risk -->|authorized| Command[Expiring paper command]
+  Risk -->|authorized| Command[Expiring mode-scoped command]
   Command --> Bridge
-  Bridge --> Paper[IBKR paper order]
-  Paper -->|fills, commission, positions| Bridge
+  Bridge --> Broker[IBKR Paper or Live order]
+  Broker -->|fills, commission, positions| Bridge
   Events --> Monitor[Position, goal and health monitoring]
 ```
 
@@ -46,6 +46,8 @@ Open **Prebuilt Workflows → IBKRNew0**:
 
 Saving a configuration publishes a new version for your company. Existing authorizations remain tied to the exact versions used for their checks.
 
+The **Trading mode** control on Strategy switches between Paper and Live while keeping the same goal, strategy, universe, budgets and risk controls. Paper and Live broker activity remains separately scoped in the execution ledger and reports. Selecting Live does not immediately permit orders: the matching live bridge must first attest the local account and Gateway session.
+
 ### Goal versus strategy
 
 The **goal** defines what success means and when the cycle ends. The default is configurable: 5% net realized return in 30 calendar days. Goal progress is based on closed trades after actual commissions.
@@ -54,7 +56,7 @@ The **strategy** chooses which eligible opportunities may pursue that goal. It c
 
 In one-time mode, new entries stop when the target or deadline arrives and remain stopped until you activate a new goal. In perpetual mode, the next cycle starts only at its normal boundary. Positions already open can still be protected, reduced or closed.
 
-### Default paper limits
+### Default risk limits
 
 The supplied conservative-to-moderate baseline starts with:
 
@@ -65,7 +67,7 @@ The supplied conservative-to-moderate baseline starts with:
 - position, daily/weekly loss, drawdown and consecutive-loss limits;
 - commission-aware sizing and minimum expected net profit.
 
-Every value is configurable, but the paper-only safety floor and unsupported-product restrictions cannot be disabled. Short-sale proceeds and unused broker buying power do not increase Flolah’s configured total budget.
+Every value is configurable, but account attestation, mode matching, local execution gates and unsupported-product restrictions cannot be disabled. Short-sale proceeds and unused broker buying power do not increase Flolah’s configured total budget.
 
 ## Universe and data
 
@@ -75,14 +77,14 @@ IBKR supplies executable quotes, bars and broker/account truth through the deskt
 
 ## Set up safely
 
-1. Install IB Gateway or TWS on the Windows trading PC and sign in to a paper account.
-2. Enable the local broker API using IBKR’s paper-session guidance.
-3. In Flolah, open **Connectors → IBKRNew Event Bridge** and download the full or lite package.
+1. Install IB Gateway or TWS on the Windows trading PC and sign in to the intended Paper or Live account.
+2. Enable the local broker API for that session.
+3. In Flolah, open **Connectors → IBKRNew Event Bridge** and download the Paper or Live full/lite package.
 4. Extract it into a private folder and configure the local Gateway connection.
-5. Keep the downloaded token and environment file private. Enter the paper account only on the desktop—not in Flolah.
+5. Keep the downloaded token and environment file private. Enter the matching account only on the desktop—not in Flolah.
 6. Run the offline test and then `scripts\Install-IBKRNewBridgeTask.ps1`. This creates the supervised `IBKRNewBridge` Windows Scheduled Task under the signed-in user and starts it.
 7. Confirm healthy Gateway, market-data and reconciliation status in **IBKRNew0 → Live Operations**. Local task status is available through `scripts\Get-IBKRNewBridgeTaskStatus.ps1`.
-8. Explicitly enable local paper execution only after those checks pass.
+8. Explicitly enable only the matching local execution gate after those checks pass. For Live, select **Live** on Strategy; it remains blocked until `managedAccounts` attestation succeeds.
 
 One supervised bridge process runs on the desktop. It starts at Windows sign-in, retries after process failure or a missed start, and reconnects to Gateway after Modern Standby. Gateway authentication remains interactive: if the broker session expires, new trading fails closed until the user signs in again. The six reactions run in Flolah, so there is no separate workflow package to download. Revoke an old bridge from Live Operations or Tokens management if a machine is retired or credentials may have been exposed.
 
@@ -90,13 +92,13 @@ One supervised bridge process runs on the desktop. It starts at Windows sign-in,
 
 The six cards in **Live Operations** are service-driven trading roles, not generated chat messages. They show what each role last handled, its workflow identity, responsibility and current state. Open **View lifecycle** on a causal event to see the same signal move through observation, planning, deterministic risk checks, approval/command delivery, position monitoring and supervision. Evidence IDs correlate the original event with any authorization, command, trade and execution.
 
-Only one page of timeline events is returned at a time. Event payloads and persisted decision detail are fetched on demand, while health and account projections use a separate bounded refresh. The timeline and its decision evidence follow the CEO profile's retention setting.
+Only one page of timeline events for the selected Paper or Live mode is returned at a time. Event payloads and persisted decision detail are fetched on demand, while health and account projections use a separate bounded refresh. The timeline and its decision evidence follow the CEO profile's retention setting. If the owner returns to Paper while live positions or orders remain, Live Operations keeps a red live-exposure reconciliation warning visible until the live bridge reports them closed or cancelled.
 
 Frequent account refreshes keep the deterministic risk gate current. They do not create an equivalent number of historical snapshot rows: Flolah retains a snapshot when position/order structure changes and a checkpoint at most every five minutes. A daily purge applies the CEO profile's selected 30, 60, 90, 120 or 365-day retention period; the default is 90 days.
 
-## Paper trading only
+## Live activation and privacy
 
-The label means orders can be sent only to an IBKR paper account. Live execution is disabled by the server policy and by the desktop bridge. Advisory or approval-required modes may make the flow more restrictive.
+Paper is active by default. The Live toggle records the owner’s intent, but orders remain blocked until an online live-scoped bridge proves that its locally configured non-paper account is present in IBKR’s managed accounts. A paper bridge cannot claim live commands, a live bridge cannot claim paper commands, and returning to Paper cancels unsubmitted live entries while preserving visibility of existing live positions and broker-hosted protection.
 
 Flolah does not need the real IBKR account number in its cloud database. It uses an opaque account reference for owner-scoped events and reports. Never paste account numbers, tokens, environment files, statements or credential-bearing logs into chat, public issues or shared documents.
 

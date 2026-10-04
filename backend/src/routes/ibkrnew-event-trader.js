@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAuth, requireCeoOrAdmin, requireTenantFullAccess, resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
-import { approveAuthorization, authenticateBridge, acknowledgeCommand, claimCommands, ensureIbkrNewDefaults, getDashboard, getIbkrNewConfigHistory, getIbkrNewEventDetail, getIbkrNewEventTimeline, getIbkrNewGoalHistory, getIbkrNewGoalState, getIbkrNewLiveOperations, getIbkrNewSchemaDocument, getIbkrNewSummary, ingestBridgeEvent, pauseIbkrNewGoal, publishConfig, registerBridge, resumeIbkrNewGoal, revokeBridge, setIbkrNewGoal } from '../services/ibkrnew-event-trader.js';
+import { approveAuthorization, authenticateBridge, acknowledgeCommand, claimCommands, ensureIbkrNewDefaults, getDashboard, getIbkrNewConfigHistory, getIbkrNewEventDetail, getIbkrNewEventTimeline, getIbkrNewExecutionMode, getIbkrNewGoalHistory, getIbkrNewGoalState, getIbkrNewLiveOperations, getIbkrNewSchemaDocument, getIbkrNewSummary, ingestBridgeEvent, pauseIbkrNewGoal, publishConfig, registerBridge, resumeIbkrNewGoal, revokeBridge, setIbkrNewExecutionMode, setIbkrNewGoal } from '../services/ibkrnew-event-trader.js';
 import { buildIbkrNewEventBridgePackageZip } from '../services/ibkrnew-event-bridge-package.js';
 
 const router = Router();
@@ -19,12 +19,14 @@ function handle(res, fn) { try { return fn(); } catch (e) { return res.status(e.
 router.get('/dashboard', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json(getDashboard(owner(req)))));
 router.get('/summary', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json(getIbkrNewSummary(owner(req)))));
 router.get('/live-operations', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json(getIbkrNewLiveOperations(owner(req), { limit: req.query.limit }))));
-router.get('/events', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json(getIbkrNewEventTimeline(owner(req), { page: req.query.page, pageSize: req.query.page_size, eventType: req.query.event_type, status: req.query.status }))));
+router.get('/events', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json(getIbkrNewEventTimeline(owner(req), { page: req.query.page, pageSize: req.query.page_size, eventType: req.query.event_type, status: req.query.status, environment: req.query.environment }))));
 router.get('/events/:eventId', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json(getIbkrNewEventDetail(owner(req), req.params.eventId))));
 router.get('/goal', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json(getIbkrNewGoalState(owner(req)))));
 router.get('/goal/history', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json({ items: getIbkrNewGoalHistory(owner(req), { limit: req.query.limit }) })));
 router.get('/schemas', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json(getIbkrNewSchemaDocument())));
 router.get('/schemas/:kind', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json(getIbkrNewSchemaDocument(req.params.kind))));
+router.get('/execution-mode', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json(getIbkrNewExecutionMode(owner(req)))));
+router.put('/execution-mode', requireAuth, requireTenantFullAccess, (req, res) => handle(res, () => res.json(setIbkrNewExecutionMode(owner(req), req.body || {}))));
 router.put('/goal', requireAuth, requireTenantFullAccess, (req, res) => handle(res, () => res.json(setIbkrNewGoal(owner(req), req.body || {}))));
 router.post('/goal/pause', requireAuth, requireTenantFullAccess, (req, res) => handle(res, () => res.json(pauseIbkrNewGoal(owner(req)))));
 router.post('/goal/resume', requireAuth, requireTenantFullAccess, (req, res) => handle(res, () => res.json(resumeIbkrNewGoal(owner(req)))));
@@ -33,14 +35,14 @@ router.post('/configs/:kind/publish', requireAuth, requireTenantFullAccess, (req
 router.get('/configs/:kind/history', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json({ items: getIbkrNewConfigHistory(owner(req), req.params.kind, { limit: req.query.limit }) })));
 router.post('/bridges', requireAuth, requireTenantFullAccess, (req, res) => handle(res, () => {
   const suppliedAccountId = req.body?.account_id ?? req.body?.accountId ?? req.body?.account_ref;
-  return res.status(201).json(registerBridge(owner(req), suppliedAccountId));
+  return res.status(201).json(registerBridge(owner(req), suppliedAccountId, req.body?.environment || req.body?.mode));
 }));
 router.get('/bridges/package', requireAuth, requireTenantFullAccess, async (req, res) => {
   try {
     const raw = String(req.query.include_runtime ?? '1').toLowerCase();
     const includeRuntime = !['0', 'false', 'no', 'lite'].includes(raw);
     const ownerUserId = owner(req);
-    const result = await buildIbkrNewEventBridgePackageZip({ ownerUserId, includeRuntime });
+    const result = await buildIbkrNewEventBridgePackageZip({ ownerUserId, includeRuntime, environment: req.query.environment || req.query.mode });
     console.info('[ibkrnew-package] download owner=%s bridge=%s prefix=%s runtime=%s bytes=%s', ownerUserId, result.bridge_id, result.token_prefix, includeRuntime ? '1' : '0', result.zip.length);
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
@@ -56,7 +58,7 @@ router.get('/bridges/package', requireAuth, requireTenantFullAccess, async (req,
 router.delete('/bridges/:bridgeId', requireAuth, requireTenantFullAccess, (req, res) => handle(res, () => res.json(revokeBridge(owner(req), req.params.bridgeId))));
 router.post('/authorizations/:authorizationId/approve', requireAuth, requireTenantFullAccess, (req, res) => handle(res, () => res.json(approveAuthorization(owner(req), req.params.authorizationId))));
 router.post('/bridge/events', bridge, (req, res) => handle(res, () => res.status(202).json(ingestBridgeEvent(req.ibkrNewBridge, req.body || {}))));
-router.get('/bridge/bootstrap', bridge, (req, res) => handle(res, () => res.json({ environment: 'paper', bridge_id: req.ibkrNewBridge.bridge_id, account_ref: req.ibkrNewBridge.account_id, goal: getIbkrNewGoalState(req.ibkrNewBridge.owner_user_id), configs: ensureIbkrNewDefaults(req.ibkrNewBridge.owner_user_id) })));
+router.get('/bridge/bootstrap', bridge, (req, res) => handle(res, () => res.json({ environment: req.ibkrNewBridge.environment, bridge_id: req.ibkrNewBridge.bridge_id, account_ref: req.ibkrNewBridge.account_id, execution_mode: getIbkrNewExecutionMode(req.ibkrNewBridge.owner_user_id), goal: getIbkrNewGoalState(req.ibkrNewBridge.owner_user_id), configs: ensureIbkrNewDefaults(req.ibkrNewBridge.owner_user_id) })));
 router.post('/bridge/commands/claim', bridge, (req, res) => handle(res, () => res.json({ commands: claimCommands(req.ibkrNewBridge, req.body?.limit, req.body?.protocol_version) })));
 router.post('/bridge/commands/:commandId/ack', bridge, (req, res) => handle(res, () => res.json(acknowledgeCommand(req.ibkrNewBridge, req.params.commandId, req.body?.status, req.body?.detail))));
 

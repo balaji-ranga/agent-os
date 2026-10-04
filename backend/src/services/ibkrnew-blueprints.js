@@ -14,7 +14,7 @@ function clone(value) { return structuredClone(value); }
 
 function assertBlueprintContract(manifest, configs, goal, workflows) {
   if (manifest.blueprint_id !== 'IBKRNew0' || Number(manifest.schema_version) < 1) throw new Error('IBKRNew blueprint manifest is invalid');
-  if (manifest.environment !== 'paper') throw new Error('IBKRNew blueprint must remain paper-only');
+  if (manifest.environment !== 'mode_aware' || !['paper', 'live'].every((mode) => manifest.supported_environments?.includes(mode))) throw new Error('IBKRNew blueprint must declare paper and live environments');
   for (const kind of CONFIG_KINDS) {
     if (!manifest.config_blueprints?.[kind] || !configs[kind] || Number(configs[kind].schema_version) < 1) throw new Error(`IBKRNew ${kind} blueprint is missing or unversioned`);
   }

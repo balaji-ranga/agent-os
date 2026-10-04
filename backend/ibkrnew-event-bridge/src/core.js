@@ -28,7 +28,9 @@ export function commandMatchesBootstrap(command, bootstrap) {
   const currentRef = String(bootstrap?.account_ref || '');
   const commandCycle = String(command?.authorization?.goal?.cycle_id || '');
   const currentCycle = String(bootstrap?.goal?.cycle?.cycle_id || '');
-  return Boolean(commandRef && currentRef && commandRef === currentRef && commandCycle && commandCycle === currentCycle && bootstrap?.goal?.opening_trades_allowed === true);
+  const commandEnvironment = String(command?.authorization?.environment || '');
+  const currentEnvironment = String(bootstrap?.environment || '');
+  return Boolean(commandRef && currentRef && commandRef === currentRef && commandCycle && commandCycle === currentCycle && commandEnvironment && commandEnvironment === currentEnvironment && bootstrap?.goal?.opening_trades_allowed === true && bootstrap?.execution_mode?.requested_mode === currentEnvironment && bootstrap?.execution_mode?.execution_enabled === true);
 }
 
 export class IBKRNewBridgeCore {

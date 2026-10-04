@@ -5,6 +5,12 @@ import { join } from 'node:path';
 
 process.env.AGENT_OS_DATA_DIR = mkdtempSync(join(tmpdir(), 'ibkrnew-service-'));
 const { initDb, getDb } = await import('../src/db/schema.js'); initDb();
+getDb().exec(`CREATE TABLE ibkrnew_bridges (
+  bridge_id TEXT PRIMARY KEY, owner_user_id TEXT NOT NULL, account_id TEXT NOT NULL,
+  environment TEXT NOT NULL CHECK(environment = 'paper'), token_hash TEXT NOT NULL UNIQUE,
+  status TEXT NOT NULL DEFAULT 'offline', last_sequence INTEGER NOT NULL DEFAULT 0,
+  last_seen_at TEXT, created_at TEXT NOT NULL, revoked_at TEXT
+)`);
 const legacyTableCountBefore = getDb().prepare("SELECT COUNT(*) count FROM sqlite_master WHERE type='table' AND name LIKE 'ibkr\\_%' ESCAPE '\\'").get().count;
 const blueprints = await import('../src/services/ibkrnew-blueprints.js');
 const service = await import('../src/services/ibkrnew-event-trader.js');
@@ -31,12 +37,13 @@ assert.equal(strategySkillLocations.some((path) => existsSync(path)), true, 'the
 const mutableBlueprint = blueprints.getIbkrNewConfigBlueprint('policy'); mutableBlueprint.budgets.daily_opening_exposure_usd = 1;
 assert.equal(blueprints.getIbkrNewConfigBlueprint('policy').budgets.daily_opening_exposure_usd, 1000, 'blueprint consumers receive isolated copies');
 const configs = service.ensureIbkrNewDefaults(owner);
+assert.match(getDb().prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='ibkrnew_bridges'`).get().sql, /environment IN \('paper','live'\)/, 'paper-only bridge table is migrated in place before live registration');
 assert.equal(configs.policy.budgets.daily_opening_exposure_usd, 1000);
 assert.equal(configs.policy.budgets.total_gross_exposure_usd, 10000);
 assert.equal(configs.strategy_skill.agent_name, 'IBKRNewStrategyPlanner');
 assert.match(configs.strategy_skill.skill_path, /ibkrnew-trade-strategy/);
 assert.equal(configs.strategy.goal_binding.selector, 'ACTIVE_IBKRNEW_GOAL');
-assert.equal(configs.policy.schema_version, 1); assert.equal(configs.market_data.schema_version, 1);
+assert.equal(configs.policy.schema_version, 2); assert.equal(configs.policy.environment, 'shared'); assert.equal(configs.policy.feature_switches.live_execution_enabled, undefined); assert.equal(configs.market_data.schema_version, 1);
 assert.equal(service.getIbkrNewGoalState(owner).block_reason, 'goal_waiting_for_capital');
 assert.throws(() => service.publishConfig(owner, 'strategy', { ...configs.strategy, name: 'DU1234567' }), /not accepted in server-side configuration/);
 assert.throws(() => service.publishConfig(owner, 'strategy', { ...configs.strategy, schema_version: 999 }), /schema_version must be 2/);
@@ -53,7 +60,7 @@ const savedStrategyRows = getDb().prepare(`SELECT version,status,document_json F
 assert.deepEqual(savedStrategyRows.map((row) => [row.version, row.status]), [[1, 'retired'], [2, 'published']], 'UI strategy publish persists immutable database versions');
 assert.equal(JSON.parse(savedStrategyRows[1].document_json).name, 'IBKRNew Saved Strategy Test');
 assert.equal(service.getPublishedConfig(other, 'strategy'), null, 'another owner cannot read the saved strategy');
-assert.throws(() => service.publishConfig(owner, 'policy', { ...configs.policy, environment: 'live' }), /paper-only/);
+assert.throws(() => service.publishConfig(owner, 'policy', { ...configs.policy, environment: 'live' }), /policy environment/);
 const legacyUniverseOwner = 'IBKRNewOwner_LegacyUniverse'; const legacyAt = new Date().toISOString();
 getDb().prepare(`INSERT INTO ibkrnew_config_versions(id,owner_user_id,kind,version,status,document_json,created_at,published_at) VALUES(?,?,?,?,?,?,?,?)`).run('IBKRNewUniverse_legacy', legacyUniverseOwner, 'universe', 1, 'published', JSON.stringify({ name: 'Legacy custom universe', allowlist: [], denylist: [], maximum_active_subscriptions: 25, filters: { country: ['US'], security_types: ['STK', 'ETF'], minimum_price_usd: 25, maximum_price_usd: 250, minimum_average_daily_volume: 3000000, maximum_spread_pct: 0.15, require_shortable_for_short: true } }), legacyAt, legacyAt);
 const migratedUniverse = service.ensureIbkrNewDefaults(legacyUniverseOwner).universe;
@@ -68,16 +75,48 @@ assert.match(bridge.account_id, /^IBKRNewAccount_/);
 assert.equal(service.getDashboard(owner).bridges[0].account_id, undefined);
 assert.equal(service.getDashboard(owner).bridges[0].account_ref, credentials.account_ref);
 assert.equal(service.getDashboard(other).events.length, 0);
+
+const liveModeOwner = 'IBKRNewOwner_LiveMode';
+assert.equal(service.getIbkrNewExecutionMode(liveModeOwner).requested_mode, 'paper');
+assert.throws(() => service.setIbkrNewExecutionMode(liveModeOwner, { mode: 'live' }), /confirmation is required/);
+const liveCredentials = service.registerBridge(liveModeOwner, null, 'live'); const liveBridge = service.authenticateBridge(liveCredentials.bridge_id, liveCredentials.token);
+assert.equal(liveCredentials.environment, 'live');
+assert.equal(service.setIbkrNewExecutionMode(liveModeOwner, { mode: 'live', confirm_live_risk: true }).activation_state, 'AWAITING_LIVE_BRIDGE');
+service.ingestBridgeEvent(liveBridge, { event_id: 'live-attestation-1', sequence: 1, event_type: 'bridge.heartbeat', occurred_at: new Date().toISOString(), payload: { gateway_connected: true, account_attestation: { status: 'verified', environment: 'live', execution_ready: true } } });
+assert.equal(service.getIbkrNewExecutionMode(liveModeOwner).activation_state, 'LIVE_ACTIVE');
+assert.equal(service.getIbkrNewExecutionMode(liveModeOwner).active_mode, 'live');
+service.ingestBridgeEvent(liveBridge, { event_id: 'live-account-2', sequence: 2, event_type: 'account.snapshot', occurred_at: new Date().toISOString(), payload: { eligible_capital_usd: 10000, cash_usd: 10000, positions: [], open_orders: [] } });
+service.ingestBridgeEvent(liveBridge, { event_id: 'live-profile-3', sequence: 3, event_type: 'instrument.profile_refreshed', occurred_at: new Date().toISOString(), payload: { symbol: 'AAPL', security_type: 'STK', average_daily_volume: 5000000, index_memberships: ['SPX'], fundamentals: { market_cap_usd: 3000000000000, revenue_ttm_usd: 300000000000, debt_to_equity: 1.5, operating_cash_flow_ttm_usd: 100000000000, sector: 'TECHNOLOGY' }, corporate_events: [] } });
+const liveSignal = service.ingestBridgeEvent(liveBridge, { event_id: 'live-signal-4', sequence: 4, event_type: 'market.signal', occurred_at: new Date().toISOString(), payload: { expression: 'LONG_STOCK', symbol: 'AAPL', security_type: 'STK', quantity: 1, bid: 99.9, ask: 100, last: 100, limit_price: 100, average_daily_volume: 5000000, quote_at: new Date().toISOString(), planned_loss_usd: 5, protection: { stop_price: 95, targets: [{ limit_price: 112, quantity: 1 }] } } });
+assert.equal(liveSignal.reaction.decision, 'authorized');
+const liveCommands = service.claimCommands(liveBridge, 10, 2); assert.equal(liveCommands.length, 1); assert.equal(liveCommands[0].authorization.environment, 'live');
+service.ingestBridgeEvent(liveBridge, { event_id: 'live-position-5', sequence: 5, event_type: 'position.changed', occurred_at: new Date().toISOString(), payload: { positions: [{ symbol: 'AAPL', security_type: 'STK', quantity: 1, market_price: 100 }] } });
+assert.equal(service.getIbkrNewEventTimeline(liveModeOwner).environment, 'live');
+assert.equal(service.getIbkrNewEventTimeline(liveModeOwner).pagination.total_items, 5, 'the active live timeline is isolated from paper events');
+assert.equal(service.getIbkrNewExecutionMode(other).requested_mode, 'paper', 'execution mode is owner scoped');
+const returnedToPaper = service.setIbkrNewExecutionMode(liveModeOwner, { mode: 'paper' }); assert.equal(returnedToPaper.requested_mode, 'paper'); assert.equal(returnedToPaper.cancelled_authorizations, 1);
+assert.equal(getDb().prepare(`SELECT status FROM ibkrnew_command_outbox WHERE command_id=?`).get(liveCommands[0].command_id).status, 'cancelled');
+assert.equal(getDb().prepare(`SELECT status FROM ibkrnew_budget_reservations WHERE authorization_id=?`).get(liveSignal.reaction.authorization_id).status, 'released');
+assert.equal(service.getIbkrNewEventTimeline(liveModeOwner).environment, 'paper');
+assert.equal(service.getIbkrNewEventTimeline(liveModeOwner).pagination.total_items, 0, 'switching to paper does not mix live history into the paper timeline');
+assert.equal(service.getIbkrNewEventTimeline(liveModeOwner, { environment: 'live' }).pagination.total_items, 5, 'live history remains available through an explicit mode filter');
+assert.equal(service.getDashboard(liveModeOwner).inactive_live_account.positions[0].symbol, 'AAPL', 'returning to paper keeps residual live exposure visible for reconciliation');
+const blockedLiveOwner = 'IBKRNewOwner_BlockedLive'; const blockedLiveCredentials = service.registerBridge(blockedLiveOwner, null, 'live'); const blockedLiveBridge = service.authenticateBridge(blockedLiveCredentials.bridge_id, blockedLiveCredentials.token);
+service.setIbkrNewExecutionMode(blockedLiveOwner, { mode: 'live', confirm_live_risk: true });
+service.ingestBridgeEvent(blockedLiveBridge, { event_id: 'blocked-live-1', sequence: 1, event_type: 'bridge.heartbeat', occurred_at: new Date().toISOString(), payload: { gateway_connected: true, account_attestation: { status: 'failed', environment: 'live', execution_ready: false, reason_code: 'ACCOUNT_ENVIRONMENT_MISMATCH' } } });
+assert.equal(service.getIbkrNewExecutionMode(blockedLiveOwner).activation_state, 'LIVE_BLOCKED');
+assert.equal(service.getIbkrNewExecutionMode(blockedLiveOwner).execution_enabled, false);
 const packageOwner = 'IBKRNewOwner_Package';
 const packaged = await buildIbkrNewEventBridgePackageZip({ ownerUserId: packageOwner, includeRuntime: false, baseUrlOverride: 'https://flolah.example' });
 const packageEnv = extractZipEntryBySuffix(packaged.zip, '.env').toString('utf8');
 const packageMetaText = extractZipEntryBySuffix(packaged.zip, 'bridge.meta.json').toString('utf8');
 const packageMeta = JSON.parse(packageMetaText);
 const packageToken = packageEnv.match(/^IBKRNEW_BRIDGE_TOKEN=(.+)$/m)?.[1];
-assert.equal(packaged.filename, 'IBKRNewBridge-lite.zip');
+assert.equal(packaged.filename, 'IBKRNewBridge-paper-lite.zip');
 assert.match(packageEnv, /^IBKRNEW_API_URL=https:\/\/flolah\.example\/api\/ibkrnew-event-trader$/m);
 assert.match(packageEnv, /^IBKRNEW_ACCOUNT_ID=$/m, 'real IBKR account remains desktop-only and blank');
 assert.match(packageEnv, /^IBKRNEW_ACCOUNT_SNAPSHOT_INTERVAL_MS=15000$/m);
+assert.match(packageEnv, /^IBKRNEW_TRADING_MODE=paper$/m);
 assert.ok(packageToken?.startsWith('ibkrnew_'));
 assert.doesNotMatch(packageMetaText, new RegExp(packageToken));
 assert.equal(packageMeta.bridge_id, packaged.bridge_id);
@@ -87,6 +126,13 @@ assert.ok(extractZipEntryBySuffix(packaged.zip, 'scripts/Test-IBKRNewBridge.ps1'
 assert.ok(service.authenticateBridge(packaged.bridge_id, packageToken));
 assert.equal(service.getDashboard(packageOwner).bridges.length, 1);
 assert.equal(service.getDashboard(other).bridges.some((row) => row.bridge_id === packaged.bridge_id), false, 'package bridge stays owner scoped');
+const packagedLive = await buildIbkrNewEventBridgePackageZip({ ownerUserId: packageOwner, includeRuntime: false, baseUrlOverride: 'https://flolah.example', environment: 'live' });
+const livePackageEnv = extractZipEntryBySuffix(packagedLive.zip, '.env').toString('utf8');
+assert.equal(packagedLive.filename, 'IBKRNewBridge-live-lite.zip');
+assert.match(livePackageEnv, /^IBKRNEW_TRADING_MODE=live$/m);
+assert.match(livePackageEnv, /^IBKRNEW_GATEWAY_PORT=4001$/m);
+assert.match(livePackageEnv, /^IBKRNEW_LIVE_EXECUTION_ENABLED=0$/m);
+assert.equal(service.authenticateBridge(packagedLive.bridge_id, livePackageEnv.match(/^IBKRNEW_BRIDGE_TOKEN=(.+)$/m)?.[1]).environment, 'live');
 const privacySentinel = 'DU1234567';
 assert.throws(() => service.ingestBridgeEvent(bridge, { event_id: privacySentinel, sequence: 1, event_type: 'bridge.heartbeat', payload: {} }), /not accepted in event metadata/);
 service.ingestBridgeEvent(bridge, { event_id: 'desktop-1', sequence: 1, event_type: 'account.snapshot', occurred_at: new Date().toISOString(), payload: { account_id: privacySentinel, eligible_capital_usd: 10000, cash_usd: 10000, positions: [], open_orders: [], nested: [{ acctCode: privacySentinel, note: `broker ${privacySentinel} snapshot` }] } });

@@ -347,14 +347,14 @@ function ConnectorsPanel() {
     }
   };
 
-  const downloadIbkrNewBridge = async (includeRuntime = true) => {
+  const downloadIbkrNewBridge = async (includeRuntime = true, environment = 'paper') => {
     setBusy(true);
     setError(null);
     setMessage(null);
     try {
-      await api.ibkrNewBridgePackageDownload({ includeRuntime });
+      await api.ibkrNewBridgePackageDownload({ includeRuntime, environment });
       setMessage(
-        'IBKRNewBridge downloaded with fresh owner-scoped credentials. Keep .env private, add the paper account only on this desktop, test offline, and explicitly enable paper execution when ready.'
+        `IBKRNew ${environment} bridge downloaded with fresh owner-scoped credentials. Keep .env private, add the matching IBKR account only on this desktop, test offline, and explicitly enable the local ${environment} execution gate when ready.`
       );
     } catch (e) {
       setError(e.message);
@@ -538,19 +538,25 @@ function ConnectorsPanel() {
       <section style={{ marginTop: '1.25rem', padding: '1rem', border: '1px solid var(--border)', borderRadius: 8 }}>
         <h2 style={{ margin: '0 0 0.5rem', fontSize: '1.05rem' }}>IBKRNew Event Bridge</h2>
         <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--muted)' }}>
-          Dedicated outbound-only Windows runtime for <Link to="/ibkrnew0/live-operations">IBKRNew0</Link> event-driven paper trading.
+          Dedicated outbound-only Windows runtime for <Link to="/ibkrnew0/live-operations">IBKRNew0</Link> event-driven paper or live trading.
           The download mints a separate bridge identity and token; it never reuses or changes the Monthly Trading bridge.
         </p>
         <p style={{ margin: '0.5rem 0 0', fontSize: '0.85rem', color: 'var(--muted)' }}>
           The real IBKR account number is not requested or stored by Flolah. Add it only to the downloaded desktop <code>.env</code>.
-          Paper execution remains disabled until you explicitly enable it after running the offline test.
+          Execution remains disabled until you explicitly enable the matching local gate after running the offline test. The bridge verifies the configured account against IB Gateway managed accounts before it can execute.
         </p>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: '0.75rem' }}>
-          <button type="button" className="wf-btn-primary" disabled={busy} onClick={() => downloadIbkrNewBridge(true)}>
-            {busy ? 'Working…' : 'Download IBKRNewBridge'}
+          <button type="button" className="wf-btn-primary" disabled={busy} onClick={() => downloadIbkrNewBridge(true, 'paper')}>
+            {busy ? 'Working…' : 'Download paper bridge'}
           </button>
-          <button type="button" className="wf-btn" disabled={busy} onClick={() => downloadIbkrNewBridge(false)}>
-            Download lite (without Node or dependencies)
+          <button type="button" className="wf-btn" disabled={busy} onClick={() => downloadIbkrNewBridge(true, 'live')}>
+            Download live bridge
+          </button>
+          <button type="button" className="wf-btn" disabled={busy} onClick={() => downloadIbkrNewBridge(false, 'paper')}>
+            Paper lite
+          </button>
+          <button type="button" className="wf-btn" disabled={busy} onClick={() => downloadIbkrNewBridge(false, 'live')}>
+            Live lite
           </button>
         </div>
         <p style={{ margin: '0.5rem 0 0', fontSize: '0.8rem', color: 'var(--muted)' }}>

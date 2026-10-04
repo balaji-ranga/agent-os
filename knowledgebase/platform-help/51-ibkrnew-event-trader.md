@@ -1,27 +1,27 @@
-# IBKRNew0 event-driven paper trader
+# IBKRNew0 event-driven Paper/Live trader
 
 **Path:** **Prebuilt Workflows → IBKRNew0 → Strategy | Summary | Live Operations**
 
 **Desktop download:** **Connectors → IBKRNew Event Bridge**
 
-**Release boundary:** paper trading only. This is separate from the older IBKR Monthly Positive Return workflows.
+**Release boundary:** Paper is the default. Live requires an explicit owner toggle plus matching local live-bridge account attestation. This is separate from the older IBKR Monthly Positive Return workflows.
 
-IBKRNew0 reacts to broker and market events from a Windows desktop beside IB Gateway or TWS. Flolah does not connect from the cloud directly to the local Gateway, and there is no server-side price polling loop. The desktop bridge opens outbound HTTPS connections, streams market/broker callbacks, sends canonical events to Flolah, and claims short-lived signed paper commands.
+IBKRNew0 reacts to broker and market events from a Windows desktop beside IB Gateway or TWS. Flolah does not connect from the cloud directly to the local Gateway, and there is no server-side price polling loop. The desktop bridge opens outbound HTTPS connections, streams market/broker callbacks, sends canonical events to Flolah, and claims short-lived signed commands for its registered environment.
 
 > Trading involves risk. The supplied configuration is a paper-trading baseline, not financial advice or a promise of returns. Validate the strategy and broker entitlements with paper data before relying on any result.
 
-## What “Paper trading only” means
+## Paper and Live mode
+
+Paper and Live reuse the same goal, strategy skill, strategy, policy, universe, market-data configuration and six event reactions. Broker identities, account projections, reservations, commands, trades and reports are separated by environment.
 
 IBKRNew0 can submit orders only when all of these are true:
 
-- the active policy is `paper` and live execution remains disabled;
-- the desktop bridge is explicitly enabled for paper execution;
-- the locally selected IBKR account is a paper account;
+- the owner-selected UI mode matches the registered desktop bridge environment;
+- the bridge has verified the locally configured account is present in IBKR `managedAccounts` and matches Paper (`DU…`) or Live (non-`DU…`);
+- the matching local paper or live execution gate is explicitly enabled;
+- the active goal, strategy, universe, market data and deterministic risk checks permit the order.
 
-An operator can now enroll one enabled CEO idempotently with `backend/scripts/enable-ibkrnew-owner.mjs`. Enrollment installs/enables that owner's complete IBKRNew0 paper capability—agents, reaction workflows, tool grants, workspace instructions, and baseline configuration—and verifies the result. It deliberately leaves both paper order submission and live trading disabled. The CEO still performs the desktop setup and explicitly enables paper execution locally after health checks.
-- the active goal, strategy, universe, market data and risk checks all permit the order.
-
-There is no live-account override in this release. Advisory and approval-required modes can further restrict execution.
+An operator can enroll one enabled CEO idempotently with `backend/scripts/enable-ibkrnew-owner.mjs`. Enrollment installs/enables the complete IBKRNew0 capability—agents, reaction workflows, tool grants, workspace instructions, and baseline configuration—and verifies the result. Paper remains selected by default. Advisory and approval-required strategy modes can further restrict either environment.
 
 ## Start and event flow
 
@@ -32,9 +32,9 @@ flowchart LR
   Inbox --> Observe[Market observation]
   Observe --> Plan[Strategy proposal]
   Plan --> Risk[Deterministic risk and budget gate]
-  Risk -->|authorized paper command| Outbox[Expiring command outbox]
+  Risk -->|authorized mode-scoped command| Outbox[Expiring command outbox]
   Outbox -->|bridge claims and rechecks| Bridge
-  Bridge -->|paper order| GW
+  Bridge -->|protected order in selected environment| GW
   GW -->|status, fill and commission events| Bridge
   Inbox --> Monitor[Position and goal monitoring]
   Inbox --> Supervise[Health and reconciliation]
@@ -51,7 +51,7 @@ IBKRNew0 is not one long workflow and does not contain a node that waits all day
 | Market observation | IBKRNewMarketObserver | bars, sessions, shortability, instrument/profile refreshes | Normalize desktop observations. |
 | Strategy planning | IBKRNewStrategyPlanner | closed bars, regime changes | Apply the active goal, strategy skill and universe; propose only. |
 | Risk checking | IBKRNewRiskChecker | signals, account snapshots, position changes | Enforce budgets, freshness, exposure, loss and commission rules deterministically. |
-| Execution | IBKRNewExecutionOperator | authorized trades, order status | Deliver immutable, expiring paper commands to the correct bridge. |
+| Execution | IBKRNewExecutionOperator | authorized trades, order status | Deliver immutable, expiring mode-scoped commands to the correct bridge. |
 | Position monitoring | IBKRNewPositionMonitor | fills, positions, hold/expiry windows | Track protection, commissions and goal-attributed realized outcomes. |
 | Trading supervision | IBKRNewTradingSupervisor | disconnects, reconciliation mismatches, circuit breakers | Fail closed, report health and coordinate recovery without opening exposure. |
 
@@ -68,7 +68,7 @@ Open **IBKRNew0 → Strategy**. The tabs separate concerns:
 - **Universe:** eligible stock indices and independent ETF filters, liquidity/price rules and exclusions.
 - **Market data:** required executable quotes, bars, shortability, account truth, instrument profiles, fundamentals and corporate events.
 
-**Save** publishes a new owner-scoped configuration version to the database and retires the prior active version. An in-flight authorization keeps the exact versions it was checked against. A configuration may tighten immediately; no setting can bypass the paper-only safety floor or broker restrictions.
+**Save** publishes a new owner-scoped configuration version to the database and retires the prior active version. An in-flight authorization keeps the exact versions it was checked against. The **Trading mode** control changes only the broker execution environment; it does not duplicate or reset the strategy configuration. No setting can bypass account attestation, local execution gates or broker restrictions.
 
 ### Default conservative-to-moderate limits
 
@@ -110,18 +110,18 @@ Stock and ETF selection are independent:
 
 Executable quotes, bars, order/account/position truth and commissions come from IBKR through the local bridge. Fundamentals, index/ETF membership, instrument reference data and corporate events may come from licensed profile data configured for the bridge. Fundamentals support eligibility and event-risk filters; they are not the low-latency price trigger.
 
-Only symbols assigned by the active universe should be subscribed. Data entitlements and exchange permissions remain the responsibility of the IBKR paper account.
+Only symbols assigned by the active universe should be subscribed. Data entitlements and exchange permissions remain the responsibility of the selected IBKR account.
 
 ## Install the one desktop service
 
-1. Install and sign in to IB Gateway or TWS on the Windows trading PC; enable its local API for the paper session.
+1. Install and sign in to IB Gateway or TWS on the Windows trading PC; enable its local API for the intended Paper or Live session.
 2. In Flolah, open **Connectors → IBKRNew Event Bridge**.
-3. Download the full package (portable runtime included) or lite package (local compatible runtime required).
+3. Download the Paper or Live full package (portable runtime included) or its lite package (local compatible runtime required).
 4. Extract it to a private local folder. Keep the generated environment file and token private.
-5. Configure the Gateway host/port, a dedicated client ID, and the paper account **only on that PC**.
+5. Configure the Gateway host/port, a dedicated client ID, and the matching account **only on that PC**. Default Gateway ports are commonly 4002 for Paper and 4001 for Live, but the bridge never treats the port as proof of environment.
 6. Run the package's offline test, then run `scripts\Install-IBKRNewBridgeTask.ps1`. It installs the bridge in the signed-in user's Local App Data, registers the `IBKRNewBridge` Windows Scheduled Task and starts it.
 7. Confirm Gateway, bridge and market-data health in **Live Operations**. Use `scripts\Get-IBKRNewBridgeTaskStatus.ps1` for local task status.
-8. Enable paper execution locally only after subscriptions, account state, positions and reconciliation are healthy.
+8. Enable only the matching local execution gate after subscriptions, account attestation, positions and reconciliation are healthy. To use Live, select **Live** in **IBKRNew0 → Strategy**; it stays blocked until the live bridge attests successfully.
 
 The package runs one supervised IBKRNew bridge process. The task starts at user sign-in, restarts a failed process, starts missed runs when Windows becomes available and reconnects to Gateway after Modern Standby. IB Gateway still requires an authenticated desktop session; if that session expires, new exposure remains blocked until the user signs in again. The six event reactions run in Flolah; no workflow package is downloaded to the desktop. Revoking a bridge in Live Operations invalidates its token and pending commands.
 
@@ -129,15 +129,15 @@ The package runs one supervised IBKRNew bridge process. The task starts at user 
 
 **Summary** shows commission-adjusted outcomes, goal-cycle progress and allocation decisions. **Live Operations** is the authoritative runtime audit rather than an agent-chat transcript. Its six-agent activity cards show the current state and latest correlated event for Market Observer, Strategy Planner, Risk Checker, Execution Operator, Position Monitor and Trading Supervisor.
 
-The causal event timeline is loaded with server-side pagination (20 events per page), event-type and status filters. Each row explains what happened in plain language. **View lifecycle** loads one event's detail on demand and shows the ordered six-role lifecycle, persisted planner/risk decision, authorization, command, trade and execution evidence using a common correlation ID. Health, snapshots, profiles, approvals and executions refresh separately, so an ever-growing event history is never downloaded into the page. All event and decision evidence remains owner-scoped and follows the owner’s configured retention and offboarding policy.
+The causal event timeline is loaded with server-side pagination (20 events per page), event-type and status filters, and is scoped to the selected Paper or Live mode. Each row explains what happened in plain language. **View lifecycle** loads one event's detail on demand and shows the ordered six-role lifecycle, persisted planner/risk decision, authorization, command, trade and execution evidence using a common correlation ID. Health, snapshots, profiles, approvals and executions refresh separately, so an ever-growing event history is never downloaded into the page. All event and decision evidence remains owner-scoped and follows the owner’s configured retention and offboarding policy. Returning to Paper does not hide residual live exposure: Live Operations displays a red reconciliation warning until the live bridge reports no positions or open orders.
 
 The current account projection is refreshed frequently for the risk gate, but historical snapshot rows are compacted: a new row is retained when position/order structure changes or when the five-minute checkpoint is due. Valuation-only refreshes inside that window update current state without adding redundant snapshot history. The daily retention job removes snapshots and events older than the CEO profile's 30, 60, 90, 120 or 365-day selection (90 days by default).
 
-Before expecting a paper order, verify:
+Before expecting an order, verify:
 
 1. Goal state is active and cycle capital is available.
 2. Trading and the desired instrument/direction switches are enabled.
-3. The desktop bridge and Gateway show online and reconciled.
+3. The selected-mode desktop bridge and Gateway show online, attested and reconciled.
 4. Quote, feature, account, shortability and instrument data are fresh.
 5. The symbol passes the active stock-index or ETF universe filters.
 6. Total, daily, position, loss and commission gates have capacity.

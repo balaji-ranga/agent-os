@@ -1,7 +1,8 @@
 {
   "blueprint_id": "IBKRNew0",
-  "schema_version": 1,
-  "environment": "paper",
+  "schema_version": 2,
+  "environment": "mode_aware",
+  "supported_environments": ["paper", "live"],
   "config_blueprints": {
     "policy": "policy.json",
     "strategy": "strategy.json",

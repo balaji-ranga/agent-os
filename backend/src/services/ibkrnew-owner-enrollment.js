@@ -291,6 +291,7 @@ export async function enrollIbkrNewOwner(ownerUserId) {
     owner: { id: owner.id, name: owner.name },
     feature: 'IBKRNew0',
     environment: 'paper',
+    supported_environments: ['paper', 'live'],
     config_kinds: configKinds,
     enabled_workflows: visibleWorkflowCount,
     enabled_event_reactions: reactionCount,

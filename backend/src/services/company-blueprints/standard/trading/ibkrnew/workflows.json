@@ -29,7 +29,7 @@
       "agent_name": "IBKRNewExecutionOperator",
       "template_base_id": "IBKRNewExecutionOperator",
       "subscriptions": ["trade.authorized", "order.status_changed"],
-      "responsibility": "Deliver short-lived signed paper commands to the outbound-only desktop bridge."
+      "responsibility": "Deliver short-lived signed mode-scoped commands to the matching outbound-only desktop bridge."
     },
     {
       "workflow_id": "IBKRNewPositionMonitoringWorkflow",

@@ -23,18 +23,18 @@ export default function IBKRNewLiveOperations() {
   const loadCore = () => api.ibkrNewLiveOperations(50).then((result) => { setData(result); setError(''); }).catch((e) => setError(e.message));
   const loadTimeline = () => {
     setTimelineBusy(true);
-    return api.ibkrNewEvents({ page: eventPage, pageSize: 20, eventType, status: eventStatus })
+    return api.ibkrNewEvents({ page: eventPage, pageSize: 20, eventType, status: eventStatus, environment: data?.dashboard?.environment })
       .then((result) => { setTimeline(result); setError(''); })
       .catch((e) => setError(e.message))
       .finally(() => setTimelineBusy(false));
   };
 
   useEffect(() => { loadCore(); const timer = setInterval(loadCore, 10000); return () => clearInterval(timer); }, []);
-  useEffect(() => { loadTimeline(); const timer = setInterval(loadTimeline, 10000); return () => clearInterval(timer); }, [eventPage, eventType, eventStatus]);
+  useEffect(() => { loadTimeline(); const timer = setInterval(loadTimeline, 10000); return () => clearInterval(timer); }, [eventPage, eventType, eventStatus, data?.dashboard?.environment]);
 
   const act = async (fn) => { setBusy(true); try { await fn(); await Promise.all([loadCore(), loadTimeline()]); } catch (e) { setError(e.message); } finally { setBusy(false); } };
   const initialize = () => act(() => api.ibkrNewInitialize());
-  const register = () => act(async () => { setCredentials(await api.ibkrNewRegisterBridge()); });
+  const register = () => act(async () => { setCredentials(await api.ibkrNewRegisterBridge(dashboard?.environment || 'paper')); });
   const revoke = (id) => { if (window.confirm('Revoke this IBKRNew bridge and cancel its pending commands?')) act(() => api.ibkrNewRevokeBridge(id)); };
   const approve = (id) => act(() => api.ibkrNewApprove(id));
   const viewEvent = async (eventId) => {
@@ -44,14 +44,15 @@ export default function IBKRNewLiveOperations() {
 
   const dashboard = data?.dashboard;
   const bridges = dashboard?.bridges || [];
-  const activeBridge = selectActiveBridge(bridges);
+  const activeBridge = selectActiveBridge(bridges.filter((bridge) => bridge.environment === dashboard?.environment));
+  const executionMode = dashboard?.execution_mode || { requested_mode: 'paper', activation_state: 'PAPER_ACTIVE' };
   const budgets = dashboard?.budgets || {};
   const goal = dashboard?.goal;
   const cycle = goal?.cycle;
 
   return <div className="page page-wide ibkrnew-page">
     <header className="page-hero">
-      <div className="page-hero-top"><div className="page-hero-titles"><p className="page-hero-kicker">Prebuilt Workflows · IBKRNew0</p><h1>Live operations</h1></div><span className="ibkrnew-environment">Paper only</span></div>
+      <div className="page-hero-top"><div className="page-hero-titles"><p className="page-hero-kicker">Prebuilt Workflows · IBKRNew0</p><h1>Live operations</h1></div><span className={`ibkrnew-environment is-${executionMode.requested_mode}`}>{executionMode.requested_mode === 'live' ? `LIVE · ${statusLabel(executionMode.activation_state)}` : 'PAPER'}</span></div>
       <p className="page-hero-sub">A correlated audit of the six service-driven trading roles, desktop bridge, Gateway, decisions, approvals, positions, and executions. History is retained for {data?.retention_days || '—'} days.</p>
     </header>
 
@@ -63,8 +64,15 @@ export default function IBKRNewLiveOperations() {
       <section className="this-week-card"><small>Total gross ceiling</small><h2>${Number(budgets.total_limit_usd || 0).toFixed(2)}</h2><div>Cash and positions combined</div></section>
       <section className="this-week-card"><small>IBKR account snapshot</small><h2>{dashboard?.account ? 'Received' : 'Waiting'}</h2><div>{dashboard?.account?.captured_at ? formatLocalDateTime(dashboard.account.captured_at) : 'No broker state'}</div></section>
       <section className="this-week-card"><small>Bridge</small><h2>{activeBridge?.effective_status || 'Not registered'}</h2><div>{activeBridge?.last_seen_at ? formatLocalDateTime(activeBridge.last_seen_at) : 'A local desktop bridge is required'}</div></section>
+      <section className="this-week-card"><small>Account attestation</small><h2>{executionMode.attestation_status || (executionMode.requested_mode === 'paper' ? 'Local bridge required' : 'Waiting')}</h2><div>{executionMode.attested_at ? formatLocalDateTime(executionMode.attested_at) : executionMode.attestation_reason || 'The account number remains desktop-only'}</div></section>
       <section className="this-week-card"><small>Goal cycle</small><h2>{cycle?.status || goal?.block_reason || 'Waiting'}</h2><div>{cycle ? `$${Number(cycle.net_realized_profit_usd).toFixed(2)} of $${Number(cycle.target_profit_usd).toFixed(2)} · ${cycle.days_remaining} days` : 'Waiting for eligible capital'}</div></section>
     </div>
+
+    {dashboard?.inactive_live_account && <section className="panel ibkrnew-section ibkrnew-live-exposure-warning" role="alert">
+      <div className="ibkrnew-section-heading"><div><p className="page-hero-kicker">Live exposure remains at IBKR</p><h2 className="panel-title">Paper mode does not close broker positions or protective orders</h2></div><span className="ibkrnew-environment is-live">LIVE EXPOSURE</span></div>
+      <p>New live entries are disabled, but the last live account snapshot still reports exposure. Reconcile it in IBKR and keep the live bridge available for monitoring.</p>
+      <details open><summary>{dashboard.inactive_live_account.positions.length} position(s) · {dashboard.inactive_live_account.open_orders.length} open order(s) · snapshot {formatLocalDateTime(dashboard.inactive_live_account.captured_at)}</summary><pre className="ibkrnew-pre">{json({ positions: dashboard.inactive_live_account.positions, open_orders: dashboard.inactive_live_account.open_orders })}</pre></details>
+    </section>}
 
     <section className="panel ibkrnew-section">
       <div className="ibkrnew-section-heading"><div><h2 className="panel-title">Six-agent activity</h2><p className="page-muted">These are correlated runtime roles in the event pipeline—not synthetic chat messages. Open an event below for exact evidence at every stage.</p></div><span className="ibkrnew-version">{data?.agent_activity?.length || 0} roles</span></div>
@@ -75,7 +83,7 @@ export default function IBKRNewLiveOperations() {
       </article>)}</div>
     </section>
 
-    <section className="panel ibkrnew-section"><h2 className="panel-title">Dedicated desktop bridge</h2><div className="ibkrnew-inline-form"><button type="button" className="btn-primary" disabled={busy} onClick={register}>Create credentials</button></div><p className="page-muted">Your real IBKR paper account ID stays only in the desktop bridge configuration. The VPS stores an opaque account reference; the bridge token is shown only once.</p>{credentials && <pre className="ibkrnew-pre">{json(credentials)}</pre>}{bridges.map((item) => <article key={item.bridge_id} className="ibkrnew-list-item"><strong>{item.account_ref}</strong><span>{item.effective_status} · sequence {item.last_sequence}</span><small>{item.bridge_id}</small>{!item.revoked_at && <button type="button" className="btn-ghost btn-sm" disabled={busy} onClick={() => revoke(item.bridge_id)}>Revoke</button>}</article>)}</section>
+    <section className="panel ibkrnew-section"><h2 className="panel-title">Dedicated desktop bridge</h2><div className="ibkrnew-inline-form"><button type="button" className="btn-primary" disabled={busy} onClick={register}>Create {dashboard?.environment || 'paper'} credentials</button></div><p className="page-muted">Your real IBKR account ID stays only in the desktop bridge configuration. The VPS stores an opaque account reference and sanitized environment attestation; the bridge token is shown only once.</p>{credentials && <pre className="ibkrnew-pre">{json(credentials)}</pre>}{bridges.map((item) => <article key={item.bridge_id} className="ibkrnew-list-item"><strong>{item.environment.toUpperCase()} · {item.account_ref}</strong><span>{item.effective_status} · sequence {item.last_sequence}</span><small>{item.bridge_id}</small>{!item.revoked_at && <button type="button" className="btn-ghost btn-sm" disabled={busy} onClick={() => revoke(item.bridge_id)}>Revoke</button>}</article>)}</section>
 
     <section className="panel ibkrnew-section"><h2 className="panel-title">Pending CEO approvals</h2>{(dashboard?.approvals || []).length === 0 ? <p className="page-muted">None.</p> : dashboard.approvals.map((item) => <article className="ibkrnew-list-item" key={item.authorization_id}><strong>{item.expression}</strong><span>Expires {formatLocalDateTime(item.expires_at)}</span><button type="button" className="btn-primary btn-sm" disabled={busy} onClick={() => approve(item.authorization_id)}>Approve once</button></article>)}</section>
 
@@ -89,7 +97,7 @@ export default function IBKRNewLiveOperations() {
     <section className="panel ibkrnew-section"><h2 className="panel-title">Desktop and bridge errors</h2>{(data?.errors || []).length === 0 ? <p className="page-muted">No retained component errors.</p> : data.errors.map((item) => <article key={item.error_id} className="ibkrnew-list-item"><strong>{item.component_id} · {item.error_code || 'ERROR'}</strong><span>{item.message}</span><small>{formatLocalDateTime(item.occurred_at)}</small></article>)}</section>
 
     <section className="panel ibkrnew-section">
-      <div className="ibkrnew-section-heading"><div><h2 className="panel-title">Causal event timeline</h2><p className="page-muted">Loaded 20 at a time from the server. Descriptions explain what changed; lifecycle details show who handled it and the correlated authorization, command, trade, and execution evidence.</p></div>{timelineBusy && <span className="ibkrnew-version">Refreshing</span>}</div>
+      <div className="ibkrnew-section-heading"><div><h2 className="panel-title">Causal event timeline</h2><p className="page-muted">Loaded 20 at a time from the server for the selected {timeline?.environment || dashboard?.environment || 'paper'} mode. Descriptions explain what changed; lifecycle details show who handled it and the correlated authorization, command, trade, and execution evidence.</p></div>{timelineBusy && <span className="ibkrnew-version">Refreshing</span>}</div>
       <div className="ibkrnew-event-filters">
         <label className="ibkrnew-field"><span>Event type</span><select value={eventType} onChange={(e) => { setEventType(e.target.value); setEventPage(1); }}><option value="">All event types</option>{(timeline?.filters?.event_types || []).map((item) => <option key={item.event_type} value={item.event_type}>{item.event_type} ({item.count})</option>)}</select></label>
         <label className="ibkrnew-field"><span>Status</span><select value={eventStatus} onChange={(e) => { setEventStatus(e.target.value); setEventPage(1); }}><option value="">All statuses</option>{(timeline?.filters?.statuses || []).map((item) => <option key={item} value={item}>{statusLabel(item)}</option>)}</select></label>

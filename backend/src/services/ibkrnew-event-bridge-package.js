@@ -37,8 +37,10 @@ function normalizedApiUrl(value) {
  * The credential is issued only after package source, dependencies, and runtime prerequisites pass.
  * The real IBKR account identifier is deliberately never accepted by this function.
  */
-export async function buildIbkrNewEventBridgePackageZip({ ownerUserId, includeRuntime = true, baseUrlOverride = null } = {}) {
+export async function buildIbkrNewEventBridgePackageZip({ ownerUserId, includeRuntime = true, baseUrlOverride = null, environment = 'paper' } = {}) {
   if (!ownerUserId) throw new Error('Owner is required');
+  const tradingMode = String(environment || 'paper').trim().toLowerCase();
+  if (!['paper', 'live'].includes(tradingMode)) throw new Error('IBKRNew bridge environment must be paper or live');
   if (!existsSync(PACKAGE_ROOT)) throw new Error('IBKRNew event bridge package source is missing');
   const withRuntime = includeRuntime !== false;
   if (withRuntime && !existsSync(DEPENDENCIES_ROOT)) throw new Error('IBKRNew production dependencies are missing from the backend image');
@@ -46,7 +48,7 @@ export async function buildIbkrNewEventBridgePackageZip({ ownerUserId, includeRu
   const runtimeFiles = withRuntime ? await getBundledWindowsNodeFiles() : [];
   if (withRuntime && !runtimeFiles.length && process.env.DESKTOP_PACKAGE_SKIP_NODE_RUNTIME !== '1') throw new Error('Bundled Windows Node runtime is missing');
   const apiUrl = normalizedApiUrl(baseUrlOverride || getPublicBaseUrl());
-  const credentials = registerBridge(ownerUserId);
+  const credentials = registerBridge(ownerUserId, null, tradingMode);
 
   const files = walkFiles(PACKAGE_ROOT, { skipDirs: SOURCE_SKIP_DIRS, skipFiles: SOURCE_SKIP_FILES }).map((file) => ({
     name: file.relative,
@@ -67,15 +69,17 @@ export async function buildIbkrNewEventBridgePackageZip({ ownerUserId, includeRu
       `IBKRNEW_BRIDGE_ID=${credentials.bridge_id}`,
       `IBKRNEW_BRIDGE_TOKEN=${credentials.token}`,
       'IBKRNEW_GATEWAY_HOST=127.0.0.1',
-      'IBKRNEW_GATEWAY_PORT=4002',
+      `IBKRNEW_GATEWAY_PORT=${tradingMode === 'live' ? '4001' : '4002'}`,
       'IBKRNEW_CLIENT_ID=41',
       'IBKRNEW_ACCOUNT_ID=',
+      `IBKRNEW_TRADING_MODE=${tradingMode}`,
       'IBKRNEW_SPOOL_DIR=./data',
       'IBKRNEW_ACCOUNT_SNAPSHOT_INTERVAL_MS=15000',
       'IBKRNEW_CYCLE_INTERVAL_MS=5000',
       'IBKRNEW_INSTRUMENT_PROFILES_FILE=./IBKRNew-instrument-profiles.json',
       'IBKRNEW_MOCK=0',
       'IBKRNEW_PAPER_EXECUTION_ENABLED=0',
+      'IBKRNEW_LIVE_EXECUTION_ENABLED=0',
       '',
     ].join('\n'),
   });
@@ -90,7 +94,7 @@ export async function buildIbkrNewEventBridgePackageZip({ ownerUserId, includeRu
       account_ref: credentials.account_ref,
       token_prefix: credentials.token.slice(0, 12),
       api_url: apiUrl,
-      environment: 'paper',
+      environment: tradingMode,
       include_runtime: withRuntime,
       dependencies_included: withRuntime,
       bundled_node_version: withRuntime ? DESKTOP_NODE_VERSION : null,
@@ -101,7 +105,7 @@ export async function buildIbkrNewEventBridgePackageZip({ ownerUserId, includeRu
   try {
     return {
       zip: buildZipBuffer(files),
-      filename: withRuntime ? 'IBKRNewBridge-desktop.zip' : 'IBKRNewBridge-lite.zip',
+      filename: withRuntime ? `IBKRNewBridge-${tradingMode}-desktop.zip` : `IBKRNewBridge-${tradingMode}-lite.zip`,
       bridge_id: credentials.bridge_id,
       account_ref: credentials.account_ref,
       token_prefix: credentials.token.slice(0, 12),

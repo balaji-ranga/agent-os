@@ -4,7 +4,7 @@ $EnvFile = Join-Path $PackageRoot '.env'
 
 if (-not (Test-Path -LiteralPath $EnvFile)) {
   Copy-Item -LiteralPath (Join-Path $PackageRoot '.env.example') -Destination $EnvFile
-  throw 'Created .env from the example. Fill the bridge credentials and desktop-only IBKR paper account, then run this script again.'
+  throw 'Created .env from the example. Fill the bridge credentials, trading mode, and desktop-only IBKR account, then run this script again.'
 }
 
 $BundledNode = Join-Path $PackageRoot 'runtime\node.exe'

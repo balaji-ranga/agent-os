@@ -153,10 +153,11 @@ export const api = {
   ibkrNewDashboard: () => get('/ibkrnew-event-trader/dashboard'),
   ibkrNewSummary: () => get('/ibkrnew-event-trader/summary'),
   ibkrNewLiveOperations: (limit = 50) => get(`/ibkrnew-event-trader/live-operations?limit=${encodeURIComponent(limit)}`),
-  ibkrNewEvents: ({ page = 1, pageSize = 20, eventType = '', status = '' } = {}) => {
+  ibkrNewEvents: ({ page = 1, pageSize = 20, eventType = '', status = '', environment = '' } = {}) => {
     const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
     if (eventType) params.set('event_type', eventType);
     if (status) params.set('status', status);
+    if (environment) params.set('environment', environment);
     return get(`/ibkrnew-event-trader/events?${params.toString()}`);
   },
   ibkrNewEventDetail: (eventId) => get(`/ibkrnew-event-trader/events/${encodeURIComponent(eventId)}`),
@@ -166,6 +167,8 @@ export const api = {
   ibkrNewSchemas: () => get('/ibkrnew-event-trader/schemas'),
   ibkrNewSchema: (kind) => get(`/ibkrnew-event-trader/schemas/${encodeURIComponent(kind)}`),
   ibkrNewConfigHistory: (kind, limit = 50) => get(`/ibkrnew-event-trader/configs/${encodeURIComponent(kind)}/history?limit=${encodeURIComponent(limit)}`),
+  ibkrNewExecutionMode: () => get('/ibkrnew-event-trader/execution-mode'),
+  ibkrNewSetExecutionMode: (mode, confirmLiveRisk = false) => put('/ibkrnew-event-trader/execution-mode', { mode, confirm_live_risk: confirmLiveRisk }),
   ibkrNewSetGoal: (goal) => put('/ibkrnew-event-trader/goal', goal),
   ibkrNewPauseGoal: () => post('/ibkrnew-event-trader/goal/pause', {}),
   ibkrNewResumeGoal: () => post('/ibkrnew-event-trader/goal/resume', {}),
@@ -174,8 +177,8 @@ export const api = {
       document,
       confirm_risk_loosening: confirmRiskLoosening,
     }),
-  ibkrNewRegisterBridge: () =>
-    post('/ibkrnew-event-trader/bridges', {}),
+  ibkrNewRegisterBridge: (environment = 'paper') =>
+    post('/ibkrnew-event-trader/bridges', { environment }),
   ibkrNewRevokeBridge: (bridgeId) =>
     del(`/ibkrnew-event-trader/bridges/${encodeURIComponent(bridgeId)}`),
   ibkrNewApprove: (authorizationId) =>
@@ -1350,11 +1353,12 @@ export const api = {
   /** Download the dedicated outbound-only IBKRNew Event Bridge package. */
   ibkrNewBridgePackageDownload: async (opts = {}) => {
     const includeRuntime = opts.includeRuntime !== false;
-    const path = `/ibkrnew-event-trader/bridges/package?include_runtime=${includeRuntime ? '1' : '0'}`;
+    const environment = opts.environment === 'live' ? 'live' : 'paper';
+    const path = `/ibkrnew-event-trader/bridges/package?include_runtime=${includeRuntime ? '1' : '0'}&environment=${environment}`;
     const objectUrl = await fetchBlobUrl(path);
     const a = document.createElement('a');
     a.href = objectUrl;
-    a.download = includeRuntime ? 'IBKRNewBridge-desktop.zip' : 'IBKRNewBridge-lite.zip';
+    a.download = includeRuntime ? `IBKRNewBridge-${environment}-desktop.zip` : `IBKRNewBridge-${environment}-lite.zip`;
     document.body.appendChild(a);
     a.click();
     a.remove();

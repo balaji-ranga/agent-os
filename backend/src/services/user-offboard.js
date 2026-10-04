@@ -288,6 +288,8 @@ export function purgeOwnerScopedRows(db, ownerUserId) {
   counts.ibkrnew_breakers = tryRun(db, `DELETE FROM ibkrnew_circuit_breakers WHERE owner_user_id = ?`, [ownerUserId]);
   counts.ibkrnew_reactions = tryRun(db, `DELETE FROM ibkrnew_reaction_registry WHERE owner_user_id = ?`, [ownerUserId]);
   counts.ibkrnew_configs = tryRun(db, `DELETE FROM ibkrnew_config_versions WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.ibkrnew_bridge_attestations = tryRun(db, `DELETE FROM ibkrnew_bridge_attestations WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.ibkrnew_execution_modes = tryRun(db, `DELETE FROM ibkrnew_execution_modes WHERE owner_user_id = ?`, [ownerUserId]);
   counts.ibkrnew_bridges = tryRun(db, `DELETE FROM ibkrnew_bridges WHERE owner_user_id = ?`, [ownerUserId]);
 
   // Shared-DB master data / job tables (when not using tenant file)

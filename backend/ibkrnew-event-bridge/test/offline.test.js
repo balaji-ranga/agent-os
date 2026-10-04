@@ -5,7 +5,7 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 import { IBKRNewBridgeCore, IBKRNewFeatureEngine, buildBarFeatures, commandMatchesBootstrap, selectUniverseProfiles } from '../src/core.js';
-import { IBKRNewGateway, normalizeAccountValuesToUsd } from '../src/gateway.js';
+import { IBKRNewGateway, applyReconciliationState, evaluateAccountAttestation, normalizeAccountValuesToUsd } from '../src/gateway.js';
 
 const dir = mkdtempSync(join(tmpdir(), 'ibkrnew-'));
 let calls = 0;
@@ -18,9 +18,11 @@ const signed = { command_id: 'IBKRNewCommand_test', type: 'test' }; const key = 
 const signature = crypto.createHmac('sha256', key).update(JSON.stringify(signed)).digest('hex');
 assert.equal(core.verifyCommand({ ...signed, signature, expires_at: new Date(Date.now() + 10000).toISOString() }), true);
 assert.equal(core.verifyCommand({ ...signed, signature: '0'.repeat(64) }), false);
-assert.equal(commandMatchesBootstrap({ authorization: { account_ref: 'IBKRNewAccount_current', goal: { cycle_id: 'IBKRNewGoalCycle_current' } } }, { account_ref: 'IBKRNewAccount_current', goal: { opening_trades_allowed: true, cycle: { cycle_id: 'IBKRNewGoalCycle_current' } } }), true);
+const bootstrap = { environment: 'paper', account_ref: 'IBKRNewAccount_current', execution_mode: { requested_mode: 'paper', execution_enabled: true }, goal: { opening_trades_allowed: true, cycle: { cycle_id: 'IBKRNewGoalCycle_current' } } };
+assert.equal(commandMatchesBootstrap({ authorization: { environment: 'paper', account_ref: 'IBKRNewAccount_current', goal: { cycle_id: 'IBKRNewGoalCycle_current' } } }, bootstrap), true);
 assert.equal(commandMatchesBootstrap({ authorization: { account_ref: 'IBKRNewAccount_old' } }, { account_ref: 'IBKRNewAccount_current' }), false);
-assert.equal(commandMatchesBootstrap({ authorization: { account_ref: 'IBKRNewAccount_current', goal: { cycle_id: 'IBKRNewGoalCycle_old' } } }, { account_ref: 'IBKRNewAccount_current', goal: { opening_trades_allowed: false, cycle: { cycle_id: 'IBKRNewGoalCycle_current' } } }), false);
+assert.equal(commandMatchesBootstrap({ authorization: { environment: 'paper', account_ref: 'IBKRNewAccount_current', goal: { cycle_id: 'IBKRNewGoalCycle_old' } } }, { ...bootstrap, goal: { opening_trades_allowed: false, cycle: { cycle_id: 'IBKRNewGoalCycle_current' } } }), false);
+assert.equal(commandMatchesBootstrap({ authorization: { environment: 'live', account_ref: 'IBKRNewAccount_current', goal: { cycle_id: 'IBKRNewGoalCycle_current' } } }, bootstrap), false);
 assert.equal(commandMatchesBootstrap({ authorization: { account_id: 'DU1234567' } }, { account_ref: 'IBKRNewAccount_current' }), false);
 assert.equal(core.commandSeen('IBKRNewCommand_once'), null); core.markCommand('IBKRNewCommand_once', 'executing'); assert.equal(core.commandSeen('IBKRNewCommand_once').status, 'executing');
 const profileEvent = core.emitInstrumentProfile({ symbol: 'aapl', security_type: 'STK', index_memberships: ['SPX'], fundamentals: { market_cap_usd: 1 } });
@@ -34,8 +36,22 @@ assert.ok(features.ema_fast > features.ema_slow); assert.ok(features.vwap > 0);
 const engine = new IBKRNewFeatureEngine(); let closed = null; const policy = { budgets: { max_stock_position_usd: 750, max_short_position_usd: 500 }, loss_limits: { max_planned_loss_per_trade_usd: 50 } };
 for (let minute = 0; minute < 23; minute++) for (let tick = 0; tick < 12; tick++) closed = engine.ingest({ symbol: 'AAPL', at: new Date(Date.UTC(2026, 0, 2, 14, minute, tick * 5)).toISOString(), open: 100 + minute, high: 101 + minute, low: 99 + minute, close: 100.5 + minute, volume: 100 }, policy) || closed;
 assert.equal(closed.symbol, 'AAPL'); assert.ok(closed.quantity > 0); assert.ok(closed.protection.stop_price < closed.last);
-const gateway = Object.create(IBKRNewGateway.prototype); gateway.connected = true; gateway.positions = []; gateway.openOrders = []; gateway.config = { accountId: 'DU1234567' };
-assert.deepEqual(gateway.health(), { connected: true, positions: 0, open_orders: 0 }, 'desktop health must not transmit the local IBKR account identifier');
+assert.deepEqual(evaluateAccountAttestation({ environment: 'paper', configuredAccountId: 'DU1234567', managedAccounts: 'DU1234567' }), { status: 'verified', environment: 'paper', execution_ready: true, reason_code: null });
+assert.deepEqual(evaluateAccountAttestation({ environment: 'live', configuredAccountId: 'U1234567', managedAccounts: ['U1234567'] }), { status: 'verified', environment: 'live', execution_ready: true, reason_code: null });
+assert.equal(evaluateAccountAttestation({ environment: 'paper', configuredAccountId: 'DU1234567', managedAccounts: 'U1234567' }).reason_code, 'CONFIGURED_ACCOUNT_NOT_MANAGED');
+assert.equal(evaluateAccountAttestation({ environment: 'live', configuredAccountId: 'DU1234567', managedAccounts: 'DU1234567' }).reason_code, 'ACCOUNT_ENVIRONMENT_MISMATCH');
+const pendingReconciliation = applyReconciliationState(evaluateAccountAttestation({ environment: 'live', configuredAccountId: 'U1234567', managedAccounts: 'U1234567' }), { account: true, open_orders: false });
+assert.equal(pendingReconciliation.status, 'verified'); assert.equal(pendingReconciliation.execution_ready, false); assert.equal(pendingReconciliation.reason_code, 'RECONCILIATION_PENDING');
+const completedReconciliation = applyReconciliationState(pendingReconciliation, { account: true, open_orders: true });
+assert.equal(completedReconciliation.execution_ready, true); assert.equal(completedReconciliation.reason_code, null);
+const gateway = Object.create(IBKRNewGateway.prototype); gateway.connected = true; gateway.positions = []; gateway.openOrders = []; gateway.config = { accountId: 'DU1234567' }; gateway.accountAttestation = { status: 'verified', environment: 'paper', execution_ready: true, reason_code: null };
+assert.deepEqual(gateway.health(), { connected: true, positions: 0, open_orders: 0, account_attestation: { status: 'verified', environment: 'paper', execution_ready: true, reason_code: null } }, 'desktop health must transmit only the sanitized account attestation');
+const guardedGateway = Object.create(IBKRNewGateway.prototype); guardedGateway.config = { environment: 'live', executionEnabled: true }; guardedGateway.accountAttestation = { status: 'verified', environment: 'live', execution_ready: true };
+await assert.rejects(() => guardedGateway.placeProtected({ authorization: { environment: 'paper' } }), /ACCOUNT_ENVIRONMENT_MISMATCH/);
+guardedGateway.config.executionEnabled = false;
+await assert.rejects(() => guardedGateway.placeProtected({ authorization: { environment: 'live' } }), /LOCAL_EXECUTION_GATE_DISABLED/);
+guardedGateway.config.executionEnabled = true; guardedGateway.accountAttestation = { status: 'failed', environment: 'live', execution_ready: false };
+await assert.rejects(() => guardedGateway.placeProtected({ authorization: { environment: 'live' } }), /ACCOUNT_ATTESTATION_OR_RECONCILIATION_REQUIRED/);
 gateway.accountValues = new Map([
   ['NetLiquidation', { value: 1278.6874, currency: 'SGD' }],
   ['TotalCashValue', { value: 639.3437, currency: 'SGD' }],
