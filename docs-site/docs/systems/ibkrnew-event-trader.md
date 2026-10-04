@@ -46,7 +46,7 @@ Open **Prebuilt Workflows → IBKRNew0**:
 
 Saving a configuration publishes a new version for your company. Existing authorizations remain tied to the exact versions used for their checks.
 
-The **Trading mode** control on Strategy switches between Paper and Live while keeping the same goal, strategy, universe, budgets and risk controls. Paper and Live broker activity remains separately scoped in the execution ledger and reports. Selecting Live does not immediately permit orders: the matching live bridge must first attest the local account and Gateway session.
+The **Paper / Live** control on Strategy changes only the selected broker account context. Both contexts run the same strategy, universe, budgets, planner, deterministic risk checks, command path, and desktop bridge code. Each context has its own goal and progress, account projection, positions, reservations, orders, fills, commissions, events, and reports. Selecting either context does not immediately permit orders: its matching bridge must attest the local account and Gateway session first.
 
 ### Goal versus strategy
 
@@ -84,7 +84,7 @@ IBKR supplies executable quotes, bars and broker/account truth through the deskt
 5. Keep the downloaded token and environment file private. Enter the matching account only on the desktop—not in Flolah.
 6. Run the offline test and then `scripts\Install-IBKRNewBridgeTask.ps1`. This creates the supervised `IBKRNewBridge` Windows Scheduled Task under the signed-in user and starts it.
 7. Confirm healthy Gateway, market-data and reconciliation status in **IBKRNew0 → Live Operations**. Local task status is available through `scripts\Get-IBKRNewBridgeTaskStatus.ps1`.
-8. Explicitly enable only the matching local execution gate after those checks pass. For Live, select **Live** on Strategy; it remains blocked until `managedAccounts` attestation succeeds.
+8. Explicitly enable the single local `IBKRNEW_EXECUTION_ENABLED` gate after those checks pass. Select the matching Paper or Live account context on Strategy; it remains blocked until `managedAccounts` attestation succeeds.
 
 One supervised bridge process runs on the desktop. It starts at Windows sign-in, retries after process failure or a missed start, and reconnects to Gateway after Modern Standby. Gateway authentication remains interactive: if the broker session expires, new trading fails closed until the user signs in again. The six reactions run in Flolah, so there is no separate workflow package to download. Revoke an old bridge from Live Operations or Tokens management if a machine is retired or credentials may have been exposed.
 
@@ -98,7 +98,7 @@ Frequent account refreshes keep the deterministic risk gate current. They do not
 
 ## Live activation and privacy
 
-Paper is active by default. The Live toggle records the owner’s intent, but orders remain blocked until an online live-scoped bridge proves that its locally configured non-paper account is present in IBKR’s managed accounts. A paper bridge cannot claim live commands, a live bridge cannot claim paper commands, and returning to Paper cancels unsubmitted live entries while preserving visibility of existing live positions and broker-hosted protection.
+Paper is selected by default. The toggle records which isolated account context the owner wants to operate. Orders remain blocked until an online bridge for that context proves that its locally configured account is present in IBKR’s managed accounts and has the expected Paper (`DU…`) or Live (non-`DU…`) classification. A Paper bridge cannot claim Live commands and a Live bridge cannot claim Paper commands. Switching contexts cancels unsubmitted entries from the prior context without copying its goal or progress; existing Live positions and broker-hosted protection remain visible for reconciliation.
 
 Flolah does not need the real IBKR account number in its cloud database. It uses an opaque account reference for owner-scoped events and reports. Never paste account numbers, tokens, environment files, statements or credential-bearing logs into chat, public issues or shared documents.
 

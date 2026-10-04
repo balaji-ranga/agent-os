@@ -45,14 +45,14 @@ export default function IBKRNewLiveOperations() {
   const dashboard = data?.dashboard;
   const bridges = dashboard?.bridges || [];
   const activeBridge = selectActiveBridge(bridges.filter((bridge) => bridge.environment === dashboard?.environment));
-  const executionMode = dashboard?.execution_mode || { requested_mode: 'paper', activation_state: 'PAPER_ACTIVE' };
+  const executionMode = dashboard?.execution_mode || { requested_mode: 'paper', activation_state: 'AWAITING_BRIDGE' };
   const budgets = dashboard?.budgets || {};
   const goal = dashboard?.goal;
   const cycle = goal?.cycle;
 
   return <div className="page page-wide ibkrnew-page">
     <header className="page-hero">
-      <div className="page-hero-top"><div className="page-hero-titles"><p className="page-hero-kicker">Prebuilt Workflows · IBKRNew0</p><h1>Live operations</h1></div><span className={`ibkrnew-environment is-${executionMode.requested_mode}`}>{executionMode.requested_mode === 'live' ? `LIVE · ${statusLabel(executionMode.activation_state)}` : 'PAPER'}</span></div>
+      <div className="page-hero-top"><div className="page-hero-titles"><p className="page-hero-kicker">Prebuilt Workflows · IBKRNew0</p><h1>Live operations</h1></div><span className={`ibkrnew-environment is-${executionMode.requested_mode}`}>{executionMode.requested_mode.toUpperCase()} · {statusLabel(executionMode.activation_state)}</span></div>
       <p className="page-hero-sub">A correlated audit of the six service-driven trading roles, desktop bridge, Gateway, decisions, approvals, positions, and executions. History is retained for {data?.retention_days || '—'} days.</p>
     </header>
 

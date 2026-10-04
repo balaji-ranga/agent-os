@@ -78,8 +78,7 @@ export async function buildIbkrNewEventBridgePackageZip({ ownerUserId, includeRu
       'IBKRNEW_CYCLE_INTERVAL_MS=5000',
       'IBKRNEW_INSTRUMENT_PROFILES_FILE=./IBKRNew-instrument-profiles.json',
       'IBKRNEW_MOCK=0',
-      'IBKRNEW_PAPER_EXECUTION_ENABLED=0',
-      'IBKRNEW_LIVE_EXECUTION_ENABLED=0',
+      'IBKRNEW_EXECUTION_ENABLED=0',
       '',
     ].join('\n'),
   });

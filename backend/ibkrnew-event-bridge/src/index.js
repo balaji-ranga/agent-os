@@ -23,7 +23,7 @@ const core = new IBKRNewBridgeCore(cfg);
 const mock = process.env.IBKRNEW_MOCK === '1';
 const tradingMode = String(process.env.IBKRNEW_TRADING_MODE || 'paper').trim().toLowerCase();
 if (!['paper', 'live'].includes(tradingMode)) throw new Error('IBKRNEW_TRADING_MODE must be paper or live');
-const localExecutionEnabled = tradingMode === 'live' ? process.env.IBKRNEW_LIVE_EXECUTION_ENABLED === '1' : process.env.IBKRNEW_PAPER_EXECUTION_ENABLED === '1';
+const localExecutionEnabled = process.env.IBKRNEW_EXECUTION_ENABLED === '1';
 const featureEngine = new IBKRNewFeatureEngine();
 const accountSnapshotIntervalMs = Math.max(5000, Number(process.env.IBKRNEW_ACCOUNT_SNAPSHOT_INTERVAL_MS || 15000));
 const cycleIntervalMs = Math.max(1000, Number(process.env.IBKRNEW_CYCLE_INTERVAL_MS || 5000));

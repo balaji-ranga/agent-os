@@ -78,7 +78,7 @@ function snapshotStateSignature(payload = {}) {
 }
 
 function persistHistoricalSnapshot(db, bridge, snapshotType, payload, occurred, created) {
-  const latest = db.prepare(`SELECT payload_json,captured_at FROM ibkrnew_position_snapshots WHERE owner_user_id=? AND snapshot_type=? ORDER BY captured_at DESC LIMIT 1`).get(bridge.owner_user_id, snapshotType);
+  const latest = db.prepare(`SELECT payload_json,captured_at FROM ibkrnew_position_snapshots WHERE owner_user_id=? AND account_id=? AND snapshot_type=? ORDER BY captured_at DESC LIMIT 1`).get(bridge.owner_user_id, bridge.account_id, snapshotType);
   const checkpointDue = !latest || Date.parse(occurred) - Date.parse(latest.captured_at) >= ACCOUNT_HISTORY_CHECKPOINT_MS;
   const stateChanged = !latest || snapshotStateSignature(payload) !== snapshotStateSignature(parse(latest.payload_json, {}));
   if (!checkpointDue && !stateChanged) return false;
@@ -191,6 +191,86 @@ function migrateIbkrNewBridgeEnvironmentSchema(db) {
   migrate();
 }
 
+function migrateIbkrNewExecutionModeSchema(db) {
+  const table = db.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='ibkrnew_execution_modes'`).get();
+  if (!table?.sql || /['"]AWAITING_BRIDGE['"]/i.test(table.sql)) return;
+  const migrate = db.transaction(() => {
+    db.exec(`
+      ALTER TABLE ibkrnew_execution_modes RENAME TO ibkrnew_execution_modes_legacy;
+      CREATE TABLE ibkrnew_execution_modes (
+        owner_user_id TEXT PRIMARY KEY,
+        requested_mode TEXT NOT NULL CHECK(requested_mode IN ('paper','live')),
+        activation_state TEXT NOT NULL CHECK(activation_state IN ('AWAITING_BRIDGE','ACTIVE','BLOCKED')),
+        attested_bridge_id TEXT, attestation_status TEXT, attestation_reason TEXT,
+        attested_at TEXT, confirmed_at TEXT, halted_at TEXT, updated_at TEXT NOT NULL
+      );
+      INSERT INTO ibkrnew_execution_modes(owner_user_id,requested_mode,activation_state,attested_bridge_id,attestation_status,attestation_reason,attested_at,confirmed_at,halted_at,updated_at)
+      SELECT owner_user_id,requested_mode,
+        CASE WHEN activation_state IN ('LIVE_ACTIVE','PAPER_ACTIVE','ACTIVE') THEN 'ACTIVE'
+             WHEN activation_state IN ('LIVE_BLOCKED','BLOCKED') THEN 'BLOCKED'
+             ELSE 'AWAITING_BRIDGE' END,
+        attested_bridge_id,attestation_status,attestation_reason,attested_at,confirmed_at,halted_at,updated_at
+      FROM ibkrnew_execution_modes_legacy;
+      DROP TABLE ibkrnew_execution_modes_legacy;
+    `);
+  });
+  migrate();
+}
+
+function migrateIbkrNewCircuitBreakerEnvironmentSchema(db) {
+  const table = db.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='ibkrnew_circuit_breakers'`).get();
+  if (!table?.sql || /\benvironment\b/i.test(table.sql)) return;
+  const migrate = db.transaction(() => {
+    db.exec(`
+      ALTER TABLE ibkrnew_circuit_breakers RENAME TO ibkrnew_circuit_breakers_unscoped;
+      CREATE TABLE ibkrnew_circuit_breakers (
+        owner_user_id TEXT NOT NULL, environment TEXT NOT NULL CHECK(environment IN ('paper','live')),
+        breaker_type TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1,
+        reason TEXT NOT NULL, created_at TEXT NOT NULL, cleared_at TEXT,
+        PRIMARY KEY(owner_user_id,environment,breaker_type)
+      );
+      INSERT INTO ibkrnew_circuit_breakers(owner_user_id,environment,breaker_type,active,reason,created_at,cleared_at)
+      SELECT c.owner_user_id,COALESCE(m.requested_mode,'paper'),c.breaker_type,c.active,c.reason,c.created_at,c.cleared_at
+      FROM ibkrnew_circuit_breakers_unscoped c LEFT JOIN ibkrnew_execution_modes m ON m.owner_user_id=c.owner_user_id;
+      DROP TABLE ibkrnew_circuit_breakers_unscoped;
+    `);
+  });
+  migrate();
+}
+
+function migrateIbkrNewGoalEnvironmentSchema(db) {
+  const columns = (table) => new Set(db.prepare(`PRAGMA table_info(${table})`).all().map((column) => column.name));
+  db.exec(`DROP INDEX IF EXISTS idx_ibkrnew_goal_owner_open`);
+  if (!columns('ibkrnew_goals').has('environment')) db.exec(`ALTER TABLE ibkrnew_goals ADD COLUMN environment TEXT NOT NULL DEFAULT 'paper' CHECK(environment IN ('paper','live'))`);
+  if (!columns('ibkrnew_goal_cycles').has('environment')) db.exec(`ALTER TABLE ibkrnew_goal_cycles ADD COLUMN environment TEXT NOT NULL DEFAULT 'paper' CHECK(environment IN ('paper','live'))`);
+  if (!columns('ibkrnew_goal_trade_links').has('environment')) db.exec(`ALTER TABLE ibkrnew_goal_trade_links ADD COLUMN environment TEXT NOT NULL DEFAULT 'paper' CHECK(environment IN ('paper','live'))`);
+  db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_ibkrnew_goal_owner_open ON ibkrnew_goals(owner_user_id,environment) WHERE status IN ('ACTIVE','PAUSED')`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_ibkrnew_goal_cycles_owner_mode ON ibkrnew_goal_cycles(owner_user_id,environment,created_at DESC)`);
+}
+
+function migrateIbkrNewInstrumentProfileEnvironmentSchema(db) {
+  const table = db.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='ibkrnew_instrument_profiles'`).get();
+  if (!table?.sql || /\benvironment\b/i.test(table.sql)) return;
+  const migrate = db.transaction(() => {
+    for (const { name } of db.prepare(`SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name='ibkrnew_instrument_profiles'`).all()) db.exec(`DROP TRIGGER IF EXISTS "${String(name).replaceAll('"', '""')}"`);
+    db.exec(`DROP INDEX IF EXISTS idx_ibkrnew_profiles_owner_time`);
+    db.exec(`
+      ALTER TABLE ibkrnew_instrument_profiles RENAME TO ibkrnew_instrument_profiles_unscoped;
+      CREATE TABLE ibkrnew_instrument_profiles (
+        owner_user_id TEXT NOT NULL, bridge_id TEXT NOT NULL, environment TEXT NOT NULL CHECK(environment IN ('paper','live')),
+        symbol TEXT NOT NULL, security_type TEXT NOT NULL, profile_json TEXT NOT NULL,
+        fundamentals_at TEXT, membership_at TEXT, corporate_events_at TEXT, updated_at TEXT NOT NULL,
+        PRIMARY KEY(owner_user_id,environment,symbol,security_type)
+      );
+      INSERT INTO ibkrnew_instrument_profiles(owner_user_id,bridge_id,environment,symbol,security_type,profile_json,fundamentals_at,membership_at,corporate_events_at,updated_at)
+      SELECT p.owner_user_id,p.bridge_id,COALESCE(b.environment,'paper'),p.symbol,p.security_type,p.profile_json,p.fundamentals_at,p.membership_at,p.corporate_events_at,p.updated_at
+      FROM ibkrnew_instrument_profiles_unscoped p LEFT JOIN ibkrnew_bridges b ON b.bridge_id=p.bridge_id;
+      DROP TABLE ibkrnew_instrument_profiles_unscoped;
+    `);
+  });
+  migrate();
+}
+
 export function ensureIbkrNewEventTraderSchema(db = getDb()) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS ibkrnew_config_versions (
@@ -212,7 +292,7 @@ export function ensureIbkrNewEventTraderSchema(db = getDb()) {
     CREATE TABLE IF NOT EXISTS ibkrnew_execution_modes (
       owner_user_id TEXT PRIMARY KEY,
       requested_mode TEXT NOT NULL CHECK(requested_mode IN ('paper','live')),
-      activation_state TEXT NOT NULL CHECK(activation_state IN ('PAPER_ACTIVE','AWAITING_LIVE_BRIDGE','LIVE_ACTIVE','LIVE_BLOCKED')),
+      activation_state TEXT NOT NULL CHECK(activation_state IN ('AWAITING_BRIDGE','ACTIVE','BLOCKED')),
       attested_bridge_id TEXT, attestation_status TEXT, attestation_reason TEXT,
       attested_at TEXT, confirmed_at TEXT, halted_at TEXT, updated_at TEXT NOT NULL
     );
@@ -269,9 +349,9 @@ export function ensureIbkrNewEventTraderSchema(db = getDb()) {
     );
     CREATE INDEX IF NOT EXISTS idx_ibkrnew_commands_claim ON ibkrnew_command_outbox(bridge_id, status, available_at);
     CREATE TABLE IF NOT EXISTS ibkrnew_circuit_breakers (
-      owner_user_id TEXT NOT NULL, breaker_type TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1,
+      owner_user_id TEXT NOT NULL, environment TEXT NOT NULL CHECK(environment IN ('paper','live')), breaker_type TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1,
       reason TEXT NOT NULL, created_at TEXT NOT NULL, cleared_at TEXT,
-      PRIMARY KEY(owner_user_id, breaker_type)
+      PRIMARY KEY(owner_user_id, environment, breaker_type)
     );
     CREATE TABLE IF NOT EXISTS ibkrnew_reaction_registry (
       reaction_id TEXT PRIMARY KEY, owner_user_id TEXT NOT NULL, agent_name TEXT NOT NULL,
@@ -285,11 +365,11 @@ export function ensureIbkrNewEventTraderSchema(db = getDb()) {
     );
     CREATE INDEX IF NOT EXISTS idx_ibkrnew_snapshots_owner_time ON ibkrnew_position_snapshots(owner_user_id, captured_at DESC);
     CREATE TABLE IF NOT EXISTS ibkrnew_instrument_profiles (
-      owner_user_id TEXT NOT NULL, bridge_id TEXT NOT NULL, symbol TEXT NOT NULL,
+      owner_user_id TEXT NOT NULL, bridge_id TEXT NOT NULL, environment TEXT NOT NULL CHECK(environment IN ('paper','live')), symbol TEXT NOT NULL,
       security_type TEXT NOT NULL, profile_json TEXT NOT NULL,
       fundamentals_at TEXT, membership_at TEXT, corporate_events_at TEXT,
       updated_at TEXT NOT NULL,
-      PRIMARY KEY(owner_user_id, symbol, security_type)
+      PRIMARY KEY(owner_user_id, environment, symbol, security_type)
     );
     CREATE INDEX IF NOT EXISTS idx_ibkrnew_profiles_owner_time ON ibkrnew_instrument_profiles(owner_user_id, updated_at DESC);
     CREATE TABLE IF NOT EXISTS ibkrnew_component_health (
@@ -332,7 +412,7 @@ export function ensureIbkrNewEventTraderSchema(db = getDb()) {
       detail_json TEXT NOT NULL, created_at TEXT NOT NULL
     );
     CREATE TABLE IF NOT EXISTS ibkrnew_goals (
-      goal_id TEXT PRIMARY KEY, owner_user_id TEXT NOT NULL, name TEXT NOT NULL,
+      goal_id TEXT PRIMARY KEY, owner_user_id TEXT NOT NULL, environment TEXT NOT NULL CHECK(environment IN ('paper','live')), name TEXT NOT NULL,
       mode TEXT NOT NULL CHECK(mode IN ('ONE_TIME','PERPETUAL')),
       target_return_pct REAL NOT NULL, duration_days INTEGER NOT NULL,
       duration_basis TEXT NOT NULL CHECK(duration_basis='CALENDAR_DAYS'),
@@ -341,9 +421,8 @@ export function ensureIbkrNewEventTraderSchema(db = getDb()) {
       status TEXT NOT NULL CHECK(status IN ('ACTIVE','PAUSED','COMPLETED')),
       created_at TEXT NOT NULL, updated_at TEXT NOT NULL
     );
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_ibkrnew_goal_owner_open ON ibkrnew_goals(owner_user_id) WHERE status IN ('ACTIVE','PAUSED');
     CREATE TABLE IF NOT EXISTS ibkrnew_goal_cycles (
-      cycle_id TEXT PRIMARY KEY, goal_id TEXT NOT NULL, owner_user_id TEXT NOT NULL,
+      cycle_id TEXT PRIMARY KEY, goal_id TEXT NOT NULL, owner_user_id TEXT NOT NULL, environment TEXT NOT NULL CHECK(environment IN ('paper','live')),
       cycle_number INTEGER NOT NULL, status TEXT NOT NULL CHECK(status IN ('ACTIVE','ACHIEVED','EXPIRED','PAUSED')),
       started_at TEXT NOT NULL, scheduled_end_at TEXT NOT NULL,
       capital_basis_usd REAL NOT NULL, target_profit_usd REAL NOT NULL,
@@ -354,18 +433,22 @@ export function ensureIbkrNewEventTraderSchema(db = getDb()) {
     CREATE INDEX IF NOT EXISTS idx_ibkrnew_goal_cycles_owner ON ibkrnew_goal_cycles(owner_user_id,created_at DESC);
     CREATE TABLE IF NOT EXISTS ibkrnew_goal_trade_links (
       authorization_id TEXT PRIMARY KEY, owner_user_id TEXT NOT NULL,
-      goal_id TEXT NOT NULL, cycle_id TEXT NOT NULL, created_at TEXT NOT NULL
+      goal_id TEXT NOT NULL, cycle_id TEXT NOT NULL, environment TEXT NOT NULL CHECK(environment IN ('paper','live')), created_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_ibkrnew_goal_links_cycle ON ibkrnew_goal_trade_links(owner_user_id,cycle_id);
   `);
   migrateIbkrNewBridgeEnvironmentSchema(db);
+  migrateIbkrNewExecutionModeSchema(db);
+  migrateIbkrNewCircuitBreakerEnvironmentSchema(db);
+  migrateIbkrNewGoalEnvironmentSchema(db);
+  migrateIbkrNewInstrumentProfileEnvironmentSchema(db);
   ensureIbkrNewPrivacyTriggers(db);
   migrateIbkrNewAccountPrivacy(db);
 }
 
 function ensureExecutionModeRow(ownerUserId, db = getDb()) {
   const ts = nowIso();
-  db.prepare(`INSERT OR IGNORE INTO ibkrnew_execution_modes(owner_user_id,requested_mode,activation_state,updated_at) VALUES(?,'paper','PAPER_ACTIVE',?)`).run(ownerUserId, ts);
+  db.prepare(`INSERT OR IGNORE INTO ibkrnew_execution_modes(owner_user_id,requested_mode,activation_state,updated_at) VALUES(?,'paper','AWAITING_BRIDGE',?)`).run(ownerUserId, ts);
   return db.prepare(`SELECT * FROM ibkrnew_execution_modes WHERE owner_user_id=?`).get(ownerUserId);
 }
 
@@ -379,17 +462,17 @@ function latestVerifiedBridge(ownerUserId, environment, db = getDb()) {
 export function getIbkrNewExecutionMode(ownerUserId) {
   ensureIbkrNewEventTraderSchema();
   const db = getDb(); const row = ensureExecutionModeRow(ownerUserId, db); const verified = latestVerifiedBridge(ownerUserId, row.requested_mode, db);
-  const freshnessMs = 60_000; const bridgeFresh = verified?.last_seen_at && Date.now() - Date.parse(verified.last_seen_at) <= freshnessMs;
-  const liveReady = row.requested_mode === 'live' && row.activation_state === 'LIVE_ACTIVE' && bridgeFresh;
+  const freshnessMs = 60_000; const bridgeFresh = verified?.status === 'online' && verified?.last_seen_at && Date.now() - Date.parse(verified.last_seen_at) <= freshnessMs;
+  const ready = row.activation_state === 'ACTIVE' && bridgeFresh;
   return {
     requested_mode: row.requested_mode,
-    active_mode: liveReady ? 'live' : 'paper',
-    activation_state: row.requested_mode === 'live' && !bridgeFresh && row.activation_state === 'LIVE_ACTIVE' ? 'AWAITING_LIVE_BRIDGE' : row.activation_state,
-    execution_enabled: row.requested_mode === 'paper' || liveReady,
-    attested_bridge_id: liveReady ? verified.bridge_id : row.attested_bridge_id || null,
-    attestation_status: liveReady ? verified.attestation_status : row.attestation_status || null,
+    active_mode: ready ? row.requested_mode : null,
+    activation_state: !bridgeFresh && row.activation_state === 'ACTIVE' ? 'AWAITING_BRIDGE' : row.activation_state,
+    execution_enabled: ready,
+    attested_bridge_id: ready ? verified.bridge_id : row.attested_bridge_id || null,
+    attestation_status: ready ? verified.attestation_status : row.attestation_status || null,
     attestation_reason: row.attestation_reason || null,
-    attested_at: liveReady ? verified.attested_at : row.attested_at || null,
+    attested_at: ready ? verified.attested_at : row.attested_at || null,
     confirmed_at: row.confirmed_at || null,
     halted_at: row.halted_at || null,
     updated_at: row.updated_at,
@@ -411,17 +494,11 @@ function cancelPendingEnvironmentEntries(ownerUserId, environment, reason, db = 
 export function setIbkrNewExecutionMode(ownerUserId, input = {}) {
   ensureIbkrNewEventTraderSchema();
   const db = getDb(); const mode = normalizeEnvironment(input.mode ?? input.trading_mode); const ts = nowIso();
-  ensureExecutionModeRow(ownerUserId, db);
-  if (mode === 'paper') {
-    const cancelled = cancelPendingEnvironmentEntries(ownerUserId, 'live', 'owner_switched_to_paper', db);
-    db.prepare(`UPDATE ibkrnew_execution_modes SET requested_mode='paper',activation_state='PAPER_ACTIVE',attested_bridge_id=NULL,attestation_status=NULL,attestation_reason=NULL,attested_at=NULL,halted_at=?,updated_at=? WHERE owner_user_id=?`).run(ts, ts, ownerUserId);
-    return { ...getIbkrNewExecutionMode(ownerUserId), ...cancelled };
-  }
-  if (input.confirm_live_risk !== true) throw Object.assign(new Error('Explicit live-trading risk confirmation is required'), { status: 400 });
-  const verified = latestVerifiedBridge(ownerUserId, 'live', db); const fresh = verified?.last_seen_at && Date.now() - Date.parse(verified.last_seen_at) <= 60_000;
-  const state = fresh ? 'LIVE_ACTIVE' : 'AWAITING_LIVE_BRIDGE';
-  db.prepare(`UPDATE ibkrnew_execution_modes SET requested_mode='live',activation_state=?,attested_bridge_id=?,attestation_status=?,attestation_reason=?,attested_at=?,confirmed_at=?,halted_at=NULL,updated_at=? WHERE owner_user_id=?`).run(state, fresh ? verified.bridge_id : null, fresh ? 'verified' : null, fresh ? null : 'LIVE_BRIDGE_ATTESTATION_REQUIRED', fresh ? verified.attested_at : null, ts, ts, ownerUserId);
-  return getIbkrNewExecutionMode(ownerUserId);
+  const prior = ensureExecutionModeRow(ownerUserId, db); const cancelled = prior.requested_mode === mode ? { cancelled_authorizations: 0 } : cancelPendingEnvironmentEntries(ownerUserId, prior.requested_mode, 'owner_switched_account_context', db);
+  const verified = latestVerifiedBridge(ownerUserId, mode, db); const fresh = verified?.status === 'online' && verified?.last_seen_at && Date.now() - Date.parse(verified.last_seen_at) <= 60_000;
+  const state = fresh ? 'ACTIVE' : 'AWAITING_BRIDGE';
+  db.prepare(`UPDATE ibkrnew_execution_modes SET requested_mode=?,activation_state=?,attested_bridge_id=?,attestation_status=?,attestation_reason=?,attested_at=?,confirmed_at=?,halted_at=NULL,updated_at=? WHERE owner_user_id=?`).run(mode, state, fresh ? verified.bridge_id : null, fresh ? 'verified' : null, fresh ? null : 'MATCHING_BRIDGE_ATTESTATION_REQUIRED', fresh ? verified.attested_at : null, ts, ts, ownerUserId);
+  return { ...getIbkrNewExecutionMode(ownerUserId), ...cancelled };
 }
 
 function recordBridgeAttestation(db, bridge, payload, occurredAt) {
@@ -435,8 +512,8 @@ function recordBridgeAttestation(db, bridge, payload, occurredAt) {
   db.prepare(`INSERT INTO ibkrnew_bridge_attestations(bridge_id,owner_user_id,environment,status,reason_code,attested_at,updated_at) VALUES(?,?,?,?,?,?,?)
     ON CONFLICT(bridge_id) DO UPDATE SET environment=excluded.environment,status=excluded.status,reason_code=excluded.reason_code,attested_at=excluded.attested_at,updated_at=excluded.updated_at`).run(bridge.bridge_id, bridge.owner_user_id, bridge.environment, status, reason, occurredAt, nowIso());
   const mode = ensureExecutionModeRow(bridge.owner_user_id, db);
-  if (mode.requested_mode !== 'live' || bridge.environment !== 'live') return;
-  db.prepare(`UPDATE ibkrnew_execution_modes SET activation_state=?,attested_bridge_id=?,attestation_status=?,attestation_reason=?,attested_at=?,updated_at=? WHERE owner_user_id=?`).run(verified ? 'LIVE_ACTIVE' : 'LIVE_BLOCKED', bridge.bridge_id, status, reason, occurredAt, nowIso(), bridge.owner_user_id);
+  if (mode.requested_mode !== bridge.environment) return;
+  db.prepare(`UPDATE ibkrnew_execution_modes SET activation_state=?,attested_bridge_id=?,attestation_status=?,attestation_reason=?,attested_at=?,updated_at=? WHERE owner_user_id=?`).run(verified ? 'ACTIVE' : 'BLOCKED', bridge.bridge_id, status, reason, occurredAt, nowIso(), bridge.owner_user_id);
 }
 
 const IBKRNEW_WORKFLOWS = getIbkrNewWorkflowBlueprints();
@@ -539,7 +616,11 @@ export function ensureIbkrNewDefaults(ownerUserId) {
       }
       if (kind === 'policy') {
         migrated.environment = 'shared';
-        if (migrated.feature_switches) delete migrated.feature_switches.live_execution_enabled;
+        if (migrated.feature_switches) {
+          delete migrated.feature_switches.paper_execution_enabled;
+          delete migrated.feature_switches.live_execution_enabled;
+          migrated.feature_switches.execution_enabled = prior.feature_switches?.paper_execution_enabled !== false;
+        }
       }
       migrated.schema_version = blueprint.schema_version;
       current = publishConfig(ownerUserId, kind, migrated, { confirmRiskLoosening: true });
@@ -548,13 +629,13 @@ export function ensureIbkrNewDefaults(ownerUserId) {
   }
   const addReaction = getDb().prepare(`INSERT OR IGNORE INTO ibkrnew_reaction_registry(reaction_id,owner_user_id,agent_name,subscriptions_json,created_at) VALUES(?,?,?,?,?)`);
   for (const [agentName, subscriptions] of IBKRNEW_REACTIONS) addReaction.run(id('IBKRNewReaction'), ownerUserId, agentName, json(subscriptions), nowIso());
-  ensureDefaultIbkrNewGoal(ownerUserId, out.policy);
+  for (const environment of IBKRNEW_ENVIRONMENTS) ensureDefaultIbkrNewGoal(ownerUserId, out.policy, environment);
   return out;
 }
 
 function goalDefinition(row) {
   if (!row) return null;
-  return { goal_id: row.goal_id, name: row.name, mode: row.mode, target_return_pct: Number(row.target_return_pct), duration_days: Number(row.duration_days), duration_basis: row.duration_basis, capital_basis: row.capital_basis, profit_basis: row.profit_basis, status: row.status, created_at: row.created_at, updated_at: row.updated_at };
+  return { goal_id: row.goal_id, environment: row.environment, name: row.name, mode: row.mode, target_return_pct: Number(row.target_return_pct), duration_days: Number(row.duration_days), duration_basis: row.duration_basis, capital_basis: row.capital_basis, profit_basis: row.profit_basis, status: row.status, created_at: row.created_at, updated_at: row.updated_at };
 }
 
 function validateGoal(input = {}) {
@@ -577,26 +658,26 @@ function validateGoal(input = {}) {
   return sanitizeIbkrNewPersistence(goal);
 }
 
-function ensureDefaultIbkrNewGoal(ownerUserId, policy) {
-  const db = getDb(); const existing = db.prepare(`SELECT 1 FROM ibkrnew_goals WHERE owner_user_id=? LIMIT 1`).get(ownerUserId);
+function ensureDefaultIbkrNewGoal(ownerUserId, policy, requestedEnvironment = 'paper') {
+  const environment = normalizeEnvironment(requestedEnvironment); const db = getDb(); const existing = db.prepare(`SELECT 1 FROM ibkrnew_goals WHERE owner_user_id=? AND environment=? LIMIT 1`).get(ownerUserId, environment);
   if (existing) return;
   const goal = validateGoal(DEFAULT_GOAL); const ts = nowIso();
-  db.prepare(`INSERT INTO ibkrnew_goals(goal_id,owner_user_id,name,mode,target_return_pct,duration_days,duration_basis,capital_basis,profit_basis,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,'ACTIVE',?,?)`).run(id('IBKRNewGoal'), ownerUserId, goal.name, goal.mode, goal.target_return_pct, goal.duration_days, goal.duration_basis, goal.capital_basis, goal.profit_basis, ts, ts);
-  reconcileIbkrNewGoal(ownerUserId, { policy, at: ts });
+  db.prepare(`INSERT INTO ibkrnew_goals(goal_id,owner_user_id,environment,name,mode,target_return_pct,duration_days,duration_basis,capital_basis,profit_basis,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,'ACTIVE',?,?)`).run(id('IBKRNewGoal'), ownerUserId, environment, goal.name, goal.mode, goal.target_return_pct, goal.duration_days, goal.duration_basis, goal.capital_basis, goal.profit_basis, ts, ts);
+  reconcileIbkrNewGoal(ownerUserId, { policy, environment, at: ts });
 }
 
-function createGoalCycle(db, ownerUserId, goal, policy, startedAt, cycleNumber) {
-  const environment = ensureExecutionModeRow(ownerUserId, db).requested_mode;
+function createGoalCycle(db, ownerUserId, goal, policy, startedAt, cycleNumber, requestedEnvironment) {
+  const environment = normalizeEnvironment(requestedEnvironment || goal.environment);
   const account = db.prepare(`SELECT s.eligible_capital_usd FROM ibkrnew_account_state s JOIN ibkrnew_bridges b ON b.bridge_id=s.bridge_id WHERE s.owner_user_id=? AND b.environment=? ORDER BY s.captured_at DESC LIMIT 1`).get(ownerUserId, environment);
   const capital = Math.min(Number(policy?.budgets?.total_gross_exposure_usd || 0), Number(account?.eligible_capital_usd || 0));
   if (!(capital > 0)) return null;
   const startMs = Date.parse(startedAt); const end = new Date(startMs + Number(goal.duration_days) * 86400000).toISOString(); const ts = nowIso(); const cycleId = id('IBKRNewGoalCycle');
-  db.prepare(`INSERT INTO ibkrnew_goal_cycles(cycle_id,goal_id,owner_user_id,cycle_number,status,started_at,scheduled_end_at,capital_basis_usd,target_profit_usd,created_at,updated_at) VALUES(?,?,?,?,'ACTIVE',?,?,?,?,?,?)`).run(cycleId, goal.goal_id, ownerUserId, cycleNumber, new Date(startMs).toISOString(), end, capital, capital * Number(goal.target_return_pct) / 100, ts, ts);
+  db.prepare(`INSERT INTO ibkrnew_goal_cycles(cycle_id,goal_id,owner_user_id,environment,cycle_number,status,started_at,scheduled_end_at,capital_basis_usd,target_profit_usd,created_at,updated_at) VALUES(?,?,?,?,?,'ACTIVE',?,?,?,?,?,?)`).run(cycleId, goal.goal_id, ownerUserId, environment, cycleNumber, new Date(startMs).toISOString(), end, capital, capital * Number(goal.target_return_pct) / 100, ts, ts);
   return db.prepare(`SELECT * FROM ibkrnew_goal_cycles WHERE cycle_id=?`).get(cycleId);
 }
 
-function goalCycleProfit(db, ownerUserId, cycleId) {
-  const environment = ensureExecutionModeRow(ownerUserId, db).requested_mode;
+function goalCycleProfit(db, ownerUserId, cycleId, requestedEnvironment) {
+  const environment = normalizeEnvironment(requestedEnvironment);
   return Number(db.prepare(`SELECT COALESCE(SUM(t.net_pnl_usd),0) value FROM ibkrnew_goal_trade_links l LEFT JOIN ibkrnew_trade_records t ON t.authorization_id=l.authorization_id AND t.owner_user_id=l.owner_user_id LEFT JOIN ibkrnew_bridges b ON b.bridge_id=t.bridge_id WHERE l.owner_user_id=? AND l.cycle_id=? AND (t.trade_id IS NULL OR b.environment=?)`).get(ownerUserId, cycleId, environment)?.value || 0);
 }
 
@@ -607,20 +688,20 @@ function serializeGoalState(goal, cycle, now = new Date()) {
   return { definition: goalDefinition(goal), cycle: cycle ? { ...cycle, cycle_number: Number(cycle.cycle_number), capital_basis_usd: Number(cycle.capital_basis_usd), target_profit_usd: target, net_realized_profit_usd: net, remaining_profit_usd: remaining, progress_pct: target > 0 ? Math.max(0, net / target * 100) : 0, days_remaining: Number.isFinite(endMs) ? Math.max(0, Math.ceil((endMs - now.getTime()) / 86400000)) : 0 } : null, opening_trades_allowed: allowed, block_reason: reason };
 }
 
-function reconcileIbkrNewGoal(ownerUserId, { policy, at = nowIso() } = {}) {
-  const db = getDb(); const atDate = new Date(at); const atMs = atDate.getTime();
-  let goal = db.prepare(`SELECT * FROM ibkrnew_goals WHERE owner_user_id=? AND status IN ('ACTIVE','PAUSED') ORDER BY created_at DESC LIMIT 1`).get(ownerUserId);
-  if (!goal) goal = db.prepare(`SELECT * FROM ibkrnew_goals WHERE owner_user_id=? ORDER BY created_at DESC LIMIT 1`).get(ownerUserId);
+function reconcileIbkrNewGoal(ownerUserId, { policy, environment: requestedEnvironment, at = nowIso() } = {}) {
+  const db = getDb(); const environment = normalizeEnvironment(requestedEnvironment || ensureExecutionModeRow(ownerUserId, db).requested_mode); const atDate = new Date(at); const atMs = atDate.getTime();
+  let goal = db.prepare(`SELECT * FROM ibkrnew_goals WHERE owner_user_id=? AND environment=? AND status IN ('ACTIVE','PAUSED') ORDER BY created_at DESC LIMIT 1`).get(ownerUserId, environment);
+  if (!goal) goal = db.prepare(`SELECT * FROM ibkrnew_goals WHERE owner_user_id=? AND environment=? ORDER BY created_at DESC LIMIT 1`).get(ownerUserId, environment);
   if (!goal) return serializeGoalState(null, null, atDate);
-  let cycle = db.prepare(`SELECT * FROM ibkrnew_goal_cycles WHERE owner_user_id=? AND goal_id=? ORDER BY cycle_number DESC LIMIT 1`).get(ownerUserId, goal.goal_id);
+  let cycle = db.prepare(`SELECT * FROM ibkrnew_goal_cycles WHERE owner_user_id=? AND environment=? AND goal_id=? ORDER BY cycle_number DESC LIMIT 1`).get(ownerUserId, environment, goal.goal_id);
   if (goal.status === 'PAUSED') {
     if (cycle?.status === 'ACTIVE') { db.prepare(`UPDATE ibkrnew_goal_cycles SET status='PAUSED',stop_reason='GOAL_PAUSED',updated_at=? WHERE cycle_id=?`).run(nowIso(), cycle.cycle_id); cycle = { ...cycle, status: 'PAUSED', stop_reason: 'GOAL_PAUSED' }; }
     return serializeGoalState(goal, cycle, atDate);
   }
   if (goal.status === 'COMPLETED') return serializeGoalState(goal, cycle, atDate);
-  if (!cycle) cycle = createGoalCycle(db, ownerUserId, goal, policy, atDate.toISOString(), 1);
+  if (!cycle) cycle = createGoalCycle(db, ownerUserId, goal, policy, atDate.toISOString(), 1, environment);
   if (!cycle) return serializeGoalState(goal, null, atDate);
-  const net = goalCycleProfit(db, ownerUserId, cycle.cycle_id); cycle = { ...cycle, net_realized_profit_usd: net };
+  const net = goalCycleProfit(db, ownerUserId, cycle.cycle_id, environment); cycle = { ...cycle, net_realized_profit_usd: net };
   db.prepare(`UPDATE ibkrnew_goal_cycles SET net_realized_profit_usd=?,updated_at=? WHERE cycle_id=?`).run(net, nowIso(), cycle.cycle_id);
   const endMs = Date.parse(cycle.scheduled_end_at);
   if (cycle.status === 'ACTIVE') {
@@ -636,14 +717,14 @@ function reconcileIbkrNewGoal(ownerUserId, { policy, at = nowIso() } = {}) {
   }
   if (goal.mode === 'PERPETUAL' && goal.status === 'ACTIVE' && ['ACHIEVED','EXPIRED'].includes(cycle.status) && atMs >= endMs) {
     const durationMs = Number(goal.duration_days) * 86400000; const skipped = Math.max(0, Math.floor((atMs - endMs) / durationMs)); const nextStart = new Date(endMs + skipped * durationMs).toISOString();
-    cycle = createGoalCycle(db, ownerUserId, goal, policy, nextStart, Number(cycle.cycle_number) + skipped + 1) || cycle;
+    cycle = createGoalCycle(db, ownerUserId, goal, policy, nextStart, Number(cycle.cycle_number) + skipped + 1, environment) || cycle;
   }
   return serializeGoalState(goal, cycle, atDate);
 }
 
 export function getIbkrNewGoalState(ownerUserId, options = {}) {
   const configs = ensureIbkrNewDefaults(ownerUserId);
-  return reconcileIbkrNewGoal(ownerUserId, { policy: configs.policy, at: options.at || nowIso() });
+  return reconcileIbkrNewGoal(ownerUserId, { policy: configs.policy, environment: options.environment, at: options.at || nowIso() });
 }
 
 export function getIbkrNewSchemaDocument(kind = null) {
@@ -662,29 +743,29 @@ export function getIbkrNewGoalHistory(ownerUserId, { limit = 50 } = {}) {
 }
 
 export function setIbkrNewGoal(ownerUserId, input = {}) {
-  const configs = ensureIbkrNewDefaults(ownerUserId); const goal = validateGoal(input); const db = getDb(); const ts = nowIso();
+  const configs = ensureIbkrNewDefaults(ownerUserId); const goal = validateGoal(input); const db = getDb(); const environment = normalizeEnvironment(input.environment || ensureExecutionModeRow(ownerUserId, db).requested_mode); const ts = nowIso();
   const tx = db.transaction(() => {
-    db.prepare(`UPDATE ibkrnew_goal_cycles SET status='EXPIRED',closed_at=?,stop_reason='GOAL_REPLACED',updated_at=? WHERE owner_user_id=? AND status IN ('ACTIVE','PAUSED')`).run(ts, ts, ownerUserId);
-    db.prepare(`UPDATE ibkrnew_goals SET status='COMPLETED',updated_at=? WHERE owner_user_id=? AND status IN ('ACTIVE','PAUSED')`).run(ts, ownerUserId);
+    db.prepare(`UPDATE ibkrnew_goal_cycles SET status='EXPIRED',closed_at=?,stop_reason='GOAL_REPLACED',updated_at=? WHERE owner_user_id=? AND environment=? AND status IN ('ACTIVE','PAUSED')`).run(ts, ts, ownerUserId, environment);
+    db.prepare(`UPDATE ibkrnew_goals SET status='COMPLETED',updated_at=? WHERE owner_user_id=? AND environment=? AND status IN ('ACTIVE','PAUSED')`).run(ts, ownerUserId, environment);
     const goalId = id('IBKRNewGoal');
-    db.prepare(`INSERT INTO ibkrnew_goals(goal_id,owner_user_id,name,mode,target_return_pct,duration_days,duration_basis,capital_basis,profit_basis,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,'ACTIVE',?,?)`).run(goalId, ownerUserId, goal.name, goal.mode, goal.target_return_pct, goal.duration_days, goal.duration_basis, goal.capital_basis, goal.profit_basis, ts, ts);
+    db.prepare(`INSERT INTO ibkrnew_goals(goal_id,owner_user_id,environment,name,mode,target_return_pct,duration_days,duration_basis,capital_basis,profit_basis,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,'ACTIVE',?,?)`).run(goalId, ownerUserId, environment, goal.name, goal.mode, goal.target_return_pct, goal.duration_days, goal.duration_basis, goal.capital_basis, goal.profit_basis, ts, ts);
     return goalId;
   }); tx();
-  return reconcileIbkrNewGoal(ownerUserId, { policy: configs.policy, at: ts });
+  return reconcileIbkrNewGoal(ownerUserId, { policy: configs.policy, environment, at: ts });
 }
 
-export function pauseIbkrNewGoal(ownerUserId) {
-  ensureIbkrNewDefaults(ownerUserId); const db = getDb(); const ts = nowIso(); const result = db.prepare(`UPDATE ibkrnew_goals SET status='PAUSED',updated_at=? WHERE owner_user_id=? AND status='ACTIVE'`).run(ts, ownerUserId);
+export function pauseIbkrNewGoal(ownerUserId, options = {}) {
+  ensureIbkrNewDefaults(ownerUserId); const db = getDb(); const environment = normalizeEnvironment(options.environment || ensureExecutionModeRow(ownerUserId, db).requested_mode); const ts = nowIso(); const result = db.prepare(`UPDATE ibkrnew_goals SET status='PAUSED',updated_at=? WHERE owner_user_id=? AND environment=? AND status='ACTIVE'`).run(ts, ownerUserId, environment);
   if (!result.changes) throw Object.assign(new Error('active IBKRNew goal not found'), { status: 404 });
-  return getIbkrNewGoalState(ownerUserId);
+  return getIbkrNewGoalState(ownerUserId, { environment });
 }
 
-export function resumeIbkrNewGoal(ownerUserId) {
-  ensureIbkrNewDefaults(ownerUserId); const db = getDb(); const ts = nowIso(); const goal = db.prepare(`SELECT * FROM ibkrnew_goals WHERE owner_user_id=? AND status='PAUSED' ORDER BY created_at DESC LIMIT 1`).get(ownerUserId);
+export function resumeIbkrNewGoal(ownerUserId, options = {}) {
+  ensureIbkrNewDefaults(ownerUserId); const db = getDb(); const environment = normalizeEnvironment(options.environment || ensureExecutionModeRow(ownerUserId, db).requested_mode); const ts = nowIso(); const goal = db.prepare(`SELECT * FROM ibkrnew_goals WHERE owner_user_id=? AND environment=? AND status='PAUSED' ORDER BY created_at DESC LIMIT 1`).get(ownerUserId, environment);
   if (!goal) throw Object.assign(new Error('paused IBKRNew goal not found'), { status: 404 });
   db.prepare(`UPDATE ibkrnew_goals SET status='ACTIVE',updated_at=? WHERE goal_id=?`).run(ts, goal.goal_id);
   db.prepare(`UPDATE ibkrnew_goal_cycles SET status='ACTIVE',stop_reason=NULL,updated_at=? WHERE goal_id=? AND status='PAUSED'`).run(ts, goal.goal_id);
-  return getIbkrNewGoalState(ownerUserId);
+  return getIbkrNewGoalState(ownerUserId, { environment });
 }
 
 export function publishConfig(ownerUserId, kind, document, { confirmRiskLoosening = false } = {}) {
@@ -817,9 +898,9 @@ function expireStaleAuthorizations(ownerUserId, db = getDb()) {
   }); tx(); return rows.length;
 }
 
-function reconcileFilledReservations(ownerUserId, positions, ts, db = getDb()) {
+function reconcileFilledReservations(bridge, positions, ts, db = getDb()) {
   const openSymbols = new Set((positions || []).filter((p) => Number(p.quantity ?? p.qty ?? 0) !== 0).map((p) => String(p.symbol || '').toUpperCase()));
-  const rows = db.prepare(`SELECT r.authorization_id,a.authorization_json FROM ibkrnew_budget_reservations r JOIN ibkrnew_authorizations a ON a.authorization_id=r.authorization_id WHERE r.owner_user_id=? AND r.status='filled' AND r.gross_released_usd<r.gross_reserved_usd`).all(ownerUserId);
+  const rows = db.prepare(`SELECT r.authorization_id,a.authorization_json FROM ibkrnew_budget_reservations r JOIN ibkrnew_authorizations a ON a.authorization_id=r.authorization_id WHERE r.owner_user_id=? AND r.account_id=? AND r.status='filled' AND r.gross_released_usd<r.gross_reserved_usd`).all(bridge.owner_user_id, bridge.account_id);
   const release = db.prepare(`UPDATE ibkrnew_budget_reservations SET gross_released_usd=gross_reserved_usd,updated_at=? WHERE authorization_id=?`);
   // Once the broker reports the filled position, account state carries gross exposure;
   // release only the pending-reservation side so it is not counted twice.
@@ -851,7 +932,7 @@ function saveInstrumentProfile(db, bridge, eventType, payload, occurred, created
   const symbol = String(payload.symbol || payload.contract?.symbol || '').trim().toUpperCase();
   const securityType = String(payload.security_type || payload.secType || 'STK').trim().toUpperCase();
   if (!symbol || !['STK', 'ETF'].includes(securityType)) throw Object.assign(new Error('instrument profile requires a symbol and STK or ETF security_type'), { status: 400 });
-  const existing = db.prepare(`SELECT * FROM ibkrnew_instrument_profiles WHERE owner_user_id=? AND symbol=? AND security_type=?`).get(bridge.owner_user_id, symbol, securityType);
+  const existing = db.prepare(`SELECT * FROM ibkrnew_instrument_profiles WHERE owner_user_id=? AND environment=? AND symbol=? AND security_type=?`).get(bridge.owner_user_id, bridge.environment, symbol, securityType);
   const prior = parse(existing?.profile_json, {}); let profile = { ...prior, symbol, security_type: securityType };
   if (eventType === 'instrument.profile_refreshed') profile = { ...profile, ...payload, symbol, security_type: securityType };
   if (eventType === 'instrument.fundamentals_refreshed') profile.fundamentals = { ...(prior.fundamentals || {}), ...(payload.fundamentals || payload.data || {}) };
@@ -862,15 +943,15 @@ function saveInstrumentProfile(db, bridge, eventType, payload, occurred, created
   const fundamentalsAt = payload.fundamentals_at || (eventType === 'instrument.fundamentals_refreshed' || eventType === 'instrument.profile_refreshed' && profile.fundamentals ? occurred : existing?.fundamentals_at);
   const membershipAt = payload.membership_at || (eventType === 'instrument.membership_refreshed' || eventType === 'instrument.profile_refreshed' && Array.isArray(profile.index_memberships) ? occurred : existing?.membership_at);
   const corporateEventsAt = payload.corporate_events_at || (eventType === 'instrument.corporate_events_refreshed' || eventType === 'instrument.profile_refreshed' && Array.isArray(profile.corporate_events) ? occurred : existing?.corporate_events_at);
-  db.prepare(`INSERT INTO ibkrnew_instrument_profiles(owner_user_id,bridge_id,symbol,security_type,profile_json,fundamentals_at,membership_at,corporate_events_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(owner_user_id,symbol,security_type) DO UPDATE SET bridge_id=excluded.bridge_id,profile_json=excluded.profile_json,fundamentals_at=excluded.fundamentals_at,membership_at=excluded.membership_at,corporate_events_at=excluded.corporate_events_at,updated_at=excluded.updated_at`).run(bridge.owner_user_id, bridge.bridge_id, symbol, securityType, json(profile), fundamentalsAt || null, membershipAt || null, corporateEventsAt || null, created);
+  db.prepare(`INSERT INTO ibkrnew_instrument_profiles(owner_user_id,bridge_id,environment,symbol,security_type,profile_json,fundamentals_at,membership_at,corporate_events_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(owner_user_id,environment,symbol,security_type) DO UPDATE SET bridge_id=excluded.bridge_id,profile_json=excluded.profile_json,fundamentals_at=excluded.fundamentals_at,membership_at=excluded.membership_at,corporate_events_at=excluded.corporate_events_at,updated_at=excluded.updated_at`).run(bridge.owner_user_id, bridge.bridge_id, bridge.environment, symbol, securityType, json(profile), fundamentalsAt || null, membershipAt || null, corporateEventsAt || null, created);
 }
 
-function instrumentEligibility(db, ownerUserId, universe, symbol, expression, payload) {
+function instrumentEligibility(db, ownerUserId, environment, universe, symbol, expression, payload) {
   const optionExpression = /CALL|PUT/.test(expression);
   const underlyingType = String(payload.underlying_security_type || payload.underlying_sec_type || (optionExpression ? 'STK' : payload.security_type || payload.contract?.security_type || 'STK')).toUpperCase();
   if (!['STK', 'ETF'].includes(underlyingType)) return { eligible: false, reason: 'unsupported_underlying_security_type' };
   if (!(universe.filters?.security_types || ['STK', 'ETF']).includes(underlyingType)) return { eligible: false, reason: 'security_type_filtered' };
-  const row = db.prepare(`SELECT * FROM ibkrnew_instrument_profiles WHERE owner_user_id=? AND symbol=? AND security_type=?`).get(ownerUserId, symbol, underlyingType);
+  const row = db.prepare(`SELECT * FROM ibkrnew_instrument_profiles WHERE owner_user_id=? AND environment=? AND symbol=? AND security_type=?`).get(ownerUserId, environment, symbol, underlyingType);
   const profile = row ? parse(row.profile_json, {}) : null;
   const rules = underlyingType === 'ETF' ? universe.filters?.etf : universe.filters?.stock;
   if (rules?.enabled !== true) return { eligible: false, reason: underlyingType === 'ETF' ? 'etf_filter_disabled' : 'stock_filter_disabled' };
@@ -950,7 +1031,8 @@ function refreshTradeFinancials(db, ownerUserId, authorizationId, ts) {
 }
 
 function recordExecutionEvent(db, bridge, payload, occurred, created) {
-  const authorizationId = payload.authorization_id || null; const trade = authorizationId ? db.prepare(`SELECT trade_id,expression FROM ibkrnew_trade_records WHERE owner_user_id=? AND authorization_id=?`).get(bridge.owner_user_id, authorizationId) : null;
+  const authorizationId = payload.authorization_id || null; const trade = authorizationId ? db.prepare(`SELECT trade_id,expression FROM ibkrnew_trade_records WHERE owner_user_id=? AND account_id=? AND bridge_id=? AND authorization_id=?`).get(bridge.owner_user_id, bridge.account_id, bridge.bridge_id, authorizationId) : null;
+  if (authorizationId && !trade) throw Object.assign(new Error('authorization does not belong to this bridge account context'), { status: 409 });
   const brokerExecutionId = String(payload.execution_id || payload.exec_id || id('IBKRNewExecution'));
   const executionId = `${bridge.bridge_id}:${brokerExecutionId}`;
   db.prepare(`INSERT INTO ibkrnew_executions(execution_id,owner_user_id,account_id,bridge_id,authorization_id,trade_id,order_role,side,quantity,price,commission_usd,realized_pnl_usd,occurred_at,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(execution_id) DO UPDATE SET authorization_id=COALESCE(excluded.authorization_id,authorization_id),trade_id=COALESCE(excluded.trade_id,trade_id),order_role=COALESCE(excluded.order_role,order_role),side=COALESCE(excluded.side,side),quantity=CASE WHEN excluded.quantity>0 THEN excluded.quantity ELSE quantity END,price=CASE WHEN excluded.price>0 THEN excluded.price ELSE price END,commission_usd=CASE WHEN excluded.commission_usd<>0 THEN excluded.commission_usd ELSE commission_usd END,realized_pnl_usd=CASE WHEN excluded.realized_pnl_usd<>0 THEN excluded.realized_pnl_usd ELSE realized_pnl_usd END`).run(executionId, bridge.owner_user_id, bridge.account_id, bridge.bridge_id, authorizationId, trade?.trade_id || null, payload.order_role || null, payload.side || null, Number(payload.quantity || payload.shares || 0), Number(payload.price || 0), Number(payload.commission_usd || payload.commission || 0), Number(payload.realized_pnl_usd || payload.realized_pnl || 0), occurred, created);
@@ -962,7 +1044,7 @@ function recordExecutionEvent(db, bridge, payload, occurred, created) {
   if (authorizationId) {
     refreshTradeFinancials(db, bridge.owner_user_id, authorizationId, created);
     const policy = ensureIbkrNewDefaults(bridge.owner_user_id).policy;
-    reconcileIbkrNewGoal(bridge.owner_user_id, { policy, at: occurred });
+    reconcileIbkrNewGoal(bridge.owner_user_id, { policy, environment: bridge.environment, at: occurred });
   }
 }
 
@@ -970,12 +1052,12 @@ function maybeAuthorize(bridge, eventId, payload) {
   const db = getDb(); expireStaleAuthorizations(bridge.owner_user_id, db); const configs = ensureIbkrNewDefaults(bridge.owner_user_id); const policy = configs.policy; const strategy = configs.strategy; const strategySkill = configs.strategy_skill;
   const executionMode = getIbkrNewExecutionMode(bridge.owner_user_id);
   if (executionMode.requested_mode !== bridge.environment) return { decision: 'blocked', reason: 'bridge_environment_not_selected' };
-  if (bridge.environment === 'live' && (executionMode.active_mode !== 'live' || executionMode.execution_enabled !== true)) return { decision: 'blocked', reason: 'live_activation_not_ready' };
-  if (!policy.feature_switches?.trading_enabled || bridge.environment === 'paper' && !policy.feature_switches?.paper_execution_enabled || !strategy.enabled) return { decision: 'blocked', reason: 'trading_disabled' };
+  if (executionMode.active_mode !== bridge.environment || executionMode.execution_enabled !== true) return { decision: 'blocked', reason: 'account_context_not_attested' };
+  if (!policy.feature_switches?.trading_enabled || !policy.feature_switches?.execution_enabled || !strategy.enabled) return { decision: 'blocked', reason: 'trading_disabled' };
   if (!strategySkill.enabled) return { decision: 'blocked', reason: 'strategy_skill_disabled' };
-  const goalState = reconcileIbkrNewGoal(bridge.owner_user_id, { policy, at: payload.occurred_at || nowIso() });
+  const goalState = reconcileIbkrNewGoal(bridge.owner_user_id, { policy, environment: bridge.environment, at: payload.occurred_at || nowIso() });
   if (strategy.goal_binding?.required === true && !goalState.opening_trades_allowed) return { decision: 'blocked', reason: goalState.block_reason || 'goal_cycle_inactive', goal: goalState };
-  const breaker = db.prepare(`SELECT 1 FROM ibkrnew_circuit_breakers WHERE owner_user_id=? AND active=1`).get(bridge.owner_user_id);
+  const breaker = db.prepare(`SELECT 1 FROM ibkrnew_circuit_breakers WHERE owner_user_id=? AND environment=? AND active=1`).get(bridge.owner_user_id, bridge.environment);
   if (breaker) return { decision: 'blocked', reason: 'circuit_breaker_active' };
   let expression = payload.expression || signalFromBar(payload, strategy);
   if (!expression) return { decision: 'no_signal' };
@@ -988,7 +1070,7 @@ function maybeAuthorize(bridge, eventId, payload) {
   if (!symbol) return { decision: 'blocked', reason: 'symbol_required' };
   if ((universe.denylist || []).map((x) => String(x).toUpperCase()).includes(symbol)) return { decision: 'blocked', reason: 'symbol_denied' };
   if ((universe.allowlist || []).length && !(universe.allowlist || []).map((x) => String(x).toUpperCase()).includes(symbol)) return { decision: 'blocked', reason: 'outside_active_universe' };
-  const eligibility = instrumentEligibility(db, bridge.owner_user_id, universe, symbol, expression, payload);
+  const eligibility = instrumentEligibility(db, bridge.owner_user_id, bridge.environment, universe, symbol, expression, payload);
   if (!eligibility.eligible) return { decision: 'blocked', reason: eligibility.reason };
   const quoteAt = Date.parse(payload.quote_at || payload.occurred_at || 0);
   if (!Number.isFinite(quoteAt) || Date.now() - quoteAt > Number(policy.freshness?.quote_max_age_ms || 5000)) return { decision: 'blocked', reason: 'stale_quote' };
@@ -1017,7 +1099,7 @@ function maybeAuthorize(bridge, eventId, payload) {
   const approvalRequired = policy.feature_switches.ceo_approval_required === true || strategy.execution_mode === 'approval_required' || policy.feature_switches.automatic_entry_enabled !== true;
   const expires = new Date(Date.now() + Number(approvalRequired ? policy.freshness?.approval_ttl_ms || 300000 : policy.freshness?.authorization_ttl_ms || 15000)).toISOString();
   const transaction = db.transaction(() => {
-    const activeCycle = db.prepare(`SELECT c.*,g.status goal_status FROM ibkrnew_goal_cycles c JOIN ibkrnew_goals g ON g.goal_id=c.goal_id WHERE c.cycle_id=? AND c.owner_user_id=?`).get(goalState.cycle?.cycle_id, bridge.owner_user_id);
+    const activeCycle = db.prepare(`SELECT c.*,g.status goal_status FROM ibkrnew_goal_cycles c JOIN ibkrnew_goals g ON g.goal_id=c.goal_id WHERE c.cycle_id=? AND c.owner_user_id=? AND c.environment=? AND g.environment=?`).get(goalState.cycle?.cycle_id, bridge.owner_user_id, bridge.environment, bridge.environment);
     if (!activeCycle || activeCycle.status !== 'ACTIVE' || activeCycle.goal_status !== 'ACTIVE' || Date.parse(activeCycle.scheduled_end_at) <= Date.now()) throw Object.assign(new Error('goal_cycle_inactive'), { code: 'RISK_BLOCK' });
     const daily = db.prepare(`SELECT COALESCE(SUM(r.daily_reserved_usd-r.daily_released_usd),0) used FROM ibkrnew_budget_reservations r JOIN ibkrnew_authorizations a ON a.authorization_id=r.authorization_id JOIN ibkrnew_bridges b ON b.bridge_id=a.bridge_id WHERE r.owner_user_id=? AND r.trading_day=? AND b.environment=? AND r.status IN ('reserved','partially_filled','filled')`).get(bridge.owner_user_id, day, bridge.environment).used;
     const pendingGross = db.prepare(`SELECT COALESCE(SUM(r.gross_reserved_usd-r.gross_released_usd),0) used FROM ibkrnew_budget_reservations r JOIN ibkrnew_authorizations a ON a.authorization_id=r.authorization_id JOIN ibkrnew_bridges b ON b.bridge_id=a.bridge_id WHERE r.owner_user_id=? AND b.environment=? AND r.status IN ('reserved','partially_filled','filled')`).get(bridge.owner_user_id, bridge.environment).used;
@@ -1048,7 +1130,7 @@ function maybeAuthorize(bridge, eventId, payload) {
     db.prepare(`INSERT INTO ibkrnew_authorizations VALUES(?,?,?,?,?,?,?,?,?,?)`).run(authId, bridge.owner_user_id, bridge.account_id, bridge.bridge_id, eventId, expression, json(authorization), approvalRequired ? 'pending_approval' : 'issued', expires, created);
     saveAllocationDecision(db, bridge.owner_user_id, eventId, economics, authId);
     db.prepare(`INSERT INTO ibkrnew_trade_records(trade_id,owner_user_id,account_id,bridge_id,authorization_id,symbol,expression,quantity,estimated_round_trip_commission_usd,expected_net_profit_usd,required_profitable_exit_price,status,economics_json,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,'authorized',?,?,?)`).run(id('IBKRNewTrade'), bridge.owner_user_id, bridge.account_id, bridge.bridge_id, authId, symbol, expression, quantity, economics.estimated_round_trip_commission_usd, economics.expected_net_profit_usd, economics.required_profitable_exit_price, json(economics), created, created);
-    db.prepare(`INSERT INTO ibkrnew_goal_trade_links(authorization_id,owner_user_id,goal_id,cycle_id,created_at) VALUES(?,?,?,?,?)`).run(authId, bridge.owner_user_id, activeCycle.goal_id, activeCycle.cycle_id, created);
+    db.prepare(`INSERT INTO ibkrnew_goal_trade_links(authorization_id,owner_user_id,goal_id,cycle_id,environment,created_at) VALUES(?,?,?,?,?,?)`).run(authId, bridge.owner_user_id, activeCycle.goal_id, activeCycle.cycle_id, bridge.environment, created);
     const commandId = approvalRequired ? null : insertCommand(db, bridge, authorization, created, expires);
     return { decision: approvalRequired ? 'pending_approval' : 'authorized', authorization_id: authId, command_id: commandId, reservation_id: reservationId, reserved_usd: amount, economics };
   });
@@ -1068,6 +1150,10 @@ export function ingestBridgeEvent(bridge, input) {
   const eventId = existing?.event_id || id('IBKRNewEvent'); const occurred = new Date(occurredMs).toISOString(); const created = nowIso(); let status = 'accepted'; let reason = null;
   if (sequence !== lastSequence + 1) { status = 'quarantined'; reason = `sequence_gap_expected_${lastSequence + 1}`; }
   const cleanPayload = sanitizeIbkrNewPersistence(input.payload || {});
+  if (['execution.fill', 'commission.report', 'order.status_changed'].includes(eventType) && cleanPayload.authorization_id) {
+    const scopedAuthorization = db.prepare(`SELECT 1 FROM ibkrnew_authorizations WHERE authorization_id=? AND owner_user_id=? AND account_id=? AND bridge_id=?`).get(cleanPayload.authorization_id, bridge.owner_user_id, bridge.account_id, bridge.bridge_id);
+    if (!scopedAuthorization) throw Object.assign(new Error('authorization does not belong to this bridge account context'), { status: 409 });
+  }
   if (existing) db.prepare(`UPDATE ibkrnew_events SET status='accepted',reason=NULL,payload_json=?,occurred_at=? WHERE event_id=?`).run(json(cleanPayload), occurred, eventId);
   else db.prepare(`INSERT INTO ibkrnew_events VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(eventId, bridge.owner_user_id, bridge.account_id, bridge.bridge_id, bridge.environment, eventType, sourceId, sequence, occurred, json(cleanPayload), status, reason, created);
   db.prepare(`UPDATE ibkrnew_bridges SET status='online',last_seen_at=?,last_sequence=CASE WHEN ?='accepted' THEN ? ELSE last_sequence END WHERE bridge_id=?`).run(created, status, sequence, bridge.bridge_id);
@@ -1085,24 +1171,26 @@ export function ingestBridgeEvent(bridge, input) {
     db.prepare(`INSERT INTO ibkrnew_account_state(owner_user_id,account_id,bridge_id,eligible_capital_usd,cash_usd,realized_pnl_day_usd,unrealized_pnl_usd,positions_json,open_orders_json,captured_at) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(owner_user_id,account_id) DO UPDATE SET bridge_id=excluded.bridge_id,eligible_capital_usd=excluded.eligible_capital_usd,cash_usd=excluded.cash_usd,realized_pnl_day_usd=excluded.realized_pnl_day_usd,unrealized_pnl_usd=excluded.unrealized_pnl_usd,positions_json=excluded.positions_json,open_orders_json=excluded.open_orders_json,captured_at=excluded.captured_at`).run(bridge.owner_user_id, bridge.account_id, bridge.bridge_id, Number(payload.eligible_capital_usd || payload.net_liquidation_usd || 0), Number(payload.cash_usd || 0), Number(payload.realized_pnl_day_usd || 0), Number(payload.unrealized_pnl_usd || 0), json(payload.positions || []), json(payload.open_orders || []), occurred);
     persistHistoricalSnapshot(db, bridge, 'account', payload, occurred, created);
     for (const order of payload.open_orders || []) if (String(order.order_ref || '').startsWith('IBKRNewAuthorization_')) db.prepare(`UPDATE ibkrnew_authorizations SET status='submitted' WHERE authorization_id=? AND owner_user_id=? AND status IN ('issued','uncertain')`).run(order.order_ref, bridge.owner_user_id);
-    reconcileFilledReservations(bridge.owner_user_id, payload.positions || [], created, db);
+    reconcileFilledReservations(bridge, payload.positions || [], created, db);
     const policy = ensureIbkrNewDefaults(bridge.owner_user_id).policy;
-    reconcileIbkrNewGoal(bridge.owner_user_id, { policy, at: occurred });
+    reconcileIbkrNewGoal(bridge.owner_user_id, { policy, environment: bridge.environment, at: occurred });
     const pnl = Number(payload.realized_pnl_day_usd || 0) + Number(payload.unrealized_pnl_usd || 0);
     if (pnl <= -Number(policy.loss_limits.daily_loss_limit_usd)) {
-      db.prepare(`INSERT INTO ibkrnew_circuit_breakers(owner_user_id,breaker_type,active,reason,created_at) VALUES(?,'daily_loss',1,?,?) ON CONFLICT(owner_user_id,breaker_type) DO UPDATE SET active=1,reason=excluded.reason,created_at=excluded.created_at,cleared_at=NULL`).run(bridge.owner_user_id, `Daily P&L ${pnl} breached limit`, created);
-      db.prepare(`UPDATE ibkrnew_command_outbox SET status='cancelled',acknowledged_at=? WHERE owner_user_id=? AND status IN ('pending','claimed')`).run(created, bridge.owner_user_id);
-      db.prepare(`UPDATE ibkrnew_budget_reservations SET daily_released_usd=daily_reserved_usd,gross_released_usd=gross_reserved_usd,status='released',updated_at=? WHERE owner_user_id=? AND status='reserved'`).run(created, bridge.owner_user_id);
+      db.prepare(`INSERT INTO ibkrnew_circuit_breakers(owner_user_id,environment,breaker_type,active,reason,created_at) VALUES(?,?,'daily_loss',1,?,?) ON CONFLICT(owner_user_id,environment,breaker_type) DO UPDATE SET active=1,reason=excluded.reason,created_at=excluded.created_at,cleared_at=NULL`).run(bridge.owner_user_id, bridge.environment, `Daily P&L ${pnl} breached limit`, created);
+      db.prepare(`UPDATE ibkrnew_command_outbox SET status='cancelled',acknowledged_at=? WHERE owner_user_id=? AND bridge_id IN (SELECT bridge_id FROM ibkrnew_bridges WHERE owner_user_id=? AND environment=?) AND status IN ('pending','claimed')`).run(created, bridge.owner_user_id, bridge.owner_user_id, bridge.environment);
+      db.prepare(`UPDATE ibkrnew_budget_reservations SET daily_released_usd=daily_reserved_usd,gross_released_usd=gross_reserved_usd,status='released',updated_at=? WHERE owner_user_id=? AND authorization_id IN (SELECT a.authorization_id FROM ibkrnew_authorizations a JOIN ibkrnew_bridges b ON b.bridge_id=a.bridge_id WHERE a.owner_user_id=? AND b.environment=?) AND status='reserved'`).run(created, bridge.owner_user_id, bridge.owner_user_id, bridge.environment);
     }
   }
   if (eventType === 'position.changed' && Array.isArray(payload.positions)) {
     db.prepare(`UPDATE ibkrnew_account_state SET positions_json=?,captured_at=? WHERE owner_user_id=? AND account_id=?`).run(json(payload.positions), occurred, bridge.owner_user_id, bridge.account_id);
-    reconcileFilledReservations(bridge.owner_user_id, payload.positions, created, db);
+    reconcileFilledReservations(bridge, payload.positions, created, db);
     persistHistoricalSnapshot(db, bridge, 'positions', payload, occurred, created);
   }
   if (eventType === 'execution.fill') recordExecutionEvent(db, bridge, { ...payload, event_kind: 'fill' }, occurred, created);
   if (eventType === 'commission.report') recordExecutionEvent(db, bridge, { ...payload, event_kind: 'commission' }, occurred, created);
   if (eventType === 'order.status_changed' && payload.authorization_id) {
+    const scopedAuthorization = db.prepare(`SELECT 1 FROM ibkrnew_authorizations WHERE authorization_id=? AND owner_user_id=? AND account_id=? AND bridge_id=?`).get(payload.authorization_id, bridge.owner_user_id, bridge.account_id, bridge.bridge_id);
+    if (!scopedAuthorization) throw Object.assign(new Error('authorization does not belong to this bridge account context'), { status: 409 });
     const statusText = String(payload.status || '').toLowerCase();
     const filledQty = Number(payload.filled || 0); const remainingQty = Number(payload.remaining || 0);
     if (payload.order_role === 'entry' && filledQty > 0 && remainingQty > 0) {
@@ -1115,7 +1203,7 @@ export function ingestBridgeEvent(bridge, input) {
     } else if (payload.order_role === 'entry' && /cancel|inactive|reject/.test(statusText)) {
       db.prepare(`UPDATE ibkrnew_budget_reservations SET daily_released_usd=daily_reserved_usd-filled_usd,gross_released_usd=CASE WHEN filled_usd>0 THEN gross_reserved_usd*(daily_reserved_usd-filled_usd)/daily_reserved_usd ELSE gross_reserved_usd END,status=CASE WHEN filled_usd>0 THEN 'filled' ELSE 'released' END,updated_at=? WHERE authorization_id=? AND owner_user_id=? AND status IN ('reserved','partially_filled')`).run(created, payload.authorization_id, bridge.owner_user_id);
     } else if (payload.order_role === 'protective_stop' && /cancel|inactive|reject/.test(statusText)) {
-      db.prepare(`INSERT INTO ibkrnew_circuit_breakers(owner_user_id,breaker_type,active,reason,created_at) VALUES(?,'protection_failure',1,?,?) ON CONFLICT(owner_user_id,breaker_type) DO UPDATE SET active=1,reason=excluded.reason,created_at=excluded.created_at,cleared_at=NULL`).run(bridge.owner_user_id, `Protective stop ${payload.order_id} became ${payload.status}`, created);
+      db.prepare(`INSERT INTO ibkrnew_circuit_breakers(owner_user_id,environment,breaker_type,active,reason,created_at) VALUES(?,?,'protection_failure',1,?,?) ON CONFLICT(owner_user_id,environment,breaker_type) DO UPDATE SET active=1,reason=excluded.reason,created_at=excluded.created_at,cleared_at=NULL`).run(bridge.owner_user_id, bridge.environment, `Protective stop ${payload.order_id} became ${payload.status}`, created);
     }
   }
   const reaction = (eventType === 'market.bar_closed' || eventType === 'market.signal') ? maybeAuthorize(bridge, eventId, payload) : null;
@@ -1129,7 +1217,7 @@ export function ingestBridgeEvent(bridge, input) {
 export function claimCommands(bridge, limit = 10, protocolVersion = 0) {
   if (Number(protocolVersion) < 2) throw Object.assign(new Error('IBKRNew desktop bridge protocol version 2 or newer is required'), { status: 426 });
   const executionMode = getIbkrNewExecutionMode(bridge.owner_user_id);
-  if (executionMode.requested_mode !== bridge.environment || bridge.environment === 'live' && executionMode.active_mode !== 'live') return [];
+  if (executionMode.requested_mode !== bridge.environment || executionMode.active_mode !== bridge.environment || executionMode.execution_enabled !== true) return [];
   ensureIbkrNewEventTraderSchema(); const db = getDb(); const ts = nowIso(); const lease = new Date(Date.now() + 10000).toISOString();
   const tx = db.transaction(() => {
     const goalBlocked = db.prepare(`SELECT o.authorization_id FROM ibkrnew_command_outbox o LEFT JOIN ibkrnew_goal_trade_links l ON l.authorization_id=o.authorization_id LEFT JOIN ibkrnew_goal_cycles c ON c.cycle_id=l.cycle_id LEFT JOIN ibkrnew_goals g ON g.goal_id=l.goal_id WHERE o.bridge_id=? AND o.status IN ('pending','claimed') AND (c.status IS NULL OR c.status<>'ACTIVE' OR g.status<>'ACTIVE' OR c.scheduled_end_at<=?)`).all(bridge.bridge_id, ts);
@@ -1183,9 +1271,8 @@ export function approveAuthorization(ownerUserId, authorizationId) {
     }
     const bridge = db.prepare(`SELECT * FROM ibkrnew_bridges WHERE bridge_id=? AND owner_user_id=? AND revoked_at IS NULL`).get(row.bridge_id, ownerUserId);
     if (!bridge) throw Object.assign(new Error('bridge unavailable'), { status: 409 });
-    const executionMode = ensureExecutionModeRow(ownerUserId, db); const verified = bridge.environment === 'live' ? latestVerifiedBridge(ownerUserId, 'live', db) : null;
-    const liveReady = bridge.environment !== 'live' || executionMode.activation_state === 'LIVE_ACTIVE' && verified?.last_seen_at && Date.now() - Date.parse(verified.last_seen_at) <= 60_000;
-    if (executionMode.requested_mode !== bridge.environment || !liveReady) throw Object.assign(new Error('selected trading mode is no longer executable'), { status: 409 });
+    const executionMode = getIbkrNewExecutionMode(ownerUserId);
+    if (executionMode.requested_mode !== bridge.environment || executionMode.active_mode !== bridge.environment || executionMode.execution_enabled !== true) throw Object.assign(new Error('selected account context is no longer executable'), { status: 409 });
     const commandId = insertCommand(db, bridge, parse(row.authorization_json, {}), ts, row.expires_at);
     db.prepare(`UPDATE ibkrnew_authorizations SET status='issued' WHERE authorization_id=?`).run(authorizationId);
     return { authorization_id: authorizationId, command_id: commandId, status: 'issued' };
@@ -1237,7 +1324,7 @@ function lifecycleStages(row, payload, reaction) {
   }
   add('IBKRNewMarketObserver', 'completed', `Accepted the canonical ${row.event_type.replaceAll('.', ' ')}${payload.symbol ? ` for ${String(payload.symbol).toUpperCase()}` : ''}.`, { event_id: row.event_id, sequence: row.sequence });
   const decision = reaction?.decision || row.decision || 'unknown'; const reason = reaction?.reason || row.reaction_reason || null;
-  const plannerStatus = decision === 'no_signal' ? 'completed' : decision === 'blocked' && ['trading_disabled','strategy_skill_disabled','goal_cycle_inactive','goal_target_achieved','goal_expired','goal_paused','circuit_breaker_active','strategy_expression_disabled','symbol_required','symbol_denied','outside_active_universe','stale_quote','whole_positive_quantity_required'].includes(reason) ? 'blocked' : decision === 'unknown' ? 'waiting' : 'completed';
+  const plannerStatus = decision === 'no_signal' ? 'completed' : decision === 'blocked' && ['bridge_environment_not_selected','account_context_not_attested','trading_disabled','strategy_skill_disabled','goal_cycle_inactive','goal_target_achieved','goal_expired','goal_paused','circuit_breaker_active','strategy_expression_disabled','symbol_required','symbol_denied','outside_active_universe','stale_quote','whole_positive_quantity_required'].includes(reason) ? 'blocked' : decision === 'unknown' ? 'waiting' : 'completed';
   add('IBKRNewStrategyPlanner', plannerStatus, decision === 'no_signal' ? 'No trade proposal met the active strategy.' : reason && plannerStatus === 'blocked' ? `Proposal stopped: ${reason.replaceAll('_', ' ')}.` : `${payload.expression || row.expression || 'Trade'} proposal evaluated${payload.quantity ? ` for ${payload.quantity} unit(s)` : ''}.`, { decision, reason, allocation_mode: row.allocation_mode || null });
   const riskPassed = ['authorized', 'pending_approval'].includes(decision); const riskStatus = riskPassed ? 'completed' : decision === 'blocked' ? 'blocked' : 'waiting';
   add('IBKRNewRiskChecker', riskStatus, riskPassed ? `Deterministic goal, freshness, eligibility, budget, loss, and commission gates passed; authorization ${row.authorization_status || decision}.` : decision === 'blocked' ? `Deterministic gate blocked the proposal: ${(reason || 'risk check failed').replaceAll('_', ' ')}.` : 'Waiting for an actionable proposal.', { authorization_id: row.authorization_id || null, authorization_status: row.authorization_status || null, expected_net_profit_usd: row.expected_net_profit_usd ?? null });
@@ -1313,7 +1400,7 @@ function getIbkrNewAgentActivity(ownerUserId, environment) {
 export function getDashboard(ownerUserId, { includeEvents = true, eventLimit = 100 } = {}) {
   const db = getDb(); ensureIbkrNewEventTraderSchema(db); expireStaleAuthorizations(ownerUserId, db); const configs = ensureIbkrNewDefaults(ownerUserId); const day = tradingDay();
   const executionMode = getIbkrNewExecutionMode(ownerUserId); const environment = executionMode.requested_mode;
-  const bridges = db.prepare(`SELECT bridge_id,account_id,environment,status,last_sequence,last_seen_at,created_at,revoked_at FROM ibkrnew_bridges WHERE owner_user_id=? ORDER BY created_at DESC`).all(ownerUserId).map(withAccountRef);
+  const bridges = db.prepare(`SELECT bridge_id,account_id,environment,status,last_sequence,last_seen_at,created_at,revoked_at FROM ibkrnew_bridges WHERE owner_user_id=? AND environment=? ORDER BY created_at DESC`).all(ownerUserId, environment).map(withAccountRef);
   const account = db.prepare(`SELECT s.* FROM ibkrnew_account_state s JOIN ibkrnew_bridges b ON b.bridge_id=s.bridge_id WHERE s.owner_user_id=? AND b.environment=? ORDER BY s.captured_at DESC LIMIT 1`).get(ownerUserId, environment);
   const inactiveLiveAccountRow = environment === 'paper' ? db.prepare(`SELECT s.* FROM ibkrnew_account_state s JOIN ibkrnew_bridges b ON b.bridge_id=s.bridge_id WHERE s.owner_user_id=? AND b.environment='live' ORDER BY s.captured_at DESC LIMIT 1`).get(ownerUserId) : null;
   const inactiveLiveAccount = inactiveLiveAccountRow ? { ...withAccountRef(inactiveLiveAccountRow), positions: parse(inactiveLiveAccountRow.positions_json, []), open_orders: parse(inactiveLiveAccountRow.open_orders_json, []) } : null;
@@ -1324,7 +1411,7 @@ export function getDashboard(ownerUserId, { includeEvents = true, eventLimit = 1
   const approvals = db.prepare(`SELECT a.authorization_id,a.expression,a.bridge_id,a.expires_at,a.created_at FROM ibkrnew_authorizations a JOIN ibkrnew_bridges b ON b.bridge_id=a.bridge_id WHERE a.owner_user_id=? AND b.environment=? AND a.status='pending_approval' ORDER BY a.created_at DESC`).all(ownerUserId, environment);
   const reactions = db.prepare(`SELECT reaction_id,agent_name,subscriptions_json,enabled FROM ibkrnew_reaction_registry WHERE owner_user_id=? ORDER BY agent_name`).all(ownerUserId).map((r) => ({ ...r, subscriptions: parse(r.subscriptions_json, []) }));
   const staleMs = Number(configs.policy.freshness?.bridge_offline_after_ms || 30000); const now = Date.now();
-  const goal = reconcileIbkrNewGoal(ownerUserId, { policy: configs.policy, at: nowIso() });
+  const goal = reconcileIbkrNewGoal(ownerUserId, { policy: configs.policy, environment, at: nowIso() });
   return { namespace: IBKRNEW_NAMESPACE, environment, execution_mode: executionMode, configs, goal, reactions, approvals, trading_day: day, budgets: { daily_limit_usd: configs.policy.budgets.daily_opening_exposure_usd, daily_used_usd: Number(daily), total_limit_usd: configs.policy.budgets.total_gross_exposure_usd }, bridges: bridges.map((b) => ({ ...b, effective_status: !b.last_seen_at || now - Date.parse(b.last_seen_at) > staleMs ? 'offline' : b.status })), account: account ? { ...withAccountRef(account), positions: parse(account.positions_json, []), open_orders: parse(account.open_orders_json, []) } : null, inactive_live_account: hasInactiveLiveExposure ? inactiveLiveAccount : null, events, commands };
 }
 
@@ -1332,9 +1419,9 @@ export function getIbkrNewSummary(ownerUserId) {
   const db = getDb(); ensureIbkrNewDefaults(ownerUserId); const executionMode = getIbkrNewExecutionMode(ownerUserId); const environment = executionMode.requested_mode;
   const totals = db.prepare(`SELECT COUNT(*) trade_count,COALESCE(SUM(t.actual_commission_usd),0) actual_commission_usd,COALESCE(SUM(t.estimated_round_trip_commission_usd),0) estimated_commission_usd,COALESCE(SUM(t.gross_pnl_usd),0) gross_pnl_usd,COALESCE(SUM(t.net_pnl_usd),0) net_pnl_usd,SUM(CASE WHEN t.status='open' THEN 1 ELSE 0 END) open_trade_count,SUM(CASE WHEN t.status='closed' AND t.net_pnl_usd>0 THEN 1 ELSE 0 END) profitable_trade_count FROM ibkrnew_trade_records t JOIN ibkrnew_bridges b ON b.bridge_id=t.bridge_id WHERE t.owner_user_id=? AND b.environment=?`).get(ownerUserId, environment);
   const trades = db.prepare(`SELECT t.* FROM ibkrnew_trade_records t JOIN ibkrnew_bridges b ON b.bridge_id=t.bridge_id WHERE t.owner_user_id=? AND b.environment=? ORDER BY t.created_at DESC LIMIT 200`).all(ownerUserId, environment).map((row) => ({ ...withAccountRef(row), economics: parse(row.economics_json, {}) }));
-  const allocations = db.prepare(`SELECT * FROM ibkrnew_allocation_decisions WHERE owner_user_id=? ORDER BY created_at DESC LIMIT 200`).all(ownerUserId).map((row) => ({ ...row, detail: parse(row.detail_json, {}) }));
+  const allocations = db.prepare(`SELECT d.* FROM ibkrnew_allocation_decisions d JOIN ibkrnew_events e ON e.event_id=d.signal_event_id AND e.owner_user_id=d.owner_user_id WHERE d.owner_user_id=? AND e.environment=? ORDER BY d.created_at DESC LIMIT 200`).all(ownerUserId, environment).map((row) => ({ ...row, detail: parse(row.detail_json, {}) }));
   const profile = db.prepare(`SELECT data_retention_days FROM platform_users WHERE id=?`).get(ownerUserId);
-  return { environment, execution_mode: executionMode, retention_days: Number(profile?.data_retention_days || 90), goal: getIbkrNewGoalState(ownerUserId), totals: { ...totals, win_rate_pct: Number(totals.trade_count) ? Number(totals.profitable_trade_count || 0) / Number(totals.trade_count) * 100 : 0 }, trades, allocations };
+  return { environment, execution_mode: executionMode, retention_days: Number(profile?.data_retention_days || 90), goal: getIbkrNewGoalState(ownerUserId, { environment }), totals: { ...totals, win_rate_pct: Number(totals.trade_count) ? Number(totals.profitable_trade_count || 0) / Number(totals.trade_count) * 100 : 0 }, trades, allocations };
 }
 
 export function getIbkrNewLiveOperations(ownerUserId, { limit = 50 } = {}) {
@@ -1343,7 +1430,7 @@ export function getIbkrNewLiveOperations(ownerUserId, { limit = 50 } = {}) {
   const errors = db.prepare(`SELECT e.* FROM ibkrnew_component_errors e JOIN ibkrnew_bridges b ON b.bridge_id=e.bridge_id WHERE e.owner_user_id=? AND b.environment=? ORDER BY e.occurred_at DESC LIMIT ?`).all(ownerUserId, dashboard.environment, n).map((row) => ({ ...row, detail: parse(row.detail_json, {}) }));
   const snapshots = db.prepare(`SELECT s.* FROM ibkrnew_position_snapshots s JOIN ibkrnew_bridges b ON b.bridge_id=s.bridge_id WHERE s.owner_user_id=? AND b.environment=? ORDER BY s.captured_at DESC LIMIT ?`).all(ownerUserId, dashboard.environment, n).map((row) => ({ ...withAccountRef(row), payload: parse(row.payload_json, {}) }));
   const executions = db.prepare(`SELECT e.* FROM ibkrnew_executions e JOIN ibkrnew_bridges b ON b.bridge_id=e.bridge_id WHERE e.owner_user_id=? AND b.environment=? ORDER BY e.occurred_at DESC LIMIT ?`).all(ownerUserId, dashboard.environment, n).map(withAccountRef);
-  const instrumentProfiles = db.prepare(`SELECT symbol,security_type,fundamentals_at,membership_at,corporate_events_at,updated_at,profile_json FROM ibkrnew_instrument_profiles WHERE owner_user_id=? ORDER BY updated_at DESC LIMIT ?`).all(ownerUserId, n).map((row) => ({ ...row, profile: parse(row.profile_json, {}) }));
+  const instrumentProfiles = db.prepare(`SELECT symbol,security_type,fundamentals_at,membership_at,corporate_events_at,updated_at,profile_json FROM ibkrnew_instrument_profiles WHERE owner_user_id=? AND environment=? ORDER BY updated_at DESC LIMIT ?`).all(ownerUserId, dashboard.environment, n).map((row) => ({ ...row, profile: parse(row.profile_json, {}) }));
   const profile = db.prepare(`SELECT data_retention_days FROM platform_users WHERE id=?`).get(ownerUserId);
   return { generated_at: nowIso(), retention_days: Number(profile?.data_retention_days || 90), health, errors, snapshots, executions, instrument_profiles: instrumentProfiles, agent_activity: getIbkrNewAgentActivity(ownerUserId, dashboard.environment), dashboard, summary: getIbkrNewSummary(ownerUserId) };
 }

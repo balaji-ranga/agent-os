@@ -10,7 +10,42 @@ getDb().exec(`CREATE TABLE ibkrnew_bridges (
   environment TEXT NOT NULL CHECK(environment = 'paper'), token_hash TEXT NOT NULL UNIQUE,
   status TEXT NOT NULL DEFAULT 'offline', last_sequence INTEGER NOT NULL DEFAULT 0,
   last_seen_at TEXT, created_at TEXT NOT NULL, revoked_at TEXT
-)`);
+);
+CREATE TABLE ibkrnew_execution_modes (
+  owner_user_id TEXT PRIMARY KEY, requested_mode TEXT NOT NULL CHECK(requested_mode IN ('paper','live')),
+  activation_state TEXT NOT NULL CHECK(activation_state IN ('PAPER_ACTIVE','AWAITING_LIVE_BRIDGE','LIVE_ACTIVE','LIVE_BLOCKED')),
+  attested_bridge_id TEXT, attestation_status TEXT, attestation_reason TEXT,
+  attested_at TEXT, confirmed_at TEXT, halted_at TEXT, updated_at TEXT NOT NULL
+);
+CREATE TABLE ibkrnew_circuit_breakers (
+  owner_user_id TEXT NOT NULL, breaker_type TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1,
+  reason TEXT NOT NULL, created_at TEXT NOT NULL, cleared_at TEXT,
+  PRIMARY KEY(owner_user_id,breaker_type)
+);
+CREATE TABLE ibkrnew_goals (
+  goal_id TEXT PRIMARY KEY, owner_user_id TEXT NOT NULL, name TEXT NOT NULL,
+  mode TEXT NOT NULL, target_return_pct REAL NOT NULL, duration_days INTEGER NOT NULL,
+  duration_basis TEXT NOT NULL, capital_basis TEXT NOT NULL, profit_basis TEXT NOT NULL,
+  status TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE UNIQUE INDEX idx_ibkrnew_goal_owner_open ON ibkrnew_goals(owner_user_id) WHERE status IN ('ACTIVE','PAUSED');
+CREATE TABLE ibkrnew_goal_cycles (
+  cycle_id TEXT PRIMARY KEY, goal_id TEXT NOT NULL, owner_user_id TEXT NOT NULL,
+  cycle_number INTEGER NOT NULL, status TEXT NOT NULL, started_at TEXT NOT NULL, scheduled_end_at TEXT NOT NULL,
+  capital_basis_usd REAL NOT NULL, target_profit_usd REAL NOT NULL, net_realized_profit_usd REAL NOT NULL DEFAULT 0,
+  achieved_at TEXT, closed_at TEXT, stop_reason TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+  UNIQUE(goal_id,cycle_number)
+);
+CREATE TABLE ibkrnew_goal_trade_links (authorization_id TEXT PRIMARY KEY, owner_user_id TEXT NOT NULL, goal_id TEXT NOT NULL, cycle_id TEXT NOT NULL, created_at TEXT NOT NULL);
+CREATE TABLE ibkrnew_instrument_profiles (
+  owner_user_id TEXT NOT NULL, bridge_id TEXT NOT NULL, symbol TEXT NOT NULL, security_type TEXT NOT NULL,
+  profile_json TEXT NOT NULL, fundamentals_at TEXT, membership_at TEXT, corporate_events_at TEXT, updated_at TEXT NOT NULL,
+  PRIMARY KEY(owner_user_id,symbol,security_type)
+);
+INSERT INTO ibkrnew_execution_modes(owner_user_id,requested_mode,activation_state,updated_at) VALUES('IBKRNewOwner_SchemaMigration','live','LIVE_ACTIVE','2026-10-01T00:00:00.000Z');
+INSERT INTO ibkrnew_circuit_breakers(owner_user_id,breaker_type,active,reason,created_at) VALUES('IBKRNewOwner_SchemaMigration','legacy_test',1,'legacy breaker','2026-10-01T00:00:00.000Z');
+INSERT INTO ibkrnew_goals(goal_id,owner_user_id,name,mode,target_return_pct,duration_days,duration_basis,capital_basis,profit_basis,status,created_at,updated_at) VALUES('IBKRNewGoal_Legacy','IBKRNewOwner_SchemaMigration','Legacy paper goal','PERPETUAL',5,30,'CALENDAR_DAYS','CYCLE_START_ELIGIBLE_CAPITAL_CAPPED_BY_TOTAL_BUDGET','NET_REALIZED_AFTER_COMMISSIONS','ACTIVE','2026-10-01T00:00:00.000Z','2026-10-01T00:00:00.000Z');
+`);
 const legacyTableCountBefore = getDb().prepare("SELECT COUNT(*) count FROM sqlite_master WHERE type='table' AND name LIKE 'ibkr\\_%' ESCAPE '\\'").get().count;
 const blueprints = await import('../src/services/ibkrnew-blueprints.js');
 const service = await import('../src/services/ibkrnew-event-trader.js');
@@ -38,13 +73,20 @@ const mutableBlueprint = blueprints.getIbkrNewConfigBlueprint('policy'); mutable
 assert.equal(blueprints.getIbkrNewConfigBlueprint('policy').budgets.daily_opening_exposure_usd, 1000, 'blueprint consumers receive isolated copies');
 const configs = service.ensureIbkrNewDefaults(owner);
 assert.match(getDb().prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='ibkrnew_bridges'`).get().sql, /environment IN \('paper','live'\)/, 'paper-only bridge table is migrated in place before live registration');
+assert.equal(getDb().prepare(`SELECT activation_state FROM ibkrnew_execution_modes WHERE owner_user_id='IBKRNewOwner_SchemaMigration'`).get().activation_state, 'ACTIVE', 'legacy Live-specific execution state is migrated to the generic state machine');
+assert.equal(getDb().prepare(`SELECT environment FROM ibkrnew_circuit_breakers WHERE owner_user_id='IBKRNewOwner_SchemaMigration'`).get().environment, 'live', 'legacy circuit breakers are attached to their selected account context');
+assert.equal(getDb().prepare(`SELECT environment FROM ibkrnew_goals WHERE goal_id='IBKRNewGoal_Legacy'`).get().environment, 'paper', 'legacy goals remain in the Paper context');
 assert.equal(configs.policy.budgets.daily_opening_exposure_usd, 1000);
 assert.equal(configs.policy.budgets.total_gross_exposure_usd, 10000);
 assert.equal(configs.strategy_skill.agent_name, 'IBKRNewStrategyPlanner');
 assert.match(configs.strategy_skill.skill_path, /ibkrnew-trade-strategy/);
 assert.equal(configs.strategy.goal_binding.selector, 'ACTIVE_IBKRNEW_GOAL');
-assert.equal(configs.policy.schema_version, 2); assert.equal(configs.policy.environment, 'shared'); assert.equal(configs.policy.feature_switches.live_execution_enabled, undefined); assert.equal(configs.market_data.schema_version, 1);
+assert.equal(configs.policy.schema_version, 3); assert.equal(configs.policy.environment, 'shared'); assert.equal(configs.policy.feature_switches.execution_enabled, true); assert.equal(configs.policy.feature_switches.live_execution_enabled, undefined); assert.equal(configs.market_data.schema_version, 1);
 assert.equal(service.getIbkrNewGoalState(owner).block_reason, 'goal_waiting_for_capital');
+const initialPaperGoal = service.getIbkrNewGoalState(owner, { environment: 'paper' });
+const initialLiveGoal = service.getIbkrNewGoalState(owner, { environment: 'live' });
+assert.notEqual(initialPaperGoal.definition.goal_id, initialLiveGoal.definition.goal_id, 'paper and live start with distinct goal records');
+assert.equal(initialPaperGoal.definition.environment, 'paper'); assert.equal(initialLiveGoal.definition.environment, 'live');
 assert.throws(() => service.publishConfig(owner, 'strategy', { ...configs.strategy, name: 'DU1234567' }), /not accepted in server-side configuration/);
 assert.throws(() => service.publishConfig(owner, 'strategy', { ...configs.strategy, schema_version: 999 }), /schema_version must be 2/);
 assert.throws(() => service.publishConfig(owner, 'policy', { ...configs.policy, commissions: { ...configs.policy.commissions, maximum_round_trip_commission_pct_of_expected_gross_profit: 101 } }), /between 0 and 100/);
@@ -65,6 +107,11 @@ const legacyUniverseOwner = 'IBKRNewOwner_LegacyUniverse'; const legacyAt = new 
 getDb().prepare(`INSERT INTO ibkrnew_config_versions(id,owner_user_id,kind,version,status,document_json,created_at,published_at) VALUES(?,?,?,?,?,?,?,?)`).run('IBKRNewUniverse_legacy', legacyUniverseOwner, 'universe', 1, 'published', JSON.stringify({ name: 'Legacy custom universe', allowlist: [], denylist: [], maximum_active_subscriptions: 25, filters: { country: ['US'], security_types: ['STK', 'ETF'], minimum_price_usd: 25, maximum_price_usd: 250, minimum_average_daily_volume: 3000000, maximum_spread_pct: 0.15, require_shortable_for_short: true } }), legacyAt, legacyAt);
 const migratedUniverse = service.ensureIbkrNewDefaults(legacyUniverseOwner).universe;
 assert.equal(migratedUniverse.schema_version, 2); assert.equal(migratedUniverse.filters.stock.minimum_price_usd, 25); assert.equal(migratedUniverse.filters.etf.maximum_spread_pct, 0.15);
+const legacyPolicyOwner = 'IBKRNewOwner_LegacyPolicy'; const legacyPolicy = structuredClone(configs.policy);
+delete legacyPolicy.id; delete legacyPolicy.version; delete legacyPolicy.status; legacyPolicy.schema_version = 2; delete legacyPolicy.feature_switches.execution_enabled; legacyPolicy.feature_switches.paper_execution_enabled = true; legacyPolicy.feature_switches.live_execution_enabled = false;
+getDb().prepare(`INSERT INTO ibkrnew_config_versions(id,owner_user_id,kind,version,status,document_json,created_at,published_at) VALUES(?,?,?,?,?,?,?,?)`).run('IBKRNewPolicy_legacy', legacyPolicyOwner, 'policy', 1, 'published', JSON.stringify(legacyPolicy), legacyAt, legacyAt);
+const migratedPolicy = service.ensureIbkrNewDefaults(legacyPolicyOwner).policy;
+assert.equal(migratedPolicy.schema_version, 3); assert.equal(migratedPolicy.feature_switches.execution_enabled, true); assert.equal(migratedPolicy.feature_switches.paper_execution_enabled, undefined); assert.equal(migratedPolicy.feature_switches.live_execution_enabled, undefined);
 
 assert.throws(() => service.registerBridge(owner, 'DU1234567'), /must remain in the desktop bridge only/);
 const credentials = service.registerBridge(owner);
@@ -76,16 +123,25 @@ assert.equal(service.getDashboard(owner).bridges[0].account_id, undefined);
 assert.equal(service.getDashboard(owner).bridges[0].account_ref, credentials.account_ref);
 assert.equal(service.getDashboard(other).events.length, 0);
 
+const notAttestedOwner = 'IBKRNewOwner_NotAttested'; const notAttestedCredentials = service.registerBridge(notAttestedOwner); const notAttestedBridge = service.authenticateBridge(notAttestedCredentials.bridge_id, notAttestedCredentials.token);
+service.ingestBridgeEvent(notAttestedBridge, { event_id: 'not-attested-1', sequence: 1, event_type: 'account.snapshot', occurred_at: new Date().toISOString(), payload: { eligible_capital_usd: 10000, cash_usd: 10000, positions: [], open_orders: [] } });
+const notAttestedSignal = service.ingestBridgeEvent(notAttestedBridge, { event_id: 'not-attested-2', sequence: 2, event_type: 'market.signal', occurred_at: new Date().toISOString(), payload: { expression: 'LONG_STOCK', symbol: 'AAPL', security_type: 'STK', quantity: 1, bid: 99.9, ask: 100, last: 100, limit_price: 100, average_daily_volume: 5000000, quote_at: new Date().toISOString(), planned_loss_usd: 5, protection: { stop_price: 95, targets: [{ limit_price: 112, quantity: 1 }] } } });
+assert.equal(notAttestedSignal.reaction.reason, 'account_context_not_attested', 'neither Paper nor Live may process an opening order before account attestation');
+
 const liveModeOwner = 'IBKRNewOwner_LiveMode';
 assert.equal(service.getIbkrNewExecutionMode(liveModeOwner).requested_mode, 'paper');
-assert.throws(() => service.setIbkrNewExecutionMode(liveModeOwner, { mode: 'live' }), /confirmation is required/);
 const liveCredentials = service.registerBridge(liveModeOwner, null, 'live'); const liveBridge = service.authenticateBridge(liveCredentials.bridge_id, liveCredentials.token);
 assert.equal(liveCredentials.environment, 'live');
-assert.equal(service.setIbkrNewExecutionMode(liveModeOwner, { mode: 'live', confirm_live_risk: true }).activation_state, 'AWAITING_LIVE_BRIDGE');
+assert.equal(service.setIbkrNewExecutionMode(liveModeOwner, { mode: 'live' }).activation_state, 'AWAITING_BRIDGE');
 service.ingestBridgeEvent(liveBridge, { event_id: 'live-attestation-1', sequence: 1, event_type: 'bridge.heartbeat', occurred_at: new Date().toISOString(), payload: { gateway_connected: true, account_attestation: { status: 'verified', environment: 'live', execution_ready: true } } });
-assert.equal(service.getIbkrNewExecutionMode(liveModeOwner).activation_state, 'LIVE_ACTIVE');
+assert.equal(service.getIbkrNewExecutionMode(liveModeOwner).activation_state, 'ACTIVE');
 assert.equal(service.getIbkrNewExecutionMode(liveModeOwner).active_mode, 'live');
 service.ingestBridgeEvent(liveBridge, { event_id: 'live-account-2', sequence: 2, event_type: 'account.snapshot', occurred_at: new Date().toISOString(), payload: { eligible_capital_usd: 10000, cash_usd: 10000, positions: [], open_orders: [] } });
+const liveGoalBeforeTrade = service.setIbkrNewGoal(liveModeOwner, { environment: 'live', name: 'Live account objective', mode: 'PERPETUAL', target_return_pct: 3, duration_days: 20 });
+const paperGoalBeforeSwitch = service.getIbkrNewGoalState(liveModeOwner, { environment: 'paper' });
+assert.equal(liveGoalBeforeTrade.definition.environment, 'live'); assert.equal(liveGoalBeforeTrade.definition.name, 'Live account objective');
+assert.equal(paperGoalBeforeSwitch.block_reason, 'goal_waiting_for_capital');
+assert.notEqual(liveGoalBeforeTrade.definition.goal_id, paperGoalBeforeSwitch.definition.goal_id);
 service.ingestBridgeEvent(liveBridge, { event_id: 'live-profile-3', sequence: 3, event_type: 'instrument.profile_refreshed', occurred_at: new Date().toISOString(), payload: { symbol: 'AAPL', security_type: 'STK', average_daily_volume: 5000000, index_memberships: ['SPX'], fundamentals: { market_cap_usd: 3000000000000, revenue_ttm_usd: 300000000000, debt_to_equity: 1.5, operating_cash_flow_ttm_usd: 100000000000, sector: 'TECHNOLOGY' }, corporate_events: [] } });
 const liveSignal = service.ingestBridgeEvent(liveBridge, { event_id: 'live-signal-4', sequence: 4, event_type: 'market.signal', occurred_at: new Date().toISOString(), payload: { expression: 'LONG_STOCK', symbol: 'AAPL', security_type: 'STK', quantity: 1, bid: 99.9, ask: 100, last: 100, limit_price: 100, average_daily_volume: 5000000, quote_at: new Date().toISOString(), planned_loss_usd: 5, protection: { stop_price: 95, targets: [{ limit_price: 112, quantity: 1 }] } } });
 assert.equal(liveSignal.reaction.decision, 'authorized');
@@ -100,12 +156,38 @@ assert.equal(getDb().prepare(`SELECT status FROM ibkrnew_budget_reservations WHE
 assert.equal(service.getIbkrNewEventTimeline(liveModeOwner).environment, 'paper');
 assert.equal(service.getIbkrNewEventTimeline(liveModeOwner).pagination.total_items, 0, 'switching to paper does not mix live history into the paper timeline');
 assert.equal(service.getIbkrNewEventTimeline(liveModeOwner, { environment: 'live' }).pagination.total_items, 5, 'live history remains available through an explicit mode filter');
+const paperGoalAfterSwitch = service.setIbkrNewGoal(liveModeOwner, { environment: 'paper', name: 'Paper account objective', mode: 'PERPETUAL', target_return_pct: 5, duration_days: 30 });
+assert.equal(paperGoalAfterSwitch.definition.name, 'Paper account objective');
+assert.equal(service.getIbkrNewGoalState(liveModeOwner, { environment: 'live' }).definition.goal_id, liveGoalBeforeTrade.definition.goal_id, 'switching and changing the paper goal does not replace the live goal');
+assert.equal(service.getIbkrNewGoalState(liveModeOwner, { environment: 'live' }).definition.name, 'Live account objective');
 assert.equal(service.getDashboard(liveModeOwner).inactive_live_account.positions[0].symbol, 'AAPL', 'returning to paper keeps residual live exposure visible for reconciliation');
 const blockedLiveOwner = 'IBKRNewOwner_BlockedLive'; const blockedLiveCredentials = service.registerBridge(blockedLiveOwner, null, 'live'); const blockedLiveBridge = service.authenticateBridge(blockedLiveCredentials.bridge_id, blockedLiveCredentials.token);
-service.setIbkrNewExecutionMode(blockedLiveOwner, { mode: 'live', confirm_live_risk: true });
+service.setIbkrNewExecutionMode(blockedLiveOwner, { mode: 'live' });
 service.ingestBridgeEvent(blockedLiveBridge, { event_id: 'blocked-live-1', sequence: 1, event_type: 'bridge.heartbeat', occurred_at: new Date().toISOString(), payload: { gateway_connected: true, account_attestation: { status: 'failed', environment: 'live', execution_ready: false, reason_code: 'ACCOUNT_ENVIRONMENT_MISMATCH' } } });
-assert.equal(service.getIbkrNewExecutionMode(blockedLiveOwner).activation_state, 'LIVE_BLOCKED');
+assert.equal(service.getIbkrNewExecutionMode(blockedLiveOwner).activation_state, 'BLOCKED');
 assert.equal(service.getIbkrNewExecutionMode(blockedLiveOwner).execution_enabled, false);
+const contextOwner = 'IBKRNewOwner_ContextIsolation';
+const contextLiveCredentials = service.registerBridge(contextOwner, null, 'live'); const contextLiveBridge = service.authenticateBridge(contextLiveCredentials.bridge_id, contextLiveCredentials.token);
+service.setIbkrNewExecutionMode(contextOwner, { mode: 'live' });
+service.ingestBridgeEvent(contextLiveBridge, { event_id: 'context-live-1', sequence: 1, event_type: 'bridge.heartbeat', occurred_at: new Date().toISOString(), payload: { gateway_connected: true, account_attestation: { status: 'verified', environment: 'live', execution_ready: true } } });
+service.ingestBridgeEvent(contextLiveBridge, { event_id: 'context-live-2', sequence: 2, event_type: 'account.snapshot', occurred_at: new Date().toISOString(), payload: { eligible_capital_usd: 10000, cash_usd: 10000, positions: [], open_orders: [] } });
+service.ingestBridgeEvent(contextLiveBridge, { event_id: 'context-live-3', sequence: 3, event_type: 'instrument.profile_refreshed', occurred_at: new Date().toISOString(), payload: { symbol: 'AAPL', security_type: 'STK', average_daily_volume: 5000000, index_memberships: ['SPX'], fundamentals: { market_cap_usd: 3000000000000, revenue_ttm_usd: 300000000000, debt_to_equity: 1.5, operating_cash_flow_ttm_usd: 100000000000, sector: 'TECHNOLOGY' }, corporate_events: [] } });
+const contextLiveSignal = service.ingestBridgeEvent(contextLiveBridge, { event_id: 'context-live-4', sequence: 4, event_type: 'market.signal', occurred_at: new Date().toISOString(), payload: { expression: 'LONG_STOCK', symbol: 'AAPL', security_type: 'STK', quantity: 1, bid: 99.9, ask: 100, last: 100, limit_price: 100, average_daily_volume: 5000000, quote_at: new Date().toISOString(), planned_loss_usd: 5, protection: { stop_price: 95, targets: [{ limit_price: 112, quantity: 1 }] } } });
+assert.equal(contextLiveSignal.reaction.decision, 'authorized');
+getDb().prepare(`UPDATE ibkrnew_authorizations SET status='filled' WHERE authorization_id=?`).run(contextLiveSignal.reaction.authorization_id);
+getDb().prepare(`UPDATE ibkrnew_command_outbox SET status='filled' WHERE authorization_id=?`).run(contextLiveSignal.reaction.authorization_id);
+getDb().prepare(`UPDATE ibkrnew_budget_reservations SET status='filled',gross_released_usd=0 WHERE authorization_id=?`).run(contextLiveSignal.reaction.authorization_id);
+getDb().prepare(`INSERT INTO ibkrnew_circuit_breakers(owner_user_id,environment,breaker_type,active,reason,created_at) VALUES(?,?,'test_live_only',1,'test isolation',?)`).run(contextOwner, 'live', new Date().toISOString());
+service.setIbkrNewExecutionMode(contextOwner, { mode: 'paper' });
+const contextPaperCredentials = service.registerBridge(contextOwner, null, 'paper'); const contextPaperBridge = service.authenticateBridge(contextPaperCredentials.bridge_id, contextPaperCredentials.token);
+service.ingestBridgeEvent(contextPaperBridge, { event_id: 'context-paper-1', sequence: 1, event_type: 'bridge.heartbeat', occurred_at: new Date().toISOString(), payload: { gateway_connected: true, account_attestation: { status: 'verified', environment: 'paper', execution_ready: true } } });
+service.ingestBridgeEvent(contextPaperBridge, { event_id: 'context-paper-2', sequence: 2, event_type: 'account.snapshot', occurred_at: new Date().toISOString(), payload: { eligible_capital_usd: 10000, cash_usd: 9900, positions: [{ symbol: 'AAPL', security_type: 'STK', quantity: 1, market_price: 100 }], open_orders: [] } });
+assert.equal(getDb().prepare(`SELECT gross_released_usd FROM ibkrnew_budget_reservations WHERE authorization_id=?`).get(contextLiveSignal.reaction.authorization_id).gross_released_usd, 0, 'a Paper position snapshot cannot reconcile a Live reservation');
+service.ingestBridgeEvent(contextPaperBridge, { event_id: 'context-paper-3', sequence: 3, event_type: 'instrument.profile_refreshed', occurred_at: new Date().toISOString(), payload: { symbol: 'MSFT', security_type: 'STK', average_daily_volume: 5000000, index_memberships: ['SPX'], fundamentals: { market_cap_usd: 3000000000000, revenue_ttm_usd: 300000000000, debt_to_equity: 1.5, operating_cash_flow_ttm_usd: 100000000000, sector: 'TECHNOLOGY' }, corporate_events: [] } });
+const contextPaperSignal = service.ingestBridgeEvent(contextPaperBridge, { event_id: 'context-paper-4', sequence: 4, event_type: 'market.signal', occurred_at: new Date().toISOString(), payload: { expression: 'LONG_STOCK', symbol: 'MSFT', security_type: 'STK', quantity: 1, bid: 99.9, ask: 100, last: 100, limit_price: 100, average_daily_volume: 5000000, quote_at: new Date().toISOString(), planned_loss_usd: 5, protection: { stop_price: 95, targets: [{ limit_price: 112, quantity: 1 }] } } });
+assert.equal(contextPaperSignal.reaction.decision, 'authorized', 'a Live circuit breaker cannot block the Paper account context');
+assert.throws(() => service.ingestBridgeEvent(contextPaperBridge, { event_id: 'context-paper-spoof-5', sequence: 5, event_type: 'execution.fill', occurred_at: new Date().toISOString(), payload: { authorization_id: contextLiveSignal.reaction.authorization_id, execution_id: 'cross-context-spoof', order_role: 'entry', side: 'BUY', quantity: 1, price: 100 } }), /does not belong to this bridge account context/);
+assert.equal(getDb().prepare(`SELECT 1 FROM ibkrnew_events WHERE bridge_id=? AND source_event_id='context-paper-spoof-5'`).get(contextPaperBridge.bridge_id), undefined, 'a cross-context broker callback is rejected before persistence');
 const packageOwner = 'IBKRNewOwner_Package';
 const packaged = await buildIbkrNewEventBridgePackageZip({ ownerUserId: packageOwner, includeRuntime: false, baseUrlOverride: 'https://flolah.example' });
 const packageEnv = extractZipEntryBySuffix(packaged.zip, '.env').toString('utf8');
@@ -117,6 +199,7 @@ assert.match(packageEnv, /^IBKRNEW_API_URL=https:\/\/flolah\.example\/api\/ibkrn
 assert.match(packageEnv, /^IBKRNEW_ACCOUNT_ID=$/m, 'real IBKR account remains desktop-only and blank');
 assert.match(packageEnv, /^IBKRNEW_ACCOUNT_SNAPSHOT_INTERVAL_MS=15000$/m);
 assert.match(packageEnv, /^IBKRNEW_TRADING_MODE=paper$/m);
+assert.match(packageEnv, /^IBKRNEW_EXECUTION_ENABLED=0$/m);
 assert.ok(packageToken?.startsWith('ibkrnew_'));
 assert.doesNotMatch(packageMetaText, new RegExp(packageToken));
 assert.equal(packageMeta.bridge_id, packaged.bridge_id);
@@ -131,7 +214,8 @@ const livePackageEnv = extractZipEntryBySuffix(packagedLive.zip, '.env').toStrin
 assert.equal(packagedLive.filename, 'IBKRNewBridge-live-lite.zip');
 assert.match(livePackageEnv, /^IBKRNEW_TRADING_MODE=live$/m);
 assert.match(livePackageEnv, /^IBKRNEW_GATEWAY_PORT=4001$/m);
-assert.match(livePackageEnv, /^IBKRNEW_LIVE_EXECUTION_ENABLED=0$/m);
+assert.match(livePackageEnv, /^IBKRNEW_EXECUTION_ENABLED=0$/m);
+assert.doesNotMatch(livePackageEnv, /^IBKRNEW_(?:PAPER|LIVE)_EXECUTION_ENABLED=/m);
 assert.equal(service.authenticateBridge(packagedLive.bridge_id, livePackageEnv.match(/^IBKRNEW_BRIDGE_TOKEN=(.+)$/m)?.[1]).environment, 'live');
 const privacySentinel = 'DU1234567';
 assert.throws(() => service.ingestBridgeEvent(bridge, { event_id: privacySentinel, sequence: 1, event_type: 'bridge.heartbeat', payload: {} }), /not accepted in event metadata/);
@@ -143,9 +227,10 @@ assert.match(persistedSnapshot.payload_json, /REDACTED_IBKR_ACCOUNT/);
 assert.equal(service.ingestBridgeEvent(bridge, { event_id: 'desktop-1', sequence: 1, event_type: 'account.snapshot', payload: {} }).duplicate, true);
 const healthyStockProfile = (symbol, extra = {}) => ({ symbol, security_type: 'STK', average_daily_volume: 5000000, index_memberships: ['SPX'], fundamentals: { market_cap_usd: 3000000000000, revenue_ttm_usd: 300000000000, debt_to_equity: 1.5, operating_cash_flow_ttm_usd: 100000000000, sector: 'TECHNOLOGY' }, corporate_events: [], ...extra });
 service.ingestBridgeEvent(bridge, { event_id: 'desktop-profile-1', sequence: 2, event_type: 'instrument.profile_refreshed', occurred_at: new Date().toISOString(), payload: healthyStockProfile('AAPL') });
+service.ingestBridgeEvent(bridge, { event_id: 'desktop-attestation-3', sequence: 3, event_type: 'bridge.heartbeat', occurred_at: new Date().toISOString(), payload: { gateway_connected: true, account_attestation: { status: 'verified', environment: 'paper', execution_ready: true } } });
 
 const signal = (eventId, sequence, extra = {}) => service.ingestBridgeEvent(bridge, { event_id: eventId, sequence, event_type: 'market.signal', occurred_at: new Date().toISOString(), payload: { expression: 'LONG_STOCK', symbol: 'AAPL', security_type: 'STK', quantity: 2, bid: 99.9, ask: 100, last: 100, limit_price: 100, average_daily_volume: 5000000, quote_at: new Date().toISOString(), planned_loss_usd: 20, protection: { stop_price: 95, targets: [{ limit_price: 110, quantity: 2 }] }, ...extra } });
-const first = signal('desktop-3', 3); assert.equal(first.reaction.decision, 'authorized');
+const first = signal('desktop-4', 4); assert.equal(first.reaction.decision, 'authorized');
 assert.ok(first.reaction.reserved_usd > 200, 'opening reservation includes estimated commissions');
 assert.ok(first.reaction.economics.estimated_round_trip_commission_usd > 0);
 assert.ok(first.reaction.economics.expected_net_profit_usd < first.reaction.economics.expected_gross_profit_usd);
@@ -155,19 +240,19 @@ const commands = service.claimCommands(bridge, 10, 2); assert.equal(commands.len
 const cleanAck = service.acknowledgeCommand(bridge, commands[0].command_id, 'rejected', { account_id: privacySentinel, error: `Account ${privacySentinel} rejected` });
 assert.equal(cleanAck.detail.account_id, undefined); assert.match(cleanAck.detail.error, /REDACTED_IBKR_ACCOUNT/); assert.doesNotMatch(JSON.stringify(cleanAck), /DU1234567/);
 assert.equal(service.getDashboard(owner).budgets.daily_used_usd, 0);
-const gap = service.ingestBridgeEvent(bridge, { event_id: 'desktop-gap', sequence: 5, event_type: 'bridge.heartbeat', payload: {} }); assert.equal(gap.status, 'quarantined'); assert.match(gap.reason, /expected_4/);
-const option = signal('desktop-4', 4, { expression: 'LONG_CALL', quantity: 1, limit_price: 2, bid: 1.95, ask: 2, underlying_price: 100, underlying_average_daily_volume: 5000000, underlying_spread_pct: 0.1, multiplier: 100, dte: 30, open_interest: 1000, daily_volume: 100, delta: 0.6, protection: { stop_price: 1.5, targets: [{ limit_price: 3, quantity: 1 }] } });
+const gap = service.ingestBridgeEvent(bridge, { event_id: 'desktop-gap', sequence: 6, event_type: 'bridge.heartbeat', payload: {} }); assert.equal(gap.status, 'quarantined'); assert.match(gap.reason, /expected_5/);
+const option = signal('desktop-5', 5, { expression: 'LONG_CALL', quantity: 1, limit_price: 2, bid: 1.95, ask: 2, underlying_price: 100, underlying_average_daily_volume: 5000000, underlying_spread_pct: 0.1, multiplier: 100, dte: 30, open_interest: 1000, daily_volume: 100, delta: 0.6, protection: { stop_price: 1.5, targets: [{ limit_price: 3, quantity: 1 }] } });
 assert.equal(option.reaction.decision, 'authorized');
 assert.ok(option.reaction.reserved_usd > 200, 'option premium applies 100x multiplier and includes commission');
-assert.equal(service.ingestBridgeEvent(bridge, { event_id: 'desktop-gap', sequence: 5, event_type: 'bridge.heartbeat', payload: {} }).status, 'accepted');
+assert.equal(service.ingestBridgeEvent(bridge, { event_id: 'desktop-gap', sequence: 6, event_type: 'bridge.heartbeat', payload: {} }).status, 'accepted');
 
 const policy = structuredClone(service.getPublishedConfig(owner, 'policy'));
 delete policy.id; delete policy.version; delete policy.status; policy.feature_switches.short_stock_enabled = false;
 service.publishConfig(owner, 'policy', policy);
-const short = service.ingestBridgeEvent(bridge, { event_id: 'desktop-6', sequence: 6, event_type: 'market.signal', occurred_at: new Date().toISOString(), payload: { expression: 'SHORT_STOCK', symbol: 'TSLA', quantity: 1, last: 200, ask: 200, limit_price: 200, average_daily_volume: 5000000, quote_at: new Date().toISOString(), shortable: true, planned_loss_usd: 20, protection: { stop_price: 210 } } });
+const short = service.ingestBridgeEvent(bridge, { event_id: 'desktop-7', sequence: 7, event_type: 'market.signal', occurred_at: new Date().toISOString(), payload: { expression: 'SHORT_STOCK', symbol: 'TSLA', quantity: 1, last: 200, ask: 200, limit_price: 200, average_daily_volume: 5000000, quote_at: new Date().toISOString(), shortable: true, planned_loss_usd: 20, protection: { stop_price: 210 } } });
 assert.equal(short.reaction.reason, 'short_stock_enabled_disabled');
-const stale = signal('desktop-7', 7, { quote_at: new Date(Date.now() - 60000).toISOString() }); assert.equal(stale.reaction.reason, 'stale_quote');
-let sequence = 8; let capacityBlock = null;
+const stale = signal('desktop-8', 8, { quote_at: new Date(Date.now() - 60000).toISOString() }); assert.equal(stale.reaction.reason, 'stale_quote');
+let sequence = 9; let capacityBlock = null;
 for (; sequence <= 20; sequence++) {
   const result = signal(`desktop-${sequence}`, sequence).reaction;
   if (result.decision === 'blocked') { capacityBlock = result; break; }
@@ -184,16 +269,17 @@ service.publishConfig(eligibilityOwner, 'universe', eligibilityUniverse);
 const eligibilityCredentials = service.registerBridge(eligibilityOwner); const eligibilityBridge = service.authenticateBridge(eligibilityCredentials.bridge_id, eligibilityCredentials.token);
 service.ingestBridgeEvent(eligibilityBridge, { event_id: 'eligibility-1', sequence: 1, event_type: 'account.snapshot', occurred_at: new Date().toISOString(), payload: { eligible_capital_usd: 10000, cash_usd: 10000, positions: [], open_orders: [] } });
 service.ingestBridgeEvent(eligibilityBridge, { event_id: 'eligibility-2', sequence: 2, event_type: 'instrument.profile_refreshed', occurred_at: new Date().toISOString(), payload: healthyStockProfile('AAPL', { index_memberships: ['SPX'] }) });
+service.ingestBridgeEvent(eligibilityBridge, { event_id: 'eligibility-attestation-3', sequence: 3, event_type: 'bridge.heartbeat', occurred_at: new Date().toISOString(), payload: { gateway_connected: true, account_attestation: { status: 'verified', environment: 'paper', execution_ready: true } } });
 const eligibilitySignal = (eventId, sequence, symbol, extra = {}) => service.ingestBridgeEvent(eligibilityBridge, { event_id: eventId, sequence, event_type: 'market.signal', occurred_at: new Date().toISOString(), payload: { expression: 'LONG_STOCK', symbol, security_type: 'STK', quantity: 1, bid: 99.9, ask: 100, last: 100, limit_price: 100, average_daily_volume: 5000000, quote_at: new Date().toISOString(), planned_loss_usd: 5, protection: { stop_price: 95, targets: [{ limit_price: 112, quantity: 1 }] }, ...extra } });
-assert.equal(eligibilitySignal('eligibility-3', 3, 'AAPL').reaction.reason, 'outside_configured_stock_indexes');
-service.ingestBridgeEvent(eligibilityBridge, { event_id: 'eligibility-4', sequence: 4, event_type: 'instrument.membership_refreshed', occurred_at: new Date().toISOString(), payload: { symbol: 'AAPL', security_type: 'STK', index_memberships: ['SPX', 'NDX'] } });
-assert.equal(eligibilitySignal('eligibility-5', 5, 'AAPL').reaction.decision, 'authorized');
-service.ingestBridgeEvent(eligibilityBridge, { event_id: 'eligibility-6', sequence: 6, event_type: 'instrument.profile_refreshed', occurred_at: new Date().toISOString(), payload: { symbol: 'NOFUND', security_type: 'STK', average_daily_volume: 5000000, index_memberships: ['NDX'], corporate_events: [] } });
-assert.equal(eligibilitySignal('eligibility-7', 7, 'NOFUND').reaction.reason, 'fundamentals_missing');
-service.ingestBridgeEvent(eligibilityBridge, { event_id: 'eligibility-8', sequence: 8, event_type: 'instrument.profile_refreshed', occurred_at: new Date().toISOString(), payload: { symbol: 'SPY', security_type: 'ETF', average_daily_volume: 50000000, assets_under_management_usd: 500000000000, etf_categories: ['EQUITY', 'INDEX'] } });
-assert.equal(eligibilitySignal('eligibility-9', 9, 'SPY', { security_type: 'ETF' }).reaction.decision, 'authorized');
-service.ingestBridgeEvent(eligibilityBridge, { event_id: 'eligibility-10', sequence: 10, event_type: 'instrument.profile_refreshed', occurred_at: new Date().toISOString(), payload: healthyStockProfile('MSFT', { index_memberships: ['NDX'], corporate_events: [{ type: 'earnings', at: new Date(Date.now() + 86400000).toISOString() }] }) });
-assert.equal(eligibilitySignal('eligibility-11', 11, 'MSFT').reaction.reason, 'earnings_blackout_active');
+assert.equal(eligibilitySignal('eligibility-4', 4, 'AAPL').reaction.reason, 'outside_configured_stock_indexes');
+service.ingestBridgeEvent(eligibilityBridge, { event_id: 'eligibility-5', sequence: 5, event_type: 'instrument.membership_refreshed', occurred_at: new Date().toISOString(), payload: { symbol: 'AAPL', security_type: 'STK', index_memberships: ['SPX', 'NDX'] } });
+assert.equal(eligibilitySignal('eligibility-6', 6, 'AAPL').reaction.decision, 'authorized');
+service.ingestBridgeEvent(eligibilityBridge, { event_id: 'eligibility-7', sequence: 7, event_type: 'instrument.profile_refreshed', occurred_at: new Date().toISOString(), payload: { symbol: 'NOFUND', security_type: 'STK', average_daily_volume: 5000000, index_memberships: ['NDX'], corporate_events: [] } });
+assert.equal(eligibilitySignal('eligibility-8', 8, 'NOFUND').reaction.reason, 'fundamentals_missing');
+service.ingestBridgeEvent(eligibilityBridge, { event_id: 'eligibility-9', sequence: 9, event_type: 'instrument.profile_refreshed', occurred_at: new Date().toISOString(), payload: { symbol: 'SPY', security_type: 'ETF', average_daily_volume: 50000000, assets_under_management_usd: 500000000000, etf_categories: ['EQUITY', 'INDEX'] } });
+assert.equal(eligibilitySignal('eligibility-10', 10, 'SPY', { security_type: 'ETF' }).reaction.decision, 'authorized');
+service.ingestBridgeEvent(eligibilityBridge, { event_id: 'eligibility-11', sequence: 11, event_type: 'instrument.profile_refreshed', occurred_at: new Date().toISOString(), payload: healthyStockProfile('MSFT', { index_memberships: ['NDX'], corporate_events: [{ type: 'earnings', at: new Date(Date.now() + 86400000).toISOString() }] }) });
+assert.equal(eligibilitySignal('eligibility-12', 12, 'MSFT').reaction.reason, 'earnings_blackout_active');
 
 const approvalOwner = 'IBKRNewOwner_Approval'; const approvalDefaults = service.ensureIbkrNewDefaults(approvalOwner);
 const approvalPolicy = structuredClone(approvalDefaults.policy); delete approvalPolicy.id; delete approvalPolicy.version; delete approvalPolicy.status; approvalPolicy.feature_switches.ceo_approval_required = true;
@@ -201,11 +287,12 @@ service.publishConfig(approvalOwner, 'policy', approvalPolicy, { confirmRiskLoos
 const approvalCredentials = service.registerBridge(approvalOwner); const approvalBridge = service.authenticateBridge(approvalCredentials.bridge_id, approvalCredentials.token);
 service.ingestBridgeEvent(approvalBridge, { event_id: 'approval-1', sequence: 1, event_type: 'account.snapshot', occurred_at: new Date().toISOString(), payload: { eligible_capital_usd: 10000, cash_usd: 10000, positions: [], open_orders: [] } });
 service.ingestBridgeEvent(approvalBridge, { event_id: 'approval-profile-2', sequence: 2, event_type: 'instrument.profile_refreshed', occurred_at: new Date().toISOString(), payload: healthyStockProfile('MSFT') });
-const pending = service.ingestBridgeEvent(approvalBridge, { event_id: 'approval-3', sequence: 3, event_type: 'market.signal', occurred_at: new Date().toISOString(), payload: { expression: 'LONG_STOCK', symbol: 'MSFT', security_type: 'STK', quantity: 1, bid: 99.9, ask: 100, last: 100, limit_price: 100, average_daily_volume: 5000000, quote_at: new Date().toISOString(), planned_loss_usd: 5, protection: { stop_price: 95, targets: [{ limit_price: 112, quantity: 1 }] } } });
+service.ingestBridgeEvent(approvalBridge, { event_id: 'approval-3', sequence: 3, event_type: 'bridge.heartbeat', occurred_at: new Date().toISOString(), payload: { gateway_connected: true, bridge_version: '1.1.0', account_attestation: { status: 'verified', environment: 'paper', execution_ready: true }, components: [{ component_id: 'IBKRNewSpool', component_type: 'durable_spool', status: 'online', depth: 0 }] } });
+const pending = service.ingestBridgeEvent(approvalBridge, { event_id: 'approval-4', sequence: 4, event_type: 'market.signal', occurred_at: new Date().toISOString(), payload: { expression: 'LONG_STOCK', symbol: 'MSFT', security_type: 'STK', quantity: 1, bid: 99.9, ask: 100, last: 100, limit_price: 100, average_daily_volume: 5000000, quote_at: new Date().toISOString(), planned_loss_usd: 5, protection: { stop_price: 95, targets: [{ limit_price: 112, quantity: 1 }] } } });
 assert.equal(pending.reaction.decision, 'pending_approval'); assert.equal(service.claimCommands(approvalBridge, 10, 2).length, 0);
 assert.equal(getDb().prepare(`SELECT decision FROM ibkrnew_event_reactions WHERE event_id=?`).get(pending.event_id).decision, 'pending_approval');
 const firstTimelinePage = service.getIbkrNewEventTimeline(approvalOwner, { page: 1, pageSize: 5 });
-assert.equal(firstTimelinePage.pagination.page_size, 5); assert.equal(firstTimelinePage.items.length, 3); assert.equal(firstTimelinePage.items[0].description.length > 20, true);
+assert.equal(firstTimelinePage.pagination.page_size, 5); assert.equal(firstTimelinePage.items.length, 4); assert.equal(firstTimelinePage.items[0].description.length > 20, true);
 const signalTimelineItem = firstTimelinePage.items.find((item) => item.event_id === pending.event_id);
 assert.equal(signalTimelineItem.agent_name, 'IBKRNewStrategyPlanner'); assert.equal(signalTimelineItem.decision, 'pending_approval'); assert.equal(signalTimelineItem.authorization_status, 'pending_approval');
 const signalDetailBeforeApproval = service.getIbkrNewEventDetail(approvalOwner, pending.event_id);
@@ -214,7 +301,6 @@ assert.equal(service.getIbkrNewLiveOperations(approvalOwner).agent_activity.find
 assert.throws(() => service.getIbkrNewEventDetail(other, pending.event_id), /not found/);
 assert.throws(() => service.approveAuthorization(other, pending.reaction.authorization_id), /not found/);
 assert.ok(service.approveAuthorization(approvalOwner, pending.reaction.authorization_id).command_id.startsWith('IBKRNewCommand'));
-service.ingestBridgeEvent(approvalBridge, { event_id: 'approval-4', sequence: 4, event_type: 'bridge.heartbeat', occurred_at: new Date().toISOString(), payload: { gateway_connected: true, bridge_version: '1.1.0', components: [{ component_id: 'IBKRNewSpool', component_type: 'durable_spool', status: 'online', depth: 0 }] } });
 service.ingestBridgeEvent(approvalBridge, { event_id: 'approval-5', sequence: 5, event_type: 'execution.fill', occurred_at: new Date().toISOString(), payload: { authorization_id: pending.reaction.authorization_id, execution_id: 'exec-approval-1', order_role: 'entry', side: 'BUY', quantity: 1, price: 100 } });
 service.ingestBridgeEvent(approvalBridge, { event_id: 'approval-6', sequence: 6, event_type: 'commission.report', occurred_at: new Date().toISOString(), payload: { authorization_id: pending.reaction.authorization_id, execution_id: 'exec-approval-1', commission_usd: 1.25 } });
 service.ingestBridgeEvent(approvalBridge, { event_id: 'approval-7', sequence: 7, event_type: 'order.status_changed', occurred_at: new Date().toISOString(), payload: { authorization_id: pending.reaction.authorization_id, order_role: 'entry', status: 'Filled', filled: 1, remaining: 0 } });
@@ -256,16 +342,17 @@ assert.equal(service.getIbkrNewEventTimeline(other).pagination.total_items, 0, '
 const goalOwner = 'IBKRNewOwner_GoalLifecycle'; const goalCredentials = service.registerBridge(goalOwner); const goalBridge = service.authenticateBridge(goalCredentials.bridge_id, goalCredentials.token);
 service.ingestBridgeEvent(goalBridge, { event_id: 'goal-1', sequence: 1, event_type: 'account.snapshot', occurred_at: new Date().toISOString(), payload: { eligible_capital_usd: 10000, cash_usd: 10000, positions: [], open_orders: [] } });
 service.ingestBridgeEvent(goalBridge, { event_id: 'goal-2', sequence: 2, event_type: 'instrument.profile_refreshed', occurred_at: new Date().toISOString(), payload: healthyStockProfile('AAPL') });
+service.ingestBridgeEvent(goalBridge, { event_id: 'goal-3', sequence: 3, event_type: 'bridge.heartbeat', occurred_at: new Date().toISOString(), payload: { gateway_connected: true, account_attestation: { status: 'verified', environment: 'paper', execution_ready: true } } });
 const goalSignal = (eventId, sequence) => service.ingestBridgeEvent(goalBridge, { event_id: eventId, sequence, event_type: 'market.signal', occurred_at: new Date().toISOString(), payload: { expression: 'LONG_STOCK', symbol: 'AAPL', security_type: 'STK', quantity: 1, bid: 99.9, ask: 100, last: 100, limit_price: 100, average_daily_volume: 5000000, quote_at: new Date().toISOString(), planned_loss_usd: 5, protection: { stop_price: 95, targets: [{ limit_price: 112, quantity: 1 }] } } });
-const goalTrade = goalSignal('goal-3', 3); assert.equal(goalTrade.reaction.decision, 'authorized');
+const goalTrade = goalSignal('goal-4', 4); assert.equal(goalTrade.reaction.decision, 'authorized');
 assert.ok(getDb().prepare(`SELECT 1 FROM ibkrnew_goal_trade_links WHERE authorization_id=?`).get(goalTrade.reaction.authorization_id));
-service.ingestBridgeEvent(goalBridge, { event_id: 'goal-4', sequence: 4, event_type: 'execution.fill', occurred_at: new Date().toISOString(), payload: { authorization_id: goalTrade.reaction.authorization_id, execution_id: 'goal-entry', order_role: 'entry', side: 'BUY', quantity: 1, price: 100 } });
-service.ingestBridgeEvent(goalBridge, { event_id: 'goal-5', sequence: 5, event_type: 'commission.report', occurred_at: new Date().toISOString(), payload: { authorization_id: goalTrade.reaction.authorization_id, execution_id: 'goal-entry', commission_usd: 1 } });
-service.ingestBridgeEvent(goalBridge, { event_id: 'goal-6', sequence: 6, event_type: 'execution.fill', occurred_at: new Date().toISOString(), payload: { authorization_id: goalTrade.reaction.authorization_id, execution_id: 'goal-exit', order_role: 'exit', side: 'SELL', quantity: 1, price: 700 } });
-service.ingestBridgeEvent(goalBridge, { event_id: 'goal-7', sequence: 7, event_type: 'commission.report', occurred_at: new Date().toISOString(), payload: { authorization_id: goalTrade.reaction.authorization_id, execution_id: 'goal-exit', commission_usd: 1, realized_pnl_usd: 600 } });
+service.ingestBridgeEvent(goalBridge, { event_id: 'goal-5', sequence: 5, event_type: 'execution.fill', occurred_at: new Date().toISOString(), payload: { authorization_id: goalTrade.reaction.authorization_id, execution_id: 'goal-entry', order_role: 'entry', side: 'BUY', quantity: 1, price: 100 } });
+service.ingestBridgeEvent(goalBridge, { event_id: 'goal-6', sequence: 6, event_type: 'commission.report', occurred_at: new Date().toISOString(), payload: { authorization_id: goalTrade.reaction.authorization_id, execution_id: 'goal-entry', commission_usd: 1 } });
+service.ingestBridgeEvent(goalBridge, { event_id: 'goal-7', sequence: 7, event_type: 'execution.fill', occurred_at: new Date().toISOString(), payload: { authorization_id: goalTrade.reaction.authorization_id, execution_id: 'goal-exit', order_role: 'exit', side: 'SELL', quantity: 1, price: 700 } });
+service.ingestBridgeEvent(goalBridge, { event_id: 'goal-8', sequence: 8, event_type: 'commission.report', occurred_at: new Date().toISOString(), payload: { authorization_id: goalTrade.reaction.authorization_id, execution_id: 'goal-exit', commission_usd: 1, realized_pnl_usd: 600 } });
 const achievedGoal = service.getIbkrNewGoalState(goalOwner); assert.equal(achievedGoal.cycle.status, 'ACHIEVED'); assert.equal(achievedGoal.opening_trades_allowed, false); assert.ok(achievedGoal.cycle.net_realized_profit_usd >= 500);
-assert.equal(goalSignal('goal-8', 8).reaction.reason, 'goal_target_achieved');
-assert.equal(service.ingestBridgeEvent(goalBridge, { event_id: 'goal-9', sequence: 9, event_type: 'position.changed', occurred_at: new Date().toISOString(), payload: { positions: [] } }).accepted, true, 'goal completion never blocks position/risk-reducing events');
+assert.equal(goalSignal('goal-9', 9).reaction.reason, 'goal_target_achieved');
+assert.equal(service.ingestBridgeEvent(goalBridge, { event_id: 'goal-10', sequence: 10, event_type: 'position.changed', occurred_at: new Date().toISOString(), payload: { positions: [] } }).accepted, true, 'goal completion never blocks position/risk-reducing events');
 getDb().prepare(`UPDATE ibkrnew_goal_cycles SET scheduled_end_at=? WHERE cycle_id=?`).run(new Date(Date.now() - 1000).toISOString(), achievedGoal.cycle.cycle_id);
 const restartedGoal = service.getIbkrNewGoalState(goalOwner); assert.equal(restartedGoal.cycle.status, 'ACTIVE'); assert.ok(restartedGoal.cycle.cycle_number > achievedGoal.cycle.cycle_number); assert.equal(restartedGoal.opening_trades_allowed, true);
 const oneTime = service.setIbkrNewGoal(goalOwner, { name: 'One-time objective', mode: 'ONE_TIME', target_return_pct: 5, duration_days: 1 }); assert.equal(oneTime.definition.mode, 'ONE_TIME');

@@ -1,10 +1,10 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "name": "IBKRNew Conservative-Moderate",
   "environment": "shared",
   "feature_switches": {
     "trading_enabled": true,
-    "paper_execution_enabled": true,
+    "execution_enabled": true,
     "long_stock_enabled": true,
     "short_stock_enabled": true,
     "long_call_enabled": true,

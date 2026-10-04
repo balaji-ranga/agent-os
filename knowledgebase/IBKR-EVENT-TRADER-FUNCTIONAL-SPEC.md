@@ -19,7 +19,7 @@ The implemented mode-aware capability is mapped to:
 - UI: `Prebuilt Workflows -> IBKRNew0 -> Strategy | Summary | Live Operations` (`/ibkrnew0/*`). The former `/ibkrnew-event-trader` route redirects to Live Operations.
 - Automated certification: `npm run test:ibkrnew-event-trader` in `backend` and `npm test` in `backend/ibkrnew-event-bridge`.
 
-The source now supports an owner-controlled Paper/Live execution mode without duplicating goals, strategy, universe, budgets, or workflows. Live execution remains fail-closed until a live-scoped desktop bridge verifies the configured non-paper account through IBKR `managedAccounts`, the owner confirms the Live toggle, and the local `IBKRNEW_LIVE_EXECUTION_ENABLED=1` gate is enabled. The account number remains desktop-only.
+The source supports an owner-controlled Paper/Live account context through one execution pipeline. Strategy, universe, budgets, agents, workflows, deterministic risk, command handling, and bridge runtime are shared. Goal definitions and cycle progress are intentionally separate, along with account projections, instrument profiles, reservations, commands, trades, executions, commissions, events, and reports. Either context remains fail-closed until its matching desktop bridge verifies the configured account through IBKR `managedAccounts` and the single local `IBKRNEW_EXECUTION_ENABLED=1` gate is enabled. The account number remains desktop-only.
 
 The live activation contract, including the user-controlled Paper/Live mode, shared tested configuration, mode-isolated execution data and Gateway account attestation, is documented separately in [IBKRNEW-LIVE-TRADING-IMPLEMENTATION-PLAN.md](./IBKRNEW-LIVE-TRADING-IMPLEMENTATION-PLAN.md).
 
@@ -64,7 +64,7 @@ All policies, strategies, universes, market-data requirements, holding rules, or
 
 ### 2.1 Trading outcome goal contract
 
-Each owner has one active `IBKRNew` trading outcome goal. The goal, rather than the strategy, owns the measurable objective and time boundary. The strategy binds to `ACTIVE_IBKRNEW_GOAL` and selects trades only while that goal permits new opening exposure.
+Each owner has one independently active `IBKRNew` trading outcome goal per Paper or Live account context. The goal, rather than the strategy, owns the measurable objective and time boundary. The shared strategy binds to the `ACTIVE_IBKRNEW_GOAL` for the event's account context and selects trades only while that goal permits new opening exposure.
 
 The default goal is configurable and starts at 5% net realized return over 30 calendar days. Cycle capital is the lesser of the configured total budget and eligible account capital captured when the cycle starts. Progress is calculated from linked, closed trade records as net realized profit after actual commissions; estimates do not mark a goal achieved.
 
@@ -238,7 +238,7 @@ The server derives the owner from the authenticated bridge token or user session
 
 Bridge tokens are owner- and bridge-specific, hashed at rest on the server, revocable, rate-limited, and never reusable against legacy bridge endpoints.
 
-Commands are signed or MAC-protected over their canonical contents. The desktop verifies signature, bridge, owner, opaque account reference, environment, policy version, strategy version, expiry, nonce, matching local account attestation and the environment-specific local execution gate before submission to IBKR.
+Commands are signed or MAC-protected over their canonical contents. The desktop verifies signature, bridge, owner, opaque account reference, environment, policy version, strategy version, expiry, nonce, matching local account attestation and the single local execution gate before submission to IBKR.
 
 Cross-owner reads, events, acknowledgements, policy references, universe references, and commands are rejected and audited.
 
@@ -273,14 +273,14 @@ Required logical fields:
 ```json
 {
   "id": "policy-id",
-  "schema_version": 2,
+  "schema_version": 3,
   "name": "IBKRNew Conservative-Moderate",
   "status": "published",
   "environment": "shared",
   "base_currency": "USD",
   "feature_switches": {
     "trading_enabled": true,
-    "paper_execution_enabled": true,
+    "execution_enabled": true,
     "long_stock_enabled": true,
     "short_stock_enabled": true,
     "long_call_enabled": true,
@@ -349,7 +349,7 @@ Required logical fields:
 }
 ```
 
-All numeric limits have explicit minimum/maximum platform validation. Live activation is not a policy Boolean: it is the separate owner-controlled execution mode and still requires matching desktop account attestation plus the local live execution gate.
+All numeric limits have explicit minimum/maximum platform validation. The Paper/Live selector is an owner-controlled account-context choice, not a second trading implementation. Either selection requires matching desktop account attestation plus the shared local execution gate.
 
 ### 8.4 UniverseSpec schema
 
@@ -1359,7 +1359,7 @@ The maintained defaults are source blueprints under `backend/src/services/compan
 
 The Prebuilt Workflows navigation contains a parent `IBKRNew0` item with:
 
-- **Strategy:** outcome-goal definition and live cycle progress, plus versioned strategy skill, strategy, policy, universe, and market-data configuration. Creating a new goal replaces the active objective; pause and resume do not rewrite strategy versions.
+- **Strategy:** the selected account context's outcome-goal definition and cycle progress, plus the shared versioned strategy skill, strategy, policy, universe, and market-data configuration. Creating, pausing, or resuming a Paper goal does not modify the Live goal, and vice versa.
 - **Summary:** trade history, estimated and actual commissions, gross/net P&L, required profitable exit, and allocation decisions.
 - **Live Operations:** active goal-cycle status and progress, bridge registration/revocation, pending CEO approvals, daily/total budget state, account and position snapshots, component health, component errors, execution/commission records, six-role activity, and correlated causal events. Event history is server-paginated and filterable; list responses contain meaningful summaries while the full owner-scoped payload, persisted decision evidence and ordered six-role lifecycle are loaded on demand. Authorization, command, trade and execution identifiers preserve the correlation chain.
 
@@ -1367,7 +1367,7 @@ Live Operations polls Flolah; the browser never connects to IBKR. The bounded he
 
 Account-state freshness and historical snapshot density are separate concerns. Every accepted account refresh updates the current projection used by risk checks. Historical snapshot insertion is change-aware (position/order structure) with a five-minute checkpoint, so valuation-only refreshes do not create redundant rows. The daily retention purge deletes snapshots, events and event-decision evidence older than the CEO profile's configured retention period.
 
-The bridge bootstrap includes the active goal-cycle identifier and whether opening trades are allowed. Before executing a claimed opening command, the desktop verifies that the command's signed authorization references the same active cycle. A stopped, replaced, expired, or mismatched cycle fails closed, including for commands claimed immediately before a goal transition.
+The bridge bootstrap includes the active goal-cycle identifier for that bridge's account context and whether opening trades are allowed. Before executing a claimed opening command, the desktop verifies that the command's signed authorization references the same context and active cycle. A stopped, replaced, expired, cross-context, or mismatched cycle fails closed, including for commands claimed immediately before a goal transition.
 
 ---
 
@@ -1385,4 +1385,4 @@ ETF filters are independent and include enablement, allowlist, denylist, categor
 
 The local bridge accepts instrument profiles through a generic provider boundary (`IBKRNEW_INSTRUMENT_PROFILES_FILE` in the reference adapter). That provider may be backed by entitled IBKR fundamental/event data or another approved licensed source. The profile provider never supplies executable prices, account truth, fills, commissions, or order state; those remain IBKR Gateway-only.
 
-The initial release was a new, owner-scoped, paper-only Event Trader. The guarded live extension remains isolated from the older IBKR workflows and reuses the same IBKRNew0 goal, strategy, policy, universe and six event reactions through a mode-scoped execution boundary.
+The initial release was a new, owner-scoped, paper-only Event Trader. The Live extension remains isolated from the older IBKR workflows and uses the same IBKRNew0 strategy, policy, universe, six event reactions, risk engine, command path, and bridge runtime through a context-scoped boundary. Paper and Live keep separate goals, cycles, account projections, positions, reservations, commands, trades, executions, events, and reports.

@@ -131,7 +131,7 @@ IBKR plans, positions, fills, and budget are **per CEO** (not shared with other 
 
 1. Prefer the full package: it includes portable Node, locked production dependencies, source, and `scripts\Test-IBKRNewBridge.ps1` / `scripts\Start-IBKRNewBridge.ps1`. Lite requires Node 18+ and `npm ci`.
 2. Set `IBKRNEW_ACCOUNT_ID` only in the desktop `.env`; it is deliberately blank in the generated package and is never sent to or stored by Flolah.
-3. Run the offline test first. Keep `IBKRNEW_PAPER_EXECUTION_ENABLED=0` until IB Gateway/TWS paper API access is configured and you deliberately enable it.
+3. Run the offline test first. Keep the shared `IBKRNEW_EXECUTION_ENABLED=0` gate disabled until the selected Paper or Live IB Gateway/TWS API session is configured, attested, and you deliberately enable order execution.
 4. Start the bridge while IB Gateway/TWS is running. It opens no inbound port: market, account, order, fill, commission, and health events travel outbound to Flolah.
 5. Monitor or revoke the bridge under **IBKRNew0 → Live Operations**. Revocation cancels pending commands for that bridge without changing the legacy Monthly Trading bridge.
 

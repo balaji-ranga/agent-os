@@ -4,7 +4,7 @@
 
 **Desktop download:** **Connectors → IBKRNew Event Bridge**
 
-**Release boundary:** Paper is the default. Live requires an explicit owner toggle plus matching local live-bridge account attestation. This is separate from the older IBKR Monthly Positive Return workflows.
+**Release boundary:** Paper is selected by default. Either account context requires a matching local bridge attestation before order processing. This is separate from the older IBKR Monthly Positive Return workflows.
 
 IBKRNew0 reacts to broker and market events from a Windows desktop beside IB Gateway or TWS. Flolah does not connect from the cloud directly to the local Gateway, and there is no server-side price polling loop. The desktop bridge opens outbound HTTPS connections, streams market/broker callbacks, sends canonical events to Flolah, and claims short-lived signed commands for its registered environment.
 
@@ -12,13 +12,13 @@ IBKRNew0 reacts to broker and market events from a Windows desktop beside IB Gat
 
 ## Paper and Live mode
 
-Paper and Live reuse the same goal, strategy skill, strategy, policy, universe, market-data configuration and six event reactions. Broker identities, account projections, reservations, commands, trades and reports are separated by environment.
+Paper and Live use one strategy skill, strategy, policy, universe, market-data configuration, six event reactions, deterministic risk engine, command path, and bridge runtime. They do **not** share goal state: each account context has its own goal definition and cycle progress. Broker identities, account projections, profiles, reservations, commands, trades, executions, commissions, events, and reports are also separated by context.
 
 IBKRNew0 can submit orders only when all of these are true:
 
 - the owner-selected UI mode matches the registered desktop bridge environment;
 - the bridge has verified the locally configured account is present in IBKR `managedAccounts` and matches Paper (`DU…`) or Live (non-`DU…`);
-- the matching local paper or live execution gate is explicitly enabled;
+- the single local `IBKRNEW_EXECUTION_ENABLED` gate is explicitly enabled;
 - the active goal, strategy, universe, market data and deterministic risk checks permit the order.
 
 An operator can enroll one enabled CEO idempotently with `backend/scripts/enable-ibkrnew-owner.mjs`. Enrollment installs/enables the complete IBKRNew0 capability—agents, reaction workflows, tool grants, workspace instructions, and baseline configuration—and verifies the result. Paper remains selected by default. Advisory and approval-required strategy modes can further restrict either environment.
@@ -68,7 +68,7 @@ Open **IBKRNew0 → Strategy**. The tabs separate concerns:
 - **Universe:** eligible stock indices and independent ETF filters, liquidity/price rules and exclusions.
 - **Market data:** required executable quotes, bars, shortability, account truth, instrument profiles, fundamentals and corporate events.
 
-**Save** publishes a new owner-scoped configuration version to the database and retires the prior active version. An in-flight authorization keeps the exact versions it was checked against. The **Trading mode** control changes only the broker execution environment; it does not duplicate or reset the strategy configuration. No setting can bypass account attestation, local execution gates or broker restrictions.
+**Save** publishes a new owner-scoped configuration version to the database and retires the prior active version. An in-flight authorization keeps the exact versions it was checked against. The **Paper / Live** control changes only the broker account context; it does not duplicate or reset the shared strategy configuration. It does load a different goal, progress, account, positions, commands, trades, and timeline. No setting can bypass account attestation, the local execution gate, or broker restrictions.
 
 ### Default conservative-to-moderate limits
 
@@ -121,7 +121,7 @@ Only symbols assigned by the active universe should be subscribed. Data entitlem
 5. Configure the Gateway host/port, a dedicated client ID, and the matching account **only on that PC**. Default Gateway ports are commonly 4002 for Paper and 4001 for Live, but the bridge never treats the port as proof of environment.
 6. Run the package's offline test, then run `scripts\Install-IBKRNewBridgeTask.ps1`. It installs the bridge in the signed-in user's Local App Data, registers the `IBKRNewBridge` Windows Scheduled Task and starts it.
 7. Confirm Gateway, bridge and market-data health in **Live Operations**. Use `scripts\Get-IBKRNewBridgeTaskStatus.ps1` for local task status.
-8. Enable only the matching local execution gate after subscriptions, account attestation, positions and reconciliation are healthy. To use Live, select **Live** in **IBKRNew0 → Strategy**; it stays blocked until the live bridge attests successfully.
+8. Enable the single local execution gate after subscriptions, account attestation, positions and reconciliation are healthy. Select Paper or Live in **IBKRNew0 → Strategy**; the selected context stays blocked until its matching bridge attests successfully.
 
 The package runs one supervised IBKRNew bridge process. The task starts at user sign-in, restarts a failed process, starts missed runs when Windows becomes available and reconnects to Gateway after Modern Standby. IB Gateway still requires an authenticated desktop session; if that session expires, new exposure remains blocked until the user signs in again. The six event reactions run in Flolah; no workflow package is downloaded to the desktop. Revoking a bridge in Live Operations invalidates its token and pending commands.
 

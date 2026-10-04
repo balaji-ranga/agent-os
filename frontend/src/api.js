@@ -168,10 +168,10 @@ export const api = {
   ibkrNewSchema: (kind) => get(`/ibkrnew-event-trader/schemas/${encodeURIComponent(kind)}`),
   ibkrNewConfigHistory: (kind, limit = 50) => get(`/ibkrnew-event-trader/configs/${encodeURIComponent(kind)}/history?limit=${encodeURIComponent(limit)}`),
   ibkrNewExecutionMode: () => get('/ibkrnew-event-trader/execution-mode'),
-  ibkrNewSetExecutionMode: (mode, confirmLiveRisk = false) => put('/ibkrnew-event-trader/execution-mode', { mode, confirm_live_risk: confirmLiveRisk }),
-  ibkrNewSetGoal: (goal) => put('/ibkrnew-event-trader/goal', goal),
-  ibkrNewPauseGoal: () => post('/ibkrnew-event-trader/goal/pause', {}),
-  ibkrNewResumeGoal: () => post('/ibkrnew-event-trader/goal/resume', {}),
+  ibkrNewSetExecutionMode: (mode) => put('/ibkrnew-event-trader/execution-mode', { mode }),
+  ibkrNewSetGoal: (goal, environment) => put('/ibkrnew-event-trader/goal', { ...goal, environment }),
+  ibkrNewPauseGoal: (environment) => post('/ibkrnew-event-trader/goal/pause', { environment }),
+  ibkrNewResumeGoal: (environment) => post('/ibkrnew-event-trader/goal/resume', { environment }),
   ibkrNewPublishConfig: (kind, document, confirmRiskLoosening = false) =>
     post(`/ibkrnew-event-trader/configs/${encodeURIComponent(kind)}/publish`, {
       document,

@@ -42,11 +42,10 @@ $MockMode = $Config['IBKRNEW_MOCK'] -eq '1'
 $TradingMode = if ($Config['IBKRNEW_TRADING_MODE']) { $Config['IBKRNEW_TRADING_MODE'].ToLowerInvariant() } else { 'paper' }
 if ($TradingMode -notin @('paper', 'live')) { throw 'IBKRNEW_TRADING_MODE must be paper or live.' }
 if (-not $MockMode) {
+  if ($Config['IBKRNEW_EXECUTION_ENABLED'] -ne '1') { throw 'Set IBKRNEW_EXECUTION_ENABLED=1 before installing the bridge task.' }
   if ($TradingMode -eq 'paper') {
-    if ($Config['IBKRNEW_PAPER_EXECUTION_ENABLED'] -ne '1') { throw 'Set IBKRNEW_PAPER_EXECUTION_ENABLED=1 before installing the paper bridge task.' }
     if ($Config['IBKRNEW_ACCOUNT_ID'] -notmatch '^DU[A-Za-z0-9]+$') { throw 'IBKRNEW_ACCOUNT_ID must contain a local IBKR paper account beginning with DU.' }
   } else {
-    if ($Config['IBKRNEW_LIVE_EXECUTION_ENABLED'] -ne '1') { throw 'Set IBKRNEW_LIVE_EXECUTION_ENABLED=1 before installing the live bridge task.' }
     if (-not $Config['IBKRNEW_ACCOUNT_ID'] -or $Config['IBKRNEW_ACCOUNT_ID'] -match '^DU') { throw 'IBKRNEW_ACCOUNT_ID must contain a local non-paper IBKR account for live mode.' }
   }
 }
