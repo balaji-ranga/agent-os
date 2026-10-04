@@ -65,10 +65,9 @@ New-Item -ItemType Directory -Path (Join-Path $ResolvedInstall 'data') -Force | 
 New-Item -ItemType Directory -Path (Join-Path $ResolvedInstall 'logs') -Force | Out-Null
 Protect-InstallAcl $ResolvedInstall
 
-$BundledNode = Join-Path $ResolvedInstall 'runtime\node.exe'
-$Node = if (Test-Path -LiteralPath $BundledNode) { $BundledNode } else { (Get-Command node.exe -ErrorAction Stop).Source }
-$Entrypoint = Join-Path $ResolvedInstall 'src\index.js'
-$Action = New-ScheduledTaskAction -Execute $Node -Argument "`"$Entrypoint`""
+$PowerShell = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
+$Runner = Join-Path $ResolvedInstall 'scripts\Run-IBKRNewBridgeTask.ps1'
+$Action = New-ScheduledTaskAction -Execute $PowerShell -Argument "-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$Runner`""
 $Trigger = New-ScheduledTaskTrigger -AtLogOn -User $Identity
 $Principal = New-ScheduledTaskPrincipal -UserId $Identity -LogonType Interactive -RunLevel Limited
 $Settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -WakeToRun -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew

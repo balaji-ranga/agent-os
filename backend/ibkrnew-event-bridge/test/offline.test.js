@@ -62,8 +62,9 @@ assert.equal(existsSync(runnerPath), true, 'Windows Scheduled Task supervisor mu
 const installer = readFileSync(installerPath, 'utf8');
 assert.match(installer, /New-ScheduledTaskTrigger -AtLogOn/);
 assert.doesNotMatch(installer, /New-ScheduledTaskAction[^\r\n]+-WorkingDirectory/, 'the supervisor resolves its own package root; Task Scheduler working-directory failures must be avoided');
-assert.match(installer, /New-ScheduledTaskAction -Execute \$Node -Argument/);
-assert.doesNotMatch(installer, /New-ScheduledTaskAction -Execute \$PowerShell/, 'Task Scheduler must supervise Node directly instead of relying on a PowerShell child launch');
+assert.match(installer, /New-ScheduledTaskAction -Execute \$PowerShell -Argument/);
+assert.match(installer, /Run-IBKRNewBridgeTask\.ps1/);
+assert.doesNotMatch(installer, /New-ScheduledTaskAction -Execute \$Node/, 'the durable supervisor must own and restart the Node child');
 assert.match(installer, /-StartWhenAvailable/);
 assert.match(installer, /-RestartCount 999/);
 assert.match(installer, /-WakeToRun/);
@@ -76,6 +77,8 @@ assert.match(installer, /New-Item -ItemType Directory -Path \$ResolvedInstall -F
 assert.doesNotMatch(installer, /icacls\.exe \$Path[^\r\n]+ '\/T'/, 'the root ACL command must not disable inheritance on every child');
 const supervisor = readFileSync(runnerPath, 'utf8');
 assert.match(supervisor, /while \(\$true\)/);
+assert.match(supervisor, /\$PackageRoot = Split-Path -Parent \$PSScriptRoot/);
+assert.match(supervisor, /Restarting in \$delaySeconds seconds/);
 assert.doesNotMatch(supervisor, /IBKRNEW_BRIDGE_TOKEN|IBKRNEW_ACCOUNT_ID/);
 const privacyDir = mkdtempSync(join(tmpdir(), 'ibkrnew-privacy-')); const sentBodies = [];
 const privacyCore = new IBKRNewBridgeCore({ apiUrl: 'https://example.test/api/ibkrnew-event-trader', bridgeId: 'IBKRNewBridge_privacy', token: 'secret', spoolDir: privacyDir, fetchImpl: async (_url, request) => { sentBodies.push(request?.body || ''); return { ok: true, status: 202, json: async () => ({}) }; } });
