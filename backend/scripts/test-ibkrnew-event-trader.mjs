@@ -159,6 +159,8 @@ assert.equal(service.getIbkrNewEventTimeline(liveModeOwner, { environment: 'live
 const paperGoalAfterSwitch = service.setIbkrNewGoal(liveModeOwner, { environment: 'paper', name: 'Paper account objective', mode: 'PERPETUAL', target_return_pct: 5, duration_days: 30 });
 assert.equal(paperGoalAfterSwitch.definition.name, 'Paper account objective');
 assert.equal(service.getIbkrNewGoalState(liveModeOwner, { environment: 'live' }).definition.goal_id, liveGoalBeforeTrade.definition.goal_id, 'switching and changing the paper goal does not replace the live goal');
+assert.ok(service.getIbkrNewGoalHistory(liveModeOwner, { environment: 'paper' }).every((goal) => goal.environment === 'paper'), 'paper goal history is context scoped');
+assert.ok(service.getIbkrNewGoalHistory(liveModeOwner, { environment: 'live' }).every((goal) => goal.environment === 'live'), 'live goal history is context scoped');
 assert.equal(service.getIbkrNewGoalState(liveModeOwner, { environment: 'live' }).definition.name, 'Live account objective');
 assert.equal(service.getDashboard(liveModeOwner).inactive_live_account.positions[0].symbol, 'AAPL', 'returning to paper keeps residual live exposure visible for reconciliation');
 const blockedLiveOwner = 'IBKRNewOwner_BlockedLive'; const blockedLiveCredentials = service.registerBridge(blockedLiveOwner, null, 'live'); const blockedLiveBridge = service.authenticateBridge(blockedLiveCredentials.bridge_id, blockedLiveCredentials.token);
@@ -200,6 +202,9 @@ assert.match(packageEnv, /^IBKRNEW_ACCOUNT_ID=$/m, 'real IBKR account remains de
 assert.match(packageEnv, /^IBKRNEW_ACCOUNT_SNAPSHOT_INTERVAL_MS=15000$/m);
 assert.match(packageEnv, /^IBKRNEW_TRADING_MODE=paper$/m);
 assert.match(packageEnv, /^IBKRNEW_EXECUTION_ENABLED=0$/m);
+assert.match(packageEnv, /^IBKRNEW_HTTP_TIMEOUT_MS=15000$/m);
+assert.match(packageEnv, /^IBKRNEW_STALL_TIMEOUT_MS=120000$/m);
+assert.match(packageEnv, /^IBKRNEW_WATCHDOG_INTERVAL_MS=10000$/m);
 assert.ok(packageToken?.startsWith('ibkrnew_'));
 assert.doesNotMatch(packageMetaText, new RegExp(packageToken));
 assert.equal(packageMeta.bridge_id, packaged.bridge_id);

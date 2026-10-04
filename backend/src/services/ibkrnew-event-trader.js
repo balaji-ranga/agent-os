@@ -737,9 +737,10 @@ export function getIbkrNewConfigHistory(ownerUserId, kind, { limit = 50 } = {}) 
   return getDb().prepare(`SELECT id,kind,version,status,document_json,created_at,published_at FROM ibkrnew_config_versions WHERE owner_user_id=? AND kind=? ORDER BY version DESC LIMIT ?`).all(ownerUserId, kind, n).map((row) => ({ ...row, document: parse(row.document_json), document_json: undefined }));
 }
 
-export function getIbkrNewGoalHistory(ownerUserId, { limit = 50 } = {}) {
+export function getIbkrNewGoalHistory(ownerUserId, { limit = 50, environment: requestedEnvironment } = {}) {
   const n = Math.min(100, Math.max(1, Number(limit) || 50));
-  return getDb().prepare(`SELECT goal_id,name,mode,target_return_pct,duration_days,duration_basis,capital_basis,profit_basis,status,created_at,updated_at FROM ibkrnew_goals WHERE owner_user_id=? ORDER BY created_at DESC LIMIT ?`).all(ownerUserId, n).map((row) => ({ ...row, target_return_pct: Number(row.target_return_pct), duration_days: Number(row.duration_days) }));
+  const db = getDb(); const environment = normalizeEnvironment(requestedEnvironment || ensureExecutionModeRow(ownerUserId, db).requested_mode);
+  return db.prepare(`SELECT goal_id,environment,name,mode,target_return_pct,duration_days,duration_basis,capital_basis,profit_basis,status,created_at,updated_at FROM ibkrnew_goals WHERE owner_user_id=? AND environment=? ORDER BY created_at DESC LIMIT ?`).all(ownerUserId, environment, n).map((row) => ({ ...row, target_return_pct: Number(row.target_return_pct), duration_days: Number(row.duration_days) }));
 }
 
 export function setIbkrNewGoal(ownerUserId, input = {}) {

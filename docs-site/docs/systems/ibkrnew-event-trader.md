@@ -86,7 +86,7 @@ IBKR supplies executable quotes, bars and broker/account truth through the deskt
 7. Confirm healthy Gateway, market-data and reconciliation status in **IBKRNew0 → Live Operations**. Local task status is available through `scripts\Get-IBKRNewBridgeTaskStatus.ps1`.
 8. Explicitly enable the single local `IBKRNEW_EXECUTION_ENABLED` gate after those checks pass. Select the matching Paper or Live account context on Strategy; it remains blocked until `managedAccounts` attestation succeeds.
 
-One supervised bridge process runs on the desktop. It starts at Windows sign-in, retries after process failure or a missed start, and reconnects to Gateway after Modern Standby. Gateway authentication remains interactive: if the broker session expires, new trading fails closed until the user signs in again. The six reactions run in Flolah, so there is no separate workflow package to download. Revoke an old bridge from Live Operations or Tokens management if a machine is retired or credentials may have been exposed.
+One supervised bridge process runs on the desktop. It starts at Windows sign-in, retries after process failure or a missed start, and reconnects to Gateway after Modern Standby. Cloud calls have bounded timeouts, and a progress watchdog deliberately exits a wedged runtime so the supervisor restarts it rather than leaving a Running task with a stale heartbeat. Gateway authentication remains interactive: if the broker session expires, new trading fails closed until the user signs in again. The six reactions run in Flolah, so there is no separate workflow package to download. Revoke an old bridge from Live Operations or Tokens management if a machine is retired or credentials may have been exposed.
 
 ### Read the six-role audit
 

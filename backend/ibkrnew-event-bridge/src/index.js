@@ -2,7 +2,7 @@ import { config as loadDotEnv } from 'dotenv';
 import { existsSync, readFileSync } from 'fs';
 import { isAbsolute, resolve } from 'path';
 import { fileURLToPath } from 'url';
-import { IBKRNewBridgeCore, IBKRNewFeatureEngine, commandMatchesBootstrap, selectUniverseProfiles } from './core.js';
+import { IBKRNewBridgeCore, IBKRNewFeatureEngine, bridgeRuntimeStalled, commandMatchesBootstrap, selectUniverseProfiles } from './core.js';
 import { IBKRNewGateway } from './gateway.js';
 
 const packageRoot = fileURLToPath(new URL('..', import.meta.url));
@@ -13,11 +13,13 @@ const packagePath = (value, fallback) => {
 
 loadDotEnv({ path: resolve(packageRoot, '.env'), override: false });
 
+const httpTimeoutMs = Math.max(1000, Number(process.env.IBKRNEW_HTTP_TIMEOUT_MS) || 15000);
 const cfg = {
   apiUrl: process.env.IBKRNEW_API_URL,
   bridgeId: process.env.IBKRNEW_BRIDGE_ID,
   token: process.env.IBKRNEW_BRIDGE_TOKEN,
   spoolDir: packagePath(process.env.IBKRNEW_SPOOL_DIR, './data'),
+  requestTimeoutMs: httpTimeoutMs,
 };
 const core = new IBKRNewBridgeCore(cfg);
 const mock = process.env.IBKRNEW_MOCK === '1';
@@ -27,10 +29,20 @@ const localExecutionEnabled = process.env.IBKRNEW_EXECUTION_ENABLED === '1';
 const featureEngine = new IBKRNewFeatureEngine();
 const accountSnapshotIntervalMs = Math.max(5000, Number(process.env.IBKRNEW_ACCOUNT_SNAPSHOT_INTERVAL_MS || 15000));
 const cycleIntervalMs = Math.max(1000, Number(process.env.IBKRNEW_CYCLE_INTERVAL_MS || 5000));
+const stallTimeoutMs = Math.max(httpTimeoutMs * 2, Number(process.env.IBKRNEW_STALL_TIMEOUT_MS) || 120000);
+const watchdogIntervalMs = Math.max(1000, Number(process.env.IBKRNEW_WATCHDOG_INTERVAL_MS || 10000));
 let gateway = null;
 let boot = null;
 let lastAccountSnapshotAt = 0;
 let reconnectAttempt = 0;
+let cycleStartedAt = Date.now();
+
+const watchdog = setInterval(() => {
+  if (!bridgeRuntimeStalled({ cycleStartedAt, stallTimeoutMs })) return;
+  const stalledForMs = Date.now() - cycleStartedAt;
+  console.error(`IBKRNew watchdog exiting stalled runtime after ${stalledForMs}ms; the Windows supervisor will restart it.`);
+  process.exit(78);
+}, watchdogIntervalMs);
 
 function gatewayConfig() {
   return {
@@ -107,6 +119,7 @@ async function ensureGatewayConnected() {
 }
 
 async function runCycle() {
+  cycleStartedAt = Date.now();
   try {
     await ensureGatewayConnected();
     const gatewayHealth = gateway?.health() || { connected: false };
@@ -152,6 +165,7 @@ async function runCycle() {
     core.emit('desktop.component_error', { component_id: 'IBKRNewDesktopRuntime', component_type: 'desktop_runtime', code: 'LOOP_ERROR', message: error.message });
     console.warn(`IBKRNew offline: ${error.message}`);
   } finally {
+    cycleStartedAt = 0;
     setTimeout(runCycle, cycleIntervalMs);
   }
 }
@@ -163,11 +177,13 @@ if (!mock) {
   await connectGateway();
 }
 
+cycleStartedAt = 0;
 console.log(`IBKRNew bridge ${cfg.bridgeId} started in ${mock ? `${tradingMode} mock` : `${tradingMode} Gateway`} mode; no public listener is opened.`);
 setTimeout(runCycle, 0);
 
 for (const signal of ['SIGINT', 'SIGTERM']) {
   process.on(signal, () => {
+    clearInterval(watchdog);
     try { gateway?.disconnect(); } catch {}
     process.exit(0);
   });

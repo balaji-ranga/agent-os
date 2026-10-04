@@ -4,7 +4,7 @@ import { tmpdir } from 'os';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
-import { IBKRNewBridgeCore, IBKRNewFeatureEngine, buildBarFeatures, commandMatchesBootstrap, selectUniverseProfiles } from '../src/core.js';
+import { IBKRNewBridgeCore, IBKRNewFeatureEngine, bridgeRuntimeStalled, buildBarFeatures, commandMatchesBootstrap, selectUniverseProfiles } from '../src/core.js';
 import { IBKRNewGateway, applyReconciliationState, evaluateAccountAttestation, normalizeAccountValuesToUsd } from '../src/gateway.js';
 
 const dir = mkdtempSync(join(tmpdir(), 'ibkrnew-'));
@@ -25,6 +25,14 @@ assert.equal(commandMatchesBootstrap({ authorization: { environment: 'paper', ac
 assert.equal(commandMatchesBootstrap({ authorization: { environment: 'live', account_ref: 'IBKRNewAccount_current', goal: { cycle_id: 'IBKRNewGoalCycle_current' } } }, bootstrap), false);
 assert.equal(commandMatchesBootstrap({ authorization: { account_id: 'DU1234567' } }, { account_ref: 'IBKRNewAccount_current' }), false);
 assert.equal(core.commandSeen('IBKRNewCommand_once'), null); core.markCommand('IBKRNewCommand_once', 'executing'); assert.equal(core.commandSeen('IBKRNewCommand_once').status, 'executing');
+assert.equal(bridgeRuntimeStalled({ cycleStartedAt: 1000, now: 120999, stallTimeoutMs: 120000 }), false);
+assert.equal(bridgeRuntimeStalled({ cycleStartedAt: 1000, now: 121000, stallTimeoutMs: 120000 }), true);
+const timeoutDir = mkdtempSync(join(tmpdir(), 'ibkrnew-timeout-'));
+const timeoutCore = new IBKRNewBridgeCore({ apiUrl: 'https://example.test/api/ibkrnew-event-trader', bridgeId: 'IBKRNewBridge_timeout', token: 'secret', spoolDir: timeoutDir, requestTimeoutMs: 20, fetchImpl: async () => new Promise(() => {}) });
+await assert.rejects(() => timeoutCore.bootstrap(), /bootstrap timed out after 20ms/);
+timeoutCore.emit('bridge.heartbeat', {});
+await assert.rejects(() => timeoutCore.flush(), /event flush timed out after 20ms/);
+assert.equal(readFileSync(join(timeoutDir, 'IBKRNew-events.jsonl'), 'utf8').trim().split(/\r?\n/).length, 1, 'timed-out event flush must preserve the durable spool');
 const profileEvent = core.emitInstrumentProfile({ symbol: 'aapl', security_type: 'STK', index_memberships: ['SPX'], fundamentals: { market_cap_usd: 1 } });
 assert.equal(profileEvent.event_type, 'instrument.profile_refreshed'); assert.equal(profileEvent.payload.symbol, 'AAPL');
 assert.throws(() => core.emitInstrumentProfile({ symbol: 'SPY', security_type: 'OPT' }), /STK or ETF/);

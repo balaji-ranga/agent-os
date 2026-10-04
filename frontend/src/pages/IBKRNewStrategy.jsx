@@ -39,7 +39,7 @@ export default function IBKRNewStrategy() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [validationErrors, setValidationErrors] = useState([]);
   const [goalDraft, setGoalDraft] = useState({ name: 'IBKRNew 5% in 30 Days', mode: 'PERPETUAL', target_return_pct: 5, duration_days: 30 });
-  const load = async () => { try { const [dashboard, schemaSet, goals] = await Promise.all([api.ibkrNewDashboard(), api.ibkrNewSchemas(), api.ibkrNewGoalHistory()]); setData(dashboard); setSchemas(schemaSet); setGoalHistory(goals.items || []); setError(''); } catch (e) { setError(e.message); } };
+  const load = async () => { try { const [dashboard, schemaSet] = await Promise.all([api.ibkrNewDashboard(), api.ibkrNewSchemas()]); const goals = await api.ibkrNewGoalHistory(50, dashboard.execution_mode?.requested_mode || dashboard.environment); setData(dashboard); setSchemas(schemaSet); setGoalHistory(goals.items || []); setError(''); } catch (e) { setError(e.message); } };
   useEffect(() => { load(); }, []);
   useEffect(() => { if (kind !== 'goal') api.ibkrNewConfigHistory(kind).then((result) => setHistory(result.items || [])).catch((e) => setError(e.message)); }, [kind, data]);
   useEffect(() => { if (data?.configs?.[kind]) setEditor(JSON.stringify(data.configs[kind], null, 2)); }, [data, kind]);

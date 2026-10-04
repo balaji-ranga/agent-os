@@ -22,7 +22,7 @@ router.get('/live-operations', requireAuth, requireCeoOrAdmin, (req, res) => han
 router.get('/events', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json(getIbkrNewEventTimeline(owner(req), { page: req.query.page, pageSize: req.query.page_size, eventType: req.query.event_type, status: req.query.status, environment: req.query.environment }))));
 router.get('/events/:eventId', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json(getIbkrNewEventDetail(owner(req), req.params.eventId))));
 router.get('/goal', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json(getIbkrNewGoalState(owner(req), { environment: req.query.environment }))));
-router.get('/goal/history', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json({ items: getIbkrNewGoalHistory(owner(req), { limit: req.query.limit }) })));
+router.get('/goal/history', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json({ items: getIbkrNewGoalHistory(owner(req), { limit: req.query.limit, environment: req.query.environment }) })));
 router.get('/schemas', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json(getIbkrNewSchemaDocument())));
 router.get('/schemas/:kind', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json(getIbkrNewSchemaDocument(req.params.kind))));
 router.get('/execution-mode', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json(getIbkrNewExecutionMode(owner(req)))));

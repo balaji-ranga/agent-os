@@ -123,7 +123,7 @@ Only symbols assigned by the active universe should be subscribed. Data entitlem
 7. Confirm Gateway, bridge and market-data health in **Live Operations**. Use `scripts\Get-IBKRNewBridgeTaskStatus.ps1` for local task status.
 8. Enable the single local execution gate after subscriptions, account attestation, positions and reconciliation are healthy. Select Paper or Live in **IBKRNew0 → Strategy**; the selected context stays blocked until its matching bridge attests successfully.
 
-The package runs one supervised IBKRNew bridge process. The task starts at user sign-in, restarts a failed process, starts missed runs when Windows becomes available and reconnects to Gateway after Modern Standby. IB Gateway still requires an authenticated desktop session; if that session expires, new exposure remains blocked until the user signs in again. The six event reactions run in Flolah; no workflow package is downloaded to the desktop. Revoking a bridge in Live Operations invalidates its token and pending commands.
+The package runs one supervised IBKRNew bridge process. The task starts at user sign-in, restarts a failed process, starts missed runs when Windows becomes available and reconnects to Gateway after Modern Standby. Every cloud request has a timeout, and an independent progress watchdog exits a wedged runtime so the supervisor can restart it instead of leaving a falsely Running but offline process. IB Gateway still requires an authenticated desktop session; if that session expires, new exposure remains blocked until the user signs in again. The six event reactions run in Flolah; no workflow package is downloaded to the desktop. Revoking a bridge in Live Operations invalidates its token and pending commands.
 
 ## Monitor and troubleshoot
 
@@ -145,7 +145,7 @@ Before expecting an order, verify:
 
 On disconnect or uncertain submission, do not manually replay a command. Restore Gateway/bridge connectivity and let reconciliation resolve open orders, executions and positions before enabling new entries.
 
-If Live Operations shows the bridge offline, check the `IBKRNewBridge` Scheduled Task first. Local supervisor/runtime logs are under `%LOCALAPPDATA%\Flolah\IBKRNewBridge\logs`; they rotate automatically and should never be copied into public help or source control.
+If Live Operations shows the bridge offline, check the `IBKRNewBridge` Scheduled Task first. A Running task with a stale heartbeat should be restarted; the current package also self-recovers from a stalled cloud request through its watchdog. Local supervisor/runtime logs are under `%LOCALAPPDATA%\Flolah\IBKRNewBridge\logs`; they rotate automatically and should never be copied into public help or source control.
 
 ## Privacy and sensitive data
 

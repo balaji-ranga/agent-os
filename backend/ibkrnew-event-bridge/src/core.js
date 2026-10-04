@@ -33,10 +33,17 @@ export function commandMatchesBootstrap(command, bootstrap) {
   return Boolean(commandRef && currentRef && commandRef === currentRef && commandCycle && commandCycle === currentCycle && commandEnvironment && commandEnvironment === currentEnvironment && bootstrap?.goal?.opening_trades_allowed === true && bootstrap?.execution_mode?.requested_mode === currentEnvironment && bootstrap?.execution_mode?.execution_enabled === true);
 }
 
+export function bridgeRuntimeStalled({ cycleStartedAt = 0, now = Date.now(), stallTimeoutMs = 120000 } = {}) {
+  const started = Number(cycleStartedAt || 0);
+  const timeout = Math.max(1, Number(stallTimeoutMs) || 120000);
+  return started > 0 && Number(now) - started >= timeout;
+}
+
 export class IBKRNewBridgeCore {
-  constructor({ apiUrl, bridgeId, token, spoolDir, fetchImpl = fetch, now = () => new Date() }) {
+  constructor({ apiUrl, bridgeId, token, spoolDir, fetchImpl = fetch, now = () => new Date(), requestTimeoutMs = 15000 }) {
     if (!apiUrl || !bridgeId || !token) throw new Error('IBKRNew API URL, bridge ID, and token are required');
     this.apiUrl = apiUrl.replace(/\/$/, ''); this.bridgeId = bridgeId; this.token = token; this.fetch = fetchImpl; this.now = now;
+    this.requestTimeoutMs = Math.max(10, Number(requestTimeoutMs) || 15000);
     this.spoolDir = spoolDir; mkdirSync(spoolDir, { recursive: true }); this.statePath = join(spoolDir, 'IBKRNew-state.json'); this.spoolPath = join(spoolDir, 'IBKRNew-events.jsonl'); this.commandStatePath = join(spoolDir, 'IBKRNew-command-state.json');
     this.sequence = existsSync(this.statePath) ? Number(JSON.parse(readFileSync(this.statePath, 'utf8')).sequence || 0) : 0;
   }
@@ -45,6 +52,29 @@ export class IBKRNewBridgeCore {
   commandSeen(commandId) { return this.commandState()[commandId] || null; }
   markCommand(commandId, status, detail = {}) { const state = this.commandState(); state[commandId] = { status, detail, updated_at: this.now().toISOString() }; writeFileSync(this.commandStatePath, JSON.stringify(state), { mode: 0o600 }); return state[commandId]; }
   headers() { return { 'content-type': 'application/json', 'x-ibkrnew-bridge-id': this.bridgeId, 'x-ibkrnew-bridge-token': this.token }; }
+  async request(path, init = {}, operation = 'request') {
+    const controller = new AbortController();
+    let timer;
+    const timeout = new Promise((_, reject) => {
+      timer = setTimeout(() => {
+        controller.abort();
+        const error = new Error(`IBKRNew ${operation} timed out after ${this.requestTimeoutMs}ms`);
+        error.code = 'IBKRNEW_HTTP_TIMEOUT';
+        reject(error);
+      }, this.requestTimeoutMs);
+    });
+    try {
+      return await Promise.race([
+        this.fetch(`${this.apiUrl}${path}`, { ...init, signal: controller.signal }),
+        timeout,
+      ]);
+    } catch (error) {
+      if (error?.code === 'IBKRNEW_HTTP_TIMEOUT') throw error;
+      throw new Error(`IBKRNew ${operation} failed: ${error?.message || String(error)}`, { cause: error });
+    } finally {
+      clearTimeout(timer);
+    }
+  }
   emit(eventType, payload, occurredAt = this.now().toISOString()) {
     this.sequence += 1; const event = sanitizeBridgeEgress({ event_id: `IBKRNewDesktopEvent_${crypto.randomUUID()}`, sequence: this.sequence, event_type: eventType, occurred_at: occurredAt, payload });
     appendFileSync(this.spoolPath, `${JSON.stringify(event)}\n`, { encoding: 'utf8', mode: 0o600 }); writeFileSync(this.statePath, JSON.stringify({ sequence: this.sequence }), { mode: 0o600 }); return event;
@@ -58,20 +88,20 @@ export class IBKRNewBridgeCore {
     if (!existsSync(this.spoolPath)) return { sent: 0, remaining: 0 };
     const lines = readFileSync(this.spoolPath, 'utf8').split(/\r?\n/).filter(Boolean).map(sanitizeSpoolLine); let sent = 0;
     for (const line of lines) {
-      const response = await this.fetch(`${this.apiUrl}/bridge/events`, { method: 'POST', headers: this.headers(), body: line });
+      const response = await this.request('/bridge/events', { method: 'POST', headers: this.headers(), body: line }, 'event flush');
       if (!response.ok) break; sent += 1;
     }
     const remaining = lines.slice(sent); const temp = `${this.spoolPath}.next`; writeFileSync(temp, remaining.length ? `${remaining.join('\n')}\n` : '', { mode: 0o600 }); renameSync(temp, this.spoolPath);
     return { sent, remaining: remaining.length };
   }
   async claim(limit = 10) {
-    const response = await this.fetch(`${this.apiUrl}/bridge/commands/claim`, { method: 'POST', headers: this.headers(), body: JSON.stringify({ limit, protocol_version: 2 }) });
+    const response = await this.request('/bridge/commands/claim', { method: 'POST', headers: this.headers(), body: JSON.stringify({ limit, protocol_version: 2 }) }, 'command claim');
     if (!response.ok) throw new Error(`IBKRNew command claim failed: ${response.status}`);
     const commands = (await response.json()).commands || [];
     return commands.filter((command) => this.verifyCommand(command));
   }
   async bootstrap() {
-    const response = await this.fetch(`${this.apiUrl}/bridge/bootstrap`, { headers: this.headers() });
+    const response = await this.request('/bridge/bootstrap', { headers: this.headers() }, 'bootstrap');
     if (!response.ok) throw new Error(`IBKRNew bootstrap failed: ${response.status}`); return response.json();
   }
   verifyCommand(received) {
@@ -82,7 +112,7 @@ export class IBKRNewBridgeCore {
     return !transportExpiry || Date.parse(transportExpiry) > this.now().getTime();
   }
   async acknowledge(commandId, status, detail = {}) {
-    const response = await this.fetch(`${this.apiUrl}/bridge/commands/${encodeURIComponent(commandId)}/ack`, { method: 'POST', headers: this.headers(), body: JSON.stringify(sanitizeBridgeEgress({ status, detail })) });
+    const response = await this.request(`/bridge/commands/${encodeURIComponent(commandId)}/ack`, { method: 'POST', headers: this.headers(), body: JSON.stringify(sanitizeBridgeEgress({ status, detail })) }, 'command acknowledgement');
     if (!response.ok) throw new Error(`IBKRNew acknowledgement failed: ${response.status}`); return response.json();
   }
 }
