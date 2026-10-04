@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
 import { formatLocalDateTime } from '../utils/formatDateTime.js';
+import { selectActiveBridge } from '../utils/selectActiveBridge.js';
 
 const json = (value) => JSON.stringify(value || {}, null, 2);
 const agentLabel = (name = '') => name.replace(/^IBKRNew/, '').replace(/([a-z])([A-Z])/g, '$1 $2');
@@ -43,6 +44,7 @@ export default function IBKRNewLiveOperations() {
 
   const dashboard = data?.dashboard;
   const bridges = dashboard?.bridges || [];
+  const activeBridge = selectActiveBridge(bridges);
   const budgets = dashboard?.budgets || {};
   const goal = dashboard?.goal;
   const cycle = goal?.cycle;
@@ -60,7 +62,7 @@ export default function IBKRNewLiveOperations() {
       <section className="this-week-card"><small>Daily opening exposure</small><h2>${Number(budgets.daily_used_usd || 0).toFixed(2)}</h2><div>of ${Number(budgets.daily_limit_usd || 0).toFixed(2)}</div></section>
       <section className="this-week-card"><small>Total gross ceiling</small><h2>${Number(budgets.total_limit_usd || 0).toFixed(2)}</h2><div>Cash and positions combined</div></section>
       <section className="this-week-card"><small>IBKR account snapshot</small><h2>{dashboard?.account ? 'Received' : 'Waiting'}</h2><div>{dashboard?.account?.captured_at ? formatLocalDateTime(dashboard.account.captured_at) : 'No broker state'}</div></section>
-      <section className="this-week-card"><small>Bridge</small><h2>{bridges[0]?.effective_status || 'Not registered'}</h2><div>{bridges[0]?.last_seen_at ? formatLocalDateTime(bridges[0].last_seen_at) : 'A local desktop bridge is required'}</div></section>
+      <section className="this-week-card"><small>Bridge</small><h2>{activeBridge?.effective_status || 'Not registered'}</h2><div>{activeBridge?.last_seen_at ? formatLocalDateTime(activeBridge.last_seen_at) : 'A local desktop bridge is required'}</div></section>
       <section className="this-week-card"><small>Goal cycle</small><h2>{cycle?.status || goal?.block_reason || 'Waiting'}</h2><div>{cycle ? `$${Number(cycle.net_realized_profit_usd).toFixed(2)} of $${Number(cycle.target_profit_usd).toFixed(2)} · ${cycle.days_remaining} days` : 'Waiting for eligible capital'}</div></section>
     </div>
 
