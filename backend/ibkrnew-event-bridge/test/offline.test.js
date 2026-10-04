@@ -107,6 +107,9 @@ assert.match(installer, /New-ScheduledTaskAction -Execute \$PowerShell -Argument
 assert.match(installer, /Run-IBKRNewBridgeTask\.ps1/);
 assert.doesNotMatch(installer, /New-ScheduledTaskAction -Execute \$Node/, 'the durable supervisor must own and restart the Node child');
 assert.match(installer, /InstalledNode[\s\S]+Invoke-CimMethod[\s\S]+Terminate/, 'upgrades must terminate the prior bundled bridge runtime left behind by Task Scheduler');
+assert.match(installer, /function Update-LegacyDotEnv/);
+assert.match(installer, /IBKRNEW_PAPER_EXECUTION_ENABLED[\s\S]+IBKRNEW_EXECUTION_ENABLED/, 'upgrades must migrate the legacy Paper-only gate without replacing credentials');
+assert.match(installer, /IBKRNEW_TRADING_MODE=paper/, 'legacy Paper packages must receive an explicit account-context selector');
 assert.match(installer, /-StartWhenAvailable/);
 assert.match(installer, /-RestartCount 999/);
 assert.match(installer, /-WakeToRun/);

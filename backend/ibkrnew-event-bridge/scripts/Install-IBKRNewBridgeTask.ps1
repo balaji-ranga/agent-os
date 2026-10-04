@@ -20,6 +20,27 @@ function Read-DotEnv([string]$Path) {
   return $values
 }
 
+function Update-LegacyDotEnv([string]$Path) {
+  $lines = @(Get-Content -LiteralPath $Path)
+  $hasExecutionGate = [bool]($lines | Where-Object { $_ -match '^\s*IBKRNEW_EXECUTION_ENABLED\s*=' } | Select-Object -First 1)
+  $hasTradingMode = [bool]($lines | Where-Object { $_ -match '^\s*IBKRNEW_TRADING_MODE\s*=' } | Select-Object -First 1)
+  $changed = $false
+  if (-not $hasExecutionGate) {
+    for ($index = 0; $index -lt $lines.Count; $index++) {
+      if ($lines[$index] -match '^\s*IBKRNEW_PAPER_EXECUTION_ENABLED\s*=(.*)$') {
+        $lines[$index] = "IBKRNEW_EXECUTION_ENABLED=$($Matches[1])"
+        $changed = $true
+        break
+      }
+    }
+  }
+  if (-not $hasTradingMode) {
+    $lines += 'IBKRNEW_TRADING_MODE=paper'
+    $changed = $true
+  }
+  if ($changed) { Set-Content -LiteralPath $Path -Value $lines -Encoding utf8 }
+}
+
 function Protect-InstallAcl([string]$Path) {
   & icacls.exe $Path '/inheritance:e' '/grant:r' "${Identity}:(OI)(CI)F" 'SYSTEM:(OI)(CI)F' '/C' | Out-Null
   if ($LASTEXITCODE -ne 0) { throw 'Unable to protect the IBKRNew installation directory ACL.' }
@@ -34,6 +55,7 @@ $SourceEnv = Join-Path $SourceRoot '.env'
 if (-not (Test-Path -LiteralPath $SourceEnv)) {
   throw 'The owner-scoped .env is missing. Download a fresh full IBKRNewBridge package from Flolah Connectors.'
 }
+Update-LegacyDotEnv $SourceEnv
 $Config = Read-DotEnv $SourceEnv
 foreach ($required in @('IBKRNEW_API_URL', 'IBKRNEW_BRIDGE_ID', 'IBKRNEW_BRIDGE_TOKEN')) {
   if (-not $Config[$required]) { throw "Required setting $required is missing from .env." }
