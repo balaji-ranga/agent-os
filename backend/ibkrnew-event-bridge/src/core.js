@@ -45,13 +45,38 @@ export class IBKRNewBridgeCore {
     this.apiUrl = apiUrl.replace(/\/$/, ''); this.bridgeId = bridgeId; this.token = token; this.fetch = fetchImpl; this.now = now;
     this.requestTimeoutMs = Math.max(10, Number(requestTimeoutMs) || 15000);
     this.spoolDir = spoolDir; mkdirSync(spoolDir, { recursive: true }); this.statePath = join(spoolDir, 'IBKRNew-state.json'); this.spoolPath = join(spoolDir, 'IBKRNew-events.jsonl'); this.commandStatePath = join(spoolDir, 'IBKRNew-command-state.json');
-    this.sequence = existsSync(this.statePath) ? Number(JSON.parse(readFileSync(this.statePath, 'utf8')).sequence || 0) : 0;
+    const state = existsSync(this.statePath) ? JSON.parse(readFileSync(this.statePath, 'utf8')) : {};
+    this.sequence = state.bridge_id && state.bridge_id !== bridgeId ? 0 : Number(state.sequence || 0);
   }
   commandState() { return existsSync(this.commandStatePath) ? JSON.parse(readFileSync(this.commandStatePath, 'utf8')) : {}; }
   spoolDepth() { return existsSync(this.spoolPath) ? readFileSync(this.spoolPath, 'utf8').split(/\r?\n/).filter(Boolean).length : 0; }
   commandSeen(commandId) { return this.commandState()[commandId] || null; }
   markCommand(commandId, status, detail = {}) { const state = this.commandState(); state[commandId] = { status, detail, updated_at: this.now().toISOString() }; writeFileSync(this.commandStatePath, JSON.stringify(state), { mode: 0o600 }); return state[commandId]; }
   headers() { return { 'content-type': 'application/json', 'x-ibkrnew-bridge-id': this.bridgeId, 'x-ibkrnew-bridge-token': this.token }; }
+  persistSequence() { writeFileSync(this.statePath, JSON.stringify({ bridge_id: this.bridgeId, sequence: this.sequence }), { mode: 0o600 }); }
+  synchronizeSequence(serverSequence) {
+    const sequence = Number(serverSequence);
+    if (!Number.isSafeInteger(sequence) || sequence < 0) throw new Error('IBKRNew bootstrap returned an invalid bridge sequence');
+    if (sequence === this.sequence) { this.persistSequence(); return { changed: false, sequence, archived_spool: null }; }
+    const pendingSequences = existsSync(this.spoolPath)
+      ? readFileSync(this.spoolPath, 'utf8').split(/\r?\n/).filter(Boolean).map((line) => {
+        try { return Number(JSON.parse(line).sequence); } catch { return NaN; }
+      })
+      : [];
+    const replayable = pendingSequences.length > 0
+      && pendingSequences[0] === sequence + 1
+      && pendingSequences.at(-1) === this.sequence
+      && pendingSequences.every((value, index) => Number.isSafeInteger(value) && (index === 0 || value === pendingSequences[index - 1] + 1));
+    if (replayable) { this.persistSequence(); return { changed: false, sequence: this.sequence, archived_spool: null }; }
+    let archivedSpool = null;
+    if (this.spoolDepth() > 0) {
+      archivedSpool = join(this.spoolDir, `IBKRNew-events.orphaned-${Date.now()}.jsonl`);
+      renameSync(this.spoolPath, archivedSpool);
+    }
+    this.sequence = sequence;
+    this.persistSequence();
+    return { changed: true, sequence, archived_spool: archivedSpool };
+  }
   async request(path, init = {}, operation = 'request') {
     const controller = new AbortController();
     let timer;
@@ -77,7 +102,7 @@ export class IBKRNewBridgeCore {
   }
   emit(eventType, payload, occurredAt = this.now().toISOString()) {
     this.sequence += 1; const event = sanitizeBridgeEgress({ event_id: `IBKRNewDesktopEvent_${crypto.randomUUID()}`, sequence: this.sequence, event_type: eventType, occurred_at: occurredAt, payload });
-    appendFileSync(this.spoolPath, `${JSON.stringify(event)}\n`, { encoding: 'utf8', mode: 0o600 }); writeFileSync(this.statePath, JSON.stringify({ sequence: this.sequence }), { mode: 0o600 }); return event;
+    appendFileSync(this.spoolPath, `${JSON.stringify(event)}\n`, { encoding: 'utf8', mode: 0o600 }); this.persistSequence(); return event;
   }
   emitInstrumentProfile(profile, occurredAt = this.now().toISOString()) {
     const symbol = String(profile?.symbol || '').trim().toUpperCase(); const securityType = String(profile?.security_type || '').trim().toUpperCase();

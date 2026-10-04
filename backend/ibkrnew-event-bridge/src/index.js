@@ -79,6 +79,7 @@ async function connectGateway({ reconnect = false } = {}) {
     await candidate.connect();
     boot = await core.bootstrap();
     if (boot.environment !== tradingMode) throw new Error('ACCOUNT_ENVIRONMENT_MISMATCH');
+    core.synchronizeSequence(boot.last_sequence);
     const profiles = loadUniverseProfiles();
     for (const profile of profiles) core.emitInstrumentProfile(profile);
     const symbols = [...new Set([...(boot.configs.universe.allowlist || []), ...profiles.map((profile) => profile.symbol)])];
@@ -170,7 +171,11 @@ async function runCycle() {
   }
 }
 
-if (!mock) {
+if (mock) {
+  boot = await core.bootstrap();
+  if (boot.environment !== tradingMode) throw new Error('ACCOUNT_ENVIRONMENT_MISMATCH');
+  core.synchronizeSequence(boot.last_sequence);
+} else {
   const accountId = String(process.env.IBKRNEW_ACCOUNT_ID || '').trim();
   if (!localExecutionEnabled) throw new Error(`IBKRNew ${tradingMode} execution requires its explicit local execution gate`);
   if (!accountId || tradingMode === 'paper' && !accountId.toUpperCase().startsWith('DU') || tradingMode === 'live' && accountId.toUpperCase().startsWith('DU')) throw new Error('ACCOUNT_ENVIRONMENT_MISMATCH');
