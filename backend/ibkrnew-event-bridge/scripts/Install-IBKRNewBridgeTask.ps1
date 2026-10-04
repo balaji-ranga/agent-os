@@ -20,6 +20,16 @@ function Read-DotEnv([string]$Path) {
   return $values
 }
 
+function Protect-InstallAcl([string]$Path) {
+  & icacls.exe $Path '/inheritance:e' '/grant:r' "${Identity}:(OI)(CI)F" 'SYSTEM:(OI)(CI)F' '/C' | Out-Null
+  if ($LASTEXITCODE -ne 0) { throw 'Unable to protect the IBKRNew installation directory ACL.' }
+  if (Get-ChildItem -LiteralPath $Path -Force | Select-Object -First 1) {
+    $ChildPattern = Join-Path $Path '*'
+    & icacls.exe $ChildPattern '/reset' '/T' '/C' | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw 'Unable to propagate the protected IBKRNew installation ACL to package files.' }
+  }
+}
+
 $SourceEnv = Join-Path $SourceRoot '.env'
 if (-not (Test-Path -LiteralPath $SourceEnv)) {
   throw 'The owner-scoped .env is missing. Download a fresh full IBKRNewBridge package from Flolah Connectors.'
@@ -44,6 +54,7 @@ $ResolvedSource = [IO.Path]::GetFullPath($SourceRoot).TrimEnd('\')
 $ResolvedInstall = [IO.Path]::GetFullPath($InstallRoot).TrimEnd('\')
 if ($ResolvedSource -ne $ResolvedInstall) {
   New-Item -ItemType Directory -Path $ResolvedInstall -Force | Out-Null
+  Protect-InstallAcl $ResolvedInstall
   foreach ($item in Get-ChildItem -LiteralPath $ResolvedSource -Force) {
     if ($item.Name -in @('data', 'logs')) { continue }
     Copy-Item -LiteralPath $item.FullName -Destination $ResolvedInstall -Recurse -Force
@@ -52,14 +63,12 @@ if ($ResolvedSource -ne $ResolvedInstall) {
 
 New-Item -ItemType Directory -Path (Join-Path $ResolvedInstall 'data') -Force | Out-Null
 New-Item -ItemType Directory -Path (Join-Path $ResolvedInstall 'logs') -Force | Out-Null
-& icacls.exe $ResolvedInstall '/inheritance:r' '/grant:r' "${Identity}:(OI)(CI)F" 'SYSTEM:(OI)(CI)F' '/T' '/C' | Out-Null
-if ($LASTEXITCODE -ne 0) { throw 'Unable to protect the IBKRNew installation directory ACL.' }
+Protect-InstallAcl $ResolvedInstall
 
-$Runner = Join-Path $ResolvedInstall 'scripts\Run-IBKRNewBridgeTask.ps1'
-$PowerShell = Join-Path $PSHOME 'powershell.exe'
-if (-not (Test-Path -LiteralPath $PowerShell)) { $PowerShell = (Get-Command powershell.exe -ErrorAction Stop).Source }
-$Arguments = "-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$Runner`""
-$Action = New-ScheduledTaskAction -Execute $PowerShell -Argument $Arguments -WorkingDirectory $ResolvedInstall
+$BundledNode = Join-Path $ResolvedInstall 'runtime\node.exe'
+$Node = if (Test-Path -LiteralPath $BundledNode) { $BundledNode } else { (Get-Command node.exe -ErrorAction Stop).Source }
+$Entrypoint = Join-Path $ResolvedInstall 'src\index.js'
+$Action = New-ScheduledTaskAction -Execute $Node -Argument "`"$Entrypoint`""
 $Trigger = New-ScheduledTaskTrigger -AtLogOn -User $Identity
 $Principal = New-ScheduledTaskPrincipal -UserId $Identity -LogonType Interactive -RunLevel Limited
 $Settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -WakeToRun -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew
