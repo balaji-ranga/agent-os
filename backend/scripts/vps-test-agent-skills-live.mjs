@@ -12,6 +12,7 @@ const ownerUserId = process.env.AGENT_SKILLS_TEST_OWNER || 'ceo-bala';
 const agentId = process.env.AGENT_SKILLS_TEST_AGENT || 'marketing-specialist';
 const skillId = process.env.AGENT_SKILLS_TEST_SKILL || 'platform:marketing-lead-intelligence';
 const orchestratorAgentId = process.env.AGENT_SKILLS_TEST_ORCHESTRATOR || 'balserve';
+const skillLabel = process.env.AGENT_SKILLS_TEST_SKILL_LABEL || skillId;
 const selectionOnly = ['1', 'true'].includes(String(process.env.AGENT_SKILLS_TEST_SELECTION_ONLY || '').toLowerCase());
 const db = getDb();
 const owner = db.prepare(`SELECT id FROM platform_users WHERE id=? AND enabled=1 AND role='ceo'`).get(ownerUserId);
@@ -60,9 +61,9 @@ try {
   assert.ok(saved.runtime?.workspacePath, 'assignment did not synchronize an employee workspace');
   const skillPath = join(saved.runtime.workspacePath, 'skills', assigned.slug, 'SKILL.md');
   assert.ok(existsSync(skillPath), `materialized SKILL.md missing: ${skillPath}`);
-  assert.match(readFileSync(skillPath, 'utf8'), /marketing|lead/i);
+  assert.match(readFileSync(skillPath, 'utf8'), /skill|procedure|strategy|research/i);
 
-  const selectionPrompt = 'Delegate one bounded read-only deliverable to the employee best matched by the assigned marketing-lead-intelligence skill: provide a concise method for researching and qualifying one target account. Do not access or change business data.';
+  const selectionPrompt = `Delegate one bounded read-only deliverable to the employee best matched by the assigned ${skillLabel} skill: provide a concise method for applying that skill to the requested task. Do not access or change business data.`;
   const route = await routeAgentTurn({
     ownerUserId,
     agent: orchestrator,
@@ -88,7 +89,7 @@ try {
   let chat = null;
   if (!selectionOnly) {
     chat = await request('POST', `/api/agents/${encodeURIComponent(agentId)}/chat`, {
-      message: 'Use your assigned marketing-lead-intelligence skill. In two sentences, explain the first two steps you would take to research and qualify a target account. This is a read-only test: do not create tasks, contact anyone, or change business data.',
+      message: `Use your assigned ${skillLabel} skill. In two sentences, explain the first two steps you would take for the bounded test request. This is a read-only test: do not create tasks, contact anyone, or change business data.`,
     }, 240_000);
     assert.ok(String(chat.reply || '').trim(), 'agent returned an empty reply');
     assert.ok((chat.skills_used || []).some((ref) => ref.skill_id === skillId), `agent did not confirm skill usage: ${JSON.stringify(chat.skills_used || [])}`);
