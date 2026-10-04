@@ -26,8 +26,62 @@ import {
 import { summarizeJournal } from '../services/trading-journal.js';
 import { resolveIbkrCashUsd } from '../services/ibkr-cash-resolve.js';
 import { toolApiRateLimitMiddleware } from '../services/tool-api-rate-limits.js';
+import { inferIbkrQuantSignal, listIbkrQuantRuns } from '../services/ibkr-quant-inference.js';
+import {
+  draftIbkrStrategyBundle,
+  listIbkrStrategyBundles,
+  validateIbkrStrategyBundle,
+  validateStoredIbkrStrategyBundle,
+  replayIbkrStrategyBundle,
+} from '../services/ibkr-strategy-bundles.js';
 
 const router = Router();
+
+/**
+ * Owner-scoped quantitative evidence. This endpoint is deliberately advisory:
+ * it never reserves budget, validates an order, or talks to the broker.
+ */
+router.post('/quant-signal', async (req, res) => {
+  try {
+    const owner = entitledOwnerId(req);
+    const result = await inferIbkrQuantSignal(owner, req.body || {});
+    res.json(result);
+  } catch (e) {
+    res.status(e.status || 400).json({ ok: false, error: e.message });
+  }
+});
+
+router.get('/quant-signal/runs', async (req, res) => {
+  try {
+    const owner = entitledOwnerId(req);
+    res.json({ ok: true, runs: listIbkrQuantRuns(owner, { limit: req.query.limit }) });
+  } catch (e) {
+    res.status(e.status || 400).json({ ok: false, error: e.message });
+  }
+});
+
+router.post('/strategy-bundles/draft', (req, res) => {
+  try { res.json(draftIbkrStrategyBundle(entitledOwnerId(req), req.body || {})); }
+  catch (e) { res.status(e.status || 400).json({ ok: false, error: e.message }); }
+});
+
+router.get('/strategy-bundles', (req, res) => {
+  try { res.json({ ok: true, bundles: listIbkrStrategyBundles(entitledOwnerId(req), { limit: req.query.limit }) }); }
+  catch (e) { res.status(e.status || 400).json({ ok: false, error: e.message }); }
+});
+
+router.post('/strategy-bundles/validate', (req, res) => {
+  try {
+    const owner = entitledOwnerId(req);
+    if (req.body?.bundle_id || req.body?.id) return res.json(validateStoredIbkrStrategyBundle(owner, req.body.bundle_id || req.body.id));
+    res.json({ ok: true, validation: validateIbkrStrategyBundle(req.body?.bundle || req.body) });
+  } catch (e) { res.status(e.status || 400).json({ ok: false, error: e.message }); }
+});
+
+router.post('/strategy-bundles/replay', (req, res) => {
+  try { res.json(replayIbkrStrategyBundle(req.body || {})); }
+  catch (e) { res.status(e.status || 400).json({ ok: false, error: e.message }); }
+});
 
 /**
  * Policy from the owner's monthly W1 Variables when that pack exists.

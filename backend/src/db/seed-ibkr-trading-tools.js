@@ -287,6 +287,57 @@ export const IBKR_TRADING_TOOLS = [
     enabled: 1,
     is_builtin: 0,
   },
+  {
+    name: 'ibkr_quant_signal_infer',
+    display_name: 'IBKR Quantitative Signal Inference',
+    endpoint: '/api/ibkr-trading/quant-signal',
+    method: 'POST',
+    purpose:
+      'Owner-scoped advisory quantitative inference. Body: { task: regime_classification|return_forecast|risk_classification|candidate_ranking|news_sentiment, features: {...}, text?, horizon?, as_of? }. Returns model revision, confidence, uncertainty/evidence metadata and never authorizes orders.',
+    model_used: 'Configured local Docker or remote Hugging Face inference endpoint; deterministic baseline when unavailable',
+    enabled: 1,
+    is_builtin: 0,
+  },
+  {
+    name: 'ibkr_strategy_bundle_draft',
+    display_name: 'IBKR Strategy Bundle Draft',
+    endpoint: '/api/ibkr-trading/strategy-bundles/draft',
+    method: 'POST',
+    purpose: 'Create an owner-scoped paper strategy bundle draft containing goal, strategy, strategy_skill, policy, universe and market_data. Draft only; no activation or order authority.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 0,
+  },
+  {
+    name: 'ibkr_strategy_bundle_list',
+    display_name: 'IBKR Strategy Bundle List',
+    endpoint: '/api/ibkr-trading/strategy-bundles',
+    method: 'GET',
+    purpose: 'List owner-scoped paper strategy bundle versions and statuses.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 0,
+  },
+  {
+    name: 'ibkr_strategy_bundle_validate',
+    display_name: 'IBKR Strategy Bundle Validate',
+    endpoint: '/api/ibkr-trading/strategy-bundles/validate',
+    method: 'POST',
+    purpose: 'Validate a complete paper strategy bundle or stored bundle id against the required contract and safety rules.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 0,
+  },
+  {
+    name: 'ibkr_strategy_replay',
+    display_name: 'IBKR Strategy Evidence Replay',
+    endpoint: '/api/ibkr-trading/strategy-bundles/replay',
+    method: 'POST',
+    purpose: 'Replay supplied point-in-time price evidence for a strategy comparison. This is not an order simulation and does not place trades.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 0,
+  },
 ];
 
 /** Sample bodies for Content tools UI Test panel. */
@@ -346,6 +397,11 @@ export const IBKR_DEFAULT_TEST_BODIES = {
   },
   trading_plan_fetch: {},
   trading_journal: { days: 30 },
+  ibkr_quant_signal_infer: { task: 'regime_classification', features: { momentum_pct: 1.2, volatility_pct: 2.5, volume_ratio: 1.1 } },
+  ibkr_strategy_bundle_draft: { name: 'UI smoke-test paper strategy', bundle: { goal: {}, strategy: {}, strategy_skill: {}, policy: { environment: 'paper' }, universe: {}, market_data: { allow_delayed_for_execution: false } } },
+  ibkr_strategy_bundle_list: {},
+  ibkr_strategy_bundle_validate: { bundle: { goal: {}, strategy: {}, strategy_skill: {}, policy: { environment: 'paper' }, universe: {}, market_data: { allow_delayed_for_execution: false } } },
+  ibkr_strategy_replay: { series: [100, 101, 99, 103] },
 };
 
 export const IBKR_ANALYTICS_TOOL_NAMES = [

@@ -29,6 +29,13 @@
       "role": "AI-native multi-channel marketing operations",
       "department": "Marketing",
       "description": "Turns CEO intent and OKRs into configured, measurable multi-channel campaigns; the Marketing page is optional. Uses CRM, Knowledge, channel tools and Action Control to execute and improve email, WhatsApp, Facebook, Google Ads, LinkedIn, Instagram and telemarketing."
+    },
+    {
+      "id": "ibkr-portfolio-strategy-sme",
+      "name": "IBKR Portfolio & Strategy SME",
+      "role": "IBKR portfolio analytics, market research and paper-strategy design",
+      "department": "Investment Research",
+      "description": "Owner-scoped IBKR portfolio and strategy specialist. Answers portfolio questions, researches markets, produces quantitative evidence, drafts versioned paper strategies and recommends changes. It never places broker orders or bypasses deterministic risk controls."
     }
   ]
 }
