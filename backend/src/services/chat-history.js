@@ -49,6 +49,9 @@ export function ensureChatHistorySchema() {
     db.exec(`ALTER TABLE chat_turns ADD COLUMN work_unit_id TEXT`);
   } catch (_) {}
   try {
+    db.exec(`ALTER TABLE chat_turns ADD COLUMN skill_usage_json TEXT DEFAULT '[]'`);
+  } catch (_) {}
+  try {
     db.exec(`CREATE INDEX IF NOT EXISTS idx_chat_turns_session ON chat_turns(session_id, created_at)`);
   } catch (_) {}
   try {
@@ -297,13 +300,13 @@ export function listSessionTurns(sessionId, { limit = 200, offset = 0 } = {}) {
   const off = Math.max(Number(offset) || 0, 0);
   return db()
     .prepare(
-      `SELECT id, agent_id, owner_user_id, role, content, created_at, session_id, work_unit_id
+      `SELECT id, agent_id, owner_user_id, role, content, created_at, session_id, work_unit_id, skill_usage_json
        FROM chat_turns WHERE session_id = ? ORDER BY created_at ASC, id ASC LIMIT ? OFFSET ?`
     )
     .all(sessionId, lim, off)
     .map((row) =>
       row.role === 'assistant'
-        ? { ...row, content: stripOpenClawDeliveryNoise(row.content) }
+        ? { ...row, content: stripOpenClawDeliveryNoise(row.content), skills_used: skillsFromExecutionAudit(row) }
         : row
     );
 }
@@ -317,9 +320,9 @@ export function listRecentSessionTurns(sessionId, { limit = 24 } = {}) {
   const lim = Math.min(Math.max(Number(limit) || 24, 1), 100);
   return db()
     .prepare(
-      `SELECT id, agent_id, owner_user_id, role, content, created_at, session_id, work_unit_id
+      `SELECT id, agent_id, owner_user_id, role, content, created_at, session_id, work_unit_id, skill_usage_json
        FROM (
-         SELECT id, agent_id, owner_user_id, role, content, created_at, session_id, work_unit_id
+         SELECT id, agent_id, owner_user_id, role, content, created_at, session_id, work_unit_id, skill_usage_json
          FROM chat_turns WHERE session_id = ?
          ORDER BY created_at DESC, id DESC LIMIT ?
        ) recent
@@ -328,7 +331,7 @@ export function listRecentSessionTurns(sessionId, { limit = 24 } = {}) {
     .all(sessionId, lim)
     .map((row) =>
       row.role === 'assistant'
-        ? { ...row, content: stripOpenClawDeliveryNoise(row.content) }
+        ? { ...row, content: stripOpenClawDeliveryNoise(row.content), skills_used: skillsFromExecutionAudit(row) }
         : row
     );
 }
@@ -356,16 +359,40 @@ export function listRecentActiveSessionTurns(agentId, ownerUserId, { limit = 24 
   };
 }
 
-export function insertChatTurn({ agentId, ownerUserId, role, content, sessionId = null, workUnitId = null }) {
+function parseSkillUsage(raw) {
+  try {
+    const value = JSON.parse(raw || '[]');
+    return Array.isArray(value) ? value : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function skillsFromExecutionAudit(row) {
+  const direct = parseSkillUsage(row.skill_usage_json);
+  if (direct.length || !row.work_unit_id) return direct;
+  try {
+    const audit = db().prepare(`
+      SELECT skill_refs_json FROM agent_skill_execution_audit
+      WHERE owner_user_id=? AND agent_id=? AND work_unit_id=? AND status='completed'
+      ORDER BY created_at DESC LIMIT 1
+    `).get(row.owner_user_id, row.agent_id, row.work_unit_id);
+    return parseSkillUsage(audit?.skill_refs_json);
+  } catch (_) {
+    return [];
+  }
+}
+
+export function insertChatTurn({ agentId, ownerUserId, role, content, sessionId = null, workUnitId = null, skillsUsed = [] }) {
   const sid = sessionId || backfillActiveSession(agentId, ownerUserId).id;
   const stored =
     role === 'assistant' ? stripOpenClawDeliveryNoise(content) : content;
   db()
     .prepare(
-      `INSERT INTO chat_turns (agent_id, owner_user_id, role, content, session_id, work_unit_id)
-       VALUES (?, ?, ?, ?, ?, ?)`
+      `INSERT INTO chat_turns (agent_id, owner_user_id, role, content, session_id, work_unit_id, skill_usage_json)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
     )
-    .run(agentId, ownerUserId, role, stored, sid, workUnitId || null);
+    .run(agentId, ownerUserId, role, stored, sid, workUnitId || null, JSON.stringify(role === 'assistant' && Array.isArray(skillsUsed) ? skillsUsed : []));
   return sid;
 }
 

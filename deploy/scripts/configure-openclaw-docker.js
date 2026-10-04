@@ -729,6 +729,14 @@ for (const [providerId, provider] of Object.entries(config.models.providers || {
 if (!config.agents) config.agents = {};
 if (!config.agents.defaults) config.agents.defaults = {};
 if (!config.agents.defaults.model) config.agents.defaults.model = {};
+if (!config.agents.defaults.systemAgent || typeof config.agents.defaults.systemAgent !== 'object') {
+  config.agents.defaults.systemAgent = {};
+}
+const systemAgentId = String(process.env.OPENCLAW_SYSTEM_AGENT_ID || 'balserve').trim() || 'balserve';
+if (!config.agents.defaults.systemAgent.agentId) config.agents.defaults.systemAgent.agentId = systemAgentId;
+if (!config.agents.defaults.sessionStore || typeof config.agents.defaults.sessionStore !== 'object') config.agents.defaults.sessionStore = {};
+if (!config.agents.defaults.sessionStore.agentId) config.agents.defaults.sessionStore.agentId = systemAgentId;
+console.log('Set default OpenClaw owner=', systemAgentId);
 config.agents.defaults.model.primary = primarySlug;
 console.log('Set agents.defaults.model.primary=', primarySlug);
 if (primaryIsOllama && !config.agents.defaults.compaction) {

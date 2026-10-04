@@ -38,6 +38,61 @@ const workflows = readBlueprint(manifest.workflow_blueprint);
 assertBlueprintContract(manifest, configs, goal, workflows);
 
 export const IBKRNEW_CONFIG_KINDS = CONFIG_KINDS;
+
+// The blueprints are the source of truth for both runtime defaults and the
+// schema shown to operators.  Deriving the schema from the checked-in
+// documents keeps the editor and the server from drifting apart.
+const FIELD_DESCRIPTIONS = {
+  schema_version: 'Version of the configuration contract.',
+  name: 'Human-readable name for this configuration.',
+  enabled: 'Whether this capability is enabled.',
+  mode: 'Goal lifecycle mode.',
+  target_return_pct: 'Target net return percentage for the goal cycle.',
+  duration_days: 'Maximum calendar duration of a goal cycle.',
+  executable_source: 'Authoritative source for executable market data.',
+  allow_delayed_for_execution: 'Whether delayed data may be used for execution (must remain false).',
+  index_match: 'How selected index memberships are combined.',
+  fail_closed: 'Block decisions when required data is unavailable or stale.',
+};
+const ENUMS = {
+  mode: ['ONE_TIME', 'PERPETUAL'],
+  index_match: ['ANY', 'ALL'],
+  executable_source: ['IBKR'],
+  session: ['REGULAR'],
+  execution_mode: ['automatic', 'approval_required', 'advisory'],
+  selector: ['ACTIVE_IBKRNEW_GOAL'],
+  environment: ['paper'],
+  allocation_mode: ['DIVERSIFIED', 'CONCENTRATED'],
+};
+function titleFor(key) { return String(key).replaceAll('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase()); }
+function schemaForValue(key, value) {
+  if (Array.isArray(value)) {
+    const schema = { type: 'array', title: titleFor(key), description: FIELD_DESCRIPTIONS[key] || `${titleFor(key)} values.` };
+    if (value.length && value.every((item) => typeof item === 'string')) { schema.items = { type: 'string' }; if (value.length <= 12) schema.examples = [value]; }
+    return schema;
+  }
+  if (value && typeof value === 'object') {
+    const properties = {}; for (const [childKey, child] of Object.entries(value)) properties[childKey] = schemaForValue(childKey, child);
+    return { type: 'object', title: titleFor(key), description: FIELD_DESCRIPTIONS[key] || `${titleFor(key)} settings.`, properties, additionalProperties: false };
+  }
+  const type = typeof value === 'boolean' ? 'boolean' : typeof value === 'number' ? 'number' : 'string';
+  const schema = { type, title: titleFor(key), description: FIELD_DESCRIPTIONS[key] || `${titleFor(key)} value.` };
+  if (ENUMS[key]) schema.enum = ENUMS[key];
+  if (key.includes('maximum') || key.includes('minimum') || key.includes('days') || key.includes('hours') || key.includes('pct') || key.includes('usd')) schema.minimum = 0;
+  return schema;
+}
+function withRequired(schema, value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return schema;
+  schema.required = Object.keys(value);
+  for (const [key, child] of Object.entries(value)) withRequired(schema.properties[key], child);
+  return schema;
+}
+export function getIbkrNewSchema(kind) {
+  if (kind === 'goal') return withRequired(schemaForValue('goal', goal), goal);
+  if (!CONFIG_KINDS.includes(kind)) throw Object.assign(new Error('unsupported IBKRNew schema kind'), { status: 400 });
+  return withRequired(schemaForValue(kind, configs[kind]), configs[kind]);
+}
+export function getIbkrNewSchemas() { return Object.fromEntries(['goal', ...CONFIG_KINDS].map((kind) => [kind, getIbkrNewSchema(kind)])); }
 export function getIbkrNewBlueprintManifest() { return clone(manifest); }
 export function getIbkrNewConfigBlueprint(kind) {
   if (!CONFIG_KINDS.includes(kind)) throw Object.assign(new Error('unsupported IBKRNew configuration kind'), { status: 400 });

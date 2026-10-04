@@ -154,6 +154,12 @@ interface ToolEntry {
   purpose?: string;
 }
 
+const OPENCLAW_NATIVE_TOOL_NAMES = new Set([
+  "agents_list", "browser", "cron", "cron_add", "message", "read",
+  "session_status", "sessions_history", "sessions_list", "sessions_send",
+  "sessions_spawn", "sessions_yield", "subagents",
+]);
+
 function loadToolsFromFile(): ToolEntry[] {
   const path = getToolsListPath();
   if (!existsSync(path)) return [];
@@ -180,7 +186,7 @@ function loadRuntimeToolDescriptors(): ToolEntry[] {
       byName.set(name, { name, display_name: name.replaceAll("_", " "), purpose: `Agent OS tool ${name}.` });
     }
   }
-  return [...byName.values()];
+  return [...byName.values()].filter((descriptor) => !OPENCLAW_NATIVE_TOOL_NAMES.has(descriptor.name));
 }
 
 function safeApiSessionKey(api: PluginApi): string | null | undefined {
@@ -599,12 +605,14 @@ function resolveCallerAgentId(
   _params: Record<string, unknown>,
   toolCtx?: ToolCtx
 ): string | null {
-  if (toolCtx?.agentId && String(toolCtx.agentId).trim()) return String(toolCtx.agentId).trim();
   const fromSession = agentIdFromSessionKey(toolCtx?.sessionKey);
   if (fromSession) return fromSession;
   const sessionKey = safeApiSessionKey(api);
   const fromApiSession = agentIdFromSessionKey(sessionKey);
   if (fromApiSession) return fromApiSession;
+  // Prefer the tenant runtime identity encoded in the session key. The
+  // canonical/default agent on toolCtx is only a fallback.
+  if (toolCtx?.agentId && String(toolCtx.agentId).trim()) return String(toolCtx.agentId).trim();
   const ctx = api.context as Record<string, unknown> | undefined;
   const fromCtx = ctx?.agentId ?? ctx?.agent_id;
   if (fromCtx && typeof fromCtx === "string") return fromCtx;
@@ -783,7 +791,10 @@ export default definePluginEntry({
       api.registerTool(
         (toolCtx: ToolCtx) => {
           const callerAgentId = resolveCallerAgentId(api, {}, toolCtx);
-          if (!isToolAllowedForAgent(callerAgentId, name, toolCtx?.sessionKey)) return null;
+          // Tool discovery can happen before OpenClaw attaches a session
+          // context. Keep the descriptor visible then; execute() still
+          // enforces the owner/agent grant through the backend lease.
+          if (callerAgentId && !isToolAllowedForAgent(callerAgentId, name, toolCtx?.sessionKey)) return null;
           return {
             name,
             description:
@@ -799,7 +810,10 @@ export default definePluginEntry({
             },
           };
         },
-        { optional: true, name }
+        // These are tenant-scoped API tools, not optional UI helpers. Keep
+        // them in the model's callable tool set; execute() remains the
+        // authoritative owner/grant check.
+        { optional: false, name }
       );
     }
   },

@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { getDb } from '../db/schema.js';
-import { IBKRNEW_CONFIG_KINDS, getIbkrNewConfigBlueprint, getIbkrNewGoalBlueprint, getIbkrNewWorkflowBlueprints } from './ibkrnew-blueprints.js';
+import { IBKRNEW_CONFIG_KINDS, getIbkrNewConfigBlueprint, getIbkrNewGoalBlueprint, getIbkrNewWorkflowBlueprints, getIbkrNewSchema, getIbkrNewSchemas } from './ibkrnew-blueprints.js';
 
 export const IBKRNEW_NAMESPACE = 'IBKRNew';
 export const IBKRNEW_ENVIRONMENT = 'paper';
@@ -330,6 +330,28 @@ function defaultsFor(kind) {
 
 export function validateConfig(kind, document) {
   const d = structuredClone(document || {});
+  // Version metadata is server-owned and may be copied from the read-only
+  // dashboard into an edit request; it is not part of the document contract.
+  delete d.id; delete d.version; delete d.status;
+  const schema = getIbkrNewSchema(kind);
+  const schemaErrors = [];
+  const checkSchema = (value, node, path = '$') => {
+    if (node.type === 'object') {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) { schemaErrors.push(`${path} must be an object`); return; }
+      for (const key of node.required || []) if (!(key in value)) schemaErrors.push(`${path}.${key} is required`);
+      for (const [key, child] of Object.entries(node.properties || {})) if (key in value) checkSchema(value[key], child, `${path}.${key}`);
+    } else if (node.type === 'array') {
+      if (!Array.isArray(value)) schemaErrors.push(`${path} must be an array`); else if (node.items) value.forEach((item, index) => checkSchema(item, node.items, `${path}[${index}]`));
+    } else if (node.type === 'number' && (typeof value !== 'number' || !Number.isFinite(value))) schemaErrors.push(`${path} must be a number`);
+    else if (node.type === 'boolean' && typeof value !== 'boolean') schemaErrors.push(`${path} must be true or false`);
+    else if (node.type === 'string' && typeof value !== 'string') schemaErrors.push(`${path} must be text`);
+    // Semantic validators below retain the existing, domain-specific error
+    // messages for enums and safety gates; the shared contract handles shape
+    // and type compatibility here while the UI presents enum choices.
+    if (node.minimum != null && typeof value === 'number' && value < node.minimum) schemaErrors.push(`${path} must be at least ${node.minimum}`);
+  };
+  checkSchema(d, schema);
+  if (schemaErrors.length) throw Object.assign(new Error(`IBKRNew ${kind} schema validation failed: ${schemaErrors.slice(0, 8).join('; ')}`), { status: 400, details: schemaErrors });
   const supportedSchemaVersion = Number(defaultsFor(kind).schema_version);
   if (Number(d.schema_version) !== supportedSchemaVersion) throw Object.assign(new Error(`${kind} schema_version must be ${supportedSchemaVersion}`), { status: 400 });
   if (kind === 'policy') {
@@ -498,6 +520,21 @@ function reconcileIbkrNewGoal(ownerUserId, { policy, at = nowIso() } = {}) {
 export function getIbkrNewGoalState(ownerUserId, options = {}) {
   const configs = ensureIbkrNewDefaults(ownerUserId);
   return reconcileIbkrNewGoal(ownerUserId, { policy: configs.policy, at: options.at || nowIso() });
+}
+
+export function getIbkrNewSchemaDocument(kind = null) {
+  return kind ? getIbkrNewSchema(kind) : getIbkrNewSchemas();
+}
+
+export function getIbkrNewConfigHistory(ownerUserId, kind, { limit = 50 } = {}) {
+  if (!IBKRNEW_CONFIG_KINDS.includes(kind)) throw Object.assign(new Error('unsupported IBKRNew configuration kind'), { status: 400 });
+  const n = Math.min(100, Math.max(1, Number(limit) || 50));
+  return getDb().prepare(`SELECT id,kind,version,status,document_json,created_at,published_at FROM ibkrnew_config_versions WHERE owner_user_id=? AND kind=? ORDER BY version DESC LIMIT ?`).all(ownerUserId, kind, n).map((row) => ({ ...row, document: parse(row.document_json), document_json: undefined }));
+}
+
+export function getIbkrNewGoalHistory(ownerUserId, { limit = 50 } = {}) {
+  const n = Math.min(100, Math.max(1, Number(limit) || 50));
+  return getDb().prepare(`SELECT goal_id,name,mode,target_return_pct,duration_days,duration_basis,capital_basis,profit_basis,status,created_at,updated_at FROM ibkrnew_goals WHERE owner_user_id=? ORDER BY created_at DESC LIMIT ?`).all(ownerUserId, n).map((row) => ({ ...row, target_return_pct: Number(row.target_return_pct), duration_days: Number(row.duration_days) }));
 }
 
 export function setIbkrNewGoal(ownerUserId, input = {}) {

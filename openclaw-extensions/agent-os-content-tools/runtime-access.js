@@ -32,6 +32,17 @@ export function mergeRuntimeToolDescriptors(catalog, allowlists) {
   return [...byName.values()];
 }
 
+// These names belong to OpenClaw's native tool surface.  They can appear in
+// the backend-generated allowlist, but must not be re-registered by the Agent
+// OS content-tools plugin.  Re-registering native tools causes OpenClaw to
+// reject the plugin contract and can suppress the rest of the plugin tools
+// (including IBKR tools) in isolated delegated sessions.
+export const OPENCLAW_NATIVE_TOOL_NAMES = new Set([
+  "agents_list", "browser", "cron", "cron_add", "message", "read",
+  "session_status", "sessions_history", "sessions_list", "sessions_send",
+  "sessions_spawn", "sessions_yield", "subagents",
+]);
+
 export function isToolGranted(agentId, toolName, allowlists, configAllowByAgent) {
   const key = String(agentId || "").trim().toLowerCase();
   if (!key) return false;

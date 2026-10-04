@@ -68,6 +68,7 @@ export function listHireableRoleTemplates() {
       const tools = Array.isArray(source.tools) && source.tools.length
         ? source.tools
         : [...CALLER_EMPLOYEE_TOOLS];
+      const skills = Array.isArray(source.skills) ? source.skills.map((s) => String(s || '').trim()).filter(Boolean) : [];
       return {
         id,
         name: r.name || id,
@@ -75,6 +76,7 @@ export function listHireableRoleTemplates() {
         department: r.department || 'Support',
         description: r.description || '',
         tools,
+        skills,
         template_base_id: id,
         workspace_template: `openclaw-workspace-templates/${id}/`,
       };

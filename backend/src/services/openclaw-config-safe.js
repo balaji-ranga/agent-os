@@ -110,8 +110,17 @@ export function preserveOpenClawCriticalSections(nextConfig) {
   // the runtime roster.
   if (prev?.agents?.entries && typeof prev.agents.entries === 'object') {
     if (!c.agents || typeof c.agents !== 'object') c.agents = {};
-    if (Array.isArray(c.agents.list)) {
+    // `readOpenClawConfigSafe()` exposes a compatibility list view even when
+    // entries is the canonical on-disk format.  Do not convert that stale
+    // view back over a freshly-mutated entries map during the same write;
+    // doing so silently dropped newly provisioned tenant agents.
+    if (!c.agents.entries && Array.isArray(c.agents.list)) {
       c.agents.entries = listToEntries(c.agents.list);
+      delete c.agents.list;
+    } else if (c.agents.entries && Array.isArray(c.agents.list)) {
+      // entries is canonical for current OpenClaw; never leave a stale
+      // compatibility list beside it, because the gateway rejects that
+      // mixed shape during its final config validation.
       delete c.agents.list;
     } else if (!c.agents.entries) {
       c.agents.entries = { ...prev.agents.entries };

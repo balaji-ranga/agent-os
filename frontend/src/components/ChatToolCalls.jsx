@@ -132,9 +132,10 @@ export function collectGeneratedMediaUrlsFromToolCalls(toolCalls) {
   return urls;
 }
 
-export default function ChatToolCalls({ toolCalls, showChartPreviews = true, showMediaPreviews = true }) {
+export default function ChatToolCalls({ toolCalls, skillsUsed = [], showChartPreviews = true, showMediaPreviews = true }) {
   const list = Array.isArray(toolCalls) ? toolCalls : [];
-  if (!list.length) return null;
+  const skills = Array.isArray(skillsUsed) ? skillsUsed.filter(Boolean) : [];
+  if (!list.length && !skills.length) return null;
   const chartUrls = showChartPreviews ? collectChartUrlsFromToolCalls(list) : [];
   const mediaUrls = showMediaPreviews ? collectGeneratedMediaUrlsFromToolCalls(list) : [];
 
@@ -162,6 +163,30 @@ export default function ChatToolCalls({ toolCalls, showChartPreviews = true, sho
             if (kind === 'audio') return <AuthenticatedMediaAudio key={src} src={src} />;
             if (kind === 'video') return <AuthenticatedMediaVideo key={src} src={src} />;
             return <AuthenticatedMediaImage key={src} src={src} alt="Generated media" />;
+          })}
+        </div>
+      )}
+      {skills.length > 0 && (
+        <div
+          className="chat-skill-activations"
+          aria-label="Skills used for this response"
+          style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', alignItems: 'center', marginBottom: list.length ? '0.1rem' : 0 }}
+        >
+          <span style={{ fontSize: '0.7rem', color: 'var(--muted)', marginRight: 2 }} title="Skills confirmed by the agent runtime">
+            Skills used
+          </span>
+          {skills.map((skill) => {
+            const id = skill.skill_id || skill.id || skill.slug || 'skill';
+            const version = skill.version ? `@v${skill.version}` : '';
+            return (
+              <span
+                key={`${id}-${skill.version_id || version}`}
+                title="Confirmed by the agent's machine-readable skill evidence"
+                style={{ background: 'rgba(168,85,247,0.14)', border: '1px solid rgba(168,85,247,0.4)', borderRadius: 999, padding: '0.15rem 0.55rem', fontSize: '0.72rem', color: 'var(--text)' }}
+              >
+                {skill.name || id}{version}
+              </span>
+            );
           })}
         </div>
       )}

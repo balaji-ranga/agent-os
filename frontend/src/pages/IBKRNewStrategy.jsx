@@ -5,6 +5,24 @@ const KINDS = ['goal', 'strategy_skill', 'strategy', 'policy', 'universe', 'mark
 const label = (value) => value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 const list = (value) => String(value || '').split(',').map((item) => item.trim().toUpperCase()).filter(Boolean);
 const listText = (value) => (value || []).join(', ');
+function validateDocument(value, schema, path = '$') {
+  const errors = [];
+  if (!schema) return errors;
+  if (schema.type === 'object') {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return [{ path, message: 'must be an object' }];
+    for (const key of schema.required || []) if (!(key in value)) errors.push({ path: `${path}.${key}`, message: 'is required' });
+    for (const [key, child] of Object.entries(schema.properties || {})) if (key in value) errors.push(...validateDocument(value[key], child, `${path}.${key}`));
+  } else if (schema.type === 'array') {
+    if (!Array.isArray(value)) errors.push({ path, message: 'must be an array' });
+    else if (schema.items) value.forEach((item, index) => errors.push(...validateDocument(item, schema.items, `${path}[${index}]`)));
+  } else if (schema.type === 'number') {
+    if (typeof value !== 'number' || !Number.isFinite(value)) errors.push({ path, message: 'must be a number' });
+    else if (schema.minimum != null && value < schema.minimum) errors.push({ path, message: `must be at least ${schema.minimum}` });
+  } else if (schema.type === 'boolean' && typeof value !== 'boolean') errors.push({ path, message: 'must be true or false' });
+  else if (schema.type === 'string' && typeof value !== 'string') errors.push({ path, message: 'must be text' });
+  if (schema.enum && !schema.enum.includes(value)) errors.push({ path, message: `must be one of: ${schema.enum.join(', ')}` });
+  return errors;
+}
 
 export default function IBKRNewStrategy() {
   const [data, setData] = useState(null);
@@ -13,12 +31,21 @@ export default function IBKRNewStrategy() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
+  const [schemas, setSchemas] = useState(null);
+  const [history, setHistory] = useState([]);
+  const [goalHistory, setGoalHistory] = useState([]);
+  const [schemaOpen, setSchemaOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [validationErrors, setValidationErrors] = useState([]);
   const [goalDraft, setGoalDraft] = useState({ name: 'IBKRNew 5% in 30 Days', mode: 'PERPETUAL', target_return_pct: 5, duration_days: 30 });
-  const load = async () => { try { setData(await api.ibkrNewDashboard()); setError(''); } catch (e) { setError(e.message); } };
+  const load = async () => { try { const [dashboard, schemaSet, goals] = await Promise.all([api.ibkrNewDashboard(), api.ibkrNewSchemas(), api.ibkrNewGoalHistory()]); setData(dashboard); setSchemas(schemaSet); setGoalHistory(goals.items || []); setError(''); } catch (e) { setError(e.message); } };
   useEffect(() => { load(); }, []);
+  useEffect(() => { if (kind !== 'goal') api.ibkrNewConfigHistory(kind).then((result) => setHistory(result.items || [])).catch((e) => setError(e.message)); }, [kind, data]);
   useEffect(() => { if (data?.configs?.[kind]) setEditor(JSON.stringify(data.configs[kind], null, 2)); }, [data, kind]);
   useEffect(() => { if (data?.goal?.definition) setGoalDraft((prior) => ({ ...prior, ...data.goal.definition })); }, [data?.goal?.definition]);
   const parsed = useMemo(() => { try { return JSON.parse(editor); } catch { return null; } }, [editor]);
+  const currentSchema = schemas?.[kind];
+  const validate = () => { if (!parsed) { setValidationErrors([{ path: '$', message: 'Enter valid JSON before validating.' }]); return false; } const next = validateDocument(parsed, currentSchema); setValidationErrors(next); return next.length === 0; };
   const update = (path, value) => {
     if (!parsed) return;
     const next = structuredClone(parsed); let cursor = next;
@@ -26,6 +53,7 @@ export default function IBKRNewStrategy() {
     cursor[path.at(-1)] = value; setEditor(JSON.stringify(next, null, 2));
   };
   const publish = async () => {
+    if (!validate()) return;
     setBusy(true); setNotice('');
     try {
       const document = JSON.parse(editor); delete document.id; delete document.version; delete document.status;
@@ -48,7 +76,7 @@ export default function IBKRNewStrategy() {
     <header className="page-hero"><div className="page-hero-top"><div className="page-hero-titles"><p className="page-hero-kicker">Prebuilt Workflows · IBKRNew0</p><h1>Goal, strategy &amp; universe</h1></div><span className="ibkrnew-environment" title="IBKRNew can submit orders only to an IBKR paper account. Live-account execution is disabled in policy, API validation and the desktop bridge.">Paper trading only</span></div><p className="page-hero-sub">The goal owns the outcome and cycle; strategy chooses how to pursue it; deterministic risk gates enforce both.</p></header>
     {error && <div className="page-banner page-banner-error" role="alert"><span>{error}</span><button type="button" className="btn-ghost" onClick={() => setError('')}>Dismiss</button></div>}
     {notice && <div className="page-banner ibkrnew-success" role="status"><span>{notice}</span><button type="button" className="btn-ghost" onClick={() => setNotice('')}>Dismiss</button></div>}
-    <nav className="ibkrnew-tabs" aria-label="IBKRNew configuration sections">{KINDS.map((item) => <button type="button" key={item} className={kind === item ? 'btn-primary' : 'btn-secondary'} aria-current={kind === item ? 'page' : undefined} onClick={() => setKind(item)}>{label(item)}</button>)}</nav>
+    <nav className="ibkrnew-tabs" aria-label="IBKRNew configuration sections">{KINDS.map((item) => <button type="button" key={item} className={kind === item ? 'btn-primary' : 'btn-secondary'} aria-current={kind === item ? 'page' : undefined} onClick={() => { setKind(item); setValidationErrors([]); }}>{label(item)}</button>)}<button type="button" className="btn-ghost ibkrnew-info-button" title="Show the schema and allowed values" aria-label="Show schema" onClick={() => setSchemaOpen(true)}>ⓘ Schema</button></nav>
 
     {kind === 'goal' ? <section className="panel ibkrnew-section">
       <div className="ibkrnew-section-heading"><div><p className="page-hero-kicker">Outcome authority</p><h2>Trading objective</h2><p className="page-muted">New openings stop when net realized profit after commissions reaches the target or the cycle duration ends. Existing positions remain protected and manageable.</p></div><span className="ibkrnew-version">{data?.goal?.cycle?.status || data?.goal?.block_reason || 'WAITING'}</span></div>
@@ -59,7 +87,8 @@ export default function IBKRNewStrategy() {
         <label className="ibkrnew-field"><span>Cycle duration (calendar days)</span><input type="number" min="1" max="3650" step="1" value={goalDraft.duration_days} onChange={(e) => setGoalDraft({ ...goalDraft, duration_days: Number(e.target.value) })} /></label>
       </div>
       {data?.goal?.cycle && <div className="this-week-grid"><article><small>Cycle capital</small><strong>${Number(data.goal.cycle.capital_basis_usd).toFixed(2)}</strong></article><article><small>Target net profit</small><strong>${Number(data.goal.cycle.target_profit_usd).toFixed(2)}</strong></article><article><small>Net realized</small><strong>${Number(data.goal.cycle.net_realized_profit_usd).toFixed(2)}</strong></article><article><small>Remaining</small><strong>${Number(data.goal.cycle.remaining_profit_usd).toFixed(2)} · {data.goal.cycle.days_remaining} days</strong></article></div>}
-      <div className="ibkrnew-actions"><button type="button" className="btn-primary" disabled={busy} onClick={saveGoal}>Activate as a new goal</button>{data?.goal?.definition?.status === 'ACTIVE' ? <button type="button" className="btn-secondary" disabled={busy} onClick={() => actGoal(api.ibkrNewPauseGoal)}>Pause goal</button> : data?.goal?.definition?.status === 'PAUSED' ? <button type="button" className="btn-secondary" disabled={busy} onClick={() => actGoal(api.ibkrNewResumeGoal)}>Resume goal</button> : null}</div>
+      <div className="ibkrnew-actions"><button type="button" className="btn-primary" disabled={busy} onClick={saveGoal}>Activate as a new goal</button>{data?.goal?.definition?.status === 'ACTIVE' ? <button type="button" className="btn-secondary" disabled={busy} onClick={() => actGoal(api.ibkrNewPauseGoal)}>Pause goal</button> : data?.goal?.definition?.status === 'PAUSED' ? <button type="button" className="btn-secondary" disabled={busy} onClick={() => actGoal(api.ibkrNewResumeGoal)}>Resume goal</button> : null}<button type="button" className="btn-secondary" onClick={() => setHistoryOpen(true)}>View goal history</button></div>
+      {goalHistory.length > 0 && <section className="ibkrnew-history-summary"><strong>Past goals retained</strong><span>{goalHistory.filter((item) => item.status !== 'ACTIVE' && item.status !== 'PAUSED').length} readonly versions are available in history.</span></section>}
     </section> : universe && stock && fundamentals && events && etf ? <>
       <section className="panel ibkrnew-section">
         <div className="ibkrnew-section-heading"><div><p className="page-hero-kicker">Stock filter</p><h2>Stock universe and index membership</h2><p className="page-muted">Index identifiers apply only to stocks. Leave the list empty to consider stocks from any index.</p></div>{checkField('Enable stocks', ['filters', 'stock', 'enabled'], stock.enabled)}</div>
@@ -108,7 +137,9 @@ export default function IBKRNewStrategy() {
         </div>
       </section>
       <details className="panel ibkrnew-json"><summary>Advanced universe JSON</summary><textarea rows={24} value={editor} onChange={(e) => setEditor(e.target.value)} spellCheck="false" /></details>
-    </> : <section className="panel ibkrnew-json"><div className="ibkrnew-section-heading"><div><h2>{label(kind)}</h2><p className="page-muted">Published owner versions are immutable and retained for audit and rollback.</p></div><span className="ibkrnew-version">v{data?.configs?.[kind]?.version || '—'}</span></div><textarea rows={30} value={editor} onChange={(e) => setEditor(e.target.value)} spellCheck="false" /></section>}
-    {kind !== 'goal' && <div className="ibkrnew-actions"><button type="button" className="btn-primary" disabled={busy || !parsed} onClick={publish}>{busy ? 'Publishing…' : `Publish immutable ${label(kind)} version`}</button>{kind === 'strategy_skill' && <span className="page-muted">Default skill: <code>.cursor/skills/ibkrnew-trade-strategy/SKILL.md</code></span>}</div>}
+    </> : <section className="panel ibkrnew-json"><div className="ibkrnew-section-heading"><div><h2>{label(kind)} <button type="button" className="ibkrnew-inline-info" title="Show schema" aria-label={`Show ${label(kind)} schema`} onClick={() => setSchemaOpen(true)}>ⓘ</button></h2><p className="page-muted">Published owner versions are immutable and retained for audit and rollback.</p></div><div className="ibkrnew-section-heading-actions"><span className="ibkrnew-version">v{data?.configs?.[kind]?.version || '—'}</span><button type="button" className="btn-secondary" onClick={() => setHistoryOpen(true)}>Version history</button></div></div><textarea rows={30} value={editor} onChange={(e) => { setEditor(e.target.value); setValidationErrors([]); }} spellCheck="false" />{validationErrors.length > 0 && <div className="ibkrnew-validation-errors" role="alert"><strong>Schema validation failed</strong>{validationErrors.map((item, index) => <div key={`${item.path}-${index}`}><code>{item.path}</code> {item.message}</div>)}</div>}</section>}
+    {kind !== 'goal' && <div className="ibkrnew-actions"><button type="button" className="btn-secondary" disabled={!parsed || !currentSchema} onClick={validate}>Validate JSON</button><button type="button" className="btn-primary" disabled={busy || !parsed || validationErrors.length > 0} onClick={publish}>{busy ? 'Publishing…' : `Publish immutable ${label(kind)} version`}</button>{kind === 'strategy_skill' && <span className="page-muted">Default skill: <code>.cursor/skills/ibkrnew-trade-strategy/SKILL.md</code></span>}</div>}
+    {schemaOpen && <div className="ibkrnew-modal-backdrop" role="presentation" onClick={() => setSchemaOpen(false)}><section className="ibkrnew-modal" role="dialog" aria-modal="true" aria-labelledby="ibkrnew-schema-title" onClick={(event) => event.stopPropagation()}><div className="ibkrnew-modal-header"><div><h2 id="ibkrnew-schema-title">{label(kind)} schema</h2><p className="page-muted">Field descriptions and allowed values used by the backend validator and IBKR agent.</p></div><button type="button" className="btn-ghost" onClick={() => setSchemaOpen(false)}>Close</button></div><pre className="ibkrnew-schema-view">{JSON.stringify(currentSchema, null, 2)}</pre></section></div>}
+    {historyOpen && <div className="ibkrnew-modal-backdrop" role="presentation" onClick={() => setHistoryOpen(false)}><section className="ibkrnew-modal ibkrnew-history-modal" role="dialog" aria-modal="true" aria-labelledby="ibkrnew-history-title" onClick={(event) => event.stopPropagation()}><div className="ibkrnew-modal-header"><div><h2 id="ibkrnew-history-title">{kind === 'goal' ? 'Goal history' : `${label(kind)} version history`}</h2><p className="page-muted">Read-only audit history. Older versions are never edited or silently reactivated.</p></div><button type="button" className="btn-ghost" onClick={() => setHistoryOpen(false)}>Close</button></div><div className="ibkrnew-table-wrap"><table className="ibkrnew-table"><thead><tr><th>Version</th><th>Status</th><th>Created</th><th>Details</th></tr></thead><tbody>{(kind === 'goal' ? goalHistory : history).map((item) => <tr key={item.goal_id || item.id}><td>{item.version ? `v${item.version}` : item.goal_id}</td><td><span className="ibkrnew-status">{item.status}</span></td><td>{item.created_at || '—'}</td><td><details><summary>View readonly JSON</summary><pre className="ibkrnew-history-json">{JSON.stringify(item.document || item, null, 2)}</pre></details></td></tr>)}</tbody></table>{(kind === 'goal' ? goalHistory : history).length === 0 && <p className="page-muted">No prior versions.</p>}</div></section></div>}
   </div>;
 }

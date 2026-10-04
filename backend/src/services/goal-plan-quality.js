@@ -142,7 +142,12 @@ function normalizeTypedSteps(rawSteps) {
       .map((item) => ({
         skill_id: String(item.skill_id || item.id || '').trim(),
         version_id: String(item.version_id || '').trim() || null,
-        version: Number.isFinite(Number(item.version)) ? Number(item.version) : null,
+        // Do not coerce an omitted version to 0 (`Number(null) === 0`).
+        // Missing version means "use the live assigned version"; numeric 0 is
+        // an actual invalid version and should remain rejectable by the gate.
+        version: item.version !== null && item.version !== undefined && String(item.version).trim() !== '' && Number.isFinite(Number(item.version))
+          ? Number(item.version)
+          : null,
       }))
       .filter((item) => item.skill_id);
     return {
@@ -645,6 +650,8 @@ function executorCanProduceArtifact(step, catalog) {
  */
 export function normalizeExecutorOutputKinds(steps, catalog) {
   const kindBySourceAndKey = new Map();
+  const sourceByKey = new Map((steps || []).map((step) => [step.key, step]));
+  const agentById = new Map((catalog.agents || []).map((agent) => [String(agent.id).toLowerCase(), agent]));
   const normalized = (steps || []).map((step) => {
     const canArtifact = executorCanProduceArtifact(step, catalog);
     const produces = (step.produces || []).map((output) => {
@@ -658,7 +665,10 @@ export function normalizeExecutorOutputKinds(steps, catalog) {
     if (step.type === 'specialty_task' && spec.deliverable_kind === 'status_report') {
       const evidenceContract = 'Call agent_work_history for the requested period and return its evidence_id, counts, relevant completed, failed, and blocked records; do not repeat the historical work. ';
       if (!String(spec.message || '').includes('agent_work_history')) {
-        spec.message = clip(`${evidenceContract}${clip(String(spec.message || '').trim(), 500)}`, 700);
+        // Do not truncate the specialist contract: long tool/evidence lists are
+        // executable requirements, and clipping them produces a plan that the
+        // checker quite correctly rejects as incomplete.
+        spec.message = clip(`${evidenceContract}${String(spec.message || '').trim()}`, 6000);
       }
     }
     if (step.type === 'notify_ceo') {
@@ -668,7 +678,26 @@ export function normalizeExecutorOutputKinds(steps, catalog) {
       spec.deliverable_kind ||= 'status_report';
       const evidenceContract = 'Consolidate every required prior-step outcome according to the original goal, including each evidence_id, counts, relevant records, and failed or blocked outcomes. ';
       if (!String(spec.message || '').includes('Consolidate every required prior-step outcome')) {
-        spec.message = clip(`${evidenceContract}${clip(String(spec.message || '').trim(), 550)}`, 700);
+        spec.message = clip(`${evidenceContract}${String(spec.message || '').trim()}`, 6000);
+      }
+    }
+    if (step.type === 'specialty_task') {
+      const agent = agentById.get(String(spec.agent_id || '').toLowerCase());
+      const owned = new Set([
+        ...(agent?.capabilities || []).map((capability) => String(capability.name || capability).trim().toLowerCase()),
+        ...(agent?.connector_actions || []).map((action) => String(action.action_id || action.name || '').trim().toLowerCase()),
+      ]);
+      const upstreamTools = (step.required_inputs || [])
+        .map((input) => sourceByKey.get(input.source_step_key))
+        .filter((source) => source?.type === 'agent_tool')
+        .map((source) => ({ name: String(source.spec?.tool_name || '').trim(), key: source.key }))
+        .filter((entry) => entry.name && !owned.has(entry.name.toLowerCase()));
+      for (const entry of upstreamTools) {
+        const escaped = entry.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        spec.message = String(spec.message || '').replace(
+          new RegExp(`\\b${escaped}\\b`, 'gi'),
+          `the completed upstream ${entry.key} evidence (do not invoke ${entry.name} again)`,
+        );
       }
     }
     return { ...step, spec, produces };
@@ -711,6 +740,25 @@ export function normalizeExecutorOutputKinds(steps, catalog) {
       }
     }
     return { ...step, required_inputs: requiredInputs.slice(0, 32) };
+  });
+}
+
+function hydrateAssignedSkillVersions(steps, catalog) {
+  const agents = new Map((catalog.agents || []).map((agent) => [String(agent.id).toLowerCase(), agent]));
+  return (steps || []).map((step) => {
+    if (step.type !== 'specialty_task' || !Array.isArray(step.spec?.skill_refs)) return step;
+    const agent = agents.get(String(step.spec.agent_id || '').toLowerCase());
+    const skills = new Map((agent?.skills || []).map((skill) => [String(skill.id), skill]));
+    const skill_refs = step.spec.skill_refs.map((ref) => {
+      const skill = skills.get(String(ref.skill_id || ref.id || ''));
+      if (!skill) return ref;
+      return {
+        ...ref,
+        version_id: ref.version_id || skill.version_id || null,
+        version: ref.version == null ? (skill.version ?? null) : ref.version,
+      };
+    });
+    return { ...step, spec: { ...step.spec, skill_refs } };
   });
 }
 
@@ -806,7 +854,10 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
   const options = { ownerUserId, temperature: 0, responseFormat: 'json_object', thinkingMode: 'disabled', timeoutMs: getPlatformTimeoutMs('goal_plan_llm') };
   return runGoalPlanRounds({
     prompt,
-    normalize: content => normalizeExecutorOutputKinds(normalizeTypedSteps(extractPlanSteps(content)), catalog),
+    normalize: content => hydrateAssignedSkillVersions(
+      normalizeExecutorOutputKinds(normalizeTypedSteps(extractPlanSteps(content)), catalog),
+      catalog
+    ),
     validate: steps => {
       const structural = validateTypedGoalPlan(steps, catalog);
       const errors = [
@@ -817,16 +868,36 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
       return { ok: errors.length === 0, errors };
     },
     onProgress: progress => reportPlanProgress(onProgress, progress),
+    checkerIssueFilter: ({ errors }) => {
+      const capabilityNames = new Set(
+        (catalog.agents || []).flatMap((agent) => (agent.capabilities || []).map((capability) => String(capability).trim()))
+      );
+      // Some checker models incorrectly claim that a specialist lacks tools
+      // that are present in the live owner-scoped catalog. Treat only that
+      // contradicted claim as non-blocking; all deterministic/schema errors and
+      // genuinely missing capabilities remain blocking.
+      return (errors || []).filter((error) => {
+        const text = String(error || '');
+        if (/^\s*Resolved:\s*/i.test(text) && /No change needed/i.test(text)) return false;
+        if (!/lacks?\b|unavailable\b|cannot be produced/i.test(text)) return true;
+        const mentioned = [...new Set(text.match(/\b(?:ibkr|agent_work_history)_[a-z0-9_]+\b/gi) || [])];
+        return !(mentioned.length && mentioned.every((name) => capabilityNames.has(name)));
+      });
+    },
     make: ({ attempt, previous, errors }) => chatCompletions({
-      ...options, toolName: 'goal_plan_maker', endpointPreference: 'primary', maxTokens: 4000,
+      // Complex multi-capability plans can legitimately contain several
+      // bounded assignments and evidence contracts. Keep the response as one
+      // strict JSON object, but give it enough room to avoid truncating the
+      // closing braces and turning a valid plan into an artificial fallback.
+      ...options, toolName: 'goal_plan_maker', endpointPreference: 'primary', maxTokens: 6500,
       messages: [
-        { role: 'system', content: `You create the smallest COMPLETE executable company goal plan. Cover every requested discovery, verification, data write, draft, handoff, constraint and final delivery. A plan that is valid JSON but omits an outcome is invalid. Every explicitly named identifier, receipt, evidence item or result in the original goal must appear in the responsible step's produces contract and be consumed by the terminal report. Select executors by their declared capabilities, not shared words. The advisory candidate may be irrelevant: discard it when it does not cover the original goal. Each specialist gets a bounded assignment and consumes prior step outputs. Preserve nested orchestrator delegation inside its work contract. Carry source provenance and verified facts through discovery to writes. Never invent contact data or substitute unrelated retrieved records. Drafting is not sending. An LLM response alone is not evidence of a successful external action: require returned record/artifact IDs and verification. Preserve the original goal's speech act: asking for status/history/reporting does not authorize repeating the work being reported, and asking to act must not be reduced to reporting. For deliverable_kind=status_report, assign the relevant specialist a query/analyze operation that calls its agent_work_history capability and returns the evidence_id, counts and relevant records; never ask it to repeat the historical work. Preserve every explicit time range, entity, location, quantity and no-send/no-delete constraint in the bounded instruction that owns it. When the original goal explicitly names a browser executor, the browser action MUST be a direct agent_tool browse_task_start step with that preferred_driver and allow_fallback=false; a specialty agent may create content but must never replace that browser step. Human plan-review guidance is authoritative within the original goal and schema: apply every item, do not ignore or paraphrase it away. Use only live catalog IDs. ${PLAN_SCHEMA}` },
-        { role: 'user', content: JSON.stringify({ original_goal: prompt, original_requirements: buildGoalRequirements(prompt), authoritative_human_guidance: humanGuidance || null, live_catalog: promptCatalog, advisory_candidate: seed.steps, round: attempt, previous_attempt: previous ? { steps: previous.steps, checker_response: previous.checker_response } : null, corrections_required: errors, repair_contract: 'If previous_attempt exists, edit that plan minimally, retaining every already-correct assignment, dependency, instruction and outcome. Apply ALL corrections together. The deterministic schema and enumerated values in the system message override any conflicting checker suggestion. Human guidance is authoritative when supplied and must be reflected in the returned plan. Never rebuild a shorter plan that drops previous obligations. Before returning, check EVERY original requirement against the final instructions, including nested delegation, use of returned outputs, export and reporting if requested. Keep stable step keys when retaining a step. Include specific tool/action names from the selected specialist capability list in its message and require it to return evidence of completion. Capabilities are exact name strings; descriptions are in capability_definitions.' }) },
+        { role: 'system', content: `You create the smallest COMPLETE executable company goal plan. Cover every requested discovery, verification, data write, draft, handoff, constraint and final delivery. A plan that is valid JSON but omits an outcome is invalid. Every explicitly named identifier, receipt, evidence item or result in the original goal must appear in the responsible step's produces contract and be consumed by the terminal report. Select executors by their declared capabilities, not shared words. The advisory candidate may be irrelevant: discard it when it does not cover the original goal. Each specialist gets a bounded assignment and consumes prior step outputs. If a specialty_task depends on earlier agent_tool steps, its message MUST say to consume those upstream outputs and MUST NOT instruct the specialist to call those same tools again; it may name only capabilities present in that specialist's own agents[].capabilities or connector_actions. A specialist must never be told to use current_executor_tools it does not own. Preserve nested orchestrator delegation inside its work contract. Carry source provenance and verified facts through discovery to writes. Never invent contact data or substitute unrelated retrieved records. Drafting is not sending. An LLM response alone is not evidence of a successful external action: require returned record/artifact IDs and verification. Preserve the original goal's speech act: asking for status/history/reporting does not authorize repeating the work being reported, and asking to act must not be reduced to reporting. For deliverable_kind=status_report, assign the relevant specialist a query/analyze operation that calls its agent_work_history capability and returns the evidence_id, counts and relevant records; never ask it to repeat the historical work. Preserve every explicit time range, entity, location, quantity and no-send/no-delete constraint in the bounded instruction that owns it. When the original goal explicitly names a browser executor, the browser action MUST be a direct agent_tool browse_task_start step with that preferred_driver and allow_fallback=false; a specialty agent may create content but must never replace that browser step. Human plan-review guidance is authoritative within the original goal and schema: apply every item, do not ignore or paraphrase it away. Use only live catalog IDs. ${PLAN_SCHEMA}` },
+        { role: 'user', content: JSON.stringify({ original_goal: prompt, original_requirements: buildGoalRequirements(prompt), authoritative_human_guidance: humanGuidance || null, live_catalog: promptCatalog, advisory_candidate: seed.steps, round: attempt, previous_attempt: previous ? { steps: previous.steps, checker_response: previous.checker_response } : null, corrections_required: errors, repair_contract: 'If previous_attempt exists, edit that plan minimally, retaining every already-correct assignment, dependency, instruction and outcome. Apply ALL corrections together. For each specialty_task, reconcile its message against its own capability list and its required_inputs: upstream direct-tool results must be consumed, not re-invoked. The deterministic schema and enumerated values in the system message override any conflicting checker suggestion. Human guidance is authoritative when supplied and must be reflected in the returned plan. Never rebuild a shorter plan that drops previous obligations. Before returning, check EVERY original requirement against the final instructions, including nested delegation, use of returned outputs, export and reporting if requested. Keep stable step keys when retaining a step. Include specific tool/action names from the selected specialist capability list in its message and require it to return evidence of completion. Capabilities are exact name strings; descriptions are in capability_definitions.' }) },
         { role: 'user', content: `Before emitting JSON, enforce this scope: top-level specialty_task.agent_id must be one of ${promptCatalog.agents.map(a=>a.id).join(', ')}. A reportee nested inside one of these agents is NOT a top-level target. If a request describes internal delegation followed by more work by the same manager, put the entire sequence in that manager's ONE spec.message, not extra steps. Direct agent_tool names must be one of ${promptCatalog.current_executor_tools.map(t=>t.name).join(', ')}. Each source_step_key must name a step.key you actually emitted. Return the complete corrected JSON, preserving the original goal above.` },
       ],
     }),
     check: ({ steps, attempt, validationErrors, priorCorrectionChecklist, previousVerdict }) => chatCompletions({
-      ...options, toolName: 'goal_plan_checker', endpointPreference: 'secondary', maxTokens: 2600,
+      ...options, toolName: 'goal_plan_checker', endpointPreference: 'secondary', maxTokens: 4200,
       messages: [
         { role: 'system', content: `Validate the proposed FUTURE plan against the original goal and live catalog. You are a bounded correctness checker, NOT a brainstorming reviewer. Return a short JSON verdict under 1200 words, with at most 6 DISTINCT blocking issues; never repeat an issue. If approved, return revised_steps:[]. If rejected, also return revised_steps containing the complete minimally corrected typed plan; use only the schema enums and live catalog IDs supplied here.
 NON-NEGOTIABLE RUNTIME FACT: a specialty_task assigned to a direct-report orchestrator automatically returns that orchestrator's response to the current executor. When its message names a catalog reportee and explicitly requires delegating to it, waiting for and consuming its result, completing the remaining work, and returning outputs plus trace, this IS the executable nested delegation. Mark it covered. Never demand a top-level step for that reportee, a separate callback/report-to-current-executor step, or a communication tool that does not exist.

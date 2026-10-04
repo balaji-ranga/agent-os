@@ -11,6 +11,7 @@ import { definePluginEntry } from "/usr/local/lib/node_modules/openclaw/dist/plu
 import {
   isToolGrantedForSession,
   mergeRuntimeToolDescriptors,
+  OPENCLAW_NATIVE_TOOL_NAMES,
   safeApiSessionKey,
   toolAllowByAgentFromConfig,
 } from "./runtime-access.js";
@@ -27,6 +28,7 @@ let sessionAllowlistsCache = { mtime: 0, data: {} };
 let openclawConfigCache = { mtime: 0, byAgent: {} };
 let runtimeSecretsCache = { mtime: 0, secrets: {} };
 const toolLeaseCache = new Map();
+let discoveryDiagnosticLogged = false;
 
 function loadRuntimeSecrets() {
   try {
@@ -153,7 +155,8 @@ function loadToolsFromFile() {
  * access, so register the union and enforce the grant again per invocation.
  */
 function loadRuntimeToolDescriptors() {
-  return mergeRuntimeToolDescriptors(loadToolsFromFile(), loadAllowlists());
+  return mergeRuntimeToolDescriptors(loadToolsFromFile(), loadAllowlists())
+    .filter((descriptor) => !OPENCLAW_NATIVE_TOOL_NAMES.has(String(descriptor?.name || "").trim()));
 }
 
 /** Parse `agent:<id>:<user>` and legacy `agent::<id>:<user>`. */
@@ -170,8 +173,10 @@ function agentIdFromSessionKey(sessionKey) {
 /** CEO user id encoded in tenant runtime agent id `t-{ceo}--{base}`. */
 function ceoUserIdFromOpenClawAgentId(agentId) {
   const raw = String(agentId || "").trim().toLowerCase();
-  const m = raw.match(/^t-(.+)--([a-z0-9_-]+)$/);
-  return m ? m[1] : null;
+  if (!raw.startsWith("t-")) return null;
+  const rest = raw.slice(2);
+  const separator = rest.indexOf("--");
+  return separator > 0 && separator < rest.length - 2 ? rest.slice(0, separator) : null;
 }
 
 function ownerUserIdFromSessionUser(sessionUser, agentId) {
@@ -909,12 +914,15 @@ function resolvePluginConfig(api) {
 }
 
 function resolveCallerAgentId(api, params, toolCtx) {
-  if (toolCtx?.agentId && String(toolCtx.agentId).trim()) return String(toolCtx.agentId).trim();
   const fromSession = agentIdFromSessionKey(toolCtx?.sessionKey);
   if (fromSession) return fromSession;
   const sessionKey = safeApiSessionKey(api);
   const fromApiSession = agentIdFromSessionKey(sessionKey);
   if (fromApiSession) return fromApiSession;
+  // OpenClaw may expose its canonical/default agent on toolCtx while the
+  // tenant runtime identity is encoded in the session key. Prefer the tenant
+  // session identity above so grants and leases stay owner-scoped.
+  if (toolCtx?.agentId && String(toolCtx.agentId).trim()) return String(toolCtx.agentId).trim();
   const ctx = api.context;
   const fromCtx = ctx?.agentId ?? ctx?.agent_id;
   if (fromCtx && typeof fromCtx === "string") return fromCtx;
@@ -1093,7 +1101,19 @@ export default definePluginEntry({
       api.registerTool(
         (toolCtx) => {
           const callerAgentId = resolveCallerAgentId(api, {}, toolCtx);
-          if (!isToolAllowedForAgent(callerAgentId, name, toolCtx?.sessionKey)) return null;
+          if (name === "agent_work_history" && !discoveryDiagnosticLogged) {
+            discoveryDiagnosticLogged = true;
+            api.logger?.info?.(`[agent-os-content-tools] discovery agent=${callerAgentId || "(none)"} toolCtxAgent=${toolCtx?.agentId || "(none)"} toolCtxSession=${toolCtx?.sessionKey || "(none)"} apiSession=${safeApiSessionKey(api) || "(none)"}`);
+          }
+          // OpenClaw may build the model tool list before a session/agent
+          // context is attached.  Do not hide the descriptor in that phase;
+          // the backend lease/grant check in execute() is authoritative and
+          // still rejects any owner/agent that is not entitled to invoke it.
+          const allowed = !callerAgentId || isToolAllowedForAgent(callerAgentId, name, toolCtx?.sessionKey);
+          if (callerAgentId && (name.startsWith("ibkr_") || name === "agent_work_history")) {
+            api.logger?.info?.(`[agent-os-content-tools] tool-discovery name=${name} agent=${callerAgentId} allowed=${allowed}`);
+          }
+          if (!allowed) return null;
           return {
             name,
             description:
@@ -1148,7 +1168,12 @@ export default definePluginEntry({
             },
           };
         },
-        { optional: true, name }
+        // These are tenant-scoped API tools, not optional UI helpers.  Marking
+        // them optional lets the gateway omit them from the model's callable
+        // tool set even when the tenant grant/allowlist is valid.  Keep the
+        // descriptor registered; execute() remains the authoritative grant
+        // check for the caller.
+        { optional: false, name }
       );
     }
   },

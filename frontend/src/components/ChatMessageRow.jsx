@@ -29,6 +29,7 @@ export default function ChatMessageRow({
   feedbackContext = {},
   showFeedback = true,
   toolCalls = null,
+  skillsUsed = null,
   attachments: attachmentsProp = null,
   agentName = null,
   agentAvatar = null,
@@ -132,7 +133,7 @@ export default function ChatMessageRow({
         liveIds.map((id) => (
           <GoalPlanPanel key={id} goalRunId={id} compact pollMs={liveIds.length === 1 ? 12000 : 0} />
         ))}
-      {!isUser && <ChatToolCalls toolCalls={toolCalls} showChartPreviews={false} showMediaPreviews={false} />}
+      {!isUser && <ChatToolCalls toolCalls={toolCalls} skillsUsed={skillsUsed} showChartPreviews={false} showMediaPreviews={false} />}
       {hasFeedback && (
         <MessageFeedback
           agentId={agentId}

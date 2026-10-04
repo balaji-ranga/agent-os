@@ -23,6 +23,7 @@ import { getHireableRoleTemplate } from './hireable-role-templates.js';
 import { normalizeAgentAvatar } from '../lib/agent-avatar.js';
 import { grantConnectorActionsForAgent } from './connector-action-grants.js';
 import { activatePersistedOpenClawRuntimeAgent } from './openclaw-agent-activation.js';
+import { ensureAgentSkillsSchema, seedPlatformAgentSkills, setAgentSkillAssignments } from './agent-skills.js';
 
 const REPO_TEMPLATES = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'openclaw-workspace-templates');
 
@@ -285,6 +286,28 @@ export async function createFullAgent(input) {
 
   grantUserAgent(ownerUserId, id);
   row = db.prepare('SELECT * FROM agents WHERE id = ?').get(id);
+
+  // Role templates may carry reusable operating skills in addition to tools.
+  // Assign them at hire time so delegated executions receive the same skill
+  // contract as direct chats; tools remain independently ACL-controlled.
+  if (Array.isArray(hireTpl?.skills) && hireTpl.skills.length) {
+    try {
+      ensureAgentSkillsSchema();
+      seedPlatformAgentSkills();
+      setAgentSkillAssignments(
+        ownerUserId,
+        id,
+        hireTpl.skills.map((slug, index) => ({
+          skill_id: String(slug).startsWith('platform:') ? String(slug) : `platform:${slug}`,
+          priority: 10 + index,
+          auto_select: true,
+        })),
+        'hireable-role-template'
+      );
+    } catch (e) {
+      console.warn('[create-full-agent] role skill assignment failed agent=%s:', id, e?.message || e);
+    }
+  }
 
   // Provision tenant OpenClaw runtime (openclaw.json + tenants/{ceo}/workspace-{id})
   // Prefer template_base_id / workspace_template when provided (Business Core CRM/ERP packs).

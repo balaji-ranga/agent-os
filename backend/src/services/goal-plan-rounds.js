@@ -37,7 +37,7 @@ export function validateCoverage(verdict, prompt, steps) {
   return errors;
 }
 
-export async function runGoalPlanRounds({prompt,make,check,normalize,validate,onProgress=async()=>{}}) {
+export async function runGoalPlanRounds({prompt,make,check,normalize,validate,onProgress=async()=>{},checkerIssueFilter=null}) {
   let previous=null, errors=[], maker=null, checker=null, checkerRecommended=null;
   const rounds=[];
   for(let attempt=1;attempt<=3;attempt++){
@@ -60,7 +60,10 @@ export async function runGoalPlanRounds({prompt,make,check,normalize,validate,on
         previousVerdict: previous?.checker_response || null,
       });
       const verdict=JSON.parse(String(checker.content).replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,''));
-      errors=[...deterministicErrors,...validateCoverage(verdict,prompt,steps)];
+      const checkerErrors = validateCoverage(verdict,prompt,steps);
+      errors=[...deterministicErrors,...(typeof checkerIssueFilter === 'function'
+        ? checkerIssueFilter({ errors: checkerErrors, verdict, steps })
+        : checkerErrors)];
       if(!errors.length){
         await onProgress({phase:'complete',detail:`${steps.length} independently approved executable steps`,attempt,max_attempts:3,status:'completed'});
         return {steps,quality:{maker_model:maker.modelUsed,checker_model:checker.modelUsed,checker_endpoint:'secondary',checker_degraded:false,checker_approved_maker:true,maker_attempts:attempt,maker_contract_valid:true,maker_degraded_to_catalog:false,llm_maker_checker_succeeded:true,requirements:buildGoalRequirements(prompt),coverage:verdict.coverage,rounds,issues:[]}};

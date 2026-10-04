@@ -226,6 +226,22 @@ if (!md.primary) {
   config.agents.defaults.model = md;
   repairs.push('agents.defaults.model.primary');
 }
+const systemAgent = config.agents.defaults.systemAgent && typeof config.agents.defaults.systemAgent === 'object'
+  ? config.agents.defaults.systemAgent
+  : {};
+if (!String(systemAgent.agentId || '').trim()) {
+  systemAgent.agentId = String(process.env.OPENCLAW_SYSTEM_AGENT_ID || 'balserve').trim() || 'balserve';
+  config.agents.defaults.systemAgent = systemAgent;
+  repairs.push('agents.defaults.systemAgent.agentId');
+}
+const sessionStore = config.agents.defaults.sessionStore && typeof config.agents.defaults.sessionStore === 'object'
+  ? config.agents.defaults.sessionStore
+  : {};
+if (!String(sessionStore.agentId || '').trim()) {
+  sessionStore.agentId = String(process.env.OPENCLAW_SYSTEM_AGENT_ID || 'balserve').trim() || 'balserve';
+  config.agents.defaults.sessionStore = sessionStore;
+  repairs.push('agents.defaults.sessionStore.agentId');
+}
 
 const after = JSON.stringify(config, null, 2) + '\n';
 if (after.trim() !== originalConfigText.trim()) {

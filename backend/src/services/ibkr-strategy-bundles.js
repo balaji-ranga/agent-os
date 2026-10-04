@@ -48,8 +48,18 @@ export function draftIbkrStrategyBundle(ownerUserId, input = {}) {
 
 export function listIbkrStrategyBundles(ownerUserId, { limit = 50 } = {}) {
   ensureTables();
-  return getDb().prepare(`SELECT id, name, version, status, created_by_agent_id, approved_by, created_at, updated_at
+  const rows = getDb().prepare(`SELECT id, name, version, status, created_by_agent_id, approved_by, bundle_json, created_at, updated_at
     FROM ibkr_strategy_bundles WHERE owner_user_id = ? ORDER BY updated_at DESC LIMIT ?`).all(ownerUserId, Math.min(100, Math.max(1, Number(limit) || 50)));
+  // The list is owner-scoped and is also the agent's read path for the active
+  // paper strategy. Return the validated bundle payload so a planner/checker
+  // can reconcile strategy, policy, universe, and market-data evidence without
+  // inventing a second unscoped retrieval tool. Keep the persisted JSON field
+  // private and tolerate legacy malformed rows as an explicit data gap.
+  return rows.map(({ bundle_json, ...row }) => {
+    let bundle = null;
+    try { bundle = bundle_json ? JSON.parse(bundle_json) : null; } catch { bundle = null; }
+    return { ...row, bundle };
+  });
 }
 
 export function validateStoredIbkrStrategyBundle(ownerUserId, bundleId) {

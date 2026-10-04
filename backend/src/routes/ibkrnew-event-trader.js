@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAuth, requireCeoOrAdmin, requireTenantFullAccess, resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
-import { approveAuthorization, authenticateBridge, acknowledgeCommand, claimCommands, ensureIbkrNewDefaults, getDashboard, getIbkrNewEventDetail, getIbkrNewEventTimeline, getIbkrNewGoalState, getIbkrNewLiveOperations, getIbkrNewSummary, ingestBridgeEvent, pauseIbkrNewGoal, publishConfig, registerBridge, resumeIbkrNewGoal, revokeBridge, setIbkrNewGoal } from '../services/ibkrnew-event-trader.js';
+import { approveAuthorization, authenticateBridge, acknowledgeCommand, claimCommands, ensureIbkrNewDefaults, getDashboard, getIbkrNewConfigHistory, getIbkrNewEventDetail, getIbkrNewEventTimeline, getIbkrNewGoalHistory, getIbkrNewGoalState, getIbkrNewLiveOperations, getIbkrNewSchemaDocument, getIbkrNewSummary, ingestBridgeEvent, pauseIbkrNewGoal, publishConfig, registerBridge, resumeIbkrNewGoal, revokeBridge, setIbkrNewGoal } from '../services/ibkrnew-event-trader.js';
 import { buildIbkrNewEventBridgePackageZip } from '../services/ibkrnew-event-bridge-package.js';
 
 const router = Router();
@@ -22,11 +22,15 @@ router.get('/live-operations', requireAuth, requireCeoOrAdmin, (req, res) => han
 router.get('/events', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json(getIbkrNewEventTimeline(owner(req), { page: req.query.page, pageSize: req.query.page_size, eventType: req.query.event_type, status: req.query.status }))));
 router.get('/events/:eventId', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json(getIbkrNewEventDetail(owner(req), req.params.eventId))));
 router.get('/goal', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json(getIbkrNewGoalState(owner(req)))));
+router.get('/goal/history', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json({ items: getIbkrNewGoalHistory(owner(req), { limit: req.query.limit }) })));
+router.get('/schemas', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json(getIbkrNewSchemaDocument())));
+router.get('/schemas/:kind', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json(getIbkrNewSchemaDocument(req.params.kind))));
 router.put('/goal', requireAuth, requireTenantFullAccess, (req, res) => handle(res, () => res.json(setIbkrNewGoal(owner(req), req.body || {}))));
 router.post('/goal/pause', requireAuth, requireTenantFullAccess, (req, res) => handle(res, () => res.json(pauseIbkrNewGoal(owner(req)))));
 router.post('/goal/resume', requireAuth, requireTenantFullAccess, (req, res) => handle(res, () => res.json(resumeIbkrNewGoal(owner(req)))));
 router.post('/initialize', requireAuth, requireTenantFullAccess, (req, res) => handle(res, () => res.status(201).json(ensureIbkrNewDefaults(owner(req)))));
 router.post('/configs/:kind/publish', requireAuth, requireTenantFullAccess, (req, res) => handle(res, () => res.status(201).json(publishConfig(owner(req), req.params.kind, req.body?.document, { confirmRiskLoosening: req.body?.confirm_risk_loosening === true }))));
+router.get('/configs/:kind/history', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json({ items: getIbkrNewConfigHistory(owner(req), req.params.kind, { limit: req.query.limit }) })));
 router.post('/bridges', requireAuth, requireTenantFullAccess, (req, res) => handle(res, () => {
   const suppliedAccountId = req.body?.account_id ?? req.body?.accountId ?? req.body?.account_ref;
   return res.status(201).json(registerBridge(owner(req), suppliedAccountId));

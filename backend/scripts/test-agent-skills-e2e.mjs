@@ -27,6 +27,7 @@ try {
     syncAgentSkillsToWorkspace,
   } = await import('../src/services/agent-skills.js');
   const { validateTypedGoalPlan } = await import('../src/services/goal-plan-quality.js');
+  const { insertChatTurn, listActiveSessionTurns } = await import('../src/services/chat-history.js');
 
   database = initDb();
   for (const owner of ['ceo-skills-a', 'ceo-skills-b']) {
@@ -73,6 +74,12 @@ try {
   const parsed = extractSkillUsageMarker(`Finished.\n[FLOLAH_SKILLS_USED: ${created.id}@v1]`, runtime.allowed);
   assert.equal(parsed.reply, 'Finished.');
   assert.equal(parsed.used[0].skill_id, created.id);
+
+  // Chat history must retain confirmed runtime use, not only assignment data.
+  insertChatTurn({ agentId: 'skills-agent', ownerUserId: 'ceo-skills-a', role: 'user', content: 'Qualify accounts', workUnitId: 'chat-work-1' });
+  insertChatTurn({ agentId: 'skills-agent', ownerUserId: 'ceo-skills-a', role: 'assistant', content: parsed.reply, workUnitId: 'chat-work-1', skillsUsed: parsed.used });
+  const chatTurn = listActiveSessionTurns('skills-agent', 'ceo-skills-a').turns.find((turn) => turn.role === 'assistant');
+  assert.equal(chatTurn.skills_used[0].skill_id, created.id, 'chat history must expose confirmed skill usage');
 
   const workspace = join(root, 'workspace');
   const sync = syncAgentSkillsToWorkspace('ceo-skills-a', 'skills-agent', workspace);

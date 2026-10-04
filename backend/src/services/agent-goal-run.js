@@ -2785,6 +2785,44 @@ async function executeAgentToolStep(goal, step) {
     goalContext: goalContextObject(goal),
   });
 
+  // Normalize the canonical scrape contract at the executor boundary. Older
+  // plans and LLM-produced plans used `url`, while the workflow adapter
+  // requires `startUrl`; dependency templates may also resolve to the full
+  // search result object rather than a single URL. Preserve compatibility and
+  // select the first concrete cited URL instead of failing the whole goal.
+  if (toolName === 'web_scrape_url') {
+    const supplied = String(args.startUrl || args.url || args.domain || '').trim();
+    const context = requiredInputValues?.market_context;
+    const candidates = [
+      context?.top_url,
+      context?.url,
+      ...(Array.isArray(context?.results) ? context.results.map((item) => item?.url) : []),
+      ...(Array.isArray(context) ? context.map((item) => item?.url || item) : []),
+    ].map((value) => String(value || '').trim()).filter((value) => /^https?:\/\//i.test(value));
+    if (!/^https?:\/\//i.test(supplied) && !candidates.length) {
+      // Some legacy dependency outputs are nested under result.result. Walk
+      // completed predecessor payloads as a final typed-data fallback, rather
+      // than passing a template or failing with the adapter's startUrl error.
+      const urls = [];
+      const collectUrls = (value) => {
+        if (typeof value === 'string') {
+          if (/^https?:\/\//i.test(value.trim())) urls.push(value.trim());
+          return;
+        }
+        if (Array.isArray(value)) { value.forEach(collectUrls); return; }
+        if (value && typeof value === 'object') Object.values(value).forEach(collectUrls);
+      };
+      for (const predecessor of loadGoalSteps(goal.id).filter((row) => row.step_index < step.step_index && row.status === 'completed')) {
+        collectUrls(parseJson(predecessor.result_json, null));
+      }
+      candidates.push(...urls);
+    }
+    if (!/^https?:\/\//i.test(supplied)) args.startUrl = candidates[0] || '';
+    else args.startUrl = supplied;
+    delete args.url;
+    delete args.domain;
+  }
+
   // Re-assert digest HTML after LLM arg fill — models often paste the goal dump into body.
   if (toolName === 'email_send') {
     const digestMail = findPriorDigestForEmail(goal.id, step.step_index);
@@ -4033,16 +4071,22 @@ async function executeSpecialtyTaskStep(goal, step) {
     `Typed output contract (your response is validated before the next step):\n${outputContract}\n` +
     (semanticContract ? `Semantic execution contract:\n${semanticContract}\nA status/history report describes the subject's prior outcomes; reported failures or blockers do not mean this reporting step failed. Do not repeat an underlying mutation unless operation mode explicitly requires it.\n` : '') +
     `Mandatory evidence contract:\n` +
+    `- This delegated turn already has an authenticated owner-scoped execution session. Do not claim missing session authority before invoking the appropriate tools. If a tool really rejects the call, name that tool and include its exact error in the evidence section.\n` +
+    `- Authenticated execution identity: owner_user_id=${goal.owner_user_id}; assigned_agent_id=${agentId}; goal_run_id=${goal.id}; goal_step_id=${step.id}. This identity was established by the platform. Do not ask the CEO to confirm it and do not perform a second authority check in prose; invoke the granted tools under this scope.\n` +
     `- You must obtain and use evidence for factual, historical, tool, API, browser, workflow, CRM, ERP, or external-action claims. Select and invoke the appropriate granted tool yourself; the goal executor will not call an agent-specific tool on your behalf merely to manufacture evidence.\n` +
     `- For a status_report about your work, call agent_work_history with the requested day window and use its counts/items as the source of truth. Include its evidence_id, total activity count, and at least one returned task_id with its status/outcome when history exists. Do not substitute learnings_summary, communications history, or memory.\n` +
     `- For an external action or record creation, report the returned execution/record identifier and read-back when available. For research/data, cite the successful tool/source results. For an artifact, return its real file/URL. A writing-only deliverable is evidenced by the concrete text itself.\n` +
     `- Missing required evidence is an incomplete outcome and will be returned to this same isolated step for correction.\n` +
+    `- EXECUTION DIRECTIVE: this is an execution turn, not a clarification turn. The inputs above are complete. Begin by invoking the required granted tools and then produce the contracted deliverable. Do not ask whether to perform more work, ask for confirmation, or return a future-tense acknowledgement. A response with zero tool calls is invalid unless every required tool is explicitly unavailable and its exact error is reported.\n` +
     (requiredToolEvidence.length
       ? `- This step specifically requires successful captured evidence from: ${requiredToolEvidence.join(', ')}. Other tool calls do not satisfy this contract.\n`
       : '') +
     `For an artifact output, return the real file/attachment/download URL in the response; a description of a future file is not an artifact.\n\n` +
     `An empty upstream result is still valid evidence. If you can accurately document that no records were found, produce the contracted data or exception artifact and a bounded recommendation; do not invent records or request clarification merely because the result set is empty.\n\n` +
     `Relevant completed outputs from THIS goal only:\n${prior || '(none — this is the first relevant step)'}\n\n` +
+    `Upstream evidence rule:\n` +
+    `- Treat every successful tool result listed above as authoritative evidence for this goal. Do not invoke a tool again when its completed output is already listed above; reuse that result and continue with the remaining specialist work.\n` +
+    `- If the platform reports an equivalent action was already executed or duplicate_blocked, that is not a permission failure: use the existing observation, record the exact tool/action in your evidence, and continue. Do not describe duplicate protection as missing authorization.\n\n` +
     `Context boundary:\n` +
     `- Use only the original goal and outputs listed above.\n` +
     `- Never reuse facts, target markets, companies, locations, or results from another task or memory.\n` +

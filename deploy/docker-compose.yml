@@ -109,6 +109,12 @@ x-backend-env: &backend-env
   AGENT_OS_DATA_DIR: /data/agent-os
   AGENT_OS_BASE_URL: ${AGENT_OS_PUBLIC_URL}
   AGENT_OS_PUBLIC_URL: ${AGENT_OS_PUBLIC_URL}
+  # Optional internal IBKR quant adapter. Empty keeps deterministic baseline in-process.
+  IBKR_QUANT_ENDPOINT_URL: ${IBKR_QUANT_ENDPOINT_URL:-}
+  IBKR_QUANT_BACKEND: ${IBKR_QUANT_BACKEND:-baseline}
+  IBKR_QUANT_MODEL_ID: ${IBKR_QUANT_MODEL_ID:-}
+  IBKR_QUANT_MODEL_REVISION: ${IBKR_QUANT_MODEL_REVISION:-}
+  IBKR_QUANT_TIMEOUT_MS: ${IBKR_QUANT_TIMEOUT_MS:-12000}
   # Secured A2A access-token TTL (seconds); default in code is 3600 if unset
   A2A_ACCESS_TOKEN_TTL_SEC: ${A2A_ACCESS_TOKEN_TTL_SEC:-}
   A2A_SYNC_TIMEOUT_MS: ${A2A_SYNC_TIMEOUT_MS:-}
@@ -888,6 +894,35 @@ services:
       retries: 10
       start_period: 600s
 
+  # Optional CPU quant adapter for IBKR SME. It is profile-gated so existing
+  # deployments retain the in-process baseline unless explicitly enabled.
+  # Manual: docker compose --profile optional-ibkr-quant up -d --build ibkr-quant
+  ibkr-quant:
+    profiles: ["optional-ibkr-quant"]
+    build:
+      context: ..
+      dockerfile: deploy/docker/ibkr-quant.Dockerfile
+    image: agent-os-ibkr-quant:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    cpus: ${IBKR_QUANT_CPU_LIMIT:-2.0}
+    environment:
+      QUANT_PORT: "8090"
+      QUANT_MODELS_DIR: /models
+      QUANT_DEFAULT_BACKEND: ${IBKR_QUANT_BACKEND:-baseline}
+      GRANITE_TTM_MODEL_ID: ${GRANITE_TTM_MODEL_ID:-ibm-granite/granite-timeseries-ttm-r2}
+      HF_HOME: /models/huggingface
+      TRANSFORMERS_CACHE: /models/huggingface
+    volumes:
+      - ibkr_quant_models:/models:Z
+    expose:
+      - "8090"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8090/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
   # Free local STT (faster-whisper) + TTS (Piper). Started automatically by
 # deploy/scripts/ensure-voice-env.sh (up.sh / vps-deploy-latest.sh) unless SKIP_VOICE=1.
 # Powers /api/speech/*, workflow speech_* nodes, and COO tools speech_tts / speech_stt.
@@ -943,6 +978,7 @@ volumes:
   openconnector_data:
   ollama_data:
   embeddings_data:
+  ibkr_quant_models:
   hunyuan3d_data:
   whisper_data:
   piper_data:

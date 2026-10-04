@@ -10,7 +10,7 @@ const { initDb } = await import('../src/db/schema.js');
 initDb();
 const { listHireableRoleTemplates } = await import('../src/services/hireable-role-templates.js');
 const { seedIbkrTradingToolsIfMissing, IBKR_TRADING_TOOLS } = await import('../src/db/seed-ibkr-trading-tools.js');
-const { inferIbkrQuantSignal, listIbkrQuantRuns } = await import('../src/services/ibkr-quant-inference.js');
+const { inferIbkrQuantSignal, listIbkrQuantRuns, normalizeModelOutput } = await import('../src/services/ibkr-quant-inference.js');
 const bundles = await import('../src/services/ibkr-strategy-bundles.js');
 const { getDb } = await import('../src/db/schema.js');
 
@@ -18,6 +18,7 @@ const role = listHireableRoleTemplates().find((r) => r.id === 'ibkr-portfolio-st
 assert.ok(role, 'IBKR SME role is hireable');
 assert.ok(role.tools.includes('ibkr_quant_signal_infer'), 'SME has quant tool');
 assert.ok(role.tools.includes('brave_web_search') && role.tools.includes('web_scrape_url'), 'SME has research tools');
+assert.deepEqual(role.skills, ['ibkr-portfolio-strategy-sme'], 'SME has a dedicated portfolio-strategy skill');
 
 seedIbkrTradingToolsIfMissing();
 const toolNames = new Set(getDb().prepare('SELECT name FROM content_tools_meta').all().map((r) => r.name));
@@ -26,7 +27,19 @@ for (const name of ['ibkr_quant_signal_infer', 'ibkr_strategy_bundle_draft', 'ib
 const owner = 'testuser-ibkr-sme';
 const q = await inferIbkrQuantSignal(owner, { task: 'regime_classification', features: { momentum_pct: 1.2, volatility_pct: 2.5, volume_ratio: 1.1 } });
 assert.equal(q.ok, true); assert.equal(q.advisory_only, true); assert.match(q.evidence_id, /^iq-/);
-assert.equal(listIbkrQuantRuns(owner).length, 1, 'quant evidence is owner-audited');
+assert.equal(q.output_schema_version, 1); assert.equal(q.output_status, 'validated'); assert.equal(q.backend, 'baseline');
+for (const task of ['return_forecast', 'risk_classification', 'candidate_ranking', 'news_sentiment']) {
+  const result = await inferIbkrQuantSignal(owner, { task, features: { momentum_pct: 1.2, volatility_pct: 2.5, volume_ratio: 1.1 }, text: 'positive outlook' });
+  assert.equal(result.output_schema_version, 1, `${task} schema version`);
+  assert.equal(result.output_status, 'validated', `${task} baseline output validated`);
+}
+const malformed = normalizeModelOutput('regime_classification', { nonsense: true }, { regime: 'mixed', direction: 'neutral', probability: 0.5, risk_score: 0 });
+assert.equal(malformed.valid, false, 'malformed model output is rejected');
+assert.equal(malformed.output.regime, 'mixed', 'malformed output uses canonical fallback shape');
+const granite = normalizeModelOutput('return_forecast', { forecast: [100, 101, 103], probability: 0.7, risk_score: 0.2 }, {});
+assert.equal(granite.valid, true, 'Granite-style forecast is normalized');
+assert.deepEqual(Object.keys(granite.output).sort(), ['direction', 'expected_return_pct', 'probability', 'quantiles_pct', 'risk_score'].sort());
+assert.equal(listIbkrQuantRuns(owner).length, 5, 'quant evidence is owner-audited');
 
 const invalid = bundles.validateIbkrStrategyBundle({ policy: { environment: 'live' } });
 assert.equal(invalid.valid, false); assert.ok(invalid.errors.some((x) => /paper environment/i.test(x)));

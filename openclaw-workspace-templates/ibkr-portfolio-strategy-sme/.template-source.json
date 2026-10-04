@@ -1,5 +1,6 @@
 {
   "template_base_id": "ibkr-portfolio-strategy-sme",
+  "skills": ["ibkr-portfolio-strategy-sme"],
   "tools": [
     "learnings_summary",
     "ceo_profile",

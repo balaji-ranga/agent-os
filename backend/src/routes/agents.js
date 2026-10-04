@@ -160,8 +160,12 @@ function removeAgentFromOpenClaw(agentId, baseIds) {
   const matches = (raw) => {
     const value = String(raw || '').toLowerCase();
     if (baseIds.includes(value)) return true;
-    const parsed = value.match(/^t-(.+)--([a-z0-9_-]+)$/);
-    return parsed ? baseIds.includes(parsed[2]) : false;
+    if (!value.startsWith('t-')) return false;
+    const rest = value.slice(2);
+    const separator = rest.indexOf('--');
+    return separator > 0 && separator < rest.length - 2
+      ? baseIds.includes(rest.slice(separator + 2))
+      : false;
   };
 
   if (existsSync(OPENCLAW_CONFIG_PATH)) {
@@ -1705,7 +1709,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
 
     // Persist user message and assistant reply (same normalized string shape as standup chat)
     insertChatTurn({ agentId, ownerUserId, role: 'user', content: message, workUnitId: turnRoute.id });
-    insertChatTurn({ agentId, ownerUserId, role: 'assistant', content: replyText, workUnitId: turnRoute.id });
+    insertChatTurn({ agentId, ownerUserId, role: 'assistant', content: replyText, workUnitId: turnRoute.id, skillsUsed: skillUsage.used });
 
     if (liveScope) finishChatActivity(liveScope);
 

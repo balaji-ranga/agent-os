@@ -677,6 +677,7 @@ export default function AgentChat() {
           content: r.reply,
           created_at: new Date().toISOString(),
           tool_calls: r.tool_calls || [],
+          skills_used: r.skills_used || [],
         },
       ]);
       if (speakReply && r.reply && !calling) {
@@ -955,6 +956,7 @@ export default function AgentChat() {
                           agentAvatar={agent?.avatar_image}
                           showFeedback={false}
                           toolCalls={turn.tool_calls || []}
+                          skillsUsed={turn.skills_used}
                         />
                       ))}
                     </div>
@@ -1237,6 +1239,7 @@ export default function AgentChat() {
                     messageId={t.id}
                     feedbackSource="chat"
                     toolCalls={t.tool_calls}
+                    skillsUsed={t.skills_used}
                     attachments={t.attachments}
                     agentName={agentLabel}
                     agentAvatar={agent?.avatar_image}
@@ -1450,6 +1453,7 @@ export default function AgentChat() {
                   messageId={t.id}
                   feedbackSource="chat"
                   toolCalls={t.tool_calls}
+                  skillsUsed={t.skills_used}
                   attachments={t.attachments}
                   agentName={agentLabel}
                   agentAvatar={agent?.avatar_image}

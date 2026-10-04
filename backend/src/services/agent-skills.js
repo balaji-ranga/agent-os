@@ -451,7 +451,12 @@ export function normalizeSkillRefsForAgent(ownerUserId, agentId, refs = [], { re
 }
 
 export function buildAgentSkillRuntimeInstruction(ownerUserId, agentId, prompt, { pinnedRefs = null } = {}) {
-  const allowed = compactAgentSkillManifest(ownerUserId, agentId).filter((item) => item.enabled !== false);
+  const assigned = listAgentSkillAssignments(ownerUserId, agentId, { includeMarkdown: true });
+  const allowed = assigned.filter((item) => item.enabled !== false).map((item) => ({
+    ...item,
+    id: item.skill_id,
+    version_id: item.version_id,
+  }));
   if (!allowed.length) return { instruction: '', allowed: [], recommended: [] };
   const pinned = Array.isArray(pinnedRefs) && pinnedRefs.length
     ? normalizeSkillRefsForAgent(ownerUserId, agentId, pinnedRefs)
@@ -463,10 +468,15 @@ export function buildAgentSkillRuntimeInstruction(ownerUserId, agentId, prompt, 
   const recommendation = recommended.length
     ? `Recommended for this request: ${recommended.map((item) => `${item.skill_id || item.id}@v${item.version}`).join(', ')}.`
     : 'No skill is preselected. Choose a skill only when its stated purpose genuinely matches the request.';
+  const selectedInstructions = recommended
+    .map((item) => allowed.find((candidate) => candidate.id === (item.skill_id || item.id)))
+    .filter((item) => item?.skill_md)
+    .map((item) => `\n\nSelected skill ${item.id}@v${item.version} (authoritative instructions):\n${item.skill_md}`)
+    .join('');
   return {
     allowed,
     recommended,
-    instruction: `\n\n[FLOLAH SKILL CONTRACT]\nYou may use only the assigned skills below. Skills are operating instructions, not tool permissions. Determine which zero, one, or multiple skills apply to the current request. Before executing, load each selected SKILL.md from its listed workspace path and follow it. Never use an unassigned skill, and never claim a missing tool is granted. ${recommendation}\nAssigned skills:\n${lines.join('\n')}\nAt the very end of your response add one machine-readable line exactly as [FLOLAH_SKILLS_USED: skill-id@vN, ...] or [FLOLAH_SKILLS_USED: none]. The platform removes this line before showing the response.`,
+    instruction: `\n\n[FLOLAH SKILL CONTRACT]\nYou may use only the assigned skills below. Skills are operating instructions, not tool permissions. Determine which zero, one, or multiple skills apply to the current request. Follow the authoritative selected skill instructions included below; the workspace SKILL.md is also available for reference. Never use an unassigned skill, and never claim a missing tool is granted. ${recommendation}\nAssigned skills:\n${lines.join('\n')}${selectedInstructions}\nAt the very end of your response add one machine-readable line exactly as [FLOLAH_SKILLS_USED: skill-id@vN, ...] or [FLOLAH_SKILLS_USED: none]. The platform removes this line before showing the response.`,
   };
 }
 

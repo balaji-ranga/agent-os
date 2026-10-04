@@ -86,9 +86,17 @@ export function tenantSessionKeyForAgent(ceoUserId, agentOrBaseId) {
 /** Parse `t-{ceo}--{base}` → { ceoUserId, baseOpenClawId } or null. */
 export function parseTenantOpenClawAgentId(openClawAgentId) {
   const raw = String(openClawAgentId || '').trim().toLowerCase();
-  const m = raw.match(/^t-(.+)--([a-z0-9_-]+)$/);
-  if (!m) return null;
-  return { ceoUserId: m[1], baseOpenClawId: m[2] };
+  if (!raw.startsWith('t-')) return null;
+  // The base agent id may itself contain `--`. Split the documented tenant
+  // format at its first separator; a greedy regex misattributes part of the
+  // agent id to the owner and makes scoped leases fail with a misleading 403.
+  const rest = raw.slice(2);
+  const separator = rest.indexOf('--');
+  if (separator <= 0 || separator >= rest.length - 2) return null;
+  return {
+    ceoUserId: rest.slice(0, separator),
+    baseOpenClawId: rest.slice(separator + 2),
+  };
 }
 
 export function tenantWorkspacePath(ceoUserId, baseOpenClawId) {

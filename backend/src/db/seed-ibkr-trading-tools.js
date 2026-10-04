@@ -293,7 +293,7 @@ export const IBKR_TRADING_TOOLS = [
     endpoint: '/api/ibkr-trading/quant-signal',
     method: 'POST',
     purpose:
-      'Owner-scoped advisory quantitative inference. Body: { task: regime_classification|return_forecast|risk_classification|candidate_ranking|news_sentiment, features: {...}, text?, horizon?, as_of? }. Returns model revision, confidence, uncertainty/evidence metadata and never authorizes orders.',
+      'Owner-scoped advisory quantitative inference. Body: { task: regime_classification|return_forecast|risk_classification|candidate_ranking|news_sentiment, features: {...}, series?, text?, horizon?, as_of?, backend? }. All baseline, LightGBM, XGBoost, Granite TTM and ensemble implementations return the same versioned output contract; backend selection never authorizes orders.',
     model_used: 'Configured local Docker or remote Hugging Face inference endpoint; deterministic baseline when unavailable',
     enabled: 1,
     is_builtin: 0,
@@ -313,7 +313,7 @@ export const IBKR_TRADING_TOOLS = [
     display_name: 'IBKR Strategy Bundle List',
     endpoint: '/api/ibkr-trading/strategy-bundles',
     method: 'GET',
-    purpose: 'List owner-scoped paper strategy bundle versions and statuses.',
+    purpose: 'List owner-scoped paper strategy bundle versions, statuses, and the stored strategy/strategy_skill/policy/universe/market_data payload for evidence-backed analysis. Read-only; no activation or order authority.',
     model_used: '',
     enabled: 1,
     is_builtin: 0,

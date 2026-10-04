@@ -123,6 +123,7 @@ export default function AgentChatPanel({
           content: reply,
           created_at: new Date().toISOString(),
           tool_calls: r.tool_calls || [],
+          skills_used: r.skills_used || [],
         },
       ]);
       api.agentChatHistory(agentId).then(history => setTurns(Array.isArray(history) ? history : history.turns || [])).catch(() => {});
@@ -206,6 +207,7 @@ export default function AgentChatPanel({
             feedbackSource="chat"
             feedbackContext={profileId ? { profile_id: profileId } : {}}
             toolCalls={t.tool_calls}
+            skillsUsed={t.skills_used}
             attachments={t.attachments}
             agentName={agentMeta?.name}
             agentAvatar={agentMeta?.avatar_image}

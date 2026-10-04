@@ -282,7 +282,10 @@ run_gateway_with_platform_llm_watch() {
     # migration and asks for one fresh gateway process. Restart it in this
     # container so the entrypoint does not rewrite the plugin/config inputs
     # between migration rounds and create a Docker restart loop.
-    if [[ "${code}" == "0" && "${convergence_restarts}" -lt 5 ]]; then
+    # Some OpenClaw releases return 1 (rather than 0) after applying a
+    # one-time plugin/config migration.  Treat that bounded migration exit as
+    # retryable too; ordinary crashes still propagate after the five retries.
+    if [[ ( "${code}" == "0" || "${code}" == "1" ) && "${convergence_restarts}" -lt 5 ]]; then
       convergence_restarts=$((convergence_restarts + 1))
       echo "[openclaw] Clean startup-convergence exit — retry ${convergence_restarts}/5 without resyncing config"
       sleep 2

@@ -6,6 +6,7 @@
   "skill_path": ".cursor/skills/ibkrnew-trade-strategy/SKILL.md",
   "enabled": true,
   "instructions": [
+    "Treat the published goal, strategy skill, strategy, policy, universe, and market-data documents as typed, versioned owner-scoped contracts; use their schema descriptions and allowed values and never invent fields or enum values.",
     "Evaluate only canonical IBKRNew market events and the active strategy, universe, policy, commission model, and deterministic instrument-eligibility result.",
     "Respect stock-only index membership, fresh company fundamentals and corporate-event blackouts; apply the independent ETF filter to ETFs and the underlying profile to options.",
     "Compare expected gross profit, round-trip commission, planned loss, net reward-to-risk, confidence, and remaining daily capacity.",
