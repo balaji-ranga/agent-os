@@ -404,6 +404,8 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\test-master-data-office-extract.js" `
     "$Repo\backend\scripts\test-purge-all-documents.js" `
     "$Repo\backend\scripts\test-agent-delete-cascade.js" `
+    "$Repo\backend\scripts\test-ibkr-portfolio-strategy-sme.mjs" `
+    "$Repo\backend\scripts\provision-ibkr-sme-test-user.mjs" `
     "$Repo\backend\scripts\test-learnings-cache.js" `
     "$Repo\backend\scripts\test-llm-efficiency-mode.js" `
     "$Repo\backend\scripts\test-history-summary-cache.js" `
