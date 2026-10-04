@@ -591,6 +591,12 @@ if ($Services -match "backend|openclaw") {
       Write-Warning "Missing IBKRNew workspace template folder: $ibkrNewTpl"
     }
   }
+  $ibkrSmeTpl = Join-Path $Repo "openclaw-workspace-templates\ibkr-portfolio-strategy-sme"
+  if (Test-Path $ibkrSmeTpl) {
+    scp @ssh -r $ibkrSmeTpl "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
+  } else {
+    Write-Warning "Missing IBKR SME workspace template folder: ibkr-portfolio-strategy-sme"
+  }
   if (Test-Path "$Repo\openclaw-workspace-templates\business-core-template-map.json") {
     scp @ssh "$Repo\openclaw-workspace-templates\business-core-template-map.json" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
   }
