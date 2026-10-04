@@ -123,6 +123,15 @@ assert.equal(service.getDashboard(owner).bridges[0].account_id, undefined);
 assert.equal(service.getDashboard(owner).bridges[0].account_ref, credentials.account_ref);
 assert.equal(service.getDashboard(other).events.length, 0);
 
+const sequenceRepairOwner = 'IBKRNewOwner_SequenceRepair';
+const sequenceRepairCredentials = service.registerBridge(sequenceRepairOwner);
+const sequenceRepairBridge = service.authenticateBridge(sequenceRepairCredentials.bridge_id, sequenceRepairCredentials.token);
+service.ingestBridgeEvent(sequenceRepairBridge, { event_id: 'sequence-repair-1', sequence: 1, event_type: 'bridge.heartbeat', occurred_at: new Date().toISOString(), payload: { gateway_connected: false } });
+getDb().prepare(`UPDATE ibkrnew_bridges SET last_sequence=0 WHERE bridge_id=?`).run(sequenceRepairBridge.bridge_id);
+assert.equal(service.reconcileIbkrNewBridgeSequence(sequenceRepairBridge.bridge_id), 1, 'bootstrap must repair a cursor that fell behind an accepted event during a backend restart');
+assert.equal(getDb().prepare(`SELECT last_sequence FROM ibkrnew_bridges WHERE bridge_id=?`).get(sequenceRepairBridge.bridge_id).last_sequence, 1);
+assert.equal(service.ingestBridgeEvent(sequenceRepairBridge, { event_id: 'sequence-repair-2', sequence: 2, event_type: 'bridge.heartbeat', occurred_at: new Date().toISOString(), payload: { gateway_connected: false } }).accepted, true);
+
 const notAttestedOwner = 'IBKRNewOwner_NotAttested'; const notAttestedCredentials = service.registerBridge(notAttestedOwner); const notAttestedBridge = service.authenticateBridge(notAttestedCredentials.bridge_id, notAttestedCredentials.token);
 service.ingestBridgeEvent(notAttestedBridge, { event_id: 'not-attested-1', sequence: 1, event_type: 'account.snapshot', occurred_at: new Date().toISOString(), payload: { eligible_capital_usd: 10000, cash_usd: 10000, positions: [], open_orders: [] } });
 const notAttestedSignal = service.ingestBridgeEvent(notAttestedBridge, { event_id: 'not-attested-2', sequence: 2, event_type: 'market.signal', occurred_at: new Date().toISOString(), payload: { expression: 'LONG_STOCK', symbol: 'AAPL', security_type: 'STK', quantity: 1, bid: 99.9, ask: 100, last: 100, limit_price: 100, average_daily_volume: 5000000, quote_at: new Date().toISOString(), planned_loss_usd: 5, protection: { stop_price: 95, targets: [{ limit_price: 112, quantity: 1 }] } } });

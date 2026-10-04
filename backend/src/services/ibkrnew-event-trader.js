@@ -1144,8 +1144,7 @@ export function ingestBridgeEvent(bridge, input) {
   if (redactIbkrAccountText(sourceId) !== sourceId || redactIbkrAccountText(eventType) !== eventType) throw Object.assign(new Error('IBKR account identifiers are not accepted in event metadata'), { status: 400 });
   const occurredMs = input.occurred_at == null ? Date.now() : Date.parse(input.occurred_at);
   if (!Number.isFinite(occurredMs)) throw Object.assign(new Error('occurred_at must be a valid timestamp'), { status: 400 });
-  const currentBridge = db.prepare(`SELECT last_sequence FROM ibkrnew_bridges WHERE bridge_id=?`).get(bridge.bridge_id);
-  const lastSequence = Number(currentBridge?.last_sequence || 0);
+  const lastSequence = reconcileIbkrNewBridgeSequence(bridge.bridge_id, db);
   const existing = db.prepare(`SELECT event_id,status,sequence FROM ibkrnew_events WHERE bridge_id=? AND source_event_id=?`).get(bridge.bridge_id, sourceId);
   if (existing && !(existing.status === 'quarantined' && Number(existing.sequence) === lastSequence + 1)) return { accepted: existing.status === 'accepted', duplicate: true, event_id: existing.event_id, status: existing.status };
   const eventId = existing?.event_id || id('IBKRNewEvent'); const occurred = new Date(occurredMs).toISOString(); const created = nowIso(); let status = 'accepted'; let reason = null;
@@ -1213,6 +1212,15 @@ export function ingestBridgeEvent(bridge, input) {
     db.prepare(`INSERT INTO ibkrnew_event_reactions(event_id,owner_user_id,decision,reason,reaction_json,created_at,updated_at) VALUES(?,?,?,?,?,?,?) ON CONFLICT(event_id) DO UPDATE SET decision=excluded.decision,reason=excluded.reason,reaction_json=excluded.reaction_json,updated_at=excluded.updated_at`).run(eventId, bridge.owner_user_id, String(cleanReaction.decision || 'unknown'), cleanReaction.reason ? String(cleanReaction.reason) : null, json(cleanReaction), created, created);
   }
   return { accepted: true, duplicate: false, event_id: eventId, status, reaction };
+}
+
+export function reconcileIbkrNewBridgeSequence(bridgeId, db = getDb()) {
+  const current = db.prepare(`SELECT last_sequence FROM ibkrnew_bridges WHERE bridge_id=?`).get(String(bridgeId || ''));
+  if (!current) throw Object.assign(new Error('IBKRNew bridge not found'), { status: 404 });
+  const accepted = Number(db.prepare(`SELECT COALESCE(MAX(sequence),0) sequence FROM ibkrnew_events WHERE bridge_id=? AND status='accepted'`).get(String(bridgeId || ''))?.sequence || 0);
+  const authoritative = Math.max(Number(current.last_sequence || 0), accepted);
+  if (authoritative !== Number(current.last_sequence || 0)) db.prepare(`UPDATE ibkrnew_bridges SET last_sequence=? WHERE bridge_id=?`).run(authoritative, String(bridgeId || ''));
+  return authoritative;
 }
 
 export function claimCommands(bridge, limit = 10, protocolVersion = 0) {
