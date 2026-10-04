@@ -1,13 +1,23 @@
-import 'dotenv/config';
+import { config as loadDotEnv } from 'dotenv';
 import { existsSync, readFileSync } from 'fs';
+import { isAbsolute, resolve } from 'path';
+import { fileURLToPath } from 'url';
 import { IBKRNewBridgeCore, IBKRNewFeatureEngine, commandMatchesBootstrap, selectUniverseProfiles } from './core.js';
 import { IBKRNewGateway } from './gateway.js';
+
+const packageRoot = fileURLToPath(new URL('..', import.meta.url));
+const packagePath = (value, fallback) => {
+  const configured = value || fallback;
+  return isAbsolute(configured) ? configured : resolve(packageRoot, configured);
+};
+
+loadDotEnv({ path: resolve(packageRoot, '.env'), override: false });
 
 const cfg = {
   apiUrl: process.env.IBKRNEW_API_URL,
   bridgeId: process.env.IBKRNEW_BRIDGE_ID,
   token: process.env.IBKRNEW_BRIDGE_TOKEN,
-  spoolDir: process.env.IBKRNEW_SPOOL_DIR || './data',
+  spoolDir: packagePath(process.env.IBKRNEW_SPOOL_DIR, './data'),
 };
 const core = new IBKRNewBridgeCore(cfg);
 const mock = process.env.IBKRNEW_MOCK === '1';
@@ -40,7 +50,8 @@ function onGatewayEvent(type, payload) {
 }
 
 function loadUniverseProfiles() {
-  const profileFile = process.env.IBKRNEW_INSTRUMENT_PROFILES_FILE;
+  const configuredProfileFile = process.env.IBKRNEW_INSTRUMENT_PROFILES_FILE;
+  const profileFile = configuredProfileFile ? packagePath(configuredProfileFile) : null;
   if (!profileFile || !existsSync(profileFile)) return [];
   return selectUniverseProfiles(JSON.parse(readFileSync(profileFile, 'utf8')), boot.configs.universe);
 }
