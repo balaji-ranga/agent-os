@@ -159,9 +159,33 @@ service.ingestBridgeEvent(liveBridge, { event_id: 'live-position-5', sequence: 5
 assert.equal(service.getIbkrNewEventTimeline(liveModeOwner).environment, 'live');
 assert.equal(service.getIbkrNewEventTimeline(liveModeOwner).pagination.total_items, 5, 'the active live timeline is isolated from paper events');
 assert.equal(service.getIbkrNewExecutionMode(other).requested_mode, 'paper', 'execution mode is owner scoped');
-const returnedToPaper = service.setIbkrNewExecutionMode(liveModeOwner, { mode: 'paper' }); assert.equal(returnedToPaper.requested_mode, 'paper'); assert.equal(returnedToPaper.cancelled_authorizations, 1);
-assert.equal(getDb().prepare(`SELECT status FROM ibkrnew_command_outbox WHERE command_id=?`).get(liveCommands[0].command_id).status, 'cancelled');
-assert.equal(getDb().prepare(`SELECT status FROM ibkrnew_budget_reservations WHERE authorization_id=?`).get(liveSignal.reaction.authorization_id).status, 'released');
+const returnedToPaper = service.setIbkrNewExecutionMode(liveModeOwner, { mode: 'paper' }); assert.equal(returnedToPaper.requested_mode, 'paper'); assert.equal(returnedToPaper.cancelled_authorizations, 0); assert.equal(returnedToPaper.uncertain_authorizations, 1);
+assert.equal(getDb().prepare(`SELECT status FROM ibkrnew_command_outbox WHERE command_id=?`).get(liveCommands[0].command_id).status, 'uncertain', 'mode switching cannot prove a previously claimed broker order was cancelled');
+assert.equal(getDb().prepare(`SELECT status FROM ibkrnew_budget_reservations WHERE authorization_id=?`).get(liveSignal.reaction.authorization_id).status, 'reserved', 'possibly transmitted orders retain their budget in their original account context');
+assert.equal(service.acknowledgeCommand(liveBridge, liveCommands[0].command_id, 'submitted').ok, true, 'late broker outcomes reconcile without enabling the inactive Live account');
+assert.equal(service.getIbkrNewExecutionMode(liveModeOwner).requested_mode, 'paper');
+
+function cloneSafetyRow(table, key, originalId, replacementId, patch = {}) {
+  const original = getDb().prepare(`SELECT * FROM ${table} WHERE ${key}=?`).get(originalId);
+  const row = { ...original, ...patch, [key]: replacementId };
+  getDb().prepare(`INSERT INTO ${table}(${Object.keys(row).join(',')}) VALUES(${Object.keys(row).map(() => '?').join(',')})`).run(...Object.values(row));
+}
+function expiryFixture(name, claimed) {
+  const expiredAt = new Date(Date.now() - 60000).toISOString();
+  const authId = `IBKRNewAuthorization_${name}`; const commandId = `IBKRNewCommand_${name}`;
+  cloneSafetyRow('ibkrnew_authorizations', 'authorization_id', liveSignal.reaction.authorization_id, authId, { status: 'issued', expires_at: expiredAt, signal_event_id: `expiry-signal-${name}` });
+  cloneSafetyRow('ibkrnew_command_outbox', 'command_id', liveCommands[0].command_id, commandId, { authorization_id: authId, status: claimed ? 'claimed' : 'pending', claimed_at: claimed ? new Date().toISOString() : null, expires_at: expiredAt });
+  cloneSafetyRow('ibkrnew_budget_reservations', 'authorization_id', liveSignal.reaction.authorization_id, authId, { reservation_id: `IBKRNewReservation_${name}`, status: 'reserved', daily_released_usd: 0, gross_released_usd: 0 });
+  return { authId, commandId };
+}
+const claimedExpiry = expiryFixture('claimed-expiry', true); const pendingExpiry = expiryFixture('pending-expiry', false);
+service.getDashboard(liveModeOwner);
+assert.equal(getDb().prepare(`SELECT status FROM ibkrnew_command_outbox WHERE command_id=?`).get(claimedExpiry.commandId).status, 'uncertain');
+assert.equal(getDb().prepare(`SELECT status FROM ibkrnew_budget_reservations WHERE authorization_id=?`).get(claimedExpiry.authId).status, 'reserved');
+assert.equal(getDb().prepare(`SELECT status FROM ibkrnew_budget_reservations WHERE authorization_id=?`).get(pendingExpiry.authId).status, 'released', 'a never-claimed expired entry safely releases its budget');
+assert.equal(service.acknowledgeCommand(liveBridge, claimedExpiry.commandId, 'submitted').ok, true);
+assert.equal(getDb().prepare(`SELECT status FROM ibkrnew_budget_reservations WHERE authorization_id=?`).get(claimedExpiry.authId).status, 'reserved');
+assert.throws(() => service.acknowledgeCommand(liveBridge, pendingExpiry.commandId, 'submitted'), /no longer claimable/);
 assert.equal(service.getIbkrNewEventTimeline(liveModeOwner).environment, 'paper');
 assert.equal(service.getIbkrNewEventTimeline(liveModeOwner).pagination.total_items, 0, 'switching to paper does not mix live history into the paper timeline');
 assert.equal(service.getIbkrNewEventTimeline(liveModeOwner, { environment: 'live' }).pagination.total_items, 5, 'live history remains available through an explicit mode filter');

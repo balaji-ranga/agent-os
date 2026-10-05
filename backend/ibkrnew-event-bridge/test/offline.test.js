@@ -133,7 +133,7 @@ assert.match(supervisor, /& \$Node \$EntryPoint/, 'Task Scheduler must not depen
 assert.match(supervisor, /Restarting in \$delaySeconds seconds/);
 assert.doesNotMatch(supervisor, /IBKRNEW_BRIDGE_TOKEN|IBKRNEW_ACCOUNT_ID/);
 const privacyDir = mkdtempSync(join(tmpdir(), 'ibkrnew-privacy-')); const sentBodies = [];
-const privacyCore = new IBKRNewBridgeCore({ apiUrl: 'https://example.test/api/ibkrnew-event-trader', bridgeId: 'IBKRNewBridge_privacy', token: 'secret', spoolDir: privacyDir, fetchImpl: async (_url, request) => { sentBodies.push(request?.body || ''); return { ok: true, status: 202, json: async () => ({ accepted: true, status: 'accepted' }) }; } });
+  const privacyCore = new IBKRNewBridgeCore({ apiUrl: 'https://example.test/api/ibkrnew-event-trader', bridgeId: 'IBKRNewBridge_privacy', token: 'secret', spoolDir: privacyDir, fetchImpl: async (_url, request) => { sentBodies.push(request?.body || ''); return { ok: true, status: 202, json: async () => ({ ok: true, accepted: true, status: 'accepted' }) }; } });
 privacyCore.emit('bridge.gateway_error', { account_id: 'DU1234567', message: 'Account DU1234567 is invalid', nested: [{ acctCode: 'DU1234567' }] });
 assert.doesNotMatch(readFileSync(join(privacyDir, 'IBKRNew-events.jsonl'), 'utf8'), /DU1234567|account_id|acctCode/);
 writeFileSync(join(privacyDir, 'IBKRNew-events.jsonl'), `${JSON.stringify({ event_id: 'legacy', sequence: 2, event_type: 'desktop.component_error', payload: { message: 'Legacy DU7654321 error' } })}\n`);

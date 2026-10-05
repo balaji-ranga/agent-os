@@ -98,9 +98,8 @@ export function migrateIbkrNewAccountPrivacy(db = getDb(), { force = false } = {
   const migrate = db.transaction(() => {
     for (const bridge of legacy) {
       const accountRef = id('IBKRNewAccount');
-      db.prepare(`UPDATE ibkrnew_command_outbox SET status='cancelled',acknowledged_at=?,lease_until=NULL WHERE bridge_id=? AND status IN ('pending','claimed')`).run(ts, bridge.bridge_id);
-      db.prepare(`UPDATE ibkrnew_authorizations SET status='cancelled' WHERE bridge_id=? AND status IN ('pending_approval','issued')`).run(bridge.bridge_id);
-      db.prepare(`UPDATE ibkrnew_budget_reservations SET daily_released_usd=daily_reserved_usd,gross_released_usd=gross_reserved_usd,status='released',updated_at=? WHERE owner_user_id=? AND authorization_id IN (SELECT authorization_id FROM ibkrnew_authorizations WHERE bridge_id=?) AND status IN ('reserved','partially_filled')`).run(ts, bridge.owner_user_id, bridge.bridge_id);
+      for (const row of db.prepare(`SELECT authorization_id FROM ibkrnew_authorizations WHERE bridge_id=?`).all(bridge.bridge_id)) retireUnexecutedAuthorization(db, row.authorization_id, 'cancelled', ts);
+      db.prepare(`UPDATE ibkrnew_command_outbox SET status='cancelled',acknowledged_at=?,lease_until=NULL WHERE bridge_id=? AND status IN ('pending','claimed','uncertain')`).run(ts, bridge.bridge_id);
       for (const table of accountTables) db.prepare(`UPDATE ${table} SET account_id=? WHERE bridge_id=?`).run(accountRef, bridge.bridge_id);
       db.prepare(`UPDATE ibkrnew_budget_reservations SET account_id=? WHERE authorization_id IN (SELECT authorization_id FROM ibkrnew_authorizations WHERE bridge_id=?)`).run(accountRef, bridge.bridge_id);
       db.prepare(`UPDATE ibkrnew_bridges SET account_id=?,status='revoked',revoked_at=COALESCE(revoked_at,?) WHERE bridge_id=?`).run(accountRef, ts, bridge.bridge_id);
@@ -483,12 +482,9 @@ function cancelPendingEnvironmentEntries(ownerUserId, environment, reason, db = 
   const ts = nowIso();
   const rows = db.prepare(`SELECT a.authorization_id FROM ibkrnew_authorizations a JOIN ibkrnew_bridges b ON b.bridge_id=a.bridge_id
     WHERE a.owner_user_id=? AND b.environment=? AND a.status IN ('pending_approval','issued','uncertain')`).all(ownerUserId, environment);
-  for (const row of rows) {
-    db.prepare(`UPDATE ibkrnew_authorizations SET status='cancelled' WHERE authorization_id=?`).run(row.authorization_id);
-    db.prepare(`UPDATE ibkrnew_command_outbox SET status='cancelled',acknowledged_at=?,lease_until=NULL WHERE authorization_id=? AND status IN ('pending','claimed')`).run(ts, row.authorization_id);
-    db.prepare(`UPDATE ibkrnew_budget_reservations SET daily_released_usd=daily_reserved_usd,gross_released_usd=gross_reserved_usd,status='released',updated_at=? WHERE authorization_id=? AND status IN ('reserved','partially_filled')`).run(ts, row.authorization_id);
-  }
-  return { cancelled_authorizations: rows.length, reason };
+  let uncertain = 0;
+  for (const row of rows) if (retireUnexecutedAuthorization(db, row.authorization_id, 'cancelled', ts)) uncertain += 1;
+  return { cancelled_authorizations: rows.length - uncertain, uncertain_authorizations: uncertain, reason };
 }
 
 export function setIbkrNewExecutionMode(ownerUserId, input = {}) {
@@ -804,8 +800,7 @@ export function revokeBridge(ownerUserId, bridgeId) {
   ensureIbkrNewEventTraderSchema(); const ts = nowIso();
   const result = getDb().prepare(`UPDATE ibkrnew_bridges SET revoked_at=?,status='revoked' WHERE bridge_id=? AND owner_user_id=? AND revoked_at IS NULL`).run(ts, bridgeId, ownerUserId);
   if (!result.changes) throw Object.assign(new Error('bridge not found'), { status: 404 });
-  getDb().prepare(`UPDATE ibkrnew_command_outbox SET status='cancelled',acknowledged_at=? WHERE bridge_id=? AND status IN ('pending','claimed')`).run(ts, bridgeId);
-  getDb().prepare(`UPDATE ibkrnew_budget_reservations SET daily_released_usd=daily_reserved_usd,gross_released_usd=gross_reserved_usd,status='released',updated_at=? WHERE owner_user_id=? AND status='reserved' AND authorization_id IN (SELECT authorization_id FROM ibkrnew_authorizations WHERE bridge_id=?)`).run(ts, ownerUserId, bridgeId);
+  for (const row of getDb().prepare(`SELECT authorization_id FROM ibkrnew_authorizations WHERE bridge_id=? AND owner_user_id=? AND status IN ('pending_approval','issued','uncertain')`).all(bridgeId, ownerUserId)) retireUnexecutedAuthorization(getDb(), row.authorization_id, 'cancelled', ts);
   return { ok: true, bridge_id: bridgeId, status: 'revoked' };
 }
 
@@ -888,14 +883,29 @@ function insertCommand(db, bridge, authorization, created, expires) {
   return commandId;
 }
 
+function retireUnexecutedAuthorization(db, authorizationId, terminalStatus, ts) {
+  const auth = db.prepare(`SELECT status FROM ibkrnew_authorizations WHERE authorization_id=?`).get(authorizationId);
+  const command = db.prepare(`SELECT status,claimed_at FROM ibkrnew_command_outbox WHERE authorization_id=?`).get(authorizationId);
+  const reservation = db.prepare(`SELECT status FROM ibkrnew_budget_reservations WHERE authorization_id=?`).get(authorizationId);
+  const uncertain = ['uncertain','submitted','filled'].includes(auth?.status) || ['partially_filled','filled'].includes(reservation?.status) || Boolean(command?.claimed_at && ['pending','claimed','uncertain'].includes(command.status));
+  if (uncertain) {
+    db.prepare(`UPDATE ibkrnew_authorizations SET status='uncertain' WHERE authorization_id=? AND status IN ('pending_approval','issued','uncertain')`).run(authorizationId);
+    db.prepare(`UPDATE ibkrnew_command_outbox SET status='uncertain',lease_until=NULL WHERE authorization_id=? AND status IN ('pending','claimed')`).run(authorizationId);
+    // A claim may already have reached the broker. Expiry, pause or mode change
+    // cannot prove cancellation and must not release its budget reservation.
+    return true;
+  }
+  db.prepare(`UPDATE ibkrnew_authorizations SET status=? WHERE authorization_id=? AND status IN ('pending_approval','issued')`).run(terminalStatus, authorizationId);
+  db.prepare(`UPDATE ibkrnew_command_outbox SET status=?,acknowledged_at=?,lease_until=NULL WHERE authorization_id=? AND status IN ('pending','claimed')`).run(terminalStatus, ts, authorizationId);
+  db.prepare(`UPDATE ibkrnew_budget_reservations SET daily_released_usd=daily_reserved_usd,gross_released_usd=gross_reserved_usd,status='released',updated_at=? WHERE authorization_id=? AND status='reserved'`).run(ts, authorizationId);
+  return false;
+}
+
 function expireStaleAuthorizations(ownerUserId, db = getDb()) {
   const ts = nowIso();
   const rows = db.prepare(`SELECT authorization_id FROM ibkrnew_authorizations WHERE owner_user_id=? AND status IN ('pending_approval','issued') AND expires_at<=?`).all(ownerUserId, ts);
   const tx = db.transaction(() => {
-    const expire = db.prepare(`UPDATE ibkrnew_authorizations SET status='expired' WHERE authorization_id=?`);
-    const release = db.prepare(`UPDATE ibkrnew_budget_reservations SET daily_released_usd=daily_reserved_usd,gross_released_usd=gross_reserved_usd,status='released',updated_at=? WHERE authorization_id=? AND status='reserved'`);
-    const commands = db.prepare(`UPDATE ibkrnew_command_outbox SET status='expired' WHERE authorization_id=? AND status IN ('pending','claimed')`);
-    for (const row of rows) { expire.run(row.authorization_id); release.run(ts, row.authorization_id); commands.run(row.authorization_id); }
+    for (const row of rows) retireUnexecutedAuthorization(db, row.authorization_id, 'expired', ts);
   }); tx(); return rows.length;
 }
 
@@ -1178,15 +1188,17 @@ function ingestBridgeEventTransaction(bridge, input) {
   if (eventType === 'account.snapshot') {
     db.prepare(`INSERT INTO ibkrnew_account_state(owner_user_id,account_id,bridge_id,eligible_capital_usd,cash_usd,realized_pnl_day_usd,unrealized_pnl_usd,positions_json,open_orders_json,captured_at) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(owner_user_id,account_id) DO UPDATE SET bridge_id=excluded.bridge_id,eligible_capital_usd=excluded.eligible_capital_usd,cash_usd=excluded.cash_usd,realized_pnl_day_usd=excluded.realized_pnl_day_usd,unrealized_pnl_usd=excluded.unrealized_pnl_usd,positions_json=excluded.positions_json,open_orders_json=excluded.open_orders_json,captured_at=excluded.captured_at`).run(bridge.owner_user_id, bridge.account_id, bridge.bridge_id, Number(payload.eligible_capital_usd || payload.net_liquidation_usd || 0), Number(payload.cash_usd || 0), Number(payload.realized_pnl_day_usd || 0), Number(payload.unrealized_pnl_usd || 0), json(payload.positions || []), json(payload.open_orders || []), occurred);
     persistHistoricalSnapshot(db, bridge, 'account', payload, occurred, created);
-    for (const order of payload.open_orders || []) if (String(order.order_ref || '').startsWith('IBKRNewAuthorization_')) db.prepare(`UPDATE ibkrnew_authorizations SET status='submitted' WHERE authorization_id=? AND owner_user_id=? AND status IN ('issued','uncertain')`).run(order.order_ref, bridge.owner_user_id);
+    for (const order of payload.open_orders || []) if (String(order.order_ref || '').startsWith('IBKRNewAuthorization_')) {
+      db.prepare(`UPDATE ibkrnew_authorizations SET status='submitted' WHERE authorization_id=? AND owner_user_id=? AND account_id=? AND bridge_id=? AND status IN ('issued','uncertain')`).run(order.order_ref, bridge.owner_user_id, bridge.account_id, bridge.bridge_id);
+      db.prepare(`UPDATE ibkrnew_command_outbox SET status='acknowledged',acknowledged_at=?,lease_until=NULL WHERE authorization_id=? AND owner_user_id=? AND account_id=? AND bridge_id=? AND status IN ('pending','claimed','uncertain')`).run(created, order.order_ref, bridge.owner_user_id, bridge.account_id, bridge.bridge_id);
+    }
     reconcileFilledReservations(bridge, payload.positions || [], created, db);
     const policy = ensureIbkrNewDefaults(bridge.owner_user_id).policy;
     reconcileIbkrNewGoal(bridge.owner_user_id, { policy, environment: bridge.environment, at: occurred });
     const pnl = Number(payload.realized_pnl_day_usd || 0) + Number(payload.unrealized_pnl_usd || 0);
     if (pnl <= -Number(policy.loss_limits.daily_loss_limit_usd)) {
       db.prepare(`INSERT INTO ibkrnew_circuit_breakers(owner_user_id,environment,breaker_type,active,reason,created_at) VALUES(?,?,'daily_loss',1,?,?) ON CONFLICT(owner_user_id,environment,breaker_type) DO UPDATE SET active=1,reason=excluded.reason,created_at=excluded.created_at,cleared_at=NULL`).run(bridge.owner_user_id, bridge.environment, `Daily P&L ${pnl} breached limit`, created);
-      db.prepare(`UPDATE ibkrnew_command_outbox SET status='cancelled',acknowledged_at=? WHERE owner_user_id=? AND bridge_id IN (SELECT bridge_id FROM ibkrnew_bridges WHERE owner_user_id=? AND environment=?) AND status IN ('pending','claimed')`).run(created, bridge.owner_user_id, bridge.owner_user_id, bridge.environment);
-      db.prepare(`UPDATE ibkrnew_budget_reservations SET daily_released_usd=daily_reserved_usd,gross_released_usd=gross_reserved_usd,status='released',updated_at=? WHERE owner_user_id=? AND authorization_id IN (SELECT a.authorization_id FROM ibkrnew_authorizations a JOIN ibkrnew_bridges b ON b.bridge_id=a.bridge_id WHERE a.owner_user_id=? AND b.environment=?) AND status='reserved'`).run(created, bridge.owner_user_id, bridge.owner_user_id, bridge.environment);
+      cancelPendingEnvironmentEntries(bridge.owner_user_id, bridge.environment, 'daily_loss_limit', db);
     }
   }
   if (eventType === 'position.changed' && Array.isArray(payload.positions)) {
@@ -1239,15 +1251,10 @@ export function claimCommands(bridge, limit = 10, protocolVersion = 0) {
   const tx = db.transaction(() => {
     const goalBlocked = db.prepare(`SELECT o.authorization_id FROM ibkrnew_command_outbox o LEFT JOIN ibkrnew_goal_trade_links l ON l.authorization_id=o.authorization_id LEFT JOIN ibkrnew_goal_cycles c ON c.cycle_id=l.cycle_id LEFT JOIN ibkrnew_goals g ON g.goal_id=l.goal_id WHERE o.bridge_id=? AND o.status IN ('pending','claimed') AND (c.status IS NULL OR c.status<>'ACTIVE' OR g.status<>'ACTIVE' OR c.scheduled_end_at<=?)`).all(bridge.bridge_id, ts);
     for (const row of goalBlocked) {
-      db.prepare(`UPDATE ibkrnew_command_outbox SET status='cancelled',acknowledged_at=?,lease_until=NULL WHERE authorization_id=? AND status IN ('pending','claimed')`).run(ts, row.authorization_id);
-      db.prepare(`UPDATE ibkrnew_authorizations SET status='cancelled' WHERE authorization_id=? AND status IN ('issued','pending_approval','uncertain')`).run(row.authorization_id);
-      db.prepare(`UPDATE ibkrnew_budget_reservations SET daily_released_usd=daily_reserved_usd,gross_released_usd=gross_reserved_usd,status='released',updated_at=? WHERE authorization_id=? AND status='reserved'`).run(ts, row.authorization_id);
+      retireUnexecutedAuthorization(db, row.authorization_id, 'cancelled', ts);
     }
     const expired = db.prepare(`SELECT authorization_id FROM ibkrnew_command_outbox WHERE bridge_id=? AND status IN ('pending','claimed') AND expires_at<=?`).all(bridge.bridge_id, ts);
-    db.prepare(`UPDATE ibkrnew_command_outbox SET status='expired' WHERE bridge_id=? AND status IN ('pending','claimed') AND expires_at<=?`).run(bridge.bridge_id, ts);
-    const release = db.prepare(`UPDATE ibkrnew_budget_reservations SET daily_released_usd=daily_reserved_usd,gross_released_usd=gross_reserved_usd,status='released',updated_at=? WHERE authorization_id=? AND status='reserved'`);
-    const expireAuth = db.prepare(`UPDATE ibkrnew_authorizations SET status='expired' WHERE authorization_id=? AND status='issued'`);
-    for (const row of expired) { release.run(ts, row.authorization_id); expireAuth.run(row.authorization_id); }
+    for (const row of expired) retireUnexecutedAuthorization(db, row.authorization_id, 'expired', ts);
     db.prepare(`UPDATE ibkrnew_command_outbox SET status='pending',lease_until=NULL WHERE bridge_id=? AND status='claimed' AND lease_until<=?`).run(bridge.bridge_id, ts);
     const rows = db.prepare(`SELECT * FROM ibkrnew_command_outbox WHERE bridge_id=? AND status='pending' AND available_at<=? AND expires_at>? ORDER BY created_at LIMIT ?`).all(bridge.bridge_id, ts, ts, Math.min(50, Math.max(1, Number(limit) || 10)));
     const mark = db.prepare(`UPDATE ibkrnew_command_outbox SET status='claimed',claimed_at=?,lease_until=? WHERE command_id=? AND status='pending'`);
@@ -1261,12 +1268,15 @@ export function acknowledgeCommand(bridge, commandId, status, detail = {}) {
   const cleanDetail = sanitizeIbkrNewPersistence(detail); const db = getDb(); const row = db.prepare(`SELECT * FROM ibkrnew_command_outbox WHERE command_id=? AND bridge_id=?`).get(commandId, bridge.bridge_id);
   if (!row) throw Object.assign(new Error('command not found'), { status: 404 });
   const mapped = status === 'submitted' ? 'acknowledged' : status;
+  if (row.account_id !== bridge.account_id) throw Object.assign(new Error('command belongs to a prior account-reference epoch'), { status: 409 });
+  if (row.status === 'acknowledged' && status === 'uncertain') return { ok: true, duplicate: true, command_id: commandId, status: 'submitted', detail: cleanDetail };
+  if (row.status === 'filled' && ['submitted','uncertain'].includes(status)) return { ok: true, duplicate: true, command_id: commandId, status: 'filled', detail: cleanDetail };
   if (row.status === mapped || row.status === status) return { ok: true, duplicate: true, command_id: commandId, status, detail: cleanDetail };
-  if (row.status !== 'claimed' || row.account_id !== bridge.account_id) throw Object.assign(new Error('command is no longer claimable or belongs to a prior account-reference epoch'), { status: 409 });
+  if (!['claimed','uncertain'].includes(row.status) || row.account_id !== bridge.account_id) throw Object.assign(new Error('command is no longer claimable or belongs to a prior account-reference epoch'), { status: 409 });
   const ts = nowIso(); const tx = db.transaction(() => {
-    const updated = db.prepare(`UPDATE ibkrnew_command_outbox SET status=?,acknowledged_at=?,lease_until=NULL WHERE command_id=? AND status='claimed' AND account_id=?`).run(mapped, ts, commandId, bridge.account_id);
+    const updated = db.prepare(`UPDATE ibkrnew_command_outbox SET status=?,acknowledged_at=?,lease_until=NULL WHERE command_id=? AND status IN ('claimed','uncertain') AND account_id=?`).run(mapped, ts, commandId, bridge.account_id);
     if (!updated.changes) throw Object.assign(new Error('command state changed before acknowledgement'), { status: 409 });
-    db.prepare(`UPDATE ibkrnew_authorizations SET status=? WHERE authorization_id=? AND status NOT IN ('cancelled','expired')`).run(status, row.authorization_id);
+    db.prepare(`UPDATE ibkrnew_authorizations SET status=? WHERE authorization_id=? AND status NOT IN ('cancelled','expired','filled')`).run(status, row.authorization_id);
     if (['rejected', 'cancelled'].includes(status)) db.prepare(`UPDATE ibkrnew_budget_reservations SET daily_released_usd=daily_reserved_usd,gross_released_usd=gross_reserved_usd,status='released',updated_at=? WHERE authorization_id=? AND status='reserved'`).run(ts, row.authorization_id);
     if (status === 'filled') db.prepare(`UPDATE ibkrnew_budget_reservations SET filled_usd=daily_reserved_usd,status='filled',updated_at=? WHERE authorization_id=?`).run(ts, row.authorization_id);
   }); tx();

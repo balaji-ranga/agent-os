@@ -98,6 +98,17 @@ try {
   await execution.executeCommand(command, { placeProtected: async () => { submitted += 1; } });
   assert.equal(submitted, 1); assert.deepEqual(acknowledgements, ['submitted', 'submitted']);
 
+  const retryCalls = [];
+  const retry = make(async (url, request) => { retryCalls.push({ url, body: JSON.parse(request.body) }); return { ok: true, json: async () => ({ ok: true, status: JSON.parse(request.body).status }) }; });
+  retry.markCommand('expired-submitted', 'submitted', { entry_order_id: 123 });
+  retry.markCommand('crashed-executing', 'executing');
+  const restartedRetry = new IBKRNewBridgeCore({ apiUrl: retry.apiUrl, bridgeId: retry.bridgeId, token: retry.token, spoolDir: retry.spoolDir, fetchImpl: retry.fetch });
+  await restartedRetry.retryAcknowledgements();
+  assert.deepEqual(retryCalls.map(c => c.body.status), ['submitted','uncertain']);
+  assert.equal(retryCalls.every(c => c.url.endsWith('/ack')), true, 'persisted outcomes are acknowledged without claiming or resubmitting expired orders');
+  await restartedRetry.retryAcknowledgements();
+  assert.equal(retryCalls.length, 2, 'acknowledged outcomes are not repeated');
+
   const broker = Object.create(IBKRNewGateway.prototype);
   broker.config = { environment: 'paper', executionEnabled: true }; broker.connected = true;
   broker.accountAttestation = { status: 'verified', execution_ready: true };

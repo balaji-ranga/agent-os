@@ -138,7 +138,7 @@ async function runCycle() {
     await ensureGatewayConnected();
     const gatewayHealth = gateway?.health() || { connected: false };
     core.emit('bridge.heartbeat', {
-      bridge_version: '1.2.1',
+      bridge_version: '1.2.2',
       gateway_connected: gatewayHealth.connected,
       mode: mock ? `${tradingMode}_mock` : tradingMode,
       account_attestation: gatewayHealth.account_attestation || { status: mock ? 'verified' : 'failed', environment: tradingMode, execution_ready: mock, reason_code: mock ? null : 'GATEWAY_NOT_ATTESTED' },
@@ -157,6 +157,7 @@ async function runCycle() {
     const delivery = await core.flush();
     if (delivery.remaining > 0) return;
     if (gatewayHealth.account_attestation?.execution_ready !== true) return;
+    await core.retryAcknowledgements();
     for (const command of await core.claim(10)) {
       if (!gatewayHealth.connected) continue;
       await core.executeCommand(command, gateway);

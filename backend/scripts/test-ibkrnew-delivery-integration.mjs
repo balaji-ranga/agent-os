@@ -54,7 +54,32 @@ try {
   assert.equal(getDb().prepare('SELECT COUNT(*) count FROM ibkrnew_events WHERE bridge_id=? AND source_event_id=?').get(bridge.bridge_id, event.event_id).count, 1);
   assert.equal(service.reconcileIbkrNewBridgeSequence(bridge.bridge_id), 4);
   assert.equal(service.getDashboard(owner).account.cash_usd, 8200);
-  console.log('IBKRNew bridge ↔ backend delivery integration passed: callback race, real quarantine/recovery, lost receipt and idempotency');
+  // A broker submission followed by an unavailable cloud acknowledgement must
+  // survive restart and TTL expiry without freeing budget or placing it twice.
+  const db = getDb(); const ts = new Date().toISOString();
+  const authId = 'IBKRNewAuthorization_ack-expiry'; const commandId = 'IBKRNewCommand_ack-expiry';
+  db.prepare(`INSERT INTO ibkrnew_authorizations(authorization_id,owner_user_id,account_id,bridge_id,signal_event_id,expression,authorization_json,status,expires_at,created_at) VALUES(?,?,?,?,?,'LONG_STOCK','{}','issued',?,?)`).run(authId, owner, bridge.account_id, bridge.bridge_id, 'ack-expiry-signal', new Date(Date.now() + 60000).toISOString(), ts);
+  db.prepare(`INSERT INTO ibkrnew_budget_reservations(reservation_id,owner_user_id,account_id,trading_day,authorization_id,expression,daily_reserved_usd,gross_reserved_usd,status,created_at,updated_at) VALUES('ack-expiry-reservation',?,?,?,?,'LONG_STOCK',100,100,'reserved',?,?)`).run(owner, bridge.account_id, ts.slice(0,10), authId, ts, ts);
+  db.prepare(`INSERT INTO ibkrnew_command_outbox(command_id,owner_user_id,account_id,bridge_id,authorization_id,command_json,signature,status,available_at,expires_at,claimed_at,created_at) VALUES(?,?,?,?,?,'{}','test','claimed',?,?,?,?)`).run(commandId, owner, bridge.account_id, bridge.bridge_id, authId, ts, new Date(Date.now() + 60000).toISOString(), ts, ts);
+  let failedAck = true; let placed = 0;
+  const ackFetch = async (_url, request) => {
+    if (failedAck) { failedAck = false; throw new Error('cloud acknowledgement unavailable'); }
+    const body = JSON.parse(request.body); const receipt = service.acknowledgeCommand(bridge, commandId, body.status, body.detail);
+    return { ok: true, json: async () => receipt };
+  };
+  const execution = new IBKRNewBridgeCore({ apiUrl: 'https://test.invalid', bridgeId: bridge.bridge_id, token: credentials.token, spoolDir: join(root,'execution'), fetchImpl: ackFetch });
+  execution.bootstrap = async () => ({ environment: 'paper', account_ref: bridge.account_id, execution_mode: { requested_mode: 'paper', execution_enabled: true }, goal: { opening_trades_allowed: true, cycle: { cycle_id: 'test-cycle' } } });
+  await assert.rejects(() => execution.executeCommand({ command_id: commandId, authorization: { environment: 'paper', account_ref: bridge.account_id, goal: { cycle_id: 'test-cycle' } } }, { placeProtected: async () => { placed++; return { entry_order_id: 7 }; } }), /acknowledgement unavailable/);
+  db.prepare(`UPDATE ibkrnew_authorizations SET expires_at=? WHERE authorization_id=?`).run(new Date(Date.now()-60000).toISOString(), authId);
+  service.getDashboard(owner);
+  assert.equal(db.prepare('SELECT status FROM ibkrnew_command_outbox WHERE command_id=?').get(commandId).status, 'uncertain');
+  assert.equal(db.prepare('SELECT status FROM ibkrnew_budget_reservations WHERE authorization_id=?').get(authId).status, 'reserved');
+  const restart = new IBKRNewBridgeCore({ apiUrl: execution.apiUrl, bridgeId: execution.bridgeId, token: execution.token, spoolDir: execution.spoolDir, fetchImpl: ackFetch });
+  await restart.retryAcknowledgements();
+  assert.equal(placed, 1); assert.equal(restart.commandSeen(commandId).ack_pending, false);
+  assert.equal(db.prepare('SELECT status FROM ibkrnew_command_outbox WHERE command_id=?').get(commandId).status, 'acknowledged');
+  assert.equal(db.prepare('SELECT status FROM ibkrnew_budget_reservations WHERE authorization_id=?').get(authId).status, 'reserved');
+  console.log('IBKRNew bridge ↔ backend integration passed: callback race, quarantine/recovery, lost receipts, idempotency and submitted-order acknowledgement after restart/expiry');
 } finally {
   getDb().close();
   rmSync(root, { recursive: true, force: true });

@@ -54,7 +54,7 @@ export class IBKRNewBridgeCore {
   pendingLines() { return [this.batchPath, this.spoolPath].flatMap((path) => existsSync(path) ? readFileSync(path, 'utf8').split(/\r?\n/).filter(Boolean) : []); }
   spoolDepth() { return this.pendingLines().length; }
   commandSeen(commandId) { return this.commandState()[commandId] || null; }
-  markCommand(commandId, status, detail = {}) { const state = this.commandState(); state[commandId] = { status, detail, updated_at: this.now().toISOString() }; this.atomicWrite(this.commandStatePath, JSON.stringify(state)); return state[commandId]; }
+  markCommand(commandId, status, detail = {}) { const state = this.commandState(); state[commandId] = { status, detail, ack_pending: true, updated_at: this.now().toISOString() }; this.atomicWrite(this.commandStatePath, JSON.stringify(state)); return state[commandId]; }
   headers() { return { 'content-type': 'application/json', 'x-ibkrnew-bridge-id': this.bridgeId, 'x-ibkrnew-bridge-token': this.token }; }
   atomicWrite(path, content) { const temp = `${path}.next`; writeFileSync(temp, content, { mode: 0o600 }); renameSync(temp, path); }
   persistSequence() { this.atomicWrite(this.statePath, JSON.stringify({ bridge_id: this.bridgeId, sequence: this.sequence })); }
@@ -186,7 +186,24 @@ export class IBKRNewBridgeCore {
   }
   async acknowledge(commandId, status, detail = {}) {
     const response = await this.request(`/bridge/commands/${encodeURIComponent(commandId)}/ack`, { method: 'POST', headers: this.headers(), body: JSON.stringify(sanitizeBridgeEgress({ status, detail })) }, 'command acknowledgement');
-    if (!response.ok) throw new Error(`IBKRNew acknowledgement failed: ${response.status}`); return response.json();
+    if (!response.ok) throw new Error(`IBKRNew acknowledgement failed: ${response.status}`);
+    const receipt = await response.json();
+    if (receipt?.ok !== true) throw new Error('IBKRNew acknowledgement receipt is invalid');
+    const state = this.commandState();
+    if (state[commandId]) {
+      state[commandId] = { ...state[commandId], status: receipt.status || status, ack_pending: false, acknowledged_at: this.now().toISOString() };
+      this.atomicWrite(this.commandStatePath, JSON.stringify(state));
+    }
+    return receipt;
+  }
+  async retryAcknowledgements() {
+    for (const [commandId, recorded] of Object.entries(this.commandState())) {
+      if (recorded.ack_pending !== true || recorded.acknowledged_at) continue;
+      const status = ['submitted', 'rejected', 'uncertain'].includes(recorded.status) ? recorded.status : 'uncertain';
+      // Reconcile a persisted broker outcome even after its command lease or
+      // order TTL expires. This never calls placeProtected or creates an order.
+      await this.acknowledge(commandId, status, recorded.detail || {});
+    }
   }
 }
 
