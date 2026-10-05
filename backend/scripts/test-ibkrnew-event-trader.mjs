@@ -353,6 +353,43 @@ assert.ok(live.instrument_profiles.some((profile) => profile.symbol === 'MSFT'))
 assert.equal(service.getIbkrNewSummary(other).totals.trade_count, 0, 'reports remain owner scoped');
 assert.equal(service.getIbkrNewEventTimeline(other).pagination.total_items, 0, 'event timeline remains owner scoped');
 
+// Delivery receipts and projections must be atomic, not just HTTP-successful.
+const deliveryOwner = 'IBKRNewOwner_Delivery';
+const deliveryCredentials = service.registerBridge(deliveryOwner);
+const deliveryBridge = service.authenticateBridge(deliveryCredentials.bridge_id, deliveryCredentials.token);
+const deliveryEvent = (sequence, eventType, payload = {}) => ({ event_id: `delivery-${sequence}`, sequence, event_type: eventType, payload });
+service.ingestBridgeEvent(deliveryBridge, deliveryEvent(1, 'bridge.heartbeat', { gateway_connected: true, account_attestation: { status: 'verified', environment: 'paper', execution_ready: true } }));
+const beforeGap = getDb().prepare('SELECT last_seen_at,last_sequence FROM ibkrnew_bridges WHERE bridge_id=?').get(deliveryBridge.bridge_id);
+const deliveryGap = service.ingestBridgeEvent(deliveryBridge, deliveryEvent(3, 'account.snapshot', { cash_usd: 5000, eligible_capital_usd: 5000 }));
+assert.equal(deliveryGap.accepted, false); assert.equal(deliveryGap.expected_sequence, 2);
+assert.deepEqual(getDb().prepare('SELECT last_seen_at,last_sequence FROM ibkrnew_bridges WHERE bridge_id=?').get(deliveryBridge.bridge_id), beforeGap, 'rejected events cannot refresh health or cursor');
+const rebased = service.ingestBridgeEvent(deliveryBridge, { ...deliveryEvent(3, 'account.snapshot', { cash_usd: 5000, eligible_capital_usd: 5000 }), sequence: 2 });
+assert.equal(rebased.accepted, true, 'the same unaccepted event id can recover at the next committed sequence');
+assert.equal(service.ingestBridgeEvent(deliveryBridge, { ...deliveryEvent(3, 'account.snapshot'), sequence: 2 }).duplicate, true);
+assert.throws(() => service.ingestBridgeEvent(deliveryBridge, deliveryEvent(3, 'account.snapshot')), /identity cannot be changed/);
+getDb().exec(`CREATE TRIGGER ibkrnew_test_projection_failure BEFORE UPDATE ON ibkrnew_account_state WHEN NEW.owner_user_id='${deliveryOwner}' BEGIN SELECT RAISE(ABORT,'injected projection failure'); END`);
+const failed = deliveryEvent(4, 'account.snapshot', { cash_usd: 6000, eligible_capital_usd: 6000 }); failed.sequence = 3;
+assert.throws(() => service.ingestBridgeEvent(deliveryBridge, failed), /injected projection failure/);
+assert.equal(getDb().prepare('SELECT last_sequence FROM ibkrnew_bridges WHERE bridge_id=?').get(deliveryBridge.bridge_id).last_sequence, 2);
+assert.equal(getDb().prepare('SELECT COUNT(*) count FROM ibkrnew_events WHERE bridge_id=? AND source_event_id=?').get(deliveryBridge.bridge_id, failed.event_id).count, 0, 'failed side effects cannot leave an accepted receipt');
+getDb().exec('DROP TRIGGER ibkrnew_test_projection_failure');
+assert.equal(service.ingestBridgeEvent(deliveryBridge, failed).accepted, true);
+assert.equal(service.getDashboard(deliveryOwner).account.cash_usd, 6000);
+
+const oldCredentials = service.registerBridge(deliveryOwner);
+const oldBridge = service.authenticateBridge(oldCredentials.bridge_id, oldCredentials.token);
+service.ingestBridgeEvent(oldBridge, { event_id: 'old-heartbeat', sequence: 1, event_type: 'bridge.heartbeat', occurred_at: new Date(Date.now() - 120000).toISOString(), payload: { gateway_connected: true, account_attestation: { status: 'verified', environment: 'paper', execution_ready: true } } });
+getDb().prepare("UPDATE ibkrnew_component_health SET last_seen_at=datetime('now','-2 hours') WHERE bridge_id=?").run(oldBridge.bridge_id);
+getDb().prepare("UPDATE ibkrnew_bridge_attestations SET updated_at=? WHERE bridge_id=?").run(new Date(Date.now() - 120000).toISOString(), oldBridge.bridge_id);
+const healthView = service.getIbkrNewLiveOperations(deliveryOwner);
+assert.equal(healthView.active_bridge_id, deliveryBridge.bridge_id);
+assert.ok(healthView.health.every((row) => row.bridge_id === deliveryBridge.bridge_id));
+assert.ok(healthView.historical_health.some((row) => row.bridge_id === oldBridge.bridge_id));
+getDb().prepare('UPDATE ibkrnew_bridge_attestations SET attested_at=? WHERE bridge_id=?').run(new Date(Date.now() - 120000).toISOString(), deliveryBridge.bridge_id);
+assert.equal(service.getIbkrNewExecutionMode(deliveryOwner).execution_enabled, false, 'fresh account/command activity cannot renew an expired heartbeat attestation');
+assert.deepEqual(service.claimCommands(deliveryBridge, 10, 2), []);
+assert.ok(service.getIbkrNewLiveOperations(other).health.every((row) => row.owner_user_id === other));
+
 const goalOwner = 'IBKRNewOwner_GoalLifecycle'; const goalCredentials = service.registerBridge(goalOwner); const goalBridge = service.authenticateBridge(goalCredentials.bridge_id, goalCredentials.token);
 service.ingestBridgeEvent(goalBridge, { event_id: 'goal-1', sequence: 1, event_type: 'account.snapshot', occurred_at: new Date().toISOString(), payload: { eligible_capital_usd: 10000, cash_usd: 10000, positions: [], open_orders: [] } });
 service.ingestBridgeEvent(goalBridge, { event_id: 'goal-2', sequence: 2, event_type: 'instrument.profile_refreshed', occurred_at: new Date().toISOString(), payload: healthyStockProfile('AAPL') });

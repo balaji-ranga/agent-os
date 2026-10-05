@@ -2,7 +2,7 @@ import { config as loadDotEnv } from 'dotenv';
 import { existsSync, readFileSync } from 'fs';
 import { isAbsolute, resolve } from 'path';
 import { fileURLToPath } from 'url';
-import { IBKRNewBridgeCore, IBKRNewFeatureEngine, bridgeRuntimeStalled, buildMarketSubscriptionComponent, commandMatchesBootstrap, selectUniverseProfiles } from './core.js';
+import { IBKRNewBridgeCore, IBKRNewFeatureEngine, acquireBridgeRuntimeLock, bridgeRuntimeStalled, buildMarketSubscriptionComponent, selectUniverseProfiles } from './core.js';
 import { IBKRNewGateway } from './gateway.js';
 
 const packageRoot = fileURLToPath(new URL('..', import.meta.url));
@@ -24,6 +24,8 @@ const cfg = {
   spoolDir: packagePath(process.env.IBKRNEW_SPOOL_DIR, './data'),
   requestTimeoutMs: httpTimeoutMs,
 };
+const releaseRuntimeLock = acquireBridgeRuntimeLock(cfg.spoolDir);
+process.on('exit', releaseRuntimeLock);
 const core = new IBKRNewBridgeCore(cfg);
 const mock = process.env.IBKRNEW_MOCK === '1';
 const tradingMode = String(process.env.IBKRNEW_TRADING_MODE || 'paper').trim().toLowerCase();
@@ -78,12 +80,18 @@ function loadUniverseProfiles() {
 }
 
 async function connectGateway({ reconnect = false } = {}) {
-  const candidate = new IBKRNewGateway(gatewayConfig(), onGatewayEvent);
+  // Resynchronize while disconnected, before new broker callbacks can allocate
+  // sequences. Callbacks from a retired connection must not enter the spool.
+  boot = await core.bootstrap();
+  if (boot.environment !== tradingMode) throw new Error('ACCOUNT_ENVIRONMENT_MISMATCH');
+  const recovery = core.synchronizeSequence(boot.last_sequence);
+  let acceptingEvents = true;
+  const candidate = new IBKRNewGateway(gatewayConfig(), (type, payload) => { if (acceptingEvents) onGatewayEvent(type, payload); });
+  const disconnectCandidate = candidate.disconnect.bind(candidate);
+  candidate.disconnect = () => { acceptingEvents = false; disconnectCandidate(); };
   try {
     await candidate.connect();
-    boot = await core.bootstrap();
-    if (boot.environment !== tradingMode) throw new Error('ACCOUNT_ENVIRONMENT_MISMATCH');
-    core.synchronizeSequence(boot.last_sequence);
+    if (recovery.changed) core.emit('bridge.sequence_recovered', { component_id: 'IBKRNewDurableSpool', component_type: 'event_spool', message: 'Event delivery cursor reconciled; pending broker events preserved and account/open orders requested again.' });
     const profiles = loadUniverseProfiles();
     for (const profile of profiles) core.emitInstrumentProfile(profile);
     const symbols = [...new Set([...(boot.configs.universe.allowlist || []), ...profiles.map((profile) => profile.symbol)])];
@@ -130,7 +138,7 @@ async function runCycle() {
     await ensureGatewayConnected();
     const gatewayHealth = gateway?.health() || { connected: false };
     core.emit('bridge.heartbeat', {
-      bridge_version: '1.2.0',
+      bridge_version: '1.2.1',
       gateway_connected: gatewayHealth.connected,
       mode: mock ? `${tradingMode}_mock` : tradingMode,
       account_attestation: gatewayHealth.account_attestation || { status: mock ? 'verified' : 'failed', environment: tradingMode, execution_ready: mock, reason_code: mock ? null : 'GATEWAY_NOT_ATTESTED' },
@@ -146,29 +154,24 @@ async function runCycle() {
       core.emit('account.snapshot', gateway.snapshot());
       lastAccountSnapshotAt = Date.now();
     }
-    await core.flush();
+    const delivery = await core.flush();
+    if (delivery.remaining > 0) return;
     if (gatewayHealth.account_attestation?.execution_ready !== true) return;
     for (const command of await core.claim(10)) {
       if (!gatewayHealth.connected) continue;
-      const seen = core.commandSeen(command.command_id);
-      if (seen) {
-        await core.acknowledge(command.command_id, 'uncertain', { reason: 'durable_command_journal_reclaim', prior: seen });
-        continue;
-      }
-      try {
-        const executionBoot = await core.bootstrap();
-        if (!commandMatchesBootstrap(command, executionBoot)) throw new Error('account reference epoch changed before execution');
-        core.markCommand(command.command_id, 'executing');
-        const detail = await gateway.placeProtected(command);
-        core.markCommand(command.command_id, 'submitted', detail);
-        await core.acknowledge(command.command_id, 'submitted', detail);
-      } catch (error) {
-        core.markCommand(command.command_id, 'rejected', { error: error.message });
-        core.emit('desktop.component_error', { component_id: 'IBKRNewExecutionAdapter', component_type: 'execution_adapter', code: 'COMMAND_REJECTED', message: error.message, command_id: command.command_id });
-        await core.acknowledge(command.command_id, 'rejected', { error: error.message });
-      }
+      await core.executeCommand(command, gateway);
     }
   } catch (error) {
+    if (error.code === 'IBKRNEW_SEQUENCE_GAP') {
+      // No commands are claimed on this path. The next cycle bootstraps and
+      // reconciles the broker before execution can become ready again.
+      try { gateway?.disconnect(); } catch {}
+      gateway = null;
+      activeSubscriptionSymbols = [];
+      if (mock) { boot = await core.bootstrap(); core.synchronizeSequence(boot.last_sequence); }
+      console.warn('IBKRNew event sequence gap: preserving queued events and reconnecting for reconciliation.');
+      return;
+    }
     core.emit('desktop.component_error', { component_id: 'IBKRNewDesktopRuntime', component_type: 'desktop_runtime', code: 'LOOP_ERROR', message: error.message });
     console.warn(`IBKRNew offline: ${error.message}`);
   } finally {

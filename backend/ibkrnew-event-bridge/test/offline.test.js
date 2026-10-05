@@ -9,11 +9,11 @@ import { IBKRNewGateway, applyReconciliationState, evaluateAccountAttestation, n
 
 const dir = mkdtempSync(join(tmpdir(), 'ibkrnew-'));
 let calls = 0;
-const fakeFetch = async () => ({ ok: ++calls !== 2, status: calls === 2 ? 503 : 202, json: async () => ({ commands: [] }) });
+const fakeFetch = async () => ({ ok: ++calls !== 2, status: calls === 2 ? 503 : 202, json: async () => ({ accepted: true, status: 'accepted', commands: [] }) });
 const core = new IBKRNewBridgeCore({ apiUrl: 'https://example.test/api/ibkrnew-event-trader', bridgeId: 'IBKRNewBridge_test', token: 'secret', spoolDir: dir, fetchImpl: fakeFetch });
 core.emit('bridge.heartbeat', {}); core.emit('market.bar_closed', {});
-const partial = await core.flush(); assert.deepEqual(partial, { sent: 1, remaining: 1 });
-assert.equal(readFileSync(join(dir, 'IBKRNew-events.jsonl'), 'utf8').trim().split(/\r?\n/).length, 1);
+await assert.rejects(() => core.flush(), /delivery failed: 503/);
+assert.equal(core.spoolDepth(), 1);
 const sequenceDir = mkdtempSync(join(tmpdir(), 'ibkrnew-sequence-'));
 writeFileSync(join(sequenceDir, 'IBKRNew-state.json'), JSON.stringify({ bridge_id: 'IBKRNewBridge_prior', sequence: 8092 }));
 writeFileSync(join(sequenceDir, 'IBKRNew-events.jsonl'), `${JSON.stringify({ sequence: 8093, event_type: 'bridge.heartbeat' })}\n`);
@@ -47,7 +47,7 @@ const timeoutCore = new IBKRNewBridgeCore({ apiUrl: 'https://example.test/api/ib
 await assert.rejects(() => timeoutCore.bootstrap(), /bootstrap timed out after 20ms/);
 timeoutCore.emit('bridge.heartbeat', {});
 await assert.rejects(() => timeoutCore.flush(), /event flush timed out after 20ms/);
-assert.equal(readFileSync(join(timeoutDir, 'IBKRNew-events.jsonl'), 'utf8').trim().split(/\r?\n/).length, 1, 'timed-out event flush must preserve the durable spool');
+assert.equal(timeoutCore.spoolDepth(), 1, 'timed-out event flush must preserve the durable spool');
 const profileEvent = core.emitInstrumentProfile({ symbol: 'aapl', security_type: 'STK', index_memberships: ['SPX'], fundamentals: { market_cap_usd: 1 } });
 assert.equal(profileEvent.event_type, 'instrument.profile_refreshed'); assert.equal(profileEvent.payload.symbol, 'AAPL');
 assert.throws(() => core.emitInstrumentProfile({ symbol: 'SPY', security_type: 'OPT' }), /STK or ETF/);
@@ -133,7 +133,7 @@ assert.match(supervisor, /& \$Node \$EntryPoint/, 'Task Scheduler must not depen
 assert.match(supervisor, /Restarting in \$delaySeconds seconds/);
 assert.doesNotMatch(supervisor, /IBKRNEW_BRIDGE_TOKEN|IBKRNEW_ACCOUNT_ID/);
 const privacyDir = mkdtempSync(join(tmpdir(), 'ibkrnew-privacy-')); const sentBodies = [];
-const privacyCore = new IBKRNewBridgeCore({ apiUrl: 'https://example.test/api/ibkrnew-event-trader', bridgeId: 'IBKRNewBridge_privacy', token: 'secret', spoolDir: privacyDir, fetchImpl: async (_url, request) => { sentBodies.push(request?.body || ''); return { ok: true, status: 202, json: async () => ({}) }; } });
+const privacyCore = new IBKRNewBridgeCore({ apiUrl: 'https://example.test/api/ibkrnew-event-trader', bridgeId: 'IBKRNewBridge_privacy', token: 'secret', spoolDir: privacyDir, fetchImpl: async (_url, request) => { sentBodies.push(request?.body || ''); return { ok: true, status: 202, json: async () => ({ accepted: true, status: 'accepted' }) }; } });
 privacyCore.emit('bridge.gateway_error', { account_id: 'DU1234567', message: 'Account DU1234567 is invalid', nested: [{ acctCode: 'DU1234567' }] });
 assert.doesNotMatch(readFileSync(join(privacyDir, 'IBKRNew-events.jsonl'), 'utf8'), /DU1234567|account_id|acctCode/);
 writeFileSync(join(privacyDir, 'IBKRNew-events.jsonl'), `${JSON.stringify({ event_id: 'legacy', sequence: 2, event_type: 'desktop.component_error', payload: { message: 'Legacy DU7654321 error' } })}\n`);

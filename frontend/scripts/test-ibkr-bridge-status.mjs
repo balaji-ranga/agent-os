@@ -9,5 +9,7 @@ assert.equal(selectActiveBridge([newerOffline, online, olderOffline])?.bridge_id
 assert.equal(selectActiveBridge([olderOffline, newerOffline])?.bridge_id, 'newer-offline');
 assert.equal(selectActiveBridge([{ ...online, revoked_at: '2026-10-04T06:36:00Z' }, newerOffline])?.bridge_id, 'newer-offline');
 assert.equal(selectActiveBridge([]), null);
+assert.equal(selectActiveBridge([{ ...online, revoked_at: '2026-10-04T06:36:00Z' }]), null);
+assert.equal(selectActiveBridge([{ ...olderOffline, last_seen_at: '2026-10-05T00:00:00Z', last_accepted_heartbeat_at: '2026-10-03T00:00:00Z' }, newerOffline]).bridge_id, 'newer-offline', 'polling cannot make an old bridge outrank recent accepted activity');
 
 console.log('IBKRNew active bridge status tests passed');

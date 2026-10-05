@@ -1,4 +1,4 @@
-import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'fs';
+import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import crypto from 'crypto';
 
@@ -45,37 +45,45 @@ export class IBKRNewBridgeCore {
     this.apiUrl = apiUrl.replace(/\/$/, ''); this.bridgeId = bridgeId; this.token = token; this.fetch = fetchImpl; this.now = now;
     this.requestTimeoutMs = Math.max(10, Number(requestTimeoutMs) || 15000);
     this.spoolDir = spoolDir; mkdirSync(spoolDir, { recursive: true }); this.statePath = join(spoolDir, 'IBKRNew-state.json'); this.spoolPath = join(spoolDir, 'IBKRNew-events.jsonl'); this.commandStatePath = join(spoolDir, 'IBKRNew-command-state.json');
+    this.batchPath = join(spoolDir, 'IBKRNew-events.inflight.jsonl');
+    this.flushPromise = null;
     const state = existsSync(this.statePath) ? JSON.parse(readFileSync(this.statePath, 'utf8')) : {};
     this.sequence = state.bridge_id && state.bridge_id !== bridgeId ? 0 : Number(state.sequence || 0);
   }
   commandState() { return existsSync(this.commandStatePath) ? JSON.parse(readFileSync(this.commandStatePath, 'utf8')) : {}; }
-  spoolDepth() { return existsSync(this.spoolPath) ? readFileSync(this.spoolPath, 'utf8').split(/\r?\n/).filter(Boolean).length : 0; }
+  pendingLines() { return [this.batchPath, this.spoolPath].flatMap((path) => existsSync(path) ? readFileSync(path, 'utf8').split(/\r?\n/).filter(Boolean) : []); }
+  spoolDepth() { return this.pendingLines().length; }
   commandSeen(commandId) { return this.commandState()[commandId] || null; }
-  markCommand(commandId, status, detail = {}) { const state = this.commandState(); state[commandId] = { status, detail, updated_at: this.now().toISOString() }; writeFileSync(this.commandStatePath, JSON.stringify(state), { mode: 0o600 }); return state[commandId]; }
+  markCommand(commandId, status, detail = {}) { const state = this.commandState(); state[commandId] = { status, detail, updated_at: this.now().toISOString() }; this.atomicWrite(this.commandStatePath, JSON.stringify(state)); return state[commandId]; }
   headers() { return { 'content-type': 'application/json', 'x-ibkrnew-bridge-id': this.bridgeId, 'x-ibkrnew-bridge-token': this.token }; }
-  persistSequence() { writeFileSync(this.statePath, JSON.stringify({ bridge_id: this.bridgeId, sequence: this.sequence }), { mode: 0o600 }); }
+  atomicWrite(path, content) { const temp = `${path}.next`; writeFileSync(temp, content, { mode: 0o600 }); renameSync(temp, path); }
+  persistSequence() { this.atomicWrite(this.statePath, JSON.stringify({ bridge_id: this.bridgeId, sequence: this.sequence })); }
   synchronizeSequence(serverSequence) {
     const sequence = Number(serverSequence);
     if (!Number.isSafeInteger(sequence) || sequence < 0) throw new Error('IBKRNew bootstrap returned an invalid bridge sequence');
-    if (sequence === this.sequence) { this.persistSequence(); return { changed: false, sequence, archived_spool: null }; }
-    const pendingSequences = existsSync(this.spoolPath)
-      ? readFileSync(this.spoolPath, 'utf8').split(/\r?\n/).filter(Boolean).map((line) => {
-        try { return Number(JSON.parse(line).sequence); } catch { return NaN; }
-      })
-      : [];
-    const replayable = pendingSequences.length > 0
-      && pendingSequences[0] === sequence + 1
-      && pendingSequences.at(-1) === this.sequence
-      && pendingSequences.every((value, index) => Number.isSafeInteger(value) && (index === 0 || value === pendingSequences[index - 1] + 1));
-    if (replayable) { this.persistSequence(); return { changed: false, sequence: this.sequence, archived_spool: null }; }
+    // Include a crashed upload batch, discard only events already committed by
+    // the server, and retain callback events appended while HTTP was pending.
+    const lines = this.pendingLines();
+    const state = existsSync(this.statePath) ? JSON.parse(readFileSync(this.statePath, 'utf8')) : {};
+    const matchingBridge = !state.bridge_id || state.bridge_id === this.bridgeId;
+    const pending = matchingBridge ? [...new Map(lines.map((line) => JSON.parse(line)).filter((event) => Number(event.sequence) > sequence).map((event) => [event.event_id || `legacy:${event.sequence}`, event])).values()] : [];
+    const contiguous = pending.every((event, index) => Number(event.sequence) === sequence + index + 1);
     let archivedSpool = null;
-    if (this.spoolDepth() > 0) {
-      archivedSpool = join(this.spoolDir, `IBKRNew-events.orphaned-${Date.now()}.jsonl`);
-      renameSync(this.spoolPath, archivedSpool);
+    if (!matchingBridge || !contiguous || (!pending.length && this.sequence !== sequence)) {
+      if (lines.length) {
+        archivedSpool = join(this.spoolDir, `IBKRNew-events.orphaned-${Date.now()}-${crypto.randomUUID()}.jsonl`);
+        writeFileSync(archivedSpool, `${lines.join('\n')}\n`, { mode: 0o600 });
+      }
     }
-    this.sequence = sequence;
+    const replay = pending.map((event, index) => ({ ...event, sequence: sequence + index + 1 }));
+    // Persist the replacement before removing the upload batch. Event ids make
+    // replay after a crash idempotent, including a lost HTTP acknowledgement.
+    this.atomicWrite(this.spoolPath, replay.length ? `${replay.map((event) => JSON.stringify(event)).join('\n')}\n` : '');
+    if (existsSync(this.batchPath)) unlinkSync(this.batchPath);
+    const changed = this.sequence !== sequence + replay.length || !contiguous || !matchingBridge;
+    this.sequence = sequence + replay.length;
     this.persistSequence();
-    return { changed: true, sequence, archived_spool: archivedSpool };
+    return { changed, sequence: this.sequence, archived_spool: archivedSpool };
   }
   async request(path, init = {}, operation = 'request') {
     const controller = new AbortController();
@@ -109,15 +117,33 @@ export class IBKRNewBridgeCore {
     if (!symbol || !['STK', 'ETF'].includes(securityType)) throw new Error('IBKRNew instrument profile requires symbol and STK or ETF security_type');
     return this.emit('instrument.profile_refreshed', { ...profile, symbol, security_type: securityType }, occurredAt);
   }
-  async flush() {
-    if (!existsSync(this.spoolPath)) return { sent: 0, remaining: 0 };
-    const lines = readFileSync(this.spoolPath, 'utf8').split(/\r?\n/).filter(Boolean).map(sanitizeSpoolLine); let sent = 0;
-    for (const line of lines) {
-      const response = await this.request('/bridge/events', { method: 'POST', headers: this.headers(), body: line }, 'event flush');
-      if (!response.ok) break; sent += 1;
+  flush() {
+    if (!this.flushPromise) this.flushPromise = this.flushBatch().finally(() => { this.flushPromise = null; });
+    return this.flushPromise;
+  }
+  async flushBatch() {
+    let sent = 0;
+    while (sent < 200) {
+      if (!existsSync(this.batchPath)) {
+        if (!existsSync(this.spoolPath) || !readFileSync(this.spoolPath, 'utf8').trim()) break;
+        renameSync(this.spoolPath, this.batchPath);
+      }
+      const lines = readFileSync(this.batchPath, 'utf8').split(/\r?\n/).filter(Boolean);
+      if (!lines.length) { unlinkSync(this.batchPath); continue; }
+      const response = await this.request('/bridge/events', { method: 'POST', headers: this.headers(), body: sanitizeSpoolLine(lines[0]) }, 'event flush');
+      if (!response.ok) throw new Error(`IBKRNew event delivery failed: ${response.status}`);
+      const receipt = await response.json();
+      if (receipt?.accepted !== true || receipt?.status !== 'accepted') {
+        const error = new Error(`IBKRNew event not accepted: ${receipt?.reason || receipt?.status || 'invalid receipt'}`);
+        error.code = receipt?.status === 'quarantined' ? 'IBKRNEW_SEQUENCE_GAP' : 'IBKRNEW_EVENT_REJECTED';
+        throw error;
+      }
+      const remaining = lines.slice(1);
+      this.atomicWrite(this.batchPath, remaining.length ? `${remaining.join('\n')}\n` : '');
+      if (!remaining.length) unlinkSync(this.batchPath);
+      sent += 1;
     }
-    const remaining = lines.slice(sent); const temp = `${this.spoolPath}.next`; writeFileSync(temp, remaining.length ? `${remaining.join('\n')}\n` : '', { mode: 0o600 }); renameSync(temp, this.spoolPath);
-    return { sent, remaining: remaining.length };
+    return { sent, remaining: this.spoolDepth() };
   }
   async claim(limit = 10) {
     const response = await this.request('/bridge/commands/claim', { method: 'POST', headers: this.headers(), body: JSON.stringify({ limit, protocol_version: 2 }) }, 'command claim');
@@ -128,6 +154,28 @@ export class IBKRNewBridgeCore {
   async bootstrap() {
     const response = await this.request('/bridge/bootstrap', { headers: this.headers() }, 'bootstrap');
     if (!response.ok) throw new Error(`IBKRNew bootstrap failed: ${response.status}`); return response.json();
+  }
+  async executeCommand(command, gateway) {
+    const seen = this.commandSeen(command.command_id);
+    if (seen) {
+      const status = ['submitted', 'rejected', 'uncertain'].includes(seen.status) ? seen.status : 'uncertain';
+      return this.acknowledge(command.command_id, status, seen.detail);
+    }
+    let status; let detail;
+    try {
+      const executionBoot = await this.bootstrap();
+      if (!commandMatchesBootstrap(command, executionBoot)) throw new Error('account reference epoch changed before execution');
+      this.markCommand(command.command_id, 'executing');
+      detail = await gateway.placeProtected(command);
+      status = 'submitted';
+    } catch (error) {
+      status = error.submission_uncertain ? 'uncertain' : 'rejected';
+      detail = { error: error.message };
+      this.emit('desktop.component_error', { component_id: 'IBKRNewExecutionAdapter', component_type: 'execution_adapter', code: status === 'uncertain' ? 'COMMAND_UNCERTAIN' : 'COMMAND_REJECTED', message: error.message, command_id: command.command_id });
+    }
+    this.markCommand(command.command_id, status, detail);
+    // A receipt transport failure must never rewrite broker submission state.
+    return this.acknowledge(command.command_id, status, detail);
   }
   verifyCommand(received) {
     const { signature, expires_at: transportExpiry, ...command } = received || {};
@@ -169,6 +217,37 @@ export function selectUniverseProfiles(profiles, universe) {
     }
     return false;
   });
+}
+
+export function acquireBridgeRuntimeLock(spoolDir) {
+  mkdirSync(spoolDir, { recursive: true });
+  const path = join(spoolDir, 'IBKRNew-runtime.lock');
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    let fd;
+    try { fd = openSync(path, 'wx', 0o600); }
+    catch (error) {
+      if (error.code !== 'EEXIST') throw error;
+      let owner;
+      try { owner = JSON.parse(readFileSync(path, 'utf8')); }
+      catch {
+        if (Date.now() - statSync(path).mtimeMs < 60000) throw new Error('IBKRNew bridge runtime lock is still initializing');
+        renameSync(path, `${path}.incomplete-${Date.now()}`); continue;
+      }
+      if (!Number.isSafeInteger(owner.pid) || owner.pid < 1) throw new Error('IBKRNew bridge runtime lock owner is invalid');
+      try { process.kill(owner.pid, 0); }
+      catch (probe) {
+        if (probe.code === 'ESRCH') { unlinkSync(path); continue; }
+        throw new Error('IBKRNew bridge runtime lock owner cannot be verified');
+      }
+      throw new Error('Another IBKRNew bridge runtime already owns this spool');
+    }
+    const identity = { pid: process.pid, nonce: crypto.randomUUID() };
+    try { writeFileSync(fd, JSON.stringify(identity)); } finally { closeSync(fd); }
+    return () => {
+      if (existsSync(path) && JSON.parse(readFileSync(path, 'utf8')).nonce === identity.nonce) unlinkSync(path);
+    };
+  }
+  throw new Error('IBKRNew bridge runtime lock acquisition failed');
 }
 
 export function buildMarketSubscriptionComponent(symbols) {

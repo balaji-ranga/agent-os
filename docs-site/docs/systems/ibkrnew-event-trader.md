@@ -98,6 +98,12 @@ Frequent account refreshes keep the deterministic risk gate current. They do not
 
 ## Live activation and privacy
 
+### Bridge delivery health
+
+Live Operations reports health from accepted, account-attested heartbeats. A Running Windows task can still be offline if its events cannot be delivered. Current component cards belong to the active registration for the selected account context; earlier registrations are grouped under **Historical bridge components**.
+
+Uploads use a separate batch so new broker callbacks cannot be overwritten. Failed or quarantined events remain queued. On a sequence gap, command claiming stops while the bridge restores the accepted cursor, preserves pending event identities and reconnects for account/open-order reconciliation. Retrying a lost acknowledgement cannot apply the same event twice. Historical errors remain available without being presented as a current failure after a healthy heartbeat.
+
 Paper is selected by default. The toggle records which isolated account context the owner wants to operate. Orders remain blocked until an online bridge for that context proves that its locally configured account is present in IBKR’s managed accounts and has the expected Paper (`DU…`) or Live (non-`DU…`) classification. A Paper bridge cannot claim Live commands and a Live bridge cannot claim Paper commands. Switching contexts cancels unsubmitted entries from the prior context without copying its goal or progress; existing Live positions and broker-hosted protection remain visible for reconciliation.
 
 Flolah does not need the real IBKR account number in its cloud database. It uses an opaque account reference for owner-scoped events and reports. Never paste account numbers, tokens, environment files, statements or credential-bearing logs into chat, public issues or shared documents.

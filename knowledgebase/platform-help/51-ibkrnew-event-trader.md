@@ -149,6 +149,12 @@ If Live Operations shows the bridge offline, check the `IBKRNewBridge` Scheduled
 
 ## Privacy and sensitive data
 
+### Accepted heartbeats and delivery recovery
+
+Component health shows the current bridge for the selected Paper or Live account context. Older registrations remain under **Historical bridge components**. The main Bridge card uses the last accepted, account-attested heartbeat; a running Windows task or successful API polling alone does not establish healthy event delivery. Error counts are historical totals, and the last recorded error can be expanded separately.
+
+The bridge keeps callbacks in a new queue while it uploads a separate batch, and removes events only after Flolah explicitly accepts them. A sequence gap preserves queued broker events, suspends command claiming and triggers cursor recovery plus fresh account/open-order reconciliation. Stable event identities prevent duplicate processing after a lost acknowledgement. Queues belonging to another registration are archived locally and never transferred into the new account context. Use the packaged source-upgrade script for an immutable commit when dependencies are unchanged; it runs regression tests and preserves local credentials, profiles and data before restarting the task.
+
 The real IBKR account number is configured locally and must not be entered in Flolah chat or browser forms. Flolah stores a random opaque account reference, owner-scoped events/projections, configuration versions, positions, orders, fills, commissions, health and audit records. Bridge credentials are generated per owner/bridge, stored hashed on the server, and shown only as needed in the downloaded package.
 
 Do not upload the downloaded environment file, bridge token, Gateway credentials, account number, statements or diagnostic logs containing them to Master Data or a public issue. Revoke the bridge and generate a new package if its token may have been exposed.

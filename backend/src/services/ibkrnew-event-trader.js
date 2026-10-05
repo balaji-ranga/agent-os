@@ -462,7 +462,7 @@ function latestVerifiedBridge(ownerUserId, environment, db = getDb()) {
 export function getIbkrNewExecutionMode(ownerUserId) {
   ensureIbkrNewEventTraderSchema();
   const db = getDb(); const row = ensureExecutionModeRow(ownerUserId, db); const verified = latestVerifiedBridge(ownerUserId, row.requested_mode, db);
-  const freshnessMs = 60_000; const bridgeFresh = verified?.status === 'online' && verified?.last_seen_at && Date.now() - Date.parse(verified.last_seen_at) <= freshnessMs;
+  const freshnessMs = 60_000; const bridgeFresh = verified?.status === 'online' && verified?.attested_at && Date.now() - Date.parse(verified.attested_at) <= freshnessMs;
   const ready = row.activation_state === 'ACTIVE' && bridgeFresh;
   return {
     requested_mode: row.requested_mode,
@@ -495,7 +495,7 @@ export function setIbkrNewExecutionMode(ownerUserId, input = {}) {
   ensureIbkrNewEventTraderSchema();
   const db = getDb(); const mode = normalizeEnvironment(input.mode ?? input.trading_mode); const ts = nowIso();
   const prior = ensureExecutionModeRow(ownerUserId, db); const cancelled = prior.requested_mode === mode ? { cancelled_authorizations: 0 } : cancelPendingEnvironmentEntries(ownerUserId, prior.requested_mode, 'owner_switched_account_context', db);
-  const verified = latestVerifiedBridge(ownerUserId, mode, db); const fresh = verified?.status === 'online' && verified?.last_seen_at && Date.now() - Date.parse(verified.last_seen_at) <= 60_000;
+  const verified = latestVerifiedBridge(ownerUserId, mode, db); const fresh = verified?.status === 'online' && verified?.attested_at && Date.now() - Date.parse(verified.attested_at) <= 60_000;
   const state = fresh ? 'ACTIVE' : 'AWAITING_BRIDGE';
   db.prepare(`UPDATE ibkrnew_execution_modes SET requested_mode=?,activation_state=?,attested_bridge_id=?,attestation_status=?,attestation_reason=?,attested_at=?,confirmed_at=?,halted_at=NULL,updated_at=? WHERE owner_user_id=?`).run(mode, state, fresh ? verified.bridge_id : null, fresh ? 'verified' : null, fresh ? null : 'MATCHING_BRIDGE_ATTESTATION_REQUIRED', fresh ? verified.attested_at : null, ts, ts, ownerUserId);
   return { ...getIbkrNewExecutionMode(ownerUserId), ...cancelled };
@@ -1139,14 +1139,22 @@ function maybeAuthorize(bridge, eventId, payload) {
 }
 
 export function ingestBridgeEvent(bridge, input) {
-  ensureIbkrNewEventTraderSchema(); const db = getDb(); const sourceId = String(input.event_id || input.source_event_id || ''); const sequence = Number(input.sequence); const eventType = String(input.event_type || input.type || '');
+  ensureIbkrNewEventTraderSchema();
+  // Receipt, cursor, account projection, economics and decisions are one commit.
+  // A failed side effect must leave the original event retryable.
+  return getDb().transaction(() => ingestBridgeEventTransaction(bridge, input))();
+}
+
+function ingestBridgeEventTransaction(bridge, input) {
+  const db = getDb(); const sourceId = String(input.event_id || input.source_event_id || ''); const sequence = Number(input.sequence); const eventType = String(input.event_type || input.type || '');
   if (!sourceId || !Number.isSafeInteger(sequence) || sequence < 1 || !eventType) throw Object.assign(new Error('event_id, positive integer sequence, and event_type are required'), { status: 400 });
   if (redactIbkrAccountText(sourceId) !== sourceId || redactIbkrAccountText(eventType) !== eventType) throw Object.assign(new Error('IBKR account identifiers are not accepted in event metadata'), { status: 400 });
   const occurredMs = input.occurred_at == null ? Date.now() : Date.parse(input.occurred_at);
   if (!Number.isFinite(occurredMs)) throw Object.assign(new Error('occurred_at must be a valid timestamp'), { status: 400 });
   const lastSequence = reconcileIbkrNewBridgeSequence(bridge.bridge_id, db);
-  const existing = db.prepare(`SELECT event_id,status,sequence FROM ibkrnew_events WHERE bridge_id=? AND source_event_id=?`).get(bridge.bridge_id, sourceId);
-  if (existing && !(existing.status === 'quarantined' && Number(existing.sequence) === lastSequence + 1)) return { accepted: existing.status === 'accepted', duplicate: true, event_id: existing.event_id, status: existing.status };
+  const existing = db.prepare(`SELECT event_id,status,sequence,reason,event_type FROM ibkrnew_events WHERE bridge_id=? AND source_event_id=?`).get(bridge.bridge_id, sourceId);
+  if (existing && (existing.event_type !== eventType || existing.status === 'accepted' && Number(existing.sequence) !== sequence)) throw Object.assign(new Error('event identity cannot be changed after acceptance'), { status: 409 });
+  if (existing && !(existing.status === 'quarantined' && sequence === lastSequence + 1)) return { accepted: existing.status === 'accepted', duplicate: true, event_id: existing.event_id, status: existing.status, reason: existing.reason, expected_sequence: lastSequence + 1 };
   const eventId = existing?.event_id || id('IBKRNewEvent'); const occurred = new Date(occurredMs).toISOString(); const created = nowIso(); let status = 'accepted'; let reason = null;
   if (sequence !== lastSequence + 1) { status = 'quarantined'; reason = `sequence_gap_expected_${lastSequence + 1}`; }
   const cleanPayload = sanitizeIbkrNewPersistence(input.payload || {});
@@ -1154,10 +1162,10 @@ export function ingestBridgeEvent(bridge, input) {
     const scopedAuthorization = db.prepare(`SELECT 1 FROM ibkrnew_authorizations WHERE authorization_id=? AND owner_user_id=? AND account_id=? AND bridge_id=?`).get(cleanPayload.authorization_id, bridge.owner_user_id, bridge.account_id, bridge.bridge_id);
     if (!scopedAuthorization) throw Object.assign(new Error('authorization does not belong to this bridge account context'), { status: 409 });
   }
-  if (existing) db.prepare(`UPDATE ibkrnew_events SET status='accepted',reason=NULL,payload_json=?,occurred_at=? WHERE event_id=?`).run(json(cleanPayload), occurred, eventId);
+  if (existing) db.prepare(`UPDATE ibkrnew_events SET status='accepted',reason=NULL,sequence=?,payload_json=?,occurred_at=?,created_at=? WHERE event_id=?`).run(sequence, json(cleanPayload), occurred, created, eventId);
   else db.prepare(`INSERT INTO ibkrnew_events VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(eventId, bridge.owner_user_id, bridge.account_id, bridge.bridge_id, bridge.environment, eventType, sourceId, sequence, occurred, json(cleanPayload), status, reason, created);
-  db.prepare(`UPDATE ibkrnew_bridges SET status='online',last_seen_at=?,last_sequence=CASE WHEN ?='accepted' THEN ? ELSE last_sequence END WHERE bridge_id=?`).run(created, status, sequence, bridge.bridge_id);
-  if (status !== 'accepted') return { accepted: false, event_id: eventId, status, reason };
+  if (status !== 'accepted') return { accepted: false, event_id: eventId, status, reason, expected_sequence: lastSequence + 1 };
+  db.prepare(`UPDATE ibkrnew_bridges SET status='online',last_seen_at=?,last_sequence=? WHERE bridge_id=?`).run(created, sequence, bridge.bridge_id);
   const payload = { ...cleanPayload, occurred_at: occurred };
   updateComponentHealth(db, bridge, 'IBKRNewDesktopBridge', 'desktop_bridge', 'online', { event_type: eventType, version: payload.bridge_version, sequence }, created);
   if (eventType === 'bridge.heartbeat') {
@@ -1409,7 +1417,7 @@ function getIbkrNewAgentActivity(ownerUserId, environment) {
 export function getDashboard(ownerUserId, { includeEvents = true, eventLimit = 100 } = {}) {
   const db = getDb(); ensureIbkrNewEventTraderSchema(db); expireStaleAuthorizations(ownerUserId, db); const configs = ensureIbkrNewDefaults(ownerUserId); const day = tradingDay();
   const executionMode = getIbkrNewExecutionMode(ownerUserId); const environment = executionMode.requested_mode;
-  const bridges = db.prepare(`SELECT bridge_id,account_id,environment,status,last_sequence,last_seen_at,created_at,revoked_at FROM ibkrnew_bridges WHERE owner_user_id=? AND environment=? ORDER BY created_at DESC`).all(ownerUserId, environment).map(withAccountRef);
+  const bridges = db.prepare(`SELECT b.bridge_id,b.account_id,b.environment,b.status,b.last_sequence,b.last_seen_at,b.created_at,b.revoked_at,a.updated_at last_accepted_heartbeat_at FROM ibkrnew_bridges b LEFT JOIN ibkrnew_bridge_attestations a ON a.bridge_id=b.bridge_id AND a.owner_user_id=b.owner_user_id WHERE b.owner_user_id=? AND b.environment=? ORDER BY b.created_at DESC`).all(ownerUserId, environment).map(withAccountRef);
   const account = db.prepare(`SELECT s.* FROM ibkrnew_account_state s JOIN ibkrnew_bridges b ON b.bridge_id=s.bridge_id WHERE s.owner_user_id=? AND b.environment=? ORDER BY s.captured_at DESC LIMIT 1`).get(ownerUserId, environment);
   const inactiveLiveAccountRow = environment === 'paper' ? db.prepare(`SELECT s.* FROM ibkrnew_account_state s JOIN ibkrnew_bridges b ON b.bridge_id=s.bridge_id WHERE s.owner_user_id=? AND b.environment='live' ORDER BY s.captured_at DESC LIMIT 1`).get(ownerUserId) : null;
   const inactiveLiveAccount = inactiveLiveAccountRow ? { ...withAccountRef(inactiveLiveAccountRow), positions: parse(inactiveLiveAccountRow.positions_json, []), open_orders: parse(inactiveLiveAccountRow.open_orders_json, []) } : null;
@@ -1421,7 +1429,7 @@ export function getDashboard(ownerUserId, { includeEvents = true, eventLimit = 1
   const reactions = db.prepare(`SELECT reaction_id,agent_name,subscriptions_json,enabled FROM ibkrnew_reaction_registry WHERE owner_user_id=? ORDER BY agent_name`).all(ownerUserId).map((r) => ({ ...r, subscriptions: parse(r.subscriptions_json, []) }));
   const staleMs = Number(configs.policy.freshness?.bridge_offline_after_ms || 30000); const now = Date.now();
   const goal = reconcileIbkrNewGoal(ownerUserId, { policy: configs.policy, environment, at: nowIso() });
-  return { namespace: IBKRNEW_NAMESPACE, environment, execution_mode: executionMode, configs, goal, reactions, approvals, trading_day: day, budgets: { daily_limit_usd: configs.policy.budgets.daily_opening_exposure_usd, daily_used_usd: Number(daily), total_limit_usd: configs.policy.budgets.total_gross_exposure_usd }, bridges: bridges.map((b) => ({ ...b, effective_status: !b.last_seen_at || now - Date.parse(b.last_seen_at) > staleMs ? 'offline' : b.status })), account: account ? { ...withAccountRef(account), positions: parse(account.positions_json, []), open_orders: parse(account.open_orders_json, []) } : null, inactive_live_account: hasInactiveLiveExposure ? inactiveLiveAccount : null, events, commands };
+  return { namespace: IBKRNEW_NAMESPACE, environment, execution_mode: executionMode, configs, goal, reactions, approvals, trading_day: day, budgets: { daily_limit_usd: configs.policy.budgets.daily_opening_exposure_usd, daily_used_usd: Number(daily), total_limit_usd: configs.policy.budgets.total_gross_exposure_usd }, bridges: bridges.map((b) => ({ ...b, effective_status: b.revoked_at ? 'revoked' : !b.last_accepted_heartbeat_at || now - Date.parse(b.last_accepted_heartbeat_at) > staleMs ? 'offline' : b.status })), account: account ? { ...withAccountRef(account), positions: parse(account.positions_json, []), open_orders: parse(account.open_orders_json, []) } : null, inactive_live_account: hasInactiveLiveExposure ? inactiveLiveAccount : null, events, commands };
 }
 
 export function getIbkrNewSummary(ownerUserId) {
@@ -1435,11 +1443,14 @@ export function getIbkrNewSummary(ownerUserId) {
 
 export function getIbkrNewLiveOperations(ownerUserId, { limit = 50 } = {}) {
   const db = getDb(); const dashboard = getDashboard(ownerUserId, { includeEvents: false }); const n = Math.min(100, Math.max(1, Number(limit) || 50)); const staleMs = Number(dashboard.configs.policy.freshness?.bridge_offline_after_ms || 30000); const now = Date.now();
-  const health = db.prepare(`SELECT h.* FROM ibkrnew_component_health h JOIN ibkrnew_bridges b ON b.bridge_id=h.bridge_id WHERE h.owner_user_id=? AND b.environment=? ORDER BY h.updated_at DESC`).all(ownerUserId, dashboard.environment).map((row) => ({ ...row, detail: parse(row.detail_json, {}), effective_status: now - Date.parse(row.last_seen_at) > staleMs ? 'offline' : row.status }));
+  const allHealth = db.prepare(`SELECT h.*,b.revoked_at FROM ibkrnew_component_health h JOIN ibkrnew_bridges b ON b.bridge_id=h.bridge_id AND b.owner_user_id=h.owner_user_id WHERE h.owner_user_id=? AND b.environment=? ORDER BY h.updated_at DESC`).all(ownerUserId, dashboard.environment).map((row) => ({ ...row, detail: parse(row.detail_json, {}), effective_status: row.revoked_at ? 'revoked' : now - Date.parse(row.last_seen_at) > staleMs ? 'offline' : row.status }));
+  const activeBridge = [...dashboard.bridges].filter((b) => !b.revoked_at).sort((a, b) => Number(b.effective_status === 'online') - Number(a.effective_status === 'online') || (Date.parse(b.last_accepted_heartbeat_at || b.created_at) - Date.parse(a.last_accepted_heartbeat_at || a.created_at)))[0];
+  const health = allHealth.filter((row) => row.bridge_id === activeBridge?.bridge_id);
+  const historicalHealth = allHealth.filter((row) => row.bridge_id !== activeBridge?.bridge_id);
   const errors = db.prepare(`SELECT e.* FROM ibkrnew_component_errors e JOIN ibkrnew_bridges b ON b.bridge_id=e.bridge_id WHERE e.owner_user_id=? AND b.environment=? ORDER BY e.occurred_at DESC LIMIT ?`).all(ownerUserId, dashboard.environment, n).map((row) => ({ ...row, detail: parse(row.detail_json, {}) }));
   const snapshots = db.prepare(`SELECT s.* FROM ibkrnew_position_snapshots s JOIN ibkrnew_bridges b ON b.bridge_id=s.bridge_id WHERE s.owner_user_id=? AND b.environment=? ORDER BY s.captured_at DESC LIMIT ?`).all(ownerUserId, dashboard.environment, n).map((row) => ({ ...withAccountRef(row), payload: parse(row.payload_json, {}) }));
   const executions = db.prepare(`SELECT e.* FROM ibkrnew_executions e JOIN ibkrnew_bridges b ON b.bridge_id=e.bridge_id WHERE e.owner_user_id=? AND b.environment=? ORDER BY e.occurred_at DESC LIMIT ?`).all(ownerUserId, dashboard.environment, n).map(withAccountRef);
   const instrumentProfiles = db.prepare(`SELECT symbol,security_type,fundamentals_at,membership_at,corporate_events_at,updated_at,profile_json FROM ibkrnew_instrument_profiles WHERE owner_user_id=? AND environment=? ORDER BY updated_at DESC LIMIT ?`).all(ownerUserId, dashboard.environment, n).map((row) => ({ ...row, profile: parse(row.profile_json, {}) }));
   const profile = db.prepare(`SELECT data_retention_days FROM platform_users WHERE id=?`).get(ownerUserId);
-  return { generated_at: nowIso(), retention_days: Number(profile?.data_retention_days || 90), health, errors, snapshots, executions, instrument_profiles: instrumentProfiles, agent_activity: getIbkrNewAgentActivity(ownerUserId, dashboard.environment), dashboard, summary: getIbkrNewSummary(ownerUserId) };
+  return { generated_at: nowIso(), retention_days: Number(profile?.data_retention_days || 90), active_bridge_id: activeBridge?.bridge_id || null, health, historical_health: historicalHealth, errors, snapshots, executions, instrument_profiles: instrumentProfiles, agent_activity: getIbkrNewAgentActivity(ownerUserId, dashboard.environment), dashboard, summary: getIbkrNewSummary(ownerUserId) };
 }
