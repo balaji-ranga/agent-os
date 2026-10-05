@@ -8,7 +8,7 @@ $ErrorActionPreference = 'Stop'
 $root = [IO.Path]::GetFullPath($InstallRoot)
 if (-not (Test-Path -LiteralPath (Join-Path $root '.env'))) { throw 'Installed owner-scoped .env is required.' }
 $envHash = (Get-FileHash -LiteralPath (Join-Path $root '.env') -Algorithm SHA256).Hash
-$files = @('src/core.js','src/index.js','src/gateway.js','scripts/Run-IBKRNewBridgeTask.ps1','scripts/Update-IBKRNewBridgeTask.ps1','scripts/Install-IBKRNewBridgeTask.ps1','scripts/Uninstall-IBKRNewBridgeTask.ps1','scripts/Start-IBKRNewBridge.ps1','scripts/Test-IBKRNewBridge.ps1','scripts/Get-IBKRNewBridgeTaskStatus.ps1','test/offline.test.js','test/delivery.test.js','README.md','package.json','package-lock.json','.env.example','IBKRNew-instrument-profiles.example.json')
+$files = @('src/core.js','src/index.js','src/gateway.js','src/session.js','scripts/Run-IBKRNewBridgeTask.ps1','scripts/Update-IBKRNewBridgeTask.ps1','scripts/Install-IBKRNewBridgeTask.ps1','scripts/Uninstall-IBKRNewBridgeTask.ps1','scripts/Start-IBKRNewBridge.ps1','scripts/Test-IBKRNewBridge.ps1','scripts/Get-IBKRNewBridgeTaskStatus.ps1','test/offline.test.js','test/delivery.test.js','test/clock.js','test/readiness.test.js','README.md','package.json','package-lock.json','.env.example','IBKRNew-instrument-profiles.example.json')
 $staging = Join-Path $root ('upgrade-' + $Revision)
 $checkpoint = $root + '.rollback-' + (Get-Date).ToString('yyyyMMdd-HHmmss')
 New-Item -ItemType Directory -Path $staging -Force | Out-Null
@@ -26,6 +26,8 @@ Copy-Item -LiteralPath (Join-Path $root 'node_modules') -Destination (Join-Path 
 if ($LASTEXITCODE -ne 0) { throw 'Bridge offline regression failed; installed task unchanged.' }
 & $node (Join-Path $staging 'test\delivery.test.js')
 if ($LASTEXITCODE -ne 0) { throw 'Bridge delivery regression failed; installed task unchanged.' }
+& $node (Join-Path $staging 'test\readiness.test.js')
+if ($LASTEXITCODE -ne 0) { throw 'Bridge readiness regression failed; installed task unchanged.' }
 New-Item -ItemType Directory -Path $checkpoint -Force | Out-Null
 foreach ($name in @('src','scripts','test','README.md','package.json','package-lock.json')) { Copy-Item -LiteralPath (Join-Path $root $name) -Destination $checkpoint -Recurse }
 $task = Get-ScheduledTask -TaskName $TaskName -ErrorAction Stop

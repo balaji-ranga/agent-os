@@ -163,6 +163,16 @@ Do not upload the downloaded environment file, bridge token, Gateway credentials
 
 ## Related
 
+### Readiness and execution limits
+
+Paper and Live use the same deterministic execution engine with separate account/goal/event datasets. Runtime 1.2.3 enriches closed bars with IBKR live bid/ask, checks session/holiday/cutoff and configuration again before submission, restores broker correlation on restart, and accounts for partial/duplicate fills without double-counting. Positive goal profit is provisional until commission reports arrive. Gateway failure does not prevent the desktop runtime from reporting its own health; the market-data component waits outside the session and reports stale bars during the session.
+
+Allow at least 21 completed one-minute bars for feature warmup. A healthy pre-open heartbeat proves connectivity, not that the next trade will qualify or fill. No-trade outcomes are valid; inspect each event's recorded filter/strategy/risk reason.
+
+The six role cards are deterministic pipeline evidence, not six separately invoked AI agents. The visible canvas workflow is an assessment template, not the broker-order executor. Automatic option-chain selection, natural-language skill execution and scaled first/final profit taking are not supplied by this runtime. Stock/ETF signals use the configured single-lot-R target for the whole bracket. Do not promise those additional behaviors merely because their configuration/template exists.
+
+Configured intraday-close, maximum-holding-session and option-expiry safety exits request an owned protected-target modification. The protective stop stays in place. Missing protection or an ambiguous broker position requires reconciliation; an exit request is not a confirmed fill.
+
 - **Older monthly strategy:** [IBKR Monthly Positive Return](./20-ibkr-monthly-trading.md) — separate workflows and data.
 - **Connector packages:** [Connectors and OpenConnector](./16-connectors-openconnector.md).
 - **External package tokens:** [Tokens management](./34-tokens-management.md).

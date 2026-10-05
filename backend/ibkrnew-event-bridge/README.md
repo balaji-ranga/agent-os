@@ -35,6 +35,18 @@ Bridge protocol version 2 rechecks the current opaque account reference immediat
 
 ## Instrument profile refresh
 
+### Runtime readiness (1.2.3)
+
+The same engine serves Paper and Live; the environment gate does not select a different strategy. Exchange-session gates use the published NYSE 2026–2028 calendar, New York DST, holidays, early closes and the configured entry cutoff; unknown years fail closed. The local Gateway also rechecks the session, authorization expiry, opaque account context, goal/cycle and current configuration after obtaining a live bid/ask. A server submission veto checks fresh account state and circuit breakers. Delayed/frozen prices cannot execute.
+
+Minute-bar features warm up after 21 complete one-minute bars; no historical backfill is assumed. Instrument type/liquidity come from the selected profile, but executable bid/ask timestamps come from IBKR. Signals flush immediately to avoid treating the closed bar's timestamp as a fresh quote. Short entries obtain fresh broker borrow evidence; an IBKR shortability level of 1 does not mean one borrowable share.
+
+The desktop runtime continues reporting health while Gateway reconnection fails. Market subscriptions are shown as waiting outside the session and degraded if the open session has no recent bars. Windows must remain signed in and awake, with the correct Gateway account authenticated.
+
+Unique executions rebuild partial position/P&L projections. The protected OCA bracket uses proportional reduction with blocking; local order-role correlation survives restarts. Positive goal profit waits for commission reports, including confirmed zero commission. Scheduled intraday/maximum-hold/expiry exits modify an owned, reconciled OCA profit target at a fresh bounded quote and preserve the protective stop. Missing/ambiguous protection fails closed and requires operator attention; neither a submitted exit nor a target price guarantees a fill.
+
+The six UI cards are deterministic service-role evidence, not proof of six LLM calls or a canvas workflow run. This runtime produces stock/ETF trend signals; enabled option expressions accept fully specified eligible option signals but do not automatically select contracts from an option chain. Natural-language skill instructions are guidance, not executable strategy code. The current bracket uses one configured single-lot-R target for the whole quantity, not scaled first/final exits. Do not assume these unimplemented behaviors from configuration labels.
+
 The price stream remains separate from slow-moving eligibility data. Configure `IBKRNEW_INSTRUMENT_PROFILES_FILE` with a local JSON array produced by the chosen licensed data adapter. Before market subscriptions begin, the bridge applies the published stock-index and ETF filters, emits an owner-scoped `instrument.profile_refreshed` event for each match, and then subscribes only to the selected symbols.
 
 Stock profiles can contain `index_memberships`, `average_daily_volume`, `fundamentals`, and `corporate_events`. ETF profiles can contain `etf_categories`, `assets_under_management_usd`, and liquidity fields. Index identifiers are not hardcoded: the profile adapter reports identifiers such as `SPX`, `NDX`, or a configured custom index. The server independently revalidates membership, freshness, fundamentals, earnings blackout, ETF category, assets, liquidity, and spread before every authorization.

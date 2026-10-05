@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { installTestClock } from '../ibkrnew-event-bridge/test/clock.js';
+installTestClock();
 
 process.env.AGENT_OS_DATA_DIR = mkdtempSync(join(tmpdir(), 'ibkrnew-service-'));
 const { initDb, getDb } = await import('../src/db/schema.js'); initDb();
@@ -48,7 +50,10 @@ INSERT INTO ibkrnew_goals(goal_id,owner_user_id,name,mode,target_return_pct,dura
 `);
 const legacyTableCountBefore = getDb().prepare("SELECT COUNT(*) count FROM sqlite_master WHERE type='table' AND name LIKE 'ibkr\\_%' ESCAPE '\\'").get().count;
 const blueprints = await import('../src/services/ibkrnew-blueprints.js');
-const service = await import('../src/services/ibkrnew-event-trader.js');
+const service = { ...await import('../src/services/ibkrnew-event-trader.js') };
+const ingest = service.ingestBridgeEvent;
+// Explicit synthetic executable-data fixtures for the legacy regression suite.
+service.ingestBridgeEvent = (bridge,input) => ingest(bridge, input.event_type === 'market.signal' ? { ...input, payload: { market_data_type: 1, feature_at: new Date().toISOString(), shortability_level: 3, shortability_at: new Date().toISOString(), ...input.payload } } : input);
 const { buildIbkrNewEventBridgePackageZip } = await import('../src/services/ibkrnew-event-bridge-package.js');
 const { extractZipEntryBySuffix } = await import('../src/services/zip-store.js');
 

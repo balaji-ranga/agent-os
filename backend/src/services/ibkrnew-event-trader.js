@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { tradingSession } from '../../ibkrnew-event-bridge/src/session.js';
 import { getDb } from '../db/schema.js';
 import { IBKRNEW_CONFIG_KINDS, getIbkrNewConfigBlueprint, getIbkrNewGoalBlueprint, getIbkrNewWorkflowBlueprints, getIbkrNewSchema, getIbkrNewSchemas } from './ibkrnew-blueprints.js';
 
@@ -399,6 +400,7 @@ export function ensureIbkrNewEventTraderSchema(db = getDb()) {
       bridge_id TEXT NOT NULL, authorization_id TEXT, trade_id TEXT, order_role TEXT,
       side TEXT, quantity REAL NOT NULL DEFAULT 0, price REAL NOT NULL DEFAULT 0,
       commission_usd REAL NOT NULL DEFAULT 0, realized_pnl_usd REAL NOT NULL DEFAULT 0,
+      commission_reported INTEGER NOT NULL DEFAULT 0,
       occurred_at TEXT NOT NULL, created_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_ibkrnew_executions_owner_time ON ibkrnew_executions(owner_user_id, occurred_at DESC);
@@ -441,6 +443,11 @@ export function ensureIbkrNewEventTraderSchema(db = getDb()) {
   migrateIbkrNewCircuitBreakerEnvironmentSchema(db);
   migrateIbkrNewGoalEnvironmentSchema(db);
   migrateIbkrNewInstrumentProfileEnvironmentSchema(db);
+  if (!db.prepare('PRAGMA table_info(ibkrnew_executions)').all().some(column=>column.name==='commission_reported')) {
+    db.exec('ALTER TABLE ibkrnew_executions ADD COLUMN commission_reported INTEGER NOT NULL DEFAULT 0');
+    // Historical nonzero commissions are evidence; zero/default is not.
+    db.exec('UPDATE ibkrnew_executions SET commission_reported=1 WHERE commission_usd<>0');
+  }
   ensureIbkrNewPrivacyTriggers(db);
   migrateIbkrNewAccountPrivacy(db);
 }
@@ -481,7 +488,7 @@ export function getIbkrNewExecutionMode(ownerUserId) {
 function cancelPendingEnvironmentEntries(ownerUserId, environment, reason, db = getDb()) {
   const ts = nowIso();
   const rows = db.prepare(`SELECT a.authorization_id FROM ibkrnew_authorizations a JOIN ibkrnew_bridges b ON b.bridge_id=a.bridge_id
-    WHERE a.owner_user_id=? AND b.environment=? AND a.status IN ('pending_approval','issued','uncertain')`).all(ownerUserId, environment);
+    WHERE a.owner_user_id=? AND b.environment=? AND a.status IN ('pending_approval','issued','uncertain') AND COALESCE(json_extract(a.authorization_json,'$.action'),'OPEN')='OPEN'`).all(ownerUserId, environment);
   let uncertain = 0;
   for (const row of rows) if (retireUnexecutedAuthorization(db, row.authorization_id, 'cancelled', ts)) uncertain += 1;
   return { cancelled_authorizations: rows.length - uncertain, uncertain_authorizations: uncertain, reason };
@@ -674,7 +681,7 @@ function createGoalCycle(db, ownerUserId, goal, policy, startedAt, cycleNumber, 
 
 function goalCycleProfit(db, ownerUserId, cycleId, requestedEnvironment) {
   const environment = normalizeEnvironment(requestedEnvironment);
-  return Number(db.prepare(`SELECT COALESCE(SUM(t.net_pnl_usd),0) value FROM ibkrnew_goal_trade_links l LEFT JOIN ibkrnew_trade_records t ON t.authorization_id=l.authorization_id AND t.owner_user_id=l.owner_user_id LEFT JOIN ibkrnew_bridges b ON b.bridge_id=t.bridge_id WHERE l.owner_user_id=? AND l.cycle_id=? AND (t.trade_id IS NULL OR b.environment=?)`).get(ownerUserId, cycleId, environment)?.value || 0);
+  return Number(db.prepare(`SELECT COALESCE(SUM(CASE WHEN t.net_pnl_usd>0 AND EXISTS(SELECT 1 FROM ibkrnew_executions x WHERE x.owner_user_id=t.owner_user_id AND x.authorization_id=t.authorization_id AND x.quantity>0 AND x.commission_reported=0) THEN 0 ELSE t.net_pnl_usd END),0) value FROM ibkrnew_goal_trade_links l LEFT JOIN ibkrnew_trade_records t ON t.authorization_id=l.authorization_id AND t.owner_user_id=l.owner_user_id LEFT JOIN ibkrnew_bridges b ON b.bridge_id=t.bridge_id WHERE l.owner_user_id=? AND l.cycle_id=? AND (t.trade_id IS NULL OR b.environment=?)`).get(ownerUserId, cycleId, environment)?.value || 0);
 }
 
 function serializeGoalState(goal, cycle, now = new Date()) {
@@ -877,7 +884,7 @@ function saveAllocationDecision(db, ownerUserId, eventId, economics, authorizati
 }
 
 function insertCommand(db, bridge, authorization, created, expires) {
-  const commandId = id('IBKRNewCommand'); const command = { command_id: commandId, type: 'IBKRNewPlaceProtectedOrder', authorization };
+  const commandId = id('IBKRNewCommand'); const command = { command_id: commandId, type: authorization.action==='EXIT'?'IBKRNewManageProtectedExit':'IBKRNewPlaceProtectedOrder', authorization };
   const signature = crypto.createHmac('sha256', bridge.token_hash).update(json(command)).digest('hex');
   db.prepare(`INSERT INTO ibkrnew_command_outbox(command_id,owner_user_id,account_id,bridge_id,authorization_id,command_json,signature,status,available_at,expires_at,created_at) VALUES(?,?,?,?,?,?,?,'pending',?,?,?)`).run(commandId, bridge.owner_user_id, bridge.account_id, bridge.bridge_id, authorization.authorization_id, json(command), signature, created, expires, created);
   return commandId;
@@ -1031,12 +1038,19 @@ function refreshTradeFinancials(db, ownerUserId, authorizationId, ts) {
   const trade = db.prepare(`SELECT * FROM ibkrnew_trade_records WHERE owner_user_id=? AND authorization_id=?`).get(ownerUserId, authorizationId);
   if (!trade) return;
   const sums = db.prepare(`SELECT COALESCE(SUM(commission_usd),0) commission,COALESCE(SUM(realized_pnl_usd),0) realized FROM ibkrnew_executions WHERE owner_user_id=? AND authorization_id=?`).get(ownerUserId, authorizationId);
-  const reportedRealized = Number(sums.realized || 0);
-  const gross = reportedRealized || (trade.status === 'closed' ? (trade.expression === 'SHORT_STOCK' ? Number(trade.entry_value_usd) - Number(trade.exit_value_usd) : Number(trade.exit_value_usd) - Number(trade.entry_value_usd)) : 0);
   const actualCommission = Number(sums.commission || 0); const economics = parse(trade.economics_json, {}); const multiplier = Number(economics.multiplier || 1);
-  const entryUnit = Number(trade.quantity) > 0 ? Number(trade.entry_value_usd) / Number(trade.quantity) / multiplier : Number(economics.entry_price || 0);
+  const fills = db.prepare(`SELECT order_role,quantity,price,occurred_at FROM ibkrnew_executions WHERE owner_user_id=? AND authorization_id=? AND quantity>0 AND price>0`).all(ownerUserId,authorizationId);
+  const entries = fills.filter(x => x.order_role === 'entry'), exits = fills.filter(x => ['target','protective_stop','exit'].includes(x.order_role));
+  const entryQty = entries.reduce((sum,x) => sum + Number(x.quantity),0), exitQty = exits.reduce((sum,x) => sum + Number(x.quantity),0);
+  const entryValue = entries.reduce((sum,x) => sum + Number(x.quantity)*Number(x.price)*multiplier,0), exitValue = exits.reduce((sum,x) => sum + Number(x.quantity)*Number(x.price)*multiplier,0);
+  const entryUnit = entryQty > 0 ? entryValue / entryQty / multiplier : Number(economics.entry_price || 0);
+  // Rebuild from unique executions, never increment projections on replay.
+  // A partial exit realizes only its matched cost basis and leaves the rest open.
+  const matchedCost = entryQty > 0 ? entryValue * Math.min(exitQty,entryQty)/entryQty : 0;
+  const gross = entryQty > 0 ? (trade.expression === 'SHORT_STOCK' ? matchedCost - exitValue : exitValue - matchedCost) : 0;
+  if (entryQty > 0) db.prepare(`UPDATE ibkrnew_trade_records SET entry_value_usd=?,exit_value_usd=?,status=?,opened_at=COALESCE(opened_at,?),closed_at=?,updated_at=? WHERE trade_id=?`).run(entryValue,exitValue,exitQty>=entryQty?'closed':'open',entries[0].occurred_at,exitQty>=entryQty?exits.at(-1)?.occurred_at:null,ts,trade.trade_id);
   const remainingExitCommission = Math.max(0, Number(trade.estimated_round_trip_commission_usd) / 2); const minNet = Number(economics.minimum_expected_net_profit_usd || 0);
-  const requiredMove = (actualCommission + remainingExitCommission + minNet) / Math.max(1, Number(trade.quantity) * multiplier);
+  const requiredMove = (actualCommission + remainingExitCommission + minNet) / Math.max(1, entryQty * multiplier);
   const requiredExit = trade.expression === 'SHORT_STOCK' ? entryUnit - requiredMove : entryUnit + requiredMove;
   db.prepare(`UPDATE ibkrnew_trade_records SET actual_commission_usd=?,gross_pnl_usd=?,net_pnl_usd=?,required_profitable_exit_price=?,updated_at=? WHERE trade_id=?`).run(actualCommission, gross, gross - actualCommission, requiredExit, ts, trade.trade_id);
 }
@@ -1047,15 +1061,37 @@ function recordExecutionEvent(db, bridge, payload, occurred, created) {
   const brokerExecutionId = String(payload.execution_id || payload.exec_id || id('IBKRNewExecution'));
   const executionId = `${bridge.bridge_id}:${brokerExecutionId}`;
   db.prepare(`INSERT INTO ibkrnew_executions(execution_id,owner_user_id,account_id,bridge_id,authorization_id,trade_id,order_role,side,quantity,price,commission_usd,realized_pnl_usd,occurred_at,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(execution_id) DO UPDATE SET authorization_id=COALESCE(excluded.authorization_id,authorization_id),trade_id=COALESCE(excluded.trade_id,trade_id),order_role=COALESCE(excluded.order_role,order_role),side=COALESCE(excluded.side,side),quantity=CASE WHEN excluded.quantity>0 THEN excluded.quantity ELSE quantity END,price=CASE WHEN excluded.price>0 THEN excluded.price ELSE price END,commission_usd=CASE WHEN excluded.commission_usd<>0 THEN excluded.commission_usd ELSE commission_usd END,realized_pnl_usd=CASE WHEN excluded.realized_pnl_usd<>0 THEN excluded.realized_pnl_usd ELSE realized_pnl_usd END`).run(executionId, bridge.owner_user_id, bridge.account_id, bridge.bridge_id, authorizationId, trade?.trade_id || null, payload.order_role || null, payload.side || null, Number(payload.quantity || payload.shares || 0), Number(payload.price || 0), Number(payload.commission_usd || payload.commission || 0), Number(payload.realized_pnl_usd || payload.realized_pnl || 0), occurred, created);
-  if (trade && payload.event_kind === 'fill') {
-    const auth = db.prepare(`SELECT authorization_json FROM ibkrnew_authorizations WHERE authorization_id=?`).get(authorizationId); const multiplier = Number(parse(auth?.authorization_json, {})?.contract?.multiplier || (/CALL|PUT/.test(trade.expression) ? 100 : 1)); const value = Number(payload.quantity || payload.shares || 0) * Number(payload.price || 0) * multiplier;
-    if (payload.order_role === 'entry') db.prepare(`UPDATE ibkrnew_trade_records SET entry_value_usd=entry_value_usd+?,status='open',opened_at=COALESCE(opened_at,?),updated_at=? WHERE trade_id=?`).run(value, occurred, created, trade.trade_id);
-    else if (['target','protective_stop','exit'].includes(payload.order_role)) db.prepare(`UPDATE ibkrnew_trade_records SET exit_value_usd=exit_value_usd+?,status='closed',closed_at=?,updated_at=? WHERE trade_id=?`).run(value, occurred, created, trade.trade_id);
-  }
   if (authorizationId) {
+    if(payload.event_kind==='commission') db.prepare('UPDATE ibkrnew_executions SET commission_reported=1 WHERE execution_id=? AND owner_user_id=?').run(executionId,bridge.owner_user_id);
     refreshTradeFinancials(db, bridge.owner_user_id, authorizationId, created);
     const policy = ensureIbkrNewDefaults(bridge.owner_user_id).policy;
     reconcileIbkrNewGoal(bridge.owner_user_id, { policy, environment: bridge.environment, at: occurred });
+  }
+}
+
+function manageIbkrNewProtectedExits(db,bridge,policy,strategy,created) {
+  const mode=getIbkrNewExecutionMode(bridge.owner_user_id), session=tradingSession(new Date());
+  if (mode.active_mode!==bridge.environment || !mode.execution_enabled || !session.regular || policy.feature_switches.automatic_exit_enabled!==true) return;
+  const trades=db.prepare(`SELECT t.*,a.authorization_json FROM ibkrnew_trade_records t JOIN ibkrnew_authorizations a ON a.authorization_id=t.authorization_id WHERE t.owner_user_id=? AND t.account_id=? AND t.bridge_id=? AND t.status='open'`).all(bridge.owner_user_id,bridge.account_id,bridge.bridge_id);
+  for(const trade of trades) {
+    const original=parse(trade.authorization_json,{});
+    const fills=db.prepare(`SELECT COALESCE(SUM(CASE WHEN order_role='entry' THEN quantity ELSE 0 END),0) entered,COALESCE(SUM(CASE WHEN order_role IN ('target','protective_stop','exit') THEN quantity ELSE 0 END),0) exited FROM ibkrnew_executions WHERE owner_user_id=? AND authorization_id=?`).get(bridge.owner_user_id,trade.authorization_id);
+    if (Number(fills.entered)<Number(original.quantity) || !(Number(fills.entered)>Number(fills.exited))) continue;
+    const startDay=tradingSession(new Date(trade.opened_at)).day;
+    let held=0; const day=new Date(`${startDay}T16:00:00Z`);
+    for(let i=0;i<366 && day.toISOString().slice(0,10)<=session.day;i++,day.setUTCDate(day.getUTCDate()+1)) if(tradingSession(day,0).regular) held++;
+    const maxHold=Number(strategy.exits.maximum_holding_sessions);
+    const expiry=String(original.contract?.expiry || '').replace(/^(\d{4})(\d{2})(\d{2})$/,'$1-$2-$3');
+    const expiryDue=/CALL|PUT/.test(trade.expression) && policy.option_rules.allow_hold_through_expiry!==true && Date.parse(`${expiry}T20:00:00Z`)-Date.now()<=2*86400000;
+    const intraday=policy.feature_switches.overnight_enabled!==true && session.minutes_to_close<=Number(policy.session_rules.intraday_exit_start_minutes_before_close);
+    const holdingDue=held>maxHold || held>=maxHold && session.minutes_to_close<=Number(policy.session_rules.intraday_exit_start_minutes_before_close);
+    if(!intraday && !holdingDue && !expiryDue) continue;
+    const pending=db.prepare(`SELECT 1 FROM ibkrnew_authorizations WHERE owner_user_id=? AND bridge_id=? AND json_extract(authorization_json,'$.parent_trade_authorization_id')=? AND status IN ('issued','submitted','uncertain')`).get(bridge.owner_user_id,bridge.bridge_id,trade.authorization_id);
+    if(pending) continue;
+    const configs=ensureIbkrNewDefaults(bridge.owner_user_id), authorizationId=id('IBKRNewExitAuthorization'), expires=new Date(Date.now()+Number(policy.freshness.authorization_ttl_ms)).toISOString();
+    const authorization={...original,authorization_id:authorizationId,action:'EXIT',parent_trade_authorization_id:trade.authorization_id,quantity:Number(fills.entered)-Number(fills.exited),side:trade.expression==='SHORT_STOCK'?'BUY':'SELL',exit_reason:intraday?'intraday_close':expiryDue?'option_expiry':'maximum_holding_sessions',session_rules:policy.session_rules,config_versions:Object.fromEntries(IBKRNEW_CONFIG_KINDS.map(kind=>[kind,configs[kind].version])),issued_at:created,expires_at:expires};
+    db.prepare(`INSERT INTO ibkrnew_authorizations VALUES(?,?,?,?,?,?,?,?,?,?)`).run(authorizationId,bridge.owner_user_id,bridge.account_id,bridge.bridge_id,`exit:${authorizationId}`,trade.expression,json(authorization),'issued',expires,created);
+    insertCommand(db,bridge,authorization,created,expires);
   }
 }
 
@@ -1072,11 +1108,15 @@ function maybeAuthorize(bridge, eventId, payload) {
   if (breaker) return { decision: 'blocked', reason: 'circuit_breaker_active' };
   let expression = payload.expression || signalFromBar(payload, strategy);
   if (!expression) return { decision: 'no_signal' };
+  const session = tradingSession(new Date(), policy.session_rules?.new_entry_cutoff_minutes_before_close ?? 60);
+  if (!session.opening_allowed) return { decision: 'blocked', reason: session.reason };
   if (strategy.execution_mode === 'advisory') return { decision: 'advisory', expression, reason: 'strategy_advisory_mode' };
   if (!strategy.allowed_expressions?.includes(expression)) return { decision: 'blocked', reason: 'strategy_expression_disabled' };
   const switchKey = ({ LONG_STOCK: 'long_stock_enabled', SHORT_STOCK: 'short_stock_enabled', LONG_CALL: 'long_call_enabled', LONG_PUT: 'long_put_enabled' })[expression];
   if (!policy.feature_switches?.[switchKey]) return { decision: 'blocked', reason: `${switchKey}_disabled` };
   if (expression === 'SHORT_STOCK' && payload.shortable !== true) return { decision: 'blocked', reason: 'shortability_not_confirmed' };
+  if (expression === 'SHORT_STOCK' && (!Number.isFinite(Date.parse(payload.shortability_at)) || Date.now()-Date.parse(payload.shortability_at) > Number(policy.freshness.shortability_max_age_ms) || Date.parse(payload.shortability_at) > Date.now()+1000)) return {decision:'blocked',reason:'shortability_stale'};
+  if (expression === 'SHORT_STOCK' && !(Number(payload.shortability_level)>2.5 || policy.order_permissions.allow_hard_to_borrow === true && Number(payload.shortability_level)>1.5)) return {decision:'blocked',reason:'borrow_permission_failed'};
   const symbol = String(payload.symbol || payload.contract?.symbol || '').toUpperCase(); const universe = configs.universe;
   if (!symbol) return { decision: 'blocked', reason: 'symbol_required' };
   if ((universe.denylist || []).map((x) => String(x).toUpperCase()).includes(symbol)) return { decision: 'blocked', reason: 'symbol_denied' };
@@ -1084,7 +1124,11 @@ function maybeAuthorize(bridge, eventId, payload) {
   const eligibility = instrumentEligibility(db, bridge.owner_user_id, bridge.environment, universe, symbol, expression, payload);
   if (!eligibility.eligible) return { decision: 'blocked', reason: eligibility.reason };
   const quoteAt = Date.parse(payload.quote_at || payload.occurred_at || 0);
-  if (!Number.isFinite(quoteAt) || Date.now() - quoteAt > Number(policy.freshness?.quote_max_age_ms || 5000)) return { decision: 'blocked', reason: 'stale_quote' };
+  if (!Number.isFinite(quoteAt) || quoteAt > Date.now()+1000 || Date.now() - quoteAt > Number(policy.freshness?.quote_max_age_ms || 5000)) return { decision: 'blocked', reason: 'stale_quote' };
+  if (Number(payload.market_data_type) !== 1) return {decision:'blocked',reason:'non_live_market_data'};
+  const featureAt = Date.parse(payload.feature_at);
+  if (!Number.isFinite(featureAt) || featureAt > Date.now()+1000 || Date.now()-featureAt > Number(policy.freshness.feature_max_age_ms)) return {decision:'blocked',reason:'stale_features'};
+  if (!payload.expression && (!Number.isFinite(Number(payload.atr_extension)) || Number(payload.atr_extension)>Number(strategy.entry.maximum_atr_extension))) return {decision:'blocked',reason:'maximum_atr_extension_exceeded'};
   if (!Number.isInteger(Number(payload.quantity)) || Number(payload.quantity) <= 0) return { decision: 'blocked', reason: 'whole_positive_quantity_required' };
   if (/CALL|PUT/.test(expression)) {
     const o = policy.option_rules || {}; const dte = Number(payload.dte); const spread = Number(payload.ask) - Number(payload.bid); const midpoint = (Number(payload.ask) + Number(payload.bid)) / 2;
@@ -1095,6 +1139,15 @@ function maybeAuthorize(bridge, eventId, payload) {
   }
   const account = db.prepare(`SELECT * FROM ibkrnew_account_state WHERE owner_user_id=? AND account_id=?`).get(bridge.owner_user_id, bridge.account_id);
   if (!account || Date.now() - Date.parse(account.captured_at) > Number(policy.freshness?.account_max_age_ms || 30000)) return { decision: 'blocked', reason: 'account_state_stale' };
+  const riskTrades = db.prepare(`SELECT t.net_pnl_usd,t.closed_at FROM ibkrnew_trade_records t JOIN ibkrnew_bridges b ON b.bridge_id=t.bridge_id WHERE t.owner_user_id=? AND b.environment=? AND t.status='closed' ORDER BY t.closed_at DESC`).all(bridge.owner_user_id,bridge.environment);
+  const weekStart = new Date(); const weekday = weekStart.getUTCDay() || 7; weekStart.setUTCDate(weekStart.getUTCDate()-weekday+1); weekStart.setUTCHours(0,0,0,0);
+  const weekly = riskTrades.filter(t => Date.parse(t.closed_at)>=weekStart.getTime()).reduce((sum,t)=>sum+Number(t.net_pnl_usd),0)+Number(account.unrealized_pnl_usd);
+  if (weekly<=-Number(policy.loss_limits.weekly_loss_limit_usd)) return {decision:'blocked',reason:'weekly_loss_limit'};
+  let losses=0; for(const t of riskTrades) { if(Number(t.net_pnl_usd)>=0) break; losses++; }
+  if (losses>=Number(policy.loss_limits.max_consecutive_losses)) return {decision:'blocked',reason:'consecutive_loss_limit'};
+  const peak = Number(db.prepare(`SELECT MAX(CAST(json_extract(s.payload_json,'$.eligible_capital_usd') AS REAL)) peak FROM ibkrnew_position_snapshots s JOIN ibkrnew_bridges b ON b.bridge_id=s.bridge_id WHERE s.owner_user_id=? AND b.environment=? AND s.snapshot_type='account'`).get(bridge.owner_user_id,bridge.environment)?.peak || account.eligible_capital_usd);
+  if (Number(account.realized_pnl_day_usd)+Number(account.unrealized_pnl_usd)<=-Number(policy.loss_limits.daily_loss_limit_usd)) return {decision:'blocked',reason:'daily_loss_limit'};
+  if (peak-Number(account.eligible_capital_usd)>=Number(policy.loss_limits.max_drawdown_usd)) return {decision:'blocked',reason:'maximum_drawdown_limit'};
   const day = tradingDay();
   const dailyBefore = Number(db.prepare(`SELECT COALESCE(SUM(r.daily_reserved_usd-r.daily_released_usd),0) used FROM ibkrnew_budget_reservations r JOIN ibkrnew_authorizations a ON a.authorization_id=r.authorization_id JOIN ibkrnew_bridges b ON b.bridge_id=a.bridge_id WHERE r.owner_user_id=? AND r.trading_day=? AND b.environment=? AND r.status IN ('reserved','partially_filled','filled')`).get(bridge.owner_user_id, day, bridge.environment).used || 0);
   const activeTradeCount = Number(db.prepare(`SELECT COUNT(*) count FROM ibkrnew_budget_reservations r JOIN ibkrnew_authorizations a ON a.authorization_id=r.authorization_id JOIN ibkrnew_bridges b ON b.bridge_id=a.bridge_id WHERE r.owner_user_id=? AND b.environment=? AND r.status IN ('reserved','partially_filled','filled') AND r.gross_reserved_usd>r.gross_released_usd`).get(bridge.owner_user_id, bridge.environment).count || 0);
@@ -1118,6 +1171,8 @@ function maybeAuthorize(bridge, eventId, payload) {
     const pending = db.prepare(`SELECT r.expression,r.gross_reserved_usd,r.gross_released_usd FROM ibkrnew_budget_reservations r JOIN ibkrnew_authorizations a ON a.authorization_id=r.authorization_id JOIN ibkrnew_bridges b ON b.bridge_id=a.bridge_id WHERE r.owner_user_id=? AND b.environment=? AND r.status IN ('reserved','partially_filled','filled') AND r.gross_reserved_usd>r.gross_released_usd`).all(bridge.owner_user_id, bridge.environment);
     if (positions.filter((p) => Number(p.quantity ?? p.qty ?? 0) !== 0).length + pending.length >= Number(policy.budgets.max_open_positions)) throw Object.assign(new Error('max_open_positions_exceeded'), { code: 'RISK_BLOCK' });
     const optionPremium = positions.filter((p) => String(p.security_type || p.secType).toUpperCase() === 'OPT').reduce((sum, p) => sum + Math.abs(Number(p.quantity ?? p.qty ?? 0)) * Number(p.market_price ?? p.price ?? 0) * Number(p.multiplier || 100), 0) + pending.filter((p) => /CALL|PUT/.test(p.expression)).reduce((sum, p) => sum + Number(p.gross_reserved_usd) - Number(p.gross_released_usd), 0);
+    const optionCount = positions.filter(p => String(p.security_type || p.secType).toUpperCase()==='OPT' && Number(p.quantity ?? p.qty)!==0).length + pending.filter(p => /CALL|PUT/.test(p.expression)).length;
+    if (/CALL|PUT/.test(expression) && optionCount>=Number(policy.budgets.max_open_option_positions)) throw Object.assign(new Error('max_open_option_positions_exceeded'),{code:'RISK_BLOCK'});
     if (/CALL|PUT/.test(expression) && optionPremium + amount > Number(policy.budgets.max_total_option_premium_usd)) throw Object.assign(new Error('total_option_premium_limit_exceeded'), { code: 'RISK_BLOCK' });
     const shortNotional = positions.filter((p) => Number(p.quantity ?? p.qty ?? 0) < 0 && String(p.security_type || p.secType || 'STK').toUpperCase() !== 'OPT').reduce((sum, p) => sum + Math.abs(Number(p.quantity ?? p.qty)) * Number(p.market_price ?? p.price ?? 0), 0) + pending.filter((p) => p.expression === 'SHORT_STOCK').reduce((sum, p) => sum + Number(p.gross_reserved_usd) - Number(p.gross_released_usd), 0);
     if (expression === 'SHORT_STOCK' && shortNotional + amount > Number(policy.budgets.max_total_short_notional_usd)) throw Object.assign(new Error('total_short_notional_limit_exceeded'), { code: 'RISK_BLOCK' });
@@ -1128,6 +1183,7 @@ function maybeAuthorize(bridge, eventId, payload) {
       authorization_id: authId, owner_user_id: bridge.owner_user_id, account_ref: bridge.account_id, bridge_id: bridge.bridge_id, environment: bridge.environment,
       goal: { goal_id: activeCycle.goal_id, cycle_id: activeCycle.cycle_id, cycle_number: activeCycle.cycle_number, target_profit_usd: activeCycle.target_profit_usd, scheduled_end_at: activeCycle.scheduled_end_at }, strategy: { id: strategy.id, version: strategy.version }, strategy_skill: { id: strategySkill.id, version: strategySkill.version, agent_name: strategySkill.agent_name }, policy: { id: policy.id, version: policy.version }, universe: { id: configs.universe.id, version: configs.universe.version },
       signal_event_id: eventId, action: 'OPEN', expression, contract: effectivePayload.contract || { symbol: effectivePayload.symbol, security_type: expression.includes('STOCK') ? eligibility.security_type : 'OPT', exchange: 'SMART', currency: 'USD' },
+      session_rules: policy.session_rules, order_permissions: policy.order_permissions, config_versions: Object.fromEntries(IBKRNEW_CONFIG_KINDS.map(kind => [kind,configs[kind].version])),
       side: expression === 'SHORT_STOCK' ? 'SELL' : 'BUY', quantity, entry: { order_type: 'LIMIT', limit_price: Number(effectivePayload.limit_price ?? effectivePayload.ask ?? effectivePayload.last) },
       protection: effectivePayload.protection, budget: { daily_opening_reserved_usd: amount, total_exposure_reserved_usd: grossReservation, planned_loss_usd: Number(effectivePayload.planned_loss_usd || 0), estimated_round_trip_commission_usd: economics.estimated_round_trip_commission_usd, reservation_id: reservationId },
       economics, eligibility, observed: { bid: effectivePayload.bid, ask: effectivePayload.ask, last: effectivePayload.last ?? effectivePayload.close, quote_at: effectivePayload.quote_at }, issued_at: created, expires_at: expires,
@@ -1153,6 +1209,37 @@ export function ingestBridgeEvent(bridge, input) {
   // Receipt, cursor, account projection, economics and decisions are one commit.
   // A failed side effect must leave the original event retryable.
   return getDb().transaction(() => ingestBridgeEventTransaction(bridge, input))();
+}
+
+// Submission-time veto after the desktop quote wait. Does not issue, claim,
+// approve or mutate an order. Both account modes share these exact checks.
+export function validateIbkrNewSubmission(bridge, authorizationId) {
+  const db = getDb();
+  const row = db.prepare(`SELECT * FROM ibkrnew_authorizations WHERE authorization_id=? AND owner_user_id=? AND account_id=? AND bridge_id=?`).get(authorizationId,bridge.owner_user_id,bridge.account_id,bridge.bridge_id);
+  const reject = reason => { throw Object.assign(new Error(reason),{status:409}); };
+  if (!row || row.status!=='issued' || Date.parse(row.expires_at)<=Date.now()) reject('authorization_not_executable');
+  const a = parse(row.authorization_json,{}), configs = ensureIbkrNewDefaults(bridge.owner_user_id), mode = getIbkrNewExecutionMode(bridge.owner_user_id);
+  if (mode.active_mode!==bridge.environment || mode.execution_enabled!==true) reject('account_context_not_attested');
+  const goal = getIbkrNewGoalState(bridge.owner_user_id,{environment:bridge.environment});
+  if (a.action!=='EXIT' && (!goal.opening_trades_allowed || goal.cycle?.cycle_id!==a.goal?.cycle_id)) reject('goal_context_changed');
+  for (const [kind,version] of Object.entries(a.config_versions || {})) if (configs[kind]?.version!==version) reject('configuration_changed');
+  if (!configs.policy.feature_switches.trading_enabled || !configs.policy.feature_switches.execution_enabled || !configs.strategy.enabled || !configs.strategy_skill.enabled) reject('trading_disabled');
+  if (a.action!=='EXIT' && db.prepare(`SELECT 1 FROM ibkrnew_circuit_breakers WHERE owner_user_id=? AND environment=? AND active=1`).get(bridge.owner_user_id,bridge.environment)) reject('circuit_breaker_active');
+  if (a.action==='EXIT') {
+    if (!configs.policy.feature_switches.automatic_exit_enabled) reject('automatic_exit_disabled');
+    const trade = db.prepare(`SELECT status FROM ibkrnew_trade_records WHERE owner_user_id=? AND account_id=? AND bridge_id=? AND authorization_id=?`).get(bridge.owner_user_id,bridge.account_id,bridge.bridge_id,a.parent_trade_authorization_id);
+    if (trade?.status!=='open') reject('owned_open_trade_required');
+  }
+  const account = db.prepare(`SELECT * FROM ibkrnew_account_state WHERE owner_user_id=? AND account_id=?`).get(bridge.owner_user_id,bridge.account_id);
+  if (!account || Date.now()-Date.parse(account.captured_at)>Number(configs.policy.freshness.account_max_age_ms)) reject('account_state_stale');
+  if(a.action!=='EXIT') {
+    const reserved=db.prepare(`SELECT COALESCE(SUM(r.gross_reserved_usd-r.gross_released_usd),0) gross FROM ibkrnew_budget_reservations r WHERE r.owner_user_id=? AND r.account_id=? AND r.status IN ('reserved','partially_filled','filled')`).get(bridge.owner_user_id,bridge.account_id);
+    if(grossFromPositions(parse(account.positions_json,[]),configs.policy.budgets.short_stress_buffer_pct)+Number(reserved.gross)>Math.min(Number(configs.policy.budgets.total_gross_exposure_usd),Number(account.eligible_capital_usd))) reject('total_budget_changed_before_submission');
+    if(Number(account.realized_pnl_day_usd)+Number(account.unrealized_pnl_usd)<=-Number(configs.policy.loss_limits.daily_loss_limit_usd)) reject('daily_loss_limit');
+  }
+  const session = tradingSession(new Date(),configs.policy.session_rules.new_entry_cutoff_minutes_before_close);
+  if (a.action==='EXIT' ? !session.regular : !session.opening_allowed) reject(session.reason);
+  return {ok:true,authorization_id:authorizationId,environment:bridge.environment};
 }
 
 function ingestBridgeEventTransaction(bridge, input) {
@@ -1195,6 +1282,7 @@ function ingestBridgeEventTransaction(bridge, input) {
     reconcileFilledReservations(bridge, payload.positions || [], created, db);
     const policy = ensureIbkrNewDefaults(bridge.owner_user_id).policy;
     reconcileIbkrNewGoal(bridge.owner_user_id, { policy, environment: bridge.environment, at: occurred });
+    manageIbkrNewProtectedExits(db,bridge,policy,ensureIbkrNewDefaults(bridge.owner_user_id).strategy,created);
     const pnl = Number(payload.realized_pnl_day_usd || 0) + Number(payload.unrealized_pnl_usd || 0);
     if (pnl <= -Number(policy.loss_limits.daily_loss_limit_usd)) {
       db.prepare(`INSERT INTO ibkrnew_circuit_breakers(owner_user_id,environment,breaker_type,active,reason,created_at) VALUES(?,?,'daily_loss',1,?,?) ON CONFLICT(owner_user_id,environment,breaker_type) DO UPDATE SET active=1,reason=excluded.reason,created_at=excluded.created_at,cleared_at=NULL`).run(bridge.owner_user_id, bridge.environment, `Daily P&L ${pnl} breached limit`, created);
@@ -1223,7 +1311,11 @@ function ingestBridgeEventTransaction(bridge, input) {
     } else if (payload.order_role === 'entry' && /cancel|inactive|reject/.test(statusText)) {
       db.prepare(`UPDATE ibkrnew_budget_reservations SET daily_released_usd=daily_reserved_usd-filled_usd,gross_released_usd=CASE WHEN filled_usd>0 THEN gross_reserved_usd*(daily_reserved_usd-filled_usd)/daily_reserved_usd ELSE gross_reserved_usd END,status=CASE WHEN filled_usd>0 THEN 'filled' ELSE 'released' END,updated_at=? WHERE authorization_id=? AND owner_user_id=? AND status IN ('reserved','partially_filled')`).run(created, payload.authorization_id, bridge.owner_user_id);
     } else if (payload.order_role === 'protective_stop' && /cancel|inactive|reject/.test(statusText)) {
+      const tradeClosed=db.prepare(`SELECT status FROM ibkrnew_trade_records WHERE authorization_id=? AND owner_user_id=?`).get(payload.authorization_id,bridge.owner_user_id)?.status==='closed';
+      const completedExit=db.prepare(`SELECT 1 FROM ibkrnew_events WHERE bridge_id=? AND status='accepted' AND event_type='order.status_changed' AND json_extract(payload_json,'$.authorization_id')=? AND json_extract(payload_json,'$.order_role') IN ('target','exit') AND lower(json_extract(payload_json,'$.status'))='filled' AND CAST(json_extract(payload_json,'$.remaining') AS REAL)=0`).get(bridge.bridge_id,payload.authorization_id);
+      if(tradeClosed || completedExit) return {accepted:true,duplicate:false,event_id:eventId,status,reaction:null};
       db.prepare(`INSERT INTO ibkrnew_circuit_breakers(owner_user_id,environment,breaker_type,active,reason,created_at) VALUES(?,?,'protection_failure',1,?,?) ON CONFLICT(owner_user_id,environment,breaker_type) DO UPDATE SET active=1,reason=excluded.reason,created_at=excluded.created_at,cleared_at=NULL`).run(bridge.owner_user_id, bridge.environment, `Protective stop ${payload.order_id} became ${payload.status}`, created);
+      cancelPendingEnvironmentEntries(bridge.owner_user_id,bridge.environment,'protection_failure',db);
     }
   }
   const reaction = (eventType === 'market.bar_closed' || eventType === 'market.signal') ? maybeAuthorize(bridge, eventId, payload) : null;
@@ -1249,7 +1341,7 @@ export function claimCommands(bridge, limit = 10, protocolVersion = 0) {
   if (executionMode.requested_mode !== bridge.environment || executionMode.active_mode !== bridge.environment || executionMode.execution_enabled !== true) return [];
   ensureIbkrNewEventTraderSchema(); const db = getDb(); const ts = nowIso(); const lease = new Date(Date.now() + 10000).toISOString();
   const tx = db.transaction(() => {
-    const goalBlocked = db.prepare(`SELECT o.authorization_id FROM ibkrnew_command_outbox o LEFT JOIN ibkrnew_goal_trade_links l ON l.authorization_id=o.authorization_id LEFT JOIN ibkrnew_goal_cycles c ON c.cycle_id=l.cycle_id LEFT JOIN ibkrnew_goals g ON g.goal_id=l.goal_id WHERE o.bridge_id=? AND o.status IN ('pending','claimed') AND (c.status IS NULL OR c.status<>'ACTIVE' OR g.status<>'ACTIVE' OR c.scheduled_end_at<=?)`).all(bridge.bridge_id, ts);
+    const goalBlocked = db.prepare(`SELECT o.authorization_id FROM ibkrnew_command_outbox o LEFT JOIN ibkrnew_goal_trade_links l ON l.authorization_id=o.authorization_id LEFT JOIN ibkrnew_goal_cycles c ON c.cycle_id=l.cycle_id LEFT JOIN ibkrnew_goals g ON g.goal_id=l.goal_id WHERE o.bridge_id=? AND o.status IN ('pending','claimed') AND COALESCE(json_extract(o.command_json,'$.authorization.action'),'OPEN')='OPEN' AND (c.status IS NULL OR c.status<>'ACTIVE' OR g.status<>'ACTIVE' OR c.scheduled_end_at<=?)`).all(bridge.bridge_id, ts);
     for (const row of goalBlocked) {
       retireUnexecutedAuthorization(db, row.authorization_id, 'cancelled', ts);
     }
@@ -1341,7 +1433,7 @@ function lifecycleStages(row, payload, reaction) {
   const stages = [];
   const add = (agentName, status, summary, evidence = {}) => {
     const workflow = IBKRNEW_WORKFLOW_BY_AGENT.get(agentName) || {};
-    stages.push({ agent_name: agentName, workflow_id: workflow.workflow_id, responsibility: workflow.responsibility, status, summary, evidence });
+    stages.push({ agent_name: agentName, workflow_id: workflow.workflow_id, responsibility: workflow.responsibility, status, summary, execution_kind: 'deterministic_event_engine', agent_invocation_verified: false, evidence });
   };
   const isSignal = ['market.signal', 'market.bar_closed'].includes(row.event_type);
   if (!isSignal) {
@@ -1420,7 +1512,7 @@ function getIbkrNewAgentActivity(ownerUserId, environment) {
     const direct = recent.find((row) => workflow.subscriptions.includes(row.event_type) || primaryAgentForEvent(row.event_type) === workflow.agent_name); const derived = signalStages.find((stage) => stage.agent_name === workflow.agent_name);
     const useDerived = derived && (!direct || Date.parse(latestSignal.occurred_at) >= Date.parse(direct.occurred_at));
     const directStatus = direct?.status === 'accepted' ? (workflow.agent_name === 'IBKRNewTradingSupervisor' ? 'monitoring' : 'completed') : direct?.status;
-    return { agent_name: workflow.agent_name, workflow_id: workflow.workflow_id, responsibility: workflow.responsibility, subscriptions: workflow.subscriptions, status: useDerived ? derived.status : direct ? directStatus : 'waiting', last_event_id: useDerived ? latestSignal.event_id : direct?.event_id || null, last_event_type: useDerived ? latestSignal.event_type : direct?.event_type || null, last_seen_at: useDerived ? latestSignal.occurred_at : direct?.occurred_at || null, summary: useDerived ? derived.summary : direct ? eventDescription(direct, parse(direct.payload_json, {}), parse(direct.reaction_json, null)) : 'Waiting for a subscribed event.' };
+    return { agent_name: workflow.agent_name, workflow_id: workflow.workflow_id, responsibility: workflow.responsibility, subscriptions: workflow.subscriptions, execution_kind: 'deterministic_event_engine', agent_invocation_verified: false, status: useDerived ? derived.status : direct ? directStatus : 'waiting', last_event_id: useDerived ? latestSignal.event_id : direct?.event_id || null, last_event_type: useDerived ? latestSignal.event_type : direct?.event_type || null, last_seen_at: useDerived ? latestSignal.occurred_at : direct?.occurred_at || null, summary: useDerived ? derived.summary : direct ? eventDescription(direct, parse(direct.payload_json, {}), parse(direct.reaction_json, null)) : 'Waiting for a subscribed event.' };
   });
 }
 

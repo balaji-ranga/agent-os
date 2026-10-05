@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireAuth, requireCeoOrAdmin, requireTenantFullAccess, resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
 import { approveAuthorization, authenticateBridge, acknowledgeCommand, claimCommands, ensureIbkrNewDefaults, getDashboard, getIbkrNewConfigHistory, getIbkrNewEventDetail, getIbkrNewEventTimeline, getIbkrNewExecutionMode, getIbkrNewGoalHistory, getIbkrNewGoalState, getIbkrNewLiveOperations, getIbkrNewSchemaDocument, getIbkrNewSummary, ingestBridgeEvent, pauseIbkrNewGoal, publishConfig, reconcileIbkrNewBridgeSequence, registerBridge, resumeIbkrNewGoal, revokeBridge, setIbkrNewExecutionMode, setIbkrNewGoal } from '../services/ibkrnew-event-trader.js';
 import { buildIbkrNewEventBridgePackageZip } from '../services/ibkrnew-event-bridge-package.js';
+import { validateIbkrNewSubmission } from '../services/ibkrnew-event-trader.js';
 
 const router = Router();
 const bridgeRate = new Map();
@@ -60,6 +61,7 @@ router.post('/authorizations/:authorizationId/approve', requireAuth, requireTena
 router.post('/bridge/events', bridge, (req, res) => handle(res, () => res.status(202).json(ingestBridgeEvent(req.ibkrNewBridge, req.body || {}))));
 router.get('/bridge/bootstrap', bridge, (req, res) => handle(res, () => res.json({ environment: req.ibkrNewBridge.environment, bridge_id: req.ibkrNewBridge.bridge_id, account_ref: req.ibkrNewBridge.account_id, last_sequence: reconcileIbkrNewBridgeSequence(req.ibkrNewBridge.bridge_id), execution_mode: getIbkrNewExecutionMode(req.ibkrNewBridge.owner_user_id), goal: getIbkrNewGoalState(req.ibkrNewBridge.owner_user_id, { environment: req.ibkrNewBridge.environment }), configs: ensureIbkrNewDefaults(req.ibkrNewBridge.owner_user_id) })));
 router.post('/bridge/commands/claim', bridge, (req, res) => handle(res, () => res.json({ commands: claimCommands(req.ibkrNewBridge, req.body?.limit, req.body?.protocol_version) })));
+router.get('/bridge/authorizations/:authorizationId/validate', bridge, (req,res) => handle(res, () => res.json(validateIbkrNewSubmission(req.ibkrNewBridge,req.params.authorizationId))));
 router.post('/bridge/commands/:commandId/ack', bridge, (req, res) => handle(res, () => res.json(acknowledgeCommand(req.ibkrNewBridge, req.params.commandId, req.body?.status, req.body?.detail))));
 
 export default router;

@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { installTestClock } from './clock.js';
+installTestClock();
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -113,16 +115,16 @@ try {
   broker.config = { environment: 'paper', executionEnabled: true }; broker.connected = true;
   broker.accountAttestation = { status: 'verified', execution_ready: true };
   broker.nextOrderId = 1; broker.orderMap = new Map();
-  broker.snapshotQuote = async () => ({ ask: 100, bid: 100, last: 100 });
+  broker.snapshotQuote = async () => ({ ask: 100, bid: 100, last: 100, market_data_type: 1, captured_at: new Date().toISOString() });
   let brokerCalls = 0;
   broker.ib = { placeOrder: () => { brokerCalls += 1; if (brokerCalls === 2) throw new Error('transport broke after parent'); } };
   const partialCommand = { authorization: { environment: 'paper', authorization_id: 'auth-test', expires_at: new Date(Date.now() + 60000).toISOString(), side: 'BUY', quantity: 1, contract: { symbol: 'TEST' }, entry: { order_type: 'LIMIT', limit_price: 100 }, protection: { stop_price: 95, targets: [{ limit_price: 110 }] } } };
-  await assert.rejects(() => broker.placeProtected(partialCommand), (error) => error.submission_uncertain === true);
+  await assert.rejects(() => broker.placeProtected(partialCommand, async () => {}), (error) => error.submission_uncertain === true);
   execution.acknowledge = async (_id, status) => { assert.equal(status, 'uncertain'); return { ok: true }; };
   await execution.executeCommand({ ...command, command_id: 'uncertain-command' }, { placeProtected: async () => { throw Object.assign(new Error('partial submission'), { submission_uncertain: true }); } });
   assert.equal(execution.commandSeen('uncertain-command').status, 'uncertain');
   broker.snapshotQuote = async () => { broker.connected = false; broker.accountAttestation.execution_ready = false; return { ask: 100 }; };
-  await assert.rejects(() => broker.placeProtected(partialCommand), /GATEWAY_RECONCILIATION_CHANGED/);
+  await assert.rejects(() => broker.placeProtected(partialCommand, async () => {}), /GATEWAY_RECONCILIATION_CHANGED/);
   assert.equal(brokerCalls, 2, 'a disconnect while awaiting the local quote cannot submit any new order');
   console.log('IBKRNew delivery race, crash, quarantine, recovery and singleton tests passed');
 } finally {

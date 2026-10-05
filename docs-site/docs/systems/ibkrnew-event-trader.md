@@ -100,6 +100,12 @@ Frequent account refreshes keep the deterministic risk gate current. They do not
 
 ### Bridge delivery health
 
+Runtime 1.2.3 checks fresh non-delayed IBKR bid/ask and revalidates authorization expiry, account mode, goal/cycle, configuration, session/cutoff and server vetoes immediately before submission. Features require 21 closed one-minute bars to warm up. A healthy pre-open heartbeat is not evidence of a trade or a guaranteed profit.
+
+Partial exits keep the remaining trade open; duplicate executions do not double-count P&L. Positive goal profit waits for commission settlement. Scheduled safety exits reprice the owned OCA target while keeping the protective stop; broker acknowledgements and fills must still be verified.
+
+The six role cards describe deterministic event-engine evidence, not six LLM invocations or canvas workflow runs. The current automatic producer covers stocks/ETFs. Automatic option-chain selection, execution of free-form skill instructions and scaled first/final target exits remain outside this runtime; the bracket uses the configured single-lot-R target for its whole quantity. A configuration label alone is not evidence those behaviors ran.
+
 Live Operations reports health from accepted, account-attested heartbeats. A Running Windows task can still be offline if its events cannot be delivered. Current component cards belong to the active registration for the selected account context; earlier registrations are grouped under **Historical bridge components**.
 
 Uploads use a separate batch so new broker callbacks cannot be overwritten. Failed or quarantined events remain queued. On a sequence gap, command claiming stops while the bridge restores the accepted cursor, preserves pending event identities and reconnects for account/open-order reconciliation. Retrying a lost acknowledgement cannot apply the same event twice. Historical errors remain available without being presented as a current failure after a healthy heartbeat.

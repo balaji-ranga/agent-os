@@ -75,7 +75,7 @@ export default function IBKRNewLiveOperations() {
     </section>}
 
     <section className="panel ibkrnew-section">
-      <div className="ibkrnew-section-heading"><div><h2 className="panel-title">Six-agent activity</h2><p className="page-muted">These are correlated runtime roles in the event pipeline—not synthetic chat messages. Open an event below for exact evidence at every stage.</p></div><span className="ibkrnew-version">{data?.agent_activity?.length || 0} roles</span></div>
+      <div className="ibkrnew-section-heading"><div><h2 className="panel-title">Six-role execution evidence</h2><p className="page-muted">These roles are implemented by the deterministic event engine. The cards summarize stored events, decisions and order records; they do not prove six AI-agent or canvas-workflow invocations. Open an event for its correlated evidence.</p></div><span className="ibkrnew-version">{data?.agent_activity?.length || 0} roles</span></div>
       <div className="ibkrnew-agent-grid">{(data?.agent_activity || []).map((item) => <article className="ibkrnew-agent-card" key={item.agent_name}>
         <div className="ibkrnew-agent-card-head"><div><small>{item.workflow_id}</small><h3>{agentLabel(item.agent_name)}</h3></div><span className={`ibkrnew-stage-status is-${item.status}`}>{statusLabel(item.status)}</span></div>
         <p>{item.summary}</p>

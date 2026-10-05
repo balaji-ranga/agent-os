@@ -30,6 +30,9 @@ export function commandMatchesBootstrap(command, bootstrap) {
   const currentCycle = String(bootstrap?.goal?.cycle?.cycle_id || '');
   const commandEnvironment = String(command?.authorization?.environment || '');
   const currentEnvironment = String(bootstrap?.environment || '');
+  const versions = command?.authorization?.config_versions || Object.fromEntries(['policy','strategy','strategy_skill','universe'].filter(kind => command?.authorization?.[kind]?.version != null).map(kind => [kind,command.authorization[kind].version]));
+  if (versions && Object.entries(versions).some(([kind, version]) => Number(bootstrap?.configs?.[kind]?.version) !== Number(version))) return false;
+  if (command?.authorization?.action === 'EXIT') return Boolean(commandRef && commandRef === currentRef && commandEnvironment === currentEnvironment && bootstrap?.execution_mode?.requested_mode === currentEnvironment && bootstrap?.execution_mode?.execution_enabled === true && bootstrap?.configs?.policy?.feature_switches?.automatic_exit_enabled === true);
   return Boolean(commandRef && currentRef && commandRef === currentRef && commandCycle && commandCycle === currentCycle && commandEnvironment && commandEnvironment === currentEnvironment && bootstrap?.goal?.opening_trades_allowed === true && bootstrap?.execution_mode?.requested_mode === currentEnvironment && bootstrap?.execution_mode?.execution_enabled === true);
 }
 
@@ -166,7 +169,12 @@ export class IBKRNewBridgeCore {
       const executionBoot = await this.bootstrap();
       if (!commandMatchesBootstrap(command, executionBoot)) throw new Error('account reference epoch changed before execution');
       this.markCommand(command.command_id, 'executing');
-      detail = await gateway.placeProtected(command);
+      detail = await gateway.placeProtected(command, async () => {
+        const current = await this.bootstrap();
+        if (!commandMatchesBootstrap(command, current)) throw new Error('account, mode, goal or configuration changed before submission');
+        const response = await this.request(`/bridge/authorizations/${encodeURIComponent(command.authorization.authorization_id)}/validate`, {headers:this.headers()}, 'submission validation');
+        if (!response.ok || (await response.json()).ok !== true) throw new Error('submission authorization vetoed by server');
+      });
       status = 'submitted';
     } catch (error) {
       status = error.submission_uncertain ? 'uncertain' : 'rejected';
@@ -284,8 +292,9 @@ export function buildMarketSubscriptionComponent(symbols) {
 export class IBKRNewFeatureEngine {
   constructor() { this.current = new Map(); this.history = new Map(); this.shortable = new Map(); }
   setShortable(symbol, value) { this.shortable.set(symbol, value === true); }
-  ingest(bar, policy) {
-    const symbol = String(bar.symbol || '').toUpperCase(); const minute = String(bar.at).slice(0, 16); const current = this.current.get(symbol);
+  ingest(bar, policy, strategy = {}) {
+    const symbol = String(bar.symbol || '').toUpperCase(); const minute = String(bar.at).slice(0, 16); let current = this.current.get(symbol);
+    if (current && (String(current.at).slice(0,10)!==String(bar.at).slice(0,10) || Date.parse(bar.at)-Date.parse(current.at)>120000)) {this.current.delete(symbol);this.history.delete(symbol);current=null;}
     if (!current || current.minute !== minute) {
       this.current.set(symbol, { ...bar, minute, open: Number(bar.open), high: Number(bar.high), low: Number(bar.low), close: Number(bar.close), volume: Number(bar.volume || 0) });
       if (!current) return null;
@@ -300,7 +309,8 @@ export class IBKRNewFeatureEngine {
       const maxPosition = direction > 0 ? policy.budgets.max_stock_position_usd : policy.budgets.max_short_position_usd;
       const quantity = Math.max(0, Math.floor(Math.min(maxPosition / features.last, policy.loss_limits.max_planned_loss_per_trade_usd / riskPerShare)));
       if (!quantity) return null;
-      return { symbol, ...features, quantity, limit_price: features.last, planned_loss_usd: quantity * riskPerShare, protection: { stop_price: stop, targets: [{ limit_price: features.last + direction * riskPerShare * 1.5, quantity }] } };
+      const reward = Number(strategy.exits?.single_lot_target_r || 1.5);
+      return { symbol, ...features, atr, atr_extension: Math.abs(features.last - features.vwap) / Math.max(atr, Number.EPSILON), feature_at: new Date(Date.parse(`${current.minute}:00.000Z`) + 60000).toISOString(), quantity, limit_price: features.last, planned_loss_usd: quantity * riskPerShare, protection: { stop_price: stop, targets: [{ limit_price: features.last + direction * riskPerShare * reward, quantity }] } };
     }
     current.high = Math.max(current.high, Number(bar.high)); current.low = Math.min(current.low, Number(bar.low)); current.close = Number(bar.close); current.volume += Number(bar.volume || 0); current.at = bar.at;
     return null;

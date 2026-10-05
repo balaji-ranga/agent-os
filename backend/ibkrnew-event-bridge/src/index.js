@@ -4,6 +4,7 @@ import { isAbsolute, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { IBKRNewBridgeCore, IBKRNewFeatureEngine, acquireBridgeRuntimeLock, bridgeRuntimeStalled, buildMarketSubscriptionComponent, selectUniverseProfiles } from './core.js';
 import { IBKRNewGateway } from './gateway.js';
+import { tradingSession } from './session.js';
 
 const packageRoot = fileURLToPath(new URL('..', import.meta.url));
 const packagePath = (value, fallback) => {
@@ -42,6 +43,9 @@ let lastAccountSnapshotAt = 0;
 let reconnectAttempt = 0;
 let cycleStartedAt = Date.now();
 let activeSubscriptionSymbols = [];
+let profilesBySymbol = new Map();
+let nextReconnectAt = 0;
+let lastMarketBarAt = null;
 
 const watchdog = setInterval(() => {
   if (!bridgeRuntimeStalled({ cycleStartedAt, stallTimeoutMs })) return;
@@ -58,6 +62,7 @@ function gatewayConfig() {
     accountId: process.env.IBKRNEW_ACCOUNT_ID,
     environment: tradingMode,
     executionEnabled: localExecutionEnabled,
+    correlationPath: resolve(cfg.spoolDir, 'IBKRNew-broker-correlation.json'),
   };
 }
 
@@ -65,8 +70,14 @@ function onGatewayEvent(type, payload) {
   if (type === 'account.snapshot') lastAccountSnapshotAt = Date.now();
   if (type === 'instrument.shortability_changed') featureEngine.setShortable(payload.symbol, payload.shortable);
   if (type === 'market.realtime_bar' && boot) {
-    const closed = featureEngine.ingest(payload, boot.configs.policy);
-    if (closed) core.emit('market.bar_closed', closed);
+    lastMarketBarAt = new Date().toISOString();
+    const closed = featureEngine.ingest(payload, boot.configs.policy, boot.configs.strategy);
+    if (closed && gateway?.connected) {
+      const currentGateway = gateway;
+      currentGateway.executableFeatures(closed, profilesBySymbol.get(closed.symbol) || {}, boot.configs.policy)
+        .then(async enriched => { if (gateway === currentGateway && gateway.connected) { core.emit('market.bar_closed', enriched); await core.flush(); } })
+        .catch(error => core.emit('desktop.component_error', { component_id: 'IBKRNewMarketObserver', code: 'EXECUTABLE_QUOTE_UNAVAILABLE', message: error.message, symbol: closed.symbol }));
+    }
     return;
   }
   core.emit(type, payload);
@@ -93,10 +104,11 @@ async function connectGateway({ reconnect = false } = {}) {
     await candidate.connect();
     if (recovery.changed) core.emit('bridge.sequence_recovered', { component_id: 'IBKRNewDurableSpool', component_type: 'event_spool', message: 'Event delivery cursor reconciled; pending broker events preserved and account/open orders requested again.' });
     const profiles = loadUniverseProfiles();
+    profilesBySymbol = new Map(profiles.map(profile => [profile.symbol.toUpperCase(), profile]));
     for (const profile of profiles) core.emitInstrumentProfile(profile);
     const symbols = [...new Set([...(boot.configs.universe.allowlist || []), ...profiles.map((profile) => profile.symbol)])];
     activeSubscriptionSymbols = symbols.slice(0, boot.configs.universe.maximum_active_subscriptions || 40);
-    activeSubscriptionSymbols.forEach((symbol, i) => candidate.subscribe(symbol, 1000 + i));
+    activeSubscriptionSymbols.forEach((symbol, i) => candidate.subscribe(symbol, 1000 + i, profilesBySymbol.get(symbol)));
     const previous = gateway;
     gateway = candidate;
     reconnectAttempt = 0;
@@ -117,7 +129,7 @@ async function connectGateway({ reconnect = false } = {}) {
 }
 
 async function ensureGatewayConnected() {
-  if (mock || gateway?.health().connected) return;
+  if (mock || gateway?.health().connected || Date.now() < nextReconnectAt) return;
   reconnectAttempt += 1;
   try {
     await connectGateway({ reconnect: true });
@@ -128,7 +140,7 @@ async function ensureGatewayConnected() {
       code: 'GATEWAY_RECONNECT_FAILED',
       message: `IBKR Gateway reconnect attempt ${reconnectAttempt} failed: ${error.message}`,
     });
-    throw error;
+    nextReconnectAt = Date.now() + Math.min(60000, 5000 * reconnectAttempt);
   }
 }
 
@@ -138,7 +150,7 @@ async function runCycle() {
     await ensureGatewayConnected();
     const gatewayHealth = gateway?.health() || { connected: false };
     core.emit('bridge.heartbeat', {
-      bridge_version: '1.2.2',
+      bridge_version: '1.2.3',
       gateway_connected: gatewayHealth.connected,
       mode: mock ? `${tradingMode}_mock` : tradingMode,
       account_attestation: gatewayHealth.account_attestation || { status: mock ? 'verified' : 'failed', environment: tradingMode, execution_ready: mock, reason_code: mock ? null : 'GATEWAY_NOT_ATTESTED' },
@@ -147,7 +159,7 @@ async function runCycle() {
         { component_id: 'IBKRNewDesktopRuntime', component_type: 'desktop_runtime', status: 'online', version: process.version },
         { component_id: 'IBKRNewDurableSpool', component_type: 'event_spool', status: 'online', depth: core.spoolDepth() },
         { component_id: 'IBKRNewGateway', component_type: 'ibkr_gateway', status: gatewayHealth.connected ? 'online' : 'offline', ...gatewayHealth },
-        buildMarketSubscriptionComponent(activeSubscriptionSymbols),
+        { ...buildMarketSubscriptionComponent(activeSubscriptionSymbols), status: !gatewayHealth.connected ? 'offline' : !tradingSession().regular ? 'waiting_market' : lastMarketBarAt && Date.now()-Date.parse(lastMarketBarAt)<30000 ? 'online' : 'degraded', last_market_event_at:lastMarketBarAt },
       ],
     });
     if (gatewayHealth.connected && Date.now() - lastAccountSnapshotAt >= accountSnapshotIntervalMs) {
@@ -156,6 +168,7 @@ async function runCycle() {
     }
     const delivery = await core.flush();
     if (delivery.remaining > 0) return;
+    boot = await core.bootstrap();
     if (gatewayHealth.account_attestation?.execution_ready !== true) return;
     await core.retryAcknowledgements();
     for (const command of await core.claim(10)) {
@@ -189,7 +202,11 @@ if (mock) {
   const accountId = String(process.env.IBKRNEW_ACCOUNT_ID || '').trim();
   if (!localExecutionEnabled) throw new Error(`IBKRNew ${tradingMode} execution requires its explicit local execution gate`);
   if (!accountId || tradingMode === 'paper' && !accountId.toUpperCase().startsWith('DU') || tradingMode === 'live' && accountId.toUpperCase().startsWith('DU')) throw new Error('ACCOUNT_ENVIRONMENT_MISMATCH');
-  await connectGateway();
+  // Broker availability must not decide whether the outbound bridge can report
+  // its own health. Reconnection failures are reported and retried by runCycle.
+  boot = await core.bootstrap();
+  if (boot.environment !== tradingMode) throw new Error('ACCOUNT_ENVIRONMENT_MISMATCH');
+  core.synchronizeSequence(boot.last_sequence);
 }
 
 cycleStartedAt = 0;
