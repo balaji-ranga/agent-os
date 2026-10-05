@@ -35,6 +35,18 @@ Bridge protocol version 2 rechecks the current opaque account reference immediat
 
 ## Instrument profile refresh
 
+### Subscription recovery and hot refresh (1.2.4)
+
+The runtime reloads the published universe and local profile file without reconnecting Gateway or resetting the goal. Unchanged profiles do not recreate healthy streams. Removed symbols retire their requests; added symbols use new request IDs. Invalid/partial profile updates retain the last validated streams while server freshness/eligibility guards remain in force.
+
+Request-specific IBKR permission errors, competing-session errors and silent bar stalls are reported and retried with bounded cooldowns. One shared callback dispatcher prevents listener growth. A process-wide rolling limit of 50 new five-second-bar subscriptions per ten minutes includes reconnects and refreshes; it cannot circumvent IBKR's request pacing. Delayed/frozen prices still cannot execute. Recovery does not submit/cancel orders, change mode or modify budgets.
+
+For the **S&P 500 top 100 securities by market capitalization**, configure stock index `SPX_TOP100`. Supply a complete current S&P 500 constituent profile array (500–550 unique securities) carrying `index_memberships: ["SPX"]`, explicit `membership_at`, `market_cap_at` (both at most 24 hours old), and positive `fundamentals.market_cap_usd` for every constituent. The bridge ranks the complete population and emits the top 100 as `SPX_TOP100`; it will not manufacture this list from a partial screener. All ordinary fundamentals, earnings, price, liquidity, spread and commission/risk rules still apply. Membership and ranking availability alone do not make a stock eligible to trade. A licensed profile/index source is still required; IBKR executable quotes do not establish index membership.
+
+The entire top 100 is the candidate universe, not a promise of 100 simultaneous streaming lines. Existing ETF profiles are retained first and stocks are ranked by cap within the configured `maximum_active_subscriptions` (currently 40 for the tested Paper setup). Increasing that capacity or introducing rotation requires separate validation of IBKR entitlements, line limits and bar-request pacing; the runtime does not silently increase it.
+
+`scripts\Update-IBKRNewBridgeTask.ps1 -Revision <commit> -SourceRoot <repository worktree>` also installs a committed, clean maintained bridge source locally when GitHub download is unnecessary. It runs all offline suites before replacing source, preserves owner credentials/profiles/spool and records a rollback checkpoint.
+
 ### Runtime readiness (1.2.3)
 
 The same engine serves Paper and Live; the environment gate does not select a different strategy. Exchange-session gates use the published NYSE 2026–2028 calendar, New York DST, holidays, early closes and the configured entry cutoff; unknown years fail closed. The local Gateway also rechecks the session, authorization expiry, opaque account context, goal/cycle and current configuration after obtaining a live bid/ask. A server submission veto checks fresh account state and circuit breakers. Delayed/frozen prices cannot execute.

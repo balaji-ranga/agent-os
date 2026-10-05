@@ -1,6 +1,7 @@
-import { IBApi, EventName, OrderAction, OrderType, SecType, TimeInForce, WhatToShow } from '@stoqey/ib';
+import { IBApi, EventName, OrderAction, OrderType, SecType, TimeInForce } from '@stoqey/ib';
 import { tradingSession } from './session.js';
 import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
+import { MarketSubscriptions } from './market-subscriptions.js';
 
 const ACCOUNT_VALUE_KEYS = new Set(['NetLiquidation', 'TotalCashValue', 'RealizedPnL', 'UnrealizedPnL']);
 
@@ -138,24 +139,17 @@ export class IBKRNewGateway {
     });
   }
   subscribe(symbol, requestId, profile = {}) {
-    const contract = this.contract({ ...profile, symbol }); const quote = {}; const marketId = requestId + 10000;
-    this.quotes ||= new Map(); this.quotes.set(symbol, quote);
-    this.ib.on(EventName.marketDataType, (id, type) => { if (id === marketId) quote.market_data_type = Number(type); });
-    this.ib.on(EventName.tickPrice, (id, field, value) => {
-      if (id !== marketId || !(Number(value) > 0)) return;
-      const key = ({ 1: 'bid', 2: 'ask', 4: 'last' })[Number(field)];
-      if (key) { quote[key] = Number(value); quote[`${key}_at`] = new Date().toISOString(); }
-    });
-    this.ib.on(EventName.tickGeneric, (id, field, value) => {
-      if (id !== marketId || Number(field) !== 46) return;
-      quote.shortability_level = Number(value); quote.shortability_at = new Date().toISOString();
-      this.onEvent('instrument.shortability_changed', { symbol, shortable: Number(value) > 2.5, shortability_level: Number(value), shortability_at: quote.shortability_at });
-    });
-    this.ib.on(EventName.realtimeBar, (id, date, open, high, low, close, volume, wap, count) => {
-      if (id === requestId) this.onEvent('market.realtime_bar', { symbol, security_type: profile.security_type || 'STK', interval_seconds: 5, at: new Date(Number(date) * 1000).toISOString(), open, high, low, close, volume, vwap: wap, count });
-    });
-    this.ib.reqRealTimeBars(requestId, contract, 5, WhatToShow.TRADES, true, []);
-    this.ib.reqMktData(marketId, contract, '236', false, false, []);
+    const profiles = [...(this.marketSubscriptions?.entries.values() || [])].map(e => e.profile).filter(p => p.symbol !== symbol);
+    this.setSubscriptionProfiles([...profiles, { ...profile, symbol }]);
+  }
+  setSubscriptionProfiles(profiles) {
+    this.marketSubscriptions ||= new MarketSubscriptions(this.ib, p => this.contract(p), this.onEvent, { regular: () => tradingSession().regular });
+    this.marketSubscriptions.setProfiles(profiles);
+    this.refreshSubscriptions();
+  }
+  refreshSubscriptions() {
+    this.marketSubscriptions?.refresh();
+    this.quotes = new Map([...(this.marketSubscriptions?.entries.values() || [])].map(e => [e.symbol, e.quote]));
   }
   async executableFeatures(features, profile, policy) {
     const contract = this.contract({ ...profile, symbol: features.symbol });
@@ -240,7 +234,7 @@ export class IBKRNewGateway {
     this.onEvent('position.exit_submitted',{authorization_id:a.parent_trade_authorization_id,exit_authorization_id:a.authorization_id,order_id:orderId,reason:a.exit_reason,quantity:a.quantity});
     return {exit_order_id:orderId,protected_order_id:stop[0],exit_reason:a.exit_reason,local_quote:quote};
   }
-  disconnect() { this.ib.disconnect(); }
+  disconnect() { this.marketSubscriptions?.dispose(); this.ib.disconnect(); }
   snapshot() { return { ...normalizeAccountValuesToUsd(this.accountValues), positions: [...this.positions], open_orders: [...this.openOrders] }; }
   health() { return { connected: this.connected, positions: this.positions.length, open_orders: this.openOrders.length, account_attestation: { ...this.accountAttestation } }; }
 }

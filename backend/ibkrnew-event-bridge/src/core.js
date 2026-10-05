@@ -223,11 +223,26 @@ export function buildBarFeatures({ bars, relativeVolume, confirmed15m, shortable
   return { last: closes.at(-1), close: closes.at(-1), vwap, ema_fast: ema(9), ema_slow: ema(21), relative_volume: Number(relativeVolume), confirmed_15m: confirmed15m === true, shortable, quote_at: bars.at(-1).at || new Date().toISOString() };
 }
 
+export function rankSP500Top100Profiles(profiles, now = Date.now()) {
+  if (!Array.isArray(profiles)) throw new Error('S&P 500 profiles must be an array');
+  const members = profiles.filter(p => p.security_type === 'STK' && (p.index_memberships || []).includes('SPX'));
+  const unique = new Set(members.map(p => String(p.symbol || '').toUpperCase()));
+  if (members.length < 500 || members.length > 550 || unique.size !== members.length) throw new Error('Complete, unique S&P 500 membership (500–550 securities) required; partial screens cannot establish the top 100');
+  for (const p of members) {
+    const fresh = at => Number.isFinite(Date.parse(at)) && now - Date.parse(at) >= 0 && now - Date.parse(at) <= 86400000;
+    if (!fresh(p.membership_at) || !fresh(p.market_cap_at) || !(Number(p.fundamentals?.market_cap_usd) > 0)) throw new Error('Current membership and market cap required for every S&P 500 constituent');
+  }
+  const ranked = [...members].sort((a, b) => Number(b.fundamentals.market_cap_usd) - Number(a.fundamentals.market_cap_usd) || String(a.symbol).localeCompare(String(b.symbol)));
+  const ranks = new Map(ranked.map((p, i) => [p.symbol, i + 1]));
+  return profiles.map(p => ({ ...p, index_memberships: [...(p.index_memberships || []).filter(i => i !== 'SPX_TOP100'), ...(ranks.get(p.symbol) <= 100 ? ['SPX_TOP100'] : [])], ...(ranks.has(p.symbol) ? { sp500_market_cap_rank: ranks.get(p.symbol) } : {}) }));
+}
+
 export function selectUniverseProfiles(profiles, universe) {
   const normalize = (values) => (values || []).map((value) => String(value || '').trim().toUpperCase()).filter(Boolean);
   const globalAllow = normalize(universe?.allowlist); const globalDeny = new Set(normalize(universe?.denylist)); const stockRules = universe?.filters?.stock || {}; const etfRules = universe?.filters?.etf || {};
   const indexes = normalize(stockRules.indexes); const etfAllow = normalize(etfRules.allowlist); const etfDeny = new Set(normalize(etfRules.denylist)); const categories = normalize(etfRules.categories);
-  return (Array.isArray(profiles) ? profiles : []).filter((profile) => {
+  const rankedProfiles = indexes.includes('SPX_TOP100') ? rankSP500Top100Profiles(profiles) : profiles;
+  return (Array.isArray(rankedProfiles) ? rankedProfiles : []).filter((profile) => {
     const symbol = String(profile?.symbol || '').trim().toUpperCase(); const securityType = String(profile?.security_type || '').trim().toUpperCase();
     if (!symbol || globalDeny.has(symbol) || globalAllow.length && !globalAllow.includes(symbol)) return false;
     if (securityType === 'STK') {
@@ -241,7 +256,7 @@ export function selectUniverseProfiles(profiles, universe) {
       return !categories.length || categories.some((category) => profileCategories.includes(category));
     }
     return false;
-  });
+  }).sort((a, b) => Number(a.sp500_market_cap_rank || Infinity) - Number(b.sp500_market_cap_rank || Infinity) || String(a.symbol).localeCompare(String(b.symbol)));
 }
 
 export function acquireBridgeRuntimeLock(spoolDir) {

@@ -46,6 +46,8 @@ let activeSubscriptionSymbols = [];
 let profilesBySymbol = new Map();
 let nextReconnectAt = 0;
 let lastMarketBarAt = null;
+let subscriptionSignature = null;
+let lastProfileError = null;
 
 const watchdog = setInterval(() => {
   if (!bridgeRuntimeStalled({ cycleStartedAt, stallTimeoutMs })) return;
@@ -90,6 +92,22 @@ function loadUniverseProfiles() {
   return selectUniverseProfiles(JSON.parse(readFileSync(profileFile, 'utf8')), boot.configs.universe);
 }
 
+function refreshUniverseSubscriptions(candidate = gateway) {
+  if (!candidate?.connected) return;
+  const profiles = loadUniverseProfiles();
+  const signature = JSON.stringify({ universe: boot.configs.universe, profiles });
+  if (candidate === gateway && subscriptionSignature === signature) { candidate.refreshSubscriptions(); return; }
+  const selected = new Map(profiles.map(p => [p.symbol.toUpperCase(), p]));
+  // Retain configured ETFs, then take highest-cap ranked stocks within the
+  // existing subscription capacity. Never silently raise a user's line limit.
+  const etfs = profiles.filter(p => p.security_type === 'ETF');
+  const symbols = [...new Set([...etfs.map(p => p.symbol), ...(boot.configs.universe.allowlist || []), ...profiles.map(p => p.symbol)])].slice(0, boot.configs.universe.maximum_active_subscriptions || 40);
+  for (const profile of profiles) core.emitInstrumentProfile(profile);
+  candidate.setSubscriptionProfiles(symbols.map(symbol => selected.get(symbol.toUpperCase()) || { symbol, security_type: 'STK' }));
+  profilesBySymbol = selected; activeSubscriptionSymbols = symbols;
+  subscriptionSignature = signature; lastProfileError = null;
+}
+
 async function connectGateway({ reconnect = false } = {}) {
   // Resynchronize while disconnected, before new broker callbacks can allocate
   // sequences. Callbacks from a retired connection must not enter the spool.
@@ -103,12 +121,12 @@ async function connectGateway({ reconnect = false } = {}) {
   try {
     await candidate.connect();
     if (recovery.changed) core.emit('bridge.sequence_recovered', { component_id: 'IBKRNewDurableSpool', component_type: 'event_spool', message: 'Event delivery cursor reconciled; pending broker events preserved and account/open orders requested again.' });
-    const profiles = loadUniverseProfiles();
-    profilesBySymbol = new Map(profiles.map(profile => [profile.symbol.toUpperCase(), profile]));
-    for (const profile of profiles) core.emitInstrumentProfile(profile);
-    const symbols = [...new Set([...(boot.configs.universe.allowlist || []), ...profiles.map((profile) => profile.symbol)])];
-    activeSubscriptionSymbols = symbols.slice(0, boot.configs.universe.maximum_active_subscriptions || 40);
-    activeSubscriptionSymbols.forEach((symbol, i) => candidate.subscribe(symbol, 1000 + i, profilesBySymbol.get(symbol)));
+    try { refreshUniverseSubscriptions(candidate); }
+    catch (error) {
+      lastProfileError = error.message;
+      core.emit('desktop.component_error', { component_id: 'IBKRNewMarketSubscriptions', code: 'PROFILE_REFRESH_FAILED', message: 'Current instrument profile refresh could not be validated; keeping the last validated subscriptions where available.' });
+      candidate.setSubscriptionProfiles(activeSubscriptionSymbols.map(symbol => profilesBySymbol.get(symbol) || { symbol, security_type: 'STK' }));
+    }
     const previous = gateway;
     gateway = candidate;
     reconnectAttempt = 0;
@@ -150,7 +168,7 @@ async function runCycle() {
     await ensureGatewayConnected();
     const gatewayHealth = gateway?.health() || { connected: false };
     core.emit('bridge.heartbeat', {
-      bridge_version: '1.2.3',
+      bridge_version: '1.2.4',
       gateway_connected: gatewayHealth.connected,
       mode: mock ? `${tradingMode}_mock` : tradingMode,
       account_attestation: gatewayHealth.account_attestation || { status: mock ? 'verified' : 'failed', environment: tradingMode, execution_ready: mock, reason_code: mock ? null : 'GATEWAY_NOT_ATTESTED' },
@@ -159,7 +177,7 @@ async function runCycle() {
         { component_id: 'IBKRNewDesktopRuntime', component_type: 'desktop_runtime', status: 'online', version: process.version },
         { component_id: 'IBKRNewDurableSpool', component_type: 'event_spool', status: 'online', depth: core.spoolDepth() },
         { component_id: 'IBKRNewGateway', component_type: 'ibkr_gateway', status: gatewayHealth.connected ? 'online' : 'offline', ...gatewayHealth },
-        { ...buildMarketSubscriptionComponent(activeSubscriptionSymbols), status: !gatewayHealth.connected ? 'offline' : !tradingSession().regular ? 'waiting_market' : lastMarketBarAt && Date.now()-Date.parse(lastMarketBarAt)<30000 ? 'online' : 'degraded', last_market_event_at:lastMarketBarAt },
+        { ...buildMarketSubscriptionComponent(activeSubscriptionSymbols), ...gateway?.marketSubscriptions?.health(), status: !gatewayHealth.connected ? 'offline' : !tradingSession().regular ? 'waiting_market' : activeSubscriptionSymbols.length && gateway?.marketSubscriptions?.health().pending_symbols.length === 0 ? 'online' : 'degraded', last_market_event_at:lastMarketBarAt },
       ],
     });
     if (gatewayHealth.connected && Date.now() - lastAccountSnapshotAt >= accountSnapshotIntervalMs) {
@@ -169,6 +187,15 @@ async function runCycle() {
     const delivery = await core.flush();
     if (delivery.remaining > 0) return;
     boot = await core.bootstrap();
+    if (boot.environment !== tradingMode) throw new Error('ACCOUNT_ENVIRONMENT_MISMATCH');
+    try { refreshUniverseSubscriptions(); }
+    catch (error) {
+      if (lastProfileError !== error.message) core.emit('desktop.component_error', { component_id: 'IBKRNewMarketSubscriptions', code: 'PROFILE_REFRESH_FAILED', message: 'Current instrument profile refresh could not be validated; keeping the last validated subscriptions. Complete fresh S&P 500 profiles are required for SPX_TOP100.' });
+      lastProfileError = error.message;
+      // Keep the last validated subscriptions; backend freshness guards still
+      // veto stale eligibility. Protective order management is not interrupted.
+      gateway?.refreshSubscriptions();
+    }
     if (gatewayHealth.account_attestation?.execution_ready !== true) return;
     await core.retryAcknowledgements();
     for (const command of await core.claim(10)) {

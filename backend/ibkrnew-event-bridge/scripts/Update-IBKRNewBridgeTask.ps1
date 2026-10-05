@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
   [Parameter(Mandatory=$true)][ValidatePattern('^[a-f0-9]{40}$')][string]$Revision,
+  [string]$SourceRoot,
   [string]$InstallRoot = (Join-Path $env:LOCALAPPDATA 'Flolah\IBKRNewBridge'),
   [string]$TaskName = 'IBKRNewBridge'
 )
@@ -8,14 +9,22 @@ $ErrorActionPreference = 'Stop'
 $root = [IO.Path]::GetFullPath($InstallRoot)
 if (-not (Test-Path -LiteralPath (Join-Path $root '.env'))) { throw 'Installed owner-scoped .env is required.' }
 $envHash = (Get-FileHash -LiteralPath (Join-Path $root '.env') -Algorithm SHA256).Hash
-$files = @('src/core.js','src/index.js','src/gateway.js','src/session.js','scripts/Run-IBKRNewBridgeTask.ps1','scripts/Update-IBKRNewBridgeTask.ps1','scripts/Install-IBKRNewBridgeTask.ps1','scripts/Uninstall-IBKRNewBridgeTask.ps1','scripts/Start-IBKRNewBridge.ps1','scripts/Test-IBKRNewBridge.ps1','scripts/Get-IBKRNewBridgeTaskStatus.ps1','test/offline.test.js','test/delivery.test.js','test/clock.js','test/readiness.test.js','README.md','package.json','package-lock.json','.env.example','IBKRNew-instrument-profiles.example.json')
+if ($SourceRoot) {
+  $SourceRoot = [IO.Path]::GetFullPath($SourceRoot)
+  $sourceRevision = (& git -C $SourceRoot rev-parse HEAD).Trim()
+  if ($LASTEXITCODE -ne 0 -or $sourceRevision -cne $Revision) { throw 'Local source must match the requested Git revision.' }
+  $dirty = & git -C $SourceRoot status --porcelain -- backend/ibkrnew-event-bridge
+  if ($LASTEXITCODE -ne 0 -or $dirty) { throw 'Commit the maintained bridge source before installing it.' }
+}
+$files = @('src/core.js','src/index.js','src/gateway.js','src/session.js','src/market-subscriptions.js','scripts/Run-IBKRNewBridgeTask.ps1','scripts/Update-IBKRNewBridgeTask.ps1','scripts/Install-IBKRNewBridgeTask.ps1','scripts/Uninstall-IBKRNewBridgeTask.ps1','scripts/Start-IBKRNewBridge.ps1','scripts/Test-IBKRNewBridge.ps1','scripts/Get-IBKRNewBridgeTaskStatus.ps1','test/offline.test.js','test/delivery.test.js','test/clock.js','test/readiness.test.js','test/subscriptions.test.js','README.md','package.json','package-lock.json','.env.example','IBKRNew-instrument-profiles.example.json')
 $staging = Join-Path $root ('upgrade-' + $Revision)
 $checkpoint = $root + '.rollback-' + (Get-Date).ToString('yyyyMMdd-HHmmss')
 New-Item -ItemType Directory -Path $staging -Force | Out-Null
 foreach ($file in $files) {
   $target = Join-Path $staging $file
   New-Item -ItemType Directory -Path (Split-Path -Parent $target) -Force | Out-Null
-  Invoke-WebRequest -UseBasicParsing -Uri "https://raw.githubusercontent.com/balaji-ranga/agent-os/$Revision/backend/ibkrnew-event-bridge/$file" -OutFile $target
+  if ($SourceRoot) { Copy-Item -LiteralPath (Join-Path $SourceRoot ('backend/ibkrnew-event-bridge/' + $file)) -Destination $target }
+  else { Invoke-WebRequest -UseBasicParsing -Uri "https://raw.githubusercontent.com/balaji-ranga/agent-os/$Revision/backend/ibkrnew-event-bridge/$file" -OutFile $target }
 }
 $installedLock = ([IO.File]::ReadAllText((Join-Path $root 'package-lock.json'))).Replace("`r`n", "`n").Trim()
 $stagedLock = ([IO.File]::ReadAllText((Join-Path $staging 'package-lock.json'))).Replace("`r`n", "`n").Trim()
@@ -28,6 +37,8 @@ if ($LASTEXITCODE -ne 0) { throw 'Bridge offline regression failed; installed ta
 if ($LASTEXITCODE -ne 0) { throw 'Bridge delivery regression failed; installed task unchanged.' }
 & $node (Join-Path $staging 'test\readiness.test.js')
 if ($LASTEXITCODE -ne 0) { throw 'Bridge readiness regression failed; installed task unchanged.' }
+& $node (Join-Path $staging 'test\subscriptions.test.js')
+if ($LASTEXITCODE -ne 0) { throw 'Bridge subscription regression failed; installed task unchanged.' }
 New-Item -ItemType Directory -Path $checkpoint -Force | Out-Null
 foreach ($name in @('src','scripts','test','README.md','package.json','package-lock.json')) { Copy-Item -LiteralPath (Join-Path $root $name) -Destination $checkpoint -Recurse }
 $task = Get-ScheduledTask -TaskName $TaskName -ErrorAction Stop
