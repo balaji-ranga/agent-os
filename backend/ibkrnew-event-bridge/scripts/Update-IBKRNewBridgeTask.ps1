@@ -17,7 +17,9 @@ foreach ($file in $files) {
   New-Item -ItemType Directory -Path (Split-Path -Parent $target) -Force | Out-Null
   Invoke-WebRequest -UseBasicParsing -Uri "https://raw.githubusercontent.com/balaji-ranga/agent-os/$Revision/backend/ibkrnew-event-bridge/$file" -OutFile $target
 }
-if ((Get-FileHash -LiteralPath (Join-Path $root 'package-lock.json')).Hash -ne (Get-FileHash -LiteralPath (Join-Path $staging 'package-lock.json')).Hash) { throw 'Dependencies changed. Install the full package rather than a source upgrade.' }
+$installedLock = ([IO.File]::ReadAllText((Join-Path $root 'package-lock.json'))).Replace("`r`n", "`n").Trim()
+$stagedLock = ([IO.File]::ReadAllText((Join-Path $staging 'package-lock.json'))).Replace("`r`n", "`n").Trim()
+if ($installedLock -cne $stagedLock) { throw 'Dependencies changed. Install the full package rather than a source upgrade.' }
 $node = Join-Path $root 'runtime\node.exe'
 Copy-Item -LiteralPath (Join-Path $root 'node_modules') -Destination (Join-Path $staging 'node_modules') -Recurse
 & $node (Join-Path $staging 'test\offline.test.js')
