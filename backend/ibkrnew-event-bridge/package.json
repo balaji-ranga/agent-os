@@ -6,7 +6,7 @@
   "description": "Dedicated outbound-only desktop bridge for IBKRNew Event Trader",
   "scripts": {
     "start": "node src/index.js",
-    "test": "node test/offline.test.js && node test/delivery.test.js && node test/readiness.test.js && node test/subscriptions.test.js"
+    "test": "node test/offline.test.js && node test/delivery.test.js && node test/readiness.test.js && node test/subscriptions.test.js && node test/volume-profiles.test.js"
   },
   "dependencies": {
     "@stoqey/ib": "^1.6.3",

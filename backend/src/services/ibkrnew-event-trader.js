@@ -958,9 +958,10 @@ function saveInstrumentProfile(db, bridge, eventType, payload, occurred, created
   if (eventType === 'instrument.corporate_events_refreshed') profile.corporate_events = Array.isArray(payload.corporate_events) ? payload.corporate_events : [];
   profile.index_memberships = normalizedValues(profile.index_memberships);
   profile.etf_categories = normalizedValues(profile.etf_categories || profile.categories);
-  const fundamentalsAt = payload.fundamentals_at || (eventType === 'instrument.fundamentals_refreshed' || eventType === 'instrument.profile_refreshed' && profile.fundamentals ? occurred : existing?.fundamentals_at);
-  const membershipAt = payload.membership_at || (eventType === 'instrument.membership_refreshed' || eventType === 'instrument.profile_refreshed' && Array.isArray(profile.index_memberships) ? occurred : existing?.membership_at);
-  const corporateEventsAt = payload.corporate_events_at || (eventType === 'instrument.corporate_events_refreshed' || eventType === 'instrument.profile_refreshed' && Array.isArray(profile.corporate_events) ? occurred : existing?.corporate_events_at);
+  // A volume-only profile refresh must not renew older financial/calendar data.
+  const fundamentalsAt = payload.fundamentals_at || (eventType === 'instrument.fundamentals_refreshed' || eventType === 'instrument.profile_refreshed' && payload.fundamentals ? occurred : existing?.fundamentals_at);
+  const membershipAt = payload.membership_at || (eventType === 'instrument.membership_refreshed' || eventType === 'instrument.profile_refreshed' && Array.isArray(payload.index_memberships) ? occurred : existing?.membership_at);
+  const corporateEventsAt = payload.corporate_events_at || (eventType === 'instrument.corporate_events_refreshed' || eventType === 'instrument.profile_refreshed' && Array.isArray(payload.corporate_events) ? occurred : existing?.corporate_events_at);
   db.prepare(`INSERT INTO ibkrnew_instrument_profiles(owner_user_id,bridge_id,environment,symbol,security_type,profile_json,fundamentals_at,membership_at,corporate_events_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(owner_user_id,environment,symbol,security_type) DO UPDATE SET bridge_id=excluded.bridge_id,profile_json=excluded.profile_json,fundamentals_at=excluded.fundamentals_at,membership_at=excluded.membership_at,corporate_events_at=excluded.corporate_events_at,updated_at=excluded.updated_at`).run(bridge.owner_user_id, bridge.bridge_id, bridge.environment, symbol, securityType, json(profile), fundamentalsAt || null, membershipAt || null, corporateEventsAt || null, created);
 }
 
@@ -976,6 +977,9 @@ function instrumentEligibility(db, ownerUserId, environment, universe, symbol, e
   const unitPrice = Number(optionExpression ? payload.underlying_price : payload.maximum_entry_price ?? payload.limit_price ?? payload.ask ?? payload.last ?? payload.close);
   if (!Number.isFinite(unitPrice) || unitPrice < Number(rules.minimum_price_usd || 0) || unitPrice > Number(rules.maximum_price_usd || Infinity)) return { eligible: false, reason: 'universe_price_filter_failed' };
   const averageVolume = Number((optionExpression ? payload.underlying_average_daily_volume : payload.average_daily_volume) ?? profile?.average_daily_volume);
+  const volumeSource = payload.average_daily_volume_source ?? profile?.average_daily_volume_source;
+  const volumeAt = payload.average_daily_volume_at ?? profile?.average_daily_volume_at;
+  if (volumeSource === 'ibkr_historical_daily_trades_20_sessions' && !isFresh(volumeAt, 36)) return { eligible: false, reason: 'average_daily_volume_stale' };
   if (!Number.isFinite(averageVolume) || averageVolume < Number(rules.minimum_average_daily_volume || 0)) return { eligible: false, reason: 'universe_average_volume_filter_failed' };
   const spreadPct = Number((optionExpression ? payload.underlying_spread_pct : payload.spread_pct) ?? (!optionExpression && Number(payload.ask) > 0 && Number(payload.bid) >= 0 ? (Number(payload.ask) - Number(payload.bid)) / ((Number(payload.ask) + Number(payload.bid)) / 2) * 100 : NaN));
   if (!Number.isFinite(spreadPct) || spreadPct > Number(rules.maximum_spread_pct || Infinity)) return { eligible: false, reason: 'universe_spread_filter_failed' };

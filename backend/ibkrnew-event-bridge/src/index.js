@@ -43,6 +43,7 @@ let lastAccountSnapshotAt = 0;
 let reconnectAttempt = 0;
 let cycleStartedAt = Date.now();
 let activeSubscriptionSymbols = [];
+let capacityLimitedSymbols = [];
 let profilesBySymbol = new Map();
 let nextReconnectAt = 0;
 let lastMarketBarAt = null;
@@ -104,6 +105,9 @@ function refreshUniverseSubscriptions(candidate = gateway) {
   const symbols = [...new Set([...etfs.map(p => p.symbol), ...(boot.configs.universe.allowlist || []), ...profiles.map(p => p.symbol)])].slice(0, boot.configs.universe.maximum_active_subscriptions || 40);
   for (const profile of profiles) core.emitInstrumentProfile(profile);
   candidate.setSubscriptionProfiles(symbols.map(symbol => selected.get(symbol.toUpperCase()) || { symbol, security_type: 'STK' }));
+  const eligibleSymbols = [...new Set([...etfs.map(p => p.symbol), ...(boot.configs.universe.allowlist || []), ...profiles.map(p => p.symbol)])];
+  candidate.setVolumeProfiles(eligibleSymbols.map(symbol => selected.get(symbol.toUpperCase()) || { symbol, security_type: 'STK' }));
+  capacityLimitedSymbols = eligibleSymbols.filter(symbol => !symbols.includes(symbol));
   profilesBySymbol = selected; activeSubscriptionSymbols = symbols;
   subscriptionSignature = signature; lastProfileError = null;
 }
@@ -168,7 +172,7 @@ async function runCycle() {
     await ensureGatewayConnected();
     const gatewayHealth = gateway?.health() || { connected: false };
     core.emit('bridge.heartbeat', {
-      bridge_version: '1.2.4',
+      bridge_version: '1.2.5',
       gateway_connected: gatewayHealth.connected,
       mode: mock ? `${tradingMode}_mock` : tradingMode,
       account_attestation: gatewayHealth.account_attestation || { status: mock ? 'verified' : 'failed', environment: tradingMode, execution_ready: mock, reason_code: mock ? null : 'GATEWAY_NOT_ATTESTED' },
@@ -177,7 +181,8 @@ async function runCycle() {
         { component_id: 'IBKRNewDesktopRuntime', component_type: 'desktop_runtime', status: 'online', version: process.version },
         { component_id: 'IBKRNewDurableSpool', component_type: 'event_spool', status: 'online', depth: core.spoolDepth() },
         { component_id: 'IBKRNewGateway', component_type: 'ibkr_gateway', status: gatewayHealth.connected ? 'online' : 'offline', ...gatewayHealth },
-        { ...buildMarketSubscriptionComponent(activeSubscriptionSymbols), ...gateway?.marketSubscriptions?.health(), status: !gatewayHealth.connected ? 'offline' : !tradingSession().regular ? 'waiting_market' : activeSubscriptionSymbols.length && gateway?.marketSubscriptions?.health().pending_symbols.length === 0 ? 'online' : 'degraded', last_market_event_at:lastMarketBarAt },
+        { ...buildMarketSubscriptionComponent(activeSubscriptionSymbols), ...gateway?.marketSubscriptions?.health(), capacity_limited_symbols: capacityLimitedSymbols, status: !gatewayHealth.connected ? 'offline' : !tradingSession().regular ? 'waiting_market' : activeSubscriptionSymbols.length && gateway?.marketSubscriptions?.health().pending_symbols.length === 0 ? 'online' : 'degraded', last_market_event_at:lastMarketBarAt },
+        ...(gateway?.volumeProfiles ? [gateway.volumeProfiles.health()] : []),
       ],
     });
     if (gatewayHealth.connected && Date.now() - lastAccountSnapshotAt >= accountSnapshotIntervalMs) {

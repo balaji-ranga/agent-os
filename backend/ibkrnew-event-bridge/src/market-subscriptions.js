@@ -81,8 +81,18 @@ export class MarketSubscriptions {
   health() {
     const now = this.now();
     const entries = [...this.entries.values()];
-    const healthy = e => e.error == null && e.lastBarAt != null && now - e.lastBarAt < 30000 && e.quote.market_data_type === 1 && e.quote.bid > 0 && e.quote.ask >= e.quote.bid;
-    return { healthy_symbols: entries.filter(healthy).map(e => e.symbol), pending_symbols: entries.filter(e => !healthy(e)).map(e => e.symbol) };
+    const reason = e => {
+      if (e.error != null) return [354, 10089, 10186].includes(e.error) ? 'market_data_permission_denied' : e.error === 10197 ? 'competing_session' : 'subscription_error';
+      if (!this.regular()) return 'outside_regular_session';
+      if (e.barId == null) return 'subscription_pacing_wait';
+      if (e.quote.market_data_type !== 1) return 'realtime_quote_not_verified';
+      if (!(e.quote.bid > 0 && e.quote.ask >= e.quote.bid)) return 'bid_ask_missing';
+      if (now - Date.parse(e.quote.bid_at) > 30000 || now - Date.parse(e.quote.ask_at) > 30000) return 'bid_ask_stale';
+      if (e.lastBarAt == null || now - e.lastBarAt >= 30000) return 'realtime_bar_stale';
+      return null;
+    };
+    const healthy = e => reason(e) == null;
+    return { healthy_symbols: entries.filter(healthy).map(e => e.symbol), pending_symbols: entries.filter(e => !healthy(e)).map(e => e.symbol), details: entries.map(e => ({ symbol: e.symbol, market_data_ready: healthy(e), reason: reason(e), error_code: e.error, market_data_type: e.quote.market_data_type ?? null, bid_at: e.quote.bid_at || null, ask_at: e.quote.ask_at || null, last_bar_at: e.lastBarAt == null ? null : new Date(e.lastBarAt).toISOString(), retry_at: new Date(e.retryAt).toISOString() })) };
   }
   dispose() {
     for (const e of this.entries.values()) this.cancel(e);

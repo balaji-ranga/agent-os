@@ -2,6 +2,7 @@ import { IBApi, EventName, OrderAction, OrderType, SecType, TimeInForce } from '
 import { tradingSession } from './session.js';
 import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import { MarketSubscriptions } from './market-subscriptions.js';
+import { VolumeProfiles } from './volume-profiles.js';
 
 const ACCOUNT_VALUE_KEYS = new Set(['NetLiquidation', 'TotalCashValue', 'RealizedPnL', 'UnrealizedPnL']);
 
@@ -147,15 +148,23 @@ export class IBKRNewGateway {
     this.marketSubscriptions.setProfiles(profiles);
     this.refreshSubscriptions();
   }
+  setVolumeProfiles(profiles) {
+    // This rollout is Paper-only. It cannot activate a Live data/entry path.
+    if (this.config.environment !== 'paper') return;
+    this.volumeProfiles ||= new VolumeProfiles(this.ib, p => this.contract(p), this.onEvent);
+    this.volumeProfiles.setProfiles(profiles);
+  }
   refreshSubscriptions() {
     this.marketSubscriptions?.refresh();
+    this.volumeProfiles?.refresh();
     this.quotes = new Map([...(this.marketSubscriptions?.entries.values() || [])].map(e => [e.symbol, e.quote]));
   }
   async executableFeatures(features, profile, policy) {
     const contract = this.contract({ ...profile, symbol: features.symbol });
     const quote = await this.snapshotQuote(contract);
     const short = features.last < features.vwap && features.ema_fast < features.ema_slow ? await this.snapshotShortability(contract) : this.quotes?.get(features.symbol) || {};
-    return { ...features, security_type: profile?.security_type || 'STK', average_daily_volume: profile?.average_daily_volume, bid: quote.bid, ask: quote.ask, last: quote.last || features.last, quote_at: quote.captured_at, market_data_type: quote.market_data_type, shortable: short.shortability_level > 2.5 || policy.order_permissions?.allow_hard_to_borrow === true && short.shortability_level > 1.5, shortability_level: short.shortability_level, shortability_at: short.shortability_at };
+    const volume = this.volumeProfiles?.get(features.symbol);
+    return { ...features, security_type: profile?.security_type || 'STK', average_daily_volume: profile?.average_daily_volume, ...volume, bid: quote.bid, ask: quote.ask, last: quote.last || features.last, quote_at: quote.captured_at, market_data_type: quote.market_data_type, shortable: short.shortability_level > 2.5 || policy.order_permissions?.allow_hard_to_borrow === true && short.shortability_level > 1.5, shortability_level: short.shortability_level, shortability_at: short.shortability_at };
   }
   snapshotShortability(contract) {
     return new Promise((resolve,reject) => {
@@ -234,7 +243,7 @@ export class IBKRNewGateway {
     this.onEvent('position.exit_submitted',{authorization_id:a.parent_trade_authorization_id,exit_authorization_id:a.authorization_id,order_id:orderId,reason:a.exit_reason,quantity:a.quantity});
     return {exit_order_id:orderId,protected_order_id:stop[0],exit_reason:a.exit_reason,local_quote:quote};
   }
-  disconnect() { this.marketSubscriptions?.dispose(); this.ib.disconnect(); }
+  disconnect() { this.marketSubscriptions?.dispose(); this.volumeProfiles?.dispose(); this.ib.disconnect(); }
   snapshot() { return { ...normalizeAccountValuesToUsd(this.accountValues), positions: [...this.positions], open_orders: [...this.openOrders] }; }
   health() { return { connected: this.connected, positions: this.positions.length, open_orders: this.openOrders.length, account_attestation: { ...this.accountAttestation } }; }
 }

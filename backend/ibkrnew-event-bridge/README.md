@@ -35,6 +35,14 @@ Bridge protocol version 2 rechecks the current opaque account reference immediat
 
 ## Instrument profile refresh
 
+### IBKR daily-volume refresh and per-symbol evidence (1.2.5)
+
+Paper now refreshes stock volume profiles from IBKR daily RTH TRADES history, using the last 20 completed sessions (not today's incomplete bar). The current Gateway's historical volume is retained in shares without a generic-tick lot multiplier. One request is outstanding at a time, with 12-second spacing, a 50-start/10-minute ceiling, a 30-second timeout and bounded error retry. Successful fields refresh every six hours and expire after 36 hours. Requests can run outside regular trading hours; this does not permit entries outside the session.
+
+Only volume fields are emitted. Company fundamentals, membership and earnings timestamps are not renewed by a partial volume refresh. Missing/stale fundamentals and corporate events continue to veto stock entries. No additional provider, paid entitlement, order, goal reset or subscription-capacity increase is introduced.
+
+Accepted heartbeats expose volume refresh progress and per-symbol streaming readiness reasons. Capacity-limited symbols are listed separately from permission failures; closed sessions cannot report fresh executable feeds. The UI labels ETF company fundamentals/calendar/membership as not required and retains separate ETF eligibility checks.
+
 ### Subscription recovery and hot refresh (1.2.4)
 
 The runtime reloads the published universe and local profile file without reconnecting Gateway or resetting the goal. Unchanged profiles do not recreate healthy streams. Removed symbols retire their requests; added symbols use new request IDs. Invalid/partial profile updates retain the last validated streams while server freshness/eligibility guards remain in force.
