@@ -64,5 +64,17 @@ assert.equal(s.applyIbkrNewFmpProfile(oldContext, 'fundamentals', mapped), false
 assert.throws(() => { const bad = structuredClone(switched); bad.profile_data.paper.earnings_provider = 'unknown'; s.publishConfig(owner, 'universe', bad); }, /providers/);
 assert.throws(() => { const bad = structuredClone(switched); bad.profile_data.live.earnings_provider = 'FMP'; s.publishConfig(owner, 'universe', bad); }, /Paper only/);
 assert.equal(getDb().prepare('SELECT COUNT(*) n FROM ibkrnew_command_outbox').get().n, 0);
+const signal = () => emit('market.signal', { expression: 'LONG_STOCK', symbol, security_type: 'STK', quantity: 1, bid: 99.9, ask: 100, last: 100, limit_price: 100, average_daily_volume: 4e7, market_data_type: 1, quote_at: new Date().toISOString(), feature_at: new Date().toISOString(), planned_loss_usd: 5, protection: { stop_price: 95, targets: [{ limit_price: 112, quantity: 1 }] } });
+assert.equal(signal().reaction.reason, 'fundamentals_provider_mismatch');
+const restoreProviders = s.getPublishedConfig(owner, 'universe'); restoreProviders.profile_data.paper.fundamentals_provider = 'FMP'; s.publishConfig(owner, 'universe', restoreProviders);
+const context = s.getIbkrNewProfileRefreshContext(owner);
+const blackout = mapFmpEarnings({ symbol, earnings: [{ ...earnings[0], date: '2026-10-06' }, earnings[1]] });
+assert.equal(s.applyIbkrNewFmpProfile(context, 'earnings', blackout), true);
+assert.equal(signal().reaction.reason, 'earnings_blackout_active');
+assert.equal(getDb().prepare('SELECT COUNT(*) n FROM ibkrnew_command_outbox').get().n, 0);
+assert.equal(s.applyIbkrNewFmpProfile(context, 'earnings', mappedEarnings), true);
+const authorized = signal().reaction;
+assert.equal(authorized.decision, 'authorized', JSON.stringify(authorized));
+assert.equal(getDb().prepare('SELECT COUNT(*) n FROM ibkrnew_command_outbox').get().n, 1);
 clock.restore();
-console.log('IBKRNew FMP profile tests passed: units, quarters, earnings coverage/blackout, provenance, pacing cache, owner/Paper isolation, changed-context rejection, zero order commands.');
+console.log('IBKRNew FMP profile tests passed: units, quarters, earnings coverage/blackout, provenance, pacing cache, owner/Paper isolation, changed-context rejection. Synthetic disposable-DB signal passes normal authorization only with validated families; no broker connection or real orders.');
