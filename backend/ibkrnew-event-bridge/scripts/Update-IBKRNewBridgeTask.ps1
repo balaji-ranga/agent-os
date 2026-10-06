@@ -2,6 +2,8 @@
 param(
   [Parameter(Mandatory=$true)][ValidatePattern('^[a-f0-9]{40}$')][string]$Revision,
   [string]$SourceRoot,
+  [string]$SourceArchive,
+  [ValidatePattern('^[a-fA-F0-9]{64}$')][string]$SourceArchiveSha256,
   [string]$InstallRoot = (Join-Path $env:LOCALAPPDATA 'Flolah\IBKRNewBridge'),
   [string]$TaskName = 'IBKRNewBridge'
 )
@@ -9,7 +11,15 @@ $ErrorActionPreference = 'Stop'
 $root = [IO.Path]::GetFullPath($InstallRoot)
 if (-not (Test-Path -LiteralPath (Join-Path $root '.env'))) { throw 'Installed owner-scoped .env is required.' }
 $envHash = (Get-FileHash -LiteralPath (Join-Path $root '.env') -Algorithm SHA256).Hash
-if ($SourceRoot) {
+if ($SourceArchive) {
+  if ($SourceRoot -or -not $SourceArchiveSha256) { throw 'Archive upgrades require an expected SHA256 and no SourceRoot.' }
+  $SourceArchive = [IO.Path]::GetFullPath($SourceArchive)
+  if ((Get-FileHash -LiteralPath $SourceArchive -Algorithm SHA256).Hash -ine $SourceArchiveSha256) { throw 'Source archive checksum mismatch; installed bridge unchanged.' }
+  $SourceRoot = Join-Path $root ('source-' + $Revision)
+  New-Item -ItemType Directory -Path $SourceRoot -Force | Out-Null
+  & (Join-Path $env:WINDIR 'System32\tar.exe') -xf $SourceArchive -C $SourceRoot
+  if ($LASTEXITCODE -ne 0) { throw 'Verified source archive extraction failed.' }
+} elseif ($SourceRoot) {
   $SourceRoot = [IO.Path]::GetFullPath($SourceRoot)
   $sourceRevision = (& git -C $SourceRoot rev-parse HEAD).Trim()
   if ($LASTEXITCODE -ne 0 -or $sourceRevision -cne $Revision) { throw 'Local source must match the requested Git revision.' }
