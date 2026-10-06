@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { profileProviders, earningsBlackout } from './ibkrnew-profile-data.js';
 import { tradingSession } from '../../ibkrnew-event-bridge/src/session.js';
 import { getDb } from '../db/schema.js';
+import { migrateProfileRefreshEnvironments } from './ibkrnew-profile-refresh-schema.js';
 import { IBKRNEW_CONFIG_KINDS, getIbkrNewConfigBlueprint, getIbkrNewGoalBlueprint, getIbkrNewWorkflowBlueprints, getIbkrNewSchema, getIbkrNewSchemas } from './ibkrnew-blueprints.js';
 
 export const IBKRNEW_NAMESPACE = 'IBKRNew';
@@ -457,6 +458,7 @@ export function ensureIbkrNewEventTraderSchema(db = getDb()) {
   }
   ensureIbkrNewPrivacyTriggers(db);
   if (!db.prepare('PRAGMA table_info(ibkrnew_profile_refresh_state)').all().some(column => column.name === 'adapter_version')) db.exec('ALTER TABLE ibkrnew_profile_refresh_state ADD COLUMN adapter_version TEXT');
+  migrateProfileRefreshEnvironments(db);
   migrateIbkrNewAccountPrivacy(db);
 }
 
@@ -582,7 +584,6 @@ export function validateConfig(kind, document) {
     for (const environment of IBKRNEW_ENVIRONMENTS) {
       const providers = profileProviders(d, environment);
       if (Object.values(providers).some(value => !['IBKR', 'FMP'].includes(value))) throw Object.assign(new Error('Profile providers must be IBKR or FMP'), { status: 400 });
-      if (environment === 'live' && Object.values(providers).includes('FMP')) throw Object.assign(new Error('FMP profile refresh is currently validated for Paper only'), { status: 400 });
     }
     if (!Array.isArray(d.allowlist) || !Array.isArray(d.denylist) || !(Number(d.maximum_active_subscriptions) > 0)) throw Object.assign(new Error('universe lists and subscription ceiling are required'), { status: 400 });
     const stock = d.filters?.stock; const etf = d.filters?.etf;
@@ -1134,32 +1135,33 @@ function manageIbkrNewProtectedExits(db,bridge,policy,strategy,created) {
 export function getIbkrNewProfileRefreshContext(ownerUserId) {
   ensureIbkrNewEventTraderSchema();
   const db = getDb(), mode = getIbkrNewExecutionMode(ownerUserId);
-  if (mode.requested_mode !== 'paper' || !mode.execution_enabled) return null;
-  const bridge = db.prepare("SELECT * FROM ibkrnew_bridges WHERE owner_user_id=? AND bridge_id=? AND environment='paper' AND revoked_at IS NULL").get(ownerUserId, mode.attested_bridge_id);
+  if (!['paper', 'live'].includes(mode.requested_mode) || !mode.execution_enabled) return null;
+  const environment = mode.requested_mode;
+  const bridge = db.prepare("SELECT * FROM ibkrnew_bridges WHERE owner_user_id=? AND bridge_id=? AND environment=? AND revoked_at IS NULL").get(ownerUserId, mode.attested_bridge_id, environment);
   if (!bridge) return null;
   const universe = getPublishedConfig(ownerUserId, 'universe');
   if (!universe || universe.filters?.stock?.enabled !== true) return null;
-  const goal = db.prepare("SELECT goal_id FROM ibkrnew_goals WHERE owner_user_id=? AND environment='paper' AND status='ACTIVE' ORDER BY created_at DESC LIMIT 1").get(ownerUserId);
-  if (!goal || !db.prepare("SELECT 1 FROM ibkrnew_goal_cycles WHERE owner_user_id=? AND goal_id=? AND environment='paper' AND status='ACTIVE' AND scheduled_end_at>? LIMIT 1").get(ownerUserId, goal.goal_id, nowIso())) return null;
+  const goal = db.prepare("SELECT goal_id FROM ibkrnew_goals WHERE owner_user_id=? AND environment=? AND status='ACTIVE' ORDER BY created_at DESC LIMIT 1").get(ownerUserId, environment);
+  if (!goal || !db.prepare("SELECT 1 FROM ibkrnew_goal_cycles WHERE owner_user_id=? AND goal_id=? AND environment=? AND status='ACTIVE' AND scheduled_end_at>? LIMIT 1").get(ownerUserId, goal.goal_id, environment, nowIso())) return null;
   const allow = normalizedValues(universe.allowlist), deny = normalizedValues(universe.denylist);
-  const symbols = db.prepare("SELECT symbol FROM ibkrnew_instrument_profiles WHERE owner_user_id=? AND bridge_id=? AND environment='paper' AND security_type='STK' ORDER BY symbol").all(ownerUserId, bridge.bridge_id).map(r => r.symbol).filter(s => (!allow.length || allow.includes(s)) && !deny.includes(s)).slice(0, 1000);
-  return { owner_user_id: ownerUserId, bridge_id: bridge.bridge_id, environment: 'paper', universe_version: universe.version, providers: profileProviders(universe, 'paper'), rules: universe.filters.stock, symbols };
+  const symbols = db.prepare("SELECT symbol FROM ibkrnew_instrument_profiles WHERE owner_user_id=? AND bridge_id=? AND environment=? AND security_type='STK' ORDER BY symbol").all(ownerUserId, bridge.bridge_id, environment).map(r => r.symbol).filter(s => (!allow.length || allow.includes(s)) && !deny.includes(s)).slice(0, 1000);
+  return { owner_user_id: ownerUserId, bridge_id: bridge.bridge_id, environment, universe_version: universe.version, providers: profileProviders(universe, environment), rules: universe.filters.stock, symbols };
 }
 
 export function applyIbkrNewFmpProfile(context, family, payload) {
-  if (!context || context.environment !== 'paper' || !['fundamentals', 'earnings'].includes(family)) return false;
+  if (!context || !['paper', 'live'].includes(context.environment) || !['fundamentals', 'earnings'].includes(family)) return false;
   const current = getIbkrNewProfileRefreshContext(context.owner_user_id);
-  if (!current || current.bridge_id !== context.bridge_id || current.universe_version !== context.universe_version || !current.symbols.includes(payload.symbol) || current.providers[family === 'fundamentals' ? 'fundamentals_provider' : 'earnings_provider'] !== 'FMP') return false;
+  if (!current || current.environment !== context.environment || current.bridge_id !== context.bridge_id || current.universe_version !== context.universe_version || !current.symbols.includes(payload.symbol) || current.providers[family === 'fundamentals' ? 'fundamentals_provider' : 'earnings_provider'] !== 'FMP') return false;
   // Service-produced payloads only; bridge authentication cannot call this path.
-  saveInstrumentProfile(getDb(), { owner_user_id: current.owner_user_id, bridge_id: current.bridge_id, environment: 'paper' }, family === 'fundamentals' ? 'instrument.fundamentals_refreshed' : 'instrument.corporate_events_refreshed', sanitizeIbkrNewPersistence(payload), nowIso(), nowIso(), 'FMP');
+  saveInstrumentProfile(getDb(), { owner_user_id: current.owner_user_id, bridge_id: current.bridge_id, environment: current.environment }, family === 'fundamentals' ? 'instrument.fundamentals_refreshed' : 'instrument.corporate_events_refreshed', sanitizeIbkrNewPersistence(payload), nowIso(), nowIso(), 'FMP');
   return true;
 }
 
 export function getIbkrNewProfileRefreshStatus(ownerUserId, environment = 'paper') {
   ensureIbkrNewEventTraderSchema();
-  if (environment !== 'paper') return { environment, automatic_fmp_refresh: false, items: [] };
+  if (!['paper', 'live'].includes(environment)) throw Object.assign(new Error('Invalid profile environment'), { status: 400 });
   const providers = profileProviders(getPublishedConfig(ownerUserId, 'universe'), environment);
-  const items = getDb().prepare("SELECT symbol,family,provider,status,reason_code,refreshed_at,next_attempt_at,updated_at FROM ibkrnew_profile_refresh_state WHERE owner_user_id=? AND environment='paper' ORDER BY symbol,family").all(ownerUserId).filter(r => r.provider === providers[r.family === 'fundamentals' ? 'fundamentals_provider' : 'earnings_provider']);
+  const items = getDb().prepare("SELECT symbol,family,provider,status,reason_code,refreshed_at,next_attempt_at,updated_at FROM ibkrnew_profile_refresh_state WHERE owner_user_id=? AND environment=? ORDER BY symbol,family").all(ownerUserId, environment).filter(r => r.provider === providers[r.family === 'fundamentals' ? 'fundamentals_provider' : 'earnings_provider']);
   return { environment, automatic_fmp_refresh: Object.values(providers).includes('FMP'), providers, ready_fundamentals: items.filter(r => r.family === 'fundamentals' && r.status === 'ready').length, ready_earnings: items.filter(r => r.family === 'earnings' && r.status === 'ready').length, failed: items.filter(r => r.status === 'failed').length, items };
 }
 

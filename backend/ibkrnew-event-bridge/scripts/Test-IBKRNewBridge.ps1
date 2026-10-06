@@ -5,7 +5,7 @@ $Node = if (Test-Path -LiteralPath $BundledNode) { $BundledNode } else { (Get-Co
 
 Push-Location $PackageRoot
 try {
-  foreach ($test in @('test\offline.test.js','test\delivery.test.js','test\readiness.test.js')) {
+  foreach ($test in @('test\offline.test.js','test\delivery.test.js','test\readiness.test.js','test\subscriptions.test.js','test\volume-profiles.test.js','test\subscription-selection.test.js')) {
     & $Node $test
     if ($LASTEXITCODE -ne 0) { throw "IBKRNew regression failed: $test" }
   }
