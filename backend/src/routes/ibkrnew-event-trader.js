@@ -3,8 +3,11 @@ import { requireAuth, requireCeoOrAdmin, requireTenantFullAccess, resolveAuthent
 import { approveAuthorization, authenticateBridge, acknowledgeCommand, claimCommands, ensureIbkrNewDefaults, getDashboard, getIbkrNewConfigHistory, getIbkrNewEventDetail, getIbkrNewEventTimeline, getIbkrNewExecutionMode, getIbkrNewGoalHistory, getIbkrNewGoalState, getIbkrNewLiveOperations, getIbkrNewSchemaDocument, getIbkrNewSummary, ingestBridgeEvent, pauseIbkrNewGoal, publishConfig, reconcileIbkrNewBridgeSequence, registerBridge, resumeIbkrNewGoal, revokeBridge, setIbkrNewExecutionMode, setIbkrNewGoal } from '../services/ibkrnew-event-trader.js';
 import { buildIbkrNewEventBridgePackageZip } from '../services/ibkrnew-event-bridge-package.js';
 import { validateIbkrNewSubmission } from '../services/ibkrnew-event-trader.js';
+import { queueIbkrNewProfileRefresh, getIbkrNewProfileRefreshStatus } from '../services/ibkrnew-profile-refresh.js';
 
 const router = Router();
+router.get('/profiles/status', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json(getIbkrNewProfileRefreshStatus(owner(req), req.query.environment || 'paper'))));
+router.post('/profiles/refresh', requireAuth, requireTenantFullAccess, (req, res) => handle(res, () => res.status(202).json(queueIbkrNewProfileRefresh(owner(req)))));
 const bridgeRate = new Map();
 function owner(req) { return resolveAuthenticatedCeoUserId(req, { ...(req.query || {}), ...(req.body || {}) }); }
 function bridge(req, res, next) {

@@ -51,6 +51,7 @@ import a2aCallbackInboxRoutes from './routes/a2a-callback-inbox.js';
 import agentExchangeRoutes from './routes/agent-exchange.js';
 import ibkrTradingRoutes from './routes/ibkr-trading.js';
 import ibkrNewEventTraderRoutes from './routes/ibkrnew-event-trader.js';
+import { startIbkrNewProfileRefresh } from './services/ibkrnew-profile-refresh.js';
 import marketDataRoutes from './routes/market-data.js';
 import emailInboundRoutes from './routes/email-inbound.js';
 import openconnectorRoutes from './routes/openconnector.js';
@@ -1172,6 +1173,7 @@ function sanitizeSafeUrl(req) {
 }
 
 app.listen(PORT, () => {
+  startIbkrNewProfileRefresh();
   log.info(`Agent OS backend listening on http://127.0.0.1:${PORT} (pid ${process.pid}) PLATFORM_LOG_LEVEL=${getPlatformLogLevel()}`);
   // Always print listen line even when level=off so ops can confirm process is up.
   if (getPlatformLogLevel() === 'off') {

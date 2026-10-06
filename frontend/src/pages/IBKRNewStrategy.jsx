@@ -32,6 +32,8 @@ export default function IBKRNewStrategy() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
+  const [profileStatus, setProfileStatus] = useState(null);
+  const [providerDraft, setProviderDraft] = useState({ fundamentals_provider: 'IBKR', earnings_provider: 'IBKR' });
   const [schemas, setSchemas] = useState(null);
   const [history, setHistory] = useState([]);
   const [goalHistory, setGoalHistory] = useState([]);
@@ -39,7 +41,7 @@ export default function IBKRNewStrategy() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [validationErrors, setValidationErrors] = useState([]);
   const [goalDraft, setGoalDraft] = useState({ name: 'IBKRNew 5% in 30 Days', mode: 'PERPETUAL', target_return_pct: 5, duration_days: 30 });
-  const load = async () => { try { const [dashboard, schemaSet] = await Promise.all([api.ibkrNewDashboard(), api.ibkrNewSchemas()]); const goals = await api.ibkrNewGoalHistory(50, dashboard.execution_mode?.requested_mode || dashboard.environment); setData(dashboard); setSchemas(schemaSet); setGoalHistory(goals.items || []); setError(''); } catch (e) { setError(e.message); } };
+  const load = async () => { try { const [dashboard, schemaSet] = await Promise.all([api.ibkrNewDashboard(), api.ibkrNewSchemas()]); const environment = dashboard.execution_mode?.requested_mode || dashboard.environment; const [goals, profiles] = await Promise.all([api.ibkrNewGoalHistory(50, environment), api.ibkrNewProfileStatus(environment)]); setData(dashboard); setSchemas(schemaSet); setGoalHistory(goals.items || []); setProfileStatus(profiles); setProviderDraft(dashboard.configs?.universe?.profile_data?.[environment] || { fundamentals_provider: 'IBKR', earnings_provider: 'IBKR' }); setError(''); } catch (e) { setError(e.message); } };
   useEffect(() => { load(); }, []);
   useEffect(() => { if (kind !== 'goal') api.ibkrNewConfigHistory(kind).then((result) => setHistory(result.items || [])).catch((e) => setError(e.message)); }, [kind, data]);
   useEffect(() => { if (data?.configs?.[kind]) setEditor(JSON.stringify(data.configs[kind], null, 2)); }, [data, kind]);
@@ -75,6 +77,15 @@ export default function IBKRNewStrategy() {
   });
   const downloadBridge = (environment) => actGoal(async () => { await api.ibkrNewBridgePackageDownload({ includeRuntime: true, environment }); setNotice(`${label(environment)} desktop bridge downloaded with fresh owner-scoped credentials.`); });
   const executionMode = data?.execution_mode || { requested_mode: 'paper', active_mode: null, activation_state: 'AWAITING_BRIDGE' };
+  const publishProviders = () => actGoal(async () => {
+    const document = structuredClone(data.configs.universe);
+    delete document.id; delete document.version; delete document.status;
+    document.profile_data ||= { live: { fundamentals_provider: 'IBKR', earnings_provider: 'IBKR' } };
+    document.profile_data.paper = providerDraft;
+    await api.ibkrNewPublishConfig('universe', document);
+    const refresh = await api.ibkrNewRefreshProfiles();
+    setNotice(`Paper profile providers published. ${refresh.queued ? 'Refresh queued; coverage must pass validation before entries.' : `Refresh waiting: ${refresh.reason}.`} The goal, risk limits, IBKR quotes and orders are unchanged.`);
+  });
   const universe = kind === 'universe' ? parsed : null;
   const stock = universe?.filters?.stock; const fundamentals = stock?.fundamentals; const events = stock?.corporate_events; const etf = universe?.filters?.etf;
   const numberField = (caption, path, value, options = {}) => <label className="ibkrnew-field"><span>{caption}</span><input type="number" min={options.min ?? 0} step={options.step ?? 'any'} value={value ?? ''} onChange={(e) => update(path, Number(e.target.value))} /></label>;
@@ -92,6 +103,14 @@ export default function IBKRNewStrategy() {
       </div>
       <dl className="ibkrnew-mode-state"><div><dt>Requested mode</dt><dd>{executionMode.requested_mode}</dd></div><div><dt>Execution state</dt><dd>{statusLabel(executionMode.activation_state)}</dd></div><div><dt>Executable mode</dt><dd>{executionMode.execution_enabled ? executionMode.active_mode : 'Blocked'}</dd></div><div><dt>Account attestation</dt><dd>{executionMode.attestation_status || 'Waiting'}</dd></div></dl>
       {executionMode.activation_state !== 'ACTIVE' && <div className="page-banner page-banner-warning"><span>{executionMode.requested_mode.toUpperCase()} orders are blocked. Download the matching bridge, configure its desktop-only account, enable the single local execution gate, and connect it to the corresponding IB Gateway session.</span><button type="button" className="btn-secondary" disabled={busy} onClick={() => downloadBridge(executionMode.requested_mode)}>Download {executionMode.requested_mode} bridge</button></div>}
+    </section>
+    <section className="panel ibkrnew-section">
+      <div className="ibkrnew-section-heading"><div><p className="page-hero-kicker">Eligibility data · {executionMode.requested_mode.toUpperCase()}</p><h2>Fundamentals and earnings providers</h2><p className="page-muted">Quotes, volume and order execution remain IBKR. These independent selections only supply required stock-profile fields; ETFs do not require company fundamentals or earnings. FMP refresh is currently validated for Paper only.</p></div></div>
+      <div className="ibkrnew-form-grid">{[['fundamentals_provider', 'Fundamentals'], ['earnings_provider', 'Earnings calendar']].map(([field, caption]) => <label className="ibkrnew-field" key={field}><span>{caption} provider</span><select disabled={busy || executionMode.requested_mode !== 'paper'} value={providerDraft[field]} onChange={e => setProviderDraft({ ...providerDraft, [field]: e.target.value })}><option value="IBKR">IBKR · requires validated entitlement/feed</option><option value="FMP">FMP · existing server API key</option></select></label>)}</div>
+      <p className="page-muted">IBKR fundamentals currently returned error 10358; IBKR earnings requires Wall Street Horizon Corporate Event Data and a validated feed. Selecting IBKR does not activate an entitlement. FMP refresh checks symbol matching, USD units, consecutive revenue quarters and dated historical/upcoming earnings coverage. Missing or stale data remains blocked; no silent provider fallback.</p>
+      <div className="ibkrnew-actions"><button className="btn-primary" type="button" disabled={busy || !data || executionMode.requested_mode !== 'paper'} onClick={publishProviders}>Save Paper profile providers</button><button className="btn-secondary" type="button" disabled={busy || executionMode.requested_mode !== 'paper'} onClick={() => actGoal(async () => { const result = await api.ibkrNewRefreshProfiles(); setNotice(result.queued ? 'Profile refresh queued; pacing and retry limits remain enforced.' : `Refresh waiting: ${result.reason}`); })}>Refresh required profiles</button><button className="btn-ghost" type="button" disabled={busy} onClick={load}>Check refresh progress</button></div>
+      {profileStatus?.automatic_fmp_refresh && <p role="status">FMP refresh: {profileStatus.ready_fundamentals || 0} fundamentals ready · {profileStatus.ready_earnings || 0} earnings calendars ready · {profileStatus.failed || 0} failed. Profile readiness is not trade readiness.</p>}
+      {!!profileStatus?.items?.some(item => item.status === 'failed') && <details><summary>Profile refresh failures</summary><ul>{profileStatus.items.filter(item => item.status === 'failed').map(item => <li key={`${item.symbol}-${item.family}`}>{item.symbol} · {item.family} · {item.reason_code}</li>)}</ul></details>}
     </section>
     <nav className="ibkrnew-tabs" aria-label="IBKRNew configuration sections">{KINDS.map((item) => <button type="button" key={item} className={kind === item ? 'btn-primary' : 'btn-secondary'} aria-current={kind === item ? 'page' : undefined} onClick={() => { setKind(item); setValidationErrors([]); }}>{label(item)}</button>)}<button type="button" className="btn-ghost ibkrnew-info-button" title="Show the schema and allowed values" aria-label="Show schema" onClick={() => setSchemaOpen(true)}>ⓘ Schema</button></nav>
 

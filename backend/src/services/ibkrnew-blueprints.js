@@ -55,6 +55,8 @@ const FIELD_DESCRIPTIONS = {
   fail_closed: 'Block decisions when required data is unavailable or stale.',
 };
 const ENUMS = {
+  fundamentals_provider: ['IBKR', 'FMP'],
+  earnings_provider: ['IBKR', 'FMP'],
   mode: ['ONE_TIME', 'PERPETUAL'],
   index_match: ['ANY', 'ALL'],
   executable_source: ['IBKR'],

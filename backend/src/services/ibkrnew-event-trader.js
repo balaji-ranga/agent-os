@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { profileProviders, earningsBlackout } from './ibkrnew-profile-data.js';
 import { tradingSession } from '../../ibkrnew-event-bridge/src/session.js';
 import { getDb } from '../db/schema.js';
 import { IBKRNEW_CONFIG_KINDS, getIbkrNewConfigBlueprint, getIbkrNewGoalBlueprint, getIbkrNewWorkflowBlueprints, getIbkrNewSchema, getIbkrNewSchemas } from './ibkrnew-blueprints.js';
@@ -372,6 +373,12 @@ export function ensureIbkrNewEventTraderSchema(db = getDb()) {
       PRIMARY KEY(owner_user_id, environment, symbol, security_type)
     );
     CREATE INDEX IF NOT EXISTS idx_ibkrnew_profiles_owner_time ON ibkrnew_instrument_profiles(owner_user_id, updated_at DESC);
+    CREATE TABLE IF NOT EXISTS ibkrnew_profile_refresh_state (
+      owner_user_id TEXT NOT NULL, bridge_id TEXT NOT NULL, environment TEXT NOT NULL CHECK(environment='paper'),
+      symbol TEXT NOT NULL, family TEXT NOT NULL CHECK(family IN ('fundamentals','earnings')), provider TEXT NOT NULL,
+      status TEXT NOT NULL, reason_code TEXT, refreshed_at TEXT, next_attempt_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+      PRIMARY KEY(owner_user_id,environment,symbol,family,provider)
+    );
     CREATE TABLE IF NOT EXISTS ibkrnew_component_health (
       owner_user_id TEXT NOT NULL, bridge_id TEXT NOT NULL, component_id TEXT NOT NULL,
       component_type TEXT NOT NULL, status TEXT NOT NULL, version TEXT, detail_json TEXT NOT NULL,
@@ -528,6 +535,7 @@ function defaultsFor(kind) {
 
 export function validateConfig(kind, document) {
   const d = structuredClone(document || {});
+  if (kind === 'universe') d.profile_data = mergeConfig(defaultsFor(kind).profile_data, d.profile_data);
   // Version metadata is server-owned and may be copied from the read-only
   // dashboard into an edit request; it is not part of the document contract.
   delete d.id; delete d.version; delete d.status;
@@ -570,6 +578,11 @@ export function validateConfig(kind, document) {
     if (d.goal_binding?.required !== true || d.goal_binding?.selector !== 'ACTIVE_IBKRNEW_GOAL') throw Object.assign(new Error('strategy must require the active IBKRNew goal'), { status: 400 });
   }
   if (kind === 'universe') {
+    for (const environment of IBKRNEW_ENVIRONMENTS) {
+      const providers = profileProviders(d, environment);
+      if (Object.values(providers).some(value => !['IBKR', 'FMP'].includes(value))) throw Object.assign(new Error('Profile providers must be IBKR or FMP'), { status: 400 });
+      if (environment === 'live' && Object.values(providers).includes('FMP')) throw Object.assign(new Error('FMP profile refresh is currently validated for Paper only'), { status: 400 });
+    }
     if (!Array.isArray(d.allowlist) || !Array.isArray(d.denylist) || !(Number(d.maximum_active_subscriptions) > 0)) throw Object.assign(new Error('universe lists and subscription ceiling are required'), { status: 400 });
     const stock = d.filters?.stock; const etf = d.filters?.etf;
     if (!stock || !etf) throw Object.assign(new Error('separate stock and ETF filters are required'), { status: 400 });
@@ -594,7 +607,10 @@ export function validateConfig(kind, document) {
 export function getPublishedConfig(ownerUserId, kind) {
   ensureIbkrNewEventTraderSchema();
   const row = getDb().prepare(`SELECT * FROM ibkrnew_config_versions WHERE owner_user_id=? AND kind=? AND status='published' ORDER BY version DESC LIMIT 1`).get(ownerUserId, kind);
-  return row ? { id: row.id, version: row.version, status: row.status, ...parse(row.document_json, {}) } : null;
+  if (!row) return null;
+  const document = parse(row.document_json, {});
+  if (kind === 'universe') document.profile_data = mergeConfig(defaultsFor(kind).profile_data, document.profile_data);
+  return { id: row.id, version: row.version, status: row.status, ...document };
 }
 
 export function ensureIbkrNewDefaults(ownerUserId) {
@@ -945,7 +961,20 @@ function isFresh(timestamp, maximumAgeHours) {
   return Number.isFinite(at) && age >= -300000 && age <= Number(maximumAgeHours) * 60 * 60 * 1000;
 }
 
-function saveInstrumentProfile(db, bridge, eventType, payload, occurred, created) {
+function saveInstrumentProfile(db, bridge, eventType, payload, occurred, created, trustedProvider = 'IBKR') {
+  payload = structuredClone(payload);
+  const providers = profileProviders(getPublishedConfig(bridge.owner_user_id, 'universe'), bridge.environment);
+  const hasFundamentals = eventType === 'instrument.fundamentals_refreshed' || !!payload.fundamentals;
+  const hasEvents = eventType === 'instrument.corporate_events_refreshed' || Array.isArray(payload.corporate_events);
+  // Only the selected feed can replace a field family. Desktop events cannot
+  // claim FMP provenance or overwrite a validated FMP family on reconnect.
+  delete payload.fundamentals_source; delete payload.corporate_events_source;
+  if (hasFundamentals && providers.fundamentals_provider !== trustedProvider) { delete payload.fundamentals; delete payload.fundamentals_at; delete payload.data; if (eventType === 'instrument.fundamentals_refreshed') return; }
+  else if (hasFundamentals) payload.fundamentals_source = trustedProvider;
+  if (hasEvents && providers.earnings_provider !== trustedProvider) { delete payload.corporate_events; delete payload.corporate_events_at; delete payload.earnings_coverage; if (eventType === 'instrument.corporate_events_refreshed') return; }
+  else if (hasEvents) payload.corporate_events_source = trustedProvider;
+  if (!hasFundamentals) delete payload.fundamentals_at;
+  if (!hasEvents) { delete payload.corporate_events_at; delete payload.earnings_coverage; }
   if (Buffer.byteLength(json(payload), 'utf8') > 262144) throw Object.assign(new Error('instrument profile exceeds 256 KiB'), { status: 413 });
   const symbol = String(payload.symbol || payload.contract?.symbol || '').trim().toUpperCase();
   const securityType = String(payload.security_type || payload.secType || 'STK').trim().toUpperCase();
@@ -953,9 +982,9 @@ function saveInstrumentProfile(db, bridge, eventType, payload, occurred, created
   const existing = db.prepare(`SELECT * FROM ibkrnew_instrument_profiles WHERE owner_user_id=? AND environment=? AND symbol=? AND security_type=?`).get(bridge.owner_user_id, bridge.environment, symbol, securityType);
   const prior = parse(existing?.profile_json, {}); let profile = { ...prior, symbol, security_type: securityType };
   if (eventType === 'instrument.profile_refreshed') profile = { ...profile, ...payload, symbol, security_type: securityType };
-  if (eventType === 'instrument.fundamentals_refreshed') profile.fundamentals = { ...(prior.fundamentals || {}), ...(payload.fundamentals || payload.data || {}) };
+  if (eventType === 'instrument.fundamentals_refreshed') profile = { ...profile, fundamentals: payload.fundamentals || payload.data || {}, fundamentals_source: trustedProvider };
   if (eventType === 'instrument.membership_refreshed') profile.index_memberships = normalizedValues(payload.index_memberships || payload.indexes);
-  if (eventType === 'instrument.corporate_events_refreshed') profile.corporate_events = Array.isArray(payload.corporate_events) ? payload.corporate_events : [];
+  if (eventType === 'instrument.corporate_events_refreshed') profile = { ...profile, corporate_events: Array.isArray(payload.corporate_events) ? payload.corporate_events : [], corporate_events_source: trustedProvider, earnings_coverage: payload.earnings_coverage || null };
   profile.index_memberships = normalizedValues(profile.index_memberships);
   profile.etf_categories = normalizedValues(profile.etf_categories || profile.categories);
   // A volume-only profile refresh must not renew older financial/calendar data.
@@ -1009,6 +1038,7 @@ function instrumentEligibility(db, ownerUserId, environment, universe, symbol, e
 
   const fundamentalRules = rules.fundamentals || {};
   if (fundamentalRules.enabled === true) {
+    if (profile?.fundamentals && (profile.fundamentals_source || 'IBKR') !== profileProviders(universe, environment).fundamentals_provider) return { eligible: false, reason: 'fundamentals_provider_mismatch' };
     const fundamentals = profile?.fundamentals;
     if (!fundamentals || !isFresh(row?.fundamentals_at, fundamentalRules.maximum_age_hours)) {
       if (fundamentalRules.fail_closed !== false) return { eligible: false, reason: fundamentals ? 'fundamentals_stale' : 'fundamentals_missing' };
@@ -1016,7 +1046,7 @@ function instrumentEligibility(db, ownerUserId, environment, universe, symbol, e
       const marketCap = Number(fundamentals.market_cap_usd); const revenue = Number(fundamentals.revenue_ttm_usd); const debtToEquity = Number(fundamentals.debt_to_equity);
       if (!Number.isFinite(marketCap) || marketCap < Number(fundamentalRules.minimum_market_cap_usd || 0)) return { eligible: false, reason: 'fundamental_market_cap_failed' };
       if (!Number.isFinite(revenue) || revenue < Number(fundamentalRules.minimum_revenue_ttm_usd || 0)) return { eligible: false, reason: 'fundamental_revenue_failed' };
-      if (!Number.isFinite(debtToEquity) || debtToEquity > Number(fundamentalRules.maximum_debt_to_equity || Infinity)) return { eligible: false, reason: 'fundamental_debt_failed' };
+      if (fundamentals.debt_to_equity == null || !Number.isFinite(debtToEquity) || debtToEquity < 0 || debtToEquity > Number(fundamentalRules.maximum_debt_to_equity || Infinity)) return { eligible: false, reason: 'fundamental_debt_failed' };
       if (fundamentalRules.require_positive_operating_cash_flow === true && !(Number(fundamentals.operating_cash_flow_ttm_usd) > 0)) return { eligible: false, reason: 'fundamental_cash_flow_failed' };
       const sector = String(fundamentals.sector || '').trim().toUpperCase(); const allowed = normalizedValues(fundamentalRules.allowed_sectors); const excluded = normalizedValues(fundamentalRules.excluded_sectors);
       if (excluded.includes(sector)) return { eligible: false, reason: 'fundamental_sector_excluded' };
@@ -1026,12 +1056,13 @@ function instrumentEligibility(db, ownerUserId, environment, universe, symbol, e
 
   const eventRules = rules.corporate_events || {};
   if (eventRules.enabled === true) {
+    if (Array.isArray(profile?.corporate_events) && (profile.corporate_events_source || 'IBKR') !== profileProviders(universe, environment).earnings_provider) return { eligible: false, reason: 'earnings_provider_mismatch' };
     const events = profile?.corporate_events;
     if (!Array.isArray(events) || !isFresh(row?.corporate_events_at, eventRules.maximum_age_hours)) {
       if (eventRules.fail_closed !== false) return { eligible: false, reason: Array.isArray(events) ? 'corporate_events_stale' : 'corporate_events_missing' };
     } else {
-      const beforeMs = Number(eventRules.earnings_blackout_days_before || 0) * 86400000; const afterMs = Number(eventRules.earnings_blackout_days_after || 0) * 86400000; const now = Date.now();
-      const earningsRisk = events.some((event) => String(event.type || event.event_type || '').toLowerCase() === 'earnings' && Number.isFinite(Date.parse(event.at || event.date)) && Date.parse(event.at || event.date) >= now - afterMs && Date.parse(event.at || event.date) <= now + beforeMs);
+      if (profile.corporate_events_source === 'FMP' && (profile.earnings_coverage?.verified !== true || !events.length)) return { eligible: false, reason: 'earnings_coverage_unverified' };
+      const earningsRisk = earningsBlackout(events, Number(eventRules.earnings_blackout_days_before || 0), Number(eventRules.earnings_blackout_days_after || 0));
       if (earningsRisk) return { eligible: false, reason: 'earnings_blackout_active' };
     }
   }
@@ -1097,6 +1128,38 @@ function manageIbkrNewProtectedExits(db,bridge,policy,strategy,created) {
     db.prepare(`INSERT INTO ibkrnew_authorizations VALUES(?,?,?,?,?,?,?,?,?,?)`).run(authorizationId,bridge.owner_user_id,bridge.account_id,bridge.bridge_id,`exit:${authorizationId}`,trade.expression,json(authorization),'issued',expires,created);
     insertCommand(db,bridge,authorization,created,expires);
   }
+}
+
+export function getIbkrNewProfileRefreshContext(ownerUserId) {
+  ensureIbkrNewEventTraderSchema();
+  const db = getDb(), mode = getIbkrNewExecutionMode(ownerUserId);
+  if (mode.requested_mode !== 'paper' || !mode.execution_enabled) return null;
+  const bridge = db.prepare("SELECT * FROM ibkrnew_bridges WHERE owner_user_id=? AND bridge_id=? AND environment='paper' AND revoked_at IS NULL").get(ownerUserId, mode.attested_bridge_id);
+  if (!bridge) return null;
+  const universe = getPublishedConfig(ownerUserId, 'universe');
+  if (!universe || universe.filters?.stock?.enabled !== true) return null;
+  const goal = db.prepare("SELECT goal_id FROM ibkrnew_goals WHERE owner_user_id=? AND environment='paper' AND status='ACTIVE' ORDER BY created_at DESC LIMIT 1").get(ownerUserId);
+  if (!goal || !db.prepare("SELECT 1 FROM ibkrnew_goal_cycles WHERE owner_user_id=? AND goal_id=? AND environment='paper' AND status='ACTIVE' AND scheduled_end_at>? LIMIT 1").get(ownerUserId, goal.goal_id, nowIso())) return null;
+  const allow = normalizedValues(universe.allowlist), deny = normalizedValues(universe.denylist);
+  const symbols = db.prepare("SELECT symbol FROM ibkrnew_instrument_profiles WHERE owner_user_id=? AND bridge_id=? AND environment='paper' AND security_type='STK' ORDER BY symbol").all(ownerUserId, bridge.bridge_id).map(r => r.symbol).filter(s => (!allow.length || allow.includes(s)) && !deny.includes(s)).slice(0, 1000);
+  return { owner_user_id: ownerUserId, bridge_id: bridge.bridge_id, environment: 'paper', universe_version: universe.version, providers: profileProviders(universe, 'paper'), rules: universe.filters.stock, symbols };
+}
+
+export function applyIbkrNewFmpProfile(context, family, payload) {
+  if (!context || context.environment !== 'paper' || !['fundamentals', 'earnings'].includes(family)) return false;
+  const current = getIbkrNewProfileRefreshContext(context.owner_user_id);
+  if (!current || current.bridge_id !== context.bridge_id || current.universe_version !== context.universe_version || !current.symbols.includes(payload.symbol) || current.providers[family === 'fundamentals' ? 'fundamentals_provider' : 'earnings_provider'] !== 'FMP') return false;
+  // Service-produced payloads only; bridge authentication cannot call this path.
+  saveInstrumentProfile(getDb(), { owner_user_id: current.owner_user_id, bridge_id: current.bridge_id, environment: 'paper' }, family === 'fundamentals' ? 'instrument.fundamentals_refreshed' : 'instrument.corporate_events_refreshed', sanitizeIbkrNewPersistence(payload), nowIso(), nowIso(), 'FMP');
+  return true;
+}
+
+export function getIbkrNewProfileRefreshStatus(ownerUserId, environment = 'paper') {
+  ensureIbkrNewEventTraderSchema();
+  if (environment !== 'paper') return { environment, automatic_fmp_refresh: false, items: [] };
+  const providers = profileProviders(getPublishedConfig(ownerUserId, 'universe'), environment);
+  const items = getDb().prepare("SELECT symbol,family,provider,status,reason_code,refreshed_at,next_attempt_at,updated_at FROM ibkrnew_profile_refresh_state WHERE owner_user_id=? AND environment='paper' ORDER BY symbol,family").all(ownerUserId).filter(r => r.provider === providers[r.family === 'fundamentals' ? 'fundamentals_provider' : 'earnings_provider']);
+  return { environment, automatic_fmp_refresh: Object.values(providers).includes('FMP'), providers, ready_fundamentals: items.filter(r => r.family === 'fundamentals' && r.status === 'ready').length, ready_earnings: items.filter(r => r.family === 'earnings' && r.status === 'ready').length, failed: items.filter(r => r.status === 'failed').length, items };
 }
 
 function maybeAuthorize(bridge, eventId, payload) {

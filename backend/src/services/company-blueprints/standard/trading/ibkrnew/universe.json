@@ -4,6 +4,10 @@
   "allowlist": [],
   "denylist": [],
   "maximum_active_subscriptions": 40,
+  "profile_data": {
+    "paper": { "fundamentals_provider": "IBKR", "earnings_provider": "IBKR" },
+    "live": { "fundamentals_provider": "IBKR", "earnings_provider": "IBKR" }
+  },
   "filters": {
     "country": ["US"],
     "security_types": ["STK", "ETF"],

@@ -165,6 +165,8 @@ export const api = {
   ibkrNewGoal: (environment = '') => get(`/ibkrnew-event-trader/goal${environment ? `?environment=${encodeURIComponent(environment)}` : ''}`),
   ibkrNewGoalHistory: (limit = 50, environment = '') => get(`/ibkrnew-event-trader/goal/history?limit=${encodeURIComponent(limit)}${environment ? `&environment=${encodeURIComponent(environment)}` : ''}`),
   ibkrNewSchemas: () => get('/ibkrnew-event-trader/schemas'),
+  ibkrNewProfileStatus: (environment = 'paper') => get(`/ibkrnew-event-trader/profiles/status?environment=${encodeURIComponent(environment)}`),
+  ibkrNewRefreshProfiles: () => post('/ibkrnew-event-trader/profiles/refresh', {}),
   ibkrNewSchema: (kind) => get(`/ibkrnew-event-trader/schemas/${encodeURIComponent(kind)}`),
   ibkrNewConfigHistory: (kind, limit = 50) => get(`/ibkrnew-event-trader/configs/${encodeURIComponent(kind)}/history?limit=${encodeURIComponent(limit)}`),
   ibkrNewExecutionMode: () => get('/ibkrnew-event-trader/execution-mode'),
