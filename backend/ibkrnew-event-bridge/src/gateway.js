@@ -239,14 +239,18 @@ export class IBKRNewGateway {
     // rather than requiring the broker to echo our original OCA label verbatim.
     const stopOrder=stop[1].order, parentId=Number(mapped.order.parentId), parent=this.orderMap.get(parentId);
     const remaining=Number(mapped.order.totalQuantity)-Number(mapped.filled || 0);
-    if (!mapped.order.ocaGroup || mapped.order.ocaGroup!==stopOrder.ocaGroup
-      || !parentId || parentId!==Number(stopOrder.parentId)
-      || parent?.authorization_id!==a.parent_trade_authorization_id || parent?.order_role!=='entry'
-      || mapped.order.orderRef!==a.parent_trade_authorization_id || stopOrder.orderRef!==a.parent_trade_authorization_id
-      || !String(stopOrder.orderType).startsWith('STP') || !(Number(stopOrder.auxPrice)>0)
-      || mapped.order.action!==a.side || stopOrder.action!==a.side
-      || !Number.isFinite(remaining) || remaining<=0 || remaining!==Number(a.quantity)
-      || Number(stopOrder.totalQuantity)<remaining) throw new Error('target remaining quantity requires reconciliation before managed exit');
+    const proof = {
+      oca_pair: Boolean(mapped.order.ocaGroup && mapped.order.ocaGroup===stopOrder.ocaGroup),
+      common_parent: Boolean(parentId && parentId===Number(stopOrder.parentId)),
+      entry_correlation: parent?.authorization_id===a.parent_trade_authorization_id && parent?.order_role==='entry',
+      child_references: mapped.order.orderRef===a.parent_trade_authorization_id && stopOrder.orderRef===a.parent_trade_authorization_id,
+      protective_stop: String(stopOrder.orderType).startsWith('STP') && Number(stopOrder.auxPrice)>0,
+      reducing_actions: mapped.order.action===a.side && stopOrder.action===a.side,
+      exact_remaining_quantity: Number.isFinite(remaining) && remaining>0 && remaining===Number(a.quantity),
+      stop_quantity: Number(stopOrder.totalQuantity)>=remaining,
+    };
+    const failed=Object.keys(proof).filter(key=>!proof[key]);
+    if (failed.length) throw new Error(`target remaining quantity requires reconciliation before managed exit: ${failed.join(',')}`);
     const price=a.side==='SELL'?Number(quote.bid):Number(quote.ask);
     if(!(price>0)) throw new Error('fresh executable exit quote required');
     // Modify the existing OCA target; never cancel or loosen its protective stop.
