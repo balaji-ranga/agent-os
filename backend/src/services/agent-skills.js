@@ -33,6 +33,18 @@ function stringList(value, limit = 64) {
   return [...new Set(rows.map((item) => String(item || '').trim()).filter(Boolean))].slice(0, limit);
 }
 
+// Skill metadata is user/model-authored JSON. Accept harmless wrappers such as
+// "[tool_name]" but expose only canonical catalog identifiers to readiness,
+// planner contracts, and runtime tool matching.
+function canonicalToolNames(value) {
+  const rows = Array.isArray(value) ? value : value ? [value] : [];
+  return [...new Set(rows.map((item) => String(item || '').trim()
+    .replace(/^[[`'\"]+|[\]`'\"]+$/g, '')
+    .trim()
+    .toLowerCase())
+    .filter((item) => /^[a-z0-9][a-z0-9_-]*$/.test(item)))];
+}
+
 function slugify(value) {
   const slug = String(value || '').trim().toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
@@ -59,7 +71,9 @@ function checksum(text) {
 function frontmatter(text) {
   const block = String(text || '').match(/^---\s*\r?\n([\s\S]*?)\r?\n---/i)?.[1] || '';
   const pick = (key) => block.match(new RegExp(`^${key}:\\s*["']?(.+?)["']?\\s*$`, 'im'))?.[1]?.trim() || '';
-  return { name: pick('name'), description: pick('description') };
+  const list = (key) => String(pick(key) || '').replace(/^\\[|\\]$/g, '')
+    .split(',').map((item) => item.replace(/^[-\\s"']+|[-\\s"']+$/g, '')).filter(Boolean);
+  return { name: pick('name'), description: pick('description'), required_tools: list('required_tools'), trigger_hints: list('trigger_hints') };
 }
 
 export function ensureAgentSkillsSchema() {
@@ -178,6 +192,16 @@ export function seedPlatformAgentSkills({ force = false } = {}) {
           .run(meta.name || found.name, meta.description || found.description || '', id);
       }
       const digest = checksum(skillMd);
+      // Keep metadata-only contract additions visible to already pinned
+      // platform assignments. This does not change the immutable markdown
+      // version; it prevents an older assignment from silently losing a
+      // newly declared required evidence tool.
+      if (meta.required_tools?.length || meta.trigger_hints?.length) {
+        conn.prepare(`UPDATE agent_skill_versions
+          SET required_tools_json=CASE WHEN required_tools_json='[]' THEN ? ELSE required_tools_json END,
+              trigger_hints_json=CASE WHEN trigger_hints_json='[]' THEN ? ELSE trigger_hints_json END
+          WHERE skill_id=?`).run(JSON.stringify(meta.required_tools || []), JSON.stringify(meta.trigger_hints || []), id);
+      }
       const latest = conn.prepare('SELECT * FROM agent_skill_versions WHERE skill_id=? ORDER BY version DESC LIMIT 1').get(id);
       if (latest?.checksum === digest) {
         unchanged += 1;
@@ -187,7 +211,7 @@ export function seedPlatformAgentSkills({ force = false } = {}) {
       conn.prepare(`INSERT INTO agent_skill_versions
         (id,skill_id,version,skill_md,trigger_hints_json,required_tools_json,required_connector_actions_json,required_mcp_tools_json,checksum,status,created_by)
         VALUES (?,?,?,?,?,?,?,?,?,?,?)`).run(
-          `${id}:v${version}`, id, version, skillMd, '[]', '[]', '[]', '[]', digest, 'active', 'source'
+          `${id}:v${version}`, id, version, skillMd, JSON.stringify(meta.trigger_hints || []), JSON.stringify(meta.required_tools || []), '[]', '[]', digest, 'active', 'source'
         );
       seeded += 1;
     }
@@ -333,7 +357,7 @@ export function listAgentSkillAssignments(ownerUserId, agentId, { includeMarkdow
     .all(ownerUserId, agentId).map((r) => `${r.server_id}::${r.tool_name}`));
   return assigned.map((row) => {
     const version = versionForAssignment(row);
-    const requiredTools = json(version?.required_tools_json, []);
+    const requiredTools = canonicalToolNames(json(version?.required_tools_json, []));
     const requiredActions = json(version?.required_connector_actions_json, []);
     const requiredMcpTools = json(version?.required_mcp_tools_json, []);
     const value = {

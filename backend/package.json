@@ -59,6 +59,7 @@
     "test:ibkrnew-delivery": "node scripts/test-ibkrnew-delivery-integration.mjs",
     "test:ibkrnew-owner-enrollment": "node scripts/test-ibkrnew-owner-enrollment.mjs",
     "test:ibkr-portfolio-strategy-sme": "node scripts/test-ibkr-portfolio-strategy-sme.mjs",
+    "test:quant-skill-router-contract": "node scripts/test-quant-skill-router-contract.mjs",
     "test:goal-plan-quality": "node scripts/test-goal-plan-maker-checker-contract.mjs",
     "test:goal-plan:inactive-checker": "node scripts/test-goal-plan-ollama-checker.mjs",
     "test:human-goal-kanban-delete": "node scripts/test-human-goal-kanban-delete-lifecycle.mjs",

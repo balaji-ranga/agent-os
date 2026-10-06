@@ -71,6 +71,16 @@ function normalizeDeliverableKind(value) {
   return ({ report: 'status_report', summary: 'status_report', notification: 'status_report', message: 'status_report', text: 'status_report', text_output: 'status_report', dataset: 'data', json: 'data', record: 'record_created', action: 'external_action' })[kind] || kind || null;
 }
 
+function normalizeRequiredToolNames(value) {
+  const values = Array.isArray(value) ? value : value ? [value] : [];
+  return [...new Set(values
+    .map((item) => String(item || '').trim()
+      .replace(/^[[`'\"]+|[\]`'\"]+$/g, '')
+      .trim()
+      .toLowerCase())
+    .filter((item) => /^[a-z0-9][a-z0-9_-]*$/.test(item)))];
+}
+
 function isStatusHistoryContract(raw = {}, spec = {}) {
   const operationMode = normalizeOperationMode(raw.operation_mode || spec.operation_mode);
   if (!['query', 'analyze'].includes(operationMode)) return false;
@@ -150,6 +160,7 @@ function normalizeTypedSteps(rawSteps) {
           : null,
       }))
       .filter((item) => item.skill_id);
+    const requiredToolNames = normalizeRequiredToolNames(raw?.required_tool_names || spec.required_tool_names);
     return {
       type,
       label: String(raw?.label || spec.label || type || `Step ${index + 1}`).trim().slice(0, 180),
@@ -177,6 +188,7 @@ function normalizeTypedSteps(rawSteps) {
         ...(agentId ? { agent_id: agentId } : {}),
         ...(userId ? { user_id: userId } : {}),
         ...(skillRefs.length ? { skill_refs: skillRefs } : {}),
+        ...(requiredToolNames.length ? { required_tool_names: requiredToolNames } : {}),
         ...(normalizedMessage ? { message: normalizedMessage } : {}),
         selection_rationale: String(raw?.selection_rationale || spec.selection_rationale || '').trim().slice(0, 600) || null,
       },
@@ -594,15 +606,61 @@ export function catalogPrompt(catalog, { prompt = '', candidateSteps = [] } = {}
   // Workspace rosters include grandchildren. They are context for an internal
   // handoff, not selectable executors for the originating orchestrator.
   const nestedIds=new Set(projected.agents.flatMap(a=>(a.reportees||[]).map(r=>r.id)));
-  return JSON.stringify({
+  const compactSchema = (schema) => {
+    if (!schema || typeof schema !== 'object') return schema || null;
+    const keys = Object.keys(schema);
+    const out = {};
+    for (const key of ['type', 'required', 'properties', 'items', 'enum', 'description']) {
+      if (!(key in schema)) continue;
+      if (key === 'description') out[key] = clip(schema[key], 240);
+      else if (key === 'properties' && schema.properties && typeof schema.properties === 'object') {
+        out[key] = Object.fromEntries(Object.entries(schema.properties).slice(0, 24).map(([name, value]) => [
+          name,
+          value && typeof value === 'object'
+            ? { type: value.type, enum: value.enum, description: clip(value.description, 160) }
+            : value,
+        ]));
+      } else out[key] = schema[key];
+    }
+    return out;
+  };
+  const payload = {
     current_executor: projected.current_executor,
     current_executor_tools: projected.tools.map((x) => ({ name: x.name, purpose: x.purpose })),
     execution_rules: 'agent_tool may use ONLY current_executor_tools. agents[].capabilities describe work owned by THAT specialist: use specialty_task with spec.agent_id and spec.message to request it. agents[].skills are assigned operating procedures, not additional tool permissions; include only matching ready skills in specialty_task.spec.skill_refs. A workflow is only the behavior explicitly described in its catalog entry.',
-    workflows: projected.workflows,
+    workflows: projected.workflows.slice(0, 12).map((workflow) => ({
+      id: workflow.id,
+      name: clip(workflow.name, 160),
+      chat_trigger_phrase: clip(workflow.chat_trigger_phrase, 240),
+      description: clip(workflow.description, 500),
+      input_schema: compactSchema(workflow.input_schema),
+      execution_contract: clip(workflow.execution_contract, 600),
+    })),
     capability_definitions: Object.fromEntries(projected.agents.flatMap(x=>x.capabilities||[]).map(c=>[c.name,clip(c.purpose||'',240)])),
-    agent_directory: (catalog.agents || []).map((x) => ({ id: x.id, name: x.name, role: clip(x.role || '', 160) })),
-    agents: projected.agents.filter(x=>!nestedIds.has(x.id)).map((x) => ({ id: x.id, name: x.name, role: x.role, capabilities: x.capabilities.map(c=>c.name), skills: (x.skills || []).map(s=>({ id:s.id,name:s.name,description:s.description,version:s.version,version_id:s.version_id,trigger_hints:s.trigger_hints,required_tools:s.required_tools,required_connector_actions:s.required_connector_actions,required_mcp_tools:s.required_mcp_tools,ready:s.ready })), connector_actions: x.connector_actions, reportees: x.reportees })),
-    humans: projected.humans.map((x) => ({ id: x.id, name: x.name, department: x.department, role_title: x.role_title, specialty: x.specialty, purpose: x.purpose })),
+    agent_directory: (catalog.agents || []).slice(0, 40).map((x) => ({ id: x.id, name: x.name, role: clip(x.role || '', 160) })),
+    agents: projected.agents.filter(x=>!nestedIds.has(x.id)).map((x) => ({
+      id: x.id,
+      name: x.name,
+      role: clip(x.role, 160),
+      capabilities: x.capabilities.map(c=>c.name),
+      skills: (x.skills || []).map(s=>({ id:s.id,name:clip(s.name,120),description:clip(s.description,300),version:s.version,version_id:s.version_id,trigger_hints:(s.trigger_hints || []).slice(0, 6),required_tools:s.required_tools,required_connector_actions:s.required_connector_actions,required_mcp_tools:s.required_mcp_tools,ready:s.ready })),
+      connector_actions: (x.connector_actions || []).slice(0, 24).map(action => ({ action_id: action.action_id, description: clip(action.description, 220), action_family: action.action_family })),
+      reportees: (x.reportees || []).slice(0, 16).map(reportee => ({ id: reportee.id, name: reportee.name, role: clip(reportee.role, 120) })),
+    })),
+    humans: projected.humans.slice(0, 20).map((x) => ({ id: x.id, name: x.name, department: x.department, role_title: x.role_title, specialty: x.specialty, purpose: clip(x.purpose, 240) })),
+  };
+  const serialized = JSON.stringify(payload);
+  // Keep the planner request bounded even when a tenant has a large catalog.
+  // The ranked entries above carry the relevant IDs; this final compact view
+  // preserves those IDs while preventing response truncation from giant input.
+  if (serialized.length <= 52000) return serialized;
+  return JSON.stringify({
+    ...payload,
+    workflows: payload.workflows.slice(0, 6).map(({ id, name, chat_trigger_phrase, description }) => ({ id, name, chat_trigger_phrase, description })),
+    capability_definitions: Object.fromEntries(Object.entries(payload.capability_definitions).slice(0, 120)),
+    agent_directory: payload.agent_directory.slice(0, 20),
+    agents: payload.agents.slice(0, 6).map((agent) => ({ ...agent, capabilities: agent.capabilities.slice(0, 24), skills: agent.skills.slice(0, 8), connector_actions: agent.connector_actions.slice(0, 12), reportees: agent.reportees.slice(0, 8) })),
+    humans: payload.humans.slice(0, 10),
   });
 }
 
@@ -648,7 +706,20 @@ function executorCanProduceArtifact(step, catalog) {
  * contract with the selected executor before validation, and update every
  * downstream edge by semantic key/source rather than by prompt keywords.
  */
-export function normalizeExecutorOutputKinds(steps, catalog) {
+function requiresSkillEvidenceTool(step, skill, prompt = '') {
+  if (!skill || !Array.isArray(skill.required_tools) || !skill.required_tools.length) return false;
+  const text = `${prompt} ${step.label || ''} ${step.spec?.objective || ''} ${step.spec?.subject || ''} ${step.spec?.message || ''}`.toLowerCase();
+  // Skills declare the tools they need; the request determines whether a
+  // conditional evidence tool is applicable. Status/history-only requests
+  // remain read-only and do not acquire recommendation evidence.
+  if (skill.required_tools.includes('ibkr_quant_signal_infer')) {
+    return /\b(?:recommend|recommendation|advis(?:e|ory)|strategy|assessment|assess|risk\s*(?:and|&)\s*return|ranking|rank|regime|sentiment|quantif(?:y|ied|ication))\b/i.test(text)
+      && !/^\s*(?:get|give|show|provide)\b[^\n]*\b(?:status|history|activity)\b/i.test(text);
+  }
+  return true;
+}
+
+export function normalizeExecutorOutputKinds(steps, catalog, { prompt = '' } = {}) {
   const kindBySourceAndKey = new Map();
   const sourceByKey = new Map((steps || []).map((step) => [step.key, step]));
   const agentById = new Map((catalog.agents || []).map((agent) => [String(agent.id).toLowerCase(), agent]));
@@ -683,6 +754,21 @@ export function normalizeExecutorOutputKinds(steps, catalog) {
     }
     if (step.type === 'specialty_task') {
       const agent = agentById.get(String(spec.agent_id || '').toLowerCase());
+      const selectedSkills = (spec.skill_refs || [])
+        .map((ref) => (agent?.skills || []).find((skill) => String(skill.id) === String(ref.skill_id || ref.id)))
+        .filter(Boolean);
+      const requiredToolNames = [...new Set(selectedSkills
+        .filter((skill) => requiresSkillEvidenceTool(step, skill, prompt))
+        .flatMap((skill) => skill.required_tools || [])
+        .map((name) => String(name || '').trim())
+        .filter(Boolean))];
+      if (requiredToolNames.length) {
+        spec.required_tool_names = requiredToolNames;
+        const evidenceLine = `MUST call ${requiredToolNames.join(', ')} and return its evidence ID, model/backend, confidence, and key outputs; the outcome validator will verify the successful tool log. `;
+        if (!String(spec.message || '').toLowerCase().includes('must call')) spec.message = clip(`${evidenceLine}${String(spec.message || '').trim()}`, 6000);
+        const existing = new Set((produces || []).map((output) => String(output.key || '').toLowerCase()));
+        if (!existing.has('quant_signal_evidence')) produces.push({ key: 'quant_signal_evidence', kind: 'data', required: true });
+      }
       const owned = new Set([
         ...(agent?.capabilities || []).map((capability) => String(capability.name || capability).trim().toLowerCase()),
         ...(agent?.connector_actions || []).map((action) => String(action.action_id || action.name || '').trim().toLowerCase()),
@@ -762,7 +848,7 @@ function hydrateAssignedSkillVersions(steps, catalog) {
   });
 }
 
-const PLAN_SCHEMA = `Return one concise JSON object with a steps array of at most 8 steps. Do not output prose. Keep every spec.message under 700 characters. Every step has key (unique string), type, label, depends_on (prior step keys), required_inputs, produces, spec.
+const PLAN_SCHEMA = `Return one concise JSON object with a steps array of at most 8 steps. Do not output prose. An optional repair_rationale string is allowed only when corrections_required is non-empty; use it to explain a grounded alternative when the maker does not apply a checker correction verbatim. Keep it under 500 characters. Keep every spec.message under 700 characters. Every step has key (unique string), type, label, depends_on (prior step keys), required_inputs, produces, spec.
 Every executable step spec also includes objective (the bounded outcome), operation_mode (query|analyze|create|modify|delete|communicate|coordinate), subject (what is queried or acted upon), and deliverable_kind (status_report|data|artifact|external_action|approval|record_created). These are semantic guardrails; they do not replace the executor fields below. status_report means a human-readable summary of activity, history, progress, outcomes, blockers or current state. data means a factual dataset consumed as machine input and MUST NOT be used for a requested status/history/activity summary. A request to report or summarize prior work is a query/analyze status_report, even when the report truthfully describes failed, blocked, denied, or incomplete historical work. Never convert such a reporting request into re-execution of the historical operation. A mutation is allowed only when the original goal requests it.
 Choose EXACTLY ONE of these mutually exclusive execution shapes:
 1. type=agent_tool: spec={tool_name: EXACT name from current_executor_tools ONLY, message: bounded instruction, args: executable JSON arguments, selection_rationale: reason}. NEVER put another agent's capability here. Preserve an explicitly requested browser executor in args.preferred_driver (desktop worker=playwright_chrome; Chrome extension=chrome_extension) with args.allow_fallback=false. For browse_task_start external publishing, args must contain mode, start_url, and input={operation:"social_publish",platform,body:"{{required_input_key}}",constraints:{max_submissions:1,preserve_audience:true,require_exact_editor_value:true,require_durable_confirmation:true}}. Use the exact required input key as the template; never invent the body.
@@ -815,7 +901,8 @@ export async function validateGoalPlanDraft({ ownerUserId, orchestratorAgentId, 
   const catalog = await buildCatalog(ownerUserId, orchestratorAgentId);
   const normalized = normalizeExecutorOutputKinds(
     repairCheckerExecutorAvailability(normalizeTypedSteps(steps), catalog),
-    catalog
+    catalog,
+    { prompt }
   );
   const validation = validateTypedGoalPlan(normalized, catalog);
   const errors = [
@@ -846,6 +933,29 @@ async function reportPlanProgress(onProgress, progress) {
   }
 }
 
+function repairMissingOutputContracts(steps, { errors = [] } = {}) {
+  const dependencyError = errors.some((error) => /requires\s+data:|does not declare|omits\s+.*produces/i.test(String(error || '')));
+  if (!dependencyError) return steps;
+  const byKey = new Map(steps.map((step) => [step.key, step]));
+  const repaired = steps.map((step) => ({
+    ...step,
+    produces: Array.isArray(step.produces) ? step.produces.map((item) => ({ ...item })) : [],
+  }));
+  const repairedByKey = new Map(repaired.map((step) => [step.key, step]));
+  for (const consumer of steps) {
+    for (const input of Array.isArray(consumer.required_inputs) ? consumer.required_inputs : []) {
+      const sourceKey = input?.source_step_key;
+      const inputKey = String(input?.key || '').trim();
+      if (!sourceKey || !inputKey || !byKey.has(sourceKey)) continue;
+      const source = repairedByKey.get(sourceKey);
+      if (!source.produces.some((item) => item?.key === inputKey)) {
+        source.produces.push({ key: inputKey, kind: input.kind || 'data', required: input.required !== false });
+      }
+    }
+  }
+  return repaired;
+}
+
 export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, prompt, candidateSteps, humanGuidance = '', onProgress = null }) {
   const catalog = await buildCatalog(ownerUserId, orchestratorAgentId);
   const seed = validateCandidateGoalPlan(candidateSteps, catalog);
@@ -855,7 +965,7 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
   return runGoalPlanRounds({
     prompt,
     normalize: content => hydrateAssignedSkillVersions(
-      normalizeExecutorOutputKinds(normalizeTypedSteps(extractPlanSteps(content)), catalog),
+      normalizeExecutorOutputKinds(normalizeTypedSteps(extractPlanSteps(content)), catalog, { prompt }),
       catalog
     ),
     validate: steps => {
@@ -884,6 +994,7 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
         return !(mentioned.length && mentioned.every((name) => capabilityNames.has(name)));
       });
     },
+    repair: ({ steps, errors }) => repairMissingOutputContracts(steps, { errors }),
     make: ({ attempt, previous, errors }) => chatCompletions({
       // Complex multi-capability plans can legitimately contain several
       // bounded assignments and evidence contracts. Keep the response as one
@@ -892,11 +1003,11 @@ export async function qualityAssureGoalPlan({ ownerUserId, orchestratorAgentId, 
       ...options, toolName: 'goal_plan_maker', endpointPreference: 'primary', maxTokens: 6500,
       messages: [
         { role: 'system', content: `You create the smallest COMPLETE executable company goal plan. Cover every requested discovery, verification, data write, draft, handoff, constraint and final delivery. A plan that is valid JSON but omits an outcome is invalid. Every explicitly named identifier, receipt, evidence item or result in the original goal must appear in the responsible step's produces contract and be consumed by the terminal report. Select executors by their declared capabilities, not shared words. The advisory candidate may be irrelevant: discard it when it does not cover the original goal. Each specialist gets a bounded assignment and consumes prior step outputs. If a specialty_task depends on earlier agent_tool steps, its message MUST say to consume those upstream outputs and MUST NOT instruct the specialist to call those same tools again; it may name only capabilities present in that specialist's own agents[].capabilities or connector_actions. A specialist must never be told to use current_executor_tools it does not own. Preserve nested orchestrator delegation inside its work contract. Carry source provenance and verified facts through discovery to writes. Never invent contact data or substitute unrelated retrieved records. Drafting is not sending. An LLM response alone is not evidence of a successful external action: require returned record/artifact IDs and verification. Preserve the original goal's speech act: asking for status/history/reporting does not authorize repeating the work being reported, and asking to act must not be reduced to reporting. For deliverable_kind=status_report, assign the relevant specialist a query/analyze operation that calls its agent_work_history capability and returns the evidence_id, counts and relevant records; never ask it to repeat the historical work. Preserve every explicit time range, entity, location, quantity and no-send/no-delete constraint in the bounded instruction that owns it. When the original goal explicitly names a browser executor, the browser action MUST be a direct agent_tool browse_task_start step with that preferred_driver and allow_fallback=false; a specialty agent may create content but must never replace that browser step. Human plan-review guidance is authoritative within the original goal and schema: apply every item, do not ignore or paraphrase it away. Use only live catalog IDs. ${PLAN_SCHEMA}` },
-        { role: 'user', content: JSON.stringify({ original_goal: prompt, original_requirements: buildGoalRequirements(prompt), authoritative_human_guidance: humanGuidance || null, live_catalog: promptCatalog, advisory_candidate: seed.steps, round: attempt, previous_attempt: previous ? { steps: previous.steps, checker_response: previous.checker_response } : null, corrections_required: errors, repair_contract: 'If previous_attempt exists, edit that plan minimally, retaining every already-correct assignment, dependency, instruction and outcome. Apply ALL corrections together. For each specialty_task, reconcile its message against its own capability list and its required_inputs: upstream direct-tool results must be consumed, not re-invoked. The deterministic schema and enumerated values in the system message override any conflicting checker suggestion. Human guidance is authoritative when supplied and must be reflected in the returned plan. Never rebuild a shorter plan that drops previous obligations. Before returning, check EVERY original requirement against the final instructions, including nested delegation, use of returned outputs, export and reporting if requested. Keep stable step keys when retaining a step. Include specific tool/action names from the selected specialist capability list in its message and require it to return evidence of completion. Capabilities are exact name strings; descriptions are in capability_definitions.' }) },
+        { role: 'user', content: JSON.stringify({ original_goal: prompt, original_requirements: buildGoalRequirements(prompt), authoritative_human_guidance: humanGuidance || null, live_catalog: promptCatalog, advisory_candidate: seed.steps, round: attempt, previous_attempt: previous ? { steps: previous.steps, checker_response: previous.checker_response } : null, corrections_required: errors, repair_contract: 'If previous_attempt exists, edit that plan minimally, retaining every already-correct assignment, dependency, instruction and outcome. Apply ALL corrections together. If you choose a grounded alternative to a checker correction, include a concise repair_rationale in the JSON and preserve the requested outcome; otherwise apply the correction verbatim. For each specialty_task, reconcile its message against its own capability list and its required_inputs: upstream direct-tool results must be consumed, not re-invoked. The deterministic schema and enumerated values in the system message override any conflicting checker suggestion. Human guidance is authoritative when supplied and must be reflected in the returned plan. Never rebuild a shorter plan that drops previous obligations. Before returning, check EVERY original requirement against the final instructions, including nested delegation, use of returned outputs, export and reporting if requested. Keep stable step keys when retaining a step. Include specific tool/action names from the selected specialist capability list in its message and require it to return evidence of completion. Capabilities are exact name strings; descriptions are in capability_definitions.' }) },
         { role: 'user', content: `Before emitting JSON, enforce this scope: top-level specialty_task.agent_id must be one of ${promptCatalog.agents.map(a=>a.id).join(', ')}. A reportee nested inside one of these agents is NOT a top-level target. If a request describes internal delegation followed by more work by the same manager, put the entire sequence in that manager's ONE spec.message, not extra steps. Direct agent_tool names must be one of ${promptCatalog.current_executor_tools.map(t=>t.name).join(', ')}. Each source_step_key must name a step.key you actually emitted. Return the complete corrected JSON, preserving the original goal above.` },
       ],
     }),
-    check: ({ steps, attempt, validationErrors, priorCorrectionChecklist, previousVerdict }) => chatCompletions({
+    check: ({ steps, attempt, validationErrors, priorCorrectionChecklist, previousVerdict, makerRationale }) => chatCompletions({
       ...options, toolName: 'goal_plan_checker', endpointPreference: 'secondary', maxTokens: 4200,
       messages: [
         { role: 'system', content: `Validate the proposed FUTURE plan against the original goal and live catalog. You are a bounded correctness checker, NOT a brainstorming reviewer. Return a short JSON verdict under 1200 words, with at most 6 DISTINCT blocking issues; never repeat an issue. If approved, return revised_steps:[]. If rejected, also return revised_steps containing the complete minimally corrected typed plan; use only the schema enums and live catalog IDs supplied here.
@@ -920,9 +1031,10 @@ Return {"approved":true,"issues":[],"coverage":[{"requirement_id":"r1","covered"
           proposed_plan: steps,
           deterministic_errors: validationErrors,
           prior_correction_checklist: priorCorrectionChecklist || [],
+          maker_correction_rationale: makerRationale || null,
           previous_checker_verdict: previousVerdict,
           round: attempt,
-          correction_audit_rule: 'When prior_correction_checklist is non-empty, verify every prior item against the new proposal. Approve only when every item is resolved. If an item remains, return one grounded issue for it; do not silently replace it with unrelated advice.',
+          correction_audit_rule: 'When prior_correction_checklist is non-empty, verify every prior item against the new proposal. If the maker changed or declined a prior correction, require and evaluate maker_correction_rationale against the original goal, live catalog, and deterministic schema. Accept the alternative only when it is grounded, complete, and preserves the requested outcome; otherwise return one grounded issue. Do not silently replace unresolved corrections with unrelated advice.',
         }) },
       ],
     }),
