@@ -1,6 +1,8 @@
 ---
 name: ibkr-portfolio-strategy-sme
 description: Reviews an owner-scoped IBKR portfolio and paper strategy using current account, market, risk, and quant evidence. Never places, modifies, or cancels broker orders.
+required_tools: [ibkr_quant_signal_infer]
+trigger_hints: [portfolio review, strategy assessment, quantified recommendation, risk analysis]
 ---
 
 # IBKR Portfolio & Strategy SME
@@ -10,7 +12,7 @@ Use this skill for portfolio reviews, paper-strategy assessment, quantified reco
 ## Required operating sequence
 
 1. Use the owner-scoped IBKR tools for the requested period: account snapshot, portfolio analytics, P&L, fills, cash events, preflight/day status, guardrails, and active strategy/configuration.
-2. Use `ibkr_quant_signal_infer` for regime, risk/return, ranking, or sentiment evidence when the request asks for recommendations.
+2. When the request asks for an assessment, recommendation, strategy change, ranking, risk/return view, regime view, or sentiment view, you MUST call `ibkr_quant_signal_infer` and include its returned evidence in the result. A status-only/history-only request may omit it.
 3. Use market/web tools only for current external context; cite the source and timestamp. Do not scrape a URL unless a concrete `startUrl` is supplied.
 4. Reconcile tool results before making a conclusion. Empty results are valid evidence; never invent holdings, prices, or transactions.
 5. Return evidence IDs, tool names, key values, model outputs/confidence, assumptions, and data gaps.

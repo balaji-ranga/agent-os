@@ -559,6 +559,9 @@ export function normalizeStepSpec(raw) {
     operation_mode: String(raw.operation_mode || nested.operation_mode || '').trim().toLowerCase() || null,
     subject: String(raw.subject || nested.subject || '').trim().slice(0, 500) || null,
     deliverable_kind: String(raw.deliverable_kind || nested.deliverable_kind || '').trim().toLowerCase() || null,
+    required_tool_names: Array.isArray(raw.required_tool_names || nested.required_tool_names)
+      ? [...new Set((raw.required_tool_names || nested.required_tool_names).map((name) => String(name || '').trim()).filter(Boolean))]
+      : [],
   };
   const type = String(raw.type || raw.step_type || "workflow_trigger").toLowerCase();
   if (type === "workflow_trigger" || type === "workflow") {

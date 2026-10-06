@@ -94,11 +94,11 @@ export function normalizeRouteDecision(value, { message = '', replyToMessageId =
   return repaired;
 }
 
-function compactTurns(turns = []) {
-  const compact = turns.slice(-12).map((t) => ({
+function compactTurns(turns = [], limit = 8, contentChars = 600) {
+  const compact = turns.slice(-limit).map((t) => ({
     id: Number(t.id),
     role: String(t.role || ''),
-    content: String(t.content || '').replace(/\s+/g, ' ').slice(0, 900),
+    content: String(t.content || '').replace(/\s+/g, ' ').slice(0, contentChars),
     work_unit_id: t.work_unit_id || null,
   }));
   const ids = [...new Set(compact.map((t) => t.work_unit_id).filter(Boolean))];
@@ -110,6 +110,54 @@ function compactTurns(turns = []) {
     }
   }
   return compact.map((turn) => ({ ...turn, ...(states.get(turn.work_unit_id) || {}) }));
+}
+
+/** Keep router input below the model context budget without dropping routing identity. */
+export function compactRouterInput(input, maxChars = 60000) {
+  const value = JSON.parse(JSON.stringify(input || {}));
+  const originalChars = JSON.stringify(value).length;
+  value.current_message = String(value.current_message || '').slice(0, 12000);
+  const trimAgent = (agent, descriptionChars = 100) => ({
+    ...agent,
+    capabilities: (agent.capabilities || []).map((name) => typeof name === 'string' ? name : String(name?.name || '')).filter(Boolean),
+    skills: (agent.skills || []).slice(0, 8).map((skill) => ({
+      id: skill.id, name: skill.name, version: skill.version, version_id: skill.version_id,
+      description: String(skill.description || '').slice(0, descriptionChars),
+      trigger_hints: (skill.trigger_hints || []).slice(0, 5), ready: skill.ready,
+    })),
+  });
+  value.agent = trimAgent(value.agent || {}, 140);
+  const wanted = new Set(String(value.current_message || '').toLowerCase().match(/[a-z0-9][a-z0-9_-]{2,}/g) || []);
+  value.organization = (value.organization || []).map((agent, index) => {
+    const haystack = `${agent.id || ''} ${agent.name || ''} ${agent.role || ''} ${agent.department || ''} ${(agent.capabilities || []).map((item) => typeof item === 'string' ? item : item?.name).join(' ')} ${(agent.skills || []).map((skill) => `${skill.id} ${skill.name} ${skill.description || ''}`).join(' ')}`.toLowerCase();
+    const score = [...wanted].reduce((sum, token) => sum + (haystack.includes(token) ? 1 : 0), 0);
+    return { agent, index, score };
+  }).sort((a, b) => b.score - a.score || a.index - b.index).slice(0, 80).map(({ agent }) => trimAgent(agent, 100));
+  value.capability_catalog = (value.capability_catalog || []).map((item) => ({
+    name: item.name, description: String(item.description || '').slice(0, 140),
+  }));
+  value.candidate_turns = (value.candidate_turns || []).slice(-8).map((turn) => ({
+    ...turn, content: String(turn.content || '').slice(0, 600),
+  }));
+  const size = () => JSON.stringify(value).length;
+  if (size() > maxChars) value.capability_catalog = value.capability_catalog.slice(0, 180);
+  if (size() > maxChars) value.organization = value.organization.map((agent) => ({ ...agent, skills: agent.skills.slice(0, 4), capabilities: agent.capabilities.slice(0, 40) }));
+  if (size() > maxChars) value.candidate_turns = value.candidate_turns.slice(-4).map((turn) => ({ ...turn, content: turn.content.slice(0, 350) }));
+  if (size() > maxChars) value.organization = value.organization.map((agent) => ({ ...agent, skills: agent.skills.map(({ id, name, version, version_id, ready }) => ({ id, name, version, version_id, ready })) }));
+  if (size() > maxChars) value.capability_catalog = value.capability_catalog.map(({ name }) => ({ name }));
+  if (size() > maxChars) {
+    value.current_message = value.current_message.slice(0, 6000);
+    value.organization = value.organization.slice(0, 40).map((agent) => ({
+      id: agent.id, name: agent.name, role: agent.role, department: agent.department,
+      is_orchestrator: agent.is_orchestrator, capabilities: agent.capabilities.slice(0, 20),
+      skills: agent.skills.slice(0, 2).map(({ id, name, version, version_id, ready }) => ({ id, name, version, version_id, ready })),
+    }));
+    value.candidate_turns = value.candidate_turns.slice(-2).map((turn) => ({ id: turn.id, role: turn.role, content: turn.content.slice(0, 250), work_unit_id: turn.work_unit_id }));
+  }
+  if (originalChars > maxChars) {
+    value._context_compaction = { compacted: true, original_chars: originalChars, budget_chars: maxChars, actual_chars: size() };
+  }
+  return value;
 }
 
 export const ROUTER_SYSTEM = `You are Flolah's control-plane router for an AI employee chat.
@@ -227,7 +275,7 @@ export function buildRouterInput({ ownerUserId, agent, message, history = [] }) 
     currentCapabilities,
     ...organization.map((member) => member.capabilities),
   ]);
-  return {
+  return compactRouterInput({
     agent: { id: agent?.id, name: agent?.name, role: agent?.role,
       is_coo: !!agent?.is_coo, is_orchestrator: !!agent?.is_orchestrator,
       capabilities: references[0] || [], skills: currentSkills },
@@ -237,7 +285,7 @@ export function buildRouterInput({ ownerUserId, agent, message, history = [] }) 
     })),
     capability_catalog,
     current_message: String(message || ''), candidate_turns: compactTurns(history),
-  };
+  });
 }
 
 export async function routeAgentTurn({ ownerUserId, agent, sessionId, message, history = [], semanticDecision = null, replyToMessageId = null }) {

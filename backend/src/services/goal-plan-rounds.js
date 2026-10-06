@@ -37,17 +37,69 @@ export function validateCoverage(verdict, prompt, steps) {
   return errors;
 }
 
-export async function runGoalPlanRounds({prompt,make,check,normalize,validate,onProgress=async()=>{},checkerIssueFilter=null}) {
+/**
+ * Parse a model's structured response without turning a transport formatting
+ * problem into an opaque maker/checker crash. Providers may wrap JSON in a
+ * fence or append a short explanation; balanced extraction handles both while
+ * still failing closed when a string/object is genuinely truncated.
+ */
+export function parseStructuredPlanResponse(raw) {
+  const text = String(raw || '').trim();
+  if (!text) return { value: null, error: 'empty response' };
+  const candidates = [];
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1]?.trim();
+  if (fenced) candidates.push(fenced);
+  candidates.push(text);
+  const start = text.indexOf('{');
+  if (start >= 0) {
+    let depth = 0;
+    let quoted = false;
+    let escaped = false;
+    for (let i = start; i < text.length; i += 1) {
+      const ch = text[i];
+      if (quoted) {
+        if (escaped) escaped = false;
+        else if (ch === '\\') escaped = true;
+        else if (ch === '"') quoted = false;
+        continue;
+      }
+      if (ch === '"') { quoted = true; continue; }
+      if (ch === '{') depth += 1;
+      else if (ch === '}') {
+        depth -= 1;
+        if (depth === 0) {
+          candidates.push(text.slice(start, i + 1));
+          break;
+        }
+      }
+    }
+  }
+  let lastError = 'invalid JSON object';
+  for (const candidate of candidates) {
+    try {
+      const value = JSON.parse(candidate);
+      if (value && typeof value === 'object') return { value, error: null };
+      lastError = 'structured response must be a JSON object or array';
+    } catch (error) {
+      lastError = error?.message || lastError;
+    }
+  }
+  return { value: null, error: lastError };
+}
+
+export async function runGoalPlanRounds({prompt,make,check,normalize,validate,onProgress=async()=>{},checkerIssueFilter=null,repair=null}) {
   let previous=null, errors=[], maker=null, checker=null, checkerRecommended=null;
   const rounds=[];
   for(let attempt=1;attempt<=3;attempt++){
     await onProgress({phase:'maker',detail:`Maker round ${attempt} of 3`,attempt,max_attempts:3});
     try{
       maker=await make({attempt,previous,errors});
-      const steps=normalize(maker.content);
+      const makerParsed = parseStructuredPlanResponse(maker.content);
+      const steps=makerParsed.value ? normalize(JSON.stringify(makerParsed.value)) : [];
       const valid=validate(steps);
       const deterministicErrors=!steps.length||!valid.ok
         ? (valid.errors?.length?valid.errors:['Maker returned no executable steps']) : [];
+      if (!makerParsed.value) deterministicErrors.unshift(`Maker returned invalid structured JSON: ${makerParsed.error}`);
       await onProgress({phase:'checker',detail:`Checker round ${attempt} of 3: validate every requested outcome`,attempt,max_attempts:3});
       // Even a schema-invalid candidate needs semantic feedback in this round:
       // otherwise three local field repairs can consume all rounds before the
@@ -58,9 +110,13 @@ export async function runGoalPlanRounds({prompt,make,check,normalize,validate,on
         validationErrors:deterministicErrors,
         priorCorrectionChecklist: errors,
         previousVerdict: previous?.checker_response || null,
+        makerRationale: makerParsed.value?.repair_rationale || null,
       });
-      const verdict=JSON.parse(String(checker.content).replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,''));
-      const checkerErrors = validateCoverage(verdict,prompt,steps);
+      const checkerParsed = parseStructuredPlanResponse(checker.content);
+      const verdict = checkerParsed.value;
+      const checkerErrors = checkerParsed.value
+        ? validateCoverage(verdict,prompt,steps)
+        : [`Checker returned invalid structured JSON: ${checkerParsed.error}`];
       errors=[...deterministicErrors,...(typeof checkerIssueFilter === 'function'
         ? checkerIssueFilter({ errors: checkerErrors, verdict, steps })
         : checkerErrors)];
@@ -69,7 +125,17 @@ export async function runGoalPlanRounds({prompt,make,check,normalize,validate,on
         return {steps,quality:{maker_model:maker.modelUsed,checker_model:checker.modelUsed,checker_endpoint:'secondary',checker_degraded:false,checker_approved_maker:true,maker_attempts:attempt,maker_contract_valid:true,maker_degraded_to_catalog:false,llm_maker_checker_succeeded:true,requirements:buildGoalRequirements(prompt),coverage:verdict.coverage,rounds,issues:[]}};
       }
       let nextSteps=steps;
-      if(verdict.approved===false&&Array.isArray(verdict.revised_steps)&&verdict.revised_steps.length){
+      // Repair deterministic dependency-contract omissions before asking the
+      // model to rewrite the whole plan. A checker can correctly identify
+      // that a downstream input is required while the maker keeps returning
+      // the same otherwise-valid plan without declaring that output. Repairing
+      // only the missing produces entry is bounded and preserves all maker
+      // assignments, instructions, and tool choices.
+      if (typeof repair === 'function') {
+        const repaired = repair({ steps, errors, verdict });
+        if (Array.isArray(repaired) && repaired.length) nextSteps = repaired;
+      }
+      if(verdict?.approved===false&&Array.isArray(verdict.revised_steps)&&verdict.revised_steps.length){
         const revised=normalize(JSON.stringify(verdict.revised_steps));
         const revisedValidation=validate(revised);
         if(revised.length&&revisedValidation.ok){
@@ -79,7 +145,7 @@ export async function runGoalPlanRounds({prompt,make,check,normalize,validate,on
           errors.push(...revisedValidation.errors.map(item=>`Checker correction invalid: ${item}`));
         }
       }
-      previous={maker_response:maker.content,steps:nextSteps,checker_response:verdict};
+      previous={maker_response:maker.content,steps:nextSteps,checker_response:verdict,maker_rationale:makerParsed.value?.repair_rationale || null};
       rounds.push({attempt,phase:'checker',errors});
     }catch(error){
       errors=[String(error.message||error)];

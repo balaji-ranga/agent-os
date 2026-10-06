@@ -11,7 +11,7 @@ const { outcomeValidationMessages, validateStepOutcome } = await import('../src/
 const { classifyToolFailure } = await import('../src/services/tool-failure-class.js');
 const { resolveCapabilitiesFromPrompt } = await import('../src/services/business-capabilities.js');
 const { matchSelfToolsFromCatalog, specialtyMessageContainsToolInstruction } = await import('../src/services/goal-plan-intent.js');
-const { runGoalPlanRounds } = await import('../src/services/goal-plan-rounds.js');
+const { runGoalPlanRounds, parseStructuredPlanResponse } = await import('../src/services/goal-plan-rounds.js');
 const { promptForbidsNotifyCeo } = await import('../src/services/goal-plan-constraints.js');
 let auditedChecklist = null;
 let makerAttempt = 0;
@@ -27,7 +27,23 @@ const roundResult = await runGoalPlanRounds({
   },
 });
 assert.equal(roundResult.quality.maker_attempts, 2);
+assert.deepEqual(parseStructuredPlanResponse('```json\n{"steps":[]}\n```').value, { steps: [] });
+assert.match(parseStructuredPlanResponse('{"steps":[{"message":"unterminated}').error, /Unexpected|Unterminated|invalid/i);
 assert(auditedChecklist.some((item) => /Missing evidence/.test(item)), 'the next checker must audit the prior mandatory correction checklist');
+
+let malformedAttempts = 0;
+await assert.rejects(
+  runGoalPlanRounds({
+    prompt: 'Produce a bounded report.',
+    normalize: (content) => JSON.parse(content).steps || [],
+    validate: () => ({ ok: false, errors: ['no executable steps'] }),
+    make: async () => ({ content: '{"steps":[{"key":"report","message":"truncated}', modelUsed: 'maker', attempt: ++malformedAttempts }),
+    check: async () => ({ content: JSON.stringify({ approved: false, issues: [{ message: 'Repair the maker JSON' }] }), modelUsed: 'checker' }),
+  }),
+  (failure) => failure.code === 'GOAL_PLAN_UNVERIFIED' &&
+    failure.details.rounds.every((round) => round.errors.some((item) => /invalid structured JSON|Repair the maker JSON/i.test(item))),
+  'malformed maker JSON must remain a bounded planning error with diagnostics'
+);
 assert.equal(promptForbidsNotifyCeo('Do not send notifications or external communications.'), true);
 assert.equal(promptForbidsNotifyCeo('Send a final notification to the CEO.'), false);
 let correctionAttempt = 0;
