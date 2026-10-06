@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 import { IBKRNewBridgeCore, IBKRNewFeatureEngine, acquireBridgeRuntimeLock, bridgeRuntimeStalled, buildMarketSubscriptionComponent, selectUniverseProfiles } from './core.js';
 import { IBKRNewGateway } from './gateway.js';
 import { tradingSession } from './session.js';
-import { selectSubscriptionSymbols } from './subscription-selection.js';
+import { selectSubscriptionSymbols, usableSubscriptionPriority } from './subscription-selection.js';
 
 const packageRoot = fileURLToPath(new URL('..', import.meta.url));
 const packagePath = (value, fallback) => {
@@ -102,7 +102,7 @@ function refreshUniverseSubscriptions(candidate = gateway) {
   const snapshot = candidate.snapshot();
   const protectedSymbols = [...snapshot.positions.filter(p => Number(p.quantity) !== 0).map(p => p.symbol), ...snapshot.open_orders.filter(p => !/filled|cancel|inactive/i.test(p.status || '')).map(p => p.symbol)];
   const priority = boot.subscription_priority;
-  const validPriority = priority?.environment === tradingMode && priority.universe_version === boot.configs.universe.version && Date.now() - Date.parse(priority.as_of) >= 0 && Date.now() - Date.parse(priority.as_of) < 60000;
+  const validPriority = usableSubscriptionPriority(priority, tradingMode, boot.configs.universe.version);
   const signature = JSON.stringify({ universe: boot.configs.universe, profiles, protectedSymbols, eligible: validPriority ? priority.eligible_symbols : [], residence: Math.floor(Date.now() / 60000) });
   if (candidate === gateway && subscriptionSignature === signature) { candidate.refreshSubscriptions(); return; }
   const selected = new Map(profiles.map(p => [p.symbol.toUpperCase(), p]));
@@ -186,7 +186,7 @@ async function runCycle() {
     await ensureGatewayConnected();
     const gatewayHealth = gateway?.health() || { connected: false };
     core.emit('bridge.heartbeat', {
-      bridge_version: '1.3.0',
+      bridge_version: '1.3.1',
       gateway_connected: gatewayHealth.connected,
       mode: mock ? `${tradingMode}_mock` : tradingMode,
       account_attestation: gatewayHealth.account_attestation || { status: mock ? 'verified' : 'failed', environment: tradingMode, execution_ready: mock, reason_code: mock ? null : 'GATEWAY_NOT_ATTESTED' },

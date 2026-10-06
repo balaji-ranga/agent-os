@@ -1,5 +1,12 @@
 const unique = values => [...new Set(values.map(x => String(x || '').trim().toUpperCase()).filter(Boolean))];
 
+export function usableSubscriptionPriority(priority, environment, universeVersion, now = Date.now()) {
+  const age = now - Date.parse(priority?.as_of);
+  // This is advisory slot allocation, not executable quote freshness. Allow
+  // small server/desktop clock skew; reject stale or implausibly future input.
+  return priority?.environment === environment && Number.isInteger(universeVersion) && priority.universe_version === universeVersion && Array.isArray(priority.eligible_symbols) && Number.isFinite(age) && age >= -5000 && age < 60000;
+}
+
 // Keep exposure streams, then warmed qualified candidates, then new qualified
 // candidates. Fill remaining slots stably; never silently raise the ceiling.
 export function selectSubscriptionSymbols({ candidates, protectedSymbols = [], eligibleSymbols = [], previous = [], selectedAt = new Map(), cap = 40, now = Date.now(), minimumResidenceMs = 3600000 }) {
