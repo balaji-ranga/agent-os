@@ -99,7 +99,11 @@ try {
     broker.orderMap.set(3,{authorization_id:'IBKRNewAuthorization_test',order_role:'protective_stop'});
     clock.set('2026-10-05T19:31:00Z');
     const exitCommand={authorization:{...command.authorization,action:'EXIT',quantity:3,side:'SELL',parent_trade_authorization_id:'IBKRNewAuthorization_test',expires_at:new Date(Date.now()+60000).toISOString()}};
+    await assert.rejects(()=>broker.placeProtected(exitCommand,async()=>{}),/owned reconciled target and protective stop required/); assertions++;
+    equal(calls,3,'missing returned stop evidence must not submit a managed exit');
+    broker.orderMap.set(3,{authorization_id:'IBKRNewAuthorization_test',order_role:'protective_stop',filled:0,order:{orderRef:'IBKRNewAuthorization_test',parentId:1,ocaGroup:'IBKRNew:IBKRNewAuthorization_test',ocaType:2,action:'SELL',orderType:'STP',totalQuantity:3,auxPrice:95}});
     await broker.placeProtected(exitCommand,async()=>{}); equal(calls,4,'managed exit only reprices owned target; stop untouched');
+    equal(broker.orderMap.get(3).order.auxPrice,95,'managed close preserves the verified protective stop price');
   }
   const boot={environment:'paper',account_ref:'opaque',execution_mode:{requested_mode:'paper',execution_enabled:true},goal:{opening_trades_allowed:true,cycle:{cycle_id:'cycle'}},configs:{strategy:{version:2}}};
   equal(commandMatchesBootstrap({authorization:{environment:'paper',account_ref:'opaque',goal:{cycle_id:'cycle'},config_versions:{strategy:1}}},boot),false,'configuration revision veto');
