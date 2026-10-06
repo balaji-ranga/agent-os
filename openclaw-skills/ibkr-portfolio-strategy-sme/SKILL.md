@@ -19,6 +19,8 @@ For an existing IBKRNew Paper goal or strategy:
 
 Legacy `ibkr_strategy_bundle_list.bundles` is advisory draft history. Its `active_paper_strategy` field is canonical IBKRNew evidence; empty bundles alone never establish inactivity. `ibkr_config`/`ibkr_day_status` refer to legacy workflow variables and must not override IBKRNew evidence.
 
+For account snapshots, trading-enabled questions and market-hours follow-ups, obtain fresh canonical runtime evidence even when the user does not repeat "IBKRNew". Snapshot `day_status.trading_enabled` is the independent legacy `IBKR_TRADING_ENABLED` process switch, not the IBKRNew flag and not a market-hours flag. Report configured enabled, automatic enabled, market open now, and opening evaluation permission separately with the current evidence timestamp. `session.regular=true` means OPEN; `minutes_to_close` means until CLOSING, never until opening. Never infer Paper/Live from missing fills. Use verified execution mode; do not use old chat assertions, cached account time or general hours webpages as today's runtime state.
+
 For review/status, remain read-only. Do not draft, pause, reset, publish, reserve, place or cancel. For an explicitly requested proposal, start from all published configurations, make an identified change and validate a complete non-empty draft without activation. Report an exact denied tool without confusing a tool permission error with an engine risk veto. Do not use `ibkr_order_learnings` as the current IBKRNew decision-history tool.
 
 For legacy portfolio/account analytics specifically (not as an IBKRNew strategy replacement):

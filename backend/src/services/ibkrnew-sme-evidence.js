@@ -78,13 +78,35 @@ export function getIbkrNewPaperStrategyEvidence(ownerUserId, options = {}) {
   const spool = hp.components?.find(p => p.component_id === 'IBKRNewDurableSpool');
   return publicValue({ ...envelope('ibkrnew_published_configs_and_paper_runtime'), configured: Boolean(configs.strategy), configs, goal, cycle,
     goal_opening_permission: { allowed: goalReasons.length === 0, block_reasons: goalReasons },
-    runtime: { mode, execution_context_ready: executionReady, automatic_strategy_enabled: enabled && configs.strategy?.execution_mode === 'automatic', opening_evaluation_allowed_now: reasons.length === 0, block_reasons: reasons, session, breakers,
+    runtime: { mode, strategy_configured_enabled: enabled, execution_context_ready: executionReady, automatic_strategy_enabled: enabled && configs.strategy?.execution_mode === 'automatic', market_open_now: session.regular === true, session_clock_at: new Date().toISOString(), session_clock_source: 'current_server_time_us_exchange_calendar', opening_evaluation_allowed_now: reasons.length === 0, block_reasons: reasons, session, breakers,
       heartbeat: { event_id: heartbeat?.event_id || null, occurred_at: heartbeat?.occurred_at || null, accepted_at: heartbeat?.created_at || null, age_seconds: age(heartbeat?.occurred_at), gateway_connected: hp.gateway_connected === true, bridge_version: hp.bridge_version },
       subscriptions: { status: q?.status || 'missing', subscribed: q?.symbols || [], healthy_symbols: q?.healthy_symbols || [], pending_symbols: q?.pending_symbols || [], capacity_limited_symbols: q?.capacity_limited_symbols || [] },
       volume: { status: v?.status || 'missing', ready_count: v?.ready_symbols?.length || 0, pending_count: v?.pending_symbols?.length || 0 }, spool_depth: spool?.depth ?? null },
     account: account ? { captured_at: account.captured_at, age_seconds: age(account.captured_at), eligible_capital_usd: account.eligible_capital_usd, cash_usd: account.cash_usd, realized_pnl_day_usd: account.realized_pnl_day_usd, unrealized_pnl_usd: account.unrealized_pnl_usd, positions, orders, note: 'Account exposure is not automatically goal-attributed; order snapshots do not prove stop/target coverage.' } : null,
     agents, profile_providers: profileProviders(configs.universe || {}, 'paper'),
     interpretation: 'Active/configured is distinct from market-open, warmed-up, data-ready and authorized. Legacy strategy bundles are drafts, not the published IBKRNew strategy. No goal or trading state was changed.' });
+}
+
+// Explicitly separate the legacy process switch, IBKRNew configuration and
+// current session permission. Account tools must not infer any of these from
+// fills, snapshot timestamps or a disabled legacy flag.
+export function getIbkrNewPaperTradingStatus(ownerUserId, options = {}) {
+  const s = getIbkrNewPaperStrategyEvidence(ownerUserId, options);
+  return {
+    namespace: s.namespace, environment: s.environment, as_of: s.as_of,
+    configured_enabled: s.runtime.strategy_configured_enabled,
+    automatic_strategy_enabled: s.runtime.automatic_strategy_enabled,
+    execution_mode: s.runtime.mode?.requested_mode || null,
+    activation_state: s.runtime.mode?.activation_state || null,
+    market_open_now: s.runtime.market_open_now,
+    minutes_to_close: s.runtime.session.minutes_to_close,
+    opening_evaluation_allowed_now: s.runtime.opening_evaluation_allowed_now,
+    block_reasons: s.runtime.block_reasons,
+    heartbeat: s.runtime.heartbeat,
+    goal_id: s.goal?.goal_id || null, goal_status: s.goal?.status || null,
+    cycle_id: s.cycle?.cycle_id || null,
+    interpretation: 'Configured enabled is independent of market hours. market_open_now uses current server time, not cached account time. minutes_to_close is time UNTIL CLOSING, not opening. Opening evaluation permission is not an order authorization; fresh symbol data, signals and risk gates still apply. No fills does not prove Paper mode.',
+  };
 }
 
 export function getIbkrNewPaperInstrumentEvidence(ownerUserId, options = {}) {

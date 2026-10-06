@@ -60,6 +60,20 @@ const status = evidence.getIbkrNewPaperStrategyEvidence(owner, options);
 assert.equal(status.goal.goal_id, 'goal-paper'); assert.equal(status.cycle.cycle_id, 'cycle-paper');
 assert.equal(status.goal_opening_permission.allowed, true); assert.equal(status.runtime.execution_context_ready, true);
 assert.equal(status.agents.length, 6); assert.ok(status.agents.every(x=>x.enabled));
+assert.equal(status.runtime.strategy_configured_enabled,true);
+// A closed session does not disable configured strategy. Test a fixed open
+// session too, independent of the wall clock or cached heartbeat timestamp.
+const ActualDate=globalThis.Date;
+try {
+  for(const [at,open] of [['2026-10-06T14:00:00Z',true],['2026-10-06T12:00:00Z',false]]) {
+    globalThis.Date=class extends ActualDate { constructor(...args){super(...(args.length?args:[at]));} static now(){return ActualDate.parse(at);} };
+    const flags=evidence.getIbkrNewPaperTradingStatus(owner,options);
+    assert.equal(flags.configured_enabled,true); assert.equal(flags.automatic_strategy_enabled,true);
+    assert.equal(flags.market_open_now,open); assert.equal(flags.execution_mode,'paper');
+    assert.match(flags.interpretation,/UNTIL CLOSING/);
+    if(!open) { assert.equal(flags.opening_evaluation_allowed_now,false); assert.ok(flags.block_reasons.includes('outside_regular_session')); }
+  }
+} finally {globalThis.Date=ActualDate;}
 assert.equal(status.account.orders[0].protective_type_verified, false);
 const readiness = evidence.getIbkrNewPaperInstrumentEvidence(owner, options);
 assert.equal(readiness.items.length, 3);
@@ -98,7 +112,7 @@ assert.equal(db.prepare('SELECT COUNT(*) n FROM ibkr_strategy_bundles').get().n,
 // HTTP authentication and scope checks, without external providers or brokers.
 const {default: express} = await import('express');
 const {default: router} = await import('../src/routes/ibkr-trading.js');
-const app = express(); app.use('/api/ibkr-trading',router);
+const app = express(); app.use(express.json()); app.use('/api/ibkr-trading',router);
 const server = app.listen(0,'127.0.0.1'); await new Promise(r=>server.once('listening',r));
 try {
   const base=`http://127.0.0.1:${server.address().port}/api/ibkr-trading`;
@@ -113,6 +127,24 @@ try {
   }
   const legacy=await (await fetch(`${base}/strategy-bundles`,{headers})).json();
   assert.deepEqual(legacy.bundles,[]); assert.equal(legacy.active_paper_strategy.goal.goal_id,'goal-paper');
+  const {ensureIbkrAnalyticsTables,ingestAccountSnapshotFromBridge}=await import('../src/services/ibkr-analytics.js');
+  ensureIbkrAnalyticsTables();
+  ingestAccountSnapshotFromBridge(owner,{cash_usd:7000,equity_usd:8000,positions:[],open_orders:[],captured_at:now});
+  process.env.IBKR_TRADING_ENABLED='0';
+  for(const [path,method] of [['/account-snapshot/latest','GET'],['/account-snapshot','POST']]) {
+    const opts={method,...(method==='POST'?{headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({prefer_cached:true})}:{headers})};
+    assert.equal((await fetch(base+path,{method})).status,401);
+    assert.equal((await fetch(base+path,{method,headers:{'x-ceo-user-id':owner}})).status,401);
+    assert.ok((await fetch(base+path,{...opts,headers:{...opts.headers,'x-ceo-user-id':''}})).status>=400);
+    const snap=await (await fetch(base+path,opts)).json();
+    assert.equal(snap.cash_usd,7000); assert.equal(snap.source,'bridge_cache');
+    assert.equal(snap.day_status.trading_enabled,false);
+    assert.equal(snap.day_status.trading_enabled_scope,'legacy_ibkr_workflow');
+    assert.equal(snap.ibkrnew_paper_trading_status.configured_enabled,true);
+    assert.equal(snap.ibkrnew_paper_trading_status.execution_mode,'paper');
+    assert.equal(snap.ibkrnew_paper_trading_status.goal_id,'goal-paper');
+    assert.doesNotMatch(JSON.stringify(snap.ibkrnew_paper_trading_status),/DUQ123456|LIVEONLY|OTHERTENANT/);
+  }
 } finally { await new Promise(r=>server.close(r)); }
 console.log('IBKRNew SME harness passed: canonical Paper evidence, owner/Live isolation, readonly SQL, profile cache/ETF gates, fills, goal-stop evidence, authentication, R0 tools and empty-draft prevention.');
 const {ibkrNewSmeReviewContract,IBKRNEW_SME_REVIEW_TOOLS} = await import('../src/services/ibkrnew-sme-review-contract.js');
@@ -124,4 +156,11 @@ assert.equal(ibkrNewSmeReviewContract({template_base_id:'balserve'},'Review Pape
 assert.equal(ibkrNewSmeReviewContract(sme,'Review my account cash and dividends',names),null);
 assert.equal(ibkrNewSmeReviewContract(sme,'Review and change the Paper strategy',names),null);
 assert.equal(ibkrNewSmeReviewContract(sme,'Check my Paper goal status',[]).missing.length,3);
+for(const prompt of ['Is this account paper trading or live account','Why is trading enabled No and US market closed?','How many orders are created now to support the paper strategy goal']) {
+  assert.deepEqual(ibkrNewSmeReviewContract(sme,prompt,names).tools,[...IBKRNEW_SME_REVIEW_TOOLS]);
+}
+const accountReview=ibkrNewSmeReviewContract(sme,'Check the account snapshot and overall orders', [...names,'ibkr_account_snapshot','ibkr_account_snapshot_latest']);
+assert.ok(accountReview.tools.includes('ibkr_account_snapshot_latest'));
+assert.ok(!accountReview.tools.includes('ibkr_account_snapshot'),'review must not call legacy POST reconciliation');
+assert.match(accountReview.instruction,/UNTIL CLOSE/);
 console.log('SME current-turn contract passed: canonical read-only review tool scope, missing-capability reporting, no permissions expansion, legacy/change requests unchanged.');

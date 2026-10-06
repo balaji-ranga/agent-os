@@ -57,7 +57,7 @@ export const IBKR_TRADING_TOOLS = [
     endpoint: '/api/ibkr-trading/account-snapshot',
     method: 'POST',
     purpose:
-      'Live Gateway snapshot when co-located, else last laptop bridge push (auto-fallback). Prefer GET /account-snapshot/latest or body { prefer_cached: true } on VPS. Body optional: force_live, prefer_cached.',
+      'Account book from Gateway or cached laptop push. Prefer cached GET for review. day_status.trading_enabled is the LEGACY process switch, NOT IBKRNew enablement or market hours. ibkrnew_paper_trading_status separates current configured enablement, market_open_now and opening evaluation. No fills does not establish Paper mode. Body optional: force_live, prefer_cached.',
     model_used: '',
     enabled: 1,
     is_builtin: 0,
@@ -68,7 +68,7 @@ export const IBKR_TRADING_TOOLS = [
     endpoint: '/api/ibkr-trading/account-snapshot/latest',
     method: 'GET',
     purpose:
-      'Return last successful laptop IBKR session book (cash, positions, open orders) pushed by local-ibkr-bridge via W3. Use for Maker/W1 when VPS has no Gateway.',
+      'Return cached laptop account book; report captured_at. Legacy day_status.trading_enabled does NOT describe IBKRNew strategy or market hours. Read ibkrnew_paper_trading_status for current configured enablement, market_open_now and opening evaluation; minutes_to_close means UNTIL CLOSING. Use canonical IBKRNew evidence tools for goal execution and fills.',
     model_used: '',
     enabled: 1,
     is_builtin: 0,

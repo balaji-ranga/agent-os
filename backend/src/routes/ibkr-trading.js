@@ -4,7 +4,7 @@
 import { Router } from 'express';
 import { allowInternalOrAuth } from '../middleware/internal-auth.js';
 import { requireCeoOrAdmin, resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
-import { getIbkrNewPaperStrategyEvidence, getIbkrNewPaperInstrumentEvidence, getIbkrNewPaperDecisionEvidence } from '../services/ibkrnew-sme-evidence.js';
+import { getIbkrNewPaperStrategyEvidence, getIbkrNewPaperInstrumentEvidence, getIbkrNewPaperDecisionEvidence, getIbkrNewPaperTradingStatus } from '../services/ibkrnew-sme-evidence.js';
 import { getIbkrTradingConfig, findAllowlistEntry } from '../services/ibkr-trading-rules.js';
 import * as ledger from '../services/ibkr-trading-ledger.js';
 import { getDb } from '../db/schema.js';
@@ -400,9 +400,9 @@ router.post('/account-snapshot/ingest', async (req, res) => {
  * Last successful laptop IBKR session book (no live Gateway on VPS required).
  * W1 / Maker should prefer this over POST /account-snapshot live Gateway.
  */
-router.get('/account-snapshot/latest', async (req, res) => {
+router.get('/account-snapshot/latest', allowInternalOrAuth, requireCeoOrAdmin, async (req, res) => {
   try {
-    const owner = entitledOwnerId(req);
+    const owner = smeOwner(req);
     const budgetOpts = resolveWorkflowBudgetOpts(req, owner);
     console.info(
       '[ibkr-trading] snapshot-latest policy owner=%s source=%s workflow=%s allowlist_n=%s',
@@ -441,6 +441,7 @@ router.get('/account-snapshot/latest', async (req, res) => {
       ...snap,
       positions: withAge,
       day_status: day,
+      ibkrnew_paper_trading_status: getIbkrNewPaperTradingStatus(owner),
       daily_budget_usd: budgetOpts.dailyBudgetUsd,
       max_trades_per_day: budgetOpts.maxTradesPerDay,
       allowlist_keys: budgetOpts.allowlistKeys,
@@ -458,10 +459,10 @@ router.get('/account-snapshot/latest', async (req, res) => {
   }
 });
 
-router.post('/account-snapshot', async (req, res) => {
+router.post('/account-snapshot', allowInternalOrAuth, requireCeoOrAdmin, async (req, res) => {
   try {
-    const owner = entitledOwnerId(req);
-    const budgetOpts = resolveWorkflowBudgetOpts(req);
+    const owner = smeOwner(req);
+    const budgetOpts = resolveWorkflowBudgetOpts(req, owner);
     const bodyIn = req.body || {};
     const preferCached =
       bodyIn.prefer_cached === true ||
@@ -531,6 +532,7 @@ router.post('/account-snapshot', async (req, res) => {
         ...snap,
         positions: withAge,
         day_status: day,
+        ibkrnew_paper_trading_status: getIbkrNewPaperTradingStatus(owner),
         daily_budget_usd: budgetOpts.dailyBudgetUsd,
         max_trades_per_day: budgetOpts.maxTradesPerDay,
         allowlist_keys: budgetOpts.allowlistKeys,
@@ -607,7 +609,7 @@ router.post('/account-snapshot', async (req, res) => {
       res.status(503).json({ ok: false, error: liveErr.message });
     }
   } catch (e) {
-    res.status(503).json({ ok: false, error: e.message });
+    res.status(e.status || 503).json({ ok: false, error: e.message });
   }
 });
 
