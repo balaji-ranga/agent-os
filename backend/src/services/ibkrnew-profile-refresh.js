@@ -3,6 +3,7 @@ import { ensureIbkrNewEventTraderSchema, getIbkrNewProfileRefreshContext, applyI
 import { fmpSymbol, mapFmpFundamentals, mapFmpEarnings } from './ibkrnew-profile-data.js';
 
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+const ADAPTER_VERSION = 'fmp-profile-v2-earnings-limit5';
 let active = null, timer = null, lastRequestAt = 0, pausedUntil = 0;
 
 // Fixed, trusted upstream. No request-supplied URL/key and no executable quotes.
@@ -21,7 +22,7 @@ export function createFmpProfileClient({ fetchImpl = fetch, key = process.env.MA
     catch { throw new Error('FMP_REQUEST_FAILED'); }
     if (!response.ok) {
       if ([401, 403, 429].includes(response.status)) pausedUntil = Date.now() + 3600000;
-      throw new Error(`FMP_HTTP_${response.status}`); // Never persist upstream body/URL/key.
+      throw new Error(`FMP_HTTP_${response.status}_${endpoint.replaceAll('-', '_').toUpperCase()}`); // Never persist upstream body/URL/key.
     }
     const body = await response.text();
     if (Buffer.byteLength(body) > 2 * 1024 * 1024) throw new Error('FMP_RESPONSE_TOO_LARGE');
@@ -33,8 +34,8 @@ export function createFmpProfileClient({ fetchImpl = fetch, key = process.env.MA
 
 function state(context, symbol, family, status, reason, nextAt, refreshedAt = null) {
   const ts = new Date().toISOString();
-  getDb().prepare(`INSERT INTO ibkrnew_profile_refresh_state(owner_user_id,bridge_id,environment,symbol,family,provider,status,reason_code,refreshed_at,next_attempt_at,updated_at)
-    VALUES(?,?,'paper',?,?,'FMP',?,?,?,?,?) ON CONFLICT(owner_user_id,environment,symbol,family,provider) DO UPDATE SET bridge_id=excluded.bridge_id,status=excluded.status,reason_code=excluded.reason_code,refreshed_at=COALESCE(excluded.refreshed_at,ibkrnew_profile_refresh_state.refreshed_at),next_attempt_at=excluded.next_attempt_at,updated_at=excluded.updated_at`).run(context.owner_user_id, context.bridge_id, symbol, family, status, reason, refreshedAt, new Date(nextAt).toISOString(), ts);
+  getDb().prepare(`INSERT INTO ibkrnew_profile_refresh_state(owner_user_id,bridge_id,environment,symbol,family,provider,status,reason_code,refreshed_at,next_attempt_at,updated_at,adapter_version)
+    VALUES(?,?,'paper',?,?,'FMP',?,?,?,?,?,?) ON CONFLICT(owner_user_id,environment,symbol,family,provider) DO UPDATE SET bridge_id=excluded.bridge_id,status=excluded.status,reason_code=excluded.reason_code,refreshed_at=COALESCE(excluded.refreshed_at,ibkrnew_profile_refresh_state.refreshed_at),next_attempt_at=excluded.next_attempt_at,updated_at=excluded.updated_at,adapter_version=excluded.adapter_version`).run(context.owner_user_id, context.bridge_id, symbol, family, status, reason, refreshedAt, new Date(nextAt).toISOString(), ts, ADAPTER_VERSION);
 }
 
 export async function refreshIbkrNewProfiles(ownerUserId, { client = createFmpProfileClient(), maxSymbols = 1000 } = {}) {
@@ -51,7 +52,7 @@ export async function refreshIbkrNewProfiles(ownerUserId, { client = createFmpPr
       const cached = JSON.parse(profileRow?.profile_json || '{}');
       const fieldAt = family === 'fundamentals' ? profileRow?.fundamentals_at : profileRow?.corporate_events_at;
       const matches = cached[family === 'fundamentals' ? 'fundamentals_source' : 'corporate_events_source'] === 'FMP';
-      if (prior && prior.bridge_id === context.bridge_id && Date.parse(prior.next_attempt_at) > Date.now() && (prior.status !== 'ready' || matches && Date.now() - Date.parse(fieldAt) < Number(rules.maximum_age_hours) * 3600000)) continue;
+      if (prior && prior.bridge_id === context.bridge_id && Date.parse(prior.next_attempt_at) > Date.now() && (prior.status !== 'ready' && prior.adapter_version === ADAPTER_VERSION || prior.status === 'ready' && matches && Date.now() - Date.parse(fieldAt) < Number(rules.maximum_age_hours) * 3600000)) continue;
       const current = getIbkrNewProfileRefreshContext(ownerUserId);
       if (!current || current.universe_version !== context.universe_version || current.bridge_id !== context.bridge_id) return { skipped: 'CONTEXT_CHANGED', updated, failed };
       state(context, symbol, family, 'refreshing', null, Date.now() + 120000);
@@ -64,14 +65,14 @@ export async function refreshIbkrNewProfiles(ownerUserId, { client = createFmpPr
           const income = await client('income-statement', { symbol: ticker, period: 'quarter', limit: 4 });
           const cashFlow = rules.require_positive_operating_cash_flow ? await client('cash-flow-statement', { symbol: ticker, period: 'quarter', limit: 4 }) : undefined;
           payload = mapFmpFundamentals({ symbol, profiles, ratios, income, cashFlow });
-        } else payload = mapFmpEarnings({ symbol, earnings: await client('earnings', { symbol: ticker, limit: 100 }) });
+        } else payload = mapFmpEarnings({ symbol, earnings: await client('earnings', { symbol: ticker, limit: 5 }) });
         if (!applyIbkrNewFmpProfile(context, family, payload)) return { skipped: 'CONTEXT_CHANGED', updated, failed };
         const refreshMs = Math.min(6 * 3600000, Number(rules.maximum_age_hours) * 1800000);
         state(context, symbol, family, 'ready', null, Date.now() + refreshMs, new Date().toISOString()); updated++;
       } catch (error) {
         const reason = /^FMP_[A-Z0-9_]+$|^PROFILE_SYMBOL_INVALID$/.test(error.message) ? error.message : 'FMP_REFRESH_FAILED';
         state(context, symbol, family, 'failed', reason, Date.now() + 3600000); failed++;
-        if (reason === 'FMP_KEY_NOT_CONFIGURED' || /^FMP_HTTP_(401|403|429)$/.test(reason) || reason === 'FMP_RATE_LIMIT_COOLDOWN') return { updated, failed, paused: reason };
+        if (reason === 'FMP_KEY_NOT_CONFIGURED' || /^FMP_HTTP_(401|403|429)_/.test(reason) || reason === 'FMP_RATE_LIMIT_COOLDOWN') return { updated, failed, paused: reason };
       }
     }
   }

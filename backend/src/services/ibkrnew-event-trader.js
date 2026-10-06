@@ -376,7 +376,7 @@ export function ensureIbkrNewEventTraderSchema(db = getDb()) {
     CREATE TABLE IF NOT EXISTS ibkrnew_profile_refresh_state (
       owner_user_id TEXT NOT NULL, bridge_id TEXT NOT NULL, environment TEXT NOT NULL CHECK(environment='paper'),
       symbol TEXT NOT NULL, family TEXT NOT NULL CHECK(family IN ('fundamentals','earnings')), provider TEXT NOT NULL,
-      status TEXT NOT NULL, reason_code TEXT, refreshed_at TEXT, next_attempt_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+      status TEXT NOT NULL, reason_code TEXT, refreshed_at TEXT, next_attempt_at TEXT NOT NULL, updated_at TEXT NOT NULL, adapter_version TEXT,
       PRIMARY KEY(owner_user_id,environment,symbol,family,provider)
     );
     CREATE TABLE IF NOT EXISTS ibkrnew_component_health (
@@ -456,6 +456,7 @@ export function ensureIbkrNewEventTraderSchema(db = getDb()) {
     db.exec('UPDATE ibkrnew_executions SET commission_reported=1 WHERE commission_usd<>0');
   }
   ensureIbkrNewPrivacyTriggers(db);
+  if (!db.prepare('PRAGMA table_info(ibkrnew_profile_refresh_state)').all().some(column => column.name === 'adapter_version')) db.exec('ALTER TABLE ibkrnew_profile_refresh_state ADD COLUMN adapter_version TEXT');
   migrateIbkrNewAccountPrivacy(db);
 }
 

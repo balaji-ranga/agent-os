@@ -35,7 +35,7 @@ let requested;
 const client = createFmpProfileClient({ key: 'never-log-this-test-key', pace: false, fetchImpl: async url => { requested = url; return new Response(JSON.stringify(profiles)); } });
 assert.deepEqual(await client('profile', { symbol }), profiles); assert.equal(requested.hostname, 'financialmodelingprep.com');
 const failedClient = createFmpProfileClient({ key: 'never-log-this-test-key', pace: false, fetchImpl: async () => new Response('secret URL/token response', { status: 402 }) });
-await assert.rejects(failedClient('profile', { symbol }), error => error.message === 'FMP_HTTP_402');
+await assert.rejects(failedClient('profile', { symbol }), error => error.message === 'FMP_HTTP_402_PROFILE');
 const owner = 'IBKRNewOwner_FmpTest', other = 'IBKRNewOwner_FmpOther';
 s.ensureIbkrNewDefaults(owner); s.ensureIbkrNewDefaults(other);
 const credentials = s.registerBridge(owner), bridge = s.authenticateBridge(credentials.bridge_id, credentials.token);
@@ -46,7 +46,7 @@ emit('account.snapshot', { eligible_capital_usd: 10000, cash_usd: 10000, positio
 emit('instrument.profile_refreshed', { symbol, security_type: 'STK', average_daily_volume: 3e7 });
 const universe = s.getPublishedConfig(owner, 'universe'); universe.profile_data.paper = { fundamentals_provider: 'FMP', earnings_provider: 'FMP' }; s.publishConfig(owner, 'universe', universe);
 const responses = { profile: profiles, 'ratios-ttm': ratios, 'income-statement': income, earnings };
-const result = await refreshIbkrNewProfiles(owner, { client: async endpoint => responses[endpoint] });
+const result = await refreshIbkrNewProfiles(owner, { client: async (endpoint, params) => { if (endpoint === 'earnings') assert.equal(params.limit, 5); return responses[endpoint]; } });
 assert.equal(result.updated, 2); assert.equal(result.failed, 0);
 const row = () => getDb().prepare("SELECT * FROM ibkrnew_instrument_profiles WHERE owner_user_id=? AND environment='paper' AND symbol=?").get(owner, symbol);
 assert.equal(JSON.parse(row().profile_json).fundamentals_source, 'FMP'); assert.equal(JSON.parse(row().profile_json).corporate_events_source, 'FMP');
