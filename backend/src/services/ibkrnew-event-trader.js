@@ -3,6 +3,7 @@ import { profileProviders, earningsBlackout } from './ibkrnew-profile-data.js';
 import { tradingSession } from '../../ibkrnew-event-bridge/src/session.js';
 import { getDb } from '../db/schema.js';
 import { migrateProfileRefreshEnvironments } from './ibkrnew-profile-refresh-schema.js';
+import { ensurePaperExecutionTestSchema, assertPaperExecutionTestAuthorization } from './ibkrnew-paper-test-schema.js';
 import { IBKRNEW_CONFIG_KINDS, getIbkrNewConfigBlueprint, getIbkrNewGoalBlueprint, getIbkrNewWorkflowBlueprints, getIbkrNewSchema, getIbkrNewSchemas } from './ibkrnew-blueprints.js';
 
 export const IBKRNEW_NAMESPACE = 'IBKRNew';
@@ -1289,6 +1290,7 @@ export function validateIbkrNewSubmission(bridge, authorizationId) {
   const reject = reason => { throw Object.assign(new Error(reason),{status:409}); };
   if (!row || row.status!=='issued' || Date.parse(row.expires_at)<=Date.now()) reject('authorization_not_executable');
   const a = parse(row.authorization_json,{}), configs = ensureIbkrNewDefaults(bridge.owner_user_id), mode = getIbkrNewExecutionMode(bridge.owner_user_id);
+  assertPaperExecutionTestAuthorization(db, bridge, a);
   if (mode.active_mode!==bridge.environment || mode.execution_enabled!==true) reject('account_context_not_attested');
   const goal = getIbkrNewGoalState(bridge.owner_user_id,{environment:bridge.environment});
   if (a.action!=='EXIT' && (!goal.opening_trades_allowed || goal.cycle?.cycle_id!==a.goal?.cycle_id)) reject('goal_context_changed');
@@ -1410,8 +1412,11 @@ export function claimCommands(bridge, limit = 10, protocolVersion = 0) {
   const executionMode = getIbkrNewExecutionMode(bridge.owner_user_id);
   if (executionMode.requested_mode !== bridge.environment || executionMode.active_mode !== bridge.environment || executionMode.execution_enabled !== true) return [];
   ensureIbkrNewEventTraderSchema(); const db = getDb(); const ts = nowIso(); const lease = new Date(Date.now() + 10000).toISOString();
+  ensurePaperExecutionTestSchema(db);
   const tx = db.transaction(() => {
-    const goalBlocked = db.prepare(`SELECT o.authorization_id FROM ibkrnew_command_outbox o LEFT JOIN ibkrnew_goal_trade_links l ON l.authorization_id=o.authorization_id LEFT JOIN ibkrnew_goal_cycles c ON c.cycle_id=l.cycle_id LEFT JOIN ibkrnew_goals g ON g.goal_id=l.goal_id WHERE o.bridge_id=? AND o.status IN ('pending','claimed') AND COALESCE(json_extract(o.command_json,'$.authorization.action'),'OPEN')='OPEN' AND (c.status IS NULL OR c.status<>'ACTIVE' OR g.status<>'ACTIVE' OR c.scheduled_end_at<=?)`).all(bridge.bridge_id, ts);
+    const goalBlocked = db.prepare(`SELECT o.authorization_id FROM ibkrnew_command_outbox o LEFT JOIN ibkrnew_goal_trade_links l ON l.authorization_id=o.authorization_id LEFT JOIN ibkrnew_goal_cycles c ON c.cycle_id=l.cycle_id LEFT JOIN ibkrnew_goals g ON g.goal_id=l.goal_id
+      LEFT JOIN ibkrnew_paper_execution_tests pt ON pt.authorization_id=o.authorization_id AND pt.owner_user_id=o.owner_user_id AND pt.bridge_id=o.bridge_id AND json_extract(o.command_json,'$.authorization.environment')='paper' AND json_extract(o.command_json,'$.authorization.execution_test.test_id')=pt.test_id
+      WHERE o.bridge_id=? AND o.status IN ('pending','claimed') AND COALESCE(json_extract(o.command_json,'$.authorization.action'),'OPEN')='OPEN' AND pt.test_id IS NULL AND (c.status IS NULL OR c.status<>'ACTIVE' OR g.status<>'ACTIVE' OR c.scheduled_end_at<=?)`).all(bridge.bridge_id, ts);
     for (const row of goalBlocked) {
       retireUnexecutedAuthorization(db, row.authorization_id, 'cancelled', ts);
     }

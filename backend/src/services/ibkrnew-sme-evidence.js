@@ -149,7 +149,7 @@ export function getIbkrNewPaperDecisionEvidence(ownerUserId, options = {}) {
     LEFT JOIN ibkrnew_trade_records t ON t.authorization_id=a.authorization_id AND t.owner_user_id=e.owner_user_id
     WHERE e.owner_user_id=? AND e.environment='paper' AND e.status='accepted' AND e.event_type IN ('market.signal','market.bar_closed')
     ORDER BY e.created_at DESC LIMIT ?`).all(owner, limit).map(({ payload_json, ...r }) => { const p = parse(payload_json, {}); return { ...r, symbol: p.symbol || null, observed_features: Object.fromEntries(['last','quote_at','feature_at','market_data_type','relative_volume','confirmed_15m','ema_fast','ema_slow','vwap','atr_extension','quantity'].filter(k => p[k] != null).map(k => [k, p[k]])) }; });
-  const trades = db.prepare(`SELECT t.symbol,t.status,t.quantity,t.actual_commission_usd,t.net_pnl_usd,t.opened_at,t.closed_at,l.goal_id,l.cycle_id
+  const trades = db.prepare(`SELECT t.symbol,t.status,t.quantity,t.actual_commission_usd,t.net_pnl_usd,t.opened_at,t.closed_at,l.goal_id,l.cycle_id,json_extract(t.economics_json,'$.purpose') purpose
     FROM ibkrnew_trade_records t JOIN ibkrnew_bridges b ON b.bridge_id=t.bridge_id AND b.owner_user_id=t.owner_user_id
     LEFT JOIN ibkrnew_goal_trade_links l ON l.authorization_id=t.authorization_id AND l.owner_user_id=t.owner_user_id AND l.environment='paper'
     WHERE t.owner_user_id=? AND b.environment='paper' ORDER BY t.created_at DESC LIMIT ?`).all(owner, limit);
