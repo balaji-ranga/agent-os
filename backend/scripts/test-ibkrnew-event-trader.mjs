@@ -442,6 +442,52 @@ const pausedReplacement = service.setIbkrNewGoal(goalOwner, { name: 'Paused perp
 assert.equal(service.pauseIbkrNewGoal(goalOwner).block_reason, 'goal_paused'); assert.equal(service.resumeIbkrNewGoal(goalOwner).opening_trades_allowed, true);
 assert.equal(getDb().prepare("SELECT COUNT(*) count FROM sqlite_master WHERE type='table' AND name LIKE 'ibkr\\_%' ESCAPE '\\'").get().count, legacyTableCountBefore, 'must not create or alter the legacy IBKR table set');
 
+// Retained histories must be pageable beyond the former latest-50 window.
+const historyOwner = 'IBKRNewOwner_HistoryPagination';
+const paperHistoryBridge = service.registerBridge(historyOwner, undefined, 'paper');
+const liveHistoryBridge = service.registerBridge(historyOwner, undefined, 'live');
+const insertSnapshot = getDb().prepare(`INSERT INTO ibkrnew_position_snapshots(snapshot_id,owner_user_id,account_id,bridge_id,snapshot_type,payload_json,captured_at,created_at) VALUES(?,?,?,?,?,?,?,?)`);
+const insertError = getDb().prepare(`INSERT INTO ibkrnew_component_errors(error_id,owner_user_id,bridge_id,component_id,error_code,message,detail_json,occurred_at,created_at) VALUES(?,?,?,?,?,?,?,?,?)`);
+const historyAt = new Date().toISOString();
+for (const [suffix, bridge, count] of [['paper', paperHistoryBridge, 63], ['live', liveHistoryBridge, 3], ['other', deliveryCredentials, 2]]) {
+  const bridgeRow = getDb().prepare('SELECT * FROM ibkrnew_bridges WHERE bridge_id=?').get(bridge.bridge_id);
+  for (let index = 0; index < count; index++) {
+    const id = `history-${suffix}-${String(index).padStart(3, '0')}`;
+    insertSnapshot.run(id, bridgeRow.owner_user_id, bridgeRow.account_id, bridgeRow.bridge_id, index % 2 ? 'positions' : 'account', JSON.stringify({ fixture: id }), historyAt, historyAt);
+    insertError.run(id, bridgeRow.owner_user_id, bridgeRow.bridge_id, 'runtime', 'TEST', id, JSON.stringify({ fixture: id }), historyAt, historyAt);
+  }
+}
+for (const [getHistory, idField] of [[service.getIbkrNewSnapshotHistory, 'snapshot_id'], [service.getIbkrNewErrorHistory, 'error_id']]) {
+  const first = getHistory(historyOwner, { environment: 'paper' });
+  assert.deepEqual(first.pagination, { page: 1, page_size: 20, total_items: 63, total_pages: 4, has_previous: false, has_next: true });
+  const ids = [];
+  for (let page = 1; page <= 4; page++) {
+    const result = getHistory(historyOwner, { page, environment: 'paper' });
+    assert.ok(result.items.length <= 20, 'SQL page is bounded');
+    assert.ok(result.items.every((row) => row.owner_user_id === historyOwner && row.bridge_id === paperHistoryBridge.bridge_id));
+    ids.push(...result.items.map((row) => row[idField]));
+  }
+  assert.equal(new Set(ids).size, 63, 'timestamp ties do not duplicate or lose records across unchanged pages');
+  assert.deepEqual(ids, [...ids].sort().reverse(), 'stable ID tie-break');
+  const last = getHistory(historyOwner, { page: 999, environment: 'paper' });
+  assert.equal(last.pagination.page, 4); assert.equal(last.items.length, 3); assert.equal(last.pagination.has_next, false);
+  assert.equal(getHistory(historyOwner, { environment: 'live' }).pagination.total_items, 3, 'Live history is separate without enabling Live');
+  assert.equal(getHistory(historyOwner).environment, 'paper', 'default follows selected execution mode');
+  assert.equal(getHistory(historyOwner, { page: 'NaN', pageSize: 'Infinity' }).pagination.page_size, 20);
+  assert.equal(getHistory(historyOwner, { page: -8, pageSize: 0 }).pagination.page, 1);
+  assert.equal(getHistory(historyOwner, { page: 1.9, pageSize: 7.9 }).pagination.page_size, 7);
+  assert.equal(getHistory(historyOwner, { pageSize: 1000000 }).pagination.page_size, 100);
+  assert.equal(getHistory('IBKRNewOwner_EmptyHistory', { environment: 'paper' }).pagination.total_items, 0);
+  assert.deepEqual(getHistory('IBKRNewOwner_EmptyHistory', { environment: 'paper', page: 99 }).items, []);
+  assert.equal(getHistory('IBKRNewOwner_EmptyHistory', { environment: 'paper', page: 99 }).pagination.page, 1);
+}
+assert.ok(service.getIbkrNewSnapshotHistory(historyOwner).items.every((row) => !('account_id' in row) && row.account_ref.startsWith('IBKRNewAccount_')));
+const compactHistoryCore = service.getIbkrNewLiveOperations(historyOwner, { includeHistory: false });
+assert.deepEqual(compactHistoryCore.snapshots, []); assert.deepEqual(compactHistoryCore.errors, []);
+assert.equal(service.getIbkrNewLiveOperations(historyOwner).snapshots.length, 50, 'older API clients retain latest-50 compatibility');
+getDb().prepare("DELETE FROM ibkrnew_position_snapshots WHERE owner_user_id=? AND snapshot_id < 'history-paper-060'").run(historyOwner);
+assert.equal(service.getIbkrNewSnapshotHistory(historyOwner, { environment: 'paper', page: 4 }).pagination.page, 1, 'retention shrinking history clamps to the remaining last page');
+
 // Simulate an upgrade from the old contract, including an unsigned-safe pending command.
 const legacyAccount = 'DU7654321';
 for (const { name } of getDb().prepare(`SELECT name FROM sqlite_master WHERE type='trigger' AND name LIKE 'ibkrnew_%'`).all()) getDb().exec(`DROP TRIGGER ${name}`);

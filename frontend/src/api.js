@@ -154,7 +154,9 @@ export const api = {
   ibkrNewPaperRehearsalPreview: () => get('/ibkrnew-paper-rehearsal'),
   ibkrNewPaperRehearsalPublish: (expectedVersions) => post('/ibkrnew-paper-rehearsal/publish', {environment:'paper',confirm_paper_risk_loosening:true,expected_versions:expectedVersions}),
   ibkrNewSummary: () => get('/ibkrnew-event-trader/summary'),
-  ibkrNewLiveOperations: (limit = 50) => get(`/ibkrnew-event-trader/live-operations?limit=${encodeURIComponent(limit)}`),
+  ibkrNewLiveOperations: (limit = 50, includeHistory = true) => get(`/ibkrnew-event-trader/live-operations?limit=${encodeURIComponent(limit)}&include_history=${includeHistory ? '1' : '0'}`),
+  ibkrNewSnapshots: ({ page = 1, pageSize = 20, environment = '' } = {}) => get(`/ibkrnew-event-trader/snapshots?${new URLSearchParams({ page: String(page), page_size: String(pageSize), environment }).toString()}`),
+  ibkrNewErrors: ({ page = 1, pageSize = 20, environment = '' } = {}) => get(`/ibkrnew-event-trader/errors?${new URLSearchParams({ page: String(page), page_size: String(pageSize), environment }).toString()}`),
   ibkrNewEvents: ({ page = 1, pageSize = 20, eventType = '', status = '', environment = '' } = {}) => {
     const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
     if (eventType) params.set('event_type', eventType);

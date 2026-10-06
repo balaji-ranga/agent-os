@@ -1620,14 +1620,41 @@ export function getIbkrNewSummary(ownerUserId) {
   return { environment, execution_mode: executionMode, retention_days: Number(profile?.data_retention_days || 90), goal: getIbkrNewGoalState(ownerUserId, { environment }), totals: { ...totals, win_rate_pct: Number(totals.trade_count) ? Number(totals.profitable_trade_count || 0) / Number(totals.trade_count) * 100 : 0 }, trades, allocations };
 }
 
-export function getIbkrNewLiveOperations(ownerUserId, { limit = 50 } = {}) {
+function getIbkrNewHistoryPage(ownerUserId, kind, { page = 1, pageSize = 20, environment = '' } = {}) {
+  const db = getDb(); ensureIbkrNewEventTraderSchema(db);
+  const selectedEnvironment = normalizeEnvironment(environment || getIbkrNewExecutionMode(ownerUserId).requested_mode);
+  const integer = (value, fallback) => Number.isFinite(Number(value)) ? Math.floor(Number(value)) : fallback;
+  const size = Math.min(100, Math.max(1, integer(pageSize, 20)));
+  const requestedPage = Math.max(1, integer(page, 1));
+  // Table/column identifiers are internal constants, never request input.
+  const [table, time, id] = kind === 'snapshots'
+    ? ['ibkrnew_position_snapshots', 'captured_at', 'snapshot_id']
+    : ['ibkrnew_component_errors', 'occurred_at', 'error_id'];
+  const from = `FROM ${table} h JOIN ibkrnew_bridges b ON b.bridge_id=h.bridge_id AND b.owner_user_id=h.owner_user_id WHERE h.owner_user_id=? AND b.environment=?`;
+  const params = [ownerUserId, selectedEnvironment];
+  return db.transaction(() => {
+    const total = Number(db.prepare(`SELECT COUNT(*) count ${from}`).get(...params).count);
+    const pages = Math.max(1, Math.ceil(total / size));
+    const boundedPage = Math.min(requestedPage, pages);
+    const rows = db.prepare(`SELECT h.* ${from} ORDER BY h.${time} DESC,h.${id} DESC LIMIT ? OFFSET ?`).all(...params, size, (boundedPage - 1) * size);
+    const items = rows.map((row) => kind === 'snapshots'
+      ? { ...withAccountRef(row), payload: parse(row.payload_json, {}) }
+      : { ...row, detail: parse(row.detail_json, {}) });
+    return { environment: selectedEnvironment, items, pagination: { page: boundedPage, page_size: size, total_items: total, total_pages: pages, has_previous: boundedPage > 1, has_next: boundedPage < pages } };
+  })();
+}
+
+export function getIbkrNewSnapshotHistory(ownerUserId, options) { return getIbkrNewHistoryPage(ownerUserId, 'snapshots', options); }
+export function getIbkrNewErrorHistory(ownerUserId, options) { return getIbkrNewHistoryPage(ownerUserId, 'errors', options); }
+
+export function getIbkrNewLiveOperations(ownerUserId, { limit = 50, includeHistory = true } = {}) {
   const db = getDb(); const dashboard = getDashboard(ownerUserId, { includeEvents: false }); const n = Math.min(100, Math.max(1, Number(limit) || 50)); const staleMs = Number(dashboard.configs.policy.freshness?.bridge_offline_after_ms || 30000); const now = Date.now();
   const allHealth = db.prepare(`SELECT h.*,b.revoked_at FROM ibkrnew_component_health h JOIN ibkrnew_bridges b ON b.bridge_id=h.bridge_id AND b.owner_user_id=h.owner_user_id WHERE h.owner_user_id=? AND b.environment=? ORDER BY h.updated_at DESC`).all(ownerUserId, dashboard.environment).map((row) => ({ ...row, detail: parse(row.detail_json, {}), effective_status: row.revoked_at ? 'revoked' : now - Date.parse(row.last_seen_at) > staleMs ? 'offline' : row.status }));
   const activeBridge = [...dashboard.bridges].filter((b) => !b.revoked_at).sort((a, b) => Number(b.effective_status === 'online') - Number(a.effective_status === 'online') || (Date.parse(b.last_accepted_heartbeat_at || b.created_at) - Date.parse(a.last_accepted_heartbeat_at || a.created_at)))[0];
   const health = allHealth.filter((row) => row.bridge_id === activeBridge?.bridge_id);
   const historicalHealth = allHealth.filter((row) => row.bridge_id !== activeBridge?.bridge_id);
-  const errors = db.prepare(`SELECT e.* FROM ibkrnew_component_errors e JOIN ibkrnew_bridges b ON b.bridge_id=e.bridge_id WHERE e.owner_user_id=? AND b.environment=? ORDER BY e.occurred_at DESC LIMIT ?`).all(ownerUserId, dashboard.environment, n).map((row) => ({ ...row, detail: parse(row.detail_json, {}) }));
-  const snapshots = db.prepare(`SELECT s.* FROM ibkrnew_position_snapshots s JOIN ibkrnew_bridges b ON b.bridge_id=s.bridge_id WHERE s.owner_user_id=? AND b.environment=? ORDER BY s.captured_at DESC LIMIT ?`).all(ownerUserId, dashboard.environment, n).map((row) => ({ ...withAccountRef(row), payload: parse(row.payload_json, {}) }));
+  const errors = includeHistory ? getIbkrNewErrorHistory(ownerUserId, { pageSize: n, environment: dashboard.environment }).items : [];
+  const snapshots = includeHistory ? getIbkrNewSnapshotHistory(ownerUserId, { pageSize: n, environment: dashboard.environment }).items : [];
   const executions = db.prepare(`SELECT e.* FROM ibkrnew_executions e JOIN ibkrnew_bridges b ON b.bridge_id=e.bridge_id WHERE e.owner_user_id=? AND b.environment=? ORDER BY e.occurred_at DESC LIMIT ?`).all(ownerUserId, dashboard.environment, n).map(withAccountRef);
   const instrumentProfiles = db.prepare(`SELECT symbol,security_type,fundamentals_at,membership_at,corporate_events_at,updated_at,profile_json FROM ibkrnew_instrument_profiles WHERE owner_user_id=? AND environment=? ORDER BY updated_at DESC LIMIT ?`).all(ownerUserId, dashboard.environment, n).map((row) => ({ ...row, profile: parse(row.profile_json, {}) }));
   const profile = db.prepare(`SELECT data_retention_days FROM platform_users WHERE id=?`).get(ownerUserId);

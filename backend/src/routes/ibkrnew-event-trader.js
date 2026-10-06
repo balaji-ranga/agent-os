@@ -3,6 +3,7 @@ import { requireAuth, requireCeoOrAdmin, requireTenantFullAccess, resolveAuthent
 import { approveAuthorization, authenticateBridge, acknowledgeCommand, claimCommands, ensureIbkrNewDefaults, getDashboard, getIbkrNewConfigHistory, getIbkrNewEventDetail, getIbkrNewEventTimeline, getIbkrNewExecutionMode, getIbkrNewGoalHistory, getIbkrNewGoalState, getIbkrNewLiveOperations, getIbkrNewSchemaDocument, getIbkrNewSummary, ingestBridgeEvent, pauseIbkrNewGoal, publishConfig, reconcileIbkrNewBridgeSequence, registerBridge, resumeIbkrNewGoal, revokeBridge, setIbkrNewExecutionMode, setIbkrNewGoal } from '../services/ibkrnew-event-trader.js';
 import { buildIbkrNewEventBridgePackageZip } from '../services/ibkrnew-event-bridge-package.js';
 import { validateIbkrNewSubmission } from '../services/ibkrnew-event-trader.js';
+import { getIbkrNewSnapshotHistory, getIbkrNewErrorHistory } from '../services/ibkrnew-event-trader.js';
 import { queueIbkrNewProfileRefresh, getIbkrNewProfileRefreshStatus } from '../services/ibkrnew-profile-refresh.js';
 import { getIbkrNewSubscriptionPriority } from '../services/ibkrnew-subscription-priority.js';
 
@@ -23,7 +24,9 @@ function handle(res, fn) { try { return fn(); } catch (e) { return res.status(e.
 
 router.get('/dashboard', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json(getDashboard(owner(req)))));
 router.get('/summary', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json(getIbkrNewSummary(owner(req)))));
-router.get('/live-operations', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json(getIbkrNewLiveOperations(owner(req), { limit: req.query.limit }))));
+router.get('/live-operations', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json(getIbkrNewLiveOperations(owner(req), { limit: req.query.limit, includeHistory: req.query.include_history !== '0' }))));
+router.get('/snapshots', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json(getIbkrNewSnapshotHistory(owner(req), { page: req.query.page, pageSize: req.query.page_size, environment: req.query.environment }))));
+router.get('/errors', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json(getIbkrNewErrorHistory(owner(req), { page: req.query.page, pageSize: req.query.page_size, environment: req.query.environment }))));
 router.get('/events', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json(getIbkrNewEventTimeline(owner(req), { page: req.query.page, pageSize: req.query.page_size, eventType: req.query.event_type, status: req.query.status, environment: req.query.environment }))));
 router.get('/events/:eventId', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json(getIbkrNewEventDetail(owner(req), req.params.eventId))));
 router.get('/goal', requireAuth, requireCeoOrAdmin, (req, res) => handle(res, () => res.json(getIbkrNewGoalState(owner(req), { environment: req.query.environment }))));

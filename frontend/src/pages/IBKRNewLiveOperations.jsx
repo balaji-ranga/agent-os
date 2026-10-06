@@ -3,10 +3,20 @@ import { api } from '../api';
 import { formatLocalDateTime } from '../utils/formatDateTime.js';
 import { selectActiveBridge } from '../utils/selectActiveBridge.js';
 import { profileFieldStatus } from '../utils/ibkrNewProfileStatus.js';
+import { usePagedHistory } from '../hooks/usePagedHistory.js';
 
 const json = (value) => JSON.stringify(value || {}, null, 2);
 const agentLabel = (name = '') => name.replace(/^IBKRNew/, '').replace(/([a-z])([A-Z])/g, '$1 $2');
 const statusLabel = (status = 'waiting') => status.replaceAll('_', ' ');
+
+function HistoryPagination({ history, label }) {
+  const pagination = history.data?.pagination;
+  return <div className="ibkrnew-pagination" aria-label={`${label} pagination`}>
+    <button type="button" className="btn-secondary" disabled={!pagination?.has_previous || history.busy} onClick={() => history.setPage(pagination.page - 1)}>Previous</button>
+    <span aria-live="polite">{pagination ? `Page ${pagination.page} of ${pagination.total_pages} · ${pagination.total_items} ${label}` : history.error ? 'History unavailable' : 'Loading history…'}</span>
+    <button type="button" className="btn-secondary" disabled={!pagination?.has_next || history.busy} onClick={() => history.setPage(pagination.page + 1)}>Next</button>
+  </div>;
+}
 
 export default function IBKRNewLiveOperations() {
   const [data, setData] = useState(null);
@@ -21,7 +31,9 @@ export default function IBKRNewLiveOperations() {
   const [detailBusy, setDetailBusy] = useState(false);
   const [credentials, setCredentials] = useState(null);
 
-  const loadCore = () => api.ibkrNewLiveOperations(50).then((result) => { setData(result); setError(''); }).catch((e) => setError(e.message));
+  const snapshots = usePagedHistory(api.ibkrNewSnapshots, data?.dashboard?.environment);
+  const errors = usePagedHistory(api.ibkrNewErrors, data?.dashboard?.environment);
+  const loadCore = () => api.ibkrNewLiveOperations(50, false).then((result) => { setData(result); setError(''); }).catch((e) => setError(e.message));
   const loadTimeline = () => {
     setTimelineBusy(true);
     return api.ibkrNewEvents({ page: eventPage, pageSize: 20, eventType, status: eventStatus, environment: data?.dashboard?.environment })
@@ -96,9 +108,23 @@ export default function IBKRNewLiveOperations() {
     <section className="panel ibkrnew-section"><h2 className="panel-title">Cached universe profiles</h2><p className="page-muted">Volume refresh does not renew fundamentals, membership or earnings timestamps. ETFs use separate category/assets/liquidity checks.</p><div className="ibkrnew-table-wrap"><table className="ibkrnew-table"><thead><tr><th>Symbol</th><th>Type</th><th>Average daily volume</th><th>Fundamentals</th><th>Membership</th><th>Corporate events</th><th>Updated</th></tr></thead><tbody>{(data?.instrument_profiles || []).map((item) => <tr key={`${item.symbol}-${item.security_type}`}><td><strong>{item.symbol}</strong></td><td>{item.security_type}</td><td>{item.profile?.average_daily_volume != null ? Math.round(item.profile.average_daily_volume).toLocaleString() : 'Missing'}{item.profile?.average_daily_volume_at && <small> · {formatLocalDateTime(item.profile.average_daily_volume_at)} · {item.profile.average_daily_volume_sessions} sessions</small>}</td>{['fundamentals_at', 'membership_at', 'corporate_events_at'].map(field => <td key={field}>{profileFieldStatus(item, field, dashboard?.configs?.universe?.filters?.stock) || formatLocalDateTime(item[field])}</td>)}<td>{formatLocalDateTime(item.updated_at)}</td></tr>)}</tbody></table>{!data?.instrument_profiles?.length && <p className="page-muted">Waiting for the desktop bridge to refresh instrument profiles.</p>}</div></section>
 
     <section className="panel ibkrnew-section"><h2 className="panel-title">Current positions</h2><pre className="ibkrnew-pre">{json(dashboard?.account?.positions)}</pre></section>
-    <section className="panel ibkrnew-section"><h2 className="panel-title">Position and account snapshots</h2>{(data?.snapshots || []).map((item) => <details key={item.snapshot_id}><summary>{formatLocalDateTime(item.captured_at)} · {item.snapshot_type}</summary><pre className="ibkrnew-pre">{json(item.payload)}</pre></details>)}</section>
+    <section className="panel ibkrnew-section" aria-busy={snapshots.busy}>
+      <h2 className="panel-title">Position and account snapshots</h2>
+      <p className="page-muted">Newest first · 20 per page · {dashboard?.environment || 'paper'} history.</p>
+      {snapshots.error && <p role="alert" className="page-muted">Could not load snapshots: {snapshots.error}</p>}
+      {(snapshots.data?.items || []).map((item) => <details key={item.snapshot_id}><summary>{formatLocalDateTime(item.captured_at)} · {item.snapshot_type}</summary><pre className="ibkrnew-pre">{json(item.payload)}</pre></details>)}
+      {snapshots.data && !snapshots.data.items.length && <p className="page-muted">No retained snapshots.</p>}
+      <HistoryPagination history={snapshots} label="snapshots" />
+    </section>
     <section className="panel ibkrnew-section"><h2 className="panel-title">Executions and commissions</h2><div className="ibkrnew-table-wrap"><table className="ibkrnew-table"><thead><tr><th>Time</th><th>Execution</th><th>Role</th><th>Side</th><th>Qty</th><th>Price</th><th>Commission</th><th>Realized P&amp;L</th></tr></thead><tbody>{(data?.executions || []).map((item) => <tr key={item.execution_id}><td>{formatLocalDateTime(item.occurred_at)}</td><td>{item.execution_id}</td><td>{item.order_role}</td><td>{item.side}</td><td>{item.quantity}</td><td>{item.price}</td><td>{item.commission_usd}</td><td>{item.realized_pnl_usd}</td></tr>)}</tbody></table></div></section>
-    <section className="panel ibkrnew-section"><h2 className="panel-title">Desktop and bridge errors</h2>{(data?.errors || []).length === 0 ? <p className="page-muted">No retained component errors.</p> : data.errors.map((item) => <article key={item.error_id} className="ibkrnew-list-item"><strong>{item.component_id} · {item.error_code || 'ERROR'}</strong><span>{item.message}</span><small>{formatLocalDateTime(item.occurred_at)}</small></article>)}</section>
+    <section className="panel ibkrnew-section" aria-busy={errors.busy}>
+      <h2 className="panel-title">Desktop and bridge errors</h2>
+      <p className="page-muted">Newest first · 20 per page · {dashboard?.environment || 'paper'} history.</p>
+      {errors.error && <p role="alert" className="page-muted">Could not load component errors: {errors.error}</p>}
+      {(errors.data?.items || []).map((item) => <article key={item.error_id} className="ibkrnew-list-item"><strong>{item.component_id} · {item.error_code || 'ERROR'}</strong><span>{item.message}</span><small>{formatLocalDateTime(item.occurred_at)}</small></article>)}
+      {errors.data && !errors.data.items.length && <p className="page-muted">No retained component errors.</p>}
+      <HistoryPagination history={errors} label="errors" />
+    </section>
 
     <section className="panel ibkrnew-section">
       <div className="ibkrnew-section-heading"><div><h2 className="panel-title">Causal event timeline</h2><p className="page-muted">Loaded 20 at a time from the server for the selected {timeline?.environment || dashboard?.environment || 'paper'} mode. Descriptions explain what changed; lifecycle details show who handled it and the correlated authorization, command, trade, and execution evidence.</p></div>{timelineBusy && <span className="ibkrnew-version">Refreshing</span>}</div>
