@@ -178,8 +178,8 @@ export class IBKRNewBridgeCore {
       status = 'submitted';
     } catch (error) {
       status = error.submission_uncertain ? 'uncertain' : 'rejected';
-      detail = { error: error.message };
-      this.emit('desktop.component_error', { component_id: 'IBKRNewExecutionAdapter', component_type: 'execution_adapter', code: status === 'uncertain' ? 'COMMAND_UNCERTAIN' : 'COMMAND_REJECTED', message: error.message, command_id: command.command_id });
+      detail = { error: error.message, ...(Array.isArray(error.protected_exit_failed_checks) ? { protected_exit_failed_checks: error.protected_exit_failed_checks } : {}) };
+      this.emit('desktop.component_error', { component_id: 'IBKRNewExecutionAdapter', component_type: 'execution_adapter', code: status === 'uncertain' ? 'COMMAND_UNCERTAIN' : 'COMMAND_REJECTED', message: error.message, command_id: command.command_id, ...detail });
     }
     this.markCommand(command.command_id, status, detail);
     // A receipt transport failure must never rewrite broker submission state.

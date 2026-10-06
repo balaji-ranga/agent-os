@@ -73,7 +73,7 @@ assert.equal(pendingReconciliation.status, 'verified'); assert.equal(pendingReco
 const completedReconciliation = applyReconciliationState(pendingReconciliation, { account: true, open_orders: true });
 assert.equal(completedReconciliation.execution_ready, true); assert.equal(completedReconciliation.reason_code, null);
 const gateway = Object.create(IBKRNewGateway.prototype); gateway.connected = true; gateway.positions = []; gateway.openOrders = []; gateway.config = { accountId: 'DU1234567' }; gateway.accountAttestation = { status: 'verified', environment: 'paper', execution_ready: true, reason_code: null };
-assert.deepEqual(gateway.health(), { connected: true, positions: 0, open_orders: 0, account_attestation: { status: 'verified', environment: 'paper', execution_ready: true, reason_code: null } }, 'desktop health must transmit only the sanitized account attestation');
+assert.deepEqual(gateway.health(), { connected: true, positions: 0, open_orders: 0, protected_exit_proof_version: 'owned-oca-pair-v2', account_attestation: { status: 'verified', environment: 'paper', execution_ready: true, reason_code: null } }, 'desktop health must transmit only the sanitized account attestation and non-secret proof version');
 const guardedGateway = Object.create(IBKRNewGateway.prototype); guardedGateway.config = { environment: 'live', executionEnabled: true }; guardedGateway.accountAttestation = { status: 'verified', environment: 'live', execution_ready: true };
 await assert.rejects(() => guardedGateway.placeProtected({ authorization: { environment: 'paper' } }), /ACCOUNT_ENVIRONMENT_MISMATCH/);
 guardedGateway.config.executionEnabled = false;

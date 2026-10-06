@@ -250,7 +250,7 @@ export class IBKRNewGateway {
       stop_quantity: Number(stopOrder.totalQuantity)>=remaining,
     };
     const failed=Object.keys(proof).filter(key=>!proof[key]);
-    if (failed.length) throw new Error(`target remaining quantity requires reconciliation before managed exit: ${failed.join(',')}`);
+    if (failed.length) throw Object.assign(new Error(`target remaining quantity requires reconciliation before managed exit: ${failed.join(',')}`), { protected_exit_failed_checks: failed });
     const price=a.side==='SELL'?Number(quote.bid):Number(quote.ask);
     if(!(price>0)) throw new Error('fresh executable exit quote required');
     // Modify the existing OCA target; never cancel or loosen its protective stop.
@@ -261,5 +261,5 @@ export class IBKRNewGateway {
   }
   disconnect() { this.marketSubscriptions?.dispose(); this.volumeProfiles?.dispose(); this.ib.disconnect(); }
   snapshot() { return { ...normalizeAccountValuesToUsd(this.accountValues), positions: [...this.positions], open_orders: [...this.openOrders] }; }
-  health() { return { connected: this.connected, positions: this.positions.length, open_orders: this.openOrders.length, account_attestation: { ...this.accountAttestation } }; }
+  health() { return { connected: this.connected, positions: this.positions.length, open_orders: this.openOrders.length, protected_exit_proof_version: 'owned-oca-pair-v2', account_attestation: { ...this.accountAttestation } }; }
 }
