@@ -112,7 +112,12 @@ export function closePaperExecutionTest(ownerUserId,testId,body={}) {
   const {db,s,bridge}=context(ownerUserId,false);
   const t=db.prepare('SELECT * FROM ibkrnew_paper_execution_tests WHERE owner_user_id=? AND bridge_id=? AND test_id=?').get(ownerUserId,bridge.bridge_id,testId);
   if(!t) fail('paper_execution_test_not_found');
-  if(t.exit_authorization_id) return {...result(db,ownerUserId,testId),duplicate:true};
+  if(t.exit_authorization_id) {
+    const previous=db.prepare('SELECT a.status,c.status command_status FROM ibkrnew_authorizations a JOIN ibkrnew_command_outbox c ON c.authorization_id=a.authorization_id AND c.owner_user_id=a.owner_user_id WHERE a.authorization_id=? AND a.owner_user_id=?').get(t.exit_authorization_id,ownerUserId);
+    // A definite pre-submission rejection can be retried by explicit human action.
+    // Never retry a pending, claimed, acknowledged or uncertain broker operation.
+    if(previous?.status!=='rejected' || previous.command_status!=='rejected') return {...result(db,ownerUserId,testId),duplicate:true};
+  }
   const trade=db.prepare('SELECT status FROM ibkrnew_trade_records WHERE owner_user_id=? AND bridge_id=? AND authorization_id=?').get(ownerUserId,bridge.bridge_id,t.authorization_id);
   if(trade?.status==='closed') return result(db,ownerUserId,testId);
   if(trade?.status!=='open') fail('filled_test_trade_required');
@@ -120,8 +125,9 @@ export function closePaperExecutionTest(ownerUserId,testId,body={}) {
   const authId=id('IBKRNewAuthorization'),ts=new Date().toISOString();
   const a={...original,authorization_id:authId,action:'EXIT',side:'SELL',parent_trade_authorization_id:t.authorization_id,exit_reason:'paper_execution_test_close',config_versions:Object.fromEntries(Object.entries(s.configs).map(([k,v])=>[k,v.version])),issued_at:ts,expires_at:new Date(Date.now()+15000).toISOString()};
   db.transaction(()=>{
-    db.prepare('UPDATE ibkrnew_paper_execution_tests SET exit_authorization_id=? WHERE test_id=? AND owner_user_id=? AND exit_authorization_id IS NULL').run(authId,testId,ownerUserId);
-    db.prepare('INSERT INTO ibkrnew_authorizations VALUES(?,?,?,?,?,?,?,?,?,?)').run(authId,ownerUserId,bridge.account_id,bridge.bridge_id,`paper-test-close:${testId}`,'LONG_STOCK',JSON.stringify(a),'issued',a.expires_at,ts);
+    const updated=db.prepare('UPDATE ibkrnew_paper_execution_tests SET exit_authorization_id=? WHERE test_id=? AND owner_user_id=? AND exit_authorization_id IS ?').run(authId,testId,ownerUserId,t.exit_authorization_id);
+    if(updated.changes!==1) fail('test_exit_changed_retry_status_check');
+    db.prepare('INSERT INTO ibkrnew_authorizations VALUES(?,?,?,?,?,?,?,?,?,?)').run(authId,ownerUserId,bridge.account_id,bridge.bridge_id,`paper-test-close:${testId}:${authId}`,'LONG_STOCK',JSON.stringify(a),'issued',a.expires_at,ts);
     validateIbkrNewSubmission(bridge,authId);command(db,bridge,a);
   })();
   return result(db,ownerUserId,testId);

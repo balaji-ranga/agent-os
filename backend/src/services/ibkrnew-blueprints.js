@@ -92,7 +92,22 @@ function withRequired(schema, value) {
 export function getIbkrNewSchema(kind) {
   if (kind === 'goal') return withRequired(schemaForValue('goal', goal), goal);
   if (!CONFIG_KINDS.includes(kind)) throw Object.assign(new Error('unsupported IBKRNew schema kind'), { status: 400 });
-  return withRequired(schemaForValue(kind, configs[kind]), configs[kind]);
+  const schema = withRequired(schemaForValue(kind, configs[kind]), configs[kind]);
+  const overrides = {
+    policy: ['minimum_expected_net_profit_usd', 'maximum_round_trip_commission_pct_of_expected_gross_profit'],
+    strategy: ['minimum_relative_volume', 'single_lot_target_r'],
+    universe: ['stock_maximum_price_usd'],
+  }[kind];
+  if (overrides) schema.properties.paper_rehearsal_overrides = {
+    type: 'object', title: 'Paper rehearsal overrides',
+    description: 'Optional Paper-only values. Live uses the shared base values; budgets and loss limits cannot be overridden.',
+    additionalProperties: false,
+    properties: Object.fromEntries(overrides.map(key => [key, {
+      type: 'number', title: titleFor(key), exclusiveMinimum: 0,
+      ...(key === 'maximum_round_trip_commission_pct_of_expected_gross_profit' ? { exclusiveMaximum: 100 } : {}),
+    }])),
+  };
+  return schema;
 }
 export function getIbkrNewSchemas() { return Object.fromEntries(['goal', ...CONFIG_KINDS].map((kind) => [kind, getIbkrNewSchema(kind)])); }
 export function getIbkrNewBlueprintManifest() { return clone(manifest); }

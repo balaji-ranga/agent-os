@@ -3,6 +3,7 @@ import { instrumentEligibility } from './ibkrnew-event-trader.js';
 import { profileProviders } from './ibkrnew-profile-data.js';
 import { getIbkrNewWorkflowBlueprints } from './ibkrnew-blueprints.js';
 import { tradingSession } from '../../ibkrnew-event-bridge/src/session.js';
+import { effectiveIbkrNewConfig } from './ibkrnew-paper-rehearsal-config.js';
 
 const parse = (value, fallback = null) => { try { return JSON.parse(value); } catch { return fallback; } };
 const age = (at) => Number.isFinite(Date.parse(at)) ? (Date.now() - Date.parse(at)) / 1000 : null;
@@ -32,7 +33,7 @@ function context(ownerUserId, options = {}) {
   const db = options.db || getDb();
   const configs = {};
   for (const row of db.prepare("SELECT kind,version,document_json,published_at FROM ibkrnew_config_versions WHERE owner_user_id=? AND status='published'").all(owner)) {
-    configs[row.kind] = { ...parse(row.document_json, {}), version: row.version, published_at: row.published_at };
+    configs[row.kind] = effectiveIbkrNewConfig(row.kind,{ ...parse(row.document_json, {}), version: row.version, published_at: row.published_at },'paper');
   }
   const mode = db.prepare('SELECT requested_mode,activation_state,attested_bridge_id,attestation_status,attestation_reason,attested_at,halted_at FROM ibkrnew_execution_modes WHERE owner_user_id=?').get(owner) || null;
   const bridge = db.prepare("SELECT bridge_id,status FROM ibkrnew_bridges WHERE owner_user_id=? AND environment='paper' AND revoked_at IS NULL AND (? IS NULL OR bridge_id=?) ORDER BY last_seen_at DESC LIMIT 1").get(owner, mode?.requested_mode === 'paper' ? mode.attested_bridge_id : null, mode?.requested_mode === 'paper' ? mode.attested_bridge_id : null) || null;

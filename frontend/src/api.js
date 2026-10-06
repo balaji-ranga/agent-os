@@ -151,6 +151,8 @@ export const api = {
   fetchBlobUrl,
   health: () => get('/health'),
   ibkrNewDashboard: () => get('/ibkrnew-event-trader/dashboard'),
+  ibkrNewPaperRehearsalPreview: () => get('/ibkrnew-paper-rehearsal'),
+  ibkrNewPaperRehearsalPublish: (expectedVersions) => post('/ibkrnew-paper-rehearsal/publish', {environment:'paper',confirm_paper_risk_loosening:true,expected_versions:expectedVersions}),
   ibkrNewSummary: () => get('/ibkrnew-event-trader/summary'),
   ibkrNewLiveOperations: (limit = 50) => get(`/ibkrnew-event-trader/live-operations?limit=${encodeURIComponent(limit)}`),
   ibkrNewEvents: ({ page = 1, pageSize = 20, eventType = '', status = '', environment = '' } = {}) => {

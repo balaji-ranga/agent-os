@@ -64,7 +64,7 @@ router.delete('/bridges/:bridgeId', requireAuth, requireTenantFullAccess, (req, 
 router.post('/authorizations/:authorizationId/approve', requireAuth, requireTenantFullAccess, (req, res) => handle(res, () => res.json(approveAuthorization(owner(req), req.params.authorizationId))));
 router.post('/bridge/events', bridge, (req, res) => handle(res, () => res.status(202).json(ingestBridgeEvent(req.ibkrNewBridge, req.body || {}))));
 router.get('/bridge/bootstrap', bridge, (req, res) => handle(res, () => {
-  const configs = ensureIbkrNewDefaults(req.ibkrNewBridge.owner_user_id);
+  const configs = ensureIbkrNewDefaults(req.ibkrNewBridge.owner_user_id,{environment:req.ibkrNewBridge.environment});
   return res.json({ environment: req.ibkrNewBridge.environment, bridge_id: req.ibkrNewBridge.bridge_id, account_ref: req.ibkrNewBridge.account_id, last_sequence: reconcileIbkrNewBridgeSequence(req.ibkrNewBridge.bridge_id), execution_mode: getIbkrNewExecutionMode(req.ibkrNewBridge.owner_user_id), goal: getIbkrNewGoalState(req.ibkrNewBridge.owner_user_id, { environment: req.ibkrNewBridge.environment }), configs, subscription_priority: getIbkrNewSubscriptionPriority(req.ibkrNewBridge, configs) });
 }));
 router.post('/bridge/commands/claim', bridge, (req, res) => handle(res, () => res.json({ commands: claimCommands(req.ibkrNewBridge, req.body?.limit, req.body?.protocol_version) })));

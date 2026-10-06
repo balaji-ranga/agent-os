@@ -28,6 +28,7 @@ if ($SourceArchive) {
 }
 $files = @('src/core.js','src/index.js','src/gateway.js','src/session.js','src/market-subscriptions.js','src/volume-profiles.js','scripts/Run-IBKRNewBridgeTask.ps1','scripts/Update-IBKRNewBridgeTask.ps1','scripts/Install-IBKRNewBridgeTask.ps1','scripts/Uninstall-IBKRNewBridgeTask.ps1','scripts/Start-IBKRNewBridge.ps1','scripts/Test-IBKRNewBridge.ps1','scripts/Get-IBKRNewBridgeTaskStatus.ps1','test/offline.test.js','test/delivery.test.js','test/clock.js','test/readiness.test.js','test/subscriptions.test.js','test/volume-profiles.test.js','README.md','package.json','package-lock.json','.env.example','IBKRNew-instrument-profiles.example.json')
 $files += @('src/subscription-selection.js','test/subscription-selection.test.js')
+$files += @('test/protected-exit.test.js')
 $staging = Join-Path $root ('upgrade-' + $Revision)
 $checkpoint = $root + '.rollback-' + (Get-Date).ToString('yyyyMMdd-HHmmss')
 New-Item -ItemType Directory -Path $staging -Force | Out-Null
@@ -54,6 +55,8 @@ if ($LASTEXITCODE -ne 0) { throw 'Bridge subscription regression failed; install
 if ($LASTEXITCODE -ne 0) { throw 'Bridge volume regression failed; installed task unchanged.' }
 & $node (Join-Path $staging 'test\subscription-selection.test.js')
 if ($LASTEXITCODE -ne 0) { throw 'Bridge selection regression failed; installed task unchanged.' }
+& $node (Join-Path $staging 'test\protected-exit.test.js')
+if ($LASTEXITCODE -ne 0) { throw 'Bridge protected-exit regression failed; installed task unchanged.' }
 New-Item -ItemType Directory -Path $checkpoint -Force | Out-Null
 foreach ($name in @('src','scripts','test','README.md','package.json','package-lock.json')) { Copy-Item -LiteralPath (Join-Path $root $name) -Destination $checkpoint -Recurse }
 $task = Get-ScheduledTask -TaskName $TaskName -ErrorAction Stop

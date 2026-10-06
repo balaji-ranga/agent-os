@@ -69,6 +69,14 @@ const exit=s.claimCommands(bridge,10,2); assert.equal(exit.length,1); assert.equ
 assert.equal(exit[0].authorization.parent_trade_authorization_id,a.authorization_id);
 assert.equal(s.validateIbkrNewSubmission(bridge,closing.exit_authorization_id).ok,true);
 assert.equal(test.closePaperExecutionTest(owner,created.test_id,{confirm_paper_test_close:true}).exit_authorization_id,closing.exit_authorization_id);
+// Only an explicit retry after a definite pre-submission rejection can create
+// another close command. Submitted/uncertain operations remain idempotent.
+s.acknowledgeCommand(bridge,exit[0].command_id,'rejected');
+const retry=test.closePaperExecutionTest(owner,created.test_id,{confirm_paper_test_close:true});
+assert.notEqual(retry.exit_authorization_id,closing.exit_authorization_id);
+const retryCommands=s.claimCommands(bridge,10,2);assert.equal(retryCommands.length,1);
+s.acknowledgeCommand(bridge,retryCommands[0].command_id,'uncertain');
+assert.equal(test.closePaperExecutionTest(owner,created.test_id,{confirm_paper_test_close:true}).exit_authorization_id,retry.exit_authorization_id);
 event('execution.fill',{authorization_id:a.authorization_id,execution_id:'paper-exit',order_role:'exit',side:'SELL',quantity:1,price:68.52});
 event('commission.report',{authorization_id:a.authorization_id,execution_id:'paper-exit',commission_usd:1,realized_pnl_usd:0.01});
 const completed=test.getPaperExecutionTest(owner,created.test_id);

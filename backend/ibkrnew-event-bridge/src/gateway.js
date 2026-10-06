@@ -229,12 +229,24 @@ export class IBKRNewGateway {
   repriceProtectedExit(a,contract,quote) {
     const orders=[...this.orderMap].filter(([,mapped])=>mapped.authorization_id===a.parent_trade_authorization_id);
     const target=orders.find(([orderId,mapped])=>mapped.order_role==='target' && mapped.order && this.openOrders.some(x=>x.order_id===orderId && !/filled|cancel|inactive/i.test(x.status || '')));
-    const stop=orders.find(([orderId,mapped])=>mapped.order_role==='protective_stop' && this.openOrders.some(x=>x.order_id===orderId && !/filled|cancel|inactive/i.test(x.status || '')));
+    const stop=orders.find(([orderId,mapped])=>mapped.order_role==='protective_stop' && mapped.order && this.openOrders.some(x=>x.order_id===orderId && !/filled|cancel|inactive/i.test(x.status || '')));
     if(!target || !stop) throw new Error('owned reconciled target and protective stop required for managed exit');
     const position=this.positions.find(p=>Number(p.con_id)===Number(contract.conId) && Number(contract.conId)>0 || p.symbol===contract.symbol && String(p.security_type)===String(contract.secType));
     if(!position || Number(position.quantity)*(a.side==='SELL'?1:-1)<=0 || Math.abs(Number(position.quantity))<Number(a.quantity)) throw new Error('broker position does not support risk-reducing exit');
     const [orderId,mapped]=target;
-    if(mapped.order.ocaGroup!==`IBKRNew:${a.parent_trade_authorization_id}` || !Number(mapped.order.parentId) || Number(mapped.order.totalQuantity)-Number(mapped.filled || 0)>Number(a.quantity)) throw new Error('target remaining quantity requires reconciliation before managed exit');
+    // IBKR may replace the submitted OCA name with a broker-generated identifier.
+    // Prove ownership and protection from both returned children and their entry,
+    // rather than requiring the broker to echo our original OCA label verbatim.
+    const stopOrder=stop[1].order, parentId=Number(mapped.order.parentId), parent=this.orderMap.get(parentId);
+    const remaining=Number(mapped.order.totalQuantity)-Number(mapped.filled || 0);
+    if (!mapped.order.ocaGroup || mapped.order.ocaGroup!==stopOrder.ocaGroup
+      || !parentId || parentId!==Number(stopOrder.parentId)
+      || parent?.authorization_id!==a.parent_trade_authorization_id || parent?.order_role!=='entry'
+      || mapped.order.orderRef!==a.parent_trade_authorization_id || stopOrder.orderRef!==a.parent_trade_authorization_id
+      || !String(stopOrder.orderType).startsWith('STP') || !(Number(stopOrder.auxPrice)>0)
+      || mapped.order.action!==a.side || stopOrder.action!==a.side
+      || !Number.isFinite(remaining) || remaining<=0 || remaining!==Number(a.quantity)
+      || Number(stopOrder.totalQuantity)<remaining) throw new Error('target remaining quantity requires reconciliation before managed exit');
     const price=a.side==='SELL'?Number(quote.bid):Number(quote.ask);
     if(!(price>0)) throw new Error('fresh executable exit quote required');
     // Modify the existing OCA target; never cancel or loosen its protective stop.
