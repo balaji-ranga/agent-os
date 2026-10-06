@@ -1,0 +1,45 @@
+// Owner-scoped SME deployment projection only. Never changes IBKRNew configs,
+// goals, execution modes, budgets, bridge packages or broker orders.
+import assert from 'node:assert/strict';
+import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { getDb } from '../src/db/schema.js';
+import { getAgentToolGrants, setAgentToolGrants, buildToolsMdContent } from '../src/services/openclaw-agent-tools.js';
+import { forcePushTemplateDocs } from '../src/services/openclaw-tenant.js';
+import { seedPlatformAgentSkills, listAgentSkillAssignments, setAgentSkillAssignments, syncAgentSkillsToWorkspace } from '../src/services/agent-skills.js';
+import { getIbkrNewPaperStrategyEvidence } from '../src/services/ibkrnew-sme-evidence.js';
+
+const db=getDb(), bridgeId='IBKRNewBridge_79b8a6e8-8676-4360-879a-ee2cf47a702b';
+const owner=db.prepare("SELECT owner_user_id FROM ibkrnew_bridges WHERE bridge_id=? AND environment='paper'").get(bridgeId)?.owner_user_id;
+assert.ok(owner,'Expected Paper bridge owner must exist');
+const agent=db.prepare('SELECT a.* FROM agents a JOIN user_agents ua ON ua.agent_id=a.id WHERE ua.user_id=? AND ua.enabled=1 AND a.id=?').get(owner,'ibkr-portfolio--strategy-sme-2');
+assert.ok(agent,'Owner SME must be enabled');
+const owners=db.prepare('SELECT user_id FROM user_agents WHERE agent_id=? AND enabled=1').all(agent.id);
+assert.deepEqual(owners.map(x=>x.user_id),[owner],'Do not change another tenant’s shared agent');
+const workspace=join(process.env.OPENCLAW_DIR||'/root/.openclaw','tenants',owner,`workspace-${agent.openclaw_agent_id||agent.id}`);
+assert.ok(existsSync(join(workspace,'AGENTS.md')),'Existing owner workspace required');
+const newTools=['ibkrnew_paper_strategy_status','ibkrnew_paper_instrument_readiness','ibkrnew_paper_decision_history'];
+for(const name of newTools) assert.ok(db.prepare("SELECT name FROM content_tools_meta WHERE name=? AND enabled=1 AND risk_tier='R0' AND action_family='read'").get(name),`Read tool not seeded: ${name}`);
+const snapshot=()=>({configs:db.prepare("SELECT kind,version,document_json FROM ibkrnew_config_versions WHERE owner_user_id=? AND status='published' ORDER BY kind").all(owner),goals:db.prepare('SELECT goal_id,name,mode,target_return_pct,duration_days,status FROM ibkrnew_goals WHERE owner_user_id=? ORDER BY goal_id').all(owner),cycles:db.prepare('SELECT cycle_id,goal_id,status,started_at,scheduled_end_at,capital_basis_usd,target_profit_usd FROM ibkrnew_goal_cycles WHERE owner_user_id=? ORDER BY cycle_id').all(owner),mode:db.prepare('SELECT requested_mode,activation_state,halted_at FROM ibkrnew_execution_modes WHERE owner_user_id=?').get(owner)});
+const before=snapshot(), grants=getAgentToolGrants(agent.id), assignments=listAgentSkillAssignments(owner,agent.id);
+const backup=join(workspace,'deployment-backups',`ibkrnew-sme-${new Date().toISOString().replace(/[:.]/g,'-')}`);
+mkdirSync(backup,{recursive:true});
+for(const name of ['AGENTS.md','TOOLS.md','AGENT-OS-OPS.md','skills']) if(existsSync(join(workspace,name))) cpSync(join(workspace,name),join(backup,name),{recursive:true});
+writeFileSync(join(backup,'projection.json'),JSON.stringify({grants,assignments},null,2));
+setAgentToolGrants(agent,[...new Set([...grants,...newTools])]);
+seedPlatformAgentSkills({force:true});
+const skillId='platform:ibkr-portfolio-strategy-sme';
+const latest=db.prepare("SELECT id FROM agent_skill_versions WHERE skill_id=? AND status='active' ORDER BY version DESC LIMIT 1").get(skillId);
+assert.ok(latest,'Updated SME skill missing');
+const updated=assignments.map(x=>({...x,version_id:x.skill_id===skillId?latest.id:x.version_id,pin_version:x.skill_id===skillId?true:x.pinned}));
+if(!updated.some(x=>x.skill_id===skillId)) updated.push({skill_id:skillId,version_id:latest.id,enabled:true,auto_select:true,priority:100});
+setAgentSkillAssignments(owner,agent.id,updated,owner);
+forcePushTemplateDocs('ibkr-portfolio-strategy-sme',workspace,{forceIdentity:false});
+writeFileSync(join(workspace,'TOOLS.md'),buildToolsMdContent(getAgentToolGrants(agent.id)));
+syncAgentSkillsToWorkspace(owner,agent.id,workspace);
+assert.deepEqual(snapshot(),before,'SME deployment must preserve trading state');
+const current=listAgentSkillAssignments(owner,agent.id,{includeMarkdown:true}).find(x=>x.skill_id===skillId);
+assert.ok(current.enabled&&current.ready&&current.skill_md.includes('ibkrnew_paper_strategy_status'));
+assert.ok(readFileSync(join(workspace,'AGENTS.md'),'utf8').includes('empty draft list never proves'));
+const status=getIbkrNewPaperStrategyEvidence(owner);
+console.log(JSON.stringify({ok:true,agent:agent.id,added_tools:newTools.filter(x=>!grants.includes(x)),skill_version:current.version_id,skill_ready:current.ready,workspace_updated:true,backup,goal_id:status.goal?.goal_id,cycle_id:status.cycle?.cycle_id,trading_state_preserved:true}));

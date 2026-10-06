@@ -4,6 +4,7 @@
  */
 import { getDb } from './schema.js';
 import { writeOpenClawToolsList } from '../services/content-tools-meta.js';
+import { ensureActionPolicyTables } from '../services/action-policy.js';
 import {
   getAgentToolGrants,
   syncAllowlistsFile,
@@ -12,6 +13,11 @@ import {
 } from '../services/openclaw-agent-tools.js';
 
 export const IBKR_TRADING_TOOLS = [
+  ...[
+    ['ibkrnew_paper_strategy_status', 'IBKRNew Paper Goal and Strategy Status', 'strategy-status', 'Read the canonical published IBKRNew Paper goal/cycle, strategy/skill/policy/universe/market-data versions, providers, bridge/account freshness, session, six agents and actual runtime gates. Always call first for active Paper strategy review. No writes or order authority.'],
+    ['ibkrnew_paper_instrument_readiness', 'IBKRNew Paper Instrument Readiness', 'instrument-readiness', 'Read Paper instrument profile gates and FMP/IBKR source freshness, refresh failures/cooldown, earnings coverage, ETF applicability, volume and accepted-heartbeat quote/subscription capacity. Optional symbol. Conditional profile screening is not full trade readiness.'],
+    ['ibkrnew_paper_decision_history', 'IBKRNew Paper Decision History', 'decision-history', 'Read actual Paper signal/bar decisions and veto reasons correlated to authorizations, command acknowledgements, trades, commissions and goal links. Optional limit 1-50. No broker action.'],
+  ].map(([name, display_name, path, purpose]) => ({ name, display_name, endpoint: `/api/ibkr-trading/ibkrnew/paper/${path}`, method: 'GET', purpose, model_used: '', enabled: 1, is_builtin: 0, risk_tier: 'R0', action_family: 'read' })),
   {
     name: 'ibkr_gateway_ping',
     display_name: 'IBKR Gateway Ping',
@@ -313,7 +319,7 @@ export const IBKR_TRADING_TOOLS = [
     display_name: 'IBKR Strategy Bundle List',
     endpoint: '/api/ibkr-trading/strategy-bundles',
     method: 'GET',
-    purpose: 'List owner-scoped paper strategy bundle versions, statuses, and the stored strategy/strategy_skill/policy/universe/market_data payload for evidence-backed analysis. Read-only; no activation or order authority.',
+    purpose: 'List advisory draft bundles plus active_paper_strategy from the canonical published IBKRNew Paper state. Empty bundles does NOT mean no active strategy. Prefer ibkrnew_paper_strategy_status for current goal/strategy review. Read-only.',
     model_used: '',
     enabled: 1,
     is_builtin: 0,
@@ -427,6 +433,7 @@ export const IBKR_COO_TOOL_NAMES = [
 ];
 
 export function seedIbkrTradingToolsIfMissing() {
+  ensureActionPolicyTables();
   const db = getDb();
   const stmt = db.prepare(
     `INSERT OR IGNORE INTO content_tools_meta (name, display_name, endpoint, method, purpose, model_used, enabled, is_builtin)
@@ -438,6 +445,7 @@ export function seedIbkrTradingToolsIfMissing() {
   for (const t of IBKR_TRADING_TOOLS) {
     stmt.run(t.name, t.display_name, t.endpoint, t.method, t.purpose, t.model_used, t.enabled, t.is_builtin);
     upd.run(t.purpose, t.display_name, t.endpoint, t.method, t.name);
+    if (t.name.startsWith('ibkrnew_paper_')) db.prepare("UPDATE content_tools_meta SET risk_tier='R0',action_family='read' WHERE name=?").run(t.name);
   }
   writeOpenClawToolsList();
   grantIbkrToolsToCoo();

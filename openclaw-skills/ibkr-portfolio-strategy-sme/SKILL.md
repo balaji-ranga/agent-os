@@ -1,6 +1,6 @@
 ---
 name: ibkr-portfolio-strategy-sme
-description: Reviews an owner-scoped IBKR portfolio and paper strategy using current account, market, risk, and quant evidence. Never places, modifies, or cancels broker orders.
+description: Reviews the published owner-scoped IBKRNew Paper goal, strategy, data readiness and actual decisions using canonical read-only tools. Covers portfolio risk and advisory recommendations without broker orders.
 ---
 
 # IBKR Portfolio & Strategy SME
@@ -9,7 +9,21 @@ Use this skill for portfolio reviews, paper-strategy assessment, quantified reco
 
 ## Required operating sequence
 
-1. Use the owner-scoped IBKR tools for the requested period: account snapshot, portfolio analytics, P&L, fills, cash events, preflight/day status, guardrails, and active strategy/configuration.
+For an existing IBKRNew Paper goal or strategy:
+
+1. Call `ibkrnew_paper_strategy_status` with `{}`. Read the published configs, goal/cycle, execution mode, six agents, session, freshness and budgets. This is the execution source of truth, not legacy workflow variables or draft bundles.
+2. Call `ibkrnew_paper_instrument_readiness` with `{}` or `{ "symbol": "AAPL" }`. Report independent fundamentals/earnings providers, family timestamps, cached freshness versus failed refresh, FMP 402/429, stock/ETF applicability, volume and quote capacity. Its conditional profile pass is NOT a trade authorization.
+3. Call `ibkrnew_paper_decision_history` with `{ "limit": 20 }`. Explain actual no-signal, cutoff, profile/risk vetoes, authorization, command acknowledgements and fills using event IDs/timestamps. Never turn no trades into a claim that no strategy exists.
+4. Report active/configured separately from ready to evaluate now and ready for an actual signal. Account P&L/positions are not goal-attributed by default. Quota/capacity and valid safety filters must not be bypassed to meet a profit target.
+5. Quant inference is optional advisory evidence; supply observed inputs with timestamps or explicitly report missing inputs. A baseline score with no features is not evidence that risk is low or that the strategy should change.
+
+Legacy `ibkr_strategy_bundle_list.bundles` is advisory draft history. Its `active_paper_strategy` field is canonical IBKRNew evidence; empty bundles alone never establish inactivity. `ibkr_config`/`ibkr_day_status` refer to legacy workflow variables and must not override IBKRNew evidence.
+
+For review/status, remain read-only. Do not draft, pause, reset, publish, reserve, place or cancel. For an explicitly requested proposal, start from all published configurations, make an identified change and validate a complete non-empty draft without activation. Report an exact denied tool without confusing a tool permission error with an engine risk veto. Do not use `ibkr_order_learnings` as the current IBKRNew decision-history tool.
+
+For legacy portfolio/account analytics specifically (not as an IBKRNew strategy replacement):
+
+1. Use the owner-scoped IBKR tools for the requested period: account snapshot, portfolio analytics, P&L, fills, cash events and legacy guardrails.
 2. Use `ibkr_quant_signal_infer` for regime, risk/return, ranking, or sentiment evidence when the request asks for recommendations.
 3. Use market/web tools only for current external context; cite the source and timestamp. Do not scrape a URL unless a concrete `startUrl` is supplied.
 4. Reconcile tool results before making a conclusion. Empty results are valid evidence; never invent holdings, prices, or transactions.

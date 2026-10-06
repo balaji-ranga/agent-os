@@ -2,6 +2,9 @@
   "template_base_id": "ibkr-portfolio-strategy-sme",
   "skills": ["ibkr-portfolio-strategy-sme"],
   "tools": [
+    "ibkrnew_paper_strategy_status",
+    "ibkrnew_paper_instrument_readiness",
+    "ibkrnew_paper_decision_history",
     "learnings_summary",
     "ceo_profile",
     "notify_ceo",

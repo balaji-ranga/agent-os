@@ -995,7 +995,7 @@ function saveInstrumentProfile(db, bridge, eventType, payload, occurred, created
   db.prepare(`INSERT INTO ibkrnew_instrument_profiles(owner_user_id,bridge_id,environment,symbol,security_type,profile_json,fundamentals_at,membership_at,corporate_events_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(owner_user_id,environment,symbol,security_type) DO UPDATE SET bridge_id=excluded.bridge_id,profile_json=excluded.profile_json,fundamentals_at=excluded.fundamentals_at,membership_at=excluded.membership_at,corporate_events_at=excluded.corporate_events_at,updated_at=excluded.updated_at`).run(bridge.owner_user_id, bridge.bridge_id, bridge.environment, symbol, securityType, json(profile), fundamentalsAt || null, membershipAt || null, corporateEventsAt || null, created);
 }
 
-function instrumentEligibility(db, ownerUserId, environment, universe, symbol, expression, payload) {
+export function instrumentEligibility(db, ownerUserId, environment, universe, symbol, expression, payload) {
   const optionExpression = /CALL|PUT/.test(expression);
   const underlyingType = String(payload.underlying_security_type || payload.underlying_sec_type || (optionExpression ? 'STK' : payload.security_type || payload.contract?.security_type || 'STK')).toUpperCase();
   if (!['STK', 'ETF'].includes(underlyingType)) return { eligible: false, reason: 'unsupported_underlying_security_type' };

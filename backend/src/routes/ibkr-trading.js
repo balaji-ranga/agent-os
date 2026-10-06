@@ -3,6 +3,8 @@
  */
 import { Router } from 'express';
 import { allowInternalOrAuth } from '../middleware/internal-auth.js';
+import { requireCeoOrAdmin, resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
+import { getIbkrNewPaperStrategyEvidence, getIbkrNewPaperInstrumentEvidence, getIbkrNewPaperDecisionEvidence } from '../services/ibkrnew-sme-evidence.js';
 import { getIbkrTradingConfig, findAllowlistEntry } from '../services/ibkr-trading-rules.js';
 import * as ledger from '../services/ibkr-trading-ledger.js';
 import { getDb } from '../db/schema.js';
@@ -37,6 +39,28 @@ import {
 
 const router = Router();
 
+function smeOwner(req) {
+  if (req.isInternalService) {
+    const owner = String(req.headers['x-ceo-user-id'] || '').trim();
+    if (!owner) throw Object.assign(new Error('Authenticated owner header required'), { status: 403 });
+    return owner;
+  }
+  return resolveAuthenticatedCeoUserId(req, {});
+}
+
+// Narrow read-only bridge for the SME. No raw snapshots, writes, refresh,
+// initialization, account selection or Live data are available here.
+for (const [path, read] of [
+  ['/ibkrnew/paper/strategy-status', getIbkrNewPaperStrategyEvidence],
+  ['/ibkrnew/paper/instrument-readiness', getIbkrNewPaperInstrumentEvidence],
+  ['/ibkrnew/paper/decision-history', getIbkrNewPaperDecisionEvidence],
+]) router.get(path, allowInternalOrAuth, requireCeoOrAdmin, (req, res) => {
+  try {
+    if (Object.keys(req.query || {}).some(k => !['environment', 'symbol', 'limit'].includes(k))) throw Object.assign(new Error('Unsupported evidence parameter'), { status: 400 });
+    return res.json(read(smeOwner(req), req.query || {}));
+  } catch (e) { return res.status(e.status || 400).json({ ok: false, error: e.message }); }
+});
+
 /**
  * Owner-scoped quantitative evidence. This endpoint is deliberately advisory:
  * it never reserves budget, validates an order, or talks to the broker.
@@ -65,8 +89,12 @@ router.post('/strategy-bundles/draft', (req, res) => {
   catch (e) { res.status(e.status || 400).json({ ok: false, error: e.message }); }
 });
 
-router.get('/strategy-bundles', (req, res) => {
-  try { res.json({ ok: true, bundles: listIbkrStrategyBundles(entitledOwnerId(req), { limit: req.query.limit }) }); }
+router.get('/strategy-bundles', allowInternalOrAuth, requireCeoOrAdmin, (req, res) => {
+  try {
+    const owner = smeOwner(req);
+    res.json({ ok: true, bundles: listIbkrStrategyBundles(owner, { limit: req.query.limit }), active_paper_strategy: getIbkrNewPaperStrategyEvidence(owner),
+      interpretation: 'bundles lists advisory drafts only. An empty list does not mean no active IBKRNew strategy; inspect active_paper_strategy or ibkrnew_paper_strategy_status.' });
+  }
   catch (e) { res.status(e.status || 400).json({ ok: false, error: e.message }); }
 });
 

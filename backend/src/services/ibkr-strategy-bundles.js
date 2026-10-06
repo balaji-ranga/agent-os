@@ -34,8 +34,12 @@ export function validateIbkrStrategyBundle(bundle) {
 }
 
 export function draftIbkrStrategyBundle(ownerUserId, input = {}) {
-  ensureTables();
   const bundle = input.bundle && typeof input.bundle === 'object' ? input.bundle : {};
+  const validation = validateIbkrStrategyBundle(bundle);
+  if (!validation.valid || Object.values(bundle).every(value => value && typeof value === 'object' && Object.keys(value).length === 0)) {
+    throw Object.assign(new Error(`Complete non-empty strategy bundle required; use ibkrnew_paper_strategy_status to review the existing published strategy. ${validation.errors.join('; ')}`), { status: 400 });
+  }
+  ensureTables();
   const name = String(input.name || bundle.name || 'Untitled IBKR paper strategy').trim().slice(0, 160);
   const recordId = id();
   const now = new Date().toISOString();
@@ -50,11 +54,8 @@ export function listIbkrStrategyBundles(ownerUserId, { limit = 50 } = {}) {
   ensureTables();
   const rows = getDb().prepare(`SELECT id, name, version, status, created_by_agent_id, approved_by, bundle_json, created_at, updated_at
     FROM ibkr_strategy_bundles WHERE owner_user_id = ? ORDER BY updated_at DESC LIMIT ?`).all(ownerUserId, Math.min(100, Math.max(1, Number(limit) || 50)));
-  // The list is owner-scoped and is also the agent's read path for the active
-  // paper strategy. Return the validated bundle payload so a planner/checker
-  // can reconcile strategy, policy, universe, and market-data evidence without
-  // inventing a second unscoped retrieval tool. Keep the persisted JSON field
-  // private and tolerate legacy malformed rows as an explicit data gap.
+  // Advisory draft history is not the published IBKRNew execution strategy.
+  // That source of truth is exposed through owner-scoped SME evidence tools.
   return rows.map(({ bundle_json, ...row }) => {
     let bundle = null;
     try { bundle = bundle_json ? JSON.parse(bundle_json) : null; } catch { bundle = null; }
