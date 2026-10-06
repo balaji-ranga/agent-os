@@ -115,3 +115,13 @@ try {
   assert.deepEqual(legacy.bundles,[]); assert.equal(legacy.active_paper_strategy.goal.goal_id,'goal-paper');
 } finally { await new Promise(r=>server.close(r)); }
 console.log('IBKRNew SME harness passed: canonical Paper evidence, owner/Live isolation, readonly SQL, profile cache/ETF gates, fills, goal-stop evidence, authentication, R0 tools and empty-draft prevention.');
+const {ibkrNewSmeReviewContract,IBKRNEW_SME_REVIEW_TOOLS} = await import('../src/services/ibkrnew-sme-review-contract.js');
+const sme={template_base_id:'ibkr-portfolio-strategy-sme'};
+const review=ibkrNewSmeReviewContract(sme,'Review my current Paper goal and strategy. Do not change or reset anything.',names);
+assert.deepEqual(review.tools,[...IBKRNEW_SME_REVIEW_TOOLS]); assert.deepEqual(review.missing,[]);
+assert.match(review.instruction,/outside the market session is NOT disabled/);
+assert.equal(ibkrNewSmeReviewContract({template_base_id:'balserve'},'Review Paper strategy',names),null);
+assert.equal(ibkrNewSmeReviewContract(sme,'Review my account cash and dividends',names),null);
+assert.equal(ibkrNewSmeReviewContract(sme,'Review and change the Paper strategy',names),null);
+assert.equal(ibkrNewSmeReviewContract(sme,'Check my Paper goal status',[]).missing.length,3);
+console.log('SME current-turn contract passed: canonical read-only review tool scope, missing-capability reporting, no permissions expansion, legacy/change requests unchanged.');

@@ -36,6 +36,7 @@ import * as agentTools from '../services/openclaw-agent-tools.js';
 import { ensureTenantOpenClawAgent } from '../services/openclaw-tenant.js';
 import { writeOpenClawConfigSafe } from '../services/openclaw-config-safe.js';
 import { isOpenClawEmptyResponse, toAgentSystemUserMessage } from '../services/openclaw-runtime-tools.js';
+import { ibkrNewSmeReviewContract } from '../services/ibkrnew-sme-review-contract.js';
 import { tryHandleCooReachMeRequest } from '../services/reach-me-delegation.js';
 import { tryHandleCooSpecialtyDelegation } from '../services/coo-specialty-delegation.js';
 import { tryHandleCooOrgAgentsList } from '../services/coo-org-agents-list.js';
@@ -1475,6 +1476,8 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     if (skillRuntime.instruction) {
       messages.unshift({ role: 'system', content: skillRuntime.instruction });
     }
+    const ibkrNewReview = ibkrNewSmeReviewContract(agent, message, agentTools.getAgentToolGrants(agent.id));
+    if (ibkrNewReview) userContent += `\n\n${ibkrNewReview.instruction}`;
     messages.push({ role: 'user', content: userContent });
 
     if (workflowTrigger && agent.is_coo) {
@@ -1515,12 +1518,17 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
       original_request: message.trim(), resolved_request: routedMessage, work_unit_id: turnRoute.id,
     });
     registerActiveDashboardChat(agentId, ownerUserId, routedMessage);
-    const sessionToolSelection = selectSessionContentTools({
+    let sessionToolSelection = selectSessionContentTools({
       agentId: agent.id,
       ownerUserId,
       message: routedMessage,
       route: turnRoute,
     });
+    if (ibkrNewReview) sessionToolSelection = {
+      scoped: true, tools: ibkrNewReview.tools,
+      grants_count: sessionToolSelection.grants_count,
+      selected_count: ibkrNewReview.tools.length,
+    };
     installSessionToolScope(sessionKey, sessionToolSelection);
     if (sessionToolSelection.scoped) {
       console.info(
