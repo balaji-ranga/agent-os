@@ -489,7 +489,9 @@ export function buildAgentSkillRuntimeInstruction(ownerUserId, agentId, prompt, 
   const lines = allowed.map((skill) =>
     `- ${skill.id}@v${skill.version} | ${skill.name} | path=skills/${skill.slug}/SKILL.md | ready=${skill.ready ? 'yes' : 'no'} | ${skill.description || (skill.trigger_hints || []).join('; ')}`
   );
-  const recommendation = recommended.length
+  const recommendation = pinned.length
+    ? `Explicitly selected for this task: ${pinned.map((item) => `${item.skill_id || item.id}@v${item.version}`).join(', ')}. Apply the authoritative selected procedures and their safety restrictions; these are not optional keyword recommendations. If the task conflicts with a procedure or is outside its scope, explain the conflict rather than silently replacing it. Report each selected skill you actually applied in the usage marker, including when applying its safety restrictions without calling its usual tools.`
+    : recommended.length
     ? `Recommended for this request: ${recommended.map((item) => `${item.skill_id || item.id}@v${item.version}`).join(', ')}.`
     : 'No skill is preselected. Choose a skill only when its stated purpose genuinely matches the request.';
   const selectedInstructions = recommended

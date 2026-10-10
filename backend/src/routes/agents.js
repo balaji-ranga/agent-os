@@ -1704,6 +1704,8 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     );
     const skillUsage = extractSkillUsageMarker(replyText, skillRuntime.allowed);
     replyText = skillUsage.reply;
+    const unconfirmedSkills = requestedSkills.filter(s => !skillUsage.used.some(used => (used.skill_id || used.id) === s.skill_id));
+    if (unconfirmedSkills.length) replyText = `Selected skill use not confirmed by the agent: ${unconfirmedSkills.map(s => `${s.name}@v${s.version}`).join(', ')}. Its authoritative instructions were supplied for this task, but usage was not reported.\n\n${replyText}`;
     const auditedSkillRefs = skillUsage.used.length ? skillUsage.used : skillRuntime.recommended;
     if (auditedSkillRefs.length) {
       recordSkillExecutionSelection({

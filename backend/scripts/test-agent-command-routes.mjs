@@ -55,6 +55,8 @@ try {
   const instruction = skillSvc.buildAgentSkillRuntimeInstruction('owner-a', 'coo', 'Unrelated prompt', { pinnedRefs: refs });
   assert.equal(instruction.recommended[0].skill_id, skill.id, 'Explicit selection works even with auto_select disabled');
   assert.match(instruction.instruction, /Use verified sources/);
+  assert.match(instruction.instruction, /Explicitly selected for this task/);
+  assert.match(instruction.instruction, /not optional keyword recommendations/);
   assert.throws(() => validateRequestedAgentSkills('owner-a', 'coo', ['other-tenant-skill']), /not assigned/);
   assert.throws(() => validateRequestedAgentSkills('owner-a', 'coo', [unreadySkill.id]), /not ready/);
   const active = await call('/coo', { command: '/flolah steer' });
