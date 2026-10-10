@@ -16,7 +16,7 @@ export function createSteeringStore(db, { chatActive = () => true } = {}) {
     let row;
     if (kind === 'chat') {
       row = db.prepare('SELECT id,agent_id,status,resolved_request AS title FROM chat_work_units WHERE owner_user_id=? AND id=? AND execution_mode!=?').get(owner, id, 'goal_plan');
-      if (row && !chatActive(row.agent_id, owner)) fail('This chat is no longer working. Send a normal follow-up instead.', 409);
+      if (row && !chatActive(row.agent_id, owner, row.id)) fail('This chat is no longer working. Send a normal follow-up instead.', 409);
     } else if (kind === 'goal') {
       row = db.prepare('SELECT id,agent_id,status,title FROM agent_goal_runs WHERE owner_user_id=? AND id=?').get(owner, id);
     } else if (kind === 'task') {
@@ -33,7 +33,7 @@ export function createSteeringStore(db, { chatActive = () => true } = {}) {
   }
   function listTargets(owner, agentId) {
     const candidates = [
-      ...db.prepare("SELECT id,agent_id,status,resolved_request AS title,'chat' AS kind FROM chat_work_units WHERE owner_user_id=? AND status IN ('active','running') AND execution_mode!='goal_plan' ORDER BY created_at DESC LIMIT 50").all(owner).filter(r => chatActive(r.agent_id, owner)),
+      ...db.prepare("SELECT id,agent_id,status,resolved_request AS title,'chat' AS kind FROM chat_work_units WHERE owner_user_id=? AND status IN ('active','running') AND execution_mode!='goal_plan' ORDER BY created_at DESC LIMIT 50").all(owner).filter(r => chatActive(r.agent_id, owner, r.id)),
       ...db.prepare("SELECT id,agent_id,status,title,'goal' AS kind FROM agent_goal_runs WHERE owner_user_id=? AND status IN ('pending','planning','running','waiting','waiting_approval') ORDER BY created_at DESC LIMIT 100").all(owner),
       ...db.prepare("SELECT id,to_agent_id AS agent_id,status,prompt AS title,'task' AS kind FROM agent_delegation_tasks WHERE owner_user_id=? AND status IN ('pending','running','in_progress') ORDER BY created_at DESC LIMIT 100").all(owner),
       ...db.prepare("SELECT r.id,r.agent_id,r.status,s.title,'schedule_run' AS kind FROM scheduled_goal_runs r JOIN scheduled_goals s ON s.id=r.goal_id AND s.owner_user_id=r.owner_user_id WHERE r.owner_user_id=? AND r.status='running' ORDER BY r.created_at DESC LIMIT 50").all(owner),
@@ -78,7 +78,7 @@ export function createSteeringStore(db, { chatActive = () => true } = {}) {
   return { target, listTargets, history, enqueue, consume, close };
 }
 
-const store = () => createSteeringStore(getDb(), { chatActive: lookupActiveDashboardChat });
+const store = () => createSteeringStore(getDb(), { chatActive: (agent, owner, workId) => lookupActiveDashboardChat(agent, owner)?.work_unit_id === workId });
 export const listSteeringTargets = (owner, agent) => store().listTargets(owner, agent);
 export const queueWorkSteering = (owner, actor, body) => store().enqueue(owner, actor, body);
 export const listWorkSteering = (owner, kind, id) => store().history(owner, kind, id);

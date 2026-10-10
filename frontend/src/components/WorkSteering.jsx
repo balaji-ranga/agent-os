@@ -46,6 +46,7 @@ export default function WorkSteering({ agentId = null }) {
   }, [open, selected]);
   async function send(e) {
     e.preventDefault();
+    e.stopPropagation();
     if (!work || !message.trim() || busy) return;
     setBusy(true); setError('');
     requestKey.current ||= crypto.randomUUID();

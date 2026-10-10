@@ -15,7 +15,10 @@ assert.equal(guessChatMediaType('/api/media/openclaw/generated/owner/report.md')
 const sanitized = JSON.stringify(parseSafeHtmlTable('<table onclick="bad()"><tr><td style="text-align:right;background:url(x)" colspan="2"><script>BAD</script><a href="javascript:alert(1)">Safe</a><strong>bold</strong></td></tr></table>'));
 assert(!sanitized.includes('BAD') && !sanitized.includes('onclick') && !sanitized.includes('javascript') && !sanitized.includes('background'));
 assert(sanitized.includes('colSpan') && sanitized.includes('right') && sanitized.includes('strong'));
-const server = await createServer({ server: { middlewareMode: true }, appType: 'custom', configFile: false, esbuild: { jsx: 'automatic' }, optimizeDeps: { noDiscovery: true, include: [] } });
+const server = await createServer({ server: { middlewareMode: true }, appType: 'custom', configFile: false, esbuild: { jsx: 'automatic' },
+  // Goal routing is outside this isolated media renderer regression.
+  plugins: [{ name: 'media-test-goal-panel-stub', enforce: 'pre', resolveId(id) { if (/GoalPlanPanel(?:\.jsx)?$/.test(id)) return '\0media-goal-stub'; }, load(id) { if (id === '\0media-goal-stub') return 'export default function GoalPanel(){return null}; export function collectGoalRunIds(){return []}'; } }],
+  optimizeDeps: { noDiscovery: true, include: [] } });
 try {
   const { default: ChatMessageContent } = await server.ssrLoadModule('/src/components/ChatMessageContent.jsx');
   for (const content of [
@@ -42,5 +45,8 @@ try {
   const { default: ChatToolCalls } = await server.ssrLoadModule('/src/components/ChatToolCalls.jsx');
   const scan = renderToStaticMarkup(createElement(ChatToolCalls, { toolCalls: [{ tool_name: 'download_file', status: 'error', response: { security_scan: { status: 'MALWARE_DETECTED', disposition: 'discarded', persisted: false } } }] }));
   assert(scan.includes('MALWARE_DETECTED') && scan.includes('no file retained') && !scan.includes('<img'));
+  const { default: ChatMessageRow } = await server.ssrLoadModule('/src/components/ChatMessageRow.jsx');
+  const fallback = renderToStaticMarkup(createElement(ChatMessageRow, { role: 'assistant', content: 'Done', showFeedback: false, toolCalls: [{ tool_name: 'download_file', status: 'ok', response: { relative_url: '/api/media/openclaw/downloads/owner/test.pdf', security_scan: { status: 'clean' } } }] }));
+  assert(fallback.includes('PDF attachment') && !fallback.includes('Generated image'));
   console.log('Chat table regression tests passed (Markdown, HTML, links, fences, sanitization).');
 } finally { await server.close(); }

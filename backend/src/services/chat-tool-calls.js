@@ -279,6 +279,7 @@ export function attachToolCallsToChatTurns(turns, agentId, ownerUserId) {
 /**
  * Tools invoked during a live chat send (from just before gateway call until now).
  */
-export function listToolCallsSince(agentId, ownerUserId, sinceIso) {
-  return listToolCallsForAgentWindow(agentId, ownerUserId, sinceIso, bumpIsoMinutes(new Date().toISOString(), 1));
+export function listToolCallsSince(agentId, ownerUserId, sinceIso, clientTurnId = null) {
+  const calls = listToolCallsForAgentWindow(agentId, ownerUserId, sinceIso, bumpIsoMinutes(new Date().toISOString(), 1));
+  return clientTurnId ? calls.filter(c => c.request?._chat_turn_id === clientTurnId) : calls;
 }

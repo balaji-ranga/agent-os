@@ -19,10 +19,11 @@ function activeChatKey(agentId, ownerUserId) {
 }
 
 /** Mark that the CEO is in Dashboard chat with this agent (call before OpenClaw completion). */
-export function registerActiveDashboardChat(agentId, ownerUserId, message = '') {
+export function registerActiveDashboardChat(agentId, ownerUserId, message = '', workUnitId = null) {
   if (!agentId || !ownerUserId) return;
   activeDashboardChat.set(activeChatKey(agentId, ownerUserId), {
     message: String(message || '').trim(),
+    work_unit_id: workUnitId,
     expiresAt: Date.now() + ACTIVE_DASHBOARD_CHAT_TTL_MS,
   });
 }

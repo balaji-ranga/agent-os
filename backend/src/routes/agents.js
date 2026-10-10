@@ -940,7 +940,7 @@ router.get('/:id/chat/activity/:turnId', requireAuth, (req, res) => {
     const ownerUserId = resolveChatOwnerUserId(req, req.query || {});
     const activity = getChatActivity({ ownerUserId, agentId, turnId: req.params.turnId });
     if (!activity) return res.json({ status: 'idle', current: null, events: [], tool_calls: [] });
-    const toolCalls = listToolCallsSince(agentId, ownerUserId, activity.started_at).map((call) => ({
+    const toolCalls = listToolCallsSince(agentId, ownerUserId, activity.started_at, req.params.turnId).map((call) => ({
       id: call.id,
       tool_name: call.tool_name,
       status: call.status,
@@ -1518,7 +1518,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     registerOpenClawSessionOwner(sessionKey, ownerUserId, req.authUser.id, 'web', {
       original_request: message.trim(), resolved_request: routedMessage, work_unit_id: turnRoute.id, agent_id: agentId, client_turn_id: liveScope?.turnId,
     });
-    registerActiveDashboardChat(agentId, ownerUserId, routedMessage);
+    registerActiveDashboardChat(agentId, ownerUserId, routedMessage, turnRoute.id);
     let sessionToolSelection = selectSessionContentTools({
       agentId: agent.id,
       ownerUserId,
@@ -1704,7 +1704,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
         status: skillUsage.used.length ? 'completed' : 'selection_unconfirmed',
       });
     }
-    const tool_calls = listToolCallsSince(agentId, ownerUserId, toolsSince);
+    const tool_calls = listToolCallsSince(agentId, ownerUserId, toolsSince, liveScope?.turnId);
     if (liveScope && tool_calls.length) {
       updateChatActivity(liveScope, {
         phase: 'tools_complete',

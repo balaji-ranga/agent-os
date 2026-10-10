@@ -323,7 +323,11 @@ function ownerForToolLog(req, body = {}) {
 }
 
 function logTool(req, toolName, requestPayload, responsePayload, status, source = null) {
-  logContentTool(toolName, requestPayload, responsePayload, status, source, ownerForToolLog(req, requestPayload));
+  const owner = ownerForToolLog(req, requestPayload);
+  const session = req.headers['x-openclaw-session-key'] || req.headers['x-session-key'];
+  const context = lookupSessionExecutionContext(session, owner);
+  const payload = requestPayload && typeof requestPayload === 'object' ? { ...requestPayload, _chat_turn_id: context?.client_turn_id || null } : requestPayload;
+  logContentTool(toolName, payload, responsePayload, status, source, owner);
 }
 
 /** Ensure tool caller may mutate this Kanban task (owner must match resolved CEO). */

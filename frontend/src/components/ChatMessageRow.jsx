@@ -8,6 +8,7 @@ import RobotAvatar from './RobotAvatar.jsx';
 import AuthenticatedMediaImage, {
   AuthenticatedMediaAudio,
   AuthenticatedMediaVideo,
+  AuthenticatedMediaFile,
 } from './AuthenticatedMediaImage';
 import { guessChatMediaType, resolveMediaSrc, extractMediaUrlsFromText, isChatAudioAttachment } from '../utils/resolveMediaSrc';
 import { splitChatAttachmentContent } from '../utils/chatAttachments.js';
@@ -122,6 +123,7 @@ export default function ChatMessageRow({
             const kind = guessChatMediaType(src);
             if (kind === 'audio') return <AuthenticatedMediaAudio key={src} src={src} />;
             if (kind === 'video') return <AuthenticatedMediaVideo key={src} src={src} />;
+            if (['file', 'pdf', 'markdown'].includes(kind)) return <AuthenticatedMediaFile key={src} src={src} kind={kind} />;
             return <AuthenticatedMediaImage key={src} src={src} alt="Generated image" />;
           })}
         </div>
