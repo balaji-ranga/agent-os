@@ -58,7 +58,7 @@ try {
   const generic = renderToStaticMarkup(createElement(ChatMessageContent, { content: 'MEDIA:/root/.openclaw/media/downloads/owner/report.xlsx' }));
   assert(/attachment/i.test(generic) && !generic.includes('<img') && !generic.includes('iframe'));
   const { default: ChatToolCalls } = await server.ssrLoadModule('/src/components/ChatToolCalls.jsx');
-  const { default: AgentSlashCommands, CapabilityChoiceButton } = await server.ssrLoadModule('/src/components/AgentSlashCommands.jsx');
+  const { default: AgentSlashCommands, CapabilityChoiceButton, ChatCapabilitySelections } = await server.ssrLoadModule('/src/components/AgentSlashCommands.jsx');
   const slash = renderToStaticMarkup(createElement(AgentSlashCommands, { agentId: 'coo' }));
   assert.equal(slash, '', 'No separate command button when composer is idle');
   const inlineSlash = renderToStaticMarkup(createElement(AgentSlashCommands, { agentId: 'coo', commandText: '/' }));
@@ -66,6 +66,8 @@ try {
   assert(!inlineSlash.includes('role="dialog"') && !inlineSlash.includes('textarea') && !inlineSlash.includes('type="submit"'), 'Commands use the existing chat composer and Send');
   const multiSlash = renderToStaticMarkup(createElement(AgentSlashCommands, { agentId:'coo', commandText:'/', selectedSkills:[{skill_id:'one'}, {skill_id:'two'}], selectedTools:[{name:'first'}, {name:'second'}] }));
   assert(multiSlash.includes('2/5 skills') && multiSlash.includes('2/5 tools'));
+  const chips = renderToStaticMarkup(createElement(ChatCapabilitySelections, {skills:[{skill_id:'one',name:'first',version:1},{skill_id:'two',name:'second',version:2}],tools:[{name:'tool-a'},{name:'tool-b'}]}));
+  assert(chips.includes('flex-wrap:wrap') && chips.includes('Clear skill: second') && chips.includes('Clear tool: tool-b'), 'All selections have wrapping individual removal chips');
   for (const kind of ['skill','tool']) {
     const choice = props => renderToStaticMarkup(createElement(CapabilityChoiceButton, {kind,item:{name:'sample'},count:5,onSelect:()=>{},...props}));
     assert(choice({selected:false}).includes('disabled=""'), 'Limit disables unselected items');

@@ -4,6 +4,14 @@ import ChatMessageContent from './ChatMessageContent.jsx';
 import { CHAT_CAPABILITY_LIMIT } from '../utils/chatCapabilitySelection.js';
 
 const button = { padding: '0.4rem 0.7rem', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text)', cursor: 'pointer', font: 'inherit' };
+export function ChatCapabilitySelections({ skills, tools, onRemoveSkill, onRemoveTool }) {
+  if (!skills.length && !tools.length) return null;
+  const chip = { ...button, maxWidth: '100%', whiteSpace: 'normal', overflowWrap: 'anywhere', fontSize: '0.85rem' };
+  return <div role="group" aria-label="Selected skills and tools for next task" style={{ display: 'flex', flexWrap: 'wrap', gap: 6, flexShrink: 0, maxHeight: 120, overflowY: 'auto', padding: '6px 0' }}>
+    {skills.map(skill => <button key={skill.skill_id} type="button" style={chip} onClick={() => onRemoveSkill(skill.skill_id)}>Clear skill: {skill.name} · v{skill.version}</button>)}
+    {tools.map(tool => <button key={tool.name} type="button" style={chip} onClick={() => onRemoveTool(tool.name)}>Clear tool: {tool.name}</button>)}
+  </div>;
+}
 /** Composer-owned picker. Only the chat's Send/Enter submits a command. */
 export function CapabilityChoiceButton({ kind, item, selected, count, busy, ready = true, onSelect }) {
   const name = item.name;

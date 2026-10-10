@@ -14,7 +14,7 @@ import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import CompanyArchitecturePanel from '../components/CompanyArchitecturePanel.jsx';
 import ChatActivityIndicator, { useChatActivity } from '../components/ChatActivityIndicator.jsx';
 import WorkSteering from '../components/WorkSteering.jsx';
-import AgentSlashCommands from '../components/AgentSlashCommands.jsx';
+import AgentSlashCommands, { ChatCapabilitySelections } from '../components/AgentSlashCommands.jsx';
 import { CHAT_CAPABILITY_LIMIT, toggleChatCapability, clearSubmittedCapabilities, chatCapabilityRefs } from '../utils/chatCapabilitySelection.js';
 
 const secondaryBtn = {
@@ -1214,8 +1214,6 @@ export default function AgentChat() {
                   </button>
                   <WorkSteering agentId={agentId} iconOnly />
                   <button type="button" className="chat-pane-icon-btn" aria-label="Commands: skills, tools and steer" title="Commands: skills, tools and steer (type / in chat)" onClick={openComposerCommands}><span aria-hidden style={{ fontSize: 22 }}>/</span></button>
-                  {selectedSkills.map(skill => <button key={skill.skill_id} type="button" style={secondaryBtn} onClick={() => setSelectedSkills(current => current.filter(s => s.skill_id !== skill.skill_id))}>Clear skill: {skill.name} · v{skill.version}</button>)}
-                  {selectedTools.map(tool => <button key={tool.name} type="button" style={secondaryBtn} onClick={() => setSelectedTools(current => current.filter(t => t.name !== tool.name))}>Clear tool: {tool.name}</button>)}
                   {isNarrow && (
                     <button
                       type="button"
@@ -1230,6 +1228,7 @@ export default function AgentChat() {
                 </div>
               </div>
 
+              <ChatCapabilitySelections skills={selectedSkills} tools={selectedTools} onRemoveSkill={id => setSelectedSkills(current => current.filter(s => s.skill_id !== id))} onRemoveTool={name => setSelectedTools(current => current.filter(t => t.name !== name))} />
               {banner && (
                 <div className={`chat-banner chat-banner-${banner.type || 'info'}`}>
                   <span className="chat-banner-text">{banner.text}</span>
@@ -1444,11 +1443,10 @@ export default function AgentChat() {
                 </button>
                 <WorkSteering agentId={agentId} iconOnly />
                 <button type="button" className="chat-pane-icon-btn" aria-label="Commands: skills, tools and steer" title="Commands: skills, tools and steer (type / in chat)" onClick={openComposerCommands}><span aria-hidden style={{ fontSize: 22 }}>/</span></button>
-                {selectedSkills.map(skill => <button key={skill.skill_id} type="button" style={secondaryBtn} onClick={() => setSelectedSkills(current => current.filter(s => s.skill_id !== skill.skill_id))}>Clear skill: {skill.name} · v{skill.version}</button>)}
-                {selectedTools.map(tool => <button key={tool.name} type="button" style={secondaryBtn} onClick={() => setSelectedTools(current => current.filter(t => t.name !== tool.name))}>Clear tool: {tool.name}</button>)}
               </div>
             </div>
 
+            <ChatCapabilitySelections skills={selectedSkills} tools={selectedTools} onRemoveSkill={id => setSelectedSkills(current => current.filter(s => s.skill_id !== id))} onRemoveTool={name => setSelectedTools(current => current.filter(t => t.name !== name))} />
             {banner && (
               <div className={`chat-banner chat-banner-${banner.type || 'info'}`}>
                 <span className="chat-banner-text">{banner.text}</span>
