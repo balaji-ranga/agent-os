@@ -126,3 +126,24 @@ an explicit benign antivirus test: assert rejection and no persisted file.
 Test scanner outage fail-closed. Queue a bounded steer in a test work unit and
 verify delivered once at a checkpoint without restarting it. Gate-blocked report
 URLs remain explicit failures; never substitute another report silently.
+
+### Interactive production acceptance — 10 October 2026
+
+The web chat composer `/` picker selected the assigned
+`ibkr-portfolio-strategy-sme` v4 skill for a read-only acceptance request.
+The resulting reply displayed the runtime-confirmed skill badge and successful
+canonical strategy-status, instrument-readiness and decision-history tool badges.
+
+A separate bounded read-only chat received guidance through the **Steer work**
+icon, targeting its exact active work id. The guidance history reported delivery
+at `tool_result:ibkrnew_paper_instrument_readiness`, and the final reply included
+the requested `STEER_CONFIRMED_OCT10` marker. It did not fully honor the requested
+two-sentence limit: delivery and this marker demonstrate receipt/application of
+that instruction, not guaranteed compliance with every part of a steer note.
+Earlier short tests ended before delivery; the UI correctly reported not-applied
+guidance or rejected the ended target instead of restarting or carrying over work.
+No trading actions or configuration changes were requested by these tests.
+
+Regression checks passed: `test:slash-commands`, `test:agent-skills`,
+`test-work-steering.mjs`, frontend `test:chat`, and the frontend production build.
+This does not constitute a real-handset WhatsApp acceptance test.
