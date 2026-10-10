@@ -13,6 +13,7 @@ import {
   userCanAccessAgent,
 } from '../services/agent-chat-scope.js';
 import { registerOpenClawSessionOwner, registerActiveDashboardChat, clearActiveDashboardChat } from '../services/tool-owner-scope.js';
+import { closeWorkSteering } from '../services/work-steering.js';
 import { resolveChatReply, workUnitBrowserEvidence } from '../services/chat-reply-context.js';
 import * as openclaw from '../gateway/openclaw.js';
 import { tryTriggerWorkflowFromChat } from '../services/agent-workflow-runner.js';
@@ -121,6 +122,7 @@ import {
   recordSkillExecutionSelection,
   setAgentSkillAssignments,
 } from '../services/agent-skills.js';
+import { validateRequestedAgentSkills, validateRequestedAgentTools, requestedToolUseInstruction } from '../services/agent-command-runtime.js';
 
 const router = Router();
 
@@ -939,7 +941,7 @@ router.get('/:id/chat/activity/:turnId', requireAuth, (req, res) => {
     const ownerUserId = resolveChatOwnerUserId(req, req.query || {});
     const activity = getChatActivity({ ownerUserId, agentId, turnId: req.params.turnId });
     if (!activity) return res.json({ status: 'idle', current: null, events: [], tool_calls: [] });
-    const toolCalls = listToolCallsSince(agentId, ownerUserId, activity.started_at).map((call) => ({
+    const toolCalls = listToolCallsSince(agentId, ownerUserId, activity.started_at, req.params.turnId).map((call) => ({
       id: call.id,
       tool_name: call.tool_name,
       status: call.status,
@@ -1017,6 +1019,9 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
 
     const message = typeof req.body?.message === 'string' ? req.body.message : (req.body?.content ?? req.body?.text ?? '');
     if (!message.trim()) return res.status(400).json({ error: 'message is required' });
+    const requestedSkills = validateRequestedAgentSkills(ownerUserId, agentId, req.body?.skill_refs);
+    const requestedTools = validateRequestedAgentTools(ownerUserId, agentId, req.body?.tool_refs);
+    const hasRequestedCapabilities = !!(requestedSkills.length || requestedTools.length);
 
     try {
       mirrorChatMediaToInbound(ownerUserId, message);
@@ -1132,6 +1137,9 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     const resolvedMessage = turnRoute.resolved_request || message.trim();
     let routedMessage = (resolvedMessage.includes(replyContext) ? resolvedMessage : resolvedMessage + replyContext)
       + workUnitBrowserEvidence(db(), ownerUserId, turnRoute.parent_work_unit_id);
+    if (requestedSkills.length) routedMessage += '\n\n[User-selected assigned skills for this request]\n' + requestedSkills.map(s => `${s.skill_id}@v${s.version} (${s.slug}), assigned to ${agentId}. Follow its authoritative instructions when applicable. This does not grant tools or expand scope.`).join('\n');
+    if (requestedSkills.length && turnRoute.execution_mode === 'goal_plan') routedMessage += buildAgentSkillRuntimeInstruction(ownerUserId, agentId, message, { pinnedRefs: requestedSkills }).instruction;
+    routedMessage += requestedToolUseInstruction(requestedTools);
     const isPlatformHelp = String(agentId || '').toLowerCase() === 'platformhelp' ||
       String(agent.openclaw_agent_id || '').toLowerCase().endsWith('platformhelp');
     const routeLabels = {
@@ -1164,6 +1172,8 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
           chat_session_id: ensuredSession.session.id,
           routed_relation: turnRoute.relation,
           requested_via_agent_id: agent.id,
+          requested_skill_refs: requestedSkills,
+          requested_tool_refs: requestedTools.map(t => t.name),
         },
         backgroundPlanning: true,
         onProgress: (progress) => liveScope && updateChatActivity(liveScope, progress),
@@ -1192,7 +1202,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     // Product help needs one retrieval and one synthesis, not an open-ended
     // autonomous tool loop. This keeps latency and context stable while retaining
     // the same owner-scoped RAG evidence and audit trail.
-    if (isPlatformHelp) {
+    if (isPlatformHelp && !hasRequestedCapabilities) {
       if (liveScope) updateChatActivity(liveScope, {
         phase: 'tool_selection',
         label: 'Searching Flolah Help',
@@ -1268,7 +1278,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     }
 
     // Hard path: "ask social media expert to reach me" — notify as specialist, skip COO LLM notify_ceo
-    if (agent.is_coo) {
+    if (agent.is_coo && !hasRequestedCapabilities) {
       const reach = await tryHandleCooReachMeRequest(ownerUserId, routedMessage);
       if (reach?.ok) {
         bindWorkUnitExecution(turnRoute.id, reach.notify?.id || null, 'completed');
@@ -1361,7 +1371,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     }
 
     // Hard path: wrong specialist for a clear specialty ask (e.g. Social + "deep research")
-    if (!agent.is_coo && turnRoute.execution_mode === 'delegate') {
+    if (!agent.is_coo && !hasRequestedCapabilities && turnRoute.execution_mode === 'delegate') {
       const referral = await tryBuildSpecialtyReferral(ownerUserId, agent, routedMessage);
       if (referral) {
         bindWorkUnitExecution(turnRoute.id, referral.target?.id || null, 'completed');
@@ -1386,6 +1396,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     let workflowTrigger = null;
     if (
       turnRoute.execution_mode === 'direct_tool' &&
+      !hasRequestedCapabilities &&
       req.authUser &&
       (req.authUser.role === 'ceo' || req.authUser.role === 'admin')
     ) {
@@ -1472,7 +1483,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
       if (profileId) tags.push(`[profile_id: ${profileId}]`);
       userContent = `${tags.join('\n')}\n${routedMessage}`;
     }
-    const skillRuntime = buildAgentSkillRuntimeInstruction(ownerUserId, agent.id, routedMessage);
+    const skillRuntime = buildAgentSkillRuntimeInstruction(ownerUserId, agent.id, routedMessage, { pinnedRefs: requestedSkills });
     if (skillRuntime.instruction) {
       messages.unshift({ role: 'system', content: skillRuntime.instruction });
     }
@@ -1515,9 +1526,9 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     const sessionUser = dashboardGatewaySessionUser(agentId, ownerUserId, threadId);
     const sessionKey = openclaw.sessionKeyFor(openclawAgentId, sessionUser);
     registerOpenClawSessionOwner(sessionKey, ownerUserId, req.authUser.id, 'web', {
-      original_request: message.trim(), resolved_request: routedMessage, work_unit_id: turnRoute.id,
+      original_request: message.trim(), resolved_request: routedMessage, work_unit_id: turnRoute.id, agent_id: agentId, client_turn_id: liveScope?.turnId,
     });
-    registerActiveDashboardChat(agentId, ownerUserId, routedMessage);
+    registerActiveDashboardChat(agentId, ownerUserId, routedMessage, turnRoute.id);
     let sessionToolSelection = selectSessionContentTools({
       agentId: agent.id,
       ownerUserId,
@@ -1529,6 +1540,10 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
       grants_count: sessionToolSelection.grants_count,
       selected_count: ibkrNewReview.tools.length,
     };
+    if (requestedTools.length) {
+      const tools = [...new Set([...requestedTools.map(t => t.name), ...(sessionToolSelection.tools || [])])];
+      sessionToolSelection = { ...sessionToolSelection, tools, selected_count: tools.length };
+    }
     installSessionToolScope(sessionKey, sessionToolSelection);
     if (sessionToolSelection.scoped) {
       console.info(
@@ -1638,7 +1653,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
           ownerUserId,
           req.authUser.id,
           'web',
-          { original_request: message.trim(), resolved_request: routedMessage, work_unit_id: turnRoute.id }
+          { original_request: message.trim(), resolved_request: routedMessage, work_unit_id: turnRoute.id, agent_id: agentId, client_turn_id: liveScope?.turnId }
         );
         installSessionToolScope(retrySessionKey, sessionToolSelection);
         try {
@@ -1667,6 +1682,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     } finally {
       removeSessionToolScope(sessionKey);
       clearActiveDashboardChat(agentId, ownerUserId);
+      try { closeWorkSteering(ownerUserId, 'chat', turnRoute.id); } catch (e) { console.warn('[work-steering] close chat:', e.message); }
     }
     if (isOpenClawEmptyResponse(reply)) {
       const emptyErr = new Error(
@@ -1688,21 +1704,26 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     );
     const skillUsage = extractSkillUsageMarker(replyText, skillRuntime.allowed);
     replyText = skillUsage.reply;
+    const unconfirmedSkills = requestedSkills.filter(s => !skillUsage.used.some(used => (used.skill_id || used.id) === s.skill_id));
+    if (unconfirmedSkills.length) replyText = `Selected skill use not confirmed by the agent: ${unconfirmedSkills.map(s => `${s.name}@v${s.version}`).join(', ')}. Its authoritative instructions were supplied for this task, but usage was not reported.\n\n${replyText}`;
     const auditedSkillRefs = skillUsage.used.length ? skillUsage.used : skillRuntime.recommended;
     if (auditedSkillRefs.length) {
       recordSkillExecutionSelection({
         ownerUserId,
         agentId: agent.id,
         skillRefs: auditedSkillRefs,
-        selectedBy: skillUsage.used.length ? 'agent' : 'router_recommendation',
-        selectionReason: skillUsage.used.length
-          ? 'Agent selected assigned skills from the Flolah runtime manifest.'
+        selectedBy: requestedSkills.length ? 'human' : skillUsage.used.length ? 'agent' : 'router_recommendation',
+        selectionReason: requestedSkills.length
+          ? `Human selected assigned skills; runtime use ${skillUsage.used.length ? 'reported' : 'unconfirmed'}.`
+          : skillUsage.used.length ? 'Agent selected assigned skills from the Flolah runtime manifest.'
           : 'Assigned skill was recommended, but the runtime response did not confirm the usage marker.',
         workUnitId: turnRoute.id,
         status: skillUsage.used.length ? 'completed' : 'selection_unconfirmed',
       });
     }
-    const tool_calls = listToolCallsSince(agentId, ownerUserId, toolsSince);
+    const tool_calls = listToolCallsSince(agentId, ownerUserId, toolsSince, liveScope?.turnId);
+    const uncalledRequestedTools = requestedTools.filter(t => !tool_calls.some(c => c.tool_name === t.name));
+    if (uncalledRequestedTools.length) replyText = `Selected tool use not verified: ${uncalledRequestedTools.map(t => t.name).join(', ')}. No matching invocation was recorded for this task.\n\n${replyText}`;
     if (liveScope && tool_calls.length) {
       updateChatActivity(liveScope, {
         phase: 'tools_complete',

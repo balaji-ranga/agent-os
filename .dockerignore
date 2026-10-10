@@ -29,3 +29,6 @@ npm-debug.log*
 agent-os/backend/data/
 tmp/
 backend/tmp/
+.codex-tmp/
+backend/.codex-tmp/
+backend/scripts/.tmp-*

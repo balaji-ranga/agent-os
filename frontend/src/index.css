@@ -1206,9 +1206,30 @@ html.auth-route #root {
   font-size: 0.95rem;
   color: var(--text);
 }
+.work-steer-backdrop { position: fixed; inset: 0; z-index: 1200; background: #0008; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.work-steer-dialog { background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 12px; padding: 24px; width: min(680px, 100%); max-height: 85vh; overflow: auto; }
+.work-steer-dialog label { display: block; margin: 12px 0 6px; }
+.work-steer-dialog select, .work-steer-dialog textarea { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid var(--border); border-radius: 6px; color: var(--text); background: var(--surface); font: inherit; }
+.work-steer-dialog textarea { resize: vertical; margin-bottom: 12px; }
+.work-steer-hint, .work-steer-history small { color: var(--muted); font-size: .85rem; }
+.work-steer-history article { border-top: 1px solid var(--border); padding-top: 10px; }
+.work-steer-history p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.chat-slash-picker { position: absolute; bottom: calc(100% + 8px); left: 0; right: 0; z-index: 40; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 8px 24px #0003; padding: 14px; max-height: min(62vh, 560px); overflow: auto; }
+.chat-slash-picker h3 { margin: 10px 0 6px; font-size: .95rem; }
+.chat-slash-picker p { margin: 5px 0; }
+.chat-slash-picker small { color: var(--muted); }
+.chat-slash-picker input { background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 5px; max-width: 100%; }
 .chat-message-md {
   display: block;
+  min-width: 0;
+  max-width: 100%;
 }
+.chat-md-table-scroll { max-width: 100%; overflow-x: auto; margin: 0.65rem 0; border: 1px solid var(--border); border-radius: var(--radius); }
+.chat-md-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+.chat-md-table th, .chat-md-table td { padding: 0.5rem 0.7rem; border: 1px solid var(--border); vertical-align: top; min-width: 4rem; }
+.chat-md-table th { background: var(--surface-muted); font-weight: 650; }
+.chat-md-table tbody tr:nth-child(even) { background: var(--surface-muted); }
+.chat-md-table caption { padding: 0.5rem 0.7rem; text-align: left; font-weight: 650; }
 .chat-message-md + .chat-message-md {
   margin-top: 0.35rem;
 }

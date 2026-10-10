@@ -148,6 +148,11 @@ async function fetchBlobUrl(path, opts = {}) {
 }
 
 export const api = {
+  steeringTargets: (agentId) => get(`/work-steering/targets${agentId ? `?agent_id=${encodeURIComponent(agentId)}` : ''}`),
+  steeringHistory: (kind, id) => get(`/work-steering?target_kind=${encodeURIComponent(kind)}&target_id=${encodeURIComponent(id)}`),
+  steerWork: (body) => post('/work-steering', body),
+  agentCommandCatalog: (id) => get(`/agent-commands/${encodeURIComponent(id)}`),
+  agentCommandSend: (id, command, key) => post(`/agent-commands/${encodeURIComponent(id)}`, { command, idempotency_key: key }),
   fetchBlobUrl,
   health: () => get('/health'),
   ibkrNewDashboard: () => get('/ibkrnew-event-trader/dashboard'),
@@ -291,7 +296,7 @@ export const api = {
       mode,
     }),
   agentChatSend: (id, message, userId = 'default', profileId = null, options = {}) => {
-    const { clientTurnId, replyToMessageId, ...requestOptions } = options || {};
+    const { clientTurnId, replyToMessageId, skillRefs, toolRefs, ...requestOptions } = options || {};
     const tz =
       typeof Intl !== 'undefined'
         ? Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
@@ -305,6 +310,8 @@ export const api = {
         ...(profileId ? { profile_id: profileId } : {}),
         ...(clientTurnId ? { client_turn_id: clientTurnId } : {}),
         ...(replyToMessageId ? { reply_to_message_id: replyToMessageId } : {}),
+        ...(skillRefs?.length ? { skill_refs: skillRefs } : {}),
+        ...(toolRefs?.length ? { tool_refs: toolRefs } : {}),
       },
       requestOptions
     );

@@ -5,6 +5,7 @@
  */
 import { readFileSync, existsSync, statSync } from "fs";
 import { join } from "path";
+import { registerFlolahCommands } from "./slash-commands.js";
 // Volume-mounted extensions cannot resolve the `openclaw` package name via bare
 // Node; OpenClaw's loader can, but absolute path works in both contexts.
 import { definePluginEntry } from "/usr/local/lib/node_modules/openclaw/dist/plugin-sdk/plugin-entry.js";
@@ -215,6 +216,16 @@ function ownerUserIdFromSessionKey(sessionKey) {
 }
 
 const PARAM_SCHEMAS = {
+  download_file: {
+    type: "object",
+    properties: { url: { type: "string", description: "Existing public HTTPS file URL" }, filename: { type: "string", description: "Optional attachment filename" } },
+    required: ["url"], additionalProperties: false,
+  },
+  download_pdf: {
+    type: "object",
+    properties: { url: { type: "string", description: "Existing public HTTPS PDF download URL" }, filename: { type: "string", description: "Optional PDF filename" } },
+    required: ["url"], additionalProperties: false,
+  },
   connector_search_actions: {
     type: "object",
     properties: {
@@ -1057,6 +1068,7 @@ export default definePluginEntry({
   description:
     "Register Agent OS content/workflow/kanban tools with owner/agent-scoped backend credentials.",
   register(api) {
+    registerFlolahCommands(api, { baseUrl: String(resolvePluginConfig(api).baseUrl || '').trim(), brokerSecret: loadToolBrokerSecret });
     if (typeof api.on === "function") {
       api.on("before_prompt_build", async (event, ctx) => {
         const result = await correlateInboundCampaign(api, event, ctx);
@@ -1133,7 +1145,7 @@ export default definePluginEntry({
                 (name === "generate_image" ||
                   name === "generate_chart" ||
                   name === "speech_tts" ||
-                  name === "generate_video") &&
+                  name === "generate_video" || name === "download_file" || name === "download_pdf" || (name === "summarize_url" && data?.mime_type === "application/pdf")) &&
                 data &&
                 typeof data === "object"
               ) {
@@ -1146,7 +1158,7 @@ export default definePluginEntry({
                   null;
                 if (paste) {
                   const kind =
-                    name === "speech_tts"
+                    data.mime_type === "application/pdf" ? "PDF file" : name === "speech_tts"
                       ? "audio"
                       : name === "generate_video"
                         ? "video"

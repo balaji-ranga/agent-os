@@ -42,6 +42,10 @@ import {
   enquirePlatformFeedback,
 } from '../services/platform-feedback.js';
 import { saveInboundAttachment } from '../services/inbound-attachments.js';
+import { downloadPdfForOwner } from '../services/pdf-download.js';
+import { downloadFileForOwner } from '../services/content-download.js';
+import { updateChatActivity } from '../services/chat-live-activity.js';
+import { checkpointSteering, steeringPrompt } from '../services/work-steering.js';
 import socialResearchTools from './social-research-tools.js';
 import webScrapeTools from './web-scrape-tools.js';
 import {
@@ -319,7 +323,11 @@ function ownerForToolLog(req, body = {}) {
 }
 
 function logTool(req, toolName, requestPayload, responsePayload, status, source = null) {
-  logContentTool(toolName, requestPayload, responsePayload, status, source, ownerForToolLog(req, requestPayload));
+  const owner = ownerForToolLog(req, requestPayload);
+  const session = req.headers['x-openclaw-session-key'] || req.headers['x-session-key'];
+  const context = lookupSessionExecutionContext(session, owner);
+  const payload = requestPayload && typeof requestPayload === 'object' ? { ...requestPayload, _chat_turn_id: context?.client_turn_id || null } : requestPayload;
+  logContentTool(toolName, payload, responsePayload, status, source, owner);
 }
 
 /** Ensure tool caller may mutate this Kanban task (owner must match resolved CEO). */
@@ -451,12 +459,20 @@ async function fetchSummarizeUrlBody(url, { timeoutMs, maxBytes, allowedDomains 
         return { ok: false, status: response.status, finalUrl: current };
       }
       const reader = response.body.getReader();
+      if (/application\/pdf/i.test(response.headers.get('content-type') || '')) {
+        await reader.cancel();
+        return { ok: true, status: response.status, pdf: true, finalUrl: current };
+      }
       const decoder = new TextDecoder('utf-8', { fatal: false });
       let body = '';
       let contentLength = 0;
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
+        if (contentLength === 0 && Buffer.from(value).subarray(0, 8).toString('ascii').startsWith('%PDF-')) {
+          await reader.cancel();
+          return { ok: true, status: response.status, pdf: true, finalUrl: current };
+        }
         contentLength += value.length;
         if (contentLength > maxBytes) break;
         body += decoder.decode(value, { stream: true });
@@ -996,6 +1012,12 @@ router.post('/summarize-url', async (req, res) => {
       try {
         const got = await fetchSummarizeUrlBody(candidate, { timeoutMs, maxBytes, allowedDomains });
         tried.push({ url: candidate, status: got.status, ok: got.ok });
+        if (got.ok && got.pdf) {
+          const owner = resolveToolOwnerUserIdOrNull(req, req.body || {}, resolveAuthenticatedCeoUserId);
+          const out = await downloadPdfForOwner(owner, got.finalUrl || candidate, req.body?.filename, { allowedDomains, timeoutMs, onProgress: downloadProgress(req, owner) });
+          logTool(req, 'summarize_url', requestPayload, out, 'ok', source);
+          return res.json(out);
+        }
         if (got.ok && got.body) {
           body = got.body;
           usedUrl = got.finalUrl || candidate;
@@ -1004,6 +1026,7 @@ router.post('/summarize-url', async (req, res) => {
         }
         lastStatus = got.status;
       } catch (e) {
+        if (e.code?.startsWith('SCAN_') || e.code === 'MALWARE_DETECTED') throw e;
         if (e instanceof SafeOutboundUrlError) {
           console.warn('[summarize_url] blocked outbound hop reason=%s', e.message);
           fetchErr = e.message;
@@ -1081,10 +1104,38 @@ router.post('/summarize-url', async (req, res) => {
     logTool(req, 'summarize_url', { ...requestPayload, resolved_url: usedUrl }, out, 'ok', source);
     res.json(out);
   } catch (e) {
-    logTool(req, 'summarize_url', requestPayload, { error: 'Internal error' }, 'error', source);
-    res.status(500).json({ error: 'Internal error' });
+    const out = { error: e instanceof SafeOutboundUrlError || e.code?.startsWith('SCAN_') || e.code === 'MALWARE_DETECTED' ? e.message : 'Internal error', code: e.code || undefined, security_scan: e.securityScan };
+    logTool(req, 'summarize_url', requestPayload, out, 'error', source);
+    res.status(e.status || 500).json(out);
   }
 });
+
+function downloadProgress(req, owner) {
+  const session = req.headers['x-openclaw-session-key'] || req.headers['x-session-key'];
+  const context = lookupSessionExecutionContext(session, owner);
+  return event => {
+    if (context?.client_turn_id && context?.agent_id) updateChatActivity({ ownerUserId: owner, agentId: context.agent_id, turnId: context.client_turn_id }, event);
+  };
+}
+
+function downloadHandler(pdfOnly) { return async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const payload = { url: req.body?.url, filename: req.body?.filename };
+  try {
+    const owner = resolveToolOwnerUserIdOrNull(req, {}, resolveAuthenticatedCeoUserId);
+    const { allowedDomains } = getSummarizeUrlConfig();
+    const out = await (pdfOnly ? downloadPdfForOwner : downloadFileForOwner)(owner, payload.url, payload.filename, { allowedDomains, onProgress: downloadProgress(req, owner) });
+    logTool(req, pdfOnly ? 'download_pdf' : 'download_file', payload, out, 'ok', source);
+    return res.json(out);
+  } catch (e) {
+    const status = e.status || 502;
+    const out = { ok: false, error: e instanceof SafeOutboundUrlError || e.code?.startsWith('SCAN_') || e.code === 'MALWARE_DETECTED' ? e.message : 'Download failed; no file attached.', code: e.code || undefined, security_scan: e.securityScan };
+    logTool(req, pdfOnly ? 'download_pdf' : 'download_file', payload, out, 'error', source);
+    return res.status(status).json(out);
+  }
+}; }
+router.post('/download-pdf', downloadHandler(true));
+router.post('/download-file', downloadHandler(false));
 
 const GENERATED_MEDIA_DIR = getOpenClawMediaDir('generated');
 
@@ -4144,6 +4195,13 @@ router.post('/invoke', requireToolsAccess, async (req, res) => {
     const governedData = data && typeof data === 'object' && !Array.isArray(data)
       ? { ...data, ...(observation ? { _execution: observation } : {}) }
       : { result: data, ...(observation ? { _execution: observation } : {}) };
+    try {
+      const guidance = checkpointSteering(ownerUserId, lookupSessionExecutionContext(sessionKey, ownerUserId), `tool_result:${toolName}`);
+      if (guidance.length) governedData._steering = { notes: guidance, instruction: steeringPrompt(guidance), status: 'delivered_to_agent_context', applied: false };
+    } catch (e) {
+      // A guidance-store outage must never hide a successful mutation receipt.
+      console.warn('[work-steering] checkpoint delivery failed:', e.message);
+    }
     const status = response.ok ? 'ok' : 'error';
     logTool(req,toolName, params, governedData, status, source);
     if (!response.ok) return res.status(response.status).json(governedData);

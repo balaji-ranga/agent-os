@@ -128,6 +128,7 @@ const videoExt = /\.(mp4|webm|ogv)(\?[^\s"'<>]*)?$/i;
 const audioExt = /\.(wav|mp3|m4a|aac|opus|flac|ogg)(\?[^\s"'<>]*)?$/i;
 const pdfExt = /\.pdf(\?[^\s"'<>]*)?$/i;
 const htmlExt = /\.html?(\?[^\s"'<>]*)?$/i;
+const markdownExt = /\.(md|markdown)(\?[^\s"'<>]*)?$/i;
 const imageInPath = /\.(png|jpe?g|gif|webp|bmp|svg)([\?&]|$)/i;
 
 /** Classify media for inline chat render (artifact downloads often omit extensions). */
@@ -137,9 +138,15 @@ export function guessChatMediaType(url) {
   if (/^data:audio\//i.test(raw)) return 'audio';
   if (/^data:video\//i.test(raw)) return 'video';
   if (/^data:image\//i.test(raw) || /^data:/i.test(raw)) return 'image';
+  if (/\/downloads\//i.test(resolved)) {
+    if (pdfExt.test(resolved)) return 'pdf';
+    if (markdownExt.test(resolved)) return 'markdown';
+    return 'file';
+  }
   if (audioExt.test(resolved) || audioExt.test(raw)) return 'audio';
   if (videoExt.test(resolved) || videoExt.test(raw)) return 'video';
   if (pdfExt.test(resolved) || pdfExt.test(raw)) return 'pdf';
+  if (markdownExt.test(resolved) || markdownExt.test(raw)) return 'markdown';
   if (htmlExt.test(resolved) || htmlExt.test(raw)) return 'html';
   if (imageExt.test(resolved) || imageExt.test(raw) || imageInPath.test(resolved)) return 'image';
   if (/\/api\/media\/artifacts\//i.test(resolved) || /\/media\/artifacts\//i.test(raw)) {

@@ -5,6 +5,7 @@ import AuthenticatedMediaImage, {
   AuthenticatedMediaFile,
 } from './AuthenticatedMediaImage';
 import { renderChatMarkdown } from '../utils/chatMarkdown.js';
+import { chatLiteralRanges } from '../utils/chatTables.js';
 
 /**
  * Renders chat message content: markdown text plus inline images/audio/videos.
@@ -52,6 +53,7 @@ const videoExt = /\.(mp4|webm|ogv)(\?[^\s"'<>]*)?$/i;
 const audioExt = /\.(wav|mp3|m4a|aac|opus|flac|ogg)(\?[^\s"'<>]*)?$/i;
 const pdfExt = /\.pdf(\?[^\s"'<>]*)?$/i;
 const htmlExt = /\.html?(\?[^\s"'<>]*)?$/i;
+const markdownExt = /\.(md|markdown)(\?[^\s"'<>]*)?$/i;
 const imageInPath = /\.(png|jpe?g|gif|webp|bmp|svg)([\?&]|$)/i;
 
 export default function ChatMessageContent({ content, hideAudio = false }) {
@@ -69,9 +71,10 @@ export default function ChatMessageContent({ content, hideAudio = false }) {
   }));
 
   const media = [...extraImageMedia];
-  const overlaps = (start, len) => media.some((x) => start < x.index + x.length && start + len > x.index);
 
   if (parsed.text !== contentStr) contentStr = parsed.text;
+  const literalRanges = chatLiteralRanges(contentStr);
+  const overlaps = (start, len) => [...media, ...literalRanges].some((x) => start < x.index + x.length && start + len > x.index);
 
   const reImgTag = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
   let m;
@@ -119,6 +122,7 @@ export default function ChatMessageContent({ content, hideAudio = false }) {
         imageExt.test(url) ||
         pdfExt.test(url) ||
         htmlExt.test(url) ||
+        markdownExt.test(url) ||
         imageInPath.test(url) ||
         /\/api\/media\//i.test(url) ||
         /^MEDIA:/i.test(url) ||
@@ -138,6 +142,7 @@ export default function ChatMessageContent({ content, hideAudio = false }) {
         imageExt.test(url) ||
         pdfExt.test(url) ||
         htmlExt.test(url) ||
+        markdownExt.test(url) ||
         imageInPath.test(url) ||
         /\/api\/media\//i.test(url) ||
         /^MEDIA:/i.test(url) ||
@@ -172,6 +177,7 @@ export default function ChatMessageContent({ content, hideAudio = false }) {
         imageExt.test(url) ||
         pdfExt.test(url) ||
         htmlExt.test(url) ||
+        markdownExt.test(url) ||
         imageInPath.test(url) ||
         /\/api\/media\//i.test(url)
       ) {
@@ -221,7 +227,7 @@ export default function ChatMessageContent({ content, hideAudio = false }) {
         if (seg.type === 'image') {
           return <AuthenticatedMediaImage key={i} src={seg.value} alt={seg.alt || 'Image'} />;
         }
-        if (seg.type === 'pdf' || seg.type === 'html') {
+        if (seg.type === 'pdf' || seg.type === 'html' || seg.type === 'markdown' || seg.type === 'file') {
           return <AuthenticatedMediaFile key={i} src={seg.value} kind={seg.type} />;
         }
         return null;

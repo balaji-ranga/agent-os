@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { RequireAuth } from '../context/AuthContext';
 import GoalPlanPanel from '../components/GoalPlanPanel';
+import WorkSteering from '../components/WorkSteering.jsx';
 import GoalPlanManualEditor from '../components/GoalPlanManualEditor';
 import { Fragment } from 'react';
 
@@ -329,6 +330,7 @@ function ScheduledGoalsPanel() {
     <div className="page" style={{ maxWidth: 980 }}>
       <header className="page-hero" style={{ marginBottom: '1.25rem' }}>
         <h1 style={{ margin: 0 }}>Scheduled goals</h1>
+        <WorkSteering />
         <p style={{ margin: '0.4rem 0 0', color: 'var(--muted)', maxWidth: 640 }}>
           Recurring prompts your AI employees run on a schedule (hourly, daily, weekdays, or weekly). Chat the COO in
           plain language, or create and <strong>edit</strong> schedules here. Pause or delete stops the clock immediately

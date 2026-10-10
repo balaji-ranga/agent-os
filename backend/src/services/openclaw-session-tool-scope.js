@@ -103,6 +103,7 @@ export function selectSessionContentTools({ agentId, ownerUserId = null, message
   };
 
   for (const name of routeNames) add(name);
+  if (/\b(download|attach|pdf|spreadsheet|file)\b/i.test(message)) add('download_file');
   const ranked = enquireContentTools(
     [message, ...routeCapabilityNames(route)].filter(Boolean).join(' '),
     { limit }

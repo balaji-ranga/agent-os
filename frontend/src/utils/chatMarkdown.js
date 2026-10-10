@@ -5,9 +5,10 @@
 import { createElement, Fragment } from "react";
 import AuthenticatedApiLink from "../components/AuthenticatedApiLink.jsx";
 import { isAuthenticatedApiPath, normalizeApiPath } from "./authenticatedApiUrl";
+import { markdownTableAt, parseSafeHtmlTable, safeChatHref } from './chatTables.js';
 
 function ChatLink({ href, children }) {
-  const url = String(href || "").trim();
+  const url = safeChatHref(href);
   if (!url) return createElement("span", null, children);
   if (isAuthenticatedApiPath(url)) {
     return createElement(AuthenticatedApiLink, { href: normalizeApiPath(url) }, children);
@@ -141,10 +142,39 @@ export function renderChatMarkdown(text) {
       continue;
     }
 
+    // Isolate complete HTML tables from surrounding prose before block parsing.
+    const htmlParts = chunk.value.split(/(<table\b[^>]*>[\s\S]*?<\/table\s*>)/gi);
+    if (htmlParts.length > 1) {
+      for (const part of htmlParts) {
+        if (/^<table\b/i.test(part)) {
+          const table = parseSafeHtmlTable(part);
+          const renderNode = (node, key) => typeof node === 'string' ? node : createElement(
+            node.tag === 'a' ? ChatLink : node.tag,
+            { ...node.props, key, className: node.tag === 'table' ? 'chat-md-table' : undefined },
+            node.children.map((child, index) => renderNode(child, `${key}-${index}`))
+          );
+          if (table) out.push(createElement('div', { key: 'html-table-' + bi++, className: 'chat-md-table-scroll', tabIndex: 0, role: 'region', 'aria-label': 'Chat table' }, renderNode(table, 'table')));
+        } else if (part) out.push(createElement(Fragment, { key: 'html-prose-' + bi++ }, renderChatMarkdown(part)));
+      }
+      continue;
+    }
     const lines = chunk.value.replace(/\r\n/g, "\n").split("\n");
     let i = 0;
     while (i < lines.length) {
       const line = lines[i];
+      const table = markdownTableAt(lines, i);
+      if (table) {
+        const key = 'table-' + bi++;
+        const cells = (row, tag, prefix) => row.map((cell, col) => createElement(tag, {
+          key: col, scope: tag === 'th' ? 'col' : undefined, style: { textAlign: table.align[col] },
+        }, renderInlineMarkdown(cell, `${prefix}-${col}`)));
+        out.push(createElement('div', { key, className: 'chat-md-table-scroll', tabIndex: 0, role: 'region', 'aria-label': 'Chat table' },
+          createElement('table', { className: 'chat-md-table' },
+            createElement('thead', null, createElement('tr', null, cells(table.headers, 'th', key + '-head'))),
+            createElement('tbody', null, table.rows.map((row, index) => createElement('tr', { key: index }, cells(row, 'td', `${key}-${index}`)))))));
+        i = table.end;
+        continue;
+      }
       if (!line.trim()) {
         out.push(createElement("div", { key: "sp-" + bi++, className: "chat-md-spacer" }));
         i += 1;
@@ -222,6 +252,7 @@ export function renderChatMarkdown(text) {
         !isBlockQuote(lines[i]) &&
         !isHeading(lines[i]) &&
         !isHr(lines[i]) &&
+        !markdownTableAt(lines, i) &&
         !lines[i].startsWith("```")
       ) {
         const prev = para[para.length - 1];

@@ -5,6 +5,7 @@
  */
 import { readFileSync, existsSync, statSync } from "fs";
 import { join } from "path";
+import { registerFlolahCommands } from "./slash-commands.js";
 // Volume-mounted extensions cannot resolve the `openclaw` package name via bare
 // Node; OpenClaw's loader can, but absolute path works in both contexts.
 import { definePluginEntry } from "/usr/local/lib/node_modules/openclaw/dist/plugin-sdk/plugin-entry.js";
@@ -229,6 +230,7 @@ function ownerUserIdFromSessionKey(sessionKey: string | undefined): string | nul
 
 type ToolCtx = { agentId?: string; sessionKey?: string; messageChannel?: string; agentAccountId?: string; requesterSenderId?: string; deliveryContext?: { channel?: string } };
 type PluginApi = {
+  registerCommand?: Function;
   registerTool: Function;
   on?: (hookName: string, handler: Function, options?: Record<string, unknown>) => void;
   logger?: { info?: (message: string) => void; warn?: (message: string) => void };
@@ -250,6 +252,16 @@ type PromptBuildContext = {
 };
 
 const PARAM_SCHEMAS: Record<string, Record<string, unknown>> = {
+  download_file: {
+    type: "object",
+    properties: { url: { type: "string", description: "Existing public HTTPS file URL" }, filename: { type: "string", description: "Optional attachment filename" } },
+    required: ["url"], additionalProperties: false,
+  },
+  download_pdf: {
+    type: "object",
+    properties: { url: { type: "string", description: "Existing public HTTPS PDF download URL" }, filename: { type: "string", description: "Optional PDF filename" } },
+    required: ["url"], additionalProperties: false,
+  },
   connector_search_actions: {
     type: "object",
     properties: {
@@ -752,6 +764,7 @@ export default definePluginEntry({
   description:
     "Register Agent OS content/workflow/kanban tools with owner/agent-scoped backend credentials.",
   register(api: PluginApi) {
+    registerFlolahCommands(api, { baseUrl: String(resolvePluginConfig(api).baseUrl || '').trim(), brokerSecret: loadToolBrokerSecret });
     if (typeof api.on === "function") {
       api.on("before_prompt_build", async (event: PromptBuildEvent, ctx: PromptBuildContext) => {
         const result = await correlateInboundCampaign(api, event, ctx);

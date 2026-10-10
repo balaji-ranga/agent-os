@@ -13,6 +13,8 @@ import { useChatVoice, ChatVoiceBar, ChatVoiceCallOverlay } from '../components/
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import CompanyArchitecturePanel from '../components/CompanyArchitecturePanel.jsx';
 import ChatActivityIndicator, { useChatActivity } from '../components/ChatActivityIndicator.jsx';
+import WorkSteering from '../components/WorkSteering.jsx';
+import AgentSlashCommands from '../components/AgentSlashCommands.jsx';
 
 const secondaryBtn = {
   padding: '0.45rem 0.85rem',
@@ -333,6 +335,26 @@ export default function AgentChat() {
   const [clearing, setClearing] = useState(false);
   const [error, setError] = useState(null);
   const [banner, setBanner] = useState(null);
+  const [commandRequest, setCommandRequest] = useState(null);
+  const [commandBusy, setCommandBusy] = useState(false);
+  const [selectedSkill, setSelectedSkill] = useState(null);
+  const [selectedTool, setSelectedTool] = useState(null);
+  const commandDraft = useRef('');
+  const openComposerCommands = () => {
+    if (!input.trimStart().startsWith('/')) commandDraft.current = input;
+    setInput('/');
+  };
+  const prepareComposerCommand = text => setInput(text || commandDraft.current || '');
+  const selectCommandTool = tool => {
+    setSelectedTool(tool); setInput(commandDraft.current || ''); commandDraft.current = '';
+    setBanner({ type: 'info', text: `Selected tool: ${tool.name}. The agent must use it for your next task or explain a blocker. No tool has run yet.` });
+  };
+  const selectCommandSkill = (skill, prompt) => {
+    setSelectedSkill(skill); setInput(prompt || commandDraft.current || ''); commandDraft.current = '';
+    setBanner({ type: 'info', text: `Selected skill: ${skill.name} · v${skill.version}. Applies to the next request for this agent; no work started.` });
+  };
+  useEffect(() => { setSelectedSkill(null); setSelectedTool(null); setCommandRequest(null); commandDraft.current = ''; }, [agentId]);
+  const changeComposerInput = e => setInput(e.target.value);
   /** Side panes are closed by default; icon toggles open them. */
   const [showHistoryPanel, setShowHistoryPanel] = useState(false);
   const [showBrowserPanel, setShowBrowserPanel] = useState(false);
@@ -591,8 +613,15 @@ export default function AgentChat() {
   const send = async (e, overrideText) => {
     e?.preventDefault?.();
     const userText = String(overrideText != null ? overrideText : input).trim();
+    if (userText.startsWith('/') && agentId) {
+      if (commandBusy) return;
+      if (attachments.length) { setError('Slash commands do not accept chat attachments. Remove them before opening commands.'); return; }
+      setCommandRequest({ text: userText, key: crypto.randomUUID() }); setInput(''); return;
+    }
     if ((!userText && !attachments.length) || sending || !agentId) return;
     if (micBusy && overrideText == null) return;
+    const requestSkill = selectedSkill;
+    const requestTool = selectedTool;
     const pendingFiles = [...attachments];
     const displayAttachments = buildDisplayAttachmentsFromFiles(pendingFiles);
     const tempId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -637,7 +666,11 @@ export default function AgentChat() {
         signal: controller.signal,
         clientTurnId,
         replyToMessageId: replyTo?.id,
+        skillRefs: requestSkill ? [requestSkill.skill_id] : [],
+        toolRefs: requestTool ? [requestTool.name] : [],
       });
+      setSelectedSkill(current => current === requestSkill ? null : current);
+      setSelectedTool(current => current === requestTool ? null : current);
       setReplyTo(null);
       if (r.session_reset?.auto_split) {
         revokeAttachmentPreviews(displayAttachments);
@@ -1174,9 +1207,13 @@ export default function AgentChat() {
                       <path d="M12 7v5l3 2" />
                     </svg>
                   </button>
-                  <button type="button" onClick={startNewChat} disabled={clearing || sending || !agentId} className="chat-new-btn" style={secondaryBtn}>
-                    {clearing ? 'Archiving…' : '+ New chat'}
+                  <button type="button" onClick={startNewChat} disabled={clearing || sending || !agentId} className="chat-pane-icon-btn" aria-label={clearing ? 'Archiving chat' : 'New chat'} title="New chat">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden><path d="M12 5v14M5 12h14" /></svg>
                   </button>
+                  <WorkSteering agentId={agentId} iconOnly />
+                  <button type="button" className="chat-pane-icon-btn" aria-label="Commands: skills, tools and steer" title="Commands: skills, tools and steer (type / in chat)" onClick={openComposerCommands}><span aria-hidden style={{ fontSize: 22 }}>/</span></button>
+                  {selectedSkill && <button type="button" style={secondaryBtn} onClick={() => setSelectedSkill(null)}>Clear skill: {selectedSkill.name}</button>}
+                  {selectedTool && <button type="button" style={secondaryBtn} onClick={() => setSelectedTool(null)}>Clear tool: {selectedTool.name}</button>}
                   {isNarrow && (
                     <button
                       type="button"
@@ -1255,15 +1292,16 @@ export default function AgentChat() {
                 />
               </div>
 
-              <form onSubmit={send} style={{ flexShrink: 0 }}>
+              <form onSubmit={send} style={{ flexShrink: 0, position: 'relative' }}>
+                <AgentSlashCommands agentId={agentId} commandText={input} commandRequest={commandRequest} onPrepareCommand={prepareComposerCommand} onSelectSkill={selectCommandSkill} onSelectTool={selectCommandTool} onBusyChange={setCommandBusy} />
                 <ChatReplyPreview reply={replyTo} onClear={() => setReplyTo(null)} />
                 <div className="chat-compose-row">
                   <ChatComposeInput
                     placeholder={`Message ${agentLabel}…`}
                     value={input}
-                    onChange={(e) => setInput(e.target.value)}
+                    onChange={changeComposerInput}
                     onSend={send}
-                    disabled={sending || micBusy || !agentId}
+                    disabled={commandBusy || micBusy || !agentId}
                     attachments={attachments}
                     onAttachmentsChange={setAttachments}
                     toolbarExtra={
@@ -1300,7 +1338,7 @@ export default function AgentChat() {
                   />
                   <button
                     type="submit"
-                    disabled={sending || micBusy || !agentId || (!input.trim() && !attachments.length)}
+                    disabled={commandBusy || (sending && !input.startsWith('/')) || micBusy || !agentId || (!input.trim() && !attachments.length)}
                     style={{
                       padding: '0.65rem 1.1rem',
                       background:
@@ -1399,9 +1437,13 @@ export default function AgentChat() {
                     <path d="M12 7v5l3 2" />
                   </svg>
                 </button>
-                <button type="button" onClick={startNewChat} disabled={clearing || sending || !agentId} style={secondaryBtn}>
-                  {clearing ? 'Archiving…' : 'New chat'}
+                <button type="button" onClick={startNewChat} disabled={clearing || sending || !agentId} className="chat-pane-icon-btn" aria-label={clearing ? 'Archiving chat' : 'New chat'} title="New chat">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden><path d="M12 5v14M5 12h14" /></svg>
                 </button>
+                <WorkSteering agentId={agentId} iconOnly />
+                <button type="button" className="chat-pane-icon-btn" aria-label="Commands: skills, tools and steer" title="Commands: skills, tools and steer (type / in chat)" onClick={openComposerCommands}><span aria-hidden style={{ fontSize: 22 }}>/</span></button>
+                {selectedSkill && <button type="button" style={secondaryBtn} onClick={() => setSelectedSkill(null)}>Clear skill: {selectedSkill.name}</button>}
+                {selectedTool && <button type="button" style={secondaryBtn} onClick={() => setSelectedTool(null)}>Clear tool: {selectedTool.name}</button>}
               </div>
             </div>
 
@@ -1469,15 +1511,16 @@ export default function AgentChat() {
               />
             </div>
 
-            <form onSubmit={send} style={{ flexShrink: 0 }}>
+            <form onSubmit={send} style={{ flexShrink: 0, position: 'relative' }}>
+              <AgentSlashCommands agentId={agentId} commandText={input} commandRequest={commandRequest} onPrepareCommand={prepareComposerCommand} onSelectSkill={selectCommandSkill} onSelectTool={selectCommandTool} onBusyChange={setCommandBusy} />
               <ChatReplyPreview reply={replyTo} onClear={() => setReplyTo(null)} />
               <div className="chat-compose-row">
                 <ChatComposeInput
                   placeholder="Message… (Shift+Enter for new line)"
                   value={input}
-                  onChange={(e) => setInput(e.target.value)}
+                  onChange={changeComposerInput}
                   onSend={send}
-                  disabled={sending || micBusy || !agentId}
+                  disabled={commandBusy || micBusy || !agentId}
                   attachments={attachments}
                   onAttachmentsChange={setAttachments}
                   toolbarExtra={
@@ -1513,7 +1556,7 @@ export default function AgentChat() {
                 />
                 <button
                   type="submit"
-                  disabled={sending || micBusy || !agentId || (!input.trim() && !attachments.length)}
+                  disabled={commandBusy || (sending && !input.startsWith('/')) || micBusy || !agentId || (!input.trim() && !attachments.length)}
                   style={{
                     padding: '0.75rem 1.25rem',
                     background:

@@ -72,7 +72,7 @@ async function streamMediaFile(rel, res) {
   const filename = contentDispositionFilename(filePath, mime);
   res.setHeader('Content-Type', mime);
   res.setHeader('Content-Length', st.size);
-  res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+  res.setHeader('Content-Disposition', `${rel.startsWith('downloads/') ? 'attachment' : 'inline'}; filename="${filename}"`);
   res.setHeader('Cache-Control', 'private, no-store');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   createReadStream(filePath).pipe(res);

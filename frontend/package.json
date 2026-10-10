@@ -9,12 +9,14 @@
     "build": "node ./scripts/check-utf8.mjs && node ./scripts/test-display-timezone.mjs && node ./scripts/test-virtual-room-placement.mjs && node ./scripts/test-design-system.mjs && node ./scripts/test-ibkr-bridge-status.mjs && vite build --configLoader runner",
     "check:utf8": "node ./scripts/check-utf8.mjs",
     "test:timezone": "node ./scripts/test-display-timezone.mjs",
+    "test:chat": "node ./scripts/test-chat-tables.mjs",
     "test:design-system": "node ./scripts/test-design-system.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
     "@xyflow/react": "^12.11.1",
     "iso-3166": "^4.4.0",
+    "parse5": "^8.0.0",
     "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

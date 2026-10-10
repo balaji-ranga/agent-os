@@ -78,11 +78,11 @@ export default function ChatActivityIndicator({ activity }) {
       {(events.length > 1 || tools.length > 0) ? (
         <div className="chat-live-activity__trail" aria-label="Work completed so far">
           {events.slice(0, -1).map((event, index) => (
-            <span key={eventKey(event, index)}>✓ {event.label}</span>
+            <span key={eventKey(event, index)}>{event.phase === 'content_rejected' || event.status === 'failed' ? '!' : '✓'} {event.label}</span>
           ))}
           {tools.map((tool) => (
             <span key={`tool-${tool.id || `${tool.tool_name}-${tool.created_at}`}`}>
-              {tool.status === 'failed' ? '!' : '✓'} Tool: {tool.tool_name} {tool.status === 'failed' ? 'failed' : 'worked'}
+              {['failed', 'error'].includes(tool.status) ? '!' : '✓'} Tool: {tool.tool_name} {['failed', 'error'].includes(tool.status) ? 'failed' : 'worked'}
             </span>
           ))}
         </div>

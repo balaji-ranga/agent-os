@@ -76,6 +76,7 @@ function safeJson(raw, max = 4000) {
       const slim = {
         ok: parsed.ok,
         error: parsed.error,
+        security_scan: parsed.security_scan,
         topic: parsed.topic,
         days: parsed.days,
         owner_user_id: parsed.owner_user_id,
@@ -278,6 +279,7 @@ export function attachToolCallsToChatTurns(turns, agentId, ownerUserId) {
 /**
  * Tools invoked during a live chat send (from just before gateway call until now).
  */
-export function listToolCallsSince(agentId, ownerUserId, sinceIso) {
-  return listToolCallsForAgentWindow(agentId, ownerUserId, sinceIso, bumpIsoMinutes(new Date().toISOString(), 1));
+export function listToolCallsSince(agentId, ownerUserId, sinceIso, clientTurnId = null) {
+  const calls = listToolCallsForAgentWindow(agentId, ownerUserId, sinceIso, bumpIsoMinutes(new Date().toISOString(), 1));
+  return clientTurnId ? calls.filter(c => c.request?._chat_turn_id === clientTurnId) : calls;
 }
