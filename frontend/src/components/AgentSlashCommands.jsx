@@ -1,10 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import ChatMessageContent from './ChatMessageContent.jsx';
+import { CHAT_CAPABILITY_LIMIT } from '../utils/chatCapabilitySelection.js';
 
 const button = { padding: '0.4rem 0.7rem', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text)', cursor: 'pointer', font: 'inherit' };
 /** Composer-owned picker. Only the chat's Send/Enter submits a command. */
-export default function AgentSlashCommands({ agentId, commandText = '', commandRequest = null, onPrepareCommand, onSelectSkill, onSelectTool, onBusyChange }) {
+export function CapabilityChoiceButton({ kind, item, selected, count, busy, ready = true, onSelect }) {
+  const name = item.name;
+  return <button type="button" style={button} aria-pressed={selected} disabled={busy || !ready || (!selected && count >= CHAT_CAPABILITY_LIMIT)} onClick={() => onSelect(item)}>{selected ? `Remove ${kind}: ${name}` : kind === 'skill' ? `Select skill: ${name}` : `${name} · Use for task`}</button>;
+}
+export default function AgentSlashCommands({ agentId, commandText = '', commandRequest = null, selectedSkills = [], selectedTools = [], onPrepareCommand, onSelectSkill, onSelectTool, onBusyChange }) {
   const [catalog, setCatalog] = useState([]), [skills, setSkills] = useState([]), [search, setSearch] = useState('');
   const [output, setOutput] = useState(null), [error, setError] = useState(''), [busy, setBusy] = useState(false);
   const processed = useRef(null), pending = useRef(false);
@@ -26,7 +31,7 @@ export default function AgentSlashCommands({ agentId, commandText = '', commandR
   }, [commandRequest, agentId, onBusyChange]);
   const close = () => { if (busy) return; setOutput(null); setError(''); onPrepareCommand?.(''); };
   const prepare = text => { setOutput(null); setError(''); onPrepareCommand?.(text); };
-  const select = (skill, prompt = '') => { setOutput(null); setError(''); onPrepareCommand?.(prompt); onSelectSkill?.(skill, prompt); };
+  const select = (skill, prompt = '') => { setOutput(null); setError(''); onSelectSkill?.(skill, prompt); };
   useEffect(() => {
     if (!open) return;
     const keyboard = e => { if (e.key === 'Escape') { e.preventDefault(); close(); } };
@@ -40,7 +45,8 @@ export default function AgentSlashCommands({ agentId, commandText = '', commandR
   const matches = catalog.filter(t => `${t.name} ${t.purpose || ''}`.toLowerCase().includes(query));
   return <section role="region" aria-label="Chat slash command picker" className="chat-slash-picker">
     <header style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}><strong>Skills, tools & steer</strong><button type="button" disabled={busy} style={button} onClick={close}>Close commands</button></header>
-    <small>Select a skill or tool, then describe your task in the message box and Send. The selection applies to that agent request. Direct commands and steer also use the message box.</small>
+    <small>Select up to five skills and five tools, then close the picker, describe your task in the message box and Send. Selections apply together to the next agent request. Direct commands and steer also use the message box.</small>
+    <p role="status">Selected: {selectedSkills.length}/{CHAT_CAPABILITY_LIMIT} skills · {selectedTools.length}/{CHAT_CAPABILITY_LIMIT} tools. Click a selected item again to remove it.</p>
     <nav aria-label="Command shortcuts" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
       {[['Help', '/flolah'], ['Find skills', '/flolah skills'], ['Find tools', '/flolah tools'], ['List work to steer', '/flolah steer']].map(([label, text]) => <button type="button" key={label} disabled={busy} style={button} onClick={() => prepare(text)}>{label}</button>)}
     </nav>
@@ -56,9 +62,9 @@ export default function AgentSlashCommands({ agentId, commandText = '', commandR
     <label style={{ display: 'block', margin: '8px 0' }}>Filter skills and tools <input aria-label="Filter skills and tools" value={search} onChange={e => setSearch(e.target.value)} /></label>
     <h3>Agent skills · {skills.length}</h3>
     {!skills.length && <p>No enabled skills assigned to this agent.</p>}
-    <div style={{ maxHeight: 150, overflow: 'auto' }}>{matchingSkills.map(s => <article key={s.skill_id} style={{ marginBottom: 10 }}><strong>{s.name} · v{s.version}</strong><p>{s.description}</p><small>{s.ready ? 'Ready · operating instructions, not tool permissions' : `Not ready: ${(s.missing || []).join(', ')}`}</small><div><button type="button" style={button} disabled={busy || !s.ready} onClick={() => select(s)}>Select for next chat</button><button type="button" style={button} disabled={busy || !s.ready} onClick={() => prepare(`/flolah skill ${s.slug}`)}>Skill command / WhatsApp help</button></div></article>)}</div>
+    <div style={{ maxHeight: 150, overflow: 'auto' }}>{matchingSkills.map(s => <article key={s.skill_id} style={{ marginBottom: 10 }}><strong>{s.name} · v{s.version}</strong><p>{s.description}</p><small>{s.ready ? 'Ready · operating instructions, not tool permissions' : `Not ready: ${(s.missing || []).join(', ')}`}</small><div><CapabilityChoiceButton kind="skill" item={s} selected={selectedSkills.some(skill => skill.skill_id === s.skill_id)} count={selectedSkills.length} busy={busy} ready={s.ready} onSelect={select} /><button type="button" style={button} disabled={busy || !s.ready} onClick={() => prepare(`/flolah skill ${s.slug}`)}>Skill command / WhatsApp help</button></div></article>)}</div>
     <h3>Granted platform tools · {catalog.length}</h3>
-    <div style={{ maxHeight: 130, overflow: 'auto' }}>{matches.slice(0, 80).map(t => <div key={t.name} style={{ marginBottom: 8 }}><button type="button" disabled={busy} style={button} onClick={() => { setOutput(null); setError(''); onPrepareCommand?.(''); onSelectTool?.(t); }}>{t.name} · Use for task</button><button type="button" disabled={busy} style={button} onClick={() => prepare(`/flolah tool ${t.name} {}`)}>Prepare direct command</button><small style={{ display: 'block' }}>{t.purpose || t.display_name}</small></div>)}</div>
+    <div style={{ maxHeight: 130, overflow: 'auto' }}>{matches.slice(0, 80).map(t => <div key={t.name} style={{ marginBottom: 8 }}><CapabilityChoiceButton kind="tool" item={t} selected={selectedTools.some(tool => tool.name === t.name)} count={selectedTools.length} busy={busy} onSelect={tool => { setOutput(null); setError(''); onSelectTool?.(tool); }} /><button type="button" disabled={busy} style={button} onClick={() => prepare(`/flolah tool ${t.name} {}`)}>Prepare direct command</button><small style={{ display: 'block' }}>{t.purpose || t.display_name}</small></div>)}</div>
     <small>Only assigned, ready skills and granted tools. Add required JSON arguments in the message box. WhatsApp uses /flolah; its built-in /steer is separate.</small>
   </section>;
 }

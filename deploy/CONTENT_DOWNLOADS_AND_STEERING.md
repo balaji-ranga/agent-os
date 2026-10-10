@@ -99,6 +99,14 @@ capabilities. Skill selection prepares the next chat request, not a tool call or
 new goal. UI Send validates skill IDs and current readiness server-side, pins
 authoritative instructions for direct chat and includes scoped skill references
 in routed goal context. User selection is distinct from reported runtime use.
+The web composer supports up to five skills and five tools together. Selecting
+items keeps the picker open; counts and pressed states show the current choices.
+Click a selected item again or use its individual clear chip to remove it. Close
+the picker to restore a task draft, then Send submits every selected reference.
+Agent changes reset the selection; successful requests clear only their submitted
+selection instances, preserving items added or reselected during active work.
+Failed requests retain their selections for review/retry. Server-side assignment,
+readiness, tool grants and existing approval rules remain authoritative.
 WhatsApp `/flolah skill` returns the validated next command `/skill <slug> <input>`;
 that existing core skill command starts a normal agent request using its synced
 workspace skill. For an ongoing platform goal/task use `/flolah steer` instead.
