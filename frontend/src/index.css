@@ -1208,7 +1208,15 @@ html.auth-route #root {
 }
 .chat-message-md {
   display: block;
+  min-width: 0;
+  max-width: 100%;
 }
+.chat-md-table-scroll { max-width: 100%; overflow-x: auto; margin: 0.65rem 0; border: 1px solid var(--border); border-radius: var(--radius); }
+.chat-md-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+.chat-md-table th, .chat-md-table td { padding: 0.5rem 0.7rem; border: 1px solid var(--border); vertical-align: top; min-width: 4rem; }
+.chat-md-table th { background: var(--surface-muted); font-weight: 650; }
+.chat-md-table tbody tr:nth-child(even) { background: var(--surface-muted); }
+.chat-md-table caption { padding: 0.5rem 0.7rem; text-align: left; font-weight: 650; }
 .chat-message-md + .chat-message-md {
   margin-top: 0.35rem;
 }

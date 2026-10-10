@@ -3,6 +3,7 @@ import { api } from '../api';
 import { resolveMediaSrc } from '../utils/resolveMediaSrc';
 import { isAuthenticatedApiPath, normalizeApiPath } from '../utils/authenticatedApiUrl';
 import AuthenticatedApiLink from './AuthenticatedApiLink';
+import { renderChatMarkdown } from '../utils/chatMarkdown.js';
 
 /**
  * Inline image that loads /api/media (and similar) via Bearer → blob URL.
@@ -243,6 +244,7 @@ export function AuthenticatedMediaFile({ src, kind = 'file', className = 'chat-i
   const needsAuth = isAuthenticatedApiPath(apiPath);
   const [blobUrl, setBlobUrl] = useState(null);
   const [error, setError] = useState(null);
+  const [markdown, setMarkdown] = useState(null);
   const label = fileLabelFromSrc(src, kind);
   const typeHint = kind === 'pdf' ? 'application/pdf' : kind === 'html' ? 'text/html' : undefined;
 
@@ -272,6 +274,19 @@ export function AuthenticatedMediaFile({ src, kind = 'file', className = 'chat-i
   }, [apiPath, needsAuth, typeHint]);
 
   const openSrc = needsAuth ? blobUrl : resolved;
+  useEffect(() => {
+    if (kind !== 'markdown' || !openSrc) return undefined;
+    let cancelled = false;
+    setMarkdown(null);
+    fetch(openSrc).then(async response => {
+      if (!response.ok) throw new Error('Markdown preview unavailable');
+      const blob = await response.blob();
+      if (blob.size > 256 * 1024) throw new Error('Markdown is too large for inline preview; use Download.');
+      const text = await blob.text();
+      if (!cancelled) setMarkdown(text);
+    }).catch(err => { if (!cancelled) setError(err.message); });
+    return () => { cancelled = true; };
+  }, [kind, openSrc]);
 
   return (
     <span
@@ -287,11 +302,12 @@ export function AuthenticatedMediaFile({ src, kind = 'file', className = 'chat-i
       }}
     >
       <span style={{ display: 'block', fontWeight: 600, fontSize: '0.9rem', marginBottom: 6 }}>
-        {kind === 'pdf' ? 'Storyboard PDF' : kind === 'html' ? 'Storyboard HTML' : 'Attachment'} · {label}
+        {kind === 'pdf' ? 'PDF attachment' : kind === 'html' ? 'HTML attachment' : kind === 'markdown' ? 'Markdown attachment' : 'Attachment'} · {label}
       </span>
       {error ? (
         <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--muted)', marginBottom: 6 }}>{error}</span>
       ) : null}
+      {kind === 'markdown' && markdown !== null ? <div className="chat-message-md" style={{ maxHeight: 480, overflow: 'auto' }}>{renderChatMarkdown(markdown)}</div> : null}
       {kind === 'pdf' && openSrc ? (
         <iframe
           title={label}
