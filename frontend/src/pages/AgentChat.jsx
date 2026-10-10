@@ -342,6 +342,12 @@ export default function AgentChat() {
     setBanner({ type: 'info', text: `Selected skill: ${skill.name} · v${skill.version}. Applies to the next request for this agent; no work started.` });
   };
   useEffect(() => { setSelectedSkill(null); }, [agentId]);
+  const changeComposerInput = e => {
+    const value = e.target.value;
+    if (value.trim() === '/' && !attachments.length) {
+      setCommandRequest({ text: '/flolah', key: crypto.randomUUID() }); setInput('');
+    } else setInput(value);
+  };
   /** Side panes are closed by default; icon toggles open them. */
   const [showHistoryPanel, setShowHistoryPanel] = useState(false);
   const [showBrowserPanel, setShowBrowserPanel] = useState(false);
@@ -1280,7 +1286,7 @@ export default function AgentChat() {
                   <ChatComposeInput
                     placeholder={`Message ${agentLabel}…`}
                     value={input}
-                    onChange={(e) => setInput(e.target.value)}
+                    onChange={changeComposerInput}
                     onSend={send}
                     disabled={sending || micBusy || !agentId}
                     attachments={attachments}
@@ -1497,7 +1503,7 @@ export default function AgentChat() {
                 <ChatComposeInput
                   placeholder="Message… (Shift+Enter for new line)"
                   value={input}
-                  onChange={(e) => setInput(e.target.value)}
+                  onChange={changeComposerInput}
                   onSend={send}
                   disabled={sending || micBusy || !agentId}
                   attachments={attachments}
