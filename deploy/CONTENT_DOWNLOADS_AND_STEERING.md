@@ -58,9 +58,18 @@ over to new work. Existing permissions, risk limits and approval rules remain.
 
 ## Shared UI and WhatsApp slash commands
 
-The chat header `/ Commands` button remains available while an agent is working.
-Typing a slash command into the UI composer opens the command panel, not a new
-LLM turn. Selecting a tool prepares JSON arguments; explicit Run is required.
+Type `/` in the existing chat message box to open the inline skills/tools/steer
+picker above the composer (not a modal). Header New chat, Steer work and Commands
+are icon buttons with tooltips; the Commands icon opens the same picker. Selection prepares
+the existing message box; Send/Enter runs the command. Typing a command is not a new
+LLM turn. Select a ready assigned skill or click a tool's `Use for task` to pin it
+to the next request to this agent; describe the task and Send. Tool selections are
+validated server-side and retained in the session's tool shortlist. The runtime
+must call the selected tool or explain missing inputs, approvals or another blocker;
+responses with no matching invocation are explicitly marked unverified. Selection
+does not grant tools or authorize external actions. For an exact direct invocation,
+`Prepare direct command` fills JSON arguments in the same composer; Send/Enter
+dispatches it without an LLM turn. Commands icon preserves an existing task draft.
 
 Use these same commands in a **private** WhatsApp conversation with the agent:
 

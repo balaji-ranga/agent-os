@@ -45,7 +45,11 @@ try {
   const selected = await call('/coo', { command: '/flolah skill selected-procedure Cite sources' });
   assert.equal(selected.data.skill.skill_id, skill.id); assert.equal(selected.data.prompt, 'Cite sources');
   assert.equal((await call('/coo', { command: '/flolah skill blocked-procedure' })).status, 409);
-  const { validateRequestedAgentSkills } = await import('../src/services/agent-command-runtime.js');
+  const { validateRequestedAgentSkills, validateRequestedAgentTools, requestedToolUseInstruction } = await import('../src/services/agent-command-runtime.js');
+  const toolRefs = validateRequestedAgentTools('owner-a', 'coo', ['command_read_test']);
+  assert.equal(toolRefs[0].name, 'command_read_test');
+  assert.match(requestedToolUseInstruction(toolRefs), /Use these exact selected tools/);
+  assert.throws(() => validateRequestedAgentTools('owner-a', 'coo', ['ungranted_tool']), /not enabled and granted/);
   const refs = validateRequestedAgentSkills('owner-a', 'coo', [skill.id]);
   assert.equal(refs[0].version, 1);
   const instruction = skillSvc.buildAgentSkillRuntimeInstruction('owner-a', 'coo', 'Unrelated prompt', { pinnedRefs: refs });
@@ -86,6 +90,7 @@ try {
   assert.equal((await call('/coo', { ...command, command: '/tool command_read_test {"owner_user_id":"owner-b"}' })).status, 400);
   assert.equal((await call('/coo', { ...command, command: '/tool command_read_test {"different":true}' })).status, 409);
   db.prepare("UPDATE content_tools_meta SET enabled=0 WHERE name='command_read_test'").run();
+  assert.throws(() => validateRequestedAgentTools('owner-a', 'coo', ['command_read_test']), /not enabled and granted/);
   assert.throws(() => validateRequestedAgentSkills('owner-a', 'coo', [skill.id]), /not ready/, 'Disabled required tools block skill selection');
   assert.equal((await call('/coo', { ...command, idempotency_key: 'new-command-key' })).status, 403);
   assert.equal(invoked, 1);

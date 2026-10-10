@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { api } from '../api';
 
 const button = { padding: '0.45rem 0.85rem', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text)', cursor: 'pointer', font: 'inherit' };
-export default function WorkSteering({ agentId = null }) {
+export default function WorkSteering({ agentId = null, iconOnly = false }) {
   const [open, setOpen] = useState(false);
   const [targets, setTargets] = useState([]);
   const [selected, setSelected] = useState('');
@@ -58,7 +58,7 @@ export default function WorkSteering({ agentId = null }) {
     finally { setBusy(false); }
   }
   return <>
-    <button ref={trigger} type="button" style={button} onClick={() => setOpen(true)} title="Queue guidance without interrupting current work">Steer work</button>
+    <button ref={trigger} type="button" className={iconOnly ? 'chat-pane-icon-btn' : undefined} style={iconOnly ? undefined : button} aria-label="Steer work" onClick={() => setOpen(true)} title="Steer work: queue guidance without interrupting current work">{iconOnly ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden><path d="M5 20V8a4 4 0 0 1 4-4h10M15 1l4 3-4 3M5 13h8" /></svg> : 'Steer work'}</button>
     {open && <div className="work-steer-backdrop">
       <section ref={dialog} role="dialog" aria-modal="true" aria-labelledby="work-steer-title" className="work-steer-dialog">
         <header style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}><h2 id="work-steer-title" style={{ margin: 0 }}>Steer existing work</h2><button type="button" style={button} onClick={() => setOpen(false)} aria-label="Close steer dialog">Close</button></header>

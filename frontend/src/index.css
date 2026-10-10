@@ -1214,6 +1214,11 @@ html.auth-route #root {
 .work-steer-hint, .work-steer-history small { color: var(--muted); font-size: .85rem; }
 .work-steer-history article { border-top: 1px solid var(--border); padding-top: 10px; }
 .work-steer-history p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.chat-slash-picker { position: absolute; bottom: calc(100% + 8px); left: 0; right: 0; z-index: 40; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 8px 24px #0003; padding: 14px; max-height: min(62vh, 560px); overflow: auto; }
+.chat-slash-picker h3 { margin: 10px 0 6px; font-size: .95rem; }
+.chat-slash-picker p { margin: 5px 0; }
+.chat-slash-picker small { color: var(--muted); }
+.chat-slash-picker input { background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 5px; max-width: 100%; }
 .chat-message-md {
   display: block;
   min-width: 0;

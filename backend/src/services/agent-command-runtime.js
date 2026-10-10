@@ -36,6 +36,21 @@ export function validateRequestedAgentSkills(owner, agent, refs) {
     return { skill_id: skill.skill_id, version_id: skill.version_id, version: skill.version, slug: skill.slug, name: skill.name };
   });
 }
+export function validateRequestedAgentTools(owner, agent, refs) {
+  if (refs == null) return [];
+  if (!Array.isArray(refs) || refs.length > 5 || refs.some(r => typeof r !== 'string')) throw Object.assign(new Error('Select up to five granted tool names'), { status: 400 });
+  const catalog = commandToolCatalog(owner, agent);
+  return [...new Set(refs)].map(name => {
+    const tool = catalog.find(t => t.name === name);
+    if (!tool) throw Object.assign(new Error('Selected tool is not enabled and granted to this agent'), { status: 403 });
+    return tool;
+  });
+}
+export function requestedToolUseInstruction(tools) {
+  if (!tools.length) return '';
+  return '\n\n[User-selected tools for THIS task]\n' + tools.map(t => `${t.name}: ${t.purpose || t.display_name || ''}`).join('\n')
+    + '\nUse these exact selected tools to perform this task and ground the answer in their results. Do not silently substitute memory, another tool, or delegation. Infer arguments only from the user request and verified context; ask for missing required inputs. Selection is NOT approval for external writes, trading or other consequential actions. Retain all existing governance and approvals. If a selected tool is unavailable, blocked or unsuitable, explain precisely why and ask before substituting. Do not claim a tool ran without an actual tool result.';
+}
 function redact(value) {
   if (Array.isArray(value)) return value.map(redact);
   if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value)

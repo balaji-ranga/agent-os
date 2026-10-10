@@ -122,7 +122,7 @@ import {
   recordSkillExecutionSelection,
   setAgentSkillAssignments,
 } from '../services/agent-skills.js';
-import { validateRequestedAgentSkills } from '../services/agent-command-runtime.js';
+import { validateRequestedAgentSkills, validateRequestedAgentTools, requestedToolUseInstruction } from '../services/agent-command-runtime.js';
 
 const router = Router();
 
@@ -1020,6 +1020,8 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     const message = typeof req.body?.message === 'string' ? req.body.message : (req.body?.content ?? req.body?.text ?? '');
     if (!message.trim()) return res.status(400).json({ error: 'message is required' });
     const requestedSkills = validateRequestedAgentSkills(ownerUserId, agentId, req.body?.skill_refs);
+    const requestedTools = validateRequestedAgentTools(ownerUserId, agentId, req.body?.tool_refs);
+    const hasRequestedCapabilities = !!(requestedSkills.length || requestedTools.length);
 
     try {
       mirrorChatMediaToInbound(ownerUserId, message);
@@ -1136,6 +1138,8 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     let routedMessage = (resolvedMessage.includes(replyContext) ? resolvedMessage : resolvedMessage + replyContext)
       + workUnitBrowserEvidence(db(), ownerUserId, turnRoute.parent_work_unit_id);
     if (requestedSkills.length) routedMessage += '\n\n[User-selected assigned skills for this request]\n' + requestedSkills.map(s => `${s.skill_id}@v${s.version} (${s.slug}), assigned to ${agentId}. Follow its authoritative instructions when applicable. This does not grant tools or expand scope.`).join('\n');
+    if (requestedSkills.length && turnRoute.execution_mode === 'goal_plan') routedMessage += buildAgentSkillRuntimeInstruction(ownerUserId, agentId, message, { pinnedRefs: requestedSkills }).instruction;
+    routedMessage += requestedToolUseInstruction(requestedTools);
     const isPlatformHelp = String(agentId || '').toLowerCase() === 'platformhelp' ||
       String(agent.openclaw_agent_id || '').toLowerCase().endsWith('platformhelp');
     const routeLabels = {
@@ -1169,6 +1173,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
           routed_relation: turnRoute.relation,
           requested_via_agent_id: agent.id,
           requested_skill_refs: requestedSkills,
+          requested_tool_refs: requestedTools.map(t => t.name),
         },
         backgroundPlanning: true,
         onProgress: (progress) => liveScope && updateChatActivity(liveScope, progress),
@@ -1197,7 +1202,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     // Product help needs one retrieval and one synthesis, not an open-ended
     // autonomous tool loop. This keeps latency and context stable while retaining
     // the same owner-scoped RAG evidence and audit trail.
-    if (isPlatformHelp) {
+    if (isPlatformHelp && !hasRequestedCapabilities) {
       if (liveScope) updateChatActivity(liveScope, {
         phase: 'tool_selection',
         label: 'Searching Flolah Help',
@@ -1273,7 +1278,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     }
 
     // Hard path: "ask social media expert to reach me" — notify as specialist, skip COO LLM notify_ceo
-    if (agent.is_coo) {
+    if (agent.is_coo && !hasRequestedCapabilities) {
       const reach = await tryHandleCooReachMeRequest(ownerUserId, routedMessage);
       if (reach?.ok) {
         bindWorkUnitExecution(turnRoute.id, reach.notify?.id || null, 'completed');
@@ -1366,7 +1371,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     }
 
     // Hard path: wrong specialist for a clear specialty ask (e.g. Social + "deep research")
-    if (!agent.is_coo && turnRoute.execution_mode === 'delegate') {
+    if (!agent.is_coo && !hasRequestedCapabilities && turnRoute.execution_mode === 'delegate') {
       const referral = await tryBuildSpecialtyReferral(ownerUserId, agent, routedMessage);
       if (referral) {
         bindWorkUnitExecution(turnRoute.id, referral.target?.id || null, 'completed');
@@ -1391,6 +1396,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     let workflowTrigger = null;
     if (
       turnRoute.execution_mode === 'direct_tool' &&
+      !hasRequestedCapabilities &&
       req.authUser &&
       (req.authUser.role === 'ceo' || req.authUser.role === 'admin')
     ) {
@@ -1534,6 +1540,10 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
       grants_count: sessionToolSelection.grants_count,
       selected_count: ibkrNewReview.tools.length,
     };
+    if (requestedTools.length) {
+      const tools = [...new Set([...requestedTools.map(t => t.name), ...(sessionToolSelection.tools || [])])];
+      sessionToolSelection = { ...sessionToolSelection, tools, selected_count: tools.length };
+    }
     installSessionToolScope(sessionKey, sessionToolSelection);
     if (sessionToolSelection.scoped) {
       console.info(
@@ -1710,6 +1720,8 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
       });
     }
     const tool_calls = listToolCallsSince(agentId, ownerUserId, toolsSince, liveScope?.turnId);
+    const uncalledRequestedTools = requestedTools.filter(t => !tool_calls.some(c => c.tool_name === t.name));
+    if (uncalledRequestedTools.length) replyText = `Selected tool use not verified: ${uncalledRequestedTools.map(t => t.name).join(', ')}. No matching invocation was recorded for this task.\n\n${replyText}`;
     if (liveScope && tool_calls.length) {
       updateChatActivity(liveScope, {
         phase: 'tools_complete',
