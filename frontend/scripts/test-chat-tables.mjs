@@ -36,5 +36,11 @@ try {
   assert(!unsafe.includes('<img') && !unsafe.includes('javascript') && !unsafe.includes('onerror'));
   const md = renderToStaticMarkup(createElement(ChatMessageContent, { content: '[Report](/api/media/openclaw/generated/owner/report.md)' }));
   assert(md.includes('Markdown attachment') && !md.includes('<img'));
+  assert.equal(guessChatMediaType('/api/media/openclaw/downloads/owner/report.xlsx'), 'file');
+  const generic = renderToStaticMarkup(createElement(ChatMessageContent, { content: 'MEDIA:/root/.openclaw/media/downloads/owner/report.xlsx' }));
+  assert(/attachment/i.test(generic) && !generic.includes('<img') && !generic.includes('iframe'));
+  const { default: ChatToolCalls } = await server.ssrLoadModule('/src/components/ChatToolCalls.jsx');
+  const scan = renderToStaticMarkup(createElement(ChatToolCalls, { toolCalls: [{ tool_name: 'download_file', status: 'error', response: { security_scan: { status: 'MALWARE_DETECTED', disposition: 'discarded', persisted: false } } }] }));
+  assert(scan.includes('MALWARE_DETECTED') && scan.includes('no file retained') && !scan.includes('<img'));
   console.log('Chat table regression tests passed (Markdown, HTML, links, fences, sanitization).');
 } finally { await server.close(); }

@@ -1,6 +1,7 @@
 import AuthenticatedMediaImage, {
   AuthenticatedMediaAudio,
   AuthenticatedMediaVideo,
+  AuthenticatedMediaFile,
 } from './AuthenticatedMediaImage';
 import { guessChatMediaType, resolveMediaSrc } from '../utils/resolveMediaSrc';
 
@@ -91,6 +92,9 @@ export function collectGeneratedMediaUrlsFromToolCalls(toolCalls) {
       name !== 'generate_image' &&
       name !== 'generate_video' &&
       name !== 'speech_tts' &&
+      name !== 'download_file' &&
+      name !== 'download_pdf' &&
+      name !== 'summarize_url' &&
       name !== 'browse_task_status' &&
       name !== 'browse_task_start'
     ) continue;
@@ -162,6 +166,7 @@ export default function ChatToolCalls({ toolCalls, skillsUsed = [], showChartPre
             const kind = guessChatMediaType(src);
             if (kind === 'audio') return <AuthenticatedMediaAudio key={src} src={src} />;
             if (kind === 'video') return <AuthenticatedMediaVideo key={src} src={src} />;
+            if (['file', 'pdf', 'markdown'].includes(kind)) return <AuthenticatedMediaFile key={src} src={src} kind={kind} />;
             return <AuthenticatedMediaImage key={src} src={src} alt="Generated media" />;
           })}
         </div>
@@ -191,6 +196,13 @@ export default function ChatToolCalls({ toolCalls, skillsUsed = [], showChartPre
         </div>
       )}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', alignItems: 'center' }}>
+        {list.map((tc, i) => {
+          const scan = parseJsonMaybe(tc.response)?.security_scan;
+          if (!scan) return null;
+          return <span key={`scan-${tc.id || i}`} role="status" style={{ fontSize: '0.72rem', color: scan.status === 'clean' ? 'var(--text)' : '#ef4444' }}>
+            {scan.status === 'clean' ? '✓ ClamAV: clean' : `! ClamAV: ${scan.status} — discarded, no file retained`}
+          </span>;
+        })}
         <span style={{ fontSize: '0.7rem', color: 'var(--muted)', marginRight: 2 }} title="Tools used for this reply">
           Tools
         </span>

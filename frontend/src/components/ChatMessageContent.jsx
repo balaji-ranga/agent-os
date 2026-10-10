@@ -227,7 +227,7 @@ export default function ChatMessageContent({ content, hideAudio = false }) {
         if (seg.type === 'image') {
           return <AuthenticatedMediaImage key={i} src={seg.value} alt={seg.alt || 'Image'} />;
         }
-        if (seg.type === 'pdf' || seg.type === 'html' || seg.type === 'markdown') {
+        if (seg.type === 'pdf' || seg.type === 'html' || seg.type === 'markdown' || seg.type === 'file') {
           return <AuthenticatedMediaFile key={i} src={seg.value} kind={seg.type} />;
         }
         return null;

@@ -250,6 +250,11 @@ type PromptBuildContext = {
 };
 
 const PARAM_SCHEMAS: Record<string, Record<string, unknown>> = {
+  download_file: {
+    type: "object",
+    properties: { url: { type: "string", description: "Existing public HTTPS file URL" }, filename: { type: "string", description: "Optional attachment filename" } },
+    required: ["url"], additionalProperties: false,
+  },
   download_pdf: {
     type: "object",
     properties: { url: { type: "string", description: "Existing public HTTPS PDF download URL" }, filename: { type: "string", description: "Optional PDF filename" } },

@@ -1,5 +1,5 @@
 import { requestValidatedHttps, parsePublicHttpsUrl, SafeOutboundUrlError } from '../lib/ssrf.js';
-import { persistGeneratedOpenClawMedia } from './media-url.js';
+import { downloadFileForOwner } from './content-download.js';
 
 export const PDF_MAX_BYTES = 25 * 1024 * 1024;
 
@@ -47,13 +47,5 @@ export async function fetchPdfBytes(url, { allowedDomains, timeoutMs = 30000, re
 }
 
 export async function downloadPdfForOwner(ownerUserId, url, filename, options = {}) {
-  if (!ownerUserId) throw new SafeOutboundUrlError('Authenticated file owner required', 403);
-  const { bytes, finalUrl } = await fetchPdfBytes(url, options);
-  const originalFilename = pdfFilename(filename || new URL(finalUrl).pathname.split('/').pop());
-  const artifact = persistGeneratedOpenClawMedia(bytes, originalFilename, 'generated', ownerUserId);
-  return {
-    ok: true, ...artifact, filename: originalFilename, mime_type: 'application/pdf', size_bytes: bytes.length,
-    source_url: finalUrl,
-    summary: 'PDF downloaded as a file attachment, not summarized. Attach the returned MEDIA line; use document indexing/RAG for content questions.',
-  };
+  return downloadFileForOwner(ownerUserId, url, pdfFilename(filename), { ...options, validateBytes: validatePdfBytes, mimeType: 'application/pdf' });
 }

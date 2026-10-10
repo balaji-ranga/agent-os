@@ -24,6 +24,8 @@
     "test:goal-plan:intent": "node scripts/test-goal-plan-intent-classify.mjs",
     "test:ssrf": "node scripts/test-ssrf-outbound.js",
     "test:pdf-download": "node scripts/test-pdf-download.mjs",
+    "test:content-antivirus": "node scripts/test-content-download-antivirus.mjs",
+    "test:content-download": "node scripts/test-content-download.mjs",
     "test:work-steering": "node scripts/test-work-steering.mjs",
     "test:security:critical": "node scripts/test-critical-security-hardening.mjs",
     "test:blueprint-secrets": "node scripts/test-blueprint-secret-sanitize.js && node scripts/scan-blueprint-secrets.js",

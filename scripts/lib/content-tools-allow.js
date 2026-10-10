@@ -8,6 +8,7 @@ import { COO_CRM_ERP_READONLY_TOOLS } from '../../backend/src/lib/business-core-
  */
 export const REQUIRED_GLOBAL_CONTENT_TOOLS = [
   'download_pdf',
+  'download_file',
   'summarize_url',
   'generate_image',
   'generate_video',
@@ -106,6 +107,7 @@ export const BROWSER_SESSION_CONTENT_TOOLS = [
 /** Default COO (balserve) content tools.allow — merged on every container configure. */
 export const COO_CONTENT_TOOLS_ALLOW = [
   'download_pdf',
+  'download_file',
   'company_communications_history',
   'summarize_url',
   'generate_image',

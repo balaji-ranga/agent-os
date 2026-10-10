@@ -1,0 +1,34 @@
+# Mandatory for content download attachments. No scanner host ports.
+# Apply alongside the VPS compose overrides; backend retains its default network.
+services:
+  backend:
+    environment:
+      CONTENT_DOWNLOAD_AV_MODE: required
+      CONTENT_DOWNLOAD_CLAMAV_HOST: content-antivirus
+      CONTENT_DOWNLOAD_CLAMAV_PORT: "3310"
+    networks:
+      - default
+      - content_scan
+  content-antivirus:
+    image: ${CLAMAV_IMAGE:-clamav/clamav:1.4@sha256:57deb108fc4c72778aa83eafbca7bb7153e28c3f57c005afd38d31f16da86f23}
+    restart: unless-stopped
+    mem_limit: 4g
+    cpus: "1.0"
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - content_antivirus_signatures:/var/lib/clamav
+      - ./clamav/clamd.conf:/etc/clamav/clamd.conf:ro
+    networks:
+      - content_scan
+    healthcheck:
+      test: ["CMD", "clamdscan", "--ping", "1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 180s
+networks:
+  content_scan:
+    driver: bridge
+volumes:
+  content_antivirus_signatures:

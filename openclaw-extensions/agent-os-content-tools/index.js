@@ -215,6 +215,11 @@ function ownerUserIdFromSessionKey(sessionKey) {
 }
 
 const PARAM_SCHEMAS = {
+  download_file: {
+    type: "object",
+    properties: { url: { type: "string", description: "Existing public HTTPS file URL" }, filename: { type: "string", description: "Optional attachment filename" } },
+    required: ["url"], additionalProperties: false,
+  },
   download_pdf: {
     type: "object",
     properties: { url: { type: "string", description: "Existing public HTTPS PDF download URL" }, filename: { type: "string", description: "Optional PDF filename" } },
@@ -1138,7 +1143,7 @@ export default definePluginEntry({
                 (name === "generate_image" ||
                   name === "generate_chart" ||
                   name === "speech_tts" ||
-                  name === "generate_video" || name === "download_pdf" || (name === "summarize_url" && data?.mime_type === "application/pdf")) &&
+                  name === "generate_video" || name === "download_file" || name === "download_pdf" || (name === "summarize_url" && data?.mime_type === "application/pdf")) &&
                 data &&
                 typeof data === "object"
               ) {

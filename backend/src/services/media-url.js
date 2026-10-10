@@ -8,7 +8,7 @@
  * Signed ?exp=&sig= public fetch is OFF by default (MEDIA_PUBLIC_SIGNED=1 to re-enable).
  */
 import { createHmac, randomUUID, timingSafeEqual } from 'crypto';
-import { mkdirSync, writeFileSync } from 'fs';
+import { mkdirSync, writeFileSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { getPublicBaseUrl } from '../config/public-url.js';
 import { getOpenClawMediaDir } from '../config/openclaw-paths.js';
@@ -135,6 +135,7 @@ function webMarkdownForMedia(relative_url) {
   if (/\.(mp4|webm|ogv)(\?|$)/i.test(rel)) return `[🎬 Video](${rel})`;
   if (/\.pdf(\?|$)/i.test(rel)) return `[PDF attachment](${rel})`;
   if (/\.(md|markdown)(\?|$)/i.test(rel)) return `[Markdown attachment](${rel})`;
+  if (/\/downloads\//i.test(rel)) return `[File attachment](${rel})`;
   return `![generated](${rel})`;
 }
 
@@ -201,6 +202,10 @@ export function persistGeneratedOpenClawMedia(buffer, filenameHint = 'media.bin'
       });
     } catch (e) {
       console.warn('[media-url] ownership register failed', e?.message || e);
+      if (subdir === 'downloads') {
+        unlinkSync(local_path);
+        throw new Error('Attachment ownership registration failed; file removed.');
+      }
     }
   } else {
     console.warn('[media-url] persisted without ownerUserId', { subdir, filename });

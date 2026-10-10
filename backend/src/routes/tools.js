@@ -43,6 +43,8 @@ import {
 } from '../services/platform-feedback.js';
 import { saveInboundAttachment } from '../services/inbound-attachments.js';
 import { downloadPdfForOwner } from '../services/pdf-download.js';
+import { downloadFileForOwner } from '../services/content-download.js';
+import { updateChatActivity } from '../services/chat-live-activity.js';
 import { checkpointSteering, steeringPrompt } from '../services/work-steering.js';
 import socialResearchTools from './social-research-tools.js';
 import webScrapeTools from './web-scrape-tools.js';
@@ -1008,7 +1010,7 @@ router.post('/summarize-url', async (req, res) => {
         tried.push({ url: candidate, status: got.status, ok: got.ok });
         if (got.ok && got.pdf) {
           const owner = resolveToolOwnerUserIdOrNull(req, req.body || {}, resolveAuthenticatedCeoUserId);
-          const out = await downloadPdfForOwner(owner, got.finalUrl || candidate, req.body?.filename, { allowedDomains, timeoutMs });
+          const out = await downloadPdfForOwner(owner, got.finalUrl || candidate, req.body?.filename, { allowedDomains, timeoutMs, onProgress: downloadProgress(req, owner) });
           logTool(req, 'summarize_url', requestPayload, out, 'ok', source);
           return res.json(out);
         }
@@ -1020,6 +1022,7 @@ router.post('/summarize-url', async (req, res) => {
         }
         lastStatus = got.status;
       } catch (e) {
+        if (e.code?.startsWith('SCAN_') || e.code === 'MALWARE_DETECTED') throw e;
         if (e instanceof SafeOutboundUrlError) {
           console.warn('[summarize_url] blocked outbound hop reason=%s', e.message);
           fetchErr = e.message;
@@ -1097,27 +1100,38 @@ router.post('/summarize-url', async (req, res) => {
     logTool(req, 'summarize_url', { ...requestPayload, resolved_url: usedUrl }, out, 'ok', source);
     res.json(out);
   } catch (e) {
-    logTool(req, 'summarize_url', requestPayload, { error: 'Internal error' }, 'error', source);
-    res.status(e instanceof SafeOutboundUrlError ? e.status || 502 : 500).json({ error: e instanceof SafeOutboundUrlError ? e.message : 'Internal error' });
+    const out = { error: e instanceof SafeOutboundUrlError || e.code?.startsWith('SCAN_') || e.code === 'MALWARE_DETECTED' ? e.message : 'Internal error', code: e.code || undefined, security_scan: e.securityScan };
+    logTool(req, 'summarize_url', requestPayload, out, 'error', source);
+    res.status(e.status || 500).json(out);
   }
 });
 
-router.post('/download-pdf', async (req, res) => {
+function downloadProgress(req, owner) {
+  const session = req.headers['x-openclaw-session-key'] || req.headers['x-session-key'];
+  const context = lookupSessionExecutionContext(session, owner);
+  return event => {
+    if (context?.client_turn_id && context?.agent_id) updateChatActivity({ ownerUserId: owner, agentId: context.agent_id, turnId: context.client_turn_id }, event);
+  };
+}
+
+function downloadHandler(pdfOnly) { return async (req, res) => {
   const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
   const payload = { url: req.body?.url, filename: req.body?.filename };
   try {
     const owner = resolveToolOwnerUserIdOrNull(req, {}, resolveAuthenticatedCeoUserId);
     const { allowedDomains } = getSummarizeUrlConfig();
-    const out = await downloadPdfForOwner(owner, payload.url, payload.filename, { allowedDomains });
-    logTool(req, 'download_pdf', payload, out, 'ok', source);
+    const out = await (pdfOnly ? downloadPdfForOwner : downloadFileForOwner)(owner, payload.url, payload.filename, { allowedDomains, onProgress: downloadProgress(req, owner) });
+    logTool(req, pdfOnly ? 'download_pdf' : 'download_file', payload, out, 'ok', source);
     return res.json(out);
   } catch (e) {
-    const status = e instanceof SafeOutboundUrlError ? e.status || 502 : 502;
-    const out = { ok: false, error: e instanceof SafeOutboundUrlError ? e.message : 'PDF download failed; no file attached.' };
-    logTool(req, 'download_pdf', payload, out, 'error', source);
+    const status = e.status || 502;
+    const out = { ok: false, error: e instanceof SafeOutboundUrlError || e.code?.startsWith('SCAN_') || e.code === 'MALWARE_DETECTED' ? e.message : 'Download failed; no file attached.', code: e.code || undefined, security_scan: e.securityScan };
+    logTool(req, pdfOnly ? 'download_pdf' : 'download_file', payload, out, 'error', source);
     return res.status(status).json(out);
   }
-});
+}; }
+router.post('/download-pdf', downloadHandler(true));
+router.post('/download-file', downloadHandler(false));
 
 const GENERATED_MEDIA_DIR = getOpenClawMediaDir('generated');
 

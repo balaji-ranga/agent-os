@@ -76,6 +76,7 @@ function safeJson(raw, max = 4000) {
       const slim = {
         ok: parsed.ok,
         error: parsed.error,
+        security_scan: parsed.security_scan,
         topic: parsed.topic,
         days: parsed.days,
         owner_user_id: parsed.owner_user_id,

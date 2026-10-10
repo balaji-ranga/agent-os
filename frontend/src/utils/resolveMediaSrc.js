@@ -138,6 +138,11 @@ export function guessChatMediaType(url) {
   if (/^data:audio\//i.test(raw)) return 'audio';
   if (/^data:video\//i.test(raw)) return 'video';
   if (/^data:image\//i.test(raw) || /^data:/i.test(raw)) return 'image';
+  if (/\/downloads\//i.test(resolved)) {
+    if (pdfExt.test(resolved)) return 'pdf';
+    if (markdownExt.test(resolved)) return 'markdown';
+    return 'file';
+  }
   if (audioExt.test(resolved) || audioExt.test(raw)) return 'audio';
   if (videoExt.test(resolved) || videoExt.test(raw)) return 'video';
   if (pdfExt.test(resolved) || pdfExt.test(raw)) return 'pdf';
