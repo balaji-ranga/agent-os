@@ -8,9 +8,9 @@ All tools are owner-scoped; never pass an owner or CEO id.
 | `gmail_mailbox_review` | Review recent mail and create an immutable, summarized cleanup plan. Input: `{ "days": 7 }`. |
 | `gmail_mailbox_cleanup` | Move the exact reviewed candidates to Trash. Input: `{ "plan_id": "gcp-..." }`. R3 Action Control applies. |
 | `gmail_mailbox_cleanup_status` | Inspect an existing plan and its results. |
-| `connector_search_actions` | Discover the connected Gmail action id when needed. |
+| `connector_search_actions` | Discover actions relevant to the request across owner-available connectors. Use returned `actions[].action_id` only; check `granted` and `available`. Tracking IDs are not connector actions. |
 | `connector_get_action_guide` | Read the required input schema before executing a connector action. |
-| `connector_execute_action` | Execute only action-level-granted Gmail actions. Use `gmail.create_email_draft` (or `gmail.create_draft`) to save drafts. Sending and destructive actions are not granted. |
+| `connector_execute_action` | Execute only action-level-granted actions matching the request and guide, subject to Action Control. Use `gmail.create_email_draft` (or `gmail.create_draft`) to save drafts. A generic tool selection never grants sending or extra destructive actions. |
 | `learnings_summary` | Apply CEO feedback before non-trivial work. |
 | `kanban_move_status` | Maintain assigned task state. |
 | `notify_ceo` | Notify only when explicitly requested or a true unattended blocker exists. |

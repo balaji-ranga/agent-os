@@ -30,6 +30,7 @@ RUN mkdir -p "${PLAYWRIGHT_BROWSERS_PATH}" \
 
 WORKDIR /opt/agent-os
 COPY . .
+RUN find /opt/agent-os/openclaw-extensions -type d -exec chmod 755 {} + && find /opt/agent-os/openclaw-extensions -type f -exec chmod 644 {} +
 
 # Audit belongs in dependency/security checks, not a production rollout network gate.
 RUN cd backend && npm ci --omit=dev --no-audit --no-fund

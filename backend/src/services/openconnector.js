@@ -15,7 +15,8 @@ import {
   seedOpenConnectorOauthClientForAuthorize,
   withOpenConnectorOauthClientSeed,
 } from './openconnector-oauth-lease.js';
-import { classifyConnectorAction } from './connector-action-grants.js';
+import { classifyConnectorAction, assertCallerMayExecuteConnectorAction } from './connector-action-grants.js';
+import { connectorDiscoveryResult } from './connector-discovery.js';
 import { connectorExecutionError, invokeConnectorTransport, readConnectorMessagePages, retryConnectorRead } from './connector-execution-policy.js';
 import { resolveToolRiskMapping } from './tool-risk-mappings.js';
 
@@ -567,6 +568,41 @@ export async function searchConnectorApps(userId, query = '') {
   }
 }
 
+/** Agent discovery returns actionable, owner-available capabilities rather than app names. */
+export async function searchConnectorActions(userId, query = '', { source = '', appId = '' } = {}) {
+  const q = String(query || '').trim().slice(0, 2000);
+  const requestedApp = String(appId || '').trim().toLowerCase();
+  if (requestedApp && !/^[a-z0-9_-]+$/.test(requestedApp)) throw new Error('Invalid app_id');
+  const connected = await getConnectedConnectorApps(userId);
+  const services = new Map(connected.apps.filter(a => a.connected).map(a => [a.id, a]));
+  // Public no-key service; never mark suggested OAuth apps as connected.
+  services.set('hackernews', { id: 'hackernews', name: 'Hacker News', connected: false, public: true });
+  const candidates = requestedApp ? [requestedApp] : [...services.keys()];
+  const errors = [];
+  const load = async service => {
+    const catalog = await listConnectorActions(userId, service);
+    if (catalog.error) errors.push({app_id:service, error:catalog.error});
+    const app = services.get(service);
+    return catalog.actions.map(action => {
+      const grant = assertCallerMayExecuteConnectorAction(source, action.id);
+      return {
+        id: action.id, action_id: action.id, app_id: service,
+        app_name: providerDisplayName(service), description: action.description,
+        input_schema: action.input_schema, example_input: action.example_input || {},
+        risk_tier: action.risk_tier, action_family: action.action_family,
+        available: !!(app?.connected || app?.public), granted: !!grant.ok,
+        blocked_reason: !grant.ok ? grant.error : !(app?.connected || app?.public) ? 'Owner connection required' : null,
+      };
+    });
+  };
+  const batches = [];
+  // Bound concurrency without silently excluding the owner's later connectors.
+  for (let i = 0; i < candidates.length; i += 4) {
+    batches.push(...await Promise.all(candidates.slice(i, i + 4).map(load)));
+  }
+  return { ...connectorDiscoveryResult(batches.flat(), q), errors };
+}
+
 export async function listConnectorActions(userId, appId, query = '') {
   const q = String(query || '').trim();
   const service = String(appId || '').trim();
@@ -626,7 +662,9 @@ export async function getConnectorActionGuide(userId, actionId) {
   const inputSchema = metaObj?.inputSchema || metaObj?.input_schema || null;
   const outputSchema = metaObj?.outputSchema || metaObj?.output_schema || null;
   const description = String(metaObj?.description || '').trim();
-  const exampleInput = exampleInputFromSchema(inputSchema || {});
+  const exampleInput = /^hackernews\.(get_latest_posts|search_posts)$/.test(id)
+    ? {...exampleInputFromSchema(inputSchema || {}),page:0,size:20,tags:['story']}
+    : exampleInputFromSchema(inputSchema || {});
 
   let guide = '';
   try {
@@ -656,6 +694,8 @@ export async function getConnectorActionGuide(userId, actionId) {
 
   return {
     action_id: id,
+    task_guidance: /^hackernews\.(get_latest_posts|search_posts)$/.test(id)
+      ? connectorDiscoveryResult([{id,app_id:'hackernews'}], 'news').task_guidance : [],
     guide: String(guide || ''),
     description,
     input_schema: inputSchema,

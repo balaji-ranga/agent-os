@@ -23,7 +23,20 @@
 
 The platform captures goal-bound tool results under the current `goal_run_id + goal_step_id`. The outcome validator reuses those captured results and does not repeat side-effecting work.
 
+## Contextual connector selection
+
+When connector tools are granted, choose the connector from the user's requested outcome, not your agent's title. A Gmail specialist can use a separately granted public-news action for an AI-news request; a request to search the mailbox must still use Gmail.
+
+1. Call **connector_search_actions** with the task description (optionally `app_id` to narrow to an explicitly requested connector). Inspect `actions[]`, `granted`, `available`, and `blocked_reason`.
+2. Choose the relevant returned **`actions[].action_id`**, read **connector_get_action_guide**, and supply the exact required inputs to **connector_execute_action**. Never copy `_execution.action_id`, `tea-*`, or another tracking ID into connector inputs. Never invent an action ID.
+3. Discovery and `/` tool selection do not grant connector access. Existing owner isolation, action grants and Action Control still apply. If unavailable, explain the precise missing connection, permission, or input; do not silently replace the requested source.
+4. For news, return article links and timestamps from current successful results. Top/front-page or relevance-ranked stories are not necessarily the latest; apply the requested topic and recency filters. Follow discovery `task_guidance`: use submission `created_at`, never index `updated_at`, and label HN submission dates separately from unverified article publication dates. Reject substring-only topic matches (Airfoil is not AI). Never invent topic tags or pad the answer with unrelated/old stories.
+
 ## Learnings (required before non-trivial work)
+
+### Authenticated steering (all agents and channels)
+
+Guidance labelled **Authenticated user steer guidance** is attached to the SAME work item, not a new task or a restart. Carry each item into remaining reasoning/tool selection and the final deliverable. If the user adds fintech to AI research, address BOTH topics with relevant current-run evidence; do not merely acknowledge the extra topic. Explicitly explain any conflict, unavailable permission/data, or deferral to a later contracted step. Never silently drop guidance. Queued/delivered is not proof of application. Do not repeat completed actions, change an approved plan, bypass approvals/budgets/risk limits, or enable Live. A bounded completion reconciliation may permit only granted read-only research; explain any remaining write/plan changes instead of executing them.
 
 1. Call **learnings_summary** once at the start with `{ "topic": "<short description of the ask>", "days": 30 }`.
 2. Read the returned `summary` and apply it (avoid past rejects; prefer what the CEO liked). **Chat 👎 comments are hard rules** — especially when they mention browser/recipe mistakes.

@@ -5,6 +5,7 @@ import { enquireContentTools } from './content-tools-meta.js';
 import { getAgentToolGrants } from './openclaw-agent-tools.js';
 import { getAgentMcpBridgeGrants } from './agent-mcp-tool-grants.js';
 import { OPENCLAW_TOOL_PRIORITY } from './openclaw-runtime-tools.js';
+import { steeringToolBlock } from '../../../openclaw-extensions/agent-os-content-tools/steering-guard.js';
 
 export const SESSION_TOOL_SCOPES_PATH = join(
   getOpenClawDir(),
@@ -144,4 +145,29 @@ export function removeSessionToolScope(sessionKey) {
   delete scopes[key];
   writeScopes(scopes);
   return true;
+}
+
+/** A temporary, narrower scope for one same-work reconciliation; never broadens grants. */
+export async function withSteeringReconciliation(sessionKey, run) {
+  const key = String(sessionKey || '').trim();
+  if (!key) throw new Error('Reconciliation requires a registered session');
+  const scopes = pruneExpired(readScopes());
+  const previous = scopes[key];
+  const research = ['connector_search_actions','connector_get_action_guide','connector_execute_action','brave_web_search','summarize_url'];
+  scopes[key] = {
+    tools: previous ? research.filter(n => previous.tools.includes(n)) : research,
+    steering_reconcile: true,
+    expires_at: new Date(Date.now()+5*60*1000).toISOString(),
+  };
+  writeScopes(scopes);
+  try { return await run(); }
+  finally {
+    const latest = pruneExpired(readScopes());
+    if (previous) latest[key] = previous; else delete latest[key];
+    writeScopes(latest);
+  }
+}
+
+export function steeringReconciliationBlock(sessionKey, toolName, params) {
+  return steeringToolBlock(readScopes()[String(sessionKey || '')], toolName, params);
 }

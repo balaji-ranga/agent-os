@@ -76,7 +76,15 @@ export default function WorkSteering({ agentId = null, iconOnly = false }) {
         </form>
         {error && <p role="alert" style={{ color: 'var(--danger)' }}>{error}</p>}
         {notice && <p role="status">{notice}</p>}
-        {!!notes.length && <div className="work-steer-history"><h3>Guidance delivery</h3>{notes.map(n => <article key={n.id}><small>{n.status === 'delivered' ? `Delivered to agent context · ${n.checkpoint} · application unverified` : n.status === 'not_applied' ? 'Not applied — work ended before delivery' : n.status}</small><p>{n.message}</p></article>)}</div>}
+        {!!notes.length && <div className="work-steer-history"><h3>Guidance delivery and coverage</h3>{notes.map(n => {
+          let resolution; try { resolution = JSON.parse(n.resolution_json || '{}'); } catch { resolution = {}; }
+          const label = n.status === 'delivered' ? `Delivered to agent context · ${n.checkpoint} · application unverified`
+            : n.status === 'applied' ? 'Applied — completion coverage verified'
+            : n.status === 'acknowledged' ? 'Acknowledged — blocked, conflicting or deferred; not proof of execution'
+            : n.status === 'unverified' ? 'Delivered — completion coverage could not be verified'
+            : n.status === 'not_applied' ? 'Not applied' : n.status;
+          return <article key={n.id}><small>{label}</small><p>{n.message}</p>{resolution.reason && <small>{resolution.reason}</small>}</article>;
+        })}</div>}
       </section>
     </div>}
   </>;

@@ -387,7 +387,7 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/connector-search-actions',
     method: 'POST',
     purpose:
-      'API tool: search the OpenConnector catalog for actions/apps. Pass query (e.g. gmail send, github issues). Returns action ids suitable for connector_execute_action.',
+      'API tool: choose connector actions from task context across owner-connected apps and public Hacker News. Pass query; optional app_id narrows the source. Returns actions[].action_id, inputs, granted/available and blocked_reason. Read the action guide before execution. Never use _execution.action_id or tea-* tracking IDs as connector actions. Discovery does not grant permissions.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,

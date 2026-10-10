@@ -50,6 +50,7 @@ COPY openclaw-workspace-templates ./openclaw-workspace-templates
 COPY openclaw-skills ./openclaw-skills
 COPY .cursor/skills/ibkrnew-trade-strategy ./openclaw-skills/ibkrnew-trade-strategy
 COPY openclaw-extensions ./openclaw-extensions
+RUN find /opt/agent-os/openclaw-extensions -type d -exec chmod 755 {} + && find /opt/agent-os/openclaw-extensions -type f -exec chmod 644 {} +
 COPY deploy ./deploy
 # Seeded as Master Data "Flolah User Guide" for every CEO (register + startup backfill; protected from purge/delete)
 COPY README.md ./README.md

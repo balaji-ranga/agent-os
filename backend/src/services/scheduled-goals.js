@@ -23,7 +23,7 @@ import {
   discardGoalPlanningRun,
 } from './agent-goal-run.js';
 import { normalizeDeliverTo, deliverScheduledGoalOutcome } from './agent-channel-announce.js';
-import { consumeWorkSteering, steeringPrompt, closeWorkSteering } from './work-steering.js';
+import { consumeWorkSteering, steeringPrompt, closeWorkSteering, handoffWorkSteering } from './work-steering.js';
 import { registerOpenClawSessionOwner } from './tool-owner-scope.js';
 
 const CADENCES = new Set(['hourly', 'daily', 'weekdays', 'weekly']);
@@ -600,7 +600,9 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
 
   const agent = resolveAgentForOwner(ownerUserId, row.agent_id);
   // A schedule steer is one-fire guidance, not a permanent prompt/cadence change.
-  const guidance = steeringPrompt(consumeWorkSteering(ownerUserId, 'schedule', id, `schedule_dispatch:${runId}`));
+  const scheduleGuidanceNotes = consumeWorkSteering(ownerUserId, 'schedule', id, `schedule_dispatch:${runId}`);
+  const guidance = steeringPrompt(scheduleGuidanceNotes);
+  handoffWorkSteering(ownerUserId, 'schedule', id, 'schedule_run', runId, scheduleGuidanceNotes.map(n => n.id));
   const steeredPrompt = row.prompt + guidance;
   let openclawId = agent.openclaw_agent_id || agent.id;
   try { openclawId = ensureTenantOpenClawAgent(agent, ownerUserId).openclawAgentId; }
@@ -663,6 +665,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
         goalRunId: planningGoal?.id || null,
       });
       const g = started?.goal || getGoalRun(started?.goal?.id || started?.id, ownerUserId);
+      if (g?.id) handoffWorkSteering(ownerUserId, 'schedule_run', runId, 'goal', g.id);
       closeWorkSteering(ownerUserId, 'schedule_run', runId);
       const exec = started?.execution || started;
       const firstWf = exec?.workflow_run_id || exec?.run_id || null;
@@ -708,7 +711,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
 
   try {
     console.log(`[scheduled-goals] firing id=${id} agent=${openclawId} run_key=${runKey}`);
-    registerOpenClawSessionOwner(openclaw.sessionKeyFor(openclawId, sessionUser), ownerUserId, null, 'schedule', { scheduled_goal_run_id: runId });
+    registerOpenClawSessionOwner(openclaw.sessionKeyFor(openclawId, sessionUser), ownerUserId, null, 'schedule', { scheduled_goal_run_id: runId, original_request: row.prompt, resolved_request: row.prompt });
     const { content } = await openclaw.chatCompletions(
       openclawId, [{ role: 'user', content: prompt }], sessionUser, false,
       {

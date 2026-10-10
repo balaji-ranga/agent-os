@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { formatChatTimestamp } from '../utils/formatDateTime.js';
 import { goalOriginLabel, goalPlanTracePath } from './GoalPlanTelemetry';
+export { collectGoalRunIds } from '../utils/chatGoalReferences.js';
 
 function statusColor(status) {
   const s = String(status || '').toLowerCase();
@@ -334,25 +335,4 @@ export default function GoalPlanPanel({
       ) : null}
     </div>
   );
-}
-
-/** Extract agr-* ids from free text and tool payloads. */
-export function collectGoalRunIds({ text = '', toolCalls = [] } = {}) {
-  const found = new Set();
-  const re = /\bagr-[a-f0-9]{8,}\b/gi;
-  const scan = (v) => {
-    if (v == null) return;
-    const s = typeof v === 'string' ? v : JSON.stringify(v);
-    let m;
-    while ((m = re.exec(s))) found.add(m[0]);
-  };
-  scan(text);
-  for (const tc of toolCalls || []) {
-    const name = String(tc.tool_name || '');
-    if (!name.startsWith('agent_goal_')) continue;
-    scan(tc.request);
-    scan(tc.response);
-  }
-  // Prefer full create response id first via parse of agent_goal_create response
-  return [...found];
 }

@@ -239,6 +239,18 @@ export function listToolCallsForAgentWindow(agentId, ownerUserId, fromIso, toIso
  * @param {string} agentId
  * @param {string} ownerUserId
  */
+export function toolsForChatTurn(turn, calls, { work = null, legacyFrom = null } = {}) {
+  const from = work?.created_at || legacyFrom || turn.created_at;
+  // Keep compatibility for pre-work-linkage history; linked work has no future pad.
+  const to = work || turn.work_unit_id ? turn.created_at : bumpIsoMinutes(turn.created_at, 2);
+  return calls.filter(tc => {
+    const linked = tc.request?._work_unit_id;
+    // Explicit linkage wins, including late receipts. Never borrow another work's tools.
+    if (linked) return !!turn.work_unit_id && linked === turn.work_unit_id;
+    return inTimeWindow(tc.created_at, from, to);
+  }).slice(-80);
+}
+
 export function attachToolCallsToChatTurns(turns, agentId, ownerUserId) {
   if (!Array.isArray(turns) || !turns.length) return turns || [];
 
@@ -266,12 +278,13 @@ export function attachToolCallsToChatTurns(turns, agentId, ownerUserId) {
     const from = prevAssistantAt
       ? bumpIsoMinutes(prevAssistantAt, 0)
       : bumpIsoMinutes(t.created_at, -180);
-    const to = bumpIsoMinutes(t.created_at || from, 2);
     prevAssistantAt = t.created_at || prevAssistantAt;
-
-    const tool_calls = allTools
-      .filter((tc) => inTimeWindow(tc.created_at, from, to))
-      .slice(-80);
+    // A new/isolated chat can contain only its latest reply. The old 3-hour
+    // lookback attached earlier goals, downloads and scans to unrelated work.
+    const work = t.work_unit_id ? getDb().prepare(
+      'SELECT created_at FROM chat_work_units WHERE id=? AND owner_user_id=? AND agent_id=?'
+    ).get(t.work_unit_id, ownerUserId, agentId) : null;
+    const tool_calls = toolsForChatTurn(t, allTools, {work, legacyFrom:from});
     return { ...t, tool_calls };
   });
 }

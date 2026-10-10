@@ -125,6 +125,22 @@ function getGatewayToken() {
  * @param {boolean} [stream] - If true, return async iterable of SSE chunks
  */
 export async function chatCompletions(agentId, messages, sessionUser = null, stream = false, options = {}) {
+  // Only trusted, registered work contexts enter this boundary. Internal LLM utilities,
+  // unsteered calls and streaming keep their existing transport/route behavior.
+  if (!stream && sessionUser) {
+    const { lookupOpenClawSessionOwner, lookupSessionExecutionContext } = await import('../services/tool-owner-scope.js');
+    const sessionKey = sessionKeyFor(agentId || 'main', sessionUser);
+    const owner = lookupOpenClawSessionOwner(sessionKey);
+    const context = owner && lookupSessionExecutionContext(sessionKey, owner);
+    if (context && ['work_unit_id','delegation_task_id','goal_run_id','scheduled_goal_run_id'].some(k => context[k])) {
+      const { completeWithSteering } = await import('../services/steering-completion.js');
+      return completeWithSteering({owner,context,sessionKey,messages,complete: next => rawChatCompletions(agentId,next,sessionUser,false,options)});
+    }
+  }
+  return rawChatCompletions(agentId, messages, sessionUser, stream, options);
+}
+
+async function rawChatCompletions(agentId, messages, sessionUser = null, stream = false, options = {}) {
   const url = `${getGatewayUrl()}/v1/chat/completions`;
   const token = getGatewayToken();
   const injectSessionHistoryInstruction = options.injectSessionHistoryInstruction !== false;

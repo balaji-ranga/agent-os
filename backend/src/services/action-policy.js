@@ -19,7 +19,7 @@ import {
   recordPendingChatAction,
 } from './chat-action-approval.js';
 import { getBoundMcpPolicy } from './agent-mcp-tool-grants.js';
-import { resolveSessionMcpTarget } from './openclaw-session-tool-scope.js';
+import { resolveSessionMcpTarget, steeringReconciliationBlock } from './openclaw-session-tool-scope.js';
 import { resolvePolicyToolRiskMapping } from './tool-risk-mappings.js';
 
 export const ACTION_FAMILIES = Object.freeze([
@@ -695,6 +695,12 @@ export function actionPolicyMiddleware(req, res, next) {
         needs_approval: false,
       });
     }
+    if (/^tea-/i.test(actionId)) {
+      return res.status(400).json({
+        ok: false, status: 400, failure_class: 'invalid_tool_arguments', needs_approval: false,
+        error: 'Platform execution tracking IDs are not connector actions. Use actions[].action_id from connector_search_actions.',
+      });
+    }
   }
 
   let policyToolName = toolName === 'connector_execute_action'
@@ -705,6 +711,8 @@ export function actionPolicyMiddleware(req, res, next) {
   ).trim();
   const policyAgentId = parseTenantOpenClawAgentId(rawAgentId)?.baseOpenClawId || rawAgentId;
   const sessionKey = String(req.headers['x-openclaw-session-key'] || req.headers['x-session-key'] || '').trim();
+  const steerBlock = steeringReconciliationBlock(sessionKey, toolName, req.body || {});
+  if (steerBlock) return res.status(403).json({ok:false,error:steerBlock,failure_class:'steering_read_only_boundary',needs_approval:false});
   const channel = String(req.headers['x-openclaw-message-channel'] || req.headers['x-flolah-actor-channel'] || 'web').trim().toLowerCase();
 
   let ownerUserId = null;

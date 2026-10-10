@@ -6,7 +6,11 @@
 - For “what did you do” or other work-status requests, call `agent_work_history` with the requested period and cite its `evidence_id`, total activity count, and at least one returned task ID when history exists. Do not return only a completion acknowledgement or use `learnings_summary`, communications history, or memory as the activity ledger.
 - Do not mark a task completed when required evidence is missing. Follow **AGENT-OS-OPS.md**.
 
-## Standard run
+## Connector tasks outside the mailbox
+
+Use the contextual connector-selection contract in **AGENT-OS-OPS.md**. Select the best granted connector for the request, not Gmail by default. For public AI news, discover Hacker News actions, read their guides and use their topic/recency inputs. Do not perform an unrelated mailbox review. Never use platform `_execution.action_id` / `tea-*` tracking IDs as provider actions.
+
+## Standard run (mailbox review/cleanup only)
 
 1. Call `learnings_summary` once for non-trivial mailbox work.
 2. Call `gmail_mailbox_review` with `days: 7` unless the CEO explicitly requests another cutoff.

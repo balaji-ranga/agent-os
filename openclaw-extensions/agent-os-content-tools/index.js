@@ -6,6 +6,7 @@
 import { readFileSync, existsSync, statSync } from "fs";
 import { join } from "path";
 import { registerFlolahCommands } from "./slash-commands.js";
+import { steeringToolBlock } from "./steering-guard.js";
 // Volume-mounted extensions cannot resolve the `openclaw` package name via bare
 // Node; OpenClaw's loader can, but absolute path works in both contexts.
 import { definePluginEntry } from "/usr/local/lib/node_modules/openclaw/dist/plugin-sdk/plugin-entry.js";
@@ -1070,6 +1071,11 @@ export default definePluginEntry({
   register(api) {
     registerFlolahCommands(api, { baseUrl: String(resolvePluginConfig(api).baseUrl || '').trim(), brokerSecret: loadToolBrokerSecret });
     if (typeof api.on === "function") {
+      api.on("before_tool_call", (event, ctx) => {
+        const scope = loadSessionAllowlists()[ctx?.sessionKey || safeApiSessionKey(api)];
+        const reason = steeringToolBlock(scope, event?.toolName || ctx?.toolName, event?.params);
+        if (reason) return { block: true, blockReason: reason };
+      }, { priority: 100 });
       api.on("before_prompt_build", async (event, ctx) => {
         const result = await correlateInboundCampaign(api, event, ctx);
         if (!result?.matched) return;
@@ -1176,7 +1182,10 @@ export default definePluginEntry({
                   };
                 }
               }
-              return { content: [{ type: "text", text: JSON.stringify(data) }] };
+              return { content: [
+                ...(data?._steering?.instruction ? [{ type:"text", text:data._steering.instruction }] : []),
+                { type: "text", text: JSON.stringify(data) },
+              ] };
             },
           };
         },

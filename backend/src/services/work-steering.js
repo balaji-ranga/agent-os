@@ -12,6 +12,10 @@ export function createSteeringStore(db, { chatActive = () => true } = {}) {
     delivered_at TEXT, checkpoint TEXT, actor_user_id TEXT NOT NULL,
     PRIMARY KEY(owner_user_id,id));
     CREATE INDEX IF NOT EXISTS idx_work_steering_target ON work_steering(owner_user_id,target_kind,target_id,status);`);
+  const columns = db.prepare('PRAGMA table_info(work_steering)').all().map(r => r.name);
+  for (const name of ['resolution_json', 'source_note_id']) {
+    if (!columns.includes(name)) db.exec(`ALTER TABLE work_steering ADD COLUMN ${name} TEXT`);
+  }
   function target(owner, kind, id) {
     let row;
     if (kind === 'chat') {
@@ -45,7 +49,7 @@ export function createSteeringStore(db, { chatActive = () => true } = {}) {
     db.prepare("UPDATE work_steering SET status='expired' WHERE owner_user_id=? AND target_kind=? AND target_id=? AND status='queued' AND expires_at<=datetime('now')").run(owner, kind, String(id));
     try { target(owner, kind, id); }
     catch (e) { if ([404,409].includes(e.status)) close(owner, kind, id); else throw e; }
-    return db.prepare('SELECT id,target_kind,target_id,agent_id,message,status,created_at,delivered_at,checkpoint FROM work_steering WHERE owner_user_id=? AND target_kind=? AND target_id=? ORDER BY created_at DESC LIMIT 20').all(owner, kind, String(id));
+    return db.prepare('SELECT id,target_kind,target_id,agent_id,message,status,created_at,delivered_at,checkpoint,resolution_json,source_note_id FROM work_steering WHERE owner_user_id=? AND target_kind=? AND target_id=? ORDER BY created_at DESC LIMIT 20').all(owner, kind, String(id));
   }
   function enqueue(owner, actor, { target_kind: kind, target_id: id, message, idempotency_key: key }) {
     if (!owner || !actor) fail('Authenticated owner and actor required', 403);
@@ -60,7 +64,7 @@ export function createSteeringStore(db, { chatActive = () => true } = {}) {
         return old;
       }
       const work = target(owner, kind, id);
-      const count = db.prepare("SELECT count(*) AS n FROM work_steering WHERE owner_user_id=? AND target_kind=? AND target_id=? AND status IN ('queued','delivered')").get(owner, kind, String(id)).n;
+      const count = db.prepare("SELECT count(*) AS n FROM work_steering WHERE owner_user_id=? AND target_kind=? AND target_id=?").get(owner, kind, String(id)).n;
       if (count >= 20) fail('This work already has 20 guidance notes', 409);
       db.prepare(`INSERT INTO work_steering(id,owner_user_id,target_kind,target_id,agent_id,message,expires_at,actor_user_id) VALUES(?,?,?,?,?,?,datetime('now',?),?)`).run(rowId, owner, kind, String(id), work.agent_id, text, kind === 'schedule' ? '+7 days' : '+1 day', actor);
       return db.prepare('SELECT * FROM work_steering WHERE owner_user_id=? AND id=?').get(owner, rowId);
@@ -75,7 +79,39 @@ export function createSteeringStore(db, { chatActive = () => true } = {}) {
     })();
   }
   const close = (owner, kind, id) => db.prepare("UPDATE work_steering SET status='not_applied',checkpoint='work_ended_before_checkpoint' WHERE owner_user_id=? AND target_kind=? AND target_id=? AND status='queued'").run(owner, kind, String(id));
-  return { target, listTargets, history, enqueue, consume, close };
+  function active(owner, kind, id, checkpoint) {
+    consume(owner, kind, id, checkpoint);
+    return db.prepare("SELECT id,message,target_kind,target_id,status FROM work_steering WHERE owner_user_id=? AND target_kind=? AND target_id=? AND status IN ('delivered','acknowledged','applied') ORDER BY created_at,id").all(owner, kind, String(id));
+  }
+  function settle(owner, note, result) {
+    const status = ['applied','acknowledged','not_applied','unverified'].includes(result.status) ? result.status : 'unverified';
+    const row = db.prepare('SELECT source_note_id FROM work_steering WHERE owner_user_id=? AND id=? AND target_kind=? AND target_id=?').get(owner, note.id, note.target_kind, String(note.target_id));
+    if (!row) return;
+    const payload = JSON.stringify({ reason: String(result.reason || '').slice(0, 1200), checked_at: new Date().toISOString(), verification: 'completion_coverage_check' });
+    // Applied evidence is sticky across later goal steps; acknowledgement isn't proof of execution.
+    const update = db.prepare("UPDATE work_steering SET status=?,resolution_json=? WHERE owner_user_id=? AND id=? AND status!='applied'");
+    update.run(status, payload, owner, note.id);
+    let sourceId = row.source_note_id;
+    const seen = new Set([note.id]);
+    while (sourceId && !seen.has(sourceId) && seen.size < 10) {
+      seen.add(sourceId);
+      update.run(status, payload, owner, sourceId);
+      sourceId = db.prepare('SELECT source_note_id FROM work_steering WHERE owner_user_id=? AND id=?').get(owner, sourceId)?.source_note_id;
+    }
+  }
+  function handoff(owner, fromKind, fromId, toKind, toId, noteIds = null) {
+    return db.transaction(() => {
+      const rows = active(owner, fromKind, fromId, `handoff:${toKind}:${toId}`).filter(n => !noteIds || noteIds.includes(n.id));
+      for (const row of rows) {
+        const source = db.prepare('SELECT * FROM work_steering WHERE owner_user_id=? AND id=?').get(owner, row.id);
+        if (db.prepare('SELECT id FROM work_steering WHERE owner_user_id=? AND source_note_id=? AND target_kind=? AND target_id=?').get(owner, row.id, toKind, String(toId))) continue;
+        db.prepare(`INSERT INTO work_steering(id,owner_user_id,target_kind,target_id,agent_id,message,status,expires_at,delivered_at,checkpoint,actor_user_id,source_note_id) VALUES(?,?,?,?,?,?,'delivered',?,datetime('now'),?,?,?)`)
+          .run(randomUUID(), owner, toKind, String(toId), source.agent_id, source.message, source.expires_at, `handoff:${fromKind}:${fromId}`, source.actor_user_id, row.id);
+      }
+      return rows;
+    })();
+  }
+  return { target, listTargets, history, enqueue, consume, close, active, settle, handoff };
 }
 
 const store = () => createSteeringStore(getDb(), { chatActive: (agent, owner, workId) => lookupActiveDashboardChat(agent, owner)?.work_unit_id === workId });
@@ -84,21 +120,22 @@ export const queueWorkSteering = (owner, actor, body) => store().enqueue(owner, 
 export const listWorkSteering = (owner, kind, id) => store().history(owner, kind, id);
 export const closeWorkSteering = (owner, kind, id) => store().close(owner, kind, id);
 export const consumeWorkSteering = (owner, kind, id, checkpoint) => store().consume(owner, kind, id, checkpoint);
+export const settleWorkSteering = (owner, note, result) => store().settle(owner, note, result);
+export const handoffWorkSteering = (owner, fromKind, fromId, toKind, toId, noteIds) => store().handoff(owner, fromKind, fromId, toKind, toId, noteIds);
 export function steeringPrompt(notes) {
   if (!notes?.length) return '';
   return '\n\n[Authenticated user steer guidance — same work, not a new task]\n' +
-    'Consider this guidance for remaining work only. Do not repeat completed actions, restart/cancel work, expand permissions, bypass approvals or risk limits, or change trading mode. Explain any conflict with the assigned scope. Delivery is not proof of application.\n' +
+    'Incorporate each guidance item into the remaining work and final answer, or explicitly explain its conflict, missing permission/data, or deferred step. Do not silently ignore it. Do not repeat completed actions, restart/cancel work, expand permissions, bypass approvals or risk limits, or change trading mode. Delivery is not proof of application.\n' +
     notes.map(n => `Guidance ${n.id}: ${n.message}`).join('\n');
 }
 export function goalSteeringPrompt(owner, id, checkpoint) {
-  consumeWorkSteering(owner, 'goal', id, checkpoint);
-  return steeringPrompt(listWorkSteering(owner, 'goal', id).filter(n => n.status === 'delivered').reverse());
+  return steeringPrompt(store().active(owner, 'goal', id, checkpoint));
 }
 export function checkpointSteering(owner, context, checkpoint) {
   if (!owner || !context) return [];
   const notes = [];
   for (const [key, kind] of [['work_unit_id','chat'], ['delegation_task_id','task'], ['goal_run_id','goal'], ['scheduled_goal_run_id','schedule_run']]) {
-    if (context[key]) notes.push(...consumeWorkSteering(owner, kind, context[key], checkpoint));
+    if (context[key]) notes.push(...store().active(owner, kind, context[key], checkpoint));
   }
   return notes;
 }

@@ -3091,7 +3091,7 @@ async function executeCompositionalToolViaAgent(goal, step, toolName) {
     console.warn('[goal-run] chat user turn (interpreted tool):', e?.message || e);
   }
 
-  registerOpenClawSessionOwner(openclaw.sessionKeyFor(openclawId, sessionUser), goal.owner_user_id, null, 'goal', { goal_run_id: goal.id, goal_step_id: step.id });
+  registerOpenClawSessionOwner(openclaw.sessionKeyFor(openclawId, sessionUser), goal.owner_user_id, null, 'goal', { goal_run_id: goal.id, goal_step_id: step.id, scheduled_goal_run_id: goal.scheduled_goal_run_id });
   const { content } = await openclaw.chatCompletions(
     openclawId,
     [{ role: 'user', content: prompt + goalSteeringPrompt(goal.owner_user_id, goal.id, `agent_tool:${step.id}`) }],

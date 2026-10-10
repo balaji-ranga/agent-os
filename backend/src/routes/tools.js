@@ -180,7 +180,7 @@ import {
   executeConnectorAction,
   getConnectedConnectorApps,
   getConnectorActionGuide,
-  searchConnectorApps,
+  searchConnectorActions,
 } from '../services/openconnector.js';
 import { assertCallerMayExecuteConnectorAction } from '../services/connector-action-grants.js';
 import {
@@ -326,7 +326,7 @@ function logTool(req, toolName, requestPayload, responsePayload, status, source 
   const owner = ownerForToolLog(req, requestPayload);
   const session = req.headers['x-openclaw-session-key'] || req.headers['x-session-key'];
   const context = lookupSessionExecutionContext(session, owner);
-  const payload = requestPayload && typeof requestPayload === 'object' ? { ...requestPayload, _chat_turn_id: context?.client_turn_id || null } : requestPayload;
+  const payload = requestPayload && typeof requestPayload === 'object' ? { ...requestPayload, _chat_turn_id: context?.client_turn_id || null, _work_unit_id: context?.work_unit_id || null } : requestPayload;
   logContentTool(toolName, payload, responsePayload, status, source, owner);
 }
 
@@ -3084,7 +3084,9 @@ router.post('/connector-search-actions', optionalAuth, async (req, res) => {
       '';
     const out = {
       ok: true,
-      ...(await searchConnectorApps(ownerUserId, query)),
+      ...(await searchConnectorActions(ownerUserId, query, {
+        source, appId: requestPayload.app_id || requestPayload.service || '',
+      })),
     };
     logTool(req, 'connector_search_actions', requestPayload, out, 'ok', source);
     res.json(out);
