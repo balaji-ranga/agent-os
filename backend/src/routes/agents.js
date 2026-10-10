@@ -13,6 +13,7 @@ import {
   userCanAccessAgent,
 } from '../services/agent-chat-scope.js';
 import { registerOpenClawSessionOwner, registerActiveDashboardChat, clearActiveDashboardChat } from '../services/tool-owner-scope.js';
+import { closeWorkSteering } from '../services/work-steering.js';
 import { resolveChatReply, workUnitBrowserEvidence } from '../services/chat-reply-context.js';
 import * as openclaw from '../gateway/openclaw.js';
 import { tryTriggerWorkflowFromChat } from '../services/agent-workflow-runner.js';
@@ -1667,6 +1668,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     } finally {
       removeSessionToolScope(sessionKey);
       clearActiveDashboardChat(agentId, ownerUserId);
+      try { closeWorkSteering(ownerUserId, 'chat', turnRoute.id); } catch (e) { console.warn('[work-steering] close chat:', e.message); }
     }
     if (isOpenClawEmptyResponse(reply)) {
       const emptyErr = new Error(

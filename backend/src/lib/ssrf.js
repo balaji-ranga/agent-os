@@ -204,15 +204,18 @@ export async function requestValidatedHttps(rawUrl, {
         chunks.push(chunk);
       });
       response.on('end', () => {
-        const textValue = Buffer.concat(chunks).toString('utf8');
+        const bytes = Buffer.concat(chunks);
         resolve({
           status: Number(response.statusCode || 0),
           ok: Number(response.statusCode || 0) >= 200 && Number(response.statusCode || 0) < 300,
           headers: response.headers,
-          text: async () => textValue,
-          json: async () => JSON.parse(textValue),
+          buffer: async () => bytes,
+          text: async () => bytes.toString('utf8'),
+          json: async () => JSON.parse(bytes.toString('utf8')),
         });
       });
+      response.on('error', reject);
+      response.on('aborted', () => reject(new SafeOutboundUrlError('Incomplete response', 502)));
     });
     request.on('error', reject);
     if (signal) {

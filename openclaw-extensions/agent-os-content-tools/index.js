@@ -215,6 +215,11 @@ function ownerUserIdFromSessionKey(sessionKey) {
 }
 
 const PARAM_SCHEMAS = {
+  download_pdf: {
+    type: "object",
+    properties: { url: { type: "string", description: "Existing public HTTPS PDF download URL" }, filename: { type: "string", description: "Optional PDF filename" } },
+    required: ["url"], additionalProperties: false,
+  },
   connector_search_actions: {
     type: "object",
     properties: {
@@ -1133,7 +1138,7 @@ export default definePluginEntry({
                 (name === "generate_image" ||
                   name === "generate_chart" ||
                   name === "speech_tts" ||
-                  name === "generate_video") &&
+                  name === "generate_video" || name === "download_pdf" || (name === "summarize_url" && data?.mime_type === "application/pdf")) &&
                 data &&
                 typeof data === "object"
               ) {
@@ -1146,7 +1151,7 @@ export default definePluginEntry({
                   null;
                 if (paste) {
                   const kind =
-                    name === "speech_tts"
+                    data.mime_type === "application/pdf" ? "PDF file" : name === "speech_tts"
                       ? "audio"
                       : name === "generate_video"
                         ? "video"

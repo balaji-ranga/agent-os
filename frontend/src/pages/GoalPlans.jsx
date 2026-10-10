@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api';
 import GoalPlanPanel from '../components/GoalPlanPanel';
+import WorkSteering from '../components/WorkSteering.jsx';
 import { goalOriginLabel, goalPlanTracePath } from '../components/GoalPlanTelemetry';
 import { formatChatTimestamp } from '../utils/formatDateTime.js';
 
@@ -129,6 +130,7 @@ export default function GoalPlans() {
           </p>
         </div>
         <div className="digest-header-tools">
+          <WorkSteering />
           <div className="digest-range" title="Week window">
             <button
               type="button"

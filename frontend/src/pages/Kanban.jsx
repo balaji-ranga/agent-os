@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../api';
 import WizardReturnBanner from '../components/WizardReturnBanner.jsx';
+import WorkSteering from '../components/WorkSteering.jsx';
 import KanbanTaskDescription, { isCeoJobReviewTask, isGoalActionApprovalTask, isWorkflowCeoApprovalTask, parseCeoReviewContext } from '../components/KanbanTaskDescription.jsx';
 import KanbanTaskArtifacts from '../components/KanbanTaskArtifacts.jsx';
 import KanbanBoardCell from '../components/KanbanBoardCell.jsx';
@@ -654,6 +655,7 @@ export default function Kanban() {
       <ActionFeedbackBanner feedback={feedback} onDismiss={clearFeedback} />
       <div className="kanban-toolbar" style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
         <h1 style={{ margin: 0, fontSize: isMobileKanban ? '1.25rem' : '1.5rem' }}>Kanban Board</h1>
+        <WorkSteering />
         {(displayTimezone || serverTimezone) && (
           <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }} title="All Kanban dates use your Profile display timezone (or platform default)">
             Times in {displayTimezone || serverTimezone}

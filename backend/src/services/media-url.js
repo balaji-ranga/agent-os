@@ -133,6 +133,8 @@ function webMarkdownForMedia(relative_url) {
   if (!rel) return '';
   if (/\.(wav|mp3|m4a|aac|opus|flac|ogg)(\?|$)/i.test(rel)) return `[🔊 Audio](${rel})`;
   if (/\.(mp4|webm|ogv)(\?|$)/i.test(rel)) return `[🎬 Video](${rel})`;
+  if (/\.pdf(\?|$)/i.test(rel)) return `[PDF attachment](${rel})`;
+  if (/\.(md|markdown)(\?|$)/i.test(rel)) return `[Markdown attachment](${rel})`;
   return `![generated](${rel})`;
 }
 

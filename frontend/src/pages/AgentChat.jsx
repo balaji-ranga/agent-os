@@ -13,6 +13,7 @@ import { useChatVoice, ChatVoiceBar, ChatVoiceCallOverlay } from '../components/
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import CompanyArchitecturePanel from '../components/CompanyArchitecturePanel.jsx';
 import ChatActivityIndicator, { useChatActivity } from '../components/ChatActivityIndicator.jsx';
+import WorkSteering from '../components/WorkSteering.jsx';
 
 const secondaryBtn = {
   padding: '0.45rem 0.85rem',
@@ -1177,6 +1178,7 @@ export default function AgentChat() {
                   <button type="button" onClick={startNewChat} disabled={clearing || sending || !agentId} className="chat-new-btn" style={secondaryBtn}>
                     {clearing ? 'Archiving…' : '+ New chat'}
                   </button>
+                  <WorkSteering agentId={agentId} />
                   {isNarrow && (
                     <button
                       type="button"
@@ -1402,6 +1404,7 @@ export default function AgentChat() {
                 <button type="button" onClick={startNewChat} disabled={clearing || sending || !agentId} style={secondaryBtn}>
                   {clearing ? 'Archiving…' : 'New chat'}
                 </button>
+                <WorkSteering agentId={agentId} />
               </div>
             </div>
 

@@ -11,6 +11,7 @@ import { isPlatformLocalOllama } from './platform-llm-settings.js';
 import { hasAnyActiveDashboardChat, registerOpenClawSessionOwner } from './tool-owner-scope.js';
 import { extractOwnerUserIdFromText } from './agent-chat-scope.js';
 import { insertChatTurn } from './chat-history.js';
+import { consumeWorkSteering, listWorkSteering, steeringPrompt, closeWorkSteering, goalSteeringPrompt } from './work-steering.js';
 import { getActiveLearningPrompt, recordExecutionLearningVersions } from './agent-learning-rollout.js';
 import { cronAddOneShotWebhook } from '../gateway/openclaw-cron.js';
 import { classifyIntentAndAllocate } from './intent-classifier.js';
@@ -1241,9 +1242,12 @@ export async function processPendingDelegationTasksForCeo(ceoUserId, opts = {}) 
         goal_run_id: goalIdentity?.goalRunId, goal_step_id: goalIdentity?.goalStepId,
       });
       const discoveryTimeout = Number(process.env.OPENCLAW_DISCOVERY_TIMEOUT_MS || 900000);
+      consumeWorkSteering(ownerForTenant, 'task', task.id, 'task_dispatch');
+      const guidance = steeringPrompt(listWorkSteering(ownerForTenant, 'task', task.id).filter(n => n.status === 'delivered').reverse())
+        + (goalIdentity?.goalRunId ? goalSteeringPrompt(ownerForTenant, goalIdentity.goalRunId, `task_dispatch:${task.id}`) : '');
       const { content, usage } = await openclaw.chatCompletions(
         runtimeOcId,
-        [{ role: 'user', content: promptWithMemory }],
+        [{ role: 'user', content: promptWithMemory + guidance }],
         sessionUser,
         false,
         isDiscovery
@@ -1401,6 +1405,8 @@ export async function processPendingDelegationTasksForCeo(ceoUserId, opts = {}) 
       }
     } finally {
       runningDelegationIds.delete(task.id);
+      const taskStatus = db().prepare('SELECT status FROM agent_delegation_tasks WHERE id=? AND owner_user_id=?').get(task.id, ownerForTenant)?.status;
+      if (['completed','failed','cancelled'].includes(taskStatus)) closeWorkSteering(ownerForTenant, 'task', task.id);
     }
   }
 

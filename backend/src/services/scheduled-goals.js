@@ -23,6 +23,8 @@ import {
   discardGoalPlanningRun,
 } from './agent-goal-run.js';
 import { normalizeDeliverTo, deliverScheduledGoalOutcome } from './agent-channel-announce.js';
+import { consumeWorkSteering, steeringPrompt, closeWorkSteering } from './work-steering.js';
+import { registerOpenClawSessionOwner } from './tool-owner-scope.js';
 
 const CADENCES = new Set(['hourly', 'daily', 'weekdays', 'weekly']);
 const STATUSES = new Set(['active', 'paused', 'completed', 'draft']);
@@ -597,6 +599,9 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
   ).run(runId, id, ownerUserId, runKey, row.agent_id, force ? 'run_now' : 'schedule');
 
   const agent = resolveAgentForOwner(ownerUserId, row.agent_id);
+  // A schedule steer is one-fire guidance, not a permanent prompt/cadence change.
+  const guidance = steeringPrompt(consumeWorkSteering(ownerUserId, 'schedule', id, `schedule_dispatch:${runId}`));
+  const steeredPrompt = row.prompt + guidance;
   let openclawId = agent.openclaw_agent_id || agent.id;
   try { openclawId = ensureTenantOpenClawAgent(agent, ownerUserId).openclawAgentId; }
   catch (e) { console.warn(`[scheduled-goals] tenant ensure failed agent=${agent.id}:`, e.message); }
@@ -624,14 +629,14 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
       ownerUserId,
       agentId: agent.id,
       title: row.title,
-      prompt: row.prompt,
+      prompt: steeredPrompt,
       source: 'scheduled_goal',
       scheduledGoalId: id,
       scheduledGoalRunId: runId,
       context: { run_key: runKey, force },
     });
     try {
-      planned = await planGoalStepsAsync(row.prompt, {
+      planned = await planGoalStepsAsync(steeredPrompt, {
         ownerUserId,
         orchestratorAgentId: agent.id,
         onProgress: (progress) => updateGoalPlanningRun(planningGoal.id, ownerUserId, progress),
@@ -649,7 +654,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
         ownerUserId,
         agentId: agent.id,
         title: row.title,
-        prompt: row.prompt,
+        prompt: steeredPrompt + steeringPrompt(consumeWorkSteering(ownerUserId, 'schedule_run', runId, 'scheduled_goal_handoff')),
         steps: planned,
         source: 'scheduled_goal',
         scheduledGoalId: id,
@@ -658,6 +663,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
         goalRunId: planningGoal?.id || null,
       });
       const g = started?.goal || getGoalRun(started?.goal?.id || started?.id, ownerUserId);
+      closeWorkSteering(ownerUserId, 'schedule_run', runId);
       const exec = started?.execution || started;
       const firstWf = exec?.workflow_run_id || exec?.run_id || null;
       const stepsPreview = (g?.steps || planned)
@@ -694,6 +700,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
   if (planningGoal) discardGoalPlanningRun(planningGoal.id, ownerUserId);
 
   let prompt = buildRunMessage(row, ownerUserId, { runKey, force });
+  prompt += guidance + steeringPrompt(consumeWorkSteering(ownerUserId, 'schedule_run', runId, 'scheduled_agent_dispatch'));
   try {
     prompt = getPromptForFreshGoalRun(prompt);
   } catch (_) {}
@@ -701,6 +708,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
 
   try {
     console.log(`[scheduled-goals] firing id=${id} agent=${openclawId} run_key=${runKey}`);
+    registerOpenClawSessionOwner(openclaw.sessionKeyFor(openclawId, sessionUser), ownerUserId, null, 'schedule', { scheduled_goal_run_id: runId });
     const { content } = await openclaw.chatCompletions(
       openclawId, [{ role: 'user', content: prompt }], sessionUser, false,
       {
@@ -711,6 +719,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
       }
     );
     const reply = String(content || '').trim() || '(no response)';
+    closeWorkSteering(ownerUserId, 'schedule_run', runId);
     const preview = reply.slice(0, 2000);
     try { insertChatTurn({ agentId: agent.id, ownerUserId, role: 'assistant', content: reply }); } catch (_) {}
     void deliverScheduledGoalOutcome({
@@ -731,6 +740,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
   } catch (err) {
     const msg = err?.message || String(err);
     console.error(`[scheduled-goals] fail id=${id}:`, msg);
+    closeWorkSteering(ownerUserId, 'schedule_run', runId);
     db().prepare(
       `UPDATE scheduled_goals SET last_run_status='error', last_run_error=?, updated_at=datetime('now') WHERE id=? AND owner_user_id=?`
     ).run(msg.slice(0, 500), id, ownerUserId);

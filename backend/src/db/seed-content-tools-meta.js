@@ -6,11 +6,16 @@ import { getDb } from './schema.js';
 
 const BUILTIN_TOOLS = [
   {
+    name: 'download_pdf', display_name: 'Download and Attach PDF', endpoint: '/api/tools/download-pdf', method: 'POST',
+    purpose: 'Download an existing public HTTPS PDF as an actual owner-private file attachment. Parameters: url, optional filename. Returns mime_type, size_bytes, web_markdown and paste_exactly. Paste paste_exactly (MEDIA:/absolute/path) on its own line to attach the PDF in the current channel. Does not summarize PDF bytes or bypass forms, logins or paywalls. A webpage URL is not a PDF. No shell required.',
+    model_used: '', enabled: 1, is_builtin: 1,
+  },
+  {
     name: 'summarize_url',
     display_name: 'Summarize URL',
     endpoint: '/api/tools/summarize-url',
     method: 'POST',
-    purpose: 'Fetch an HTTPS page and return title + short summary. On 404 use suggested_url or one alternate URL / browse_task_start. Never invent page content.',
+    purpose: 'Fetch an HTTPS page and return title + short summary. PDF responses return an actual PDF attachment, not a text summary: paste paste_exactly on its own line. Use download_pdf for direct PDF URLs. On 404 use suggested_url or one alternate URL / browse_task_start. Never invent page content.',
     model_used: 'gpt-4o-mini (optional, for summary)',
     enabled: 1,
     is_builtin: 1,
@@ -1138,7 +1143,9 @@ export function updateKanbanToolPurposes() {
   for (const t of KANBAN_TOOLS) {
     update.run(t.purpose, t.name);
   }
-  const extra = BUILTIN_TOOLS.filter((t) => t.name === 'summarize_url');
+  const extra = BUILTIN_TOOLS.filter((t) => ['summarize_url', 'download_pdf'].includes(t.name));
+  const insert = db.prepare(`INSERT OR IGNORE INTO content_tools_meta (name, display_name, endpoint, method, purpose, model_used, enabled, is_builtin) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
+  for (const t of extra) insert.run(t.name, t.display_name, t.endpoint, t.method, t.purpose, t.model_used, t.enabled, t.is_builtin);
   for (const t of extra) update.run(t.purpose, t.name);
 }
 

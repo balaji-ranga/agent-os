@@ -148,6 +148,9 @@ async function fetchBlobUrl(path, opts = {}) {
 }
 
 export const api = {
+  steeringTargets: (agentId) => get(`/work-steering/targets${agentId ? `?agent_id=${encodeURIComponent(agentId)}` : ''}`),
+  steeringHistory: (kind, id) => get(`/work-steering?target_kind=${encodeURIComponent(kind)}&target_id=${encodeURIComponent(id)}`),
+  steerWork: (body) => post('/work-steering', body),
   fetchBlobUrl,
   health: () => get('/health'),
   ibkrNewDashboard: () => get('/ibkrnew-event-trader/dashboard'),

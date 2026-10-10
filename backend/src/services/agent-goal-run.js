@@ -69,6 +69,8 @@ import { promptForbidsNotifyCeo } from './goal-plan-constraints.js';
 import { getPlatformTimeoutMs } from './platform-timeout-settings.js';
 import { createMediaArtifact } from './ceo-media-artifacts.js';
 import { compactAgentWorkHistoryEvidence } from './agent-work-history.js';
+import { goalSteeringPrompt, closeWorkSteering } from './work-steering.js';
+import { registerOpenClawSessionOwner } from './tool-owner-scope.js';
 
 const TERMINAL_WF = new Set(['completed', 'failed', 'cancelled', 'paused']);
 const activeGoalPlanningRuns = new Set();
@@ -2604,6 +2606,7 @@ async function executeAgentContinueStep(goal, step) {
   }
   prompt = `[ceo_user_id: ${goal.owner_user_id}]\n[owner_user_id: ${goal.owner_user_id}]\n${prompt}`;
   prompt +=
+    goalSteeringPrompt(goal.owner_user_id, goal.id, `agent_continue:${step.id}`) +
     '\n\n[Platform execution boundary — synthesis only]\n' +
     'Do not call tools, create/delegate work, or request another goal/step transition.\n' +
     'Use the completed outputs above to return the final, concrete CEO-facing response now.\n' +
@@ -3088,9 +3091,10 @@ async function executeCompositionalToolViaAgent(goal, step, toolName) {
     console.warn('[goal-run] chat user turn (interpreted tool):', e?.message || e);
   }
 
+  registerOpenClawSessionOwner(openclaw.sessionKeyFor(openclawId, sessionUser), goal.owner_user_id, null, 'goal', { goal_run_id: goal.id, goal_step_id: step.id });
   const { content } = await openclaw.chatCompletions(
     openclawId,
-    [{ role: 'user', content: prompt }],
+    [{ role: 'user', content: prompt + goalSteeringPrompt(goal.owner_user_id, goal.id, `agent_tool:${step.id}`) }],
     sessionUser,
     false,
     {
@@ -3153,6 +3157,10 @@ export function completeGoalRun(goalRunId, { status = 'completed', error = null 
     completed_at: terminal ? new Date().toISOString() : null,
   });
   console.info('[goal-run] finished', { goalRunId, status });
+  if (terminal) {
+    const scope = db().prepare('SELECT owner_user_id FROM agent_goal_runs WHERE id=?').get(goalRunId);
+    if (scope?.owner_user_id) closeWorkSteering(scope.owner_user_id, 'goal', goalRunId);
+  }
   // Every specialty retry gets a new delegation and therefore a new Kanban card.
   // A terminal goal must not leave any card from any attempt looking active.
   // Match through the immutable goal marker in the delegation prompt so this also
