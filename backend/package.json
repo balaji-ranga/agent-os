@@ -27,6 +27,7 @@
     "test:content-antivirus": "node scripts/test-content-download-antivirus.mjs",
     "test:content-download": "node scripts/test-content-download.mjs",
     "test:work-steering": "node scripts/test-work-steering.mjs",
+    "test:slash-commands": "node scripts/test-agent-slash-commands.mjs && node scripts/test-agent-command-routes.mjs",
     "test:security:critical": "node scripts/test-critical-security-hardening.mjs",
     "test:blueprint-secrets": "node scripts/test-blueprint-secret-sanitize.js && node scripts/scan-blueprint-secrets.js",
     "test:browser-executors": "node scripts/test-browser-executor-multinode.js",

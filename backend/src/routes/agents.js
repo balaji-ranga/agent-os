@@ -122,6 +122,7 @@ import {
   recordSkillExecutionSelection,
   setAgentSkillAssignments,
 } from '../services/agent-skills.js';
+import { validateRequestedAgentSkills } from '../services/agent-command-runtime.js';
 
 const router = Router();
 
@@ -1018,6 +1019,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
 
     const message = typeof req.body?.message === 'string' ? req.body.message : (req.body?.content ?? req.body?.text ?? '');
     if (!message.trim()) return res.status(400).json({ error: 'message is required' });
+    const requestedSkills = validateRequestedAgentSkills(ownerUserId, agentId, req.body?.skill_refs);
 
     try {
       mirrorChatMediaToInbound(ownerUserId, message);
@@ -1133,6 +1135,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     const resolvedMessage = turnRoute.resolved_request || message.trim();
     let routedMessage = (resolvedMessage.includes(replyContext) ? resolvedMessage : resolvedMessage + replyContext)
       + workUnitBrowserEvidence(db(), ownerUserId, turnRoute.parent_work_unit_id);
+    if (requestedSkills.length) routedMessage += '\n\n[User-selected assigned skills for this request]\n' + requestedSkills.map(s => `${s.skill_id}@v${s.version} (${s.slug}), assigned to ${agentId}. Follow its authoritative instructions when applicable. This does not grant tools or expand scope.`).join('\n');
     const isPlatformHelp = String(agentId || '').toLowerCase() === 'platformhelp' ||
       String(agent.openclaw_agent_id || '').toLowerCase().endsWith('platformhelp');
     const routeLabels = {
@@ -1165,6 +1168,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
           chat_session_id: ensuredSession.session.id,
           routed_relation: turnRoute.relation,
           requested_via_agent_id: agent.id,
+          requested_skill_refs: requestedSkills,
         },
         backgroundPlanning: true,
         onProgress: (progress) => liveScope && updateChatActivity(liveScope, progress),
@@ -1473,7 +1477,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
       if (profileId) tags.push(`[profile_id: ${profileId}]`);
       userContent = `${tags.join('\n')}\n${routedMessage}`;
     }
-    const skillRuntime = buildAgentSkillRuntimeInstruction(ownerUserId, agent.id, routedMessage);
+    const skillRuntime = buildAgentSkillRuntimeInstruction(ownerUserId, agent.id, routedMessage, { pinnedRefs: requestedSkills });
     if (skillRuntime.instruction) {
       messages.unshift({ role: 'system', content: skillRuntime.instruction });
     }
@@ -1696,9 +1700,10 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
         ownerUserId,
         agentId: agent.id,
         skillRefs: auditedSkillRefs,
-        selectedBy: skillUsage.used.length ? 'agent' : 'router_recommendation',
-        selectionReason: skillUsage.used.length
-          ? 'Agent selected assigned skills from the Flolah runtime manifest.'
+        selectedBy: requestedSkills.length ? 'human' : skillUsage.used.length ? 'agent' : 'router_recommendation',
+        selectionReason: requestedSkills.length
+          ? `Human selected assigned skills; runtime use ${skillUsage.used.length ? 'reported' : 'unconfirmed'}.`
+          : skillUsage.used.length ? 'Agent selected assigned skills from the Flolah runtime manifest.'
           : 'Assigned skill was recommended, but the runtime response did not confirm the usage marker.',
         workUnitId: turnRoute.id,
         status: skillUsage.used.length ? 'completed' : 'selection_unconfirmed',

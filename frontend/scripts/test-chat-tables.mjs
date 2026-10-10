@@ -43,6 +43,9 @@ try {
   const generic = renderToStaticMarkup(createElement(ChatMessageContent, { content: 'MEDIA:/root/.openclaw/media/downloads/owner/report.xlsx' }));
   assert(/attachment/i.test(generic) && !generic.includes('<img') && !generic.includes('iframe'));
   const { default: ChatToolCalls } = await server.ssrLoadModule('/src/components/ChatToolCalls.jsx');
+  const { default: AgentSlashCommands } = await server.ssrLoadModule('/src/components/AgentSlashCommands.jsx');
+  const slash = renderToStaticMarkup(createElement(AgentSlashCommands, { agentId: 'coo' }));
+  assert(slash.includes('/ Commands') && slash.includes('type="button"') && !slash.includes('type="submit"'));
   const scan = renderToStaticMarkup(createElement(ChatToolCalls, { toolCalls: [{ tool_name: 'download_file', status: 'error', response: { security_scan: { status: 'MALWARE_DETECTED', disposition: 'discarded', persisted: false } } }] }));
   assert(scan.includes('MALWARE_DETECTED') && scan.includes('no file retained') && !scan.includes('<img'));
   const { default: ChatMessageRow } = await server.ssrLoadModule('/src/components/ChatMessageRow.jsx');

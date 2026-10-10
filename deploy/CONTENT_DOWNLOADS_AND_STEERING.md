@@ -13,6 +13,8 @@ Owner identity is authenticated server context, never a model argument.
 Run `npm run test:chat` and `npm run build` in frontend. In backend run
 `npm run test:pdf-download`, `npm run test:content-antivirus`,
 `npm run test:work-steering` and `npm run test:ssrf`.
+Also run `npm run test:slash-commands` in backend for command parsing, replay,
+governance boundaries and native WhatsApp command handler regression checks.
 
 ## VPS deployment
 
@@ -53,6 +55,59 @@ Delivery occurs at the next platform checkpoint; it never aborts or restarts an
 agent, changes the original work request or implies the guidance was applied.
 If work ends first, guidance is marked not applied. Expired notes do not carry
 over to new work. Existing permissions, risk limits and approval rules remain.
+
+## Shared UI and WhatsApp slash commands
+
+The chat header `/ Commands` button remains available while an agent is working.
+Typing a slash command into the UI composer opens the command panel, not a new
+LLM turn. Selecting a tool prepares JSON arguments; explicit Run is required.
+
+Use these same commands in a **private** WhatsApp conversation with the agent:
+
+```
+/flolah
+/flolah skills
+/flolah skill <assigned-slug> <request>
+/flolah tools download
+/flolah tool download_file {"url":"https://example.org/report.pdf"}
+/flolah steer
+/flolah steer goal:<exact-id-from-list> Cite primary sources for remaining work.
+/flolah steer status goal:<exact-id>
+```
+
+Core OpenClaw reserves `/steer`, so the plugin registers only `/flolah`; it never
+overrides core steering. The native command handler runs before the LLM and
+returns `continueAgent:false`. Bare `/` and `/tools`, `/tool`, `/steer` aliases are
+accepted by the UI command API, not installed as WhatsApp aliases.
+
+The broker requires a private socket, no forwarded request, broker credential,
+enabled tenant-agent WhatsApp account binding, matching session prefix and a
+sender mapped uniquely to an active company CEO or CEO Delegate with agent access.
+Groups, unknown senders, other tenants and ordinary employees are denied.
+No command argument can supply owner/caller identity or an approval token.
+The menu also shows enabled active assigned skills, version and missing
+capabilities. Skill selection prepares the next chat request, not a tool call or
+new goal. UI Send validates skill IDs and current readiness server-side, pins
+authoritative instructions for direct chat and includes scoped skill references
+in routed goal context. User selection is distinct from reported runtime use.
+WhatsApp `/flolah skill` returns the validated next command `/skill <slug> <input>`;
+that existing core skill command starts a normal agent request using its synced
+workspace skill. For an ongoing platform goal/task use `/flolah steer` instead.
+Tools must be enabled and granted to the selected agent and use canonical
+`/api/tools/invoke` with an owner/actor/agent/session/tool-scoped lease. This is not
+a shell or a way to call every unrestricted gateway/native tool.
+
+UI submissions retain a request key and durable tool receipt; lost/unfinished
+responses are not automatically repeated. Native gateway contexts currently lack
+an inbound message id, so separate WhatsApp sends are separate requests: do not
+resend a mutating command after a timeout before checking execution logs.
+Steering names an exact active target; schedules receive guidance for one next
+fire, and delivered guidance is not a guarantee it was applied. Existing running
+WhatsApp LLM turns without a platform work id are not invented as steer targets.
+
+Standard and scoped backend/OpenClaw Dockerfiles copy the command route, services
+and plugin helper; frontend builds include the menu. Reload the gateway plugin
+after a safe idle check. No new packages, scanner settings or public ports needed.
 
 ## Acceptance checks
 
