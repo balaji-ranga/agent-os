@@ -36,6 +36,7 @@ import Register from './pages/Register';
 import Admin from './pages/Admin';
 import AdminA2AInvocations from './pages/AdminA2AInvocations';
 import AdminCrons from './pages/AdminCrons';
+import AdminScheduledActivities from './pages/AdminScheduledActivities';
 import AdminPlatformDocuments from './pages/AdminPlatformDocuments';
 import AdminToolOnboarding from './pages/AdminToolOnboarding';
 import AdminTlsCerts from './pages/AdminTlsCerts';
@@ -470,6 +471,7 @@ function Shell() {
                 <Route path="/admin" element={<Admin />} />
                 <Route path="/admin/a2a-invocations" element={<AdminA2AInvocations />} />
                 <Route path="/admin/crons" element={<AdminCrons />} />
+                <Route path="/admin/scheduled-activities" element={<AdminScheduledActivities />} />
                 <Route path="/admin/documents-rag" element={<AdminPlatformDocuments />} />
                 <Route path="/admin/tool-onboarding" element={<AdminToolOnboarding />} />
                 <Route path="/admin/tls-certs" element={<AdminTlsCerts />} />

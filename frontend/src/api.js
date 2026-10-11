@@ -859,6 +859,16 @@ export const api = {
     return get(`/admin/users${qs ? `?${qs}` : ''}`);
   },
   adminUserInsights: () => get('/admin/user-insights'),
+  adminScheduledActivities: (params = {}) => {
+    const q = new URLSearchParams();
+    if (params.user_id) q.set('user_id', params.user_id);
+    if (params.kind) q.set('kind', params.kind);
+    if (params.status) q.set('status', params.status);
+    if (params.q) q.set('q', params.q);
+    const qs = q.toString();
+    return get(`/admin/scheduled-activities${qs ? `?${qs}` : ''}`);
+  },
+  adminScheduledActivitiesAction: (body) => post('/admin/scheduled-activities/actions', body),
   adminUserGet: (userId) => get(`/admin/users/${encodeURIComponent(userId)}`),
   adminUserSetEnabled: (userId, enabled) => patch(`/admin/users/${encodeURIComponent(userId)}/enabled`, { enabled }),
   adminUserOffboard: (userId, body) => post(`/admin/users/${encodeURIComponent(userId)}/offboard`, body),

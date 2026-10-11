@@ -213,6 +213,13 @@ export function AdminNavMenu({ collapsed }) {
         {collapsed ? 'CR' : 'Crons'}
       </NavLink>
       <NavLink
+        to="/admin/scheduled-activities"
+        className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+        title="User scheduled activities"
+      >
+        {collapsed ? 'SA' : 'Scheduled activities'}
+      </NavLink>
+      <NavLink
         to="/admin/models"
         className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
         title="Models and routing"

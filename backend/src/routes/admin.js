@@ -81,6 +81,10 @@ import {
 } from '../services/openclaw-session-cleanup.js';
 import { listPlatformTimeouts, updatePlatformTimeouts } from '../services/platform-timeout-settings.js';
 import { writeOpenClawToolsList } from '../services/content-tools-meta.js';
+import {
+  listAdminScheduledActivities,
+  mutateAdminScheduledActivities,
+} from '../services/admin-scheduled-activities.js';
 
 const router = Router();
 
@@ -169,6 +173,28 @@ router.get('/users', (req, res) => {
     res.json(listUsers({ limit, offset, q: req.query.q }));
   } catch (e) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+/** Admin inventory and control plane for user-created recurring agent work. */
+router.get('/scheduled-activities', (req, res) => {
+  try {
+    res.json(listAdminScheduledActivities({
+      userId: req.query.user_id,
+      kind: req.query.kind,
+      status: req.query.status,
+      q: req.query.q,
+    }));
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || 'Failed to list scheduled activities' });
+  }
+});
+
+router.post('/scheduled-activities/actions', (req, res) => {
+  try {
+    res.json(mutateAdminScheduledActivities(req.body || {}, req.authUser));
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || 'Scheduled activity action failed' });
   }
 });
 
