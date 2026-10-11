@@ -320,6 +320,7 @@ try {
     channel: 'web', message: 'yes proceed',
   });
   const middlewareRequest = {
+    isInternalService: true,
     method: 'POST', path: '/email-send', body: middlewareEmail,
     headers: { 'x-ceo-user-id': owner, 'x-openclaw-agent-id': `t-${owner}--balserve` },
     authUser: { role: 'ceo', internal: true },
@@ -336,6 +337,7 @@ try {
   let malformedConnectorAllowed = false;
   actionPolicyMiddleware({
     method: 'POST', path: '/invoke', body: { tool_name: 'connector_execute_action' },
+    isInternalService: true,
     headers: { 'x-ceo-user-id': owner, 'x-openclaw-agent-id': `t-${owner}--gmail-operations` },
     authUser: { role: 'ceo', internal: true },
   }, malformedConnectorResponse, () => { malformedConnectorAllowed = true; });
@@ -363,6 +365,7 @@ try {
     'Browser Action Control middleware approval test'
   );
   const browserRequest = {
+    isInternalService: true,
     method: 'POST', path: '/browse-task-start', body: browserApprovalBody,
     headers: { 'x-ceo-user-id': owner, 'x-openclaw-agent-id': `t-${owner}--browserpublisher` },
     authUser: { role: 'ceo', internal: true },

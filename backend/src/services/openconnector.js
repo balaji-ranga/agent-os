@@ -731,6 +731,13 @@ export async function executeConnectorAction(
   { connectionName = '', authorizationRetryDelaysMs = null } = {}
 ) {
   const id = String(actionId || '').trim();
+  // One linked runtime connection per company. Model/workflow arguments may
+  // name that connection, but cannot substitute another company's alias.
+  const requestedAlias = String(connectionName || '').trim();
+  const linkedAlias = String(getRuntimeTokenForUser(userId).connectionName || '').trim();
+  if (requestedAlias && requestedAlias !== linkedAlias) {
+    throw Object.assign(new Error('Connector connection is not linked to the authenticated company'), { status: 403 });
+  }
   const appGuess = id.includes('.') ? id.split('.')[0] : '';
   const custom =
     appGuess && userId ? resolveOpenConnectorOauthClientForAuthorize(appGuess, userId) : null;
@@ -738,7 +745,7 @@ export async function executeConnectorAction(
   const readOnly = classifyConnectorAction({ id }).action_family === 'read';
   const run = async (actionInput = input) => {
     const runtime = getRuntimeTokenForUser(userId);
-    const alias = String(connectionName || runtime.connectionName || '').trim();
+    const alias = String(runtime.connectionName || '').trim();
     const headers = alias ? { 'x-oo-connector-alias': alias } : {};
     const body = {
       actionId: id,

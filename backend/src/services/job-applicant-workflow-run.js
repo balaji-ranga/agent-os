@@ -36,7 +36,7 @@ function resolveProfile(profileSvc, ceoUserId, profileId) {
 export async function runFullJobWorkflow(ceoUserId, profileId = null, opts = {}) {
   const { forceDiscovery = false, ...workflowOpts } = opts;
   const profileSvc = createJobSearchProfileService(() => getDbForCeo(ceoUserId || getDefaultCeoUserId()));
-  const jobsSvc = createJobApplicationsService(() => getDbForCeo(ceoUserId || getDefaultCeoUserId()));
+  const jobsSvc = createJobApplicationsService(() => getDbForCeo(ceoUserId || getDefaultCeoUserId()), ceoUserId || getDefaultCeoUserId());
   const { profileId: pid } = resolveProfile(profileSvc, ceoUserId, profileId);
   const counts = summarizeProfileJobs(jobsSvc, ceoUserId, pid);
 
@@ -81,10 +81,13 @@ export async function runJobSearchWorkflowNow(ceoUserId, profileId = null, opts 
   } = opts;
 
   const profileSvc = createJobSearchProfileService(() => getDbForCeo(ceoUserId));
-  const jobsSvc = createJobApplicationsService(() => getDbForCeo(ceoUserId));
+  const jobsSvc = createJobApplicationsService(() => getDbForCeo(ceoUserId), ceoUserId);
   const tracker = getJobWorkflowTracker(() => getDbForCeo(ceoUserId));
 
   const { profile, profileId: pid } = resolveProfile(profileSvc, ceoUserId, profileId);
+  if (workflow_run_id && !tracker.getRun(workflow_run_id, ceoUserId, pid)) {
+    throw Object.assign(new Error('Workflow not found for company/profile'), { status: 404 });
+  }
 
   const jobCountsBefore = {
     discovered: jobsSvc.list({ status: 'discovered', ceo_user_id: ceoUserId, profile_id: pid, limit: 500 }).length,
@@ -106,7 +109,7 @@ export async function runJobSearchWorkflowNow(ceoUserId, profileId = null, opts 
     }
   }
 
-  let wf = workflow_run_id ? tracker.getRun(workflow_run_id) : null;
+  let wf = workflow_run_id ? tracker.getRun(workflow_run_id, ceoUserId, pid) : null;
   if (!wf) {
     tracker.supersedeRunningRuns(ceoUserId, pid, actor, { trigger, reason: 'new_manual_workflow_run' });
     wf = tracker.startRun({

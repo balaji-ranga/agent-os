@@ -4,14 +4,15 @@ import { enrichJobFromUrl } from './job-job-enrichment.js';
 import { buildCandidateContextForScoring, parseBorderlineReview } from './job-candidate-context.js';
 import { chatCompletions } from '../config/llm.js';
 import { internalAuthHeaders } from '../middleware/internal-auth.js';
+import { getDefaultCeoUserId, getBalaCeoAuthId } from './job-applicant-ceo.js';
 
-async function fetchUrlSummary(url) {
+async function fetchUrlSummary(url, ownerUserId) {
   if (!url) return '';
   try {
     const base = getPublicBaseUrl();
     const r = await fetch(`${base}/api/tools/summarize-url`, {
       method: 'POST',
-      headers: { ...internalAuthHeaders(), 'x-openclaw-agent-id': 'fitscorer' },
+      headers: { ...internalAuthHeaders(), 'x-openclaw-agent-id': 'fitscorer', 'x-ceo-user-id': ownerUserId },
       body: JSON.stringify({ url }),
     });
     const data = await r.json().catch(() => ({}));
@@ -54,7 +55,8 @@ export async function scoreJobForProfile({ profile, job, jobDescription = '', jo
 
   let descriptionText = buildJobDescriptionText(enriched, jobDescription);
   if (!descriptionText && enriched.url) {
-    descriptionText = await fetchUrlSummary(enriched.url);
+    const owner = profile.ceo_user_id === getDefaultCeoUserId() ? getBalaCeoAuthId() : profile.ceo_user_id;
+    descriptionText = await fetchUrlSummary(enriched.url, owner);
   }
   const slugHint = enriched.title && enriched.company
     ? `${enriched.title} at ${enriched.company}`

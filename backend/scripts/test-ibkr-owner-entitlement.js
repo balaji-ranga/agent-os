@@ -64,6 +64,7 @@ assert(
 );
 assert(
   resolveEntitledOwnerUserId({
+    isInternalService: true,
     authUser: { id: ownerA, role: 'ceo', internal: true },
     headers: { 'x-ceo-user-id': ownerB },
   }) === ownerB,
@@ -74,17 +75,14 @@ assert(
     authUser: { id: ownerA, role: 'ceo', internal: true },
     headers: {},
     body: { owner_user_id: ownerB },
-  }) === ownerA,
-  'body spoof ignored; fallback Bala when no header'
+  }) === null,
+  'body spoof ignored; missing verified owner fails closed'
 );
 assert(
   resolveEntitledOwnerUserId({
     headers: { 'x-openclaw-agent-id': tenantOpenClawAgentId(ownerB, 'balserve') },
-  }) === ownerB ||
-    resolveEntitledOwnerUserId({
-      headers: { 'x-openclaw-agent-id': tenantOpenClawAgentId(ownerB, 'balserve') },
-    }).includes('ceo'),
-  'tenant OpenClaw agent id encodes owner'
+  }) === null,
+  'unverified tenant OpenClaw agent id is not authentication'
 );
 assert(isPlaceholderServiceUser({ internal: true }) === true, 'placeholder flag');
 

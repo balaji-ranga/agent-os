@@ -129,7 +129,7 @@ router.post('/profiles/:profileId/harvest-listings', requireCeoOrAdmin, async (r
     const gate = profileSvc(ceoUserId).assertActive(ceoUserId, profileId);
     if (!gate.active) return res.status(400).json({ error: gate.error || 'Profile not active' });
     const profile = profileSvc(ceoUserId).getProfile(ceoUserId, gate.profile_id);
-    const jobs = createJobApplicationsService(() => getDbForCeo(ceoUserId));
+    const jobs = createJobApplicationsService(() => getDbForCeo(ceoUserId), ceoUserId);
     const result = await harvestJobListingsForProfile(profile.intake || {}, {
       source: req.body?.source,
       max_pages: req.body?.max_pages,

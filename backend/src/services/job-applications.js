@@ -38,6 +38,8 @@ function rowToJob(row) {
   try {
     extra = JSON.parse(row.extra_json || '{}');
   } catch (_) {}
+  // Stored extra metadata cannot replace the tenant or primary identifiers.
+  for (const key of ['job_id', 'profile_id', 'ceo_user_id']) delete extra[key];
   return {
     job_id: row.job_id,
     profile_id: row.profile_id,
@@ -61,16 +63,18 @@ function rowToJob(row) {
   };
 }
 
-export function createJobApplicationsService(getDb) {
+export function createJobApplicationsService(getDb, ownerUserId = null) {
+  const owner = ownerUserId ? String(ownerUserId) : null;
   const inventory = createJobInventoryHelpers(getDb, null);
 
   const service = {
     list({ status, owner_action, profile_id, ceo_user_id, limit = 100 } = {}) {
+      ceo_user_id = owner || ceo_user_id;
       const db = getDb();
       let sql = 'SELECT * FROM job_applications WHERE 1=1';
       const params = [];
       if (ceo_user_id) {
-        sql += ' AND (ceo_user_id = ? OR ceo_user_id IS NULL)';
+        sql += owner ? ' AND ceo_user_id = ?' : ' AND (ceo_user_id = ? OR ceo_user_id IS NULL)';
         params.push(ceo_user_id);
       }
       if (profile_id) {
@@ -92,15 +96,16 @@ export function createJobApplicationsService(getDb) {
 
     get(jobId) {
       const db = getDb();
+      if (owner) return rowToJob(db.prepare('SELECT * FROM job_applications WHERE job_id = ? AND ceo_user_id = ?').get(jobId, owner));
       return rowToJob(db.prepare('SELECT * FROM job_applications WHERE job_id = ?').get(jobId));
     },
 
     checkJobSeen(ceoUserId, profileId, opts = {}) {
-      return inventory.checkJobSeen(ceoUserId, profileId, opts);
+      return inventory.checkJobSeen(owner || ceoUserId, profileId, opts);
     },
 
     inventorySummary(ceoUserId, profileId = null) {
-      return inventory.inventorySummary(ceoUserId, profileId);
+      return inventory.inventorySummary(owner || ceoUserId, profileId);
     },
 
     append(jobs = [], { profile_id, ceo_user_id, skip_if_seen = true, cross_profile = true } = {}) {
@@ -131,7 +136,7 @@ export function createJobApplicationsService(getDb) {
         const title = (j.title || '').trim();
         if (!url && !title) continue;
         const pid = j.profile_id || profile_id || null;
-        const ceo = j.ceo_user_id || ceo_user_id || null;
+        const ceo = owner || j.ceo_user_id || ceo_user_id || null;
 
         if (skip_if_seen && ceo && pid) {
           const seen = inventory.checkJobSeen(ceo, pid, {
@@ -158,6 +163,8 @@ export function createJobApplicationsService(getDb) {
         const jobId = j.job_id || makeJobId(url, company, title, pid || '');
         const extra = { ...(j.extra || {}), normalized_url: inventory.normalizeJobUrl(url) };
         delete extra.job_id;
+        delete extra.ceo_user_id;
+        delete extra.profile_id;
         const result = ins.run(
           jobId,
           pid,
@@ -172,7 +179,9 @@ export function createJobApplicationsService(getDb) {
         if (result.changes > 0) added.push(jobId);
         else {
           skipped.push(jobId);
-          const existing = db.prepare('SELECT job_id, status, profile_id FROM job_applications WHERE job_id = ?').get(jobId);
+          const existing = owner
+            ? db.prepare('SELECT job_id, status, profile_id FROM job_applications WHERE job_id = ? AND ceo_user_id = ?').get(jobId, owner)
+            : db.prepare('SELECT job_id, status, profile_id FROM job_applications WHERE job_id = ?').get(jobId);
           if (existing) {
             skipped_seen.push({
               url,
@@ -200,7 +209,9 @@ export function createJobApplicationsService(getDb) {
     update(jobId, patch = {}) {
       if (!jobId) throw new Error('job_id required');
       const db = getDb();
-      const existing = db.prepare('SELECT * FROM job_applications WHERE job_id = ?').get(jobId);
+      const existing = owner
+        ? db.prepare('SELECT * FROM job_applications WHERE job_id = ? AND ceo_user_id = ?').get(jobId, owner)
+        : db.prepare('SELECT * FROM job_applications WHERE job_id = ?').get(jobId);
       if (!existing) throw new Error('Job not found');
 
       const allowed = [
@@ -242,7 +253,8 @@ export function createJobApplicationsService(getDb) {
       if (updates.length === 0) throw new Error('No valid patch fields');
       updates.push("updated_at = datetime('now')");
       values.push(jobId);
-      db.prepare(`UPDATE job_applications SET ${updates.join(', ')} WHERE job_id = ?`).run(...values);
+      if (owner) values.push(owner);
+      db.prepare(`UPDATE job_applications SET ${updates.join(', ')} WHERE job_id = ?${owner ? ' AND ceo_user_id = ?' : ''}`).run(...values);
       return this.get(jobId);
     },
   };

@@ -7,6 +7,7 @@ import { bearerToken, attachAuthUser } from '../middleware/auth.js';
 import { getSessionUser } from '../services/auth/session.js';
 import { isInternalRequest, internalServiceUser } from '../middleware/internal-auth.js';
 import { verifyToolScopedToken } from '../services/tool-scoped-token.js';
+import { attachOrgFieldsToAuthUser } from '../services/org-permissions.js';
 
 function applyScopedToolAuth(req, token) {
   const scoped = verifyToolScopedToken(token, {
@@ -19,13 +20,11 @@ function applyScopedToolAuth(req, token) {
   // supplied body.tool_name.
   const requestPath = String(req.path || req.url || '').split('?')[0];
   if (scoped.lease && requestPath !== '/invoke') return false;
-  const requestedOwner = String(
-    req.headers?.['x-ceo-user-id'] || req.headers?.['x-agent-os-user-id'] || ''
-  ).trim();
+  const requestedOwners = ['x-ceo-user-id', 'x-agent-os-user-id'].map(k => String(req.headers?.[k] || '').trim()).filter(Boolean);
   const headerAgent = String(req.headers?.['x-openclaw-agent-id'] || req.headers?.['x-agent-id'] || '').trim();
   const bodyAgent = String(req.body?.caller_agent_id || req.body?.x_openclaw_agent_id || '').trim();
   const requestedAgent = headerAgent || bodyAgent;
-  if (requestedOwner && requestedOwner !== scoped.ownerUserId) return false;
+  if (requestedOwners.some(owner => owner !== scoped.ownerUserId)) return false;
   if (!scoped.agentId || !requestedAgent || requestedAgent !== scoped.agentId) return false;
   if (headerAgent && bodyAgent && headerAgent !== bodyAgent) return false;
   req.toolsApiAuth = true;
@@ -68,7 +67,7 @@ export function requireToolsAccess(req, res, next) {
   if (token) {
     const user = getSessionUser(token);
     if (user) {
-      req.authUser = user;
+      req.authUser = attachOrgFieldsToAuthUser(user);
       req.sessionToken = token;
       return next();
     }

@@ -201,7 +201,7 @@ function profileService(ceoUserId = null) {
 }
 
 function jobsService(ceoUserId = null) {
-  return createJobApplicationsService(() => getDbForCeo(ceoUserId || getDefaultCeoUserId()));
+  return createJobApplicationsService(() => getDbForCeo(ceoUserId || getDefaultCeoUserId()), ceoUserId || getDefaultCeoUserId());
 }
 
 export function getPipelineState() {
