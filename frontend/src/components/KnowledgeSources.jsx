@@ -4,7 +4,8 @@ import { formatLocalDateTime } from '../utils/formatDateTime.js';
 import KnowledgeRecordPicker from './KnowledgeRecordPicker.jsx';
 import KnowledgeRecordBrowser from './KnowledgeRecordBrowser.jsx';
 import KnowledgeRelationshipRules, { KnowledgeMappingAdvice } from './KnowledgeRelationshipRules.jsx';
-import KnowledgeSearchResults from './KnowledgeSearchResults.jsx';
+import KnowledgeUnifiedResults from './KnowledgeUnifiedResults.jsx';
+import {searchKnowledgeMode} from '../utils/knowledgeSearchModes.js';
 import KnowledgeJobRecords from './KnowledgeJobRecords.jsx';
 import KnowledgeRunSummary from './KnowledgeRunSummary.jsx';
 import './KnowledgeSources.css';
@@ -21,6 +22,7 @@ export default function KnowledgeSources() {
   const [mappings,setMappings]=useState({items:[],next:null}),[mapping,setMapping]=useState({relation:'same_customer',note:''});
   const [summarize,setSummarize]=useState(true);
   const [liveValues,setLiveValues]=useState(false);
+  const [searchMode,setSearchMode]=useState('auto');
   async function load(){try{const data=await api.knowledgeSources();setSources(data.sources);setDisabled(false);}catch(e){if(e.status===503)setDisabled(true);else setError(e.message);}}
   useEffect(()=>{load();},[]);
   useEffect(()=>{if(disabled)return;const timer=setInterval(load,15000);return()=>clearInterval(timer);},[disabled]);
@@ -48,6 +50,7 @@ export default function KnowledgeSources() {
         {editing&&<button type="button" onClick={()=>{setEditing(null);setForm(empty);}}>Cancel edit</button>}
       </form>
       <KnowledgeRelationshipRules sources={sources}/>
+      <details><summary>Relationship processing status</summary><p>Native relationships and approved rules use the published source snapshot. Intelligent suggestions require review; they do not become links automatically.</p>{sources.map(s=><p key={s.id}><strong>{s.name}</strong> — {!s.graph_enabled?'Relationships disabled':!s.enabled?'Paused; excluded from retrieval':!s.revision?'Awaiting first successful index':s.status==='error'?'Synchronization failed; review source history':s.status==='syncing'?'Synchronizing; last published snapshot retained':'Published and available for relationship queries'}{s.graph_enabled&&s.intelligent_mapping?' · Intelligent advice enabled; review suggestions in Relationships.':''}</p>)}</details>
       {!sources.length&&<p className="knowledge-connected-empty">No connected sources yet. Add one above to start background indexing. Your original records are not changed.</p>}
       {sources.map(s=><article key={s.id}><h3>{s.name}</h3><p>{s.enabled?s.status:'Paused'} · Last success: {s.last_success?formatLocalDateTime(s.last_success):'Not yet synchronized'}</p>{s.error&&<p role="alert">{s.error}</p>}<small>Source ID: {s.id}</small><p>
         <button disabled={busy||!s.enabled||s.status==='syncing'} onClick={()=>act(()=>api.knowledgeSourceSync(s.id),'Synchronization queued.')}>Sync now</button>
@@ -61,8 +64,8 @@ export default function KnowledgeSources() {
       {jobs&&<aside aria-label="Source history"><h3>{jobs.name}: history</h3><button onClick={()=>setJobs(null)}>Close history</button>{jobs.jobs.map(j=><div key={j.id}><KnowledgeRunSummary job={j}/><KnowledgeJobRecords job={j}/></div>)}<button disabled={busy} onClick={()=>act(async()=>setJobs({...jobs,...await api.knowledgeSourceHistory(jobs.id)}),'History loaded.')}>First page</button> <button disabled={busy||!jobs.next} onClick={()=>act(async()=>setJobs({...jobs,...await api.knowledgeSourceHistory(jobs.id,jobs.next)}),'History loaded.')}>Next 25 jobs</button></aside>}
     </>}
     {tab==='documents'&&<KnowledgeRecordBrowser sources={sources}/>}
-    {tab==='search'&&<><form onSubmit={e=>{e.preventDefault();setResult(null);act(async()=>setResult(await api.knowledgeConnectedSearch({query,summarize,live_values:liveValues,paginate:true})),'Evidence retrieved.');}}><label>Question <textarea required value={query} onChange={e=>setQuery(e.target.value)} maxLength={4000}/></label><label><input type="checkbox" checked={summarize} onChange={e=>setSummarize(e.target.checked)}/>Generate a cited answer</label><label><input type="checkbox" checked={liveValues} onChange={e=>setLiveValues(e.target.checked)}/>Verify current ERP invoice balances and status (up to 5 records)</label><button disabled={busy}>{busy?'Searching…':'Find connected information'}</button></form>
-      {result&&<KnowledgeSearchResults key={result.page_token||query} result={result}/>}
+    {tab==='search'&&<><form onSubmit={e=>{e.preventDefault();setResult(null);act(async()=>setResult(await searchKnowledgeMode(api,{mode:searchMode,query,summarize,liveValues})),'Search completed. Review source results and any warnings below.');}}><label>Search mode <select value={searchMode} onChange={e=>{setSearchMode(e.target.value);setResult(null);}} disabled={busy}><option value="auto">Auto — documents and connected sources</option><option value="documents">Documents</option><option value="connected">Connected sources</option></select></label><label>Question <textarea required value={query} onChange={e=>setQuery(e.target.value)} maxLength={4000}/></label><label><input type="checkbox" checked={summarize} onChange={e=>setSummarize(e.target.checked)}/>Generate a cited answer</label>{searchMode!=='documents'&&<label><input type="checkbox" checked={liveValues} onChange={e=>setLiveValues(e.target.checked)}/>Verify current ERP invoice balances and status (up to 5 records)</label>}<button disabled={busy}>{busy?'Searching…':'Search knowledge'}</button></form>
+      {result&&<KnowledgeUnifiedResults result={result}/>}
     </>}
     {tab==='relationships'&&<><KnowledgeMappingAdvice sources={sources}/><div className="knowledge-connected-hint"><strong>Manual relationship exception</strong><p>Search each source, select the records, then describe the relationship and its evidence. Use source field rules for repeatable matches. IDs are attached automatically; similar names alone never create a link.</p></div><form className="knowledge-relationship-form" onSubmit={e=>{e.preventDefault();act(async()=>{await api.knowledgeMappingSave(mapping);setMappings(await api.knowledgeRelationshipPage('mappings'));},'Relationship saved.');}}>
       {['from','to'].map(side=><fieldset key={side}><legend>{side==='from'?'From record':'To record'}</legend><label>Source <select disabled={busy} required value={mapping[`${side}_source`]||''} onChange={e=>setMapping({...mapping,[`${side}_source`]:e.target.value,[`${side}_object`]:''})}><option value="">Select source</option>{sources.filter(s=>s.graph_enabled).map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label><KnowledgeRecordPicker key={mapping[`${side}_source`]||side} sourceId={mapping[`${side}_source`]} value={mapping[`${side}_object`]} disabled={busy} onChange={value=>setMapping(old=>({...old,[`${side}_object`]:value}))}/></fieldset>)}

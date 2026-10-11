@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {searchKnowledgeMode} from '../src/utils/knowledgeSearchModes.js';
+const calls=[];
+const api={knowledgeConnectedSearch:async body=>{calls.push(['connected',body]);return {evidence:[]};},masterDataRag:async body=>{calls.push(['documents',body]);return {chunks:[]};}};
+const both=await searchKnowledgeMode(api,{query:'test',liveValues:true});
+assert.deepEqual(calls.map(c=>c[0]),['connected','documents']);assert.ok(both.connected&&both.documents);assert.equal(calls[0][1].live_values,true);assert.equal(calls[1][1].top_k,20);
+calls.length=0;await searchKnowledgeMode(api,{mode:'documents',query:'test'});assert.deepEqual(calls.map(c=>c[0]),['documents']);
+calls.length=0;await searchKnowledgeMode(api,{mode:'connected',query:'test'});assert.deepEqual(calls.map(c=>c[0]),['connected']);
+const partial=await searchKnowledgeMode({...api,masterDataRag:async()=>{throw new Error('Unavailable');}},{query:'test'});assert.ok(partial.connected);assert.equal(partial.errors.length,1);
+await assert.rejects(()=>searchKnowledgeMode(api,{mode:'invalid',query:'test'}));
+console.log('Knowledge search modes: bounded existing APIs, isolation by endpoint, mode routing and partial failure visibility passed.');
