@@ -263,8 +263,8 @@ function HomeRightPane({ snapshot, agentActivity, recentWorkflows }) {
             <li key={a.id}>
               <RobotAvatar src={a.avatar_image} name={a.name} size={32} status={a.status === 'active' ? 'online' : 'idle'} />
               <div className="home-agent-meta">
-                <div className="home-agent-name">{a.name}</div>
-                <div className="home-agent-act">{a.activity}</div>
+                <div className="home-agent-name" title={a.name}>{a.name}</div>
+                <div className="home-agent-act" title={a.activity}>{a.activity}</div>
               </div>
             </li>
           ))}
