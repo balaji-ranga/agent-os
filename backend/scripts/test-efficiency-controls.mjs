@@ -10,6 +10,7 @@ process.env.OPENCLAW_DIR=dir;
 process.env.OPENSEARCH_ENABLED='0';
 process.env.OLLAMA_BASE_URL='http://ollama:11434';
 process.env.OLLAMA_MODEL='llama3.2';
+process.env.OLLAMA_EFFICIENCY_THREADS='2';
 process.env.DEEPSEEK_MODEL='deepseek-r1:8b';
 process.env.OPENAI_PRIMARY_BASE_URL='https://api.deepseek.com/v1';
 process.env.OPENAI_PRIMARY_MODEL='deepseek-chat';
@@ -55,18 +56,20 @@ try {
   let requests=[];
   globalThis.fetch=async(url,init)=>{
     requests.push({url,body:JSON.parse(init.body)});
-    if(url.includes('ollama'))return new Response(JSON.stringify({model:'llama3.2:latest',choices:[{message:{content:'not json'},finish_reason:'stop'}],usage:{prompt_tokens:5,completion_tokens:3}}));
+    if(String(url).includes('ollama'))return new Response(JSON.stringify({model:'llama3.2:latest',message:{content:'not json'},done:true,done_reason:'stop',prompt_eval_count:5,eval_count:3}));
     return new Response(JSON.stringify({model:'deepseek-chat',choices:[{message:{content:'{"query":"AI regulation"}'},finish_reason:'stop'}],usage:{prompt_tokens:6,completion_tokens:4}}));
   };
   await assert.rejects(()=>chatCompletions({ownerUserId:'ceo-a',toolName:'goal_plan_tool_args',responseFormat:'json_object',messages:[{role:'user',content:'fixture'}]}),/local-only/);assertions++;
-  check(requests.length===1&&requests[0].url.includes('ollama'),'No gateway or cloud call in local-only failure');
+  check(requests.length===1&&String(requests[0].url).includes('ollama'),'No gateway or cloud call in local-only failure');
+  check(String(requests[0].url).endsWith('/api/chat')&&requests[0].body.options.num_thread===2,'Private utility transport uses quota-aligned CPU threads');
+  check(requests[0].body.format==='json'&&requests[0].body.truncate===false,'Native JSON validation and no silent context truncation');
   requests=[];
   await assert.rejects(()=>chatCompletions({ownerUserId:'ceo-a',toolName:'goal_plan_tool_args',endpointPreference:'primary',responseFormat:'json_object',messages:[{role:'user',content:'fixture'}]}),/local-only/);assertions++;
-  check(requests.length===1&&requests[0].url.includes('ollama'),'Explicit endpoint preference cannot bypass local-only utility restriction');
+  check(requests.length===1&&String(requests[0].url).includes('ollama'),'Explicit endpoint preference cannot bypass local-only utility restriction');
   requests=[];
   const result=await runWithLlmopsContext({ownerUserId:'ceo-b',memberKey:'coo',sessionId:'session-b',clientTurnId:'turn-b-123456'},()=>chatCompletions({toolName:'goal_plan_tool_args',responseFormat:'json_object',messages:[{role:'user',content:'fixture'}]}));
   check(requests.length===2,'Invalid JSON escalates once to configured provider');
-  check(requests.every(r=>!r.url.includes('litellm')),'Hidden gateway fallback cannot bypass company policy');
+  check(requests.every(r=>!String(r.url).includes('litellm')),'Hidden gateway fallback cannot bypass company policy');
   check(result.efficiency.fallbackReason==='local_output_invalid_json','Evidence has sanitized fallback reason');
   check(result.modelUsed==='deepseek-chat','Actual hosted model captured');
   check(controls.efficiencyReport('ceo-b',{traceId:'turn-b-123456'}).events[0].member_key==='coo','Turn and agent correlation carried by async context');
@@ -75,7 +78,7 @@ try {
   requests=[];
   globalThis.fetch=async(url,init)=>{
     requests.push(url);controls.saveEfficiencyPolicy({allow_cloud_fallback:false});
-    return new Response(JSON.stringify({choices:[{message:{content:'not json'}}]}));
+    return new Response(JSON.stringify({message:{content:'not json'},done:true,done_reason:'stop'}));
   };
   await assert.rejects(()=>chatCompletions({ownerUserId:'ceo-b',toolName:'goal_plan_tool_args',responseFormat:'json_object',messages:[{role:'user',content:'fixture'}]}),/local-only/);assertions++;
   check(requests.length===1,'Admin cloud revocation during inference is enforced before fallback');

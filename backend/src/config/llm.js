@@ -17,6 +17,7 @@ import {
 } from '../services/model-routing-registry.js';
 import { effectiveEfficiencyPlan, getEfficiencyPolicy, localEfficiencyModel } from '../services/efficiency-control-plane.js';
 import { executeEfficiency } from '../services/efficiency-execution.js';
+import { fetchEfficiencyOllama } from '../services/efficiency-ollama-transport.js';
 import { getLlmopsContext } from '../services/llmops-context.js';
 
 export function isLocalOllama(baseUrl) {
@@ -332,6 +333,7 @@ async function performChatCompletions({
       tool: toolName || null,
     });
     const chatUrl = `${ep.baseUrl.replace(/\/$/, '')}/chat/completions`;
+    const fetchCompletion = _config?.utilityTransport === true && isLocalOllama(ep.baseUrl) ? fetchEfficiencyOllama : fetch;
     const headers = { 'Content-Type': 'application/json' };
     if (ep.apiKey) headers.Authorization = `Bearer ${ep.apiKey}`;
     try {
@@ -367,7 +369,7 @@ async function performChatCompletions({
       const requestTimeoutMs = Number(timeoutMs) > 0
         ? Number(timeoutMs)
         : getPlatformTimeoutMs('llm_chat');
-      let res = await fetch(chatUrl, {
+      let res = await fetchCompletion(chatUrl, {
         method: 'POST',
         headers,
         body: JSON.stringify(body),
@@ -392,7 +394,7 @@ async function performChatCompletions({
             host: endpointHost(ep.baseUrl),
             model: ep.model,
           });
-          res = await fetch(chatUrl, {
+          res = await fetchCompletion(chatUrl, {
             method: 'POST',
             headers,
             body: JSON.stringify(body),
@@ -407,7 +409,7 @@ async function performChatCompletions({
         const errPeek = await res.text();
         if (/response_format|json_object|unsupported/i.test(errPeek) || res.status === 400) {
           delete body.response_format;
-          res = await fetch(chatUrl, {
+          res = await fetchCompletion(chatUrl, {
             method: 'POST',
             headers,
             body: JSON.stringify(body),
