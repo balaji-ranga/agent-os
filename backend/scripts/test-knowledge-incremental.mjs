@@ -16,6 +16,7 @@ let rows=[{object_id:'a',text:'Alpha'},{object_id:'b',text:'Bravo'}];
 const run=async()=>{store.enqueue(owner,source.id);const job=store.claim();return runIncrementalKnowledge(job,{store,search,records:async function*(){yield* rows;}});};
 assert.equal((await run()).changed,2);assert.equal(writes,2);
 assert.equal((await run()).reused,2);assert.equal(writes,2);
+assert.deepEqual(((j)=>({checked:j.records,changed:j.changed,reused:j.reused,deleted:j.deleted,trigger:j.trigger}))(store.history(owner,source.id)[0]),{checked:2,changed:0,reused:2,deleted:0,trigger:'manual'});
 rows[0]={object_id:'a',text:'Alpha changed'};assert.equal((await run()).changed,1);assert.equal(writes,3);
 rows.push({object_id:'c',text:'Charlie'},{object_id:'d',text:'Delta'});fail='d';
 const prior=store.get(owner,source.id).revision;

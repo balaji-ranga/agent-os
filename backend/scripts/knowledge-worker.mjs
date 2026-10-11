@@ -6,7 +6,11 @@ if(process.env.KNOWLEDGE_SYNC_ENABLED!=='1')throw new Error('Set KNOWLEDGE_SYNC_
 let stopped=false;
 process.on('SIGTERM',()=>{stopped=true;});process.on('SIGINT',()=>{stopped=true;});
 const store=knowledgeStore();
+store.workerHeartbeat();
+const healthTimer=setInterval(()=>store.workerHeartbeat(),15000);
+healthTimer.unref();
 while(!stopped) {
+  if(store.globallyPaused()){await new Promise(resolve=>setTimeout(resolve,3000));continue;}
   await cleanupKnowledgeSources({store});
   const job=store.claim();
   if(job){
@@ -20,3 +24,4 @@ while(!stopped) {
     await new Promise(resolve=>setTimeout(resolve,3000));
   }
 }
+clearInterval(healthTimer);

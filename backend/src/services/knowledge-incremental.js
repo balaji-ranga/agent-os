@@ -41,13 +41,13 @@ export async function runIncrementalKnowledge(job,{store,search,records}){
     const deleted=await search.closeUnseenIncremental(job.owner,source,draft,scan);
     await search.refresh(job.owner);
     if(lost)throw lost;
-    store.finish(job,`g:${draft.generation}`);
+    store.finish(job,`g:${draft.generation}`,null,{metrics:{checked:count,changed,reused,deleted}});
     // Obsolete versions are no longer queryable. Physical cleanup is retryable.
     try{await search.pruneIncremental(job.owner,source,draft.generation);}catch{console.warn('[knowledge] historical object cleanup deferred',job.id);}
     return {status:'completed',records:count,changed,reused,deleted,revision:`g:${draft.generation}`};
   }catch(error){
     const message=String(error.message||error).slice(0,500);
-    try{store.finish(job,null,message,{retryAfterMs:error.retry_after_ms});}catch{}
+    try{store.finish(job,null,message,{retryAfterMs:error.retry_after_ms,metrics:{checked:count,changed,reused,deleted:null}});}catch{}
     return {status:'failed',records:count,changed,reused,error:message};
   }finally{clearInterval(timer);}
 }

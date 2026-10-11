@@ -402,6 +402,13 @@ export default function AdminCrons() {
                     </dd>
                   </div>
                 </dl>
+                {c.knowledge_stats && <section aria-label="Knowledge worker statistics">
+                  <p>Worker: <strong>{c.knowledge_stats.worker_health}</strong> · Last heartbeat: {formatLocalDateTime(c.knowledge_stats.heartbeat_at,{second:'2-digit'})}</p>
+                  <p>Sources: {c.knowledge_stats.sources.enabled || 0} enabled / {c.knowledge_stats.sources.total} total · Next due: {formatLocalDateTime(c.knowledge_stats.sources.next_sync,{second:'2-digit'})}</p>
+                  <p>Jobs: {c.knowledge_stats.jobs.map(j=>`${j.count} ${j.status}`).join(' · ') || 'None'}</p>
+                  <p>Last 24 hours: {c.knowledge_stats.totals.runs} finished runs · {c.knowledge_stats.totals.checked || 0} records checked · {c.knowledge_stats.totals.changed ?? '—'} changed/reindexed · {c.knowledge_stats.totals.reused ?? '—'} unchanged/reused · {c.knowledge_stats.totals.deleted ?? '—'} deleted from index</p>
+                  <small>Older runs have no detailed counters. Pausing does not alter source configuration or interrupt active work.</small>
+                </section>}
                 {c.id === 'openclaw_session_cleanup' && (
                   <CleanupPolicy cron={c} busy={busy} onSaved={policySaved} />
                 )}

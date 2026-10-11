@@ -55,9 +55,31 @@ export function knowledgeStore(db = getDb()) {
   `);
   const now = () => new Date().toISOString();
   const processing=knowledgeProcessingState(db);
+  const columns=new Set(db.prepare('PRAGMA table_info(knowledge_jobs)').all().map(c=>c.name));
+  for(const [name,type] of [['trigger','TEXT'],['changed','INTEGER'],['reused','INTEGER'],['deleted','INTEGER']])if(!columns.has(name))db.exec(`ALTER TABLE knowledge_jobs ADD COLUMN ${name} ${type}`);
+  db.exec('CREATE TABLE IF NOT EXISTS knowledge_worker_health(id TEXT PRIMARY KEY,heartbeat_at TEXT NOT NULL)');
   const map = row => row && ({ ...JSON.parse(row.config), id:row.id, owner:row.owner, enabled:!!row.enabled,
     revision:row.revision,status:row.status,last_success:row.last_success,error:row.error,next_sync:row.next_sync,retry:processing.getRetry(row.owner,row.id) });
   return {
+    globallyPaused() {
+      if(!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='platform_settings'").get())return false;
+      const raw=db.prepare("SELECT value FROM platform_settings WHERE key='platform_cron_paused'").get()?.value;
+      try{return !!JSON.parse(raw||'{}').knowledge_sync;}catch{return true;}
+    },
+    workerHeartbeat() {db.prepare("INSERT INTO knowledge_worker_health VALUES('worker',?) ON CONFLICT(id) DO UPDATE SET heartbeat_at=excluded.heartbeat_at").run(now());},
+    adminStats() {
+      const heartbeat=db.prepare("SELECT heartbeat_at FROM knowledge_worker_health WHERE id='worker'").get()?.heartbeat_at;
+      return {knowledge_stats:{worker_health:!heartbeat?'not_seen':Date.now()-Date.parse(heartbeat)<90000?'online':'stale',heartbeat_at:heartbeat||null,
+        sources:db.prepare('SELECT count(*) AS total,sum(enabled) AS enabled,min(CASE WHEN enabled=1 THEN next_sync END) AS next_sync FROM knowledge_sources').get(),
+        jobs:db.prepare('SELECT status,count(*) AS count FROM knowledge_jobs GROUP BY status').all(),
+        totals:db.prepare('SELECT count(*) AS runs,sum(records) AS checked,sum(changed) AS changed,sum(reused) AS reused,sum(deleted) AS deleted FROM knowledge_jobs WHERE ended_at>=?').get(new Date(Date.now()-86400000).toISOString())}};
+    },
+    enqueueDue(trigger='scheduled') {
+      if(this.globallyPaused())return 0;
+      const due=db.prepare('SELECT owner,id FROM knowledge_sources WHERE enabled=1 AND next_sync<=?').all(now());
+      for(const row of due)this.enqueue(row.owner,row.id,trigger);
+      return due.length;
+    },
     excluded(owner,source,id){return !!db.prepare('SELECT 1 FROM knowledge_exclusions WHERE owner=? AND source_id=? AND object_id=?').get(owner,source,id);},
     exclusions(owner,source,after=''){return db.prepare('SELECT object_id,created_at FROM knowledge_exclusions WHERE owner=? AND source_id=? AND object_id>? ORDER BY object_id LIMIT 101').all(owner,source,after);},
     beginRecordManagement(owner,id){
@@ -147,19 +169,21 @@ export function knowledgeStore(db = getDb()) {
       }
       return this.get(owner,id);
     },
-    enqueue(owner,id) {
+    enqueue(owner,id,trigger='manual') {
+      if(!['manual','scheduled','admin','lifecycle'].includes(trigger))throw new Error('Invalid sync trigger');
       const src=this.get(owner,id); if(!src) throw Object.assign(new Error('Source not found'),{status:404});
       if(!src.enabled) throw new Error('Enable source before synchronizing');
       const job=randomUUID();
-      db.prepare("INSERT OR IGNORE INTO knowledge_jobs(id,source_id,owner,status) VALUES(?,?,?,'queued')").run(job,id,owner);
+      db.prepare("INSERT OR IGNORE INTO knowledge_jobs(id,source_id,owner,status,trigger) VALUES(?,?,?,'queued',?)").run(job,id,owner,trigger);
       return db.prepare("SELECT * FROM knowledge_jobs WHERE source_id=? AND owner=? AND status IN ('queued','running')").get(id,owner);
     },
     claim() {
       return db.transaction(()=>{
+        if(this.globallyPaused())return null;
         const time=now();
         db.prepare("UPDATE knowledge_jobs SET status='failed',ended_at=?,error='Worker lease expired; safe to resynchronize' WHERE status='running' AND lease_until<?").run(time,time);
         const due=db.prepare("SELECT owner,id FROM knowledge_sources WHERE enabled=1 AND next_sync<=? LIMIT 20").all(time);
-        for(const row of due) this.enqueue(row.owner,row.id);
+        for(const row of due) this.enqueue(row.owner,row.id,'scheduled');
         const job=db.prepare("SELECT j.* FROM knowledge_jobs j JOIN knowledge_sources s ON s.id=j.source_id AND s.owner=j.owner WHERE j.status='queued' AND s.enabled=1 LIMIT 1").get();
         if(!job) return null;
         db.prepare("UPDATE knowledge_jobs SET status='running',started_at=?,lease_until=? WHERE id=?").run(time,new Date(Date.now()+120000).toISOString(),job.id);
@@ -172,11 +196,12 @@ export function knowledgeStore(db = getDb()) {
         .run(new Date(Date.now()+120000).toISOString(),count,job.id,job.owner,now());
       if(!result.changes) throw new Error('Knowledge job lease lost');
     },
-    finish(job,revision,error=null,{retryAfterMs=0}={}) {
+    finish(job,revision,error=null,{retryAfterMs=0,metrics=null}={}) {
       db.transaction(()=>{
         const src=this.get(job.owner,job.source_id); const time=now();
         const claimed=db.prepare("SELECT id FROM knowledge_jobs WHERE id=? AND owner=? AND status='running' AND lease_until>=?").get(job.id,job.owner,time);
         if(!claimed) throw new Error('Cannot publish after lease expiry');
+        if(metrics)db.prepare('UPDATE knowledge_jobs SET records=?,changed=?,reused=?,deleted=? WHERE id=? AND owner=?').run(metrics.checked,metrics.changed,metrics.reused,metrics.deleted,job.id,job.owner);
         db.prepare('UPDATE knowledge_jobs SET status=?,ended_at=?,error=? WHERE id=? AND owner=?')
           .run(error?'failed':'completed',time,error,job.id,job.owner);
         // Failed sources are excluded from connected retrieval until resynchronized.

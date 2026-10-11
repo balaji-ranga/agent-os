@@ -6,6 +6,7 @@ import KnowledgeRecordBrowser from './KnowledgeRecordBrowser.jsx';
 import KnowledgeRelationshipRules, { KnowledgeMappingAdvice } from './KnowledgeRelationshipRules.jsx';
 import KnowledgeSearchResults from './KnowledgeSearchResults.jsx';
 import KnowledgeJobRecords from './KnowledgeJobRecords.jsx';
+import KnowledgeRunSummary from './KnowledgeRunSummary.jsx';
 import './KnowledgeSources.css';
 
 const collections={crm:['companies','people','opportunities'],erp:['Customer','Contact','Project','Sales Invoice'],content:['uploaded','generated'],knowledge:['tables','documents'],gmail:['messages'],outlook:['messages']};
@@ -52,7 +53,7 @@ export default function KnowledgeSources() {
         <button disabled={busy} onClick={()=>act(async()=>setJobs({id:s.id,name:s.name,...await api.knowledgeSourceHistory(s.id)}),'History loaded.')}>History</button>
       </p></article>)}
       {sources.filter(s=>s.retry&&s.enabled).map(s=><p key={`retry-${s.id}`} role="status">{s.name}: {s.retry.failures} failed attempt(s). Next automatic retry: {formatLocalDateTime(s.retry.retry_at)}. Use Sync now to retry immediately.</p>)}
-      {jobs&&<aside aria-label="Source history"><h3>{jobs.name}: history</h3><button onClick={()=>setJobs(null)}>Close history</button>{jobs.jobs.map(j=><div key={j.id}><p>{j.status} · {j.records} records · {j.started_at?formatLocalDateTime(j.started_at):'Queued'} {j.error||''}</p><KnowledgeJobRecords job={j}/></div>)}<button disabled={busy} onClick={()=>act(async()=>setJobs({...jobs,...await api.knowledgeSourceHistory(jobs.id)}),'History loaded.')}>First page</button> <button disabled={busy||!jobs.next} onClick={()=>act(async()=>setJobs({...jobs,...await api.knowledgeSourceHistory(jobs.id,jobs.next)}),'History loaded.')}>Next 25 jobs</button></aside>}
+      {jobs&&<aside aria-label="Source history"><h3>{jobs.name}: history</h3><button onClick={()=>setJobs(null)}>Close history</button>{jobs.jobs.map(j=><div key={j.id}><KnowledgeRunSummary job={j}/><KnowledgeJobRecords job={j}/></div>)}<button disabled={busy} onClick={()=>act(async()=>setJobs({...jobs,...await api.knowledgeSourceHistory(jobs.id)}),'History loaded.')}>First page</button> <button disabled={busy||!jobs.next} onClick={()=>act(async()=>setJobs({...jobs,...await api.knowledgeSourceHistory(jobs.id,jobs.next)}),'History loaded.')}>Next 25 jobs</button></aside>}
     </>}
     {tab==='documents'&&<KnowledgeRecordBrowser sources={sources}/>}
     {tab==='search'&&<><form onSubmit={e=>{e.preventDefault();setResult(null);act(async()=>setResult(await api.knowledgeConnectedSearch({query,summarize,paginate:true})),'Evidence retrieved.');}}><label>Question <textarea required value={query} onChange={e=>setQuery(e.target.value)} maxLength={4000}/></label><label><input type="checkbox" checked={summarize} onChange={e=>setSummarize(e.target.checked)}/>Generate a cited answer</label><button disabled={busy}>{busy?'Searching…':'Find connected information'}</button></form>

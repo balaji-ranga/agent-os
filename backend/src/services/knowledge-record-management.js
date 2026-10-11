@@ -14,6 +14,6 @@ export async function manageKnowledgeRecords(owner,input,{store=knowledgeStore()
   for(const id of ids)store.setExcluded(owner,source_id,id,action==='exclude');
   if(action==='exclude')await search.deleteIndexedRecords(owner,source,ids);
   if(source.enabled)store.setEnabled(owner,source_id,true);
-  const job=source.enabled?store.enqueue(owner,source_id):null;
+  const job=source.enabled?store.enqueue(owner,source_id,'lifecycle'):null;
   return {action,processed:ids.length,originals_unchanged:true,source_paused:!source.enabled,job_id:job?.id||null};
 }

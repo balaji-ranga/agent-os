@@ -168,6 +168,8 @@ import { initAgentWorkflowScheduler } from './services/agent-workflow-scheduler.
 import { syncWorkflowScheduleRegistry } from './services/agent-workflow-store.js';
 import { resumeStuckWorkflowRuns, startWorkflowTimeoutWatchdog } from './services/agent-workflow-runner.js';
 import { registerPlatformCron } from './services/platform-cron-registry.js';
+import { knowledgeStore } from './services/knowledge-store.js';
+
 import { getOpenClawSessionCleanupAdminDetails } from './services/openclaw-session-cleanup.js';
 import { seedWorkflowBuilderAgent } from '../scripts/seed-workflow-builder-agent.js';
 import { seedPlatformHelpAgent } from '../scripts/seed-platform-help-agent.js';
@@ -805,6 +807,14 @@ app.use('/integrations/email-inbound', emailInboundRoutes);
 app.use('/media/openclaw', mediaRoutes);
 
 const standupScheduleCron = process.env.STANDUP_SCHEDULE_CRON || '* * * * *';
+registerPlatformCron({
+  id:'knowledge_sync',name:'Knowledge source synchronization',kind:'event',
+  enabled:process.env.KNOWLEDGE_SYNC_ENABLED==='1',
+  eventWhen:'Dedicated worker; each source retains its own schedule',
+  description:'Pause stops new Knowledge jobs and cleanup; active work finishes. Resume preserves source schedules. Run now queues due sources only; indexing stays in the worker.',
+  handler:()=>{const store=knowledgeStore();if(store.globallyPaused())throw new Error('Resume Knowledge synchronization first');return {due_sources:store.enqueueDue('admin')};},
+  details:()=>knowledgeStore().adminStats(),
+});
 registerPlatformCron({
   id: 'standup_schedule',
   name: 'Standup schedule dispatcher',
