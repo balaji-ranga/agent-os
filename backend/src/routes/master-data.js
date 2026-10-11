@@ -4,6 +4,9 @@
 import { Router } from 'express';
 import { requireAuth, requireCeoOrAdmin, resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
 import * as md from '../services/master-data.js';
+import { knowledgeStore } from '../services/knowledge-store.js';
+import { connectedKnowledge } from '../services/knowledge-runtime.js';
+import { assertKnowledgeSourceAccess } from '../services/knowledge-source-adapters.js';
 import {
   previewCompanySetupKnowledge,
   reseedCompanySetupKnowledge,
@@ -12,6 +15,32 @@ import {
 } from '../services/company-setup.js';
 
 const router = Router();
+
+router.use('/knowledge', requireAuth, requireCeoOrAdmin, (req,res,next) => {
+  if(process.env.KNOWLEDGE_SYNC_ENABLED !== '1') return res.status(503).json({error:'Knowledge sources are not enabled on this server'});
+  next();
+});
+function knowledgeRoute(handler) {
+  return async(req,res)=>{try{const owner=ownerOr403(req,res);if(!owner)return;res.json(await handler(owner,req));}
+    catch(error){res.status(error.status||400).json({error:error.message});}};
+}
+router.get('/knowledge/sources',knowledgeRoute(owner=>({sources:knowledgeStore().list(owner)})));
+router.post('/knowledge/sources',knowledgeRoute((owner,req)=>{
+  assertKnowledgeSourceAccess(owner,req.body||{});
+  return {source:knowledgeStore().save(owner,req.body)};
+}));
+router.patch('/knowledge/sources/:id',knowledgeRoute((owner,req)=>{
+  const store=knowledgeStore();const prior=store.get(owner,req.params.id);
+  if(!prior)throw Object.assign(new Error('Source not found'),{status:404});
+  const input={...prior,...req.body};assertKnowledgeSourceAccess(owner,input);
+  return {source:store.save(owner,input,req.params.id)};
+}));
+router.post('/knowledge/sources/:id/sync',knowledgeRoute((owner,req)=>({job:knowledgeStore().enqueue(owner,req.params.id)})));
+router.get('/knowledge/sources/:id/history',knowledgeRoute((owner,req)=>({jobs:knowledgeStore().history(owner,req.params.id)})));
+router.get('/knowledge/mappings',knowledgeRoute(owner=>({mappings:knowledgeStore().mappings(owner)})));
+router.post('/knowledge/mappings',knowledgeRoute((owner,req)=>({mapping:knowledgeStore().addMapping(owner,req.body)})));
+router.delete('/knowledge/mappings/:id',knowledgeRoute((owner,req)=>({removed:knowledgeStore().removeMapping(owner,req.params.id)})));
+router.post('/knowledge/search',knowledgeRoute((owner,req)=>connectedKnowledge(owner,req.body)));
 
 function ownerOr403(req, res) {
   const ownerUserId = resolveAuthenticatedCeoUserId(req);

@@ -812,6 +812,13 @@ export const api = {
     const m = /filename="([^"]+)"/i.exec(cd);
     return { blob, filename: m?.[1] || 'download.bin' };
   },
+  knowledgeSources: () => get('/master-data/knowledge/sources'),
+  knowledgeSourceSave: (body, id) => id ? request(`/master-data/knowledge/sources/${encodeURIComponent(id)}`, { method:'PATCH', body:JSON.stringify(body) }) : post('/master-data/knowledge/sources',body),
+  knowledgeSourceSync: (id) => post(`/master-data/knowledge/sources/${encodeURIComponent(id)}/sync`,{}),
+  knowledgeSourceHistory: (id) => get(`/master-data/knowledge/sources/${encodeURIComponent(id)}/history`),
+  knowledgeMappings: () => get('/master-data/knowledge/mappings'),
+  knowledgeMappingSave: (body) => post('/master-data/knowledge/mappings',body),
+  knowledgeConnectedSearch: (body) => post('/master-data/knowledge/search',body),
   masterDataRag: (body) => post('/master-data/rag', body),
   masterDataQuery: (body) => post('/master-data/query', body),
   aiSnipperSummary: (days = 7) => get(`/ai-snipper/summary?days=${days}`),

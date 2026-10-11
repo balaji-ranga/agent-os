@@ -1,0 +1,20 @@
+# Optional additive overlay. Enable only after the acceptance gate passes.
+# Reuses the backend image/configuration, without changing OpenClaw.
+services:
+  backend:
+    environment:
+      KNOWLEDGE_SYNC_ENABLED: ${KNOWLEDGE_SYNC_ENABLED:-0}
+      KNOWLEDGE_QUERY_EMBED_TIMEOUT_MS: ${KNOWLEDGE_QUERY_EMBED_TIMEOUT_MS:-5000}
+  knowledge-worker:
+    extends:
+      file: docker-compose.yml
+      service: backend
+    profiles: [knowledge]
+    command: [node, scripts/knowledge-worker.mjs]
+    ports: !reset []
+    healthcheck:
+      disable: true
+    environment:
+      KNOWLEDGE_SYNC_ENABLED: "1"
+    cpus: ${KNOWLEDGE_WORKER_CPUS:-1}
+    mem_limit: ${KNOWLEDGE_WORKER_MEMORY:-768m}

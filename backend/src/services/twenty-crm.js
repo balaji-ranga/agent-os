@@ -294,6 +294,22 @@ async function requireLiveAuth(ownerUserId) {
   }
 }
 
+export async function crmKnowledgePage(ownerUserId, collection, cursor = null) {
+  if (!['companies', 'people', 'opportunities'].includes(collection)) throw new Error('Unsupported CRM collection');
+  const { auth, off } = await requireLiveAuth(ownerUserId);
+  if (off) throw new Error('CRM connection is unavailable');
+  const params = new URLSearchParams({ limit: '100' });
+  if (cursor) params.set('starting_after', String(cursor));
+  const data = await twentyFetch(`/rest/${collection}?${params}`, { apiKey: auth.apiKey });
+  const rows = unwrapList(data, collection);
+  const info = data?.pageInfo || data?.data?.pageInfo;
+  const hasNext = info?.hasNextPage === true;
+  if (hasNext && !info.endCursor) throw new Error('CRM returned an incomplete pagination cursor');
+  // Without pagination metadata a full page cannot be declared a complete snapshot.
+  if (!info && rows.length >= 100) throw new Error('CRM pagination metadata is required for this collection');
+  return { rows, cursor: hasNext ? info.endCursor : null };
+}
+
 export async function crmListPeople(ownerUserId, { limit = 25 } = {}) {
   const { auth, off } = await requireLiveAuth(ownerUserId);
   if (off) return { ...off, people: [] };

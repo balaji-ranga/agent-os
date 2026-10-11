@@ -6,6 +6,8 @@
   "type": "module",
   "main": "src/index.js",
   "scripts": {
+    "test:knowledge": "node scripts/test-knowledge-contract.mjs && node scripts/test-knowledge-lifecycle.mjs",
+    "knowledge:worker": "node scripts/knowledge-worker.mjs",
     "start": "node src/index.js",
     "dev": "node src/index.js",
     "seed": "node scripts/seed-all.js",

@@ -723,7 +723,7 @@ function lim(n, d = 20) {
  * List doctype rows: GET /api/resource/{Doctype}?limit_page_length=
  * @param {{ genericResource?: boolean }} opts — set genericResource for erp_list_resource (strict allowlist)
  */
-export async function erpList(ownerUserId, doctype, { limit = 20, filters, fields, genericResource = false } = {}) {
+export async function erpList(ownerUserId, doctype, { limit = 20, offset = 0, stableOrder = false, filters, fields, genericResource = false } = {}) {
   assertErpEntitled(ownerUserId);
   if (!isErpnextApiConfigured()) {
     return {
@@ -771,6 +771,11 @@ export async function erpList(ownerUserId, doctype, { limit = 20, filters, field
 
   const params = new URLSearchParams();
   params.set('limit_page_length', String(lim(limit)));
+  if (offset) {
+    if (!Number.isSafeInteger(offset) || offset < 0) throw new Error('Invalid ERP page offset');
+    params.set('limit_start', String(offset));
+  }
+  if (stableOrder) params.set('order_by', 'name asc');
   // Always request tenant fields so post-filter works when Frappe ignores unknown filters poorly
   let fieldList = fields;
   if (needsAnyCompanyScope(dt)) {
@@ -833,6 +838,7 @@ export async function erpList(ownerUserId, doctype, { limit = 20, filters, field
     if (e.status === 403 || e.status === 409) throw e;
     // Fallback: list without invalid filter field, post-filter in process
     if (needsTenantTag(dt) && /flolah_company|unknown field|invalid/i.test(String(e.message || e))) {
+      if (offset) throw new Error('ERP pagination requires a valid tenant-filter schema');
       try {
         await ensureErpnextTenantIsolationSchema();
         const data2 = await frappeFetch(

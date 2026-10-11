@@ -1,0 +1,21 @@
+import assert from 'node:assert/strict';
+import { entityId, validateSource, validateMapping, boundedExpand } from '../src/services/knowledge-contract.js';
+
+const crm = validateSource({ name: 'CRM', kind: 'crm', collections: ['companies'], graph_enabled: true });
+assert.equal(crm.interval_seconds, 300);
+assert.throws(() => validateSource({ name: 'bad', kind: 'content', collections: ['../../'] }));
+assert.throws(() => validateSource({ name: 'bad', kind: 'crm', collections: ['companies'], interval_seconds: -1 }));
+assert.notEqual(entityId('owner1', 'crm', 'a'), entityId('owner2', 'crm', 'a'));
+assert.notEqual(entityId('owner1', 'crm', 'a'), entityId('owner1', 'erp', 'a'));
+assert.throws(() => validateMapping({ from_source: 'crm' }));
+assert.equal(validateMapping({ from_source:'crm', from_object:'company/1', to_source:'erp', to_object:'Customer/1', relation:'same_customer', note:'Reviewed source IDs' }).relation, 'same_customer');
+const edges = [{id:'a',from:'crm',to:'erp'}, {id:'b',from:'erp',to:'invoice'}, {id:'c',from:'crm',to:'contract'}, {id:'d',from:'contract',to:'otherTenant'}];
+const visible = new Set(['crm','erp','invoice','contract']);
+const result = boundedExpand(['crm'],edges,visible);
+assert.deepEqual(new Set(result.ids),visible);
+assert.equal(result.relationships.length,3);
+assert.ok(!result.ids.includes('otherTenant'));
+assert.ok(!boundedExpand(['crm'],edges,new Set(['crm','contract'])).ids.includes('invoice'));
+assert.equal(boundedExpand(['crm'],edges,visible,{limit:2}).ids.length,2);
+assert.deepEqual(boundedExpand(['crm'],[],visible).ids,['crm']);
+console.log('Knowledge contract: source validation, tenant identities, explicit mapping, bounded traversal and revoked-node exclusion passed.');
