@@ -40,6 +40,15 @@ export_vps_compose_file() {
   if [[ "$COMPOSE_FILE" != *docker-compose.content-antivirus.yml* ]]; then
     export COMPOSE_FILE="$COMPOSE_FILE:docker-compose.content-antivirus.yml"
   fi
+  # Backend-only releases must preserve an already-enabled Knowledge API.
+  # An explicit operator value (including 0) takes precedence over detection.
+  local knowledge_enabled="${KNOWLEDGE_SYNC_ENABLED:-}"
+  if [[ -z "$knowledge_enabled" ]]; then
+    knowledge_enabled="$(docker exec agent-os-backend-1 printenv KNOWLEDGE_SYNC_ENABLED 2>/dev/null || true)"
+  fi
+  if [[ "$knowledge_enabled" == 1 && "$COMPOSE_FILE" != *docker-compose.knowledge-api.yml* ]]; then
+    export COMPOSE_FILE="$COMPOSE_FILE:docker-compose.knowledge-api.yml"
+  fi
   if [[ "${REQUIRE_VPS_CLIENT_IP:-1}" == "1" && "$COMPOSE_FILE" != *vps-client-ip* ]]; then
     echo "ERROR: COMPOSE_FILE must include docker-compose.vps-client-ip.yml (got: $COMPOSE_FILE)" >&2
     echo "       Host-network nginx proxies to 127.0.0.1:3001/8080; without the overlay login and /api 502." >&2
