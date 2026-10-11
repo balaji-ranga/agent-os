@@ -9,6 +9,7 @@ import RobotAvatar, { fileToDataUrl } from '../components/RobotAvatar.jsx';
 import ThemePicker from '../components/ThemePicker.jsx';
 import DesignSystemPicker from '../components/DesignSystemPicker.jsx';
 import IsoCountryRegionSelect from '../components/IsoCountryRegionSelect.jsx';
+import { CompanyEfficiencyPreferences } from '../components/EfficiencyControls.jsx';
 
 function UserProfilePanel() {
   const { user, reload, platformTimezone, displayTimezone } = useAuth();
@@ -30,6 +31,8 @@ function UserProfilePanel() {
     mfa_mode: 'inherit',
     llm_provider: 'platform_decided',
     llm_model: '',
+    llm_secondary_provider: '',
+    llm_secondary_model: '',
     llm_api_key: '',
     clear_llm_api_key: false,
     llm_efficiency_mode: false,
@@ -39,10 +42,12 @@ function UserProfilePanel() {
   const [industries, setIndustries] = useState([]);
   const [llmCatalog, setLlmCatalog] = useState({ providers: [] });
   const [llmModelCustom, setLlmModelCustom] = useState(false);
+  const [llmSecondaryModelCustom, setLlmSecondaryModelCustom] = useState(false);
   const [purgeBusy, setPurgeBusy] = useState(false);
   const [lastLoginAt, setLastLoginAt] = useState(null);
   const [mfaInfo, setMfaInfo] = useState(null);
   const [llmHint, setLlmHint] = useState(null);
+  const [llmSecondaryHint, setLlmSecondaryHint] = useState(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
@@ -152,6 +157,8 @@ function UserProfilePanel() {
       mfa_mode: user.mfa_mode || 'inherit',
       llm_provider: user.llm_provider || 'platform_decided',
       llm_model: user.llm_model || '',
+      llm_secondary_provider: user.llm_secondary_provider || '',
+      llm_secondary_model: user.llm_secondary_model || '',
       llm_api_key: '',
       clear_llm_api_key: false,
       llm_efficiency_mode: !!user.llm_efficiency_mode,
@@ -161,6 +168,7 @@ function UserProfilePanel() {
     setRoleTitleCustom(!!user.role_title && !ROLE_TITLE_PRESETS.includes(title));
     setLastLoginAt(user.last_login_at || null);
     setLlmHint(user.llm_api_key_hint || null);
+    setLlmSecondaryHint(user.llm_secondary_api_key_hint || null);
     setProfileImage(user.profile_image || '');
     api
       .authIndustries()
@@ -190,6 +198,8 @@ function UserProfilePanel() {
           mfa_mode: data.user?.mfa_mode || m.user_mfa_mode || 'inherit',
           llm_provider: nextProvider,
           llm_model: nextModel,
+          llm_secondary_provider: data.user?.llm_secondary_provider || '',
+          llm_secondary_model: data.user?.llm_secondary_model || '',
           llm_efficiency_mode: !!data.user?.llm_efficiency_mode,
           industry: data.user?.industry || f.industry || 'personal',
           industry_other: data.user?.industry_other || '',
@@ -202,6 +212,7 @@ function UserProfilePanel() {
         setRoleTitleCustom(!!data.user?.role_title && !ROLE_TITLE_PRESETS.includes(nextTitle));
         setLastLoginAt(data.user?.last_login_at || null);
         setLlmHint(data.user?.llm_api_key_hint || null);
+        setLlmSecondaryHint(data.user?.llm_secondary_api_key_hint || null);
       })
       .catch(() => {});
     api
@@ -260,6 +271,12 @@ function UserProfilePanel() {
           form.llm_provider === 'platform_decided'
             ? null
             : form.llm_model || undefined,
+        llm_secondary_provider:
+          form.llm_provider === 'platform_decided' ? null : form.llm_secondary_provider || null,
+        llm_secondary_model:
+          form.llm_provider === 'platform_decided' || !form.llm_secondary_provider
+            ? null
+            : form.llm_secondary_model || undefined,
         llm_efficiency_mode: !!form.llm_efficiency_mode,
       };
       if (user?.role === 'ceo') body.data_retention_days = Number(form.data_retention_days) || 90;
@@ -308,6 +325,7 @@ function UserProfilePanel() {
         }));
       }
       setLlmHint(data.user?.llm_api_key_hint || null);
+      setLlmSecondaryHint(data.user?.llm_secondary_api_key_hint || null);
       setMessage('Profile updated.');
       setForm((f) => ({
         ...f,
@@ -318,6 +336,8 @@ function UserProfilePanel() {
         clear_llm_api_key: false,
         llm_provider: data.user?.llm_provider || f.llm_provider,
         llm_model: data.user?.llm_model || f.llm_model,
+        llm_secondary_provider: data.user?.llm_secondary_provider || '',
+        llm_secondary_model: data.user?.llm_secondary_model || '',
         llm_efficiency_mode: !!data.user?.llm_efficiency_mode,
       }));
     } catch (err) {
@@ -335,6 +355,13 @@ function UserProfilePanel() {
   const modelInCatalog = curatedModels.some((m) => m.id === form.llm_model);
   const showCustomModel =
     !!selectedLlmProvider?.allow_custom_model && (llmModelCustom || (form.llm_model && !modelInCatalog));
+  const selectedSecondaryLlmProvider =
+    (llmCatalog.providers || []).find((p) => p.id === form.llm_secondary_provider) || null;
+  const secondaryCuratedModels = selectedSecondaryLlmProvider?.models || [];
+  const secondaryModelInCatalog = secondaryCuratedModels.some((m) => m.id === form.llm_secondary_model);
+  const showSecondaryCustomModel =
+    !!selectedSecondaryLlmProvider?.allow_custom_model &&
+    (llmSecondaryModelCustom || (form.llm_secondary_model && !secondaryModelInCatalog));
 
   const onLlmProviderChange = (next) => {
     const meta = (llmCatalog.providers || []).find((p) => p.id === next);
@@ -343,6 +370,16 @@ function UserProfilePanel() {
       ...f,
       llm_provider: next,
       llm_model: next === 'platform_decided' ? '' : meta?.default_model || '',
+    }));
+  };
+
+  const onSecondaryLlmProviderChange = (next) => {
+    const meta = (llmCatalog.providers || []).find((p) => p.id === next);
+    setLlmSecondaryModelCustom(false);
+    setForm((f) => ({
+      ...f,
+      llm_secondary_provider: next,
+      llm_secondary_model: next ? meta?.default_model || '' : '',
     }));
   };
 
@@ -823,7 +860,7 @@ function UserProfilePanel() {
                 set('llm_model', e.target.value);
               }}
               style={{ padding: '0.6rem 0.75rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
-              required={form.llm_provider === 'openai' || form.llm_provider === 'openrouter'}
+              required={form.llm_provider === 'openai' || form.llm_provider === 'openrouter' || form.llm_provider === 'deepseek_cloud'}
             >
               <option value="" disabled>
                 Select a model…
@@ -847,7 +884,7 @@ function UserProfilePanel() {
               onChange={(e) => set('llm_model', e.target.value)}
               placeholder={selectedLlmProvider?.default_model || 'model-id'}
               style={{ padding: '0.6rem 0.75rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
-              required={form.llm_provider === 'openai' || form.llm_provider === 'openrouter'}
+              required={form.llm_provider === 'openai' || form.llm_provider === 'openrouter' || form.llm_provider === 'deepseek_cloud'}
             />
           </label>
         )}
@@ -856,13 +893,80 @@ function UserProfilePanel() {
             Endpoint: <code>{selectedLlmProvider.base_url}</code>
           </p>
         )}
-        {(form.llm_provider === 'openai' || form.llm_provider === 'openrouter') && (
+        {(form.llm_provider === 'openai' || form.llm_provider === 'openrouter' || form.llm_provider === 'deepseek_cloud') && (
           <p style={{ margin: 0, fontSize: '0.85rem', color: llmHint && llmHint !== 'unset' ? 'var(--muted)' : '#b45309' }}>
             {llmHint && llmHint !== 'unset'
               ? `Platform_BYOK on file (${llmHint}). Manage under `
               : 'Platform_BYOK is required before this provider will work. Set it under '}
             <Link to="/api-keys">API Keys</Link>.
           </p>
+        )}
+
+        {form.llm_provider !== 'platform_decided' && (
+          <fieldset style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <legend style={{ padding: '0 0.35rem', fontSize: '0.9rem' }}>Secondary model</legend>
+            <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--muted)' }}>
+              Used by checker/adjudicator roles and as failover. Leave this as “Same as primary” for backward-compatible single-key BYOK.
+            </p>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Secondary provider</span>
+              <select
+                value={form.llm_secondary_provider}
+                onChange={(e) => onSecondaryLlmProviderChange(e.target.value)}
+                style={{ padding: '0.6rem 0.75rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+              >
+                <option value="">Same as primary</option>
+                {(llmCatalog.providers || [])
+                  .filter((p) => p.id !== 'platform_decided')
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>{p.label}</option>
+                  ))}
+              </select>
+            </label>
+            {form.llm_secondary_provider && secondaryCuratedModels.length > 0 && (
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Secondary model</span>
+                <select
+                  value={showSecondaryCustomModel ? '__custom__' : form.llm_secondary_model || selectedSecondaryLlmProvider?.default_model || ''}
+                  onChange={(e) => {
+                    if (e.target.value === '__custom__') {
+                      setLlmSecondaryModelCustom(true);
+                      set('llm_secondary_model', form.llm_secondary_model && !secondaryModelInCatalog ? form.llm_secondary_model : '');
+                      return;
+                    }
+                    setLlmSecondaryModelCustom(false);
+                    set('llm_secondary_model', e.target.value);
+                  }}
+                  style={{ padding: '0.6rem 0.75rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+                  required
+                >
+                  <option value="" disabled>Select a model…</option>
+                  {secondaryCuratedModels.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+                  {selectedSecondaryLlmProvider?.allow_custom_model && <option value="__custom__">Other (custom model id)…</option>}
+                </select>
+              </label>
+            )}
+            {showSecondaryCustomModel && (
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Custom secondary model id</span>
+                <input
+                  value={form.llm_secondary_model}
+                  onChange={(e) => set('llm_secondary_model', e.target.value)}
+                  placeholder={selectedSecondaryLlmProvider?.default_model || 'model-id'}
+                  style={{ padding: '0.6rem 0.75rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+                  required
+                />
+              </label>
+            )}
+            {(form.llm_secondary_provider === 'openai' || form.llm_secondary_provider === 'openrouter' || form.llm_secondary_provider === 'deepseek_cloud') && (
+              <p style={{ margin: 0, fontSize: '0.85rem', color: llmSecondaryHint && llmSecondaryHint !== 'unset' ? 'var(--muted)' : '#b45309' }}>
+                {llmSecondaryHint && llmSecondaryHint !== 'unset'
+                  ? `Platform_BYOK_SECONDARY on file (${llmSecondaryHint}). Manage under `
+                  : 'Platform_BYOK_SECONDARY is required for this explicit secondary provider. Set it under '}
+                <Link to="/api-keys">API Keys</Link>.
+              </p>
+            )}
+          </fieldset>
         )}
 
         {form.llm_provider === 'deepseek' && (
@@ -888,6 +992,7 @@ function UserProfilePanel() {
           Agent Chat, Workflow Builder, certify, browser, vision, and image/video stay on your Profile provider.
           Needs a running Ollama service. No = existing paid / platform model (no change).
         </p>
+        {user?.role === 'ceo' && <CompanyEfficiencyPreferences />}
 
         <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '0.5rem 0' }} />
         <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--muted)' }}>

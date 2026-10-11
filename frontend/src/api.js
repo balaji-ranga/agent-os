@@ -920,6 +920,12 @@ export const api = {
   adminPlatformTimeoutsSave: (timeouts) => put('/admin/platform-timeouts', { timeouts }),
   adminModelsGet: ({ eventPage = 1, eventPageSize = 25 } = {}) =>
     get(`/admin/models?event_page=${encodeURIComponent(eventPage)}&event_page_size=${encodeURIComponent(eventPageSize)}`),
+  adminEfficiencyGet: () => get('/admin/models/efficiency'),
+  adminEfficiencyPolicySave: (policy) => put('/admin/models/efficiency/policy',policy),
+  adminEfficiencyEvaluate: (model_id,compare_hosted=false) => post('/admin/models/efficiency/evaluations',{model_id,compare_hosted}),
+  adminEfficiencyApprove: (id) => post(`/admin/models/efficiency/evaluations/${encodeURIComponent(id)}/approve`,{}),
+  efficiencyLocalModels: (days=30) => get(`/efficiency/local-models?days=${encodeURIComponent(days)}`),
+  efficiencyPreferencesSave: (preferences) => put('/efficiency/local-models/preferences',preferences),
   adminModelDeploymentSave: (id, payload) =>
     put(`/admin/models/deployments/${encodeURIComponent(id)}`, payload),
   adminModelDeploymentProbe: (id) =>

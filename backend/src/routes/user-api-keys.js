@@ -14,6 +14,7 @@ import {
   findApiKeyDependencies,
   getUserApiKeyById,
   PLATFORM_BYOK_KEY_NAME,
+  PLATFORM_BYOK_SECONDARY_KEY_NAME,
   REPLICATE_BYOK_KEY_NAME,
   BRAVE_SEARCH_BYOK_KEY_NAME,
   ELEVENLABS_BYOK_KEY_NAME,
@@ -53,6 +54,7 @@ router.get('/', (req, res) => {
     res.json({
       keys: listUserApiKeys(owner),
       platform_byok_key_name: PLATFORM_BYOK_KEY_NAME,
+      platform_byok_secondary_key_name: PLATFORM_BYOK_SECONDARY_KEY_NAME,
       replicate_byok_key_name: REPLICATE_BYOK_KEY_NAME,
       brave_search_byok_key_name: BRAVE_SEARCH_BYOK_KEY_NAME,
       elevenlabs_byok_key_name: ELEVENLABS_BYOK_KEY_NAME,

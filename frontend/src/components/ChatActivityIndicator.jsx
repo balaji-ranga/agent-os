@@ -75,6 +75,11 @@ export default function ChatActivityIndicator({ activity }) {
           {current.detail ? <div className="chat-live-activity__detail">{current.detail}</div> : null}
         </div>
       </div>
+      {(activity.model_calls||[]).slice(0,4).map(call=><div key={call.id} className="chat-live-activity__detail">
+        Model: {call.actual_model||call.requested_model||'pending'} · {call.tool_name} · {call.status}
+        {call.fallback_reason?` · fallback reason: ${call.fallback_reason}`:''}
+        {call.local===1?' · local':call.local===0?' · hosted':''}
+      </div>)}
       {(events.length > 1 || tools.length > 0) ? (
         <div className="chat-live-activity__trail" aria-label="Work completed so far">
           {events.slice(0, -1).map((event, index) => (

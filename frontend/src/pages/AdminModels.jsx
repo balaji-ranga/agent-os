@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api';
 import { formatLocalDateTime } from '../utils/formatDateTime.js';
+import { AdminEfficiencyControls } from '../components/EfficiencyControls.jsx';
 
 export default function AdminModels() {
   const [data, setData] = useState(null);
@@ -114,7 +115,7 @@ export default function AdminModels() {
 
       <section className="panel">
         <header className="model-section-heading">
-          <div><h2>Logical routes</h2><p>Consumers use stable aliases while deployments can change behind them.</p></div>
+          <div><h2>Logical routes</h2><p>Gateway consumers use stable aliases. The ten efficiency utilities use the separate policy below, with direct private inference to enforce local-only preferences.</p></div>
         </header>
         <div className="model-route-grid">
           {(data?.routes || []).map((route) => (
@@ -146,6 +147,8 @@ export default function AdminModels() {
           ))}
         </div>
       </section>
+
+      <AdminEfficiencyControls />
 
       <section className="panel">
         <header className="model-section-heading">
