@@ -10,6 +10,7 @@ import {
   listDocumentsForAgent,
 } from '../src/services/master-data-tools.js';
 import { PLATFORM_OWNER_ID } from '../src/services/opensearch/index.js';
+import {listAgentsForUser} from '../src/services/users.js';
 
 initDb();
 const db = getDb();
@@ -21,7 +22,9 @@ if (!ceo?.id) {
   process.exit(1);
 }
 
-const crmAgentId = `t-${ceo.id}--crm-s1-maya`;
+const specialist=listAgentsForUser(ceo.id).find(a=>!String(a.id).endsWith('platformhelp'));
+if(!specialist)throw new Error('Registered specialist required');
+const crmAgentId = specialist.id;
 const list = await listDocumentsForAgent(ceo.id, { agentId: crmAgentId });
 const helpTitles = (list.documents || []).map((d) => String(d.title || ''));
 const hasTwenty = helpTitles.some((t) => /twenty crm sme/i.test(t));

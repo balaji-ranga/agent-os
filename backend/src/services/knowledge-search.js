@@ -83,7 +83,7 @@ export function knowledgeSearch(transport=opensearchRequest,{deadline=null,embed
         owner:{type:'keyword'},source:{type:'keyword'},revision:{type:'keyword'},entity:{type:'keyword'},kind:{type:'keyword'},title:{type:'text'},text:{type:'text'},
         from:{type:'keyword'},to:{type:'keyword'},embedding:{type:'knn_vector',dimension:embeddingDims()}
       }}}); } catch(error) { if(!JSON.stringify(error.body||error.message).includes('resource_already_exists_exception'))throw error; }
-      await request('PUT',`/${index(owner)}/_mapping`,{properties:{field_tokens:{type:'keyword'},field_names:{type:'keyword'},collection:{type:'keyword'},valid_from:{type:'long'},valid_to:{type:'long'},seen_scan:{type:'keyword'}}});
+      await request('PUT',`/${index(owner)}/_mapping`,{properties:{object_id:{type:'keyword'},field_tokens:{type:'keyword'},field_names:{type:'keyword'},collection:{type:'keyword'},valid_from:{type:'long'},valid_to:{type:'long'},seen_scan:{type:'keyword'}}});
     },
     async putRecord(owner,source,revision,record,version={}) {
       const id=entityId(owner,source.id,record.object_id);
@@ -122,12 +122,13 @@ export function knowledgeSearch(transport=opensearchRequest,{deadline=null,embed
     async discard(owner,revision) {
       await request('POST',`/${index(owner)}/_delete_by_query`,{query:{bool:{filter:[{term:{owner}},{term:{revision}}]}}});
     },
-    async documents(owner,sources,query) {
+    async documents(owner,sources,query,{document_scope=null}={}) {
       if(!sources.length)return [];
       const [vector]=await embed([query],{timeoutMs:Math.min(Number(process.env.KNOWLEDGE_QUERY_EMBED_TIMEOUT_MS)||5000,budget())});
       const should=[{multi_match:{query,fields:['text','title^2']}}];
       if(vector?.length===embeddingDims())should.push({knn:{embedding:{vector,k:20}}});
-      return view(await search(owner,{bool:{filter:[...current(owner,sources),{term:{kind:'chunk'}}],should,minimum_should_match:1}},20),sources);
+      const documentFilters=document_scope?(document_scope.id?[{bool:{should:[{term:{object_id:`documents/${document_scope.id}`}},{prefix:{object_id:`documents/${document_scope.id}/chunks/`}}],minimum_should_match:1}}]:[{prefix:{object_id:'documents/'}}]):[];
+      return view(await search(owner,{bool:{filter:[...current(owner,sources),{term:{kind:'chunk'}},...documentFilters],should,minimum_should_match:1}},20),sources);
     },
     async entities(owner,sources,ids=null) {
       if(!sources.length)return [];

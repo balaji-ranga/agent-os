@@ -9,6 +9,7 @@ import { opensearchRequest } from '../src/services/opensearch/client.js';
 import {manageKnowledgeRecords} from '../src/services/knowledge-record-management.js';
 import {knowledgeResultPages} from '../src/services/knowledge-result-pages.js';
 import {knowledgeAdviceStore,suggestKnowledgeMapping,decideKnowledgeAdvice} from '../src/services/knowledge-mapping-advice.js';
+import {grantedDocumentRag} from '../src/services/knowledge-document-access.js';
 
 // Real OpenSearch, synthetic source fixtures. No production business records or
 // user indexes are touched; cleanup targets only this invocation's random index.
@@ -100,6 +101,23 @@ try {
   await cleanupKnowledgeSources({store,search});assert.equal(store.cleanupPending().length,0);
   const remaining=await opensearchRequest('POST',`/aos-knowledge-${fingerprint(owner).slice(0,24)}/_count`,{query:{term:{source:content.id}}});
   assert.equal(remaining.count,0);
+  const docs=store.save(owner,{name:'RAG access fixture',kind:'knowledge',collections:['documents','tables'],selection:{mode:'all',rules:[{field:'object_id',operator:'not_equals',value:'documents/excluded'}],include:['title']}});
+  async function* documentRecords(){for(const id of ['documents/one','documents/two','documents/excluded','tables/private-row'])yield {object_id:id,title:'Public projection '+id,text:'SECRET_RAW_TEXT',fields:{secret:'SECRET_FIELD'}};}
+  assert.equal((await runKnowledgeJob(store.claim(),{store,search,records:documentRecords})).status,'completed');
+  const previousFlag=process.env.KNOWLEDGE_SYNC_ENABLED;process.env.KNOWLEDGE_SYNC_ENABLED='1';
+  try{
+    let granted=[docs.id];
+    const access={store,assertAccess(){},permit(_owner,_agent,ids){if(ids?.some(id=>!granted.includes(id)))throw new Error('revoked');return ids||granted;},retrieve:(o,input,checks)=>connectedKnowledge(o,input,{...checks,store,search})};
+    const defaultRag=await grantedDocumentRag(owner,'fixture',{query:'Public projection'},access);
+    assert.ok(defaultRag.hit_count>0);assert.ok(defaultRag.chunks.every(c=>c.object_id.startsWith('documents/')&&!c.object_id.includes('excluded')));
+    assert.ok(!JSON.stringify(defaultRag).includes('SECRET_'));
+    const single=await grantedDocumentRag(owner,'fixture',{query:'Public projection',documentId:'one'},access);
+    assert.equal(single.hit_count,1);assert.equal(single.chunks[0].document_id,'one');
+    assert.equal((await grantedDocumentRag(owner,'fixture',{query:'Public projection',documentId:'excluded'},access)).hit_count,0);
+    granted=[];assert.equal((await grantedDocumentRag(owner,'fixture',{query:'Public projection'},access)).hit_count,0);
+    await assert.rejects(()=>single.recheck(),/revoked/);
+    console.log('Real document RAG access passed: granted projected index only, no tables, exact document scope, excluded record blocked, no grant blocked, late revocation blocked.');
+  }finally{if(previousFlag===undefined)delete process.env.KNOWLEDGE_SYNC_ENABLED;else process.env.KNOWLEDGE_SYNC_ENABLED=previousFlag;}
   console.log(JSON.stringify({test:'real-opensearch',status:'passed',fixtures:'synthetic source records',checks:['bulk indexing','lexical/vector retrieval','graph expansion','revision replacement','duplicate enqueue','tenant isolation','source pause','record deletion and edge invalidation','mid-query access revocation','source deletion and physical cleanup'],duration_ms:Date.now()-started}));
 } finally {
   await opensearchRequest('DELETE',`/aos-knowledge-${fingerprint(owner).slice(0,24)}`);

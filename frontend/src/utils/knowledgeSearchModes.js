@@ -4,7 +4,7 @@ export async function searchKnowledgeMode(api,{mode='auto',query,summarize=true,
   if(!['auto','documents','connected'].includes(mode))throw new Error('Choose a supported search mode');
   const requests=[];
   if(mode!=='documents')requests.push(['connected',()=>api.knowledgeConnectedSearch({query,summarize,live_values:liveValues,paginate:true})]);
-  if(mode!=='connected')requests.push(['documents',()=>api.masterDataRag({query,summarize,top_k:20})]);
+  if(mode!=='connected')requests.push(['documents',()=>api.masterDataRag({query,summarize,top_k:20,paginate:true})]);
   const results=await Promise.allSettled(requests.map(([,run])=>run()));
   const output={mode,errors:[]};
   results.forEach((result,i)=>{

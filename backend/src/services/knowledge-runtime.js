@@ -74,7 +74,7 @@ export async function runKnowledgeJob(job,{store=knowledgeStore(),search=knowled
   } finally {clearInterval(heartbeat);}
 }
 
-export async function connectedKnowledge(owner,{query,depth=3,source_ids=null,live_values=false}={},deps={}) {
+export async function connectedKnowledge(owner,{query,depth=3,source_ids=null,live_values=false,document_scope=null}={},deps={}) {
   if(!owner)throw new Error('Owner required');
   if(typeof query!=='string'||!query.trim()||query.length>4000)throw new Error('Enter a question up to 4000 characters');
   const store=deps.store||knowledgeStore();const search=deps.search||knowledgeSearch(undefined,{deadline:Date.now()+Math.min(60000,Math.max(5000,Number(process.env.KNOWLEDGE_QUERY_TIMEOUT_MS)||30000))});
@@ -85,7 +85,7 @@ export async function connectedKnowledge(owner,{query,depth=3,source_ids=null,li
     try{await (deps.assertAccess||assertKnowledgeSourceAccess)(owner,source);allowed.push(source);}
     catch{unavailable.push(source.id);}
   }
-  const retrieved=await search.documents(owner,allowed,query);
+  const retrieved=await search.documents(owner,allowed,query,{document_scope});
   // Exact record navigation is not a request for every nearest neighbour.
   // Preserve hybrid retrieval for questions; expand relationships from exact
   // name/ID matches when present instead of seeding unrelated companies.

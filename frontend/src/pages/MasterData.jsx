@@ -6,6 +6,7 @@ import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import { formatLocalDateTime } from '../utils/formatDateTime.js';
 import './MasterData.css';
 import KnowledgeSources from '../components/KnowledgeSources';
+import KnowledgeDocumentResults from '../components/KnowledgeDocumentResults.jsx';
 
 const PAGE_SIZE = 50;
 const DOC_PAGE_SIZE = 10;
@@ -250,7 +251,7 @@ function MasterDataPanel() {
     setError(null);
     setRagResult(null);
     try {
-      const res = await api.masterDataRag({ query: queryText.trim(), topK: 5 });
+      const res = await api.masterDataRag({ query: queryText.trim(), topK: 20, paginate: true });
       setRagResult(res);
     } catch (err) {
       setError(err.message);
@@ -515,18 +516,8 @@ function MasterDataPanel() {
             </div>
             {(ragResult.summary || ragResult.text) ? (
               <pre>{ragResult.summary || ragResult.text}</pre>
-            ) : (ragResult.chunks || []).length ? (
-              <div className="knowledge-answer-chunks">
-                {ragResult.chunks.map((chunk, index) => (
-                  <article key={`${chunk.document_id || 'chunk'}-${chunk.chunk_index ?? index}`}>
-                    <strong>{chunk.title || chunk.filename || `Result ${index + 1}`}</strong>
-                    <div>{chunk.content}</div>
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <div className="knowledge-empty-inline">No relevant indexed evidence was found for this query.</div>
-            )}
+            ) : null}
+            <KnowledgeDocumentResults key={ragResult.page_token||ragResult.query} result={ragResult}/>
           </div>
         )}
       </section>

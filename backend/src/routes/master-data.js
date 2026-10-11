@@ -13,6 +13,7 @@ import { connectedKnowledge, browseKnowledge } from '../services/knowledge-runti
 import { answerConnectedKnowledge } from '../services/knowledge-answer.js';
 import { knowledgeSearch } from '../services/knowledge-search.js';
 import { knowledgePages } from '../services/knowledge-result-pages.js';
+import {documentPages} from '../services/document-result-pages.js';
 import { listKnowledgeAdvice, suggestKnowledgeMapping, decideKnowledgeAdvice } from '../services/knowledge-mapping-advice.js';
 import { resolveKnowledgeAgent } from '../services/knowledge-agent-access.js';
 import { assertKnowledgeSourceAccess, knowledgeConnectionRef } from '../services/knowledge-source-adapters.js';
@@ -513,6 +514,10 @@ router.delete('/documents/:documentId', requireAuth, requireCeoOrAdmin, async (r
   }
 });
 
+router.post('/rag/page',requireAuth,requireCeoOrAdmin,async(req,res)=>{
+  try{const owner=ownerOr403(req,res);if(!owner)return;res.json(await documentPages.read(owner,req.body||{},md.getDocument));}
+  catch(e){res.status(e.status||400).json({error:e.message});}
+});
 router.post('/rag', requireAuth, requireCeoOrAdmin, async (req, res) => {
   try {
     const owner = ownerOr403(req, res);
@@ -526,7 +531,7 @@ router.post('/rag', requireAuth, requireCeoOrAdmin, async (req, res) => {
       // stays on here unless explicitly disabled. Agent tool calls opt in instead.
       summarize: summarize === undefined ? true : summarize,
     });
-    res.json(result);
+    res.json(req.body?.paginate===true?await documentPages.create(owner,result,md.getDocument):result);
   } catch (e) {
     res.status(400).json({ error: e.message });
   }

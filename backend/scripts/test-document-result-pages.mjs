@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {documentResultPages} from '../src/services/document-result-pages.js';
+let time=0,revision=1,deleted=false;
+const pages=documentResultPages({clock:()=>time,ttl:100,maxEntries:2});
+const get=async(owner,id)=>!deleted&&owner==='alice'?{id,knowledge_content_revision:revision}:null;
+const result={chunks:Array.from({length:12},(_,i)=>({document_id:'doc',chunk_index:i,content:`passage ${i}`})),hit_count:12};
+const first=await pages.create('alice',result,get);
+assert.equal(first.chunks.length,5);assert.equal(first.page_info.next,5);
+const next=await pages.read('alice',{token:first.page_token,offset:5},get);assert.equal(next.items[0].chunk_index,5);assert.equal(next.next,10);
+assert.equal((await pages.read('alice',{token:first.page_token,offset:10},get)).items.length,2);
+await assert.rejects(()=>pages.read('bob',{token:first.page_token},get),e=>e.status===410);
+await assert.rejects(()=>pages.read('alice',{token:first.page_token,offset:-1},get),e=>e.status===400);
+revision++;await assert.rejects(()=>pages.read('alice',{token:first.page_token},get),e=>e.status===409);
+revision--;deleted=true;await assert.rejects(()=>pages.read('alice',{token:first.page_token},get),e=>e.status===409);deleted=false;
+time=101;await assert.rejects(()=>pages.read('alice',{token:first.page_token},get),e=>e.status===410);
+console.log('Document result server paging passed: next/last, owner isolation, invalid offsets, revision/deletion checks and expiry.');

@@ -8,6 +8,7 @@
 import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import {randomUUID} from 'node:crypto';
 
 const tmp = mkdtempSync(join(tmpdir(), 'agentos-histcache-'));
 process.env.AGENT_OS_DATA_DIR = tmp;
@@ -40,7 +41,7 @@ const { initDb, getDb } = await import('../src/db/schema.js');
 initDb();
 const db = getDb();
 
-const OWNER = 'ceo-cache-test';
+const OWNER = `ceo-cache-test-${randomUUID()}`;
 let failures = 0;
 function check(cond, msg) {
   if (cond) console.log('  OK:', msg);
@@ -231,19 +232,23 @@ try {
 
   console.log('== 17. Agent tool omits summarize → no LLM call ==');
   const beforeRag = llmCalls;
-  let rag = await mdTools.ragDocumentsForAgent(OWNER, { query: 'annual leave days' });
+  // This harness tests summarization flags, not authorization. Its explicit
+  // authorized retrieval fixture avoids using an identity-free production path.
+  // Grant enforcement is covered by test-rag-knowledge-access.mjs.
+  const ragDeps={companyRag:async()=>({access_status:'granted',hit_count:1,chunks:[{title:'Leave Policy',content:'Annual leave is 20 days per year. Sick leave is 14 days.'}]}),helpRag:async()=>({hit_count:0,chunks:[]})};
+  let rag = await mdTools.ragDocumentsForAgent(OWNER, { query: 'annual leave days' },ragDeps);
   check(llmCalls === beforeRag, `no LLM call (calls=${llmCalls})`);
   check(rag.hit_count > 0, `hit_count>0 (got ${rag.hit_count})`);
   check(Array.isArray(rag.chunks) && rag.chunks.length > 0, 'chunks returned for agent to read');
   check(/Annual leave/.test(rag.summary || ''), 'summary falls back to raw excerpts');
 
   console.log('== 18. Explicit summarize=true → 1 LLM call ==');
-  rag = await mdTools.ragDocumentsForAgent(OWNER, { query: 'annual leave days', summarize: true });
+  rag = await mdTools.ragDocumentsForAgent(OWNER, { query: 'annual leave days', summarize: true },ragDeps);
   check(llmCalls === beforeRag + 1, `1 LLM call (calls=${llmCalls})`);
   check(/STUB SUMMARY/.test(rag.summary), 'summary is LLM text');
 
   console.log('== 19. summarize="true" string also opts in ==');
-  rag = await mdTools.ragDocumentsForAgent(OWNER, { query: 'sick leave', summarize: 'true' });
+  rag = await mdTools.ragDocumentsForAgent(OWNER, { query: 'sick leave', summarize: 'true' },ragDeps);
   check(llmCalls === beforeRag + 2, `2 LLM calls (calls=${llmCalls})`);
 
   console.log('== 20. Service default is false ==');
@@ -251,6 +256,11 @@ try {
   await md.ragDocuments(OWNER, { query: 'carry over cap' });
   check(llmCalls === beforeSvc, `service default made no LLM call (calls=${llmCalls})`);
 } finally {
+  try {
+    const {opensearchRequest}=await import('../src/services/opensearch/client.js');
+    const {searchIndexName}=await import('../src/services/opensearch/index.js');
+    await opensearchRequest('DELETE',`/${searchIndexName(OWNER)}`);
+  } catch { /* Synthetic index may not have been created. */ }
   global.fetch = realFetch;
   try {
     rmSync(tmp, { recursive: true, force: true });

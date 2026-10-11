@@ -38,6 +38,9 @@ docker run --rm --network none --entrypoint node "agent-os-backend:knowledge-$RE
 # Keep runtime credentials on the server, never print them. The candidate has
 # no production data mounts; the live search test uses a random disposable index.
 (umask 077; docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' agent-os-backend-1 > "$release/runtime.env")
+if [[ -f backend/scripts/migrate-knowledge-object-id.mjs ]]; then
+  docker run --rm --network container:agent-os-backend-1 --env-file "$release/runtime.env" --entrypoint node "agent-os-backend:knowledge-$RELEASE_REVISION" scripts/migrate-knowledge-object-id.mjs
+fi
 docker run --rm --network container:agent-os-backend-1 --env-file "$release/runtime.env" --entrypoint node "agent-os-backend:knowledge-$RELEASE_REVISION" scripts/test-knowledge-opensearch.mjs
 if [[ "${KNOWLEDGE_AUTO_MODEL_LIVE:-0}" == 1 ]]; then
   docker run --rm --network container:agent-os-backend-1 --env-file "$release/runtime.env" -e KNOWLEDGE_AUTO_MODEL_LIVE=1 --entrypoint node "agent-os-backend:knowledge-$RELEASE_REVISION" scripts/test-knowledge-auto-model-live.mjs

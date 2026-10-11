@@ -842,6 +842,7 @@ export const api = {
   knowledgeMappingSave: (body) => post('/master-data/knowledge/mappings',body),
   knowledgeConnectedSearch: (body) => post('/master-data/knowledge/search',body),
   masterDataRag: (body) => post('/master-data/rag', body),
+  masterDataRagPage: (body) => post('/master-data/rag/page', body),
   masterDataQuery: (body) => post('/master-data/query', body),
   aiSnipperSummary: (days = 7) => get(`/ai-snipper/summary?days=${days}`),
   efficiencySummary: (days = 14) => get(`/efficiency/summary?days=${encodeURIComponent(days)}`),
