@@ -10,6 +10,7 @@ import {
   searchIndexName,
 } from './indices.js';
 import { isProtectedPlatformDocument } from '../master-data-protected-docs.js';
+import { randomUUID } from 'node:crypto';
 
 const PARALLEL_INDEX_LIMIT = 50;
 
@@ -78,6 +79,8 @@ export function mapMetaHit(hit) {
     uploaded_by_type: src.uploaded_by_type || null,
     uploaded_by_id: src.uploaded_by_id || null,
     content_sha256: src.content_sha256 || null,
+    knowledge_content_revision: src.knowledge_content_revision || (Number.isSafeInteger(hit._version)?`meta:${hit._version}`:null),
+    knowledge_indexing: src.knowledge_indexing === true,
   };
   mapped.is_protected = isProtectedPlatformDocument(mapped);
   return mapped;
@@ -167,6 +170,7 @@ export async function indexDocument({
   }
 
   const metaBody = {
+    knowledge_indexing: true,
     document_id: docId,
     owner_user_id: owner,
     title: String(title || filename || 'Document'),
@@ -221,12 +225,12 @@ export async function indexDocument({
     } else {
       await indexChunksBulk(searchIndex, docs);
     }
-    try {
-      await opensearchRequest('POST', `/${searchIndex}/_refresh`, null, { timeoutMs: 30000 });
-    } catch (_) {
-      /* non-fatal */
-    }
+    await opensearchRequest('POST', `/${searchIndex}/_refresh`, null, { timeoutMs: 30000 });
   }
+  // Publish a new content version only after every extracted chunk is visible.
+  await opensearchRequest('POST',`/${metaIndex}/_update/${encodeURIComponent(docId)}?refresh=true`,{
+    doc:{knowledge_indexing:false,knowledge_content_revision:randomUUID()},
+  },{timeoutMs:30000});
 
   return mapMetaHit({ _id: docId, _source: metaBody });
 }
@@ -300,6 +304,7 @@ export async function listDocuments(ownerUserId, { excludeProtected = false, lim
         size,
         from,
         track_total_hits: true,
+        version: true,
         sort: [{ uploaded_at: { order: 'desc', unmapped_type: 'date' } }],
         query: {
           bool: {

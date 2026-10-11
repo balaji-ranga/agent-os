@@ -21,6 +21,14 @@ export function knowledgeStore(db = getDb()) {
       hash TEXT NOT NULL,version INTEGER NOT NULL,
       PRIMARY KEY(owner,source_id,object_id)
     );
+    CREATE TABLE IF NOT EXISTS knowledge_source_versions (
+      owner TEXT NOT NULL, source_id TEXT NOT NULL, group_id TEXT NOT NULL, version TEXT, seen_job TEXT,
+      PRIMARY KEY(owner,source_id,group_id)
+    );
+    CREATE TABLE IF NOT EXISTS knowledge_source_members (
+      owner TEXT NOT NULL, source_id TEXT NOT NULL, group_id TEXT NOT NULL, object_id TEXT NOT NULL,
+      PRIMARY KEY(owner,source_id,group_id,object_id)
+    );
     CREATE TABLE IF NOT EXISTS knowledge_sources (
       id TEXT PRIMARY KEY, owner TEXT NOT NULL, config TEXT NOT NULL,
       enabled INTEGER NOT NULL DEFAULT 1, revision TEXT, status TEXT NOT NULL DEFAULT 'pending',
@@ -55,8 +63,9 @@ export function knowledgeStore(db = getDb()) {
   `);
   const now = () => new Date().toISOString();
   const processing=knowledgeProcessingState(db);
+  if(!db.prepare('PRAGMA table_info(knowledge_source_versions)').all().some(c=>c.name==='seen_job'))db.exec('ALTER TABLE knowledge_source_versions ADD COLUMN seen_job TEXT');
   const columns=new Set(db.prepare('PRAGMA table_info(knowledge_jobs)').all().map(c=>c.name));
-  for(const [name,type] of [['trigger','TEXT'],['changed','INTEGER'],['reused','INTEGER'],['deleted','INTEGER']])if(!columns.has(name))db.exec(`ALTER TABLE knowledge_jobs ADD COLUMN ${name} ${type}`);
+  for(const [name,type] of [['trigger','TEXT'],['changed','INTEGER'],['reused','INTEGER'],['deleted','INTEGER'],['content_groups_loaded','INTEGER']])if(!columns.has(name))db.exec(`ALTER TABLE knowledge_jobs ADD COLUMN ${name} ${type}`);
   db.exec('CREATE TABLE IF NOT EXISTS knowledge_worker_health(id TEXT PRIMARY KEY,heartbeat_at TEXT NOT NULL)');
   const map = row => row && ({ ...JSON.parse(row.config), id:row.id, owner:row.owner, enabled:!!row.enabled,
     revision:row.revision,status:row.status,last_success:row.last_success,error:row.error,next_sync:row.next_sync,retry:processing.getRetry(row.owner,row.id) });
@@ -69,7 +78,7 @@ export function knowledgeStore(db = getDb()) {
         if(db.prepare("SELECT 1 FROM knowledge_jobs WHERE owner=? AND source_id=? AND status IN ('queued','running')").get(owner,id))throw Object.assign(new Error('Wait for the existing synchronization before rebuilding'),{status:409});
         // Keep the published revision, exclusions, grants and relationship rules.
         // Only invalidate reuse metadata; publication remains atomic on success.
-        for(const table of ['knowledge_incremental_records','knowledge_incremental_drafts'])db.prepare(`DELETE FROM ${table} WHERE owner=? AND source_id=?`).run(owner,id);
+        for(const table of ['knowledge_incremental_records','knowledge_incremental_drafts','knowledge_source_versions','knowledge_source_members'])db.prepare(`DELETE FROM ${table} WHERE owner=? AND source_id=?`).run(owner,id);
         return this.enqueue(owner,id,'full_resync');
       })();
     },
@@ -106,6 +115,22 @@ export function knowledgeStore(db = getDb()) {
       if(excluded)db.prepare('INSERT OR IGNORE INTO knowledge_exclusions VALUES(?,?,?,?)').run(owner,source,id,now());
       else db.prepare('DELETE FROM knowledge_exclusions WHERE owner=? AND source_id=? AND object_id=?').run(owner,source,id);
       db.prepare('DELETE FROM knowledge_incremental_records WHERE owner=? AND source_id=? AND object_id=?').run(owner,source,id);
+      db.prepare('DELETE FROM knowledge_source_versions WHERE owner=? AND source_id=?').run(owner,source);
+    },
+    sourceVersion(job,key){return db.prepare('SELECT version FROM knowledge_source_versions WHERE owner=? AND source_id=? AND group_id=?').get(job.owner,job.source_id,key)?.version;},
+    touchSourceGroup(job,key){db.prepare('UPDATE knowledge_source_versions SET seen_job=? WHERE owner=? AND source_id=? AND group_id=?').run(job.id,job.owner,job.source_id,key);},
+    startSourceGroup(job,key){
+      this.heartbeat(job,0);
+      db.transaction(()=>{
+        db.prepare('DELETE FROM knowledge_source_versions WHERE owner=? AND source_id=? AND group_id=?').run(job.owner,job.source_id,key);
+        db.prepare('DELETE FROM knowledge_source_members WHERE owner=? AND source_id=? AND group_id=?').run(job.owner,job.source_id,key);
+      })();
+    },
+    sourceGroupMember(job,key,id){db.prepare('INSERT OR IGNORE INTO knowledge_source_members VALUES(?,?,?,?)').run(job.owner,job.source_id,key,id);},
+    sourceGroupPage(job,key,after=''){return db.prepare('SELECT object_id FROM knowledge_source_members WHERE owner=? AND source_id=? AND group_id=? AND object_id>? ORDER BY object_id LIMIT 100').all(job.owner,job.source_id,key,after);},
+    finishSourceGroup(job,key,version){
+      this.heartbeat(job,0);
+      db.prepare('INSERT INTO knowledge_source_versions VALUES(?,?,?,?,?) ON CONFLICT(owner,source_id,group_id) DO UPDATE SET version=excluded.version,seen_job=excluded.seen_job').run(job.owner,job.source_id,key,version,job.id);
     },
     incrementalDraft(job){
       this.heartbeat(job,0);
@@ -144,7 +169,7 @@ export function knowledgeStore(db = getDb()) {
           db.prepare('UPDATE knowledge_agent_access SET sources_json=? WHERE owner=? AND agent_id=?').run(JSON.stringify(JSON.parse(row.sources_json).filter(source=>source!==id)),owner,row.agent_id);
         }
         db.prepare('DELETE FROM knowledge_sources WHERE owner=? AND id=?').run(owner,id);
-        for(const table of ['knowledge_incremental_records','knowledge_incremental_drafts','knowledge_exclusions'])db.prepare(`DELETE FROM ${table} WHERE owner=? AND source_id=?`).run(owner,id);
+        for(const table of ['knowledge_incremental_records','knowledge_incremental_drafts','knowledge_exclusions','knowledge_source_versions','knowledge_source_members'])db.prepare(`DELETE FROM ${table} WHERE owner=? AND source_id=?`).run(owner,id);
         return true;
       })();
     },
@@ -171,7 +196,7 @@ export function knowledgeStore(db = getDb()) {
         if(!prev) throw Object.assign(new Error('Source not found'),{status:404});
         if(prev.kind!==config.kind) throw new Error('Source type cannot change');
         if(db.prepare("SELECT id FROM knowledge_jobs WHERE owner=? AND source_id=? AND status='running'").get(owner,id)) throw new Error('Wait for the active synchronization before editing');
-        for(const table of ['knowledge_incremental_records','knowledge_incremental_drafts'])db.prepare(`DELETE FROM ${table} WHERE owner=? AND source_id=?`).run(owner,id);
+        for(const table of ['knowledge_incremental_records','knowledge_incremental_drafts','knowledge_source_versions','knowledge_source_members'])db.prepare(`DELETE FROM ${table} WHERE owner=? AND source_id=?`).run(owner,id);
         db.prepare("UPDATE knowledge_sources SET config=?,enabled=?,revision=NULL,status='pending',next_sync=?,error=NULL WHERE owner=? AND id=?")
           .run(JSON.stringify(config),+config.enabled,now(),owner,id);
       } else {
@@ -208,12 +233,18 @@ export function knowledgeStore(db = getDb()) {
         .run(new Date(Date.now()+120000).toISOString(),count,job.id,job.owner,now());
       if(!result.changes) throw new Error('Knowledge job lease lost');
     },
-    finish(job,revision,error=null,{retryAfterMs=0,metrics=null}={}) {
+    finish(job,revision,error=null,{retryAfterMs=0,metrics=null,checkpoints={}}={}) {
       db.transaction(()=>{
         const src=this.get(job.owner,job.source_id); const time=now();
         const claimed=db.prepare("SELECT id FROM knowledge_jobs WHERE id=? AND owner=? AND status='running' AND lease_until>=?").get(job.id,job.owner,time);
         if(!claimed) throw new Error('Cannot publish after lease expiry');
+        if(!error){
+          for(const [key,value] of Object.entries(checkpoints))db.prepare('INSERT INTO knowledge_source_versions VALUES(?,?,?,?,?) ON CONFLICT(owner,source_id,group_id) DO UPDATE SET version=excluded.version,seen_job=excluded.seen_job').run(job.owner,job.source_id,`@checkpoint/${key}`,String(value),job.id);
+          db.prepare("DELETE FROM knowledge_source_versions WHERE owner=? AND source_id=? AND group_id NOT LIKE '@checkpoint/%' AND (seen_job IS NULL OR seen_job<>?)").run(job.owner,job.source_id,job.id);
+          db.prepare('DELETE FROM knowledge_source_members WHERE owner=? AND source_id=? AND NOT EXISTS (SELECT 1 FROM knowledge_source_versions v WHERE v.owner=knowledge_source_members.owner AND v.source_id=knowledge_source_members.source_id AND v.group_id=knowledge_source_members.group_id)').run(job.owner,job.source_id);
+        }
         if(metrics)db.prepare('UPDATE knowledge_jobs SET records=?,changed=?,reused=?,deleted=? WHERE id=? AND owner=?').run(metrics.checked,metrics.changed,metrics.reused,metrics.deleted,job.id,job.owner);
+        if(metrics)db.prepare('UPDATE knowledge_jobs SET content_groups_loaded=? WHERE id=? AND owner=?').run(metrics.content_groups_loaded??null,job.id,job.owner);
         db.prepare('UPDATE knowledge_jobs SET status=?,ended_at=?,error=? WHERE id=? AND owner=?')
           .run(error?'failed':'completed',time,error,job.id,job.owner);
         // Failed sources are excluded from connected retrieval until resynchronized.

@@ -105,6 +105,24 @@ function dbFor(ownerUserId) {
   return { db, owner };
 }
 
+// Monotonic revisions catch multiple edits within one timestamp second. SQLite
+// triggers also cover bulk imports and direct row writes through this database.
+export function knowledgeTableVersion(ownerUserId,tableId) {
+  const {db,owner}=dbFor(ownerUserId);
+  db.exec(`CREATE TABLE IF NOT EXISTS knowledge_table_versions(owner TEXT NOT NULL,table_id TEXT NOT NULL,revision INTEGER NOT NULL,PRIMARY KEY(owner,table_id));
+    CREATE TRIGGER IF NOT EXISTS knowledge_row_insert AFTER INSERT ON master_data_rows BEGIN
+      INSERT INTO knowledge_table_versions VALUES(NEW.owner_user_id,NEW.table_id,1) ON CONFLICT(owner,table_id) DO UPDATE SET revision=revision+1; END;
+    CREATE TRIGGER IF NOT EXISTS knowledge_row_update AFTER UPDATE ON master_data_rows BEGIN
+      INSERT INTO knowledge_table_versions VALUES(NEW.owner_user_id,NEW.table_id,1) ON CONFLICT(owner,table_id) DO UPDATE SET revision=revision+1;
+      INSERT INTO knowledge_table_versions VALUES(OLD.owner_user_id,OLD.table_id,1) ON CONFLICT(owner,table_id) DO UPDATE SET revision=revision+1; END;
+    CREATE TRIGGER IF NOT EXISTS knowledge_row_delete AFTER DELETE ON master_data_rows BEGIN
+      INSERT INTO knowledge_table_versions VALUES(OLD.owner_user_id,OLD.table_id,1) ON CONFLICT(owner,table_id) DO UPDATE SET revision=revision+1; END;
+    CREATE TRIGGER IF NOT EXISTS knowledge_table_update AFTER UPDATE ON master_data_tables BEGIN
+      INSERT INTO knowledge_table_versions VALUES(NEW.owner_user_id,NEW.id,1) ON CONFLICT(owner,table_id) DO UPDATE SET revision=revision+1; END;`);
+  if(!db.prepare('SELECT 1 FROM master_data_tables WHERE owner_user_id=? AND id=?').get(owner,tableId))throw new Error('Knowledge table no longer exists');
+  return db.prepare('SELECT revision FROM knowledge_table_versions WHERE owner=? AND table_id=?').get(owner,tableId)?.revision||0;
+}
+
 function slugId(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${randomBytes(3).toString('hex')}`;
 }

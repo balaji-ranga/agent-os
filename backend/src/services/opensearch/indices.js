@@ -74,6 +74,8 @@ function metaMapping() {
         text_excerpt: { type: 'text' },
         chunk_count: { type: 'integer' },
         content_sha256: { type: 'keyword' },
+        knowledge_content_revision: { type: 'keyword', index: false },
+        knowledge_indexing: { type: 'boolean' },
         uploaded_at: { type: 'date' },
         updated_at: { type: 'date' },
       },

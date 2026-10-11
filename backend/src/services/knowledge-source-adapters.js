@@ -1,8 +1,9 @@
 import { realpath, stat } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { getBusinessProfile, assertCrmEntitled, assertErpEntitled } from './company-business-profile.js';
-import { erpList } from './erpnext-erp.js';
-import { crmKnowledgePage } from './twenty-crm.js';
+import { erpList, erpGet } from './erpnext-erp.js';
+import { versionedSource } from './knowledge-versioned-source.js';
+import { crmKnowledgePage, crmKnowledgeRecord } from './twenty-crm.js';
 import { listContentExplorer, resolveContentExplorerDownload } from './content-explorer.js';
 import { isRagIndexable } from './master-data-extract.js';
 import { localKnowledgeRecords } from './knowledge-local-records.js';
@@ -53,12 +54,15 @@ export function businessRecord(collection, row, kind) {
   return { object_id: `${collection}/${id}`, title: String(row.customer_name || row.project_name || personName || (typeof row.name === 'string' ? row.name : '') || id),
     text: JSON.stringify(data), fields: data, relations, modified_at: row.modified || row.updatedAt || null };
 }
-export async function* sourceRecords(owner, source, {signal}={}) {
-  const profile = await assertKnowledgeSourceAccess(owner,source);
-  if(['gmail','outlook'].includes(source.kind)) {yield* mailRecords(owner,source,{signal});await assertKnowledgeSourceAccess(owner,source);return;}
+export async function* sourceRecords(owner, source, {signal,incremental,dependencies={}}={}) {
+  const access=dependencies.access||assertKnowledgeSourceAccess;
+  const crmPage=dependencies.crmPage||crmKnowledgePage,crmRead=dependencies.crmRead||crmKnowledgeRecord;
+  const erpPage=dependencies.erpPage||erpList,erpRead=dependencies.erpRead||erpGet;
+  const profile = await access(owner,source);
+  if(['gmail','outlook'].includes(source.kind)) {yield* mailRecords(owner,source,{signal,incremental});await access(owner,source);return;}
   for (const collection of source.collections) {
     if (source.kind === 'knowledge') {
-      yield* localKnowledgeRecords(owner, collection);
+      yield* localKnowledgeRecords(owner, collection,{signal,incremental});
     } else if (source.kind === 'content') {
       for (let offset=0;;offset+=100) {
         const page = listContentExplorer(owner,{source:collection,limit:100,offset});
@@ -69,7 +73,7 @@ export async function* sourceRecords(owner, source, {signal}={}) {
           const actual = await realpath(file.absolute_path);
           if (resolve(actual) !== resolve(file.absolute_path)) throw new Error('Symlinked content is not eligible for indexing');
           const info = await stat(actual);
-          {
+          yield* versionedSource(`${collection}/${item.relative_path}`,[info.size,info.mtimeMs,info.ctimeMs,item.download_url],async function*(){
             const passages=/\.(txt|md|csv|json|log|xml|html|htm)$/i.test(file.filename)?textFilePassages(actual):binaryFilePassages(actual,{filename:file.filename,signal});
             let sequence=0;
             yield {object_id:item.relative_path,title:item.filename,text:`Document: ${item.filename}`,fields:{bytes:info.size},relations:[],modified_at:info.mtime.toISOString(),url:item.download_url};
@@ -80,16 +84,20 @@ export async function* sourceRecords(owner, source, {signal}={}) {
             };
             const after=await stat(actual);
             if(after.size!==info.size||after.mtimeMs!==info.mtimeMs)throw new Error('Content changed during streaming; synchronization will retry');
-            continue;
-          }
+          },incremental);
         }
         if (!page.has_more) break;
       }
     } else if (source.kind === 'crm' && profile.crm_provider === 'twenty') {
       let cursor = null; const seen = new Set();
       do {
-        const page = await crmKnowledgePage(owner,collection,cursor);
-        for (const row of page.rows) yield businessRecord(collection,row,'crm');
+        const page = await crmPage(owner,collection,cursor,{metadataOnly:!!incremental});
+        for (const row of page.rows) {
+          if(typeof row.id!=='string'||!row.id)throw new Error('CRM record has no stable ID');
+          yield* versionedSource(`${collection}/${row.id}`,row.updatedAt||null,async function*(){
+            yield businessRecord(collection,incremental?await crmRead(owner,collection,row.id):row,'crm');
+          },incremental);
+        }
         cursor = page.cursor;
         if (cursor && seen.has(cursor)) throw new Error('CRM repeated a pagination cursor');
         seen.add(cursor);
@@ -98,12 +106,19 @@ export async function* sourceRecords(owner, source, {signal}={}) {
       const type = source.kind === 'crm' ? {companies:'Customer',people:'Contact',opportunities:'Opportunity'}[collection] : collection;
       if (!ERP_FIELDS[type]) throw new Error(`Knowledge adapter for ${type} is not available`);
       for(let offset=0;;offset+=100) {
-        const page = await erpList(owner,type,{limit:100,offset,stableOrder:true,fields:ERP_FIELDS[type]});
+        const page = await erpPage(owner,type,{limit:100,offset,stableOrder:true,fields:incremental?['name','modified']:ERP_FIELDS[type]});
         if(page.mode !== 'live' || page.note) throw new Error(page.error || 'ERP requires complete, tenant-filtered pagination');
-        for(const row of page.data) yield businessRecord(type,row,'erp');
+        for(const row of page.data) {
+          signal?.throwIfAborted();
+          yield* versionedSource(`${type}/${row.name}`,row.modified||null,async function*(){
+            const result=incremental?await erpRead(owner,type,row.name):{mode:'live',data:row};
+            if(result.mode!=='live'||!result.data||result.note)throw new Error('ERP record changed or became unavailable during synchronization');
+            yield businessRecord(type,result.data,'erp');
+          },incremental);
+        }
         if(page.has_more===false||(page.has_more==null&&page.data.length<100)) break;
       }
     }
   }
-  await assertKnowledgeSourceAccess(owner,source);
+  await access(owner,source);
 }

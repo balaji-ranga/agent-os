@@ -33,7 +33,8 @@ try{
     const second=await wait(source,store.enqueue(owner,source.id));
     assert.equal(second.changed,0,`${source.kind}: unchanged records unexpectedly reindexed`);
     assert.ok(second.reused>0);
-    report('incremental_reuse',{kind:source.kind,checked:second.records,reused:second.reused,job_id:second.id});
+    assert.equal(second.content_groups_loaded,0,`${source.kind}: unchanged content was fetched again`);
+    report('incremental_reuse',{kind:source.kind,checked:second.records,reused:second.reused,content_groups_loaded:second.content_groups_loaded,job_id:second.id});
   }
   const query='Knowledge-E2E-571e2944 Acme Technologies ACC-SINV-2026-00001 contract renewal';
   const result=await connectedKnowledge(owner,{query,depth:4,live_values:true});

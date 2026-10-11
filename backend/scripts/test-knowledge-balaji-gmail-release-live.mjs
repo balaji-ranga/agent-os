@@ -22,6 +22,7 @@ const full=await wait(store.fullResync(owner,source.id));
 assert.equal(full.trigger,'full_resync');assert.ok(full.changed>0);assert.equal(full.reused,0);
 const normal=await wait(store.enqueue(owner,source.id));
 assert.equal(normal.changed,0);assert.equal(normal.reused,full.records);
+assert.equal(normal.content_groups_loaded,0,'Unchanged Gmail messages must not fetch their bodies again');
 const page=await search.browse(owner,[store.get(owner,source.id)],null,{limit:25});
 assert.equal(page.records.length,full.records);
-console.log(JSON.stringify({test:'balaji_gmail_release',status:'passed',full_resync_job:full.id,incremental_job:normal.id,checked:normal.records,reused:normal.reused,changed:normal.changed,cross_owner_denied:true,message_contents_logged:false}));
+console.log(JSON.stringify({test:'balaji_gmail_release',status:'passed',full_resync_job:full.id,incremental_job:normal.id,checked:normal.records,reused:normal.reused,changed:normal.changed,content_groups_loaded:normal.content_groups_loaded,cross_owner_denied:true,message_contents_logged:false}));
