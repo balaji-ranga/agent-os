@@ -529,6 +529,8 @@ const BUILTIN_TOOLS = [
     model_used: '',
     enabled: 1,
     is_builtin: 1,
+    risk_tier: 'R1',
+    action_family: 'write_internal',
   },
   {
     name: 'voice_call_invite',
@@ -1228,6 +1230,9 @@ export function seedVisionToolsIfMissing() {
 /** Add notify_ceo tool if missing (for existing DBs). */
 export function seedNotifyCeoToolIfMissing() {
   const db = getDb();
+  const columns = db.prepare('PRAGMA table_info(content_tools_meta)').all().map((row) => row.name);
+  if (!columns.includes('risk_tier')) db.exec("ALTER TABLE content_tools_meta ADD COLUMN risk_tier TEXT DEFAULT ''");
+  if (!columns.includes('action_family')) db.exec("ALTER TABLE content_tools_meta ADD COLUMN action_family TEXT DEFAULT ''");
   const stmt = db.prepare(
     `INSERT OR IGNORE INTO content_tools_meta (name, display_name, endpoint, method, purpose, model_used, enabled, is_builtin)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
@@ -1236,7 +1241,7 @@ export function seedNotifyCeoToolIfMissing() {
     stmt.run(t.name, t.display_name, t.endpoint, t.method, t.purpose, t.model_used, t.enabled, t.is_builtin);
   }
   const update = db.prepare(
-    'UPDATE content_tools_meta SET purpose = ?, display_name = ?, endpoint = ?, method = ? WHERE name = ?'
+    "UPDATE content_tools_meta SET purpose = ?, display_name = ?, endpoint = ?, method = ?, risk_tier = 'R1', action_family = 'write_internal' WHERE name = ?"
   );
   for (const t of NOTIFY_CEO_TOOLS) {
     update.run(t.purpose, t.display_name, t.endpoint, t.method, t.name);
@@ -1593,7 +1598,7 @@ const CRM_TOOLS = [
     display_name: 'CRM List Companies',
     endpoint: '/api/tools/crm-list-companies',
     method: 'POST',
-    purpose: 'List Twenty companies/accounts (optional limit).',
+    purpose: 'List owner-scoped CRM companies. Twenty scans up to 10 cursor pages by default (100 records/page). Optional limit (1–100), scan_all=false for one page, cursor=next_cursor, max_pages (1–10). Inspect pagination.complete before claiming full coverage; continue from pagination.next_cursor when incomplete. Similar names or branches alone are not proof of duplicates.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,

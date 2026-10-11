@@ -116,6 +116,10 @@ try {
 
   console.log('kanban-sla-policy: OK');
 } finally {
+  // status_checker opens the tenant SQLite as well as the platform fixture.
+  // Close both handles before cleanup (Windows cannot unlink an open DB).
+  const { closeCeoDb } = await import('../src/db/ceo-db.js');
+  closeCeoDb('ceo-sla-policy-test');
   try { if (database?.open) database.close(); } catch {}
   rmSync(dataDir, { recursive: true, force: true });
 }

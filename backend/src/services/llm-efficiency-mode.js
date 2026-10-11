@@ -21,6 +21,7 @@ export const EFFICIENCY_MODE_TOOLS = Object.freeze([
   'summarize_url',
   'master_data_rag',
   'knowledge_mapping_advice',
+  'kanban_task_observer',
 ]);
 
 const TOOL_SET = new Set(EFFICIENCY_MODE_TOOLS);

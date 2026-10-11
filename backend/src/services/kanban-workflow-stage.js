@@ -7,6 +7,7 @@ import {
   clearKanbanTaskNotification,
 } from './platform-notifications.js';
 import { replyHasUnresolvedBlocker, shouldCompleteKanbanForReply } from './kanban-reply-enrich.js';
+import {completionCodeVerdict} from './kanban-completion-guard.js';
 
 const PIPELINE_TAG = '[job_pipeline';
 
@@ -194,9 +195,11 @@ export function upsertWorkflowStageKanban({
 export function completePipelineKanbanForDelegation(delegationTaskId, { ok = true, replyText = null } = {}) {
   if (!delegationTaskId) return null;
   const row = db()
-    .prepare('SELECT id, status FROM kanban_tasks WHERE agent_delegation_task_id = ?')
+    .prepare('SELECT id, status,owner_user_id FROM kanban_tasks WHERE agent_delegation_task_id = ?')
     .get(delegationTaskId);
   if (!row) return null;
+  if(['completed','failed'].includes(row.status))return row;
+  if(ok&&!completionCodeVerdict(row.id,row.owner_user_id,{replyText}).ok)return {...row,completion_unverified:true};
 
   // Status-only "I marked it completed" must NOT stick — reopen even if the agent
   // already called kanban_move_status → completed during the same turn.
@@ -237,23 +240,24 @@ export function markKanbanInProgressForDelegation(delegationTaskId) {
 }
 
 /**
- * Heal cards stuck in awaiting_confirmation / open after the linked delegation already finished.
+ * Legacy open-card healing only. In-progress / waiting cards belong to the outcome observer.
  * @returns {{ healed: number }}
  */
 export function healStuckKanbanForCompletedDelegations() {
   const rows = db()
     .prepare(
       `SELECT k.id AS kanban_id, k.status AS kanban_status, d.id AS delegation_id, d.status AS delegation_status,
-              d.response_content AS response_content
+              d.response_content AS response_content,k.owner_user_id
        FROM kanban_tasks k
        JOIN agent_delegation_tasks d ON d.id = k.agent_delegation_task_id
-       WHERE k.status IN ('awaiting_confirmation', 'open', 'in_progress')
+       WHERE k.status = 'open'
          AND d.status IN ('completed', 'failed')`
     )
     .all();
   let healed = 0;
   let skippedStatusOnly = 0;
   for (const r of rows) {
+    if(r.delegation_status==='completed'&&!completionCodeVerdict(r.kanban_id,r.owner_user_id).ok){skippedStatusOnly++;continue;}
     if (
       r.delegation_status === 'completed' &&
       !shouldCompleteKanbanForReply(r.response_content)
@@ -270,28 +274,6 @@ export function healStuckKanbanForCompletedDelegations() {
     healed += 1;
   }
 
-  // Repair cards already wrongly marked completed with status-only chatter.
-  const badDone = db()
-    .prepare(
-      `SELECT k.id AS kanban_id, d.response_content AS response_content
-       FROM kanban_tasks k
-       JOIN agent_delegation_tasks d ON d.id = k.agent_delegation_task_id
-       WHERE k.status = 'completed'
-         AND d.status = 'completed'
-         AND d.response_content IS NOT NULL
-         AND d.response_content != ''`
-    )
-    .all();
-  let reopened = 0;
-  for (const r of badDone) {
-    if (shouldCompleteKanbanForReply(r.response_content)) continue;
-    db()
-      .prepare(`UPDATE kanban_tasks SET status = 'in_progress', updated_at = datetime('now') WHERE id = ?`)
-      .run(r.kanban_id);
-    reopened += 1;
-  }
-  if (reopened) {
-    console.warn(`[kanban] reopened ${reopened} status-only completed card(s)`);
-  }
-  return { healed, scanned: rows.length, skipped_status_only: skippedStatusOnly, reopened_status_only: reopened };
+  // Do not reopen completed cards: the requested observer scope is active cards only.
+  return { healed, scanned: rows.length, skipped_status_only: skippedStatusOnly, reopened_status_only: 0 };
 }

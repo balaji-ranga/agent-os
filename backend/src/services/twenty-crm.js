@@ -398,18 +398,46 @@ async function crmCreatePersonUniq(ownerUserId, { name, email, phone, companyId 
   };
 }
 
-export async function crmListCompanies(ownerUserId, { limit = 25 } = {}) {
+/** Bounded cursor scan; never reports complete coverage without provider pagination evidence. */
+export async function collectCompanyPages(fetchPage,{limit=100,cursor=null,scan_all=true,max_pages=10}={}) {
+  const size=lim(limit),bound=Math.min(10,Math.max(1,Number(max_pages)||10));
+  let next=cursor?String(cursor):null,pages=0,complete=false,unknown=false;
+  const companies=[],ids=new Set(),cursors=new Set();
+  do {
+    if(next&&cursors.has(next))return {companies,pagination:{complete:false,pages,next_cursor:next,reason:'repeated_cursor'}};
+    if(next)cursors.add(next);
+    const data=await fetchPage(size,next);pages++;
+    if(!Array.isArray(data)&&!Array.isArray(data?.companies)&&!Array.isArray(data?.data)&&!Array.isArray(data?.data?.companies))
+      return {companies,pagination:{complete:false,pages,next_cursor:next,reason:'invalid_record_page'}};
+    const rows=unwrapList(data,'companies'),info=data?.pageInfo||data?.data?.pageInfo;
+    for(const row of rows)if(row?.id&&!ids.has(row.id)){ids.add(row.id);companies.push(row);}
+    if(rows.some(row=>!row?.id))return {companies,pagination:{complete:false,pages,next_cursor:null,reason:'invalid_record_page'}};
+    if(info&&typeof info.hasNextPage==='boolean') {
+      complete=!info.hasNextPage;next=info.hasNextPage?info.endCursor:null;
+      if(!complete&&!next)return {companies,pagination:{complete:false,pages,next_cursor:null,reason:'missing_cursor'}};
+    } else {complete=rows.length<size;unknown=!complete;next=null;}
+    if(complete||unknown||!scan_all)break;
+  }while(pages<bound);
+  return {companies,pagination:{complete,pages,records:companies.length,next_cursor:next,
+    reason:complete?'exhausted':unknown?'pagination_metadata_missing':scan_all?'page_limit_reached':'more_pages'}};
+}
+
+export async function crmListCompanies(ownerUserId, options = {}) {
   const { auth, off } = await requireLiveAuth(ownerUserId);
-  if (off) return { ...off, companies: [] };
+  if (off) return { ...off, companies: [],pagination:{complete:false,pages:0,reason:'provider_unavailable'} };
   try {
-    const data = await twentyFetch(`/rest/companies?limit=${lim(limit)}`, { apiKey: auth.apiKey });
+    const result=await collectCompanyPages((limit,cursor)=>{
+      const params=new URLSearchParams({limit:String(limit)});
+      if(cursor)params.set('starting_after',cursor);
+      return twentyFetch(`/rest/companies?${params}`,{apiKey:auth.apiKey});
+    },options);
     return {
       ...scopeMeta(auth),
       mode: 'live',
-      companies: unwrapList(data, 'companies'),
+      ...result,
     };
   } catch (e) {
-    return { ...scopeMeta(auth), mode: 'error', companies: [], error: e.message };
+    return { ...scopeMeta(auth), mode: 'error', companies: [], error: e.message,pagination:{complete:false,pages:0,reason:'provider_error'} };
   }
 }
 

@@ -2,6 +2,8 @@ import { createHash, randomUUID } from 'crypto';
 import { getDb } from '../db/schema.js';
 import { isCeoDelegate } from './org-permissions.js';
 import { notifyKanbanTaskCreated, clearKanbanTaskNotification } from './platform-notifications.js';
+import { previewActionPolicy } from './action-policy.js';
+import { preserveSlaHistoryForDeletedTask } from './kanban-sla.js';
 
 const DEFAULT_TTL_SECONDS = Math.max(300, Number(process.env.CHAT_ACTION_APPROVAL_TTL_SECONDS || 1800));
 
@@ -34,6 +36,12 @@ export function ensureChatActionApprovalTable() {
       ON chat_action_approvals(owner_user_id, agent_id, status, requested_at DESC);
     CREATE INDEX IF NOT EXISTS idx_chat_action_approval_kanban
       ON chat_action_approvals(owner_user_id, kanban_task_id);
+    CREATE TABLE IF NOT EXISTS chat_action_approval_task_archive (
+      approval_id TEXT PRIMARY KEY, owner_user_id TEXT NOT NULL,
+      task_id INTEGER NOT NULL, reason TEXT NOT NULL,
+      task_json TEXT NOT NULL, messages_json TEXT NOT NULL,
+      archived_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
   try {
     const columns = db().prepare('PRAGMA table_info(chat_action_approvals)').all().map((row) => row.name);
@@ -103,6 +111,74 @@ function live(row) {
   return row && Date.parse(row.expires_at) > Date.now();
 }
 
+/** Close stale grants without executing/rearming them. Caller supplies trusted tenant scope. */
+export function reconcileChatActionApprovals(ownerUserId, { taskId = null } = {}) {
+  ensureChatActionApprovalTable();
+  const owner = String(ownerUserId || '').trim();
+  if (!owner) throw Object.assign(new Error('Authenticated owner required'), { status: 403 });
+  const rows = db().prepare(`SELECT * FROM chat_action_approvals
+    WHERE owner_user_id=? AND (status IN ('pending','approved') OR
+      (status IN ('expired','superseded') AND EXISTS (SELECT 1 FROM kanban_tasks k
+        WHERE k.id=chat_action_approvals.kanban_task_id AND k.owner_user_id=chat_action_approvals.owner_user_id)))${taskId == null ? '' : ' AND kanban_task_id=?'}`)
+    .all(...(taskId == null ? [owner] : [owner, Number(taskId)]));
+  const result = { expired: 0, superseded: 0, removed: 0 };
+  for (const row of rows) {
+    let state = ['expired','superseded'].includes(row.status) ? row.status : null;
+    if (!state && row.tool_name === 'notify_ceo' && (row.execution_tool_name || row.tool_name) === 'notify_ceo') {
+      let body = {};
+      try { body = JSON.parse(row.args_json || '{}'); } catch (_) {}
+      const policy = previewActionPolicy({ ownerUserId: owner, toolName: 'notify_ceo', body, context: { agentId: row.agent_id } });
+      // Preserve intentional company/tool/agent approval policies and CEO risk overrides.
+      if (policy.ok && policy.mode === 'autonomous' && policy.risk_tier === 'R1' &&
+          policy.action_family === 'write_internal' && !policy.override_id) state = 'superseded';
+    }
+    if (!state && !live(row)) state = 'expired';
+    if (!state) continue;
+    const reason = state === 'superseded'
+      ? 'Approval no longer required: notify_ceo is an internal in-app notification. This old request was closed without executing or replaying it.'
+      : 'Approval expired. This action was not executed. Ask the agent to prepare a fresh request for approval.';
+    db().transaction(() => {
+      const changed = db().prepare(`UPDATE chat_action_approvals SET status=?
+        WHERE id=? AND owner_user_id=? AND status IN ('pending','approved')`).run(state, row.id, owner).changes;
+      if (changed) result[state]++;
+      const current = db().prepare('SELECT status FROM chat_action_approvals WHERE id=? AND owner_user_id=?').get(row.id, owner);
+      if (!['expired','superseded'].includes(current?.status)) return;
+      // Only remove the exact generated chat approval, never linked goal/delegation work.
+      const task = db().prepare(`SELECT * FROM kanban_tasks WHERE id=? AND owner_user_id=?
+        AND created_by='action_policy' AND status IN ('awaiting_confirmation','in_progress','failed')`)
+        .get(row.kanban_task_id, owner);
+      if (task && String(task.description || '').includes('[CHAT_ACTION_APPROVAL]') &&
+          String(task.description || '').includes(`approval_id: ${row.id}`) &&
+          !task.goal_run_id && !task.goal_step_id && !task.standup_id && !task.agent_delegation_task_id) {
+        const messages = db().prepare('SELECT * FROM task_messages WHERE task_id=? ORDER BY id').all(task.id);
+        db().prepare(`INSERT OR IGNORE INTO chat_action_approval_task_archive
+          (approval_id,owner_user_id,task_id,reason,task_json,messages_json) VALUES (?,?,?,?,?,?)`)
+          .run(row.id, owner, task.id, reason, JSON.stringify(task), JSON.stringify(messages));
+        preserveSlaHistoryForDeletedTask(task);
+        db().prepare(`DELETE FROM platform_user_notifications WHERE user_id=?
+          AND source IN ('kanban_sla_nudge','kanban_sla_escalation') AND source_key=?`).run(owner, String(task.id));
+        db().prepare('DELETE FROM task_messages WHERE task_id=?').run(task.id);
+        result.removed += db().prepare('DELETE FROM kanban_tasks WHERE id=? AND owner_user_id=?').run(task.id, owner).changes;
+      }
+      if (row.kanban_task_id) clearKanbanTaskNotification(row.kanban_task_id, owner);
+    })();
+  }
+  return result;
+}
+
+export function chatActionApprovalState(task) {
+  if (!String(task?.description || '').includes('[CHAT_ACTION_APPROVAL]')) return null;
+  ensureChatActionApprovalTable();
+  const row = db().prepare('SELECT id,status,expires_at FROM chat_action_approvals WHERE owner_user_id=? AND kanban_task_id=?')
+    .get(String(task.owner_user_id || ''), Number(task.id));
+  const status = row?.status || 'unavailable';
+  return {
+    id: row?.id || null, status, expires_at: row?.expires_at || null,
+    can_decide: Boolean(row && live(row) && ['pending','approved'].includes(status) && ['awaiting_confirmation','in_progress'].includes(task.status)),
+    checked_at: new Date().toISOString(),
+  };
+}
+
 export function recordPendingChatAction({ ownerUserId, agentId, sessionKey = null, channel = 'web', toolName, executionToolName = null, actionFamily, body = {} } = {}) {
   ensureChatActionApprovalTable();
   const owner = String(ownerUserId || '').trim();
@@ -110,6 +186,7 @@ export function recordPendingChatAction({ ownerUserId, agentId, sessionKey = nul
   const tool = String(toolName || '').trim();
   const executionTool = String(executionToolName || tool).trim();
   if (!owner || !agent || !tool) return null;
+  reconcileChatActionApprovals(owner);
   const hash = actionArgsHash(tool, body);
   const rows = db().prepare(`SELECT * FROM chat_action_approvals
     WHERE owner_user_id=? AND agent_id=? AND tool_name=? AND args_hash=?
@@ -151,6 +228,7 @@ export function recordPendingChatAction({ ownerUserId, agentId, sessionKey = nul
 
 export function getChatActionApprovalByKanban(ownerUserId, kanbanTaskId) {
   ensureChatActionApprovalTable();
+  reconcileChatActionApprovals(ownerUserId, { taskId: kanbanTaskId });
   return db().prepare('SELECT * FROM chat_action_approvals WHERE owner_user_id=? AND kanban_task_id=?')
     .get(String(ownerUserId || ''), Number(kanbanTaskId));
 }
@@ -185,14 +263,17 @@ export function decideChatActionApproval({ ownerUserId, agentId = null, approval
   const owner = String(ownerUserId || '').trim();
   const wanted = String(decision || '').toLowerCase();
   if (!['approve', 'reject'].includes(wanted)) throw Object.assign(new Error('decision must be approve or reject'), { status: 400 });
+  reconcileChatActionApprovals(owner);
   let row = null;
   if (approvalId) row = db().prepare('SELECT * FROM chat_action_approvals WHERE id=? AND owner_user_id=?').get(String(approvalId), owner);
   else if (kanbanTaskId) row = getChatActionApprovalByKanban(owner, kanbanTaskId);
   else if (agentId) row = db().prepare(`SELECT * FROM chat_action_approvals
     WHERE owner_user_id=? AND agent_id=? AND status IN ('pending','approved')
     ORDER BY requested_at DESC LIMIT 1`).get(owner, String(agentId));
-  if (!row || !live(row)) throw Object.assign(new Error('No unexpired pending action is available in this conversation'), { status: 404 });
-  if (row.status === 'consumed' || row.status === 'rejected') throw Object.assign(new Error(`Action approval is already ${row.status}`), { status: 409 });
+  if (!row) throw Object.assign(new Error('No pending action is available in this conversation'), { status: 404 });
+  if (row.status === 'superseded') throw Object.assign(new Error('Approval no longer required for this internal notification. The old request was closed without execution.'), { status: 409 });
+  if (!['pending','approved','expired'].includes(row.status)) throw Object.assign(new Error(`Action approval is already ${row.status}`), { status: 409 });
+  if (row.status === 'expired' || !live(row)) throw Object.assign(new Error('This approval expired. Ask the agent to prepare a fresh request; the action was not executed.'), { status: 409 });
   const next = wanted === 'approve' ? 'approved' : 'rejected';
   const note = String(evidence || wanted).slice(0, 4000);
   db().transaction(() => {
@@ -216,7 +297,7 @@ export function decidePendingChatActionFromMessage({ ownerUserId, agentId, actor
   try {
     return decideChatActionApproval({ ownerUserId, agentId, decision, actor, channel, evidence: message });
   } catch (error) {
-    if (error?.status === 404) return null;
+    if (error?.status === 404 || (error?.status === 409 && /expired|no longer required/.test(error.message))) return null;
     throw error;
   }
 }
@@ -227,6 +308,7 @@ export function consumeApprovedChatAction({ ownerUserId, agentId, toolName, body
   const agent = String(agentId || '').trim();
   const tool = String(toolName || '').trim();
   if (!owner || !agent || !tool) return null;
+  reconcileChatActionApprovals(owner);
   const hash = actionArgsHash(tool, body);
   const rows = db().prepare(`SELECT * FROM chat_action_approvals
     WHERE owner_user_id=? AND agent_id=? AND tool_name=? AND args_hash=? AND status='approved'
@@ -245,6 +327,7 @@ export function consumeApprovedChatAction({ ownerUserId, agentId, toolName, body
 
 export async function executeApprovedChatAction({ ownerUserId, approvalId } = {}) {
   ensureChatActionApprovalTable();
+  reconcileChatActionApprovals(ownerUserId);
   const row = db().prepare(`SELECT * FROM chat_action_approvals
     WHERE id=? AND owner_user_id=? AND status='approved'`).get(String(approvalId || ''), String(ownerUserId || ''));
   if (!row || !live(row)) throw Object.assign(new Error('Approved action is unavailable or expired'), { status: 409 });

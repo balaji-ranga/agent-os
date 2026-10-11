@@ -4,6 +4,7 @@ import { respondToGoalRecoveryKanban, respondToHumanGoalTask } from './agent-goa
 import { getGoalActionApprovalByKanban, respondToGoalActionApproval } from './goal-action-approval.js';
 import { getChatActionApprovalByKanban, decideChatActionApproval, executeApprovedChatAction } from './chat-action-approval.js';
 import { clearKanbanTaskNotification } from './platform-notifications.js';
+import { recordKanbanObserverUserEvent } from './kanban-task-observer.js';
 
 function db() { return getDb(); }
 
@@ -86,8 +87,10 @@ export async function executeKanbanUserAction(input) {
     const allowed = ['open','awaiting_confirmation','in_progress','completed','failed'];
     if (!allowed.includes(status)) throw Object.assign(new Error('Invalid task status'), { status: 400 });
     db().transaction(() => {
-      db().prepare('INSERT INTO task_messages(task_id,role,content) VALUES (?,?,?)').run(task.id, input.actor.id, evidenceMessage);
+      const messageId=Number(db().prepare('INSERT INTO task_messages(task_id,role,content) VALUES (?,?,?)').run(task.id, 'user', evidenceMessage).lastInsertRowid);
       db().prepare("UPDATE kanban_tasks SET status=?,updated_at=datetime('now') WHERE id=?").run(status, task.id);
+      recordKanbanObserverUserEvent({taskId:task.id,ownerUserId:input.ownerUserId,status,
+        ...(task.status==='awaiting_confirmation' && status==='in_progress'?{messageId,resumeConfirmed:true}:{})});
     })();
     if (['completed','failed'].includes(status)) clearKanbanTaskNotification(task.id, input.actor.id);
     result = { ok: true, task_id: task.id, status };

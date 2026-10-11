@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
+import { reconcileChatActionApprovals } from '../services/chat-action-approval.js';
+import { kanbanOwnerSqlFilter } from '../services/kanban-user-scope.js';
 import {
   listNotificationsForUser,
   markNotificationsRead,
@@ -12,6 +14,7 @@ router.use(requireAuth);
 
 router.get('/', (req, res) => {
   try {
+    for (const owner of kanbanOwnerSqlFilter(req.authUser).params) reconcileChatActionApprovals(owner);
     res.json(listNotificationsForUser(req.authUser.id, { limit: req.query.limit, offset: req.query.offset }));
   } catch (e) {
     res.status(500).json({ error: e.message });

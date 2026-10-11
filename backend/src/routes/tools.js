@@ -14,6 +14,7 @@ import * as meta from '../services/content-tools-meta.js';
 import { assertCallerMayUseTool, getAgentToolGrants } from '../services/openclaw-agent-tools.js';
 import { parseTenantOpenClawAgentId, resolveAgentFromOpenClawCallerId } from '../services/openclaw-tenant.js';
 import { resolveOwnerFromOpenClawSession, lookupOpenClawSessionActor, lookupActiveDashboardChat, lookupSessionExecutionContext } from '../services/tool-owner-scope.js';
+import {validateKanbanCompletion} from '../services/kanban-completion-guard.js';
 import { resolveChannelActor, loadCompanyActor } from '../services/channel-user-identity.js';
 import { executeKanbanUserAction } from '../services/kanban-user-actions.js';
 import { decideChatActionApproval, executeApprovedChatAction } from '../services/chat-action-approval.js';
@@ -307,7 +308,7 @@ function logContentTool(toolName, requestPayload, responsePayload, status, sourc
       typeof requestPayload === 'string'
         ? requestPayload
         : JSON.stringify(requestPayload && typeof requestPayload === 'object'
-          ? { ...requestPayload, ...(requestPayload.approval_token ? { approval_token: '[redacted]' } : {}) }
+          ? { ...requestPayload, _delegation_task_id:ctx.delegationTaskId||null, ...(requestPayload.approval_token ? { approval_token: '[redacted]' } : {}) }
           : {}),
       typeof responsePayload === 'string' ? responsePayload : JSON.stringify(responsePayload || {}),
       status,
@@ -933,6 +934,7 @@ router.use((req, res, next) => {
       goalRunId: incoming.startsWith('agr-') ? incoming : null,
       goalStepId: body.goal_step_id || body.step_id || sessionGoal?.goal_step_id || null,
       clientTurnId: efficiencyExecutionContext?.client_turn_id || null,
+      delegationTaskId: efficiencyExecutionContext?.delegation_task_id || null,
     },
     () => next()
   );
@@ -1582,7 +1584,7 @@ router.post('/brave-web-search', optionalAuth, async (req, res) => {
  * Kanban tool: move task status. Any agent can move status of a task they are assigned to; COO can move any task.
  * Logged to content_tool_logs.
  */
-router.post('/kanban-move-status', optionalAuth, (req, res) => {
+router.post('/kanban-move-status', optionalAuth, async (req, res) => {
   let source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
   const requestPayload = req.body || {};
   const taskId = Number(requestPayload.task_id);
@@ -1626,7 +1628,16 @@ router.post('/kanban-move-status', optionalAuth, (req, res) => {
       logTool(req,'kanban_move_status', requestPayload, err, 'error', source);
       return res.status(403).json(err);
     }
-    db.prepare("UPDATE kanban_tasks SET status = ?, updated_at = datetime('now') WHERE id = ?").run(newStatus, taskId);
+    if(newStatus==='completed'&&task.status!=='completed') {
+      const verdict=await validateKanbanCompletion(taskId,task.owner_user_id);
+      if(!verdict.ok) {
+        const err={ok:false,error:'Task completion requires a verified final deliverable and correlated execution evidence.',reason:verdict.reason,
+          agent_hint:'Keep working on this same task. Return the final deliverable; the observer will verify it after the agent turn ends. Do not repeat successful external actions or bypass approval.'};
+        logTool(req,'kanban_move_status',requestPayload,err,'error',source);
+        return res.status(409).json(err);
+      }
+    }
+    if (task.status!==newStatus) db.prepare("UPDATE kanban_tasks SET status = ?, updated_at = datetime('now') WHERE id = ?").run(newStatus, taskId);
     if (newStatus === 'completed' || newStatus === 'failed') {
       clearKanbanTaskNotification(taskId);
     }
@@ -1659,12 +1670,6 @@ router.post('/kanban-reassign-to-coo', optionalAuth, (req, res) => {
       logTool(req,'kanban_reassign_to_coo', requestPayload, err, 'error', source);
       return res.status(403).json(err);
     }
-    const cooId = getCooAgentId();
-    if (!cooId) {
-      const err = { error: 'No COO agent in system' };
-      logTool(req,'kanban_reassign_to_coo', requestPayload, err, 'error', source);
-      return res.status(502).json(err);
-    }
     const db = getDb();
     const task = db.prepare('SELECT * FROM kanban_tasks WHERE id = ?').get(taskId);
     if (!task) {
@@ -1678,6 +1683,12 @@ router.post('/kanban-reassign-to-coo', optionalAuth, (req, res) => {
       const err = { error: e.message };
       logTool(req, 'kanban_reassign_to_coo', requestPayload, err, 'error', source);
       return res.status(e.status || 403).json(err);
+    }
+    const cooId=db.prepare('SELECT a.id FROM agents a JOIN user_agents u ON u.agent_id=a.id WHERE u.user_id=? AND u.enabled=1 AND a.is_coo=1 ORDER BY a.id LIMIT 1').get(task.owner_user_id)?.id;
+    if (!cooId) {
+      const err={error:'No enabled COO agent in this company'};
+      logTool(req,'kanban_reassign_to_coo',requestPayload,err,'error',source);
+      return res.status(404).json(err);
     }
     db.prepare("UPDATE kanban_tasks SET assigned_agent_id = ?, status = 'open', updated_at = datetime('now') WHERE id = ?").run(cooId, taskId);
     const out = { ok: true, task_id: taskId, assigned_agent_id: cooId };
@@ -1739,10 +1750,14 @@ router.post('/kanban-create-task', optionalAuth, (req, res) => {
     const db = getDb();
     if (humanTarget) {
       assignedUser = resolveCompanyEmployee(ownerUserId, humanTarget, db);
+    } else if(assignTo==='coo') {
+      assignedAgentId=db.prepare(`SELECT a.id FROM agents a JOIN user_agents u ON u.agent_id=a.id
+        WHERE a.is_coo=1 AND u.user_id=? AND u.enabled=1 ORDER BY a.id LIMIT 1`).get(ownerUserId)?.id;
+      if(!assignedAgentId)return res.status(404).json({error:'No enabled COO is assigned to this company'});
     } else if (assignTo && assignTo !== 'coo' && assignTo !== 'ceo') {
       const agent = db
-        .prepare('SELECT id FROM agents WHERE LOWER(id) = ? OR LOWER(openclaw_agent_id) = ?')
-        .get(assignTo, assignTo);
+        .prepare('SELECT a.id FROM agents a JOIN user_agents u ON u.agent_id=a.id WHERE u.user_id=? AND u.enabled=1 AND (LOWER(a.id) = ? OR LOWER(a.openclaw_agent_id) = ?)')
+        .get(ownerUserId,assignTo, assignTo);
       if (!agent) {
         const err = { error: `assign_to agent not found: ${assignTo}` };
         logTool(req, 'kanban_create_task', requestPayload, err, 'error', source);

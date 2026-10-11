@@ -70,6 +70,12 @@ function strongReadOperation(candidate = {}) {
  * a strong read verb may then repair stale legacy metadata (for example get_* incorrectly saved as R3).
  */
 export function inferToolRiskMapping(candidate = {}) {
+  // This platform tool writes only the entitled CEO's in-app bell. Do not
+  // apply the generic external "notify" heuristic to it (or to provider tools).
+  if (String(candidate.capability_type || candidate.type || '') === 'content_tool' &&
+      String(candidate.capability_id || candidate.id || candidate.name || '') === 'notify_ceo') {
+    return { risk_tier: 'R1', action_family: 'write_internal' };
+  }
   const text = `${candidate.capability_id || candidate.id || candidate.name || ''} ${candidate.display_name || ''} ${candidate.description || ''}`;
   if (criticalPrivilegedRisk(text)) return { risk_tier: 'R4', action_family: 'financial_destructive' };
   const declared = validTier(candidate.risk_tier || candidate.inferred_risk_tier, '');

@@ -1,0 +1,25 @@
+# Active-task outcome observer
+
+Scope: `in_progress` and `awaiting_confirmation` cards only. Open, completed and failed cards are not rescanned by this observer. Existing explicit reopen and protected approval/workflow/goal handlers retain ownership of their lifecycle.
+
+The periodic Kanban orphan watcher and delegation completion event use `kanban-task-observer.js`. It validates exact tenant/agent/delegation ownership, active execution, authenticated user decisions, deliverable/blocker rules and owner/delegation-correlated execution receipts. A terminal delegation is not proof of fulfillment. An exact single-file clean download receipt can complete by code alone; semantic fulfillment uses the existing profile-aware model resolver only when ambiguous. Optional follow-up questions are not hard blockers.
+
+Recovery banners are not user objectives. Legacy workflow cards with only a prior summary and no original node instructions require confirmation instead of false completion or replay. Deferred ambiguity is reviewed on a later pass without a cache delay; oldest unchecked cards are prioritized to prevent a fixed first page from starving later tasks.
+
+Semantic review uses the `kanban_task_observer` utility workload through the ordinary owner-scoped platform model resolver. Efficiency mode uses the Admin local model and shared capacity limits; otherwise the active user BYOK or platform default applies. Configured local-only/hosted fallback preferences remain authoritative. There are at most two reviews per tenant pass and a maximum 20-second inference timeout (a shorter Admin timeout is respected). Invalid/uncertain output or provider failure is caught per card, recorded with a sanitized reason, leaves the code-rule decision in control, and does not stop later code checks. Results are cached for unchanged evidence; unexecuted retries are not cached out of recovery.
+
+Successful completion clears the task notification. Missing action/artifact proof cannot be supplied by LLM assertions. Protected approvals, human/goal tasks and external leaf cards are not auto-approved. A semantic rejection is persisted as system assessment guidance for the same task and next delegation, with a receipt-check instruction before any external action. Repair remains in progress until the company exception policy retry limit is reached, then awaits confirmation. Authenticated task-chat, channel or status-move confirmation begins one new bounded recovery cycle. Disabled automatic pickup stays awaiting confirmation. Normal agent authorization, destructive-action policy and budget gates remain enforced.
+
+Forward completion guards cover the agent Kanban-move tool and automatic delegation completion helpers. Running turns cannot prematurely mark themselves completed; final responses and trusted server-correlated receipts must pass verification. Already-completed cards are not reopened or rescanned. CRM company listing follows bounded provider cursors (up to ten pages, 100 records each), returns explicit coverage/continuation information, and never treats unknown pagination as full coverage. `coo` assignment resolves only to the owner's enabled COO.
+
+An authenticated task-chat reply resumes the existing agent turn, avoiding duplicate delegation pickup. Recorded user moves and input in flight are preserved; the task and evidence are re-read after semantic review to prevent stale overwrites. All audit/state queries are tenant scoped. State and sanitized audit tables are created additively; task state uses ON DELETE CASCADE while audit history is retained.
+
+Live Operations displays unresolved active-card state even when a linked delegation is terminal and links to the exact Kanban card.
+
+## Validation
+
+Run `npm run test:kanban-task-observer` and `npm run test:observer-recovery-completion` in `backend`, then the agent-actions, notification approvals, channel task-actions, tenant-boundaries and efficiency-controls harnesses. All tests use disposable databases and mock/loopback providers. No paid provider calls or real task retries are used by the harness.
+
+Standard `deploy/docker/backend.Dockerfile` already copies the source/scripts. The scoped observer Dockerfile overlays only a conflict-checked patch on the captured production image. The deploy script verifies source/image fingerprints and preserves Compose overlays, tenant volumes, frontend and Knowledge worker images. Rollback restores the captured backend image without rolling back tenant data or losing unrelated deployment changes.
+
+Validated rollout: `d98e12f7-20261012-recovery01`. Eleven isolated VPS regression suites passed; the live tenant-scoped CRM read returned 26 companies over three pages with `pagination.complete=true`. A synthetic assessment through the actual efficiency-profile Ollama model completed in 12.6 seconds. Previously completed Maker/Checker cards were unchanged. This proves the read/model paths, not successful duplicate deletion; no CRM mutations or destructive-policy changes were made by the verification.

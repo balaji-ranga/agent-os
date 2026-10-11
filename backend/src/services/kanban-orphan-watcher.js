@@ -13,7 +13,6 @@ import { getDb } from '../db/schema.js';
 import { getOrCreateDelegationHubStandup } from './standup-hub.js';
 import { isGoalPlanFailureKanbanDisabled } from './goal-plan-failure-kanban.js';
 import {
-  requeueStuckStatusOnlyKanbanCards,
   rependInfraFailedStatusOnlyRetries,
   isEligibleForStatusOnlyRetry,
 } from './delegation-status-only-retry.js';
@@ -23,6 +22,9 @@ import { reconcileA2AKanbanForOwner } from './coo-status-checker.js';
 import { releaseDelegationRunLock } from './delegation-queue.js';
 import { isPlatformLocalOllama } from './platform-llm-settings.js';
 import { getMemberBudgetStatus } from './agent-budgets.js';
+import { observeKanbanTasks } from './kanban-task-observer.js';
+import {setObserverDelegationFeedback} from './kanban-observer-feedback.js';
+import {getExceptionPolicy} from './exception-policy.js';
 
 const ORPHAN_TAG_RE = /\[orphan_retry:(\d+)\]/i;
 const PIPELINE_TAG = '[job_pipeline';
@@ -198,6 +200,7 @@ function listStaleProcessing(owner, staleSec, limit) {
           `SELECT id, to_agent_id, prompt, owner_user_id, created_at
            FROM agent_delegation_tasks
            WHERE status = 'processing'
+             AND NOT EXISTS (SELECT 1 FROM kanban_tasks k WHERE k.agent_delegation_task_id=agent_delegation_tasks.id AND k.status='awaiting_confirmation')
              AND prompt NOT LIKE ?
              AND (owner_user_id = ? OR (owner_user_id IS NULL AND standup_id IN (
                SELECT id FROM standups WHERE owner_user_id = ?
@@ -213,6 +216,7 @@ function listStaleProcessing(owner, staleSec, limit) {
         `SELECT id, to_agent_id, prompt, owner_user_id, created_at
          FROM agent_delegation_tasks
          WHERE status = 'processing'
+           AND NOT EXISTS (SELECT 1 FROM kanban_tasks k WHERE k.agent_delegation_task_id=agent_delegation_tasks.id AND k.status='awaiting_confirmation')
            AND prompt NOT LIKE ?
            AND datetime(created_at) < datetime('now', ?)
          ORDER BY created_at ASC
@@ -263,7 +267,7 @@ export function recoverStaleSpecialtyProcessingDelegations({
         .prepare(
           `UPDATE kanban_tasks
            SET status = 'in_progress', updated_at = datetime('now')
-           WHERE agent_delegation_task_id = ? AND status NOT IN ('completed')`
+           WHERE agent_delegation_task_id = ? AND status IN ('open','in_progress')`
         )
         .run(row.id);
       console.log(
@@ -283,10 +287,11 @@ export function recoverStaleSpecialtyProcessingDelegations({
  */
 export function reinitiateKanbanDelegation(
   kanbanId,
-  { reason = 'orphan_watcher', resetRetries = false } = {}
+  { reason = 'orphan_watcher', resetRetries = false, observerOwnerUserId = null, observerUserMessage = null, observerFeedback = null } = {}
 ) {
   const kanban = db().prepare(`SELECT * FROM kanban_tasks WHERE id = ?`).get(kanbanId);
   if (!kanban) return { ok: false, reason: 'kanban_not_found' };
+  if (observerOwnerUserId && kanban.owner_user_id !== observerOwnerUserId) return { ok: false, reason: 'owner_mismatch' };
   if (!kanban.assigned_agent_id) return { ok: false, reason: 'no_assigned_agent' };
   if (kanban.assigned_member_key) return { ok: false, reason: 'external_leaf' };
   if (isCeoApprovalCard(kanban)) return { ok: false, reason: 'ceo_approval' };
@@ -310,7 +315,8 @@ export function reinitiateKanbanDelegation(
   }
 
   let retries = resetRetries ? 0 : getOrphanRetryCount(kanban.description);
-  if (retries >= maxOrphanRetries()) {
+  const retryLimit=observerOwnerUserId?getExceptionPolicy(kanban.owner_user_id).retry_limit:maxOrphanRetries();
+  if (retries >= retryLimit) {
     return { ok: false, reason: 'max_retries', retries };
   }
 
@@ -342,12 +348,12 @@ export function reinitiateKanbanDelegation(
 
   const nextRetry = retries + 1;
   const banner =
-    `\n\n---\n[System — orphan watcher retry ${nextRetry}/${maxOrphanRetries()}] ` +
+    `\n\n---\n[System — orphan watcher retry ${nextRetry}/${retryLimit}] ` +
     `Your previous run did not finish (${reason}). Complete the CEO ask now and put the FULL ` +
     `answer in this reply. If you have kanban_move_status, call it → completed only after the ` +
     `deliverable is in the body; otherwise answer fully and the platform will update the card.\n---`;
   // Keep owner_user_id in the prompt so tenant OpenClaw id resolves to t-<ceo>--… not t-default--…
-  const prompt = `${promptBase}\n\nowner_user_id: ${owner}${banner}`;
+  const prompt = `${promptBase}${observerUserMessage ? `\n\nLatest authenticated user response:\n${observerUserMessage}` : ''}\n\nowner_user_id: ${owner}${banner}`;
 
   const standupId = getOrCreateDelegationHubStandup(owner);
   const requestId = `orphan-${kanban.id}-${Date.now()}`;
@@ -359,6 +365,9 @@ export function reinitiateKanbanDelegation(
     )
     .run(standupId, requestId, kanban.assigned_agent_id, prompt, owner);
   const newId = Number(info.lastInsertRowid);
+  if(observerFeedback) {
+    setObserverDelegationFeedback(newId,owner,observerFeedback);
+  }
 
   let descBase = String(kanban.description || '');
   if (resetRetries) {
@@ -408,7 +417,7 @@ export function reinitiateOrphanKanbanCards({ ownerUserId = null, limit = 25 } =
   const orphanWhere = `
          AND k.assigned_agent_id IS NOT NULL
          AND k.assigned_member_key IS NULL
-         AND k.status IN ('in_progress', 'open')
+         AND k.status = 'open'
          AND (
            k.agent_delegation_task_id IS NULL
            OR d.id IS NULL
@@ -529,6 +538,12 @@ export function cancelDelegationsForDeletedKanban(taskIds = []) {
 /** One watcher pass for a CEO (or all when ownerUserId omitted). */
 export async function runKanbanOrphanWatcher({ ownerUserId = null, limit = 25 } = {}) {
   const owner = String(ownerUserId || '').trim() || null;
+  // Code checks continue even on local Ollama. Semantic review fails closed per card.
+  let taskObserver = { scanned: 0, nudged: 0, completed: 0, details: [] };
+  if (owner) {
+    try { taskObserver = await observeKanbanTasks({ ownerUserId: owner, limit, allowRenudge: !isPlatformLocalOllama() }); }
+    catch { taskObserver.details.push({ outcome: 'unknown', reason: 'observer_pass_exception' }); }
+  }
   let orphanHumanGoalTasks = { cancelled: 0, goals: [] };
   try {
     const { reconcileOrphanHumanGoalTasks } = await import('./agent-goal-run.js');
@@ -544,17 +559,14 @@ export async function runKanbanOrphanWatcher({ ownerUserId = null, limit = 25 } 
   }
   if (isPlatformLocalOllama()) {
     console.info('[orphan-watcher] skip reinitiate on local Ollama (CPU cannot fan-out specialty retries)');
-    return { skipped: true, reason: 'local_ollama', owner_user_id: owner, orphan_human_goal_tasks: orphanHumanGoalTasks, budget_blocked_recovery: budgetBlockedRecovery };
+    return { skipped: true, reason: 'local_ollama', owner_user_id: owner, task_observer: taskObserver, orphan_human_goal_tasks: orphanHumanGoalTasks, budget_blocked_recovery: budgetBlockedRecovery };
   }
   const stale = recoverStaleSpecialtyProcessingDelegations({ ownerUserId: owner, limit });
   let statusOnly = { requeued: 0 };
   let infra = { repended: 0 };
   let heal = { healed: 0 };
-  try {
-    statusOnly = requeueStuckStatusOnlyKanbanCards({ ownerUserId: owner, limit });
-  } catch (e) {
-    console.warn('[orphan-watcher] status-only requeue:', e?.message || e);
-  }
+  // In-progress cards are now reconciled by the observer, not a second retry path.
+  statusOnly = { requeued: 0, observer_managed: true };
   try {
     infra = rependInfraFailedStatusOnlyRetries({ ownerUserId: owner, limit });
   } catch (e) {
@@ -591,7 +603,7 @@ export async function runKanbanOrphanWatcher({ ownerUserId = null, limit = 25 } 
   }
 
   const needsProcess =
-    (stale.recovered || 0) +
+    (taskObserver.nudged || 0) + (stale.recovered || 0) +
       (statusOnly.requeued || 0) +
       (infra.repended || 0) +
       (orphans.reinitiated || 0) +
@@ -627,6 +639,7 @@ export async function runKanbanOrphanWatcher({ ownerUserId = null, limit = 25 } 
 
   return {
     owner_user_id: owner,
+    task_observer: taskObserver,
     stale_processing: stale,
     status_only: statusOnly,
     infra_repend: infra,

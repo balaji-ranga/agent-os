@@ -38,7 +38,9 @@ import {
   reinitiateKanbanDelegation,
 } from '../services/kanban-orphan-watcher.js';
 import { executeKanbanUserAction } from '../services/kanban-user-actions.js';
-import { kanbanActionDecisionFromMessage } from '../services/chat-action-approval.js';
+import { recordKanbanObserverUserEvent, isObserverManagedApproval, observeKanbanTasks } from '../services/kanban-task-observer.js';
+import {validateKanbanCompletion} from '../services/kanban-completion-guard.js';
+import { kanbanActionDecisionFromMessage, reconcileChatActionApprovals, chatActionApprovalState, getChatActionApprovalByKanban } from '../services/chat-action-approval.js';
 import {
   resolveKanbanEtaHours,
   computeDueAt,
@@ -51,6 +53,13 @@ import { cancelHumanGoalRunsForDeletedKanban } from '../services/agent-goal-run.
 const router = Router();
 router.use(attachAuthUser);
 router.use(requireAuth);
+// Reconcile only this authenticated company's cards before list/count/detail reads.
+router.use((req, res, next) => {
+  try {
+    if (req.method === 'GET') for (const owner of kanbanOwnerSqlFilter(req.authUser).params) reconcileChatActionApprovals(owner);
+    next();
+  } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+});
 const VALID_STATUSES = ['open', 'awaiting_confirmation', 'in_progress', 'completed', 'failed'];
 
 router.post('/tasks/:id/human-response', async (req, res) => {
@@ -78,7 +87,15 @@ function db() {
 router.post('/tasks/:id/action-approval', async (req, res) => {
   try {
     const task = db().prepare('SELECT * FROM kanban_tasks WHERE id=?').get(req.params.id);
-    if (!task) return res.status(404).json({ error: 'Task not found' });
+    if (!task) {
+      // Old tabs/deep links get an actionable answer without exposing another tenant's grant.
+      for (const owner of kanbanOwnerSqlFilter(req.authUser).params) {
+        const approval = getChatActionApprovalByKanban(owner, req.params.id);
+        if (approval?.status === 'expired') return res.status(409).json({ error: 'This approval expired and its Kanban task was removed. Ask the agent to prepare a fresh request; the action was not executed.' });
+        if (approval?.status === 'superseded') return res.status(409).json({ error: 'Approval no longer required for this internal notification. Its obsolete Kanban task was removed without execution.' });
+      }
+      return res.status(404).json({ error: 'Task not found' });
+    }
     assertKanbanTaskMutate(task, req.authUser);
     const ownerUserId = resolveAuthenticatedCeoUserId(req);
     const decision = String(req.body?.decision || '').toLowerCase();
@@ -120,6 +137,7 @@ function mirrorKanbanTurnToAgentChat({ agentId, ownerUserId, role, content, task
 function withDisplayTimes(row) {
   return {
     ...withSlaState(row),
+    action_approval: chatActionApprovalState(row),
     created_at_display: formatServerDateTime(row.created_at),
     updated_at_display: row.updated_at ? formatServerDateTime(row.updated_at) : null,
     due_date_display: row.due_date ? formatServerDate(row.due_date) : null,
@@ -473,6 +491,7 @@ router.patch('/tasks/:id', (req, res) => {
     values.push(req.params.id);
     db().prepare(`UPDATE kanban_tasks SET ${updates.join(', ')} WHERE id = ?`).run(...values);
     let updated = db().prepare('SELECT k.*, a.name AS assigned_agent_name FROM kanban_tasks k LEFT JOIN agents a ON a.id = k.assigned_agent_id WHERE k.id = ?').get(req.params.id);
+    if (status !== undefined && updated.owner_user_id) recordKanbanObserverUserEvent({taskId:updated.id,ownerUserId:updated.owner_user_id,status,resumeConfirmed:task.status==='awaiting_confirmation' && status==='in_progress'});
     if (status === 'completed' || status === 'failed') {
       clearKanbanTaskNotification(updated.id, req.authUser?.id);
       clearKanbanSlaNotifications(updated.id);
@@ -636,7 +655,7 @@ router.post('/tasks/:id/messages', async (req, res) => {
   try {
     const task = db()
       .prepare(
-        'SELECT id, title, description, status, assigned_agent_id, assigned_user_id, agent_delegation_task_id, owner_user_id FROM kanban_tasks WHERE id = ?'
+        'SELECT * FROM kanban_tasks WHERE id = ?'
       )
       .get(req.params.id);
     if (!task) return res.status(404).json({ error: 'Task not found' });
@@ -678,6 +697,11 @@ router.post('/tasks/:id/messages', async (req, res) => {
 
     db().prepare('INSERT INTO task_messages (task_id, role, content) VALUES (?, ?, ?)').run(req.params.id, r, c);
     const userRow = db().prepare('SELECT id, role, content, created_at FROM task_messages WHERE task_id = ? ORDER BY id DESC LIMIT 1').get(req.params.id);
+    const observerTurn = ['in_progress','awaiting_confirmation'].includes(task.status) && task.assigned_agent_id && r === 'user' && c.trim() && ownerUserId && !isObserverManagedApproval(task);
+    if (observerTurn) {
+      recordKanbanObserverUserEvent({taskId:task.id,ownerUserId,messageId:userRow.id,handled:true,inflight:true});
+      if (task.status === 'awaiting_confirmation') db().prepare("UPDATE kanban_tasks SET status='in_progress',updated_at=datetime('now') WHERE id=? AND owner_user_id=? AND status='awaiting_confirmation'").run(task.id,ownerUserId);
+    }
 
     if (task.assigned_agent_id && r === 'user' && ownerUserId) {
       mirrorKanbanTurnToAgentChat({
@@ -712,7 +736,10 @@ router.post('/tasks/:id/messages', async (req, res) => {
           ? openclaw.sessionUserFor(agent.id, ceoOwner, `kanban-${taskId}`)
           : `kanban-${taskId}`;
         const sessionKey = openclaw.sessionKeyFor(openclawAgentId, sessionUser);
-        if (ceoOwner) registerOpenClawSessionOwner(sessionKey, ceoOwner);
+        if (ceoOwner) {
+          const linked=task.agent_delegation_task_id?db().prepare('SELECT id FROM agent_delegation_tasks WHERE id=? AND owner_user_id=? AND to_agent_id=?').get(task.agent_delegation_task_id,ceoOwner,agent.id):null;
+          registerOpenClawSessionOwner(sessionKey, ceoOwner, req.authUser?.id, 'web', {work_unit:`kanban-${taskId}`,kanban_task_id:Number(taskId),delegation_task_id:linked?.id||null});
+        }
 
         const sessionKeyLine = `Your session key for this run is ${sessionKey}. Use this exact sessionKey when calling sessions_history. The messages in this request already contain the full task conversation; if sessions_history returns empty, use these messages as your context and proceed.\n\n`;
         const guidance = buildKanbanChatStatusGuidance(taskId, task.status, {
@@ -800,16 +827,17 @@ router.post('/tasks/:id/messages', async (req, res) => {
             db()
               .prepare(
                 `UPDATE kanban_tasks SET status = 'in_progress', updated_at = datetime('now')
-                 WHERE id = ? AND status IN ('open', 'in_progress', 'completed')`
+                 WHERE id = ? AND status IN ('open', 'in_progress')`
               )
               .run(taskId);
             console.warn(
               `[kanban] chat reply status-only — keep in_progress task=${taskId} (will not auto-complete)`
             );
-          } else if (
+          } else if (!observerTurn &&
             guidance.completeOnReply &&
             !stillStatusOnly &&
-            !String(reply).startsWith('[Error from agent:')
+            !String(reply).startsWith('[Error from agent:') &&
+            (await validateKanbanCompletion(taskId,ownerUserId,{replyText:reply})).ok
           ) {
             db()
               .prepare(
@@ -828,6 +856,11 @@ router.post('/tasks/:id/messages', async (req, res) => {
         } catch (err) {
           const errMsg = err?.message || String(err);
           db().prepare('INSERT INTO task_messages (task_id, role, content) VALUES (?, ?, ?)').run(req.params.id, 'assistant', `[Error from agent: ${errMsg}]`);
+        } finally {
+          if (observerTurn) {
+            recordKanbanObserverUserEvent({taskId:task.id,ownerUserId,messageId:userRow.id,handled:true});
+            await observeKanbanTasks({ownerUserId,taskId:task.id,allowRenudge:false,ambiguousLimit:1});
+          }
         }
       }
     }

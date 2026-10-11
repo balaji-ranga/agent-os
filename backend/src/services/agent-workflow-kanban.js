@@ -7,6 +7,7 @@ import {
   clearKanbanTaskNotification,
 } from './platform-notifications.js';
 import { applyPolicyEtaToTask } from './kanban-sla.js';
+import {completionCodeVerdict} from './kanban-completion-guard.js';
 
 export const AGENT_WORKFLOW_TAG = '[agent_workflow:';
 
@@ -108,8 +109,10 @@ export function createAgentWorkflowKanbanTask({
 }
 
 export function completeAgentWorkflowKanbanForDelegation(delegationTaskId, { ok = true } = {}) {
-  const row = db().prepare('SELECT id, status FROM kanban_tasks WHERE agent_delegation_task_id = ?').get(delegationTaskId);
+  const row = db().prepare('SELECT id, status,owner_user_id FROM kanban_tasks WHERE agent_delegation_task_id = ?').get(delegationTaskId);
   if (!row) return null;
+  if(['completed','failed'].includes(row.status))return row.id;
+  if(ok&&!completionCodeVerdict(row.id,row.owner_user_id).ok)return row.id;
   const newStatus = ok ? 'completed' : 'failed';
   if (row.status === newStatus) return row.id;
   db()
