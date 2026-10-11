@@ -816,6 +816,8 @@ export const api = {
   knowledgeAgentAccess: (id) => get(`/master-data/knowledge/agents/${encodeURIComponent(id)}/access`),
   knowledgeAgentAccessSave: (id,source_ids) => put(`/master-data/knowledge/agents/${encodeURIComponent(id)}/access`,{source_ids}),
   knowledgeSourceRecords: (id,after=null,options={}) => get(`/master-data/knowledge/sources/${encodeURIComponent(id)}/records?${new URLSearchParams({...(after?{after}:{}),...(options.query?{q:options.query}:{}),limit:String(options.limit??25),...(options.compact?{compact:'1'}:{})})}`),
+  knowledgeManageRecords: input => post('/master-data/knowledge/records/manage',input),
+  knowledgeExclusions: (id,after='') => get(`/master-data/knowledge/sources/${encodeURIComponent(id)}/exclusions?${new URLSearchParams({after})}`),
   knowledgeSourceSave: (body, id) => id ? request(`/master-data/knowledge/sources/${encodeURIComponent(id)}`, { method:'PATCH', body:JSON.stringify(body) }) : post('/master-data/knowledge/sources',body),
   knowledgeSourceSync: (id) => post(`/master-data/knowledge/sources/${encodeURIComponent(id)}/sync`,{}),
   knowledgeSourceEnabled: (id,enabled) => post(`/master-data/knowledge/sources/${encodeURIComponent(id)}/enabled`,{enabled}),

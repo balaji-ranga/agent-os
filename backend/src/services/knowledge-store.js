@@ -8,6 +8,19 @@ import { knowledgeProcessingState } from './knowledge-processing-state.js';
 // statement also scopes by authenticated owner, even when IDs are unguessable.
 export function knowledgeStore(db = getDb()) {
   db.exec(`
+    CREATE TABLE IF NOT EXISTS knowledge_exclusions (
+      owner TEXT NOT NULL,source_id TEXT NOT NULL,object_id TEXT NOT NULL,created_at TEXT NOT NULL,
+      PRIMARY KEY(owner,source_id,object_id)
+    );
+    CREATE TABLE IF NOT EXISTS knowledge_incremental_drafts (
+      owner TEXT NOT NULL,source_id TEXT NOT NULL,generation INTEGER NOT NULL,
+      PRIMARY KEY(owner,source_id)
+    );
+    CREATE TABLE IF NOT EXISTS knowledge_incremental_records (
+      owner TEXT NOT NULL,source_id TEXT NOT NULL,object_id TEXT NOT NULL,
+      hash TEXT NOT NULL,version INTEGER NOT NULL,
+      PRIMARY KEY(owner,source_id,object_id)
+    );
     CREATE TABLE IF NOT EXISTS knowledge_sources (
       id TEXT PRIMARY KEY, owner TEXT NOT NULL, config TEXT NOT NULL,
       enabled INTEGER NOT NULL DEFAULT 1, revision TEXT, status TEXT NOT NULL DEFAULT 'pending',
@@ -45,6 +58,33 @@ export function knowledgeStore(db = getDb()) {
   const map = row => row && ({ ...JSON.parse(row.config), id:row.id, owner:row.owner, enabled:!!row.enabled,
     revision:row.revision,status:row.status,last_success:row.last_success,error:row.error,next_sync:row.next_sync,retry:processing.getRetry(row.owner,row.id) });
   return {
+    excluded(owner,source,id){return !!db.prepare('SELECT 1 FROM knowledge_exclusions WHERE owner=? AND source_id=? AND object_id=?').get(owner,source,id);},
+    exclusions(owner,source,after=''){return db.prepare('SELECT object_id,created_at FROM knowledge_exclusions WHERE owner=? AND source_id=? AND object_id>? ORDER BY object_id LIMIT 101').all(owner,source,after);},
+    beginRecordManagement(owner,id){
+      return db.transaction(()=>{
+        const source=this.get(owner,id);if(!source)throw Object.assign(new Error('Source not found'),{status:404});
+        if(db.prepare("SELECT 1 FROM knowledge_jobs WHERE owner=? AND source_id=? AND status='running'").get(owner,id))throw Object.assign(new Error('Synchronization is active. Wait for completion before managing records.'),{status:409});
+        this.setEnabled(owner,id,false);return source;
+      })();
+    },
+    setExcluded(owner,source,id,excluded){
+      if(!this.get(owner,source))throw Object.assign(new Error('Source not found'),{status:404});
+      if(excluded)db.prepare('INSERT OR IGNORE INTO knowledge_exclusions VALUES(?,?,?,?)').run(owner,source,id,now());
+      else db.prepare('DELETE FROM knowledge_exclusions WHERE owner=? AND source_id=? AND object_id=?').run(owner,source,id);
+      db.prepare('DELETE FROM knowledge_incremental_records WHERE owner=? AND source_id=? AND object_id=?').run(owner,source,id);
+    },
+    incrementalDraft(job){
+      this.heartbeat(job,0);
+      return db.transaction(()=>{
+        const source=this.get(job.owner,job.source_id);
+        const generation=Math.max(Date.now(),Number(String(source.revision||'').replace('g:',''))+1||0);
+        db.prepare('INSERT OR IGNORE INTO knowledge_incremental_drafts VALUES(?,?,?)').run(job.owner,job.source_id,generation);
+        return db.prepare('SELECT generation FROM knowledge_incremental_drafts WHERE owner=? AND source_id=?').get(job.owner,job.source_id);
+      })();
+    },
+    incrementalRecord(job,id){return db.prepare('SELECT hash,version FROM knowledge_incremental_records WHERE owner=? AND source_id=? AND object_id=?').get(job.owner,job.source_id,id);},
+    saveIncrementalRecord(job,id,hash,version){db.prepare('INSERT INTO knowledge_incremental_records VALUES(?,?,?,?,?) ON CONFLICT(owner,source_id,object_id) DO UPDATE SET hash=excluded.hash,version=excluded.version').run(job.owner,job.source_id,id,hash,version);},
+    completeIncremental(job){db.prepare('DELETE FROM knowledge_incremental_drafts WHERE owner=? AND source_id=?').run(job.owner,job.source_id);},
     recordProgress(job,objectId,stage,error=null){return processing.record(job,objectId,stage,error);},
     recordPage(owner,jobId,options){return processing.page(owner,jobId,options);},
     cleanupHistory(owner,days){return processing.cleanup(owner,days);},
@@ -70,6 +110,7 @@ export function knowledgeStore(db = getDb()) {
           db.prepare('UPDATE knowledge_agent_access SET sources_json=? WHERE owner=? AND agent_id=?').run(JSON.stringify(JSON.parse(row.sources_json).filter(source=>source!==id)),owner,row.agent_id);
         }
         db.prepare('DELETE FROM knowledge_sources WHERE owner=? AND id=?').run(owner,id);
+        for(const table of ['knowledge_incremental_records','knowledge_incremental_drafts','knowledge_exclusions'])db.prepare(`DELETE FROM ${table} WHERE owner=? AND source_id=?`).run(owner,id);
         return true;
       })();
     },
@@ -96,6 +137,7 @@ export function knowledgeStore(db = getDb()) {
         if(!prev) throw Object.assign(new Error('Source not found'),{status:404});
         if(prev.kind!==config.kind) throw new Error('Source type cannot change');
         if(db.prepare("SELECT id FROM knowledge_jobs WHERE owner=? AND source_id=? AND status='running'").get(owner,id)) throw new Error('Wait for the active synchronization before editing');
+        for(const table of ['knowledge_incremental_records','knowledge_incremental_drafts'])db.prepare(`DELETE FROM ${table} WHERE owner=? AND source_id=?`).run(owner,id);
         db.prepare("UPDATE knowledge_sources SET config=?,enabled=?,revision=NULL,status='pending',next_sync=?,error=NULL WHERE owner=? AND id=?")
           .run(JSON.stringify(config),+config.enabled,now(),owner,id);
       } else {
@@ -141,6 +183,7 @@ export function knowledgeStore(db = getDb()) {
         db.prepare('UPDATE knowledge_sources SET status=?,revision=?,last_success=?,error=?,next_sync=? WHERE owner=? AND id=?')
           .run(error?'error':'ready',error?src.revision:revision,error?src.last_success:time,error,
             processing.retry(job.owner,job.source_id,error,src.interval_seconds,retryAfterMs),job.owner,job.source_id);
+        if(!error&&String(revision).startsWith('g:'))this.completeIncremental(job);
       })();
     },
     history(owner,id) { return db.prepare('SELECT * FROM knowledge_jobs WHERE owner=? AND source_id=? ORDER BY rowid DESC LIMIT 100').all(owner,id); },

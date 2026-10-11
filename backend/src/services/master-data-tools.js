@@ -348,6 +348,19 @@ export async function ragDocumentsForAgent(ownerUserId, params = {}) {
   const documentId = params.document_id || params.documentId || null;
   const wantSummarize = wantsRagSummarize(params);
 
+  if(params.retrieval_mode==='knowledge_management'){
+    if(process.env.KNOWLEDGE_SYNC_ENABLED!=='1')throw Object.assign(new Error('Connected knowledge is not enabled'),{status:503});
+    const {permittedKnowledgeSources}=await import('./knowledge-agent-access.js');
+    const {knowledgeStore}=await import('./knowledge-store.js');
+    const {browseKnowledge}=await import('./knowledge-runtime.js');
+    const ids=permittedKnowledgeSources(ownerUserId,agentId,params.source_ids??null);
+    const sources=knowledgeStore().list(ownerUserId).filter(s=>ids.includes(s.id));
+    if(!params.source_id)return {ok:true,sources:sources.map(s=>({id:s.id,name:s.name,status:s.status})),note:'Only explicitly granted sources are listed. Original source data must not be deleted.'};
+    if(!ids.includes(params.source_id))throw Object.assign(new Error('Knowledge source access not granted'),{status:403});
+    const result=await browseKnowledge(ownerUserId,params.source_id,params.after||null,{query:params.record_query||'',limit:25});
+    return {ok:true,...result,management_url:'/master-data#knowledge-connected',note:'Index-only lifecycle controls are in Documents & records. Propose exact record IDs and ask the user to confirm removal in that UI. Do not call source CRM/ERP/mail delete tools. Exclude prevents re-indexing; Restore indexing reverses exclusion.'};
+  }
+
   if (isPlatformHelpAgent(agentId)) {
     const boundedTopK = Math.min(8, Math.max(1, Number(topK) || 5));
     const result = await md.ragDocuments(PLATFORM_OWNER_ID, {

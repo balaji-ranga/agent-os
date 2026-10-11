@@ -4,6 +4,7 @@ import { knowledgeSearch } from './knowledge-search.js';
 import { sourceRecords, assertKnowledgeSourceAccess } from './knowledge-source-adapters.js';
 import { entityId } from './knowledge-contract.js';
 import { fieldRuleEdges } from './knowledge-field-rules.js';
+import {runIncrementalKnowledge} from './knowledge-incremental.js';
 
 export async function cleanupKnowledgeSources({store=knowledgeStore(),search=knowledgeSearch()}={}) {
   for(const item of store.cleanupPending()) {
@@ -29,6 +30,7 @@ export async function browseKnowledge(owner,sourceId,after=null,options={}) {
 }
 
 export async function runKnowledgeJob(job,{store=knowledgeStore(),search=knowledgeSearch(),records=sourceRecords}={}) {
+  if(search.putIncrementalRecord&&store.incrementalDraft)return runIncrementalKnowledge(job,{store,search,records});
   const source=store.get(job.owner,job.source_id); const revision=randomUUID(); let count=0;
   let lost=null;
   const controller=new AbortController();
@@ -101,7 +103,7 @@ export async function connectedKnowledge(owner,{query,depth=3,source_ids=null}={
   for(const source of store.list(owner).filter(s=>s.enabled&&['ready','syncing'].includes(s.status)&&allowed.some(a=>a.id===s.id))) {
     try {await (deps.assertAccess||assertKnowledgeSourceAccess)(owner,source);current.add(`${source.id}:${source.revision}`);} catch {unavailable.push(source.id);}
   }
-  const visible=[...entities.values()].filter(e=>current.has(`${e.source}:${e.revision}`));
+  const visible=[...entities.values()].filter(e=>current.has(`${e.source}:${e.revision}`)||allowed.some(s=>s.id===e.source&&current.has(`${s.id}:${s.revision}`)&&String(s.revision).startsWith('g:')&&e.valid_from<=Number(s.revision.slice(2))&&e.valid_to>Number(s.revision.slice(2))));
   const visibleIds=new Set(visible.map(e=>e.entity));
   let remaining=40000;
   const evidence=visible.map(record=>{

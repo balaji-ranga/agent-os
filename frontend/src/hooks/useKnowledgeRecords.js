@@ -1,7 +1,7 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {api} from '../api';
 
-export function useKnowledgeRecords(sourceId,query='',compact=true) {
+export function useKnowledgeRecords(sourceId,query='',compact=true,refresh=0) {
   const [records,setRecords]=useState([]),[next,setNext]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
   const generation=useRef(0),pending=useRef(false);
   useEffect(()=>{
@@ -16,7 +16,7 @@ export function useKnowledgeRecords(sourceId,query='',compact=true) {
       finally{if(version===generation.current){pending.current=false;setBusy(false);}}
     },250);
     return()=>{clearTimeout(timer);generation.current++;};
-  },[sourceId,query,compact]);
+  },[sourceId,query,compact,refresh]);
   const loadMore=useCallback(async()=>{
     if(!sourceId||!next||pending.current)return;
     const version=generation.current;pending.current=true;setBusy(true);setError('');

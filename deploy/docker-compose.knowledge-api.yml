@@ -1,0 +1,6 @@
+# Preserve this overlay on backend-only releases when Connected Knowledge is enabled.
+services:
+  backend:
+    environment:
+      KNOWLEDGE_SYNC_ENABLED: "1"
+      KNOWLEDGE_QUERY_EMBED_TIMEOUT_MS: ${KNOWLEDGE_QUERY_EMBED_TIMEOUT_MS:-5000}

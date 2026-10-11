@@ -21,22 +21,60 @@ export function knowledgeSearch(transport=opensearchRequest,{deadline=null,embed
     ...options,...(deadline==null?{}:{timeoutMs:Math.min(options.timeoutMs||10000,budget())}),
   });
   const index = owner => `aos-knowledge-${fingerprint(owner).slice(0,24)}`;
-  const current = (owner,sources) => [ {term:{owner}}, {bool:{should:sources.map(s=>({bool:{filter:[{term:{source:s.id}},{term:{revision:s.revision}}]}})),minimum_should_match:1}} ];
+  const versionFilter=s=>String(s.revision||'').startsWith('g:')?[{range:{valid_from:{lte:Number(s.revision.slice(2))}}},{range:{valid_to:{gt:Number(s.revision.slice(2))}}}]:[{term:{revision:s.revision}}];
+  const current = (owner,sources) => [ {term:{owner}}, {bool:{should:sources.map(s=>({bool:{filter:[{term:{source:s.id}},...versionFilter(s)]}})),minimum_should_match:1}} ];
+  const scoped=(owner,source,extra=[])=>({bool:{filter:[{term:{owner}},{term:{source:source.id}},...extra]}});
+  const entityOf=(owner,source,id)=>entityId(owner,source.id,id);
+  const close=async(owner,source,entity,generation)=>request('POST',`/${index(owner)}/_update_by_query?refresh=true&conflicts=proceed`,{query:scoped(owner,source,[{term:{entity}},{range:{valid_from:{lt:generation}}},{range:{valid_to:{gt:generation}}}]),script:{lang:'painless',source:'ctx._source.valid_to=params.g',params:{g:generation}}});
   const search = async (owner,query,size=100) => {
     try { const result=await request('POST',`/${index(owner)}/_search`,{size,query,_source:{excludes:['field_tokens','field_names','embedding']}},{timeoutMs:10000}); return (result?.hits?.hits||[]).map(h=>({...h._source,score:h._score})); }
     catch(error) { if(error.status===404)return []; throw error; }
   };
   return {
+    processingProfile:embeddingProfile,
+    async deleteIndexedRecords(owner,source,ids){
+      const entities=ids.map(id=>entityOf(owner,source,id));
+      await request('POST',`/${index(owner)}/_delete_by_query?refresh=true`,{query:scoped(owner,source,[{bool:{should:[{terms:{entity:entities}},{terms:{from:entities}},{terms:{to:entities}}],minimum_should_match:1}}])});
+    },
+    async markIncrementalSeen(owner,source,draft,objectId,version,scan){
+      const id=entityOf(owner,source,objectId);
+      const previous=await request('POST',`/${index(owner)}/_mget`,{ids:[fingerprint([`g:${version}`,id])]});
+      const doc=previous.docs?.[0]?._source;
+      if(!doc||doc.valid_to<=draft.generation)return false;
+      await request('POST',`/${index(owner)}/_update/${fingerprint([`g:${version}`,id])}`,{doc:{seen_scan:scan}});
+      return true;
+    },
+    async putIncrementalRecord(owner,source,draft,record,hash,scan){
+      const id=entityOf(owner,source,record.object_id),revision=`g:${draft.generation}`;
+      // A failed object may have written partial chunks; clear only its draft.
+      await request('POST',`/${index(owner)}/_delete_by_query?refresh=true`,{query:scoped(owner,source,[{term:{entity:id}},{term:{revision}}])});
+      await this.putRecord(owner,source,revision,record,{valid_from:draft.generation,valid_to:9007199254740991,seen_scan:scan,record_hash:hash});
+      await close(owner,source,id,draft.generation);
+    },
+    async closeUnseenIncremental(owner,source,draft,scan){
+      await this.refresh(owner);let deleted=0;
+      for(;;){
+        const rows=await search(owner,{bool:{filter:[...current(owner,[{...source,revision:`g:${draft.generation}`}]),{term:{kind:'entity'}}],must_not:[{term:{seen_scan:scan}}]}},100);
+        if(!rows.length)break;
+        for(const row of rows){
+          await request('POST',`/${index(owner)}/_update_by_query?refresh=true&conflicts=proceed`,{query:scoped(owner,source,[{term:{entity:row.entity}},{range:{valid_to:{gt:draft.generation}}}]),script:{lang:'painless',source:'ctx._source.valid_to=params.g',params:{g:draft.generation}}});deleted++;
+        }
+      }
+      return deleted;
+    },
+    async pruneIncremental(owner,source,generation){
+      await request('POST',`/${index(owner)}/_delete_by_query?refresh=true`,{query:scoped(owner,source,[{bool:{should:[{range:{valid_to:{lte:generation}}},{bool:{must_not:[{exists:{field:'valid_from'}}]}}],minimum_should_match:1}}])});
+    },
     async ensure(owner) {
       try { await request('PUT',`/${index(owner)}`,{settings:{index:{knn:true,number_of_shards:1,number_of_replicas:0}},mappings:{dynamic:false,properties:{
         owner:{type:'keyword'},source:{type:'keyword'},revision:{type:'keyword'},entity:{type:'keyword'},kind:{type:'keyword'},title:{type:'text'},text:{type:'text'},
         from:{type:'keyword'},to:{type:'keyword'},embedding:{type:'knn_vector',dimension:embeddingDims()}
       }}}); } catch(error) { if(!JSON.stringify(error.body||error.message).includes('resource_already_exists_exception'))throw error; }
-      await request('PUT',`/${index(owner)}/_mapping`,{properties:{field_tokens:{type:'keyword'},field_names:{type:'keyword'},collection:{type:'keyword'}}});
+      await request('PUT',`/${index(owner)}/_mapping`,{properties:{field_tokens:{type:'keyword'},field_names:{type:'keyword'},collection:{type:'keyword'},valid_from:{type:'long'},valid_to:{type:'long'},seen_scan:{type:'keyword'}}});
     },
-    async putRecord(owner,source,revision,record) {
+    async putRecord(owner,source,revision,record,version={}) {
       const id=entityId(owner,source.id,record.object_id);
-      const base={owner,source:source.id,revision,entity:id,title:record.title,object_id:record.object_id,url:record.url||null,modified_at:record.modified_at};
+      const base={owner,source:source.id,revision,entity:id,title:record.title,object_id:record.object_id,url:record.url||null,modified_at:record.modified_at,...version};
       await request('PUT',`/${index(owner)}/_doc/${fingerprint([revision,id])}`,{...base,kind:'entity',preview:recordPreview(record),collection:record.object_id.split('/')[0],...indexedFields(record),fields:record.fields||{},text:record.text,content_hash:fingerprint(record.text)});
       const chunks=chunkText(record.text,1800,180);
       for(let start=0;start<chunks.length;start+=8) {

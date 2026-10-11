@@ -781,6 +781,7 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/master-data-rag',
     method: 'POST',
     purpose:
+      'For Knowledge lifecycle assistance (including Platform Help), use retrieval_mode=knowledge_management with query describing the intent. Omit source_id to list granted sources; supply source_id and optional record_query/after to browse indexed records. Propose exact IDs and direct the user to /master-data#knowledge-connected for index-only refresh, remove/exclude, or restore confirmation. This mode never deletes source records and requires explicit Workspace Knowledge access grants. ' +
       'API tool: answer questions from documents via keyword retrieval. Specialists search this CEO\'s uploads AND read-only Flolah Help (Twenty CRM SME / ERPNext SME / product how-to); chunks are tagged corpus=ceo or corpus=platform-help. ' +
       'Platform Help agent searches Flolah Help only. An empty CEO Master Data UI does not mean you lack help docs — call this tool. ' +
       'Parameters: query (required), optional document_id, top_k, summarize. Optional retrieval_mode=connected_information retrieves indexed CRM/ERP/content/Knowledge relationships; source_ids can narrow the sources granted in Agent Workspace → Knowledge access. These source grants are required in addition to tool access. Disconnected records are not proof of a shared customer. ' +

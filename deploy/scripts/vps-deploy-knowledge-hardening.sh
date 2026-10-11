@@ -30,6 +30,12 @@ grep -q test-knowledge-processing-state backend/package.json
 docker build -f deploy/docker/backend.knowledge.Dockerfile --build-arg "BASE_IMAGE=agent-os-backend:rollback-$RELEASE_REVISION" --build-arg "RELEASE_REVISION=$RELEASE_REVISION" -t "agent-os-backend:knowledge-$RELEASE_REVISION" .
 docker build -f deploy/docker/frontend.knowledge.Dockerfile --build-arg "BASE_IMAGE=agent-os-frontend:rollback-$RELEASE_REVISION" --build-arg "RELEASE_REVISION=$RELEASE_REVISION" -t "agent-os-frontend:knowledge-$RELEASE_REVISION" .
 docker build -f deploy/docker/knowledge-worker.Dockerfile --build-arg "BACKEND_IMAGE=agent-os-backend:knowledge-$RELEASE_REVISION" -t "flolah-knowledge-worker:knowledge-$RELEASE_REVISION" .
+docker run --rm --network none --entrypoint node "agent-os-backend:knowledge-$RELEASE_REVISION" scripts/test-knowledge-incremental.mjs
+# Keep runtime credentials on the server, never print them. The candidate has
+# no production data mounts; the live search test uses a random disposable index.
+(umask 077; docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' agent-os-backend-1 > "$release/runtime.env")
+docker run --rm --network container:agent-os-backend-1 --env-file "$release/runtime.env" --entrypoint node "agent-os-backend:knowledge-$RELEASE_REVISION" scripts/test-knowledge-opensearch.mjs
+rm -- "$release/runtime.env"
 for service in backend frontend knowledge-worker; do
   [[ "$(docker inspect -f '{{.Image}}' "agent-os-$service-1")" == "${old[$service]}" ]] || { echo 'Concurrent release detected; no cutover'; exit 1; }
 done
@@ -39,6 +45,10 @@ chmod 600 "$release/database-before.db"
 compose_service() {
   local service="$1" files
   files="$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project.config_files"}}' "agent-os-$service-1")"
+  if [[ "$service" == backend && "$files" != *docker-compose.knowledge-api.yml* ]]; then
+    test -f "$root/deploy/docker-compose.knowledge-api.yml"
+    files="$files,$root/deploy/docker-compose.knowledge-api.yml"
+  fi
   (cd "$root/deploy"; COMPOSE_FILE="$files" COMPOSE_PATH_SEPARATOR=, docker compose -p agent-os up -d --no-deps --no-build --force-recreate "$service")
 }
 rollback() {

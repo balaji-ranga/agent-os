@@ -5,6 +5,7 @@ import { Router } from 'express';
 import { requireAuth, requireCeoOrAdmin, resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
 import * as md from '../services/master-data.js';
 import { knowledgeStore } from '../services/knowledge-store.js';
+import {manageKnowledgeRecords} from '../services/knowledge-record-management.js';
 import { connectedKnowledge, browseKnowledge } from '../services/knowledge-runtime.js';
 import { answerConnectedKnowledge } from '../services/knowledge-answer.js';
 import { knowledgeSearch } from '../services/knowledge-search.js';
@@ -30,6 +31,11 @@ function knowledgeRoute(handler) {
     catch(error){res.status(error.status||400).json({error:error.message});}};
 }
 router.get('/knowledge/sources',knowledgeRoute(owner=>({sources:knowledgeStore().list(owner)})));
+router.post('/knowledge/records/manage',knowledgeRoute((owner,req)=>manageKnowledgeRecords(owner,req.body)));
+router.get('/knowledge/sources/:id/exclusions',knowledgeRoute((owner,req)=>{
+  const rows=knowledgeStore().exclusions(owner,req.params.id,String(req.query.after||''));
+  return {items:rows.slice(0,100),next:rows.length>100?rows[99].object_id:null};
+}));
 router.get('/knowledge/agents/:id/access',knowledgeRoute((owner,req)=>{
   const id=resolveKnowledgeAgent(owner,req.params.id),store=knowledgeStore();
   return {sources:store.list(owner),source_ids:store.agentSources(owner,id)};
