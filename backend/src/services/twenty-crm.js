@@ -298,8 +298,20 @@ export async function crmKnowledgePage(ownerUserId, collection, cursor = null, {
   if (!['companies', 'people', 'opportunities'].includes(collection)) throw new Error('Unsupported CRM collection');
   const { auth, off } = await requireLiveAuth(ownerUserId);
   if (off) throw new Error('CRM connection is unavailable');
+  if(metadataOnly){
+    // Older Twenty REST releases silently ignore `fields`. GraphQL selection
+    // guarantees metadata-only discovery using the same owner-scoped token.
+    const response=await twentyFetch('/graphql',{method:'POST',apiKey:auth.apiKey,body:{
+      query:`query KnowledgeMetadata($after: String) { ${collection}(first: 100, after: $after) { edges { node { id updatedAt } } pageInfo { hasNextPage endCursor } } }`,
+      variables:{after:cursor||null},
+    }});
+    if(response?.errors?.length)throw new Error('CRM metadata discovery failed');
+    const page=response?.data?.[collection];
+    if(!Array.isArray(page?.edges)||typeof page.pageInfo?.hasNextPage!=='boolean'||page.edges.some(e=>typeof e?.node?.id!=='string'||!e.node.id))throw new Error('CRM returned incomplete metadata');
+    if(page.pageInfo.hasNextPage&&!page.pageInfo.endCursor)throw new Error('CRM returned an incomplete pagination cursor');
+    return {rows:page.edges.map(e=>e.node),cursor:page.pageInfo.hasNextPage?page.pageInfo.endCursor:null};
+  }
   const params = new URLSearchParams({ limit: '100' });
-  if(metadataOnly)params.set('fields','id,updatedAt');
   if (cursor) params.set('starting_after', String(cursor));
   const data = await twentyFetch(`/rest/${collection}?${params}`, { apiKey: auth.apiKey });
   if(!Array.isArray(data)&&!Array.isArray(data?.[collection])&&!Array.isArray(data?.data)&&!Array.isArray(data?.data?.[collection]))throw new Error('CRM returned an incomplete record page');
