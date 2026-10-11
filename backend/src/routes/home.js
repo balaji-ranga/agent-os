@@ -10,6 +10,7 @@ import { getDb } from '../db/schema.js';
 import { getDbForCeo } from '../db/request-db.js';
 import { listAgentsForUser } from '../services/users.js';
 import { kanbanOwnerSqlFilter } from '../services/kanban-user-scope.js';
+import { buildHomeTeamActivity } from '../services/home-team-activity.js';
 import { getPlatformTimezone } from '../utils/format-datetime.js';
 import { listTables, ensureMasterDataSchema } from '../services/master-data.js';
 import {
@@ -263,40 +264,10 @@ router.get('/snapshot', (req, res) => {
         updated_at: t.updated_at || t.created_at,
       }));
 
-    const agentActivity = agents.slice(0, 8).map((a) => {
-      const active =
-        db
-          .prepare(
-            `SELECT COUNT(*) AS n FROM kanban_tasks k
-             WHERE ${ownerFilter.clause}
-               AND k.assigned_agent_id = ?
-               AND k.status IN ('open','in_progress','awaiting_confirmation')`
-          )
-          .get(...ownerFilter.params, a.id)?.n || 0;
-      let lastTitle = null;
-      try {
-        lastTitle =
-          db
-            .prepare(
-              `SELECT title FROM kanban_tasks k
-               WHERE ${ownerFilter.clause} AND k.assigned_agent_id = ?
-               ORDER BY COALESCE(k.updated_at, k.created_at) DESC LIMIT 1`
-            )
-            .get(...ownerFilter.params, a.id)?.title || null;
-      } catch {
-        /* ignore */
-      }
-      return {
-        id: a.id,
-        name: a.name,
-        role: a.role || '',
-        department: a.department || '',
-        avatar_image: a.avatar_image || '',
-        is_coo: !!a.is_coo,
-        active_tasks: active,
-        status: active > 0 ? 'active' : 'idle',
-        activity: lastTitle || (a.role ? String(a.role).slice(0, 80) : 'Ready'),
-      };
+    const agentActivity = buildHomeTeamActivity(db, {
+      agents,
+      ownerUserId: owner,
+      ownerFilter,
     });
 
     res.json({
