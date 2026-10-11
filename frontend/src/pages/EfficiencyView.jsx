@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api';
 import { formatLocalDateTime } from '../utils/formatDateTime.js';
 import { CompanyEfficiencyEvidence } from '../components/EfficiencyControls.jsx';
+import KnowledgeEfficiency from '../components/KnowledgeEfficiency.jsx';
 
 const RANGE_OPTIONS = [
   { value: '7', label: 'Last 7 days' },
@@ -1619,6 +1620,7 @@ export default function EfficiencyView() {
     if (tab === 'department' || tab === 'dept') return 'department';
     if (tab === 'user' || tab === 'people') return 'user';
     if (tab === 'llmops' || tab === 'monitoring') return 'llmops';
+    if (tab === 'knowledge') return 'knowledge';
     return 'org';
   });
   const [range, setRange] = useState('14');
@@ -1689,7 +1691,7 @@ export default function EfficiencyView() {
       : null;
 
   const subtitle =
-    view === 'agent'
+    view === 'knowledge' ? 'Knowledge sync health, published index inventory, and agent retrieval usage.' : view === 'agent'
       ? 'Per-agent activity, outcomes, and monthly token / error budgets.'
       : view === 'department'
         ? 'Department monthly token budget vs tokens used by AI employees, plus people task performance.'
@@ -1706,6 +1708,7 @@ export default function EfficiencyView() {
           <h1>Efficiency View</h1>
           <p className="ai-snip-sub">{subtitle}</p>
           <div className="ai-snip-pills" role="tablist" aria-label="Efficiency view">
+            <button type="button" role="tab" aria-selected={view === 'knowledge'} className={`ai-snip-pill${view === 'knowledge' ? ' active' : ''}`} onClick={() => setView('knowledge')}>Knowledge</button>
             <button
               type="button"
               role="tab"
@@ -1753,7 +1756,7 @@ export default function EfficiencyView() {
             </button>
           </div>
         </div>
-        {view === 'org' || view === 'agent' || view === 'llmops' ? (
+        {view === 'org' || view === 'agent' || view === 'llmops' || view === 'knowledge' ? (
           <select
             className="ai-snip-select eff-range-select"
             value={range}
@@ -1772,6 +1775,7 @@ export default function EfficiencyView() {
       </header>
 
       {view === 'agent' && <AgentView range={range} rangeLabelText={label} />}
+      {view === 'knowledge' && <KnowledgeEfficiency range={range} />}
       {view === 'department' && <DepartmentView />}
       {view === 'user' && <UserView />}
       {view === 'llmops' && <LlmopsView range={range} rangeLabelText={label} />}

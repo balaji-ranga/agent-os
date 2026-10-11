@@ -25,11 +25,13 @@ import { purgeOwnerRetention, RETENTION_DAY_OPTIONS, normalizeRetentionDays } fr
 import { estimateOwnerStorage } from '../services/owner-storage.js';
 import { updateUserProfile, getUserById } from '../services/users.js';
 import { companyEfficiencyControls } from './efficiency-controls.js';
+import {knowledgeEfficiencyRouter} from './knowledge-efficiency.js';
 
 const router = Router();
 
 router.use(requireAuth, requireCeoOrAdmin);
 router.use('/local-models', companyEfficiencyControls);
+router.use('/knowledge',knowledgeEfficiencyRouter());
 
 /**
  * GET /api/efficiency/summary?days=7|14|30|90|all

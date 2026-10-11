@@ -340,6 +340,12 @@ export async function listDocumentsForAgent(ownerUserId, opts = {}) {
  * @param {{ query?, agentId?, source?, agent_id?, top_k?, document_id?, summarize? }} [params]
  */
 export async function ragDocumentsForAgent(ownerUserId, params = {}, deps = {}) {
+  const {trackKnowledgeRetrieval}=await import('./knowledge-efficiency.js');
+  // Injected test dependencies do not write production telemetry.
+  if(Object.keys(deps).length)return ragDocumentsForAgentInternal(ownerUserId,params,deps);
+  return trackKnowledgeRetrieval(ownerUserId,params,()=>ragDocumentsForAgentInternal(ownerUserId,params,deps));
+}
+async function ragDocumentsForAgentInternal(ownerUserId, params = {}, deps = {}) {
   const query = String(
     params.query || params.q || params.question || params.prompt || params.message || ''
   ).trim();

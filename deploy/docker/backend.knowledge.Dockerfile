@@ -7,4 +7,4 @@ LABEL org.flolah.knowledge.revision=${RELEASE_REVISION}
 COPY backend/src /opt/agent-os/backend/src
 COPY backend/package.json /opt/agent-os/backend/package.json
 COPY backend/scripts /opt/agent-os/backend/scripts
-RUN npm run test:knowledge && REQUIRE_SYMLINK_TEST=1 npm run test:platform-skill-catalog
+RUN npm run test:knowledge-efficiency && npm run test:knowledge && REQUIRE_SYMLINK_TEST=1 npm run test:platform-skill-catalog

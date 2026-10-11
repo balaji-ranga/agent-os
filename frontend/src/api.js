@@ -846,6 +846,7 @@ export const api = {
   masterDataQuery: (body) => post('/master-data/query', body),
   aiSnipperSummary: (days = 7) => get(`/ai-snipper/summary?days=${days}`),
   efficiencySummary: (days = 14) => get(`/efficiency/summary?days=${encodeURIComponent(days)}`),
+  knowledgeEfficiency: (filters = {}) => get(`/efficiency/knowledge?${new URLSearchParams(filters)}`),
   efficiencyDepartments: () => get('/efficiency/departments'),
   efficiencyAgents: () => get('/efficiency/agents'),
   efficiencyAgent: (memberKey, days = 30) =>

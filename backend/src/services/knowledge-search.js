@@ -34,6 +34,14 @@ export function knowledgeSearch(transport=opensearchRequest,{deadline=null,embed
     catch(error) { if(error.status===404)return []; throw error; }
   };
   return {
+    async metrics(owner,sources){
+      if(!owner||sources.some(s=>s.owner!==owner))throw new Error('Invalid metrics owner');
+      if(sources.length>1000)return {available:false};
+      if(!sources.length)return {available:true,records:0,chunks:0,relationships:0};
+      const result=await request('POST',`/${index(owner)}/_search`,{size:0,query:{bool:{filter:[{term:{owner}},{bool:{should:sources.map(s=>({bool:{filter:[{term:{source:s.id}},...versionFilter(s)]}})),minimum_should_match:1}}]}},aggs:{kinds:{terms:{field:'kind',size:5}}}},{timeoutMs:5000});
+      const counts=Object.fromEntries((result.aggregations?.kinds?.buckets||[]).map(b=>[b.key,b.doc_count]));
+      return {available:true,records:counts.entity||0,chunks:counts.chunk||0,relationships:counts.edge||0};
+    },
     processingProfile:embeddingProfile,
     async putAdviceEdge(owner,source,item) {
       const generation=String(source.revision).startsWith('g:')?Number(source.revision.slice(2)):null;
