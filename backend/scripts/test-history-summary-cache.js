@@ -21,11 +21,13 @@ process.env.OPENAI_API_KEY = 'stub-key';
 process.env.OPENCLAW_MODEL_PRIMARY = 'stub-model';
 
 let llmCalls = 0;
+let documentSummaryCalls = 0;
 const realFetch = global.fetch;
 global.fetch = async (url, opts = {}) => {
   const u = String(url);
   if (u.includes('/chat/completions')) {
     llmCalls += 1;
+    if(String(opts.body||'').includes('Answer using only the provided document excerpts for this user.'))documentSummaryCalls++;
     const text = `STUB SUMMARY v${llmCalls}`;
     return {
       ok: true,
@@ -252,14 +254,13 @@ try {
   check(llmCalls === beforeRag + 2, `2 LLM calls (calls=${llmCalls})`);
 
   console.log('== 20. Service default is false ==');
-  const beforeSvc = llmCalls;
+  const beforeSvc = documentSummaryCalls;
   await md.ragDocuments(OWNER, { query: 'carry over cap' });
-  check(llmCalls === beforeSvc, `service default made no LLM call (calls=${llmCalls})`);
+  check(documentSummaryCalls === beforeSvc, 'service default made no answer-summary call (relevance classification is allowed)');
 } finally {
   try {
-    const {opensearchRequest}=await import('../src/services/opensearch/client.js');
-    const {searchIndexName}=await import('../src/services/opensearch/index.js');
-    await opensearchRequest('DELETE',`/${searchIndexName(OWNER)}`);
+    const {deleteOwnerIndices}=await import('../src/services/opensearch/index.js');
+    await deleteOwnerIndices(OWNER);
   } catch { /* Synthetic index may not have been created. */ }
   global.fetch = realFetch;
   try {
