@@ -8,6 +8,7 @@ import KnowledgeUnifiedResults from './KnowledgeUnifiedResults.jsx';
 import {searchKnowledgeMode} from '../utils/knowledgeSearchModes.js';
 import KnowledgeJobRecords from './KnowledgeJobRecords.jsx';
 import KnowledgeRunSummary from './KnowledgeRunSummary.jsx';
+import KnowledgeSelection from './KnowledgeSelection.jsx';
 import './KnowledgeSources.css';
 
 const collections={crm:['companies','people','opportunities'],erp:['Customer','Contact','Project','Sales Invoice'],content:['uploaded','generated'],knowledge:['tables','documents'],gmail:['messages'],outlook:['messages']};
@@ -42,21 +43,24 @@ export default function KnowledgeSources() {
         {['gmail','outlook'].includes(form.kind)&&<p>Uses your existing authorized connector. Indexes message bodies only; attachments are not indexed by this adapter yet.</p>}
         <fieldset><legend>Content to index</legend>{collections[form.kind].map(c=><label key={c}><input type="checkbox" checked={form.collections.includes(c)} onChange={e=>setForm({...form,collections:e.target.checked?[...form.collections,c]:form.collections.filter(v=>v!==c)})}/>{c} </label>)}</fieldset>
         <label>Sync interval (seconds) <input type="number" min={60} max={86400} value={form.interval_seconds} onChange={e=>setForm({...form,interval_seconds:Number(e.target.value)})}/></label>
+        <KnowledgeSelection form={form} onChange={setForm}/>
         <label><input type="checkbox" checked={form.graph_enabled} onChange={e=>setForm({...form,graph_enabled:e.target.checked})}/>Connect related information</label>
         {form.graph_enabled&&<label><input type="checkbox" checked={!!form.intelligent_mapping} onChange={e=>setForm({...form,intelligent_mapping:e.target.checked})}/>Enable intelligent mapping advice after synchronization</label>}
         {form.graph_enabled&&<p>Field rules match stable identifiers automatically. Intelligent mapping uses your selected efficiency model when Efficiency mode is enabled, otherwise your configured LLM. Supported model relationships are indexed automatically; review, reject or correct them in Relationships. Original source data is never changed.</p>}
-        <label><input type="checkbox" checked={form.enabled} onChange={e=>setForm({...form,enabled:e.target.checked})}/>Enabled</label>
+        <label><input type="checkbox" checked={form.enabled} onChange={e=>setForm({...form,enabled:e.target.checked})}/>Synchronization enabled</label>
+        <label><input type="checkbox" checked={form.retrieval_enabled??form.enabled} onChange={e=>setForm({...form,retrieval_enabled:e.target.checked})}/>Available to search and authorized agents</label>
         <button disabled={busy||!form.collections.length}>{busy?'Working…':'Save source'}</button>
         {editing&&<button type="button" onClick={()=>{setEditing(null);setForm(empty);}}>Cancel edit</button>}
       </form>
       <KnowledgeRelationshipRules sources={sources}/>
-      <details><summary>Relationship processing status</summary><p>Native relationships and field rules use the published source snapshot. Model relationships are indexed automatically with evidence; human review runs alongside indexing. Unsupported or low-confidence matches are not used automatically.</p>{sources.map(s=><p key={s.id}><strong>{s.name}</strong> — {!s.graph_enabled?'Relationships disabled':!s.enabled?'Paused; excluded from retrieval':!s.revision?'Awaiting first successful index':s.status==='error'?'Synchronization failed; review source history':s.status==='syncing'?'Synchronizing; last published snapshot retained':'Published and available for relationship queries'}{s.graph_enabled&&s.intelligent_mapping?' · Automatic model relationships enabled; review in Relationships.':''}</p>)}</details>
+      <details><summary>Relationship processing status</summary><p>Native relationships and field rules use the published source snapshot. Inferred links are checked against both endpoint records; changed or removed endpoints are excluded until revalidated. Unchanged records reuse inference. Human corrections remain effective.</p>{sources.map(s=><p key={s.id}><strong>{s.name}</strong> — {!s.graph_enabled?'Relationships disabled':!(s.retrieval_enabled??s.enabled)?'Hidden from retrieval':!s.revision?'Awaiting first successful index':s.status==='error'?'Synchronization failed; review source history':!s.enabled?'Sync paused; last published knowledge remains searchable':s.status==='syncing'?'Synchronizing; last published snapshot retained':'Published and available for relationship queries'}{s.graph_enabled&&s.intelligent_mapping?' · Automatic model relationships enabled; review in Relationships.':''}</p>)}</details>
       {!sources.length&&<p className="knowledge-connected-empty">No connected sources yet. Add one above to start background indexing. Your original records are not changed.</p>}
       {sources.map(s=><article key={s.id}><h3>{s.name}</h3><p>{s.enabled?s.status:'Paused'} · Last success: {s.last_success?formatLocalDateTime(s.last_success):'Not yet synchronized'}</p>{s.error&&<p role="alert">{s.error}</p>}<small>Source ID: {s.id}</small><p>
         <button disabled={busy||!s.enabled||s.status==='syncing'} onClick={()=>act(()=>api.knowledgeSourceSync(s.id),'Synchronization queued.')}>Sync now</button>
         <button disabled={busy||!s.enabled||s.status==='syncing'} onClick={()=>{if(window.confirm(`Rebuild all indexed records for ${s.name}? Original data, exclusions, permissions and relationship rules are preserved. This may take longer than an incremental sync.`))act(()=>api.knowledgeSourceFullResync(s.id),'Full resync queued. All eligible records will be reprocessed.');}}>Full resync</button>
         <button disabled={busy||s.status==='syncing'} onClick={()=>{setForm(s);setEditing(s.id);}}>Edit</button>
-        <button disabled={busy} onClick={()=>act(()=>api.knowledgeSourceEnabled(s.id,!s.enabled),s.enabled?'Source paused and excluded from search.':'Source resumed; synchronization scheduled.')}>{s.enabled?'Pause':'Resume'}</button>
+        <button disabled={busy} onClick={()=>act(()=>api.knowledgeSyncPaused(s.id,s.enabled),s.enabled?'Synchronization paused. Search visibility is unchanged.':'Synchronization resumed. Search visibility is unchanged.')}>{s.enabled?'Pause sync':'Resume sync'}</button>
+        <button disabled={busy} onClick={()=>act(()=>api.knowledgeVisibility(s.id,!(s.retrieval_enabled??s.enabled)),(s.retrieval_enabled??s.enabled)?'Hidden from search and agent retrieval. Sync schedule is unchanged.':'Search visibility enabled for the published snapshot.')}>{(s.retrieval_enabled??s.enabled)?'Hide from search':'Show in search'}</button>
         <button disabled={busy} onClick={()=>{if(window.confirm(`Remove ${s.name} from Knowledge? Original source records are not deleted.`))act(()=>api.knowledgeSourceDelete(s.id),'Source removed from search. Indexed-copy cleanup is queued; original records are unchanged.');}}>Remove source</button>
         <button disabled={busy} onClick={()=>act(async()=>setJobs({id:s.id,name:s.name,...await api.knowledgeSourceHistory(s.id)}),'History loaded.')}>History</button>
       </p></article>)}

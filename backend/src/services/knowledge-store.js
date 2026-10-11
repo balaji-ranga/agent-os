@@ -70,6 +70,22 @@ export function knowledgeStore(db = getDb()) {
   const map = row => row && ({ ...JSON.parse(row.config), id:row.id, owner:row.owner, enabled:!!row.enabled,
     revision:row.revision,status:row.status,last_success:row.last_success,error:row.error,next_sync:row.next_sync,retry:processing.getRetry(row.owner,row.id) });
   return {
+    setSyncPaused(owner,id,paused){
+      if(typeof paused!=='boolean')throw new Error('paused must be boolean');
+      return db.transaction(()=>{
+        const source=this.get(owner,id);if(!source)throw Object.assign(new Error('Source not found'),{status:404});
+        const visible=source.retrieval_enabled??source.enabled;
+        this.setEnabled(owner,id,!paused);
+        db.prepare('UPDATE knowledge_sources SET config=?,status=? WHERE owner=? AND id=?').run(JSON.stringify({...source,retrieval_enabled:visible}),source.revision?(paused?'paused':'ready'):(paused?'paused':'pending'),owner,id);
+        return this.get(owner,id);
+      })();
+    },
+    setVisibility(owner,id,visible){
+      if(typeof visible!=='boolean')throw new Error('visible must be boolean');
+      const source=this.get(owner,id);if(!source)throw Object.assign(new Error('Source not found'),{status:404});
+      db.prepare('UPDATE knowledge_sources SET config=? WHERE owner=? AND id=?').run(JSON.stringify({...source,retrieval_enabled:visible}),owner,id);
+      return this.get(owner,id);
+    },
     fullResync(owner,id) {
       return db.transaction(()=>{
         const source=this.get(owner,id);
@@ -152,7 +168,8 @@ export function knowledgeStore(db = getDb()) {
     setEnabled(owner,id,enabled) {
       if(typeof enabled!=='boolean')throw new Error('enabled must be boolean');
       return db.transaction(()=>{
-        if(!this.get(owner,id))throw Object.assign(new Error('Source not found'),{status:404});
+        const source=this.get(owner,id);if(!source)throw Object.assign(new Error('Source not found'),{status:404});
+        db.prepare('UPDATE knowledge_sources SET config=? WHERE owner=? AND id=?').run(JSON.stringify({...source,retrieval_enabled:enabled}),owner,id);
         if(!enabled)db.prepare("UPDATE knowledge_jobs SET status='cancelled',ended_at=?,error='Source paused' WHERE owner=? AND source_id=? AND status IN ('queued','running')").run(now(),owner,id);
         db.prepare("UPDATE knowledge_sources SET enabled=?,status=?,next_sync=? WHERE owner=? AND id=?").run(+enabled,enabled?'pending':'paused',now(),owner,id);
         return this.get(owner,id);

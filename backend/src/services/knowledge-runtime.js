@@ -6,8 +6,9 @@ import { entityId } from './knowledge-contract.js';
 import { fieldRuleEdges } from './knowledge-field-rules.js';
 import {runIncrementalKnowledge} from './knowledge-incremental.js';
 import {refreshKnowledgeValues} from './knowledge-live-values.js';
-import {eligibleModelEdges} from './knowledge-mapping-advice.js';
+import {checkedModelEdges} from './knowledge-mapping-advice.js';
 import {recordPreview,recordDisplayFields} from './knowledge-record-page.js';
+import {sourceReadable,recordSelected,projectKnowledgeRecord} from './knowledge-selection.js';
 
 export async function cleanupKnowledgeSources({store=knowledgeStore(),search=knowledgeSearch()}={}) {
   for(const item of store.cleanupPending()) {
@@ -23,12 +24,12 @@ export async function browseKnowledge(owner,sourceId,after=null,options={}) {
   const store=knowledgeStore();
   const source=store.get(owner,sourceId);
   if(!source)throw Object.assign(new Error('Source not found'),{status:404});
-  if(!source.enabled||!source.revision||!['ready','syncing'].includes(source.status))return {records:[],next:null};
+  if(!sourceReadable(source))return {records:[],next:null};
   await assertKnowledgeSourceAccess(owner,source);
   const result=await knowledgeSearch().browse(owner,[source],after,options);
   const latest=store.get(owner,sourceId);
   await assertKnowledgeSourceAccess(owner,latest);
-  if(!latest.enabled||latest.revision!==source.revision||!['ready','syncing'].includes(latest.status))return {records:[],next:null};
+  if(!sourceReadable(latest)||latest.revision!==source.revision)return {records:[],next:null};
   return result;
 }
 
@@ -42,7 +43,9 @@ export async function runKnowledgeJob(job,{store=knowledgeStore(),search=knowled
   try {
     await search.ensure(job.owner);
     store.heartbeat(job,count);
-    for await(const record of records(job.owner,source,{signal:controller.signal})) {
+    for await(const raw of records(job.owner,source,{signal:controller.signal})) {
+      if(!recordSelected(raw,source.selection))continue;
+      const record=projectKnowledgeRecord(raw,source.selection);
       if(lost)throw lost;
       store.recordProgress?.(job,record.object_id,'indexing');
       try{
@@ -76,7 +79,7 @@ export async function connectedKnowledge(owner,{query,depth=3,source_ids=null,li
   if(typeof query!=='string'||!query.trim()||query.length>4000)throw new Error('Enter a question up to 4000 characters');
   const store=deps.store||knowledgeStore();const search=deps.search||knowledgeSearch(undefined,{deadline:Date.now()+Math.min(60000,Math.max(5000,Number(process.env.KNOWLEDGE_QUERY_TIMEOUT_MS)||30000))});
   if(source_ids!==null&&(!Array.isArray(source_ids)||source_ids.some(id=>typeof id!=='string')))throw new Error('source_ids must be an array of source IDs');
-  const sources=store.list(owner).filter(s=>s.enabled&&s.revision&&['ready','syncing'].includes(s.status)&&(!source_ids||source_ids.includes(s.id)));
+  const sources=store.list(owner).filter(s=>sourceReadable(s)&&(!source_ids||source_ids.includes(s.id)));
   const allowed=[];const unavailable=[];
   for(const source of sources) {
     try{await (deps.assertAccess||assertKnowledgeSourceAccess)(owner,source);allowed.push(source);}
@@ -90,7 +93,7 @@ export async function connectedKnowledge(owner,{query,depth=3,source_ids=null,li
   const rules=store.fieldRules?.(owner)||[];
   for(let hop=0;hop<Math.min(4,Math.max(0,Number(depth)||0))&&frontier.length&&entities.size<100;hop++) {
     let native=await search.edges(owner,graphSources,frontier);
-    if(native.some(e=>e.evidence?.origin==='model_inferred'))native=eligibleModelEdges(owner,native,graphSources,deps.advice);
+    if(native.some(e=>e.evidence?.origin==='model_inferred'))native=await checkedModelEdges(owner,native,graphSources,search,deps.advice);
     const mappings=(store.mappingsFor?store.mappingsFor(owner,frontier.map(id=>entities.get(id))):store.mappings(owner)).filter(m=>graphIds.has(m.from_source)&&graphIds.has(m.to_source));
     const explicit=mappings.map(m=>({from:entityId(owner,m.from_source,m.from_object),to:entityId(owner,m.to_source,m.to_object),relation:m.relation,evidence:{origin:'explicit_mapping',mapping_id:m.id,note:m.note}}))
       .filter(e=>frontier.includes(e.from)||frontier.includes(e.to));
@@ -104,7 +107,7 @@ export async function connectedKnowledge(owner,{query,depth=3,source_ids=null,li
   }
   // Recheck source eligibility after I/O to avoid returning a revision disabled during retrieval.
   const current=new Set();
-  for(const source of store.list(owner).filter(s=>s.enabled&&['ready','syncing'].includes(s.status)&&allowed.some(a=>a.id===s.id))) {
+  for(const source of store.list(owner).filter(s=>sourceReadable(s)&&allowed.some(a=>a.id===s.id))) {
     try {await (deps.assertAccess||assertKnowledgeSourceAccess)(owner,source);current.add(`${source.id}:${source.revision}`);} catch {unavailable.push(source.id);}
   }
   let visible=[...entities.values()].filter(e=>current.has(`${e.source}:${e.revision}`)||allowed.some(s=>s.id===e.source&&current.has(`${s.id}:${s.revision}`)&&String(s.revision).startsWith('g:')&&e.valid_from<=Number(s.revision.slice(2))&&e.valid_to>Number(s.revision.slice(2))));
@@ -114,7 +117,7 @@ export async function connectedKnowledge(owner,{query,depth=3,source_ids=null,li
     visible=[];liveChecks=refreshed.checks;
     for(const record of refreshed.records){
       const latest=store.get?store.get(owner,record.source):store.list(owner).find(s=>s.id===record.source);
-      if(!latest?.enabled||!['ready','syncing'].includes(latest.status)||!current.has(`${latest.id}:${latest.revision}`))continue;
+      if(!sourceReadable(latest)||!current.has(`${latest.id}:${latest.revision}`))continue;
       try{await (deps.assertAccess||assertKnowledgeSourceAccess)(owner,latest);visible.push(record);}catch{}
     }
   }
@@ -129,7 +132,7 @@ export async function connectedKnowledge(owner,{query,depth=3,source_ids=null,li
     return {...record,text,fields,preview:recordPreview(record),display_fields:recordDisplayFields(record),source_name:source?.name,source_kind:source?.kind,text_truncated:text.length<String(record.text||'').length};
   });
   const endpoints=new Map(evidence.map(e=>[e.entity,{title:e.title,object_id:e.object_id,source_name:e.source_name,source_kind:e.source_kind,preview:e.preview}]));
-  const currentEdges=edges.some(e=>e.evidence?.origin==='model_inferred')?eligibleModelEdges(owner,edges,store.list(owner).filter(s=>current.has(`${s.id}:${s.revision}`)),deps.advice):edges;
+  const currentEdges=edges.some(e=>e.evidence?.origin==='model_inferred')?await checkedModelEdges(owner,edges,store.list(owner).filter(s=>current.has(`${s.id}:${s.revision}`)),search,deps.advice):edges;
   return {query,retrieval_mode:'connected_information',evidence,
     chunks:hits.filter(h=>visibleIds.has(h.entity)).map(({embedding,...hit})=>{const record=evidence.find(e=>e.entity===hit.entity);return record?.value_origin==='live'?{...hit,text:record.text,fields:record.fields,value_origin:'live',live_checked_at:record.live_checked_at}:hit;}),relationships:currentEdges.filter(e=>visibleIds.has(e.from)&&visibleIds.has(e.to)).slice(0,100).map(e=>({...e,from_record:endpoints.get(e.from),to_record:endpoints.get(e.to),evidence:e.evidence?{...e.evidence,...(e.evidence.note?{note:e.evidence.note.slice(0,1000)}:{})}:undefined})),
     sources:allowed.filter(s=>current.has(`${s.id}:${s.revision}`)).map(s=>({id:s.id,name:s.name,last_success:s.last_success})),

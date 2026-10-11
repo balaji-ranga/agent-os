@@ -6,7 +6,7 @@
   "type": "module",
   "main": "src/index.js",
   "scripts": {
-    "pretest:knowledge": "node scripts/test-knowledge-full-resync.mjs && node scripts/test-knowledge-live-values.mjs && node scripts/test-knowledge-source-incremental.mjs",
+    "pretest:knowledge": "node scripts/test-knowledge-controls.mjs && node scripts/test-knowledge-full-resync.mjs && node scripts/test-knowledge-live-values.mjs && node scripts/test-knowledge-source-incremental.mjs",
     "test:home-team-activity": "node scripts/test-home-team-activity.mjs",
     "test:knowledge": "node scripts/test-knowledge-admin.mjs && node scripts/test-knowledge-incremental.mjs && node scripts/test-knowledge-processing-state.mjs && node scripts/test-knowledge-mapping.mjs && node scripts/test-knowledge-record-page.mjs && node scripts/test-knowledge-contract.mjs && node scripts/test-knowledge-lifecycle.mjs && node scripts/test-knowledge-local-records.mjs && node scripts/test-knowledge-answer.mjs && node scripts/test-knowledge-text-stream.mjs && node scripts/test-knowledge-binary-extract.mjs && node scripts/test-knowledge-mail-adapter.mjs && node scripts/test-knowledge-embedding-reuse.mjs && node scripts/test-knowledge-agent-access.mjs",
     "knowledge:worker": "node scripts/knowledge-worker.mjs",

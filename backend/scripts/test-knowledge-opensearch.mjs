@@ -22,13 +22,14 @@ store.saveFieldRule(owner,{from_source:crm.id,from_collection:'companies',from_f
 store.addMapping(owner,{from_source:content.id,from_object:'contract.md',to_source:crm.id,to_object:'companies/customer-1',relation:'contract_for',note:'Contract explicitly references customer-1'});
 let amount=100;
 let invoicePresent=true;
+let contractSuffix='';
 async function* records(_owner,source){
   if(source.kind==='crm')yield {object_id:'companies/customer-1',title:'Acceptance customer',text:'Customer 1 account contact Taylor',fields:{external_id:'AC-42'}};
   if(source.kind==='erp'){
     yield {object_id:'Customer/customer-1',title:'Customer 1',text:'Customer 1',fields:{external_id:'AC-42'}};
     if(invoicePresent)yield {object_id:'Sales Invoice/invoice-1',title:'Overdue invoice',text:`Overdue invoice outstanding ${amount} USD`,fields:{outstanding_amount:amount},relations:[{target:'Customer/customer-1',relation:'customer'}]};
   }
-  if(source.kind==='content')yield {object_id:'contract.md',title:'Contract renewal',text:'Customer 1 contract renewing next month with annual renewal terms'};
+  if(source.kind==='content')yield {object_id:'contract.md',title:'Contract renewal',text:'Customer 1 contract renewing next month with annual renewal terms'+contractSuffix};
 }
 try {
   for(let i=0;i<3;i++)assert.equal((await runKnowledgeJob(store.claim(),{store,search,records})).status,'completed');
@@ -61,6 +62,10 @@ try {
   assert.equal(auto.suggestion.status,'active');
   const withModel=await connectedKnowledge(owner,{query:'Customer 1 contract'},automated);
   assert.ok(withModel.relationships.some(e=>e.evidence.origin==='model_inferred'&&e.from_record.title&&e.to_record.title),'Indexed model edge must participate in graph retrieval without approval');
+  store.enqueue(owner,crm.id);assert.equal((await runKnowledgeJob(store.claim(),{store,search,records})).changed,0);
+  assert.ok((await connectedKnowledge(owner,{query:'Customer 1 contract'},automated)).relationships.some(e=>e.evidence.origin==='model_inferred'),'Unchanged endpoint survives next source generation');
+  contractSuffix=' Updated commercial terms.';store.enqueue(owner,content.id);assert.equal((await runKnowledgeJob(store.claim(),{store,search,records})).changed,1);
+  assert.ok(!(await connectedKnowledge(owner,{query:'Customer 1 contract'},automated)).relationships.some(e=>e.evidence.origin==='model_inferred'),'Changed endpoint invalidates old model evidence');
   await decideKnowledgeAdvice(owner,auto.suggestion.id,'reject',automated);
   assert.ok(!(await connectedKnowledge(owner,{query:'Customer 1 contract'},automated)).relationships.some(e=>e.evidence.origin==='model_inferred'),'Rejected indexed edge must be excluded immediately');
   assert.ok(first.relationships.some(e=>e.evidence?.origin==='field_rule'));

@@ -1,6 +1,7 @@
 import { knowledgeStore } from '../src/services/knowledge-store.js';
 import { runKnowledgeJob, cleanupKnowledgeSources } from '../src/services/knowledge-runtime.js';
 import { knowledgeAdviceStore, runKnowledgeAdviceBatch } from '../src/services/knowledge-mapping-advice.js';
+import {fingerprint} from '../src/services/knowledge-contract.js';
 
 if(process.env.KNOWLEDGE_SYNC_ENABLED!=='1')throw new Error('Set KNOWLEDGE_SYNC_ENABLED=1 to run this worker');
 let stopped=false;
@@ -16,8 +17,11 @@ while(!stopped) {
   if(job){
     const result=await runKnowledgeJob(job,{store});
     console.log(JSON.stringify({job:job.id,...result}));
-    if(result.status==='completed'&&store.get(job.owner,job.source_id)?.intelligent_mapping){
-      try{knowledgeAdviceStore().queue(job.owner,job.source_id,result.revision);}catch(error){console.warn('[knowledge] advice scheduling deferred',error.message);}
+    if(result.status==='completed'){
+      try{
+        const sources=store.list(job.owner),context=fingerprint(sources.map(s=>[s.id,s.revision]).sort());
+        for(const source of sources.filter(s=>s.enabled&&s.intelligent_mapping&&s.revision&&(s.id===job.source_id||result.changed>0||result.deleted>0)))knowledgeAdviceStore().queue(job.owner,source.id,source.revision,context);
+      }catch(error){console.warn('[knowledge] advice scheduling deferred',error.message);}
     }
   } else {
     await runKnowledgeAdviceBatch({store});

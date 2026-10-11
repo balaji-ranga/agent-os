@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { getBusinessProfile, assertCrmEntitled, assertErpEntitled } from './company-business-profile.js';
 import { erpList, erpGet } from './erpnext-erp.js';
 import { versionedSource } from './knowledge-versioned-source.js';
+import {erpSelectionFilters} from './knowledge-selection.js';
 import { crmKnowledgePage, crmKnowledgeRecord } from './twenty-crm.js';
 import { listContentExplorer, resolveContentExplorerDownload } from './content-explorer.js';
 import { isRagIndexable } from './master-data-extract.js';
@@ -106,7 +107,7 @@ export async function* sourceRecords(owner, source, {signal,incremental,dependen
       const type = source.kind === 'crm' ? {companies:'Customer',people:'Contact',opportunities:'Opportunity'}[collection] : collection;
       if (!ERP_FIELDS[type]) throw new Error(`Knowledge adapter for ${type} is not available`);
       for(let offset=0;;offset+=100) {
-        const page = await erpPage(owner,type,{limit:100,offset,stableOrder:true,fields:incremental?['name','modified']:ERP_FIELDS[type]});
+        const page = await erpPage(owner,type,{limit:100,offset,stableOrder:true,fields:incremental?['name','modified']:ERP_FIELDS[type],filters:erpSelectionFilters(source.selection,ERP_FIELDS[type])});
         if(page.mode !== 'live' || page.note) throw new Error(page.error || 'ERP requires complete, tenant-filtered pagination');
         for(const row of page.data) {
           signal?.throwIfAborted();

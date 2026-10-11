@@ -5,6 +5,9 @@ import { Router } from 'express';
 import { requireAuth, requireCeoOrAdmin, resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
 import * as md from '../services/master-data.js';
 import { knowledgeStore } from '../services/knowledge-store.js';
+import {selectionSchema} from '../services/knowledge-selection.js';
+import {previewKnowledgeSelection} from '../services/knowledge-selection-preview.js';
+import {knowledgeFeedback} from '../services/knowledge-feedback.js';
 import {manageKnowledgeRecords} from '../services/knowledge-record-management.js';
 import { connectedKnowledge, browseKnowledge } from '../services/knowledge-runtime.js';
 import { answerConnectedKnowledge } from '../services/knowledge-answer.js';
@@ -31,6 +34,12 @@ function knowledgeRoute(handler) {
     catch(error){res.status(error.status||400).json({error:error.message});}};
 }
 router.get('/knowledge/sources',knowledgeRoute(owner=>({sources:knowledgeStore().list(owner)})));
+router.post('/knowledge/feedback',knowledgeRoute((owner,req)=>knowledgeFeedback().save(owner,req.body)));
+router.get('/knowledge/feedback',knowledgeRoute((owner,req)=>knowledgeFeedback().page(owner,req.query.after||'')));
+router.get('/knowledge/selection-schema',knowledgeRoute((owner,req)=>selectionSchema(req.query.kind)));
+router.post('/knowledge/selection-preview',knowledgeRoute((owner,req)=>previewKnowledgeSelection(owner,req.body)));
+router.post('/knowledge/sources/:id/sync-paused',knowledgeRoute((owner,req)=>{const source=knowledgeStore().setSyncPaused(owner,req.params.id,req.body.paused);knowledgePages.invalidateOwner(owner);return {source};}));
+router.post('/knowledge/sources/:id/visibility',knowledgeRoute((owner,req)=>{const source=knowledgeStore().setVisibility(owner,req.params.id,req.body.visible);knowledgePages.invalidateOwner(owner);return {source};}));
 router.post('/knowledge/records/manage',knowledgeRoute((owner,req)=>manageKnowledgeRecords(owner,req.body)));
 router.get('/knowledge/sources/:id/exclusions',knowledgeRoute((owner,req)=>{
   const rows=knowledgeStore().exclusions(owner,req.params.id,String(req.query.after||''));

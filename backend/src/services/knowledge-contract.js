@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import {validateSelection} from './knowledge-selection.js';
 
 export const SOURCE_KINDS = new Set(['crm', 'erp', 'content', 'knowledge', 'gmail', 'outlook']);
 export const fingerprint = (value) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -13,6 +14,7 @@ export function validateSource(input = {}) {
   const interval = Number(input.interval_seconds ?? 300);
   if (!Number.isInteger(interval) || interval < 60 || interval > 86400) throw new Error('Sync interval must be 60–86400 seconds');
   const collections = input.collections || [];
+  if(input.retrieval_enabled!==undefined&&typeof input.retrieval_enabled!=='boolean')throw new Error('retrieval_enabled must be boolean');
   const supported = {
     crm: ['companies', 'people', 'opportunities'],
     erp: ['Customer', 'Contact', 'Project', 'Sales Invoice'],
@@ -29,6 +31,8 @@ export function validateSource(input = {}) {
     connection_ref: typeof input.connection_ref==='string'&&/^[a-f0-9]{64}$/.test(input.connection_ref)?input.connection_ref:null,
     graph_enabled: input.graph_enabled === true,
     intelligent_mapping: input.graph_enabled===true&&input.intelligent_mapping===true,
+    selection:validateSelection(input.selection||{}),
+    retrieval_enabled: input.retrieval_enabled ?? input.enabled !== false,
     enabled: input.enabled !== false };
 }
 

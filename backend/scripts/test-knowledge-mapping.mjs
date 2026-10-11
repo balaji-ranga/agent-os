@@ -60,7 +60,7 @@ assert.equal(indexed.length,1);
 assert.equal(eligibleModelEdges('alice',indexed,sources,advice).length,1);
 assert.equal(eligibleModelEdges('bob',indexed,sources,advice).length,0);
 assert.equal(eligibleModelEdges('alice',indexed,sources.map(s=>({...s,revision:'changed'})),advice).length,0);
-assert.equal(eligibleModelEdges('alice',indexed,sources.map(s=>({...s,enabled:false})),advice).length,0);
+assert.equal(eligibleModelEdges('alice',indexed,sources.map(s=>({...s,enabled:false,retrieval_enabled:false})),advice).length,0);
 assert.equal((await decideKnowledgeAdvice('alice',suggestion.suggestion.id,'approve',deps)).status,'approved');
 await assert.rejects(()=>decideKnowledgeAdvice('alice',suggestion.suggestion.id,'approve',deps),/already reviewed/);
 await decideKnowledgeAdvice('alice',suggestion.suggestion.id,'reject',deps);

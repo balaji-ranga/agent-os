@@ -1,5 +1,6 @@
 import {randomUUID} from 'node:crypto';
 import {fingerprint} from './knowledge-contract.js';
+import {recordSelected,projectKnowledgeRecord} from './knowledge-selection.js';
 
 // Canonical content identity, independent of provider property ordering.
 export function recordFingerprint(value){
@@ -16,10 +17,13 @@ export async function runIncrementalKnowledge(job,{store,search,records}){
   const controller=new AbortController();
   const timer=setInterval(()=>{try{store.heartbeat(job,count);}catch(e){lost=e;controller.abort(e);}},30000);
   timer.unref?.();
-  const profile=recordFingerprint({graph:source.graph_enabled,profile:search.processingProfile,adapter:1});
+  const profile=recordFingerprint({graph:source.graph_enabled,profile:search.processingProfile,adapter:1,selection:source.selection});
   const sourceVersion=version=>`${profile}:${recordFingerprint(version)}`;
   const checkpoints={};
   const incremental={reuse:async(key,version)=>{
+    // Time-relative membership must be reevaluated even when provider content
+    // is unchanged. Keep persisted cursors, but load this group's records.
+    if(source.selection?.rules?.some(r=>r.operator==='within_days'))return false;
     const previous=store.sourceVersion(job,key);
     if(version===undefined? !previous?.startsWith(`${profile}:`) : previous!==sourceVersion(version))return false;
     let after='',members=0;
@@ -48,7 +52,9 @@ export async function runIncrementalKnowledge(job,{store,search,records}){
       if(item.knowledge_control==='checkpoint'){checkpoints[item.key]=item.value;continue;}
       if(item.knowledge_control==='group_start'){store.startSourceGroup(job,item.key);loaded++;continue;}
       if(item.knowledge_control==='group_end'){store.finishSourceGroup(job,item.key,sourceVersion(item.version));continue;}
-      const record=item.knowledge_control==='group_record'?item.record:item;
+      const raw=item.knowledge_control==='group_record'?item.record:item;
+      if(!recordSelected(raw,source.selection))continue;
+      const record=projectKnowledgeRecord(raw,source.selection);
       if(store.excluded(job.owner,source.id,record.object_id))continue;
       store.heartbeat(job,count);
       const hash=recordFingerprint({record,graph_enabled:source.graph_enabled,profile:search.processingProfile});

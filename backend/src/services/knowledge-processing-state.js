@@ -41,6 +41,7 @@ export function knowledgeProcessingState(db=getDb(),clock=Date.now){
         const jobs=db.prepare("SELECT id FROM knowledge_jobs WHERE owner=? AND ended_at<? AND status NOT IN ('queued','running') LIMIT 500").all(owner,cutoff);
         for(const {id} of jobs){db.prepare('DELETE FROM knowledge_record_attempts WHERE owner=? AND job_id=?').run(owner,id);db.prepare('DELETE FROM knowledge_jobs WHERE owner=? AND id=?').run(owner,id);}
         db.prepare('DELETE FROM knowledge_retry_state WHERE owner=? AND source_id NOT IN (SELECT id FROM knowledge_sources WHERE owner=?)').run(owner,owner);
+        if(db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='knowledge_feedback'").get())db.prepare('DELETE FROM knowledge_feedback WHERE owner=? AND created_at<?').run(owner,cutoff);
         return {jobs_deleted:jobs.length};
       })();
     },
