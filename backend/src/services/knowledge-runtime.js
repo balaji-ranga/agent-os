@@ -85,7 +85,13 @@ export async function connectedKnowledge(owner,{query,depth=3,source_ids=null,li
     try{await (deps.assertAccess||assertKnowledgeSourceAccess)(owner,source);allowed.push(source);}
     catch{unavailable.push(source.id);}
   }
-  const hits=await search.documents(owner,allowed,query);
+  const retrieved=await search.documents(owner,allowed,query);
+  // Exact record navigation is not a request for every nearest neighbour.
+  // Preserve hybrid retrieval for questions; expand relationships from exact
+  // name/ID matches when present instead of seeding unrelated companies.
+  const normalize=s=>String(s||'').trim().toLocaleLowerCase();
+  const exact=retrieved.filter(h=>normalize(h.title)===normalize(query)||normalize(h.object_id)===normalize(query));
+  const hits=exact.length?exact:retrieved;
   const entities=new Map((await search.entities(owner,allowed,[...new Set(hits.map(h=>h.entity))])).map(e=>[e.entity,e]));
   const edges=[]; let frontier=[...entities.keys()];
   const graphSources=allowed.filter(s=>s.graph_enabled);
@@ -118,7 +124,7 @@ export async function connectedKnowledge(owner,{query,depth=3,source_ids=null,li
     for(const record of refreshed.records){
       const latest=store.get?store.get(owner,record.source):store.list(owner).find(s=>s.id===record.source);
       if(!sourceReadable(latest)||!current.has(`${latest.id}:${latest.revision}`))continue;
-      try{await (deps.assertAccess||assertKnowledgeSourceAccess)(owner,latest);visible.push(record);}catch{}
+      try{await (deps.assertAccess||assertKnowledgeSourceAccess)(owner,latest);visible.push({...record,...projectKnowledgeRecord(record,latest.selection)});}catch{}
     }
   }
   const visibleIds=new Set(visible.map(e=>e.entity));

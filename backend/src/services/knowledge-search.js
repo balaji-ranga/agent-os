@@ -37,7 +37,7 @@ export function knowledgeSearch(transport=opensearchRequest,{deadline=null,embed
     processingProfile:embeddingProfile,
     async putAdviceEdge(owner,source,item) {
       const generation=String(source.revision).startsWith('g:')?Number(source.revision.slice(2)):null;
-      await request('PUT',`/${index(owner)}/_doc/${fingerprint(['model_relationship',item.id])}?refresh=true`,{
+      await request('PUT',`/${index(owner)}/_doc/${fingerprint(['model_relationship',owner,item.from_source,item.from_object,item.to_source,item.to_object,item.relation])}?refresh=true`,{
         owner,source:source.id,revision:source.revision,kind:'edge',
         ...(generation===null?{}:{valid_from:generation,valid_to:9007199254740991}),
         from:entityId(owner,item.from_source,item.from_object),to:entityId(owner,item.to_source,item.to_object),relation:item.relation,

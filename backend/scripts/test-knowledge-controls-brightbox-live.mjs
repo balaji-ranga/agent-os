@@ -28,6 +28,7 @@ for(const original of originals){
     const records=(await search.browse(owner,[store.get(owner,source.id)])).records;assert.equal(records.length,1);assert.deepEqual(records[0].fields,{});assert.equal(records[0].text,record.title||record.object_id);
     store.setSyncPaused(owner,source.id,true);
     const start=Date.now();const visible=await connectedKnowledge(owner,{query:record.title||record.object_id,source_ids:[source.id]});
+    const retrievalMs=Date.now()-start;
     assert.equal(visible.evidence.length,1,'Paused sync must retain retrieval');
     store.setVisibility(owner,source.id,false);assert.equal((await connectedKnowledge(owner,{query:'account',source_ids:[source.id]})).evidence.length,0);
     assert.equal(store.get(owner,source.id).enabled,false,'Visibility must not resume sync');
@@ -35,7 +36,7 @@ for(const original of originals){
     source=store.save(owner,{...input,selection:{...input.selection,rules:[{field:'object_id',operator:'equals',value:'acceptance-nonexistent-record'}]}},source.id);
     assert.equal((await sync(source)).records,0);assert.equal((await search.browse(owner,[store.get(owner,source.id)])).records.length,0);
     source=store.save(owner,input,source.id);assert.equal((await sync(source)).records,1);
-    results.push({kind:source.kind,source_id:source.id,filter_and_projection:true,unchanged_reuse:true,pause_search:true,visibility:true,filter_exit_and_restore:true,retrieval_ms:Date.now()-start});
+    results.push({kind:source.kind,source_id:source.id,filter_and_projection:true,unchanged_reuse:true,pause_search:true,visibility:true,filter_exit_and_restore:true,retrieval_ms:retrievalMs});
     console.log(JSON.stringify({status:'passed',...results.at(-1)}));
   }finally{if(source){store.setSyncPaused(owner,source.id,true);store.setVisibility(owner,source.id,true);}}
 }

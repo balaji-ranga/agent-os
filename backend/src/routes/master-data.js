@@ -5,7 +5,7 @@ import { Router } from 'express';
 import { requireAuth, requireCeoOrAdmin, resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
 import * as md from '../services/master-data.js';
 import { knowledgeStore } from '../services/knowledge-store.js';
-import {selectionSchema} from '../services/knowledge-selection.js';
+import {selectionSchema,sourceReadable} from '../services/knowledge-selection.js';
 import {previewKnowledgeSelection} from '../services/knowledge-selection-preview.js';
 import {knowledgeFeedback} from '../services/knowledge-feedback.js';
 import {manageKnowledgeRecords} from '../services/knowledge-record-management.js';
@@ -87,12 +87,12 @@ router.post('/knowledge/search',knowledgeRoute(async(owner,req)=>{
 router.post('/knowledge/search/page',knowledgeRoute((owner,req)=>knowledgePages.read(owner,req.body,(o,id)=>knowledgeStore().get(o,id),assertKnowledgeSourceAccess)));
 router.get('/knowledge/sources/:id/fields',knowledgeRoute(async(owner,req)=>{
   const source=knowledgeStore().get(owner,req.params.id);
-  if(!source?.enabled||!source.revision||!source.collections.includes(req.query.collection))throw new Error('Select an indexed source and collection');
+  if(!sourceReadable(source)||!source.collections.includes(req.query.collection))throw new Error('Select an indexed source and collection');
   await assertKnowledgeSourceAccess(owner,source);
   const fields=await knowledgeSearch().fields(owner,source,req.query.collection);
   const latest=knowledgeStore().get(owner,source.id);
   await assertKnowledgeSourceAccess(owner,latest);
-  if(!latest?.enabled||latest.revision!==source.revision)throw new Error('Source changed; refresh the fields');
+  if(!sourceReadable(latest)||latest.revision!==source.revision)throw new Error('Source changed; refresh the fields');
   return {fields};
 }));
 router.get('/knowledge/field-rules',knowledgeRoute((owner,req)=>knowledgeStore().relationshipPage(owner,{kind:'rules',after:req.query.after,query:req.query.q,limit:req.query.limit})));
@@ -100,7 +100,7 @@ async function saveFieldRule(owner,req){
   const store=knowledgeStore();
   for(const side of ['from','to']){
     const source=store.get(owner,req.body[`${side}_source`]);
-    if(!source?.enabled||!source.revision||!source.collections.includes(req.body[`${side}_collection`]))throw new Error('Select an indexed collection');
+    if(!sourceReadable(source)||!source.collections.includes(req.body[`${side}_collection`]))throw new Error('Select an indexed collection');
     await assertKnowledgeSourceAccess(owner,source);
     const fields=await knowledgeSearch().fields(owner,source,req.body[`${side}_collection`]);
     if(!fields.includes(req.body[`${side}_field`]))throw new Error('Selected field is not indexed; synchronize source first');

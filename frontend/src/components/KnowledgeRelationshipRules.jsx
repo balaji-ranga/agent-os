@@ -16,7 +16,7 @@ function FieldSide({side,sources,rule,setRule}){
 const empty={relation:'same_customer',normalization:'exact',note:'',identifier_confirmed:false,enabled:true};
 export default function KnowledgeRelationshipRules({sources}){
   const [rule,setRule]=useState(empty),[page,setPage]=useState({items:[],next:null}),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[error,setError]=useState('');
-  const available=sources.filter(s=>s.enabled&&s.graph_enabled&&s.revision);
+  const available=sources.filter(s=>(s.retrieval_enabled??s.enabled)&&s.graph_enabled&&s.revision);
   async function load(after=''){setPage(await api.knowledgeRelationshipPage('rules',after));}
   useEffect(()=>{load().catch(e=>setError(e.message));},[]);
   async function act(fn,text){setBusy(true);setError('');setMessage('');try{await fn();await load();setMessage(text);}catch(e){setError(e.message);}finally{setBusy(false);}}
@@ -37,7 +37,7 @@ export default function KnowledgeRelationshipRules({sources}){
 
 export function KnowledgeMappingAdvice({sources}){
   const [source,setSource]=useState(''),[record,setRecord]=useState(''),[target,setTarget]=useState(''),[page,setPage]=useState({items:[],next:null}),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[error,setError]=useState('');
-  const available=sources.filter(s=>s.enabled&&s.graph_enabled&&s.revision);
+  const available=sources.filter(s=>(s.retrieval_enabled??s.enabled)&&s.graph_enabled&&s.revision);
   async function load(after=''){setPage(await api.knowledgeRelationshipPage('advice',after));}
   useEffect(()=>{load().catch(e=>setError(e.message));},[]);
   async function act(fn){setBusy(true);setError('');setMessage('');try{const r=await fn();setMessage(r.note||`Suggestion ${r.status||'updated'}.`);await load();}catch(e){setError(e.message);}finally{setBusy(false);}}
