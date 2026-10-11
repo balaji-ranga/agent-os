@@ -12,7 +12,10 @@ import './KnowledgeSources.css';
 const collections={crm:['companies','people','opportunities'],erp:['Customer','Contact','Project','Sales Invoice'],content:['uploaded','generated'],knowledge:['tables','documents'],gmail:['messages'],outlook:['messages']};
 const empty={name:'',kind:'content',collections:['uploaded','generated'],graph_enabled:true,enabled:true,interval_seconds:300};
 export default function KnowledgeSources() {
-  const [sources,setSources]=useState([]),[form,setForm]=useState(empty),[editing,setEditing]=useState(null);
+  const [sources,setSources]=useState([]),[form,setForm]=useState(()=>{
+    const kind=new URLSearchParams(window.location.search).get('knowledge_source');
+    return ['gmail','outlook'].includes(kind)?{...empty,kind,collections:collections[kind],graph_enabled:false}:empty;
+  }),[editing,setEditing]=useState(null);
   const [tab,setTab]=useState('sources'),[message,setMessage]=useState(''),[error,setError]=useState(''),[disabled,setDisabled]=useState(false);
   const [jobs,setJobs]=useState(null),[busy,setBusy]=useState(false),[query,setQuery]=useState(''),[result,setResult]=useState(null);
   const [mappings,setMappings]=useState({items:[],next:null}),[mapping,setMapping]=useState({relation:'same_customer',note:''});

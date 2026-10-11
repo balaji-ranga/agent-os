@@ -768,6 +768,7 @@ function ConnectorsPanel() {
                 <span style={{ color: 'var(--muted)' }}> — {c.app_name}</span>
               ) : null}{' '}
               <code style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{c.app_id}</code>{' '}
+              {['gmail', 'outlook'].includes(c.app_id) && <Link className="wf-btn" to={`/master-data?knowledge_source=${encodeURIComponent(c.app_id)}#knowledge-connected`} style={{ marginLeft: 8 }}>Use in Knowledge</Link>}
               <button type="button" className="wf-btn" disabled={busy} onClick={() => disconnect(c.app_id)} style={{ marginLeft: 8 }}>
                 Disconnect
               </button>
