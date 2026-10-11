@@ -409,7 +409,7 @@ export async function searchDocuments(ownerUserId, { query, topK = 8, documentId
 
   let usedKnn = false;
   if (q) {
-    const [vec] = await embedTexts([q]);
+    const [vec] = await embedTexts([q], { timeoutMs: Number(process.env.KNOWLEDGE_QUERY_EMBED_TIMEOUT_MS) || 5000 });
     const dims = embeddingDims();
     if (Array.isArray(vec) && vec.length === dims) {
       usedKnn = true;

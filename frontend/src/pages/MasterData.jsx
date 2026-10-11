@@ -5,6 +5,7 @@ import { RequireAuth } from '../context/AuthContext';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import { formatLocalDateTime } from '../utils/formatDateTime.js';
 import './MasterData.css';
+import KnowledgeSources from '../components/KnowledgeSources';
 
 const PAGE_SIZE = 50;
 const DOC_PAGE_SIZE = 10;
@@ -446,6 +447,7 @@ function MasterDataPanel() {
         </div>
       </header>
 
+      <KnowledgeSources />
       <section className="knowledge-metrics" aria-label="Knowledge overview">
         <article>
           <span className="knowledge-metric-icon knowledge-metric-violet" aria-hidden="true">▦</span>

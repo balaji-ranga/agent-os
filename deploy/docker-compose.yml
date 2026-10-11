@@ -880,6 +880,8 @@ services:
       EMBEDDING_MODEL_ID: ${EMBEDDING_MODEL_ID:-Qwen/Qwen3-Embedding-0.6B}
       EMBEDDING_PORT: "8080"
       EMBEDDING_MAX_BATCH: ${EMBEDDING_MAX_BATCH:-8}
+      EMBEDDING_TORCH_THREADS: ${EMBEDDING_TORCH_THREADS:-2}
+      EMBEDDING_TORCH_INTEROP_THREADS: ${EMBEDDING_TORCH_INTEROP_THREADS:-1}
       HF_HOME: /data/embeddings
       TRANSFORMERS_CACHE: /data/embeddings/transformers
       SENTENCE_TRANSFORMERS_HOME: /data/embeddings/sentence-transformers

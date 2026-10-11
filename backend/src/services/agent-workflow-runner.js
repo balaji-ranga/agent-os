@@ -1858,6 +1858,8 @@ async function executeNode(runId, nodeId, graph, context, def, runRow) {
           owner,
           {
             mode: config.mode || 'auto',
+            source_ids: config.source_ids,
+            depth: config.depth,
             tableId: config.tableId || config.table_id,
             documentId: config.documentId || config.document_id,
             topK: config.topK || config.top_k || 5,

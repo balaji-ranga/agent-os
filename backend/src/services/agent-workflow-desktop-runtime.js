@@ -501,6 +501,8 @@ async function runRemoteNodeWork(node, graph, context, inputRecord, meta) {
         meta.ownerUserId,
         {
           mode: config.mode || 'auto',
+          source_ids: config.source_ids,
+          depth: config.depth,
           tableId: config.tableId || config.table_id,
           documentId: config.documentId || config.document_id,
           topK: config.topK || config.top_k || 5,

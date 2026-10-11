@@ -5,6 +5,7 @@ import DepartmentPicker from '../components/DepartmentPicker';
 import AgentAvatarPicker from '../components/AgentAvatarPicker.jsx';
 import PublishAgentToExchangeModal from '../components/PublishAgentToExchangeModal.jsx';
 import RobotAvatar from '../components/RobotAvatar.jsx';
+import AgentKnowledgeAccess from '../components/AgentKnowledgeAccess.jsx';
 
 const FILE_NAMES = ['soul', 'agents', 'memory', 'tools', 'ops', 'identity'];
 const TOOLS_TAB = '__tool_access__';
@@ -766,6 +767,7 @@ export default function AgentWorkspace() {
         )}
       </section>
 
+      <AgentKnowledgeAccess agentId={agentId}/>
       <section className={`agent-workspace-editor-shell${editorFullscreen ? ' is-fullscreen' : ''}`}>
         <div className="agent-workspace-editor-toolbar">
           <div className="agent-workspace-editor-tabs">

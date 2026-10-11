@@ -22,6 +22,10 @@ MODEL_ID = (
     or "Qwen/Qwen3-Embedding-0.6B"
 ).strip()
 PORT = int(os.environ.get("EMBEDDING_PORT", "8080"))
+# Match the default Compose CPU quota, rather than PyTorch's host CPU count.
+# These tune compute threads, not request concurrency or queueing behaviour.
+TORCH_THREADS = max(1, int(os.environ.get("EMBEDDING_TORCH_THREADS", "2")))
+TORCH_INTEROP_THREADS = max(1, int(os.environ.get("EMBEDDING_TORCH_INTEROP_THREADS", "1")))
 MAX_BATCH = max(1, min(int(os.environ.get("EMBEDDING_MAX_BATCH", "16")), 64))
 MAX_CHARS = max(256, int(os.environ.get("EMBEDDING_MAX_CHARS", "8000")))
 NORMALIZE = str(os.environ.get("EMBEDDING_NORMALIZE", "1")).strip().lower() not in (
@@ -52,6 +56,9 @@ def get_model():
             return _model
         try:
             log.info("Loading embedding model %s ...", MODEL_ID)
+            import torch
+            torch.set_num_threads(TORCH_THREADS)
+            torch.set_num_interop_threads(TORCH_INTEROP_THREADS)
             from sentence_transformers import SentenceTransformer
 
             m = SentenceTransformer(MODEL_ID, trust_remote_code=True)
@@ -83,6 +90,8 @@ def health():
         "ready": ready,
         "model": MODEL_ID,
         "dims": _dims,
+        "compute_threads": TORCH_THREADS,
+        "interop_threads": TORCH_INTEROP_THREADS,
         "error": _load_error,
     }
     return jsonify(body), (200 if ready else 503)

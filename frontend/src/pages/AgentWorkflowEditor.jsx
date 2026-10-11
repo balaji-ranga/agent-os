@@ -16,6 +16,7 @@ import { useWorkflowEditorShortcuts } from '../hooks/useWorkflowEditorShortcuts.
 import { formatLocalDateTime } from '../utils/formatDateTime.js';
 import { api } from '../api.js';
 import MaskedSecretInput from '../components/MaskedSecretInput.jsx';
+import KnowledgeSourcePicker from '../components/KnowledgeSourcePicker.jsx';
 import HttpHeadersEditor from '../components/HttpHeadersEditor.jsx';
 import VaultOrLiteralSecret from '../components/VaultOrLiteralSecret.jsx';
 import BrainMcpToolCallingPanel from '../components/workflow/BrainMcpToolCallingPanel.jsx';
@@ -929,8 +930,10 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
               <option value="auto">Auto (table if table ID set, else RAG)</option>
               <option value="table">Query table</option>
               <option value="rag">RAG documents</option>
+              <option value="connected_information">Connected information (Graph RAG)</option>
             </select>
           </label>
+          {data.taskConfig?.mode==='connected_information'&&<KnowledgeSourcePicker values={data.taskConfig?.source_ids||[]} onChange={source_ids=>set({taskConfig:{...data.taskConfig,source_ids}})}/>}
           <label className="wf-field">
             Table ID
             <input

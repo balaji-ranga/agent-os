@@ -965,6 +965,16 @@ export async function runMasterDataQuery(ownerUserId, config = {}, input = {}) {
   const documentId = config.documentId || config.document_id || null;
   const topK = config.topK || config.top_k || 5;
 
+  if(mode==='connected_information') {
+    if(process.env.KNOWLEDGE_SYNC_ENABLED!=='1')throw new Error('Connected knowledge is not enabled');
+    if(!Array.isArray(config.source_ids)||!config.source_ids.length)throw new Error('Select Knowledge sources for this workflow node');
+    const params={query,source_ids:config.source_ids,depth:config.depth??3};
+    const result=config.summarize===false
+      ?await (await import('./knowledge-runtime.js')).connectedKnowledge(ownerUserId,params)
+      :await (await import('./knowledge-answer.js')).answerConnectedKnowledge(ownerUserId,params);
+    return {ok:true,mode,text:result.answer||'',...result};
+  }
+
   if (mode === 'table' || (mode === 'auto' && tableId)) {
     if (!tableId) throw new Error('tableId required for table query');
     const result = queryTable(ownerUserId, {

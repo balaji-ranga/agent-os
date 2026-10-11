@@ -4,6 +4,14 @@
 import { Router } from 'express';
 import { requireAuth, requireCeoOrAdmin, resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
 import * as md from '../services/master-data.js';
+import { knowledgeStore } from '../services/knowledge-store.js';
+import { connectedKnowledge, browseKnowledge } from '../services/knowledge-runtime.js';
+import { answerConnectedKnowledge } from '../services/knowledge-answer.js';
+import { knowledgeSearch } from '../services/knowledge-search.js';
+import { knowledgePages } from '../services/knowledge-result-pages.js';
+import { listKnowledgeAdvice, suggestKnowledgeMapping, decideKnowledgeAdvice } from '../services/knowledge-mapping-advice.js';
+import { resolveKnowledgeAgent } from '../services/knowledge-agent-access.js';
+import { assertKnowledgeSourceAccess, knowledgeConnectionRef } from '../services/knowledge-source-adapters.js';
 import {
   previewCompanySetupKnowledge,
   reseedCompanySetupKnowledge,
@@ -12,6 +20,76 @@ import {
 } from '../services/company-setup.js';
 
 const router = Router();
+
+router.use('/knowledge', requireAuth, requireCeoOrAdmin, (req,res,next) => {
+  if(process.env.KNOWLEDGE_SYNC_ENABLED !== '1') return res.status(503).json({error:'Knowledge sources are not enabled on this server'});
+  next();
+});
+function knowledgeRoute(handler) {
+  return async(req,res)=>{try{const owner=ownerOr403(req,res);if(!owner)return;res.json(await handler(owner,req));}
+    catch(error){res.status(error.status||400).json({error:error.message});}};
+}
+router.get('/knowledge/sources',knowledgeRoute(owner=>({sources:knowledgeStore().list(owner)})));
+router.get('/knowledge/agents/:id/access',knowledgeRoute((owner,req)=>{
+  const id=resolveKnowledgeAgent(owner,req.params.id),store=knowledgeStore();
+  return {sources:store.list(owner),source_ids:store.agentSources(owner,id)};
+}));
+router.put('/knowledge/agents/:id/access',knowledgeRoute((owner,req)=>{
+  const id=resolveKnowledgeAgent(owner,req.params.id);
+  return {source_ids:knowledgeStore().setAgentSources(owner,id,req.body.source_ids)};
+}));
+router.post('/knowledge/sources',knowledgeRoute(async(owner,req)=>{
+  const input={...req.body,connection_ref:await knowledgeConnectionRef(owner,req.body?.kind)};
+  await assertKnowledgeSourceAccess(owner,input);
+  return {source:knowledgeStore().save(owner,input)};
+}));
+router.patch('/knowledge/sources/:id',knowledgeRoute(async(owner,req)=>{
+  const store=knowledgeStore();const prior=store.get(owner,req.params.id);
+  if(!prior)throw Object.assign(new Error('Source not found'),{status:404});
+  const input={...prior,...req.body,connection_ref:await knowledgeConnectionRef(owner,prior.kind)};await assertKnowledgeSourceAccess(owner,input);
+  return {source:store.save(owner,input,req.params.id)};
+}));
+router.post('/knowledge/sources/:id/sync',knowledgeRoute((owner,req)=>({job:knowledgeStore().enqueue(owner,req.params.id)})));
+router.post('/knowledge/sources/:id/enabled',knowledgeRoute((owner,req)=>({source:knowledgeStore().setEnabled(owner,req.params.id,req.body.enabled)})));
+router.delete('/knowledge/sources/:id',knowledgeRoute((owner,req)=>({removed:knowledgeStore().remove(owner,req.params.id)})));
+router.get('/knowledge/sources/:id/history',knowledgeRoute((owner,req)=>req.query.paginate==='1'?knowledgeStore().historyPage(owner,req.params.id,{after:req.query.after,limit:req.query.limit}):({jobs:knowledgeStore().history(owner,req.params.id)})));
+router.get('/knowledge/sources/:id/records',knowledgeRoute((owner,req)=>browseKnowledge(owner,req.params.id,req.query.after||null,{query:req.query.q||'',limit:req.query.limit,compact:req.query.compact==='1'})));
+router.get('/knowledge/mappings',knowledgeRoute((owner,req)=>req.query.paginate==='1'?knowledgeStore().relationshipPage(owner,{after:req.query.after,query:req.query.q,limit:req.query.limit}):({mappings:knowledgeStore().mappings(owner)})));
+router.post('/knowledge/mappings',knowledgeRoute((owner,req)=>({mapping:knowledgeStore().addMapping(owner,req.body)})));
+router.delete('/knowledge/mappings/:id',knowledgeRoute((owner,req)=>({removed:knowledgeStore().removeMapping(owner,req.params.id)})));
+router.post('/knowledge/search',knowledgeRoute(async(owner,req)=>{
+  const result=await(req.body.summarize===true?answerConnectedKnowledge(owner,req.body):connectedKnowledge(owner,req.body));
+  return req.body.paginate===true?knowledgePages.create(owner,result,knowledgeStore().list(owner)):result;
+}));
+router.post('/knowledge/search/page',knowledgeRoute((owner,req)=>knowledgePages.read(owner,req.body,(o,id)=>knowledgeStore().get(o,id),assertKnowledgeSourceAccess)));
+router.get('/knowledge/sources/:id/fields',knowledgeRoute(async(owner,req)=>{
+  const source=knowledgeStore().get(owner,req.params.id);
+  if(!source?.enabled||!source.revision||!source.collections.includes(req.query.collection))throw new Error('Select an indexed source and collection');
+  await assertKnowledgeSourceAccess(owner,source);
+  const fields=await knowledgeSearch().fields(owner,source,req.query.collection);
+  const latest=knowledgeStore().get(owner,source.id);
+  await assertKnowledgeSourceAccess(owner,latest);
+  if(!latest?.enabled||latest.revision!==source.revision)throw new Error('Source changed; refresh the fields');
+  return {fields};
+}));
+router.get('/knowledge/field-rules',knowledgeRoute((owner,req)=>knowledgeStore().relationshipPage(owner,{kind:'rules',after:req.query.after,query:req.query.q,limit:req.query.limit})));
+async function saveFieldRule(owner,req){
+  const store=knowledgeStore();
+  for(const side of ['from','to']){
+    const source=store.get(owner,req.body[`${side}_source`]);
+    if(!source?.enabled||!source.revision||!source.collections.includes(req.body[`${side}_collection`]))throw new Error('Select an indexed collection');
+    await assertKnowledgeSourceAccess(owner,source);
+    const fields=await knowledgeSearch().fields(owner,source,req.body[`${side}_collection`]);
+    if(!fields.includes(req.body[`${side}_field`]))throw new Error('Selected field is not indexed; synchronize source first');
+  }
+  return {rule:store.saveFieldRule(owner,req.body,req.params.id||null)};
+}
+router.post('/knowledge/field-rules',knowledgeRoute(saveFieldRule));
+router.put('/knowledge/field-rules/:id',knowledgeRoute(saveFieldRule));
+router.delete('/knowledge/field-rules/:id',knowledgeRoute((owner,req)=>({removed:knowledgeStore().removeFieldRule(owner,req.params.id)})));
+router.get('/knowledge/mapping-advice',knowledgeRoute((owner,req)=>listKnowledgeAdvice(owner,{after:req.query.after,limit:req.query.limit})));
+router.post('/knowledge/mapping-advice',knowledgeRoute((owner,req)=>suggestKnowledgeMapping(owner,req.body)));
+router.post('/knowledge/mapping-advice/:id/decision',knowledgeRoute((owner,req)=>decideKnowledgeAdvice(owner,req.params.id,req.body.decision)));
 
 function ownerOr403(req, res) {
   const ownerUserId = resolveAuthenticatedCeoUserId(req);

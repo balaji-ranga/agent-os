@@ -47,7 +47,7 @@ function truncateText(text) {
  * @param {string[]} texts
  * @returns {Promise<(number[]|null)[]>}
  */
-export async function embedTexts(texts) {
+export async function embedTexts(texts, { timeoutMs = 120_000 } = {}) {
   const list = Array.isArray(texts) ? texts : [];
   if (!list.length) return [];
 
@@ -90,7 +90,7 @@ export async function embedTexts(texts) {
       method: 'POST',
       headers,
       body: JSON.stringify({ model, input: inputs }),
-      signal: AbortSignal.timeout(120_000),
+      signal: AbortSignal.timeout(Math.min(120_000, Math.max(1000, Number(timeoutMs) || 120_000))),
     });
     const raw = await res.text();
     let json = null;

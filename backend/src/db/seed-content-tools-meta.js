@@ -783,7 +783,7 @@ const BUILTIN_TOOLS = [
     purpose:
       'API tool: answer questions from documents via keyword retrieval. Specialists search this CEO\'s uploads AND read-only Flolah Help (Twenty CRM SME / ERPNext SME / product how-to); chunks are tagged corpus=ceo or corpus=platform-help. ' +
       'Platform Help agent searches Flolah Help only. An empty CEO Master Data UI does not mean you lack help docs — call this tool. ' +
-      'Parameters: query (required), optional document_id, top_k, summarize. ' +
+      'Parameters: query (required), optional document_id, top_k, summarize. Optional retrieval_mode=connected_information retrieves indexed CRM/ERP/content/Knowledge relationships; source_ids can narrow the sources granted in Agent Workspace → Knowledge access. These source grants are required in addition to tool access. Disconnected records are not proof of a shared customer. ' +
       'summarize defaults to FALSE — you get raw excerpts in chunks[] and write the answer yourself; only pass summarize=true when excerpts are too long or scattered to answer directly. ' +
       'Use when the ask is about document content, policies, resumes, handbooks, Twenty/ERPNext SME, or "what does the doc say…". ' +
       'Do NOT use for structured master tables (use list_tables → list_rows by purpose). Prefer rag directly with the user question; list_documents only if you need document_id.',
