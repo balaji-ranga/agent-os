@@ -176,6 +176,9 @@ export function seedPlatformAgentSkills({ force = false } = {}) {
   const conn = getDb();
   let seeded = 0;
   let unchanged = 0;
+  // On fresh installs the reviewed catalog owns its identities before legacy
+  // source seeding. On upgrades, differing existing procedures remain untouched.
+  seedCompanyAutomationCatalog(conn);
   const tx = conn.transaction(() => {
     for (const source of platformSkillDirs()) {
       const skillMd = validateSkillMarkdown(readFileSync(source.path, 'utf8'));

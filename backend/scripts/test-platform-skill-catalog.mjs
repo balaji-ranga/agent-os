@@ -34,6 +34,16 @@ try {
   database.prepare("INSERT INTO agents(id,name,openclaw_agent_id) VALUES('catalog-agent','Catalog agent','catalog-agent')").run();
   for(const owner of ['catalog-a','catalog-b']) database.prepare('INSERT INTO user_agents(user_id,agent_id,enabled) VALUES(?,?,1)').run(owner,'catalog-agent');
   const svc=await import('../src/services/agent-skills.js');
+  svc.ensureAgentSkillsSchema();
+  const {seedCompanyAutomationCatalog}=await import('../src/services/platform-skill-catalog.js');
+  const legacyId='platform:ibkr-portfolio-strategy-sme',legacyMd='---\nname: legacy-ibkr\ndescription: Existing approved procedure.\n---\n\nPreserve this existing procedure.';
+  database.prepare("INSERT INTO agent_skills(id,owner_user_id,scope,slug,name,status) VALUES(?,'__platform__','platform','ibkr-portfolio-strategy-sme','Legacy IBKR','active')").run(legacyId);
+  database.prepare("INSERT INTO agent_skill_versions(id,skill_id,version,skill_md,checksum,status) VALUES(?,?,1,?,'legacy-checksum','active')").run(legacyId+':v1',legacyId,legacyMd);
+  seedCompanyAutomationCatalog(database);
+  assert.equal(database.prepare('SELECT skill_md FROM agent_skill_versions WHERE skill_id=?').get(legacyId).skill_md,legacyMd,'Existing divergent procedures are never overwritten by catalog onboarding');
+  assert.equal(database.prepare('SELECT catalog_managed FROM agent_skills WHERE id=?').get(legacyId).catalog_managed,0);
+  database.prepare('DELETE FROM agent_skill_versions WHERE skill_id=?').run(legacyId);
+  database.prepare('DELETE FROM agent_skills WHERE id=?').run(legacyId);
   svc.seedPlatformAgentSkills();
   const manifest=JSON.parse(readFileSync(new URL('../../skills-catalog/catalog.json',import.meta.url),'utf8'));
   assert.equal(manifest.skills.length,50);assert.equal(new Set(manifest.skills.map(s=>s.slug)).size,50);
