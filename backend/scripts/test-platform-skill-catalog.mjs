@@ -103,7 +103,8 @@ try {
     symlinkSync(outside,skillFile,'file');
     assert.throws(()=>svc.syncAgentSkillsToWorkspace('catalog-a','catalog-agent',workspace),/symlinks/);
     assert.equal(readFileSync(outside,'utf8'),'sentinel');
-  } catch(e) {if(!['EPERM','EACCES'].includes(e.code)) throw e;console.log('Windows symlink fixture unavailable; path validation and no-executable tests passed.');}
+    console.log('PASS: actual filesystem symlink cannot overwrite outside the managed skill directory.');
+  } catch(e) {if(process.env.REQUIRE_SYMLINK_TEST==='1' || !['EPERM','EACCES'].includes(e.code)) throw e;console.log('Windows symlink fixture unavailable; Linux release gate must run REQUIRE_SYMLINK_TEST=1.');}
 
   const {createSession}=await import('../src/services/auth/session.js');
   const {attachAuthUser}=await import('../src/middleware/auth.js');
