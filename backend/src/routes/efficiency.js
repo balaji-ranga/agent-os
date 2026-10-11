@@ -24,10 +24,12 @@ import {
 import { purgeOwnerRetention, RETENTION_DAY_OPTIONS, normalizeRetentionDays } from '../services/data-retention.js';
 import { estimateOwnerStorage } from '../services/owner-storage.js';
 import { updateUserProfile, getUserById } from '../services/users.js';
+import { companyEfficiencyControls } from './efficiency-controls.js';
 
 const router = Router();
 
 router.use(requireAuth, requireCeoOrAdmin);
+router.use('/local-models', companyEfficiencyControls);
 
 /**
  * GET /api/efficiency/summary?days=7|14|30|90|all

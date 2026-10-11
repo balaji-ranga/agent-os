@@ -10,10 +10,12 @@ import {
   ensureAgentByokAuthFromUser,
   scrubOpenClawAuthProfileMetadata,
   clearAgentByokAuthProfile,
+  upsertAgentByokAuthProfile,
 } from './openclaw-byok-auth.js';
 import { readOpenClawConfigSafe, writeOpenClawConfigSafe } from './openclaw-config-safe.js';
 import {
   PLATFORM_BYOK_KEY_NAME,
+  PLATFORM_BYOK_SECONDARY_KEY_NAME,
   tryResolveUserApiKey,
   getUserApiKeyRow,
   assertPlatformByokPresent,
@@ -33,6 +35,7 @@ export const LLM_PROVIDERS = Object.freeze([
   'platform_decided',
   'openai',
   'openrouter',
+  'deepseek_cloud',
   'ollama_free',
   'deepseek',
 ]);
@@ -93,6 +96,9 @@ function pickUserModel(provider, row) {
   }
   if (provider === 'openai') return resolveOpenAiByokModelFallback();
   if (provider === 'openrouter') return resolveOpenRouterByokModelFallback();
+  if (provider === 'deepseek_cloud') {
+    return getProviderModelCatalog('deepseek_cloud').defaultModel || 'deepseek-chat';
+  }
   if (provider === 'ollama_free') {
     return (
       (process.env.OLLAMA_MODEL || '').trim() ||
@@ -128,21 +134,26 @@ export function normalizeLlmProvider(value) {
   }
   if (raw === 'openai_byok' || raw === 'openai') return 'openai';
   if (raw === 'openrouter_byok' || raw === 'openrouter') return 'openrouter';
+  if (raw === 'deepseek_cloud' || raw === 'deepseek_api' || raw === 'deepseek_byok') return 'deepseek_cloud';
   if (raw === 'ollama' || raw === 'ollama_free' || raw === 'ollamafree') return 'ollama_free';
   if (raw === 'deepseek' || raw === 'deepseek_v3' || raw === 'deepseekv3') return 'deepseek';
   if (LLM_PROVIDERS.includes(raw)) return raw;
   throw new Error(
-    `llm_provider must be one of: platform_decided, openai, openrouter, ollama_free, deepseek`
+    `llm_provider must be one of: platform_decided, openai, openrouter, deepseek_cloud, ollama_free, deepseek`
   );
 }
 
 export function providerNeedsApiKey(provider) {
   const p = normalizeLlmProvider(provider);
-  return p === 'openai' || p === 'openrouter';
+  return p === 'openai' || p === 'openrouter' || p === 'deepseek_cloud';
 }
 
 export function byokProviderId(userId) {
   return `byok-${sanitizeIdPart(userId)}`;
+}
+
+export function secondaryByokProviderId(userId) {
+  return `${byokProviderId(userId)}-secondary`;
 }
 
 function normalizeBaseUrl(url) {
@@ -194,7 +205,7 @@ export function getUserLlmRow(userId) {
     return (
       getDb()
         .prepare(
-          `SELECT id, llm_provider, llm_model, llm_api_key FROM platform_users WHERE id = ?`
+          `SELECT id, llm_provider, llm_model, llm_secondary_provider, llm_secondary_model, llm_api_key FROM platform_users WHERE id = ?`
         )
         .get(String(userId).trim()) || null
     );
@@ -220,22 +231,33 @@ export function userLlmPublic(row) {
     return {
       llm_provider: 'platform_decided',
       llm_model: null,
+      llm_secondary_provider: null,
+      llm_secondary_model: null,
       llm_api_key_set: false,
       llm_api_key_hint: null,
       platform_byok_key_name: PLATFORM_BYOK_KEY_NAME,
+      llm_secondary_api_key_set: false,
+      llm_secondary_api_key_hint: null,
+      platform_byok_secondary_key_name: PLATFORM_BYOK_SECONDARY_KEY_NAME,
       llm_efficiency_mode: false,
     };
   }
   const provider = normalizeLlmProvider(row.llm_provider || 'platform_decided');
   const vaultRow = row.id ? getUserApiKeyRow(row.id, PLATFORM_BYOK_KEY_NAME) : null;
+  const secondaryVaultRow = row.id ? getUserApiKeyRow(row.id, PLATFORM_BYOK_SECONDARY_KEY_NAME) : null;
   const vaultSet = !!(vaultRow && !isUnsetApiKeyRow(vaultRow));
   const modelRaw = row.llm_model != null ? String(row.llm_model).trim() : '';
   return {
     llm_provider: provider,
     llm_model: modelRaw || null,
+    llm_secondary_provider: row.llm_secondary_provider || null,
+    llm_secondary_model: row.llm_secondary_model || null,
     llm_api_key_set: vaultSet,
     llm_api_key_hint: vaultSet ? vaultRow.key_hint || null : vaultRow ? 'unset' : null,
     platform_byok_key_name: PLATFORM_BYOK_KEY_NAME,
+    llm_secondary_api_key_set: !!(secondaryVaultRow && !isUnsetApiKeyRow(secondaryVaultRow)),
+    llm_secondary_api_key_hint: secondaryVaultRow && !isUnsetApiKeyRow(secondaryVaultRow) ? secondaryVaultRow.key_hint || null : secondaryVaultRow ? 'unset' : null,
+    platform_byok_secondary_key_name: PLATFORM_BYOK_SECONDARY_KEY_NAME,
     llm_efficiency_mode: parseEfficiencyModeFlag(row.llm_efficiency_mode),
   };
 }
@@ -261,6 +283,35 @@ export function resolveLlmConfigForUser(userId) {
   const provider = normalizeLlmProvider(row?.llm_provider || 'platform_decided');
   const vault = userId ? tryResolveUserApiKey(userId, PLATFORM_BYOK_KEY_NAME) : null;
   const userKey = vault?.value || '';
+  const secondaryVault = userId ? tryResolveUserApiKey(userId, PLATFORM_BYOK_SECONDARY_KEY_NAME) : null;
+  const secondaryUserKey = secondaryVault?.value || '';
+
+  const resolveSecondaryByok = (primaryEndpoint) => {
+    const secondaryProviderRaw = String(row?.llm_secondary_provider || '').trim();
+    const secondaryProvider = secondaryProviderRaw ? normalizeLlmProvider(secondaryProviderRaw) : '';
+    if (!secondaryProvider || secondaryProvider === 'platform_decided') {
+      return primaryEndpoint ? { ...primaryEndpoint, source: 'user_byok_primary_as_secondary' } : null;
+    }
+    const secondaryRow = { ...row, llm_model: row?.llm_secondary_model || '' };
+    if (secondaryProvider === 'openai' || secondaryProvider === 'openrouter' || secondaryProvider === 'deepseek_cloud') {
+      if (!secondaryUserKey) return primaryEndpoint ? { ...primaryEndpoint, source: 'user_byok_primary_as_secondary_missing_key' } : null;
+      return {
+        baseUrl: resolveProviderBaseUrl(secondaryProvider),
+        apiKey: secondaryUserKey,
+        model: pickUserModel(secondaryProvider, secondaryRow),
+        source: 'user_byok_secondary_vault',
+      };
+    }
+    if (secondaryProvider === 'ollama_free' || secondaryProvider === 'deepseek') {
+      return {
+        baseUrl: resolveProviderBaseUrl(secondaryProvider) || ollamaOpenAiBaseUrl(),
+        apiKey: (process.env.OLLAMA_API_KEY || '').trim() || 'ollama',
+        model: pickUserModel(secondaryProvider, secondaryRow),
+        source: 'user_byok_secondary_local',
+      };
+    }
+    return primaryEndpoint ? { ...primaryEndpoint, source: 'user_byok_primary_as_secondary' } : null;
+  };
 
   if (provider === 'openai') {
     if (!userKey) {
@@ -272,14 +323,15 @@ export function resolveLlmConfigForUser(userId) {
         fallback_reason: 'openai_selected_but_no_platform_byok_key',
       };
     }
-    return {
-      primary: {
+    const primary = {
         baseUrl: resolveProviderBaseUrl('openai') || OPENAI_BASE,
         apiKey: userKey,
         model: pickUserModel('openai', row),
         source: 'user_byok_vault',
-      },
-      secondary: null,
+      };
+    return {
+      primary,
+      secondary: resolveSecondaryByok(primary),
       provider,
       using_byok: true,
     };
@@ -295,29 +347,50 @@ export function resolveLlmConfigForUser(userId) {
         fallback_reason: 'openrouter_selected_but_no_platform_byok_key',
       };
     }
-    return {
-      primary: {
+    const primary = {
         baseUrl: resolveProviderBaseUrl('openrouter') || OPENROUTER_BASE,
         apiKey: userKey,
         model: pickUserModel('openrouter', row),
         source: 'user_byok_vault',
-      },
-      secondary: null,
+      };
+    return {
+      primary,
+      secondary: resolveSecondaryByok(primary),
       provider,
       using_byok: true,
     };
   }
 
+  if (provider === 'deepseek_cloud') {
+    if (!userKey) {
+      return {
+        primary: envPrimary,
+        secondary,
+        provider,
+        using_byok: false,
+        fallback_reason: 'deepseek_cloud_selected_but_no_platform_byok_key',
+      };
+    }
+    const primary = {
+      baseUrl: resolveProviderBaseUrl('deepseek_cloud'),
+      apiKey: userKey,
+      model: pickUserModel('deepseek_cloud', row),
+      source: 'user_byok_vault',
+    };
+    return { primary, secondary: resolveSecondaryByok(primary), provider, using_byok: true };
+  }
+
   if (provider === 'ollama_free') {
     const baseUrl = ollamaOpenAiBaseUrl();
-    return {
-      primary: {
+    const primary = {
         baseUrl,
         apiKey: (process.env.OLLAMA_API_KEY || '').trim() || 'ollama',
         model: pickUserModel('ollama_free', row),
         source: 'user_ollama',
-      },
-      secondary: null,
+      };
+    return {
+      primary,
+      secondary: resolveSecondaryByok(primary),
       provider,
       using_byok: true,
     };
@@ -325,14 +398,15 @@ export function resolveLlmConfigForUser(userId) {
 
   if (provider === 'deepseek') {
     const baseUrl = resolveProviderBaseUrl('deepseek') || ollamaOpenAiBaseUrl();
-    return {
-      primary: {
+    const primary = {
         baseUrl,
         apiKey: (process.env.OLLAMA_API_KEY || '').trim() || 'ollama',
         model: pickUserModel('deepseek', row),
         source: 'user_ollama_deepseek',
-      },
-      secondary: null,
+      };
+    return {
+      primary,
+      secondary: resolveSecondaryByok(primary),
       provider,
       using_byok: true,
     };
@@ -367,10 +441,9 @@ function platformDefaultModelSlug(config) {
   return String(config?.agents?.defaults?.model?.primary || '').trim();
 }
 
-function assignByokModelOnEntry(entry, byokSlug, config) {
-  const plat = platformDefaultModelSlug(config);
-  if (plat && plat !== byokSlug) {
-    entry.model = { primary: byokSlug, fallbacks: [plat] };
+function assignByokModelOnEntry(entry, byokSlug, config, secondarySlug = '') {
+  if (secondarySlug && secondarySlug !== byokSlug) {
+    entry.model = { primary: byokSlug, fallbacks: [secondarySlug] };
   } else {
     entry.model = { primary: byokSlug };
   }
@@ -394,15 +467,18 @@ export function syncUserLlmToOpenClaw(ceoUserId) {
   if (!Array.isArray(config.agents?.list)) config.agents = { list: [] };
 
   const providerKey = byokProviderId(id);
+  const secondaryProviderKey = secondaryByokProviderId(id);
   const tenantPrefix = `t-${sanitizeIdPart(id)}--`;
 
   if (!resolved.using_byok || resolved.provider === 'platform_decided') {
     delete config.models.providers[providerKey];
+    delete config.models.providers[secondaryProviderKey];
     for (const entry of config.agents.list) {
       if (!String(entry.id || '').toLowerCase().startsWith(tenantPrefix)) continue;
       if (entry.model) delete entry.model;
     }
     const authSync = syncByokAuthProfiles(id, { config, clear: true });
+    scrubOpenClawAuthProfileMetadata(config, secondaryProviderKey);
     writeOpenClawConfig(config);
     return { ok: true, cleared: true, provider: 'platform_decided', auth: authSync };
   }
@@ -441,10 +517,31 @@ export function syncUserLlmToOpenClaw(ceoUserId) {
     ],
   };
 
+  const secondary = resolved.secondary;
+  const distinctSecondary = !!(
+    secondary &&
+    (secondary.baseUrl !== primary.baseUrl || secondary.apiKey !== primary.apiKey || secondary.model !== primary.model)
+  );
+  if (distinctSecondary) {
+    const secondaryModelId = String(secondary.model || 'gpt-4o-mini').replace(/^[^/]+\//, '');
+    config.models.providers[secondaryProviderKey] = {
+      baseUrl: secondary.baseUrl,
+      apiKey: secondary.apiKey,
+      api: 'openai-completions',
+      models: [{ id: secondaryModelId, name: secondaryModelId }],
+    };
+  } else {
+    delete config.models.providers[secondaryProviderKey];
+    scrubOpenClawAuthProfileMetadata(config, secondaryProviderKey);
+  }
+
   const modelSlug = openClawModelSlug(providerKey, primary.model);
+  const secondaryModelSlug = distinctSecondary
+    ? openClawModelSlug(secondaryProviderKey, secondary.model)
+    : '';
   for (const entry of config.agents.list) {
     if (!String(entry.id || '').toLowerCase().startsWith(tenantPrefix)) continue;
-    assignByokModelOnEntry(entry, modelSlug, config);
+    assignByokModelOnEntry(entry, modelSlug, config, secondaryModelSlug);
   }
 
   const authSync = syncByokAuthProfiles(id, {
@@ -452,6 +549,13 @@ export function syncUserLlmToOpenClaw(ceoUserId) {
     apiKey: primary.apiKey,
     clear: false,
   });
+  if (distinctSecondary) {
+    config.auth.profiles[`${secondaryProviderKey}:manual`] = { provider: secondaryProviderKey, mode: 'api_key' };
+    for (const entry of config.agents.list) {
+      if (!String(entry.id || '').toLowerCase().startsWith(tenantPrefix)) continue;
+      upsertAgentByokAuthProfile(entry.id, secondaryProviderKey, secondary.apiKey);
+    }
+  }
   writeOpenClawConfig(config);
   return {
     ok: true,
@@ -459,6 +563,7 @@ export function syncUserLlmToOpenClaw(ceoUserId) {
     provider: resolved.provider,
     providerKey,
     model: modelSlug,
+    secondaryModel: secondaryModelSlug || null,
     auth: authSync,
   };
 }
@@ -472,8 +577,16 @@ export function applyByokModelToAgentEntry(entry, ceoUserId) {
     return entry;
   }
   const providerKey = byokProviderId(ceoUserId);
+  const secondaryProviderKey = secondaryByokProviderId(ceoUserId);
   const config = readOpenClawConfig();
-  return assignByokModelOnEntry(entry, openClawModelSlug(providerKey, resolved.primary.model), config);
+  const distinctSecondary = resolved.secondary &&
+    (resolved.secondary.baseUrl !== resolved.primary.baseUrl || resolved.secondary.apiKey !== resolved.primary.apiKey || resolved.secondary.model !== resolved.primary.model);
+  return assignByokModelOnEntry(
+    entry,
+    openClawModelSlug(providerKey, resolved.primary.model),
+    config,
+    distinctSecondary ? openClawModelSlug(secondaryProviderKey, resolved.secondary.model) : ''
+  );
 }
 
 /**
@@ -483,12 +596,14 @@ export function applyByokModelToAgentEntry(entry, ceoUserId) {
 export function applyByokAuthToProvisionedAgent(openclawAgentId, ceoUserId) {
   const resolved = resolveLlmConfigForUser(ceoUserId);
   const providerKey = byokProviderId(ceoUserId);
+  const secondaryProviderKey = secondaryByokProviderId(ceoUserId);
   const config = readOpenClawConfig();
 
   if (!resolved.using_byok || resolved.provider === 'platform_decided') {
     scrubOpenClawAuthProfileMetadata(config, providerKey);
     writeOpenClawConfig(config);
     clearAgentByokAuthProfile(openclawAgentId, providerKey);
+    clearAgentByokAuthProfile(openclawAgentId, secondaryProviderKey);
     return { ok: true, skipped: true, cleared: true };
   }
 
@@ -498,7 +613,15 @@ export function applyByokAuthToProvisionedAgent(openclawAgentId, ceoUserId) {
   const profileId = `${providerKey}:manual`;
   config.auth.profiles[profileId] = { provider: providerKey, mode: 'api_key' };
   writeOpenClawConfig(config);
-  return ensureAgentByokAuthFromUser(openclawAgentId, ceoUserId, resolved.primary.apiKey);
+  const primaryResult = ensureAgentByokAuthFromUser(openclawAgentId, ceoUserId, resolved.primary.apiKey);
+  const distinctSecondary = resolved.secondary &&
+    (resolved.secondary.baseUrl !== resolved.primary.baseUrl || resolved.secondary.apiKey !== resolved.primary.apiKey || resolved.secondary.model !== resolved.primary.model);
+  if (distinctSecondary) {
+    config.auth.profiles[`${secondaryProviderKey}:manual`] = { provider: secondaryProviderKey, mode: 'api_key' };
+    writeOpenClawConfig(config);
+    upsertAgentByokAuthProfile(openclawAgentId, secondaryProviderKey, resolved.secondary.apiKey);
+  }
+  return primaryResult;
 }
 
 /** Ensure provider block exists when provisioning a tenant agent. */
@@ -507,8 +630,10 @@ export function ensureByokProviderInConfig(config, ceoUserId) {
   if (!config.models) config.models = {};
   if (!config.models.providers) config.models.providers = {};
   const providerKey = byokProviderId(ceoUserId);
+  const secondaryProviderKey = secondaryByokProviderId(ceoUserId);
   if (!resolved.using_byok || resolved.provider === 'platform_decided') {
     delete config.models.providers[providerKey];
+    delete config.models.providers[secondaryProviderKey];
     scrubOpenClawAuthProfileMetadata(config, providerKey);
     return config;
   }
@@ -520,6 +645,22 @@ export function ensureByokProviderInConfig(config, ceoUserId) {
     api: 'openai-completions',
     models: [{ id: modelId, name: modelId }],
   };
+  const secondary = resolved.secondary;
+  if (secondary && (secondary.baseUrl !== primary.baseUrl || secondary.apiKey !== primary.apiKey || secondary.model !== primary.model)) {
+    const secondaryModelId = String(secondary.model || 'gpt-4o-mini').replace(/^[^/]+\//, '');
+    config.models.providers[secondaryProviderKey] = {
+      baseUrl: secondary.baseUrl,
+      apiKey: secondary.apiKey,
+      api: 'openai-completions',
+      models: [{ id: secondaryModelId, name: secondaryModelId }],
+    };
+    config.auth ||= {};
+    config.auth.profiles ||= {};
+    config.auth.profiles[`${secondaryProviderKey}:manual`] = { provider: secondaryProviderKey, mode: 'api_key' };
+  } else {
+    delete config.models.providers[secondaryProviderKey];
+    scrubOpenClawAuthProfileMetadata(config, secondaryProviderKey);
+  }
   if (!config.auth) config.auth = {};
   if (!config.auth.profiles) config.auth.profiles = {};
   scrubOpenClawAuthProfileMetadata(config, providerKey);
@@ -529,7 +670,7 @@ export function ensureByokProviderInConfig(config, ceoUserId) {
 
 export function updateUserLlmSettings(
   userId,
-  { llm_provider, llm_model, llm_api_key, clear_llm_api_key } = {}
+  { llm_provider, llm_model, llm_secondary_provider, llm_secondary_model, llm_api_key, clear_llm_api_key } = {}
 ) {
   const db = getDb();
   const row = db.prepare('SELECT * FROM platform_users WHERE id = ?').get(userId);
@@ -567,6 +708,24 @@ export function updateUserLlmSettings(
     assertPlatformByokPresent(userId, provider);
   }
 
+  let secondaryProvider = String(
+    llm_secondary_provider !== undefined ? llm_secondary_provider || '' : row.llm_secondary_provider || ''
+  ).trim();
+  if (secondaryProvider === 'same_as_primary' || secondaryProvider === 'mirror_primary') secondaryProvider = '';
+  if (secondaryProvider) secondaryProvider = normalizeLlmProvider(secondaryProvider);
+  if (secondaryProvider === 'platform_decided') secondaryProvider = '';
+  if (provider === 'platform_decided') secondaryProvider = '';
+
+  if (secondaryProvider && providerNeedsApiKey(secondaryProvider)) {
+    const secondaryKeyRow = getUserApiKeyRow(userId, PLATFORM_BYOK_SECONDARY_KEY_NAME);
+    if (!secondaryKeyRow || isUnsetApiKeyRow(secondaryKeyRow)) {
+      throw Object.assign(
+        new Error(`Create "${PLATFORM_BYOK_SECONDARY_KEY_NAME}" under Settings → API Keys before enabling the secondary ${secondaryProvider} model.`),
+        { status: 400 }
+      );
+    }
+  }
+
   const modelInput =
     llm_model !== undefined ? llm_model : row.llm_model != null ? row.llm_model : '';
   const modelNorm = normalizeLlmModelForProvider(provider, modelInput, {
@@ -577,7 +736,7 @@ export function updateUserLlmSettings(
     throw Object.assign(new Error(modelNorm.error), { status: 400 });
   }
   if (
-    (provider === 'openai' || provider === 'openrouter') &&
+    (provider === 'openai' || provider === 'openrouter' || provider === 'deepseek_cloud') &&
     llm_model !== undefined &&
     !String(llm_model || '').trim()
   ) {
@@ -595,14 +754,29 @@ export function updateUserLlmSettings(
     modelToStore = modelNorm.model;
   }
 
+  let secondaryModelToStore = null;
+  if (secondaryProvider) {
+    const secondaryInput = llm_secondary_model !== undefined
+      ? llm_secondary_model
+      : row.llm_secondary_model != null ? row.llm_secondary_model : '';
+    const secondaryNorm = normalizeLlmModelForProvider(secondaryProvider, secondaryInput, { required: false });
+    if (!secondaryNorm.ok) throw Object.assign(new Error(secondaryNorm.error), { status: 400 });
+    secondaryModelToStore = secondaryNorm.model;
+    if (providerNeedsApiKey(secondaryProvider) && !String(secondaryModelToStore || '').trim()) {
+      throw Object.assign(new Error(`Select a secondary chat model for ${secondaryProvider}.`), { status: 400 });
+    }
+  }
+
   db.prepare(
-    `UPDATE platform_users SET llm_provider = ?, llm_model = ?, llm_api_key = ?, updated_at = datetime('now') WHERE id = ?`
-  ).run(provider, modelToStore, apiKey, userId);
+    `UPDATE platform_users SET llm_provider = ?, llm_model = ?, llm_secondary_provider = ?, llm_secondary_model = ?, llm_api_key = ?, updated_at = datetime('now') WHERE id = ?`
+  ).run(provider, modelToStore, secondaryProvider || null, secondaryModelToStore, apiKey, userId);
 
   console.info(
-    '[user-llm] updated provider=%s model=%s user=%s',
+    '[user-llm] updated provider=%s model=%s secondary=%s/%s user=%s',
     provider,
     modelToStore || '(platform)',
+    secondaryProvider || '(mirror-primary)',
+    secondaryModelToStore || '(same)',
     userId
   );
 
@@ -614,7 +788,14 @@ export function updateUserLlmSettings(
   }
 
   return {
-    ...userLlmPublic({ id: userId, llm_provider: provider, llm_model: modelToStore }),
+    ...userLlmPublic({
+      id: userId,
+      llm_provider: provider,
+      llm_model: modelToStore,
+      llm_secondary_provider: secondaryProvider || null,
+      llm_secondary_model: secondaryModelToStore,
+      llm_efficiency_mode: row.llm_efficiency_mode,
+    }),
     openclaw_sync: openclawSync,
   };
 }

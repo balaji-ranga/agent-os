@@ -158,6 +158,13 @@ export async function classifyCooOwnedToolIntent(ownerUserId, ceoMessage) {
       maxTokens: 128,
       ownerUserId: ownerUserId || null,
       toolName: COO_TOOL_OWNERSHIP_TOOL,
+      responseFormat: 'json_object',
+      validateResponse: content => {
+        const result = extractJsonObject(content);
+        if (!result || Array.isArray(result)) return false;
+        const chosen = String(result.tool || result.name || '').trim().toLowerCase();
+        return !chosen || tools.some(tool => String(tool.name).toLowerCase() === chosen);
+      },
     });
     const parsed = extractJsonObject(String(content || ''));
     if (!parsed || typeof parsed !== 'object') return null;

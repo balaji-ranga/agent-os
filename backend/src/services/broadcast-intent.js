@@ -36,6 +36,11 @@ export async function classifyBroadcastNotifyIntent(message, ownerUserId = null)
       maxTokens: 120,
       ownerUserId,
       toolName: 'broadcast_notify_intent',
+      responseFormat: 'json_object',
+      validateResponse: content => {
+        const result = JSON.parse(content);
+        return typeof result.require_notify === 'boolean' && typeof result.status_rollup === 'boolean' && typeof result.reason === 'string';
+      },
     });
     const raw = String(content || '').trim();
     const start = raw.indexOf('{');

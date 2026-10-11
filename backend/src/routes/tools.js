@@ -923,6 +923,7 @@ router.use((req, res, next) => {
   const incoming = String(
     body.goal_run_id || body.trace_id || req.headers['x-llmops-trace-id'] || sessionGoal?.goal_run_id || ''
   ).trim();
+  const efficiencyExecutionContext = lookupSessionExecutionContext(req.headers['x-openclaw-session-key'] || req.headers['x-session-key'], ownerUserId);
   withLlmopsContext(
     {
       ownerUserId,
@@ -934,6 +935,7 @@ router.use((req, res, next) => {
       traceId: incoming || null,
       goalRunId: incoming.startsWith('agr-') ? incoming : null,
       goalStepId: body.goal_step_id || body.step_id || sessionGoal?.goal_step_id || null,
+      clientTurnId: efficiencyExecutionContext?.client_turn_id || null,
     },
     () => next()
   );

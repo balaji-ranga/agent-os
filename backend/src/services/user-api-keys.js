@@ -10,6 +10,8 @@ import Database from 'better-sqlite3';
 import { getDb } from '../db/schema.js';
 
 export const PLATFORM_BYOK_KEY_NAME = 'Platform_BYOK';
+/** Optional second credential used by BYOK checker/adjudicator/failover traffic. */
+export const PLATFORM_BYOK_SECONDARY_KEY_NAME = 'Platform_BYOK_SECONDARY';
 /** Vault name for Replicate video when Profile LLM is not Platform default. */
 export const REPLICATE_BYOK_KEY_NAME = 'Replicate_BYOK';
 /** Vault name for Brave Search when Profile LLM is not Platform default. */
@@ -46,7 +48,11 @@ export function allByokVaultSlots() {
   return [
     {
       key_name: PLATFORM_BYOK_KEY_NAME,
-      purpose: 'OpenAI / OpenRouter agent chat (Profile BYOK)',
+      purpose: 'Primary OpenAI / OpenRouter agent chat (Profile BYOK)',
+    },
+    {
+      key_name: PLATFORM_BYOK_SECONDARY_KEY_NAME,
+      purpose: 'Secondary BYOK checker, adjudicator, and failover model',
     },
     {
       key_name: REPLICATE_BYOK_KEY_NAME,
@@ -697,12 +703,26 @@ export function findApiKeyDependencies(ownerUserId, keyName) {
     const u = db()
       .prepare(`SELECT id, llm_provider FROM platform_users WHERE id = ?`)
       .get(owner);
-    if (u && (u.llm_provider === 'openai' || u.llm_provider === 'openrouter')) {
+    if (u && (u.llm_provider === 'openai' || u.llm_provider === 'openrouter' || u.llm_provider === 'deepseek_cloud')) {
       deps.push({
         type: 'byok',
         id: owner,
         name: 'LLM BYOK',
         detail: `provider=${u.llm_provider}`,
+      });
+    }
+  }
+
+  if (name === PLATFORM_BYOK_SECONDARY_KEY_NAME) {
+    const u = db()
+      .prepare(`SELECT id, llm_secondary_provider FROM platform_users WHERE id = ?`)
+      .get(owner);
+    if (u && (u.llm_secondary_provider === 'openai' || u.llm_secondary_provider === 'openrouter' || u.llm_secondary_provider === 'deepseek_cloud')) {
+      deps.push({
+        type: 'byok',
+        id: owner,
+        name: 'Secondary LLM BYOK',
+        detail: `provider=${u.llm_secondary_provider}`,
       });
     }
   }
@@ -741,7 +761,7 @@ export function findApiKeyDependencies(ownerUserId, keyName) {
 /** Require Platform_BYOK vault key when provider needs a user API key. */
 export function assertPlatformByokPresent(ownerUserId, provider) {
   const p = String(provider || '').trim();
-  if (p !== 'openai' && p !== 'openrouter') return { ok: true };
+  if (p !== 'openai' && p !== 'openrouter' && p !== 'deepseek_cloud') return { ok: true };
   const row = getUserApiKeyRow(ownerUserId, PLATFORM_BYOK_KEY_NAME);
   if (!row || isUnsetApiKeyRow(row)) {
     throw Object.assign(

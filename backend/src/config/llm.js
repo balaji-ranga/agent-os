@@ -9,13 +9,15 @@ import { getEffectivePlatformLlmEndpoints } from '../services/platform-llm-setti
 import { getPlatformTimeoutMs } from '../services/platform-timeout-settings.js';
 import { warnOnLargeLlmContext } from '../services/llm-context-audit.js';
 import {
-  shouldUseEfficiencyOllama,
   getEfficiencyOllamaLlmConfig,
 } from '../services/llm-efficiency-mode.js';
 import {
   maybeRouteThroughModelGateway,
   recordModelRouteEvent,
 } from '../services/model-routing-registry.js';
+import { effectiveEfficiencyPlan, getEfficiencyPolicy, localEfficiencyModel } from '../services/efficiency-control-plane.js';
+import { executeEfficiency } from '../services/efficiency-execution.js';
+import { getLlmopsContext } from '../services/llmops-context.js';
 
 export function isLocalOllama(baseUrl) {
   if (!baseUrl || typeof baseUrl !== 'string') return false;
@@ -71,9 +73,14 @@ export function buildChatCompletionEndpoints(cfg, effectiveModel) {
     list.push({ ...cfg.primary, model });
   }
   if (cfg?.secondary?.baseUrl) {
-    const secWanted = modelFitsChatEndpoint(cfg.secondary.baseUrl, wanted)
+    const configuredSecondary = String(cfg.secondary.model || '').trim();
+    // A normal primary request must fail over with the secondary endpoint's
+    // configured model. Only carry a different caller override across when it
+    // is compatible with that endpoint.
+    const explicitOverride = wanted && wanted !== String(cfg?.primary?.model || '').trim();
+    const secWanted = explicitOverride && modelFitsChatEndpoint(cfg.secondary.baseUrl, wanted)
       ? wanted
-      : String(cfg.secondary.model || '').trim();
+      : configuredSecondary;
     if (secWanted) list.push({ ...cfg.secondary, model: secWanted });
   }
   return list;
@@ -197,19 +204,18 @@ export async function resolveChatCompletionsConfig({
       efficiencyMode: isLocalOllama(selected.baseUrl),
     };
   }
-  if (shouldUseEfficiencyOllama(ownerUserId, toolName)) {
-    const cfg = getEfficiencyOllamaLlmConfig();
+  const efficiencyPlan = effectiveEfficiencyPlan(ownerUserId, toolName);
+  if (efficiencyPlan) {
+    const cfg = { primary: efficiencyPlan.endpoint, secondary: null, provider: 'ollama_free', using_byok: false };
     console.info('[llm] efficiency mode → ollama', {
       tool: toolName,
       host: endpointHost(cfg.primary?.baseUrl),
       model: cfg.primary?.model || null,
     });
     return {
-      ...maybeRouteThroughModelGateway({
-        cfg,
-        effectiveModel: String(cfg.primary?.model || '').trim(),
-        routeAlias: 'flolah-efficiency',
-      }),
+      cfg,
+      effectiveModel: String(cfg.primary?.model || '').trim(),
+      routeAlias: null,
       efficiencyMode: true,
     };
   }
@@ -244,7 +250,34 @@ export async function resolveChatCompletionsConfig({
  * @param {{ messages: Array<{ role: string, content: string }>, modelOverride?: string, maxTokens?: number, ownerUserId?: string, toolName?: string, memberKey?: string, source?: string, sessionId?: string, runId?: string, traceId?: string }}
  * @returns {Promise<{ content: string, modelUsed: string, usage?: object|null }>}
  */
-export async function chatCompletions({
+export async function chatCompletions(options) {
+  const context = getLlmopsContext() || {};
+  options = { ...options, ownerUserId: options.ownerUserId || context.ownerUserId,
+    memberKey: options.memberKey || context.memberKey || context.agentId,
+    sessionId: options.sessionId || context.sessionId, runId: options.runId || context.runId,
+    traceId: context.clientTurnId || options.traceId || context.traceId };
+  const candidatePlan = effectiveEfficiencyPlan(options.ownerUserId, options.toolName);
+  const plan = candidatePlan && (String(options.endpointPreference || 'default').toLowerCase() === 'default' || !candidatePlan.allowCloud)
+    ? candidatePlan : null;
+  if (plan) return executeEfficiency(options, plan, performChatCompletions, () => getLlmConfig(options.ownerUserId));
+  return performChatCompletions(options);
+}
+
+/** Admin evaluation path: fixed private local endpoint, no implicit hosted fallback. */
+export async function evaluateEfficiencyModel({ modelId, ...options }) {
+  const policy = getEfficiencyPolicy();
+  return executeEfficiency(options, { policy, endpoint: localEfficiencyModel(modelId), modelId, allowCloud: false },
+    performChatCompletions, () => { throw new Error('Evaluation is local-only'); });
+}
+
+/** Explicit Admin-only synthetic baseline. No utility efficiency rerouting or gateway hidden fallback. */
+export async function evaluateEfficiencyBaseline(options) {
+  const cfg = getLlmConfig(null);
+  if (isLocalOllama(cfg.primary.baseUrl)) throw new Error('Configured platform baseline is local, not hosted');
+  return performChatCompletions({...options,_config:{cfg:{...cfg,secondary:null},effectiveModel:cfg.primary.model,efficiencyMode:false,routeAlias:null},thinkingMode:'disabled'});
+}
+
+async function performChatCompletions({
   messages,
   modelOverride,
   maxTokens = 1024,
@@ -260,13 +293,15 @@ export async function chatCompletions({
   endpointPreference = 'default',
   thinkingMode = null,
   timeoutMs = null,
+  requestSignal = null,
+  _config = null,
 }) {
   warnOnLargeLlmContext(messages, {
     source: source || 'direct_chat_completions',
     tool: toolName,
     agent: memberKey,
   });
-  const { cfg, effectiveModel, efficiencyMode, routeAlias = null } = await resolveChatCompletionsConfig({
+  const { cfg, effectiveModel, efficiencyMode, routeAlias = null } = _config || await resolveChatCompletionsConfig({
     ownerUserId,
     toolName,
     modelOverride,
@@ -336,7 +371,7 @@ export async function chatCompletions({
         method: 'POST',
         headers,
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(requestTimeoutMs),
+        signal: requestSignal ? AbortSignal.any([requestSignal, AbortSignal.timeout(requestTimeoutMs)]) : AbortSignal.timeout(requestTimeoutMs),
       });
       // A LiteLLM route can fail over between providers. Provider-native
       // controls that are valid for the selected model (for example
@@ -361,7 +396,7 @@ export async function chatCompletions({
             method: 'POST',
             headers,
             body: JSON.stringify(body),
-            signal: AbortSignal.timeout(requestTimeoutMs),
+            signal: requestSignal ? AbortSignal.any([requestSignal, AbortSignal.timeout(requestTimeoutMs)]) : AbortSignal.timeout(requestTimeoutMs),
           });
         } else {
           res = new Response(errPeek, { status: res.status, statusText: res.statusText });
@@ -376,7 +411,7 @@ export async function chatCompletions({
             method: 'POST',
             headers,
             body: JSON.stringify(body),
-            signal: AbortSignal.timeout(requestTimeoutMs),
+            signal: requestSignal ? AbortSignal.any([requestSignal, AbortSignal.timeout(requestTimeoutMs)]) : AbortSignal.timeout(requestTimeoutMs),
           });
         } else {
           // re-wrap for status handling below
@@ -386,6 +421,10 @@ export async function chatCompletions({
 
       if (res.ok) {
         const data = await res.json();
+        const reportedModel = String(data?.model || '').trim().slice(0,160);
+        const actualModel = cfg.routed_by === 'litellm'
+          ? (reportedModel && !reportedModel.startsWith('flolah-') ? reportedModel : null)
+          : (reportedModel || ep.model);
         const msg = data?.choices?.[0]?.message || {};
         const finishReason = String(data?.choices?.[0]?.finish_reason || '');
         let content = msg.content ?? '';
@@ -431,7 +470,7 @@ export async function chatCompletions({
             usage: data?.usage || null,
             promptText,
             replyText: text,
-            modelId: ep.model,
+            modelId: actualModel || ep.model,
             toolName,
             memberKey,
             source,
@@ -447,7 +486,7 @@ export async function chatCompletions({
             routeAlias,
             deploymentId: 'litellm-gateway',
             outcome: 'success',
-            modelUsed: ep.model,
+            modelUsed: actualModel || ep.model,
             endpointHost: endpointHost(ep.baseUrl),
             source: source || toolName || 'chat_completions',
             ownerUserId,
@@ -456,7 +495,10 @@ export async function chatCompletions({
         }
         return {
           content: text,
-          modelUsed: ep.model,
+          modelUsed: actualModel || ep.model,
+          actualModel,
+          requestedModel: ep.model,
+          finishReason,
           usage,
           endpointHost: endpointHost(ep.baseUrl),
           localModel: isLocalOllama(ep.baseUrl),

@@ -440,6 +440,12 @@ export function userPublic(row) {
     llm_model: llm.llm_model,
     llm_api_key_set: llm.llm_api_key_set,
     llm_api_key_hint: llm.llm_api_key_hint,
+    llm_secondary_provider: llm.llm_secondary_provider,
+    llm_secondary_model: llm.llm_secondary_model,
+    llm_secondary_api_key_set: llm.llm_secondary_api_key_set,
+    llm_secondary_api_key_hint: llm.llm_secondary_api_key_hint,
+    platform_byok_key_name: llm.platform_byok_key_name,
+    platform_byok_secondary_key_name: llm.platform_byok_secondary_key_name,
     llm_efficiency_mode: !!llm.llm_efficiency_mode,
     terms_accepted_at: row.terms_accepted_at || null,
     terms_version: row.terms_version || null,
@@ -618,6 +624,8 @@ export function updateUserProfile(
     mfa_mode,
     llm_provider,
     llm_model,
+    llm_secondary_provider,
+    llm_secondary_model,
     llm_api_key,
     clear_llm_api_key,
     llm_efficiency_mode,
@@ -733,10 +741,19 @@ export function updateUserProfile(
   if (
     llm_provider !== undefined ||
     llm_model !== undefined ||
+    llm_secondary_provider !== undefined ||
+    llm_secondary_model !== undefined ||
     llm_api_key !== undefined ||
     clear_llm_api_key
   ) {
-    updateUserLlmSettings(userId, { llm_provider, llm_model, llm_api_key, clear_llm_api_key });
+    updateUserLlmSettings(userId, {
+      llm_provider,
+      llm_model,
+      llm_secondary_provider,
+      llm_secondary_model,
+      llm_api_key,
+      clear_llm_api_key,
+    });
   }
 
   return getUserById(userId);

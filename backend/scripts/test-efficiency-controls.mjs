@@ -1,0 +1,154 @@
+import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import express from 'express';
+
+const dir=mkdtempSync(join(tmpdir(),'flolah-efficiency-controls-'));
+process.env.AGENT_OS_DATA_DIR=dir;
+process.env.OPENCLAW_DIR=dir;
+process.env.OPENSEARCH_ENABLED='0';
+process.env.OLLAMA_BASE_URL='http://ollama:11434';
+process.env.OLLAMA_MODEL='llama3.2';
+process.env.DEEPSEEK_MODEL='deepseek-r1:8b';
+process.env.OPENAI_PRIMARY_BASE_URL='https://api.deepseek.com/v1';
+process.env.OPENAI_PRIMARY_MODEL='deepseek-chat';
+process.env.OPENAI_PRIMARY_API_KEY='fixture-secret-never-display';
+process.env.MODEL_ROUTING_ENABLED='1';
+process.env.LITELLM_MASTER_KEY='fixture-gateway-secret';
+const realFetch=globalThis.fetch;
+let server,db;
+let assertions=0;
+const check=(value,message)=>{assert.ok(value,message);assertions++;};
+try {
+  const schema=await import('../src/db/schema.js');db=schema.getDb();
+  for(const [id,role,flag] of [['admin','admin',0],['ceo-a','ceo',1],['ceo-b','ceo',1],['disabled','ceo',0],['employee','org_user',0]]) {
+    db.prepare('INSERT INTO platform_users(id,email,password_hash,name,role,llm_efficiency_mode) VALUES (?,?,?,?,?,?)').run(id,id+'@fixture.test','impossible',id,role,flag);
+  }
+  const controls=await import('../src/services/efficiency-control-plane.js');
+  const {createEfficiencyPool}=await import('../src/services/efficiency-capacity.js');
+  const {executeEfficiency,validateEfficiencyOutput}=await import('../src/services/efficiency-execution.js');
+  const {chatCompletions}=await import('../src/config/llm.js');
+  const {runWithLlmopsContext}=await import('../src/services/llmops-context.js');
+  check(controls.getEfficiencyPolicy().workloads.length===10,'Existing ten-workload scope preserved');
+  check(!controls.effectiveEfficiencyPlan('ceo-a','goal_plan_maker'),'Maker never efficiency routed');
+  check(!controls.effectiveEfficiencyPlan('ceo-a','steering_completion_validation'),'Steering validator never efficiency routed');
+  check(!controls.effectiveEfficiencyPlan('disabled','summarize_url'),'Disabled profile unchanged');
+  for(const protectedTool of ['goal_plan_checker','agent_turn_router','retrieval_write_check','agent_turn_goal_adjudicator']) check(!controls.effectiveEfficiencyPlan('ceo-a',protectedTool),`${protectedTool} stays on configured route`);
+  assert.throws(()=>controls.saveEfficiencyPolicy({workloads:['agent_turn_router']}),/Protected/); assertions++;
+  assert.throws(()=>controls.saveEfficiencyPolicy({validate_json:false}),/cannot be disabled/); assertions++;
+  assert.throws(()=>controls.saveEfficiencyPolicy({max_concurrency:0}),/integer/); assertions++;
+  assert.throws(()=>controls.saveEfficiencyPolicy({api_key:'secret'}),/Unknown/); assertions++;
+  assert.throws(()=>controls.saveEfficiencyPolicy({default_model:'ollama-reasoning'}),/evaluation/); assertions++;
+  controls.saveEfficiencyPreferences('ceo-a',{fallback_mode:'local_only'});
+  check(!controls.effectiveEfficiencyPlan('ceo-a','summarize_url').allowCloud,'CEO local-only enforced');
+  check(controls.effectiveEfficiencyPlan('ceo-b','summarize_url').allowCloud,'Company B unaffected');
+  controls.saveEfficiencyPolicy({allow_cloud_fallback:false});
+  controls.saveEfficiencyPreferences('ceo-b',{fallback_mode:'allow_cloud'});
+  check(!controls.effectiveEfficiencyPlan('ceo-b','summarize_url').allowCloud,'CEO cannot override Admin fallback prohibition');
+  controls.saveEfficiencyPolicy({allow_cloud_fallback:true});
+  controls.saveEfficiencyPolicy({enabled:false});
+  assert.throws(()=>controls.effectiveEfficiencyPlan('ceo-a','summarize_url'),/local-only/);assertions++;
+  check(!controls.effectiveEfficiencyPlan('ceo-b','summarize_url'),'Admin disabled mode retains configured routing for companies permitting hosted processing');
+  controls.saveEfficiencyPolicy({enabled:true});
+
+  let requests=[];
+  globalThis.fetch=async(url,init)=>{
+    requests.push({url,body:JSON.parse(init.body)});
+    if(url.includes('ollama'))return new Response(JSON.stringify({model:'llama3.2:latest',choices:[{message:{content:'not json'},finish_reason:'stop'}],usage:{prompt_tokens:5,completion_tokens:3}}));
+    return new Response(JSON.stringify({model:'deepseek-chat',choices:[{message:{content:'{"query":"AI regulation"}'},finish_reason:'stop'}],usage:{prompt_tokens:6,completion_tokens:4}}));
+  };
+  await assert.rejects(()=>chatCompletions({ownerUserId:'ceo-a',toolName:'goal_plan_tool_args',responseFormat:'json_object',messages:[{role:'user',content:'fixture'}]}),/local-only/);assertions++;
+  check(requests.length===1&&requests[0].url.includes('ollama'),'No gateway or cloud call in local-only failure');
+  requests=[];
+  await assert.rejects(()=>chatCompletions({ownerUserId:'ceo-a',toolName:'goal_plan_tool_args',endpointPreference:'primary',responseFormat:'json_object',messages:[{role:'user',content:'fixture'}]}),/local-only/);assertions++;
+  check(requests.length===1&&requests[0].url.includes('ollama'),'Explicit endpoint preference cannot bypass local-only utility restriction');
+  requests=[];
+  const result=await runWithLlmopsContext({ownerUserId:'ceo-b',memberKey:'coo',sessionId:'session-b',clientTurnId:'turn-b-123456'},()=>chatCompletions({toolName:'goal_plan_tool_args',responseFormat:'json_object',messages:[{role:'user',content:'fixture'}]}));
+  check(requests.length===2,'Invalid JSON escalates once to configured provider');
+  check(requests.every(r=>!r.url.includes('litellm')),'Hidden gateway fallback cannot bypass company policy');
+  check(result.efficiency.fallbackReason==='local_output_invalid_json','Evidence has sanitized fallback reason');
+  check(result.modelUsed==='deepseek-chat','Actual hosted model captured');
+  check(controls.efficiencyReport('ceo-b',{traceId:'turn-b-123456'}).events[0].member_key==='coo','Turn and agent correlation carried by async context');
+  check(controls.efficiencyReport('ceo-a',{traceId:'turn-b-123456'}).events.length===0,'No cross-company activity');
+  check(!JSON.stringify(controls.efficiencyReport()).includes('fixture-secret'),'No secrets in evidence');
+  requests=[];
+  globalThis.fetch=async(url,init)=>{
+    requests.push(url);controls.saveEfficiencyPolicy({allow_cloud_fallback:false});
+    return new Response(JSON.stringify({choices:[{message:{content:'not json'}}]}));
+  };
+  await assert.rejects(()=>chatCompletions({ownerUserId:'ceo-b',toolName:'goal_plan_tool_args',responseFormat:'json_object',messages:[{role:'user',content:'fixture'}]}),/local-only/);assertions++;
+  check(requests.length===1,'Admin cloud revocation during inference is enforced before fallback');
+  controls.saveEfficiencyPolicy({allow_cloud_fallback:true});
+  assert.throws(()=>validateEfficiencyOutput({content:'{}',finishReason:'length'},{responseFormat:'json_object'}),/incomplete/);assertions++;
+  assert.throws(()=>validateEfficiencyOutput({content:'[]'},{responseFormat:'json_object'}),/invalid_json/);assertions++;
+  assert.throws(()=>validateEfficiencyOutput({content:'{}'},{validateResponse:()=>false}),/contract/);assertions++;
+
+  const pool=createEfficiencyPool();const policy={max_concurrency:1,max_queue:1,queue_timeout_ms:25};
+  const lease=await pool.acquire('ceo-a','first',policy);
+  const queued=pool.acquire('ceo-b','second',policy);
+  check(pool.snapshot('ceo-a').active===1&&pool.snapshot('ceo-a').queued===0,'Capacity visibility owner scoped');
+  await assert.rejects(()=>pool.acquire('ceo-a','overflow',policy),/capacity_exhausted/);assertions++;
+  lease.release();const lease2=await queued;
+  check(pool.snapshot().active===1&&pool.snapshot().queued===0,'Queue drains without overbooking');
+  await assert.rejects(()=>pool.acquire('ceo-a','timeout',policy),/queue_timeout/);assertions++;
+  lease2.release();lease2.release();check(pool.snapshot().active===0,'Lease release is idempotent');
+
+  requests=[];
+  globalThis.fetch=(url,init)=>new Promise((resolve,reject)=>{
+    requests.push(url);
+    const keepAlive=setTimeout(()=>reject(new Error('fixture timeout')),10000);
+    init.signal.addEventListener('abort',()=>{clearTimeout(keepAlive);reject(init.signal.reason);},{once:true});
+  });
+  controls.saveEfficiencyPolicy({local_timeout_ms:100});
+  await assert.rejects(()=>chatCompletions({ownerUserId:'ceo-a',toolName:'summarize_url',messages:[{role:'user',content:'fixture'}]}),/local-only/);assertions++;
+  check(requests.length===1,'Local deadline aborts inference without hosted fallback');
+  check(controls.efficiencyReport('ceo-a').events[0].fallback_reason==='local_inference_timeout','Deadline reason recorded precisely');
+  globalThis.fetch=realFetch;
+
+  const {startEfficiencyEvaluation, EFFICIENCY_FIXTURES}=await import('../src/services/efficiency-evaluations.js');
+  const answers=['Verify live market prices','Weekly Sales Reporting','Email authentication failed','Insufficient buying power rejected','{"require_notify":true,"status_rollup":true,"reason":"notify on status"}','{"tool":"web_search"}','{"query":"2026 AI regulation"}','Never publish externally without policy','Flolah is an open-source AI company','COO'];
+  const fakeModel=async opt=>({content:answers[EFFICIENCY_FIXTURES.findIndex(c=>c[0]===opt.toolName)],actualModel:controls.localEfficiencyModel(opt.modelId).model,finishReason:'stop',usage:{input_tokens:4,output_tokens:4}});
+  let evaluation=startEfficiencyEvaluation('ollama-reasoning','admin',fakeModel,{compareHosted:true,callBaseline:async options=>({...await fakeModel({...options,modelId:'ollama-reasoning'}),actualModel:'fixture-hosted-baseline'})});
+  const report=await evaluation.completion;
+  check(report.passed&&report.passed_count===10,'All ten synthetic evaluation contracts exercised');
+  check(report.baseline.length===10&&report.baseline_passed_count===10,'Opt-in hosted comparison exercises identical synthetic workload contracts');
+  check(report.cost_note.includes('No savings estimate'),'No invented savings without infrastructure/pricing evidence');
+  controls.approveEfficiencyEvaluation(evaluation.job.id);
+  controls.saveEfficiencyPolicy({default_model:'ollama-reasoning'});
+  check(controls.effectiveEfficiencyPlan('ceo-a','summarize_url').endpoint.model==='deepseek-r1:8b','Approved exact model can become Admin default');
+  process.env.DEEPSEEK_MODEL='another-model';
+  assert.throws(()=>controls.approveEfficiencyEvaluation(evaluation.job.id),/current model/);assertions++;
+  process.env.DEEPSEEK_MODEL='deepseek-r1:8b';
+  evaluation=startEfficiencyEvaluation('ollama-reasoning','admin',async()=>{throw new Error('fixture private secret');});
+  await evaluation.completion;
+  assert.throws(()=>controls.approveEfficiencyEvaluation(evaluation.job.id),/passing/);assertions++;
+  check(!JSON.stringify(controls.listEfficiencyEvaluations()).includes('fixture private secret'),'Evaluation failure details sanitized');
+
+  const {adminEfficiencyControls,companyEfficiencyControls}=await import('../src/routes/efficiency-controls.js');
+  const {attachAuthUser}=await import('../src/middleware/auth.js');
+  const {createSession}=await import('../src/services/auth/session.js');
+  const tokens=Object.fromEntries(['admin','ceo-a','ceo-b','employee'].map(id=>[id,createSession(id).token]));
+  const app=express();app.use(express.json());app.use(attachAuthUser);
+  app.use('/admin',adminEfficiencyControls);app.use('/company',companyEfficiencyControls);
+  server=app.listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));
+  const base='http://127.0.0.1:'+server.address().port;
+  const call=async(path,user,method='GET',body)=>{const response=await realFetch(base+path,{method,headers:{'content-type':'application/json',...(user?{Authorization:'Bearer '+tokens[user]}:{})},...(body?{body:JSON.stringify(body)}:{})});return {status:response.status,data:await response.json()};};
+  check((await call('/admin',null)).status===401,'Admin API rejects unauthenticated requests');
+  check((await call('/admin','ceo-a')).status===403,'CEO cannot read Admin control plane');
+  check((await call('/admin','admin')).status===200,'Admin control plane available');
+  check((await call('/company','employee')).status===403,'Employee cannot alter company settings');
+  check((await call('/company','ceo-a')).status===200,'CEO gets company evidence');
+  const company=await call('/company?ceo_user_id=ceo-b&trace_id=turn-b-123456','ceo-a');
+  check(company.data.report.events.length===0,'Owner query spoofing cannot cross tenants');
+  const saved=await call('/company/preferences','ceo-a','PUT',{fallback_mode:'local_only',ceo_user_id:'ceo-b'});
+  check(saved.status===200&&controls.getEfficiencyPreferences('ceo-b').fallback_mode==='allow_cloud','Owner body spoofing cannot alter other CEO preferences');
+  check((await call('/company/preferences','ceo-a','PUT',{max_concurrency:10})).status===400,'CEO rejects platform-policy changes');
+  check((await call('/admin/policy','ceo-a','PUT',{enabled:false})).status===403,'CEO cannot disable platform policy');
+  check((await call('/admin/evaluations/'+evaluation.job.id+'/approve','admin','POST',{})).status===400,'Failed evaluation cannot be approved over HTTP');
+  console.log(`EFFICIENCY_CONTROLS_OK ${assertions} checks (mock providers, disposable DB, loopback HTTP only)`);
+} finally {
+  globalThis.fetch=realFetch;
+  if(server)await new Promise(resolve=>server.close(resolve));
+  db?.close();rmSync(dir,{recursive:true,force:true});
+}

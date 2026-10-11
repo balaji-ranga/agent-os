@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api';
 import { formatLocalDateTime } from '../utils/formatDateTime.js';
+import { CompanyEfficiencyEvidence } from '../components/EfficiencyControls.jsx';
 
 const RANGE_OPTIONS = [
   { value: '7', label: 'Last 7 days' },
@@ -1328,6 +1329,7 @@ function LlmopsView({ range, rangeLabelText }) {
 
   return (
     <>
+      <CompanyEfficiencyEvidence />
       {error && <div className="ai-snip-error">{error}</div>}
       {loading && !data && <div className="ai-snip-loading">Loading…</div>}
 

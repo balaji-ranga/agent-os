@@ -75,7 +75,8 @@ import {
   listAgentMcpToolAccess,
   setAgentMcpToolGrants,
 } from '../services/agent-mcp-tool-grants.js';
-import { withLlmopsContext } from '../services/llmops-context.js';
+import { withLlmopsContext, runWithLlmopsContext, mergeLlmopsContext } from '../services/llmops-context.js';
+import { efficiencyReport } from '../services/efficiency-control-plane.js';
 import { BudgetBlockedError, enforceBudget } from '../services/agent-budgets.js';
 import {
   getAgentDelegatedWorkHistory,
@@ -947,7 +948,8 @@ router.get('/:id/chat/activity/:turnId', requireAuth, (req, res) => {
       status: call.status,
       created_at: call.created_at,
     }));
-    return res.json({ ...activity, tool_calls: toolCalls });
+    const modelCalls = efficiencyReport(ownerUserId, {traceId:req.params.turnId}).events.filter(call=>call.member_key===agentId);
+    return res.json({ ...activity, tool_calls: toolCalls, model_calls: modelCalls });
   } catch (e) {
     return res.status(e.status || 500).json({ error: e.message });
   }
@@ -1008,7 +1010,14 @@ router.put('/:id/connector-actions', requireAuth, requireCeoOrAdmin, async (req,
 });
 
 // Chat: send message and get reply (AgentSystem gateway)
-router.post('/:id/chat', requireAuth, async (req, res) => {
+router.post('/:id/chat', requireAuth, (req,res,next) => {
+  try {
+    const ownerUserId = resolveChatOwnerUserId(req,req.body||{});
+    assertUserAgentAccess(req.authUser,req.params.id);
+    return runWithLlmopsContext({ownerUserId,agentId:req.params.id,memberKey:req.params.id,
+      clientTurnId:/^[a-zA-Z0-9_-]{8,100}$/.test(req.body?.client_turn_id||'') ? req.body.client_turn_id : null},next);
+  } catch(e) { return res.status(e.status||400).json({error:e.message}); }
+}, async (req, res) => {
   let liveScope = null;
   try {
     const agentId = req.params.id;
@@ -1054,6 +1063,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
         String(req.body?.tz || req.headers['x-timezone'] || process.env.TZ || 'UTC').trim() || 'UTC',
       generateTitle: true,
     });
+    mergeLlmopsContext({sessionId:ensuredSession.session.id});
     const chatActionDecision = decidePendingChatActionFromMessage({
       ownerUserId,
       agentId: agent.id,

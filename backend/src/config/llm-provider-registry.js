@@ -51,7 +51,7 @@ export const LLM_PROVIDER_ENDPOINTS = Object.freeze({
     api: 'openai-completions',
     needsVaultKey: true,
     vaultKeyName: 'Platform_BYOK',
-    profileEnabled: false,
+    profileEnabled: true,
   },
   ollama_free: {
     id: 'ollama_free',
