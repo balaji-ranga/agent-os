@@ -35,7 +35,7 @@ export async function executeEfficiency(options, plan, execute, fallbackConfig, 
     updateEfficiencyCall(id, { status: 'processing', queue_ms: lease.queueMs });
     const out = await execute({ ...options, requestSignal: AbortSignal.timeout(plan.policy.local_timeout_ms),
       _config: { cfg: { primary: plan.endpoint, secondary: null, provider: 'ollama_free', using_byok: false },
-        effectiveModel: plan.endpoint.model, efficiencyMode: true, routeAlias: null } });
+        effectiveModel: plan.endpoint.model, efficiencyMode: true, utilityTransport: true, routeAlias: null } });
     validateEfficiencyOutput(out, options);
     return finish(out);
   } catch (error) {
@@ -51,7 +51,7 @@ export async function executeEfficiency(options, plan, execute, fallbackConfig, 
   try {
     const cfg = fallbackConfig();
     const out = await execute({ ...options, _config: { cfg, effectiveModel: cfg.primary.model,
-      efficiencyMode: true, routeAlias: null } });
+      efficiencyMode: true, utilityTransport: true, routeAlias: null } });
     validateEfficiencyOutput(out, options);
     return finish(out, true);
   } catch {
