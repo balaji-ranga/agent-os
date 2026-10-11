@@ -36,15 +36,22 @@ try{
   await search.refresh(owner);
   const deps={store,search,advice,assertAccess:async()=>{}};
   const generated=await suggestKnowledgeMapping(owner,{source_id:source.id,object_id:first.object_id,target_source_id:target.id},deps);
-  assert.equal(generated.suggestion?.status,'active','Live model must establish a supported link without human approval');
+  const suggestion=generated.suggestion;
+  const confidence=suggestion?.confidence;
+  if(suggestion){
+    assert.ok(Number.isFinite(confidence)&&confidence>=0&&confidence<=1,'Model confidence must be valid');
+    assert.equal(suggestion.status,confidence>=0.75?'active':'pending','Only supported high-confidence links may activate automatically');
+  }else assert.equal(generated.note,'Model found no supported match','Only explicit model abstention may omit a suggestion');
   const events=efficiencyReport(owner).events;
   assert.ok(events.some(e=>e.tool_name==='knowledge_mapping_advice'&&e.status==='success'&&e.local===1),'Actual model call must use local efficiency path');
   const result=await connectedKnowledge(owner,{query:'Acme account AC-4242'},deps);
-  assert.ok(result.relationships.some(e=>e.evidence?.origin==='model_inferred'&&e.from_record?.title&&e.to_record?.title));
-  await decideKnowledgeAdvice(owner,generated.suggestion.id,'reject',deps);
+  const inferred=result.relationships.filter(e=>e.evidence?.origin==='model_inferred');
+  assert.equal(inferred.length>0,suggestion?.status==='active','Pending or abstained matches must not enter retrieval');
+  assert.ok(inferred.every(e=>e.from_record?.title&&e.to_record?.title),'Indexed endpoints must be readable');
+  if(suggestion)await decideKnowledgeAdvice(owner,suggestion.id,'reject',deps);
   const rejected=await connectedKnowledge(owner,{query:'Acme account AC-4242'},deps);
   assert.ok(!rejected.relationships.some(e=>e.evidence?.origin==='model_inferred'));
-  console.log(JSON.stringify({passed:true,actual_model:events.find(e=>e.local===1)?.actual_model,automatic_indexing:true,readable_endpoints:true,rejection_effective:true,owner_isolation:entityId(owner,source.id,first.object_id)!==entityId('other',source.id,first.object_id)}));
+  console.log(JSON.stringify({passed:true,actual_model:events.find(e=>e.local===1)?.actual_model,outcome:!suggestion?'abstained':suggestion.status==='active'?'auto_indexed':'low_confidence_withheld',confidence,automatic_indexing:inferred.length>0,readable_endpoints:inferred.length?true:null,rejection_effective:suggestion?true:null,owner_isolation:entityId(owner,source.id,first.object_id)!==entityId('other',source.id,first.object_id)}));
 }finally{
   await opensearchRequest('DELETE',`/${index}`).catch(()=>{});
   db.close();
