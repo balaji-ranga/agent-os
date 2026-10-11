@@ -6,6 +6,8 @@ import { knowledgeSearch } from '../src/services/knowledge-search.js';
 import { connectedKnowledge, runKnowledgeJob, cleanupKnowledgeSources } from '../src/services/knowledge-runtime.js';
 import { fingerprint } from '../src/services/knowledge-contract.js';
 import { opensearchRequest } from '../src/services/opensearch/client.js';
+import {manageKnowledgeRecords} from '../src/services/knowledge-record-management.js';
+import {knowledgeResultPages} from '../src/services/knowledge-result-pages.js';
 
 // Real OpenSearch, synthetic source fixtures. No production business records or
 // user indexes are touched; cleanup targets only this invocation's random index.
@@ -57,6 +59,7 @@ try {
   const second=await connectedKnowledge(owner,{query:'overdue invoices contracts renewing next month'},deps);
   assert.equal(second.evidence.length,4);
   assert.equal(second.evidence.find(e=>e.object_id==='Sales Invoice/invoice-1').fields.outstanding_amount,200);
+  assert.ok(knowledgeResultPages().create(owner,second,store.list(owner)).page_token,'Reused object versions must support paged UI answers');
   invoicePresent=false;store.enqueue(owner,erp.id);
   assert.equal((await runKnowledgeJob(store.claim(),{store,search,records})).status,'completed');
   const afterDelete=await connectedKnowledge(owner,{query:'overdue invoices contracts renewing next month'},deps);
@@ -65,6 +68,14 @@ try {
   let accessCalls=0;
   const revoked=await connectedKnowledge(owner,{query:'overdue invoices contracts renewing next month'}, {...deps,assertAccess(){if(++accessCalls>3)throw new Error('revoked during retrieval');}});
   assert.equal(revoked.evidence.length,0);assert.equal(revoked.relationships.length,0);
+  const management={store,search,assertAccess(){}};
+  await manageKnowledgeRecords(owner,{source_id:content.id,action:'exclude',object_ids:['contract.md'],confirm:'INDEX_ONLY'},management);
+  assert.equal((await runKnowledgeJob(store.claim(),{store,search,records})).status,'completed');
+  assert.equal((await search.browse(owner,[store.get(owner,content.id)])).records.length,0,'Excluded copy must not return on sync');
+  await manageKnowledgeRecords(owner,{source_id:content.id,action:'restore',object_ids:['contract.md']},management);
+  assert.equal((await runKnowledgeJob(store.claim(),{store,search,records})).status,'completed');
+  assert.equal((await search.browse(owner,[store.get(owner,content.id)])).records.length,1,'Restore must recreate only the indexed copy');
+  console.log('Real index lifecycle exclude, physical removal, sync suppression and restore passed; source fixture unchanged.');
   store.setEnabled(owner,erp.id,false);
   assert.ok(!(await connectedKnowledge(owner,{query:'overdue'},deps)).evidence.some(e=>e.source===erp.id));
   store.remove(owner,content.id);

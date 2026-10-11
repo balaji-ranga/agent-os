@@ -25,6 +25,9 @@ export function knowledgeSearch(transport=opensearchRequest,{deadline=null,embed
   const current = (owner,sources) => [ {term:{owner}}, {bool:{should:sources.map(s=>({bool:{filter:[{term:{source:s.id}},...versionFilter(s)]}})),minimum_should_match:1}} ];
   const scoped=(owner,source,extra=[])=>({bool:{filter:[{term:{owner}},{term:{source:source.id}},...extra]}});
   const entityOf=(owner,source,id)=>entityId(owner,source.id,id);
+  // Public cursors/evidence refer to the published view; retain the immutable
+  // object version separately so unchanged objects need no rewriting.
+  const view=(rows,sources)=>rows.map(row=>{const source=sources.find(s=>s.id===row.source);return source&&String(source.revision).startsWith('g:')?{...row,object_revision:row.revision,revision:source.revision}:row;});
   const close=async(owner,source,entity,generation)=>request('POST',`/${index(owner)}/_update_by_query?refresh=true&conflicts=proceed`,{query:scoped(owner,source,[{term:{entity}},{range:{valid_from:{lt:generation}}},{range:{valid_to:{gt:generation}}}]),script:{lang:'painless',source:'ctx._source.valid_to=params.g',params:{g:generation}}});
   const search = async (owner,query,size=100) => {
     try { const result=await request('POST',`/${index(owner)}/_search`,{size,query,_source:{excludes:['field_tokens','field_names','embedding']}},{timeoutMs:10000}); return (result?.hits?.hits||[]).map(h=>({...h._source,score:h._score})); }
@@ -114,11 +117,11 @@ export function knowledgeSearch(transport=opensearchRequest,{deadline=null,embed
       const [vector]=await embed([query],{timeoutMs:Math.min(Number(process.env.KNOWLEDGE_QUERY_EMBED_TIMEOUT_MS)||5000,budget())});
       const should=[{multi_match:{query,fields:['text','title^2']}}];
       if(vector?.length===embeddingDims())should.push({knn:{embedding:{vector,k:20}}});
-      return search(owner,{bool:{filter:[...current(owner,sources),{term:{kind:'chunk'}}],should,minimum_should_match:1}},20);
+      return view(await search(owner,{bool:{filter:[...current(owner,sources),{term:{kind:'chunk'}}],should,minimum_should_match:1}},20),sources);
     },
     async entities(owner,sources,ids=null) {
       if(!sources.length)return [];
-      return search(owner,{bool:{filter:[...current(owner,sources),{term:{kind:'entity'}},...(ids?[{terms:{entity:ids}}]:[])]}},ids?.length||100);
+      return view(await search(owner,{bool:{filter:[...current(owner,sources),{term:{kind:'entity'}},...(ids?[{terms:{entity:ids}}]:[])]}},ids?.length||100),sources);
     },
     async browse(owner,sources,after=null,options={}) {
       if(!sources.length)return {records:[],next:null};
@@ -136,14 +139,14 @@ export function knowledgeSearch(transport=opensearchRequest,{deadline=null,embed
       },{timeoutMs:10000});
       const hits=result?.hits?.hits||[];
       const visible=hits.slice(0,page.limit);
-      return {records:visible.map(h=>({...h._source,...(h.highlight?.text?.[0]?{preview:String(h.highlight.text[0]).replace(/\s+/g,' ').slice(0,240)}:{})})),next:hits.length>page.limit?page.cursor(visible.at(-1).sort[0]):null};
+      return {records:view(visible.map(h=>({...h._source,...(h.highlight?.text?.[0]?{preview:String(h.highlight.text[0]).replace(/\s+/g,' ').slice(0,240)}:{})})),sources),next:hits.length>page.limit?page.cursor(visible.at(-1).sort[0]):null};
     },
     async edges(owner,sources,ids) {
       if(!sources.length||!ids.length)return [];
-      return search(owner,{bool:{filter:[...current(owner,sources),{term:{kind:'edge'}}],should:[{terms:{from:ids}},{terms:{to:ids}}],minimum_should_match:1}},200);
+      return view(await search(owner,{bool:{filter:[...current(owner,sources),{term:{kind:'edge'}}],should:[{terms:{from:ids}},{terms:{to:ids}}],minimum_should_match:1}},200),sources);
     },
     async matchField(owner,source,collection,field,value,normalization='exact'){
-      return search(owner,{bool:{filter:[...current(owner,[source]),{term:{kind:'entity'}},{term:{collection}},{term:{field_tokens:fieldToken(field,value,normalization)}}]}},2);
+      return view(await search(owner,{bool:{filter:[...current(owner,[source]),{term:{kind:'entity'}},{term:{collection}},{term:{field_tokens:fieldToken(field,value,normalization)}}]}},2),[source]);
     },
     async fields(owner,source,collection){
       const result=await request('POST',`/${index(owner)}/_search`,{size:0,query:{bool:{filter:[...current(owner,[source]),{term:{kind:'entity'}},{term:{collection}}]}},aggs:{fields:{terms:{field:'field_names',size:200}}}});
