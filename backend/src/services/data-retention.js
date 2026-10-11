@@ -272,6 +272,10 @@ export async function purgeOwnerRetention(ownerUserId, { days = null } = {}) {
     console.warn('[retention] media purge failed', owner, e?.message || e);
   }
 
+  // Use the same authenticated owner/profile policy as the existing cleanup.
+  const { knowledgeStore } = await import('./knowledge-store.js');
+  deleted.knowledge_jobs = knowledgeStore(db).cleanupHistory(owner,retentionDays).jobs_deleted;
+
   console.log(
     `[retention] owner=${owner} days=${retentionDays} deleted=${JSON.stringify(deleted)}`
   );

@@ -39,7 +39,15 @@ export async function runKnowledgeJob(job,{store=knowledgeStore(),search=knowled
     store.heartbeat(job,count);
     for await(const record of records(job.owner,source,{signal:controller.signal})) {
       if(lost)throw lost;
-      await search.putRecord(job.owner,source,revision,record); count++;
+      store.recordProgress?.(job,record.object_id,'indexing');
+      try{
+        await search.putRecord(job.owner,source,revision,record);
+        store.recordProgress?.(job,record.object_id,'indexed');
+      }catch(error){
+        store.recordProgress?.(job,record.object_id,'failed','Indexing failed; synchronization retry is scheduled.');
+        throw error;
+      }
+      count++;
       store.heartbeat(job,count);
     }
     await search.refresh(job.owner);
@@ -52,7 +60,7 @@ export async function runKnowledgeJob(job,{store=knowledgeStore(),search=knowled
   } catch(error) {
     const message=String(error.message||error).slice(0,500);
     // An expired worker must not overwrite the replacement worker's state.
-    try {store.finish(job,null,message);} catch { /* lease ownership was lost */ }
+    try {store.finish(job,null,message,{retryAfterMs:error.retry_after_ms});} catch { /* lease ownership was lost */ }
     try {await search.discard?.(job.owner,revision);} catch {console.warn('[knowledge] failed revision cleanup deferred',job.id);}
     return {status:'failed',records:count,error:message};
   } finally {clearInterval(heartbeat);}

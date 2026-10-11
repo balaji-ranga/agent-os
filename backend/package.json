@@ -6,7 +6,7 @@
   "type": "module",
   "main": "src/index.js",
   "scripts": {
-    "test:knowledge": "node scripts/test-knowledge-mapping.mjs && node scripts/test-knowledge-record-page.mjs && node scripts/test-knowledge-contract.mjs && node scripts/test-knowledge-lifecycle.mjs && node scripts/test-knowledge-local-records.mjs && node scripts/test-knowledge-answer.mjs && node scripts/test-knowledge-text-stream.mjs && node scripts/test-knowledge-binary-extract.mjs && node scripts/test-knowledge-mail-adapter.mjs && node scripts/test-knowledge-embedding-reuse.mjs && node scripts/test-knowledge-agent-access.mjs",
+    "test:knowledge": "node scripts/test-knowledge-processing-state.mjs && node scripts/test-knowledge-mapping.mjs && node scripts/test-knowledge-record-page.mjs && node scripts/test-knowledge-contract.mjs && node scripts/test-knowledge-lifecycle.mjs && node scripts/test-knowledge-local-records.mjs && node scripts/test-knowledge-answer.mjs && node scripts/test-knowledge-text-stream.mjs && node scripts/test-knowledge-binary-extract.mjs && node scripts/test-knowledge-mail-adapter.mjs && node scripts/test-knowledge-embedding-reuse.mjs && node scripts/test-knowledge-agent-access.mjs",
     "knowledge:worker": "node scripts/knowledge-worker.mjs",
     "start": "node src/index.js",
     "dev": "node src/index.js",

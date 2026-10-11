@@ -53,6 +53,7 @@ router.post('/knowledge/sources/:id/sync',knowledgeRoute((owner,req)=>({job:know
 router.post('/knowledge/sources/:id/enabled',knowledgeRoute((owner,req)=>({source:knowledgeStore().setEnabled(owner,req.params.id,req.body.enabled)})));
 router.delete('/knowledge/sources/:id',knowledgeRoute((owner,req)=>({removed:knowledgeStore().remove(owner,req.params.id)})));
 router.get('/knowledge/sources/:id/history',knowledgeRoute((owner,req)=>req.query.paginate==='1'?knowledgeStore().historyPage(owner,req.params.id,{after:req.query.after,limit:req.query.limit}):({jobs:knowledgeStore().history(owner,req.params.id)})));
+router.get('/knowledge/jobs/:id/records',knowledgeRoute((owner,req)=>knowledgeStore().recordPage(owner,req.params.id,{after:req.query.after,limit:req.query.limit})));
 router.get('/knowledge/sources/:id/records',knowledgeRoute((owner,req)=>browseKnowledge(owner,req.params.id,req.query.after||null,{query:req.query.q||'',limit:req.query.limit,compact:req.query.compact==='1'})));
 router.get('/knowledge/mappings',knowledgeRoute((owner,req)=>req.query.paginate==='1'?knowledgeStore().relationshipPage(owner,{after:req.query.after,query:req.query.q,limit:req.query.limit}):({mappings:knowledgeStore().mappings(owner)})));
 router.post('/knowledge/mappings',knowledgeRoute((owner,req)=>({mapping:knowledgeStore().addMapping(owner,req.body)})));

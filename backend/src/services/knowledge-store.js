@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { getDb } from '../db/schema.js';
 import { validateSource, validateMapping } from './knowledge-contract.js';
 import { validateFieldRule } from './knowledge-field-rules.js';
+import { knowledgeProcessingState } from './knowledge-processing-state.js';
 
 // Persist scheduler state centrally so work survives a process restart. Every
 // statement also scopes by authenticated owner, even when IDs are unguessable.
@@ -40,9 +41,13 @@ export function knowledgeStore(db = getDb()) {
     CREATE INDEX IF NOT EXISTS knowledge_mappings_to ON knowledge_mappings(owner,json_extract(config,'$.to_source'),json_extract(config,'$.to_object'));
   `);
   const now = () => new Date().toISOString();
+  const processing=knowledgeProcessingState(db);
   const map = row => row && ({ ...JSON.parse(row.config), id:row.id, owner:row.owner, enabled:!!row.enabled,
-    revision:row.revision,status:row.status,last_success:row.last_success,error:row.error,next_sync:row.next_sync });
+    revision:row.revision,status:row.status,last_success:row.last_success,error:row.error,next_sync:row.next_sync,retry:processing.getRetry(row.owner,row.id) });
   return {
+    recordProgress(job,objectId,stage,error=null){return processing.record(job,objectId,stage,error);},
+    recordPage(owner,jobId,options){return processing.page(owner,jobId,options);},
+    cleanupHistory(owner,days){return processing.cleanup(owner,days);},
     list(owner) { return db.prepare('SELECT * FROM knowledge_sources WHERE owner=? ORDER BY created_at').all(owner).map(map); },
     get(owner,id) { return map(db.prepare('SELECT * FROM knowledge_sources WHERE owner=? AND id=?').get(owner,id)); },
     setEnabled(owner,id,enabled) {
@@ -125,7 +130,7 @@ export function knowledgeStore(db = getDb()) {
         .run(new Date(Date.now()+120000).toISOString(),count,job.id,job.owner,now());
       if(!result.changes) throw new Error('Knowledge job lease lost');
     },
-    finish(job,revision,error=null) {
+    finish(job,revision,error=null,{retryAfterMs=0}={}) {
       db.transaction(()=>{
         const src=this.get(job.owner,job.source_id); const time=now();
         const claimed=db.prepare("SELECT id FROM knowledge_jobs WHERE id=? AND owner=? AND status='running' AND lease_until>=?").get(job.id,job.owner,time);
@@ -135,7 +140,7 @@ export function knowledgeStore(db = getDb()) {
         // Failed sources are excluded from connected retrieval until resynchronized.
         db.prepare('UPDATE knowledge_sources SET status=?,revision=?,last_success=?,error=?,next_sync=? WHERE owner=? AND id=?')
           .run(error?'error':'ready',error?src.revision:revision,error?src.last_success:time,error,
-            new Date(Date.now()+src.interval_seconds*1000).toISOString(),job.owner,job.source_id);
+            processing.retry(job.owner,job.source_id,error,src.interval_seconds,retryAfterMs),job.owner,job.source_id);
       })();
     },
     history(owner,id) { return db.prepare('SELECT * FROM knowledge_jobs WHERE owner=? AND source_id=? ORDER BY rowid DESC LIMIT 100').all(owner,id); },

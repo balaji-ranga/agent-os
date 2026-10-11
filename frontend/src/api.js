@@ -821,6 +821,7 @@ export const api = {
   knowledgeSourceEnabled: (id,enabled) => post(`/master-data/knowledge/sources/${encodeURIComponent(id)}/enabled`,{enabled}),
   knowledgeSourceDelete: (id) => request(`/master-data/knowledge/sources/${encodeURIComponent(id)}`,{method:'DELETE'}),
   knowledgeSourceHistory: (id,after=null) => get(`/master-data/knowledge/sources/${encodeURIComponent(id)}/history?paginate=1&limit=25${after?'&after='+encodeURIComponent(after):''}`),
+  knowledgeJobRecords: (id,after='') => get(`/master-data/knowledge/jobs/${encodeURIComponent(id)}/records?limit=25&after=${encodeURIComponent(after||'')}`),
   knowledgeMappings: () => get('/master-data/knowledge/mappings'),
   knowledgeRelationshipPage: (kind,after='') => get(`/master-data/knowledge/${kind==='rules'?'field-rules':kind==='advice'?'mapping-advice':'mappings'}?paginate=1&limit=25&after=${encodeURIComponent(after||'')}`),
   knowledgeFields: (id,collection) => get(`/master-data/knowledge/sources/${encodeURIComponent(id)}/fields?collection=${encodeURIComponent(collection)}`),
