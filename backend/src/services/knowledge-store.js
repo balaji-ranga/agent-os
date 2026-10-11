@@ -61,6 +61,18 @@ export function knowledgeStore(db = getDb()) {
   const map = row => row && ({ ...JSON.parse(row.config), id:row.id, owner:row.owner, enabled:!!row.enabled,
     revision:row.revision,status:row.status,last_success:row.last_success,error:row.error,next_sync:row.next_sync,retry:processing.getRetry(row.owner,row.id) });
   return {
+    fullResync(owner,id) {
+      return db.transaction(()=>{
+        const source=this.get(owner,id);
+        if(!source)throw Object.assign(new Error('Source not found'),{status:404});
+        if(!source.enabled)throw Object.assign(new Error('Resume the source before rebuilding'),{status:409});
+        if(db.prepare("SELECT 1 FROM knowledge_jobs WHERE owner=? AND source_id=? AND status IN ('queued','running')").get(owner,id))throw Object.assign(new Error('Wait for the existing synchronization before rebuilding'),{status:409});
+        // Keep the published revision, exclusions, grants and relationship rules.
+        // Only invalidate reuse metadata; publication remains atomic on success.
+        for(const table of ['knowledge_incremental_records','knowledge_incremental_drafts'])db.prepare(`DELETE FROM ${table} WHERE owner=? AND source_id=?`).run(owner,id);
+        return this.enqueue(owner,id,'full_resync');
+      })();
+    },
     globallyPaused() {
       if(!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='platform_settings'").get())return false;
       const raw=db.prepare("SELECT value FROM platform_settings WHERE key='platform_cron_paused'").get()?.value;
@@ -170,7 +182,7 @@ export function knowledgeStore(db = getDb()) {
       return this.get(owner,id);
     },
     enqueue(owner,id,trigger='manual') {
-      if(!['manual','scheduled','admin','lifecycle'].includes(trigger))throw new Error('Invalid sync trigger');
+      if(!['manual','scheduled','admin','lifecycle','full_resync'].includes(trigger))throw new Error('Invalid sync trigger');
       const src=this.get(owner,id); if(!src) throw Object.assign(new Error('Source not found'),{status:404});
       if(!src.enabled) throw new Error('Enable source before synchronizing');
       const job=randomUUID();

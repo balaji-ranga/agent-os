@@ -56,6 +56,13 @@ router.patch('/knowledge/sources/:id',knowledgeRoute(async(owner,req)=>{
   return {source:store.save(owner,input,req.params.id)};
 }));
 router.post('/knowledge/sources/:id/sync',knowledgeRoute((owner,req)=>({job:knowledgeStore().enqueue(owner,req.params.id)})));
+router.post('/knowledge/sources/:id/full-resync',knowledgeRoute(async(owner,req)=>{
+  if(req.body?.confirm!=='REBUILD_INDEX')throw Object.assign(new Error('Confirm REBUILD_INDEX'),{status:400});
+  const store=knowledgeStore(),source=store.get(owner,req.params.id);
+  if(!source)throw Object.assign(new Error('Source not found'),{status:404});
+  await assertKnowledgeSourceAccess(owner,source);
+  return {job:store.fullResync(owner,source.id)};
+}));
 router.post('/knowledge/sources/:id/enabled',knowledgeRoute((owner,req)=>({source:knowledgeStore().setEnabled(owner,req.params.id,req.body.enabled)})));
 router.delete('/knowledge/sources/:id',knowledgeRoute((owner,req)=>({removed:knowledgeStore().remove(owner,req.params.id)})));
 router.get('/knowledge/sources/:id/history',knowledgeRoute((owner,req)=>req.query.paginate==='1'?knowledgeStore().historyPage(owner,req.params.id,{after:req.query.after,limit:req.query.limit}):({jobs:knowledgeStore().history(owner,req.params.id)})));

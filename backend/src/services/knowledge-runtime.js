@@ -5,6 +5,7 @@ import { sourceRecords, assertKnowledgeSourceAccess } from './knowledge-source-a
 import { entityId } from './knowledge-contract.js';
 import { fieldRuleEdges } from './knowledge-field-rules.js';
 import {runIncrementalKnowledge} from './knowledge-incremental.js';
+import {refreshKnowledgeValues} from './knowledge-live-values.js';
 
 export async function cleanupKnowledgeSources({store=knowledgeStore(),search=knowledgeSearch()}={}) {
   for(const item of store.cleanupPending()) {
@@ -68,7 +69,7 @@ export async function runKnowledgeJob(job,{store=knowledgeStore(),search=knowled
   } finally {clearInterval(heartbeat);}
 }
 
-export async function connectedKnowledge(owner,{query,depth=3,source_ids=null}={},deps={}) {
+export async function connectedKnowledge(owner,{query,depth=3,source_ids=null,live_values=false}={},deps={}) {
   if(!owner)throw new Error('Owner required');
   if(typeof query!=='string'||!query.trim()||query.length>4000)throw new Error('Enter a question up to 4000 characters');
   const store=deps.store||knowledgeStore();const search=deps.search||knowledgeSearch(undefined,{deadline:Date.now()+Math.min(60000,Math.max(5000,Number(process.env.KNOWLEDGE_QUERY_TIMEOUT_MS)||30000))});
@@ -103,18 +104,28 @@ export async function connectedKnowledge(owner,{query,depth=3,source_ids=null}={
   for(const source of store.list(owner).filter(s=>s.enabled&&['ready','syncing'].includes(s.status)&&allowed.some(a=>a.id===s.id))) {
     try {await (deps.assertAccess||assertKnowledgeSourceAccess)(owner,source);current.add(`${source.id}:${source.revision}`);} catch {unavailable.push(source.id);}
   }
-  const visible=[...entities.values()].filter(e=>current.has(`${e.source}:${e.revision}`)||allowed.some(s=>s.id===e.source&&current.has(`${s.id}:${s.revision}`)&&String(s.revision).startsWith('g:')&&e.valid_from<=Number(s.revision.slice(2))&&e.valid_to>Number(s.revision.slice(2))));
+  let visible=[...entities.values()].filter(e=>current.has(`${e.source}:${e.revision}`)||allowed.some(s=>s.id===e.source&&current.has(`${s.id}:${s.revision}`)&&String(s.revision).startsWith('g:')&&e.valid_from<=Number(s.revision.slice(2))&&e.valid_to>Number(s.revision.slice(2))));
+  let liveChecks=[];
+  if(live_values===true){
+    const refreshed=await (deps.refreshLive||refreshKnowledgeValues)(owner,visible,allowed);
+    visible=[];liveChecks=refreshed.checks;
+    for(const record of refreshed.records){
+      const latest=store.get?store.get(owner,record.source):store.list(owner).find(s=>s.id===record.source);
+      if(!latest?.enabled||!['ready','syncing'].includes(latest.status)||!current.has(`${latest.id}:${latest.revision}`))continue;
+      try{await (deps.assertAccess||assertKnowledgeSourceAccess)(owner,latest);visible.push(record);}catch{}
+    }
+  }
   const visibleIds=new Set(visible.map(e=>e.entity));
   let remaining=40000;
   const evidence=visible.map(record=>{
-    const passages=hits.filter(h=>h.entity===record.entity).slice(0,2).map(h=>h.text).filter(Boolean);
+    const passages=record.value_origin==='live'?[]:hits.filter(h=>h.entity===record.entity).slice(0,2).map(h=>h.text).filter(Boolean);
     const text=String(passages.length?passages.join('\n\n'):record.text||'').slice(0,Math.max(0,Math.min(4000,remaining)));
     remaining-=text.length;
     const fields=JSON.stringify(record.fields||{}).length<=4000?record.fields:{};
     return {...record,text,fields,text_truncated:text.length<String(record.text||'').length};
   });
   return {query,retrieval_mode:'connected_information',evidence,
-    chunks:hits.filter(h=>visibleIds.has(h.entity)).map(({embedding,...hit})=>hit),relationships:edges.filter(e=>visibleIds.has(e.from)&&visibleIds.has(e.to)).slice(0,100).map(e=>({...e,evidence:e.evidence?{...e.evidence,...(e.evidence.note?{note:e.evidence.note.slice(0,300)}:{})}:undefined})),
+    chunks:hits.filter(h=>visibleIds.has(h.entity)).map(({embedding,...hit})=>{const record=evidence.find(e=>e.entity===hit.entity);return record?.value_origin==='live'?{...hit,text:record.text,fields:record.fields,value_origin:'live',live_checked_at:record.live_checked_at}:hit;}),relationships:edges.filter(e=>visibleIds.has(e.from)&&visibleIds.has(e.to)).slice(0,100).map(e=>({...e,evidence:e.evidence?{...e.evidence,...(e.evidence.note?{note:e.evidence.note.slice(0,300)}:{})}:undefined})),
     sources:allowed.filter(s=>current.has(`${s.id}:${s.revision}`)).map(s=>({id:s.id,name:s.name,last_success:s.last_success})),
-    unavailable_sources:unavailable, note:'Indexed snapshots; freshness is shown per source. No live balance check was performed.'};
+    unavailable_sources:unavailable,live_checks:liveChecks, note:live_values===true?'Live verification requested for ERP Sales Invoice balances/status (maximum 5). Only verified invoice records are returned; other record types remain indexed snapshots. See live_checks for unavailable, stale relationships or budget limits.':'Indexed snapshots; freshness is shown per source. No live balance check was performed.'};
 }

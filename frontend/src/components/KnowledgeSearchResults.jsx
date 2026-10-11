@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { api } from '../api';
 import { renderChatMarkdown } from '../utils/chatMarkdown.js';
+import {formatLocalDateTime} from '../utils/formatDateTime.js';
 
 function ResultPage({result,kind,render}){
   const [page,setPage]=useState({items:result[kind]||[],...(result.page_info?.[kind]||{offset:0,total:(result[kind]||[]).length,next:null})});
@@ -12,6 +13,7 @@ function ResultPage({result,kind,render}){
 }
 export default function KnowledgeSearchResults({result}){
   return <>{result.answer&&<article aria-label="Knowledge answer"><h3>Answer</h3><div className="chat-message-md">{renderChatMarkdown(result.answer)}</div></article>}<p>{result.note}</p>
+    {result.live_checks?.length>0&&<details><summary>Live source checks ({result.live_checks.length})</summary>{result.live_checks.map((c,i)=><p key={i}>{c.operation||'Invoice verification'} · {c.status} · {formatLocalDateTime(c.checked_at,{second:'2-digit'})}</p>)}</details>}
     <ResultPage result={result} kind="citations" render={c=><details key={c.id}><summary>[{c.id}] {c.title}</summary><p>{c.text}</p><small>{c.object_id} · Revision {c.revision}</small></details>}/>
     <ResultPage result={result} kind="evidence" render={e=><details key={e.entity}><summary>{e.title} — {e.object_id}</summary><p style={{whiteSpace:'pre-wrap'}}>{e.text}</p><small>Source: {e.source} · Revision: {e.revision}</small></details>}/>
     <ResultPage result={result} kind="relationships" render={(e,i)=><details key={`${e.from}:${e.to}:${e.relation}:${i}`}><summary>{e.relation}</summary><small>{e.from} → {e.to}</small><p>{e.evidence?.note}</p><small>{e.evidence?.origin||'Source relationship'}</small></details>}/>

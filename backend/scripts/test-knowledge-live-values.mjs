@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {refreshKnowledgeValues} from '../src/services/knowledge-live-values.js';
+const source={id:'s',kind:'erp'},record={source:'s',entity:'e',object_id:'Sales Invoice/INV-1',text:'old',fields:{customer:'C',outstanding_amount:100}};
+let calls=0;
+const deps={assertAccess:async(owner)=>assert.equal(owner,'tenant'),read:async(owner,type,id)=>{calls++;assert.equal(owner,'tenant');assert.equal(id,'INV-1');return {mode:'live',data:{name:'INV-1',customer:'C',outstanding_amount:0,status:'Paid'}};}};
+const fresh=await refreshKnowledgeValues('tenant',[record],[source],deps);
+assert.equal(fresh.records[0].fields.outstanding_amount,0);assert.equal(fresh.records[0].value_origin,'live');assert.equal(record.fields.outstanding_amount,100);
+const denied=await refreshKnowledgeValues('tenant',[record],[source],{...deps,assertAccess:async()=>{throw new Error('Denied');}});assert.equal(denied.records.length,0);assert.equal(calls,1);
+const moved=await refreshKnowledgeValues('tenant',[record],[source],{...deps,read:async()=>({mode:'live',data:{name:'INV-1',customer:'OTHER'}})});assert.equal(moved.records.length,0);assert.equal(moved.checks[0].status,'relationship_changed_resync_required');
+const bounded=await refreshKnowledgeValues('tenant',Array(8).fill(record),[source],deps);assert.equal(bounded.records.length,5);assert.equal(bounded.checks.filter(c=>c.status==='budget_exhausted').length,3);
+const timed=await refreshKnowledgeValues('tenant',[record],[source],{...deps,timeoutMs:5,read:()=>new Promise(()=>{})});assert.equal(timed.records.length,0);
+console.log('Live Knowledge values: tenant reads, paid balance, fail-closed authorization, relationship changes, budgets and timeout passed.');

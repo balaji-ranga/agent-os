@@ -91,7 +91,7 @@ export async function answerConnectedKnowledge(owner, input, deps = {}) {
     remaining -= text.length;
     citations.push({ id: `K${citations.length + 1}`, entity: record.entity, title: record.title,
       source_id: record.source, object_id: record.object_id, revision: record.revision,
-      modified_at: record.modified_at, url: record.url, text,
+      modified_at: record.modified_at, url: record.url, text,value_origin:record.value_origin||'indexed_snapshot',live_checked_at:record.live_checked_at||null,
       calendar_facts:evidenceDateFacts(text,calendar),lifecycle: Object.fromEntries(['status','docstatus','is_deleted','disabled'].filter(key=>record.fields?.[key]!==undefined).map(key=>[key,record.fields[key]])) });
   }
   if (!citations.length) return { ...result, citations, answer: 'No eligible evidence was found. Check source synchronization and access.', answer_status: 'insufficient_evidence' };

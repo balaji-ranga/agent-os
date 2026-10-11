@@ -820,6 +820,7 @@ export const api = {
   knowledgeExclusions: (id,after='') => get(`/master-data/knowledge/sources/${encodeURIComponent(id)}/exclusions?${new URLSearchParams({after})}`),
   knowledgeSourceSave: (body, id) => id ? request(`/master-data/knowledge/sources/${encodeURIComponent(id)}`, { method:'PATCH', body:JSON.stringify(body) }) : post('/master-data/knowledge/sources',body),
   knowledgeSourceSync: (id) => post(`/master-data/knowledge/sources/${encodeURIComponent(id)}/sync`,{}),
+  knowledgeSourceFullResync: (id) => post(`/master-data/knowledge/sources/${encodeURIComponent(id)}/full-resync`,{confirm:'REBUILD_INDEX'}),
   knowledgeSourceEnabled: (id,enabled) => post(`/master-data/knowledge/sources/${encodeURIComponent(id)}/enabled`,{enabled}),
   knowledgeSourceDelete: (id) => request(`/master-data/knowledge/sources/${encodeURIComponent(id)}`,{method:'DELETE'}),
   knowledgeSourceHistory: (id,after=null) => get(`/master-data/knowledge/sources/${encodeURIComponent(id)}/history?paginate=1&limit=25${after?'&after='+encodeURIComponent(after):''}`),

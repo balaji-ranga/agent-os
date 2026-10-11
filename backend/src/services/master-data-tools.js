@@ -386,7 +386,7 @@ export async function ragDocumentsForAgent(ownerUserId, params = {}) {
     const source_ids=permittedKnowledgeSources(ceo,agentId,params.source_ids??null);
     const {connectedKnowledge}=await import('./knowledge-runtime.js');
     const {assertKnowledgeSourceAccess}=await import('./knowledge-source-adapters.js');
-    const result=await connectedKnowledge(ceo,{query,source_ids,depth:params.depth},{assertAccess:(owner,source)=>{
+    const result=await connectedKnowledge(ceo,{query,source_ids,depth:params.depth,live_values:params.live_values===true},{assertAccess:(owner,source)=>{
       permittedKnowledgeSources(owner,agentId,[source.id]);
       return assertKnowledgeSourceAccess(owner,source);
     }});
