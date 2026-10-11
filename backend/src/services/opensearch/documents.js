@@ -350,7 +350,7 @@ export async function getDocument(ownerUserId, documentId) {
       { timeoutMs: 15000 }
     );
     if (!json || json.found === false) return null;
-    return mapMetaHit({ _id: json._id, _source: json._source });
+    return mapMetaHit(json);
   } catch (e) {
     if (e?.status === 404) return null;
     throw e;

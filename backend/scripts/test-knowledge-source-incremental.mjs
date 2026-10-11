@@ -6,6 +6,9 @@ import {versionedSource} from '../src/services/knowledge-versioned-source.js';
 import {mailRecords} from '../src/services/knowledge-mail-adapter.js';
 import {localKnowledgeRecords} from '../src/services/knowledge-local-records.js';
 import {sourceRecords} from '../src/services/knowledge-source-adapters.js';
+import {mapMetaHit} from '../src/services/opensearch/documents.js';
+assert.equal(mapMetaHit({_id:'legacy',_version:7,_source:{}}).knowledge_content_revision,'meta:7');
+assert.equal(mapMetaHit({_id:'ready',_version:7,_source:{knowledge_content_revision:'content-v2'}}).knowledge_content_revision,'content-v2');
 
 function harness(kind='content',collections=['generated']){
   const db=new Database(':memory:'),store=knowledgeStore(db),owner='incremental-fixture';
