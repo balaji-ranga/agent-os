@@ -31,7 +31,9 @@ try {
   const {executeEfficiency,validateEfficiencyOutput}=await import('../src/services/efficiency-execution.js');
   const {chatCompletions}=await import('../src/config/llm.js');
   const {runWithLlmopsContext}=await import('../src/services/llmops-context.js');
-  check(controls.getEfficiencyPolicy().workloads.length===10,'Existing ten-workload scope preserved');
+  check(controls.getEfficiencyPolicy().workloads.length===11,'Utility scope includes Knowledge relationship inference');
+  check(controls.effectiveEfficiencyPlan('ceo-a','knowledge_mapping_advice').modelId==='ollama-efficiency','Relationship inference uses selected efficiency model');
+  check(!controls.effectiveEfficiencyPlan('disabled','knowledge_mapping_advice'),'Efficiency-disabled relationship inference retains normal routing');
   check(!controls.effectiveEfficiencyPlan('ceo-a','goal_plan_maker'),'Maker never efficiency routed');
   check(!controls.effectiveEfficiencyPlan('ceo-a','steering_completion_validation'),'Steering validator never efficiency routed');
   check(!controls.effectiveEfficiencyPlan('disabled','summarize_url'),'Disabled profile unchanged');

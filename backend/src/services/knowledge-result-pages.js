@@ -11,6 +11,7 @@ export function knowledgeResultPages({maxEntries=20,ttl=300000,clock=Date.now}={
     return {items:items.slice(offset,offset+limit),offset,total:items.length,next:offset+limit<items.length?offset+limit:null};
   };
   return {
+    invalidateOwner(owner){for(const [id,entry] of cache)if(entry.owner===owner)cache.delete(id);},
     create(owner,result,sources){
       for(const [id,entry] of cache)if(entry.expires<=clock())cache.delete(id);
       while(cache.size>=maxEntries)cache.delete(cache.keys().next().value);

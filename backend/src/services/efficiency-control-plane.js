@@ -29,7 +29,20 @@ export function ensureEfficiencyControlTables() {
 export function getEfficiencyPolicy() {
   ensureEfficiencyControlTables();
   const row = getDb().prepare("SELECT value_json FROM efficiency_control_settings WHERE id='policy'").get();
-  return { ...DEFAULT_POLICY, ...parse(row?.value_json, {}) };
+  const saved=parse(row?.value_json, {});
+  // Upgrade the previous 'all utility workloads' policy once. Preserve custom
+  // workload restrictions and every model/fallback/capacity preference.
+  const migration='knowledge_mapping_workload_v1';
+  if(!getDb().prepare('SELECT 1 FROM efficiency_control_settings WHERE id=?').get(migration)){
+    getDb().transaction(()=>{
+      if(Array.isArray(saved.workloads)&&EFFICIENCY_MODE_TOOLS.filter(t=>t!=='knowledge_mapping_advice').every(t=>saved.workloads.includes(t))&&!saved.workloads.includes('knowledge_mapping_advice')){
+        saved.workloads.push('knowledge_mapping_advice');
+        getDb().prepare("UPDATE efficiency_control_settings SET value_json=? WHERE id='policy'").run(JSON.stringify(saved));
+      }
+      getDb().prepare('INSERT OR IGNORE INTO efficiency_control_settings(id,value_json) VALUES (?,?)').run(migration,'true');
+    })();
+  }
+  return { ...DEFAULT_POLICY, ...saved };
 }
 
 export function saveEfficiencyPolicy(input) {

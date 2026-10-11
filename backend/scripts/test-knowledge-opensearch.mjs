@@ -8,6 +8,7 @@ import { fingerprint } from '../src/services/knowledge-contract.js';
 import { opensearchRequest } from '../src/services/opensearch/client.js';
 import {manageKnowledgeRecords} from '../src/services/knowledge-record-management.js';
 import {knowledgeResultPages} from '../src/services/knowledge-result-pages.js';
+import {knowledgeAdviceStore,suggestKnowledgeMapping,decideKnowledgeAdvice} from '../src/services/knowledge-mapping-advice.js';
 
 // Real OpenSearch, synthetic source fixtures. No production business records or
 // user indexes are touched; cleanup targets only this invocation's random index.
@@ -51,6 +52,17 @@ try {
   const deps={store,search,assertAccess(){}};
   const first=await connectedKnowledge(owner,{query:'overdue invoices contracts renewing next month'},deps);
   assert.equal(first.evidence.length,4);assert.equal(first.relationships.length,3);
+  assert.ok(first.evidence.every(e=>e.source_name));
+  assert.ok(first.relationships.every(e=>e.from_record?.title&&e.to_record?.title));
+  const advice=knowledgeAdviceStore(db);
+  const from=first.evidence.find(e=>e.source===crm.id),to=first.evidence.find(e=>e.object_id==='contract.md');
+  const automated={...deps,advice,complete:async()=>({modelUsed:'test-model',content:JSON.stringify({match:true,candidate_entity:to.entity,relation:'has_contract',confidence:.91,from_quote:'Customer 1',to_quote:'Customer 1',reason:'Synthetic integration fixture verified customer relationship'})})};
+  const auto=await suggestKnowledgeMapping(owner,{source_id:crm.id,object_id:from.object_id,target_source_id:content.id},automated);
+  assert.equal(auto.suggestion.status,'active');
+  const withModel=await connectedKnowledge(owner,{query:'Customer 1 contract'},automated);
+  assert.ok(withModel.relationships.some(e=>e.evidence.origin==='model_inferred'&&e.from_record.title&&e.to_record.title),'Indexed model edge must participate in graph retrieval without approval');
+  await decideKnowledgeAdvice(owner,auto.suggestion.id,'reject',automated);
+  assert.ok(!(await connectedKnowledge(owner,{query:'Customer 1 contract'},automated)).relationships.some(e=>e.evidence.origin==='model_inferred'),'Rejected indexed edge must be excluded immediately');
   assert.ok(first.relationships.some(e=>e.evidence?.origin==='field_rule'));
   assert.ok(first.chunks.length);assert.ok(first.evidence.every(e=>e.owner===owner));
   assert.equal((await connectedKnowledge(`${owner}-other`,{query:'renewal'},deps)).evidence.length,0);

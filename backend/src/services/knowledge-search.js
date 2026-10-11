@@ -35,6 +35,16 @@ export function knowledgeSearch(transport=opensearchRequest,{deadline=null,embed
   };
   return {
     processingProfile:embeddingProfile,
+    async putAdviceEdge(owner,source,item) {
+      const generation=String(source.revision).startsWith('g:')?Number(source.revision.slice(2)):null;
+      await request('PUT',`/${index(owner)}/_doc/${fingerprint(['model_relationship',item.id])}?refresh=true`,{
+        owner,source:source.id,revision:source.revision,kind:'edge',
+        ...(generation===null?{}:{valid_from:generation,valid_to:9007199254740991}),
+        from:entityId(owner,item.from_source,item.from_object),to:entityId(owner,item.to_source,item.to_object),relation:item.relation,
+        evidence:{origin:'model_inferred',advice_id:item.id,note:item.reason,confidence:item.confidence,
+          from_quote:item.from_quote,to_quote:item.to_quote,model:item.model||null},
+      });
+    },
     async deleteIndexedRecords(owner,source,ids){
       const entities=ids.map(id=>entityOf(owner,source,id));
       await request('POST',`/${index(owner)}/_delete_by_query?refresh=true`,{query:scoped(owner,source,[{bool:{should:[{terms:{entity:entities}},{terms:{from:entities}},{terms:{to:entities}}],minimum_should_match:1}}])});

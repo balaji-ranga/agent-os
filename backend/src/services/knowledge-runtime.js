@@ -6,6 +6,7 @@ import { entityId } from './knowledge-contract.js';
 import { fieldRuleEdges } from './knowledge-field-rules.js';
 import {runIncrementalKnowledge} from './knowledge-incremental.js';
 import {refreshKnowledgeValues} from './knowledge-live-values.js';
+import {eligibleModelEdges} from './knowledge-mapping-advice.js';
 
 export async function cleanupKnowledgeSources({store=knowledgeStore(),search=knowledgeSearch()}={}) {
   for(const item of store.cleanupPending()) {
@@ -87,7 +88,8 @@ export async function connectedKnowledge(owner,{query,depth=3,source_ids=null,li
   const graphIds=new Set(graphSources.map(s=>s.id));
   const rules=store.fieldRules?.(owner)||[];
   for(let hop=0;hop<Math.min(4,Math.max(0,Number(depth)||0))&&frontier.length&&entities.size<100;hop++) {
-    const native=await search.edges(owner,graphSources,frontier);
+    let native=await search.edges(owner,graphSources,frontier);
+    if(native.some(e=>e.evidence?.origin==='model_inferred'))native=eligibleModelEdges(owner,native,graphSources,deps.advice);
     const mappings=(store.mappingsFor?store.mappingsFor(owner,frontier.map(id=>entities.get(id))):store.mappings(owner)).filter(m=>graphIds.has(m.from_source)&&graphIds.has(m.to_source));
     const explicit=mappings.map(m=>({from:entityId(owner,m.from_source,m.from_object),to:entityId(owner,m.to_source,m.to_object),relation:m.relation,evidence:{origin:'explicit_mapping',mapping_id:m.id,note:m.note}}))
       .filter(e=>frontier.includes(e.from)||frontier.includes(e.to));
@@ -122,10 +124,13 @@ export async function connectedKnowledge(owner,{query,depth=3,source_ids=null,li
     const text=String(passages.length?passages.join('\n\n'):record.text||'').slice(0,Math.max(0,Math.min(4000,remaining)));
     remaining-=text.length;
     const fields=JSON.stringify(record.fields||{}).length<=4000?record.fields:{};
-    return {...record,text,fields,text_truncated:text.length<String(record.text||'').length};
+    const source=allowed.find(s=>s.id===record.source);
+    return {...record,text,fields,source_name:source?.name,source_kind:source?.kind,text_truncated:text.length<String(record.text||'').length};
   });
+  const endpoints=new Map(evidence.map(e=>[e.entity,{title:e.title,object_id:e.object_id,source_name:e.source_name,source_kind:e.source_kind,preview:e.text.slice(0,240)}]));
+  const currentEdges=edges.some(e=>e.evidence?.origin==='model_inferred')?eligibleModelEdges(owner,edges,store.list(owner).filter(s=>current.has(`${s.id}:${s.revision}`)),deps.advice):edges;
   return {query,retrieval_mode:'connected_information',evidence,
-    chunks:hits.filter(h=>visibleIds.has(h.entity)).map(({embedding,...hit})=>{const record=evidence.find(e=>e.entity===hit.entity);return record?.value_origin==='live'?{...hit,text:record.text,fields:record.fields,value_origin:'live',live_checked_at:record.live_checked_at}:hit;}),relationships:edges.filter(e=>visibleIds.has(e.from)&&visibleIds.has(e.to)).slice(0,100).map(e=>({...e,evidence:e.evidence?{...e.evidence,...(e.evidence.note?{note:e.evidence.note.slice(0,300)}:{})}:undefined})),
+    chunks:hits.filter(h=>visibleIds.has(h.entity)).map(({embedding,...hit})=>{const record=evidence.find(e=>e.entity===hit.entity);return record?.value_origin==='live'?{...hit,text:record.text,fields:record.fields,value_origin:'live',live_checked_at:record.live_checked_at}:hit;}),relationships:currentEdges.filter(e=>visibleIds.has(e.from)&&visibleIds.has(e.to)).slice(0,100).map(e=>({...e,from_record:endpoints.get(e.from),to_record:endpoints.get(e.to),evidence:e.evidence?{...e.evidence,...(e.evidence.note?{note:e.evidence.note.slice(0,1000)}:{})}:undefined})),
     sources:allowed.filter(s=>current.has(`${s.id}:${s.revision}`)).map(s=>({id:s.id,name:s.name,last_success:s.last_success})),
     unavailable_sources:unavailable,live_checks:liveChecks, note:live_values===true?'Live verification requested for ERP Sales Invoice balances/status (maximum 5). Only verified invoice records are returned; other record types remain indexed snapshots. See live_checks for unavailable, stale relationships or budget limits.':'Indexed snapshots; freshness is shown per source. No live balance check was performed.'};
 }

@@ -20,6 +20,7 @@ export const EFFICIENCY_MODE_TOOLS = Object.freeze([
   'ceo_guardrails_enrich',
   'summarize_url',
   'master_data_rag',
+  'knowledge_mapping_advice',
 ]);
 
 const TOOL_SET = new Set(EFFICIENCY_MODE_TOOLS);
