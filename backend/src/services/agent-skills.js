@@ -1,8 +1,9 @@
 import { createHash, randomUUID } from 'crypto';
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'fs';
+import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { getDb } from '../db/schema.js';
+import { ensurePlatformSkillCatalogSchema, seedCompanyAutomationCatalog } from './platform-skill-catalog.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, '..', '..', '..');
@@ -150,6 +151,7 @@ export function ensureAgentSkillsSchema() {
   if (!versionColumns.has('required_mcp_tools_json')) {
     conn.exec("ALTER TABLE agent_skill_versions ADD COLUMN required_mcp_tools_json TEXT DEFAULT '[]'");
   }
+  ensurePlatformSkillCatalogSchema(conn);
   schemaReady = true;
 }
 
@@ -181,6 +183,7 @@ export function seedPlatformAgentSkills({ force = false } = {}) {
       const slug = slugify(source.slug);
       const id = `platform:${slug}`;
       const found = conn.prepare('SELECT * FROM agent_skills WHERE id=?').get(id);
+      if (found?.catalog_managed) continue; // Admin publication state and revisions win over source seed.
       if (!found) {
         conn.prepare(`INSERT INTO agent_skills
           (id,owner_user_id,scope,slug,name,description,status,source_kind,created_by)
@@ -217,6 +220,7 @@ export function seedPlatformAgentSkills({ force = false } = {}) {
     }
   });
   tx();
+  seedCompanyAutomationCatalog(conn);
   platformSeeded = true;
   return { seeded, unchanged };
 }
@@ -256,6 +260,7 @@ function versionForAssignment(row) {
 }
 
 function serializeSkill(skill, version = null) {
+  const pkg = json(version?.package_json, {});
   return {
     id: skill.id,
     owner_user_id: skill.owner_user_id,
@@ -273,13 +278,16 @@ function serializeSkill(skill, version = null) {
     required_connector_actions: json(version?.required_connector_actions_json, []),
     required_mcp_tools: json(version?.required_mcp_tools_json, []),
     checksum: version?.checksum || null,
+    category: skill.category || pkg.category || '',
+    provenance: { source_url: pkg.provenance?.source_url || '', commit: pkg.provenance?.commit || '', license: pkg.provenance?.license || '' },
+    external_requirements: pkg.external_requirements || [],
   };
 }
 
 export function listAgentSkillsCatalog(ownerUserId, { includeMarkdown = false } = {}) {
   ensureSeeded();
   const rows = db().prepare(`SELECT * FROM agent_skills
-    WHERE (scope='platform' OR owner_user_id=?) AND status<>'retired'
+    WHERE ((scope='platform' AND status='active') OR (scope='company' AND owner_user_id=? AND status<>'retired'))
     ORDER BY scope DESC,name`).all(ownerUserId);
   return rows.map((row) => {
     const value = serializeSkill(row, latestVersion(row.id));
@@ -360,6 +368,7 @@ export function listAgentSkillAssignments(ownerUserId, agentId, { includeMarkdow
     const requiredTools = canonicalToolNames(json(version?.required_tools_json, []));
     const requiredActions = json(version?.required_connector_actions_json, []);
     const requiredMcpTools = json(version?.required_mcp_tools_json, []);
+    const pkg = json(version?.package_json, {});
     const value = {
       skill_id: row.skill_id,
       slug: row.slug,
@@ -381,9 +390,10 @@ export function listAgentSkillAssignments(ownerUserId, agentId, { includeMarkdow
       missing_mcp_tools: requiredMcpTools.filter((item) => !mcpToolSet.has(item)),
       checksum: version?.checksum || null,
       status: row.skill_status,
+      external_requirements: pkg.external_requirements || [],
     };
-    value.ready = !!version && !value.missing_tools.length && !value.missing_connector_actions.length && !value.missing_mcp_tools.length && row.skill_status === 'active';
-    if (includeMarkdown) value.skill_md = version?.skill_md || '';
+    value.ready = !!version && !value.missing_tools.length && !value.missing_connector_actions.length && !value.missing_mcp_tools.length && !value.external_requirements.length && row.skill_status === 'active';
+    if (includeMarkdown) { value.skill_md = version?.skill_md || ''; value.resources = pkg.resources || {}; value.license_text = pkg.provenance?.license_text || ''; }
     return value;
   });
 }
@@ -395,7 +405,7 @@ export function setAgentSkillAssignments(ownerUserId, agentId, assignments = [],
     const row = typeof raw === 'string' ? { skill_id: raw } : raw || {};
     const skillId = String(row.skill_id || row.id || '').trim();
     const skill = skillAccessible(ownerUserId, skillId);
-    if (!skill || skill.status === 'retired') throw new Error(`Skill is unavailable: ${skillId}`);
+    if (!skill || skill.status !== 'active') throw new Error(`Skill is unavailable: ${skillId}`);
     let version = null;
     if (row.version_id) {
       version = db().prepare(`SELECT * FROM agent_skill_versions WHERE id=? AND skill_id=? AND status='active'`).get(String(row.version_id), skillId);
@@ -476,12 +486,12 @@ export function normalizeSkillRefsForAgent(ownerUserId, agentId, refs = [], { re
 
 export function buildAgentSkillRuntimeInstruction(ownerUserId, agentId, prompt, { pinnedRefs = null } = {}) {
   const assigned = listAgentSkillAssignments(ownerUserId, agentId, { includeMarkdown: true });
-  const allowed = assigned.filter((item) => item.enabled !== false).map((item) => ({
+  const allowed = assigned.filter((item) => item.enabled !== false && item.ready).map((item) => ({
     ...item,
     id: item.skill_id,
     version_id: item.version_id,
   }));
-  if (!allowed.length) return { instruction: '', allowed: [], recommended: [] };
+  if (!allowed.length) return { instruction: assigned.length ? '\n[FLOLAH SKILL CONTRACT]\nNo assigned skill is execution-ready. Do not use cached workspace skills with unresolved dependencies, missing capabilities or unpublished status. Skills never grant tools.' : '', allowed: [], recommended: [] };
   const pinned = Array.isArray(pinnedRefs) && pinnedRefs.length
     ? normalizeSkillRefsForAgent(ownerUserId, agentId, pinnedRefs)
     : [];
@@ -543,6 +553,8 @@ export function listSkillExecutionAudit(ownerUserId, agentId, { limit = 30 } = {
 
 function writeIfChanged(path, text) {
   const next = String(text || '');
+  try { if (lstatSync(path).isSymbolicLink()) throw new Error('Managed skill files must not be symlinks'); }
+  catch (e) { if (e.code !== 'ENOENT') throw e; }
   if (existsSync(path) && readFileSync(path, 'utf8') === next) return false;
   writeFileSync(path, next, 'utf8');
   return true;
@@ -551,8 +563,9 @@ function writeIfChanged(path, text) {
 export function syncAgentSkillsToWorkspace(ownerUserId, agentId, workspacePath) {
   ensureSeeded();
   assertAgentForOwner(ownerUserId, agentId);
-  const assignments = listAgentSkillAssignments(ownerUserId, agentId, { includeMarkdown: true }).filter((item) => item.enabled && item.status === 'active');
+  const assignments = listAgentSkillAssignments(ownerUserId, agentId, { includeMarkdown: true }).filter((item) => item.enabled && item.ready && item.status === 'active');
   const skillsRoot = join(workspacePath, 'skills');
+  if (existsSync(skillsRoot) && lstatSync(skillsRoot).isSymbolicLink()) throw new Error('Managed skill directories must not be symlinks');
   mkdirSync(skillsRoot, { recursive: true });
   const expected = new Set();
   let written = 0;
@@ -560,8 +573,21 @@ export function syncAgentSkillsToWorkspace(ownerUserId, agentId, workspacePath) 
     const folder = slugify(skill.slug);
     expected.add(folder);
     const dest = join(skillsRoot, folder);
+    if (lstatSync(skillsRoot).isSymbolicLink() || (existsSync(dest) && lstatSync(dest).isSymbolicLink())) throw new Error('Managed skill directories must not be symlinks');
     mkdirSync(dest, { recursive: true });
     if (writeIfChanged(join(dest, 'SKILL.md'), validateSkillMarkdown(skill.skill_md))) written += 1;
+    for (const [relative, content] of Object.entries(skill.resources || {})) {
+      // Packages were validated at onboarding; protect against tampered DB paths and workspace symlinks too.
+      if (!/^(references|assets|examples)\/[a-zA-Z0-9_./-]+\.(md|txt|json|csv|yaml|yml)$/.test(relative) || relative.split('/').some(p => !p || p==='.' || p==='..')) throw new Error('Unsafe skill resource path');
+      let parent=dest;
+      for (const part of relative.split('/')) {
+        parent=join(parent,part);
+        if (existsSync(parent) && lstatSync(parent).isSymbolicLink()) throw new Error('Skill resources must not follow symlinks');
+      }
+      mkdirSync(dirname(join(dest,relative)),{recursive:true});
+      if (writeIfChanged(join(dest,relative),content)) written += 1;
+    }
+    if (skill.license_text) writeIfChanged(join(dest,'LICENSE.txt'),skill.license_text);
     writeIfChanged(join(dest, MANAGED_MARKER), `${JSON.stringify({ owner_user_id: ownerUserId, agent_id: agentId, skill_id: skill.skill_id, version_id: skill.version_id, checksum: skill.checksum }, null, 2)}\n`);
   }
   let removed = 0;

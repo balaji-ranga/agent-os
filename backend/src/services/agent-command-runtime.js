@@ -21,7 +21,7 @@ export function commandSkillCatalog(owner, agentId) {
   const toolNames = new Set(commandToolCatalog(owner, agentId).map(t => t.name));
   return listAgentSkillAssignments(owner, agentId).filter(s => s.enabled && s.status === 'active')
     .map(s => {
-      const missing = [...new Set([...s.missing_tools, ...s.missing_connector_actions, ...s.missing_mcp_tools, ...s.required_tools.filter(t => !toolNames.has(t)), ...(!s.version_id ? ['active skill version'] : [])])];
+      const missing = [...new Set([...s.missing_tools, ...s.missing_connector_actions, ...s.missing_mcp_tools, ...(s.external_requirements || []), ...s.required_tools.filter(t => !toolNames.has(t)), ...(!s.version_id ? ['active skill version'] : [])])];
       return { skill_id: s.skill_id, slug: s.slug, name: s.name, description: s.description, version: s.version, version_id: s.version_id, ready: s.ready && !missing.length, missing };
     });
 }

@@ -1602,6 +1602,13 @@ export const api = {
     return get(`/admin/promotions/${encodeURIComponent(id)}/analytics${query ? `?${query}` : ''}`);
   },
   adminMcpUniverseStatus: () => get('/admin/mcp-universe/status'),
+  adminSkillsList: () => get('/admin/skills'),
+  adminSkillGet: id => get(`/admin/skills/${encodeURIComponent(id)}`),
+  adminSkillCreate: body => post('/admin/skills',body),
+  adminSkillGithubPreview: url => post('/admin/skills/github-preview',{url}),
+  adminSkillVersion: (id,body) => post(`/admin/skills/${encodeURIComponent(id)}/versions`,body),
+  adminSkillPublish: (id,body) => post(`/admin/skills/${encodeURIComponent(id)}/publish`,body),
+  adminSkillUnpublish: id => post(`/admin/skills/${encodeURIComponent(id)}/unpublish`,{}),
   adminMcpUniverseSync: () => post('/admin/mcp-universe/sync', {}),
   adminMcpUniverseSubmissions: () => get('/admin/mcp-universe/submissions'),
   adminMcpUniverseModerate: (id, body) => post(`/admin/mcp-universe/submissions/${encodeURIComponent(id)}/moderate`, body),

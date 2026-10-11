@@ -233,6 +233,9 @@ export function AdminNavMenu({ collapsed }) {
       >
         {collapsed ? 'TO' : 'Tools Onboarding'}
       </NavLink>
+      <NavLink to="/admin/skills" className={({isActive})=>`nav-link${isActive?' active':''}`} title="Skills onboarding">
+        {collapsed ? 'SK' : 'Skills Onboarding'}
+      </NavLink>
       <NavLink
         to="/admin/tls-certs"
         className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}

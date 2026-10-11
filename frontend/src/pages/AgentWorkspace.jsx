@@ -90,6 +90,7 @@ export default function AgentWorkspace() {
   const [avatarSaving, setAvatarSaving] = useState(false);
   const [editorFullscreen, setEditorFullscreen] = useState(false);
   const [skillCatalog, setSkillCatalog] = useState([]);
+  const [skillSearch,setSkillSearch] = useState('');
   const [skillAssignments, setSkillAssignments] = useState(new Set());
   const [skillAssignmentRows, setSkillAssignmentRows] = useState([]);
   const [skillAuditRows, setSkillAuditRows] = useState([]);
@@ -864,8 +865,9 @@ export default function AgentWorkspace() {
 
             {skillsMessage && <div style={{ marginTop: '0.8rem', padding: '0.65rem 0.8rem', borderRadius: 7, color: skillsMessage.type === 'error' ? '#f87171' : '#22c55e', background: skillsMessage.type === 'error' ? 'rgba(248,113,113,0.1)' : 'rgba(34,197,94,0.1)' }}>{skillsMessage.text}</div>}
 
+            <label style={{display:'block',marginTop:12}}>Search published skills <input value={skillSearch} onChange={e=>setSkillSearch(e.target.value)} placeholder="Name, category or purpose" style={{width:'100%',maxWidth:560}} /></label>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(270px, 1fr))', gap: '0.8rem', marginTop: '1rem' }}>
-              {skillCatalog.map((skill) => {
+              {skillCatalog.filter(skill=>[skill.name,skill.category,skill.description].join(' ').toLowerCase().includes(skillSearch.toLowerCase())).map((skill) => {
                 const selectedSkill = skillAssignments.has(skill.id);
                 const assigned = skillAssignmentRows.find((item) => item.skill_id === skill.id);
                 const ready = assigned?.ready !== false;
@@ -879,7 +881,10 @@ export default function AgentWorkspace() {
                         <span style={{ color: 'var(--muted)', fontSize: '0.72rem' }}>v{skill.version || '—'}</span>
                       </span>
                       <span style={{ display: 'block', color: 'var(--muted)', fontSize: '0.84rem', marginTop: 5 }}>{skill.description || 'Reusable operating procedure'}</span>
-                      {assigned && !ready && <span style={{ display: 'block', color: '#f59e0b', fontSize: '0.78rem', marginTop: 6 }}>Not execution-ready: {[...(assigned.missing_tools || []), ...(assigned.missing_connector_actions || []), ...(assigned.missing_mcp_tools || [])].join(', ') || 'required capability missing'}</span>}
+                      {skill.category && <small>{skill.category} · {skill.provenance?.license || 'Company-authored'}</small>}
+                      {skill.provenance?.source_url && <a style={{display:'block',fontSize:'0.78rem'}} href={skill.provenance.source_url} target="_blank" rel="noreferrer">GitHub source · {skill.provenance.commit?.slice(0,8) || 'repository'}</a>}
+                      {skill.external_requirements?.length>0 && <span style={{display:'block',color:'#b45309',fontSize:'0.78rem'}}>Setup needed: {skill.external_requirements.join('; ')}</span>}
+                      {assigned && !ready && <span style={{ display: 'block', color: '#f59e0b', fontSize: '0.78rem', marginTop: 6 }}>Not execution-ready: {[...(assigned.missing_tools || []), ...(assigned.missing_connector_actions || []), ...(assigned.missing_mcp_tools || []), ...(assigned.external_requirements || [])].join(', ') || 'required capability missing or unpublished skill'}</span>}
                       {(skill.trigger_hints || []).length > 0 && <span style={{ display: 'block', color: 'var(--muted)', fontSize: '0.75rem', marginTop: 6 }}>Use for: {skill.trigger_hints.join(' · ')}</span>}
                       <button type="button" onClick={() => openSkillEditor(skill)} style={{ marginTop: '0.65rem', padding: '0.35rem 0.6rem', border: '1px solid var(--border)', borderRadius: 6, background: 'transparent', color: 'var(--text)', fontSize: '0.78rem' }}>{skill.scope === 'company' ? 'Open / edit' : 'View'}</button>
                     </span>

@@ -42,6 +42,7 @@ import AdminTlsCerts from './pages/AdminTlsCerts';
 import AdminOpenclawRecovery from './pages/AdminOpenclawRecovery';
 import AdminPromotions from './pages/AdminPromotions';
 import AdminMcpUniverse from './pages/AdminMcpUniverse';
+import AdminSkills from './pages/AdminSkills';
 import AdminModels from './pages/AdminModels';
 import McpIntegrations from './pages/McpIntegrations';
 import CustomScripts from './pages/CustomScripts';
@@ -477,6 +478,7 @@ function Shell() {
                 <Route path="/admin/user-insights" element={<AdminUserInsights />} />
                 <Route path="/admin/promotions" element={<AdminPromotions />} />
                 <Route path="/admin/mcp-universe" element={<AdminMcpUniverse />} />
+                <Route path="/admin/skills" element={<AdminSkills />} />
                 <Route path="/admin/models" element={<AdminModels />} />
                 <Route path="/integrations/mcp/*" element={<McpIntegrations />} />
                 <Route path="/integrations/custom-scripts" element={<CustomScripts />} />

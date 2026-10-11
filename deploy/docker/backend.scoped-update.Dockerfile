@@ -5,6 +5,7 @@ ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
 COPY backend/src /opt/agent-os/backend/src
 COPY backend/package.json /opt/agent-os/backend/package.json
+COPY skills-catalog /opt/agent-os/skills-catalog
 COPY backend/scripts/test-* /opt/agent-os/backend/scripts/
 COPY backend/scripts/grant-public-news-actions.mjs /opt/agent-os/backend/scripts/
 COPY openclaw-workspace-templates /opt/agent-os/openclaw-workspace-templates

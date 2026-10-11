@@ -48,6 +48,7 @@ COPY scripts ./scripts
 COPY tests ./tests
 COPY openclaw-workspace-templates ./openclaw-workspace-templates
 COPY openclaw-skills ./openclaw-skills
+COPY skills-catalog ./skills-catalog
 COPY .cursor/skills/ibkrnew-trade-strategy ./openclaw-skills/ibkrnew-trade-strategy
 COPY openclaw-extensions ./openclaw-extensions
 RUN find /opt/agent-os/openclaw-extensions -type d -exec chmod 755 {} + && find /opt/agent-os/openclaw-extensions -type f -exec chmod 644 {} +
