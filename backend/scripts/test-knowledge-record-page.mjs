@@ -4,6 +4,10 @@ assert.match(recordPreview({fields:{crm_account_id:'hidden-id',project:'PROJ-2',
 assert.ok(!recordPreview({fields:{crm_account_id:'hidden-id',project:'PROJ-2'}}).includes('hidden-id'));
 assert.equal(recordPreview({text:'x'.repeat(500)}).length,240);
 assert.equal(recordPreview({fields:{chunk_index:0,filename:'file.md'},text:'Actual contract content'}),'Actual contract content');
+const contactPreview=recordPreview({fields:{id:'hidden',companyId:'hidden',name:{firstName:'Priya',lastName:'Tan'},emails:{primaryEmail:'priya@example.test'}},text:'{"id":"hidden"}'});
+assert.match(contactPreview,/first Name: Priya/);
+assert.match(contactPreview,/priya@example.test/);
+assert.ok(!contactPreview.includes('hidden'));
 import {knowledgeSearch} from '../src/services/knowledge-search.js';
 const source={id:'source-1',revision:'revision-1'},entity='a'.repeat(64);
 const options=recordPageOptions('owner',source,null,{query:'Acme',limit:25});

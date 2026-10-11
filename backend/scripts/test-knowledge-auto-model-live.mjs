@@ -14,7 +14,7 @@ const {knowledgeStore}=await import('../src/services/knowledge-store.js');
 const {knowledgeSearch}=await import('../src/services/knowledge-search.js');
 const {knowledgeAdviceStore,suggestKnowledgeMapping,decideKnowledgeAdvice}=await import('../src/services/knowledge-mapping-advice.js');
 const {connectedKnowledge}=await import('../src/services/knowledge-runtime.js');
-const {saveEfficiencyPreferences,efficiencyReport}=await import('../src/services/efficiency-control-plane.js');
+const {saveEfficiencyPreferences,saveEfficiencyPolicy,efficiencyReport}=await import('../src/services/efficiency-control-plane.js');
 const {entityId,fingerprint}=await import('../src/services/knowledge-contract.js');
 const {opensearchRequest}=await import('../src/services/opensearch/client.js');
 const owner=`auto-model-test-${randomUUID()}`,db=getDb(),store=knowledgeStore(db),search=knowledgeSearch(),advice=knowledgeAdviceStore(db);
@@ -22,6 +22,8 @@ const index=`aos-knowledge-${fingerprint(owner).slice(0,24)}`;
 try{
   db.prepare('INSERT INTO platform_users(id,email,password_hash,name,role,llm_efficiency_mode) VALUES (?,?,?,?,?,?)').run(owner,`${owner}@example.test`,'not-a-login','Synthetic Knowledge model test','ceo',1);
   saveEfficiencyPreferences(owner,{fallback_mode:'local_only'});
+  // Disposable test DB only: allow CPU cold loading; never alter VPS policy.
+  saveEfficiencyPolicy({local_timeout_ms:120000});
   const from=store.save(owner,{name:'Synthetic CRM',kind:'crm',collections:['companies'],enabled:true,graph_enabled:true,intelligent_mapping:true});
   const to=store.save(owner,{name:'Synthetic ERP',kind:'erp',collections:['Customer'],enabled:true,graph_enabled:true});
   db.prepare("UPDATE knowledge_sources SET revision='live-test-v1',status='ready' WHERE owner=?").run(owner);

@@ -51,7 +51,7 @@ assert.throws(()=>validateAdvice({...raw,to_quote:'invented'},record,[target]),/
 assert.throws(()=>validateAdvice({...raw,candidate_entity:foreign.id},record,[target]),/candidate/);
 const indexed=[];
 const search={putAdviceEdge:async(owner,source,item)=>{indexed.push({from:record.entity,to:target.entity,relation:item.relation,evidence:{origin:'model_inferred',advice_id:item.id}});},documents:async()=>[{entity:target.entity}],entities:async(owner,allowed,ids)=>[record,target].filter(r=>ids.includes(r.entity)&&allowed.some(s=>s.id===r.source))};
-const deps={store,advice,search,assertAccess:async()=>{},complete:async input=>{assert.equal(input.ownerUserId,'alice');assert.ok(!input.messages[1].content.includes(foreign.id));assert.equal(input.validateResponse(JSON.stringify(raw)),true);assert.equal(input.validateResponse(JSON.stringify({...raw,to_quote:'invented'})),false);return {content:JSON.stringify(raw)};}};
+const deps={store,advice,search,assertAccess:async()=>{},complete:async input=>{assert.equal(input.ownerUserId,'alice');assert.ok(!input.messages[1].content.includes(foreign.id));return {content:JSON.stringify({...raw,candidate_entity:'C1'})};}};
 const suggestion=await suggestKnowledgeMapping('alice',{source_id:a.id,object_id:record.object_id},deps);
 assert.ok(suggestion.suggestion.id);assert.equal(advice.page('bob').items.length,0);
 assert.ok(EFFICIENCY_MODE_TOOLS.includes('knowledge_mapping_advice'));
@@ -69,6 +69,13 @@ assert.equal((await suggestKnowledgeMapping('alice',{source_id:a.id,object_id:re
 const low=await suggestKnowledgeMapping('alice',{source_id:a.id,object_id:record.object_id},{...deps,complete:async()=>({content:JSON.stringify({...raw,relation:'possibly_related',confidence:.5})})});
 assert.equal(low.suggestion.status,'pending');
 assert.equal(indexed.length,2); // One auto write plus one human confirmation; no low-confidence write.
+let repairCalls=0;
+const repaired=await suggestKnowledgeMapping('alice',{source_id:a.id,object_id:record.object_id},{...deps,complete:async input=>{
+  repairCalls++;
+  if(repairCalls===2)assert.match(input.messages.at(-1).content,/Validation failed/);
+  return {content:JSON.stringify({...raw,candidate_entity:'C1',relation:repairCalls===1?'lowercase_identifier':'references_account'})};
+}});
+assert.equal(repairCalls,2);assert.equal(repaired.suggestion.status,'active');
 await assert.rejects(()=>suggestKnowledgeMapping('alice',{source_id:a.id,object_id:record.object_id},{...deps,complete:async()=>({content:JSON.stringify({...raw,relation:'other',to_quote:'invented'})})}),/quote/);
 const stale=advice.save('alice',{...validateAdvice(raw,record,[target]),relation:'related_account'});
 db.prepare("UPDATE knowledge_sources SET revision='v2' WHERE id=?").run(b.id);

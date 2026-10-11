@@ -25,6 +25,10 @@ cd "$release/context"
 git init -q
 git apply --check --ignore-space-change "$KNOWLEDGE_PATCH"
 git apply --ignore-space-change "$KNOWLEDGE_PATCH"
+if [[ -n "${KNOWLEDGE_EXTRA_PATCH:-}" ]]; then
+  git apply --check --ignore-space-change "$KNOWLEDGE_EXTRA_PATCH"
+  git apply --ignore-space-change "$KNOWLEDGE_EXTRA_PATCH"
+fi
 test -f backend/src/services/knowledge-processing-state.js
 grep -q test-knowledge-processing-state backend/package.json
 docker build -f deploy/docker/backend.knowledge.Dockerfile --build-arg "BASE_IMAGE=agent-os-backend:rollback-$RELEASE_REVISION" --build-arg "RELEASE_REVISION=$RELEASE_REVISION" -t "agent-os-backend:knowledge-$RELEASE_REVISION" .
@@ -35,6 +39,9 @@ docker run --rm --network none --entrypoint node "agent-os-backend:knowledge-$RE
 # no production data mounts; the live search test uses a random disposable index.
 (umask 077; docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' agent-os-backend-1 > "$release/runtime.env")
 docker run --rm --network container:agent-os-backend-1 --env-file "$release/runtime.env" --entrypoint node "agent-os-backend:knowledge-$RELEASE_REVISION" scripts/test-knowledge-opensearch.mjs
+if [[ "${KNOWLEDGE_AUTO_MODEL_LIVE:-0}" == 1 ]]; then
+  docker run --rm --network container:agent-os-backend-1 --env-file "$release/runtime.env" -e KNOWLEDGE_AUTO_MODEL_LIVE=1 --entrypoint node "agent-os-backend:knowledge-$RELEASE_REVISION" scripts/test-knowledge-auto-model-live.mjs
+fi
 rm -- "$release/runtime.env"
 for service in backend frontend knowledge-worker; do
   [[ "$(docker inspect -f '{{.Image}}' "agent-os-$service-1")" == "${old[$service]}" ]] || { echo 'Concurrent release detected; no cutover'; exit 1; }

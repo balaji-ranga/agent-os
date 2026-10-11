@@ -1,10 +1,26 @@
 import {fingerprint} from './knowledge-contract.js';
 
 export function recordPreview(record){
-  const facts=Object.entries(record.fields||{}).filter(([key,value])=>
-    !/(^id$|_id$|^name$|^columns$|^owner$|^created|^modified|^filename$|^chunk_index$|^mime_type$|^relative_path$)/i.test(key)&&['string','number','boolean'].includes(typeof value)&&String(value).trim()
-  ).slice(0,4).map(([key,value])=>`${key.replace(/_/g,' ')}: ${String(value).slice(0,100)}`);
-  return (facts.length?facts.join(' · '):String(record.text||'')).replace(/\s+/g,' ').trim().slice(0,240);
+  const facts=recordDisplayFields(record).slice(0,4).map(({label,value})=>`${label}: ${value.slice(0,100)}`);
+  const text=String(record.text||'');
+  return (facts.length?facts.join(' · '):/^[\s]*[\[{]/.test(text)?String(record.title||'Structured record; expand evidence for details.'):text).replace(/\s+/g,' ').trim().slice(0,240);
+}
+
+export function recordDisplayFields(record){
+  const facts=[];
+  const visit=(value,path='',depth=0)=>{
+    if(depth>3||facts.length>=12)return;
+    if(['string','number','boolean'].includes(typeof value)){
+      const text=String(value).trim();
+      if(text&&!/^[a-f0-9]{8}-[a-f0-9-]{27,}$/i.test(text))facts.push({label:path.replace(/([a-z])([A-Z])/g,'$1 $2').replace(/[_.]/g,' '),value:text.slice(0,400)});
+    }else if(Array.isArray(value))value.slice(0,3).forEach(v=>visit(v,path,depth+1));
+    else if(value&&typeof value==='object')for(const [key,item] of Object.entries(value)){
+      if(/(^id$|_id$|Id$|token|secret|password|^owner$|^created|^modified|^columns$|^chunk_index$|^filename$|^mime_type$|^relative_path$)/.test(key)||/token|secret|password/i.test(key))continue;
+      visit(item,path?`${path}.${key}`:key,depth+1);
+    }
+  };
+  visit(record.fields||{});
+  return facts;
 }
 
 export function recordPageOptions(owner,source,after,options={}) {

@@ -7,6 +7,7 @@ import { fieldRuleEdges } from './knowledge-field-rules.js';
 import {runIncrementalKnowledge} from './knowledge-incremental.js';
 import {refreshKnowledgeValues} from './knowledge-live-values.js';
 import {eligibleModelEdges} from './knowledge-mapping-advice.js';
+import {recordPreview,recordDisplayFields} from './knowledge-record-page.js';
 
 export async function cleanupKnowledgeSources({store=knowledgeStore(),search=knowledgeSearch()}={}) {
   for(const item of store.cleanupPending()) {
@@ -125,9 +126,9 @@ export async function connectedKnowledge(owner,{query,depth=3,source_ids=null,li
     remaining-=text.length;
     const fields=JSON.stringify(record.fields||{}).length<=4000?record.fields:{};
     const source=allowed.find(s=>s.id===record.source);
-    return {...record,text,fields,source_name:source?.name,source_kind:source?.kind,text_truncated:text.length<String(record.text||'').length};
+    return {...record,text,fields,preview:recordPreview(record),display_fields:recordDisplayFields(record),source_name:source?.name,source_kind:source?.kind,text_truncated:text.length<String(record.text||'').length};
   });
-  const endpoints=new Map(evidence.map(e=>[e.entity,{title:e.title,object_id:e.object_id,source_name:e.source_name,source_kind:e.source_kind,preview:e.text.slice(0,240)}]));
+  const endpoints=new Map(evidence.map(e=>[e.entity,{title:e.title,object_id:e.object_id,source_name:e.source_name,source_kind:e.source_kind,preview:e.preview}]));
   const currentEdges=edges.some(e=>e.evidence?.origin==='model_inferred')?eligibleModelEdges(owner,edges,store.list(owner).filter(s=>current.has(`${s.id}:${s.revision}`)),deps.advice):edges;
   return {query,retrieval_mode:'connected_information',evidence,
     chunks:hits.filter(h=>visibleIds.has(h.entity)).map(({embedding,...hit})=>{const record=evidence.find(e=>e.entity===hit.entity);return record?.value_origin==='live'?{...hit,text:record.text,fields:record.fields,value_origin:'live',live_checked_at:record.live_checked_at}:hit;}),relationships:currentEdges.filter(e=>visibleIds.has(e.from)&&visibleIds.has(e.to)).slice(0,100).map(e=>({...e,from_record:endpoints.get(e.from),to_record:endpoints.get(e.to),evidence:e.evidence?{...e.evidence,...(e.evidence.note?{note:e.evidence.note.slice(0,1000)}:{})}:undefined})),
