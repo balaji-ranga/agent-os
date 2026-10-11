@@ -239,20 +239,23 @@ export async function tailorJobsForReview(ceoUserId, profileId, jobs, jobsSvc) {
   return tailored;
 }
 
-export function findExistingCeoReviewKanban(profileId) {
+export function findExistingCeoReviewKanban(profileId, ceoUserId) {
+  if (!ceoUserId) return null;
   const db = getDb();
+  const tag = `${REVIEW_TAG}${profileId}`;
   return db
     .prepare(
       `SELECT id, title, status, description FROM kanban_tasks
-       WHERE description LIKE ? AND status IN ('open', 'awaiting_confirmation', 'in_progress')
+       WHERE owner_user_id = ? AND (description = ? OR substr(description, 1, length(?)) = ?)
+       AND status IN ('open', 'awaiting_confirmation', 'in_progress')
        ORDER BY id DESC LIMIT 1`
     )
-    .get(`${REVIEW_TAG}${profileId}%`);
+    .get(ceoUserId, tag, `${tag}\n`, `${tag}\n`);
 }
 
 export function createConsolidatedCeoReviewKanban(ceoUserId, profileId, jobs, profile, spreadsheetInfo, workflowMeta = null) {
   const db = getDb();
-  const existing = findExistingCeoReviewKanban(profileId);
+  const existing = findExistingCeoReviewKanban(profileId, ceoUserId);
   const description = buildCeoReviewDescription(jobs, profile, spreadsheetInfo, workflowMeta);
   const count = jobs.filter((j) => j.status === 'awaiting_approval').length;
   const borderlineCount = jobs.filter((j) => j.status === 'borderline').length;
@@ -283,7 +286,7 @@ export function createConsolidatedCeoReviewKanban(ceoUserId, profileId, jobs, pr
 /** Jobs available for CEO review UI (primary + borderline). */
 export function getCeoReviewQueue(ceoUserId, profileId, { limit = 100 } = {}) {
   const profileSvc = createJobSearchProfileService(() => getDb());
-  const jobsSvc = createJobApplicationsService(() => getDb());
+  const jobsSvc = createJobApplicationsService(() => getDb(), ceoUserId);
   const profile = profileSvc.getProfile(ceoUserId, profileId);
   if (!profile?.id) throw new Error(`Profile not found: ${profileId}`);
 
@@ -307,7 +310,7 @@ export function getCeoReviewQueue(ceoUserId, profileId, { limit = 100 } = {}) {
     shortlisted_pending_tailor,
     borderline_jobs,
     skipped_recent,
-    kanban: findExistingCeoReviewKanban(profileId),
+    kanban: findExistingCeoReviewKanban(profileId, ceoUserId),
     limit: fetchCap,
     counts: {
       primary: all.filter((j) => j.status === 'awaiting_approval').length,
@@ -322,7 +325,7 @@ export async function includeJobsInCeoReview(ceoUserId, profileId, jobIds = []) 
   if (!Array.isArray(jobIds) || jobIds.length === 0) throw new Error('job_ids array required');
 
   const profileSvc = createJobSearchProfileService(() => getDb());
-  const jobsSvc = createJobApplicationsService(() => getDb());
+  const jobsSvc = createJobApplicationsService(() => getDb(), ceoUserId);
   const sheetSvc = createJobApplicantSpreadsheetService(() => getDb());
 
   const profile = profileSvc.getProfile(ceoUserId, profileId);
@@ -394,7 +397,7 @@ export async function runPhase1SubmitCeoReview({
 } = {}) {
   const dbFn = () => getDbForCeo(ceoUserId);
   const profileSvc = createJobSearchProfileService(dbFn);
-  const jobsSvc = createJobApplicationsService(dbFn);
+  const jobsSvc = createJobApplicationsService(dbFn, ceoUserId);
   const sheetSvc = createJobApplicantSpreadsheetService(dbFn);
 
   const pid = profileId || profileSvc.getActiveProfileId(ceoUserId);
@@ -408,10 +411,15 @@ export async function runPhase1SubmitCeoReview({
   }
 
   const threshold = Number(profile.intake?.fit_threshold) || 80;
+  const tracker = getJobWorkflowTracker(dbFn);
+  if (workflowRunId && !tracker.getRun(workflowRunId, ceoUserId, profile.id)) {
+    throw Object.assign(new Error('Workflow not found for company/profile'), { status: 404 });
+  }
 
   let toTailor = listJobsNeedingTailor(jobsSvc, ceoUserId, profile.id);
   if (Array.isArray(jobIds) && jobIds.length > 0) {
-    toTailor = jobIds.map((id) => jobsSvc.get(id)).filter(Boolean);
+    toTailor = jobIds.map((id) => jobsSvc.get(id));
+    if (toTailor.some(job => !job || job.profile_id !== profile.id)) throw new Error('Job not found for profile');
   }
 
   const tailored = tailorShortlisted ? await tailorJobsForReview(ceoUserId, profile.id, toTailor, jobsSvc) : [];
@@ -432,9 +440,8 @@ export async function runPhase1SubmitCeoReview({
       (j.status === 'shortlisted' && Number(j.fit_score) >= threshold)
   );
 
-  const tracker = getJobWorkflowTracker(dbFn);
   const act = actor || { type: 'agent', id: 'resumetailor' };
-  let wf = workflowRunId ? tracker.getRun(workflowRunId) : tracker.findActiveRun(ceoUserId, profile.id);
+  let wf = workflowRunId ? tracker.getRun(workflowRunId, ceoUserId, profile.id) : tracker.findActiveRun(ceoUserId, profile.id);
   const workflowMeta = wf
     ? { workflow_id: wf.workflow_id, workflow_number: wf.workflow_number }
     : null;
@@ -505,13 +512,16 @@ export async function confirmCeoReview(ceoUserId, profileId, confirm = false, op
   const dbFn = () => getDbForCeo(ceoUserId);
   const tracker = getJobWorkflowTracker(dbFn);
   const profileSvc = createJobSearchProfileService(dbFn);
-  const jobsSvc = createJobApplicationsService(dbFn);
+  const jobsSvc = createJobApplicationsService(dbFn, ceoUserId);
   const profile = profileSvc.getProfile(ceoUserId, profileId);
   if (!profile?.id || profile.status === 'none') {
     throw new Error(`Profile not found: ${profileId}`);
   }
 
   const forApplication = requiresJobApplication(profile);
+  if (workflow_run_id && !tracker.getRun(workflow_run_id, ceoUserId, profile.id)) {
+    throw Object.assign(new Error('Workflow not found for company/profile'), { status: 404 });
+  }
   const goal = normalizeWorkflowGoal(profile.intake?.workflow_goal);
 
   const pending = jobsSvc.list({
@@ -535,7 +545,7 @@ export async function confirmCeoReview(ceoUserId, profileId, confirm = false, op
   }
 
   const db = getDb();
-  const kanban = findExistingCeoReviewKanban(profile.id);
+  const kanban = findExistingCeoReviewKanban(profile.id, ceoUserId);
   if (kanban) {
     db.prepare(`UPDATE kanban_tasks SET status = 'completed', updated_at = datetime('now') WHERE id = ?`).run(kanban.id);
   }
@@ -547,7 +557,7 @@ export async function confirmCeoReview(ceoUserId, profileId, confirm = false, op
       : await onCeoReviewAcknowledgedOnly(ceoUserId, profile, processed);
   }
 
-  let wf = workflow_run_id ? tracker.getRun(workflow_run_id) : tracker.findRunAwaitingCeoConfirm(ceoUserId, profile.id);
+  let wf = workflow_run_id ? tracker.getRun(workflow_run_id, ceoUserId, profile.id) : tracker.findRunAwaitingCeoConfirm(ceoUserId, profile.id);
   if (wf) {
     tracker.completeStep(wf.workflow_id, 'ceo_confirm', actor, {
       jobs_processed: processed.length,

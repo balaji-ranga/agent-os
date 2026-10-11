@@ -10,7 +10,7 @@ import * as ledger from '../services/ibkr-trading-ledger.js';
 import { getDb } from '../db/schema.js';
 import * as store from '../services/agent-workflow-store.js';
 import { resolveIbkrPolicy, pickIbkrPolicySource } from '../services/ibkr-workflow-variables.js';
-import { resolveEntitledOwnerUserId } from '../services/tool-owner-scope.js';
+import { resolveToolOwnerUserId } from '../services/tool-owner-scope.js';
 import { parseForceFlag } from '../services/tool-summary-cache.js';
 import {
   ensureIbkrMonthlyTables,
@@ -38,14 +38,14 @@ import {
 } from '../services/ibkr-strategy-bundles.js';
 
 const router = Router();
+// The bridge callback has its own workflow-secret/IP gate. All other routes,
+// including advisory inference and draft/history routes, authenticate first.
+router.use((req, res, next) => /^\/local-bridge-webhook\/?$/i.test(req.path) && req.method === 'POST'
+  ? next() : allowInternalOrAuth(req, res, next));
+router.use(toolApiRateLimitMiddleware);
 
 function smeOwner(req) {
-  if (req.isInternalService) {
-    const owner = String(req.headers['x-ceo-user-id'] || '').trim();
-    if (!owner) throw Object.assign(new Error('Authenticated owner header required'), { status: 403 });
-    return owner;
-  }
-  return resolveAuthenticatedCeoUserId(req, {});
+  return resolveToolOwnerUserId(req);
 }
 
 // Narrow read-only bridge for the SME. No raw snapshots, writes, refresh,
@@ -143,9 +143,7 @@ function resolveWorkflowBudgetOpts(req, ownerOverride = null) {
  * Never body/query spoof.
  */
 function entitledOwnerId(req) {
-  const owner = resolveEntitledOwnerUserId(req, { fallbackToBala: true });
-  if (!owner) throw new Error('owner_user_id could not be resolved');
-  return owner;
+  return resolveToolOwnerUserId(req);
 }
 
 function enrichPositions(positions = [], catalog = null) {
@@ -312,9 +310,6 @@ router.post('/local-bridge-webhook', async (req, res) => {
     res.status(400).json({ ok: false, error: e.message });
   }
 });
-
-router.use(allowInternalOrAuth);
-router.use(toolApiRateLimitMiddleware);
 
 router.get('/config', (req, res) => {
   const budgetOpts = resolveWorkflowBudgetOpts(req);

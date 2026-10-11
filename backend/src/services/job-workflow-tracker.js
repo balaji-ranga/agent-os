@@ -219,8 +219,10 @@ export function createJobWorkflowTracker(getDbFn = getDb) {
       .run(kanbanTaskId, nowIso(), runId);
   }
 
-  function getRun(runId) {
-    const run = db().prepare(`SELECT * FROM job_workflow_runs WHERE id = ?`).get(runId);
+  function getRun(runId, ceoUserId = null, profileId = null) {
+    const run = ceoUserId
+      ? db().prepare(`SELECT * FROM job_workflow_runs WHERE id = ? AND ceo_user_id = ? AND (? IS NULL OR profile_id = ?)`).get(runId, ceoUserId, profileId, profileId)
+      : db().prepare(`SELECT * FROM job_workflow_runs WHERE id = ?`).get(runId);
     if (!run) return null;
     return formatRun(run);
   }

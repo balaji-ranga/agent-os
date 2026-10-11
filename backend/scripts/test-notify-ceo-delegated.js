@@ -38,6 +38,7 @@ if (!grantCheck.ok) throw new Error(`grant check failed: ${grantCheck.error}`);
 console.log('OK: grant check for tenant runtime');
 
 const fakeReq = {
+  isInternalService: true,
   headers: {
     'x-openclaw-agent-id': runtimeId,
     'x-openclaw-session-key': sessionKey,

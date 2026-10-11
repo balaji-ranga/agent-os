@@ -15,7 +15,8 @@ import { createJobSearchProfileService, coerceConfirm } from '../services/job-se
 
 import { createJobApplicationsService } from '../services/job-applications.js';
 
-import { resolveCeoUserId, resolveCeoDataUserId } from '../services/job-applicant-ceo.js';
+import { resolveCeoDataUserId } from '../services/job-applicant-ceo.js';
+import { resolveToolOwnerUserId } from '../services/tool-owner-scope.js';
 
 import { startPipeline, stopPipeline, enqueueApplicationStageIfNeeded } from '../services/job-applicant-pipeline.js';
 
@@ -36,7 +37,7 @@ function profileService(ceoUserId) {
 }
 
 function jobsService(ceoUserId) {
-  return createJobApplicationsService(() => getDbForCeo(ceoUserId));
+  return createJobApplicationsService(() => getDbForCeo(ceoUserId), ceoUserId);
 }
 
 function spreadsheetService(ceoUserId) {
@@ -62,7 +63,7 @@ function ctx(req, body = {}) {
   const b = body && typeof body === 'object' ? body : {};
 
   const ceoUserId = resolveCeoDataUserId(
-    b.ceo_user_id ?? b.ceoUserId ?? resolveCeoUserId(req, b)
+    resolveToolOwnerUserId(req, b)
   );
   const profileId = b.profile_id || b.profileId || null;
 

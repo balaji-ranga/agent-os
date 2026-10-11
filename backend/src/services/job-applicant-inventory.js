@@ -104,7 +104,7 @@ export function createJobInventoryHelpers(getDb, jobsService) {
   function findByIdentity(ceoUserId, profileId, { url, company, title, jobId }) {
     const db = getDb();
     if (jobId) {
-      const row = db.prepare('SELECT * FROM job_applications WHERE job_id = ?').get(jobId);
+      const row = db.prepare('SELECT * FROM job_applications WHERE job_id = ? AND ceo_user_id = ?').get(jobId, ceoUserId);
       return row ? [row] : [];
     }
     const normUrl = normalizeJobUrl(url);

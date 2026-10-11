@@ -99,7 +99,7 @@ export async function tailorResumeForJob({
 } = {}) {
   const dbFn = () => getDbForCeo(ceoUserId);
   const profileSvc = createJobSearchProfileService(dbFn);
-  const jobsSvc = createJobApplicationsService(dbFn);
+  const jobsSvc = createJobApplicationsService(dbFn, ceoUserId);
   const sheetSvc = createJobApplicantSpreadsheetService(dbFn);
 
   const gate = profileSvc.assertActive(ceoUserId, profileId);
@@ -107,7 +107,7 @@ export async function tailorResumeForJob({
 
   const profile = gate.profile;
   const job = jobsSvc.get(jobId);
-  if (!job) throw new Error(`Job not found: ${jobId}`);
+  if (!job || job.profile_id !== profile.id) throw new Error(`Job not found for profile: ${jobId}`);
 
   const { masterPath, masterText } = await readMasterResumeText(profile);
   if (!masterText || masterText.length < 80) {

@@ -109,8 +109,12 @@ export function injectInternalServiceAuth(headers = {}, url = '', ownerUserId = 
     out['x-agent-os-internal'] = getInternalToken() || ensureInternalTokenConfigured();
   }
   const owner = String(ownerUserId || '').trim();
-  if (owner && !out['x-ceo-user-id'] && !out['X-Ceo-User-Id']) {
+  if (owner && url && isSameBackendUrl(url)) {
+    for (const key of Object.keys(out)) {
+      if (['x-ceo-user-id', 'x-agent-os-user-id'].includes(key.toLowerCase())) delete out[key];
+    }
     out['x-ceo-user-id'] = owner;
+    out['x-agent-os-user-id'] = owner;
   }
   return out;
 }

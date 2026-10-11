@@ -703,12 +703,9 @@ router.post('/test/:name', attachToolsAuth, requireAuth, requireCeoOrAdmin, asyn
     }
     if (targetUrl.startsWith(baseUrl)) {
       Object.assign(headers, internalAuthHeaders());
-      try {
-        const ownerUserId = resolveAuthenticatedCeoUserId(req, body);
-        if (ownerUserId) headers['x-ceo-user-id'] = ownerUserId;
-      } catch (_) {
-        /* admin without impersonation — leave unset; target may fall back */
-      }
+      const ownerUserId = resolveToolOwnerUserId(req, body);
+      headers['x-ceo-user-id'] = ownerUserId;
+      headers['x-agent-os-user-id'] = ownerUserId;
     }
 
     const fetchOpts = {
@@ -3045,7 +3042,7 @@ router.post('/content-tools-enquire', optionalAuth, (req, res) => {
 });
 
 function resolveConnectorOwner(req, body = {}) {
-  return resolveAuthenticatedCeoUserId(req, bodyWithoutSpoofedOwner(body));
+  return resolveToolOwnerUserId(req, body);
 }
 
 function connectorToolError(req, toolName, requestPayload, res, e, source) {
@@ -4102,10 +4099,10 @@ router.post('/invoke', requireToolsAccess, async (req, res) => {
     }
     const headers = { 'Content-Type': 'application/json' };
     if (source) headers['x-openclaw-agent-id'] = source;
-    for (const h of ['x-ceo-user-id', 'x-agent-os-user-id', 'x-openclaw-session-key', 'x-openclaw-session-user', 'x-session-key']) {
+    for (const h of ['x-openclaw-session-key', 'x-openclaw-session-user', 'x-session-key']) {
       if (req.headers[h]) headers[h] = String(req.headers[h]);
     }
-    const ownerUserId = resolveToolOwnerUserIdOrNull(req, params, resolveAuthenticatedCeoUserId);
+    const ownerUserId = resolveToolOwnerUserId(req, params, resolveAuthenticatedCeoUserId);
     // Channel identity is accepted only on the owner+agent scoped plugin hop and is
     // forwarded to our internal endpoint; model parameters can never supply it.
     if (req.toolsApiAuth && !req.legacyToolsApiAuth) {
@@ -4120,7 +4117,8 @@ router.post('/invoke', requireToolsAccess, async (req, res) => {
       headers['x-flolah-actor-channel'] = sessionActor.channel || 'web';
     }
     if (ownerUserId) {
-      if (!headers['x-ceo-user-id']) headers['x-ceo-user-id'] = ownerUserId;
+      headers['x-ceo-user-id'] = ownerUserId;
+      headers['x-agent-os-user-id'] = ownerUserId;
     }
     const policy = req.actionPolicy || evaluateActionPolicy({
       ownerUserId,
