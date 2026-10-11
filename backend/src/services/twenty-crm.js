@@ -302,6 +302,7 @@ export async function crmKnowledgePage(ownerUserId, collection, cursor = null, {
   if(metadataOnly)params.set('fields','id,updatedAt');
   if (cursor) params.set('starting_after', String(cursor));
   const data = await twentyFetch(`/rest/${collection}?${params}`, { apiKey: auth.apiKey });
+  if(!Array.isArray(data)&&!Array.isArray(data?.[collection])&&!Array.isArray(data?.data)&&!Array.isArray(data?.data?.[collection]))throw new Error('CRM returned an incomplete record page');
   const rows = unwrapList(data, collection);
   const info = data?.pageInfo || data?.data?.pageInfo;
   const hasNext = info?.hasNextPage === true;

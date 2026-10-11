@@ -31,6 +31,7 @@ export async function runIncrementalKnowledge(job,{store,search,records}){
         if(store.excluded(job.owner,source.id,id))continue;
         const prior=store.incrementalRecord(job,id);
         if(!prior||!await search.markIncrementalSeen(job.owner,source,draft,id,prior.version,scan))return false;
+        store.recordProgress(job,id,'indexed');
         members++;
       }
       if(page.length<100)break;

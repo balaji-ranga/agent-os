@@ -27,6 +27,8 @@ function harness(kind='content',collections=['generated']){
  const records=async function*(o,s,{incremental}){yield* versionedSource('file',version,async function*(){loads++;for(let n=0;n<size;n++){if(fail&&n===150)throw new Error('Interrupted extraction');yield {object_id:`file/${n}`,text:`v${version}:${n}`};}},incremental);};
  assert.equal((await h.run(records)).changed,205);
  assert.equal((await h.run(records)).reused,205);assert.equal(loads,1);
+ const latest=h.store.history(h.source.owner,h.source.id)[0];
+ assert.equal(h.store.recordPage(h.source.owner,latest.id,{limit:100}).items.length,100);
  h.objects.delete('file/110');assert.equal((await h.run(records)).changed,1);assert.equal(loads,2);
  version++;fail=true;const revision=h.store.get(h.source.owner,h.source.id).revision;
  assert.equal((await h.run(records)).status,'failed');assert.equal(h.store.get(h.source.owner,h.source.id).revision,revision);
