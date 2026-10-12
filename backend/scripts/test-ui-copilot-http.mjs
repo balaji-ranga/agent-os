@@ -23,6 +23,10 @@ try{
   assert.equal((await request(`/session/${s.id}`,'PUT',{version:s.version,draft:{form:'hire_employee',values:{name:'Safe draft'}}})).status,200);
   assert.equal((await request(`/session/${s.id}/propose`,'POST',{version:s.version,message:'stale'})).status,409);
   s=(await request('/session')).body.session;
+  const draftVersion=s.version;
+  s=(await request(`/session/${s.id}`,'PUT',{version:s.version,clearDraft:'hire_employee'})).body;
+  assert.equal(s.drafts.hire_employee,undefined,'Saved form draft removed');
+  assert.equal((await request(`/session/${s.id}`,'PUT',{version:draftVersion,clearDraft:'hire_employee'})).status,409,'Stale clear cannot delete a newer draft');
   const before=invoked;
   assert.equal((await request(`/session/${s.id}/propose`,'POST',{version:s.version,message:'password=secret'})).status,400);
   assert.equal(invoked,before);

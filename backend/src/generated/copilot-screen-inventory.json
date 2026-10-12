@@ -20,14 +20,14 @@
       "form_count": 1,
       "controls": [
         {
-          "id": "components/AddAgentForm.jsx:110",
+          "id": "components/AddAgentForm.jsx:111",
           "label": "AI employee name",
           "type": "text",
           "required": true,
           "mode": "guided"
         },
         {
-          "id": "components/AddAgentForm.jsx:121",
+          "id": "components/AddAgentForm.jsx:122",
           "label": "Role template",
           "type": "select",
           "required": false,
@@ -35,14 +35,14 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "components/AddAgentForm.jsx:144",
+          "id": "components/AddAgentForm.jsx:145",
           "label": "Role",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "components/AddAgentForm.jsx:160",
+          "id": "components/AddAgentForm.jsx:161",
           "label": "Reports to",
           "type": "select",
           "required": false,
@@ -50,14 +50,14 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "components/AddAgentForm.jsx:176",
+          "id": "components/AddAgentForm.jsx:177",
           "label": "Orchestrator",
           "type": "checkbox",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "components/AddAgentForm.jsx:184",
+          "id": "components/AddAgentForm.jsx:185",
           "label": "Monthly token budget",
           "type": "number",
           "required": false,
@@ -66,7 +66,7 @@
           "user_only": true
         },
         {
-          "id": "components/AddAgentForm.jsx:195",
+          "id": "components/AddAgentForm.jsx:196",
           "label": "Hourly value rate USD",
           "type": "number",
           "required": false,
@@ -74,7 +74,7 @@
           "mode": "guided"
         },
         {
-          "id": "components/AddAgentForm.jsx:206",
+          "id": "components/AddAgentForm.jsx:207",
           "label": "Error budget percent",
           "type": "number",
           "required": false,
@@ -1529,7 +1529,7 @@
       "form_count": 1,
       "controls": [
         {
-          "id": "components/PlatformHelpCopilot.jsx:112",
+          "id": "components/PlatformHelpCopilot.jsx:128",
           "label": "Assistance style",
           "type": "select",
           "required": false,
@@ -1537,7 +1537,7 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "components/PlatformHelpCopilot.jsx:126",
+          "id": "components/PlatformHelpCopilot.jsx:142",
           "label": "Ask me to help with anything in Flolah…",
           "type": "textarea",
           "required": false,
@@ -5677,14 +5677,14 @@
       "form_count": 6,
       "controls": [
         {
-          "id": "pages/MasterData.jsx:495",
+          "id": "pages/MasterData.jsx:497",
           "label": "For example: What are our current sales priorities?",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/MasterData.jsx:578",
+          "id": "pages/MasterData.jsx:580",
           "label": "Industry",
           "type": "select",
           "required": false,
@@ -5692,7 +5692,7 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "pages/MasterData.jsx:604",
+          "id": "pages/MasterData.jsx:606",
           "label": "Blueprint",
           "type": "select",
           "required": false,
@@ -5700,49 +5700,49 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "pages/MasterData.jsx:634",
+          "id": "pages/MasterData.jsx:636",
           "label": "Also seed SOP documents",
           "type": "checkbox",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/MasterData.jsx:790",
+          "id": "pages/MasterData.jsx:792",
           "label": "Table name",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/MasterData.jsx:791",
+          "id": "pages/MasterData.jsx:793",
           "label": "Purpose / description (helps agents decide when to use this table)",
           "type": "textarea",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/MasterData.jsx:797",
+          "id": "pages/MasterData.jsx:799",
           "label": "Columns (comma-separated)",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/MasterData.jsx:805",
+          "id": "pages/MasterData.jsx:807",
           "label": "Import name",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/MasterData.jsx:806",
+          "id": "pages/MasterData.jsx:808",
           "label": "Purpose / description (optional)",
           "type": "textarea",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/MasterData.jsx:812",
+          "id": "pages/MasterData.jsx:814",
           "label": "Unlabelled or dynamically labelled control",
           "type": "file",
           "required": false,
@@ -5750,28 +5750,28 @@
           "user_only": true
         },
         {
-          "id": "pages/MasterData.jsx:813",
+          "id": "pages/MasterData.jsx:815",
           "label": "Or paste CSV…",
           "type": "textarea",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/MasterData.jsx:861",
+          "id": "pages/MasterData.jsx:863",
           "label": "Title (optional)",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/MasterData.jsx:862",
+          "id": "pages/MasterData.jsx:864",
           "label": "Tags (optional, comma-separated)",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/MasterData.jsx:883",
+          "id": "pages/MasterData.jsx:885",
           "label": "Unlabelled or dynamically labelled control",
           "type": "file",
           "required": false,
@@ -5779,28 +5779,28 @@
           "user_only": true
         },
         {
-          "id": "pages/MasterData.jsx:1300",
+          "id": "pages/MasterData.jsx:1302",
           "label": "What this table is for — agents use this when choosing which master table to read/write",
           "type": "textarea",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/MasterData.jsx:1313",
+          "id": "pages/MasterData.jsx:1315",
           "label": "Keyword query…",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/MasterData.jsx:1330",
+          "id": "pages/MasterData.jsx:1332",
           "label": "Unlabelled or dynamically labelled control",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/MasterData.jsx:1375",
+          "id": "pages/MasterData.jsx:1377",
           "label": "Unlabelled or dynamically labelled control",
           "type": "text",
           "required": false,
@@ -6671,14 +6671,14 @@
       "form_count": 1,
       "controls": [
         {
-          "id": "pages/UserProfile.jsx:445",
+          "id": "pages/UserProfile.jsx:446",
           "label": "Allow clearly labelled Flolah announcements on my paired WhatsApp channel",
           "type": "checkbox",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/UserProfile.jsx:453",
+          "id": "pages/UserProfile.jsx:454",
           "label": "Unlabelled or dynamically labelled control",
           "type": "file",
           "required": false,
@@ -6686,14 +6686,14 @@
           "user_only": true
         },
         {
-          "id": "pages/UserProfile.jsx:505",
+          "id": "pages/UserProfile.jsx:506",
           "label": "Unlabelled or dynamically labelled control",
           "type": "text",
           "required": true,
           "mode": "guided"
         },
         {
-          "id": "pages/UserProfile.jsx:514",
+          "id": "pages/UserProfile.jsx:515",
           "label": "Unlabelled or dynamically labelled control",
           "type": "select",
           "required": false,
@@ -6701,14 +6701,14 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "pages/UserProfile.jsx:536",
+          "id": "pages/UserProfile.jsx:537",
           "label": "e.g. Founder & CEO",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/UserProfile.jsx:550",
+          "id": "pages/UserProfile.jsx:551",
           "label": "Unlabelled or dynamically labelled control",
           "type": "select",
           "required": false,
@@ -6716,28 +6716,28 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "pages/UserProfile.jsx:576",
+          "id": "pages/UserProfile.jsx:577",
           "label": "Or IANA zone e.g. Asia/Singapore",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/UserProfile.jsx:599",
+          "id": "pages/UserProfile.jsx:600",
           "label": "Unlabelled or dynamically labelled control",
           "type": "email",
           "required": true,
           "mode": "guided"
         },
         {
-          "id": "pages/UserProfile.jsx:623",
+          "id": "pages/UserProfile.jsx:624",
           "label": "Unlabelled or dynamically labelled control",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/UserProfile.jsx:631",
+          "id": "pages/UserProfile.jsx:632",
           "label": "Unlabelled or dynamically labelled control",
           "type": "select",
           "required": false,
@@ -6745,7 +6745,7 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "pages/UserProfile.jsx:687",
+          "id": "pages/UserProfile.jsx:688",
           "label": "Unlabelled or dynamically labelled control",
           "type": "select",
           "required": false,
@@ -6753,21 +6753,21 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "pages/UserProfile.jsx:708",
+          "id": "pages/UserProfile.jsx:709",
           "label": "Unlabelled or dynamically labelled control",
           "type": "text",
           "required": true,
           "mode": "guided"
         },
         {
-          "id": "pages/UserProfile.jsx:719",
+          "id": "pages/UserProfile.jsx:720",
           "label": "Unlabelled or dynamically labelled control",
           "type": "text",
           "required": true,
           "mode": "guided"
         },
         {
-          "id": "pages/UserProfile.jsx:737",
+          "id": "pages/UserProfile.jsx:738",
           "label": "Unlabelled or dynamically labelled control",
           "type": "select",
           "required": false,
@@ -6775,7 +6775,7 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "pages/UserProfile.jsx:751",
+          "id": "pages/UserProfile.jsx:752",
           "label": "Unlabelled or dynamically labelled control",
           "type": "select",
           "required": false,
@@ -6783,7 +6783,7 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "pages/UserProfile.jsx:796",
+          "id": "pages/UserProfile.jsx:797",
           "label": "Unlabelled or dynamically labelled control",
           "type": "select",
           "required": false,
@@ -6791,7 +6791,7 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "pages/UserProfile.jsx:808",
+          "id": "pages/UserProfile.jsx:809",
           "label": "Unlabelled or dynamically labelled control",
           "type": "select",
           "required": false,
@@ -6799,7 +6799,7 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "pages/UserProfile.jsx:831",
+          "id": "pages/UserProfile.jsx:832",
           "label": "Unlabelled or dynamically labelled control",
           "type": "select",
           "required": false,
@@ -6807,7 +6807,7 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "pages/UserProfile.jsx:857",
+          "id": "pages/UserProfile.jsx:858",
           "label": "Unlabelled or dynamically labelled control",
           "type": "select",
           "required": true,
@@ -6815,14 +6815,14 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "pages/UserProfile.jsx:888",
+          "id": "pages/UserProfile.jsx:889",
           "label": "Unlabelled or dynamically labelled control",
           "type": "text",
           "required": true,
           "mode": "guided"
         },
         {
-          "id": "pages/UserProfile.jsx:919",
+          "id": "pages/UserProfile.jsx:920",
           "label": "Unlabelled or dynamically labelled control",
           "type": "select",
           "required": false,
@@ -6830,7 +6830,7 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "pages/UserProfile.jsx:935",
+          "id": "pages/UserProfile.jsx:936",
           "label": "Unlabelled or dynamically labelled control",
           "type": "select",
           "required": true,
@@ -6838,14 +6838,14 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "pages/UserProfile.jsx:958",
+          "id": "pages/UserProfile.jsx:959",
           "label": "Unlabelled or dynamically labelled control",
           "type": "text",
           "required": true,
           "mode": "guided"
         },
         {
-          "id": "pages/UserProfile.jsx:986",
+          "id": "pages/UserProfile.jsx:987",
           "label": "Unlabelled or dynamically labelled control",
           "type": "select",
           "required": false,
@@ -6853,7 +6853,7 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "pages/UserProfile.jsx:1010",
+          "id": "pages/UserProfile.jsx:1011",
           "label": "Unlabelled or dynamically labelled control",
           "type": "select",
           "required": false,
@@ -6861,7 +6861,7 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "pages/UserProfile.jsx:1027",
+          "id": "pages/UserProfile.jsx:1028",
           "label": "Unlabelled or dynamically labelled control",
           "type": "select",
           "required": false,
@@ -6869,7 +6869,7 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "pages/UserProfile.jsx:1045",
+          "id": "pages/UserProfile.jsx:1046",
           "label": "Unlabelled or dynamically labelled control",
           "type": "password",
           "required": false,
@@ -6877,14 +6877,14 @@
           "user_only": true
         },
         {
-          "id": "pages/UserProfile.jsx:1057",
+          "id": "pages/UserProfile.jsx:1058",
           "label": "ceo-yourid",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/UserProfile.jsx:1066",
+          "id": "pages/UserProfile.jsx:1067",
           "label": "Clear saved OpenConnector token",
           "type": "checkbox",
           "required": false,
@@ -6892,7 +6892,7 @@
           "user_only": true
         },
         {
-          "id": "pages/UserProfile.jsx:1114",
+          "id": "pages/UserProfile.jsx:1115",
           "label": "Unlabelled or dynamically labelled control",
           "type": "password",
           "required": false,
@@ -6900,7 +6900,7 @@
           "user_only": true
         },
         {
-          "id": "pages/UserProfile.jsx:1124",
+          "id": "pages/UserProfile.jsx:1125",
           "label": "Unlabelled or dynamically labelled control",
           "type": "password",
           "required": false,
@@ -6908,7 +6908,7 @@
           "user_only": true
         },
         {
-          "id": "pages/UserProfile.jsx:1135",
+          "id": "pages/UserProfile.jsx:1136",
           "label": "Unlabelled or dynamically labelled control",
           "type": "password",
           "required": false,

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 const forms = new Map();
+export function copilotFormSaved(form){window.dispatchEvent(new CustomEvent('flolah-copilot-form-saved',{detail:{form}}));}
 export function getCopilotForm(id) { return forms.get(id); }
 export function useCopilotForm(id, values, apply, guard=()=>{}) {
   const current = useRef({ values, apply, guard });

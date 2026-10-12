@@ -84,6 +84,10 @@ router.put('/session/:id',handler(req=> {
     if(!Object.hasOwn(getCatalog(req.authUser).forms,form)) throw copilotError('Form access denied',403);
     noCredentials(values); state.drafts={...state.drafts,[form]:cleanFormPatch(form,values)};
   }
+  if(req.body.clearDraft!==undefined){
+    if(typeof req.body.clearDraft!=='string'||!Object.hasOwn(COPILOT_FORMS,req.body.clearDraft))throw copilotError('Unknown draft');
+    state.drafts={...state.drafts};delete state.drafts[req.body.clearDraft];
+  }
   if(state.status==='cancelled') {state.proposal=null;state.drafts={};state.watch=null;}
   return store.update(req.copilotOwner,req.authUser.id,old.id,req.body.version,state);
 }));

@@ -10,7 +10,7 @@ import KnowledgeJobRecords from './KnowledgeJobRecords.jsx';
 import KnowledgeRunSummary from './KnowledgeRunSummary.jsx';
 import KnowledgeSelection from './KnowledgeSelection.jsx';
 import './KnowledgeSources.css';
-import { useCopilotForm } from '../utils/copilotForms.js';
+import { useCopilotForm, copilotFormSaved } from '../utils/copilotForms.js';
 
 const collections={crm:['companies','people','opportunities'],erp:['Customer','Contact','Project','Sales Invoice'],content:['uploaded','generated'],knowledge:['tables','documents'],gmail:['messages'],outlook:['messages']};
 const empty={name:'',kind:'content',collections:['uploaded','generated'],graph_enabled:true,enabled:true,interval_seconds:300};
@@ -43,7 +43,7 @@ export default function KnowledgeSources() {
     <nav className="knowledge-connected-tabs" aria-label="Connected knowledge views">{[['sources','Sources'],['documents','Documents & records'],['search','Ask & Search'],['relationships','Relationships']].map(([id,label])=><button key={id} type="button" aria-pressed={tab===id} onClick={()=>{setTab(id);setMessage('');setError('');if(id==='relationships')act(async()=>setMappings(await api.knowledgeRelationshipPage('mappings')),'');}}>{label}</button>)}</nav>
     {error&&<p className="knowledge-alert knowledge-alert-error" role="alert">{error}</p>}{message&&<p className="knowledge-alert knowledge-alert-success" role="status">{message}</p>}
     {tab==='sources'&&<>
-      <form onSubmit={e=>{e.preventDefault();act(async()=>{await api.knowledgeSourceSave(form,editing);setForm(empty);setEditing(null);},'Source saved. Synchronization will run in the background.');}}>
+      <form onSubmit={e=>{e.preventDefault();act(async()=>{await api.knowledgeSourceSave(form,editing);if(!editing)copilotFormSaved('knowledge_source');setForm(empty);setEditing(null);},'Source saved. Its synchronization and visibility settings are retained.');}}>
         <h3>{editing?'Edit source':'Add source'}</h3>
         <label>Name <input required maxLength={160} value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></label>
         <label>Connection <select value={form.kind} onChange={e=>setForm({...form,kind:e.target.value,collections:collections[e.target.value]})} disabled={!!editing}><option value="content">Flolah content folder</option><option value="knowledge">Flolah Knowledge tables and documents</option><option value="crm">Configured CRM</option><option value="erp">Configured ERP</option><option value="gmail">Connected Gmail — message bodies</option><option value="outlook">Connected Outlook — message bodies</option></select></label>

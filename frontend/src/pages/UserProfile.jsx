@@ -10,7 +10,7 @@ import ThemePicker from '../components/ThemePicker.jsx';
 import DesignSystemPicker from '../components/DesignSystemPicker.jsx';
 import IsoCountryRegionSelect from '../components/IsoCountryRegionSelect.jsx';
 import { CompanyEfficiencyPreferences } from '../components/EfficiencyControls.jsx';
-import { useCopilotForm } from '../utils/copilotForms.js';
+import { useCopilotForm, copilotFormSaved } from '../utils/copilotForms.js';
 
 function UserProfilePanel() {
   const { user, reload, platformTimezone, displayTimezone } = useAuth();
@@ -295,6 +295,7 @@ function UserProfilePanel() {
       }
       // llm_api_key no longer accepted — use Settings → API Keys (Platform_BYOK)
       const data = await api.authUpdateProfile(body);
+      copilotFormSaved('user_profile');
       if (
         oc.clear_runtime_token ||
         (oc.runtime_token && oc.runtime_token.trim()) ||

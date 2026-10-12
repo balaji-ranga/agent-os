@@ -7,7 +7,7 @@ import { formatLocalDateTime } from '../utils/formatDateTime.js';
 import './MasterData.css';
 import KnowledgeSources from '../components/KnowledgeSources';
 import KnowledgeDocumentResults from '../components/KnowledgeDocumentResults.jsx';
-import { useCopilotForm } from '../utils/copilotForms.js';
+import { useCopilotForm, copilotFormSaved } from '../utils/copilotForms.js';
 
 const PAGE_SIZE = 50;
 const DOC_PAGE_SIZE = 10;
@@ -181,6 +181,7 @@ function MasterDataPanel() {
         columns,
       });
       setNewTableName('');
+      copilotFormSaved('knowledge_table');
       setNewTablePurpose('');
       await refresh();
       flash('Table created.');
@@ -242,6 +243,7 @@ function MasterDataPanel() {
           tags: docTags.split(',').map((tag) => tag.trim()).filter(Boolean),
         });
         setDocTitle('');
+        copilotFormSaved('knowledge_document');
         setDocTags('');
         await refresh();
         flash(`Uploaded ${file.name}`);

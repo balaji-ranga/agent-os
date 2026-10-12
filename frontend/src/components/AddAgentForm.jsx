@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api';
 import DepartmentPicker from './DepartmentPicker';
 import AgentAvatarPicker from './AgentAvatarPicker.jsx';
-import { useCopilotForm } from '../utils/copilotForms.js';
+import { useCopilotForm, copilotFormSaved } from '../utils/copilotForms.js';
 import { loadDepartmentsReadOnly } from '../utils/departmentsMasterData.js';
 
 /**
@@ -78,6 +78,7 @@ export default function AddAgentForm({ agents = [], onCreated, compact = false, 
     api
       .agentCreate(body)
       .then((agent) => {
+        copilotFormSaved('hire_employee');
         setName('');
         setRole('');
         setHireTemplateId('');
