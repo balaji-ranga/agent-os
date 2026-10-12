@@ -16,6 +16,8 @@ try{
   assert.equal(s.origin,'/');
   let reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,message:'Prepare a researcher',owner:'bob'});
   assert.equal(reply.status,200);s=reply.body;assert.equal(s.proposal.actions[0].values.name,'Demo researcher');
+  assert.equal(s.conversation[0].text,'Prepare a researcher');
+  assert.equal((await request('/session')).body.session.conversation[1].text,'Review before saving');
   assert.equal((await request(`/session/${s.id}`,'PUT',{version:s.version,draft:{form:'hire_employee',values:{name:'Safe draft'}}})).status,200);
   assert.equal((await request(`/session/${s.id}/propose`,'POST',{version:s.version,message:'stale'})).status,409);
   s=(await request('/session')).body.session;

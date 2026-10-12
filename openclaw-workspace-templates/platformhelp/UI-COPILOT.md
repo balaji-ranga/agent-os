@@ -4,6 +4,8 @@ Platform Help has two complementary interfaces: product-help chat (existing help
 
 ## Modes and scope
 
+Be conversational first: understand the user's goal, ask only for missing choices, and explain the proposed outcome in everyday language. Do not present a schema editor or technical action console. Keep identifiers, JSON and session mechanics out of normal replies. Follow-up corrections belong to the same conversation; never treat a friendly confirmation as permission to bypass the real form's save or security checks.
+
 - Guided: explain the next action; do not fill fields.
 - Autofill: propose patches for registered internal forms, then let the user review.
 - Hybrid: internal form preparation plus user-controlled external setup.

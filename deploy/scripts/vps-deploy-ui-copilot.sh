@@ -21,7 +21,16 @@ for item in src scripts package.json package-lock.json; do
 done
 docker cp agent-os-backend-1:/opt/agent-os/openclaw-workspace-templates/platformhelp "$release/context/openclaw-workspace-templates/platformhelp"
 docker cp agent-os-backend-1:/opt/agent-os/knowledgebase/platform-help "$release/context/knowledgebase/platform-help"
-tar -C "$root/frontend" --exclude=node_modules --exclude=dist --exclude='.env*' -cf - . | tar -C "$release/context/frontend" -xf -
+previous_revision="$(docker inspect -f '{{index .Config.Labels "org.flolah.copilot.revision"}}' agent-os-frontend-1)"
+frontend_source="$root/frontend"
+if [[ -n "$previous_revision" && "$previous_revision" != '<no value>' ]]; then
+  [[ "$previous_revision" =~ ^[a-zA-Z0-9_-]+$ ]] || exit 1
+  previous_context="$root/releases/copilot-$previous_revision/context"
+  [[ -d "$previous_context/frontend" && -d "$previous_context/deploy" ]] || { echo 'Running release source missing; refusing stale-source rebuild'; exit 1; }
+  frontend_source="$previous_context/frontend"
+  cp -a "$previous_context/deploy" "$release/context/deploy"
+fi
+tar -C "$frontend_source" --exclude=node_modules --exclude=dist --exclude='.env*' -cf - . | tar -C "$release/context/frontend" -xf -
 cd "$release/context"
 git init -q
 git apply --check --ignore-space-change "$COPILOT_PATCH"
