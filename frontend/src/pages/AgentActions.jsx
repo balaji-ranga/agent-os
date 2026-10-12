@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { formatChatTimestamp } from '../utils/formatDateTime.js';
 
-const STATE_LABEL = { working: 'Working now', queued: 'Queued', blocked: 'Blocked', idle: 'Idle' };
+const STATE_LABEL = { working: 'Working now', queued: 'Queued', blocked: 'Blocked', idle: 'Idle', review_pending: 'Verification / recovery pending' };
 
 function nodePosition(index, total) {
   const angle = (index / Math.max(total, 1)) * Math.PI * 2 - Math.PI / 2;
@@ -41,7 +41,7 @@ function ConnectorNode({ tool, position, index }) {
 function OperationsDashboard({ live }) {
   const agents = live?.agents || [];
   const summary = live?.summary || {};
-  const activeWork = agents.reduce((n, a) => n + a.current.length, 0);
+  const activeWork = agents.reduce((n, a) => n + a.current.filter(item=>item.execution_activity?.active!==false).length, 0);
   const totalAgents = agents.length;
   const ready = agents.filter((a) => a.state === 'idle').length;
   const events = (live?.events?.length ? live.events : agents.flatMap((agent) => [
@@ -70,7 +70,7 @@ function OperationsDashboard({ live }) {
             {events.map((item, i) => (
               <div className={`ops-event lane-${item.lane}`} key={`${item.agent}-${item.kind}-${item.id}-${i}`}>
                 <span className="ops-event-dot" aria-hidden />
-                <div><strong>{item.agent || 'Platform'}</strong><p>{item.title}</p><small>{item.kind} · {String(item.status || '').replaceAll('_', ' ')}</small></div>
+                <div><strong>{item.agent || 'Platform'}</strong><p>{item.title}</p><small>{item.kind} · {item.execution_activity?.label||String(item.status || '').replaceAll('_', ' ')}</small></div>
               </div>
             ))}
             {!events.length && <p className="agent-live-idle">No work is active right now.</p>}
@@ -95,7 +95,7 @@ function OperationsDashboard({ live }) {
         <aside className="ops-side-stack">
           <section className="ops-panel ops-health">
             <header><h2>Agent health</h2></header>
-            {['working', 'queued', 'blocked', 'idle'].map((state) => {
+            {['working', 'queued', 'blocked', 'review_pending', 'idle'].map((state) => {
               const count = agents.filter((a) => a.state === state).length;
               const pct = totalAgents ? Math.round((count / totalAgents) * 100) : 0;
               return <div className={`ops-health-row state-${state}`} key={state}><span>{STATE_LABEL[state]}</span><div><i style={{ width: `${pct}%` }} /></div><strong>{count}</strong></div>;
@@ -119,7 +119,7 @@ function ActionItem({ item }) {
     <>
       <span className="agent-action-kind">{item.kind}</span>
       <span className="agent-action-title">{item.title || `${item.kind} ${item.id}`}</span>
-      <span className={`agent-action-status status-${item.status}`}>{String(item.status || '').replaceAll('_', ' ')}</span>
+      <span className={`agent-action-status status-${item.status}`}>{item.execution_activity?.label||String(item.status || '').replaceAll('_', ' ')}</span>
     </>
   );
   return item.link ? <Link className="agent-action-item" to={item.link}>{body}</Link> : <div className="agent-action-item">{body}</div>;

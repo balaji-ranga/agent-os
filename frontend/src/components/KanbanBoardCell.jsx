@@ -66,6 +66,7 @@ export default function KanbanBoardCell({
             />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div className="kanban-card-title">{t.title || '(no title)'}</div>
+              {t.execution_activity && <small title={t.execution_activity.observer_reason||t.execution_activity.label}>{t.execution_activity.label}</small>}
               {t.sla_state && t.sla_state !== 'none' && <span className={`kanban-sla-badge is-${t.sla_state}`}>{String(t.sla_state).toUpperCase()}{t.eta_hours ? ` · ${t.eta_hours}h` : ''}</span>}
               {isWorkflowCeoApprovalTask(t) && (
                 <span style={{ fontSize: '0.6rem', color: '#ca8a04', fontWeight: 700 }}>WF CEO</span>

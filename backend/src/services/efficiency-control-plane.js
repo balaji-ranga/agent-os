@@ -6,7 +6,7 @@ import { EFFICIENCY_MODE_TOOLS, getEfficiencyOllamaLlmConfig, getUserEfficiencyM
 const DEFAULT_POLICY = Object.freeze({ enabled: true, allow_cloud_fallback: true,
   default_model: 'ollama-efficiency', allowed_models: ['ollama-efficiency', 'ollama-reasoning'],
   workloads: [...EFFICIENCY_MODE_TOOLS], max_concurrency: 2, max_queue: 32,
-  queue_timeout_ms: 15000, local_timeout_ms: 30000, validate_json: true });
+  queue_timeout_ms: 15000, local_timeout_ms: 30000, observer_timeout_ms: 30000, validate_json: true });
 const MODEL_IDS = ['ollama-efficiency', 'ollama-reasoning'];
 const fail = message => Object.assign(new Error(message), { status: 400 });
 const parse = (text, fallback) => { try { return JSON.parse(text); } catch { return fallback; } };
@@ -55,7 +55,7 @@ export function saveEfficiencyPolicy(input) {
   if (!Array.isArray(policy.allowed_models) || !policy.allowed_models.length || policy.allowed_models.some(id => !MODEL_IDS.includes(id))) throw fail('Only approved local model IDs are supported');
   if (!policy.allowed_models.includes(policy.default_model)) throw fail('Default model must be allowed');
   if (!Array.isArray(policy.workloads) || policy.workloads.some(name => !EFFICIENCY_MODE_TOOLS.includes(name))) throw fail('Protected or unknown workloads cannot join efficiency mode');
-  for (const [key, min, max] of [['max_concurrency', 1, 16], ['max_queue', 0, 256], ['queue_timeout_ms', 10, 60000], ['local_timeout_ms', 100, 120000]]) {
+  for (const [key, min, max] of [['max_concurrency', 1, 16], ['max_queue', 0, 256], ['queue_timeout_ms', 10, 60000], ['local_timeout_ms', 100, 120000], ['observer_timeout_ms', 100, 120000]]) {
     if (!Number.isInteger(policy[key]) || policy[key] < min || policy[key] > max) throw fail(`${key} must be an integer from ${min} to ${max}`);
   }
   // Changes that widen routes require evidence for the exact configured model.

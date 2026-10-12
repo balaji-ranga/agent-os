@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { getDb } from '../db/schema.js';
 import { requireAuth, requireCeoOrAdmin, resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
 import { listAgentsForUser } from '../services/users.js';
+import {withKanbanTaskActivity} from '../services/kanban-task-activity.js';
 
 const router = Router();
 const ACTIVE = new Set(['pending', 'queued', 'processing', 'running', 'in_progress', 'awaiting_ceo', 'awaiting_confirmation']);
@@ -188,9 +189,9 @@ export function liveSnapshot(ownerUserId) {
   }
 
   const cards = db().prepare(
-    `SELECT k.id, k.assigned_agent_id AS agent_id, k.title, k.status, k.updated_at
+    `SELECT k.id, k.assigned_agent_id, k.owner_user_id, k.agent_delegation_task_id, k.assigned_agent_id AS agent_id, k.title, k.status, k.updated_at
      FROM kanban_tasks k
-     LEFT JOIN agent_delegation_tasks d ON d.id = k.agent_delegation_task_id
+     LEFT JOIN agent_delegation_tasks d ON d.id = k.agent_delegation_task_id AND d.owner_user_id=k.owner_user_id
      WHERE k.owner_user_id = ? AND k.status IN ('open','in_progress','awaiting_confirmation')
        AND NOT (
          k.status = 'open' AND k.agent_delegation_task_id IS NOT NULL
@@ -201,7 +202,7 @@ export function liveSnapshot(ownerUserId) {
   for (const row of cards) {
     const a = ensure(row.agent_id);
     if (!a) continue;
-    const item = { kind: 'kanban', id: row.id, title: clip(row.title), status: row.status, at: iso(row.updated_at), link: `/kanban?task=${row.id}` };
+    const item = { kind: 'kanban', id: row.id, title: clip(row.title), status: row.status, execution_activity:withKanbanTaskActivity(db(),row).execution_activity, at: iso(row.updated_at), link: `/kanban?task=${row.id}` };
     if (row.status === 'awaiting_confirmation') a.blocked.push(item);
     else if (row.status === 'open') a.queued.push(item);
     else a.current.push(item);
@@ -209,7 +210,8 @@ export function liveSnapshot(ownerUserId) {
 
   for (const a of agents) {
     if (a.blocked.length) a.state = 'blocked';
-    else if (a.current.length || a.tools.length) a.state = 'working';
+    else if (a.current.some(item=>item.execution_activity?.active!==false) || a.tools.some(tool=>['running','processing','in_progress'].includes(tool.status))) a.state = 'working';
+    else if (a.current.length) a.state = 'review_pending';
     else if (a.queued.length) a.state = 'queued';
   }
   const workflowApprovals = db().prepare(
@@ -250,7 +252,7 @@ export function liveSnapshot(ownerUserId) {
   const attention = [...workflowApprovals, ...kanbanConfirmations, ...policyBlocks];
   const workEvents = agents.flatMap((agent) => [
     ...agent.blocked.map((item) => ({ ...item, agent: agent.name, agent_id: agent.id, lane: 'blocked' })),
-    ...agent.current.map((item) => ({ ...item, agent: agent.name, agent_id: agent.id, lane: 'working' })),
+    ...agent.current.map((item) => ({ ...item, agent: agent.name, agent_id: agent.id, lane: item.execution_activity?.active===false?'review_pending':'working' })),
     ...agent.queued.map((item) => ({ ...item, agent: agent.name, agent_id: agent.id, lane: 'queued' })),
   ]);
   return {
@@ -260,6 +262,7 @@ export function liveSnapshot(ownerUserId) {
       queued: agents.reduce((n, a) => n + a.queued.length, 0),
       blocked: agents.reduce((n, a) => n + a.blocked.length, 0) + attention.length,
       idle: agents.filter((a) => a.state === 'idle').length,
+      review_pending: agents.filter((a) => a.state === 'review_pending').length,
     },
     approvals: attention,
     events: [...toolEvents, ...workEvents].sort((a, b) => String(b.at || '').localeCompare(String(a.at || ''))).slice(0, 100),
