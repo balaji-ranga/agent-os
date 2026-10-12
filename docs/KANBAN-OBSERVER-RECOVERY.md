@@ -36,3 +36,9 @@ Run from `backend/`:
 - `npm run test:security:tenant-tools`
 
 Then run `npm run build` from `frontend/`. Harnesses use disposable databases, mock providers and loopback HTTP; they do not modify VPS cards or call real paid models. Existing images package these source/templates; no extra container, dependency, secret or Docker topology change is needed. Deployment remains a separate authorized step.
+
+## Scoped VPS release
+
+Use `scripts/package-observer-recovery-release.mjs BASE FEATURE REVISION` to package the immutable feature delta. Upload/extract under `/opt/agent-os/releases/`, then run `deploy/scripts/vps-observer-recovery-release.py prepare RELEASE_DIR` and `activate RELEASE_DIR`. Preparation performs separate three-way merges against running image source and host source, regenerates the copilot inventory, builds captured-base API/UI images and gates activation on all six disposable harnesses. Any conflict or concurrent deployment stops cutover. Existing Compose overlays are preserved. Activation snapshots SQLite read-only, backs up touched source files, verifies health, and has image rollback. Gateway, converter and Ollama are not recreated; completed production cards are not edited.
+
+After cutover run `OBSERVER_LIVE_ACCEPTANCE=1 node scripts/vps-test-observer-recovery-live.mjs` inside the backend. This explicitly authorized acceptance uses short-lived synthetic users/cards against the public HTTPS APIs and removes only its exact records. It validates activity labels, diagnostics, Admin deadline visibility, owner isolation and legitimate tool access. Real-model performance is a separate diagnostic, not established by mocked regression tests.

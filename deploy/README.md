@@ -902,6 +902,10 @@ Top-nav **Digest** (/this-week) loads owner-scoped GET /api/this-week-digest (KP
 Visual designer at `/workspace-designer` stores pages in `company_workspace_boards` (JSON components + data bindings). **Set as Default** targets menu Workspace (`/work`). Seed **operating-workspace** to recreate the hard-built layout via JSON. Backend: `/api/workspace-boards/*` (CEO/owner-scoped). Differentiator: AI workers / Workflow Builder can later generate the same JSON document.
 # Content downloads and steering
 
+### Kanban observer recovery release
+
+See [../docs/KANBAN-OBSERVER-RECOVERY.md](../docs/KANBAN-OBSERVER-RECOVERY.md) for the captured-image API/UI overlay, three-way source reconciliation, isolated harness gates, public-API synthetic acceptance and rollback. The scoped release does not recreate OpenClaw, Ollama or trading services.
+
 See [CONTENT_DOWNLOADS_AND_STEERING.md](CONTENT_DOWNLOADS_AND_STEERING.md) for
 generic file downloads, mandatory private ClamAV, chat formatting and checkpoint
 steering setup, testing and deployment. Canonical VPS Compose includes the

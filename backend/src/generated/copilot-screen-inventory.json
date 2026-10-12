@@ -4992,21 +4992,21 @@
           "mode": "guided"
         },
         {
-          "id": "pages/Kanban.jsx:943",
+          "id": "pages/Kanban.jsx:944",
           "label": "Task title",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Kanban.jsx:953",
+          "id": "pages/Kanban.jsx:954",
           "label": "Optional",
           "type": "textarea",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Kanban.jsx:963",
+          "id": "pages/Kanban.jsx:964",
           "label": "Unlabelled or dynamically labelled control",
           "type": "select",
           "required": false,
@@ -5014,7 +5014,7 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "pages/Kanban.jsx:976",
+          "id": "pages/Kanban.jsx:977",
           "label": "Unlabelled or dynamically labelled control",
           "type": "select",
           "required": false,
@@ -5022,14 +5022,14 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "pages/Kanban.jsx:1092",
+          "id": "pages/Kanban.jsx:1094",
           "label": "Outcome delivered, blocker, or question…",
           "type": "textarea",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Kanban.jsx:1143",
+          "id": "pages/Kanban.jsx:1145",
           "label": "Add a note for the workflowâ€¦",
           "type": "textarea",
           "required": false,
