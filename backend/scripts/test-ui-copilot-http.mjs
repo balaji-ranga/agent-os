@@ -43,6 +43,10 @@ try{
   s=(await request(`/session/${s.id}`,'PUT',{version:s.version,status:'active',watch:'gmail'})).body;
   s=(await request(`/session/${s.id}/watch/check`,'POST',{})).body;
   assert.equal(s.watch.status,'connected');assert.equal(connectionCalls,2);
+  const callsBeforeMalformed=invoked;
+  modelReply={message:'Incomplete response without actions'};
+  assert.equal((await request(`/session/${s.id}/propose`,'POST',{version:s.version,message:'Show a review'})).status,502);
+  assert.equal(invoked-callsBeforeMalformed,2,'Malformed proposals get exactly one repair attempt');
   s=(await request(`/session/${s.id}`,'PUT',{version:s.version,status:'cancelled'})).body;
   await request(`/session/${s.id}/watch/check`,'POST',{});assert.equal(connectionCalls,2);assert.equal(s.watch,null);
   user={id:'bob',role:'ceo'};
