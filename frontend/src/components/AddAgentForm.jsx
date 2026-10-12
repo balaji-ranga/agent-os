@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react';
 import { api } from '../api';
 import DepartmentPicker from './DepartmentPicker';
 import AgentAvatarPicker from './AgentAvatarPicker.jsx';
+import { useCopilotForm } from '../utils/copilotForms.js';
+import { loadDepartmentsReadOnly } from '../utils/departmentsMasterData.js';
 
 /**
  * Hire a CEO-owned AI employee (OpenClaw agent under the tenant + org chart).
  * Used from AI Employees; Org chart Design mode has its own modal.
  */
-export default function AddAgentForm({ agents = [], onCreated, compact = false }) {
+export default function AddAgentForm({ agents = [], onCreated, compact = false, copilot = false }) {
   const [name, setName] = useState('');
   const [role, setRole] = useState('');
   const [hireTemplateId, setHireTemplateId] = useState('');
@@ -22,6 +24,17 @@ export default function AddAgentForm({ agents = [], onCreated, compact = false }
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [copilotDepartments,setCopilotDepartments]=useState([]);
+  useEffect(()=>{let active=true;loadDepartmentsReadOnly().then(r=>{if(active)setCopilotDepartments(r.departments.map(d=>d.name));}).catch(()=>{});return()=>{active=false;};},[]);
+  useCopilotForm('hire_employee',{name,role,department},patch=>{
+    if(submitting)throw new Error('An employee is already being created. Please wait.');
+    if(patch.department!==undefined){
+      if(patch.department!==department&&!copilotDepartments.includes(patch.department))throw new Error('Choose an existing department in the form, or explicitly create it there first. Copilot will not create departments while filling fields.');
+    }
+    if(patch.name!==undefined)setName(patch.name);
+    if(patch.role!==undefined)setRole(patch.role);
+    if(patch.department!==undefined)setDepartment(patch.department);
+  },()=>{if(hireTemplateId||parentId||tokenBudget||errorBudget||hourlyRate!=='10'||avatarImage||isOrchestrator)throw new Error('This employee form has advanced choices. Finish or cancel it before a Copilot detour; these choices are not part of the draft contract yet.');});
 
   useEffect(() => {
     api
@@ -137,6 +150,7 @@ export default function AddAgentForm({ agents = [], onCreated, compact = false }
           style={inputStyle}
         />
         <DepartmentPicker
+          autoCreateMissing={!copilot}
           value={department}
           onChange={setDepartment}
           compact

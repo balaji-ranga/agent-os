@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { api } from '../api';
 import AddAgentForm from '../components/AddAgentForm';
 import RobotAvatar from '../components/RobotAvatar.jsx';
 import PublishAgentToExchangeModal from '../components/PublishAgentToExchangeModal.jsx';
 
 export default function Workspace() {
+  const location=useLocation();
   const [agents, setAgents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [clearingAgentId, setClearingAgentId] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
+  useEffect(()=>{if(new URLSearchParams(location.search).get('copilot')==='hire')setShowAdd(true);},[location.search]);
   const [publishAgent, setPublishAgent] = useState(null);
 
   const clearSessions = (agentId) => {
@@ -87,6 +89,7 @@ export default function Workspace() {
             Creates a digital employee in your isolated tenant. Set department and who they report to for the org chart.
           </p>
           <AddAgentForm
+            copilot={new URLSearchParams(location.search).get('copilot')==='hire'}
             agents={agents}
             compact
             onCreated={() => {

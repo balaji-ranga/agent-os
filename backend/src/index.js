@@ -91,6 +91,7 @@ import {
 import { migrateSqliteDocsForAllOwners } from './services/opensearch/migrate-sqlite-docs.js';
 import aiSnipperRoutes from './routes/ai-snipper.js';
 import efficiencyRoutes from './routes/efficiency.js';
+import uiCopilotRoutes from './routes/ui-copilot.js';
 import orgMembersRoutes from './routes/org-members.js';
 import orgPeopleRoutes from './routes/org-people.js';
 import humanCommunicationsRoutes from './routes/human-communications.js';
@@ -775,6 +776,7 @@ apiRouter.use('/ibkrnew-paper-rehearsal', ibkrNewPaperRehearsalRoutes);
 apiRouter.use('/market-data', marketDataRoutes);
 apiRouter.use('/ai-snipper', aiSnipperRoutes);
 apiRouter.use('/efficiency', efficiencyRoutes);
+apiRouter.use('/ui-copilot', uiCopilotRoutes);
 apiRouter.use('/org-people', orgPeopleRoutes);
 apiRouter.use('/org-members', orgMembersRoutes);
 apiRouter.use('/media/openclaw', mediaRoutes);

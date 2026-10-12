@@ -4,6 +4,8 @@ All tools are **owner-scoped** to the entitled CEO from the OpenClaw/UI session.
 
 ## Granted tools
 
+The floating Platform Help panel uses a backend-validated UI action catalog. Follow **UI-COPILOT.md**; these UI actions are not additional OpenClaw content-tool grants. Existing help-document RAG remains available. Never invent a `ui_execute` tool or use shell/HTTP to emulate one.
+
 - **master_data_list_documents** — `{ }` or filters as supported; use first when confirming Platform Help docs.
 - **master_data_rag** — `{ "query": "...", "top_k": 5 }`; **required** for product how-to answers. Omit `summarize` (defaults `false`) and write the answer from the returned `chunks[]` yourself — only pass `summarize: true` when the excerpts are too long or scattered to answer directly.
 - **master_data_list_tables** — list tables with purpose.

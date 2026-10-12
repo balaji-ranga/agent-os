@@ -78,7 +78,7 @@ import NotificationBell from './components/NotificationBell';
 import ProfileMenu from './components/ProfileMenu';
 import ThemeToggle from './components/ThemeToggle';
 import GlobalSearch from './components/GlobalSearch';
-import CooAssistantWidget from './components/CooAssistantWidget';
+import PlatformHelpCopilot from './components/PlatformHelpCopilot.jsx';
 import HumanIncomingCall from './components/HumanIncomingCall';
 import { AdminNavMenu, CeoNavMenu } from './components/AppNavMenu';
 import { ImmersiveCapabilityLauncher, ImmersivePrimaryNavigation } from './components/ImmersiveNavigation';
@@ -432,8 +432,8 @@ function Shell() {
                   >
                     All capabilities <kbd>Ctrl K</kbd>
                   </button>
-                  <button type="button" className="immersive-ask-coo" onClick={() => window.dispatchEvent(new Event('agent-os-open-coo'))}>
-                    Ask COO
+                  <button type="button" className="immersive-ask-coo" onClick={() => window.dispatchEvent(new Event('agent-os-open-platform-help'))}>
+                    Platform Help
                   </button>
                 </div>
               </>
@@ -563,7 +563,7 @@ function Shell() {
         </main>
       </div>
       <PromotionPopup enabled={isCompanyUser(user)} />
-      {isCompanyUser(user) && <CooAssistantWidget />}
+      {isCompanyUser(user) && <PlatformHelpCopilot key={user.id} />}
       {isCompanyUser(user) && <HumanIncomingCall />}
       {isImmersive && isCompanyUser(user) && (
         <ImmersiveCapabilityLauncher open={capabilityLauncherOpen} onClose={() => setCapabilityLauncherOpen(false)} />

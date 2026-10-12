@@ -74,6 +74,16 @@ async function listAllRows(tableId) {
   return all;
 }
 
+/** Copilot form preparation must not bootstrap or seed production tables. */
+export async function loadDepartmentsReadOnly() {
+  const listed=await api.masterDataTables();
+  const matches=(listed.tables||[]).filter(t=>String(t.name||'').trim().toLowerCase()===DEPARTMENTS_TABLE_NAME);
+  const table=pickCanonicalTable(matches);
+  if(!table)return {departments:[],table:null,duplicates:[]};
+  const rows=await listAllRows(table.id);
+  return {table,duplicates:matches.length>1?matches:[],departments:rows.map(row=>({id:row.id,name:rowName(row),purpose:rowPurpose(row),monthly_token_budget:rowBudget(row)})).filter(d=>d.name)};
+}
+
 /**
  * Find or create the CEO's master-data table named "departments".
  * If multiple "departments" tables exist (legacy), uses the canonical one only.

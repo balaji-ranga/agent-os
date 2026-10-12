@@ -10,6 +10,7 @@ import KnowledgeJobRecords from './KnowledgeJobRecords.jsx';
 import KnowledgeRunSummary from './KnowledgeRunSummary.jsx';
 import KnowledgeSelection from './KnowledgeSelection.jsx';
 import './KnowledgeSources.css';
+import { useCopilotForm } from '../utils/copilotForms.js';
 
 const collections={crm:['companies','people','opportunities'],erp:['Customer','Contact','Project','Sales Invoice'],content:['uploaded','generated'],knowledge:['tables','documents'],gmail:['messages'],outlook:['messages']};
 const empty={name:'',kind:'content',collections:['uploaded','generated'],graph_enabled:true,enabled:true,interval_seconds:300};
@@ -24,6 +25,14 @@ export default function KnowledgeSources() {
   const [summarize,setSummarize]=useState(true);
   const [liveValues,setLiveValues]=useState(false);
   const [searchMode,setSearchMode]=useState('auto');
+  useCopilotForm('knowledge_source', Object.fromEntries(['name','kind','collections','query','folder_id','selection','interval_seconds','graph_enabled','intelligent_mapping','enabled','retrieval_enabled'].filter(k=>form[k]!==undefined).map(k=>[k,form[k]])), patch=>{
+    if(editing)throw new Error('Finish or cancel your source edit before preparing a new source.');
+    if(disabled)throw new Error('Knowledge service is disabled.');
+    const kind=patch.kind||form.kind;
+    const selected=patch.collections||(patch.kind&&patch.kind!==form.kind?collections[kind]:form.collections);
+    if(!collections[kind]||selected.some(c=>!collections[kind].includes(c)))throw new Error('Collections do not match this source type.');
+    setTab('sources');setForm({...form,...patch,collections:selected});
+  },()=>{if(editing)throw new Error('Save or cancel your existing source edit before a Copilot detour. New-source drafts cannot replace existing-source edits.');});
   async function load(){try{const data=await api.knowledgeSources();setSources(data.sources);setDisabled(false);}catch(e){if(e.status===503)setDisabled(true);else setError(e.message);}}
   useEffect(()=>{load();},[]);
   useEffect(()=>{if(disabled)return;const timer=setInterval(load,15000);return()=>clearInterval(timer);},[disabled]);

@@ -1,0 +1,47 @@
+import assert from 'node:assert/strict';
+import express from 'express';
+import Database from 'better-sqlite3';
+import { uiCopilotRouter } from '../src/routes/ui-copilot.js';
+import { COPILOT_FORMS } from '../src/services/ui-copilot-contract.js';
+const db=new Database(':memory:');
+let user={id:'alice',role:'ceo'},allow=true,modelReply={message:'Review before saving',actions:[{type:'fill',form:'hire_employee',values:{name:'Demo researcher'}}]};
+let invoked=0,connectionCalls=0,connected=false;
+const app=express();app.use(express.json());app.use((req,res,next)=>{req.authUser=user;next();});
+app.use('/copilot',uiCopilotRouter({database:()=>db,getCatalog:()=>({forms:allow?COPILOT_FORMS:{},screens:[{id:'home',route:'/'},{id:'connectors',route:'/connectors'}],agents:[]}),connections:async owner=>{assert.equal(owner,'alice');connectionCalls++;return {apps:connected?[{id:'gmail',connected:true}]:[]};},complete:async options=>{invoked++;assert.equal(options.ownerUserId,'alice');return {content:JSON.stringify(modelReply)};}}));
+const server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));
+const base=`http://127.0.0.1:${server.address().port}/copilot`;
+async function request(path,method='GET',body){const res=await fetch(base+path,{method,headers:{'Content-Type':'application/json','x-impersonate-ceo':'bob'},body:body&&JSON.stringify(body)});return {status:res.status,body:await res.json()};}
+try{
+  let s=(await request('/session','POST',{owner:'bob',origin:'https://evil.test'})).body;
+  assert.equal(s.origin,'/');
+  let reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,message:'Prepare a researcher',owner:'bob'});
+  assert.equal(reply.status,200);s=reply.body;assert.equal(s.proposal.actions[0].values.name,'Demo researcher');
+  assert.equal((await request(`/session/${s.id}`,'PUT',{version:s.version,draft:{form:'hire_employee',values:{name:'Safe draft'}}})).status,200);
+  assert.equal((await request(`/session/${s.id}/propose`,'POST',{version:s.version,message:'stale'})).status,409);
+  s=(await request('/session')).body.session;
+  const before=invoked;
+  assert.equal((await request(`/session/${s.id}/propose`,'POST',{version:s.version,message:'password=secret'})).status,400);
+  assert.equal(invoked,before);
+  allow=false;assert.equal((await request(`/session/${s.id}`,'PUT',{version:s.version,draft:{form:'hire_employee',values:{name:'Not allowed'}}})).status,403);
+  allow=true;s=(await request(`/session/${s.id}`,'PUT',{version:s.version,mode:'guided'})).body;
+  assert.equal((await request(`/session/${s.id}/propose`,'POST',{version:s.version,message:'Fill name'})).status,400);
+  s=(await request(`/session/${s.id}`,'PUT',{version:s.version,watch:'gmail'})).body;
+  s=(await request(`/session/${s.id}/watch/check`,'POST',{})).body;
+  assert.equal(connectionCalls,1);assert.equal(s.watch.status,'waiting');
+  await request(`/session/${s.id}/watch/check`,'POST',{});assert.equal(connectionCalls,1,'Second tab reuses durable poll claim');
+  s=(await request(`/session/${s.id}`,'PUT',{version:s.version,status:'paused'})).body;
+  await request(`/session/${s.id}/watch/check`,'POST',{});assert.equal(connectionCalls,1,'Paused watchers do not fetch');
+  connected=true;
+  s=(await request(`/session/${s.id}`,'PUT',{version:s.version,status:'active',watch:'gmail'})).body;
+  s=(await request(`/session/${s.id}/watch/check`,'POST',{})).body;
+  assert.equal(s.watch.status,'connected');assert.equal(connectionCalls,2);
+  s=(await request(`/session/${s.id}`,'PUT',{version:s.version,status:'cancelled'})).body;
+  await request(`/session/${s.id}/watch/check`,'POST',{});assert.equal(connectionCalls,2);assert.equal(s.watch,null);
+  user={id:'bob',role:'ceo'};
+  assert.equal((await request(`/session/${s.id}`,'PUT',{version:s.version,status:'cancelled'})).status,404);
+  user={id:'employee',role:'org_user',owner_user_id:'alice'};
+  assert.equal((await request(`/session/${s.id}`,'PUT',{version:s.version,status:'cancelled'})).status,404);
+  user={id:'admin',role:'admin'};assert.equal((await request('/catalog')).status,403);
+  user=null;assert.equal((await request('/catalog')).status,401);
+  console.log('PASS Copilot HTTP: authentication, forged-owner isolation, draft/version checks, permission denial, guided-mode safety and credential rejection before model invocation.');
+}finally{await new Promise(r=>server.close(r));db.close();}

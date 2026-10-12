@@ -16,6 +16,7 @@ import {
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { getDb } from '../db/schema.js';
+import { syncPlatformHelpCopilot } from './platform-help-template-sync.js';
 import { getOpenClawDir, getOpenClawConfigPath } from '../config/openclaw-paths.js';
 import * as workspace from '../workspace/adapter.js';
 import {
@@ -183,6 +184,17 @@ export function syncEssentialWorkspaceDocs(baseId, destDir) {
 
   // No agent-specific template ⇒ custom/onboarded agent. Do not sync from balserve fallback.
   if (!hasOwnTemplate) return;
+
+  // Platform Help updates are managed guidance blocks, not full workspace
+  // replacement. Existing tenant identity, memory and tool notes are retained.
+  if (String(baseId || '').toLowerCase() === 'platformhelp' && syncPlatformHelpCopilot(ownTpl, destDir)) {
+    for (const name of ['MEMORY.md', 'IDENTITY.md']) {
+      const from = join(ownTpl, name), to = join(destDir, name);
+      if (existsSync(from) && !existsSync(to)) cpSync(from, to);
+    }
+    syncEvidenceGuidance(destDir);
+    return;
+  }
 
   const src = ownTpl;
   // Platform Help is platform-owned product desk copy — force full MD bundle so every tenant

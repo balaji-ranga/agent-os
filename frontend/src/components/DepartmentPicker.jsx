@@ -3,6 +3,7 @@ import {
   addDepartment,
   ensureDepartmentName,
   loadDepartments,
+  loadDepartmentsReadOnly,
   removeDepartment,
   updateDepartment,
 } from '../utils/departmentsMasterData.js';
@@ -29,6 +30,7 @@ export default function DepartmentPicker({
   selectStyle,
   compact = false,
   showDetails,
+  autoCreateMissing = true,
 }) {
   const withDetails = showDetails === undefined ? !compact : !!showDetails;
   const [departments, setDepartments] = useState([]);
@@ -43,7 +45,7 @@ export default function DepartmentPicker({
   const [editBudget, setEditBudget] = useState('');
 
   const refresh = useCallback(async () => {
-    const { departments: list, table, duplicates } = await loadDepartments();
+    const { departments: list, table, duplicates } = await (autoCreateMissing ? loadDepartments() : loadDepartmentsReadOnly());
     setDepartments(list);
     if (duplicates?.length) {
       setError(
@@ -53,7 +55,7 @@ export default function DepartmentPicker({
       setError(null);
     }
     return list;
-  }, []);
+  }, [autoCreateMissing]);
 
   useEffect(() => {
     let cancelled = false;
@@ -63,7 +65,7 @@ export default function DepartmentPicker({
       try {
         let list = await refresh();
         const current = String(value || '').trim();
-        if (current && !list.some((d) => d.name.toLowerCase() === current.toLowerCase())) {
+        if (autoCreateMissing && current && !list.some((d) => d.name.toLowerCase() === current.toLowerCase())) {
           await ensureDepartmentName(current);
           if (!cancelled) list = await refresh();
         }
@@ -83,7 +85,7 @@ export default function DepartmentPicker({
 
   useEffect(() => {
     const current = String(value || '').trim();
-    if (!current || loading) return;
+    if (!autoCreateMissing || !current || loading) return;
     if (departments.some((d) => d.name.toLowerCase() === current.toLowerCase())) return;
     let cancelled = false;
     (async () => {
