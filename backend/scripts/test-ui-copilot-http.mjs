@@ -43,6 +43,12 @@ try{
   s=(await request(`/session/${s.id}`,'PUT',{version:s.version,status:'active',watch:'gmail'})).body;
   s=(await request(`/session/${s.id}/watch/check`,'POST',{})).body;
   assert.equal(s.watch.status,'connected');assert.equal(connectionCalls,2);
+  s=(await request(`/session/${s.id}`,'PUT',{version:s.version,watch:'gmail'})).body;
+  const expiredWatch=JSON.parse(db.prepare('SELECT state FROM ui_copilot_sessions WHERE id=?').get(s.id).state);
+  expiredWatch.watch.deadline=Date.now()-1;
+  db.prepare('UPDATE ui_copilot_sessions SET state=? WHERE id=?').run(JSON.stringify(expiredWatch),s.id);
+  s=(await request(`/session/${s.id}/watch/check`,'POST',{})).body;
+  assert.equal(s.watch.status,'timeout');assert.equal(connectionCalls,2,'Expired watcher must not contact provider');
   const callsBeforeMalformed=invoked;
   modelReply={message:'Incomplete response without actions'};
   assert.equal((await request(`/session/${s.id}/propose`,'POST',{version:s.version,message:'Show a review'})).status,502);
