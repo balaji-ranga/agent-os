@@ -33,7 +33,7 @@ export async function executeEfficiency(options, plan, execute, fallbackConfig, 
   try {
     lease = await pool.acquire(options.ownerUserId, id, plan.policy);
     updateEfficiencyCall(id, { status: 'processing', queue_ms: lease.queueMs });
-    const out = await execute({ ...options, requestSignal: AbortSignal.timeout(plan.policy.local_timeout_ms),
+    const out = await execute({ ...options, requestSignal: AbortSignal.timeout(Math.min(plan.policy.local_timeout_ms, options.timeoutMs || plan.policy.local_timeout_ms)),
       _config: { cfg: { primary: plan.endpoint, secondary: null, provider: 'ollama_free', using_byok: false },
         effectiveModel: plan.endpoint.model, efficiencyMode: true, utilityTransport: true, routeAlias: null } });
     validateEfficiencyOutput(out, options);

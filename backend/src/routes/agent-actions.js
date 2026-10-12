@@ -193,7 +193,7 @@ export function liveSnapshot(ownerUserId) {
      LEFT JOIN agent_delegation_tasks d ON d.id = k.agent_delegation_task_id
      WHERE k.owner_user_id = ? AND k.status IN ('open','in_progress','awaiting_confirmation')
        AND NOT (
-         k.agent_delegation_task_id IS NOT NULL
+         k.status = 'open' AND k.agent_delegation_task_id IS NOT NULL
          AND lower(COALESCE(d.status,'')) IN ('completed','failed','cancelled')
        )
      ORDER BY k.updated_at DESC LIMIT 250`
@@ -201,7 +201,7 @@ export function liveSnapshot(ownerUserId) {
   for (const row of cards) {
     const a = ensure(row.agent_id);
     if (!a) continue;
-    const item = { kind: 'kanban', id: row.id, title: clip(row.title), status: row.status, at: iso(row.updated_at), link: '/kanban' };
+    const item = { kind: 'kanban', id: row.id, title: clip(row.title), status: row.status, at: iso(row.updated_at), link: `/kanban?task=${row.id}` };
     if (row.status === 'awaiting_confirmation') a.blocked.push(item);
     else if (row.status === 'open') a.queued.push(item);
     else a.current.push(item);

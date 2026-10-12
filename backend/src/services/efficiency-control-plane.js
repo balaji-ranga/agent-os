@@ -32,11 +32,11 @@ export function getEfficiencyPolicy() {
   const saved=parse(row?.value_json, {});
   // Upgrade the previous 'all utility workloads' policy once. Preserve custom
   // workload restrictions and every model/fallback/capacity preference.
-  const migration='knowledge_mapping_workload_v1';
+  const migration='observer_workload_v1';
   if(!getDb().prepare('SELECT 1 FROM efficiency_control_settings WHERE id=?').get(migration)){
     getDb().transaction(()=>{
-      if(Array.isArray(saved.workloads)&&EFFICIENCY_MODE_TOOLS.filter(t=>t!=='knowledge_mapping_advice').every(t=>saved.workloads.includes(t))&&!saved.workloads.includes('knowledge_mapping_advice')){
-        saved.workloads.push('knowledge_mapping_advice');
+      if(Array.isArray(saved.workloads)&&EFFICIENCY_MODE_TOOLS.filter(t=>!['knowledge_mapping_advice','kanban_task_observer'].includes(t)).every(t=>saved.workloads.includes(t))){
+        for(const tool of ['knowledge_mapping_advice','kanban_task_observer'])if(!saved.workloads.includes(tool))saved.workloads.push(tool);
         getDb().prepare("UPDATE efficiency_control_settings SET value_json=? WHERE id='policy'").run(JSON.stringify(saved));
       }
       getDb().prepare('INSERT OR IGNORE INTO efficiency_control_settings(id,value_json) VALUES (?,?)').run(migration,'true');

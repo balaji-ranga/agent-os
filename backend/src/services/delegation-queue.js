@@ -6,6 +6,7 @@
 import { readFile, appendFile } from 'fs/promises';
 import { join } from 'path';
 import { getDb } from '../db/schema.js';
+import {observerFeedbackPrompt} from './kanban-observer-feedback.js';
 import * as openclaw from '../gateway/openclaw.js';
 import { isPlatformLocalOllama } from './platform-llm-settings.js';
 import { hasAnyActiveDashboardChat, registerOpenClawSessionOwner } from './tool-owner-scope.js';
@@ -1247,7 +1248,7 @@ export async function processPendingDelegationTasksForCeo(ceoUserId, opts = {}) 
         + (goalIdentity?.goalRunId ? goalSteeringPrompt(ownerForTenant, goalIdentity.goalRunId, `task_dispatch:${task.id}`) : '');
       const { content, usage } = await openclaw.chatCompletions(
         runtimeOcId,
-        [{ role: 'user', content: promptWithMemory + guidance }],
+        [...(observerFeedbackPrompt(task.id,ownerForTenant)?[{role:'system',content:observerFeedbackPrompt(task.id,ownerForTenant)}]:[]),{ role: 'user', content: promptWithMemory + guidance }],
         sessionUser,
         false,
         isDiscovery
@@ -1286,7 +1287,7 @@ export async function processPendingDelegationTasksForCeo(ceoUserId, opts = {}) 
           chatCompletions: openclaw.chatCompletions.bind(openclaw),
           openclawAgentId: runtimeOcId,
           sessionUser,
-          priorMessages: [{ role: 'user', content: promptWithMemory }],
+          priorMessages: [...(observerFeedbackPrompt(task.id,ownerForTenant)?[{role:'system',content:observerFeedbackPrompt(task.id,ownerForTenant)}]:[]),{ role: 'user', content: promptWithMemory }],
           reply: responseText,
         });
         responseText = nudged.reply;
@@ -1325,20 +1326,24 @@ export async function processPendingDelegationTasksForCeo(ceoUserId, opts = {}) 
         )
         .run('completed', responseText, now, task.id);
       const goalAdvance = await maybeAdvanceGoalRunFromDelegation(task.id);
+      // Observe only active ordinary cards; protected goal/policy approvals keep their existing lifecycle.
+      const { observeKanbanTasks } = await import('./kanban-task-observer.js');
+      const taskObservation = await observeKanbanTasks({ ownerUserId: ownerForTenant, delegationId: task.id, allowRenudge: false, ambiguousLimit: 1 });
+      const observerHandled = taskObservation.details.some(item => item.outcome !== 'skip');
       if (isAgentWorkflowPrompt(task.prompt)) {
-        completeAgentWorkflowKanbanForDelegation(task.id, { ok: true });
+        if (!observerHandled) completeAgentWorkflowKanbanForDelegation(task.id, { ok: true });
         try {
           await maybeAdvanceAgentWorkflow({ ...task, status: 'completed', response_content: responseText });
         } catch (wfErr) {
           console.warn('[agent-workflow] advance:', wfErr.message);
         }
       } else if (!goalAdvance?.handled) {
-        const kanbanResult = completePipelineKanbanForDelegation(task.id, {
+        const kanbanResult = observerHandled ? null : completePipelineKanbanForDelegation(task.id, {
           ok: true,
           replyText: responseText,
         });
         // Auto-retry so the CEO does not have to nudge — requeues same agent (capped).
-        if (kanbanResult?.skipped_status_only || stillStatusOnly) {
+        if (!observerHandled && (kanbanResult?.skipped_status_only || stillStatusOnly)) {
           try {
             requeueKanbanAfterStatusOnlyReply({
               kanbanId: kanbanRow?.id || kanbanResult?.id,

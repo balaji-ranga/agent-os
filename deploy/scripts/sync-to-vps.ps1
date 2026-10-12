@@ -162,6 +162,8 @@ scp @ssh `
   "$Repo\deploy\docker-compose.ollama-gpu.yml" `
   "$Repo\deploy\.env.example" `
   "$Repo\deploy\README.md" `
+  "$Repo\deploy\APPROVAL_LIFECYCLE.md" `
+  "$Repo\deploy\KANBAN_TASK_OBSERVER.md" `
   "root@${HostIp}:$RemoteRoot/deploy/"
 scp @ssh -r "$Repo\deploy\docker" "root@${HostIp}:$RemoteRoot/deploy/"
 Write-Host "==> Sync LiteLLM model-router config"
@@ -211,6 +213,8 @@ scp @ssh -r "$Repo\docs-site\src" "root@${HostIp}:$RemoteRoot/docs-site/"
 scp @ssh -r "$Repo\docs-site\static" "root@${HostIp}:$RemoteRoot/docs-site/"
 scp @ssh `
   "$Repo\deploy\scripts\vps-deploy-latest.sh" `
+  "$Repo\deploy\scripts\vps-deploy-approval-lifecycle.sh" `
+  "$Repo\deploy\scripts\vps-deploy-kanban-observer.sh" `
   "$Repo\deploy\scripts\build-public-docs.sh" `
   "$Repo\deploy\scripts\compose-file-defaults.sh" `
   "$Repo\deploy\scripts\assert-vps-ingress.sh" `
@@ -367,6 +371,10 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\test-kanban-timezone-and-chat-context.js" `
     "$Repo\backend\scripts\test-a2a-private-local-delegation.js" `
     "$Repo\backend\scripts\test-kanban-orphan-watcher.js" `
+    "$Repo\backend\scripts\test-kanban-task-observer.mjs" `
+    "$Repo\backend\scripts\test-observer-recovery-completion.mjs" `
+    "$Repo\backend\scripts\test-notify-approval-lifecycle.mjs" `
+    "$Repo\backend\scripts\vps-test-notify-approval-live.mjs" `
     "$Repo\backend\scripts\test-a2a-leaf-kanban-complete.js" `
     "$Repo\backend\scripts\vps-test-private-ops-echo-delegation.js" `
     "$Repo\backend\scripts\test-org-member-delegation-e2e.js" `

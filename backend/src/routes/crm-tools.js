@@ -104,7 +104,8 @@ router.post('/crm-list-companies', (req, res) =>
     const ownerUserId = owner(req, req.body || {});
     assertCrmEntitled(ownerUserId);
     if (isErpnextCrmOwner(ownerUserId)) return erpCrmListCompanies(ownerUserId, { limit: req.body?.limit });
-    return crmListCompanies(ownerUserId, { limit: req.body?.limit });
+    return crmListCompanies(ownerUserId, {limit:req.body?.limit,cursor:req.body?.cursor,
+      scan_all:req.body?.scan_all!==false,max_pages:req.body?.max_pages});
   })
 );
 

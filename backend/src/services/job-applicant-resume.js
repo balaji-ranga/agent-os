@@ -207,4 +207,4 @@ export async function tailorResumeForJob({
     kanban: createKanban ? { consolidated: true } : null,
   };
 }
-
+

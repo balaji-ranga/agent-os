@@ -135,6 +135,7 @@ export function ensureActionPolicyTables() {
 export function inferRiskForTool(toolName) {
   const n = String(toolName || '').toLowerCase();
   if (!n) return { risk_tier: 'R0', action_family: 'read' };
+  if (n === 'notify_ceo') return { risk_tier: 'R1', action_family: 'write_internal' };
   if (
     n === 'gmail_mailbox_cleanup' ||
     n === 'erp_create_payment_entry' ||

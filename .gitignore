@@ -56,6 +56,9 @@ deploy/.admin-password.txt
 tmp/
 backend/tmp/
 # Local one-off probes/patches (often talk to VPS or mint sessions) — never commit
+.codex-tmp/
+backend/.codex-tmp/
+backend/scripts/.tmp-*
 backend/scripts/_*
 scripts/_*
 tmp-oc-*

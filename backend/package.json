@@ -6,6 +6,8 @@
   "type": "module",
   "main": "src/index.js",
   "scripts": {
+    "test:kanban-task-observer": "node scripts/test-kanban-task-observer.mjs",
+    "test:observer-recovery-completion": "node scripts/test-observer-recovery-completion.mjs",
     "test:knowledge-efficiency": "node scripts/test-knowledge-efficiency.mjs",
     "pretest:knowledge": "node scripts/test-document-result-pages.mjs && node scripts/test-rag-knowledge-access.mjs && node scripts/test-knowledge-controls.mjs && node scripts/test-knowledge-full-resync.mjs && node scripts/test-knowledge-live-values.mjs && node scripts/test-knowledge-source-incremental.mjs",
     "test:home-team-activity": "node scripts/test-home-team-activity.mjs",
@@ -35,6 +37,7 @@
     "test:slash-commands": "node scripts/test-agent-slash-commands.mjs && node scripts/test-agent-command-routes.mjs",
     "test:security:critical": "node scripts/test-critical-security-hardening.mjs",
     "test:security:tenant-tools": "node scripts/test-tool-tenant-boundaries.mjs",
+    "test:notify-approval": "node scripts/test-notify-approval-lifecycle.mjs",
     "test:blueprint-secrets": "node scripts/test-blueprint-secret-sanitize.js && node scripts/scan-blueprint-secrets.js",
     "test:browser-executors": "node scripts/test-browser-executor-multinode.js",
     "test:browser-recipe-inputs": "node scripts/test-browser-recipe-inputs.mjs",

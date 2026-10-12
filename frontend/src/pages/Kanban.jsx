@@ -22,6 +22,8 @@ import ChatMessageAttachments from '../components/ChatMessageAttachments.jsx';
 import { buildMessageWithAttachments, uploadChatAttachments, splitChatAttachmentContent } from '../utils/chatAttachments.js';
 import { useAuth } from '../context/AuthContext';
 import GoalPlanPanel from '../components/GoalPlanPanel.jsx';
+import ActionApprovalBanner from '../components/ActionApprovalBanner.jsx';
+import { actionApprovalUiState } from '../utils/actionApprovalState.js';
 
 const STATUSES = ['open', 'awaiting_confirmation', 'in_progress', 'completed', 'failed'];
 const STATUS_LABELS = {
@@ -50,6 +52,13 @@ export default function Kanban() {
   const { feedback, showSuccess, showError, clearFeedback } = useActionFeedback();
   const [selectedTask, setSelectedTask] = useState(null);
   const [taskDetail, setTaskDetail] = useState(null);
+  const [approvalNow, setApprovalNow] = useState(Date.now);
+  useEffect(() => {
+    if (!(taskDetail || selectedTask)?.action_approval?.expires_at) return;
+    setApprovalNow(Date.now());
+    const timer = setInterval(() => setApprovalNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [taskDetail?.action_approval?.expires_at, selectedTask?.id]);
   const [createOpen, setCreateOpen] = useState(false);
   const [createTitle, setCreateTitle] = useState('');
   const [createDesc, setCreateDesc] = useState('');
@@ -556,8 +565,9 @@ export default function Kanban() {
 
   const selectedIsGoalActionApproval =
     selectedTask &&
-    (taskDetail?.status ?? selectedTask.status) === 'awaiting_confirmation' &&
+    ((taskDetail || selectedTask)?.action_approval || (taskDetail?.status ?? selectedTask.status) === 'awaiting_confirmation') &&
     isGoalActionApprovalTask(taskDetail || selectedTask);
+  const selectedActionApprovalState = actionApprovalUiState(taskDetail || selectedTask, approvalNow);
 
   const respondWorkflowApproval = (decision) => {
     if (!selectedTask) return;
@@ -588,6 +598,8 @@ export default function Kanban() {
 
   const respondGoalActionApproval = (decision) => {
     if (!selectedTask) return;
+    const currentState = actionApprovalUiState(taskDetail || selectedTask);
+    if (currentState?.canDecide === false) { showError(currentState.message); return; }
     setWfApproving(true);
     setApproveError(null);
     setApproveSuccess(null);
@@ -606,6 +618,8 @@ export default function Kanban() {
       .catch((e) => {
         setApproveError(e.message || 'Action approval failed');
         showError(e.message || 'Action approval failed');
+        loadTaskDetail(selectedTask.id);
+        fetchTasks();
       })
       .finally(() => setWfApproving(false));
   };
@@ -1173,22 +1187,10 @@ export default function Kanban() {
               </div>
             )}
             {selectedIsGoalActionApproval && (
-              <div style={{ position: 'sticky', top: 0, zIndex: 2, margin: '-1rem -1rem 1rem', padding: '0.75rem 1rem', borderBottom: '1px solid #ca8a04', background: 'rgba(202,138,4,0.12)' }}>
-                <strong>Action approval required</strong>
-                <div style={{ fontSize: '0.8rem', color: 'var(--muted)', margin: '4px 0 8px' }}>
-                  Approve permits only this exact pending action once. For a goal, execution resumes at the paused step. Reject stops the action.
-                </div>
-                {approveError && <div style={{ fontSize: '0.85rem', color: '#dc2626', marginBottom: 6 }}>{approveError}</div>}
-                {approveSuccess && <div style={{ fontSize: '0.85rem', color: '#166534', marginBottom: 6 }}>{approveSuccess}</div>}
-                <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: 6 }}>
-                  Comment (optional)
-                  <textarea rows={2} value={wfApprovalComment} onChange={(e) => setWfApprovalComment(e.target.value)} style={{ width: '100%', marginTop: 4, padding: '0.4rem', borderRadius: 6, border: '1px solid var(--border)' }} />
-                </label>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button type="button" onClick={() => respondGoalActionApproval('approve')} disabled={wfApproving || !selectedCanMutate} style={{ flex: 1, padding: '0.65rem', borderRadius: 6, background: '#16a34a', color: 'white', border: 'none', fontWeight: 700 }}>Approve &amp; continue</button>
-                  <button type="button" onClick={() => respondGoalActionApproval('reject')} disabled={wfApproving || !selectedCanMutate} style={{ flex: 1, padding: '0.65rem', borderRadius: 6, background: '#dc2626', color: 'white', border: 'none', fontWeight: 700 }}>Reject</button>
-                </div>
-              </div>
+              <ActionApprovalBanner state={selectedActionApprovalState} expiresAt={(taskDetail || selectedTask)?.action_approval?.expires_at}
+                timeZone={displayTimezone || serverTimezone} busy={wfApproving} canMutate={selectedCanMutate}
+                comment={wfApprovalComment} onComment={setWfApprovalComment} onDecision={respondGoalActionApproval}
+                error={approveError} success={approveSuccess} />
             )}
             {drawerTab === 'details' && selectedIsCeoReview && (
               <div

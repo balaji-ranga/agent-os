@@ -129,6 +129,7 @@ export function recoverStaleWorkflowAgentProcessing({ ownerUserId = null, limit 
           `SELECT id, to_agent_id, prompt, owner_user_id, created_at
            FROM agent_delegation_tasks
            WHERE status = 'processing'
+             AND NOT EXISTS (SELECT 1 FROM kanban_tasks k WHERE k.agent_delegation_task_id=agent_delegation_tasks.id AND k.status='awaiting_confirmation')
              AND prompt LIKE '%agent_wf_run_id:%'
              AND (owner_user_id = ? OR prompt LIKE ?)
              AND datetime(created_at) < datetime('now', ?)
@@ -142,6 +143,7 @@ export function recoverStaleWorkflowAgentProcessing({ ownerUserId = null, limit 
           `SELECT id, to_agent_id, prompt, owner_user_id, created_at
            FROM agent_delegation_tasks
            WHERE status = 'processing'
+             AND NOT EXISTS (SELECT 1 FROM kanban_tasks k WHERE k.agent_delegation_task_id=agent_delegation_tasks.id AND k.status='awaiting_confirmation')
              AND prompt LIKE '%agent_wf_run_id:%'
              AND datetime(created_at) < datetime('now', ?)
            ORDER BY created_at ASC
@@ -198,6 +200,9 @@ export async function recoverStuckWorkflowRunSteps({ ownerUserId = null, limit =
        WHERE r.owner_user_id = ?
          AND r.status IN ('running', 'paused')
          AND s.status IN ('in_progress', 'pending', 'listening')
+         AND NOT EXISTS (SELECT 1 FROM kanban_tasks k WHERE k.owner_user_id=r.owner_user_id
+           AND (k.id=s.kanban_task_id OR k.agent_delegation_task_id=s.delegation_task_id)
+           AND k.status='awaiting_confirmation')
          AND s.id = (
            SELECT s2.id FROM agent_workflow_run_steps s2
            WHERE s2.run_id = s.run_id AND s2.node_id = s.node_id
@@ -212,6 +217,9 @@ export async function recoverStuckWorkflowRunSteps({ ownerUserId = null, limit =
        JOIN agent_workflow_runs r ON r.id = s.run_id
        WHERE r.status IN ('running', 'paused')
          AND s.status IN ('in_progress', 'pending', 'listening')
+         AND NOT EXISTS (SELECT 1 FROM kanban_tasks k WHERE k.owner_user_id=r.owner_user_id
+           AND (k.id=s.kanban_task_id OR k.agent_delegation_task_id=s.delegation_task_id)
+           AND k.status='awaiting_confirmation')
          AND s.id = (
            SELECT s2.id FROM agent_workflow_run_steps s2
            WHERE s2.run_id = s.run_id AND s2.node_id = s.node_id
