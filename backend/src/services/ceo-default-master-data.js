@@ -57,6 +57,7 @@ export const LEGACY_USER_GUIDE_TITLE = 'Flowlah User Guide';
 
 /** Logical help files under knowledgebase/platform-help/ (filename → doc title). */
 export const PLATFORM_HELP_DOCUMENTS = Object.freeze([
+  { filename: '61-platform-help-ui-copilot.md', title: `${PLATFORM_HELP_TITLE_PREFIX}UI Copilot Forms Drafts And Connector Guidance` },
   { filename: 'README.md', title: `${PLATFORM_HELP_TITLE_PREFIX}Index` },
   { filename: '01-getting-started.md', title: `${PLATFORM_HELP_TITLE_PREFIX}Getting Started` },
   { filename: '02-navigation-and-chrome.md', title: `${PLATFORM_HELP_TITLE_PREFIX}Navigation` },

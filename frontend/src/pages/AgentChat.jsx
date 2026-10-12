@@ -739,6 +739,13 @@ export default function AgentChat() {
 
   // Workspace / deep-link: ?message=...&autosend=1 or location.state.prefill
   const inboundPrefillKey = useRef('');
+  useEffect(()=>{
+    if(!agentId||location.state?.copilotCall!==true)return;
+    // Only entered through the user's explicit Start call button. The existing
+    // voice flow still owns microphone consent and backend authorization.
+    setCalling(true);
+    navigate({pathname:location.pathname,search:location.search},{replace:true,state:{...location.state,copilotCall:false}});
+  },[agentId,location.state?.copilotCall]);
   useEffect(() => {
     if (!agentId) return;
     const fromQuery = searchParams.get('message') || searchParams.get('q');

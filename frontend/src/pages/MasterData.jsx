@@ -7,6 +7,7 @@ import { formatLocalDateTime } from '../utils/formatDateTime.js';
 import './MasterData.css';
 import KnowledgeSources from '../components/KnowledgeSources';
 import KnowledgeDocumentResults from '../components/KnowledgeDocumentResults.jsx';
+import { useCopilotForm, copilotFormSaved } from '../utils/copilotForms.js';
 
 const PAGE_SIZE = 50;
 const DOC_PAGE_SIZE = 10;
@@ -69,6 +70,15 @@ function MasterDataPanel() {
   const [csBlueprint, setCsBlueprint] = useState('');
   const [csBusy, setCsBusy] = useState(false);
   const [csSeedSops, setCsSeedSops] = useState(true);
+  useCopilotForm('knowledge_table',{name:newTableName,purpose:newTablePurpose,columns:newTableCols},patch=>{
+    if(patch.name!==undefined)setNewTableName(patch.name);
+    if(patch.purpose!==undefined)setNewTablePurpose(patch.purpose);
+    if(patch.columns!==undefined)setNewTableCols(patch.columns);
+  },()=>{if(busy)throw new Error('Wait for the current Knowledge operation to finish.');});
+  useCopilotForm('knowledge_document',{title:docTitle,tags:docTags},patch=>{
+    if(patch.title!==undefined)setDocTitle(patch.title);
+    if(patch.tags!==undefined)setDocTags(patch.tags);
+  },()=>{if(busy)throw new Error('Wait for the current Knowledge operation to finish.');});
 
   const loadDocuments = async (page = docPage) => {
     const d = await api.masterDataDocuments({ limit: DOC_PAGE_SIZE, offset: page * DOC_PAGE_SIZE });
@@ -171,6 +181,7 @@ function MasterDataPanel() {
         columns,
       });
       setNewTableName('');
+      copilotFormSaved('knowledge_table');
       setNewTablePurpose('');
       await refresh();
       flash('Table created.');
@@ -232,6 +243,7 @@ function MasterDataPanel() {
           tags: docTags.split(',').map((tag) => tag.trim()).filter(Boolean),
         });
         setDocTitle('');
+        copilotFormSaved('knowledge_document');
         setDocTags('');
         await refresh();
         flash(`Uploaded ${file.name}`);

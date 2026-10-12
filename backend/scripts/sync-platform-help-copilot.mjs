@@ -1,0 +1,21 @@
+// Additive, owner-scoped template upgrade; never writes gateway configuration.
+import { existsSync, readFileSync, cpSync, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { createHash } from 'node:crypto';
+import { getOpenClawDir } from '../src/config/openclaw-paths.js';
+import { syncPlatformHelpCopilot } from '../src/services/platform-help-template-sync.js';
+const owner=process.env.COPILOT_TEMPLATE_OWNER;
+if(!/^[a-z0-9_-]+$/.test(owner||''))throw new Error('Exact tenant owner required');
+const destination=join(getOpenClawDir(),'tenants',owner,'workspace-platformhelp');
+if(!existsSync(destination))throw new Error('Existing Platform Help workspace required');
+const template=new URL('../../openclaw-workspace-templates/platformhelp/',import.meta.url).pathname;
+const names=['AGENTS.md','TOOLS.md','SOUL.md','MEMORY.md','UI-COPILOT.md'];
+const read=name=>existsSync(join(destination,name))?readFileSync(join(destination,name),'utf8'):'';
+const unmanaged=text=>text.replace(/<!-- FLOLAH-PLATFORM-HELP-COPILOT:START -->[\s\S]*?<!-- FLOLAH-PLATFORM-HELP-COPILOT:END -->/g,'').trim();
+const hash=text=>createHash('sha256').update(text).digest('hex');
+const before=Object.fromEntries(names.map(n=>[n,hash(unmanaged(read(n)))]));
+const backup=join(destination,'.copilot-backups',String(Date.now()));mkdirSync(backup,{recursive:true,mode:0o700});
+for(const name of names)if(existsSync(join(destination,name)))cpSync(join(destination,name),join(backup,name));
+if(!syncPlatformHelpCopilot(template,destination))throw new Error('Template missing');
+for(const name of names.filter(n=>n!=='UI-COPILOT.md'))if(before[name]!==hash(unmanaged(read(name))))throw new Error(`Unmanaged content changed: ${name}`);
+console.log('PLATFORM_HELP_TEMPLATE_SYNC_PASS: guidance updated; custom notes and memory unchanged; rollback copies retained.');

@@ -9,6 +9,7 @@ import { existsSync, mkdirSync, copyFileSync, readFileSync, writeFileSync } from
 const __dirname = dirname(fileURLToPath(import.meta.url));
 import { initDb, getDb } from '../src/db/schema.js';
 import { addAgentToolGrantsIfMissing } from '../src/services/openclaw-agent-tools.js';
+import { syncPlatformHelpCopilot } from '../src/services/platform-help-template-sync.js';
 
 initDb();
 const db = getDb();
@@ -36,8 +37,8 @@ function ensureWorkspace() {
     const dest = join(WORKSPACE_PATH, name);
     if (!existsSync(tpl)) continue;
     if (!existsSync(dest)) copyFileSync(tpl, dest);
-    else writeFileSync(dest, readFileSync(tpl, 'utf8'), 'utf8');
   }
+  syncPlatformHelpCopilot(TEMPLATES_DIR,WORKSPACE_PATH);
 }
 
 export function seedPlatformHelpAgent() {

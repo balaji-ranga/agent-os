@@ -276,6 +276,9 @@ export function matchApiPermission(method, path) {
   const m = String(method || 'GET').toUpperCase();
   const p = String(path || '');
   const rules = [
+    // Copilot filters every proposed form/route by the current actor's grants;
+    // it never executes business mutations or bypasses their existing APIs.
+    { prefix: '/ui-copilot', allow: true },
     { prefix: '/auth', allow: true },
     { prefix: '/kanban', allow: true },
     { prefix: '/human-communications', allow: true },

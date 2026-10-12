@@ -10,6 +10,7 @@ import KnowledgeJobRecords from './KnowledgeJobRecords.jsx';
 import KnowledgeRunSummary from './KnowledgeRunSummary.jsx';
 import KnowledgeSelection from './KnowledgeSelection.jsx';
 import './KnowledgeSources.css';
+import { useCopilotForm, copilotFormSaved } from '../utils/copilotForms.js';
 
 const collections={crm:['companies','people','opportunities'],erp:['Customer','Contact','Project','Sales Invoice'],content:['uploaded','generated'],knowledge:['tables','documents'],gmail:['messages'],outlook:['messages']};
 const empty={name:'',kind:'content',collections:['uploaded','generated'],graph_enabled:true,enabled:true,interval_seconds:300};
@@ -24,6 +25,14 @@ export default function KnowledgeSources() {
   const [summarize,setSummarize]=useState(true);
   const [liveValues,setLiveValues]=useState(false);
   const [searchMode,setSearchMode]=useState('auto');
+  useCopilotForm('knowledge_source', Object.fromEntries(['name','kind','collections','query','folder_id','selection','interval_seconds','graph_enabled','intelligent_mapping','enabled','retrieval_enabled'].filter(k=>form[k]!==undefined).map(k=>[k,form[k]])), patch=>{
+    if(editing)throw new Error('Finish or cancel your source edit before preparing a new source.');
+    if(disabled)throw new Error('Knowledge service is disabled.');
+    const kind=patch.kind||form.kind;
+    const selected=patch.collections||(patch.kind&&patch.kind!==form.kind?collections[kind]:form.collections);
+    if(!collections[kind]||selected.some(c=>!collections[kind].includes(c)))throw new Error('Collections do not match this source type.');
+    setTab('sources');setForm({...form,...patch,collections:selected});
+  },()=>{if(editing)throw new Error('Save or cancel your existing source edit before a Copilot detour. New-source drafts cannot replace existing-source edits.');});
   async function load(){try{const data=await api.knowledgeSources();setSources(data.sources);setDisabled(false);}catch(e){if(e.status===503)setDisabled(true);else setError(e.message);}}
   useEffect(()=>{load();},[]);
   useEffect(()=>{if(disabled)return;const timer=setInterval(load,15000);return()=>clearInterval(timer);},[disabled]);
@@ -34,7 +43,7 @@ export default function KnowledgeSources() {
     <nav className="knowledge-connected-tabs" aria-label="Connected knowledge views">{[['sources','Sources'],['documents','Documents & records'],['search','Ask & Search'],['relationships','Relationships']].map(([id,label])=><button key={id} type="button" aria-pressed={tab===id} onClick={()=>{setTab(id);setMessage('');setError('');if(id==='relationships')act(async()=>setMappings(await api.knowledgeRelationshipPage('mappings')),'');}}>{label}</button>)}</nav>
     {error&&<p className="knowledge-alert knowledge-alert-error" role="alert">{error}</p>}{message&&<p className="knowledge-alert knowledge-alert-success" role="status">{message}</p>}
     {tab==='sources'&&<>
-      <form onSubmit={e=>{e.preventDefault();act(async()=>{await api.knowledgeSourceSave(form,editing);setForm(empty);setEditing(null);},'Source saved. Synchronization will run in the background.');}}>
+      <form onSubmit={e=>{e.preventDefault();act(async()=>{await api.knowledgeSourceSave(form,editing);if(!editing)copilotFormSaved('knowledge_source');setForm(empty);setEditing(null);},'Source saved. Its synchronization and visibility settings are retained.');}}>
         <h3>{editing?'Edit source':'Add source'}</h3>
         <label>Name <input required maxLength={160} value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></label>
         <label>Connection <select value={form.kind} onChange={e=>setForm({...form,kind:e.target.value,collections:collections[e.target.value]})} disabled={!!editing}><option value="content">Flolah content folder</option><option value="knowledge">Flolah Knowledge tables and documents</option><option value="crm">Configured CRM</option><option value="erp">Configured ERP</option><option value="gmail">Connected Gmail — message bodies</option><option value="outlook">Connected Outlook — message bodies</option></select></label>

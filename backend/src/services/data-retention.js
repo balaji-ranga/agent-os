@@ -38,6 +38,11 @@ export async function purgeOwnerRetention(ownerUserId, { days = null } = {}) {
   if (!row || row.role !== 'ceo') throw Object.assign(new Error('CEO owner profile required for company retention'), { status: 403 });
   const retentionDays = normalizeRetentionDays(days ?? row?.data_retention_days ?? DEFAULT_RETENTION_DAYS);
   const cutoff = `-${retentionDays} days`;
+  // Assistance drafts expire sooner than company history; never touch another
+  // company's sessions when running owner-specific retention.
+  if (db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='ui_copilot_sessions'").get()) {
+    db.prepare('DELETE FROM ui_copilot_sessions WHERE owner=? AND expires_at<=?').run(owner,Date.now());
+  }
 
   const deleted = {
     chat_turns: 0,
