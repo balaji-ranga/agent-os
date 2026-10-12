@@ -6,6 +6,7 @@
 import { readFileSync, existsSync, statSync } from "fs";
 import { join } from "path";
 import { registerFlolahCommands } from "./slash-commands.js";
+import {multiFormatSchema} from './multi-format-schema.js';
 // Volume-mounted extensions cannot resolve the `openclaw` package name via bare
 // Node; OpenClaw's loader can, but absolute path works in both contexts.
 import { definePluginEntry } from "/usr/local/lib/node_modules/openclaw/dist/plugin-sdk/plugin-entry.js";
@@ -252,6 +253,7 @@ type PromptBuildContext = {
 };
 
 const PARAM_SCHEMAS: Record<string, Record<string, unknown>> = {
+  'multi-format-content-tool': multiFormatSchema,
   download_file: {
     type: "object",
     properties: { url: { type: "string", description: "Existing public HTTPS file URL" }, filename: { type: "string", description: "Optional attachment filename" } },

@@ -9,7 +9,7 @@
 #   base → browser → vps-client-ip (host nginx + loopback upstreams) → docker-tools
 #
 # shellcheck disable=SC2034
-VPS_COMPOSE_FILE_DEFAULT='docker-compose.yml:docker-compose.browser.yml:docker-compose.vps-client-ip.yml:docker-compose.docker-tools.yml:docker-compose.content-antivirus.yml'
+VPS_COMPOSE_FILE_DEFAULT='docker-compose.yml:docker-compose.browser.yml:docker-compose.vps-client-ip.yml:docker-compose.docker-tools.yml:docker-compose.content-antivirus.yml:docker-compose.content-converter.yml'
 
 # Read COMPOSE_FILE from deploy/.env when the shell did not already export it.
 # Prefer an already-exported value (operator override).
@@ -32,6 +32,10 @@ compose_file_from_env_file() {
 # Set COMPOSE_FILE for VPS ops scripts. Pass path to deploy/.env optionally.
 export_vps_compose_file() {
   local env_file="${1:-}"
+  # Provision the private RPC credential before Compose resolves its required value.
+  if [[ -n "$env_file" && -f "$env_file" ]]; then
+    bash "$(dirname "${BASH_SOURCE[0]}")/ensure-content-converter-env.sh" "$env_file"
+  fi
   if [[ -z "${COMPOSE_FILE:-}" && -n "$env_file" ]]; then
     compose_file_from_env_file "$env_file"
   fi
@@ -39,6 +43,9 @@ export_vps_compose_file() {
   # Preserve older operator overlays while retaining mandatory content scanning.
   if [[ "$COMPOSE_FILE" != *docker-compose.content-antivirus.yml* ]]; then
     export COMPOSE_FILE="$COMPOSE_FILE:docker-compose.content-antivirus.yml"
+  fi
+  if [[ "$COMPOSE_FILE" != *docker-compose.content-converter.yml* ]]; then
+    export COMPOSE_FILE="$COMPOSE_FILE:docker-compose.content-converter.yml"
   fi
   # Backend-only releases must preserve an already-enabled Knowledge API.
   # An explicit operator value (including 0) takes precedence over detection.

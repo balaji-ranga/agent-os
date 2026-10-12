@@ -1,0 +1,31 @@
+# Private, resource-bounded conversion. No tenant volumes or public ports.
+services:
+  backend:
+    environment:
+      CONTENT_CONVERTER_URL: http://content-converter:8123
+      CONTENT_CONVERTER_TOKEN: ${CONTENT_CONVERTER_TOKEN:?Run ensure-content-converter-env.sh first}
+    networks:
+      default: {}
+      content_conversion: {}
+  content-converter:
+    build:
+      context: ..
+      dockerfile: deploy/docker/content-converter.Dockerfile
+    image: agent-os-content-converter:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      CONTENT_CONVERTER_TOKEN: ${CONTENT_CONVERTER_TOKEN:?Run ensure-content-converter-env.sh first}
+    read_only: true
+    tmpfs:
+      - /tmp:size=384m,mode=1777
+    networks:
+      content_conversion: {}
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 1g
+    cpus: 1.0
+    expose: ['8123']
+networks:
+  content_conversion:
+    internal: true

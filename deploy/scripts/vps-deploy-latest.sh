@@ -39,6 +39,7 @@ export_vps_compose_file "$ROOT/deploy/.env"
 cd "$ROOT/deploy"
 
 SERVICES="${SERVICES:-frontend backend openclaw}"
+if [[ " $SERVICES " == *" backend "* ]]; then SERVICES="$SERVICES content-converter"; fi
 SKIP_GIT="${SKIP_GIT:-0}"
 SKIP_SMOKE="${SKIP_SMOKE:-0}"
 NO_CACHE="${NO_CACHE:-0}"

@@ -1,5 +1,5 @@
 # OpenClaw gateway + Playwright Chromium for browser automation.
-# Rebuild after: openclaw-entrypoint.sh, configure-openclaw-docker.js,
+# Rebuild after: openclaw-entrypoint.sh, openclaw-agent-db-preflight.mjs, configure-openclaw-docker.js,
 # ensure-openclaw-gateway-config.js, restore-openclaw-channel-routing.js,
 # content-tools plugins / browser CDP / extension relay.
 # Entrypoint always: ensure gateway.chatCompletions → configure → restore channels.

@@ -37,6 +37,8 @@ function agentSqlitePath(openclawAgentId) {
 }
 
 function ensureAuthTables(db) {
+  // These are auth stores, not a fabricated OpenClaw schema. On first use the
+  // Gateway's offline preflight installs its own canonical schema before migrations.
   db.exec(`
     CREATE TABLE IF NOT EXISTS auth_profile_store (
       store_key TEXT NOT NULL PRIMARY KEY,

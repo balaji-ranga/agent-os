@@ -158,12 +158,14 @@ scp @ssh `
   "$Repo\deploy\docker-compose.browser.yml" `
   "$Repo\deploy\docker-compose.vps-client-ip.yml" `
   "$Repo\deploy\docker-compose.docker-tools.yml" `
+  "$Repo\deploy\docker-compose.content-converter.yml" `
   "$Repo\deploy\docker-compose.business-core.yml" `
   "$Repo\deploy\docker-compose.ollama-gpu.yml" `
   "$Repo\deploy\.env.example" `
   "$Repo\deploy\README.md" `
   "$Repo\deploy\APPROVAL_LIFECYCLE.md" `
   "$Repo\deploy\KANBAN_TASK_OBSERVER.md" `
+  "$Repo\deploy\MULTI_FORMAT_CONTENT_TOOL.md" `
   "root@${HostIp}:$RemoteRoot/deploy/"
 scp @ssh -r "$Repo\deploy\docker" "root@${HostIp}:$RemoteRoot/deploy/"
 Write-Host "==> Sync LiteLLM model-router config"
@@ -215,6 +217,12 @@ scp @ssh `
   "$Repo\deploy\scripts\vps-deploy-latest.sh" `
   "$Repo\deploy\scripts\vps-deploy-approval-lifecycle.sh" `
   "$Repo\deploy\scripts\vps-deploy-kanban-observer.sh" `
+  "$Repo\deploy\scripts\ensure-content-converter-env.sh" `
+  "$Repo\deploy\scripts\openclaw-agent-db-preflight.mjs" `
+  "$Repo\deploy\scripts\test-openclaw-agent-db-preflight.mjs" `
+  "$Repo\deploy\scripts\test-openclaw-model-reload.py" `
+  "$Repo\deploy\scripts\prepare-multi-format-release.py" `
+  "$Repo\deploy\scripts\activate-multi-format-release.py" `
   "$Repo\deploy\scripts\build-public-docs.sh" `
   "$Repo\deploy\scripts\compose-file-defaults.sh" `
   "$Repo\deploy\scripts\assert-vps-ingress.sh" `
@@ -291,6 +299,8 @@ if ($Services -match "backend|openclaw") {
   scp @ssh `
     "$Repo\backend\scripts\sync-agent-channels-to-openclaw.js" `
     "$Repo\backend\scripts\test-media-url.js" `
+    "$Repo\backend\scripts\test-multi-format-content.mjs" `
+    "$Repo\backend\scripts\vps-test-multi-format-content.mjs" `
     "$Repo\backend\scripts\test-ssrf-outbound.js" `
     "$Repo\backend\scripts\seed-inbound-media-summarize-workflow.js" `
     "$Repo\backend\scripts\test-workflow-desktop-package.js" `
@@ -530,6 +540,7 @@ if ($Services -match "backend|openclaw") {
   scp @ssh "$Repo\tests\lib\ceo-session.js" "root@${HostIp}:$RemoteRoot/tests/lib/"
   scp @ssh -r "$Repo\scripts" "root@${HostIp}:$RemoteRoot/"
   Write-Host "==> Sync platform MCP tool sources (Brave + Meta Graph + Business Core + Social Research)"
+  scp @ssh -r "$Repo\tools\content-converter" "root@${HostIp}:$RemoteRoot/tools/"
   ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/tools/brave-search-mcp-byok $RemoteRoot/tools/meta-graph-mcp $RemoteRoot/tools/business-core-mcp $RemoteRoot/tools/social-research-mcp $RemoteRoot/tools/instaloader-sidecar $RemoteRoot/tools/web-scrape-mcp"
   scp @ssh "$Repo\tools\brave-search-mcp-byok\server.js" "root@${HostIp}:$RemoteRoot/tools/brave-search-mcp-byok/"
   scp @ssh "$Repo\tools\meta-graph-mcp\server.js" "root@${HostIp}:$RemoteRoot/tools/meta-graph-mcp/"

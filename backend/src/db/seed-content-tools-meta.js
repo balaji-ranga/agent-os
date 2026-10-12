@@ -6,6 +6,11 @@ import { getDb } from './schema.js';
 
 const BUILTIN_TOOLS = [
   {
+    name:'multi-format-content-tool',display_name:'Multi Format Content Tool',endpoint:'/api/tools/multi-format-content-tool',method:'POST',
+    purpose:'Generate or convert owner-private PDF, Word (docx/doc), Excel (xlsx), txt, sanitized HTML and PDF page images; OCR images/scanned PDFs. Supply exactly one input: content_file (Content Folder item id, relative_path or unique filename), text with input_format txt/md/html, formatted_input blocks, or content_base64 with input_format/input_filename. Required output_format pdf/docx/doc/xlsx/txt/html/png/jpg. Optional operation generate/convert/ocr, ocr auto/force/off, language eng/spa/fra/deu, output_filename. Input and every output require ClamAV scanning. Returns files[].paste_exactly and artifact_id; paste each MEDIA line to attach in the current channel. Source files unchanged. 25 MiB combined output, 20 PDF pages. PDF-to-Word reconstructs editable text, not guaranteed layout; preserve warnings. No public file URLs, arbitrary server paths or macros.',
+    model_used:'Private deterministic converter and Tesseract OCR',enabled:1,is_builtin:1,
+  },
+  {
     name: 'download_file', display_name: 'Download and Attach File', endpoint: '/api/tools/download-file', method: 'POST',
     purpose: 'Download an existing public HTTPS file (documents, PDF, Markdown, spreadsheets, archives or media; max 25 MiB). Parameters: url, optional filename. Mandatory private ClamAV scan before attachment; infected, encrypted/unscannable files or scanner failures are blocked and discarded without storage. Returns security_scan and paste_exactly: paste the MEDIA line to attach. No login/form/paywall bypass, no execution of downloaded content. Prefer this generic tool; download_pdf is a PDF-validating compatibility alias.',
     model_used: '', enabled: 1, is_builtin: 1,
@@ -1151,7 +1156,7 @@ export function updateKanbanToolPurposes() {
   for (const t of KANBAN_TOOLS) {
     update.run(t.purpose, t.name);
   }
-  const extra = BUILTIN_TOOLS.filter((t) => ['summarize_url', 'download_pdf', 'download_file'].includes(t.name));
+  const extra = BUILTIN_TOOLS.filter((t) => ['summarize_url', 'download_pdf', 'download_file','multi-format-content-tool'].includes(t.name));
   const insert = db.prepare(`INSERT OR IGNORE INTO content_tools_meta (name, display_name, endpoint, method, purpose, model_used, enabled, is_builtin) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
   for (const t of extra) insert.run(t.name, t.display_name, t.endpoint, t.method, t.purpose, t.model_used, t.enabled, t.is_builtin);
   for (const t of extra) update.run(t.purpose, t.name);

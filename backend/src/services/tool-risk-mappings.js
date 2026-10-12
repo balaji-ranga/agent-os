@@ -73,7 +73,7 @@ export function inferToolRiskMapping(candidate = {}) {
   // This platform tool writes only the entitled CEO's in-app bell. Do not
   // apply the generic external "notify" heuristic to it (or to provider tools).
   if (String(candidate.capability_type || candidate.type || '') === 'content_tool' &&
-      String(candidate.capability_id || candidate.id || candidate.name || '') === 'notify_ceo') {
+      ['notify_ceo','multi-format-content-tool'].includes(String(candidate.capability_id || candidate.id || candidate.name || ''))) {
     return { risk_tier: 'R1', action_family: 'write_internal' };
   }
   const text = `${candidate.capability_id || candidate.id || candidate.name || ''} ${candidate.display_name || ''} ${candidate.description || ''}`;

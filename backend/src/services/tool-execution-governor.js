@@ -8,6 +8,7 @@
 import { createHash, randomUUID } from 'crypto';
 import { getDb } from '../db/schema.js';
 import { getPlatformTimeoutMs } from './platform-timeout-settings.js';
+import {multiFormatInputAudit} from '../lib/multi-format-audit.js';
 
 const OWNER_KEYS = new Set([
   'owner_user_id', 'ownerUserId', 'ceo_user_id', 'ceoUserId', 'user_id', 'userId',
@@ -18,6 +19,7 @@ const POLL_OR_STATUS = /(?:_status|_list|_enquire|_get|_history|_watch_tick)$/;
 const MUTATING = /(?:create|insert|update|delete|send|publish|post|place|submit|cancel|move_status|assign|trigger|run_now|save|apply|index_document)/;
 
 const CAPABILITY_RULES = [
+  [/^multi-format-content-tool$/, 'media_generation'],
   [/^master_data_list_(?:tables|rows)$/, 'structured_data_search'],
   [/^master_data_(?:list_documents|rag|index_document)$/, 'document_knowledge'],
   [/^browse_/, 'browser_automation'],
@@ -92,13 +94,13 @@ export function capabilityForTool(toolName) {
 export function defaultExecutionBehaviour(toolName) {
   const name = String(toolName || '').trim();
   const capability = capabilityForTool(name);
-  const mutating = MUTATING.test(name);
+  const mutating = name==='multi-format-content-tool'||MUTATING.test(name);
   return {
     tool_name: name,
     capability,
     access: mutating ? 'mutating' : 'read_only',
     retry_limit: 1,
-    timeout_ms: ['connector_execute_action', 'gmail_mailbox_review', 'gmail_mailbox_cleanup'].includes(name)
+    timeout_ms: name==='multi-format-content-tool'?240000:['connector_execute_action', 'gmail_mailbox_review', 'gmail_mailbox_cleanup'].includes(name)
       ? getPlatformTimeoutMs('connector_operation') : /browse_|generate_video/.test(name) ? 90000 : 60000,
     duplicate_window_sec: POLL_OR_STATUS.test(name) ? 0 : 900,
     verification_mode: mutating ? 'read_back_or_receipt' : 'evidence_coverage',
@@ -218,7 +220,7 @@ export function beginToolExecution({ ownerUserId, agentId, sessionKey, traceId, 
           (id, owner_user_id, execution_key, agent_id, tool_name, capability, action_fingerprint,
            request_payload, observation_status, reason_code, progress, response_summary, completed_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'duplicate_blocked', 'duplicate_no_progress', 0, ?, datetime('now'))`
-      ).run(id, ownerUserId, key, agentId, toolName, behaviour.capability, fp, json(redactForStorage(canonicalParams), '{}'), json(observation, '{}'));
+      ).run(id, ownerUserId, key, agentId, toolName, behaviour.capability, fp, json(redactForStorage(toolName==='multi-format-content-tool'?multiFormatInputAudit(canonicalParams):canonicalParams), '{}'), json(observation, '{}'));
       return { ok: false, duplicate: true, id, execution_key: key, behaviour, canonicalParams, observation };
     }
   }
@@ -227,7 +229,7 @@ export function beginToolExecution({ ownerUserId, agentId, sessionKey, traceId, 
     `INSERT INTO tool_execution_actions
       (id, owner_user_id, execution_key, agent_id, tool_name, capability, action_fingerprint, request_payload)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(id, ownerUserId, key, agentId, toolName, behaviour.capability, fp, json(redactForStorage(canonicalParams), '{}'));
+  ).run(id, ownerUserId, key, agentId, toolName, behaviour.capability, fp, json(redactForStorage(toolName==='multi-format-content-tool'?multiFormatInputAudit(canonicalParams):canonicalParams), '{}'));
   return { ok: true, id, execution_key: key, behaviour, canonicalParams };
 }
 

@@ -8,6 +8,7 @@
   },
   "contracts": {
     "tools": [
+      "multi-format-content-tool",
       "summarize_url",
       "generate_image",
       "generate_video",
@@ -54,6 +55,9 @@
     ]
   },
   "toolMetadata": {
+    "multi-format-content-tool": {
+      "optional": true
+    },
     "summarize_url": {
       "optional": true
     },

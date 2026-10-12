@@ -6,6 +6,7 @@
 import { readFileSync, existsSync, statSync } from "fs";
 import { join } from "path";
 import { registerFlolahCommands } from "./slash-commands.js";
+import {multiFormatSchema} from './multi-format-schema.js';
 import { steeringToolBlock } from "./steering-guard.js";
 // Volume-mounted extensions cannot resolve the `openclaw` package name via bare
 // Node; OpenClaw's loader can, but absolute path works in both contexts.
@@ -217,6 +218,7 @@ function ownerUserIdFromSessionKey(sessionKey) {
 }
 
 const PARAM_SCHEMAS = {
+  'multi-format-content-tool': multiFormatSchema,
   download_file: {
     type: "object",
     properties: { url: { type: "string", description: "Existing public HTTPS file URL" }, filename: { type: "string", description: "Optional attachment filename" } },
@@ -1151,7 +1153,7 @@ export default definePluginEntry({
                 (name === "generate_image" ||
                   name === "generate_chart" ||
                   name === "speech_tts" ||
-                  name === "generate_video" || name === "download_file" || name === "download_pdf" || (name === "summarize_url" && data?.mime_type === "application/pdf")) &&
+                  name === "generate_video" || name === "download_file" || name === "download_pdf" || name === 'multi-format-content-tool' || (name === "summarize_url" && data?.mime_type === "application/pdf")) &&
                 data &&
                 typeof data === "object"
               ) {
@@ -1164,7 +1166,7 @@ export default definePluginEntry({
                   null;
                 if (paste) {
                   const kind =
-                    data.mime_type === "application/pdf" ? "PDF file" : name === "speech_tts"
+                    name === 'multi-format-content-tool' ? 'converted file(s)' : data.mime_type === "application/pdf" ? "PDF file" : name === "speech_tts"
                       ? "audio"
                       : name === "generate_video"
                         ? "video"

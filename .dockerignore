@@ -1,5 +1,6 @@
 # Dependencies and build output
 **/node_modules
+**/__pycache__
 frontend/dist
 frontend/.vite
 backend/data

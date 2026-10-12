@@ -135,7 +135,7 @@ export function ensureActionPolicyTables() {
 export function inferRiskForTool(toolName) {
   const n = String(toolName || '').toLowerCase();
   if (!n) return { risk_tier: 'R0', action_family: 'read' };
-  if (n === 'notify_ceo') return { risk_tier: 'R1', action_family: 'write_internal' };
+  if (n === 'notify_ceo'||n==='multi-format-content-tool') return { risk_tier: 'R1', action_family: 'write_internal' };
   if (
     n === 'gmail_mailbox_cleanup' ||
     n === 'erp_create_payment_entry' ||
@@ -834,6 +834,9 @@ function requireToolNameResolver() {
     resolveToolNameFromRequest: (req) => {
       const bodyName = String(req.body?.tool_name || req.body?.toolName || '').trim();
       if (bodyName) return bodyName;
+      // This public tool deliberately uses hyphens in its canonical name. Preserve
+      // that identity for the one-time broker pass rather than treating it as an alias.
+      if (req.path === '/multi-format-content-tool') return 'multi-format-content-tool';
       const path = String(req.path || '').replace(/^\//, '').replace(/-/g, '_');
       return path || null;
     },

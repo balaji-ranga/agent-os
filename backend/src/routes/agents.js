@@ -46,6 +46,7 @@ import {
   buildActiveChatNotifyHint,
 } from '../services/specialty-referral.js';
 import { attachToolCallsToChatTurns, listToolCallsSince } from '../services/chat-tool-calls.js';
+import {appendMultiFormatAttachments} from '../lib/multi-format-delivery.js';
 import {
   startNewChatSession,
   autoSplitFatChatSession,
@@ -1734,6 +1735,7 @@ router.post('/:id/chat', requireAuth, (req,res,next) => {
     const tool_calls = listToolCallsSince(agentId, ownerUserId, toolsSince, liveScope?.turnId);
     const uncalledRequestedTools = requestedTools.filter(t => !tool_calls.some(c => c.tool_name === t.name));
     if (uncalledRequestedTools.length) replyText = `Selected tool use not verified: ${uncalledRequestedTools.map(t => t.name).join(', ')}. No matching invocation was recorded for this task.\n\n${replyText}`;
+    replyText = appendMultiFormatAttachments(replyText,tool_calls,ownerUserId);
     if (liveScope && tool_calls.length) {
       updateChatActivity(liveScope, {
         phase: 'tools_complete',

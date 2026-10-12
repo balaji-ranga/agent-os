@@ -18,6 +18,7 @@ import {
   ensureTenantOpenClawAgent,
 } from './openclaw-tenant.js';
 import { COO_CONTENT_TOOLS_ALLOW } from '../lib/content-tools-allow.js';
+import {MULTI_FORMAT_TOOL_GUIDANCE} from '../lib/multi-format-tool-guide.js';
 import { readOpenClawConfigSafe, writeOpenClawConfigSafe, writeOpenClawTextFileIfChanged } from './openclaw-config-safe.js';
 import {
   NATIVE_OPENCLAW_TOOLS as NATIVE_OPENCLAW_TOOLS_LIST,
@@ -90,10 +91,12 @@ function contentToolNamesSet() {
 
 export function grantCooDelegationToolsIfMissing() {
   const db = getDb();
+  let added = 0;
+  for(const row of db.prepare('SELECT id FROM agents WHERE is_coo=1').all())
+    added+=Number(db.prepare('INSERT OR IGNORE INTO agent_tool_grants(agent_id,tool_name) VALUES (?,?)').run(row.id,'multi-format-content-tool').changes);
   const coo = db.prepare('SELECT id FROM agents WHERE is_coo = 1 LIMIT 1').get();
   if (!coo) return 0;
   const existing = new Set(getAgentToolGrants(coo.id));
-  let added = 0;
   const ins = db.prepare('INSERT OR IGNORE INTO agent_tool_grants (agent_id, tool_name) VALUES (?, ?)');
   for (const tool of COO_CONTENT_TOOLS_ALLOW) {
     if (!existing.has(tool)) {
@@ -494,7 +497,7 @@ export function buildToolsMdContent(grantedToolNames) {
     '- **Always use `profile="openclaw"`** for managed Playwright/Chromium.',
     ''
   );
-  return lines.join('\n');
+  return lines.join('\n')+'\n'+MULTI_FORMAT_TOOL_GUIDANCE;
 }
 
 export async function writeAgentToolsMd(agent, grantedToolNames) {

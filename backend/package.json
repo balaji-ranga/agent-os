@@ -6,6 +6,7 @@
   "type": "module",
   "main": "src/index.js",
   "scripts": {
+    "test:multi-format-content": "node scripts/test-multi-format-content.mjs",
     "test:kanban-task-observer": "node scripts/test-kanban-task-observer.mjs",
     "test:observer-recovery-completion": "node scripts/test-observer-recovery-completion.mjs",
     "test:knowledge-efficiency": "node scripts/test-knowledge-efficiency.mjs",

@@ -114,6 +114,7 @@ ensureSecret(
   32,
   'Signs WhatsApp promotion CTA tracking links (auto-generated)'
 );
+ensureSecret(envFile,'CONTENT_CONVERTER_TOKEN',32,'Private document conversion RPC (auto-generated)');
 
 // Loopback self-dispatch for /api/tools/invoke (avoid public HTTPS / self-signed hairpin).
 {

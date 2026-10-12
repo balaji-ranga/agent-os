@@ -45,6 +45,8 @@ import {
 import { saveInboundAttachment } from '../services/inbound-attachments.js';
 import { downloadPdfForOwner } from '../services/pdf-download.js';
 import { downloadFileForOwner } from '../services/content-download.js';
+import {multiFormatContentForOwner,MULTI_FORMAT_TOOL_NAME} from '../services/multi-format-content-tool.js';
+import {multiFormatInputAudit} from '../lib/multi-format-audit.js';
 import { updateChatActivity } from '../services/chat-live-activity.js';
 import { checkpointSteering, steeringPrompt } from '../services/work-steering.js';
 import socialResearchTools from './social-research-tools.js';
@@ -295,6 +297,7 @@ function getBackendBaseUrl() {
 
 function logContentTool(toolName, requestPayload, responsePayload, status, source = null, ownerUserId = null) {
   try {
+    if(toolName===MULTI_FORMAT_TOOL_NAME)requestPayload=multiFormatInputAudit(requestPayload);
     const db = getDb();
     const ctx = getLlmopsContext() || {};
     const traceId = inferTraceId(ctx);
@@ -1137,6 +1140,21 @@ function downloadHandler(pdfOnly) { return async (req, res) => {
 }; }
 router.post('/download-pdf', downloadHandler(true));
 router.post('/download-file', downloadHandler(false));
+router.post('/multi-format-content-tool', async (req,res)=>{
+  const source=req.headers['x-openclaw-agent-id']||req.headers['x-agent-id']||null;
+  // Audit metadata only; do not duplicate documents/base64 into tool log storage.
+  const audit={operation:req.body?.operation||'convert',input_format:req.body?.input_format,output_format:req.body?.output_format,input_kind:req.body?.content_file||req.body?.relative_path||req.body?.media_uri?'content_file':req.body?.content_base64?'base64':req.body?.formatted_input?'formatted':'text'};
+  try {
+    const owner=resolveToolOwnerUserIdOrNull(req,{},resolveAuthenticatedCeoUserId);
+    const out=await multiFormatContentForOwner(owner,req.body||{},{onProgress:downloadProgress(req,owner)});
+    logTool(req,MULTI_FORMAT_TOOL_NAME,{...audit,input_sha256:out.input_sha256},out,'ok',source);
+    return res.json(out);
+  }catch(e){
+    const out={ok:false,error:e.code?e.message:'Conversion failed; no file delivered.',code:e.code||'CONVERSION_FAILED',security_scan:e.securityScan};
+    logTool(req,MULTI_FORMAT_TOOL_NAME,audit,out,'error',source);
+    return res.status(e.status||422).json(out);
+  }
+});
 
 const GENERATED_MEDIA_DIR = getOpenClawMediaDir('generated');
 

@@ -48,6 +48,13 @@ function safeJson(raw, max = 4000) {
     const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
     const s = JSON.stringify(parsed);
     if (s.length <= max) return parsed;
+    if(parsed?.tool==='multi-format-content-tool'&&Array.isArray(parsed.files)){
+      // Page-image conversion may have 20 outputs. Preserve their scanned attachment
+      // receipts instead of truncating away every file after the first one.
+      return {ok:parsed.ok,tool:parsed.tool,artifact_id:parsed.artifact_id,summary:clipText(parsed.summary,500),
+        files:parsed.files.slice(0,20).map(file=>({relative_url:file.relative_url,paste_exactly:file.paste_exactly,content_file_id:file.content_file_id,filename:file.filename,mime_type:file.mime_type,
+          security_scan:{status:file.security_scan?.status,persisted:file.security_scan?.persisted}}))};
+    }
     // Keep chart media fields intact so the chat UI can render SVGs even when the
     // full ephemeris payload is large.
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && hasChartMedia(parsed)) {

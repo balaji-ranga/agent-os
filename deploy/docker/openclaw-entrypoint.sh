@@ -103,7 +103,7 @@ apply_platform_llm_runtime_env() {
     # shellcheck disable=SC1090
     source "${runtime_env}"
     set +a
-    echo "[openclaw] Sourced ${runtime_env} (OPENAI_API_KEY prefix ${OPENAI_API_KEY:0:10}... BASE=${OPENAI_BASE_URL:-})"
+    echo "[openclaw] Loaded platform LLM runtime environment (credentials withheld)"
     return 0
   fi
 
@@ -112,15 +112,21 @@ apply_platform_llm_runtime_env() {
     if [[ -n "${OPENAI_SECONDARY_API_KEY:-}" ]]; then
       export OPENAI_API_KEY="${OPENAI_SECONDARY_API_KEY}"
       export OPENAI_BASE_URL="${OPENAI_SECONDARY_BASE_URL:-https://api.openai.com/v1}"
-      echo "[openclaw] Honoring platform-llm-active secondary → OPENAI_API_KEY from OPENAI_SECONDARY_API_KEY (prefix ${OPENAI_API_KEY:0:10}...)"
+      echo "[openclaw] Honoring platform-llm-active secondary (credentials withheld)"
     fi
   fi
 }
 
-marker_mtime() {
+marker_revision() {
   local marker="${OC_DIR}/platform-llm-active.json"
   if [[ -f "${marker}" ]]; then
-    stat -c %Y "${marker}" 2>/dev/null || stat -f %m "${marker}" 2>/dev/null || echo 0
+    # Content revision detects rapid same-second switches; never log marker content.
+    local revision
+    if revision="$(sha256sum "${marker}" 2>/dev/null)"; then
+      printf '%s\n' "${revision%% *}"
+    else
+      echo 0
+    fi
   else
     echo 0
   fi
@@ -200,10 +206,13 @@ run_gateway_with_platform_llm_watch() {
   apply_platform_llm_runtime_env
   start_vnc_if_enabled
   start_extension_relay_bridge
-  local last_mtime
-  last_mtime="$(marker_mtime)"
+  local last_revision
+  last_revision="$(marker_revision)"
   local convergence_restarts=0
   while true; do
+    # BYOK sync can seed auth-only SQLite stores before OpenClaw's first use.
+    # Initialize only that known shape, offline, using the installed canonical API.
+    node "${AGENT_OS_ROOT}/deploy/scripts/openclaw-agent-db-preflight.mjs"
     echo "[openclaw] Starting gateway on port ${GATEWAY_PORT}..."
     openclaw gateway --port "${GATEWAY_PORT}" &
     local gpid=$!
@@ -240,11 +249,13 @@ run_gateway_with_platform_llm_watch() {
       # Keep socat bridge alive across gateway restarts
       start_extension_relay_bridge
       local now
-      now="$(marker_mtime)"
-      if [[ "${now}" != "0" && "${now}" != "${last_mtime}" ]]; then
-        echo "[openclaw] platform-llm-active.json changed (${last_mtime} → ${now}) — reloading env + restarting gateway"
-        last_mtime="${now}"
+      now="$(marker_revision)"
+      if [[ "${now}" != "0" && "${now}" != "${last_revision}" ]]; then
+        echo "[openclaw] Platform LLM revision changed — reloading env + restarting gateway"
+        last_revision="${now}"
         reloading=1
+        # Stop first: config writers must not race the old Gateway's migrations/reload.
+        kill_openclaw_gateway "${gpid}"
         # Source runtime.env *before* configure so OPENAI_API_KEY matches Admin switch
         apply_platform_llm_runtime_env
         local ensure_gw_js="${AGENT_OS_ROOT}/deploy/scripts/ensure-openclaw-gateway-config.js"
@@ -262,7 +273,7 @@ run_gateway_with_platform_llm_watch() {
         fi
         # Re-source — configure may rewrite platform-llm-runtime.env
         apply_platform_llm_runtime_env
-        kill_openclaw_gateway "${gpid}"
+        # Keep the observed revision: a newer switch during sync must trigger another reload.
         break
       fi
     done
