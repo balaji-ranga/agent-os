@@ -27,4 +27,11 @@ try{
  assert.equal(patch.name,'Copilot synthetic test');assert.equal(patch.kind,'content');assert.deepEqual(patch.collections,['generated']);
  assert.equal(patch.interval_seconds,600);assert.equal(patch.enabled,false);assert.equal(patch.retrieval_enabled,false);
  console.log('COPILOT_LIVE_ROUTE_PASS');
+ const switched=await post(`/session/${s.id}/propose`,{version:result.body.version,message:'Prepare a new Knowledge table named Copilot acceptance notes with columns name,note and purpose Synthetic acceptance testing. Do not create it yet; show me the review.'});
+ assert.equal(switched.status,200);
+ assert.equal(switched.body.proposal.actions.some(a=>a.type==='fill'&&a.form==='knowledge_source'),false,'New table request must not replay the old source proposal');
+ const table=Object.assign({},...switched.body.proposal.actions.filter(a=>a.type==='fill'&&a.form==='knowledge_table').map(a=>a.values));
+ assert.equal(table.name,'Copilot acceptance notes');
+ assert.equal(table.columns,'name,note');
+ console.log('COPILOT_LIVE_TOPIC_SWITCH_PASS');
 }finally{await new Promise(r=>server.close(r));db.close();}
