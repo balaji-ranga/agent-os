@@ -2,6 +2,21 @@ import { validateSelection } from './knowledge-selection.js';
 // Deliberately bounded UI assistance. These contracts never authorize API writes.
 export const COPILOT_VERSION = 1;
 export const COPILOT_FORMS = {
+  user_profile: {
+    label:'Profile details',route:'/profile',permission:'profile',
+    purpose:'Prepare display name, role title and display timezone only. Passwords, MFA, model credentials, retention and permissions remain user-controlled.',
+    fields:{name:{type:'string',maxLength:120},role_title:{type:'string',maxLength:120},display_timezone:{type:'string',maxLength:100,description:'IANA timezone such as Asia/Singapore; empty follows browser.'}},
+  },
+  knowledge_table: {
+    label:'Knowledge table',route:'/master-data#knowledge-tables',permission:'master-data',
+    purpose:'Prepare a new table name, purpose and comma-separated column names. Existing tables and rows are not modified; user submits Create table.',
+    fields:{name:{type:'string',maxLength:160},purpose:{type:'string',maxLength:2000},columns:{type:'string',maxLength:2000}},
+  },
+  knowledge_document: {
+    label:'Knowledge document upload',route:'/master-data#knowledge-documents',permission:'master-data',
+    purpose:'Prepare document title and tags only. User chooses the local file and submits upload; never read or upload a local file automatically.',
+    fields:{title:{type:'string',maxLength:300},tags:{type:'string',maxLength:1000}},
+  },
   knowledge_source: {
     label: 'Knowledge source', route: '/master-data#knowledge-connected', permission: 'master-data',
     purpose: 'Configure indexing using an existing company connection. External authorization is user-only.',
@@ -35,6 +50,7 @@ export function cleanFormPatch(formId, input) {
     if (!field) throw copilotError(`Unregistered field: ${key}`);
     if (field.type === 'string' && (typeof value !== 'string' || value.length > (field.maxLength || 2000))) throw copilotError(`Invalid ${key}`);
     if (field.enum && !field.enum.includes(value)) throw copilotError(`Invalid ${key}`);
+    if(key==='display_timezone'&&value){try{new Intl.DateTimeFormat('en',{timeZone:value});}catch{throw copilotError('Invalid display timezone');}}
     if (field.type === 'boolean' && typeof value !== 'boolean') throw copilotError(`Invalid ${key}`);
     if (field.type === 'integer' && (!Number.isInteger(value) || value < field.minimum || value > field.maximum)) throw copilotError(`Invalid ${key}`);
     if (field.type === 'array' && (!Array.isArray(value) || value.length > 20 || value.some(v => !field.items.includes(v)))) throw copilotError(`Invalid ${key}`);

@@ -12,6 +12,8 @@ const server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listeni
 const base=`http://127.0.0.1:${server.address().port}/copilot`;
 async function request(path,method='GET',body){const res=await fetch(base+path,{method,headers:{'Content-Type':'application/json','x-impersonate-ceo':'bob'},body:body&&JSON.stringify(body)});return {status:res.status,body:await res.json()};}
 try{
+  assert.equal((await request('/screen-spec?screen=connectors')).status,200);
+  assert.equal((await request('/screen-spec?screen=admin')).status,403);
   let s=(await request('/session','POST',{owner:'bob',origin:'https://evil.test'})).body;
   assert.equal(s.origin,'/');
   let reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,message:'Prepare a researcher',owner:'bob'});

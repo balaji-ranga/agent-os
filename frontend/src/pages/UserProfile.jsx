@@ -10,6 +10,7 @@ import ThemePicker from '../components/ThemePicker.jsx';
 import DesignSystemPicker from '../components/DesignSystemPicker.jsx';
 import IsoCountryRegionSelect from '../components/IsoCountryRegionSelect.jsx';
 import { CompanyEfficiencyPreferences } from '../components/EfficiencyControls.jsx';
+import { useCopilotForm } from '../utils/copilotForms.js';
 
 function UserProfilePanel() {
   const { user, reload, platformTimezone, displayTimezone } = useAuth();
@@ -69,6 +70,11 @@ function UserProfilePanel() {
   const [bizBusy, setBizBusy] = useState(false);
   const [promotionPrefs, setPromotionPrefs] = useState({ whatsapp_consent: false });
   const [promotionPrefsBusy, setPromotionPrefsBusy] = useState(false);
+  useCopilotForm('user_profile',{name:form.name,role_title:form.role_title,display_timezone:form.display_timezone},patch=>{
+    if(patch.display_timezone){try{new Intl.DateTimeFormat('en',{timeZone:patch.display_timezone});}catch{throw new Error('Choose a valid IANA timezone.');}}
+    setForm(current=>({...current,...patch}));
+    if(patch.role_title!==undefined)setRoleTitleCustom(true);
+  },()=>{if(busy||form.current_password||form.new_password||form.confirm_password||form.llm_api_key||oc.runtime_token)throw new Error('Finish or cancel the secure profile edit before using Copilot. Credentials are never included in drafts.');});
 
   const loadOcConnections = () => {
     api

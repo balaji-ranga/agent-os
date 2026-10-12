@@ -53,10 +53,15 @@ export default function PlatformHelpCopilot() {
   async function ensureSession(){if(session&&session.status!=='cancelled')return session;const s=await api.copilotCreate({origin:location.pathname});setSession(s);return s;}
   async function update(body){const s=await ensureSession();const next=await api.copilotUpdate(s.id,{version:s.version,...body});setSession(next);return next;}
   async function propose(e){e.preventDefault();await run(async()=>{
+    setReview(null);
     let s=await ensureSession();
     baselines.current=Object.fromEntries(Object.keys(catalog.forms).map(id=>[id,getCopilotForm(id)?.read()]));
     for(const [form,values] of Object.entries(baselines.current))if(values){s=await api.copilotUpdate(s.id,{version:s.version,draft:{form,values}});setSession(s);}
-    setSession(await api.copilotPropose(s.id,{version:s.version,message:input}));setInput('');setNotice('');
+    const screen=catalog.screens?.find(x=>x.route.split('#')[0]===location.pathname)?.id;
+    const next=await api.copilotPropose(s.id,{version:s.version,message:input,...(screen?{screen}:{})});
+    setSession(next);setInput('');setNotice('');
+    const prepared=next.proposal?.actions.find(a=>a.type==='fill'&&getCopilotForm(a.form));
+    if(prepared)setReview({action:prepared,expected:baselines.current[prepared.form]??getCopilotForm(prepared.form).read()});
   });}
   async function go(route,state={}){
     let s=await ensureSession();
