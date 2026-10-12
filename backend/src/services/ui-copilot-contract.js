@@ -13,8 +13,8 @@ export const COPILOT_FORMS = {
       folder_id: { type: 'string', maxLength: 500 },
       selection: { type: 'object', description: 'Content-selection rules: mode all/any, rules [{field,operator,value}], include [field paths]. Existing Knowledge validation applies.' },
       interval_seconds: { type: 'integer', minimum: 60, maximum: 86400 },
-      graph_enabled: { type: 'boolean' }, intelligent_mapping: { type: 'boolean' },
-      enabled: { type: 'boolean' }, retrieval_enabled: { type: 'boolean' },
+      graph_enabled: { type: 'boolean', description: 'Connect related information; does NOT control search visibility.' }, intelligent_mapping: { type: 'boolean', description: 'Model-assisted relationship mapping.' },
+      enabled: { type: 'boolean', description: 'Synchronization scheduling. false means paused/disabled sync.' }, retrieval_enabled: { type: 'boolean', description: 'Search and agent retrieval visibility. Set false when user says hidden or unavailable to search. Independent of graph_enabled and enabled.' },
     },
   },
   hire_employee: {

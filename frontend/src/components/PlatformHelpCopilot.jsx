@@ -5,6 +5,15 @@ import { useAuth } from '../context/AuthContext';
 import { getCopilotForm } from '../utils/copilotForms.js';
 import AgentChatPanel from './AgentChatPanel';
 import './PlatformHelpCopilot.css';
+const fieldLabels={kind:'Connection',collections:'Content to include',interval_seconds:'Sync frequency',graph_enabled:'Connect related information',intelligent_mapping:'Intelligent relationship mapping',enabled:'Synchronization',retrieval_enabled:'Visible in search',folder_id:'Folder',query:'Content filter',selection:'Content selection'};
+function displayValue(key,value){
+  if(value===undefined||value==='')return 'Not set';
+  if(typeof value==='boolean')return value?'On':'Off';
+  if(key==='interval_seconds')return value%60===0?`Every ${value/60} minutes`:`Every ${value} seconds`;
+  if(Array.isArray(value))return value.join(', ')||'None';
+  if(value&&typeof value==='object')return Object.entries(value).map(([k,v])=>`${fieldLabels[k]||k}: ${displayValue(k,v)}`).join('; ');
+  return String(value);
+}
 
 export default function PlatformHelpCopilot() {
   const { user } = useAuth(), location = useLocation(), navigate = useNavigate();
@@ -93,7 +102,7 @@ export default function PlatformHelpCopilot() {
       <header><div><strong>Platform Help</strong><small>Your Flolah copilot</small></div><button type="button" className="btn-ghost" aria-label="Close Platform Help" onClick={()=>{setOpen(false);toggle.current?.focus();}}>×</button></header>
       {error&&<p role="alert" className="page-banner page-banner-error">{error}</p>}
       {notice&&<p role="status">{notice}</p>}
-      {review&&<article aria-label="Review field changes"><strong>Review before applying</strong><dl>{Object.entries(review.action.values).map(([k,v])=><div key={k}><dt>{k.replaceAll('_',' ')}</dt><dd>{JSON.stringify(review.expected[k]??'')} → {JSON.stringify(v)}</dd></div>)}</dl><button disabled={busy||session?.status!=='active'} onClick={()=>run(confirmFields)}>Confirm field changes</button><button onClick={()=>setReview(null)}>Keep current fields</button></article>}
+      {review&&<article aria-label="Review field changes"><strong>Here’s what I’ll prepare</strong><dl>{Object.entries(review.action.values).map(([k,v])=><div key={k}><dt>{fieldLabels[k]||k.replaceAll('_',' ')}</dt><dd>{displayValue(k,review.expected[k])} → {displayValue(k,v)}</dd></div>)}</dl><button className="btn-primary" disabled={busy||session?.status!=='active'} onClick={()=>run(confirmFields)}>Use these details</button><button onClick={()=>setReview(null)}>Keep current fields</button></article>}
       {!catalog?<p>Loading permitted screens…</p>:<>
         <details className="copilot-preferences"><summary>How I help</summary><label>Assistance style <select disabled={busy} value={session?.mode||'hybrid'} onChange={e=>run(()=>update({mode:e.target.value}))}><option value="hybrid">Prepare setup and guide me</option><option value="guided">Guide me step by step</option><option value="autofill">Prepare fields for my review</option></select></label><p>I can prepare supported forms. You review before saving and handle any sign-in yourself.</p>
         {session&&<div className="copilot-controls"><span>{session.status}</span><button disabled={busy} onClick={()=>run(()=>update({status:session.status==='active'?'paused':'active'}))}>{session.status==='active'?'Pause':'Resume'}</button><button disabled={busy} onClick={()=>run(async()=>{await update({status:'cancelled'});setWatch(null);setNotice('Session cancelled; saved drafts cleared. Existing configuration is unchanged.');})}>Cancel</button><button disabled={busy} onClick={()=>run(()=>go(session.origin))}>Return to origin</button></div>}

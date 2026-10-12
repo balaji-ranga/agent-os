@@ -4,6 +4,7 @@ import { COPILOT_FORMS, validateCopilotProposal } from '../src/services/ui-copil
 import express from 'express';
 import Database from 'better-sqlite3';
 import { uiCopilotRouter } from '../src/routes/ui-copilot.js';
+import assert from 'node:assert/strict';
 const owner=process.env.COPILOT_TEST_OWNER;
 if(!owner)throw new Error('COPILOT_TEST_OWNER required');
 const catalog={forms:COPILOT_FORMS,screens:[{id:'master-data',label:'Knowledge',route:'/master-data'}],agents:[]};
@@ -19,8 +20,11 @@ try{
  const base=`http://127.0.0.1:${server.address().port}/copilot`;
  const post=async(path,body)=>{const r=await fetch(base+path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});return {status:r.status,body:await r.json()};};
  const s=(await post('/session',{origin:'/'})).body;
- const result=await post(`/session/${s.id}/propose`,{version:s.version,message:'Prepare a Knowledge source named Copilot synthetic test for generated content every 10 minutes, disabled and hidden. Do not save.'});
+ const result=await post(`/session/${s.id}/propose`,{version:s.version,message:'Prepare a Knowledge source named Copilot synthetic test for the Flolah content folder, generated content only, every 10 minutes. Keep synchronization disabled and hidden from search. Do not save.'});
  console.log(JSON.stringify({routeStatus:result.status,error:result.body.error}));
  if(result.status!==200)throw new Error('Live Copilot route failed');
+ const patch=Object.assign({},...result.body.proposal.actions.filter(a=>a.type==='fill'&&a.form==='knowledge_source').map(a=>a.values));
+ assert.equal(patch.name,'Copilot synthetic test');assert.equal(patch.kind,'content');assert.deepEqual(patch.collections,['generated']);
+ assert.equal(patch.interval_seconds,600);assert.equal(patch.enabled,false);assert.equal(patch.retrieval_enabled,false);
  console.log('COPILOT_LIVE_ROUTE_PASS');
 }finally{await new Promise(r=>server.close(r));db.close();}
