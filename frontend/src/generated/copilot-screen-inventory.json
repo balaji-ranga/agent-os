@@ -90,21 +90,21 @@
       "controls": [
         {
           "id": "components/AddToOrgDialog.jsx:103:10",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Display name",
           "type": "text",
           "required": true,
           "mode": "guided"
         },
         {
           "id": "components/AddToOrgDialog.jsx:107:10",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Purpose (used by the COO to route work)",
           "type": "textarea",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "components/AddToOrgDialog.jsx:115:10",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Reports to (internal agent)",
           "type": "select",
           "required": true,
           "mode": "guided",
@@ -112,15 +112,16 @@
         },
         {
           "id": "components/AddToOrgDialog.jsx:128:10",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Monthly token budget (blank = unlimited)",
           "type": "number",
           "required": false,
           "min": "0",
-          "mode": "guided"
+          "mode": "guided",
+          "user_only": true
         },
         {
           "id": "components/AddToOrgDialog.jsx:137:10",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Error budget — max monthly failure %",
           "type": "number",
           "required": false,
           "min": "0",
@@ -752,14 +753,14 @@
         },
         {
           "id": "components/GoalPlanManualEditor.jsx:183:22",
-          "label": "run crm maker checker",
+          "label": "Trigger phrase",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "components/GoalPlanManualEditor.jsx:187:22",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Phase",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -767,7 +768,7 @@
         },
         {
           "id": "components/GoalPlanManualEditor.jsx:201:22",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "AI employee",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -775,14 +776,14 @@
         },
         {
           "id": "components/GoalPlanManualEditor.jsx:215:22",
-          "label": "What this specialist should deliver",
+          "label": "Work message",
           "type": "textarea",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "components/GoalPlanManualEditor.jsx:219:22",
-          "label": "empty = sequential",
+          "label": "Parallel group (optional)",
           "type": "number",
           "required": false,
           "min": 0,
@@ -790,28 +791,28 @@
         },
         {
           "id": "components/GoalPlanManualEditor.jsx:231:22",
-          "label": "Leave empty to use the full goal prompt",
+          "label": "Message (optional override)",
           "type": "textarea",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "components/GoalPlanManualEditor.jsx:240:22",
-          "label": "Uses goal title if empty",
+          "label": "Notification title (optional)",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "components/GoalPlanManualEditor.jsx:244:22",
-          "label": "Uses goal summary if empty",
+          "label": "Body (optional)",
           "type": "textarea",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "components/GoalPlanManualEditor.jsx:253:22",
-          "label": "e.g. this_week_digest",
+          "label": "Tool name",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -1287,21 +1288,21 @@
         },
         {
           "id": "components/mcp/McpRegistryView.jsx:239:14",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Name",
           "type": "text",
           "required": true,
           "mode": "guided"
         },
         {
           "id": "components/mcp/McpRegistryView.jsx:243:14",
-          "label": "What does this MCP provide?",
+          "label": "Description",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "components/mcp/McpRegistryView.jsx:251:14",
-          "label": "https://mcp.example.com/mcp",
+          "label": "Remote server URL",
           "type": "text",
           "required": true,
           "mode": "guided"
@@ -1314,7 +1315,7 @@
       "controls": [
         {
           "id": "components/mcp/McpTestView.jsx:216:12",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Remote server URL",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -1328,7 +1329,7 @@
         },
         {
           "id": "components/mcp/McpTestView.jsx:310:18",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Tool arguments (JSON)",
           "type": "textarea",
           "required": false,
           "mode": "guided"
@@ -1539,7 +1540,7 @@
         },
         {
           "id": "components/PlatformHelpCopilot.jsx:226:144",
-          "label": "Ask me to help with anything in Flolah…",
+          "label": "Message Platform Help",
           "type": "textarea",
           "required": false,
           "mode": "guided"
@@ -1565,28 +1566,28 @@
       "controls": [
         {
           "id": "components/PublishAgentToExchangeModal.jsx:107:10",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Listing name",
           "type": "text",
           "required": true,
           "mode": "guided"
         },
         {
           "id": "components/PublishAgentToExchangeModal.jsx:111:10",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Description",
           "type": "textarea",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "components/PublishAgentToExchangeModal.jsx:116:12",
-          "label": "agent-publish-vis",
+          "label": "Flolah — in-app only. Other Flolah users can Add to org.",
           "type": "radio",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "components/PublishAgentToExchangeModal.jsx:127:12",
-          "label": "agent-publish-vis",
+          "label": "Public — anyone on the internet can call this agent as A2A.",
           "type": "radio",
           "required": false,
           "mode": "guided"
@@ -1666,7 +1667,7 @@
       "controls": [
         {
           "id": "components/workflow/DesktopPackageModal.jsx:166:16",
-          "label": "desktop-pkg",
+          "label": "( )",
           "type": "radio",
           "required": false,
           "mode": "guided"
@@ -1780,140 +1781,143 @@
       "controls": [
         {
           "id": "components/workflow/PublishA2AModal.jsx:338:20",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Publish as a new agent (different name / endpoint)",
           "type": "checkbox",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "components/workflow/PublishA2AModal.jsx:390:18",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Agent name *",
           "type": "text",
           "required": true,
           "mode": "guided"
         },
         {
           "id": "components/workflow/PublishA2AModal.jsx:399:18",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Description",
           "type": "textarea",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "components/workflow/PublishA2AModal.jsx:409:20",
-          "label": "a2a-invoke-mode",
+          "label": "Sync — HTTP waits for the run (up to ~2 minutes). Response includes final output and run metadata.",
           "type": "radio",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "components/workflow/PublishA2AModal.jsx:421:20",
-          "label": "a2a-invoke-mode",
+          "label": "Async — returns immediately with a task id. Callers poll / , and/or receive a callback POST.",
           "type": "radio",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "components/workflow/PublishA2AModal.jsx:437:20",
-          "label": "https://example.com/hooks/a2a-result",
+          "label": "Callback URL (optional)",
           "type": "url",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "components/workflow/PublishA2AModal.jsx:453:20",
-          "label": "a2a-visibility",
+          "label": "Public — listed on AgentExchange; public card / invoke subject to Security (IP deny / allow / whitelist). Default.",
           "type": "radio",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "components/workflow/PublishA2AModal.jsx:465:20",
-          "label": "a2a-visibility",
+          "label": "Private — public calling disabled. Only the COO or the org reports-to lead (after Add to org ) can invoke it. Hidden from other CEOs on AgentExchange.",
           "type": "radio",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "components/workflow/PublishA2AModal.jsx:481:20",
-          "label": "a2a-auth-mode",
+          "label": "Public auth — anyone with the endpoint can invoke (no token). Ignored when Visibility is Private.",
           "type": "radio",
           "required": false,
-          "mode": "guided"
+          "mode": "guided",
+          "user_only": true
         },
         {
           "id": "components/workflow/PublishA2AModal.jsx:493:20",
-          "label": "a2a-auth-mode",
+          "label": "Secured — clients exchange + for a Bearer access token, then call A2A.",
           "type": "radio",
           "required": false,
-          "mode": "guided"
+          "mode": "guided",
+          "user_only": true
         },
         {
           "id": "components/workflow/PublishA2AModal.jsx:506:22",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Rotate client secret (invalidates previous secret and tokens)",
           "type": "checkbox",
           "required": false,
-          "mode": "guided"
+          "mode": "guided",
+          "user_only": true
         },
         {
           "id": "components/workflow/PublishA2AModal.jsx:519:20",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Skill ID",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "components/workflow/PublishA2AModal.jsx:523:20",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Version",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "components/workflow/PublishA2AModal.jsx:528:18",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Skill name",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "components/workflow/PublishA2AModal.jsx:532:18",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Skill description",
           "type": "textarea",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "components/workflow/PublishA2AModal.jsx:540:18",
-          "label": "{\"type\":\"object\",\"required\":[\"message\"],\"properties\":{\"message\":{\"type\":\"string\"}},\"additionalProperties\":false}",
+          "label": "Input JSON Schema (optional)",
           "type": "textarea",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "components/workflow/PublishA2AModal.jsx:555:20",
-          "label": "Your org",
+          "label": "Provider name",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "components/workflow/PublishA2AModal.jsx:564:20",
-          "label": "https://example.com",
+          "label": "Provider URL",
           "type": "url",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "components/workflow/PublishA2AModal.jsx:574:18",
-          "label": "workflow, automation",
+          "label": "Tags (comma-separated)",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "components/workflow/PublishA2AModal.jsx:583:18",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Example prompts (one per line)",
           "type": "textarea",
           "required": false,
           "mode": "guided"
@@ -1989,7 +1993,7 @@
       "controls": [
         {
           "id": "components/WorkSteering.jsx:68:10",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Existing work",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -1997,7 +2001,7 @@
         },
         {
           "id": "components/WorkSteering.jsx:74:10",
-          "label": "For the remaining work, please…",
+          "label": "Guidance",
           "type": "textarea",
           "required": false,
           "mode": "guided"
@@ -2140,7 +2144,7 @@
         },
         {
           "id": "pages/Admin.jsx:1253:18",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "( )",
           "type": "checkbox",
           "required": false,
           "mode": "guided"
@@ -2211,7 +2215,7 @@
         },
         {
           "id": "pages/Admin.jsx:1409:18",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "( )",
           "type": "checkbox",
           "required": false,
           "mode": "guided"
@@ -2282,7 +2286,7 @@
         },
         {
           "id": "pages/AdminCrons.jsx:247:16",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "seconds",
           "type": "number",
           "required": false,
           "mode": "guided"
@@ -2311,7 +2315,7 @@
         },
         {
           "id": "pages/AdminModels.jsx:165:16",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "seconds",
           "type": "number",
           "required": false,
           "mode": "guided"
@@ -2424,28 +2428,28 @@
       "controls": [
         {
           "id": "pages/AdminPromotions.jsx:36:43",
-          "label": "e.g. Founder plan launch",
+          "label": "Campaign name",
           "type": "text",
           "required": true,
           "mode": "guided"
         },
         {
           "id": "pages/AdminPromotions.jsx:37:40",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Advertiser",
           "type": "text",
           "required": true,
           "mode": "guided"
         },
         {
           "id": "pages/AdminPromotions.jsx:38:63",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Disclosure",
           "type": "text",
           "required": true,
           "mode": "guided"
         },
         {
           "id": "pages/AdminPromotions.jsx:41:38",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Delivery",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -2453,7 +2457,7 @@
         },
         {
           "id": "pages/AdminPromotions.jsx:42:38",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Audience",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -2461,7 +2465,7 @@
         },
         {
           "id": "pages/AdminPromotions.jsx:43:124",
-          "label": "Search by name or email",
+          "label": "Selected users",
           "type": "search",
           "required": false,
           "mode": "guided"
@@ -2475,7 +2479,7 @@
         },
         {
           "id": "pages/AdminPromotions.jsx:44:39",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Frequency",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -2483,7 +2487,7 @@
         },
         {
           "id": "pages/AdminPromotions.jsx:45:76",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Maximum deliveries",
           "type": "number",
           "required": false,
           "min": "1",
@@ -2498,7 +2502,7 @@
         },
         {
           "id": "pages/AdminPromotions.jsx:50:137",
-          "label": "HTTPS media URL or /api/media path",
+          "label": "Media URL",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -2512,21 +2516,21 @@
         },
         {
           "id": "pages/AdminPromotions.jsx:51:112",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Button label",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/AdminPromotions.jsx:51:242",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "HTTPS destination",
           "type": "url",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/AdminPromotions.jsx:56:33",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "State",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -2534,21 +2538,21 @@
         },
         {
           "id": "pages/AdminPromotions.jsx:57:34",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Starts",
           "type": "datetime-local",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/AdminPromotions.jsx:57:172",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Ends",
           "type": "datetime-local",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/AdminPromotions.jsx:57:310",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Priority",
           "type": "number",
           "required": false,
           "min": "0",
@@ -2556,7 +2560,7 @@
         },
         {
           "id": "pages/AdminPromotions.jsx:58:43",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Allow users to dismiss this promotion",
           "type": "checkbox",
           "required": false,
           "mode": "guided"
@@ -2785,7 +2789,7 @@
         },
         {
           "id": "pages/AgentChannels.jsx:662:18",
-          "label": "WhatsApp groups",
+          "label": "WhatsApp groups DM allowlist does not apply to groups unless you set this. Disabled blocks group media before it is downloaded.",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -2864,7 +2868,7 @@
         },
         {
           "id": "pages/AgentExchange.jsx:707:12",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Callback URL (optional override)",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -2899,7 +2903,7 @@
         },
         {
           "id": "pages/AgentWorkflowEditor.jsx:252:10",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Send notification",
           "type": "checkbox",
           "required": false,
           "mode": "guided"
@@ -3585,7 +3589,7 @@
         },
         {
           "id": "pages/AgentWorkspace.jsx:637:12",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Orchestrator",
           "type": "checkbox",
           "required": false,
           "mode": "guided"
@@ -3607,28 +3611,28 @@
         },
         {
           "id": "pages/AgentWorkspace.jsx:842:20",
-          "label": "Quarterly account research",
+          "label": "Name",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/AgentWorkspace.jsx:846:20",
-          "label": "account research, qualify leads",
+          "label": "When to recommend it",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/AgentWorkspace.jsx:856:18",
-          "label": "A concise statement of the outcome and when this procedure applies.",
+          "label": "Description",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/AgentWorkspace.jsx:860:18",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "SKILL.md",
           "type": "textarea",
           "required": false,
           "mode": "guided"
@@ -3885,7 +3889,7 @@
         },
         {
           "id": "pages/BrowserSession.jsx:736:18",
-          "label": "Recipe name",
+          "label": "Recipe name *",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -4521,7 +4525,7 @@
         },
         {
           "id": "pages/ContentToolsLogs.jsx:1366:12",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Tool",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -4661,35 +4665,35 @@
         },
         {
           "id": "pages/ExternalAgents.jsx:354:14",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Name",
           "type": "text",
           "required": true,
           "mode": "guided"
         },
         {
           "id": "pages/ExternalAgents.jsx:358:14",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Description",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/ExternalAgents.jsx:362:14",
-          "label": "https://hello-world-gxfr.onrender.com",
+          "label": "Agent card URL (base or full)",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/ExternalAgents.jsx:373:14",
-          "label": "https://agent.example.com/",
+          "label": "A2A endpoint URL (optional if in card)",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/ExternalAgents.jsx:381:14",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Default skill ID",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -4715,7 +4719,7 @@
       "controls": [
         {
           "id": "pages/IBKRNewLiveOperations.jsx:132:64",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Event type",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -4723,7 +4727,7 @@
         },
         {
           "id": "pages/IBKRNewLiveOperations.jsx:133:60",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Status",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -4751,7 +4755,7 @@
         },
         {
           "id": "pages/IBKRNewStrategy.jsx:116:232",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "provider",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -4759,14 +4763,14 @@
         },
         {
           "id": "pages/IBKRNewStrategy.jsx:127:82",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Goal name",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/IBKRNewStrategy.jsx:128:64",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Cycle mode",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -4774,7 +4778,7 @@
         },
         {
           "id": "pages/IBKRNewStrategy.jsx:129:71",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Target return (%)",
           "type": "number",
           "required": false,
           "min": "0.01",
@@ -4783,7 +4787,7 @@
         },
         {
           "id": "pages/IBKRNewStrategy.jsx:130:84",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Cycle duration (calendar days)",
           "type": "number",
           "required": false,
           "min": "1",
@@ -4792,14 +4796,14 @@
         },
         {
           "id": "pages/IBKRNewStrategy.jsx:139:88",
-          "label": "SPX, NDX, RUT, DJIA",
+          "label": "Stock indexes",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/IBKRNewStrategy.jsx:140:72",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Membership match",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -4807,35 +4811,35 @@
         },
         {
           "id": "pages/IBKRNewStrategy.jsx:157:73",
-          "label": "Optional",
+          "label": "Allowed sectors",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/IBKRNewStrategy.jsx:158:74",
-          "label": "Optional",
+          "label": "Excluded sectors",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/IBKRNewStrategy.jsx:171:69",
-          "label": "Optional: SPY, QQQ",
+          "label": "ETF allowlist",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/IBKRNewStrategy.jsx:172:68",
-          "label": "Optional",
+          "label": "ETF denylist",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/IBKRNewStrategy.jsx:173:70",
-          "label": "EQUITY, INDEX",
+          "label": "ETF categories",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -4890,14 +4894,14 @@
       "controls": [
         {
           "id": "pages/IpWhitelists.jsx:200:16",
-          "label": "203.0.113.10 or 203.0.113.0/24",
+          "label": "IP or CIDR",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/IpWhitelists.jsx:209:16",
-          "label": "Home office",
+          "label": "Label (optional)",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -4911,14 +4915,14 @@
         },
         {
           "id": "pages/IpWhitelists.jsx:244:20",
-          "label": "optional",
+          "label": "Workflow definition id (desktop only; leave empty = all workflows)",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/IpWhitelists.jsx:253:20",
-          "label": "optional",
+          "label": "A2A publish id (leave empty = all your A2A agents on whitelist policy)",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -5052,21 +5056,21 @@
         },
         {
           "id": "pages/Login.jsx:158:12",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Code",
           "type": "text",
           "required": true,
           "mode": "guided"
         },
         {
           "id": "pages/Login.jsx:214:10",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Email",
           "type": "email",
           "required": true,
           "mode": "guided"
         },
         {
           "id": "pages/Login.jsx:224:10",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Password",
           "type": "password",
           "required": true,
           "mode": "guided",
@@ -5339,7 +5343,7 @@
         },
         {
           "id": "pages/MarketingWorkspace.jsx:315:48",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Enable this channel for campaign planning",
           "type": "checkbox",
           "required": false,
           "mode": "guided"
@@ -5428,7 +5432,7 @@
         },
         {
           "id": "pages/MarketingWorkspace.jsx:334:48",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Enable periodic inspection",
           "type": "checkbox",
           "required": false,
           "mode": "guided"
@@ -5681,7 +5685,7 @@
       "controls": [
         {
           "id": "pages/MasterData.jsx:497:10",
-          "label": "For example: What are our current sales priorities?",
+          "label": "Question for company knowledge",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -6015,7 +6019,7 @@
         },
         {
           "id": "pages/Objectives.jsx:69:805",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Human approval before external action",
           "type": "checkbox",
           "required": false,
           "mode": "guided"
@@ -6044,7 +6048,7 @@
         },
         {
           "id": "pages/Objectives.jsx:71:157",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "KR :",
           "type": "checkbox",
           "required": false,
           "mode": "guided"
@@ -6187,7 +6191,7 @@
       "controls": [
         {
           "id": "pages/Onboarding.jsx:162:14",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": ":",
           "type": "checkbox",
           "required": false,
           "mode": "guided"
@@ -6234,21 +6238,21 @@
         },
         {
           "id": "pages/Policies.jsx:287:12",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Enforce these guardrails for all agents and Brain nodes",
           "type": "checkbox",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/Policies.jsx:293:12",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Common policy text",
           "type": "textarea",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/Policies.jsx:368:12",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Automatic retries per failed step Default: 1. Set 0 to escalate immediately.",
           "type": "number",
           "required": false,
           "min": "0",
@@ -6257,21 +6261,22 @@
         },
         {
           "id": "pages/Policies.jsx:380:12",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Create a Kanban task after retries are exhausted The task links the failed run and exact step so you can rectify it and continue from there.",
           "type": "checkbox",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/Policies.jsx:394:12",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Let the responsible agent pick up the recovery task The assigned employee works only on the failed step. If credentials, policy, or user input is needed, the task remains visible f",
           "type": "checkbox",
           "required": false,
-          "mode": "guided"
+          "mode": "guided",
+          "user_only": true
         },
         {
           "id": "pages/Policies.jsx:420:94",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Default preference",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -6279,7 +6284,7 @@
         },
         {
           "id": "pages/Policies.jsx:421:79",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Require a matched human for high-risk judgment",
           "type": "checkbox",
           "required": false,
           "mode": "guided"
@@ -6301,7 +6306,7 @@
         },
         {
           "id": "pages/Policies.jsx:489:16",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "( )",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -6309,7 +6314,7 @@
         },
         {
           "id": "pages/Policies.jsx:529:16",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Override target",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -6317,7 +6322,7 @@
         },
         {
           "id": "pages/Policies.jsx:536:16",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Action family",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -6325,7 +6330,7 @@
         },
         {
           "id": "pages/Policies.jsx:541:16",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Effective mode",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -6333,14 +6338,14 @@
         },
         {
           "id": "pages/Policies.jsx:546:16",
-          "label": "ceo@example.com",
+          "label": "Permitted email IDs (comma-separated)",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/Policies.jsx:549:16",
-          "label": "linkedin.com, medium.com",
+          "label": "Permitted websites/domains",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -6365,7 +6370,7 @@
         },
         {
           "id": "pages/Policies.jsx:562:18",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Expires (optional)",
           "type": "datetime-local",
           "required": false,
           "mode": "guided"
@@ -6398,14 +6403,14 @@
         },
         {
           "id": "pages/Register.jsx:239:12",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Code",
           "type": "text",
           "required": true,
           "mode": "guided"
         },
         {
           "id": "pages/Register.jsx:298:10",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Industry",
           "type": "select",
           "required": true,
           "mode": "guided",
@@ -6413,7 +6418,7 @@
         },
         {
           "id": "pages/Register.jsx:321:10",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Tenancy Model",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -6421,7 +6426,7 @@
         },
         {
           "id": "pages/Register.jsx:344:10",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Provider",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -6429,7 +6434,7 @@
         },
         {
           "id": "pages/Register.jsx:361:12",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Default chat model",
           "type": "select",
           "required": true,
           "mode": "guided",
@@ -6437,30 +6442,32 @@
         },
         {
           "id": "pages/Register.jsx:392:12",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Custom model id",
           "type": "text",
           "required": true,
           "mode": "guided"
         },
         {
           "id": "pages/Register.jsx:431:10",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Require MFA",
           "type": "select",
           "required": false,
           "mode": "guided",
+          "user_only": true,
           "options": "Use the live authorized options shown on this screen."
         },
         {
           "id": "pages/Register.jsx:443:10",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "MFA method",
           "type": "select",
           "required": false,
           "mode": "guided",
+          "user_only": true,
           "options": "Use the live authorized options shown on this screen."
         },
         {
           "id": "pages/Register.jsx:464:10",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "I agree to the and acknowledge the . I am responsible for validating AI outputs and applying human gates and policies before acting on them (version ).",
           "type": "checkbox",
           "required": true,
           "mode": "guided"
@@ -6511,21 +6518,21 @@
         },
         {
           "id": "pages/ScheduledGoals.jsx:414:12",
-          "label": "Hourly MAGS dip check",
+          "label": "Title (optional)",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/ScheduledGoals.jsx:422:12",
-          "label": "Check MAGS vs previous close; if down ≥2%, notify me. Otherwise do not notify.",
+          "label": "Prompt (what to do each run)",
           "type": "textarea",
           "required": true,
           "mode": "guided"
         },
         {
           "id": "pages/ScheduledGoals.jsx:433:14",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Who runs it",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -6533,7 +6540,7 @@
         },
         {
           "id": "pages/ScheduledGoals.jsx:456:14",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Cadence",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -6541,7 +6548,7 @@
         },
         {
           "id": "pages/ScheduledGoals.jsx:466:16",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Weekday",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -6556,21 +6563,21 @@
         },
         {
           "id": "pages/ScheduledGoals.jsx:496:14",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Ends (optional) Empty = perpetual",
           "type": "date",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/ScheduledGoals.jsx:513:14",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Also send the final outcome on this employee’s WhatsApp Needs Channels → WhatsApp enabled and a DM (allow-from or Profile mobile). Unpaired skips WhatsApp; web still works.",
           "type": "checkbox",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/ScheduledGoals.jsx:608:14",
-          "label": "e.g. also add social research; run Platform Help in parallel",
+          "label": "Regenerate with feedback (optional) Feedback re-runs the planner and can replace manual edits. Prefer Amend for precise step changes.",
           "type": "textarea",
           "required": false,
           "mode": "guided"
@@ -6625,14 +6632,14 @@
       "controls": [
         {
           "id": "pages/UpdateCompanySetup.jsx:117:14",
-          "label": "Your company",
+          "label": "Company name",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/UpdateCompanySetup.jsx:122:16",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Industry / company type",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -6640,21 +6647,21 @@
         },
         {
           "id": "pages/UpdateCompanySetup.jsx:129:16",
-          "label": "e.g. content_creator",
+          "label": "Industry / company type",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/UpdateCompanySetup.jsx:134:14",
-          "label": "What does the company exist to achieve?",
+          "label": "Mission",
           "type": "textarea",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/UpdateCompanySetup.jsx:138:14",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Organization DNA",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -6662,7 +6669,7 @@
         },
         {
           "id": "pages/UpdateCompanySetup.jsx:150:14",
-          "label": "Extra operating notes",
+          "label": "DNA notes (optional)",
           "type": "textarea",
           "required": false,
           "mode": "guided"
@@ -6690,29 +6697,31 @@
         },
         {
           "id": "pages/UserProfile.jsx:506:10",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Name",
           "type": "text",
           "required": true,
           "mode": "guided"
         },
         {
           "id": "pages/UserProfile.jsx:515:10",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Your title Shown in My Org, profile menu, and org chart. Does not change account permissions.",
           "type": "select",
           "required": false,
           "mode": "guided",
+          "user_only": true,
           "options": "Use the live authorized options shown on this screen."
         },
         {
           "id": "pages/UserProfile.jsx:537:12",
-          "label": "e.g. Founder & CEO",
+          "label": "Your title Shown in My Org, profile menu, and org chart. Does not change account permissions.",
           "type": "text",
           "required": false,
-          "mode": "guided"
+          "mode": "guided",
+          "user_only": true
         },
         {
           "id": "pages/UserProfile.jsx:551:10",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Display timezone All times in the app (Kanban, Workspace, chat, logs) use this zone. DB keeps UTC. Leave empty for platform default .",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -6720,28 +6729,28 @@
         },
         {
           "id": "pages/UserProfile.jsx:577:10",
-          "label": "Or IANA zone e.g. Asia/Singapore",
+          "label": "Display timezone All times in the app (Kanban, Workspace, chat, logs) use this zone. DB keeps UTC. Leave empty for platform default .",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/UserProfile.jsx:600:10",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Email",
           "type": "email",
           "required": true,
           "mode": "guided"
         },
         {
           "id": "pages/UserProfile.jsx:624:10",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Mobile",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/UserProfile.jsx:632:10",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Data persistence (retention) Company-wide for you and all employees. After this period, chats, call history/transcripts, workflow runs, uploaded/generated content, and tenant RAG d",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -6749,7 +6758,7 @@
         },
         {
           "id": "pages/UserProfile.jsx:688:10",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Industry",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -6757,21 +6766,21 @@
         },
         {
           "id": "pages/UserProfile.jsx:709:12",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Industry (describe)",
           "type": "text",
           "required": true,
           "mode": "guided"
         },
         {
           "id": "pages/UserProfile.jsx:720:12",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Business name",
           "type": "text",
           "required": true,
           "mode": "guided"
         },
         {
           "id": "pages/UserProfile.jsx:738:14",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "CRM",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -6779,7 +6788,7 @@
         },
         {
           "id": "pages/UserProfile.jsx:752:14",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "ERP",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -6787,23 +6796,25 @@
         },
         {
           "id": "pages/UserProfile.jsx:797:10",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Require MFA",
           "type": "select",
           "required": false,
           "mode": "guided",
+          "user_only": true,
           "options": "Use the live authorized options shown on this screen."
         },
         {
           "id": "pages/UserProfile.jsx:809:10",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "MFA method",
           "type": "select",
           "required": false,
           "mode": "guided",
+          "user_only": true,
           "options": "Use the live authorized options shown on this screen."
         },
         {
           "id": "pages/UserProfile.jsx:832:10",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Provider",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -6811,7 +6822,7 @@
         },
         {
           "id": "pages/UserProfile.jsx:858:12",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Chat model",
           "type": "select",
           "required": true,
           "mode": "guided",
@@ -6819,14 +6830,14 @@
         },
         {
           "id": "pages/UserProfile.jsx:889:12",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Custom model id",
           "type": "text",
           "required": true,
           "mode": "guided"
         },
         {
           "id": "pages/UserProfile.jsx:920:14",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Secondary provider",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -6834,7 +6845,7 @@
         },
         {
           "id": "pages/UserProfile.jsx:936:16",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Secondary model",
           "type": "select",
           "required": true,
           "mode": "guided",
@@ -6842,14 +6853,14 @@
         },
         {
           "id": "pages/UserProfile.jsx:959:16",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Custom secondary model id",
           "type": "text",
           "required": true,
           "mode": "guided"
         },
         {
           "id": "pages/UserProfile.jsx:987:10",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Efficiency mode",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -6857,15 +6868,16 @@
         },
         {
           "id": "pages/UserProfile.jsx:1011:10",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Runtime token source",
           "type": "select",
           "required": false,
           "mode": "guided",
+          "user_only": true,
           "options": "Use the live authorized options shown on this screen."
         },
         {
           "id": "pages/UserProfile.jsx:1028:12",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Vault key",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -6873,7 +6885,7 @@
         },
         {
           "id": "pages/UserProfile.jsx:1046:12",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Runtime token",
           "type": "password",
           "required": false,
           "mode": "guided",
@@ -6881,7 +6893,7 @@
         },
         {
           "id": "pages/UserProfile.jsx:1058:10",
-          "label": "ceo-yourid",
+          "label": "Default connection name",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -6896,7 +6908,7 @@
         },
         {
           "id": "pages/UserProfile.jsx:1115:10",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Current password",
           "type": "password",
           "required": false,
           "mode": "guided",
@@ -6904,7 +6916,7 @@
         },
         {
           "id": "pages/UserProfile.jsx:1125:10",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "New password",
           "type": "password",
           "required": false,
           "mode": "guided",
@@ -6912,7 +6924,7 @@
         },
         {
           "id": "pages/UserProfile.jsx:1136:10",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Confirm new password",
           "type": "password",
           "required": false,
           "mode": "guided",

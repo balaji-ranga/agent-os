@@ -4,7 +4,7 @@ import { readdirSync, readFileSync, writeFileSync, mkdirSync, existsSync } from 
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
-import { sourceFieldLabel } from './copilot-field-labels.mjs';
+import { sourceFieldLabel, sourceLabelText } from './copilot-field-labels.mjs';
 const require=createRequire(import.meta.url),{parse}=require('@babel/parser');
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..'),src=join(root,'src');
 const files=[];
@@ -19,10 +19,11 @@ const resolveImport=(file,name)=>{if(!name.startsWith('.'))return null;const bas
 for(const file of [...files,join(src,'App.jsx')]){
  const code=readFileSync(file,'utf8'),tree=parse(code,{sourceType:'module',plugins:['jsx','typescript']});trees.set(file,tree);
  const imports=new Map();for(const n of tree.program.body)if(n.type==='ImportDeclaration'){const target=resolveImport(file,n.source.value);if(target)for(const s of n.specifiers)imports.set(s.local.name,target);}
- const controls=[];let formCount=0;
+ const controls=[],linkedLabels=new Map();let formCount=0;
+ walk(tree,n=>{if(n.type!=='JSXElement'||n.openingElement.name?.name!=='label')return;const id=literal(attr(n.openingElement,'htmlFor'));if(id)linkedLabels.set(id,linkedLabels.has(id)?null:sourceLabelText(n));});
  walk(tree,(n,anc)=>{if(n.type!=='JSXOpeningElement')return;const tag=n.name?.name;if(tag==='form')formCount++;if(!['input','select','textarea'].includes(tag))return;
   const type=literal(attr(n,'type'))||(tag==='input'?'text':tag);
-  const label=sourceFieldLabel(n,anc);
+  const label=sourceFieldLabel(n,anc,linkedLabels);
   const protectedField=type==='password'||type==='file'||/password|secret|api.?key|token|credential|payment|credit.?card|permission|grant|mfa|otp|authorization/i.test(String(label));
   controls.push({id:`${relative(src,file).replaceAll('\\','/')}:${n.loc.start.line}:${n.loc.start.column}`,label:String(label),type,required:!!n.attributes.find(a=>a.name?.name==='required'),...(literal(attr(n,'min'))!==null?{min:literal(attr(n,'min'))}:{}),...(literal(attr(n,'max'))!==null?{max:literal(attr(n,'max'))}:{}),mode:'guided',...(protectedField?{user_only:true}:{}),...(tag==='select'?{options:'Use the live authorized options shown on this screen.'}:{})});
  });
