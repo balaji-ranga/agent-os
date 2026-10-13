@@ -20,6 +20,20 @@ def merge(kind,p,current):
   if current.exists() and current.read_bytes().replace(b'\r\n',b'\n')!=desired:raise RuntimeError('New file collision '+p)
   return desired
  if not current.exists():raise RuntimeError('Missing source '+p)
+ # Reconcile package script maps by key, never replace unrelated runtime scripts.
+ # The host may lack a Copilot script already present in the running image.
+ if p=='backend/package.json':
+  base=json.loads((release/'base'/p).read_bytes());wanted=json.loads(desired);present=json.loads(current.read_bytes())
+  if {k:v for k,v in base.items() if k!='scripts'}=={k:v for k,v in wanted.items() if k!='scripts'}:
+   scripts=present.setdefault('scripts',{})
+   for key in set(base.get('scripts',{}))|set(wanted.get('scripts',{})):
+    old=base.get('scripts',{}).get(key);new=wanted.get('scripts',{}).get(key)
+    if old==new:continue
+    actual=scripts.get(key)
+    if actual not in (old,new) and not (key=='test:ui-copilot' and actual is None):raise RuntimeError('Conflicting package script '+key)
+    if new is None:scripts.pop(key,None)
+    else:scripts[key]=new
+   return (json.dumps(present,indent=2)+'\n').encode()
  parts=[]
  for i,data in enumerate([desired,(release/'base'/p).read_bytes(),current.read_bytes()]):
   dest=release/f'merge-{i}.tmp';dest.write_bytes(data.replace(b'\r\n',b'\n'));parts.append(str(dest))

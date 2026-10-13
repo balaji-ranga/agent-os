@@ -132,8 +132,11 @@ export default function PlatformHelpCopilot() {
     if(review.action.type==='embed_fill'){
       if(!fresh.screens.some(s=>s.id===review.action.screen&&s.route===location.pathname))throw new Error('The embedded screen or permissions changed.');
       const entries=Object.entries(review.action.values),values=session.mode==='guided'?Object.fromEntries(entries.slice(0,1)):review.action.values;
-      await requestCopilotEmbed('fill',null,{snapshot:review.embedSnapshot,values});
-      setReview(null);setNotice('Reviewed values entered into the embedded form. This application may save immediately—verify its result before continuing.');return;
+      const result=await requestCopilotEmbed('fill',null,{snapshot:review.embedSnapshot,values});
+      const rest=Object.fromEntries(entries.slice(1));
+      if(session.mode==='guided'&&Object.keys(rest).length&&result.next_snapshot)setReview({...review,embedSnapshot:result.next_snapshot,action:{...review.action,values:rest}});
+      else setReview(null);
+      setNotice('Reviewed values entered into the embedded form. This application may save immediately—verify its result before continuing.');return;
     }
     if(review.action.type==='screen_fill'){
       const screen=fresh.screens.find(s=>s.id===review.action.screen);
@@ -142,16 +145,22 @@ export default function PlatformHelpCopilot() {
       const values=session.mode==='guided'?Object.fromEntries(entries.slice(0,1)):review.action.values;
       applyDomFields(review.snapshot,values);
       const rest=Object.fromEntries(entries.slice(1));
-      if(session.mode==='guided'&&Object.keys(rest).length){setReview({action:{...review.action,values:rest},snapshot:captureDomFields(document,Object.keys(rest)),expected:review.expected});}
+      if(session.mode==='guided'&&Object.keys(rest).length){setReview({...review,action:{...review.action,values:rest}});}
       else setReview(null);
       setNotice('Reviewed fields entered. Check the screen’s validation and save status; some controls save immediately. Tell me what you need next.');return;
     }
     if(!fresh.forms[review.action.form])throw new Error('Your form access changed.');
     const binding=getCopilotForm(review.action.form);
     if(!binding)throw new Error('Return to the form before applying changes.');
-    await binding.apply(review.action.values,review.expected);
-    await update({draft:{form:review.action.form,values:{...review.expected,...review.action.values}}});
-    baselines.current[review.action.form]=undefined;setReview(null);
+    const entries=Object.entries(review.action.values);
+    const values=session.mode==='guided'?Object.fromEntries(entries.slice(0,1)):review.action.values;
+    await binding.apply(values,review.expected);
+    const expected={...review.expected,...values};
+    await update({draft:{form:review.action.form,values:expected}});
+    const rest=Object.fromEntries(entries.slice(1));
+    baselines.current[review.action.form]=undefined;
+    if(session.mode==='guided'&&Object.keys(rest).length)setReview({...review,expected,action:{...review.action,values:rest}});
+    else setReview(null);
     setNotice('Fields applied. Review the actual form and use its Save button. No configuration has been saved yet.');
   }
   async function openAction(action){

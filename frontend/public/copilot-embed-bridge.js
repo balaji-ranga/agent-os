@@ -37,11 +37,14 @@
           Object.getOwnPropertyDescriptor(proto,'value').set.call(el,value);
           el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));el.blur();
         }
-        result={ok:true,applied:entries.map(([key])=>key),persistence:'Verify in the application; edits may save immediately.'};
+        for(const [key] of entries)delete batch.entries[key];
+        const remaining=Object.keys(batch.entries).filter(key=>batch.entries[key]);
+        if(remaining.length){batch.snapshot=crypto.randomUUID();prepared=batch;}
+        result={ok:true,applied:entries.map(([key])=>key),next_snapshot:prepared?.snapshot||null,persistence:'Verify in the application; edits may save immediately.'};
       }
     }
-    if(command==='inspect')result={ok:true,fields:[...new Set(fields().map(label))],mode:'guided',reason:'Embedded edits may save immediately; enter values yourself.'};
-    if(command==='clear'){clear();result={ok:true};}
+    if(command==='inspect')result={ok:true,fields:[...new Set(fields().map(label))],mode:'guided',reason:'Embedded edits may save immediately; review proposed values before applying.'};
+    if(command==='clear'){clear();prepared=null;result={ok:true};}
     if(command==='focus'&&allowed.has(field)){
       clear();const matches=fields().filter(el=>label(el)===field);
       if(matches.length===1){highlighted=matches[0];highlighted.dataset.flolahPriorOutline=highlighted.style.outline;highlighted.style.outline='3px solid #7654e8';highlighted.scrollIntoView({block:'center'});highlighted.focus({preventScroll:true});result={ok:true};}

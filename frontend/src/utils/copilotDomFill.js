@@ -22,6 +22,7 @@ export function applyDomFields(snapshot,values){
     if(el.tagName==='SELECT'&&![...el.options].some(o=>o.value===value&&!o.disabled))throw new Error('Choose a current permitted option.');
     // Detached native control checks HTML type, pattern and numeric constraints.
     const probe=el.cloneNode(true);probe.value=value;
+    if(el.type==='number'&&value!==''&&probe.value==='')throw new Error('Enter a valid number for this field.');
     if(!probe.checkValidity())throw new Error('Value does not satisfy this field’s validation rules.');
   }
   for(const [id,value] of Object.entries(values)){

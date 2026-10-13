@@ -1529,7 +1529,7 @@
       "form_count": 1,
       "controls": [
         {
-          "id": "components/PlatformHelpCopilot.jsx:191",
+          "id": "components/PlatformHelpCopilot.jsx:200",
           "label": "Assistance style",
           "type": "select",
           "required": false,
@@ -1537,7 +1537,7 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "components/PlatformHelpCopilot.jsx:205",
+          "id": "components/PlatformHelpCopilot.jsx:214",
           "label": "Ask me to help with anything in Flolah…",
           "type": "textarea",
           "required": false,
