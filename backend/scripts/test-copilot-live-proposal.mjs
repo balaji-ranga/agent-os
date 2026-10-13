@@ -8,6 +8,7 @@ import {chatCompletions} from '../src/config/llm.js';
 import {copilotScreenControls} from '../src/services/ui-copilot-screen-specs.js';
 const searchControl=copilotScreenControls('/content-tools').find(c=>c.label==='Search tools registry');
 const eventMode=process.env.COPILOT_TEST_EVENT==='1';
+const policyMode=process.env.COPILOT_TEST_POLICY==='1';
 const marketingMode=process.env.COPILOT_TEST_MARKETING==='1';
 const marketingControls=copilotScreenControls('/marketing').filter(c=>['Campaign name','Outcome goal','Content topics'].includes(c.label));
 const marketingField=label=>marketingControls.find(c=>c.label===label).id;
@@ -21,7 +22,7 @@ const app=express();app.use(express.json());
 app.use((req,res,next)=>{req.authUser={id:owner,role:'ceo'};next();});
 app.use('/test',uiCopilotRouter({database:()=>db,...(process.env.COPILOT_TEST_FULL_CATALOG==='1'?{}:{getCatalog:()=>({forms:{},agents:[],screens:[{id:'erp',route:'/erp'}]})}),complete:async options=>{
   const context=options.messages.map(m=>{try{return JSON.parse(m.content);}catch{return null;}}).find(m=>m?.available_embedded_fields||m?.fields);
-  if(!marketingMode&&!eventMode&&process.env.COPILOT_TEST_CONNECTOR!=='1'&&process.env.COPILOT_TEST_SEARCH!=='1'){
+  if(!policyMode&&!marketingMode&&!eventMode&&process.env.COPILOT_TEST_CONNECTOR!=='1'&&process.env.COPILOT_TEST_SEARCH!=='1'){
     assert.deepEqual(context.available_embedded_fields||context.fields.map(f=>f.id),['name']);
     assert.match(options.messages[0].content,/Current available reviewed embedded edit capability|available embedded form/);
   }
@@ -48,6 +49,7 @@ try{
      {role:'user',text:'Clear the invoice ID filter back to empty.'},
      {role:'assistant',text:'I cannot directly clear the Invoice ID filter as it requires manual input. Please open the Invoice ID field in the ERP screen.'},
    ]).flat();
+   if(policyMode)state.conversation=[{role:'user',text:'Where is email approval policy?'},{role:'assistant',text:'Review Permitted email IDs for the approval policy.'}];
    state.proposal={message:state.conversation.at(-1).text,actions:[]};
    db.prepare('UPDATE ui_copilot_sessions SET state=? WHERE id=?').run(JSON.stringify(state),session.id);
  }
@@ -58,7 +60,9 @@ try{
    state.conversation=[{role:'user',text:'Prepare a Knowledge document upload draft titled Copilot UAT guide with tags acceptance,copilot. Do not upload anything.'},{role:'assistant',text:'Shall I prepare those fields for review?'},{role:'user',text:'Open Research Analyst chat with an unsent draft about research capabilities.'},{role:'assistant',text:'Shall I prepare this draft?'},{role:'user',text:'I want to start a voice call with Research Analyst.'},{role:'assistant',text:'Please review Start call.'}];
    db.prepare('UPDATE ui_copilot_sessions SET state=? WHERE id=?').run(JSON.stringify(state),session.id);
  }
- const cases=marketingMode?[
+ const cases=policyMode?[
+   ['Explain where I review the external email approval policy on this screen. Guidance only: do not change any policy, permission or approval mode.',null],
+ ]:marketingMode?[
    ['Prepare an unsaved campaign named Copilot UAT onboarding. Set outcome goal to Improve product onboarding awareness and content topics to onboarding, product education. Leave budgets, channels, audiences and scheduling unchanged. Guide me through these three fields only; do not save or launch.',null],
  ]:eventMode?[
    ['Prepare this Event subscription draft named Copilot UAT calendar, with provider Published calendar URL (ICS) and event Calendar event changed. Leave the listener off and do not create the subscription.'+(process.env.COPILOT_TEST_MODE==='guided'?' Guide me through filling each field.':''),null],
@@ -73,14 +77,15 @@ try{
  for(const [message,value] of cases){
    const connector=process.env.COPILOT_TEST_CONNECTOR==='1';
    const search=process.env.COPILOT_TEST_SEARCH==='1';
-   response=await fetch(base+`/session/${session.id}/propose`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({version,screen:marketingMode?'marketing':search?'content-tools':connector||eventMode?'connectors':'erp',visible_control_ids:marketingMode?marketingControls.map(c=>c.id):eventMode?eventControls.map(c=>c.id):search?[searchControl.id]:[],visible_control_options:eventMode?eventOptions:{},embedded_fields:marketingMode||connector||search||eventMode?[]:['name'],embedded_field_labels:{name:'ID'},message})});
+   response=await fetch(base+`/session/${session.id}/propose`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({version,screen:policyMode?'policies':marketingMode?'marketing':search?'content-tools':connector||eventMode?'connectors':'erp',visible_control_ids:marketingMode?marketingControls.map(c=>c.id):eventMode?eventControls.map(c=>c.id):search?[searchControl.id]:[],visible_control_options:eventMode?eventOptions:{},embedded_fields:policyMode||marketingMode||connector||search||eventMode?[]:['name'],embedded_field_labels:{name:'ID'},message})});
    const result=await response.json();assert.equal(response.status,200);
-   if(marketingMode){assert.equal(result.proposal.actions.length,1);assert.equal(result.proposal.actions[0].type,'screen_fill');assert.deepEqual(result.proposal.actions[0].values,{[marketingField('Campaign name')]:'Copilot UAT onboarding',[marketingField('Outcome goal')]:'Improve product onboarding awareness',[marketingField('Content topics')]:'onboarding, product education'});}
+   if(policyMode){assert.deepEqual(result.proposal.actions,[]);assert.match(result.proposal.message,/Action control/i);}
+   else if(marketingMode){assert.equal(result.proposal.actions.length,1);assert.equal(result.proposal.actions[0].type,'screen_fill');assert.deepEqual(result.proposal.actions[0].values,{[marketingField('Campaign name')]:'Copilot UAT onboarding',[marketingField('Outcome goal')]:'Improve product onboarding awareness',[marketingField('Content topics')]:'onboarding, product education'});}
    else if(eventMode){assert.equal(result.proposal.actions.length,1);assert.equal(result.proposal.actions[0].type,'screen_fill');const values=result.proposal.actions.reduce((all,a)=>({...all,...a.values}),{});assert.equal(values[eventField('Subscription name')],'Copilot UAT calendar');assert.equal(values[eventField('Event provider')],'calendar_url');assert.equal(values[eventField('Event type')],'calendar.event.changed');assert.equal(values[eventField('Enable provider listener')],undefined);}
    else if(search){assert.equal(result.proposal.actions[0].type,'screen_fill');assert.equal(result.proposal.actions[0].values[searchControl.id],'crm');}
    else if(connector)assert.deepEqual(result.proposal.actions,[]);
    else assert.deepEqual(result.proposal.actions,[{type:'embed_fill',screen:'erp',values:{name:value}}]);
    version=result.version;
  }
- console.log('PASS live synthetic natural-language '+(marketingMode?'Marketing draft':eventMode?'event draft':process.env.COPILOT_TEST_SEARCH==='1'?'Tools search':process.env.COPILOT_TEST_CONNECTOR==='1'?'connector guidance':'ERP set/clear')+'; no business data changed.');
+ console.log('PASS live synthetic natural-language '+(policyMode?'policy guidance':marketingMode?'Marketing draft':eventMode?'event draft':process.env.COPILOT_TEST_SEARCH==='1'?'Tools search':process.env.COPILOT_TEST_CONNECTOR==='1'?'connector guidance':'ERP set/clear')+'; no business data changed.');
 }finally{await new Promise(r=>server.close(r));db.close();}
