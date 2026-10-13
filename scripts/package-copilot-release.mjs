@@ -12,4 +12,7 @@ for(const [type,path] of changes){
 }
 writeFileSync(join(out,'manifest.json'),JSON.stringify({revision,base,commit:git('rev-parse','HEAD').toString().trim(),changes},null,2));
 writeFileSync(join(out,'release.py'),git('show','HEAD:deploy/scripts/vps-copilot-release.py'));
+// Rebuild from canonical base images, not an ever-growing chain of releases.
+mkdirSync(join(out,'build-support'),{recursive:true});
+for(const name of ['backend.Dockerfile','frontend.Dockerfile'])writeFileSync(join(out,'build-support',name),git('show',`HEAD:deploy/docker/${name}`));
 execFileSync('tar',['-czf',`${out}.tgz`,'-C',out,'.'],{stdio:'inherit'});console.log(`${out}.tgz`);

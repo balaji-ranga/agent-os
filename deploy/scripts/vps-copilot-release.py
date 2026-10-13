@@ -61,6 +61,16 @@ if mode=='prepare':
  diagnostic_paths=['src/routes/ui-copilot-candidate.js','src/services/ui-copilot-screen-specs-candidate.js','scripts/test-copilot-live-candidate.mjs']
  for p in diagnostic_paths:(context/'backend'/p).unlink(missing_ok=True)
  for part in ['openclaw-workspace-templates','knowledgebase']:run('docker','cp',f'agent-os-backend-1:/opt/agent-os/{part}',str(context/part))
+ # Capture explicit application artifacts only. Never export the container,
+ # its environment, mounted workspaces, credentials or user data. Preserve
+ # competing source changes while rebuilding dependencies from the lockfile.
+ for part in ['ibkrnew-event-bridge','desktop-workflow-runner','flolah-chrome-extension','local-browser-worker','local-ibkr-bridge']:
+  run('docker','cp',f'agent-os-backend-1:/opt/agent-os/backend/{part}',str(context/'backend'/part))
+ for part in ['scripts','tests','openclaw-skills','skills-catalog','openclaw-extensions','deploy','docs-site','README.md','LICENSE','NOTICE','THIRD_PARTY_NOTICES.md']:
+  run('docker','cp',f'agent-os-backend-1:/opt/agent-os/{part}',str(context/part))
+ skill_destination=context/'.cursor/skills/ibkrnew-trade-strategy'
+ skill_destination.parent.mkdir(parents=True,exist_ok=True)
+ shutil.copytree(context/'openclaw-skills/ibkrnew-trade-strategy',skill_destination)
  labels=inspect('frontend')['Config']['Labels'];source=labels.get('org.flolah.copilot.source-context') or labels.get('org.flolah.kanban-observer.source-context')
  if not source:
   old=labels.get('org.flolah.copilot.revision','')
@@ -87,9 +97,13 @@ if mode=='prepare':
   destination=release/'host-source'/p
   destination.parent.mkdir(parents=True,exist_ok=True)
   shutil.copy2(context/p,destination)
- diagnostic_cleanup=' '.join('/opt/agent-os/backend/'+p for p in diagnostic_paths)
- (context/'backend.release.Dockerfile').write_text(f'FROM agent-os-backend:copilot-rollback-{revision}\nRUN rm -f {diagnostic_cleanup}\nCOPY backend /opt/agent-os/backend\nCOPY openclaw-workspace-templates /opt/agent-os/openclaw-workspace-templates\nCOPY knowledgebase/platform-help /opt/agent-os/knowledgebase/platform-help\nWORKDIR /opt/agent-os/backend\n')
- (context/'frontend.release.Dockerfile').write_text(f'FROM node:22-bookworm-slim AS build\nWORKDIR /app\nCOPY frontend/package*.json ./\nRUN npm ci\nCOPY frontend ./\nENV VITE_API_URL=/api\nRUN npm run test:chat && npm run build\nFROM agent-os-frontend:copilot-rollback-{revision}\nLABEL org.flolah.copilot.source-context="{context}"\nCOPY --from=build /app/dist /usr/share/nginx/html\n')
+ # Rollback tags are for recovery only, never the next build's FROM image.
+ # This avoids overlay mount-path exhaustion after repeated scoped releases.
+ for s in ['backend','frontend']:
+  dockerfile=(release/'build-support'/f'{s}.Dockerfile').read_text()
+  if s=='frontend':dockerfile=dockerfile.replace('RUN npm run build','RUN npm run test:chat && npm run build')
+  dockerfile+=f'\nLABEL org.flolah.copilot.source-context="{context}"\nLABEL org.flolah.copilot.revision="{revision}"\n'
+  (context/f'{s}.release.Dockerfile').write_text(dockerfile)
  for s in ['backend','frontend']:run('docker','build','-f',str(context/f'{s}.release.Dockerfile'),'-t',f'agent-os-{s}:copilot-{revision}',str(context))
  run('docker','run','--rm','--network','none',f'agent-os-backend:copilot-{revision}','npm','run','test:ui-copilot')
  (release/'captured.json').write_text(json.dumps(state));(release/'prepared.ok').write_text('Local container harness passed\n');print('COPILOT_PREPARED '+revision)
