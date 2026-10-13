@@ -158,5 +158,20 @@ export function validateCopilotProposal(input, catalog) {
     if (action.type === 'watch_connector' && catalog.screens.some(s => s.id === 'connectors') && ['gmail', 'outlook', 'google-drive', 'onedrive', 'sharepoint'].includes(action.provider)) return { type: 'watch_connector', provider: action.provider };
     throw copilotError('Unsupported assistant action');
   });
-  return { message: input.message, actions };
+  // A model may split one form into several actions. Keep one review/stepper
+  // without reordering navigation or merging across different forms.
+  const grouped=[];
+  for(const action of actions){
+    const prior=grouped.at(-1);
+    if(['fill','screen_fill','embed_fill'].includes(action.type)&&prior?.type===action.type&&prior.form===action.form&&prior.screen===action.screen){
+      for(const [key,value] of Object.entries(action.values)){
+        if(Object.hasOwn(prior.values,key)&&JSON.stringify(prior.values[key])!==JSON.stringify(value))throw copilotError('Conflicting proposed field values');
+      }
+      const values={...prior.values,...action.values};
+      if(Object.keys(values).length>(action.type==='embed_fill'?10:20))throw copilotError('Too many proposed fields');
+      prior.values=values;
+      if(action.labels)prior.labels={...prior.labels,...action.labels};
+    }else grouped.push({...action,...(action.values?{values:{...action.values}}:{})});
+  }
+  return { message: input.message, actions:grouped };
 }
