@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import {isCopilotFillableField} from '../src/services/ui-copilot-field-policy.js';
+for(const label of ['Description','Subscription name'])assert.equal(isCopilotFillableField({id:'safe:1',label,type:'text'}),true);
+for(const label of ['Script','JavaScript','Verification code','API token','Permission','Payment'])assert.equal(isCopilotFillableField({id:'safe:1',label,type:'text'}),false);
 import {readFileSync} from 'node:fs';
 import {validateCopilotProposal,normalizeCopilotScreenActions} from '../src/services/ui-copilot-contract.js';
 import {copilotScreenSpec,copilotScreenControls} from '../src/services/ui-copilot-screen-specs.js';
@@ -19,6 +22,8 @@ assert.ok(connectorSpec.modules.every(m=>m.fields.length===0),'Hidden tab fields
 assert.ok(copilotScreenSpec('/connectors').modules.some(m=>m.fields.length),'Full registered metadata remains available');
 const search=copilotScreenControls('/content-tools').find(c=>c.label==='Search tools registry');
 const provider=copilotScreenControls('/connectors').find(c=>c.label==='Event provider');
+const subscription=copilotScreenControls('/connectors').find(c=>c.label==='Subscription name');
+assert.equal(validateCopilotProposal({message:'Review',actions:[{type:'screen_fill',screen:'connectors',values:{[subscription.id]:'Synthetic subscription'}}]},{forms:{},agents:[],screens:[{id:'connectors',route:'/connectors'}]}).actions[0].values[subscription.id],'Synthetic subscription','Subscription is not executable script');
 const choiceSpec=copilotScreenSpec('/connectors',[provider.id],{[provider.id]:[{value:'ics',label:'Published calendar'},{value:4,label:'Invalid'}]});
 const choiceField=choiceSpec.modules.flatMap(m=>m.fields).find(f=>f.id===provider.id);
 assert.equal(choiceField.autofill_allowed,true);

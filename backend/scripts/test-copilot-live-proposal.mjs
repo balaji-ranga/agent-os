@@ -7,6 +7,10 @@ const {uiCopilotRouter}=await import(process.env.COPILOT_TEST_ROUTER||'../src/ro
 import {chatCompletions} from '../src/config/llm.js';
 import {copilotScreenControls} from '../src/services/ui-copilot-screen-specs.js';
 const searchControl=copilotScreenControls('/content-tools').find(c=>c.label==='Search tools registry');
+const eventMode=process.env.COPILOT_TEST_EVENT==='1';
+const eventControls=copilotScreenControls('/connectors').filter(c=>['Subscription name','Event provider','Event type','Enable provider listener'].includes(c.label));
+const eventField=label=>eventControls.find(c=>c.label===label).id;
+const eventOptions={[eventField('Event provider')]:[{label:'Published calendar URL (ICS)',value:'calendar_url'},{label:'Google Workspace',value:'google_workspace'}],[eventField('Event type')]:[{label:'Calendar event changed',value:'calendar.event.changed'}]};
 const owner=process.env.COPILOT_TEST_OWNER;
 if(!owner)throw Error('Set COPILOT_TEST_OWNER to an explicitly authorized test tenant.');
 const db=new Database(':memory:');
@@ -14,7 +18,7 @@ const app=express();app.use(express.json());
 app.use((req,res,next)=>{req.authUser={id:owner,role:'ceo'};next();});
 app.use('/test',uiCopilotRouter({database:()=>db,...(process.env.COPILOT_TEST_FULL_CATALOG==='1'?{}:{getCatalog:()=>({forms:{},agents:[],screens:[{id:'erp',route:'/erp'}]})}),complete:async options=>{
   const context=options.messages.map(m=>{try{return JSON.parse(m.content);}catch{return null;}}).find(m=>m?.available_embedded_fields);
-  if(process.env.COPILOT_TEST_CONNECTOR!=='1'&&process.env.COPILOT_TEST_SEARCH!=='1'){
+  if(!eventMode&&process.env.COPILOT_TEST_CONNECTOR!=='1'&&process.env.COPILOT_TEST_SEARCH!=='1'){
     assert.deepEqual(context.available_embedded_fields,['name']);
     assert.match(options.messages[0].content,/Current available reviewed embedded edit capability/);
   }
@@ -47,7 +51,9 @@ try{
    state.conversation=[{role:'user',text:'Prepare a Knowledge document upload draft titled Copilot UAT guide with tags acceptance,copilot. Do not upload anything.'},{role:'assistant',text:'Shall I prepare those fields for review?'},{role:'user',text:'Open Research Analyst chat with an unsent draft about research capabilities.'},{role:'assistant',text:'Shall I prepare this draft?'},{role:'user',text:'I want to start a voice call with Research Analyst.'},{role:'assistant',text:'Please review Start call.'}];
    db.prepare('UPDATE ui_copilot_sessions SET state=? WHERE id=?').run(JSON.stringify(state),session.id);
  }
- const cases=process.env.COPILOT_TEST_SEARCH==='1'?[
+ const cases=eventMode?[
+   ['Prepare this Event subscription draft named Copilot UAT calendar, with provider Published calendar URL (ICS) and event Calendar event changed. Leave the listener off and do not create the subscription.',null],
+ ]:process.env.COPILOT_TEST_SEARCH==='1'?[
    ['Filter the Tools registry search to crm. Prepare the search field for review; do not change any tool configuration.','crm'],
  ]:process.env.COPILOT_TEST_CONNECTOR==='1'?[
    ['I am on Connectors now. Explain the next Google Drive setup steps only. Keep authorization deferred and do not create or rotate tokens.',null],
@@ -58,9 +64,10 @@ try{
  for(const [message,value] of cases){
    const connector=process.env.COPILOT_TEST_CONNECTOR==='1';
    const search=process.env.COPILOT_TEST_SEARCH==='1';
-   response=await fetch(base+`/session/${session.id}/propose`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({version,screen:search?'content-tools':connector?'connectors':'erp',visible_control_ids:search?[searchControl.id]:[],embedded_fields:connector||search?[]:['name'],embedded_field_labels:{name:'ID'},message})});
+   response=await fetch(base+`/session/${session.id}/propose`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({version,screen:search?'content-tools':connector||eventMode?'connectors':'erp',visible_control_ids:eventMode?eventControls.map(c=>c.id):search?[searchControl.id]:[],visible_control_options:eventMode?eventOptions:{},embedded_fields:connector||search||eventMode?[]:['name'],embedded_field_labels:{name:'ID'},message})});
    const result=await response.json();assert.equal(response.status,200);
-   if(search){assert.equal(result.proposal.actions[0].type,'screen_fill');assert.equal(result.proposal.actions[0].values[searchControl.id],'crm');}
+   if(eventMode){assert.equal(result.proposal.actions[0].type,'screen_fill');const values=result.proposal.actions.reduce((all,a)=>({...all,...a.values}),{});assert.equal(values[eventField('Subscription name')],'Copilot UAT calendar');assert.equal(values[eventField('Event provider')],'calendar_url');assert.equal(values[eventField('Enable provider listener')],undefined);}
+   else if(search){assert.equal(result.proposal.actions[0].type,'screen_fill');assert.equal(result.proposal.actions[0].values[searchControl.id],'crm');}
    else if(connector)assert.deepEqual(result.proposal.actions,[]);
    else assert.deepEqual(result.proposal.actions,[{type:'embed_fill',screen:'erp',values:{name:value}}]);
    version=result.version;
