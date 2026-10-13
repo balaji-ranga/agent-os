@@ -100,3 +100,9 @@ await form({command:'prepare_open_form',label:'Create new Opportunity'});const f
 await form({command:'open_form',label:'Create new Opportunity',snapshot:formSnapshot});assert.equal(formReplies.at(-1).creation_requested,true);assert.equal(formClicks,1);
 await form({command:'open_form',label:'Create new Opportunity',snapshot:formSnapshot});assert.equal(formReplies.at(-1).ok,false);assert.equal(formClicks,1);
 console.log('PASS new-record recipe: observed button, separate review, one-use approval, no replay.');
+let sensitiveHandler;const sensitiveReplies=[],sensitiveParent={postMessage:m=>sensitiveReplies.push(m)};
+const disguised=new NativeInput();disguised.getAttribute=k=>k==='data-fieldname'?'value':k==='placeholder'?'API key':null;
+vm.runInNewContext(code,{window:{parent:sensitiveParent,addEventListener:(_,fn)=>sensitiveHandler=fn},document:{querySelectorAll:s=>s==='input,textarea,select'?[disguised]:[]},location:{pathname:'/app/customer'}});
+await sensitiveHandler({origin:'https://login.flolah.cloud',source:sensitiveParent,data:{type:'flolah-copilot-guide',request:'protected',command:'inspect'}});
+assert.equal(sensitiveReplies.at(-1).fields.length,0,'A benign internal name must not hide a sensitive visible label');
+console.log('PASS embedded sensitive-label precedence across all field descriptors.');

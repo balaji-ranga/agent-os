@@ -29,7 +29,8 @@
     const text=String(element.getAttribute('aria-label')||element.textContent||'').trim(),match=/^(?:Create new|Add|New) ([A-Za-z][A-Za-z ]+)$/.exec(text);
     return match&&allowed.has(match[1].toLowerCase())&&!/invoice|journal|order|stock|transaction|fiscal|company setup/i.test(match[1])?[{element,label:text}]:[];
   });
-  const fields=()=>[...document.querySelectorAll('input,textarea,select')].filter(el=>!el.disabled&&!el.readOnly&&!el.hidden&&el.getClientRects().length&&!['password','hidden','file','submit','button','checkbox','radio'].includes(el.type)&&allowed.has(label(el)));
+  const sensitive=el=>/password|secret|token|credential|permission|grant|mfa|otp|payment|credit.?card|bank|budget|authority|retention|delete|purge|\bscript\b|javascript|webhook|callback|api.?key|owner|\brole\b|access|account|\bcode\b/i.test([el.getAttribute('data-fieldname'),el.getAttribute('aria-label'),el.getAttribute('placeholder'),...[...(el.labels||[])].map(l=>l.textContent)].filter(Boolean).join(' '));
+  const fields=()=>[...document.querySelectorAll('input,textarea,select')].filter(el=>!el.disabled&&!el.readOnly&&!el.hidden&&el.getClientRects().length&&!['password','hidden','file','submit','button','checkbox','radio'].includes(el.type)&&allowed.has(label(el))&&!sensitive(el));
   const nameOpener=()=>/^\/object\/(company|person|opportunity|task)\/[\w-]+$/.test(location.pathname)?[...document.querySelectorAll('[data-testid="top-bar-title"]')].filter(el=>el.getClientRects().length):[];
   async function openFields(requested){
     if(requested.includes('amount')&&!fields().some(el=>label(el)==='amount')){
@@ -89,7 +90,7 @@
       }
       const valid=entries.length>0&&entries.length<=10&&entries.every(([key,value])=>{
         const current=prepared.entries[key],el=current?.element;
-        if(!allowed.has(key)||!el?.isConnected||el.disabled||el.readOnly||!el.getClientRects().length||el.value!==current.value||typeof value!=='string'||value.length>2000)return false;
+        if(!allowed.has(key)||!el?.isConnected||el.disabled||el.readOnly||sensitive(el)||!el.getClientRects().length||el.value!==current.value||typeof value!=='string'||value.length>2000)return false;
         if(key==='amount'&&value!==''&&!/^(?:0|[1-9]\d{0,11})(?:\.\d{1,2})?$/.test(value))return false;
         if(el.maxLength>=0&&value.length>el.maxLength)return false;
         if(el.tagName==='SELECT'&&![...el.options].some(o=>o.value===value&&!o.disabled))return false;
