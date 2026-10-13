@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {findGuideField,highlightGuideField,revealRegisteredForm} from '../src/utils/copilotGuide.js';
-import {captureDomFields} from '../src/utils/copilotDomFill.js';
+import {captureDomFields,visibleCopilotOptions} from '../src/utils/copilotDomFill.js';
 const field=(overrides={})=>({name:'name',id:'',type:'text',labels:[],getAttribute:()=>null,closest:()=>null,getClientRects:()=>[{}],...overrides});
 const root=items=>({querySelectorAll:()=>items});
 const name=field();
@@ -23,3 +23,7 @@ const searchInput=field({type:'search',value:'',getAttribute:()=> 'search-contro
 assert.equal(captureDomFields(root([searchInput]),['search-control'])['search-control'].element,searchInput);
 assert.throws(()=>captureDomFields(root([searchInput,searchInput]),['search-control']),/ambiguous/);
 assert.throws(()=>captureDomFields(root([field({type:'password',getAttribute:()=> 'secret'})]),['secret']),/manual/);
+const dropdown=field({getAttribute:()=> 'pages/Connector:1',options:[{value:'ics',label:'Published calendar'},{value:'disabled',label:'Disabled',disabled:true}]});
+Object.defineProperty(dropdown,'value',{get(){throw Error('Must not read selection');}});
+assert.deepEqual(visibleCopilotOptions(root([dropdown])),{'pages/Connector:1':[{value:'ics',label:'Published calendar'}]});
+assert.deepEqual(visibleCopilotOptions(root([field({hidden:true}),field({getAttribute:()=> 'pages/ApiKeys:1'})])),{});

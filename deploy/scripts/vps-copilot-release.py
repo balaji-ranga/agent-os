@@ -57,6 +57,9 @@ if mode=='prepare':
  state={'services':{s:sig(s) for s in ['backend','frontend','openclaw','ollama']},'checks':{p:digest(root/p) for p in paths},'configs':{s:inspect(s)['Config']['Labels']['com.docker.compose.project.config_files'] for s in ['backend','frontend']}}
  for s in ['backend','frontend']:run('docker','tag',state['services'][s][1],f'agent-os-{s}:copilot-rollback-{revision}')
  for part in ['src','scripts','package.json','package-lock.json']:run('docker','cp',f'agent-os-backend-1:/opt/agent-os/backend/{part}',str(context/'backend'/part))
+ # Explicit disposable, unmounted diagnostic helpers are never release source.
+ diagnostic_paths=['src/routes/ui-copilot-candidate.js','src/services/ui-copilot-screen-specs-candidate.js','scripts/test-copilot-live-candidate.mjs']
+ for p in diagnostic_paths:(context/'backend'/p).unlink(missing_ok=True)
  for part in ['openclaw-workspace-templates','knowledgebase']:run('docker','cp',f'agent-os-backend-1:/opt/agent-os/{part}',str(context/part))
  labels=inspect('frontend')['Config']['Labels'];source=labels.get('org.flolah.copilot.source-context') or labels.get('org.flolah.kanban-observer.source-context')
  if not source:
@@ -84,7 +87,8 @@ if mode=='prepare':
   destination=release/'host-source'/p
   destination.parent.mkdir(parents=True,exist_ok=True)
   shutil.copy2(context/p,destination)
- (context/'backend.release.Dockerfile').write_text(f'FROM agent-os-backend:copilot-rollback-{revision}\nCOPY backend /opt/agent-os/backend\nCOPY openclaw-workspace-templates /opt/agent-os/openclaw-workspace-templates\nCOPY knowledgebase/platform-help /opt/agent-os/knowledgebase/platform-help\nWORKDIR /opt/agent-os/backend\n')
+ diagnostic_cleanup=' '.join('/opt/agent-os/backend/'+p for p in diagnostic_paths)
+ (context/'backend.release.Dockerfile').write_text(f'FROM agent-os-backend:copilot-rollback-{revision}\nRUN rm -f {diagnostic_cleanup}\nCOPY backend /opt/agent-os/backend\nCOPY openclaw-workspace-templates /opt/agent-os/openclaw-workspace-templates\nCOPY knowledgebase/platform-help /opt/agent-os/knowledgebase/platform-help\nWORKDIR /opt/agent-os/backend\n')
  (context/'frontend.release.Dockerfile').write_text(f'FROM node:22-bookworm-slim AS build\nWORKDIR /app\nCOPY frontend/package*.json ./\nRUN npm ci\nCOPY frontend ./\nENV VITE_API_URL=/api\nRUN npm run test:chat && npm run build\nFROM agent-os-frontend:copilot-rollback-{revision}\nLABEL org.flolah.copilot.source-context="{context}"\nCOPY --from=build /app/dist /usr/share/nginx/html\n')
  for s in ['backend','frontend']:run('docker','build','-f',str(context/f'{s}.release.Dockerfile'),'-t',f'agent-os-{s}:copilot-{revision}',str(context))
  run('docker','run','--rm','--network','none',f'agent-os-backend:copilot-{revision}','npm','run','test:ui-copilot')

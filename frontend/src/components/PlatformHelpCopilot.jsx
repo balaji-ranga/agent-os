@@ -6,7 +6,7 @@ import { getCopilotForm } from '../utils/copilotForms.js';
 import { copilotAgentHandoff } from '../utils/copilotHandoff.js';
 import { findGuideField, findSourceGuideField, highlightGuideField, revealRegisteredForm } from '../utils/copilotGuide.js';
 import { requestCopilotEmbed } from '../utils/copilotEmbed.js';
-import { captureDomFields, applyDomFields, visibleCopilotControls } from '../utils/copilotDomFill.js';
+import { captureDomFields, applyDomFields, visibleCopilotControls, visibleCopilotOptions } from '../utils/copilotDomFill.js';
 import AgentChatPanel from './AgentChatPanel';
 import './PlatformHelpCopilot.css';
 const fieldLabels={kind:'Connection',collections:'Content to include',interval_seconds:'Sync frequency',graph_enabled:'Connect related information',intelligent_mapping:'Intelligent relationship mapping',enabled:'Synchronization',retrieval_enabled:'Visible in search',folder_id:'Folder',query:'Content filter',selection:'Content selection'};
@@ -100,7 +100,7 @@ export default function PlatformHelpCopilot() {
       const metadata=await requestCopilotEmbed('inspect');
       embeddedFields=metadata.fields||[];embeddedFieldLabels=metadata.field_labels||{};
     }
-    const next=await api.copilotPropose(s.id,{version:s.version,message:input,screen_path:location.pathname,visible_control_ids:visibleCopilotControls(document),embedded_fields:embeddedFields,embedded_field_labels:embeddedFieldLabels,...(screen?{screen}:{})});
+    const next=await api.copilotPropose(s.id,{version:s.version,message:input,screen_path:location.pathname,visible_control_ids:visibleCopilotControls(document),visible_control_options:visibleCopilotOptions(document),embedded_fields:embeddedFields,embedded_field_labels:embeddedFieldLabels,...(screen?{screen}:{})});
     setSession(next);setInput('');setNotice('');
     const prepared=next.proposal?.actions.find(a=>a.type==='fill'&&getCopilotForm(a.form));
     if(prepared){showForm(prepared.form);setReview({action:prepared,expected:baselines.current[prepared.form]??getCopilotForm(prepared.form).read()});}

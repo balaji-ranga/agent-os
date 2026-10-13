@@ -37,3 +37,14 @@ export function applyDomFields(snapshot,values){
 export function visibleCopilotControls(root){
   return [...new Set([...root.querySelectorAll('[data-copilot-control]')].filter(e=>e.getClientRects().length&&!e.disabled&&!e.hidden).map(e=>e.getAttribute('data-copilot-control')))].slice(0,150);
 }
+
+// Describe dropdown choices only, never the current field values or credentials.
+export function visibleCopilotOptions(root){
+  const result={};
+  for(const el of root.querySelectorAll('select[data-copilot-control]')){
+    const id=el.getAttribute('data-copilot-control');
+    if(!el.getClientRects().length||el.disabled||el.hidden||/ApiKeys|Policies|IpWhitelist|Token|RiskClassification|CustomScript|Workflow|AgentWorkspace|EfficiencyControls|Admin/i.test(id))continue;
+    result[id]=[...el.options].filter(o=>!o.disabled&&!o.hidden).slice(0,100).map(o=>({value:o.value,label:o.label}));
+  }
+  return result;
+}
