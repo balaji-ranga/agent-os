@@ -59,7 +59,10 @@ if mode=='prepare':
   if not p.startswith(('backend/','frontend/','knowledgebase/','openclaw-workspace-templates/')) and (root/p).exists():
    current.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(root/p,current)
   payload=merge(kind,p,current);current.parent.mkdir(parents=True,exist_ok=True);current.write_bytes(payload)
-  host=release/'host-source'/p;host.parent.mkdir(parents=True,exist_ok=True);host.write_bytes(merge(kind,p,root/p))
+  host=release/'host-source'/p;host.parent.mkdir(parents=True,exist_ok=True)
+  # Restore missing host source from the verified running-source merge. Existing
+  # host files still require their own three-way merge; never discard host edits.
+  host.write_bytes(merge(kind,p,root/p) if (root/p).exists() else payload)
  (context/'.dockerignore').write_text('**/node_modules\n**/dist\n**/.git\n**/.env*\n')
  # Regenerate inventories from the merged running UI, not a stale local tree.
  run('docker','run','--rm','-v',f'{context}:/release','-w','/release/frontend','node:22-bookworm-slim','sh','-c','npm ci && node scripts/generate-copilot-screen-inventory.mjs')
