@@ -40,6 +40,12 @@ try{
   reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'erp',embedded_fields:['name'],embedded_field_labels:{name:'ID'},message:'Clear the ID filter for review'});
   assert.equal(reply.status,200);s=reply.body;assert.equal(invoked-beforeCapabilityCheck,2);
   assert.equal(s.proposal.actions[0].values.name,'');
+  modelReplies=[{message:'Locate the available field',actions:[{type:'embed_guide',screen:'erp',field:'name'}]},{message:'Review ID',actions:[{type:'embed_fill',screen:'erp',values:{name:'SYNTHETIC'}}]}];
+  const beforeEmbeddedGuide=invoked;
+  reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'erp',embedded_fields:['name'],embedded_field_labels:{name:'ID'},message:'Set ID to SYNTHETIC for review'});
+  assert.equal(reply.status,200);s=reply.body;assert.equal(invoked-beforeEmbeddedGuide,2);assert.equal(s.proposal.actions[0].type,'embed_fill');
+  modelReply={message:'Unavailable field',actions:[{type:'embed_fill',screen:'erp',values:{description:'Not visible'}}]};
+  assert.equal((await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'erp',embedded_fields:['name'],message:'Set a description'})).status,502);
   modelReply={message:'Which name should I enter?',actions:[]};
   const beforeClarification=invoked;
   reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'erp',embedded_fields:['name'],message:'Help with this field'});

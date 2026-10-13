@@ -4934,7 +4934,7 @@
       "form_count": 1,
       "controls": [
         {
-          "id": "pages/JobProfiles.jsx:176:8",
+          "id": "pages/JobProfiles.jsx:177:8",
           "label": "Unlabelled or dynamically labelled control",
           "type": "select",
           "required": false,
@@ -4942,11 +4942,104 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "pages/JobProfiles.jsx:196:8",
+          "id": "pages/JobProfiles.jsx:199:8",
           "label": "Unlabelled or dynamically labelled control",
           "type": "text",
           "required": false,
           "mode": "guided"
+        },
+        {
+          "id": "pages/JobProfiles.jsx#profile.display_name",
+          "label": "Display name",
+          "type": "text",
+          "required": false,
+          "mode": "guided"
+        },
+        {
+          "id": "pages/JobProfiles.jsx#profile.profile_id",
+          "label": "Profile ID (slug)",
+          "type": "text",
+          "required": false,
+          "mode": "guided"
+        },
+        {
+          "id": "pages/JobProfiles.jsx#profile.new_profile_id",
+          "label": "Profile ID (slug)",
+          "type": "text",
+          "required": false,
+          "mode": "guided"
+        },
+        {
+          "id": "pages/JobProfiles.jsx#profile.target_titles",
+          "label": "Target titles (comma-separated)",
+          "type": "text",
+          "required": false,
+          "mode": "guided"
+        },
+        {
+          "id": "pages/JobProfiles.jsx#profile.locations",
+          "label": "Locations (comma-separated)",
+          "type": "text",
+          "required": false,
+          "mode": "guided"
+        },
+        {
+          "id": "pages/JobProfiles.jsx#profile.work_mode",
+          "label": "Work mode",
+          "type": "select",
+          "required": false,
+          "mode": "guided",
+          "options": "Use the live authorized options shown on this screen."
+        },
+        {
+          "id": "pages/JobProfiles.jsx#profile.sources",
+          "label": "Sources (comma-separated)",
+          "type": "text",
+          "required": false,
+          "mode": "guided"
+        },
+        {
+          "id": "pages/JobProfiles.jsx#profile.linkedin_search_url_pattern",
+          "label": "LinkedIn search URL pattern",
+          "type": "text",
+          "required": false,
+          "mode": "guided"
+        },
+        {
+          "id": "pages/JobProfiles.jsx#profile.jobstreet_search_url_pattern",
+          "label": "JobStreet search URL pattern",
+          "type": "text",
+          "required": false,
+          "mode": "guided"
+        },
+        {
+          "id": "pages/JobProfiles.jsx#profile.master_resume_path",
+          "label": "Master resume path",
+          "type": "text",
+          "required": false,
+          "mode": "guided"
+        },
+        {
+          "id": "pages/JobProfiles.jsx#profile.linkedin_profile",
+          "label": "LinkedIn profile URL",
+          "type": "text",
+          "required": false,
+          "mode": "guided"
+        },
+        {
+          "id": "pages/JobProfiles.jsx#profile.fit_threshold",
+          "label": "Fit threshold (0–100)",
+          "type": "text",
+          "required": false,
+          "mode": "guided"
+        },
+        {
+          "id": "pages/JobProfiles.jsx#profile.workflow_goal",
+          "label": "Workflow goal",
+          "type": "select",
+          "required": false,
+          "mode": "guided",
+          "options": "Use the live authorized options shown on this screen."
         }
       ]
     },

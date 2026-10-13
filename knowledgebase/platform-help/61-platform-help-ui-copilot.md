@@ -14,7 +14,7 @@ Choose **Guided**, **Autofill**, or **Hybrid**. Describe what you want to config
 - New scheduled goal: title, prompt, cadence, time and weekday. Select its agent, delivery and activation manually.
 - Objective brief: outcome and period label only. Budget, authority and generated-plan approval remain manual.
 
-Existing-source editing and advanced employee drafts are not automatically migrated into a new-object draft. Finish or cancel these edits before taking a Copilot detour. Other forms remain guidance-only. Workflow graph creation/editing remains with Workflow Builder.
+Existing-source editing and advanced employee drafts are not automatically migrated into a new-object draft. Finish or cancel these edits before taking a Copilot detour. Other screens use source-defined field metadata and current DOM inspection: eligible visible fields can be reviewed and filled, while protected or unsupported controls remain guidance-only. Workflow graph creation/editing remains with Workflow Builder.
 
 ## Connector detours and recovery
 
@@ -32,3 +32,5 @@ UI guidance is not an extra OpenClaw tool grant. No arbitrary scripts, URLs or m
 # Guided field assistance
 
 Platform Help has an icon launcher. Guided mode combines instructions, questions in chat, highlighting and reviewed field filling. Autofill prepares a batch for review. Both use registered or source-defined field contracts. DOM fills require approval and preserve newer user edits. Embedded CRM/ERP uses a scoped bridge; values can save immediately, and the review warns before applying. Credentials, permission grants and final submissions remain manual. A filled field is not proof of a saved record.
+
+After an approved fill, Copilot retains a browser-reported field-entry receipt in the current assistance session. This helps follow-up questions distinguish values already entered from missing inputs. Receipts are checked against the server's reviewed proposal and current screen permissions; they are not proof of saving or a replacement for checking the actual application. Navigating away can discard unsaved fields. Registered saved drafts can be restored separately; generic field-entry receipts do not restore a form. Cancelling assistance clears the receipts along with its drafts.

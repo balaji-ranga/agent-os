@@ -23,3 +23,17 @@ const inputNode=parse('<input id="display-name" placeholder="Example" />',{plugi
 assert.equal(sourceFieldLabel(inputNode,[],new Map([['display-name','Display name']])),'Display name');
 assert.equal(sourceFieldLabel(inputNode,[],new Map([['display-name',null]])),'Example','Ambiguous explicit labels must not win');
 console.log('PASS source field labels: shared wrappers, explicit labels before examples, no values or arbitrary headings.');
+const {readFileSync}=await import('node:fs');
+const contracts=JSON.parse(readFileSync(new URL('../src/copilot/repeated-field-contracts.json',import.meta.url),'utf8'));
+const helper=readFileSync(new URL('../src/utils/copilotRepeatedFields.js',import.meta.url),'utf8').replace(/^import contracts .*;$/m,`const contracts=${JSON.stringify(contracts)};`);
+const {repeatedCopilotField}=await import('data:text/javascript;base64,'+Buffer.from(helper).toString('base64'));
+const identities=new Set();
+for(const [source,groups] of Object.entries(contracts))for(const [group,fields] of Object.entries(groups))for(const [key,field] of Object.entries(fields)){
+  const attrs=repeatedCopilotField(source,group,key);
+  assert.equal(attrs['aria-label'],field.label);
+  assert(!identities.has(attrs['data-copilot-control']));identities.add(attrs['data-copilot-control']);
+}
+assert.deepEqual(repeatedCopilotField('unknown','profile','name'),{});
+assert.deepEqual(repeatedCopilotField('pages/JobProfiles.jsx','profile','unknown'),{});
+assert.deepEqual(repeatedCopilotField('pages/JobProfiles.jsx','profile','__proto__'),{});
+console.log('PASS repeated field contracts: unique schema-backed identities; unknown fields remain unavailable.');

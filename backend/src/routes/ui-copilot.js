@@ -164,6 +164,7 @@ router.post('/session/:id/propose',handler(async req=> {
     try {
       proposal=validateCopilotProposal(normalizeCopilotScreenActions(JSON.parse(reply.content),c,activeScreen?.id,visible),c);
       for(const action of proposal.actions)if(action.type==='screen_fill'&&(action.screen!==activeScreen?.id||Object.keys(action.values).some(id=>!visible.includes(id))))throw copilotError('Only currently visible fields may be filled');
+      for(const action of proposal.actions)if(action.type==='embed_fill'&&(action.screen!==activeScreen?.id||Object.keys(action.values).some(id=>!embeddedFields.includes(id))))throw copilotError('Only currently available embedded fields may be filled');
       for(const action of proposal.actions.filter(a=>a.type==='screen_fill'))for(const [id,value] of Object.entries(action.values)){
         const field=currentSpec?.modules?.flatMap(m=>m.fields).find(f=>f.id===id);
         if(field?.type==='select'&&!field.allowed_options.some(o=>o.value===value))throw copilotError('Choose a current permitted option');
@@ -180,7 +181,7 @@ router.post('/session/:id/propose',handler(async req=> {
         // missing values can still produce a clarification with no action.
         throw copilotError('Mixed guided fill requires reconciliation');
       }
-      if(attempt===0&&embeddedFields.length&&!proposal.actions.length){
+      if(attempt===0&&embeddedFields.length&&(!proposal.actions.length||proposal.actions.some(a=>a.type==='embed_guide'))){
         // A prior conversational refusal must not redefine current capability.
         // Recheck once without stale transcript/proposal claims. This still
         // permits a question/no action for ambiguity, missing values or safety.
@@ -188,7 +189,7 @@ router.post('/session/:id/propose',handler(async req=> {
           context_only:true,mode:old.mode,current_screen:copilotScreenSpec(activeScreen.route),
             available_embedded_fields:embeddedFields,embedded_field_labels:embeddedFieldLabels,
             editable_fields:embeddedFields.map(id=>({id,label:embeddedFieldLabels[id],type:'string',available:true,review_required:true,allows_empty:true})),
-          review_instruction:'Reassess the latest request against the current available fields, not past assistant refusals. Propose a reviewed embed_fill if the requested field and value are clear. Otherwise ask a specific clarification or retain a justified safety refusal. Do not invent values or execute anything.',
+          review_instruction:'Reassess the latest request against the current available fields, not past assistant refusals. Propose a reviewed embed_fill if the requested field and value are clear. If the user only asks to locate a field, embed_guide is appropriate. Otherwise ask a specific clarification or retain a justified safety refusal. Do not invent values or execute anything.',
         })},{role:'user',content:message}];
         continue;
       }

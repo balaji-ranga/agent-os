@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState } from 'react';
 
 import { Link } from 'react-router-dom';
+import { repeatedCopilotField } from '../utils/copilotRepeatedFields';
 
 import { api } from '../api';
 
@@ -174,6 +175,8 @@ function ProfileForm({ initial, onSave, onCancel, busy, title, isEdit = false })
       {opts.type === 'select' ? (
 
         <select
+          data-copilot-control={undefined}
+          {...repeatedCopilotField('pages/JobProfiles.jsx','profile',key)}
 
           value={form[key]}
 
@@ -194,6 +197,8 @@ function ProfileForm({ initial, onSave, onCancel, busy, title, isEdit = false })
       ) : (
 
         <input
+          data-copilot-control={undefined}
+          {...repeatedCopilotField('pages/JobProfiles.jsx','profile',key)}
 
           value={form[key]}
 

@@ -1,0 +1,19 @@
+{
+  "pages/JobProfiles.jsx": {
+    "profile": {
+      "display_name": {"label":"Display name","type":"text"},
+      "profile_id": {"label":"Profile ID (slug)","type":"text"},
+      "new_profile_id": {"label":"Profile ID (slug)","type":"text"},
+      "target_titles": {"label":"Target titles (comma-separated)","type":"text"},
+      "locations": {"label":"Locations (comma-separated)","type":"text"},
+      "work_mode": {"label":"Work mode","type":"select"},
+      "sources": {"label":"Sources (comma-separated)","type":"text"},
+      "linkedin_search_url_pattern": {"label":"LinkedIn search URL pattern","type":"text"},
+      "jobstreet_search_url_pattern": {"label":"JobStreet search URL pattern","type":"text"},
+      "master_resume_path": {"label":"Master resume path","type":"text"},
+      "linkedin_profile": {"label":"LinkedIn profile URL","type":"text"},
+      "fit_threshold": {"label":"Fit threshold (0–100)","type":"text"},
+      "workflow_goal": {"label":"Workflow goal","type":"select"}
+    }
+  }
+}

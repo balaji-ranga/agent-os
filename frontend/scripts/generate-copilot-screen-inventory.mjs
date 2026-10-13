@@ -8,6 +8,7 @@ import { sourceFieldLabel, sourceLabelText } from './copilot-field-labels.mjs';
 const require=createRequire(import.meta.url),{parse}=require('@babel/parser');
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..'),src=join(root,'src');
 const files=[];
+const repeatedContracts=JSON.parse(readFileSync(join(src,'copilot/repeated-field-contracts.json'),'utf8'));
 function scan(dir){for(const item of readdirSync(dir,{withFileTypes:true})){const p=join(dir,item.name);if(item.isDirectory())scan(p);else if(/\.[jt]sx$/.test(p))files.push(p);}}
 scan(join(src,'pages'));scan(join(src,'components'));
 const trees=new Map(),modules=new Map();
@@ -27,7 +28,12 @@ for(const file of [...files,join(src,'App.jsx')]){
   const protectedField=type==='password'||type==='file'||/password|secret|api.?key|token|credential|payment|credit.?card|permission|grant|mfa|otp|authorization/i.test(String(label));
   controls.push({id:`${relative(src,file).replaceAll('\\','/')}:${n.loc.start.line}:${n.loc.start.column}`,label:String(label),type,required:!!n.attributes.find(a=>a.name?.name==='required'),...(literal(attr(n,'min'))!==null?{min:literal(attr(n,'min'))}:{}),...(literal(attr(n,'max'))!==null?{max:literal(attr(n,'max'))}:{}),mode:'guided',...(protectedField?{user_only:true}:{}),...(tag==='select'?{options:'Use the live authorized options shown on this screen.'}:{})});
  });
- modules.set(file,{source:relative(src,file).replaceAll('\\','/'),form_count:formCount,controls,imports});
+ const source=relative(src,file).replaceAll('\\','/');
+ for(const [group,fields] of Object.entries(repeatedContracts[source]||{}))for(const [key,field] of Object.entries(fields)){
+   if(!/^[a-z_]+$/.test(group)||!/^[a-z_]+$/.test(key)||typeof field.label!=='string'||!['text','textarea','select','number'].includes(field.type))throw new Error('Invalid repeated-field contract');
+   controls.push({id:`${source}#${group}.${key}`,label:field.label,type:field.type,required:!!field.required,mode:'guided',...(field.user_only?{user_only:true}:{}),...(field.type==='select'?{options:'Use the live authorized options shown on this screen.'}:{})});
+ }
+ modules.set(file,{source,form_count:formCount,controls,imports});
 }
 const routes=[];
 walk(trees.get(join(src,'App.jsx')),(n,anc)=>{if(n.type!=='JSXOpeningElement'||n.name.name!=='Route')return;const path=literal(attr(n,'path')),element=attr(n,'element');if(!path||path==='*'||!element)return;
