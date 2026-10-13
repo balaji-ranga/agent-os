@@ -32,6 +32,15 @@ try{
   const beforeInvalidReply=invoked;
   assert.equal((await request(`/session/${s.id}/propose`,'POST',{version:s.version,message:'Continue',reply_to:'other-tenant-message'})).status,409);
   assert.equal(invoked,beforeInvalidReply,'Foreign or missing reply IDs must fail before the LLM');
+  const beforeDestinationRepair=invoked;
+  modelReplies=[{message:'Draft',actions:[{type:'fill',form:'unknown-goal-form',values:{cadence:'daily'}}]},{message:'Recommended title; what time?',actions:[{type:'fill',form:'scheduled_goal',values:{title:'Daily Apple share price',prompt:'Query Apple share prices from Yahoo Finance',cadence:'daily',agent_id:'researcher'}}]}];
+  reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'home',message:'Create a daily Apple share price goal from Yahoo Finance for Researcher.'});
+  assert.equal(reply.status,200);s=reply.body;
+  assert.equal(invoked-beforeDestinationRepair,2);
+  assert.equal(s.proposal.actions[0].form,'scheduled_goal');
+  assert(lastModelRequest.messages.some(m=>m.content.includes('"catalog"')),'Repair retains destination catalog instead of restricting to current Home controls');
+  // Restore the hire proposal used by the receipt checks below.
+  reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,message:'Prepare a researcher'});s=reply.body;
   const fill_receipt={type:'fill',form:'hire_employee',values:{name:'Demo researcher'}};
   assert.equal((await request(`/session/${s.id}`,'PUT',{version:s.version,fill_receipt:{...fill_receipt,values:{name:'Unreviewed'}}})).status,400);
   reply=await request(`/session/${s.id}`,'PUT',{version:s.version,fill_receipt});
