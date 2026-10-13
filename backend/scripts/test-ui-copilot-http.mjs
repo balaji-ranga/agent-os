@@ -22,6 +22,13 @@ try{
   assert.equal(reply.status,200);s=reply.body;assert.equal(s.proposal.actions[0].values.name,'Demo researcher');
   assert.equal(s.conversation[0].text,'Prepare a researcher');
   assert.equal((await request('/session')).body.session.conversation[1].text,'Review before saving');
+  const fill_receipt={type:'fill',form:'hire_employee',values:{name:'Demo researcher'}};
+  assert.equal((await request(`/session/${s.id}`,'PUT',{version:s.version,fill_receipt:{...fill_receipt,values:{name:'Unreviewed'}}})).status,400);
+  reply=await request(`/session/${s.id}`,'PUT',{version:s.version,fill_receipt});
+  assert.equal(reply.status,200);s=reply.body;
+  assert.equal(s.fill_receipts[0].saved,false);
+  assert.deepEqual((await request('/session')).body.session.fill_receipts[0].values,fill_receipt.values);
+  allow=false;assert.equal((await request(`/session/${s.id}`,'PUT',{version:s.version,fill_receipt})).status,403);allow=true;
   const callsBeforeRepair=invoked;
   modelReplies=[{message:'Prepared',actions:[{type:'agent_chat',agent:'researcher'}]},{message:'Review draft',actions:[{type:'agent_chat',agent:'researcher',message:'Please describe your capabilities.'}]}];
   reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,message:'Prepare the message Please describe your capabilities. for Researcher; do not send.'});
@@ -102,6 +109,7 @@ try{
   assert.equal((await request(`/session/${s.id}/propose`,'POST',{version:s.version,message:'Show a review'})).status,502);
   assert.equal(invoked-callsBeforeMalformed,2,'Malformed proposals get exactly one repair attempt');
   s=(await request(`/session/${s.id}`,'PUT',{version:s.version,status:'cancelled'})).body;
+  assert.deepEqual(s.fill_receipts,[]);
   await request(`/session/${s.id}/watch/check`,'POST',{});assert.equal(connectionCalls,2);assert.equal(s.watch,null);
   user={id:'bob',role:'ceo'};
   assert.equal((await request(`/session/${s.id}`,'PUT',{version:s.version,status:'cancelled'})).status,404);

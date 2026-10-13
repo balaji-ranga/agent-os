@@ -87,6 +87,10 @@ export default function PlatformHelpCopilot() {
   async function run(fn){setBusy(true);setError('');try{await fn();}catch(e){setError(e.message);}finally{setBusy(false);}}
   async function ensureSession(){if(session&&session.status!=='cancelled')return session;const s=await api.copilotCreate({origin:location.pathname});setSession(s);return s;}
   async function update(body){const s=await ensureSession();const next=await api.copilotUpdate(s.id,{version:s.version,...body});setSession(next);return next;}
+  async function recordFill(action,values){
+    try{await update({screen_path:location.pathname,fill_receipt:{type:action.type,...(action.form?{form:action.form}:{}),...(action.screen?{screen:action.screen}:{}),values}});}
+    catch{setNotice('Fields were entered, but assistance progress could not be recorded. Verify the form before continuing; nothing was submitted by Copilot.');}
+  }
   async function propose(e){e.preventDefault();await run(async()=>{
     setReview(null);
     let s=await ensureSession();
@@ -147,7 +151,7 @@ export default function PlatformHelpCopilot() {
       const rest=Object.fromEntries(entries.slice(1));
       if(session.mode==='guided'&&Object.keys(rest).length&&result.next_snapshot)setReview({...review,embedSnapshot:result.next_snapshot,action:{...review.action,values:rest}});
       else setReview(null);
-      setNotice('Reviewed values entered into the embedded form. This application may save immediately—verify its result before continuing.');return;
+      setNotice('Reviewed values entered into the embedded form. This application may save immediately—verify its result before continuing.');await recordFill(review.action,values);return;
     }
     if(review.action.type==='screen_fill'){
       const screen=fresh.screens.find(s=>s.id===review.action.screen);
@@ -158,7 +162,7 @@ export default function PlatformHelpCopilot() {
       const rest=Object.fromEntries(entries.slice(1));
       if(session.mode==='guided'&&Object.keys(rest).length){setReview({...review,action:{...review.action,values:rest}});}
       else setReview(null);
-      setNotice('Reviewed fields entered. Check the screen’s validation and save status; some controls save immediately. Tell me what you need next.');return;
+      setNotice('Reviewed fields entered. Check the screen’s validation and save status; some controls save immediately. Tell me what you need next.');await recordFill(review.action,values);return;
     }
     if(!fresh.forms[review.action.form])throw new Error('Your form access changed.');
     const binding=getCopilotForm(review.action.form);
@@ -167,7 +171,7 @@ export default function PlatformHelpCopilot() {
     const values=session.mode==='guided'?Object.fromEntries(entries.slice(0,1)):review.action.values;
     await binding.apply(values,review.expected);
     const expected={...review.expected,...values};
-    await update({draft:{form:review.action.form,values:expected}});
+    await update({draft:{form:review.action.form,values:expected},fill_receipt:{type:'fill',form:review.action.form,values}});
     const rest=Object.fromEntries(entries.slice(1));
     baselines.current[review.action.form]=undefined;
     if(session.mode==='guided'&&Object.keys(rest).length)setReview({...review,expected,action:{...review.action,values:rest}});
