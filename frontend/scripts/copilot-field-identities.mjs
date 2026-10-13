@@ -8,6 +8,6 @@ export default function copilotFieldIdentities({types:t}) {
     const source=filename.split('/src/')[1];
     if(!source||!/^(pages|components)\//.test(source)||source.includes('PlatformHelpCopilot'))return;
     if(node.attributes.some(a=>a.name?.name==='data-copilot-control'))return;
-    node.attributes.push(t.jsxAttribute(t.jsxIdentifier('data-copilot-control'),t.stringLiteral(`${source}:${node.loc.start.line}`)));
+    node.attributes.push(t.jsxAttribute(t.jsxIdentifier('data-copilot-control'),t.stringLiteral(`${source}:${node.loc.start.line}:${node.loc.start.column}`)));
   }}};
 }

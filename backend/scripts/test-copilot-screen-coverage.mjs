@@ -31,8 +31,14 @@ assert.throws(()=>validateCopilotProposal(normalizeCopilotScreenActions(shorthan
 assert.throws(()=>validateCopilotProposal(normalizeCopilotScreenActions(shorthand,searchCatalog,'content-tools',[]),searchCatalog));
 assert.equal(validateCopilotProposal({message:'Review search',actions:[{type:'screen_fill',screen:'content-tools',values:{[search.id]:'crm'}}]}, {forms:{},agents:[],screens:[{id:'content-tools',route:'/content-tools'}]}).actions[0].values[search.id],'crm');
 let accepted=0,denied=0;
+for(const module of inventory.modules)assert.equal(new Set(module.controls.map(c=>c.id)).size,module.controls.length,'Every source control must have a unique identity: '+module.source);
 for(const route of inventory.routes){
  const catalog={forms:{},agents:[],screens:[{id:'test-screen',route:route.path}]};
+ for(const field of copilotScreenSpec(route.path).modules?.flatMap(m=>m.fields)||[]){
+   const proposal={message:'Review',actions:[{type:'screen_fill',screen:'test-screen',values:{[field.id]:'synthetic'}}]};
+   if(field.autofill_allowed)validateCopilotProposal(proposal,catalog);
+   else assert.throws(()=>validateCopilotProposal(proposal,catalog),'Metadata must match execution policy: '+field.id);
+ }
  for(const control of route.modules.flatMap(m=>modules.get(m).controls)){
   const input={message:'Guide',actions:[{type:'screen_guide',screen:'test-screen',steps:[{control:control.id,instruction:'Review this field.'}]}]};
   if(control.user_only){assert.throws(()=>validateCopilotProposal(input,catalog));denied++;}

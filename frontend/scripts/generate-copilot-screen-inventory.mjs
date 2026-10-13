@@ -23,7 +23,7 @@ for(const file of [...files,join(src,'App.jsx')]){
   const type=literal(attr(n,'type'))||(tag==='input'?'text':tag);
   const label=literal(attr(n,'aria-label'))||literal(attr(n,'placeholder'))||literal(attr(n,'name'))||labelText([...anc].reverse().find(a=>a.type==='JSXElement'&&a.openingElement.name.name==='label'))||'Unlabelled or dynamically labelled control';
   const protectedField=type==='password'||type==='file'||/password|secret|api.?key|token|credential|payment|credit.?card|permission|grant|mfa|otp|authorization/i.test(String(label));
-  controls.push({id:`${relative(src,file).replaceAll('\\','/')}:${n.loc.start.line}`,label:String(label),type,required:!!n.attributes.find(a=>a.name?.name==='required'),...(literal(attr(n,'min'))!==null?{min:literal(attr(n,'min'))}:{}),...(literal(attr(n,'max'))!==null?{max:literal(attr(n,'max'))}:{}),mode:'guided',...(protectedField?{user_only:true}:{}),...(tag==='select'?{options:'Use the live authorized options shown on this screen.'}:{})});
+  controls.push({id:`${relative(src,file).replaceAll('\\','/')}:${n.loc.start.line}:${n.loc.start.column}`,label:String(label),type,required:!!n.attributes.find(a=>a.name?.name==='required'),...(literal(attr(n,'min'))!==null?{min:literal(attr(n,'min'))}:{}),...(literal(attr(n,'max'))!==null?{max:literal(attr(n,'max'))}:{}),mode:'guided',...(protectedField?{user_only:true}:{}),...(tag==='select'?{options:'Use the live authorized options shown on this screen.'}:{})});
  });
  modules.set(file,{source:relative(src,file).replaceAll('\\','/'),form_count:formCount,controls,imports});
 }
