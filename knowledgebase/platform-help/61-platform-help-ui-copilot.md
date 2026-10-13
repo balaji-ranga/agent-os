@@ -29,3 +29,6 @@ Copilot may open an entitled agent's chat and prepare a message without sending 
 ## Security and evidence
 
 UI guidance is not an extra OpenClaw tool grant. No arbitrary scripts, URLs or model-generated HTML execute. Every proposed route/form/agent is checked against the authenticated actor's access. Secrets belong in the existing vault/authorization screen. A proposal, filled field or opened popup is not a successful save; use the actual form's saved result as evidence.
+# Guided field assistance
+
+Platform Help has an icon launcher. Guided mode combines instructions, questions in chat, highlighting and reviewed field filling. Autofill prepares a batch for review. Both use registered or source-defined field contracts. DOM fills require approval and preserve newer user edits. Embedded CRM/ERP uses a scoped bridge; values can save immediately, and the review warns before applying. Credentials, permission grants and final submissions remain manual. A filled field is not proof of a saved record.

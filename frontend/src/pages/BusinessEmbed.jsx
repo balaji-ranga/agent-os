@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { api } from '../api';
 import { rememberCrmSessionOrigin } from '../lib/crmSessionCleanup';
+import { registerCopilotEmbed } from '../utils/copilotEmbed.js';
 
 /**
  * Compact platform CRM/ERP iframe shell (same UX for CRM and ERP).
@@ -11,6 +12,7 @@ import { rememberCrmSessionOrigin } from '../lib/crmSessionCleanup';
  */
 export function BusinessEmbedPage({ kind }) {
   const isCrm = kind === 'crm';
+  const frameRef=useRef(null);
   const title = isCrm ? 'CRM' : 'ERP';
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
@@ -59,6 +61,12 @@ export function BusinessEmbedPage({ kind }) {
     if (!data) return null;
     return data.iframe_url || data.open_url || null;
   }, [data]);
+  useEffect(()=>{
+    if(!iframeSrc||!frameRef.current)return;
+    const url=new URL(iframeSrc,window.location.origin);
+    if(url.protocol!=='https:')return;
+    return registerCopilotEmbed(frameRef.current,url.origin);
+  },[iframeSrc]);
 
   async function onSyncOrg() {
     setSyncing(true);
@@ -197,6 +205,7 @@ export function BusinessEmbedPage({ kind }) {
 
       {iframeSrc ? (
         <iframe
+          ref={frameRef}
           key={`${iframeSrc}|${data?.owner_user_id || data?.company_name || ''}|${isCrm ? 'crm' : 'erp'}`}
           title={title}
           src={iframeSrc}

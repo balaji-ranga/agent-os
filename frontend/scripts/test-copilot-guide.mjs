@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {findGuideField,highlightGuideField} from '../src/utils/copilotGuide.js';
+const field=(overrides={})=>({name:'name',id:'',type:'text',labels:[],getAttribute:()=>null,closest:()=>null,getClientRects:()=>[{}],...overrides});
+const root=items=>({querySelectorAll:()=>items});
+const name=field();
+assert.equal(findGuideField(root([name]),'name'),name);
+assert.equal(findGuideField(root([name,field()]),'name'),null,'Ambiguous matches must not select a field');
+for(const props of [{type:'password'},{type:'file'},{type:'hidden'},{disabled:true},{hidden:true},{closest:()=>({})},{getClientRects:()=>[]}])assert.equal(findGuideField(root([field(props)]),'name'),null);
+const labelled=field({name:'',labels:[{textContent:'Display timezone'}]});
+assert.equal(findGuideField(root([labelled]),'display_timezone'),labelled);
+let actions=[];
+const cleanup=highlightGuideField({isConnected:true,classList:{add:x=>actions.push(['add',x]),remove:x=>actions.push(['remove',x])},scrollIntoView:()=>actions.push(['scroll']),focus:()=>actions.push(['focus'])});
+cleanup();assert.deepEqual(actions.map(a=>a[0]),['add','scroll','focus','remove']);
+console.log('PASS guided field lookup: labels, ambiguity, protected/hidden/disabled controls and cleanup. No values read or written.');

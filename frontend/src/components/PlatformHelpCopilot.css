@@ -1,5 +1,6 @@
 .platform-help-copilot{position:fixed;right:1.25rem;bottom:1.25rem;z-index:1100;color:var(--text)}
-.copilot-toggle{border-radius:2rem;box-shadow:0 6px 24px #0003;padding:.75rem 1rem}
+.copilot-toggle{border-radius:50%;box-shadow:0 6px 24px #0003;width:48px;height:48px;padding:0;display:grid;place-items:center;font-size:1.5rem}
+.copilot-guided-field{outline:3px solid var(--primary,#5b6cff)!important;outline-offset:4px;scroll-margin:6rem}
 .copilot-panel{position:absolute;right:0;bottom:3.5rem;width:min(420px,calc(100vw - 2rem));max-height:calc(100dvh - 7rem);overflow:auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius,12px);box-shadow:0 12px 48px #0004;padding:1rem}
 .copilot-panel header{display:flex;justify-content:space-between;gap:1rem;align-items:center}.copilot-panel header small{display:block;color:var(--text-muted);margin-top:.25rem}
 .copilot-panel label{display:block;margin:.75rem 0}.copilot-panel textarea{display:block;width:100%;box-sizing:border-box;min-height:85px;resize:vertical;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:var(--radius,8px);padding:.75rem}

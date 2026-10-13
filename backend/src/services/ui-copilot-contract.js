@@ -1,4 +1,5 @@
 import { validateSelection } from './knowledge-selection.js';
+import { copilotScreenControls } from './ui-copilot-screen-specs.js';
 // Deliberately bounded UI assistance. These contracts never authorize API writes.
 export const COPILOT_VERSION = 1;
 export const COPILOT_FORMS = {
@@ -79,6 +80,51 @@ export function cleanFormPatch(formId, input) {
 export function validateCopilotProposal(input, catalog) {
   if (!input || typeof input.message !== 'string' || input.message.length > 6000 || !Array.isArray(input.actions) || input.actions.length > 5) throw copilotError('Invalid assistant response');
   const actions = input.actions.map(action => {
+    if(action.type==='embed_fill'){
+      if(!['crm','erp'].includes(action.screen)||!catalog.screens.some(s=>s.id===action.screen))throw copilotError('Screen is not available',403);
+      if(!action.values||Array.isArray(action.values)||typeof action.values!=='object'||!Object.keys(action.values).length||Object.keys(action.values).length>10)throw copilotError('Invalid embedded values');
+      for(const [key,value] of Object.entries(action.values))if(!['name','domain name','first name','last name','email','phone','description','subject','customer name','item name'].includes(key)||typeof value!=='string'||value.length>2000)throw copilotError('Unsupported embedded field');
+      return {type:'embed_fill',screen:action.screen,values:action.values};
+    }
+    if(action.type==='screen_fill'){
+      const screen=catalog.screens.find(s=>s.id===action.screen);
+      if(!screen)throw copilotError('Screen is not available',403);
+      const controls=copilotScreenControls(screen.route);
+      if(!action.values||Array.isArray(action.values)||typeof action.values!=='object'||!Object.keys(action.values).length||Object.keys(action.values).length>20)throw copilotError('Invalid screen values');
+      const values={},labels={};
+      for(const [id,value] of Object.entries(action.values)){
+        const field=controls.find(c=>c.id===id);
+        if(!field||field.user_only||!['text','email','url','tel','number','textarea','select'].includes(field.type)||/Unlabelled|dynamically labelled/i.test(field.label)||/password|secret|token|credential|permission|grant|mfa|otp|payment|credit.?card|bank|budget|authority|retention|delete|purge|script|code|webhook|callback/i.test(field.label)||/ApiKeys|Policies|IpWhitelist|Token|RiskClassification|CustomScript|Workflow|AgentWorkspace|EfficiencyControls|Admin/i.test(id))throw copilotError('This field requires manual input');
+        if(typeof value!=='string'||value.length>4000)throw copilotError('Invalid screen field value');
+        values[id]=value;labels[id]=field.label;
+      }
+      return {type:'screen_fill',screen:screen.id,values,labels};
+    }
+    if(action.type==='embed_guide'){
+      if(!['crm','erp'].includes(action.screen)||!catalog.screens.some(s=>s.id===action.screen))throw copilotError('Screen is not available',403);
+      if(!['name','domain name','first name','last name','email','phone','description','subject','customer name','item name'].includes(action.field))throw copilotError('Unsupported embedded field');
+      return {type:'embed_guide',screen:action.screen,field:action.field};
+    }
+    if(action.type==='screen_guide'){
+      const screen=catalog.screens.find(s=>s.id===action.screen);
+      if(!screen)throw copilotError('Screen is not available',403);
+      const controls=copilotScreenControls(screen.route);
+      if(!Array.isArray(action.steps)||!action.steps.length||action.steps.length>20)throw copilotError('Invalid guidance steps');
+      return {type:'screen_guide',screen:screen.id,steps:action.steps.map(step=>{
+        const field=controls.find(c=>c.id===step.control);
+        if(!field||field.user_only||typeof step.instruction!=='string'||!step.instruction.trim()||step.instruction.length>1000)throw copilotError('Invalid guidance field');
+        return {control:field.id,label:field.label,instruction:step.instruction};
+      })};
+    }
+    if (action.type === 'guide') {
+      if (!Object.hasOwn(catalog.forms, action.form)) throw copilotError('Form is not available', 403);
+      if (!Array.isArray(action.steps) || !action.steps.length || action.steps.length > 20) throw copilotError('Invalid guidance steps');
+      const steps = action.steps.map(step => {
+        if (!Object.hasOwn(COPILOT_FORMS[action.form].fields, step.field) || typeof step.instruction !== 'string' || !step.instruction.trim() || step.instruction.length > 1000) throw copilotError('Invalid guidance field');
+        return {field:step.field,instruction:step.instruction};
+      });
+      return {type:'guide',form:action.form,steps};
+    }
     if (action.type === 'fill') {
       if (!Object.hasOwn(catalog.forms, action.form)) throw copilotError('Form is not available', 403);
       return { type: 'fill', form: action.form, values: cleanFormPatch(action.form, action.values) };
@@ -93,7 +139,7 @@ export function validateCopilotProposal(input, catalog) {
       if (!agent) throw copilotError('Agent is not available', 403);
       if(action.type==='agent_chat'&&typeof action.message!=='string')throw copilotError('Agent chat must include message: requested draft text, or empty string for navigation only');
       if(action.message!==undefined&&(typeof action.message!=='string'||action.message.length>2000))throw copilotError('Invalid prepared message');
-      return { type: action.type, agent: agent.id, route: `/agents/${encodeURIComponent(agent.id)}/chat`, ...(action.message?{message:action.message}:{}) };
+      return { type: action.type, agent: agent.id, route: `/agents/${encodeURIComponent(agent.id)}/chat`, ...(typeof action.message==='string'?{message:action.message}:{}) };
     }
     if (action.type === 'watch_connector' && catalog.screens.some(s => s.id === 'connectors') && ['gmail', 'outlook', 'google-drive', 'onedrive', 'sharepoint'].includes(action.provider)) return { type: 'watch_connector', provider: action.provider };
     throw copilotError('Unsupported assistant action');

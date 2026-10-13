@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
+import copilotFieldIdentities from './scripts/copilot-field-identities.mjs';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
@@ -7,7 +8,7 @@ export default defineConfig(({ mode }) => {
   const devHost = env.VITE_DEV_HOST || '127.0.0.1';
 
   return {
-    plugins: [react()],
+    plugins: [react({babel:{plugins:[copilotFieldIdentities]}})],
     server: {
       host: devHost,
       port: Number(env.VITE_DEV_PORT) || 3000,

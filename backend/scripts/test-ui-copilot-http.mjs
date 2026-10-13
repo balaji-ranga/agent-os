@@ -49,7 +49,8 @@ try{
   assert.equal(invoked,before);
   allow=false;assert.equal((await request(`/session/${s.id}`,'PUT',{version:s.version,draft:{form:'hire_employee',values:{name:'Not allowed'}}})).status,403);
   allow=true;s=(await request(`/session/${s.id}`,'PUT',{version:s.version,mode:'guided'})).body;
-  assert.equal((await request(`/session/${s.id}/propose`,'POST',{version:s.version,message:'Fill name'})).status,400);
+  s=(await request(`/session/${s.id}/propose`,'POST',{version:s.version,message:'Fill name'})).body;
+  assert.equal(s.proposal.actions[0].type,'fill','Guided mode permits reviewed fill proposals, not direct execution');
   s=(await request(`/session/${s.id}`,'PUT',{version:s.version,watch:'gmail'})).body;
   s=(await request(`/session/${s.id}/watch/check`,'POST',{})).body;
   assert.equal(connectionCalls,1);assert.equal(s.watch.status,'waiting');
