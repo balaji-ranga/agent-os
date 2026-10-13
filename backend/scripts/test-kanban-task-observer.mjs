@@ -100,10 +100,10 @@ try {
   try {
     AbortSignal.timeout=ms=>{observedTimeout=ms;return originalTimeout(ms);};
     globalThis.fetch=async()=>{throw Object.assign(new Error('fixture timeout'),{name:'TimeoutError'});};
-    for(const [configured,expected] of [[30000,20000],[8000,8000]]) {
+    for(const [configured,expected] of [[30000,30000],[8000,8000]]) {
       db.prepare("INSERT INTO efficiency_control_settings(id,value_json) VALUES ('policy',?) ON CONFLICT(id) DO UPDATE SET value_json=excluded.value_json").run(JSON.stringify({local_timeout_ms:configured}));
       const timedOut=await reviewTaskWithLocalOllama(input);
-      check(observedTimeout,expected,'observer uses 20-second cap and respects shorter Admin timeout');
+      check(observedTimeout,expected,'observer uses configured policy and respects shorter Admin timeout');
       check(timedOut.reason,'local_review_timeout','timeout remains sanitized and fail-safe');
     }
   } finally {

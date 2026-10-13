@@ -337,9 +337,7 @@ function logTool(req, toolName, requestPayload, responsePayload, status, source 
 /** Ensure tool caller may mutate this Kanban task (owner must match resolved CEO). */
 function assertToolOwnsKanbanTask(req, task, body = {}) {
   const ownerUserId =
-    resolveToolOwnerUserIdOrNull(req, body, resolveAuthenticatedCeoUserId) ||
-    parseTenantOpenClawAgentId(req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || '')?.ceoUserId ||
-    null;
+    resolveToolOwnerUserIdOrNull(req, body, resolveAuthenticatedCeoUserId);
   const taskOwner = resolveKanbanTaskOwnerId(task);
   if (!taskOwner) {
     const err = new Error('Task has no owner — refuse cross-tenant mutation');
@@ -1834,6 +1832,14 @@ router.post('/kanban-get-task', optionalAuth, (req, res) => {
       const err = { error: 'task_id required' };
       logTool(req, 'kanban_get_task', requestPayload, err, 'error', source);
       return res.status(400).json(err);
+    }
+    // Reject before loading messages, workspace artifacts or execution output.
+    // Missing and foreign records produce the same response (no existence leak).
+    const owner=resolveToolOwnerUserId(req,{},resolveAuthenticatedCeoUserId);
+    if(!getDb().prepare('SELECT 1 FROM kanban_tasks WHERE id=? AND owner_user_id=?').get(taskId,owner)) {
+      const denied={ok:false,error:'Task not found',reason:'owner_scope_denied'};
+      logTool(req,'kanban_get_task',requestPayload,denied,'error',source);
+      return res.status(404).json(denied);
     }
     const loaded = loadKanbanTaskContent(taskId, {
       messageLimit: requestPayload.message_limit,

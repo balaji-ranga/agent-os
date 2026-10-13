@@ -844,7 +844,7 @@ export default function Kanban() {
                       src={agentRow?.avatar_image}
                       name={agentLabel}
                       size={40}
-                      status={t.status === 'in_progress' ? 'online' : 'idle'}
+                      status={t.status === 'in_progress' && t.execution_activity?.active!==false ? 'online' : 'idle'}
                     />
                     <div className="kanban-mobile-card-main">
                       <div className="kanban-mobile-title">{t.title || '(no title)'}</div>
@@ -862,6 +862,7 @@ export default function Kanban() {
                     </label>
                   </div>
                   <div className="kanban-mobile-meta">
+                    {t.execution_activity && <span title={t.execution_activity.observer_reason||t.execution_activity.label}>{t.execution_activity.label}</span>}
                     <span>Updated {taskUpdatedAtDisplay(t, displayTimezone || serverTimezone)}</span>
                     {t.sla_state && t.sla_state !== 'none' && (
                       <span className={`kanban-sla-badge is-${t.sla_state}`} aria-label={`SLA ${t.sla_state}, ${t.eta_hours || 'unknown'} hours`}>
@@ -1013,6 +1014,7 @@ export default function Kanban() {
                   </span>
                   {' · '}
                   {taskDetail?.assigned_agent_name || selectedTask.assigned_agent_name || 'Unassigned'} · {STATUS_LABELS[taskDetail?.status ?? selectedTask.status]}
+                  {(taskDetail||selectedTask)?.execution_activity && <div>{(taskDetail||selectedTask).execution_activity.label}</div>}
                   {taskDetail?.artifact_count > 0 && (
                     <span> · {taskDetail.artifact_count} artifact{taskDetail.artifact_count === 1 ? '' : 's'}</span>
                   )}

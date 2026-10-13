@@ -40,6 +40,7 @@ import {
 import { executeKanbanUserAction } from '../services/kanban-user-actions.js';
 import { recordKanbanObserverUserEvent, isObserverManagedApproval, observeKanbanTasks } from '../services/kanban-task-observer.js';
 import {validateKanbanCompletion} from '../services/kanban-completion-guard.js';
+import {withKanbanTaskActivity} from '../services/kanban-task-activity.js';
 import { kanbanActionDecisionFromMessage, reconcileChatActionApprovals, chatActionApprovalState, getChatActionApprovalByKanban } from '../services/chat-action-approval.js';
 import {
   resolveKanbanEtaHours,
@@ -136,7 +137,7 @@ function mirrorKanbanTurnToAgentChat({ agentId, ownerUserId, role, content, task
 /** Add platform-timezone display strings so the UI never renders raw UTC. */
 function withDisplayTimes(row) {
   return {
-    ...withSlaState(row),
+    ...withKanbanTaskActivity(db(),withSlaState(row)),
     action_approval: chatActionApprovalState(row),
     created_at_display: formatServerDateTime(row.created_at),
     updated_at_display: row.updated_at ? formatServerDateTime(row.updated_at) : null,
