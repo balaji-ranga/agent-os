@@ -1,6 +1,7 @@
 import { validateSelection } from './knowledge-selection.js';
 import { copilotScreenControls } from './ui-copilot-screen-specs.js';
 import { isCopilotFillableField } from './ui-copilot-field-policy.js';
+import {embeddedFieldAllowed,embeddedPathAllowed} from './ui-copilot-embedded-policy.js';
 // Deliberately bounded UI assistance. These contracts never authorize API writes.
 export const COPILOT_VERSION = 1;
 export const COPILOT_FORMS = {
@@ -94,10 +95,14 @@ export function normalizeCopilotScreenActions(input,catalog,currentScreenId,visi
 export function validateCopilotProposal(input, catalog) {
   if (!input || typeof input.message !== 'string' || input.message.length > 6000 || !Array.isArray(input.actions) || input.actions.length > 5) throw copilotError('Invalid assistant response');
   const actions = input.actions.map(action => {
+    if(action.type==='embed_navigate'){
+      if(!catalog.screens.some(s=>s.id===action.screen)||!embeddedPathAllowed(action.screen,action.path))throw copilotError('Embedded destination is not available');
+      return {type:'embed_navigate',screen:action.screen,path:action.path};
+    }
     if(action.type==='embed_fill'){
       if(!['crm','erp'].includes(action.screen)||!catalog.screens.some(s=>s.id===action.screen))throw copilotError('Screen is not available',403);
       if(!action.values||Array.isArray(action.values)||typeof action.values!=='object'||!Object.keys(action.values).length||Object.keys(action.values).length>10)throw copilotError('Invalid embedded values');
-      for(const [key,value] of Object.entries(action.values))if(!['name','domain name','first name','last name','email','phone','description','subject','customer name','item name'].includes(key)||typeof value!=='string'||value.length>2000)throw copilotError('Unsupported embedded field');
+      for(const [key,value] of Object.entries(action.values))if(!embeddedFieldAllowed(key)||typeof value!=='string'||value.length>2000)throw copilotError('Unsupported embedded field');
       return {type:'embed_fill',screen:action.screen,values:action.values};
     }
     if(action.type==='screen_fill'){
@@ -116,7 +121,7 @@ export function validateCopilotProposal(input, catalog) {
     }
     if(action.type==='embed_guide'){
       if(!['crm','erp'].includes(action.screen)||!catalog.screens.some(s=>s.id===action.screen))throw copilotError('Screen is not available',403);
-      if(!['name','domain name','first name','last name','email','phone','description','subject','customer name','item name'].includes(action.field))throw copilotError('Unsupported embedded field');
+      if(!embeddedFieldAllowed(action.field))throw copilotError('Unsupported embedded field');
       return {type:'embed_guide',screen:action.screen,field:action.field};
     }
     if(action.type==='screen_guide'){

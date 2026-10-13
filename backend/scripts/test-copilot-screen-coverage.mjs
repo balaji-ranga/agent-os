@@ -1,4 +1,10 @@
 import assert from 'node:assert/strict';
+import {embeddedFieldAllowed,embeddedPathAllowed} from '../src/services/ui-copilot-embedded-policy.js';
+for(const name of ['amount','description','customer name','territory','close date'])assert(embeddedFieldAllowed(name));
+for(const name of ['password','api key','bank account','permissions','javascript','owner','credit card'])assert(!embeddedFieldAllowed(name));
+assert(embeddedPathAllowed('crm','/objects/opportunities?viewId=test'));
+assert(embeddedPathAllowed('erp','/app/customer'));
+for(const path of ['https://evil.test','//evil.test','/app/payment-entry','/app/user','/app/role','/app/customer/../../user'])assert(!embeddedPathAllowed('erp',path));
 import {isCopilotFillableField} from '../src/services/ui-copilot-field-policy.js';
 for(const label of ['Description','Subscription name'])assert.equal(isCopilotFillableField({id:'safe:1',label,type:'text'}),true);
 for(const label of ['Script','JavaScript','Verification code','API token','Permission','Payment'])assert.equal(isCopilotFillableField({id:'safe:1',label,type:'text'}),false);

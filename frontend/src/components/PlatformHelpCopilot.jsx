@@ -27,6 +27,7 @@ function hasDraftContent(id,values){
   if(id==='scheduled_goal')return !!(values.title||values.prompt);
   return true;
 }
+const reviewKey=action=>JSON.stringify(action);
 
 export default function PlatformHelpCopilot() {
   const { user } = useAuth(), location = useLocation(), navigate = useNavigate();
@@ -48,7 +49,8 @@ export default function PlatformHelpCopilot() {
     const observer=new MutationObserver(locate);observer.observe(document.getElementById('main-content')||document.body,{childList:true,subtree:true});
     return()=>{observer.disconnect();cleanup();};
   },[guide,open,session?.status,location.pathname,catalog]);
-  const baselines=useRef({}),toggle=useRef(null),reviewPanel=useRef(null);
+  const baselines=useRef({}),toggle=useRef(null),reviewPanel=useRef(null),conversationPanel=useRef(null);
+  useEffect(()=>{const el=conversationPanel.current;if(el)el.scrollTop=el.scrollHeight;},[session?.conversation?.length,busy]);
   useEffect(()=>{setSession(null);setReview(null);setGuide(null);setWatch(null);baselines.current={};},[user?.id]);
   useEffect(()=>{if(review&&reviewPanel.current){reviewPanel.current.scrollIntoView({block:'nearest',behavior:'smooth'});reviewPanel.current.focus({preventScroll:true});}},[review]);
   useEffect(()=>{
@@ -97,17 +99,17 @@ export default function PlatformHelpCopilot() {
     baselines.current=Object.fromEntries(Object.keys(catalog.forms).map(id=>[id,getCopilotForm(id)?.read()]));
     for(const [form,values] of Object.entries(baselines.current))if(values&&hasDraftContent(form,values)){s=await api.copilotUpdate(s.id,{version:s.version,draft:{form,values}});setSession(s);}
     const screen=catalog.screens?.find(x=>x.route.split('#')[0]===location.pathname)?.id;
-    let embeddedFields=[],embeddedFieldLabels={};
+    let embeddedFields=[],embeddedFieldLabels={},embeddedNavigation=[];
     if(['crm','erp'].includes(screen)){
       // Do not turn a missing/expired bridge into an invented model refusal.
       // Preserve the user's message and expose the actual connection failure.
       const metadata=await requestCopilotEmbed('inspect');
-      embeddedFields=metadata.fields||[];embeddedFieldLabels=metadata.field_labels||{};
+      embeddedFields=metadata.fields||[];embeddedFieldLabels=metadata.field_labels||{};embeddedNavigation=metadata.navigation||[];
     }
-    const next=await api.copilotPropose(s.id,{version:s.version,message:input,screen_path:location.pathname,visible_control_ids:visibleCopilotControls(document),visible_control_options:visibleCopilotOptions(document),embedded_fields:embeddedFields,embedded_field_labels:embeddedFieldLabels,...(screen?{screen}:{})});
+    const next=await api.copilotPropose(s.id,{version:s.version,message:input,screen_path:location.pathname,visible_control_ids:visibleCopilotControls(document),visible_control_options:visibleCopilotOptions(document),embedded_fields:embeddedFields,embedded_field_labels:embeddedFieldLabels,embedded_navigation:embeddedNavigation,...(screen?{screen}:{})});
     setSession(next);setInput('');setNotice('');
     const prepared=next.proposal?.actions.find(a=>a.type==='fill'&&getCopilotForm(a.form));
-    if(prepared){showForm(prepared.form);setReview({action:prepared,expected:baselines.current[prepared.form]??getCopilotForm(prepared.form).read()});}
+    if(prepared){showForm(prepared.form);setReview({action:prepared,anchor:reviewKey(prepared),expected:baselines.current[prepared.form]??getCopilotForm(prepared.form).read()});}
   });}
   function showForm(form){
     const route=catalog.forms[form]?.route;
@@ -127,20 +129,20 @@ export default function PlatformHelpCopilot() {
       if(!fresh.screens.some(s=>s.id===action.screen&&s.route===location.pathname))throw new Error('Open the requested embedded screen first.');
       const prepared=await requestCopilotEmbed('prepare',null,{fields:Object.keys(action.values)});
       if(Object.keys(action.values).some(key=>!prepared.fields.includes(key)))throw new Error('Open these fields in the embedded form, then ask again. No values were entered.');
-      setReview({action:{...action,labels:prepared.field_labels||{}},embedSnapshot:prepared.snapshot,expected:{}});return;
+      setReview({action:{...action,labels:prepared.field_labels||{}},anchor:reviewKey(action),embedSnapshot:prepared.snapshot,expected:{}});return;
     }
     if(action.type==='screen_fill'){
       const screen=fresh.screens.find(s=>s.id===action.screen);
       if(!screen||screen.route.split(/[?#]/)[0]!==location.pathname)throw new Error('Return to the proposed screen and ask again.');
       const snapshot=captureDomFields(document,Object.keys(action.values));
-      setReview({action,snapshot,expected:Object.fromEntries(Object.entries(snapshot).map(([id,s])=>[id,s.value]))});return;
+      setReview({action,anchor:reviewKey(action),snapshot,expected:Object.fromEntries(Object.entries(snapshot).map(([id,s])=>[id,s.value]))});return;
     }
     if(!fresh.forms[action.form])throw new Error('Your access to this form changed.');
     const binding=getCopilotForm(action.form);
     if(!binding){await go(fresh.forms[action.form].route);setNotice('Form opened. Review the proposal, then apply the fields.');return;}
     const expected=baselines.current[action.form] ?? binding.read();
     if(JSON.stringify(binding.read())!==JSON.stringify(expected))throw new Error('You edited this form after the proposal. Ask again to preserve your latest changes.');
-    showForm(action.form);setReview({action,expected});
+    showForm(action.form);setReview({action,anchor:reviewKey(action),expected});
   }
   async function confirmFields(){
     const fresh=await api.copilotCatalog(location.pathname);
@@ -180,6 +182,11 @@ export default function PlatformHelpCopilot() {
   }
   async function openAction(action){
     const fresh=await api.copilotCatalog(location.pathname);
+    if(action.type==='embed_navigate'){
+      if(!fresh.screens.some(s=>s.id===action.screen&&s.route===location.pathname))throw new Error('Open the requested embedded workspace first.');
+      await requestCopilotEmbed('navigate',null,{path:action.path});setReview(null);
+      setNotice('Opened the requested section. Tell me to continue, and I’ll inspect its current fields. No record was created or submitted.');return;
+    }
     if(action.type==='embed_guide'){
       const screen=fresh.screens.find(s=>s.id===action.screen);
       if(!screen)throw new Error('This screen is no longer available.');
@@ -203,6 +210,14 @@ export default function PlatformHelpCopilot() {
   }
   async function startWatch(provider){await update({watch:provider});setWatch(provider);setNotice(`Checking ${provider}. Complete authorization yourself in Connectors.`);}
   const help=catalog?.agents.find(a=>/platform.?help/i.test(`${a.id} ${a.name}`));
+  const renderReview=()=>review&&<section className="copilot-inline-review" ref={reviewPanel} tabIndex={-1} aria-label="Review field changes">
+    <strong>Review these details</strong>
+    <p>{['screen_fill','embed_fill'].includes(review.action.type)?'These values will be entered on this screen. Some fields save immediately.':'Nothing has been filled or saved yet.'}</p>
+    {session?.mode==='guided'&&<p>Next: {review.action.labels?.[Object.keys(review.action.values)[0]]||fieldLabels[Object.keys(review.action.values)[0]]||Object.keys(review.action.values)[0]} · {Object.keys(review.action.values).length} field(s) remaining</p>}
+    <dl>{Object.entries(review.action.values).map(([k,v])=><div key={k}><dt>{review.action.labels?.[k]||fieldLabels[k]||k.replaceAll('_',' ')}</dt><dd>{review.action.type==='embed_fill'?'Current value stays private':displayValue(k,review.expected[k])} → {displayValue(k,v)}</dd></div>)}</dl>
+    <button className="btn-primary" disabled={busy||session?.status!=='active'} onClick={()=>run(confirmFields)}>{session?.mode==='guided'?'Approve and fill next field':'Approve and apply fields'}</button>
+    <button disabled={busy} onClick={()=>setReview(null)}>Keep current fields</button>
+  </section>;
   return <aside className="platform-help-copilot">
     <button ref={toggle} type="button" className="btn-primary copilot-toggle" title="Platform Help" aria-label="Platform Help" aria-expanded={open} onClick={()=>setOpen(v=>!v)}><span aria-hidden="true">✦</span></button>
     {open&&<section className="copilot-panel" aria-label="Platform Help assistant" onKeyDown={e=>{if(e.key==='Escape'){setOpen(false);toggle.current?.focus();}}}>
@@ -210,20 +225,21 @@ export default function PlatformHelpCopilot() {
       {error&&<p role="alert" className="page-banner page-banner-error">{error}</p>}
       {notice&&<p role="status">{notice}</p>}
       {guide&&<article aria-label="Guided setup"><strong>Step {guide.index+1} of {guide.action.steps.length}</strong><p>{guide.action.steps[guide.index].instruction}</p><p>Complete this field on the screen. Nothing is saved automatically.</p><button disabled={busy||session?.status!=='active'||guide.index===0} onClick={()=>setGuide(g=>({...g,index:g.index-1}))}>Back</button><button disabled={busy||session?.status!=='active'} onClick={()=>setGuide(g=>g.index+1<g.action.steps.length?{...g,index:g.index+1}:null)}>{guide.index+1===guide.action.steps.length?'Finish guidance':'Next field'}</button><button onClick={()=>setGuide(null)}>Stop guidance</button></article>}
-      {review&&<article ref={reviewPanel} tabIndex={-1} aria-label="Review field changes"><strong>Review these details</strong><p>{['screen_fill','embed_fill'].includes(review.action.type)?'Applying enters these values into the current screen. Some controls save immediately. Continue only if you approve these changes.':'Nothing has been filled or saved yet.'}</p><dl>{Object.entries(review.action.values).map(([k,v])=><div key={k}><dt>{review.action.labels?.[k]||fieldLabels[k]||k.replaceAll('_',' ')}</dt><dd>{review.action.type==='embed_fill'?'Current value stays private in the embedded form':displayValue(k,review.expected[k])} → {displayValue(k,v)}</dd></div>)}</dl><button className="btn-primary" disabled={busy||session?.status!=='active'} onClick={()=>run(confirmFields)}>{['screen_fill','embed_fill'].includes(review.action.type)?(session?.mode==='guided'?'Approve and fill next field':'Approve and apply fields'):'Use these details'}</button><button onClick={()=>setReview(null)}>Keep current fields</button></article>}
       {!catalog?<p>Loading permitted screens…</p>:<>
         {['/crm','/erp'].includes(location.pathname)&&<button disabled={busy} onClick={()=>run(async()=>{const result=await requestCopilotEmbed('inspect');setNotice(result.fields?.length?`I can help fill these open fields: ${result.fields.join(', ')}. Tell me the values in chat; I’ll ask you to review before applying.`:'Open the form or editable field you want help with, then check this screen again.');})}>Check this screen</button>}
         <details className="copilot-preferences"><summary>How I help</summary><label>Assistance style <select disabled={busy} value={session?.mode||'hybrid'} onChange={e=>run(()=>update({mode:e.target.value}))}><option value="hybrid">Prepare setup and guide me</option><option value="guided">Guide me step by step</option><option value="autofill">Prepare fields for my review</option></select></label><p>I can prepare supported forms. You review before saving and handle any sign-in yourself.</p>
         {session&&<div className="copilot-controls"><span>{session.status}</span><button disabled={busy} onClick={()=>run(()=>update({status:session.status==='active'?'paused':'active'}))}>{session.status==='active'?'Pause':'Resume'}</button><button disabled={busy} onClick={()=>run(async()=>{await update({status:'cancelled'});setWatch(null);setNotice('Session cancelled; saved drafts cleared. Existing configuration is unchanged.');})}>Cancel</button><button disabled={busy} onClick={()=>run(()=>go(session.origin))}>Return to origin</button></div>}
         </details>
-        <div className="copilot-conversation" role="log" aria-label="Conversation">
+        <div ref={conversationPanel} className="copilot-conversation" role="log" aria-label="Conversation">
           {!session?.proposal&&<p className="copilot-bubble">What would you like to do? Tell me in your own words—I’ll help you find the right screen or prepare your setup.</p>}
           {(session?.conversation||[]).map((m,i)=><p key={i} className={`copilot-bubble copilot-${m.role}`}><small>{m.role==='user'?'You':'Platform Help'}</small>{m.text}</p>)}
           {session?.proposal&&!session?.conversation?.length&&<p className="copilot-bubble">{session.proposal.message}</p>}
         </div>
         {session?.proposal&&<div className="copilot-proposal">{session.proposal.actions.map((a,i)=><article key={i}>
           {['fill','screen_fill','embed_fill'].includes(a.type)?<><strong>{catalog.forms[a.form]?.label||catalog.screens?.find(s=>s.id===a.screen)?.label}</strong><p>Review proposed values before applying them to the screen.</p><button className="btn-primary" disabled={busy||session.status!=='active'} onClick={()=>run(()=>apply(a))}>Review setup</button></>:a.type==='watch_connector'?<button disabled={busy||session.status!=='active'} onClick={()=>run(()=>startWatch(a.provider))}>Check {a.provider} connection</button>:<><p>{a.message||''}</p><button disabled={busy||session.status!=='active'} onClick={()=>run(()=>openAction(a))}>{['guide','screen_guide','embed_guide'].includes(a.type)?'Guide me through':a.type==='agent_call'?'Start call with':'Open'} {a.type==='guide'?catalog.forms[a.form]?.label:catalog.screens?.find(s=>s.id===a.screen)?.label||catalog.agents.find(x=>x.id===a.agent)?.name||'agent chat'}</button></>}
+          {review?.anchor===reviewKey(a)&&renderReview()}
         </article>)}</div>}
+        {review&&!session?.proposal?.actions.some(a=>review.anchor===reviewKey(a))&&renderReview()}
         {watch&&<p role="status">Waiting for {watch} authorization… <button disabled={busy} onClick={()=>run(async()=>{await update({watch:null});setWatch(null);})}>Stop checking</button></p>}
         <details><summary>Continue unfinished setup</summary><p>Drafts are private to your login and expire after seven days. Saving a form clears its draft.</p>{Object.entries(session?.drafts||{}).filter(([id])=>catalog.forms[id]).map(([id,values])=><article key={id}><strong>{catalog.forms[id].label}</strong><button disabled={busy} onClick={()=>run(()=>apply({form:id,values}))}>Continue setup</button><button disabled={busy} onClick={()=>run(()=>update({clearDraft:id}))}>Discard draft</button></article>)}{!Object.keys(session?.drafts||{}).length&&<p>No unfinished drafts.</p>}</details>
         {help&&<><button type="button" onClick={()=>setHelpChat(v=>!v)}>{helpChat?'Hide':'Open'} product-help chat</button>{helpChat&&<AgentChatPanel agentId={help.id} minHeight={240} placeholder="Ask about Flolah…"/>}</>}

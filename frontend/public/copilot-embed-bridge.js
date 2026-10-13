@@ -10,11 +10,29 @@
   let highlighted=null;
   let prepared=null;
   const clear=()=>{if(highlighted){highlighted.style.outline=highlighted.dataset.flolahPriorOutline||'';delete highlighted.dataset.flolahPriorOutline;highlighted=null;}};
-  const allowed=new Set(['name','domain name','first name','last name','email','phone','description','subject','customer name','item name']);
-  const label=el=>String(el.getAttribute('data-fieldname')||el.getAttribute('aria-label')||el.getAttribute('placeholder')||[...(el.labels||[])].map(l=>l.textContent).join(' ')||'').trim().toLowerCase().replaceAll('_',' ');
-  const fields=()=>[...document.querySelectorAll('input,textarea,select')].filter(el=>!el.disabled&&!el.hidden&&el.getClientRects().length&&!['password','hidden','file','submit','button'].includes(el.type)&&allowed.has(label(el)));
+  const allowed={has:key=>typeof key==='string'&&key.length>0&&key.length<=100&&/^[a-z][a-z0-9 ._-]*$/.test(key)&&!/password|secret|token|credential|permission|grant|mfa|otp|payment|credit.?card|bank|budget|authority|retention|delete|purge|\bscript\b|javascript|webhook|callback|api.?key|owner|\brole\b|access|account|\bcode\b/.test(key)};
+  const amountOpeners=()=>/^\/object\/opportunity\/[\w-]+$/.test(location.pathname)?[...document.querySelectorAll('[id^="fields-"][id$="-amount"]')].filter(el=>el.getClientRects().length):[];
+  const label=el=>{
+    const raw=String(el.getAttribute('data-fieldname')||el.getAttribute('aria-label')||[...(el.labels||[])].map(l=>l.textContent).join(' ')||el.getAttribute('placeholder')||'').trim().toLowerCase().replaceAll('_',' ');
+    // Twenty's opportunity numeric editor is labelled Currency; the adjacent
+    // currency selector is separate. Never treat an arbitrary Currency box as amount.
+    return raw==='currency'&&amountOpeners().length===1?'amount':raw;
+  };
+  const navigations=()=>[...document.querySelectorAll('a[href]')].filter(el=>el.tagName==='A'&&el.getClientRects().length).flatMap(el=>{
+    try{const u=new URL(el.getAttribute('href'),location.href),path=u.pathname+u.search;
+      const safe=/^\/objects\/[a-z][a-z0-9-]*(?:\?viewId=[a-zA-Z0-9-]+)?$/.test(path)||(/^\/app\/[a-z][a-z0-9-]*$/.test(path)&&!/(user|role|permission|setting|payment|bank|credential|token|oauth|integration)/i.test(path));
+      return u.origin===location.origin&&safe?[{element:el,path,label:String(el.textContent||'').trim().slice(0,100)}]:[];
+    }catch{return [];}
+  });
+  const fields=()=>[...document.querySelectorAll('input,textarea,select')].filter(el=>!el.disabled&&!el.readOnly&&!el.hidden&&el.getClientRects().length&&!['password','hidden','file','submit','button','checkbox','radio'].includes(el.type)&&allowed.has(label(el)));
   const nameOpener=()=>/^\/object\/(company|person|opportunity|task)\/[\w-]+$/.test(location.pathname)?[...document.querySelectorAll('[data-testid="top-bar-title"]')].filter(el=>el.getClientRects().length):[];
   async function openFields(requested){
+    if(requested.includes('amount')&&!fields().some(el=>label(el)==='amount')){
+      const candidates=amountOpeners();
+      if(candidates.length===1){const target=candidates[0].firstElementChild?.firstElementChild;
+        if(target){target.click();target.dispatchEvent(new MouseEvent('dblclick',{bubbles:true,cancelable:true}));await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));}
+      }
+    }
     if(requested.includes('name')&&!fields().some(el=>label(el)==='name')){
       const openers=nameOpener();
       if(openers.length===1){
@@ -29,6 +47,11 @@
     if(event.origin!==parentOrigin||event.source!==window.parent||event.data?.type!=='flolah-copilot-guide'||typeof event.data.request!=='string'||event.data.request.length>100)return;
     const {command,field,request}=event.data;
     let result={ok:false};
+    if(command==='navigate'){
+      const matches=navigations().filter(n=>n.path===event.data.path);
+      if(matches.length===1){prepared=null;clear();matches[0].element.click();result={ok:true};}
+      else result={ok:false,reason:'screen_changed'};
+    }
     if(command==='fill'){
       const reason=!prepared||event.data.snapshot!==prepared.snapshot?'review_required':prepared.path!==location.pathname?'screen_changed':prepared.expires<=Date.now()?'review_expired':'fields_changed';
       result={ok:false,reason};
@@ -52,6 +75,7 @@
       const valid=entries.length>0&&entries.length<=10&&entries.every(([key,value])=>{
         const current=prepared.entries[key],el=current?.element;
         if(!allowed.has(key)||!el?.isConnected||el.disabled||el.readOnly||!el.getClientRects().length||el.value!==current.value||typeof value!=='string'||value.length>2000)return false;
+        if(key==='amount'&&value!==''&&!/^(?:0|[1-9]\d{0,11})(?:\.\d{1,2})?$/.test(value))return false;
         if(el.maxLength>=0&&value.length>el.maxLength)return false;
         if(el.tagName==='SELECT'&&![...el.options].some(o=>o.value===value&&!o.disabled))return false;
         const probe=el.cloneNode(true);probe.value=value;return probe.checkValidity();
@@ -68,7 +92,7 @@
           await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
           // Twenty's record-title editor commits on Enter/click-outside, not
           // blur. Scope this recipe strictly to the reviewed title input.
-          if(key==='name'&&nameOpener().length===1&&el.closest('[data-testid="top-bar-title"]')){
+          if((key==='name'&&nameOpener().length===1&&el.closest('[data-testid="top-bar-title"]'))||(key==='amount'&&amountOpeners().length===1)){
             el.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',code:'Enter',bubbles:true,cancelable:true}));
             el.dispatchEvent(new KeyboardEvent('keyup',{key:'Enter',code:'Enter',bubbles:true,cancelable:true}));
           }
@@ -84,7 +108,8 @@
       const visible=fields();
       const fieldLabels=Object.fromEntries(visible.map(el=>[label(el),String(el.getAttribute('placeholder')||el.getAttribute('aria-label')||label(el)).slice(0,120)]));
       if(nameOpener().length===1)fieldLabels.name='Name';
-      result={ok:true,fields:[...new Set([...visible.map(label),...(nameOpener().length===1?['name']:[])])],field_labels:fieldLabels,mode:'guided',reason:'Embedded edits may save immediately; review proposed values before applying.'};
+      if(amountOpeners().length===1)fieldLabels.amount='Opportunity amount (existing currency unchanged)';
+      result={ok:true,fields:[...new Set([...visible.map(label),...(nameOpener().length===1?['name']:[]),...(amountOpeners().length===1?['amount']:[])])],field_labels:fieldLabels,navigation:navigations().map(({path,label})=>({path,label})),mode:'guided',reason:'Embedded edits may save immediately; review proposed values before applying.'};
     }
     if(command==='clear'){clear();prepared=null;result={ok:true};}
     if(command==='focus'&&allowed.has(field)){
