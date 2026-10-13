@@ -72,9 +72,15 @@ try{
   assert.equal(reply.status,200);s=reply.body;
   assert.equal((await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'erp',embedded_forms:[],message:'Prepare a new customer form'})).status,502);
   const beforeReviewedFill=invoked;
+  modelReplies=[{message:'Review ID',actions:[{type:'embed_fill',screen:'erp',values:{'filter name':'SYNTHETIC'}}]},{message:'Review ID filter',actions:[{type:'embed_fill',screen:'erp',values:{name:'SYNTHETIC'}}]}];
+  reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'erp',embedded_fields:['name','filter name'],embedded_field_labels:{name:'ID','filter name':'Filter Name'},message:'Filter invoices by ID SYNTHETIC. Only fill the search filter.'});
+  assert.equal(reply.status,200);s=reply.body;
+  assert.deepEqual(s.proposal.actions[0].values,{name:'SYNTHETIC'},'A neighbouring field is rejected and repaired before review');
+  assert.equal(invoked-beforeReviewedFill,2);
+  const beforeClearFill=invoked;
   modelReplies=[{message:'Manual only',actions:[]},{message:'Review the empty filter',actions:[{type:'embed_fill',screen:'erp',values:{name:''}}]}];
   reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'erp',embedded_fields:['name'],embedded_field_labels:{name:'ID'},message:'Clear the ID filter for review'});
-  assert.equal(reply.status,200);s=reply.body;assert.equal(invoked-beforeReviewedFill,2);
+  assert.equal(reply.status,200);s=reply.body;assert.equal(invoked-beforeClearFill,2);
   assert.equal(s.proposal.actions[0].values.name,'');
   modelReplies=[{message:'Locate the available field',actions:[{type:'embed_guide',screen:'erp',field:'name'}]},{message:'Review ID',actions:[{type:'embed_fill',screen:'erp',values:{name:'SYNTHETIC'}}]}];
   const beforeEmbeddedGuide=invoked;

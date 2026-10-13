@@ -57,3 +57,17 @@ export function retainExplicitCopilotChoices(proposal,catalog,message){
     return {...action,values};
   })};
 }
+
+// A narrowly phrased single-field request must not become an edit to a nearby
+// control with a similar caption. This is label-driven, not provider-specific.
+// Ambiguous and negated requests remain with the model/user; no value is invented.
+export function explicitCopilotFieldTarget(message,labels){
+  if(!/\bonly\b/i.test(message))return null;
+  const mentions=Object.entries(labels).filter(([,caption])=>{
+    if(!caption)return false;
+    const escaped=caption.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    const matches=[...message.matchAll(new RegExp(`\\b(?:by|set|clear|fill|field)\\s+(?:the\\s+)?${escaped}(?:\\s+(?:field|filter|to|with))?\\b`,'gi'))];
+    return matches.some(match=>! /\b(?:not|never|don't|instead|rather)\s+$/i.test(message.slice(0,match.index)));
+  });
+  return mentions.length===1?mentions[0][0]:null;
+}

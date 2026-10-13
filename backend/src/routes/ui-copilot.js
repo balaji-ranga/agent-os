@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { randomUUID } from 'node:crypto';
-import { COPILOT_RECOMMENDATION_POLICY, copilotIntentOmissions, retainExplicitCopilotChoices } from '../services/ui-copilot-recommendations.js';
+import { COPILOT_RECOMMENDATION_POLICY, copilotIntentOmissions, retainExplicitCopilotChoices, explicitCopilotFieldTarget } from '../services/ui-copilot-recommendations.js';
 import { requireAuth } from '../middleware/auth.js';
 import { getDb } from '../db/schema.js';
 import { hasPermission, isTenantFullAccess, resolveRootOwnerUserId, listEntitledAgentsForActor, attachOrgFieldsToAuthUser } from '../services/org-permissions.js';
@@ -203,7 +203,11 @@ router.post('/session/:id/propose',handler(async req=> {
         continue;
       }
       for(const action of proposal.actions)if(action.type==='screen_fill'&&(action.screen!==activeScreen?.id||Object.keys(action.values).some(id=>!visible.includes(id))))throw copilotError('Only currently visible fields may be filled');
-      for(const action of proposal.actions)if(action.type==='embed_fill'&&(action.screen!==activeScreen?.id||Object.keys(action.values).some(id=>!embeddedFields.includes(id))))throw copilotError('Only currently available embedded fields may be filled');
+      for(const action of proposal.actions)if(action.type==='embed_fill'){
+        if(action.screen!==activeScreen?.id||Object.keys(action.values).some(id=>!embeddedFields.includes(id)))throw copilotError('Only currently available embedded fields may be filled');
+        const target=explicitCopilotFieldTarget(message,embeddedFieldLabels);
+        if(target&&Object.keys(action.values).some(id=>id!==target))throw copilotError('Match the explicitly requested field caption, not a neighbouring control');
+      }
       for(const action of proposal.actions)if(action.type==='embed_navigate'&&(action.screen!==activeScreen?.id||!embeddedNavigation.some(n=>n.path===action.path)))throw copilotError('Only currently observed embedded destinations may be opened');
       for(const action of proposal.actions)if(action.type==='embed_open_form'&&(action.screen!==activeScreen?.id||!embeddedForms.includes(action.label)))throw copilotError('Only currently observed new-record forms may be opened');
       for(const action of proposal.actions.filter(a=>a.type==='screen_fill'))for(const [id,value] of Object.entries(action.values)){
