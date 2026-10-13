@@ -254,7 +254,7 @@ export default function PlatformHelpCopilot() {
     <button className="btn-primary" disabled={busy||session?.status!=='active'} onClick={()=>run(confirmFields)}>Approve new record</button><button disabled={busy} onClick={()=>setReview(null)}>Cancel creation</button>
   </section>:review&&<section className="copilot-inline-review" ref={reviewPanel} tabIndex={-1} aria-label="Review field changes">
     <strong>Review these details</strong>
-    <p>{['screen_fill','embed_fill'].includes(review.action.type)?'These values will be entered on this screen. Some fields save immediately.':'Nothing has been filled or saved yet.'}</p>
+    <p>{['screen_fill','embed_fill'].includes(review.action.type)?'These values will be entered on this screen. Some fields save immediately.':'Review the remaining values before filling. Filling this form does not save or activate it.'}</p>
     {session?.mode==='guided'&&<p>Next: {review.action.labels?.[Object.keys(review.action.values)[0]]||fieldLabels[Object.keys(review.action.values)[0]]||Object.keys(review.action.values)[0]} · {Object.keys(review.action.values).length} field(s) remaining</p>}
     <dl>{Object.entries(review.action.values).map(([k,v])=><div key={k}><dt>{review.action.labels?.[k]||fieldLabels[k]||k.replaceAll('_',' ')}</dt><dd>{review.action.type==='embed_fill'?'Current value stays private':displayValue(k,review.expected[k])} → {displayValue(k,v)}</dd></div>)}</dl>
     <button className="btn-primary" disabled={busy||session?.status!=='active'} onClick={()=>run(confirmFields)}>{session?.mode==='guided'?'Approve and fill next field':'Approve and apply fields'}</button>

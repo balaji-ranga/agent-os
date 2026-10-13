@@ -236,8 +236,11 @@ router.post('/session/:id/propose',handler(async req=> {
       const knownErrors=['Invalid assistant response','This field requires manual input','Form is not available','Screen is not available','Only currently visible fields may be filled','Invalid screen values','Invalid screen field value','Unsupported action'];
       console.warn('[copilot-proposal-rejected]',JSON.stringify({attempt:attempt+1,screen:activeScreen?.id||null,reason:knownErrors.includes(error.message)?error.message:error instanceof SyntaxError?'Invalid JSON':'Contract validation failed'}));
       if(attempt===2)throw copilotError('Assistant returned an invalid or incomplete proposal. No action was taken.',502);
-      if(embeddedFields.length){completionRequest.messages=embeddedRepairMessages();continue;}
       let rejectedActions=[];try{rejectedActions=JSON.parse(reply.content).actions||[];}catch{/* Malformed responses need the full catalog, not a guessed destination. */}
+      // Visible embedded fields describe capability, not the user's destination.
+      // Only narrow repair to those fields when the rejected patch targeted them.
+      const targetsCurrentEmbed=Array.isArray(rejectedActions)&&rejectedActions.length>0&&rejectedActions.every(a=>['embed_fill','embed_guide'].includes(a.type)&&a.screen===activeScreen?.id);
+      if(embeddedFields.length&&targetsCurrentEmbed){completionRequest.messages=embeddedRepairMessages();continue;}
       const targetsCurrentControls=Array.isArray(rejectedActions)&&rejectedActions.length>0&&rejectedActions.every(a=>(a.type==='screen_fill'&&a.screen===activeScreen?.id)||(a.type==='fill'&&a.form===activeScreen?.id&&!Object.hasOwn(c.forms,a.form)));
       if(targetsCurrentControls&&currentSpec?.modules?.some(m=>m.fields.some(f=>f.autofill_allowed))){
         // Repair a current-screen patch against a small explicit action schema,

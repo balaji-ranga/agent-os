@@ -9,7 +9,7 @@ let user={id:'alice',role:'ceo'},allow=true,modelReply={message:'Review before s
 let invoked=0,connectionCalls=0,connected=false,lastModelRequest;
 let modelReplies=[];
 const app=express();app.use(express.json());app.use((req,res,next)=>{req.authUser=user;next();});
-app.use('/copilot',uiCopilotRouter({database:()=>db,getCatalog:()=>({forms:allow?COPILOT_FORMS:{},screens:[{id:'home',route:'/'},{id:'connectors',route:'/connectors'},{id:'erp',route:'/erp'}],agents:[{id:'researcher'}]}),connections:async owner=>{assert.equal(owner,'alice');connectionCalls++;return {apps:connected?[{id:'gmail',connected:true}]:[]};},complete:async options=>{invoked++;lastModelRequest=options;assert.equal(options.ownerUserId,'alice');assert.equal(options.responseFormat,'json_object');return {content:JSON.stringify(modelReplies.length?modelReplies.shift():modelReply)};}}));
+app.use('/copilot',uiCopilotRouter({database:()=>db,getCatalog:()=>({forms:allow?COPILOT_FORMS:{},screens:[{id:'home',route:'/'},{id:'connectors',route:'/connectors'},{id:'erp',route:'/erp'},{id:'crm',route:'/crm'}],agents:[{id:'researcher'}]}),connections:async owner=>{assert.equal(owner,'alice');connectionCalls++;return {apps:connected?[{id:'gmail',connected:true}]:[]};},complete:async options=>{invoked++;lastModelRequest=options;assert.equal(options.ownerUserId,'alice');assert.equal(options.responseFormat,'json_object');return {content:JSON.stringify(modelReplies.length?modelReplies.shift():modelReply)};}}));
 const server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));
 const base=`http://127.0.0.1:${server.address().port}/copilot`;
 async function request(path,method='GET',body){const res=await fetch(base+path,{method,headers:{'Content-Type':'application/json','x-impersonate-ceo':'bob'},body:body&&JSON.stringify(body)});return {status:res.status,body:await res.json()};}
@@ -41,6 +41,13 @@ try{
   assert.equal(invoked-beforeDestinationRepair,2);
   assert.equal(s.proposal.actions[0].form,'scheduled_goal');
   assert(lastModelRequest.messages.some(m=>m.content.includes('"catalog"')),'Repair retains destination catalog instead of restricting to current Home controls');
+  for(const screen of ['crm','erp']){
+    modelReplies=[{message:'Draft',actions:[{type:'fill',form:'unknown-knowledge-form',values:{name:'Supplier contacts'}}]},{message:'Review table',actions:[{type:'fill',form:'knowledge_table',values:{name:'Supplier contacts',purpose:'Track supplier contacts',columns:'Company, Email'}}]}];
+    reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen,embedded_fields:['name'],embedded_field_labels:{name:'Name'},message:'Prepare a knowledge table for supplier contacts with Company and Email columns. Do not save.'});
+    assert.equal(reply.status,200);s=reply.body;
+    assert.equal(s.proposal.actions[0].form,'knowledge_table');
+    assert(lastModelRequest.messages.some(m=>m.content.includes('"catalog"')),'Embedded controls must not steal an off-screen destination during repair');
+  }
   // Restore the hire proposal used by the receipt checks below.
   reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,message:'Prepare a researcher'});s=reply.body;
   const fill_receipt={type:'fill',form:'hire_employee',values:{name:'Demo researcher'}};
