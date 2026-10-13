@@ -8,7 +8,7 @@ let user={id:'alice',role:'ceo'},allow=true,modelReply={message:'Review before s
 let invoked=0,connectionCalls=0,connected=false;
 let modelReplies=[];
 const app=express();app.use(express.json());app.use((req,res,next)=>{req.authUser=user;next();});
-app.use('/copilot',uiCopilotRouter({database:()=>db,getCatalog:()=>({forms:allow?COPILOT_FORMS:{},screens:[{id:'home',route:'/'},{id:'connectors',route:'/connectors'}],agents:[{id:'researcher'}]}),connections:async owner=>{assert.equal(owner,'alice');connectionCalls++;return {apps:connected?[{id:'gmail',connected:true}]:[]};},complete:async options=>{invoked++;assert.equal(options.ownerUserId,'alice');assert.equal(options.responseFormat,'json_object');return {content:JSON.stringify(modelReplies.length?modelReplies.shift():modelReply)};}}));
+app.use('/copilot',uiCopilotRouter({database:()=>db,getCatalog:()=>({forms:allow?COPILOT_FORMS:{},screens:[{id:'home',route:'/'},{id:'connectors',route:'/connectors'},{id:'erp',route:'/erp'}],agents:[{id:'researcher'}]}),connections:async owner=>{assert.equal(owner,'alice');connectionCalls++;return {apps:connected?[{id:'gmail',connected:true}]:[]};},complete:async options=>{invoked++;assert.equal(options.ownerUserId,'alice');assert.equal(options.responseFormat,'json_object');return {content:JSON.stringify(modelReplies.length?modelReplies.shift():modelReply)};}}));
 const server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));
 const base=`http://127.0.0.1:${server.address().port}/copilot`;
 async function request(path,method='GET',body){const res=await fetch(base+path,{method,headers:{'Content-Type':'application/json','x-impersonate-ceo':'bob'},body:body&&JSON.stringify(body)});return {status:res.status,body:await res.json()};}
@@ -27,6 +27,16 @@ try{
   assert.equal(reply.status,200);s=reply.body;
   assert.equal(invoked-callsBeforeRepair,2,'Missing draft must trigger a bounded correction');
   assert.equal(s.proposal.actions[0].message,'Please describe your capabilities.');
+  const beforeCapabilityCheck=invoked;
+  modelReplies=[{message:'Manual only',actions:[]},{message:'Review the empty filter',actions:[{type:'embed_fill',screen:'erp',values:{name:''}}]}];
+  reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'erp',embedded_fields:['name'],embedded_field_labels:{name:'ID'},message:'Clear the ID filter for review'});
+  assert.equal(reply.status,200);s=reply.body;assert.equal(invoked-beforeCapabilityCheck,2);
+  assert.equal(s.proposal.actions[0].values.name,'');
+  modelReply={message:'Which name should I enter?',actions:[]};
+  const beforeClarification=invoked;
+  reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'erp',embedded_fields:['name'],message:'Help with this field'});
+  assert.equal(reply.status,200);s=reply.body;assert.deepEqual(s.proposal.actions,[]);
+  assert.equal(invoked-beforeClarification,2,'Clarification remains allowed and recheck is bounded');
   for(const [form,values] of [
     ['broadcast_draft',{message:'Synthetic unsent broadcast'}],
     ['scheduled_goal',{title:'Draft only',prompt:'Prepare a status report',cadence:'weekly',weekday:2,time_local:'09:30'}],

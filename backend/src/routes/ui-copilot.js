@@ -146,7 +146,23 @@ router.post('/session/:id/propose',handler(async req=> {
   if(embeddedFields.length)completionRequest.messages[0].content+=' Current available reviewed embedded edit capability: '+JSON.stringify({screen:activeScreen.id,type:'embed_fill',fields:embeddedFields})+'. These inputs are already available or have a supported inline editor-opening recipe. Do NOT ask the user to open them again. For a user-requested change or clearing of these fields with known values, return embed_fill, not embed_guide. Preparing this action only shows the review; the subsequent explicit approval authorizes applying it. Use embed_guide only when the user asks to locate a field without a requested value. Ask only for genuinely missing values or ambiguity; do not ask the user to write action JSON. Never infer permission to change unrelated fields.';
   for(let attempt=0;attempt<2;attempt++) {
     const reply=await complete(completionRequest);
-    try { proposal=validateCopilotProposal(JSON.parse(reply.content),c);for(const action of proposal.actions)if(action.type==='screen_fill'&&(action.screen!==activeScreen?.id||Object.keys(action.values).some(id=>!visible.includes(id))))throw copilotError('Only currently visible fields may be filled');break; }
+    try {
+      proposal=validateCopilotProposal(JSON.parse(reply.content),c);
+      for(const action of proposal.actions)if(action.type==='screen_fill'&&(action.screen!==activeScreen?.id||Object.keys(action.values).some(id=>!visible.includes(id))))throw copilotError('Only currently visible fields may be filled');
+      if(attempt===0&&embeddedFields.length&&!proposal.actions.length){
+        // A prior conversational refusal must not redefine current capability.
+        // Recheck once without stale transcript/proposal claims. This still
+        // permits a question/no action for ambiguity, missing values or safety.
+        completionRequest.messages=[completionRequest.messages[0],{role:'user',content:JSON.stringify({
+          context_only:true,mode:old.mode,current_screen:copilotScreenSpec(activeScreen.route),
+          catalog:c,available_embedded_fields:embeddedFields,embedded_field_labels:embeddedFieldLabels,
+          previous_answer:proposal.message,
+          review_instruction:'Reassess the latest request against the current available fields, not past assistant refusals. Propose a reviewed embed_fill if the requested field and value are clear. Otherwise ask a specific clarification or retain a justified safety refusal. Do not invent values or execute anything.',
+        })},{role:'user',content:message}];
+        continue;
+      }
+      break;
+    }
     catch(error) {
       if(attempt===1)throw copilotError('Assistant returned an invalid proposal. No action was taken.',502);
       completionRequest.messages.push({role:'user',content:'The previous response failed proposal validation. Return ONLY a JSON object with both message (string) and actions (array, at most 5). Respond to my latest request, not an older proposal. Use only the registered form fields and actions in the catalog. If uncertain, ask a question with actions: []. Validation: '+String(error.message).slice(0,300)});
