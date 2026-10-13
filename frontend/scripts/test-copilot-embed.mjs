@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
+import {embeddedFailureMessage} from '../src/utils/copilotEmbed.js';
 const code=readFileSync(new URL('../public/copilot-embed-bridge.js',import.meta.url),'utf8');
 let listener,replies=[],focus=0;
 const parent={postMessage:(message,origin)=>replies.push({message,origin})};
@@ -59,3 +60,14 @@ await recipe({command:'fill',snapshot:recipeSnapshot,values:{name:'Reviewed reci
 assert.equal(recipeReplies.at(-1).ok,true);assert.equal(recipeInput.value,'Reviewed recipe value');assert.equal(clicks,2);
 assert.deepEqual(recipeInput.events,['input','change','keydown','keyup','blur']);
 console.log('PASS CRM inline recipe: metadata discovery is read-only, approved editor reopening retains baseline.');
+let timedHandler,clock=1000;const timedReplies=[];
+const timedParent={postMessage:m=>timedReplies.push(m)};
+vm.runInNewContext(code,{Date:{now:()=>clock},window:{parent:timedParent,addEventListener:(_,fn)=>timedHandler=fn},document:{querySelectorAll:()=>[editable]},location:{pathname:'/app/customer'},crypto:{randomUUID:()=>String(timedReplies.length)}});
+const timed=data=>timedHandler({origin:'https://login.flolah.cloud',source:timedParent,data:{type:'flolah-copilot-guide',request:'expiry',...data}});
+await timed({command:'prepare'});const expiredSnapshot=timedReplies.at(-1).snapshot,unchanged=editable.value;
+clock+=60001;
+await timed({command:'fill',snapshot:expiredSnapshot,values:{name:'Must not apply expired review'}});
+assert.equal(timedReplies.at(-1).reason,'review_expired');assert.equal(editable.value,unchanged);
+assert.match(embeddedFailureMessage('review_expired'),/Review setup again/);
+assert(!embeddedFailureMessage('<script>untrusted</script>').includes('<script>'));
+console.log('PASS expired embedded review: no writes, actionable allowlisted failure messages.');

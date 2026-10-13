@@ -29,6 +29,10 @@
     if(event.origin!==parentOrigin||event.source!==window.parent||event.data?.type!=='flolah-copilot-guide'||typeof event.data.request!=='string'||event.data.request.length>100)return;
     const {command,field,request}=event.data;
     let result={ok:false};
+    if(command==='fill'){
+      const reason=!prepared||event.data.snapshot!==prepared.snapshot?'review_required':prepared.path!==location.pathname?'screen_changed':prepared.expires<=Date.now()?'review_expired':'fields_changed';
+      result={ok:false,reason};
+    }
     if(command==='prepare'){
       await openFields(Array.isArray(event.data.fields)?event.data.fields.filter(key=>allowed.has(key)):[]);
       const entries={};for(const el of fields()){const key=label(el);if(Object.hasOwn(entries,key))entries[key]=null;else entries[key]={element:el,value:el.value};}

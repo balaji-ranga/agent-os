@@ -1,5 +1,13 @@
 // Exact window/origin binding; never send messages to a wildcard origin.
 let frame=null;
+export function embeddedFailureMessage(reason){
+  return ({
+    review_required:'Review these details again before applying. The previous review was used or cancelled; no fields were changed.',
+    review_expired:'This review expired. Select Review setup again, then approve the refreshed details. No fields were changed.',
+    screen_changed:'The embedded screen changed. Return to the intended form and review again. No fields were changed.',
+    fields_changed:'The form changed or a proposed value is no longer valid. Review setup again to preserve current edits. No fields were changed.',
+  })[reason]||'Open the requested field first; hidden or ambiguous controls cannot be guided.';
+}
 export function registerCopilotEmbed(element,origin){
   const binding={element,origin};frame=binding;
   return()=>{if(frame===binding)frame=null;};
@@ -13,7 +21,7 @@ export function requestCopilotEmbed(command,field,details={}){
     const listener=e=>{
       if(e.origin!==bound.origin||e.source!==bound.element.contentWindow||e.data?.type!=='flolah-copilot-guide-result'||e.data.request!==request)return;
       finish();if(frame!==bound)return reject(new Error('The embedded workspace changed.'));
-      e.data.ok?resolve(e.data):reject(new Error('Open the requested field first; hidden or ambiguous controls cannot be guided.'));
+      e.data.ok?resolve(e.data):reject(new Error(embeddedFailureMessage(e.data.reason)));
     };
     const timer=setTimeout(()=>{finish();reject(new Error('This embedded screen has not connected to guided assistance yet. No changes were made.'));},5000);
     window.addEventListener('message',listener);
