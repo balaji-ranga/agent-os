@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {findGuideField,highlightGuideField} from '../src/utils/copilotGuide.js';
+import {findGuideField,highlightGuideField,revealRegisteredForm} from '../src/utils/copilotGuide.js';
 const field=(overrides={})=>({name:'name',id:'',type:'text',labels:[],getAttribute:()=>null,closest:()=>null,getClientRects:()=>[{}],...overrides});
 const root=items=>({querySelectorAll:()=>items});
 const name=field();
@@ -12,3 +12,9 @@ let actions=[];
 const cleanup=highlightGuideField({isConnected:true,classList:{add:x=>actions.push(['add',x]),remove:x=>actions.push(['remove',x])},scrollIntoView:()=>actions.push(['scroll']),focus:()=>actions.push(['focus'])});
 cleanup();assert.deepEqual(actions.map(a=>a[0]),['add','scroll','focus','remove']);
 console.log('PASS guided field lookup: labels, ambiguity, protected/hidden/disabled controls and cleanup. No values read or written.');
+let revealed=0;
+const sections={getElementById:id=>id==='knowledge-documents'?{scrollIntoView:()=>revealed++}:null};
+assert.equal(revealRegisteredForm(sections,'/master-data#knowledge-documents'),true);
+assert.equal(revealRegisteredForm(sections,'/master-data#missing'),false);
+assert.equal(revealRegisteredForm(sections,'/master-data#input[name=secret]'),false);
+assert.equal(revealed,1);

@@ -33,7 +33,8 @@
       await openFields(Array.isArray(event.data.fields)?event.data.fields.filter(key=>allowed.has(key)):[]);
       const entries={};for(const el of fields()){const key=label(el);if(Object.hasOwn(entries,key))entries[key]=null;else entries[key]={element:el,value:el.value};}
       const snapshot=crypto.randomUUID();prepared={snapshot,entries,expires:Date.now()+60000,path:location.pathname};
-      result={ok:true,snapshot,fields:Object.keys(entries).filter(k=>entries[k]),mode:'review',immediate_save:true};
+      const fieldLabels=Object.fromEntries(Object.entries(entries).filter(([,entry])=>entry).map(([key,{element}])=>[key,String(element.getAttribute('placeholder')||element.getAttribute('aria-label')||key).slice(0,120)]));
+      result={ok:true,snapshot,fields:Object.keys(entries).filter(k=>entries[k]),field_labels:fieldLabels,mode:'review',immediate_save:true};
     }
     if(command==='fill'&&prepared&&event.data.snapshot===prepared.snapshot&&prepared.expires>Date.now()&&prepared.path===location.pathname){
       const values=event.data.values,entries=values&&typeof values==='object'&&!Array.isArray(values)?Object.entries(values):[];

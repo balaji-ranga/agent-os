@@ -4,7 +4,7 @@ import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { getCopilotForm } from '../utils/copilotForms.js';
 import { copilotAgentHandoff } from '../utils/copilotHandoff.js';
-import { findGuideField, findSourceGuideField, highlightGuideField } from '../utils/copilotGuide.js';
+import { findGuideField, findSourceGuideField, highlightGuideField, revealRegisteredForm } from '../utils/copilotGuide.js';
 import { requestCopilotEmbed } from '../utils/copilotEmbed.js';
 import { captureDomFields, applyDomFields, visibleCopilotControls } from '../utils/copilotDomFill.js';
 import AgentChatPanel from './AgentChatPanel';
@@ -103,8 +103,12 @@ export default function PlatformHelpCopilot() {
     const next=await api.copilotPropose(s.id,{version:s.version,message:input,visible_control_ids:visibleCopilotControls(document),embedded_fields:embeddedFields,embedded_field_labels:embeddedFieldLabels,...(screen?{screen}:{})});
     setSession(next);setInput('');setNotice('');
     const prepared=next.proposal?.actions.find(a=>a.type==='fill'&&getCopilotForm(a.form));
-    if(prepared)setReview({action:prepared,expected:baselines.current[prepared.form]??getCopilotForm(prepared.form).read()});
+    if(prepared){showForm(prepared.form);setReview({action:prepared,expected:baselines.current[prepared.form]??getCopilotForm(prepared.form).read()});}
   });}
+  function showForm(form){
+    const route=catalog.forms[form]?.route;
+    if(revealRegisteredForm(document,route)&&route.split(/[?#]/)[0]===location.pathname)navigate(route,{replace:true});
+  }
   async function go(route,state={}){
     let s=await ensureSession();
     for(const id of Object.keys(catalog.forms)){
@@ -119,7 +123,7 @@ export default function PlatformHelpCopilot() {
       if(!fresh.screens.some(s=>s.id===action.screen&&s.route===location.pathname))throw new Error('Open the requested embedded screen first.');
       const prepared=await requestCopilotEmbed('prepare',null,{fields:Object.keys(action.values)});
       if(Object.keys(action.values).some(key=>!prepared.fields.includes(key)))throw new Error('Open these fields in the embedded form, then ask again. No values were entered.');
-      setReview({action,embedSnapshot:prepared.snapshot,expected:{}});return;
+      setReview({action:{...action,labels:prepared.field_labels||{}},embedSnapshot:prepared.snapshot,expected:{}});return;
     }
     if(action.type==='screen_fill'){
       const screen=fresh.screens.find(s=>s.id===action.screen);
@@ -132,7 +136,7 @@ export default function PlatformHelpCopilot() {
     if(!binding){await go(fresh.forms[action.form].route);setNotice('Form opened. Review the proposal, then apply the fields.');return;}
     const expected=baselines.current[action.form] ?? binding.read();
     if(JSON.stringify(binding.read())!==JSON.stringify(expected))throw new Error('You edited this form after the proposal. Ask again to preserve your latest changes.');
-    setReview({action,expected});
+    showForm(action.form);setReview({action,expected});
   }
   async function confirmFields(){
     const fresh=await api.copilotCatalog();

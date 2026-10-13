@@ -23,3 +23,12 @@ export function findSourceGuideField(root,id){
   const matches=[...root.querySelectorAll('[data-copilot-control]')].filter(el=>el.getAttribute('data-copilot-control')===id&&!el.disabled&&!el.hidden&&el.getClientRects().length&&!['password','hidden','file'].includes(el.type));
   return matches.length===1?matches[0]:null;
 }
+// Routes come from the authorized form catalog, never a model selector.
+export function revealRegisteredForm(root,route){
+  const anchor=String(route||'').split('#')[1];
+  if(!anchor||!/^[-\w]+$/.test(anchor))return false;
+  const section=root.getElementById(anchor);
+  if(!section)return false;
+  section.scrollIntoView({block:'start',behavior:'smooth'});
+  return true;
+}
