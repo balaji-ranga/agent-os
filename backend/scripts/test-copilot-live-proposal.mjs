@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import express from 'express';
 import Database from 'better-sqlite3';
-import {uiCopilotRouter} from '../src/routes/ui-copilot.js';
+const {uiCopilotRouter}=await import(process.env.COPILOT_TEST_ROUTER||'../src/routes/ui-copilot.js');
 import {chatCompletions} from '../src/config/llm.js';
 const owner=process.env.COPILOT_TEST_OWNER;
 if(!owner)throw Error('Set COPILOT_TEST_OWNER to an explicitly authorized test tenant.');
@@ -23,7 +23,7 @@ const base=`http://127.0.0.1:${server.address().port}/test`;
 try{
  let response=await fetch(base+'/session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({origin:'/erp'})});
  const session=await response.json();assert.equal(response.status,200);
- response=await fetch(base+`/session/${session.id}/propose`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({version:session.version,screen:'erp',embedded_fields:['name'],message:'Please clear the invoice ID list filter back to empty. Prepare that one field for review. Leave all invoices unchanged.'})});
+ response=await fetch(base+`/session/${session.id}/propose`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({version:session.version,screen:'erp',embedded_fields:['name'],embedded_field_labels:{name:'ID'},message:'Please clear the invoice ID list filter back to empty. Prepare that one field for review. Leave all invoices unchanged.'})});
  const result=await response.json();assert.equal(response.status,200);
  assert.deepEqual(result.proposal.actions,[{type:'embed_fill',screen:'erp',values:{name:''}}]);
  console.log('PASS live synthetic natural-language ERP proposal; no business data changed.');

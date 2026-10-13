@@ -93,9 +93,9 @@ export default function PlatformHelpCopilot() {
     baselines.current=Object.fromEntries(Object.keys(catalog.forms).map(id=>[id,getCopilotForm(id)?.read()]));
     for(const [form,values] of Object.entries(baselines.current))if(values&&hasDraftContent(form,values)){s=await api.copilotUpdate(s.id,{version:s.version,draft:{form,values}});setSession(s);}
     const screen=catalog.screens?.find(x=>x.route.split('#')[0]===location.pathname)?.id;
-    let embeddedFields=[];
-    if(['crm','erp'].includes(screen))try{embeddedFields=(await requestCopilotEmbed('inspect')).fields||[];}catch{/* Explain unavailable bridge through empty metadata, never bypass it. */}
-    const next=await api.copilotPropose(s.id,{version:s.version,message:input,visible_control_ids:visibleCopilotControls(document),embedded_fields:embeddedFields,...(screen?{screen}:{})});
+    let embeddedFields=[],embeddedFieldLabels={};
+    if(['crm','erp'].includes(screen))try{const metadata=await requestCopilotEmbed('inspect');embeddedFields=metadata.fields||[];embeddedFieldLabels=metadata.field_labels||{};}catch{/* Explain unavailable bridge through empty metadata, never bypass it. */}
+    const next=await api.copilotPropose(s.id,{version:s.version,message:input,visible_control_ids:visibleCopilotControls(document),embedded_fields:embeddedFields,embedded_field_labels:embeddedFieldLabels,...(screen?{screen}:{})});
     setSession(next);setInput('');setNotice('');
     const prepared=next.proposal?.actions.find(a=>a.type==='fill'&&getCopilotForm(a.form));
     if(prepared)setReview({action:prepared,expected:baselines.current[prepared.form]??getCopilotForm(prepared.form).read()});

@@ -54,9 +54,14 @@
       if(valid){
         const batch=prepared;prepared=null;
         for(const [key,value] of entries){const el=batch.entries[key].element;
+          el.focus({preventScroll:true});
           const proto=el.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:el.tagName==='SELECT'?HTMLSelectElement.prototype:HTMLInputElement.prototype;
           Object.getOwnPropertyDescriptor(proto,'value').set.call(el,value);
-          el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));el.blur();
+          el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));
+          // React-controlled inline editors commit their updated state on blur.
+          // Let the input render before blurring, and ensure it owns focus first.
+          await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+          el.blur();
         }
         for(const [key] of entries)delete batch.entries[key];
         const remaining=Object.keys(batch.entries).filter(key=>batch.entries[key]);
@@ -64,7 +69,12 @@
         result={ok:true,applied:entries.map(([key])=>key),next_snapshot:prepared?.snapshot||null,persistence:'Verify in the application; edits may save immediately.'};
       }
     }
-    if(command==='inspect')result={ok:true,fields:[...new Set([...fields().map(label),...(nameOpener().length===1?['name']:[])])],mode:'guided',reason:'Embedded edits may save immediately; review proposed values before applying.'};
+    if(command==='inspect'){
+      const visible=fields();
+      const fieldLabels=Object.fromEntries(visible.map(el=>[label(el),String(el.getAttribute('placeholder')||el.getAttribute('aria-label')||label(el)).slice(0,120)]));
+      if(nameOpener().length===1)fieldLabels.name='Name';
+      result={ok:true,fields:[...new Set([...visible.map(label),...(nameOpener().length===1?['name']:[])])],field_labels:fieldLabels,mode:'guided',reason:'Embedded edits may save immediately; review proposed values before applying.'};
+    }
     if(command==='clear'){clear();prepared=null;result={ok:true};}
     if(command==='focus'&&allowed.has(field)){
       clear();const matches=fields().filter(el=>label(el)===field);

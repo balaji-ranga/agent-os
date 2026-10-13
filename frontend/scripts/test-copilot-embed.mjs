@@ -21,11 +21,11 @@ class NativeInput {
  get value(){return this._value;}set value(value){this._value=value;}
  getAttribute(k){return k==='placeholder'?'Name':null;}
  getClientRects(){return [{}];}cloneNode(){return {value:'',checkValidity:()=>true};}
- dispatchEvent(e){this.events.push(e.type);}blur(){this.events.push('blur');}
+ dispatchEvent(e){this.events.push(e.type);}focus(){this.focused=true;}blur(){assert.equal(this.focused,true);this.events.push('blur');}
 }
 const editable=new NativeInput();let handler,writes=[];
 const parent2={postMessage:m=>writes.push(m)},window2={parent:parent2,addEventListener:(_,fn)=>handler=fn};
-vm.runInNewContext(code,{window:window2,document:{querySelectorAll:()=>[editable]},location:{pathname:'/objects/companies'},crypto:{randomUUID:()=>String(writes.length)},HTMLInputElement:NativeInput,Event:class{constructor(type){this.type=type;}}});
+vm.runInNewContext(code,{requestAnimationFrame:fn=>fn(),window:window2,document:{querySelectorAll:()=>[editable]},location:{pathname:'/objects/companies'},crypto:{randomUUID:()=>String(writes.length)},HTMLInputElement:NativeInput,Event:class{constructor(type){this.type=type;}}});
 const send=data=>handler({origin:'https://login.flolah.cloud',source:parent2,data:{type:'flolah-copilot-guide',request:'r',...data}});
 await send({command:'prepare'});let snapshot=writes.at(-1).snapshot;
 assert(!JSON.stringify(writes).includes('Original'),'No existing values leave the embedded page');
@@ -35,7 +35,7 @@ await send({command:'fill',snapshot,values:{name:'Replay'}});assert.equal(writes
 console.log('PASS embedded reviewed fill: private baseline, stale-edit rejection, native events, one-use snapshot.');
 const second=new NativeInput();second.getAttribute=k=>k==='placeholder'?'Description':null;
 const multiParent={postMessage:m=>writes.push(m)};let multiHandler;
-vm.runInNewContext(code,{window:{parent:multiParent,addEventListener:(_,fn)=>multiHandler=fn},document:{querySelectorAll:()=>[editable,second]},location:{pathname:'/object/company/test'},crypto:{randomUUID:()=>String(writes.length)},HTMLInputElement:NativeInput,Event:class{constructor(type){this.type=type;}}});
+vm.runInNewContext(code,{requestAnimationFrame:fn=>fn(),window:{parent:multiParent,addEventListener:(_,fn)=>multiHandler=fn},document:{querySelectorAll:()=>[editable,second]},location:{pathname:'/object/company/test'},crypto:{randomUUID:()=>String(writes.length)},HTMLInputElement:NativeInput,Event:class{constructor(type){this.type=type;}}});
 const multi=data=>multiHandler({origin:'https://login.flolah.cloud',source:multiParent,data:{type:'flolah-copilot-guide',request:'multi',...data}});
 await multi({command:'prepare'});const firstSnapshot=writes.at(-1).snapshot;
 await multi({command:'fill',snapshot:firstSnapshot,values:{name:'First guided field'}});
