@@ -143,7 +143,7 @@ try{
   const callsBeforeMalformed=invoked;
   modelReply={message:'Incomplete response without actions'};
   assert.equal((await request(`/session/${s.id}/propose`,'POST',{version:s.version,message:'Show a review'})).status,502);
-  assert.equal(invoked-callsBeforeMalformed,2,'Malformed proposals get exactly one repair attempt');
+  assert.equal(invoked-callsBeforeMalformed,3,'Malformed proposals stop after two bounded repair attempts');
   s=(await request(`/session/${s.id}`,'PUT',{version:s.version,status:'cancelled'})).body;
   assert.deepEqual(s.fill_receipts,[]);
   await request(`/session/${s.id}/watch/check`,'POST',{});assert.equal(connectionCalls,2);assert.equal(s.watch,null);

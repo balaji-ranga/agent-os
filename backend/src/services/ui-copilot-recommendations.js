@@ -23,3 +23,22 @@ missing required operational choices without discarding known values. A fill pro
 registered form for review; the user need not navigate there first.
 User approval applies only to the reviewed changes, not inferred follow-on actions.
 `;
+
+// Form-agnostic coverage checks complement schema validation. They never fill
+// values themselves or authorize a save. Ambiguous/negated choices stay with
+// the user rather than becoming a guessed default.
+export function copilotIntentOmissions(proposal,catalog,message){
+  const omissions=[];
+  const creating=/\bcreate\s+(?:a\s+|an\s+)?(?:new\s+)?/i.test(message)&&!(/\b(?:do not|don't|never)\s+create\b/i.test(message));
+  for(const action of proposal.actions||[]){
+    if(action.type!=='fill')continue;
+    const fields=catalog.forms[action.form]?.fields||{};
+    for(const [key,field] of Object.entries(fields)){
+      if(creating&&field.required_for_creation&&!(String(action.values[key]??'').trim()))omissions.push(`${action.form}.${key}: required draft content is missing; derive from the user's intent or ask if genuinely unknown`);
+      if(!Array.isArray(field.enum)||/\b(?:not|don't|never|instead|rather|or)\b/i.test(message))continue;
+      const found=field.enum.filter(value=>typeof value==='string'&&new RegExp(`\\b${value.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}\\b`,'i').test(message));
+      if(found.length===1&&action.values[key]!==found[0])omissions.push(`${action.form}.${key}: retain explicitly supplied choice ${found[0]}`);
+    }
+  }
+  return omissions;
+}
