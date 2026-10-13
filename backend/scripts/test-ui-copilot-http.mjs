@@ -48,6 +48,12 @@ try{
   modelReplies=[{message:'Malformed guided draft'}, {message:'Review the provider',actions:[{type:'screen_fill',screen:'connectors',values:{[provider.id]:'calendar_url'}}]}];
   reply=await request(`/session/${s.id}/propose`,'POST',{...selectRequest,version:s.version});
   assert.equal(reply.status,200);s=reply.body;assert.equal(s.proposal.actions[0].values[provider.id],'calendar_url');
+  s=(await request(`/session/${s.id}`,'PUT',{version:s.version,mode:'guided'})).body;
+  const subName=copilotScreenControls('/connectors').find(f=>f.label==='Subscription name');
+  modelReplies=[{message:'Mixed guidance',actions:[{type:'screen_fill',screen:'connectors',values:{[subName.id]:'Test draft'}},{type:'screen_guide',screen:'connectors',steps:[{control:provider.id,instruction:'Choose the provider manually'}]}]},{message:'Review both fields',actions:[{type:'screen_fill',screen:'connectors',values:{[subName.id]:'Test draft',[provider.id]:'calendar_url'}}]}];
+  const beforeMixed=invoked;
+  reply=await request(`/session/${s.id}/propose`,'POST',{...selectRequest,version:s.version,visible_control_ids:[subName.id,provider.id],message:'Prepare Test draft with published calendar provider; guide each field.'});
+  assert.equal(reply.status,200);s=reply.body;assert.equal(invoked-beforeMixed,2);assert.equal(Object.keys(s.proposal.actions[0].values).length,2);
   modelReplies=[{message:'Invented setup',actions:[{type:'fill',form:'connectors',values:{provider:'google-drive'}}]},{message:'Use OpenConnector, then Google Drive. Authorization is deferred.',actions:[]}];
   reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'connectors',message:'Explain Google Drive setup only; no authorization.'});
   assert.equal(reply.status,200);s=reply.body;assert.deepEqual(s.proposal.actions,[]);

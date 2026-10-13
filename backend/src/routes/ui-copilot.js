@@ -160,6 +160,12 @@ router.post('/session/:id/propose',handler(async req=> {
         const field=currentSpec?.modules?.flatMap(m=>m.fields).find(f=>f.id===id);
         if(field?.type==='select'&&!field.allowed_options.some(o=>o.value===value))throw copilotError('Choose a current permitted option');
       }
+      if(old.mode==='guided'&&proposal.actions.some(a=>a.type==='screen_fill')&&proposal.actions.some(a=>a.type==='screen_guide'&&a.steps.some(step=>currentSpec?.modules?.flatMap(m=>m.fields).some(f=>f.id===step.control&&f.autofill_allowed)))){
+        // Do not half-fill a known form then silently downgrade its other
+        // eligible fields to manual steps. Reconcile once against the request;
+        // missing values can still produce a clarification with no action.
+        throw copilotError('Mixed guided fill requires reconciliation');
+      }
       if(attempt===0&&embeddedFields.length&&!proposal.actions.length){
         // A prior conversational refusal must not redefine current capability.
         // Recheck once without stale transcript/proposal claims. This still
