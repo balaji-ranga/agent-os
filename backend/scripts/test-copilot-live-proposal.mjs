@@ -9,6 +9,7 @@ import {copilotScreenControls} from '../src/services/ui-copilot-screen-specs.js'
 const searchControl=copilotScreenControls('/content-tools').find(c=>c.label==='Search tools registry');
 const eventMode=process.env.COPILOT_TEST_EVENT==='1';
 const policyMode=process.env.COPILOT_TEST_POLICY==='1';
+const policyControls=copilotScreenControls('/policies');
 const marketingMode=process.env.COPILOT_TEST_MARKETING==='1';
 const marketingControls=copilotScreenControls('/marketing').filter(c=>['Campaign name','Outcome goal','Content topics'].includes(c.label));
 const marketingField=label=>marketingControls.find(c=>c.label===label).id;
@@ -77,9 +78,9 @@ try{
  for(const [message,value] of cases){
    const connector=process.env.COPILOT_TEST_CONNECTOR==='1';
    const search=process.env.COPILOT_TEST_SEARCH==='1';
-   response=await fetch(base+`/session/${session.id}/propose`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({version,screen:policyMode?'policies':marketingMode?'marketing':search?'content-tools':connector||eventMode?'connectors':'erp',visible_control_ids:marketingMode?marketingControls.map(c=>c.id):eventMode?eventControls.map(c=>c.id):search?[searchControl.id]:[],visible_control_options:eventMode?eventOptions:{},embedded_fields:policyMode||marketingMode||connector||search||eventMode?[]:['name'],embedded_field_labels:{name:'ID'},message})});
+   response=await fetch(base+`/session/${session.id}/propose`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({version,screen:policyMode?'policies':marketingMode?'marketing':search?'content-tools':connector||eventMode?'connectors':'erp',visible_control_ids:policyMode?policyControls.map(c=>c.id):marketingMode?marketingControls.map(c=>c.id):eventMode?eventControls.map(c=>c.id):search?[searchControl.id]:[],visible_control_options:eventMode?eventOptions:{},embedded_fields:policyMode||marketingMode||connector||search||eventMode?[]:['name'],embedded_field_labels:{name:'ID'},message})});
    const result=await response.json();assert.equal(response.status,200);
-   if(policyMode){assert.deepEqual(result.proposal.actions,[]);assert.match(result.proposal.message,/Action control/i);}
+   if(policyMode){assert.deepEqual(result.proposal.actions,[]);assert.match(result.proposal.message,/Action control/i);const text=result.proposal.message.toLowerCase();assert(text.indexOf('permitted email')<0||text.indexOf('action control')<text.indexOf('permitted email'),'Send-approval guidance must lead with Action control, not the recipient allowlist');}
    else if(marketingMode){assert.equal(result.proposal.actions.length,1);assert.equal(result.proposal.actions[0].type,'screen_fill');assert.deepEqual(result.proposal.actions[0].values,{[marketingField('Campaign name')]:'Copilot UAT onboarding',[marketingField('Outcome goal')]:'Improve product onboarding awareness',[marketingField('Content topics')]:'onboarding, product education'});}
    else if(eventMode){assert.equal(result.proposal.actions.length,1);assert.equal(result.proposal.actions[0].type,'screen_fill');const values=result.proposal.actions.reduce((all,a)=>({...all,...a.values}),{});assert.equal(values[eventField('Subscription name')],'Copilot UAT calendar');assert.equal(values[eventField('Event provider')],'calendar_url');assert.equal(values[eventField('Event type')],'calendar.event.changed');assert.equal(values[eventField('Enable provider listener')],undefined);}
    else if(search){assert.equal(result.proposal.actions[0].type,'screen_fill');assert.equal(result.proposal.actions[0].values[searchControl.id],'crm');}

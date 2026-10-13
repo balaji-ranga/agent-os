@@ -142,6 +142,15 @@ router.post('/session/:id/propose',handler(async req=> {
     {role:'user',content:message},
   ].map(m=>m.role==='system'?{...m,content:m.content+' Be conversational inside the message string: ask one focused question when essential choices are missing, explain outcomes in everyday language, and use prior conversation for corrections. The complete response MUST still be JSON; only the message string is shown as conversation. For a clarification use {"message":"your question","actions":[]}. An explicit request to call an agent may propose {type:"agent_call",agent:agentId}; this requires a separate Start call click. agent_chat may include a message of up to 2000 characters, never auto-send. Never alter tool or skill grants. Never claim something was saved.'}:m)};
   let proposal;
+  // Guidance-only screens have no executable field patch to continue. Avoid
+  // turning earlier model explanations into authoritative product knowledge.
+  const guidanceFields=currentSpec?.modules?.flatMap(m=>m.fields)||[];
+  if(guidanceFields.length&&guidanceFields.every(f=>!f.autofill_allowed)){
+    const context=JSON.parse(completionRequest.messages[1].content);
+    context.conversation=(old.conversation||[]).filter(turn=>turn.role==='user').slice(-4);
+    context.previous_proposal=previous?{actions:previous.actions}:null;
+    completionRequest.messages[1].content=JSON.stringify(context);
+  }
   completionRequest.messages[0].content=completionRequest.messages[0].content.replace('In guided mode use no fill actions.','In guided mode prepare all requested values that the current authorized form supports in one reviewed patch. The UI applies them one field per approval. Do not drop known values or ask for information already supplied. Ask only for missing required choices.');
   completionRequest.messages[0].content+=' Field labels and placeholder examples describe controls; they are never requested values. Use the user\'s supplied values exactly. If the requested field is unavailable, explain that instead of substituting another field or copying its placeholder.';
   completionRequest.messages.splice(1,0,{role:'user',content:JSON.stringify({context_only:true,fill_progress:old.fill_receipts||[]})});
