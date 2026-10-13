@@ -56,6 +56,9 @@ if mode=='prepare':
  if not (pathlib.Path(source)/'frontend').is_dir():raise RuntimeError('Missing running frontend source')
  shutil.copytree(pathlib.Path(source)/'frontend',context/'frontend',dirs_exist_ok=True,ignore=shutil.ignore_patterns('node_modules','dist','.env*'))
  for kind,p in changes:
+  # Generated line identities are derived from merged source below. Textual
+  # merging these outputs invents conflicts when unrelated UI lines move.
+  if p in ('backend/src/generated/copilot-screen-inventory.json','frontend/src/generated/copilot-screen-inventory.json'):continue
   current=context/p
   if not p.startswith(('backend/','frontend/','knowledgebase/','openclaw-workspace-templates/')) and (root/p).exists():
    current.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(root/p,current)
