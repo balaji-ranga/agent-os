@@ -20,7 +20,8 @@ const resolveImport=(file,name)=>{if(!name.startsWith('.'))return null;const bas
 for(const file of [...files,join(src,'App.jsx')]){
  const code=readFileSync(file,'utf8'),tree=parse(code,{sourceType:'module',plugins:['jsx','typescript']});trees.set(file,tree);
  const imports=new Map();for(const n of tree.program.body)if(n.type==='ImportDeclaration'){const target=resolveImport(file,n.source.value);if(target)for(const s of n.specifiers)imports.set(s.local.name,target);}
- const controls=[],linkedLabels=new Map();let formCount=0;
+ const controls=[],headings=[],linkedLabels=new Map();let formCount=0;
+ walk(tree,n=>{if(n.type==='JSXElement'&&/^h[1-4]$/.test(n.openingElement.name?.name)){const title=sourceLabelText(n);if(title&&!headings.includes(title))headings.push(title);}});
  walk(tree,n=>{if(n.type!=='JSXElement'||n.openingElement.name?.name!=='label')return;const id=literal(attr(n.openingElement,'htmlFor'));if(id)linkedLabels.set(id,linkedLabels.has(id)?null:sourceLabelText(n));});
  walk(tree,(n,anc)=>{if(n.type!=='JSXOpeningElement')return;const tag=n.name?.name;if(tag==='form')formCount++;if(!['input','select','textarea'].includes(tag))return;
   const type=literal(attr(n,'type'))||(tag==='input'?'text':tag);
@@ -33,7 +34,7 @@ for(const file of [...files,join(src,'App.jsx')]){
    if(!/^[a-z_]+$/.test(group)||!/^[a-z_]+$/.test(key)||typeof field.label!=='string'||!['text','textarea','select','number'].includes(field.type))throw new Error('Invalid repeated-field contract');
    controls.push({id:`${source}#${group}.${key}`,label:field.label,type:field.type,required:!!field.required,mode:'guided',...(field.user_only?{user_only:true}:{}),...(field.type==='select'?{options:'Use the live authorized options shown on this screen.'}:{})});
  }
- modules.set(file,{source,form_count:formCount,controls,imports});
+ modules.set(file,{source,form_count:formCount,headings:headings.slice(0,40),controls,imports});
 }
 const routes=[];
 walk(trees.get(join(src,'App.jsx')),(n,anc)=>{if(n.type!=='JSXOpeningElement'||n.name.name!=='Route')return;const path=literal(attr(n,'path')),element=attr(n,'element');if(!path||path==='*'||!element)return;

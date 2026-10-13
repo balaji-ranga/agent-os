@@ -13,6 +13,10 @@ export function copilotScreenControls(route){
  const record=screenRecord(route);
  return (record?.modules||[]).flatMap(id=>modules.get(id)?.controls||[]);
 }
+export function copilotScreenSections(route){
+ const record=screenRecord(route);
+ return [...new Set((record?.modules||[]).flatMap(id=>modules.get(id)?.headings||[]))].slice(0,60);
+}
 export function copilotScreenSpec(route,visibleIds=null,liveOptions={}){
  const connectorGuidance=route.split(/[?#]/)[0]==='/connectors'?' For built-in Google Drive and Gmail connections use OpenConnector tab > Enable an app > provider button. The user completes provider sign-in and consent. Do not invent Client ID, Client Secret, Scopes, Authorization URL or Token URL fields for this flow. MCPs (OAuth), Company channels and Events & Productivity are separate tabs. Runtime token re-provisioning is a separate sensitive operation, not a prerequisite to every OAuth connection. No registered fill form named connectors exists. Give guidance-only when the user asks for explanations or defers authorization. Never start provider consent automatically.':'';
  const embedded=route.split(/[?#]/)[0].match(/^\/(crm|erp)$/)?.[1];

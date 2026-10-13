@@ -5,6 +5,7 @@
     {
       "source": "components/ActionApprovalBanner.jsx",
       "form_count": 0,
+      "headings": [],
       "controls": [
         {
           "id": "components/ActionApprovalBanner.jsx:15:8",
@@ -18,6 +19,7 @@
     {
       "source": "components/AddAgentForm.jsx",
       "form_count": 1,
+      "headings": [],
       "controls": [
         {
           "id": "components/AddAgentForm.jsx:111:8",
@@ -87,6 +89,7 @@
     {
       "source": "components/AddToOrgDialog.jsx",
       "form_count": 1,
+      "headings": [],
       "controls": [
         {
           "id": "components/AddToOrgDialog.jsx:103:10",
@@ -133,6 +136,7 @@
     {
       "source": "components/AgentAvatarPicker.jsx",
       "form_count": 0,
+      "headings": [],
       "controls": [
         {
           "id": "components/AgentAvatarPicker.jsx:38:10",
@@ -147,6 +151,7 @@
     {
       "source": "components/AgentKnowledgeAccess.jsx",
       "form_count": 0,
+      "headings": [],
       "controls": [
         {
           "id": "components/AgentKnowledgeAccess.jsx:19:92",
@@ -160,6 +165,10 @@
     {
       "source": "components/AgentSlashCommands.jsx",
       "form_count": 0,
+      "headings": [
+        "Agent skills ·",
+        "Granted platform tools ·"
+      ],
       "controls": [
         {
           "id": "components/AgentSlashCommands.jsx:70:81",
@@ -173,6 +182,7 @@
     {
       "source": "components/ChatComposeInput.jsx",
       "form_count": 0,
+      "headings": [],
       "controls": [
         {
           "id": "components/ChatComposeInput.jsx:92:6",
@@ -201,6 +211,7 @@
     {
       "source": "components/ChatVoiceControls.jsx",
       "form_count": 0,
+      "headings": [],
       "controls": [
         {
           "id": "components/ChatVoiceControls.jsx:485:8",
@@ -214,6 +225,10 @@
     {
       "source": "components/connectors/CompanyEmailChannelsPanel.jsx",
       "form_count": 1,
+      "headings": [
+        "Company Email channels",
+        "Configured mailboxes"
+      ],
       "controls": [
         {
           "id": "components/connectors/CompanyEmailChannelsPanel.jsx:175:12",
@@ -297,6 +312,13 @@
     {
       "source": "components/connectors/EventProductivityPanel.jsx",
       "form_count": 0,
+      "headings": [
+        "Connected capability health",
+        "· event history",
+        "Capability binding",
+        "Live event inbox",
+        "Recent action receipts"
+      ],
       "controls": [
         {
           "id": "components/connectors/EventProductivityPanel.jsx:250:10",
@@ -442,6 +464,11 @@
     {
       "source": "components/connectors/McpConnectorsPanel.jsx",
       "form_count": 1,
+      "headings": [
+        "Your MCP OAuth connections",
+        "Include from MCP registry",
+        "On this tab"
+      ],
       "controls": [
         {
           "id": "components/connectors/McpConnectorsPanel.jsx:384:22",
@@ -531,6 +558,10 @@
     {
       "source": "components/custom-scripts/CustomScriptRegistryView.jsx",
       "form_count": 1,
+      "headings": [
+        "Custom Scripts",
+        "View script"
+      ],
       "controls": [
         {
           "id": "components/custom-scripts/CustomScriptRegistryView.jsx:273:8",
@@ -588,6 +619,7 @@
     {
       "source": "components/DepartmentPicker.jsx",
       "form_count": 0,
+      "headings": [],
       "controls": [
         {
           "id": "components/DepartmentPicker.jsx:180:8",
@@ -641,6 +673,16 @@
     {
       "source": "components/EfficiencyControls.jsx",
       "form_count": 0,
+      "headings": [
+        "Efficiency policy",
+        "Efficiency policy, validation & fallback",
+        "Local capacity",
+        "Workload evaluations",
+        "Actual routing evidence",
+        "Company efficiency preferences",
+        "Efficiency routing · quality & usage",
+        "Approved synthetic evaluations"
+      ],
       "controls": [
         {
           "id": "components/EfficiencyControls.jsx:32:11",
@@ -722,6 +764,7 @@
     {
       "source": "components/GlobalSearch.jsx",
       "form_count": 0,
+      "headings": [],
       "controls": [
         {
           "id": "components/GlobalSearch.jsx:93:8",
@@ -735,6 +778,7 @@
     {
       "source": "components/GoalPlanManualEditor.jsx",
       "form_count": 0,
+      "headings": [],
       "controls": [
         {
           "id": "components/GoalPlanManualEditor.jsx:162:18",
@@ -822,6 +866,7 @@
     {
       "source": "components/GoalPlanPanel.jsx",
       "form_count": 0,
+      "headings": [],
       "controls": [
         {
           "id": "components/GoalPlanPanel.jsx:234:10",
@@ -842,6 +887,7 @@
     {
       "source": "components/HttpHeadersEditor.jsx",
       "form_count": 0,
+      "headings": [],
       "controls": [
         {
           "id": "components/HttpHeadersEditor.jsx:67:8",
@@ -887,6 +933,9 @@
     {
       "source": "components/ImmersiveNavigation.jsx",
       "form_count": 0,
+      "headings": [
+        "Every company capability"
+      ],
       "controls": [
         {
           "id": "components/ImmersiveNavigation.jsx:142:12",
@@ -900,6 +949,7 @@
     {
       "source": "components/IsoCountryRegionSelect.jsx",
       "form_count": 0,
+      "headings": [],
       "controls": [
         {
           "id": "components/IsoCountryRegionSelect.jsx:62:8",
@@ -922,6 +972,7 @@
     {
       "source": "components/KanbanBoardCell.jsx",
       "form_count": 0,
+      "headings": [],
       "controls": [
         {
           "id": "components/KanbanBoardCell.jsx:60:12",
@@ -935,6 +986,7 @@
     {
       "source": "components/KnowledgeFeedback.jsx",
       "form_count": 1,
+      "headings": [],
       "controls": [
         {
           "id": "components/KnowledgeFeedback.jsx:6:335",
@@ -956,6 +1008,7 @@
     {
       "source": "components/KnowledgeRecordBrowser.jsx",
       "form_count": 0,
+      "headings": [],
       "controls": [
         {
           "id": "components/KnowledgeRecordBrowser.jsx:18:19",
@@ -984,6 +1037,7 @@
     {
       "source": "components/KnowledgeRecordPicker.jsx",
       "form_count": 0,
+      "headings": [],
       "controls": [
         {
           "id": "components/KnowledgeRecordPicker.jsx:22:4",
@@ -997,6 +1051,10 @@
     {
       "source": "components/KnowledgeRelationshipRules.jsx",
       "form_count": 2,
+      "headings": [
+        "Connect by matching fields",
+        "Intelligent relationships"
+      ],
       "controls": [
         {
           "id": "components/KnowledgeRelationshipRules.jsx:10:17",
@@ -1072,6 +1130,7 @@
     {
       "source": "components/KnowledgeSelection.jsx",
       "form_count": 0,
+      "headings": [],
       "controls": [
         {
           "id": "components/KnowledgeSelection.jsx:16:17",
@@ -1115,6 +1174,7 @@
     {
       "source": "components/KnowledgeSourcePicker.jsx",
       "form_count": 0,
+      "headings": [],
       "controls": [
         {
           "id": "components/KnowledgeSourcePicker.jsx:8:38",
@@ -1128,6 +1188,10 @@
     {
       "source": "components/KnowledgeSources.jsx",
       "form_count": 3,
+      "headings": [
+        "Connected knowledge",
+        ": history"
+      ],
       "controls": [
         {
           "id": "components/KnowledgeSources.jsx:48:20",
@@ -1258,6 +1322,7 @@
     {
       "source": "components/MaskedSecretInput.jsx",
       "form_count": 0,
+      "headings": [],
       "controls": [
         {
           "id": "components/MaskedSecretInput.jsx:30:8",
@@ -1278,6 +1343,10 @@
     {
       "source": "components/mcp/McpRegistryView.jsx",
       "form_count": 1,
+      "headings": [
+        "MCP Servers List",
+        "Register MCP server"
+      ],
       "controls": [
         {
           "id": "components/mcp/McpRegistryView.jsx:124:8",
@@ -1312,6 +1381,10 @@
     {
       "source": "components/mcp/McpTestView.jsx",
       "form_count": 0,
+      "headings": [
+        "Test MCP Server",
+        "Connect to MCP Server"
+      ],
       "controls": [
         {
           "id": "components/mcp/McpTestView.jsx:216:12",
@@ -1339,6 +1412,7 @@
     {
       "source": "components/MessageFeedback.jsx",
       "form_count": 0,
+      "headings": [],
       "controls": [
         {
           "id": "components/MessageFeedback.jsx:88:10",
@@ -1352,6 +1426,7 @@
     {
       "source": "components/OrgChart.jsx",
       "form_count": 0,
+      "headings": [],
       "controls": [
         {
           "id": "components/OrgChart.jsx:288:10",
@@ -1365,6 +1440,9 @@
     {
       "source": "components/OrgDesigner.jsx",
       "form_count": 2,
+      "headings": [
+        "Hire AI employee"
+      ],
       "controls": [
         {
           "id": "components/OrgDesigner.jsx:200:10",
@@ -1442,6 +1520,10 @@
     {
       "source": "components/OrgPeoplePanel.jsx",
       "form_count": 2,
+      "headings": [
+        "Employees",
+        "Roles & permissions"
+      ],
       "controls": [
         {
           "id": "components/OrgPeoplePanel.jsx:110:12",
@@ -1529,6 +1611,7 @@
     {
       "source": "components/PlatformHelpCopilot.jsx",
       "form_count": 1,
+      "headings": [],
       "controls": [
         {
           "id": "components/PlatformHelpCopilot.jsx:216:102",
@@ -1550,6 +1633,7 @@
     {
       "source": "components/PrivilegedSessionGate.jsx",
       "form_count": 1,
+      "headings": [],
       "controls": [
         {
           "id": "components/PrivilegedSessionGate.jsx:141:10",
@@ -1563,6 +1647,7 @@
     {
       "source": "components/PublishAgentToExchangeModal.jsx",
       "form_count": 1,
+      "headings": [],
       "controls": [
         {
           "id": "components/PublishAgentToExchangeModal.jsx:107:10",
@@ -1597,6 +1682,7 @@
     {
       "source": "components/VaultOrLiteralSecret.jsx",
       "form_count": 0,
+      "headings": [],
       "controls": [
         {
           "id": "components/VaultOrLiteralSecret.jsx:20:8",
@@ -1627,6 +1713,10 @@
     {
       "source": "components/workflow/BrainMcpToolCallingPanel.jsx",
       "form_count": 0,
+      "headings": [
+        "Auth headers",
+        "Tools exposed to the LLM"
+      ],
       "controls": [
         {
           "id": "components/workflow/BrainMcpToolCallingPanel.jsx:66:18",
@@ -1664,6 +1754,12 @@
     {
       "source": "components/workflow/DesktopPackageModal.jsx",
       "form_count": 0,
+      "headings": [
+        "Download for Windows",
+        "IP whitelist",
+        "Desktop tokens",
+        "Confirm download"
+      ],
       "controls": [
         {
           "id": "components/workflow/DesktopPackageModal.jsx:166:16",
@@ -1698,6 +1794,11 @@
     {
       "source": "components/workflow/InputOutputPanel.jsx",
       "form_count": 0,
+      "headings": [
+        "Inputs",
+        "Task configuration",
+        "Outputs"
+      ],
       "controls": [
         {
           "id": "components/workflow/InputOutputPanel.jsx:59:10",
@@ -1778,6 +1879,7 @@
     {
       "source": "components/workflow/PublishA2AModal.jsx",
       "form_count": 1,
+      "headings": [],
       "controls": [
         {
           "id": "components/workflow/PublishA2AModal.jsx:338:20",
@@ -1927,6 +2029,9 @@
     {
       "source": "components/workflow/WorkflowVariablesPanel.jsx",
       "form_count": 0,
+      "headings": [
+        "Workflow variables"
+      ],
       "controls": [
         {
           "id": "components/workflow/WorkflowVariablesPanel.jsx:108:12",
@@ -1970,6 +2075,7 @@
     {
       "source": "components/workspace-builder/BoardRuntime.jsx",
       "form_count": 1,
+      "headings": [],
       "controls": [
         {
           "id": "components/workspace-builder/BoardRuntime.jsx:310:8",
@@ -1990,6 +2096,10 @@
     {
       "source": "components/WorkSteering.jsx",
       "form_count": 1,
+      "headings": [
+        "Steer existing work",
+        "Guidance delivery and coverage"
+      ],
       "controls": [
         {
           "id": "components/WorkSteering.jsx:68:10",
@@ -2011,6 +2121,19 @@
     {
       "source": "pages/Admin.jsx",
       "form_count": 5,
+      "headings": [
+        "Admin",
+        "Platform LLM (Flolah)",
+        "Company industry blueprints",
+        "Users",
+        "Register CEO user",
+        "User details",
+        "Agent access",
+        "Agent workspace templates",
+        "Edit:",
+        "Refresh default agents",
+        "Send notification"
+      ],
       "controls": [
         {
           "id": "pages/Admin.jsx:559:12",
@@ -2225,6 +2348,9 @@
     {
       "source": "pages/AdminA2AInvocations.jsx",
       "form_count": 0,
+      "headings": [
+        "A2A invocation logs"
+      ],
       "controls": [
         {
           "id": "pages/AdminA2AInvocations.jsx:120:8",
@@ -2269,6 +2395,10 @@
     {
       "source": "pages/AdminCrons.jsx",
       "form_count": 0,
+      "headings": [
+        "Platform crons & watchers",
+        "Platform timeout settings"
+      ],
       "controls": [
         {
           "id": "pages/AdminCrons.jsx:58:10",
@@ -2296,6 +2426,13 @@
     {
       "source": "pages/AdminModels.jsx",
       "form_count": 0,
+      "headings": [
+        "Models & routing",
+        "Logical routes",
+        "Operational timeouts",
+        "Deployments",
+        "Recent routing history"
+      ],
       "controls": [
         {
           "id": "pages/AdminModels.jsx:127:16",
@@ -2325,6 +2462,16 @@
     {
       "source": "pages/AdminOpenclawRecovery.jsx",
       "form_count": 0,
+      "headings": [
+        "AgentSystem recovery",
+        "Gateway",
+        "CEO lane",
+        "Security credentials",
+        "Unblock gateway lane",
+        "Config, workspaces, kill-switch",
+        "Sessions",
+        "Gateway crons"
+      ],
       "controls": [
         {
           "id": "pages/AdminOpenclawRecovery.jsx:182:10",
@@ -2354,6 +2501,12 @@
     {
       "source": "pages/AdminPlatformDocuments.jsx",
       "form_count": 1,
+      "headings": [
+        "Documents RAG",
+        "Upload / seed",
+        "Platform documents ( )",
+        "RAG query (platform index)"
+      ],
       "controls": [
         {
           "id": "pages/AdminPlatformDocuments.jsx:202:12",
@@ -2389,6 +2542,9 @@
     {
       "source": "pages/AdminPlatformFeedback.jsx",
       "form_count": 0,
+      "headings": [
+        "Platform feedback"
+      ],
       "controls": [
         {
           "id": "pages/AdminPlatformFeedback.jsx:72:8",
@@ -2425,6 +2581,15 @@
     {
       "source": "pages/AdminPromotions.jsx",
       "form_count": 1,
+      "headings": [
+        "Internal promotions",
+        "Campaign details",
+        "Audience and delivery",
+        "Structured content",
+        "Publish settings",
+        "Campaigns",
+        "Evidence:"
+      ],
       "controls": [
         {
           "id": "pages/AdminPromotions.jsx:36:43",
@@ -2570,6 +2735,9 @@
     {
       "source": "pages/AdminScheduledActivities.jsx",
       "form_count": 0,
+      "headings": [
+        "User scheduled activities"
+      ],
       "controls": [
         {
           "id": "pages/AdminScheduledActivities.jsx:90:10",
@@ -2607,6 +2775,9 @@
     {
       "source": "pages/AdminSkills.jsx",
       "form_count": 0,
+      "headings": [
+        "Skills onboarding"
+      ],
       "controls": [
         {
           "id": "pages/AdminSkills.jsx:21:26",
@@ -2684,6 +2855,16 @@
     {
       "source": "pages/AdminTlsCerts.jsx",
       "form_count": 0,
+      "headings": [
+        "TLS / Let's Encrypt",
+        "Runtime",
+        "Current certificate",
+        "CRM workspaces (Twenty)",
+        "Privileged unlock (TOTP)",
+        "Refresh certificates",
+        "Job ( )",
+        "Recent jobs"
+      ],
       "controls": [
         {
           "id": "pages/AdminTlsCerts.jsx:240:10",
@@ -2706,6 +2887,14 @@
     {
       "source": "pages/AdminToolOnboarding.jsx",
       "form_count": 0,
+      "headings": [
+        "Tools Onboarding",
+        "Runtime policy",
+        "TOTP step-up",
+        "Declare tool",
+        "Onboarded tools",
+        "Discovered managed containers"
+      ],
       "controls": [
         {
           "id": "pages/AdminToolOnboarding.jsx:206:10",
@@ -2741,6 +2930,12 @@
     {
       "source": "pages/AgentChannels.jsx",
       "form_count": 0,
+      "headings": [
+        "Channels —",
+        "Choose channel",
+        "Credentials",
+        "Enable"
+      ],
       "controls": [
         {
           "id": "pages/AgentChannels.jsx:582:16",
@@ -2800,6 +2995,15 @@
     {
       "source": "pages/AgentChat.jsx",
       "form_count": 2,
+      "headings": [
+        "Today's Snapshot",
+        "Team activity",
+        "Recent Workflows",
+        "History",
+        "Request",
+        "Task activity",
+        "Voice calls"
+      ],
       "controls": [
         {
           "id": "pages/AgentChat.jsx:1175:20",
@@ -2822,6 +3026,9 @@
     {
       "source": "pages/AgentExchange.jsx",
       "form_count": 2,
+      "headings": [
+        "AgentExchange"
+      ],
       "controls": [
         {
           "id": "pages/AgentExchange.jsx:391:18",
@@ -2893,6 +3100,13 @@
     {
       "source": "pages/AgentWorkflowEditor.jsx",
       "form_count": 0,
+      "headings": [
+        "Properties",
+        "Nodes",
+        "Agents",
+        "Connectors",
+        "Audit trail"
+      ],
       "controls": [
         {
           "id": "pages/AgentWorkflowEditor.jsx:247:8",
@@ -3521,6 +3735,14 @@
     {
       "source": "pages/AgentWorkflows.jsx",
       "form_count": 0,
+      "headings": [
+        "Workflows",
+        "Definitions",
+        "Run instances",
+        "Run # ·",
+        "Graphical run audit",
+        "Steps"
+      ],
       "controls": [
         {
           "id": "pages/AgentWorkflows.jsx:386:10",
@@ -3564,6 +3786,17 @@
     {
       "source": "pages/AgentWorkspace.jsx",
       "form_count": 0,
+      "headings": [
+        "Workspace —",
+        "Org",
+        "Workspace templates",
+        "Employee skills",
+        "Recent skill execution",
+        "Client browser session / recipes",
+        "Other tools",
+        "Connector action access",
+        "MCP tool access"
+      ],
       "controls": [
         {
           "id": "pages/AgentWorkspace.jsx:32:6",
@@ -3707,6 +3940,10 @@
     {
       "source": "pages/AiSnipper.jsx",
       "form_count": 0,
+      "headings": [
+        "AI Snipper",
+        "Summary"
+      ],
       "controls": [
         {
           "id": "pages/AiSnipper.jsx:203:10",
@@ -3721,6 +3958,10 @@
     {
       "source": "pages/ApiKeys.jsx",
       "form_count": 1,
+      "headings": [
+        "API Keys",
+        "Delete ?"
+      ],
       "controls": [
         {
           "id": "pages/ApiKeys.jsx:194:10",
@@ -3734,6 +3975,14 @@
     {
       "source": "pages/Avatars.jsx",
       "form_count": 0,
+      "headings": [
+        "3D Avatars",
+        "Onboard",
+        "Create with Hunyuan3D",
+        "Your avatars",
+        "Scenes",
+        "Virtual Rooms"
+      ],
       "controls": [
         {
           "id": "pages/Avatars.jsx:384:10",
@@ -3838,6 +4087,10 @@
     {
       "source": "pages/Broadcast.jsx",
       "form_count": 0,
+      "headings": [
+        "Broadcast to agents",
+        "Responses"
+      ],
       "controls": [
         {
           "id": "pages/Broadcast.jsx:74:8",
@@ -3858,6 +4111,20 @@
     {
       "source": "pages/BrowserSession.jsx",
       "form_count": 0,
+      "headings": [
+        "Browser Session",
+        "Recommended: Flolah Chrome extension",
+        "Legacy: OpenClaw Client Chrome",
+        "2. Session",
+        "URL allow / deny lists",
+        "3. What do you want to do?",
+        "Record a reusable recipe",
+        "Record recipe wizard",
+        "Captured trail ( page )",
+        "Active task",
+        "Recent tasks",
+        "Saved recipes"
+      ],
       "controls": [
         {
           "id": "pages/BrowserSession.jsx:614:14",
@@ -3963,6 +4230,31 @@
     {
       "source": "pages/CompanyOperate.jsx",
       "form_count": 0,
+      "headings": [
+        "Systems",
+        "Channels",
+        "Goals",
+        "Company Operate",
+        "Form your company first",
+        "Form is done. How will operate?",
+        "Context from company setup",
+        "Source for the operating model",
+        "Proposed operating model",
+        "Loops",
+        "Autonomy (summary)",
+        "Loops, daily tasks & autonomy",
+        "Daily tasks (per AI employee)",
+        "Autonomy gates",
+        "Channels, systems & goals for Day 1",
+        "CEO digest",
+        "Confirm operating model",
+        "Day 0 complete",
+        "Day 1 — Make the company run",
+        "Operate install complete",
+        "Workflows configured",
+        "Goals tracked",
+        "Still needs you (logins / connections / goals)"
+      ],
       "controls": [
         {
           "id": "pages/CompanyOperate.jsx:255:16",
@@ -4161,6 +4453,23 @@
     {
       "source": "pages/CompanyReviews.jsx",
       "form_count": 0,
+      "headings": [
+        "↗ Improvement candidates",
+        "Review agenda",
+        "Execution evidence",
+        "Review the CEO’s exact draft",
+        "COO assessment",
+        "Affected agent response",
+        "Speaking order",
+        "Proposed improvements",
+        "Review commitments",
+        "Agent learnings & playbooks",
+        "Latest learning summary",
+        "Active playbooks",
+        "Historical feedback",
+        "Playbook version history",
+        "Company Review"
+      ],
       "controls": [
         {
           "id": "pages/CompanyReviews.jsx:66:82",
@@ -4213,6 +4522,22 @@
     {
       "source": "pages/CompanySetup.jsx",
       "form_count": 0,
+      "headings": [
+        "What are you building?",
+        "Blueprints ·",
+        "Company identity",
+        "What is your mission?",
+        "Organization DNA",
+        "Meet your team",
+        "Your organization is ready to hire",
+        "What systems do you use?",
+        "Search OpenConnector inventory",
+        "Business Core (optional)",
+        "Management style",
+        "Review and create",
+        "Day-1 briefing",
+        "Recommended next steps"
+      ],
       "controls": [
         {
           "id": "pages/CompanySetup.jsx:713:10",
@@ -4291,6 +4616,19 @@
     {
       "source": "pages/Connectors.jsx",
       "form_count": 1,
+      "headings": [
+        "Connectors",
+        "IBKRNew Event Bridge",
+        "Local IBKR bridge",
+        "Browser Session package (local worker)",
+        "Your worker tokens",
+        "Client IP whitelist",
+        "Account link",
+        "Connected",
+        "Enable an app",
+        "Provider OAuth apps",
+        "Saved OAuth clients"
+      ],
       "controls": [
         {
           "id": "pages/Connectors.jsx:684:10",
@@ -4370,6 +4708,9 @@
     {
       "source": "pages/ContentExplorer.jsx",
       "form_count": 0,
+      "headings": [
+        "Content Explorer"
+      ],
       "controls": [
         {
           "id": "pages/ContentExplorer.jsx:308:8",
@@ -4413,6 +4754,16 @@
     {
       "source": "pages/ContentToolsLogs.jsx",
       "form_count": 0,
+      "headings": [
+        "Tools",
+        "Tools registry",
+        "Test:",
+        "Tools → Execution behaviour",
+        "Tools → Model mapping",
+        "Tools → Rate limits",
+        "Onboard new tool",
+        "Invocation logs"
+      ],
       "controls": [
         {
           "id": "pages/ContentToolsLogs.jsx:514:10",
@@ -4536,6 +4887,13 @@
     {
       "source": "pages/Dashboard.jsx",
       "form_count": 1,
+      "headings": [
+        "My Org",
+        "Org chart",
+        "Standups",
+        "New standup",
+        "Data retention"
+      ],
       "controls": [
         {
           "id": "pages/Dashboard.jsx:705:18",
@@ -4563,6 +4921,23 @@
     {
       "source": "pages/EfficiencyView.jsx",
       "form_count": 0,
+      "headings": [
+        "Storage breakdown",
+        "Agent",
+        "Tokens by source",
+        "Top tools",
+        "Departments",
+        "Department",
+        "All departments",
+        "All people",
+        "Summary",
+        "By source",
+        "By model",
+        "Traces",
+        "Price book (USD per 1M tokens)",
+        "Outside costs this month",
+        "Efficiency View"
+      ],
       "controls": [
         {
           "id": "pages/EfficiencyView.jsx:577:10",
@@ -4648,6 +5023,11 @@
     {
       "source": "pages/ExternalAgents.jsx",
       "form_count": 1,
+      "headings": [
+        "External Agents",
+        "Last test result",
+        "Register external agent"
+      ],
       "controls": [
         {
           "id": "pages/ExternalAgents.jsx:185:8",
@@ -4703,6 +5083,7 @@
     {
       "source": "pages/HumanChat.jsx",
       "form_count": 1,
+      "headings": [],
       "controls": [
         {
           "id": "pages/HumanChat.jsx:43:57",
@@ -4716,6 +5097,21 @@
     {
       "source": "pages/IBKRNewLiveOperations.jsx",
       "form_count": 0,
+      "headings": [
+        "Live operations",
+        "$",
+        "Paper mode does not close broker positions or protective orders",
+        "Six-role execution evidence",
+        "Dedicated desktop bridge",
+        "Pending CEO approvals",
+        "Component health",
+        "Cached universe profiles",
+        "Current positions",
+        "Position and account snapshots",
+        "Executions and commissions",
+        "Desktop and bridge errors",
+        "Causal event timeline"
+      ],
       "controls": [
         {
           "id": "pages/IBKRNewLiveOperations.jsx:132:64",
@@ -4738,6 +5134,18 @@
     {
       "source": "pages/IBKRNewStrategy.jsx",
       "form_count": 0,
+      "headings": [
+        "Goal, strategy & universe",
+        "Paper or Live",
+        "Strategy rehearsal preset",
+        "Fundamentals and earnings providers",
+        "trading objective",
+        "Stock universe and index membership",
+        "Company fundamentals",
+        "Corporate events",
+        "Exchange-traded funds",
+        "schema"
+      ],
       "controls": [
         {
           "id": "pages/IBKRNewStrategy.jsx:92:117",
@@ -4863,6 +5271,19 @@
     {
       "source": "pages/IbkrSummary.jsx",
       "form_count": 0,
+      "headings": [
+        "IBKR Summary",
+        "Planned actions",
+        "Bridge mapping",
+        "Execution report",
+        "Order events ( )",
+        "Fills ( )",
+        "IBKR last known truth",
+        "Positions",
+        "Open orders ( )",
+        "Account summary tags",
+        "Clear IBKR transactional data"
+      ],
       "controls": [
         {
           "id": "pages/IbkrSummary.jsx:204:12",
@@ -4891,6 +5312,10 @@
     {
       "source": "pages/IpWhitelists.jsx",
       "form_count": 0,
+      "headings": [
+        "IP Whitelists",
+        "Your rules ( )"
+      ],
       "controls": [
         {
           "id": "pages/IpWhitelists.jsx:200:16",
@@ -4932,6 +5357,13 @@
     {
       "source": "pages/JobProfiles.jsx",
       "form_count": 1,
+      "headings": [
+        "Job profiles",
+        "Run job workflow",
+        "Connect job portals",
+        "Job Discovery chat",
+        "Delete profile?"
+      ],
       "controls": [
         {
           "id": "pages/JobProfiles.jsx:177:8",
@@ -5046,6 +5478,12 @@
     {
       "source": "pages/JobWorkflows.jsx",
       "form_count": 0,
+      "headings": [
+        "Job search workflows",
+        "Runs",
+        "Steps",
+        "Audit trail"
+      ],
       "controls": [
         {
           "id": "pages/JobWorkflows.jsx:120:10",
@@ -5060,6 +5498,10 @@
     {
       "source": "pages/Kanban.jsx",
       "form_count": 1,
+      "headings": [
+        "Kanban Board",
+        "New task"
+      ],
       "controls": [
         {
           "id": "pages/Kanban.jsx:698:12",
@@ -5139,6 +5581,10 @@
     {
       "source": "pages/Login.jsx",
       "form_count": 3,
+      "headings": [
+        "Reset password",
+        "Verification code"
+      ],
       "controls": [
         {
           "id": "pages/Login.jsx:119:10",
@@ -5174,6 +5620,13 @@
     {
       "source": "pages/MarketingWorkspace.jsx",
       "form_count": 9,
+      "headings": [
+        "Marketing",
+        "Observed run recipients",
+        "Run this campaign",
+        "Email recipient status",
+        "Campaign outcome ledger"
+      ],
       "controls": [
         {
           "id": "pages/MarketingWorkspace.jsx:223:41",
@@ -5775,6 +6228,13 @@
     {
       "source": "pages/MasterData.jsx",
       "form_count": 6,
+      "headings": [
+        "Your organization’s shared knowledge",
+        "Get an evidence-backed answer",
+        "Tables",
+        "Documents (RAG)",
+        "Inbound attachments"
+      ],
       "controls": [
         {
           "id": "pages/MasterData.jsx:497:10",
@@ -5911,6 +6371,9 @@
     {
       "source": "pages/NavMenuManager.jsx",
       "form_count": 0,
+      "headings": [
+        "Menu visibility"
+      ],
       "controls": [
         {
           "id": "pages/NavMenuManager.jsx:117:22",
@@ -5924,6 +6387,29 @@
     {
       "source": "pages/Objectives.jsx",
       "form_count": 0,
+      "headings": [
+        "Objectives Key Results (OKR)",
+        "No objectives yet",
+        "Objective Studio",
+        "Key results",
+        "Initiatives",
+        "Goals",
+        "Measurement Registry",
+        "Add company source",
+        "Add supported attribute",
+        "Add company formula",
+        "Cross-system measurement rule",
+        "Company-managed entries",
+        "Supported attributes",
+        "Formulas",
+        "Platform baseline",
+        "Provider object catalogue",
+        "Enabled formula attributes",
+        "Validated formulas",
+        "Outcome",
+        "Initiatives and execution",
+        "Versions"
+      ],
       "controls": [
         {
           "id": "pages/Objectives.jsx:24:71",
@@ -6281,6 +6767,10 @@
     {
       "source": "pages/Onboarding.jsx",
       "form_count": 1,
+      "headings": [
+        "Onboarding",
+        "Steps"
+      ],
       "controls": [
         {
           "id": "pages/Onboarding.jsx:162:14",
@@ -6301,6 +6791,12 @@
     {
       "source": "pages/OperatingWorkspace.jsx",
       "form_count": 1,
+      "headings": [
+        "Workspace",
+        "My tasks",
+        "AI workforce",
+        "Recent AI activity"
+      ],
       "controls": [
         {
           "id": "pages/OperatingWorkspace.jsx:680:10",
@@ -6314,6 +6810,15 @@
     {
       "source": "pages/Policies.jsx",
       "form_count": 1,
+      "headings": [
+        "Policies & guardrails",
+        "Exception policy",
+        "AI and human work assignment",
+        "Kanban ETA defaults",
+        "SLA breach delivery",
+        "Action control",
+        "Scoped overrides & recurring grants"
+      ],
       "controls": [
         {
           "id": "pages/Policies.jsx:24:10",
@@ -6473,6 +6978,7 @@
     {
       "source": "pages/PublicVirtualRoom.jsx",
       "form_count": 1,
+      "headings": [],
       "controls": [
         {
           "id": "pages/PublicVirtualRoom.jsx:528:12",
@@ -6486,6 +6992,10 @@
     {
       "source": "pages/Register.jsx",
       "form_count": 2,
+      "headings": [
+        "Verification code",
+        "Start your AI company"
+      ],
       "controls": [
         {
           "id": "pages/Register.jsx:211:6",
@@ -6570,6 +7080,9 @@
     {
       "source": "pages/ResetPassword.jsx",
       "form_count": 1,
+      "headings": [
+        "Set new password"
+      ],
       "controls": [
         {
           "id": "pages/ResetPassword.jsx:49:10",
@@ -6600,6 +7113,9 @@
     {
       "source": "pages/ScheduledGoals.jsx",
       "form_count": 1,
+      "headings": [
+        "Scheduled goals"
+      ],
       "controls": [
         {
           "id": "pages/ScheduledGoals.jsx:365:8",
@@ -6680,6 +7196,16 @@
     {
       "source": "pages/ThisWeek.jsx",
       "form_count": 1,
+      "headings": [
+        "✦ This Week Digest",
+        "Organization Highlights",
+        "AI Workers Highlights",
+        "Goal plans (plan vs progress)",
+        "Top Workflows",
+        "AI Worker Performance",
+        "Activity Timeline",
+        "Insights & Recommendations"
+      ],
       "controls": [
         {
           "id": "pages/ThisWeek.jsx:683:14",
@@ -6693,6 +7219,9 @@
     {
       "source": "pages/ToolRiskMappings.jsx",
       "form_count": 0,
+      "headings": [
+        "Risk classifications"
+      ],
       "controls": [
         {
           "id": "pages/ToolRiskMappings.jsx:151:10",
@@ -6722,6 +7251,10 @@
     {
       "source": "pages/UpdateCompanySetup.jsx",
       "form_count": 1,
+      "headings": [
+        "Update Company Details",
+        "Company memory"
+      ],
       "controls": [
         {
           "id": "pages/UpdateCompanySetup.jsx:117:14",
@@ -6772,6 +7305,10 @@
     {
       "source": "pages/UserProfile.jsx",
       "form_count": 1,
+      "headings": [
+        "My profile",
+        "Announcement channels"
+      ],
       "controls": [
         {
           "id": "pages/UserProfile.jsx:446:74",
@@ -7028,6 +7565,7 @@
     {
       "source": "pages/VirtualRoom.jsx",
       "form_count": 0,
+      "headings": [],
       "controls": [
         {
           "id": "pages/VirtualRoom.jsx:1522:10",
@@ -7049,6 +7587,13 @@
     {
       "source": "pages/WorkspaceDesigner.jsx",
       "form_count": 0,
+      "headings": [
+        "Workspace Builder",
+        "Layouts",
+        "Components",
+        "Selected Component",
+        "Data binding"
+      ],
       "controls": [
         {
           "id": "pages/WorkspaceDesigner.jsx:242:55",

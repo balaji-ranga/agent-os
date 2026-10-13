@@ -4,10 +4,16 @@ for(const label of ['Description','Subscription name'])assert.equal(isCopilotFil
 for(const label of ['Script','JavaScript','Verification code','API token','Permission','Payment'])assert.equal(isCopilotFillableField({id:'safe:1',label,type:'text'}),false);
 import {readFileSync} from 'node:fs';
 import {validateCopilotProposal,normalizeCopilotScreenActions} from '../src/services/ui-copilot-contract.js';
-import {copilotScreenSpec,copilotScreenControls} from '../src/services/ui-copilot-screen-specs.js';
+import {copilotScreenSpec,copilotScreenControls,copilotScreenSections} from '../src/services/ui-copilot-screen-specs.js';
 import {withCurrentCopilotScreen} from '../src/services/ui-copilot-current-screen.js';
 const inventory=JSON.parse(readFileSync(new URL('../src/generated/copilot-screen-inventory.json',import.meta.url),'utf8'));
 const modules=new Map(inventory.modules.map(m=>[m.source,m]));
+assert(copilotScreenSections('/policies').includes('Action control'));
+assert.deepEqual(copilotScreenSections('/unknown-screen'),[]);
+const repeated=copilotScreenControls('/job-profiles').filter(c=>c.id.includes('#profile.'));
+assert.equal(repeated.length,13);
+assert.equal(new Set(repeated.map(c=>c.id)).size,13);
+assert(repeated.some(c=>c.label==='Display name'&&isCopilotFillableField(c)));
 const routeCatalog={forms:{},agents:[{id:'my-agent'}],screens:[{id:'home',route:'/'},{id:'ai-employees',route:'/workspace'},{id:'objectives',route:'/objectives'},{id:'org',route:'/org'}]};
 for(const path of ['/agents/my-agent/chat','/agents/my-agent/workspace','/objectives/test-id']){
   assert.equal(withCurrentCopilotScreen(routeCatalog,path).screens.at(-1).route,path);

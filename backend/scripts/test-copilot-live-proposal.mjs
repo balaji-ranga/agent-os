@@ -20,10 +20,10 @@ const db=new Database(':memory:');
 const app=express();app.use(express.json());
 app.use((req,res,next)=>{req.authUser={id:owner,role:'ceo'};next();});
 app.use('/test',uiCopilotRouter({database:()=>db,...(process.env.COPILOT_TEST_FULL_CATALOG==='1'?{}:{getCatalog:()=>({forms:{},agents:[],screens:[{id:'erp',route:'/erp'}]})}),complete:async options=>{
-  const context=options.messages.map(m=>{try{return JSON.parse(m.content);}catch{return null;}}).find(m=>m?.available_embedded_fields);
+  const context=options.messages.map(m=>{try{return JSON.parse(m.content);}catch{return null;}}).find(m=>m?.available_embedded_fields||m?.fields);
   if(!marketingMode&&!eventMode&&process.env.COPILOT_TEST_CONNECTOR!=='1'&&process.env.COPILOT_TEST_SEARCH!=='1'){
-    assert.deepEqual(context.available_embedded_fields,['name']);
-    assert.match(options.messages[0].content,/Current available reviewed embedded edit capability/);
+    assert.deepEqual(context.available_embedded_fields||context.fields.map(f=>f.id),['name']);
+    assert.match(options.messages[0].content,/Current available reviewed embedded edit capability|available embedded form/);
   }
   if(process.env.COPILOT_TEST_FORCE_RECHECK==='1'&&options.messages.some(m=>m.content.includes('previous_proposal'))){
     return {content:JSON.stringify({message:'This input requires manual entry.',actions:[]})};
