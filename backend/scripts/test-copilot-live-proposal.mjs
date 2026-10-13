@@ -12,8 +12,10 @@ const app=express();app.use(express.json());
 app.use((req,res,next)=>{req.authUser={id:owner,role:'ceo'};next();});
 app.use('/test',uiCopilotRouter({database:()=>db,...(process.env.COPILOT_TEST_FULL_CATALOG==='1'?{}:{getCatalog:()=>({forms:{},agents:[],screens:[{id:'erp',route:'/erp'}]})}),complete:async options=>{
   const context=options.messages.map(m=>{try{return JSON.parse(m.content);}catch{return null;}}).find(m=>m?.available_embedded_fields);
-  assert.deepEqual(context.available_embedded_fields,['name']);
-  assert.match(options.messages[0].content,/Current available reviewed embedded edit capability/);
+  if(process.env.COPILOT_TEST_CONNECTOR!=='1'){
+    assert.deepEqual(context.available_embedded_fields,['name']);
+    assert.match(options.messages[0].content,/Current available reviewed embedded edit capability/);
+  }
   if(process.env.COPILOT_TEST_FORCE_RECHECK==='1'&&options.messages.some(m=>m.content.includes('previous_proposal'))){
     return {content:JSON.stringify({message:'This input requires manual entry.',actions:[]})};
   }
@@ -37,14 +39,19 @@ try{
    db.prepare('UPDATE ui_copilot_sessions SET state=? WHERE id=?').run(JSON.stringify(state),session.id);
  }
  let version=session.version;
- for(const [message,value] of [
+ const cases=process.env.COPILOT_TEST_CONNECTOR==='1'?[
+   ['I am on Connectors now. Explain the next Google Drive setup steps only. Keep authorization deferred and do not create or rotate tokens.',null],
+ ]:[
    ['Set the invoice ID filter to COPILOT-NO-MATCH. Prepare it for review without changing any invoice.','COPILOT-NO-MATCH'],
    ['Please clear the invoice ID list filter back to empty. Prepare that one field for review. Leave all invoices unchanged.',''],
- ]){
-   response=await fetch(base+`/session/${session.id}/propose`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({version,screen:'erp',embedded_fields:['name'],embedded_field_labels:{name:'ID'},message})});
+ ];
+ for(const [message,value] of cases){
+   const connector=process.env.COPILOT_TEST_CONNECTOR==='1';
+   response=await fetch(base+`/session/${session.id}/propose`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({version,screen:connector?'connectors':'erp',embedded_fields:connector?[]:['name'],embedded_field_labels:{name:'ID'},message})});
    const result=await response.json();assert.equal(response.status,200);
-   assert.deepEqual(result.proposal.actions,[{type:'embed_fill',screen:'erp',values:{name:value}}]);
+   if(connector)assert.deepEqual(result.proposal.actions,[]);
+   else assert.deepEqual(result.proposal.actions,[{type:'embed_fill',screen:'erp',values:{name:value}}]);
    version=result.version;
  }
- console.log('PASS live synthetic natural-language ERP proposal; no business data changed.');
+ console.log('PASS live synthetic natural-language '+(process.env.COPILOT_TEST_CONNECTOR==='1'?'connector guidance':'ERP set/clear')+'; no business data changed.');
 }finally{await new Promise(r=>server.close(r));db.close();}

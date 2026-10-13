@@ -4,6 +4,10 @@ import {validateCopilotProposal} from '../src/services/ui-copilot-contract.js';
 import {copilotScreenSpec} from '../src/services/ui-copilot-screen-specs.js';
 const inventory=JSON.parse(readFileSync(new URL('../src/generated/copilot-screen-inventory.json',import.meta.url),'utf8'));
 const modules=new Map(inventory.modules.map(m=>[m.source,m]));
+const connectorSpec=copilotScreenSpec('/connectors',[]);
+assert.match(connectorSpec.guidance,/OpenConnector tab/);
+assert.ok(connectorSpec.modules.every(m=>m.fields.length===0),'Hidden tab fields must not enter current-screen model context');
+assert.ok(copilotScreenSpec('/connectors').modules.some(m=>m.fields.length),'Full registered metadata remains available');
 let accepted=0,denied=0;
 for(const route of inventory.routes){
  const catalog={forms:{},agents:[],screens:[{id:'test-screen',route:route.path}]};

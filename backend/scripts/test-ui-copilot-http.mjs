@@ -37,6 +37,9 @@ try{
   reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'erp',embedded_fields:['name'],message:'Help with this field'});
   assert.equal(reply.status,200);s=reply.body;assert.deepEqual(s.proposal.actions,[]);
   assert.equal(invoked-beforeClarification,2,'Clarification remains allowed and recheck is bounded');
+  modelReplies=[{message:'Invented setup',actions:[{type:'fill',form:'connectors',values:{provider:'google-drive'}}]},{message:'Use OpenConnector, then Google Drive. Authorization is deferred.',actions:[]}];
+  reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'connectors',message:'Explain Google Drive setup only; no authorization.'});
+  assert.equal(reply.status,200);s=reply.body;assert.deepEqual(s.proposal.actions,[]);
   for(const [form,values] of [
     ['broadcast_draft',{message:'Synthetic unsent broadcast'}],
     ['scheduled_goal',{title:'Draft only',prompt:'Prepare a status report',cadence:'weekly',weekday:2,time_local:'09:30'}],
