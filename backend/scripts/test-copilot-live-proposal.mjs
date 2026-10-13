@@ -14,6 +14,9 @@ app.use('/test',uiCopilotRouter({database:()=>db,...(process.env.COPILOT_TEST_FU
   const context=options.messages.map(m=>{try{return JSON.parse(m.content);}catch{return null;}}).find(m=>m?.available_embedded_fields);
   assert.deepEqual(context.available_embedded_fields,['name']);
   assert.match(options.messages[0].content,/Current available reviewed embedded edit capability/);
+  if(process.env.COPILOT_TEST_FORCE_RECHECK==='1'&&options.messages.some(m=>m.content.includes('previous_proposal'))){
+    return {content:JSON.stringify({message:'This input requires manual entry.',actions:[]})};
+  }
   const result=await chatCompletions(options);
   console.log(JSON.stringify({model:result.modelUsed,proposal:JSON.parse(result.content)}));
   return result;
@@ -33,8 +36,15 @@ try{
    state.proposal={message:state.conversation.at(-1).text,actions:[]};
    db.prepare('UPDATE ui_copilot_sessions SET state=? WHERE id=?').run(JSON.stringify(state),session.id);
  }
- response=await fetch(base+`/session/${session.id}/propose`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({version:session.version,screen:'erp',embedded_fields:['name'],embedded_field_labels:{name:'ID'},message:'Please clear the invoice ID list filter back to empty. Prepare that one field for review. Leave all invoices unchanged.'})});
- const result=await response.json();assert.equal(response.status,200);
- assert.deepEqual(result.proposal.actions,[{type:'embed_fill',screen:'erp',values:{name:''}}]);
+ let version=session.version;
+ for(const [message,value] of [
+   ['Set the invoice ID filter to COPILOT-NO-MATCH. Prepare it for review without changing any invoice.','COPILOT-NO-MATCH'],
+   ['Please clear the invoice ID list filter back to empty. Prepare that one field for review. Leave all invoices unchanged.',''],
+ ]){
+   response=await fetch(base+`/session/${session.id}/propose`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({version,screen:'erp',embedded_fields:['name'],embedded_field_labels:{name:'ID'},message})});
+   const result=await response.json();assert.equal(response.status,200);
+   assert.deepEqual(result.proposal.actions,[{type:'embed_fill',screen:'erp',values:{name:value}}]);
+   version=result.version;
+ }
  console.log('PASS live synthetic natural-language ERP proposal; no business data changed.');
 }finally{await new Promise(r=>server.close(r));db.close();}
