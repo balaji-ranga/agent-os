@@ -34,6 +34,10 @@ const base=`http://127.0.0.1:${server.address().port}/test`;
 try{
  let response=await fetch(base+'/session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({origin:'/erp'})});
  const session=await response.json();assert.equal(response.status,200);
+ if(process.env.COPILOT_TEST_MODE==='guided'){
+   const row=db.prepare('SELECT state FROM ui_copilot_sessions WHERE id=?').get(session.id);
+   const state=JSON.parse(row.state);state.mode='guided';db.prepare('UPDATE ui_copilot_sessions SET state=? WHERE id=?').run(JSON.stringify(state),session.id);
+ }
  if(process.env.COPILOT_TEST_STALE_HISTORY==='1'){
    const row=db.prepare('SELECT state FROM ui_copilot_sessions WHERE id=?').get(session.id);
    const state=JSON.parse(row.state);
@@ -52,7 +56,7 @@ try{
    db.prepare('UPDATE ui_copilot_sessions SET state=? WHERE id=?').run(JSON.stringify(state),session.id);
  }
  const cases=eventMode?[
-   ['Prepare this Event subscription draft named Copilot UAT calendar, with provider Published calendar URL (ICS) and event Calendar event changed. Leave the listener off and do not create the subscription.',null],
+   [process.env.COPILOT_TEST_MODE==='guided'?'Guide me step by step to change only the subscription name to Copilot UAT calendar. Prepare the field from this chat and leave saving to me.':'Prepare this Event subscription draft named Copilot UAT calendar, with provider Published calendar URL (ICS) and event Calendar event changed. Leave the listener off and do not create the subscription.',null],
  ]:process.env.COPILOT_TEST_SEARCH==='1'?[
    ['Filter the Tools registry search to crm. Prepare the search field for review; do not change any tool configuration.','crm'],
  ]:process.env.COPILOT_TEST_CONNECTOR==='1'?[
@@ -66,11 +70,11 @@ try{
    const search=process.env.COPILOT_TEST_SEARCH==='1';
    response=await fetch(base+`/session/${session.id}/propose`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({version,screen:search?'content-tools':connector||eventMode?'connectors':'erp',visible_control_ids:eventMode?eventControls.map(c=>c.id):search?[searchControl.id]:[],visible_control_options:eventMode?eventOptions:{},embedded_fields:connector||search||eventMode?[]:['name'],embedded_field_labels:{name:'ID'},message})});
    const result=await response.json();assert.equal(response.status,200);
-   if(eventMode){assert.equal(result.proposal.actions[0].type,'screen_fill');const values=result.proposal.actions.reduce((all,a)=>({...all,...a.values}),{});assert.equal(values[eventField('Subscription name')],'Copilot UAT calendar');assert.equal(values[eventField('Event provider')],'calendar_url');assert.equal(values[eventField('Enable provider listener')],undefined);}
+   if(eventMode){assert.equal(result.proposal.actions[0].type,'screen_fill');const values=result.proposal.actions.reduce((all,a)=>({...all,...a.values}),{});assert.equal(values[eventField('Subscription name')],'Copilot UAT calendar');if(process.env.COPILOT_TEST_MODE!=='guided')assert.equal(values[eventField('Event provider')],'calendar_url');assert.equal(values[eventField('Enable provider listener')],undefined);}
    else if(search){assert.equal(result.proposal.actions[0].type,'screen_fill');assert.equal(result.proposal.actions[0].values[searchControl.id],'crm');}
    else if(connector)assert.deepEqual(result.proposal.actions,[]);
    else assert.deepEqual(result.proposal.actions,[{type:'embed_fill',screen:'erp',values:{name:value}}]);
    version=result.version;
  }
- console.log('PASS live synthetic natural-language '+(process.env.COPILOT_TEST_SEARCH==='1'?'Tools search':process.env.COPILOT_TEST_CONNECTOR==='1'?'connector guidance':'ERP set/clear')+'; no business data changed.');
+ console.log('PASS live synthetic natural-language '+(eventMode?'event draft':process.env.COPILOT_TEST_SEARCH==='1'?'Tools search':process.env.COPILOT_TEST_CONNECTOR==='1'?'connector guidance':'ERP set/clear')+'; no business data changed.');
 }finally{await new Promise(r=>server.close(r));db.close();}

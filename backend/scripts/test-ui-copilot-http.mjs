@@ -45,6 +45,9 @@ try{
   assert.equal(reply.status,200);s=reply.body;
   modelReply.actions[0].values[provider.id]='invented';
   assert.equal((await request(`/session/${s.id}/propose`,'POST',{...selectRequest,version:s.version})).status,502,'Dropdown values outside current options must fail closed');
+  modelReplies=[{message:'Malformed guided draft'}, {message:'Review the provider',actions:[{type:'screen_fill',screen:'connectors',values:{[provider.id]:'calendar_url'}}]}];
+  reply=await request(`/session/${s.id}/propose`,'POST',{...selectRequest,version:s.version});
+  assert.equal(reply.status,200);s=reply.body;assert.equal(s.proposal.actions[0].values[provider.id],'calendar_url');
   modelReplies=[{message:'Invented setup',actions:[{type:'fill',form:'connectors',values:{provider:'google-drive'}}]},{message:'Use OpenConnector, then Google Drive. Authorization is deferred.',actions:[]}];
   reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'connectors',message:'Explain Google Drive setup only; no authorization.'});
   assert.equal(reply.status,200);s=reply.body;assert.deepEqual(s.proposal.actions,[]);
