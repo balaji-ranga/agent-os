@@ -62,11 +62,11 @@ export function BusinessEmbedPage({ kind }) {
     return data.iframe_url || data.open_url || null;
   }, [data]);
   useEffect(()=>{
-    if(!iframeSrc||!frameRef.current)return;
+    if(loading||forbidden||!iframeSrc||!frameRef.current)return;
     const url=new URL(iframeSrc,window.location.origin);
     if(url.protocol!=='https:')return;
     return registerCopilotEmbed(frameRef.current,url.origin);
-  },[iframeSrc]);
+  },[iframeSrc,loading,forbidden]);
 
   async function onSyncOrg() {
     setSyncing(true);
