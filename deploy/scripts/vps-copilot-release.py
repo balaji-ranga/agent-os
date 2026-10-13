@@ -22,7 +22,7 @@ def merge(kind,p,current):
  if not current.exists():raise RuntimeError('Missing source '+p)
  # Reconcile package script maps by key, never replace unrelated runtime scripts.
  # The host may lack a Copilot script already present in the running image.
- if p=='backend/package.json':
+ if p in ('backend/package.json','frontend/package.json'):
   base=json.loads((release/'base'/p).read_bytes());wanted=json.loads(desired);present=json.loads(current.read_bytes())
   if {k:v for k,v in base.items() if k!='scripts'}=={k:v for k,v in wanted.items() if k!='scripts'}:
    scripts=present.setdefault('scripts',{})
@@ -30,7 +30,8 @@ def merge(kind,p,current):
     old=base.get('scripts',{}).get(key);new=wanted.get('scripts',{}).get(key)
     if old==new:continue
     actual=scripts.get(key)
-    if actual not in (old,new) and not (key=='test:ui-copilot' and actual is None):raise RuntimeError('Conflicting package script '+key)
+    approved_older_prebuild=(p=='frontend/package.json' and key=='prebuild' and actual=='node scripts/test-knowledge-search-modes.mjs')
+    if actual not in (old,new) and not (key=='test:ui-copilot' and actual is None) and not approved_older_prebuild:raise RuntimeError('Conflicting package script '+key)
     if new is None:scripts.pop(key,None)
     else:scripts[key]=new
    return (json.dumps(present,indent=2)+'\n').encode()
