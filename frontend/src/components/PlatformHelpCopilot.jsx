@@ -93,7 +93,9 @@ export default function PlatformHelpCopilot() {
     baselines.current=Object.fromEntries(Object.keys(catalog.forms).map(id=>[id,getCopilotForm(id)?.read()]));
     for(const [form,values] of Object.entries(baselines.current))if(values&&hasDraftContent(form,values)){s=await api.copilotUpdate(s.id,{version:s.version,draft:{form,values}});setSession(s);}
     const screen=catalog.screens?.find(x=>x.route.split('#')[0]===location.pathname)?.id;
-    const next=await api.copilotPropose(s.id,{version:s.version,message:input,visible_control_ids:visibleCopilotControls(document),...(screen?{screen}:{})});
+    let embeddedFields=[];
+    if(['crm','erp'].includes(screen))try{embeddedFields=(await requestCopilotEmbed('inspect')).fields||[];}catch{/* Explain unavailable bridge through empty metadata, never bypass it. */}
+    const next=await api.copilotPropose(s.id,{version:s.version,message:input,visible_control_ids:visibleCopilotControls(document),embedded_fields:embeddedFields,...(screen?{screen}:{})});
     setSession(next);setInput('');setNotice('');
     const prepared=next.proposal?.actions.find(a=>a.type==='fill'&&getCopilotForm(a.form));
     if(prepared)setReview({action:prepared,expected:baselines.current[prepared.form]??getCopilotForm(prepared.form).read()});
@@ -110,7 +112,7 @@ export default function PlatformHelpCopilot() {
     const fresh=await api.copilotCatalog();
     if(action.type==='embed_fill'){
       if(!fresh.screens.some(s=>s.id===action.screen&&s.route===location.pathname))throw new Error('Open the requested embedded screen first.');
-      const prepared=await requestCopilotEmbed('prepare');
+      const prepared=await requestCopilotEmbed('prepare',null,{fields:Object.keys(action.values)});
       if(Object.keys(action.values).some(key=>!prepared.fields.includes(key)))throw new Error('Open these fields in the embedded form, then ask again. No values were entered.');
       setReview({action,embedSnapshot:prepared.snapshot,expected:{}});return;
     }

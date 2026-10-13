@@ -1,7 +1,8 @@
 /* Embedded CRM guidance bridge. No cookies, tokens, records or network APIs are
  * read. The parent origin and exact parent window are checked on every message.
  * Field filling uses an expiring, local snapshot and explicit parent review.
- * It never clicks, submits forms or invokes provider APIs. CRM can auto-save. */
+ * Only reviewed recipes may open an existing inline field editor. It never
+ * submits forms or invokes provider APIs. CRM can auto-save. */
 (()=>{
   'use strict';
   const parentOrigin='https://login.flolah.cloud';
@@ -10,19 +11,34 @@
   let prepared=null;
   const clear=()=>{if(highlighted){highlighted.style.outline=highlighted.dataset.flolahPriorOutline||'';delete highlighted.dataset.flolahPriorOutline;highlighted=null;}};
   const allowed=new Set(['name','domain name','first name','last name','email','phone','description','subject','customer name','item name']);
-  const label=el=>String(el.getAttribute('aria-label')||el.getAttribute('placeholder')||[...(el.labels||[])].map(l=>l.textContent).join(' ')||'').trim().toLowerCase();
+  const label=el=>String(el.getAttribute('data-fieldname')||el.getAttribute('aria-label')||el.getAttribute('placeholder')||[...(el.labels||[])].map(l=>l.textContent).join(' ')||'').trim().toLowerCase().replaceAll('_',' ');
   const fields=()=>[...document.querySelectorAll('input,textarea,select')].filter(el=>!el.disabled&&!el.hidden&&el.getClientRects().length&&!['password','hidden','file','submit','button'].includes(el.type)&&allowed.has(label(el)));
-  window.addEventListener('message',event=>{
+  const nameOpener=()=>/^\/object\/(company|person|opportunity|task)\/[\w-]+$/.test(location.pathname)?[...document.querySelectorAll('[data-testid="top-bar-title"]')].filter(el=>el.getClientRects().length):[];
+  async function openFields(requested){
+    if(requested.includes('name')&&!fields().some(el=>label(el)==='name')){
+      const openers=nameOpener();
+      if(openers.length===1){openers[0].click();await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));}
+    }
+  }
+  window.addEventListener('message',async event=>{
     if(event.origin!==parentOrigin||event.source!==window.parent||event.data?.type!=='flolah-copilot-guide'||typeof event.data.request!=='string'||event.data.request.length>100)return;
     const {command,field,request}=event.data;
     let result={ok:false};
     if(command==='prepare'){
+      await openFields(Array.isArray(event.data.fields)?event.data.fields.filter(key=>allowed.has(key)):[]);
       const entries={};for(const el of fields()){const key=label(el);if(Object.hasOwn(entries,key))entries[key]=null;else entries[key]={element:el,value:el.value};}
       const snapshot=crypto.randomUUID();prepared={snapshot,entries,expires:Date.now()+60000,path:location.pathname};
       result={ok:true,snapshot,fields:Object.keys(entries).filter(k=>entries[k]),mode:'review',immediate_save:true};
     }
     if(command==='fill'&&prepared&&event.data.snapshot===prepared.snapshot&&prepared.expires>Date.now()&&prepared.path===location.pathname){
       const values=event.data.values,entries=values&&typeof values==='object'&&!Array.isArray(values)?Object.entries(values):[];
+      const original=prepared;
+      await openFields(entries.map(([key])=>key));
+      if(prepared!==original||original.path!==location.pathname)return;
+      for(const [key] of entries){
+        const prior=prepared.entries[key];
+        if(prior&&!prior.element.isConnected){const matches=fields().filter(el=>label(el)===key);if(matches.length===1)prior.element=matches[0];}
+      }
       const valid=entries.length>0&&entries.length<=10&&entries.every(([key,value])=>{
         const current=prepared.entries[key],el=current?.element;
         if(!allowed.has(key)||!el?.isConnected||el.disabled||el.readOnly||!el.getClientRects().length||el.value!==current.value||typeof value!=='string'||value.length>2000)return false;
@@ -43,7 +59,7 @@
         result={ok:true,applied:entries.map(([key])=>key),next_snapshot:prepared?.snapshot||null,persistence:'Verify in the application; edits may save immediately.'};
       }
     }
-    if(command==='inspect')result={ok:true,fields:[...new Set(fields().map(label))],mode:'guided',reason:'Embedded edits may save immediately; review proposed values before applying.'};
+    if(command==='inspect')result={ok:true,fields:[...new Set([...fields().map(label),...(nameOpener().length===1?['name']:[])])],mode:'guided',reason:'Embedded edits may save immediately; review proposed values before applying.'};
     if(command==='clear'){clear();prepared=null;result={ok:true};}
     if(command==='focus'&&allowed.has(field)){
       clear();const matches=fields().filter(el=>label(el)===field);
