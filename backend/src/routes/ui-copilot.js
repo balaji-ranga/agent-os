@@ -167,6 +167,9 @@ router.post('/session/:id/propose',handler(async req=> {
       break;
     }
     catch(error) {
+      // Only fixed validation categories are logged, never model values or text.
+      const knownErrors=['Invalid assistant response','This field requires manual input','Form is not available','Screen is not available','Only currently visible fields may be filled','Invalid screen values','Invalid screen field value','Unsupported action'];
+      console.warn('[copilot-proposal-rejected]',JSON.stringify({attempt:attempt+1,screen:activeScreen?.id||null,reason:knownErrors.includes(error.message)?error.message:error instanceof SyntaxError?'Invalid JSON':'Contract validation failed'}));
       if(attempt===1)throw copilotError('Assistant returned an invalid proposal. No action was taken.',502);
       // Repair against current contracts, not a transcript containing rejected
       // capabilities. Include the rejected proposal as data for precise repair.

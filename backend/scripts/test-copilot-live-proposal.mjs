@@ -41,6 +41,12 @@ try{
    db.prepare('UPDATE ui_copilot_sessions SET state=? WHERE id=?').run(JSON.stringify(state),session.id);
  }
  let version=session.version;
+ if(process.env.COPILOT_TEST_SEARCH==='1'){
+   const row=db.prepare('SELECT state FROM ui_copilot_sessions WHERE id=?').get(session.id);
+   const state=JSON.parse(row.state);state.mode='autofill';
+   state.conversation=[{role:'user',text:'Prepare a Knowledge document upload draft titled Copilot UAT guide with tags acceptance,copilot. Do not upload anything.'},{role:'assistant',text:'Shall I prepare those fields for review?'},{role:'user',text:'Open Research Analyst chat with an unsent draft about research capabilities.'},{role:'assistant',text:'Shall I prepare this draft?'},{role:'user',text:'I want to start a voice call with Research Analyst.'},{role:'assistant',text:'Please review Start call.'}];
+   db.prepare('UPDATE ui_copilot_sessions SET state=? WHERE id=?').run(JSON.stringify(state),session.id);
+ }
  const cases=process.env.COPILOT_TEST_SEARCH==='1'?[
    ['Filter the Tools registry search to crm. Prepare the search field for review; do not change any tool configuration.','crm'],
  ]:process.env.COPILOT_TEST_CONNECTOR==='1'?[
@@ -59,5 +65,5 @@ try{
    else assert.deepEqual(result.proposal.actions,[{type:'embed_fill',screen:'erp',values:{name:value}}]);
    version=result.version;
  }
- console.log('PASS live synthetic natural-language '+(process.env.COPILOT_TEST_CONNECTOR==='1'?'connector guidance':'ERP set/clear')+'; no business data changed.');
+ console.log('PASS live synthetic natural-language '+(process.env.COPILOT_TEST_SEARCH==='1'?'Tools search':process.env.COPILOT_TEST_CONNECTOR==='1'?'connector guidance':'ERP set/clear')+'; no business data changed.');
 }finally{await new Promise(r=>server.close(r));db.close();}
