@@ -224,14 +224,14 @@
         },
         {
           "id": "components/connectors/CompanyEmailChannelsPanel.jsx:181:12",
-          "label": "company@example.com",
+          "label": "Mailbox address",
           "type": "email",
           "required": true,
           "mode": "guided"
         },
         {
           "id": "components/connectors/CompanyEmailChannelsPanel.jsx:184:12",
-          "label": "CEO company inbox",
+          "label": "Display name",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -286,7 +286,7 @@
         },
         {
           "id": "components/connectors/CompanyEmailChannelsPanel.jsx:206:10",
-          "label": "Optional. {{event_id}} is available to the goal.",
+          "label": "Goal instructions",
           "type": "textarea",
           "required": false,
           "mode": "guided"
@@ -384,7 +384,7 @@
         },
         {
           "id": "components/connectors/EventProductivityPanel.jsx:277:12",
-          "label": "Review {{event.payload.subject}} from {{event.payload.sender}} and act on the complete event context.",
+          "label": "Goal prompt template",
           "type": "textarea",
           "required": false,
           "mode": "guided"
@@ -945,7 +945,7 @@
         },
         {
           "id": "components/KnowledgeFeedback.jsx:6:584",
-          "label": "Describe the incorrect or missing record and expected result.",
+          "label": "Details",
           "type": "textarea",
           "required": false,
           "mode": "guided"
@@ -966,7 +966,7 @@
         },
         {
           "id": "components/KnowledgeRecordBrowser.jsx:19:27",
-          "label": "Name, content or exact record ID",
+          "label": "Search records",
           "type": "search",
           "required": false,
           "mode": "guided"
@@ -1082,7 +1082,7 @@
         },
         {
           "id": "components/KnowledgeSelection.jsx:18:18",
-          "label": "fields.status",
+          "label": "Field",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -1104,7 +1104,7 @@
         },
         {
           "id": "components/KnowledgeSelection.jsx:24:86",
-          "label": "title, fields.customer, fields.status",
+          "label": "Fields to index (comma separated; empty means existing safe adapter fields)",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -1145,7 +1145,7 @@
         },
         {
           "id": "components/KnowledgeSources.jsx:50:56",
-          "label": "label:contracts after:2026/01/01",
+          "label": "Gmail search scope",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -1247,7 +1247,7 @@
         },
         {
           "id": "components/KnowledgeSources.jsx:85:344",
-          "label": "Why do these records belong together? Reference a contract, account ID or verified source.",
+          "label": "Supporting evidence",
           "type": "textarea",
           "required": true,
           "mode": "guided"
@@ -1412,7 +1412,7 @@
         },
         {
           "id": "components/OrgDesigner.jsx:581:14",
-          "label": "Default 10",
+          "label": "Hourly value rate (USD)",
           "type": "number",
           "required": false,
           "min": "0",
@@ -1420,15 +1420,16 @@
         },
         {
           "id": "components/OrgDesigner.jsx:603:14",
-          "label": "e.g. 500000 (leave blank for no limit)",
+          "label": "Monthly token budget",
           "type": "number",
           "required": false,
           "min": "0",
-          "mode": "guided"
+          "mode": "guided",
+          "user_only": true
         },
         {
           "id": "components/OrgDesigner.jsx:623:14",
-          "label": "e.g. 5",
+          "label": "Error budget (max monthly failure %)",
           "type": "number",
           "required": false,
           "min": "0",
@@ -1488,14 +1489,14 @@
         },
         {
           "id": "components/OrgPeoplePanel.jsx:211:32",
-          "label": "e.g. enterprise collections",
+          "label": "Specialty",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "components/OrgPeoplePanel.jsx:212:30",
-          "label": "What this employee owns",
+          "label": "Purpose",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -2125,14 +2126,14 @@
         },
         {
           "id": "pages/Admin.jsx:1220:14",
-          "label": "refresh-scope",
+          "label": "All enabled CEOs ( )",
           "type": "radio",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/Admin.jsx:1229:14",
-          "label": "refresh-scope",
+          "label": "Selected CEOs",
           "type": "radio",
           "required": false,
           "mode": "guided"
@@ -2196,14 +2197,14 @@
         },
         {
           "id": "pages/Admin.jsx:1376:14",
-          "label": "notify-scope",
+          "label": "All enabled users ( )",
           "type": "radio",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/Admin.jsx:1385:14",
-          "label": "notify-scope",
+          "label": "Selected users",
           "type": "radio",
           "required": false,
           "mode": "guided"
@@ -2352,7 +2353,7 @@
       "controls": [
         {
           "id": "pages/AdminPlatformDocuments.jsx:202:12",
-          "label": "Optional title",
+          "label": "Title",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -2605,14 +2606,14 @@
       "controls": [
         {
           "id": "pages/AdminSkills.jsx:21:26",
-          "label": "Name, category or draft / active",
+          "label": "Search catalog",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/AdminSkills.jsx:32:44",
-          "label": "https://github.com/owner/repo/blob/40-character-commit/skills/name/SKILL.md",
+          "label": "Immutable GitHub SKILL.md URL",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -2762,7 +2763,7 @@
         },
         {
           "id": "pages/AgentChannels.jsx:612:20",
-          "label": "T01234567",
+          "label": "Team ID (optional)",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -2870,7 +2871,7 @@
         },
         {
           "id": "pages/AgentExchange.jsx:718:12",
-          "label": "Bearer token from /token",
+          "label": "Access token",
           "type": "password",
           "required": false,
           "mode": "guided",
@@ -2912,14 +2913,14 @@
         },
         {
           "id": "pages/AgentWorkflowEditor.jsx:366:12",
-          "label": "0 9 * * *",
+          "label": "Schedule (cron)",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/AgentWorkflowEditor.jsx:375:12",
-          "label": "run research workflow",
+          "label": "Chat trigger phrase",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -2941,7 +2942,7 @@
         },
         {
           "id": "pages/AgentWorkflowEditor.jsx:440:12",
-          "label": "Use {{input}} for bound prompt input",
+          "label": "Prompt template",
           "type": "textarea",
           "required": false,
           "mode": "guided"
@@ -2979,7 +2980,7 @@
         },
         {
           "id": "pages/AgentWorkflowEditor.jsx:510:16",
-          "label": "admin",
+          "label": "Basic username",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -3002,7 +3003,7 @@
         },
         {
           "id": "pages/AgentWorkflowEditor.jsx:627:12",
-          "label": "gmail, github, notion…",
+          "label": "Search all connectors",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -3025,7 +3026,7 @@
         },
         {
           "id": "pages/AgentWorkflowEditor.jsx:721:12",
-          "label": "ceo-...",
+          "label": "Connection name (optional)",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -3054,7 +3055,7 @@
         },
         {
           "id": "pages/AgentWorkflowEditor.jsx:825:12",
-          "label": "From agent card skills",
+          "label": "Skill ID (optional)",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -3092,14 +3093,14 @@
         },
         {
           "id": "pages/AgentWorkflowEditor.jsx:939:12",
-          "label": "mdt-… from Master Data",
+          "label": "Table ID",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/AgentWorkflowEditor.jsx:953:12",
-          "label": "mdd-…",
+          "label": "Document ID (optional RAG filter)",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -3145,7 +3146,7 @@
         },
         {
           "id": "pages/AgentWorkflowEditor.jsx:1034:16",
-          "label": "ftp.example.com",
+          "label": "Host",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -3174,21 +3175,21 @@
         },
         {
           "id": "pages/AgentWorkflowEditor.jsx:1098:12",
-          "label": "*.txt",
+          "label": "Glob (list)",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/AgentWorkflowEditor.jsx:1107:14",
-          "label": "Text to write, or bind from an upstream node",
+          "label": "Default content (or bind Input )",
           "type": "textarea",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/AgentWorkflowEditor.jsx:1118:14",
-          "label": "processed/",
+          "label": "Destination",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -3244,14 +3245,14 @@
         },
         {
           "id": "pages/AgentWorkflowEditor.jsx:1191:12",
-          "label": "https://example.com/blog/*",
+          "label": "Include URL globs",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/AgentWorkflowEditor.jsx:1199:12",
-          "label": "*/tag/*,*/login*",
+          "label": "Exclude URL globs",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -3305,7 +3306,7 @@
         },
         {
           "id": "pages/AgentWorkflowEditor.jsx:1379:12",
-          "label": "https://your-mcp.example.com/events/stream",
+          "label": "SSE stream URL",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -3327,7 +3328,7 @@
         },
         {
           "id": "pages/AgentWorkflowEditor.jsx:1424:12",
-          "label": "test-sse-odd",
+          "label": "Target workflow ID",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -3342,7 +3343,7 @@
         },
         {
           "id": "pages/AgentWorkflowEditor.jsx:1444:12",
-          "label": "{\"parent_run\":\"{{listen-1.event_count}}\",\"payload\":{{event}}}",
+          "label": "Input template (JSON)",
           "type": "textarea",
           "required": false,
           "mode": "guided"
@@ -3364,7 +3365,7 @@
         },
         {
           "id": "pages/AgentWorkflowEditor.jsx:1499:22",
-          "label": "e.g. text, decision, comment",
+          "label": "Output key",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -3423,14 +3424,14 @@
         },
         {
           "id": "pages/AgentWorkflowEditor.jsx:1665:20",
-          "label": "https://your-app.example.com or OPENROUTER_HTTP_REFERER",
+          "label": "HTTP-Referer (OpenRouter)",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/AgentWorkflowEditor.jsx:1673:20",
-          "label": "Flolah or OPENROUTER_SITE_TITLE",
+          "label": "X-Title (OpenRouter)",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -3461,7 +3462,7 @@
         },
         {
           "id": "pages/AgentWorkflowEditor.jsx:1729:16",
-          "label": "Use {{input}} or {{nodeId.text}} bind variables",
+          "label": "System prompt",
           "type": "textarea",
           "required": false,
           "mode": "guided"
@@ -3634,7 +3635,7 @@
         },
         {
           "id": "pages/AgentWorkspace.jsx:870:82",
-          "label": "Name, category or purpose",
+          "label": "Search published skills",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -3732,7 +3733,7 @@
       "controls": [
         {
           "id": "pages/Avatars.jsx:384:10",
-          "label": "Optional name",
+          "label": "Display name",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -3770,21 +3771,21 @@
         },
         {
           "id": "pages/Avatars.jsx:495:20",
-          "label": "ElevenLabs voice ID",
+          "label": "Voice ID",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/Avatars.jsx:540:10",
-          "label": "Office floor",
+          "label": "Scene name",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/Avatars.jsx:549:10",
-          "label": "{\"mediaSlots\":[{\"id\":\"panel-1\",\"position\":[1.2,1.4,-1.5],\"kind\":\"chart\"}],\"spawnPoints\":[{\"id\":\"a\",\"position\":[0,0,0]}]}",
+          "label": "Scene JSON (optional)",
           "type": "textarea",
           "required": false,
           "mode": "guided"
@@ -3799,7 +3800,7 @@
         },
         {
           "id": "pages/Avatars.jsx:608:12",
-          "label": "Standup room",
+          "label": "Room name",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -3870,28 +3871,28 @@
         },
         {
           "id": "pages/BrowserSession.jsx:662:14",
-          "label": "e.g. Open LinkedIn notifications and summarize. Do not send messages.",
+          "label": "Goal",
           "type": "textarea",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/BrowserSession.jsx:672:14",
-          "label": "https://www.linkedin.com/feed/",
+          "label": "Start URL (optional)",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/BrowserSession.jsx:736:18",
-          "label": "e.g. GitHub vulnerabilities insights",
+          "label": "Recipe name",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/BrowserSession.jsx:746:18",
-          "label": "https://github.com/OWNER/REPO",
+          "label": "Optional first URL (opens when recording starts)",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -4109,7 +4110,7 @@
         },
         {
           "id": "pages/CompanyOperate.jsx:624:14",
-          "label": "e.g. Content Strategist",
+          "label": "Primary AI employee",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -4123,7 +4124,7 @@
         },
         {
           "id": "pages/CompanyOperate.jsx:652:12",
-          "label": "research\ndraft\nreview\npublish_checklist\nlog",
+          "label": "Steps (one per line)",
           "type": "textarea",
           "required": false,
           "mode": "guided"
@@ -4175,7 +4176,7 @@
         },
         {
           "id": "pages/CompanyReviews.jsx:74:374",
-          "label": "Describe the specific behavior expected next time…",
+          "label": "CEO proposed feedback",
           "type": "textarea",
           "required": false,
           "mode": "guided"
@@ -4569,15 +4570,16 @@
         },
         {
           "id": "pages/EfficiencyView.jsx:637:14",
-          "label": "blank = unlimited",
+          "label": "Monthly token budget",
           "type": "number",
           "required": false,
           "min": "0",
-          "mode": "guided"
+          "mode": "guided",
+          "user_only": true
         },
         {
           "id": "pages/EfficiencyView.jsx:647:14",
-          "label": "e.g. 5",
+          "label": "Error budget (max failure %)",
           "type": "number",
           "required": false,
           "min": "0",
@@ -5030,7 +5032,7 @@
         },
         {
           "id": "pages/Kanban.jsx:1145:18",
-          "label": "Add a note for the workflowâ€¦",
+          "label": "Comment (optional)",
           "type": "textarea",
           "required": false,
           "mode": "guided"
@@ -5078,21 +5080,21 @@
       "controls": [
         {
           "id": "pages/MarketingWorkspace.jsx:223:41",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Campaign name",
           "type": "text",
           "required": true,
           "mode": "guided"
         },
         {
           "id": "pages/MarketingWorkspace.jsx:224:76",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Objective ID",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/MarketingWorkspace.jsx:224:222",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Status",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -5100,42 +5102,42 @@
         },
         {
           "id": "pages/MarketingWorkspace.jsx:225:112",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Channels",
           "type": "checkbox",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/MarketingWorkspace.jsx:226:226",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Marketing distribution lists",
           "type": "checkbox",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/MarketingWorkspace.jsx:227:47",
-          "label": "Example: lifecycleStage=Customer; country=SG",
+          "label": "CRM audience filter",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/MarketingWorkspace.jsx:228:57",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "CRM list or segment reference",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/MarketingWorkspace.jsx:232:18",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Optional named CRM recipients",
           "type": "checkbox",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/MarketingWorkspace.jsx:237:76",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Total budget",
           "type": "number",
           "required": false,
           "min": "0",
@@ -5143,7 +5145,7 @@
         },
         {
           "id": "pages/MarketingWorkspace.jsx:237:262",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Daily budget",
           "type": "number",
           "required": false,
           "min": "0",
@@ -5151,28 +5153,28 @@
         },
         {
           "id": "pages/MarketingWorkspace.jsx:238:40",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Outcome goal",
           "type": "textarea",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/MarketingWorkspace.jsx:239:50",
-          "label": "Audience promise, positioning, channel approach, success measure and any constraints agreed with the Marketing Specialist.",
+          "label": "Agentic strategy brief",
           "type": "textarea",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/MarketingWorkspace.jsx:240:42",
-          "label": "AI operations, sales growth, customer proof",
+          "label": "Content topics",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/MarketingWorkspace.jsx:241:80",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Strategy cadence",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -5180,7 +5182,7 @@
         },
         {
           "id": "pages/MarketingWorkspace.jsx:241:462",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Content items per run",
           "type": "number",
           "required": false,
           "min": "1",
@@ -5189,21 +5191,21 @@
         },
         {
           "id": "pages/MarketingWorkspace.jsx:242:43",
-          "label": "One per line, for example:\nQualified leads reach 25\nCampaign budget is exhausted",
+          "label": "Stop conditions",
           "type": "textarea",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/MarketingWorkspace.jsx:263:39",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "List name",
           "type": "text",
           "required": true,
           "mode": "guided"
         },
         {
           "id": "pages/MarketingWorkspace.jsx:264:251",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Status",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -5211,14 +5213,14 @@
         },
         {
           "id": "pages/MarketingWorkspace.jsx:265:41",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Description",
           "type": "textarea",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/MarketingWorkspace.jsx:274:47",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Distribution list",
           "type": "select",
           "required": true,
           "mode": "guided",
@@ -5226,7 +5228,7 @@
         },
         {
           "id": "pages/MarketingWorkspace.jsx:275:78",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Display name",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -5240,7 +5242,7 @@
         },
         {
           "id": "pages/MarketingWorkspace.jsx:277:73",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Consent",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -5248,21 +5250,21 @@
         },
         {
           "id": "pages/MarketingWorkspace.jsx:277:385",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Consent date",
           "type": "date",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/MarketingWorkspace.jsx:278:44",
-          "label": "Example: web signup form, owner-provided test contact",
+          "label": "Consent source",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/MarketingWorkspace.jsx:279:49",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Optional CRM person",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -5270,14 +5272,14 @@
         },
         {
           "id": "pages/MarketingWorkspace.jsx:292:32",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Name",
           "type": "text",
           "required": true,
           "mode": "guided"
         },
         {
           "id": "pages/MarketingWorkspace.jsx:293:200",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Asset type",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -5285,7 +5287,7 @@
         },
         {
           "id": "pages/MarketingWorkspace.jsx:294:36",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Campaign",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -5293,28 +5295,28 @@
         },
         {
           "id": "pages/MarketingWorkspace.jsx:295:46",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Subject / headline",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/MarketingWorkspace.jsx:296:35",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Content",
           "type": "textarea",
           "required": true,
           "mode": "guided"
         },
         {
           "id": "pages/MarketingWorkspace.jsx:297:53",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Template variables (JSON)",
           "type": "textarea",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/MarketingWorkspace.jsx:298:78",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Approval state",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -5322,14 +5324,14 @@
         },
         {
           "id": "pages/MarketingWorkspace.jsx:298:301",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Version",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/MarketingWorkspace.jsx:314:215",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Execution mode",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -5344,43 +5346,43 @@
         },
         {
           "id": "pages/MarketingWorkspace.jsx:316:78",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Connector type",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/MarketingWorkspace.jsx:316:231",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Connector ID",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/MarketingWorkspace.jsx:317:45",
-          "label": "Non-secret provider account/page reference",
+          "label": "Account reference",
           "type": "text",
           "required": false,
-          "mode": "guided",
-          "user_only": true
+          "mode": "guided"
         },
         {
           "id": "pages/MarketingWorkspace.jsx:318:44",
-          "label": "Sender identity, page, phone or recipe name",
+          "label": "Sender reference",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/MarketingWorkspace.jsx:319:54",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Non-secret settings (JSON)",
           "type": "textarea",
           "required": false,
-          "mode": "guided"
+          "mode": "guided",
+          "user_only": true
         },
         {
           "id": "pages/MarketingWorkspace.jsx:320:37",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Readiness",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -5388,7 +5390,7 @@
         },
         {
           "id": "pages/MarketingWorkspace.jsx:329:207",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Cadence (minutes)",
           "type": "number",
           "required": false,
           "min": "15",
@@ -5396,7 +5398,7 @@
         },
         {
           "id": "pages/MarketingWorkspace.jsx:330:36",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Campaign",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -5404,7 +5406,7 @@
         },
         {
           "id": "pages/MarketingWorkspace.jsx:331:40",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Stored asset",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -5412,14 +5414,14 @@
         },
         {
           "id": "pages/MarketingWorkspace.jsx:332:58",
-          "label": "Post URL, provider object ID or report reference",
+          "label": "Live post / provider reference",
           "type": "text",
           "required": true,
           "mode": "guided"
         },
         {
           "id": "pages/MarketingWorkspace.jsx:333:58",
-          "label": "Example: Facebook post insights",
+          "label": "Saved read-only browser recipe",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -5433,7 +5435,7 @@
         },
         {
           "id": "pages/MarketingWorkspace.jsx:346:36",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Campaign",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -5441,7 +5443,7 @@
         },
         {
           "id": "pages/MarketingWorkspace.jsx:368:38",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Campaign",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -5449,49 +5451,49 @@
         },
         {
           "id": "pages/MarketingWorkspace.jsx:369:201",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Metric",
           "type": "text",
           "required": true,
           "mode": "guided"
         },
         {
           "id": "pages/MarketingWorkspace.jsx:370:71",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Value",
           "type": "number",
           "required": true,
           "mode": "guided"
         },
         {
           "id": "pages/MarketingWorkspace.jsx:370:229",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Unit",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/MarketingWorkspace.jsx:371:78",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Period start",
           "type": "date",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/MarketingWorkspace.jsx:371:234",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Period end",
           "type": "date",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/MarketingWorkspace.jsx:372:64",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Action receipt / provider event ID",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/MarketingWorkspace.jsx:383:38",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Campaign",
           "type": "select",
           "required": true,
           "mode": "guided",
@@ -5499,7 +5501,7 @@
         },
         {
           "id": "pages/MarketingWorkspace.jsx:384:41",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Email asset",
           "type": "select",
           "required": true,
           "mode": "guided",
@@ -5507,35 +5509,35 @@
         },
         {
           "id": "pages/MarketingWorkspace.jsx:385:61",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "CRM person / audience reference",
           "type": "text",
           "required": true,
           "mode": "guided"
         },
         {
           "id": "pages/MarketingWorkspace.jsx:386:53",
-          "label": "Example: Priya Shah",
+          "label": "Recipient display label",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/MarketingWorkspace.jsx:388:83",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Paste into the HTML email template",
           "type": "textarea",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/MarketingWorkspace.jsx:412:34",
-          "label": "Person, opportunity or CRM reference",
+          "label": "Search",
           "type": "search",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/MarketingWorkspace.jsx:413:36",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Campaign",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -5543,7 +5545,7 @@
         },
         {
           "id": "pages/MarketingWorkspace.jsx:414:41",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Qualification",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -5551,7 +5553,7 @@
         },
         {
           "id": "pages/MarketingWorkspace.jsx:415:37",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Follow-up",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -5559,7 +5561,7 @@
         },
         {
           "id": "pages/MarketingWorkspace.jsx:432:42",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "CRM person",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -5567,7 +5569,7 @@
         },
         {
           "id": "pages/MarketingWorkspace.jsx:433:47",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "CRM opportunity",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -5575,21 +5577,21 @@
         },
         {
           "id": "pages/MarketingWorkspace.jsx:435:120",
-          "label": "Email, phone, or provider identity",
+          "label": "Consented identity reference",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/MarketingWorkspace.jsx:435:322",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Display label",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/MarketingWorkspace.jsx:436:51",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Marketing opportunity",
           "type": "select",
           "required": true,
           "mode": "guided",
@@ -5597,7 +5599,7 @@
         },
         {
           "id": "pages/MarketingWorkspace.jsx:441:81",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Lifecycle stage",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -5605,22 +5607,23 @@
         },
         {
           "id": "pages/MarketingWorkspace.jsx:441:333",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Contact permission",
           "type": "select",
           "required": false,
           "mode": "guided",
+          "user_only": true,
           "options": "Use the live authorized options shown on this screen."
         },
         {
           "id": "pages/MarketingWorkspace.jsx:442:49",
-          "label": "What business need or intent did the campaign reveal?",
+          "label": "Opportunity context",
           "type": "textarea",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/MarketingWorkspace.jsx:445:73",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "State",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -5628,7 +5631,7 @@
         },
         {
           "id": "pages/MarketingWorkspace.jsx:445:313",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Channel",
           "type": "select",
           "required": false,
           "mode": "guided",
@@ -5636,14 +5639,14 @@
         },
         {
           "id": "pages/MarketingWorkspace.jsx:446:49",
-          "label": "Unlabelled or dynamically labelled control",
+          "label": "Due date and time",
           "type": "datetime-local",
           "required": false,
           "mode": "guided"
         },
         {
           "id": "pages/MarketingWorkspace.jsx:447:43",
-          "label": "Concrete next step for the owner or Marketing Specialist",
+          "label": "Next action",
           "type": "textarea",
           "required": false,
           "mode": "guided"
@@ -5780,7 +5783,7 @@
         },
         {
           "id": "pages/MasterData.jsx:1302:14",
-          "label": "What this table is for — agents use this when choosing which master table to read/write",
+          "label": "Purpose / description",
           "type": "textarea",
           "required": false,
           "mode": "guided"
@@ -5947,7 +5950,7 @@
         },
         {
           "id": "pages/Objectives.jsx:60:44",
-          "label": "Exactly what counts and where the evidence comes from",
+          "label": "Definition",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -5968,7 +5971,7 @@
         },
         {
           "id": "pages/Objectives.jsx:65:294",
-          "label": "Continuous, time-bound, or event-led",
+          "label": "Operating mode",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -6055,7 +6058,7 @@
         },
         {
           "id": "pages/Objectives.jsx:92:167",
-          "label": "sales_warehouse",
+          "label": "Source ID",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -6150,7 +6153,7 @@
         },
         {
           "id": "pages/Objectives.jsx:94:395",
-          "label": "qualified_rate",
+          "label": "Formula ID",
           "type": "text",
           "required": false,
           "mode": "guided"
@@ -6164,7 +6167,7 @@
         },
         {
           "id": "pages/Objectives.jsx:94:793",
-          "label": "100 * qualified_count / researched_count",
+          "label": "Formula expression",
           "type": "text",
           "required": false,
           "mode": "guided"

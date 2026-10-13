@@ -4,6 +4,7 @@ import { readdirSync, readFileSync, writeFileSync, mkdirSync, existsSync } from 
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
+import { sourceFieldLabel } from './copilot-field-labels.mjs';
 const require=createRequire(import.meta.url),{parse}=require('@babel/parser');
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..'),src=join(root,'src');
 const files=[];
@@ -21,7 +22,7 @@ for(const file of [...files,join(src,'App.jsx')]){
  const controls=[];let formCount=0;
  walk(tree,(n,anc)=>{if(n.type!=='JSXOpeningElement')return;const tag=n.name?.name;if(tag==='form')formCount++;if(!['input','select','textarea'].includes(tag))return;
   const type=literal(attr(n,'type'))||(tag==='input'?'text':tag);
-  const label=literal(attr(n,'aria-label'))||literal(attr(n,'placeholder'))||literal(attr(n,'name'))||labelText([...anc].reverse().find(a=>a.type==='JSXElement'&&a.openingElement.name.name==='label'))||'Unlabelled or dynamically labelled control';
+  const label=sourceFieldLabel(n,anc);
   const protectedField=type==='password'||type==='file'||/password|secret|api.?key|token|credential|payment|credit.?card|permission|grant|mfa|otp|authorization/i.test(String(label));
   controls.push({id:`${relative(src,file).replaceAll('\\','/')}:${n.loc.start.line}:${n.loc.start.column}`,label:String(label),type,required:!!n.attributes.find(a=>a.name?.name==='required'),...(literal(attr(n,'min'))!==null?{min:literal(attr(n,'min'))}:{}),...(literal(attr(n,'max'))!==null?{max:literal(attr(n,'max'))}:{}),mode:'guided',...(protectedField?{user_only:true}:{}),...(tag==='select'?{options:'Use the live authorized options shown on this screen.'}:{})});
  });
