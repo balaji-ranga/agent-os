@@ -94,7 +94,12 @@ export default function PlatformHelpCopilot() {
     for(const [form,values] of Object.entries(baselines.current))if(values&&hasDraftContent(form,values)){s=await api.copilotUpdate(s.id,{version:s.version,draft:{form,values}});setSession(s);}
     const screen=catalog.screens?.find(x=>x.route.split('#')[0]===location.pathname)?.id;
     let embeddedFields=[],embeddedFieldLabels={};
-    if(['crm','erp'].includes(screen))try{const metadata=await requestCopilotEmbed('inspect');embeddedFields=metadata.fields||[];embeddedFieldLabels=metadata.field_labels||{};}catch{/* Explain unavailable bridge through empty metadata, never bypass it. */}
+    if(['crm','erp'].includes(screen)){
+      // Do not turn a missing/expired bridge into an invented model refusal.
+      // Preserve the user's message and expose the actual connection failure.
+      const metadata=await requestCopilotEmbed('inspect');
+      embeddedFields=metadata.fields||[];embeddedFieldLabels=metadata.field_labels||{};
+    }
     const next=await api.copilotPropose(s.id,{version:s.version,message:input,visible_control_ids:visibleCopilotControls(document),embedded_fields:embeddedFields,embedded_field_labels:embeddedFieldLabels,...(screen?{screen}:{})});
     setSession(next);setInput('');setNotice('');
     const prepared=next.proposal?.actions.find(a=>a.type==='fill'&&getCopilotForm(a.form));
