@@ -6,6 +6,8 @@ export function copilotScreenControls(route){
  return (record?.modules||[]).flatMap(id=>modules.get(id)?.controls||[]);
 }
 export function copilotScreenSpec(route){
+ const embedded=route.split(/[?#]/)[0].match(/^\/(crm|erp)$/)?.[1];
+ if(embedded)return {mode:'hybrid',embedded_screen:embedded,guidance:'This screen supports reviewed embed_fill and embed_guide through its embedded bridge, not native screen_fill controls. Use only available_embedded_fields from the current DOM inspection. Guided mode fills one reviewed field at a time. Ask the user to open a field if it is unavailable. Edits may auto-save; obtain explicit review before applying. Never submit, pay, delete or change access.'};
  const record=inventory.routes.find(r=>r.path===route);
  if(!record)return {mode:'guided',guidance:'Use the existing screen controls; no autofill adapter is registered.'};
  return {mode:'hybrid',guidance:'Use registered form contracts first. For eligible source-defined fields currently visible, screen_fill can propose reviewed values; screen_guide highlights the same control IDs. Guided mode fills one reviewed field at a time and asks for missing input in chat. Secret entry, uploads and security-sensitive actions remain user-controlled. Dynamic options must come from the current authorized screen. Some controls auto-save; explicit review is required.',modules:record.modules.map(id=>modules.get(id)).filter(Boolean).map(m=>({name:m.source.split('/').pop().replace(/\.jsx$/,''),fields:m.controls.map(({id,label,type,user_only,required})=>({id,label,type,required,...(user_only?{user_only:true}:{})}))}))};

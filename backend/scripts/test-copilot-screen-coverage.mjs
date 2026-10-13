@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {validateCopilotProposal} from '../src/services/ui-copilot-contract.js';
+import {copilotScreenSpec} from '../src/services/ui-copilot-screen-specs.js';
 const inventory=JSON.parse(readFileSync(new URL('../src/generated/copilot-screen-inventory.json',import.meta.url),'utf8'));
 const modules=new Map(inventory.modules.map(m=>[m.source,m]));
 let accepted=0,denied=0;
@@ -14,6 +15,12 @@ for(const route of inventory.routes){
  }
 }
 for(const screen of ['crm','erp']){
+ const spec=copilotScreenSpec(`/${screen}`);
+ assert.equal(spec.mode,'hybrid');
+ assert.equal(spec.embedded_screen,screen);
+ assert.match(spec.guidance,/available_embedded_fields/);
+ assert.match(spec.guidance,/embed_fill/);
+ assert.doesNotMatch(spec.guidance,/no autofill adapter/);
  const catalog={forms:{},agents:[],screens:[{id:screen,route:`/${screen}`}]};
  assert.equal(validateCopilotProposal({message:'Guide',actions:[{type:'embed_guide',screen,field:'name'}]},catalog).actions[0].field,'name');
  assert.throws(()=>validateCopilotProposal({message:'Guide',actions:[{type:'embed_guide',screen,field:'password'}]},catalog));
