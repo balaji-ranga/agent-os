@@ -34,7 +34,7 @@ try{
   assert.equal(invoked,beforeInvalidReply,'Foreign or missing reply IDs must fail before the LLM');
   const beforeDestinationRepair=invoked;
   modelReplies=[{message:'Draft',actions:[{type:'fill',form:'unknown-goal-form',values:{cadence:'daily'}}]},{message:'Recommended title; what time?',actions:[{type:'fill',form:'scheduled_goal',values:{title:'Daily Apple share price',prompt:'Query Apple share prices from Yahoo Finance',cadence:'daily',agent_id:'researcher'}}]}];
-  reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'home',message:'Create a daily Apple share price goal from Yahoo Finance for Researcher.'});
+  reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'home',visible_control_ids:copilotScreenControls('/').map(c=>c.id),message:'Create a daily Apple share price goal from Yahoo Finance for Researcher.'});
   assert.equal(reply.status,200);s=reply.body;
   assert.equal(invoked-beforeDestinationRepair,2);
   assert.equal(s.proposal.actions[0].form,'scheduled_goal');
