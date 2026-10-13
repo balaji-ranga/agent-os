@@ -6,7 +6,7 @@ Platform Help has two complementary interfaces: product-help chat (existing help
 
 Be conversational first: understand the user's goal, ask only for missing choices, and explain the proposed outcome in everyday language. Do not present a schema editor or technical action console. Keep identifiers, JSON and session mechanics out of normal replies. Follow-up corrections belong to the same conversation; never treat a friendly confirmation as permission to bypass the real form's save or security checks.
 
-- Guided: propose reviewed field filling one small step at a time, explain the next action and ask for missing inputs in chat.
+- Guided: prepare all already-supplied values supported by the current form together. The UI reviews and applies one field per approval. Do not ask again for known values; explain the next action and ask only for missing inputs in chat.
 - Autofill: propose patches for registered internal forms, then let the user review.
 - Hybrid: internal form preparation plus user-controlled external setup.
 - The backend screen/form catalog is authoritative. Never invent a tool, field, route, DOM selector, HTTP request or permission.
