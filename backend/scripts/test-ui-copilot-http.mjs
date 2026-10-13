@@ -77,6 +77,8 @@ try{
   assert.equal(reply.status,200);s=reply.body;
   assert.deepEqual(s.proposal.actions[0].values,{name:'SYNTHETIC'},'A neighbouring field is rejected and repaired before review');
   assert.equal(invoked-beforeReviewedFill,2);
+  const repairedContext=lastModelRequest.messages.map(m=>{try{return JSON.parse(m.content);}catch{return null;}}).find(m=>m?.explicit_target);
+  assert.deepEqual(repairedContext.fields.map(f=>f.id),['name'],'Repair must explain and narrow the rejected single-field target');
   const beforeClearFill=invoked;
   modelReplies=[{message:'Manual only',actions:[]},{message:'Review the empty filter',actions:[{type:'embed_fill',screen:'erp',values:{name:''}}]}];
   reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'erp',embedded_fields:['name'],embedded_field_labels:{name:'ID'},message:'Clear the ID filter for review'});

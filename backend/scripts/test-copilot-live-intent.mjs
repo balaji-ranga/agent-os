@@ -42,5 +42,8 @@ try{
   const tableResponse=await fetch(base+`/session/${session.id}/propose`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({version:follow.version,screen:'home',message:'Create a new knowledge table for supplier contacts with columns Company, Contact name, Email. Recommend a descriptive name and purpose. Do not save it.'})});
   const table=await tableResponse.json();assert.equal(tableResponse.status,200,JSON.stringify(table));
   const tableDraft=table.proposal.actions.find(a=>a.form==='knowledge_table');assert(tableDraft?.values.name);assert(tableDraft.values.purpose);assert.match(tableDraft.values.columns,/Email/i);
+  const filterResponse=await fetch(base+`/session/${session.id}/propose`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({version:table.version,screen:'erp',embedded_fields:['name','filter name','title','customer','company'],embedded_field_labels:{name:'ID','filter name':'Filter Name',title:'Title',customer:'Customer',company:'Company'},message:'Filter the invoice list by ID COPILOT-UAT-NO-MATCH. Only fill the search filter; do not create, edit or submit an invoice.'})});
+  const filter=await filterResponse.json();assert.equal(filterResponse.status,200,JSON.stringify(filter));
+  assert.deepEqual(filter.proposal.actions.find(a=>a.type==='embed_fill')?.values,{name:'COPILOT-UAT-NO-MATCH'},'Explicit visible caption must map to its exact field, not a neighbouring filter');
   console.log('PASS synthetic live intent coverage; no goals saved or activated.');
 }finally{await new Promise(r=>server.close(r));db.close();}
