@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {findGuideField,highlightGuideField,revealRegisteredForm} from '../src/utils/copilotGuide.js';
-import {captureDomFields,visibleCopilotOptions} from '../src/utils/copilotDomFill.js';
+import {captureDomFields,applyDomFields,visibleCopilotOptions} from '../src/utils/copilotDomFill.js';
 const field=(overrides={})=>({name:'name',id:'',type:'text',labels:[],getAttribute:()=>null,closest:()=>null,getClientRects:()=>[{}],...overrides});
 const root=items=>({querySelectorAll:()=>items});
 const name=field();
@@ -27,3 +27,21 @@ const dropdown=field({getAttribute:()=> 'pages/Connector:1',options:[{value:'ics
 Object.defineProperty(dropdown,'value',{get(){throw Error('Must not read selection');}});
 assert.deepEqual(visibleCopilotOptions(root([dropdown])),{'pages/Connector:1':[{value:'ics',label:'Published calendar'}]});
 assert.deepEqual(visibleCopilotOptions(root([field({hidden:true}),field({getAttribute:()=> 'pages/ApiKeys:1'})])),{});
+class Input {
+  constructor(value){this._value=value;this.events=[];this.type='text';this.tagName='INPUT';this.isConnected=true;this.maxLength=100;this.ownerDocument={defaultView:{HTMLInputElement:Input,Event:class{constructor(type){this.type=type;}}}};}
+  get value(){return this._value;}set value(value){this._value=value;}
+  getClientRects(){return [{}];}cloneNode(){return {value:'',checkValidity:()=>true};}
+  dispatchEvent(event){this.events.push(event.type);}
+}
+const dependent=new Input('calendar.event.changed');
+applyDomFields({event:{element:dependent,value:'email.received'}},{event:'calendar.event.changed'});
+assert.deepEqual(dependent.events,[],'Already satisfied dependent fields must not dispatch another write');
+dependent.value='User changed';
+assert.throws(()=>applyDomFields({event:{element:dependent,value:'email.received'}},{event:'calendar.event.changed'}),/form changed/);
+assert.equal(dependent.value,'User changed');
+const valid=new Input('Before');
+assert.throws(()=>applyDomFields({first:{element:valid,value:'Before'},event:{element:dependent,value:'email.received'}},{first:'After',event:'calendar.event.changed'}),/form changed/);
+assert.equal(valid.value,'Before','Preflight rejects the whole batch before writing');
+applyDomFields({first:{element:valid,value:'Before'}},{first:'After'});
+assert.equal(valid.value,'After');assert.deepEqual(valid.events,['input','change']);
+console.log('PASS DOM fill: controlled-input events, dependent no-op, stale-edit protection and all-or-nothing preflight.');
