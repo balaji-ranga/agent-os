@@ -67,7 +67,10 @@ if mode=='prepare':
  (context/'.dockerignore').write_text('**/node_modules\n**/dist\n**/.git\n**/.env*\n')
  # Regenerate inventories from the merged running UI, not a stale local tree.
  run('docker','run','--rm','-v',f'{context}:/release','-w','/release/frontend','node:22-bookworm-slim','sh','-c','npm ci && node scripts/generate-copilot-screen-inventory.mjs')
- for p in ['backend/src/generated/copilot-screen-inventory.json','frontend/src/generated/copilot-screen-inventory.json']:shutil.copy2(context/p,release/'host-source'/p)
+ for p in ['backend/src/generated/copilot-screen-inventory.json','frontend/src/generated/copilot-screen-inventory.json']:
+  destination=release/'host-source'/p
+  destination.parent.mkdir(parents=True,exist_ok=True)
+  shutil.copy2(context/p,destination)
  (context/'backend.release.Dockerfile').write_text(f'FROM agent-os-backend:copilot-rollback-{revision}\nCOPY backend /opt/agent-os/backend\nCOPY openclaw-workspace-templates /opt/agent-os/openclaw-workspace-templates\nCOPY knowledgebase/platform-help /opt/agent-os/knowledgebase/platform-help\nWORKDIR /opt/agent-os/backend\n')
  (context/'frontend.release.Dockerfile').write_text(f'FROM node:22-bookworm-slim AS build\nWORKDIR /app\nCOPY frontend/package*.json ./\nRUN npm ci\nCOPY frontend ./\nENV VITE_API_URL=/api\nRUN npm run test:chat && npm run build\nFROM agent-os-frontend:copilot-rollback-{revision}\nLABEL org.flolah.copilot.source-context="{context}"\nCOPY --from=build /app/dist /usr/share/nginx/html\n')
  for s in ['backend','frontend']:run('docker','build','-f',str(context/f'{s}.release.Dockerfile'),'-t',f'agent-os-{s}:copilot-{revision}',str(context))
