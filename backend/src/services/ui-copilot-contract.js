@@ -1,7 +1,7 @@
 import { validateSelection } from './knowledge-selection.js';
 import { copilotScreenControls } from './ui-copilot-screen-specs.js';
 import { isCopilotFillableField } from './ui-copilot-field-policy.js';
-import {embeddedFieldAllowed,embeddedPathAllowed} from './ui-copilot-embedded-policy.js';
+import {embeddedFieldAllowed,embeddedPathAllowed,embeddedFormAllowed} from './ui-copilot-embedded-policy.js';
 // Deliberately bounded UI assistance. These contracts never authorize API writes.
 export const COPILOT_VERSION = 1;
 export const COPILOT_FORMS = {
@@ -95,6 +95,10 @@ export function normalizeCopilotScreenActions(input,catalog,currentScreenId,visi
 export function validateCopilotProposal(input, catalog) {
   if (!input || typeof input.message !== 'string' || input.message.length > 6000 || !Array.isArray(input.actions) || input.actions.length > 5) throw copilotError('Invalid assistant response');
   const actions = input.actions.map(action => {
+    if(action.type==='embed_open_form'){
+      if(!['crm','erp'].includes(action.screen)||!catalog.screens.some(s=>s.id===action.screen)||!embeddedFormAllowed(action.label))throw copilotError('Embedded form is not available');
+      return {type:'embed_open_form',screen:action.screen,label:action.label};
+    }
     if(action.type==='embed_navigate'){
       if(!catalog.screens.some(s=>s.id===action.screen)||!embeddedPathAllowed(action.screen,action.path))throw copilotError('Embedded destination is not available');
       return {type:'embed_navigate',screen:action.screen,path:action.path};

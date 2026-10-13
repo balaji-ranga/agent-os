@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
-import {embeddedFieldAllowed,embeddedPathAllowed} from '../src/services/ui-copilot-embedded-policy.js';
+import {embeddedFieldAllowed,embeddedPathAllowed,embeddedFormAllowed} from '../src/services/ui-copilot-embedded-policy.js';
+assert(embeddedFormAllowed('Create new Opportunity'));assert(embeddedFormAllowed('Add Customer'));
+for(const label of ['Delete Opportunity','Submit','Add Payment','New User Permission','New Journal','Create new API Key'])assert(!embeddedFormAllowed(label));
 for(const name of ['amount','description','customer name','territory','close date'])assert(embeddedFieldAllowed(name));
 for(const name of ['password','api key','bank account','permissions','javascript','owner','credit card'])assert(!embeddedFieldAllowed(name));
 assert(embeddedPathAllowed('crm','/objects/opportunities?viewId=test'));

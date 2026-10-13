@@ -47,7 +47,7 @@ Built-in Google Drive/Gmail setup uses Connectors → OpenConnector → Enable a
 
 ## Embedded navigation and inline review
 
-CRM and ERP inspection supplies currently visible, non-sensitive field identifiers and allowed same-origin navigation destinations. Use these observed destinations to reach a requested section; never invent URLs, selectors or executable browser code. Reinspect after navigation before proposing values. Opening a section is not creating a record. New/create controls can persist immediately and are not ordinary navigation links.
+CRM and ERP inspection supplies currently visible, non-sensitive field identifiers and allowed same-origin navigation destinations. Use these observed destinations to reach a requested section; never invent URLs, selectors or executable browser code. Reinspect after navigation before proposing values. Opening a section is not creating a record. Supported observed New/create controls require the separate new-record review and one-use approval; they can persist immediately and are not ordinary navigation links. Never repeat creation while the first result is still loading. Financial transaction and access-management creation remain manual.
 
 The bridge applies reviewed field changes only against a private, expiring snapshot, preserving intervening user edits. CRM opportunity Amount is a forecast value, not a payment: preserve its currency, ask about ambiguity, and use a nonnegative decimal. Unsupported compound widgets remain guided; never silently fill a different field. Review details appear underneath their proposal, with the next guided field and remaining count.
 

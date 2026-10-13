@@ -74,11 +74,12 @@ console.log('PASS expired embedded review: no writes, actionable allowlisted fai
 let navHandler,navClicks=0;const navReplies=[];
 const navParent={postMessage:m=>navReplies.push(m)};
 const navLink={tagName:'A',textContent:'Opportunities',getClientRects:()=>[{}],getAttribute:()=>'/objects/opportunities?viewId=test',click(){navClicks++;}};
-vm.runInNewContext(code,{URL,window:{parent:navParent,addEventListener:(_,fn)=>navHandler=fn},document:{querySelectorAll:s=>s==='a[href]'?[navLink]:[]},location:{pathname:'/objects/companies',href:'https://crm.example/objects/companies',origin:'https://crm.example'}});
+let assignedPath;
+vm.runInNewContext(code,{URL,setTimeout:fn=>fn(),window:{parent:navParent,addEventListener:(_,fn)=>navHandler=fn},document:{querySelectorAll:s=>s==='a[href]'?[navLink]:[]},location:{pathname:'/objects/companies',href:'https://crm.example/objects/companies',origin:'https://crm.example',assign:path=>{assignedPath=path;}}});
 const nav=data=>navHandler({origin:'https://login.flolah.cloud',source:navParent,data:{type:'flolah-copilot-guide',request:'nav',...data}});
 await nav({command:'inspect'});assert.equal(navReplies.at(-1).navigation[0].path,'/objects/opportunities?viewId=test');assert.equal(navClicks,0);
 await nav({command:'navigate',path:'https://evil.example'});assert.equal(navReplies.at(-1).ok,false);
-await nav({command:'navigate',path:'/objects/opportunities?viewId=test'});assert.equal(navReplies.at(-1).ok,true);assert.equal(navClicks,1);
+await nav({command:'navigate',path:'/objects/opportunities?viewId=test'});assert.equal(navReplies.at(-1).navigation_requested,true);assert.equal(assignedPath,'/objects/opportunities?viewId=test');assert.equal(navClicks,0);
 navLink.getAttribute=()=>'/app/payment-entry';await nav({command:'inspect'});assert.equal(navReplies.at(-1).navigation.length,0);
 console.log('PASS embedded navigation: observed same-origin destinations only; no external URLs or payment paths.');
 let amountHandler;const amountReplies=[],amountInput=new NativeInput();amountInput.getAttribute=k=>k==='placeholder'?'Currency':null;
@@ -90,3 +91,12 @@ await amount({command:'prepare'});let amountSnapshot=amountReplies.at(-1).snapsh
 await amount({command:'fill',snapshot:amountSnapshot,values:{amount:'$1,000'}});assert.equal(amountReplies.at(-1).ok,false);
 await amount({command:'fill',snapshot:amountSnapshot,values:{amount:'1250.50'}});assert.equal(amountReplies.at(-1).ok,true);assert.equal(amountInput.value,'1250.50');assert(amountInput.events.includes('keydown'));
 console.log('PASS opportunity amount: compound-editor identity, numeric validation and reviewed commit; no currency change.');
+let formHandler,formClicks=0;const formReplies=[],formParent={postMessage:m=>formReplies.push(m)};
+const newButton={tagName:'BUTTON',getClientRects:()=>[{}],getAttribute:()=> 'Create new Opportunity',click(){formClicks++;}};
+vm.runInNewContext(code,{window:{parent:formParent,addEventListener:(_,fn)=>formHandler=fn},document:{querySelectorAll:s=>s==='button'?[newButton]:[]},location:{pathname:'/objects/opportunities'},crypto:{randomUUID:()=>String(formReplies.length)}});
+const form=data=>formHandler({origin:'https://login.flolah.cloud',source:formParent,data:{type:'flolah-copilot-guide',request:'form',...data}});
+await form({command:'open_form',label:'Create new Opportunity'});assert.equal(formClicks,0);
+await form({command:'prepare_open_form',label:'Create new Opportunity'});const formSnapshot=formReplies.at(-1).snapshot;assert(formSnapshot);assert.equal(formClicks,0);
+await form({command:'open_form',label:'Create new Opportunity',snapshot:formSnapshot});assert.equal(formReplies.at(-1).creation_requested,true);assert.equal(formClicks,1);
+await form({command:'open_form',label:'Create new Opportunity',snapshot:formSnapshot});assert.equal(formReplies.at(-1).ok,false);assert.equal(formClicks,1);
+console.log('PASS new-record recipe: observed button, separate review, one-use approval, no replay.');

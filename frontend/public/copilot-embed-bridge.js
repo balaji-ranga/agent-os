@@ -9,6 +9,7 @@
   if(window.parent===window)return;
   let highlighted=null;
   let prepared=null;
+  let preparedForm=null;
   const clear=()=>{if(highlighted){highlighted.style.outline=highlighted.dataset.flolahPriorOutline||'';delete highlighted.dataset.flolahPriorOutline;highlighted=null;}};
   const allowed={has:key=>typeof key==='string'&&key.length>0&&key.length<=100&&/^[a-z][a-z0-9 ._-]*$/.test(key)&&!/password|secret|token|credential|permission|grant|mfa|otp|payment|credit.?card|bank|budget|authority|retention|delete|purge|\bscript\b|javascript|webhook|callback|api.?key|owner|\brole\b|access|account|\bcode\b/.test(key)};
   const amountOpeners=()=>/^\/object\/opportunity\/[\w-]+$/.test(location.pathname)?[...document.querySelectorAll('[id^="fields-"][id$="-amount"]')].filter(el=>el.getClientRects().length):[];
@@ -20,9 +21,13 @@
   };
   const navigations=()=>[...document.querySelectorAll('a[href]')].filter(el=>el.tagName==='A'&&el.getClientRects().length).flatMap(el=>{
     try{const u=new URL(el.getAttribute('href'),location.href),path=u.pathname+u.search;
-      const safe=/^\/objects\/[a-z][a-z0-9-]*(?:\?viewId=[a-zA-Z0-9-]+)?$/.test(path)||(/^\/app\/[a-z][a-z0-9-]*$/.test(path)&&!/(user|role|permission|setting|payment|bank|credential|token|oauth|integration)/i.test(path));
+      const safe=/^\/(?:objects\/[a-z][a-z0-9-]*|object\/[a-z][a-z0-9-]*\/[a-zA-Z0-9-]+)(?:\?viewId=[a-zA-Z0-9-]+)?$/.test(path)||(/^\/app\/[a-z][a-z0-9-]*$/.test(path)&&!/(user|role|permission|setting|payment|bank|credential|token|oauth|integration)/i.test(path));
       return u.origin===location.origin&&safe?[{element:el,path,label:String(el.textContent||'').trim().slice(0,100)}]:[];
     }catch{return [];}
+  });
+  const newForms=()=>[...document.querySelectorAll('button')].filter(el=>el.tagName==='BUTTON'&&!el.disabled&&el.getClientRects().length).flatMap(element=>{
+    const text=String(element.getAttribute('aria-label')||element.textContent||'').trim(),match=/^(?:Create new|Add|New) ([A-Za-z][A-Za-z ]+)$/.exec(text);
+    return match&&allowed.has(match[1].toLowerCase())&&!/invoice|journal|order|stock|transaction|fiscal|company setup/i.test(match[1])?[{element,label:text}]:[];
   });
   const fields=()=>[...document.querySelectorAll('input,textarea,select')].filter(el=>!el.disabled&&!el.readOnly&&!el.hidden&&el.getClientRects().length&&!['password','hidden','file','submit','button','checkbox','radio'].includes(el.type)&&allowed.has(label(el)));
   const nameOpener=()=>/^\/object\/(company|person|opportunity|task)\/[\w-]+$/.test(location.pathname)?[...document.querySelectorAll('[data-testid="top-bar-title"]')].filter(el=>el.getClientRects().length):[];
@@ -47,9 +52,19 @@
     if(event.origin!==parentOrigin||event.source!==window.parent||event.data?.type!=='flolah-copilot-guide'||typeof event.data.request!=='string'||event.data.request.length>100)return;
     const {command,field,request}=event.data;
     let result={ok:false};
+    if(command==='prepare_open_form'){
+      const matches=newForms().filter(item=>item.label===event.data.label);
+      if(matches.length===1){preparedForm={snapshot:crypto.randomUUID(),element:matches[0].element,label:matches[0].label,path:location.pathname,expires:Date.now()+60000};result={ok:true,snapshot:preparedForm.snapshot,immediate_save:true};}
+    }
+    if(command==='open_form'){
+      const p=preparedForm;preparedForm=null;
+      if(p&&p.snapshot===event.data.snapshot&&p.label===event.data.label&&p.path===location.pathname&&p.expires>Date.now()&&newForms().some(f=>f.element===p.element&&f.label===p.label)){
+        p.element.click();result={ok:true,creation_requested:true};
+      }else result={ok:false,reason:'review_required'};
+    }
     if(command==='navigate'){
       const matches=navigations().filter(n=>n.path===event.data.path);
-      if(matches.length===1){prepared=null;clear();matches[0].element.click();result={ok:true};}
+      if(matches.length===1){prepared=null;preparedForm=null;clear();const destination=matches[0].path;result={ok:true,navigation_requested:true};setTimeout(()=>location.assign(destination),50);}
       else result={ok:false,reason:'screen_changed'};
     }
     if(command==='fill'){
@@ -109,9 +124,9 @@
       const fieldLabels=Object.fromEntries(visible.map(el=>[label(el),String(el.getAttribute('placeholder')||el.getAttribute('aria-label')||label(el)).slice(0,120)]));
       if(nameOpener().length===1)fieldLabels.name='Name';
       if(amountOpeners().length===1)fieldLabels.amount='Opportunity amount (existing currency unchanged)';
-      result={ok:true,fields:[...new Set([...visible.map(label),...(nameOpener().length===1?['name']:[]),...(amountOpeners().length===1?['amount']:[])])],field_labels:fieldLabels,navigation:navigations().map(({path,label})=>({path,label})),mode:'guided',reason:'Embedded edits may save immediately; review proposed values before applying.'};
+      result={ok:true,path:location.pathname+(location.search||''),fields:[...new Set([...visible.map(label),...(nameOpener().length===1?['name']:[]),...(amountOpeners().length===1?['amount']:[])])],field_labels:fieldLabels,navigation:navigations().map(({path,label})=>({path,label})),forms:newForms().map(f=>f.label),mode:'guided',reason:'Embedded edits may save immediately; review proposed values before applying.'};
     }
-    if(command==='clear'){clear();prepared=null;result={ok:true};}
+    if(command==='clear'){clear();prepared=null;preparedForm=null;result={ok:true};}
     if(command==='focus'&&allowed.has(field)){
       clear();const matches=fields().filter(el=>label(el)===field);
       if(matches.length===1){highlighted=matches[0];highlighted.dataset.flolahPriorOutline=highlighted.style.outline;highlighted.style.outline='3px solid #7654e8';highlighted.scrollIntoView({block:'center'});highlighted.focus({preventScroll:true});result={ok:true};}

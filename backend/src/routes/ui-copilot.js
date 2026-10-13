@@ -11,7 +11,7 @@ import { getConnectedConnectorApps } from '../services/openconnector.js';
 import { copilotScreenSpec, copilotScreenControls, copilotScreenSections } from '../services/ui-copilot-screen-specs.js';
 import { withCurrentCopilotScreen } from '../services/ui-copilot-current-screen.js';
 import { copilotFillReceipt } from '../services/ui-copilot-progress.js';
-import {embeddedFieldAllowed,embeddedPathAllowed} from '../services/ui-copilot-embedded-policy.js';
+import {embeddedFieldAllowed,embeddedPathAllowed,embeddedFormAllowed} from '../services/ui-copilot-embedded-policy.js';
 
 const destinations = [
   ['home','Home','/'], ['this-week','Digest','/this-week'], ['work','Workspace','/work'],
@@ -133,6 +133,7 @@ router.post('/session/:id/propose',handler(async req=> {
   const currentSpec=activeScreen?copilotScreenSpec(activeScreen.route,visible,req.body.visible_control_options||{}):null;
   const embeddedFields=['crm','erp'].includes(activeScreen?.id)&&Array.isArray(req.body.embedded_fields)?[...new Set(req.body.embedded_fields.filter(embeddedFieldAllowed))].slice(0,100):[];
   const embeddedNavigation=(Array.isArray(req.body.embedded_navigation)?req.body.embedded_navigation:[]).filter(n=>embeddedPathAllowed(activeScreen?.id,n?.path)&&typeof n.label==='string').slice(0,60).map(n=>({path:n.path,label:n.label.slice(0,100)}));
+  const embeddedForms=['crm','erp'].includes(activeScreen?.id)&&Array.isArray(req.body.embedded_forms)?req.body.embedded_forms.filter(embeddedFormAllowed).slice(0,20):[];
   const embeddedFieldLabels=Object.fromEntries(embeddedFields.map(field=>[field,typeof req.body.embedded_field_labels?.[field]==='string'?req.body.embedded_field_labels[field].slice(0,120):field]));
   // Operational metadata only: never log prompts, field values or credentials.
   console.info('[copilot-screen-context]',JSON.stringify({screen:activeScreen?.id||null,embeddedFields,captionCount:Object.keys(embeddedFieldLabels).length,visibleControlCount:visible.length}));
@@ -153,7 +154,8 @@ router.post('/session/:id/propose',handler(async req=> {
     context.previous_proposal=previous?{actions:previous.actions}:null;
     completionRequest.messages[1].content=JSON.stringify(context);
   }
-  completionRequest.messages.splice(1,0,{role:'user',content:JSON.stringify({context_only:true,available_embedded_navigation:embeddedNavigation})});
+  completionRequest.messages.splice(1,0,{role:'user',content:JSON.stringify({context_only:true,available_embedded_navigation:embeddedNavigation,available_embedded_forms:embeddedForms})});
+  completionRequest.messages[0].content+=' When the user explicitly requests creating a record and the matching Create/Add/New form is currently listed in available_embedded_forms, propose {type:"embed_open_form",screen:"crm|erp",label:"exact observed label"}. The UI requires a separate review and approval, because CRM creates immediately. Never use this for existing-record edits or mere navigation. Do not create duplicate records; inspect the result and fill that record next. Never claim this action is an unsaved draft.';
   completionRequest.messages[0].content=completionRequest.messages[0].content.replace('In guided mode use no fill actions.','In guided mode prepare all requested values that the current authorized form supports in one reviewed patch. The UI applies them one field per approval. Do not drop known values or ask for information already supplied. Ask only for missing required choices.');
   completionRequest.messages[0].content+=' Field labels and placeholder examples describe controls; they are never requested values. Use the user\'s supplied values exactly. If the requested field is unavailable, explain that instead of substituting another field or copying its placeholder.';
   completionRequest.messages.splice(1,0,{role:'user',content:JSON.stringify({context_only:true,fill_progress:old.fill_receipts||[]})});
@@ -186,6 +188,7 @@ router.post('/session/:id/propose',handler(async req=> {
       for(const action of proposal.actions)if(action.type==='screen_fill'&&(action.screen!==activeScreen?.id||Object.keys(action.values).some(id=>!visible.includes(id))))throw copilotError('Only currently visible fields may be filled');
       for(const action of proposal.actions)if(action.type==='embed_fill'&&(action.screen!==activeScreen?.id||Object.keys(action.values).some(id=>!embeddedFields.includes(id))))throw copilotError('Only currently available embedded fields may be filled');
       for(const action of proposal.actions)if(action.type==='embed_navigate'&&(action.screen!==activeScreen?.id||!embeddedNavigation.some(n=>n.path===action.path)))throw copilotError('Only currently observed embedded destinations may be opened');
+      for(const action of proposal.actions)if(action.type==='embed_open_form'&&(action.screen!==activeScreen?.id||!embeddedForms.includes(action.label)))throw copilotError('Only currently observed new-record forms may be opened');
       for(const action of proposal.actions.filter(a=>a.type==='screen_fill'))for(const [id,value] of Object.entries(action.values)){
         const field=currentSpec?.modules?.flatMap(m=>m.fields).find(f=>f.id===id);
         if(field?.type==='select'&&!field.allowed_options.some(o=>o.value===value))throw copilotError('Choose a current permitted option');

@@ -36,6 +36,7 @@ export default function PlatformHelpCopilot() {
   const [watch,setWatch]=useState(null),[helpChat,setHelpChat]=useState(false);
   const [review,setReview]=useState(null);
   const [guide,setGuide]=useState(null);
+  const [completedActions,setCompletedActions]=useState([]);
   useEffect(()=>{
     if(!guide||!open||session?.status!=='active')return;
     const form=guide.action.type==='screen_guide'?catalog?.screens.find(s=>s.id===guide.action.screen):catalog?.forms[guide.action.form];
@@ -99,15 +100,15 @@ export default function PlatformHelpCopilot() {
     baselines.current=Object.fromEntries(Object.keys(catalog.forms).map(id=>[id,getCopilotForm(id)?.read()]));
     for(const [form,values] of Object.entries(baselines.current))if(values&&hasDraftContent(form,values)){s=await api.copilotUpdate(s.id,{version:s.version,draft:{form,values}});setSession(s);}
     const screen=catalog.screens?.find(x=>x.route.split('#')[0]===location.pathname)?.id;
-    let embeddedFields=[],embeddedFieldLabels={},embeddedNavigation=[];
+    let embeddedFields=[],embeddedFieldLabels={},embeddedNavigation=[],embeddedForms=[];
     if(['crm','erp'].includes(screen)){
       // Do not turn a missing/expired bridge into an invented model refusal.
       // Preserve the user's message and expose the actual connection failure.
       const metadata=await requestCopilotEmbed('inspect');
-      embeddedFields=metadata.fields||[];embeddedFieldLabels=metadata.field_labels||{};embeddedNavigation=metadata.navigation||[];
+      embeddedFields=metadata.fields||[];embeddedFieldLabels=metadata.field_labels||{};embeddedNavigation=metadata.navigation||[];embeddedForms=metadata.forms||[];
     }
-    const next=await api.copilotPropose(s.id,{version:s.version,message:input,screen_path:location.pathname,visible_control_ids:visibleCopilotControls(document),visible_control_options:visibleCopilotOptions(document),embedded_fields:embeddedFields,embedded_field_labels:embeddedFieldLabels,embedded_navigation:embeddedNavigation,...(screen?{screen}:{})});
-    setSession(next);setInput('');setNotice('');
+    const next=await api.copilotPropose(s.id,{version:s.version,message:input,screen_path:location.pathname,visible_control_ids:visibleCopilotControls(document),visible_control_options:visibleCopilotOptions(document),embedded_fields:embeddedFields,embedded_field_labels:embeddedFieldLabels,embedded_navigation:embeddedNavigation,embedded_forms:embeddedForms,...(screen?{screen}:{})});
+    setSession(next);setInput('');setNotice('');setCompletedActions([]);
     const prepared=next.proposal?.actions.find(a=>a.type==='fill'&&getCopilotForm(a.form));
     if(prepared){showForm(prepared.form);setReview({action:prepared,anchor:reviewKey(prepared),expected:baselines.current[prepared.form]??getCopilotForm(prepared.form).read()});}
   });}
@@ -124,7 +125,13 @@ export default function PlatformHelpCopilot() {
     navigate(route,{state});
   }
   async function apply(action){
+    if(completedActions.includes(reviewKey(action)))throw new Error('This New action was already requested. Inspect its result before asking to create another record.');
     const fresh=await api.copilotCatalog(location.pathname);
+    if(action.type==='embed_open_form'){
+      if(!fresh.screens.some(s=>s.id===action.screen&&s.route===location.pathname))throw new Error('Open the requested workspace first.');
+      const prepared=await requestCopilotEmbed('prepare_open_form',null,{label:action.label});
+      setReview({action,anchor:reviewKey(action),embedSnapshot:prepared.snapshot});return;
+    }
     if(action.type==='embed_fill'){
       if(!fresh.screens.some(s=>s.id===action.screen&&s.route===location.pathname))throw new Error('Open the requested embedded screen first.');
       const prepared=await requestCopilotEmbed('prepare',null,{fields:Object.keys(action.values)});
@@ -146,6 +153,13 @@ export default function PlatformHelpCopilot() {
   }
   async function confirmFields(){
     const fresh=await api.copilotCatalog(location.pathname);
+    if(review.action.type==='embed_open_form'){
+      if(!fresh.screens.some(s=>s.id===review.action.screen&&s.route===location.pathname))throw new Error('The workspace or your access changed.');
+      const action=review.action,snapshot=review.embedSnapshot;setReview(null);
+      await requestCopilotEmbed('open_form',null,{label:action.label,snapshot});
+      setCompletedActions(items=>[...items,reviewKey(action)]);
+      setNotice('The approved New action was requested. Check the resulting record/form before continuing; do not create another if it is still loading. Tell me to continue with the requested values.');return;
+    }
     if(review.action.type==='embed_fill'){
       if(!fresh.screens.some(s=>s.id===review.action.screen&&s.route===location.pathname))throw new Error('The embedded screen or permissions changed.');
       const entries=Object.entries(review.action.values),values=session.mode==='guided'?Object.fromEntries(entries.slice(0,1)):review.action.values;
@@ -184,8 +198,14 @@ export default function PlatformHelpCopilot() {
     const fresh=await api.copilotCatalog(location.pathname);
     if(action.type==='embed_navigate'){
       if(!fresh.screens.some(s=>s.id===action.screen&&s.route===location.pathname))throw new Error('Open the requested embedded workspace first.');
-      await requestCopilotEmbed('navigate',null,{path:action.path});setReview(null);
-      setNotice('Opened the requested section. Tell me to continue, and I’ll inspect its current fields. No record was created or submitted.');return;
+      await requestCopilotEmbed('navigate',null,{path:action.path});setReview(null);setNotice('Opening the requested section…');
+      let arrived=false;
+      for(let attempt=0;attempt<5&&!arrived;attempt++){
+        await new Promise(resolve=>setTimeout(resolve,700));
+        try{arrived=(await requestCopilotEmbed('inspect')).path===action.path;}catch{/* Frame may be loading. */}
+      }
+      if(!arrived)throw new Error('Navigation was requested, but the destination is not confirmed. Check the embedded page before continuing.');
+      setNotice('The requested section is now open. Tell me to continue and I’ll inspect its fields. No record was created or submitted.');return;
     }
     if(action.type==='embed_guide'){
       const screen=fresh.screens.find(s=>s.id===action.screen);
@@ -210,7 +230,10 @@ export default function PlatformHelpCopilot() {
   }
   async function startWatch(provider){await update({watch:provider});setWatch(provider);setNotice(`Checking ${provider}. Complete authorization yourself in Connectors.`);}
   const help=catalog?.agents.find(a=>/platform.?help/i.test(`${a.id} ${a.name}`));
-  const renderReview=()=>review&&<section className="copilot-inline-review" ref={reviewPanel} tabIndex={-1} aria-label="Review field changes">
+  const renderReview=()=>review?.action.type==='embed_open_form'?<section className="copilot-inline-review" ref={reviewPanel} tabIndex={-1} aria-label="Review new record">
+    <strong>{review.action.label}</strong><p>This action may create and save a new record immediately. It is not just navigation. Approve only if you want a new record.</p>
+    <button className="btn-primary" disabled={busy||session?.status!=='active'} onClick={()=>run(confirmFields)}>Approve new record</button><button disabled={busy} onClick={()=>setReview(null)}>Cancel creation</button>
+  </section>:review&&<section className="copilot-inline-review" ref={reviewPanel} tabIndex={-1} aria-label="Review field changes">
     <strong>Review these details</strong>
     <p>{['screen_fill','embed_fill'].includes(review.action.type)?'These values will be entered on this screen. Some fields save immediately.':'Nothing has been filled or saved yet.'}</p>
     {session?.mode==='guided'&&<p>Next: {review.action.labels?.[Object.keys(review.action.values)[0]]||fieldLabels[Object.keys(review.action.values)[0]]||Object.keys(review.action.values)[0]} · {Object.keys(review.action.values).length} field(s) remaining</p>}
@@ -236,7 +259,7 @@ export default function PlatformHelpCopilot() {
           {session?.proposal&&!session?.conversation?.length&&<p className="copilot-bubble">{session.proposal.message}</p>}
         </div>
         {session?.proposal&&<div className="copilot-proposal">{session.proposal.actions.map((a,i)=><article key={i}>
-          {['fill','screen_fill','embed_fill'].includes(a.type)?<><strong>{catalog.forms[a.form]?.label||catalog.screens?.find(s=>s.id===a.screen)?.label}</strong><p>Review proposed values before applying them to the screen.</p><button className="btn-primary" disabled={busy||session.status!=='active'} onClick={()=>run(()=>apply(a))}>Review setup</button></>:a.type==='watch_connector'?<button disabled={busy||session.status!=='active'} onClick={()=>run(()=>startWatch(a.provider))}>Check {a.provider} connection</button>:<><p>{a.message||''}</p><button disabled={busy||session.status!=='active'} onClick={()=>run(()=>openAction(a))}>{['guide','screen_guide','embed_guide'].includes(a.type)?'Guide me through':a.type==='agent_call'?'Start call with':'Open'} {a.type==='guide'?catalog.forms[a.form]?.label:catalog.screens?.find(s=>s.id===a.screen)?.label||catalog.agents.find(x=>x.id===a.agent)?.name||'agent chat'}</button></>}
+          {['fill','screen_fill','embed_fill','embed_open_form'].includes(a.type)?<><strong>{a.label||catalog.forms[a.form]?.label||catalog.screens?.find(s=>s.id===a.screen)?.label}</strong><p>Review before applying anything to the screen.</p><button className="btn-primary" disabled={busy||session.status!=='active'} onClick={()=>run(()=>apply(a))}>{a.type==='embed_open_form'?'Review creation':'Review setup'}</button></>:a.type==='watch_connector'?<button disabled={busy||session.status!=='active'} onClick={()=>run(()=>startWatch(a.provider))}>Check {a.provider} connection</button>:<><p>{a.message||''}</p><button disabled={busy||session.status!=='active'} onClick={()=>run(()=>openAction(a))}>{['guide','screen_guide','embed_guide'].includes(a.type)?'Guide me through':a.type==='agent_call'?'Start call with':'Open'} {a.type==='guide'?catalog.forms[a.form]?.label:catalog.screens?.find(s=>s.id===a.screen)?.label||catalog.agents.find(x=>x.id===a.agent)?.name||'agent chat'}</button></>}
           {review?.anchor===reviewKey(a)&&renderReview()}
         </article>)}</div>}
         {review&&!session?.proposal?.actions.some(a=>review.anchor===reviewKey(a))&&renderReview()}

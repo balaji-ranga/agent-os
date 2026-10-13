@@ -5,6 +5,11 @@ export function embeddedFieldAllowed(key){
 }
 export function embeddedPathAllowed(screen,path){
   if(typeof path!=='string'||path.length>600||/[\\#]/.test(path))return false;
-  if(screen==='crm')return /^\/objects\/[a-z][a-z0-9-]*(?:\?viewId=[a-zA-Z0-9-]+)?$/.test(path);
+  if(screen==='crm')return /^\/(?:objects\/[a-z][a-z0-9-]*|object\/[a-z][a-z0-9-]*\/[a-zA-Z0-9-]+)(?:\?viewId=[a-zA-Z0-9-]+)?$/.test(path);
   return screen==='erp'&&/^\/app\/[a-z][a-z0-9-]*$/.test(path)&&!/(user|role|permission|setting|payment|bank|credential|token|oauth|integration)/i.test(path);
+}
+export function embeddedFormAllowed(label){
+  if(typeof label!=='string'||label.length>100)return false;
+  const match=/^(?:Create new|Add|New) ([A-Za-z][A-Za-z ]+)$/.exec(label);
+  return !!match&&embeddedFieldAllowed(match[1].toLowerCase())&&!/invoice|journal|order|stock|transaction|fiscal|company setup/i.test(match[1]);
 }
