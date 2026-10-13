@@ -45,6 +45,8 @@ assert.throws(()=>cleanFormPatch('broadcast_draft',{recipients:['other-tenant']}
 assert.throws(()=>cleanFormPatch('scheduled_goal',{time_local:'25:61'}),/schedule time/);
 assert.throws(()=>cleanFormPatch('scheduled_goal',{enabled:true}),/Unregistered/);
 assert.throws(()=>cleanFormPatch('objective_draft',{budget_amount:999}),/Unregistered/);
+assert.equal(cleanFormPatch('objective_draft',{currency:'USD'}).currency,'USD');
+assert.throws(()=>cleanFormPatch('objective_draft',{currency:'ZZZ'}),/currency/);
 assert.deepEqual(cleanFormPatch('scheduled_goal',{cadence:'weekly',weekday:2,time_local:'09:30'}),{cadence:'weekly',weekday:2,time_local:'09:30'});
 db.close();
 const workspace=mkdtempSync(join(tmpdir(),'flolah-copilot-test-'));

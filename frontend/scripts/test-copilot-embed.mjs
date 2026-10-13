@@ -48,7 +48,7 @@ await multi({command:'clear'});await multi({command:'fill',snapshot:refreshed,va
 console.log('PASS guided multi-field bridge: rotated tokens, preserved remaining baselines, intervening edits and cancellation.');
 let recipeHandler,recipeInput=null,clicks=0;const recipeReplies=[];
 const recipeParent={postMessage:m=>recipeReplies.push(m)};
-const opener={getClientRects:()=>[{}],click(){clicks++;recipeInput=new NativeInput();}};
+const opener={getClientRects:()=>[{}],click(){throw Error('Layout wrapper is not the editable title');},querySelector(){return {click(){clicks++;recipeInput=new NativeInput();}};}};
 vm.runInNewContext(code,{window:{parent:recipeParent,addEventListener:(_,fn)=>recipeHandler=fn},document:{querySelectorAll:s=>s.includes('top-bar-title')?[opener]:recipeInput?[recipeInput]:[]},location:{pathname:'/object/company/test'},requestAnimationFrame:fn=>fn(),crypto:{randomUUID:()=>String(recipeReplies.length)},HTMLInputElement:NativeInput,Event:class{constructor(type){this.type=type;}}});
 const recipe=data=>recipeHandler({origin:'https://login.flolah.cloud',source:recipeParent,data:{type:'flolah-copilot-guide',request:'recipe',...data}});
 await recipe({command:'inspect'});assert.deepEqual(Array.from(recipeReplies.at(-1).fields),['name']);assert.equal(clicks,0);

@@ -17,7 +17,12 @@
   async function openFields(requested){
     if(requested.includes('name')&&!fields().some(el=>label(el)==='name')){
       const openers=nameOpener();
-      if(openers.length===1){openers[0].click();await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));}
+      if(openers.length===1){
+        // The editable title lives inside the layout wrapper. Clicking the
+        // wrapper does not dispatch through the child's React click handler.
+        const target=openers[0].querySelector('[data-testid="tooltip"]')||openers[0];
+        target.click();await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+      }
     }
   }
   window.addEventListener('message',async event=>{

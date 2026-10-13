@@ -15,8 +15,8 @@ export const COPILOT_FORMS = {
   },
   objective_draft: {
     label:'Objective brief',route:'/objectives/new',permission:'this-week',
-    purpose:'Prepare objective outcome and period label only. Budget, dates, authority, generated plan and saving remain manual.',
-    fields:{outcome:{type:'string',maxLength:4000},period_label:{type:'string',maxLength:120}},
+    purpose:'Prepare objective outcome, period label and reporting currency. Currency is a draft setting, not a payment or trade. Budget, dates, authority, generated plan and saving remain manual.',
+    fields:{outcome:{type:'string',maxLength:4000},period_label:{type:'string',maxLength:120},currency:{type:'string',maxLength:3,description:'Uppercase ISO currency code, such as SGD or USD.'}},
   },
   user_profile: {
     label:'Profile details',route:'/profile',permission:'profile',
@@ -68,6 +68,7 @@ export function cleanFormPatch(formId, input) {
     if (field.enum && !field.enum.includes(value)) throw copilotError(`Invalid ${key}`);
     if(key==='display_timezone'&&value){try{new Intl.DateTimeFormat('en',{timeZone:value});}catch{throw copilotError('Invalid display timezone');}}
     if(key==='time_local'&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(value))throw copilotError('Invalid schedule time');
+    if(formId==='objective_draft'&&key==='currency'&&!Intl.supportedValuesOf('currency').includes(value))throw copilotError('Invalid reporting currency');
     if (field.type === 'boolean' && typeof value !== 'boolean') throw copilotError(`Invalid ${key}`);
     if (field.type === 'integer' && (!Number.isInteger(value) || value < field.minimum || value > field.maximum)) throw copilotError(`Invalid ${key}`);
     if (field.type === 'array' && (!Array.isArray(value) || value.length > 20 || value.some(v => !field.items.includes(v)))) throw copilotError(`Invalid ${key}`);
