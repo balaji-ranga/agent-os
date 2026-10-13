@@ -37,6 +37,20 @@ export default function PlatformHelpCopilot() {
   const [review,setReview]=useState(null);
   const [guide,setGuide]=useState(null);
   const [completedActions,setCompletedActions]=useState([]);
+  const [replyTo,setReplyTo]=useState(null),[pendingForm,setPendingForm]=useState(null);
+  const composer=useRef(null);
+  useEffect(()=>{
+    if(!pendingForm||!catalog)return;
+    const route=catalog.forms[pendingForm.form]?.route;
+    if(!route||route.split(/[?#]/)[0]!==location.pathname)return;
+    let attempts=0;
+    const timer=setInterval(()=>{
+      const binding=getCopilotForm(pendingForm.form);
+      if(binding){clearInterval(timer);try{const expected=binding.read();showForm(pendingForm.form);setReview({action:pendingForm,anchor:reviewKey(pendingForm),expected});}catch(e){setError(e.message);}setPendingForm(null);}
+      else if(++attempts>=40){clearInterval(timer);setPendingForm(null);setNotice('The form has not loaded yet. Select Review setup to retry; no fields were changed.');}
+    },100);
+    return()=>clearInterval(timer);
+  },[pendingForm,location.pathname,catalog]);
   useEffect(()=>{
     if(!guide||!open||session?.status!=='active')return;
     const form=guide.action.type==='screen_guide'?catalog?.screens.find(s=>s.id===guide.action.screen):catalog?.forms[guide.action.form];
@@ -52,7 +66,7 @@ export default function PlatformHelpCopilot() {
   },[guide,open,session?.status,location.pathname,catalog]);
   const baselines=useRef({}),toggle=useRef(null),reviewPanel=useRef(null),conversationPanel=useRef(null);
   useEffect(()=>{const el=conversationPanel.current;if(el)el.scrollTop=el.scrollHeight;},[session?.conversation?.length,busy]);
-  useEffect(()=>{setSession(null);setReview(null);setGuide(null);setWatch(null);baselines.current={};},[user?.id]);
+  useEffect(()=>{setSession(null);setReview(null);setGuide(null);setWatch(null);setReplyTo(null);setPendingForm(null);baselines.current={};},[user?.id]);
   useEffect(()=>{if(review&&reviewPanel.current){reviewPanel.current.scrollIntoView({block:'nearest',behavior:'smooth'});reviewPanel.current.focus({preventScroll:true});}},[review]);
   useEffect(()=>{
     const saved=e=>{const form=e.detail?.form;if(!session?.drafts?.[form])return;
@@ -107,10 +121,15 @@ export default function PlatformHelpCopilot() {
       const metadata=await requestCopilotEmbed('inspect');
       embeddedFields=metadata.fields||[];embeddedFieldLabels=metadata.field_labels||{};embeddedNavigation=metadata.navigation||[];embeddedForms=metadata.forms||[];
     }
-    const next=await api.copilotPropose(s.id,{version:s.version,message:input,screen_path:location.pathname,visible_control_ids:visibleCopilotControls(document),visible_control_options:visibleCopilotOptions(document),embedded_fields:embeddedFields,embedded_field_labels:embeddedFieldLabels,embedded_navigation:embeddedNavigation,embedded_forms:embeddedForms,...(screen?{screen}:{})});
-    setSession(next);setInput('');setNotice('');setCompletedActions([]);
-    const prepared=next.proposal?.actions.find(a=>a.type==='fill'&&getCopilotForm(a.form));
-    if(prepared){showForm(prepared.form);setReview({action:prepared,anchor:reviewKey(prepared),expected:baselines.current[prepared.form]??getCopilotForm(prepared.form).read()});}
+    const next=await api.copilotPropose(s.id,{version:s.version,message:input,...(replyTo?{reply_to:replyTo.id}:{}),screen_path:location.pathname,visible_control_ids:visibleCopilotControls(document),visible_control_options:visibleCopilotOptions(document),embedded_fields:embeddedFields,embedded_field_labels:embeddedFieldLabels,embedded_navigation:embeddedNavigation,embedded_forms:embeddedForms,...(screen?{screen}:{})});
+    setSession(next);setInput('');setReplyTo(null);setNotice('');setCompletedActions([]);
+    const fills=next.proposal?.actions.filter(a=>a.type==='fill')||[];
+    const prepared=fills.length===1?fills[0]:null;
+    if(prepared){
+      const route=catalog.forms[prepared.form]?.route;
+      if(route&&route.split(/[?#]/)[0]!==location.pathname){setPendingForm(prepared);navigate(route);}
+      else if(getCopilotForm(prepared.form)){showForm(prepared.form);setReview({action:prepared,anchor:reviewKey(prepared),expected:baselines.current[prepared.form]??getCopilotForm(prepared.form).read()});}
+    }
   });}
   function showForm(form){
     const route=catalog.forms[form]?.route;
@@ -255,7 +274,7 @@ export default function PlatformHelpCopilot() {
         </details>
         <div ref={conversationPanel} className="copilot-conversation" role="log" aria-label="Conversation">
           {!session?.proposal&&<p className="copilot-bubble">What would you like to do? Tell me in your own words—I’ll help you find the right screen or prepare your setup.</p>}
-          {(session?.conversation||[]).map((m,i)=><p key={i} className={`copilot-bubble copilot-${m.role}`}><small>{m.role==='user'?'You':'Platform Help'}</small>{m.text}</p>)}
+          {(session?.conversation||[]).map((m,i)=><div key={m.id||i} className={`copilot-bubble copilot-${m.role}`}><small>{m.role==='user'?'You':'Platform Help'}</small><p>{m.text}</p>{m.id&&<button type="button" className="btn-ghost" title="Reply to this message" aria-label={`Reply to ${m.role==='user'?'your':'Platform Help'} message ${i+1}`} onClick={()=>{setReplyTo(m);composer.current?.focus();}}>↩</button>}</div>)}
           {session?.proposal&&!session?.conversation?.length&&<p className="copilot-bubble">{session.proposal.message}</p>}
         </div>
         {session?.proposal&&<div className="copilot-proposal">{session.proposal.actions.map((a,i)=><article key={i}>
@@ -266,7 +285,8 @@ export default function PlatformHelpCopilot() {
         {watch&&<p role="status">Waiting for {watch} authorization… <button disabled={busy} onClick={()=>run(async()=>{await update({watch:null});setWatch(null);})}>Stop checking</button></p>}
         <details><summary>Continue unfinished setup</summary><p>Drafts are private to your login and expire after seven days. Saving a form clears its draft.</p>{Object.entries(session?.drafts||{}).filter(([id])=>catalog.forms[id]).map(([id,values])=><article key={id}><strong>{catalog.forms[id].label}</strong><button disabled={busy} onClick={()=>run(()=>apply({form:id,values}))}>Continue setup</button><button disabled={busy} onClick={()=>run(()=>update({clearDraft:id}))}>Discard draft</button></article>)}{!Object.keys(session?.drafts||{}).length&&<p>No unfinished drafts.</p>}</details>
         {help&&<><button type="button" onClick={()=>setHelpChat(v=>!v)}>{helpChat?'Hide':'Open'} product-help chat</button>{helpChat&&<AgentChatPanel agentId={help.id} minHeight={240} placeholder="Ask about Flolah…"/>}</>}
-        <form className="copilot-composer" onSubmit={propose}><label className="sr-only" htmlFor="copilot-message">Message Platform Help</label><textarea id="copilot-message" autoFocus value={input} maxLength={4000} onChange={e=>setInput(e.target.value)} placeholder="Ask me to help with anything in Flolah…"/><button className="btn-primary" disabled={busy||!input.trim()||session?.status==='paused'}>{busy?'Thinking…':'Send'}</button></form>
+        {replyTo&&<div aria-label="Reply context"><small>Replying to {replyTo.role==='user'?'you':'Platform Help'}</small><p>{replyTo.text.slice(0,180)}</p><button type="button" onClick={()=>setReplyTo(null)}>Cancel reply</button></div>}
+        <form className="copilot-composer" onSubmit={propose}><label className="sr-only" htmlFor="copilot-message">Message Platform Help</label><textarea ref={composer} id="copilot-message" autoFocus value={input} maxLength={4000} onChange={e=>setInput(e.target.value)} placeholder="Ask me to help with anything in Flolah…"/><button className="btn-primary" disabled={busy||!input.trim()||session?.status==='paused'}>{busy?'Thinking…':'Send'}</button></form>
       </>}
     </section>}
   </aside>;

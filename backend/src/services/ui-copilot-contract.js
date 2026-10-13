@@ -12,8 +12,8 @@ export const COPILOT_FORMS = {
   },
   scheduled_goal: {
     label:'New scheduled goal draft',route:'/scheduled-goals',permission:'scheduled-goals',
-    purpose:'Prepare a NEW schedule draft only. Agent assignment, external delivery, activation and Save remain manual. Cannot modify an existing goal.',
-    fields:{title:{type:'string',maxLength:200},prompt:{type:'string',maxLength:4000},cadence:{type:'string',enum:['hourly','daily','weekdays','weekly']},time_local:{type:'string',maxLength:5},weekday:{type:'integer',minimum:0,maximum:6}},
+    purpose:'Prepare a NEW schedule draft only, including an entitled agent selected by the user. External delivery, activation and Save remain manual. Cannot modify an existing goal. Suggest a descriptive title from intent; ask for missing run time without dropping known fields.',
+    fields:{title:{type:'string',maxLength:200},prompt:{type:'string',maxLength:4000},agent_id:{type:'string',maxLength:200,description:'Exact agent ID from the entitled catalog, never a guessed ID.'},cadence:{type:'string',enum:['hourly','daily','weekdays','weekly']},time_local:{type:'string',maxLength:5},weekday:{type:'integer',minimum:0,maximum:6}},
   },
   objective_draft: {
     label:'Objective brief',route:'/objectives/new',permission:'this-week',
@@ -150,6 +150,7 @@ export function validateCopilotProposal(input, catalog) {
     }
     if (action.type === 'fill') {
       if (!Object.hasOwn(catalog.forms, action.form)) throw copilotError('Form is not available', 403);
+      if(action.form==='scheduled_goal'&&action.values?.agent_id!==undefined&&!catalog.agents.some(a=>a.id===action.values.agent_id))throw copilotError('Agent is not available',403);
       return { type: 'fill', form: action.form, values: cleanFormPatch(action.form, action.values) };
     }
     if (action.type === 'navigate') {

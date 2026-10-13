@@ -76,7 +76,7 @@ function ScheduledGoalsPanel() {
   const [planFeedback, setPlanFeedback] = useState('');
   const [planBusyLocal, setPlanBusyLocal] = useState(false);
   const [amendPlanOpen, setAmendPlanOpen] = useState(false);
-  useCopilotForm('scheduled_goal',Object.fromEntries(['title','prompt','cadence','time_local','weekday'].map(key=>[key,form[key]])),patch=>{setForm(previous=>({...previous,...patch}));setShowForm(true);},()=>{if(editingId||busyId||enrichBusy||planBusyLocal)throw new Error('Finish or close the existing schedule edit before preparing a new one.');});
+  useCopilotForm('scheduled_goal',Object.fromEntries(['title','prompt','agent_id','cadence','time_local','weekday'].map(key=>[key,form[key]])),patch=>{if(patch.agent_id!==undefined&&!agents.some(a=>a.id===patch.agent_id))throw new Error('This agent is no longer available.');setForm(previous=>({...previous,...patch}));setShowForm(true);},()=>{if(editingId||busyId||enrichBusy||planBusyLocal)throw new Error('Finish or close the existing schedule edit before preparing a new one.');});
 
   const load = () => {
     setLoading(true);

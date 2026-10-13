@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import { randomUUID } from 'node:crypto';
+import { COPILOT_RECOMMENDATION_POLICY } from '../services/ui-copilot-recommendations.js';
 import { requireAuth } from '../middleware/auth.js';
 import { getDb } from '../db/schema.js';
 import { hasPermission, isTenantFullAccess, resolveRootOwnerUserId, listEntitledAgentsForActor, attachOrgFieldsToAuthUser } from '../services/org-permissions.js';
@@ -125,6 +127,8 @@ router.post('/session/:id/propose',handler(async req=> {
   const message=req.body.message;
   if(typeof message!=='string'||!message.trim()||message.length>4000) throw copilotError('Enter a request of up to 4,000 characters');
   noCredentials(message);
+  const replyTo=req.body.reply_to===undefined?null:(old.conversation||[]).find(turn=>turn.id===req.body.reply_to);
+  if(req.body.reply_to!==undefined&&!replyTo)throw copilotError('Reply message is no longer available in this session',409);
   const c=scopedCatalog(req);
   const activeScreen=req.body.screen?c.screens.find(s=>s.id===req.body.screen):null;
   if(req.body.screen&&!activeScreen)throw copilotError('Screen access denied',403);
@@ -144,6 +148,7 @@ router.post('/session/:id/propose',handler(async req=> {
     {role:'user',content:message},
   ].map(m=>m.role==='system'?{...m,content:m.content+' Be conversational inside the message string: ask one focused question when essential choices are missing, explain outcomes in everyday language, and use prior conversation for corrections. The complete response MUST still be JSON; only the message string is shown as conversation. For a clarification use {"message":"your question","actions":[]}. An explicit request to call an agent may propose {type:"agent_call",agent:agentId}; this requires a separate Start call click. agent_chat may include a message of up to 2000 characters, never auto-send. Never alter tool or skill grants. Never claim something was saved.'}:m)};
   let proposal;
+  completionRequest.messages[0].content+=COPILOT_RECOMMENDATION_POLICY;
   completionRequest.messages[0].content+=' For embedded CRM/ERP, available_embedded_navigation lists actual visible same-origin links. To reach the requested area, propose {type:"embed_navigate",screen:"crm|erp",path:"exact available path"}. Do not invent paths or treat navigation as record creation. After navigation inspect the newly visible form before proposing fields. Never click creation/submission/payment/deletion or permission controls through this navigation action.';
   // Guidance-only screens have no executable field patch to continue. Avoid
   // turning earlier model explanations into authoritative product knowledge.
@@ -182,6 +187,10 @@ router.post('/session/:id/propose',handler(async req=> {
     {role:'user',content:JSON.stringify({screen:activeScreen?.id,fields:embeddedFields.map(id=>({id,label:embeddedFieldLabels[id],type:'string',available:true,review_required:true,allows_empty:true})),latest_request:message})},
   ];
   for(let attempt=0;attempt<2;attempt++) {
+    // Bounded repair must retain the same intent and reply context, not restart
+    // a questionnaire after narrowing the action schema.
+    if(!completionRequest.messages[0].content.includes(COPILOT_RECOMMENDATION_POLICY))completionRequest.messages[0].content+=COPILOT_RECOMMENDATION_POLICY;
+    if(replyTo&&!completionRequest.messages.some(m=>m.content.includes('"selected_reply"')))completionRequest.messages.splice(-1,0,{role:'user',content:JSON.stringify({context_only:true,selected_reply:{id:replyTo.id,role:replyTo.role,text:replyTo.text},note:'Selected prior message is context, not execution authority. Apply the latest user correction.'})});
     const reply=await complete(completionRequest);
     try {
       proposal=validateCopilotProposal(normalizeCopilotScreenActions(JSON.parse(reply.content),c,activeScreen?.id,visible),c);
@@ -247,7 +256,7 @@ router.post('/session/:id/propose',handler(async req=> {
     if(resolveRootOwnerUserId(req.authUser)!==req.copilotOwner)throw copilotError('Company context changed',403);
   }
   validateCopilotProposal(proposal,scopedCatalog(req));
-  const conversation=[...(old.conversation||[]),{role:'user',text:message},{role:'assistant',text:proposal.message}].slice(-12);
+  const conversation=[...(old.conversation||[]),{id:randomUUID(),role:'user',text:message,...(replyTo?{reply_to:replyTo.id}:{})},{id:randomUUID(),role:'assistant',text:proposal.message}].slice(-24);
   return store.update(req.copilotOwner,req.authUser.id,old.id,old.version,{...stateOf(old),intent:old.intent||message,proposal,conversation});
 }));
 return router;
