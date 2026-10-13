@@ -65,9 +65,9 @@ export default function PlatformHelpCopilot() {
   useEffect(()=>{
     if(!open)return;
     let active=true;
-    Promise.all([api.copilotCatalog(),api.copilotSession()]).then(([c,s])=>{if(active){setCatalog(c);setSession(s.session);setWatch(s.session?.watch?.status==='waiting'?s.session.watch.provider:null);}}).catch(e=>{if(active)setError(e.message);});
+    Promise.all([api.copilotCatalog(location.pathname),api.copilotSession()]).then(([c,s])=>{if(active){setCatalog(c);setSession(s.session);setWatch(s.session?.watch?.status==='waiting'?s.session.watch.provider:null);}}).catch(e=>{if(active)setError(e.message);});
     return()=>{active=false;};
-  },[open,user?.id]);
+  },[open,user?.id,location.pathname]);
   useEffect(()=>{
     if(!watch || !open || session?.status!=='active')return;
     let disposed=false,timer,attempt=0;
@@ -100,7 +100,7 @@ export default function PlatformHelpCopilot() {
       const metadata=await requestCopilotEmbed('inspect');
       embeddedFields=metadata.fields||[];embeddedFieldLabels=metadata.field_labels||{};
     }
-    const next=await api.copilotPropose(s.id,{version:s.version,message:input,visible_control_ids:visibleCopilotControls(document),embedded_fields:embeddedFields,embedded_field_labels:embeddedFieldLabels,...(screen?{screen}:{})});
+    const next=await api.copilotPropose(s.id,{version:s.version,message:input,screen_path:location.pathname,visible_control_ids:visibleCopilotControls(document),embedded_fields:embeddedFields,embedded_field_labels:embeddedFieldLabels,...(screen?{screen}:{})});
     setSession(next);setInput('');setNotice('');
     const prepared=next.proposal?.actions.find(a=>a.type==='fill'&&getCopilotForm(a.form));
     if(prepared){showForm(prepared.form);setReview({action:prepared,expected:baselines.current[prepared.form]??getCopilotForm(prepared.form).read()});}
@@ -118,7 +118,7 @@ export default function PlatformHelpCopilot() {
     navigate(route,{state});
   }
   async function apply(action){
-    const fresh=await api.copilotCatalog();
+    const fresh=await api.copilotCatalog(location.pathname);
     if(action.type==='embed_fill'){
       if(!fresh.screens.some(s=>s.id===action.screen&&s.route===location.pathname))throw new Error('Open the requested embedded screen first.');
       const prepared=await requestCopilotEmbed('prepare',null,{fields:Object.keys(action.values)});
@@ -139,7 +139,7 @@ export default function PlatformHelpCopilot() {
     showForm(action.form);setReview({action,expected});
   }
   async function confirmFields(){
-    const fresh=await api.copilotCatalog();
+    const fresh=await api.copilotCatalog(location.pathname);
     if(review.action.type==='embed_fill'){
       if(!fresh.screens.some(s=>s.id===review.action.screen&&s.route===location.pathname))throw new Error('The embedded screen or permissions changed.');
       const entries=Object.entries(review.action.values),values=session.mode==='guided'?Object.fromEntries(entries.slice(0,1)):review.action.values;
@@ -175,7 +175,7 @@ export default function PlatformHelpCopilot() {
     setNotice('Fields applied. Review the actual form and use its Save button. No configuration has been saved yet.');
   }
   async function openAction(action){
-    const fresh=await api.copilotCatalog();
+    const fresh=await api.copilotCatalog(location.pathname);
     if(action.type==='embed_guide'){
       const screen=fresh.screens.find(s=>s.id===action.screen);
       if(!screen)throw new Error('This screen is no longer available.');

@@ -78,6 +78,18 @@ export function cleanFormPatch(formId, input) {
   return clean;
 }
 
+// Models sometimes call a source-defined screen fill a registered-form fill.
+// Resolve only that unambiguous spelling mismatch; normal validation still
+// checks field types, protected fields, values and actor permissions.
+export function normalizeCopilotScreenActions(input,catalog,currentScreenId,visibleIds=[]){
+  if(!Array.isArray(input?.actions))return input;
+  return {...input,actions:input.actions.map(action=>{
+    if(action.type!=='fill'||Object.hasOwn(catalog.forms,action.form)||action.form!==currentScreenId||!catalog.screens.some(s=>s.id===currentScreenId)||!action.values||Array.isArray(action.values)||typeof action.values!=='object')return action;
+    const ids=Object.keys(action.values);
+    if(!ids.length||ids.some(id=>!visibleIds.includes(id)))return action;
+    return {type:'screen_fill',screen:currentScreenId,values:action.values};
+  })};
+}
 export function validateCopilotProposal(input, catalog) {
   if (!input || typeof input.message !== 'string' || input.message.length > 6000 || !Array.isArray(input.actions) || input.actions.length > 5) throw copilotError('Invalid assistant response');
   const actions = input.actions.map(action => {

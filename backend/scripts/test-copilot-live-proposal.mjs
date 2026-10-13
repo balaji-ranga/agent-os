@@ -5,6 +5,8 @@ import express from 'express';
 import Database from 'better-sqlite3';
 const {uiCopilotRouter}=await import(process.env.COPILOT_TEST_ROUTER||'../src/routes/ui-copilot.js');
 import {chatCompletions} from '../src/config/llm.js';
+import {copilotScreenControls} from '../src/services/ui-copilot-screen-specs.js';
+const searchControl=copilotScreenControls('/content-tools').find(c=>c.label==='Search tools registry');
 const owner=process.env.COPILOT_TEST_OWNER;
 if(!owner)throw Error('Set COPILOT_TEST_OWNER to an explicitly authorized test tenant.');
 const db=new Database(':memory:');
@@ -12,7 +14,7 @@ const app=express();app.use(express.json());
 app.use((req,res,next)=>{req.authUser={id:owner,role:'ceo'};next();});
 app.use('/test',uiCopilotRouter({database:()=>db,...(process.env.COPILOT_TEST_FULL_CATALOG==='1'?{}:{getCatalog:()=>({forms:{},agents:[],screens:[{id:'erp',route:'/erp'}]})}),complete:async options=>{
   const context=options.messages.map(m=>{try{return JSON.parse(m.content);}catch{return null;}}).find(m=>m?.available_embedded_fields);
-  if(process.env.COPILOT_TEST_CONNECTOR!=='1'){
+  if(process.env.COPILOT_TEST_CONNECTOR!=='1'&&process.env.COPILOT_TEST_SEARCH!=='1'){
     assert.deepEqual(context.available_embedded_fields,['name']);
     assert.match(options.messages[0].content,/Current available reviewed embedded edit capability/);
   }
@@ -39,7 +41,9 @@ try{
    db.prepare('UPDATE ui_copilot_sessions SET state=? WHERE id=?').run(JSON.stringify(state),session.id);
  }
  let version=session.version;
- const cases=process.env.COPILOT_TEST_CONNECTOR==='1'?[
+ const cases=process.env.COPILOT_TEST_SEARCH==='1'?[
+   ['Filter the Tools registry search to crm. Prepare the search field for review; do not change any tool configuration.','crm'],
+ ]:process.env.COPILOT_TEST_CONNECTOR==='1'?[
    ['I am on Connectors now. Explain the next Google Drive setup steps only. Keep authorization deferred and do not create or rotate tokens.',null],
  ]:[
    ['Set the invoice ID filter to COPILOT-NO-MATCH. Prepare it for review without changing any invoice.','COPILOT-NO-MATCH'],
@@ -47,9 +51,11 @@ try{
  ];
  for(const [message,value] of cases){
    const connector=process.env.COPILOT_TEST_CONNECTOR==='1';
-   response=await fetch(base+`/session/${session.id}/propose`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({version,screen:connector?'connectors':'erp',embedded_fields:connector?[]:['name'],embedded_field_labels:{name:'ID'},message})});
+   const search=process.env.COPILOT_TEST_SEARCH==='1';
+   response=await fetch(base+`/session/${session.id}/propose`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({version,screen:search?'content-tools':connector?'connectors':'erp',visible_control_ids:search?[searchControl.id]:[],embedded_fields:connector||search?[]:['name'],embedded_field_labels:{name:'ID'},message})});
    const result=await response.json();assert.equal(response.status,200);
-   if(connector)assert.deepEqual(result.proposal.actions,[]);
+   if(search){assert.equal(result.proposal.actions[0].type,'screen_fill');assert.equal(result.proposal.actions[0].values[searchControl.id],'crm');}
+   else if(connector)assert.deepEqual(result.proposal.actions,[]);
    else assert.deepEqual(result.proposal.actions,[{type:'embed_fill',screen:'erp',values:{name:value}}]);
    version=result.version;
  }

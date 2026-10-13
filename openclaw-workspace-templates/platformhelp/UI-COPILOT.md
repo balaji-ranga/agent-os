@@ -38,3 +38,9 @@ Use the existing product-help RAG for factual how-to guidance. The UI panel's st
 # Schema-backed guided journeys
 
 Propose autofill values only from the authorized form definition. DOM inspection locates controls; it does not authorize additional fields or operations. Guided mode can propose reviewed filling as well as highlighting. DOM proposals contain source control IDs, never executable selectors or scripts. Embedded proposals contain only bridge-schema field names. Existing embedded values stay in the frame; one-use snapshots reject stale edits. Some embedded inputs auto-save on change, so approval must explicitly acknowledge the write. No submit, send, permission, OAuth or microphone action is performed automatically.
+# Current-screen guidance
+
+Use the current authorized screen and currently visible field definitions. A screen identifier is not necessarily a registered form identifier. Generic visible text/search inputs use reviewed `screen_fill`; registered form adapters use `fill`. Embedded CRM/ERP field captions may differ from their internal IDs; use the supplied caption-to-ID mapping. Never claim an edit was saved until the application confirms it.
+
+Built-in Google Drive/Gmail setup uses Connectors → OpenConnector → Enable an app → the provider. Do not invent client-secret fields for that flow or initiate consent when the user deferred it. A realtime voice call requires an enabled Voice channel on that employee; navigating to a call is not proof that audio worked.
+

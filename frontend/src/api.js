@@ -148,7 +148,7 @@ async function fetchBlobUrl(path, opts = {}) {
 }
 
 export const api = {
-  copilotCatalog: () => get('/ui-copilot/catalog'),
+  copilotCatalog: (path) => get('/ui-copilot/catalog'+(path?'?path='+encodeURIComponent(path):'')),
   copilotSession: () => get('/ui-copilot/session'),
   copilotCreate: (body) => post('/ui-copilot/session', body),
   copilotUpdate: (id, body) => put(`/ui-copilot/session/${encodeURIComponent(id)}`, body),

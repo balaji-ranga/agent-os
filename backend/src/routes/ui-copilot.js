@@ -4,11 +4,12 @@ import { getDb } from '../db/schema.js';
 import { hasPermission, isTenantFullAccess, resolveRootOwnerUserId, listEntitledAgentsForActor, attachOrgFieldsToAuthUser } from '../services/org-permissions.js';
 import { getSessionUser } from '../services/auth/session.js';
 import { chatCompletions } from '../config/llm.js';
-import { COPILOT_FORMS, COPILOT_VERSION, cleanFormPatch, copilotError, validateCopilotProposal } from '../services/ui-copilot-contract.js';
+import { COPILOT_FORMS, COPILOT_VERSION, cleanFormPatch, copilotError, validateCopilotProposal, normalizeCopilotScreenActions } from '../services/ui-copilot-contract.js';
 import { uiCopilotStore } from '../services/ui-copilot-store.js';
 import { getBusinessMenuFlags } from '../services/business-embed.js';
 import { getConnectedConnectorApps } from '../services/openconnector.js';
 import { copilotScreenSpec, copilotScreenControls } from '../services/ui-copilot-screen-specs.js';
+import { withCurrentCopilotScreen } from '../services/ui-copilot-current-screen.js';
 
 const destinations = [
   ['home','Home','/'], ['this-week','Digest','/this-week'], ['work','Workspace','/work'],
@@ -51,6 +52,7 @@ function noCredentials(value) {
 }
 export function uiCopilotRouter({ database=getDb, getCatalog=catalog, complete=chatCompletions, connections=getConnectedConnectorApps }={}) {
 const router = Router();
+const scopedCatalog=req=>withCurrentCopilotScreen(getCatalog(req.authUser),req.body?.screen_path||req.query?.path,{tenantFullAccess:isTenantFullAccess(req.authUser)});
 router.use(requireAuth, (req,res,next) => {
   // Raw platform-admin sessions cannot impersonate a tenant through a body/query.
   req.copilotOwner = resolveRootOwnerUserId(req.authUser);
@@ -58,9 +60,9 @@ router.use(requireAuth, (req,res,next) => {
   next();
 });
 function handler(fn) { return async(req,res) => { try { res.json(await fn(req)); } catch(e) { res.status(e.status || 500).json({error:e.status ? e.message : 'Platform Help could not complete this request. Your existing configuration is unchanged.'}); } }; }
-router.get('/catalog',handler(req=>getCatalog(req.authUser)));
+router.get('/catalog',handler(req=>scopedCatalog(req)));
 router.get('/screen-spec',handler(req=>{
- const screen=getCatalog(req.authUser).screens.find(s=>s.id===req.query.screen);
+ const screen=scopedCatalog(req).screens.find(s=>s.id===req.query.screen);
  if(!screen)throw copilotError('Screen access denied',403);
  return {screen:screen.id,...copilotScreenSpec(screen.route)};
 }));
@@ -116,7 +118,7 @@ router.post('/session/:id/propose',handler(async req=> {
   const message=req.body.message;
   if(typeof message!=='string'||!message.trim()||message.length>4000) throw copilotError('Enter a request of up to 4,000 characters');
   noCredentials(message);
-  const c=getCatalog(req.authUser);
+  const c=scopedCatalog(req);
   const activeScreen=req.body.screen?c.screens.find(s=>s.id===req.body.screen):null;
   if(req.body.screen&&!activeScreen)throw copilotError('Screen access denied',403);
   const defined=activeScreen?new Set(copilotScreenControls(activeScreen.route).map(c=>c.id)):new Set();
@@ -148,7 +150,7 @@ router.post('/session/:id/propose',handler(async req=> {
   for(let attempt=0;attempt<2;attempt++) {
     const reply=await complete(completionRequest);
     try {
-      proposal=validateCopilotProposal(JSON.parse(reply.content),c);
+      proposal=validateCopilotProposal(normalizeCopilotScreenActions(JSON.parse(reply.content),c,activeScreen?.id,visible),c);
       for(const action of proposal.actions)if(action.type==='screen_fill'&&(action.screen!==activeScreen?.id||Object.keys(action.values).some(id=>!visible.includes(id))))throw copilotError('Only currently visible fields may be filled');
       if(attempt===0&&embeddedFields.length&&!proposal.actions.length){
         // A prior conversational refusal must not redefine current capability.
@@ -183,7 +185,7 @@ router.post('/session/:id/propose',handler(async req=> {
     req.authUser=attachOrgFieldsToAuthUser(current);
     if(resolveRootOwnerUserId(req.authUser)!==req.copilotOwner)throw copilotError('Company context changed',403);
   }
-  validateCopilotProposal(proposal,getCatalog(req.authUser));
+  validateCopilotProposal(proposal,scopedCatalog(req));
   const conversation=[...(old.conversation||[]),{role:'user',text:message},{role:'assistant',text:proposal.message}].slice(-12);
   return store.update(req.copilotOwner,req.authUser.id,old.id,old.version,{...stateOf(old),intent:old.intent||message,proposal,conversation});
 }));
