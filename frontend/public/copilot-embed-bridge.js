@@ -61,6 +61,12 @@
           // React-controlled inline editors commit their updated state on blur.
           // Let the input render before blurring, and ensure it owns focus first.
           await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+          // Twenty's record-title editor commits on Enter/click-outside, not
+          // blur. Scope this recipe strictly to the reviewed title input.
+          if(key==='name'&&nameOpener().length===1&&el.closest('[data-testid="top-bar-title"]')){
+            el.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',code:'Enter',bubbles:true,cancelable:true}));
+            el.dispatchEvent(new KeyboardEvent('keyup',{key:'Enter',code:'Enter',bubbles:true,cancelable:true}));
+          }
           el.blur();
         }
         for(const [key] of entries)delete batch.entries[key];
