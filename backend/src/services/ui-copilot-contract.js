@@ -95,7 +95,7 @@ export function validateCopilotProposal(input, catalog) {
       const values={},labels={};
       for(const [id,value] of Object.entries(action.values)){
         const field=controls.find(c=>c.id===id);
-        if(!field||field.user_only||!['text','email','url','tel','number','textarea','select'].includes(field.type)||/Unlabelled|dynamically labelled/i.test(field.label)||/password|secret|token|credential|permission|grant|mfa|otp|payment|credit.?card|bank|budget|authority|retention|delete|purge|script|code|webhook|callback/i.test(field.label)||/ApiKeys|Policies|IpWhitelist|Token|RiskClassification|CustomScript|Workflow|AgentWorkspace|EfficiencyControls|Admin/i.test(id))throw copilotError('This field requires manual input');
+        if(!field||field.user_only||!['text','search','email','url','tel','number','textarea','select'].includes(field.type)||/Unlabelled|dynamically labelled/i.test(field.label)||/password|secret|token|credential|permission|grant|mfa|otp|payment|credit.?card|bank|budget|authority|retention|delete|purge|script|code|webhook|callback/i.test(field.label)||/ApiKeys|Policies|IpWhitelist|Token|RiskClassification|CustomScript|Workflow|AgentWorkspace|EfficiencyControls|Admin/i.test(id))throw copilotError('This field requires manual input');
         if(typeof value!=='string'||value.length>4000)throw copilotError('Invalid screen field value');
         values[id]=value;labels[id]=field.label;
       }

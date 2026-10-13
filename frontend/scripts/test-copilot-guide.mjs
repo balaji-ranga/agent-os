@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {findGuideField,highlightGuideField,revealRegisteredForm} from '../src/utils/copilotGuide.js';
+import {captureDomFields} from '../src/utils/copilotDomFill.js';
 const field=(overrides={})=>({name:'name',id:'',type:'text',labels:[],getAttribute:()=>null,closest:()=>null,getClientRects:()=>[{}],...overrides});
 const root=items=>({querySelectorAll:()=>items});
 const name=field();
@@ -18,3 +19,7 @@ assert.equal(revealRegisteredForm(sections,'/master-data#knowledge-documents'),t
 assert.equal(revealRegisteredForm(sections,'/master-data#missing'),false);
 assert.equal(revealRegisteredForm(sections,'/master-data#input[name=secret]'),false);
 assert.equal(revealed,1);
+const searchInput=field({type:'search',value:'',getAttribute:()=> 'search-control'});
+assert.equal(captureDomFields(root([searchInput]),['search-control'])['search-control'].element,searchInput);
+assert.throws(()=>captureDomFields(root([searchInput,searchInput]),['search-control']),/ambiguous/);
+assert.throws(()=>captureDomFields(root([field({type:'password',getAttribute:()=> 'secret'})]),['secret']),/manual/);

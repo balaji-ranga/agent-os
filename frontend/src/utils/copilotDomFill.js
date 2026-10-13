@@ -6,7 +6,7 @@ export function captureDomFields(root,ids){
     const matches=[...root.querySelectorAll('[data-copilot-control]')].filter(e=>e.getAttribute('data-copilot-control')===id&&e.getClientRects().length&&!e.disabled&&!e.readOnly&&!e.hidden);
     if(matches.length!==1)throw new Error('Open the requested form. A field is unavailable or ambiguous.');
     const element=matches[0];
-    if(!['text','email','url','tel','number','textarea','select-one'].includes(element.type))throw new Error('This control requires manual input.');
+    if(!['text','search','email','url','tel','number','textarea','select-one'].includes(element.type))throw new Error('This control requires manual input.');
     result[id]={element,value:element.value};
   }
   return result;

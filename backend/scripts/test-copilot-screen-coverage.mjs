@@ -1,13 +1,15 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {validateCopilotProposal} from '../src/services/ui-copilot-contract.js';
-import {copilotScreenSpec} from '../src/services/ui-copilot-screen-specs.js';
+import {copilotScreenSpec,copilotScreenControls} from '../src/services/ui-copilot-screen-specs.js';
 const inventory=JSON.parse(readFileSync(new URL('../src/generated/copilot-screen-inventory.json',import.meta.url),'utf8'));
 const modules=new Map(inventory.modules.map(m=>[m.source,m]));
 const connectorSpec=copilotScreenSpec('/connectors',[]);
 assert.match(connectorSpec.guidance,/OpenConnector tab/);
 assert.ok(connectorSpec.modules.every(m=>m.fields.length===0),'Hidden tab fields must not enter current-screen model context');
 assert.ok(copilotScreenSpec('/connectors').modules.some(m=>m.fields.length),'Full registered metadata remains available');
+const search=copilotScreenControls('/content-tools').find(c=>c.label==='Search tools registry');
+assert.equal(validateCopilotProposal({message:'Review search',actions:[{type:'screen_fill',screen:'content-tools',values:{[search.id]:'crm'}}]}, {forms:{},agents:[],screens:[{id:'content-tools',route:'/content-tools'}]}).actions[0].values[search.id],'crm');
 let accepted=0,denied=0;
 for(const route of inventory.routes){
  const catalog={forms:{},agents:[],screens:[{id:'test-screen',route:route.path}]};
