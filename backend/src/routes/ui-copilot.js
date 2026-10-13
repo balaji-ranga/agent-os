@@ -188,7 +188,7 @@ router.post('/session/:id/propose',handler(async req=> {
         // missing values can still produce a clarification with no action.
         throw copilotError('Mixed guided fill requires reconciliation');
       }
-      if(attempt===0&&embeddedFields.length&&(!proposal.actions.length||proposal.actions.some(a=>a.type==='embed_guide'))){
+      if(attempt===0&&embeddedFields.length&&(!proposal.actions.length||proposal.actions.some(a=>a.type==='embed_guide'||(a.type==='navigate'&&a.screen===activeScreen.id)))){
         // A prior conversational refusal must not redefine current capability.
         // Recheck once without stale transcript/proposal claims. This still
         // permits a question/no action for ambiguity, missing values or safety.
