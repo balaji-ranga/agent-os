@@ -20,6 +20,16 @@ def merge(kind,p,current):
   if current.exists() and current.read_bytes().replace(b'\r\n',b'\n')!=desired:raise RuntimeError('New file collision '+p)
   return desired
  if not current.exists():raise RuntimeError('Missing source '+p)
+ # Older host checkouts can lack the managed API entries already present in
+ # the running UI. Restore only this exact group, preserving every other API.
+ if p=='frontend/src/api.js':
+  present=current.read_bytes().replace(b'\r\n',b'\n')
+  names=[b'copilotCatalog',b'copilotSession',b'copilotCreate',b'copilotUpdate',b'copilotPropose',b'copilotCheckConnection']
+  if all(name+b':' not in present for name in names):
+   entries=[line for line in desired.splitlines(keepends=True) if any(line.startswith(b'  '+name+b':') for name in names)]
+   anchor=b'export const api = {\n'
+   if len(entries)!=len(names) or present.count(anchor)!=1:raise RuntimeError('Ambiguous Copilot API restoration')
+   return present.replace(anchor,anchor+b''.join(entries),1)
  # Reconcile package script maps by key, never replace unrelated runtime scripts.
  # The host may lack a Copilot script already present in the running image.
  if p in ('backend/package.json','frontend/package.json'):
