@@ -126,6 +126,7 @@ router.post('/session/:id/propose',handler(async req=> {
     {role:'user',content:message},
   ].map(m=>m.role==='system'?{...m,content:m.content+' Be conversational inside the message string: ask one focused question when essential choices are missing, explain outcomes in everyday language, and use prior conversation for corrections. The complete response MUST still be JSON; only the message string is shown as conversation. For a clarification use {"message":"your question","actions":[]}. An explicit request to call an agent may propose {type:"agent_call",agent:agentId}; this requires a separate Start call click. agent_chat may include a message of up to 2000 characters, never auto-send. Never alter tool or skill grants. Never claim something was saved.'}:m)};
   let proposal;
+  completionRequest.messages[0].content+=' Every agent_chat action MUST include message: copy the requested draft exactly when supplied, otherwise an empty string for navigation only. Never describe a prepared draft in prose while omitting it from the action. OAuth checks only observe the existing connector status; they never authorize a provider. Voice calls require an explicit Start call click and existing microphone consent.';
   for(let attempt=0;attempt<2;attempt++) {
     const reply=await complete(completionRequest);
     try { proposal=validateCopilotProposal(JSON.parse(reply.content),c); break; }

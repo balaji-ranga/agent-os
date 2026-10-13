@@ -1529,7 +1529,7 @@
       "form_count": 1,
       "controls": [
         {
-          "id": "components/PlatformHelpCopilot.jsx:128",
+          "id": "components/PlatformHelpCopilot.jsx:131",
           "label": "Assistance style",
           "type": "select",
           "required": false,
@@ -1537,7 +1537,7 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "components/PlatformHelpCopilot.jsx:142",
+          "id": "components/PlatformHelpCopilot.jsx:145",
           "label": "Ask me to help with anything in Flolah…",
           "type": "textarea",
           "required": false,
@@ -3835,14 +3835,14 @@
       "form_count": 0,
       "controls": [
         {
-          "id": "pages/Broadcast.jsx:71",
+          "id": "pages/Broadcast.jsx:74",
           "label": "e.g. \"Social media expert: reach me via notify_ceo\" or \"What is your current status?\"",
           "type": "textarea",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Broadcast.jsx:103",
+          "id": "pages/Broadcast.jsx:106",
           "label": "Unlabelled or dynamically labelled control",
           "type": "checkbox",
           "required": false,
@@ -5826,7 +5826,7 @@
       "form_count": 0,
       "controls": [
         {
-          "id": "pages/Objectives.jsx:23",
+          "id": "pages/Objectives.jsx:24",
           "label": "Period",
           "type": "select",
           "required": false,
@@ -5834,7 +5834,7 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "pages/Objectives.jsx:23",
+          "id": "pages/Objectives.jsx:24",
           "label": "Status",
           "type": "select",
           "required": false,
@@ -5842,14 +5842,14 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "pages/Objectives.jsx:46",
+          "id": "pages/Objectives.jsx:48",
           "label": "Business outcome",
           "type": "textarea",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Objectives.jsx:46",
+          "id": "pages/Objectives.jsx:48",
           "label": "Period",
           "type": "select",
           "required": false,
@@ -5857,35 +5857,35 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "pages/Objectives.jsx:46",
+          "id": "pages/Objectives.jsx:48",
           "label": "Period label",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Objectives.jsx:46",
+          "id": "pages/Objectives.jsx:48",
           "label": "Starts",
           "type": "date",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Objectives.jsx:46",
+          "id": "pages/Objectives.jsx:48",
           "label": "Ends",
           "type": "date",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Objectives.jsx:46",
+          "id": "pages/Objectives.jsx:48",
           "label": "Currency",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Objectives.jsx:46",
+          "id": "pages/Objectives.jsx:48",
           "label": "AI/tool budget",
           "type": "number",
           "required": false,
@@ -5893,21 +5893,21 @@
           "mode": "guided"
         },
         {
-          "id": "pages/Objectives.jsx:54",
+          "id": "pages/Objectives.jsx:56",
           "label": "Result name",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Objectives.jsx:54",
+          "id": "pages/Objectives.jsx:56",
           "label": "Baseline",
           "type": "number",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Objectives.jsx:54",
+          "id": "pages/Objectives.jsx:56",
           "label": "Target",
           "type": "number",
           "required": false,
@@ -5915,14 +5915,14 @@
           "mode": "guided"
         },
         {
-          "id": "pages/Objectives.jsx:54",
+          "id": "pages/Objectives.jsx:56",
           "label": "Unit",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Objectives.jsx:55",
+          "id": "pages/Objectives.jsx:57",
           "label": "Measurement source",
           "type": "select",
           "required": false,
@@ -5930,7 +5930,7 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "pages/Objectives.jsx:56",
+          "id": "pages/Objectives.jsx:58",
           "label": "Specific company source",
           "type": "select",
           "required": false,
@@ -5938,7 +5938,7 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "pages/Objectives.jsx:57",
+          "id": "pages/Objectives.jsx:59",
           "label": "Measurement formula",
           "type": "select",
           "required": false,
@@ -5946,42 +5946,42 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "pages/Objectives.jsx:58",
+          "id": "pages/Objectives.jsx:60",
           "label": "Exactly what counts and where the evidence comes from",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Objectives.jsx:63",
+          "id": "pages/Objectives.jsx:65",
           "label": "Initiative name",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Objectives.jsx:63",
+          "id": "pages/Objectives.jsx:65",
           "label": "Accountable owner",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Objectives.jsx:63",
+          "id": "pages/Objectives.jsx:65",
           "label": "Continuous, time-bound, or event-led",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Objectives.jsx:63",
+          "id": "pages/Objectives.jsx:65",
           "label": "Execution brief",
           "type": "textarea",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Objectives.jsx:67",
+          "id": "pages/Objectives.jsx:69",
           "label": "Goal type",
           "type": "select",
           "required": false,
@@ -5989,21 +5989,21 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "pages/Objectives.jsx:67",
+          "id": "pages/Objectives.jsx:69",
           "label": "Accountable owner",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Objectives.jsx:67",
+          "id": "pages/Objectives.jsx:69",
           "label": "Goal title",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Objectives.jsx:67",
+          "id": "pages/Objectives.jsx:69",
           "label": "Assigned AI employee",
           "type": "select",
           "required": false,
@@ -6011,14 +6011,14 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "pages/Objectives.jsx:67",
+          "id": "pages/Objectives.jsx:69",
           "label": "Unlabelled or dynamically labelled control",
           "type": "checkbox",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Objectives.jsx:68",
+          "id": "pages/Objectives.jsx:70",
           "label": "Cadence",
           "type": "select",
           "required": false,
@@ -6026,70 +6026,70 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "pages/Objectives.jsx:68",
+          "id": "pages/Objectives.jsx:70",
           "label": "Local time",
           "type": "time",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Objectives.jsx:68",
+          "id": "pages/Objectives.jsx:70",
           "label": "Timezone",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Objectives.jsx:69",
+          "id": "pages/Objectives.jsx:71",
           "label": "Unlabelled or dynamically labelled control",
           "type": "checkbox",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Objectives.jsx:69",
+          "id": "pages/Objectives.jsx:71",
           "label": "Execution guidance",
           "type": "textarea",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Objectives.jsx:90",
+          "id": "pages/Objectives.jsx:92",
           "label": "sales_warehouse",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Objectives.jsx:90",
+          "id": "pages/Objectives.jsx:92",
           "label": "Label",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Objectives.jsx:90",
+          "id": "pages/Objectives.jsx:92",
           "label": "Category",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Objectives.jsx:90",
+          "id": "pages/Objectives.jsx:92",
           "label": "Provider",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Objectives.jsx:90",
+          "id": "pages/Objectives.jsx:92",
           "label": "Description",
           "type": "textarea",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Objectives.jsx:91",
+          "id": "pages/Objectives.jsx:93",
           "label": "Source",
           "type": "select",
           "required": false,
@@ -6097,7 +6097,7 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "pages/Objectives.jsx:91",
+          "id": "pages/Objectives.jsx:93",
           "label": "Object",
           "type": "select",
           "required": false,
@@ -6105,7 +6105,7 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "pages/Objectives.jsx:91",
+          "id": "pages/Objectives.jsx:93",
           "label": "Supported field",
           "type": "select",
           "required": false,
@@ -6113,35 +6113,35 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "pages/Objectives.jsx:91",
+          "id": "pages/Objectives.jsx:93",
           "label": "Registry attribute ID",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Objectives.jsx:91",
+          "id": "pages/Objectives.jsx:93",
           "label": "Provider mapping path",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Objectives.jsx:91",
+          "id": "pages/Objectives.jsx:93",
           "label": "Data type",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Objectives.jsx:91",
+          "id": "pages/Objectives.jsx:93",
           "label": "Description",
           "type": "textarea",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Objectives.jsx:92",
+          "id": "pages/Objectives.jsx:94",
           "label": "Source",
           "type": "select",
           "required": false,
@@ -6149,28 +6149,28 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "pages/Objectives.jsx:92",
+          "id": "pages/Objectives.jsx:94",
           "label": "qualified_rate",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Objectives.jsx:92",
+          "id": "pages/Objectives.jsx:94",
           "label": "Label",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Objectives.jsx:92",
+          "id": "pages/Objectives.jsx:94",
           "label": "100 * qualified_count / researched_count",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Objectives.jsx:92",
+          "id": "pages/Objectives.jsx:94",
           "label": "Calculation description",
           "type": "textarea",
           "required": false,
@@ -6499,7 +6499,7 @@
       "form_count": 1,
       "controls": [
         {
-          "id": "pages/ScheduledGoals.jsx:362",
+          "id": "pages/ScheduledGoals.jsx:365",
           "label": "Filter status",
           "type": "select",
           "required": false,
@@ -6507,21 +6507,21 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "pages/ScheduledGoals.jsx:411",
+          "id": "pages/ScheduledGoals.jsx:414",
           "label": "Hourly MAGS dip check",
           "type": "text",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/ScheduledGoals.jsx:419",
+          "id": "pages/ScheduledGoals.jsx:422",
           "label": "Check MAGS vs previous close; if down ≥2%, notify me. Otherwise do not notify.",
           "type": "textarea",
           "required": true,
           "mode": "guided"
         },
         {
-          "id": "pages/ScheduledGoals.jsx:430",
+          "id": "pages/ScheduledGoals.jsx:433",
           "label": "Unlabelled or dynamically labelled control",
           "type": "select",
           "required": false,
@@ -6529,7 +6529,7 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "pages/ScheduledGoals.jsx:453",
+          "id": "pages/ScheduledGoals.jsx:456",
           "label": "Unlabelled or dynamically labelled control",
           "type": "select",
           "required": false,
@@ -6537,7 +6537,7 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "pages/ScheduledGoals.jsx:463",
+          "id": "pages/ScheduledGoals.jsx:466",
           "label": "Unlabelled or dynamically labelled control",
           "type": "select",
           "required": false,
@@ -6545,28 +6545,28 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "pages/ScheduledGoals.jsx:479",
+          "id": "pages/ScheduledGoals.jsx:482",
           "label": "Unlabelled or dynamically labelled control",
           "type": "time",
           "required": true,
           "mode": "guided"
         },
         {
-          "id": "pages/ScheduledGoals.jsx:493",
+          "id": "pages/ScheduledGoals.jsx:496",
           "label": "Unlabelled or dynamically labelled control",
           "type": "date",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/ScheduledGoals.jsx:510",
+          "id": "pages/ScheduledGoals.jsx:513",
           "label": "Unlabelled or dynamically labelled control",
           "type": "checkbox",
           "required": false,
           "mode": "guided"
         },
         {
-          "id": "pages/ScheduledGoals.jsx:605",
+          "id": "pages/ScheduledGoals.jsx:608",
           "label": "e.g. also add social research; run Platform Help in parallel",
           "type": "textarea",
           "required": false,

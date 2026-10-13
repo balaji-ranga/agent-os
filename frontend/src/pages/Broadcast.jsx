@@ -1,6 +1,7 @@
 ﻿import { useState, useEffect } from 'react';
 import { api } from '../api';
 import ChatMessageContent from '../components/ChatMessageContent';
+import { useCopilotForm, copilotFormSaved } from '../utils/copilotForms.js';
 
 export default function Broadcast() {
   const [agents, setAgents] = useState([]);
@@ -11,6 +12,7 @@ export default function Broadcast() {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  useCopilotForm('broadcast_draft',{message},patch=>{if(patch.message!==undefined)setMessage(patch.message);},()=>{if(loading)throw new Error('Wait for the current broadcast to finish.');});
 
   useEffect(() => {
     api
@@ -35,6 +37,7 @@ export default function Broadcast() {
     api
       .broadcastSend(message.trim(), agentIds)
       .then((data) => {
+        copilotFormSaved('broadcast_draft');
         setResults(data.results || []);
         setRouting(data.routing || null);
         setSummary(data.summary || null);

@@ -2,6 +2,21 @@ import { validateSelection } from './knowledge-selection.js';
 // Deliberately bounded UI assistance. These contracts never authorize API writes.
 export const COPILOT_VERSION = 1;
 export const COPILOT_FORMS = {
+  broadcast_draft: {
+    label:'Broadcast message draft',route:'/broadcast',permission:'broadcast',
+    purpose:'Prepare message text only. Recipients, permissions and Send remain manual. Never send automatically.',
+    fields:{message:{type:'string',maxLength:4000}},
+  },
+  scheduled_goal: {
+    label:'New scheduled goal draft',route:'/scheduled-goals',permission:'scheduled-goals',
+    purpose:'Prepare a NEW schedule draft only. Agent assignment, external delivery, activation and Save remain manual. Cannot modify an existing goal.',
+    fields:{title:{type:'string',maxLength:200},prompt:{type:'string',maxLength:4000},cadence:{type:'string',enum:['hourly','daily','weekdays','weekly']},time_local:{type:'string',maxLength:5},weekday:{type:'integer',minimum:0,maximum:6}},
+  },
+  objective_draft: {
+    label:'Objective brief',route:'/objectives/new',permission:'this-week',
+    purpose:'Prepare objective outcome and period label only. Budget, dates, authority, generated plan and saving remain manual.',
+    fields:{outcome:{type:'string',maxLength:4000},period_label:{type:'string',maxLength:120}},
+  },
   user_profile: {
     label:'Profile details',route:'/profile',permission:'profile',
     purpose:'Prepare display name, role title and display timezone only. Passwords, MFA, model credentials, retention and permissions remain user-controlled.',
@@ -51,6 +66,7 @@ export function cleanFormPatch(formId, input) {
     if (field.type === 'string' && (typeof value !== 'string' || value.length > (field.maxLength || 2000))) throw copilotError(`Invalid ${key}`);
     if (field.enum && !field.enum.includes(value)) throw copilotError(`Invalid ${key}`);
     if(key==='display_timezone'&&value){try{new Intl.DateTimeFormat('en',{timeZone:value});}catch{throw copilotError('Invalid display timezone');}}
+    if(key==='time_local'&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(value))throw copilotError('Invalid schedule time');
     if (field.type === 'boolean' && typeof value !== 'boolean') throw copilotError(`Invalid ${key}`);
     if (field.type === 'integer' && (!Number.isInteger(value) || value < field.minimum || value > field.maximum)) throw copilotError(`Invalid ${key}`);
     if (field.type === 'array' && (!Array.isArray(value) || value.length > 20 || value.some(v => !field.items.includes(v)))) throw copilotError(`Invalid ${key}`);
@@ -75,6 +91,7 @@ export function validateCopilotProposal(input, catalog) {
     if (action.type === 'agent_chat' || action.type === 'agent_call') {
       const agent = catalog.agents.find(a => a.id === action.agent);
       if (!agent) throw copilotError('Agent is not available', 403);
+      if(action.type==='agent_chat'&&typeof action.message!=='string')throw copilotError('Agent chat must include message: requested draft text, or empty string for navigation only');
       if(action.message!==undefined&&(typeof action.message!=='string'||action.message.length>2000))throw copilotError('Invalid prepared message');
       return { type: action.type, agent: agent.id, route: `/agents/${encodeURIComponent(agent.id)}/chat`, ...(action.message?{message:action.message}:{}) };
     }

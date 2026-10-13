@@ -33,7 +33,15 @@ const catalog={forms:COPILOT_FORMS,screens:[{id:'home',route:'/'}],agents:[{id:'
 assert.deepEqual(validateCopilotProposal({message:'Review',actions:[{type:'navigate',screen:'home',route:'https://evil.test'}]},catalog).actions,[{type:'navigate',screen:'home',route:'/'}]);
 for(const action of [{type:'execute',code:'fetch(secret)'},{type:'agent_chat',agent:'other-tenant-agent'},{type:'navigate',screen:'admin'},{type:'fill',form:'hire_employee',values:{tools:['shell']}}])assert.throws(()=>validateCopilotProposal({message:'Do it',actions:[action]},catalog));
 assert.throws(()=>validateCopilotProposal({message:'Do it',actions:[{type:'fill',form:'hire_employee',values:{name:'Example'}}]},{...catalog,forms:{}}));
-assert.equal(validateCopilotProposal({message:'Review',actions:[{type:'agent_chat',agent:'my-agent'}]},catalog).actions[0].route,'/agents/my-agent/chat');
+assert.throws(()=>validateCopilotProposal({message:'Review',actions:[{type:'agent_chat',agent:'my-agent'}]},catalog),/must include message/);
+assert.equal(validateCopilotProposal({message:'Review',actions:[{type:'agent_chat',agent:'my-agent',message:'Exact draft'}]},catalog).actions[0].message,'Exact draft');
+assert.equal(validateCopilotProposal({message:'Open',actions:[{type:'agent_chat',agent:'my-agent',message:''}]},catalog).actions[0].route,'/agents/my-agent/chat');
+assert.equal(validateCopilotProposal({message:'Call',actions:[{type:'agent_call',agent:'my-agent'}]},catalog).actions[0].agent,'my-agent');
+assert.throws(()=>cleanFormPatch('broadcast_draft',{recipients:['other-tenant']}),/Unregistered/);
+assert.throws(()=>cleanFormPatch('scheduled_goal',{time_local:'25:61'}),/schedule time/);
+assert.throws(()=>cleanFormPatch('scheduled_goal',{enabled:true}),/Unregistered/);
+assert.throws(()=>cleanFormPatch('objective_draft',{budget_amount:999}),/Unregistered/);
+assert.deepEqual(cleanFormPatch('scheduled_goal',{cadence:'weekly',weekday:2,time_local:'09:30'}),{cadence:'weekly',weekday:2,time_local:'09:30'});
 db.close();
 const workspace=mkdtempSync(join(tmpdir(),'flolah-copilot-test-'));
 try {

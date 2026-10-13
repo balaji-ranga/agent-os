@@ -8,6 +8,11 @@ Choose **Guided**, **Autofill**, or **Hybrid**. Describe what you want to config
 
 - Knowledge source creation: name, source kind/collections, Gmail query, Outlook folder, interval, content-selection rules, relationship options, sync and visibility toggles.
 - AI employee preparation: name, role and an existing department. Template choice, reporting, budgets, tool/skill grants and other advanced choices are reviewed in the normal form/workspace. Copilot does not silently grant permissions.
+- Knowledge table: name, purpose and columns; document upload: title and tags only, with manual file selection.
+- Profile: display name, role title and timezone only; credentials and permissions stay manual.
+- Broadcast: message text only. Select recipients and send manually.
+- New scheduled goal: title, prompt, cadence, time and weekday. Select its agent, delivery and activation manually.
+- Objective brief: outcome and period label only. Budget, authority and generated-plan approval remain manual.
 
 Existing-source editing and advanced employee drafts are not automatically migrated into a new-object draft. Finish or cancel these edits before taking a Copilot detour. Other forms remain guidance-only. Workflow graph creation/editing remains with Workflow Builder.
 

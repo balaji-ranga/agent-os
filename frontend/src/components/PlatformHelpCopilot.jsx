@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { getCopilotForm } from '../utils/copilotForms.js';
+import { copilotAgentHandoff } from '../utils/copilotHandoff.js';
 import AgentChatPanel from './AgentChatPanel';
 import './PlatformHelpCopilot.css';
 const fieldLabels={kind:'Connection',collections:'Content to include',interval_seconds:'Sync frequency',graph_enabled:'Connect related information',intelligent_mapping:'Intelligent relationship mapping',enabled:'Synchronization',retrieval_enabled:'Visible in search',folder_id:'Folder',query:'Content filter',selection:'Content selection'};
@@ -19,6 +20,8 @@ function hasDraftContent(id,values){
   if(id==='knowledge_table')return !!(values.name||values.purpose||values.columns?.replaceAll(' ','')!=='name,value');
   if(id==='knowledge_document')return !!(values.title||values.tags);
   if(id==='hire_employee')return !!(values.name||values.role);
+  if(id==='broadcast_draft')return !!values.message;
+  if(id==='scheduled_goal')return !!(values.title||values.prompt);
   return true;
 }
 
@@ -111,8 +114,8 @@ export default function PlatformHelpCopilot() {
       if(!screen)throw new Error('This screen is no longer available.');
       await go(screen.route);return;
     }
-    if(!fresh.agents.some(a=>a.id===action.agent))throw new Error('This agent is no longer available.');
-    await go(`/agents/${encodeURIComponent(action.agent)}/chat`,{prefill:action.message||'',autosend:false,copilotCall:action.type==='agent_call'});
+    const handoff=copilotAgentHandoff(action,fresh.agents);
+    await go(handoff.route,handoff.state);
     if(action.type==='agent_call')setOpen(false);
   }
   async function startWatch(provider){await update({watch:provider});setWatch(provider);setNotice(`Checking ${provider}. Complete authorization yourself in Connectors.`);}

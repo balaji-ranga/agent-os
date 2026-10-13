@@ -6,6 +6,7 @@ import GoalPlanPanel from '../components/GoalPlanPanel';
 import WorkSteering from '../components/WorkSteering.jsx';
 import GoalPlanManualEditor from '../components/GoalPlanManualEditor';
 import { Fragment } from 'react';
+import { useCopilotForm, copilotFormSaved } from '../utils/copilotForms.js';
 
 function statusClass(status) {
   if (status === 'active') return 'sg-badge sg-badge-active';
@@ -75,6 +76,7 @@ function ScheduledGoalsPanel() {
   const [planFeedback, setPlanFeedback] = useState('');
   const [planBusyLocal, setPlanBusyLocal] = useState(false);
   const [amendPlanOpen, setAmendPlanOpen] = useState(false);
+  useCopilotForm('scheduled_goal',Object.fromEntries(['title','prompt','cadence','time_local','weekday'].map(key=>[key,form[key]])),patch=>{setForm(previous=>({...previous,...patch}));setShowForm(true);},()=>{if(editingId||busyId||enrichBusy||planBusyLocal)throw new Error('Finish or close the existing schedule edit before preparing a new one.');});
 
   const load = () => {
     setLoading(true);
@@ -290,6 +292,7 @@ function ScheduledGoalsPanel() {
         );
       } else {
         await api.scheduledGoalsCreate(body);
+        copilotFormSaved('scheduled_goal');
         setMessage(
           planForCoo
             ? approvePlan

@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {copilotAgentHandoff} from '../src/utils/copilotHandoff.js';
+const agents=[{id:'researcher'}];
+assert.throws(()=>copilotAgentHandoff({type:'agent_chat',agent:'researcher'},agents),/missing/);
+assert.throws(()=>copilotAgentHandoff({type:'agent_call',agent:'other-tenant'},agents),/available/);
+const chat=copilotAgentHandoff({type:'agent_chat',agent:'researcher',message:'Please describe your capabilities.'},agents);
+assert.equal(chat.state.prefill,'Please describe your capabilities.');
+assert.equal(chat.state.autosend,false);assert.equal(chat.state.copilotCall,false);
+assert.equal(copilotAgentHandoff({type:'agent_call',agent:'researcher'},agents).state.copilotCall,true);
+assert.equal(copilotAgentHandoff({type:'agent_chat',agent:'researcher',message:''},agents).state.prefill,'');
+console.log('PASS Copilot handoff: exact draft, explicit empty navigation, no auto-send, entitled-agent and explicit-call boundaries.');

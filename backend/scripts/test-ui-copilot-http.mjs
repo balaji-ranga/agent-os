@@ -6,8 +6,9 @@ import { COPILOT_FORMS } from '../src/services/ui-copilot-contract.js';
 const db=new Database(':memory:');
 let user={id:'alice',role:'ceo'},allow=true,modelReply={message:'Review before saving',actions:[{type:'fill',form:'hire_employee',values:{name:'Demo researcher'}}]};
 let invoked=0,connectionCalls=0,connected=false;
+let modelReplies=[];
 const app=express();app.use(express.json());app.use((req,res,next)=>{req.authUser=user;next();});
-app.use('/copilot',uiCopilotRouter({database:()=>db,getCatalog:()=>({forms:allow?COPILOT_FORMS:{},screens:[{id:'home',route:'/'},{id:'connectors',route:'/connectors'}],agents:[]}),connections:async owner=>{assert.equal(owner,'alice');connectionCalls++;return {apps:connected?[{id:'gmail',connected:true}]:[]};},complete:async options=>{invoked++;assert.equal(options.ownerUserId,'alice');return {content:JSON.stringify(modelReply)};}}));
+app.use('/copilot',uiCopilotRouter({database:()=>db,getCatalog:()=>({forms:allow?COPILOT_FORMS:{},screens:[{id:'home',route:'/'},{id:'connectors',route:'/connectors'}],agents:[{id:'researcher'}]}),connections:async owner=>{assert.equal(owner,'alice');connectionCalls++;return {apps:connected?[{id:'gmail',connected:true}]:[]};},complete:async options=>{invoked++;assert.equal(options.ownerUserId,'alice');assert.equal(options.responseFormat,'json_object');return {content:JSON.stringify(modelReplies.length?modelReplies.shift():modelReply)};}}));
 const server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));
 const base=`http://127.0.0.1:${server.address().port}/copilot`;
 async function request(path,method='GET',body){const res=await fetch(base+path,{method,headers:{'Content-Type':'application/json','x-impersonate-ceo':'bob'},body:body&&JSON.stringify(body)});return {status:res.status,body:await res.json()};}
@@ -20,6 +21,22 @@ try{
   assert.equal(reply.status,200);s=reply.body;assert.equal(s.proposal.actions[0].values.name,'Demo researcher');
   assert.equal(s.conversation[0].text,'Prepare a researcher');
   assert.equal((await request('/session')).body.session.conversation[1].text,'Review before saving');
+  const callsBeforeRepair=invoked;
+  modelReplies=[{message:'Prepared',actions:[{type:'agent_chat',agent:'researcher'}]},{message:'Review draft',actions:[{type:'agent_chat',agent:'researcher',message:'Please describe your capabilities.'}]}];
+  reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,message:'Prepare the message Please describe your capabilities. for Researcher; do not send.'});
+  assert.equal(reply.status,200);s=reply.body;
+  assert.equal(invoked-callsBeforeRepair,2,'Missing draft must trigger a bounded correction');
+  assert.equal(s.proposal.actions[0].message,'Please describe your capabilities.');
+  for(const [form,values] of [
+    ['broadcast_draft',{message:'Synthetic unsent broadcast'}],
+    ['scheduled_goal',{title:'Draft only',prompt:'Prepare a status report',cadence:'weekly',weekday:2,time_local:'09:30'}],
+    ['objective_draft',{outcome:'Improve onboarding documentation',period_label:'Next quarter'}],
+  ]) {
+    modelReply={message:'Review only',actions:[{type:'fill',form,values}]};
+    reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,message:'Prepare this synthetic form; do not save.'});
+    assert.equal(reply.status,200);s=reply.body;assert.deepEqual(s.proposal.actions[0].values,values);
+  }
+  modelReply={message:'Review before saving',actions:[{type:'fill',form:'hire_employee',values:{name:'Demo researcher'}}]};
   assert.equal((await request(`/session/${s.id}`,'PUT',{version:s.version,draft:{form:'hire_employee',values:{name:'Safe draft'}}})).status,200);
   assert.equal((await request(`/session/${s.id}/propose`,'POST',{version:s.version,message:'stale'})).status,409);
   s=(await request('/session')).body.session;

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api';
+import { useCopilotForm } from '../utils/copilotForms.js';
 import { formatLocalDateTime } from '../utils/formatDateTime.js';
 
 const PAGE = 12;
@@ -29,6 +30,7 @@ export function ObjectivesList() {
 export function ObjectiveStudio() {
   const navigate=useNavigate(); const [form,setForm]=useState({outcome:'Generate S$100k qualified pipeline this quarter. Target Singapore SMEs. Do not send external communications without approval.',period_type:'quarterly',period_label:'Q4 2026',starts_on:'2026-10-01',ends_on:'2026-12-31',currency:'SGD',budget_amount:450});
   const [proposal,setProposal]=useState(null),[busy,setBusy]=useState(false),[goalBusy,setGoalBusy]=useState({}),[error,setError]=useState(''),[model,setModel]=useState(''),[measurementSources,setMeasurementSources]=useState([]);
+  useCopilotForm('objective_draft',{outcome:form.outcome,period_label:form.period_label},patch=>setForm(previous=>({...previous,...patch})),()=>{if(busy||proposal)throw new Error('Finish or discard the existing objective proposal before preparing another brief.');});
   useEffect(()=>{api.companyObjectiveMeasurementRegistry().then(r=>setMeasurementSources(r.sources||[])).catch(()=>setMeasurementSources([]));},[]);
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const updateKr=(index,patch)=>setProposal(p=>({...p,key_results:p.key_results.map((item,n)=>n===index?{...item,...patch}:item)}));
