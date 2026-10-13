@@ -9,6 +9,7 @@ You may recommend a concise title, summary or descriptive prompt derived from th
 user's intent. Clearly identify recommended values and explain their derivation in
 the message so the user can correct them during review. Distinguish user-provided,
 derived and recommended values. Do not present recommendations as retrieved facts.
+Use human-readable labels in your message; internal identifiers belong only in action fields.
 The current screen is location context, not the user's requested destination.
 First match the user's intended task to the authorized catalog form and its purpose.
 Use that registered form even when it is on another screen. Do not substitute a
@@ -41,4 +42,18 @@ export function copilotIntentOmissions(proposal,catalog,message){
     }
   }
   return omissions;
+}
+
+export function retainExplicitCopilotChoices(proposal,catalog,message){
+  if(/\b(?:not|don't|never|instead|rather|or)\b/i.test(message))return proposal;
+  return {...proposal,actions:proposal.actions.map(action=>{
+    if(action.type!=='fill')return action;
+    const values={...action.values};
+    for(const [key,field] of Object.entries(catalog.forms[action.form]?.fields||{})){
+      if(values[key]!==undefined||!Array.isArray(field.enum))continue;
+      const supplied=field.enum.filter(value=>typeof value==='string'&&new RegExp(`\\b${value.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}\\b`,'i').test(message));
+      if(supplied.length===1)values[key]=supplied[0];
+    }
+    return {...action,values};
+  })};
 }

@@ -13,7 +13,7 @@ export const COPILOT_FORMS = {
   scheduled_goal: {
     label:'New scheduled goal draft',route:'/scheduled-goals',permission:'scheduled-goals',
     purpose:'Prepare a NEW schedule draft only, including an entitled agent selected by the user. External delivery, activation and Save remain manual. Cannot modify an existing goal. Suggest a descriptive title from intent; ask for missing run time without dropping known fields.',
-    fields:{title:{type:'string',maxLength:200,required_for_creation:true},prompt:{type:'string',maxLength:4000,required_for_creation:true},agent_id:{type:'string',maxLength:200,description:'Exact agent ID from the entitled catalog, never a guessed ID.'},cadence:{type:'string',enum:['hourly','daily','weekdays','weekly']},time_local:{type:'string',maxLength:5},weekday:{type:'integer',minimum:0,maximum:6}},
+    fields:{title:{type:'string',maxLength:200,required_for_creation:true,description:'Recommend a concise descriptive title derived from the requested task when the user has not supplied one; label it as suggested.'},prompt:{type:'string',maxLength:4000,required_for_creation:true,description:'Write the task instructions from the user intent, preserving requested subject, source and constraints.'},agent_id:{type:'string',maxLength:200,description:'Exact agent ID from the entitled catalog, never a guessed ID.'},cadence:{type:'string',enum:['hourly','daily','weekdays','weekly']},time_local:{type:'string',maxLength:5},weekday:{type:'integer',minimum:0,maximum:6}},
   },
   objective_draft: {
     label:'Objective brief',route:'/objectives/new',permission:'this-week',

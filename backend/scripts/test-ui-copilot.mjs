@@ -3,7 +3,7 @@ import Database from 'better-sqlite3';
 import { COPILOT_FORMS, cleanFormPatch, validateCopilotProposal } from '../src/services/ui-copilot-contract.js';
 import { uiCopilotStore } from '../src/services/ui-copilot-store.js';
 import { copilotFillReceipt } from '../src/services/ui-copilot-progress.js';
-import {copilotIntentOmissions} from '../src/services/ui-copilot-recommendations.js';
+import {copilotIntentOmissions,retainExplicitCopilotChoices} from '../src/services/ui-copilot-recommendations.js';
 import { syncPlatformHelpCopilot } from '../src/services/platform-help-template-sync.js';
 import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -41,6 +41,9 @@ assert.equal(copilotIntentOmissions({actions:[{type:'fill',form:'scheduled_goal'
 const customCatalog={forms:{custom:{fields:{summary:{required_for_creation:true},frequency:{enum:['daily','weekly']}}}}};
 assert.equal(copilotIntentOmissions({actions:[{type:'fill',form:'custom',values:{}}]},customCatalog,'Create a daily item').length,2,'Coverage is driven by arbitrary form schema, not schedule names');
 assert.deepEqual(copilotIntentOmissions({actions:[{type:'fill',form:'custom',values:{}}]},customCatalog,'Change weekly or daily'),[],'Ambiguous choices are not guessed');
+assert.equal(retainExplicitCopilotChoices({actions:[{type:'fill',form:'custom',values:{summary:'Test'}}]},customCatalog,'Create a daily item').actions[0].values.frequency,'daily');
+assert.equal(retainExplicitCopilotChoices({actions:[{type:'fill',form:'custom',values:{}}]},customCatalog,'Create a weekly or daily item').actions[0].values.frequency,undefined);
+assert.equal(retainExplicitCopilotChoices({actions:[{type:'fill',form:'custom',values:{frequency:'weekly'}}]},customCatalog,'Create a daily item').actions[0].values.frequency,'weekly','Conflicting model choices must reach validation, not be silently overridden');
 const progressState={status:'active',proposal:{message:'Review',actions:[{type:'fill',form:'hire_employee',values:{name:'Demo researcher',role:'Research analyst'}}]}};
 const receiptInput={type:'fill',form:'hire_employee',values:{name:'Demo researcher'}};
 const receipt=copilotFillReceipt(progressState,receiptInput,catalog);

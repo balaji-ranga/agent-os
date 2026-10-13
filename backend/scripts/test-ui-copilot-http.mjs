@@ -29,6 +29,8 @@ try{
   assert.equal(s.conversation.at(-2).reply_to,priorMessage);
   assert(lastModelRequest.messages.some(m=>m.content.includes('selected_reply')&&m.content.includes(priorMessage)));
   assert.match(lastModelRequest.messages[0].content,/derived and recommended/);
+  const transcript=lastModelRequest.messages.map(m=>{try{return JSON.parse(m.content);}catch{return null;}}).find(m=>m?.conversation);
+  assert(transcript.conversation.every(turn=>turn.role==='user'),'Unselected assistant claims cannot become form requirements');
   const beforeInvalidReply=invoked;
   assert.equal((await request(`/session/${s.id}/propose`,'POST',{version:s.version,message:'Continue',reply_to:'other-tenant-message'})).status,409);
   assert.equal(invoked,beforeInvalidReply,'Foreign or missing reply IDs must fail before the LLM');
