@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import {continueCopilotNavigation,waitForCopilotReady,hasCopilotEmbedControls,matchesCopilotDestination} from '../src/utils/copilotNavigation.js';
+assert(matchesCopilotDestination('/app/home','/app'));
+assert(!matchesCopilotDestination('/app/customer','/app'));
+assert(!matchesCopilotDestination('/app/home','/app/customer'));
 assert(matchesCopilotDestination('/object/opportunity/abc','/object/opportunity/abc?viewId=view-1'));
 assert(!matchesCopilotDestination('/object/opportunity/other','/object/opportunity/abc?viewId=view-1'));
 assert(!matchesCopilotDestination('/objects/opportunities','/objects/opportunities?viewId=view-1'));

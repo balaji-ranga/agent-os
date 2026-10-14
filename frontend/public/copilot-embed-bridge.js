@@ -245,7 +245,7 @@
           await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
           // Twenty's record-title editor commits on Enter/click-outside, not
           // blur. Scope this recipe strictly to the reviewed title input.
-          if((key==='name'&&nameOpener().length===1&&el.closest('[data-testid="top-bar-title"]'))||(key==='amount'&&amountOpeners().length===1)){
+          if((['name','title'].includes(key)&&el.closest('[data-testid="top-bar-title"]'))||(key==='amount'&&amountOpeners().length===1)){
             el.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',code:'Enter',bubbles:true,cancelable:true}));
             el.dispatchEvent(new KeyboardEvent('keyup',{key:'Enter',code:'Enter',bubbles:true,cancelable:true}));
           }

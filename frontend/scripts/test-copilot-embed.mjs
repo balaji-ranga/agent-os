@@ -192,3 +192,10 @@ console.log('PASS rich-text transaction: metadata-only inspection, private basel
 navLink.textContent=' ';navLink.getAttribute=key=>key==='href'?'/app':null;navLink.querySelector=()=>({getAttribute:()=> 'App Logo'});
 await nav({command:'inspect'});assert.equal(navReplies.at(-1).navigation[0].label,'App Logo');assert.equal(navReplies.at(-1).navigation[0].path,'/app');
 console.log('PASS accessible navigation: image-only workspace root exposes its observed alt label.');
+let titleHandler;const titleReplies=[],titleParent={postMessage:m=>titleReplies.push(m)},titleInput=new NativeInput();
+titleInput.getAttribute=key=>key==='placeholder'?'Title':null;titleInput.closest=selector=>selector==='[data-testid="top-bar-title"]'?{}:null;
+vm.runInNewContext(code,{window:{parent:titleParent,addEventListener:(_,fn)=>titleHandler=fn},document:{querySelectorAll:s=>s==='input,textarea,select'?[titleInput]:[]},location:{pathname:'/object/note/test'},requestAnimationFrame:fn=>fn(),crypto:{randomUUID:()=>String(titleReplies.length)},HTMLInputElement:NativeInput,Event:class{constructor(type){this.type=type;}},KeyboardEvent:class{constructor(type){this.type=type;}}});
+const titleSend=data=>titleHandler({origin:'https://login.flolah.cloud',source:titleParent,data:{type:'flolah-copilot-guide',request:'title',...data}});
+await titleSend({command:'prepare',fields:['title']});await titleSend({command:'fill',snapshot:titleReplies.at(-1).snapshot,values:{title:'Followup'}});
+assert.equal(titleReplies.at(-1).ok,true);assert.deepEqual(titleInput.events,['input','change','keydown','keyup','blur']);
+console.log('PASS generic record-header Title editor commits with the same reviewed Enter contract as Name.');

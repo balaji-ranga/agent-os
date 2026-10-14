@@ -48,6 +48,9 @@ export function hasCopilotEmbedControls(metadata){
 }
 export function matchesCopilotDestination(actual,requested){
   if(actual===requested)return true;
+  // The observed ERP workspace logo routes to /app, which redirects to its
+  // canonical home. Accept only this landing alias, never arbitrary subpaths.
+  if(requested==='/app'&&actual==='/app/home')return true;
   // A record's viewId is a return-to-list hint; CRM drops it after opening.
   return typeof actual==='string'&&typeof requested==='string'&&/^\/object\/[a-z][a-z0-9-]*\/[a-zA-Z0-9-]+$/.test(actual)&&requested.startsWith(actual+'?viewId=')&&/^[a-zA-Z0-9-]+$/.test(requested.slice((actual+'?viewId=').length));
 }
