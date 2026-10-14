@@ -109,6 +109,8 @@ try{
   reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'erp',embedded_forms:['Add Customer'],message:'Prepare a new customer form'});
   assert.equal(reply.status,200);s=reply.body;
   assert.equal((await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'erp',embedded_forms:[],message:'Prepare a new customer form'})).status,502);
+  reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'erp',embedded_path:'/app/sales-invoice',embedded_forms:[],embedded_navigation:[{path:'/app',label:'App Logo'}],message:'Prepare a new customer form'});
+  assert.equal(reply.status,200);s=reply.body;assert.deepEqual(s.proposal.actions,[{type:'embed_navigate',screen:'erp',path:'/app'}],'A missing New control leads to observed workspace navigation, never creation');
   const opportunityRequest='create a new opportunity with name Demo Test and value of USD 10000';
   modelReply={message:'New Company',actions:[{type:'embed_open_form',screen:'crm',label:'Create new Company'}]};
   reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'crm',embedded_forms:['Create new Company'],embedded_navigation:[{path:'/objects/opportunities?viewId=test',label:'Opportunities'}],message:opportunityRequest});

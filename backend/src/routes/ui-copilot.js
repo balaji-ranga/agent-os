@@ -264,6 +264,13 @@ router.post('/session/:id/propose',handler(async req=> {
       if(proposal.actions.length===1&&proposal.actions[0].type==='embed_open_form'&&proposal.actions[0].screen===activeScreen?.id&&!embeddedForms.includes(proposal.actions[0].label)){
         const matches=matchingCopilotForms(message,embeddedForms);
         if(matches.length===1)proposal=validateCopilotProposal({message:'The requested creation control is available. Review it before creating the record.',actions:[{type:'embed_open_form',screen:activeScreen.id,label:matches[0]}]},c);
+        else if(!created){
+          // A requested form is not evidence that its New control is present.
+          // Discover menus through a unique observed home link before retrying
+          // the original task. Never manufacture a provider route or creation.
+          const homes=embeddedNavigation.filter(n=>/^(?:home|app logo|workspace)$/i.test(n.label.trim())&&n.path!==req.body.embedded_path);
+          if(homes.length===1)proposal=validateCopilotProposal({message:'I will open the workspace home to find the requested section, then inspect its form. No record has been created.',actions:[{type:'embed_navigate',screen:activeScreen.id,path:homes[0].path}]},c);
+        }
       }
       const omissions=copilotIntentOmissions(proposal,c,message);
       if(omissions.length){
