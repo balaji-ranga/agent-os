@@ -50,14 +50,16 @@
       return u.origin===location.origin&&safe?[{element:el,path,label:String(el.textContent||'').trim().slice(0,100)}]:[];
     }catch{return [];}
   });
-  const newForms=()=>{const buttons=[...document.querySelectorAll('button')].filter(el=>el.tagName==='BUTTON'&&!el.disabled&&visible(el)).flatMap(element=>{
+  const newForms=()=>{const current=navigations().filter(n=>n.path===location.pathname+(location.search||''));
+    const words=text=>String(text).toLowerCase().match(/[a-z]+/g)?.map(w=>w.endsWith('ies')?w.slice(0,-3)+'y':w.endsWith('s')?w.slice(0,-1):w)||[];
+    const buttons=[...document.querySelectorAll('button')].filter(el=>el.tagName==='BUTTON'&&!el.disabled&&visible(el)).flatMap(element=>{
     const text=String(element.getAttribute('aria-label')||element.textContent||'').trim(),match=/^(?:Create new|Add|New) ([A-Za-z][A-Za-z ]+)$/.exec(text);
-    return match&&allowed.has(match[1].toLowerCase())&&!/invoice|journal|order|stock|transaction|fiscal|company setup/i.test(match[1])?[{element,label:text}]:[];
+    const resourceMatches=current.length!==1||words(current[0].label).every(w=>words(match?.[1]||'').includes(w));
+    return match&&resourceMatches&&allowed.has(match[1].toLowerCase())&&!/invoice|journal|order|stock|transaction|fiscal|company setup|\bchat\b/i.test(match[1])?[{element,label:text}]:[];
   });
     if(buttons.length||!/^\/objects\/[a-z][a-z0-9-]*$/.test(location.pathname))return buttons;
     // Compact record lists expose an Add New row instead of a labelled button.
     // Derive its resource from the observed current navigation link, not a model URL.
-    const current=navigations().filter(n=>n.path===location.pathname+(location.search||''));
     if(current.length!==1||!allowed.has(current[0].label.toLowerCase())||/invoice|journal|order|stock|transaction|fiscal|company setup/i.test(current[0].label))return [];
     return [...document.querySelectorAll('span')].filter(el=>visible(el)&&String(el.textContent||'').trim()==='Add New').flatMap(element=>{
       const row=element.parentElement?.parentElement;

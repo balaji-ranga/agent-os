@@ -105,7 +105,8 @@ console.log('PASS new-record recipe: observed button, separate review, one-use a
 let compactHandler,compactClicks=0;const compactReplies=[],compactParent={postMessage:m=>compactReplies.push(m)};
 const compactLink={tagName:'A',textContent:'Opportunities',getClientRects:()=>[{}],getAttribute:()=>'/objects/opportunities?viewId=test'};
 const compactAdd={textContent:'Add New',getClientRects:()=>[{}],parentElement:{parentElement:{querySelector:()=>({})}},click(){compactClicks++;}};
-vm.runInNewContext(code,{URL,requestAnimationFrame:fn=>fn(),window:{parent:compactParent,addEventListener:(_,fn)=>compactHandler=fn},document:{querySelectorAll:s=>s==='a[href]'?[compactLink]:s==='span'?[compactAdd]:[]},location:{pathname:'/objects/opportunities',search:'?viewId=test',href:'https://crm.example/objects/opportunities?viewId=test',origin:'https://crm.example'},crypto:{randomUUID:()=>String(compactReplies.length)}});
+const unrelatedChat={tagName:'BUTTON',getClientRects:()=>[{}],getAttribute:()=> 'New chat',click(){throw Error('Global chat is not record creation');}};
+vm.runInNewContext(code,{URL,requestAnimationFrame:fn=>fn(),window:{parent:compactParent,addEventListener:(_,fn)=>compactHandler=fn},document:{querySelectorAll:s=>s==='a[href]'?[compactLink]:s==='span'?[compactAdd]:s==='button'?[unrelatedChat]:[]},location:{pathname:'/objects/opportunities',search:'?viewId=test',href:'https://crm.example/objects/opportunities?viewId=test',origin:'https://crm.example'},crypto:{randomUUID:()=>String(compactReplies.length)}});
 const compact=data=>compactHandler({origin:'https://login.flolah.cloud',source:compactParent,data:{type:'flolah-copilot-guide',request:'compact',...data}});
 await compact({command:'inspect'});assert.deepEqual(Array.from(compactReplies.at(-1).forms),['Add New Opportunities']);assert.equal(compactClicks,0);
 await compact({command:'prepare_open_form',label:'Add New Opportunities'});const compactSnapshot=compactReplies.at(-1).snapshot;
