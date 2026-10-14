@@ -246,6 +246,14 @@ router.post('/session/:id/propose',handler(async req=> {
       proposal=validateCopilotProposal(normalizeCopilotScreenActions(JSON.parse(reply.content),c,activeScreen?.id,visible),c);
       proposal=validateCopilotProposal(retainExplicitCopilotChoices(proposal,c,message),c);
       if(proposal.actions.length===1&&proposal.actions[0].type==='embed_navigate'&&proposal.actions[0].screen===activeScreen?.id&&!embeddedNavigation.some(n=>n.path===proposal.actions[0].path)){
+        // Models can omit an observed list's viewId. Resolve only a unique
+        // exact pathname with that return/list-view hint, not arbitrary query
+        // parameters, record IDs, fuzzy labels or model-invented destinations.
+        const path=proposal.actions[0].path;
+        const observed=!path.includes('?')?embeddedNavigation.filter(n=>n.path.startsWith(path+'?viewId=')&&/^[a-zA-Z0-9-]+$/.test(n.path.slice((path+'?viewId=').length))):[];
+        if(observed.length===1)proposal=validateCopilotProposal({...proposal,actions:[{...proposal.actions[0],path:observed[0].path}]},c);
+      }
+      if(proposal.actions.length===1&&proposal.actions[0].type==='embed_navigate'&&proposal.actions[0].screen===activeScreen?.id&&!embeddedNavigation.some(n=>n.path===proposal.actions[0].path)){
         const next=explicitCopilotIntermediate(message,embeddedNavigation);
         if(next&&next.path!==req.body.embedded_path)proposal=validateCopilotProposal({message:`Opening ${next.label} first, then I will inspect the requested record. No values have been changed.`,actions:[{type:'embed_navigate',screen:activeScreen.id,path:next.path}]},c);
       }

@@ -97,6 +97,10 @@ try{
   reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'erp',embedded_navigation:[],message:'Open the CRM Notes list'});
   assert.equal(reply.status,200);s=reply.body;
   assert.deepEqual(s.proposal.actions,[{type:'navigate',screen:'crm',route:'/crm'}],'Cross-workspace navigation discards invented embedded paths and re-inspects the authorized target');
+  modelReply={message:'Open Notes',actions:[{type:'embed_navigate',screen:'crm',path:'/objects/notes'}]};
+  reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'crm',embedded_navigation:[{path:'/objects/notes?viewId=notes-view',label:'Notes'}],message:'Open the CRM Notes list'});
+  assert.equal(reply.status,200);s=reply.body;assert.equal(s.proposal.actions[0].path,'/objects/notes?viewId=notes-view');
+  assert.equal((await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'crm',embedded_navigation:[{path:'/objects/notes?viewId=a',label:'First'},{path:'/objects/notes?viewId=b',label:'Second'}],message:'Open the CRM Notes list'})).status,502,'Ambiguous views are not silently selected');
     modelReply={message:'Open unseen record',actions:[{type:'embed_navigate',screen:'crm',path:'/object/opportunity/unseen'}]};
     reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'crm',embedded_path:'/objects/companies',embedded_navigation:[{path:'/objects/opportunities',label:'Opportunities'}],message:'Open Opportunities, then open opportunity unseen for review.'});
     assert.equal(reply.status,200);s=reply.body;assert.equal(s.proposal.actions[0].path,'/objects/opportunities','Use only the explicitly requested observed intermediate link');
@@ -121,10 +125,10 @@ try{
   assert.equal(reply.status,200);s=reply.body;
   assert.equal((await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'crm',creation_continuation:true,message:opportunityRequest,embedded_path:'/objects/opportunities'})).status,409,'Do not continue on the old list or create twice');
   modelReply={message:'Review all supplied values',actions:[{type:'embed_fill',screen:'crm',values:{name:'Demo Test',amount:'10000',currency:'USD'}}]};
-  const beforeCreationUserTurns=s.conversation.filter(t=>t.role==='user').length;
+  const beforeCreationUserTurns=new Set(s.conversation.filter(t=>t.role==='user').map(t=>t.id));
   reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'crm',creation_continuation:true,message:opportunityRequest,embedded_path:'/object/opportunity/synthetic',embedded_fields:['name','amount','currency']});
   assert.equal(reply.status,200);s=reply.body;assert.deepEqual(s.proposal.actions[0].values,{name:'Demo Test',amount:'10000',currency:'USD'});
-  assert.equal(s.conversation.filter(t=>t.role==='user').length,beforeCreationUserTurns);
+  assert(s.conversation.filter(t=>t.role==='user').every(t=>beforeCreationUserTurns.has(t.id)),'Continuation must not add a user turn; bounded history may evict old turns');
   assert(lastModelRequest.messages.some(m=>m.content.includes('creation_observation')));
   assert.equal((await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'crm',creation_continuation:true,message:opportunityRequest,embedded_path:'/object/opportunity/synthetic'})).status,409,'Creation continuation is single-use');
   const beforeReviewedFill=invoked;
