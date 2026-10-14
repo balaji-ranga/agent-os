@@ -50,10 +50,20 @@
       return u.origin===location.origin&&safe?[{element:el,path,label:String(el.textContent||'').trim().slice(0,100)}]:[];
     }catch{return [];}
   });
-  const newForms=()=>[...document.querySelectorAll('button')].filter(el=>el.tagName==='BUTTON'&&!el.disabled&&visible(el)).flatMap(element=>{
+  const newForms=()=>{const buttons=[...document.querySelectorAll('button')].filter(el=>el.tagName==='BUTTON'&&!el.disabled&&visible(el)).flatMap(element=>{
     const text=String(element.getAttribute('aria-label')||element.textContent||'').trim(),match=/^(?:Create new|Add|New) ([A-Za-z][A-Za-z ]+)$/.exec(text);
     return match&&allowed.has(match[1].toLowerCase())&&!/invoice|journal|order|stock|transaction|fiscal|company setup/i.test(match[1])?[{element,label:text}]:[];
   });
+    if(buttons.length||!/^\/objects\/[a-z][a-z0-9-]*$/.test(location.pathname))return buttons;
+    // Compact record lists expose an Add New row instead of a labelled button.
+    // Derive its resource from the observed current navigation link, not a model URL.
+    const current=navigations().filter(n=>n.path===location.pathname+(location.search||''));
+    if(current.length!==1||!allowed.has(current[0].label.toLowerCase())||/invoice|journal|order|stock|transaction|fiscal|company setup/i.test(current[0].label))return [];
+    return [...document.querySelectorAll('span')].filter(el=>visible(el)&&String(el.textContent||'').trim()==='Add New').flatMap(element=>{
+      const row=element.parentElement?.parentElement;
+      return row?.querySelector('.record-table-column-drag-and-drop')&&row.querySelector('.tabler-icon-plus')?[{element,label:'Add New '+current[0].label}]:[];
+    });
+  };
   const sensitive=el=>/password|secret|token|credential|permission|grant|mfa|otp|payment|credit.?card|bank|budget|authority|retention|delete|purge|\bscript\b|javascript|webhook|callback|api.?key|owner|\brole\b|access|account|\bcode\b/i.test([el.getAttribute('data-fieldname'),el.getAttribute('aria-label'),el.getAttribute('placeholder'),...[...(el.labels||[])].map(l=>l.textContent)].filter(Boolean).join(' '));
   const fields=()=>[...document.querySelectorAll('input,textarea,select')].filter(el=>!el.disabled&&!el.readOnly&&!el.hidden&&visible(el)&&!['password','hidden','file','submit','button','checkbox','radio'].includes(el.type)&&allowed.has(label(el))&&!sensitive(el));
   const nameOpener=()=>/^\/object\/(company|person|opportunity|task)\/[\w-]+$/.test(location.pathname)?[...document.querySelectorAll('[data-testid="top-bar-title"]')].filter(el=>el.getClientRects().length):[];

@@ -102,6 +102,17 @@ await form({command:'prepare_open_form',label:'Create new Opportunity'});const f
 await form({command:'open_form',label:'Create new Opportunity',snapshot:formSnapshot});assert.equal(formReplies.at(-1).creation_requested,true);assert.equal(formClicks,1);
 await form({command:'open_form',label:'Create new Opportunity',snapshot:formSnapshot});assert.equal(formReplies.at(-1).ok,false);assert.equal(formClicks,1);
 console.log('PASS new-record recipe: observed button, separate review, one-use approval, no replay.');
+let compactHandler,compactClicks=0;const compactReplies=[],compactParent={postMessage:m=>compactReplies.push(m)};
+const compactLink={tagName:'A',textContent:'Opportunities',getClientRects:()=>[{}],getAttribute:()=>'/objects/opportunities?viewId=test'};
+const compactAdd={textContent:'Add New',getClientRects:()=>[{}],parentElement:{parentElement:{querySelector:()=>({})}},click(){compactClicks++;}};
+vm.runInNewContext(code,{URL,requestAnimationFrame:fn=>fn(),window:{parent:compactParent,addEventListener:(_,fn)=>compactHandler=fn},document:{querySelectorAll:s=>s==='a[href]'?[compactLink]:s==='span'?[compactAdd]:[]},location:{pathname:'/objects/opportunities',search:'?viewId=test',href:'https://crm.example/objects/opportunities?viewId=test',origin:'https://crm.example'},crypto:{randomUUID:()=>String(compactReplies.length)}});
+const compact=data=>compactHandler({origin:'https://login.flolah.cloud',source:compactParent,data:{type:'flolah-copilot-guide',request:'compact',...data}});
+await compact({command:'inspect'});assert.deepEqual(Array.from(compactReplies.at(-1).forms),['Add New Opportunities']);assert.equal(compactClicks,0);
+await compact({command:'prepare_open_form',label:'Add New Opportunities'});const compactSnapshot=compactReplies.at(-1).snapshot;
+await compact({command:'open_form',label:'Add New Opportunities',snapshot:compactSnapshot});assert.equal(compactClicks,1);
+await compact({command:'open_form',label:'Add New Opportunities',snapshot:compactSnapshot});assert.equal(compactClicks,1);
+compactLink.textContent='Payment';await compact({command:'inspect'});assert.equal(compactReplies.at(-1).forms.length,0);
+console.log('PASS compact creation: observed resource, explicit review, one-use activation, sensitive resource rejection.');
 let sensitiveHandler;const sensitiveReplies=[],sensitiveParent={postMessage:m=>sensitiveReplies.push(m)};
 const disguised=new NativeInput();disguised.getAttribute=k=>k==='data-fieldname'?'value':k==='placeholder'?'API key':null;
 vm.runInNewContext(code,{window:{parent:sensitiveParent,addEventListener:(_,fn)=>sensitiveHandler=fn},document:{querySelectorAll:s=>s==='input,textarea,select'?[disguised]:[]},location:{pathname:'/app/customer'}});

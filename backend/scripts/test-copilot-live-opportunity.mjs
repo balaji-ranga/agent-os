@@ -25,7 +25,8 @@ try{
  assert.deepEqual(await step({screen:'home'}),[{type:'navigate',screen:'crm',route:'/crm'}]);
  const path='/objects/opportunities?viewId=synthetic';
  assert.deepEqual(await step({screen:'crm',navigation_continuation:true,embedded_path:'/objects/companies',embedded_navigation:[{path,label:'Opportunities'}],embedded_forms:['Create new Company']}),[{type:'embed_navigate',screen:'crm',path}]);
- assert.deepEqual(await step({screen:'crm',navigation_continuation:true,embedded_path:path,embedded_forms:['Create new Opportunity']}),[{type:'embed_open_form',screen:'crm',label:'Create new Opportunity'}]);
+ const formLabel=process.env.COPILOT_TEST_COMPACT==='1'?'Add New Opportunities':'Create new Opportunity';
+ assert.deepEqual(await step({screen:'crm',navigation_continuation:true,embedded_path:path,embedded_navigation:[{path,label:'Opportunities'},{path:'/objects/companies',label:'Companies'}],embedded_forms:[formLabel]}),[{type:'embed_open_form',screen:'crm',label:formLabel}]);
  const actions=await step({screen:'crm',creation_continuation:true,embedded_path:'/object/opportunity/synthetic',embedded_fields:['name','amount','currency'],embedded_field_labels:{name:'Name',amount:'Amount',currency:'Currency'}});
  assert.deepEqual(actions,[{type:'embed_fill',screen:'crm',values:{name:'Demo Test',amount:'10000',currency:'USD'}}]);
  console.log('PASS exact opportunity prompt: home navigation, observed link, creation review, all three field values. No business records written.');
