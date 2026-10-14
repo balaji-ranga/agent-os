@@ -9,6 +9,7 @@ import { requestCopilotEmbed } from '../utils/copilotEmbed.js';
 import { continueCopilotNavigation, waitForCopilotReady, hasCopilotEmbedControls, matchesCopilotDestination } from '../utils/copilotNavigation.js';
 import { captureDomFields, applyDomFields, visibleCopilotControls, visibleCopilotOptions } from '../utils/copilotDomFill.js';
 import AgentChatPanel from './AgentChatPanel';
+import CopilotCoaching from './CopilotCoaching';
 import './PlatformHelpCopilot.css';
 const fieldLabels={kind:'Connection',collections:'Content to include',interval_seconds:'Sync frequency',graph_enabled:'Connect related information',intelligent_mapping:'Intelligent relationship mapping',enabled:'Synchronization',retrieval_enabled:'Visible in search',folder_id:'Folder',query:'Content filter',selection:'Content selection'};
 function displayValue(key,value){
@@ -326,6 +327,7 @@ export default function PlatformHelpCopilot() {
         {review&&!session?.proposal?.actions.some(a=>review.anchor===reviewKey(a))&&renderReview()}
         {watch&&<p role="status">Waiting for {watch} authorization… <button disabled={busy} onClick={()=>run(async()=>{await update({watch:null});setWatch(null);})}>Stop checking</button></p>}
         <details><summary>Continue unfinished setup</summary><p>Drafts are private to your login and expire after seven days. Saving a form clears its draft.</p>{Object.entries(session?.drafts||{}).filter(([id])=>catalog.forms[id]).map(([id,values])=><article key={id}><strong>{catalog.forms[id].label}</strong><button disabled={busy} onClick={()=>run(()=>apply({form:id,values}))}>Continue setup</button><button disabled={busy} onClick={()=>run(()=>update({clearDraft:id}))}>Discard draft</button></article>)}{!Object.keys(session?.drafts||{}).length&&<p>No unfinished drafts.</p>}</details>
+        <CopilotCoaching key={user?.id} catalog={catalog} path={location.pathname}/>
         {help&&<><button type="button" onClick={()=>setHelpChat(v=>!v)}>{helpChat?'Hide':'Open'} product-help chat</button>{helpChat&&<AgentChatPanel agentId={help.id} minHeight={240} placeholder="Ask about Flolah…"/>}</>}
         {replyTo&&<div aria-label="Reply context"><small>Replying to {replyTo.role==='user'?'you':'Platform Help'}</small><p>{replyTo.text.slice(0,180)}</p><button type="button" onClick={()=>setReplyTo(null)}>Cancel reply</button></div>}
         <form className="copilot-composer" onSubmit={propose}><label className="sr-only" htmlFor="copilot-message">Message Platform Help</label><textarea ref={composer} id="copilot-message" autoFocus value={input} maxLength={4000} onChange={e=>setInput(e.target.value)} placeholder="Ask me to help with anything in Flolah…"/><button className="btn-primary" disabled={busy||!input.trim()||session?.status==='paused'}>{busy?'Thinking…':'Send'}</button></form>

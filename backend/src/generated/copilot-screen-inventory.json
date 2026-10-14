@@ -556,6 +556,49 @@
       ]
     },
     {
+      "source": "components/CopilotCoaching.jsx",
+      "form_count": 0,
+      "headings": [],
+      "controls": [
+        {
+          "id": "components/CopilotCoaching.jsx:25:20",
+          "label": "Lesson name",
+          "type": "text",
+          "required": false,
+          "mode": "guided"
+        },
+        {
+          "id": "components/CopilotCoaching.jsx:30:36",
+          "label": "What did you demonstrate?",
+          "type": "select",
+          "required": false,
+          "mode": "guided",
+          "options": "Use the live authorized options shown on this screen."
+        },
+        {
+          "id": "components/CopilotCoaching.jsx:31:27",
+          "label": "Explain the step",
+          "type": "textarea",
+          "required": false,
+          "mode": "guided"
+        },
+        {
+          "id": "components/CopilotCoaching.jsx:32:45",
+          "label": "How can Copilot recognize success?",
+          "type": "textarea",
+          "required": false,
+          "mode": "guided"
+        },
+        {
+          "id": "components/CopilotCoaching.jsx:37:38",
+          "label": "I reviewed these steps and removed sensitive details.",
+          "type": "checkbox",
+          "required": false,
+          "mode": "guided"
+        }
+      ]
+    },
+    {
       "source": "components/custom-scripts/CustomScriptRegistryView.jsx",
       "form_count": 1,
       "headings": [
@@ -1614,7 +1657,7 @@
       "headings": [],
       "controls": [
         {
-          "id": "components/PlatformHelpCopilot.jsx:312:102",
+          "id": "components/PlatformHelpCopilot.jsx:315:102",
           "label": "Assistance style",
           "type": "select",
           "required": false,
@@ -1622,7 +1665,7 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "components/PlatformHelpCopilot.jsx:329:144",
+          "id": "components/PlatformHelpCopilot.jsx:333:144",
           "label": "Message Platform Help",
           "type": "textarea",
           "required": false,

@@ -39,7 +39,7 @@ for(const file of [...files,join(src,'App.jsx')]){
 const routes=[];
 walk(trees.get(join(src,'App.jsx')),(n,anc)=>{if(n.type!=='JSXOpeningElement'||n.name.name!=='Route')return;const path=literal(attr(n,'path')),element=attr(n,'element');if(!path||path==='*'||!element)return;
  const entry=[];walk(element,x=>{if(x.type==='JSXOpeningElement'){const target=modules.get(join(src,'App.jsx')).imports.get(x.name.name);if(target)entry.push(target);}});
- const found=new Set(),seen=new Set();function visit(file){if(seen.has(file)||!modules.has(file))return;seen.add(file);const m=modules.get(file);if(m.controls.length&&!/PlatformHelpCopilot|PrivilegedSessionGate/.test(m.source))found.add(m.source);for(const next of m.imports.values())visit(next);}
+ const found=new Set(),seen=new Set();function visit(file){if(seen.has(file)||!modules.has(file))return;seen.add(file);const m=modules.get(file);if(m.controls.length&&!/PlatformHelpCopilot|CopilotCoaching|PrivilegedSessionGate/.test(m.source))found.add(m.source);for(const next of m.imports.values())visit(next);}
  entry.forEach(visit);if(found.size)routes.push({path,modules:[...found].sort()});
 });
 const output={version:1,description:'Source-derived form guidance inventory. Not an autofill allowlist. Reviewed form adapters are separately registered and enforced.',modules:[...modules.values()].filter(m=>m.controls.length&&!m.source.endsWith('App.jsx')).map(({imports,...m})=>m).sort((a,b)=>a.source.localeCompare(b.source)),routes:routes.sort((a,b)=>a.path.localeCompare(b.path))};

@@ -149,6 +149,10 @@ async function fetchBlobUrl(path, opts = {}) {
 
 export const api = {
   copilotCatalog: (path) => get('/ui-copilot/catalog'+(path?'?path='+encodeURIComponent(path):'')),
+  copilotCoaching: (offset=0) => get('/ui-copilot/coaching?offset='+offset),
+  copilotCoachingMap: () => get('/ui-copilot/coaching/map'),
+  copilotCoachingCreate: (title) => post('/ui-copilot/coaching',{title}),
+  copilotCoachingUpdate: (id,body) => put('/ui-copilot/coaching/'+encodeURIComponent(id),body),
   copilotSession: () => get('/ui-copilot/session'),
   copilotCreate: (body) => post('/ui-copilot/session', body),
   copilotUpdate: (id, body) => put(`/ui-copilot/session/${encodeURIComponent(id)}`, body),
