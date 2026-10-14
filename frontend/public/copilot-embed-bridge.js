@@ -13,6 +13,28 @@
   const clear=()=>{if(highlighted){highlighted.style.outline=highlighted.dataset.flolahPriorOutline||'';delete highlighted.dataset.flolahPriorOutline;highlighted=null;}};
   const allowed={has:key=>typeof key==='string'&&key.length>0&&key.length<=100&&/^[a-z][a-z0-9 ._-]*$/.test(key)&&!/password|secret|token|credential|permission|grant|mfa|otp|payment|credit.?card|bank|budget|authority|retention|delete|purge|\bscript\b|javascript|webhook|callback|api.?key|owner|\brole\b|access|account|\bcode\b/.test(key)};
   const amountOpeners=()=>/^\/object\/opportunity\/[\w-]+$/.test(location.pathname)?[...document.querySelectorAll('[id^="fields-"][id$="-amount"]')].filter(el=>el.getClientRects().length):[];
+  const settle=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+  // A compound currency editor is identified by its actual numeric input and
+  // associated picker, not by any arbitrary three-letter button on the page.
+  const currencyButton=()=>{
+    if(amountOpeners().length!==1)return null;
+    const inputs=[...document.querySelectorAll('input[placeholder="Currency"]')].filter(el=>el.getClientRects().length);
+    if(inputs.length!==1)return null;
+    return inputs[0].parentElement?.parentElement?.querySelector('[role="button"][aria-controls="currency-picker-dropdown-id-options"]')||null;
+  };
+  const currencyOptions=()=>[...document.querySelectorAll('[role="option"]')].filter(el=>el.getClientRects().length&&el.getAttribute('aria-disabled')!=='true').flatMap(element=>{
+    const code=/\(([A-Z]{3})\)\s*$/.exec(String(element.textContent||''))?.[1];
+    return code?[{element,value:code}]:[];
+  });
+  async function currencyBinding(){
+    const button=currencyButton();if(!button)return null;
+    const wasOpen=button.getAttribute('aria-expanded')==='true';
+    if(!wasOpen){button.click();await settle();}
+    const options=currencyOptions().map(o=>({value:o.value}));
+    if(!wasOpen&&button.getAttribute('aria-expanded')==='true'){button.click();await settle();}
+    if(!options.length)return null;
+    return {kind:'currency',element:button,value:String(button.textContent||'').trim(),options};
+  }
   const label=el=>{
     const raw=String(el.getAttribute('data-fieldname')||el.getAttribute('aria-label')||[...(el.labels||[])].map(l=>l.textContent).join(' ')||el.getAttribute('placeholder')||'').trim().toLowerCase().replaceAll('_',' ');
     // Twenty's opportunity numeric editor is labelled Currency; the adjacent
@@ -33,10 +55,10 @@
   const fields=()=>[...document.querySelectorAll('input,textarea,select')].filter(el=>!el.disabled&&!el.readOnly&&!el.hidden&&el.getClientRects().length&&!['password','hidden','file','submit','button','checkbox','radio'].includes(el.type)&&allowed.has(label(el))&&!sensitive(el));
   const nameOpener=()=>/^\/object\/(company|person|opportunity|task)\/[\w-]+$/.test(location.pathname)?[...document.querySelectorAll('[data-testid="top-bar-title"]')].filter(el=>el.getClientRects().length):[];
   async function openFields(requested){
-    if(requested.includes('amount')&&!fields().some(el=>label(el)==='amount')){
+    if(requested.some(k=>k==='amount'||k==='currency')&&!fields().some(el=>label(el)==='amount')){
       const candidates=amountOpeners();
       if(candidates.length===1){const target=candidates[0].firstElementChild?.firstElementChild;
-        if(target){target.click();target.dispatchEvent(new MouseEvent('dblclick',{bubbles:true,cancelable:true}));await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));}
+        if(target){const leaf=[...target.querySelectorAll('div')].find(el=>!el.children.length)||target;leaf.click();await settle();}
       }
     }
     if(requested.includes('name')&&!fields().some(el=>label(el)==='name')){
@@ -49,6 +71,22 @@
       }
     }
   }
+  async function binding(key){
+    await openFields([key]);
+    if(key==='currency')return currencyBinding();
+    const matches=fields().filter(el=>label(el)===key);
+    return matches.length===1?{element:matches[0],value:matches[0].value}:null;
+  }
+  function validBinding(key,value,current,prior){
+    const el=current?.element;
+    if(!prior||!allowed.has(key)||!el?.isConnected||el.disabled||!el.getClientRects().length||current.value!==prior.value||typeof value!=='string'||value.length>2000)return false;
+    if(current.kind==='currency')return prior.kind==='currency'&&current.options.some(o=>o.value===value)&&prior.options.some(o=>o.value===value);
+    if(el.readOnly||sensitive(el))return false;
+    if(key==='amount'&&value!==''&&!/^(?:0|[1-9]\d{0,11})(?:\.\d{1,2})?$/.test(value))return false;
+    if(el.maxLength>=0&&value.length>el.maxLength)return false;
+    if(el.tagName==='SELECT'&&![...el.options].some(o=>o.value===value&&!o.disabled))return false;
+    const probe=el.cloneNode(true);probe.value=value;return probe.checkValidity();
+  }
   window.addEventListener('message',async event=>{
     if(event.origin!==parentOrigin||event.source!==window.parent||event.data?.type!=='flolah-copilot-guide'||typeof event.data.request!=='string'||event.data.request.length>100)return;
     const {command,field,request}=event.data;
@@ -60,7 +98,15 @@
     if(command==='open_form'){
       const p=preparedForm;preparedForm=null;
       if(p&&p.snapshot===event.data.snapshot&&p.label===event.data.label&&p.path===location.pathname&&p.expires>Date.now()&&newForms().some(f=>f.element===p.element&&f.label===p.label)){
-        p.element.click();result={ok:true,creation_requested:true};
+        p.element.click();
+        // Twenty opens the newly created record in a side panel. Follow its
+        // observed Open control (navigation only), never click New twice.
+        if(/^\/objects\//.test(p.path))for(let attempt=0;attempt<30;attempt++){
+          await settle();
+          const open=[...document.querySelectorAll('[role="complementary"] button,aside button')].filter(el=>el.getClientRects().length&&!el.disabled&&/^Open\s*\.\.\.\s*Ctrl/.test(String(el.textContent||'').trim()));
+          if(open.length===1){open[0].click();await settle();break;}
+        }
+        result={ok:true,creation_requested:true};
       }else result={ok:false,reason:'review_required'};
     }
     if(command==='navigate'){
@@ -73,32 +119,31 @@
       result={ok:false,reason};
     }
     if(command==='prepare'){
-      await openFields(Array.isArray(event.data.fields)?event.data.fields.filter(key=>allowed.has(key)):[]);
       const entries={};for(const el of fields()){const key=label(el);if(Object.hasOwn(entries,key))entries[key]=null;else entries[key]={element:el,value:el.value};}
+      // Inline editors can replace one another. Capture each requested field's
+      // private baseline independently instead of requiring all to remain open.
+      for(const key of (Array.isArray(event.data.fields)?event.data.fields:[]).filter(key=>allowed.has(key)))entries[key]=await binding(key);
       const snapshot=crypto.randomUUID();prepared={snapshot,entries,expires:Date.now()+60000,path:location.pathname};
-      const fieldLabels=Object.fromEntries(Object.entries(entries).filter(([,entry])=>entry).map(([key,{element}])=>[key,String(element.getAttribute('placeholder')||element.getAttribute('aria-label')||key).slice(0,120)]));
+      const fieldLabels=Object.fromEntries(Object.entries(entries).filter(([,entry])=>entry).map(([key,{element}])=>[key,key==='amount'?'Amount':key==='currency'?'Currency':String(element.getAttribute('placeholder')||element.getAttribute('aria-label')||key).slice(0,120)]));
       result={ok:true,snapshot,fields:Object.keys(entries).filter(k=>entries[k]),field_labels:fieldLabels,mode:'review',immediate_save:true};
     }
     if(command==='fill'&&prepared&&event.data.snapshot===prepared.snapshot&&prepared.expires>Date.now()&&prepared.path===location.pathname){
       const values=event.data.values,entries=values&&typeof values==='object'&&!Array.isArray(values)?Object.entries(values):[];
       const original=prepared;
-      await openFields(entries.map(([key])=>key));
-      if(prepared!==original||original.path!==location.pathname)return;
-      for(const [key] of entries){
-        const prior=prepared.entries[key];
-        if(prior&&!prior.element.isConnected){const matches=fields().filter(el=>label(el)===key);if(matches.length===1)prior.element=matches[0];}
-      }
-      const valid=entries.length>0&&entries.length<=10&&entries.every(([key,value])=>{
-        const current=prepared.entries[key],el=current?.element;
-        if(!allowed.has(key)||!el?.isConnected||el.disabled||el.readOnly||sensitive(el)||!el.getClientRects().length||el.value!==current.value||typeof value!=='string'||value.length>2000)return false;
-        if(key==='amount'&&value!==''&&!/^(?:0|[1-9]\d{0,11})(?:\.\d{1,2})?$/.test(value))return false;
-        if(el.maxLength>=0&&value.length>el.maxLength)return false;
-        if(el.tagName==='SELECT'&&![...el.options].some(o=>o.value===value&&!o.disabled))return false;
-        const probe=el.cloneNode(true);probe.value=value;return probe.checkValidity();
-      });
+      let valid=entries.length>0&&entries.length<=10;
+      for(const [key,value] of entries){if(!valid)break;const current=await binding(key);valid=prepared===original&&original.path===location.pathname&&original.expires>Date.now()&&validBinding(key,value,current,original.entries[key]);}
       if(valid){
         const batch=prepared;prepared=null;
-        for(const [key,value] of entries){const el=batch.entries[key].element;
+        const applied=[];
+        for(const [key,value] of entries){
+          const current=await binding(key),el=current?.element;
+          if(batch.path!==location.pathname||batch.expires<=Date.now()||!validBinding(key,value,current,batch.entries[key]))break;
+          if(current.kind==='currency'){
+            if(current.value!==value){el.click();await settle();const matches=currencyOptions().filter(o=>o.value===value);if(matches.length!==1)break;matches[0].element.click();await settle();if(String(currencyButton()?.textContent||'').trim()!==value)break;}
+            const numeric=fields().find(input=>label(input)==='amount');
+            if(numeric){numeric.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',code:'Enter',bubbles:true,cancelable:true}));numeric.dispatchEvent(new KeyboardEvent('keyup',{key:'Enter',code:'Enter',bubbles:true,cancelable:true}));await settle();}
+            applied.push(key);continue;
+          }
           el.focus({preventScroll:true});
           const proto=el.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:el.tagName==='SELECT'?HTMLSelectElement.prototype:HTMLInputElement.prototype;
           Object.getOwnPropertyDescriptor(proto,'value').set.call(el,value);
@@ -113,19 +158,20 @@
             el.dispatchEvent(new KeyboardEvent('keyup',{key:'Enter',code:'Enter',bubbles:true,cancelable:true}));
           }
           el.blur();
+          applied.push(key);
         }
-        for(const [key] of entries)delete batch.entries[key];
+        for(const key of applied)delete batch.entries[key];
         const remaining=Object.keys(batch.entries).filter(key=>batch.entries[key]);
         if(remaining.length){batch.snapshot=crypto.randomUUID();prepared=batch;}
-        result={ok:true,applied:entries.map(([key])=>key),next_snapshot:prepared?.snapshot||null,persistence:'Verify in the application; edits may save immediately.'};
+        result={ok:applied.length===entries.length,reason:applied.length===entries.length?undefined:'fields_changed',applied,next_snapshot:prepared?.snapshot||null,persistence:'Verify in the application; edits may save immediately.'};
       }
     }
     if(command==='inspect'){
       const visible=fields();
       const fieldLabels=Object.fromEntries(visible.map(el=>[label(el),String(el.getAttribute('placeholder')||el.getAttribute('aria-label')||label(el)).slice(0,120)]));
       if(nameOpener().length===1)fieldLabels.name='Name';
-      if(amountOpeners().length===1)fieldLabels.amount='Opportunity amount (existing currency unchanged)';
-      result={ok:true,path:location.pathname+(location.search||''),fields:[...new Set([...visible.map(label),...(nameOpener().length===1?['name']:[]),...(amountOpeners().length===1?['amount']:[])])],field_labels:fieldLabels,navigation:navigations().map(({path,label})=>({path,label})),forms:newForms().map(f=>f.label),mode:'guided',reason:'Embedded edits may save immediately; review proposed values before applying.'};
+      if(amountOpeners().length===1){fieldLabels.amount='Amount (numeric forecast value)';fieldLabels.currency='Currency (ISO currency selected in the amount editor)';}
+      result={ok:true,path:location.pathname+(location.search||''),fields:[...new Set([...visible.map(label),...(nameOpener().length===1?['name']:[]),...(amountOpeners().length===1?['amount','currency']:[])])],field_labels:fieldLabels,navigation:navigations().map(({path,label})=>({path,label})),forms:newForms().map(f=>f.label),mode:'guided',reason:'Embedded edits may save immediately; review proposed values before applying.'};
     }
     if(command==='clear'){clear();prepared=null;preparedForm=null;result={ok:true};}
     if(command==='focus'&&allowed.has(field)){

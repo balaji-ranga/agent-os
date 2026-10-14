@@ -49,6 +49,17 @@ try{
     assert(lastModelRequest.messages.some(m=>m.content.includes('"catalog"')),'Embedded controls must not steal an off-screen destination during repair');
   }
   // Restore the hire proposal used by the receipt checks below.
+  modelReplies=[{message:'Opening ERP',actions:[{type:'navigate',screen:'erp'}]}];
+  s=(await request(`/session/${s.id}/propose`,'POST',{version:s.version,message:'Open ERP'})).body;
+  const userTurns=s.conversation.filter(t=>t.role==='user').length,priorCalls=invoked;
+  assert.equal((await request(`/session/${s.id}/propose`,'POST',{version:s.version,message:'Different task',navigation_continuation:true,screen:'erp'})).status,409);
+  assert.equal(invoked,priorCalls,'Continuation cannot replace the original request');
+  modelReplies=[{message:'ERP is open',actions:[]}];
+  reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,message:'Open ERP',navigation_continuation:true,screen:'erp',embedded_path:'/app/customer'});
+  assert.equal(reply.status,200);s=reply.body;
+  assert.equal(s.navigation_steps,1);assert.equal(s.conversation.filter(t=>t.role==='user').length,userTurns,'Automatic continuation must not duplicate the user prompt');
+  assert(lastModelRequest.messages.some(m=>m.content.includes('navigation_observation')));
+  assert.equal((await request(`/session/${s.id}/propose`,'POST',{version:s.version,message:'Open ERP',navigation_continuation:true,screen:'erp'})).status,409,'Completed navigation cannot keep invoking continuation');
   reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,message:'Prepare a researcher'});s=reply.body;
   const fill_receipt={type:'fill',form:'hire_employee',values:{name:'Demo researcher'}};
   assert.equal((await request(`/session/${s.id}`,'PUT',{version:s.version,fill_receipt:{...fill_receipt,values:{name:'Unreviewed'}}})).status,400);
@@ -71,6 +82,18 @@ try{
   reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'erp',embedded_forms:['Add Customer'],message:'Prepare a new customer form'});
   assert.equal(reply.status,200);s=reply.body;
   assert.equal((await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'erp',embedded_forms:[],message:'Prepare a new customer form'})).status,502);
+  const opportunityRequest='create a new opportunity with name Demo Test and value of USD 10000';
+  modelReply={message:'Review creation',actions:[{type:'embed_open_form',screen:'crm',label:'Create new Opportunity'}]};
+  reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'crm',embedded_forms:['Create new Opportunity'],message:opportunityRequest});
+  assert.equal(reply.status,200);s=reply.body;
+  assert.equal((await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'crm',creation_continuation:true,message:opportunityRequest,embedded_path:'/objects/opportunities'})).status,409,'Do not continue on the old list or create twice');
+  modelReply={message:'Review all supplied values',actions:[{type:'embed_fill',screen:'crm',values:{name:'Demo Test',amount:'10000',currency:'USD'}}]};
+  const beforeCreationUserTurns=s.conversation.filter(t=>t.role==='user').length;
+  reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'crm',creation_continuation:true,message:opportunityRequest,embedded_path:'/object/opportunity/synthetic',embedded_fields:['name','amount','currency']});
+  assert.equal(reply.status,200);s=reply.body;assert.deepEqual(s.proposal.actions[0].values,{name:'Demo Test',amount:'10000',currency:'USD'});
+  assert.equal(s.conversation.filter(t=>t.role==='user').length,beforeCreationUserTurns);
+  assert(lastModelRequest.messages.some(m=>m.content.includes('creation_observation')));
+  assert.equal((await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'crm',creation_continuation:true,message:opportunityRequest,embedded_path:'/object/opportunity/synthetic'})).status,409,'Creation continuation is single-use');
   const beforeReviewedFill=invoked;
   modelReplies=[{message:'Review ID',actions:[{type:'embed_fill',screen:'erp',values:{'filter name':'SYNTHETIC'}}]},{message:'Review ID filter',actions:[{type:'embed_fill',screen:'erp',values:{name:'SYNTHETIC'}}]}];
   reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'erp',embedded_fields:['name','filter name'],embedded_field_labels:{name:'ID','filter name':'Filter Name'},message:'Filter invoices by ID SYNTHETIC. Only fill the search filter.'});

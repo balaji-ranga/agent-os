@@ -6,6 +6,7 @@ import { getCopilotForm } from '../utils/copilotForms.js';
 import { copilotAgentHandoff } from '../utils/copilotHandoff.js';
 import { findGuideField, findSourceGuideField, highlightGuideField, revealRegisteredForm } from '../utils/copilotGuide.js';
 import { requestCopilotEmbed } from '../utils/copilotEmbed.js';
+import { continueCopilotNavigation } from '../utils/copilotNavigation.js';
 import { captureDomFields, applyDomFields, visibleCopilotControls, visibleCopilotOptions } from '../utils/copilotDomFill.js';
 import AgentChatPanel from './AgentChatPanel';
 import './PlatformHelpCopilot.css';
@@ -39,6 +40,8 @@ export default function PlatformHelpCopilot() {
   const [completedActions,setCompletedActions]=useState([]);
   const [replyTo,setReplyTo]=useState(null),[pendingForm,setPendingForm]=useState(null);
   const composer=useRef(null);
+  const liveContext=useRef({userId:user?.id,path:location.pathname});
+  liveContext.current={userId:user?.id,path:location.pathname};
   useEffect(()=>{
     if(!pendingForm||!catalog)return;
     const route=catalog.forms[pendingForm.form]?.route;
@@ -121,19 +124,57 @@ export default function PlatformHelpCopilot() {
       const metadata=await requestCopilotEmbed('inspect');
       embeddedFields=metadata.fields||[];embeddedFieldLabels=metadata.field_labels||{};embeddedNavigation=metadata.navigation||[];embeddedForms=metadata.forms||[];
     }
-    const next=await api.copilotPropose(s.id,{version:s.version,message:input,...(replyTo?{reply_to:replyTo.id}:{}),screen_path:location.pathname,visible_control_ids:visibleCopilotControls(document),visible_control_options:visibleCopilotOptions(document),embedded_fields:embeddedFields,embedded_field_labels:embeddedFieldLabels,embedded_navigation:embeddedNavigation,embedded_forms:embeddedForms,...(screen?{screen}:{})});
+    const originalRequest=input,actor=user?.id;
+    let next=await api.copilotPropose(s.id,{version:s.version,message:input,...(replyTo?{reply_to:replyTo.id}:{}),screen_path:location.pathname,visible_control_ids:visibleCopilotControls(document),visible_control_options:visibleCopilotOptions(document),embedded_fields:embeddedFields,embedded_field_labels:embeddedFieldLabels,embedded_navigation:embeddedNavigation,embedded_forms:embeddedForms,...(screen?{screen}:{})});
     setSession(next);setInput('');setReplyTo(null);setNotice('');setCompletedActions([]);
+    const journey=await continueCopilotNavigation({session:next,catalog,isCurrent:()=>liveContext.current.userId===actor,onProgress:setNotice,
+      navigate:async(action,target)=>{
+        if(action.type==='navigate')navigate(target.route);
+        else await requestCopilotEmbed('navigate',null,{path:action.path});
+      },
+      inspect:async(action,target)=>{
+        // Wait for the actual route/iframe to be ready, not an arbitrary delay
+        // followed by an assumption that navigation succeeded.
+        let metadata,lastError;
+        for(let attempt=0;attempt<12;attempt++){
+          if(liveContext.current.userId!==actor)throw new Error('Company context changed.');
+          if(liveContext.current.path===target.route.split(/[?#]/)[0]){
+            try{
+              metadata=['crm','erp'].includes(target.id)?await requestCopilotEmbed('inspect'):{};
+              if(action.type!=='embed_navigate'||metadata.path===action.path)break;
+              metadata=null;
+            }catch(e){lastError=e;}
+          }
+          await new Promise(resolve=>setTimeout(resolve,250));
+        }
+        if(!metadata)throw lastError||new Error('The requested screen has not finished opening. No fields were changed.');
+        const fresh=await api.copilotCatalog(liveContext.current.path);
+        return {catalog:fresh,screen:target.id,screen_path:liveContext.current.path,visible_control_ids:visibleCopilotControls(document),visible_control_options:visibleCopilotOptions(document),embedded_fields:metadata.fields||[],embedded_field_labels:metadata.field_labels||{},embedded_navigation:metadata.navigation||[],embedded_forms:metadata.forms||[],embedded_path:metadata.path||''};
+      },
+      propose:async(current,observed)=>{
+        const {catalog:fresh,...context}=observed;
+        const updated=await api.copilotPropose(current.id,{version:current.version,message:originalRequest,navigation_continuation:true,...context});
+        setCatalog(fresh);setSession(updated);return updated;
+      },
+    });
+    next=journey.session;setCatalog(journey.catalog);setSession(next);
+    setNotice(journey.stopped?'Navigation paused to avoid repeating steps. Review the current screen before continuing.':'');
+    const creation=next.proposal?.actions.length===1&&next.proposal.actions[0].type==='embed_open_form'?next.proposal.actions[0]:null;
+    if(creation){
+      const prepared=await requestCopilotEmbed('prepare_open_form',null,{label:creation.label});
+      setReview({action:creation,anchor:reviewKey(creation),embedSnapshot:prepared.snapshot});
+    }
     const fills=next.proposal?.actions.filter(a=>a.type==='fill')||[];
     const prepared=fills.length===1?fills[0]:null;
     if(prepared){
-      const route=catalog.forms[prepared.form]?.route;
-      if(route&&route.split(/[?#]/)[0]!==location.pathname){setPendingForm(prepared);navigate(route);}
+      const route=journey.catalog.forms[prepared.form]?.route;
+      if(route&&route.split(/[?#]/)[0]!==liveContext.current.path){setPendingForm(prepared);navigate(route);}
       else if(getCopilotForm(prepared.form)){showForm(prepared.form);setReview({action:prepared,anchor:reviewKey(prepared),expected:baselines.current[prepared.form]??getCopilotForm(prepared.form).read()});}
     }
   });}
   function showForm(form){
     const route=catalog.forms[form]?.route;
-    if(revealRegisteredForm(document,route)&&route.split(/[?#]/)[0]===location.pathname)navigate(route,{replace:true});
+    if(revealRegisteredForm(document,route)&&route.split(/[?#]/)[0]===liveContext.current.path)navigate(route,{replace:true});
   }
   async function go(route,state={}){
     let s=await ensureSession();
@@ -177,7 +218,18 @@ export default function PlatformHelpCopilot() {
       const action=review.action,snapshot=review.embedSnapshot;setReview(null);
       await requestCopilotEmbed('open_form',null,{label:action.label,snapshot});
       setCompletedActions(items=>[...items,reviewKey(action)]);
-      setNotice('The approved New action was requested. Check the resulting record/form before continuing; do not create another if it is still loading. Tell me to continue with the requested values.');return;
+      setNotice('The New action was requested. Inspecting the resulting record before preparing your values…');
+      let metadata;
+      for(let attempt=0;attempt<12;attempt++){
+        await new Promise(resolve=>setTimeout(resolve,250));
+        try{const observed=await requestCopilotEmbed('inspect');if(/^\/object\//.test(observed.path)){metadata=observed;break;}}catch{/* The newly created record may still be loading. */}
+      }
+      if(!metadata)throw new Error('Creation was requested, but the resulting record is not confirmed. Inspect it before continuing; do not create another record.');
+      const message=(session.conversation||[]).filter(t=>t.role==='user').at(-1)?.text;
+      const next=await api.copilotPropose(session.id,{version:session.version,message,creation_continuation:true,screen:action.screen,screen_path:liveContext.current.path,embedded_path:metadata.path,embedded_fields:metadata.fields,embedded_field_labels:metadata.field_labels,embedded_navigation:metadata.navigation,embedded_forms:metadata.forms});
+      setSession(next);setNotice('The created record is open. Review the proposed values before entering them.');
+      if(next.proposal?.actions.length===1&&next.proposal.actions[0].type==='embed_fill')await apply(next.proposal.actions[0]);
+      return;
     }
     if(review.action.type==='embed_fill'){
       if(!fresh.screens.some(s=>s.id===review.action.screen&&s.route===location.pathname))throw new Error('The embedded screen or permissions changed.');

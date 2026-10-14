@@ -93,7 +93,7 @@ await amount({command:'fill',snapshot:amountSnapshot,values:{amount:'1250.50'}})
 console.log('PASS opportunity amount: compound-editor identity, numeric validation and reviewed commit; no currency change.');
 let formHandler,formClicks=0;const formReplies=[],formParent={postMessage:m=>formReplies.push(m)};
 const newButton={tagName:'BUTTON',getClientRects:()=>[{}],getAttribute:()=> 'Create new Opportunity',click(){formClicks++;}};
-vm.runInNewContext(code,{window:{parent:formParent,addEventListener:(_,fn)=>formHandler=fn},document:{querySelectorAll:s=>s==='button'?[newButton]:[]},location:{pathname:'/objects/opportunities'},crypto:{randomUUID:()=>String(formReplies.length)}});
+vm.runInNewContext(code,{requestAnimationFrame:fn=>fn(),window:{parent:formParent,addEventListener:(_,fn)=>formHandler=fn},document:{querySelectorAll:s=>s==='button'?[newButton]:[]},location:{pathname:'/objects/opportunities'},crypto:{randomUUID:()=>String(formReplies.length)}});
 const form=data=>formHandler({origin:'https://login.flolah.cloud',source:formParent,data:{type:'flolah-copilot-guide',request:'form',...data}});
 await form({command:'open_form',label:'Create new Opportunity'});assert.equal(formClicks,0);
 await form({command:'prepare_open_form',label:'Create new Opportunity'});const formSnapshot=formReplies.at(-1).snapshot;assert(formSnapshot);assert.equal(formClicks,0);
@@ -106,3 +106,20 @@ vm.runInNewContext(code,{window:{parent:sensitiveParent,addEventListener:(_,fn)=
 await sensitiveHandler({origin:'https://login.flolah.cloud',source:sensitiveParent,data:{type:'flolah-copilot-guide',request:'protected',command:'inspect'}});
 assert.equal(sensitiveReplies.at(-1).fields.length,0,'A benign internal name must not hide a sensitive visible label');
 console.log('PASS embedded sensitive-label precedence across all field descriptors.');
+
+let currencyHandler,currencyOpen=false,currencyWrites=0;const currencyReplies=[];
+const currencyParent={postMessage:m=>currencyReplies.push(m)};
+const numeric=new NativeInput();numeric.value='0';numeric.getAttribute=k=>k==='placeholder'?'Currency':null;
+const currencyControl={textContent:'SGD',isConnected:true,getClientRects:()=>[{}],getAttribute:k=>k==='aria-expanded'?String(currencyOpen):null,click(){currencyOpen=!currencyOpen;}};
+numeric.parentElement={parentElement:{querySelector:()=>currencyControl}};
+const currencyChoices=['SGD','USD'].map(value=>({textContent:`Currency (${value})`,getClientRects:()=>currencyOpen?[{}]:[],getAttribute:()=>null,click(){currencyWrites++;currencyControl.textContent=value;currencyOpen=false;}}));
+vm.runInNewContext(code,{KeyboardEvent:class{constructor(type){this.type=type;}},requestAnimationFrame:fn=>fn(),window:{parent:currencyParent,addEventListener:(_,fn)=>currencyHandler=fn},document:{querySelectorAll:s=>s.includes('id$="-amount"')?[amountContainer]:s==='input,textarea,select'||s==='input[placeholder="Currency"]'?[numeric]:s==='[role="option"]'?currencyChoices:[]},location:{pathname:'/object/opportunity/currency-test'},crypto:{randomUUID:()=>String(currencyReplies.length)},HTMLInputElement:NativeInput,Event:class{constructor(type){this.type=type;}}});
+const currency=data=>currencyHandler({origin:'https://login.flolah.cloud',source:currencyParent,data:{type:'flolah-copilot-guide',request:'currency',...data}});
+await currency({command:'prepare',fields:['currency','amount']});let currencySnapshot=currencyReplies.at(-1).snapshot;
+assert.equal(currencyWrites,0,'Review must not change currency');
+await currency({command:'fill',snapshot:currencySnapshot,values:{currency:'XXX',amount:'10000'}});assert.equal(currencyReplies.at(-1).ok,false);assert.equal(numeric.value,'0');assert.equal(currencyWrites,0);
+await currency({command:'fill',snapshot:currencySnapshot,values:{currency:'USD',amount:'10000'}});assert.equal(currencyReplies.at(-1).ok,true);assert.equal(currencyControl.textContent,'USD');assert.equal(numeric.value,'10000');assert.equal(currencyWrites,1);
+await currency({command:'fill',snapshot:currencySnapshot,values:{currency:'SGD'}});assert.equal(currencyReplies.at(-1).ok,false);
+await currency({command:'prepare',fields:['currency']});currencySnapshot=currencyReplies.at(-1).snapshot;currencyControl.textContent='SGD';
+await currency({command:'fill',snapshot:currencySnapshot,values:{currency:'USD'}});assert.equal(currencyReplies.at(-1).ok,false);assert.equal(currencyControl.textContent,'SGD');
+console.log('PASS compound currency: observed options, separate numeric value, private baseline, stale-change and replay rejection.');

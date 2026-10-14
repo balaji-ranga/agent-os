@@ -45,5 +45,17 @@ try{
   const filterResponse=await fetch(base+`/session/${session.id}/propose`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({version:table.version,screen:'erp',embedded_fields:['name','filter name','title','customer','company'],embedded_field_labels:{name:'ID','filter name':'Filter Name',title:'Title',customer:'Customer',company:'Company'},message:'Filter the invoice list by ID COPILOT-UAT-NO-MATCH. Only fill the search filter; do not create, edit or submit an invoice.'})});
   const filter=await filterResponse.json();assert.equal(filterResponse.status,200,JSON.stringify(filter));
   assert.deepEqual(filter.proposal.actions.find(a=>a.type==='embed_fill')?.values,{name:'COPILOT-UAT-NO-MATCH'},'Explicit visible caption must map to its exact field, not a neighbouring filter');
+  const exact='create a new opportunity with name Demo Test and value of USD 10000';
+  async function step(previous,context){
+    const response=await fetch(base+`/session/${session.id}/propose`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({version:previous.version,message:exact,...context})});
+    const next=await response.json();assert.equal(response.status,200,JSON.stringify(next));return next;
+  }
+  const destination='/objects/opportunities?viewId=synthetic';
+  const nav=await step(filter,{screen:'crm',embedded_path:'/objects/companies',embedded_navigation:[{path:destination,label:'Opportunities'}],embedded_forms:['Create new Company']});
+  assert.deepEqual(nav.proposal.actions,[{type:'embed_navigate',screen:'crm',path:destination}]);
+  const creation=await step(nav,{navigation_continuation:true,screen:'crm',embedded_path:destination,embedded_navigation:[],embedded_forms:['Create new Opportunity']});
+  assert.equal(creation.proposal.actions[0]?.type,'embed_open_form');
+  const patch=await step(creation,{creation_continuation:true,screen:'crm',embedded_path:'/object/opportunity/synthetic',embedded_fields:['name','amount','currency'],embedded_field_labels:{name:'Name',amount:'Amount (numeric forecast value)',currency:'Currency (ISO currency selected in the amount editor)'}});
+  assert.deepEqual(patch.proposal.actions[0]?.values,{name:'Demo Test',amount:'10000',currency:'USD'});
   console.log('PASS synthetic live intent coverage; no goals saved or activated.');
 }finally{await new Promise(r=>server.close(r));db.close();}
