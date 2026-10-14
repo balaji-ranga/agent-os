@@ -45,3 +45,6 @@ const observedSequence=[{path:fullRecord.path,fields:[],navigation:[{path:'/obje
 assert.deepEqual(await waitForCopilotReady({...timing,stableSamples:2,inspect:async()=>observedSequence[Math.min(reads++,3)],accept:m=>m?.fields?.length>0}),fullRecord);
 assert.equal(reads,4,'A record route and sidebar are not a loaded form; partial field metadata must settle');
 console.log('PASS post-creation readiness: reject sidebar-only metadata and require stable form fields before model continuation.');
+clock=0;reads=0;
+const stableTransport=await waitForCopilotReady({...timing,stableSamples:2,inspect:async()=>({...fullRecord,request:'transport-'+(++reads)})});
+assert.equal(reads,2);assert.equal(stableTransport.request,'transport-2','Transport IDs must not affect DOM stability');

@@ -30,7 +30,10 @@ export async function waitForCopilotReady({inspect,accept=value=>!!value,isCurre
     try{observed=await inspect();}catch{/* A frame can disconnect while reloading. Retry inspection only. */}
     if(!isCurrent())throw new Error('The assistance context changed. Loading wait stopped.');
     if(now()<deadline&&accept(observed)){
-      const signature=JSON.stringify(observed);
+      // Every bridge inspection has a fresh transport request ID. It is not
+      // DOM metadata and must not make an otherwise stable screen look changed.
+      const {request:transportRequest,...metadata}=observed&&typeof observed==='object'?observed:{};
+      const signature=JSON.stringify(observed&&typeof observed==='object'?metadata:observed);
       stable=signature===prior?stable+1:1;prior=signature;
       if(stable>=stableSamples)return observed;
     }else{prior=null;stable=0;}
