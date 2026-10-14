@@ -126,7 +126,7 @@ compactLink.textContent='Payment';await compact({command:'inspect'});assert.equa
 console.log('PASS compact creation: observed resource, explicit review, one-use activation, sensitive resource rejection.');
 let delayedHandler,delayedInput=null,pendingEditor=false,hovered=false;const delayedReplies=[],delayedParent={postMessage:m=>delayedReplies.push(m)};
 const delayedLeaf={children:[],dispatchEvent(e){if(e.type==='mouseover')hovered=true;},click(){assert(hovered);pendingEditor=true;}};
-const delayedContainer={getClientRects:()=>[{}],firstElementChild:{firstElementChild:{querySelectorAll:()=>[delayedLeaf]}}};
+const delayedContainer={getClientRects:()=>[{}],firstElementChild:{firstElementChild:delayedLeaf}};
 vm.runInNewContext(code,{MouseEvent:class{constructor(type){this.type=type;}},setTimeout:fn=>{if(pendingEditor){delayedInput=new NativeInput();delayedInput.getAttribute=k=>k==='placeholder'?'Currency':null;}fn();},requestAnimationFrame:fn=>fn(),window:{parent:delayedParent,addEventListener:(_,fn)=>delayedHandler=fn},document:{querySelectorAll:s=>s.includes('id$="-amount"')?[delayedContainer]:s==='input,textarea,select'&&delayedInput?[delayedInput]:[]},location:{pathname:'/object/opportunity/delayed'},crypto:{randomUUID:()=> 'delayed'}});
 await delayedHandler({origin:'https://login.flolah.cloud',source:delayedParent,data:{type:'flolah-copilot-guide',request:'delayed',command:'prepare',fields:['amount']}});
 assert.deepEqual(Array.from(delayedReplies.at(-1).fields),['amount']);assert.equal(delayedInput.value,'Original','Editor readiness never writes');

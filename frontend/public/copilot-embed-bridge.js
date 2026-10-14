@@ -86,7 +86,9 @@
     if(requested.some(k=>k==='amount'||k==='currency')&&!fields().some(el=>label(el)==='amount')){
       const candidates=amountOpeners();
       if(candidates.length===1){const target=candidates[0].firstElementChild?.firstElementChild;
-        if(target){const leaf=[...target.querySelectorAll('div')].find(el=>!el.children.length)||target;activate(leaf);await settle();await awaitEditor(()=>fields().some(el=>label(el)==='amount'));}
+        // The empty-value text can be replaced during hover. Activate the
+        // stable clickable cell container, not that transient text leaf.
+        if(target){activate(target);await settle();await awaitEditor(()=>fields().some(el=>label(el)==='amount'));}
       }
     }
     if(requested.includes('name')&&!fields().some(el=>label(el)==='name')){
@@ -94,7 +96,7 @@
       if(openers.length===1){
         // The editable title lives inside the layout wrapper. Clicking the
         // wrapper does not dispatch through the child's React click handler.
-        const target=openers[0].querySelector('[data-testid="tooltip"]')||openers[0];
+        const target=openers[0].querySelector('[data-testid="tooltip"], .sx6ymsm, .s1gcxrdc')||openers[0];
         activate(target);await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));await awaitEditor(()=>fields().some(el=>label(el)==='name'));
       }
     }
