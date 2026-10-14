@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {replayStep,replayMatches,replayPrompt} from '../src/utils/copilotReplay.js';
+const recipe={title:'Customer flow',status:'published',version:3,steps:[{screen:'crm',path:'/object/company/:record',instruction:'Inspect name',success:'Name is correct'}]};
+assert.equal(replayStep(recipe,3,0),recipe.steps[0]);
+assert.throws(()=>replayStep(recipe,2,0));
+assert.throws(()=>replayStep({...recipe,status:'archived'},3,0));
+assert.throws(()=>replayStep(recipe,3,1));
+assert(replayMatches(recipe.steps[0],'/object/company/test-123?viewId=123'));
+assert(!replayMatches(recipe.steps[0],'/object/person/test-123'));
+assert(!replayMatches(recipe.steps[0],'https://other.example/object/company/test-123'));
+assert(replayPrompt(recipe,0).includes('do not save, create or submit'));
+console.log('PASS guided replay: publication/version checks, placeholder matching, no values/selectors or write replay.');

@@ -151,6 +151,7 @@ export const api = {
   copilotCatalog: (path) => get('/ui-copilot/catalog'+(path?'?path='+encodeURIComponent(path):'')),
   copilotCoaching: (offset=0) => get('/ui-copilot/coaching?offset='+offset),
   copilotCoachingMap: () => get('/ui-copilot/coaching/map'),
+  copilotCoachingGet: id => get('/ui-copilot/coaching/'+encodeURIComponent(id)),
   copilotCoachingCreate: (title) => post('/ui-copilot/coaching',{title}),
   copilotCoachingUpdate: (id,body) => put('/ui-copilot/coaching/'+encodeURIComponent(id),body),
   copilotSession: () => get('/ui-copilot/session'),

@@ -1,6 +1,18 @@
 # Teach Copilot: private screen recipes
 
-Open Platform Help → **Teach Copilot**. This is an additive guidance feature;
+Open Platform Help → **⋯** → **Teach Copilot**. Assistance mode is in the same options panel. Errors appear next to the composer, dismiss after five seconds, and can be closed with ×; failed requests remain available to retry.
+
+## Guided replay
+
+Choose a published lesson under My recorded lessons and select **Replay recording**.
+The chat shows the current step, its expected result, and pause/resume/stop controls.
+**Open recorded screen** opens authorized screens and only currently observed embedded links.
+Choose current records yourself: recordings intentionally omit record identifiers.
+**Prepare step in chat** copies the step into the composer; add current values and send it through normal Copilot review.
+**I verified this step** advances after checking the current screen matches; it records your confirmation, not automated proof of business persistence.
+Every action checks the current recipe version; archived or revised recordings cannot silently continue. Closing the panel pauses replay. Reloading ends replay; the published recording remains available to start again.
+
+This is an additive guidance feature;
 it does not replace existing form contracts, DOM inspection or approval gates.
 
 1. Name a lesson (or choose a CRM/ERP starter outline) and start it.

@@ -2,12 +2,12 @@ import {useState} from 'react';
 import {api} from '../api';
 import {requestCopilotEmbed} from '../utils/copilotEmbed.js';
 
-export default function CopilotCoaching({catalog,path}){
+export default function CopilotCoaching({catalog,path,onReplay,onError}){
  const [recipes,setRecipes]=useState([]),[examples,setExamples]=useState([]),[next,setNext]=useState(null);
  const [recipe,setRecipe]=useState(null),[title,setTitle]=useState(''),[instruction,setInstruction]=useState(''),[success,setSuccess]=useState(''),[action,setAction]=useState('navigate');
  const [busy,setBusy]=useState(false),[message,setMessage]=useState(''),[reviewed,setReviewed]=useState(false);
  const [map,setMap]=useState(null);
- async function run(fn){setBusy(true);setMessage('');try{await fn();}catch(e){setMessage(e.message);}finally{setBusy(false);}}
+ async function run(fn){setBusy(true);setMessage('');try{await fn();}catch(e){if(onError)onError(e.message);else setMessage(e.message);}finally{setBusy(false);}}
  async function load(offset=0){const r=await api.copilotCoaching(offset);setRecipes(old=>offset?[...old,...r.recipes]:r.recipes);setExamples(r.examples);setNext(r.next_offset);}
  async function capture(){
   const screen=catalog.screens.find(s=>s.route.split(/[?#]/)[0]===path);
@@ -26,6 +26,7 @@ export default function CopilotCoaching({catalog,path}){
   <button disabled={busy||!title.trim()} onClick={()=>run(async()=>{setRecipe(await api.copilotCoachingCreate(title));setReviewed(false);await load();})}>Start lesson</button>
   <details><summary>CRM and ERP starter lessons</summary>{examples.map(e=><article key={e.id}><strong>{e.title}</strong><small>Starter · not live-verified</small><ol>{e.steps.map((s,i)=><li key={i}>{s}</li>)}</ol><button disabled={busy} onClick={()=>{setTitle(e.title);setInstruction(e.steps[0]);setMessage('Start the lesson, demonstrate the step, then capture its observed screen.');}}>Use this lesson outline</button></article>)}</details>
   {recipe&&<section aria-label="Coaching lesson"><strong>{recipe.title} · version {recipe.version} · {recipe.status}</strong>
+   {recipe.status==='published'&&onReplay&&<button disabled={busy} onClick={()=>run(()=>onReplay(recipe))}>Replay recording</button>}
    {recipe.status!=='archived'&&<>
     <label>What did you demonstrate?<select value={action} onChange={e=>setAction(e.target.value)}><option value="navigate">Navigate</option><option value="open_form">Open a form</option><option value="fill">Fill fields</option><option value="wait">Wait for readiness</option><option value="manual_save">Save manually</option><option value="verify">Verify the result</option></select></label>
     <label>Explain the step<textarea maxLength={240} value={instruction} onChange={e=>setInstruction(e.target.value)} placeholder="Describe the control and its purpose, without example personal values"/></label>

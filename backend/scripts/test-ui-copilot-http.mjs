@@ -234,9 +234,11 @@ try{
   assert.equal((await request(`/coaching/${lesson.id}`,'PUT',{version:lesson.version,status:'published'})).status,400);
   lesson=(await request(`/coaching/${lesson.id}`,'PUT',{version:lesson.version,status:'published',reviewed:true})).body;
   assert.equal(lesson.status,'published');
+  assert.equal((await request(`/coaching/${lesson.id}`)).body.version,lesson.version);
   assert.equal((await request(`/session/${s.id}`,'PUT',{version:s.version,status:'cancelled'})).status,404);
   user={id:'employee',role:'org_user',owner_user_id:'alice'};
   assert.equal((await request('/coaching')).body.recipes.length,0);
+  assert.equal((await request(`/coaching/${lesson.id}`)).status,404,'Replay lookup must not reveal another actor recording');
   assert.equal((await request(`/coaching/${lesson.id}`,'PUT',{version:lesson.version,status:'archived'})).status,404);
   assert.equal((await request(`/session/${s.id}`,'PUT',{version:s.version,status:'cancelled'})).status,404);
   user={id:'admin',role:'admin'};assert.equal((await request('/catalog')).status,403);

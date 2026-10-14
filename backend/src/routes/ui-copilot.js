@@ -75,6 +75,12 @@ router.get('/coaching',handler(req=>{
 }));
 router.post('/coaching',handler(req=>copilotCoachingStore(database()).create(req.copilotOwner,req.authUser.id,req.body.title)));
 router.get('/coaching/map',handler(req=>copilotCoachingStore(database()).map(req.copilotOwner,req.authUser.id,scopedCatalog(req).screens)));
+router.get('/coaching/:id',handler(req=>{
+  const recipe=copilotCoachingStore(database()).get(req.copilotOwner,req.authUser.id,req.params.id);
+  const screens=scopedCatalog(req).screens;
+  if(recipe.steps.some(step=>!screens.some(screen=>screen.id===step.screen)))throw copilotError('Screen access denied',403);
+  return recipe;
+}));
 router.put('/coaching/:id',handler(req=>{
  const store=copilotCoachingStore(database()),screens=scopedCatalog(req).screens;
  const recipe=store.get(req.copilotOwner,req.authUser.id,req.params.id);

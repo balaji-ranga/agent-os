@@ -5,7 +5,7 @@
   "license": "Apache-2.0",
   "type": "module",
   "scripts": {
-    "prebuild": "node scripts/test-knowledge-search-modes.mjs && node scripts/test-copilot-handoff.mjs && node scripts/test-copilot-navigation.mjs && node scripts/test-copilot-guide.mjs && node scripts/test-copilot-embed.mjs && node scripts/test-copilot-field-labels.mjs && node scripts/generate-copilot-screen-inventory.mjs --check",
+    "prebuild": "node scripts/test-knowledge-search-modes.mjs && node scripts/test-copilot-handoff.mjs && node scripts/test-copilot-navigation.mjs && node scripts/test-copilot-replay.mjs && node scripts/test-copilot-guide.mjs && node scripts/test-copilot-embed.mjs && node scripts/test-copilot-field-labels.mjs && node scripts/generate-copilot-screen-inventory.mjs --check",
     "test:home-team-activity": "node ./scripts/test-home-team-activity.mjs",
     "test:action-approval": "node ./scripts/test-action-approval-state.mjs",
     "dev": "vite",

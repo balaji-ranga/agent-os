@@ -20,6 +20,7 @@ api.copilotUpdate=async(id,body)=>{
   const {draft,version,...rest}=body;session={...session,...rest,version:version+1,drafts:draft?{...session.drafts,[draft.form]:draft.values}:session.drafts};return session;
 };
 api.copilotPropose=async(id,body)=>{
+  if(body.message==='test recoverable error')throw new Error('Synthetic retryable error. No fields changed.');
   if(body.screen==='broadcast'){
     const control=body.visible_control_ids.find(id=>id.startsWith('pages/Broadcast.jsx:'));
     session={...session,version:session.version+1,proposal:{message:'Review this unsent draft.',actions:[{type:'screen_fill',screen:'broadcast',values:{[control]:'Synthetic unsent browser-driver test'},labels:{[control]:'Message'}}]}};return session;
@@ -28,6 +29,10 @@ api.copilotPropose=async(id,body)=>{
   session={...session,version:session.version+1,proposal:{message:'Review the fields. Save only using the real form.',actions:session.mode==='guided'?[{type:'guide',form:action.form,steps:[{field:'name',instruction:'Enter a descriptive name on the form.'}]}]:[action]}};return session;
 };
 api.knowledgeSources=async()=>({sources:[]});
+const recording={id:'fixture-recipe',title:'Local replay fixture',version:1,status:'published',steps:[{screen:'connectors',path:'/connectors',action:'verify',instruction:'Inspect the connectors screen without saving.',success:'Connectors page is open.',fields:[]}]};
+api.copilotCoaching=async()=>({recipes:[recording],examples:[],next_offset:null});
+api.copilotCoachingGet=async()=>structuredClone(recording);
+api.copilotCoachingMap=async()=>({nodes:[],edges:[],truncated:false});
 api.knowledgeSelectionSchema=async()=>({fields:[],operators:[]});
 api.knowledgeRelationshipPage=async()=>({items:[],next:null});
 api.masterDataTables=async()=>({tables:[]});

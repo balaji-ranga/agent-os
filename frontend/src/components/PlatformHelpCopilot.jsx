@@ -10,6 +10,7 @@ import { continueCopilotNavigation, waitForCopilotReady, hasCopilotEmbedControls
 import { captureDomFields, applyDomFields, visibleCopilotControls, visibleCopilotOptions } from '../utils/copilotDomFill.js';
 import AgentChatPanel from './AgentChatPanel';
 import CopilotCoaching from './CopilotCoaching';
+import {replayStep,replayMatches,replayPrompt} from '../utils/copilotReplay.js';
 import './PlatformHelpCopilot.css';
 const fieldLabels={kind:'Connection',collections:'Content to include',interval_seconds:'Sync frequency',graph_enabled:'Connect related information',intelligent_mapping:'Intelligent relationship mapping',enabled:'Synchronization',retrieval_enabled:'Visible in search',folder_id:'Folder',query:'Content filter',selection:'Content selection'};
 function displayValue(key,value){
@@ -29,14 +30,20 @@ function hasDraftContent(id,values){
   if(id==='scheduled_goal')return !!(values.title||values.prompt);
   return true;
 }
-const reviewKey=action=>JSON.stringify(action);
 
+const reviewKey=action=>JSON.stringify(action);
 export default function PlatformHelpCopilot() {
   const { user } = useAuth(), location = useLocation(), navigate = useNavigate();
   const [open,setOpen]=useState(false),[catalog,setCatalog]=useState(null),[session,setSession]=useState(null);
   const [input,setInput]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
   const [watch,setWatch]=useState(null),[helpChat,setHelpChat]=useState(false);
   const [review,setReview]=useState(null);
+  const [settings,setSettings]=useState(false);
+  const [replay,setReplay]=useState(null);
+  const settingsToggle=useRef(null);
+  useEffect(()=>{if(!error)return;const timer=setTimeout(()=>setError(''),5000);return()=>clearTimeout(timer);},[error]);
+  useEffect(()=>{setSettings(false);setReplay(null);},[user?.id]);
+  useEffect(()=>{if(!open)setReplay(r=>r?{...r,paused:true}:r);},[open]);
   const [guide,setGuide]=useState(null);
   const [completedActions,setCompletedActions]=useState([]);
   const [replyTo,setReplyTo]=useState(null),[pendingForm,setPendingForm]=useState(null);
@@ -112,7 +119,7 @@ export default function PlatformHelpCopilot() {
     try{await update({screen_path:location.pathname,fill_receipt:{type:action.type,...(action.form?{form:action.form}:{}),...(action.screen?{screen:action.screen}:{}),values}});}
     catch{setNotice('Fields were entered, but assistance progress could not be recorded. Verify the form before continuing; nothing was submitted by Copilot.');}
   }
-  async function propose(e){e.preventDefault();await run(async()=>{
+  async function propose(e,request=input){e?.preventDefault();await run(async()=>{
     setReview(null);
     let s=await ensureSession();
     baselines.current=Object.fromEntries(Object.keys(catalog.forms).map(id=>[id,getCopilotForm(id)?.read()]));
@@ -127,8 +134,8 @@ export default function PlatformHelpCopilot() {
       const metadata=await waitForCopilotReady({stableSamples:2,inspect:()=>requestCopilotEmbed('inspect'),accept:hasCopilotEmbedControls,isCurrent:()=>liveContext.current.userId===actor&&liveContext.current.path===path});
       embeddedFields=metadata.fields||[];embeddedFieldLabels=metadata.field_labels||{};embeddedNavigation=metadata.navigation||[];embeddedForms=metadata.forms||[];embeddedPath=metadata.path||'';
     }
-    const originalRequest=input,actor=user?.id;
-    let next=await api.copilotPropose(s.id,{version:s.version,message:input,...(replyTo?{reply_to:replyTo.id}:{}),screen_path:location.pathname,visible_control_ids:visibleCopilotControls(document),visible_control_options:visibleCopilotOptions(document),embedded_fields:embeddedFields,embedded_field_labels:embeddedFieldLabels,embedded_navigation:embeddedNavigation,embedded_forms:embeddedForms,embedded_path:embeddedPath,...(screen?{screen}:{})});
+    const originalRequest=request,actor=user?.id;
+    let next=await api.copilotPropose(s.id,{version:s.version,message:request,...(replyTo?{reply_to:replyTo.id}:{}),screen_path:location.pathname,visible_control_ids:visibleCopilotControls(document),visible_control_options:visibleCopilotOptions(document),embedded_fields:embeddedFields,embedded_field_labels:embeddedFieldLabels,embedded_navigation:embeddedNavigation,embedded_forms:embeddedForms,embedded_path:embeddedPath,...(screen?{screen}:{})});
     setSession(next);setInput('');setReplyTo(null);setNotice('');setCompletedActions([]);
     const journey=await continueCopilotNavigation({session:next,catalog,isCurrent:()=>liveContext.current.userId===actor,onProgress:setNotice,
       navigate:async(action,target)=>{
@@ -303,18 +310,57 @@ export default function PlatformHelpCopilot() {
     <button className="btn-primary" disabled={busy||session?.status!=='active'} onClick={()=>run(confirmFields)}>{session?.mode==='guided'?'Approve and fill next field':'Approve and apply fields'}</button>
     <button disabled={busy} onClick={()=>setReview(null)}>Keep current fields</button>
   </section>;
+  async function startReplay(recording){
+    const actor=user?.id,latest=await api.copilotCoachingGet(recording.id);
+    replayStep(latest,recording.version,0);
+    if(liveContext.current.userId!==actor)return;
+    setReplay({recipe:latest,index:0,paused:false});setSettings(false);setNotice('Guided replay started. Each step is re-inspected; no stored values or saves are replayed.');
+  }
+  async function replayCurrent(){
+    if(!replay||replay.paused)throw Error('Resume the replay first.');
+    const actor=user?.id,latest=await api.copilotCoachingGet(replay.recipe.id);
+    const step=replayStep(latest,replay.recipe.version,replay.index);
+    if(liveContext.current.userId!==actor)throw Error('The assistance context changed.');
+    return {step,latest};
+  }
+  async function replayOpen(){
+    const {step}=await replayCurrent();
+    const screen=catalog.screens.find(s=>s.id===step.screen);
+    if(!screen)throw Error('This screen is no longer available.');
+    if(location.pathname!==screen.route.split(/[?#]/)[0]){navigate(screen.route);setNotice('Screen opened. When it finishes loading, select Open recorded screen again to inspect its destination.');return;}
+    if(['crm','erp'].includes(step.screen)){
+      const observed=await requestCopilotEmbed('inspect');
+      if(replayMatches(step,observed.path)){setNotice('Recorded screen is open. Prepare this step or verify the expected result.');return;}
+      if(step.path.includes(':'))throw Error('Choose the current record first. Record IDs are intentionally not stored in recordings.');
+      if(!observed.navigation?.some(n=>n.path===step.path))throw Error('The recorded destination is not visible. Navigate using the site or ask Copilot for help; no guessed link was opened.');
+      await requestCopilotEmbed('navigate',null,{path:step.path});
+    }
+  }
+  async function replayVerify(){
+    const {step}=await replayCurrent();
+    const screen=catalog.screens.find(s=>s.id===step.screen);
+    if(!screen||location.pathname!==screen.route.split(/[?#]/)[0])throw Error('Open the recorded screen before confirming this step.');
+    const path=['crm','erp'].includes(step.screen)?(await requestCopilotEmbed('inspect')).path:screen.route;
+    if(!replayMatches(step,path))throw Error('The current screen does not match the recording.');
+    if(replay.index+1===replay.recipe.steps.length){setNotice('Replay completed with your step confirmations. This is not automatic verification of saved business data.');setReplay(null);}
+    else setReplay({...replay,index:replay.index+1});
+  }
   return <aside className="platform-help-copilot">
     <button ref={toggle} type="button" className="btn-primary copilot-toggle" title="Platform Help" aria-label="Platform Help" aria-expanded={open} onClick={()=>setOpen(v=>!v)}><span aria-hidden="true">✦</span></button>
-    {open&&<section className="copilot-panel" aria-label="Platform Help assistant" onKeyDown={e=>{if(e.key==='Escape'){setOpen(false);toggle.current?.focus();}}}>
-      <header><div><strong>Platform Help</strong><small>Your Flolah copilot</small></div><button type="button" className="btn-ghost" aria-label="Close Platform Help" onClick={()=>{setOpen(false);toggle.current?.focus();}}>×</button></header>
-      {error&&<p role="alert" className="page-banner page-banner-error">{error}</p>}
+    {open&&<section className="copilot-panel" aria-label="Platform Help assistant" onKeyDown={e=>{if(e.key==='Escape'){if(settings){setSettings(false);settingsToggle.current?.focus();}else{setOpen(false);toggle.current?.focus();}}}}>
+      <header><div><strong>Platform Help</strong><small>Your Flolah copilot</small></div><div className="copilot-header-actions"><button ref={settingsToggle} type="button" aria-label="Copilot options" title="Mode and coaching" aria-expanded={settings} aria-controls="copilot-settings" onClick={()=>setSettings(v=>!v)}>⋯</button><button type="button" className="btn-ghost" aria-label="Close Platform Help" onClick={()=>{setOpen(false);toggle.current?.focus();}}>×</button></div></header>
       {notice&&<p role="status">{notice}</p>}
       {guide&&<article aria-label="Guided setup"><strong>Step {guide.index+1} of {guide.action.steps.length}</strong><p>{guide.action.steps[guide.index].instruction}</p><p>Complete this field on the screen. Nothing is saved automatically.</p><button disabled={busy||session?.status!=='active'||guide.index===0} onClick={()=>setGuide(g=>({...g,index:g.index-1}))}>Back</button><button disabled={busy||session?.status!=='active'} onClick={()=>setGuide(g=>g.index+1<g.action.steps.length?{...g,index:g.index+1}:null)}>{guide.index+1===guide.action.steps.length?'Finish guidance':'Next field'}</button><button onClick={()=>setGuide(null)}>Stop guidance</button></article>}
       {!catalog?<p>Loading permitted screens…</p>:<>
         {['/crm','/erp'].includes(location.pathname)&&<button disabled={busy} onClick={()=>run(async()=>{const result=await requestCopilotEmbed('inspect');setNotice(result.fields?.length?`I can help fill these open fields: ${result.fields.join(', ')}. Tell me the values in chat; I’ll ask you to review before applying.`:'Open the form or editable field you want help with, then check this screen again.');})}>Check this screen</button>}
-        <details className="copilot-preferences"><summary>How I help</summary><label>Assistance style <select disabled={busy} value={session?.mode||'hybrid'} onChange={e=>run(()=>update({mode:e.target.value}))}><option value="hybrid">Prepare setup and guide me</option><option value="guided">Guide me step by step</option><option value="autofill">Prepare fields for my review</option></select></label><p>I can prepare supported forms. You review before saving and handle any sign-in yourself.</p>
+        <div id="copilot-settings" className="copilot-settings-drawer" hidden={!settings} role="region" aria-label="Copilot options">
+        <div className="copilot-settings-heading"><strong>Mode and coaching</strong><button type="button" aria-label="Back to conversation" onClick={()=>{setSettings(false);settingsToggle.current?.focus();}}>×</button></div>
+        <section className="copilot-preferences"><label>Assistance style <select disabled={busy} value={session?.mode||'hybrid'} onChange={e=>run(()=>update({mode:e.target.value}))}><option value="hybrid">Prepare setup and guide me</option><option value="guided">Guide me step by step</option><option value="autofill">Prepare fields for my review</option></select></label><p>I can prepare supported forms. You review before saving and handle any sign-in yourself.</p>
         {session&&<div className="copilot-controls"><span>{session.status}</span><button disabled={busy} onClick={()=>run(()=>update({status:session.status==='active'?'paused':'active'}))}>{session.status==='active'?'Pause':'Resume'}</button><button disabled={busy} onClick={()=>run(async()=>{await update({status:'cancelled'});setWatch(null);setNotice('Session cancelled; saved drafts cleared. Existing configuration is unchanged.');})}>Cancel</button><button disabled={busy} onClick={()=>run(()=>go(session.origin))}>Return to origin</button></div>}
-        </details>
+        </section>
+        <CopilotCoaching key={user?.id} catalog={catalog} path={location.pathname} onReplay={startReplay} onError={message=>{setError('');setError(message);}}/>
+        </div>
+        {replay&&<article aria-label="Recording replay"><strong>{replay.recipe.title} · step {replay.index+1} of {replay.recipe.steps.length}</strong><p>{replay.recipe.steps[replay.index].instruction}</p><p>Check: {replay.recipe.steps[replay.index].success}</p><small>Confirm the result yourself before advancing. Saves remain separate.</small><div><button disabled={busy||replay.paused} onClick={()=>run(replayOpen)}>Open recorded screen</button><button disabled={busy||replay.paused} onClick={()=>run(async()=>{const {latest}=await replayCurrent();setInput(replayPrompt(latest,replay.index));composer.current?.focus();setNotice('Step added to chat. Add current values if needed, then send to prepare a reviewed action.');})}>Prepare step in chat</button><button disabled={busy||replay.paused} onClick={()=>run(replayVerify)}>I verified this step</button><button disabled={busy} onClick={()=>setReplay({...replay,paused:!replay.paused})}>{replay.paused?'Resume replay':'Pause replay'}</button><button disabled={busy} onClick={()=>setReplay(null)}>Stop replay</button></div></article>}
         <div ref={conversationPanel} className="copilot-conversation" role="log" aria-label="Conversation">
           {!session?.proposal&&<p className="copilot-bubble">What would you like to do? Tell me in your own words—I’ll help you find the right screen or prepare your setup.</p>}
           {(session?.conversation||[]).map((m,i)=><div key={m.id||i} className={`copilot-bubble copilot-${m.role}`}><small>{m.role==='user'?'You':'Platform Help'}</small><p>{m.text}</p>{m.id&&<button type="button" className="btn-ghost" title="Reply to this message" aria-label={`Reply to ${m.role==='user'?'your':'Platform Help'} message ${i+1}`} onClick={()=>{setReplyTo(m);composer.current?.focus();}}>↩</button>}</div>)}
@@ -327,11 +373,14 @@ export default function PlatformHelpCopilot() {
         {review&&!session?.proposal?.actions.some(a=>review.anchor===reviewKey(a))&&renderReview()}
         {watch&&<p role="status">Waiting for {watch} authorization… <button disabled={busy} onClick={()=>run(async()=>{await update({watch:null});setWatch(null);})}>Stop checking</button></p>}
         <details><summary>Continue unfinished setup</summary><p>Drafts are private to your login and expire after seven days. Saving a form clears its draft.</p>{Object.entries(session?.drafts||{}).filter(([id])=>catalog.forms[id]).map(([id,values])=><article key={id}><strong>{catalog.forms[id].label}</strong><button disabled={busy} onClick={()=>run(()=>apply({form:id,values}))}>Continue setup</button><button disabled={busy} onClick={()=>run(()=>update({clearDraft:id}))}>Discard draft</button></article>)}{!Object.keys(session?.drafts||{}).length&&<p>No unfinished drafts.</p>}</details>
-        <CopilotCoaching key={user?.id} catalog={catalog} path={location.pathname}/>
         {help&&<><button type="button" onClick={()=>setHelpChat(v=>!v)}>{helpChat?'Hide':'Open'} product-help chat</button>{helpChat&&<AgentChatPanel agentId={help.id} minHeight={240} placeholder="Ask about Flolah…"/>}</>}
         {replyTo&&<div aria-label="Reply context"><small>Replying to {replyTo.role==='user'?'you':'Platform Help'}</small><p>{replyTo.text.slice(0,180)}</p><button type="button" onClick={()=>setReplyTo(null)}>Cancel reply</button></div>}
+        <div className="copilot-composer-area">
+        {error&&<div role="alert" className="copilot-error-toast"><span>{error}</span><button type="button" aria-label="Dismiss error" onClick={()=>setError('')}>×</button></div>}
         <form className="copilot-composer" onSubmit={propose}><label className="sr-only" htmlFor="copilot-message">Message Platform Help</label><textarea ref={composer} id="copilot-message" autoFocus value={input} maxLength={4000} onChange={e=>setInput(e.target.value)} placeholder="Ask me to help with anything in Flolah…"/><button className="btn-primary" disabled={busy||!input.trim()||session?.status==='paused'}>{busy?'Thinking…':'Send'}</button></form>
+        </div>
       </>}
+      {!catalog&&error&&<div role="alert" className="copilot-error-toast"><span>{error}</span><button type="button" aria-label="Dismiss error" onClick={()=>setError('')}>×</button></div>}
     </section>}
   </aside>;
 }
