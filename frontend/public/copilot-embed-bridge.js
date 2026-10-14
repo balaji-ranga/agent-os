@@ -111,7 +111,15 @@
         // The editable title lives inside the layout wrapper. Clicking the
         // wrapper does not dispatch through the child's React click handler.
         const target=openers[0].querySelector('[data-testid="tooltip"], .sx6ymsm, .s1gcxrdc')||openers[0];
-        activate(target);await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));await awaitEditor(()=>fields().some(el=>label(el)==='name'));
+        // Close the previous inline editor before opening the title. React can
+        // otherwise process its outside-click cleanup after the new title opens.
+        if(typeof target.dispatchEvent==='function'&&typeof MouseEvent==='function'){
+          for(const type of ['mousedown','mouseup'])target.dispatchEvent(new MouseEvent(type,{bubbles:true,cancelable:true,button:0}));
+          await settle();
+        }
+        const current=nameOpener();
+        if(current.length===1)(current[0].querySelector('[data-testid="tooltip"], .sx6ymsm, .s1gcxrdc')||current[0]).click();
+        await settle();await awaitEditor(()=>fields().some(el=>label(el)==='name'));
       }
     }
   }

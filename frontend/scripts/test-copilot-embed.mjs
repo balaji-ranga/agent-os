@@ -50,7 +50,9 @@ await multi({command:'clear'});await multi({command:'fill',snapshot:refreshed,va
 console.log('PASS guided multi-field bridge: rotated tokens, preserved remaining baselines, intervening edits and cancellation.');
 let recipeHandler,recipeInput=null,clicks=0;const recipeReplies=[];
 const recipeParent={postMessage:m=>recipeReplies.push(m)};
-const opener={getClientRects:()=>[{}],click(){throw Error('Layout wrapper is not the editable title');},querySelector(){let previousEditorOpen=true;return {dispatchEvent(e){if(e.type==='mousedown')previousEditorOpen=false;},click(){assert.equal(previousEditorOpen,false,'Dismiss prior editor via mouse-down before opening next');clicks++;recipeInput=new NativeInput();recipeInput.closest=s=>s.includes('[hidden]')?null:opener;}};}};
+let previousEditorOpen=true;
+const titleTarget={dispatchEvent(e){if(e.type==='mousedown')queueMicrotask(()=>{previousEditorOpen=false;});},click(){assert.equal(previousEditorOpen,false,'Settle prior editor cleanup before opening next');clicks++;recipeInput=new NativeInput();recipeInput.closest=s=>s.includes('[hidden]')?null:opener;}};
+const opener={getClientRects:()=>[{}],click(){throw Error('Layout wrapper is not the editable title');},querySelector(){return titleTarget;}};
 vm.runInNewContext(code,{MouseEvent:class{constructor(type){this.type=type;}},KeyboardEvent:class{constructor(type){this.type=type;}},window:{parent:recipeParent,addEventListener:(_,fn)=>recipeHandler=fn},document:{querySelectorAll:s=>s.includes('top-bar-title')?[opener]:recipeInput?[recipeInput]:[]},location:{pathname:'/object/company/test'},requestAnimationFrame:fn=>fn(),crypto:{randomUUID:()=>String(recipeReplies.length)},HTMLInputElement:NativeInput,Event:class{constructor(type){this.type=type;}}});
 const recipe=data=>recipeHandler({origin:'https://login.flolah.cloud',source:recipeParent,data:{type:'flolah-copilot-guide',request:'recipe',...data}});
 await recipe({command:'inspect'});assert.deepEqual(Array.from(recipeReplies.at(-1).fields),['name']);assert.equal(clicks,0);
