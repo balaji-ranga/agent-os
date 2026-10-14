@@ -10,6 +10,9 @@
   let highlighted=null;
   let prepared=null;
   let preparedForm=null;
+  // Layout-measurement clones can have rectangles while visibility is hidden.
+  // They are not observed controls and must never make an action ambiguous.
+  const visible=el=>!!el.getClientRects().length&&!el.closest?.('[hidden],[inert],[aria-hidden="true"]')&&(!el.ownerDocument?.defaultView||!['hidden','collapse'].includes(el.ownerDocument.defaultView.getComputedStyle(el).visibility));
   const clear=()=>{if(highlighted){highlighted.style.outline=highlighted.dataset.flolahPriorOutline||'';delete highlighted.dataset.flolahPriorOutline;highlighted=null;}};
   const allowed={has:key=>typeof key==='string'&&key.length>0&&key.length<=100&&/^[a-z][a-z0-9 ._-]*$/.test(key)&&!/password|secret|token|credential|permission|grant|mfa|otp|payment|credit.?card|bank|budget|authority|retention|delete|purge|\bscript\b|javascript|webhook|callback|api.?key|owner|\brole\b|access|account|\bcode\b/.test(key)};
   const amountOpeners=()=>/^\/object\/opportunity\/[\w-]+$/.test(location.pathname)?[...document.querySelectorAll('[id^="fields-"][id$="-amount"]')].filter(el=>el.getClientRects().length):[];
@@ -41,18 +44,18 @@
     // currency selector is separate. Never treat an arbitrary Currency box as amount.
     return raw==='currency'&&amountOpeners().length===1?'amount':raw;
   };
-  const navigations=()=>[...document.querySelectorAll('a[href]')].filter(el=>el.tagName==='A'&&el.getClientRects().length).flatMap(el=>{
+  const navigations=()=>[...document.querySelectorAll('a[href]')].filter(el=>el.tagName==='A'&&visible(el)).flatMap(el=>{
     try{const u=new URL(el.getAttribute('href'),location.href),path=u.pathname+u.search;
       const safe=/^\/(?:objects\/[a-z][a-z0-9-]*|object\/[a-z][a-z0-9-]*\/[a-zA-Z0-9-]+)(?:\?viewId=[a-zA-Z0-9-]+)?$/.test(path)||(/^\/app\/[a-z][a-z0-9-]*$/.test(path)&&!/(user|role|permission|setting|payment|bank|credential|token|oauth|integration)/i.test(path));
       return u.origin===location.origin&&safe?[{element:el,path,label:String(el.textContent||'').trim().slice(0,100)}]:[];
     }catch{return [];}
   });
-  const newForms=()=>[...document.querySelectorAll('button')].filter(el=>el.tagName==='BUTTON'&&!el.disabled&&el.getClientRects().length).flatMap(element=>{
+  const newForms=()=>[...document.querySelectorAll('button')].filter(el=>el.tagName==='BUTTON'&&!el.disabled&&visible(el)).flatMap(element=>{
     const text=String(element.getAttribute('aria-label')||element.textContent||'').trim(),match=/^(?:Create new|Add|New) ([A-Za-z][A-Za-z ]+)$/.exec(text);
     return match&&allowed.has(match[1].toLowerCase())&&!/invoice|journal|order|stock|transaction|fiscal|company setup/i.test(match[1])?[{element,label:text}]:[];
   });
   const sensitive=el=>/password|secret|token|credential|permission|grant|mfa|otp|payment|credit.?card|bank|budget|authority|retention|delete|purge|\bscript\b|javascript|webhook|callback|api.?key|owner|\brole\b|access|account|\bcode\b/i.test([el.getAttribute('data-fieldname'),el.getAttribute('aria-label'),el.getAttribute('placeholder'),...[...(el.labels||[])].map(l=>l.textContent)].filter(Boolean).join(' '));
-  const fields=()=>[...document.querySelectorAll('input,textarea,select')].filter(el=>!el.disabled&&!el.readOnly&&!el.hidden&&el.getClientRects().length&&!['password','hidden','file','submit','button','checkbox','radio'].includes(el.type)&&allowed.has(label(el))&&!sensitive(el));
+  const fields=()=>[...document.querySelectorAll('input,textarea,select')].filter(el=>!el.disabled&&!el.readOnly&&!el.hidden&&visible(el)&&!['password','hidden','file','submit','button','checkbox','radio'].includes(el.type)&&allowed.has(label(el))&&!sensitive(el));
   const nameOpener=()=>/^\/object\/(company|person|opportunity|task)\/[\w-]+$/.test(location.pathname)?[...document.querySelectorAll('[data-testid="top-bar-title"]')].filter(el=>el.getClientRects().length):[];
   async function openFields(requested){
     if(requested.some(k=>k==='amount'||k==='currency')&&!fields().some(el=>label(el)==='amount')){
@@ -79,7 +82,7 @@
   }
   function validBinding(key,value,current,prior){
     const el=current?.element;
-    if(!prior||!allowed.has(key)||!el?.isConnected||el.disabled||!el.getClientRects().length||current.value!==prior.value||typeof value!=='string'||value.length>2000)return false;
+    if(!prior||!allowed.has(key)||!el?.isConnected||el.disabled||!visible(el)||current.value!==prior.value||typeof value!=='string'||value.length>2000)return false;
     if(current.kind==='currency')return prior.kind==='currency'&&current.options.some(o=>o.value===value)&&prior.options.some(o=>o.value===value);
     if(el.readOnly||sensitive(el))return false;
     if(key==='amount'&&value!==''&&!/^(?:0|[1-9]\d{0,11})(?:\.\d{1,2})?$/.test(value))return false;

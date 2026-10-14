@@ -50,7 +50,7 @@ await multi({command:'clear'});await multi({command:'fill',snapshot:refreshed,va
 console.log('PASS guided multi-field bridge: rotated tokens, preserved remaining baselines, intervening edits and cancellation.');
 let recipeHandler,recipeInput=null,clicks=0;const recipeReplies=[];
 const recipeParent={postMessage:m=>recipeReplies.push(m)};
-const opener={getClientRects:()=>[{}],click(){throw Error('Layout wrapper is not the editable title');},querySelector(){return {click(){clicks++;recipeInput=new NativeInput();recipeInput.closest=()=>opener;}};}};
+const opener={getClientRects:()=>[{}],click(){throw Error('Layout wrapper is not the editable title');},querySelector(){return {click(){clicks++;recipeInput=new NativeInput();recipeInput.closest=s=>s.includes('[hidden]')?null:opener;}};}};
 vm.runInNewContext(code,{KeyboardEvent:class{constructor(type){this.type=type;}},window:{parent:recipeParent,addEventListener:(_,fn)=>recipeHandler=fn},document:{querySelectorAll:s=>s.includes('top-bar-title')?[opener]:recipeInput?[recipeInput]:[]},location:{pathname:'/object/company/test'},requestAnimationFrame:fn=>fn(),crypto:{randomUUID:()=>String(recipeReplies.length)},HTMLInputElement:NativeInput,Event:class{constructor(type){this.type=type;}}});
 const recipe=data=>recipeHandler({origin:'https://login.flolah.cloud',source:recipeParent,data:{type:'flolah-copilot-guide',request:'recipe',...data}});
 await recipe({command:'inspect'});assert.deepEqual(Array.from(recipeReplies.at(-1).fields),['name']);assert.equal(clicks,0);
@@ -93,7 +93,8 @@ await amount({command:'fill',snapshot:amountSnapshot,values:{amount:'1250.50'}})
 console.log('PASS opportunity amount: compound-editor identity, numeric validation and reviewed commit; no currency change.');
 let formHandler,formClicks=0;const formReplies=[],formParent={postMessage:m=>formReplies.push(m)};
 const newButton={tagName:'BUTTON',getClientRects:()=>[{}],getAttribute:()=> 'Create new Opportunity',click(){formClicks++;}};
-vm.runInNewContext(code,{requestAnimationFrame:fn=>fn(),window:{parent:formParent,addEventListener:(_,fn)=>formHandler=fn},document:{querySelectorAll:s=>s==='button'?[newButton]:[]},location:{pathname:'/objects/opportunities'},crypto:{randomUUID:()=>String(formReplies.length)}});
+const hiddenNewButton={...newButton,ownerDocument:{defaultView:{getComputedStyle:()=>({visibility:'hidden'})}},click(){throw Error('Hidden measurement clone must never be clicked');}};
+vm.runInNewContext(code,{requestAnimationFrame:fn=>fn(),window:{parent:formParent,addEventListener:(_,fn)=>formHandler=fn},document:{querySelectorAll:s=>s==='button'?[hiddenNewButton,newButton]:[]},location:{pathname:'/objects/opportunities'},crypto:{randomUUID:()=>String(formReplies.length)}});
 const form=data=>formHandler({origin:'https://login.flolah.cloud',source:formParent,data:{type:'flolah-copilot-guide',request:'form',...data}});
 await form({command:'open_form',label:'Create new Opportunity'});assert.equal(formClicks,0);
 await form({command:'prepare_open_form',label:'Create new Opportunity'});const formSnapshot=formReplies.at(-1).snapshot;assert(formSnapshot);assert.equal(formClicks,0);
