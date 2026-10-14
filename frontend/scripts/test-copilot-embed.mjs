@@ -83,6 +83,16 @@ await nav({command:'navigate',path:'/objects/opportunities?viewId=test'});assert
 assert.equal(mouseDownRoutes,1,'Mouse-down routers receive exactly one activation');assert.deepEqual(navEvents,['mouseover','mousemove','mousedown','mouseup','click']);
 navLink.getAttribute=()=>'/app/payment-entry';await nav({command:'inspect'});assert.equal(navReplies.at(-1).navigation.length,0);
 console.log('PASS embedded navigation: observed same-origin destinations only; no external URLs or payment paths.');
+let previewHandler,previewJob,previewOpens=0,previewIdentity='wrong';const previewReplies=[];
+const previewParent={postMessage:m=>previewReplies.push(m)},previewLocation={pathname:'/objects/opportunities',href:'https://crm.example/objects/opportunities',origin:'https://crm.example'};
+const previewLink={tagName:'A',textContent:'Test',getClientRects:()=>[{}],getAttribute:()=>'/object/opportunity/target?viewId=test',click(){}};
+const previewOpen={textContent:'Open...Ctrl Enter',getClientRects:()=>[{}],click(){previewOpens++;previewLocation.pathname='/object/opportunity/target';}};
+const previewPanel={getClientRects:()=>[{}],querySelectorAll:s=>s==='[id]'?[{id:'label-'+previewIdentity+'-amount'}]:[previewOpen]};
+vm.runInNewContext(code,{URL,requestAnimationFrame:fn=>fn(),setTimeout:fn=>{previewJob=fn;},window:{parent:previewParent,addEventListener:(_,fn)=>previewHandler=fn},document:{querySelectorAll:s=>s==='a[href]'?[previewLink]:s==='[role="complementary"],aside'?[previewPanel]:[]},location:previewLocation});
+const preview=()=>previewHandler({origin:'https://login.flolah.cloud',source:previewParent,data:{type:'flolah-copilot-guide',request:'preview',command:'navigate',path:'/object/opportunity/target?viewId=test'}});
+await preview();await previewJob();assert.equal(previewOpens,0,'Do not expand unrelated preview');
+previewIdentity='target';await preview();await previewJob();assert.equal(previewOpens,1);assert.equal(previewLocation.pathname,'/object/opportunity/target');
+console.log('PASS record preview navigation: match rendered record identity before one-time expansion.');
 let amountHandler;const amountReplies=[],amountInput=new NativeInput();amountInput.getAttribute=k=>k==='placeholder'?'Currency':null;
 const amountContainer={getClientRects:()=>[{}]};const amountParent={postMessage:m=>amountReplies.push(m)};
 vm.runInNewContext(code,{KeyboardEvent:class{constructor(type){this.type=type;}},window:{parent:amountParent,addEventListener:(_,fn)=>amountHandler=fn},document:{querySelectorAll:s=>s.includes('id$="-amount"')?[amountContainer]:s==='input,textarea,select'?[amountInput]:[]},location:{pathname:'/object/opportunity/test'},requestAnimationFrame:fn=>fn(),crypto:{randomUUID:()=>String(amountReplies.length)},HTMLInputElement:NativeInput,Event:class{constructor(type){this.type=type;}}});

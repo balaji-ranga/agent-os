@@ -139,10 +139,20 @@
     }
     if(command==='navigate'){
       const matches=navigations().filter(n=>n.path===event.data.path);
-      if(matches.length===1){prepared=null;preparedForm=null;clear();const link=matches[0].element;result={ok:true,navigation_requested:true};setTimeout(()=>{
+      if(matches.length===1){prepared=null;preparedForm=null;clear();const link=matches[0].element;const requested=new URL(event.data.path,location.href).pathname;result={ok:true,navigation_requested:true};setTimeout(async()=>{
         // SPA links may route on mouse-down and deliberately suppress click.
         // Activate only this observed link, once; never retry via a page reload.
         activate(link);
+        // Record links can open a preview panel without changing the route.
+        // Expand only the panel whose rendered field IDs prove it is the
+        // requested record; never expand a stale, unrelated preview.
+        const record=/^\/object\/[^/]+\/([a-zA-Z0-9-]+)$/.exec(requested)?.[1];
+        if(record)for(let attempt=0;attempt<30&&location.pathname!==requested;attempt++){
+          await settle();
+          const panels=[...document.querySelectorAll('[role="complementary"],aside')].filter(panel=>visible(panel)&&[...panel.querySelectorAll('[id]')].some(el=>el.id.startsWith('label-'+record+'-')));
+          const open=panels.flatMap(panel=>[...panel.querySelectorAll('button')].filter(el=>visible(el)&&!el.disabled&&/^Open\s*\.\.\.\s*Ctrl/.test(String(el.textContent||'').trim())));
+          if(open.length===1){activate(open[0]);break;}
+        }
       },50);}
       else result={ok:false,reason:'screen_changed'};
     }
