@@ -131,6 +131,16 @@ vm.runInNewContext(code,{MouseEvent:class{constructor(type){this.type=type;}},se
 await delayedHandler({origin:'https://login.flolah.cloud',source:delayedParent,data:{type:'flolah-copilot-guide',request:'delayed',command:'prepare',fields:['amount']}});
 assert.deepEqual(Array.from(delayedReplies.at(-1).fields),['amount']);assert.equal(delayedInput.value,'Original','Editor readiness never writes');
 console.log('PASS asynchronous editor readiness: hover activation, delayed input registration and no value writes.');
+let portalHandler,portalInput=null,portalReady=false,portalBaseClicks=0;const portalReplies=[],portalParent={postMessage:m=>portalReplies.push(m)};
+const portalBase={dispatchEvent(e){if(e.type==='mouseover')portalReady=true;},click(){portalBaseClicks++;}};
+const portalControl={click(){portalInput=new NativeInput();portalInput.getAttribute=k=>k==='placeholder'?'Currency':null;}};
+const portalContainer={getClientRects:()=>[{}],firstElementChild:{firstElementChild:portalBase},querySelector:()=>portalReady?portalControl:null};
+vm.runInNewContext(code,{MouseEvent:class{constructor(type){this.type=type;}},setTimeout:fn=>fn(),requestAnimationFrame:fn=>fn(),window:{parent:portalParent,addEventListener:(_,fn)=>portalHandler=fn},document:{querySelectorAll:s=>s.includes('id$="-amount"')?[portalContainer]:s==='input,textarea,select'&&portalInput?[portalInput]:[]},location:{pathname:'/object/opportunity/portal'},crypto:{randomUUID:()=> 'portal'}});
+await portalHandler({origin:'https://login.flolah.cloud',source:portalParent,data:{type:'flolah-copilot-guide',request:'portal',command:'prepare',fields:['amount']}});
+assert.equal(portalBaseClicks,0);assert.deepEqual(Array.from(portalReplies.at(-1).fields),['amount']);
+console.log('PASS hover-layer editor: re-inspect after hover and activate the actual portal control, not the stale placeholder.');
+navLink.getAttribute=()=>'/object/opportunity/test#718d8033-58a4-4d8e-b729-63e192a66c8e';await nav({command:'inspect'});assert.equal(navReplies.at(-1).navigation.length,1);
+navLink.getAttribute=()=>'/app/payment-entry#718d8033-58a4-4d8e-b729-63e192a66c8e';await nav({command:'inspect'});assert.equal(navReplies.at(-1).navigation.length,0);
 let sensitiveHandler;const sensitiveReplies=[],sensitiveParent={postMessage:m=>sensitiveReplies.push(m)};
 const disguised=new NativeInput();disguised.getAttribute=k=>k==='data-fieldname'?'value':k==='placeholder'?'API key':null;
 vm.runInNewContext(code,{window:{parent:sensitiveParent,addEventListener:(_,fn)=>sensitiveHandler=fn},document:{querySelectorAll:s=>s==='input,textarea,select'?[disguised]:[]},location:{pathname:'/app/customer'}});

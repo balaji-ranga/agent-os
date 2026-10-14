@@ -58,8 +58,8 @@
     return raw==='currency'&&amountOpeners().length===1?'amount':raw;
   };
   const navigations=()=>[...document.querySelectorAll('a[href]')].filter(el=>el.tagName==='A'&&visible(el)).flatMap(el=>{
-    try{const u=new URL(el.getAttribute('href'),location.href),path=u.pathname+u.search;
-      const safe=/^\/(?:objects\/[a-z][a-z0-9-]*|object\/[a-z][a-z0-9-]*\/[a-zA-Z0-9-]+)(?:\?viewId=[a-zA-Z0-9-]+)?$/.test(path)||(/^\/app\/[a-z][a-z0-9-]*$/.test(path)&&!/(user|role|permission|setting|payment|bank|credential|token|oauth|integration)/i.test(path));
+    try{const u=new URL(el.getAttribute('href'),location.href),path=u.pathname+u.search+u.hash;
+      const safe=/^\/(?:objects\/[a-z][a-z0-9-]*|object\/[a-z][a-z0-9-]*\/[a-zA-Z0-9-]+)(?:\?viewId=[a-zA-Z0-9-]+)?$/.test(path)||(/^\/object\/[a-z][a-z0-9-]*\/[a-zA-Z0-9-]+#[a-f0-9-]{36}$/i.test(path))||(/^\/app\/[a-z][a-z0-9-]*$/.test(path)&&!/(user|role|permission|setting|payment|bank|credential|token|oauth|integration)/i.test(path));
       return u.origin===location.origin&&safe?[{element:el,path,label:String(el.textContent||'').trim().slice(0,100)}]:[];
     }catch{return [];}
   });
@@ -88,7 +88,21 @@
       if(candidates.length===1){const target=candidates[0].firstElementChild?.firstElementChild;
         // The empty-value text can be replaced during hover. Activate the
         // stable clickable cell container, not that transient text leaf.
-        if(target){activate(target);await settle();await awaitEditor(()=>fields().some(el=>label(el)==='amount'));}
+        if(target){
+          // Let hover/mouse-down React updates commit before clicking. Otherwise
+          // a placeholder can detach or the host's previous-editor effect can
+          // close the new input in the same batch.
+          if(typeof MouseEvent==='function'){
+            for(const type of ['mouseover','mousedown','mouseup'])target.dispatchEvent(new MouseEvent(type,{bubbles:true,cancelable:true,button:0}));
+            await settle();
+          }
+          const current=amountOpeners();
+          if(current.length===1){
+            const hovered=current[0].querySelector?.('.s1wuwqh8 > .s8fyxo');
+            (hovered||current[0].firstElementChild?.firstElementChild)?.click();
+          }
+          await settle();await awaitEditor(()=>fields().some(el=>label(el)==='amount'));
+        }
       }
     }
     if(requested.includes('name')&&!fields().some(el=>label(el)==='name')){
@@ -215,7 +229,7 @@
       const fieldLabels=Object.fromEntries(visible.map(el=>[label(el),String(el.getAttribute('placeholder')||el.getAttribute('aria-label')||label(el)).slice(0,120)]));
       if(nameOpener().length===1)fieldLabels.name='Name';
       if(amountOpeners().length===1){fieldLabels.amount='Amount (numeric forecast value)';fieldLabels.currency='Currency (ISO currency selected in the amount editor)';}
-      result={ok:true,path:location.pathname+(location.search||''),fields:[...new Set([...visible.map(label),...(nameOpener().length===1?['name']:[]),...(amountOpeners().length===1?['amount','currency']:[])])],field_labels:fieldLabels,navigation:navigations().map(({path,label})=>({path,label})),forms:newForms().map(f=>f.label),mode:'guided',reason:'Embedded edits may save immediately; review proposed values before applying.'};
+      result={ok:true,path:location.pathname+(location.search||'')+(location.hash||''),fields:[...new Set([...visible.map(label),...(nameOpener().length===1?['name']:[]),...(amountOpeners().length===1?['amount','currency']:[])])],field_labels:fieldLabels,navigation:navigations().map(({path,label})=>({path,label})),forms:newForms().map(f=>f.label),mode:'guided',reason:'Embedded edits may save immediately; review proposed values before applying.'};
     }
     if(command==='clear'){clear();prepared=null;preparedForm=null;result={ok:true};}
     if(command==='focus'&&allowed.has(field)){

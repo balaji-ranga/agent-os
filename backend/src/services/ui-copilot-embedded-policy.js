@@ -4,8 +4,8 @@ export function embeddedFieldAllowed(key){
     && !/password|secret|token|credential|permission|grant|mfa|otp|payment|credit.?card|bank|budget|authority|retention|delete|purge|\bscript\b|javascript|webhook|callback|api.?key|owner|\brole\b|access|account|\bcode\b/.test(key);
 }
 export function embeddedPathAllowed(screen,path){
-  if(typeof path!=='string'||path.length>600||/[\\#]/.test(path))return false;
-  if(screen==='crm')return /^\/(?:objects\/[a-z][a-z0-9-]*|object\/[a-z][a-z0-9-]*\/[a-zA-Z0-9-]+)(?:\?viewId=[a-zA-Z0-9-]+)?$/.test(path);
+  if(typeof path!=='string'||path.length>600||/\\/.test(path))return false;
+  if(screen==='crm')return /^\/(?:objects\/[a-z][a-z0-9-]*|object\/[a-z][a-z0-9-]*\/[a-zA-Z0-9-]+)(?:\?viewId=[a-zA-Z0-9-]+)?$/.test(path)||/^\/object\/[a-z][a-z0-9-]*\/[a-zA-Z0-9-]+#[a-f0-9-]{36}$/i.test(path);
   return screen==='erp'&&/^\/app\/[a-z][a-z0-9-]*$/.test(path)&&!/(user|role|permission|setting|payment|bank|credential|token|oauth|integration)/i.test(path);
 }
 export function embeddedFormAllowed(label){
