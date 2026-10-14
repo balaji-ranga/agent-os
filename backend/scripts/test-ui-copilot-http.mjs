@@ -93,6 +93,10 @@ try{
   assert(lastModelRequest.messages[0].content.includes('"type":"embed_navigate"'),'The exact supported action shape accompanies observed paths');
   assert.equal(reply.status,200);s=reply.body;assert.equal(s.proposal.actions[0].path,'/app/customer');
   assert.equal((await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'erp',embedded_navigation:[],message:'Open Customers'})).status,502,'A structurally valid but unobserved navigation target is rejected');
+  modelReply={message:'Open CRM Notes',actions:[{type:'embed_navigate',screen:'crm',path:'/app/notes'}]};
+  reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'erp',embedded_navigation:[],message:'Open the CRM Notes list'});
+  assert.equal(reply.status,200);s=reply.body;
+  assert.deepEqual(s.proposal.actions,[{type:'navigate',screen:'crm',route:'/crm'}],'Cross-workspace navigation discards invented embedded paths and re-inspects the authorized target');
     modelReply={message:'Open unseen record',actions:[{type:'embed_navigate',screen:'crm',path:'/object/opportunity/unseen'}]};
     reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'crm',embedded_path:'/objects/companies',embedded_navigation:[{path:'/objects/opportunities',label:'Opportunities'}],message:'Open Opportunities, then open opportunity unseen for review.'});
     assert.equal(reply.status,200);s=reply.body;assert.equal(s.proposal.actions[0].path,'/objects/opportunities','Use only the explicitly requested observed intermediate link');

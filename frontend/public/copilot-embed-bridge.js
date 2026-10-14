@@ -86,6 +86,10 @@
   const fields=()=>[...new Set([...document.querySelectorAll('input,textarea,select'),...document.querySelectorAll('[contenteditable="true"][role="textbox"]')])].filter(el=>!el.disabled&&!el.readOnly&&!el.hidden&&el.getAttribute('aria-readonly')!=='true'&&visible(el)&&!['password','hidden','file','submit','button','checkbox','radio'].includes(el.type)&&allowed.has(label(el))&&!sensitive(el));
   const fieldValue=el=>isRich(el)?el.textContent:el.value;
   const nameOpener=()=>/^\/object\/(company|person|opportunity|task)\/[\w-]+$/.test(location.pathname)?[...document.querySelectorAll('[data-testid="top-bar-title"]')].filter(el=>el.getClientRects().length):[];
+  const titleOpener=()=>{
+    const resource=/^\/object\/([a-z][a-z0-9-]*)\/[\w-]+$/.exec(location.pathname)?.[1];
+    return resource&&allowed.has(resource)&&!nameOpener().length?[...document.querySelectorAll('[data-testid="top-bar-title"]')].filter(visible):[];
+  };
   async function openFields(requested){
     if(requested.some(k=>k==='amount'||k==='currency')&&!fields().some(el=>label(el)==='amount')){
       const candidates=amountOpeners();
@@ -109,8 +113,10 @@
         }
       }
     }
-    if(requested.includes('name')&&!fields().some(el=>label(el)==='name')){
-      const openers=nameOpener();
+    const headerKey=requested.includes('name')?'name':requested.includes('title')?'title':null;
+    const headerOpener=headerKey==='title'?titleOpener:nameOpener;
+    if(headerKey&&!fields().some(el=>label(el)===headerKey)){
+      const openers=headerOpener();
       if(openers.length===1){
         // The editable title lives inside the layout wrapper. Clicking the
         // wrapper does not dispatch through the child's React click handler.
@@ -121,18 +127,18 @@
           for(const type of ['mousedown','mouseup'])target.dispatchEvent(new MouseEvent(type,{bubbles:true,cancelable:true,button:0}));
           await settle();
         }
-        const current=nameOpener();
+        const current=headerOpener();
         if(current.length===1)(current[0].querySelector('[data-testid="tooltip"], .sx6ymsm, .s1gcxrdc')||current[0]).click();
         await settle();
         // Some inline hosts consume the first click to dismiss an editor's
         // document-level click-away handler. Re-observe before one safe editor
         // opening retry; never replay a create, submit or value write.
-        if(!fields().some(el=>label(el)==='name')){
-          const retry=nameOpener();
+        if(!fields().some(el=>label(el)===headerKey)){
+          const retry=headerOpener();
           if(retry.length===1)(retry[0].querySelector('[data-testid="tooltip"], .sx6ymsm, .s1gcxrdc')||retry[0]).click();
           await settle();
         }
-        await awaitEditor(()=>fields().some(el=>label(el)==='name'));
+        await awaitEditor(()=>fields().some(el=>label(el)===headerKey));
       }
     }
   }
@@ -262,9 +268,10 @@
       const visible=fields();
       const fieldLabels=Object.fromEntries(visible.map(el=>[label(el),String(el.getAttribute('placeholder')||el.getAttribute('aria-label')||label(el)).slice(0,120)]));
       if(nameOpener().length===1)fieldLabels.name='Name';
+      if(titleOpener().length===1)fieldLabels.title='Title';
       if(amountOpeners().length===1){fieldLabels.amount='Amount (numeric forecast value)';fieldLabels.currency='Currency (ISO currency selected in the amount editor)';}
       const createdFormReady=!!creationObservation&&creationObservation.expires>Date.now()&&visible.some(el=>{const panel=el.closest?.('[role="dialog"],[role="complementary"],aside');return panel&&!creationObservation.panels.has(panel)&&!creationObservation.fields.has(el);});
-      result={ok:true,path:location.pathname+(location.search||'')+(location.hash||''),created_form_ready:createdFormReady,fields:[...new Set([...visible.map(label),...(nameOpener().length===1?['name']:[]),...(amountOpeners().length===1?['amount','currency']:[])])],field_labels:fieldLabels,navigation:navigations().map(({path,label})=>({path,label})),forms:newForms().map(f=>f.label),mode:'guided',reason:'Embedded edits may save immediately; review proposed values before applying.'};
+      result={ok:true,path:location.pathname+(location.search||'')+(location.hash||''),created_form_ready:createdFormReady,fields:[...new Set([...visible.map(label),...(nameOpener().length===1?['name']:[]),...(titleOpener().length===1?['title']:[]),...(amountOpeners().length===1?['amount','currency']:[])])],field_labels:fieldLabels,navigation:navigations().map(({path,label})=>({path,label})),forms:newForms().map(f=>f.label),mode:'guided',reason:'Embedded edits may save immediately; review proposed values before applying.'};
     }
     if(command==='clear'){clear();prepared=null;preparedForm=null;result={ok:true};}
     if(command==='focus'&&allowed.has(field)){

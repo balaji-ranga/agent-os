@@ -199,3 +199,14 @@ const titleSend=data=>titleHandler({origin:'https://login.flolah.cloud',source:t
 await titleSend({command:'prepare',fields:['title']});await titleSend({command:'fill',snapshot:titleReplies.at(-1).snapshot,values:{title:'Followup'}});
 assert.equal(titleReplies.at(-1).ok,true);assert.deepEqual(titleInput.events,['input','change','keydown','keyup','blur']);
 console.log('PASS generic record-header Title editor commits with the same reviewed Enter contract as Name.');
+let closedTitleHandler,closedTitleInput=null,closedTitleClicks=0;const closedTitleReplies=[];
+const closedTitleParent={postMessage:m=>closedTitleReplies.push(m)};
+const closedTitleTarget={click(){closedTitleClicks++;closedTitleInput=new NativeInput();closedTitleInput.getAttribute=k=>k==='placeholder'?'Title':null;closedTitleInput.closest=s=>s==='[data-testid="top-bar-title"]'?closedTitleHeader:null;}};
+const closedTitleHeader={getClientRects:()=>[{}],querySelector:()=>closedTitleTarget};
+vm.runInNewContext(code,{KeyboardEvent:class{constructor(type){this.type=type;}},window:{parent:closedTitleParent,addEventListener:(_,fn)=>closedTitleHandler=fn},document:{querySelectorAll:s=>s==='[data-testid="top-bar-title"]'?[closedTitleHeader]:s==='input,textarea,select'&&closedTitleInput?[closedTitleInput]:[]},location:{pathname:'/object/note/test'},requestAnimationFrame:fn=>fn(),crypto:{randomUUID:()=>String(closedTitleReplies.length)},HTMLInputElement:NativeInput,Event:class{constructor(type){this.type=type;}}});
+const closedTitle=data=>closedTitleHandler({origin:'https://login.flolah.cloud',source:closedTitleParent,data:{type:'flolah-copilot-guide',request:'closed-title',...data}});
+await closedTitle({command:'inspect'});assert.deepEqual(Array.from(closedTitleReplies.at(-1).fields),['title']);assert.equal(closedTitleClicks,0);
+await closedTitle({command:'prepare',fields:['title']});const closedTitleSnapshot=closedTitleReplies.at(-1).snapshot;
+await closedTitle({command:'fill',snapshot:closedTitleSnapshot,values:{title:'Followup'}});
+assert.equal(closedTitleReplies.at(-1).ok,true);assert.equal(closedTitleInput.value,'Followup');assert.equal(closedTitleClicks,1);
+console.log('PASS closed record-header discovery: read-only Title metadata and reviewed editor activation.');

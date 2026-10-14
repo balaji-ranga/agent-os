@@ -85,6 +85,11 @@ export function cleanFormPatch(formId, input) {
 // checks field types, protected fields, values and actor permissions.
 export function normalizeCopilotScreenActions(input,catalog,currentScreenId,visibleIds=[]){
   if(!Array.isArray(input?.actions))return input;
+  // Embedded paths belong to the current frame, not a different workspace.
+  // Discard the unobserved path and enter the authorized shell first; the
+  // continuation must inspect its DOM before proposing an internal link.
+  const destination=input.actions.length===1?input.actions[0]:null;
+  if(destination?.type==='embed_navigate'&&destination.screen!==currentScreenId&&['crm','erp'].includes(destination.screen)&&catalog.screens.some(s=>s.id===destination.screen))return {...input,actions:[{type:'navigate',screen:destination.screen}]};
   return {...input,actions:input.actions.map(action=>{
     if(action.type!=='fill'||Object.hasOwn(catalog.forms,action.form)||action.form!==currentScreenId||!catalog.screens.some(s=>s.id===currentScreenId)||!action.values||Array.isArray(action.values)||typeof action.values!=='object')return action;
     const ids=Object.keys(action.values);
