@@ -228,6 +228,7 @@ router.post('/session/:id/propose',handler(async req=> {
     {role:'user',content:JSON.stringify({screen:activeScreen?.id,fields:embeddedFields.filter(id=>!explicitCopilotFieldTarget(message,embeddedFieldLabels)||id===explicitCopilotFieldTarget(message,embeddedFieldLabels)).map(id=>({id,label:embeddedFieldLabels[id],type:'string',available:true,review_required:true,allows_empty:true})),explicit_target:explicitCopilotFieldTarget(message,embeddedFieldLabels),repair_note:'Match the requested visible caption to its exact field ID. For an explicit single-field request, only that unambiguous target is supplied here. Never substitute a neighbouring control.',latest_request:message})},
   ];
   for(let attempt=0;attempt<3;attempt++) {
+    if(['crm','erp'].includes(activeScreen?.id))completionRequest.messages[0].content+=' If the requested section is not among observed links, use an observed workspace home/App Logo link as an intermediate navigation step to discover its menus. Do not navigate back to the same Flolah workspace route as a substitute for finding an embedded section. A field named rich text is a visible contenteditable textbox: use it for requested body/description text only when unambiguous, preserving plain text.';
     if(coached.length){
       if(!completionRequest.messages.includes(coachedMessage))completionRequest.messages.splice(-1,0,coachedMessage);
       if(!completionRequest.messages[0].content.includes(coachedPolicy))completionRequest.messages[0].content+=coachedPolicy;

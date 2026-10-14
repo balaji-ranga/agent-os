@@ -10,6 +10,8 @@
   let highlighted=null;
   let prepared=null;
   let preparedForm=null;
+  let creationObservation=null;
+  const isRich=el=>el.getAttribute('contenteditable')==='true'&&el.getAttribute('role')==='textbox';
   // Layout-measurement clones can have rectangles while visibility is hidden.
   // They are not observed controls and must never make an action ambiguous.
   const visible=el=>!!el.getClientRects().length&&!el.closest?.('[hidden],[inert],[aria-hidden="true"]')&&(!el.ownerDocument?.defaultView||!['hidden','collapse'].includes(el.ownerDocument.defaultView.getComputedStyle(el).visibility));
@@ -52,21 +54,21 @@
     return {kind:'currency',element:button,value:String(button.textContent||'').trim(),options};
   }
   const label=el=>{
-    const raw=String(el.getAttribute('data-fieldname')||el.getAttribute('aria-label')||[...(el.labels||[])].map(l=>l.textContent).join(' ')||el.getAttribute('placeholder')||'').trim().toLowerCase().replaceAll('_',' ');
+    const raw=String(el.getAttribute('data-fieldname')||el.getAttribute('aria-label')||[...(el.labels||[])].map(l=>l.textContent).join(' ')||el.getAttribute('placeholder')||(isRich(el)?'rich text':'')).trim().toLowerCase().replaceAll('_',' ');
     // Twenty's opportunity numeric editor is labelled Currency; the adjacent
     // currency selector is separate. Never treat an arbitrary Currency box as amount.
     return raw==='currency'&&amountOpeners().length===1?'amount':raw;
   };
   const navigations=()=>[...document.querySelectorAll('a[href]')].filter(el=>el.tagName==='A'&&visible(el)).flatMap(el=>{
     try{const u=new URL(el.getAttribute('href'),location.href),path=u.pathname+u.search+u.hash;
-      const safe=/^\/(?:objects\/[a-z][a-z0-9-]*|object\/[a-z][a-z0-9-]*\/[a-zA-Z0-9-]+)(?:\?viewId=[a-zA-Z0-9-]+)?$/.test(path)||(/^\/object\/[a-z][a-z0-9-]*\/[a-zA-Z0-9-]+#[a-f0-9-]{36}$/i.test(path))||(/^\/app\/[a-z][a-z0-9-]*$/.test(path)&&!/(user|role|permission|setting|payment|bank|credential|token|oauth|integration)/i.test(path));
+      const safe=/^\/(?:objects\/[a-z][a-z0-9-]*|object\/[a-z][a-z0-9-]*\/[a-zA-Z0-9-]+)(?:\?viewId=[a-zA-Z0-9-]+)?$/.test(path)||(/^\/object\/[a-z][a-z0-9-]*\/[a-zA-Z0-9-]+#[a-f0-9-]{36}$/i.test(path))||(/^\/app(?:\/[a-z][a-z0-9-]*)?$/.test(path)&&!/(user|role|permission|setting|payment|bank|credential|token|oauth|integration)/i.test(path));
       return u.origin===location.origin&&safe?[{element:el,path,label:String(el.textContent||'').trim().slice(0,100)}]:[];
     }catch{return [];}
   });
   const newForms=()=>{const current=navigations().filter(n=>n.path===location.pathname+(location.search||''));
     const words=text=>String(text).toLowerCase().match(/[a-z]+/g)?.map(w=>w.endsWith('ies')?w.slice(0,-3)+'y':w.endsWith('s')?w.slice(0,-1):w)||[];
     const buttons=[...document.querySelectorAll('button')].filter(el=>el.tagName==='BUTTON'&&!el.disabled&&visible(el)).flatMap(element=>{
-    const text=String(element.getAttribute('aria-label')||element.textContent||'').trim(),match=/^(?:Create new|Add|New) ([A-Za-z][A-Za-z ]+)$/.exec(text);
+    const text=String(element.getAttribute('aria-label')||element.textContent||'').trim(),match=/^(?:Create new|Add|New) (?:an? )?([A-Za-z][A-Za-z ]*?)(?:\s*\.{3}|\s*…)?$/i.exec(text);
     const resourceMatches=current.length!==1||words(current[0].label).every(w=>words(match?.[1]||'').includes(w));
     return match&&resourceMatches&&allowed.has(match[1].toLowerCase())&&!/invoice|journal|order|stock|transaction|fiscal|company setup|\bchat\b/i.test(match[1])?[{element,label:text}]:[];
   });
@@ -80,7 +82,8 @@
     });
   };
   const sensitive=el=>/password|secret|token|credential|permission|grant|mfa|otp|payment|credit.?card|bank|budget|authority|retention|delete|purge|\bscript\b|javascript|webhook|callback|api.?key|owner|\brole\b|access|account|\bcode\b/i.test([el.getAttribute('data-fieldname'),el.getAttribute('aria-label'),el.getAttribute('placeholder'),...[...(el.labels||[])].map(l=>l.textContent)].filter(Boolean).join(' '));
-  const fields=()=>[...document.querySelectorAll('input,textarea,select')].filter(el=>!el.disabled&&!el.readOnly&&!el.hidden&&visible(el)&&!['password','hidden','file','submit','button','checkbox','radio'].includes(el.type)&&allowed.has(label(el))&&!sensitive(el));
+  const fields=()=>[...new Set([...document.querySelectorAll('input,textarea,select'),...document.querySelectorAll('[contenteditable="true"][role="textbox"]')])].filter(el=>!el.disabled&&!el.readOnly&&!el.hidden&&el.getAttribute('aria-readonly')!=='true'&&visible(el)&&!['password','hidden','file','submit','button','checkbox','radio'].includes(el.type)&&allowed.has(label(el))&&!sensitive(el));
+  const fieldValue=el=>isRich(el)?el.textContent:el.value;
   const nameOpener=()=>/^\/object\/(company|person|opportunity|task)\/[\w-]+$/.test(location.pathname)?[...document.querySelectorAll('[data-testid="top-bar-title"]')].filter(el=>el.getClientRects().length):[];
   async function openFields(requested){
     if(requested.some(k=>k==='amount'||k==='currency')&&!fields().some(el=>label(el)==='amount')){
@@ -136,13 +139,14 @@
     await openFields([key]);
     if(key==='currency')return currencyBinding();
     const matches=fields().filter(el=>label(el)===key);
-    return matches.length===1?{element:matches[0],value:matches[0].value}:null;
+    return matches.length===1?{element:matches[0],value:fieldValue(matches[0]),...(isRich(matches[0])?{kind:'rich_text'}:{})}:null;
   }
   function validBinding(key,value,current,prior){
     const el=current?.element;
     if(!prior||!allowed.has(key)||!el?.isConnected||el.disabled||!visible(el)||current.value!==prior.value||typeof value!=='string'||value.length>2000)return false;
     if(current.kind==='currency')return prior.kind==='currency'&&current.options.some(o=>o.value===value)&&prior.options.some(o=>o.value===value);
     if(el.readOnly||sensitive(el))return false;
+    if(current.kind==='rich_text')return prior.kind==='rich_text'&&typeof document.execCommand==='function';
     if(key==='amount'&&value!==''&&!/^(?:0|[1-9]\d{0,11})(?:\.\d{1,2})?$/.test(value))return false;
     if(el.maxLength>=0&&value.length>el.maxLength)return false;
     if(el.tagName==='SELECT'&&![...el.options].some(o=>o.value===value&&!o.disabled))return false;
@@ -159,6 +163,7 @@
     if(command==='open_form'){
       const p=preparedForm;preparedForm=null;
       if(p&&p.snapshot===event.data.snapshot&&p.label===event.data.label&&p.path===location.pathname&&p.expires>Date.now()&&newForms().some(f=>f.element===p.element&&f.label===p.label)){
+        creationObservation={fields:new Set(fields()),panels:new Set([...document.querySelectorAll('[role="dialog"],[role="complementary"],aside')].filter(visible)),expires:Date.now()+60000};
         p.element.click();
         // Twenty opens the newly created record in a side panel. Follow its
         // observed Open control (navigation only), never click New twice.
@@ -194,7 +199,7 @@
       result={ok:false,reason};
     }
     if(command==='prepare'){
-      const entries={};for(const el of fields()){const key=label(el);if(Object.hasOwn(entries,key))entries[key]=null;else entries[key]={element:el,value:el.value};}
+      const entries={};for(const el of fields()){const key=label(el);if(Object.hasOwn(entries,key))entries[key]=null;else entries[key]={element:el,value:fieldValue(el),...(isRich(el)?{kind:'rich_text'}:{})};}
       // Inline editors can replace one another. Capture each requested field's
       // private baseline independently instead of requiring all to remain open.
       for(const key of (Array.isArray(event.data.fields)?event.data.fields:[]).filter(key=>allowed.has(key)))entries[key]=await binding(key);
@@ -220,6 +225,16 @@
             applied.push(key);continue;
           }
           el.focus({preventScroll:true});
+          if(current.kind==='rich_text'){
+            // Use the editing transaction so controlled rich-text editors can
+            // update their model. Never set innerHTML or inject stored markup.
+            const selection=el.ownerDocument.getSelection(),range=el.ownerDocument.createRange();
+            range.selectNodeContents(el);selection.removeAllRanges();selection.addRange(range);
+            if(!el.ownerDocument.execCommand('insertText',false,value))break;
+            await settle();el.blur();
+            if(String(el.textContent).replace(/\r\n/g,'\n')!==value.replace(/\r\n/g,'\n'))break;
+            applied.push(key);continue;
+          }
           const proto=el.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:el.tagName==='SELECT'?HTMLSelectElement.prototype:HTMLInputElement.prototype;
           Object.getOwnPropertyDescriptor(proto,'value').set.call(el,value);
           el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));
@@ -246,7 +261,8 @@
       const fieldLabels=Object.fromEntries(visible.map(el=>[label(el),String(el.getAttribute('placeholder')||el.getAttribute('aria-label')||label(el)).slice(0,120)]));
       if(nameOpener().length===1)fieldLabels.name='Name';
       if(amountOpeners().length===1){fieldLabels.amount='Amount (numeric forecast value)';fieldLabels.currency='Currency (ISO currency selected in the amount editor)';}
-      result={ok:true,path:location.pathname+(location.search||'')+(location.hash||''),fields:[...new Set([...visible.map(label),...(nameOpener().length===1?['name']:[]),...(amountOpeners().length===1?['amount','currency']:[])])],field_labels:fieldLabels,navigation:navigations().map(({path,label})=>({path,label})),forms:newForms().map(f=>f.label),mode:'guided',reason:'Embedded edits may save immediately; review proposed values before applying.'};
+      const createdFormReady=!!creationObservation&&creationObservation.expires>Date.now()&&visible.some(el=>{const panel=el.closest?.('[role="dialog"],[role="complementary"],aside');return panel&&!creationObservation.panels.has(panel)&&!creationObservation.fields.has(el);});
+      result={ok:true,path:location.pathname+(location.search||'')+(location.hash||''),created_form_ready:createdFormReady,fields:[...new Set([...visible.map(label),...(nameOpener().length===1?['name']:[]),...(amountOpeners().length===1?['amount','currency']:[])])],field_labels:fieldLabels,navigation:navigations().map(({path,label})=>({path,label})),forms:newForms().map(f=>f.label),mode:'guided',reason:'Embedded edits may save immediately; review proposed values before applying.'};
     }
     if(command==='clear'){clear();prepared=null;preparedForm=null;result={ok:true};}
     if(command==='focus'&&allowed.has(field)){

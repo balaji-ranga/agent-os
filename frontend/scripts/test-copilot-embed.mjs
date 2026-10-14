@@ -175,3 +175,17 @@ await currency({command:'fill',snapshot:currencySnapshot,values:{currency:'SGD'}
 await currency({command:'prepare',fields:['currency']});currencySnapshot=currencyReplies.at(-1).snapshot;currencyControl.textContent='SGD';
 await currency({command:'fill',snapshot:currencySnapshot,values:{currency:'USD'}});assert.equal(currencyReplies.at(-1).ok,false);assert.equal(currencyControl.textContent,'SGD');
 console.log('PASS compound currency: observed options, separate numeric value, private baseline, stale-change and replay rejection.');
+let richHandler;const richReplies=[],richParent={postMessage:m=>richReplies.push(m)};
+const rich={tagName:'DIV',textContent:'Private existing body',isConnected:true,getClientRects:()=>[{}],getAttribute:k=>({contenteditable:'true',role:'textbox'}[k]||null),focus(){},blur(){},closest:()=>null};
+const richDoc={querySelectorAll:s=>s.includes('contenteditable')?[rich]:[],getSelection:()=>({removeAllRanges(){},addRange(){}}),createRange:()=>({selectNodeContents(){}}),execCommand(command,_,value){assert.equal(command,'insertText');rich.textContent=value;return true;}};
+rich.ownerDocument=richDoc;
+vm.runInNewContext(code,{window:{parent:richParent,addEventListener:(_,fn)=>richHandler=fn},document:richDoc,location:{pathname:'/objects/notes'},requestAnimationFrame:fn=>fn(),crypto:{randomUUID:()=>String(richReplies.length)}});
+const richSend=data=>richHandler({origin:'https://login.flolah.cloud',source:richParent,data:{type:'flolah-copilot-guide',request:'rich',...data}});
+await richSend({command:'inspect'});assert.deepEqual(Array.from(richReplies.at(-1).fields),['rich text']);assert(!JSON.stringify(richReplies).includes('Private existing body'));
+await richSend({command:'prepare',fields:['rich text']});let richSnapshot=richReplies.at(-1).snapshot;
+rich.textContent='Manual edit';await richSend({command:'fill',snapshot:richSnapshot,values:{'rich text':'Overwrite'}});assert.equal(richReplies.at(-1).ok,false);
+await richSend({command:'prepare',fields:['rich text']});richSnapshot=richReplies.at(-1).snapshot;
+await richSend({command:'fill',snapshot:richSnapshot,values:{'rich text':'<b>Literal plain text</b>'}});assert.equal(richReplies.at(-1).ok,true);assert.equal(rich.textContent,'<b>Literal plain text</b>');
+await richSend({command:'fill',snapshot:richSnapshot,values:{'rich text':'Replay'}});assert.equal(richReplies.at(-1).ok,false);
+newButton.getAttribute=()=> 'Add a Note...';await form({command:'inspect'});assert.deepEqual(Array.from(formReplies.at(-1).forms),['Add a Note...']);
+console.log('PASS rich-text transaction: metadata-only inspection, private baseline, plain text insertion, stale/replay rejection and article/ellipsis New labels.');
