@@ -190,7 +190,8 @@ export default function PlatformHelpCopilot() {
     if(action.type==='embed_fill'){
       if(!fresh.screens.some(s=>s.id===action.screen&&s.route===location.pathname))throw new Error('Open the requested embedded screen first.');
       const prepared=await requestCopilotEmbed('prepare',null,{fields:Object.keys(action.values)});
-      if(Object.keys(action.values).some(key=>!prepared.fields.includes(key)))throw new Error('Open these fields in the embedded form, then ask again. No values were entered.');
+      const unavailable=Object.keys(action.values).filter(key=>!prepared.fields.includes(key));
+      if(unavailable.length)throw new Error(`Could not open ${unavailable.join(', ')} for review. No values were entered. Keep this record open and select Review setup again.`);
       setReview({action:{...action,labels:prepared.field_labels||{}},anchor:reviewKey(action),embedSnapshot:prepared.snapshot,expected:{}});return;
     }
     if(action.type==='screen_fill'){

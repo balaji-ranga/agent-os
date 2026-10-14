@@ -17,6 +17,14 @@
   const allowed={has:key=>typeof key==='string'&&key.length>0&&key.length<=100&&/^[a-z][a-z0-9 ._-]*$/.test(key)&&!/password|secret|token|credential|permission|grant|mfa|otp|payment|credit.?card|bank|budget|authority|retention|delete|purge|\bscript\b|javascript|webhook|callback|api.?key|owner|\brole\b|access|account|\bcode\b/.test(key)};
   const amountOpeners=()=>/^\/object\/opportunity\/[\w-]+$/.test(location.pathname)?[...document.querySelectorAll('[id^="fields-"][id$="-amount"]')].filter(el=>el.getClientRects().length):[];
   const settle=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+  const activate=el=>{
+    // Mouse-down lets the host close a previous inline editor before click.
+    if(typeof el.dispatchEvent==='function'&&typeof MouseEvent==='function'){
+      el.dispatchEvent(new MouseEvent('mousedown',{bubbles:true,cancelable:true,button:0,buttons:1}));
+      el.dispatchEvent(new MouseEvent('mouseup',{bubbles:true,cancelable:true,button:0,buttons:0}));
+    }
+    el.click();
+  };
   // A compound currency editor is identified by its actual numeric input and
   // associated picker, not by any arbitrary three-letter button on the page.
   const currencyButton=()=>{
@@ -32,9 +40,9 @@
   async function currencyBinding(){
     const button=currencyButton();if(!button)return null;
     const wasOpen=button.getAttribute('aria-expanded')==='true';
-    if(!wasOpen){button.click();await settle();}
+    if(!wasOpen){activate(button);await settle();}
     const options=currencyOptions().map(o=>({value:o.value}));
-    if(!wasOpen&&button.getAttribute('aria-expanded')==='true'){button.click();await settle();}
+    if(!wasOpen&&button.getAttribute('aria-expanded')==='true'){activate(button);await settle();}
     if(!options.length)return null;
     return {kind:'currency',element:button,value:String(button.textContent||'').trim(),options};
   }
@@ -73,7 +81,7 @@
     if(requested.some(k=>k==='amount'||k==='currency')&&!fields().some(el=>label(el)==='amount')){
       const candidates=amountOpeners();
       if(candidates.length===1){const target=candidates[0].firstElementChild?.firstElementChild;
-        if(target){const leaf=[...target.querySelectorAll('div')].find(el=>!el.children.length)||target;leaf.click();await settle();}
+        if(target){const leaf=[...target.querySelectorAll('div')].find(el=>!el.children.length)||target;activate(leaf);await settle();}
       }
     }
     if(requested.includes('name')&&!fields().some(el=>label(el)==='name')){
@@ -82,7 +90,7 @@
         // The editable title lives inside the layout wrapper. Clicking the
         // wrapper does not dispatch through the child's React click handler.
         const target=openers[0].querySelector('[data-testid="tooltip"]')||openers[0];
-        target.click();await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+        activate(target);await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
       }
     }
   }
@@ -129,9 +137,7 @@
       if(matches.length===1){prepared=null;preparedForm=null;clear();const link=matches[0].element;result={ok:true,navigation_requested:true};setTimeout(()=>{
         // SPA links may route on mouse-down and deliberately suppress click.
         // Activate only this observed link, once; never retry via a page reload.
-        link.dispatchEvent(new MouseEvent('mousedown',{bubbles:true,cancelable:true,button:0,buttons:1}));
-        link.dispatchEvent(new MouseEvent('mouseup',{bubbles:true,cancelable:true,button:0,buttons:0}));
-        link.click();
+        activate(link);
       },50);}
       else result={ok:false,reason:'screen_changed'};
     }
@@ -160,7 +166,7 @@
           const current=await binding(key),el=current?.element;
           if(batch.path!==location.pathname||batch.expires<=Date.now()||!validBinding(key,value,current,batch.entries[key]))break;
           if(current.kind==='currency'){
-            if(current.value!==value){el.click();await settle();const matches=currencyOptions().filter(o=>o.value===value);if(matches.length!==1)break;matches[0].element.click();await settle();if(String(currencyButton()?.textContent||'').trim()!==value)break;}
+            if(current.value!==value){activate(el);await settle();const matches=currencyOptions().filter(o=>o.value===value);if(matches.length!==1)break;activate(matches[0].element);await settle();if(String(currencyButton()?.textContent||'').trim()!==value)break;}
             const numeric=fields().find(input=>label(input)==='amount');
             if(numeric){numeric.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',code:'Enter',bubbles:true,cancelable:true}));numeric.dispatchEvent(new KeyboardEvent('keyup',{key:'Enter',code:'Enter',bubbles:true,cancelable:true}));await settle();}
             applied.push(key);continue;
