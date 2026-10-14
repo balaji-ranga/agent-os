@@ -123,7 +123,7 @@ export default function PlatformHelpCopilot() {
       // Preserve the user's message and expose the actual connection failure.
       setNotice('Waiting for the workspace to finish loading…');
       const actor=user?.id,path=location.pathname;
-      const metadata=await waitForCopilotReady({inspect:()=>requestCopilotEmbed('inspect'),accept:hasCopilotEmbedControls,isCurrent:()=>liveContext.current.userId===actor&&liveContext.current.path===path});
+      const metadata=await waitForCopilotReady({stableSamples:2,inspect:()=>requestCopilotEmbed('inspect'),accept:hasCopilotEmbedControls,isCurrent:()=>liveContext.current.userId===actor&&liveContext.current.path===path});
       embeddedFields=metadata.fields||[];embeddedFieldLabels=metadata.field_labels||{};embeddedNavigation=metadata.navigation||[];embeddedForms=metadata.forms||[];embeddedPath=metadata.path||'';
     }
     const originalRequest=input,actor=user?.id;
@@ -139,6 +139,7 @@ export default function PlatformHelpCopilot() {
         // followed by an assumption that navigation succeeded.
         const embedded=['crm','erp'].includes(target.id);
         const metadata=await waitForCopilotReady({
+          stableSamples:2,
           isCurrent:()=>liveContext.current.userId===actor,
           inspect:async()=>liveContext.current.path===target.route.split(/[?#]/)[0]?(embedded?await requestCopilotEmbed('inspect'):{}):null,
           accept:value=>!!value&&(!embedded||hasCopilotEmbedControls(value))&&(action.type!=='embed_navigate'||matchesCopilotDestination(value.path,action.path)),
@@ -217,7 +218,7 @@ export default function PlatformHelpCopilot() {
       await requestCopilotEmbed('open_form',null,{label:action.label,snapshot});
       setNotice('The New action was requested. Inspecting the resulting record before preparing your values…');
       const actor=user?.id,path=location.pathname;
-      const metadata=await waitForCopilotReady({inspect:()=>requestCopilotEmbed('inspect'),accept:observed=>hasCopilotEmbedControls(observed)&&/^\/object\//.test(observed.path),isCurrent:()=>liveContext.current.userId===actor&&liveContext.current.path===path,timeoutMessage:'Creation was requested, but the resulting record is not confirmed. Inspect it before continuing; do not create another record.'});
+      const metadata=await waitForCopilotReady({stableSamples:2,inspect:()=>requestCopilotEmbed('inspect'),accept:observed=>hasCopilotEmbedControls(observed)&&/^\/object\//.test(observed.path)&&observed.fields?.length>0,isCurrent:()=>liveContext.current.userId===actor&&liveContext.current.path===path,timeoutMessage:'Creation was requested, but the resulting form has not finished loading. Inspect it before continuing; do not create another record.'});
       const message=(session.conversation||[]).filter(t=>t.role==='user').at(-1)?.text;
       const next=await api.copilotPropose(session.id,{version:session.version,message,creation_continuation:true,screen:action.screen,screen_path:liveContext.current.path,embedded_path:metadata.path,embedded_fields:metadata.fields,embedded_field_labels:metadata.field_labels,embedded_navigation:metadata.navigation,embedded_forms:metadata.forms});
       setSession(next);setNotice('The created record is open. Review the proposed values before entering them.');
@@ -264,7 +265,7 @@ export default function PlatformHelpCopilot() {
       if(!fresh.screens.some(s=>s.id===action.screen&&s.route===location.pathname))throw new Error('Open the requested embedded workspace first.');
       await requestCopilotEmbed('navigate',null,{path:action.path});setReview(null);setNotice('Opening the requested section…');
       const actor=user?.id,path=location.pathname;
-      await waitForCopilotReady({inspect:()=>requestCopilotEmbed('inspect'),accept:observed=>hasCopilotEmbedControls(observed)&&matchesCopilotDestination(observed.path,action.path),isCurrent:()=>liveContext.current.userId===actor&&liveContext.current.path===path});
+      await waitForCopilotReady({stableSamples:2,inspect:()=>requestCopilotEmbed('inspect'),accept:observed=>hasCopilotEmbedControls(observed)&&matchesCopilotDestination(observed.path,action.path),isCurrent:()=>liveContext.current.userId===actor&&liveContext.current.path===path});
       setNotice('The requested section is now open. Tell me to continue and I’ll inspect its fields. No record was created or submitted.');return;
     }
     if(action.type==='embed_guide'){

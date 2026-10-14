@@ -21,14 +21,19 @@ export async function continueCopilotNavigation({session,catalog,navigate,inspec
 }
 // Only retry read-only inspection: never replay navigation, creation or filling.
 // Elapsed time (not attempt count) accommodates iframe registration and reloads.
-export async function waitForCopilotReady({inspect,accept=value=>!!value,isCurrent=()=>true,timeoutMs=30000,intervalMs=500,now=()=>Date.now(),sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms)),timeoutMessage='The screen is still loading. Your request is retained; no fields were changed.'}){
+export async function waitForCopilotReady({inspect,accept=value=>!!value,isCurrent=()=>true,stableSamples=1,timeoutMs=30000,intervalMs=500,now=()=>Date.now(),sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms)),timeoutMessage='The screen is still loading. Your request is retained; no fields were changed.'}){
   const deadline=now()+timeoutMs;
+  let prior=null,stable=0;
   while(now()<deadline){
     if(!isCurrent())throw new Error('The assistance context changed. Loading wait stopped.');
     let observed;
     try{observed=await inspect();}catch{/* A frame can disconnect while reloading. Retry inspection only. */}
     if(!isCurrent())throw new Error('The assistance context changed. Loading wait stopped.');
-    if(now()<deadline&&accept(observed))return observed;
+    if(now()<deadline&&accept(observed)){
+      const signature=JSON.stringify(observed);
+      stable=signature===prior?stable+1:1;prior=signature;
+      if(stable>=stableSamples)return observed;
+    }else{prior=null;stable=0;}
     const remaining=deadline-now();
     if(remaining>0)await sleep(Math.min(intervalMs,remaining));
   }
