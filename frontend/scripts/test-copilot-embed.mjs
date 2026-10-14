@@ -124,7 +124,7 @@ await form({command:'open_form',label:'Create new Opportunity',snapshot:formSnap
 await form({command:'open_form',label:'Create new Opportunity',snapshot:formSnapshot});assert.equal(formReplies.at(-1).ok,false);assert.equal(formClicks,1);
 console.log('PASS new-record recipe: observed button, separate review, one-use approval, no replay.');
 let compactHandler,compactClicks=0;const compactReplies=[],compactParent={postMessage:m=>compactReplies.push(m)};
-const compactLink={tagName:'A',textContent:'Opportunities',getClientRects:()=>[{}],getAttribute:()=>'/objects/opportunities?viewId=test'};
+const compactLink={tagName:'A',textContent:'Opportunities',getClientRects:()=>[{}],getAttribute:key=>key==='href'?'/objects/opportunities?viewId=test':null};
 const compactAdd={textContent:'Add New',getClientRects:()=>[{}],parentElement:{parentElement:{querySelector:()=>({})}},click(){compactClicks++;}};
 const unrelatedChat={tagName:'BUTTON',getClientRects:()=>[{}],getAttribute:()=> 'New chat',click(){throw Error('Global chat is not record creation');}};
 vm.runInNewContext(code,{URL,requestAnimationFrame:fn=>fn(),window:{parent:compactParent,addEventListener:(_,fn)=>compactHandler=fn},document:{querySelectorAll:s=>s==='a[href]'?[compactLink]:s==='span'?[compactAdd]:s==='button'?[unrelatedChat]:[]},location:{pathname:'/objects/opportunities',search:'?viewId=test',href:'https://crm.example/objects/opportunities?viewId=test',origin:'https://crm.example'},crypto:{randomUUID:()=>String(compactReplies.length)}});
@@ -189,3 +189,6 @@ await richSend({command:'fill',snapshot:richSnapshot,values:{'rich text':'<b>Lit
 await richSend({command:'fill',snapshot:richSnapshot,values:{'rich text':'Replay'}});assert.equal(richReplies.at(-1).ok,false);
 newButton.getAttribute=()=> 'Add a Note...';await form({command:'inspect'});assert.deepEqual(Array.from(formReplies.at(-1).forms),['Add a Note...']);
 console.log('PASS rich-text transaction: metadata-only inspection, private baseline, plain text insertion, stale/replay rejection and article/ellipsis New labels.');
+navLink.textContent=' ';navLink.getAttribute=key=>key==='href'?'/app':null;navLink.querySelector=()=>({getAttribute:()=> 'App Logo'});
+await nav({command:'inspect'});assert.equal(navReplies.at(-1).navigation[0].label,'App Logo');assert.equal(navReplies.at(-1).navigation[0].path,'/app');
+console.log('PASS accessible navigation: image-only workspace root exposes its observed alt label.');

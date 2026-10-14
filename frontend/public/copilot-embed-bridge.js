@@ -62,7 +62,8 @@
   const navigations=()=>[...document.querySelectorAll('a[href]')].filter(el=>el.tagName==='A'&&visible(el)).flatMap(el=>{
     try{const u=new URL(el.getAttribute('href'),location.href),path=u.pathname+u.search+u.hash;
       const safe=/^\/(?:objects\/[a-z][a-z0-9-]*|object\/[a-z][a-z0-9-]*\/[a-zA-Z0-9-]+)(?:\?viewId=[a-zA-Z0-9-]+)?$/.test(path)||(/^\/object\/[a-z][a-z0-9-]*\/[a-zA-Z0-9-]+#[a-f0-9-]{36}$/i.test(path))||(/^\/app(?:\/[a-z][a-z0-9-]*)?$/.test(path)&&!/(user|role|permission|setting|payment|bank|credential|token|oauth|integration)/i.test(path));
-      return u.origin===location.origin&&safe?[{element:el,path,label:String(el.textContent||'').trim().slice(0,100)}]:[];
+      const accessibleLabel=String(el.getAttribute('aria-label')||String(el.textContent||'').trim()||el.querySelector?.('img[alt]')?.getAttribute('alt')||el.getAttribute('title')||'').trim().slice(0,100);
+      return u.origin===location.origin&&safe?[{element:el,path,label:accessibleLabel}]:[];
     }catch{return [];}
   });
   const newForms=()=>{const current=navigations().filter(n=>n.path===location.pathname+(location.search||''));
@@ -214,7 +215,7 @@
       for(const [key,value] of entries){if(!valid)break;const current=await binding(key);valid=prepared===original&&original.path===location.pathname&&original.expires>Date.now()&&validBinding(key,value,current,original.entries[key]);}
       if(valid){
         const batch=prepared;prepared=null;
-        const applied=[];
+        const applied=[];let uncertain=false;
         for(const [key,value] of entries){
           const current=await binding(key),el=current?.element;
           if(batch.path!==location.pathname||batch.expires<=Date.now()||!validBinding(key,value,current,batch.entries[key]))break;
@@ -232,8 +233,9 @@
             range.selectNodeContents(el);selection.removeAllRanges();selection.addRange(range);
             if(!el.ownerDocument.execCommand('insertText',false,value))break;
             await settle();el.blur();
-            if(String(el.textContent).replace(/\r\n/g,'\n')!==value.replace(/\r\n/g,'\n'))break;
-            applied.push(key);continue;
+            applied.push(key);
+            if(String(el.textContent).replace(/\r\n/g,'\n')!==value.replace(/\r\n/g,'\n')){uncertain=true;break;}
+            continue;
           }
           const proto=el.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:el.tagName==='SELECT'?HTMLSelectElement.prototype:HTMLInputElement.prototype;
           Object.getOwnPropertyDescriptor(proto,'value').set.call(el,value);
@@ -253,7 +255,7 @@
         for(const key of applied)delete batch.entries[key];
         const remaining=Object.keys(batch.entries).filter(key=>batch.entries[key]);
         if(remaining.length){batch.snapshot=crypto.randomUUID();prepared=batch;}
-        result={ok:applied.length===entries.length,reason:applied.length===entries.length?undefined:'fields_changed',applied,next_snapshot:prepared?.snapshot||null,persistence:'Verify in the application; edits may save immediately.'};
+        result={ok:!uncertain&&applied.length===entries.length,reason:!uncertain&&applied.length===entries.length?undefined:'fields_changed',applied,next_snapshot:prepared?.snapshot||null,persistence:'Verify in the application; edits may save immediately.'};
       }
     }
     if(command==='inspect'){
