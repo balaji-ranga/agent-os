@@ -6,6 +6,7 @@ Open Platform Help → **⋯** → **Teach Copilot**. Assistance mode is in the 
 
 Choose a published lesson under My recorded lessons and select **Replay recording**.
 The chat shows the current step, its expected result, and pause/resume/stop controls.
+If the step is recorded as **Navigate**, replay opens its authorized screen automatically and waits for it to load. Advancing to another Navigate step does the same. Embedded destinations must be visible, unique live links; otherwise replay stops for guidance instead of guessing a URL.
 **Open recorded screen** opens authorized screens and only currently observed embedded links.
 Choose current records yourself: recordings intentionally omit record identifiers.
 **Prepare step in chat** copies the step into the composer; add current values and send it through normal Copilot review.

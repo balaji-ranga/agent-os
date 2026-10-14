@@ -1657,7 +1657,7 @@
       "headings": [],
       "controls": [
         {
-          "id": "components/PlatformHelpCopilot.jsx:358:73",
+          "id": "components/PlatformHelpCopilot.jsx:357:73",
           "label": "Assistance style",
           "type": "select",
           "required": false,
@@ -1665,7 +1665,7 @@
           "options": "Use the live authorized options shown on this screen."
         },
         {
-          "id": "components/PlatformHelpCopilot.jsx:380:144",
+          "id": "components/PlatformHelpCopilot.jsx:379:144",
           "label": "Message Platform Help",
           "type": "textarea",
           "required": false,

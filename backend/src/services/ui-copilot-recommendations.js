@@ -99,7 +99,8 @@ export function explicitCopilotIntermediate(message,navigation){
   const matches=navigation.filter(n=>{
     if(!/^\/(?:objects|app)\/[a-z][a-z0-9-]*(?:\?viewId=[a-zA-Z0-9-]+)?$/.test(n.path))return false;
     const label=String(n.label).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-    const match=new RegExp(`\\b(?:open|go to|navigate to)\\s+${label}\\b`,'i').exec(message);
+    const match=new RegExp(`\\b(?:open|go to|navigate to)\\s+((?:[a-z]+\\s+){0,4})${label}\\b`,'i').exec(message);
+    if(match&&/\b(?:not|never|don't|avoid|and|then|instead)\b/i.test(match[1]))return false;
     return match&&!/\b(?:not|never|don't|avoid)\s*$/i.test(message.slice(0,match.index));
   });
   return matches.length===1?matches[0]:null;

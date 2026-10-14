@@ -29,7 +29,7 @@ api.copilotPropose=async(id,body)=>{
   session={...session,version:session.version+1,proposal:{message:'Review the fields. Save only using the real form.',actions:session.mode==='guided'?[{type:'guide',form:action.form,steps:[{field:'name',instruction:'Enter a descriptive name on the form.'}]}]:[action]}};return session;
 };
 api.knowledgeSources=async()=>({sources:[]});
-const recording={id:'fixture-recipe',title:'Local replay fixture',version:1,status:'published',steps:[{screen:'connectors',path:'/connectors',action:'verify',instruction:'Inspect the connectors screen without saving.',success:'Connectors page is open.',fields:[]}]};
+const recording={id:'fixture-recipe',title:'Local replay fixture',version:1,status:'published',steps:[{screen:'connectors',path:'/connectors',action:'navigate',instruction:'Open the connectors screen without saving.',success:'Connectors page is open.',fields:[]}]};
 api.copilotCoaching=async()=>({recipes:[recording],examples:[],next_offset:null});
 api.copilotCoachingGet=async()=>structuredClone(recording);
 api.copilotCoachingMap=async()=>({nodes:[],edges:[],truncated:false});

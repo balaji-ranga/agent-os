@@ -10,7 +10,7 @@ import { continueCopilotNavigation, waitForCopilotReady, hasCopilotEmbedControls
 import { captureDomFields, applyDomFields, visibleCopilotControls, visibleCopilotOptions } from '../utils/copilotDomFill.js';
 import AgentChatPanel from './AgentChatPanel';
 import CopilotCoaching from './CopilotCoaching';
-import {replayStep,replayMatches,replayPrompt} from '../utils/copilotReplay.js';
+import {replayStep,replayMatches,replayPrompt,openReplayDestination} from '../utils/copilotReplay.js';
 import './PlatformHelpCopilot.css';
 const fieldLabels={kind:'Connection',collections:'Content to include',interval_seconds:'Sync frequency',graph_enabled:'Connect related information',intelligent_mapping:'Intelligent relationship mapping',enabled:'Synchronization',retrieval_enabled:'Visible in search',folder_id:'Folder',query:'Content filter',selection:'Content selection'};
 function displayValue(key,value){
@@ -315,6 +315,7 @@ export default function PlatformHelpCopilot() {
     replayStep(latest,recording.version,0);
     if(liveContext.current.userId!==actor)return;
     setReplay({recipe:latest,index:0,paused:false});setSettings(false);setNotice('Guided replay started. Each step is re-inspected; no stored values or saves are replayed.');
+    if(latest.steps[0].action==='navigate')await replayNavigate(latest.steps[0]);
   }
   async function replayCurrent(){
     if(!replay||replay.paused)throw Error('Resume the replay first.');
@@ -325,16 +326,14 @@ export default function PlatformHelpCopilot() {
   }
   async function replayOpen(){
     const {step}=await replayCurrent();
+    await replayNavigate(step);
+  }
+  async function replayNavigate(step){
     const screen=catalog.screens.find(s=>s.id===step.screen);
-    if(!screen)throw Error('This screen is no longer available.');
-    if(location.pathname!==screen.route.split(/[?#]/)[0]){navigate(screen.route);setNotice('Screen opened. When it finishes loading, select Open recorded screen again to inspect its destination.');return;}
-    if(['crm','erp'].includes(step.screen)){
-      const observed=await requestCopilotEmbed('inspect');
-      if(replayMatches(step,observed.path)){setNotice('Recorded screen is open. Prepare this step or verify the expected result.');return;}
-      if(step.path.includes(':'))throw Error('Choose the current record first. Record IDs are intentionally not stored in recordings.');
-      if(!observed.navigation?.some(n=>n.path===step.path))throw Error('The recorded destination is not visible. Navigate using the site or ask Copilot for help; no guessed link was opened.');
-      await requestCopilotEmbed('navigate',null,{path:step.path});
-    }
+    const actor=user?.id;
+    setNotice('Replaying navigation and waiting for the recorded screen…');
+    await openReplayDestination({step,screen,currentPath:()=>liveContext.current.path,navigate,inspect:()=>requestCopilotEmbed('inspect'),navigateEmbedded:path=>requestCopilotEmbed('navigate',null,{path}),isCurrent:()=>liveContext.current.userId===actor});
+    setNotice('Recorded screen opened and inspected. Verify the expected result before advancing.');
   }
   async function replayVerify(){
     const {step}=await replayCurrent();
@@ -343,7 +342,7 @@ export default function PlatformHelpCopilot() {
     const path=['crm','erp'].includes(step.screen)?(await requestCopilotEmbed('inspect')).path:screen.route;
     if(!replayMatches(step,path))throw Error('The current screen does not match the recording.');
     if(replay.index+1===replay.recipe.steps.length){setNotice('Replay completed with your step confirmations. This is not automatic verification of saved business data.');setReplay(null);}
-    else setReplay({...replay,index:replay.index+1});
+    else {const index=replay.index+1;setReplay({...replay,index});if(replay.recipe.steps[index].action==='navigate')await replayNavigate(replay.recipe.steps[index]);}
   }
   return <aside className="platform-help-copilot">
     <button ref={toggle} type="button" className="btn-primary copilot-toggle" title="Platform Help" aria-label="Platform Help" aria-expanded={open} onClick={()=>setOpen(v=>!v)}><span aria-hidden="true">✦</span></button>
@@ -358,7 +357,7 @@ export default function PlatformHelpCopilot() {
         <section className="copilot-preferences"><label>Assistance style <select disabled={busy} value={session?.mode||'hybrid'} onChange={e=>run(()=>update({mode:e.target.value}))}><option value="hybrid">Prepare setup and guide me</option><option value="guided">Guide me step by step</option><option value="autofill">Prepare fields for my review</option></select></label><p>I can prepare supported forms. You review before saving and handle any sign-in yourself.</p>
         {session&&<div className="copilot-controls"><span>{session.status}</span><button disabled={busy} onClick={()=>run(()=>update({status:session.status==='active'?'paused':'active'}))}>{session.status==='active'?'Pause':'Resume'}</button><button disabled={busy} onClick={()=>run(async()=>{await update({status:'cancelled'});setWatch(null);setNotice('Session cancelled; saved drafts cleared. Existing configuration is unchanged.');})}>Cancel</button><button disabled={busy} onClick={()=>run(()=>go(session.origin))}>Return to origin</button></div>}
         </section>
-        <CopilotCoaching key={user?.id} catalog={catalog} path={location.pathname} onReplay={startReplay} onError={message=>{setError('');setError(message);}}/>
+        <CopilotCoaching key={user?.id} catalog={catalog} path={location.pathname} onReplay={recording=>run(()=>startReplay(recording))} onError={message=>{setError('');setError(message);}}/>
         </div>
         {replay&&<article aria-label="Recording replay"><strong>{replay.recipe.title} · step {replay.index+1} of {replay.recipe.steps.length}</strong><p>{replay.recipe.steps[replay.index].instruction}</p><p>Check: {replay.recipe.steps[replay.index].success}</p><small>Confirm the result yourself before advancing. Saves remain separate.</small><div><button disabled={busy||replay.paused} onClick={()=>run(replayOpen)}>Open recorded screen</button><button disabled={busy||replay.paused} onClick={()=>run(async()=>{const {latest}=await replayCurrent();setInput(replayPrompt(latest,replay.index));composer.current?.focus();setNotice('Step added to chat. Add current values if needed, then send to prepare a reviewed action.');})}>Prepare step in chat</button><button disabled={busy||replay.paused} onClick={()=>run(replayVerify)}>I verified this step</button><button disabled={busy} onClick={()=>setReplay({...replay,paused:!replay.paused})}>{replay.paused?'Resume replay':'Pause replay'}</button><button disabled={busy} onClick={()=>setReplay(null)}>Stop replay</button></div></article>}
         <div ref={conversationPanel} className="copilot-conversation" role="log" aria-label="Conversation">
