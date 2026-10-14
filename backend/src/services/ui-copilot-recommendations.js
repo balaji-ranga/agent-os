@@ -92,6 +92,9 @@ export function matchingCopilotDestinations(message,navigation){
   const requested=new Set(resourceWords(message));
   return navigation.filter(n=>{const words=resourceWords(n.label);return words.length&&words.every(w=>requested.has(w));});
 }
+export function matchingCopilotForms(message,forms){
+  return matchingCopilotDestinations(message,forms.map(label=>({label:label.replace(/^(?:Create new|Add|New) /,''),original:label}))).map(f=>f.original);
+}
 export function explicitCopilotIntermediate(message,navigation){
   const matches=navigation.filter(n=>{
     if(!/^\/(?:objects|app)\/[a-z][a-z0-9-]*(?:\?viewId=[a-zA-Z0-9-]+)?$/.test(n.path))return false;

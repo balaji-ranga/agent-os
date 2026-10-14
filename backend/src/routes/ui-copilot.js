@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { randomUUID } from 'node:crypto';
-import { COPILOT_RECOMMENDATION_POLICY, copilotIntentOmissions, retainExplicitCopilotChoices, explicitCopilotFieldTarget, copilotCreationMismatch, matchingCopilotDestinations, startsIndependentCopilotTask, prioritizeCopilotNavigation, explicitCopilotIntermediate } from '../services/ui-copilot-recommendations.js';
+import { COPILOT_RECOMMENDATION_POLICY, copilotIntentOmissions, retainExplicitCopilotChoices, explicitCopilotFieldTarget, copilotCreationMismatch, matchingCopilotDestinations, matchingCopilotForms, startsIndependentCopilotTask, prioritizeCopilotNavigation, explicitCopilotIntermediate } from '../services/ui-copilot-recommendations.js';
 import { requireAuth } from '../middleware/auth.js';
 import { getDb } from '../db/schema.js';
 import { hasPermission, isTenantFullAccess, resolveRootOwnerUserId, listEntitledAgentsForActor, attachOrgFieldsToAuthUser } from '../services/org-permissions.js';
@@ -218,9 +218,13 @@ router.post('/session/:id/propose',handler(async req=> {
         const next=explicitCopilotIntermediate(message,embeddedNavigation);
         if(next&&next.path!==req.body.embedded_path)proposal=validateCopilotProposal({message:`Opening ${next.label} first, then I will inspect the requested record. No values have been changed.`,actions:[{type:'embed_navigate',screen:activeScreen.id,path:next.path}]},c);
       }
-      if(proposal.actions.length===1&&((proposal.actions[0].type==='embed_open_form'&&copilotCreationMismatch(message,proposal.actions[0].label,embeddedNavigation))||(proposal.actions[0].type==='navigate'&&proposal.actions[0].screen===activeScreen?.id))){
+      if(proposal.actions.length===1&&((proposal.actions[0].type==='embed_open_form'&&(!embeddedForms.includes(proposal.actions[0].label)||copilotCreationMismatch(message,proposal.actions[0].label,embeddedNavigation)))||(proposal.actions[0].type==='navigate'&&proposal.actions[0].screen===activeScreen?.id))){
         const matches=matchingCopilotDestinations(message,embeddedNavigation);
         if(matches.length===1&&matches[0].path!==req.body.embedded_path)proposal=validateCopilotProposal({message:`Opening ${matches[0].label} to inspect the requested form. No record has been created.`,actions:[{type:'embed_navigate',screen:activeScreen.id,path:matches[0].path}]},c);
+      }
+      if(proposal.actions.length===1&&proposal.actions[0].type==='embed_open_form'&&proposal.actions[0].screen===activeScreen?.id&&!embeddedForms.includes(proposal.actions[0].label)){
+        const matches=matchingCopilotForms(message,embeddedForms);
+        if(matches.length===1)proposal=validateCopilotProposal({message:'The requested creation control is available. Review it before creating the record.',actions:[{type:'embed_open_form',screen:activeScreen.id,label:matches[0]}]},c);
       }
       const omissions=copilotIntentOmissions(proposal,c,message);
       if(omissions.length){

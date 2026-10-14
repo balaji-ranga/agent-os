@@ -109,6 +109,10 @@ try{
   reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'crm',embedded_path:'/objects/companies',embedded_navigation:[{path:'/objects/opportunities?viewId=test',label:'Opportunities'}],message:opportunityRequest});
   assert.equal(reply.status,200);s=reply.body;assert.equal(s.proposal.actions[0].type,'embed_navigate','Current-screen navigation must use the unique observed requested destination');
   modelReply={message:'Review creation',actions:[{type:'embed_open_form',screen:'crm',label:'Create new Opportunity'}]};
+    reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'crm',embedded_path:'/objects/companies',embedded_forms:['Create new Company'],embedded_navigation:[{path:'/objects/opportunities',label:'Opportunities'}],message:opportunityRequest});
+    assert.equal(reply.status,200);s=reply.body;assert.equal(s.proposal.actions[0].path,'/objects/opportunities','A correct-resource but unobserved New control must navigate first');
+    reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'crm',embedded_path:'/objects/opportunities',embedded_forms:['Add New Opportunities'],embedded_navigation:[{path:'/objects/opportunities',label:'Opportunities'}],message:opportunityRequest});
+    assert.equal(reply.status,200);s=reply.body;assert.equal(s.proposal.actions[0].label,'Add New Opportunities','Use exact observed compact-layout creation control');
   reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'crm',embedded_forms:['Create new Opportunity'],message:opportunityRequest});
   assert.equal(reply.status,200);s=reply.body;
   assert.equal((await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'crm',creation_continuation:true,message:opportunityRequest,embedded_path:'/objects/opportunities'})).status,409,'Do not continue on the old list or create twice');
