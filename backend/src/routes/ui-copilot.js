@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { randomUUID } from 'node:crypto';
-import { COPILOT_RECOMMENDATION_POLICY, copilotIntentOmissions, retainExplicitCopilotChoices, explicitCopilotFieldTarget, copilotCreationMismatch, matchingCopilotDestinations, startsIndependentCopilotTask } from '../services/ui-copilot-recommendations.js';
+import { COPILOT_RECOMMENDATION_POLICY, copilotIntentOmissions, retainExplicitCopilotChoices, explicitCopilotFieldTarget, copilotCreationMismatch, matchingCopilotDestinations, startsIndependentCopilotTask, prioritizeCopilotNavigation } from '../services/ui-copilot-recommendations.js';
 import { requireAuth } from '../middleware/auth.js';
 import { getDb } from '../db/schema.js';
 import { hasPermission, isTenantFullAccess, resolveRootOwnerUserId, listEntitledAgentsForActor, attachOrgFieldsToAuthUser } from '../services/org-permissions.js';
@@ -144,7 +144,7 @@ router.post('/session/:id/propose',handler(async req=> {
   const visible=Array.isArray(req.body.visible_control_ids)?req.body.visible_control_ids.slice(0,150).filter(id=>typeof id==='string'&&defined.has(id)):[];
   const currentSpec=activeScreen?copilotScreenSpec(activeScreen.route,visible,req.body.visible_control_options||{}):null;
   const embeddedFields=['crm','erp'].includes(activeScreen?.id)&&Array.isArray(req.body.embedded_fields)?[...new Set(req.body.embedded_fields.filter(embeddedFieldAllowed))].slice(0,100):[];
-  const embeddedNavigation=(Array.isArray(req.body.embedded_navigation)?req.body.embedded_navigation:[]).filter(n=>embeddedPathAllowed(activeScreen?.id,n?.path)&&typeof n.label==='string').slice(0,60).map(n=>({path:n.path,label:n.label.slice(0,100)}));
+  const embeddedNavigation=prioritizeCopilotNavigation(message,(Array.isArray(req.body.embedded_navigation)?req.body.embedded_navigation:[]).filter(n=>embeddedPathAllowed(activeScreen?.id,n?.path)&&typeof n.label==='string').map(n=>({path:n.path,label:n.label.slice(0,100)})));
   const embeddedForms=['crm','erp'].includes(activeScreen?.id)&&Array.isArray(req.body.embedded_forms)?req.body.embedded_forms.filter(embeddedFormAllowed).slice(0,20):[];
   const embeddedFieldLabels=Object.fromEntries(embeddedFields.map(field=>[field,typeof req.body.embedded_field_labels?.[field]==='string'?req.body.embedded_field_labels[field].slice(0,120):field]));
   // Operational metadata only: never log prompts, field values or credentials.

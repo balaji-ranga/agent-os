@@ -92,6 +92,16 @@ export function matchingCopilotDestinations(message,navigation){
   const requested=new Set(resourceWords(message));
   return navigation.filter(n=>{const words=resourceWords(n.label);return words.length&&words.every(w=>requested.has(w));});
 }
+export function prioritizeCopilotNavigation(message,navigation,limit=60){
+  const text=String(message).toLowerCase(),requested=new Set(resourceWords(message));
+  const score=n=>{
+    const id=/\/object\/[^/]+\/([^?]+)/.exec(n.path)?.[1];
+    if(id&&text.includes(id.toLowerCase()))return 100;
+    const words=resourceWords(n.label).filter(w=>w.length>1);
+    return words.length&&words.every(w=>requested.has(w))?50:0;
+  };
+  return navigation.map((n,index)=>({n,index,score:score(n)})).sort((a,b)=>b.score-a.score||a.index-b.index).slice(0,limit).map(x=>x.n);
+}
 export function copilotCreationMismatch(message,label,navigation){
   const words=resourceWords;
   const requested=new Set(words(message)),created=words(label.replace(/^(?:Create new|Add|New) /,''));
