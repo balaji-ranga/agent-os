@@ -114,7 +114,13 @@
     }
     if(command==='navigate'){
       const matches=navigations().filter(n=>n.path===event.data.path);
-      if(matches.length===1){prepared=null;preparedForm=null;clear();const link=matches[0].element;result={ok:true,navigation_requested:true};setTimeout(()=>link.click(),50);}
+      if(matches.length===1){prepared=null;preparedForm=null;clear();const link=matches[0].element;result={ok:true,navigation_requested:true};setTimeout(()=>{
+        // SPA links may route on mouse-down and deliberately suppress click.
+        // Activate only this observed link, once; never retry via a page reload.
+        link.dispatchEvent(new MouseEvent('mousedown',{bubbles:true,cancelable:true,button:0,buttons:1}));
+        link.dispatchEvent(new MouseEvent('mouseup',{bubbles:true,cancelable:true,button:0,buttons:0}));
+        link.click();
+      },50);}
       else result={ok:false,reason:'screen_changed'};
     }
     if(command==='fill'){
