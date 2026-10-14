@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {continueCopilotNavigation} from '../src/utils/copilotNavigation.js';
+import {continueCopilotNavigation,waitForCopilotReady,hasCopilotEmbedControls} from '../src/utils/copilotNavigation.js';
 const catalog={screens:[{id:'crm',route:'/crm'},{id:'erp',route:'/erp'}]};
 const proposal=action=>({proposal:{actions:[action]}});
 const start=proposal({type:'navigate',screen:'crm'});
@@ -19,3 +19,19 @@ await assert.rejects(()=>continueCopilotNavigation({session:start,catalog,isCurr
 await assert.rejects(()=>continueCopilotNavigation({session:start,catalog:{screens:[]}}),/access/);
 await assert.rejects(()=>continueCopilotNavigation({session:start,catalog,navigate:async()=>{},inspect:async()=>{throw Error('Not loaded');},propose:async()=>assert.fail()}),/Not loaded/);
 console.log('PASS Copilot navigation: actual screen opening, fresh inspection, bounded continuation, permission/context checks and creation/write separation.');
+let clock=0,reads=0;
+const timing={now:()=>clock,sleep:async ms=>{clock+=ms;}};
+const ready={path:'/object/example/123',fields:['name']};
+assert.deepEqual(await waitForCopilotReady({...timing,inspect:async()=>{reads++;if(clock<8000)throw Error('Frame not registered');if(clock<12000)return {path:'/loading',fields:[]};return ready;},accept:hasCopilotEmbedControls}),ready);
+assert.equal(clock,12000,'Waits beyond the old three-second limit for real controls');
+clock=0;let writes=0;
+await assert.rejects(()=>waitForCopilotReady({...timing,timeoutMs:2000,inspect:async()=>null}),/still loading/);
+assert.equal(clock,2000);assert.equal(writes,0,'Readiness never replays a write');
+clock=0;let current=true;
+await assert.rejects(()=>waitForCopilotReady({...timing,isCurrent:()=>current,inspect:async()=>{current=false;return ready;}}),/context changed/);
+clock=0;reads=0;
+assert.equal((await waitForCopilotReady({...timing,inspect:async()=>{if(++reads===1)return {path:'/old',fields:['name']};if(reads===2)throw Error('Reload');return ready;},accept:m=>hasCopilotEmbedControls(m)&&m.path===ready.path})).path,ready.path);
+assert.equal(reads,3,'Does not accept the old page and survives a reload');
+clock=0;
+await assert.rejects(()=>waitForCopilotReady({...timing,timeoutMs:2000,inspect:async()=>{clock+=3000;return ready;}}),/still loading/,'Late inspection is not used to continue a task');
+console.log('PASS readiness: delayed registration, empty loading DOM, reload, destination check, bounded timeout and actor cancellation.');

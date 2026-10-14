@@ -6,7 +6,7 @@ import { getCopilotForm } from '../utils/copilotForms.js';
 import { copilotAgentHandoff } from '../utils/copilotHandoff.js';
 import { findGuideField, findSourceGuideField, highlightGuideField, revealRegisteredForm } from '../utils/copilotGuide.js';
 import { requestCopilotEmbed } from '../utils/copilotEmbed.js';
-import { continueCopilotNavigation } from '../utils/copilotNavigation.js';
+import { continueCopilotNavigation, waitForCopilotReady, hasCopilotEmbedControls } from '../utils/copilotNavigation.js';
 import { captureDomFields, applyDomFields, visibleCopilotControls, visibleCopilotOptions } from '../utils/copilotDomFill.js';
 import AgentChatPanel from './AgentChatPanel';
 import './PlatformHelpCopilot.css';
@@ -121,7 +121,9 @@ export default function PlatformHelpCopilot() {
     if(['crm','erp'].includes(screen)){
       // Do not turn a missing/expired bridge into an invented model refusal.
       // Preserve the user's message and expose the actual connection failure.
-      const metadata=await requestCopilotEmbed('inspect');
+      setNotice('Waiting for the workspace to finish loading…');
+      const actor=user?.id,path=location.pathname;
+      const metadata=await waitForCopilotReady({inspect:()=>requestCopilotEmbed('inspect'),accept:hasCopilotEmbedControls,isCurrent:()=>liveContext.current.userId===actor&&liveContext.current.path===path});
       embeddedFields=metadata.fields||[];embeddedFieldLabels=metadata.field_labels||{};embeddedNavigation=metadata.navigation||[];embeddedForms=metadata.forms||[];
     }
     const originalRequest=input,actor=user?.id;
@@ -135,19 +137,12 @@ export default function PlatformHelpCopilot() {
       inspect:async(action,target)=>{
         // Wait for the actual route/iframe to be ready, not an arbitrary delay
         // followed by an assumption that navigation succeeded.
-        let metadata,lastError;
-        for(let attempt=0;attempt<12;attempt++){
-          if(liveContext.current.userId!==actor)throw new Error('Company context changed.');
-          if(liveContext.current.path===target.route.split(/[?#]/)[0]){
-            try{
-              metadata=['crm','erp'].includes(target.id)?await requestCopilotEmbed('inspect'):{};
-              if(action.type!=='embed_navigate'||metadata.path===action.path)break;
-              metadata=null;
-            }catch(e){lastError=e;}
-          }
-          await new Promise(resolve=>setTimeout(resolve,250));
-        }
-        if(!metadata)throw lastError||new Error('The requested screen has not finished opening. No fields were changed.');
+        const embedded=['crm','erp'].includes(target.id);
+        const metadata=await waitForCopilotReady({
+          isCurrent:()=>liveContext.current.userId===actor,
+          inspect:async()=>liveContext.current.path===target.route.split(/[?#]/)[0]?(embedded?await requestCopilotEmbed('inspect'):{}):null,
+          accept:value=>!!value&&(!embedded||hasCopilotEmbedControls(value))&&(action.type!=='embed_navigate'||value.path===action.path),
+        });
         const fresh=await api.copilotCatalog(liveContext.current.path);
         return {catalog:fresh,screen:target.id,screen_path:liveContext.current.path,visible_control_ids:visibleCopilotControls(document),visible_control_options:visibleCopilotOptions(document),embedded_fields:metadata.fields||[],embedded_field_labels:metadata.field_labels||{},embedded_navigation:metadata.navigation||[],embedded_forms:metadata.forms||[],embedded_path:metadata.path||''};
       },
@@ -216,15 +211,12 @@ export default function PlatformHelpCopilot() {
     if(review.action.type==='embed_open_form'){
       if(!fresh.screens.some(s=>s.id===review.action.screen&&s.route===location.pathname))throw new Error('The workspace or your access changed.');
       const action=review.action,snapshot=review.embedSnapshot;setReview(null);
-      await requestCopilotEmbed('open_form',null,{label:action.label,snapshot});
       setCompletedActions(items=>[...items,reviewKey(action)]);
+      // Mark consumed before dispatch: an unconfirmed response may still have saved.
+      await requestCopilotEmbed('open_form',null,{label:action.label,snapshot});
       setNotice('The New action was requested. Inspecting the resulting record before preparing your values…');
-      let metadata;
-      for(let attempt=0;attempt<12;attempt++){
-        await new Promise(resolve=>setTimeout(resolve,250));
-        try{const observed=await requestCopilotEmbed('inspect');if(/^\/object\//.test(observed.path)){metadata=observed;break;}}catch{/* The newly created record may still be loading. */}
-      }
-      if(!metadata)throw new Error('Creation was requested, but the resulting record is not confirmed. Inspect it before continuing; do not create another record.');
+      const actor=user?.id,path=location.pathname;
+      const metadata=await waitForCopilotReady({inspect:()=>requestCopilotEmbed('inspect'),accept:observed=>hasCopilotEmbedControls(observed)&&/^\/object\//.test(observed.path),isCurrent:()=>liveContext.current.userId===actor&&liveContext.current.path===path,timeoutMessage:'Creation was requested, but the resulting record is not confirmed. Inspect it before continuing; do not create another record.'});
       const message=(session.conversation||[]).filter(t=>t.role==='user').at(-1)?.text;
       const next=await api.copilotPropose(session.id,{version:session.version,message,creation_continuation:true,screen:action.screen,screen_path:liveContext.current.path,embedded_path:metadata.path,embedded_fields:metadata.fields,embedded_field_labels:metadata.field_labels,embedded_navigation:metadata.navigation,embedded_forms:metadata.forms});
       setSession(next);setNotice('The created record is open. Review the proposed values before entering them.');
@@ -270,12 +262,8 @@ export default function PlatformHelpCopilot() {
     if(action.type==='embed_navigate'){
       if(!fresh.screens.some(s=>s.id===action.screen&&s.route===location.pathname))throw new Error('Open the requested embedded workspace first.');
       await requestCopilotEmbed('navigate',null,{path:action.path});setReview(null);setNotice('Opening the requested section…');
-      let arrived=false;
-      for(let attempt=0;attempt<5&&!arrived;attempt++){
-        await new Promise(resolve=>setTimeout(resolve,700));
-        try{arrived=(await requestCopilotEmbed('inspect')).path===action.path;}catch{/* Frame may be loading. */}
-      }
-      if(!arrived)throw new Error('Navigation was requested, but the destination is not confirmed. Check the embedded page before continuing.');
+      const actor=user?.id,path=location.pathname;
+      await waitForCopilotReady({inspect:()=>requestCopilotEmbed('inspect'),accept:observed=>hasCopilotEmbedControls(observed)&&observed.path===action.path,isCurrent:()=>liveContext.current.userId===actor&&liveContext.current.path===path});
       setNotice('The requested section is now open. Tell me to continue and I’ll inspect its fields. No record was created or submitted.');return;
     }
     if(action.type==='embed_guide'){
