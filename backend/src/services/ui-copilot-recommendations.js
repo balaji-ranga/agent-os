@@ -1,4 +1,10 @@
 // Suggestions are draft content, never permission to execute or invent facts.
+// An explicit new task starts a context boundary; replies and referential
+// corrections keep their task context. This never discards saved drafts/history.
+export function startsIndependentCopilotTask(message){
+  return /^(?:please\s+)?(?:create|open|navigate|go\s+to|configure|set\s+up|prepare)\b/i.test(message.trim())&&!/\b(?:it|this|that|same|previous|above|earlier|again|continue)\b/i.test(message);
+}
+
 export const COPILOT_RECOMMENDATION_POLICY = `
 Act as a helpful form-preparation copilot, not a blank questionnaire. Map every
 relevant fact already supplied in the latest request, selected reply, conversation

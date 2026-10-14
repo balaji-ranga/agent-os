@@ -41,6 +41,15 @@ try{
   assert.equal(invoked-beforeDestinationRepair,2);
   assert.equal(s.proposal.actions[0].form,'scheduled_goal');
   assert(lastModelRequest.messages.some(m=>m.content.includes('"catalog"')),'Repair retains destination catalog instead of restricting to current Home controls');
+  modelReply={message:'Open CRM',actions:[{type:'navigate',screen:'crm'}]};
+  reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'home',message:'Create a new opportunity with name Demo Test and value of USD 10000'});
+  assert.equal(reply.status,200);s=reply.body;
+  const standaloneContext=lastModelRequest.messages.map(m=>{try{return JSON.parse(m.content);}catch{return null;}}).find(m=>m?.conversation);
+  assert.deepEqual(standaloneContext.conversation,[]);
+  assert.equal(standaloneContext.previous_proposal,null);
+  assert.deepEqual(standaloneContext.drafts,{});
+  assert.equal(s.task_start_id,s.conversation.at(-2).id);
+  assert(s.conversation.some(t=>t.text.includes('Apple')),'Task isolation must preserve the original chat history');
   for(const screen of ['crm','erp']){
     modelReplies=[{message:'Draft',actions:[{type:'fill',form:'unknown-knowledge-form',values:{name:'Supplier contacts'}}]},{message:'Review table',actions:[{type:'fill',form:'knowledge_table',values:{name:'Supplier contacts',purpose:'Track supplier contacts',columns:'Company, Email'}}]}];
     reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen,embedded_fields:['name'],embedded_field_labels:{name:'Name'},message:'Prepare a knowledge table for supplier contacts with Company and Email columns. Do not save.'});
@@ -60,6 +69,7 @@ try{
   assert.equal(s.navigation_steps,1);assert.equal(s.conversation.filter(t=>t.role==='user').length,userTurns,'Automatic continuation must not duplicate the user prompt');
   assert(lastModelRequest.messages.some(m=>m.content.includes('navigation_observation')));
   assert.equal((await request(`/session/${s.id}/propose`,'POST',{version:s.version,message:'Open ERP',navigation_continuation:true,screen:'erp'})).status,409,'Completed navigation cannot keep invoking continuation');
+  modelReply={message:'Review before saving',actions:[{type:'fill',form:'hire_employee',values:{name:'Demo researcher'}}]};
   reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,message:'Prepare a researcher'});s=reply.body;
   const fill_receipt={type:'fill',form:'hire_employee',values:{name:'Demo researcher'}};
   assert.equal((await request(`/session/${s.id}`,'PUT',{version:s.version,fill_receipt:{...fill_receipt,values:{name:'Unreviewed'}}})).status,400);

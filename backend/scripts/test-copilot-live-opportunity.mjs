@@ -16,6 +16,11 @@ const server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listeni
 const base=`http://127.0.0.1:${server.address().port}/test`,message='create a new opportunity with name Demo Test and value of USD 10000';
 try{
  let s=await (await fetch(base+'/session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({origin:'/'})})).json();
+ // Reproduce the real-chat contamination: unrelated previous scheduled goal.
+ const oldState=JSON.parse(db.prepare('SELECT state FROM ui_copilot_sessions WHERE id=?').get(s.id).state);
+ oldState.conversation=[{id:'old-goal',role:'user',text:'Create a daily goal to query Apple prices and assign COO. Run it at 10:30.'}];
+ oldState.proposal={message:'Review daily goal',actions:[{type:'fill',form:'scheduled_goal',values:{title:'Apple prices',prompt:'Query Yahoo Finance',cadence:'daily',time_local:'10:30'}}]};
+ db.prepare('UPDATE ui_copilot_sessions SET state=? WHERE id=?').run(JSON.stringify(oldState),s.id);
  async function step(context){const response=await fetch(base+`/session/${s.id}/propose`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({version:s.version,message,...context})});s=await response.json();assert.equal(response.status,200,JSON.stringify(s));return s.proposal.actions;}
  assert.deepEqual(await step({screen:'home'}),[{type:'navigate',screen:'crm',route:'/crm'}]);
  const path='/objects/opportunities?viewId=synthetic';
