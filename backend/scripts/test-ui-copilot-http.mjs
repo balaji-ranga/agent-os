@@ -83,6 +83,12 @@ try{
   assert.equal(reply.status,200);s=reply.body;
   assert.equal((await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'erp',embedded_forms:[],message:'Prepare a new customer form'})).status,502);
   const opportunityRequest='create a new opportunity with name Demo Test and value of USD 10000';
+  modelReply={message:'New Company',actions:[{type:'embed_open_form',screen:'crm',label:'Create new Company'}]};
+  reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'crm',embedded_forms:['Create new Company'],embedded_navigation:[{path:'/objects/opportunities?viewId=test',label:'Opportunities'}],message:opportunityRequest});
+  assert.equal(reply.status,200);s=reply.body;assert.deepEqual(s.proposal.actions,[{type:'embed_navigate',screen:'crm',path:'/objects/opportunities?viewId=test'}],'Never create the wrong visible resource');
+  modelReply={message:'Open CRM',actions:[{type:'navigate',screen:'crm'}]};
+  reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'crm',embedded_path:'/objects/companies',embedded_navigation:[{path:'/objects/opportunities?viewId=test',label:'Opportunities'}],message:opportunityRequest});
+  assert.equal(reply.status,200);s=reply.body;assert.equal(s.proposal.actions[0].type,'embed_navigate','Current-screen navigation must use the unique observed requested destination');
   modelReply={message:'Review creation',actions:[{type:'embed_open_form',screen:'crm',label:'Create new Opportunity'}]};
   reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'crm',embedded_forms:['Create new Opportunity'],message:opportunityRequest});
   assert.equal(reply.status,200);s=reply.body;

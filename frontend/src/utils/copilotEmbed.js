@@ -21,9 +21,9 @@ export function requestCopilotEmbed(command,field,details={}){
     const listener=e=>{
       if(e.origin!==bound.origin||e.source!==bound.element.contentWindow||e.data?.type!=='flolah-copilot-guide-result'||e.data.request!==request)return;
       finish();if(frame!==bound)return reject(new Error('The embedded workspace changed.'));
-      e.data.ok?resolve(e.data):reject(new Error(embeddedFailureMessage(e.data.reason)));
+      e.data.ok?resolve(e.data):reject(new Error(Array.isArray(e.data.applied)&&e.data.applied.length?'Some reviewed fields were entered before the form changed. Inspect the record and request a fresh review for remaining fields; do not repeat creation.':embeddedFailureMessage(e.data.reason)));
     };
-    const timer=setTimeout(()=>{finish();reject(new Error('This embedded screen has not connected to guided assistance yet. No changes were made.'));},5000);
+    const timer=setTimeout(()=>{finish();reject(new Error(['fill','open_form'].includes(command)?'The embedded action did not confirm in time. Inspect the screen before retrying; it may have saved. Do not repeat creation.':'This embedded screen has not connected to guided assistance yet. No values were entered.'));},5000);
     window.addEventListener('message',listener);
     bound.element.contentWindow.postMessage({type:'flolah-copilot-guide',request,command,field,...details},bound.origin);
   });

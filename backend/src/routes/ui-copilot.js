@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { randomUUID } from 'node:crypto';
-import { COPILOT_RECOMMENDATION_POLICY, copilotIntentOmissions, retainExplicitCopilotChoices, explicitCopilotFieldTarget } from '../services/ui-copilot-recommendations.js';
+import { COPILOT_RECOMMENDATION_POLICY, copilotIntentOmissions, retainExplicitCopilotChoices, explicitCopilotFieldTarget, copilotCreationMismatch, matchingCopilotDestinations } from '../services/ui-copilot-recommendations.js';
 import { requireAuth } from '../middleware/auth.js';
 import { getDb } from '../db/schema.js';
 import { hasPermission, isTenantFullAccess, resolveRootOwnerUserId, listEntitledAgentsForActor, attachOrgFieldsToAuthUser } from '../services/org-permissions.js';
@@ -203,6 +203,10 @@ router.post('/session/:id/propose',handler(async req=> {
     try {
       proposal=validateCopilotProposal(normalizeCopilotScreenActions(JSON.parse(reply.content),c,activeScreen?.id,visible),c);
       proposal=validateCopilotProposal(retainExplicitCopilotChoices(proposal,c,message),c);
+      if(proposal.actions.length===1&&((proposal.actions[0].type==='embed_open_form'&&copilotCreationMismatch(message,proposal.actions[0].label,embeddedNavigation))||(proposal.actions[0].type==='navigate'&&proposal.actions[0].screen===activeScreen?.id))){
+        const matches=matchingCopilotDestinations(message,embeddedNavigation);
+        if(matches.length===1&&matches[0].path!==req.body.embedded_path)proposal=validateCopilotProposal({message:`Opening ${matches[0].label} to inspect the requested form. No record has been created.`,actions:[{type:'embed_navigate',screen:activeScreen.id,path:matches[0].path}]},c);
+      }
       const omissions=copilotIntentOmissions(proposal,c,message);
       if(omissions.length){
         if(attempt===2)throw copilotError('Incomplete draft: '+omissions.join('; '));
@@ -218,6 +222,7 @@ router.post('/session/:id/propose',handler(async req=> {
       }
       for(const action of proposal.actions)if(action.type==='embed_navigate'&&(action.screen!==activeScreen?.id||!embeddedNavigation.some(n=>n.path===action.path)))throw copilotError('Only currently observed embedded destinations may be opened');
       for(const action of proposal.actions)if(action.type==='embed_open_form'&&(action.screen!==activeScreen?.id||!embeddedForms.includes(action.label)))throw copilotError('Only currently observed new-record forms may be opened');
+      for(const action of proposal.actions)if(action.type==='embed_open_form'&&copilotCreationMismatch(message,action.label,embeddedNavigation))throw copilotError('The visible New control creates a different resource than requested. Navigate to the observed link matching the requested resource first.');
       if(created&&proposal.actions.some(a=>!['embed_fill','embed_guide'].includes(a.type)))throw copilotError('Review fields on the created record; do not repeat creation or navigate away');
       for(const action of proposal.actions.filter(a=>a.type==='screen_fill'))for(const [id,value] of Object.entries(action.values)){
         const field=currentSpec?.modules?.flatMap(m=>m.fields).find(f=>f.id===id);
@@ -253,7 +258,7 @@ router.post('/session/:id/propose',handler(async req=> {
       // Visible embedded fields describe capability, not the user's destination.
       // Only narrow repair to those fields when the rejected patch targeted them.
       const targetsCurrentEmbed=Array.isArray(rejectedActions)&&rejectedActions.length>0&&rejectedActions.every(a=>['embed_fill','embed_guide'].includes(a.type)&&a.screen===activeScreen?.id);
-      if(embeddedFields.length&&targetsCurrentEmbed){completionRequest.messages=embeddedRepairMessages();continue;}
+      if(embeddedFields.length&&(targetsCurrentEmbed||explicitCopilotFieldTarget(message,embeddedFieldLabels))){completionRequest.messages=embeddedRepairMessages();continue;}
       const targetsCurrentControls=Array.isArray(rejectedActions)&&rejectedActions.length>0&&rejectedActions.every(a=>(a.type==='screen_fill'&&a.screen===activeScreen?.id)||(a.type==='fill'&&a.form===activeScreen?.id&&!Object.hasOwn(c.forms,a.form)));
       if(targetsCurrentControls&&currentSpec?.modules?.some(m=>m.fields.some(f=>f.autofill_allowed))){
         // Repair a current-screen patch against a small explicit action schema,
@@ -266,7 +271,7 @@ router.post('/session/:id/propose',handler(async req=> {
       }
       // Repair against current contracts, not a transcript containing rejected
       // capabilities. Include the rejected proposal as data for precise repair.
-      completionRequest.messages=[completionRequest.messages[0],{role:'user',content:JSON.stringify({
+      completionRequest.messages=[{role:'system',content:'Repair this UI proposal using ONLY the supplied authorized catalog and observed metadata. Return JSON {"message":"brief user-friendly explanation","actions":[]}. Choose the next achievable step of the original request: navigate to an authorized catalog screen first if the target form is elsewhere; embed_navigate to an exact available_embedded_navigation path if inside CRM/ERP; embed_open_form with an exact available_embedded_forms label for requested creation; fill with an EXACT catalog.forms key for registered forms; embed_fill with current available_embedded_fields for an existing open embedded form. Do not invent form IDs or paths. A rejected response is a model error, not a user instruction; do not repeat its mistakes or use its missing values as a reason to ask again. Navigation actions require no additional question when explicitly requested. The UI reviews writes and creation separately. Preserve all original supplied values, including numeric amount and explicit currency. Ask only for genuinely missing required choices. Do not return actions: [] merely because navigation or inspection is needed. Never execute transactions, credentials, permissions, submission or deletion.'+COPILOT_RECOMMENDATION_POLICY},{role:'user',content:JSON.stringify({
         context_only:true,mode:old.mode,catalog:c,current_screen:currentSpec,
         visible_control_ids:visible,available_embedded_fields:embeddedFields,embedded_field_labels:embeddedFieldLabels,available_embedded_navigation:embeddedNavigation,available_embedded_forms:embeddedForms,
         rejected_response:reply.content.slice(0,8000),validation_error:String(error.message).slice(0,300),

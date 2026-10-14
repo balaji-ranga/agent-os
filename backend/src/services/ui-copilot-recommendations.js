@@ -15,6 +15,13 @@ First match the user's intended task to the authorized catalog form and its purp
 Use that registered form even when it is on another screen. Do not substitute a
 similarly named control on the current screen. Use current-screen DOM fields only
 when they implement the requested task and no registered form is a better match.
+If the task belongs to an authorized screen but its form is not currently visible,
+return a navigate action to that screen first, or an embed_navigate to an observed
+link inside it. The browser executes navigation and returns fresh metadata for the
+same request. Do not invent a draft form ID and do not replace navigation with a
+promise or a question asking the user to navigate. Opening is not filling or saving.
+Explicitly supplied amounts and currencies are known input, NOT guesses. Carry
+them forward unchanged through navigation and the separate creation review.
 Never guess account IDs, recipients, amounts, currencies, dates/times, credentials,
 permissions or existing business facts. Resolve agents only from the entitled catalog;
 ask if the requested role is ambiguous. Only propose schema-valid, available fields.
@@ -70,4 +77,18 @@ export function explicitCopilotFieldTarget(message,labels){
     return matches.some(match=>! /\b(?:not|never|don't|instead|rather)\s+$/i.test(message.slice(0,match.index)));
   });
   return mentions.length===1?mentions[0][0]:null;
+}
+
+// Prevent a valid but unrelated visible New control from satisfying a request
+// for a different observed resource. Resource names come from DOM metadata.
+const resourceWords=text=>String(text).toLowerCase().match(/[a-z]+/g)?.map(w=>w.endsWith('ies')?w.slice(0,-3)+'y':w.endsWith('s')&&!w.endsWith('ss')?w.slice(0,-1):w)||[];
+export function matchingCopilotDestinations(message,navigation){
+  const requested=new Set(resourceWords(message));
+  return navigation.filter(n=>{const words=resourceWords(n.label);return words.length&&words.every(w=>requested.has(w));});
+}
+export function copilotCreationMismatch(message,label,navigation){
+  const words=resourceWords;
+  const requested=new Set(words(message)),created=words(label.replace(/^(?:Create new|Add|New) /,''));
+  const targets=navigation.map(n=>words(n.label)).filter(parts=>parts.length&&parts.every(w=>requested.has(w)));
+  return targets.length>0&&!targets.some(parts=>parts.every(w=>created.includes(w)));
 }
