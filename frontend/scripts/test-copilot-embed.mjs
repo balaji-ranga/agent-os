@@ -62,6 +62,15 @@ await recipe({command:'fill',snapshot:recipeSnapshot,values:{name:'Reviewed reci
 assert.equal(recipeReplies.at(-1).ok,true);assert.equal(recipeInput.value,'Reviewed recipe value');assert.equal(clicks,2);
 assert.deepEqual(recipeInput.events,['input','change','keydown','keyup','blur']);
 console.log('PASS CRM inline recipe: metadata discovery is read-only, approved editor reopening retains baseline.');
+recipeInput=null;
+const normalTitleClick=titleTarget.click;
+let consumedTitleClick=false;
+titleTarget.click=function(){if(!consumedTitleClick){consumedTitleClick=true;return;}normalTitleClick.call(this);};
+await recipe({command:'prepare',fields:['name']});
+assert.ok(recipeReplies.at(-1).fields.includes('name'),'Click-away dismissal must not lose the title binding');
+assert.ok(consumedTitleClick);
+titleTarget.click=normalTitleClick;
+console.log('PASS inline click-away: re-observe and reopen editor once without replaying writes.');
 let timedHandler,clock=1000;const timedReplies=[];
 const timedParent={postMessage:m=>timedReplies.push(m)};
 vm.runInNewContext(code,{Date:{now:()=>clock},window:{parent:timedParent,addEventListener:(_,fn)=>timedHandler=fn},document:{querySelectorAll:()=>[editable]},location:{pathname:'/app/customer'},crypto:{randomUUID:()=>String(timedReplies.length)}});

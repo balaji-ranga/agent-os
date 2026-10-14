@@ -119,7 +119,16 @@
         }
         const current=nameOpener();
         if(current.length===1)(current[0].querySelector('[data-testid="tooltip"], .sx6ymsm, .s1gcxrdc')||current[0]).click();
-        await settle();await awaitEditor(()=>fields().some(el=>label(el)==='name'));
+        await settle();
+        // Some inline hosts consume the first click to dismiss an editor's
+        // document-level click-away handler. Re-observe before one safe editor
+        // opening retry; never replay a create, submit or value write.
+        if(!fields().some(el=>label(el)==='name')){
+          const retry=nameOpener();
+          if(retry.length===1)(retry[0].querySelector('[data-testid="tooltip"], .sx6ymsm, .s1gcxrdc')||retry[0]).click();
+          await settle();
+        }
+        await awaitEditor(()=>fields().some(el=>label(el)==='name'));
       }
     }
   }
