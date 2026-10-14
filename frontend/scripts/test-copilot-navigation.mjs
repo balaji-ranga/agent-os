@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict';
-import {continueCopilotNavigation,waitForCopilotReady,hasCopilotEmbedControls} from '../src/utils/copilotNavigation.js';
+import {continueCopilotNavigation,waitForCopilotReady,hasCopilotEmbedControls,matchesCopilotDestination} from '../src/utils/copilotNavigation.js';
+assert(matchesCopilotDestination('/object/opportunity/abc','/object/opportunity/abc?viewId=view-1'));
+assert(!matchesCopilotDestination('/object/opportunity/other','/object/opportunity/abc?viewId=view-1'));
+assert(!matchesCopilotDestination('/objects/opportunities','/objects/opportunities?viewId=view-1'));
+assert(!matchesCopilotDestination('/object/opportunity/abc','/object/opportunity/abc?viewId=view-1&other=1'));
 const catalog={screens:[{id:'crm',route:'/crm'},{id:'erp',route:'/erp'}]};
 const proposal=action=>({proposal:{actions:[action]}});
 const start=proposal({type:'navigate',screen:'crm'});

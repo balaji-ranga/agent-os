@@ -20,11 +20,16 @@
   const activate=el=>{
     // Mouse-down lets the host close a previous inline editor before click.
     if(typeof el.dispatchEvent==='function'&&typeof MouseEvent==='function'){
-      el.dispatchEvent(new MouseEvent('mousedown',{bubbles:true,cancelable:true,button:0,buttons:1}));
-      el.dispatchEvent(new MouseEvent('mouseup',{bubbles:true,cancelable:true,button:0,buttons:0}));
+      const rect=el.getBoundingClientRect?.();
+      const point=rect?{clientX:rect.left+rect.width/2,clientY:rect.top+rect.height/2}:{};
+      el.dispatchEvent(new MouseEvent('mouseover',{bubbles:true,cancelable:true,button:0,...point}));
+      el.dispatchEvent(new MouseEvent('mousemove',{bubbles:true,cancelable:true,button:0,...point}));
+      el.dispatchEvent(new MouseEvent('mousedown',{bubbles:true,cancelable:true,button:0,buttons:1,...point}));
+      el.dispatchEvent(new MouseEvent('mouseup',{bubbles:true,cancelable:true,button:0,buttons:0,...point}));
     }
     el.click();
   };
+  const awaitEditor=async check=>{for(let i=0;i<24&&!check();i++)await new Promise(resolve=>setTimeout(resolve,50));};
   // A compound currency editor is identified by its actual numeric input and
   // associated picker, not by any arbitrary three-letter button on the page.
   const currencyButton=()=>{
@@ -81,7 +86,7 @@
     if(requested.some(k=>k==='amount'||k==='currency')&&!fields().some(el=>label(el)==='amount')){
       const candidates=amountOpeners();
       if(candidates.length===1){const target=candidates[0].firstElementChild?.firstElementChild;
-        if(target){const leaf=[...target.querySelectorAll('div')].find(el=>!el.children.length)||target;activate(leaf);await settle();}
+        if(target){const leaf=[...target.querySelectorAll('div')].find(el=>!el.children.length)||target;activate(leaf);await settle();await awaitEditor(()=>fields().some(el=>label(el)==='amount'));}
       }
     }
     if(requested.includes('name')&&!fields().some(el=>label(el)==='name')){
@@ -90,7 +95,7 @@
         // The editable title lives inside the layout wrapper. Clicking the
         // wrapper does not dispatch through the child's React click handler.
         const target=openers[0].querySelector('[data-testid="tooltip"]')||openers[0];
-        activate(target);await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+        activate(target);await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));await awaitEditor(()=>fields().some(el=>label(el)==='name'));
       }
     }
   }

@@ -6,7 +6,7 @@ import { getCopilotForm } from '../utils/copilotForms.js';
 import { copilotAgentHandoff } from '../utils/copilotHandoff.js';
 import { findGuideField, findSourceGuideField, highlightGuideField, revealRegisteredForm } from '../utils/copilotGuide.js';
 import { requestCopilotEmbed } from '../utils/copilotEmbed.js';
-import { continueCopilotNavigation, waitForCopilotReady, hasCopilotEmbedControls } from '../utils/copilotNavigation.js';
+import { continueCopilotNavigation, waitForCopilotReady, hasCopilotEmbedControls, matchesCopilotDestination } from '../utils/copilotNavigation.js';
 import { captureDomFields, applyDomFields, visibleCopilotControls, visibleCopilotOptions } from '../utils/copilotDomFill.js';
 import AgentChatPanel from './AgentChatPanel';
 import './PlatformHelpCopilot.css';
@@ -117,17 +117,17 @@ export default function PlatformHelpCopilot() {
     baselines.current=Object.fromEntries(Object.keys(catalog.forms).map(id=>[id,getCopilotForm(id)?.read()]));
     for(const [form,values] of Object.entries(baselines.current))if(values&&hasDraftContent(form,values)){s=await api.copilotUpdate(s.id,{version:s.version,draft:{form,values}});setSession(s);}
     const screen=catalog.screens?.find(x=>x.route.split('#')[0]===location.pathname)?.id;
-    let embeddedFields=[],embeddedFieldLabels={},embeddedNavigation=[],embeddedForms=[];
+    let embeddedFields=[],embeddedFieldLabels={},embeddedNavigation=[],embeddedForms=[],embeddedPath='';
     if(['crm','erp'].includes(screen)){
       // Do not turn a missing/expired bridge into an invented model refusal.
       // Preserve the user's message and expose the actual connection failure.
       setNotice('Waiting for the workspace to finish loading…');
       const actor=user?.id,path=location.pathname;
       const metadata=await waitForCopilotReady({inspect:()=>requestCopilotEmbed('inspect'),accept:hasCopilotEmbedControls,isCurrent:()=>liveContext.current.userId===actor&&liveContext.current.path===path});
-      embeddedFields=metadata.fields||[];embeddedFieldLabels=metadata.field_labels||{};embeddedNavigation=metadata.navigation||[];embeddedForms=metadata.forms||[];
+      embeddedFields=metadata.fields||[];embeddedFieldLabels=metadata.field_labels||{};embeddedNavigation=metadata.navigation||[];embeddedForms=metadata.forms||[];embeddedPath=metadata.path||'';
     }
     const originalRequest=input,actor=user?.id;
-    let next=await api.copilotPropose(s.id,{version:s.version,message:input,...(replyTo?{reply_to:replyTo.id}:{}),screen_path:location.pathname,visible_control_ids:visibleCopilotControls(document),visible_control_options:visibleCopilotOptions(document),embedded_fields:embeddedFields,embedded_field_labels:embeddedFieldLabels,embedded_navigation:embeddedNavigation,embedded_forms:embeddedForms,...(screen?{screen}:{})});
+    let next=await api.copilotPropose(s.id,{version:s.version,message:input,...(replyTo?{reply_to:replyTo.id}:{}),screen_path:location.pathname,visible_control_ids:visibleCopilotControls(document),visible_control_options:visibleCopilotOptions(document),embedded_fields:embeddedFields,embedded_field_labels:embeddedFieldLabels,embedded_navigation:embeddedNavigation,embedded_forms:embeddedForms,embedded_path:embeddedPath,...(screen?{screen}:{})});
     setSession(next);setInput('');setReplyTo(null);setNotice('');setCompletedActions([]);
     const journey=await continueCopilotNavigation({session:next,catalog,isCurrent:()=>liveContext.current.userId===actor,onProgress:setNotice,
       navigate:async(action,target)=>{
@@ -141,7 +141,7 @@ export default function PlatformHelpCopilot() {
         const metadata=await waitForCopilotReady({
           isCurrent:()=>liveContext.current.userId===actor,
           inspect:async()=>liveContext.current.path===target.route.split(/[?#]/)[0]?(embedded?await requestCopilotEmbed('inspect'):{}):null,
-          accept:value=>!!value&&(!embedded||hasCopilotEmbedControls(value))&&(action.type!=='embed_navigate'||value.path===action.path),
+          accept:value=>!!value&&(!embedded||hasCopilotEmbedControls(value))&&(action.type!=='embed_navigate'||matchesCopilotDestination(value.path,action.path)),
         });
         const fresh=await api.copilotCatalog(liveContext.current.path);
         return {catalog:fresh,screen:target.id,screen_path:liveContext.current.path,visible_control_ids:visibleCopilotControls(document),visible_control_options:visibleCopilotOptions(document),embedded_fields:metadata.fields||[],embedded_field_labels:metadata.field_labels||{},embedded_navigation:metadata.navigation||[],embedded_forms:metadata.forms||[],embedded_path:metadata.path||''};
@@ -264,7 +264,7 @@ export default function PlatformHelpCopilot() {
       if(!fresh.screens.some(s=>s.id===action.screen&&s.route===location.pathname))throw new Error('Open the requested embedded workspace first.');
       await requestCopilotEmbed('navigate',null,{path:action.path});setReview(null);setNotice('Opening the requested section…');
       const actor=user?.id,path=location.pathname;
-      await waitForCopilotReady({inspect:()=>requestCopilotEmbed('inspect'),accept:observed=>hasCopilotEmbedControls(observed)&&observed.path===action.path,isCurrent:()=>liveContext.current.userId===actor&&liveContext.current.path===path});
+      await waitForCopilotReady({inspect:()=>requestCopilotEmbed('inspect'),accept:observed=>hasCopilotEmbedControls(observed)&&matchesCopilotDestination(observed.path,action.path),isCurrent:()=>liveContext.current.userId===actor&&liveContext.current.path===path});
       setNotice('The requested section is now open. Tell me to continue and I’ll inspect its fields. No record was created or submitted.');return;
     }
     if(action.type==='embed_guide'){

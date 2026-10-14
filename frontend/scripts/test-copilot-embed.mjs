@@ -80,7 +80,7 @@ const nav=data=>navHandler({origin:'https://login.flolah.cloud',source:navParent
 await nav({command:'inspect'});assert.equal(navReplies.at(-1).navigation[0].path,'/objects/opportunities?viewId=test');assert.equal(navClicks,0);
 await nav({command:'navigate',path:'https://evil.example'});assert.equal(navReplies.at(-1).ok,false);
 await nav({command:'navigate',path:'/objects/opportunities?viewId=test'});assert.equal(navReplies.at(-1).navigation_requested,true);assert.equal(assignedPath,undefined,'Use the application router rather than forcing a full reload');assert.equal(navClicks,1);
-assert.equal(mouseDownRoutes,1,'Mouse-down routers receive exactly one activation');assert.deepEqual(navEvents,['mousedown','mouseup','click']);
+assert.equal(mouseDownRoutes,1,'Mouse-down routers receive exactly one activation');assert.deepEqual(navEvents,['mouseover','mousemove','mousedown','mouseup','click']);
 navLink.getAttribute=()=>'/app/payment-entry';await nav({command:'inspect'});assert.equal(navReplies.at(-1).navigation.length,0);
 console.log('PASS embedded navigation: observed same-origin destinations only; no external URLs or payment paths.');
 let amountHandler;const amountReplies=[],amountInput=new NativeInput();amountInput.getAttribute=k=>k==='placeholder'?'Currency':null;
@@ -114,6 +114,13 @@ await compact({command:'open_form',label:'Add New Opportunities',snapshot:compac
 await compact({command:'open_form',label:'Add New Opportunities',snapshot:compactSnapshot});assert.equal(compactClicks,1);
 compactLink.textContent='Payment';await compact({command:'inspect'});assert.equal(compactReplies.at(-1).forms.length,0);
 console.log('PASS compact creation: observed resource, explicit review, one-use activation, sensitive resource rejection.');
+let delayedHandler,delayedInput=null,pendingEditor=false,hovered=false;const delayedReplies=[],delayedParent={postMessage:m=>delayedReplies.push(m)};
+const delayedLeaf={children:[],dispatchEvent(e){if(e.type==='mouseover')hovered=true;},click(){assert(hovered);pendingEditor=true;}};
+const delayedContainer={getClientRects:()=>[{}],firstElementChild:{firstElementChild:{querySelectorAll:()=>[delayedLeaf]}}};
+vm.runInNewContext(code,{MouseEvent:class{constructor(type){this.type=type;}},setTimeout:fn=>{if(pendingEditor){delayedInput=new NativeInput();delayedInput.getAttribute=k=>k==='placeholder'?'Currency':null;}fn();},requestAnimationFrame:fn=>fn(),window:{parent:delayedParent,addEventListener:(_,fn)=>delayedHandler=fn},document:{querySelectorAll:s=>s.includes('id$="-amount"')?[delayedContainer]:s==='input,textarea,select'&&delayedInput?[delayedInput]:[]},location:{pathname:'/object/opportunity/delayed'},crypto:{randomUUID:()=> 'delayed'}});
+await delayedHandler({origin:'https://login.flolah.cloud',source:delayedParent,data:{type:'flolah-copilot-guide',request:'delayed',command:'prepare',fields:['amount']}});
+assert.deepEqual(Array.from(delayedReplies.at(-1).fields),['amount']);assert.equal(delayedInput.value,'Original','Editor readiness never writes');
+console.log('PASS asynchronous editor readiness: hover activation, delayed input registration and no value writes.');
 let sensitiveHandler;const sensitiveReplies=[],sensitiveParent={postMessage:m=>sensitiveReplies.push(m)};
 const disguised=new NativeInput();disguised.getAttribute=k=>k==='data-fieldname'?'value':k==='placeholder'?'API key':null;
 vm.runInNewContext(code,{window:{parent:sensitiveParent,addEventListener:(_,fn)=>sensitiveHandler=fn},document:{querySelectorAll:s=>s==='input,textarea,select'?[disguised]:[]},location:{pathname:'/app/customer'}});
