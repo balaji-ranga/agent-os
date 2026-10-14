@@ -76,6 +76,11 @@ try{
   assert.equal(s.proposal.actions[0].message,'Please describe your capabilities.');
   modelReply={message:'Open Customers',actions:[{type:'embed_navigate',screen:'erp',path:'/app/customer'}]};
   reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'erp',embedded_navigation:[{path:'/app/customer',label:'Customers'}],message:'Open Customers'});
+  const embeddedContext=lastModelRequest.messages.map(m=>{try{return JSON.parse(m.content);}catch{return null;}}).find(m=>m?.available_embedded_navigation);
+  assert.equal(embeddedContext.current_screen,'erp');
+  assert.equal(embeddedContext.catalog,undefined,'Embedded navigation must not carry the unrelated full form inventory');
+  assert.deepEqual(embeddedContext.available_embedded_navigation,[{path:'/app/customer',label:'Customers'}]);
+  assert(lastModelRequest.messages[0].content.includes('"type":"embed_navigate"'),'The exact supported action shape accompanies observed paths');
   assert.equal(reply.status,200);s=reply.body;assert.equal(s.proposal.actions[0].path,'/app/customer');
   assert.equal((await request(`/session/${s.id}/propose`,'POST',{version:s.version,screen:'erp',embedded_navigation:[],message:'Open Customers'})).status,502,'A structurally valid but unobserved navigation target is rejected');
   modelReply={message:'Review new Customer',actions:[{type:'embed_open_form',screen:'erp',label:'Add Customer'}]};

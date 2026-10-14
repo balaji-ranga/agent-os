@@ -57,6 +57,8 @@ The UI executes a bounded navigation-only journey through permitted screens and 
 
 Navigation and reload readiness are checked with bounded read-only inspection, including delayed embedded-frame registration. Continue the original request only after the destination and usable controls are observed. A loading timeout does not authorize replaying creation or filling; an unconfirmed New action may already have saved a record.
 
+Embedded navigation activates the actual observed same-origin link so the application's own router handles the transition. Current observed controls and their exact action contracts take precedence over unrelated screen inventories or historical proposals. Hidden layout-measurement controls are not available actions.
+
 Map supplied chat values before asking questions. Recommend descriptive titles and summaries from intent, explicitly distinguishing supplied, derived and recommended values. Never invent business facts, amounts, recipients, run times or permissions. Prepare known fields while asking for missing choices; preserve corrections. A single registered form proposal opens its screen for review without applying or saving values. Multiple form proposals remain user-selected.
 
 Reply-to selects an existing message in the same authenticated assistance session, not arbitrary client-supplied history. It is context rather than authority. Recent messages and drafts expire with the session; unavailable reply targets require re-selection. Suggestions never bypass review, form validation or Save.

@@ -79,7 +79,7 @@ vm.runInNewContext(code,{URL,setTimeout:fn=>fn(),window:{parent:navParent,addEve
 const nav=data=>navHandler({origin:'https://login.flolah.cloud',source:navParent,data:{type:'flolah-copilot-guide',request:'nav',...data}});
 await nav({command:'inspect'});assert.equal(navReplies.at(-1).navigation[0].path,'/objects/opportunities?viewId=test');assert.equal(navClicks,0);
 await nav({command:'navigate',path:'https://evil.example'});assert.equal(navReplies.at(-1).ok,false);
-await nav({command:'navigate',path:'/objects/opportunities?viewId=test'});assert.equal(navReplies.at(-1).navigation_requested,true);assert.equal(assignedPath,'/objects/opportunities?viewId=test');assert.equal(navClicks,0);
+await nav({command:'navigate',path:'/objects/opportunities?viewId=test'});assert.equal(navReplies.at(-1).navigation_requested,true);assert.equal(assignedPath,undefined,'Use the application router rather than forcing a full reload');assert.equal(navClicks,1);
 navLink.getAttribute=()=>'/app/payment-entry';await nav({command:'inspect'});assert.equal(navReplies.at(-1).navigation.length,0);
 console.log('PASS embedded navigation: observed same-origin destinations only; no external URLs or payment paths.');
 let amountHandler;const amountReplies=[],amountInput=new NativeInput();amountInput.getAttribute=k=>k==='placeholder'?'Currency':null;

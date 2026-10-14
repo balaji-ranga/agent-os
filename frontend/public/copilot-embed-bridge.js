@@ -114,7 +114,7 @@
     }
     if(command==='navigate'){
       const matches=navigations().filter(n=>n.path===event.data.path);
-      if(matches.length===1){prepared=null;preparedForm=null;clear();const destination=matches[0].path;result={ok:true,navigation_requested:true};setTimeout(()=>location.assign(destination),50);}
+      if(matches.length===1){prepared=null;preparedForm=null;clear();const link=matches[0].element;result={ok:true,navigation_requested:true};setTimeout(()=>link.click(),50);}
       else result={ok:false,reason:'screen_changed'};
     }
     if(command==='fill'){
