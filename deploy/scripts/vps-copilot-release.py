@@ -45,6 +45,14 @@ def merge(kind,p,current):
     if new is None:scripts.pop(key,None)
     else:scripts[key]=new
    return (json.dumps(present,indent=2)+'\n').encode()
+ # One earlier deployed harness omitted only the expired-watcher regression.
+ # Restore that coverage from source, but reject any other competing test edit.
+ if p=='backend/scripts/test-ui-copilot-http.mjs':
+  base=(release/'base'/p).read_bytes().replace(b'\r\n',b'\n')
+  present=current.read_bytes().replace(b'\r\n',b'\n')
+  start=base.find(b"  s=(await request(`/session/${s.id}`,'PUT',{version:s.version,watch:'gmail'})).body;\n  const expiredWatch=")
+  end=base.find(b'  const callsBeforeMalformed=invoked;',start)
+  if start>=0 and end>start and present==base[:start]+base[end:]:return desired
  parts=[]
  for i,data in enumerate([desired,(release/'base'/p).read_bytes(),current.read_bytes()]):
   dest=release/f'merge-{i}.tmp';dest.write_bytes(data.replace(b'\r\n',b'\n'));parts.append(str(dest))
