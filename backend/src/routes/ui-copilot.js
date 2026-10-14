@@ -152,7 +152,9 @@ router.post('/session/:id/propose',handler(async req=> {
   noCredentials(message);
   const continuing=req.body.navigation_continuation===true;
   const created=req.body.creation_continuation===true;
-  if(created&&((old.conversation||[]).filter(t=>t.role==='user').at(-1)?.text!==message||old.proposal?.actions?.length!==1||old.proposal.actions[0].type!=='embed_open_form'||old.proposal.actions[0].screen!==req.body.screen||!/^\/object\/[a-z][a-z0-9-]*\/[a-zA-Z0-9-]+(?:\?viewId=[a-zA-Z0-9-]+)?$/.test(req.body.embedded_path||'')))throw copilotError('Creation context changed. Inspect the created record before continuing.',409);
+  const openedRecord=/^\/object\/[a-z][a-z0-9-]*\/[a-zA-Z0-9-]+(?:\?viewId=[a-zA-Z0-9-]+)?$/.test(req.body.embedded_path||'');
+  const openedDialog=req.body.created_form_ready===true&&embeddedPathAllowed(req.body.screen,req.body.embedded_path)&&Array.isArray(req.body.embedded_fields)&&req.body.embedded_fields.length>0;
+  if(created&&((old.conversation||[]).filter(t=>t.role==='user').at(-1)?.text!==message||old.proposal?.actions?.length!==1||old.proposal.actions[0].type!=='embed_open_form'||old.proposal.actions[0].screen!==req.body.screen||!(openedRecord||openedDialog)))throw copilotError('Creation context changed. Inspect the created record before continuing.',409);
   if(continuing&&((old.conversation||[]).filter(t=>t.role==='user').at(-1)?.text!==message||(old.navigation_steps||0)>=3||!old.proposal?.actions?.some(a=>['navigate','embed_navigate'].includes(a.type))))throw copilotError('Navigation context changed or reached its limit. Ask to continue from the current screen.',409);
   const replyTo=req.body.reply_to===undefined?null:(old.conversation||[]).find(turn=>turn.id===req.body.reply_to);
   if(req.body.reply_to!==undefined&&!replyTo)throw copilotError('Reply message is no longer available in this session',409);

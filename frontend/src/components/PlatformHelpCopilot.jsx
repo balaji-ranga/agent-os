@@ -228,8 +228,8 @@ export default function PlatformHelpCopilot() {
       const actor=user?.id,path=location.pathname;
       const metadata=await waitForCopilotReady({stableSamples:2,inspect:()=>requestCopilotEmbed('inspect'),accept:observed=>hasCopilotEmbedControls(observed)&&(/^\/object\//.test(observed.path)||observed.created_form_ready===true)&&observed.fields?.length>0,isCurrent:()=>liveContext.current.userId===actor&&liveContext.current.path===path,timeoutMessage:'Creation was requested, but the resulting form has not finished loading. Inspect it before continuing; do not create another record.'});
       const message=(session.conversation||[]).filter(t=>t.role==='user').at(-1)?.text;
-      const next=await api.copilotPropose(session.id,{version:session.version,message,creation_continuation:true,screen:action.screen,screen_path:liveContext.current.path,embedded_path:metadata.path,embedded_fields:metadata.fields,embedded_field_labels:metadata.field_labels,embedded_navigation:metadata.navigation,embedded_forms:metadata.forms});
-      setSession(next);setNotice('The created record is open. Review the proposed values before entering them.');
+      const next=await api.copilotPropose(session.id,{version:session.version,message,creation_continuation:true,created_form_ready:metadata.created_form_ready===true,screen:action.screen,screen_path:liveContext.current.path,embedded_path:metadata.path,embedded_fields:metadata.fields,embedded_field_labels:metadata.field_labels,embedded_navigation:metadata.navigation,embedded_forms:metadata.forms});
+      setSession(next);setNotice('The form is open. Review the proposed values before entering them; saving remains separate.');
       if(next.proposal?.actions.length===1&&next.proposal.actions[0].type==='embed_fill')await apply(next.proposal.actions[0]);
       return;
     }

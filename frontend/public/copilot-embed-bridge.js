@@ -83,7 +83,11 @@
     });
   };
   const sensitive=el=>/password|secret|token|credential|permission|grant|mfa|otp|payment|credit.?card|bank|budget|authority|retention|delete|purge|\bscript\b|javascript|webhook|callback|api.?key|owner|\brole\b|access|account|\bcode\b/i.test([el.getAttribute('data-fieldname'),el.getAttribute('aria-label'),el.getAttribute('placeholder'),...[...(el.labels||[])].map(l=>l.textContent)].filter(Boolean).join(' '));
-  const fields=()=>[...new Set([...document.querySelectorAll('input,textarea,select'),...document.querySelectorAll('[contenteditable="true"][role="textbox"]')])].filter(el=>!el.disabled&&!el.readOnly&&!el.hidden&&el.getAttribute('aria-readonly')!=='true'&&visible(el)&&!['password','hidden','file','submit','button','checkbox','radio'].includes(el.type)&&allowed.has(label(el))&&!sensitive(el));
+  const fields=()=>{
+    const modals=[...document.querySelectorAll('[role="dialog"][aria-modal="true"],dialog[open]')].filter(el=>visible(el)&&(el.getAttribute('aria-modal')==='true'||el.tagName==='DIALOG'));
+    if(modals.length>1)return [];
+    return [...new Set([...document.querySelectorAll('input,textarea,select'),...document.querySelectorAll('[contenteditable="true"][role="textbox"]')])].filter(el=>(!modals.length||modals[0].contains(el))&&!el.disabled&&!el.readOnly&&!el.hidden&&el.getAttribute('aria-readonly')!=='true'&&visible(el)&&!['password','hidden','file','submit','button','checkbox','radio'].includes(el.type)&&allowed.has(label(el))&&!sensitive(el));
+  };
   const fieldValue=el=>isRich(el)?el.textContent:el.value;
   const nameOpener=()=>/^\/object\/(company|person|opportunity|task)\/[\w-]+$/.test(location.pathname)?[...document.querySelectorAll('[data-testid="top-bar-title"]')].filter(el=>el.getClientRects().length):[];
   const titleOpener=()=>{

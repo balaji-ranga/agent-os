@@ -210,3 +210,12 @@ await closedTitle({command:'prepare',fields:['title']});const closedTitleSnapsho
 await closedTitle({command:'fill',snapshot:closedTitleSnapshot,values:{title:'Followup'}});
 assert.equal(closedTitleReplies.at(-1).ok,true);assert.equal(closedTitleInput.value,'Followup');assert.equal(closedTitleClicks,1);
 console.log('PASS closed record-header discovery: read-only Title metadata and reviewed editor activation.');
+let modalHandler;const modalReplies=[],modalParent={postMessage:m=>modalReplies.push(m)},modalInput=new NativeInput(),backgroundInput=new NativeInput();
+modalInput.getAttribute=backgroundInput.getAttribute=k=>k==='data-fieldname'?'customer_name':null;
+const modalPanel={tagName:'DIV',getAttribute:k=>k==='aria-modal'?'true':null,getClientRects:()=>[{}],contains:el=>el===modalInput};
+vm.runInNewContext(code,{requestAnimationFrame:fn=>fn(),window:{parent:modalParent,addEventListener:(_,fn)=>modalHandler=fn},document:{querySelectorAll:s=>s==='[role="dialog"][aria-modal="true"],dialog[open]'?[modalPanel]:s==='input,textarea,select'?[backgroundInput,modalInput]:[]},location:{pathname:'/app/customer'},crypto:{randomUUID:()=>String(modalReplies.length)},HTMLInputElement:NativeInput,Event:class{constructor(type){this.type=type;}}});
+const modal=data=>modalHandler({origin:'https://login.flolah.cloud',source:modalParent,data:{type:'flolah-copilot-guide',request:'modal',...data}});
+await modal({command:'prepare'});const modalSnapshot=modalReplies.at(-1).snapshot;
+await modal({command:'fill',snapshot:modalSnapshot,values:{'customer name':'Draft only'}});
+assert.equal(modalReplies.at(-1).ok,true);assert.equal(modalInput.value,'Draft only');assert.notEqual(backgroundInput.value,'Draft only');
+console.log('PASS active modal scoping: identical background filters are neither selected nor modified.');
