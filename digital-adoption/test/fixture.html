@@ -1,0 +1,36 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Independent Digital Adoption acceptance</title>
+<style>body{font:16px system-ui;max-width:760px;padding:30px;color:#17243b}label{display:block;margin:16px 0}input{padding:10px;border:1px solid #8c9bb1;border-radius:6px}button{padding:10px;margin:8px 8px 8px 0}#results{white-space:pre-wrap}aside{background:#eef2ff;padding:16px}</style>
+<h1>Digital Adoption — local acceptance</h1><aside>Synthetic fixture. This is not Flolah Platform Help. No business records are saved. A deterministic test planner—not an LLM—accepts “Set Customer name to Example”.</aside>
+<form id="sample"><label>Customer name <input name="customer_name" value=""></label><label>Amount <input name="amount" type="number"></label><label>Password excluded from inspection <input type="password" name="password" value="never-collect"></label><div data-adoption-private><label>Private field <input name="private_note" value="never-collect"></label></div></form>
+<button id="tests">Run DOM safety checks</button><button id="approve">Approve synthetic fill test</button><pre id="results" role="status"></pre>
+<button id="add-field">Add a new host field</button><button id="rename">Rename customer field</button><button id="record">Start recording</button><button id="stop-record">Stop recording</button><button id="replay">Replay approved navigation fixture</button>
+<p><a href="/fixture/destination" data-adoption-navigation="safe">Read-only destination</a></p>
+<script type="module">
+import { mount } from '/sdk.mjs';
+import { createInspector } from '/dom.mjs';
+import {createRecorder,replayNavigation} from '/recording.mjs';
+const widget = await mount({ serviceUrl:location.origin,installationToken:'__INSTALLATION_TOKEN__' });
+const inspector=createInspector(document), output=document.querySelector('#results');
+const recorder=createRecorder(document);
+document.querySelector('#record').onclick=()=>{recorder.start();output.textContent='Recording enabled; no field values are stored.';};
+document.querySelector('#stop-record').onclick=()=>{output.textContent=JSON.stringify(recorder.stop());};
+document.querySelector('#replay').onclick=()=>replayNavigation(document,{path:'/fixture/destination',approved:true});
+document.querySelector('#add-field').onclick=()=>{
+ if(document.querySelector('[name="delivery_city"]'))return;
+ const label=document.createElement('label');label.textContent='Delivery city ';const input=document.createElement('input');input.name='delivery_city';label.append(input);document.querySelector('#sample').append(label);
+};
+document.querySelector('#rename').onclick=()=>{document.querySelector('[name="customer_name"]').parentElement.firstChild.textContent='Company name ';};
+document.querySelector('#tests').onclick=()=>{
+ const state=inspector.snapshot();
+ const safe=state.fields.length===2&&!JSON.stringify(state).includes('never-collect');
+ const field=state.fields.find(f=>f.label==='Customer name');
+ let denied=false;try{inspector.fill({ref:field.ref,value:'Blocked',expectedRevision:state.revision,approved:false})}catch{denied=true}
+ output.textContent=`Privacy exclusions: ${safe?'PASS':'FAIL'}\nUnapproved fill blocked: ${denied?'PASS':'FAIL'}`;
+};
+document.querySelector('#approve').onclick=()=>{
+ const state=inspector.snapshot(), field=state.fields.find(f=>f.label==='Customer name');
+ const result=inspector.fill({ref:field.ref,value:'Synthetic Customer',expectedRevision:state.revision,approved:true});
+ let reuseBlocked=false;try{inspector.fill({ref:field.ref,value:'Duplicate',expectedRevision:state.revision,approved:true})}catch{reuseBlocked=true}
+ output.textContent=`Reviewed synthetic fill: ${result.valueObserved?'PASS':'FAIL'}\nRepeated action blocked: ${reuseBlocked?'PASS':'FAIL'}\nSaved: ${result.saved}`;
+};
+</script></html>

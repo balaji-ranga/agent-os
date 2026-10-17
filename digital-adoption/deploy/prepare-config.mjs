@@ -1,0 +1,14 @@
+// Run on the deployment host with docker-inspect JSON on stdin. Never logs keys.
+import {readFileSync,writeFileSync,existsSync} from 'node:fs';
+import {randomBytes} from 'node:crypto';
+const inspection=JSON.parse(readFileSync(0,'utf8'))[0];
+const env=Object.fromEntries(inspection.Config.Env.map(line=>{const at=line.indexOf('=');return [line.slice(0,at),line.slice(at+1)];}));
+const path='/config/gateway.json';
+const previous=existsSync(path)?JSON.parse(readFileSync(path,'utf8')):{};
+const serviceToken=previous.serviceToken||randomBytes(48).toString('base64url');
+const gateway={serviceToken,primary:{baseUrl:env.OPENAI_BASE_URL||env.OPENAI_PRIMARY_BASE_URL,apiKey:env.OPENAI_API_KEY||env.OPENAI_PRIMARY_API_KEY,model:env.OPENAI_PRIMARY_MODEL},secondary:{baseUrl:env.OPENAI_SECONDARY_BASE_URL,apiKey:env.OPENAI_SECONDARY_API_KEY,model:env.OPENAI_SECONDARY_MODEL}};
+writeFileSync(path,JSON.stringify(gateway),{mode:0o600});
+const search={url:env.OPENSEARCH_URL,authorization:env.OPENSEARCH_USERNAME&&env.OPENSEARCH_PASSWORD?'Basic '+Buffer.from(`${env.OPENSEARCH_USERNAME}:${env.OPENSEARCH_PASSWORD}`).toString('base64'):undefined};
+const mail={host:env.WORKFLOW_SMTP_HOST,port:Number(env.WORKFLOW_SMTP_PORT||587),secure:['1','true'].includes(env.WORKFLOW_SMTP_SECURE),user:env.WORKFLOW_SMTP_USER,pass:env.WORKFLOW_SMTP_PASS,from:env.WORKFLOW_SMTP_FROM||env.WORKFLOW_SMTP_USER};
+writeFileSync('/config/service.json',JSON.stringify({serviceToken,search,mail,serviceUrl:'https://login.flolah.cloud/free-tools/digital-adoption/',gatewayUrl:'https://login.flolah.cloud/internal/digital-adoption-model'}),{mode:0o600});
+console.log('Backend-only model/search configuration prepared; no credentials emitted');

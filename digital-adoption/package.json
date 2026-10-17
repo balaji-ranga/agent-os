@@ -1,0 +1,17 @@
+{
+  "name": "@flolah/digital-adoption",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Independent Flolah Free Tools Digital Adoption Copilot",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "dev": "node src/dev.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "nodemailer": "10.1.1"
+  }
+}

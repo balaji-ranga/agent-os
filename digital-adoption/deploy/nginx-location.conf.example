@@ -1,0 +1,13 @@
+# Include inside the existing TLS server only after deployment acceptance.
+# Digital Adoption API and assets remain separate from Platform Help routes.
+location /free-tools/digital-adoption/ {
+    client_max_body_size 32k;
+    proxy_pass http://digital-adoption:4193/;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_read_timeout 60s;
+    proxy_buffering off;
+}
+# The service-to-service platform-model route must use its own authenticated
+# backend gateway; do not proxy an upstream provider or model key to browsers.

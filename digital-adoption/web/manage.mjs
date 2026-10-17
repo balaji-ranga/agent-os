@@ -1,0 +1,61 @@
+const notice=document.querySelector('#notice');
+const ownerMode=location.pathname.endsWith('/owner.html');
+const login=document.querySelector('#owner-login'),content=document.querySelector('#management-content');
+let signInChallenge;
+let registrationAttempt;
+async function ownerCall(action,input={}){const response=await fetch(`v1/owner/${action}`,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(input)});if(!response.ok)throw new Error('Sign-in failed or expired. Request a new code if needed.');return response.json();}
+async function call(action,input={}){
+ if(ownerMode)return ownerCall(`manage/${action}`,input);
+ const token=localStorage.getItem('agent-os-auth-token');
+ if(!token)throw new Error('Sign in to Flolah, then reload this page.');
+ const res=await fetch(`v1/manage/${action}`,{method:'POST',credentials:'omit',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify(input)});
+ if(!res.ok)throw new Error('Request denied or failed. Check your login, ownership and website verification.');
+ return res.json();
+}
+async function run(action){try{notice.textContent='Working…';await action();notice.textContent='Completed.';}catch(error){notice.textContent=error.message;}}
+function button(label,action){const b=document.createElement('button');b.textContent=label;b.onclick=()=>run(action);return b;}
+async function refresh(){
+ const result=await call('websites'),list=document.querySelector('#websites'),select=document.querySelector('#website'),emailSelect=document.querySelector('#email-website');list.replaceChildren();select.replaceChildren();emailSelect.replaceChildren();
+ content.hidden=false;login.hidden=true;document.querySelector('#owner-logout').hidden=!ownerMode;
+ for(const site of result.websites){
+  const emailOption=document.createElement('option');emailOption.value=site.id;emailOption.textContent=`${site.origin} (${site.environment})`;emailSelect.append(emailOption);
+  const li=document.createElement('li'),label=document.createElement('p');label.textContent=`${site.origin} · ${site.environment} · ${site.status} · ownership ${site.verified?'verified':'pending'}`;li.append(label);
+  if(!site.verified)li.append(button('Verify DNS',async()=>{await call('verify',{id:site.id});await refresh();}));
+  if(result.actor.role==='platform_admin'&&site.status!=='removed'){
+   const reason=document.createElement('input');reason.setAttribute('aria-label',`Website change reason ${site.origin}`);reason.placeholder='Required website change reason';li.append(reason);
+   for(const [state,label] of (site.status==='approved'?[['suspended','Suspend website'],['removed','Remove website approval']]:site.verified?[['approved',site.status==='suspended'?'Reactivate website':'Approve website'],['removed','Remove website approval']]:[['removed','Remove website approval']])){
+    li.append(button(label,async()=>{if(!reason.value.trim())throw new Error('Enter a website change reason.');if(!confirm(`${label} for ${site.origin}? Existing tokens stay revoked after suspension; knowledge is retained.`))return;await call('website-state',{id:site.id,status:state,reason:reason.value});await refresh();}));
+   }
+  }
+  if(result.actor.role==='platform_admin'){
+   if(site.status!=='removed'){
+    const transfer=document.createElement('details'),heading=document.createElement('summary'),email=document.createElement('input'),reason=document.createElement('input');
+    heading.textContent='Transfer website ownership';email.type='email';email.placeholder='Verified owner email';email.setAttribute('aria-label',`New owner email ${site.origin}`);reason.placeholder='Required transfer reason';reason.setAttribute('aria-label',`Transfer reason ${site.origin}`);
+    transfer.append(heading,email,reason,button('Transfer to verified owner',async()=>{if(!email.checkValidity()||!email.value||!reason.value.trim())throw new Error('Enter a verified recipient email and reason.');if(!confirm(`Transfer ${site.origin} to ${email.value}? The former owner loses management access. Configuration and indexes are retained.`))return;await call('transfer-owner',{id:site.id,email:email.value,reason:reason.value,expectedOwnerId:site.organizationId});await refresh();}));li.append(transfer);
+   }
+   const details=document.createElement('details'),summary=document.createElement('summary'),tokens=document.createElement('div');summary.textContent='Token administration & audit';details.append(summary,tokens);
+   details.append(button('Load tokens and audit',async()=>{tokens.replaceChildren();const data=await call('tokens',{id:site.id});for(const token of data.tokens){const row=document.createElement('div'),label=document.createElement('p'),reason=document.createElement('input');label.textContent=`${token.maskedId} · ${token.status} · expires ${new Date(token.expiresAt).toLocaleString()}`;reason.placeholder='Required revocation reason';reason.setAttribute('aria-label',`Revocation reason ${token.maskedId}`);row.append(label);if(token.status==='active'){row.append(reason,button('Revoke token',async()=>{if(!reason.value.trim())throw new Error('Enter a revocation reason.');if(!confirm('Revoke this installation token? Its linked sessions will stop. Knowledge will be retained.'))return;await call('revoke-token',{id:site.id,installationId:token.id,reason:reason.value});await refresh();}));}tokens.append(row);}const audit=await call('audit',{id:site.id});for(const entry of audit.events){const item=document.createElement('p');item.textContent=`${new Date(entry.at).toLocaleString()} · ${entry.action} · ${entry.actorId}${entry.reason?' · '+entry.reason:''}`;tokens.append(item);}}));li.append(details);
+  }
+  if(site.status==='approved'){
+   const option=document.createElement('option');option.value=site.id;option.textContent=`${site.origin} (${site.environment})`;select.append(option);
+   li.append(button('Issue installation snippet',async()=>{const issued=await call('activate',{id:site.id});const base=new URL('./',location.href).href;document.querySelector('#snippet').textContent=`Publishable installation credential. Only approved origins can initialize.\n<script type="module">\nimport {mount} from ${JSON.stringify(base+'sdk.mjs')};\nawait mount({serviceUrl:${JSON.stringify(base)},installationToken:${JSON.stringify(issued.installationToken)}});\n</script>`;}));
+  }
+  list.append(li);
+ }
+}
+document.querySelector('#refresh').onclick=()=>run(refresh);
+const emailStatus=document.querySelector('#email-status'),emailId=()=>document.querySelector('#email-website').value;
+document.querySelector('#email-start').onsubmit=event=>{event.preventDefault();run(async()=>{await call('email-start',{id:emailId(),email:new FormData(event.target).get('email')});emailStatus.textContent='Verification code sent. Check your inbox; it expires in 10 minutes.';});};
+document.querySelector('#email-confirm').onsubmit=event=>{event.preventDefault();run(async()=>{await call('email-confirm',{id:emailId(),code:new FormData(event.target).get('code')});event.target.reset();emailStatus.textContent='Email verified. Approved websites can now email an installation snippet.';});};
+document.querySelector('#email-snippet').onclick=()=>run(async()=>{const result=await call('email-snippet',{id:emailId()});emailStatus.textContent=`Installation email accepted by the mail server for ${result.email}. Check the inbox to confirm delivery.`;await refresh();});
+document.querySelector('#register').onsubmit=event=>{event.preventDefault();run(async()=>{const data=new FormData(event.target),input={origin:data.get('origin'),environment:data.get('environment')},fingerprint=JSON.stringify(input);if(registrationAttempt?.fingerprint!==fingerprint)registrationAttempt={fingerprint,operationId:crypto.randomUUID()};const result=await call('register',{...input,operationId:registrationAttempt.operationId});document.querySelector('#registration').textContent=`Add this DNS TXT record:\n${result.dnsName}\n${result.dnsValue}\nThen select Verify DNS. Platform approval is required before activation.`;await refresh();});};
+async function sources(){const result=await call('sources',{id:document.querySelector('#website').value}),list=document.querySelector('#source-list');list.replaceChildren();for(const source of result.sources){const item=document.createElement('li');item.textContent=`${source.title} · ${source.status}`;if(source.status==='failed')item.append(button('Retry indexing',async()=>{await call('source-retry',{id:document.querySelector('#website').value,sourceId:source.id});await sources();}));list.append(item);}}
+document.querySelector('#sources').onclick=()=>run(sources);
+document.querySelector('#source-form').onsubmit=event=>{event.preventDefault();run(async()=>{const data=new FormData(event.target);await call('source-text',{id:document.querySelector('#website').value,title:data.get('title'),text:data.get('text'),sharedConsent:data.get('consent')==='on'});event.target.reset();await sources();});};
+document.querySelector('#owner-start').onsubmit=event=>{event.preventDefault();run(async()=>{signInChallenge=await ownerCall('start',{email:new FormData(event.target).get('email')});document.querySelector('#owner-confirm').hidden=false;document.querySelector('#login-status').textContent='Check your email. The code expires in 10 minutes.';});};
+document.querySelector('#owner-confirm').onsubmit=event=>{event.preventDefault();run(async()=>{if(!signInChallenge)throw new Error('Request a sign-in code first.');await ownerCall('confirm',{...signInChallenge,code:new FormData(event.target).get('code')});event.target.reset();signInChallenge=null;await refresh();});};
+document.querySelector('#owner-logout').onclick=()=>run(async()=>{await ownerCall('logout');content.hidden=true;login.hidden=false;document.querySelector('#owner-logout').hidden=true;document.querySelector('#websites').replaceChildren();document.querySelector('#snippet').textContent='';});
+if(ownerMode)login.hidden=false;
+else document.querySelector('#identity-help').textContent='Flolah account management. Your existing Flolah sign-in is required; administrative controls are restricted to platform administrators.';
+if(ownerMode)refresh().then(()=>{notice.textContent='Your authorized websites are ready.';}).catch(()=>{content.hidden=true;login.hidden=false;notice.textContent='Sign in with email to see your websites. No Flolah account is required.';});
+else run(refresh);

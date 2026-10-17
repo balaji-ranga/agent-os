@@ -1,0 +1,39 @@
+services:
+  adoption:
+    image: flolah-digital-adoption:${ADOPTION_RELEASE:?release required}
+    restart: unless-stopped
+    ports: ["127.0.0.1:4193:4193"]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 384m
+    cpus: 1
+    pids_limit: 128
+    tmpfs: ["/tmp:size=64m,noexec,nosuid"]
+    volumes:
+      - ${ADOPTION_ROOT:?}/config/service.json:/config/service.json:ro
+      - ${ADOPTION_ROOT:?}/data:/data
+    networks: [platform]
+  adoption-model-gateway:
+    image: flolah-digital-adoption:${ADOPTION_RELEASE:?release required}
+    command: [node, integrations/model-gateway-server.mjs]
+    restart: unless-stopped
+    ports: ["127.0.0.1:4195:4195"]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 64
+    volumes:
+      - ${ADOPTION_ROOT:?}/config/gateway.json:/config/gateway.json:ro
+      - platform-data:/platform:ro
+    networks: [platform]
+networks:
+  platform:
+    external: true
+    name: agent-os_default
+volumes:
+  platform-data:
+    external: true
+    name: agent-os_agent_os_data

@@ -1,0 +1,37 @@
+export function createManagement({authenticate,control,knowledge,search,platformOrigin,registrationEmail}){
+ return async({authorization,origin,path,input})=>{
+  if(origin!==platformOrigin)throw new Error('Management origin denied');
+  const actor=await authenticate(authorization);
+  if(path.startsWith('/v1/manage/email-')){
+   if(!registrationEmail)throw new Error('Email not configured');
+   if(path.endsWith('/email-status'))return registrationEmail.status(actor,input.id);
+   if(path.endsWith('/email-start'))return registrationEmail.start(actor,input.id,input.email);
+   if(path.endsWith('/email-confirm'))return registrationEmail.confirm(actor,input.id,input.code);
+   if(path.endsWith('/email-snippet'))return registrationEmail.deliver(actor,input.id);
+   throw new Error('Unsupported email operation');
+  }
+  if(path==='/v1/manage/websites')return {actor:{role:actor.role},websites:control.list(actor)};
+  if(path==='/v1/manage/transfer-owner')return control.transfer(actor,input.id,input);
+  if(path==='/v1/manage/register')return control.register(actor,{origin:input.origin,environment:input.environment,operationId:input.operationId});
+  if(path==='/v1/manage/verify')return control.verify(actor,input.id);
+  if(path==='/v1/manage/approve')return control.transition(actor,input.id,'approved',input.reason);
+  if(path==='/v1/manage/suspend')return control.transition(actor,input.id,'suspended',input.reason);
+  if(path==='/v1/manage/tokens')return {tokens:control.tokens(actor,input.id)};
+  if(path==='/v1/manage/audit')return {events:control.audit(actor,input.id)};
+  if(path==='/v1/manage/website-state')return control.transition(actor,input.id,input.status,input.reason);
+  const scope=control.scope(actor,input.id); // IDs select an already authorized resource, never an identity.
+  if(path==='/v1/manage/activate'){await search.provision(scope.embeddingId);return control.activate(actor,input.id);}
+  if(path==='/v1/manage/sources')return {sources:knowledge.list(scope)};
+  if(path==='/v1/manage/source-text'){
+   if(input.sharedConsent!==true)throw new Error('Embedding-wide sharing consent required');
+   const source=knowledge.createText(scope,{title:input.title,text:input.text});
+   await knowledge.ingest(scope,source.id);return {id:source.id,status:'ready'};
+  }
+  if(path==='/v1/manage/source-retry')return knowledge.ingest(scope,input.sourceId);
+  if(path==='/v1/manage/source-delete')return knowledge.remove(scope,input.sourceId);
+  if(path==='/v1/manage/rotate')return control.rotate(actor,input.id,input.installationId,{overlapMs:input.overlapMs,reason:input.reason});
+  if(path==='/v1/manage/revoke-token')return control.revokeToken(actor,input.id,input.installationId,input.reason);
+  if(path==='/v1/manage/revoke-session')return control.revokeSession(actor,input.id,input.sessionId,input.reason);
+  throw new Error('Unsupported management action');
+ };
+}
