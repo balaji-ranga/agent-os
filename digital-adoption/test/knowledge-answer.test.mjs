@@ -11,7 +11,14 @@ test('knowledge greetings guide users without fabricating evidence or calling a 
  assert.equal(missing.kind,'no_evidence');assert.deepEqual(missing.citations,[]);
 });
 test('an uncited model response cannot become a supported factual answer',async()=>{
- const answer=createKnowledgeAnswer({gatewayUrl:'https://example.test/model',serviceToken:'x'.repeat(32),fetchImpl:async()=>({ok:true,json:async()=>({content:JSON.stringify({message:'Invented promise is 99 hours.',citations:[]})})})});
+ const answer=createKnowledgeAnswer({gatewayUrl:'https://example.test/model',serviceToken:'x'.repeat(32),fetchImpl:async()=>({ok:true,json:async()=>({content:JSON.stringify({supported:true,message:'Invented promise is 99 hours.',citations:[]})})})});
  const result=await answer({text:'What is the delivery promise?',evidence:[{chunkId:'a',title:'Handbook',text:'The handbook does not specify delivery.'}]});
  assert.equal(result.kind,'no_evidence');assert.doesNotMatch(result.message,/99/);
+});
+test('an explicit abstention cannot acquire supported status from an unrelated citation',async()=>{
+ let supported=false;
+ const answer=createKnowledgeAnswer({gatewayUrl:'https://example.test/model',serviceToken:'x'.repeat(32),fetchImpl:async()=>({ok:true,json:async()=>({content:JSON.stringify({supported,message:'Insufficient evidence for the price.',citations:['a']})})})});
+ const input={text:'What is the enterprise price?',evidence:[{chunkId:'a',title:'Public guide',text:'Welcome to the public guide.'}]};
+ const result=await answer(input);assert.equal(result.kind,'no_evidence');assert.deepEqual(result.citations,[]);
+ supported='false';await assert.rejects(()=>answer(input),/Invalid evidence/);
 });

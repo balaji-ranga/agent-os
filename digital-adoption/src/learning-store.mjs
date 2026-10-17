@@ -1,4 +1,5 @@
 import { randomUUID, createHash } from 'node:crypto';
+import {cleanRecipeIntent} from './learning-intent.mjs';
 
 const deny = () => { throw new Error('Learning access denied or invalid data'); };
 const identifier = value => typeof value === 'string' && /^[a-zA-Z0-9_-]{1,80}$/.test(value);
@@ -46,11 +47,11 @@ export function createLearningStore(repository, { clock = Date.now } = {}) {
     setLearning(scope, enabled) {
       maintainer(scope); if (typeof enabled !== 'boolean') deny(); settings.set(scopeKey(scope), enabled);
     },
-    create(scope, { title, steps, provenance = 'coached' }) {
+    create(scope, { title, steps, provenance = 'coached',metadata }) {
       maintainer(scope);
       if (typeof title !== 'string' || !title.trim() || title.length > 120 || !Array.isArray(steps) || !steps.length || steps.length > 24 || !['coached','verified-session','imported'].includes(provenance)) deny();
       const recipe = { id: randomUUID(), scope: scopeKey(scope), versions: [] };
-      return saveVersion(recipe, { title, steps: steps.map(stepOf), provenance, status: 'draft', validated: false });
+      return saveVersion(recipe, { title, steps: steps.map(stepOf),...(metadata?{metadata:cleanRecipeIntent(metadata)}:{}),provenance, status: 'draft', validated: false });
     },
     learn(scope, { consent, verified, title, steps }) {
       maintainer(scope);
@@ -84,6 +85,7 @@ export function createLearningStore(repository, { clock = Date.now } = {}) {
     versions(scope,id) {
       maintainer(scope);return structuredClone(get(scope,id).versions);
     },
+    describe(scope,id,version,metadata){maintainer(scope);return repository.transaction(()=>{const recipe=get(scope,id),current=recipe.versions.at(-1);if(current.version!==version)deny();return saveVersion(recipe,{...current,metadata:cleanRecipeIntent(metadata),status:'draft',validated:false});});},
     rollback(scope,id,expectedVersion,targetVersion,{reviewed,validated}) {
       maintainer(scope);
       return repository.transaction(()=>{
@@ -102,18 +104,18 @@ export function createLearningStore(repository, { clock = Date.now } = {}) {
     export(scope, id) {
       maintainer(scope); const current = get(scope,id).versions.at(-1);
       if (current.status !== 'published') deny();
-      return { schema: 1, title: current.title, steps: structuredClone(current.steps) };
+      return { schema: 1, title: current.title, steps: structuredClone(current.steps),...(current.metadata?{metadata:structuredClone(current.metadata)}:{}) };
     },
     import(scope, bundle, {operationId} = {}) {
       maintainer(scope);
-      if (bundle?.schema !== 1 || Object.keys(bundle).some(k => !['schema','title','steps'].includes(k))) deny();
+      if (bundle?.schema !== 1 || Object.keys(bundle).some(k => !['schema','title','steps','metadata'].includes(k))) deny();
       if(operationId!==undefined&&!identifier(operationId))deny();
-      if(!operationId)return store.create(scope, { title: bundle.title, steps: bundle.steps, provenance: 'imported' });
+      if(!operationId)return store.create(scope, { title: bundle.title, steps: bundle.steps,metadata:bundle.metadata,provenance: 'imported' });
       const key=`${scopeKey(scope)}:${operationId}`,fingerprint=createHash('sha256').update(JSON.stringify(bundle)).digest('hex');
       return repository.transaction(()=>{
         const previous=imports.get(key);
         if(previous){if(previous.fingerprint!==fingerprint)deny();return structuredClone(previous.result);}
-        const result=store.create(scope,{title:bundle.title,steps:bundle.steps,provenance:'imported'});
+        const result=store.create(scope,{title:bundle.title,steps:bundle.steps,metadata:bundle.metadata,provenance:'imported'});
         imports.set(key,{fingerprint,result});return result;
       });
     },
