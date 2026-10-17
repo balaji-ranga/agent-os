@@ -7,9 +7,10 @@ const file=process.env.COPILOT_UI_FIXTURE,playwright=process.env.COPILOT_PLAYWRI
 if(!file||!playwright)throw new Error('COPILOT_UI_FIXTURE and COPILOT_PLAYWRIGHT_PATH required');
 const config=JSON.parse(readFileSync(file));assert.equal(config.origin,'https://login.flolah.cloud');
 const {chromium}=await import(pathToFileURL(playwright));
-const browser=await chromium.launch({channel:'chrome',headless:true});let checks=0,page;
+const browser=await chromium.launch({channel:'chrome',headless:true});let checks=0,page;const apiFailures=[];
 try{
  const context=await browser.newContext();page=await context.newPage();const prohibited=[];let announcementDismissed=false;
+ page.on('response',async response=>{const p=new URL(response.url()).pathname;if(p.startsWith('/api/ui-copilot/')&&response.status()>=400){const body=await response.json().catch(()=>({}));apiFailures.push({path:p.split('/').at(-1),status:response.status(),error:body.error});}});
  await page.route('**/api/**',async route=>{
   const request=route.request();
   const pathname=new URL(request.url()).pathname;
@@ -76,5 +77,5 @@ try{
  console.log(JSON.stringify({stage:'COPILOT_DEPLOYED_BROWSER_PASS',checks,profile_saved:false,save_only_no_fields:true,unrelated_fields_unchanged:true,stale_review_blocked:true,source_map_visible:true,seeded_recipes_visible:true}));
 }catch(error){
  // Only synthetic fixture UI metadata, never request headers or auth tokens.
- console.error(JSON.stringify({stage:'COPILOT_BROWSER_DIAGNOSTIC',path:page?new URL(page.url()).pathname:null,headings:page?await page.locator('h1').allTextContents():[],panel:page?await page.locator('.copilot-panel').textContent().catch(()=>null):null}));throw error;
+ console.error(JSON.stringify({stage:'COPILOT_BROWSER_DIAGNOSTIC',path:page?new URL(page.url()).pathname:null,apiFailures,headings:page?await page.locator('h1').allTextContents():[],panel:page?await page.locator('.copilot-panel').textContent().catch(()=>null):null}));throw error;
 }finally{await browser.close()}
