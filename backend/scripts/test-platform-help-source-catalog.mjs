@@ -13,6 +13,8 @@ assert(publicDir, 'public docs source must resolve');
 const sources = listPublicGuideSources();
 assert(sources.length >= 40, `expected the complete public guide, got ${sources.length} documents`);
 assert.equal(new Set(sources.map((item) => item.filename)).size, sources.length, 'public guide filenames must be unique');
+assert(!sources.some(item=>item.filename==='public-guide-operate--example-stress-test-run.md'), 'withdrawn stress report must not be indexed from the public guide');
+assert(!PLATFORM_HELP_DOCUMENTS.some(item=>item.filename==='48-pipeline-under-constraints.md'), 'withdrawn stress report must not be seeded as company help');
 assert(
   sources.some((item) => item.filename === 'public-guide-systems--social-publishing.md'),
   'social publishing public guide must be indexed'

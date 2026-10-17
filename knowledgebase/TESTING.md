@@ -61,7 +61,7 @@ cd backend
 node scripts/test-phase2-pipeline-stress.mjs
 ```
 
-Provisions a **new** entitled CEO in temp sqlite (second CEO cannot read the goal). Expect `PHASE2_PIPELINE_STRESS_OK`. Scenario and scored results: [`platform-help/48-pipeline-under-constraints.md`](./platform-help/48-pipeline-under-constraints.md), [`MANAGEMENT-LAYER-PHASE2.md`](./MANAGEMENT-LAYER-PHASE2.md). Does not touch live CRM/ERP or SSO.
+Provisions a **new** entitled CEO in temp sqlite (second CEO cannot read the goal). Expect `PHASE2_PIPELINE_STRESS_OK`. Internal scenario and results: [`MANAGEMENT-LAYER-PHASE2.md`](./MANAGEMENT-LAYER-PHASE2.md). Does not touch live CRM/ERP or SSO.
 
 ## Management-layer Gates B and C (live research + CRM path)
 

@@ -159,4 +159,4 @@ For example:
 
 The COO can turn that business instruction into supervised execution without requiring you to name internal tools or manually direct every step.
 
-Next: [Maker and Checker](./maker-checker.md) · [Example stress test run](./example-stress-test-run.md) · [Monitoring and LLMOps](./monitoring-and-llmops.md)
+Next: [Maker and Checker](./maker-checker.md) · [Monitoring and LLMOps](./monitoring-and-llmops.md)

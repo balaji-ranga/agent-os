@@ -2,7 +2,7 @@
 
 **Status:** Proposed implementation plan  
 **Flagship outcome:** make one evidence-backed "company in a box" demonstrate the difference between Flolah and a workflow automation tool.  
-**Related:** [`AI-COMPANY-OS.md`](./AI-COMPANY-OS.md), [`AI-COMPANY-OS-EXECUTION-PROGRAM.md`](./AI-COMPANY-OS-EXECUTION-PROGRAM.md), [`MANAGEMENT-LAYER-PHASE2.md`](./MANAGEMENT-LAYER-PHASE2.md), [`platform-help/48-pipeline-under-constraints.md`](./platform-help/48-pipeline-under-constraints.md), and [`AI-REVENUE-COMPANY-DEMO-REFERENCE.md`](./AI-REVENUE-COMPANY-DEMO-REFERENCE.md).
+**Related:** [`AI-COMPANY-OS.md`](./AI-COMPANY-OS.md), [`AI-COMPANY-OS-EXECUTION-PROGRAM.md`](./AI-COMPANY-OS-EXECUTION-PROGRAM.md), [`MANAGEMENT-LAYER-PHASE2.md`](./MANAGEMENT-LAYER-PHASE2.md), and [`AI-REVENUE-COMPANY-DEMO-REFERENCE.md`](./AI-REVENUE-COMPANY-DEMO-REFERENCE.md).
 
 ## Product promise
 

@@ -42,5 +42,3 @@ Configure **Channels** on the employee. Replies start with the employee name.
 ## Platform Help
 
 For how-to, switch to **Platform Help**. It answers from product docs first. It may suggest the COO or Workflow Builder for live data or graph edits, but it should not bounce you with only “talk to X”.
-
-A scored example of telling the COO the outcome first (seeded pipeline, live research, CRM approval path): [Example stress test run](../operate/example-stress-test-run.md).

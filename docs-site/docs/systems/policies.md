@@ -17,5 +17,3 @@ Use **Scoped overrides & recurring grants** for one goal, workflow, employee, or
 The searchable target picker supports multi-select, so one save can apply the same bounded rule to several targets. A scheduled-goal override remains effective across that goal's future scheduled fires.
 
 Policies are not a substitute for **tool grants**, **Maker/Checker**, or **IP allowlists**. Stack them: policy says what *should* happen; Action control, tools and Checker enforce what *can* happen.
-
-See [Example stress test run](../operate/example-stress-test-run.md) for a scored outcome (verified CRM, spend cap, approval-required send).
