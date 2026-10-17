@@ -69,6 +69,7 @@ export function assertCopilotWriteIntent(proposal,catalog,message,{embeddedLabel
 }
 export function copilotProposalView(session,catalog){
  if(!session?.proposal)return session;
+ if(Array.isArray(session.proposal.actions)&&!session.proposal.actions.length)return session;
  const latest=session.conversation?.filter(t=>t.role==='user').at(-1)?.text;
  if(!latest)return session;
  if(copilotSaveOnly(latest,catalog))return {...session,proposal:copilotManualSaveProposal(catalog.screens.find(s=>session.proposal.actions?.some(a=>a.screen===s.id)))};

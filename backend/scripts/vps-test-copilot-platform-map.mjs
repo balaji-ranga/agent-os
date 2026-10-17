@@ -35,6 +35,12 @@ try{
  check((await call('/session/'+session.data.id,users[1],'PUT',{version:session.data.version,status:'paused'})).status,404,'cross-company copilot session denied');
  check(db.prepare('SELECT count(*) n FROM ui_copilot_platform_documents WHERE metadata_json LIKE ?').get('%PRIVATE-FIXTURE-LESSON%').n,0,'private lessons never enter shared source index');
  console.log(JSON.stringify({stage:'COPILOT_PUBLIC_MAP_ACCEPTANCE_PASS',checks,revision:map.data.revision,authorized_counts:map.data.counts,source_documents:db.prepare('SELECT count(*) n FROM ui_copilot_platform_documents').get().n}));
- if(keep){writeFileSync(uiFile,JSON.stringify({origin:base,token:tokens[users[0]],users}),{mode:0o600});console.log('Private UI fixture prepared at '+uiFile+'; token not logged.');}
+ if(keep){
+  // A real first-login company gate can redirect the new synthetic CEO after
+  // the page first renders. Use the supported skip API for this fixture only.
+  const gate=await fetch(base+'/api/company-setup/skip',{method:'POST',signal:AbortSignal.timeout(30000),headers:{'content-type':'application/json',authorization:'Bearer '+tokens[users[0]]},body:'{}'});
+  assert.equal(gate.status,200);assert.equal((await gate.json()).needs_gate,false);
+  writeFileSync(uiFile,JSON.stringify({origin:base,token:tokens[users[0]],users}),{mode:0o600});console.log('Private UI fixture prepared at '+uiFile+' with onboarding gate resolved; token not logged.');
+ }
  passed=true;
 }finally{if(!keep||!passed)cleanup(users);db.close();}
