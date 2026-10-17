@@ -198,10 +198,6 @@ export const PLATFORM_HELP_DOCUMENTS = Object.freeze([
     title: `${PLATFORM_HELP_TITLE_PREFIX}Admin User Insights`,
   },
   {
-    filename: '48-pipeline-under-constraints.md',
-    title: `${PLATFORM_HELP_TITLE_PREFIX}Pipeline Under Constraints`,
-  },
-  {
     filename: '49-how-the-company-runs.md',
     title: `${PLATFORM_HELP_TITLE_PREFIX}How The Company Runs`,
   },
