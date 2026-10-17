@@ -14,7 +14,7 @@ export function openRepository(path = ':memory:') {
   const scopedStatements=new Map();
   const scoped=(namespace,filters,withKeys)=>{
     const names=Object.keys(filters).sort();
-    if(names.some(name=>!['embeddingId','organizationId','audienceId','origin','scope'].includes(name)||typeof filters[name]!=='string'||!filters[name]||filters[name].length>512))throw new Error('Invalid repository scope');
+    if(names.some(name=>!['embeddingId','organizationId','audienceId','sessionId','origin','scope'].includes(name)||typeof filters[name]!=='string'||!filters[name]||filters[name].length>512))throw new Error('Invalid repository scope');
     if(!names.length)return withKeys?entries.all(namespace):all.all(namespace);
     const cacheKey=`${withKeys}:${names.join(',')}`;
     if(!scopedStatements.has(cacheKey))scopedStatements.set(cacheKey,db.prepare(`SELECT ${withKeys?'key,':''}value FROM adoption_state WHERE namespace=? AND ${names.map(name=>`json_extract(value,'$.${name}')=?`).join(' AND ')}`));

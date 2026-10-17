@@ -217,7 +217,7 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
           budget.take(`${path==='/v1/ask'?'model':'search'}:${scope.embeddingId}`);
           if(!knowledge)return send(503,{error:'Knowledge is not configured'});
           if(typeof input.text!=='string'||!input.text.trim()||input.text.length>2000)throw new Error('Invalid query');
-          const retrieved=await knowledge.retrieve(scope,{query:input.text,size:path==='/v1/knowledge/search'?(input.size??6):6,after:path==='/v1/knowledge/search'?(input.after??null):null});
+          const retrieved=await knowledge.retrieve(scope,{query:input.text,size:path==='/v1/knowledge/search'?(input.size??6):24,after:path==='/v1/knowledge/search'?(input.after??null):null});
           if(authority.context(auth).conversationVersion!==scope.conversationVersion)throw new Error('Conversation cleared; request discarded');
           if(path==='/v1/knowledge/search')result=retrieved;
           else {
@@ -227,7 +227,7 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
             result=await answer({text:input.text,evidence:retrieved.evidence,history:knowledgeHistory,replyContext:knowledgeHistory.find(m=>m.id===input.replyTo)?.text});
             if(authority.context(auth).conversationVersion!==scope.conversationVersion)throw new Error('Conversation cleared; response discarded');
             // Source deletion during inference must invalidate its citations.
-            const current=await knowledge.retrieve(scope,{query:input.text,size:6});
+            const current=await knowledge.retrieve(scope,{query:input.text,size:24});
             if(authority.context(auth).conversationVersion!==scope.conversationVersion)throw new Error('Conversation cleared; response discarded');
             if(result.citations.some(c=>!current.evidence.some(e=>e.chunkId===c.chunkId&&e.revision===c.revision)))throw new Error('Evidence changed');
             result.messageId=authority.appendAssistant(auth,result.message,'knowledge').id;

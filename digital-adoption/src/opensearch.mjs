@@ -6,24 +6,37 @@ export function createOpenSearch({ url, authorization, fetchImpl = fetch, develo
   const allowedHttp=base.protocol==='http:'&&((development&&['127.0.0.1','localhost'].includes(base.hostname))||(privateNetwork&&base.hostname==='opensearch'));
   if (base.username || base.password || base.search || base.hash || base.pathname !== '/' ||
       (base.protocol !== 'https:' && !allowedHttp)) throw new Error('Invalid search endpoint');
-  async function request(path, method, body, ndjson=false) {
-    let response,result;try{response=await fetchImpl(new URL(path,base),{method,redirect:'error',signal:AbortSignal.timeout(15_000),
+  async function request(path, method, body, ndjson=false,timeoutMs=15_000) {
+    let response,result;try{response=await fetchImpl(new URL(path,base),{method,redirect:'error',signal:AbortSignal.timeout(timeoutMs),
       headers:{'Content-Type':ndjson?'application/x-ndjson':'application/json',...(authorization?{Authorization:authorization}:{})},
       ...(body===undefined?{}:{body:ndjson?body:JSON.stringify(body)})});
     result=await response.json();}catch{throw new Error('Search operation failed');}
-    if (!response.ok || result.errors || result._shards?.failed>0) throw new Error('Search operation failed');
+    if (!response.ok || result.errors || result._shards?.failed>0 || result.timed_out || result.failures?.length) throw new Error('Search operation failed');
     return result;
   }
   const indexFor=embeddingId=>knowledgeScope({embeddingId,audienceIds:['public']}).index;
+  const lexicalText=()=>({type:'text',fields:{english:{type:'text',analyzer:'english'}}});
   return {
     async provision(embeddingId) {
       const index=indexFor(embeddingId);
       const exists=await fetchImpl(new URL(`/${index}`,base),{method:'HEAD',redirect:'error',signal:AbortSignal.timeout(15_000),headers:authorization?{Authorization:authorization}:{}});
-      if(exists.ok){await request(`/${index}/_mapping`,'PUT',{properties:{locator:{type:'keyword'},url:{type:'keyword',ignore_above:2048}}});return {acknowledged:true,existing:true};}
+      if(exists.ok){
+        const mappings=(await request(`/${index}/_mapping`,'GET'))[index]?.mappings||{};
+        const complete=mappings._meta?.adoptionLexicalVersion===1&&['text','title'].every(name=>mappings.properties?.[name]?.fields?.english?.analyzer==='english');
+        if(!complete){
+          await request(`/${index}/_mapping`,'PUT',{properties:{title:lexicalText(),text:lexicalText(),locator:{type:'keyword'},url:{type:'keyword',ignore_above:2048}}});
+          // Reindex the same source documents to populate additive subfields.
+          // Mark complete only after every scoped document was updated; a
+          // failure remains retryable and never changes source authorization.
+          await request(`/${index}/_update_by_query?refresh=true`,'POST',{query:{term:{embedding_id:embeddingId}}},false,60_000);
+          await request(`/${index}/_mapping`,'PUT',{_meta:{...mappings._meta,adoptionLexicalVersion:1}});
+        }
+        return {acknowledged:true,existing:true,lexicalVersion:1};
+      }
       if(exists.status!==404)throw new Error('Search provisioning check failed');
-      return request(`/${index}`,'PUT',{settings:{number_of_shards:1,number_of_replicas:0},mappings:{dynamic:'strict',properties:{
+      return request(`/${index}`,'PUT',{settings:{number_of_shards:1,number_of_replicas:0},mappings:{dynamic:'strict',_meta:{adoptionLexicalVersion:1},properties:{
         embedding_id:{type:'keyword'},source_id:{type:'keyword'},chunk_id:{type:'keyword'},revision:{type:'keyword'},
-        status:{type:'keyword'},deleted:{type:'boolean'},audience_ids:{type:'keyword'},title:{type:'text'},text:{type:'text'},locator:{type:'keyword'},url:{type:'keyword',ignore_above:2048},
+        status:{type:'keyword'},deleted:{type:'boolean'},audience_ids:{type:'keyword'},title:lexicalText(),text:lexicalText(),locator:{type:'keyword'},url:{type:'keyword',ignore_above:2048},
       }}});
     },
     async index(embeddingId,chunks) {

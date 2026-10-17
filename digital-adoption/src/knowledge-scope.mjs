@@ -47,7 +47,7 @@ export function knowledgeScope({ embeddingId, audienceIds,sourceRevisions }) {
               { terms: { audience_ids: audiences } },
               ...(sourceRevisions===undefined?[]:sourceRevisions.length?[{bool:{should:sourceRevisions.map(source=>({bool:{filter:[{term:{source_id:source.id}},{term:{revision:source.revision}}]}})),minimum_should_match:1}}]:[{match_none:{}}]),
             ],
-            must: [{ multi_match: { query:lexicalQuery, fields: ['title^2', 'text'], type: 'best_fields' } }],
+            must: [{ multi_match: { query:lexicalQuery, fields: ['title^2','text','title.english^2','text.english'], type: 'most_fields' } }],
           } },
         },
       };

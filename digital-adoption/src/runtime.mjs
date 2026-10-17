@@ -36,7 +36,9 @@ knowledge.recoverExpired();
 const recoveryTimer=setInterval(()=>knowledge.recoverExpired(),30_000);
 recoveryTimer.unref();
 const embeddings=['adoption-demo-alpha','adoption-demo-beta'];
-for(const embeddingId of embeddings)await search.provision(embeddingId);
+// Apply additive lexical mappings to this service's existing source indexes
+// as well as fresh synthetic embeddings. No platform index is selected.
+for(const embeddingId of new Set([...embeddings,...repository.map('sources').values().map(source=>source.embeddingId)]))await search.provision(embeddingId);
 const publicPath='/data/demo-public.json';
 let demo;
 if(existsSync(publicPath))demo=JSON.parse(readFileSync(publicPath,'utf8'));
