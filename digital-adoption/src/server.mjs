@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { validateSnapshot } from './proposals.mjs';
-import {createRequestBudget} from './request-budget.mjs';
+import {createRequestBudget,createConcurrencyBudget} from './request-budget.mjs';
 import {constrainNavigation} from './navigation-intent.mjs';
 import {constrainEdit} from './edit-intent.mjs';
 import {randomUUID} from 'node:crypto';
@@ -40,11 +40,12 @@ async function body(req,limit=32_768) {
   return parsed;
 }
 
-export function createAdoptionServer({ authority, proposals, planner, knowledge, ingestion, learning, coaching, discovery, sourceMap,hostIdentity, answer, management, ownerIdentity, ownerManagement, platformOrigin,telemetry, development = false, fixture = null }) {
+export function createAdoptionServer({ authority, proposals, planner, knowledge, ingestion, learning, coaching, discovery, sourceMap,hostIdentity, answer, management, ownerIdentity, ownerManagement, platformOrigin,telemetry,capacity={}, development = false, fixture = null }) {
   const budget=createRequestBudget();
+  const modelSlots=createConcurrencyBudget({global:capacity.modelConcurrency??25,perDomain:capacity.modelPerDomain??5}),searchSlots=createConcurrencyBudget({global:capacity.searchConcurrency??25,perDomain:capacity.searchPerDomain??5});
   let activeUploads=0;
   return createServer(async (req, res) => {
-    let uploadSlot=false;
+    let uploadSlot=false,releaseModel,releaseSearch;
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
@@ -202,6 +203,7 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
         }
         else if (path === '/v1/plan') {
           budget.take(`model:${scope.embeddingId}`);
+          releaseModel=modelSlots.acquire(scope.embeddingId);
           if (!planner || !proposals) return send(503,{ error:'Model assistance is not configured' });
           if (typeof input.text !== 'string' || !input.text.trim() || input.text.length > 8000) throw new Error('Invalid request');
           const snapshot=constrainEdit(input.text,constrainNavigation(input.text,validateSnapshot(input.snapshot)));
@@ -220,6 +222,8 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
         }
         else if(path==='/v1/knowledge/search'||path==='/v1/ask') {
           budget.take(`${path==='/v1/ask'?'model':'search'}:${scope.embeddingId}`);
+          releaseSearch=searchSlots.acquire(scope.embeddingId);
+          if(path==='/v1/ask')releaseModel=modelSlots.acquire(scope.embeddingId);
           if(!knowledge)return send(503,{error:'Knowledge is not configured'});
           if(typeof input.text!=='string'||!input.text.trim()||input.text.length>2000)throw new Error('Invalid query');
           const retrieved=await knowledge.retrieve(scope,{query:input.text,size:path==='/v1/knowledge/search'?(input.size??6):24,after:path==='/v1/knowledge/search'?(input.after??null):null});
@@ -251,7 +255,8 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
       const unavailable=['Platform model unavailable','Knowledge model unavailable','Search operation failed','Search provisioning check failed','Management identity unavailable'].includes(error.message)||['ERR_SQLITE_ERROR','SQLITE_BUSY','SQLITE_IOERR','ENOSPC','EROFS','EIO','EMFILE','ENFILE'].includes(error.code)||error.code==='ERR_INVALID_STATE'&&/database|statement/i.test(error.message);
       const invalidResponse=['Invalid platform model response','Invalid evidence citations','The assistant could not produce a valid current-screen proposal. Nothing was changed.'].includes(error.message);
       const code = error.message === 'Request too large' ? 413 : error.message==='Request rate exceeded'||error.message==='Request capacity reached'?429:unavailable?503:invalidResponse?502:403;
-      return send(code, { error: code===413?'Request too large':code===503?'Copilot service temporarily unavailable':code===502?'The assistant could not prepare a valid response. Nothing was changed.':'Access denied or invalid request' });
-    }finally{if(uploadSlot)activeUploads--;}
+      if(code===429)res.setHeader('Retry-After',error.message==='Request rate exceeded'?'60':'2');
+      return send(code, { error: code===429?'Copilot is busy. Please retry shortly.':code===413?'Request too large':code===503?'Copilot service temporarily unavailable':code===502?'The assistant could not prepare a valid response. Nothing was changed.':'Access denied or invalid request' });
+    }finally{releaseModel?.();releaseSearch?.();if(uploadSlot)activeUploads--;}
   });
 }

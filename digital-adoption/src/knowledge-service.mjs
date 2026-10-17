@@ -50,20 +50,22 @@ export function createKnowledgeService(repository,search,{clock=Date.now,leaseMs
       const source={id:randomUUID(),embeddingId:scope.embeddingId,title,text,status:'pending',revision:createHash('sha256').update(text).digest('hex'),audienceIds:[...scope.audienceIds],...(recipeBinding?{recipeBinding}:{})};
       sources.set(source.id,source);return {id:source.id,status:source.status};
     },
-    async ingest(scope,id) {
+    async ingest(scope,id,{isCurrent=()=>true}={}) {
       maintain(scope);
       const existing=get(scope,id);if(existing.status==='ready')return {id,status:'ready',reused:true};
-      const source=repository.transaction(()=>{const current=get(scope,id);if(!['pending','failed'].includes(current.status)&&!(current.status==='indexing'&&(current.leaseUntil||0)<=clock()))throw new Error('Source cannot be indexed');current.status='indexing';current.attemptId=randomUUID();current.leaseUntil=clock()+leaseMs;current.attempts=(current.attempts||0)+1;current.lastError=null;sources.set(id,current);return current;});
+      const source=repository.transaction(()=>{const current=get(scope,id);if(!isCurrent()||!['pending','failed'].includes(current.status)&&!(current.status==='indexing'&&(current.leaseUntil||0)<=clock()))throw new Error('Source cannot be indexed');current.status='indexing';current.attemptId=randomUUID();current.leaseUntil=clock()+leaseMs;current.attempts=(current.attempts||0)+1;current.lastError=null;sources.set(id,current);return current;});
       try {
         const chunks=[];
-        for(const section of source.sections||[{text:source.text,locator:'Document'}])for(let offset=0;offset<section.text.length;offset+=2400){chunks.push({embedding_id:scope.embeddingId,source_id:id,chunk_id:`${id}_${String(chunks.length).padStart(5,'0')}`,revision:source.revision,
+        // Old attempts may finish a network write after losing their lease.
+        // Revision-specific IDs prevent them overwriting the current revision.
+        for(const section of source.sections||[{text:source.text,locator:'Document'}])for(let offset=0;offset<section.text.length;offset+=2400){chunks.push({embedding_id:scope.embeddingId,source_id:id,chunk_id:`${id}_${source.revision}_${String(chunks.length).padStart(5,'0')}`,revision:source.revision,
           status:'ready',deleted:false,audience_ids:source.audienceIds,title:source.title,text:section.text.slice(offset,offset+2400),locator:section.locator,...(source.url?{url:source.url}:{})});}
         await search.index(scope.embeddingId,chunks);
-        return repository.transaction(()=>{const current=get(scope,id);if(current.status!=='indexing'||current.attemptId!==source.attemptId||current.leaseUntil<=clock())throw new Error('Source changed or ingestion lease expired');current.status='ready';current.chunks=chunks.length;current.completedAt=clock();sources.set(id,current);return {id,status:'ready',chunks:chunks.length};});
+        return repository.transaction(()=>{const current=get(scope,id);if(!isCurrent()||current.status!=='indexing'||current.attemptId!==source.attemptId||current.leaseUntil<=clock())throw new Error('Source changed or ingestion lease expired');current.status='ready';current.chunks=chunks.length;current.completedAt=clock();sources.set(id,current);return {id,status:'ready',chunks:chunks.length};});
       }catch(error){repository.transaction(()=>{const current=get(scope,id);if(current.status==='indexing'&&current.attemptId===source.attemptId){current.status='failed';current.lastError='Indexing failed or expired; retry is safe.';sources.set(id,current);}});throw error;}
     },
     recoverExpired(){
-      return repository.transaction(()=>{let recovered=0;for(const source of sources.values())if(source.status==='indexing'&&(source.leaseUntil||0)<=clock()){source.status='failed';source.lastError='Interrupted indexing; retry required.';sources.set(source.id,source);recovered++;}return {recovered};});
+      return repository.transaction(()=>{let recovered=0;for(const source of repository.workItems('sources',['indexing'],clock())){source.status='failed';source.lastError='Interrupted indexing; retry required.';sources.set(source.id,source);recovered++;}return {recovered};});
     },
     async remove(scope,id) {
       maintain(scope);

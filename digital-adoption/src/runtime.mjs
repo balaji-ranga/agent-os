@@ -24,6 +24,7 @@ import {createDiscoveryJobs} from './discovery-jobs.mjs';
 import {createSourceMap} from './source-map.mjs';
 import {createHostIdentity} from './host-identity.mjs';
 import {createOperationalTelemetry} from './operational-telemetry.mjs';
+import {createWorkerServer} from './worker-server.mjs';
 const config=JSON.parse(readFileSync('/config/service.json','utf8'));
 const repository=openRepository('/data/adoption.sqlite');
 const telemetry=createOperationalTelemetry();
@@ -31,7 +32,7 @@ const hostIdentity=createHostIdentity(repository);
 const authority=new SessionAuthority({repository,development:true,hostIdentity}); // Only explicit loopback demo origins below are registered.
 const search=createOpenSearch({...config.search,privateNetwork:true});
 const knowledge=createKnowledgeService(repository,search);
-const ingestion=createSourceIngestion(repository,{knowledge,blobs:createBlobStore('/data/objects'),extract:createDocumentExtractor({python:'/opt/adoption-python/bin/python'}),fetchUrl:createPublicUrlFetcher(),onEvent:telemetry.job});
+const ingestion=createSourceIngestion(repository,{...config.ingestion,knowledge,blobs:createBlobStore('/data/objects'),extract:createDocumentExtractor({python:'/opt/adoption-python/bin/python'}),fetchUrl:createPublicUrlFetcher(),onEvent:telemetry.job});
 knowledge.recoverExpired();
 authority.maintain();
 const recoveryTimer=setInterval(()=>{try{knowledge.recoverExpired();authority.maintain();}catch{/* Authorization remains fail-closed; retry maintenance next turn. */}},30_000);
@@ -39,7 +40,7 @@ recoveryTimer.unref();
 const embeddings=['adoption-demo-alpha','adoption-demo-beta'];
 // Apply additive lexical mappings to this service's existing source indexes
 // as well as fresh synthetic embeddings. No platform index is selected.
-for(const embeddingId of new Set([...embeddings,...repository.map('sources').values().map(source=>source.embeddingId)]))await search.provision(embeddingId);
+for(const embeddingId of new Set([...embeddings,...repository.sourceEmbeddings()]))await search.provision(embeddingId);
 const publicPath='/data/demo-public.json';
 let demo;
 if(existsSync(publicPath))demo=JSON.parse(readFileSync(publicPath,'utf8'));
@@ -71,7 +72,9 @@ const registrationEmail=createRegistrationEmail(repository,{send:createMailer(co
 const management=createManagement({authenticate:createManagementIdentity({platformOrigin}),control,knowledge,search,platformOrigin,registrationEmail,ingestion,learning,coaching,sourceMap,hostIdentity});
 const ownerIdentity=createOwnerIdentity(repository,{send:createMailer(config.mail)});
 const ownerManagement=createManagement({authenticate:cookie=>ownerIdentity.authenticate(cookie),control,knowledge,search,platformOrigin,registrationEmail,ingestion,learning,coaching,sourceMap,hostIdentity});
-ingestion.start();
-const server=createAdoptionServer({authority,knowledge,ingestion,learning,coaching,discovery,sourceMap,hostIdentity,management,ownerIdentity,ownerManagement,platformOrigin,telemetry,answer:createKnowledgeAnswer(model),planner:createPlatformPlanner(model),proposals:createProposalStore(repository,{checkBinding:(scope,binding)=>learning.bindingAllowed(scope,binding)})});
+ingestion.start({local:!config.workerToken});
+const workerServer=config.workerToken?createWorkerServer({ingestion,token:config.workerToken}):null;
+workerServer?.listen(4196,'0.0.0.0');
+const server=createAdoptionServer({capacity:config.capacity,authority,knowledge,ingestion,learning,coaching,discovery,sourceMap,hostIdentity,management,ownerIdentity,ownerManagement,platformOrigin,telemetry,answer:createKnowledgeAnswer(model),planner:createPlatformPlanner(model),proposals:createProposalStore(repository,{checkBinding:(scope,binding)=>learning.bindingAllowed(scope,binding)})});
 server.listen(4193,'0.0.0.0',()=>console.log('Independent adoption service listening; full acceptance not yet certified'));
-process.on('SIGTERM',()=>{ingestion.stop();clearInterval(recoveryTimer);server.closeAllConnections();server.close(()=>{process.exit(0);});});
+process.on('SIGTERM',()=>{ingestion.stop();clearInterval(recoveryTimer);workerServer?.closeAllConnections();workerServer?.close();server.closeAllConnections();server.close(()=>{process.exit(0);});});

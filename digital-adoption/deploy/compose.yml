@@ -16,7 +16,25 @@ services:
     volumes:
       - ${ADOPTION_ROOT:?}/config/service.json:/config/service.json:ro
       - ${ADOPTION_ROOT:?}/data:/data
-    networks: [platform]
+    networks: [platform, workers]
+  adoption-worker:
+    image: flolah-digital-adoption:${ADOPTION_RELEASE:?release required}
+    command: [node, src/worker-runtime.mjs]
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: ${ADOPTION_WORKER_MEMORY:-1024m}
+    cpus: ${ADOPTION_WORKER_CPUS:-1}
+    pids_limit: 64
+    stop_grace_period: 35s
+    logging:
+      driver: json-file
+      options: {max-size: "5m", max-file: "3"}
+    tmpfs: ["/tmp:size=128m,noexec,nosuid,mode=1777"]
+    volumes:
+      - ${ADOPTION_ROOT:?}/config/worker.json:/config/worker.json:ro
+    networks: [workers]
   adoption-model-gateway:
     image: flolah-digital-adoption:${ADOPTION_RELEASE:?release required}
     command: [node, integrations/model-gateway-server.mjs]
@@ -36,6 +54,8 @@ services:
       - platform-data:/platform:ro
     networks: [platform]
 networks:
+  workers:
+    internal: true
   platform:
     external: true
     name: agent-os_default

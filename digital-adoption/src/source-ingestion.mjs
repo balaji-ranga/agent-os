@@ -11,18 +11,23 @@ const maintain=scope=>{if(scope?.role!=='maintainer'||!/^[A-Za-z0-9_-]{1,80}$/.t
 const trustedScope=job=>({embeddingId:job.embeddingId,audienceIds:job.audienceIds,role:'maintainer'});
 const audienceAllowed=(scope,job)=>Array.isArray(scope.audienceIds)&&job.audienceIds?.some(a=>scope.audienceIds.includes(a));
 const operationScope=scope=>scope.embeddingId+(scope.audienceIds?.length===1&&scope.audienceIds[0]==='public'?'':':'+createHash('sha256').update(JSON.stringify([...(scope.audienceIds||[])].sort())).digest('hex'));
-export function createSourceIngestion(repository,{knowledge,blobs,extract,fetchUrl,clock=Date.now,onEvent=()=>{}}){
+export function createSourceIngestion(repository,{knowledge,blobs,extract,fetchUrl,clock=Date.now,onEvent=()=>{},leaseMs=90_000,maxAttemptMs=300_000,maxAttempts=3,retryDelayMs=1000,maxWorkers=2,perDomainWorkers=1}={}){
+ for(const [value,min,max] of [[leaseMs,1000,600_000],[maxAttemptMs,leaseMs,1_800_000],[maxAttempts,1,10],[retryDelayMs,0,60_000],[maxWorkers,1,32],[perDomainWorkers,1,maxWorkers]])if(!Number.isInteger(value)||value<min||value>max)throw new Error('Invalid worker configuration');
  const jobs=repository.map('source_jobs'),attempts=repository.map('source_uploads');
- let running=false,stopped=false,timer,rotation=[];
+ const fairness=repository.map('worker_fairness'),coordination=repository.map('worker_coordination'),cleanup=repository.map('source_cleanup'),localWorker=`local-${randomUUID()}`;
+ let running=false,stopped=false,timer;
  const notify=(job,state)=>{try{onEvent({embeddingId:job.embeddingId,jobId:job.id,state,attempts:job.attempts});}catch{}};
  const jobFor=(scope,id)=>{maintain(scope);const job=jobs.get(id);if(!job||job.embeddingId!==scope.embeddingId||!audienceAllowed(scope,job))throw new Error('Source not found');return job;};
+ const owned=claim=>{const job=jobs.get(claim?.id);return job&&job.attemptId===claim.attemptId&&job.workerId===claim.workerId&&['extracting','indexing'].includes(job.status)&&job.leaseUntil>clock()?job:null;};
+ const requireOwned=claim=>{const job=owned(claim);if(!job)throw new Error('Worker lease lost');return job;};
+ const discardObject=(job,objectId)=>{if(objectId)cleanup.set(objectId,{id:objectId,embeddingId:job.embeddingId,status:'queued',leaseUntil:Math.max(clock(),job.maxUntil||0)+60_000});};
  const service={
   addUrl(scope,{title,url,sharedConsent,operationId}){
    maintain(scope);if(!fetchUrl||sharedConsent!==true||typeof operationId!=='string'||!/^[A-Za-z0-9_-]{16,80}$/.test(operationId))throw new Error('Help URL not authorized');
    const normalized=approvedUrl(url).href,key=`${operationScope(scope)}:${operationId}`,fingerprint=createHash('sha256').update(JSON.stringify({title,url:normalized})).digest('hex');
    return repository.transaction(()=>{const previous=attempts.get(key);if(previous){if(previous.fingerprint!==fingerprint)throw new Error('Upload operation conflict');return {id:previous.id,reused:true};}const id=randomUUID();knowledge.createPending(scope,{id,title,kind:'url'});jobs.set(id,{id,embeddingId:scope.embeddingId,audienceIds:scope.audienceIds,status:'queued',bytes:0,kind:'url',url:normalized,createdAt:clock(),attempts:0});attempts.set(key,{id,fingerprint});return {id,status:'queued'};});
   },
-  refresh(scope,id){const job=jobFor(scope,id);if(job.kind!=='url'||!['ready','failed'].includes(job.status))throw new Error('Help source cannot refresh');job.status='queued';job.lastError=null;jobs.set(id,job);return {id,status:'queued'};},
+  refresh(scope,id){return repository.transaction(()=>{const job=jobFor(scope,id);if(job.kind!=='url'||!['ready','failed'].includes(job.status))throw new Error('Help source cannot refresh');job.status='queued';job.lastError=null;job.attempts=0;job.nextAttemptAt=0;jobs.set(id,job);return {id,status:'queued'};});},
   async upload(scope,{title,filename,mime,content,sharedConsent,operationId}){
    maintain(scope);
    if(sharedConsent!==true||typeof title!=='string'||!title.trim()||title.length>200||typeof filename!=='string'||filename.length>180||/[\\/\x00-\x1f]/.test(filename)||!Object.hasOwn(mimeTypes,mime)||!mimeTypes[mime][1].test(filename)||typeof content!=='string'||content.length>22_369_624||!content.length||typeof operationId!=='string'||!/^[A-Za-z0-9_-]{16,80}$/.test(operationId))throw new Error('Invalid upload, sharing consent or file type');
@@ -54,61 +59,84 @@ export function createSourceIngestion(repository,{knowledge,blobs,extract,fetchU
    if(!job||job.embeddingId!==scope.embeddingId||!audienceAllowed(scope,job)||(scope.role!=='maintainer'&&job.uploadedBySessionId!==scope.sessionId))throw new Error('Source access denied');
    return {id:job.id,status:job.status,attempts:job.attempts,lastError:job.lastError||null};
   },
-  retry(scope,id){const job=jobFor(scope,id);if(job.status!=='failed')throw new Error('Source cannot retry');job.status='queued';job.lastError=null;jobs.set(id,job);return {id,status:'queued'};},
+  retry(scope,id){return repository.transaction(()=>{const job=jobFor(scope,id);if(job.status!=='failed')throw new Error('Source cannot retry');job.status='queued';job.lastError=null;job.attempts=0;job.nextAttemptAt=0;jobs.set(id,job);return {id,status:'queued'};});},
   async remove(scope,id){
    maintain(scope);const job=jobs.get(id);if(job)jobFor(scope,id);else knowledge.inspect(scope,id);
-   if(job){job.status='deleted';jobs.set(id,job);}
-   try{await knowledge.remove(scope,id);}finally{await blobs.remove(scope.embeddingId,id);}return {id,status:'deleted'};
+   if(job){discardObject(job,job.pendingObjectId);job.status='deleted';jobs.set(id,job);}
+   try{await knowledge.remove(scope,id);}finally{await blobs.remove(scope.embeddingId,id);if(job?.rawObjectId)await blobs.remove(scope.embeddingId,job.rawObjectId);}return {id,status:'deleted'};
   },
   async raw(scope,id){
    maintain(scope);const job=jobFor(scope,id);if(job.status!=='ready'||knowledge.inspect(scope,id).status!=='ready')throw new Error('Source unavailable');
-   return {mime:job.mime,content:(await blobs.read(scope.embeddingId,id)).toString('base64')};
+   return {mime:job.mime,content:(await blobs.read(scope.embeddingId,job.rawObjectId||id)).toString('base64')};
+  },
+  recover(){return repository.transaction(()=>{
+   let recovered=0;
+   for(const job of repository.workItems('source_jobs',['extracting','indexing'],clock())){
+    discardObject(job,job.pendingObjectId);delete job.pendingObjectId;
+    knowledge.extractionFailed(trustedScope(job),job.id);
+    const retryable=Number.isFinite(job.leaseUntil)&&job.attempts<maxAttempts;
+    job.status=retryable?'queued':'failed';job.nextAttemptAt=clock()+retryDelayMs*Math.max(1,job.attempts);job.lastError=retryable?'Worker interrupted; automatic retry scheduled.':'Processing interrupted; retry limit reached. Review and retry manually.';
+    jobs.set(job.id,job);notify(job,job.status);recovered++;
+   }
+   return {recovered};
+  });},
+  claim(workerId){
+   if(typeof workerId!=='string'||!/^[A-Za-z0-9_-]{1,100}$/.test(workerId))throw new Error('Invalid worker identity');
+   return repository.transaction(()=>{
+    service.recover();
+    const active=repository.workItems('source_jobs',['extracting','indexing']);
+    if(active.length>=maxWorkers||active.some(job=>job.workerId===workerId))return null;
+    const job=repository.nextSourceJob(clock(),perDomainWorkers);if(!job)return null;
+    knowledge.processing(trustedScope(job),job.id);
+    Object.assign(job,{status:'extracting',attempts:job.attempts+1,startedAt:clock(),attemptId:randomUUID(),workerId,leaseUntil:clock()+leaseMs,maxUntil:clock()+maxAttemptMs});
+    const sequence=(coordination.get('fairness')?.sequence||0)+1;coordination.set('fairness',{sequence});fairness.set(job.embeddingId,{sequence});jobs.set(job.id,job);notify(job,'processing');
+    return {id:job.id,attemptId:job.attemptId,workerId,leaseMs};
+   });
+  },
+  heartbeat(claim){return repository.transaction(()=>{const job=requireOwned(claim);job.leaseUntil=Math.min(clock()+leaseMs,job.maxUntil);if(job.leaseUntil<=clock())throw new Error('Worker lease lost');jobs.set(job.id,job);return {leaseUntil:job.leaseUntil};});},
+  async input(claim,{includeContent=true}={}){
+   let job=requireOwned(claim);
+   if(job.status!=='extracting')throw new Error('Worker input unavailable');
+   if(job.kind==='url'){
+    const page=await fetchUrl(job.url);requireOwned(claim);
+    const rawObjectId=job.attemptId;
+    repository.transaction(()=>{const current=requireOwned(claim);current.pendingObjectId=rawObjectId;jobs.set(job.id,current);});
+    await blobs.put(job.embeddingId,rawObjectId,page.bytes);
+    try{repository.transaction(()=>{job=requireOwned(claim);if(jobs.values({embeddingId:job.embeddingId}).filter(j=>j.id!==job.id&&j.status!=='deleted').reduce((n,j)=>n+j.bytes,0)+page.bytes.length>64*1024*1024)throw new Error('Embedding raw storage quota reached');discardObject(job,job.rawObjectId);Object.assign(job,{rawObjectId,bytes:page.bytes.length,mime:page.mime,resolvedUrl:page.url});delete job.pendingObjectId;jobs.set(job.id,job);});}
+    catch(error){await blobs.remove(job.embeddingId,rawObjectId);throw error;}
+   }
+   const objectId=job.rawObjectId||job.id;
+   const content=includeContent?(await blobs.read(job.embeddingId,objectId)).toString('base64'):undefined;
+   requireOwned(claim);
+   return {kind:job.kind==='url'?(job.mime==='text/html'?'html':'text'):job.kind,...(includeContent?{content}:{path:blobs.path(job.embeddingId,objectId)})};
+  },
+  async complete(claim,result){
+   const previous=jobs.get(claim?.id);
+   if(previous?.status==='ready'&&previous.attemptId===claim.attemptId&&previous.workerId===claim.workerId)return {id:previous.id,status:'ready',reused:true};
+   if(previous?.status==='indexing'&&owned(claim))return {id:previous.id,status:'indexing',pending:true};
+   const job=repository.transaction(()=>{const current=requireOwned(claim);if(current.status!=='extracting')throw new Error('Worker result already processing');knowledge.extracted(trustedScope(current),current.id,{...result,url:current.resolvedUrl||null});current.status='indexing';jobs.set(current.id,current);return current;});
+   try{
+    await knowledge.ingest(trustedScope(job),job.id,{isCurrent:()=>!!owned(claim)});
+    return repository.transaction(()=>{const current=requireOwned(claim);current.status='ready';current.completedAt=clock();current.lastError=null;jobs.set(current.id,current);notify(current,'ready');return {id:current.id,status:'ready'};});
+   }finally{
+    if(jobs.get(job.id)?.status==='deleted'){try{await knowledge.remove(trustedScope(job),job.id);}finally{await blobs.remove(job.embeddingId,job.rawObjectId||job.id);}}
+   }
+  },
+  fail(claim){return repository.transaction(()=>{const job=owned(claim);if(!job)return {accepted:false};discardObject(job,job.pendingObjectId);delete job.pendingObjectId;job.status='failed';job.lastError='Processing failed. Check the supported format, file limits and readable content, then retry.';jobs.set(job.id,job);knowledge.extractionFailed(trustedScope(job),job.id);notify(job,'failed');return {accepted:true};});},
+  metrics(){const oldest=repository.oldestQueuedAt();return {counts:repository.workCounts(),oldestQueuedAgeMs:oldest===null?0:Math.max(0,clock()-oldest),maxWorkers,perDomainWorkers,leaseMs,maxAttempts};},
+  async cleanupObjects(){
+   for(const item of repository.workItems('source_cleanup',['queued'],clock(),100)){await blobs.remove(item.embeddingId,item.id);cleanup.delete(item.id);}
   },
   async drain(){
-   if(running||stopped)return;running=true;
-   try{
-    const queued=jobs.values().filter(j=>j.status==='queued').sort((a,b)=>a.createdAt-b.createdAt||a.id.localeCompare(b.id)),embeddings=[...new Set(queued.map(job=>job.embeddingId))];
-    rotation=rotation.filter(id=>embeddings.includes(id));rotation.push(...embeddings.filter(id=>!rotation.includes(id)));
-    const nextEmbedding=rotation.shift();if(nextEmbedding)rotation.push(nextEmbedding);
-    const selected=queued.find(job=>job.embeddingId===nextEmbedding);
-    // One job per turn, rotating embeddings. New arrivals need not wait behind
-    // another website's entire backlog; CPU/memory stay bounded to one parser.
-    for(const candidate of selected?[selected]:[]){
-     if(stopped)break;
-     const scope=trustedScope(candidate),job=repository.transaction(()=>{
-      const current=jobs.get(candidate.id);if(current.status!=='queued')return null;
-      knowledge.processing(scope,current.id);current.status='extracting';current.attempts++;current.startedAt=clock();current.attemptId=randomUUID();jobs.set(current.id,current);return current;
-     });if(!job)continue;
-     const owned=()=>{const current=jobs.get(job.id);return current?.attemptId===job.attemptId&&['extracting','indexing'].includes(current.status);};
-     notify(job,'processing');
-     try{
-      let result;
-      if(job.kind==='url'){
-       const page=await fetchUrl(job.url);if(!owned())continue;
-       if(jobs.values({embeddingId:scope.embeddingId}).filter(j=>j.id!==job.id&&j.status!=='deleted').reduce((sum,j)=>sum+j.bytes,0)+page.bytes.length>64*1024*1024)throw new Error('Embedding raw storage quota reached');
-       job.bytes=page.bytes.length;job.mime=page.mime;jobs.set(job.id,job);
-       await blobs.remove(job.embeddingId,job.id);await blobs.put(job.embeddingId,job.id,page.bytes);
-       result=await extract({path:blobs.path(job.embeddingId,job.id),kind:page.mime==='text/html'?'html':'text'});result.url=page.url;
-      }else result=await extract({path:blobs.path(job.embeddingId,job.id),kind:job.kind});
-      if(!owned())continue;
-      knowledge.extracted(scope,job.id,result);
-      job.status='indexing';jobs.set(job.id,job);
-      await knowledge.ingest(scope,job.id);
-      if(owned()){job.status='ready';job.completedAt=clock();job.lastError=null;jobs.set(job.id,job);notify(job,'ready');}
-     }catch{
-      if(owned()){job.status='failed';job.lastError='Processing failed. Check the supported format, file limits and readable content, then retry.';jobs.set(job.id,job);knowledge.extractionFailed(scope,job.id);notify(job,'failed');}
-     }finally{
-      // An in-flight index write may finish after deletion; perform cleanup again.
-      if(jobs.get(job.id)?.status==='deleted'){try{await knowledge.remove(scope,job.id);}finally{await blobs.remove(scope.embeddingId,job.id);}}
-     }
-    }
-   }finally{running=false;}
+   if(running||stopped)return;running=true;let heartbeat;
+   try{const claim=service.claim(localWorker);if(!claim)return;
+    heartbeat=setInterval(()=>{try{if(!stopped)service.heartbeat(claim);}catch{}},Math.max(250,Math.floor(leaseMs/3)));heartbeat.unref();
+    try{const input=await service.input(claim,{includeContent:false});await service.complete(claim,await extract(input));}catch{service.fail(claim);}
+   }finally{clearInterval(heartbeat);running=false;}
   },
-  start(){
-   // A previous process cannot own an extraction after restart. Do not silently
-   // call it Ready, or retry indefinitely without a visible user decision.
-   for(const job of jobs.values())if(['extracting','indexing'].includes(job.status)){job.status='failed';job.lastError='Processing interrupted; retry is available.';jobs.set(job.id,job);knowledge.extractionFailed(trustedScope(job),job.id);notify(job,'failed');}
-   stopped=false;timer=setInterval(()=>service.drain().catch(()=>{}),1000);timer.unref();service.drain().catch(()=>{});
+  start({local=true}={}){
+   if(timer)clearInterval(timer);stopped=false;service.recover();
+   timer=setInterval(()=>{try{service.recover();service.cleanupObjects().catch(()=>{});if(local)service.drain().catch(()=>{});}catch{}},1000);timer.unref();if(local)service.drain().catch(()=>{});
   },
   stop(){stopped=true;if(timer)clearInterval(timer);},
  };

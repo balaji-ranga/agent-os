@@ -10,5 +10,10 @@ const gateway={serviceToken,primary:{baseUrl:env.OPENAI_BASE_URL||env.OPENAI_PRI
 writeFileSync(path,JSON.stringify(gateway),{mode:0o600});
 const search={url:env.OPENSEARCH_URL,authorization:env.OPENSEARCH_USERNAME&&env.OPENSEARCH_PASSWORD?'Basic '+Buffer.from(`${env.OPENSEARCH_USERNAME}:${env.OPENSEARCH_PASSWORD}`).toString('base64'):undefined};
 const mail={host:env.WORKFLOW_SMTP_HOST,port:Number(env.WORKFLOW_SMTP_PORT||587),secure:['1','true'].includes(env.WORKFLOW_SMTP_SECURE),user:env.WORKFLOW_SMTP_USER,pass:env.WORKFLOW_SMTP_PASS,from:env.WORKFLOW_SMTP_FROM||env.WORKFLOW_SMTP_USER};
-writeFileSync('/config/service.json',JSON.stringify({serviceToken,search,mail,serviceUrl:'https://login.flolah.cloud/free-tools/digital-adoption/',gatewayUrl:'https://login.flolah.cloud/internal/digital-adoption-model'}),{mode:0o600});
+const servicePath='/config/service.json',priorService=existsSync(servicePath)?JSON.parse(readFileSync(servicePath,'utf8')):{};
+const workerToken=priorService.workerToken||randomBytes(48).toString('base64url');
+const ingestion={maxWorkers:2,perDomainWorkers:1,leaseMs:90_000,maxAttemptMs:300_000,maxAttempts:3,retryDelayMs:1000,...priorService.ingestion};
+const capacity={modelConcurrency:25,modelPerDomain:5,searchConcurrency:25,searchPerDomain:5,...priorService.capacity};
+writeFileSync(servicePath,JSON.stringify({...priorService,serviceToken,search,mail,workerToken,ingestion,capacity,serviceUrl:'https://login.flolah.cloud/free-tools/digital-adoption/',gatewayUrl:'https://login.flolah.cloud/internal/digital-adoption-model'}),{mode:0o600});
+writeFileSync('/config/worker.json',JSON.stringify({coordinatorUrl:'http://adoption:4196/',token:workerToken}),{mode:0o600});
 console.log('Backend-only model/search configuration prepared; no credentials emitted');

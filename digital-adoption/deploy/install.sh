@@ -22,7 +22,9 @@ fi
 docker inspect agent-os-backend-1 | docker run --rm -i --network none --user 0:0 --entrypoint node -v "$ADOPTION_ROOT/config:/config" -v "$release:/release:ro" "$base_image" /release/deploy/prepare-config.mjs
 chown -R 1000:1000 "$ADOPTION_ROOT/config" "$ADOPTION_ROOT/data"
 docker build -f "$release/deploy/Dockerfile" -t "flolah-digital-adoption:$ADOPTION_RELEASE" "$release"
-docker compose -p flolah-adoption -f "$release/deploy/compose.yml" up -d
+# The coordinator limits active leases independently of the number of replicas.
+# Use matching persistent service.json ingestion.maxWorkers when raising this.
+docker compose -p flolah-adoption -f "$release/deploy/compose.yml" up -d --scale adoption-worker="${ADOPTION_WORKERS:-2}"
 
 # Change only the known public registration link; preserve unrelated page updates.
 docker run --rm --network none --user 0:0 --entrypoint node -v /opt/agent-os/deploy/static/flolah-home:/static -v "$release:/release:ro" "$base_image" /release/deploy/update-owner-entrypoint.mjs
