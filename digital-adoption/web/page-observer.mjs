@@ -3,10 +3,18 @@ import {createInspector} from './dom.mjs';
 // Keep the owning chat and coaching session alive across ordinary document routes.
 // Only explicitly reviewed same-origin paths may be loaded. Forms, popups and
 // top-level navigation are disabled in the observation frame.
-export async function observePage(document,path,paths,{active=()=>true,inspect=createInspector}={}){
+export async function observePage(document,path,paths,{active=()=>true,inspect=createInspector,fetchImpl=fetch}={}){
  if(!active()||!Array.isArray(paths)||!paths.includes(path)||!/^\/(?!\/)[^?#\\]*$/.test(path))throw new Error('Page is outside the approved website map');
  const target=new URL(path,document.location.origin);
  if(target.origin!==document.location.origin)throw new Error('Website origin changed');
+ // Frame load fires for HTTP error pages too. Check availability separately so
+ // a 404/500 cannot be counted as a successfully discovered empty screen.
+ const options={credentials:'same-origin',redirect:'error',signal:AbortSignal.timeout(15_000)};
+ let availability=await fetchImpl(target.href,{...options,method:'HEAD'});
+ if([405,501].includes(availability.status))availability=await fetchImpl(target.href,{...options,method:'GET'});
+ await availability.body?.cancel();
+ if(!availability.ok)throw new Error('Page unavailable; inspect it manually');
+ if(!active())throw new Error('Website mapping stopped');
  const frame=document.createElement('iframe');frame.dataset.adoptionWidget='true';frame.dataset.adoptionObservation='true';
  frame.title='Website map observation';frame.setAttribute('aria-hidden','true');frame.tabIndex=-1;
  frame.setAttribute('sandbox','allow-same-origin allow-scripts');

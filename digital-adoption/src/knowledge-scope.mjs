@@ -27,6 +27,11 @@ export function knowledgeScope({ embeddingId, audienceIds,sourceRevisions }) {
         throw new Error('Invalid search request');
       }
       const ranked=after?decodeCursor(after):null,legacy=after!==null&&ranked===null;
+      // Standard text analysis can retain a possessive suffix. Preserve the
+      // original spelling and also search its plain-name alias, so a named
+      // subject is not lost while generic words dominate the relevance score.
+      const aliases=[...new Set([...query.matchAll(/([\p{L}\p{N}][\p{L}\p{N}_-]*)['’]s\b/giu)].map(match=>match[1]))];
+      const lexicalQuery=aliases.length?query+' '+aliases.join(' '):query;
       return {
         index,
         body: {
@@ -42,7 +47,7 @@ export function knowledgeScope({ embeddingId, audienceIds,sourceRevisions }) {
               { terms: { audience_ids: audiences } },
               ...(sourceRevisions===undefined?[]:sourceRevisions.length?[{bool:{should:sourceRevisions.map(source=>({bool:{filter:[{term:{source_id:source.id}},{term:{revision:source.revision}}]}})),minimum_should_match:1}}]:[{match_none:{}}]),
             ],
-            must: [{ multi_match: { query, fields: ['title^2', 'text'], type: 'best_fields' } }],
+            must: [{ multi_match: { query:lexicalQuery, fields: ['title^2', 'text'], type: 'best_fields' } }],
           } },
         },
       };

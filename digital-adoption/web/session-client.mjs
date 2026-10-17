@@ -1,13 +1,19 @@
 // Serialize renewal with requests so an in-flight request cannot use a token
 // invalidated by a concurrent renewal. Never retry a possibly effectful request.
 export function createSessionClient({service,fetchImpl=fetch,clock=Date.now}) {
- let session=null,queue=Promise.resolve(),stopped=false;
+ let session=null,queue=Promise.resolve(),stopped=false,activeRead=null;
+ // Interrupt only requests that cannot submit host changes, upload content,
+ // renew credentials or consume an approval. Aborted reads are never retried.
+ const interruptible=new Set(['/v1/discovery/next','/v1/discovery/status','/v1/discovery/list','/v1/plan','/v1/recipe/plan','/v1/ask','/v1/knowledge/search']);
  const initializationKey=Array.from(crypto.getRandomValues(new Uint8Array(32)),b=>b.toString(16).padStart(2,'0')).join('');
  const perform=async(path,data={})=>{
   if(stopped)throw new Error('Session stopped; start a new session');
   if(session&&(session.expiresAt<=clock()||session.sessionExpiresAt<=clock()))throw new Error('Session expired; start a new session');
   if(path==='/v1/sessions')data={...data,initializationKey};
-  const send=()=>fetchImpl(new URL(path.replace(/^\/+/,''),service),{method:'POST',credentials:'omit',redirect:'error',signal:AbortSignal.timeout(55_000),
+  const controller=new AbortController(),read=interruptible.has(path)?{controller}:null;
+  if(read)activeRead=read;
+  try{
+  const send=()=>fetchImpl(new URL(path.replace(/^\/+/,''),service),{method:'POST',credentials:'omit',redirect:'error',signal:AbortSignal.any([controller.signal,AbortSignal.timeout(55_000)]),
    headers:{'Content-Type':'application/json',...(session?{Authorization:`Bearer ${session.sessionToken}`}:{})},body:JSON.stringify(data)});
   let response;
   try{response=await send();}catch(error){
@@ -15,7 +21,7 @@ export function createSessionClient({service,fetchImpl=fetch,clock=Date.now}) {
    if(stopped||session||path!=='/v1/sessions'||!['TypeError','TimeoutError'].includes(error.name))throw error;
    response=await send();
   }
-  if(!response.ok)throw new Error('Request refused; reconnect or review configuration');
+  if(!response.ok)throw new Error(response.status===503?'The copilot service is temporarily unavailable. Check the current task before trying again.':response.status===502?'The assistant could not prepare a valid response. Nothing was changed.':response.status===429?'The request limit was reached. Wait a moment before trying again.':response.status===413?'This request is too large. Review the file or content limits.':'Request refused; reconnect or review configuration');
   const result=await response.json();
   if(stopped)throw new Error('Session stopped; response discarded');
   if(path==='/v1/sessions'||path==='/v1/renew') {
@@ -24,9 +30,14 @@ export function createSessionClient({service,fetchImpl=fetch,clock=Date.now}) {
    session=result;
   }
   return result;
+  }catch(error){
+   if(!controller.signal.aborted&&['TypeError','TimeoutError'].includes(error.name))throw new Error('The copilot connection was interrupted. Check the current task before trying again.');
+   throw error;
+  }finally{if(activeRead===read)activeRead=null;}
  };
  return {
   request(path,data){const result=queue.then(()=>perform(path,data));queue=result.catch(()=>{});return result;},
+  interruptRead(){if(!activeRead)return false;activeRead.controller.abort();return true;},
   stop(){stopped=true;session=null;},
  };
 }

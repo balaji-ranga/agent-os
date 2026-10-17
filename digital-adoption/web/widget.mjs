@@ -37,16 +37,15 @@ window.addEventListener('message', event => {
   pending.delete(event.data.id); clearTimeout(item.timeout);
   event.data.error ? item.reject(new Error(event.data.error)) : item.resolve(event.data.result);
 });
-let errorTimer;
 function showError(error){
- const banner=document.querySelector('#error-banner');clearTimeout(errorTimer);document.querySelector('#error-message').textContent=error.message||String(error);banner.hidden=false;
- errorTimer=setTimeout(()=>{banner.hidden=true;},5000);
+ const banner=document.querySelector('#error-banner');document.querySelector('#error-message').textContent=error.message||String(error);banner.hidden=false;
 }
-document.querySelector('#error-dismiss').onclick=()=>{clearTimeout(errorTimer);document.querySelector('#error-banner').hidden=true;};
+document.querySelector('#error-dismiss').onclick=()=>{document.querySelector('#error-banner').hidden=true;};
 const reviewObserver=new MutationObserver(()=>{const review=document.querySelector('#review');if(review.childElementCount){review.scrollIntoView({block:'nearest'});review.focus({preventScroll:true});}});
 reviewObserver.observe(document.querySelector('#review'),{childList:true});
 function coachingAvailability(config){
- const enabled=config.capabilities?.coach===true;
+ const enabled=config.capabilities?.coach===true,canUpload=config.capabilities?.upload===true;
+ document.querySelector('#knowledge-upload').hidden=!canUpload;document.querySelector('#upload-form').hidden=!canUpload;document.querySelector('#open-upload').disabled=!canUpload;document.querySelector('#capture-use').disabled=!canUpload;
  const actionsTab=document.querySelector('#tab-actions');actionsTab.hidden=!enabled;
  if(!enabled&&actionsTab.getAttribute('aria-selected')==='true')selectTab(document.querySelector('#tab-guide'));
  document.querySelector('#map-access').textContent=enabled?'Owner coaching enabled. Choose public read-only pages to map.':'Website mapping needs owner coaching access. Visitors can inspect the current page without saving a shared map.';
@@ -212,13 +211,15 @@ document.querySelector('#discovery-list').onclick=async()=>{try{const result=awa
 for(const operation of ['pause','resume','stop'])document.querySelector(`#discovery-${operation}`).onclick=async()=>{try{discoveryEpoch++;clearTimeout(discoveryTimer);const report=await call(`discovery-${operation}`,{jobId:discoverySelect.value||discoveryJob});renderDiscovery(report);if(operation==='resume')discoveryTick(discoveryEpoch);}catch(error){showError(error);}};
 window.addEventListener('pagehide',()=>{discoveryEpoch++;clearTimeout(discoveryTimer);},{once:true});
 const uploadForm=document.querySelector('#upload-form'),uploadStatus=document.querySelector('#upload-status'),uploadRefresh=document.querySelector('#upload-refresh');
+function openUpload(){selectTab(document.querySelector('#tab-knowledge'));document.querySelector('#knowledge-upload').open=true;uploadForm.scrollIntoView({block:'nearest'});}
+document.querySelector('#open-upload').onclick=openUpload;
 uploadForm.onsubmit=async event=>{event.preventDefault();const button=event.submitter;button.disabled=true;try{const file=capturedFile||document.querySelector('#upload-file').files[0],title=document.querySelector('#upload-title').value;if(!file)throw new Error('Choose a file first.');const fingerprint=`${file.name}:${file.size}:${file.lastModified}:${title}`;if(uploadOperation?.fingerprint!==fingerprint)uploadOperation={fingerprint,id:crypto.randomUUID()};const data=await encodeFile(file);lastUpload=await call('upload-document',{...data,title,sharedConsent:document.querySelector('#upload-consent').checked,operationId:uploadOperation.id});uploadStatus.textContent=`Upload accepted · ${lastUpload.status}. It is searchable only when Ready.`;uploadRefresh.hidden=false;}catch(error){showError(error);}finally{button.disabled=false;}};
 uploadRefresh.onclick=async()=>{try{const result=await call('upload-status',{sourceId:lastUpload.id});uploadStatus.textContent=`Processing: ${result.status}${result.lastError?' · '+result.lastError:''}`;}catch(error){showError(error);}};
 document.querySelector('#upload-file').onchange=()=>{capturedFile=null;uploadOperation=null;};
 const capture=createScreenCapture({onChange:({state,blob})=>{reviewBlob=blob;document.querySelector('#capture-status').textContent=`Screen capture: ${state}. Nothing is uploaded automatically.`;document.querySelector('#capture-start').disabled=['requesting','recording','paused'].includes(state);document.querySelector('#capture-pause').disabled=!['recording','paused'].includes(state);document.querySelector('#capture-pause').textContent=state==='paused'?'Resume':'Pause';document.querySelector('#capture-stop').disabled=!['recording','paused'].includes(state);document.querySelector('#capture-discard').disabled=['idle','discarded'].includes(state);document.querySelector('#capture-use').hidden=!blob;const preview=document.querySelector('#capture-preview');if(previewUrl){URL.revokeObjectURL(previewUrl);previewUrl=null;}preview.hidden=!blob;if(blob){previewUrl=URL.createObjectURL(blob);preview.src=previewUrl;}else preview.removeAttribute('src');}});
 document.querySelector('#capture-start').onclick=()=>capture.start({audio:document.querySelector('#capture-audio').checked}).catch(error=>{document.querySelector('#capture-status').textContent=error.message;});
 document.querySelector('#capture-pause').onclick=()=>capture.state()==='paused'?capture.resume():capture.pause();document.querySelector('#capture-stop').onclick=()=>capture.stop();document.querySelector('#capture-discard').onclick=()=>{capturedFile=null;capture.discard();};
-document.querySelector('#capture-use').onclick=()=>{if(!reviewBlob)return;capturedFile=new File([reviewBlob],reviewBlob.type==='video/mp4'?'screen-recording.mp4':'screen-recording.webm',{type:reviewBlob.type});document.querySelector('#upload-title').value||='Screen recording';uploadStatus.textContent='Recording selected locally. Review the sharing checkbox, then Upload for processing.';uploadForm.scrollIntoView({block:'nearest'});};
+document.querySelector('#capture-use').onclick=()=>{if(!reviewBlob)return;capturedFile=new File([reviewBlob],reviewBlob.type==='video/mp4'?'screen-recording.mp4':'screen-recording.webm',{type:reviewBlob.type});document.querySelector('#upload-title').value||='Screen recording';uploadStatus.textContent='Recording selected locally. Review the sharing checkbox, then Upload for processing.';openUpload();};
 window.addEventListener('pagehide',()=>{capture.discard();if(previewUrl)URL.revokeObjectURL(previewUrl);},{once:true});
 try { const config=await call('config');applyTheme(config.theme);coachingAvailability(config);verifiedLearningAvailable=config.learningEnabled===true&&config.canVerifyOutcome===true;uploadForm.hidden=!config.capabilities?.upload;uploadStatus.textContent=config.capabilities?.upload?'Up to 16 MB; PDF/DOCX/text/HTML/PNG/JPEG and MP4/WebM (English audio transcription).':'Visitor uploads are disabled. The website owner can add shared sources.';document.querySelector('#capture-use').disabled=!config.capabilities?.upload;const result = await call('history'); result.messages.forEach(message => show(message.text,message.channel||'guide',message.role,message.id)); }
 catch(error) { showError(error); }

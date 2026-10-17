@@ -5,7 +5,7 @@ import { createSessionClient } from './session-client.mjs';
 import {createRecorder,replayNavigation} from './recording.mjs';
 import {recordedPackage} from './learning-package.mjs';
 
-export async function mount({ serviceUrl, installationToken, theme = {},getHostIdentity,getVerifiedOutcome }) {
+export async function mount({ serviceUrl, installationToken, theme = {},getHostIdentity,getVerifiedOutcome,bindVerifiedSave }) {
   if(window.frameElement?.dataset.adoptionObservation==='true')return {updateTheme(){},async destroy(){}};
   let appearance = normalizeTheme(theme);
   let hostAppearance=appearance;
@@ -17,6 +17,7 @@ export async function mount({ serviceUrl, installationToken, theme = {},getHostI
   const request=(path,data)=>client.request(path,data);
   if(getHostIdentity!==undefined&&typeof getHostIdentity!=='function')throw new Error('Host identity must be a backend token callback');
   if(getVerifiedOutcome!==undefined&&typeof getVerifiedOutcome!=='function')throw new Error('Verified outcome must be a backend receipt callback');
+  if(bindVerifiedSave!==undefined&&typeof bindVerifiedSave!=='function')throw new Error('Save binding must be a backend callback');
   const bootstrap=await request('/v1/sessions', { installationToken,identityToken:await getHostIdentity?.() });
   const inspector = createInspector(document);
   const recorder=createRecorder(document);
@@ -63,7 +64,10 @@ export async function mount({ serviceUrl, installationToken, theme = {},getHostI
     if (!message || message.channel !== 'flolah-adoption-v1' || typeof message.id !== 'string' || message.id.length > 80) return;
     let result;
     try {
-      const ownerOperation=/^(?:discovery-|record-|replay-navigation$|inspect$|recipes$|recipe-plan$|documents$|upload-document$|upload-status$)/.test(message.type);
+      // Unblock the queue before the owner's fresh capability check. Waiting
+      // for that check first would itself queue Pause behind the stalled read.
+      if(['discovery-pause','discovery-stop'].includes(message.type))client.interruptRead();
+      const ownerOperation=/^(?:discovery-|record-|replay-navigation$|inspect$|recipes$|recipe-plan$|documents$)/.test(message.type);
       if(ownerOperation&&!(await request('/v1/capabilities')).capabilities.coach)throw new Error('Actions requires owner coaching access. Enable a short-lived coaching code in settings.');
       if(message.type==='access')result=await request('/v1/capabilities');
       else if (message.type === 'config') result = {theme:appearance,canVerifyOutcome:typeof getVerifiedOutcome==='function',...await request('/v1/capabilities')};
@@ -74,7 +78,7 @@ export async function mount({ serviceUrl, installationToken, theme = {},getHostI
       else if (message.type === 'history') result = await request('/v1/history');
       else if(message.type==='clear-history'){taskGeneration++;currentSnapshot=null;result=await request('/v1/history/clear');}
       else if(message.type==='documents')result=await request('/v1/knowledge/documents');
-      else if(message.type==='upload-document')result=await request('/v1/knowledge/upload',{title:message.title,filename:message.filename,mime:message.mime,content:message.content,sharedConsent:message.sharedConsent,operationId:message.operationId});
+      else if(message.type==='upload-document'){if(!(await request('/v1/capabilities')).capabilities.upload)throw new Error('Uploads are disabled for this website.');result=await request('/v1/knowledge/upload',{title:message.title,filename:message.filename,mime:message.mime,content:message.content,sharedConsent:message.sharedConsent,operationId:message.operationId});}
       else if(message.type==='upload-status')result=await request('/v1/knowledge/upload-status',{sourceId:message.sourceId});
       else if(message.type==='coaching-exchange'){const grant=await request('/v1/coaching/exchange',{code:message.code});result={...grant,...await request('/v1/capabilities')};}
       else if(message.type==='recipes')result=await request('/v1/recipes');
@@ -129,7 +133,7 @@ export async function mount({ serviceUrl, installationToken, theme = {},getHostI
       }
       else if (message.type === 'message') result = await request('/v1/messages', { text: message.text });
       else if (message.type === 'ask') result = await request('/v1/ask',{text:message.text,replyTo:message.replyTo});
-      else if(message.type==='cancel'){taskGeneration++;currentSnapshot=null;result={stopped:true};}
+      else if(message.type==='cancel'){taskGeneration++;currentSnapshot=null;client.interruptRead();result={stopped:true};}
       else if (message.type === 'inspect') {result=inspector.snapshot({inventory:true});const access=await request('/v1/capabilities');if(access.capabilities.coach)result.learning=await request('/v1/learning/observe',{snapshot:result});}
       else if (message.type === 'plan') {
         const generation=++taskGeneration;
@@ -156,7 +160,14 @@ export async function mount({ serviceUrl, installationToken, theme = {},getHostI
           guidedQueue={actions:proposal.actions,revision:proposal.revision,index:0,generation};result=await nextGuidance();
         }else for (const action of proposal.actions) {
           if(closed||generation!==taskGeneration)throw new Error('Task stopped; remaining actions cancelled');
-          if(action.type==='submit')results.push(await inspector.submit({ref:action.ref,expectedRevision:proposal.revision,approved:true,active:()=>!closed&&generation===taskGeneration}));
+          if(action.type==='submit'){
+            if(message.learningConsent===true&&bindVerifiedSave){
+              await bindVerifiedSave({sessionId:bootstrap.sessionId,proposalId:message.proposalId,path:currentSnapshot.path});
+              if(closed||generation!==taskGeneration)throw new Error('Save stopped before dispatch');
+              await request('/v1/history'); // Recheck access after the host binding.
+            }
+            results.push(await inspector.submit({ref:action.ref,expectedRevision:proposal.revision,approved:true,active:()=>!closed&&generation===taskGeneration}));
+          }
           else if(action.type==='navigate')results.push(await inspector.navigate({ref:action.ref,expectedRevision:proposal.revision,activation:action.activation,approved:true}));
           else if(action.type==='highlight')results.push(inspector.highlight({ref:action.ref,expectedRevision:proposal.revision}));
           else {inspector.highlight({ref:action.ref,expectedRevision:proposal.revision});results.push(inspector.fill({ ref:action.ref,value:action.value,expectedRevision:proposal.revision,approved:true }));}
@@ -190,7 +201,7 @@ export async function mount({ serviceUrl, installationToken, theme = {},getHostI
     }
   }, 240_000);
   return { updateTheme: patch => {appearance=normalizeTheme({...appearance,...patch});hostAppearance=appearance;applyAppearance();}, destroy: async () => {
-    closed = true;taskGeneration++;recorder.stop();inspector.destroy(); clearInterval(timer); window.removeEventListener('message', handler); frame.remove();launcher.remove();
+    closed = true;taskGeneration++;client.interruptRead();recorder.stop();inspector.destroy(); clearInterval(timer); window.removeEventListener('message', handler); frame.remove();launcher.remove();
     try { await request('/v1/terminate'); } finally { client.stop(); }
   } };
 }

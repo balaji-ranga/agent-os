@@ -23,13 +23,15 @@ import {createCoachingGrants} from './coaching-grants.mjs';
 import {createDiscoveryJobs} from './discovery-jobs.mjs';
 import {createSourceMap} from './source-map.mjs';
 import {createHostIdentity} from './host-identity.mjs';
+import {createOperationalTelemetry} from './operational-telemetry.mjs';
 const config=JSON.parse(readFileSync('/config/service.json','utf8'));
 const repository=openRepository('/data/adoption.sqlite');
+const telemetry=createOperationalTelemetry();
 const hostIdentity=createHostIdentity(repository);
 const authority=new SessionAuthority({repository,development:true,hostIdentity}); // Only explicit loopback demo origins below are registered.
 const search=createOpenSearch({...config.search,privateNetwork:true});
 const knowledge=createKnowledgeService(repository,search);
-const ingestion=createSourceIngestion(repository,{knowledge,blobs:createBlobStore('/data/objects'),extract:createDocumentExtractor({python:'/opt/adoption-python/bin/python'}),fetchUrl:createPublicUrlFetcher()});
+const ingestion=createSourceIngestion(repository,{knowledge,blobs:createBlobStore('/data/objects'),extract:createDocumentExtractor({python:'/opt/adoption-python/bin/python'}),fetchUrl:createPublicUrlFetcher(),onEvent:telemetry.job});
 knowledge.recoverExpired();
 const recoveryTimer=setInterval(()=>knowledge.recoverExpired(),30_000);
 recoveryTimer.unref();
@@ -67,6 +69,6 @@ const management=createManagement({authenticate:createManagementIdentity({platfo
 const ownerIdentity=createOwnerIdentity(repository,{send:createMailer(config.mail)});
 const ownerManagement=createManagement({authenticate:cookie=>ownerIdentity.authenticate(cookie),control,knowledge,search,platformOrigin,registrationEmail,ingestion,learning,coaching,sourceMap,hostIdentity});
 ingestion.start();
-const server=createAdoptionServer({authority,knowledge,ingestion,learning,coaching,discovery,sourceMap,hostIdentity,management,ownerIdentity,ownerManagement,platformOrigin,answer:createKnowledgeAnswer(model),planner:createPlatformPlanner(model),proposals:createProposalStore(repository,{checkBinding:(scope,binding)=>learning.bindingAllowed(scope,binding)})});
+const server=createAdoptionServer({authority,knowledge,ingestion,learning,coaching,discovery,sourceMap,hostIdentity,management,ownerIdentity,ownerManagement,platformOrigin,telemetry,answer:createKnowledgeAnswer(model),planner:createPlatformPlanner(model),proposals:createProposalStore(repository,{checkBinding:(scope,binding)=>learning.bindingAllowed(scope,binding)})});
 server.listen(4193,'0.0.0.0',()=>console.log('Independent adoption service listening; full acceptance not yet certified'));
 process.on('SIGTERM',()=>{ingestion.stop();clearInterval(recoveryTimer);server.closeAllConnections();server.close(()=>{process.exit(0);});});

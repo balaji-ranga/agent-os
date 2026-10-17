@@ -20,3 +20,11 @@ test('large upload is authorized before buffering and derives scope/capability f
   assert.equal((await post('/v1/knowledge/upload',{},'forged')).status,403);
  }finally{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
 });
+
+test('permission removed during storage cleans up the new upload but never an earlier idempotent source',async()=>{
+ const origin='http://127.0.0.1',authority=new SessionAuthority({development:true}),installation=authority.registerApproved({embeddingId:'upload-revoke',origins:[origin],expiresAt:Date.now()+60000,visitorUploads:true}),session=authority.initialize({...installation,origin}),removed=[];let reused=false;
+ const ingestion={upload:async()=>{authority.setUploadPolicy('upload-revoke',false);return {id:'owned-test-source',status:'queued',reused};},remove:async(scope,id)=>removed.push({embeddingId:scope.embeddingId,id})};
+ const server=createAdoptionServer({authority,ingestion});server.listen(0,'127.0.0.1');await once(server,'listening');
+ const upload=()=>fetch('http://127.0.0.1:'+server.address().port+'/v1/knowledge/upload',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json',Authorization:'Bearer '+session.sessionToken},body:'{}'});
+ try{assert.equal((await upload()).status,403);assert.deepEqual(removed,[{embeddingId:'upload-revoke',id:'owned-test-source'}]);authority.setUploadPolicy('upload-revoke',true);reused=true;assert.equal((await upload()).status,403);assert.equal(removed.length,1);}finally{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
+});

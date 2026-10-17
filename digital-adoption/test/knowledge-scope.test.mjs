@@ -39,3 +39,12 @@ test('search bounds input, supports pagination and rejects arbitrary cursor stru
   assert.throws(() => knowledgeScope({ embeddingId: '*', audienceIds: ['public'] }), /Invalid/);
   assert.throws(() => knowledgeScope({ embeddingId: 'A', audienceIds: [] }), /Invalid/);
 });
+
+test('possessive subject spellings retain plain-name retrieval without altering entitlement filters',()=>{
+ const scope=knowledgeScope({embeddingId:'A',audienceIds:['public']});
+ for(const query of ['What is Rowan’s return period?',"What is Rowan's return period?"]){
+  const request=scope.search({query});assert.equal(request.body.query.bool.must[0].multi_match.query,query+' Rowan');
+  assert.deepEqual(request.body.query.bool.filter,scope.search({query:'return period'}).body.query.bool.filter);
+ }
+ assert.equal(scope.search({query:'ordinary policy'}).body.query.bool.must[0].multi_match.query,'ordinary policy');
+});

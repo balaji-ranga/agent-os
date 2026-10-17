@@ -4,6 +4,7 @@ import { validateSnapshot } from './proposals.mjs';
 import {createRequestBudget} from './request-budget.mjs';
 import {constrainNavigation} from './navigation-intent.mjs';
 import {constrainEdit} from './edit-intent.mjs';
+import {randomUUID} from 'node:crypto';
 
 const assets = new Map([
   ['/owner.html', ['../web/manage.html', 'text/html']],
@@ -39,7 +40,7 @@ async function body(req,limit=32_768) {
   return parsed;
 }
 
-export function createAdoptionServer({ authority, proposals, planner, knowledge, ingestion, learning, coaching, discovery, sourceMap,hostIdentity, answer, management, ownerIdentity, ownerManagement, platformOrigin, development = false, fixture = null }) {
+export function createAdoptionServer({ authority, proposals, planner, knowledge, ingestion, learning, coaching, discovery, sourceMap,hostIdentity, answer, management, ownerIdentity, ownerManagement, platformOrigin,telemetry, development = false, fixture = null }) {
   const budget=createRequestBudget();
   let activeUploads=0;
   return createServer(async (req, res) => {
@@ -47,8 +48,15 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
-    const send = (code, data) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(data)); };
-    const path = new URL(req.url, 'http://unused').pathname;
+    let requestScope,entityId,state;
+    const send = (code, data) => {entityId=data?.id||data?.messageId;state=data?.status;res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(data)); };
+    let path;try{path=new URL(req.url,'http://unused').pathname;}catch{return send(400,{error:'Invalid request URL'});}
+    if(telemetry&&req.method==='POST'&&path.startsWith('/v1/')){
+      const requestId=randomUUID(),started=Date.now(),operation=telemetry.operation(path);
+      res.setHeader('X-Adoption-Request-Id',requestId);
+      res.setHeader('Access-Control-Expose-Headers','X-Adoption-Request-Id');
+      res.once('finish',()=>telemetry.request({requestId,operation,status:res.statusCode,durationMs:Date.now()-started,embeddingId:requestScope?.embeddingId,sessionId:requestScope?.sessionId,entityId,state}));
+    }
     try {
       if (req.method === 'GET' && path === '/health') return send(200, { service: 'digital-adoption', status: 'ok', releaseReady: false });
       if (req.method === 'GET' && assets.has(path)) {
@@ -118,6 +126,10 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
         const sessionToken = /^Bearer (\S+)$/.exec(req.headers.authorization || '')?.[1];
         const auth = { sessionToken, origin };
         const scope = authority.context(auth);
+        requestScope=scope;
+        // Authorized callers must be able to read dependency failures as well
+        // as successful responses, rather than receiving an opaque CORS error.
+        res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin');
         if (path === '/v1/history') result = { messages: authority.history(auth) };
         else if(path==='/v1/capabilities')result={capabilities:scope.capabilities,learningEnabled:learning?.learningEnabled?.(scope)===true};
         else if(path==='/v1/learning/complete'){
@@ -167,7 +179,13 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
         else if(path==='/v1/knowledge/upload'){
           if(!ingestion||!scope.capabilities.upload)throw new Error('Uploads disabled');
           authority.touch(auth);result=await ingestion.upload({...scope,role:'maintainer'},input);
-          authority.context(auth); // Revocation while storage was in progress is not a successful response.
+          try{if(!authority.context(auth).capabilities.upload)throw new Error('Uploads disabled');}
+          catch(error){
+            // Remove only this newly created upload. An idempotent retry must
+            // never delete a source created by an earlier authorized request.
+            if(!result.reused)await ingestion.remove({...scope,role:'maintainer'},result.id);
+            throw error;
+          }
         }
         else if(path==='/v1/knowledge/upload-status'){if(!ingestion)throw new Error('Ingestion unavailable');result=ingestion.status(scope,input.sourceId);}
         else if (path === '/v1/messages') result = authority.appendMessage({ ...auth, text: input.text, replyTo: input.replyTo });
@@ -225,8 +243,10 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
       res.setHeader('Access-Control-Allow-Origin', origin); res.setHeader('Vary', 'Origin');
       return send(200, result);
     } catch (error) {
-      const code = error.message === 'Request too large' ? 413 : error.message==='Request rate exceeded'||error.message==='Request capacity reached'?429:403;
-      return send(code, { error: code === 413 ? 'Request too large' : 'Access denied or invalid request' });
+      const unavailable=['Platform model unavailable','Knowledge model unavailable','Search operation failed','Search provisioning check failed'].includes(error.message);
+      const invalidResponse=['Invalid platform model response','Invalid evidence citations','The assistant could not produce a valid current-screen proposal. Nothing was changed.'].includes(error.message);
+      const code = error.message === 'Request too large' ? 413 : error.message==='Request rate exceeded'||error.message==='Request capacity reached'?429:unavailable?503:invalidResponse?502:403;
+      return send(code, { error: code===413?'Request too large':code===503?'Copilot service temporarily unavailable':code===502?'The assistant could not prepare a valid response. Nothing was changed.':'Access denied or invalid request' });
     }finally{if(uploadSlot)activeUploads--;}
   });
 }

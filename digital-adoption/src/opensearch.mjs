@@ -7,10 +7,10 @@ export function createOpenSearch({ url, authorization, fetchImpl = fetch, develo
   if (base.username || base.password || base.search || base.hash || base.pathname !== '/' ||
       (base.protocol !== 'https:' && !allowedHttp)) throw new Error('Invalid search endpoint');
   async function request(path, method, body, ndjson=false) {
-    const response=await fetchImpl(new URL(path,base),{method,redirect:'error',signal:AbortSignal.timeout(15_000),
+    let response,result;try{response=await fetchImpl(new URL(path,base),{method,redirect:'error',signal:AbortSignal.timeout(15_000),
       headers:{'Content-Type':ndjson?'application/x-ndjson':'application/json',...(authorization?{Authorization:authorization}:{})},
       ...(body===undefined?{}:{body:ndjson?body:JSON.stringify(body)})});
-    const result=await response.json();
+    result=await response.json();}catch{throw new Error('Search operation failed');}
     if (!response.ok || result.errors || result._shards?.failed>0) throw new Error('Search operation failed');
     return result;
   }

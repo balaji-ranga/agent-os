@@ -19,11 +19,11 @@ test('same-embedding audiences cannot inspect raw/status, remove sources or coll
   await env.ingestion.drain();await env.ingestion.drain();assert.equal(env.ingestion.status(manager,a.id).status,'ready');assert.equal(env.ingestion.status(reader,b.id).status,'ready');
  }finally{await env.close();}
 });
-async function setup(extract){
+async function setup(extract,onEvent){
  const root=await mkdtemp(join(tmpdir(),'adoption-upload-')),repository=openRepository();let chunks=[];
  const search={index:async(_,batch)=>{chunks=batch;},remove:async(_,id)=>{chunks=chunks.filter(c=>c.source_id!==id);},search:async()=>({hits:{hits:chunks.map(_source=>({_source}))}})};
  const knowledge=createKnowledgeService(repository,search),blobs=createBlobStore(root);
- const ingestion=createSourceIngestion(repository,{knowledge,blobs,extract:extract||createDocumentExtractor({python:process.platform==='win32'?'python':'python3'})});
+ const ingestion=createSourceIngestion(repository,{knowledge,blobs,onEvent,extract:extract||createDocumentExtractor({python:process.platform==='win32'?'python':'python3'})});
  return {repository,knowledge,blobs,ingestion,search,root,close:async()=>{ingestion.stop();repository.close();await rm(root,{recursive:true,force:true});}};
 }
 test('real text/HTML extraction, queued status, same-embedding sharing and deletion of raw/indexed data',async()=>{
@@ -53,9 +53,10 @@ test('concurrent upload retry has one object/job; conflict, traversal, spoofed t
  }finally{await env.close();}
 });
 test('interrupted/failed extraction retries visibly; delete during indexing removes later writes',async()=>{
- let fail=true,begin,finish;const env=await setup(async()=>{if(fail)throw new Error('private parser trace');return {sections:[{text:'CEDAR_RECOVERY_176',locator:'Page 2'}]};});try{
+ let fail=true,begin,finish;const events=[],env=await setup(async()=>{if(fail)throw new Error('private parser trace');return {sections:[{text:'CEDAR_RECOVERY_176',locator:'Page 2'}]};},event=>events.push(event));try{
   const source=await env.ingestion.upload(owner,file);await env.ingestion.drain();assert.equal(env.ingestion.status(owner,source.id).status,'failed');assert.doesNotMatch(env.ingestion.status(owner,source.id).lastError,/private/);
   fail=false;env.ingestion.retry(owner,source.id);await env.ingestion.drain();assert.equal(env.ingestion.status(owner,source.id).status,'ready');assert.equal(env.knowledge.inspect(owner,source.id).chunks,1);
+  assert.deepEqual(events.map(event=>event.state),['processing','failed','processing','ready']);assert.doesNotMatch(JSON.stringify(events),/private parser|CEDAR_RECOVERY/);
   const second=await env.ingestion.upload(owner,{...file,operationId:'second-upload-operation'});
   const started=new Promise(resolve=>{begin=resolve;}),blocked=new Promise(resolve=>{finish=resolve;});const original=env.search.index;env.search.index=async(...args)=>{begin();await blocked;await original(...args);};
   const work=env.ingestion.drain();await started;await env.ingestion.remove(owner,second.id);finish();await work;
@@ -71,4 +72,9 @@ test('video playlists cannot reach a parser and the worker rotates websites inst
   for(let i=0;i<5;i++)await env.ingestion.drain();
   assert.equal(new Set(processed.slice(0,3)).size,3);assert.equal(processed.length,5);
  }finally{await env.close();}
+});
+
+test('raw deletion still completes when remote index cleanup fails',async()=>{
+ const env=await setup(async()=>({sections:[{text:'Disposable synthetic cleanup fixture',locator:'Document'}]}));
+ try{const source=await env.ingestion.upload(owner,file);await env.ingestion.drain();env.search.remove=async()=>{throw new Error('Search cleanup unavailable');};await assert.rejects(env.ingestion.remove(owner,source.id),/unavailable/);assert.equal(env.ingestion.status(owner,source.id).status,'deleted');await assert.rejects(env.blobs.read(owner.embeddingId,source.id));assert.equal((await env.knowledge.retrieve(owner,{query:'fixture'})).evidence.length,0);}finally{await env.close();}
 });

@@ -9,6 +9,9 @@ services:
     mem_limit: 1024m
     cpus: 1
     pids_limit: 128
+    logging:
+      driver: json-file
+      options: {max-size: "5m", max-file: "3"}
     tmpfs: ["/tmp:size=64m,noexec,nosuid"]
     volumes:
       - ${ADOPTION_ROOT:?}/config/service.json:/config/service.json:ro
@@ -25,6 +28,9 @@ services:
     mem_limit: 256m
     cpus: 0.5
     pids_limit: 64
+    logging:
+      driver: json-file
+      options: {max-size: "5m", max-file: "3"}
     volumes:
       - ${ADOPTION_ROOT:?}/config/gateway.json:/config/gateway.json:ro
       - platform-data:/platform:ro

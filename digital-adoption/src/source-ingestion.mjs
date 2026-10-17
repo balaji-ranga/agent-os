@@ -11,9 +11,10 @@ const maintain=scope=>{if(scope?.role!=='maintainer'||!/^[A-Za-z0-9_-]{1,80}$/.t
 const trustedScope=job=>({embeddingId:job.embeddingId,audienceIds:job.audienceIds,role:'maintainer'});
 const audienceAllowed=(scope,job)=>Array.isArray(scope.audienceIds)&&job.audienceIds?.some(a=>scope.audienceIds.includes(a));
 const operationScope=scope=>scope.embeddingId+(scope.audienceIds?.length===1&&scope.audienceIds[0]==='public'?'':':'+createHash('sha256').update(JSON.stringify([...(scope.audienceIds||[])].sort())).digest('hex'));
-export function createSourceIngestion(repository,{knowledge,blobs,extract,fetchUrl,clock=Date.now}){
+export function createSourceIngestion(repository,{knowledge,blobs,extract,fetchUrl,clock=Date.now,onEvent=()=>{}}){
  const jobs=repository.map('source_jobs'),attempts=repository.map('source_uploads');
  let running=false,stopped=false,timer,rotation=[];
+ const notify=(job,state)=>{try{onEvent({embeddingId:job.embeddingId,jobId:job.id,state,attempts:job.attempts});}catch{}};
  const jobFor=(scope,id)=>{maintain(scope);const job=jobs.get(id);if(!job||job.embeddingId!==scope.embeddingId||!audienceAllowed(scope,job))throw new Error('Source not found');return job;};
  const service={
   addUrl(scope,{title,url,sharedConsent,operationId}){
@@ -57,7 +58,7 @@ export function createSourceIngestion(repository,{knowledge,blobs,extract,fetchU
   async remove(scope,id){
    maintain(scope);const job=jobs.get(id);if(job)jobFor(scope,id);else knowledge.inspect(scope,id);
    if(job){job.status='deleted';jobs.set(id,job);}
-   await knowledge.remove(scope,id);await blobs.remove(scope.embeddingId,id);return {id,status:'deleted'};
+   try{await knowledge.remove(scope,id);}finally{await blobs.remove(scope.embeddingId,id);}return {id,status:'deleted'};
   },
   async raw(scope,id){
    maintain(scope);const job=jobFor(scope,id);if(job.status!=='ready'||knowledge.inspect(scope,id).status!=='ready')throw new Error('Source unavailable');
@@ -76,6 +77,7 @@ export function createSourceIngestion(repository,{knowledge,blobs,extract,fetchU
      if(stopped)break;
      const scope=trustedScope(candidate),job=jobs.get(candidate.id);if(job.status!=='queued')continue;
      job.status='extracting';job.attempts++;job.startedAt=clock();jobs.set(job.id,job);
+     notify(job,'processing');
      try{
       knowledge.processing(scope,job.id);
       let result;
@@ -90,9 +92,9 @@ export function createSourceIngestion(repository,{knowledge,blobs,extract,fetchU
       knowledge.extracted(scope,job.id,result);
       job.status='indexing';jobs.set(job.id,job);
       await knowledge.ingest(scope,job.id);
-      if(jobs.get(job.id)?.status!=='deleted'){job.status='ready';job.completedAt=clock();job.lastError=null;jobs.set(job.id,job);}
+      if(jobs.get(job.id)?.status!=='deleted'){job.status='ready';job.completedAt=clock();job.lastError=null;jobs.set(job.id,job);notify(job,'ready');}
      }catch{
-      if(jobs.get(job.id)?.status!=='deleted'){job.status='failed';job.lastError='Processing failed. Check the supported format, file limits and readable content, then retry.';jobs.set(job.id,job);knowledge.extractionFailed(scope,job.id);}
+      if(jobs.get(job.id)?.status!=='deleted'){job.status='failed';job.lastError='Processing failed. Check the supported format, file limits and readable content, then retry.';jobs.set(job.id,job);knowledge.extractionFailed(scope,job.id);notify(job,'failed');}
      }finally{
       // An in-flight index write may finish after deletion; perform cleanup again.
       if(jobs.get(job.id)?.status==='deleted'){await knowledge.remove(scope,job.id);await blobs.remove(scope.embeddingId,job.id);}
@@ -103,7 +105,7 @@ export function createSourceIngestion(repository,{knowledge,blobs,extract,fetchU
   start(){
    // A previous process cannot own an extraction after restart. Do not silently
    // call it Ready, or retry indefinitely without a visible user decision.
-   for(const job of jobs.values())if(['extracting','indexing'].includes(job.status)){job.status='failed';job.lastError='Processing interrupted; retry is available.';jobs.set(job.id,job);knowledge.extractionFailed(trustedScope(job),job.id);}
+   for(const job of jobs.values())if(['extracting','indexing'].includes(job.status)){job.status='failed';job.lastError='Processing interrupted; retry is available.';jobs.set(job.id,job);knowledge.extractionFailed(trustedScope(job),job.id);notify(job,'failed');}
    stopped=false;timer=setInterval(()=>service.drain().catch(()=>{}),1000);timer.unref();service.drain().catch(()=>{});
   },
   stop(){stopped=true;if(timer)clearInterval(timer);},
