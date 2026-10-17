@@ -11,6 +11,14 @@ import {createDocumentExtractor} from '../src/document-extractor.mjs';
 
 const owner={embeddingId:'upload-alpha',audienceIds:['public'],role:'maintainer'},other={...owner,embeddingId:'upload-beta'};
 const file={title:'Upload canary',filename:'handbook.txt',mime:'text/plain',content:Buffer.from('The synthetic upload canary is CEDAR_UPLOAD_176.').toString('base64'),sharedConsent:true,operationId:'unique-operation-176'};
+test('same-embedding audiences cannot inspect raw/status, remove sources or collide on upload operation IDs',async()=>{
+ const env=await setup(async()=>({sections:[{text:'Private canary',locator:'Document'}]}));try{
+  const manager={...owner,audienceIds:['manager']},reader={...owner,audienceIds:['reader']};
+  const a=await env.ingestion.upload(manager,file),b=await env.ingestion.upload(reader,file);assert.notEqual(a.id,b.id);
+  assert.throws(()=>env.knowledge.inspect(reader,a.id));assert.throws(()=>env.ingestion.status(reader,a.id));await assert.rejects(()=>env.ingestion.raw(reader,a.id));await assert.rejects(()=>env.ingestion.remove(reader,a.id));assert.equal(env.ingestion.status(manager,a.id).status,'queued');assert.deepEqual(env.knowledge.list(reader).map(source=>source.id),[b.id]);
+  await env.ingestion.drain();await env.ingestion.drain();assert.equal(env.ingestion.status(manager,a.id).status,'ready');assert.equal(env.ingestion.status(reader,b.id).status,'ready');
+ }finally{await env.close();}
+});
 async function setup(extract){
  const root=await mkdtemp(join(tmpdir(),'adoption-upload-')),repository=openRepository();let chunks=[];
  const search={index:async(_,batch)=>{chunks=batch;},remove:async(_,id)=>{chunks=chunks.filter(c=>c.source_id!==id);},search:async()=>({hits:{hits:chunks.map(_source=>({_source}))}})};

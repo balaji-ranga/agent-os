@@ -1,10 +1,12 @@
+import {observePage} from './page-observer.mjs';
 import { createInspector } from './dom.mjs';
 import { normalizeTheme } from './theme.mjs';
 import { createSessionClient } from './session-client.mjs';
 import {createRecorder,replayNavigation} from './recording.mjs';
 import {recordedPackage} from './learning-package.mjs';
 
-export async function mount({ serviceUrl, installationToken, theme = {} }) {
+export async function mount({ serviceUrl, installationToken, theme = {},getHostIdentity,getVerifiedOutcome }) {
+  if(window.frameElement?.dataset.adoptionObservation==='true')return {updateTheme(){},async destroy(){}};
   let appearance = normalizeTheme(theme);
   let hostAppearance=appearance;
   const service = new URL(serviceUrl);
@@ -13,7 +15,9 @@ export async function mount({ serviceUrl, installationToken, theme = {} }) {
   let closed = false;
   const client=createSessionClient({service});
   const request=(path,data)=>client.request(path,data);
-  await request('/v1/sessions', { installationToken });
+  if(getHostIdentity!==undefined&&typeof getHostIdentity!=='function')throw new Error('Host identity must be a backend token callback');
+  if(getVerifiedOutcome!==undefined&&typeof getVerifiedOutcome!=='function')throw new Error('Verified outcome must be a backend receipt callback');
+  const bootstrap=await request('/v1/sessions', { installationToken,identityToken:await getHostIdentity?.() });
   const inspector = createInspector(document);
   const recorder=createRecorder(document);
   let recordedSteps=[];
@@ -59,7 +63,10 @@ export async function mount({ serviceUrl, installationToken, theme = {} }) {
     if (!message || message.channel !== 'flolah-adoption-v1' || typeof message.id !== 'string' || message.id.length > 80) return;
     let result;
     try {
-      if (message.type === 'config') result = {theme:appearance,...await request('/v1/capabilities')};
+      const ownerOperation=/^(?:discovery-|record-|replay-navigation$|inspect$|recipes$|recipe-plan$|documents$|upload-document$|upload-status$)/.test(message.type);
+      if(ownerOperation&&!(await request('/v1/capabilities')).capabilities.coach)throw new Error('Actions requires owner coaching access. Enable a short-lived coaching code in settings.');
+      if(message.type==='access')result=await request('/v1/capabilities');
+      else if (message.type === 'config') result = {theme:appearance,canVerifyOutcome:typeof getVerifiedOutcome==='function',...await request('/v1/capabilities')};
       else if(message.type==='appearance'||message.type==='appearance-reset'){
         appearance=message.type==='appearance-reset'?hostAppearance:normalizeTheme({...appearance,...message.theme});applyAppearance();result={theme:appearance};
       }
@@ -72,15 +79,17 @@ export async function mount({ serviceUrl, installationToken, theme = {} }) {
       else if(message.type==='coaching-exchange'){const grant=await request('/v1/coaching/exchange',{code:message.code});result={...grant,...await request('/v1/capabilities')};}
       else if(message.type==='recipes')result=await request('/v1/recipes');
       else if(message.type==='discovery-list')result=await request('/v1/discovery/list');
+      else if(message.type==='discovery-report')result=await request('/v1/discovery/status',{id:message.jobId});
       else if(message.type==='discovery-scope'){
-        const access=await request('/v1/capabilities');if(!access.capabilities.coach)throw new Error('Enable coaching in settings first.');const observed=inspector.snapshot();result={origin:location.origin,paths:[...new Set([location.pathname,...observed.links.map(link=>link.path)])],blockedCount:observed.blockedCount};
+        const access=await request('/v1/capabilities');if(!access.capabilities.coach)throw new Error('Enable coaching in settings first.');const observed=inspector.snapshot();result={origin:location.origin,paths:[...new Set([location.pathname,...(observed.navigationCandidates||observed.links.map(link=>link.path))])],blockedCount:observed.blockedCount};
       }
+      else if(message.type==='discovery-extend')result=await request('/v1/discovery/extend',{id:message.jobId,paths:message.paths});
       else if(message.type==='discovery-start'){
         if(currentSnapshot||inspector.hasDraft())throw new Error('Stop the pending review and save or discard your current draft before discovery.');
-        taskGeneration++;result=await request('/v1/discovery/start',{seed:location.pathname,paths:message.paths,maxPages:message.maxPages});
+        taskGeneration++;result=await request('/v1/discovery/start',{seed:location.pathname,paths:message.paths,maxPages:message.maxPages});inspector.setReadOnlyPaths(message.paths);
       }
       else if(['discovery-pause','discovery-resume','discovery-stop'].includes(message.type)){
-        taskGeneration++;result=await request(`/v1/discovery/${message.type.slice(10)}`,{id:message.jobId});
+        taskGeneration++;result=await request(`/v1/discovery/${message.type.slice(10)}`,{id:message.jobId});if(message.type==='discovery-resume')inspector.setReadOnlyPaths(result.approvedPaths);
       }
       else if(message.type==='discovery-tick'){
         if(currentSnapshot)throw new Error('A form review is pending. Pause discovery before preparing changes.');
@@ -88,66 +97,82 @@ export async function mount({ serviceUrl, installationToken, theme = {} }) {
         if(next.done||next.paused)result=next;
         else{
           if(generation!==taskGeneration)throw new Error('Discovery interrupted');
-          if(location.pathname!==next.next.path){
-            const snapshot=inspector.snapshot(),targets=snapshot.links.filter(link=>link.path===next.next.path);
-            if(targets.length!==1){await request('/v1/discovery/pause',{id:message.jobId});throw new Error('Read-only navigation is missing or ambiguous. Discovery paused.');}
-            await request('/v1/history');if(generation!==taskGeneration)throw new Error('Discovery interrupted');
-            await inspector.navigate({ref:targets[0].ref,expectedRevision:snapshot.revision,approved:true});
-          }
-          let observed,previous=null,stable=0;
-          for(let sample=0;sample<40;sample++){
-            if(generation!==taskGeneration)throw new Error('Discovery interrupted');
-            observed=inspector.snapshot();const fingerprint=JSON.stringify({path:observed.path,fields:observed.fields.map(({key,label,type,required})=>({key,label,type,required})),links:observed.links.map(link=>link.path)});
-            stable=fingerprint===previous?stable+1:0;previous=fingerprint;
-            if(stable>=2&&(observed.fields.length||sample>=10))break;
-            await new Promise(resolve=>setTimeout(resolve,100));
-          }
-          if(inspector.hasDraft()){await request('/v1/discovery/pause',{id:message.jobId});throw new Error('An edited draft appeared. Discovery paused without further navigation.');}
+          const status=await request('/v1/discovery/status',{id:message.jobId});
+          let observed;try{observed=await observePage(document,next.next.path,status.approvedPaths,{active:()=>!closed&&generation===taskGeneration});}catch(error){if(closed||generation!==taskGeneration)throw error;result={report:await request('/v1/discovery/block',{id:message.jobId})};}
+          if(inspector.hasDraft()){await request('/v1/discovery/pause',{id:message.jobId});throw new Error('An edited draft appeared; mapping paused');}
           if(generation!==taskGeneration)throw new Error('Discovery interrupted');
-          result={report:await request('/v1/discovery/observe',{id:message.jobId,snapshot:observed})};
+          if(observed)result={report:await request('/v1/discovery/observe',{id:message.jobId,snapshot:observed})};
         }
       }
       else if(message.type==='guide-next')result=await nextGuidance();
       else if(message.type==='record-package'){await request('/v1/history');result=await recordedPackage({title:message.title,steps:recordedSteps,origin:location.origin});}
+      else if(message.type==='record-draft'){
+        const access=await request('/v1/capabilities');if(!access.capabilities.coach)throw new Error('Enable coaching before saving a shared teaching draft.');
+        const snapshot=inspector.snapshot();await request('/v1/learning/observe',{snapshot});
+        const pack=await recordedPackage({title:message.title,steps:recordedSteps,origin:location.origin});
+        result=await request('/v1/learning/draft',{package:pack,operationId:message.operationId});
+      }
       else if(message.type==='recipe-plan'){
         const generation=++taskGeneration;currentSnapshot=inspector.snapshot();result=await request('/v1/recipe/plan',{id:message.recipeId,version:message.version,parameters:message.parameters,step:message.step,mode:message.mode,snapshot:currentSnapshot});if(generation!==taskGeneration)throw new Error('Task stopped; recipe review discarded');
       }
       else if(['record-start','record-pause','record-resume','record-stop'].includes(message.type)){
         await request('/v1/history'); // Revalidate session before local recording controls.
-        const operation=message.type.slice(7);const steps=recorder[operation]();if(operation==='stop')recordedSteps=steps;if(operation==='start')recordedSteps=[];result={state:recorder.state(),steps:steps||[]};
+        const operation=message.type.slice(7);const steps=recorder[operation]();if(operation==='stop')recordedSteps=steps;if(operation==='start')recordedSteps=[];
+        const access=await request('/v1/capabilities');if(access.capabilities.coach&&['start','stop'].includes(operation))await request('/v1/learning/observe',{snapshot:inspector.snapshot()});result={state:recorder.state(),steps:steps||[]};
       }
       else if(message.type==='replay-navigation'){
         await request('/v1/history');
         if(message.approved!==true||!recordedSteps.length||recordedSteps.some(step=>step.action!=='navigate'))throw new Error('Only reviewed navigation-only recordings can replay here.');
         const generation=++taskGeneration,results=[];
-        for(const step of recordedSteps){await request('/v1/history');results.push(await replayNavigation(document,{path:step.path,approved:true,active:()=>!closed&&generation===taskGeneration}));}
+        for(const step of recordedSteps){await request('/v1/history');results.push(await replayNavigation(document,{path:step.path,activation:step.activation,approved:true,active:()=>!closed&&generation===taskGeneration}));}
         result={results};
       }
       else if (message.type === 'message') result = await request('/v1/messages', { text: message.text });
       else if (message.type === 'ask') result = await request('/v1/ask',{text:message.text,replyTo:message.replyTo});
       else if(message.type==='cancel'){taskGeneration++;currentSnapshot=null;result={stopped:true};}
-      else if (message.type === 'inspect') {result=inspector.snapshot();const access=await request('/v1/capabilities');if(access.capabilities.coach)result.learning=await request('/v1/learning/observe',{snapshot:result});}
+      else if (message.type === 'inspect') {result=inspector.snapshot({inventory:true});const access=await request('/v1/capabilities');if(access.capabilities.coach)result.learning=await request('/v1/learning/observe',{snapshot:result});}
       else if (message.type === 'plan') {
         const generation=++taskGeneration;
-        currentSnapshot = inspector.snapshot();
-        result = await request('/v1/plan',{ text:message.text,snapshot:currentSnapshot,replyTo:message.replyTo,mode:message.mode });
+        const snapshot=inspector.snapshot();currentSnapshot=snapshot;
+        result = await request('/v1/plan',{ text:message.text,snapshot,replyTo:message.replyTo,mode:message.mode });
         if(generation!==taskGeneration)throw new Error('Task stopped; proposal discarded');
+        if(snapshot.coverage.manualNotice)result={...result,manualNotice:snapshot.coverage.manualNotice};
+      }
+      else if(message.type==='save-review'){
+        if(message.mode==='guide')throw new Error('Guide mode does not submit forms. Use the host Save control yourself.');
+        const generation=++taskGeneration;currentSnapshot=inspector.snapshot();
+        if(currentSnapshot.submissions.length!==1)throw new Error('Choose Save on the host page: no unique supported native submit control is visible.');
+        result=await request('/v1/save/plan',{snapshot:currentSnapshot,ref:currentSnapshot.submissions[0].ref});
+        if(generation!==taskGeneration)throw new Error('Save review stopped');
       }
       else if (message.type === 'approve') {
         if (!currentSnapshot) throw new Error('Inspect and review again');
-        const proposal = await request('/v1/approve',{ id:message.proposalId,revision:currentSnapshot.revision,approved:true });
+        const generation=taskGeneration,reviewedRevision=currentSnapshot.revision;
+        const proposal = await request('/v1/approve',{ id:message.proposalId,revision:reviewedRevision,approved:true });
+        if(closed||generation!==taskGeneration)throw new Error('Task stopped or superseded; approved actions discarded');
         const results=[];
-        const generation=taskGeneration;
         const guided=proposal.actions.length>0&&proposal.actions.every(action=>action.type==='highlight');
         if(guided){
           guidedQueue={actions:proposal.actions,revision:proposal.revision,index:0,generation};result=await nextGuidance();
         }else for (const action of proposal.actions) {
           if(closed||generation!==taskGeneration)throw new Error('Task stopped; remaining actions cancelled');
-          if(action.type==='navigate')results.push(await inspector.navigate({ref:action.ref,expectedRevision:proposal.revision,approved:true}));
+          if(action.type==='submit')results.push(await inspector.submit({ref:action.ref,expectedRevision:proposal.revision,approved:true,active:()=>!closed&&generation===taskGeneration}));
+          else if(action.type==='navigate')results.push(await inspector.navigate({ref:action.ref,expectedRevision:proposal.revision,activation:action.activation,approved:true}));
           else if(action.type==='highlight')results.push(inspector.highlight({ref:action.ref,expectedRevision:proposal.revision}));
           else {inspector.highlight({ref:action.ref,expectedRevision:proposal.revision});results.push(inspector.fill({ ref:action.ref,value:action.value,expectedRevision:proposal.revision,approved:true }));}
         }
+        if(closed||generation!==taskGeneration)throw new Error('Task superseded after dispatch. Completed host changes remain; no further actions will run.');
         currentSnapshot=null;if(!guided)result={ results,saved:false };
+        if(!guided&&proposal.actions[0]?.type==='submit'&&results[0]?.hostReported==='success'&&message.learningConsent===true){
+          try{
+            if(!getVerifiedOutcome)throw new Error('This website has no verified saved-record integration');
+            const access=await request('/v1/capabilities');if(!access.learningEnabled)throw new Error('Shared learning is disabled');
+            const snapshot=inspector.snapshot();
+            const receipt=await getVerifiedOutcome({sessionId:bootstrap.sessionId,proposalId:message.proposalId,path:snapshot.path});
+            if(closed||generation!==taskGeneration)throw new Error('Task stopped; no learning was saved');
+            result.learning=await request('/v1/learning/complete',{proposalId:message.proposalId,snapshot,receipt,consent:true});
+          }catch(error){result.learning={created:false,reason:error.message};}
+        }
       }
       else throw new Error('Unsupported operation');
       frame.contentWindow.postMessage({ channel: message.channel, id: message.id, result }, service.origin);
@@ -157,7 +182,7 @@ export async function mount({ serviceUrl, installationToken, theme = {} }) {
   document.body.append(frame,launcher);
   const timer = setInterval(async () => {
     if (closed) return;
-    try { await request('/v1/renew'); }
+    try { await request('/v1/renew',{identityToken:await getHostIdentity?.()}); }
     catch {
       closed = true;taskGeneration++;currentSnapshot=null;recorder.stop();inspector.destroy();client.stop();clearInterval(timer);
       frame.title = 'Copilot session expired; reload to reconnect';

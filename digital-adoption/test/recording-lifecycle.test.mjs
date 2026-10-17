@@ -10,3 +10,11 @@ test('recorder pause retains steps, stop removes listeners, and secrets never pe
  const steps=recorder.stop();assert.equal(steps.length,2);assert.equal(handlers.size,0);assert.equal(JSON.stringify(steps).includes('PRIVATE_VALUE'),false);
  assert.throws(()=>recorder.resume());recorder.start();assert.deepEqual(recorder.stop(),[]);
 });
+
+test('recording distinguishes mouse-down navigation from the earlier pointer-down event',async()=>{
+ const handlers=new Map(),document={location:{pathname:'/start',origin:'https://customer.example'},addEventListener:(name,fn)=>handlers.set(name,fn),removeEventListener:name=>handlers.delete(name)},recorder=createRecorder(document);
+ const link={href:'https://customer.example/next',closest:selector=>selector.startsWith('a[')?link:null};
+ recorder.start();handlers.get('pointerdown')({type:'pointerdown',target:link});handlers.get('mousedown')({type:'mousedown',target:link});document.location.pathname='/next';await new Promise(resolve=>setTimeout(resolve,5));
+ assert.deepEqual(recorder.stop(),[{action:'navigate',path:'/next',activation:'mousedown'}]);
+ document.location.pathname='/start';recorder.start();handlers.get('mousedown')({type:'mousedown',target:link});handlers.get('click')({type:'click',target:link});document.location.pathname='/next';await new Promise(resolve=>setTimeout(resolve,5));assert.deepEqual(recorder.stop(),[{action:'navigate',path:'/next'}]);
+});

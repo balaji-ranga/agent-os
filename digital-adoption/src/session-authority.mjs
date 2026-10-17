@@ -23,11 +23,13 @@ export class SessionAuthority {
   #transaction;
   #development;
   #idleMs;
-  constructor({ clock = Date.now, repository, development = false, idleMs = 15 * 60_000 } = {}) {
+  #hostIdentity;
+  constructor({ clock = Date.now, repository, development = false, idleMs = 15 * 60_000,hostIdentity } = {}) {
     if (!Number.isSafeInteger(idleMs) || idleMs < 60_000 || idleMs > 30 * 60_000) fail();
     this.#idleMs = idleMs;
     this.#clock = clock;
     this.#development = development;
+    this.#hostIdentity=hostIdentity;
     this.#transaction = repository ? fn => repository.transaction(fn) : fn => fn();
     if (repository) {
       this.#installations = repository.map('installations');
@@ -60,7 +62,8 @@ export class SessionAuthority {
   grantCoaching(auth,grant){
     const {session}=this.#authorize(auth.sessionToken,auth.origin);
     if(grant?.embeddingId!==session.embeddingId||grant.origin!==session.origin||!Number.isSafeInteger(grant.expiresAt)||grant.expiresAt<=this.#clock()||grant.expiresAt>this.#clock()+10*60_000)fail();
-    session.coachingUntil=Math.min(grant.expiresAt,session.expiresAt);this.#sessions.set(session.id,session);return {coachingUntil:session.coachingUntil};
+    if(grant.audienceId&&! (session.identity?.audienceIds||['public']).includes(grant.audienceId))fail();
+    session.coachingAudienceId=grant.audienceId||'public';session.coachingUntil=Math.min(grant.expiresAt,session.expiresAt);this.#sessions.set(session.id,session);return {coachingUntil:session.coachingUntil};
   }
 
   #installation(secret, origin) {
@@ -70,9 +73,11 @@ export class SessionAuthority {
     return entry;
   }
 
-  initialize({ installationToken, origin, initializationKey }) {
+  initialize({ installationToken, origin, initializationKey,identityToken }) {
     return this.#transaction(() => {
     const installation = this.#installation(installationToken, origin);
+    const identity=this.#hostIdentity?.verify(installation.embeddingId,origin,identityToken)||null;
+    if(identityToken!==undefined&&!this.#hostIdentity)fail();
     // A fresh SDK instance generates a 256-bit in-memory operation secret.
     // Retries recover its response without storing a plaintext bearer token.
     if (initializationKey !== undefined && !/^[a-f0-9]{64}$/.test(initializationKey)) fail();
@@ -80,7 +85,7 @@ export class SessionAuthority {
     const key = initializationKey && createHash('sha256').update(`adoption-init-v1:${initializationKey}`).digest();
     const cached = operation && this.#initializations.get(operation);
     if (cached) {
-      if(cached.expiresAt<=this.#clock()) fail();
+      if(cached.expiresAt<=this.#clock()||(cached.identityFingerprint||null)!==(identity?.fingerprint||null)) fail();
       const decipher=createDecipheriv('aes-256-gcm',key,Buffer.from(cached.iv,'hex'));
       decipher.setAAD(Buffer.from(operation));decipher.setAuthTag(Buffer.from(cached.tag,'hex'));
       const result=JSON.parse(Buffer.concat([decipher.update(Buffer.from(cached.content,'hex')),decipher.final()]).toString());
@@ -88,14 +93,14 @@ export class SessionAuthority {
       return result;
     }
     const session = { id: randomUUID(), installationId: installation.id, embeddingId: installation.embeddingId,
-      origin: originOf(origin, this.#development), messages: [], lastActivityAt: this.#clock(), expiresAt: Math.min(installation.expiresAt,this.#clock() + 30 * 60_000), terminated: false };
+      origin: originOf(origin, this.#development),identity, messages: [], lastActivityAt: this.#clock(), expiresAt: Math.min(installation.expiresAt,this.#clock() + 30 * 60_000), terminated: false };
     this.#sessions.set(session.id, session);
     const result=this.#issue(session, installation);
     if(operation){
       const iv=randomBytes(12),cipher=createCipheriv('aes-256-gcm',key,iv);
       cipher.setAAD(Buffer.from(operation));
       const content=Buffer.concat([cipher.update(JSON.stringify(result)),cipher.final()]);
-      this.#initializations.set(operation,{iv:iv.toString('hex'),tag:cipher.getAuthTag().toString('hex'),content:content.toString('hex'),expiresAt:result.expiresAt});
+      this.#initializations.set(operation,{iv:iv.toString('hex'),tag:cipher.getAuthTag().toString('hex'),content:content.toString('hex'),identityFingerprint:identity?.fingerprint||null,expiresAt:result.expiresAt});
     }
     return result;
     });
@@ -103,7 +108,7 @@ export class SessionAuthority {
 
   #issue(session, installation) {
     const secret = token('dac_session_');
-    const expiresAt = Math.min(this.#clock() + 5 * 60_000, installation.expiresAt, session.expiresAt);
+    const expiresAt = Math.min(this.#clock() + 5 * 60_000, installation.expiresAt, session.expiresAt,session.identity?.expiresAt||Infinity);
     this.#runtime.set(digest(secret), { sessionId: session.id, expiresAt });
     return { sessionId: session.id, sessionToken: secret, expiresAt, sessionExpiresAt:session.expiresAt,
       idleExpiresAt:session.lastActivityAt + this.#idleMs };
@@ -117,12 +122,17 @@ export class SessionAuthority {
     if (!credential || credential.expiresAt <= this.#clock() || !session || session.terminated ||
         session.expiresAt <= this.#clock() || !Number.isSafeInteger(session.lastActivityAt) || session.lastActivityAt + this.#idleMs <= this.#clock() || session.origin !== originOf(origin, this.#development) ||
         !installation || installation.revoked || this.#revoked.get(installation.id) || installation.expiresAt <= this.#clock()) fail();
+    this.#hostIdentity?.check(session.embeddingId,session.identity);
     return { session, installation };
   }
 
-  renew({ sessionToken, origin }) {
+  renew({ sessionToken, origin,identityToken }) {
     return this.#transaction(() => {
     const { session, installation } = this.#authorize(sessionToken, origin);
+    if(identityToken!==undefined){
+      const identity=this.#hostIdentity?.verify(session.embeddingId,origin,identityToken);
+      if(!identity||identity.fingerprint!==session.identity?.fingerprint)fail();session.identity=identity;this.#sessions.set(session.id,session);
+    }
     this.#runtime.delete(digest(sessionToken));
     return this.#issue(session, installation);
     });
@@ -205,6 +215,7 @@ export class SessionAuthority {
   context({ sessionToken, origin }) {
     const { session,installation } = this.#authorize(sessionToken, origin);
     const coach=(session.coachingUntil||0)>this.#clock();
-    return Object.freeze({ embeddingId: session.embeddingId, sessionId: session.id, audienceIds: ['public'],conversationVersion:session.conversationVersion||0,capabilities:{upload:installation.visitorUploads===true||coach,coach} });
+    const signedAudiences=session.identity?.audienceIds||['public'],audienceIds=coach?[session.coachingAudienceId||signedAudiences[0]]:signedAudiences;
+    return Object.freeze({ embeddingId: session.embeddingId, sessionId: session.id,audienceId:coach?session.coachingAudienceId||audienceIds[0]:audienceIds[0],audienceIds,hostPrincipal:session.identity?.principal||null,conversationVersion:session.conversationVersion||0,capabilities:{upload:installation.visitorUploads===true||coach,coach} });
   }
 }

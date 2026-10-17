@@ -8,7 +8,7 @@ export function createKnowledgeService(repository,search,{clock=Date.now,leaseMs
     if (!scope || !/^[a-zA-Z0-9_-]{1,80}$/.test(scope.embeddingId) || !Array.isArray(scope.audienceIds) || !scope.audienceIds.length) throw new Error('Access denied');
   };
   const maintain=scope=>{validScope(scope);if(scope.role!=='maintainer')throw new Error('Access denied');};
-  const get=(scope,id)=>{validScope(scope);const source=sources.get(id);if(!source||source.embeddingId!==scope.embeddingId)throw new Error('Source not found');return source;};
+  const get=(scope,id)=>{validScope(scope);const source=sources.get(id);if(!source||source.embeddingId!==scope.embeddingId||!source.audienceIds?.some(a=>scope.audienceIds.includes(a)))throw new Error('Source not found');return source;};
   const reserve=(scope,title)=>{maintain(scope);if(typeof title!=='string'||!title.trim()||title.length>200)throw new Error('Invalid source title');if(sources.values({embeddingId:scope.embeddingId}).filter(s=>s.status!=='deleted').length>=100)throw new Error('Embedding source quota reached');};
   const recipeVisible=(source,scope)=>{
     if(!source.recipeBinding)return true;
@@ -92,7 +92,7 @@ export function createKnowledgeService(repository,search,{clock=Date.now,leaseMs
       return {evidence,next: hits.length===size?(searchCursor(hits.at(-1)?.sort)||hits.at(-1)?.sort?.[0]||null):null};
     },
     available(scope){validScope(scope);return sources.values({embeddingId:scope.embeddingId}).filter(s=>s.status==='ready'&&s.audienceIds.some(a=>scope.audienceIds.includes(a))&&recipeVisible(s,scope)).slice(0,100).map(s=>({id:s.id,title:s.title,status:s.status,revision:s.revision}));},
-    list(scope) {maintain(scope);return sources.values({embeddingId:scope.embeddingId}).slice(0,100).map(({text,sections,uploadedBySessionId,...source})=>source);},
+    list(scope) {maintain(scope);return sources.values({embeddingId:scope.embeddingId}).filter(source=>source.audienceIds?.some(a=>scope.audienceIds.includes(a))).slice(0,100).map(({text,sections,uploadedBySessionId,...source})=>source);},
   };
   return service;
 }

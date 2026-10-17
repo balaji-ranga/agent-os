@@ -32,3 +32,23 @@ test('page/time budgets and observer leases bound discovery without calling any 
   const timed=jobs.start(actor,{origin:actor.origin,seed:'/customer',paths:['/customer']});now+=121_000;assert.equal(jobs.next(actor,timed.id,{hasUnsavedWork:false}).report.status,'bounded');
  }finally{repository.close();}
 });
+
+test('newly observed public routes require approval while paused and map details exclude values',()=>{
+ const repository=openRepository();try{
+  const jobs=createDiscoveryJobs(repository,createLearningRuntime(repository,createLearningStore(repository)));
+  const job=jobs.start(actor,{origin:actor.origin,seed:'/customer',paths:['/customer']});jobs.next(actor,job.id,{hasUnsavedWork:false});
+  const snapshot={...screen,forms:[{key:'customer',label:'Customer form',fields:['company']}],fields:[{...screen.fields[0],form:'customer'}],navigationCandidates:['/note','https://foreign.test/','/note?delete=1']};
+  const report=jobs.observe(actor,job.id,snapshot);
+  assert.equal(report.nodes[0].forms[0].key,'customer');assert.equal(report.nodes[0].fields[0].label,'Company');assert.doesNotMatch(JSON.stringify(report),/PRIVATE_VALUE_CANARY/);
+  assert.throws(()=>jobs.extend(actor,job.id,['/note']));jobs.control(actor,job.id,'pause');assert.throws(()=>jobs.extend(actor,job.id,['/never-observed']));
+  const extended=jobs.extend(actor,job.id,['/customer','/note']);assert.deepEqual(extended.approvedPaths,['/customer','/note']);jobs.control(actor,job.id,'resume');assert.equal(jobs.next(actor,job.id,{hasUnsavedWork:false}).next.path,'/note');
+ }finally{repository.close();}
+});
+
+test('every approved route is attempted and blocked pages remain explicit coverage gaps',()=>{
+ const repository=openRepository();try{
+  const jobs=createDiscoveryJobs(repository,createLearningRuntime(repository,createLearningStore(repository))),job=jobs.start(actor,{origin:actor.origin,seed:'/start',paths:['/start','/unlinked']});
+  jobs.next(actor,job.id,{hasUnsavedWork:false});jobs.observe(actor,job.id,{revision:1,path:'/start',fields:[],links:[]});assert.equal(jobs.next(actor,job.id,{hasUnsavedWork:false}).next.path,'/unlinked');jobs.block(actor,job.id);
+  const report=jobs.next(actor,job.id,{hasUnsavedWork:false}).report;assert.equal(report.status,'completed-with-gaps');assert.deepEqual(report.unobservedPaths,['/unlinked']);assert.equal(report.blocked[0].path,'/unlinked');
+ }finally{repository.close();}
+});

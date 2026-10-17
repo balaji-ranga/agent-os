@@ -1,4 +1,4 @@
-export function createManagement({authenticate,control,knowledge,search,platformOrigin,registrationEmail,ingestion,learning,coaching,sourceMap}){
+export function createManagement({authenticate,control,knowledge,search,platformOrigin,registrationEmail,ingestion,learning,coaching,sourceMap,hostIdentity}){
  return async({authorization,origin,path,input})=>{
   if(origin!==platformOrigin)throw new Error('Management origin denied');
   const actor=await authenticate(authorization);
@@ -20,7 +20,11 @@ export function createManagement({authenticate,control,knowledge,search,platform
   if(path==='/v1/manage/audit')return {events:control.audit(actor,input.id)};
   if(path==='/v1/manage/website-state')return control.transition(actor,input.id,input.status,input.reason);
   if(path==='/v1/manage/configure')return control.configure(actor,input.id,input);
-  const scope=control.scope(actor,input.id); // IDs select an already authorized resource, never an identity.
+  let scope=control.scope(actor,input.id); // IDs select an already authorized resource, never an identity.
+  if(path==='/v1/manage/host-identity-configure'){if(!hostIdentity)throw new Error('Host identity unavailable');return hostIdentity.configure(scope,input.policy);}
+  if(path==='/v1/manage/host-identity-status'){if(!hostIdentity)throw new Error('Host identity unavailable');return hostIdentity.status(scope);}
+  if(path==='/v1/manage/host-identity-revoke'){if(!hostIdentity)throw new Error('Host identity unavailable');return hostIdentity.revoke(scope,input);}
+  if(input.hostScope){if(!hostIdentity)throw new Error('Host identity unavailable');const audienceId=hostIdentity.audience(scope,input.hostScope);scope={...scope,audienceId,audienceIds:[audienceId]};}
   if(path==='/v1/manage/source-map-refresh'){if(!sourceMap)throw new Error('Source map unavailable');return sourceMap.refresh(scope,input.manifest);}
   if(path==='/v1/manage/source-map'){if(!sourceMap)throw new Error('Source map unavailable');return sourceMap.summary(scope);}
   if(path==='/v1/manage/source-map-teach'){if(!sourceMap||!learning)throw new Error('Teaching unavailable');return learning.create(scope,sourceMap.recipeDraft(scope,input));}
@@ -28,7 +32,7 @@ export function createManagement({authenticate,control,knowledge,search,platform
   if(path.startsWith('/v1/manage/learning-')){
    if(!learning)throw new Error('Learning unavailable');
    const request={...input,id:input.recipeId};
-   const operations={list:()=>({recipes:learning.list(scope)}),maps:()=>({screens:learning.maps(scope)}),create:()=>learning.create(scope,input),validate:()=>learning.validate(scope,request),publish:()=>learning.publish(scope,request),repair:()=>learning.repair(scope,request),disable:()=>learning.disable(scope,request),versions:()=>({versions:learning.versions(scope,request)}),rollback:()=>learning.rollback(scope,request),export:()=>learning.export(scope,request),import:()=>learning.import(scope,input)};
+   const operations={settings:()=>learning.settings(scope,input),status:()=>({enabled:learning.learningEnabled(scope)}),list:()=>({recipes:learning.list(scope)}),maps:()=>({screens:learning.maps(scope)}),create:()=>learning.create(scope,input),validate:()=>learning.validate(scope,request),publish:()=>learning.publish(scope,request),repair:()=>learning.repair(scope,request),disable:()=>learning.disable(scope,request),versions:()=>({versions:learning.versions(scope,request)}),rollback:()=>learning.rollback(scope,request),export:()=>learning.export(scope,request),import:()=>learning.import(scope,input)};
    const action=path.slice('/v1/manage/learning-'.length);if(!Object.hasOwn(operations,action))throw new Error('Unsupported learning operation');return operations[action]();
   }
   if(path==='/v1/manage/activate'){await search.provision(scope.embeddingId);return control.activate(actor,input.id);}

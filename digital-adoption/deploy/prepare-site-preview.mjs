@@ -1,0 +1,15 @@
+import {readFileSync,writeFileSync} from 'node:fs';
+import {randomUUID} from 'node:crypto';
+import {openRepository} from '../src/repository.mjs';
+import {SessionAuthority} from '../src/session-authority.mjs';
+import {createOpenSearch} from '../src/opensearch.mjs';
+const [parentId,output]=process.argv.slice(2);
+const repository=openRepository('/data/adoption.sqlite'),parent=repository.map('websites').get(parentId);
+if(!parent||parent.status!=='approved'||parent.verified!==true)throw new Error('Approved verified registration required');
+const config=JSON.parse(readFileSync('/config/service.json','utf8')),authority=new SessionAuthority({repository}),expiresAt=Date.now()+6*3_600_000;
+const embeddingId='uat_'+randomUUID().replaceAll('-',''),website={id:embeddingId,organizationId:parent.organizationId,origin:parent.origin,environment:'staging',status:'approved',verified:true,verificationProvenance:'isolated-synthetic-UAT-for-existing-verified-domain',previewFor:parent.id,label:'Isolated six-hour UAT',installations:[]};
+await createOpenSearch({...config.search,privateNetwork:true}).provision(embeddingId);
+const installation=authority.registerApproved({embeddingId,origins:[website.origin],expiresAt});
+website.installations.push(installation.installationId);repository.map('websites').set(website.id,website);
+repository.map('management_audit').set(randomUUID(),{actorId:'authorized-uat-deployment',organizationId:website.organizationId,action:'issue_short_lived_uat_installation',websiteId:website.id,reason:'User requested two-host VPS acceptance; public installation only, six-hour expiry',at:Date.now()});
+writeFileSync(output,JSON.stringify({embeddingId,origin:website.origin,serviceUrl:config.serviceUrl,installationToken:installation.installationToken,expiresAt}),{mode:0o600});repository.close();console.log('Isolated empty UAT index and short-lived exact-origin preview installation prepared; no token emitted');

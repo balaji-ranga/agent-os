@@ -13,6 +13,11 @@ const assets = new Map([
   ['/theme.mjs', ['../web/theme.mjs', 'text/javascript']],
   ['/session-client.mjs', ['../web/session-client.mjs', 'text/javascript']],
   ['/dom.mjs', ['../web/dom.mjs', 'text/javascript']],
+  ['/activation.mjs', ['../web/activation.mjs', 'text/javascript']],
+  ['/page-observer.mjs', ['../web/page-observer.mjs', 'text/javascript']],
+  ['/form-submit.mjs', ['../web/form-submit.mjs', 'text/javascript']],
+  ['/semantic.mjs', ['../web/semantic.mjs', 'text/javascript']],
+  ['/site-loader.mjs', ['../web/site-loader.mjs', 'text/javascript']],
   ['/recording.mjs', ['../web/recording.mjs', 'text/javascript']],
   ['/files.mjs', ['../web/files.mjs', 'text/javascript']],
   ['/screen-capture.mjs', ['../web/screen-capture.mjs', 'text/javascript']],
@@ -34,7 +39,7 @@ async function body(req,limit=32_768) {
   return parsed;
 }
 
-export function createAdoptionServer({ authority, proposals, planner, knowledge, ingestion, learning, coaching, discovery, sourceMap, answer, management, ownerIdentity, ownerManagement, platformOrigin, development = false, fixture = null }) {
+export function createAdoptionServer({ authority, proposals, planner, knowledge, ingestion, learning, coaching, discovery, sourceMap,hostIdentity, answer, management, ownerIdentity, ownerManagement, platformOrigin, development = false, fixture = null }) {
   const budget=createRequestBudget();
   let activeUploads=0;
   return createServer(async (req, res) => {
@@ -88,7 +93,9 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
         if(!handler)throw new Error('Management unavailable');
         await handler({authorization:path.startsWith('/v1/owner/')?req.headers.cookie:req.headers.authorization,origin,path:'/v1/manage/websites',input:{}});
       }
-      const input = await body(req,fileUpload?23_000_000:mapRefresh?512_000:32_768);
+      const mapObservation=['/v1/learning/observe','/v1/discovery/observe'].includes(path);
+      if(mapObservation){const sessionToken=/^Bearer (\S+)$/.exec(req.headers.authorization||'')?.[1],access=authority.context({sessionToken,origin});if(!access.capabilities.coach)throw new Error('Coaching permission required');budget.take(`map-observe:${access.sessionId}`,60);}
+      const input = await body(req,fileUpload?23_000_000:mapRefresh?512_000:mapObservation?256_000:32_768);
       let result;
       if(path.startsWith('/v1/owner/')){
         if(!ownerIdentity||origin!==platformOrigin)return send(403,{error:'Access denied'});
@@ -106,13 +113,23 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
         result=await management({authorization:req.headers.authorization,origin,path,input});
         return send(200,result);
       }
-      if (path === '/v1/sessions') {budget.take(`init:${req.socket.remoteAddress}`,60);result = authority.initialize({ installationToken: input.installationToken, origin, initializationKey:input.initializationKey });}
+      if (path === '/v1/sessions') {budget.take(`init:${req.socket.remoteAddress}`,60);result = authority.initialize({ installationToken: input.installationToken, origin, initializationKey:input.initializationKey,identityToken:input.identityToken });}
       else {
         const sessionToken = /^Bearer (\S+)$/.exec(req.headers.authorization || '')?.[1];
         const auth = { sessionToken, origin };
         const scope = authority.context(auth);
         if (path === '/v1/history') result = { messages: authority.history(auth) };
-        else if(path==='/v1/capabilities')result={capabilities:scope.capabilities};
+        else if(path==='/v1/capabilities')result={capabilities:scope.capabilities,learningEnabled:learning?.learningEnabled?.(scope)===true};
+        else if(path==='/v1/learning/complete'){
+          if(!learning?.learningEnabled(scope)||input.consent!==true)result={created:false};
+          else{
+            if(!hostIdentity||!proposals)throw new Error('Verified host outcome integration required');
+            const snapshot=validateSnapshot(input.snapshot),steps=proposals.verifiedLearningSteps(scope,{saveProposalId:input.proposalId,path:snapshot.path});
+            if(steps.some(step=>snapshot.fields.filter(field=>field.key===step.field).length!==1))throw new Error('Task fields changed or are ambiguous');
+            const evidence=hostIdentity.verifyOutcome(scope,origin,input.receipt,{proposalId:input.proposalId,path:snapshot.path});
+            result=learning.candidate(scope,{title:'Verified draft workflow',steps,consent:true,evidence});
+          }
+        }
         else if(path==='/v1/coaching/exchange'){
           if(!coaching)throw new Error('Coaching unavailable');budget.take(`coaching:${scope.sessionId}`,5);
           result=authority.grantCoaching(auth,coaching.exchange(scope,origin,input.code));
@@ -122,13 +139,20 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
           result=learning.observe({...scope,origin},input.snapshot);
         }
         else if(path==='/v1/recipes'){if(!learning)throw new Error('Learning unavailable');result={recipes:learning.list(scope)};}
+        else if(path==='/v1/learning/draft'){
+          if(!learning||!scope.capabilities.coach)throw new Error('Coaching permission required');
+          if(input.package?.sourceOrigin!==origin)throw new Error('Teaching origin changed');
+          result=learning.import({...scope,origin},{package:input.package,operationId:input.operationId});
+        }
         else if(path.startsWith('/v1/discovery/')){
           if(!discovery||!scope.capabilities.coach)throw new Error('Coaching permission required');
           const action=path.slice('/v1/discovery/'.length),discoveryScope={...scope,origin};
           if(action==='start')result=discovery.start(discoveryScope,{...input,origin});
           else if(action==='list')result={jobs:discovery.list(discoveryScope)};
+          else if(action==='extend')result=discovery.extend(discoveryScope,input.id,input.paths);
           else if(action==='next')result=discovery.next(discoveryScope,input.id,{hasUnsavedWork:input.hasUnsavedWork});
           else if(action==='observe')result=discovery.observe(discoveryScope,input.id,input.snapshot);
+          else if(action==='block')result=discovery.block(discoveryScope,input.id);
           else if(['pause','resume','stop'].includes(action))result=discovery.control(discoveryScope,input.id,action);
           else if(action==='status')result=discovery.status(discoveryScope,input.id);
           else throw new Error('Unsupported discovery operation');
@@ -147,8 +171,12 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
         }
         else if(path==='/v1/knowledge/upload-status'){if(!ingestion)throw new Error('Ingestion unavailable');result=ingestion.status(scope,input.sourceId);}
         else if (path === '/v1/messages') result = authority.appendMessage({ ...auth, text: input.text, replyTo: input.replyTo });
-        else if (path === '/v1/renew') result = authority.renew(auth);
+        else if (path === '/v1/renew') result = authority.renew({...auth,identityToken:input.identityToken});
         else if (path === '/v1/terminate') { authority.terminate(auth); result = { terminated: true }; }
+        else if(path==='/v1/save/plan'){
+          if(!proposals)throw new Error('Action reviews unavailable');
+          authority.touch(auth);result=proposals.prepareSave(scope,input.snapshot,input.ref);
+        }
         else if (path === '/v1/plan') {
           budget.take(`model:${scope.embeddingId}`);
           if (!planner || !proposals) return send(503,{ error:'Model assistance is not configured' });
@@ -158,9 +186,13 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
           authority.appendMessage({...auth,text:input.text,replyTo:input.replyTo??null});
           // No credentials or caller-provided identity are passed to the model.
           const guideHistory=authority.history(auth).filter(m=>(m.channel||'guide')==='guide');
-          const response=await planner({ text:input.text,snapshot,history:guideHistory.slice(-12),replyContext:guideHistory.find(m=>m.id===input.replyTo)?.text,sourceGuidance:sourceMap?.guidance(scope,input.text,snapshot) });
+          const recipeGuidance=learning?.context?.(scope,input.text,snapshot);
+          const response=await planner({ text:input.text,snapshot,history:guideHistory.slice(-12),replyContext:guideHistory.find(m=>m.id===input.replyTo)?.text,sourceGuidance:sourceMap?.guidance(scope,input.text,snapshot),recipeGuidance });
           if(authority.context(auth).conversationVersion!==scope.conversationVersion)throw new Error('Conversation cleared; response discarded');
-          result=proposals.prepare(scope,snapshot,withMode(response,input.mode));
+          const destination=response.actions?.length===1&&response.actions[0].type==='navigate'?snapshot.links.find(link=>link.ref===response.actions[0].ref)?.path:null;
+          const navigationBinding=destination?learning?.navigationProfile?.(scope,destination):null;
+          result=proposals.prepare(scope,snapshot,withMode(response,input.mode),navigationBinding);
+          result.matchedWorkflows=(recipeGuidance?.matches||[]).map(({id,version,title})=>({id,version,title}));
           result.messageId=authority.appendAssistant(auth,result.message).id;
         }
         else if(path==='/v1/knowledge/search'||path==='/v1/ask') {

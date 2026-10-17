@@ -8,5 +8,32 @@ export function constrainEdit(text, snapshot) {
     return label.length >= 3 && ` ${normalized} `.includes(` ${label} `);
   });
   if (!matching.length) return snapshot;
-  return {...snapshot, fields:matching, links:[], partialEdit:true};
+  // A label may be referred to by a shorter natural name. Do not discard that
+  // control merely because another target in the same request matched exactly.
+  const targets=[...String(text).matchAll(/(?:^\s*(?:set|change|update|edit)\s+|,\s*|\band\s+)([^,.;]+?)\s+(?:to|as)\s+/gi)].map(match=>match[1].toLowerCase().replace(/^the\s+|\s+field$/g,'').replace(/[^\p{L}\p{N}]+/gu,' ').trim());
+  if(targets.some(target=>!matching.some(field=>[field.label,field.key].filter(Boolean).some(name=>name.toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim()===target))))return snapshot;
+  const selected=new Set(matching.map(field=>field.key));
+  return {...snapshot, fields:matching,forms:(snapshot.forms||[]).map(form=>({...form,fields:form.fields.filter(key=>selected.has(key))})).filter(form=>form.fields.length), links:[], partialEdit:true};
+}
+
+// Resolve only fully explicit, uniquely named assignments. This does not infer
+// business values or stored mappings, and still produces an ordinary review.
+export function explicitEditProposal(text,snapshot){
+ if(snapshot.navigationRequired||!/^\s*(?:set|change|update|edit)\b/i.test(text))return null;
+ const normalize=value=>String(value).toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim();
+ const matches=[...String(text).matchAll(/(?:^\s*(?:set|change|update|edit)\s+|[,;]\s*|\band\s+)([^,;.]+?)\s+(?:to|as)\s+/gi)];
+ if(!matches.length||matches.length>10)return null;
+ const actions=[],used=new Set();
+ for(const [index,match] of matches.entries()){
+  const name=normalize(match[1]).replace(/^the\s+|\s+(?:field|input)$/g,''),words=name.split(' ').filter(word=>!['query','value','text'].includes(word));
+  const exact=snapshot.fields.filter(field=>[field.label,field.key].filter(Boolean).some(label=>normalize(label)===name));
+  const candidates=exact.length?exact:snapshot.fields.filter(field=>words.length&&[field.label,field.key].filter(Boolean).some(label=>words.every(word=>normalize(label).split(' ').includes(word))));
+  if(candidates.length!==1||used.has(candidates[0].ref))return null;
+  let value=String(text).slice(match.index+match[0].length,matches[index+1]?.index??text.length).trim().replace(/[.!]?\s+(?:do not|don't|never)\b[\s\S]*$/i,'').trim();
+  if(/^(['"]).*\1$/s.test(value))value=value.slice(1,-1);else value=value.replace(/[.!]$/,'').trim();
+  if(!value||value.length>8000)return null;
+  if(candidates[0].type==='checkbox'&&!['true','false'].includes(value))return null;
+  used.add(candidates[0].ref);actions.push({type:'fill',ref:candidates[0].ref,value});
+ }
+ return {message:`Review these ${actions.length} explicit field changes. Nothing has been changed yet.`,actions};
 }

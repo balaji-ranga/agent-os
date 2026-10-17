@@ -1,5 +1,6 @@
 import {createHash} from 'node:crypto';
 import {validateSnapshot} from './proposals.mjs';
+import {validateInventory} from './domain-inventory.mjs';
 const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const scopeOf=scope=>({...scope,audienceId:scope.audienceId||scope.audienceIds?.[0],role:scope.role==='maintainer'||scope.capabilities?.coach?'maintainer':'visitor'});
 const requireMaintainer=scope=>{const result=scopeOf(scope);if(result.role!=='maintainer')throw new Error('Coaching permission required');return result;};
@@ -18,13 +19,36 @@ export function createLearningRuntime(repository,store,{clock=Date.now,knowledge
   return (async()=>{try{const source=knowledge.createText(scope,{title:`Workflow: ${result.title}`,text:`Published workflow ${result.title}, version ${result.version}.\n${result.steps.map((s,i)=>`${i+1}. ${s.action} ${s.path}${s.field?' field '+s.field+' using parameter '+s.parameter:''}`).join('\n')}`,recipeBinding:{id:result.id,version:result.version}});await knowledge.ingest(scope,source.id);return {...result,indexed:true};}catch{return {...result,indexed:false,indexingError:'Workflow published; its searchable summary needs indexing retry.'};}})();
  };
  const service={
+  learningEnabled(scope){return store.learningEnabled(scopeOf(scope));},
+  settings(scope,{enabled}){const access=requireMaintainer(scope);store.setLearning(access,enabled);return {enabled};},
+  candidate(scope,{title,steps,consent,evidence}){
+   const access={...scopeOf(scope),role:'maintainer'};
+   if(!store.learningEnabled(access)||consent!==true)return {created:false};
+   if(!evidence?.operationId||!evidence.recordHash||!Array.isArray(steps)||!steps.length||steps.some(step=>!safePath(step.path)))throw new Error('Verified task evidence required');
+   const candidates=repository.map('verified_candidates'),candidateKey=`${access.embeddingId}:${access.audienceId}:${evidence.operationId}`,fingerprint=hash({title,steps,recordHash:evidence.recordHash});
+   return repository.transaction(()=>{const previous=candidates.get(candidateKey);if(previous){if(previous.fingerprint!==fingerprint)throw new Error('Verified learning operation conflict');return previous.result;}
+    const result=store.learn(access,{consent:true,verified:true,title,steps});candidates.set(candidateKey,{embeddingId:access.embeddingId,audienceId:access.audienceId,fingerprint,result});return result;
+   });
+  },
   list(scope){return store.list(scopeOf(scope));},
+  navigationProfile(scope,path){
+   const candidates=store.list({...scopeOf(scope),role:'visitor'}).filter(recipe=>recipe.status==='published').flatMap(recipe=>recipe.steps.filter(step=>step.action==='navigate'&&step.path===path&&step.activation).map(step=>({id:recipe.id,version:recipe.version,activation:step.activation})));
+   if(!candidates.length)return null;
+   if(new Set(candidates.map(candidate=>candidate.activation)).size!==1)throw new Error('Reviewed navigation profiles disagree. Ask the owner to resolve them before continuing.');
+   return {...candidates[0],preview:false};
+  },
+  context(scope,text,snapshot){
+   const words=[...new Set(String(text).toLowerCase().match(/[\p{L}\p{N}]{3,}/gu)||[])].slice(0,30);
+   const ranked=store.list({...scopeOf(scope),role:'visitor'}).filter(recipe=>recipe.status==='published').map(recipe=>({recipe,score:words.reduce((n,w)=>n+Number((recipe.title+' '+recipe.steps.map(s=>s.field||s.path).join(' ')).toLowerCase().includes(w)),0)})).filter(item=>item.score>0&&item.recipe.steps.some(s=>s.path===snapshot.path||snapshot.links.some(link=>link.path===s.path))).sort((a,b)=>b.score-a.score);
+   return {kind:'published_sanitized_recipe_guidance',matches:ranked.slice(0,3).map(({recipe})=>({id:recipe.id,version:recipe.version,title:recipe.title,steps:recipe.steps})),policy:'Match the user task to current live controls. Parameters have no stored values. Ask when candidate workflows differ materially. Current permissions, exact refs, fresh review and separate Save confirmation are mandatory.'};
+  },
   observe(scope,input){
    const access=requireMaintainer(scope),snapshot=validateSnapshot(input);
    if(!safePath(snapshot.path))throw new Error('This record-specific route cannot be saved as shared learning');
-   const structure={path:snapshot.path,fields:snapshot.fields.map(({key,label,type,required})=>({key:key||null,label,type,required})),links:snapshot.links.filter(l=>safePath(l.path)).map(({label,path})=>({label,path}))};
+   const inventory=validateInventory(input.inventory);
+   const structure={path:snapshot.path,forms:snapshot.forms,fields:snapshot.fields.map(({key,label,type,required,form})=>({key:key||null,label,type,required,...(form?{form}:{})})),links:snapshot.links.filter(l=>safePath(l.path)).map(({label,path})=>({label,path})),...(inventory?{inventory}:{})};
    const record={...structure,embeddingId:access.embeddingId,audienceId:access.audienceId,fingerprint:hash(structure),observedAt:clock()};maps.set(key(access,snapshot.path),record);
-   return {path:record.path,fieldCount:record.fields.length,fingerprint:record.fingerprint,status:'observed-not-tested'};
+   return {path:record.path,limits:{fields:60,navigation:30},forms:record.forms,fields:record.fields,navigation:record.links,...(inventory?{inventory}:{}),formCount:record.forms.length,fieldCount:record.fields.length,navigationCount:record.links.length,fingerprint:record.fingerprint,status:'observed-not-tested'};
   },
   maps(scope){const access=requireMaintainer(scope);return maps.values({embeddingId:access.embeddingId,audienceId:access.audienceId});},
   create(scope,input){return store.create(requireMaintainer(scope),input);},
@@ -92,7 +116,7 @@ export function createLearningRuntime(repository,store,{clock=Date.now,knowledge
      actions.push({type:'fill',ref:fields[0].ref,value:parameters[item.parameter]});cursor++;
     }
    }
-   return {response:{message:'Review the recorded next step against the current screen.',actions},nextStep:cursor,complete:false,binding:{id,version,preview:recipe.status!=='published'}};
+   return {response:{message:'Review the recorded next step against the current screen.',actions},nextStep:cursor,complete:false,binding:{id,version,preview:recipe.status!=='published',...(next.action==='navigate'?{activation:next.activation||'click'}:{})}};
   },
  };
  return service;

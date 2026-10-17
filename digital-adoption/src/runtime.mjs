@@ -22,9 +22,11 @@ import {createLearningRuntime} from './learning-runtime.mjs';
 import {createCoachingGrants} from './coaching-grants.mjs';
 import {createDiscoveryJobs} from './discovery-jobs.mjs';
 import {createSourceMap} from './source-map.mjs';
+import {createHostIdentity} from './host-identity.mjs';
 const config=JSON.parse(readFileSync('/config/service.json','utf8'));
 const repository=openRepository('/data/adoption.sqlite');
-const authority=new SessionAuthority({repository,development:true}); // Only explicit loopback demo origins below are registered.
+const hostIdentity=createHostIdentity(repository);
+const authority=new SessionAuthority({repository,development:true,hostIdentity}); // Only explicit loopback demo origins below are registered.
 const search=createOpenSearch({...config.search,privateNetwork:true});
 const knowledge=createKnowledgeService(repository,search);
 const ingestion=createSourceIngestion(repository,{knowledge,blobs:createBlobStore('/data/objects'),extract:createDocumentExtractor({python:'/opt/adoption-python/bin/python'}),fetchUrl:createPublicUrlFetcher()});
@@ -61,10 +63,10 @@ const learning=createLearningRuntime(repository,createLearningStore(repository),
 const discovery=createDiscoveryJobs(repository,learning);
 const sourceMap=createSourceMap(repository);
 const registrationEmail=createRegistrationEmail(repository,{send:createMailer(config.mail),control,search,serviceUrl:config.serviceUrl});
-const management=createManagement({authenticate:createManagementIdentity({platformOrigin}),control,knowledge,search,platformOrigin,registrationEmail,ingestion,learning,coaching,sourceMap});
+const management=createManagement({authenticate:createManagementIdentity({platformOrigin}),control,knowledge,search,platformOrigin,registrationEmail,ingestion,learning,coaching,sourceMap,hostIdentity});
 const ownerIdentity=createOwnerIdentity(repository,{send:createMailer(config.mail)});
-const ownerManagement=createManagement({authenticate:cookie=>ownerIdentity.authenticate(cookie),control,knowledge,search,platformOrigin,registrationEmail,ingestion,learning,coaching,sourceMap});
+const ownerManagement=createManagement({authenticate:cookie=>ownerIdentity.authenticate(cookie),control,knowledge,search,platformOrigin,registrationEmail,ingestion,learning,coaching,sourceMap,hostIdentity});
 ingestion.start();
-const server=createAdoptionServer({authority,knowledge,ingestion,learning,coaching,discovery,sourceMap,management,ownerIdentity,ownerManagement,platformOrigin,answer:createKnowledgeAnswer(model),planner:createPlatformPlanner(model),proposals:createProposalStore(repository,{checkBinding:(scope,binding)=>learning.bindingAllowed(scope,binding)})});
+const server=createAdoptionServer({authority,knowledge,ingestion,learning,coaching,discovery,sourceMap,hostIdentity,management,ownerIdentity,ownerManagement,platformOrigin,answer:createKnowledgeAnswer(model),planner:createPlatformPlanner(model),proposals:createProposalStore(repository,{checkBinding:(scope,binding)=>learning.bindingAllowed(scope,binding)})});
 server.listen(4193,'0.0.0.0',()=>console.log('Independent adoption service listening; full acceptance not yet certified'));
 process.on('SIGTERM',()=>{ingestion.stop();clearInterval(recoveryTimer);server.closeAllConnections();server.close(()=>{process.exit(0);});});

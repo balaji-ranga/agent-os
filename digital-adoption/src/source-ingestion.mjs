@@ -9,14 +9,16 @@ const mimeTypes={
 };
 const maintain=scope=>{if(scope?.role!=='maintainer'||!/^[A-Za-z0-9_-]{1,80}$/.test(scope.embeddingId))throw new Error('Source management denied');};
 const trustedScope=job=>({embeddingId:job.embeddingId,audienceIds:job.audienceIds,role:'maintainer'});
+const audienceAllowed=(scope,job)=>Array.isArray(scope.audienceIds)&&job.audienceIds?.some(a=>scope.audienceIds.includes(a));
+const operationScope=scope=>scope.embeddingId+(scope.audienceIds?.length===1&&scope.audienceIds[0]==='public'?'':':'+createHash('sha256').update(JSON.stringify([...(scope.audienceIds||[])].sort())).digest('hex'));
 export function createSourceIngestion(repository,{knowledge,blobs,extract,fetchUrl,clock=Date.now}){
  const jobs=repository.map('source_jobs'),attempts=repository.map('source_uploads');
  let running=false,stopped=false,timer,rotation=[];
- const jobFor=(scope,id)=>{maintain(scope);const job=jobs.get(id);if(!job||job.embeddingId!==scope.embeddingId)throw new Error('Source not found');return job;};
+ const jobFor=(scope,id)=>{maintain(scope);const job=jobs.get(id);if(!job||job.embeddingId!==scope.embeddingId||!audienceAllowed(scope,job))throw new Error('Source not found');return job;};
  const service={
   addUrl(scope,{title,url,sharedConsent,operationId}){
    maintain(scope);if(!fetchUrl||sharedConsent!==true||typeof operationId!=='string'||!/^[A-Za-z0-9_-]{16,80}$/.test(operationId))throw new Error('Help URL not authorized');
-   const normalized=approvedUrl(url).href,key=`${scope.embeddingId}:${operationId}`,fingerprint=createHash('sha256').update(JSON.stringify({title,url:normalized})).digest('hex');
+   const normalized=approvedUrl(url).href,key=`${operationScope(scope)}:${operationId}`,fingerprint=createHash('sha256').update(JSON.stringify({title,url:normalized})).digest('hex');
    return repository.transaction(()=>{const previous=attempts.get(key);if(previous){if(previous.fingerprint!==fingerprint)throw new Error('Upload operation conflict');return {id:previous.id,reused:true};}const id=randomUUID();knowledge.createPending(scope,{id,title,kind:'url'});jobs.set(id,{id,embeddingId:scope.embeddingId,audienceIds:scope.audienceIds,status:'queued',bytes:0,kind:'url',url:normalized,createdAt:clock(),attempts:0});attempts.set(key,{id,fingerprint});return {id,status:'queued'};});
   },
   refresh(scope,id){const job=jobFor(scope,id);if(job.kind!=='url'||!['ready','failed'].includes(job.status))throw new Error('Help source cannot refresh');job.status='queued';job.lastError=null;jobs.set(id,job);return {id,status:'queued'};},
@@ -27,7 +29,7 @@ export function createSourceIngestion(repository,{knowledge,blobs,extract,fetchU
    if(!bytes.length||bytes.length>16*1024*1024||bytes.toString('base64')!==content||bytes.includes(Buffer.from('EICAR-STANDARD-ANTIVIRUS-TEST-FILE')))throw new Error('File rejected');
    if((kind==='pdf'&&!bytes.subarray(0,5).equals(Buffer.from('%PDF-')))||(kind==='docx'&&!bytes.subarray(0,4).equals(Buffer.from('PK\x03\x04')))||(mime==='image/png'&&!bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])))||(mime==='image/jpeg'&&bytes.readUInt16BE(0)!==0xffd8))throw new Error('File signature does not match type');
    if((mime==='video/mp4'&&(bytes.length<12||bytes.toString('ascii',4,8)!=='ftyp'))||(mime==='video/webm'&&!bytes.subarray(0,4).equals(Buffer.from([0x1a,0x45,0xdf,0xa3]))))throw new Error('Video signature does not match type');
-   const fingerprint=createHash('sha256').update(JSON.stringify({title,filename,mime})).update(bytes).digest('hex'),key=`${scope.embeddingId}:${operationId}`;
+   const fingerprint=createHash('sha256').update(JSON.stringify({title,filename,mime})).update(bytes).digest('hex'),key=`${operationScope(scope)}:${operationId}`;
    const previous=attempts.get(key);
    if(previous){if(previous.fingerprint!==fingerprint)throw new Error('Upload operation conflict');return {id:previous.id,reused:true,status:knowledge.inspect(scope,previous.id).status};}
    const active=jobs.values({embeddingId:scope.embeddingId}).filter(j=>j.status!=='deleted');
@@ -48,12 +50,12 @@ export function createSourceIngestion(repository,{knowledge,blobs,extract,fetchU
   },
   status(scope,id){
    const job=jobs.get(id);
-   if(!job||job.embeddingId!==scope.embeddingId||(scope.role!=='maintainer'&&job.uploadedBySessionId!==scope.sessionId))throw new Error('Source access denied');
+   if(!job||job.embeddingId!==scope.embeddingId||!audienceAllowed(scope,job)||(scope.role!=='maintainer'&&job.uploadedBySessionId!==scope.sessionId))throw new Error('Source access denied');
    return {id:job.id,status:job.status,attempts:job.attempts,lastError:job.lastError||null};
   },
   retry(scope,id){const job=jobFor(scope,id);if(job.status!=='failed')throw new Error('Source cannot retry');job.status='queued';job.lastError=null;jobs.set(id,job);return {id,status:'queued'};},
   async remove(scope,id){
-   maintain(scope);const job=jobs.get(id);if(job&&job.embeddingId!==scope.embeddingId)throw new Error('Source not found');
+   maintain(scope);const job=jobs.get(id);if(job)jobFor(scope,id);else knowledge.inspect(scope,id);
    if(job){job.status='deleted';jobs.set(id,job);}
    await knowledge.remove(scope,id);await blobs.remove(scope.embeddingId,id);return {id,status:'deleted'};
   },

@@ -16,8 +16,9 @@ function pathOf(value) {
 function stepOf(step) {
   if (!step || !['navigate', 'fill', 'verify'].includes(step.action)) deny();
   // Typed semantic contract, not code or recorded private values.
-  if (Object.keys(step).some(k => !['action', 'path', 'field', 'parameter', 'expectedPath'].includes(k))) deny();
+  if (Object.keys(step).some(k => !['action', 'path', 'field', 'parameter', 'expectedPath','activation'].includes(k))) deny();
   const result = { action: step.action, path: pathOf(step.path) };
+  if(step.activation!==undefined){if(step.action!=='navigate'||!['click','mousedown','pointerdown'].includes(step.activation))deny();result.activation=step.activation;}
   if (step.action === 'fill') {
     if (!identifier(step.field) || !identifier(step.parameter) || secret(step.field) || secret(step.parameter)) deny();
     result.field = step.field; result.parameter = step.parameter;
@@ -40,6 +41,7 @@ export function createLearningStore(repository, { clock = Date.now } = {}) {
     return structuredClone({ id: recipe.id, ...version });
   };
   const store = {
+    learningEnabled(scope){return settings.get(scopeKey(scope))===true;},
     get(scope,id){const recipe=get(scope,id),current=recipe.versions.at(-1);if(scope.role!=='maintainer'&&current.status!=='published')deny();return structuredClone({id:recipe.id,...current});},
     setLearning(scope, enabled) {
       maintainer(scope); if (typeof enabled !== 'boolean') deny(); settings.set(scopeKey(scope), enabled);

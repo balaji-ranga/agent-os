@@ -9,6 +9,17 @@ import {createProposalStore} from '../src/proposals.mjs';
 const owner={embeddingId:'learning-A',audienceId:'public',audienceIds:['public'],role:'maintainer',origin:'https://staging.example.com'};
 const visitor={embeddingId:'learning-A',audienceIds:['public'],sessionId:'session-A',capabilities:{coach:false}},other={...visitor,embeddingId:'learning-B'};
 const snapshot={revision:1,path:'/customer',fields:[{ref:'r1f0',key:'customer_name',label:'Customer name',type:'text'}],links:[]};
+
+test('published interaction profiles bind visitor approvals and disappear immediately when disabled',()=>{
+ const repository=openRepository();try{
+  const learning=createLearningRuntime(repository,createLearningStore(repository)),proposals=createProposalStore(repository,{checkBinding:(scope,binding)=>learning.bindingAllowed(scope,binding)});
+  const draft=learning.create(owner,{title:'Generic mouse-down navigation',steps:[{action:'navigate',path:'/target',activation:'mousedown'}]});assert.equal(learning.navigationProfile(visitor,'/target'),null);
+  learning.observe(owner,{revision:1,path:'/target',fields:[],links:[]});learning.validate(owner,{id:draft.id,version:1});learning.publish(owner,{id:draft.id,version:1,reviewed:true});
+  const binding=learning.navigationProfile(visitor,'/target');assert.equal(binding.activation,'mousedown');assert.equal(learning.navigationProfile(other,'/target'),null);
+  const proposal=proposals.prepare(visitor,{revision:1,path:'/start',fields:[],links:[{ref:'r1n0',label:'Target',path:'/target'}]},{message:'Review navigation',actions:[{type:'navigate',ref:'r1n0'}]},binding);assert.equal(proposal.actions[0].activation,'mousedown');
+  learning.disable(owner,{id:draft.id,version:2});assert.equal(learning.navigationProfile(visitor,'/target'),null);assert.throws(()=>proposals.consume(visitor,{id:proposal.id,revision:1,approved:true}));
+ }finally{repository.close();}
+});
 test('coaching grants require owner issuance, exact origin/embedding, one use, expiry and session revocation',()=>{
  let now=1_000_000;const repository=openRepository();try{
   const authority=new SessionAuthority({repository,clock:()=>now}),grants=createCoachingGrants(repository,{clock:()=>now});

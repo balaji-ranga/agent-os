@@ -13,7 +13,8 @@ test('one bounded repair preserves original request and observed contract; repea
  const planner=createPlatformPlanner({gatewayUrl:'https://model.example.com/gateway',serviceToken:'synthetic-service-token-for-contract-testing',fetchImpl:async(url,options)=>{
   requests.push(JSON.parse(options.body));return {ok:true,json:async()=>({content:JSON.stringify(requests.length%2===1||!valid?{message:'Review',actions:[{type:'fill',ref:'offscreen',value:'x'}]}:{message:'Review',actions:[{type:'navigate',ref:'r1n0'}]})})};
  }});
- const result=await planner({text:'Open customers',snapshot});assert.equal(result.actions[0].type,'navigate');assert.equal(requests.length,2);
- const repair=JSON.parse(requests[1].messages.at(-1).content);assert.equal(repair.task,'Open customers');assert.equal(repair.validation.category,'unobserved_field');assert.equal(repair.responseContract.links[0].ref,'r1n0');
- valid=false;await assert.rejects(()=>planner({text:'Open customers',snapshot}),/Nothing was changed/);assert.equal(requests.length,4);
+ const text='Help me find the appropriate screen';
+ const result=await planner({text,snapshot});assert.equal(result.actions[0].type,'navigate');assert.equal(requests.length,2);
+ const repair=JSON.parse(requests[1].messages.at(-1).content);assert.equal(repair.task,text);assert.equal(repair.validation.category,'unobserved_field');assert.equal(repair.responseContract.links[0].ref,'r1n0');
+ valid=false;await assert.rejects(()=>planner({text,snapshot}),/Nothing was changed/);assert.equal(requests.length,4);
 });
