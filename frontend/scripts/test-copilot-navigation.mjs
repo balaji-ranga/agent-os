@@ -1,4 +1,9 @@
 import assert from 'node:assert/strict';
+import {newerCopilotSession} from '../src/utils/copilotSessionState.js';
+const newer={id:'fixture',version:3},older={id:'fixture',version:2};
+assert.equal(newerCopilotSession(newer,older),newer,'late route refresh cannot overwrite a newer proposal');
+assert.equal(newerCopilotSession(older,newer),newer,'new server state is accepted');
+assert.equal(newerCopilotSession(newer,null),null,'logout/reset can still clear assistance');
 import {continueCopilotNavigation,waitForCopilotReady,hasCopilotEmbedControls,matchesCopilotDestination} from '../src/utils/copilotNavigation.js';
 assert(matchesCopilotDestination('/app/home','/app'));
 assert(!matchesCopilotDestination('/app/customer','/app'));

@@ -11,6 +11,7 @@ import { captureDomFields, applyDomFields, visibleCopilotControls, visibleCopilo
 import AgentChatPanel from './AgentChatPanel';
 import CopilotCoaching from './CopilotCoaching';
 import {replayStep,replayMatches,replayPrompt,openReplayDestination} from '../utils/copilotReplay.js';
+import {newerCopilotSession} from '../utils/copilotSessionState.js';
 import './PlatformHelpCopilot.css';
 const fieldLabels={kind:'Connection',collections:'Content to include',interval_seconds:'Sync frequency',graph_enabled:'Connect related information',intelligent_mapping:'Intelligent relationship mapping',enabled:'Synchronization',retrieval_enabled:'Visible in search',folder_id:'Folder',query:'Content filter',selection:'Content selection'};
 function displayValue(key,value){
@@ -34,7 +35,8 @@ function hasDraftContent(id,values){
 const reviewKey=action=>JSON.stringify(action);
 export default function PlatformHelpCopilot() {
   const { user } = useAuth(), location = useLocation(), navigate = useNavigate();
-  const [open,setOpen]=useState(false),[catalog,setCatalog]=useState(null),[session,setSession]=useState(null);
+  const [open,setOpen]=useState(false),[catalog,setCatalog]=useState(null),[session,setSessionState]=useState(null);
+  const setSession=next=>setSessionState(current=>newerCopilotSession(current,next));
   const [input,setInput]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
   const [watch,setWatch]=useState(null),[helpChat,setHelpChat]=useState(false);
   const [review,setReviewState]=useState(null),reviewRef=useRef(null);
