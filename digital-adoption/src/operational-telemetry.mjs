@@ -13,7 +13,8 @@ export function createOperationalTelemetry({emit=event=>process.stdout.write(JSO
    if(!/^[a-f0-9-]{36}$/.test(requestId)||!Number.isInteger(status)||status<100||status>599)return;
    const name=typeof operation==='string'?operation:'unknown';
    const safeOperation=name==='unknown'||routes.has(name)||name.startsWith('manage/')&&management.has(name.slice(7))||['owner/start','owner/confirm','owner/logout'].includes(name)?name:'unknown';
-   write({event:'request',requestId,operation:safeOperation,status,severity:status>=500?'error':status>=400?'warn':'info',code:status>=500?'DEPENDENCY_FAILURE':status===429?'RATE_LIMITED':status>=400?'REQUEST_DENIED':'REQUEST_COMPLETED',durationMs:Math.max(0,Math.round(Number(durationMs)||0)),embedding:hash(embeddingId),session:hash(sessionId),entity:hash(entityId),...(['queued','processing','indexing','ready','failed','deleted'].includes(state)?{state}:{})});
+   const revoked=status<400&&['manage/revoke-session','manage/revoke-token','manage/suspend','manage/website-state'].includes(safeOperation);
+   write({event:'request',requestId,operation:safeOperation,status,severity:status>=500?'error':status>=400?'warn':'info',code:status>=500?'DEPENDENCY_FAILURE':status===429?'RATE_LIMITED':status>=400?'REQUEST_DENIED':revoked?'ACCESS_POLICY_CHANGED':'REQUEST_COMPLETED',durationMs:Math.max(0,Math.round(Number(durationMs)||0)),embedding:hash(embeddingId),session:hash(sessionId),entity:hash(entityId),...(['queued','processing','indexing','ready','failed','deleted'].includes(state)?{state}:{})});
   },
   job({embeddingId,jobId,state,attempts}){if(!['processing','ready','failed'].includes(state))return;write({event:state==='failed'?'alert':'ingestion',severity:state==='failed'?'error':'info',code:state==='failed'?'INGESTION_FAILED':state==='ready'?'INGESTION_READY':'INGESTION_STARTED',embedding:hash(embeddingId),entity:hash(jobId),state,attempts:Number.isSafeInteger(attempts)?attempts:0});},
  };

@@ -28,7 +28,7 @@ export function createDiscoveryJobs(repository,learning,{clock=Date.now}={}){
   observe(scope,id,input){return repository.transaction(()=>{
    const actor=access(scope),snapshot=validateSnapshot(input),job=get(scope,id);
    if(job.status!=='running'||job.leaseSession!==actor.sessionId||job.leaseUntil<=clock()||snapshot.path!==job.active?.path)throw new Error('Discovery observation is stale');
-   const map=learning.observe({...scope,origin:job.origin},{...snapshot,...(input.inventory?{inventory:input.inventory}:{})}),depth=job.active.depth;
+   const map=learning.observe({...scope,origin:job.origin},{...snapshot,...(input.inventory?{inventory:input.inventory}:{})},{observationKind:'discovered'}),depth=job.active.depth;
    job.nodes=job.nodes.filter(node=>node.path!==snapshot.path);job.nodes.push({...map,status:'discovered-not-tested'});
    for(const link of snapshot.links){if(!job.paths.includes(link.path)){if(job.blocked.length<100)job.blocked.push({path:link.path,reason:'Route not approved for read-only discovery'});continue;}if(!job.seen.includes(link.path)&&depth<job.maxDepth&&job.seen.length<job.maxPages){job.seen.push(link.path);job.frontier.push({path:link.path,depth:depth+1});}}
    for(const path of Array.isArray(input.navigationCandidates)?input.navigationCandidates:[]){if(allowedPath(path)&&!job.paths.includes(path)&&job.blocked.length<100&&!job.blocked.some(item=>item.path===path&&item.reason==='Additional page needs owner approval'))job.blocked.push({path,reason:'Additional page needs owner approval'});}

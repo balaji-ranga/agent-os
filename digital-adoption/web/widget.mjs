@@ -1,7 +1,7 @@
 import { normalizeTheme, themeProperties } from './theme.mjs';
 import {encodeFile} from './files.mjs';
 import {createScreenCapture} from './screen-capture.mjs';
-let currentTheme=normalizeTheme({}),initialTheme,assistanceMode='assist';
+let currentTheme=normalizeTheme({}),initialTheme,assistanceMode='assist',sessionExpired=false;
 function applyTheme(value) {
   const theme = normalizeTheme(value);
   currentTheme=theme;initialTheme||=theme;
@@ -27,8 +27,12 @@ window.addEventListener('message', event => {
   if (event.source !== parent || event.origin !== parentOrigin || event.data?.channel !== 'flolah-adoption-v1') return;
   if(event.data.type === 'theme') {try{applyTheme(event.data.theme);}catch{}return;}
   if(event.data.type === 'expired') {
+    sessionExpired=true;document.querySelector('#inspection-result').replaceChildren();document.querySelector('#inspection-result').hidden=true;document.querySelector('#inspection-status').textContent='';
+    capture.discard();
     for(const item of pending.values()){clearTimeout(item.timeout);item.reject(new Error('Session expired'));}pending.clear();
     document.querySelector('#review').replaceChildren();
+    document.querySelector('#log').replaceChildren();document.querySelector('#knowledge-log').replaceChildren();
+    document.querySelectorAll('input,textarea').forEach(field=>{field.value='';if(field.type==='checkbox')field.checked=false;field.disabled=true;});
     document.querySelectorAll('button,textarea').forEach(e=>{e.disabled=true;});
     document.querySelector('#status').textContent='Your session expired. Reload the host page to start a new empty conversation.';
     return;
@@ -48,7 +52,7 @@ function coachingAvailability(config){
  document.querySelector('#knowledge-upload').hidden=!canUpload;document.querySelector('#upload-form').hidden=!canUpload;document.querySelector('#open-upload').disabled=!canUpload;document.querySelector('#capture-use').disabled=!canUpload;
  const actionsTab=document.querySelector('#tab-actions');actionsTab.hidden=!enabled;
  if(!enabled&&actionsTab.getAttribute('aria-selected')==='true')selectTab(document.querySelector('#tab-guide'));
- document.querySelector('#map-access').textContent=enabled?'Owner coaching enabled. Choose public read-only pages to map.':'Website mapping needs owner coaching access. Visitors can inspect the current page without saving a shared map.';
+ document.querySelector('#map-access').textContent=enabled?'Owner coaching enabled. Choose public read-only pages to map.':'Website mapping and page inspection require owner coaching access.';
  document.querySelector('#map-enable-coaching').hidden=enabled;
  for(const id of ['discovery-preview','discovery-paths','discovery-pages'])document.getElementById(id).disabled=!enabled;
  document.querySelector('#discovery-form button').disabled=!enabled;document.querySelector('#discovery-list').disabled=!enabled;if(!enabled||!lastMapReport)for(const id of ['discovery-pause','discovery-resume','discovery-stop','discovery-extend'])document.getElementById(id).disabled=true;else renderDiscovery(lastMapReport);
@@ -68,7 +72,7 @@ document.querySelector('#settings-open').onclick=()=>{loadAppearance();settings.
 document.querySelector('#settings-close').onclick=()=>settings.close();
 appearance.onsubmit=async event=>{event.preventDefault();try{const data=new FormData(appearance),patch={};for(const key of ['primary','background','foreground'])patch[key]=data.get(key);for(const key of ['fontSize','radius'])patch[key]=Number(data.get(key));const result=await call('appearance',{theme:patch});applyTheme(result.theme);settingsStatus.textContent='Appearance updated for this session.';}catch(error){showError(error);}};
 document.querySelector('#theme-reset').onclick=async()=>{try{const result=await call('appearance-reset');applyTheme(result.theme);loadAppearance();settingsStatus.textContent='Website theme restored.';}catch(error){showError(error);}};
-document.querySelector('#coaching-form').onsubmit=async event=>{event.preventDefault();const field=document.querySelector('#coaching-code');try{const result=await call('coaching-exchange',{code:field.value});field.value='';document.querySelector('#upload-form').hidden=!result.capabilities?.upload;document.querySelector('#capture-use').disabled=!result.capabilities?.upload;coachingAvailability(result);document.querySelector('#coaching-status').textContent=`Coaching enabled until ${new Date(result.coachingUntil).toLocaleTimeString()}. Use Actions → Inspect current form on each workflow screen.`;}catch(error){field.value='';document.querySelector('#coaching-status').textContent=error.message;}};
+document.querySelector('#coaching-form').onsubmit=async event=>{event.preventDefault();const field=document.querySelector('#coaching-code');try{const result=await call('coaching-exchange',{code:field.value});field.value='';document.querySelector('#upload-form').hidden=!result.capabilities?.upload;document.querySelector('#capture-use').disabled=!result.capabilities?.upload;coachingAvailability(result);document.querySelector('#coaching-status').textContent=`Coaching enabled until ${new Date(result.coachingUntil).toLocaleTimeString()}. Use Actions → Current page → Inspect form and page on each workflow screen.`;}catch(error){field.value='';document.querySelector('#coaching-status').textContent=error.message;}};
 document.querySelector('#assistance-mode').onchange=async event=>{assistanceMode=event.target.value;task++;document.querySelector('#stop').hidden=true;document.querySelector('#save-review').hidden=true;document.querySelector('#review').replaceChildren();await call('cancel');settingsStatus.textContent=assistanceMode==='guide'?'Guide mode highlights fields without changing values.':'Assist mode prepares changes for your approval.';};
 const replies={guide:null,knowledge:null};
 document.querySelector('#save-review').onclick=async()=>{
@@ -144,26 +148,54 @@ async function prepare(text,generation,depth=0){
 }
 document.querySelector('#guide-chat').addEventListener('submit',event=>{event.preventDefault();const text=document.querySelector('#message').value;show(text,'guide','user');document.querySelector('#message').value='';if(/^(?:please\s+)?(?:save|submit)(?:\s+(?:this|the)\s+(?:form|record|draft))?[.!]?$/i.test(text.trim())){document.querySelector('#save-review').onclick();}else prepare(text,++task);});
 document.querySelector('#inspect').addEventListener('click', async () => {
-  try { const result = await call('inspect'); actionStatus.textContent = `${result.forms?.length||0} forms, ${result.fields.length} visible supported fields and ${result.links?.length||0} safe navigation links found. Values were not collected. ${result.learning?'Screen map saved for coaching; compatibility is not yet validated. ':''}${result.fields.map(f=>f.label).join(', ')}`; }
-  catch(error) { showError(error); }
+  const button=document.querySelector('#inspect'),progress=document.querySelector('#inspection-status'),output=document.querySelector('#inspection-result');
+  button.disabled=true;button.textContent='Inspecting…';progress.textContent='Inspecting this page and saving its screen map…';output.replaceChildren();output.hidden=true;
+  try {
+    const result=await call('inspect');if(sessionExpired)return;
+    const inventory=result.inventory||result,fields=inventory.fields||[],forms=inventory.forms||[],links=inventory.links||[];
+    const text=(tag,value)=>{const item=document.createElement(tag);item.textContent=value;output.append(item);return item;};
+    text('h2',`Page: ${result.path}`);
+    text('p',`${forms.length} forms · ${fields.length} fields in loaded page structure · ${links.length} same-website navigation links. ${result.fields.length} fields currently support reviewed filling; ${result.links.length} navigation links currently support reviewed execution.`);
+    text('p',result.learning?'This page was saved in this website’s screen map. It is observed, not task-tested.':'This page was inspected; no shared screen map was saved.');
+    const list=(heading,items,empty)=>{text('h2',heading);if(!items.length){text('p',empty);return;}const ul=text('ul','');for(const value of items){const li=document.createElement('li');li.textContent=value;ul.append(li);}};
+    list('Forms',forms.map(form=>`${form.label||form.key} · ${form.fields?.length||0} named fields`),'No forms found in the loaded page.');
+    list('Fields',fields.map(field=>`${field.label||field.key||'Unlabelled field'} · ${field.type}${field.required?' · required':''}${field.form?' · form '+field.form:''}${field.visible===false?' · hidden in page':''}${field.editable===false?' · requires manual handling':''}`),'No inspectable fields found. Open the form on the website, then inspect again.');
+    list('Navigation',links.map(link=>`${link.label||link.path} → ${link.path}${link.visible===false?' · hidden in page':''}`),'No same-website navigation links found.');
+    if(result.coverage?.manualNotice)text('p',result.coverage.manualNotice);
+    text('p',`Field values were excluded. ${inventory.truncated?'The inventory reached its limits. ':''}Only this loaded page was inspected. Use Website map to discover other approved pages. Unloaded states and inaccessible frames require separate inspection.`);
+    progress.textContent='Inspection complete. No fields were changed and no forms were submitted.';output.hidden=false;output.scrollIntoView({block:'start'});output.focus({preventScroll:true});
+  }catch(error){progress.textContent='Inspection failed. No page changes were made. Try again after resolving the error below.';showError(error);progress.scrollIntoView({block:'nearest'});}
+  finally{button.disabled=sessionExpired;button.textContent='Inspect form and page';}
 });
 document.querySelector('#documents').onclick=async()=>{try{const result=await call('documents'),list=document.querySelector('#document-list');list.replaceChildren();for(const source of result.sources){const item=document.createElement('li');item.textContent=`${source.title} · ${source.status}`;list.append(item);}actionStatus.textContent=`${result.sources.length} authorized ready sources shown (up to 100).`;}catch(error){showError(error);}};
 let recordingState='idle';
 let teachingAttempt;
-document.querySelector('#record-save-draft').onclick=async()=>{try{const title=document.querySelector('#record-title').value;if(!title.trim())throw new Error('Name this teaching workflow first.');if(teachingAttempt?.title!==title)teachingAttempt={title,id:crypto.randomUUID()};const result=await call('record-draft',{title,operationId:teachingAttempt.id});actionStatus.textContent=`Teaching draft saved · version ${result.version}. Validate current screen mappings and review publication in the owner console.`;}catch(error){showError(error);}};
+document.querySelector('#record-save-draft').onclick=async()=>{
+ const button=document.querySelector('#record-save-draft');button.disabled=true;let saved=false;
+ try{const title=document.querySelector('#record-title').value;if(!title.trim())throw new Error('Name this teaching workflow first.');if(teachingAttempt?.title!==title)teachingAttempt={title,id:crypto.randomUUID()};const result=await call('record-draft',{title,operationId:teachingAttempt.id});saved=true;document.querySelector('#record-title').value=result.title;actionStatus.textContent=`Teaching draft saved · version ${result.version}. Validate current screen mappings and review publication in the owner console.`;recordStatus.textContent=actionStatus.textContent;}
+ catch(error){recordStatus.textContent='Teaching draft save was not confirmed. Retry when access and service are available.';showError(error);}
+ finally{button.disabled=saved||sessionExpired;}
+};
 const replayButton=document.querySelector('#replay-navigation');
+const recordStatus=document.querySelector('#record-status');
 replayButton.onclick=async()=>{replayButton.disabled=true;try{actionStatus.textContent='Replaying reviewed navigation…';const result=await call('replay-navigation',{approved:true});actionStatus.textContent=`${result.results.length} recorded navigation steps reached their verified destinations.`;}catch(error){showError(error);}finally{replayButton.disabled=false;}};
 async function record(operation){
  for(const id of ['record-start','record-pause','record-stop'])document.getElementById(id).disabled=true;
  actionStatus.textContent=`${operation==='start'?'Starting':operation==='stop'?'Finishing':'Updating'} recording… wait for confirmation before continuing.`;
+ recordStatus.textContent=actionStatus.textContent;
  try{
-  const result=await call(`record-${operation}`);recordingState=result.state;
-  if(operation==='start')teachingAttempt=null;
+  const result=await call(`record-${operation}`,{title:document.querySelector('#record-title').value});recordingState=result.state;
+  if(operation==='start'){teachingAttempt=null;document.querySelector('#record-save-draft').disabled=false;}
   document.querySelector('#record-start').disabled=['recording','paused'].includes(recordingState);
   document.querySelector('#record-pause').disabled=!['recording','paused'].includes(recordingState);
   document.querySelector('#record-pause').textContent=recordingState==='paused'?'Resume recording':'Pause recording';
   document.querySelector('#record-stop').disabled=!['recording','paused'].includes(recordingState);
   actionStatus.textContent=`Action recording: ${recordingState}. No entered values captured.`;
+  if(result.title){document.querySelector('#record-title').value=result.title;document.querySelector('#record-title').readOnly=['recording','paused'].includes(recordingState);}
+  if(result.savedDraft){document.querySelector('#record-save-draft').disabled=true;actionStatus.textContent+=` Teaching draft saved on this website as “${result.savedDraft.title}”. It is available to owner planning across sessions; visitors require validated publication.`;}
+  if(result.persistenceError){actionStatus.textContent+=' Teaching draft was not saved. Use Save teaching draft to retry.';showError(new Error(result.persistenceError));}
+  if(result.mapError)showError(new Error(`Screen map was not saved: ${result.mapError}`));
+  recordStatus.textContent=actionStatus.textContent;
   replayButton.hidden=operation!=='stop'||!result.steps.length||result.steps.some(step=>step.action!=='navigate');
   if(operation==='stop')document.querySelector('#record-review').textContent=result.steps.map((s,i)=>`${i+1}. ${s.action} ${s.path}${s.parameter?' · parameter '+s.parameter:''}${s.activation?' · '+s.activation+' profile':''}`).join('\n')||'No supported actions recorded.';
  }catch(error){showError(error);document.querySelector('#record-start').disabled=['recording','paused'].includes(recordingState);document.querySelector('#record-pause').disabled=!['recording','paused'].includes(recordingState);document.querySelector('#record-stop').disabled=!['recording','paused'].includes(recordingState);}

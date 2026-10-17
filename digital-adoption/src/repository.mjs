@@ -12,6 +12,7 @@ export function openRepository(path = ':memory:') {
   const all = db.prepare('SELECT value FROM adoption_state WHERE namespace=?');
   const entries = db.prepare('SELECT key,value FROM adoption_state WHERE namespace=?');
   const scopedStatements=new Map();
+  let transactionDepth=0;
   const scoped=(namespace,filters,withKeys)=>{
     const names=Object.keys(filters).sort();
     if(names.some(name=>!['embeddingId','organizationId','audienceId','sessionId','origin','scope'].includes(name)||typeof filters[name]!=='string'||!filters[name]||filters[name].length>512))throw new Error('Invalid repository scope');
@@ -32,9 +33,14 @@ export function openRepository(path = ':memory:') {
       };
     },
     transaction(fn) {
-      db.exec('BEGIN IMMEDIATE');
-      try { const result = fn(); db.exec('COMMIT'); return result; }
-      catch (error) { db.exec('ROLLBACK'); throw error; }
+      const nested=transactionDepth>0,savepoint=`adoption_${transactionDepth}`;
+      db.exec(nested?`SAVEPOINT ${savepoint}`:'BEGIN IMMEDIATE');transactionDepth++;
+      try {
+        const result=fn();
+        if(result&&typeof result.then==='function')throw new Error('Repository transactions must be synchronous');
+        db.exec(nested?`RELEASE SAVEPOINT ${savepoint}`:'COMMIT');return result;
+      }catch(error){db.exec(nested?`ROLLBACK TO SAVEPOINT ${savepoint}`:'ROLLBACK');if(nested)db.exec(`RELEASE SAVEPOINT ${savepoint}`);throw error;}
+      finally{transactionDepth--;}
     },
     close: () => db.close(),
   };

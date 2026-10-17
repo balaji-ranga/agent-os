@@ -24,6 +24,7 @@ export class SessionAuthority {
   #development;
   #idleMs;
   #hostIdentity;
+  #proposals;
   constructor({ clock = Date.now, repository, development = false, idleMs = 15 * 60_000,hostIdentity } = {}) {
     if (!Number.isSafeInteger(idleMs) || idleMs < 60_000 || idleMs > 30 * 60_000) fail();
     this.#idleMs = idleMs;
@@ -37,6 +38,7 @@ export class SessionAuthority {
       this.#runtime = repository.map('runtime');
       this.#initializations = repository.map('initializations');
       this.#revoked = repository.map('revocations');
+      this.#proposals = repository.map('proposals');
     }
   }
 
@@ -60,10 +62,12 @@ export class SessionAuthority {
   }
 
   grantCoaching(auth,grant){
+    return this.#transaction(()=>{
     const {session}=this.#authorize(auth.sessionToken,auth.origin);
     if(grant?.embeddingId!==session.embeddingId||grant.origin!==session.origin||!Number.isSafeInteger(grant.expiresAt)||grant.expiresAt<=this.#clock()||grant.expiresAt>this.#clock()+10*60_000)fail();
     if(grant.audienceId&&! (session.identity?.audienceIds||['public']).includes(grant.audienceId))fail();
     session.coachingAudienceId=grant.audienceId||'public';session.coachingUntil=Math.min(grant.expiresAt,session.expiresAt);this.#sessions.set(session.id,session);return {coachingUntil:session.coachingUntil};
+    });
   }
 
   #installation(secret, origin) {
@@ -100,7 +104,7 @@ export class SessionAuthority {
       const iv=randomBytes(12),cipher=createCipheriv('aes-256-gcm',key,iv);
       cipher.setAAD(Buffer.from(operation));
       const content=Buffer.concat([cipher.update(JSON.stringify(result)),cipher.final()]);
-      this.#initializations.set(operation,{iv:iv.toString('hex'),tag:cipher.getAuthTag().toString('hex'),content:content.toString('hex'),identityFingerprint:identity?.fingerprint||null,expiresAt:result.expiresAt});
+      this.#initializations.set(operation,{sessionId:session.id,iv:iv.toString('hex'),tag:cipher.getAuthTag().toString('hex'),content:content.toString('hex'),identityFingerprint:identity?.fingerprint||null,expiresAt:result.expiresAt});
     }
     return result;
     });
@@ -156,31 +160,39 @@ export class SessionAuthority {
   }
 
   clearConversation(auth) {
+    return this.#transaction(()=>{
     const {session}=this.#authorize(auth.sessionToken,auth.origin);
     session.messages=[];session.conversationVersion=(session.conversationVersion||0)+1;
     this.#sessions.set(session.id,session);return {cleared:true};
+    });
   }
 
   appendAssistant(auth,text,channel='guide') {
+    return this.#transaction(()=>{
     const {session}=this.#authorize(auth.sessionToken,auth.origin);
     if(!['guide','knowledge'].includes(channel)||typeof text!=='string'||text.length>8000||session.messages.length>=200)fail();
     const message={id:randomUUID(),role:'assistant',text,replyTo:null,channel};
     session.messages.push(message);this.#sessions.set(session.id,session);return structuredClone(message);
+    });
   }
 
   // Call for explicit user interactions only. Renewal, polling and background
   // reads must never keep an unattended session alive.
   touch(auth) {
+    return this.#transaction(()=>{
     const { session } = this.#authorize(auth.sessionToken,auth.origin);
     session.lastActivityAt=this.#clock();
     this.#sessions.set(session.id,session);
+    });
   }
 
   terminate({ sessionToken, origin }) {
+    return this.#transaction(()=>{
     const { session } = this.#authorize(sessionToken, origin);
     session.terminated = true;
     session.messages = [];
     this.#sessions.set(session.id, session);
+    });
   }
 
   revokeInstallation(installationId) {
@@ -205,12 +217,30 @@ export class SessionAuthority {
   }
 
   revokeSession(embeddingId, sessionId) {
+    return this.#transaction(()=>{
     const session=this.#sessions.get(sessionId);
     if(!session || session.embeddingId!==embeddingId) fail();
     session.terminated=true;session.messages=[];this.#sessions.set(session.id,session);
+    });
   }
 
   #revoked = new Map();
+
+  // Access expires immediately; bounded maintenance removes private session
+  // data independently of the shared website's knowledge lifecycle.
+  maintain({limit=500}={}){
+    if(!Number.isSafeInteger(limit)||limit<1||limit>5000)fail();
+    return this.#transaction(()=>{
+      const now=this.#clock(),expired=new Set();
+      for(const session of this.#sessions.values())if(expired.size<limit&&(session.terminated||session.expiresAt<=now||session.lastActivityAt+this.#idleMs<=now||session.identity?.expiresAt<=now))expired.add(session.id);
+      for(const id of expired)this.#sessions.delete(id);
+      let credentials=0,initializations=0,proposals=0;
+      for(const [key,row] of this.#runtime.entries())if(row.expiresAt<=now||expired.has(row.sessionId)){this.#runtime.delete(key);credentials++;}
+      for(const [key,row] of this.#initializations.entries())if(row.content&&(row.expiresAt<=now||expired.has(row.sessionId))){this.#initializations.set(key,{expiresAt:Math.min(row.expiresAt,now),expired:true});initializations++;}
+      for(const [key,row] of this.#proposals?.entries()||[])if(expired.has(row.sessionId)){this.#proposals.delete(key);proposals++;}
+      return {sessions:expired.size,credentials,initializations,proposals};
+    });
+  }
 
   context({ sessionToken, origin }) {
     const { session,installation } = this.#authorize(sessionToken, origin);

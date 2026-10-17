@@ -33,7 +33,8 @@ const search=createOpenSearch({...config.search,privateNetwork:true});
 const knowledge=createKnowledgeService(repository,search);
 const ingestion=createSourceIngestion(repository,{knowledge,blobs:createBlobStore('/data/objects'),extract:createDocumentExtractor({python:'/opt/adoption-python/bin/python'}),fetchUrl:createPublicUrlFetcher(),onEvent:telemetry.job});
 knowledge.recoverExpired();
-const recoveryTimer=setInterval(()=>knowledge.recoverExpired(),30_000);
+authority.maintain();
+const recoveryTimer=setInterval(()=>{try{knowledge.recoverExpired();authority.maintain();}catch{/* Authorization remains fail-closed; retry maintenance next turn. */}},30_000);
 recoveryTimer.unref();
 const embeddings=['adoption-demo-alpha','adoption-demo-beta'];
 // Apply additive lexical mappings to this service's existing source indexes

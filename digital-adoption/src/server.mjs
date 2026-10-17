@@ -49,7 +49,8 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
     let requestScope,entityId,state;
-    const send = (code, data) => {entityId=data?.id||data?.messageId;state=data?.status;res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(data)); };
+    const send = (code, data) => {entityId=data?.id||data?.messageId||entityId;state=data?.status;res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(data)); };
+    const managedScope=(operation,input)=>{requestScope={embeddingId:input.id,sessionId:operation.endsWith('/revoke-session')?input.sessionId:undefined};entityId=input.installationId;};
     let path;try{path=new URL(req.url,'http://unused').pathname;}catch{return send(400,{error:'Invalid request URL'});}
     if(telemetry&&req.method==='POST'&&path.startsWith('/v1/')){
       const requestId=randomUUID(),started=Date.now(),operation=telemetry.operation(path);
@@ -76,6 +77,9 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
       // Actual request Origin is used; no user-supplied embedding/session IDs select scope.
       const origin = req.headers.origin;
       if (typeof origin !== 'string' || origin === 'null') return send(403, { error: 'Access denied' });
+      // CORS is not authorization. Generic refusal/rate-limit responses must
+      // remain readable even before a runtime session has been established.
+      res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin');
       if (req.method === 'OPTIONS') {
         // CORS is not authentication; POST still validates the installation/session.
         res.writeHead(204, { 'Access-Control-Allow-Origin': origin, Vary: 'Origin',
@@ -111,7 +115,7 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
         if(path==='/v1/owner/start')result=await ownerIdentity.start(input.email);
         else if(path==='/v1/owner/confirm'){const login=ownerIdentity.confirm(input.email,input.challenge,input.code);res.setHeader('Set-Cookie',login.cookie);result={signedIn:true};}
         else if(path==='/v1/owner/logout'){res.setHeader('Set-Cookie',ownerIdentity.logout(req.headers.cookie).cookie);result={signedOut:true};}
-        else if(path.startsWith('/v1/owner/manage/'))result=await ownerManagement({authorization:req.headers.cookie,origin,path:path.replace('/v1/owner/manage/','/v1/manage/'),input});
+        else if(path.startsWith('/v1/owner/manage/')){result=await ownerManagement({authorization:req.headers.cookie,origin,path:path.replace('/v1/owner/manage/','/v1/manage/'),input});managedScope(path,input);}
         else return send(404,{error:'Not found'});
         return send(200,result);
       }
@@ -119,6 +123,7 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
         if(!management)return send(403,{error:'Management unavailable'});
         budget.take(`management:${req.socket.remoteAddress}`,60);
         result=await management({authorization:req.headers.authorization,origin,path,input});
+        managedScope(path,input);
         return send(200,result);
       }
       if (path === '/v1/sessions') {budget.take(`init:${req.socket.remoteAddress}`,60);result = authority.initialize({ installationToken: input.installationToken, origin, initializationKey:input.initializationKey,identityToken:input.identityToken });}
@@ -205,7 +210,7 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
           // No credentials or caller-provided identity are passed to the model.
           const guideHistory=authority.history(auth).filter(m=>(m.channel||'guide')==='guide');
           const recipeGuidance=learning?.context?.(scope,input.text,snapshot);
-          const response=['ambiguous','manual_replay'].includes(recipeGuidance?.status)?{message:recipeGuidance.status==='ambiguous'?`More than one reviewed workflow matches: ${recipeGuidance.candidates.map(candidate=>candidate.title).join('; ')}. Clarify which workflow you intend before I prepare changes.`:'This workflow is too large to include safely as one guidance context. Ask the website owner to split it into smaller reviewed workflows.',actions:[]}:await planner({ text:input.text,snapshot,history:guideHistory.slice(-12),replyContext:guideHistory.find(m=>m.id===input.replyTo)?.text,sourceGuidance:sourceMap?.guidance(scope,input.text,snapshot),recipeGuidance });
+          const response=['ambiguous','manual_replay'].includes(recipeGuidance?.status)?{message:recipeGuidance.status==='ambiguous'?`More than one reviewed workflow matches: ${recipeGuidance.candidates.map(candidate=>candidate.title).join('; ')}. Clarify which workflow you intend before I prepare changes.`:'This workflow is too large to include safely as one guidance context. Ask the website owner to split it into smaller reviewed workflows.',actions:[]}:await planner({ text:input.text,snapshot,history:guideHistory.slice(-12),replyContext:guideHistory.find(m=>m.id===input.replyTo)?.text,sourceGuidance:sourceMap?.guidance(scope,input.text,snapshot),recipeGuidance,siteGuidance:learning?.planningMemory?.(scope,input.text,snapshot) });
           if(authority.context(auth).conversationVersion!==scope.conversationVersion)throw new Error('Conversation cleared; response discarded');
           const destination=response.actions?.length===1&&response.actions[0].type==='navigate'?snapshot.links.find(link=>link.ref===response.actions[0].ref)?.path:null;
           const navigationBinding=destination?learning?.navigationProfile?.(scope,destination):null;
@@ -243,7 +248,7 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
       res.setHeader('Access-Control-Allow-Origin', origin); res.setHeader('Vary', 'Origin');
       return send(200, result);
     } catch (error) {
-      const unavailable=['Platform model unavailable','Knowledge model unavailable','Search operation failed','Search provisioning check failed'].includes(error.message);
+      const unavailable=['Platform model unavailable','Knowledge model unavailable','Search operation failed','Search provisioning check failed','Management identity unavailable'].includes(error.message)||['ERR_SQLITE_ERROR','SQLITE_BUSY','SQLITE_IOERR','ENOSPC','EROFS','EIO','EMFILE','ENFILE'].includes(error.code)||error.code==='ERR_INVALID_STATE'&&/database|statement/i.test(error.message);
       const invalidResponse=['Invalid platform model response','Invalid evidence citations','The assistant could not produce a valid current-screen proposal. Nothing was changed.'].includes(error.message);
       const code = error.message === 'Request too large' ? 413 : error.message==='Request rate exceeded'||error.message==='Request capacity reached'?429:unavailable?503:invalidResponse?502:403;
       return send(code, { error: code===413?'Request too large':code===503?'Copilot service temporarily unavailable':code===502?'The assistant could not prepare a valid response. Nothing was changed.':'Access denied or invalid request' });

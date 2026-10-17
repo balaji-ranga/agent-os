@@ -75,29 +75,31 @@ export function createSourceIngestion(repository,{knowledge,blobs,extract,fetchU
     // another website's entire backlog; CPU/memory stay bounded to one parser.
     for(const candidate of selected?[selected]:[]){
      if(stopped)break;
-     const scope=trustedScope(candidate),job=jobs.get(candidate.id);if(job.status!=='queued')continue;
-     job.status='extracting';job.attempts++;job.startedAt=clock();jobs.set(job.id,job);
+     const scope=trustedScope(candidate),job=repository.transaction(()=>{
+      const current=jobs.get(candidate.id);if(current.status!=='queued')return null;
+      knowledge.processing(scope,current.id);current.status='extracting';current.attempts++;current.startedAt=clock();current.attemptId=randomUUID();jobs.set(current.id,current);return current;
+     });if(!job)continue;
+     const owned=()=>{const current=jobs.get(job.id);return current?.attemptId===job.attemptId&&['extracting','indexing'].includes(current.status);};
      notify(job,'processing');
      try{
-      knowledge.processing(scope,job.id);
       let result;
       if(job.kind==='url'){
-       const page=await fetchUrl(job.url);if(jobs.get(job.id)?.status==='deleted')continue;
+       const page=await fetchUrl(job.url);if(!owned())continue;
        if(jobs.values({embeddingId:scope.embeddingId}).filter(j=>j.id!==job.id&&j.status!=='deleted').reduce((sum,j)=>sum+j.bytes,0)+page.bytes.length>64*1024*1024)throw new Error('Embedding raw storage quota reached');
        job.bytes=page.bytes.length;job.mime=page.mime;jobs.set(job.id,job);
        await blobs.remove(job.embeddingId,job.id);await blobs.put(job.embeddingId,job.id,page.bytes);
        result=await extract({path:blobs.path(job.embeddingId,job.id),kind:page.mime==='text/html'?'html':'text'});result.url=page.url;
       }else result=await extract({path:blobs.path(job.embeddingId,job.id),kind:job.kind});
-      if(jobs.get(job.id)?.status==='deleted')continue;
+      if(!owned())continue;
       knowledge.extracted(scope,job.id,result);
       job.status='indexing';jobs.set(job.id,job);
       await knowledge.ingest(scope,job.id);
-      if(jobs.get(job.id)?.status!=='deleted'){job.status='ready';job.completedAt=clock();job.lastError=null;jobs.set(job.id,job);notify(job,'ready');}
+      if(owned()){job.status='ready';job.completedAt=clock();job.lastError=null;jobs.set(job.id,job);notify(job,'ready');}
      }catch{
-      if(jobs.get(job.id)?.status!=='deleted'){job.status='failed';job.lastError='Processing failed. Check the supported format, file limits and readable content, then retry.';jobs.set(job.id,job);knowledge.extractionFailed(scope,job.id);notify(job,'failed');}
+      if(owned()){job.status='failed';job.lastError='Processing failed. Check the supported format, file limits and readable content, then retry.';jobs.set(job.id,job);knowledge.extractionFailed(scope,job.id);notify(job,'failed');}
      }finally{
       // An in-flight index write may finish after deletion; perform cleanup again.
-      if(jobs.get(job.id)?.status==='deleted'){await knowledge.remove(scope,job.id);await blobs.remove(scope.embeddingId,job.id);}
+      if(jobs.get(job.id)?.status==='deleted'){try{await knowledge.remove(scope,job.id);}finally{await blobs.remove(scope.embeddingId,job.id);}}
      }
     }
    }finally{running=false;}

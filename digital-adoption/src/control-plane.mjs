@@ -58,11 +58,11 @@ export function createControlPlane(repository,authority,{dns=resolveTxt,clock=Da
    if(operationId!==undefined&&(typeof operationId!=='string'||!/^[A-Za-z0-9_-]{16,80}$/.test(operationId)))reject();
    const attempts=repository.map('registration_attempts'),key=operationId&&`${actor.organizationId}:${operationId}`;
    const fingerprint=hash(JSON.stringify({origin:normalizedOrigin(origin),environment}));
-   if(key){const previous=attempts.get(key);if(previous){if(previous.fingerprint!==fingerprint)reject();owned(actor,previous.result.id);return structuredClone(previous.result);}}
-   const normalized=normalizedOrigin(origin),challenge=`flolah-adoption=${randomBytes(32).toString('base64url')}`;
-   const website={id:randomUUID(),organizationId:actor.organizationId,origin:normalized,environment,status:'pending',verified:false,
-    challengeHash:hash(challenge),challengeExpiry:clock()+24*3_600_000,installations:[]};
    return repository.transaction(()=>{
+    if(key){const previous=attempts.get(key);if(previous){if(previous.fingerprint!==fingerprint)reject();owned(actor,previous.result.id);return structuredClone(previous.result);}}
+    const normalized=normalizedOrigin(origin),challenge=`flolah-adoption=${randomBytes(32).toString('base64url')}`;
+    const website={id:randomUUID(),organizationId:actor.organizationId,origin:normalized,environment,status:'pending',verified:false,
+     challengeHash:hash(challenge),challengeExpiry:clock()+24*3_600_000,installations:[]};
     websites.set(website.id,website);record(actor,'register',website.id);
     const result={id:website.id,status:'pending',dnsName:`_flolah-adoption.${new URL(normalized).hostname}`,dnsValue:challenge};
     if(key)attempts.set(key,{fingerprint,result});return result;
@@ -79,21 +79,27 @@ export function createControlPlane(repository,authority,{dns=resolveTxt,clock=Da
    });
   },
   approve(actor,id){
+   return repository.transaction(()=>{
    if(actor?.role!=='platform_admin')reject();
    const website=owned(actor,id);if(!website.verified||website.status!=='pending')reject();
    website.status='approved';websites.set(id,website);record(actor,'approve',id);return {status:'approved'};
+   });
   },
   activate(actor,id){
+   return repository.transaction(()=>{
    const website=owned(actor,id);if(!website.verified||website.status!=='approved')reject();
    const installation=authority.registerApproved({embeddingId:website.id,origins:[website.origin],expiresAt:clock()+365*24*3_600_000,visitorUploads:website.visitorUploads===true});
    website.installations.push(installation.installationId);websites.set(id,website);record(actor,'issue_installation',id);
    return {embeddingId:website.id,...installation};
+   });
   },
   suspend(actor,id){
-   if(actor?.role!=='platform_admin')reject();
-   const website=owned(actor,id);
-   for(const installationId of website.installations)authority.revokeInstallation(installationId);
-   website.status='suspended';websites.set(id,website);record(actor,'suspend',id);return {status:'suspended'};
+   return repository.transaction(()=>{
+    if(actor?.role!=='platform_admin')reject();
+    const website=owned(actor,id);if(website.status!=='approved')reject();
+    for(const installationId of website.installations)authority.revokeInstallation(installationId);
+    website.status='suspended';websites.set(id,website);record(actor,'suspend',id);return {status:'suspended'};
+   });
   },
   rotate(actor,id,installationId,{overlapMs=0,reason}){
    adminReason(actor,reason);
