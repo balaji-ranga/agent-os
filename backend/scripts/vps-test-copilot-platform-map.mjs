@@ -5,8 +5,9 @@ import {writeFileSync,readFileSync,existsSync,unlinkSync} from 'node:fs';
 if(process.env.COPILOT_VPS_ACCEPTANCE!=='1')throw new Error('COPILOT_VPS_ACCEPTANCE=1 required');
 const {getDb}=await import('../src/db/schema.js');const {createSession}=await import('../src/services/auth/session.js');
 const db=getDb(),uiFile='/tmp/copilot-map-ui-acceptance.json',base='https://login.flolah.cloud';
-function cleanup(ids){db.transaction(()=>{for(const id of ids){
- for(const [table,field] of [['ui_copilot_sessions','owner'],['ui_copilot_recipes','owner'],['efficiency_preferences','owner_user_id'],['efficiency_calls','owner_user_id'],['token_usage','owner_user_id'],['model_route_events','owner_user_id'],['platform_sessions','user_id']])if(db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(table))db.prepare(`DELETE FROM ${table} WHERE ${field}=?`).run(id);
+function cleanup(ids){assert(Array.isArray(ids)&&ids.length===2&&ids.every(id=>/^copilot-map-acceptance-[ab]-[0-9a-f-]+$/.test(id)),'Only exact synthetic fixture users may be removed');db.transaction(()=>{for(const id of ids){
+ // A service restart can seed defaults for fixture users; remove children first.
+ for(const [table,field] of [['ui_copilot_sessions','owner'],['ui_copilot_recipes','owner'],['efficiency_preferences','owner_user_id'],['efficiency_calls','owner_user_id'],['token_usage','owner_user_id'],['model_route_events','owner_user_id'],['master_data_rows','owner_user_id'],['master_data_tables','owner_user_id'],['ceo_org_strategy','owner_user_id'],['promotion_events','user_id'],['user_agents','user_id'],['platform_sessions','user_id']])if(db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(table))db.prepare(`DELETE FROM ${table} WHERE ${field}=?`).run(id);
  db.prepare('DELETE FROM platform_users WHERE id=?').run(id);
 }})();}
 if(process.argv.includes('--cleanup-ui')){
