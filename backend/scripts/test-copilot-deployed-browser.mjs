@@ -24,15 +24,15 @@ try{
   await route.continue();
  });
  await page.addInitScript(token=>localStorage.setItem('agent-os-auth-token',token),config.token);
- await page.goto(config.origin+'/profile',{waitUntil:'domcontentloaded'});
+ await page.goto(config.origin+'/content-explorer',{waitUntil:'domcontentloaded'});
  const select=page.getByText('Efficiency mode',{exact:true}).locator('..').locator('select');
- await select.waitFor({state:'visible'});assert.equal(await select.inputValue(),'yes');checks++;
  const closeAnnouncement=page.getByRole('button',{name:'Close announcement',exact:true});
  try{await closeAnnouncement.waitFor({state:'visible',timeout:3000});await closeAnnouncement.click();}catch{/* No eligible announcement is also valid. */}
  await page.getByRole('button',{name:'Platform Help',exact:true}).click();
- await page.getByRole('textbox',{name:'Message Platform Help',exact:true}).fill('Update efficiency mode to No. Prepare only this visible setting for review. Leave all other profile details unchanged.');
+ await page.getByRole('textbox',{name:'Message Platform Help',exact:true}).fill('Looking to update profile to make efficiency mode as No');
  await page.getByRole('button',{name:'Send',exact:true}).click();
  await page.getByRole('button',{name:'Review setup',exact:true}).waitFor({timeout:60000});
+ assert.equal(new URL(page.url()).pathname,'/profile','original prompt navigated from Content Explorer and continued');checks++;
  assert.equal(await select.inputValue(),'yes','proposal must not change the field before review');checks++;
  await page.getByRole('button',{name:'Review setup',exact:true}).click();
  await page.getByRole('button',{name:'Approve and apply fields',exact:true}).waitFor();

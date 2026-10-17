@@ -90,6 +90,16 @@ export function normalizeCopilotScreenActions(input,catalog,currentScreenId,visi
   // continuation must inspect its DOM before proposing an internal link.
   const destination=input.actions.length===1?input.actions[0]:null;
   if(destination?.type==='embed_navigate'&&destination.screen!==currentScreenId&&['crm','erp'].includes(destination.screen)&&catalog.screens.some(s=>s.id===destination.screen))return {...input,actions:[{type:'navigate',screen:destination.screen}]};
+  if(destination?.type==='screen_fill'&&destination.screen!==currentScreenId&&catalog.screens.some(s=>s.id===destination.screen))return {...input,actions:[{type:'navigate',screen:destination.screen}]};
+  // A registered adapter can cover only part of its screen. An off-screen
+  // unknown field is NOT a draft capability: open its uniquely authorized
+  // destination and reinspect first. Discard the unvalidated patch completely;
+  // the original user request survives through the navigation continuation.
+  if(destination?.type==='fill'&&Object.hasOwn(catalog.forms,destination.form)&&destination.values&&typeof destination.values==='object'&&!Array.isArray(destination.values)){
+    const form=catalog.forms[destination.form],path=route=>String(route||'').split(/[?#]/)[0];
+    const targets=catalog.screens.filter(s=>path(s.route)===path(form.route));
+    if(targets.length===1&&targets[0].id!==currentScreenId&&Object.keys(destination.values).some(key=>!Object.hasOwn(form.fields,key)))return {...input,actions:[{type:'navigate',screen:targets[0].id}]};
+  }
   return {...input,actions:input.actions.map(action=>{
     if(!action||typeof action!=='object'||Array.isArray(action))return action;
     if(action.type!=='fill'||Object.hasOwn(catalog.forms,action.form)||action.form!==currentScreenId||!catalog.screens.some(s=>s.id===currentScreenId)||!action.values||Array.isArray(action.values)||typeof action.values!=='object')return action;

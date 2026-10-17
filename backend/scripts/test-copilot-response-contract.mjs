@@ -4,7 +4,7 @@ import {execFileSync} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
 import express from 'express';
 import Database from 'better-sqlite3';
-import {COPILOT_FORMS,validateCopilotProposal} from '../src/services/ui-copilot-contract.js';
+import {COPILOT_FORMS,validateCopilotProposal,normalizeCopilotScreenActions} from '../src/services/ui-copilot-contract.js';
 import {copilotScreenControls,copilotScreenSpec} from '../src/services/ui-copilot-screen-specs.js';
 import {COPILOT_RESPONSE_POLICY,parseCopilotResponse,copilotResponseContract,targetsCurrentNativeControls,copilotValidationCategory,reconcileCopilotCurrentNavigation} from '../src/services/ui-copilot-response.js';
 let checks=0;
@@ -18,6 +18,12 @@ assert(efficiency);const options={[efficiency.id]:[{value:'no',label:'No'},{valu
 const spec=copilotScreenSpec('/profile',[efficiency.id],options);
 const contract=copilotResponseContract(catalog,screens[0],spec).response_contract;
 const native={type:'screen_fill',screen:'profile',values:{[efficiency.id]:'no'}};
+const offscreenPatch={message:'Prepare Profile',actions:[{type:'fill',form:'user_profile',values:{llm_efficiency_mode:false}}]};
+check(normalizeCopilotScreenActions(offscreenPatch,catalog,'scheduled-goals',[]).actions,[{type:'navigate',screen:'profile'}],'an off-screen partial adapter cannot fill unknown fields: open its authorized screen for live inspection');
+check(normalizeCopilotScreenActions({message:'Review',actions:[native]},catalog,'master-data',[]).actions,[{type:'navigate',screen:'profile'}],'off-screen native patches must also navigate and discard unobserved values');
+check(normalizeCopilotScreenActions(offscreenPatch,catalog,'profile',[]),offscreenPatch,'current hidden fields still require validation, not invented navigation');
+check(normalizeCopilotScreenActions(offscreenPatch,{...catalog,screens:screens.filter(s=>s.id!=='profile')},'scheduled-goals',[]),offscreenPatch,'no navigation to an unentitled screen');
+check(normalizeCopilotScreenActions({...offscreenPatch,actions:[...offscreenPatch.actions,{type:'navigate',screen:'master-data'}]},catalog,'scheduled-goals',[]).actions.length,2,'do not discard other actions or conflicting destinations');
 check(reconcileCopilotCurrentNavigation({message:'Review',actions:[{type:'navigate',screen:'profile'},native]},screens[0],[efficiency.id]).actions,[native],'already observed native field does not need same-screen navigation');
 check(reconcileCopilotCurrentNavigation({message:'Review',actions:[{type:'navigate',screen:'profile'},native]},screens[0],[]).actions.length,2,'hidden field does not justify stripping navigation');
 check(reconcileCopilotCurrentNavigation({message:'Review',actions:[{type:'navigate',screen:'scheduled-goals'},native]},screens[0],[efficiency.id]).actions.length,2,'cross-screen journeys not reordered');
@@ -57,6 +63,17 @@ const base=`http://127.0.0.1:${server.address().port}/copilot`;
 async function post(path,body){const r=await fetch(base+path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});return{status:r.status,body:await r.json()};}
 const completion=proposal=>({content:JSON.stringify(proposal)});
 try{
+ // Exact reported wording, starting elsewhere, must inspect the destination
+ // before proposing native fields. It must also survive a navigation continuation.
+ const away=(await post('/session',{origin:'/master-data'})).body;
+ behavior=()=>completion(offscreenPatch);
+ const opening=await post(`/session/${away.id}/propose`,{version:away.version,screen:'master-data',message:'Looking to update profile to make efficiency mode as No'});
+ check(opening.status,200,'off-screen Profile setting does not exhaust repair with unregistered_form_field');
+ check(opening.body.proposal.actions.map(({type,screen})=>({type,screen})),[{type:'navigate',screen:'profile'}],'only authorized navigation is prepared before live field inspection');
+ behavior=()=>completion({message:'Review only',actions:[native]});
+ const arrived=await post(`/session/${away.id}/propose`,{version:opening.body.version,screen:'profile',navigation_continuation:true,visible_control_ids:[efficiency.id],visible_control_options:options,message:'Looking to update profile to make efficiency mode as No'});
+ check(arrived.status,200,'same original request continues after destination inspection');
+ check(arrived.body.proposal.actions[0].values,native.values,'continuation prepares only the requested value');
  for(const mode of ['hybrid','guided','autofill'])for(const value of ['no','yes']){
   const session=(await post('/session',{origin:'/profile'})).body;
   const state=JSON.parse(db.prepare('SELECT state FROM ui_copilot_sessions WHERE id=?').get(session.id).state);state.mode=mode;

@@ -12,6 +12,10 @@ Use fill only for an exact registered form key and its registered field names.
 A registered form covers ONLY its own fields, not every setting on that screen.
 If the requested setting is a currently visible native field outside that form,
 use screen_fill with its exact source control ID and allowed dropdown value.
+If that setting is on ANOTHER authorized screen, return only navigate to its
+catalog screen ID first. The browser continues the ORIGINAL request after
+inspecting that screen. Never put off-screen source fields into a narrower
+registered adapter, or invent current dropdown options before inspection.
 Do not claim a visible eligible setting is unsupported just because it is absent
 from a registered form. Do not invent aliases, fields or dropdown values.
 Prepare a partial PATCH: leave all unrelated existing fields unchanged. Required

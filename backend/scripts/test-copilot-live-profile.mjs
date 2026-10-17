@@ -10,7 +10,7 @@ const owner=process.env.COPILOT_TEST_OWNER;
 if(!owner||process.env.COPILOT_LIVE_ACCEPTANCE!=='1')throw new Error('Explicit COPILOT_LIVE_ACCEPTANCE=1 and COPILOT_TEST_OWNER required');
 const {uiCopilotRouter}=await import(process.env.COPILOT_TEST_ROUTER||'../src/routes/ui-copilot.js');
 const db=new Database(':memory:');let modelCalls=0;const models=new Set();
-const screens=[{id:'profile',route:'/profile'},{id:'scheduled-goals',route:'/scheduled-goals'},{id:'connectors',route:'/connectors'}];
+const screens=[{id:'profile',route:'/profile'},{id:'scheduled-goals',route:'/scheduled-goals'},{id:'connectors',route:'/connectors'},{id:'content-explorer',route:'/content-explorer'}];
 const field=copilotScreenControls('/profile').find(c=>c.label==='Efficiency mode');assert(field);
 const title=copilotScreenControls('/scheduled-goals').find(c=>c.label==='Title (optional)');assert(title);
 const provider=copilotScreenControls('/connectors').find(c=>c.label==='Event provider');assert(provider);
@@ -21,6 +21,7 @@ const base=`http://127.0.0.1:${server.address().port}/test`;
 async function post(path,body){const res=await fetch(base+path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});return{status:res.status,data:await res.json()};}
 try{
  const cases=[
+  {mode:'hybrid',screen:'profile',control:field.id,value:'no',options:[{value:'no',label:'No'},{value:'yes',label:'Yes'}],request:'Looking to update profile to make efficiency mode as No'},
   {mode:'hybrid',screen:'profile',control:field.id,value:'no',options:[{value:'no',label:'No'},{value:'yes',label:'Yes'}],request:'I need to change the efficiency mode for my profile to No. Prepare only that setting for review; leave all other existing details unchanged.'},
   {mode:'guided',screen:'profile',control:field.id,value:'no',options:[{value:'no',label:'No'},{value:'yes',label:'Yes'}],request:'update efficency mode to No. Prepare that visible setting only; do not save.'},
   {mode:'autofill',screen:'profile',control:field.id,value:'yes',options:[{value:'no',label:'No'},{value:'yes',label:'Yes'}],request:'Prepare Efficiency mode as Yes for my review. Leave all other fields unchanged.'},
@@ -39,5 +40,21 @@ try{
   const action=response.data.proposal.actions[0];assert.equal(action.type,'screen_fill');assert.equal(action.screen,test.screen);assert.deepEqual(action.values,{[test.control]:test.value});
   console.log(JSON.stringify({stage:'live_model_copilot',screen:test.screen,mode:test.mode,expected_value:test.value,model_calls:modelCalls-before,elapsed_ms:Date.now()-started,pass:true}));
  }
- console.log(JSON.stringify({stage:'COPILOT_LIVE_PROFILE_PASS',cases:cases.length,models:[...models],production_settings_unchanged:true,production_sessions_unchanged:true}));
+ // Same natural-language request from another screen, not just an already
+ // open Profile with a single known field. Navigation must retain its intent.
+ for(const mode of ['hybrid','guided','autofill']){
+  const s=(await post('/session',{origin:'/content-explorer'})).data;
+  const state=JSON.parse(db.prepare('SELECT state FROM ui_copilot_sessions WHERE id=?').get(s.id).state);state.mode=mode;
+  state.conversation=[{role:'user',text:'Open profile'},{role:'assistant',text:'Provide display name and email before changing settings.'}];
+  db.prepare('UPDATE ui_copilot_sessions SET state=? WHERE id=?').run(JSON.stringify(state),s.id);
+  const before=modelCalls,started=Date.now(),message='Looking to update profile to make efficiency mode as No';
+  const opening=await post(`/session/${s.id}/propose`,{version:s.version,screen:'content-explorer',visible_control_ids:copilotScreenControls('/content-explorer').map(c=>c.id),message});
+  assert.equal(opening.status,200,JSON.stringify({mode,error:opening.data.error}));
+  assert.deepEqual(opening.data.proposal.actions.map(({type,screen})=>({type,screen})),[{type:'navigate',screen:'profile'}],'off-screen request first opens Profile, never fills without current observation');
+  const response=await post(`/session/${s.id}/propose`,{version:opening.data.version,screen:'profile',navigation_continuation:true,visible_control_ids:copilotScreenControls('/profile').map(c=>c.id),visible_control_options:{[field.id]:[{value:'no',label:'No'},{value:'yes',label:'Yes'}]},message});
+  assert.equal(response.status,200,JSON.stringify({mode,error:response.data.error}));
+  assert.equal(response.data.proposal.actions.length,1);assert.equal(response.data.proposal.actions[0].type,'screen_fill');assert.equal(response.data.proposal.actions[0].screen,'profile');assert.deepEqual(response.data.proposal.actions[0].values,{[field.id]:'no'});
+  console.log(JSON.stringify({stage:'live_model_cross_screen',mode,model_calls:modelCalls-before,elapsed_ms:Date.now()-started,pass:true}));
+ }
+ console.log(JSON.stringify({stage:'COPILOT_LIVE_PROFILE_PASS',cases:cases.length+3,models:[...models],production_settings_unchanged:true,production_sessions_unchanged:true}));
 }finally{await new Promise(resolve=>server.close(resolve));db.close();}
