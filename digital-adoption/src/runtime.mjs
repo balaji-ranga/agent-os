@@ -17,6 +17,10 @@ import {createBlobStore} from './blob-store.mjs';
 import {createDocumentExtractor} from './document-extractor.mjs';
 import {createSourceIngestion} from './source-ingestion.mjs';
 import {createPublicUrlFetcher} from './public-url.mjs';
+import {createLearningStore} from './learning-store.mjs';
+import {createLearningRuntime} from './learning-runtime.mjs';
+import {createCoachingGrants} from './coaching-grants.mjs';
+import {createDiscoveryJobs} from './discovery-jobs.mjs';
 const config=JSON.parse(readFileSync('/config/service.json','utf8'));
 const repository=openRepository('/data/adoption.sqlite');
 const authority=new SessionAuthority({repository,development:true}); // Only explicit loopback demo origins below are registered.
@@ -52,11 +56,13 @@ for(const [i,embeddingId] of embeddings.entries()){
 const model={gatewayUrl:config.gatewayUrl,serviceToken:config.serviceToken};
 const platformOrigin=new URL(config.serviceUrl).origin;
 const control=createControlPlane(repository,authority);
+const learning=createLearningRuntime(repository,createLearningStore(repository),{knowledge}),coaching=createCoachingGrants(repository);
+const discovery=createDiscoveryJobs(repository,learning);
 const registrationEmail=createRegistrationEmail(repository,{send:createMailer(config.mail),control,search,serviceUrl:config.serviceUrl});
-const management=createManagement({authenticate:createManagementIdentity({platformOrigin}),control,knowledge,search,platformOrigin,registrationEmail,ingestion});
+const management=createManagement({authenticate:createManagementIdentity({platformOrigin}),control,knowledge,search,platformOrigin,registrationEmail,ingestion,learning,coaching});
 const ownerIdentity=createOwnerIdentity(repository,{send:createMailer(config.mail)});
-const ownerManagement=createManagement({authenticate:cookie=>ownerIdentity.authenticate(cookie),control,knowledge,search,platformOrigin,registrationEmail,ingestion});
+const ownerManagement=createManagement({authenticate:cookie=>ownerIdentity.authenticate(cookie),control,knowledge,search,platformOrigin,registrationEmail,ingestion,learning,coaching});
 ingestion.start();
-const server=createAdoptionServer({authority,knowledge,ingestion,management,ownerIdentity,ownerManagement,platformOrigin,answer:createKnowledgeAnswer(model),planner:createPlatformPlanner(model),proposals:createProposalStore(repository)});
+const server=createAdoptionServer({authority,knowledge,ingestion,learning,coaching,discovery,management,ownerIdentity,ownerManagement,platformOrigin,answer:createKnowledgeAnswer(model),planner:createPlatformPlanner(model),proposals:createProposalStore(repository,{checkBinding:(scope,binding)=>learning.bindingAllowed(scope,binding)})});
 server.listen(4193,'0.0.0.0',()=>console.log('Independent adoption service listening; full acceptance not yet certified'));
 process.on('SIGTERM',()=>{ingestion.stop();clearInterval(recoveryTimer);server.closeAllConnections();server.close(()=>{process.exit(0);});});

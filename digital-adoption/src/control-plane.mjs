@@ -48,7 +48,7 @@ export function createControlPlane(repository,authority,{dns=resolveTxt,clock=Da
    });
   },
   cancelDelivery(actor,id,installationId){const website=owned(actor,id);if(!website.installations.includes(installationId))reject();authority.revokeInstallation(installationId);record(actor,'revoke_failed_delivery',id,'Email transport failed');},
-  scope(actor,id){const website=owned(actor,id);if(website.status!=='approved'||!website.verified)reject();return {embeddingId:website.id,audienceIds:['public'],audienceId:'public',role:'maintainer'};},
+  scope(actor,id){const website=owned(actor,id);if(website.status!=='approved'||!website.verified)reject();return {embeddingId:website.id,audienceIds:['public'],audienceId:'public',origin:website.origin,role:'maintainer'};},
   configure(actor,id,{visitorUploads}){
    if(typeof visitorUploads!=='boolean')reject();
    return repository.transaction(()=>{const site=owned(actor,id);site.visitorUploads=visitorUploads;websites.set(id,site);authority.setUploadPolicy(id,visitorUploads);record(actor,'configure_upload_policy',id,visitorUploads?'Visitor uploads enabled':'Visitor uploads disabled');return {visitorUploads};});
@@ -118,6 +118,6 @@ export function createControlPlane(repository,authority,{dns=resolveTxt,clock=Da
     owned(actor,id);authority.revokeSession(id,sessionId);record(actor,'revoke_session',id,reason);return {revoked:true};
    });
   },
-  list(actor){identity(actor);if(!['owner','platform_admin'].includes(actor.role))reject();return [...websites.values()].filter(w=>actor.role==='platform_admin'||w.organizationId===actor.organizationId).slice(0,100).map(({challengeHash,...w})=>w);},
+  list(actor){identity(actor);if(!['owner','platform_admin'].includes(actor.role))reject();return websites.values(actor.role==='platform_admin'?{}:{organizationId:actor.organizationId}).slice(0,100).map(({challengeHash,...w})=>w);},
  };
 }

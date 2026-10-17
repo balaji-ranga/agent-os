@@ -74,7 +74,11 @@ def extract(file, kind):
                 image.convert('RGB').save(cleaned)
                 section(ocr(cleaned), 'Image OCR')
     elif kind == 'video':
-        info = json.loads(command(['ffprobe', '-v', 'error', '-show_format', '-show_streams', '-of', 'json', str(file)]))
+        if raw[4:8] == b'ftyp': demuxer = 'mov'
+        elif raw[:4] == b'\x1a\x45\xdf\xa3': demuxer = 'matroska'
+        else: raise ValueError('Unsupported video signature')
+        # Never auto-detect a playlist or follow network/external protocols.
+        info = json.loads(command(['ffprobe', '-v', 'error', '-protocol_whitelist', 'file,pipe', '-f', demuxer, '-show_format', '-show_streams', '-of', 'json', str(file)]))
         duration = float(info['format']['duration'])
         video = next(s for s in info['streams'] if s.get('codec_type') == 'video')
         if not 0 < duration <= 120 or video['width'] * video['height'] > 8_300_000: raise ValueError('Video limit exceeded')
@@ -83,7 +87,7 @@ def extract(file, kind):
         with tempfile.TemporaryDirectory(prefix='adoption-video-') as temp:
             for second in range(0, max(1, int(duration)), 5):
                 image = pathlib.Path(temp) / 'frame.png'
-                command(['ffmpeg', '-nostdin', '-v', 'error', '-y', '-ss', str(second), '-i', str(file), '-frames:v', '1', '-vf', 'scale=1600:-1', '-threads', '1', str(image)])
+                command(['ffmpeg', '-nostdin', '-v', 'error', '-y', '-ss', str(second), '-protocol_whitelist', 'file,pipe', '-f', demuxer, '-i', str(file), '-frames:v', '1', '-vf', 'scale=1600:-1', '-threads', '1', str(image)])
                 section(ocr(image), f'{second // 60:02d}:{second % 60:02d}')
     else: raise ValueError('Unsupported file type')
     if not sections: raise ValueError('No readable content found')

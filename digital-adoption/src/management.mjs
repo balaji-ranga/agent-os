@@ -1,4 +1,4 @@
-export function createManagement({authenticate,control,knowledge,search,platformOrigin,registrationEmail,ingestion}){
+export function createManagement({authenticate,control,knowledge,search,platformOrigin,registrationEmail,ingestion,learning,coaching}){
  return async({authorization,origin,path,input})=>{
   if(origin!==platformOrigin)throw new Error('Management origin denied');
   const actor=await authenticate(authorization);
@@ -21,6 +21,13 @@ export function createManagement({authenticate,control,knowledge,search,platform
   if(path==='/v1/manage/website-state')return control.transition(actor,input.id,input.status,input.reason);
   if(path==='/v1/manage/configure')return control.configure(actor,input.id,input);
   const scope=control.scope(actor,input.id); // IDs select an already authorized resource, never an identity.
+  if(path==='/v1/manage/coaching-code'){if(!coaching)throw new Error('Coaching unavailable');return coaching.issue(scope);}
+  if(path.startsWith('/v1/manage/learning-')){
+   if(!learning)throw new Error('Learning unavailable');
+   const request={...input,id:input.recipeId};
+   const operations={list:()=>({recipes:learning.list(scope)}),maps:()=>({screens:learning.maps(scope)}),create:()=>learning.create(scope,input),validate:()=>learning.validate(scope,request),publish:()=>learning.publish(scope,request),repair:()=>learning.repair(scope,request),disable:()=>learning.disable(scope,request),versions:()=>({versions:learning.versions(scope,request)}),rollback:()=>learning.rollback(scope,request),export:()=>learning.export(scope,request),import:()=>learning.import(scope,input)};
+   const action=path.slice('/v1/manage/learning-'.length);if(!Object.hasOwn(operations,action))throw new Error('Unsupported learning operation');return operations[action]();
+  }
   if(path==='/v1/manage/activate'){await search.provision(scope.embeddingId);return control.activate(actor,input.id);}
   if(path==='/v1/manage/sources')return {sources:knowledge.list(scope)};
   if(path==='/v1/manage/source-file'){if(!ingestion)throw new Error('File ingestion unavailable');return ingestion.upload(scope,input);}

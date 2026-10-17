@@ -2,7 +2,7 @@ import { randomUUID, createHash } from 'node:crypto';
 
 const deny = () => { throw new Error('Learning access denied or invalid data'); };
 const identifier = value => typeof value === 'string' && /^[a-zA-Z0-9_-]{1,80}$/.test(value);
-const secret = value => /password|secret|token|credential|otp|cvv|credit.?card/i.test(value);
+const secret = value => /password|secret|token|credential|otp|cvv|credit.?card|api.?key|access.?key|private.?key/i.test(value);
 function scopeKey(scope) {
   if (!identifier(scope?.embeddingId) || !identifier(scope?.audienceId)) deny();
   return `${scope.embeddingId}:${scope.audienceId}`;
@@ -40,6 +40,7 @@ export function createLearningStore(repository, { clock = Date.now } = {}) {
     return structuredClone({ id: recipe.id, ...version });
   };
   const store = {
+    get(scope,id){const recipe=get(scope,id),current=recipe.versions.at(-1);if(scope.role!=='maintainer'&&current.status!=='published')deny();return structuredClone({id:recipe.id,...current});},
     setLearning(scope, enabled) {
       maintainer(scope); if (typeof enabled !== 'boolean') deny(); settings.set(scopeKey(scope), enabled);
     },
@@ -93,7 +94,7 @@ export function createLearningStore(repository, { clock = Date.now } = {}) {
     },
     list(scope) {
       const key = scopeKey(scope);
-      return [...recipes.values()].filter(r => r.scope === key).map(r => ({ id: r.id, ...r.versions.at(-1) }))
+      return recipes.values({scope:key}).map(r => ({ id: r.id, ...r.versions.at(-1) }))
         .filter(r => scope.role === 'maintainer' || r.status === 'published').slice(0,100);
     },
     export(scope, id) {

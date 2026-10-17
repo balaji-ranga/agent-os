@@ -15,7 +15,7 @@ export function approvedUrl(value){
 }
 function download(url,address){
  return new Promise((resolve,reject)=>{
-  let done=false;const finish=(error,value)=>{if(done)return;done=true;error?reject(error):resolve(value);};
+  let done=false,timer;const finish=(error,value)=>{if(done)return;done=true;clearTimeout(timer);error?reject(error):resolve(value);};
   const req=httpsRequest(url,{method:'GET',family:4,lookup:(_hostname,options,callback)=>callback(null,address,4),headers:{Accept:'text/html,text/plain','User-Agent':'FlolahKnowledge/1.0'}},res=>{
    if(res.statusCode>=300&&res.statusCode<400){res.resume();finish(null,{status:res.statusCode,location:res.headers.location});return;}
    const mime=String(res.headers['content-type']||'').split(';')[0].trim().toLowerCase();
@@ -24,7 +24,7 @@ function download(url,address){
    res.on('data',chunk=>{size+=chunk.length;if(size>2_000_000){finish(new Error('Help page too large'));res.destroy();req.destroy();}else chunks.push(chunk);});
    res.on('end',()=>finish(null,{status:200,mime,bytes:Buffer.concat(chunks)}));res.on('error',error=>finish(error));res.on('aborted',()=>finish(new Error('Help response interrupted')));
   });
-  req.setTimeout(10_000,()=>{finish(new Error('Help fetch timed out'));req.destroy();});req.on('error',error=>finish(error));req.end();
+  timer=setTimeout(()=>{finish(new Error('Help fetch timed out'));req.destroy();},10_000);req.setTimeout(10_000,()=>{finish(new Error('Help fetch timed out'));req.destroy();});req.on('error',error=>finish(error));req.end();
  });
 }
 export function createPublicUrlFetcher({dns=resolveDns,transport=download}={}){
@@ -33,7 +33,7 @@ export function createPublicUrlFetcher({dns=resolveDns,transport=download}={}){
   for(let redirect=0;redirect<=3;redirect++){
    // Resolve each hop, reject a mixed public/private DNS answer, then pin the
    // validated address into the actual TLS request. No cookies or auth headers.
-   const addresses=await dns(url.hostname,{all:true,family:4});
+   let timer;const addresses=await Promise.race([dns(url.hostname,{all:true,family:4}),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('Help DNS timed out')),10_000);})]).finally(()=>clearTimeout(timer));
    if(!addresses.length||addresses.some(a=>!publicIPv4(a.address)))throw new Error('Help destination denied');
    const result=await transport(url,addresses[0].address);
    if(result.status===200){if(!Buffer.isBuffer(result.bytes)||result.bytes.length>2_000_000||!['text/html','text/plain'].includes(result.mime))throw new Error('Invalid help response');return {...result,url:url.href};}

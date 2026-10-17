@@ -3,8 +3,9 @@ export function createInspector(document) {
   let revision = 0;
   let references = new Map();
   let navigation = new Map();
+  let cleanupHighlight=()=>{};
   const excluded = e => e.closest('[data-adoption-private], [data-adoption-widget]') ||
-    /password|hidden|file/.test(e.type || '') || /password|token|secret|otp|credit.?card|cvv/i.test(`${e.name} ${e.id} ${e.autocomplete}`);
+    /password|hidden|file/.test(e.type || '') || /password|token|secret|otp|credit.?card|cvv|api.?key|access.?key|private.?key/i.test(`${e.name} ${e.id} ${e.autocomplete}`);
   const visible = e => !e.disabled && !e.hidden && e.getClientRects().length > 0 &&
     document.defaultView.getComputedStyle(e).visibility !== 'hidden';
   // Wrapping labels may contain SELECT options or textarea content. Those are
@@ -21,10 +22,11 @@ export function createInspector(document) {
     const dialogs = [...document.querySelectorAll('[role="dialog"][aria-modal="true"],dialog[open]')].filter(visible);
     const root = dialogs.length === 1 ? dialogs[0] : document;
     const fields = dialogs.length > 1 ? [] : [...root.querySelectorAll('input,textarea,select')]
-      .filter(e => visible(e) && !e.readOnly && !excluded(e) && !/password|secret|token|otp|cvv|credit.?card/i.test(label(e)) && !/submit|button|reset|image|radio/.test(e.type || '')).slice(0,60).map((e,i) => {
+      .filter(e => visible(e) && !e.readOnly && !excluded(e) && !/password|secret|token|otp|cvv|credit.?card|api.?key|access.?key|private.?key/i.test(label(e)) && !/submit|button|reset|image|radio/.test(e.type || '')).slice(0,60).map((e,i) => {
         const ref = `r${revision}f${i}`;
         references.set(ref, { element: e, value: e.value, checked:e.checked, options:e.options?JSON.stringify([...e.options].map(o=>[o.value,o.text,o.disabled])):null, label: label(e), type: e.type });
-        return { ref, label: label(e), type: e.type || e.tagName.toLowerCase(), required: e.required,
+        const key=e.getAttribute('data-adoption-id')||e.name||e.id||'';
+        return { ref, label: label(e), type: e.type || e.tagName.toLowerCase(), required: e.required,...(/^[a-zA-Z][a-zA-Z0-9_-]{0,79}$/.test(key)?{key}:{}),
           // No current values or private option text are sent by automatic inspection.
           optionCount: e.options?.length || 0 };
       });
@@ -35,7 +37,8 @@ export function createInspector(document) {
       navigation.set(ref,{element:e,href:url.href,label:name});return [{ref,label:name,path:url.pathname}];
     });
     const heading=[...root.querySelectorAll('h1,h2,[role="heading"]')].filter(e=>visible(e)&&!excluded(e)).slice(-3).map(e=>e.textContent.trim().slice(0,120)).join(' | ').slice(0,360);
-    return { revision, fields, links, screen:heading, path:document.location.pathname, ambiguousDialogs: dialogs.length > 1 };
+    const blockedCount=Math.min(1000,[...document.querySelectorAll('button,[role="button"],a[href]:not([data-adoption-navigation="safe"])')].filter(e=>visible(e)&&!excluded(e)).length);
+    return { revision, fields, links, screen:heading, path:document.location.pathname, ambiguousDialogs: dialogs.length > 1,blockedCount };
   }
   function fill({ ref, value, expectedRevision, approved }) {
     if (approved !== true || expectedRevision !== revision || typeof value !== 'string' || value.length > 8000) throw new Error('Review required');
@@ -65,7 +68,7 @@ export function createInspector(document) {
   async function navigate({ref,expectedRevision,approved}){
     const record=navigation.get(ref),e=record?.element;
     if(!approved||expectedRevision!==revision||!e?.isConnected||!visible(e)||excluded(e)||e.href!==record.href||e.textContent.trim()!==record.label)throw new Error('Navigation changed; inspect again');
-    if([...document.querySelectorAll('input,textarea,select')].some(f=>!excluded(f)&&visible(f)&&f.value!==f.defaultValue&&f.value))throw new Error('This page has an edited draft. Save or discard it yourself before navigation.');
+    if(hasDraft())throw new Error('This page has an edited draft. Save or discard it yourself before navigation.');
     navigation.delete(ref);e.click();
     const expectedPath=new URL(record.href).pathname;
     for(let attempt=0;attempt<50;attempt++){
@@ -74,5 +77,23 @@ export function createInspector(document) {
     }
     throw new Error('Navigation was not verified. Check the host page before continuing.');
   }
-  return { snapshot, fill, navigate };
+  function highlight({ref,expectedRevision}){
+    const record=references.get(ref),element=record?.element;
+    if(expectedRevision!==revision||!element?.isConnected||!visible(element)||excluded(element)||label(element)!==record.label)throw new Error('Guidance target changed; inspect again');
+    cleanupHighlight();const view=document.defaultView,marker=document.createElement('div'),caption=document.createElement('span');marker.dataset.adoptionWidget='true';marker.setAttribute('role','status');marker.style.cssText='position:fixed;pointer-events:none;z-index:2147483645;border:3px solid #3459cf;border-radius:6px;box-shadow:0 0 0 3px white';caption.textContent=`Next: ${record.label}`;caption.style.cssText='position:absolute;left:0;bottom:100%;max-width:300px;background:#172440;color:white;padding:4px 8px;border-radius:5px;font:13px system-ui;white-space:nowrap';marker.append(caption);
+    const position=()=>{if(!element.isConnected){cleanupHighlight();return;}const box=element.getBoundingClientRect();Object.assign(marker.style,{left:`${box.left-3}px`,top:`${box.top-3}px`,width:`${box.width+6}px`,height:`${box.height+6}px`});};
+    document.body.append(marker);position();view.addEventListener('scroll',position,true);view.addEventListener('resize',position);const timer=setTimeout(()=>cleanupHighlight(),5000);
+    cleanupHighlight=()=>{clearTimeout(timer);view.removeEventListener('scroll',position,true);view.removeEventListener('resize',position);marker.remove();cleanupHighlight=()=>{};};return {highlighted:true,wrote:false};
+  }
+  function hasDraft(){return [...document.querySelectorAll('input,textarea,select')].some(field=>{
+    if(field.closest('[data-adoption-widget]')||!visible(field))return false;
+    if(['checkbox','radio'].includes(field.type))return field.checked!==field.defaultChecked;
+    if(field.type==='file')return field.files?.length>0;
+    if(field.tagName==='SELECT'){
+      const options=[...field.options];if(field.multiple)return options.some(option=>option.selected!==option.defaultSelected);
+      return field.value!==(options.find(option=>option.defaultSelected)?.value??options[0]?.value??'');
+    }
+    return typeof field.defaultValue==='string'&&field.value!==field.defaultValue;
+  });}
+  return { snapshot, fill, navigate,highlight,hasDraft,destroy:()=>cleanupHighlight() };
 }

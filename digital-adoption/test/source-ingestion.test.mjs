@@ -54,3 +54,13 @@ test('interrupted/failed extraction retries visibly; delete during indexing remo
   assert.equal(env.ingestion.status(owner,second.id).status,'deleted');assert.equal((await env.knowledge.retrieve(owner,{query:'canary'})).evidence.length,0);
  }finally{await env.close();}
 });
+test('video playlists cannot reach a parser and the worker rotates websites instead of draining one backlog',async()=>{
+ let env;const processed=[];env=await setup(async({path})=>{const id=path.split(/[\\/]/).at(-1);processed.push(env.repository.map('source_jobs').get(id).embeddingId);return {sections:[{text:'Fair queue fixture',locator:'Document'}]};});
+ try{
+  await assert.rejects(()=>env.ingestion.upload(owner,{...file,filename:'playlist.mp4',mime:'video/mp4',content:Buffer.from('#EXTM3U\nhttp://169.254.169.254/metadata').toString('base64')}),/signature/);
+  for(let i=0;i<3;i++)await env.ingestion.upload(owner,{...file,operationId:`fair-alpha-operation-${i}`});
+  await env.ingestion.upload(other,file);await env.ingestion.upload({...owner,embeddingId:'upload-gamma'},file);
+  for(let i=0;i<5;i++)await env.ingestion.drain();
+  assert.equal(new Set(processed.slice(0,3)).size,3);assert.equal(processed.length,5);
+ }finally{await env.close();}
+});

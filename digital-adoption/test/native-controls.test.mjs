@@ -36,3 +36,8 @@ test('wrapping labels exclude option and entered control text from inspection',(
  }}];
  assert.equal(inspector.snapshot().fields[0].label,'Shipping method');
 });
+test('draft protection distinguishes default selects and changed checkboxes; API keys stay excluded',()=>{
+ const select=fixture('select-one');select.e.value='one';assert.equal(select.inspector.hasDraft(),false);select.e.value='two';assert.equal(select.inspector.hasDraft(),true);
+ const check=fixture('checkbox');check.e.defaultChecked=false;assert.equal(check.inspector.hasDraft(),false);check.e.checked=true;assert.equal(check.inspector.hasDraft(),true);
+ const sensitive=fixture('text');sensitive.e.name='api_key';assert.equal(sensitive.inspector.snapshot().fields.length,0);
+});
