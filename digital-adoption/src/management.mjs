@@ -1,4 +1,4 @@
-export function createManagement({authenticate,control,knowledge,search,platformOrigin,registrationEmail,ingestion,learning,coaching}){
+export function createManagement({authenticate,control,knowledge,search,platformOrigin,registrationEmail,ingestion,learning,coaching,sourceMap}){
  return async({authorization,origin,path,input})=>{
   if(origin!==platformOrigin)throw new Error('Management origin denied');
   const actor=await authenticate(authorization);
@@ -21,6 +21,9 @@ export function createManagement({authenticate,control,knowledge,search,platform
   if(path==='/v1/manage/website-state')return control.transition(actor,input.id,input.status,input.reason);
   if(path==='/v1/manage/configure')return control.configure(actor,input.id,input);
   const scope=control.scope(actor,input.id); // IDs select an already authorized resource, never an identity.
+  if(path==='/v1/manage/source-map-refresh'){if(!sourceMap)throw new Error('Source map unavailable');return sourceMap.refresh(scope,input.manifest);}
+  if(path==='/v1/manage/source-map'){if(!sourceMap)throw new Error('Source map unavailable');return sourceMap.summary(scope);}
+  if(path==='/v1/manage/source-map-teach'){if(!sourceMap||!learning)throw new Error('Teaching unavailable');return learning.create(scope,sourceMap.recipeDraft(scope,input));}
   if(path==='/v1/manage/coaching-code'){if(!coaching)throw new Error('Coaching unavailable');return coaching.issue(scope);}
   if(path.startsWith('/v1/manage/learning-')){
    if(!learning)throw new Error('Learning unavailable');

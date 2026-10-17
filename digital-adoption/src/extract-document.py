@@ -1,5 +1,5 @@
 """Bounded extraction. No network requests, macros, active HTML, or shell commands."""
-import sys, json, pathlib, re, tempfile, subprocess, zipfile
+import sys, json, pathlib, re, tempfile, subprocess, zipfile, os, time
 from html.parser import HTMLParser
 from xml.etree import ElementTree
 
@@ -82,20 +82,36 @@ def extract(file, kind):
         duration = float(info['format']['duration'])
         video = next(s for s in info['streams'] if s.get('codec_type') == 'video')
         if not 0 < duration <= 120 or video['width'] * video['height'] > 8_300_000: raise ValueError('Video limit exceeded')
-        if any(s.get('codec_type') == 'audio' for s in info['streams']):
-            raise ValueError('Audio transcription not configured; upload a silent recording or transcript separately')
         with tempfile.TemporaryDirectory(prefix='adoption-video-') as temp:
             for second in range(0, max(1, int(duration)), 5):
                 image = pathlib.Path(temp) / 'frame.png'
                 command(['ffmpeg', '-nostdin', '-v', 'error', '-y', '-ss', str(second), '-protocol_whitelist', 'file,pipe', '-f', demuxer, '-i', str(file), '-frames:v', '1', '-vf', 'scale=1600:-1', '-threads', '1', str(image)])
                 section(ocr(image), f'{second // 60:02d}:{second % 60:02d}')
+            if any(s.get('codec_type') == 'audio' for s in info['streams']):
+                audio = pathlib.Path(temp) / 'audio.wav'
+                command(['ffmpeg', '-nostdin', '-v', 'error', '-y', '-protocol_whitelist', 'file,pipe', '-f', demuxer, '-i', str(file), '-map', '0:a:0', '-ar', '16000', '-ac', '1', '-c:a', 'pcm_s16le', '-threads', '1', str(audio)])
+                from faster_whisper import WhisperModel
+                model = WhisperModel(os.environ['ADOPTION_ASR_MODEL'], device='cpu', compute_type='int8', cpu_threads=1, num_workers=1, local_files_only=True)
+                segments, _ = model.transcribe(str(audio), language='en', beam_size=1, temperature=0, condition_on_previous_text=False, vad_filter=False)
+                for segment in segments:
+                    if segment.no_speech_prob < 0.6 and segment.avg_logprob >= -1:
+                        start, end = int(segment.start), int(segment.end)
+                        section(segment.text, f'{start // 60:02d}:{start % 60:02d}–{end // 60:02d}:{end % 60:02d} · speech')
     else: raise ValueError('Unsupported file type')
     if not sections: raise ValueError('No readable content found')
     return {'sections': sections}
 
 if __name__ == '__main__':
     try:
-        print(json.dumps(extract(pathlib.Path(sys.argv[1]), sys.argv[2])))
+        started = time.monotonic()
+        result = extract(pathlib.Path(sys.argv[1]), sys.argv[2])
+        result['metrics'] = {'elapsedSeconds': round(time.monotonic() - started, 3)}
+        try:
+            import resource
+            result['metrics']['peakRssKiB'] = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        except ImportError:
+            pass
+        print(json.dumps(result))
     except Exception:
         # Do not expose document contents, host paths, or parser diagnostics.
         print('Document extraction failed or content is unsupported', file=sys.stderr)

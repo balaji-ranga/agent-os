@@ -34,7 +34,7 @@ async function body(req,limit=32_768) {
   return parsed;
 }
 
-export function createAdoptionServer({ authority, proposals, planner, knowledge, ingestion, learning, coaching, discovery, answer, management, ownerIdentity, ownerManagement, platformOrigin, development = false, fixture = null }) {
+export function createAdoptionServer({ authority, proposals, planner, knowledge, ingestion, learning, coaching, discovery, sourceMap, answer, management, ownerIdentity, ownerManagement, platformOrigin, development = false, fixture = null }) {
   const budget=createRequestBudget();
   let activeUploads=0;
   return createServer(async (req, res) => {
@@ -81,7 +81,14 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
         else {const sessionToken=/^Bearer (\S+)$/.exec(req.headers.authorization||'')?.[1];if(!authority.context({sessionToken,origin}).capabilities.upload)throw new Error('Uploads disabled');}
         if(activeUploads>=2)throw new Error('Request capacity reached');activeUploads++;uploadSlot=true;
       }
-      const input = await body(req,fileUpload?23_000_000:32_768);
+      const mapRefresh=['/v1/manage/source-map-refresh','/v1/owner/manage/source-map-refresh'].includes(path);
+      if(mapRefresh){
+        budget.take(`map:${req.socket.remoteAddress}`,5);
+        const handler=path.startsWith('/v1/owner/')?ownerManagement:management;
+        if(!handler)throw new Error('Management unavailable');
+        await handler({authorization:path.startsWith('/v1/owner/')?req.headers.cookie:req.headers.authorization,origin,path:'/v1/manage/websites',input:{}});
+      }
+      const input = await body(req,fileUpload?23_000_000:mapRefresh?512_000:32_768);
       let result;
       if(path.startsWith('/v1/owner/')){
         if(!ownerIdentity||origin!==platformOrigin)return send(403,{error:'Access denied'});
@@ -151,7 +158,7 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
           authority.appendMessage({...auth,text:input.text,replyTo:input.replyTo??null});
           // No credentials or caller-provided identity are passed to the model.
           const guideHistory=authority.history(auth).filter(m=>(m.channel||'guide')==='guide');
-          const response=await planner({ text:input.text,snapshot,history:guideHistory.slice(-12),replyContext:guideHistory.find(m=>m.id===input.replyTo)?.text });
+          const response=await planner({ text:input.text,snapshot,history:guideHistory.slice(-12),replyContext:guideHistory.find(m=>m.id===input.replyTo)?.text,sourceGuidance:sourceMap?.guidance(scope,input.text,snapshot) });
           if(authority.context(auth).conversationVersion!==scope.conversationVersion)throw new Error('Conversation cleared; response discarded');
           result=proposals.prepare(scope,snapshot,withMode(response,input.mode));
           result.messageId=authority.appendAssistant(auth,result.message).id;

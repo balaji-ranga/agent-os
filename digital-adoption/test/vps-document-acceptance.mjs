@@ -11,7 +11,7 @@ async function post(path,input,session,expected=200){
 }
 try{
  const a=await post('v1/sessions',config.embeddings[0]),b=await post('v1/sessions',config.embeddings[0]),c=await post('v1/sessions',config.embeddings[1]);sessions.push(a,b,c);
- const fixtures=[['TXT','cedar.txt','text/plain'],['HTML','cedar.html','text/html'],['PDF','cedar.pdf','application/pdf'],['DOCX','cedar.docx','application/vnd.openxmlformats-officedocument.wordprocessingml.document'],['PNG','cedar.png','image/png'],['SCAN','cedar-scanned.pdf','application/pdf'],['VIDEO','cedar.mp4','video/mp4']];
+ const fixtures=[['TXT','cedar.txt','text/plain'],['HTML','cedar.html','text/html'],['PDF','cedar.pdf','application/pdf'],['DOCX','cedar.docx','application/vnd.openxmlformats-officedocument.wordprocessingml.document'],['PNG','cedar.png','image/png'],['SCAN','cedar-scanned.pdf','application/pdf'],['VIDEO','cedar.mp4','video/mp4'],['AUDIO','cedar-audio.mp4','video/mp4']];
  for(const [i,[kind,filename,mime]] of fixtures.entries()){
   if(i===5){console.log('Five-upload budget reached; waiting for the declared rate window.');await wait(61_000);}
   const title=`Cedar${kind}${tag}`;const started=Date.now();
@@ -22,8 +22,12 @@ try{
   assert.equal(status.status,'ready',`${kind}: ${JSON.stringify(status)}`);
   const found=await post('v1/knowledge/search',{text:title},b),evidence=found.evidence.find(e=>e.sourceId===upload.id);
   assert.ok(evidence,`${kind} searchable from independent same-embedding session`);assert.match(evidence.text,/forty two hours/i);assert.ok(evidence.locator,`${kind} source/page/time citation`);
+  if(kind==='AUDIO'){
+   const speech=found.evidence.find(e=>e.sourceId===upload.id&&/speech/.test(e.locator));
+   assert.ok(speech,'Timestamped speech independently searchable');assert.match(speech.text,/silver support team/i);
+  }
   assert.equal((await post('v1/knowledge/search',{text:title,embeddingId:config.embeddings[0].embeddingId},c)).evidence.length,0);
-  records.push({kind,title,sourceId:upload.id,status:'passed',locator:evidence.locator,elapsedMs:Date.now()-started});
+  records.push({kind,title,sourceId:upload.id,status:'passed',locator:evidence.locator,...(kind==='AUDIO'?{timestampedSpeechVerified:true}:{}),elapsedMs:Date.now()-started});
   console.log(`${kind}: uploaded, processed, cited in session B and excluded from embedding C.`);
  }
  const answer=await post('v1/ask',{text:`According to ${records.at(-1).title}, what is the Cedar support window?`},b);

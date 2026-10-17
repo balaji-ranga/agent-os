@@ -22,7 +22,7 @@ export function createKnowledgeService(repository,search,{clock=Date.now,leaseMs
       sources.set(id,{id,embeddingId:scope.embeddingId,title,kind,bytes,uploadedBySessionId,status:'queued',text:'',revision:'pending',audienceIds:[...scope.audienceIds],createdAt:clock()});
       return {id,status:'queued'};
     },
-    extracted(scope,id,{sections,url=null}){
+    extracted(scope,id,{sections,url=null,metrics={}}){
       maintain(scope);
       if(!Array.isArray(sections)||!sections.length||sections.length>300||sections.some(s=>typeof s.text!=='string'||typeof s.locator!=='string'||s.locator.length>120))throw new Error('Invalid extraction');
       const text=sections.map(s=>s.text).join('\n\n');
@@ -34,7 +34,8 @@ export function createKnowledgeService(repository,search,{clock=Date.now,leaseMs
       const revision=createHash('sha256').update(JSON.stringify({sections,url})).digest('hex');
       const previous={revision:current.revision,completedAt:current.completedAt};
       current.versions=[...(current.versions||[]),...(current.revision!=='pending'?[previous]:[])].slice(-20);
-      Object.assign(current,{sections,text,revision,url,status:'pending',lastError:null});sources.set(id,current);
+      const processingMetrics={};for(const key of ['elapsedSeconds','peakRssKiB'])if(Number.isFinite(metrics[key])&&metrics[key]>=0&&metrics[key]<2_147_483_648)processingMetrics[key]=metrics[key];
+      Object.assign(current,{sections,text,revision,url,status:'pending',lastError:null,processingMetrics});sources.set(id,current);
       return {id,status:'pending',revision};
     },
     processing(scope,id){maintain(scope);const current=get(scope,id);if(!['queued','failed','ready'].includes(current.status))throw new Error('Source is busy');current.status='extracting';current.lastError=null;sources.set(id,current);},

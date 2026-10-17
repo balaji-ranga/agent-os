@@ -23,4 +23,7 @@ ImageDraw.Draw(image).text((70, 170), fact, fill='black', font=font)
 image.save(root / 'cedar.png'); image.save(root / 'cedar-scanned.pdf', 'PDF', resolution=150)
 if '--video' in sys.argv:
     subprocess.run(['ffmpeg', '-nostdin', '-v', 'error', '-y', '-loop', '1', '-i', str(root / 'cedar.png'), '-t', '12', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-threads', '1', str(root / 'cedar.mp4')], check=True, timeout=40)
+if '--audio' in sys.argv:
+    subprocess.run(['ffmpeg', '-nostdin', '-v', 'error', '-y', '-f', 'lavfi', '-i', "flite=text='The Cedar escalation contact is the silver support team.':voice=slt", '-ar', '16000', '-ac', '1', str(root / 'cedar-speech.wav')], check=True, timeout=30)
+    subprocess.run(['ffmpeg', '-nostdin', '-v', 'error', '-y', '-loop', '1', '-i', str(root / 'cedar.png'), '-i', str(root / 'cedar-speech.wav'), '-shortest', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-threads', '1', str(root / 'cedar-audio.mp4')], check=True, timeout=40)
 print(json.dumps({'fixtureDirectory': str(root), 'fact': fact}))

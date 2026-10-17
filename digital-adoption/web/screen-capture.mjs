@@ -4,16 +4,16 @@ export function createScreenCapture({mediaDevices=navigator.mediaDevices,Recorde
  const notify=()=>onChange({state,blob,bytes});
  const release=()=>{clearTimeout(timer);stream?.getTracks().forEach(track=>track.stop());stream=null;};
  const capture={
-  async start(){
+  async start({audio=false}={}){
    if(requested||['recording','paused','requesting'].includes(state))throw new Error('Capture already active');
-   if(!mediaDevices?.getDisplayMedia||!Recorder)throw new Error('Screen capture is unavailable. Upload an existing silent MP4/WebM recording instead.');
+   if(!mediaDevices?.getDisplayMedia||!Recorder)throw new Error('Screen capture is unavailable. Upload an existing MP4/WebM recording instead.');
    state='requesting';requested=true;discarded=false;notify();
    try{
     // Called directly by the user's capture button; browser consent is mandatory.
-    stream=await mediaDevices.getDisplayMedia({video:true,audio:false});
+    stream=await mediaDevices.getDisplayMedia({video:true,audio:audio===true});
     if(discarded){release();requested=false;state='discarded';notify();return;}
     chunks=[];bytes=0;blob=null;
-    const mime=['video/webm;codecs=vp8','video/webm','video/mp4'].find(type=>Recorder.isTypeSupported(type));
+    const mime=(audio===true?['video/webm;codecs=vp8,opus','video/webm','video/mp4']:['video/webm;codecs=vp8','video/webm','video/mp4']).find(type=>Recorder.isTypeSupported(type));
     if(!mime)throw new Error('No supported capture format. Upload an existing recording.');
     recorder=new Recorder(stream,{mimeType:mime,videoBitsPerSecond:600_000});
     recorder.ondataavailable=event=>{if(event.data.size){bytes+=event.data.size;if(bytes>maxBytes){discarded=true;capture.stop();}else chunks.push(event.data);}};

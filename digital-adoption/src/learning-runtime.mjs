@@ -26,7 +26,7 @@ export function createLearningRuntime(repository,store,{clock=Date.now,knowledge
    const record={...structure,embeddingId:access.embeddingId,audienceId:access.audienceId,fingerprint:hash(structure),observedAt:clock()};maps.set(key(access,snapshot.path),record);
    return {path:record.path,fieldCount:record.fields.length,fingerprint:record.fingerprint,status:'observed-not-tested'};
   },
-  maps(scope){const access=requireMaintainer(scope);return maps.values({embeddingId:access.embeddingId,audienceId:access.audienceId}).slice(0,200);},
+  maps(scope){const access=requireMaintainer(scope);return maps.values({embeddingId:access.embeddingId,audienceId:access.audienceId});},
   create(scope,input){return store.create(requireMaintainer(scope),input);},
   repair(scope,{id,version,steps}){return store.repair(requireMaintainer(scope),id,version,steps);},
   validate(scope,{id,version}){

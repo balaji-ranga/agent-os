@@ -18,3 +18,15 @@ test('denied capture offers upload fallback without uploading or retrying consen
  await assert.rejects(()=>capture.start(),/denied/);assert.equal(calls,1);assert.equal(capture.state(),'idle');
  const absent=createScreenCapture({mediaDevices:{},Recorder:null});await assert.rejects(()=>absent.start(),/Upload an existing/);
 });
+test('shared audio is requested only by explicit opt-in and uses an audio-capable format',async()=>{
+ let requested,format,stopped=0;
+ const track={stop:()=>stopped++,addEventListener:()=>{}};
+ class Recorder{
+  static isTypeSupported(type){return type==='video/webm;codecs=vp8,opus';}
+  constructor(stream,options){format=options.mimeType;this.state='inactive';}
+  start(){this.state='recording';}
+  stop(){this.state='inactive';this.onstop();}
+ }
+ const capture=createScreenCapture({Recorder,mediaDevices:{getDisplayMedia:async constraints=>{requested=constraints;return {getTracks:()=>[track],getVideoTracks:()=>[track]};}}});
+ await capture.start({audio:true});assert.deepEqual(requested,{video:true,audio:true});assert.equal(format,'video/webm;codecs=vp8,opus');capture.stop();assert.equal(capture.state(),'review');assert.ok(stopped>0);
+});
