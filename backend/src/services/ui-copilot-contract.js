@@ -91,6 +91,7 @@ export function normalizeCopilotScreenActions(input,catalog,currentScreenId,visi
   const destination=input.actions.length===1?input.actions[0]:null;
   if(destination?.type==='embed_navigate'&&destination.screen!==currentScreenId&&['crm','erp'].includes(destination.screen)&&catalog.screens.some(s=>s.id===destination.screen))return {...input,actions:[{type:'navigate',screen:destination.screen}]};
   return {...input,actions:input.actions.map(action=>{
+    if(!action||typeof action!=='object'||Array.isArray(action))return action;
     if(action.type!=='fill'||Object.hasOwn(catalog.forms,action.form)||action.form!==currentScreenId||!catalog.screens.some(s=>s.id===currentScreenId)||!action.values||Array.isArray(action.values)||typeof action.values!=='object')return action;
     const ids=Object.keys(action.values);
     if(!ids.length||ids.some(id=>!visibleIds.includes(id)))return action;
@@ -100,6 +101,7 @@ export function normalizeCopilotScreenActions(input,catalog,currentScreenId,visi
 export function validateCopilotProposal(input, catalog) {
   if (!input || typeof input.message !== 'string' || input.message.length > 6000 || !Array.isArray(input.actions) || input.actions.length > 5) throw copilotError('Invalid assistant response');
   const actions = input.actions.map(action => {
+    if(!action||typeof action!=='object'||Array.isArray(action)||typeof action.type!=='string')throw copilotError('Invalid assistant action');
     if(action.type==='embed_open_form'){
       if(!['crm','erp'].includes(action.screen)||!catalog.screens.some(s=>s.id===action.screen)||!embeddedFormAllowed(action.label))throw copilotError('Embedded form is not available');
       return {type:'embed_open_form',screen:action.screen,label:action.label};

@@ -1,0 +1,11 @@
+# Platform Help: indexed platform map and seeded recipes
+
+Platform Help uses a versioned map generated from the shipped Flolah source. It covers declared routes (including input-free pages), native forms, field identities and types, HTML constraints, conditional/read-only flags, static option meanings, navigation links, and registered form contracts. The build checks both API and UI inventories for drift. New source-defined forms therefore join the map without a separate handwritten recipe for each field.
+
+The API stores this source-only map in a dedicated SQLite full-text index. Each proposal retrieves bounded relevant schema entries and source-managed recipes, filtered through the signed-in actor's authorized screen/form catalog. Customer records, entered values, conversation text, passwords, tokens and private lesson contents are not copied into this global index.
+
+Open Platform Help → options → Teach Copilot → **Platform seeded recipes** to inspect the generated screen/form guidance. The **Platform and learned screen map** shows the indexed revision and your authorized coverage. Your own recorded lessons remain private and separate. Source-managed recipes cannot be edited or archived through company coaching; create a private lesson to add local guidance.
+
+Recipes describe a reusable sequence: navigate, inspect fresh controls, prepare only requested values for review, leave saving to the user, then verify observed results. They contain no stored field values or executable selectors. Registered forms and source control IDs are distinct namespaces. A partial registered adapter does not mean every other field on that screen is unsupported; eligible visible fields can use the generic screen driver.
+
+The map is not a promise of unlimited automation or completed UAT. Conditional controls must be open, dynamic dropdown choices must be freshly inspected, linked records must be resolved within the current company, and existing form/server validation remains authoritative. Passwords, uploads, authorization, permissions, trading execution and other protected actions require their existing human/approval paths. Unknown controls and unsupported widgets remain guidance-only until they have a tested adapter. Index coverage is reported separately from rendered-screen and provider acceptance.
