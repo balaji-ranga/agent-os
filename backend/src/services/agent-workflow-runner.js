@@ -44,6 +44,9 @@ import {
 import { getMcpServerForWorkflow, callMcpServerTool, callMcpServerPrompt, callMcpServerResource } from './mcp-servers.js';
 import { parseMcpAuthFromNodeConfig } from './mcp-auth.js';
 import { executeConnectorAction } from './openconnector.js';
+import {copilotConnector,copilotConfigured} from './digital-adoption-connector.js';
+import {createActionApprovalGrant} from './action-policy.js';
+const copilotApprovalTokens=new Map();
 import { isUserEnabled } from './user-enabled.js';
 import { withLlmopsContext, getLlmopsContext } from './llmops-context.js';
 import { notifyA2ARunTerminal } from './workflow-a2a-async.js';
@@ -551,15 +554,17 @@ async function invokeContentTool(toolName, body, ownerUserId = null, opts = {}) 
 }
 
 function failRun(runId, message) {
+  if(copilotConfigured()){const owner=db().prepare('SELECT owner_user_id FROM agent_workflow_runs WHERE id=?').get(runId)?.owner_user_id;if(owner)void copilotConnector().finish(owner,runId).catch(()=>{});}
   const failedStep = db()
     .prepare(
       `SELECT node_id FROM agent_workflow_run_steps
        WHERE run_id = ? AND status = 'failed' ORDER BY id DESC LIMIT 1`
     )
     .get(runId);
-  const exception = failedStep
+  let exception = failedStep
     ? workflowExceptionDecision(runId, failedStep.node_id)
     : { action: 'fail', reason: 'failed_step_not_found' };
+  if(String(message).startsWith('COPILOT_'))exception={action:'fail',reason:'Copilot steps are never automatically replayed'};
 
   db()
     .prepare(
@@ -714,7 +719,14 @@ async function completeTimedNodeStep({
     updateRunProgress(runId);
     await advanceFromNode(runId, nodeId);
   } catch (err) {
-    if (isNodeTimeoutError(err) && timeoutAction === 'default_output') {
+    if(err.code==='COPILOT_AWAITING_APPROVAL'){
+      const summary=JSON.stringify({action:config.actionId,execution:err.approvalContext,expiresAt:Date.now()+60000});
+      const description=buildAgentWorkflowDescription({runId,definitionId:def.id,definitionName:def.name,nodeId:node.id,nodeLabel:node.data?.label||'Copilot approval',nodeType:'ceo_approval',ownerUserId:runRow.owner_user_id,summary});
+      const id=createCeoApprovalKanbanTask({title:`${def.name} · Copilot Action Policy approval`,description,ownerUserId:runRow.owner_user_id,standupId:runRow.standup_id||ensureWorkflowStandup()});
+      context.copilot_approvals||={};context.copilot_approvals[node.id]={execution:err.approvalContext,actionId:config.actionId,policyToolName:err.policy.tool_name,family:err.policy.action_family,expiresAt:Date.now()+60000};saveContext(runId,context);
+      upsertStep(runId,node,'in_progress',{input:inputRecord,kanban_task_id:id,error_message:'COPILOT_AWAITING_APPROVAL'});notifyWorkflowRunWaitingCeo(runId,{nodeId:node.id,kanbanTaskId:id});return;
+    }
+    if (isNodeTimeoutError(err) && timeoutAction === 'default_output' && !String(config.actionId||'').startsWith('digital_adoption.')) {
       const outputs = buildTimeoutFallbackOutputs(node.type, defaultOutput, timeoutMs);
       storeNodeOutput(context, node.id, outputs);
       saveContext(runId, context);
@@ -741,12 +753,14 @@ async function completeTimedNodeStep({
       await advanceFromNode(runId, nodeId);
       return;
     }
-    upsertStep(runId, node, 'failed', { error_message: err.message });
-    failRun(runId, err.message);
+    const nodeError=String(config.actionId||'').startsWith('digital_adoption.')&&!String(err.message).startsWith('COPILOT_')?'COPILOT_EXECUTION_FAILED':err.message;
+    upsertStep(runId, node, 'failed', { error_message: nodeError });
+    failRun(runId, nodeError);
   }
 }
 
 function completeRun(runId) {
+  if(copilotConfigured()){const owner=db().prepare('SELECT owner_user_id FROM agent_workflow_runs WHERE id=?').get(runId)?.owner_user_id;if(owner)void copilotConnector().finish(owner,runId).catch(()=>{});}
   updateRunProgress(runId);
   db()
     .prepare(
@@ -1328,8 +1342,8 @@ async function executeNode(runId, nodeId, graph, context, def, runRow) {
         const out = await executeConnectorAction(
           runRow.owner_user_id,
           actionId,
-          { ...staticInput, ...dynamicInput },
-          { connectionName: config.connectionName || config.connection_name || '' }
+          {...staticInput, ...dynamicInput,...Object.fromEntries(Object.entries(config.copilot||{}).filter(([,value])=>value!==undefined&&value!=='')),...(copilotApprovalTokens.has(`${runId}:${node.id}`)?{approval_token:copilotApprovalTokens.get(`${runId}:${node.id}`)}:{}) },
+          { connectionName: config.connectionName || config.connection_name || '',runId,nodeId:node.id,workflowId:def.id,iteration:resolveLoopStepIteration(node,graph,context),actorUserId:context.actor?.id||runRow.owner_user_id }
         );
         return {
           text: out.text || '',
@@ -1969,6 +1983,16 @@ export async function completeCeoApprovalResponse({ kanbanTaskId, decision, comm
   if (!runRow || runRow.status !== 'running') throw new Error('Workflow run is not active');
 
   const approved = decision === 'approve' || decision === 'approved';
+  const approvalGraph=getGraphForRun(meta.run_id),approvalNode=getNode(approvalGraph,meta.node_id);
+  if(approvalNode?.type==='connector'&&String(approvalNode.data?.taskConfig?.actionId||'').startsWith('digital_adoption.')){
+    const ctx=parseContext(runRow),pending=ctx.copilot_approvals?.[meta.node_id];
+    db().prepare('UPDATE kanban_tasks SET status=?,updated_at=datetime(\'now\') WHERE id=?').run(approved?'completed':'failed',kanbanTaskId);
+    if(!approved||!pending||pending.expiresAt<=Date.now()){upsertStep(meta.run_id,approvalNode,'failed',{error_message:'COPILOT_APPROVAL_REJECTED_OR_EXPIRED'});failRun(meta.run_id,'COPILOT_APPROVAL_REJECTED_OR_EXPIRED');return {advanced:false,decision:approved?'expired':'rejected'};}
+    const grant=createActionApprovalGrant(runRow.owner_user_id,{family:pending.family,toolName:pending.policyToolName||`connector_action:${pending.actionId}`,constraints:{copilot_execution:pending.execution},ttlSeconds:60,uses:1});
+    const tokenKey=`${meta.run_id}:${meta.node_id}`;copilotApprovalTokens.set(tokenKey,grant.token);delete ctx.copilot_approvals[meta.node_id];saveContext(meta.run_id,ctx);upsertStep(meta.run_id,approvalNode,'pending',{});
+    try{await executeNode(meta.run_id,meta.node_id,approvalGraph,ctx,store.getDefinition(runRow.definition_id),runRow);}finally{copilotApprovalTokens.delete(tokenKey);}
+    return {decision:'approved',run_id:meta.run_id,advanced:true};
+  }
   const decisionLabel = approved ? 'approved' : 'rejected';
   const commentTrim = String(comment || '').trim();
   // Preserve the summary shown to the CEO (e.g. POST_BODIES) so downstream
@@ -2551,6 +2575,7 @@ export function resumeStuckWorkflowRuns() {
 
         // Only re-dispatch steps that began before this process (avoid racing with reap→advance).
         if (!isRestartOrphanStep(step)) continue;
+        if(node.type==='connector'&&String(config.actionId||'').startsWith('digital_adoption.')){upsertStep(runId,node,'failed',{error_message:'COPILOT_OUTCOME_UNKNOWN'});failRun(runId,'COPILOT_OUTCOME_UNKNOWN');break;}
 
         if (!RESUMABLE_IN_PROGRESS_TYPES.has(node.type)) {
           console.warn(

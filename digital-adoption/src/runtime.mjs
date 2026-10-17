@@ -25,6 +25,10 @@ import {createSourceMap} from './source-map.mjs';
 import {createHostIdentity} from './host-identity.mjs';
 import {createOperationalTelemetry} from './operational-telemetry.mjs';
 import {createWorkerServer} from './worker-server.mjs';
+import {createPrivateTasks} from './private-tasks.mjs';
+import {createParserBroker} from './parser-broker.mjs';
+import {createTaskBridge} from './live-transport.mjs';
+import {startLocalParsers} from './local-parser.mjs';
 const config=JSON.parse(readFileSync('/config/service.json','utf8'));
 const repository=openRepository('/data/adoption.sqlite');
 const telemetry=createOperationalTelemetry();
@@ -63,6 +67,12 @@ for(const [i,embeddingId] of embeddings.entries()){
  if(source.status==='pending'||source.status==='failed')await knowledge.ingest(scope,source.id);
 }
 const model={gatewayUrl:config.gatewayUrl,serviceToken:config.serviceToken};
+const planner=createPlatformPlanner(model);
+const taskWebsite=id=>repository.map('websites').get(id);
+const privateTasks=await createPrivateTasks({root:'/data/private-objects',website:taskWebsite,activeScope:scope=>authority.activeScope(scope),planner,answer:createKnowledgeAnswer(model),guidance:(scope,text,snapshot)=>({sourceGuidance:sourceMap.guidance(scope,text,snapshot),recipeGuidance:learning.context(scope,text,snapshot),siteGuidance:learning.planningMemory(scope,text,snapshot)}),limits:config.privateTasks,authorizeEffect:async input=>{if(!config.taskPolicyUrl||!config.taskBridgeToken)return false;try{const response=await fetch(config.taskPolicyUrl,{method:'POST',redirect:'error',signal:AbortSignal.timeout(5000),headers:{'Content-Type':'application/json',Authorization:`Bearer ${config.taskBridgeToken}`},body:JSON.stringify(input)});return response.ok&&(await response.json()).allowed===true;}catch{return false;}}});
+const parserBroker=createParserBroker(ingestion,privateTasks,{maxWorkers:config.ingestion?.maxWorkers||2});
+const taskBridge=config.taskBridgeToken?createTaskBridge({tasks:privateTasks,token:config.taskBridgeToken}):null;
+taskBridge?.listen(4197,'0.0.0.0');
 const platformOrigin=new URL(config.serviceUrl).origin;
 const control=createControlPlane(repository,authority);
 const learning=createLearningRuntime(repository,createLearningStore(repository),{knowledge}),coaching=createCoachingGrants(repository);
@@ -72,9 +82,10 @@ const registrationEmail=createRegistrationEmail(repository,{send:createMailer(co
 const management=createManagement({authenticate:createManagementIdentity({platformOrigin}),control,knowledge,search,platformOrigin,registrationEmail,ingestion,learning,coaching,sourceMap,hostIdentity});
 const ownerIdentity=createOwnerIdentity(repository,{send:createMailer(config.mail)});
 const ownerManagement=createManagement({authenticate:cookie=>ownerIdentity.authenticate(cookie),control,knowledge,search,platformOrigin,registrationEmail,ingestion,learning,coaching,sourceMap,hostIdentity});
-ingestion.start({local:!config.workerToken});
-const workerServer=config.workerToken?createWorkerServer({ingestion,token:config.workerToken}):null;
+ingestion.start({local:false});
+const localParsers=!config.workerToken?startLocalParsers(parserBroker,createDocumentExtractor({python:'/opt/adoption-python/bin/python'}),{workers:config.ingestion?.maxWorkers||2}):null;
+const workerServer=config.workerToken?createWorkerServer({ingestion:parserBroker,token:config.workerToken}):null;
 workerServer?.listen(4196,'0.0.0.0');
-const server=createAdoptionServer({capacity:config.capacity,authority,knowledge,ingestion,learning,coaching,discovery,sourceMap,hostIdentity,management,ownerIdentity,ownerManagement,platformOrigin,telemetry,answer:createKnowledgeAnswer(model),planner:createPlatformPlanner(model),proposals:createProposalStore(repository,{checkBinding:(scope,binding)=>learning.bindingAllowed(scope,binding)})});
+const server=createAdoptionServer({capacity:config.capacity,authority,knowledge,ingestion,learning,coaching,discovery,sourceMap,hostIdentity,management,ownerIdentity,ownerManagement,platformOrigin,telemetry,privateTasks,taskWebsite,answer:createKnowledgeAnswer(model),planner,proposals:createProposalStore(repository,{checkBinding:(scope,binding)=>learning.bindingAllowed(scope,binding)})});
 server.listen(4193,'0.0.0.0',()=>console.log('Independent adoption service listening; full acceptance not yet certified'));
-process.on('SIGTERM',()=>{ingestion.stop();clearInterval(recoveryTimer);workerServer?.closeAllConnections();workerServer?.close();server.closeAllConnections();server.close(()=>{process.exit(0);});});
+process.on('SIGTERM',async()=>{ingestion.stop();localParsers?.stop();clearInterval(recoveryTimer);await privateTasks.close();taskBridge?.closeAllConnections();taskBridge?.close();workerServer?.closeAllConnections();workerServer?.close();server.closeAllConnections();server.close(()=>{process.exit(0);});});

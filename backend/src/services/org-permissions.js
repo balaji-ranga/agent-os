@@ -322,6 +322,7 @@ export function matchApiPermission(method, path) {
     { prefix: '/company-workspace', permission: 'work' },
     { prefix: '/scheduled-goals', permission: 'scheduled-goals' },
     { prefix: '/agent-workflows', permission: 'workflows' },
+    { prefix: '/integrations/digital-adoption', permission: 'workflows' },
     { prefix: '/job-applicant', permission: 'job-profiles' },
     { prefix: '/browser-session', permission: 'browser-session' },
     { prefix: '/broadcast', permission: 'broadcast' },

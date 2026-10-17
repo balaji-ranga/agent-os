@@ -299,11 +299,11 @@ router.post('/actions/:actionId/execute', async (req, res) => {
         ownerUserId,
         req.params.actionId,
         req.body?.input && typeof req.body.input === 'object' ? req.body.input : {},
-        { connectionName: req.body?.connection_name || req.body?.connectionName || '' }
+        { connectionName: req.body?.connection_name || req.body?.connectionName || '',actorUserId:req.authUser.id }
       )
     );
   } catch (e) {
-    res.status(400).json({ error: e.message });
+    res.status(e.status||400).json({error:e.message,code:e.code,...(e.approvalContext?{approvalContext:e.approvalContext,policy:e.policy}:{}),...(e.result?{result:e.result}:{})});
   }
 });
 

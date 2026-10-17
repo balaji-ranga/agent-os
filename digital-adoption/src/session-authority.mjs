@@ -226,6 +226,14 @@ export class SessionAuthority {
 
   #revoked = new Map();
 
+  // Trusted live-connection revalidation; never exposed as a lookup API.
+  activeScope(scope){
+    const session=this.#sessions.get(scope?.sessionId);
+    const installation=session&&[...this.#installations.values({embeddingId:session.embeddingId})].find(i=>i.id===session.installationId);
+    if(!session||session.embeddingId!==scope.embeddingId||session.origin!==scope.origin||session.terminated||session.expiresAt<=this.#clock()||session.lastActivityAt+this.#idleMs<=this.#clock()||!installation||installation.revoked||this.#revoked.get(installation.id)||installation.expiresAt<=this.#clock())return false;
+    try{this.#hostIdentity?.check(session.embeddingId,session.identity);return true;}catch{return false;}
+  }
+
   // Access expires immediately; bounded maintenance removes private session
   // data independently of the shared website's knowledge lifecycle.
   maintain({limit=500}={}){
@@ -246,6 +254,6 @@ export class SessionAuthority {
     const { session,installation } = this.#authorize(sessionToken, origin);
     const coach=(session.coachingUntil||0)>this.#clock();
     const signedAudiences=session.identity?.audienceIds||['public'],audienceIds=coach?[session.coachingAudienceId||signedAudiences[0]]:signedAudiences;
-    return Object.freeze({ embeddingId: session.embeddingId, sessionId: session.id,audienceId:coach?session.coachingAudienceId||audienceIds[0]:audienceIds[0],audienceIds,hostPrincipal:session.identity?.principal||null,conversationVersion:session.conversationVersion||0,capabilities:{upload:installation.visitorUploads===true||coach,coach} });
+    return Object.freeze({ embeddingId: session.embeddingId, sessionId: session.id,origin:session.origin,audienceId:coach?session.coachingAudienceId||audienceIds[0]:audienceIds[0],audienceIds,hostPrincipal:session.identity?.principal||null,conversationVersion:session.conversationVersion||0,capabilities:{upload:installation.visitorUploads===true||coach,coach} });
   }
 }

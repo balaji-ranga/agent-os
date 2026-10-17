@@ -5,6 +5,7 @@ import {createRequestBudget,createConcurrencyBudget} from './request-budget.mjs'
 import {constrainNavigation} from './navigation-intent.mjs';
 import {constrainEdit} from './edit-intent.mjs';
 import {randomUUID} from 'node:crypto';
+import {attachLiveTransport} from './live-transport.mjs';
 
 const assets = new Map([
   ['/owner.html', ['../web/manage.html', 'text/html']],
@@ -25,6 +26,8 @@ const assets = new Map([
   ['/learning-package.mjs', ['../web/learning-package.mjs', 'text/javascript']],
   ['/widget.html', ['../web/widget.html', 'text/html']],
   ['/widget.mjs', ['../web/widget.mjs', 'text/javascript']],
+  ['/task-client.mjs', ['../web/task-client.mjs', 'text/javascript']],
+  ['/task-panel.mjs', ['../web/task-panel.mjs', 'text/javascript']],
 ]);
 function withMode(response,mode='assist'){
  if(!['assist','guide'].includes(mode))throw new Error('Unsupported assistance mode');
@@ -40,11 +43,11 @@ async function body(req,limit=32_768) {
   return parsed;
 }
 
-export function createAdoptionServer({ authority, proposals, planner, knowledge, ingestion, learning, coaching, discovery, sourceMap,hostIdentity, answer, management, ownerIdentity, ownerManagement, platformOrigin,telemetry,capacity={}, development = false, fixture = null }) {
+export function createAdoptionServer({ authority, proposals, planner, knowledge, ingestion, learning, coaching, discovery, sourceMap,hostIdentity, answer, management, ownerIdentity, ownerManagement, platformOrigin,telemetry,privateTasks,taskWebsite,capacity={}, development = false, fixture = null }) {
   const budget=createRequestBudget();
   const modelSlots=createConcurrencyBudget({global:capacity.modelConcurrency??25,perDomain:capacity.modelPerDomain??5}),searchSlots=createConcurrencyBudget({global:capacity.searchConcurrency??25,perDomain:capacity.searchPerDomain??5});
   let activeUploads=0;
-  return createServer(async (req, res) => {
+  const server=createServer(async (req, res) => {
     let uploadSlot=false,releaseModel,releaseSearch;
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -89,14 +92,14 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
       }
       if (req.method !== 'POST') return send(404, { error: 'Not found' });
       if (!(req.headers['content-type'] || '').startsWith('application/json')) return send(415, { error: 'JSON required' });
-      const fileUpload=['/v1/manage/source-file','/v1/owner/manage/source-file','/v1/knowledge/upload'].includes(path);
+      const fileUpload=['/v1/manage/source-file','/v1/owner/manage/source-file','/v1/knowledge/upload','/v1/tasks/upload'].includes(path);
       if(fileUpload){
-        budget.take(`upload:${req.socket.remoteAddress}`,5);
+        budget.take(`upload:${req.socket.remoteAddress}`,path==='/v1/tasks/upload'?(capacity.privateUploadsPerIp??100):5);
         // Authorize before buffering a large file. Resource ownership is checked
         // again after parsing, before it reaches raw storage or a worker.
         if(path==='/v1/manage/source-file'){if(!management)throw new Error('Management unavailable');await management({authorization:req.headers.authorization,origin,path:'/v1/manage/websites',input:{}});}
         else if(path==='/v1/owner/manage/source-file'){if(!ownerManagement||origin!==platformOrigin)throw new Error('Owner access denied');await ownerManagement({authorization:req.headers.cookie,origin,path:'/v1/manage/websites',input:{}});}
-        else {const sessionToken=/^Bearer (\S+)$/.exec(req.headers.authorization||'')?.[1];if(!authority.context({sessionToken,origin}).capabilities.upload)throw new Error('Uploads disabled');}
+        else {const sessionToken=/^Bearer (\S+)$/.exec(req.headers.authorization||'')?.[1],scope=authority.context({sessionToken,origin});if(path==='/v1/tasks/upload'? !privateTasks||taskWebsite?.(scope.embeddingId)?.taskPolicy?.attachments!==true:!scope.capabilities.upload)throw new Error('Uploads disabled');if(path==='/v1/tasks/upload')budget.take(`private-upload:${scope.sessionId}`,5);}
         if(activeUploads>=2)throw new Error('Request capacity reached');activeUploads++;uploadSlot=true;
       }
       const mapRefresh=['/v1/manage/source-map-refresh','/v1/owner/manage/source-map-refresh'].includes(path);
@@ -137,7 +140,17 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
         // as successful responses, rather than receiving an opaque CORS error.
         res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin');
         if (path === '/v1/history') result = { messages: authority.history(auth) };
-        else if(path==='/v1/capabilities')result={capabilities:scope.capabilities,learningEnabled:learning?.learningEnabled?.(scope)===true};
+        else if(path==='/v1/capabilities')result={capabilities:scope.capabilities,taskPolicy:privateTasks?taskWebsite?.(scope.embeddingId)?.taskPolicy||{}:{},learningEnabled:learning?.learningEnabled?.(scope)===true};
+        else if(path==='/v1/live/ticket'){if(!privateTasks)throw new Error('Private tasks unavailable');result=privateTasks.ticket(scope,input);}
+        else if(path.startsWith('/v1/tasks/')||path.startsWith('/v1/pair/')){
+          if(!privateTasks)throw new Error('Private tasks unavailable');
+          budget.take(`private:${scope.sessionId}`,60);
+          const operations=path.startsWith('/v1/tasks/')?{start:'start',status:'status',end:'end',upload:'upload',remove:'remove',plan:'plan',summary:'summary',approve:'approve','save-review':'saveReview',relay:'relay','command-plan':'commandPlan',effect:'effect'}:{invite:'invite',join:'join',status:'pairStatus',confirm:'confirm',revoke:'revoke',link:'linkRequest'};
+          const action=operations[path.split('/').at(-1)];if(!action)throw new Error('Unsupported private operation');
+          if(['plan','summary','commandPlan'].includes(action))releaseModel=modelSlots.acquire(scope.embeddingId);
+          if(!['status','pairStatus'].includes(action))authority.touch(auth);
+          result=await privateTasks[action](scope,input);
+        }
         else if(path==='/v1/learning/complete'){
           if(!learning?.learningEnabled(scope)||input.consent!==true)result={created:false};
           else{
@@ -180,7 +193,7 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
           const snapshot=validateSnapshot(input.snapshot),review=learning.review(scope,snapshot,input);
           result={...proposals.prepare(scope,snapshot,withMode(review.response,input.mode),review.binding),nextStep:review.nextStep,complete:review.complete};authority.touch(auth);
         }
-        else if(path==='/v1/history/clear')result=authority.clearConversation(auth);
+        else if(path==='/v1/history/clear'){privateTasks?.endSession(scope);result=authority.clearConversation(auth);}
         else if(path==='/v1/knowledge/documents'){if(!knowledge)throw new Error('Knowledge unavailable');result={sources:knowledge.available(scope)};}
         else if(path==='/v1/knowledge/upload'){
           if(!ingestion||!scope.capabilities.upload)throw new Error('Uploads disabled');
@@ -196,7 +209,7 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
         else if(path==='/v1/knowledge/upload-status'){if(!ingestion)throw new Error('Ingestion unavailable');result=ingestion.status(scope,input.sourceId);}
         else if (path === '/v1/messages') result = authority.appendMessage({ ...auth, text: input.text, replyTo: input.replyTo });
         else if (path === '/v1/renew') result = authority.renew({...auth,identityToken:input.identityToken});
-        else if (path === '/v1/terminate') { authority.terminate(auth); result = { terminated: true }; }
+        else if (path === '/v1/terminate') { privateTasks?.endSession(scope);authority.terminate(auth); result = { terminated: true }; }
         else if(path==='/v1/save/plan'){
           if(!proposals)throw new Error('Action reviews unavailable');
           authority.touch(auth);result=proposals.prepareSave(scope,input.snapshot,input.ref);
@@ -256,7 +269,9 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
       const invalidResponse=['Invalid platform model response','Invalid evidence citations','The assistant could not produce a valid current-screen proposal. Nothing was changed.'].includes(error.message);
       const code = error.message === 'Request too large' ? 413 : error.message==='Request rate exceeded'||error.message==='Request capacity reached'?429:unavailable?503:invalidResponse?502:403;
       if(code===429)res.setHeader('Retry-After',error.message==='Request rate exceeded'?'60':'2');
-      return send(code, { error: code===429?'Copilot is busy. Please retry shortly.':code===413?'Request too large':code===503?'Copilot service temporarily unavailable':code===502?'The assistant could not prepare a valid response. Nothing was changed.':'Access denied or invalid request' });
+      return send(code, { error: code===429?'Copilot is busy. Please retry shortly.':code===413?'Request too large':code===503?'Copilot service temporarily unavailable':code===502?'The assistant could not prepare a valid response. Nothing was changed.':'Access denied or invalid request',...(error.publicCode?{code:error.publicCode}:{}) });
     }finally{releaseModel?.();releaseSearch?.();if(uploadSlot)activeUploads--;}
   });
+  if(privateTasks)attachLiveTransport(server,{tasks:privateTasks});
+  return server;
 }

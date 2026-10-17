@@ -49,9 +49,11 @@ export function createControlPlane(repository,authority,{dns=resolveTxt,clock=Da
   },
   cancelDelivery(actor,id,installationId){const website=owned(actor,id);if(!website.installations.includes(installationId))reject();authority.revokeInstallation(installationId);record(actor,'revoke_failed_delivery',id,'Email transport failed');},
   scope(actor,id){const website=owned(actor,id);if(website.status!=='approved'||!website.verified)reject();return {embeddingId:website.id,audienceIds:['public'],audienceId:'public',origin:website.origin,role:'maintainer'};},
-  configure(actor,id,{visitorUploads}){
-   if(typeof visitorUploads!=='boolean')reject();
-   return repository.transaction(()=>{const site=owned(actor,id);site.visitorUploads=visitorUploads;websites.set(id,site);authority.setUploadPolicy(id,visitorUploads);record(actor,'configure_upload_policy',id,visitorUploads?'Visitor uploads enabled':'Visitor uploads disabled');return {visitorUploads};});
+  configure(actor,id,{visitorUploads,taskPolicy}){
+   if(visitorUploads!==undefined&&typeof visitorUploads!=='boolean'||taskPolicy!==undefined&&(!taskPolicy||typeof taskPolicy!=='object'||Object.keys(taskPolicy).some(k=>!['attachments','pairing','workflow','actionBindings','limits'].includes(k))||['attachments','pairing','workflow'].some(k=>taskPolicy[k]!==undefined&&typeof taskPolicy[k]!=='boolean')))reject();
+   if(taskPolicy?.limits!==undefined){const maxima={fileBytes:16*1024*1024,files:4,taskBytes:64*1024*1024,instances:100};if(!taskPolicy.limits||Array.isArray(taskPolicy.limits)||typeof taskPolicy.limits!=='object'||Object.entries(taskPolicy.limits).some(([k,v])=>!maxima[k]||!Number.isSafeInteger(v)||v<1||v>maxima[k]))reject();}
+   if(taskPolicy?.actionBindings!==undefined&&(!Array.isArray(taskPolicy.actionBindings)||taskPolicy.actionBindings.length>30||new Set(taskPolicy.actionBindings.map(b=>b?.id)).size!==taskPolicy.actionBindings.length||taskPolicy.actionBindings.some(b=>!b||typeof b.id!=='string'||!/^[\w-]{1,80}$/.test(b.id)||typeof b.path!=='string'||!/^\/(?!\/)[^?#\\]*$/.test(b.path)||typeof b.label!=='string'||b.label.length>160||!['read','write_internal','communicate_external','financial_destructive'].includes(b.family))))reject();
+   return repository.transaction(()=>{const site=owned(actor,id);if(visitorUploads!==undefined){site.visitorUploads=visitorUploads;authority.setUploadPolicy(id,visitorUploads);}if(taskPolicy)site.taskPolicy={...site.taskPolicy,...taskPolicy};websites.set(id,site);record(actor,'configure_visitor_policy',id,'Visitor capabilities updated');return {visitorUploads:site.visitorUploads===true,taskPolicy:site.taskPolicy||{}};});
   },
   register(actor,{origin,environment,operationId}){
    identity(actor);if(actor.role!=='owner'||!['staging','production'].includes(environment))reject();

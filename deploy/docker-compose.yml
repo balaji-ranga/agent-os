@@ -472,6 +472,8 @@ services:
     restart: unless-stopped
     environment:
       <<: *backend-env
+      DIGITAL_ADOPTION_BRIDGE_URL: ${DIGITAL_ADOPTION_BRIDGE_URL:-}
+      DIGITAL_ADOPTION_BRIDGE_TOKEN: ${DIGITAL_ADOPTION_BRIDGE_TOKEN:-}
     volumes:
       - agent_os_data:/data/agent-os:Z
       - openclaw_home:/root/.openclaw:Z

@@ -68,7 +68,7 @@ def extract(file, kind):
         from PIL import Image
         Image.MAX_IMAGE_PIXELS = 16_000_000
         with Image.open(file) as image:
-            if image.width * image.height > 16_000_000 or image.n_frames != 1: raise ValueError('Image limit exceeded')
+            if image.width * image.height > 16_000_000 or getattr(image, 'n_frames', 1) != 1: raise ValueError('Image limit exceeded')
             with tempfile.TemporaryDirectory(prefix='adoption-image-') as temp:
                 cleaned = pathlib.Path(temp) / 'image.png'
                 image.convert('RGB').save(cleaned)

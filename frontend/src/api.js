@@ -148,6 +148,8 @@ async function fetchBlobUrl(path, opts = {}) {
 }
 
 export const api = {
+  copilotGroups: () => get('/integrations/digital-adoption/groups'),
+  copilotLink: (code) => post('/integrations/digital-adoption/link',{code}),
   copilotCatalog: (path) => get('/ui-copilot/catalog'+(path?'?path='+encodeURIComponent(path):'')),
   copilotCoaching: (offset=0) => get('/ui-copilot/coaching?offset='+offset),
   copilotCoachingMap: () => get('/ui-copilot/coaching/map'),

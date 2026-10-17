@@ -4,6 +4,29 @@ Initial sizing target: 25 website registrations and 25 concurrent users in total
 This is a pilot envelope, not an unlimited-domain or sustained-load certification.
 Each registration keeps its own index, audience policy, maps and workflows.
 
+The private-task extension adds bounded in-memory tasks, live connections,
+pairing groups, command outcomes and encrypted objects. `privateTasks` in the
+service configuration overrides the validated engineering defaults: 100
+connections/tasks, 25 group members, 200 retained commands, 256 MiB aggregate raw
+transaction bytes, 16 MiB/file, four files/task and 64 MiB/task. Parser format
+limits remain a hard ceiling. Owners may lower per-registration limits.
+Anonymous pairing is not a physical-browser fingerprint.
+
+Shared and private extraction alternate through a combined parser broker under
+the same configured worker ceiling. Private leases and plaintext stay ephemeral;
+shared-help jobs retain their durable recovery behavior. A private task cannot
+resume after coordinator restart. Browser commands are deduplicated per captured
+recipient, and a possibly dispatched write with no proof returns unknown outcome.
+Failed copilot workflow steps bypass automatic exception-policy replay and cannot
+be turned into successful default timeout output.
+
+The extension's synthetic loopback pilot used 25 registrations/users, 50 real
+authenticated WebSockets, 25 UTF-8 files and two actual Python parser workers.
+It completed extraction in about 3.6 seconds; local HTTP p95 was 2 ms and process
+RSS about 74 MiB. This short run excludes LLM latency, real OCR concurrency,
+external network/browser workloads and sustained soak. It does not establish
+Kubernetes/multi-coordinator HA or replace public-domain acceptance.
+
 ## Current topology
 
 One stateful API/coordinator owns the local SQLite WAL database, raw objects,

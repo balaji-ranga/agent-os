@@ -1,0 +1,16 @@
+import {readFile,mkdtemp,rm,writeFile} from 'node:fs/promises';
+import {join} from 'node:path';
+import {tmpdir} from 'node:os';
+import assert from 'node:assert/strict';
+import {createPrivateTasks} from '../src/private-tasks.mjs';
+import {createDocumentExtractor} from '../src/document-extractor.mjs';
+import {createPlatformPlanner} from '../src/platform-model.mjs';
+import {createKnowledgeAnswer} from '../src/knowledge-answer.mjs';
+const config=JSON.parse(await readFile(process.env.ADOPTION_SERVICE_CONFIG||'/config/service.json','utf8')),planner=createPlatformPlanner(config),answer=createKnowledgeAnswer(config),root=await mkdtemp(join(tmpdir(),'private-document-uat-')),extract=createDocumentExtractor({python:'/opt/adoption-python/bin/python'}),results=[];
+const tasks=await createPrivateTasks({root,website:()=>({organizationId:'synthetic-owner',origin:'http://127.0.0.1:4194',verified:true,status:'approved',taskPolicy:{attachments:true,pairing:true}}),activeScope:()=>true,planner,answer});
+const scope={sessionId:crypto.randomUUID(),embeddingId:'synthetic-local',origin:'http://127.0.0.1:4194'},ticket=tasks.ticket(scope,{}),instanceId=tasks.connect(ticket.ticket,scope.origin,()=>{}),heartbeat=setInterval(()=>tasks.heartbeat(instanceId),5000);
+const formats=[['txt','text/plain'],['pdf','application/pdf'],['docx','application/vnd.openxmlformats-officedocument.wordprocessingml.document'],['png','image/png'],['jpg','image/jpeg']];
+try{
+ for(const [ext,mime] of formats){const task=tasks.start(scope,{instanceId}),file=await tasks.upload(scope,{instanceId,taskId:task.taskId,filename:`onboarding.${ext}`,mime,content:(await readFile(`/tmp/transaction-corpus/onboarding.${ext}`)).toString('base64'),operationId:crypto.randomUUID()}),claim=tasks.claim('document-uat'),input=await tasks.input(claim),path=join(root,'scratch');await writeFile(path,Buffer.from(input.content,'base64'));const parsed=await extract({path,kind:input.kind});await rm(path);tasks.complete(claim,parsed);const summary=await tasks.summary(scope,{instanceId,taskId:task.taskId,text:'What is the company name, contact email and region?'});assert.ok(summary.citations?.length>0);const snapshot={revision:1,path:'/customer',fields:[{ref:'r1f0',label:'Company name',type:'text'},{ref:'r1f1',label:'Contact email',type:'email'},{ref:'r1f2',label:'Region',type:'text'}]};const review=await tasks.plan(scope,{instanceId,taskId:task.taskId,snapshot,text:'Fill the customer form using my transaction file'});assert.equal(review.actions.find(a=>a.ref==='r1f0')?.value,'Synthetic Orchid');assert.equal(review.actions.find(a=>a.ref==='r1f1')?.value,'orchid@example.test');assert.equal(review.actions.find(a=>a.ref==='r1f2')?.value,'Singapore');tasks.end(scope,{instanceId,taskId:task.taskId});await tasks.cleanup();results.push({format:ext,status:'passed',sections:parsed.sections.length,citations:summary.citations.length,fields:review.actions.length});}
+ console.log(JSON.stringify({results,cleanup:tasks.metrics(),providerRetention:'Deployment provider controls apply; application task deletion does not erase provider retention.'}));
+}finally{clearInterval(heartbeat);await tasks.close();await rm(root,{recursive:true,force:true});}

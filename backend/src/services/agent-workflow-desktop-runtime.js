@@ -432,8 +432,8 @@ async function runRemoteNodeWork(node, graph, context, inputRecord, meta) {
       const out = await executeConnectorAction(
         meta.ownerUserId,
         actionId,
-        { ...staticInput, ...dynamicInput },
-        { connectionName: config.connectionName || config.connection_name || '' }
+        {...staticInput, ...dynamicInput,...Object.fromEntries(Object.entries(config.copilot||{}).filter(([,value])=>value!==undefined&&value!=='')) },
+        { connectionName: config.connectionName || config.connection_name || '',runId:meta.runId,nodeId:node.id,workflowId:meta.definitionId,actorUserId:context.actor?.id||meta.ownerUserId }
       );
       return {
         text: out.text || '',

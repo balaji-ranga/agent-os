@@ -9,6 +9,7 @@
  */
 import { getDb } from '../db/schema.js';
 import { resolveAgentFromOpenClawCallerId } from './openclaw-tenant.js';
+import {COPILOT_ACTIONS} from './digital-adoption-connector-core.js';
 
 export const GMAIL_OPERATIONS_CONNECTOR_ACTIONS = Object.freeze([
   { action_id: 'gmail.search_threads', risk_tier: 'R0', action_family: 'read' },
@@ -56,6 +57,7 @@ export function ensureConnectorActionGrantTables() {
 
 export function classifyConnectorAction(action = {}) {
   const id = String(action.id || action.action_id || '').trim();
+  const copilot=COPILOT_ACTIONS.find(a=>a.id===id);if(copilot)return {risk_tier:copilot.risk_tier,action_family:copilot.action_family};
   const operation = id.split('.').pop().toLowerCase().replace(/[^a-z0-9]+/g, '_');
   // Classify the stable operation id, not prose descriptions. Descriptions often
   // mention side effects an action explicitly excludes (for example, a search

@@ -6,12 +6,15 @@
   "description": "Independent Flolah Free Tools Digital Adoption Copilot",
   "scripts": {
     "test": "node --test test/*.test.mjs",
-    "dev": "node src/dev.mjs"
+    "dev": "node src/dev.mjs",
+    "dev:private": "node src/private-preview.mjs",
+    "test:private-capacity": "node test/private-capacity.mjs"
   },
   "engines": {
     "node": ">=22"
   },
   "dependencies": {
-    "nodemailer": "10.1.1"
+    "nodemailer": "10.1.1",
+    "ws": "8.22.0"
   }
 }

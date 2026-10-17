@@ -1,6 +1,7 @@
 import { normalizeTheme, themeProperties } from './theme.mjs';
 import {encodeFile} from './files.mjs';
 import {createScreenCapture} from './screen-capture.mjs';
+import {mountTaskPanel} from './task-panel.mjs';
 let currentTheme=normalizeTheme({}),initialTheme,assistanceMode='assist',sessionExpired=false;
 function applyTheme(value) {
   const theme = normalizeTheme(value);
@@ -25,6 +26,7 @@ function call(type, extra = {}) {
 }
 window.addEventListener('message', event => {
   if (event.source !== parent || event.origin !== parentOrigin || event.data?.channel !== 'flolah-adoption-v1') return;
+  if(event.data.type==='private-event'){taskPanel.event(event.data.event);return;}
   if(event.data.type === 'theme') {try{applyTheme(event.data.theme);}catch{}return;}
   if(event.data.type === 'expired') {
     sessionExpired=true;document.querySelector('#inspection-result').replaceChildren();document.querySelector('#inspection-result').hidden=true;document.querySelector('#inspection-status').textContent='';
@@ -102,8 +104,8 @@ document.querySelector('#chat').addEventListener('submit', async event => {
   try {
     show(field.value,'knowledge','user');knowledgeStatus.textContent='Searching this website’s approved knowledge…';
     const result = await call('ask', { text: field.value,replyTo:replies.knowledge }); show(result.message,'knowledge','assistant',result.messageId); field.value = '';replies.knowledge=null;replyHints.knowledge.hidden=true;
-    for(const evidence of result.citations){const details=document.createElement('details'),summary=document.createElement('summary'),excerpt=document.createElement('p');summary.textContent=`${evidence.title}${evidence.locator?' · '+evidence.locator:''} · ${evidence.revision.slice(0,8)}`;excerpt.textContent=evidence.text;details.append(summary,excerpt);if(evidence.url?.startsWith('https://')){const link=document.createElement('a');link.href=evidence.url;link.target='_blank';link.rel='noopener noreferrer';link.textContent='Open source';details.append(link);}knowledgeLog.append(details);}
-    knowledgeStatus.textContent=result.kind==='greeting'?'Ready for your knowledge question.':result.kind==='no_evidence'?'No matching evidence found. No page inspection was performed.':'Answered from this embedding’s knowledge. No page inspection was performed.';
+    for(const evidence of result.citations||[]){const details=document.createElement('details'),summary=document.createElement('summary'),excerpt=document.createElement('p');summary.textContent=`${evidence.title}${evidence.locator?' · '+evidence.locator:''} · ${evidence.revision?.slice(0,8)||'private task'}`;excerpt.textContent=evidence.text;details.append(summary,excerpt);if(evidence.url?.startsWith('https://')){const link=document.createElement('a');link.href=evidence.url;link.target='_blank';link.rel='noopener noreferrer';link.textContent='Open source';details.append(link);}knowledgeLog.append(details);}
+    knowledgeStatus.textContent=result.privateTaskId?'Answered from your private task files. End task deletes this context.':result.kind==='greeting'?'Ready for your knowledge question.':result.kind==='no_evidence'?'No matching evidence found. No page inspection was performed.':'Answered from this embedding’s knowledge. No page inspection was performed.';
   }
   catch(error) { showError(error); }
   finally{button.disabled=false;}
@@ -127,6 +129,7 @@ async function prepare(text,generation,depth=0){
     show(proposal.message,'guide','assistant',proposal.messageId);replies.guide=null;replyHints.guide.hidden=true;
     status.textContent=proposal.actions.length?'Review the proposed next step.':'';
     if(proposal.manualNotice){const note=document.createElement('p');note.textContent=proposal.manualNotice;review.append(note);}
+    if(proposal.evidence?.length){const source=document.createElement('p');source.textContent='Private sources: '+proposal.evidence.map(e=>e.filename+' · '+e.locator).join('; ');review.append(source);}
     for(const action of proposal.actions){const p=document.createElement('p');p.textContent=action.type==='navigate'?`Open ${action.label} (${action.path})`:action.type==='highlight'?`Show ${action.label}`:`${action.label}: ${action.value}`;review.append(p);}
     if(proposal.actions.length){
       const warning=document.createElement('p');warning.textContent=assistanceMode==='guide'?'Guidance only. No field values will change.':'Review before filling. Some websites autosave fields. This does not click Save.';review.append(warning);
@@ -253,7 +256,8 @@ document.querySelector('#capture-start').onclick=()=>capture.start({audio:docume
 document.querySelector('#capture-pause').onclick=()=>capture.state()==='paused'?capture.resume():capture.pause();document.querySelector('#capture-stop').onclick=()=>capture.stop();document.querySelector('#capture-discard').onclick=()=>{capturedFile=null;capture.discard();};
 document.querySelector('#capture-use').onclick=()=>{if(!reviewBlob)return;capturedFile=new File([reviewBlob],reviewBlob.type==='video/mp4'?'screen-recording.mp4':'screen-recording.webm',{type:reviewBlob.type});document.querySelector('#upload-title').value||='Screen recording';uploadStatus.textContent='Recording selected locally. Review the sharing checkbox, then Upload for processing.';openUpload();};
 window.addEventListener('pagehide',()=>{capture.discard();if(previewUrl)URL.revokeObjectURL(previewUrl);},{once:true});
-try { const config=await call('config');applyTheme(config.theme);coachingAvailability(config);verifiedLearningAvailable=config.learningEnabled===true&&config.canVerifyOutcome===true;uploadForm.hidden=!config.capabilities?.upload;uploadStatus.textContent=config.capabilities?.upload?'Up to 16 MB; PDF/DOCX/text/HTML/PNG/JPEG and MP4/WebM (English audio transcription).':'Visitor uploads are disabled. The website owner can add shared sources.';document.querySelector('#capture-use').disabled=!config.capabilities?.upload;const result = await call('history'); result.messages.forEach(message => show(message.text,message.channel||'guide',message.role,message.id)); }
+const taskPanel=mountTaskPanel({call,showError,show,clearPrivate(){task++;log.replaceChildren();knowledgeLog.replaceChildren();document.querySelector('#knowledge-message').value='';knowledgeStatus.textContent='';document.querySelector('#review').replaceChildren();document.querySelector('#message').value='';document.querySelector('#save-review').hidden=true;for(const key of ['guide','knowledge']){replies[key]=null;replyHints[key].hidden=true;}}});
+try { const config=await call('config');taskPanel.configure(config);applyTheme(config.theme);coachingAvailability(config);verifiedLearningAvailable=config.learningEnabled===true&&config.canVerifyOutcome===true;uploadForm.hidden=!config.capabilities?.upload;uploadStatus.textContent=config.capabilities?.upload?'Up to 16 MB; PDF/DOCX/text/HTML/PNG/JPEG and MP4/WebM (English audio transcription).':'Visitor uploads are disabled. The website owner can add shared sources.';document.querySelector('#capture-use').disabled=!config.capabilities?.upload;const result = await call('history'); result.messages.forEach(message => show(message.text,message.channel||'guide',message.role,message.id)); }
 catch(error) { showError(error); }
 
 document.querySelector('#discovery-extend').onclick=async()=>{try{const paths=document.querySelector('#discovery-paths').value.split('\n').map(s=>s.trim()).filter(Boolean);renderDiscovery(await call('discovery-extend',{jobId:discoverySelect.value||discoveryJob,paths}));}catch(error){showError(error);}};

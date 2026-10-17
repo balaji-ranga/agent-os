@@ -3184,6 +3184,7 @@ router.post('/connector-execute-action', optionalAuth, async (req, res) => {
       ok: true,
       ...(await executeConnectorAction(ownerUserId, actionId, input, {
         connectionName: requestPayload.connection_name || requestPayload.connectionName || '',
+        source,actorUserId:req.authUser&&!req.authUser.internal?req.authUser.id:undefined,
       })),
     };
     logTool(req, 'connector_execute_action', requestPayload, out, 'ok', source);
@@ -4158,6 +4159,10 @@ router.post('/invoke', requireToolsAccess, async (req, res) => {
     if (ownerUserId) {
       headers['x-ceo-user-id'] = ownerUserId;
       headers['x-agent-os-user-id'] = ownerUserId;
+    }
+    if(toolName==='connector_execute_action'&&String(params.action_id||params.actionId||params.id||'').startsWith('digital_adoption.')){
+      const out=await executeConnectorAction(ownerUserId,params.action_id||params.actionId||params.id,{...(params.input||{}),...(params.approval_token?{approval_token:params.approval_token}:{})},{source,actorUserId:sessionActor?.actorUserId||(!req.authUser?.internal?req.authUser?.id:undefined)});
+      logTool(req,toolName,{action_id:out.action_id,private_context:'task_handles_only'},out,'ok',source);return res.json(out);
     }
     const policy = req.actionPolicy || evaluateActionPolicy({
       ownerUserId,

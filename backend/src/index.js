@@ -59,6 +59,7 @@ import { startIbkrNewProfileRefresh } from './services/ibkrnew-profile-refresh.j
 import marketDataRoutes from './routes/market-data.js';
 import emailInboundRoutes from './routes/email-inbound.js';
 import openconnectorRoutes from './routes/openconnector.js';
+import digitalAdoptionRoutes from './routes/digital-adoption.js';
 import eventProductivityRoutes from './routes/event-productivity.js';
 import eventProductivityWebhookRoutes from './routes/event-productivity-webhooks.js';
 import companyEmailChannelsRoutes from './routes/company-email-channels.js';
@@ -758,6 +759,7 @@ apiRouter.use('/a2a-callback-inbox', a2aCallbackInboxRoutes);
 apiRouter.use('/a2a', workflowA2aRoutes);
 apiRouter.use('/integrations/email-inbound', emailInboundRoutes);
 apiRouter.use('/integrations/openconnector', openconnectorRoutes);
+apiRouter.use('/integrations/digital-adoption', digitalAdoptionRoutes);
 apiRouter.use('/company-email-channels', companyEmailChannelsRoutes);
 apiRouter.use('/event-productivity/webhooks', eventProductivityWebhookRoutes);
 apiRouter.use('/event-productivity', eventProductivityRoutes);

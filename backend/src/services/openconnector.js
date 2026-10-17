@@ -19,6 +19,8 @@ import { classifyConnectorAction, assertCallerMayExecuteConnectorAction } from '
 import { connectorDiscoveryResult } from './connector-discovery.js';
 import { connectorExecutionError, invokeConnectorTransport, readConnectorMessagePages, retryConnectorRead } from './connector-execution-policy.js';
 import { resolveToolRiskMapping } from './tool-risk-mappings.js';
+import {copilotConnector,copilotConfigured,COPILOT_ACTIONS} from './digital-adoption-connector.js';
+const copilotApp=()=>({id:'digital_adoption',name:'Digital Adoption Copilot',connected:true});
 
 function db() {
   return getDb();
@@ -538,23 +540,24 @@ export async function getConnectedConnectorApps(userId) {
           };
         })
     );
-    if (apps.length) return { apps, source: 'http_connections' };
+    if (apps.length) return { apps:copilotConfigured()?[copilotApp(),...apps]:apps, source: 'http_connections' };
   } catch (_) {
     /* try MCP */
   }
   try {
     const result = await callOpenConnectorMcpTool(userId, 'list_apps', {});
     const apps = parseAppsFromListApps(result);
-    if (apps.length) return { apps, source: 'list_apps' };
+    if (apps.length) return { apps:copilotConfigured()?[copilotApp(),...apps]:apps, source: 'list_apps' };
   } catch (_) {
     /* none connected yet */
   }
   // Real OC with no OAuth yet: surface starter chips so the palette is usable.
-  return { apps: SUGGESTED_CONNECTOR_APPS, source: 'suggested' };
+  return { apps:copilotConfigured()?[copilotApp(),...SUGGESTED_CONNECTOR_APPS]:SUGGESTED_CONNECTOR_APPS, source: 'suggested' };
 }
 
 export async function searchConnectorApps(userId, query = '') {
   const q = String(query || '').trim();
+  if(copilotConfigured()&&/copilot|digital.?adoption/i.test(q))return {apps:[copilotApp()],source:'copilot',query:q};
   try {
     const apps = await fetchHttpServiceCatalog(userId, q);
     return { apps, source: 'http', query: q };
@@ -604,6 +607,7 @@ export async function searchConnectorActions(userId, query = '', { source = '', 
 }
 
 export async function listConnectorActions(userId, appId, query = '') {
+  if(appId==='digital_adoption')return {app_id:appId,actions:COPILOT_ACTIONS.filter(a=>!query||`${a.id} ${a.description}`.toLowerCase().includes(query.toLowerCase())),source:'copilot'};
   const q = String(query || '').trim();
   const service = String(appId || '').trim();
   try {
@@ -646,6 +650,7 @@ export async function listConnectorActions(userId, appId, query = '') {
 }
 
 export async function getConnectorActionGuide(userId, actionId) {
+  if(String(actionId).startsWith('digital_adoption.')){const action=COPILOT_ACTIONS.find(a=>a.id===actionId);if(!action)throw new Error('Unknown Copilot connector action');return {...action,guide:'Explicitly pair website panels, link the group in Flolah, select exact websites and active instances. Commands fail on disconnect; there is no future-visitor queue. Private results remain task handles. Existing Action Policies govern every execution.'};}
   const id = String(actionId || '').trim();
   if (!id) throw new Error('action_id required');
 
@@ -728,9 +733,10 @@ export async function executeConnectorAction(
   userId,
   actionId,
   input = {},
-  { connectionName = '', authorizationRetryDelaysMs = null } = {}
+  { connectionName = '', authorizationRetryDelaysMs = null, ...executionContext } = {}
 ) {
   const id = String(actionId || '').trim();
+  if(id.startsWith('digital_adoption.'))return copilotConnector().execute(executionContext.actorUserId||userId,id,input,{...executionContext,ownerUserId:userId});
   // One linked runtime connection per company. Model/workflow arguments may
   // name that connection, but cannot substitute another company's alias.
   const requestedAlias = String(connectionName || '').trim();
@@ -863,6 +869,7 @@ export async function getConnectorConnectionsForUser(userId) {
 }
 
 export async function getConnectorProvider(appId) {
+  if(appId==='digital_adoption')return {...copilotApp(),description:'User-paired live website copilots. Workflow and private task scope only.'};
   const app = String(appId || '').trim();
   if (!app) throw new Error('app_id required');
   const data = await openConnectorFetch(`/api/providers/${encodeURIComponent(app)}`, {

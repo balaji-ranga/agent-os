@@ -1,9 +1,9 @@
 import {createServer} from 'node:http';
 import {readFileSync,writeFileSync,existsSync} from 'node:fs';
 import {randomUUID} from 'node:crypto';
-const config=JSON.parse(readFileSync(new URL('../.local/demo-public.json',import.meta.url),'utf8'));
+const config=JSON.parse(readFileSync(process.env.ADOPTION_DEMO_CONFIG||new URL('../.local/demo-public.json',import.meta.url),'utf8'));
 const html=readFileSync(new URL('../test/vps-demo.html',import.meta.url));
-const recordsFile=new URL('../.local/local-host-records.json',import.meta.url);
+const recordsFile=process.env.ADOPTION_DEMO_RECORDS||new URL('../.local/local-host-records.json',import.meta.url);
 const records=existsSync(recordsFile)?JSON.parse(readFileSync(recordsFile,'utf8')):[];
 createServer(async(req,res)=>{
  res.setHeader('Cache-Control','no-store');

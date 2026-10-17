@@ -5,6 +5,7 @@ import { getDb } from '../db/schema.js';
 import * as store from './agent-workflow-store.js';
 import { removeKanbanTasksForAgentWorkflowRun } from './agent-workflow-kanban.js';
 import { cancelAllListenersForRun } from './agent-workflow-event-listener.js';
+import {copilotConnector,copilotConfigured} from './digital-adoption-connector.js';
 
 function db() {
   return getDb();
@@ -37,6 +38,7 @@ function cancelDelegationsForRun(runId) {
 }
 
 function cleanupRunArtifacts(runId) {
+  if(copilotConfigured()){const owner=db().prepare('SELECT owner_user_id FROM agent_workflow_runs WHERE id=?').get(runId)?.owner_user_id;if(owner)void copilotConnector().finish(owner,runId).catch(()=>{});}
   cancelAllListenersForRun(runId);
   cancelDelegationsForRun(runId);
   const kanban = removeKanbanTasksForAgentWorkflowRun(runId);

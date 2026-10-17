@@ -2,6 +2,50 @@
 
 Independent Flolah Free Tools product. This directory owns its implementation and tests; it does not import, mount, replace, or migrate Platform Help Copilot.
 
+The [end to end design](DESIGN.md) defines the implemented extension: private
+transaction attachments, user-confirmed copilot pairing, cross-website task
+relay and user-specific workflow connectors governed by Flolah Action Policies.
+These additions have separate acceptance evidence and per-website opt-in controls;
+they do not inherit certification from the earlier shared-help release.
+
+## Private tasks and paired workflow connectors
+
+Visitors use **Task files & paired copilots** in Guide to attach PDF, DOCX,
+UTF-8 text/Markdown, PNG or JPEG transaction files, summarize with citations,
+prepare current fields, pair panels with bilateral confirmation, share selected
+passages and end the task. Actions remains owner-only. A normal field review
+never submits a form; Save has its own reviewed activation.
+
+Files are encrypted per task. Keys, parsed passages, task chat, reviews and
+results stay in bounded memory, outside SQLite, shared indexes and checkpoints.
+Ending/expiring a task or restarting its coordinator revokes access and deletes
+its objects. Ending a task clears both conversation panels; previously applied
+host values and saved business records remain host data. Model provider retention
+is governed separately by the configured provider; application deletion does not
+claim to erase provider retention.
+
+The Flolah workflow editor exposes **Digital Adoption Copilot** as a connector.
+Explicitly link a paired group to your signed-in Flolah user, choose registrations
+and active instances, and select inspect, summarize, prepare, navigate, fill,
+owner-bound native submission, status or cancel. Every required recipient must
+complete; offline targets and unknown outcomes fail without replay or delivery
+to later visitors. Existing Action Policies apply through one service for direct
+API, tool and runner calls. Approval grants bind the exact payload/recipient set.
+Private results are task-bound handles, including downstream workflow templates;
+resolve them inside a subsequent Copilot operation, rather than copying passages
+into durable workflow variables or unrelated tools.
+
+Owners separately enable attachments, pairing and workflow relay per registration,
+and configure smaller file/task/connection limits and exact native action bindings.
+See [build and setup](deploy/README.md) for service wiring and test commands.
+
+For a deterministic local preview, run `npm run dev:private`, then start
+`src/local-vps-demo.mjs` with `ADOPTION_DEMO_CONFIG` pointing to
+`.local/private-preview/public.json`. Both services bind loopback only. This
+preview labels its deterministic planner; production uses the configured platform
+LLM. Python parser dependencies and Tesseract are required for local binary/OCR
+tests; the Docker image supplies them.
+
 ## Development
 
 Run `npm test` in this directory, or `npm run dev` for the deterministic loopback harness on port 4193. `node src/local-vps-demo.mjs` serves the separate local page on port 4194 using `.local/demo-public.json`; it loads the SDK from the deployed VPS and uses the live model. Current implementation is partial and not production-ready.

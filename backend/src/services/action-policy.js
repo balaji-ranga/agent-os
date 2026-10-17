@@ -175,8 +175,10 @@ function explicitRiskForTool(toolName) {
 }
 
 export function resolveRiskForTool(toolName, ownerUserId = null) {
+  const copilotBound=String(toolName||'').match(/^copilot_bound_action\|(R[0-3])\|(read|write_internal|communicate_external|financial_destructive)\|digital_adoption\.submit$/);
   const mcpBound = String(toolName || '').match(/^mcp_bound_action\|(R[0-4])\|(read|write_internal|communicate_external|financial_destructive)\|/);
   let base = null;
+  if(copilotBound)base={risk_tier:copilotBound[1],action_family:copilotBound[2],source:'copilot_owner_binding'};
   if (mcpBound) {
     base = { risk_tier: mcpBound[1], action_family: mcpBound[2], source: 'agent_mcp_binding' };
   }
@@ -190,6 +192,7 @@ export function resolveRiskForTool(toolName, ownerUserId = null) {
   if (!base) base = explicitRiskForTool(toolName) || { ...inferRiskForTool(toolName), source: 'inferred' };
   if (!ownerUserId) return base;
   const mapped = resolvePolicyToolRiskMapping(ownerUserId, toolName, base);
+  if(copilotBound&&(Number(mapped.risk_tier?.slice(1))<Number(base.risk_tier.slice(1))||mapped.risk_tier===base.risk_tier&&mapped.action_family!==base.action_family))return base;
   return {
     risk_tier: mapped.risk_tier,
     action_family: mapped.action_family,
@@ -332,6 +335,7 @@ export function createActionApprovalGrant(ownerUserId, {
 }
 
 function constraintsMatch(constraints, body) {
+  if(constraints?.copilot_execution){const bound=constraints.copilot_execution;if(!bound.payloadHash||bound.payloadHash!==body?.payloadHash||bound.groupId!==body?.groupId||JSON.stringify(bound.websiteIds)!==JSON.stringify(body?.websiteIds)||JSON.stringify(bound.recipients)!==JSON.stringify(body?.recipients))return false;}
   const c = constraints && typeof constraints === 'object' ? constraints : {};
   const nested = structuredObject(body?.input);
   const recipient = String(
@@ -482,6 +486,7 @@ export function consumeActionApprovalGrant(ownerUserId, token, { family, toolNam
   if (row.action_family !== family || (row.tool_name && row.tool_name !== toolName)) return { ok: false, reason: 'scope_mismatch' };
   let constraints = {};
   try { constraints = JSON.parse(row.constraints_json || '{}'); } catch (_) {}
+  if((String(toolName).startsWith('connector_action:digital_adoption.')||String(toolName).startsWith('copilot_bound_action|'))&&!constraints.copilot_execution)return {ok:false,reason:'exact_copilot_execution_required'};
   if (!constraintsMatch(constraints, body)) return { ok: false, reason: 'context_mismatch' };
   const used = getDb().prepare(
     `UPDATE action_approval_grants
@@ -730,6 +735,10 @@ export function actionPolicyMiddleware(req, res, next) {
     }
   }
   if (!ownerUserId) return next();
+  // Copilot commands require a live recipient/payload snapshot before a grant
+  // can be evaluated. Every execution entry point calls the shared connector
+  // service, which evaluates that exact snapshot once and rechecks each effect.
+  if(toolName==='connector_execute_action'&&String(req.body?.action_id||req.body?.actionId||req.body?.id||'').startsWith('digital_adoption.'))return next();
 
   if (toolName === 'mcp_bound_tool_call' && policyAgentId) {
     const selectedTarget = resolveSessionMcpTarget(sessionKey);

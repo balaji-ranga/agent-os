@@ -20,6 +20,7 @@ import KnowledgeSourcePicker from '../components/KnowledgeSourcePicker.jsx';
 import HttpHeadersEditor from '../components/HttpHeadersEditor.jsx';
 import VaultOrLiteralSecret from '../components/VaultOrLiteralSecret.jsx';
 import BrainMcpToolCallingPanel from '../components/workflow/BrainMcpToolCallingPanel.jsx';
+import CopilotConnectorFields from '../components/workflow/CopilotConnectorFields.jsx';
 import WorkflowVariablesPanel from '../components/workflow/WorkflowVariablesPanel.jsx';
 import {
   workflowNodeTypes,
@@ -594,6 +595,7 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
 
       {node.type === 'connector' && (
         <>
+          {data.taskConfig?.appId==='digital_adoption'&&<CopilotConnectorFields config={data.taskConfig} onChange={taskConfig=>set({taskConfig})} />}
           <label className="wf-field">
             Connected connector
             <select

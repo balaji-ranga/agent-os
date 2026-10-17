@@ -3540,6 +3540,155 @@
       ]
     },
     {
+      "source": "components/workflow/CopilotConnectorFields.jsx",
+      "form_count": 0,
+      "forms": [],
+      "links": [],
+      "headings": [],
+      "controls": [
+        {
+          "id": "components/workflow/CopilotConnectorFields.jsx:33:32",
+          "label": "Pairing group link code",
+          "type": "text",
+          "required": false,
+          "conditional": false,
+          "readonly": false,
+          "mode": "guided"
+        },
+        {
+          "id": "components/workflow/CopilotConnectorFields.jsx:44:22",
+          "label": "Runtime group",
+          "type": "select",
+          "required": false,
+          "conditional": false,
+          "readonly": false,
+          "mode": "guided",
+          "options": "Use the live authorized options shown on this screen.",
+          "source_options": [
+            {
+              "value": "",
+              "label": "Select a linked group"
+            }
+          ],
+          "options_authority": "live_options_required"
+        },
+        {
+          "id": "components/workflow/CopilotConnectorFields.jsx:49:17",
+          "label": "Websites",
+          "type": "select",
+          "required": false,
+          "conditional": false,
+          "readonly": false,
+          "mode": "guided",
+          "options": "Use the live authorized options shown on this screen.",
+          "source_options": [],
+          "options_authority": "live_options_required"
+        },
+        {
+          "id": "components/workflow/CopilotConnectorFields.jsx:53:19",
+          "label": "Recipients",
+          "type": "select",
+          "required": false,
+          "conditional": false,
+          "readonly": false,
+          "mode": "guided",
+          "options": "Use the live authorized options shown on this screen.",
+          "source_options": [
+            {
+              "value": "all",
+              "label": "All active paired instances on selected websites"
+            },
+            {
+              "value": "selected",
+              "label": "Select exact active instances"
+            }
+          ],
+          "options_authority": "live_options_required"
+        },
+        {
+          "id": "components/workflow/CopilotConnectorFields.jsx:56:54",
+          "label": "Instances",
+          "type": "select",
+          "required": false,
+          "conditional": true,
+          "readonly": false,
+          "mode": "guided",
+          "options": "Use the live authorized options shown on this screen.",
+          "source_options": [],
+          "options_authority": "live_options_required"
+        },
+        {
+          "id": "components/workflow/CopilotConnectorFields.jsx:59:20",
+          "label": "Instruction",
+          "type": "textarea",
+          "required": false,
+          "conditional": false,
+          "readonly": false,
+          "mode": "guided"
+        },
+        {
+          "id": "components/workflow/CopilotConnectorFields.jsx:62:25",
+          "label": "Task handle / ID",
+          "type": "text",
+          "required": false,
+          "conditional": false,
+          "readonly": false,
+          "mode": "guided"
+        },
+        {
+          "id": "components/workflow/CopilotConnectorFields.jsx:65:62",
+          "label": "Result handles from earlier task steps (one per line)",
+          "type": "textarea",
+          "required": false,
+          "conditional": false,
+          "readonly": false,
+          "mode": "guided"
+        },
+        {
+          "id": "components/workflow/CopilotConnectorFields.jsx:71:66",
+          "label": "Owner-reviewed native action binding ID (submission only)",
+          "type": "text",
+          "required": false,
+          "conditional": false,
+          "readonly": false,
+          "mode": "guided"
+        },
+        {
+          "id": "components/workflow/CopilotConnectorFields.jsx:77:31",
+          "label": "Delivery validity (ms)",
+          "type": "number",
+          "required": false,
+          "min": "1000",
+          "max": "60000",
+          "conditional": false,
+          "readonly": false,
+          "mode": "guided"
+        },
+        {
+          "id": "components/workflow/CopilotConnectorFields.jsx:80:22",
+          "label": "Fan-out limit",
+          "type": "number",
+          "required": false,
+          "min": "1",
+          "max": "25",
+          "conditional": false,
+          "readonly": false,
+          "mode": "guided"
+        },
+        {
+          "id": "components/workflow/CopilotConnectorFields.jsx:83:31",
+          "label": "Execution timeout (ms)",
+          "type": "number",
+          "required": false,
+          "min": "1000",
+          "max": "120000",
+          "conditional": false,
+          "readonly": false,
+          "mode": "guided"
+        }
+      ]
+    },
+    {
       "source": "components/workflow/DesktopPackageModal.jsx",
       "form_count": 0,
       "forms": [],
@@ -5963,7 +6112,7 @@
       ],
       "controls": [
         {
-          "id": "pages/AgentWorkflowEditor.jsx:247:8",
+          "id": "pages/AgentWorkflowEditor.jsx:248:8",
           "label": "Label",
           "type": "text",
           "required": false,
@@ -5972,7 +6121,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:252:10",
+          "id": "pages/AgentWorkflowEditor.jsx:253:10",
           "label": "Send notification",
           "type": "checkbox",
           "required": false,
@@ -5981,7 +6130,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:277:16",
+          "id": "pages/AgentWorkflowEditor.jsx:278:16",
           "label": "Unlabelled or dynamically labelled control",
           "type": "checkbox",
           "required": false,
@@ -5990,7 +6139,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:366:12",
+          "id": "pages/AgentWorkflowEditor.jsx:367:12",
           "label": "Schedule (cron)",
           "type": "text",
           "required": false,
@@ -5999,7 +6148,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:375:12",
+          "id": "pages/AgentWorkflowEditor.jsx:376:12",
           "label": "Chat trigger phrase",
           "type": "text",
           "required": false,
@@ -6008,7 +6157,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:384:12",
+          "id": "pages/AgentWorkflowEditor.jsx:385:12",
           "label": "Optional input JSON Schema",
           "type": "textarea",
           "required": false,
@@ -6017,7 +6166,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:423:12",
+          "id": "pages/AgentWorkflowEditor.jsx:424:12",
           "label": "Agent",
           "type": "select",
           "required": false,
@@ -6034,7 +6183,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:440:12",
+          "id": "pages/AgentWorkflowEditor.jsx:441:12",
           "label": "Prompt template",
           "type": "textarea",
           "required": false,
@@ -6043,7 +6192,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:454:12",
+          "id": "pages/AgentWorkflowEditor.jsx:455:12",
           "label": "Content tool",
           "type": "select",
           "required": false,
@@ -6060,7 +6209,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:465:12",
+          "id": "pages/AgentWorkflowEditor.jsx:466:12",
           "label": "Tool payload (JSON)",
           "type": "textarea",
           "required": false,
@@ -6069,7 +6218,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:482:12",
+          "id": "pages/AgentWorkflowEditor.jsx:483:12",
           "label": "HTTP method",
           "type": "select",
           "required": false,
@@ -6081,7 +6230,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:495:12",
+          "id": "pages/AgentWorkflowEditor.jsx:496:12",
           "label": "Authentication",
           "type": "select",
           "required": false,
@@ -6110,7 +6259,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:510:16",
+          "id": "pages/AgentWorkflowEditor.jsx:511:16",
           "label": "Basic username",
           "type": "text",
           "required": false,
@@ -6119,7 +6268,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:556:16",
+          "id": "pages/AgentWorkflowEditor.jsx:557:16",
           "label": "API key header name",
           "type": "text",
           "required": false,
@@ -6129,7 +6278,7 @@
           "user_only": true
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:599:12",
+          "id": "pages/AgentWorkflowEditor.jsx:601:12",
           "label": "Connected connector",
           "type": "select",
           "required": false,
@@ -6146,7 +6295,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:627:12",
+          "id": "pages/AgentWorkflowEditor.jsx:629:12",
           "label": "Search all connectors",
           "type": "text",
           "required": false,
@@ -6155,7 +6304,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:638:14",
+          "id": "pages/AgentWorkflowEditor.jsx:640:14",
           "label": "Search results",
           "type": "select",
           "required": false,
@@ -6172,7 +6321,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:667:12",
+          "id": "pages/AgentWorkflowEditor.jsx:669:12",
           "label": "Action",
           "type": "select",
           "required": false,
@@ -6189,7 +6338,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:721:12",
+          "id": "pages/AgentWorkflowEditor.jsx:723:12",
           "label": "Connection name (optional)",
           "type": "text",
           "required": false,
@@ -6198,7 +6347,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:759:14",
+          "id": "pages/AgentWorkflowEditor.jsx:761:14",
           "label": "Unlabelled or dynamically labelled control",
           "type": "textarea",
           "required": false,
@@ -6207,7 +6356,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:779:14",
+          "id": "pages/AgentWorkflowEditor.jsx:781:14",
           "label": "Unlabelled or dynamically labelled control",
           "type": "textarea",
           "required": false,
@@ -6216,7 +6365,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:789:12",
+          "id": "pages/AgentWorkflowEditor.jsx:791:12",
           "label": "External agent (A2A)",
           "type": "select",
           "required": false,
@@ -6233,7 +6382,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:825:12",
+          "id": "pages/AgentWorkflowEditor.jsx:827:12",
           "label": "Skill ID (optional)",
           "type": "text",
           "required": false,
@@ -6242,7 +6391,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:832:12",
+          "id": "pages/AgentWorkflowEditor.jsx:834:12",
           "label": "Wait for A2A task completion (poll until done)",
           "type": "checkbox",
           "required": false,
@@ -6251,7 +6400,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:843:12",
+          "id": "pages/AgentWorkflowEditor.jsx:845:12",
           "label": "Timeout (ms)",
           "type": "number",
           "required": false,
@@ -6261,7 +6410,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:888:12",
+          "id": "pages/AgentWorkflowEditor.jsx:890:12",
           "label": "Custom script",
           "type": "select",
           "required": false,
@@ -6278,7 +6427,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:926:12",
+          "id": "pages/AgentWorkflowEditor.jsx:928:12",
           "label": "Mode",
           "type": "select",
           "required": false,
@@ -6307,7 +6456,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:939:12",
+          "id": "pages/AgentWorkflowEditor.jsx:941:12",
           "label": "Table ID",
           "type": "text",
           "required": false,
@@ -6316,7 +6465,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:953:12",
+          "id": "pages/AgentWorkflowEditor.jsx:955:12",
           "label": "Document ID (optional RAG filter)",
           "type": "text",
           "required": false,
@@ -6325,7 +6474,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:961:12",
+          "id": "pages/AgentWorkflowEditor.jsx:963:12",
           "label": "RAG top-K",
           "type": "number",
           "required": false,
@@ -6336,7 +6485,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:970:12",
+          "id": "pages/AgentWorkflowEditor.jsx:972:12",
           "label": "LLM summarize RAG hits",
           "type": "checkbox",
           "required": false,
@@ -6345,7 +6494,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:984:12",
+          "id": "pages/AgentWorkflowEditor.jsx:986:12",
           "label": "Location",
           "type": "select",
           "required": false,
@@ -6374,7 +6523,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:996:12",
+          "id": "pages/AgentWorkflowEditor.jsx:998:12",
           "label": "Operation",
           "type": "select",
           "required": false,
@@ -6411,7 +6560,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1010:12",
+          "id": "pages/AgentWorkflowEditor.jsx:1012:12",
           "label": "Path",
           "type": "text",
           "required": false,
@@ -6420,7 +6569,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1034:16",
+          "id": "pages/AgentWorkflowEditor.jsx:1036:16",
           "label": "Host",
           "type": "text",
           "required": false,
@@ -6429,7 +6578,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1042:16",
+          "id": "pages/AgentWorkflowEditor.jsx:1044:16",
           "label": "Port",
           "type": "number",
           "required": false,
@@ -6438,7 +6587,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1058:16",
+          "id": "pages/AgentWorkflowEditor.jsx:1060:16",
           "label": "Username",
           "type": "text",
           "required": false,
@@ -6447,7 +6596,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1087:12",
+          "id": "pages/AgentWorkflowEditor.jsx:1089:12",
           "label": "When run as a desktop package",
           "type": "select",
           "required": false,
@@ -6472,7 +6621,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1098:12",
+          "id": "pages/AgentWorkflowEditor.jsx:1100:12",
           "label": "Glob (list)",
           "type": "text",
           "required": false,
@@ -6481,7 +6630,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1107:14",
+          "id": "pages/AgentWorkflowEditor.jsx:1109:14",
           "label": "Default content (or bind Input )",
           "type": "textarea",
           "required": false,
@@ -6490,7 +6639,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1118:14",
+          "id": "pages/AgentWorkflowEditor.jsx:1120:14",
           "label": "Destination",
           "type": "text",
           "required": false,
@@ -6499,7 +6648,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1127:12",
+          "id": "pages/AgentWorkflowEditor.jsx:1129:12",
           "label": "Max read/write bytes",
           "type": "number",
           "required": false,
@@ -6510,7 +6659,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1144:12",
+          "id": "pages/AgentWorkflowEditor.jsx:1146:12",
           "label": "Render",
           "type": "select",
           "required": false,
@@ -6535,7 +6684,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1155:12",
+          "id": "pages/AgentWorkflowEditor.jsx:1157:12",
           "label": "Max pages",
           "type": "number",
           "required": false,
@@ -6546,7 +6695,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1165:12",
+          "id": "pages/AgentWorkflowEditor.jsx:1167:12",
           "label": "Max depth",
           "type": "number",
           "required": false,
@@ -6557,7 +6706,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1174:12",
+          "id": "pages/AgentWorkflowEditor.jsx:1176:12",
           "label": "Same origin only",
           "type": "checkbox",
           "required": false,
@@ -6566,7 +6715,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1182:12",
+          "id": "pages/AgentWorkflowEditor.jsx:1184:12",
           "label": "Respect robots.txt",
           "type": "checkbox",
           "required": false,
@@ -6575,7 +6724,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1191:12",
+          "id": "pages/AgentWorkflowEditor.jsx:1193:12",
           "label": "Include URL globs",
           "type": "text",
           "required": false,
@@ -6584,7 +6733,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1199:12",
+          "id": "pages/AgentWorkflowEditor.jsx:1201:12",
           "label": "Exclude URL globs",
           "type": "text",
           "required": false,
@@ -6593,7 +6742,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1216:12",
+          "id": "pages/AgentWorkflowEditor.jsx:1218:12",
           "label": "Invoke kind",
           "type": "select",
           "required": false,
@@ -6618,7 +6767,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1237:12",
+          "id": "pages/AgentWorkflowEditor.jsx:1239:12",
           "label": "MCP server",
           "type": "select",
           "required": false,
@@ -6635,7 +6784,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1270:14",
+          "id": "pages/AgentWorkflowEditor.jsx:1272:14",
           "label": "Tool",
           "type": "select",
           "required": false,
@@ -6652,7 +6801,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1289:14",
+          "id": "pages/AgentWorkflowEditor.jsx:1291:14",
           "label": "Prompt",
           "type": "select",
           "required": false,
@@ -6669,7 +6818,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1308:14",
+          "id": "pages/AgentWorkflowEditor.jsx:1310:14",
           "label": "Resource URI",
           "type": "select",
           "required": false,
@@ -6686,7 +6835,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1329:14",
+          "id": "pages/AgentWorkflowEditor.jsx:1331:14",
           "label": "Static arguments (JSON)",
           "type": "textarea",
           "required": false,
@@ -6695,7 +6844,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1379:12",
+          "id": "pages/AgentWorkflowEditor.jsx:1381:12",
           "label": "SSE stream URL",
           "type": "text",
           "required": false,
@@ -6704,7 +6853,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1388:12",
+          "id": "pages/AgentWorkflowEditor.jsx:1390:12",
           "label": "MCP server (optional)",
           "type": "select",
           "required": false,
@@ -6721,7 +6870,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1402:12",
+          "id": "pages/AgentWorkflowEditor.jsx:1404:12",
           "label": "Events path (with MCP server)",
           "type": "text",
           "required": false,
@@ -6730,7 +6879,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1424:12",
+          "id": "pages/AgentWorkflowEditor.jsx:1426:12",
           "label": "Target workflow ID",
           "type": "text",
           "required": false,
@@ -6739,7 +6888,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1432:12",
+          "id": "pages/AgentWorkflowEditor.jsx:1434:12",
           "label": "Trigger as",
           "type": "select",
           "required": false,
@@ -6764,7 +6913,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1444:12",
+          "id": "pages/AgentWorkflowEditor.jsx:1446:12",
           "label": "Input template (JSON)",
           "type": "textarea",
           "required": false,
@@ -6773,7 +6922,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1452:12",
+          "id": "pages/AgentWorkflowEditor.jsx:1454:12",
           "label": "Wait for child workflow to finish",
           "type": "checkbox",
           "required": false,
@@ -6782,7 +6931,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1468:16",
+          "id": "pages/AgentWorkflowEditor.jsx:1470:16",
           "label": "Source step",
           "type": "select",
           "required": false,
@@ -6799,7 +6948,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1499:22",
+          "id": "pages/AgentWorkflowEditor.jsx:1501:22",
           "label": "Output key",
           "type": "text",
           "required": false,
@@ -6808,7 +6957,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1514:20",
+          "id": "pages/AgentWorkflowEditor.jsx:1516:20",
           "label": "Output key",
           "type": "select",
           "required": false,
@@ -6820,7 +6969,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1531:16",
+          "id": "pages/AgentWorkflowEditor.jsx:1533:16",
           "label": "Operator",
           "type": "select",
           "required": false,
@@ -6832,7 +6981,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1544:16",
+          "id": "pages/AgentWorkflowEditor.jsx:1546:16",
           "label": "Compare value",
           "type": "text",
           "required": false,
@@ -6841,7 +6990,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1552:18",
+          "id": "pages/AgentWorkflowEditor.jsx:1554:18",
           "label": "Max iterations",
           "type": "number",
           "required": false,
@@ -6850,7 +6999,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1567:16",
+          "id": "pages/AgentWorkflowEditor.jsx:1569:16",
           "label": "Model source",
           "type": "select",
           "required": false,
@@ -6862,7 +7011,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1603:16",
+          "id": "pages/AgentWorkflowEditor.jsx:1605:16",
           "label": "API endpoint",
           "type": "text",
           "required": false,
@@ -6871,7 +7020,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1650:16",
+          "id": "pages/AgentWorkflowEditor.jsx:1652:16",
           "label": "Model name",
           "type": "text",
           "required": false,
@@ -6880,7 +7029,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1665:20",
+          "id": "pages/AgentWorkflowEditor.jsx:1667:20",
           "label": "HTTP-Referer (OpenRouter)",
           "type": "text",
           "required": false,
@@ -6889,7 +7038,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1673:20",
+          "id": "pages/AgentWorkflowEditor.jsx:1675:20",
           "label": "X-Title (OpenRouter)",
           "type": "text",
           "required": false,
@@ -6898,7 +7047,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1686:20",
+          "id": "pages/AgentWorkflowEditor.jsx:1688:20",
           "label": "Thinking mode",
           "type": "select",
           "required": false,
@@ -6923,7 +7072,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1703:22",
+          "id": "pages/AgentWorkflowEditor.jsx:1705:22",
           "label": "Thinking effort",
           "type": "select",
           "required": false,
@@ -6956,7 +7105,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1721:16",
+          "id": "pages/AgentWorkflowEditor.jsx:1723:16",
           "label": "Max tokens",
           "type": "number",
           "required": false,
@@ -6966,7 +7115,7 @@
           "user_only": true
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1729:16",
+          "id": "pages/AgentWorkflowEditor.jsx:1731:16",
           "label": "System prompt",
           "type": "textarea",
           "required": false,
@@ -6975,7 +7124,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1748:18",
+          "id": "pages/AgentWorkflowEditor.jsx:1750:18",
           "label": "Mode",
           "type": "select",
           "required": false,
@@ -7004,7 +7153,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1761:20",
+          "id": "pages/AgentWorkflowEditor.jsx:1763:20",
           "label": "Script",
           "type": "select",
           "required": false,
@@ -7021,7 +7170,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1782:16",
+          "id": "pages/AgentWorkflowEditor.jsx:1784:16",
           "label": "Kanban title",
           "type": "text",
           "required": false,
@@ -7030,7 +7179,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:1789:16",
+          "id": "pages/AgentWorkflowEditor.jsx:1791:16",
           "label": "Instructions for CEO",
           "type": "textarea",
           "required": false,
@@ -7039,7 +7188,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:2698:10",
+          "id": "pages/AgentWorkflowEditor.jsx:2700:10",
           "label": "Unlabelled or dynamically labelled control",
           "type": "file",
           "required": false,
@@ -7049,7 +7198,7 @@
           "user_only": true
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:2705:10",
+          "id": "pages/AgentWorkflowEditor.jsx:2707:10",
           "label": "Run input (optional)",
           "type": "text",
           "required": false,
@@ -14528,6 +14677,7 @@
         "components/MessageFeedback.jsx",
         "components/VaultOrLiteralSecret.jsx",
         "components/workflow/BrainMcpToolCallingPanel.jsx",
+        "components/workflow/CopilotConnectorFields.jsx",
         "components/workflow/DesktopPackageModal.jsx",
         "components/workflow/InputOutputPanel.jsx",
         "components/workflow/PublishA2AModal.jsx",

@@ -1,0 +1,31 @@
+import assert from 'node:assert/strict';
+import {mkdtemp,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {once} from 'node:events';
+import {createPrivateTasks} from '../../digital-adoption/src/private-tasks.mjs';
+import {createTaskBridge} from '../../digital-adoption/src/live-transport.mjs';
+const root=await mkdtemp(join(tmpdir(),'copilot-runner-'));
+process.env.AGENT_OS_DATA_DIR=join(root,'backend');
+process.env.DIGITAL_ADOPTION_BRIDGE_TOKEN=crypto.randomUUID()+crypto.randomUUID();
+const {initDb}=await import('../src/db/schema.js');const db=initDb();
+const user='copilot-test-user';db.prepare('INSERT INTO platform_users(id,email,password_hash,name,role,enabled) VALUES (?,?,?,?,?,1)').run(user,'copilot@example.test','unused','Synthetic visitor','ceo');
+const {copilotConnector}=await import('../src/services/digital-adoption-connector.js');
+const {upsertActionFamilyPolicies}=await import('../src/services/action-policy.js');
+const tasks=await createPrivateTasks({root:join(root,'objects'),website:id=>({id,organizationId:'website-owner',origin:'http://127.0.0.1:4194',verified:true,status:'approved',taskPolicy:{attachments:true,pairing:true,workflow:true}}),activeScope:()=>true,planner:async({snapshot})=>({message:'Review',actions:[{type:'fill',ref:snapshot.fields[0].ref,value:'Synthetic Orchid'}]}),authorizeEffect:input=>copilotConnector().effect(input)});
+const snapshot={revision:1,path:'/customer',fields:[{ref:'r1f0',label:'Company name',type:'text'}]};let effects=0;
+const a={scope:{sessionId:crypto.randomUUID(),embeddingId:'local-a',origin:'http://127.0.0.1:4194'}},b={scope:{sessionId:crypto.randomUUID(),embeddingId:'local-b',origin:'http://127.0.0.1:4194'}};
+for(const tab of [a,b]){const ticket=tasks.ticket(tab.scope,{});tab.instanceId=ticket.instanceId;tasks.connect(ticket.ticket,tab.scope.origin,message=>{if(message.type!=='command')return;queueMicrotask(async()=>{try{tasks.commandFrame(tab.instanceId,{type:'ack',commandId:message.commandId});const p=await tasks.commandPlan(tab.scope,{instanceId:tab.instanceId,commandId:message.commandId,snapshot});if(message.action==='fill'){await tasks.effect(tab.scope,{instanceId:tab.instanceId,commandId:message.commandId,proposalId:p.id,revision:p.revision,effectIndex:0});effects++;}tasks.commandFrame(tab.instanceId,{type:'result',commandId:message.commandId,ok:true,result:{value:'PRIVATE_RESULT_CANARY',savedVerified:false}});}catch{tasks.commandFrame(tab.instanceId,{type:'result',commandId:message.commandId,ok:false});}});});}
+const invite=tasks.invite(a.scope,a);tasks.join(b.scope,{...b,code:invite.code});const invitationId=tasks.pairStatus(a.scope,a).pending[0].invitationId;tasks.confirm(a.scope,{...a,invitationId});const groupId=tasks.confirm(b.scope,{...b,invitationId}).groupId;tasks.linkUser(user,tasks.linkRequest(a.scope,a));
+const bridge=createTaskBridge({tasks,token:process.env.DIGITAL_ADOPTION_BRIDGE_TOKEN});bridge.listen(0,'127.0.0.1');await once(bridge,'listening');process.env.DIGITAL_ADOPTION_BRIDGE_URL=`http://127.0.0.1:${bridge.address().port}/`;
+const store=await import('../src/services/agent-workflow-store.js');
+const {startAgentWorkflowRun,completeCeoApprovalResponse}=await import('../src/services/agent-workflow-runner.js');
+async function workflow(action){const graph={nodes:[{id:'start',type:'trigger',position:{x:0,y:0},data:{label:'Start'}},{id:'copilot',type:'connector',position:{x:200,y:0},data:{label:'Copilot',taskConfig:{appId:'digital_adoption',actionId:`digital_adoption.${action}`,copilot:{groupId,websiteIds:['local-a','local-b'],instruction:'Set Company name to Synthetic Orchid'},timeoutMs:10000},inputBindings:[]}}],edges:[{id:'edge',source:'start',target:'copilot'}]};const def=store.createDefinition({name:'Synthetic Copilot '+action,ownerUserId:user,actor:{id:user},graph});db.prepare("UPDATE agent_workflow_definitions SET status='published',published_graph_json=? WHERE id=?").run(JSON.stringify(graph),def.id);return startAgentWorkflowRun(def.id,user,{actor:{id:user,name:'Synthetic visitor',type:'ceo'}});}
+async function wait(runId,predicate){const end=Date.now()+10000;while(Date.now()<end){const row=db.prepare('SELECT * FROM agent_workflow_runs WHERE id=?').get(runId);if(predicate(row))return row;await new Promise(r=>setTimeout(r,30));}throw new Error('Integration timeout');}
+try{
+ const read=await workflow('inspect');assert.equal((await wait(read.id,r=>r.status!=='running')).status,'completed');
+ upsertActionFamilyPolicies(user,[{family:'communicate_external',mode:'prohibited'}]);const denied=await workflow('fill');assert.equal((await wait(denied.id,r=>r.status!=='running')).status,'failed');assert.equal(effects,0);
+ upsertActionFamilyPolicies(user,[{family:'communicate_external',mode:'approval_required'}]);const approval=await workflow('fill');await wait(approval.id,()=>!!db.prepare("SELECT kanban_task_id FROM agent_workflow_run_steps WHERE run_id=? AND error_message='COPILOT_AWAITING_APPROVAL'").get(approval.id)?.kanban_task_id);const step=db.prepare("SELECT kanban_task_id FROM agent_workflow_run_steps WHERE run_id=? AND node_id='copilot'").get(approval.id);await completeCeoApprovalResponse({kanbanTaskId:step.kanban_task_id,decision:'approve',actor:{id:user,name:'Synthetic visitor'},ownerUserId:user});assert.equal((await wait(approval.id,r=>r.status!=='running')).status,'completed');assert.equal(effects,2);
+ const contexts=db.prepare('SELECT context_json FROM agent_workflow_runs').all().map(r=>r.context_json).join('');const steps=db.prepare('SELECT input_json,output_json FROM agent_workflow_run_steps').all();assert.equal(JSON.stringify(steps).includes('PRIVATE_RESULT_CANARY'),false);assert.equal(contexts.includes('PRIVATE_RESULT_CANARY'),false);assert.ok(contexts.includes('task-result:'));assert.equal(db.prepare('SELECT remaining_uses FROM action_approval_grants').get().remaining_uses,0);console.log('PASS real runner: read, prohibited, exact approval fanout, two effects, opaque private results, single-use grant');
+}finally{bridge.closeAllConnections();await new Promise(r=>bridge.close(r));await tasks.close();db.close();await rm(root,{recursive:true,force:true});}
+process.exit(0);
