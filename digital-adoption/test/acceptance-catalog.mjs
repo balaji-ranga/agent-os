@@ -45,8 +45,8 @@ export function evaluateRelease(evidence) {
  const missing=[];
  for(const item of acceptanceCases){
   for(const environment of ['local','vps']){
-   const proof=evidence.find(e=>e.id===item.id&&e.environment===environment);
-   if(!proof||proof.status!=='passed'||!proof.build||!proof.artifact||proof.kind!=='end-to-end') missing.push(`${item.id}:${environment}`);
+   const proof=evidence.findLast(e=>e.id===item.id&&e.environment===environment);
+   if(!proof||proof.status!=='passed'||!proof.build||!proof.artifact||proof.kind!=='end-to-end'||proof.fullRequirementCovered!==true) missing.push(`${item.id}:${environment}`);
   }
  }
  return {readyForUat:missing.length===0,missing};
