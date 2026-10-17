@@ -37,7 +37,11 @@ try{
   const response=await post(`/session/${s.id}/propose`,{version:s.version,screen:test.screen,visible_control_ids:[test.control],visible_control_options:test.options?{[test.control]:test.options}:{},message:test.request});
   assert.equal(response.status,200,JSON.stringify({screen:test.screen,mode:test.mode,error:response.data.error}));
   assert.equal(response.data.proposal.actions.length,1,'exactly one reviewed native patch, not navigation or a questionnaire: '+JSON.stringify(response.data.proposal.actions));
-  const action=response.data.proposal.actions[0];assert.equal(action.type,'screen_fill');assert.equal(action.screen,test.screen);assert.deepEqual(action.values,{[test.control]:test.value});
+  const action=response.data.proposal.actions[0];
+  // A registered title draft is equally valid on the current new-goal form;
+  // Profile efficiency and the native provider dropdown have no such adapter.
+  if(test.screen==='scheduled-goals'&&action.type==='fill'){assert.equal(action.form,'scheduled_goal');assert.deepEqual(action.values,{title:test.value});}
+  else {assert.equal(action.type,'screen_fill');assert.equal(action.screen,test.screen);assert.deepEqual(action.values,{[test.control]:test.value});}
   console.log(JSON.stringify({stage:'live_model_copilot',screen:test.screen,mode:test.mode,expected_value:test.value,model_calls:modelCalls-before,elapsed_ms:Date.now()-started,pass:true}));
  }
  // Same natural-language request from another screen, not just an already
