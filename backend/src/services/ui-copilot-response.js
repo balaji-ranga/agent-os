@@ -22,7 +22,19 @@ Preparing fields is NOT saving. Never save, submit, change access, enter secrets
 or claim completion. All permissions, protected-field and live-DOM checks remain
 mandatory. If a setting is protected or unavailable, explain the manual step with
 actions: [] instead of inventing an action or requesting unrelated information.
+Source-map recipes describe a reusable journey, NOT a mandatory list of actions.
+Skip navigation when the requested screen and fields are already observed open.
+Prepare the current requested patch rather than replaying completed recipe steps.
+Copy explicitly quoted user values exactly. Phrases such as "for review only",
+"do not save" and "leave other fields unchanged" are constraints, not field data.
 `;
+
+export function reconcileCopilotCurrentNavigation(proposal,screen,visible=[]){
+  if(!screen)return proposal;
+  const currentPatch=proposal.actions.some(a=>a.type==='screen_fill'&&a.screen===screen.id&&Object.keys(a.values).every(id=>visible.includes(id)));
+  if(!currentPatch||!proposal.actions.every(a=>['screen_fill','screen_guide','navigate'].includes(a.type)&&a.screen===screen.id))return proposal;
+  return {...proposal,actions:proposal.actions.filter(a=>a.type!=='navigate')};
+}
 
 export function parseCopilotResponse(content){
   if(typeof content!=='string'||content.length>64000)throw copilotError('Invalid assistant response');

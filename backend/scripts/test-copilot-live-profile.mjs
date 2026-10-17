@@ -24,7 +24,7 @@ try{
   {mode:'hybrid',screen:'profile',control:field.id,value:'no',options:[{value:'no',label:'No'},{value:'yes',label:'Yes'}],request:'I need to change the efficiency mode for my profile to No. Prepare only that setting for review; leave all other existing details unchanged.'},
   {mode:'guided',screen:'profile',control:field.id,value:'no',options:[{value:'no',label:'No'},{value:'yes',label:'Yes'}],request:'update efficency mode to No. Prepare that visible setting only; do not save.'},
   {mode:'autofill',screen:'profile',control:field.id,value:'yes',options:[{value:'no',label:'No'},{value:'yes',label:'Yes'}],request:'Prepare Efficiency mode as Yes for my review. Leave all other fields unchanged.'},
-  {mode:'hybrid',screen:'scheduled-goals',control:title.id,value:'Synthetic title',request:'Set the visible Title (optional) field to Synthetic title for review only; do not create, save, run or activate a goal.'},
+  {mode:'hybrid',screen:'scheduled-goals',control:title.id,value:'Synthetic title',request:'Set the visible Title (optional) field to "Synthetic title" for review only; do not create, save, run or activate a goal.'},
   {mode:'hybrid',screen:'connectors',control:provider.id,value:'calendar_url',options:[{value:'calendar_url',label:'Published calendar URL (ICS)'},{value:'google_workspace',label:'Google Workspace'}],request:'Prepare the visible Event provider dropdown as Published calendar URL (ICS). Do not create a subscription or change listener settings.'},
  ];
  for(const test of cases){
@@ -35,7 +35,7 @@ try{
   const before=modelCalls,started=Date.now();
   const response=await post(`/session/${s.id}/propose`,{version:s.version,screen:test.screen,visible_control_ids:[test.control],visible_control_options:test.options?{[test.control]:test.options}:{},message:test.request});
   assert.equal(response.status,200,JSON.stringify({screen:test.screen,mode:test.mode,error:response.data.error}));
-  assert.equal(response.data.proposal.actions.length,1,'exactly one reviewed native patch, not navigation or a questionnaire');
+  assert.equal(response.data.proposal.actions.length,1,'exactly one reviewed native patch, not navigation or a questionnaire: '+JSON.stringify(response.data.proposal.actions));
   const action=response.data.proposal.actions[0];assert.equal(action.type,'screen_fill');assert.equal(action.screen,test.screen);assert.deepEqual(action.values,{[test.control]:test.value});
   console.log(JSON.stringify({stage:'live_model_copilot',screen:test.screen,mode:test.mode,expected_value:test.value,model_calls:modelCalls-before,elapsed_ms:Date.now()-started,pass:true}));
  }

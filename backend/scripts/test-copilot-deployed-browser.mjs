@@ -9,9 +9,17 @@ const config=JSON.parse(readFileSync(file));assert.equal(config.origin,'https://
 const {chromium}=await import(pathToFileURL(playwright));
 const browser=await chromium.launch({channel:'chrome',headless:true});let checks=0;
 try{
- const context=await browser.newContext();const page=await context.newPage();const prohibited=[];
+ const context=await browser.newContext();const page=await context.newPage();const prohibited=[];let announcementDismissed=false;
  await page.route('**/api/**',async route=>{
   const request=route.request();
+  const pathname=new URL(request.url()).pathname;
+  // Announcement analytics are outside this acceptance. Keep the normal close
+  // button functional without polluting a production campaign's event counts.
+  if(/^\/api\/promotions\/[^/]+\/events$/.test(pathname)){
+   if(request.postDataJSON()?.event_type==='dismissed')announcementDismissed=true;
+   await route.fulfill({status:200,contentType:'application/json',body:'{"ok":true}'});return;
+  }
+  if(pathname==='/api/promotions/eligible'&&announcementDismissed){await route.fulfill({status:200,contentType:'application/json',body:'{"campaign":null}'});return;}
   if(!['GET','HEAD','OPTIONS'].includes(request.method())&&!new URL(request.url()).pathname.startsWith('/api/ui-copilot/')){prohibited.push(new URL(request.url()).pathname);await route.abort();return;}
   await route.continue();
  });
@@ -19,6 +27,8 @@ try{
  await page.goto(config.origin+'/profile',{waitUntil:'domcontentloaded'});
  const select=page.getByText('Efficiency mode',{exact:true}).locator('..').locator('select');
  await select.waitFor({state:'visible'});assert.equal(await select.inputValue(),'yes');checks++;
+ const closeAnnouncement=page.getByRole('button',{name:'Close announcement',exact:true});
+ try{await closeAnnouncement.waitFor({state:'visible',timeout:3000});await closeAnnouncement.click();}catch{/* No eligible announcement is also valid. */}
  await page.getByRole('button',{name:'Platform Help',exact:true}).click();
  await page.getByRole('textbox',{name:'Message Platform Help',exact:true}).fill('Update efficiency mode to No. Prepare only this visible setting for review. Leave all other profile details unchanged.');
  await page.getByRole('button',{name:'Send',exact:true}).click();

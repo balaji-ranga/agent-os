@@ -16,7 +16,7 @@ import { copilotFillReceipt } from '../services/ui-copilot-progress.js';
 import {embeddedFieldAllowed,embeddedPathAllowed,embeddedFormAllowed} from '../services/ui-copilot-embedded-policy.js';
 import { copilotCoachingStore, cleanCoachingStep } from '../services/ui-copilot-coaching.js';
 import { COPILOT_COACHING_EXAMPLES } from '../services/ui-copilot-coaching-examples.js';
-import {COPILOT_RESPONSE_POLICY,parseCopilotResponse,copilotResponseContract,targetsCurrentNativeControls,copilotValidationCategory} from '../services/ui-copilot-response.js';
+import {COPILOT_RESPONSE_POLICY,parseCopilotResponse,copilotResponseContract,targetsCurrentNativeControls,copilotValidationCategory,reconcileCopilotCurrentNavigation} from '../services/ui-copilot-response.js';
 import {copilotPlatformMap,copilotPlatformContext,platformSeedRecipes,platformSeedRecipe} from '../services/ui-copilot-platform-map.js';
 
 const destinations = [
@@ -259,6 +259,7 @@ router.post('/session/:id/propose',handler(async req=> {
     const reply=await complete(completionRequest);
     try {
       proposal=validateCopilotProposal(normalizeCopilotScreenActions(parseCopilotResponse(reply.content),c,activeScreen?.id,visible),c);
+      proposal=reconcileCopilotCurrentNavigation(proposal,activeScreen,visible);
       proposal=validateCopilotProposal(retainExplicitCopilotChoices(proposal,c,message),c);
       if(proposal.actions.length===1&&proposal.actions[0].type==='embed_navigate'&&proposal.actions[0].screen===activeScreen?.id&&!embeddedNavigation.some(n=>n.path===proposal.actions[0].path)){
         // Models can omit an observed list's viewId. Resolve only a unique
