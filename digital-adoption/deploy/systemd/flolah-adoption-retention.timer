@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily isolated Digital Adoption checkpoint expiry
+
+[Timer]
+OnCalendar=*-*-* 02:20:00 UTC
+Persistent=true
+RandomizedDelaySec=300
+Unit=flolah-adoption-retention.service
+
+[Install]
+WantedBy=timers.target

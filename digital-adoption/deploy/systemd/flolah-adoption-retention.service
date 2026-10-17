@@ -1,0 +1,9 @@
+[Unit]
+Description=Expire isolated Digital Adoption checkpoints after seven days
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh /opt/flolah-digital-adoption/bin/run-checkpoint-retention.sh /opt/flolah-digital-adoption /opt/flolah-digital-adoption/bin/checkpoint-retention.mjs flolah-digital-adoption:20261017bb
+TimeoutStartSec=120
