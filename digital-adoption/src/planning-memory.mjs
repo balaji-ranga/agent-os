@@ -3,7 +3,7 @@ const words=text=>[...new Set(String(text||'').normalize('NFKC').toLowerCase().m
 const bytes=value=>Buffer.byteLength(JSON.stringify(value));
 export function selectPlanningMemory({maps,drafts=[],task,snapshot,now}){
  const query=words(task),score=value=>query.reduce((n,word)=>n+Number(JSON.stringify(value).toLowerCase().includes(word)),0);
- const ranked=maps.filter(map=>Number.isFinite(map.observedAt)&&map.observedAt+86400000>now).map(map=>({map,score:score({path:map.path,fields:map.inventory?.fields||map.fields,forms:map.forms})+Number(map.path===snapshot.path)*3})).filter(x=>x.score>0).sort((a,b)=>b.score-a.score||b.map.observedAt-a.map.observedAt||a.map.path.localeCompare(b.map.path));
+ const ranked=maps.filter(map=>Number.isFinite(map.observedAt)&&map.observedAt+86400000>now&&(!snapshot.currentFormMatchesTask||map.path===snapshot.path)).map(map=>({map,score:score({path:map.path,fields:map.inventory?.fields||map.fields,forms:map.forms})+Number(map.path===snapshot.path)*3})).filter(x=>x.score>0).sort((a,b)=>b.score-a.score||b.map.observedAt-a.map.observedAt||a.map.path.localeCompare(b.map.path));
  const observations=[];let remaining=5000;
  for(const {map} of ranked){
   const source=map.inventory||map,fields=[...(source.fields||[])].sort((a,b)=>score(b)-score(a)).slice(0,20);

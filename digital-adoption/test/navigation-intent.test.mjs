@@ -2,6 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {constrainNavigation} from '../src/navigation-intent.mjs';
 
+test('multiple current task fields exclude unrelated navigation, while an explicit destination still wins',()=>{
+ const current={path:'/dispatch',fields:[{label:'Office code'},{label:'Desk zone'}],links:[{ref:'r1n0',label:'Reports',path:'/reports'}]};
+ const constrained=constrainNavigation('Prepare office code A and desk zone West.',current);assert.equal(constrained.fields.length,2);assert.deepEqual(constrained.links,[]);assert.equal(constrained.currentFormMatchesTask,true);
+ const explicit=constrainNavigation('Open Reports to compare office code and desk zone.',current);assert.equal(explicit.navigationRequired,true);assert.equal(explicit.links.length,1);
+});
+
 test('an observed current-page link cannot be proposed again after navigation',()=>{
  const snapshot={path:'/note',screen:'Note draft',fields:[{label:'Title'},{label:'Body'}],links:[{ref:'r1n0',label:'Note',path:'/note'}]};
  const next=constrainNavigation('Open Note and create a note with title Followup and body followup MrX on month end.',snapshot);

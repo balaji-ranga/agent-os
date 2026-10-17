@@ -40,7 +40,7 @@ export function createSourceMap(repository,{clock=Date.now}={}){
   guidance(scope,task,snapshot){
    const record=read(scope);if(!record)return null;
    const words=[...new Set(String(task).toLowerCase().match(/[\p{L}\p{N}]{3,}/gu)||[])].slice(0,30);
-   const ranked=record.screens.map(screen=>({screen,score:words.reduce((n,w)=>n+Number(JSON.stringify(screen).toLowerCase().includes(w)),0)})).filter(r=>r.score||r.screen.path===snapshot.path).sort((a,b)=>b.score-a.score);
+   const ranked=record.screens.filter(screen=>!snapshot.currentFormMatchesTask||screen.path===snapshot.path).map(screen=>({screen,score:words.reduce((n,w)=>n+Number(JSON.stringify(screen).toLowerCase().includes(w)),0)})).filter(r=>r.score||r.screen.path===snapshot.path).sort((a,b)=>b.score-a.score);
    let budget=9000;const matches=[];
    for(const {screen} of ranked){const candidate={...screen,fields:screen.fields.filter(f=>words.some(w=>(f.label+' '+f.key).toLowerCase().includes(w))).slice(0,30)},size=JSON.stringify(candidate).length;if(size>budget)continue;budget-=size;matches.push(candidate);if(matches.length===5)break;}
    return {revision:record.revision,evidence:record.evidence,matches,policy:'Guidance only. Open a uniquely observed safe destination, inspect its live controls and options, then prepare requested fields for approval. Do not use source keys as live refs or claim a save.'};

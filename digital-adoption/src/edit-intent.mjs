@@ -10,7 +10,7 @@ export function constrainEdit(text, snapshot) {
   if (!matching.length) return snapshot;
   // A label may be referred to by a shorter natural name. Do not discard that
   // control merely because another target in the same request matched exactly.
-  const targets=[...String(text).matchAll(/(?:^\s*(?:set|change|update|edit)\s+|,\s*|\band\s+)([^,.;]+?)\s+(?:to|as)\s+/gi)].map(match=>match[1].toLowerCase().replace(/^the\s+|\s+field$/g,'').replace(/[^\p{L}\p{N}]+/gu,' ').trim());
+  const targets=[...String(text).matchAll(/(?:^\s*(?:set|change|update|edit)\s+|,\s*(?:and\s+)?|\band\s+)([^,.;]+?)\s+(?:to|as)\s+/gi)].map(match=>match[1].toLowerCase().replace(/^the\s+|\s+field$/g,'').replace(/[^\p{L}\p{N}]+/gu,' ').trim());
   if(targets.some(target=>!matching.some(field=>[field.label,field.key].filter(Boolean).some(name=>name.toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim()===target))))return snapshot;
   const selected=new Set(matching.map(field=>field.key));
   return {...snapshot, fields:matching,forms:(snapshot.forms||[]).map(form=>({...form,fields:form.fields.filter(key=>selected.has(key))})).filter(form=>form.fields.length), links:[], partialEdit:true};
@@ -21,7 +21,7 @@ export function constrainEdit(text, snapshot) {
 export function explicitEditProposal(text,snapshot){
  if(snapshot.navigationRequired||!/^\s*(?:set|change|update|edit)\b/i.test(text))return null;
  const normalize=value=>String(value).toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim();
- const matches=[...String(text).matchAll(/(?:^\s*(?:set|change|update|edit)\s+|[,;]\s*|\band\s+)([^,;.]+?)\s+(?:to|as)\s+/gi)];
+ const matches=[...String(text).matchAll(/(?:^\s*(?:set|change|update|edit)\s+|[,;]\s*(?:and\s+)?|\band\s+)([^,;.]+?)\s+(?:to|as)\s+/gi)];
  if(!matches.length||matches.length>10)return null;
  const actions=[],used=new Set();
  for(const [index,match] of matches.entries()){

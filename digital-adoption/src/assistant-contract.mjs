@@ -1,9 +1,11 @@
 // This contract validates proposals; exact-state approval still precedes writes.
 export function responseContract(snapshot){
- return {output:{message:'string up to 4000 characters',actions:'zero to ten action instances'},
-  actionShapes:{fill:{type:'fill',ref:'exact current field ref',value:'string'},highlight:{type:'highlight',ref:'exact current field ref'},navigate:{type:'navigate',ref:'exact observed safe link ref; sole action'}},
+ const fields=snapshot.fields.length>0,links=snapshot.links.length>0;
+ return {output:{message:'string up to 4000 characters',actions:fields||links?'zero to ten action instances':'must be the empty array [] because no actionable live refs exist'},
+  allowedActionTypes:[...(fields?['fill','highlight']:[]),...(links?['navigate']:[])],
+  actionShapes:{...(fields?{fill:{type:'fill',ref:'exact current field ref',value:'string'},highlight:{type:'highlight',ref:'exact current field ref'}}:{}),...(links?{navigate:{type:'navigate',ref:'exact observed safe link ref; sole action'}}:{})},
   fields:snapshot.fields.map(({ref,label,type})=>({ref,label,type})),links:snapshot.links,
-  policy:'Field refs, link refs and persistent map keys are separate namespaces. Source-map fields are hints only. Navigate using an observed safe link and inspect the destination before preparing off-screen fields. Never invent refs, options or writes.'};
+  policy:'Field refs, link refs, saved route paths and persistent map keys are separate namespaces. A saved path is never an executable ref. If the known destination has no safe live link, return actions:[] and explain in message which known website page the user should open manually. Source-map fields are hints only. Navigate using an observed safe link and inspect the destination before preparing off-screen fields. Never invent refs, options or writes.'};
 }
 export function parseAssistantResponse(content,snapshot){
  if(typeof content!=='string'||content.length>32_000)throw new Error('invalid_response_shape');

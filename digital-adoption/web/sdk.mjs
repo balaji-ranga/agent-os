@@ -64,7 +64,7 @@ export async function mount({ serviceUrl, installationToken, theme = {},getHostI
     if (closed || event.source !== frame.contentWindow || event.origin !== service.origin) return;
     const message = event.data;
     if (!message || message.channel !== 'flolah-adoption-v1' || typeof message.id !== 'string' || message.id.length > 80) return;
-    let result;
+    let result,proposalGeneration;
     try {
       // Unblock the queue before the owner's fresh capability check. Waiting
       // for that check first would itself queue Pause behind the stalled read.
@@ -119,7 +119,7 @@ export async function mount({ serviceUrl, installationToken, theme = {},getHostI
         result=await request('/v1/learning/draft',{package:pack,operationId:recordingId||message.operationId});
       }
       else if(message.type==='recipe-plan'){
-        const generation=++taskGeneration;currentSnapshot=inspector.snapshot();result=await request('/v1/recipe/plan',{id:message.recipeId,version:message.version,parameters:message.parameters,step:message.step,mode:message.mode,snapshot:currentSnapshot});if(generation!==taskGeneration)throw new Error('Task stopped; recipe review discarded');
+        const generation=proposalGeneration=++taskGeneration;currentSnapshot=inspector.snapshot();result=await request('/v1/recipe/plan',{id:message.recipeId,version:message.version,parameters:message.parameters,step:message.step,mode:message.mode,snapshot:currentSnapshot});if(generation!==taskGeneration)throw new Error('Task stopped; recipe review discarded');if(!result.actions?.length)currentSnapshot=null;
       }
       else if(['record-start','record-pause','record-resume','record-stop'].includes(message.type)){
         await request('/v1/history'); // Revalidate session before local recording controls.
@@ -148,15 +148,16 @@ export async function mount({ serviceUrl, installationToken, theme = {},getHostI
       else if(message.type==='cancel'){taskGeneration++;currentSnapshot=null;client.interruptRead();result={stopped:true};}
       else if (message.type === 'inspect') {result=inspector.snapshot({inventory:true});const access=await request('/v1/capabilities');if(access.capabilities.coach)result.learning=await request('/v1/learning/observe',{snapshot:result});}
       else if (message.type === 'plan') {
-        const generation=++taskGeneration;
+        const generation=proposalGeneration=++taskGeneration;
         const snapshot=inspector.snapshot();currentSnapshot=snapshot;
         result = await request('/v1/plan',{ text:message.text,snapshot,replyTo:message.replyTo,mode:message.mode });
         if(generation!==taskGeneration)throw new Error('Task stopped; proposal discarded');
+        if(!result.actions?.length)currentSnapshot=null;
         if(snapshot.coverage.manualNotice)result={...result,manualNotice:snapshot.coverage.manualNotice};
       }
       else if(message.type==='save-review'){
         if(message.mode==='guide')throw new Error('Guide mode does not submit forms. Use the host Save control yourself.');
-        const generation=++taskGeneration;currentSnapshot=inspector.snapshot();
+        const generation=proposalGeneration=++taskGeneration;currentSnapshot=inspector.snapshot();
         if(currentSnapshot.submissions.length!==1)throw new Error('Choose Save on the host page: no unique supported native submit control is visible.');
         result=await request('/v1/save/plan',{snapshot:currentSnapshot,ref:currentSnapshot.submissions[0].ref});
         if(generation!==taskGeneration)throw new Error('Save review stopped');
@@ -201,7 +202,7 @@ export async function mount({ serviceUrl, installationToken, theme = {},getHostI
       }
       else throw new Error('Unsupported operation');
       if(!closed)frame.contentWindow?.postMessage({ channel: message.channel, id: message.id, result }, service.origin);
-    } catch (error) { if(!closed)frame.contentWindow?.postMessage({ channel: message.channel, id: message.id, error: error.message }, service.origin); }
+    } catch (error) { if(proposalGeneration===taskGeneration)currentSnapshot=null;if(!closed)frame.contentWindow?.postMessage({ channel: message.channel, id: message.id, error: error.message }, service.origin); }
   };
   window.addEventListener('message', handler);
   document.body.append(frame,launcher);

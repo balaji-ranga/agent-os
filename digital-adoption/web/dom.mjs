@@ -24,6 +24,7 @@ export function createInspector(document) {
   let approvedPaths=new Set();
   const submit=createSubmitController(document,{visible,excluded,label});
   function snapshot({inventory:includeInventory=false}={}) {
+    cleanupHighlight();
     revision++; references = new Map();navigation=new Map();
     const dialogs = [...document.querySelectorAll('[role="dialog"][aria-modal="true"],dialog[open]')].filter(visible);
     const root = dialogs.length === 1 ? dialogs[0] : document;
