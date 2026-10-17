@@ -7,9 +7,9 @@ const file=process.env.COPILOT_UI_FIXTURE,playwright=process.env.COPILOT_PLAYWRI
 if(!file||!playwright)throw new Error('COPILOT_UI_FIXTURE and COPILOT_PLAYWRIGHT_PATH required');
 const config=JSON.parse(readFileSync(file));assert.equal(config.origin,'https://login.flolah.cloud');
 const {chromium}=await import(pathToFileURL(playwright));
-const browser=await chromium.launch({channel:'chrome',headless:true});let checks=0;
+const browser=await chromium.launch({channel:'chrome',headless:true});let checks=0,page;
 try{
- const context=await browser.newContext();const page=await context.newPage();const prohibited=[];let announcementDismissed=false;
+ const context=await browser.newContext();page=await context.newPage();const prohibited=[];let announcementDismissed=false;
  await page.route('**/api/**',async route=>{
   const request=route.request();
   const pathname=new URL(request.url()).pathname;
@@ -25,6 +25,7 @@ try{
  });
  await page.addInitScript(token=>localStorage.setItem('agent-os-auth-token',token),config.token);
  await page.goto(config.origin+'/content-explorer',{waitUntil:'domcontentloaded'});
+ await page.getByRole('heading',{name:'Content Explorer',exact:true}).waitFor();
  const select=page.getByText('Efficiency mode',{exact:true}).locator('..').locator('select');
  const closeAnnouncement=page.getByRole('button',{name:'Close announcement',exact:true});
  try{await closeAnnouncement.waitFor({state:'visible',timeout:3000});await closeAnnouncement.click();}catch{/* No eligible announcement is also valid. */}
@@ -53,4 +54,7 @@ try{
  await page.getByText(/Indexed version /).waitFor({timeout:20000});checks++;
  assert.deepEqual(prohibited,[],'no settings/business writes attempted');checks++;
  console.log(JSON.stringify({stage:'COPILOT_DEPLOYED_BROWSER_PASS',checks,profile_saved:false,source_map_visible:true,seeded_recipes_visible:true}));
+}catch(error){
+ // Only synthetic fixture UI metadata, never request headers or auth tokens.
+ console.error(JSON.stringify({stage:'COPILOT_BROWSER_DIAGNOSTIC',path:page?new URL(page.url()).pathname:null,headings:page?await page.locator('h1').allTextContents():[],panel:page?await page.locator('.copilot-panel').textContent().catch(()=>null):null}));throw error;
 }finally{await browser.close()}
