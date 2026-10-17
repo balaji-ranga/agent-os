@@ -4,6 +4,8 @@ import { evaluateActionPolicy, previewActionPolicy } from './action-policy.js';
 import { assertCallerMayExecuteConnectorAction, ensureConnectorActionGrantTables } from './connector-action-grants.js';
 import { createCopilotConnector, COPILOT_ACTIONS } from './digital-adoption-connector-core.js';
 import { attachOrgFieldsToAuthUser, hasPermission } from './org-permissions.js';
+import { createHash } from 'node:crypto';
+const overrideFingerprint = row => row && createHash('sha256').update(JSON.stringify(Object.fromEntries(Object.entries(row).filter(([key]) => key !== 'use_count').sort(([a], [b]) => a.localeCompare(b))))).digest('hex');
 export { COPILOT_ACTIONS };
 export const copilotConfigured = () => !!process.env.DIGITAL_ADOPTION_BRIDGE_URL && !!process.env.DIGITAL_ADOPTION_BRIDGE_TOKEN;
 let current;
@@ -77,28 +79,49 @@ export function copilotConnector() {
     },
     policy: (user, id, body, context) => {
       const toolName = policyName(id, context);
+      const decision = evaluateActionPolicy({
+        ownerUserId: context.ownerUserId || user,
+        toolName,
+        body,
+        context: {
+          workflowId: context.workflowId,
+          agentId: context.source
+        }
+      });
+      const override = decision.override_id && getDb().prepare('SELECT * FROM action_policy_overrides WHERE id=? AND owner_user_id=?').get(decision.override_id, context.ownerUserId || user);
       return {
-        ...evaluateActionPolicy({
-          ownerUserId: context.ownerUserId || user,
-          toolName,
-          body,
-          context: {
-            workflowId: context.workflowId,
-            agentId: context.source
-          }
-        }),
+        ...decision,
+        override_fingerprint: overrideFingerprint(override),
+        override_use_count: override?.use_count,
         tool_name: toolName
       };
     },
-    preview: (user, id, body, context) => previewActionPolicy({
-      ownerUserId: context.ownerUserId || user,
-      toolName: policyName(id, context),
-      body,
-      context: {
-        workflowId: context.workflowId,
-        agentId: context.source
-      }
-    }),
+    preview: (user, id, body, context, decision) => {
+      const current = previewActionPolicy({
+        ownerUserId: context.ownerUserId || user,
+        toolName: policyName(id, context),
+        body,
+        context: {
+          workflowId: context.workflowId,
+          agentId: context.source
+        }
+      });
+      if (!decision.override_id) return current;
+      const row = getDb().prepare('SELECT * FROM action_policy_overrides WHERE id=? AND owner_user_id=?').get(decision.override_id, context.ownerUserId || user);
+      if (!row || !row.enabled || row.expires_at && Date.parse(row.expires_at) <= Date.now() || overrideFingerprint(row) !== decision.override_fingerprint || row.use_count < decision.override_use_count || current.risk_tier !== decision.risk_tier || current.action_family !== decision.action_family || current.override_id && current.override_id !== row.id) return {
+        ...current,
+        ok: false
+      };
+      // The exact command already consumed this bounded use. Exhausting its
+      // counter must not revoke that same command halfway through fan-out.
+      // A changed/disabled/expired override or classification still revokes it.
+      if (!current.override_id && row.max_uses != null && row.use_count >= row.max_uses) return {
+        ...current,
+        ok: true,
+        mode: row.mode
+      };
+      return current;
+    },
     approvalActive: decision => {
       if (!decision.approval_grant_id) return true;
       const g = getDb().prepare('SELECT revoked_at,expires_at FROM action_approval_grants WHERE id=?').get(decision.approval_grant_id);

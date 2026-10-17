@@ -62,6 +62,7 @@ export async function mount({ serviceUrl, installationToken, theme = {},getHostI
   applyAppearance();
   const privateClient=createTaskClient({request,service,inspect:()=>inspector.snapshot(),hostIdentity:getHostIdentity?async()=>{try{return await request('/v1/renew',{identityToken:await readHostIdentity()});}catch(error){try{await request('/v1/terminate');}finally{expireSession();}throw error;}}:null,onEvent:event=>{
     if(event.type==='task-ended'){taskGeneration++;currentSnapshot=null;}
+    if(event.type==='workflow-started'){taskGeneration++;currentSnapshot=null;}
     if(event.type==='workflow-proposal')currentSnapshot=event.snapshot;
     frame.contentWindow?.postMessage({channel:'flolah-adoption-v1',type:'private-event',event},service.origin);
   },execute:async proposal=>{const results=[];for(const action of proposal.actions){if(closed)throw new Error('Session ended');if(action.type==='fill')results.push(inspector.fill({ref:action.ref,value:action.value,expectedRevision:proposal.revision,approved:true}));else if(action.type==='navigate')results.push(await inspector.navigate({ref:action.ref,expectedRevision:proposal.revision,approved:true}));else if(action.type==='submit')results.push(await inspector.submit({ref:action.ref,expectedRevision:proposal.revision,approved:true,active:()=>!closed}));else throw new Error('Unsupported workflow effect');}return results;}});

@@ -39,6 +39,27 @@ Owners separately enable attachments, pairing and workflow relay per registratio
 and configure smaller file/task/connection limits and exact native action bindings.
 See [build and setup](deploy/README.md) for service wiring and test commands.
 
+The scoped testing deployment uses app `20261018-private-g` and platform connector
+`20261018-private-f`. Open `http://127.0.0.1:4194/customer`, expand **Task files &
+paired copilots**, attach a synthetic file, and ask “Fill the customer form using
+my transaction file.” Review the fields before applying. Save is separate and is
+safe only on the synthetic local host used here. Open `/note` in another tab to
+exercise bilateral pairing and consented context relay. Generate the synthetic
+corpus with `test/make-transaction-fixtures.py OUTPUT_DIRECTORY`.
+
+For workflows, link the short-lived group code in the signed-in Flolah Workflow
+Editor's **Digital Adoption Copilot** connector. Select the group, websites and
+action. To use existing visitor files, copy the panel's **Task ID** into the node;
+the ID is not a credential and membership is still checked. A busy recipient
+rejects overlapping commands. A failed required recipient fails the node and
+revokes remaining effects; completed host changes are not rolled back.
+
+The [acceptance results](test/private-acceptance-results.json) and
+[CSV testcase table](test/private-acceptance-results.csv) record eight passed,
+seven partial and zero failed composite design cases. This is available for
+testing, with full Phase 1/2 certification still partial. The expired public
+preview is not re-enabled by this deployment.
+
 For a deterministic local preview, run `npm run dev:private`, then start
 `src/local-vps-demo.mjs` with `ADOPTION_DEMO_CONFIG` pointing to
 `.local/private-preview/public.json`. Both services bind loopback only. This

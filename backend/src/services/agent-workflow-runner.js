@@ -1343,7 +1343,7 @@ async function executeNode(runId, nodeId, graph, context, def, runRow) {
           runRow.owner_user_id,
           actionId,
           {...staticInput, ...dynamicInput,...Object.fromEntries(Object.entries(config.copilot||{}).filter(([,value])=>value!==undefined&&value!=='')),...(copilotApprovalTokens.has(`${runId}:${node.id}`)?{approval_token:copilotApprovalTokens.get(`${runId}:${node.id}`)}:{}) },
-          { connectionName: config.connectionName || config.connection_name || '',runId,nodeId:node.id,workflowId:def.id,iteration:resolveLoopStepIteration(node,graph,context),actorUserId:context.actor?.id||runRow.owner_user_id }
+          { connectionName: config.connectionName || config.connection_name || '',runId,nodeId:node.id,workflowId:def.id,iteration:resolveLoopStepIteration(node,graph,context),actorUserId:context.actor?.type==='system'?runRow.owner_user_id:context.actor?.id||runRow.owner_user_id }
         );
         return {
           text: out.text || '',

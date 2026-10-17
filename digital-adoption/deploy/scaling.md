@@ -27,6 +27,16 @@ RSS about 74 MiB. This short run excludes LLM latency, real OCR concurrency,
 external network/browser workloads and sustained soak. It does not establish
 Kubernetes/multi-coordinator HA or replace public-domain acceptance.
 
+The same workload in an isolated VPS container limited to 1 CPU / 1 GiB completed
+25 extractions in 3.15 seconds and the complete probe in 3.62 seconds. Across 250
+requests, HTTP p95 was 4 ms; process RSS was 90 MiB and event-loop p99 33 ms.
+Its 50 captured fanout recipients completed and private bytes/cleanup backlog
+returned to zero. See `test/evidence/private-capacity-vps.json`. These numbers
+measure short UTF-8 extraction and synthetic policy/transport paths; they do not
+measure 25 simultaneous production LLM/OCR requests. Workers remain capped at two
+for this VPS; raising replica count requires matching broker limits and measured
+CPU/memory/provider headroom.
+
 ## Current topology
 
 One stateful API/coordinator owns the local SQLite WAL database, raw objects,

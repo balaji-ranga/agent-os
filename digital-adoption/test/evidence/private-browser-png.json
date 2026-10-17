@@ -1,0 +1,35 @@
+{
+  "at": "2026-10-17T20:09:47.703Z",
+  "planner": "VPS production planner and OCR 20261018-private-g",
+  "publicWrites": 0,
+  "results": [
+    {
+      "id": "TX_UI_PRIVATE_UPLOAD",
+      "status": "passed"
+    },
+    {
+      "id": "TX_UI_PRIVATE_SUMMARY",
+      "status": "passed"
+    },
+    {
+      "id": "TX_UI_REVIEW_FILL_SAVE",
+      "status": "passed"
+    },
+    {
+      "id": "PAIR_UI_BILATERAL",
+      "status": "passed"
+    },
+    {
+      "id": "RELAY_UI_PRIVATE_CONTEXT",
+      "status": "passed"
+    },
+    {
+      "id": "TX_UI_REQUEST_DIFFERENT_FORM",
+      "status": "passed"
+    },
+    {
+      "id": "PRIV_UI_END_CLEARS_BOTH",
+      "status": "passed"
+    }
+  ]
+}

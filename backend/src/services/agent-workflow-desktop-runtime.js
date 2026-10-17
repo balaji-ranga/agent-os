@@ -433,7 +433,7 @@ async function runRemoteNodeWork(node, graph, context, inputRecord, meta) {
         meta.ownerUserId,
         actionId,
         {...staticInput, ...dynamicInput,...Object.fromEntries(Object.entries(config.copilot||{}).filter(([,value])=>value!==undefined&&value!=='')) },
-        { connectionName: config.connectionName || config.connection_name || '',runId:meta.runId,nodeId:node.id,workflowId:meta.definitionId,actorUserId:context.actor?.id||meta.ownerUserId }
+        { connectionName: config.connectionName || config.connection_name || '',runId:meta.runId,nodeId:node.id,workflowId:meta.definitionId,actorUserId:context.actor?.type==='system'?meta.ownerUserId:context.actor?.id||meta.ownerUserId }
       );
       return {
         text: out.text || '',

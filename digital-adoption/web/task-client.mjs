@@ -65,6 +65,8 @@ export function createTaskClient({
         }
         if (Date.now() >= message.expiresAt) return;
         const commandGeneration = generation;
+        taskId=message.taskId;
+        notify({type:'workflow-started',taskId,action:message.action});
         seen.set(message.commandId, {});
         send({
           type: 'ack',
@@ -117,12 +119,14 @@ export function createTaskClient({
             result
           };
           if (commandGeneration === generation) {
+            notify({type:'workflow-result',action:message.action,ok:true});
             seen.set(message.commandId, {
               done
             });
             send(done);
           }
         } catch {
+          if(commandGeneration===generation)notify({type:'workflow-result',action:message.action,ok:false});
           const done = {
             type: 'result',
             commandId: message.commandId,

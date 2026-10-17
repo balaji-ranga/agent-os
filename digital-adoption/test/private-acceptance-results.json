@@ -1,0 +1,161 @@
+{
+  "at": "2026-10-17T20:10:39.617126+00:00",
+  "design": "digital-adoption/DESIGN.md",
+  "independentRelease": "20261018-private-g",
+  "platformRelease": "20261018-private-f",
+  "status": "implemented and deployed for scoped testing; full Phase 1/2 certification remains partial",
+  "counts": {
+    "passed": 8,
+    "partial": 7,
+    "failed": 0
+  },
+  "verification": {
+    "applicationTestsLocal": 197,
+    "applicationTestsVpsImage": 197,
+    "connectorCoreTests": 3,
+    "browserJourneys": 14,
+    "actualDocumentFormats": [
+      "txt",
+      "pdf",
+      "docx",
+      "png",
+      "jpg"
+    ],
+    "realWorkflowRunner": "passed with simulated authenticated browser recipients and actual runner/action-policy/approval DB",
+    "frontendBuild": "passed; existing bundle size warning",
+    "existingConnectorRegression": "passed"
+  },
+  "cases": [
+    {
+      "id": "TX01",
+      "feature": "Transaction extraction and citations",
+      "status": "passed",
+      "evidence": "Actual deployed parser/model: TXT, PDF, DOCX, PNG and JPEG, three correct fields and citations each. PDF/PNG Chrome uploads and summaries passed.",
+      "recommendation": "Retain this synthetic corpus as a release gate; additional languages/handwriting are unsupported."
+    },
+    {
+      "id": "TX02",
+      "feature": "Reviewed fill and independent Save proof",
+      "status": "passed",
+      "evidence": "PDF and PNG: fresh Customer field review, explicit fill, separate synthetic Save; exact returned record UUID and three values independently read back.",
+      "recommendation": "Keep business-save readback host-specific. Observed fields alone never prove persistence."
+    },
+    {
+      "id": "TX03",
+      "feature": "Requested form, missing/conflicting fields",
+      "status": "passed",
+      "evidence": "Both browser runs navigated from Customer to Note then freshly inspected/filled. Unit cases reject invented values, missing/conflicting/repeated labels.",
+      "recommendation": "Expand custom-control coverage per host before advertising support."
+    },
+    {
+      "id": "TX04",
+      "feature": "Private upload and document boundary",
+      "status": "passed",
+      "evidence": "Capability separation, extension/MIME/signature/binary/size limits and instruction rejection pass. No private upload publishes shared sources.",
+      "recommendation": "Keep supported formats explicit; add separate acceptance before adding languages/file types."
+    },
+    {
+      "id": "PAIR01",
+      "feature": "Anonymous local/public bilateral pairing",
+      "status": "partial",
+      "evidence": "Bilateral panel confirmation passed between two local tabs; cross-origin protocol/owner tests pass with isolated fixtures.",
+      "recommendation": "Renew the public preview and repeat pairing between loopback and public flolah.cloud."
+    },
+    {
+      "id": "PAIR02",
+      "feature": "Pairing and identity isolation",
+      "status": "passed",
+      "evidence": "Wrong owner, expiry/reuse, foreign instance/session, conflicting user links and unrelated group tests pass.",
+      "recommendation": "Pairing is explicit user consent, not proof of a single physical device."
+    },
+    {
+      "id": "RELAY01",
+      "feature": "Private handoff to public destination form",
+      "status": "partial",
+      "evidence": "Consented Customer-to-Note handoff and target-side planning/filling pass in Chrome. Public destination journey not run for this release.",
+      "recommendation": "Use public flolah.cloud MCP controls under renewed preview; block every public host submission."
+    },
+    {
+      "id": "WF01",
+      "feature": "Signed-in workflow discovery and editor",
+      "status": "partial",
+      "evidence": "Connector editor built/deployed; normal auth/workflows entitlement, actor/group isolation, system-trigger identity and actual runner tests pass.",
+      "recommendation": "Complete a signed-in entitled test-user journey through the deployed editor and paired group."
+    },
+    {
+      "id": "WF02",
+      "feature": "Website selection and captured fanout",
+      "status": "passed",
+      "evidence": "Selected websites/all-active exact snapshot; missing selected website, unrelated groups/new arrivals, busy tabs and duplicate operations tested.",
+      "recommendation": "Retain runtime snapshot preflight; never queue for future visitors."
+    },
+    {
+      "id": "WF03",
+      "feature": "Policy modes, approvals and effects",
+      "status": "partial",
+      "evidence": "Actual runner passes autonomous/prohibited/exact approval fanout, maxUses override exhaustion and single-use grants. Per-effect revalidation/binding tests pass.",
+      "recommendation": "Complete signed-in browser workflow fill and owner-bound native Save with independent host readback."
+    },
+    {
+      "id": "WF04",
+      "feature": "Disconnect, fail-fast and no replay",
+      "status": "partial",
+      "evidence": "Disconnect and lost acknowledgement tests fail explicitly; duplicate commands join once; peer failure blocks remaining plans/effects; runner bypasses automatic replay.",
+      "recommendation": "Add real browser lost-ack/native-Save and signed-in disconnect journeys; report unknown outcomes without retry."
+    },
+    {
+      "id": "PRIV01",
+      "feature": "Task deletion and checkpoint privacy",
+      "status": "passed",
+      "evidence": "End/expiry/restart/revocation tests pass; live canary absent SQLite rows and consistent checkpoint; raw objects ciphertext only; ending task leaves zero bytes/backlog. Both panel logs/reviews/files clear.",
+      "recommendation": "Verify final zero private metrics after each release and preserve encrypted-object/key separation."
+    },
+    {
+      "id": "PRIV02",
+      "feature": "Workflow downstream privacy",
+      "status": "partial",
+      "evidence": "Task-only result handles and real runner persisted context/step canary checks pass; ordinary private chat never enters durable history.",
+      "recommendation": "Broaden downstream node/template/tool/Kanban/telemetry adversarial matrix; document actual upstream provider retention."
+    },
+    {
+      "id": "CAP01",
+      "feature": "25 websites / 25 users capacity",
+      "status": "partial",
+      "evidence": "1 CPU/1 GiB isolated VPS: 50 authenticated WS, 25 UTF-8 files, 2 Python workers, 50 fanout recipients and 250 HTTP requests; p95 4 ms, RSS 90 MiB, extraction 3150 ms, event-loop p99 33 ms.",
+      "recommendation": "Short synthetic pilot excludes full concurrent model/OCR/provider latency, soak and multi-coordinator HA. Measure these before scaling beyond the pilot."
+    },
+    {
+      "id": "HOST01",
+      "feature": "Authorized browser scope",
+      "status": "passed",
+      "evidence": "Chrome used only loopback local pages; zero public host writes. Public preview expired and was not re-enabled. Laptop listener remains loopback.",
+      "recommendation": "Public testing requires current preview authorization; keep no-login/no-submit public scope."
+    }
+  ],
+  "deferred": [
+    "Real Safari on macOS/iOS",
+    "Real Android Chrome",
+    "Screen-reader acceptance"
+  ],
+  "testing": {
+    "local": "http://127.0.0.1:4194/customer",
+    "secondTab": "http://127.0.0.1:4194/note",
+    "transactionFile": "Generate via test/make-transaction-fixtures.py; local synthetic PDF/PNG available in .local/private-preview/transaction-corpus/",
+    "workflow": "Flolah Workflow Editor > connector > Digital Adoption Copilot. Pair panels; Link group; consume code as entitled Flolah user; select group/websites/action. Copy Task ID from panel to join existing visitor task."
+  },
+  "deploymentBoundary": "One stateful coordinator, local SQLite and ephemeral private keys; two parser workers. Private ports 4196/4197 unpublished. Public preview not renewed.",
+  "evidenceFiles": [
+    {
+      "path": "test/evidence/private-browser-pdf.json",
+      "sha256": "8ba966d07cccdf6f53398da0e9ecf0970f38e0519cd5b119031a62c1cf2af6c7"
+    },
+    {
+      "path": "test/evidence/private-browser-png.json",
+      "sha256": "836eb706c9f7c6db962b1629619f4d172289558adce6a43b2cb5d8a6ff0e8cff"
+    },
+    {
+      "path": "test/evidence/private-capacity-vps.json",
+      "sha256": "3e92739c8bca267da4fc50cb9d8ee7a4e801c3467b934ed27a6a18b24c623296"
+    }
+  ]
+}

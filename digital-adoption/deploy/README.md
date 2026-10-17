@@ -137,6 +137,18 @@ seven-day policy and do not infer immediate backup erasure from live deletion.
 
 ## Current validation boundary
 
+The private-task extension is deployed as `20261018-private-g`, with platform
+connector/editor `20261018-private-f`. Its own evidence includes 197 passing
+application tests both locally and inside the VPS image, three connector core
+tests, the actual runner/policy/approval integration, five real document formats
+through the deployed parser/model, and fourteen Chrome journey checks across PDF
+and PNG. The source includes JSON/CSV acceptance results and sanitized browser/
+capacity evidence under `test/`. Signed-in editor/browser workflows and renewed
+local/public cross-domain acceptance remain partial; see
+`test/private-acceptance-results.json` for each composite condition. Do not infer
+full certification from these passing checks. The laptop host remains loopback
+only, and no expired public preview is renewed automatically.
+
 Release `20261017bk` has 174 passing local tests and 174 inside its VPS image,
 plus live API and scoped local/public browser evidence. The synthetic backend
 pilot passed 25 website indexes and 25 concurrent sessions, 500 documents, 750

@@ -10,8 +10,9 @@ export function createParserBroker(shared, privateTasks, {
     claim(workerId) {
       shared.recover();
       privateTasks.maintain();
-      const sharedCounts=shared.metrics()?.counts||{},privateCount=privateTasks.metrics().activePrivateJobs||0;
-      if((sharedCounts.extracting||0)+(sharedCounts.indexing||0)+privateCount>=maxWorkers)return null;
+      const sharedCounts = shared.metrics()?.counts || {},
+        privateCount = privateTasks.metrics().activePrivateJobs || 0;
+      if ((sharedCounts.extracting || 0) + (sharedCounts.indexing || 0) + privateCount >= maxWorkers) return null;
       for (const [id, row] of owners) if (row.until <= Date.now()) owners.delete(id);
       if (owners.has(workerId) || owners.size >= maxWorkers) return null;
       const order = privateTurn ? [privateTasks, shared] : [shared, privateTasks];
@@ -38,7 +39,7 @@ export function createParserBroker(shared, privateTasks, {
         attemptId: claim.attemptId,
         until: out.leaseUntil
       });
-      if(out.leaseUntil<=Date.now()&&owners.get(claim.workerId)?.attemptId===claim.attemptId)owners.delete(claim.workerId);
+      if (out.leaseUntil <= Date.now() && owners.get(claim.workerId)?.attemptId === claim.attemptId) owners.delete(claim.workerId);
       return out;
     },
     async complete(claim, result) {

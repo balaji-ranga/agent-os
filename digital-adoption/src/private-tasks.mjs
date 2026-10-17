@@ -150,6 +150,7 @@ export async function createPrivateTasks({
     if (!r || ['succeeded', 'failed', 'expired', 'cancelled'].includes(r.status)) return;
     r.status = status;
     r.code = code;
+    if(status!=='succeeded')c.status='failed';
     if (result) r.result = result;
     c.updatedAt = clock();
     if (c.recipients.every(r => ['succeeded', 'failed', 'expired', 'cancelled'].includes(r.status))) {
@@ -169,7 +170,7 @@ export async function createPrivateTasks({
     tasks.delete(t.id);
     for (const c of commands.values()) if (c.taskId === t.id) {
       for (const r of c.recipients) {
-        finishCommand(c, r.instanceId, 'cancelled', 'TASK_ENDED');
+        finishCommand(c, r.instanceId, r.status==='executing'&&r.nextEffect>0?'failed':'cancelled', r.status==='executing'&&r.nextEffect>0?'OUTCOME_UNKNOWN':'TASK_ENDED');
         delete r.result;
         delete r.effects;
       }
@@ -674,6 +675,8 @@ export async function createPrivateTasks({
       for (const id of selected) if (!recipients.some(i => i.embeddingId === id && live(i))) reject('RECIPIENT_OFFLINE');
       if (input.instanceIds?.some(id => !recipients.some(i => i.id === id && live(i)))) reject('RECIPIENT_OFFLINE');
       const eligible = recipients.filter(live);
+      const existingCommand=operations.get(userId+':'+input.operationId);
+      if([...commands.values()].some(c=>c.id!==existingCommand&&c.recipients.some(r=>eligible.some(i=>i.id===r.instanceId)&&['dispatched','executing'].includes(r.status))))reject('RECIPIENT_BUSY');
       if (!eligible.length || eligible.length > Math.min(config.groupSize, input.fanoutLimit || config.groupSize)) reject('FANOUT_LIMIT');
       for (const i of eligible) if (enabled(i.scope, 'workflow').organizationId !== g.owner || enabled(i.scope, 'pairing').organizationId !== g.owner) reject('OWNERSHIP_CHANGED');
       let effectFamily;
@@ -722,6 +725,7 @@ export async function createPrivateTasks({
       if (input.taskId && !t) reject('TASK_ENDED');
       if (!t) {
         if (tasks.size >= config.tasks) reject('TASK_CAPACITY');
+        if([...tasks.values()].some(other=>current.recipients.some(r=>other.members.has(r.instanceId))))reject('TASK_SHARING_REQUIRED');
         t = {
           id: randomUUID(),
           key: randomBytes(32),
@@ -768,6 +772,7 @@ export async function createPrivateTasks({
       commands.set(c.id, c);
       operations.set(key, c.id);
       for (const r of c.recipients) try {
+        if(c.status==='failed'){finishCommand(c,r.instanceId,'cancelled','FANOUT_FAILED');continue;}
         send(instances.get(r.instanceId), {
           type: 'command',
           commandId: c.id,
@@ -789,6 +794,7 @@ export async function createPrivateTasks({
         target = instances.get(input.targetId),
         t = taskFor(scope, input.taskId, i.id);
       if (!g || !g.members.has(target?.id) || !live(target) || enabled(target.scope, 'pairing').organizationId !== i.owner || input.shareConsent !== true) reject('HANDOFF_DENIED');
+      if([...tasks.values()].some(other=>other.id!==t.id&&other.members.has(target.id)))reject('TASK_CONFLICT');
       t.members.add(target.id);
       t.grants.set(target.id, context(t, input.instruction || '', i.id));
       send(target, {
@@ -825,7 +831,7 @@ export async function createPrivateTasks({
       const i = member(scope, input.instanceId),
         c = commands.get(input.commandId),
         r = c?.recipients.find(r => r.instanceId === i.id);
-      if (!c || r?.status !== 'executing' || c.expiresAt <= clock() || !live(i) || r.connectionId !== i.connectionId) reject('COMMAND_ENDED');
+      if (!c || c.status==='failed'||r?.status !== 'executing' || c.expiresAt <= clock() || !live(i) || r.connectionId !== i.connectionId) reject('COMMAND_ENDED');
       const t = taskFor(scope, c.taskId, i.id),
         snapshot = validateSnapshot(input.snapshot);
       touch(t);
@@ -869,7 +875,7 @@ export async function createPrivateTasks({
       const i = member(scope, input.instanceId),
         c = commands.get(input.commandId),
         r = c?.recipients.find(r => r.instanceId === i.id);
-      if (!c || r?.status !== 'executing' || c.expiresAt <= clock() || r.connectionId !== i.connectionId || !live(i) || !groups.get(c.groupId)?.members.has(i.id)) reject('COMMAND_ENDED');
+      if (!c || c.status==='failed'||r?.status !== 'executing' || c.expiresAt <= clock() || r.connectionId !== i.connectionId || !live(i) || !groups.get(c.groupId)?.members.has(i.id)) reject('COMMAND_ENDED');
       enabled(scope, 'workflow');
       if (service.preflight(c.userId, c.preflightInput).fingerprint !== c.fingerprint) reject('POLICY_REVOKED');
       if (!['fill', 'navigate', 'submit'].includes(c.action)) reject('EFFECT_DENIED');
@@ -880,7 +886,7 @@ export async function createPrivateTasks({
         commandId: c.id,
         instanceId: i.id
       });
-      if (!allowed || r.status !== 'executing' || !live(i) || c.expiresAt <= clock()) reject('POLICY_REVOKED');
+      if (!allowed || c.status === 'failed' || r.status !== 'executing' || !live(i) || c.expiresAt <= clock()) reject('POLICY_REVOKED');
       if (service.preflight(c.userId, c.preflightInput).fingerprint !== c.fingerprint) reject('POLICY_REVOKED');
       if (r.plannedProposalId !== input.proposalId) reject('COMMAND_PROPOSAL_MISMATCH');
       if (!r.effects) {
@@ -1117,9 +1123,9 @@ export async function createPrivateTasks({
         groups: groups.size,
         privateJobs: files.filter(f => f.status === 'queued').length,
         activePrivateJobs: files.filter(f => f.status === 'extracting').length,
-        oldestPrivateQueueAgeMs: files.some(f=>f.status==='queued')?Math.max(0,clock()-Math.min(...files.filter(f=>f.status==='queued').map(f=>f.createdAt))):0,
-        commandCounts:Object.fromEntries(['dispatched','succeeded','failed'].map(status=>[status,[...commands.values()].filter(c=>c.status===status).length])),
-        fanoutFailures:[...commands.values()].reduce((sum,c)=>sum+c.recipients.filter(r=>r.status==='failed'||r.status==='expired').length,0),
+        oldestPrivateQueueAgeMs: files.some(f => f.status === 'queued') ? Math.max(0, clock() - Math.min(...files.filter(f => f.status === 'queued').map(f => f.createdAt))) : 0,
+        commandCounts: Object.fromEntries(['dispatched', 'succeeded', 'failed'].map(status => [status, [...commands.values()].filter(c => c.status === status).length])),
+        fanoutFailures: [...commands.values()].reduce((sum, c) => sum + c.recipients.filter(r => r.status === 'failed' || r.status === 'expired').length, 0),
         privateBytes: files.reduce((n, f) => n + f.bytes, 0),
         cleanupBacklog: cleanup.size
       };

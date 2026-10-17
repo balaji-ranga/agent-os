@@ -210,7 +210,7 @@ export function createCopilotConnector({
       const pass = passes.get(input.policyReference);
       if (!pass || pass.user !== input.userId || pass.fingerprint !== input.fingerprint || pass.expiresAt <= clock()) return false;
       await authorized(pass.user, pass.context);
-      const now = await preview(pass.user, pass.actionId, pass.body, pass.context);
+      const now = await preview(pass.user, pass.actionId, pass.body, pass.context, pass.decision);
       return now.ok && now.mode === pass.decision.mode && now.action_family === pass.decision.action_family && approvalActive(pass.decision);
     },
     async finish(user, runId) {

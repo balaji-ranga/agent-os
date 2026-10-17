@@ -3,12 +3,13 @@ export function mountTaskPanel({
   call,
   showError,
   show,
-  clearPrivate
+  clearPrivate,
+  isExpired=()=>false
 }) {
   const panel = document.createElement('details');
   panel.id = 'private-task';
   panel.hidden = true;
-  panel.innerHTML = '<summary>Task files & paired copilots</summary><p>Private to this task. End task deletes files and extracted context. Applied website values remain.</p><label>Transaction file <input id="transaction-file" type="file" accept=".pdf,.docx,.txt,.md,.png,.jpg,.jpeg"></label><div class="row"><button type="button" id="task-summary">Summarize files</button><button type="button" id="task-end">End task</button></div><ul id="task-files"></ul><details><summary>Pair another copilot</summary><button type="button" id="pair-invite">Create pairing code</button><p id="pair-code"></p><form id="pair-join"><label>Code from the other panel<input name="code" autocomplete="off" required maxlength="64"></label><button>Connect</button></form><button type="button" id="pair-refresh">Refresh paired sessions</button><div id="pair-members"></div><button type="button" id="pair-link">Link group to my Flolah workflows</button><p id="pair-link-code"></p><label>Handoff instruction <input id="relay-instruction" maxlength="8000" placeholder="Use relevant values to prepare the next form"></label><label><input id="relay-consent" type="checkbox"> Share relevant private task context with the selected paired panel</label></details><p id="task-state" role="status" aria-live="polite"></p>';
+  panel.innerHTML = '<summary>Task files & paired copilots</summary><p>Private to this task. End task deletes files and extracted context. Applied website values remain.</p><label>Transaction file <input id="transaction-file" type="file" accept=".pdf,.docx,.txt,.md,.png,.jpg,.jpeg"></label><div class="row"><button type="button" id="task-summary">Summarize files</button><button type="button" id="task-end">End task</button></div><p id="task-identity"></p><ul id="task-files"></ul><details><summary>Pair another copilot</summary><button type="button" id="pair-invite">Create pairing code</button><p id="pair-code"></p><form id="pair-join"><label>Code from the other panel<input name="code" autocomplete="off" required maxlength="64"></label><button>Connect</button></form><button type="button" id="pair-refresh">Refresh paired sessions</button><div id="pair-members"></div><button type="button" id="pair-link">Link group to my Flolah workflows</button><p id="pair-link-code"></p><label>Handoff instruction <input id="relay-instruction" maxlength="8000" placeholder="Use relevant values to prepare the next form"></label><label><input id="relay-consent" type="checkbox"> Share relevant private task context with the selected paired panel</label></details><p id="task-state" role="status" aria-live="polite"></p>';
   document.querySelector('#guide-chat').before(panel);
   const state = panel.querySelector('#task-state'),
     files = panel.querySelector('#task-files');
@@ -23,6 +24,7 @@ export function mountTaskPanel({
   };
   const renderTask = t => {
     active = true;
+    panel.querySelector('#task-identity').textContent=`Task ID: ${t.taskId}`;
     files.replaceChildren();
     for (const f of t.files) {
       const li = document.createElement('li');
@@ -76,6 +78,9 @@ export function mountTaskPanel({
     panel.querySelector('#relay-instruction').value = '';
     panel.querySelector('#relay-consent').checked = false;
     clearPrivate();
+    panel.querySelector('#task-identity').textContent='';
+    document.querySelector('#plan').disabled=isExpired();
+    document.querySelector('#stop').hidden=true;
   };
   panel.querySelector('#task-end').onclick = () => run(async () => {
     await call('task-end');
@@ -104,7 +109,7 @@ export function mountTaskPanel({
     }
     for (const m of out.members) {
       const row = document.createElement('p');
-      row.textContent = `${m.origin} · ${m.environment} · panel ${m.instanceId.slice(0,8)}${m.instanceId===out.instanceId?' (this panel)':''} · ${m.active ? 'online' : 'offline'}`;
+      row.textContent = `${m.origin} · ${m.environment} · panel ${m.instanceId.slice(0, 8)}${m.instanceId === out.instanceId ? ' (this panel)' : ''} · ${m.active ? 'online' : 'offline'}`;
       const remove = document.createElement('button');
       remove.type = 'button';
       remove.textContent = 'Disconnect';
@@ -117,7 +122,7 @@ export function mountTaskPanel({
       const relay = document.createElement('button');
       relay.type = 'button';
       relay.textContent = 'Send task here';
-      relay.disabled = !m.active||m.instanceId===out.instanceId;
+      relay.disabled = !m.active || m.instanceId === out.instanceId;
       relay.onclick = () => run(async () => {
         await call('task-relay', {
           targetId: m.instanceId,
@@ -159,6 +164,8 @@ export function mountTaskPanel({
       panel.querySelector('#pair-link').disabled = !config.taskPolicy?.workflow;
     },
     event(event) {
+      if(event.type==='workflow-started'){active=true;panel.open=true;document.querySelector('#review').replaceChildren();document.querySelector('#plan').disabled=true;state.textContent=`Workflow ${event.action} is running. End task cancels remaining work.`;show(`Your linked workflow requested ${event.action}.`);refreshTask().catch(showError);return;}
+      if(event.type==='workflow-result'){document.querySelector('#plan').disabled=isExpired();state.textContent=event.ok?'Workflow step completed. Business-save verification remains separate.':'Workflow step failed or its outcome is unknown. Inspect the host before trying again.';if(!event.ok)showError(new Error(state.textContent));return;}
       if (event.type === 'task-ended') reset();else if (event.type === 'task-shared') {
         active = true;
         panel.open = true;
