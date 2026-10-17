@@ -16,6 +16,13 @@ async function request(path,method='GET',body){const res=await fetch(base+path,{
 try{
   assert.equal((await request('/screen-spec?screen=connectors')).status,200);
   assert.equal((await request('/screen-spec?screen=admin')).status,403);
+  const platformMap=await request('/platform-map');
+  assert.equal(platformMap.status,200);assert.equal(platformMap.body.indexed,true);
+  assert(platformMap.body.nodes.every(n=>!n.route.startsWith('/admin')),'source index is permission-filtered');
+  const seeds=(await request('/coaching')).body.seeded_recipes;
+  assert(seeds.length>0&&seeds.every(r=>r.readonly&&r.source==='platform_seed'));
+  assert.equal((await request(`/coaching/${seeds[0].id}`)).status,200);
+  assert.equal((await request(`/coaching/${seeds[0].id}`,'PUT',{version:seeds[0].version,status:'archived'})).status,403,'global seed cannot be edited through private coaching');
   let s=(await request('/session','POST',{owner:'bob',origin:'https://evil.test'})).body;
   assert.equal(s.origin,'/');
   let reply=await request(`/session/${s.id}/propose`,'POST',{version:s.version,message:'Prepare a researcher',owner:'bob'});

@@ -124,7 +124,7 @@ elif mode=='activate':
   if digest(root/p)!=v:raise RuntimeError('Concurrent source change '+p)
  for p in paths:
   if (root/p).exists():dest=release/'source-before'/p;dest.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(root/p,dest)
- run('docker','exec','-e',f'COPILOT_BACKUP=/tmp/copilot-{revision}.db','agent-os-backend-1','node','--input-type=module','-e','import {getDb} from "./src/db/schema.js";await getDb().backup(process.env.COPILOT_BACKUP);')
+ run('docker','exec','-e',f'COPILOT_BACKUP=/tmp/copilot-{revision}.db','agent-os-backend-1','node','--input-type=module','-e','import Database from "better-sqlite3";import {join} from "node:path";const db=new Database(join(process.env.AGENT_OS_DATA_DIR||"/opt/agent-os/backend/data","agent-os.db"),{readonly:true,fileMustExist:true});await db.backup(process.env.COPILOT_BACKUP);db.close();')
  run('docker','cp',f'agent-os-backend-1:/tmp/copilot-{revision}.db',str(release/'database-before.db'));(release/'database-before.db').chmod(0o600)
  def recreate(s,image):
   override=release/(s+'.override.yml');override.write_text(f'services:\n  {s}:\n    image: {image}\n');args=['docker','compose','-p','agent-os']
