@@ -9,6 +9,16 @@ test -f "$release/package.json"
 mkdir -p "$ADOPTION_ROOT/config" "$ADOPTION_ROOT/data"
 chmod 700 "$ADOPTION_ROOT/config"
 base_image=$(docker inspect --format '{{.Config.Image}}' agent-os-backend-1)
+if docker inspect flolah-adoption-adoption-1 >/dev/null 2>&1; then
+  current_image=$(docker inspect --format '{{.Config.Image}}' flolah-adoption-adoption-1)
+  docker run --rm --network none --user 1000:1000 --entrypoint node -v "$ADOPTION_ROOT/data:/data" -v "$release:/release:ro" "$current_image" /release/deploy/checkpoint.mjs "$ADOPTION_RELEASE"
+  mkdir -p "$ADOPTION_ROOT/backups"
+  chmod 700 "$ADOPTION_ROOT/backups"
+  if test ! -f "$ADOPTION_ROOT/backups/config-before-$ADOPTION_RELEASE.tgz"; then
+    tar -czf "$ADOPTION_ROOT/backups/config-before-$ADOPTION_RELEASE.tgz" -C "$ADOPTION_ROOT" config
+    chmod 600 "$ADOPTION_ROOT/backups/config-before-$ADOPTION_RELEASE.tgz"
+  fi
+fi
 docker inspect agent-os-backend-1 | docker run --rm -i --network none --user 0:0 --entrypoint node -v "$ADOPTION_ROOT/config:/config" -v "$release:/release:ro" "$base_image" /release/deploy/prepare-config.mjs
 chown -R 1000:1000 "$ADOPTION_ROOT/config" "$ADOPTION_ROOT/data"
 docker build -f "$release/deploy/Dockerfile" -t "flolah-digital-adoption:$ADOPTION_RELEASE" "$release"

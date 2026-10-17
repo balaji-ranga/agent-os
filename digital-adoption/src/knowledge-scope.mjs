@@ -22,7 +22,7 @@ export function knowledgeScope({ embeddingId, audienceIds }) {
         index,
         body: {
           size,
-          _source: ['embedding_id', 'source_id', 'chunk_id', 'title', 'text', 'revision'],
+          _source: ['embedding_id', 'source_id', 'chunk_id', 'title', 'text', 'revision', 'locator', 'url'],
           sort: [{ chunk_id: 'asc' }],
           ...(after ? { search_after: [after] } : {}),
           query: { bool: {

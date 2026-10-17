@@ -38,18 +38,23 @@ export class SessionAuthority {
     }
   }
 
-  registerApproved({ embeddingId, origins, expiresAt, visibility = 'public' }) {
+  registerApproved({ embeddingId, origins, expiresAt, visibility = 'public', visitorUploads = false }) {
     if (!/^[a-zA-Z0-9_-]{1,80}$/.test(embeddingId) || !Array.isArray(origins) || !origins.length ||
-        origins.length > 20 || !Number.isSafeInteger(expiresAt) || expiresAt <= this.#clock() || visibility !== 'public') fail();
+        origins.length > 20 || !Number.isSafeInteger(expiresAt) || expiresAt <= this.#clock() || visibility !== 'public' || typeof visitorUploads!=='boolean') fail();
     const allowed = [...new Set(origins.map(value => originOf(value, this.#development)))];
     const secret = token('dac_install_');
     const id = randomUUID();
-    this.#installations.set(digest(secret), { id, embeddingId, origins: allowed, expiresAt, revoked: false });
+    this.#installations.set(digest(secret), { id, embeddingId, origins: allowed, expiresAt, revoked: false, visitorUploads });
     return { installationId: id, installationToken: secret };
   }
 
   installationSummary(embeddingId) {
     return [...this.#installations.values()].filter(i=>i.embeddingId===embeddingId).map(i=>({id:i.id,maskedId:`…${i.id.slice(-8)}`,expiresAt:i.expiresAt,status:this.#revoked.get(i.id)||i.revoked?'revoked':i.expiresAt<=this.#clock()?'expired':'active'}));
+  }
+
+  setUploadPolicy(embeddingId,enabled){
+    if(typeof enabled!=='boolean')fail();
+    for(const [key,installation] of this.#installations.entries())if(installation.embeddingId===embeddingId){installation.visitorUploads=enabled;this.#installations.set(key,installation);}
   }
 
   #installation(secret, origin) {
@@ -175,7 +180,7 @@ export class SessionAuthority {
     const entries = [...this.#installations.values()];
     const old = entries.find(i => i.id === installationId);
     if (!old || old.revoked || this.#revoked.get(old.id) || old.expiresAt <= this.#clock()) fail();
-    const replacement=this.registerApproved({embeddingId:old.embeddingId,origins:old.origins,expiresAt});
+    const replacement=this.registerApproved({embeddingId:old.embeddingId,origins:old.origins,expiresAt,visitorUploads:old.visitorUploads===true});
     // Locate its hashed storage key without retaining the publishable token.
     for (const [key,value] of this.#installations.entries()) {
       if(value.id===old.id) {value.expiresAt=Math.min(value.expiresAt,this.#clock()+overlapMs);this.#installations.set(key,value);break;}
@@ -192,7 +197,7 @@ export class SessionAuthority {
   #revoked = new Map();
 
   context({ sessionToken, origin }) {
-    const { session } = this.#authorize(sessionToken, origin);
-    return Object.freeze({ embeddingId: session.embeddingId, sessionId: session.id, audienceIds: ['public'],conversationVersion:session.conversationVersion||0 });
+    const { session,installation } = this.#authorize(sessionToken, origin);
+    return Object.freeze({ embeddingId: session.embeddingId, sessionId: session.id, audienceIds: ['public'],conversationVersion:session.conversationVersion||0,capabilities:{upload:installation.visitorUploads===true} });
   }
 }

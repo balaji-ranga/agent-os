@@ -20,6 +20,7 @@ export async function mount({ serviceUrl, installationToken, theme = {} }) {
   let taskGeneration=0;
   const frame = document.createElement('iframe');
   frame.dataset.adoptionWidget = 'true'; frame.title = 'Flolah Digital Adoption Copilot';
+  frame.allow='display-capture';
   const widgetUrl = new URL('widget.html', service);
   widgetUrl.hash = new URLSearchParams({ parentOrigin: location.origin }).toString();
   frame.src = widgetUrl.href;
@@ -50,7 +51,7 @@ export async function mount({ serviceUrl, installationToken, theme = {} }) {
     if (!message || message.channel !== 'flolah-adoption-v1' || typeof message.id !== 'string' || message.id.length > 80) return;
     let result;
     try {
-      if (message.type === 'config') result = {theme:appearance};
+      if (message.type === 'config') result = {theme:appearance,...await request('/v1/capabilities')};
       else if(message.type==='appearance'||message.type==='appearance-reset'){
         appearance=message.type==='appearance-reset'?hostAppearance:normalizeTheme({...appearance,...message.theme});applyAppearance();result={theme:appearance};
       }
@@ -58,6 +59,8 @@ export async function mount({ serviceUrl, installationToken, theme = {} }) {
       else if (message.type === 'history') result = await request('/v1/history');
       else if(message.type==='clear-history'){taskGeneration++;currentSnapshot=null;result=await request('/v1/history/clear');}
       else if(message.type==='documents')result=await request('/v1/knowledge/documents');
+      else if(message.type==='upload-document')result=await request('/v1/knowledge/upload',{title:message.title,filename:message.filename,mime:message.mime,content:message.content,sharedConsent:message.sharedConsent,operationId:message.operationId});
+      else if(message.type==='upload-status')result=await request('/v1/knowledge/upload-status',{sourceId:message.sourceId});
       else if(['record-start','record-pause','record-resume','record-stop'].includes(message.type)){
         await request('/v1/history'); // Revalidate session before local recording controls.
         const operation=message.type.slice(7);const steps=recorder[operation]();if(operation==='stop')recordedSteps=steps;if(operation==='start')recordedSteps=[];result={state:recorder.state(),steps:steps||[]};

@@ -1,4 +1,6 @@
 import { normalizeTheme, themeProperties } from './theme.mjs';
+import {encodeFile} from './files.mjs';
+import {createScreenCapture} from './screen-capture.mjs';
 let currentTheme=normalizeTheme({}),initialTheme;
 function applyTheme(value) {
   const theme = normalizeTheme(value);
@@ -67,7 +69,7 @@ document.querySelector('#chat').addEventListener('submit', async event => {
   try {
     show(field.value,'knowledge','user');knowledgeStatus.textContent='Searching this website’s approved knowledge…';
     const result = await call('ask', { text: field.value,replyTo:replies.knowledge }); show(result.message,'knowledge','assistant',result.messageId); field.value = '';replies.knowledge=null;replyHints.knowledge.hidden=true;
-    for(const evidence of result.citations){const details=document.createElement('details'),summary=document.createElement('summary'),excerpt=document.createElement('p');summary.textContent=evidence.title;excerpt.textContent=evidence.text;details.append(summary,excerpt);knowledgeLog.append(details);}
+    for(const evidence of result.citations){const details=document.createElement('details'),summary=document.createElement('summary'),excerpt=document.createElement('p');summary.textContent=`${evidence.title}${evidence.locator?' · '+evidence.locator:''} · ${evidence.revision.slice(0,8)}`;excerpt.textContent=evidence.text;details.append(summary,excerpt);if(evidence.url?.startsWith('https://')){const link=document.createElement('a');link.href=evidence.url;link.target='_blank';link.rel='noopener noreferrer';link.textContent='Open source';details.append(link);}knowledgeLog.append(details);}
     knowledgeStatus.textContent=result.kind==='greeting'?'Ready for your knowledge question.':result.kind==='no_evidence'?'No matching evidence found. No page inspection was performed.':'Answered from this embedding’s knowledge. No page inspection was performed.';
   }
   catch(error) { knowledgeStatus.textContent = error.message; }
@@ -125,5 +127,15 @@ async function record(operation){
  }catch(error){actionStatus.textContent=error.message;}
 }
 document.querySelector('#record-start').onclick=()=>record('start');document.querySelector('#record-pause').onclick=()=>record(recordingState==='paused'?'resume':'pause');document.querySelector('#record-stop').onclick=()=>record('stop');
-try { const config=await call('config');applyTheme(config.theme);const result = await call('history'); result.messages.forEach(message => show(message.text,message.channel||'guide',message.role,message.id)); }
+let capturedFile=null,lastUpload=null,uploadOperation=null,previewUrl,reviewBlob;
+const uploadForm=document.querySelector('#upload-form'),uploadStatus=document.querySelector('#upload-status'),uploadRefresh=document.querySelector('#upload-refresh');
+uploadForm.onsubmit=async event=>{event.preventDefault();const button=event.submitter;button.disabled=true;try{const file=capturedFile||document.querySelector('#upload-file').files[0],title=document.querySelector('#upload-title').value;if(!file)throw new Error('Choose a file first.');const fingerprint=`${file.name}:${file.size}:${file.lastModified}:${title}`;if(uploadOperation?.fingerprint!==fingerprint)uploadOperation={fingerprint,id:crypto.randomUUID()};const data=await encodeFile(file);lastUpload=await call('upload-document',{...data,title,sharedConsent:document.querySelector('#upload-consent').checked,operationId:uploadOperation.id});uploadStatus.textContent=`Upload accepted · ${lastUpload.status}. It is searchable only when Ready.`;uploadRefresh.hidden=false;}catch(error){uploadStatus.textContent=error.message;}finally{button.disabled=false;}};
+uploadRefresh.onclick=async()=>{try{const result=await call('upload-status',{sourceId:lastUpload.id});uploadStatus.textContent=`Processing: ${result.status}${result.lastError?' · '+result.lastError:''}`;}catch(error){uploadStatus.textContent=error.message;}};
+document.querySelector('#upload-file').onchange=()=>{capturedFile=null;uploadOperation=null;};
+const capture=createScreenCapture({onChange:({state,blob})=>{reviewBlob=blob;document.querySelector('#capture-status').textContent=`Screen capture: ${state}. Nothing is uploaded automatically.`;document.querySelector('#capture-start').disabled=['requesting','recording','paused'].includes(state);document.querySelector('#capture-pause').disabled=!['recording','paused'].includes(state);document.querySelector('#capture-pause').textContent=state==='paused'?'Resume':'Pause';document.querySelector('#capture-stop').disabled=!['recording','paused'].includes(state);document.querySelector('#capture-discard').disabled=['idle','discarded'].includes(state);document.querySelector('#capture-use').hidden=!blob;const preview=document.querySelector('#capture-preview');if(previewUrl){URL.revokeObjectURL(previewUrl);previewUrl=null;}preview.hidden=!blob;if(blob){previewUrl=URL.createObjectURL(blob);preview.src=previewUrl;}else preview.removeAttribute('src');}});
+document.querySelector('#capture-start').onclick=()=>capture.start().catch(error=>{document.querySelector('#capture-status').textContent=error.message;});
+document.querySelector('#capture-pause').onclick=()=>capture.state()==='paused'?capture.resume():capture.pause();document.querySelector('#capture-stop').onclick=()=>capture.stop();document.querySelector('#capture-discard').onclick=()=>{capturedFile=null;capture.discard();};
+document.querySelector('#capture-use').onclick=()=>{if(!reviewBlob)return;capturedFile=new File([reviewBlob],reviewBlob.type==='video/mp4'?'screen-recording.mp4':'screen-recording.webm',{type:reviewBlob.type});document.querySelector('#upload-title').value||='Screen recording';uploadStatus.textContent='Recording selected locally. Review the sharing checkbox, then Upload for processing.';uploadForm.scrollIntoView({block:'nearest'});};
+window.addEventListener('pagehide',()=>{capture.discard();if(previewUrl)URL.revokeObjectURL(previewUrl);},{once:true});
+try { const config=await call('config');applyTheme(config.theme);uploadForm.hidden=!config.capabilities?.upload;uploadStatus.textContent=config.capabilities?.upload?'Up to 16 MB; PDF/DOCX/text/HTML/PNG/JPEG and silent MP4/WebM.':'Visitor uploads are disabled. The website owner can add shared sources.';document.querySelector('#capture-use').disabled=!config.capabilities?.upload;const result = await call('history'); result.messages.forEach(message => show(message.text,message.channel||'guide',message.role,message.id)); }
 catch(error) { status.textContent = error.message; }

@@ -14,23 +14,26 @@ const assets = new Map([
   ['/session-client.mjs', ['../web/session-client.mjs', 'text/javascript']],
   ['/dom.mjs', ['../web/dom.mjs', 'text/javascript']],
   ['/recording.mjs', ['../web/recording.mjs', 'text/javascript']],
+  ['/files.mjs', ['../web/files.mjs', 'text/javascript']],
+  ['/screen-capture.mjs', ['../web/screen-capture.mjs', 'text/javascript']],
   ['/widget.html', ['../web/widget.html', 'text/html']],
   ['/widget.mjs', ['../web/widget.mjs', 'text/javascript']],
 ]);
-async function body(req) {
-  let text = '';
+async function body(req,limit=32_768) {
+  const chunks=[];let size=0;
   for await (const chunk of req) {
-    text += chunk.toString();
-    if (Buffer.byteLength(text) > 32_768) throw new Error('Request too large');
+    size+=chunk.length;if(size>limit)throw new Error('Request too large');chunks.push(chunk);
   }
-  const parsed = JSON.parse(text || '{}');
+  const parsed = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
   if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') throw new Error('Invalid request');
   return parsed;
 }
 
-export function createAdoptionServer({ authority, proposals, planner, knowledge, answer, management, ownerIdentity, ownerManagement, platformOrigin, development = false, fixture = null }) {
+export function createAdoptionServer({ authority, proposals, planner, knowledge, ingestion, answer, management, ownerIdentity, ownerManagement, platformOrigin, development = false, fixture = null }) {
   const budget=createRequestBudget();
+  let activeUploads=0;
   return createServer(async (req, res) => {
+    let uploadSlot=false;
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
@@ -41,7 +44,7 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
       if (req.method === 'GET' && assets.has(path)) {
         res.setHeader('Access-Control-Allow-Origin','*'); // Public SDK assets only; API authorization is separate.
         const [file, type] = assets.get(path);
-        res.setHeader('Content-Security-Policy', ['/manage.html','/owner.html'].includes(path)?"default-src 'none'; script-src 'self'; connect-src 'self'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'":"default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; frame-ancestors *");
+        res.setHeader('Content-Security-Policy', ['/manage.html','/owner.html'].includes(path)?"default-src 'none'; script-src 'self'; connect-src 'self'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'":"default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; media-src blob:; frame-ancestors *; base-uri 'none'; form-action 'none'");
         res.writeHead(200, { 'Content-Type': type });
         return res.end(await readFile(new URL(file, import.meta.url)));
       }
@@ -63,7 +66,17 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
       }
       if (req.method !== 'POST') return send(404, { error: 'Not found' });
       if (!(req.headers['content-type'] || '').startsWith('application/json')) return send(415, { error: 'JSON required' });
-      const input = await body(req);
+      const fileUpload=['/v1/manage/source-file','/v1/owner/manage/source-file','/v1/knowledge/upload'].includes(path);
+      if(fileUpload){
+        budget.take(`upload:${req.socket.remoteAddress}`,5);
+        // Authorize before buffering a large file. Resource ownership is checked
+        // again after parsing, before it reaches raw storage or a worker.
+        if(path==='/v1/manage/source-file'){if(!management)throw new Error('Management unavailable');await management({authorization:req.headers.authorization,origin,path:'/v1/manage/websites',input:{}});}
+        else if(path==='/v1/owner/manage/source-file'){if(!ownerManagement||origin!==platformOrigin)throw new Error('Owner access denied');await ownerManagement({authorization:req.headers.cookie,origin,path:'/v1/manage/websites',input:{}});}
+        else {const sessionToken=/^Bearer (\S+)$/.exec(req.headers.authorization||'')?.[1];if(!authority.context({sessionToken,origin}).capabilities.upload)throw new Error('Uploads disabled');}
+        if(activeUploads>=2)throw new Error('Request capacity reached');activeUploads++;uploadSlot=true;
+      }
+      const input = await body(req,fileUpload?23_000_000:32_768);
       let result;
       if(path.startsWith('/v1/owner/')){
         if(!ownerIdentity||origin!==platformOrigin)return send(403,{error:'Access denied'});
@@ -87,8 +100,15 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
         const auth = { sessionToken, origin };
         const scope = authority.context(auth);
         if (path === '/v1/history') result = { messages: authority.history(auth) };
+        else if(path==='/v1/capabilities')result={capabilities:scope.capabilities};
         else if(path==='/v1/history/clear')result=authority.clearConversation(auth);
         else if(path==='/v1/knowledge/documents'){if(!knowledge)throw new Error('Knowledge unavailable');result={sources:knowledge.available(scope)};}
+        else if(path==='/v1/knowledge/upload'){
+          if(!ingestion||!scope.capabilities.upload)throw new Error('Uploads disabled');
+          authority.touch(auth);result=await ingestion.upload({...scope,role:'maintainer'},input);
+          authority.context(auth); // Revocation while storage was in progress is not a successful response.
+        }
+        else if(path==='/v1/knowledge/upload-status'){if(!ingestion)throw new Error('Ingestion unavailable');result=ingestion.status(scope,input.sourceId);}
         else if (path === '/v1/messages') result = authority.appendMessage({ ...auth, text: input.text, replyTo: input.replyTo });
         else if (path === '/v1/renew') result = authority.renew(auth);
         else if (path === '/v1/terminate') { authority.terminate(auth); result = { terminated: true }; }
@@ -138,6 +158,6 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
     } catch (error) {
       const code = error.message === 'Request too large' ? 413 : error.message==='Request rate exceeded'||error.message==='Request capacity reached'?429:403;
       return send(code, { error: code === 413 ? 'Request too large' : 'Access denied or invalid request' });
-    }
+    }finally{if(uploadSlot)activeUploads--;}
   });
 }

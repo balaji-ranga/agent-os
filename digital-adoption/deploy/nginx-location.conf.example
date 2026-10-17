@@ -1,7 +1,7 @@
 # Include inside the existing TLS server only after deployment acceptance.
 # Digital Adoption API and assets remain separate from Platform Help routes.
 location /free-tools/digital-adoption/ {
-    client_max_body_size 32k;
+    client_max_body_size 23m;
     proxy_pass http://digital-adoption:4193/;
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-Proto $scheme;
