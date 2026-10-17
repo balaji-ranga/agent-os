@@ -8,7 +8,7 @@ export function createRecorder(document) {
     if(!target?.closest||target.closest('[data-adoption-widget],[data-adoption-private]'))return;
     if(event.type==='change'&&target.matches('input,textarea,select')){
       const id=fieldId(target);
-      if(!/^[a-zA-Z][a-zA-Z0-9_-]{0,79}$/.test(id)||/password|token|secret|otp|cvv|credit.?card/i.test(`${id} ${target.autocomplete}`)||['password','hidden','file'].includes(target.type))return;
+      if(!/^[a-zA-Z][a-zA-Z0-9_-]{0,79}$/.test(id)||/password|token|secret|otp|cvv|credit.?card|api.?key|access.?key|private.?key/i.test(`${id} ${target.autocomplete}`)||['password','hidden','file'].includes(target.type))return;
       steps.push({action:'fill',path:document.location.pathname,field:id,parameter:id});
     }
     if(event.type==='click'){

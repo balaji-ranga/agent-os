@@ -28,3 +28,6 @@ test('model cannot invent targets, code, or authority; approvals are session bou
   assert.throws(()=>store.consume(scope,{id:proposal.id,revision:1,approved:true}));
  }finally{repository.close();}
 });
+test('sensitive credential fields cannot enter an executable proposal',()=>{
+ const repository=openRepository();try{const store=createProposalStore(repository);for(const field of [{ref:'r1f0',label:'API key',type:'text'},{ref:'r1f0',label:'Integration',key:'private_key',type:'text'}])assert.throws(()=>store.prepare({embeddingId:'A',sessionId:'one'},{revision:1,fields:[field]},{message:'Review',actions:[{type:'fill',ref:'r1f0',value:'secret-value'}]}));}finally{repository.close();}
+});

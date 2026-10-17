@@ -38,18 +38,29 @@ export class SessionAuthority {
     }
   }
 
-  registerApproved({ embeddingId, origins, expiresAt, visibility = 'public' }) {
+  registerApproved({ embeddingId, origins, expiresAt, visibility = 'public', visitorUploads = false }) {
     if (!/^[a-zA-Z0-9_-]{1,80}$/.test(embeddingId) || !Array.isArray(origins) || !origins.length ||
-        origins.length > 20 || !Number.isSafeInteger(expiresAt) || expiresAt <= this.#clock() || visibility !== 'public') fail();
+        origins.length > 20 || !Number.isSafeInteger(expiresAt) || expiresAt <= this.#clock() || visibility !== 'public' || typeof visitorUploads!=='boolean') fail();
     const allowed = [...new Set(origins.map(value => originOf(value, this.#development)))];
     const secret = token('dac_install_');
     const id = randomUUID();
-    this.#installations.set(digest(secret), { id, embeddingId, origins: allowed, expiresAt, revoked: false });
+    this.#installations.set(digest(secret), { id, embeddingId, origins: allowed, expiresAt, revoked: false, visitorUploads });
     return { installationId: id, installationToken: secret };
   }
 
   installationSummary(embeddingId) {
     return [...this.#installations.values()].filter(i=>i.embeddingId===embeddingId).map(i=>({id:i.id,maskedId:`…${i.id.slice(-8)}`,expiresAt:i.expiresAt,status:this.#revoked.get(i.id)||i.revoked?'revoked':i.expiresAt<=this.#clock()?'expired':'active'}));
+  }
+
+  setUploadPolicy(embeddingId,enabled){
+    if(typeof enabled!=='boolean')fail();
+    for(const [key,installation] of this.#installations.entries({embeddingId}))if(installation.embeddingId===embeddingId){installation.visitorUploads=enabled;this.#installations.set(key,installation);}
+  }
+
+  grantCoaching(auth,grant){
+    const {session}=this.#authorize(auth.sessionToken,auth.origin);
+    if(grant?.embeddingId!==session.embeddingId||grant.origin!==session.origin||!Number.isSafeInteger(grant.expiresAt)||grant.expiresAt<=this.#clock()||grant.expiresAt>this.#clock()+10*60_000)fail();
+    session.coachingUntil=Math.min(grant.expiresAt,session.expiresAt);this.#sessions.set(session.id,session);return {coachingUntil:session.coachingUntil};
   }
 
   #installation(secret, origin) {
@@ -102,7 +113,7 @@ export class SessionAuthority {
     if (typeof secret !== 'string' || secret.length > 256) fail();
     const credential = this.#runtime.get(digest(secret));
     const session = credential && this.#sessions.get(credential.sessionId);
-    const installation = session && [...this.#installations.values()].find(i => i.id === session.installationId);
+    const installation = session && [...this.#installations.values({embeddingId:session.embeddingId})].find(i => i.id === session.installationId);
     if (!credential || credential.expiresAt <= this.#clock() || !session || session.terminated ||
         session.expiresAt <= this.#clock() || !Number.isSafeInteger(session.lastActivityAt) || session.lastActivityAt + this.#idleMs <= this.#clock() || session.origin !== originOf(origin, this.#development) ||
         !installation || installation.revoked || this.#revoked.get(installation.id) || installation.expiresAt <= this.#clock()) fail();
@@ -175,7 +186,7 @@ export class SessionAuthority {
     const entries = [...this.#installations.values()];
     const old = entries.find(i => i.id === installationId);
     if (!old || old.revoked || this.#revoked.get(old.id) || old.expiresAt <= this.#clock()) fail();
-    const replacement=this.registerApproved({embeddingId:old.embeddingId,origins:old.origins,expiresAt});
+    const replacement=this.registerApproved({embeddingId:old.embeddingId,origins:old.origins,expiresAt,visitorUploads:old.visitorUploads===true});
     // Locate its hashed storage key without retaining the publishable token.
     for (const [key,value] of this.#installations.entries()) {
       if(value.id===old.id) {value.expiresAt=Math.min(value.expiresAt,this.#clock()+overlapMs);this.#installations.set(key,value);break;}
@@ -192,7 +203,8 @@ export class SessionAuthority {
   #revoked = new Map();
 
   context({ sessionToken, origin }) {
-    const { session } = this.#authorize(sessionToken, origin);
-    return Object.freeze({ embeddingId: session.embeddingId, sessionId: session.id, audienceIds: ['public'],conversationVersion:session.conversationVersion||0 });
+    const { session,installation } = this.#authorize(sessionToken, origin);
+    const coach=(session.coachingUntil||0)>this.#clock();
+    return Object.freeze({ embeddingId: session.embeddingId, sessionId: session.id, audienceIds: ['public'],conversationVersion:session.conversationVersion||0,capabilities:{upload:installation.visitorUploads===true||coach,coach} });
   }
 }

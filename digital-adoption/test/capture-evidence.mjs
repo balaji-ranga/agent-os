@@ -11,7 +11,7 @@ const files=readdirSync('test').filter(f=>f.endsWith('.test.mjs')).map(f=>`test/
 const result=spawnSync(process.execPath,mode==='local'?['--test',...files]:['test/vps-acceptance.mjs'],{
  encoding:'utf8',env:{...process.env,ADOPTION_DEMO_CONFIG:resolve('.local/demo-public.json')},timeout:180000});
 const output=(result.stdout||'')+(result.stderr||'');
-if(/dac_session_[A-Za-z0-9_-]+|Bearer\s+[A-Za-z0-9_-]{20,}|sk-[A-Za-z0-9_-]{20,}/.test(output))throw new Error('Credential-shaped output blocked from evidence');
+if(/dac_(session|coach)_[A-Za-z0-9_-]+|Bearer\s+[A-Za-z0-9_-]{20,}|sk-[A-Za-z0-9_-]{20,}/.test(output))throw new Error('Credential-shaped output blocked from evidence');
 const at=new Date().toISOString().replace(/[:.]/g,'-'),artifact=`${mode}-${at}.log`;
 writeFileSync(resolve(root,artifact),output);
 const ids=mode==='local'?['F02','F03','F05','F06','F07','F08','F09','F10','F11','F12','F17','F22','F25','F27','F30','F31','F32','F37','F40','N01','N02','N06','N14']:

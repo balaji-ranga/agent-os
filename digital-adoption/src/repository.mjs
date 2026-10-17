@@ -5,11 +5,21 @@ export function openRepository(path = ':memory:') {
   const db = new DatabaseSync(path);
   db.exec('PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;');
   db.exec('CREATE TABLE IF NOT EXISTS adoption_state (namespace TEXT NOT NULL, key TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY(namespace,key))');
+  db.exec("CREATE INDEX IF NOT EXISTS adoption_embedding_scope ON adoption_state(namespace,json_extract(value,'$.embeddingId')); CREATE INDEX IF NOT EXISTS adoption_owner_scope ON adoption_state(namespace,json_extract(value,'$.organizationId'));");
   const get = db.prepare('SELECT value FROM adoption_state WHERE namespace=? AND key=?');
   const put = db.prepare('INSERT INTO adoption_state VALUES (?,?,?) ON CONFLICT(namespace,key) DO UPDATE SET value=excluded.value');
   const remove = db.prepare('DELETE FROM adoption_state WHERE namespace=? AND key=?');
   const all = db.prepare('SELECT value FROM adoption_state WHERE namespace=?');
   const entries = db.prepare('SELECT key,value FROM adoption_state WHERE namespace=?');
+  const scopedStatements=new Map();
+  const scoped=(namespace,filters,withKeys)=>{
+    const names=Object.keys(filters).sort();
+    if(names.some(name=>!['embeddingId','organizationId','audienceId','origin','scope'].includes(name)||typeof filters[name]!=='string'||!filters[name]||filters[name].length>512))throw new Error('Invalid repository scope');
+    if(!names.length)return withKeys?entries.all(namespace):all.all(namespace);
+    const cacheKey=`${withKeys}:${names.join(',')}`;
+    if(!scopedStatements.has(cacheKey))scopedStatements.set(cacheKey,db.prepare(`SELECT ${withKeys?'key,':''}value FROM adoption_state WHERE namespace=? AND ${names.map(name=>`json_extract(value,'$.${name}')=?`).join(' AND ')}`));
+    return scopedStatements.get(cacheKey).all(namespace,...names.map(name=>filters[name]));
+  };
   return {
     map(namespace) {
       if (!/^[a-z_]{1,40}$/.test(namespace)) throw new Error('Invalid namespace');
@@ -17,8 +27,8 @@ export function openRepository(path = ':memory:') {
         get: key => { const row = get.get(namespace, key); return row ? JSON.parse(row.value) : undefined; },
         set: (key, value) => put.run(namespace, key, JSON.stringify(value)),
         delete: key => remove.run(namespace, key),
-        values: () => all.all(namespace).map(r => JSON.parse(r.value)),
-        entries: () => entries.all(namespace).map(r => [r.key,JSON.parse(r.value)]),
+        values: (filters={}) => scoped(namespace,filters,false).map(r => JSON.parse(r.value)),
+        entries: (filters={}) => scoped(namespace,filters,true).map(r => [r.key,JSON.parse(r.value)]),
       };
     },
     transaction(fn) {

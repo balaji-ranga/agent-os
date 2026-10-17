@@ -19,16 +19,16 @@ export function createOpenSearch({ url, authorization, fetchImpl = fetch, develo
     async provision(embeddingId) {
       const index=indexFor(embeddingId);
       const exists=await fetchImpl(new URL(`/${index}`,base),{method:'HEAD',redirect:'error',signal:AbortSignal.timeout(15_000),headers:authorization?{Authorization:authorization}:{}});
-      if(exists.ok)return {acknowledged:true,existing:true};
+      if(exists.ok){await request(`/${index}/_mapping`,'PUT',{properties:{locator:{type:'keyword'},url:{type:'keyword',ignore_above:2048}}});return {acknowledged:true,existing:true};}
       if(exists.status!==404)throw new Error('Search provisioning check failed');
       return request(`/${index}`,'PUT',{settings:{number_of_shards:1,number_of_replicas:0},mappings:{dynamic:'strict',properties:{
         embedding_id:{type:'keyword'},source_id:{type:'keyword'},chunk_id:{type:'keyword'},revision:{type:'keyword'},
-        status:{type:'keyword'},deleted:{type:'boolean'},audience_ids:{type:'keyword'},title:{type:'text'},text:{type:'text'},
+        status:{type:'keyword'},deleted:{type:'boolean'},audience_ids:{type:'keyword'},title:{type:'text'},text:{type:'text'},locator:{type:'keyword'},url:{type:'keyword',ignore_above:2048},
       }}});
     },
     async index(embeddingId,chunks) {
       const index=indexFor(embeddingId);
-      if (!Array.isArray(chunks) || chunks.length>100 || chunks.some(c=>c.embedding_id!==embeddingId)) throw new Error('Invalid indexing batch');
+      if (!Array.isArray(chunks) || chunks.length>300 || chunks.some(c=>c.embedding_id!==embeddingId)) throw new Error('Invalid indexing batch');
       const lines=chunks.flatMap(chunk=>[JSON.stringify({index:{_index:index,_id:chunk.chunk_id}}),JSON.stringify(chunk)]).join('\n')+'\n';
       return request('/_bulk?refresh=wait_for','POST',lines,true);
     },

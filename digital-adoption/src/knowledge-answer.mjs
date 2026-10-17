@@ -12,6 +12,7 @@ export function createKnowledgeAnswer({gatewayUrl,serviceToken,fetchImpl=fetch})
   if(!response.ok)throw new Error('Knowledge model unavailable');
   const payload=await response.json();const answer=JSON.parse(payload.content);
   if(typeof answer.message!=='string'||answer.message.length>8000||!Array.isArray(answer.citations)||answer.citations.length>6||answer.citations.some(id=>!selected.some(e=>e.chunkId===id)))throw new Error('Invalid evidence citations');
+  if(!answer.citations.length)return {message:'I could not support an answer with the retrieved evidence. Try a more specific question or source title.',citations:[],kind:'no_evidence'};
   return {message:answer.message,citations:answer.citations.map(id=>selected.find(e=>e.chunkId===id)),kind:'answer'};
  };
 }

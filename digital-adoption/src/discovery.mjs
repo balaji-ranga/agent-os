@@ -29,7 +29,7 @@ export function createDiscovery({ origin, seed, approvedReadOnlyPaths, maxPages 
       if (paused || stopped || !active || path !== active.path || !Array.isArray(fields) || !Array.isArray(links)) throw new Error('Unexpected discovery observation');
       const safeFields = fields.slice(0,60).map(f => {
         if (!f || typeof f.id !== 'string' || !/^[a-zA-Z][a-zA-Z0-9_-]{0,79}$/.test(f.id) ||
-            /password|token|secret|otp|cvv/i.test(f.id) || !['text','number','email','date','select','textarea','checkbox'].includes(f.type)) return null;
+            /password|token|secret|otp|cvv|api.?key|access.?key|private.?key/i.test(f.id) || !['text','number','email','date','select','textarea','checkbox'].includes(f.type)) return null;
         return { id: f.id, type: f.type, required: f.required === true };
       }).filter(Boolean);
       const fingerprint = createHash('sha256').update(JSON.stringify(safeFields.slice().sort((a,b) => a.id.localeCompare(b.id)))).digest('hex');
