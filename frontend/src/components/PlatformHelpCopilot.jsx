@@ -11,6 +11,7 @@ import { captureDomFields, applyDomFields, visibleCopilotControls, visibleCopilo
 import AgentChatPanel from './AgentChatPanel';
 import CopilotCoaching from './CopilotCoaching';
 import {replayStep,replayMatches,replayPrompt,openReplayDestination} from '../utils/copilotReplay.js';
+import {newerCopilotSession} from '../utils/copilotSessionState.js';
 import './PlatformHelpCopilot.css';
 const fieldLabels={kind:'Connection',collections:'Content to include',interval_seconds:'Sync frequency',graph_enabled:'Connect related information',intelligent_mapping:'Intelligent relationship mapping',enabled:'Synchronization',retrieval_enabled:'Visible in search',folder_id:'Folder',query:'Content filter',selection:'Content selection'};
 function displayValue(key,value){
@@ -34,10 +35,12 @@ function hasDraftContent(id,values){
 const reviewKey=action=>JSON.stringify(action);
 export default function PlatformHelpCopilot() {
   const { user } = useAuth(), location = useLocation(), navigate = useNavigate();
-  const [open,setOpen]=useState(false),[catalog,setCatalog]=useState(null),[session,setSession]=useState(null);
+  const [open,setOpen]=useState(false),[catalog,setCatalog]=useState(null),[session,setSessionState]=useState(null);
+  const setSession=next=>setSessionState(current=>newerCopilotSession(current,next));
   const [input,setInput]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
   const [watch,setWatch]=useState(null),[helpChat,setHelpChat]=useState(false);
-  const [review,setReview]=useState(null);
+  const [review,setReviewState]=useState(null),reviewRef=useRef(null);
+  const setReview=next=>{reviewRef.current=typeof next==='function'?next(reviewRef.current):next;setReviewState(reviewRef.current);};
   const [settings,setSettings]=useState(false);
   const [replay,setReplay]=useState(null);
   const settingsToggle=useRef(null);
@@ -80,11 +83,12 @@ export default function PlatformHelpCopilot() {
   useEffect(()=>{setSession(null);setReview(null);setGuide(null);setWatch(null);setReplyTo(null);setPendingForm(null);baselines.current={};},[user?.id]);
   useEffect(()=>{if(review&&reviewPanel.current){reviewPanel.current.scrollIntoView({block:'nearest',behavior:'smooth'});reviewPanel.current.focus({preventScroll:true});}},[review]);
   useEffect(()=>{
-    const saved=e=>{const form=e.detail?.form;if(!session?.drafts?.[form])return;
+    const saved=e=>{const form=e.detail?.form;if(!session||!catalog?.forms[form])return;
+      setReview(null);
       api.copilotUpdate(session.id,{version:session.version,clearDraft:form}).then(next=>{setSession(next);setReview(null);setNotice('Saved successfully. I’ve removed that unfinished draft.');}).catch(()=>setNotice('Your form was saved. The assistance session changed, so I kept its draft—refresh and discard it if no longer needed.'));
     };
     window.addEventListener('flolah-copilot-form-saved',saved);return()=>window.removeEventListener('flolah-copilot-form-saved',saved);
-  },[session]);
+  },[session,catalog]);
   useEffect(()=>{
     const show=()=>setOpen(true);
     window.addEventListener('agent-os-open-platform-help',show);
@@ -189,6 +193,7 @@ export default function PlatformHelpCopilot() {
     navigate(route,{state});
   }
   async function apply(action){
+    const draftResume=!action.type; if(draftResume)action={...action,type:'fill'};
     if(completedActions.includes(reviewKey(action)))throw new Error('This New action was already requested. Inspect its result before asking to create another record.');
     const fresh=await api.copilotCatalog(location.pathname);
     if(action.type==='embed_open_form'){
@@ -214,10 +219,14 @@ export default function PlatformHelpCopilot() {
     if(!binding){await go(fresh.forms[action.form].route);setNotice('Form opened. Review the proposal, then apply the fields.');return;}
     const expected=baselines.current[action.form] ?? binding.read();
     if(JSON.stringify(binding.read())!==JSON.stringify(expected))throw new Error('You edited this form after the proposal. Ask again to preserve your latest changes.');
-    showForm(action.form);setReview({action,anchor:reviewKey(action),expected});
+    showForm(action.form);setReview({action,anchor:reviewKey(action),expected,draftResume});
   }
   async function confirmFields(){
+    const expectedReview=reviewRef.current,actor=user?.id,path=location.pathname;
+    if(!expectedReview)throw new Error('The review is no longer available. Ask again before applying fields.');
     const fresh=await api.copilotCatalog(location.pathname);
+    await api.copilotReview(session.id,{version:session.version,screen_path:location.pathname,action:review.action,...(review.draftResume?{source:'draft'}:{})});
+    if(reviewRef.current!==expectedReview||liveContext.current.userId!==actor||liveContext.current.path!==path)throw new Error('The review or screen changed. No new fields were applied; review the current form again.');
     if(review.action.type==='embed_open_form'){
       if(!fresh.screens.some(s=>s.id===review.action.screen&&s.route===location.pathname))throw new Error('The workspace or your access changed.');
       const action=review.action,snapshot=review.embedSnapshot;setReview(null);
@@ -362,7 +371,7 @@ export default function PlatformHelpCopilot() {
         {replay&&<article aria-label="Recording replay"><strong>{replay.recipe.title} · step {replay.index+1} of {replay.recipe.steps.length}</strong><p>{replay.recipe.steps[replay.index].instruction}</p><p>Check: {replay.recipe.steps[replay.index].success}</p><small>Confirm the result yourself before advancing. Saves remain separate.</small><div><button disabled={busy||replay.paused} onClick={()=>run(replayOpen)}>Open recorded screen</button><button disabled={busy||replay.paused} onClick={()=>run(async()=>{const {latest}=await replayCurrent();setInput(replayPrompt(latest,replay.index));composer.current?.focus();setNotice('Step added to chat. Add current values if needed, then send to prepare a reviewed action.');})}>Prepare step in chat</button><button disabled={busy||replay.paused} onClick={()=>run(replayVerify)}>I verified this step</button><button disabled={busy} onClick={()=>setReplay({...replay,paused:!replay.paused})}>{replay.paused?'Resume replay':'Pause replay'}</button><button disabled={busy} onClick={()=>setReplay(null)}>Stop replay</button></div></article>}
         <div ref={conversationPanel} className="copilot-conversation" role="log" aria-label="Conversation">
           {!session?.proposal&&<p className="copilot-bubble">What would you like to do? Tell me in your own words—I’ll help you find the right screen or prepare your setup.</p>}
-          {(session?.conversation||[]).map((m,i)=><div key={m.id||i} className={`copilot-bubble copilot-${m.role}`}><small>{m.role==='user'?'You':'Platform Help'}</small><p>{m.text}</p>{m.id&&<button type="button" className="btn-ghost" title="Reply to this message" aria-label={`Reply to ${m.role==='user'?'your':'Platform Help'} message ${i+1}`} onClick={()=>{setReplyTo(m);composer.current?.focus();}}>↩</button>}</div>)}
+          {(session?.conversation||[]).map((m,i)=><div key={m.id||i} className={`copilot-bubble copilot-${m.role}`}><small>{m.role==='user'?'You':'Platform Help'}</small><p>{m.text}</p>{m.recipe_match&&<details><summary>{m.recipe_match.status==='matched'?'Matched recorded guidance':'Recording selection needs your choice'}</summary><p>Lexical request matching · guidance only, not live verification.</p>{m.recipe_match.candidates.map(r=><p key={r.id}><strong>{r.title} · v{r.version}</strong><br/>{r.reason}</p>)}</details>}{m.id&&<button type="button" className="btn-ghost" title="Reply to this message" aria-label={`Reply to ${m.role==='user'?'your':'Platform Help'} message ${i+1}`} onClick={()=>{setReplyTo(m);composer.current?.focus();}}>↩</button>}</div>)}
           {session?.proposal&&!session?.conversation?.length&&<p className="copilot-bubble">{session.proposal.message}</p>}
         </div>
         {session?.proposal&&<div className="copilot-proposal">{session.proposal.actions.map((a,i)=><article key={i}>

@@ -27,6 +27,8 @@ export function applyDomFields(snapshot,values){
   }
   for(const [id,value] of Object.entries(values)){
     const el=snapshot[id].element,view=el.ownerDocument.defaultView;
+    if(!el.isConnected||el.disabled||el.readOnly||!el.getClientRects().length||(el.value!==snapshot[id].value&&el.value!==value))throw new Error('The form changed while applying fields. Earlier fields may already have been entered; verify the current form before continuing.');
+    if(el.tagName==='SELECT'&&![...el.options].some(o=>o.value===value&&!o.disabled))throw new Error('Dropdown options changed while applying fields. Verify any earlier entries and review again.');
     // A dependent dropdown may already have selected the reviewed value.
     // Treat that as a no-op; never overwrite a different intervening edit.
     if(el.value===value)continue;
@@ -38,7 +40,7 @@ export function applyDomFields(snapshot,values){
 }
 
 export function visibleCopilotControls(root){
-  return [...new Set([...root.querySelectorAll('[data-copilot-control]')].filter(e=>e.getClientRects().length&&!e.disabled&&!e.hidden).map(e=>e.getAttribute('data-copilot-control')))].slice(0,150);
+  return [...new Set([...root.querySelectorAll('[data-copilot-control]')].filter(e=>e.getClientRects().length&&!e.disabled&&!e.readOnly&&!e.hidden).map(e=>e.getAttribute('data-copilot-control')))].slice(0,150);
 }
 
 // Describe dropdown choices only, never the current field values or credentials.

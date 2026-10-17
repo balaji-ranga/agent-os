@@ -56,8 +56,11 @@ try{
     check(invalid.status,502,'unavailable dropdown option still fails closed '+target.route);
    }
   }
+  const beforeSave=calls,save=await post(`/session/${s.id}/propose`,{version:result.body.version,message:'Save this form',screen:target.id});
+  check(save.status,200,'save-only guidance '+target.route);check(save.body.proposal.actions,[],'save request never repopulates '+target.route);check(calls,beforeSave,'no model-generated defaults on save '+target.route);
+  if(field)check((await post(`/session/${s.id}/review`,{version:save.body.version,action:proposal.actions[0]})).status>=400,true,'old field patch cannot be reused after save-only request '+target.route);
   denied=target.id;const beforeDenied=calls;
-  check((await post(`/session/${s.id}/propose`,{version:result.body.version,message,screen:target.id})).status,403,'denied screen rejected '+target.route);
+  check((await post(`/session/${s.id}/propose`,{version:save.body.version,message,screen:target.id})).status,403,'denied screen rejected '+target.route);
   check(calls,beforeDenied,'denied access makes no model call '+target.route);denied=null;
  }
  check(db.prepare("SELECT count(*) n FROM sqlite_master WHERE name='platform_users'").get().n,0,'harness has no profile persistence or customer settings');

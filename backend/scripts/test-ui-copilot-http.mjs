@@ -234,7 +234,8 @@ try{
   db.prepare('UPDATE ui_copilot_sessions SET state=? WHERE id=?').run(JSON.stringify(expiredWatch),s.id);
   s=(await request(`/session/${s.id}/watch/check`,'POST',{})).body;
   assert.equal(s.watch.status,'timeout');assert.equal(connectionCalls,2,'Expired watcher must not contact provider');
-  let coached=(await request('/coaching','POST',{title:'Observed customer flow'})).body;
+  const recipeMetadata={purpose:'Verify saved customer',use_when:'Explain customer screen',expected_outcome:'Customer remains after reopening'};
+  let coached=(await request('/coaching','POST',{title:'Observed customer flow',metadata:recipeMetadata})).body;
   coached=(await request(`/coaching/${coached.id}`,'PUT',{version:coached.version,step:{screen:'erp',path:'/app/customer',action:'verify',instruction:'Observe the saved customer.',success:'The customer remains after reopening.',fields:['customer_name']}})).body;
   coached=(await request(`/coaching/${coached.id}`,'PUT',{version:coached.version,status:'published',reviewed:true})).body;
   assert.equal(coached.status,'published',JSON.stringify(coached));
@@ -243,6 +244,13 @@ try{
   assert.equal((await request(`/session/${coachingSession.id}/propose`,'POST',{version:coachingSession.version,screen:'erp',message:'Explain this customer screen'})).status,200);
   assert(lastModelRequest.messages.some(m=>m.content.includes('coached_recipes')&&m.content.includes(coached.id)));
   assert(lastModelRequest.messages[0].content.includes('never grant permission'));
+  const suggestion=await request(`/coaching/${coached.id}/suggestion`);assert.equal(suggestion.status,200);assert.equal(suggestion.body.review_required,true);assert.equal((await request(`/coaching/${coached.id}`)).body.version,coached.version);
+  let twin=(await request('/coaching','POST',{title:'Second customer flow',metadata:recipeMetadata})).body;
+  twin=(await request(`/coaching/${twin.id}`,'PUT',{version:twin.version,step:coached.steps[0]})).body;
+  twin=(await request(`/coaching/${twin.id}`,'PUT',{version:twin.version,status:'published',reviewed:true})).body;
+  const ambiguitySession=(await request('/session','POST',{origin:'/erp'})).body,callsBeforeAmbiguity=invoked;
+  const ambiguity=await request(`/session/${ambiguitySession.id}/propose`,'POST',{version:ambiguitySession.version,screen:'erp',message:'Explain this customer screen'});
+  assert.equal(ambiguity.status,200);assert.deepEqual(ambiguity.body.proposal.actions,[]);assert.equal(ambiguity.body.conversation.at(-1).recipe_match.status,'ambiguous');assert.equal(invoked,callsBeforeAmbiguity,'Ambiguous recipes cannot trigger model actions');
   const callsAfterCoaching=invoked;
   modelReply={message:'Incomplete response without actions'};
   assert.equal((await request(`/session/${s.id}/propose`,'POST',{version:s.version,message:'Show a review'})).status,502);
@@ -251,7 +259,8 @@ try{
   assert.deepEqual(s.fill_receipts,[]);
   await request(`/session/${s.id}/watch/check`,'POST',{});assert.equal(connectionCalls,2);assert.equal(s.watch,null);
   user={id:'bob',role:'ceo'};
-  let lesson=(await request('/coaching','POST',{title:'Customer lesson',owner:'alice'})).body;
+  let lesson=(await request('/coaching','POST',{title:'Customer lesson',owner:'alice',metadata:recipeMetadata})).body;
+  assert.equal((await request(`/coaching/${coached.id}/suggestion`)).status,404,'Suggestions keep tenant isolation');
   assert.equal((await request('/coaching')).body.recipes.length,1);
   assert.equal((await request(`/coaching/${lesson.id}`,'PUT',{version:lesson.version,step:{screen:'admin',path:'/admin',action:'navigate',instruction:'Open',success:'Visible'}})).status,403);
   lesson=(await request(`/coaching/${lesson.id}`,'PUT',{version:lesson.version,step:{screen:'erp',path:'/app/customer',action:'navigate',instruction:'Open the observed Customer link.',success:'Customer list is visible.',fields:['customer_name'],values:{customer_name:'MUST_NOT_STORE'}}})).body;

@@ -89,6 +89,20 @@ export function normalizeCopilotScreenActions(input,catalog,currentScreenId,visi
   // Discard the unobserved path and enter the authorized shell first; the
   // continuation must inspect its DOM before proposing an internal link.
   const destination=input.actions.length===1?input.actions[0]:null;
+  // Models can batch "open the destination" with an off-screen field patch.
+  // For a coherent single-destination native plan, preserve only navigation;
+  // none of its unobserved field values are validated, saved or replayed.
+  if(input.actions.length>1){
+    const targets=input.actions.map(a=>{
+      if(a?.type==='navigate'||a?.type==='screen_fill')return catalog.screens.find(s=>s.id===a.screen);
+      if(a?.type==='fill'&&Object.hasOwn(catalog.forms,a.form)){
+        const route=String(catalog.forms[a.form].route||'').split(/[?#]/)[0],matches=catalog.screens.filter(s=>s.route.split(/[?#]/)[0]===route);
+        return matches.length===1?matches[0]:null;
+      }
+      return null;
+    });
+    if(targets.every(Boolean)&&new Set(targets.map(s=>s.id)).size===1&&targets[0].id!==currentScreenId&&input.actions.some(a=>['fill','screen_fill'].includes(a.type)))return {...input,actions:[{type:'navigate',screen:targets[0].id}]};
+  }
   if(destination?.type==='embed_navigate'&&destination.screen!==currentScreenId&&['crm','erp'].includes(destination.screen)&&catalog.screens.some(s=>s.id===destination.screen))return {...input,actions:[{type:'navigate',screen:destination.screen}]};
   if(destination?.type==='screen_fill'&&destination.screen!==currentScreenId&&catalog.screens.some(s=>s.id===destination.screen))return {...input,actions:[{type:'navigate',screen:destination.screen}]};
   // A registered adapter can cover only part of its screen. An off-screen
