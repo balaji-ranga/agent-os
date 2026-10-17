@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {findGuideField,highlightGuideField,revealRegisteredForm} from '../src/utils/copilotGuide.js';
-import {captureDomFields,applyDomFields,visibleCopilotOptions} from '../src/utils/copilotDomFill.js';
+import {captureDomFields,applyDomFields,visibleCopilotOptions,visibleCopilotControls} from '../src/utils/copilotDomFill.js';
 const field=(overrides={})=>({name:'name',id:'',type:'text',labels:[],getAttribute:()=>null,closest:()=>null,getClientRects:()=>[{}],...overrides});
 const root=items=>({querySelectorAll:()=>items});
 const name=field();
@@ -44,4 +44,9 @@ assert.throws(()=>applyDomFields({first:{element:valid,value:'Before'},event:{el
 assert.equal(valid.value,'Before','Preflight rejects the whole batch before writing');
 applyDomFields({first:{element:valid,value:'Before'}},{first:'After'});
 assert.equal(valid.value,'After');assert.deepEqual(valid.events,['input','change']);
+const head=new Input('Before'),tail=new Input('Before');
+head.dispatchEvent=()=>{tail.value='Intervening edit';};
+assert.throws(()=>applyDomFields({head:{element:head,value:'Before'},tail:{element:tail,value:'Before'}},{head:'Approved',tail:'Approved'}),/Earlier fields may already have been entered/);
+assert.equal(head.value,'Approved');assert.equal(tail.value,'Intervening edit','dependent/intervening changes are never overwritten after preflight');
+assert.deepEqual(visibleCopilotControls(root([field({readOnly:true,getAttribute:()=> 'readonly'}),field({getAttribute:()=> 'editable'})])),['editable'],'runtime read-only fields are not advertised for editing');
 console.log('PASS DOM fill: controlled-input events, dependent no-op, stale-edit protection and all-or-nothing preflight.');

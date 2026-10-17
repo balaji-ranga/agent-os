@@ -20,6 +20,10 @@ Do not claim a visible eligible setting is unsupported just because it is absent
 from a registered form. Do not invent aliases, fields or dropdown values.
 Prepare a partial PATCH: leave all unrelated existing fields unchanged. Required
 fields on a screen are not requests to collect name, email or other existing data.
+Never populate a field from a placeholder, example or default merely because it
+is visible or required. Saving an existing form is NOT a request to fill it again.
+When the user names fields to edit, include ONLY those requested fields. Do not
+add CRM/ERP, provider, identity or connection changes to another setting's patch.
 Ask only for genuinely missing information needed for the requested change.
 Guided mode permits the SAME reviewed patches; the browser sequences approvals.
 Preparing fields is NOT saving. Never save, submit, change access, enter secrets
@@ -90,6 +94,7 @@ export function targetsCurrentNativeControls(actions,catalog,screen){
 }
 
 export function copilotValidationCategory(error){
+  if(error?.code==='copilot_write_intent')return 'unrequested_field_changes';
   if(error instanceof SyntaxError)return 'invalid_json';
   const text=String(error?.message||'');
   if(text.startsWith('Unregistered field:'))return 'unregistered_form_field';

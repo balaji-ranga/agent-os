@@ -59,6 +59,10 @@ try{
   assert.equal(response.status,200,JSON.stringify({mode,error:response.data.error}));
   assert.equal(response.data.proposal.actions.length,1);assert.equal(response.data.proposal.actions[0].type,'screen_fill');assert.equal(response.data.proposal.actions[0].screen,'profile');assert.deepEqual(response.data.proposal.actions[0].values,{[field.id]:'no'});
   console.log(JSON.stringify({stage:'live_model_cross_screen',mode,model_calls:modelCalls-before,elapsed_ms:Date.now()-started,pass:true}));
+  const beforeSave=modelCalls;
+  const saving=await post(`/session/${s.id}/propose`,{version:response.data.version,screen:'profile',visible_control_ids:copilotScreenControls('/profile').map(c=>c.id),message:'Save changes in profile'});
+  assert.equal(saving.status,200);assert.deepEqual(saving.data.proposal.actions,[]);assert.equal(modelCalls,beforeSave,'save-only request is code-enforced, not a model suggestion');
+  console.log(JSON.stringify({stage:'save_only_after_live_edit',mode,pass:true,model_calls:0,settings_saved:false}));
  }
  console.log(JSON.stringify({stage:'COPILOT_LIVE_PROFILE_PASS',cases:cases.length+3,models:[...models],production_settings_unchanged:true,production_sessions_unchanged:true}));
 }finally{await new Promise(resolve=>server.close(resolve));db.close();}

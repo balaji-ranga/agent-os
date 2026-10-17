@@ -6,7 +6,7 @@
   "type": "module",
   "main": "src/index.js",
   "scripts": {
-    "test:ui-copilot": "node scripts/test-ui-copilot.mjs && node scripts/test-copilot-coaching.mjs && node scripts/test-copilot-screen-coverage.mjs && node scripts/test-copilot-platform-map.mjs && node scripts/test-copilot-response-contract.mjs && node scripts/test-copilot-screen-journeys.mjs && node scripts/test-ui-copilot-http.mjs",
+    "test:ui-copilot": "node scripts/test-ui-copilot.mjs && node scripts/test-copilot-coaching.mjs && node scripts/test-copilot-screen-coverage.mjs && node scripts/test-copilot-platform-map.mjs && node scripts/test-copilot-response-contract.mjs && node scripts/test-copilot-save-intent.mjs && node scripts/test-copilot-screen-journeys.mjs && node scripts/test-ui-copilot-http.mjs",
     "test:multi-format-content": "node scripts/test-multi-format-content.mjs",
     "test:kanban-task-observer": "node scripts/test-kanban-task-observer.mjs",
     "test:observer-uncertainty": "node scripts/test-observer-uncertainty.mjs",

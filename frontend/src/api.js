@@ -158,6 +158,7 @@ export const api = {
   copilotCreate: (body) => post('/ui-copilot/session', body),
   copilotUpdate: (id, body) => put(`/ui-copilot/session/${encodeURIComponent(id)}`, body),
   copilotPropose: (id, body) => post(`/ui-copilot/session/${encodeURIComponent(id)}/propose`, body),
+  copilotReview: (id, body) => post(`/ui-copilot/session/${encodeURIComponent(id)}/review`, body),
   copilotCheckConnection: (id) => post(`/ui-copilot/session/${encodeURIComponent(id)}/watch/check`, {}),
   steeringTargets: (agentId) => get(`/work-steering/targets${agentId ? `?agent_id=${encodeURIComponent(agentId)}` : ''}`),
   steeringHistory: (kind, id) => get(`/work-steering?target_kind=${encodeURIComponent(kind)}&target_id=${encodeURIComponent(id)}`),

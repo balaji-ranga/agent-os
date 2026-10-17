@@ -18,6 +18,7 @@ import { copilotCoachingStore, cleanCoachingStep } from '../services/ui-copilot-
 import { COPILOT_COACHING_EXAMPLES } from '../services/ui-copilot-coaching-examples.js';
 import {COPILOT_RESPONSE_POLICY,parseCopilotResponse,copilotResponseContract,targetsCurrentNativeControls,copilotValidationCategory,reconcileCopilotCurrentNavigation} from '../services/ui-copilot-response.js';
 import {copilotPlatformMap,copilotPlatformContext,platformSeedRecipes,platformSeedRecipe} from '../services/ui-copilot-platform-map.js';
+import {copilotSaveOnly,copilotManualSaveProposal,assertCopilotWriteIntent,copilotProposalView,clearCopilotFormEdits} from '../services/ui-copilot-write-intent.js';
 
 const destinations = [
   ['home','Home','/'], ['this-week','Digest','/this-week'], ['work','Workspace','/work'],
@@ -99,7 +100,7 @@ router.get('/screen-spec',handler(req=>{
  if(!screen)throw copilotError('Screen access denied',403);
  return {screen:screen.id,...copilotScreenSpec(screen.route)};
 }));
-router.get('/session',handler(req=>({session:uiCopilotStore(database()).latest(req.copilotOwner,req.authUser.id)})));
+router.get('/session',handler(req=>({session:copilotProposalView(uiCopilotStore(database()).latest(req.copilotOwner,req.authUser.id),scopedCatalog(req))})));
 router.post('/session',handler(req=> {
   const c=getCatalog(req.authUser), origin=c.screens.find(s=>s.route===req.body?.origin)?.route || '/';
   return uiCopilotStore(database()).create(req.copilotOwner,req.authUser.id,{mode:'hybrid',status:'active',origin,drafts:{},proposal:null});
@@ -121,7 +122,7 @@ router.put('/session/:id',handler(req=> {
   }
   if(req.body.clearDraft!==undefined){
     if(typeof req.body.clearDraft!=='string'||!Object.hasOwn(COPILOT_FORMS,req.body.clearDraft))throw copilotError('Unknown draft');
-    state.drafts={...state.drafts};delete state.drafts[req.body.clearDraft];
+    Object.assign(state,clearCopilotFormEdits(state,req.body.clearDraft,scopedCatalog(req)));
   }
   if(req.body.fill_receipt!==undefined){
     noCredentials(req.body.fill_receipt);
@@ -130,6 +131,25 @@ router.put('/session/:id',handler(req=> {
   }
   if(state.status==='cancelled') {state.proposal=null;state.drafts={};state.watch=null;state.fill_receipts=[];}
   return store.update(req.copilotOwner,req.authUser.id,old.id,req.body.version,state);
+}));
+// Revalidate immediately before the browser applies an explicitly approved
+// review. This endpoint never executes a business write or submits a form.
+router.post('/session/:id/review',handler(req=>{
+ const old=uiCopilotStore(database()).get(req.copilotOwner,req.authUser.id,req.params.id),c=scopedCatalog(req);
+ if(old.status!=='active'||old.version!==req.body.version)throw copilotError('The assistance session changed. Ask again before applying fields.',409);
+ const action=req.body.action;noCredentials(action);
+ if(req.body.source==='draft'){
+  if(action?.type!=='fill'||!Object.hasOwn(c.forms,action.form)||!old.drafts?.[action.form])throw copilotError('Draft is no longer available',409);
+  validateCopilotProposal({message:'Review private draft',actions:[action]},c);
+  const clean=cleanFormPatch(action.form,action.values);if(!Object.keys(clean).length||Object.entries(clean).some(([key,value])=>JSON.stringify(old.drafts[action.form][key])!==JSON.stringify(value)))throw copilotError('Draft changed. Review it again.',409);
+ }else{
+  assertCopilotWriteIntent(old.proposal,c,old.conversation?.filter(t=>t.role==='user').at(-1)?.text||old.intent||'');
+  if(action?.type==='embed_open_form'){
+   const expected=validateCopilotProposal(old.proposal,c).actions;
+   if(expected.length!==1||expected[0].type!==action.type||expected[0].screen!==action.screen||expected[0].label!==action.label)throw copilotError('Creation proposal changed. Review it again.',409);
+  }else copilotFillReceipt(old,action,c);
+ }
+ return {ok:true,version:old.version,submitted:false};
 }));
 router.post('/session/:id/watch/check',handler(async req=>{
   const store=uiCopilotStore(database());
@@ -171,6 +191,10 @@ router.post('/session/:id/propose',handler(async req=> {
   const c=scopedCatalog(req);
   const activeScreen=req.body.screen?c.screens.find(s=>s.id===req.body.screen):null;
   if(req.body.screen&&!activeScreen)throw copilotError('Screen access denied',403);
+  if(!continuing&&!created&&copilotSaveOnly(message,c)){
+    const proposal=copilotManualSaveProposal(activeScreen),conversation=[...(old.conversation||[]),{id:randomUUID(),role:'user',text:message},{id:randomUUID(),role:'assistant',text:proposal.message}].slice(-24);
+    return store.update(req.copilotOwner,req.authUser.id,old.id,old.version,{...stateOf(old),proposal,conversation});
+  }
   const defined=activeScreen?new Set(copilotScreenControls(activeScreen.route).map(c=>c.id)):new Set();
   const visible=Array.isArray(req.body.visible_control_ids)?req.body.visible_control_ids.slice(0,150).filter(id=>typeof id==='string'&&defined.has(id)):[];
   const currentSpec=activeScreen?copilotScreenSpec(activeScreen.route,visible,req.body.visible_control_options||{}):null;
@@ -261,6 +285,7 @@ router.post('/session/:id/propose',handler(async req=> {
       proposal=validateCopilotProposal(normalizeCopilotScreenActions(parseCopilotResponse(reply.content),c,activeScreen?.id,visible),c);
       proposal=reconcileCopilotCurrentNavigation(proposal,activeScreen,visible);
       proposal=validateCopilotProposal(retainExplicitCopilotChoices(proposal,c,message),c);
+      assertCopilotWriteIntent(proposal,c,message,{embeddedLabels:embeddedFieldLabels});
       if(proposal.actions.length===1&&proposal.actions[0].type==='embed_navigate'&&proposal.actions[0].screen===activeScreen?.id&&!embeddedNavigation.some(n=>n.path===proposal.actions[0].path)){
         // Models can omit an observed list's viewId. Resolve only a unique
         // exact pathname with that return/list-view hint, not arbitrary query
@@ -334,7 +359,10 @@ router.post('/session/:id/propose',handler(async req=> {
       // Only fixed validation categories are logged, never model values or text.
       const knownErrors=['Invalid assistant response','This field requires manual input','Form is not available','Screen is not available','Only currently visible fields may be filled','Invalid screen values','Invalid screen field value','Unsupported action','Embedded destination is not available','Embedded form is not available','Invalid embedded values','Unsupported embedded field','Only currently observed embedded destinations may be opened','Only currently observed new-record forms may be opened'];
       console.warn('[copilot-proposal-rejected]',JSON.stringify({attempt:attempt+1,screen:activeScreen?.id||null,category:copilotValidationCategory(error),reason:knownErrors.includes(error.message)?error.message:error instanceof SyntaxError?'Invalid JSON':'Contract validation failed'}));
-      if(attempt===2)throw copilotError('Assistant returned an invalid or incomplete proposal. No action was taken.',502);
+      if(attempt===2){
+        if(error.code==='copilot_write_intent'){proposal={message:'I could not safely limit the proposal to the requested fields, so no changes were prepared. Please specify the fields and values to change. Saving remains a separate action on the form.',actions:[]};break;}
+        throw copilotError('Assistant returned an invalid or incomplete proposal. No action was taken.',502);
+      }
       let rejectedActions=[];try{rejectedActions=parseCopilotResponse(reply.content)?.actions||[];}catch{/* Malformed responses need the full catalog, not a guessed destination. */}
       // Visible embedded fields describe capability, not the user's destination.
       // Only narrow repair to those fields when the rejected patch targeted them.

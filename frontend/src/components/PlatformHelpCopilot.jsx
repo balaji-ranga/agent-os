@@ -37,7 +37,8 @@ export default function PlatformHelpCopilot() {
   const [open,setOpen]=useState(false),[catalog,setCatalog]=useState(null),[session,setSession]=useState(null);
   const [input,setInput]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
   const [watch,setWatch]=useState(null),[helpChat,setHelpChat]=useState(false);
-  const [review,setReview]=useState(null);
+  const [review,setReviewState]=useState(null),reviewRef=useRef(null);
+  const setReview=next=>{reviewRef.current=typeof next==='function'?next(reviewRef.current):next;setReviewState(reviewRef.current);};
   const [settings,setSettings]=useState(false);
   const [replay,setReplay]=useState(null);
   const settingsToggle=useRef(null);
@@ -80,11 +81,12 @@ export default function PlatformHelpCopilot() {
   useEffect(()=>{setSession(null);setReview(null);setGuide(null);setWatch(null);setReplyTo(null);setPendingForm(null);baselines.current={};},[user?.id]);
   useEffect(()=>{if(review&&reviewPanel.current){reviewPanel.current.scrollIntoView({block:'nearest',behavior:'smooth'});reviewPanel.current.focus({preventScroll:true});}},[review]);
   useEffect(()=>{
-    const saved=e=>{const form=e.detail?.form;if(!session?.drafts?.[form])return;
+    const saved=e=>{const form=e.detail?.form;if(!session||!catalog?.forms[form])return;
+      setReview(null);
       api.copilotUpdate(session.id,{version:session.version,clearDraft:form}).then(next=>{setSession(next);setReview(null);setNotice('Saved successfully. I’ve removed that unfinished draft.');}).catch(()=>setNotice('Your form was saved. The assistance session changed, so I kept its draft—refresh and discard it if no longer needed.'));
     };
     window.addEventListener('flolah-copilot-form-saved',saved);return()=>window.removeEventListener('flolah-copilot-form-saved',saved);
-  },[session]);
+  },[session,catalog]);
   useEffect(()=>{
     const show=()=>setOpen(true);
     window.addEventListener('agent-os-open-platform-help',show);
@@ -189,6 +191,7 @@ export default function PlatformHelpCopilot() {
     navigate(route,{state});
   }
   async function apply(action){
+    const draftResume=!action.type; if(draftResume)action={...action,type:'fill'};
     if(completedActions.includes(reviewKey(action)))throw new Error('This New action was already requested. Inspect its result before asking to create another record.');
     const fresh=await api.copilotCatalog(location.pathname);
     if(action.type==='embed_open_form'){
@@ -214,10 +217,14 @@ export default function PlatformHelpCopilot() {
     if(!binding){await go(fresh.forms[action.form].route);setNotice('Form opened. Review the proposal, then apply the fields.');return;}
     const expected=baselines.current[action.form] ?? binding.read();
     if(JSON.stringify(binding.read())!==JSON.stringify(expected))throw new Error('You edited this form after the proposal. Ask again to preserve your latest changes.');
-    showForm(action.form);setReview({action,anchor:reviewKey(action),expected});
+    showForm(action.form);setReview({action,anchor:reviewKey(action),expected,draftResume});
   }
   async function confirmFields(){
+    const expectedReview=reviewRef.current,actor=user?.id,path=location.pathname;
+    if(!expectedReview)throw new Error('The review is no longer available. Ask again before applying fields.');
     const fresh=await api.copilotCatalog(location.pathname);
+    await api.copilotReview(session.id,{version:session.version,screen_path:location.pathname,action:review.action,...(review.draftResume?{source:'draft'}:{})});
+    if(reviewRef.current!==expectedReview||liveContext.current.userId!==actor||liveContext.current.path!==path)throw new Error('The review or screen changed. No new fields were applied; review the current form again.');
     if(review.action.type==='embed_open_form'){
       if(!fresh.screens.some(s=>s.id===review.action.screen&&s.route===location.pathname))throw new Error('The workspace or your access changed.');
       const action=review.action,snapshot=review.embedSnapshot;setReview(null);
