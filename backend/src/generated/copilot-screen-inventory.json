@@ -1179,7 +1179,16 @@
       "headings": [],
       "controls": [
         {
-          "id": "components/CopilotCoaching.jsx:27:20",
+          "id": "components/CopilotCoaching.jsx:7:200",
+          "label": "Unlabelled or dynamically labelled control",
+          "type": "textarea",
+          "required": false,
+          "conditional": false,
+          "readonly": false,
+          "mode": "guided"
+        },
+        {
+          "id": "components/CopilotCoaching.jsx:33:20",
           "label": "Lesson name",
           "type": "text",
           "required": false,
@@ -1189,7 +1198,7 @@
           "mode": "guided"
         },
         {
-          "id": "components/CopilotCoaching.jsx:35:36",
+          "id": "components/CopilotCoaching.jsx:43:36",
           "label": "What did you demonstrate?",
           "type": "select",
           "required": false,
@@ -1226,7 +1235,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "components/CopilotCoaching.jsx:36:27",
+          "id": "components/CopilotCoaching.jsx:44:27",
           "label": "Explain the step",
           "type": "textarea",
           "required": false,
@@ -1236,7 +1245,7 @@
           "mode": "guided"
         },
         {
-          "id": "components/CopilotCoaching.jsx:37:45",
+          "id": "components/CopilotCoaching.jsx:45:45",
           "label": "How can Copilot recognize success?",
           "type": "textarea",
           "required": false,
@@ -1246,8 +1255,8 @@
           "mode": "guided"
         },
         {
-          "id": "components/CopilotCoaching.jsx:42:38",
-          "label": "I reviewed these steps and removed sensitive details.",
+          "id": "components/CopilotCoaching.jsx:50:38",
+          "label": "I reviewed the purpose, applicability and steps and removed sensitive details.",
           "type": "checkbox",
           "required": false,
           "conditional": true,

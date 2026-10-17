@@ -16,7 +16,10 @@ Every action checks the current recipe version; archived or revised recordings c
 This is an additive guidance feature;
 it does not replace existing form contracts, DOM inspection or approval gates.
 
-1. Name a lesson (or choose a CRM/ERP starter outline) and start it.
+1. Name a lesson (or choose a CRM/ERP starter outline) and start it. Under
+   **New lesson purpose and matching**, describe its purpose, when to use,
+   expected outcome, example requests, prerequisites and exclusions. Purpose,
+   when to use and expected outcome are required before publishing.
 2. Demonstrate a step using the normal application. Coaching does not click,
    fill or save on your behalf. Creating a CRM record may save immediately.
 3. Explain the step and the observable success condition, then select
@@ -36,8 +39,32 @@ AND human login; they are not shared across users or tenants. Listing uses
 server pagination. Historical versions remain stored; automated retention
 and cross-user sharing are not introduced by this feature.
 
-Published recipes for the current authorized screen are bounded to three in
-the model context and an 8,000-character guidance budget. **Learned screen map**
+## Purpose and automatic matching
+
+Open a private lesson to edit **Recipe purpose and matching**. Save metadata,
+review the whole lesson, then publish the new version. Metadata changes return
+the lesson to draft and invalidate an already-started replay version. The
+**Suggest metadata from recording** button only copies the recorded title and
+last success check into an unsaved draft: it does not infer a business purpose,
+invent applicability or automatically publish. Supply when to use yourself.
+Legacy published recordings remain available for explicit replay, but are not
+selected automatically until their required metadata is reviewed and published.
+
+Automatic matching considers all latest published recordings for the company
+AND human login, filters out any containing unauthorized screens, and ranks
+purpose/title/applicability/examples and step descriptions against request
+terms. It uses conservative lexical matching, not embeddings or semantic
+certification; unrelated or one-term requests select nothing. Recency/current
+screen only break score ties; an older cross-screen lesson can be discovered.
+Close scores ask the user to choose a lesson through explicit replay or clarify
+the request, with no field proposal or model call. Otherwise one matching
+recording's complete ordered journey is included within a 12,000-character
+budget; oversized journeys require explicit stepwise replay, not truncation.
+This ranking is not proof of applicability. The copilot must still check
+prerequisites and exclusions and ask when uncertain. Chat shows **Matched
+recorded guidance** with recipe title, immutable version and matched terms.
+
+**Learned screen map**
 shows screen contracts and transitions derived from up to 100 published
 lessons; its JSON view is available for inspection. It excludes any recipe
 containing a screen you can no longer access. Recipes are untrusted advice, never executable code or

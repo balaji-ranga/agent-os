@@ -31,6 +31,33 @@ try{
  check((await call('/coaching/'+first.id,users[0],'PUT',{version:first.version,status:'archived'})).status,403,'tenant cannot edit global seed');
  const privateLesson=await call('/coaching',users[0],'POST',{title:'PRIVATE-FIXTURE-LESSON'});check(privateLesson.status,200,'private lesson creation preserved');
  check((await call('/coaching/'+privateLesson.data.id,users[1])).status,404,'other company cannot read private lesson');
+ check((await call('/coaching/'+privateLesson.data.id+'/suggestion',users[1])).status,404,'other company cannot suggest private metadata');
+ const recipeMetadata={purpose:'Review efficiency mode preference',use_when:'Explain efficiency mode preference without changing settings',not_for:'Changing profile settings',examples:'Explain efficiency mode preference',prerequisites:'An authorized profile screen',expected_outcome:'Efficiency mode preference is understood; no fields are changed'};
+ let lesson=(await call('/coaching/'+privateLesson.data.id,users[0],'PUT',{version:privateLesson.data.version,metadata:recipeMetadata})).data;
+ check(lesson.metadata,recipeMetadata,'purpose metadata round-trips over public HTTPS');
+ check((await call('/coaching/'+lesson.id,users[0],'PUT',{version:privateLesson.data.version,metadata:recipeMetadata})).status,409,'stale metadata edits rejected');
+ for(const [screen,path] of [['profile','/profile'],['content-explorer','/content-explorer']]){
+  lesson=(await call('/coaching/'+lesson.id,users[0],'PUT',{version:lesson.version,step:{screen,path,action:'navigate',instruction:screen==='profile'?'Inspect efficiency mode preference without editing.':'Return to Content Explorer.',success:'The authorized screen is visible; settings remain unchanged.',fields:[]}})).data;
+ }
+ lesson=(await call('/coaching/'+lesson.id,users[0],'PUT',{version:lesson.version,status:'published',reviewed:true})).data;
+ check(lesson.status,'published','metadata reviewed and published with complete journey');
+ const suggestion=await call('/coaching/'+lesson.id+'/suggestion');check(suggestion.data.review_required,true,'suggestion explicitly requires review');
+ check((await call('/coaching/'+lesson.id)).data.version,lesson.version,'suggestion did not save');
+ const {copilotCoachingStore}=await import('../src/services/ui-copilot-coaching.js');
+ const authorized=(await call('/catalog')).data;
+ const ranked=copilotCoachingStore(db).select(users[0],users[0],{message:'Explain efficiency mode preference',screen:'content-explorer',screens:authorized.screens});
+ check(ranked.status,'matched','deployed ranking matched by purpose');check(ranked.hints[0].steps.length,2,'full cross-screen journey reaches model context');
+ if(process.env.COPILOT_RECIPE_LIVE_MODEL==='1'){
+  const live=(await call('/session',users[0],'POST',{origin:'/content-explorer'})).data;
+  const result=await call('/session/'+live.id+'/propose',users[0],'POST',{version:live.version,screen:'content-explorer',message:'Explain efficiency mode preference. Do not navigate, fill or save.'});
+  check(result.status,200,'live deployed model returns valid response with recipe context');
+  check(result.data.conversation.at(-1).recipe_match.status,'matched','live response attributes recording');
+  check(result.data.proposal.actions,[],'guidance-only request prepares no writes or navigation');
+ }
+ const bad=await call('/coaching/'+lesson.id,users[0],'PUT',{version:lesson.version,metadata:{...recipeMetadata,purpose:'password=never-record'}});check(bad.status,400,'metadata credentials rejected');
+ lesson=(await call('/coaching/'+lesson.id,users[0],'PUT',{version:lesson.version,metadata:{...recipeMetadata,purpose:'Review current efficiency mode preference'}})).data;
+ check(lesson.status,'draft','metadata edit invalidates automatic guidance');
+ check(copilotCoachingStore(db).select(users[0],users[0],{message:'Explain efficiency mode preference',screens:authorized.screens}).status,'none','new draft hides earlier publication');
  const session=await call('/session',users[0],'POST',{origin:'/profile'});check(session.status,200,'synthetic session creation');
  check((await call('/session/'+session.data.id,users[1],'PUT',{version:session.data.version,status:'paused'})).status,404,'cross-company copilot session denied');
  check(db.prepare('SELECT count(*) n FROM ui_copilot_platform_documents WHERE metadata_json LIKE ?').get('%PRIVATE-FIXTURE-LESSON%').n,0,'private lessons never enter shared source index');
