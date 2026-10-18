@@ -294,7 +294,7 @@ See DESIGN section 18 and the deployment instructions for lifecycle, retention,
 quota and measurement boundaries. Existing full-phase UAT gaps are unchanged.
 
 
-Current owner/analytics runtime: **20261018-owner-analytics-d**; evidence/source
+Owner/analytics certification baseline runtime: **20261018-owner-analytics-d**; evidence/source
 publication: **20261018-owner-analytics-e**. The [consolidated evidence report](test/evidence/owner-analytics-20261018/index.html)
 contains 37 passed, five partial and three user-deferred cases, with no failed
 cases. Seven new owner/analytics cases passed; live coarse-network matching is
@@ -312,3 +312,14 @@ extractions and 50 recipients, with zero remaining private bytes after cleanup.
 These are short synthetic pilots, not sustained-load or Kubernetes HA proof.
 Owner resend cooldown now returns HTTP 429 with Retry-After and explains that
 the code already sent remains usable; it does not replace a valid challenge.
+
+
+Current deployment: **20261018-preview-expiry-f**, with source/evidence
+publication **20261018-preview-expiry-g**. The explicitly approved seven-day,
+opt-in public flolah.cloud preview is active until **25 October 2026, 15:57
+Singapore time**. The existing isolated registration and permissions are kept.
+Expired previews now show owner-renewal guidance instead of an ineffective
+Retry button. Transient network failures still allow retry. All 225 regression
+tests pass locally and in the VPS image; actual MCP browser opening and expiry
+states are recorded in [preview renewal evidence](test/evidence/preview-renewal-20261018/index.html).
+This update does not change the earlier full-phase certification gaps.

@@ -1,0 +1,35 @@
+{
+  "date": "2026-10-18",
+  "runtimeRelease": "20261018-preview-expiry-f",
+  "publicationRelease": "20261018-preview-expiry-g",
+  "preview": {
+    "kind": "authorized-preview-renewal",
+    "embeddingId": "uat_71ae86ec212b4501a02f28488bfc7c22",
+    "origin": "https://flolah.cloud",
+    "durationHours": 168,
+    "issuedAt": "2026-10-18T07:57:48.911Z",
+    "expiresAt": "2026-10-25T07:57:48.911Z",
+    "optInOnly": true,
+    "permissionsChanged": false,
+    "laptopExposure": false
+  },
+  "expirySingapore": "25 October 2026, 15:57:48 Singapore time",
+  "tests": {
+    "localApplication": 225,
+    "vpsImageApplication": 225,
+    "renewalCliIsolationChecks": 3
+  },
+  "cases": [
+    {
+      "id": "PREVIEW01",
+      "status": "passed",
+      "observed": "Actual MCP tab initially showed Retry copilot for an expired installation. After deployment, it explicitly showed Copilot preview expired · owner renewal required. Unit checks also cover invalid expiry, origin/service scope and transient retry."
+    },
+    {
+      "id": "PREVIEW02",
+      "status": "passed",
+      "observed": "Explicit user authorization: Enable it for 7 days. Existing isolated exact-origin registration renewed for 168 hours. Public metadata expiry verified; actual MCP tab opened Website Copilot · UAT and Send was enabled. Renewal CLI isolation checks preserve permissions and reject wrong origins/excessive duration."
+    }
+  ],
+  "scope": "Same isolated flolah.cloud registration, opt-in preview only. No public form submissions, workflow/analytics permission changes or laptop exposure. Earlier UAT reports retain their original releases; this does not close remaining full-phase gates."
+}

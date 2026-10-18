@@ -305,3 +305,23 @@ file URL for every run. It waits for operator files `enabled`, `extended` and
 `revoked` only after those actions have visibly succeeded in the authenticated
 owner UI. It refuses old flags; never seed flags as a replacement for UI checks.
 The ordinary isolated browser harness needs no real owner authentication.
+
+
+Public preview renewal requires an explicit duration approval. The operator-only
+`renew-site-preview.mjs` accepts the existing exact HTTPS origin, 1–168 hours
+and an audit reason. It renews only an existing isolated registration tied to a
+currently approved verified parent. It preserves task/analytics permissions and
+publishes a browser-visible installation token only for that origin. It neither
+exposes the laptop nor enables workflows. The loader now distinguishes expired
+previews/configuration errors from retryable download failures; an expired
+preview requires owner renewal and a page reload.
+
+
+Current preview runtime: `20261018-preview-expiry-f`; source/evidence publication
+`20261018-preview-expiry-g`. At 15:57 Singapore on 18 October, explicit user
+approval renewed the same isolated flolah.cloud preview for 168 hours, ending
+25 October 2026 at 15:57 Singapore. Both installation and public-manifest expiry
+were updated. Workflow/analytics permissions were preserved; no laptop exposure.
+The existing MCP tab visibly opened the copilot after reload. All 225 regression
+tests pass locally and in the deployed image. Earlier six-hour expiry statements
+above describe historical checks and do not represent this renewed lifetime.
