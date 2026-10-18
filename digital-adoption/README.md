@@ -39,7 +39,7 @@ Owners separately enable attachments, pairing and workflow relay per registratio
 and configure smaller file/task/connection limits and exact native action bindings.
 See [build and setup](deploy/README.md) for service wiring and test commands.
 
-The scoped testing deployment uses app `20261018-private-g` and platform connector
+The scoped testing deployment uses app `20261018-private-j` and platform connector
 `20261018-private-f`. Open `http://127.0.0.1:4194/customer`, expand **Task files &
 paired copilots**, attach a synthetic file, and ask “Fill the customer form using
 my transaction file.” Review the fields before applying. Save is separate and is
@@ -55,10 +55,12 @@ rejects overlapping commands. A failed required recipient fails the node and
 revokes remaining effects; completed host changes are not rolled back.
 
 The [acceptance results](test/private-acceptance-results.json) and
-[CSV testcase table](test/private-acceptance-results.csv) record eight passed,
-seven partial and zero failed composite design cases. This is available for
-testing, with full Phase 1/2 certification still partial. The expired public
-preview is not re-enabled by this deployment.
+[CSV testcase table](test/private-acceptance-results.csv) record ten passed,
+five partial and zero failed composite design cases. This is available for
+testing, with full Phase 1/2 certification still partial. The explicitly approved six-hour public preview is available at
+`https://flolah.cloud/free-tools/mcp-universe/?digitalAdoptionPreview=1` until
+18 October 2026 at 15:17 Singapore. The eight cross-domain browser checks passed
+without public login or submission.
 
 For a deterministic local preview, run `npm run dev:private`, then start
 `src/local-vps-demo.mjs` with `ADOPTION_DEMO_CONFIG` pointing to

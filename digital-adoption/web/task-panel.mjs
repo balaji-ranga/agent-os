@@ -38,7 +38,8 @@ export function mountTaskPanel({
         });
         await refreshTask();
       });
-      li.append(remove);
+      if(f.canRemove===true)li.append(remove);
+      else li.append(' · shared for this task');
       files.append(li);
     }
     state.textContent = `Private task · expires ${new Date(t.expiresAt).toLocaleTimeString()}`;

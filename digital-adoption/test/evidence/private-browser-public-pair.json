@@ -1,0 +1,41 @@
+{
+  "at": "2026-10-18T01:22:28.063Z",
+  "release": "20261018-private-j",
+  "scope": "Anonymous loopback and public flolah.cloud, two browser tabs, synthetic text file, no public login/submission",
+  "publicWriteAttempts": 0,
+  "publicLoginVisits": 0,
+  "results": [
+    {
+      "id": "PUBLIC_OPT_IN_ONLY",
+      "status": "passed"
+    },
+    {
+      "id": "CROSS_TX_PRIVATE_SOURCE",
+      "status": "passed"
+    },
+    {
+      "id": "PAIR_PUBLIC_LOCAL_BILATERAL",
+      "status": "passed"
+    },
+    {
+      "id": "RELAY_PUBLIC_CONSENT_REQUIRED",
+      "status": "passed"
+    },
+    {
+      "id": "RELAY_PUBLIC_PRIVATE_CONTEXT",
+      "status": "passed"
+    },
+    {
+      "id": "RELAY_PUBLIC_FRESH_REVIEW_FILL",
+      "status": "passed"
+    },
+    {
+      "id": "PUBLIC_TASK_END_CLEARS_BOTH",
+      "status": "passed"
+    },
+    {
+      "id": "PUBLIC_NO_LOGIN_OR_SUBMISSION",
+      "status": "passed"
+    }
+  ]
+}

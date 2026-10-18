@@ -138,7 +138,7 @@ export async function createPrivateTasks({
     taskId: t.id,
     expiresAt: t.expiresAt,
     idleExpiresAt: t.touched + config.idleMs,
-    files: [...t.files.values()].filter(f => f.uploaderId === instanceId || t.grants.get(instanceId)?.some(e => e.attachmentId === f.id)).map(fileInfo)
+    files: [...t.files.values()].filter(f => f.uploaderId === instanceId || t.grants.get(instanceId)?.some(e => e.attachmentId === f.id)).map(f => ({...fileInfo(f),canRemove:f.uploaderId===instanceId}))
   });
   const discard = f => {
     cleanup.add(f.id + '.enc');

@@ -1,19 +1,19 @@
 {
-  "at": "2026-10-17T20:10:39.617126+00:00",
+  "at": "2026-10-18T01:23:08.042362+00:00",
   "design": "digital-adoption/DESIGN.md",
-  "independentRelease": "20261018-private-g",
+  "independentRelease": "20261018-private-j",
   "platformRelease": "20261018-private-f",
   "status": "implemented and deployed for scoped testing; full Phase 1/2 certification remains partial",
   "counts": {
-    "passed": 8,
-    "partial": 7,
+    "passed": 10,
+    "partial": 5,
     "failed": 0
   },
   "verification": {
     "applicationTestsLocal": 197,
     "applicationTestsVpsImage": 197,
     "connectorCoreTests": 3,
-    "browserJourneys": 14,
+    "browserJourneys": 22,
     "actualDocumentFormats": [
       "txt",
       "pdf",
@@ -23,7 +23,8 @@
     ],
     "realWorkflowRunner": "passed with simulated authenticated browser recipients and actual runner/action-policy/approval DB",
     "frontendBuild": "passed; existing bundle size warning",
-    "existingConnectorRegression": "passed"
+    "existingConnectorRegression": "passed",
+    "browserReleaseBoundary": "14 local PDF/PNG checks on G; 8 cross-domain checks on J. The intervening changes add sharing error guidance and uploader-only Remove visibility; J also passed all 197 application tests."
   },
   "cases": [
     {
@@ -57,9 +58,9 @@
     {
       "id": "PAIR01",
       "feature": "Anonymous local/public bilateral pairing",
-      "status": "partial",
-      "evidence": "Bilateral panel confirmation passed between two local tabs; cross-origin protocol/owner tests pass with isolated fixtures.",
-      "recommendation": "Renew the public preview and repeat pairing between loopback and public flolah.cloud."
+      "status": "passed",
+      "evidence": "Anonymous live Chrome panels on loopback Customer and public flolah.cloud MCP Universe paired with bilateral confirmation; each panel displayed the other exact origin.",
+      "recommendation": "Use fresh pairing codes and current preview authorization for future releases; pairing remains user consent rather than device attestation."
     },
     {
       "id": "PAIR02",
@@ -71,9 +72,9 @@
     {
       "id": "RELAY01",
       "feature": "Private handoff to public destination form",
-      "status": "partial",
-      "evidence": "Consented Customer-to-Note handoff and target-side planning/filling pass in Chrome. Public destination journey not run for this release.",
-      "recommendation": "Use public flolah.cloud MCP controls under renewed preview; block every public host submission."
+      "status": "passed",
+      "evidence": "Sharing without consent rejected; with consent, private integration passages reached the public panel. Real model proposed Inventory API and stdio from the file. Controls remained blank until approval, then both values were independently observed; no public submission.",
+      "recommendation": "Keep destination inspection and review; never interpret filled controls as a saved business record. Future website fixtures must supply their own observed controls."
     },
     {
       "id": "WF01",
@@ -107,7 +108,7 @@
       "id": "PRIV01",
       "feature": "Task deletion and checkpoint privacy",
       "status": "passed",
-      "evidence": "End/expiry/restart/revocation tests pass; live canary absent SQLite rows and consistent checkpoint; raw objects ciphertext only; ending task leaves zero bytes/backlog. Both panel logs/reviews/files clear.",
+      "evidence": "End/expiry/restart/revocation tests pass; live canary absent SQLite rows and consistent checkpoint; raw objects ciphertext only; ending task leaves zero bytes/backlog. Both panel logs/reviews/files clear. Public recipient shows shared-file status without unauthorized Remove control; End task clears both cross-origin panels.",
       "recommendation": "Verify final zero private metrics after each release and preserve encrypted-object/key separation."
     },
     {
@@ -128,8 +129,8 @@
       "id": "HOST01",
       "feature": "Authorized browser scope",
       "status": "passed",
-      "evidence": "Chrome used only loopback local pages; zero public host writes. Public preview expired and was not re-enabled. Laptop listener remains loopback.",
-      "recommendation": "Public testing requires current preview authorization; keep no-login/no-submit public scope."
+      "evidence": "Ordinary public homepage has no copilot; explicitly opted-in MCP page loads it. Live cross-domain run recorded zero public write requests, zero login visits and zero public submit events. Laptop listener and VPS API host binding remain loopback.",
+      "recommendation": "Approved preview expires at 15:17 Singapore on 18 October 2026. Public browser acceptance remains no-login/no-submit."
     }
   ],
   "deferred": [
@@ -141,9 +142,10 @@
     "local": "http://127.0.0.1:4194/customer",
     "secondTab": "http://127.0.0.1:4194/note",
     "transactionFile": "Generate via test/make-transaction-fixtures.py; local synthetic PDF/PNG available in .local/private-preview/transaction-corpus/",
-    "workflow": "Flolah Workflow Editor > connector > Digital Adoption Copilot. Pair panels; Link group; consume code as entitled Flolah user; select group/websites/action. Copy Task ID from panel to join existing visitor task."
+    "workflow": "Flolah Workflow Editor > connector > Digital Adoption Copilot. Pair panels; Link group; consume code as entitled Flolah user; select group/websites/action. Copy Task ID from panel to join existing visitor task.",
+    "public": "https://flolah.cloud/free-tools/mcp-universe/?digitalAdoptionPreview=1"
   },
-  "deploymentBoundary": "One stateful coordinator, local SQLite and ephemeral private keys; two parser workers. Private ports 4196/4197 unpublished. Public preview not renewed.",
+  "deploymentBoundary": "One stateful coordinator, local SQLite and ephemeral private keys; two parser workers. Private ports 4196/4197 unpublished. Approved opt-in public preview expires 18 October 2026 at 15:17 Singapore.",
   "evidenceFiles": [
     {
       "path": "test/evidence/private-browser-pdf.json",
@@ -154,8 +156,25 @@
       "sha256": "836eb706c9f7c6db962b1629619f4d172289558adce6a43b2cb5d8a6ff0e8cff"
     },
     {
+      "path": "test/evidence/private-browser-public-pair.json",
+      "sha256": "7e0f6e0787aac50d13ed192c4f196d4323595d323b3fd28ade288dbd84d5e213"
+    },
+    {
       "path": "test/evidence/private-capacity-vps.json",
       "sha256": "3e92739c8bca267da4fc50cb9d8ee7a4e801c3467b934ed27a6a18b24c623296"
     }
-  ]
+  ],
+  "publicPreview": {
+    "origin": "https://flolah.cloud",
+    "url": "https://flolah.cloud/free-tools/mcp-universe/?digitalAdoptionPreview=1",
+    "issuedAt": "2026-10-18T01:17:42.183Z",
+    "expiresAt": "2026-10-18T07:17:42.183Z",
+    "expirySingapore": "18 October 2026, 15:17 SGT",
+    "durationHours": 6,
+    "optInOnly": true,
+    "existingIsolatedRegistration": true,
+    "noPublicHostWrites": true,
+    "noPublicLogin": true,
+    "noLaptopExposure": true
+  }
 }
