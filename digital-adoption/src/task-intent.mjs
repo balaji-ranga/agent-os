@@ -2,7 +2,7 @@
 export function readOnlyIntent(text) {
   const value = String(text);
   const withoutProhibitions = value.replace(
-    /\b(?:do not|don't|never)\s+(?:fill|populate|change|edit|set|submit|save|navigate)(?:\s+or\s+(?:fill|submit|save|navigate))?\b[^.!;]*/gi,
+    /\b(?:do not|don't|never)\s+(?:fill|populate|change|edit|set|select|check|uncheck|choose|clear|submit|save|navigate)(?:\s+or\s+(?:fill|select|check|submit|save|navigate))?\b[^.!;]*/gi,
     "",
   );
   const asksToWrite =
@@ -22,12 +22,12 @@ export function readOnlyIntent(text) {
 export function booleanIntent(text, field) {
   const name = String(field.label).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const pattern = new RegExp(
-    `\\b(uncheck|deselect|untick|clear|disable|check|select|tick|enable)\\s+(?:the\\s+)?${name}(?=\\s*(?:[.,;!]|$|and\\b))`,
+    `\\b(?:(do not|don't|never)\\s+)?(uncheck|deselect|untick|clear|disable|check|select|tick|enable)\\s+(?:the\\s+)?${name}(?=\\s*(?:[.,;!]|$|and\\b))`,
     "i",
   );
   const match = pattern.exec(String(text));
-  return match
-    ? String(!/^(?:uncheck|deselect|untick|clear|disable)$/i.test(match[1]))
+  return match && !match[1]
+    ? String(!/^(?:uncheck|deselect|untick|clear|disable)$/i.test(match[2]))
     : null;
 }
 export function groundedValue(value, field, texts) {

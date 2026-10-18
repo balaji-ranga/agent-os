@@ -72,7 +72,7 @@ export function createProposalStore(repository, { clock = Date.now,checkBinding=
         createdAt:clock(),path:observed.path,teachingSteps:actions.filter(a=>a.type==='fill').map(action=>{const field=observed.fields.find(f=>f.ref===action.ref);return {action:'fill',path:observed.path,field:field.key||null,parameter:field.key||null};}),
         message:allowSubmit?`Confirm ${actions[0].label} separately. This submits the current host form and may save data.`:actions.length?(actions[0].type==='navigate'?`I can open ${actions[0].label}, then continue your request on that screen.`:actions.every(a=>a.type==='highlight')?`I can highlight ${actions.length} field${actions.length===1?'':'s'} for you. No values will be changed.`:`Review these ${actions.length} proposed field change${actions.length===1?'':'s'}. Nothing has been changed yet.`):response.message,actions,expiresAt:clock()+120_000,status:'pending',binding };
       proposals.set(proposal.id,proposal);
-      return { id:proposal.id,revision:proposal.revision,message:proposal.message,actions,expiresAt:proposal.expiresAt };
+      return { id:proposal.id,revision:proposal.revision,message:proposal.message,actions:actions.map(a=>a.type==='fill'&&observed.fields.find(f=>f.ref===a.ref)?.type==='checkbox'?{...a,displayValue:a.value==='true'?'Selected':'Cleared'}:a),expiresAt:proposal.expiresAt };
     },
     verifiedLearningSteps(scope,{saveProposalId,path}){
       const save=proposals.get(saveProposalId);

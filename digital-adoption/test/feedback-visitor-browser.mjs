@@ -22,7 +22,7 @@ try{
  await check('F04_MIXED_SEMANTIC_INTENT_AND_F09_REJECT',async()=>{
   await local.locator('#native-controls').click();await send(a,'Set Shipping method to Express and select Include gift wrap. Do not save.');
   await a.locator('#review').getByRole('button',{name:'Approve field changes',exact:true}).waitFor();
-  const text=await a.locator('#review').innerText();assert.match(text,/Shipping method: Express/i);assert.match(text,/Include gift wrap: true/i);
+  const text=await a.locator('#review').innerText();assert.match(text,/Shipping method: Express/i);assert.match(text,/Include gift wrap: Selected/i);
   assert.equal(await local.locator('[name=shipping_method]').inputValue(),'');assert.equal(await local.locator('[name=gift_wrap]').isChecked(),false);
   await a.locator('#review').getByRole('button',{name:'Reject changes',exact:true}).click();await a.locator('#status').getByText(/Changes rejected/).waitFor();
   assert.equal(await local.locator('[name=shipping_method]').inputValue(),'');assert.equal(await local.locator('[name=gift_wrap]').isChecked(),false);

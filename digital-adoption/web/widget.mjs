@@ -134,7 +134,7 @@ async function prepare(text,generation,depth=0){
     status.textContent=proposal.actions.length?'Review the proposed next step.':'';
     if(proposal.manualNotice){const note=document.createElement('p');note.textContent=proposal.manualNotice;review.append(note);}
     if(proposal.evidence?.length){const source=document.createElement('p');source.textContent='Private sources: '+proposal.evidence.map(e=>e.filename+' · '+e.locator).join('; ');review.append(source);}
-    for(const action of proposal.actions){const p=document.createElement('p');p.textContent=action.type==='navigate'?`Open ${action.label} (${action.path})`:action.type==='highlight'?`Show ${action.label}`:`${action.label}: ${action.value}`;review.append(p);}
+    for(const action of proposal.actions){const p=document.createElement('p');p.textContent=action.type==='navigate'?`Open ${action.label} (${action.path})`:action.type==='highlight'?`Show ${action.label}`:`${action.label}: ${action.displayValue||action.value}`;review.append(p);}
     if(proposal.actions.length){
       const warning=document.createElement('p');warning.textContent=assistanceMode==='guide'?'Guidance only. No field values will change.':'Review before filling. Some websites autosave fields. This does not click Save.';review.append(warning);
       const approve=document.createElement('button');approve.textContent=proposal.actions[0].type==='navigate'?'Approve navigation':assistanceMode==='guide'?'Show guidance':'Approve field changes';review.append(approve);
@@ -217,7 +217,7 @@ async function recipeReview(recipe,parameters,step,generation){
   if(generation!==task)return;
   show(`${recipe.title} · version ${recipe.version}: ${proposal.message}`);
   status.textContent=proposal.complete?(assistanceMode==='guide'?'Recorded guidance finished. No fields were filled.':'Recorded draft steps verified. Saving remains a separate action.'):'Review the next recorded step.';
-  for(const action of proposal.actions){const line=document.createElement('p');line.textContent=action.type==='navigate'?`Open ${action.label}${action.activation?` · ${action.activation} profile`:``}`:action.type==='highlight'?`Show ${action.label}`:`${action.label}: ${action.value}`;review.append(line);}
+  for(const action of proposal.actions){const line=document.createElement('p');line.textContent=action.type==='navigate'?`Open ${action.label}${action.activation?` · ${action.activation} profile`:``}`:action.type==='highlight'?`Show ${action.label}`:`${action.label}: ${action.displayValue||action.value}`;review.append(line);}
   if(proposal.actions.length){
    const approve=document.createElement('button');approve.textContent=assistanceMode==='guide'?'Show recorded guidance':'Approve recorded step';review.append(approve);
    const cancel=document.createElement('button');cancel.type='button';cancel.textContent='Cancel workflow';cancel.onclick=async()=>{try{await call('reject',{proposalId:proposal.id});task++;review.replaceChildren();status.textContent='Recorded workflow cancelled.';}catch(error){showError(error);}};review.append(cancel);

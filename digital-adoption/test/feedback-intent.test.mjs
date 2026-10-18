@@ -56,6 +56,9 @@ test("F04: mixed dropdown/checkbox request reaches semantic planning with both f
     groundedValue("true", snapshot.fields[1], ["select Include gift wrap."]),
     true,
   );
+  assert.equal(booleanIntent("Do not select Include gift wrap.",snapshot.fields[1]),null);
+  assert.equal(readOnlyIntent("Inspect the form. Do not select Include gift wrap."),true);
+  assert.equal(groundedValue("true",snapshot.fields[1],["Do not select Include gift wrap."]),false);
 });
 test("F10: summary/no-fill constraints prevent model effects and do not activate repair fallback", async () => {
   let calls = 0;

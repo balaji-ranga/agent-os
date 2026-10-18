@@ -326,7 +326,7 @@ export function mountTaskPanel({
           line.textContent =
             action.type === "navigate"
               ? `Open ${action.label}`
-              : `${action.label}: ${action.value}`;
+              : `${action.label}: ${action.displayValue||action.value}`;
           review.append(line);
         }
         if (event.proposal.actions.length) {
