@@ -79,7 +79,8 @@ export function createCopilotConnector({
       await authorized(user, {});
       return bridge('/link', {
         userId: user,
-        code: input.code
+        code: input.code,
+        groupId: input.groupId
       });
     },
     async discover(user) {

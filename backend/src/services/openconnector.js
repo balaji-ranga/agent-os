@@ -650,7 +650,7 @@ export async function listConnectorActions(userId, appId, query = '') {
 }
 
 export async function getConnectorActionGuide(userId, actionId) {
-  if(String(actionId).startsWith('digital_adoption.')){const action=COPILOT_ACTIONS.find(a=>a.id===actionId);if(!action)throw new Error('Unknown Copilot connector action');return {...action,guide:'Explicitly pair website panels, link the group in Flolah, select exact websites and active instances. Commands fail on disconnect; there is no future-visitor queue. Private results remain task handles. Existing Action Policies govern every execution.'};}
+  if(String(actionId).startsWith('digital_adoption.')){const action=COPILOT_ACTIONS.find(a=>a.id===actionId);if(!action)throw new Error('Unknown Copilot connector action');return {...action,guide:'Link each copilot directly to a saved workflow target group in Flolah, then select websites and active instances. Peer pairing is optional and separately required only for copilot-to-copilot handoffs. Commands fail on disconnect; there is no future-visitor queue. Private results remain task handles. Existing Action Policies govern every execution.'};}
   const id = String(actionId || '').trim();
   if (!id) throw new Error('action_id required');
 

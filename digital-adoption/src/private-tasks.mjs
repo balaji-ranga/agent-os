@@ -676,7 +676,7 @@ export async function createPrivateTasks({
       }
       if(groupId&&groupId!==g.id){
         const target=groups.get(groupId);
-        if(!validGroup(target)||target.userId!==userId||target.owner!==g.owner||g.userId||g.participants.size!==1||g.pairings.length||target.participants.size>=config.groupSize)reject('LINK_DENIED');
+        if(!validGroup(target)||target.userId!==userId||target.owner!==g.owner||g.participants.size!==1||g.pairings.length||target.participants.size>=config.groupSize)reject('LINK_DENIED');
         // Explicit workflow linking grants server delivery only, never peer handoff.
         for(const [id,p] of g.participants)target.participants.set(id,p);
         for(const id of g.members){target.members.add(id);instances.get(id).groupId=target.id;}
