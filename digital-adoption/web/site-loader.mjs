@@ -8,7 +8,7 @@ if(window===window.top&&enabled){
  async function connect(){const current=++attempt;status.disabled=true;status.textContent='Connecting copilot…';let timer;
  try{const response=await fetch(configURL,{credentials:'omit',cache:'no-store',signal:AbortSignal.timeout(8000)});if(!response.ok)throw new Error('Preview installation unavailable');const config=await response.json(),service=new URL(config.serviceUrl),expected=new URL('./',script);expected.search='';
  if(service.href!==expected.href||config.origin!==location.origin||config.expiresAt<=Date.now())throw new Error('Preview installation scope changed or expired');
- const {mount}=await Promise.race([import(new URL('sdk.mjs',service).href),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('Copilot download timed out')),8000);})]);if(current!==attempt)return;status.remove();mount({serviceUrl:service.href,installationToken:config.installationToken,theme:{title:'Website Copilot · UAT'}}).catch(()=>{});
+ const sdkUrl=new URL('sdk.mjs',service);if(current>1)sdkUrl.searchParams.set('retry',String(current));const {mount}=await Promise.race([import(sdkUrl.href),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('Copilot download timed out')),8000);})]);if(current!==attempt)return;status.remove();mount({serviceUrl:service.href,installationToken:config.installationToken,theme:{title:'Website Copilot · UAT'}}).catch(()=>{});
  }catch(error){if(current===attempt){status.disabled=false;status.textContent='Retry copilot';status.title=error.message;}}finally{clearTimeout(timer);}}
  status.onclick=connect;connect();
 }

@@ -17,7 +17,7 @@ export function installationSnippet(serviceUrl, installationToken) {
 const status=document.createElement('button');status.type='button';status.dataset.adoptionWidget='true';status.style.cssText='position:fixed;right:20px;bottom:20px;z-index:2147483646;padding:12px';document.body.append(status);
 let attempt=0;
 async function connect(){const current=++attempt;status.disabled=true;status.textContent='Connecting copilot…';let timer;
-try{const sdk=await Promise.race([import(${JSON.stringify(new URL("sdk.mjs", service).href)}),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('Copilot download timed out')),8000);})]);if(current!==attempt)return;status.remove();sdk.mount({serviceUrl:${JSON.stringify(service.href)},installationToken:${JSON.stringify(installationToken)}}).catch(()=>{});}
+try{const sdkUrl=new URL(${JSON.stringify(new URL("sdk.mjs", service).href)});if(current>1)sdkUrl.searchParams.set("retry",String(current));const sdk=await Promise.race([import(sdkUrl.href),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('Copilot download timed out')),8000);})]);if(current!==attempt)return;status.remove();sdk.mount({serviceUrl:${JSON.stringify(service.href)},installationToken:${JSON.stringify(installationToken)}}).catch(()=>{});}
 catch(error){if(current===attempt){status.disabled=false;status.textContent='Retry copilot';status.title=error.message;}}
 finally{clearTimeout(timer);}}
 status.onclick=connect;connect();
