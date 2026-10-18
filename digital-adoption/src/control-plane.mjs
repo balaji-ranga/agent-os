@@ -18,6 +18,8 @@ export function createControlPlane(repository,authority,{dns=resolveTxt,clock=Da
  const adminReason=(actor,reason)=>{if(actor?.role!=='platform_admin'||typeof reason!=='string'||!reason.trim()||reason.length>500)reject();};
  const owned=(actor,id)=>{identity(actor);const website=websites.get(id);if(!website||(actor.role!=='platform_admin'&&website.organizationId!==actor.organizationId)||!['owner','platform_admin'].includes(actor.role))reject();return website;};
  return {
+  recordAnalytics(actor,id){owned(actor,id);record(actor,'configure_analytics',id,'Website analytics policy updated; fresh visitor consent required');},
+  recordPairing(actor,id,{action,groupId,reason,status}){owned(actor,id);if(!['revoke_pairing','update_pairing_expiry'].includes(action)||typeof groupId!=='string'||typeof reason!=='string'||!reason.trim()||reason.length>500)reject();audit.set(randomUUID(),{actorId:actor.id,organizationId:actor.organizationId,websiteId:id,action,groupId,reason,status,at:clock()});},
   transfer(actor,id,{email,expectedOwnerId,reason}){
    adminReason(actor,reason);
    if(typeof email!=='string'||email.length>254)reject();
@@ -26,7 +28,7 @@ export function createControlPlane(repository,authority,{dns=resolveTxt,clock=Da
    return repository.transaction(()=>{
     const website=owned(actor,id);
     if(website.organizationId!==expectedOwnerId||website.status==='removed'||website.organizationId===target.id)reject();
-    const previousOwnerId=website.organizationId;website.organizationId=target.id;websites.set(id,website);
+    const previousOwnerId=website.organizationId;website.organizationId=target.id;if(website.analyticsPolicy)website.analyticsPolicy={...website.analyticsPolicy,enabled:false,revision:(website.analyticsPolicy.revision||1)+1};websites.set(id,website);
     audit.set(randomUUID(),{actorId:actor.id,organizationId:actor.organizationId,action:'transfer_owner',websiteId:id,reason,previousOwnerId,newOwnerId:target.id,at:clock()});
     // A prior recipient's delivery verification is not authority for the new owner.
     const contacts=repository.map('registration_email'),contact=contacts.get(id);

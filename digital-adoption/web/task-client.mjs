@@ -64,6 +64,8 @@ export function createTaskClient({
           resolve();
           return;
         }
+        if(message.type==='pairing-policy-updated'){notify({type:message.type,expiresAt:message.expiresAt,idleMs:message.idleMs});return;}
+        if(message.type==='pairing-revoked'){if(typeof message.resumeProof==='string')resumeStore?.write(message.resumeProof);notify({type:'pairing-offline',reason:'The website owner revoked or expired this group. Create a new pairing or workflow link; no failed action was replayed.'});return;}
         if (message.type === 'task-ended') {
           if (taskId !== message.taskId) return;
           generation++;

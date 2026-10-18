@@ -245,3 +245,63 @@ The temporary isolated public workflow capability is restored Off. Owner UI
 screenshot and audit verify cleanup; local task capabilities remain available.
 The six-hour opt-in preview expires at 15:17 Singapore on 18 October 2026.
 No new preview credential or lifetime is granted by deployment or this report.
+
+## Owner administration and analytics extension
+
+The extension adds no npm/Python dependencies. New source modules are copied by
+the existing Docker source rules. Startup creates an independent indexed
+`visitor_analytics` table and an internal HMAC key; no Flolah application table
+or shared knowledge index is used. Rollback to the earlier runtime ignores this
+additive table. Back up the database normally; existing seven-day checkpoint
+expiry is unchanged and is separate from live analytics retention.
+
+The user approved 30-day opt-in collection on 18 October 2026. Keep analytics
+Off until owner enablement; every visitor must accept its notice. Choices are
+7/30/90 days; owner settings do not override visitor consent. Network hints also
+require explicit trusted proxy peer addresses in protected `service.json`:
+
+```json
+{"analytics":{"maxSiteRows":50000,"maxRows":500000,"reportRows":20000,"trustedProxyAddresses":[]}}
+```
+
+Leave the address list empty until actual proxy topology/headers are verified.
+Never trust an arbitrary caller's X-Forwarded-For. The service uses only the
+last validated forwarded address from an explicitly trusted peer and retains
+only a rotating coarse-network hint, never that raw address in analytics.
+
+Reproducible isolated checks:
+
+```sh
+node --test test/pairing-governance.test.mjs test/visitor-analytics.test.mjs test/analytics-session-client.test.mjs
+node test/owner-analytics-browser.mjs
+node test/analytics-capacity.mjs
+```
+
+The browser harness creates its own temporary database and loopback API,
+synthetic owner authentication and synthetic visitor data. Its website remains
+127.0.0.1:4194. It does not turn on analytics for the real laptop registration or
+public flolah.cloud, and does not prove fresh real-owner/DNS onboarding. Its
+screenshots/results are separate from the historical feedback evidence.
+The capacity script measures 25 isolated registrations/25 concurrent clients,
+5,000 event writes and 25 authenticated owner reports over loopback HTTP. It
+checks domain isolation and TTL cleanup; it does not certify model/OCR latency,
+sustained load or multi-coordinator HA. Keep the coordinator replicas=1 with
+SQLite and the existing resource-capped parser workers.
+
+
+Validation on 18 October: runtime `20261018-owner-analytics-d` is deployed;
+source/evidence publication `20261018-owner-analytics-e` carries the consolidated
+report and updated checks. Runtime D passed 221 application tests in a separate
+one-CPU/one-GiB container without production data mounts. Actual owner-console
+UAT exercised pairing/analytics in B; D adds immediate owner-transfer isolation,
+owner cooldown
+feedback and named telemetry. Local analytics is enabled at 30-day retention,
+network hints Off; both public registrations remain Off. The synthetic group
+used for live expiry extension/revocation was removed. No preview lifetime was
+extended. The actual public opt-in preview expires 15:17 Singapore today.
+
+For the assisted live browser harness, choose a fresh `ADOPTION_OWNER_LIVE_DIR`
+file URL for every run. It waits for operator files `enabled`, `extended` and
+`revoked` only after those actions have visibly succeeded in the authenticated
+owner UI. It refuses old flags; never seed flags as a replacement for UI checks.
+The ordinary isolated browser harness needs no real owner authentication.

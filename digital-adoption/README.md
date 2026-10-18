@@ -272,3 +272,43 @@ covers async loading, empty/error/duplicate-label refusal and recovery, dependen
 fields, dynamic editable table rows, row selection, filtering/sorting/pagination,
 modal scope and independent saved-record readback. Vendor-specific grids and
 closed components are not certified by these accessible fixture patterns.
+
+## Owner pairing controls and optional analytics
+
+The selected website now has **Visitor pairings & workflow targets** and
+**Website & copilot analytics** sections in both management consoles. Owners
+and authorized platform admins can review visitor groups, revoke them and
+change expiry directly, including extensions. Connected visitors are notified
+and may disconnect. Reconnect proofs rotate after revocation.
+
+Analytics is Off by default. The approved policy is 30-day opt-in retention.
+Once an owner enables it, visitors must
+accept its current notice. Reports cover consenting browser IDs, page/form use,
+validation/submit attempts, copilot engagement and requests, handoffs/workflow
+outcomes, behavioral cohorts and optional possible-visitor-match hints. Values,
+chat and file contents never enter analytics. IP hints are coarse, rotating,
+website-specific and require a configured trusted proxy. They do not identify a
+person, combine website indexes or grant pairing/workflow permissions.
+
+See DESIGN section 18 and the deployment instructions for lifecycle, retention,
+quota and measurement boundaries. Existing full-phase UAT gaps are unchanged.
+
+
+Current owner/analytics runtime: **20261018-owner-analytics-d**; evidence/source
+publication: **20261018-owner-analytics-e**. The [consolidated evidence report](test/evidence/owner-analytics-20261018/index.html)
+contains 37 passed, five partial and three user-deferred cases, with no failed
+cases. Seven new owner/analytics cases passed; live coarse-network matching is
+partial. Historical feedback screenshots retain their original release labels.
+All 221 application tests pass locally and in the D VPS image. Actual owner UI
+and VPS-recipient checks verified local opt-in analytics, expiry extension and
+revocation; the disposable group was removed and synthetic visitors opted out.
+Local test analytics remains enabled with 30-day retention; both public Flolah
+registrations remain Off. Network hints remain Off/unconfigured in live UAT.
+
+The capped VPS analytics pilot measured 25 websites/25 concurrent clients,
+5,000 events, ingest p95 158 ms and owner-report p95 35 ms without unexpected
+errors. The separate private-task pilot measured 50 WebSockets, 25 real text
+extractions and 50 recipients, with zero remaining private bytes after cleanup.
+These are short synthetic pilots, not sustained-load or Kubernetes HA proof.
+Owner resend cooldown now returns HTTP 429 with Retry-After and explains that
+the code already sent remains usable; it does not replace a valid challenge.

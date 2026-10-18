@@ -1,0 +1,86 @@
+{
+  "policy": {
+    "websiteId": "synthetic-analytics-local",
+    "enabled": true,
+    "revision": 2,
+    "retentionDays": 30,
+    "networkHints": false
+  },
+  "windowDays": 7,
+  "truncated": false,
+  "rowLimit": 20000,
+  "events": 15,
+  "capacity": {
+    "siteRows": 15,
+    "siteLimit": 50000,
+    "globalLimit": 500000
+  },
+  "networkHintSamples": 0,
+  "uniqueBrowserIds": 1,
+  "sessions": 2,
+  "multiSessionBrowserIds": 1,
+  "counts": {
+    "active_time": 3,
+    "copilot_exposed": 2,
+    "page_view": 2,
+    "pairing_confirmation": 2,
+    "form_invalid": 2,
+    "element_click": 1,
+    "field_interaction": 2,
+    "form_start": 1
+  },
+  "daily": [
+    {
+      "date": "2026-10-18",
+      "events": 15,
+      "browserIds": 1,
+      "sessions": 2
+    }
+  ],
+  "pages": [
+    {
+      "key": "030c3a0f6e25c3e42594ecccc9da3004ca27a7ccedd1b0011bdb3c0a5f9f8552",
+      "views": 1,
+      "clicks": 0,
+      "interactions": 0,
+      "activeMs": 15000,
+      "label": "/note"
+    },
+    {
+      "key": "94f14a7d021c1cfb811c50137a7bff23779f950f96d22df8c8d6cc0d140ce7cc",
+      "views": 1,
+      "clicks": 1,
+      "interactions": 2,
+      "activeMs": 29999,
+      "label": "/customer"
+    }
+  ],
+  "forms": [
+    {
+      "key": "7786411acb9e318d3b18b51b19334ba05222aa00a2c43fefd628fbe9c9bcd760",
+      "page": "94f14a7d021c1cfb811c50137a7bff23779f950f96d22df8c8d6cc0d140ce7cc",
+      "starts": 1,
+      "interactions": 2,
+      "submitAttempts": 0,
+      "invalid": 2,
+      "label": "Customer draft",
+      "pageLabel": "/customer",
+      "startedWithoutSubmitAttempt": 1
+    }
+  ],
+  "flows": [],
+  "cohorts": {
+    "formHeavy": 0,
+    "copilotAssisted": 0,
+    "frictionObserved": 1
+  },
+  "operationP95Ms": 3,
+  "possibleSameVisitor": [],
+  "limits": [
+    "Browser IDs are not people. Network/behavior matches never grant access or merge profiles.",
+    "Submit attempts are not successful business saves.",
+    "Form start minus submit attempt is a friction indicator, not verified abandonment.",
+    "Unknown page/form names require owner-authorized discovery.",
+    "Pattern candidates are bounded to 200 browser IDs and 100 suggestions."
+  ]
+}

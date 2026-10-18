@@ -3,6 +3,7 @@ import { mkdir, writeFile, readFile, rm, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createProposalStore, validateSnapshot } from './proposals.mjs';
 import {readOnlyIntent,groundedValue} from './task-intent.mjs';
+import {createPairingGovernance} from './pairing-governance.mjs';
 const hash = value => createHash('sha256').update(value).digest('hex');
 const secret = () => randomBytes(24).toString('base64url');
 const reject = (code = 'TASK_ACCESS_DENIED') => {
@@ -76,6 +77,7 @@ export async function createPrivateTasks({
   clock = Date.now,
   limits = {},
   authorizeEffect = async () => false,
+  observe = () => {},
   pairingState = new Map()
 }) {
   const config = {
@@ -99,7 +101,7 @@ export async function createPrivateTasks({
     commands = new Map(),
     operations = new Map();
   let queuedTurn = 0;
-  const saveGroup=g=>pairingState.set(g.id,{id:g.id,owner:g.owner,userId:g.userId,name:g.name,expiresAt:g.expiresAt,idleMs:g.idleMs,touched:g.touched,pairings:g.pairings||[],participants:[...g.participants.values()].map(({instanceId,...p})=>p)});
+  const saveGroup=g=>pairingState.set(g.id,{id:g.id,owner:g.owner,userId:g.userId,name:g.name,expiresAt:g.expiresAt,idleMs:g.idleMs,touched:g.touched,policyRevision:g.policyRevision||1,policyRequest:g.policyRequest,pairings:g.pairings||[],participants:[...g.participants.values()].map(({instanceId,...p})=>p)});
   const validGroup=g=>!!g&&(!g.expiresAt||g.expiresAt>clock())&&(!g.idleMs||g.touched+g.idleMs>clock());
   const groupFor=i=>{const g=groups.get(i.groupId);return validGroup(g)?g:null;};
   const site = scope => {
@@ -156,6 +158,7 @@ export async function createPrivateTasks({
     if (!r || ['succeeded', 'failed', 'expired', 'cancelled'].includes(r.status)) return;
     r.status = status;
     r.code = code;
+    const endpoint=instances.get(recipient);if(endpoint)try{observe(endpoint.scope,{kind:status==='succeeded'?'workflow_completed':status==='cancelled'?'workflow_cancelled':'workflow_failed',status:status==='succeeded'?'ok':status==='cancelled'?'cancelled':'failed'});}catch{}
     if(status!=='succeeded')c.status='failed';
     if (result) r.result = result;
     c.updatedAt = clock();
@@ -215,7 +218,22 @@ export async function createPrivateTasks({
       text: s.text.slice(0, 1800)
     }));
   };
+  const dropGroup=(g,reason)=>{
+    // Fence reconnects durably before clearing any in-memory authority.
+    pairingState.delete(g.id);
+    const ids=new Set(g.members);
+    for(const t of [...tasks.values()])if([...t.members].some(id=>ids.has(id)))end(t);
+    for(const c of commands.values())if(c.groupId===g.id)for(const r of c.recipients)finishCommand(c,r.instanceId,'failed',reason);
+    for(const id of ids){const i=instances.get(id);if(i){i.groupId=null;i.resumeProof=secret();i.participantId=randomUUID();if(live(i))try{i.send({type:'pairing-revoked',reason,resumeProof:i.resumeProof});}catch{}}}
+    for(const [key,v]of invitations)if(ids.has(v.from)||ids.has(v.to))invitations.delete(key);
+    for(const [key,v]of links)if(v.groupId===g.id)links.delete(key);
+    groups.delete(g.id);
+  };
+  const governance=createPairingGovernance({groups,website,live,instances,validGroup,saveGroup,dropGroup,clock,notifyPolicy:g=>{for(const id of g.members){const i=instances.get(id);if(live(i))try{i.send({type:'pairing-policy-updated',expiresAt:g.expiresAt,idleMs:g.idleMs});}catch{}}}});
   const service = {
+    managedPairings(scope,input){return governance.list(scope,input);},
+    revokeManagedPairing(scope,input){return governance.revoke(scope,input);},
+    updateManagedPairing(scope,input){return governance.update(scope,input);},
     limits: config,
     ticket(scope, {
       instanceId,resumeProof
@@ -561,7 +579,7 @@ export async function createPrivateTasks({
       return {
         instanceId: i.id,
         groupId: g?.id,
-        workflowLinked: !!g?.userId,name:g?.name,expiresAt:g?.expiresAt,idleMs:g?.idleMs,
+        workflowLinked: !!g?.userId,name:g?.name,expiresAt:g?.expiresAt,idleMs:g?.idleMs,policyRevision:g?.policyRevision||1,
         pending,
         members: g ? [...g.participants.values()].map(p => {
           const m = instances.get(p.instanceId),
@@ -604,7 +622,7 @@ export async function createPrivateTasks({
           m.confirmedInvitations||=new Set();m.confirmedInvitations.add(invitationId);
         }
         if(!g.pairings.some(edge=>edge.includes(a.participantId)&&edge.includes(b.participantId)))g.pairings.push([a.participantId,b.participantId]);
-        groups.set(g.id, g);saveGroup(g);
+        g.policyRevision=(g.policyRevision||1)+1;delete g.policyRequest;groups.set(g.id, g);saveGroup(g);
         for (const [key, v] of invitations) if (v === entry) invitations.delete(key);
       }
       return service.pairStatus(scope, {
@@ -624,7 +642,7 @@ export async function createPrivateTasks({
       if(!participant)reject('PAIRING_REJECTED');
       g.members.delete(targetId);
       const target = instances.get(participant.instanceId);
-      g.members.delete(participant.instanceId);g.participants.delete(participant.id);g.pairings=g.pairings.filter(edge=>!edge.includes(participant.id));i.revokedMembers.add(targetId);saveGroup(g);
+      g.members.delete(participant.instanceId);g.participants.delete(participant.id);g.pairings=g.pairings.filter(edge=>!edge.includes(participant.id));i.revokedMembers.add(targetId);g.policyRevision=(g.policyRevision||1)+1;delete g.policyRequest;saveGroup(g);
       if (target) target.groupId = null;
       for (const c of commands.values()) finishCommand(c, targetId, 'failed', 'PAIRING_REVOKED');
       for (const t of tasks.values()) if (t.members.has(i.id) && t.members.has(targetId)) {
@@ -680,7 +698,7 @@ export async function createPrivateTasks({
         // Explicit workflow linking grants server delivery only, never peer handoff.
         for(const [id,p] of g.participants)target.participants.set(id,p);
         for(const id of g.members){target.members.add(id);instances.get(id).groupId=target.id;}
-        target.touched=clock();saveGroup(target);groups.delete(g.id);pairingState.delete(g.id);
+        target.expiresAt=target.expiresAt&&g.expiresAt?Math.min(target.expiresAt,g.expiresAt):target.expiresAt||g.expiresAt||null;target.idleMs=target.idleMs&&g.idleMs?Math.min(target.idleMs,g.idleMs):target.idleMs||g.idleMs||0;target.policyRevision=(target.policyRevision||1)+1;delete target.policyRequest;target.touched=clock();saveGroup(target);groups.delete(g.id);pairingState.delete(g.id);
         return {groupId:target.id,linked:true};
       }
       g.userId = userId;saveGroup(g);
@@ -1136,7 +1154,7 @@ export async function createPrivateTasks({
           instances.delete(id);
         }
       }
-      for(const [id,g] of groups)if(!validGroup(g)||![...g.participants.values()].every(p=>website(p.websiteId)?.organizationId===g.owner&&website(p.websiteId)?.status==='approved')){for(const memberId of g.members){const i=instances.get(memberId);if(i)i.groupId=null;for(const c of commands.values())finishCommand(c,memberId,'failed','PAIRING_REVOKED');}groups.delete(id);pairingState.delete(id);}
+      for(const g of [...groups.values()])if(!validGroup(g)||![...g.participants.values()].every(p=>website(p.websiteId)?.organizationId===g.owner&&website(p.websiteId)?.status==='approved'))dropGroup(g,'PAIRING_REVOKED');
       for (const t of tasks.values()) {
         if (t.expiresAt <= now || t.touched + config.idleMs <= now || ![...t.members].some(id => live(instances.get(id))) || [...t.files.values()].some(f => website(f.embeddingId)?.organizationId !== t.owner || website(f.embeddingId)?.status !== 'approved')) {
           end(t);

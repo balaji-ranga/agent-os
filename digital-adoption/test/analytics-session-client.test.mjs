@@ -1,0 +1,4 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createSessionClient} from '../web/session-client.mjs';
+test('analytics transport cannot block normal actions or run an effectful endpoint in the background',async()=>{let release;const blocked=new Promise(r=>release=r);const client=createSessionClient({service:new URL('http://127.0.0.1:4193/'),fetchImpl:async(url)=>{if(url.pathname==='/v1/sessions')return Response.json({sessionToken:'synthetic',sessionId:'one',expiresAt:Date.now()+60000,sessionExpiresAt:Date.now()+60000});if(url.pathname==='/v1/analytics/events'){await blocked;return Response.json({accepted:1});}return Response.json({completed:true});}});await client.request('/v1/sessions',{});const analytics=client.background('/v1/analytics/events',{events:[]});assert.equal((await client.request('/v1/plan',{})).completed,true);await assert.rejects(client.background('/v1/approve',{}),/denied/);release();await analytics;client.stop();});

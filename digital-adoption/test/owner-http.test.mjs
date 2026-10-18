@@ -15,7 +15,7 @@ test('owner HTTP routes isolate registrations, deny admin and foreign origins, a
  const server=createAdoptionServer({authority,ownerIdentity,ownerManagement,platformOrigin});
  server.listen(0,'127.0.0.1');await once(server,'listening');const base=`http://127.0.0.1:${server.address().port}`;
  const post=(path,input={},cookie='',origin=platformOrigin)=>fetch(base+'/v1/owner/'+path,{method:'POST',headers:{Origin:origin,Cookie:cookie,'Content-Type':'application/json'},body:JSON.stringify(input)});
- const signIn=async email=>{const challenge=await(await post('start',{email})).json();const code=mail.text.match(/code is (\d{6})/)[1];const response=await post('confirm',{...challenge,code});assert.equal(response.status,200);return response.headers.get('set-cookie').split(';')[0];};
+ const signIn=async email=>{const challenge=await(await post('start',{email})).json();const code=mail.text.match(/code is (\d{6})/)[1];const cooldown=await post('start',{email});assert.equal(cooldown.status,429);assert.equal((await cooldown.json()).code,'OWNER_CODE_COOLDOWN');assert.ok(Number(cooldown.headers.get('retry-after'))>0);const response=await post('confirm',{...challenge,code});assert.equal(response.status,200);return response.headers.get('set-cookie').split(';')[0];};
  try{
   assert.equal((await post('start',{email:'one@example.com'},'','https://foreign.example.com')).status,403);
   assert.equal((await post('manage/websites')).status,403);

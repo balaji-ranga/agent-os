@@ -10,6 +10,7 @@ import {createProposalStore} from '../src/proposals.mjs';
 
 test('HTTP operational events correlate failures and success without bodies, tokens, URLs or raw scope identifiers',async()=>{
  const events=[],telemetry=createOperationalTelemetry({emit:event=>events.push(event)}),authority=new SessionAuthority(),origin='https://fixture.test',installation=authority.registerApproved({embeddingId:'private-fixture',origins:[origin],expiresAt:Date.now()+600000});
+ for(const path of ['/v1/analytics/consent','/v1/analytics/events','/v1/owner/manage/pairing-policy','/v1/manage/analytics-report'])assert.notEqual(telemetry.operation(path),'unknown');
  const server=createAdoptionServer({authority,telemetry});server.listen(0,'127.0.0.1');await once(server,'listening');const base='http://127.0.0.1:'+server.address().port;
  const post=(path,body,token)=>fetch(base+path,{method:'POST',headers:{Origin:origin,'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},body:JSON.stringify(body)});
  try{

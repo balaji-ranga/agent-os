@@ -1,4 +1,4 @@
-export function createManagement({authenticate,control,knowledge,search,platformOrigin,registrationEmail,ingestion,learning,coaching,sourceMap,hostIdentity}){
+export function createManagement({authenticate,control,knowledge,search,platformOrigin,registrationEmail,ingestion,learning,coaching,sourceMap,hostIdentity,privateTasks,analytics}){
  return async({authorization,origin,path,input})=>{
   if(origin!==platformOrigin)throw new Error('Management origin denied');
   const actor=await authenticate(authorization);
@@ -21,6 +21,16 @@ export function createManagement({authenticate,control,knowledge,search,platform
   if(path==='/v1/manage/website-state')return control.transition(actor,input.id,input.status,input.reason);
   if(path==='/v1/manage/configure')return control.configure(actor,input.id,input);
   let scope=control.scope(actor,input.id); // IDs select an already authorized resource, never an identity.
+  if(path==='/v1/manage/analytics-report'){if(!analytics)throw new Error('Analytics unavailable');return analytics.report(scope,input);}
+  if(path==='/v1/manage/analytics-configure'){if(!analytics)throw new Error('Analytics unavailable');const result=analytics.configure(scope,input);control.recordAnalytics(actor,input.id);return result;}
+  if(path.startsWith('/v1/manage/pairing-')){
+   if(!privateTasks)throw new Error('Pairing management unavailable');
+   if(path.endsWith('/pairing-list'))return privateTasks.managedPairings(scope,input);
+   if(!['/v1/manage/pairing-revoke','/v1/manage/pairing-policy'].includes(path)||typeof input.reason!=='string'||!input.reason.trim()||input.reason.length>500)throw new Error('Choose a pairing action and enter a reason');
+   control.recordPairing(actor,input.id,{action:path.endsWith('/pairing-revoke')?'revoke_pairing':'update_pairing_expiry',groupId:input.groupId,reason:input.reason,status:'requested'});
+   const result=path.endsWith('/pairing-revoke')?privateTasks.revokeManagedPairing(scope,input):privateTasks.updateManagedPairing(scope,input);
+   control.recordPairing(actor,input.id,{action:path.endsWith('/pairing-revoke')?'revoke_pairing':'update_pairing_expiry',groupId:input.groupId,reason:input.reason,status:result.status||'revoked'});return result;
+  }
   if(path==='/v1/manage/host-identity-configure'){if(!hostIdentity)throw new Error('Host identity unavailable');return hostIdentity.configure(scope,input.policy);}
   if(path==='/v1/manage/host-identity-status'){if(!hostIdentity)throw new Error('Host identity unavailable');return hostIdentity.status(scope);}
   if(path==='/v1/manage/host-identity-revoke'){if(!hostIdentity)throw new Error('Host identity unavailable');return hostIdentity.revoke(scope,input);}

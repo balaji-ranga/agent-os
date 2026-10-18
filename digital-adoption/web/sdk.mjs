@@ -1,3 +1,4 @@
+import {createVisitorAnalytics} from './visitor-analytics.mjs';
 import {observePage} from './page-observer.mjs';
 import { createInspector } from './dom.mjs';
 import { normalizeTheme } from './theme.mjs';
@@ -25,6 +26,7 @@ export async function mount(options) {
   let bootstrap;
   try{bootstrap=await request('/v1/sessions',{installationToken,identityToken:await readHostIdentity()});bootstrapButton.remove();}
   catch(error){client.stop();bootstrapButton.disabled=false;bootstrapButton.textContent='Reconnect copilot';bootstrapButton.title=error.message;bootstrapButton.onclick=()=>{bootstrapButton.remove();mount(options).catch(()=>{});};throw error;}
+  const visitorAnalytics=createVisitorAnalytics({document,setConsent:value=>client.setAnalyticsConsent(value),request:(path,data)=>client.background(path,data)});
   const inspector = createInspector(document);
   const recorder=createRecorder(document);
   let recordedSteps=[];
@@ -62,7 +64,7 @@ export async function mount(options) {
     launcher.style.background=appearance.primary; launcher.style.color=appearance.onPrimary;
     frame.contentWindow?.postMessage({channel:'flolah-adoption-v1',type:'theme',theme:appearance},service.origin);
   };
-  launcher.onclick=()=>{if(closed){frame.remove();launcher.remove();window.removeEventListener('message',handler);mount(options).catch(()=>{});return;}frame.hidden=false;launcher.hidden=true;frame.focus();};
+  launcher.onclick=()=>{if(closed){frame.remove();launcher.remove();window.removeEventListener('message',handler);mount(options).catch(()=>{});return;}frame.hidden=false;launcher.hidden=true;frame.focus();visitorAnalytics.event('copilot_open');};
   applyAppearance();
   const resumeKey=`flolah-copilot-pair:${service.origin}:${installationToken.slice(-16)}`;
   let durableResume=false;
@@ -91,7 +93,7 @@ export async function mount(options) {
       else if(message.type==='appearance'||message.type==='appearance-reset'){
         appearance=message.type==='appearance-reset'?hostAppearance:normalizeTheme({...appearance,...message.theme});applyAppearance();result={theme:appearance};
       }
-      else if (message.type === 'minimize') {frame.hidden=true;launcher.hidden=false;launcher.focus();result={minimized:true};}
+      else if (message.type === 'minimize') {visitorAnalytics.event('copilot_close');frame.hidden=true;launcher.hidden=false;launcher.focus();result={minimized:true};}
       else if (message.type === 'history') result = await request('/v1/history');
       else if(message.type==='clear-history'){taskGeneration++;currentSnapshot=null;if(privateClient.taskId)await privateClient.call('task-end');result=await request('/v1/history/clear');}
       else if(message.type==='documents')result=await request('/v1/knowledge/documents');
@@ -225,7 +227,7 @@ export async function mount(options) {
   document.body.append(frame,launcher);
   frame.addEventListener('load',()=>privateClient.resume().then(out=>{if(out)frame.contentWindow?.postMessage({channel:'flolah-adoption-v1',type:'private-event',event:{type:'pairing-restored',status:out}},service.origin);}).catch(error=>frame.contentWindow?.postMessage({channel:'flolah-adoption-v1',type:'private-event',event:{type:'pairing-offline',reason:error.message}},service.origin)));
   const expireSession=()=>{
-    if(!closed){closed=true;privateClient.close();taskGeneration++;currentSnapshot=null;guidedQueue=null;client.interruptRead();recorder.stop();inspector.destroy();client.stop();clearInterval(timer);}
+    if(!closed){closed=true;visitorAnalytics.destroy();privateClient.close();taskGeneration++;currentSnapshot=null;guidedQueue=null;client.interruptRead();recorder.stop();inspector.destroy();client.stop();clearInterval(timer);}
     frame.title='Copilot session expired; reconnect to restore the saved group';launcher.textContent='Reconnect copilot';launcher.hidden=false;
     frame.contentWindow?.postMessage({channel:'flolah-adoption-v1',type:'expired'},service.origin);
   };
@@ -242,7 +244,7 @@ export async function mount(options) {
   const pageHide=()=>expireSession(),pageShow=event=>{if(event.persisted)expireSession();};
   window.addEventListener('pagehide',pageHide);window.addEventListener('pageshow',pageShow);
   const controller={ updateTheme: patch => {appearance=normalizeTheme({...appearance,...patch});hostAppearance=appearance;applyAppearance();}, destroy: async () => {
-    const wasClosed=closed;closed = true;privateClient.close();taskGeneration++;client.interruptRead();recorder.stop();inspector.destroy(); clearInterval(timer); window.removeEventListener('message', handler); frame.remove();launcher.remove();
+    const wasClosed=closed;closed = true;visitorAnalytics.destroy();privateClient.close();taskGeneration++;client.interruptRead();recorder.stop();inspector.destroy(); clearInterval(timer); window.removeEventListener('message', handler); frame.remove();launcher.remove();
     window.removeEventListener('pagehide',pageHide);window.removeEventListener('pageshow',pageShow);
     try { if(!wasClosed)await request('/v1/terminate'); } finally { client.stop(); }
   } };return controller;

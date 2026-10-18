@@ -1,20 +1,20 @@
 // Serialize renewal with requests so an in-flight request cannot use a token
 // invalidated by a concurrent renewal. Never retry a possibly effectful request.
 export function createSessionClient({service,fetchImpl=fetch,clock=Date.now}) {
- let session=null,queue=Promise.resolve(),stopped=false,activeRead=null;
+ let session=null,queue=Promise.resolve(),stopped=false,activeRead=null,analyticsAllowed=false;
  // Interrupt only requests that cannot submit host changes, upload content,
  // renew credentials or consume an approval. Aborted reads are never retried.
  const interruptible=new Set(['/v1/discovery/next','/v1/discovery/status','/v1/discovery/list','/v1/plan','/v1/recipe/plan','/v1/ask','/v1/knowledge/search']);
  const initializationKey=Array.from(crypto.getRandomValues(new Uint8Array(32)),b=>b.toString(16).padStart(2,'0')).join('');
- const perform=async(path,data={})=>{
+ const perform=async(path,data={},timeoutMs)=>{
   if(stopped)throw new Error('Session stopped; start a new session');
   if(session&&(session.expiresAt<=clock()||session.sessionExpiresAt<=clock()))throw new Error('Session expired; start a new session');
   if(path==='/v1/sessions')data={...data,initializationKey};
   const controller=new AbortController(),read=interruptible.has(path)?{controller}:null;
   if(read)activeRead=read;
   try{
-  const send=()=>fetchImpl(new URL(path.replace(/^\/+/,''),service),{method:'POST',credentials:'omit',redirect:'error',signal:AbortSignal.any([controller.signal,AbortSignal.timeout(path==='/v1/sessions'?8000:55_000)]),
-   headers:{'Content-Type':'application/json',...(session?{Authorization:`Bearer ${session.sessionToken}`}:{})},body:JSON.stringify(data)});
+  const send=()=>fetchImpl(new URL(path.replace(/^\/+/,''),service),{method:'POST',credentials:'omit',redirect:'error',signal:AbortSignal.any([controller.signal,AbortSignal.timeout(timeoutMs||(path==='/v1/sessions'?8000:55_000))]),
+   headers:{'Content-Type':'application/json',...(!analyticsAllowed?{'X-Adoption-Analytics':'off'}:{}),...(session?{Authorization:`Bearer ${session.sessionToken}`}:{})},body:JSON.stringify(data)});
   let response;
   try{response=await send();}catch(error){
    // Only bootstrap has an idempotency contract. Never retry approval/fill/save.
@@ -37,6 +37,8 @@ export function createSessionClient({service,fetchImpl=fetch,clock=Date.now}) {
  };
  return {
   request(path,data){const result=queue.then(()=>perform(path,data));queue=result.catch(()=>{});return result;},
+  setAnalyticsConsent(accepted){analyticsAllowed=accepted===true;},
+  background(path,data){if(!['/v1/analytics/policy','/v1/analytics/consent','/v1/analytics/events'].includes(path))return Promise.reject(new Error('Background route denied'));return perform(path,data,2000);},
   interruptRead(){if(!activeRead)return false;activeRead.controller.abort();return true;},
   stop(){stopped=true;session=null;},
  };

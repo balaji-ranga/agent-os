@@ -23,6 +23,19 @@ export function openRepository(path = ':memory:') {
     return scopedStatements.get(cacheKey).all(namespace,...names.map(name=>filters[name]));
   };
   return {
+    analyticsStore(){
+      db.exec('CREATE TABLE IF NOT EXISTS visitor_analytics (id TEXT PRIMARY KEY, embedding_id TEXT NOT NULL, owner_id TEXT NOT NULL, at INTEGER NOT NULL, visitor TEXT NOT NULL, session TEXT NOT NULL, kind TEXT NOT NULL, payload TEXT NOT NULL, expires_at INTEGER NOT NULL); CREATE INDEX IF NOT EXISTS analytics_expiry ON visitor_analytics(expires_at); CREATE INDEX IF NOT EXISTS analytics_site_time ON visitor_analytics(embedding_id,owner_id,at); CREATE INDEX IF NOT EXISTS analytics_visitor_time ON visitor_analytics(embedding_id,owner_id,visitor,at)');
+      const insert=db.prepare('INSERT OR IGNORE INTO visitor_analytics VALUES (?,?,?,?,?,?,?,?,?)');
+      return {
+        expireAll(now){return db.prepare('DELETE FROM visitor_analytics WHERE expires_at<=?').run(now).changes;},
+        shorten(embeddingId,ownerId,retentionMs){db.prepare('UPDATE visitor_analytics SET expires_at=min(expires_at,at+?) WHERE embedding_id=? AND owner_id=?').run(retentionMs,embeddingId,ownerId);},
+        insert(rows){let accepted=0;for(const r of rows)accepted+=Number(insert.run(r.id,r.embeddingId,r.ownerId,r.at,r.visitor,r.session,r.kind,JSON.stringify(r.data),r.expiresAt).changes);return accepted;},
+        count(embeddingId,ownerId){return db.prepare('SELECT count(*) n FROM visitor_analytics WHERE embedding_id=? AND owner_id=?').get(embeddingId,ownerId).n;},
+        total(){return db.prepare('SELECT count(*) n FROM visitor_analytics').get().n;},
+        expire(embeddingId,ownerId,before){return db.prepare('DELETE FROM visitor_analytics WHERE embedding_id=? AND owner_id=? AND at<?').run(embeddingId,ownerId,before).changes;},
+        rows(embeddingId,ownerId,since,limit){return db.prepare('SELECT * FROM visitor_analytics WHERE embedding_id=? AND owner_id=? AND at>=? ORDER BY at DESC,rowid DESC LIMIT ?').all(embeddingId,ownerId,since,limit).map(r=>({id:r.id,at:r.at,visitor:r.visitor,session:r.session,kind:r.kind,...JSON.parse(r.payload)}));},
+      };
+    },
     workItems(namespace,statuses,before=Number.MAX_SAFE_INTEGER,limit=1000){
       if(!['source_jobs','sources','source_cleanup'].includes(namespace)||!Array.isArray(statuses)||!statuses.length||statuses.length>4||!Number.isInteger(limit)||limit<1||limit>1000)throw new Error('Invalid work query');
       return db.prepare(`SELECT value FROM adoption_state WHERE namespace=? AND json_extract(value,'$.status') IN (${statuses.map(()=>'?').join(',')}) AND coalesce(json_extract(value,'$.leaseUntil'),0)<=? LIMIT ?`).all(namespace,...statuses,before,limit).map(row=>JSON.parse(row.value));

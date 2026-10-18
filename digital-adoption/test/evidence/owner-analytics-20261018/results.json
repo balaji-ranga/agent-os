@@ -1,0 +1,745 @@
+{
+  "title": "Digital Adoption Copilot — consolidated feedback and owner analytics UAT",
+  "date": "2026-10-18",
+  "runtimeRelease": "20261018-owner-analytics-d",
+  "publicationRelease": "20261018-owner-analytics-e",
+  "platformRelease": "20261018-feedback-f",
+  "status": "Scoped owner/analytics implementation verified; full Phase 1/2 certification remains partial",
+  "counts": {
+    "passed": 37,
+    "partial": 5,
+    "failed": 0,
+    "pending": 3
+  },
+  "baselineCounts": {
+    "passed": 30,
+    "partial": 4,
+    "failed": 0,
+    "pending": 3
+  },
+  "newCounts": {
+    "passed": 7,
+    "partial": 1,
+    "failed": 0,
+    "pending": 0
+  },
+  "tests": {
+    "localApplication": 221,
+    "vpsImageApplication": 221,
+    "isolatedBrowserJourneys": 6,
+    "actualVpsBrowserChecks": 3
+  },
+  "scope": "Laptop loopback fixture and public flolah.cloud only. New actual analytics/pairing tests used the local fixture and actual VPS owner console; historical public/workflow evidence retains its original release. No public form submissions; public workflow permission Off. Public preview expiry unchanged: 2026-10-18 15:17 Singapore.",
+  "analyticsState": "Local test registration: enabled, 30-day opt-in, network hints Off. Public registrations: Off. No field/chat/document contents or raw IPs in analytics.",
+  "cases": [
+    {
+      "id": "F01",
+      "feature": "Clean owner self-service onboarding proof",
+      "status": "partial",
+      "observed": "Demo seeding defaults Off. The empty-registration integration exercises registration, DNS/email verification, approval and observation without handbook/maps/recipes; DNS/email transports are synthetic. The existing local registration has historical operator provisioning and seeded content.",
+      "recommendation": "Repeat fresh empty onboarding through real owner DNS/email self-service before closing this case.",
+      "screenshots": [
+        "../feedback-20261018/workflow-owner-workflow-restored-off.png"
+      ],
+      "artifacts": [
+        "../feedback-20261018/application-local.tap",
+        "../feedback-20261018/application-vps-image.tap"
+      ],
+      "section": "Guided feedback",
+      "evidenceRelease": "Historical feedback I / publication J"
+    },
+    {
+      "id": "F02",
+      "feature": "Action button acknowledgement and bottom status",
+      "status": "passed",
+      "observed": "Immediate busy/disabled state; duplicate activation executes once; bottom completion clears after three seconds, including when the originating button is removed.",
+      "recommendation": "Keep the generic feedback wrapper on new asynchronous actions.",
+      "screenshots": [
+        "../feedback-20261018/controls-action-working.png",
+        "../feedback-20261018/controls-action-completed.png"
+      ],
+      "artifacts": [
+        "../feedback-20261018/controls-results.json"
+      ],
+      "section": "Guided feedback",
+      "evidenceRelease": "Historical feedback I / publication J"
+    },
+    {
+      "id": "F03",
+      "feature": "HTML control coverage and cross-framework state compatibility",
+      "status": "passed",
+      "observed": "Native radio/select/multiple-select/checkbox/datalist plus real React 18 and Angular 20 application state and independently persisted synthetic record readback pass. Stale control review is rejected.",
+      "recommendation": "Support is bounded to the observed accessible controls; certify vendor widgets separately.",
+      "screenshots": [
+        "../feedback-20261018/controls-native-complex.png",
+        "../feedback-20261018/controls-react-state-saved.png",
+        "../feedback-20261018/controls-angular-state-saved.png"
+      ],
+      "artifacts": [
+        "../feedback-20261018/controls-results.json"
+      ],
+      "section": "Guided feedback",
+      "evidenceRelease": "Historical feedback I / publication J"
+    },
+    {
+      "id": "F04",
+      "feature": "Natural-language mixed dropdown and checkbox intent",
+      "status": "passed",
+      "observed": "Real model chat understands Express plus Include gift wrap, presents Selected rather than internal true, supports Reject, and does not submit.",
+      "recommendation": "Retain mixed-intent and negation regression coverage.",
+      "screenshots": [
+        "../feedback-20261018/live-F04_MIXED_SEMANTIC_INTENT_AND_F09_REJECT-local.png",
+        "../feedback-20261018/live-F04_MIXED_SEMANTIC_INTENT_AND_F09_REJECT-public.png",
+        "../feedback-20261018/live-F04_NATURAL_SELECTION_APPROVED_NO_SAVE-local.png",
+        "../feedback-20261018/live-F04_NATURAL_SELECTION_APPROVED_NO_SAVE-public.png"
+      ],
+      "artifacts": [
+        "../feedback-20261018/live-results.json"
+      ],
+      "section": "Guided feedback",
+      "evidenceRelease": "Historical feedback I / publication J"
+    },
+    {
+      "id": "F05",
+      "feature": "Expand local fixture with tables and complex dynamic components",
+      "status": "passed",
+      "observed": "Added and tested async picklist loading/no-match/error/duplicate-label rejection and recovery, dependent contact, table row selection/editing, sorting/filtering/pagination, dynamic rows, modal scope, numeric constraints and persisted table/multiselect values.",
+      "recommendation": "This certifies the supported accessible fixture patterns. Vendor-specific virtualized grids or closed components still require their own adapter acceptance.",
+      "screenshots": [
+        "../feedback-20261018/controls-native-complex.png",
+        "../feedback-20261018/controls-picklist-empty-refused.png",
+        "../feedback-20261018/controls-picklist-error-refused.png",
+        "../feedback-20261018/controls-picklist-ambiguous-refused.png"
+      ],
+      "artifacts": [
+        "../feedback-20261018/controls-results.json"
+      ],
+      "section": "Guided feedback",
+      "evidenceRelease": "Historical feedback I / publication J"
+    },
+    {
+      "id": "F06",
+      "feature": "Pairing gives stale generic errors and confusing self-inclusive member count",
+      "status": "passed",
+      "observed": "Pairing is bilateral; counterpart count excludes this panel. Duplicate confirmation/revocation is idempotent and stale errors clear on successful action.",
+      "recommendation": "Use the counterpart list and current presence instead of interpreting total membership as live peers.",
+      "screenshots": [
+        "../feedback-20261018/live-F06_F14_NAMED_BILATERAL_GROUP-local.png",
+        "../feedback-20261018/live-F06_F14_NAMED_BILATERAL_GROUP-public.png"
+      ],
+      "artifacts": [
+        "../feedback-20261018/live-results.json",
+        "../feedback-20261018/application-vps-image.tap"
+      ],
+      "section": "Guided feedback",
+      "evidenceRelease": "Historical feedback I / publication J"
+    },
+    {
+      "id": "F07",
+      "feature": "Disable pending action buttons and show progress state",
+      "status": "passed",
+      "observed": "Shared asynchronous-action feedback suppresses repeated activation and exposes working/completed status. Background presence does not resurrect an old notice.",
+      "recommendation": "Apply this shared path to newly introduced action controls.",
+      "screenshots": [
+        "../feedback-20261018/controls-action-working.png",
+        "../feedback-20261018/controls-action-completed.png"
+      ],
+      "artifacts": [
+        "../feedback-20261018/controls-results.json"
+      ],
+      "section": "Guided feedback",
+      "evidenceRelease": "Historical feedback I / publication J"
+    },
+    {
+      "id": "F08",
+      "feature": "Browser refresh loses visible pairing and continuation",
+      "status": "passed",
+      "observed": "Both actual browser tabs reload and rejoin their saved group using fresh endpoints. Ended private files and approvals are not restored.",
+      "recommendation": "Reauthorize only after consent expiry/revocation or loss of browser proof.",
+      "screenshots": [
+        "../feedback-20261018/live-F08_F18_REFRESH_SAME_GROUP_NO_PRIVATE_RESTORE-local.png",
+        "../feedback-20261018/live-F08_F18_REFRESH_SAME_GROUP_NO_PRIVATE_RESTORE-public.png"
+      ],
+      "artifacts": [
+        "../feedback-20261018/live-results.json",
+        "../feedback-20261018/application-vps-image.tap"
+      ],
+      "section": "Guided feedback",
+      "evidenceRelease": "Historical feedback I / publication J"
+    },
+    {
+      "id": "F09",
+      "feature": "Inline Cancel or Reject in field review",
+      "status": "passed",
+      "observed": "Field review includes Reject; Save review includes Cancel save. Rejecting private-file review retains the ready file. Both cancellation journeys independently assert zero host submissions.",
+      "recommendation": "Keep fill approval and host Save approval separate.",
+      "screenshots": [
+        "../feedback-20261018/reviews-field-review-approve-and-reject.png",
+        "../feedback-20261018/reviews-save-review-confirm-and-cancel.png",
+        "../feedback-20261018/reviews-private-review-approve-and-reject.png",
+        "../feedback-20261018/reviews-private-review-rejected-file-retained.png"
+      ],
+      "artifacts": [
+        "../feedback-20261018/reviews-results.json",
+        "../feedback-20261018/live-results.json"
+      ],
+      "section": "Guided feedback",
+      "evidenceRelease": "Historical feedback I / publication J"
+    },
+    {
+      "id": "F10",
+      "feature": "Summary-only no-write request incorrectly produces field-fill review",
+      "status": "passed",
+      "observed": "Private summary-only prompt returns an answer with no field review or fill; synthetic host fields remain empty.",
+      "recommendation": "Continue enforcing read-only intent before generating write proposals.",
+      "screenshots": [
+        "../feedback-20261018/live-F10_PRIVATE_SUMMARY_ONLY_NO_REVIEW-local.png",
+        "../feedback-20261018/live-F10_PRIVATE_SUMMARY_ONLY_NO_REVIEW-public.png"
+      ],
+      "artifacts": [
+        "../feedback-20261018/live-results.json"
+      ],
+      "section": "Guided feedback",
+      "evidenceRelease": "Historical feedback I / publication J"
+    },
+    {
+      "id": "F11",
+      "feature": "Unified chat composer with paired-copilot at-mentions",
+      "status": "passed",
+      "observed": "Handoffs use @recipient in the normal bottom composer and Send. Missing sharing consent is rejected; setup is limited to files, pairing/linking and consent.",
+      "recommendation": "Use the shared composer for further delivery modes.",
+      "screenshots": [
+        "../feedback-20261018/live-F11_RELAY_CONSENT_REQUIRED-local.png",
+        "../feedback-20261018/live-F11_RELAY_CONSENT_REQUIRED-public.png",
+        "../feedback-20261018/live-F11_F15_UNIFIED_HANDOFF_AND_SENDER_TRACE-local.png",
+        "../feedback-20261018/live-F11_F15_UNIFIED_HANDOFF_AND_SENDER_TRACE-public.png"
+      ],
+      "artifacts": [
+        "../feedback-20261018/live-results.json"
+      ],
+      "section": "Guided feedback",
+      "evidenceRelease": "Historical feedback I / publication J"
+    },
+    {
+      "id": "F12",
+      "feature": "Ended live task and stale online UI produce unrecoverable generic handoff refusal",
+      "status": "passed",
+      "observed": "Reconnect, expiry/revocation and stale endpoint coverage pass; live offline workflow run 4062 reports COPILOT_RECIPIENT_OFFLINE without future delivery. Saved group remains.",
+      "recommendation": "An uncertain host effect is never automatically replayed; inspect before retrying.",
+      "screenshots": [
+        "../feedback-20261018/workflow-run4062-offline.png",
+        "../feedback-20261018/workflow-offline-group-retained-local.png"
+      ],
+      "artifacts": [
+        "../feedback-20261018/application-vps-image.tap"
+      ],
+      "section": "Guided feedback",
+      "evidenceRelease": "Historical feedback I / publication J"
+    },
+    {
+      "id": "F13",
+      "feature": "Missing launcher on SDK bootstrap failure and absent loading/retry feedback",
+      "status": "passed",
+      "observed": "Injected SDK download failure leaves host usable and visible Retry recovers without host reload on local/public. Explicit retry bypasses the browser cached failed module import.",
+      "recommendation": "The eight-second attempt limit is a bound; injected recovery timings are not normal startup benchmarks.",
+      "screenshots": [
+        "../feedback-20261018/bootstrap-download-failed-local.png",
+        "../feedback-20261018/bootstrap-recovered-local.png",
+        "../feedback-20261018/bootstrap-download-failed-public.png",
+        "../feedback-20261018/bootstrap-recovered-public.png"
+      ],
+      "artifacts": [
+        "../feedback-20261018/bootstrap-results.json"
+      ],
+      "section": "Guided feedback",
+      "evidenceRelease": "Historical feedback I / publication J"
+    },
+    {
+      "id": "F14",
+      "feature": "Confirmer-controlled pairing lifetime separate from visitor-session inactivity",
+      "status": "passed",
+      "observed": "The confirmer chooses group name, hours/until-revoked and optional inactivity. Presence polling does not renew inactivity; persistence tests cover restart and expiry.",
+      "recommendation": "Until revoked persists consent, not private task data or perpetual live authorization.",
+      "screenshots": [
+        "../feedback-20261018/live-F06_F14_NAMED_BILATERAL_GROUP-local.png",
+        "../feedback-20261018/live-F06_F14_NAMED_BILATERAL_GROUP-public.png"
+      ],
+      "artifacts": [
+        "../feedback-20261018/application-vps-image.tap",
+        "../feedback-20261018/live-results.json"
+      ],
+      "section": "Guided feedback",
+      "evidenceRelease": "Historical feedback I / publication J"
+    },
+    {
+      "id": "F15",
+      "feature": "Sender conversation trace for copilot handoffs",
+      "status": "passed",
+      "observed": "Sender chat shows the instruction, selected context, recipient and delivery result/time; receiver gets the authorized private context.",
+      "recommendation": "Private sender content clears when the task ends.",
+      "screenshots": [
+        "../feedback-20261018/live-F11_F15_UNIFIED_HANDOFF_AND_SENDER_TRACE-local.png",
+        "../feedback-20261018/live-F11_F15_UNIFIED_HANDOFF_AND_SENDER_TRACE-public.png"
+      ],
+      "artifacts": [
+        "../feedback-20261018/live-results.json"
+      ],
+      "section": "Guided feedback",
+      "evidenceRelease": "Historical feedback I / publication J"
+    },
+    {
+      "id": "F16",
+      "feature": "Workflow setup must explain owner capability and stale paired-session prerequisites",
+      "status": "passed",
+      "observed": "Workflow user authorization is distinct from website ownership. Independently linked single local target runs without peer pairing; another explicitly authorized same-owner target can join its saved group.",
+      "recommendation": "Owner must enable workflow capability; visitor must explicitly link; Action Policies still apply. Public temporary capability was restored Off.",
+      "screenshots": [
+        "../feedback-20261018/workflow-saved-workflow-targets.png",
+        "../feedback-20261018/workflow-owner-workflow-restored-off.png"
+      ],
+      "artifacts": [
+        "../feedback-20261018/application-vps-image.tap",
+        "../feedback-20261018/connector-core.tap",
+        "../feedback-20261018/workflow-runner.log"
+      ],
+      "section": "Guided feedback",
+      "evidenceRelease": "Historical feedback I / publication J"
+    },
+    {
+      "id": "F17",
+      "feature": "Readable inspection results and downstream workflow use",
+      "status": "passed",
+      "observed": "Run 4060 shows per-website fields/forms/navigation without entered values. Run 4063 inspect -> summarize passes the task-bound result handle: current form has zero visible fields, yet real LLM correctly reports all three previously observed required fields.",
+      "recommendation": "Pass task-bound handles between steps before task cleanup; never store transaction text in durable generic workflow audit.",
+      "screenshots": [
+        "../feedback-20261018/workflow-run4060-audit-results.png",
+        "../feedback-20261018/context-chained-workflow-config.png",
+        "../feedback-20261018/context-chain-completed.png",
+        "../feedback-20261018/context-run4063-completed.png"
+      ],
+      "artifacts": [
+        "../feedback-20261018/context-chain-result.json"
+      ],
+      "section": "Guided feedback",
+      "evidenceRelease": "Historical feedback I / publication J"
+    },
+    {
+      "id": "F18",
+      "feature": "Persistent reusable workflow copilot groups",
+      "status": "passed",
+      "observed": "Runs 4059 and 4060 use the same saved group and website selection across both tab refreshes without new group/link IDs. Offline run 4062 fails clearly while retaining the group. No peer pairing dependency.",
+      "recommendation": "Saved groups are reusable target authorizations; commands resolve eligible live endpoints on each run.",
+      "screenshots": [
+        "../feedback-20261018/workflow-saved-workflow-targets.png",
+        "../feedback-20261018/workflow-run4060-audit-results.png",
+        "../feedback-20261018/workflow-run4062-offline.png"
+      ],
+      "artifacts": [
+        "../feedback-20261018/application-vps-image.tap"
+      ],
+      "section": "Guided feedback",
+      "evidenceRelease": "Historical feedback I / publication J"
+    },
+    {
+      "id": "F19",
+      "feature": "Workflow instruction and copilot response in visitor chat history",
+      "status": "passed",
+      "observed": "Both visitor panels show full incoming workflow instruction/progress and readable inspection result. Task end removes private instruction/data and keeps a structural completion trace.",
+      "recommendation": "Review audit plus browser traces together; screenshot capture holds are excluded from latency measurements.",
+      "screenshots": [
+        "../feedback-20261018/workflow-incoming-local.png",
+        "../feedback-20261018/workflow-incoming-public.png",
+        "../feedback-20261018/workflow-run4060-local.png",
+        "../feedback-20261018/workflow-run4060-public.png",
+        "../feedback-20261018/workflow-run4060-audit-results.png"
+      ],
+      "artifacts": [
+        "../feedback-20261018/context-chain-result.json"
+      ],
+      "section": "Guided feedback",
+      "evidenceRelease": "Historical feedback I / publication J"
+    },
+    {
+      "id": "TX01",
+      "feature": "Transaction extraction and citations",
+      "status": "passed",
+      "recommendation": "Retain this synthetic corpus as a release gate; additional languages/handwriting are unsupported.",
+      "section": "End-to-end acceptance",
+      "observed": "Actual deployed parser/model: TXT, PDF, DOCX, PNG and JPEG, three correct fields and citations each. PDF/PNG Chrome uploads and summaries passed.",
+      "screenshots": [],
+      "artifacts": [
+        "../feedback-20261018/private-browser-pdf.json",
+        "../feedback-20261018/private-browser-png.json",
+        "../feedback-20261018/private-browser-public-pair.json"
+      ],
+      "evidenceRelease": "Historical feedback I / publication J"
+    },
+    {
+      "id": "TX02",
+      "feature": "Reviewed fill and independent Save proof",
+      "status": "passed",
+      "recommendation": "Keep business-save readback host-specific. Observed fields alone never prove persistence.",
+      "section": "End-to-end acceptance",
+      "observed": "PDF and PNG: fresh Customer field review, explicit fill, separate synthetic Save; exact returned record UUID and three values independently read back.",
+      "screenshots": [],
+      "artifacts": [
+        "../feedback-20261018/private-browser-pdf.json",
+        "../feedback-20261018/private-browser-png.json",
+        "../feedback-20261018/private-browser-public-pair.json"
+      ],
+      "evidenceRelease": "Historical feedback I / publication J"
+    },
+    {
+      "id": "TX03",
+      "feature": "Requested form, missing/conflicting fields",
+      "status": "passed",
+      "recommendation": "Expand custom-control coverage per host before advertising support.",
+      "section": "End-to-end acceptance",
+      "observed": "Both browser runs navigated from Customer to Note then freshly inspected/filled. Unit cases reject invented values, missing/conflicting/repeated labels.",
+      "screenshots": [],
+      "artifacts": [
+        "../feedback-20261018/private-browser-pdf.json",
+        "../feedback-20261018/private-browser-png.json",
+        "../feedback-20261018/private-browser-public-pair.json"
+      ],
+      "evidenceRelease": "Historical feedback I / publication J"
+    },
+    {
+      "id": "TX04",
+      "feature": "Private upload and document boundary",
+      "status": "passed",
+      "recommendation": "Keep supported formats explicit; add separate acceptance before adding languages/file types.",
+      "section": "End-to-end acceptance",
+      "observed": "Capability separation, extension/MIME/signature/binary/size limits and instruction rejection pass. No private upload publishes shared sources.",
+      "screenshots": [],
+      "artifacts": [
+        "../feedback-20261018/private-browser-pdf.json",
+        "../feedback-20261018/private-browser-png.json",
+        "../feedback-20261018/private-browser-public-pair.json"
+      ],
+      "evidenceRelease": "Historical feedback I / publication J"
+    },
+    {
+      "id": "PAIR01",
+      "feature": "Anonymous local/public bilateral pairing",
+      "status": "passed",
+      "recommendation": "Use fresh pairing codes and current preview authorization for future releases; pairing remains user consent rather than device attestation.",
+      "section": "End-to-end acceptance",
+      "observed": "Anonymous live Chrome panels on loopback Customer and public flolah.cloud MCP Universe paired with bilateral confirmation; each panel displayed the other exact origin.",
+      "screenshots": [],
+      "artifacts": [
+        "../feedback-20261018/private-browser-pdf.json",
+        "../feedback-20261018/private-browser-png.json",
+        "../feedback-20261018/private-browser-public-pair.json"
+      ],
+      "evidenceRelease": "Historical feedback I / publication J"
+    },
+    {
+      "id": "PAIR02",
+      "feature": "Pairing and identity isolation",
+      "status": "passed",
+      "recommendation": "Pairing is explicit user consent, not proof of a single physical device.",
+      "section": "End-to-end acceptance",
+      "observed": "Wrong owner, expiry/reuse, foreign instance/session, conflicting user links and unrelated group tests pass.",
+      "screenshots": [],
+      "artifacts": [
+        "../feedback-20261018/private-browser-pdf.json",
+        "../feedback-20261018/private-browser-png.json",
+        "../feedback-20261018/private-browser-public-pair.json"
+      ],
+      "evidenceRelease": "Historical feedback I / publication J"
+    },
+    {
+      "id": "RELAY01",
+      "feature": "Private handoff to public destination form",
+      "status": "passed",
+      "recommendation": "Keep destination inspection and review; never interpret filled controls as a saved business record. Future website fixtures must supply their own observed controls.",
+      "section": "End-to-end acceptance",
+      "observed": "Sharing without consent rejected; with consent, private integration passages reached the public panel. Real model proposed Inventory API and stdio from the file. Controls remained blank until approval, then both values were independently observed; no public submission.",
+      "screenshots": [],
+      "artifacts": [
+        "../feedback-20261018/private-browser-pdf.json",
+        "../feedback-20261018/private-browser-png.json",
+        "../feedback-20261018/private-browser-public-pair.json"
+      ],
+      "evidenceRelease": "Historical feedback I / publication J"
+    },
+    {
+      "id": "WF01",
+      "feature": "Signed-in workflow discovery and editor",
+      "status": "passed",
+      "recommendation": "Keep owner policy and entitled workflow-user binding separate.",
+      "section": "End-to-end acceptance",
+      "observed": "Real signed-in editor saved direct targets, website selection and stable group; real runs 4058/4059/4060 completed without a peer pair.",
+      "screenshots": [
+        "../feedback-20261018/workflow-saved-workflow-targets.png",
+        "../feedback-20261018/workflow-run4060-audit-results.png"
+      ],
+      "artifacts": [
+        "../feedback-20261018/private-browser-pdf.json",
+        "../feedback-20261018/private-browser-png.json",
+        "../feedback-20261018/private-browser-public-pair.json"
+      ],
+      "evidenceRelease": "Historical feedback I / publication J"
+    },
+    {
+      "id": "WF02",
+      "feature": "Website selection and captured fanout",
+      "status": "passed",
+      "recommendation": "Retain runtime snapshot preflight; never queue for future visitors.",
+      "section": "End-to-end acceptance",
+      "observed": "Selected websites/all-active exact snapshot; missing selected website, unrelated groups/new arrivals, busy tabs and duplicate operations tested.",
+      "screenshots": [],
+      "artifacts": [
+        "../feedback-20261018/private-browser-pdf.json",
+        "../feedback-20261018/private-browser-png.json",
+        "../feedback-20261018/private-browser-public-pair.json"
+      ],
+      "evidenceRelease": "Historical feedback I / publication J"
+    },
+    {
+      "id": "WF03",
+      "feature": "Policy modes, approvals and effects",
+      "status": "partial",
+      "recommendation": "Complete signed-in browser workflow fill and owner-bound native Save with independent host readback.",
+      "section": "End-to-end acceptance",
+      "observed": "Actual runner passes autonomous/prohibited/exact approval fanout, maxUses override exhaustion and single-use grants. Per-effect revalidation/binding tests pass. Updated real-runner integration also asserts offline error propagation; live browser workflows in this session are read-only.",
+      "screenshots": [],
+      "artifacts": [
+        "../feedback-20261018/workflow-runner.log",
+        "../feedback-20261018/connector-core.tap"
+      ],
+      "evidenceRelease": "Historical feedback I / publication J"
+    },
+    {
+      "id": "WF04",
+      "feature": "Disconnect, fail-fast and no replay",
+      "status": "passed",
+      "recommendation": "No offline queue or replacement visitor. A new run is required after reconnect.",
+      "section": "End-to-end acceptance",
+      "observed": "Real live target disconnect causes run 4062 to fail with COPILOT_RECIPIENT_OFFLINE. Group remains; runner regression checks safe error propagation and duplicate/lost-command paths.",
+      "screenshots": [
+        "../feedback-20261018/workflow-run4062-offline.png"
+      ],
+      "artifacts": [
+        "../feedback-20261018/private-browser-pdf.json",
+        "../feedback-20261018/private-browser-png.json",
+        "../feedback-20261018/private-browser-public-pair.json"
+      ],
+      "evidenceRelease": "Historical feedback I / publication J"
+    },
+    {
+      "id": "PRIV01",
+      "feature": "Task deletion and checkpoint privacy",
+      "status": "passed",
+      "recommendation": "Verify final zero private metrics after each release and preserve encrypted-object/key separation.",
+      "section": "End-to-end acceptance",
+      "observed": "End/expiry/restart/revocation tests pass; live canary absent SQLite rows and consistent checkpoint; raw objects ciphertext only; ending task leaves zero bytes/backlog. Both panel logs/reviews/files clear. Public recipient shows shared-file status without unauthorized Remove control; End task clears both cross-origin panels.",
+      "screenshots": [],
+      "artifacts": [
+        "../feedback-20261018/private-browser-pdf.json",
+        "../feedback-20261018/private-browser-png.json",
+        "../feedback-20261018/private-browser-public-pair.json"
+      ],
+      "evidenceRelease": "Historical feedback I / publication J"
+    },
+    {
+      "id": "PRIV02",
+      "feature": "Workflow downstream privacy",
+      "status": "partial",
+      "recommendation": "Broaden downstream node/template/tool/Kanban/telemetry adversarial matrix; document actual upstream provider retention.",
+      "section": "End-to-end acceptance",
+      "observed": "Task-only result handles and real runner persisted context/step canary checks pass; ordinary private chat never enters durable history. Run 4063 now proves actual chained LLM consumption of authorized private handles before cleanup.",
+      "screenshots": [
+        "../feedback-20261018/context-run4063-completed.png"
+      ],
+      "artifacts": [
+        "../feedback-20261018/context-chain-result.json",
+        "../feedback-20261018/workflow-runner.log"
+      ],
+      "evidenceRelease": "Historical feedback I / publication J"
+    },
+    {
+      "id": "CAP01",
+      "feature": "25 websites / 25 users capacity",
+      "status": "partial",
+      "recommendation": "Short synthetic pilot excludes full concurrent model/OCR/provider latency, soak and multi-coordinator HA. Measure these before scaling beyond the pilot.",
+      "section": "End-to-end acceptance",
+      "observed": "Fresh H-image isolated 25-website/25-user capacity result is linked. It includes 50 authenticated sockets, two real Python parsers and 250 HTTP samples, without production mounts.",
+      "screenshots": [],
+      "artifacts": [
+        "../feedback-20261018/capacity-vps.json"
+      ],
+      "evidenceRelease": "Historical feedback I / publication J"
+    },
+    {
+      "id": "HOST01",
+      "feature": "Authorized browser scope",
+      "status": "passed",
+      "recommendation": "Approved preview expires at 15:17 Singapore on 18 October 2026. Public browser acceptance remains no-login/no-submit.",
+      "section": "End-to-end acceptance",
+      "observed": "Ordinary public homepage has no copilot; explicitly opted-in MCP page loads it. Live cross-domain run recorded zero public write requests, zero login visits and zero public submit events. Laptop listener and VPS API host binding remain loopback.",
+      "screenshots": [],
+      "artifacts": [
+        "../feedback-20261018/private-browser-pdf.json",
+        "../feedback-20261018/private-browser-png.json",
+        "../feedback-20261018/private-browser-public-pair.json"
+      ],
+      "evidenceRelease": "Historical feedback I / publication J"
+    },
+    {
+      "id": "DEVICE01",
+      "feature": "Real Safari on macOS/iOS",
+      "section": "Deferred by user",
+      "status": "pending",
+      "observed": "Not run; user explicitly asked to keep this device/accessibility case pending.",
+      "recommendation": "Use approved real devices and assistive technology before full Phase 1/2 certification.",
+      "screenshots": [],
+      "artifacts": [],
+      "evidenceRelease": "Historical feedback I / publication J"
+    },
+    {
+      "id": "DEVICE02",
+      "feature": "Real Android Chrome",
+      "section": "Deferred by user",
+      "status": "pending",
+      "observed": "Not run; user explicitly asked to keep this device/accessibility case pending.",
+      "recommendation": "Use approved real devices and assistive technology before full Phase 1/2 certification.",
+      "screenshots": [],
+      "artifacts": [],
+      "evidenceRelease": "Historical feedback I / publication J"
+    },
+    {
+      "id": "A11Y01",
+      "feature": "Screen-reader acceptance",
+      "section": "Deferred by user",
+      "status": "pending",
+      "observed": "Not run; user explicitly asked to keep this device/accessibility case pending.",
+      "recommendation": "Use approved real devices and assistive technology before full Phase 1/2 certification.",
+      "screenshots": [],
+      "artifacts": [],
+      "evidenceRelease": "Historical feedback I / publication J"
+    },
+    {
+      "id": "PG04",
+      "feature": "Owner/admin visitor pairing governance",
+      "status": "passed",
+      "observed": "Live owner UI listed two synthetic panels, extended one-hour expiry to four hours and revoked only the disposable group. Recipient saw the expiry notice and lost pairing access. Automated checks cover shortening, stale revisions, foreign owners, admin middleware and storage-failure rollback.",
+      "recommendation": "Use the selected-website console. Owner changes affect the entire same-owner group; visitors can disconnect. Expired tasks are never revived.",
+      "section": "Owner administration and analytics",
+      "evidenceRelease": "Owner analytics B live / D runtime regression",
+      "screenshots": [
+        "owner-group-expiry-updated.png",
+        "vps-visitor-owner-extended.png",
+        "vps-visitor-owner-revoked.png"
+      ],
+      "artifacts": [
+        "live-browser-results.json",
+        "vps-application.tap"
+      ]
+    },
+    {
+      "id": "AN01",
+      "feature": "30-day opt-in website analytics",
+      "status": "passed",
+      "observed": "Actual owner enabled 30-day analytics for adoption-demo-alpha only. Consenting synthetic visitors produced 12 events, one browser ID and two sessions. Both public Flolah registrations remain Off; synthetic visitors stopped analytics afterward.",
+      "recommendation": "Local analytics remains enabled for user testing. Each visitor must accept; public settings require separate owner enablement.",
+      "section": "Owner administration and analytics",
+      "evidenceRelease": "Owner analytics B live / D runtime regression",
+      "screenshots": [
+        "vps-owner-analytics-report.jpg",
+        "vps-public-analytics-off.jpg",
+        "vps-visitor-opt-in.png"
+      ],
+      "artifacts": [
+        "live-owner-report.json"
+      ]
+    },
+    {
+      "id": "AN02",
+      "feature": "Pages, forms, copilot engagement and cohorts",
+      "status": "passed",
+      "observed": "Report shows customer/note views, form starts, field interactions, validation friction, pairing events, daily activity and bounded request duration. Browser fixture tests include native invalid controls. Trusted workflow/verified-learning counters reject browser-forged outcomes.",
+      "recommendation": "Interpret attempts and request success separately from verified saves. Fresh real workflow/receipt analytics journeys remain outside this add-on browser run.",
+      "section": "Owner administration and analytics",
+      "evidenceRelease": "Owner analytics B live / D runtime regression",
+      "screenshots": [
+        "owner-analytics-dashboard.png"
+      ],
+      "artifacts": [
+        "isolated-sanitized-report.json",
+        "outcome-counter-tests.tap"
+      ]
+    },
+    {
+      "id": "AN03",
+      "feature": "Analytics privacy, ownership and consent isolation",
+      "status": "passed",
+      "observed": "Strict schema rejects raw paths/query strings, typed values, prompts and filenames; canaries absent report. Website HMAC IDs and owner-transfer isolation tested. Opt-out immediately stops events, and the next SDK request clears stale consent if opt-out transport was lost.",
+      "recommendation": "Retain schema allowlists and repeat wider privacy adversarial checks before full-phase certification.",
+      "section": "Owner administration and analytics",
+      "evidenceRelease": "Owner analytics B live / D runtime regression",
+      "screenshots": [],
+      "artifacts": [
+        "vps-application.tap",
+        "isolated-browser-results.json"
+      ]
+    },
+    {
+      "id": "AN04",
+      "feature": "Retention, quotas and nonblocking collection",
+      "status": "passed",
+      "observed": "Controlled-clock pilot expired all 5,000 rows after 31 days. Tests cover removed/transferred websites, shorter retention, deduplication, site/global bounds and an analytics timeout that cannot block host actions.",
+      "recommendation": "Live-event retention is 30 days; existing operational checkpoints separately expire after seven days. Controlled clocks do not prove 30 elapsed wall-clock days.",
+      "section": "Owner administration and analytics",
+      "evidenceRelease": "Owner analytics B live / D runtime regression",
+      "screenshots": [],
+      "artifacts": [
+        "analytics-capacity-vps.json",
+        "vps-application.tap"
+      ]
+    },
+    {
+      "id": "AN05",
+      "feature": "Probabilistic guest network/behavior matching",
+      "status": "partial",
+      "observed": "Implemented and automatically tested website/owner-scoped daily coarse-network HMAC, canonical IPv4/IPv6 handling and browser/page-overlap hypotheses. Live network hints remain Off and trusted proxy list is empty; no real visitor network matches were collected.",
+      "recommendation": "Configure and verify the actual proxy peer, then run a consented synthetic multi-browser match/non-match test. Never treat shared IP or usage as identity or grant access.",
+      "section": "Owner administration and analytics",
+      "evidenceRelease": "Owner analytics B live / D runtime regression",
+      "screenshots": [],
+      "artifacts": [
+        "vps-application.tap",
+        "live-owner-report.json"
+      ]
+    },
+    {
+      "id": "CAP02",
+      "feature": "25 websites / 25 concurrent users pilot",
+      "status": "passed",
+      "observed": "VPS capped to one CPU/one GiB: 5,000 analytics events, 275 ingest requests, 25 owner reports, zero unexpected errors; ingest p95 158 ms/report p95 35 ms. Separate private pilot: 50 WebSockets, 25 text files, two parsers, 50 recipients, HTTP p95 5 ms, zero private bytes after cleanup.",
+      "recommendation": "Keep configurable bounds and one SQLite coordinator. Run sustained end-to-end model/OCR load before scaling; this pilot is not multi-coordinator Kubernetes HA.",
+      "section": "Owner administration and analytics",
+      "evidenceRelease": "Owner analytics B live / D runtime regression",
+      "screenshots": [],
+      "artifacts": [
+        "analytics-capacity-vps.json",
+        "private-capacity-vps.json"
+      ]
+    },
+    {
+      "id": "OWNER02",
+      "feature": "Owner resend cooldown feedback and operations",
+      "status": "passed",
+      "observed": "Real sign-in succeeded after retries. Follow-up D includes OWNER_CODE_COOLDOWN with HTTP429/Retry-After and clear UI guidance; HTTP test confirms resending does not invalidate the valid code. Analytics/pairing operations have content-free named telemetry.",
+      "recommendation": "Use the latest emailed code in the visible confirmation field. Do not repeatedly request codes inside the one-minute resend cooldown.",
+      "section": "Owner administration and analytics",
+      "evidenceRelease": "Owner analytics B live / D runtime regression",
+      "screenshots": [],
+      "artifacts": [
+        "vps-application.tap",
+        "local-application.tap"
+      ]
+    }
+  ]
+}

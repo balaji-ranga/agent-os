@@ -10,6 +10,9 @@ import {attachLiveTransport} from './live-transport.mjs';
 const assets = new Map([
   ['/owner.html', ['../web/manage.html', 'text/html']],
   ['/manage.html', ['../web/manage.html', 'text/html']],
+  ['/visitor-analytics.mjs',['../web/visitor-analytics.mjs','text/javascript']],
+  ['/manage-analytics.mjs',['../web/manage-analytics.mjs','text/javascript']],
+  ['/manage-pairings.mjs',['../web/manage-pairings.mjs','text/javascript']],
   ['/manage.mjs', ['../web/manage.mjs', 'text/javascript']],
   ['/sdk.mjs', ['../web/sdk.mjs', 'text/javascript']],
   ['/theme.mjs', ['../web/theme.mjs', 'text/javascript']],
@@ -45,7 +48,7 @@ async function body(req,limit=32_768) {
   return parsed;
 }
 
-export function createAdoptionServer({ authority, proposals, planner, knowledge, ingestion, learning, coaching, discovery, sourceMap,hostIdentity, answer, management, ownerIdentity, ownerManagement, platformOrigin,telemetry,privateTasks,taskWebsite,capacity={}, development = false, fixture = null }) {
+export function createAdoptionServer({ authority, proposals, planner, knowledge, ingestion, learning, coaching, discovery, sourceMap,hostIdentity, answer, management, ownerIdentity, ownerManagement, platformOrigin,telemetry,privateTasks,taskWebsite,analytics,capacity={}, development = false, fixture = null }) {
   const budget=createRequestBudget();
   const modelSlots=createConcurrencyBudget({global:capacity.modelConcurrency??25,perDomain:capacity.modelPerDomain??5}),searchSlots=createConcurrencyBudget({global:capacity.searchConcurrency??25,perDomain:capacity.searchPerDomain??5});
   let activeUploads=0;
@@ -54,7 +57,7 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
-    let requestScope,entityId,state;
+    let requestScope,entityId,state;const analyticsStarted=Date.now();if(analytics)res.once('finish',()=>{if(requestScope)try{analytics.operation(requestScope,path,res.statusCode,Date.now()-analyticsStarted);if(path==='/v1/terminate')analytics.endSession(requestScope);}catch{}});
     const send = (code, data) => {entityId=data?.id||data?.messageId||entityId;state=data?.status;res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(data)); };
     const managedScope=(operation,input)=>{requestScope={embeddingId:input.id,sessionId:operation.endsWith('/revoke-session')?input.sessionId:undefined};entityId=input.installationId;};
     let path;try{path=new URL(req.url,'http://unused').pathname;}catch{return send(400,{error:'Invalid request URL'});}
@@ -89,7 +92,7 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
       if (req.method === 'OPTIONS') {
         // CORS is not authentication; POST still validates the installation/session.
         res.writeHead(204, { 'Access-Control-Allow-Origin': origin, Vary: 'Origin',
-          'Access-Control-Allow-Methods': 'POST', 'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          'Access-Control-Allow-Methods': 'POST', 'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Adoption-Analytics',
           'Access-Control-Max-Age': '60' }); return res.end();
       }
       if (req.method !== 'POST') return send(404, { error: 'Not found' });
@@ -137,12 +140,13 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
         const sessionToken = /^Bearer (\S+)$/.exec(req.headers.authorization || '')?.[1];
         const auth = { sessionToken, origin };
         const scope = authority.context(auth);
-        requestScope=scope;
-        if(!['/v1/renew','/v1/history','/v1/capabilities','/v1/pair/status','/v1/tasks/status','/v1/discovery/status','/v1/discovery/list','/v1/discovery/next'].includes(path))privateTasks?.touchSession(scope);
+        requestScope=scope;if(req.headers['x-adoption-analytics']==='off')analytics?.endSession(scope);
+        if(!path.startsWith('/v1/analytics/')&&!['/v1/renew','/v1/history','/v1/capabilities','/v1/pair/status','/v1/tasks/status','/v1/discovery/status','/v1/discovery/list','/v1/discovery/next'].includes(path))privateTasks?.touchSession(scope);
         // Authorized callers must be able to read dependency failures as well
         // as successful responses, rather than receiving an opaque CORS error.
         res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin');
-        if (path === '/v1/history') result = { messages: authority.history(auth) };
+        if(path.startsWith('/v1/analytics/')){if(!analytics)throw new Error('Analytics unavailable');if(path==='/v1/analytics/policy')result=analytics.policy(scope);else if(path==='/v1/analytics/consent')result=analytics.consent(scope,input,req);else if(path==='/v1/analytics/events'){budget.take(`analytics:${scope.sessionId}`,60);result=analytics.collect(scope,input);authority.touch(auth);}else throw new Error('Unknown analytics operation');}
+        else if (path === '/v1/history') result = { messages: authority.history(auth) };
         else if(path==='/v1/capabilities')result={capabilities:scope.capabilities,taskPolicy:privateTasks?taskWebsite?.(scope.embeddingId)?.taskPolicy||{}:{},learningEnabled:learning?.learningEnabled?.(scope)===true};
         else if(path==='/v1/live/ticket'){if(!privateTasks)throw new Error('Private tasks unavailable');result=privateTasks.ticket(scope,input);}
         else if(path.startsWith('/v1/tasks/')||path.startsWith('/v1/pair/')){
@@ -267,12 +271,13 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
         else return send(404, { error: 'Not found' });
       }
       res.setHeader('Access-Control-Allow-Origin', origin); res.setHeader('Vary', 'Origin');
+      if(path==='/v1/learning/complete'&&result?.created===true&&requestScope)analytics?.fact(requestScope,{kind:'verified_save_learning',status:'ok'});
       return send(200, result);
     } catch (error) {
       const unavailable=['Platform model unavailable','Knowledge model unavailable','Search operation failed','Search provisioning check failed','Management identity unavailable'].includes(error.message)||['ERR_SQLITE_ERROR','SQLITE_BUSY','SQLITE_IOERR','ENOSPC','EROFS','EIO','EMFILE','ENFILE'].includes(error.code)||error.code==='ERR_INVALID_STATE'&&/database|statement/i.test(error.message);
       const invalidResponse=['Invalid platform model response','Invalid evidence citations','The assistant could not produce a valid current-screen proposal. Nothing was changed.'].includes(error.message);
-      const code = error.message === 'Request too large' ? 413 : error.message==='Request rate exceeded'||error.message==='Request capacity reached'?429:unavailable?503:invalidResponse?502:403;
-      if(code===429)res.setHeader('Retry-After',error.message==='Request rate exceeded'?'60':'2');
+      const code = error.message === 'Request too large' ? 413 : error.publicCode==='OWNER_CODE_COOLDOWN'||error.message==='Request rate exceeded'||error.message==='Request capacity reached'?429:unavailable?503:invalidResponse?502:403;
+      if(code===429)res.setHeader('Retry-After',error.publicCode==='OWNER_CODE_COOLDOWN'?String(error.retryAfter):error.message==='Request rate exceeded'?'60':'2');
       return send(code, { error: code===429?'Copilot is busy. Please retry shortly.':code===413?'Request too large':code===503?'Copilot service temporarily unavailable':code===502?'The assistant could not prepare a valid response. Nothing was changed.':'Access denied or invalid request',...(error.publicCode?{code:error.publicCode}:{}) });
     }finally{releaseModel?.();releaseSearch?.();if(uploadSlot)activeUploads--;}
   });

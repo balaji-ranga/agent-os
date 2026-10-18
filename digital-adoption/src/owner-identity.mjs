@@ -10,7 +10,7 @@ export function createOwnerIdentity(repository,{send,clock=Date.now}){
    if(typeof email!=='string'||email.length>254||! /^[^\s<>@,;]+@[^\s<>@,;]+\.[^\s<>@,;]+$/.test(email))denied();
    email=email.trim().toLowerCase();const key=digest(email),now=clock();
    const challenge=randomBytes(32).toString('base64url'),code=String(randomInt(100000,1000000));
-   repository.transaction(()=>{const old=challenges.get(key);if(old&&now-old.createdAt<60_000)throw new Error('Please wait before requesting another code');challenges.set(key,{email,challengeHash:digest(challenge),codeHash:digest(challenge+code),attempts:0,createdAt:now,expiresAt:now+600_000});});
+   repository.transaction(()=>{const old=challenges.get(key);if(old&&now-old.createdAt<60_000)throw Object.assign(new Error('Please wait before requesting another code'),{publicCode:'OWNER_CODE_COOLDOWN',retryAfter:Math.max(1,Math.ceil((60_000-(now-old.createdAt))/1000))});challenges.set(key,{email,challengeHash:digest(challenge),codeHash:digest(challenge+code),attempts:0,createdAt:now,expiresAt:now+600_000});});
    try{await send({to:email,subject:'Sign in to Flolah Digital Adoption',text:`Your sign-in code is ${code}. It expires in 10 minutes. Enter it only in the Digital Adoption owner sign-in page where you requested it. Do not share this code.`});}
    catch(error){repository.transaction(()=>{if(challenges.get(key)?.challengeHash===digest(challenge))challenges.delete(key);});throw error;}
    return {challenge,email};

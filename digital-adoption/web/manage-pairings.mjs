@@ -1,0 +1,23 @@
+export function setupPairingManagement({document,call,run,selectedWebsite}){
+ const section=document.createElement('section');section.id='pairing-management';
+ section.innerHTML='<h2>Visitor pairings & workflow targets</h2><p>For the selected website, review saved visitor groups and current online panels. Revocation ends related private tasks and stops remaining commands; it does not undo host changes. Changes affect the whole same-owner group. Owners and administrators can shorten or extend expiry directly. Connected visitors are notified and can disconnect at any time.</p><button type="button" id="pairing-management-refresh">Show visitor groups</button><div id="pairing-management-list"></div>';
+ document.querySelector('#website-context').after(section);
+ const list=section.querySelector('#pairing-management-list');let generation=0,pending=false;
+ async function busy(action){if(pending)return;pending=true;section.setAttribute('aria-busy','true');for(const control of section.querySelectorAll('button,input,select'))control.disabled=true;try{return await action();}finally{pending=false;section.removeAttribute('aria-busy');for(const control of section.querySelectorAll('button,input,select'))control.disabled=false;}}
+ async function load(offset=0){const id=selectedWebsite(),current=++generation,out=await call('pairing-list',{id,offset});if(current!==generation||selectedWebsite()!==id)return;const openIds=new Set([...list.querySelectorAll('details[open]')].map(row=>row.dataset.groupId));list.replaceChildren();const summary=document.createElement('p');summary.textContent=`${out.total} saved groups for this registration. Offline panels receive no queued commands.`;list.append(summary);
+  for(const g of out.groups){const row=document.createElement('details'),heading=document.createElement('summary'),description=document.createElement('p'),form=document.createElement('form');row.dataset.groupId=g.groupId;row.open=openIds.has(g.groupId);heading.textContent=`${g.name} · ${g.groupId.slice(0,8)} · ${g.members.filter(m=>m.online).length}/${g.members.length} online`;description.textContent=`${g.active?'Active':'Expired'} · ${g.expiresAt?new Date(g.expiresAt).toLocaleString():'until revoked'} · inactivity ${g.idleMs/60000||'off'} minutes · ${g.workflowLinked?'workflow linked':'not workflow linked'} · ${g.pairCount} peer grants`;
+   row.append(heading,description);for(const member of g.members){const p=document.createElement('p');p.textContent=`Visitor panel ${member.participantId.slice(0,8)} · ${member.origin} · ${member.online?'online':'offline'}`;row.append(p);}
+   const lifetime=document.createElement('select'),idle=document.createElement('select'),reason=document.createElement('input'),save=document.createElement('button'),revoke=document.createElement('button');
+   lifetime.setAttribute('aria-label','New pairing lifetime');for(const [value,label]of [[1,'1 hour from now'],[4,'4 hours from now'],[8,'8 hours from now'],[24,'24 hours from now'],[0,'Until revoked']])lifetime.add(new Option(label,String(value)));
+   idle.setAttribute('aria-label','New pairing inactivity');for(const [value,label]of [[0,'No inactivity expiry'],[15,'15 minutes'],[60,'1 hour'],[240,'4 hours']])idle.add(new Option(label,String(value)));idle.value=String(g.idleMs/60000);
+   reason.required=true;reason.maxLength=500;reason.placeholder='Required management reason';reason.setAttribute('aria-label','Pairing management reason');save.textContent='Update pairing expiry';revoke.type='button';revoke.textContent='Revoke this group';form.append(lifetime,idle,reason,save,revoke);
+   const mutate=async(action,extra={})=>{if(!reason.value.trim())throw new Error('Enter a management reason first.');await call(action,{id,groupId:g.groupId,expectedRevision:g.revision,reason:reason.value.trim(),...extra});await load(offset);};
+   form.onsubmit=event=>{event.preventDefault();run(()=>busy(()=>mutate('pairing-policy',{lifetimeHours:Number(lifetime.value),inactivityMinutes:Number(idle.value)})));};
+   revoke.onclick=()=>run(()=>busy(()=>mutate('pairing-revoke')));row.append(form);
+   list.append(row);
+  }
+  for(const [label,next]of [['Previous groups',Math.max(0,offset-out.limit)],['More groups',out.nextOffset]])if(next!==null&&next!==undefined&&(label!=='Previous groups'||offset>0)){const button=document.createElement('button');button.textContent=label;button.onclick=()=>run(()=>busy(()=>load(next)));list.append(button);}
+ }
+ section.querySelector('button').onclick=()=>run(()=>busy(()=>load()));
+ return {reset(){generation++;list.replaceChildren();}};
+}

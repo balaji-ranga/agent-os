@@ -579,3 +579,85 @@ constraint changes after inspection require a fresh review. Async picklists
 refuse empty/error/ambiguous results and keep dependent controls unavailable
 until a unique real option is selected. These tested HTML/ARIA contracts do not
 claim support for every vendor grid, shadow component or browser/device.
+
+## 18. Owner pairing administration and visitor analytics
+
+The existing visitor-selected expiry remains: 1/4/8/24 hours or until revoked,
+with optional inactivity expiry. Authenticated website owners and validated
+platform administrators can list groups for an authorized registration, see
+online/offline participant aliases, revoke a whole group and shorten or extend
+expiry directly. This administrative authority follows the user's explicit
+18 October policy decision. Connected panels receive the changed expiry and
+can disconnect at any time. Expiry updates do not revive ended tasks or replay
+commands. Adding a workflow target cannot widen expiry as a side effect.
+
+Management uses the existing owner/administrator authentication and ownership
+checks. Request JSON cannot supply roles. Lists are paginated (25 by default,
+100 maximum), omit host identity, reconnect proofs, private files and chat, and
+are scoped to a selected website under the same owner. Audits record the actor,
+registration, group, reason and requested/completed outcome. Related controls
+are disabled together during asynchronous changes to prevent refresh/mutation
+races. Revocation persists removal before ending live authority, cancels
+remaining commands, destroys related private-task access and rotates endpoint
+reconnect proofs. It never undoes a completed host action. Failed persistence
+restores the old expiry and cannot acknowledge a revoked group as saved.
+
+Analytics is a separate optional subsystem, Off by default on every registration.
+The user approved 30-day opt-in collection on 18 October 2026. Owner enablement
+and visitor acceptance remain required; deployment alone enables neither.
+Owners can configure live-event retention
+(7/30/90 days), the enable switch and optional network hints. A policy revision
+requires fresh visitor consent. Ownership transfer disables analytics and bumps
+its revision. Operational checkpoints follow their own existing expiry policy;
+live-event deletion is not a promise to erase those checkpoints immediately.
+
+The client collects only after acceptance: hashed page views, navigation/button
+clicks, form starts, field-interaction counters, native validation events,
+submit attempts, approximate active time and copilot exposure/open/close. It
+never reads entered values for analytics. URLs, query strings, labels, field
+values, prompts, filenames, document text, host identities, private task/result
+IDs and raw IPs are excluded from the event schema. Known structural page/form
+labels are resolved for the owner from authorized discovery maps. Unknown
+routes remain hashed/unmapped until discovered; analytics does not publish new
+knowledge into the website's shared help index or task context.
+
+The service adds authenticated request/outcome counters for answers/plans,
+reviews/approvals, private uploads/summaries, handoffs, pairing confirmations,
+workflow planning/effect authorization, per-recipient workflow completion/failure
+and verified-save learning. Request success, fill dispatch, submit attempt,
+receipt check and verified-save learning are distinct events; none is silently
+promoted to a verified business outcome. Reports include consenting browser IDs,
+sessions, daily activity, heavily used forms/pages, validation friction, page
+transitions, form-heavy/copilot-assisted/friction cohorts and bounded request
+p95. Form starts without observed submits are a friction indicator, not proof
+of abandonment. Session/browser IDs do not count identified human beings.
+
+First-party visitor IDs stay website-scoped and are HMAC-pseudonymized server
+side. Optional network hints use a daily rotating HMAC over a coarse IPv4 /24
+or IPv6 /48 prefix, scoped to both website and current owner. Only explicitly
+configured trusted proxy peer addresses may supply a forwarded client address;
+otherwise no network hint is recorded. No canvas/fonts/device fingerprinting is
+used. A possible-match edge additionally requires the same browser family and
+at least two substantially overlapping pages. Shared NAT/VPN and shared-device
+cases remain ambiguous. Suggestions never merge profiles, enroll a visitor,
+pair tabs, alter a group or authorize workflows. They are evidence-labelled
+hypotheses, not calibrated identity probabilities or a cross-domain index.
+
+Events use a dedicated indexed SQLite table, strict schemas, 20-event batches,
+per-session admission and configurable site/global/report bounds. The default
+limits are 50,000 events/site, 500,000 total and 20,000 rows per report. Reaching
+a quota refuses new analytics without affecting host/copilot actions. The UI
+shows row/storage limits. Analytics requests run outside the effect queue with
+a two-second bound and cannot invoke effectful endpoints. Opt-out stops local
+listeners/queues immediately; subsequent SDK requests also revoke the server
+analytics binding if a separate opt-out notification was lost. Analytics traffic
+does not touch pairing/private-task inactivity. Eligible actual host activity
+can keep its runtime session active; collection ends with runtime authority.
+
+Reference metric families, reviewed 18 October 2026:
+[WalkMe Insights](https://support.walkme.com/knowledge-base/about-walkme-insights/),
+[WalkMe terminology](https://support.walkme.com/knowledge-base/insights-terminology/),
+[Countly Basics](https://support.countly.com/hc/en-us/articles/900005345323-Countly-Basics),
+[Countly cohorts](https://support.countly.com/hc/en-us/articles/25324248147740-Cohorts-Explained).
+These informed the metric vocabulary; this release does not embed either vendor,
+record session playback or claim full product parity.

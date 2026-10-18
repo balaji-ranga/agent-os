@@ -1,0 +1,1 @@
+{"at":"2026-10-18T06:58:28.663Z","sites":25,"concurrentUsers":25,"events":5000,"ingestHttpRequests":275,"ownerReports":25,"ingestP95Ms":158,"reportP95Ms":35,"wallMs":1058,"rssMiB":102,"unexpectedErrors":0,"limits":"Short synthetic loopback HTTP/SQLite pilot; excludes browser/model/OCR latency, sustained saturation and multi-coordinator HA.","rowsAfterRetention":0}

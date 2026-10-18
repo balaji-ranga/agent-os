@@ -1,3 +1,5 @@
+import {setupAnalyticsManagement} from './manage-analytics.mjs';
+import {setupPairingManagement} from './manage-pairings.mjs';
 import {validateLearningPackage} from './learning-package.mjs';
 import {createActionFeedback} from './action-feedback.mjs';
 import {installationSnippet} from './install-snippet.mjs';
@@ -12,7 +14,7 @@ function websiteContext({reset=false}={}){
  if(reset){websiteSelectionRevision++;selectedHostScope=null;document.querySelector('#host-scope-status').textContent='Current content and learning scope: public.';
   for(const id of ['source-list','learning-list','learning-map','learning-graph','source-map-summary','coach-result','host-identity-result','learning-status','file-status'])document.getElementById(id)?.replaceChildren();
   for(const checkbox of document.querySelectorAll('#source-form input[type=checkbox],#file-form input[type=checkbox],#url-form input[type=checkbox],#source-map-import input[type=checkbox]'))checkbox.checked=false;
-  document.querySelector('#learning-enabled').checked=false;
+  document.querySelector('#learning-enabled').checked=false;pairingManagement?.reset();analyticsManagement?.reset();
  }
 }
 document.querySelector('#website').onchange=()=>websiteContext({reset:true});
@@ -27,7 +29,7 @@ const ownerMode=location.pathname.endsWith('/owner.html');
 const login=document.querySelector('#owner-login'),content=document.querySelector('#management-content');
 let signInChallenge;
 let registrationAttempt;
-async function ownerCall(action,input={}){const response=await fetch(`v1/owner/${action}`,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(input)});if(!response.ok)throw new Error('Sign-in failed or expired. Request a new code if needed.');return response.json();}
+async function ownerCall(action,input={}){const response=await fetch(`v1/owner/${action}`,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(input)});if(!response.ok){const out=await response.json().catch(()=>({}));throw new Error(out.code==='OWNER_CODE_COOLDOWN'?'A sign-in code was already sent. Check your email and use the Sign-in code field below. Wait one minute before requesting another code.':out.code==='PAIRING_CHANGED'?'Pairing changed. Refresh visitor groups before editing again.':'Sign-in failed or request was refused. Refresh the selected website or sign in again.');}return response.json();}
 async function call(action,input={}){
  if(input.id&&selectedHostScope)input={...input,hostScope:selectedHostScope};
  if(ownerMode)return ownerCall(`manage/${action}`,input);
@@ -131,3 +133,7 @@ else run(refresh);
 
 document.querySelector('#learning-settings').onsubmit=event=>{event.preventDefault();run(async()=>{const result=await call('learning-settings',{id:selectedWebsite(),enabled:document.querySelector('#learning-enabled').checked});document.querySelector('#learning-status').textContent=result.enabled?'Verified-task learning enabled. The host integration and participant consent are still required.':'Verified-task learning disabled.';});};
 document.querySelector('#learning-settings-refresh').onclick=()=>run(async()=>{const result=await call('learning-status',{id:selectedWebsite()});document.querySelector('#learning-enabled').checked=result.enabled;document.querySelector('#learning-status').textContent=result.enabled?'Verified-task learning enabled.':'Verified-task learning disabled.';});
+
+const pairingManagement=setupPairingManagement({document,call,run,selectedWebsite});
+
+const analyticsManagement=setupAnalyticsManagement({document,call,run,selectedWebsite});
