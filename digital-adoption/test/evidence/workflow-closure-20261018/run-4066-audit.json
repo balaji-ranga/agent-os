@@ -1,0 +1,76 @@
+{
+  "id": 4066,
+  "workflow": "uat-local-customer-note-opportunity-mvdjpzk8",
+  "status": "completed",
+  "steps": [
+    {
+      "node_id": "start",
+      "status": "completed",
+      "error_message": null
+    },
+    {
+      "node_id": "inspect-start",
+      "status": "completed",
+      "error_message": null
+    },
+    {
+      "node_id": "fill-customer",
+      "status": "completed",
+      "error_message": null
+    },
+    {
+      "node_id": "save-customer",
+      "status": "completed",
+      "error_message": null
+    },
+    {
+      "node_id": "navigate-note",
+      "status": "completed",
+      "error_message": null
+    },
+    {
+      "node_id": "fill-note",
+      "status": "completed",
+      "error_message": null
+    },
+    {
+      "node_id": "save-note",
+      "status": "completed",
+      "error_message": null
+    },
+    {
+      "node_id": "navigate-opportunity",
+      "status": "completed",
+      "error_message": null
+    },
+    {
+      "node_id": "fill-opportunity",
+      "status": "completed",
+      "error_message": null
+    },
+    {
+      "node_id": "save-opportunity",
+      "status": "completed",
+      "error_message": null
+    }
+  ],
+  "temporaryGrantsRemaining": 0,
+  "companyPolicies": [
+    {
+      "family": "communicate_external",
+      "mode": "approval_required"
+    },
+    {
+      "family": "financial_destructive",
+      "mode": "prohibited"
+    },
+    {
+      "family": "read",
+      "mode": "autonomous"
+    },
+    {
+      "family": "write_internal",
+      "mode": "autonomous"
+    }
+  ]
+}

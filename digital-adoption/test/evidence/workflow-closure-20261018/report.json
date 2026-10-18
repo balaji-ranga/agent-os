@@ -1,0 +1,352 @@
+{
+  "at": "2026-10-18T09:14:28.663Z",
+  "scope": "Incremental intent, workflow Save and private-status closure. Public flolah.cloud without login and loopback-only local fixture. No public host submission or laptop exposure. This is not full Phase 1/2 certification.",
+  "runtime": "20261018-agentic-j",
+  "workflowExecutionRuntime": "20261018-agentic-h",
+  "platform": "20261018-agentic-b",
+  "sourcePublication": "20261018-agentic-k",
+  "tests": {
+    "local": 240,
+    "vpsImage": 240,
+    "failed": 0,
+    "liveIntent": 7,
+    "domFramework": 10
+  },
+  "hostSubmissionsInIntentUAT": 0,
+  "workflowRun": 4066,
+  "workflowUrl": "https://login.flolah.cloud/workflows/runs/4066",
+  "workflowHostSaves": 3,
+  "temporaryGrantsRemaining": 0,
+  "counts": {
+    "passed": 29,
+    "partial": 1,
+    "failed": 0
+  },
+  "cases": [
+    {
+      "id": "I01_DEFAULT_ALL_TRANSPORT",
+      "feature": "Keep the transport default All transport. Do not submit.",
+      "status": "passed",
+      "observed": "transport: All transports\n\nReview before filling. Some websites autosave fields. This does not click Save.\n\nApprove field changesReject changes",
+      "recommendation": "Retain this generic observed-control regression; expand independent language and ambiguity evaluations.",
+      "screenshots": [
+        "I01_DEFAULT_ALL_TRANSPORT.png"
+      ],
+      "release": "20261018-agentic-j"
+    },
+    {
+      "id": "I02_MISSPELLED_FIELD",
+      "feature": "Set tranpsort to sse. Do not submit.",
+      "status": "passed",
+      "observed": "transport: sse\n\nReview before filling. Some websites autosave fields. This does not click Save.\n\nApprove field changesReject changes",
+      "recommendation": "Retain this generic observed-control regression; expand independent language and ambiguity evaluations.",
+      "screenshots": [
+        "I02_MISSPELLED_FIELD.png"
+      ],
+      "release": "20261018-agentic-j"
+    },
+    {
+      "id": "I03_NATIVE_MIXED_INTENT",
+      "feature": "Set Shipping method to expres and select Include gift wrap. Do not save.",
+      "status": "passed",
+      "observed": "Shipping method: Express\n\nInclude gift wrap: Selected\n\nReview before filling. Some websites autosave fields. This does not click Save.\n\nApprove field changesReject changes Applied through visitor review; independent host controls read express and checked. No Save.",
+      "recommendation": "Retain this generic observed-control regression; expand independent language and ambiguity evaluations.",
+      "screenshots": [
+        "I03_NATIVE_MIXED_INTENT.png",
+        "I03_NATIVE_MIXED_INTENT-applied.png"
+      ],
+      "release": "20261018-agentic-j"
+    },
+    {
+      "id": "I04_RECOMMEND_WITHOUT_FILL",
+      "feature": "Recommend which transport to use for browsing all integrations. Do not change anything.",
+      "status": "passed",
+      "observed": "Recommend which transport to use for browsing all integrations. Do not change anything.\n\nFor browsing all integrations, I recommend using the 'All transports' option. This choice allows you to access all available transport methods, which is beneficial for comprehensive browsing.\u21a9",
+      "recommendation": "Retain this generic observed-control regression; expand independent language and ambiguity evaluations.",
+      "screenshots": [
+        "I04_RECOMMEND_WITHOUT_FILL.png"
+      ],
+      "release": "20261018-agentic-j"
+    },
+    {
+      "id": "I05_UNKNOWN_CHOICE_CLARIFICATION",
+      "feature": "Set Shipping method to Teleportation. Do not save.",
+      "status": "passed",
+      "observed": "Set Shipping method to Teleportation. Do not save.\n\nThe requested shipping method 'Teleportation' is not available in the observed choices. The available options are 'Choose', 'Standard', and 'Express'. Would you like to select one of these options instead?\u21a9",
+      "recommendation": "Retain this generic observed-control regression; expand independent language and ambiguity evaluations.",
+      "screenshots": [
+        "I05_UNKNOWN_CHOICE_CLARIFICATION.png"
+      ],
+      "release": "20261018-agentic-j"
+    },
+    {
+      "id": "I06_COMPARATIVE_INFERENCE",
+      "feature": "Set Shipping method to the fastest available delivery. Do not save.",
+      "status": "passed",
+      "observed": "Shipping method: Express\n\nReview before filling. Some websites autosave fields. This does not click Save.\n\nApprove field changesReject changes",
+      "recommendation": "Retain this generic observed-control regression; expand independent language and ambiguity evaluations.",
+      "screenshots": [
+        "I06_COMPARATIVE_INFERENCE.png"
+      ],
+      "release": "20261018-agentic-j"
+    },
+    {
+      "id": "I07_RADIO_SEMANTIC_INFERENCE",
+      "feature": "Set Delivery preference so I collect the order myself at the shop. Do not save.",
+      "status": "passed",
+      "observed": "Delivery preference: Store pickup\n\nReview before filling. Some websites autosave fields. This does not click Save.\n\nApprove field changesReject changes",
+      "recommendation": "Retain this generic observed-control regression; expand independent language and ambiguity evaluations.",
+      "screenshots": [
+        "I07_RADIO_SEMANTIC_INFERENCE.png"
+      ],
+      "release": "20261018-agentic-j"
+    },
+    {
+      "id": "F03_NATIVE_SELECT_CHECKBOX_RADIO_MULTISELECT_DATALIST",
+      "feature": "F03 NATIVE SELECT CHECKBOX RADIO MULTISELECT DATALIST",
+      "status": "passed",
+      "observed": "Real Chrome DOM adapter/framework integration. These checks do not claim LLM end-to-end coverage.",
+      "recommendation": "Retain the native, async picklist, editable table and real framework regressions.",
+      "screenshots": [
+        "native-complex.png"
+      ],
+      "release": "Working source, 18 October 2026"
+    },
+    {
+      "id": "F05_ASYNC_PICKLIST_AND_DEPENDENT_CONTROL",
+      "feature": "F05 ASYNC PICKLIST AND DEPENDENT CONTROL",
+      "status": "passed",
+      "observed": "Real Chrome DOM adapter/framework integration. These checks do not claim LLM end-to-end coverage.",
+      "recommendation": "Retain the native, async picklist, editable table and real framework regressions.",
+      "screenshots": [],
+      "release": "Working source, 18 October 2026"
+    },
+    {
+      "id": "F05_PICKLIST_LOADING_EMPTY_ERROR_AMBIGUITY_AND_RECOVERY",
+      "feature": "F05 PICKLIST LOADING EMPTY ERROR AMBIGUITY AND RECOVERY",
+      "status": "passed",
+      "observed": "Real Chrome DOM adapter/framework integration. These checks do not claim LLM end-to-end coverage.",
+      "recommendation": "Retain the native, async picklist, editable table and real framework regressions.",
+      "screenshots": [],
+      "release": "Working source, 18 October 2026"
+    },
+    {
+      "id": "F05_EDITABLE_TABLE_ROW_FILTER_SORT_PAGINATION_DYNAMIC_ROW",
+      "feature": "F05 EDITABLE TABLE ROW FILTER SORT PAGINATION DYNAMIC ROW",
+      "status": "passed",
+      "observed": "Real Chrome DOM adapter/framework integration. These checks do not claim LLM end-to-end coverage.",
+      "recommendation": "Retain the native, async picklist, editable table and real framework regressions.",
+      "screenshots": [],
+      "release": "Working source, 18 October 2026"
+    },
+    {
+      "id": "F05_MODAL_SCOPE",
+      "feature": "F05 MODAL SCOPE",
+      "status": "passed",
+      "observed": "Real Chrome DOM adapter/framework integration. These checks do not claim LLM end-to-end coverage.",
+      "recommendation": "Retain the native, async picklist, editable table and real framework regressions.",
+      "screenshots": [],
+      "release": "Working source, 18 October 2026"
+    },
+    {
+      "id": "F05_TABLE_MODEL_AND_MULTISELECT_INDEPENDENT_READBACK",
+      "feature": "F05 TABLE MODEL AND MULTISELECT INDEPENDENT READBACK",
+      "status": "passed",
+      "observed": "Real Chrome DOM adapter/framework integration. These checks do not claim LLM end-to-end coverage.",
+      "recommendation": "Retain the native, async picklist, editable table and real framework regressions.",
+      "screenshots": [],
+      "release": "Working source, 18 October 2026"
+    },
+    {
+      "id": "F03_STALE_REVIEW_REJECTS_CHANGED_OPTIONS",
+      "feature": "F03 STALE REVIEW REJECTS CHANGED OPTIONS",
+      "status": "passed",
+      "observed": "Real Chrome DOM adapter/framework integration. These checks do not claim LLM end-to-end coverage.",
+      "recommendation": "Retain the native, async picklist, editable table and real framework regressions.",
+      "screenshots": [],
+      "release": "Working source, 18 October 2026"
+    },
+    {
+      "id": "F02_F07_GENERIC_BUSY_DUPLICATE_GUARD_AND_NOTICE",
+      "feature": "F02 F07 GENERIC BUSY DUPLICATE GUARD AND NOTICE",
+      "status": "passed",
+      "observed": "Real Chrome DOM adapter/framework integration. These checks do not claim LLM end-to-end coverage.",
+      "recommendation": "Retain the native, async picklist, editable table and real framework regressions.",
+      "screenshots": [
+        "action-working.png",
+        "action-completed.png"
+      ],
+      "release": "Working source, 18 October 2026"
+    },
+    {
+      "id": "F03_REACT_APPLICATION_STATE_AND_INDEPENDENT_SAVE",
+      "feature": "F03 REACT APPLICATION STATE AND INDEPENDENT SAVE",
+      "status": "passed",
+      "observed": "Real Chrome DOM adapter/framework integration. These checks do not claim LLM end-to-end coverage.",
+      "recommendation": "Retain the native, async picklist, editable table and real framework regressions.",
+      "screenshots": [
+        "react-state-saved.png"
+      ],
+      "release": "Working source, 18 October 2026"
+    },
+    {
+      "id": "F03_ANGULAR_APPLICATION_STATE_AND_INDEPENDENT_SAVE",
+      "feature": "F03 ANGULAR APPLICATION STATE AND INDEPENDENT SAVE",
+      "status": "passed",
+      "observed": "Real Chrome DOM adapter/framework integration. These checks do not claim LLM end-to-end coverage.",
+      "recommendation": "Retain the native, async picklist, editable table and real framework regressions.",
+      "screenshots": [
+        "angular-state-saved.png"
+      ],
+      "release": "Working source, 18 October 2026"
+    },
+    {
+      "id": "I06",
+      "feature": "Task-scoped choice privacy",
+      "status": "passed",
+      "observed": "Browser canary: automatic and unrelated task snapshots exclude choice labels; current entered field values are excluded. Relevant requested native choices are available.",
+      "recommendation": "Keep labels scoped to the requested task and preserve the 20/control, 60/overall limits.",
+      "screenshots": [],
+      "release": "20261018-agentic-e"
+    },
+    {
+      "id": "P01",
+      "feature": "Exact owner-bound Save classification",
+      "status": "passed",
+      "observed": "Policy regression passes locally and in candidate platform image. Live read-only policy evaluation reports R1/write_internal/autonomous. Explicit stricter company overrides remain effective; unbound submit stays R3.",
+      "recommendation": "Do not infer a successful business Save from policy acceptance alone.",
+      "screenshots": [],
+      "release": "20261018-agentic-b"
+    },
+    {
+      "id": "W01",
+      "feature": "Owner self-service native Save setup",
+      "status": "passed",
+      "observed": "Owner console saved exact Customer, Note and Opportunity bindings for loopback website only. No public domain bindings were changed.",
+      "recommendation": "Keep IDs, route, visible control label and effect family reviewed for each host.",
+      "screenshots": [
+        "owner-save-bindings.jpg"
+      ],
+      "release": "20261018-agentic-e"
+    },
+    {
+      "id": "W02",
+      "feature": "Reusable saved workflow group",
+      "status": "passed",
+      "observed": "The same saved local workflow group was reused across runs 4064, 4065 and 4066. The published manual-only 10-node definition retained its group ID while replacement panels explicitly linked to it.",
+      "recommendation": "Future user panels must explicitly link to this existing group; offline panels receive no commands.",
+      "screenshots": [
+        "workflow-published.jpg",
+        "run-4066-completed.jpg"
+      ],
+      "release": "20261018-agentic-h / platform agentic-b"
+    },
+    {
+      "id": "W03",
+      "feature": "Workflow Customer \u2192 Note \u2192 Opportunity saved end to end",
+      "status": "passed",
+      "observed": "Run 4066 completed all 10 nodes. The workflow alone filled and saved Customer, Note and Opportunity. Three HTTP 200 host POSTs matched three exact records independently read from the host records page. No observer host fill, Save click or direct record write.",
+      "recommendation": "Retain the full UI journey and exact independent readback. This proves these three synthetic records, not arbitrary business-system success.",
+      "screenshots": [
+        "run-4066-completed.jpg",
+        "save-1.png",
+        "save-2.png",
+        "save-3.png"
+      ],
+      "release": "20261018-agentic-h / platform agentic-b"
+    },
+    {
+      "id": "W04",
+      "feature": "Live Save execution after classification correction",
+      "status": "passed",
+      "observed": "All three native Save nodes executed through exact owner-reviewed local bindings under the internal-write policy. The preceding fill steps used the explicitly approved, workflow-specific three-use temporary grant. No visitor review-button click was performed.",
+      "recommendation": "Keep visitor review and autonomous workflow authority distinct. A binding is not a general permission to save; each effect still requires policy authorization.",
+      "screenshots": [
+        "save-1.png",
+        "save-2.png",
+        "save-3.png"
+      ],
+      "release": "20261018-agentic-h / platform agentic-b"
+    },
+    {
+      "id": "P02",
+      "feature": "Temporary UAT grant cleanup",
+      "status": "passed",
+      "observed": "Run 4066 consumed all three approved fill uses. The exact temporary workflow override was removed afterward. Independent readback confirms zero overrides for this workflow; company internal writes remain autonomous, external messages require approval, and destructive actions remain prohibited.",
+      "recommendation": "Future runs must satisfy current policy again; this UAT grant is no longer available.",
+      "screenshots": [
+        "grant-removed.jpg"
+      ],
+      "release": "20261018-agentic-j / platform agentic-b"
+    },
+    {
+      "id": "SAVE_CUSTOMER",
+      "feature": "Independent persisted customer record",
+      "status": "passed",
+      "observed": "Host DOM readback ID b0d6c899-7b4f-4170-985e-aecd54d4b662. Exact expected values: {\"company_name\": \"Workflow Orchid 20261018-170100\", \"contact_email\": \"workflow.uat@example.test\", \"region\": \"Singapore\"}. Matches the captured request and HTTP 200 response.",
+      "recommendation": "Keep independent persisted readback separate from command completion and fill readback.",
+      "screenshots": [
+        "readback-customer.png"
+      ],
+      "release": "Saved on agentic-h; read-only evidence recaptured on agentic-j"
+    },
+    {
+      "id": "SAVE_NOTE",
+      "feature": "Independent persisted note record",
+      "status": "passed",
+      "observed": "Host DOM readback ID 03697250-f11a-4499-ba13-03561c4ff97d. Exact expected values: {\"title\": \"Followup for Workflow Orchid 20261018-170100\", \"body\": \"Follow up on the demonstration opportunity for Workflow Orchid 20261018-170100\"}. Matches the captured request and HTTP 200 response.",
+      "recommendation": "Keep independent persisted readback separate from command completion and fill readback.",
+      "screenshots": [
+        "readback-note.png"
+      ],
+      "release": "Saved on agentic-h; read-only evidence recaptured on agentic-j"
+    },
+    {
+      "id": "SAVE_OPPORTUNITY",
+      "feature": "Independent persisted opportunity record",
+      "status": "passed",
+      "observed": "Host DOM readback ID 31eac2ae-484b-470d-a76f-87be09a37163. Exact expected values: {\"opportunity_name\": \"Growth for Workflow Orchid 20261018-170100\", \"amount\": \"12500\", \"currency\": \"USD\"}. Matches the captured request and HTTP 200 response.",
+      "recommendation": "Keep independent persisted readback separate from command completion and fill readback.",
+      "screenshots": [
+        "readback-opportunity.png"
+      ],
+      "release": "Saved on agentic-h; read-only evidence recaptured on agentic-j"
+    },
+    {
+      "id": "NAV01",
+      "feature": "Field contents do not become navigation intent",
+      "status": "passed",
+      "observed": "A Note body mentioning opportunity stays on the Note form. The source regression and real run 4066 both pass; an explicitly named navigation destination still takes precedence.",
+      "recommendation": "Retain navigation-versus-field-data regression; broaden paraphrases without website-specific rules.",
+      "screenshots": [
+        "save-2.png"
+      ],
+      "release": "20261018-agentic-h"
+    },
+    {
+      "id": "PRIVATE01",
+      "feature": "Private effect bookkeeping excluded from workflow outputs",
+      "status": "passed",
+      "observed": "The status serializer now whitelists recipient status and opaque result handles. A canary verifies exclusion before/after execution and after task end. The real isolated platform-runner regression checks stored output_json excludes private effect values.",
+      "recommendation": "Historical run 4066 used synthetic values on agentic-h; its stored audit is not retroactively redacted. New status protection is verified on agentic-j.",
+      "screenshots": [],
+      "release": "20261018-agentic-j / isolated runner regression"
+    },
+    {
+      "id": "G01",
+      "feature": "Broad generic intelligent UI-agent coverage",
+      "status": "partial",
+      "observed": "Seven representative live intent cases, ten DOM/framework checks and one three-form saved workflow pass. These do not establish unrestricted browser-agent parity across arbitrary websites. Selective maker/checker remains a proposal and is not implemented.",
+      "recommendation": "Benchmark diverse controls, ambiguous requests, recovery and latency before expanding autonomy. If added, use a separate configured checker selectively; deterministic authorization and host readback remain authoritative.",
+      "screenshots": [],
+      "release": "20261018-agentic-j"
+    }
+  ],
+  "history": "Immutable prior report ../intent-workflow-20261018/index.html records the earlier failed run 4064. Run 4065 saved Customer, then exposed a Note navigation bug. Those attempts are not counted as current passes; the complete retest is run 4066.",
+  "remaining": "Full Phase 1/2 still has prior Safari/iOS, Android, screen-reader and broader sustained-load/HA/fresh onboarding coverage gaps. This report closes the specified three-form save journey and representative intent cases only.",
+  "approvalPaths": {
+    "visitor": "Prepare proposal \u2192 visitor Approve field changes \u2192 validated fill; explicit Save is separate.",
+    "workflow": "Current Action Policy authorizes each effect \u2192 server approves the matching validated proposal \u2192 browser executes. Run 4066 used a temporary three-use fill grant and three exact owner-bound Save nodes under internal-write policy.",
+    "cleanup": "The temporary fill grant was removed after the run. No public workflow permission or company policy was broadened."
+  }
+}

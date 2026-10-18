@@ -1,0 +1,72 @@
+[
+  {
+    "at": "2026-10-18T09:02:01.539Z",
+    "status": 200,
+    "request": {
+      "path": "/customer",
+      "operationId": "139625e4-f742-4edf-9c74-bc61edcd101f",
+      "values": {
+        "company_name": "Workflow Orchid 20261018-170100",
+        "contact_email": "workflow.uat@example.test",
+        "region": "Singapore"
+      }
+    },
+    "response": {
+      "id": "b0d6c899-7b4f-4170-985e-aecd54d4b662",
+      "path": "/customer",
+      "operationId": "139625e4-f742-4edf-9c74-bc61edcd101f",
+      "values": {
+        "company_name": "Workflow Orchid 20261018-170100",
+        "contact_email": "workflow.uat@example.test",
+        "region": "Singapore"
+      },
+      "createdAt": "2026-10-18T09:02:01.526Z"
+    }
+  },
+  {
+    "at": "2026-10-18T09:02:04.415Z",
+    "status": 200,
+    "request": {
+      "path": "/note",
+      "operationId": "f04ef770-28e5-4e27-9fec-7afcf505e646",
+      "values": {
+        "title": "Followup for Workflow Orchid 20261018-170100",
+        "body": "Follow up on the demonstration opportunity for Workflow Orchid 20261018-170100"
+      }
+    },
+    "response": {
+      "id": "03697250-f11a-4499-ba13-03561c4ff97d",
+      "path": "/note",
+      "operationId": "f04ef770-28e5-4e27-9fec-7afcf505e646",
+      "values": {
+        "title": "Followup for Workflow Orchid 20261018-170100",
+        "body": "Follow up on the demonstration opportunity for Workflow Orchid 20261018-170100"
+      },
+      "createdAt": "2026-10-18T09:02:04.412Z"
+    }
+  },
+  {
+    "at": "2026-10-18T09:02:08.049Z",
+    "status": 200,
+    "request": {
+      "path": "/opportunity",
+      "operationId": "80c20236-b721-453d-a627-7e85750015f6",
+      "values": {
+        "opportunity_name": "Growth for Workflow Orchid 20261018-170100",
+        "amount": "12500",
+        "currency": "USD"
+      }
+    },
+    "response": {
+      "id": "31eac2ae-484b-470d-a76f-87be09a37163",
+      "path": "/opportunity",
+      "operationId": "80c20236-b721-453d-a627-7e85750015f6",
+      "values": {
+        "opportunity_name": "Growth for Workflow Orchid 20261018-170100",
+        "amount": "12500",
+        "currency": "USD"
+      },
+      "createdAt": "2026-10-18T09:02:08.047Z"
+    }
+  }
+]

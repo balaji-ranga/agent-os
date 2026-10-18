@@ -26,3 +26,10 @@ test('explicit different destination removes wrong-form fields; current and ambi
  const both={...source,screen:'Home',path:'/home'};
  assert.equal(constrainNavigation('Compare customer and opportunity',both).fields.length,1);
 });
+
+test('field payload mentions do not become navigation while an actual requested destination still wins',()=>{
+ const note={path:'/note',screen:'Note draft',fields:[{label:'Title'},{label:'Body'}],links:[{ref:'r1n0',label:'Opportunity',path:'/opportunity'},{ref:'r1n1',label:'Customer',path:'/customer'}]};
+ for(const text of ['Create a note with Title Followup and Body Follow up on the demonstration opportunity. Fill only; do not submit.','Set Body to Contact the customer about the opportunity.']){const result=constrainNavigation(text,note);assert.equal(result.fields.length,2);assert.equal(result.navigationRequired,undefined);}
+ assert.equal(constrainNavigation('Open Opportunity to compare title and body.',note).navigationRequired,true);
+ assert.equal(constrainNavigation('Create an opportunity with Title Followup and Body details.',note).navigationRequired,true);
+});

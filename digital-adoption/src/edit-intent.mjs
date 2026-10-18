@@ -22,6 +22,18 @@ export function constrainEdit(text, snapshot) {
 // business values or stored mappings, and still produces an ordinary review.
 export function explicitEditProposal(text,snapshot){
  if(readOnlyIntent(text))return null;
+ // A concrete keep/reset choice still needs a review: current values were not
+ // sent to the server. Resolve any uniquely named native control, independent
+ // of website vocabulary. Descriptive preferences continue to model planning.
+ if(/^\s*(?:please\s+)?(?:keep|leave|reset)\b/i.test(text)){
+  const candidates=new Map(),escape=value=>String(value).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  for(const field of snapshot.fields.filter(f=>f.choices&&['select-one','radio'].includes(f.type)))for(const name of [field.label,field.key].filter(Boolean)){
+   const match=new RegExp(`^\\s*(?:please\\s+)?(?:keep|leave|reset)\\s+(?:the\\s+)?${escape(name)}\\s+(?:(?:at|as|to)\\s+)?(.+)$`,'i').exec(text);if(!match)continue;
+   const raw=match[1].replace(/[.!]?\s+(?:do not|don't|never)\b[\s\S]*$/i,'').trim().replace(/[.!]$/,'').trim(),value=resolveChoice(raw,field.choices);
+   if(value!==null)candidates.set(field.ref,{type:'fill',ref:field.ref,value});
+  }
+  if(candidates.size===1)return {message:'Review the requested choice. Nothing has changed.',actions:[...candidates.values()]};
+ }
  // Mixed assignment/selection language belongs to semantic planning. Never
  // consume the second instruction as a dropdown's literal value.
  if(/\b(?:and|then)\s+(?:select|check|uncheck|choose|clear|tick|enable|disable)\b/i.test(text))return null;
@@ -41,7 +53,7 @@ export function explicitEditProposal(text,snapshot){
   if(/^(['"]).*\1$/s.test(value))value=value.slice(1,-1);else value=value.replace(/[.!]$/,'').trim();
   if(!value||value.length>8000)return null;
   if(candidates[0].type==='checkbox'&&!['true','false'].includes(value))return null;
-  if(['select-one','radio','select-multiple'].includes(candidates[0].type)){if(!candidates[0].choices||candidates[0].type==='select-multiple')return null;value=resolveChoice(value,candidates[0].choices);if(value===null)return {message:`Which ${candidates[0].label} option should I use? Available observed choices${candidates[0].choicesTruncated?' (partial list)':''}: ${candidates[0].choices.join(', ')}. Nothing has changed.`,actions:[]};}
+  if(['select-one','radio','select-multiple'].includes(candidates[0].type)){if(!candidates[0].choices||candidates[0].type==='select-multiple')return null;value=resolveChoice(value,candidates[0].choices);if(value===null)return null;}
   used.add(candidates[0].ref);actions.push({type:'fill',ref:candidates[0].ref,value});
  }
  return {message:`Review these ${actions.length} explicit field changes. Nothing has been changed yet.`,actions};

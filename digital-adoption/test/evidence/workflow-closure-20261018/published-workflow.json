@@ -1,0 +1,536 @@
+{
+  "format": "agent-os-workflow",
+  "version": 1,
+  "workflow": {
+    "name": "UAT Local Customer Note Opportunity",
+    "description": "Manual UAT only: server workflow drives a single loopback visitor copilot through customer, note and opportunity creation and owner-bound native Saves. No direct record API writes or manual form filling. Verify saved records independently.",
+    "trigger_modes": [
+      "manual"
+    ],
+    "variables": {},
+    "graph": {
+      "nodes": [
+        {
+          "id": "start",
+          "type": "trigger",
+          "position": {
+            "x": 60,
+            "y": 100
+          },
+          "data": {
+            "label": "Start",
+            "triggerModes": [
+              "manual"
+            ],
+            "scheduleCron": "",
+            "chatPhrase": ""
+          }
+        },
+        {
+          "id": "inspect-start",
+          "type": "connector",
+          "position": {
+            "x": 60,
+            "y": 280
+          },
+          "data": {
+            "label": "Inspect local customer",
+            "taskConfig": {
+              "appId": "digital_adoption",
+              "appName": "Digital Adoption Copilot",
+              "actionId": "digital_adoption.inspect",
+              "staticInputJson": "{}",
+              "timeoutMs": 90000,
+              "timeoutAction": "fail",
+              "copilot": {
+                "groupId": "676c3ca4-53c4-45ed-88d1-c28b1a3f364c",
+                "websiteIds": [
+                  "adoption-demo-alpha"
+                ],
+                "instruction": "Inspect the current customer form and navigation. Do not fill or save.",
+                "fanoutLimit": 1,
+                "executionMs": 60000
+              }
+            },
+            "inputBindings": [],
+            "outputs": [
+              {
+                "id": "text",
+                "label": "Summary"
+              },
+              {
+                "id": "result",
+                "label": "Task-bound result"
+              },
+              {
+                "id": "ok",
+                "label": "Success"
+              }
+            ]
+          }
+        },
+        {
+          "id": "fill-customer",
+          "type": "connector",
+          "position": {
+            "x": 350,
+            "y": 280
+          },
+          "data": {
+            "label": "Create customer draft",
+            "taskConfig": {
+              "appId": "digital_adoption",
+              "appName": "Digital Adoption Copilot",
+              "actionId": "digital_adoption.fill",
+              "staticInputJson": "{}",
+              "timeoutMs": 90000,
+              "timeoutAction": "fail",
+              "copilot": {
+                "groupId": "676c3ca4-53c4-45ed-88d1-c28b1a3f364c",
+                "websiteIds": [
+                  "adoption-demo-alpha"
+                ],
+                "instruction": "Create a customer with Company name Workflow Orchid 20261018-170100, Contact email workflow.uat@example.test and Region Singapore. Fill these fields only; do not submit.",
+                "fanoutLimit": 1,
+                "executionMs": 60000
+              }
+            },
+            "inputBindings": [
+              {
+                "id": "input",
+                "label": "Action input",
+                "mode": "static",
+                "value": "{\"taskId\": \"{{inspect-start.result.taskId}}\"}"
+              }
+            ],
+            "outputs": [
+              {
+                "id": "text",
+                "label": "Summary"
+              },
+              {
+                "id": "result",
+                "label": "Task-bound result"
+              },
+              {
+                "id": "ok",
+                "label": "Success"
+              }
+            ]
+          }
+        },
+        {
+          "id": "save-customer",
+          "type": "connector",
+          "position": {
+            "x": 640,
+            "y": 280
+          },
+          "data": {
+            "label": "Save customer",
+            "taskConfig": {
+              "appId": "digital_adoption",
+              "appName": "Digital Adoption Copilot",
+              "actionId": "digital_adoption.submit",
+              "staticInputJson": "{}",
+              "timeoutMs": 90000,
+              "timeoutAction": "fail",
+              "copilot": {
+                "groupId": "676c3ca4-53c4-45ed-88d1-c28b1a3f364c",
+                "websiteIds": [
+                  "adoption-demo-alpha"
+                ],
+                "instruction": "Save the prepared synthetic customer record.",
+                "fanoutLimit": 1,
+                "executionMs": 60000,
+                "inputs": {
+                  "bindingId": "uat-local-save-customer"
+                }
+              }
+            },
+            "inputBindings": [
+              {
+                "id": "input",
+                "label": "Action input",
+                "mode": "static",
+                "value": "{\"taskId\": \"{{inspect-start.result.taskId}}\"}"
+              }
+            ],
+            "outputs": [
+              {
+                "id": "text",
+                "label": "Summary"
+              },
+              {
+                "id": "result",
+                "label": "Task-bound result"
+              },
+              {
+                "id": "ok",
+                "label": "Success"
+              }
+            ]
+          }
+        },
+        {
+          "id": "navigate-note",
+          "type": "connector",
+          "position": {
+            "x": 930,
+            "y": 280
+          },
+          "data": {
+            "label": "Open Note",
+            "taskConfig": {
+              "appId": "digital_adoption",
+              "appName": "Digital Adoption Copilot",
+              "actionId": "digital_adoption.navigate",
+              "staticInputJson": "{}",
+              "timeoutMs": 90000,
+              "timeoutAction": "fail",
+              "copilot": {
+                "groupId": "676c3ca4-53c4-45ed-88d1-c28b1a3f364c",
+                "websiteIds": [
+                  "adoption-demo-alpha"
+                ],
+                "instruction": "Open Note.",
+                "fanoutLimit": 1,
+                "executionMs": 60000
+              }
+            },
+            "inputBindings": [
+              {
+                "id": "input",
+                "label": "Action input",
+                "mode": "static",
+                "value": "{\"taskId\": \"{{inspect-start.result.taskId}}\"}"
+              }
+            ],
+            "outputs": [
+              {
+                "id": "text",
+                "label": "Summary"
+              },
+              {
+                "id": "result",
+                "label": "Task-bound result"
+              },
+              {
+                "id": "ok",
+                "label": "Success"
+              }
+            ]
+          }
+        },
+        {
+          "id": "fill-note",
+          "type": "connector",
+          "position": {
+            "x": 60,
+            "y": 490
+          },
+          "data": {
+            "label": "Create note draft",
+            "taskConfig": {
+              "appId": "digital_adoption",
+              "appName": "Digital Adoption Copilot",
+              "actionId": "digital_adoption.fill",
+              "staticInputJson": "{}",
+              "timeoutMs": 90000,
+              "timeoutAction": "fail",
+              "copilot": {
+                "groupId": "676c3ca4-53c4-45ed-88d1-c28b1a3f364c",
+                "websiteIds": [
+                  "adoption-demo-alpha"
+                ],
+                "instruction": "Create a note using these values:\nTitle: Followup for Workflow Orchid 20261018-170100\nBody: Follow up on the demonstration opportunity for Workflow Orchid 20261018-170100\nFill only; do not submit.",
+                "fanoutLimit": 1,
+                "executionMs": 60000
+              }
+            },
+            "inputBindings": [
+              {
+                "id": "input",
+                "label": "Action input",
+                "mode": "static",
+                "value": "{\"taskId\": \"{{inspect-start.result.taskId}}\"}"
+              }
+            ],
+            "outputs": [
+              {
+                "id": "text",
+                "label": "Summary"
+              },
+              {
+                "id": "result",
+                "label": "Task-bound result"
+              },
+              {
+                "id": "ok",
+                "label": "Success"
+              }
+            ]
+          }
+        },
+        {
+          "id": "save-note",
+          "type": "connector",
+          "position": {
+            "x": 350,
+            "y": 490
+          },
+          "data": {
+            "label": "Save note",
+            "taskConfig": {
+              "appId": "digital_adoption",
+              "appName": "Digital Adoption Copilot",
+              "actionId": "digital_adoption.submit",
+              "staticInputJson": "{}",
+              "timeoutMs": 90000,
+              "timeoutAction": "fail",
+              "copilot": {
+                "groupId": "676c3ca4-53c4-45ed-88d1-c28b1a3f364c",
+                "websiteIds": [
+                  "adoption-demo-alpha"
+                ],
+                "instruction": "Save the prepared synthetic note.",
+                "fanoutLimit": 1,
+                "executionMs": 60000,
+                "inputs": {
+                  "bindingId": "uat-local-save-note"
+                }
+              }
+            },
+            "inputBindings": [
+              {
+                "id": "input",
+                "label": "Action input",
+                "mode": "static",
+                "value": "{\"taskId\": \"{{inspect-start.result.taskId}}\"}"
+              }
+            ],
+            "outputs": [
+              {
+                "id": "text",
+                "label": "Summary"
+              },
+              {
+                "id": "result",
+                "label": "Task-bound result"
+              },
+              {
+                "id": "ok",
+                "label": "Success"
+              }
+            ]
+          }
+        },
+        {
+          "id": "navigate-opportunity",
+          "type": "connector",
+          "position": {
+            "x": 640,
+            "y": 490
+          },
+          "data": {
+            "label": "Open Opportunity",
+            "taskConfig": {
+              "appId": "digital_adoption",
+              "appName": "Digital Adoption Copilot",
+              "actionId": "digital_adoption.navigate",
+              "staticInputJson": "{}",
+              "timeoutMs": 90000,
+              "timeoutAction": "fail",
+              "copilot": {
+                "groupId": "676c3ca4-53c4-45ed-88d1-c28b1a3f364c",
+                "websiteIds": [
+                  "adoption-demo-alpha"
+                ],
+                "instruction": "Open Opportunity.",
+                "fanoutLimit": 1,
+                "executionMs": 60000
+              }
+            },
+            "inputBindings": [
+              {
+                "id": "input",
+                "label": "Action input",
+                "mode": "static",
+                "value": "{\"taskId\": \"{{inspect-start.result.taskId}}\"}"
+              }
+            ],
+            "outputs": [
+              {
+                "id": "text",
+                "label": "Summary"
+              },
+              {
+                "id": "result",
+                "label": "Task-bound result"
+              },
+              {
+                "id": "ok",
+                "label": "Success"
+              }
+            ]
+          }
+        },
+        {
+          "id": "fill-opportunity",
+          "type": "connector",
+          "position": {
+            "x": 930,
+            "y": 490
+          },
+          "data": {
+            "label": "Create opportunity draft",
+            "taskConfig": {
+              "appId": "digital_adoption",
+              "appName": "Digital Adoption Copilot",
+              "actionId": "digital_adoption.fill",
+              "staticInputJson": "{}",
+              "timeoutMs": 90000,
+              "timeoutAction": "fail",
+              "copilot": {
+                "groupId": "676c3ca4-53c4-45ed-88d1-c28b1a3f364c",
+                "websiteIds": [
+                  "adoption-demo-alpha"
+                ],
+                "instruction": "Create an opportunity using these values:\nOpportunity name: Growth for Workflow Orchid 20261018-170100\nAmount: 12500\nCurrency: USD\nFill only; do not submit.",
+                "fanoutLimit": 1,
+                "executionMs": 60000
+              }
+            },
+            "inputBindings": [
+              {
+                "id": "input",
+                "label": "Action input",
+                "mode": "static",
+                "value": "{\"taskId\": \"{{inspect-start.result.taskId}}\"}"
+              }
+            ],
+            "outputs": [
+              {
+                "id": "text",
+                "label": "Summary"
+              },
+              {
+                "id": "result",
+                "label": "Task-bound result"
+              },
+              {
+                "id": "ok",
+                "label": "Success"
+              }
+            ]
+          }
+        },
+        {
+          "id": "save-opportunity",
+          "type": "connector",
+          "position": {
+            "x": 60,
+            "y": 700
+          },
+          "data": {
+            "label": "Save opportunity",
+            "taskConfig": {
+              "appId": "digital_adoption",
+              "appName": "Digital Adoption Copilot",
+              "actionId": "digital_adoption.submit",
+              "staticInputJson": "{}",
+              "timeoutMs": 90000,
+              "timeoutAction": "fail",
+              "copilot": {
+                "groupId": "676c3ca4-53c4-45ed-88d1-c28b1a3f364c",
+                "websiteIds": [
+                  "adoption-demo-alpha"
+                ],
+                "instruction": "Save the prepared synthetic opportunity.",
+                "fanoutLimit": 1,
+                "executionMs": 60000,
+                "inputs": {
+                  "bindingId": "uat-local-save-opportunity"
+                }
+              }
+            },
+            "inputBindings": [
+              {
+                "id": "input",
+                "label": "Action input",
+                "mode": "static",
+                "value": "{\"taskId\": \"{{inspect-start.result.taskId}}\"}"
+              }
+            ],
+            "outputs": [
+              {
+                "id": "text",
+                "label": "Summary"
+              },
+              {
+                "id": "result",
+                "label": "Task-bound result"
+              },
+              {
+                "id": "ok",
+                "label": "Success"
+              }
+            ]
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "start-inspect-start",
+          "source": "start",
+          "target": "inspect-start"
+        },
+        {
+          "id": "inspect-start-fill-customer",
+          "source": "inspect-start",
+          "target": "fill-customer"
+        },
+        {
+          "id": "fill-customer-save-customer",
+          "source": "fill-customer",
+          "target": "save-customer"
+        },
+        {
+          "id": "save-customer-navigate-note",
+          "source": "save-customer",
+          "target": "navigate-note"
+        },
+        {
+          "id": "navigate-note-fill-note",
+          "source": "navigate-note",
+          "target": "fill-note"
+        },
+        {
+          "id": "fill-note-save-note",
+          "source": "fill-note",
+          "target": "save-note"
+        },
+        {
+          "id": "save-note-navigate-opportunity",
+          "source": "save-note",
+          "target": "navigate-opportunity"
+        },
+        {
+          "id": "navigate-opportunity-fill-opportunity",
+          "source": "navigate-opportunity",
+          "target": "fill-opportunity"
+        },
+        {
+          "id": "fill-opportunity-save-opportunity",
+          "source": "fill-opportunity",
+          "target": "save-opportunity"
+        }
+      ],
+      "viewport": {
+        "x": 0,
+        "y": 0,
+        "zoom": 0.8
+      }
+    }
+  }
+}

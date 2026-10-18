@@ -881,13 +881,13 @@ export async function createPrivateTasks({
         commandId: c.id,
         status: c.status,
         taskId: c.taskId,
-        recipients: c.recipients.map(({
-          result,
-          ...r
-        }) => ({
-          ...r,
+        // Execution bookkeeping includes proposed private field values. Only
+        // publish this explicit status contract to the workflow/audit store.
+        recipients: c.recipients.map(({instanceId,websiteId,connectionId,status,code,startedAt,inspection,result}) => ({
+          instanceId,websiteId,connectionId,status,code,startedAt,
+          ...(inspection?{inspection}:{}),
           ...(result ? {
-            resultHandle: `task-result:${c.id}:${r.instanceId}`
+            resultHandle: `task-result:${c.id}:${instanceId}`
           } : {})
         }))
       };
