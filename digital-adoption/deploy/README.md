@@ -1,5 +1,9 @@
 # Build and VPS setup
 
+Latest deployment (18 October 2026): independent runtime **20261018-maker-checker-b**, platform **adoption-20261018-maker-checker-c**, source/evidence publication **20261018-maker-checker-d**. Admin → **Digital Adoption websites** (`/admin/digital-adoption`) restores the platform-wide registration list and selected-website management links. The global maker/checker switch is available there and under Models & routing; it is **Off** after UAT.
+
+All **257** service checks pass locally and in the VPS image. Seven live intent cases pass with the inactive-slot checker enabled (2.163–7.602 seconds in these sequential samples). The optional local Ollama 8B checker did not return an accepted verdict before its 38-second deadline; it failed closed with no field changes. Use the inactive platform checker for now. The [combined testcase table and screenshots](../test/evidence/admin-maker-checker-20261018/index.html) records **39 passed, 1 partial and 1 failed** case with release-specific evidence. This is incremental acceptance, not full Phase 1/2 certification. Historical sections below retain their original measurements.
+
 Run the application tests from `digital-adoption/` with Node 22 or newer:
 
 ```sh
@@ -343,3 +347,5 @@ Settings are stored in the platform database, apply on new requests without a re
 
 
 Admin → Digital Adoption websites (`/admin/digital-adoption`) restores the platform-wide registration overview across owners. It uses the existing validated platform identity at the independent management service, with an admin-only inventory projection, server-side search/status filters and bounded pagination beyond the legacy 100-row management listing. Installation credentials, DNS challenges, action bindings, chat/document contents and private visitor data are excluded from inventory rows. Owner IDs identify website-owner registrations, not an automatic entitlement to another user’s workflow session. The “Manage website” link opens the existing console scoped to that authorized registration; owner email sign-in remains owner-scoped. The global review control is also available on this page.
+
+The final platform C update only improves the admin registration table layout; the tested independent service remains B. Scoped source merges retain the exact deployed frontend lineage. A reviewed single-line API merge resolution during B preparation is retained on the VPS; no unrelated service or company policy was changed. Ollama native transport follows [thinking](https://docs.ollama.com/capabilities/thinking) and [structured output](https://docs.ollama.com/capabilities/structured-outputs) interfaces, but interface support does not establish adequate latency for the configured model.

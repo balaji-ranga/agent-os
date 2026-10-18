@@ -1,5 +1,9 @@
 # Digital Adoption Copilot
 
+Latest deployment (18 October 2026): independent runtime **20261018-maker-checker-b**, platform **adoption-20261018-maker-checker-c**, source/evidence publication **20261018-maker-checker-d**. Admin → **Digital Adoption websites** (`/admin/digital-adoption`) restores the platform-wide registration list and selected-website management links. The global maker/checker switch is available there and under Models & routing; it is **Off** after UAT.
+
+All **257** service checks pass locally and in the VPS image. Seven live intent cases pass with the inactive-slot checker enabled (2.163–7.602 seconds in these sequential samples). The optional local Ollama 8B checker did not return an accepted verdict before its 38-second deadline; it failed closed with no field changes. Use the inactive platform checker for now. The [combined testcase table and screenshots](test/evidence/admin-maker-checker-20261018/index.html) records **39 passed, 1 partial and 1 failed** case with release-specific evidence. This is incremental acceptance, not full Phase 1/2 certification. Historical sections below retain their original measurements.
+
 Independent Flolah Free Tools product. This directory owns its implementation and tests; it does not import, mount, replace, or migrate Platform Help Copilot.
 
 The [end to end design](DESIGN.md) defines the implemented extension: private

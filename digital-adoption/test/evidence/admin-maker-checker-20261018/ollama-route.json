@@ -1,0 +1,10 @@
+{
+  "status": "partial",
+  "outcome": "Configured checker did not return an accepted proposal within the live request; failed closed",
+  "code": "COPILOT_CHECKER_UNAVAILABLE",
+  "at": "2026-10-18T09:51:31.691Z",
+  "httpStatus": 503,
+  "elapsedMs": 38163,
+  "hostWrites": 0,
+  "fieldUnchanged": true
+}

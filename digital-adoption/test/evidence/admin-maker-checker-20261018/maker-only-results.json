@@ -1,0 +1,14 @@
+{
+  "at": "2026-10-18T09:56:58.405Z",
+  "results": [
+    {
+      "id": "I01_DEFAULT_ALL_TRANSPORT",
+      "status": "passed",
+      "prompt": "Keep the transport default All transport. Do not submit.",
+      "log": "Keep the transport default All transport. Do not submit.\n\nReview these 1 proposed field change. Nothing has been changed yet.↩",
+      "proposal": "transport: All transports\n\nReview before filling. Some websites autosave fields. This does not click Save.\n\nApprove field changesReject changes",
+      "screenshot": "I01_DEFAULT_ALL_TRANSPORT.png"
+    }
+  ],
+  "hostWrites": 0
+}

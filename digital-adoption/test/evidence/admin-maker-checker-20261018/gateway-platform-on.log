@@ -1,0 +1,7 @@
+{"event":"copilot_model","purpose":"digital_adoption_review","active":"secondary","quality":{"enabled":true,"decision":"accept","revisions":0,"makerSlot":"secondary","checkerSlot":"primary"},"latencyMs":2792}
+{"event":"copilot_model","purpose":"digital_adoption_plan","active":"secondary","quality":{"enabled":true,"decision":"accept","revisions":0,"makerSlot":"secondary","checkerSlot":"primary"},"latencyMs":3662}
+{"event":"copilot_model","purpose":"digital_adoption_plan","active":"secondary","quality":{"enabled":true,"decision":"accept","revisions":1,"makerSlot":"secondary","checkerSlot":"primary"},"latencyMs":7602}
+{"event":"copilot_model","purpose":"digital_adoption_plan","active":"secondary","quality":{"enabled":true,"decision":"accept","revisions":1,"makerSlot":"secondary","checkerSlot":"primary"},"latencyMs":5715}
+{"event":"copilot_model","purpose":"digital_adoption_plan","active":"secondary","quality":{"enabled":true,"decision":"accept","revisions":0,"makerSlot":"secondary","checkerSlot":"primary"},"latencyMs":2163}
+{"event":"copilot_model","purpose":"digital_adoption_plan","active":"secondary","quality":{"enabled":true,"decision":"accept","revisions":0,"makerSlot":"secondary","checkerSlot":"primary"},"latencyMs":3927}
+{"event":"copilot_model","purpose":"digital_adoption_plan","active":"secondary","quality":{"enabled":true,"decision":"accept","revisions":0,"makerSlot":"secondary","checkerSlot":"primary"},"latencyMs":2714}

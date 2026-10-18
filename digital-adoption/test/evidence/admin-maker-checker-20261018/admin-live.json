@@ -1,0 +1,12 @@
+{
+  "at": "2026-10-18T10:10:50.381Z",
+  "source": "Real admin UI with existing registrations; no live backend seeding",
+  "registrations": 3,
+  "owners": 1,
+  "localMatches": 1,
+  "flolahMatches": 2,
+  "pendingMatches": 0,
+  "selectedManagementContext": "Selected: http://127.0.0.1:4194 · staging. Separate embedding: adoption-demo-alpha.",
+  "currentMode": "maker_only",
+  "scope": "platform"
+}
