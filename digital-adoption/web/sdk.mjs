@@ -6,7 +6,8 @@ import {createRecorder,replayNavigation} from './recording.mjs';
 import {recordedPackage} from './learning-package.mjs';
 import {createTaskClient} from './task-client.mjs';
 
-export async function mount({ serviceUrl, installationToken, theme = {},getHostIdentity,getVerifiedOutcome,bindVerifiedSave }) {
+export async function mount(options) {
+  const {serviceUrl,installationToken,theme={},getHostIdentity,getVerifiedOutcome,bindVerifiedSave}=options;
   if(window.frameElement?.dataset.adoptionObservation==='true')return {updateTheme(){},async destroy(){}};
   let appearance = normalizeTheme(theme);
   let hostAppearance=appearance;
@@ -20,7 +21,10 @@ export async function mount({ serviceUrl, installationToken, theme = {},getHostI
   if(getVerifiedOutcome!==undefined&&typeof getVerifiedOutcome!=='function')throw new Error('Verified outcome must be a backend receipt callback');
   if(bindVerifiedSave!==undefined&&typeof bindVerifiedSave!=='function')throw new Error('Save binding must be a backend callback');
   const readHostIdentity=async()=>{if(!getHostIdentity)return undefined;const identity=await getHostIdentity();if(typeof identity!=='string'||!identity)throw new Error('Host sign-in is required. Start a new copilot session after signing in.');return identity;};
-  const bootstrap=await request('/v1/sessions', { installationToken,identityToken:await readHostIdentity() });
+  const bootstrapButton=document.createElement('button');bootstrapButton.dataset.adoptionWidget='true';bootstrapButton.type='button';bootstrapButton.textContent='Connecting copilot…';bootstrapButton.setAttribute('aria-label','Copilot connection status');bootstrapButton.disabled=true;bootstrapButton.style.cssText='position:fixed;bottom:20px;right:20px;z-index:2147483646;padding:12px;border-radius:12px';document.body.append(bootstrapButton);
+  let bootstrap;
+  try{bootstrap=await request('/v1/sessions',{installationToken,identityToken:await readHostIdentity()});bootstrapButton.remove();}
+  catch(error){client.stop();bootstrapButton.disabled=false;bootstrapButton.textContent='Reconnect copilot';bootstrapButton.title=error.message;bootstrapButton.onclick=()=>{bootstrapButton.remove();mount(options).catch(()=>{});};throw error;}
   const inspector = createInspector(document);
   const recorder=createRecorder(document);
   let recordedSteps=[];
@@ -58,14 +62,17 @@ export async function mount({ serviceUrl, installationToken, theme = {},getHostI
     launcher.style.background=appearance.primary; launcher.style.color=appearance.onPrimary;
     frame.contentWindow?.postMessage({channel:'flolah-adoption-v1',type:'theme',theme:appearance},service.origin);
   };
-  launcher.onclick=()=>{frame.hidden=false;launcher.hidden=true;frame.focus();};
+  launcher.onclick=()=>{if(closed){frame.remove();launcher.remove();window.removeEventListener('message',handler);mount(options).catch(()=>{});return;}frame.hidden=false;launcher.hidden=true;frame.focus();};
   applyAppearance();
-  const privateClient=createTaskClient({request,service,inspect:()=>inspector.snapshot(),hostIdentity:getHostIdentity?async()=>{try{return await request('/v1/renew',{identityToken:await readHostIdentity()});}catch(error){try{await request('/v1/terminate');}finally{expireSession();}throw error;}}:null,onEvent:event=>{
+  const resumeKey=`flolah-copilot-pair:${service.origin}:${installationToken.slice(-16)}`;
+  let durableResume=false;
+  const resumeStore={read(){try{return sessionStorage.getItem(resumeKey)||localStorage.getItem(resumeKey);}catch{return null;}},write(value){try{sessionStorage.setItem(resumeKey,value);if(durableResume)localStorage.setItem(resumeKey,value);}catch{}},clear(){try{sessionStorage.removeItem(resumeKey);localStorage.removeItem(resumeKey);}catch{}},persist(value){durableResume=value;try{if(value){const proof=sessionStorage.getItem(resumeKey);if(proof)localStorage.setItem(resumeKey,proof);}else localStorage.removeItem(resumeKey);}catch{}}};
+  const privateClient=createTaskClient({request,service,resumeStore,inspect:()=>inspector.snapshot(),hostIdentity:getHostIdentity?async()=>{try{return await request('/v1/renew',{identityToken:await readHostIdentity()});}catch(error){try{await request('/v1/terminate');}finally{expireSession();}throw error;}}:null,onEvent:event=>{
     if(event.type==='task-ended'){taskGeneration++;currentSnapshot=null;}
     if(event.type==='workflow-started'){taskGeneration++;currentSnapshot=null;}
     if(event.type==='workflow-proposal')currentSnapshot=event.snapshot;
     frame.contentWindow?.postMessage({channel:'flolah-adoption-v1',type:'private-event',event},service.origin);
-  },execute:async proposal=>{const results=[];for(const action of proposal.actions){if(closed)throw new Error('Session ended');if(action.type==='fill')results.push(inspector.fill({ref:action.ref,value:action.value,expectedRevision:proposal.revision,approved:true}));else if(action.type==='navigate')results.push(await inspector.navigate({ref:action.ref,expectedRevision:proposal.revision,approved:true}));else if(action.type==='submit')results.push(await inspector.submit({ref:action.ref,expectedRevision:proposal.revision,approved:true,active:()=>!closed}));else throw new Error('Unsupported workflow effect');}return results;}});
+  },execute:async proposal=>{const results=[];for(const action of proposal.actions){if(closed)throw new Error('Session ended');if(action.type==='fill')results.push(await inspector.fill({ref:action.ref,value:action.value,expectedRevision:proposal.revision,approved:true}));else if(action.type==='navigate')results.push(await inspector.navigate({ref:action.ref,expectedRevision:proposal.revision,approved:true}));else if(action.type==='submit')results.push(await inspector.submit({ref:action.ref,expectedRevision:proposal.revision,approved:true,active:()=>!closed}));else throw new Error('Unsupported workflow effect');}return results;}});
   // The host never sends the bearer credential to the iframe or puts it in a URL.
   const handler = async event => {
     if (closed || event.source !== frame.contentWindow || event.origin !== service.origin) return;
@@ -153,6 +160,8 @@ export async function mount({ serviceUrl, installationToken, theme = {},getHostI
       }
       else if (message.type === 'message') result = await request('/v1/messages', { text: message.text });
       else if (message.type === 'ask') result = privateClient.taskId?await privateClient.call('task-summary',{text:message.text}):await request('/v1/ask',{text:message.text,replyTo:message.replyTo});
+      else if(message.type==='reject'){taskGeneration++;currentSnapshot=null;client.interruptRead();result=privateClient.taskId?await privateClient.call('task-reject',{id:message.proposalId}):await request('/v1/reject',{id:message.proposalId});}
+      else if(message.type==='reconnect'){await controller.destroy();result=await mount(options);return;}
       else if(message.type==='cancel'){taskGeneration++;currentSnapshot=null;client.interruptRead();result={stopped:true};}
       else if (message.type === 'inspect') {result=inspector.snapshot({inventory:true});const access=await request('/v1/capabilities');if(access.capabilities.coach)result.learning=await request('/v1/learning/observe',{snapshot:result});}
       else if (message.type === 'plan') {
@@ -193,7 +202,7 @@ export async function mount({ serviceUrl, installationToken, theme = {},getHostI
           }
           else if(action.type==='navigate')results.push(await inspector.navigate({ref:action.ref,expectedRevision:proposal.revision,activation:action.activation,approved:true}));
           else if(action.type==='highlight')results.push(inspector.highlight({ref:action.ref,expectedRevision:proposal.revision}));
-          else {inspector.highlight({ref:action.ref,expectedRevision:proposal.revision});results.push(inspector.fill({ ref:action.ref,value:action.value,expectedRevision:proposal.revision,approved:true }));}
+          else {inspector.highlight({ref:action.ref,expectedRevision:proposal.revision});results.push(await inspector.fill({ ref:action.ref,value:action.value,expectedRevision:proposal.revision,approved:true }));}
         }
         if(closed||generation!==taskGeneration)throw new Error('Task superseded after dispatch. Completed host changes remain; no further actions will run.');
         currentSnapshot=null;if(!guided)result={ results,saved:false };
@@ -210,13 +219,14 @@ export async function mount({ serviceUrl, installationToken, theme = {},getHostI
       }
       else throw new Error('Unsupported operation');
       if(!closed)frame.contentWindow?.postMessage({ channel: message.channel, id: message.id, result }, service.origin);
-    } catch (error) { if(proposalGeneration===taskGeneration)currentSnapshot=null;if(!closed)frame.contentWindow?.postMessage({ channel: message.channel, id: message.id, error: error.message }, service.origin); }
+    } catch (error) { if(error.code==='SESSION_ACCESS_DENIED')expireSession();if(proposalGeneration===taskGeneration)currentSnapshot=null;if(!closed)frame.contentWindow?.postMessage({ channel: message.channel, id: message.id, error: error.message }, service.origin); }
   };
   window.addEventListener('message', handler);
   document.body.append(frame,launcher);
+  frame.addEventListener('load',()=>privateClient.resume().then(out=>{if(out)frame.contentWindow?.postMessage({channel:'flolah-adoption-v1',type:'private-event',event:{type:'pairing-restored',status:out}},service.origin);}).catch(error=>frame.contentWindow?.postMessage({channel:'flolah-adoption-v1',type:'private-event',event:{type:'pairing-offline',reason:error.message}},service.origin)));
   const expireSession=()=>{
     if(!closed){closed=true;privateClient.close();taskGeneration++;currentSnapshot=null;guidedQueue=null;client.interruptRead();recorder.stop();inspector.destroy();client.stop();clearInterval(timer);}
-    frame.title='Copilot session expired; reload to reconnect';
+    frame.title='Copilot session expired; reconnect to restore the saved group';launcher.textContent='Reconnect copilot';launcher.hidden=false;
     frame.contentWindow?.postMessage({channel:'flolah-adoption-v1',type:'expired'},service.origin);
   };
   const timer = setInterval(async () => {
@@ -231,9 +241,9 @@ export async function mount({ serviceUrl, installationToken, theme = {},getHostI
   // have arrived. A restored page explicitly requires a fresh host reload.
   const pageHide=()=>expireSession(),pageShow=event=>{if(event.persisted)expireSession();};
   window.addEventListener('pagehide',pageHide);window.addEventListener('pageshow',pageShow);
-  return { updateTheme: patch => {appearance=normalizeTheme({...appearance,...patch});hostAppearance=appearance;applyAppearance();}, destroy: async () => {
+  const controller={ updateTheme: patch => {appearance=normalizeTheme({...appearance,...patch});hostAppearance=appearance;applyAppearance();}, destroy: async () => {
     const wasClosed=closed;closed = true;privateClient.close();taskGeneration++;client.interruptRead();recorder.stop();inspector.destroy(); clearInterval(timer); window.removeEventListener('message', handler); frame.remove();launcher.remove();
     window.removeEventListener('pagehide',pageHide);window.removeEventListener('pageshow',pageShow);
     try { if(!wasClosed)await request('/v1/terminate'); } finally { client.stop(); }
-  } };
+  } };return controller;
 }

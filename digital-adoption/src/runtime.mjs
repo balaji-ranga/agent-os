@@ -41,7 +41,8 @@ knowledge.recoverExpired();
 authority.maintain();
 const recoveryTimer=setInterval(()=>{try{knowledge.recoverExpired();authority.maintain();}catch{/* Authorization remains fail-closed; retry maintenance next turn. */}},30_000);
 recoveryTimer.unref();
-const embeddings=['adoption-demo-alpha','adoption-demo-beta'];
+// Demo content is an explicit development option, never owner website knowledge.
+const embeddings=config.demoSeedEnabled===true?['adoption-demo-alpha','adoption-demo-beta']:[];
 // Apply additive lexical mappings to this service's existing source indexes
 // as well as fresh synthetic embeddings. No platform index is selected.
 for(const embeddingId of new Set([...embeddings,...repository.sourceEmbeddings()]))await search.provision(embeddingId);
@@ -69,7 +70,7 @@ for(const [i,embeddingId] of embeddings.entries()){
 const model={gatewayUrl:config.gatewayUrl,serviceToken:config.serviceToken};
 const planner=createPlatformPlanner(model);
 const taskWebsite=id=>repository.map('websites').get(id);
-const privateTasks=await createPrivateTasks({root:'/data/private-objects',website:taskWebsite,activeScope:scope=>authority.activeScope(scope),planner,answer:createKnowledgeAnswer(model),guidance:(scope,text,snapshot)=>({sourceGuidance:sourceMap.guidance(scope,text,snapshot),recipeGuidance:learning.context(scope,text,snapshot),siteGuidance:learning.planningMemory(scope,text,snapshot)}),limits:config.privateTasks,authorizeEffect:async input=>{if(!config.taskPolicyUrl||!config.taskBridgeToken)return false;try{const response=await fetch(config.taskPolicyUrl,{method:'POST',redirect:'error',signal:AbortSignal.timeout(5000),headers:{'Content-Type':'application/json',Authorization:`Bearer ${config.taskBridgeToken}`},body:JSON.stringify(input)});return response.ok&&(await response.json()).allowed===true;}catch{return false;}}});
+const privateTasks=await createPrivateTasks({pairingState:repository.map('paired_groups'),root:'/data/private-objects',website:taskWebsite,activeScope:scope=>authority.activeScope(scope),planner,answer:createKnowledgeAnswer(model),guidance:(scope,text,snapshot)=>({sourceGuidance:sourceMap.guidance(scope,text,snapshot),recipeGuidance:learning.context(scope,text,snapshot),siteGuidance:learning.planningMemory(scope,text,snapshot)}),limits:config.privateTasks,authorizeEffect:async input=>{if(!config.taskPolicyUrl||!config.taskBridgeToken)return false;try{const response=await fetch(config.taskPolicyUrl,{method:'POST',redirect:'error',signal:AbortSignal.timeout(5000),headers:{'Content-Type':'application/json',Authorization:`Bearer ${config.taskBridgeToken}`},body:JSON.stringify(input)});return response.ok&&(await response.json()).allowed===true;}catch{return false;}}});
 const parserBroker=createParserBroker(ingestion,privateTasks,{maxWorkers:config.ingestion?.maxWorkers||2});
 const taskBridge=config.taskBridgeToken?createTaskBridge({tasks:privateTasks,token:config.taskBridgeToken}):null;
 taskBridge?.listen(4197,'0.0.0.0');

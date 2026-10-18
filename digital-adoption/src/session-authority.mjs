@@ -1,7 +1,7 @@
 import { createHash, randomBytes, randomUUID, createCipheriv, createDecipheriv } from 'node:crypto';
 
 const digest = value => createHash('sha256').update(value).digest('hex');
-const fail = () => { throw new Error('Access denied'); };
+const fail = () => { throw Object.assign(new Error('Access denied'),{publicCode:'SESSION_ACCESS_DENIED'}); };
 const token = prefix => `${prefix}${randomBytes(32).toString('base64url')}`;
 function originOf(value, development = false) {
   try {

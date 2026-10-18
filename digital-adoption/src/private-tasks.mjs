@@ -2,6 +2,7 @@ import { randomUUID, randomBytes, createHash, createCipheriv, createDecipheriv }
 import { mkdir, writeFile, readFile, rm, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createProposalStore, validateSnapshot } from './proposals.mjs';
+import {readOnlyIntent,groundedValue} from './task-intent.mjs';
 const hash = value => createHash('sha256').update(value).digest('hex');
 const secret = () => randomBytes(24).toString('base64url');
 const reject = (code = 'TASK_ACCESS_DENIED') => {
@@ -18,6 +19,7 @@ const defaults = {
   totalBytes: 256 * 1024 * 1024,
   instances: 100,
   groupSize: 25,
+  groups: 1000,
   tasks: 100,
   commands: 200,
   inviteMs: 120000,
@@ -73,7 +75,8 @@ export async function createPrivateTasks({
   guidance = () => ({}),
   clock = Date.now,
   limits = {},
-  authorizeEffect = async () => false
+  authorizeEffect = async () => false,
+  pairingState = new Map()
 }) {
   const config = {
     ...defaults,
@@ -91,11 +94,14 @@ export async function createPrivateTasks({
     instances = new Map(),
     tickets = new Map(),
     invitations = new Map(),
-    groups = new Map(),
+    groups = new Map([...pairingState.values()].map(g=>[g.id,{...g,members:new Set(),participants:new Map(g.participants.map(p=>[p.id,p]))}])),
     links = new Map(),
     commands = new Map(),
     operations = new Map();
   let queuedTurn = 0;
+  const saveGroup=g=>pairingState.set(g.id,{id:g.id,owner:g.owner,userId:g.userId,name:g.name,expiresAt:g.expiresAt,idleMs:g.idleMs,touched:g.touched,participants:[...g.participants.values()].map(({instanceId,...p})=>p)});
+  const validGroup=g=>!!g&&(!g.expiresAt||g.expiresAt>clock())&&(!g.idleMs||g.touched+g.idleMs>clock());
+  const groupFor=i=>{const g=groups.get(i.groupId);return validGroup(g)?g:null;};
   const site = scope => {
     const s = website(scope.embeddingId);
     if (!s || !s.verified || s.status !== 'approved' || !s.organizationId) reject('WEBSITE_UNAVAILABLE');
@@ -212,7 +218,7 @@ export async function createPrivateTasks({
   const service = {
     limits: config,
     ticket(scope, {
-      instanceId
+      instanceId,resumeProof
     }) {
       site(scope);
       let i = instanceId && member(scope, instanceId);
@@ -231,6 +237,16 @@ export async function createPrivateTasks({
           groupId: null
         };
         instances.set(i.id, i);
+        i.resumeProof=secret();i.participantId=randomUUID();
+        if(resumeProof){
+          const matches=typeof resumeProof==='string'&&resumeProof.length<=128?[...groups.values()].filter(validGroup).flatMap(g=>[...g.participants.values()].filter(p=>p.proofHash===hash(resumeProof)).map(p=>({g,p}))):[];
+          if(matches.length!==1){instances.delete(i.id);reject('PAIRING_RESUME_DENIED');}
+          const {g,p}=matches[0],old=instances.get(p.instanceId);
+          if(p.websiteId!==scope.embeddingId||g.owner!==i.owner||p.origin!==scope.origin||p.identity!==JSON.stringify(scope.hostPrincipal||null)){instances.delete(i.id);reject('PAIRING_RESUME_DENIED');}
+          if(live(old)){instances.delete(i.id);reject('PAIRING_ALREADY_ONLINE');}
+          if(old)service.disconnect(old.id);g.members.delete(p.instanceId);
+          i.resumeProof=resumeProof;i.participantId=p.id;i.groupId=g.id;p.instanceId=i.id;g.members.add(i.id);
+        }
       }
       i.scope = scope;
       const ticket = secret();
@@ -241,7 +257,7 @@ export async function createPrivateTasks({
       return {
         ticket,
         instanceId: i.id,
-        heartbeatMs: config.heartbeatMs
+        heartbeatMs: config.heartbeatMs,resumeProof:i.resumeProof,paired:!!groupFor(i)
       };
     },
     connect(ticket, origin, write) {
@@ -315,6 +331,7 @@ export async function createPrivateTasks({
     endSession(scope) {
       for (const t of tasks.values()) if ([...t.members].some(id => instances.get(id)?.sessionId === scope.sessionId)) end(t);
     },
+    touchSession(scope){for(const i of instances.values())if(i.sessionId===scope.sessionId&&i.embeddingId===scope.embeddingId){const g=groupFor(i);if(g){g.touched=clock();saveGroup(g);}}},
     async upload(scope, input) {
       enabled(scope, 'attachments');
       const t = taskFor(scope, input.taskId, input.instanceId);
@@ -391,6 +408,7 @@ export async function createPrivateTasks({
       const t = taskFor(scope, input.taskId, input.instanceId);
       touch(t);
       if (typeof input.text !== 'string' || !input.text.trim() || input.text.length > 8000) reject('INVALID_TASK');
+      if(readOnlyIntent(input.text)){const result=await service.summary(scope,input);return {...result,actions:[],privateTaskId:t.id};}
       const snapshot = validateSnapshot(input.snapshot),
         evidence = [...context(t, input.text, input.instanceId), ...taskEvidence].slice(0, 8);
       if ([...t.files.values()].some(f => f.uploaderId === input.instanceId && ['queued', 'extracting', 'storing'].includes(f.status))) reject('EXTRACTION_PENDING');
@@ -406,7 +424,7 @@ export async function createPrivateTasks({
         }
       });
       taskFor(scope, t.id, input.instanceId);
-      const allowed = response.actions.every(a => a.type !== 'fill' || [input.text, ...evidence.map(e => e.text)].some(text => text.toLowerCase().includes(a.value.toLowerCase())));
+      const allowed = response.actions.every(a => a.type !== 'fill' || groundedValue(a.value,snapshot.fields.find(f=>f.ref===a.ref),[input.text,...evidence.map(e=>e.text)]));
       const checked = allowed ? response : {
         message: 'A proposed value lacked supporting task or document evidence. Clarify the missing values.',
         actions: []
@@ -479,6 +497,7 @@ export async function createPrivateTasks({
         transaction: fn => fn()
       }).consume(scope, input);
     },
+    reject(scope,input){const t=taskFor(scope,input.taskId,input.instanceId);return createProposalStore({map:()=>t.reviews,transaction:fn=>fn()}).reject(scope,input.id);},
     saveReview(scope, input) {
       const t = taskFor(scope, input.taskId, input.instanceId);
       touch(t);
@@ -488,11 +507,13 @@ export async function createPrivateTasks({
       }).prepareSave(scope, input.snapshot, input.ref);
     },
     invite(scope, {
-      instanceId
+      instanceId,name='My paired copilots',lifetimeHours=4,inactivityMinutes=0
     }) {
       enabled(scope, 'pairing');
+      if(typeof name!=='string'||!name.trim()||name.length>80||![0,1,4,8,24].includes(lifetimeHours)||![0,15,60,240].includes(inactivityMinutes))reject('INVALID_PAIRING_POLICY');
       const i = member(scope, instanceId);
       if (!live(i)) reject('RECIPIENT_OFFLINE');
+      const existing=groupFor(i);
       for (const [key, v] of invitations) if (v.from === i.id) invitations.delete(key);
       const code = secret();
       invitations.set(hash(code), {
@@ -500,7 +521,7 @@ export async function createPrivateTasks({
         from: i.id,
         expiresAt: clock() + config.inviteMs,
         confirmed: new Set(),
-        owner: i.owner
+        owner: i.owner,name:existing?.name||name.trim(),lifetimeHours,inactivityMinutes:existing?existing.idleMs/60000:inactivityMinutes,groupExpiresAt:existing?.expiresAt
       });
       return {
         code,
@@ -514,7 +535,7 @@ export async function createPrivateTasks({
       enabled(scope, 'pairing');
       const i = member(scope, instanceId),
         entry = invitations.get(hash(code || ''));
-      if (!entry || entry.to || entry.expiresAt <= clock() || entry.from === i.id || entry.owner !== i.owner || !live(i) || !live(instances.get(entry.from))) reject('PAIRING_REJECTED');
+      if (!entry || entry.to&&entry.to!==i.id || entry.expiresAt <= clock() || entry.from === i.id || entry.owner !== i.owner || !live(i) || !live(instances.get(entry.from))) reject('PAIRING_REJECTED');
       entry.to = i.id;
       return service.pairStatus(scope, {
         instanceId
@@ -533,21 +554,21 @@ export async function createPrivateTasks({
           websiteId: other?.embeddingId,
           origin: s?.origin,
           environment: s?.environment,
-          instanceId: other?.id
+          instanceId: other?.id,policy:{name:v.name,lifetimeHours:v.lifetimeHours,inactivityMinutes:v.inactivityMinutes,expiresAt:v.groupExpiresAt}
         };
       });
-      const g = groups.get(i.groupId);
+      const g = groupFor(i);
       return {
         instanceId: i.id,
         groupId: g?.id,
-        workflowLinked: !!g?.userId,
+        workflowLinked: !!g?.userId,name:g?.name,expiresAt:g?.expiresAt,idleMs:g?.idleMs,
         pending,
-        members: g ? [...g.members].map(id => {
-          const m = instances.get(id),
-            s = m && website(m.embeddingId);
+        members: g ? [...g.participants.values()].map(p => {
+          const m = instances.get(p.instanceId),
+            s = website(p.websiteId),id=m?.id||p.id;
           return {
             instanceId: id,
-            websiteId: m?.embeddingId,
+            websiteId: p.websiteId,
             origin: s?.origin,
             environment: s?.environment,
             active: !!live(m)
@@ -561,6 +582,7 @@ export async function createPrivateTasks({
     }) {
       const i = member(scope, instanceId),
         entry = [...invitations.values()].find(v => v.id === invitationId);
+      if(!entry&&i.confirmedInvitations?.has(invitationId))return service.pairStatus(scope,{instanceId});
       if (!entry || entry.expiresAt <= clock() || !entry.to || ![entry.from, entry.to].includes(i.id)) reject('PAIRING_REJECTED');
       const a = instances.get(entry.from),
         b = instances.get(entry.to);
@@ -568,17 +590,20 @@ export async function createPrivateTasks({
       if (a.groupId && b.groupId && a.groupId !== b.groupId) reject('GROUP_CONFLICT');
       entry.confirmed.add(i.id);
       if (entry.confirmed.size === 2) {
+        if(!a.groupId&&!b.groupId&&groups.size>=config.groups)reject('GROUP_CAPACITY');
         const g = groups.get(a.groupId || b.groupId) || {
           id: randomUUID(),
           owner: entry.owner,
-          members: new Set()
+          members: new Set(),participants:new Map(),name:entry.name,expiresAt:entry.lifetimeHours?clock()+entry.lifetimeHours*3600000:null,idleMs:entry.inactivityMinutes*60000,touched:clock()
         };
-        if (g.members.size + Number(!g.members.has(a.id)) + Number(!g.members.has(b.id)) > config.groupSize) reject('GROUP_CAPACITY');
+        if (g.participants.size + Number(!g.participants.has(a.participantId)) + Number(!g.participants.has(b.participantId)) > config.groupSize) reject('GROUP_CAPACITY');
         for (const m of [a, b]) {
           g.members.add(m.id);
           m.groupId = g.id;
+          g.participants.set(m.participantId,{id:m.participantId,websiteId:m.embeddingId,origin:m.origin,identity:JSON.stringify(m.scope.hostPrincipal||null),proofHash:hash(m.resumeProof),instanceId:m.id});
+          m.confirmedInvitations||=new Set();m.confirmedInvitations.add(invitationId);
         }
-        groups.set(g.id, g);
+        groups.set(g.id, g);saveGroup(g);
         for (const [key, v] of invitations) if (v === entry) invitations.delete(key);
       }
       return service.pairStatus(scope, {
@@ -591,9 +616,14 @@ export async function createPrivateTasks({
     }) {
       const i = member(scope, instanceId),
         g = groups.get(i.groupId);
-      if (!g || !g.members.has(targetId)) reject();
+      if(!g&&i.revokedMembers?.has(targetId))return service.pairStatus(scope,{instanceId});
+      if(!validGroup(g))reject('PAIR_FIRST');
+      i.revokedMembers||=new Set();if(!g.members.has(targetId)&&i.revokedMembers.has(targetId))return service.pairStatus(scope,{instanceId});
+      const participant=[...g.participants.values()].find(p=>p.id===targetId||p.instanceId===targetId);
+      if(!participant)reject('PAIRING_REJECTED');
       g.members.delete(targetId);
-      const target = instances.get(targetId);
+      const target = instances.get(participant.instanceId);
+      g.members.delete(participant.instanceId);g.participants.delete(participant.id);i.revokedMembers.add(targetId);saveGroup(g);
       if (target) target.groupId = null;
       for (const c of commands.values()) finishCommand(c, targetId, 'failed', 'PAIRING_REVOKED');
       for (const t of tasks.values()) if (t.members.has(i.id) && t.members.has(targetId)) {
@@ -614,7 +644,7 @@ export async function createPrivateTasks({
       enabled(scope, 'workflow');
       const i = member(scope, instanceId),
         g = groups.get(i.groupId);
-      if (!g) reject('PAIR_FIRST');
+      if (!validGroup(g)) reject('PAIR_FIRST');
       const code = secret();
       links.set(hash(code), {
         groupId: g.id,
@@ -632,12 +662,12 @@ export async function createPrivateTasks({
         entry = links.get(key);
       links.delete(key);
       const g = entry && groups.get(entry.groupId);
-      if (!userId || !g || entry.expiresAt <= clock() || g.userId && g.userId !== userId) reject('LINK_DENIED');
+      if (!userId || !validGroup(g) || entry.expiresAt <= clock() || g.userId && g.userId !== userId) reject('LINK_DENIED');
       for (const id of g.members) {
         const i = instances.get(id);
         if (!live(i) || enabled(i.scope, 'workflow').organizationId !== g.owner) reject('LINK_DENIED');
       }
-      g.userId = userId;
+      g.userId = userId;saveGroup(g);
       return {
         groupId: g.id,
         linked: true
@@ -645,9 +675,9 @@ export async function createPrivateTasks({
     },
     discover(userId) {
       return {
-        groups: [...groups.values()].filter(g => g.userId === userId).map(g => ({
-          groupId: g.id,
-          websites: [...new Set([...g.members].map(id => instances.get(id)?.embeddingId))].map(id => {
+        groups: [...groups.values()].filter(g => g.userId === userId&&validGroup(g)).map(g => ({
+          groupId: g.id,name:g.name,expiresAt:g.expiresAt,
+          websites: [...new Set([...g.participants.values()].map(p=>p.websiteId))].map(id => {
             const s = website(id);
             return {
               websiteId: id,
@@ -655,11 +685,11 @@ export async function createPrivateTasks({
               environment: s?.environment
             };
           }),
-          instances: [...g.members].map(id => {
-            const i = instances.get(id);
+          instances: [...g.participants.values()].map(p => {
+            const i = instances.get(p.instanceId),id=i?.id||p.id;
             return {
               instanceId: id,
-              websiteId: i?.embeddingId,
+              websiteId: p.websiteId,
               active: !!live(i)
             };
           })
@@ -669,8 +699,9 @@ export async function createPrivateTasks({
     // Called only by the authenticated platform bridge after entitlement and policy.
     preflight(userId, input) {
       const g = groups.get(input.groupId);
-      if (!g || g.userId !== userId || !Array.isArray(input.websiteIds) || !input.websiteIds.length || input.websiteIds.length > config.groupSize) reject('GROUP_ACCESS_DENIED');
+      if (!validGroup(g) || g.userId !== userId || !Array.isArray(input.websiteIds) || !input.websiteIds.length || input.websiteIds.length > config.groupSize) reject('GROUP_ACCESS_DENIED');
       const selected = [...new Set(input.websiteIds)];
+      g.touched=clock();saveGroup(g);
       const recipients = [...g.members].map(id => instances.get(id)).filter(i => selected.includes(i?.embeddingId) && (!input.instanceIds || input.instanceIds.includes(i.id)));
       for (const id of selected) if (!recipients.some(i => i.embeddingId === id && live(i))) reject('RECIPIENT_OFFLINE');
       if (input.instanceIds?.some(id => !recipients.some(i => i.id === id && live(i)))) reject('RECIPIENT_OFFLINE');
@@ -781,7 +812,7 @@ export async function createPrivateTasks({
           instruction: c.instruction,
           inputs: c.inputs,
           expiresAt: c.expiresAt,
-          policyReference: input.policyReference
+          policyReference: input.policyReference,workflow:input.workflow||null
         });
       } catch {
         finishCommand(c, r.instanceId, 'failed', 'RECIPIENT_OFFLINE');
@@ -806,7 +837,7 @@ export async function createPrivateTasks({
       touch(t);
       return {
         shared: true,
-        taskId: t.id
+        taskId: t.id,context:t.grants.get(target.id)
       };
     },
     commandStatus(userId, id) {
@@ -835,6 +866,7 @@ export async function createPrivateTasks({
       const t = taskFor(scope, c.taskId, i.id),
         snapshot = validateSnapshot(input.snapshot);
       touch(t);
+      if(c.action==='inspect')r.inspection={origin:site(scope).origin,path:snapshot.path,screen:snapshot.screen,fields:snapshot.fields.map(({label,type,required})=>({label,type,required})),forms:snapshot.forms.map(({label,fields})=>({label,fieldCount:fields.length})),navigation:snapshot.links.map(({label,path})=>({label,path})),valuesExcluded:true};
       if (['inspect', 'status'].includes(c.action)) return {
         revision: snapshot.revision,
         actions: [],
@@ -1084,11 +1116,11 @@ export async function createPrivateTasks({
         if (!activeScope(i.scope)) service.endSession(i.scope);
         if (i.send) service.disconnect(id);
         if (i.lastSeen + config.staleMs <= now || !activeScope(i.scope)) {
-          for (const g of groups.values()) g.members.delete(id);
+          // Durable membership survives endpoint expiry; commands/tasks do not.
           instances.delete(id);
         }
       }
-      for (const [id, g] of groups) if (!g.members.size) groups.delete(id);
+      for(const [id,g] of groups)if(!validGroup(g)||![...g.participants.values()].every(p=>website(p.websiteId)?.organizationId===g.owner&&website(p.websiteId)?.status==='approved')){for(const memberId of g.members){const i=instances.get(memberId);if(i)i.groupId=null;for(const c of commands.values())finishCommand(c,memberId,'failed','PAIRING_REVOKED');}groups.delete(id);pairingState.delete(id);}
       for (const t of tasks.values()) {
         if (t.expiresAt <= now || t.touched + config.idleMs <= now || ![...t.members].some(id => live(instances.get(id))) || [...t.files.values()].some(f => website(f.embeddingId)?.organizationId !== t.owner || website(f.embeddingId)?.status !== 'approved')) {
           end(t);

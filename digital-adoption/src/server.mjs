@@ -28,6 +28,8 @@ const assets = new Map([
   ['/widget.mjs', ['../web/widget.mjs', 'text/javascript']],
   ['/task-client.mjs', ['../web/task-client.mjs', 'text/javascript']],
   ['/task-panel.mjs', ['../web/task-panel.mjs', 'text/javascript']],
+  ['/action-feedback.mjs', ['../web/action-feedback.mjs', 'text/javascript']],
+  ['/install-snippet.mjs', ['../src/install-snippet.mjs', 'text/javascript']],
 ]);
 function withMode(response,mode='assist'){
  if(!['assist','guide'].includes(mode))throw new Error('Unsupported assistance mode');
@@ -136,6 +138,7 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
         const auth = { sessionToken, origin };
         const scope = authority.context(auth);
         requestScope=scope;
+        if(!['/v1/renew','/v1/history','/v1/capabilities','/v1/pair/status','/v1/tasks/status','/v1/discovery/status','/v1/discovery/list','/v1/discovery/next'].includes(path))privateTasks?.touchSession(scope);
         // Authorized callers must be able to read dependency failures as well
         // as successful responses, rather than receiving an opaque CORS error.
         res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin');
@@ -145,7 +148,7 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
         else if(path.startsWith('/v1/tasks/')||path.startsWith('/v1/pair/')){
           if(!privateTasks)throw new Error('Private tasks unavailable');
           budget.take(`private:${scope.sessionId}`,60);
-          const operations=path.startsWith('/v1/tasks/')?{start:'start',status:'status',end:'end',upload:'upload',remove:'remove',plan:'plan',summary:'summary',approve:'approve','save-review':'saveReview',relay:'relay','command-plan':'commandPlan',effect:'effect'}:{invite:'invite',join:'join',status:'pairStatus',confirm:'confirm',revoke:'revoke',link:'linkRequest'};
+          const operations=path.startsWith('/v1/tasks/')?{start:'start',status:'status',end:'end',upload:'upload',remove:'remove',plan:'plan',summary:'summary',approve:'approve',reject:'reject','save-review':'saveReview',relay:'relay','command-plan':'commandPlan',effect:'effect'}:{invite:'invite',join:'join',status:'pairStatus',confirm:'confirm',revoke:'revoke',link:'linkRequest'};
           const action=operations[path.split('/').at(-1)];if(!action)throw new Error('Unsupported private operation');
           if(['plan','summary','commandPlan'].includes(action))releaseModel=modelSlots.acquire(scope.embeddingId);
           if(!['status','pairStatus'].includes(action))authority.touch(auth);
@@ -255,6 +258,7 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
             result.messageId=authority.appendAssistant(auth,result.message,'knowledge').id;
           }
         }
+        else if(path==='/v1/reject'){if(!proposals)throw new Error('Action review is not configured');result=proposals.reject(scope,input.id);authority.touch(auth);}
         else if (path === '/v1/approve') {
           if (!proposals) return send(503,{ error:'Action review is not configured' });
           result=proposals.consume(scope,{ id:input.id,revision:input.revision,approved:input.approved });

@@ -3543,11 +3543,16 @@
       "source": "components/workflow/CopilotConnectorFields.jsx",
       "form_count": 0,
       "forms": [],
-      "links": [],
+      "links": [
+        {
+          "route": "/free-tools/digital-adoption/owner.html",
+          "label": "Website owner settings"
+        }
+      ],
       "headings": [],
       "controls": [
         {
-          "id": "components/workflow/CopilotConnectorFields.jsx:33:32",
+          "id": "components/workflow/CopilotConnectorFields.jsx:39:32",
           "label": "Pairing group link code",
           "type": "text",
           "required": false,
@@ -3556,7 +3561,7 @@
           "mode": "guided"
         },
         {
-          "id": "components/workflow/CopilotConnectorFields.jsx:44:22",
+          "id": "components/workflow/CopilotConnectorFields.jsx:51:22",
           "label": "Runtime group",
           "type": "select",
           "required": false,
@@ -3573,7 +3578,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "components/workflow/CopilotConnectorFields.jsx:49:17",
+          "id": "components/workflow/CopilotConnectorFields.jsx:56:17",
           "label": "Websites",
           "type": "select",
           "required": false,
@@ -3585,7 +3590,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "components/workflow/CopilotConnectorFields.jsx:53:19",
+          "id": "components/workflow/CopilotConnectorFields.jsx:60:19",
           "label": "Recipients",
           "type": "select",
           "required": false,
@@ -3606,7 +3611,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "components/workflow/CopilotConnectorFields.jsx:56:54",
+          "id": "components/workflow/CopilotConnectorFields.jsx:63:54",
           "label": "Instances",
           "type": "select",
           "required": false,
@@ -3618,7 +3623,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "components/workflow/CopilotConnectorFields.jsx:59:20",
+          "id": "components/workflow/CopilotConnectorFields.jsx:66:20",
           "label": "Instruction",
           "type": "textarea",
           "required": false,
@@ -3627,7 +3632,7 @@
           "mode": "guided"
         },
         {
-          "id": "components/workflow/CopilotConnectorFields.jsx:62:25",
+          "id": "components/workflow/CopilotConnectorFields.jsx:69:25",
           "label": "Task handle / ID",
           "type": "text",
           "required": false,
@@ -3636,7 +3641,7 @@
           "mode": "guided"
         },
         {
-          "id": "components/workflow/CopilotConnectorFields.jsx:65:62",
+          "id": "components/workflow/CopilotConnectorFields.jsx:72:62",
           "label": "Result handles from earlier task steps (one per line)",
           "type": "textarea",
           "required": false,
@@ -3645,7 +3650,7 @@
           "mode": "guided"
         },
         {
-          "id": "components/workflow/CopilotConnectorFields.jsx:71:66",
+          "id": "components/workflow/CopilotConnectorFields.jsx:78:66",
           "label": "Owner-reviewed native action binding ID (submission only)",
           "type": "text",
           "required": false,
@@ -3654,7 +3659,7 @@
           "mode": "guided"
         },
         {
-          "id": "components/workflow/CopilotConnectorFields.jsx:77:31",
+          "id": "components/workflow/CopilotConnectorFields.jsx:84:31",
           "label": "Delivery validity (ms)",
           "type": "number",
           "required": false,
@@ -3665,7 +3670,7 @@
           "mode": "guided"
         },
         {
-          "id": "components/workflow/CopilotConnectorFields.jsx:80:22",
+          "id": "components/workflow/CopilotConnectorFields.jsx:87:22",
           "label": "Fan-out limit",
           "type": "number",
           "required": false,
@@ -3676,7 +3681,7 @@
           "mode": "guided"
         },
         {
-          "id": "components/workflow/CopilotConnectorFields.jsx:83:31",
+          "id": "components/workflow/CopilotConnectorFields.jsx:90:31",
           "label": "Execution timeout (ms)",
           "type": "number",
           "required": false,
@@ -7188,7 +7193,7 @@
           "mode": "guided"
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:2700:10",
+          "id": "pages/AgentWorkflowEditor.jsx:2704:10",
           "label": "Unlabelled or dynamically labelled control",
           "type": "file",
           "required": false,
@@ -7198,7 +7203,7 @@
           "user_only": true
         },
         {
-          "id": "pages/AgentWorkflowEditor.jsx:2707:10",
+          "id": "pages/AgentWorkflowEditor.jsx:2711:10",
           "label": "Run input (optional)",
           "type": "text",
           "required": false,

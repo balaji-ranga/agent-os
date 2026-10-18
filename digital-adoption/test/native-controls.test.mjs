@@ -6,6 +6,7 @@ function fixture(type){
  class Select extends Input{}
  const e=type==='select-one'?new Select():new Input();
  Object.assign(e,{type,tagName:type==='select-one'?'SELECT':'INPUT',name:'test',id:'test',labels:[{textContent:'Test field'}],isConnected:true,events:[],closest:()=>null,getClientRects:()=>[{}],getAttribute:()=>null,dispatchEvent:event=>e.events.push(event.type)});
+ e.click=()=>{e.checked=!e.checked;e.events.push('click');};
  if(type==='select-one')e.options=[{value:'one',text:'First',disabled:false},{value:'two',text:'Second',disabled:false}];
  // Native SELECT defines its own setter in the browser.
  Object.defineProperty(Select.prototype,'value',{get(){return this._value||'';},set(v){this._value=v;}});

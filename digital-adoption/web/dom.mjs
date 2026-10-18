@@ -11,7 +11,8 @@ export function createInspector(document) {
     /password|hidden|file/.test(e.type || '') || /password|token|secret|otp|credit.?card|cvv|api.?key|access.?key|private.?key/i.test(`${e.name} ${e.id} ${e.autocomplete}`);
   const visible = e => !e.disabled && !e.hidden && e.getClientRects().length > 0 &&
     document.defaultView.getComputedStyle(e).visibility !== 'hidden';
-  const supported = e => ['text','number','email','date','textarea','url','tel','search','select-one','checkbox'].includes(e.type||e.tagName.toLowerCase());
+  const controlType=e=>e.getAttribute('role')==='combobox'&&e.getAttribute('aria-controls')?'combobox':e.type||e.tagName.toLowerCase();
+  const supported = e => ['text','number','email','date','textarea','url','tel','search','select-one','select-multiple','radio','checkbox'].includes(e.type||e.tagName.toLowerCase());
   // Wrapping labels may contain SELECT options or textarea content. Those are
   // control data, not the accessible field name, and must remain local.
   const labelText = l => {
@@ -30,12 +31,13 @@ export function createInspector(document) {
     const root = dialogs.length === 1 ? dialogs[0] : document;
     const formIds=new Map(),formKey=form=>{if(!form)return null;if(!formIds.has(form))formIds.set(form,/^[a-zA-Z][a-zA-Z0-9_-]{0,79}$/.test(form.id||'')?form.id:`form_${formIds.size+1}`);return formIds.get(form);};
     for(const form of root.querySelectorAll('form'))if(visible(form)&&!excluded(form))formKey(form);
+    const radioNames=new Set();
     const fields = dialogs.length > 1 ? [] : [...root.querySelectorAll('input,textarea,select')]
-      .filter(e => visible(e) && supported(e) && !e.readOnly && !excluded(e) && !/password|secret|token|otp|cvv|credit.?card|api.?key|access.?key|private.?key/i.test(label(e))).slice(0,60).map((e,i) => {
+      .filter(e=>{if(!visible(e)||excluded(e))return false;if(e.type!=='radio')return true;const key=(formKey(e.form)||'')+':'+e.name;if(radioNames.has(key))return false;radioNames.add(key);return true;}).filter(e => supported(e) && !e.readOnly && !/password|secret|token|otp|cvv|credit.?card|api.?key|access.?key|private.?key/i.test(label(e))).slice(0,60).map((e,i) => {
         const ref = `r${revision}f${i}`;
-        references.set(ref, { element: e, value: e.value, checked:e.checked, options:e.options?JSON.stringify([...e.options].map(o=>[o.value,o.text,o.disabled])):null, label: label(e), type: e.type });
+        references.set(ref, { element: e, value: e.value, checked:e.checked, options:e.options?JSON.stringify([...e.options].map(o=>[o.value,o.text,o.disabled,o.selected])):null, label: label(e), type: controlType(e),radio:e.type==='radio'?[...root.querySelectorAll('input[type=radio]')].filter(r=>r.name===e.name&&r.form===e.form):null,radioState:e.type==='radio'?JSON.stringify([...root.querySelectorAll('input[type=radio]')].filter(r=>r.name===e.name&&r.form===e.form).map(r=>[r.value,r.checked,r.disabled,label(r)])):null });
         const key=semanticFieldKey(e,label(e)),form=formKey(e.form);
-        return { ref, label: label(e), type: e.type || e.tagName.toLowerCase(), required: e.required,...(key?{key}:{}),...(form?{form}:{}),
+        return { ref, label: e.type==='radio'?(e.closest('fieldset')?.querySelector('legend')?.textContent.trim()||e.name):label(e), type: controlType(e), required: e.required,...(key?{key}:{}),...(form?{form}:{}),
           // No current values or private option text are sent by automatic inspection.
           optionCount: e.options?.length || 0 };
       });
@@ -58,12 +60,12 @@ export function createInspector(document) {
       const shown=e=>!e.hidden&&e.getClientRects().length>0&&document.defaultView.getComputedStyle(e).visibility!=='hidden';
       const allForms=[...document.querySelectorAll('form')].filter(e=>!excluded(e));for(const form of allForms)formKey(form);
       const allFields=[...document.querySelectorAll('input,textarea,select')].filter(e=>!excluded(e)&&!/submit|button|reset|image/.test(e.type||'')&&!/password|secret|token|credential|otp|cvv|credit.?card|api.?key|access.?key|private.?key/i.test(label(e)));
-      const structuralFields=allFields.slice(0,500).map(e=>{const key=semanticFieldKey(e,label(e)),form=formKey(e.form);return {label:label(e),type:e.type||e.tagName.toLowerCase(),required:e.required===true,visible:shown(e),editable:supported(e)&&!e.disabled&&!e.readOnly,...(key?{key}:{}),...(form?{form}:{})};});
+      const structuralFields=allFields.slice(0,500).map(e=>{const key=semanticFieldKey(e,label(e)),form=formKey(e.form);return {label:label(e),type:controlType(e),required:e.required===true,visible:shown(e),editable:supported(e)&&!e.disabled&&!e.readOnly,...(key?{key}:{}),...(form?{form}:{})};});
       const allLinks=[...document.querySelectorAll('a[href]')].filter(e=>!excluded(e)).flatMap(e=>{const url=new URL(e.href,document.location.href);return url.origin===document.location.origin&&!url.search&&!url.hash?[{path:url.pathname,label:(e.getAttribute('aria-label')||e.textContent||'').trim().slice(0,160),visible:shown(e)}]:[];});
       inventory={fields:structuralFields,forms:allForms.slice(0,100).map(form=>({key:formKey(form),label:(form.getAttribute('aria-label')||form.getAttribute('name')||formKey(form)).slice(0,160),fields:structuralFields.filter(field=>field.form===formKey(form)).map(field=>field.key).filter(Boolean)})),links:allLinks.slice(0,100),truncated:allFields.length>500||allForms.length>100||allLinks.length>100};
     }
     const openShadowRoots=[...root.querySelectorAll('*')].filter(e=>!excluded(e)&&e.shadowRoot).length;
-    const unsupportedControls=[...root.querySelectorAll('input,textarea,select,[role="combobox"],[contenteditable="true"]')].filter(e=>visible(e)&&!excluded(e)&&(!supported(e)||e.getAttribute('role')==='combobox'||e.isContentEditable)).length;
+    const unsupportedControls=[...root.querySelectorAll('input,textarea,select,[role="combobox"],[contenteditable="true"]')].filter(e=>visible(e)&&!excluded(e)&&(!supported(e)||e.isContentEditable)).length;
     const embeddedFrames=root.querySelectorAll('iframe:not([data-adoption-widget])').length;
     const manualNotice=openShadowRoots||unsupportedControls||embeddedFrames?`Manual controls remain on this page: ${unsupportedControls} unsupported controls, ${openShadowRoots} open shadow roots and ${embeddedFrames} embedded frames. This review covers supported native controls in the main page only. Closed shadow roots and controls requiring a trusted user gesture must be handled on the website.`:'';
     return { revision, fields,forms, links,...(inventory?{inventory}:{}),coverage:{fieldLimit:60,navigationLimit:30,visibleNativeControls:[...root.querySelectorAll('input,textarea,select')].filter(e=>visible(e)&&!excluded(e)).length,embeddedFrames,openShadowRoots,unsupportedControls,manualNotice},submissions:submit.snapshot(revision),navigationCandidates, screen:heading, path:document.location.pathname, ambiguousDialogs: dialogs.length > 1,blockedCount };
@@ -71,16 +73,29 @@ export function createInspector(document) {
   function fill({ ref, value, expectedRevision, approved }) {
     if (approved !== true || expectedRevision !== revision || typeof value !== 'string' || value.length > 8000) throw new Error('Review required');
     const record = references.get(ref), e = record?.element;
-    if (!e || !e.isConnected || !visible(e) || excluded(e) || e.readOnly || e.value !== record.value || label(e) !== record.label || e.type !== record.type) throw new Error('Screen changed; inspect and review again');
+    if (!e || !e.isConnected || !visible(e) || excluded(e) || e.readOnly || e.value !== record.value || label(e) !== record.label || controlType(e) !== record.type) throw new Error('Screen changed; inspect and review again');
     if(e.type==='checkbox'&&e.checked!==record.checked)throw new Error('Checkbox changed; inspect and review again');
-    if(e.options&&JSON.stringify([...e.options].map(o=>[o.value,o.text,o.disabled]))!==record.options)throw new Error('Options changed; inspect and review again');
+    if(e.options&&JSON.stringify([...e.options].map(o=>[o.value,o.text,o.disabled,o.selected]))!==record.options)throw new Error('Options changed; inspect and review again');
     if(e.maxLength>=0&&value.length>e.maxLength)throw new Error('Value exceeds the field limit; review a shorter value');
-    if (['radio','select-multiple'].includes(e.type)) throw new Error('Use manual selection for this control');
+
     const view = document.defaultView;
     let expected=value;
     if(e.type==='checkbox'){
       if(!['true','false'].includes(value))throw new Error('Checkbox requires true or false');
-      expected=value==='true';Object.getOwnPropertyDescriptor(view.HTMLInputElement.prototype,'checked').set.call(e,expected);
+      expected=value==='true';if(e.checked!==expected)e.click();
+    }else if(record.radio){
+      if(JSON.stringify(record.radio.map(r=>[r.value,r.checked,r.disabled,label(r)]))!==record.radioState)throw new Error('Radio group changed; inspect again');
+      const choices=record.radio.filter(r=>r.isConnected&&visible(r)&&!excluded(r)&&(r.value===value||label(r).toLowerCase()===value.trim().toLowerCase()));
+      if(choices.length!==1)throw new Error('Radio option not found or ambiguous; inspect again');
+      choices[0].click();references.delete(ref);return {dispatched:true,valueObserved:choices[0].checked,saved:false};
+    }else if(e.type==='select-multiple'){
+      let values;try{values=JSON.parse(value);}catch{values=value.split(',').map(s=>s.trim());}
+      if(!Array.isArray(values)||!values.length||values.some(v=>typeof v!=='string'))throw new Error('Choose a list of option labels');
+      const chosen=values.map(v=>[...e.options].filter(o=>!o.disabled&&(o.value===v||o.text.trim().toLowerCase()===v.toLowerCase())));
+      if(chosen.some(c=>c.length!==1)||new Set(chosen.map(c=>c[0])).size!==chosen.length)throw new Error('Options not found or ambiguous; inspect again');
+      for(const option of e.options)option.selected=chosen.some(c=>c[0]===option);
+      e.dispatchEvent(new view.Event('input',{bubbles:true}));e.dispatchEvent(new view.Event('change',{bubbles:true}));references.delete(ref);
+      return {dispatched:true,valueObserved:[...e.selectedOptions].length===chosen.length&&chosen.every(c=>c[0].selected),saved:false};
     }else if(e.type==='select-one'){
       const matches=[...e.options].filter(o=>!o.disabled&&(o.value===value||o.text.trim().toLowerCase()===value.trim().toLowerCase()));
       if(matches.length!==1)throw new Error('Option not found or ambiguous; select manually');
@@ -91,6 +106,11 @@ export function createInspector(document) {
     }
     e.dispatchEvent(new view.Event('input', { bubbles: true }));
     e.dispatchEvent(new view.Event('change', { bubbles: true }));
+    if(record.type==='combobox'){
+      references.delete(ref);
+      const listId=e.getAttribute('aria-controls');
+      return (async()=>{const end=Date.now()+5000;while(Date.now()<end){if(!e.isConnected||excluded(e)||e.value!==value||e.getAttribute('aria-controls')!==listId)throw new Error('Picklist changed; inspect again');const list=document.getElementById(listId);const matches=list?[...list.querySelectorAll('[role=option]')].filter(o=>visible(o)&&o.getAttribute('aria-disabled')!=='true'&&o.textContent.trim().toLowerCase()===value.trim().toLowerCase()):[];if(matches.length>1)throw new Error('Picklist option is ambiguous');if(matches.length===1){matches[0].click();return {dispatched:true,valueObserved:e.value.trim().toLowerCase()===value.trim().toLowerCase(),saved:false};}await new Promise(resolve=>setTimeout(resolve,50));}throw new Error('Picklist option did not load. No option was selected.');})();
+    }
     references.delete(ref); // One use; subsequent writes require another inspection/review.
     return { dispatched: true, valueObserved: (e.type==='checkbox'?e.checked:e.value) === expected, saved: false };
   }

@@ -5,7 +5,8 @@ export function createTaskClient({
   inspect,
   onEvent,
   execute,
-  hostIdentity
+  hostIdentity,
+  resumeStore
 }) {
   let socket,
     instanceId,
@@ -22,25 +23,44 @@ export function createTaskClient({
   };
   const connect = () => connecting ||= (async () => {
     if (closed) throw new Error('Session ended');
-    const ticket = await request('/v1/live/ticket', {});
+    let ticket;
+    try{ticket=await request('/v1/live/ticket',{resumeProof:resumeStore?.read()||undefined});}
+    catch(error){if(error.code!=='PAIRING_RESUME_DENIED')throw error;resumeStore?.clear();notify({type:'pairing-offline',reason:'Saved pairing expired or was revoked. Pair again to authorize this panel.'});ticket=await request('/v1/live/ticket',{});}
     instanceId = ticket.instanceId;
     const url = new URL('v1/live', service);
     url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
     socket = new WebSocket(url);
+    const connection = socket;
+    let rejectHandshake;
+    connection.onclose = () => {
+      rejectHandshake?.(new Error('Live connection closed before authentication'));
+      if (socket !== connection) return;
+      clearInterval(timer);
+      socket=null;connecting=null;instanceId=null;
+      generation++;
+      seen.clear();
+      taskId = null;
+      notify({type:'task-ended',reason:'Connection closed. Unfinished workflow steps fail; reconnect does not replay them.'});
+      notify({type:'pairing-offline',reason:'Connection offline. Saved group retained; reconnect before sending. Unfinished actions are not replayed.'});
+    };
     await new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error('Live connection timed out')), 7000);
+      const timeout = setTimeout(() => { rejectHandshake=null; connection.close(); reject(new Error('Live connection timed out')); }, 7000);
+      rejectHandshake = error => {clearTimeout(timeout);rejectHandshake=null;reject(error);};
       socket.onopen = () => socket.send(JSON.stringify({
         type: 'authenticate',
         ticket: ticket.ticket
       }));
       socket.onerror = () => {
-        clearTimeout(timeout);
-        reject(new Error('Live connection unavailable'));
+        rejectHandshake?.(new Error('Live connection unavailable'));
+        connection.close();
       };
       socket.onmessage = async event => {
         const message = JSON.parse(event.data);
         if (message.type === 'connected') {
           clearTimeout(timeout);
+          rejectHandshake=null;
+          resumeStore?.write(ticket.resumeProof);
+          notify({type:'connection-restored',paired:ticket.paired});
           resolve();
           return;
         }
@@ -66,7 +86,7 @@ export function createTaskClient({
         if (Date.now() >= message.expiresAt) return;
         const commandGeneration = generation;
         taskId=message.taskId;
-        notify({type:'workflow-started',taskId,action:message.action});
+        notify({type:'workflow-started',taskId,action:message.action,instruction:message.instruction,workflow:message.workflow,commandId:message.commandId});
         seen.set(message.commandId, {});
         send({
           type: 'ack',
@@ -119,14 +139,14 @@ export function createTaskClient({
             result
           };
           if (commandGeneration === generation) {
-            notify({type:'workflow-result',action:message.action,ok:true});
+            notify({type:'workflow-result',action:message.action,ok:true,result,commandId:message.commandId,workflow:message.workflow});
             seen.set(message.commandId, {
               done
             });
             send(done);
           }
         } catch {
-          if(commandGeneration===generation)notify({type:'workflow-result',action:message.action,ok:false});
+          if(commandGeneration===generation)notify({type:'workflow-result',action:message.action,ok:false,commandId:message.commandId,workflow:message.workflow});
           const done = {
             type: 'result',
             commandId: message.commandId,
@@ -142,16 +162,6 @@ export function createTaskClient({
         }
       };
     });
-    socket.onclose = () => {
-      clearInterval(timer);
-      generation++;
-      seen.clear();
-      taskId = null;
-      notify({
-        type: 'task-ended',
-        reason: 'Connection closed. Unfinished workflow steps fail; reconnect does not replay them.'
-      });
-    };
     timer = setInterval(() => {
       try {
         send({
@@ -185,19 +195,21 @@ export function createTaskClient({
         ...(!pair && taskId ? {
           taskId
         } : {})
-      });
+      }).catch(error=>{if(['TASK_ACCESS_DENIED','SESSION_ENDED','SESSION_ACCESS_DENIED'].includes(error.code)){socket?.close();connecting=null;instanceId=null;notify({type:'pairing-offline',reason:'Connection authorization ended. Reconnect to the saved group; this action was not retried.'});}throw error;});
       if (type === 'task-end') {
         taskId = null;
         notify({
           type: 'task-ended'
         });
       }
+      if(['pair-invite','pair-confirm'].includes(type))resumeStore?.persist(true);
       return result;
     },
     async plan(input) {
       if (!taskId) return null;
       return this.call('task-plan', input);
     },
+    async resume(){if(resumeStore?.read()){await connect();return this.call('pair-status');}return null;},
     close() {
       closed = true;
       generation++;

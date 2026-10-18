@@ -211,6 +211,27 @@ The SDK's optional `bindVerifiedSave` callback runs after the user's separate Sa
 
 ## Failure messages and operations
 
+The guided-session fixes use the same bottom composer for normal prompts and
+`@` paired-copilot handoffs. Pairing setup offers a named group, expiry and
+inactivity choices. Confirmed browser membership can reconnect to that saved
+group; private tasks and approvals remain ephemeral. Offline workflow steps fail
+immediately and are never delivered to a later visitor. Readable workflow
+inspection results contain structural metadata only. Private chat instructions
+and document passages clear when their task ends.
+
+Native radio groups, multiple selects, datalist inputs and accessible input
+comboboxes join the existing controls. Unique current options and fresh review
+remain required. Mixed selection language and read-only summary intent are
+handled without asking visitors for internal boolean encodings. Review panels
+offer rejection/cancellation beside approval. Pending actions show busy feedback
+and suppress repeated clicks. Bootstrap has a visible eight-second attempt and
+an explicit retry path without blocking the host form.
+
+Runtime seeding is off by default. Owner knowledge, maps and published recipes
+belong to each registration and audience; pairing does not combine their indexes.
+See [the design](DESIGN.md) and [test/setup instructions](deploy/README.md) for
+durable pairing and the isolated React/Angular fixtures.
+
 Authorized runtime callers receive readable CORS responses for dependency failures. Model/search outages return 503, malformed model output returns 502, budgets return 429, and excessive bodies return 413. Network loss says to inspect the current task before retrying; it never asserts that an uncertain host action failed. Errors stay at the bottom until dismissed. No effectful operation is automatically retried. Knowledge uses explicit evidence status so an evidenced negative answer is distinct from insufficient evidence; citations still require exact authorized chunks.
 
 The independent service emits fixed-schema JSON request correlation and ingestion lifecycle events. Identifiers are hashed; raw chat, DOM, source text, URLs, headers, tokens and exception messages are excluded. Failed ingestion emits `INGESTION_FAILED` with a hashed job identifier. This is a machine-readable local alert, not proof of external notification delivery. Each independent container rotates JSON logs at 5 MB across three files. Only public SDK/widget asset types are gzip-compressed in the scoped Nginx location; private JSON API responses remain uncompressed. Pilot/load and actual wire measurements are retained in ignored UAT evidence, with their tested envelopes rather than unlimited-scale claims.

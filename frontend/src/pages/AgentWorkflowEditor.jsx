@@ -1860,6 +1860,10 @@ function analyzeGraphReadinessClient(nodes, edges, taskCatalog) {
       }
     }
     const cfg = node.data?.taskConfig || {};
+    if(node.type==='connector'&&cfg.appId==='digital_adoption'){
+      if(!cfg.copilot?.groupId)issues.push({nodeId:node.id,message:`${label}: link and select a saved copilot group.`});
+      if(!cfg.copilot?.websiteIds?.length)issues.push({nodeId:node.id,message:`${label}: select at least one website in the copilot group.`});
+    }
     const identities = {
       agent: [['Agent', node.data?.agentId]],
       tool: [['Tool name', node.data?.toolName]],

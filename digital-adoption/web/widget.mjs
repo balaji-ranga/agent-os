@@ -2,6 +2,7 @@ import { normalizeTheme, themeProperties } from './theme.mjs';
 import {encodeFile} from './files.mjs';
 import {createScreenCapture} from './screen-capture.mjs';
 import {mountTaskPanel} from './task-panel.mjs';
+import {createActionFeedback} from './action-feedback.mjs';
 let currentTheme=normalizeTheme({}),initialTheme,assistanceMode='assist',sessionExpired=false;
 function applyTheme(value) {
   const theme = normalizeTheme(value);
@@ -10,6 +11,7 @@ function applyTheme(value) {
   document.querySelector('h1').textContent=theme.title;
 }
 applyTheme({});
+const actionFeedback=createActionFeedback(document,{expired:()=>sessionExpired});
 // The SDK supplies only the public parent origin, never credentials. Validate
 // both the exact origin and parent WindowProxy for every message.
 const pending = new Map();
@@ -17,12 +19,12 @@ const configuredParent = new URLSearchParams(location.hash.slice(1)).get('parent
 const parentOrigin = configuredParent && new URL(configuredParent).origin === configuredParent ? configuredParent : null;
 function call(type, extra = {}) {
   if (!parentOrigin) return Promise.reject(new Error('Host origin unavailable'));
-  return new Promise((resolve,reject) => {
+  return actionFeedback.track(new Promise((resolve,reject) => {
     const id = crypto.randomUUID();
     const timeout = setTimeout(() => { pending.delete(id); reject(new Error('Host did not respond')); }, 60_000);
     pending.set(id, { resolve, reject, timeout });
     parent.postMessage({ channel: 'flolah-adoption-v1', id, type, ...extra }, parentOrigin);
-  });
+  }));
 }
 window.addEventListener('message', event => {
   if (event.source !== parent || event.origin !== parentOrigin || event.data?.channel !== 'flolah-adoption-v1') return;
@@ -45,6 +47,7 @@ window.addEventListener('message', event => {
 });
 function showError(error){
  const banner=document.querySelector('#error-banner');document.querySelector('#error-message').textContent=error.message||String(error);banner.hidden=false;
+ actionFeedback.report(error.message||String(error),true);banner.scrollIntoView({block:'nearest'});
 }
 document.querySelector('#error-dismiss').onclick=()=>{document.querySelector('#error-banner').hidden=true;};
 const reviewObserver=new MutationObserver(()=>{const review=document.querySelector('#review');if(review.childElementCount){review.scrollIntoView({block:'nearest'});review.focus({preventScroll:true});}});
@@ -84,6 +87,7 @@ document.querySelector('#save-review').onclick=async()=>{
   const warning=document.createElement('p');warning.textContent=proposal.message;review.append(warning);
   let learningConsent; if(verifiedLearningAvailable){const label=document.createElement('label');learningConsent=document.createElement('input');learningConsent.type='checkbox';label.append(learningConsent,document.createTextNode(' After a verified save, share the workflow structure for owner review. Field values and chat are excluded.'));review.append(label);}
   const confirm=document.createElement('button');confirm.textContent=`Confirm ${proposal.actions[0].label} now`;review.append(confirm);
+  const reject=document.createElement('button');reject.textContent='Cancel save';reject.onclick=async()=>{try{await call('reject',{proposalId:proposal.id});task++;review.replaceChildren();status.textContent='Save cancelled.';}catch(error){showError(error);}};review.append(reject);
   confirm.onclick=async()=>{confirm.disabled=true;try{if(generation!==task)return;const result=await call('approve',{proposalId:proposal.id,learningConsent:learningConsent?.checked===true});if(generation!==task)return;review.replaceChildren();const outcome=result.results[0];status.textContent=outcome.hostReported==='success'?`Host reported success: ${outcome.message} Verify the saved record; no retry was attempted.`:outcome.hostReported==='failure'?`Host reported a failure: ${outcome.message}`:outcome.reason||'Submission outcome is unverified. Inspect the host before retrying.';if(result.learning)status.textContent+=result.learning.created?' A parameterized draft was saved for owner review.':` No workflow was learned: ${result.learning.reason||'learning disabled'}.`;}catch(error){if(generation===task)showError(error);}};
  }catch(error){showError(error);}
 };
@@ -100,7 +104,7 @@ function show(text,channel='guide',role='assistant',id=null) {
 }
 document.querySelector('#chat').addEventListener('submit', async event => {
   event.preventDefault(); const field = document.querySelector('#knowledge-message');
-  const button=event.submitter;button.disabled=true;
+  const button=event.submitter||document.querySelector('#chat button[type=submit]');if(button.disabled)return;button.disabled=true;
   try {
     show(field.value,'knowledge','user');knowledgeStatus.textContent='Searching this website’s approved knowledge…';
     const result = await call('ask', { text: field.value,replyTo:replies.knowledge }); show(result.message,'knowledge','assistant',result.messageId); field.value = '';replies.knowledge=null;replyHints.knowledge.hidden=true;
@@ -134,6 +138,7 @@ async function prepare(text,generation,depth=0){
     if(proposal.actions.length){
       const warning=document.createElement('p');warning.textContent=assistanceMode==='guide'?'Guidance only. No field values will change.':'Review before filling. Some websites autosave fields. This does not click Save.';review.append(warning);
       const approve=document.createElement('button');approve.textContent=proposal.actions[0].type==='navigate'?'Approve navigation':assistanceMode==='guide'?'Show guidance':'Approve field changes';review.append(approve);
+      const reject=document.createElement('button');reject.type='button';reject.textContent='Reject changes';reject.onclick=async()=>{try{await call('reject',{proposalId:proposal.id});task++;review.replaceChildren();document.querySelector('#stop').hidden=true;status.textContent='Changes rejected. Nothing was applied.';}catch(error){showError(error);}};review.append(reject);
       approve.addEventListener('click',async()=>{
         approve.disabled=true;document.querySelector('#stop').hidden=false;
         try {
@@ -149,7 +154,7 @@ async function prepare(text,generation,depth=0){
     }
   }catch(error){if(generation===task)showError(error);}finally{if(generation===task){button.disabled=false;document.querySelector('#stop').hidden=true;}}
 }
-document.querySelector('#guide-chat').addEventListener('submit',event=>{event.preventDefault();const text=document.querySelector('#message').value;show(text,'guide','user');document.querySelector('#message').value='';if(/^(?:please\s+)?(?:save|submit)(?:\s+(?:this|the)\s+(?:form|record|draft))?[.!]?$/i.test(text.trim())){document.querySelector('#save-review').onclick();}else prepare(text,++task);});
+document.querySelector('#guide-chat').addEventListener('submit',async event=>{event.preventDefault();if(document.querySelector('#plan').disabled)return;const text=document.querySelector('#message').value;show(text,'guide','user');document.querySelector('#message').value='';try{if(await taskPanel.sendIfMention(text))return;}catch(error){showError(error);return;}if(/^(?:please\s+)?(?:save|submit)(?:\s+(?:this|the)\s+(?:form|record|draft))?[.!]?$/i.test(text.trim())){document.querySelector('#save-review').onclick();}else prepare(text,++task);});
 document.querySelector('#inspect').addEventListener('click', async () => {
   const button=document.querySelector('#inspect'),progress=document.querySelector('#inspection-status'),output=document.querySelector('#inspection-result');
   button.disabled=true;button.textContent='Inspecting…';progress.textContent='Inspecting this page and saving its screen map…';output.replaceChildren();output.hidden=true;
@@ -215,6 +220,7 @@ async function recipeReview(recipe,parameters,step,generation){
   for(const action of proposal.actions){const line=document.createElement('p');line.textContent=action.type==='navigate'?`Open ${action.label}${action.activation?` · ${action.activation} profile`:``}`:action.type==='highlight'?`Show ${action.label}`:`${action.label}: ${action.value}`;review.append(line);}
   if(proposal.actions.length){
    const approve=document.createElement('button');approve.textContent=assistanceMode==='guide'?'Show recorded guidance':'Approve recorded step';review.append(approve);
+   const cancel=document.createElement('button');cancel.type='button';cancel.textContent='Cancel workflow';cancel.onclick=async()=>{try{await call('reject',{proposalId:proposal.id});task++;review.replaceChildren();status.textContent='Recorded workflow cancelled.';}catch(error){showError(error);}};review.append(cancel);
    approve.onclick=async()=>{
     approve.disabled=true;
     try{

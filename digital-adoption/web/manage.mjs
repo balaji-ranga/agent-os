@@ -1,4 +1,7 @@
 import {validateLearningPackage} from './learning-package.mjs';
+import {createActionFeedback} from './action-feedback.mjs';
+import {installationSnippet} from './install-snippet.mjs';
+const actionFeedback=createActionFeedback(document);
 const notice=document.querySelector('#notice');
 let selectedHostScope=null;
 let websiteChoices=[],websiteSelectionRevision=0;
@@ -34,7 +37,7 @@ async function call(action,input={}){
  if(!res.ok)throw new Error('Request denied or failed. Check your login, ownership and website verification.');
  return res.json();
 }
-async function run(action){try{notice.textContent='Working…';await action();notice.textContent='Completed.';}catch(error){notice.textContent=error.message;}}
+async function run(action){try{notice.textContent='Working…';await actionFeedback.track(action());notice.textContent='Completed.';}catch(error){notice.textContent=error.message;actionFeedback.report(error.message,true);}}
 function button(label,action){const b=document.createElement('button');b.textContent=label;b.onclick=()=>run(action);return b;}
 function reviewAction(label,explanation,action){
  const details=document.createElement('details'),summary=document.createElement('summary'),text=document.createElement('p'),form=document.createElement('form'),consent=document.createElement('label'),checkbox=document.createElement('input'),submit=document.createElement('button');
@@ -68,7 +71,7 @@ async function refresh(){
    for(const [key,label] of [['attachments','Allow private transaction files in visitor tasks'],['pairing','Allow visitor-confirmed copilot pairing'],['workflow','Allow linked user workflows to relay to active paired copilots']]){const row=document.createElement('label'),toggle=document.createElement('input');toggle.type='checkbox';toggle.checked=site.taskPolicy?.[key]===true;toggle.style.width='auto';toggle.onchange=()=>run(async()=>{await call('configure',{id:site.id,taskPolicy:{[key]:toggle.checked}});await refresh();});row.append(toggle,document.createTextNode(label));li.append(row);}
    const uploadPolicy=document.createElement('label'),uploadToggle=document.createElement('input');uploadToggle.type='checkbox';uploadToggle.checked=site.visitorUploads===true;uploadToggle.style.width='auto';uploadToggle.onchange=()=>run(async()=>{await call('configure',{id:site.id,visitorUploads:uploadToggle.checked});await refresh();});uploadPolicy.append(uploadToggle,document.createTextNode(' Allow visitors to upload shared knowledge (16 MB per file)'));li.append(uploadPolicy);
    const option=document.createElement('option');option.value=site.id;option.textContent=websiteLabel(site);select.append(option);
-   li.append(button('Issue installation snippet',async()=>{const issued=await call('activate',{id:site.id});const base=new URL('./',location.href).href;document.querySelector('#snippet').textContent=`Publishable installation credential. Only approved origins can initialize.\n<script type="module">\nimport {mount} from ${JSON.stringify(base+'sdk.mjs')};\nawait mount({serviceUrl:${JSON.stringify(base)},installationToken:${JSON.stringify(issued.installationToken)}});\n</script>`;}));
+   li.append(button('Issue installation snippet',async()=>{const issued=await call('activate',{id:site.id});const base=new URL('./',location.href).href;document.querySelector('#snippet').textContent='Publishable installation credential. Only approved origins can initialize.\n'+installationSnippet(base,issued.installationToken);}));
   }
   list.append(li);
  }

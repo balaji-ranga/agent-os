@@ -7,7 +7,7 @@ export function validateSnapshot(snapshot) {
   const refs = new Set();
   const fields = snapshot.fields.map(field => {
     if (!field || !/^r\d+f\d+$/.test(field.ref) || refs.has(field.ref) || typeof field.label !== 'string' || field.label.length > 160 ||
-        /password|secret|token|otp|cvv|credit.?card|api.?key|access.?key|private.?key/i.test(field.label) || !['text','number','email','date','textarea','url','tel','search','select-one','checkbox'].includes(field.type)) invalid();
+        /password|secret|token|otp|cvv|credit.?card|api.?key|access.?key|private.?key/i.test(field.label) || !['text','number','email','date','textarea','url','tel','search','select-one','select-multiple','radio','checkbox','combobox'].includes(field.type)) invalid();
     refs.add(field.ref);
     if(field.key!==undefined&&(typeof field.key!=='string'||!/^[a-zA-Z][a-zA-Z0-9_-]{0,79}$/.test(field.key)||/password|secret|token|otp|cvv|credit.?card|api.?key|access.?key|private.?key/i.test(field.key)))invalid();
     if(field.form!==undefined&&(typeof field.form!=='string'||!/^[a-zA-Z][a-zA-Z0-9_-]{0,79}$/.test(field.form)))invalid();
@@ -36,6 +36,7 @@ export function validateSnapshot(snapshot) {
 export function createProposalStore(repository, { clock = Date.now,checkBinding=()=>false } = {}) {
   const proposals = repository.map('proposals');
   return {
+    reject(scope,id){return repository.transaction(()=>{const p=proposals.get(id);if(!p||p.embeddingId!==scope.embeddingId||p.sessionId!==scope.sessionId||p.conversationVersion!==(scope.conversationVersion||0)||!['pending','rejected'].includes(p.status))invalid();p.status='rejected';proposals.set(id,p);return {rejected:true};});},
     prepareSave(scope,snapshot,ref){return this.prepare(scope,snapshot,{message:'Review this separate form submission. It may save data or trigger other host side effects.',actions:[{type:'submit',ref}]},null,{allowSubmit:true});},
     prepare(scope, snapshot, response, binding=null,{allowSubmit=false}={}) {
       const observed = validateSnapshot(snapshot);

@@ -1,4 +1,5 @@
-// Narrow explicit partial edits to observed controls, never infer values here.
+import {booleanIntent,readOnlyIntent} from './task-intent.mjs';
+// Narrow explicit partial edits to observed controls, never infer business values.
 // Creation and ambiguous requests retain the full form for model reasoning.
 export function constrainEdit(text, snapshot) {
   if (!/^\s*(set|change|update|edit)\b/i.test(text) || snapshot.navigationRequired) return snapshot;
@@ -19,6 +20,12 @@ export function constrainEdit(text, snapshot) {
 // Resolve only fully explicit, uniquely named assignments. This does not infer
 // business values or stored mappings, and still produces an ordinary review.
 export function explicitEditProposal(text,snapshot){
+ if(readOnlyIntent(text))return null;
+ // Mixed assignment/selection language belongs to semantic planning. Never
+ // consume the second instruction as a dropdown's literal value.
+ if(/\b(?:and|then)\s+(?:select|check|uncheck|choose|clear|tick|enable|disable)\b/i.test(text))return null;
+ const booleanActions=snapshot.fields.filter(f=>f.type==='checkbox').flatMap(f=>{const value=booleanIntent(text,f);return value===null?[]:[{type:'fill',ref:f.ref,value}];});
+ if(booleanActions.length&&snapshot.fields.every(f=>f.type==='checkbox'||!String(text).toLowerCase().includes(f.label.toLowerCase())))return {message:'Review the requested selections. Nothing has changed.',actions:booleanActions};
  if(snapshot.navigationRequired||!/^\s*(?:set|change|update|edit)\b/i.test(text))return null;
  const normalize=value=>String(value).toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim();
  const matches=[...String(text).matchAll(/(?:^\s*(?:set|change|update|edit)\s+|[,;]\s*(?:and\s+)?|\band\s+)([^,;.]+?)\s+(?:to|as)\s+/gi)];

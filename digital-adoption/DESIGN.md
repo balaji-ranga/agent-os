@@ -494,3 +494,55 @@ assuming cross-domain browser storage is shared. Relevant browser behavior:
 [same-origin policy](https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Same-origin_policy),
 [WebSocket interface](https://developer.mozilla.org/en-US/docs/Web/API/WebSocket),
 and [COOP window references](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cross-Origin-Opener-Policy).
+
+## 17. Guided-session feedback implementation
+
+Pairing consent and live execution authority have separate lifecycles. A named
+group persists its owner, linked workflow user, website/origin membership,
+consent expiry/inactivity settings and hashed browser reconnect proofs in
+`paired_groups`. The confirmer chooses 1/4/8/24 hours or until revoked and an
+optional inactivity expiry. A recognized browser may reconnect to the same
+group with a fresh endpoint after reload or coordinator restart. Revocation,
+expiry, owner/policy changes and host-identity changes are rechecked. Raw
+reconnect proofs stay in browser storage, not SQLite. Pairing is explicit user
+consent; it is not inferred from website ownership or email.
+
+Offline endpoints receive nothing. Reconnection restores neither task data nor
+effect approvals, and never retries a failed workflow action. Saved groups remain
+discoverable for their linked user while endpoints are offline. Workflow nodes
+save the stable group and selected websites once; every run checks current
+eligible recipients. Pair presence refreshes separately from user activity.
+
+The bottom chat composer handles both ordinary prompts and `@` paired-recipient
+handoffs through Send. Task files & paired copilots is for upload, pairing and
+sharing consent. Sender chat records the instruction, selected context,
+recipient and delivery time while the private task exists. Workflow messages
+show incoming instruction, workflow/run/step correlation, progress and readable
+results. Ending the task clears private instructions, files and extracted data;
+only structural inspection/completion traces remain. Workflow audit outputs
+retain structural fields/forms/navigation counts and labels, excluding entered
+values and document text. Downstream private results use task-bound handles.
+
+Every reviewed field/save/recorded step supports rejection or cancellation.
+Generic action feedback disables pending controls and reports completion/error
+at the bottom for three seconds; persistent errors retain their detailed banner.
+Bootstrap renders a visible connecting/retry control before downloading the SDK
+and bounds each bootstrap/import attempt to eight seconds. Host forms do not
+wait for copilot startup. Only idempotent bootstrap may retry automatically.
+
+Mixed natural-language requests use semantic planning against fresh controls;
+checkbox selection language is interpreted using observed labels/types. A
+summary-only/no-fill request cannot produce write proposals. Native radio
+groups, multiple selects, datalist inputs and input-based ARIA comboboxes are
+supported. Async picklists require a unique visible exact option in the
+associated listbox, reject intervening edits and time out without clicking.
+Unsupported components remain manual. Actual React controlled state and Angular
+ngModel state, followed by independent synthetic record readback, are exercised
+by the test-only framework fixtures; this does not claim every framework widget.
+
+New runtime installations have no automatically seeded handbook, map or recipe.
+Development-only seeding requires `demoSeedEnabled: true`. Existing UAT
+registrations retain their historical sources and cannot prove empty onboarding.
+The empty self-service integration test exercises owner registration, ownership
+verification, approval and observation using synthetic DNS/email transports.
+See the feedback acceptance ledger for the distinction from live DNS UAT.

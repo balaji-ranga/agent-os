@@ -31,3 +31,16 @@ test('model cannot invent targets, code, or authority; approvals are session bou
 test('sensitive credential fields cannot enter an executable proposal',()=>{
  const repository=openRepository();try{const store=createProposalStore(repository);for(const field of [{ref:'r1f0',label:'API key',type:'text'},{ref:'r1f0',label:'Integration',key:'private_key',type:'text'}])assert.throws(()=>store.prepare({embeddingId:'A',sessionId:'one'},{revision:1,fields:[field]},{message:'Review',actions:[{type:'fill',ref:'r1f0',value:'secret-value'}]}));}finally{repository.close();}
 });
+test('rejecting a review is scope-bound, idempotent and prevents later execution',()=>{
+ const repository=openRepository();try{
+  const store=createProposalStore(repository),scope={embeddingId:'A',sessionId:'one'},snapshot={revision:1,fields:[{ref:'r1f0',label:'Company',type:'text'}]};
+  const proposal=store.prepare(scope,snapshot,{message:'Review',actions:[{type:'fill',ref:'r1f0',value:'Synthetic'}]});
+  assert.throws(()=>store.reject({...scope,sessionId:'other'},proposal.id));
+  assert.deepEqual(store.reject(scope,proposal.id),{rejected:true});
+  assert.deepEqual(store.reject(scope,proposal.id),{rejected:true});
+  assert.throws(()=>store.consume(scope,{id:proposal.id,revision:1,approved:true}));
+  const consumed=store.prepare(scope,snapshot,{message:'Review',actions:[{type:'fill',ref:'r1f0',value:'Other'}]});
+  store.consume(scope,{id:consumed.id,revision:1,approved:true});
+  assert.throws(()=>store.reject(scope,consumed.id));
+ }finally{repository.close();}
+});

@@ -125,6 +125,7 @@ export function createCopilotConnector({
           action: actionId.split('.')[1],
           operationId,
           workflowRunId: context.runId,
+          workflow:{id:context.workflowId,runId:context.runId,nodeId:context.nodeId},
           workflowOwnerId: context.ownerUserId || user
         };
         delete payload.approval_token;
@@ -192,7 +193,7 @@ export function createCopilotConnector({
           ok: true,
           action_id: actionId,
           data: out,
-          text: 'All captured copilots completed the requested step. Business save verification is reported separately.',
+          text: 'All captured copilots completed the requested step. Business save verification is reported separately.'+(out.recipients||[]).filter(r=>r.inspection).map(r=>{const s=r.inspection;return `\n\n${s.origin||r.websiteId}${s.path}: ${s.forms.length} forms, ${s.fields.length} supported fields, ${s.navigation.length} approved navigation links.\nFields: ${s.fields.map(f=>`${f.label} (${f.type}${f.required?', required':''})`).join('; ')}\nNavigation: ${s.navigation.map(n=>`${n.label}: ${n.path}`).join('; ')||'No approved links observed.'}\nField values excluded.`;}).join(''),
           transport: 'copilot'
         };
       })();

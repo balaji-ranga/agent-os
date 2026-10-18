@@ -5,7 +5,7 @@ import {createRegistrationEmail} from '../src/registration-email.mjs';
 test('email code expiry, attempts, recipient ownership and failed-delivery revocation',async()=>{
  const repository=openRepository();let now=1000,fail=false,approved=false;const sent=[],revoked=[];
  const actor={id:'owner'},foreign={id:'foreign'};
- const control={list:a=>a.id==='owner'?[{id:'site',origin:'https://example.test',environment:'staging'}]:[],scope:a=>{if(a.id!=='owner'||!approved)throw new Error('Denied');return {embeddingId:'site'};},activate:()=>({installationId:'installation',installationToken:'publishable-test-token'}),cancelDelivery:(_a,_id,token)=>revoked.push(token)};
+ const control={list:a=>a.id==='owner'?[{id:'site',origin:'https://example.test',environment:'staging'}]:[],scope:a=>{if(a.id!=='owner'||!approved)throw new Error('Denied');return {embeddingId:'site'};},activate:()=>({installationId:'installation',installationToken:'dac_install_'+'x'.repeat(43)}),cancelDelivery:(_a,_id,token)=>revoked.push(token)};
  const service=createRegistrationEmail(repository,{control,search:{provision:async()=>{}},serviceUrl:'https://platform.test/adoption/',clock:()=>now,send:async message=>{if(fail)throw new Error('SMTP failed');sent.push(message);}});
  try{
   await assert.rejects(()=>service.start(foreign,'site','test@example.test'));

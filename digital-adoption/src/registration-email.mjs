@@ -1,4 +1,5 @@
 import {randomInt,createHash} from 'node:crypto';
+import {installationSnippet} from './install-snippet.mjs';
 const hash=value=>createHash('sha256').update(value).digest('hex');
 export function createRegistrationEmail(repository,{send,control,search,serviceUrl,clock=Date.now}){
  const contacts=repository.map('registration_email');
@@ -28,7 +29,7 @@ export function createRegistrationEmail(repository,{send,control,search,serviceU
    row.lastDeliveryAt=clock();row.delivery='sending';contacts.set(id,row);
    await search.provision(scope.embeddingId);
    const issued=control.activate(actor,id);
-   const snippet=`<script type="module">\nimport {mount} from ${JSON.stringify(serviceUrl+'sdk.mjs')};\nawait mount({serviceUrl:${JSON.stringify(serviceUrl)},installationToken:${JSON.stringify(issued.installationToken)}});\n</script>`;
+   const snippet=installationSnippet(serviceUrl,issued.installationToken);
    try{
     await send({to:row.email,subject:'Your Flolah Digital Adoption Copilot installation',text:`Website: ${site.origin}\nEnvironment: ${site.environment}\n\n${snippet}\n\nThis publishable token authorizes only this approved embedding's public experience. It is not an admin credential. Never embed private model, management or runtime credentials. Manage or revoke this installation from Flolah.`});
     row.delivery='accepted_by_mail_server';contacts.set(id,row);return {sent:true,email:row.email,installationId:issued.installationId};

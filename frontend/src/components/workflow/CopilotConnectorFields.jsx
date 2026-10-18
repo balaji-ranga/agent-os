@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { api } from '../../api.js';
 export default function CopilotConnectorFields({
   config,
@@ -6,15 +6,21 @@ export default function CopilotConnectorFields({
 }) {
   const [groups, setGroups] = useState([]),
     [code, setCode] = useState(''),
-    [error, setError] = useState('');
+    [error, setError] = useState(''),[busy,setBusy]=useState(false),[refreshing,setRefreshing]=useState(false);
+  const pendingRefresh=useRef(null);
   const refresh = async () => {
+    if(pendingRefresh.current)return pendingRefresh.current;
+    setRefreshing(true);
+    pendingRefresh.current=(async()=>{
     try {
       const out = await api.copilotGroups();
       setGroups(out.groups || []);
       setError('');
     } catch (e) {
       setError(e.message);
-    }
+    } finally {setRefreshing(false);pendingRefresh.current=null;}
+    })();
+    return pendingRefresh.current;
   };
   useEffect(() => {
     refresh();
@@ -29,23 +35,24 @@ export default function CopilotConnectorFields({
     }),
     group = groups.find(g => g.groupId === attrs.groupId);
   return <fieldset className="wf-field"><legend>Paired website copilots</legend>
-  <p>Only your explicitly linked group receives commands. Offline targets fail the step; future visitors receive nothing.</p>
+  <p>Save a paired group once and reuse it across runs. Recognized tabs reconnect to the saved group. Offline targets fail the step; future visitors receive nothing.</p>
   <label>Pairing group link code<input value={code} onChange={e => setCode(e.target.value)} autoComplete="off" placeholder="From paired copilot → Link group" /></label>
-  <button type="button" className="wf-btn" onClick={async () => {
+  <button type="button" className="wf-btn" disabled={busy} aria-busy={busy} onClick={async () => {
+      if(busy)return;setBusy(true);
       try {
         await api.copilotLink(code.trim());
         setCode('');
         await refresh();
       } catch (e) {
         setError(e.message);
-      }
-    }}>Link my paired group</button>
-  <button type="button" className="wf-btn" onClick={refresh}>Refresh online copilots</button>
+      }finally{setBusy(false);}
+    }}>{busy?'Linking…':'Link my paired group'}</button>
+  <button type="button" className="wf-btn" disabled={refreshing} aria-busy={refreshing} onClick={refresh}>{refreshing?'Refreshing…':'Refresh online copilots'}</button>
   <label>Runtime group<select value={attrs.groupId || ''} onChange={e => set({
         groupId: e.target.value,
         websiteIds: [],
         instanceIds: undefined
-      })}><option value="">Select a linked group</option>{groups.map(g => <option key={g.groupId} value={g.groupId}>{g.groupId}</option>)}</select></label>
+      })}><option value="">Select a linked group</option>{groups.map(g => <option key={g.groupId} value={g.groupId}>{g.name||'Paired group'} · {g.instances?.filter(i=>i.active).length||0} online · {g.groupId.slice(0,8)}</option>)}</select></label>
   <label>Websites<select multiple value={attrs.websiteIds || []} onChange={e => set({
         websiteIds: Array.from(e.target.selectedOptions, o => o.value)
       })}>{(group?.websites || []).map(w => <option key={w.websiteId} value={w.websiteId}>{w.origin} · {w.environment}</option>)}</select></label>
@@ -84,6 +91,6 @@ export default function CopilotConnectorFields({
         executionMs: Number(e.target.value)
       })} /></label>
   <p>Every captured recipient must succeed. Filling and submitting use Flolah Action Policies. Private content stays task-bound and is not stored in workflow outputs.</p>
-  {error && <p role="alert">{error}</p>}
+  {error && <p role="alert">{error} Check the group code, online participants and each website’s owner-enabled workflow permission. <a href="/free-tools/digital-adoption/owner.html" target="_blank" rel="noreferrer">Website owner settings</a></p>}
  </fieldset>;
 }

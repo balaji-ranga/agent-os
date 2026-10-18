@@ -14,7 +14,7 @@ async function fixture(t,options={}){
  const planner=options.planner||(async({privateGuidance})=>({message:'Review',actions:privateGuidance.evidence.length?[{type:'fill',ref:'r1f0',value:'Synthetic Orchid'}]:[]}));
  const tasks=await createPrivateTasks({root,website:id=>sites.get(id),activeScope:s=>!revoked.has(s.sessionId),planner,clock:()=>now,authorizeEffect:options.authorizeEffect||(async()=>true),...options});
  t.after(async()=>{await tasks.close();await rm(root,{recursive:true,force:true});});
- const add=(name,owner='owner')=>{sites.set(name,{id:name,origin:`https://${name}.test`,environment:'staging',verified:true,status:'approved',organizationId:owner,taskPolicy:{attachments:true,pairing:true,workflow:true,actionBindings:[{id:'save',path:'/customer',label:'Save',family:'write_internal'}]}});const scope={sessionId:crypto.randomUUID(),embeddingId:name,origin:`https://${name}.test`,conversationVersion:0};const ticket=tasks.ticket(scope,{}),messages=[];tasks.connect(ticket.ticket,scope.origin,m=>messages.push(m));return {scope,instanceId:ticket.instanceId,messages};};
+ const add=(name,owner='owner')=>{sites.set(name,{id:name,origin:`https://${name}.test`,environment:'staging',verified:true,status:'approved',organizationId:owner,taskPolicy:{attachments:true,pairing:true,workflow:true,actionBindings:[{id:'save',path:'/customer',label:'Save',family:'write_internal'}]}});const scope={sessionId:crypto.randomUUID(),embeddingId:name,origin:`https://${name}.test`,conversationVersion:0};const ticket=tasks.ticket(scope,{}),messages=[];tasks.connect(ticket.ticket,scope.origin,m=>messages.push(m));return {scope,instanceId:ticket.instanceId,resumeProof:ticket.resumeProof,messages};};
  const pair=(a,b)=>{const invite=tasks.invite(a.scope,a);tasks.join(b.scope,{...b,code:invite.code});const pending=tasks.pairStatus(a.scope,a).pending[0];tasks.confirm(a.scope,{...a,invitationId:pending.invitationId});const out=tasks.confirm(b.scope,{...b,invitationId:pending.invitationId});return out.groupId;};
  const link=(a,user='user')=>tasks.linkUser(user,tasks.linkRequest(a.scope,a));
  const upload=async(a,text='Company name: Synthetic Orchid. Contact email: orchid@example.test.')=>{const task=tasks.start(a.scope,a);const file=await tasks.upload(a.scope,{...a,taskId:task.taskId,filename:'onboarding.txt',mime:'text/plain',content:Buffer.from(text).toString('base64'),operationId:crypto.randomUUID()});return {...task,file};};
@@ -39,3 +39,40 @@ test('a shared recipient gets selected passages, no unrelated private history or
 
 test('one failed recipient immediately fails required-all fanout and prevents remaining plans',async t=>{const f=await fixture(t),a=f.add('alpha'),b=f.add('beta'),groupId=f.pair(a,b);f.link(a);const input={groupId,websiteIds:['alpha','beta'],action:'inspect',operationId:'fail-fast'},cmd=f.tasks.dispatch('user',input,f.tasks.preflight('user',input));f.tasks.disconnect(b.instanceId);assert.equal(f.tasks.commandStatus('user',cmd.commandId).status,'failed');f.tasks.commandFrame(a.instanceId,{type:'ack',commandId:cmd.commandId});await assert.rejects(f.tasks.commandPlan(a.scope,{...a,commandId:cmd.commandId,snapshot}),/COMMAND_ENDED/);});
 test('commands fail busy rather than overwrite an in-flight operation; an existing private task needs explicit joining',async t=>{const f=await fixture(t),a=f.add('alpha'),b=f.add('beta'),groupId=f.pair(a,b);f.link(a);const task=await f.upload(a),input={groupId,websiteIds:['alpha'],action:'inspect',operationId:'one'};assert.throws(()=>f.tasks.dispatch('user',input,f.tasks.preflight('user',input)),/TASK_SHARING_REQUIRED/);const selected={...input,taskId:task.taskId},cmd=f.tasks.dispatch('user',selected,f.tasks.preflight('user',selected));assert.throws(()=>f.tasks.preflight('user',{...selected,operationId:'other'}),/RECIPIENT_BUSY/);assert.equal(f.tasks.dispatch('user',selected,f.tasks.preflight('user',selected)).commandId,cmd.commandId);});
+
+test('F08/F18: saved group and workflow binding survive endpoint loss and service restart without private task recovery',async t=>{
+ const pairingState=new Map(),f=await fixture(t,{pairingState}),a=f.add('alpha'),b=f.add('beta'),groupId=f.pair(a,b);f.link(a);
+ const task=await f.upload(a);f.tasks.disconnect(a.instanceId);f.tasks.disconnect(b.instanceId);f.advance(20000);f.tasks.maintain();
+ assert.equal(f.tasks.discover('user').groups[0].groupId,groupId);assert.equal(f.tasks.metrics().tasks,0);
+ assert.throws(()=>f.tasks.preflight('user',{groupId,websiteIds:['alpha'],action:'inspect'}),/RECIPIENT_OFFLINE/);
+ assert.equal(JSON.stringify([...pairingState.values()]).includes(a.resumeProof),false);
+ await f.tasks.close();
+ const restarted=await createPrivateTasks({root:f.root,pairingState,website:id=>f.sites.get(id),activeScope:()=>true,planner:async()=>({message:'Review',actions:[]})});t.after(()=>restarted.close());
+ const scope={...a.scope,sessionId:crypto.randomUUID()},ticket=restarted.ticket(scope,{resumeProof:a.resumeProof});assert.notEqual(ticket.instanceId,a.instanceId);restarted.connect(ticket.ticket,scope.origin,()=>{});
+ assert.equal(restarted.pairStatus(scope,{instanceId:ticket.instanceId}).groupId,groupId);
+ assert.equal(restarted.discover('user').groups[0].groupId,groupId);
+ assert.equal(restarted.preflight('user',{groupId,websiteIds:['alpha'],action:'inspect'}).recipients[0].instanceId,ticket.instanceId);
+ assert.throws(()=>restarted.status(scope,{instanceId:ticket.instanceId,taskId:task.taskId}),/TASK_ENDED/);
+ assert.throws(()=>restarted.ticket({...scope,hostPrincipal:'different-user'},{resumeProof:a.resumeProof}),/PAIRING_RESUME_DENIED/);
+});
+
+test('F14/F18: revoked and expired membership cannot reconnect; confirmation/revoke retries are safe',async t=>{
+ const f=await fixture(t),a=f.add('alpha'),b=f.add('beta');const invite=f.tasks.invite(a.scope,{...a,name:'Repeated workflow',lifetimeHours:1});f.tasks.join(b.scope,{...b,code:invite.code});const invitationId=f.tasks.pairStatus(a.scope,a).pending[0].invitationId;
+ f.tasks.confirm(a.scope,{...a,invitationId});const confirmed=f.tasks.confirm(b.scope,{...b,invitationId});assert.equal(f.tasks.confirm(b.scope,{...b,invitationId}).groupId,confirmed.groupId);
+ f.tasks.revoke(a.scope,{...a,targetId:b.instanceId});f.tasks.revoke(a.scope,{...a,targetId:b.instanceId});f.tasks.disconnect(b.instanceId);
+ assert.throws(()=>f.tasks.ticket({...b.scope,sessionId:crypto.randomUUID()},{resumeProof:b.resumeProof}),/PAIRING_RESUME_DENIED/);
+ f.advance(3600001);f.tasks.maintain();assert.throws(()=>f.tasks.ticket({...a.scope,sessionId:crypto.randomUUID()},{resumeProof:a.resumeProof}),/PAIRING_RESUME_DENIED/);
+});
+
+test('F10: summary-only private request cannot reach a fill planner or create a review',async t=>{
+ const f=await fixture(t,{planner:async()=>{throw new Error('Must not plan writes');},answer:async()=>({message:'Inventory API using stdio',citations:[]})}),a=f.add('alpha'),task=await f.upload(a);f.tasks.complete(f.tasks.claim('w'),{sections:[{text:'Requested integration: Inventory API\nTransport: stdio',locator:'Document'}]});
+ const out=await f.tasks.plan(a.scope,{...a,taskId:task.taskId,text:'Summarize the requested integration. Do not fill or submit anything.',snapshot});assert.deepEqual(out.actions,[]);assert.match(out.message,/Inventory API/);
+});
+
+test('F17: inspection result is consumed as evidence by a following planner before private task cleanup',async t=>{
+ let received;
+ const f=await fixture(t,{planner:async input=>{received=input.privateGuidance.evidence;return {message:'The prior step observed Company name.',actions:[]};}}),a=f.add('alpha'),b=f.add('beta'),groupId=f.pair(a,b);f.link(a);
+ const first={groupId,websiteIds:['alpha'],action:'inspect',operationId:'inspect-result'},c=f.tasks.dispatch('user',first,f.tasks.preflight('user',first));f.tasks.commandFrame(a.instanceId,{type:'ack',commandId:c.commandId});const observation=await f.tasks.commandPlan(a.scope,{...a,commandId:c.commandId,snapshot});f.tasks.commandFrame(a.instanceId,{type:'result',commandId:c.commandId,ok:true,result:observation});const status=f.tasks.commandStatus('user',c.commandId);assert.equal(status.recipients[0].inspection.valuesExcluded,true);
+ const next={...first,action:'prepare',instruction:'Prepare a review based on the earlier inspection',operationId:'use-result',taskId:c.taskId,inputs:{taskHandles:[status.recipients[0].resultHandle]}},d=f.tasks.dispatch('user',next,f.tasks.preflight('user',next));f.tasks.commandFrame(a.instanceId,{type:'ack',commandId:d.commandId});await f.tasks.commandPlan(a.scope,{...a,commandId:d.commandId,snapshot});assert.match(received[0].text,/Company name/);
+ f.tasks.end(a.scope,{...a,taskId:c.taskId});assert.throws(()=>f.tasks.result('user',{commandId:c.commandId,instanceId:a.instanceId}),/PRIVATE_RESULT_ENDED/);assert.equal(f.tasks.commandStatus('user',c.commandId).recipients[0].inspection.fields[0].label,'Company name');
+});
