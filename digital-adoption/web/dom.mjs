@@ -12,6 +12,7 @@ export function createInspector(document) {
   const visible = e => !e.disabled && !e.hidden && e.getClientRects().length > 0 &&
     document.defaultView.getComputedStyle(e).visibility !== 'hidden';
   const controlType=e=>e.getAttribute('role')==='combobox'&&e.getAttribute('aria-controls')?'combobox':e.type||e.tagName.toLowerCase();
+  const constraints=e=>JSON.stringify(['min','max','step','pattern','required','maxlength','minlength','multiple'].map(name=>e.getAttribute(name)));
   const supported = e => ['text','number','email','date','textarea','url','tel','search','select-one','select-multiple','radio','checkbox'].includes(e.type||e.tagName.toLowerCase());
   // Wrapping labels may contain SELECT options or textarea content. Those are
   // control data, not the accessible field name, and must remain local.
@@ -35,7 +36,7 @@ export function createInspector(document) {
     const fields = dialogs.length > 1 ? [] : [...root.querySelectorAll('input,textarea,select')]
       .filter(e=>{if(!visible(e)||excluded(e))return false;if(e.type!=='radio')return true;const key=(formKey(e.form)||'')+':'+e.name;if(radioNames.has(key))return false;radioNames.add(key);return true;}).filter(e => supported(e) && !e.readOnly && !/password|secret|token|otp|cvv|credit.?card|api.?key|access.?key|private.?key/i.test(label(e))).slice(0,60).map((e,i) => {
         const ref = `r${revision}f${i}`;
-        references.set(ref, { element: e, value: e.value, checked:e.checked, options:e.options?JSON.stringify([...e.options].map(o=>[o.value,o.text,o.disabled,o.selected])):null, label: label(e), type: controlType(e),radio:e.type==='radio'?[...root.querySelectorAll('input[type=radio]')].filter(r=>r.name===e.name&&r.form===e.form):null,radioState:e.type==='radio'?JSON.stringify([...root.querySelectorAll('input[type=radio]')].filter(r=>r.name===e.name&&r.form===e.form).map(r=>[r.value,r.checked,r.disabled,label(r)])):null });
+        references.set(ref, { element: e, value: e.value, checked:e.checked, constraints:constraints(e), options:e.options?JSON.stringify([...e.options].map(o=>[o.value,o.text,o.disabled,o.selected])):null, label: label(e), type: controlType(e),radio:e.type==='radio'?[...root.querySelectorAll('input[type=radio]')].filter(r=>r.name===e.name&&r.form===e.form):null,radioState:e.type==='radio'?JSON.stringify([...root.querySelectorAll('input[type=radio]')].filter(r=>r.name===e.name&&r.form===e.form).map(r=>[r.value,r.checked,r.disabled,label(r)])):null });
         const key=semanticFieldKey(e,label(e)),form=formKey(e.form);
         return { ref, label: e.type==='radio'?(e.closest('fieldset')?.querySelector('legend')?.textContent.trim()||e.name):label(e), type: controlType(e), required: e.required,...(key?{key}:{}),...(form?{form}:{}),
           // No current values or private option text are sent by automatic inspection.
@@ -77,6 +78,13 @@ export function createInspector(document) {
     if(e.type==='checkbox'&&e.checked!==record.checked)throw new Error('Checkbox changed; inspect and review again');
     if(e.options&&JSON.stringify([...e.options].map(o=>[o.value,o.text,o.disabled,o.selected]))!==record.options)throw new Error('Options changed; inspect and review again');
     if(e.maxLength>=0&&value.length>e.maxLength)throw new Error('Value exceeds the field limit; review a shorter value');
+    if(constraints(e)!==record.constraints)throw new Error('Field constraints changed; inspect and review again');
+    // Validate without changing the host or dispatching application events.
+    // Empty required drafts remain editable; the separate Save checks completeness.
+    if(!['checkbox','radio','select-one','select-multiple','combobox'].includes(record.type)&&e.cloneNode){
+      const probe=e.cloneNode(false);probe.value=value;const validity=probe.validity;
+      if(probe.value!==value||validity&&['badInput','typeMismatch','patternMismatch','rangeUnderflow','rangeOverflow','stepMismatch','tooLong'].some(key=>validity[key]))throw new Error('Value violates the current field constraints; review it before filling');
+    }
 
     const view = document.defaultView;
     let expected=value;

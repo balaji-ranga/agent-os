@@ -87,10 +87,32 @@ try {
       "Billing contact",
     );
   });
+  await check('F05_PICKLIST_LOADING_EMPTY_ERROR_AMBIGUITY_AND_RECOVERY', async () => {
+    const search=p.locator('[name=account_search]'),contact=p.locator('[name=account_contact]');
+    for(const mode of ['empty','error','ambiguous']){
+      await p.locator('#lookup-mode').selectOption(mode);
+      const snapshot=await inspect(),field=snapshot.fields.find(f=>f.label==='Account search');
+      // Catch immediately so the deliberately refused asynchronous selection is observed.
+      const outcome=p.evaluate(async input=>{try{await window.adapter.fill(input);return {ok:true};}catch(error){return {ok:false,error:error.message};}},{ref:field.ref,value:'Orchid Trading',expectedRevision:snapshot.revision,approved:true});
+      await p.locator('#picklist-status').getByText('Loading accounts…',{exact:true}).waitFor();
+      assert.equal(await contact.isDisabled(),true);
+      await p.locator('#picklist-status').getByText(mode==='empty'?'No accounts found':mode==='error'?'Account lookup failed. Try again.':'Choose an account',{exact:true}).waitFor();
+      const result=await outcome;assert.equal(result.ok,false);
+      assert.match(result.error,mode==='ambiguous'?/ambiguous/:/No option was selected/);
+      assert.equal(await search.getAttribute('data-selected-account'),null);
+      assert.equal(await contact.isDisabled(),true);
+      await p.screenshot({path:new URL(`picklist-${mode}-refused.png`,out).pathname.replace(/^\/C:/,'C:'),fullPage:false});
+    }
+    await p.locator('#lookup-mode').selectOption('normal');
+    await fill('Account search','Copper Supply');await fill('Contact','Primary contact');
+    assert.equal(await search.getAttribute('data-selected-account'),'Copper Supply');
+    assert.equal(await contact.isDisabled(),false);
+  });
   await check(
     "F05_EDITABLE_TABLE_ROW_FILTER_SORT_PAGINATION_DYNAMIC_ROW",
     async () => {
       await fill("Item 2 quantity", "7");
+      await fill('Select Item 2','true');
       assert.equal(await p.locator("[name=line_2_quantity]").inputValue(), "7");
       await p.getByRole("button", { name: "Next rows", exact: true }).click();
       await fill("Item 5 quantity", "9");
@@ -101,6 +123,14 @@ try {
       await p.getByLabel("Table filter", { exact: true }).fill("");
       await p.getByRole("button", { name: "Sort rows", exact: true }).click();
       await fill("Item 7 quantity", "8");
+      await fill('Delivery date','2026-11-12');
+      assert.equal(await p.locator('[name=delivery_date]').inputValue(),'2026-11-12');
+      await assert.rejects(fill('Item 7 quantity','0'),/constraint|minimum|range|invalid/i);
+      assert.equal(await p.locator('[name=line_7_quantity]').inputValue(),'8');
+      const constrained=await inspect(),quantity=constrained.fields.find(f=>f.label==='Item 7 quantity');
+      await p.locator('[name=line_7_quantity]').evaluate(e=>e.min='10');
+      await assert.rejects(p.evaluate(input=>window.adapter.fill(input),{ref:quantity.ref,value:'11',expectedRevision:constrained.revision,approved:true}),/constraints changed/);
+      await p.locator('[name=line_7_quantity]').evaluate(e=>e.min='1');
     },
   );
   await check("F05_MODAL_SCOPE", async () => {
@@ -137,6 +167,7 @@ try {
         [7, 8],
       ])
         assert.equal(lines.find((l) => l.id === id).quantity, quantity);
+      assert.equal(lines.find(l=>l.id===2).selected,true);
       assert.deepEqual(JSON.parse(record.values.interests), [
         "analytics",
         "inventory",
