@@ -1,0 +1,187 @@
+{
+  "at": "2026-10-18T10:48:56.232431+00:00",
+  "runtime": "20261018-owner-workspace-c",
+  "platform": "20261018-maker-checker-c (unchanged)",
+  "sourcePublication": "20261018-owner-workspace-d",
+  "scope": "Incremental website-management usability/performance review. Not full Phase 1/2 certification. Read-only live administration of the loopback/public Flolah registrations; isolated test data is not a production seed.",
+  "counts": {
+    "passed": 15,
+    "partial": 1,
+    "failed": 0
+  },
+  "serviceChecks": {
+    "local": 260,
+    "vpsExactImage": 260
+  },
+  "cases": [
+    {
+      "id": "UI01_INITIAL_LAZY_LOAD",
+      "feature": "Persistent header and seven tabs; only websites load initially",
+      "status": "passed",
+      "observed": "Passed in the isolated loopback 4194 browser using the actual owner-role UI and authenticated management handler. Synthetic data only.",
+      "recommendation": "Retain as a browser regression.",
+      "screenshots": [
+        "vps-installation.jpg"
+      ]
+    },
+    {
+      "id": "UI02_SOURCES_BEYOND_100_SEARCH_AND_PAGE_SIZE",
+      "feature": "Sources: search, page size, records past 100",
+      "status": "passed",
+      "observed": "Passed in the isolated loopback 4194 browser using the actual owner-role UI and authenticated management handler. Synthetic data only.",
+      "recommendation": "Retain as a browser regression.",
+      "screenshots": [
+        "knowledge-paginated.png"
+      ]
+    },
+    {
+      "id": "UI03_WORKFLOWS_PAGED_AND_MAPS_NOT_REFETCHED",
+      "feature": "Workflow paging; editors on expansion; saved learning preference",
+      "status": "passed",
+      "observed": "Passed in the isolated loopback 4194 browser using the actual owner-role UI and authenticated management handler. Synthetic data only.",
+      "recommendation": "Retain as a browser regression.",
+      "screenshots": [
+        "vps-teaching.jpg"
+      ]
+    },
+    {
+      "id": "UI04_PAGE_AND_LAZY_FIELD_PAGINATION",
+      "feature": "Observed-page and lazy field/link pagination",
+      "status": "passed",
+      "observed": "Passed in the isolated loopback 4194 browser using the actual owner-role UI and authenticated management handler. Synthetic data only.",
+      "recommendation": "Retain as a browser regression.",
+      "screenshots": [
+        "map-lazy-fields.png"
+      ]
+    },
+    {
+      "id": "UI05_ANALYTICS_DATASET_PAGINATION",
+      "feature": "Analytics datasets render and paginate on expansion",
+      "status": "passed",
+      "observed": "Passed in the isolated loopback 4194 browser using the actual owner-role UI and authenticated management handler. Synthetic data only.",
+      "recommendation": "Retain as a browser regression.",
+      "screenshots": [
+        "vps-analytics.jpg"
+      ]
+    },
+    {
+      "id": "UI06_LATE_RESPONSE_CANNOT_CROSS_WEBSITES",
+      "feature": "Late response cannot cross website selection",
+      "status": "passed",
+      "observed": "Passed in the isolated loopback 4194 browser using the actual owner-role UI and authenticated management handler. Synthetic data only.",
+      "recommendation": "Retain as a browser regression.",
+      "screenshots": [
+        "map-lazy-fields.png"
+      ]
+    },
+    {
+      "id": "UI07_WEBSITE_SEARCH_BEYOND_100_AND_REFRESH_CONTEXT",
+      "feature": "Find registrations past 100; refresh keeps website and tab",
+      "status": "passed",
+      "observed": "Passed in the isolated loopback 4194 browser using the actual owner-role UI and authenticated management handler. Synthetic data only.",
+      "recommendation": "Retain as a browser regression.",
+      "screenshots": [
+        "installation-desktop.png"
+      ]
+    },
+    {
+      "id": "UI08_ERROR_AND_RETRY",
+      "feature": "Failed page provides a working retry",
+      "status": "passed",
+      "observed": "Passed in the isolated loopback 4194 browser using the actual owner-role UI and authenticated management handler. Synthetic data only.",
+      "recommendation": "Retain as a browser regression.",
+      "screenshots": [
+        "knowledge-paginated.png"
+      ]
+    },
+    {
+      "id": "UI09_KEYBOARD_TABS_AND_MOBILE_REFLOW",
+      "feature": "Keyboard tabs and 390-pixel mobile reflow",
+      "status": "passed",
+      "observed": "Passed in the isolated loopback 4194 browser using the actual owner-role UI and authenticated management handler. Synthetic data only.",
+      "recommendation": "Retain as a browser regression.",
+      "screenshots": [
+        "settings-mobile.png"
+      ]
+    },
+    {
+      "id": "UI10_CLEAR_OLD_SETTINGS_DURING_WEBSITE_SWITCH",
+      "feature": "Clear previous website settings while new selection loads",
+      "status": "passed",
+      "observed": "Passed in the isolated loopback 4194 browser using the actual owner-role UI and authenticated management handler. Synthetic data only.",
+      "recommendation": "Retain as a browser regression.",
+      "screenshots": [
+        "vps-settings.jpg"
+      ]
+    },
+    {
+      "id": "API01",
+      "feature": "Backend page boundaries, history, owner/audience isolation and trusted-actor limits",
+      "status": "passed",
+      "observed": "Three added service cases cover 160 records, second/later pages, text/session/proof exclusion, token and version history, invalid inputs and actor spoofing.",
+      "recommendation": "Reassess offset/count costs for much larger histories; use cursor/shared storage before multiple API coordinators.",
+      "screenshots": []
+    },
+    {
+      "id": "REG01",
+      "feature": "Full application regressions in local and exact VPS C image",
+      "status": "passed",
+      "observed": "260/260 in both environments; VPS isolated container limited to one CPU and 1 GiB.",
+      "recommendation": "Keep the exact-image test step for future releases.",
+      "screenshots": []
+    },
+    {
+      "id": "CAP01",
+      "feature": "25 websites / 25 clients / 500 management HTTP requests",
+      "status": "passed",
+      "observed": "Final VPS fixture: 0 failures; 115.84 ms p95; 378.45 ms max; 3947-byte largest response; 118 MiB process RSS. Per-actor limits are retained separately from the shared-network ceiling.",
+      "recommendation": "Synthetic auth and loopback transport; excludes external auth, models, parsing, production WAN and long-duration traffic. These figures do not establish full copilot capacity.",
+      "screenshots": []
+    },
+    {
+      "id": "GOV01",
+      "feature": "Analytics consent and owner pairing lifecycle through the tabbed UI",
+      "status": "passed",
+      "observed": "Six isolated browser scenarios pass: analytics opt-in, private-value exclusion, group list, owner expiry extension, shortening/revocation and visitor analytics opt-out.",
+      "recommendation": "Production policies remain unchanged; keep synthetic lifecycle testing separate from real visitor analytics.",
+      "screenshots": [
+        "isolated-owner-group-expiry-updated.png",
+        "isolated-owner-group-revoked.png"
+      ]
+    },
+    {
+      "id": "LIVE01",
+      "feature": "Signed-in administrator uses all seven deployed tabs and switches domains",
+      "status": "passed",
+      "observed": "Actual VPS: local registration 47 sources (25 + 22), 10 workflows, 7 observed pages, 2 saved groups; isolated public Flolah registration 34 observed pages with a successful 10-row page change. Settings clear on switch. No owner policy, publication or host record changed.",
+      "recommendation": "Review the public map page and local source page screenshots. Live existing indexes were read, not seeded for this test.",
+      "screenshots": [
+        "vps-installation.jpg",
+        "vps-sources-page2.jpg",
+        "vps-public-map-page2.jpg",
+        "vps-map.jpg",
+        "vps-teaching.jpg",
+        "vps-groups.jpg",
+        "vps-analytics.jpg",
+        "vps-settings.jpg"
+      ]
+    },
+    {
+      "id": "AUTH01",
+      "feature": "Fresh live email-owner sign-in on the final workspace",
+      "status": "partial",
+      "observed": "The existing email-owner session expired. Its sign-in gate is displayed correctly. Live selected-site checks used the existing signed-in platform administrator; isolated owner-role UI and owner API regression tests pass. No new code/email was requested.",
+      "recommendation": "Complete fresh live email-owner re-entry when the owner next signs in. Existing Safari/iOS, Android and screen-reader deferrals, broad-agent coverage and local-checker timeout retain earlier status.",
+      "screenshots": [
+        "owner-session-expired.jpg"
+      ]
+    }
+  ],
+  "limits": [
+    "Analytics tables paginate an existing bounded aggregate report; this is not raw-event server pagination.",
+    "Source-map manifests and histories are bounded JSON records; API slicing bounds transfer, not every internal read.",
+    "Offset paging is not a frozen snapshot across concurrent changes; use refresh after mutations.",
+    "One SQLite coordinator remains; two parser workers are unchanged. No API HA or Kubernetes capacity claim.",
+    "Global maker/checker remains Off; website capabilities, preview duration, Action Policies and model selection were not changed."
+  ]
+}

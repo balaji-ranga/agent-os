@@ -8,6 +8,9 @@ import {randomUUID} from 'node:crypto';
 import {attachLiveTransport} from './live-transport.mjs';
 
 const assets = new Map([
+  ['/manage.css', ['../web/manage.css', 'text/css']],
+  ['/manage-shell.mjs', ['../web/manage-shell.mjs', 'text/javascript']],
+  ['/manage-pagination.mjs', ['../web/manage-pagination.mjs', 'text/javascript']],
   ['/choice-intent.mjs', ['../web/choice-intent.mjs', 'text/javascript']],
   ['/owner.html', ['../web/manage.html', 'text/html']],
   ['/manage.html', ['../web/manage.html', 'text/html']],
@@ -51,6 +54,7 @@ async function body(req,limit=32_768) {
 
 export function createAdoptionServer({ authority, proposals, planner, knowledge, ingestion, learning, coaching, discovery, sourceMap,hostIdentity, answer, management, ownerIdentity, ownerManagement, platformOrigin,telemetry,privateTasks,taskWebsite,analytics,capacity={}, development = false, fixture = null }) {
   const budget=createRequestBudget();
+  const managementPerIp=capacity.managementPerIp??600;if(!Number.isInteger(managementPerIp)||managementPerIp<30||managementPerIp>6000)throw new Error('Invalid management network capacity');
   const modelSlots=createConcurrencyBudget({global:capacity.modelConcurrency??25,perDomain:capacity.modelPerDomain??5}),searchSlots=createConcurrencyBudget({global:capacity.searchConcurrency??25,perDomain:capacity.searchPerDomain??5});
   let activeUploads=0;
   const server=createServer(async (req, res) => {
@@ -73,7 +77,7 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
       if (req.method === 'GET' && assets.has(path)) {
         res.setHeader('Access-Control-Allow-Origin','*'); // Public SDK assets only; API authorization is separate.
         const [file, type] = assets.get(path);
-        res.setHeader('Content-Security-Policy', ['/manage.html','/owner.html'].includes(path)?"default-src 'none'; script-src 'self'; connect-src 'self'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'":"default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; media-src blob:; frame-ancestors *; base-uri 'none'; form-action 'none'");
+        res.setHeader('Content-Security-Policy', ['/manage.html','/owner.html'].includes(path)?"default-src 'none'; script-src 'self'; connect-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'":"default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; media-src blob:; frame-ancestors *; base-uri 'none'; form-action 'none'");
         res.writeHead(200, { 'Content-Type': type });
         return res.end(await readFile(new URL(file, import.meta.url)));
       }
@@ -121,7 +125,7 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
       let result;
       if(path.startsWith('/v1/owner/')){
         if(!ownerIdentity||origin!==platformOrigin)return send(403,{error:'Access denied'});
-        budget.take(`owner:${req.socket.remoteAddress}`,30);
+        budget.take(`${path.startsWith('/v1/owner/manage/')?'owner-management':'owner-login'}:${req.socket.remoteAddress}`,path.startsWith('/v1/owner/manage/')?managementPerIp:30);
         if(path==='/v1/owner/start')result=await ownerIdentity.start(input.email);
         else if(path==='/v1/owner/confirm'){const login=ownerIdentity.confirm(input.email,input.challenge,input.code);res.setHeader('Set-Cookie',login.cookie);result={signedIn:true};}
         else if(path==='/v1/owner/logout'){res.setHeader('Set-Cookie',ownerIdentity.logout(req.headers.cookie).cookie);result={signedOut:true};}
@@ -131,7 +135,7 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
       }
       if(path.startsWith('/v1/manage/')){
         if(!management)return send(403,{error:'Management unavailable'});
-        budget.take(`management:${req.socket.remoteAddress}`,60);
+        budget.take(`management:${req.socket.remoteAddress}`,managementPerIp);
         result=await management({authorization:req.headers.authorization,origin,path,input});
         managedScope(path,input);
         return send(200,result);

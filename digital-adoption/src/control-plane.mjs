@@ -1,3 +1,4 @@
+import {pageRequest} from './pagination.mjs';
 import { randomBytes, randomUUID, createHash } from 'node:crypto';
 import { resolveTxt } from 'node:dns/promises';
 import { isIP } from 'node:net';
@@ -18,11 +19,13 @@ export function createControlPlane(repository,authority,{dns=resolveTxt,clock=Da
  const adminReason=(actor,reason)=>{if(actor?.role!=='platform_admin'||typeof reason!=='string'||!reason.trim()||reason.length>500)reject();};
  const owned=(actor,id)=>{identity(actor);const website=websites.get(id);if(!website||(actor.role!=='platform_admin'&&website.organizationId!==actor.organizationId)||!['owner','platform_admin'].includes(actor.role))reject();return website;};
  return {
+  page(actor,input={}){identity(actor);if(!['owner','platform_admin'].includes(actor.role))reject();const out=websites.page({...pageRequest(input),filters:actor.role==='platform_admin'?{}:{organizationId:actor.organizationId},searchFields:['id','origin','label','environment'],sort:'origin',omit:['challengeHash']});return {actor:{role:actor.role},websites:out.items,pagination:out.pagination};},
+  auditPage(actor,id,input={}){owned(actor,id);if(actor.role!=='platform_admin')reject();const out=audit.page({...pageRequest(input),filters:{websiteId:id},searchFields:['action','reason'],sort:'at',descending:true});return {events:out.items,pagination:out.pagination};},
   inventory(actor,{query='',status='all',offset=0,limit=25}={}){
    identity(actor);if(actor.role!=='platform_admin'||typeof query!=='string'||query.length>200||!['all','pending','approved','suspended','removed'].includes(status)||!Number.isSafeInteger(offset)||offset<0||!Number.isSafeInteger(limit)||limit<1||limit>100)reject();
-   const all=websites.values(),needle=query.trim().toLowerCase(),filtered=all.filter(w=>(status==='all'||w.status===status)&&(!needle||[w.id,w.origin,w.label,w.organizationId,w.environment].some(value=>String(value||'').toLowerCase().includes(needle)))).sort((a,b)=>String(a.origin).localeCompare(String(b.origin))||String(a.id).localeCompare(String(b.id)));
-   const summary={total:all.length,owners:new Set(all.map(w=>w.organizationId)).size,...Object.fromEntries(['pending','approved','suspended','removed'].map(state=>[state,all.filter(w=>w.status===state).length]))};
-   return {scope:'platform',summary,websites:filtered.slice(offset,offset+limit).map(w=>({id:w.id,origin:w.origin,label:w.label||'',ownerId:w.organizationId,environment:w.environment,status:w.status,verified:w.verified===true,installationsIssued:w.installations?.length||0,capabilities:{attachments:w.taskPolicy?.attachments===true,pairing:w.taskPolicy?.pairing===true,workflow:w.taskPolicy?.workflow===true,analytics:w.analyticsPolicy?.enabled===true}})),pagination:{offset,limit,total:filtered.length,hasNext:offset+limit<filtered.length,hasPrevious:offset>0}};
+   const out=websites.page({query,offset,limit,filters:status==='all'?{}:{status},searchFields:['id','origin','label','organizationId','environment'],sort:'origin',omit:['challengeHash']}),counts=Object.fromEntries(websites.counts({groupBy:'status'}).map(row=>[row.category,row.total]));
+   const summary={total:websites.counts(),owners:websites.counts({distinct:'organizationId'}),...Object.fromEntries(['pending','approved','suspended','removed'].map(state=>[state,counts[state]||0]))};
+   return {scope:'platform',summary,websites:out.items.map(w=>({id:w.id,origin:w.origin,label:w.label||'',ownerId:w.organizationId,environment:w.environment,status:w.status,verified:w.verified===true,installationsIssued:w.installations?.length||0,capabilities:{attachments:w.taskPolicy?.attachments===true,pairing:w.taskPolicy?.pairing===true,workflow:w.taskPolicy?.workflow===true,analytics:w.analyticsPolicy?.enabled===true}})),pagination:out.pagination};
   },
   recordAnalytics(actor,id){owned(actor,id);record(actor,'configure_analytics',id,'Website analytics policy updated; fresh visitor consent required');},
   recordPairing(actor,id,{action,groupId,reason,status}){owned(actor,id);if(!['revoke_pairing','update_pairing_expiry'].includes(action)||typeof groupId!=='string'||typeof reason!=='string'||!reason.trim()||reason.length>500)reject();audit.set(randomUUID(),{actorId:actor.id,organizationId:actor.organizationId,websiteId:id,action,groupId,reason,status,at:clock()});},

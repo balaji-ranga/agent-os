@@ -1,3 +1,4 @@
+import {pageRequest} from './pagination.mjs';
 import { createHash,randomUUID } from 'node:crypto';
 import {knowledgeScope,searchCursor} from './knowledge-scope.mjs';
 
@@ -9,7 +10,7 @@ export function createKnowledgeService(repository,search,{clock=Date.now,leaseMs
   };
   const maintain=scope=>{validScope(scope);if(scope.role!=='maintainer')throw new Error('Access denied');};
   const get=(scope,id)=>{validScope(scope);const source=sources.get(id);if(!source||source.embeddingId!==scope.embeddingId||!source.audienceIds?.some(a=>scope.audienceIds.includes(a)))throw new Error('Source not found');return source;};
-  const reserve=(scope,title)=>{maintain(scope);if(typeof title!=='string'||!title.trim()||title.length>200)throw new Error('Invalid source title');if(sources.values({embeddingId:scope.embeddingId}).filter(s=>s.status!=='deleted').length>=100)throw new Error('Embedding source quota reached');};
+  const reserve=(scope,title)=>{maintain(scope);if(typeof title!=='string'||!title.trim()||title.length>200)throw new Error('Invalid source title');if(sources.counts({filters:{embeddingId:scope.embeddingId},excludeStatus:'deleted'})>=100)throw new Error('Embedding source quota reached');};
   const recipeVisible=(source,scope)=>{
     if(!source.recipeBinding)return true;
     const recipe=repository.map('recipes').get(source.recipeBinding.id),current=recipe?.versions?.at(-1);
@@ -94,6 +95,7 @@ export function createKnowledgeService(repository,search,{clock=Date.now,leaseMs
       return {evidence,next: hits.length===size?(searchCursor(hits.at(-1)?.sort)||hits.at(-1)?.sort?.[0]||null):null};
     },
     available(scope){validScope(scope);return sources.values({embeddingId:scope.embeddingId}).filter(s=>s.status==='ready'&&s.audienceIds.some(a=>scope.audienceIds.includes(a))&&recipeVisible(s,scope)).slice(0,100).map(s=>({id:s.id,title:s.title,status:s.status,revision:s.revision}));},
+    page(scope,input={}) {maintain(scope);const out=sources.page({...pageRequest(input),filters:{embeddingId:scope.embeddingId},audienceIds:scope.audienceIds,searchFields:['title','status','kind'],sort:'createdAt',descending:true,omit:['text','sections','uploadedBySessionId']});return {sources:out.items,pagination:out.pagination};},
     list(scope) {maintain(scope);return sources.values({embeddingId:scope.embeddingId}).filter(source=>source.audienceIds?.some(a=>scope.audienceIds.includes(a))).slice(0,100).map(({text,sections,uploadedBySessionId,...source})=>source);},
   };
   return service;

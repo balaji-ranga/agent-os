@@ -53,7 +53,7 @@ export class SessionAuthority {
   }
 
   installationSummary(embeddingId) {
-    return [...this.#installations.values()].filter(i=>i.embeddingId===embeddingId).map(i=>({id:i.id,maskedId:`…${i.id.slice(-8)}`,expiresAt:i.expiresAt,status:this.#revoked.get(i.id)||i.revoked?'revoked':i.expiresAt<=this.#clock()?'expired':'active'}));
+    return [...this.#installations.values({embeddingId})].filter(i=>i.embeddingId===embeddingId).map(i=>({id:i.id,maskedId:`…${i.id.slice(-8)}`,expiresAt:i.expiresAt,status:this.#revoked.get(i.id)||i.revoked?'revoked':i.expiresAt<=this.#clock()?'expired':'active'}));
   }
 
   setUploadPolicy(embeddingId,enabled){

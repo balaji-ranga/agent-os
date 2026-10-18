@@ -1,7 +1,11 @@
-export function createManagement({authenticate,control,knowledge,search,platformOrigin,registrationEmail,ingestion,learning,coaching,sourceMap,hostIdentity,privateTasks,analytics}){
+import {arrayPage} from './pagination.mjs';
+import {createRequestBudget} from './request-budget.mjs';
+export function createManagement({authenticate,control,knowledge,search,platformOrigin,registrationEmail,ingestion,learning,coaching,sourceMap,hostIdentity,privateTasks,analytics,capacity={}}){
+ const budget=createRequestBudget(),actorLimit=capacity.managementPerActor??60;if(!Number.isInteger(actorLimit)||actorLimit<1||actorLimit>600)throw new Error('Invalid management request capacity');
  return async({authorization,origin,path,input})=>{
   if(origin!==platformOrigin)throw new Error('Management origin denied');
   const actor=await authenticate(authorization);
+  budget.take(`actor:${actor.organizationId}:${actor.id}`,actorLimit);
   if(path.startsWith('/v1/manage/email-')){
    if(!registrationEmail)throw new Error('Email not configured');
    if(path.endsWith('/email-status'))return registrationEmail.status(actor,input.id);
@@ -11,6 +15,9 @@ export function createManagement({authenticate,control,knowledge,search,platform
    throw new Error('Unsupported email operation');
   }
   if(path==='/v1/manage/websites')return {actor:{role:actor.role},websites:control.list(actor,{id:input.id})};
+  if(path==='/v1/manage/website-page')return control.page(actor,input);
+  if(path==='/v1/manage/audit-page')return control.auditPage(actor,input.id,input);
+  if(path==='/v1/manage/token-page'){const out=arrayPage(control.tokens(actor,input.id),input,t=>t.maskedId+' '+t.status);return {tokens:out.items,pagination:out.pagination};}
   if(path==='/v1/manage/admin-websites')return control.inventory(actor,input);
   if(path==='/v1/manage/transfer-owner')return control.transfer(actor,input.id,input);
   if(path==='/v1/manage/register')return control.register(actor,{origin:input.origin,environment:input.environment,operationId:input.operationId});
@@ -38,16 +45,21 @@ export function createManagement({authenticate,control,knowledge,search,platform
   if(input.hostScope){if(!hostIdentity)throw new Error('Host identity unavailable');const audienceId=hostIdentity.audience(scope,input.hostScope);scope={...scope,audienceId,audienceIds:[audienceId]};}
   if(path==='/v1/manage/source-map-refresh'){if(!sourceMap)throw new Error('Source map unavailable');return sourceMap.refresh(scope,input.manifest);}
   if(path==='/v1/manage/source-map'){if(!sourceMap)throw new Error('Source map unavailable');return sourceMap.summary(scope);}
+  if(path==='/v1/manage/source-map-page'){if(!sourceMap)throw new Error('Source map unavailable');return sourceMap.page(scope,input);}
   if(path==='/v1/manage/source-map-teach'){if(!sourceMap||!learning)throw new Error('Teaching unavailable');return learning.create(scope,sourceMap.recipeDraft(scope,input));}
   if(path==='/v1/manage/coaching-code'){if(!coaching)throw new Error('Coaching unavailable');return coaching.issue(scope);}
   if(path.startsWith('/v1/manage/learning-')){
    if(!learning)throw new Error('Learning unavailable');
    const request={...input,id:input.recipeId};
+   if(path==='/v1/manage/learning-page')return learning.page(scope,input);
+   if(path==='/v1/manage/learning-map-page')return learning.mapPage(scope,input);
+   if(path==='/v1/manage/learning-version-page'){const out=arrayPage(learning.versions(scope,request).slice().reverse(),input,v=>String(v.version)+' '+v.status);return {versions:out.items,pagination:out.pagination};}
    const operations={settings:()=>learning.settings(scope,input),status:()=>({enabled:learning.learningEnabled(scope)}),list:()=>({recipes:learning.list(scope)}),maps:()=>({screens:learning.maps(scope)}),graph:()=>learning.graph(scope),describe:()=>learning.describe(scope,request),create:()=>learning.create(scope,input),validate:()=>learning.validate(scope,request),publish:()=>learning.publish(scope,request),repair:()=>learning.repair(scope,request),disable:()=>learning.disable(scope,request),versions:()=>({versions:learning.versions(scope,request)}),rollback:()=>learning.rollback(scope,request),export:()=>learning.export(scope,request),import:()=>learning.import(scope,input)};
    const action=path.slice('/v1/manage/learning-'.length);if(!Object.hasOwn(operations,action))throw new Error('Unsupported learning operation');return operations[action]();
   }
   if(path==='/v1/manage/activate'){await search.provision(scope.embeddingId);return control.activate(actor,input.id);}
   if(path==='/v1/manage/sources')return {sources:knowledge.list(scope)};
+  if(path==='/v1/manage/source-page')return knowledge.page(scope,input);
   if(path==='/v1/manage/source-file'){if(!ingestion)throw new Error('File ingestion unavailable');return ingestion.upload(scope,input);}
   if(path==='/v1/manage/source-url'){if(!ingestion)throw new Error('URL ingestion unavailable');return ingestion.addUrl(scope,input);}
   if(path==='/v1/manage/source-refresh'){if(!ingestion)throw new Error('URL ingestion unavailable');return ingestion.refresh(scope,input.sourceId);}

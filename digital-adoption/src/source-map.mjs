@@ -1,4 +1,5 @@
 import {createHash} from 'node:crypto';
+import {arrayPage} from './pagination.mjs';
 const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const secret=/password|secret|token|credential|otp|cvv|credit.?card|api.?key|access.?key|private.?key/i;
 const pathOK=value=>typeof value==='string'&&/^\/(?!\/)[^?#\\]*$/.test(value)&&value.length<=300&&!decodeURIComponent(value).includes('..')&&!value.split('/').some(p=>/^\d{5,}$/.test(p)||/^[a-f0-9-]{32,36}$/i.test(p));
@@ -29,6 +30,7 @@ export function createSourceMap(repository,{clock=Date.now}={}){
    maps.set(key(scope),record);return this.summary(scope);
   },
   summary(scope){const record=read(scope);return record?{revision:record.revision,refreshedAt:record.refreshedAt,evidence:record.evidence,counts:{screens:record.screens.length,forms:record.screens.reduce((n,s)=>n+s.forms.length,0),fields:record.screens.reduce((n,s)=>n+s.fields.length,0)},screens:record.screens}:{revision:null,counts:{screens:0,forms:0,fields:0},screens:[],evidence:'no_source_map'};},
+  page(scope,input={}){const result=this.summary(scope),out=arrayPage(result.screens,input,s=>s.path+' '+s.title);return {...result,screens:out.items,pagination:out.pagination};},
   recipeDraft(scope,{path,form,revision}){
    if(scope.role!=='maintainer'&&!scope.capabilities?.coach)throw new Error('Coaching permission required');
    const record=read(scope),screen=record?.screens.find(s=>s.path===path),sourceForm=screen?.forms.find(f=>f.id===form);

@@ -1,3 +1,4 @@
+import {pageRequest} from './pagination.mjs';
 import {createHash} from 'node:crypto';
 import {validateSnapshot} from './proposals.mjs';
 import {validateInventory} from './domain-inventory.mjs';
@@ -33,6 +34,8 @@ export function createLearningRuntime(repository,store,{clock=Date.now,knowledge
    });
   },
   list(scope){return store.list(scopeOf(scope));},
+  page(scope,input){return store.page(requireMaintainer(scope),input);},
+  mapPage(scope,input={}){const access=requireMaintainer(scope),out=maps.page({...pageRequest(input),filters:{embeddingId:access.embeddingId,audienceId:access.audienceId},searchFields:['path'],sort:'path'});return {screens:out.items,pagination:out.pagination};},
   graph(scope){return learnedWorkflowGraph(store.list(requireMaintainer(scope)));},
   describe(scope,{id,version,metadata}){return store.describe(requireMaintainer(scope),id,version,metadata);},
   navigationProfile(scope,path){

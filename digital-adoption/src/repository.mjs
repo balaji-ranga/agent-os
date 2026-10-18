@@ -1,4 +1,5 @@
 import { DatabaseSync } from 'node:sqlite';
+import {pageRequest,pagination} from './pagination.mjs';
 
 // Independent database; never open the Flolah application database here.
 export function openRepository(path = ':memory:') {
@@ -6,6 +7,7 @@ export function openRepository(path = ':memory:') {
   db.exec('PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;');
   db.exec('CREATE TABLE IF NOT EXISTS adoption_state (namespace TEXT NOT NULL, key TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY(namespace,key))');
   db.exec("CREATE INDEX IF NOT EXISTS adoption_embedding_scope ON adoption_state(namespace,json_extract(value,'$.embeddingId')); CREATE INDEX IF NOT EXISTS adoption_owner_scope ON adoption_state(namespace,json_extract(value,'$.organizationId'));");
+  db.exec("CREATE INDEX IF NOT EXISTS adoption_content_scope ON adoption_state(namespace,json_extract(value,'$.scope')); CREATE INDEX IF NOT EXISTS adoption_website_audit ON adoption_state(namespace,json_extract(value,'$.websiteId')); CREATE INDEX IF NOT EXISTS adoption_audience_scope ON adoption_state(namespace,json_extract(value,'$.embeddingId'),json_extract(value,'$.audienceId'));");
   db.exec("CREATE INDEX IF NOT EXISTS adoption_work_status ON adoption_state(namespace,json_extract(value,'$.status'),json_extract(value,'$.leaseUntil')); CREATE INDEX IF NOT EXISTS adoption_work_domain ON adoption_state(namespace,json_extract(value,'$.embeddingId'),json_extract(value,'$.status'));");
   const get = db.prepare('SELECT value FROM adoption_state WHERE namespace=? AND key=?');
   const put = db.prepare('INSERT INTO adoption_state VALUES (?,?,?) ON CONFLICT(namespace,key) DO UPDATE SET value=excluded.value');
@@ -57,6 +59,27 @@ export function openRepository(path = ':memory:') {
         delete: key => remove.run(namespace, key),
         values: (filters={}) => scoped(namespace,filters,false).map(r => JSON.parse(r.value)),
         entries: (filters={}) => scoped(namespace,filters,true).map(r => [r.key,JSON.parse(r.value)]),
+        counts({groupBy,distinct,filters={},excludeStatus}={}){
+          const field=name=>{if(!/^[A-Za-z][A-Za-z0-9_]{0,40}$/.test(name))throw new Error('Invalid count field');return `json_extract(value,'$.${name}')`;};
+          const where=['namespace=?'],args=[namespace];for(const [name,value]of Object.entries(filters)){where.push(`${field(name)}=?`);args.push(value);}if(excludeStatus){where.push("coalesce(json_extract(value,'$.status'),'')!=?");args.push(excludeStatus);}
+          const clause=where.join(' AND ');
+          if(groupBy)return db.prepare(`SELECT ${field(groupBy)} category,count(*) total FROM adoption_state WHERE ${clause} GROUP BY ${field(groupBy)}`).all(...args);
+          return db.prepare(`SELECT count(${distinct?'DISTINCT '+field(distinct):'*'}) total FROM adoption_state WHERE ${clause}`).get(...args).total;
+        },
+        page(options={}) {
+          const request=pageRequest(options),{filters={},searchFields=[],sort='id',descending=false,audienceIds,latest=false,omit=[]}=options;
+          const field=name=>{if(!/^[A-Za-z][A-Za-z0-9_]{0,40}$/.test(name))throw new Error('Invalid page field');return `json_extract(value,'$.${name}')`;};
+          const root=latest?"json_extract(value,'$.versions[#-1]')":'value';
+          const prop=name=>field(name).replace('json_extract(value,',`json_extract(${root},`);
+          const where=['namespace=?'],args=[namespace];
+          for(const [name,value]of Object.entries(filters)){if(typeof value!=='string'||value.length>512)throw new Error('Invalid page scope');where.push(`${field(name)}=?`);args.push(value);}
+          if(audienceIds){if(!Array.isArray(audienceIds)||!audienceIds.length||audienceIds.length>100||audienceIds.some(a=>typeof a!=='string'||a.length>100))throw new Error('Invalid page audience');where.push(`EXISTS (SELECT 1 FROM json_each(adoption_state.value,'$.audienceIds') a WHERE a.value IN (${audienceIds.map(()=>'?').join(',')}))`);args.push(...audienceIds);}
+          if(request.query){if(!searchFields.length||searchFields.length>6)throw new Error('Invalid page search');where.push('('+searchFields.map(name=>`instr(lower(coalesce(${prop(name)},'')),?)>0`).join(' OR ')+')');args.push(...searchFields.map(()=>request.query.toLowerCase()));}
+          const clause=where.join(' AND '),total=db.prepare(`SELECT count(*) n FROM adoption_state WHERE ${clause}`).get(...args).n;
+          const projection=omit.length?`json_remove(${root},${omit.map(name=>{field(name);return `'$.${name}'`;}).join(',')})`:root;
+          const items=db.prepare(`SELECT key,${projection} value FROM adoption_state WHERE ${clause} ORDER BY ${prop(sort)} ${descending?'DESC':'ASC'},key ASC LIMIT ? OFFSET ?`).all(...args,request.limit,request.offset).map(row=>({...(latest?{id:row.key}:{}),...JSON.parse(row.value)}));
+          return {items,pagination:pagination(total,request)};
+        },
       };
     },
     transaction(fn) {

@@ -1,0 +1,18 @@
+{
+  "scope": "Isolated management HTTP/SQLite fixture; 25 websites, 25 concurrent clients, 500 requests, 4000 sources + 4000 recipes + 4000 observed screens. Excludes model/planning latency and production WAN.",
+  "at": "2026-10-18T10:44:01.479Z",
+  "requests": 500,
+  "concurrentClients": 25,
+  "websites": 25,
+  "failures": [],
+  "p95Ms": 115.84,
+  "maxMs": 378.45,
+  "elapsedMs": 1176,
+  "maxResponseBytes": 3947,
+  "rssMiB": 118,
+  "criteria": {
+    "p95Ms": 500,
+    "maxResponseBytes": 131072,
+    "rssMiB": 512
+  }
+}

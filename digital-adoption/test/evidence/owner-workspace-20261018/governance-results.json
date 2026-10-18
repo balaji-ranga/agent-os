@@ -1,0 +1,30 @@
+{
+  "at": "2026-10-18T10:45:42.548Z",
+  "scope": "Isolated synthetic API and owner-auth fixture; browser website 127.0.0.1:4194 only; no real owner analytics enabled",
+  "results": [
+    {
+      "id": "AN01_OWNER_OPT_IN_AND_VISITOR_CONSENT",
+      "status": "passed"
+    },
+    {
+      "id": "AN02_HOST_FIELDS_EXCLUDED_AND_OWNER_METRICS",
+      "status": "passed"
+    },
+    {
+      "id": "PG01_VISITOR_PAIRING_EXPIRY_AND_OWNER_GROUP_LIST",
+      "status": "passed"
+    },
+    {
+      "id": "PG02_OWNER_DIRECT_EXTENSION_AND_VISITOR_NOTIFICATION",
+      "status": "passed"
+    },
+    {
+      "id": "PG03_OWNER_SHORTEN_AND_REVOKE_ALL_GROUP_AUTHORITY",
+      "status": "passed"
+    },
+    {
+      "id": "AN03_VISITOR_OPT_OUT_STOPS_COLLECTION",
+      "status": "passed"
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+import {pageRequest} from './pagination.mjs';
 import { randomUUID, createHash } from 'node:crypto';
 import {cleanRecipeIntent} from './learning-intent.mjs';
 
@@ -96,6 +97,7 @@ export function createLearningStore(repository, { clock = Date.now } = {}) {
         return saveVersion(recipe,{...target,status:'published',validated:true,rollbackOf:target.version});
       });
     },
+    page(scope,input={}){maintainer(scope);const out=recipes.page({...pageRequest(input),filters:{scope:scopeKey(scope)},searchFields:['title','status'],sort:'updatedAt',descending:true,latest:true});return {recipes:out.items,pagination:out.pagination};},
     list(scope) {
       const key = scopeKey(scope);
       return recipes.values({scope:key}).map(r => ({ id: r.id, ...r.versions.at(-1) }))
