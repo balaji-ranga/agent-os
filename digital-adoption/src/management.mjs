@@ -10,7 +10,8 @@ export function createManagement({authenticate,control,knowledge,search,platform
    if(path.endsWith('/email-snippet'))return registrationEmail.deliver(actor,input.id);
    throw new Error('Unsupported email operation');
   }
-  if(path==='/v1/manage/websites')return {actor:{role:actor.role},websites:control.list(actor)};
+  if(path==='/v1/manage/websites')return {actor:{role:actor.role},websites:control.list(actor,{id:input.id})};
+  if(path==='/v1/manage/admin-websites')return control.inventory(actor,input);
   if(path==='/v1/manage/transfer-owner')return control.transfer(actor,input.id,input);
   if(path==='/v1/manage/register')return control.register(actor,{origin:input.origin,environment:input.environment,operationId:input.operationId});
   if(path==='/v1/manage/verify')return control.verify(actor,input.id);

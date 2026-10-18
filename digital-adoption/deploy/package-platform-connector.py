@@ -5,6 +5,8 @@ if not re.fullmatch(r'[A-Za-z0-9_-]{1,80}',args.release): parser.error('Invalid 
 repo=pathlib.Path(__file__).resolve().parents[2]
 base_commit=subprocess.check_output(['git','-C',str(repo),'rev-parse','--verify','--end-of-options',args.base_ref+'^{commit}'],text=True).strip()
 paths=['backend/src/index.js','backend/src/routes/digital-adoption.js','backend/src/routes/openconnector.js','backend/src/routes/tools.js','backend/src/services/action-policy.js','backend/src/services/agent-workflow-runner.js','backend/src/services/agent-workflow-desktop-runtime.js','backend/src/services/agent-workflow-run-manager.js','backend/src/services/connector-action-grants.js','backend/src/services/openconnector.js','backend/src/services/org-permissions.js','backend/src/services/digital-adoption-connector-core.js','backend/src/services/digital-adoption-connector.js','frontend/src/api.js','frontend/src/pages/AgentWorkflowEditor.jsx','frontend/src/components/workflow/CopilotConnectorFields.jsx']
+paths += ['backend/src/routes/admin.js','backend/src/routes/admin-copilot-quality.js','backend/src/services/copilot-quality-settings.js','frontend/src/pages/Admin.jsx','frontend/src/pages/AdminModels.jsx','frontend/src/components/CopilotQualityControls.jsx']
+paths += ['frontend/src/App.jsx','frontend/src/components/AppNavMenu.jsx','frontend/src/pages/AdminDigitalAdoption.jsx']
 out=repo/'digital-adoption/.local'/f'platform-connector-{args.release}.tar.gz'
 with out.open('xb') as destination:
  with tarfile.open(fileobj=destination,mode='w:gz') as archive:

@@ -5,6 +5,7 @@ import { useAuth, RequireAuth } from '../context/AuthContext';
 import ActionFeedbackBanner from '../components/ActionFeedbackBanner';
 import IsoCountryRegionSelect from '../components/IsoCountryRegionSelect.jsx';
 import { useActionFeedback } from '../hooks/useActionFeedback';
+import CopilotQualityControls from '../components/CopilotQualityControls.jsx';
 
 const USERS_PAGE_SIZE = 10;
 
@@ -415,6 +416,7 @@ function AdminPanel() {
   return (
     <div className="mcp-pg">
       <ActionFeedbackBanner feedback={feedback} onDismiss={clearFeedback} />
+      <CopilotQualityControls />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
         <h1 style={{ margin: 0 }}>Admin</h1>
         <div className="admin-toolbar" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>

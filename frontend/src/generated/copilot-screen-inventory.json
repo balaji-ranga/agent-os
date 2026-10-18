@@ -314,12 +314,7 @@
       "source": "components/AppNavMenu.jsx",
       "form_count": 0,
       "forms": [],
-      "links": [
-        {
-          "route": "/free-tools/digital-adoption/manage.html",
-          "label": ""
-        }
-      ],
+      "links": [],
       "headings": [],
       "controls": []
     },
@@ -1262,6 +1257,47 @@
           "conditional": true,
           "readonly": false,
           "mode": "guided"
+        }
+      ]
+    },
+    {
+      "source": "components/CopilotQualityControls.jsx",
+      "form_count": 0,
+      "forms": [],
+      "links": [],
+      "headings": [
+        "Digital Adoption copilot review"
+      ],
+      "controls": [
+        {
+          "id": "components/CopilotQualityControls.jsx:20:13",
+          "label": "Enable maker/checker for all copilots",
+          "type": "checkbox",
+          "required": false,
+          "conditional": false,
+          "readonly": false,
+          "mode": "guided"
+        },
+        {
+          "id": "components/CopilotQualityControls.jsx:21:75",
+          "label": "Checker route",
+          "type": "select",
+          "required": false,
+          "conditional": false,
+          "readonly": false,
+          "mode": "guided",
+          "options": "Use the live authorized options shown on this screen.",
+          "source_options": [
+            {
+              "value": "platform_inactive",
+              "label": "Inactive platform model slot"
+            },
+            {
+              "value": "ollama_reasoning",
+              "label": "Ollama reasoning (efficiency)"
+            }
+          ],
+          "options_authority": "live_options_required"
         }
       ]
     },
@@ -4314,35 +4350,35 @@
       "form_count": 5,
       "forms": [
         {
-          "id": "pages/Admin.jsx:553:8",
+          "id": "pages/Admin.jsx:555:8",
           "label": "Form 1",
           "submission": "manual_user_action",
           "validation": "existing_form_and_server",
           "conditional": false
         },
         {
-          "id": "pages/Admin.jsx:795:10",
+          "id": "pages/Admin.jsx:797:10",
           "label": "Form 2",
           "submission": "manual_user_action",
           "validation": "existing_form_and_server",
           "conditional": false
         },
         {
-          "id": "pages/Admin.jsx:979:8",
+          "id": "pages/Admin.jsx:981:8",
           "label": "Form 3",
           "submission": "manual_user_action",
           "validation": "existing_form_and_server",
           "conditional": false
         },
         {
-          "id": "pages/Admin.jsx:1216:8",
+          "id": "pages/Admin.jsx:1218:8",
           "label": "Form 4",
           "submission": "manual_user_action",
           "validation": "existing_form_and_server",
           "conditional": false
         },
         {
-          "id": "pages/Admin.jsx:1352:8",
+          "id": "pages/Admin.jsx:1354:8",
           "label": "Form 5",
           "submission": "manual_user_action",
           "validation": "existing_form_and_server",
@@ -4394,11 +4430,11 @@
       ],
       "controls": [
         {
-          "id": "pages/Admin.jsx:559:12",
+          "id": "pages/Admin.jsx:561:12",
           "label": "Source company (successful CEOs)",
           "type": "select",
           "required": false,
-          "form_id": "pages/Admin.jsx:553:8",
+          "form_id": "pages/Admin.jsx:555:8",
           "conditional": false,
           "readonly": false,
           "mode": "guided",
@@ -4412,11 +4448,11 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/Admin.jsx:585:12",
+          "id": "pages/Admin.jsx:587:12",
           "label": "Industry",
           "type": "select",
           "required": false,
-          "form_id": "pages/Admin.jsx:553:8",
+          "form_id": "pages/Admin.jsx:555:8",
           "conditional": false,
           "readonly": false,
           "mode": "guided",
@@ -4425,37 +4461,37 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/Admin.jsx:599:12",
+          "id": "pages/Admin.jsx:601:12",
           "label": "Blueprint name",
           "type": "text",
           "required": true,
-          "form_id": "pages/Admin.jsx:553:8",
+          "form_id": "pages/Admin.jsx:555:8",
           "conditional": false,
           "readonly": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Admin.jsx:608:12",
+          "id": "pages/Admin.jsx:610:12",
           "label": "Description",
           "type": "textarea",
           "required": false,
-          "form_id": "pages/Admin.jsx:553:8",
+          "form_id": "pages/Admin.jsx:555:8",
           "conditional": false,
           "readonly": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Admin.jsx:616:12",
+          "id": "pages/Admin.jsx:618:12",
           "label": "Set as default for industry",
           "type": "checkbox",
           "required": false,
-          "form_id": "pages/Admin.jsx:553:8",
+          "form_id": "pages/Admin.jsx:555:8",
           "conditional": false,
           "readonly": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Admin.jsx:703:12",
+          "id": "pages/Admin.jsx:705:12",
           "label": "Search users",
           "type": "search",
           "required": false,
@@ -4464,52 +4500,52 @@
           "mode": "guided"
         },
         {
-          "id": "pages/Admin.jsx:796:12",
+          "id": "pages/Admin.jsx:798:12",
           "label": "Name",
           "type": "text",
           "required": true,
-          "form_id": "pages/Admin.jsx:795:10",
+          "form_id": "pages/Admin.jsx:797:10",
           "conditional": false,
           "readonly": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Admin.jsx:797:12",
+          "id": "pages/Admin.jsx:799:12",
           "label": "Email",
           "type": "email",
           "required": true,
-          "form_id": "pages/Admin.jsx:795:10",
+          "form_id": "pages/Admin.jsx:797:10",
           "conditional": false,
           "readonly": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Admin.jsx:798:12",
+          "id": "pages/Admin.jsx:800:12",
           "label": "Password",
           "type": "password",
           "required": true,
-          "form_id": "pages/Admin.jsx:795:10",
+          "form_id": "pages/Admin.jsx:797:10",
           "conditional": false,
           "readonly": false,
           "mode": "guided",
           "user_only": true
         },
         {
-          "id": "pages/Admin.jsx:807:12",
+          "id": "pages/Admin.jsx:809:12",
           "label": "Mobile",
           "type": "text",
           "required": false,
-          "form_id": "pages/Admin.jsx:795:10",
+          "form_id": "pages/Admin.jsx:797:10",
           "conditional": false,
           "readonly": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Admin.jsx:808:12",
+          "id": "pages/Admin.jsx:810:12",
           "label": "Unlabelled or dynamically labelled control",
           "type": "select",
           "required": false,
-          "form_id": "pages/Admin.jsx:795:10",
+          "form_id": "pages/Admin.jsx:797:10",
           "conditional": false,
           "readonly": false,
           "mode": "guided",
@@ -4527,7 +4563,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/Admin.jsx:906:20",
+          "id": "pages/Admin.jsx:908:20",
           "label": "Unlabelled or dynamically labelled control",
           "type": "email",
           "required": false,
@@ -4536,37 +4572,37 @@
           "mode": "guided"
         },
         {
-          "id": "pages/Admin.jsx:1003:12",
+          "id": "pages/Admin.jsx:1005:12",
           "label": "Name",
           "type": "text",
           "required": false,
-          "form_id": "pages/Admin.jsx:979:8",
+          "form_id": "pages/Admin.jsx:981:8",
           "conditional": false,
           "readonly": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Admin.jsx:1011:12",
+          "id": "pages/Admin.jsx:1013:12",
           "label": "Description",
           "type": "text",
           "required": false,
-          "form_id": "pages/Admin.jsx:979:8",
+          "form_id": "pages/Admin.jsx:981:8",
           "conditional": false,
           "readonly": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Admin.jsx:1018:12",
+          "id": "pages/Admin.jsx:1020:12",
           "label": "Publish now",
           "type": "checkbox",
           "required": false,
-          "form_id": "pages/Admin.jsx:979:8",
+          "form_id": "pages/Admin.jsx:981:8",
           "conditional": false,
           "readonly": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Admin.jsx:1157:12",
+          "id": "pages/Admin.jsx:1159:12",
           "label": "Unlabelled or dynamically labelled control",
           "type": "textarea",
           "required": false,
@@ -4575,132 +4611,132 @@
           "mode": "guided"
         },
         {
-          "id": "pages/Admin.jsx:1220:14",
+          "id": "pages/Admin.jsx:1222:14",
           "label": "All enabled CEOs ( )",
           "type": "radio",
           "required": false,
-          "form_id": "pages/Admin.jsx:1216:8",
+          "form_id": "pages/Admin.jsx:1218:8",
           "conditional": false,
           "readonly": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Admin.jsx:1229:14",
+          "id": "pages/Admin.jsx:1231:14",
           "label": "Selected CEOs",
           "type": "radio",
           "required": false,
-          "form_id": "pages/Admin.jsx:1216:8",
+          "form_id": "pages/Admin.jsx:1218:8",
           "conditional": false,
           "readonly": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Admin.jsx:1253:18",
+          "id": "pages/Admin.jsx:1255:18",
           "label": "( )",
           "type": "checkbox",
           "required": false,
-          "form_id": "pages/Admin.jsx:1216:8",
+          "form_id": "pages/Admin.jsx:1218:8",
           "conditional": true,
           "readonly": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Admin.jsx:1269:12",
+          "id": "pages/Admin.jsx:1271:12",
           "label": "Overwrite SOUL / MEMORY / IDENTITY from templates",
           "type": "checkbox",
           "required": false,
-          "form_id": "pages/Admin.jsx:1216:8",
+          "form_id": "pages/Admin.jsx:1218:8",
           "conditional": false,
           "readonly": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Admin.jsx:1277:12",
+          "id": "pages/Admin.jsx:1279:12",
           "label": "Rebuild ORG.md (and COO AGENTS.md) per CEO",
           "type": "checkbox",
           "required": false,
-          "form_id": "pages/Admin.jsx:1216:8",
+          "form_id": "pages/Admin.jsx:1218:8",
           "conditional": false,
           "readonly": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Admin.jsx:1285:12",
+          "id": "pages/Admin.jsx:1287:12",
           "label": "Re-grant lean default agent entitlements",
           "type": "checkbox",
           "required": false,
-          "form_id": "pages/Admin.jsx:1216:8",
+          "form_id": "pages/Admin.jsx:1218:8",
           "conditional": false,
           "readonly": false,
           "mode": "guided",
           "user_only": true
         },
         {
-          "id": "pages/Admin.jsx:1293:12",
+          "id": "pages/Admin.jsx:1295:12",
           "label": "Re-ensure Business Core prefabs + MC workflows when Profile has CRM/ERP",
           "type": "checkbox",
           "required": false,
-          "form_id": "pages/Admin.jsx:1216:8",
+          "form_id": "pages/Admin.jsx:1218:8",
           "conditional": false,
           "readonly": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Admin.jsx:1353:10",
+          "id": "pages/Admin.jsx:1355:10",
           "label": "Title",
           "type": "text",
           "required": true,
-          "form_id": "pages/Admin.jsx:1352:8",
+          "form_id": "pages/Admin.jsx:1354:8",
           "conditional": false,
           "readonly": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Admin.jsx:1360:10",
+          "id": "pages/Admin.jsx:1362:10",
           "label": "Message (optional)",
           "type": "textarea",
           "required": false,
-          "form_id": "pages/Admin.jsx:1352:8",
+          "form_id": "pages/Admin.jsx:1354:8",
           "conditional": false,
           "readonly": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Admin.jsx:1367:10",
+          "id": "pages/Admin.jsx:1369:10",
           "label": "Link URL (optional, e.g. /workflows or https://…)",
           "type": "text",
           "required": false,
-          "form_id": "pages/Admin.jsx:1352:8",
+          "form_id": "pages/Admin.jsx:1354:8",
           "conditional": false,
           "readonly": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Admin.jsx:1376:14",
+          "id": "pages/Admin.jsx:1378:14",
           "label": "All enabled users ( )",
           "type": "radio",
           "required": false,
-          "form_id": "pages/Admin.jsx:1352:8",
+          "form_id": "pages/Admin.jsx:1354:8",
           "conditional": false,
           "readonly": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Admin.jsx:1385:14",
+          "id": "pages/Admin.jsx:1387:14",
           "label": "Selected users",
           "type": "radio",
           "required": false,
-          "form_id": "pages/Admin.jsx:1352:8",
+          "form_id": "pages/Admin.jsx:1354:8",
           "conditional": false,
           "readonly": false,
           "mode": "guided"
         },
         {
-          "id": "pages/Admin.jsx:1409:18",
+          "id": "pages/Admin.jsx:1411:18",
           "label": "( )",
           "type": "checkbox",
           "required": false,
-          "form_id": "pages/Admin.jsx:1352:8",
+          "form_id": "pages/Admin.jsx:1354:8",
           "conditional": true,
           "readonly": false,
           "mode": "guided"
@@ -4863,6 +4899,58 @@
       ]
     },
     {
+      "source": "pages/AdminDigitalAdoption.jsx",
+      "form_count": 1,
+      "forms": [
+        {
+          "id": "pages/AdminDigitalAdoption.jsx:16:6",
+          "label": "Form 1",
+          "submission": "manual_user_action",
+          "validation": "existing_form_and_server",
+          "conditional": false
+        }
+      ],
+      "links": [
+        {
+          "route": "/free-tools/digital-adoption/manage.html",
+          "label": "Open registration management"
+        },
+        {
+          "route": "/admin/models",
+          "label": "Model routing and review settings"
+        }
+      ],
+      "headings": [
+        "Digital Adoption websites"
+      ],
+      "controls": [
+        {
+          "id": "pages/AdminDigitalAdoption.jsx:16:65",
+          "label": "Search websites or owner ID",
+          "type": "search",
+          "required": false,
+          "maxLength": 200,
+          "form_id": "pages/AdminDigitalAdoption.jsx:16:6",
+          "conditional": false,
+          "readonly": false,
+          "mode": "guided"
+        },
+        {
+          "id": "pages/AdminDigitalAdoption.jsx:16:196",
+          "label": "Registration status",
+          "type": "select",
+          "required": false,
+          "form_id": "pages/AdminDigitalAdoption.jsx:16:6",
+          "conditional": false,
+          "readonly": false,
+          "mode": "guided",
+          "options": "Use the live authorized options shown on this screen.",
+          "source_options": [],
+          "options_authority": "live_options_required"
+        }
+      ]
+    },
+    {
       "source": "pages/AdminMcpUniverse.jsx",
       "form_count": 0,
       "forms": [],
@@ -4888,7 +4976,7 @@
       ],
       "controls": [
         {
-          "id": "pages/AdminModels.jsx:127:16",
+          "id": "pages/AdminModels.jsx:129:16",
           "label": "Primary deployment",
           "type": "select",
           "required": false,
@@ -4900,7 +4988,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/AdminModels.jsx:137:16",
+          "id": "pages/AdminModels.jsx:139:16",
           "label": "Fallback policy (managed by gateway)",
           "type": "select",
           "required": false,
@@ -4917,7 +5005,7 @@
           "options_authority": "live_options_required"
         },
         {
-          "id": "pages/AdminModels.jsx:165:16",
+          "id": "pages/AdminModels.jsx:167:16",
           "label": "seconds",
           "type": "number",
           "required": false,
@@ -14116,6 +14204,7 @@
     {
       "path": "/admin",
       "modules": [
+        "components/CopilotQualityControls.jsx",
         "components/IsoCountryRegionSelect.jsx",
         "pages/Admin.jsx"
       ]
@@ -14133,6 +14222,13 @@
       ]
     },
     {
+      "path": "/admin/digital-adoption",
+      "modules": [
+        "components/CopilotQualityControls.jsx",
+        "pages/AdminDigitalAdoption.jsx"
+      ]
+    },
+    {
       "path": "/admin/documents-rag",
       "modules": [
         "pages/AdminPlatformDocuments.jsx"
@@ -14147,6 +14243,7 @@
     {
       "path": "/admin/models",
       "modules": [
+        "components/CopilotQualityControls.jsx",
         "components/EfficiencyControls.jsx",
         "pages/AdminModels.jsx"
       ]

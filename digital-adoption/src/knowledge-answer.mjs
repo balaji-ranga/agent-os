@@ -1,3 +1,4 @@
+import {readModelResponse} from './model-response.mjs';
 import {copySupportingQuote} from './evidence-quotation.mjs';
 export function createKnowledgeAnswer({gatewayUrl,serviceToken,fetchImpl=fetch}){
  const endpoint=new URL(gatewayUrl);
@@ -24,8 +25,8 @@ export function createKnowledgeAnswer({gatewayUrl,serviceToken,fetchImpl=fetch})
   for(let attempt=0;attempt<2;attempt++){
    let response;try{response=await fetchImpl(endpoint,{method:'POST',redirect:'error',signal:AbortSignal.timeout(Math.max(1,deadline-Date.now())),headers:{Authorization:`Bearer ${serviceToken}`,'Content-Type':'application/json'},body:makeBody(selected,quotationHelp)});
    }catch{throw new Error('Knowledge model unavailable');}
-   if(!response.ok)throw new Error('Knowledge model unavailable');
-   let answer;try{const payload=await response.json();answer=JSON.parse(payload.content);}catch{}
+   const payload=await readModelResponse(response,'Knowledge model unavailable');
+   let answer;try{answer=JSON.parse(payload.content);}catch{}
    const envelope=answer&&typeof answer==='object'&&!Array.isArray(answer)&&['supported','insufficient'].includes(answer.evidenceStatus)&&typeof answer.message==='string'&&answer.message.length<=8000&&Array.isArray(answer.citations)&&answer.citations.length<=12;
    if(envelope&&answer.evidenceStatus==='insufficient')return {message:'I could not support an answer with the retrieved evidence. Try a more specific question or source title.',citations:[],kind:'no_evidence'};
    if(envelope&&answer.citations.length===0)return {message:'I could not support an answer with the retrieved evidence. Try a more specific question or source title.',citations:[],kind:'no_evidence'};

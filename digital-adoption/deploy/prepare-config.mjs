@@ -6,7 +6,7 @@ const env=Object.fromEntries(inspection.Config.Env.map(line=>{const at=line.inde
 const path='/config/gateway.json';
 const previous=existsSync(path)?JSON.parse(readFileSync(path,'utf8')):{};
 const serviceToken=previous.serviceToken||randomBytes(48).toString('base64url');
-const gateway={serviceToken,primary:{baseUrl:env.OPENAI_BASE_URL||env.OPENAI_PRIMARY_BASE_URL,apiKey:env.OPENAI_API_KEY||env.OPENAI_PRIMARY_API_KEY,model:env.OPENAI_PRIMARY_MODEL},secondary:{baseUrl:env.OPENAI_SECONDARY_BASE_URL,apiKey:env.OPENAI_SECONDARY_API_KEY,model:env.OPENAI_SECONDARY_MODEL}};
+const gateway={serviceToken,primary:{baseUrl:env.OPENAI_BASE_URL||env.OPENAI_PRIMARY_BASE_URL,apiKey:env.OPENAI_API_KEY||env.OPENAI_PRIMARY_API_KEY,model:env.OPENAI_PRIMARY_MODEL},secondary:{baseUrl:env.OPENAI_SECONDARY_BASE_URL,apiKey:env.OPENAI_SECONDARY_API_KEY,model:env.OPENAI_SECONDARY_MODEL},ollamaReasoning:{apiKey:env.OLLAMA_API_KEY||'ollama',threads:Math.max(1,Math.min(8,Number(env.OLLAMA_EFFICIENCY_THREADS)||2)),concurrency:Math.max(1,Math.min(16,Number(env.ADOPTION_CHECKER_LOCAL_CONCURRENCY||previous.ollamaReasoning?.concurrency)||1))}};
 writeFileSync(path,JSON.stringify(gateway),{mode:0o600});
 const search={url:env.OPENSEARCH_URL,authorization:env.OPENSEARCH_USERNAME&&env.OPENSEARCH_PASSWORD?'Basic '+Buffer.from(`${env.OPENSEARCH_USERNAME}:${env.OPENSEARCH_PASSWORD}`).toString('base64'):undefined};
 const mail={host:env.WORKFLOW_SMTP_HOST,port:Number(env.WORKFLOW_SMTP_PORT||587),secure:['1','true'].includes(env.WORKFLOW_SMTP_SECURE),user:env.WORKFLOW_SMTP_USER,pass:env.WORKFLOW_SMTP_PASS,from:env.WORKFLOW_SMTP_FROM||env.WORKFLOW_SMTP_USER};

@@ -45,6 +45,7 @@ import AdminPromotions from './pages/AdminPromotions';
 import AdminMcpUniverse from './pages/AdminMcpUniverse';
 import AdminSkills from './pages/AdminSkills';
 import AdminModels from './pages/AdminModels';
+import AdminDigitalAdoption from './pages/AdminDigitalAdoption';
 import McpIntegrations from './pages/McpIntegrations';
 import CustomScripts from './pages/CustomScripts';
 import ExternalAgents from './pages/ExternalAgents';
@@ -482,6 +483,7 @@ function Shell() {
                 <Route path="/admin/mcp-universe" element={<AdminMcpUniverse />} />
                 <Route path="/admin/skills" element={<AdminSkills />} />
                 <Route path="/admin/models" element={<AdminModels />} />
+                <Route path="/admin/digital-adoption" element={<AdminDigitalAdoption />} />
                 <Route path="/integrations/mcp/*" element={<McpIntegrations />} />
                 <Route path="/integrations/custom-scripts" element={<CustomScripts />} />
                 <Route path="/integrations/external-agents" element={<ExternalAgents />} />

@@ -47,7 +47,8 @@ function reviewAction(label,explanation,action){
  form.onsubmit=event=>{event.preventDefault();if(!checkbox.checked)return;submit.disabled=true;run(action).finally(()=>{submit.disabled=false;});};return details;
 }
 async function refresh(){
- const previousWebsite=document.querySelector('#website').value;const result=await call('websites');websiteChoices=result.websites;const list=document.querySelector('#websites'),select=document.querySelector('#website'),emailSelect=document.querySelector('#email-website');list.replaceChildren();select.replaceChildren();emailSelect.replaceChildren();
+ const requestedWebsite=new URL(location.href).searchParams.get('website')||undefined,previousWebsite=document.querySelector('#website').value||requestedWebsite;const result=await call('websites',requestedWebsite?{id:requestedWebsite}:{});websiteChoices=result.websites;const list=document.querySelector('#websites'),select=document.querySelector('#website'),emailSelect=document.querySelector('#email-website');list.replaceChildren();select.replaceChildren();emailSelect.replaceChildren();
+ document.querySelector('#identity-help').textContent=result.actor?.role==='platform_admin'?'Platform administrator: registrations across website owners. Selected website knowledge and visitor permissions remain separate.':'Website owner: only your authorized registrations are shown. Website ownership verification and platform approval are separate.';
  content.hidden=false;login.hidden=true;document.querySelector('#owner-logout').hidden=!ownerMode;
  for(const site of result.websites){
   const emailOption=document.createElement('option');emailOption.value=site.id;emailOption.textContent=websiteLabel(site);emailSelect.append(emailOption);

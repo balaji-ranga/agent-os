@@ -226,6 +226,9 @@ export function AdminNavMenu({ collapsed }) {
       >
         {collapsed ? 'MR' : 'Models & routing'}
       </NavLink>
+      <NavLink to="/admin/digital-adoption" className={({isActive})=>`nav-link${isActive?' active':''}`} title="Platform-wide Digital Adoption websites">
+        {collapsed ? 'DA' : 'Digital Adoption websites'}
+      </NavLink>
       <NavLink
         to="/admin/documents-rag"
         className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
@@ -278,9 +281,6 @@ export function AdminNavMenu({ collapsed }) {
       >
         {collapsed ? 'MU' : 'MCP Universe'}
       </NavLink>
-      <a className="nav-link" href="/free-tools/digital-adoption/manage.html" title="Digital Adoption websites and tokens">
-        {collapsed ? 'DA' : 'Digital Adoption Copilot'}
-      </a>
 
       <NavSection title="Company Tools" collapsed={collapsed}>
         <NavItem to="/connectors" title="Connectors" collapsed={collapsed} label="Connectors" short="Cn" />

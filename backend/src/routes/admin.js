@@ -82,6 +82,7 @@ import {
 import { listPlatformTimeouts, updatePlatformTimeouts } from '../services/platform-timeout-settings.js';
 import { writeOpenClawToolsList } from '../services/content-tools-meta.js';
 import { adminEfficiencyControls } from './efficiency-controls.js';
+import adminCopilotQuality from './admin-copilot-quality.js';
 import {
   listAdminScheduledActivities,
   mutateAdminScheduledActivities,
@@ -92,6 +93,7 @@ const router = Router();
 router.use(attachAuthUser);
 router.use(requireRole('admin'));
 router.use('/models/efficiency', adminEfficiencyControls);
+router.use('/copilot-quality', adminCopilotQuality);
 ensurePlatformSettingsTable();
 ensureModelRoutingTables();
 

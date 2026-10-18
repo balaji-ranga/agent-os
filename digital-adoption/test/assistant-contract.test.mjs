@@ -42,6 +42,6 @@ test('prior assistant proposals are quoted context, and a matching current form 
 
 test('comma-and assignments resolve all explicit fields without model inference or unrelated writes',async()=>{
  const current={revision:1,path:'/dispatch',fields:[{ref:'r1f0',label:'Office code',type:'text'},{ref:'r1f1',label:'Desk zone',type:'text'},{ref:'r1f2',label:'Shift',type:'text'},{ref:'r1f3',label:'Unrelated note',type:'text'}],links:[]};
- const planner=createPlatformPlanner({gatewayUrl:'https://model.example.com/gateway',serviceToken:'synthetic-service-token-for-contract-testing',fetchImpl:async()=>{throw new Error('No model inference required');}});
+ const planner=createPlatformPlanner({gatewayUrl:'https://model.example.com/gateway',serviceToken:'synthetic-service-token-for-contract-testing',fetchImpl:async(_,{body})=>{const input=JSON.parse(body);assert.equal(input.purpose,'digital_adoption_review');return {ok:true,json:async()=>({content:JSON.stringify(input.draft),quality:{enabled:false}})};}});
  const result=await planner({text:'Set office code to A, desk zone to West, and shift to Night.',snapshot:current});assert.deepEqual(result.actions.map(a=>[a.ref,a.value]),[['r1f0','A'],['r1f1','West'],['r1f2','Night']]);
 });

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api';
 import { formatLocalDateTime } from '../utils/formatDateTime.js';
 import { AdminEfficiencyControls } from '../components/EfficiencyControls.jsx';
+import CopilotQualityControls from '../components/CopilotQualityControls.jsx';
 
 export default function AdminModels() {
   const [data, setData] = useState(null);
@@ -95,6 +96,7 @@ export default function AdminModels() {
 
       {message && <div className="success-message" role="status">{message}</div>}
       {error && <div className="error-message" role="alert">{error}</div>}
+      <CopilotQualityControls />
 
       <section className="panel model-router-status">
         <div>

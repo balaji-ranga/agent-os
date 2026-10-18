@@ -156,3 +156,21 @@ latency and does not extend the earlier measured envelope to sustained load
 or multi-coordinator HA. I changes only client constraint validation and owner
 capability wording; no new backend scale claim is inferred. The JSON source is
 `test/evidence/feedback-20261018/capacity-vps.json`.
+
+## Copilot maker/checker capacity
+
+The Admin review switch applies globally to new Digital Adoption model requests.
+Disabled mode adds no checker inference. Enabled mode makes one sequential
+checker call, with at most one maker revision and one final checker call. A
+shared 38-second gateway deadline and client cancellation bound the entire
+gateway operation; requests never fall back to unreviewed execution.
+
+The optional local reasoning checker uses the registered `ollama-reasoning`
+deployment, native JSON/thinking output and no hosted fallback. Its per-gateway
+admission limit defaults to one request, with no waiting queue. Tune
+`ollamaReasoning.concurrency` (1–16) in persistent `config/gateway.json` to the
+actual Ollama host capacity; `threads` (1–8) defaults to two. Configuration
+preparation preserves an existing custom concurrency value. Additional gateway
+replicas multiply this local admission budget and must be sized against the
+shared inference host. These bounds do not demonstrate 25 concurrent reasoning
+checks or sustained model latency; benchmark the selected models before sizing.

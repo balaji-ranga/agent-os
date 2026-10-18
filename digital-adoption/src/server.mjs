@@ -275,7 +275,7 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
       if(path==='/v1/learning/complete'&&result?.created===true&&requestScope)analytics?.fact(requestScope,{kind:'verified_save_learning',status:'ok'});
       return send(200, result);
     } catch (error) {
-      const unavailable=['Platform model unavailable','Knowledge model unavailable','Search operation failed','Search provisioning check failed','Management identity unavailable'].includes(error.message)||['ERR_SQLITE_ERROR','SQLITE_BUSY','SQLITE_IOERR','ENOSPC','EROFS','EIO','EMFILE','ENFILE'].includes(error.code)||error.code==='ERR_INVALID_STATE'&&/database|statement/i.test(error.message);
+      const unavailable=['COPILOT_CHECKER_UNAVAILABLE','COPILOT_REVIEW_FAILED'].includes(error.publicCode)||['Platform model unavailable','Knowledge model unavailable','Search operation failed','Search provisioning check failed','Management identity unavailable'].includes(error.message)||['ERR_SQLITE_ERROR','SQLITE_BUSY','SQLITE_IOERR','ENOSPC','EROFS','EIO','EMFILE','ENFILE'].includes(error.code)||error.code==='ERR_INVALID_STATE'&&/database|statement/i.test(error.message);
       const invalidResponse=['Invalid platform model response','Invalid evidence citations','The assistant could not produce a valid current-screen proposal. Nothing was changed.'].includes(error.message);
       const code = error.message === 'Request too large' ? 413 : error.publicCode==='OWNER_CODE_COOLDOWN'||error.message==='Request rate exceeded'||error.message==='Request capacity reached'?429:unavailable?503:invalidResponse?502:403;
       if(code===429)res.setHeader('Retry-After',error.publicCode==='OWNER_CODE_COOLDOWN'?String(error.retryAfter):error.message==='Request rate exceeded'?'60':'2');

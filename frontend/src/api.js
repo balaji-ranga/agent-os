@@ -941,6 +941,9 @@ export const api = {
   adminSendNotifications: (body) => post('/admin/notifications', body),
   adminRefreshDefaultAgents: (body) => post('/admin/default-agents/refresh', body),
   adminPlatformLlmGet: () => get('/admin/platform-llm'),
+  adminCopilotQualityGet: () => get('/admin/copilot-quality'),
+  adminDigitalAdoptionWebsites: (filters) => request(new URL('/free-tools/digital-adoption/v1/manage/admin-websites', window.location.origin).href, { method: 'POST', body: JSON.stringify(filters) }),
+  adminCopilotQualitySave: (settings) => put('/admin/copilot-quality', settings),
   adminPlatformLlmSet: (llm_active_endpoint) =>
     put('/admin/platform-llm', { llm_active_endpoint }),
   adminPlatformTimeoutsGet: () => get('/admin/platform-timeouts'),
