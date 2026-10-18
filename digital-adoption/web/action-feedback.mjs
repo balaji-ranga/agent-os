@@ -6,7 +6,7 @@ export function createActionFeedback(document, { expired = () => false } = {}) {
   notice.setAttribute("aria-live", "polite");
   notice.hidden = true;
   notice.style.cssText =
-    "position:fixed;bottom:8px;left:8px;right:8px;z-index:2147483647;padding:10px;border:1px solid currentColor;border-radius:8px;background:var(--adoption-background,#fff);color:var(--adoption-text,#172440);font:14px system-ui";
+    "position:fixed;bottom:8px;left:8px;right:8px;z-index:2147483647;pointer-events:none;padding:10px;border:1px solid currentColor;border-radius:8px;background:var(--adoption-background,#fff);color:var(--adoption-text,#172440);font:14px system-ui";
   document.body.append(notice);
   let active, timer;
   const report = (message, error = false) => {
@@ -43,7 +43,7 @@ export function createActionFeedback(document, { expired = () => false } = {}) {
   );
   const track = (promise) => {
     const action = active;
-    if (!action) return promise;
+    if (!action || !action.button.isConnected) { if (active === action) active = null; return promise; }
     action.pending++;
     if (!action.observer) {
       action.button.disabled = true;
@@ -80,6 +80,7 @@ export function createActionFeedback(document, { expired = () => false } = {}) {
           if (changes.length)
             action.applicationDisabled = action.button.disabled;
           action.observer.disconnect();
+          if (active === action) active = null;
           if (!action.button.isConnected) return;
           action.button.removeAttribute("aria-busy");
           delete action.button.dataset.actionPending;
@@ -87,7 +88,6 @@ export function createActionFeedback(document, { expired = () => false } = {}) {
             action.button.textContent = action.label;
           action.button.disabled =
             expired() || action.applicationDisabled === true || action.disabled;
-          if (active === action) active = null;
         }, 0);
       });
   };

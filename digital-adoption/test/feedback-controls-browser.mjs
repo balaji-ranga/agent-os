@@ -190,6 +190,15 @@ try {
     await p
       .locator("#action-notice")
       .waitFor({ state: "hidden", timeout: 4000 });
+    await p.evaluate(() => {
+      const b=document.createElement('button');b.id='removed-action';b.textContent='Confirm removed action';
+      b.onclick=async()=>{await window.feedback.track(Promise.resolve());b.remove();};document.body.append(b);
+    });
+    await p.locator('#removed-action').click();
+    await p.locator('#action-notice').waitFor({state:'hidden',timeout:4000});
+    await p.evaluate(()=>window.feedback.track(Promise.resolve('background presence')));
+    assert.equal(await p.locator('#action-notice').isVisible(),false);
+    assert.equal(await p.locator('#action-notice').evaluate(e=>getComputedStyle(e).pointerEvents),'none');
   });
   for (const framework of ["react", "angular"])
     await check(
