@@ -24,6 +24,7 @@ try {
     ensureActionPolicyTables,
     previewActionPolicy,
     upsertActionFamilyPolicies,
+    resolveRiskForTool,
   } = await import('../src/services/action-policy.js');
   ensureActionPolicyTables();
 
@@ -47,6 +48,16 @@ try {
     'privileged destructive semantics take precedence over a read prefix');
   const ownerA = 'ceo-risk-a';
   const ownerB = 'ceo-risk-b';
+  const boundSave='copilot_bound_action|R1|write_internal|digital_adoption.submit';
+  assert.equal(resolveRiskForTool(boundSave,ownerA).action_family,'write_internal',
+    'generic submit-word inference must preserve the exact owner binding');
+  setToolRiskMappingOverride(ownerA,{capability_type:'content_tool',capability_key:boundSave,risk_tier:'R3'});
+  assert.equal(resolveRiskForTool(boundSave,ownerA).risk_tier,'R3','explicit stricter company classification remains effective');
+  setToolRiskMappingOverride(ownerA,{capability_type:'content_tool',capability_key:boundSave,risk_tier:'R0'});
+  assert.equal(resolveRiskForTool(boundSave,ownerA).risk_tier,'R1','company mapping cannot lower the reviewed binding floor');
+  clearToolRiskMappingOverride(ownerA,{capability_type:'content_tool',capability_key:boundSave});
+  assert.equal(resolveRiskForTool('connector_action:digital_adoption.submit',ownerA).risk_tier,'R3',
+    'unbound submission remains conservative');
   let rowsA = listToolRiskMappings(ownerA);
   const critical = rowsA.find((row) => row.capability_id === 'production_secret_rotate');
   assert.equal(critical.risk_tier, 'R4', 'critical privileged operations are interpreted as R4');

@@ -1,3 +1,4 @@
+import {choiceText,requestsChoice} from './choice-intent.mjs';
 // Session-local references: never persist selectors or entered values as shared learning.
 import {createSubmitController} from './form-submit.mjs';
 import {semanticFieldKey} from './semantic.mjs';
@@ -25,22 +26,25 @@ export function createInspector(document) {
   const label = e => (e.getAttribute('aria-label') || Array.from(e.labels || []).map(labelText).join(' ') || e.placeholder || e.name || e.id || '').trim().replace(/\s+/g,' ').slice(0,160);
   let approvedPaths=new Set();
   const submit=createSubmitController(document,{visible,excluded,label});
-  function snapshot({inventory:includeInventory=false}={}) {
+  function snapshot({inventory:includeInventory=false,task=''}={}) {
     cleanupHighlight();
     revision++; references = new Map();navigation=new Map();
     const dialogs = [...document.querySelectorAll('[role="dialog"][aria-modal="true"],dialog[open]')].filter(visible);
     const root = dialogs.length === 1 ? dialogs[0] : document;
     const formIds=new Map(),formKey=form=>{if(!form)return null;if(!formIds.has(form))formIds.set(form,/^[a-zA-Z][a-zA-Z0-9_-]{0,79}$/.test(form.id||'')?form.id:`form_${formIds.size+1}`);return formIds.get(form);};
     for(const form of root.querySelectorAll('form'))if(visible(form)&&!excluded(form))formKey(form);
-    const radioNames=new Set();
+    const radioNames=new Set();let choiceBudget=60;const onlyChoice=[...root.querySelectorAll('select')].filter(e=>visible(e)&&!excluded(e)).length===1;
     const fields = dialogs.length > 1 ? [] : [...root.querySelectorAll('input,textarea,select')]
       .filter(e=>{if(!visible(e)||excluded(e))return false;if(e.type!=='radio')return true;const key=(formKey(e.form)||'')+':'+e.name;if(radioNames.has(key))return false;radioNames.add(key);return true;}).filter(e => supported(e) && !e.readOnly && !/password|secret|token|otp|cvv|credit.?card|api.?key|access.?key|private.?key/i.test(label(e))).slice(0,60).map((e,i) => {
         const ref = `r${revision}f${i}`;
         references.set(ref, { element: e, value: e.value, checked:e.checked, constraints:constraints(e), options:e.options?JSON.stringify([...e.options].map(o=>[o.value,o.text,o.disabled,o.selected])):null, label: label(e), type: controlType(e),radio:e.type==='radio'?[...root.querySelectorAll('input[type=radio]')].filter(r=>r.name===e.name&&r.form===e.form):null,radioState:e.type==='radio'?JSON.stringify([...root.querySelectorAll('input[type=radio]')].filter(r=>r.name===e.name&&r.form===e.form).map(r=>[r.value,r.checked,r.disabled,label(r)])):null });
         const key=semanticFieldKey(e,label(e)),form=formKey(e.form);
-        return { ref, label: e.type==='radio'?(e.closest('fieldset')?.querySelector('legend')?.textContent.trim()||e.name):label(e), type: controlType(e), required: e.required,...(key?{key}:{}),...(form?{form}:{}),
+        const descriptor={ ref, label: e.type==='radio'?(e.closest('fieldset')?.querySelector('legend')?.textContent.trim()||e.name):label(e), type: controlType(e), required: e.required,...(key?{key}:{}),...(form?{form}:{}),
           // No current values or private option text are sent by automatic inspection.
           optionCount: e.options?.length || 0 };
+          // Choice labels are task-scoped evidence, never automatic inspection data.
+          if(choiceBudget&&requestsChoice(task,descriptor,onlyChoice)&&(e.options||e.type==='radio')){const group=references.get(ref).radio,available=(e.options?[...e.options].filter(o=>!o.disabled).map(o=>o.text.trim()):group.filter(o=>visible(o)&&!excluded(o)).map(label)).filter(value=>value&&value.length<=160).slice(0,1000),text=choiceText(task);available.sort((a,b)=>Number(text.includes(choiceText(b)))-Number(text.includes(choiceText(a))));descriptor.choices=available.slice(0,Math.min(20,choiceBudget));choiceBudget-=descriptor.choices.length;if(available.length>descriptor.choices.length)descriptor.choicesTruncated=true;const defaults=e.options?[...e.options].filter(o=>o.defaultSelected&&!o.disabled):[];if(defaults.length===1&&descriptor.choices.includes(defaults[0].text.trim()))descriptor.defaultChoice=defaults[0].text.trim();}
+          return descriptor;
       });
     const links=dialogs.length?[]:[...document.querySelectorAll('a[href]')].filter(e=>visible(e)&&!excluded(e)).flatMap((e,i)=>{
       const url=new URL(e.href,document.location.href);

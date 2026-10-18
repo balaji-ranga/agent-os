@@ -1,3 +1,4 @@
+import {resolveChoice,choiceText} from '../web/choice-intent.mjs';
 // Interpret constraints before any model retry or deterministic fallback.
 export function readOnlyIntent(text) {
   const value = String(text);
@@ -11,7 +12,7 @@ export function readOnlyIntent(text) {
     );
   return (
     !asksToWrite &&
-    (/\b(?:summari[sz]e|explain|describe|inspect|list|show|what|which)\b/i.test(
+    (/\b(?:summari[sz]e|explain|describe|inspect|list|show|what|which|recommend|suggest)\b/i.test(
       value,
     ) ||
       /\b(?:do not|don't|never)\s+(?:fill|populate|change|edit|set)\b/i.test(
@@ -37,6 +38,7 @@ export function groundedValue(value, field, texts) {
     )
   )
     return true;
+  if(field?.choices&&['select-one','radio'].includes(field.type)&&typeof value==='string'&&value.length<=80){const target=choiceText(value),count=target.split(' ').length;for(const source of texts){const words=choiceText(String(source).slice(0,16000)).split(' ');for(let size=Math.max(1,count-1);size<=Math.min(5,count+1);size++)for(let i=0;i+size<=words.length;i++){const candidate=words.slice(i,i+size).join(' ');if(Math.abs(candidate.length-target.length)<=2&&resolveChoice(candidate,field.choices)===value)return true;}}}
   return (
     field?.type === "checkbox" &&
     texts.some(

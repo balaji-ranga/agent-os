@@ -325,3 +325,7 @@ were updated. Workflow/analytics permissions were preserved; no laptop exposure.
 The existing MCP tab visibly opened the copilot after reload. All 225 regression
 tests pass locally and in the deployed image. Earlier six-hour expiry statements
 above describe historical checks and do not represent this renewed lifetime.
+
+Intent runtime `20261018-agentic-e` and platform `adoption-20261018-agentic-b` preserve the seven-day opt-in preview expiry above. No model selection, website identity, public workflow permission or laptop exposure was changed. The platform candidate merged the exact deployed source before building. An isolated policy regression verifies reviewed binding categories, stricter explicit mappings, the binding floor and conservative unbound submissions. All 235 service tests pass in the final deployed image. Run 4064 remains a failed pre-save attempt, and its temporary policy override was removed through the existing owner-scoped cleanup function after browser control stopped responding. Fresh complete workflow UAT remains pending approval; do not certify its saves from the policy preview alone.
+
+Source/evidence publication: `20261018-agentic-g`; runtime stays `20261018-agentic-e`, platform `20261018-agentic-b`. The [incremental UAT table and screenshots](../test/evidence/intent-workflow-20261018/index.html) record 20 passed, 1 partial and 1 failed case. The failed full workflow run is preserved and is not converted to a pass by unit or policy-preview evidence.

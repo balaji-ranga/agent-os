@@ -97,7 +97,7 @@ export function createTaskClient({
         let result;
         try {
           if (hostIdentity) await hostIdentity();
-          const snapshot = inspect();
+          const snapshot = inspect(message.instruction);
           const proposal = await request('/v1/tasks/command-plan', {
             instanceId,
             commandId: message.commandId,

@@ -661,3 +661,7 @@ Reference metric families, reviewed 18 October 2026:
 [Countly cohorts](https://support.countly.com/hc/en-us/articles/25324248147740-Cohorts-Explained).
 These informed the metric vocabulary; this release does not embed either vendor,
 record session playback or claim full product parity.
+
+
+### Task-grounded control choices (18 October 2026)
+Automatic discovery still excludes option labels and current field values. For an explicit task mentioning a native choice control, the browser supplies at most 20 enabled labels per control and 60 overall. These task-scoped hints inform the model and review; they do not enter shared discovery or analytics. Exact labels, singular/plural wording and unambiguous small spelling errors resolve to observed choices. Unknown or ambiguous choices require clarification. Business names, email addresses and amounts remain literal. Recommendations alone do not authorize a fill. Execution rechecks current control state and existing Action Policies.

@@ -1,10 +1,11 @@
+import {resolveChoice} from '../web/choice-intent.mjs';
 // This contract validates proposals; exact-state approval still precedes writes.
 export function responseContract(snapshot){
  const fields=snapshot.fields.length>0,links=snapshot.links.length>0;
  return {output:{message:'string up to 4000 characters',actions:fields||links?'zero to ten action instances':'must be the empty array [] because no actionable live refs exist'},
   allowedActionTypes:[...(fields?['fill','highlight']:[]),...(links?['navigate']:[])],
   actionShapes:{...(fields?{fill:{type:'fill',ref:'exact current field ref',value:'string'},highlight:{type:'highlight',ref:'exact current field ref'}}:{}),...(links?{navigate:{type:'navigate',ref:'exact observed safe link ref; sole action'}}:{})},
-  fields:snapshot.fields.map(({ref,label,type})=>({ref,label,type})),links:snapshot.links,
+  fields:snapshot.fields.map(({ref,label,type,choices,defaultChoice,choicesTruncated})=>({ref,label,type,...(choices?{choices,defaultChoice,choicesTruncated}:{})})),links:snapshot.links,
   policy:'Field refs, link refs, saved route paths and persistent map keys are separate namespaces. A saved path is never an executable ref. If the known destination has no safe live link, return actions:[] and explain in message which known website page the user should open manually. Source-map fields are hints only. Navigate using an observed safe link and inspect the destination before preparing off-screen fields. Never invent refs, options or writes.'};
 }
 export function parseAssistantResponse(content,snapshot){
@@ -22,6 +23,7 @@ export function parseAssistantResponse(content,snapshot){
   }else{
    const field=snapshot.fields.find(f=>f.ref===action.ref);if(!field)throw new Error('unobserved_field');
    if(action.type==='fill'&&(typeof action.value!=='string'||action.value.length>8000||field.type==='checkbox'&&!['true','false'].includes(action.value)))throw new Error('invalid_field_value');
+   if(action.type==='fill'&&field.choices&&['select-one','radio'].includes(field.type)){const value=resolveChoice(action.value,field.choices);if(value===null)throw Object.assign(new Error('unknown_or_ambiguous_choice'),{fieldRef:field.ref});action.value=value;}
   }
  }
  return result;

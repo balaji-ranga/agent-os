@@ -1,0 +1,28 @@
+{
+  "id": 4064,
+  "workflow": "uat-local-customer-note-opportunity-mvdjpzk8",
+  "status": "failed",
+  "steps": [
+    {
+      "node_id": "start",
+      "status": "completed",
+      "error_message": null
+    },
+    {
+      "node_id": "inspect-start",
+      "status": "completed",
+      "error_message": null
+    },
+    {
+      "node_id": "fill-customer",
+      "status": "completed",
+      "error_message": null
+    },
+    {
+      "node_id": "save-customer",
+      "status": "failed",
+      "error_message": "COPILOT_POLICY_BLOCKED"
+    }
+  ],
+  "hostSavesObserved": 0
+}

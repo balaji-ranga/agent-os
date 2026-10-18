@@ -192,6 +192,11 @@ export function resolveRiskForTool(toolName, ownerUserId = null) {
   if (!base) base = explicitRiskForTool(toolName) || { ...inferRiskForTool(toolName), source: 'inferred' };
   if (!ownerUserId) return base;
   const mapped = resolvePolicyToolRiskMapping(ownerUserId, toolName, base);
+  // This name is constructed only by the authenticated copilot bridge from
+  // an exact owner-reviewed binding. Reinterpreting the word "submit" would
+  // discard that classification. Explicit company mappings may raise it;
+  // neither inferred defaults nor lower mappings replace the binding floor.
+  if(copilotBound&&mapped.mapping_source!=='user_override')return base;
   if(copilotBound&&(Number(mapped.risk_tier?.slice(1))<Number(base.risk_tier.slice(1))||mapped.risk_tier===base.risk_tier&&mapped.action_family!==base.action_family))return base;
   return {
     risk_tier: mapped.risk_tier,

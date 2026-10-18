@@ -51,6 +51,7 @@ async function fill(label, value) {
 }
 try {
   await p.goto(origin + "/customer");
+  await p.getByRole("button",{name:"Decline analytics",exact:true}).click({timeout:4000}).catch(()=>{});
   await p
     .getByRole("button", { name: "Add native controls", exact: true })
     .click();

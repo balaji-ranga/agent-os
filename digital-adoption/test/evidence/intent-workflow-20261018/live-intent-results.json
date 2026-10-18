@@ -1,0 +1,46 @@
+{
+  "at": "2026-10-18T08:45:14.196Z",
+  "results": [
+    {
+      "id": "I01_DEFAULT_ALL_TRANSPORT",
+      "status": "passed",
+      "prompt": "Keep the transport default All transport. Do not submit.",
+      "log": "Keep the transport default All transport. Do not submit.\n\nReview these 1 proposed field change. Nothing has been changed yet.↩",
+      "proposal": "transport: All transports\n\nReview before filling. Some websites autosave fields. This does not click Save.\n\nApprove field changesReject changes",
+      "screenshot": "I01_DEFAULT_ALL_TRANSPORT.png"
+    },
+    {
+      "id": "I02_MISSPELLED_FIELD",
+      "status": "passed",
+      "prompt": "Set tranpsort to sse. Do not submit.",
+      "log": "Set tranpsort to sse. Do not submit.\n\nReview these 1 proposed field change. Nothing has been changed yet.↩",
+      "proposal": "transport: sse\n\nReview before filling. Some websites autosave fields. This does not click Save.\n\nApprove field changesReject changes",
+      "screenshot": "I02_MISSPELLED_FIELD.png"
+    },
+    {
+      "id": "I03_NATIVE_MIXED_INTENT",
+      "status": "passed",
+      "prompt": "Set Shipping method to expres and select Include gift wrap. Do not save.",
+      "log": "Set Shipping method to expres and select Include gift wrap. Do not save.\n\nReview these 2 proposed field changes. Nothing has been changed yet.↩",
+      "proposal": "Shipping method: Express\n\nInclude gift wrap: Selected\n\nReview before filling. Some websites autosave fields. This does not click Save.\n\nApprove field changesReject changes",
+      "screenshot": "I03_NATIVE_MIXED_INTENT.png"
+    },
+    {
+      "id": "I04_RECOMMEND_WITHOUT_FILL",
+      "status": "passed",
+      "prompt": "Recommend which transport to use for browsing all integrations. Do not change anything.",
+      "log": "Recommend which transport to use for browsing all integrations. Do not change anything.\n\nFor browsing all integrations, I recommend using the 'All transports' option. Please review this recommendation.↩",
+      "proposal": "",
+      "screenshot": "I04_RECOMMEND_WITHOUT_FILL.png"
+    },
+    {
+      "id": "I05_UNKNOWN_CHOICE_CLARIFICATION",
+      "status": "passed",
+      "prompt": "Set Shipping method to Teleportation. Do not save.",
+      "log": "Set Shipping method to Teleportation. Do not save.\n\nWhich Shipping method option should I use? Available observed choices: Choose, Standard, Express. Nothing has changed.↩",
+      "proposal": "",
+      "screenshot": "I05_UNKNOWN_CHOICE_CLARIFICATION.png"
+    }
+  ],
+  "hostWrites": 0
+}

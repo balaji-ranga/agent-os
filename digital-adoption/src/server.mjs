@@ -8,6 +8,7 @@ import {randomUUID} from 'node:crypto';
 import {attachLiveTransport} from './live-transport.mjs';
 
 const assets = new Map([
+  ['/choice-intent.mjs', ['../web/choice-intent.mjs', 'text/javascript']],
   ['/owner.html', ['../web/manage.html', 'text/html']],
   ['/manage.html', ['../web/manage.html', 'text/html']],
   ['/visitor-analytics.mjs',['../web/visitor-analytics.mjs','text/javascript']],

@@ -1,0 +1,1526 @@
+TAP version 13
+# Subtest: release gate includes F01-F32 and F37-F42, excluding only Phase 3
+ok 1 - release gate includes F01-F32 and F37-F42, excluding only Phase 3
+  ---
+  duration_ms: 0.731725
+  type: 'test'
+  ...
+# Subtest: certification requires complete coverage and uses the latest outcome
+ok 2 - certification requires complete coverage and uses the latest outcome
+  ---
+  duration_ms: 1.028248
+  type: 'test'
+  ...
+# (node:20) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: HTTP action boundary rejects foreign approvals and revocation during planning
+ok 3 - HTTP action boundary rejects foreign approvals and revocation during planning
+  ---
+  duration_ms: 85.062682
+  type: 'test'
+  ...
+# (node:28) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: website lifecycle needs admin reasons, preserves knowledge and never revives revoked credentials
+ok 4 - website lifecycle needs admin reasons, preserves knowledge and never revives revoked credentials
+  ---
+  duration_ms: 7.271133
+  type: 'test'
+  ...
+# Subtest: analytics transport cannot block normal actions or run an effectful endpoint in the background
+ok 5 - analytics transport cannot block normal actions or run an effectful endpoint in the background
+  ---
+  duration_ms: 26.217193
+  type: 'test'
+  ...
+# Subtest: saved destinations without live controls require a manual explanation and no executable action
+ok 6 - saved destinations without live controls require a manual explanation and no executable action
+  ---
+  duration_ms: 4.716393
+  type: 'test'
+  ...
+# Subtest: assistant instances accept whole fences but reject schemas, invented targets, mixed navigation and code
+ok 7 - assistant instances accept whole fences but reject schemas, invented targets, mixed navigation and code
+  ---
+  duration_ms: 0.297805
+  type: 'test'
+  ...
+# Subtest: one bounded repair preserves original request and observed contract; repeated invalid output fails closed
+ok 8 - one bounded repair preserves original request and observed contract; repeated invalid output fails closed
+  ---
+  duration_ms: 4.960097
+  type: 'test'
+  ...
+# Subtest: empty creation proposals get one same-task input recheck, while genuinely missing values remain a clarification
+ok 9 - empty creation proposals get one same-task input recheck, while genuinely missing values remain a clarification
+  ---
+  duration_ms: 1.546694
+  type: 'test'
+  ...
+# Subtest: prior assistant proposals are quoted context, and a matching current form has no unrelated navigation authority
+ok 10 - prior assistant proposals are quoted context, and a matching current form has no unrelated navigation authority
+  ---
+  duration_ms: 0.716681
+  type: 'test'
+  ...
+# Subtest: comma-and assignments resolve all explicit fields without model inference or unrelated writes
+ok 11 - comma-and assignments resolve all explicit fields without model inference or unrelated writes
+  ---
+  duration_ms: 2.23322
+  type: 'test'
+  ...
+# Subtest: bootstrap rate limits remain readable and do not create duplicate sessions
+ok 12 - bootstrap rate limits remain readable and do not create duplicate sessions
+  ---
+  duration_ms: 210.092327
+  type: 'test'
+  ...
+# Subtest: identity outage or unreadable identity data cannot become an authentication denial or anonymous role
+ok 13 - identity outage or unreadable identity data cannot become an authentication denial or anonymous role
+  ---
+  duration_ms: 40.632407
+  type: 'test'
+  ...
+# (node:58) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: real HTTP overload returns readable 429 before conversation mutation and restores slots after completion
+ok 14 - real HTTP overload returns readable 429 before conversation mutation and restores slots after completion
+  ---
+  duration_ms: 98.880574
+  type: 'test'
+  ...
+# Subtest: retention plans are read-only and apply only expired named checkpoints
+ok 15 - retention plans are read-only and apply only expired named checkpoints
+  ---
+  duration_ms: 8.829582
+  type: 'test'
+  ...
+# Subtest: a changed checkpoint invalidates the complete deletion plan before any file is removed
+ok 16 - a changed checkpoint invalidates the complete deletion plan before any file is removed
+  ---
+  duration_ms: 6.38614
+  type: 'test'
+  ...
+# Subtest: forged traversal targets and invalid retention limits never delete a file
+ok 17 - forged traversal targets and invalid retention limits never delete a file
+  ---
+  duration_ms: 3.674574
+  type: 'test'
+  ...
+# Subtest: choice intent resolves grammatical default, singular/plural, case and unique spelling errors to actual labels
+ok 18 - choice intent resolves grammatical default, singular/plural, case and unique spelling errors to actual labels
+  ---
+  duration_ms: 1.870347
+  type: 'test'
+  ...
+# Subtest: unknown, negative and ambiguous values cannot silently choose a different option
+ok 19 - unknown, negative and ambiguous values cannot silently choose a different option
+  ---
+  duration_ms: 0.261191
+  type: 'test'
+  ...
+# Subtest: model and explicit shortcut proposals resolve observed options before the review
+ok 20 - model and explicit shortcut proposals resolve observed options before the review
+  ---
+  duration_ms: 3.094025
+  type: 'test'
+  ...
+# Subtest: task choice context is bounded and cannot be accepted on an unrelated free-text field
+ok 21 - task choice context is bounded and cannot be accepted on an unrelated free-text field
+  ---
+  duration_ms: 1.026505
+  type: 'test'
+  ...
+# Subtest: recommendations are informational; the model sees scoped options and stronger intent guidance
+ok 22 - recommendations are informational; the model sees scoped options and stronger intent guidance
+  ---
+  duration_ms: 1.809946
+  type: 'test'
+  ...
+# Subtest: free-text business data and emails are preserved rather than spell-corrected
+ok 23 - free-text business data and emails are preserved rather than spell-corrected
+  ---
+  duration_ms: 0.473569
+  type: 'test'
+  ...
+# Subtest: private-task grounding accepts unique observed choice aliases while refusing invented business facts
+ok 24 - private-task grounding accepts unique observed choice aliases while refusing invented business facts
+  ---
+  duration_ms: 0.447098
+  type: 'test'
+  ...
+# Subtest: repeated unsupported model choice becomes a focused question without partial effects
+ok 25 - repeated unsupported model choice becomes a focused question without partial effects
+  ---
+  duration_ms: 1.676297
+  type: 'test'
+  ...
+# Subtest: a valid clarification survives an invalid retry instead of becoming a generic error
+ok 26 - a valid clarification survives an invalid retry instead of becoming a generic error
+  ---
+  duration_ms: 0.878894
+  type: 'test'
+  ...
+# Subtest: explicit unsupported choice cannot be substituted by a model-picked placeholder
+ok 27 - explicit unsupported choice cannot be substituted by a model-picked placeholder
+  ---
+  duration_ms: 1.246304
+  type: 'test'
+  ...
+# (node:84) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: F01: a fresh email-verified owner registration has no seeded help, maps or recipes; live inspection supplies required fields
+ok 28 - F01: a fresh email-verified owner registration has no seeded help, maps or recipes; live inspection supplies required fields
+  ---
+  duration_ms: 22.028569
+  type: 'test'
+  ...
+# (node:91) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: clearing chat isolates sessions, invalidates proposals, and preserves shared sources
+ok 29 - clearing chat isolates sessions, invalidates proposals, and preserves shared sources
+  ---
+  duration_ms: 5.500976
+  type: 'test'
+  ...
+# (node:98) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: domain proof and platform approval are both required; suspension revokes sessions
+ok 30 - domain proof and platform approval are both required; suspension revokes sessions
+  ---
+  duration_ms: 15.382322
+  type: 'test'
+  ...
+# Subtest: guide and knowledge messages keep their channel and reject cross-channel reply context
+ok 31 - guide and knowledge messages keep their channel and reject cross-channel reply context
+  ---
+  duration_ms: 2.478006
+  type: 'test'
+  ...
+# (node:112) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: durable discovery is scoped, protects drafts, skips unknown routes and resumes metadata without chat
+ok 32 - durable discovery is scoped, protects drafts, skips unknown routes and resumes metadata without chat
+  ---
+  duration_ms: 51.555039
+  type: 'test'
+  ...
+# Subtest: page/time budgets and observer leases bound discovery without calling any write action
+ok 33 - page/time budgets and observer leases bound discovery without calling any write action
+  ---
+  duration_ms: 1.413624
+  type: 'test'
+  ...
+# Subtest: newly observed public routes require approval while paused and map details exclude values
+ok 34 - newly observed public routes require approval while paused and map details exclude values
+  ---
+  duration_ms: 1.896866
+  type: 'test'
+  ...
+# Subtest: every approved route is attempted and blocked pages remain explicit coverage gaps
+ok 35 - every approved route is attempted and blocked pages remain explicit coverage gaps
+  ---
+  duration_ms: 0.95022
+  type: 'test'
+  ...
+# (node:119) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# (node:131) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: remote worker protocol rejects browser/missing credentials and bounds worker identities
+ok 36 - remote worker protocol rejects browser/missing credentials and bounds worker identities
+  ---
+  duration_ms: 155.497963
+  type: 'test'
+  ...
+# (node:139) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: simultaneous remote claims enforce global/per-domain capacity and durable fairness
+ok 37 - simultaneous remote claims enforce global/per-domain capacity and durable fairness
+  ---
+  duration_ms: 355.192463
+  type: 'test'
+  ...
+# (node:151) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: two OS worker processes parse independently; killed worker lease recovers and stale completion is rejected
+ok 38 - two OS worker processes parse independently; killed worker lease recovers and stale completion is rejected
+  ---
+  duration_ms: 366.684177
+  type: 'test'
+  ...
+# (node:187) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# (node:199) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: coordinator restart preserves healthy ownership; heartbeats extend only to bounded lifetime and retries dead-letter
+ok 39 - coordinator restart preserves healthy ownership; heartbeats extend only to bounded lifetime and retries dead-letter
+  ---
+  duration_ms: 318.894888
+  type: 'test'
+  ...
+# (node:211) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: late old search write cannot overwrite a new revision; lost completion acknowledgement is idempotent
+ok 40 - late old search write cannot overwrite a new revision; lost completion acknowledgement is idempotent
+  ---
+  duration_ms: 215.684689
+  type: 'test'
+  ...
+# Subtest: concurrency admission reserves other domains and releases exactly once after failure
+ok 41 - concurrency admission reserves other domains and releases exactly once after failure
+  ---
+  duration_ms: 0.928749
+  type: 'test'
+  ...
+# (node:223) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: lost in-flight completion response joins publication without demoting the job or extracting twice
+ok 42 - lost in-flight completion response joins publication without demoting the job or extracting twice
+  ---
+  duration_ms: 407.861219
+  type: 'test'
+  ...
+# Subtest: expired URL staging cannot replace the current raw object and cleanup survives service restart
+ok 43 - expired URL staging cannot replace the current raw object and cleanup survives service restart
+  ---
+  duration_ms: 7.627827
+  type: 'test'
+  ...
+# (node:235) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: bounded structural inventory includes hidden metadata but rejects values, secrets and foreign navigation
+ok 44 - bounded structural inventory includes hidden metadata but rejects values, secrets and foreign navigation
+  ---
+  duration_ms: 1.534655
+  type: 'test'
+  ...
+# Subtest: a hidden structural field never qualifies a recipe for publication
+ok 45 - a hidden structural field never qualifies a recipe for publication
+  ---
+  duration_ms: 2.972556
+  type: 'test'
+  ...
+# Subtest: partial edits retain a valid narrowed form map for repeated server validation
+ok 46 - partial edits retain a valid narrowed form map for repeated server validation
+  ---
+  duration_ms: 2.639617
+  type: 'test'
+  ...
+# Subtest: explicit partial edit scopes observed fields without inferring values or demanding unrelated fields
+ok 47 - explicit partial edit scopes observed fields without inferring values or demanding unrelated fields
+  ---
+  duration_ms: 0.266087
+  type: 'test'
+  ...
+# Subtest: a partially matched multi-field request retains live controls for semantic resolution
+ok 48 - a partially matched multi-field request retains live controls for semantic resolution
+  ---
+  duration_ms: 0.487298
+  type: 'test'
+  ...
+# Subtest: explicit assignments resolve all unique live fields and preserve new parameters without a model
+ok 49 - explicit assignments resolve all unique live fields and preserve new parameters without a model
+  ---
+  duration_ms: 2.248453
+  type: 'test'
+  ...
+# Subtest: per-case evidence requires artifacts, both environments and full E2E coverage; detects changed artifacts
+ok 50 - per-case evidence requires artifacts, both environments and full E2E coverage; detects changed artifacts
+  ---
+  duration_ms: 3.265352
+  type: 'test'
+  ...
+# Subtest: layout word-wrap resolves to the original source quotation without discarding ordinary spaces
+ok 51 - layout word-wrap resolves to the original source quotation without discarding ordinary spaces
+  ---
+  duration_ms: 1.187847
+  type: 'test'
+  ...
+# Subtest: quoted punctuation is literal and invalid or unbounded spans are rejected
+ok 52 - quoted punctuation is literal and invalid or unbounded spans are rejected
+  ---
+  duration_ms: 0.40149
+  type: 'test'
+  ...
+# Subtest: F04: mixed dropdown/checkbox request reaches semantic planning with both fresh fields
+ok 53 - F04: mixed dropdown/checkbox request reaches semantic planning with both fresh fields
+  ---
+  duration_ms: 6.238268
+  type: 'test'
+  ...
+# Subtest: F10: summary/no-fill constraints prevent model effects and do not activate repair fallback
+ok 54 - F10: summary/no-fill constraints prevent model effects and do not activate repair fallback
+  ---
+  duration_ms: 1.339984
+  type: 'test'
+  ...
+# (node:270) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: native Save requires exact approval, dispatches once and distinguishes reported status from business verification
+ok 55 - native Save requires exact approval, dispatches once and distinguishes reported status from business verification
+  ---
+  duration_ms: 1.675555
+  type: 'test'
+  ...
+# Subtest: changed values, control identity, destination, cancellation and invalid host forms block Save before dispatch
+ok 56 - changed values, control identity, destination, cancellation and invalid host forms block Save before dispatch
+  ---
+  duration_ms: 0.695891
+  type: 'test'
+  ...
+# Subtest: sensitive forms and external destinations are never offered as supported Save controls
+ok 57 - sensitive forms and external destinations are never offered as supported Save controls
+  ---
+  duration_ms: 0.184235
+  type: 'test'
+  ...
+# Subtest: models cannot create Save actions; user-requested Save approvals remain session bound
+ok 58 - models cannot create Save actions; user-requested Save approvals remain session bound
+  ---
+  duration_ms: 1.746643
+  type: 'test'
+  ...
+# (node:277) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: private bootstrap rejects missing/forged/foreign/expired identity and never accepts caller-supplied roles
+ok 59 - private bootstrap rejects missing/forged/foreign/expired identity and never accepts caller-supplied roles
+  ---
+  duration_ms: 8.551326
+  type: 'test'
+  ...
+# Subtest: saved-record receipts cannot authenticate sessions and bind learning to the exact session and Save
+ok 60 - saved-record receipts cannot authenticate sessions and bind learning to the exact session and Save
+  ---
+  duration_ms: 4.20016
+  type: 'test'
+  ...
+# Subtest: identity renewal preserves only the same principal/role session; role changes, revoke, expiry and policy changes fail closed
+ok 61 - identity renewal preserves only the same principal/role session; role changes, revoke, expiry and policy changes fail closed
+  ---
+  duration_ms: 3.480795
+  type: 'test'
+  ...
+# Subtest: two signed roles and tenants cannot retrieve privileged maps or redeem another audience coaching grant
+ok 62 - two signed roles and tenants cannot retrieve privileged maps or redeem another audience coaching grant
+  ---
+  duration_ms: 2.012139
+  type: 'test'
+  ...
+# (node:284) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: host receipt signer hashes independent readback and rejects incomplete, old or foreign task bindings
+ok 63 - host receipt signer hashes independent readback and rejects incomplete, old or foreign task bindings
+  ---
+  duration_ms: 5.905521
+  type: 'test'
+  ...
+# Subtest: new runtime has no dependency on Platform Help or existing Flolah runtime
+ok 64 - new runtime has no dependency on Platform Help or existing Flolah runtime
+  ---
+  duration_ms: 25.656824
+  type: 'test'
+  ...
+# (node:302) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: interrupted ingestion recovers with fenced retry and idempotent completed work
+ok 65 - interrupted ingestion recovers with fenced retry and idempotent completed work
+  ---
+  duration_ms: 3.399823
+  type: 'test'
+  ...
+# Subtest: lost initialization response retry is scoped, stable and cannot revive revoked credentials
+ok 66 - lost initialization response retry is scoped, stable and cannot revive revoked credentials
+  ---
+  duration_ms: 3.012004
+  type: 'test'
+  ...
+# Subtest: knowledge greetings guide users without fabricating evidence or calling a model
+ok 67 - knowledge greetings guide users without fabricating evidence or calling a model
+  ---
+  duration_ms: 2.66192
+  type: 'test'
+  ...
+# Subtest: an uncited model response cannot become a supported factual answer
+ok 68 - an uncited model response cannot become a supported factual answer
+  ---
+  duration_ms: 0.597793
+  type: 'test'
+  ...
+# Subtest: an explicit abstention cannot acquire supported status from an unrelated citation
+ok 69 - an explicit abstention cannot acquire supported status from an unrelated citation
+  ---
+  duration_ms: 1.307565
+  type: 'test'
+  ...
+# Subtest: an evidenced negative answer is distinct from insufficient evidence
+ok 70 - an evidenced negative answer is distinct from insufficient evidence
+  ---
+  duration_ms: 1.438341
+  type: 'test'
+  ...
+# Subtest: null model JSON is a malformed answer instead of an authorization failure
+ok 71 - null model JSON is a malformed answer instead of an authorization failure
+  ---
+  duration_ms: 0.637613
+  type: 'test'
+  ...
+# Subtest: duplicate passages cannot crowd out a distinct fact or conflicting evidence
+ok 72 - duplicate passages cannot crowd out a distinct fact or conflicting evidence
+  ---
+  duration_ms: 0.669881
+  type: 'test'
+  ...
+# Subtest: multibyte evidence stays within the real gateway byte budget and omits internal metadata
+ok 73 - multibyte evidence stays within the real gateway byte budget and omits internal metadata
+  ---
+  duration_ms: 7.118204
+  type: 'test'
+  ...
+# Subtest: abstention discards invented citations and prose while supported answers still reject them
+ok 74 - abstention discards invented citations and prose while supported answers still reject them
+  ---
+  duration_ms: 0.410934
+  type: 'test'
+  ...
+# Subtest: a wrong-page quotation receives one bounded same-evidence repair and cannot become an answer uncorrected
+ok 75 - a wrong-page quotation receives one bounded same-evidence repair and cannot become an answer uncorrected
+  ---
+  duration_ms: 1.201877
+  type: 'test'
+  ...
+# Subtest: layout quotation lookup returns the original span without an unnecessary model correction
+ok 76 - layout quotation lookup returns the original span without an unnecessary model correction
+  ---
+  duration_ms: 0.856009
+  type: 'test'
+  ...
+# Subtest: citation correction retains the same evidence inside the UTF-8 request budget
+ok 77 - citation correction retains the same evidence inside the UTF-8 request budget
+  ---
+  duration_ms: 3.271902
+  type: 'test'
+  ...
+# Subtest: search derives index and immutable entitlement filters from trusted scope
+ok 78 - search derives index and immutable entitlement filters from trusted scope
+  ---
+  duration_ms: 2.279508
+  type: 'test'
+  ...
+# Subtest: ranked pagination retains score order and accepts only a validated score/id tuple
+ok 79 - ranked pagination retains score order and accepts only a validated score/id tuple
+  ---
+  duration_ms: 1.01007
+  type: 'test'
+  ...
+# Subtest: authoritative source revisions filter stale chunks before ranking and pagination
+ok 80 - authoritative source revisions filter stale chunks before ranking and pagination
+  ---
+  duration_ms: 0.279318
+  type: 'test'
+  ...
+# Subtest: search bounds input, supports pagination and rejects arbitrary cursor structures
+ok 81 - search bounds input, supports pagination and rejects arbitrary cursor structures
+  ---
+  duration_ms: 0.397084
+  type: 'test'
+  ...
+# Subtest: possessive subject spellings retain plain-name retrieval without altering entitlement filters
+ok 82 - possessive subject spellings retain plain-name retrieval without altering entitlement filters
+  ---
+  duration_ms: 0.954196
+  type: 'test'
+  ...
+# (node:330) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: ingestion and retrieval recheck authoritative source lifecycle and embedding scope (search double)
+ok 83 - ingestion and retrieval recheck authoritative source lifecycle and embedding scope (search double)
+  ---
+  duration_ms: 5.181027
+  type: 'test'
+  ...
+# Subtest: OpenSearch transport derives index and rejects partial bulk failures (transport double)
+ok 84 - OpenSearch transport derives index and rejects partial bulk failures (transport double)
+  ---
+  duration_ms: 0.99535
+  type: 'test'
+  ...
+# (node:337) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: ambiguous reviewed workflows block planning; disabling one permits a fresh scoped proposal
+ok 85 - ambiguous reviewed workflows block planning; disabling one permits a fresh scoped proposal
+  ---
+  duration_ms: 81.19503
+  type: 'test'
+  ...
+# (node:345) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: learning opt-in, validation, visibility, import and repair stay isolated
+ok 86 - learning opt-in, validation, visibility, import and repair stay isolated
+  ---
+  duration_ms: 3.037622
+  type: 'test'
+  ...
+# Subtest: bounded discovery excludes unknown side effects, loops and private values
+ok 87 - bounded discovery excludes unknown side effects, loops and private values
+  ---
+  duration_ms: 1.024612
+  type: 'test'
+  ...
+# (node:352) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: HTTP coaching/publication/recipe approvals preserve role, session, version and guide-mode boundaries
+ok 88 - HTTP coaching/publication/recipe approvals preserve role, session, version and guide-mode boundaries
+  ---
+  duration_ms: 100.556059
+  type: 'test'
+  ...
+# (node:360) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: automatic matching requires reviewed purpose, handles ambiguity and preserves a complete cross-page journey
+ok 89 - automatic matching requires reviewed purpose, handles ambiguity and preserves a complete cross-page journey
+  ---
+  duration_ms: 7.094559
+  type: 'test'
+  ...
+# Subtest: learned graph derives reviewed transitions without values and excludes drafts
+ok 90 - learned graph derives reviewed transitions without values and excludes drafts
+  ---
+  duration_ms: 0.490394
+  type: 'test'
+  ...
+# Subtest: intent edits become scoped drafts and invalidate old published hints while preserving history and export
+ok 91 - intent edits become scoped drafts and invalidate old published hints while preserving history and export
+  ---
+  duration_ms: 4.658176
+  type: 'test'
+  ...
+# Subtest: owner import checks package integrity and versions before sending it to the server
+ok 92 - owner import checks package integrity and versions before sending it to the server
+  ---
+  duration_ms: 5.57806
+  type: 'test'
+  ...
+# (node:378) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: published interaction profiles bind visitor approvals and disappear immediately when disabled
+ok 93 - published interaction profiles bind visitor approvals and disappear immediately when disabled
+  ---
+  duration_ms: 4.396054
+  type: 'test'
+  ...
+# Subtest: coaching grants require owner issuance, exact origin/embedding, one use, expiry and session revocation
+ok 94 - coaching grants require owner issuance, exact origin/embedding, one use, expiry and session revocation
+  ---
+  duration_ms: 3.022399
+  type: 'test'
+  ...
+# Subtest: inspection and server validation precede publication; drift/version changes deny reviewed execution
+ok 95 - inspection and server validation precede publication; drift/version changes deny reviewed execution
+  ---
+  duration_ms: 2.034973
+  type: 'test'
+  ...
+# Subtest: portable package imports stay draft, map routes without expanding origins, and replay uses distinct session parameters
+ok 96 - portable package imports stay draft, map routes without expanding origins, and replay uses distinct session parameters
+  ---
+  duration_ms: 1.77893
+  type: 'test'
+  ...
+# (node:385) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: nested repository transactions isolate rollback while preserving outer atomicity
+ok 97 - nested repository transactions isolate rollback while preserving outer atomicity
+  ---
+  duration_ms: 1.430598
+  type: 'test'
+  ...
+# (node:396) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# (node:404) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: two real API processes enforce lifecycle, revocation, idempotency and worker fault boundaries
+    # Subtest: F06 identical signed identity: independent bootstrap, simultaneous retry, lost-response recovery and foreign history denial
+    ok 1 - F06 identical signed identity: independent bootstrap, simultaneous retry, lost-response recovery and foreign history denial
+      ---
+      duration_ms: 195.924683
+      type: 'test'
+      ...
+    # Subtest: registration retry and parallel issuance are atomic; pending/removed sites cannot activate or self-approve
+    ok 2 - registration retry and parallel issuance are atomic; pending/removed sites cannot activate or self-approve
+      ---
+      duration_ms: 123.212387
+      type: 'test'
+      ...
+    # Subtest: owner email proof is consumed once and concurrent authentication cannot revive a logged-out owner session
+    ok 3 - owner email proof is consumed once and concurrent authentication cannot revive a logged-out owner session
+      ---
+      duration_ms: 55.311477
+      type: 'test'
+      ...
+    # Subtest: rotation overlap, specific session/token revocation, replacement independence and audit correlation
+    ok 4 - rotation overlap, specific session/token revocation, replacement independence and audit correlation
+      ---
+      duration_ms: 93.11199
+      type: 'test'
+      ...
+    # Subtest: revocation during an in-flight plan and retrieval returns no usable late response on another API process
+    ok 5 - revocation during an in-flight plan and retrieval returns no usable late response on another API process
+      ---
+      duration_ms: 72.898764
+      type: 'test'
+      ...
+    # Subtest: revocation after raw storage removes only the new partial upload and prevents searchable publication
+    ok 6 - revocation after raw storage removes only the new partial upload and prevents searchable publication
+      ---
+      duration_ms: 30.73046
+      type: 'test'
+      ...
+    # Subtest: racing approvals and renewals have one winner across API processes
+    ok 7 - racing approvals and renewals have one winner across API processes
+      ---
+      duration_ms: 35.214315
+      type: 'test'
+      ...
+    # Subtest: two ingestion contenders claim one job; delete during extraction cannot resurrect raw data or indexed content
+    ok 8 - two ingestion contenders claim one job; delete during extraction cannot resurrect raw data or indexed content
+      ---
+      duration_ms: 18.770999
+      type: 'test'
+      ...
+    # Subtest: idle expiry erases private session data without deleting shared knowledge or reviving an initialization
+    ok 9 - idle expiry erases private session data without deleting shared knowledge or reviving an initialization
+      ---
+      duration_ms: 70.519427
+      type: 'test'
+      ...
+    # Subtest: absolute expiry cannot be extended by active messages and renewal; explicit termination clears immediately
+    ok 10 - absolute expiry cannot be extended by active messages and renewal; explicit termination clears immediately
+      ---
+      duration_ms: 153.246446
+      type: 'test'
+      ...
+    # Subtest: model/search/storage/identity faults fail closed, recover manually and never duplicate a source
+    ok 11 - model/search/storage/identity faults fail closed, recover manually and never duplicate a source
+      ---
+      duration_ms: 158.461094
+      type: 'test'
+      ...
+# (node:421) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+    # Subtest: a killed extraction worker keeps ownership until expiry, then recovers automatically without duplicates
+    ok 12 - a killed extraction worker keeps ownership until expiry, then recovers automatically without duplicates
+      ---
+      duration_ms: 158.070831
+      type: 'test'
+      ...
+# (node:429) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+    # Subtest: a closed real SQLite connection denies authorization and recovers from persisted state after restart
+    ok 13 - a closed real SQLite connection denies authorization and recovers from persisted state after restart
+      ---
+      duration_ms: 118.139291
+      type: 'test'
+      ...
+    1..13
+ok 98 - two real API processes enforce lifecycle, revocation, idempotency and worker fault boundaries
+  ---
+  duration_ms: 1507.785557
+  type: 'test'
+  ...
+# Cross-process in-flight plan revocation discarded in 11.56 ms (30,000 ms bound).
+# (node:437) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: management identity comes only from validated platform response and fails closed
+ok 99 - management identity comes only from validated platform response and fails closed
+  ---
+  duration_ms: 1.728224
+  type: 'test'
+  ...
+# Subtest: management routes enforce origin, ownership, approval and sharing consent before indexing
+ok 100 - management routes enforce origin, ownership, approval and sharing consent before indexing
+  ---
+  duration_ms: 12.276928
+  type: 'test'
+  ...
+# Subtest: native selection resolves labels locally and rejects stale options without dispatch
+ok 101 - native selection resolves labels locally and rejects stale options without dispatch
+  ---
+  duration_ms: 4.324897
+  type: 'test'
+  ...
+# Subtest: checkbox writes require explicit boolean and reject intervening user changes
+ok 102 - checkbox writes require explicit boolean and reject intervening user changes
+  ---
+  duration_ms: 0.534731
+  type: 'test'
+  ...
+# Subtest: wrapping labels exclude option and entered control text from inspection
+ok 103 - wrapping labels exclude option and entered control text from inspection
+  ---
+  duration_ms: 0.317555
+  type: 'test'
+  ...
+# Subtest: draft protection distinguishes default selects and changed checkboxes; API keys stay excluded
+ok 104 - draft protection distinguishes default selects and changed checkboxes; API keys stay excluded
+  ---
+  duration_ms: 0.346849
+  type: 'test'
+  ...
+# Subtest: multiple current task fields exclude unrelated navigation, while an explicit destination still wins
+ok 105 - multiple current task fields exclude unrelated navigation, while an explicit destination still wins
+  ---
+  duration_ms: 1.676175
+  type: 'test'
+  ...
+# Subtest: an observed current-page link cannot be proposed again after navigation
+ok 106 - an observed current-page link cannot be proposed again after navigation
+  ---
+  duration_ms: 0.154931
+  type: 'test'
+  ...
+# Subtest: off-screen navigation discards current form and Save metadata before destination inspection
+ok 107 - off-screen navigation discards current form and Save metadata before destination inspection
+  ---
+  duration_ms: 0.584524
+  type: 'test'
+  ...
+# Subtest: explicit different destination removes wrong-form fields; current and ambiguous destinations do not
+ok 108 - explicit different destination removes wrong-form fields; current and ambiguous destinations do not
+  ---
+  duration_ms: 0.134742
+  type: 'test'
+  ...
+# (node:458) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: navigation may only select one observed safe link, never arbitrary URLs or mixed writes
+ok 109 - navigation may only select one observed safe link, never arbitrary URLs or mixed writes
+  ---
+  duration_ms: 2.590074
+  type: 'test'
+  ...
+# Subtest: recorded navigation clicks a current safe target and verifies destination; draft and cancellation block
+ok 110 - recorded navigation clicks a current safe target and verifies destination; draft and cancellation block
+  ---
+  duration_ms: 1.362578
+  type: 'test'
+  ...
+# Subtest: reviewed mouse-down profile dispatches once even when navigation removes the old target
+ok 111 - reviewed mouse-down profile dispatches once even when navigation removes the old target
+  ---
+  duration_ms: 0.2878
+  type: 'test'
+  ...
+# Subtest: preview injection targets only exact host HTML proxies and is idempotent
+ok 112 - preview injection targets only exact host HTML proxies and is idempotent
+  ---
+  duration_ms: 1.59145
+  type: 'test'
+  ...
+# Subtest: additive lexical backfill is embedding-filtered and completion is recorded only after successful updates
+ok 113 - additive lexical backfill is embedding-filtered and completion is recorded only after successful updates
+  ---
+  duration_ms: 3.190801
+  type: 'test'
+  ...
+# Subtest: lexical query combines original and stemmed fields while retaining mandatory source authorization
+ok 114 - lexical query combines original and stemmed fields while retaining mandatory source authorization
+  ---
+  duration_ms: 1.238752
+  type: 'test'
+  ...
+# (node:486) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: HTTP operational events correlate failures and success without bodies, tokens, URLs or raw scope identifiers
+ok 115 - HTTP operational events correlate failures and success without bodies, tokens, URLs or raw scope identifiers
+  ---
+  duration_ms: 35.171061
+  type: 'test'
+  ...
+# Subtest: malformed absolute request URLs cannot escape the server error boundary
+ok 116 - malformed absolute request URLs cannot escape the server error boundary
+  ---
+  duration_ms: 9.456059
+  type: 'test'
+  ...
+# Subtest: a model outage returns a recoverable service failure without preparing actions or retrying
+ok 117 - a model outage returns a recoverable service failure without preparing actions or retrying
+  ---
+  duration_ms: 56.031042
+  type: 'test'
+  ...
+# (node:494) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: owner HTTP routes isolate registrations, deny admin and foreign origins, and logout
+ok 118 - owner HTTP routes isolate registrations, deny admin and foreign origins, and logout
+  ---
+  duration_ms: 101.235966
+  type: 'test'
+  ...
+# (node:502) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: independent owners require one-use email proof and expiring scoped sessions
+ok 119 - independent owners require one-use email proof and expiring scoped sessions
+  ---
+  duration_ms: 3.375617
+  type: 'test'
+  ...
+# Subtest: failed owner proof attempts commit their count and cannot bypass five-attempt lockout
+ok 120 - failed owner proof attempts commit their count and cannot bypass five-attempt lockout
+  ---
+  duration_ms: 1.052974
+  type: 'test'
+  ...
+# Subtest: a delayed failed email cannot delete a newer owner proof challenge
+ok 121 - a delayed failed email cannot delete a newer owner proof challenge
+  ---
+  duration_ms: 0.950642
+  type: 'test'
+  ...
+# (node:509) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: audited owner transfer requires verified recipient, admin, reason and unchanged ownership
+ok 122 - audited owner transfer requires verified recipient, admin, reason and unchanged ownership
+  ---
+  duration_ms: 8.648742
+  type: 'test'
+  ...
+# Subtest: map observation rejects unapproved destinations and cancellation before creating a frame
+ok 123 - map observation rejects unapproved destinations and cancellation before creating a frame
+  ---
+  duration_ms: 2.043135
+  type: 'test'
+  ...
+# Subtest: map frame cannot submit forms or navigate the top window, and is removed after a redirect
+ok 124 - map frame cannot submit forms or navigate the top window, and is removed after a redirect
+  ---
+  duration_ms: 0.639636
+  type: 'test'
+  ...
+# Subtest: HTTP error pages stay coverage gaps and HEAD-unsupported hosts use one bounded GET
+ok 125 - HTTP error pages stay coverage gaps and HEAD-unsupported hosts use one bounded GET
+  ---
+  duration_ms: 0.831733
+  type: 'test'
+  ...
+# (node:523) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: owner pairing administration excludes proofs and identities; tenant/website isolation and stale updates fail closed
+ok 126 - owner pairing administration excludes proofs and identities; tenant/website isolation and stale updates fail closed
+  ---
+  duration_ms: 7.836247
+  type: 'test'
+  ...
+# Subtest: authorized owner directly extends expiry durably and notifies every connected visitor
+ok 127 - authorized owner directly extends expiry durably and notifies every connected visitor
+  ---
+  duration_ms: 1.949566
+  type: 'test'
+  ...
+# Subtest: owner shortening applies immediately; revocation clears private task access, pending link and durable reconnect authority
+ok 128 - owner shortening applies immediately; revocation clears private task access, pending link and durable reconnect authority
+  ---
+  duration_ms: 2.947307
+  type: 'test'
+  ...
+# Subtest: real management middleware scopes pairing operations to authenticated owner/admin and writes a bounded structural audit
+ok 129 - real management middleware scopes pairing operations to authenticated owner/admin and writes a bounded structural audit
+  ---
+  duration_ms: 4.973607
+  type: 'test'
+  ...
+# Subtest: failed persistence cannot report a shortened expiry or leave a revoked group reconnectable after restart
+ok 130 - failed persistence cannot report a shortened expiry or leave a revoked group reconnectable after restart
+  ---
+  duration_ms: 3.216599
+  type: 'test'
+  ...
+# Subtest: combined parser ceiling counts healthy durable leases after coordinator restart
+ok 131 - combined parser ceiling counts healthy durable leases after coordinator restart
+  ---
+  duration_ms: 0.636652
+  type: 'test'
+  ...
+# Subtest: private and shared queues alternate under one worker ceiling and stale completion cannot free another attempt
+ok 132 - private and shared queues alternate under one worker ceiling and stale completion cannot free another attempt
+  ---
+  duration_ms: 2.26733
+  type: 'test'
+  ...
+# (node:541) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: restart preserves session ownership and revocation in the independent database
+ok 133 - restart preserves session ownership and revocation in the independent database
+  ---
+  duration_ms: 36.437584
+  type: 'test'
+  ...
+# Subtest: production refuses HTTP; explicit development mode permits loopback only
+ok 134 - production refuses HTTP; explicit development mode permits loopback only
+  ---
+  duration_ms: 0.666085
+  type: 'test'
+  ...
+# (node:552) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: inspected/discovered structure and saved teaching survive repository restart with audience and owner-draft isolation
+ok 135 - inspected/discovered structure and saved teaching survive repository restart with audience and owner-draft isolation
+  ---
+  duration_ms: 66.616661
+  type: 'test'
+  ...
+# Subtest: fresh HTTP session supplies persisted observations and published lessons to the actual LLM request contract
+ok 136 - fresh HTTP session supplies persisted observations and published lessons to the actual LLM request contract
+  ---
+  duration_ms: 61.19298
+  type: 'test'
+  ...
+# Subtest: planner byte budget trims advisory memory without dropping current task, live refs or selected workflow
+ok 137 - planner byte budget trims advisory memory without dropping current task, live refs or selected workflow
+  ---
+  duration_ms: 1.44574
+  type: 'test'
+  ...
+# Subtest: uniquely named navigation and complete explicit edits require no model inference
+ok 138 - uniquely named navigation and complete explicit edits require no model inference
+  ---
+  duration_ms: 6.322204
+  type: 'test'
+  ...
+# Subtest: server-side gateway resolves current primary/secondary on every call, no browser model override
+ok 139 - server-side gateway resolves current primary/secondary on every call, no browser model override
+  ---
+  duration_ms: 2.764523
+  type: 'test'
+  ...
+# Subtest: private file requests use evidence and one bounded repair, never a literal file-reference value
+ok 140 - private file requests use evidence and one bounded repair, never a literal file-reference value
+  ---
+  duration_ms: 0.876781
+  type: 'test'
+  ...
+# Subtest: literal evidence fallback uses current generic labels and never document instructions
+ok 141 - literal evidence fallback uses current generic labels and never document instructions
+  ---
+  duration_ms: 1.382317
+  type: 'test'
+  ...
+# Subtest: missing, conflicting and repeated labels require clarification
+ok 142 - missing, conflicting and repeated labels require clarification
+  ---
+  duration_ms: 0.297143
+  type: 'test'
+  ...
+# Subtest: a model asking twice for supplied file values becomes a grounded review, after exactly two requests
+ok 143 - a model asking twice for supplied file values becomes a grounded review, after exactly two requests
+  ---
+  duration_ms: 3.878651
+  type: 'test'
+  ...
+# Subtest: TX01/TX02: private ciphertext, extraction provenance, fresh review and single-use approval
+ok 144 - TX01/TX02: private ciphertext, extraction provenance, fresh review and single-use approval
+  ---
+  duration_ms: 13.769339
+  type: 'test'
+  ...
+# Subtest: TX03: unsupported current fields and invented values cannot become executable reviews
+ok 145 - TX03: unsupported current fields and invented values cannot become executable reviews
+  ---
+  duration_ms: 3.365242
+  type: 'test'
+  ...
+# Subtest: TX04: visitor attachment capability is separate; spoofed, unsupported, binary and oversized content is rejected
+ok 146 - TX04: visitor attachment capability is separate; spoofed, unsupported, binary and oversized content is rejected
+  ---
+  duration_ms: 3.587054
+  type: 'test'
+  ...
+# Subtest: PAIR01/PAIR02: bilateral confirmation, exact instance auth, owner isolation, one use and expiry
+ok 147 - PAIR01/PAIR02: bilateral confirmation, exact instance auth, owner isolation, one use and expiry
+  ---
+  duration_ms: 2.440589
+  type: 'test'
+  ...
+# Subtest: RELAY01: handoff requires consent and group; unrelated visitor cannot retrieve task context
+ok 148 - RELAY01: handoff requires consent and group; unrelated visitor cannot retrieve task context
+  ---
+  duration_ms: 3.936395
+  type: 'test'
+  ...
+# Subtest: WF01/WF02: user link conflict and captured fanout exclude other groups and arrivals
+ok 149 - WF01/WF02: user link conflict and captured fanout exclude other groups and arrivals
+  ---
+  duration_ms: 51.367689
+  type: 'test'
+  ...
+# Subtest: WF04: idempotent dispatch, disconnect failure, no replacement and explicit unknown outcome
+ok 150 - WF04: idempotent dispatch, disconnect failure, no replacement and explicit unknown outcome
+  ---
+  duration_ms: 3.43047
+  type: 'test'
+  ...
+# Subtest: WF03: every host effect rechecks policy and a proposal cannot be replayed
+ok 151 - WF03: every host effect rechecks policy and a proposal cannot be replayed
+  ---
+  duration_ms: 3.157743
+  type: 'test'
+  ...
+# Subtest: PRIV01: end, expiry, restart, stale extraction and ciphertext cleanup cannot revive content
+ok 152 - PRIV01: end, expiry, restart, stale extraction and ciphertext cleanup cannot revive content
+  ---
+  duration_ms: 5.109932
+  type: 'test'
+  ...
+# Subtest: silent loss is bounded; revoked installations stop live task access
+ok 153 - silent loss is bounded; revoked installations stop live task access
+  ---
+  duration_ms: 4.984043
+  type: 'test'
+  ...
+# Subtest: authenticated WS tickets are one-use, Origin bound and absent from URLs
+ok 154 - authenticated WS tickets are one-use, Origin bound and absent from URLs
+  ---
+  duration_ms: 19.68908
+  type: 'test'
+  ...
+# Subtest: private Guide mode highlights only; unsupported controls cannot gain executable refs
+ok 155 - private Guide mode highlights only; unsupported controls cannot gain executable refs
+  ---
+  duration_ms: 3.519382
+  type: 'test'
+  ...
+# Subtest: submission binding changes invalidate an already authorized command before its effect
+ok 156 - submission binding changes invalidate an already authorized command before its effect
+  ---
+  duration_ms: 2.276734
+  type: 'test'
+  ...
+# Subtest: known completion without an authorized effect cannot become workflow success
+ok 157 - known completion without an authorized effect cannot become workflow success
+  ---
+  duration_ms: 1.751769
+  type: 'test'
+  ...
+# Subtest: a shared recipient gets selected passages, no unrelated private history or delete authority
+ok 158 - a shared recipient gets selected passages, no unrelated private history or delete authority
+  ---
+  duration_ms: 3.459662
+  type: 'test'
+  ...
+# Subtest: one failed recipient immediately fails required-all fanout and prevents remaining plans
+ok 159 - one failed recipient immediately fails required-all fanout and prevents remaining plans
+  ---
+  duration_ms: 1.989294
+  type: 'test'
+  ...
+# Subtest: commands fail busy rather than overwrite an in-flight operation; an existing private task needs explicit joining
+ok 160 - commands fail busy rather than overwrite an in-flight operation; an existing private task needs explicit joining
+  ---
+  duration_ms: 2.444415
+  type: 'test'
+  ...
+# Subtest: F08/F18: saved group and workflow binding survive endpoint loss and service restart without private task recovery
+ok 161 - F08/F18: saved group and workflow binding survive endpoint loss and service restart without private task recovery
+  ---
+  duration_ms: 4.375262
+  type: 'test'
+  ...
+# Subtest: F14/F18: revoked and expired membership cannot reconnect; confirmation/revoke retries are safe
+ok 162 - F14/F18: revoked and expired membership cannot reconnect; confirmation/revoke retries are safe
+  ---
+  duration_ms: 6.228132
+  type: 'test'
+  ...
+# Subtest: F10: summary-only private request cannot reach a fill planner or create a review
+ok 163 - F10: summary-only private request cannot reach a fill planner or create a review
+  ---
+  duration_ms: 31.348074
+  type: 'test'
+  ...
+# Subtest: F17: inspection result is consumed as evidence by a following planner before private task cleanup
+ok 164 - F17: inspection result is consumed as evidence by a following planner before private task cleanup
+  ---
+  duration_ms: 3.379143
+  type: 'test'
+  ...
+# Subtest: workflow linking does not require pairing; adding targets never grants peer handoff
+ok 165 - workflow linking does not require pairing; adding targets never grants peer handoff
+  ---
+  duration_ms: 2.979465
+  type: 'test'
+  ...
+# Subtest: chosen until-revoked consent survives old inactivity window; optional inactivity still expires it
+ok 166 - chosen until-revoked consent survives old inactivity window; optional inactivity still expires it
+  ---
+  duration_ms: 2.672636
+  type: 'test'
+  ...
+# Subtest: workflow summaries and read-only preparation consume prior task handles as answer evidence
+ok 167 - workflow summaries and read-only preparation consume prior task handles as answer evidence
+  ---
+  duration_ms: 3.794483
+  type: 'test'
+  ...
+# (node:590) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: explicit multi-field edits never silently issue a partial approval
+ok 168 - explicit multi-field edits never silently issue a partial approval
+  ---
+  duration_ms: 3.009651
+  type: 'test'
+  ...
+# Subtest: model cannot invent targets, code, or authority; approvals are session bound and one-use
+ok 169 - model cannot invent targets, code, or authority; approvals are session bound and one-use
+  ---
+  duration_ms: 0.897963
+  type: 'test'
+  ...
+# Subtest: sensitive credential fields cannot enter an executable proposal
+ok 170 - sensitive credential fields cannot enter an executable proposal
+  ---
+  duration_ms: 0.53466
+  type: 'test'
+  ...
+# Subtest: rejecting a review is scope-bound, idempotent and prevents later execution
+ok 171 - rejecting a review is scope-bound, idempotent and prevents later execution
+  ---
+  duration_ms: 1.016119
+  type: 'test'
+  ...
+# Subtest: public help fetch pins checked DNS and rejects private addresses, rebinding, credentialed URLs and cross-origin redirects
+ok 172 - public help fetch pins checked DNS and rejects private addresses, rebinding, credentialed URLs and cross-origin redirects
+  ---
+  duration_ms: 6.45412
+  type: 'test'
+  ...
+# (node:605) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: published workflow summaries use its embedding index and authoritative version revocation
+ok 173 - published workflow summaries use its embedding index and authoritative version revocation
+  ---
+  duration_ms: 7.205745
+  type: 'test'
+  ...
+# (node:612) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: F31/F32 domain layer: scoped import retry, conflict and immutable rollback
+ok 174 - F31/F32 domain layer: scoped import retry, conflict and immutable rollback
+  ---
+  duration_ms: 3.313345
+  type: 'test'
+  ...
+# Subtest: recorder pause retains steps, stop removes listeners, and secrets never persist
+ok 175 - recorder pause retains steps, stop removes listeners, and secrets never persist
+  ---
+  duration_ms: 1.982204
+  type: 'test'
+  ...
+# Subtest: recording distinguishes mouse-down navigation from the earlier pointer-down event
+ok 176 - recording distinguishes mouse-down navigation from the earlier pointer-down event
+  ---
+  duration_ms: 11.34202
+  type: 'test'
+  ...
+# (node:626) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: email code expiry, attempts, recipient ownership and failed-delivery revocation
+ok 177 - email code expiry, attempts, recipient ownership and failed-delivery revocation
+  ---
+  duration_ms: 3.790858
+  type: 'test'
+  ...
+# (node:633) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: same-owner registration retries retain challenge and reject changed payload
+ok 178 - same-owner registration retries retain challenge and reject changed payload
+  ---
+  duration_ms: 6.631776
+  type: 'test'
+  ...
+# (node:640) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: planner receives selected reply context only from its own session and channel
+ok 179 - planner receives selected reply context only from its own session and channel
+  ---
+  duration_ms: 48.696054
+  type: 'test'
+  ...
+# (node:648) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: repository applies owner/embedding filters before returning records and rejects arbitrary query fields
+ok 180 - repository applies owner/embedding filters before returning records and rejects arbitrary query fields
+  ---
+  duration_ms: 2.458687
+  type: 'test'
+  ...
+# Subtest: screen capture waits for explicit start, supports pause/review/discard and ends tracks
+ok 181 - screen capture waits for explicit start, supports pause/review/discard and ends tracks
+  ---
+  duration_ms: 1.198242
+  type: 'test'
+  ...
+# Subtest: denied capture offers upload fallback without uploading or retrying consent
+ok 182 - denied capture offers upload fallback without uploading or retrying consent
+  ---
+  duration_ms: 0.470964
+  type: 'test'
+  ...
+# Subtest: shared audio is requested only by explicit opt-in and uses an audio-capable format
+ok 183 - shared audio is requested only by explicit opt-in and uses an audio-capable format
+  ---
+  duration_ms: 0.665254
+  type: 'test'
+  ...
+# Subtest: HTTP boundary ignores caller scope and denies revoked/foreign origins
+ok 184 - HTTP boundary ignores caller scope and denies revoked/foreign origins
+  ---
+  duration_ms: 102.533707
+  type: 'test'
+  ...
+# Subtest: fresh initialization isolates history, reply references and returned objects
+ok 185 - fresh initialization isolates history, reply references and returned objects
+  ---
+  duration_ms: 3.033055
+  type: 'test'
+  ...
+# Subtest: renewal preserves session, rotates credential, and invalidates old credential
+ok 186 - renewal preserves session, rotates credential, and invalidates old credential
+  ---
+  duration_ms: 0.580918
+  type: 'test'
+  ...
+# Subtest: revocation rejects active history, renewal and new initialization
+ok 187 - revocation rejects active history, renewal and new initialization
+  ---
+  duration_ms: 0.410594
+  type: 'test'
+  ...
+# Subtest: expiry, wrong origins and private deployment fail closed
+ok 188 - expiry, wrong origins and private deployment fail closed
+  ---
+  duration_ms: 0.497293
+  type: 'test'
+  ...
+# Subtest: termination rejects all further session access without affecting another instance
+ok 189 - termination rejects all further session access without affecting another instance
+  ---
+  duration_ms: 0.496021
+  type: 'test'
+  ...
+# Subtest: network-lost bootstrap retries once with the same high-entropy key; instances differ
+ok 190 - network-lost bootstrap retries once with the same high-entropy key; instances differ
+  ---
+  duration_ms: 4.596944
+  type: 'test'
+  ...
+# Subtest: renewal serializes subsequent requests and stop cancels queued work
+ok 191 - renewal serializes subsequent requests and stop cancels queued work
+  ---
+  duration_ms: 4.819005
+  type: 'test'
+  ...
+# Subtest: expired token cannot send an action or silently initialize a replacement
+ok 192 - expired token cannot send an action or silently initialize a replacement
+  ---
+  duration_ms: 0.402732
+  type: 'test'
+  ...
+# Subtest: interrupting an observer unblocks queued pause without retrying or interrupting approvals
+ok 193 - interrupting an observer unblocks queued pause without retrying or interrupting approvals
+  ---
+  duration_ms: 1.687504
+  type: 'test'
+  ...
+# Subtest: temporary service failure is distinct from authorization failure and is never automatically retried
+ok 194 - temporary service failure is distinct from authorization failure and is never automatically retried
+  ---
+  duration_ms: 0.394519
+  type: 'test'
+  ...
+# Subtest: a disconnected approval is not retried or described as a confirmed failure
+ok 195 - a disconnected approval is not retried or described as a confirmed failure
+  ---
+  duration_ms: 0.44754
+  type: 'test'
+  ...
+# Subtest: background renewal and reads cannot extend idle lifetime
+ok 196 - background renewal and reads cannot extend idle lifetime
+  ---
+  duration_ms: 9.551342
+  type: 'test'
+  ...
+# Subtest: active user interactions extend idle but never absolute expiry
+ok 197 - active user interactions extend idle but never absolute expiry
+  ---
+  duration_ms: 1.046525
+  type: 'test'
+  ...
+# Subtest: idle expiry is enforced at its exact boundary and cannot be revived
+ok 198 - idle expiry is enforced at its exact boundary and cannot be revived
+  ---
+  duration_ms: 0.224386
+  type: 'test'
+  ...
+# Subtest: expired public preview explains owner renewal and never downloads the SDK
+ok 199 - expired public preview explains owner renewal and never downloads the SDK
+  ---
+  duration_ms: 5.667976
+  type: 'test'
+  ...
+# Subtest: missing or malformed preview expiry cannot bypass expiry validation
+ok 200 - missing or malformed preview expiry cannot bypass expiry validation
+  ---
+  duration_ms: 3.645211
+  type: 'test'
+  ...
+# Subtest: wrong preview origin or service needs owner correction, not repeated retry
+ok 201 - wrong preview origin or service needs owner correction, not repeated retry
+  ---
+  duration_ms: 2.774038
+  type: 'test'
+  ...
+# Subtest: transient preview download failure still offers an enabled retry
+ok 202 - transient preview download failure still offers an enabled retry
+  ---
+  duration_ms: 1.366633
+  type: 'test'
+  ...
+# (node:706) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: same-embedding audiences cannot inspect raw/status, remove sources or collide on upload operation IDs
+ok 203 - same-embedding audiences cannot inspect raw/status, remove sources or collide on upload operation IDs
+  ---
+  duration_ms: 13.059568
+  type: 'test'
+  ...
+# Subtest: real text/HTML extraction, queued status, same-embedding sharing and deletion of raw/indexed data
+ok 204 - real text/HTML extraction, queued status, same-embedding sharing and deletion of raw/indexed data
+  ---
+  duration_ms: 85.986795
+  type: 'test'
+  ...
+# Subtest: concurrent upload retry has one object/job; conflict, traversal, spoofed type, malware fixture and permission denied
+ok 205 - concurrent upload retry has one object/job; conflict, traversal, spoofed type, malware fixture and permission denied
+  ---
+  duration_ms: 4.143716
+  type: 'test'
+  ...
+# Subtest: interrupted/failed extraction retries visibly; delete during indexing removes later writes
+ok 206 - interrupted/failed extraction retries visibly; delete during indexing removes later writes
+  ---
+  duration_ms: 7.494648
+  type: 'test'
+  ...
+# Subtest: video playlists cannot reach a parser and the worker rotates websites instead of draining one backlog
+ok 207 - video playlists cannot reach a parser and the worker rotates websites instead of draining one backlog
+  ---
+  duration_ms: 12.841702
+  type: 'test'
+  ...
+# Subtest: raw deletion still completes when remote index cleanup fails
+ok 208 - raw deletion still completes when remote index cleanup fails
+  ---
+  duration_ms: 3.577389
+  type: 'test'
+  ...
+# (node:720) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: reviewed source refresh replaces old version, filters sensitive fields and never supplies live execution refs
+ok 209 - reviewed source refresh replaces old version, filters sensitive fields and never supplies live execution refs
+  ---
+  duration_ms: 6.16656
+  type: 'test'
+  ...
+# Subtest: source map rejects visitor refresh, foreign origin, entered values and duplicate routes atomically
+ok 210 - source map rejects visitor refresh, foreign origin, entered values and duplicate routes atomically
+  ---
+  duration_ms: 1.049388
+  type: 'test'
+  ...
+# Subtest: theme accepts host palette and bounded layout without arbitrary CSS
+ok 211 - theme accepts host palette and bounded layout without arbitrary CSS
+  ---
+  duration_ms: 1.2577
+  type: 'test'
+  ...
+# (node:734) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: F11 domain layer: rotation overlap, scoped revocation and audit reasons
+ok 212 - F11 domain layer: rotation overlap, scoped revocation and audit reasons
+  ---
+  duration_ms: 12.003259
+  type: 'test'
+  ...
+# Subtest: large upload is authorized before buffering and derives scope/capability from runtime credentials
+ok 213 - large upload is authorized before buffering and derives scope/capability from runtime credentials
+  ---
+  duration_ms: 79.045345
+  type: 'test'
+  ...
+# Subtest: permission removed during storage cleans up the new upload but never an earlier idempotent source
+ok 214 - permission removed during storage cleans up the new upload but never an earlier idempotent source
+  ---
+  duration_ms: 11.491623
+  type: 'test'
+  ...
+# (node:749) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: real repository HTTP learning binds consumed fill and Save to one signed readback and rejects another session
+ok 215 - real repository HTTP learning binds consumed fill and Save to one signed readback and rejects another session
+  ---
+  duration_ms: 113.648817
+  type: 'test'
+  ...
+# (node:757) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: analytics is Off by default and requires current, explicit visitor consent; opt-out and policy changes revoke collection
+ok 216 - analytics is Off by default and requires current, explicit visitor consent; opt-out and policy changes revoke collection
+  ---
+  duration_ms: 7.388559
+  type: 'test'
+  ...
+# Subtest: strict event schema rejects values, prompts, raw paths and batch contamination; duplicate IDs are harmless
+ok 217 - strict event schema rejects values, prompts, raw paths and batch contamination; duplicate IDs are harmless
+  ---
+  duration_ms: 2.110646
+  type: 'test'
+  ...
+# Subtest: network and usage similarity is labelled as a hint; IP alone never merges profiles or grants pairing
+ok 218 - network and usage similarity is labelled as a hint; IP alone never merges profiles or grants pairing
+  ---
+  duration_ms: 8.047353
+  type: 'test'
+  ...
+# Subtest: registered domains have separate visitor IDs and reports; transferred ownership cannot inherit old analytic profiles
+ok 219 - registered domains have separate visitor IDs and reports; transferred ownership cannot inherit old analytic profiles
+  ---
+  duration_ms: 1.682065
+  type: 'test'
+  ...
+# Subtest: retention and site/global admission are bounded; expiry covers removed/transferred sites as well
+ok 220 - retention and site/global admission are bounded; expiry covers removed/transferred sites as well
+  ---
+  duration_ms: 1.801414
+  type: 'test'
+  ...
+# Subtest: form counters and cohorts distinguish attempts/errors from verified business saves
+ok 221 - form counters and cohorts distinguish attempts/errors from verified business saves
+  ---
+  duration_ms: 1.493714
+  type: 'test'
+  ...
+# Subtest: a subsequent authenticated request enforces local opt-out even if its separate consent POST was lost
+ok 222 - a subsequent authenticated request enforces local opt-out even if its separate consent POST was lost
+  ---
+  duration_ms: 25.998886
+  type: 'test'
+  ...
+1..222
+# tests 235
+# suites 0
+# pass 235
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 10129.370133

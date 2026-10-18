@@ -11,8 +11,11 @@ export function validateSnapshot(snapshot) {
     refs.add(field.ref);
     if(field.key!==undefined&&(typeof field.key!=='string'||!/^[a-zA-Z][a-zA-Z0-9_-]{0,79}$/.test(field.key)||/password|secret|token|otp|cvv|credit.?card|api.?key|access.?key|private.?key/i.test(field.key)))invalid();
     if(field.form!==undefined&&(typeof field.form!=='string'||!/^[a-zA-Z][a-zA-Z0-9_-]{0,79}$/.test(field.form)))invalid();
-    return { ref:field.ref,label:field.label,type:field.type,required:field.required===true,...(field.key?{key:field.key}:{}),...(field.form?{form:field.form}:{}) };
+    if(field.choices!==undefined&&(!Array.isArray(field.choices)||field.choices.length>20||field.choices.some(value=>typeof value!=='string'||!value.trim()||value.length>160)||!['select-one','select-multiple','radio'].includes(field.type)))invalid();
+    if(field.defaultChoice!==undefined&&(!field.choices?.includes(field.defaultChoice)))invalid();
+    return { ref:field.ref,label:field.label,type:field.type,required:field.required===true,...(field.key?{key:field.key}:{}),...(field.form?{form:field.form}:{}),...(field.choices?{choices:[...field.choices],...(field.choicesTruncated===true?{choicesTruncated:true}:{}),...(field.defaultChoice?{defaultChoice:field.defaultChoice}:{})}:{}) };
   });
+  if(fields.reduce((total,f)=>total+(f.choices?.length||0),0)>60)invalid();
   if(snapshot.links!==undefined&&(!Array.isArray(snapshot.links)||snapshot.links.length>30))invalid();
   const links=(snapshot.links||[]).map(link=>{
     if(!/^r\d+n\d+$/.test(link.ref)||refs.has(link.ref)||typeof link.label!=='string'||link.label.length>160||typeof link.path!=='string'||!/^\/(?!\/)[^?#\\]*$/.test(link.path)||link.path.length>300)invalid();

@@ -1,0 +1,40 @@
+TAP version 13
+# Subtest: direct and workflow connector share policy and wait for outcome, without returning private data
+ok 1 - direct and workflow connector share policy and wait for outcome, without returning private data
+  ---
+  duration_ms: 2.1231
+  type: 'test'
+  ...
+# Subtest: policy and entitlement block all dispatch entry paths; approval remains exact and unconsumed twice
+ok 2 - policy and entitlement block all dispatch entry paths; approval remains exact and unconsumed twice
+  ---
+  duration_ms: 0.7012
+  type: 'test'
+  ...
+# Subtest: recipient failure fails the node and duplicate execution joins once
+ok 3 - recipient failure fails the node and duplicate execution joins once
+  ---
+  duration_ms: 0.3171
+  type: 'test'
+  ...
+# Subtest: linking preserves the user-selected persistent target group through the bridge
+ok 4 - linking preserves the user-selected persistent target group through the bridge
+  ---
+  duration_ms: 0.7021
+  type: 'test'
+  ...
+# Subtest: workflow failures retain safe actionable bridge reasons without exposing arbitrary service text
+ok 5 - workflow failures retain safe actionable bridge reasons without exposing arbitrary service text
+  ---
+  duration_ms: 0.1263
+  type: 'test'
+  ...
+1..5
+# tests 5
+# suites 0
+# pass 5
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 12.9995

@@ -69,7 +69,7 @@ export async function mount(options) {
   const resumeKey=`flolah-copilot-pair:${service.origin}:${installationToken.slice(-16)}`;
   let durableResume=false;
   const resumeStore={read(){try{return sessionStorage.getItem(resumeKey)||localStorage.getItem(resumeKey);}catch{return null;}},write(value){try{sessionStorage.setItem(resumeKey,value);if(durableResume)localStorage.setItem(resumeKey,value);}catch{}},clear(){try{sessionStorage.removeItem(resumeKey);localStorage.removeItem(resumeKey);}catch{}},persist(value){durableResume=value;try{if(value){const proof=sessionStorage.getItem(resumeKey);if(proof)localStorage.setItem(resumeKey,proof);}else localStorage.removeItem(resumeKey);}catch{}}};
-  const privateClient=createTaskClient({request,service,resumeStore,inspect:()=>inspector.snapshot(),hostIdentity:getHostIdentity?async()=>{try{return await request('/v1/renew',{identityToken:await readHostIdentity()});}catch(error){try{await request('/v1/terminate');}finally{expireSession();}throw error;}}:null,onEvent:event=>{
+  const privateClient=createTaskClient({request,service,resumeStore,inspect:task=>inspector.snapshot({task}),hostIdentity:getHostIdentity?async()=>{try{return await request('/v1/renew',{identityToken:await readHostIdentity()});}catch(error){try{await request('/v1/terminate');}finally{expireSession();}throw error;}}:null,onEvent:event=>{
     if(event.type==='task-ended'){taskGeneration++;currentSnapshot=null;}
     if(event.type==='workflow-started'){taskGeneration++;currentSnapshot=null;}
     if(event.type==='workflow-proposal')currentSnapshot=event.snapshot;
@@ -168,7 +168,7 @@ export async function mount(options) {
       else if (message.type === 'inspect') {result=inspector.snapshot({inventory:true});const access=await request('/v1/capabilities');if(access.capabilities.coach)result.learning=await request('/v1/learning/observe',{snapshot:result});}
       else if (message.type === 'plan') {
         const generation=proposalGeneration=++taskGeneration;
-        const snapshot=inspector.snapshot();currentSnapshot=snapshot;
+        const snapshot=inspector.snapshot({task:message.text});currentSnapshot=snapshot;
         result = await privateClient.plan({text:message.text,snapshot,mode:message.mode})||await request('/v1/plan',{ text:message.text,snapshot,replyTo:message.replyTo,mode:message.mode });
         if(generation!==taskGeneration)throw new Error('Task stopped; proposal discarded');
         if(!result.actions?.length)currentSnapshot=null;

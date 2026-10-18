@@ -23,10 +23,10 @@ test('a partially matched multi-field request retains live controls for semantic
 });
 
 test('explicit assignments resolve all unique live fields and preserve new parameters without a model',()=>{
- const snapshot={fields:[{ref:'r1f0',label:'Search catalog, publishers, capabilities',key:'q',type:'search'},{ref:'r1f1',label:'Transport',key:'transport',type:'select-one'}]};
+ const snapshot={fields:[{ref:'r1f0',label:'Search catalog, publishers, capabilities',key:'q',type:'search'},{ref:'r1f1',label:'Transport',key:'transport',type:'select-one',choices:['All transports','streamable-http','sse','stdio']}]};
  assert.deepEqual(explicitEditProposal('Set the search query to github and transport to stdio. Do not search or submit anything.',snapshot).actions,[{type:'fill',ref:'r1f0',value:'github'},{type:'fill',ref:'r1f1',value:'stdio'}]);
  assert.equal(explicitEditProposal('Set name to X',{fields:[{ref:'r1f0',label:'Company name'},{ref:'r1f1',label:'Contact name'}]}),null);
  assert.equal(explicitEditProposal('Set missing field to X',snapshot),null);
  assert.equal(explicitEditProposal('Set transport to stdio',{...snapshot,navigationRequired:true}),null);
- assert.deepEqual(explicitEditProposal('Set transport to "stdio."',snapshot).actions[0].value,'stdio.');
+ assert.deepEqual(explicitEditProposal('Set transport to "stdio."',snapshot).actions[0].value,'stdio');
 });

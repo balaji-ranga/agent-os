@@ -1,3 +1,4 @@
+import {resolveChoice} from '../web/choice-intent.mjs';
 import {booleanIntent,readOnlyIntent} from './task-intent.mjs';
 // Narrow explicit partial edits to observed controls, never infer business values.
 // Creation and ambiguous requests retain the full form for model reasoning.
@@ -40,6 +41,7 @@ export function explicitEditProposal(text,snapshot){
   if(/^(['"]).*\1$/s.test(value))value=value.slice(1,-1);else value=value.replace(/[.!]$/,'').trim();
   if(!value||value.length>8000)return null;
   if(candidates[0].type==='checkbox'&&!['true','false'].includes(value))return null;
+  if(['select-one','radio','select-multiple'].includes(candidates[0].type)){if(!candidates[0].choices||candidates[0].type==='select-multiple')return null;value=resolveChoice(value,candidates[0].choices);if(value===null)return {message:`Which ${candidates[0].label} option should I use? Available observed choices${candidates[0].choicesTruncated?' (partial list)':''}: ${candidates[0].choices.join(', ')}. Nothing has changed.`,actions:[]};}
   used.add(candidates[0].ref);actions.push({type:'fill',ref:candidates[0].ref,value});
  }
  return {message:`Review these ${actions.length} explicit field changes. Nothing has been changed yet.`,actions};
