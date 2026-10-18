@@ -32,12 +32,14 @@ try{
   await a.locator('#status').getByText(/approved field values verified/).waitFor();assert.equal(await local.locator('[name=shipping_method]').inputValue(),'express');assert.equal(await local.locator('[name=gift_wrap]').isChecked(),true);
   await local.screenshot({path:new URL('mixed-intent-approved.png',evidence).pathname.replace(/^\/C:/,'C:'),fullPage:false});
  });
+ await check('F09_SEPARATE_SAVE_CANCEL_NO_SUBMISSION',async()=>{await a.locator('#save-review').click();await a.locator('#review').getByRole('button',{name:'Cancel save',exact:true}).click();await a.locator('#status').getByText(/Save cancelled/).waitFor();assert.equal(await a.locator('#review button').count(),0);assert.equal(await local.locator('[name=shipping_method]').inputValue(),'express');});
  await local.reload();await ready(local);
  await check('F10_PRIVATE_SUMMARY_ONLY_NO_REVIEW',async()=>{
   await setup(a);await a.locator('#transaction-file').setInputFiles({name:'synthetic-feedback.txt',mimeType:'text/plain',buffer:Buffer.from('Company name: Synthetic Feedback Orchid\nContact email: orchid@example.test\nRegion: Singapore\nRequested integration: Inventory API\nTransport: stdio')});
   await a.locator('#task-files').getByText(/ready/).waitFor();await send(a,'Summarize the requested integration and transport from the file. Do not fill or submit anything.');
-  await a.locator('#log').getByText(/Inventory API/).waitFor();assert.equal(await a.locator('#review button').count(),0);assert.equal(await local.locator('[name=name]').count(),0);
+  await a.locator('#log').getByText(/Inventory API/).waitFor();assert.equal(await a.locator('#review button').count(),0);for(const name of ['Company name','Contact email','Region'])assert.equal(await local.getByLabel(name,{exact:true}).inputValue(),'');
  });
+ await check('F09_PRIVATE_FILE_REVIEW_REJECT_RETAINS_FILES',async()=>{await send(a,'Use the transaction file to prepare Company name only. Do not save.');await a.locator('#review').getByRole('button',{name:'Reject changes',exact:true}).click();await a.locator('#status').getByText(/Changes rejected/).waitFor();assert.equal(await local.getByLabel('Company name',{exact:true}).inputValue(),'');await a.locator('#task-files').getByText(/ready/).waitFor();});
  await check('F06_F14_NAMED_BILATERAL_GROUP',async()=>{
   await setup(a);await setup(b);await a.locator('#pair-name').fill('Reusable guided UAT');await a.locator('#pair-lifetime').selectOption('4');await a.locator('#pair-inactivity').selectOption('0');await a.locator('#pair-invite').click();await a.locator('#pair-code').getByText(/expires/).waitFor();
   const code=(await a.locator('#pair-code').innerText()).split(' · ')[0];await b.locator('#pair-join input').fill(code);await b.locator('#pair-join button').click();await b.locator('#pair-members').getByRole('button',{name:'Confirm this panel'}).click();

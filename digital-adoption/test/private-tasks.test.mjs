@@ -91,3 +91,17 @@ test('workflow linking does not require pairing; adding targets never grants pee
  assert.throws(()=>f.tasks.relay(a.scope,{...a,taskId:task.taskId,targetId:b.instanceId,shareConsent:true}),/HANDOFF_DENIED/);
  f.pair(a,b);assert.equal(f.tasks.relay(a.scope,{...a,taskId:task.taskId,targetId:b.instanceId,shareConsent:true}).shared,true);
 });
+test('chosen until-revoked consent survives old inactivity window; optional inactivity still expires it',async t=>{
+ for(const inactivityMinutes of [0,15]){
+  const f=await fixture(t),a=f.add('alpha'),b=f.add('beta');const invite=f.tasks.invite(a.scope,{...a,lifetimeHours:0,inactivityMinutes,name:'Chosen lifetime'});f.tasks.join(b.scope,{...b,code:invite.code});const invitationId=f.tasks.pairStatus(a.scope,a).pending[0].invitationId;f.tasks.confirm(a.scope,{...a,invitationId});const group=f.tasks.confirm(b.scope,{...b,invitationId});assert.equal(group.expiresAt,null);
+  f.tasks.disconnect(a.instanceId);f.tasks.disconnect(b.instanceId);f.advance(16*60000);f.tasks.maintain();
+  const resume=()=>f.tasks.ticket({...a.scope,sessionId:crypto.randomUUID()},{resumeProof:a.resumeProof});
+  if(inactivityMinutes)assert.throws(resume,/PAIRING_RESUME_DENIED/);else assert.equal(resume().paired,true);
+ }
+});
+test('workflow summaries and read-only preparation consume prior task handles as answer evidence',async t=>{
+ let evidence=[];const f=await fixture(t,{answer:async input=>{evidence=input.evidence;return {message:'The prior step observed Company name.',citations:[]};}}),a=f.add('alpha'),b=f.add('beta'),groupId=f.pair(a,b);f.link(a);
+ const input={groupId,websiteIds:['alpha'],action:'inspect',operationId:'observed-first'},first=f.tasks.dispatch('user',input,f.tasks.preflight('user',input));f.tasks.commandFrame(a.instanceId,{type:'ack',commandId:first.commandId});const result=await f.tasks.commandPlan(a.scope,{...a,commandId:first.commandId,snapshot});f.tasks.commandFrame(a.instanceId,{type:'result',commandId:first.commandId,ok:true,result});const handle=f.tasks.commandStatus('user',first.commandId).recipients[0].resultHandle;
+ for(const action of ['summarize','prepare']){const next={...input,taskId:first.taskId,action,instruction:'Summarize the prior inspection. Do not fill fields.',operationId:'summary-'+action,inputs:{taskHandles:[handle]}},command=f.tasks.dispatch('user',next,f.tasks.preflight('user',next));f.tasks.commandFrame(a.instanceId,{type:'ack',commandId:command.commandId});const response=await f.tasks.commandPlan(a.scope,{...a,commandId:command.commandId,snapshot:{...snapshot,fields:[]}});assert.match(evidence[0].text,/Company name/);assert.equal(evidence[0].chunkId,handle);assert.match(response.message,/prior step/);f.tasks.commandFrame(a.instanceId,{type:'result',commandId:command.commandId,ok:true,result:response});}
+ f.tasks.end(a.scope,{...a,taskId:first.taskId});assert.throws(()=>f.tasks.result('user',{commandId:first.commandId,instanceId:a.instanceId}),/PRIVATE_RESULT_ENDED/);
+});

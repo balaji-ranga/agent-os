@@ -408,7 +408,7 @@ export async function createPrivateTasks({
       const t = taskFor(scope, input.taskId, input.instanceId);
       touch(t);
       if (typeof input.text !== 'string' || !input.text.trim() || input.text.length > 8000) reject('INVALID_TASK');
-      if(readOnlyIntent(input.text)){const result=await service.summary(scope,input);return {...result,actions:[],privateTaskId:t.id};}
+      if(readOnlyIntent(input.text)){const result=await service.summary(scope,input,taskEvidence);return {...result,actions:[],privateTaskId:t.id};}
       const snapshot = validateSnapshot(input.snapshot),
         evidence = [...context(t, input.text, input.instanceId), ...taskEvidence].slice(0, 8);
       if ([...t.files.values()].some(f => f.uploaderId === input.instanceId && ['queued', 'extracting', 'storing'].includes(f.status))) reject('EXTRACTION_PENDING');
@@ -456,10 +456,10 @@ export async function createPrivateTasks({
         evidence
       };
     },
-    async summary(scope, input) {
+    async summary(scope, input, taskEvidence = []) {
       const t = taskFor(scope, input.taskId, input.instanceId);
       touch(t);
-      const evidence = context(t, input.text || '', input.instanceId);
+      const evidence = [...context(t, input.text || '', input.instanceId),...taskEvidence].slice(0,8);
       if (answer && evidence.length) {
         const out = await answer({
           text: input.text || 'Summarize the transaction details relevant to completing the requested form.',
@@ -892,7 +892,7 @@ export async function createPrivateTasks({
         instanceId: i.id,
         taskId: t.id,
         text: c.instruction
-      });
+      },service.resolveHandles(c,i.id));
       if (c.action === 'cancel') return {
         cancelRequested: true
       };

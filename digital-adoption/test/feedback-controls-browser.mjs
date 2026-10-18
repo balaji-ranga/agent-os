@@ -173,13 +173,14 @@ try {
       b.onclick = async () => {
         window.actionCount++;
         await window.feedback.track(
-          new Promise((resolve) => setTimeout(resolve, 300)),
+          new Promise((resolve) => setTimeout(resolve, 1000)),
         );
       };
       document.body.append(b);
     });
     await p.locator("#busy-fixture").dblclick();
     await p.locator("#busy-fixture[aria-busy=true]").waitFor();
+    await p.screenshot({path:new URL('action-working.png',out).pathname.replace(/^\/C:/,'C:'),fullPage:false});
     assert.equal(await p.evaluate(() => window.actionCount), 1);
     await p.locator("#busy-fixture:not([aria-busy])").waitFor();
     assert.equal(await p.locator("#busy-fixture").isEnabled(), true);
@@ -187,6 +188,7 @@ try {
       .locator("#action-notice")
       .getByText(/completed/)
       .waitFor();
+    await p.screenshot({path:new URL('action-completed.png',out).pathname.replace(/^\/C:/,'C:'),fullPage:false});
     await p
       .locator("#action-notice")
       .waitFor({ state: "hidden", timeout: 4000 });
