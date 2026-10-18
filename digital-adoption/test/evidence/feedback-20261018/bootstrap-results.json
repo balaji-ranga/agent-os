@@ -1,0 +1,25 @@
+{
+  "at": "2026-10-18T05:27:17.879Z",
+  "results": [
+    {
+      "id": "F13_LOCAL_FAILED_DOWNLOAD_EXPLICIT_RETRY",
+      "status": "passed",
+      "blocked": 1,
+      "hostRemainedVisible": true,
+      "recoveredWithoutHostReload": true,
+      "wallMs": 777,
+      "publicWrites": 0,
+      "measurement": "Injected download failure, not an uncontrolled network latency benchmark"
+    },
+    {
+      "id": "F13_PUBLIC_FAILED_DOWNLOAD_EXPLICIT_RETRY",
+      "status": "passed",
+      "blocked": 1,
+      "hostRemainedVisible": true,
+      "recoveredWithoutHostReload": true,
+      "wallMs": 593,
+      "publicWrites": 0,
+      "measurement": "Injected download failure, not an uncontrolled network latency benchmark"
+    }
+  ]
+}

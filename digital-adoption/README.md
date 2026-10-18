@@ -8,7 +8,7 @@ relay and user-specific workflow connectors governed by Flolah Action Policies.
 These additions have separate acceptance evidence and per-website opt-in controls;
 they do not inherit certification from the earlier shared-help release.
 
-## Private tasks and paired workflow connectors
+## Private tasks and workflow connectors
 
 Visitors use **Task files & paired copilots** in Guide to attach PDF, DOCX,
 UTF-8 text/Markdown, PNG or JPEG transaction files, summarize with citations,
@@ -25,7 +25,7 @@ is governed separately by the configured provider; application deletion does not
 claim to erase provider retention.
 
 The Flolah workflow editor exposes **Digital Adoption Copilot** as a connector.
-Explicitly link a paired group to your signed-in Flolah user, choose registrations
+Explicitly link authorized browser targets to your signed-in Flolah user, choose registrations
 and active instances, and select inspect, summarize, prepare, navigate, fill,
 owner-bound native submission, status or cancel. Every required recipient must
 complete; offline targets and unknown outcomes fail without replay or delivery
@@ -39,8 +39,8 @@ Owners separately enable attachments, pairing and workflow relay per registratio
 and configure smaller file/task/connection limits and exact native action bindings.
 See [build and setup](deploy/README.md) for service wiring and test commands.
 
-The scoped testing deployment uses app `20261018-private-j` and platform connector
-`20261018-private-f`. Open `http://127.0.0.1:4194/customer`, expand **Task files &
+The scoped testing deployment uses app `20261018-feedback-i` and platform connector
+`20261018-feedback-f`. Open `http://127.0.0.1:4194/customer`, expand **Task files &
 paired copilots**, attach a synthetic file, and ask “Fill the customer form using
 my transaction file.” Review the fields before applying. Save is separate and is
 safe only on the synthetic local host used here. Open `/note` in another tab to
@@ -54,13 +54,18 @@ the ID is not a credential and membership is still checked. A busy recipient
 rejects overlapping commands. A failed required recipient fails the node and
 revokes remaining effects; completed host changes are not rolled back.
 
-The [acceptance results](test/private-acceptance-results.json) and
-[CSV testcase table](test/private-acceptance-results.csv) record ten passed,
-five partial and zero failed composite design cases. This is available for
-testing, with full Phase 1/2 certification still partial. The explicitly approved six-hour public preview is available at
-`https://flolah.cloud/free-tools/mcp-universe/?digitalAdoptionPreview=1` until
-18 October 2026 at 15:17 Singapore. The eight cross-domain browser checks passed
-without public login or submission.
+The [current screenshot report](test/evidence/feedback-20261018/index.html),
+[JSON ledger](test/evidence/feedback-20261018/results.json) and
+[CSV table](test/evidence/feedback-20261018/results.csv) record **30 passed,
+4 partial, 0 failed and 3 user-deferred cases**. Guided-session feedback is
+18 passed and one partial (fresh real DNS/email self-service onboarding).
+The historical private-task ledger is retained separately rather than rewritten.
+Full Phase 1/2 certification remains partial: live effect-policy acceptance,
+the wider downstream/privacy audit, sustained model/OCR load and the deferred
+real Safari/iOS, Android and screen-reader matrix still need completion.
+The public opt-in preview expires 18 October 2026 at 15:17 Singapore; this
+report does not extend its approval. Its temporary workflow capability was
+restored Off. Public browser tests use no login or host submission.
 
 For a deterministic local preview, run `npm run dev:private`, then start
 `src/local-vps-demo.mjs` with `ADOPTION_DEMO_CONFIG` pointing to
@@ -235,3 +240,35 @@ durable pairing and the isolated React/Angular fixtures.
 Authorized runtime callers receive readable CORS responses for dependency failures. Model/search outages return 503, malformed model output returns 502, budgets return 429, and excessive bodies return 413. Network loss says to inspect the current task before retrying; it never asserts that an uncertain host action failed. Errors stay at the bottom until dismissed. No effectful operation is automatically retried. Knowledge uses explicit evidence status so an evidenced negative answer is distinct from insufficient evidence; citations still require exact authorized chunks.
 
 The independent service emits fixed-schema JSON request correlation and ingestion lifecycle events. Identifiers are hashed; raw chat, DOM, source text, URLs, headers, tokens and exception messages are excluded. Failed ingestion emits `INGESTION_FAILED` with a hashed job identifier. This is a machine-readable local alert, not proof of external notification delivery. Each independent container rotates JSON logs at 5 MB across three files. Only public SDK/widget asset types are gzip-compressed in the scoped Nginx location; private JSON API responses remain uncompressed. Pilot/load and actual wire measurements are retained in ignored UAT evidence, with their tested envelopes rather than unlimited-scale claims.
+
+## Guided feedback evidence, 18 October 2026
+
+Independent runtime `20261018-feedback-i` and platform connector/editor
+`20261018-feedback-f` are deployed. The final source includes 208 passing
+application tests locally and in the I image; ten real adapter/framework checks,
+nine live visitor journeys, two cancellation checks and two bootstrap-recovery
+checks are recorded separately. The evidence bundle has a SHA-256 manifest;
+images show actual browser state, while assertions/result files prove behavior.
+Open `http://127.0.0.1:4194/uat-evidence` on the running loopback fixture for the
+filterable table and screenshot gallery. The report contains no raw credentials,
+link codes or private task files.
+
+Server workflows no longer depend on peer pairing. Link each browser explicitly
+as a saved workflow target; adding another same-owner target requires its own
+code. Save the stable group and selected websites once. Runs 4059/4060 used the
+same definition across both tab refreshes. Offline run 4062 failed explicitly;
+no later visitor receives the command. Peer handoffs still require bilateral
+pairing and sharing consent.
+
+Run 4063 consumed an earlier inspection handle in a following real LLM summary
+while the host form was hidden (zero current fields). It correctly reported all
+three earlier required fields. Pass task ID and result handles within the same
+live task; task end invalidates private results. Structural inspection summaries
+can remain in audit, with entered values excluded.
+
+Field filling validates current native range/type/pattern constraints before
+host events and rejects changed constraints after review. The complex fixture
+covers async loading, empty/error/duplicate-label refusal and recovery, dependent
+fields, dynamic editable table rows, row selection, filtering/sorting/pagination,
+modal scope and independent saved-record readback. Vendor-specific grids and
+closed components are not certified by these accessible fixture patterns.

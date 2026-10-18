@@ -1,0 +1,40 @@
+{
+  "at": "2026-10-18T05:49:56.970Z",
+  "results": [
+    {
+      "stage": "inspect",
+      "observedFields": [
+        "Company name",
+        "Contact email",
+        "Region"
+      ],
+      "hiddenBeforeNextStep": true
+    },
+    {
+      "stage": "summary",
+      "currentFields": 0,
+      "message": "The previous inspection observed the following supported fields and their mandatory status: Company name (required), Contact email (required), and Region (required).",
+      "citations": [
+        {
+          "reference": "task-result:102e3ee3-3078-43a5-ab75-10979e7ecbf2:b3bfbeec-8b1c-4e0a-81cd-aa533a14af5c",
+          "filename": "Authorized task result",
+          "locator": "Completed copilot step",
+          "text": "{\"observation\":{\"revision\":1,\"actions\":[],\"observed\":{\"revision\":1,\"fields\":[{\"ref\":\"r1f0\",\"label\":\"Company name\",\"type\":\"text\",\"required\":true,\"key\":\"company_name\",\"form\":\"demo-form\"},{\"ref\":\"r1f1\",\"label\":\"Contact email\",\"type\":\"email\",\"required\":true,\"key\":\"contact_email\",\"form\":\"demo-form\"},{\"ref\":\"r1f2\",\"label\":\"Region\",\"type\":\"text\",\"required\":true,\"key\":\"region\",\"form\":\"demo-form\"}],\"forms\":[{\"key\":\"demo-form\",\"label\":\"demo-form\",\"fields\":[\"company_name\",\"contact_email\",\"region\"]}],\"links\":[{\"ref\":\"r1n0\",\"label\":\"Customer\",\"path\":\"/customer\"},{\"ref\":\"r1n1\",\"label\":\"Opportunity\",\"path\":\"/opportunity\"},{\"ref\":\"r1n2\",\"label\":\"Note\",\"path\":\"/note\"},{\"ref\":\"r1n3\",\"label\":\"Scheduled goal\",\"path\":\"/goal\"}],\"submissions\":[{\"ref\":\"r1s0\",\"label\":\"Save synthetic record\"}],\"screen\":\"Customer draft | Try these prompts | Generic changes and theme\",\"path\":\"/customer\"}},\"fields\":[],\"savedVerified\":false}",
+          "chunkId": "task-result:102e3ee3-3078-43a5-ab75-10979e7ecbf2:b3bfbeec-8b1c-4e0a-81cd-aa533a14af5c",
+          "title": "Authorized task result",
+          "supportingQuotes": [
+            "\"fields\":[{\"ref\":\"r1f0\",\"label\":\"Company name\",\"type\":\"text\",\"required\":true,\"key\":\"company_name\",\"form\":\"demo-form\"},{\"ref\":\"r1f1\",\"label\":\"Contact email\",\"type\":\"email\",\"required\":true,\"key\":\"contact_email\",\"form\":\"demo-form\"},{\"ref\":\"r1f2\",\"label\":\"Region\",\"type\":\"text\",\"required\":true,\"key\":\"region\",\"form\":\"demo-form\"}]"
+          ]
+        }
+      ],
+      "evidence": [
+        {
+          "reference": "task-result:102e3ee3-3078-43a5-ab75-10979e7ecbf2:b3bfbeec-8b1c-4e0a-81cd-aa533a14af5c",
+          "filename": "Authorized task result",
+          "locator": "Completed copilot step",
+          "text": "{\"observation\":{\"revision\":1,\"actions\":[],\"observed\":{\"revision\":1,\"fields\":[{\"ref\":\"r1f0\",\"label\":\"Company name\",\"type\":\"text\",\"required\":true,\"key\":\"company_name\",\"form\":\"demo-form\"},{\"ref\":\"r1f1\",\"label\":\"Contact email\",\"type\":\"email\",\"required\":true,\"key\":\"contact_email\",\"form\":\"demo-form\"},{\"ref\":\"r1f2\",\"label\":\"Region\",\"type\":\"text\",\"required\":true,\"key\":\"region\",\"form\":\"demo-form\"}],\"forms\":[{\"key\":\"demo-form\",\"label\":\"demo-form\",\"fields\":[\"company_name\",\"contact_email\",\"region\"]}],\"links\":[{\"ref\":\"r1n0\",\"label\":\"Customer\",\"path\":\"/customer\"},{\"ref\":\"r1n1\",\"label\":\"Opportunity\",\"path\":\"/opportunity\"},{\"ref\":\"r1n2\",\"label\":\"Note\",\"path\":\"/note\"},{\"ref\":\"r1n3\",\"label\":\"Scheduled goal\",\"path\":\"/goal\"}],\"submissions\":[{\"ref\":\"r1s0\",\"label\":\"Save synthetic record\"}],\"screen\":\"Customer draft | Try these prompts | Generic changes and theme\",\"path\":\"/customer\"}},\"fields\":[],\"savedVerified\":false}"
+        }
+      ]
+    }
+  ]
+}

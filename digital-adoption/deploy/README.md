@@ -93,7 +93,7 @@ node test/feedback-controls-browser.mjs
 ```
 
 The browser runner uses installed Chrome and the framework package's Playwright.
-Its nine checks distinguish direct adapter/application-state tests from full
+Its ten checks distinguish direct adapter/application-state tests from full
 LLM chat journeys. It saves synthetic records only on loopback. The fixture HTML
 is read per request; restart the listener for server-code changes. Do not expose
 the fixture through a tunnel or change its bind address.
@@ -177,7 +177,7 @@ has no network or live data/search/object-store mounts. Checkpoints cover SQLite
 and configuration, not a complete disaster-recovery backup. Keep the existing
 seven-day policy and do not infer immediate backup erasure from live deletion.
 
-## Current validation boundary
+## Historical private-extension validation boundary
 
 The private-task extension is deployed as `20261018-private-j`, with platform
 connector/editor `20261018-private-f`. Its own evidence includes 197 passing
@@ -198,3 +198,50 @@ searches and 50 parser jobs. Search p95 was 178.5 ms and full model-answer p95
 8.59 seconds; this is a short pilot, not sustained or cross-host HA certification.
 Full Phase 1/2 acceptance remains partial, with the previously recorded device,
 accessibility, lifecycle and other formal-case limitations still applicable.
+
+## Current guided-feedback release and reproducibility
+
+The current runtime is `20261018-feedback-i`; platform backend/frontend remain
+`20261018-feedback-f`. The source/evidence publication bundle is
+`20261018-feedback-j`. It contains the same runtime source as I plus the final
+sanitized reports and build instructions; test screenshots are excluded from
+Docker runtime context by the existing allowlist.
+
+All 208 application tests passed locally and in the I VPS image. Run the image
+checks with `test` and `deploy` mounted read-only under `/adoption`, not `/app`;
+use `--network none`, bounded CPU/memory and no production data mounts.
+
+The final browser checks require the approved public preview to be unexpired:
+
+```sh
+ADOPTION_UAT_BUILD=20261018-feedback-i node test/feedback-visitor-browser.mjs
+node test/feedback-reviews-browser.mjs
+ADOPTION_UAT_PUBLIC=1 node test/feedback-bootstrap-browser.mjs
+node test/feedback-controls-browser.mjs
+```
+
+The visitor runner waits for JSON stdin after its nine checks; send
+`{"op":"close"}` to record its final zero-public-write/login/submit assertions
+and close the browser. Workflow recipient harnesses are interactive: use the
+existing signed-in editor to link the one-use code, never copy it into reports.
+`feedback-context-browser.mjs` hides only the synthetic host form after real
+inspection and asserts the following real LLM summary uses its prior result.
+
+After those outputs exist, `python test/build-feedback-evidence.py` copies only
+an explicit synthetic evidence allowlist, requires 208/208 TAP success and checks
+all ledger links. `python test/build-feedback-canvas.py` creates a self-contained
+review canvas under ignored `.local`; its report data/screenshots are inline.
+The loopback `/uat-evidence` route serves the table and bounded image/JSON/CSV
+filenames, without exposing arbitrary local files. Restart only the verified
+local fixture process when changing its server routes; keep bind 127.0.0.1.
+
+The latest capped H-image 25-site/25-user pilot used 50 authenticated sockets,
+two real Python parsers and 250 HTTP samples: p95 3 ms, RSS 89 MiB, total 3.576 s,
+parser time 3.181 s, event-loop p99 18 ms and zero private objects/jobs/backlog
+at cleanup. This excludes LLM/OCR provider latency, saturation, soak and
+multi-coordinator HA; see `test/evidence/feedback-20261018/capacity-vps.json`.
+
+The temporary isolated public workflow capability is restored Off. Owner UI
+screenshot and audit verify cleanup; local task capabilities remain available.
+The six-hour opt-in preview expires at 15:17 Singapore on 18 October 2026.
+No new preview credential or lifetime is granted by deployment or this report.

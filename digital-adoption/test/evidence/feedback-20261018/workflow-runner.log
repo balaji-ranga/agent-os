@@ -1,0 +1,20 @@
+[action-policy] saved { owner: 'copilot-test', n: 1 }
+[action-policy] deny {
+  tool: 'connector_action:digital_adoption.fill',
+  mode: 'prohibited',
+  owner: 'copilot-test'
+}
+[action-policy] saved { owner: 'copilot-test', n: 1 }
+[action-policy] deny {
+  tool: 'connector_action:digital_adoption.fill',
+  mode: 'approval_required',
+  owner: 'copilot-test'
+}
+[action-policy] saved { owner: 'copilot-test', n: 1 }
+[action-policy] saved { owner: 'copilot-test', n: 1 }
+[action-policy] deny {
+  tool: 'connector_action:digital_adoption.fill',
+  mode: 'prohibited',
+  owner: 'copilot-test'
+}
+PASS real runner: read, prohibited, exact approval fanout, autonomous and bounded override, system-trigger identity, opaque private results, single-use grant

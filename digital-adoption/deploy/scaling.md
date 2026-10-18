@@ -143,3 +143,16 @@ seconds. This is a short pilot rather than a soak, saturation or browser matrix.
 
 References: https://www.sqlite.org/wal.html and
 https://www.sqlite.org/useovernet.html document SQLite's same-host WAL boundary.
+
+## Guided-feedback pilot update (18 October 2026)
+
+The independent H image repeated the isolated 25-site/25-user private-task
+pilot under one CPU / 1 GiB: 50 authenticated sockets, 25 UTF-8 transaction
+files, two parsers, 50 fan-out recipients and 250 HTTP samples. It completed
+in 3.576 seconds with p95 HTTP 3 ms, RSS 89 MiB and event-loop p99 18 ms.
+Cleanup reported zero tasks, private jobs/bytes and backlog. This short
+synthetic coordinator/parser pilot excludes concurrent real LLM/OCR provider
+latency and does not extend the earlier measured envelope to sustained load
+or multi-coordinator HA. I changes only client constraint validation and owner
+capability wording; no new backend scale claim is inferred. The JSON source is
+`test/evidence/feedback-20261018/capacity-vps.json`.

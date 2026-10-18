@@ -1,0 +1,3 @@
+# Preserve the captured evidence bytes, including Windows TAP/CSV line endings.
+# Source whitespace checks remain enabled outside this generated artifact folder.
+* -text -whitespace

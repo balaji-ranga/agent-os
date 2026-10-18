@@ -556,3 +556,26 @@ registrations retain their historical sources and cannot prove empty onboarding.
 The empty self-service integration test exercises owner registration, ownership
 verification, approval and observation using synthetic DNS/email transports.
 See the feedback acceptance ledger for the distinction from live DNS UAT.
+
+### Verified guided-feedback results
+
+See [the screenshot-linked testcase table](test/evidence/feedback-20261018/index.html)
+for the final 30 passed, four partial and three deferred composite cases.
+Guided feedback is 18 passed / one partial; the latter is real fresh DNS/email
+onboarding, which the historically provisioned fixture cannot establish.
+Full-phase certification remains partial. Current runtime I / platform F pass
+208 application tests locally and in the deployed image. Ten adapter/framework
+checks are distinct from nine real LLM/visitor journeys.
+
+Run 4063 proves prior task-result grounding with no visible current fields:
+`inspect-prior.result.taskId` and
+`inspect-prior.result.recipients.0.resultHandle` feed the following Copilot
+summarize operation. The task-bound planner resolves the authorized handle
+before model invocation. It reports three earlier required fields after the
+synthetic current form is hidden. Task cleanup invalidates that handle.
+
+Native field constraints are checked on a detached probe before host mutation;
+constraint changes after inspection require a fresh review. Async picklists
+refuse empty/error/ambiguous results and keep dependent controls unavailable
+until a unique real option is selected. These tested HTML/ARIA contracts do not
+claim support for every vendor grid, shadow component or browser/device.

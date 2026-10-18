@@ -19,7 +19,7 @@ output = output_dir / f'adoption-release-{args.release}.tar.gz'
 paths = subprocess.check_output(
     ['git', '-C', str(root), 'ls-files', '-z', '--', 'src', 'web',
      'integrations', 'deploy', 'test', 'package.json', 'package-lock.json',
-     'README.md', '.dockerignore'],
+     'README.md', 'DESIGN.md', '.dockerignore'],
 ).decode('utf-8').split('\0')
 files = []
 for name in sorted(filter(None, paths)):

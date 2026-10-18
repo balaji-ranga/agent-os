@@ -1,0 +1,81 @@
+{
+  "at": "2026-10-18T06:04:13.307Z",
+  "release": "20261018-feedback-i",
+  "results": [
+    {
+      "id": "F04_MIXED_SEMANTIC_INTENT_AND_F09_REJECT",
+      "status": "passed",
+      "screenshots": [
+        "F04_MIXED_SEMANTIC_INTENT_AND_F09_REJECT-local.png",
+        "F04_MIXED_SEMANTIC_INTENT_AND_F09_REJECT-public.png"
+      ]
+    },
+    {
+      "id": "F04_NATURAL_SELECTION_APPROVED_NO_SAVE",
+      "status": "passed",
+      "screenshots": [
+        "F04_NATURAL_SELECTION_APPROVED_NO_SAVE-local.png",
+        "F04_NATURAL_SELECTION_APPROVED_NO_SAVE-public.png"
+      ]
+    },
+    {
+      "id": "F09_SEPARATE_SAVE_CANCEL_NO_SUBMISSION",
+      "status": "passed",
+      "screenshots": [
+        "F09_SEPARATE_SAVE_CANCEL_NO_SUBMISSION-local.png",
+        "F09_SEPARATE_SAVE_CANCEL_NO_SUBMISSION-public.png"
+      ]
+    },
+    {
+      "id": "F10_PRIVATE_SUMMARY_ONLY_NO_REVIEW",
+      "status": "passed",
+      "screenshots": [
+        "F10_PRIVATE_SUMMARY_ONLY_NO_REVIEW-local.png",
+        "F10_PRIVATE_SUMMARY_ONLY_NO_REVIEW-public.png"
+      ]
+    },
+    {
+      "id": "F09_PRIVATE_FILE_REVIEW_REJECT_RETAINS_FILES",
+      "status": "passed",
+      "screenshots": [
+        "F09_PRIVATE_FILE_REVIEW_REJECT_RETAINS_FILES-local.png",
+        "F09_PRIVATE_FILE_REVIEW_REJECT_RETAINS_FILES-public.png"
+      ]
+    },
+    {
+      "id": "F06_F14_NAMED_BILATERAL_GROUP",
+      "status": "passed",
+      "screenshots": [
+        "F06_F14_NAMED_BILATERAL_GROUP-local.png",
+        "F06_F14_NAMED_BILATERAL_GROUP-public.png"
+      ]
+    },
+    {
+      "id": "F11_RELAY_CONSENT_REQUIRED",
+      "status": "passed",
+      "screenshots": [
+        "F11_RELAY_CONSENT_REQUIRED-local.png",
+        "F11_RELAY_CONSENT_REQUIRED-public.png"
+      ]
+    },
+    {
+      "id": "F11_F15_UNIFIED_HANDOFF_AND_SENDER_TRACE",
+      "status": "passed",
+      "screenshots": [
+        "F11_F15_UNIFIED_HANDOFF_AND_SENDER_TRACE-local.png",
+        "F11_F15_UNIFIED_HANDOFF_AND_SENDER_TRACE-public.png"
+      ]
+    },
+    {
+      "id": "F08_F18_REFRESH_SAME_GROUP_NO_PRIVATE_RESTORE",
+      "status": "passed",
+      "screenshots": [
+        "F08_F18_REFRESH_SAME_GROUP_NO_PRIVATE_RESTORE-local.png",
+        "F08_F18_REFRESH_SAME_GROUP_NO_PRIVATE_RESTORE-public.png"
+      ]
+    }
+  ],
+  "publicWrites": 0,
+  "publicLogin": 0,
+  "publicSubmits": 0
+}
