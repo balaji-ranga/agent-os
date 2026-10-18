@@ -12,10 +12,10 @@ await context.addInitScript(()=>document.addEventListener('submit',e=>{if(locati
 const local=await context.newPage(),publicPage=await context.newPage(),panel=p=>p.frameLocator('iframe[data-adoption-widget]'),a=panel(local),b=panel(publicPage),results=[];
 const output=x=>console.log(JSON.stringify(x));
 const report=async()=>writeFile(new URL('results.json',evidence),JSON.stringify({at:new Date().toISOString(),release:process.env.ADOPTION_UAT_BUILD,results,publicWrites,publicLogin,publicSubmits},null,2));
-const check=async(id,fn)=>{try{await fn();results.push({id,status:'passed'});output({id,status:'passed'});}catch(e){results.push({id,status:'failed',error:e.message.slice(0,1600)});output({id,status:'failed',error:e.message});throw e;}finally{await report();}};
+const check=async(id,fn)=>{try{await fn();for(const [name,p] of [['local',local],['public',publicPage]])await p.screenshot({path:new URL(id+'-'+name+'.png',evidence).pathname.replace(/^\/C:/,'C:'),fullPage:false,mask:[panel(p).locator('#pair-code'),panel(p).locator('#pair-link-code')]});results.push({id,status:'passed',screenshots:[id+'-local.png',id+'-public.png']});output({id,status:'passed'});}catch(e){results.push({id,status:'failed',error:e.message.slice(0,1600)});output({id,status:'failed',error:e.message});throw e;}finally{await report();}};
 const send=async(f,text)=>{await f.locator('#plan').waitFor({state:'visible'});await f.locator('#message').fill(text);await f.locator('#plan').click();};
 const ready=async p=>{await panel(p).locator('#private-task').waitFor({state:'visible'});};
-const setup=async f=>{if(await f.locator('#private-task').getAttribute('open')===null)await f.locator('#private-task>summary').click();if(await f.locator('#private-task details').getAttribute('open')===null)await f.locator('#private-task details>summary').click();};
+const setup=async f=>{if(!await f.locator('#private-task').evaluate(e=>e.open))await f.locator('#private-task>summary').press('Space');if(!await f.locator('#private-task details').evaluate(e=>e.open))await f.locator('#private-task details>summary').press('Space');};
 let groupId;
 try{
  await Promise.all([local.goto('http://127.0.0.1:4194/customer'),publicPage.goto('https://flolah.cloud/free-tools/mcp-universe/?digitalAdoptionPreview=1')]);await Promise.all([ready(local),ready(publicPage)]);

@@ -1,4 +1,5 @@
 import { randomUUID, createHash } from 'node:crypto';
+export function copilotBridgeError(code){return ['RECIPIENT_OFFLINE','RECIPIENT_BUSY','GROUP_ACCESS_DENIED','VISITOR_CAPABILITY_DISABLED','OWNERSHIP_CHANGED','FANOUT_LIMIT','LINK_DENIED','TASK_ENDED','TASK_SHARING_REQUIRED','POLICY_REVOKED'].includes(code)?`COPILOT_${code}`:'COPILOT_BRIDGE_UNAVAILABLE';}
 export const COPILOT_ACTIONS = Object.freeze([['inspect', 'Inspect the current supported form and navigation', 'R0', 'read'], ['summarize', 'Summarize private task passages', 'R0', 'read'], ['prepare', 'Prepare current fields for visitor review', 'R0', 'read'], ['navigate', 'Navigate through a freshly observed safe link', 'R1', 'write_internal'], ['fill', 'Fill supported fields; host autosave can cause external effects', 'R2', 'communicate_external'], ['submit', 'Submit only an owner-bound native control', 'R3', 'financial_destructive'], ['status', 'Read a dispatched command status', 'R0', 'read'], ['cancel', 'Cancel an active private task', 'R1', 'write_internal']].map(([action, description, risk_tier, action_family]) => ({
   id: `digital_adoption.${action}`,
   action_id: `digital_adoption.${action}`,

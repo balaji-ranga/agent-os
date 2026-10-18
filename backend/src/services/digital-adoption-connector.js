@@ -2,7 +2,7 @@ import { getDb } from '../db/schema.js';
 import { isUserEnabled } from './user-enabled.js';
 import { evaluateActionPolicy, previewActionPolicy } from './action-policy.js';
 import { assertCallerMayExecuteConnectorAction, ensureConnectorActionGrantTables } from './connector-action-grants.js';
-import { createCopilotConnector, COPILOT_ACTIONS } from './digital-adoption-connector-core.js';
+import { createCopilotConnector, COPILOT_ACTIONS, copilotBridgeError } from './digital-adoption-connector-core.js';
 import { attachOrgFieldsToAuthUser, hasPermission } from './org-permissions.js';
 import { createHash } from 'node:crypto';
 const overrideFingerprint = row => row && createHash('sha256').update(JSON.stringify(Object.fromEntries(Object.entries(row).filter(([key]) => key !== 'use_count').sort(([a], [b]) => a.localeCompare(b))))).digest('hex');
@@ -52,7 +52,7 @@ export function copilotConnector() {
         body: JSON.stringify(input)
       });
       const result = await res.json();
-      if (!res.ok) throw Object.assign(new Error(result.code || 'COPILOT_BRIDGE_UNAVAILABLE'), {
+      if (!res.ok) throw Object.assign(new Error(copilotBridgeError(result.code)), {
         status: res.status
       });
       return result;
