@@ -34,32 +34,32 @@ export default function CopilotConnectorFields({
       }
     }),
     group = groups.find(g => g.groupId === attrs.groupId);
-  return <fieldset className="wf-field"><legend>Paired website copilots</legend>
-  <p>Save a paired group once and reuse it across runs. Recognized tabs reconnect to the saved group. Offline targets fail the step; future visitors receive nothing.</p>
-  <label>Pairing group link code<input value={code} onChange={e => setCode(e.target.value)} autoComplete="off" placeholder="From paired copilot → Link group" /></label>
+  return <fieldset className="wf-field"><legend>Website copilot targets</legend>
+  <p>Link one copilot directly or add separately authorized copilots to a selected target group. Pairing is optional for peer handoffs. Save the named group and websites once; each run uses current online connections. Offline targets fail; future visitors receive nothing.</p>
+  <label>Copilot workflow link code<input value={code} onChange={e => setCode(e.target.value)} autoComplete="off" placeholder="From copilot → Link this copilot" /></label>
   <button type="button" className="wf-btn" disabled={busy} aria-busy={busy} onClick={async () => {
       if(busy)return;setBusy(true);
       try {
-        await api.copilotLink(code.trim());
+        const linked=await api.copilotLink(code.trim(),group?.groupId);set({groupId:linked.groupId,websiteIds:attrs.websiteIds||[],instanceIds:undefined});
         setCode('');
         await refresh();
       } catch (e) {
         setError(e.message);
       }finally{setBusy(false);}
-    }}>{busy?'Linking…':'Link my paired group'}</button>
+    }}>{busy?'Linking…':group?'Add copilot to selected group':'Link copilot as new group'}</button>
   <button type="button" className="wf-btn" disabled={refreshing} aria-busy={refreshing} onClick={refresh}>{refreshing?'Refreshing…':'Refresh online copilots'}</button>
-  <label>Runtime group<select value={attrs.groupId || ''} onChange={e => set({
+  <label>Workflow target group<select value={attrs.groupId || ''} onChange={e => set({
         groupId: e.target.value,
         websiteIds: [],
         instanceIds: undefined
-      })}><option value="">Select a linked group</option>{groups.map(g => <option key={g.groupId} value={g.groupId}>{g.name||'Paired group'} · {g.instances?.filter(i=>i.active).length||0} online · {g.groupId.slice(0,8)}</option>)}</select></label>
+      })}><option value="">Select a saved target group</option>{groups.map(g => <option key={g.groupId} value={g.groupId}>{g.name||'Paired group'} · {g.instances?.filter(i=>i.active).length||0} online · {g.groupId.slice(0,8)}</option>)}</select></label>
   <label>Websites<select multiple value={attrs.websiteIds || []} onChange={e => set({
         websiteIds: Array.from(e.target.selectedOptions, o => o.value)
       })}>{(group?.websites || []).map(w => <option key={w.websiteId} value={w.websiteId}>{w.origin} · {w.environment}</option>)}</select></label>
   {!group && attrs.websiteIds?.length > 0 && <p>Saved websites: {attrs.websiteIds.join(', ')}. This group is offline; execution will fail preflight.</p>}
   <label>Recipients<select value={attrs.instanceIds === undefined ? 'all' : 'selected'} onChange={e => set({
         instanceIds: e.target.value === 'all' ? undefined : []
-      })}><option value="all">All active paired instances on selected websites</option><option value="selected">Select exact active instances</option></select></label>
+      })}><option value="all">All authorized active instances on selected websites</option><option value="selected">Select exact active instances</option></select></label>
   {attrs.instanceIds !== undefined && <label>Instances<select multiple value={attrs.instanceIds} onChange={e => set({
         instanceIds: Array.from(e.target.selectedOptions, o => o.value)
       })}>{(group?.instances || []).filter(i => (attrs.websiteIds || []).includes(i.websiteId)).map(i => <option key={i.instanceId} value={i.instanceId} disabled={!i.active}>{i.instanceId.slice(0, 8)} · {i.active ? 'online' : 'offline'}</option>)}</select></label>}

@@ -76,3 +76,18 @@ test('F17: inspection result is consumed as evidence by a following planner befo
  const next={...first,action:'prepare',instruction:'Prepare a review based on the earlier inspection',operationId:'use-result',taskId:c.taskId,inputs:{taskHandles:[status.recipients[0].resultHandle]}},d=f.tasks.dispatch('user',next,f.tasks.preflight('user',next));f.tasks.commandFrame(a.instanceId,{type:'ack',commandId:d.commandId});await f.tasks.commandPlan(a.scope,{...a,commandId:d.commandId,snapshot});assert.match(received[0].text,/Company name/);
  f.tasks.end(a.scope,{...a,taskId:c.taskId});assert.throws(()=>f.tasks.result('user',{commandId:c.commandId,instanceId:a.instanceId}),/PRIVATE_RESULT_ENDED/);assert.equal(f.tasks.commandStatus('user',c.commandId).recipients[0].inspection.fields[0].label,'Company name');
 });
+test('workflow linking does not require pairing; adding targets never grants peer handoff',async t=>{
+ const f=await fixture(t),a=f.add('alpha'),b=f.add('beta');
+ f.sites.get('alpha').taskPolicy.pairing=false;f.sites.get('beta').taskPolicy.pairing=false;
+ const groupId=f.tasks.linkUser('user',f.tasks.linkRequest(a.scope,a)).groupId;
+ assert.equal(f.tasks.preflight('user',{groupId,websiteIds:['alpha'],action:'inspect'}).recipients.length,1);
+ const code=f.tasks.linkRequest(b.scope,b).code;
+ assert.throws(()=>f.tasks.linkUser('other',{code,groupId}),/LINK_DENIED/);
+ const next=f.tasks.linkRequest(b.scope,b).code;
+ assert.equal(f.tasks.linkUser('user',{code:next,groupId}).groupId,groupId);
+ assert.equal(f.tasks.preflight('user',{groupId,websiteIds:['alpha','beta'],action:'inspect'}).recipients.length,2);
+ const task=await f.upload(a);assert.throws(()=>f.tasks.relay(a.scope,{...a,taskId:task.taskId,targetId:b.instanceId,shareConsent:true}),/HANDOFF_DENIED/);
+ f.sites.get('alpha').taskPolicy.pairing=true;f.sites.get('beta').taskPolicy.pairing=true;
+ assert.throws(()=>f.tasks.relay(a.scope,{...a,taskId:task.taskId,targetId:b.instanceId,shareConsent:true}),/HANDOFF_DENIED/);
+ f.pair(a,b);assert.equal(f.tasks.relay(a.scope,{...a,taskId:task.taskId,targetId:b.instanceId,shareConsent:true}).shared,true);
+});

@@ -497,6 +497,16 @@ and [COOP window references](https://developer.mozilla.org/en-US/docs/Web/HTTP/R
 
 ## 17. Guided-session feedback implementation
 
+Server workflow access does not depend on peer pairing. A visitor can issue a
+workflow link for this copilot alone, even when the owner's pairing capability
+is disabled. In the signed-in workflow editor the user links it as a new saved
+target group or adds an independently authorized copilot to their selected
+same-owner group. The workflow stores that stable target group and websites.
+Peer handoff is a separate persisted bilateral grant between participants;
+merging workflow targets never grants document relay. Both workflow capability
+and current Action Policies are checked without requiring pairing capability.
+Revoking a membership removes its server target authorization and peer grants.
+
 Pairing consent and live execution authority have separate lifecycles. A named
 group persists its owner, linked workflow user, website/origin membership,
 consent expiry/inactivity settings and hashed browser reconnect proofs in

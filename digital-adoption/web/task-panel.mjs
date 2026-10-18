@@ -9,7 +9,7 @@ export function mountTaskPanel({
   const panel = document.createElement("details");
   panel.id = "private-task";
   panel.hidden = true;
-  panel.innerHTML = `<summary>Task files & paired copilots</summary><p>Files and extracted values are private to this task. End task deletes them. Pairing groups have their own lifetime.</p><label>Transaction file <input id="transaction-file" type="file" accept=".pdf,.docx,.txt,.md,.png,.jpg,.jpeg"></label><div class="row"><button type="button" id="task-summary">Summarize files</button><button type="button" id="task-end">End task</button></div><p id="task-identity"></p><ul id="task-files"></ul><details><summary>Pair another copilot</summary><label>Group name <input id="pair-name" maxlength="80" value="My paired copilots"></label><label>Pairing lifetime <select id="pair-lifetime"><option value="1">1 hour</option><option value="4" selected>4 hours</option><option value="8">8 hours</option><option value="24">24 hours</option><option value="0">Until revoked on this browser</option></select></label><label>Pairing inactivity <select id="pair-inactivity"><option value="0">No separate inactivity expiry</option><option value="15">15 minutes</option><option value="60">1 hour</option><option value="240">4 hours</option></select></label><p>Both panels confirm these settings. Saved browser pairing can reconnect; offline tabs receive nothing and failed actions never replay.</p><button type="button" id="pair-invite">Create pairing code</button><p id="pair-code"></p><form id="pair-join"><label>Code from the other panel<input name="code" autocomplete="off" required maxlength="64"></label><button>Connect</button></form><button type="button" id="pair-refresh">Refresh paired sessions</button><div id="pair-members"></div><button type="button" id="pair-link">Link group to my Flolah workflows</button><p id="pair-link-code"></p><label><input id="relay-consent" type="checkbox"> Share relevant private task context with the recipient selected in chat</label></details><p id="task-state" role="status" aria-live="polite"></p>`;
+  panel.innerHTML = `<summary>Task files & paired copilots</summary><p>Files and extracted values are private to this task. End task deletes them. Pairing groups have their own lifetime.</p><label>Transaction file <input id="transaction-file" type="file" accept=".pdf,.docx,.txt,.md,.png,.jpg,.jpeg"></label><div class="row"><button type="button" id="task-summary">Summarize files</button><button type="button" id="task-end">End task</button></div><p id="task-identity"></p><ul id="task-files"></ul><details><summary>Pairing & workflow access</summary><label>Connection group name <input id="pair-name" maxlength="80" value="My paired copilots"></label><label>Pairing lifetime <select id="pair-lifetime"><option value="1">1 hour</option><option value="4" selected>4 hours</option><option value="8">8 hours</option><option value="24">24 hours</option><option value="0">Until revoked on this browser</option></select></label><label>Pairing inactivity <select id="pair-inactivity"><option value="0">No separate inactivity expiry</option><option value="15">15 minutes</option><option value="60">1 hour</option><option value="240">4 hours</option></select></label><p>For pairing, both panels confirm these settings. Workflow linking also works with this copilot alone. Saved browser access can reconnect; offline tabs receive nothing and failed actions never replay.</p><button type="button" id="pair-invite">Create pairing code</button><p id="pair-code"></p><form id="pair-join"><label>Code from the other panel<input name="code" autocomplete="off" required maxlength="64"></label><button>Connect</button></form><button type="button" id="pair-refresh">Refresh paired sessions</button><div id="pair-members"></div><button type="button" id="pair-link">Link this copilot to my Flolah workflows</button><p id="pair-link-code"></p><label><input id="relay-consent" type="checkbox"> Share relevant private task context with the recipient selected in chat</label></details><p id="task-state" role="status" aria-live="polite"></p>`;
   document.querySelector("#guide-chat").before(panel);
   const state = panel.querySelector("#task-state"),
     files = panel.querySelector("#task-files"),
@@ -156,9 +156,9 @@ export function mountTaskPanel({
     const others = members.filter((m) => m.instanceId !== out.instanceId);
     state.textContent = out.groupId
       ? `${out.name || "Paired group"} · ${out.groupId} · ${others.filter((m) => m.active).length} counterpart(s) online · ${out.workflowLinked ? "linked to Flolah user" : "not linked to workflows"} · ${out.expiresAt ? "expires " + new Date(out.expiresAt).toLocaleString() : "until revoked"}`
-      : "No paired group. Pair and confirm before linking a workflow.";
+      : "No connected group. Pair for peer handoffs, or link this copilot directly to Flolah workflows.";
     mentions.replaceChildren();
-    for (const m of others.filter((m) => m.active)) {
+    for (const m of others.filter((m) => m.active && m.canHandoff)) {
       mentions.append(
         button(`@${alias(m)}`, async () => {
           composer.value = `@${alias(m)} ${composer.value.replace(/^@\S*\s*/, "")}`;
@@ -201,9 +201,9 @@ export function mountTaskPanel({
   panel.querySelector("#pair-refresh").onclick = () => run(pairs);
   panel.querySelector("#pair-link").onclick = () =>
     run(async () => {
-      const out = await call("pair-link");
+      const out = await call("pair-link",{name:panel.querySelector("#pair-name").value,lifetimeHours:Number(panel.querySelector("#pair-lifetime").value),inactivityMinutes:Number(panel.querySelector("#pair-inactivity").value)});
       panel.querySelector("#pair-link-code").textContent =
-        `${out.code} · expires ${new Date(out.expiresAt).toLocaleTimeString()}. Link once in Flolah; reuse the saved group across workflow runs.`;
+        `${out.code} · expires ${new Date(out.expiresAt).toLocaleTimeString()}. In Flolah, link this code to a new or selected existing workflow target group. Pairing is optional; peer handoffs need separate bilateral confirmation.`;
     });
   function structuralSummary(observed) {
     if (!observed) return "";
@@ -219,7 +219,7 @@ export function mountTaskPanel({
     async sendIfMention(text) {
       const match = /^@(\S+)\s+([\s\S]+)/.exec(text);
       if (!match) return false;
-      const target = members.filter((m) => alias(m) === match[1]);
+      const target = members.filter((m) => alias(m) === match[1] && m.canHandoff);
       if (target.length !== 1 || !target[0].active)
         throw new Error(
           "Select an online paired recipient using @ in chat. Nothing was sent.",
@@ -250,6 +250,7 @@ export function mountTaskPanel({
     },
     event(event) {
       if (event.type === "pairing-restored") {
+        panel.open=true;panel.querySelector('details').open=true;
         renderPairs(event.status);
         return;
       }

@@ -94,12 +94,12 @@ export async function createPrivateTasks({
     instances = new Map(),
     tickets = new Map(),
     invitations = new Map(),
-    groups = new Map([...pairingState.values()].map(g=>[g.id,{...g,members:new Set(),participants:new Map(g.participants.map(p=>[p.id,p]))}])),
+    groups = new Map([...pairingState.values()].map(g=>[g.id,{...g,pairings:g.pairings||g.participants.flatMap((p,index)=>g.participants.slice(index+1).map(q=>[p.id,q.id])),members:new Set(),participants:new Map(g.participants.map(p=>[p.id,p]))}])),
     links = new Map(),
     commands = new Map(),
     operations = new Map();
   let queuedTurn = 0;
-  const saveGroup=g=>pairingState.set(g.id,{id:g.id,owner:g.owner,userId:g.userId,name:g.name,expiresAt:g.expiresAt,idleMs:g.idleMs,touched:g.touched,participants:[...g.participants.values()].map(({instanceId,...p})=>p)});
+  const saveGroup=g=>pairingState.set(g.id,{id:g.id,owner:g.owner,userId:g.userId,name:g.name,expiresAt:g.expiresAt,idleMs:g.idleMs,touched:g.touched,pairings:g.pairings||[],participants:[...g.participants.values()].map(({instanceId,...p})=>p)});
   const validGroup=g=>!!g&&(!g.expiresAt||g.expiresAt>clock())&&(!g.idleMs||g.touched+g.idleMs>clock());
   const groupFor=i=>{const g=groups.get(i.groupId);return validGroup(g)?g:null;};
   const site = scope => {
@@ -571,7 +571,7 @@ export async function createPrivateTasks({
             websiteId: p.websiteId,
             origin: s?.origin,
             environment: s?.environment,
-            active: !!live(m)
+            active: !!live(m),canHandoff:(g.pairings||[]).some(edge=>edge.includes(i.participantId)&&edge.includes(p.id))
           };
         }) : []
       };
@@ -594,7 +594,7 @@ export async function createPrivateTasks({
         const g = groups.get(a.groupId || b.groupId) || {
           id: randomUUID(),
           owner: entry.owner,
-          members: new Set(),participants:new Map(),name:entry.name,expiresAt:entry.lifetimeHours?clock()+entry.lifetimeHours*3600000:null,idleMs:entry.inactivityMinutes*60000,touched:clock()
+          members: new Set(),participants:new Map(),pairings:[],name:entry.name,expiresAt:entry.lifetimeHours?clock()+entry.lifetimeHours*3600000:null,idleMs:entry.inactivityMinutes*60000,touched:clock()
         };
         if (g.participants.size + Number(!g.participants.has(a.participantId)) + Number(!g.participants.has(b.participantId)) > config.groupSize) reject('GROUP_CAPACITY');
         for (const m of [a, b]) {
@@ -603,6 +603,7 @@ export async function createPrivateTasks({
           g.participants.set(m.participantId,{id:m.participantId,websiteId:m.embeddingId,origin:m.origin,identity:JSON.stringify(m.scope.hostPrincipal||null),proofHash:hash(m.resumeProof),instanceId:m.id});
           m.confirmedInvitations||=new Set();m.confirmedInvitations.add(invitationId);
         }
+        if(!g.pairings.some(edge=>edge.includes(a.participantId)&&edge.includes(b.participantId)))g.pairings.push([a.participantId,b.participantId]);
         groups.set(g.id, g);saveGroup(g);
         for (const [key, v] of invitations) if (v === entry) invitations.delete(key);
       }
@@ -623,7 +624,7 @@ export async function createPrivateTasks({
       if(!participant)reject('PAIRING_REJECTED');
       g.members.delete(targetId);
       const target = instances.get(participant.instanceId);
-      g.members.delete(participant.instanceId);g.participants.delete(participant.id);i.revokedMembers.add(targetId);saveGroup(g);
+      g.members.delete(participant.instanceId);g.participants.delete(participant.id);g.pairings=g.pairings.filter(edge=>!edge.includes(participant.id));i.revokedMembers.add(targetId);saveGroup(g);
       if (target) target.groupId = null;
       for (const c of commands.values()) finishCommand(c, targetId, 'failed', 'PAIRING_REVOKED');
       for (const t of tasks.values()) if (t.members.has(i.id) && t.members.has(targetId)) {
@@ -639,12 +640,18 @@ export async function createPrivateTasks({
       });
     },
     linkRequest(scope, {
-      instanceId
+      instanceId,name='My workflow copilots',lifetimeHours=4,inactivityMinutes=0
     }) {
       enabled(scope, 'workflow');
-      const i = member(scope, instanceId),
-        g = groups.get(i.groupId);
-      if (!validGroup(g)) reject('PAIR_FIRST');
+      const i = member(scope, instanceId);
+      if(!live(i))reject('RECIPIENT_OFFLINE');
+      let g=groupFor(i);
+      if(!g){
+        if(typeof name!=='string'||!name.trim()||name.length>80||![0,1,4,8,24].includes(lifetimeHours)||![0,15,60,240].includes(inactivityMinutes))reject('INVALID_PAIRING_POLICY');
+        if(groups.size>=config.groups)reject('GROUP_CAPACITY');
+        g={id:randomUUID(),owner:i.owner,members:new Set([i.id]),participants:new Map([[i.participantId,{id:i.participantId,websiteId:i.embeddingId,origin:i.origin,identity:JSON.stringify(i.scope.hostPrincipal||null),proofHash:hash(i.resumeProof),instanceId:i.id}]]),pairings:[],name:name.trim(),expiresAt:lifetimeHours?clock()+lifetimeHours*3600000:null,idleMs:inactivityMinutes*60000,touched:clock()};
+        i.groupId=g.id;groups.set(g.id,g);saveGroup(g);
+      }
       const code = secret();
       links.set(hash(code), {
         groupId: g.id,
@@ -656,7 +663,7 @@ export async function createPrivateTasks({
       };
     },
     linkUser(userId, {
-      code
+      code,groupId
     }) {
       const key = hash(code || ''),
         entry = links.get(key);
@@ -666,6 +673,15 @@ export async function createPrivateTasks({
       for (const id of g.members) {
         const i = instances.get(id);
         if (!live(i) || enabled(i.scope, 'workflow').organizationId !== g.owner) reject('LINK_DENIED');
+      }
+      if(groupId&&groupId!==g.id){
+        const target=groups.get(groupId);
+        if(!validGroup(target)||target.userId!==userId||target.owner!==g.owner||g.userId||g.participants.size!==1||g.pairings.length||target.participants.size>=config.groupSize)reject('LINK_DENIED');
+        // Explicit workflow linking grants server delivery only, never peer handoff.
+        for(const [id,p] of g.participants)target.participants.set(id,p);
+        for(const id of g.members){target.members.add(id);instances.get(id).groupId=target.id;}
+        target.touched=clock();saveGroup(target);groups.delete(g.id);pairingState.delete(g.id);
+        return {groupId:target.id,linked:true};
       }
       g.userId = userId;saveGroup(g);
       return {
@@ -709,7 +725,7 @@ export async function createPrivateTasks({
       const existingCommand=operations.get(userId+':'+input.operationId);
       if([...commands.values()].some(c=>c.id!==existingCommand&&c.recipients.some(r=>eligible.some(i=>i.id===r.instanceId)&&['dispatched','executing'].includes(r.status))))reject('RECIPIENT_BUSY');
       if (!eligible.length || eligible.length > Math.min(config.groupSize, input.fanoutLimit || config.groupSize)) reject('FANOUT_LIMIT');
-      for (const i of eligible) if (enabled(i.scope, 'workflow').organizationId !== g.owner || enabled(i.scope, 'pairing').organizationId !== g.owner) reject('OWNERSHIP_CHANGED');
+      for (const i of eligible) if (enabled(i.scope, 'workflow').organizationId !== g.owner) reject('OWNERSHIP_CHANGED');
       let effectFamily;
       if (input.action === 'submit') {
         const families = eligible.map(i => {
@@ -824,7 +840,7 @@ export async function createPrivateTasks({
         g = groups.get(i.groupId),
         target = instances.get(input.targetId),
         t = taskFor(scope, input.taskId, i.id);
-      if (!g || !g.members.has(target?.id) || !live(target) || enabled(target.scope, 'pairing').organizationId !== i.owner || input.shareConsent !== true) reject('HANDOFF_DENIED');
+      if (!validGroup(g) || !g.members.has(target?.id) || !(g.pairings||[]).some(edge=>edge.includes(i.participantId)&&edge.includes(target.participantId)) || !live(target) || enabled(scope,'pairing').organizationId!==i.owner || enabled(target.scope, 'pairing').organizationId !== i.owner || input.shareConsent !== true) reject('HANDOFF_DENIED');
       if([...tasks.values()].some(other=>other.id!==t.id&&other.members.has(target.id)))reject('TASK_CONFLICT');
       t.members.add(target.id);
       t.grants.set(target.id, context(t, input.instruction || '', i.id));

@@ -3552,8 +3552,8 @@
       "headings": [],
       "controls": [
         {
-          "id": "components/workflow/CopilotConnectorFields.jsx:39:32",
-          "label": "Pairing group link code",
+          "id": "components/workflow/CopilotConnectorFields.jsx:39:35",
+          "label": "Copilot workflow link code",
           "type": "text",
           "required": false,
           "conditional": false,
@@ -3561,8 +3561,8 @@
           "mode": "guided"
         },
         {
-          "id": "components/workflow/CopilotConnectorFields.jsx:51:22",
-          "label": "Runtime group",
+          "id": "components/workflow/CopilotConnectorFields.jsx:51:30",
+          "label": "Workflow target group",
           "type": "select",
           "required": false,
           "conditional": false,
@@ -3572,7 +3572,7 @@
           "source_options": [
             {
               "value": "",
-              "label": "Select a linked group"
+              "label": "Select a saved target group"
             }
           ],
           "options_authority": "live_options_required"
@@ -3601,7 +3601,7 @@
           "source_options": [
             {
               "value": "all",
-              "label": "All active paired instances on selected websites"
+              "label": "All authorized active instances on selected websites"
             },
             {
               "value": "selected",

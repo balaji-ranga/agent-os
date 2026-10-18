@@ -202,7 +202,7 @@ export function createTaskClient({
           type: 'task-ended'
         });
       }
-      if(['pair-invite','pair-confirm'].includes(type))resumeStore?.persist(true);
+      if(['pair-invite','pair-confirm','pair-link'].includes(type))resumeStore?.persist(true);
       return result;
     },
     async plan(input) {

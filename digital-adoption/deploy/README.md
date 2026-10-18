@@ -28,6 +28,10 @@ credential. The platform editor's group-link API uses its normal signed-in user
 and workflows permission; website ownership does not confer workflow access.
 
 Owners enable `taskPolicy.attachments`, `pairing` and `workflow` separately.
+Workflow linking works for a single copilot with pairing disabled. The signed-in
+editor can add a separately authorized copilot to an existing saved target group;
+this grants server delivery only. Peer document relay still requires bilateral
+pairing, stored separately from target membership.
 `taskPolicy.limits` may lower `fileBytes`, `files`, `taskBytes` and `instances`.
 `actionBindings` entries contain `id`, exact `path`, native control `label` and
 effect `family`. A changed binding invalidates in-flight authority. Source code
