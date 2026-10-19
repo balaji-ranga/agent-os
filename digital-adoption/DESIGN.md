@@ -6,18 +6,26 @@ The private attachments, pairing and workflow connector implementation now has
 its own tests and deployment candidates. The earlier release's tests do not
 certify these additions; the separate results report records actual coverage.
 
+The [immediate-phase design](IMMEDIATE_PHASE_DESIGN.md), analyzed on 19 October
+2026, specifies the next execution reliability, task transparency and fresh-owner
+onboarding work. It distinguishes source capabilities from tested outcomes and
+does not claim that its proposed changes are deployed.
+
 The product remains website independent. A visitor can attach transaction files,
 extract information relevant to a current or requested form, summarize that
 information, and continue an explicitly linked task across website copilots.
-A signed-in Flolah user can run their entitled workflows against those same
-paired sessions through a Digital Adoption connector. Flolah Action Policies
+A signed-in Flolah user can run their entitled workflows against explicitly
+linked online panels through a Digital Adoption connector. Peer pairing is only
+required for peer handoff, not server workflow delivery. Flolah Action Policies
 determine execution authority.
 
 ## 1. Agreed requirements
 
-- Transaction attachments belong to a private task. Delete files, extracted
-  content, values and private task context when that task ends. They never
-  become shared website help documents, source maps or published lessons.
+- Transaction attachments belong to a private task. End task immediately clears
+  active context and authorization and queues original encrypted files for
+  deletion. Per the 19 October amendment in section 6, extracted passages await
+  separate 24-hour temporary-index retention cleanup. They never become shared
+  website help documents, source maps or published lessons.
 - Visitors may upload and explicitly pair copilots without Flolah login.
 - Pairing is initiated and confirmed inside the copilot panels. No persistent
   coordination tab or browser extension is required.
@@ -34,8 +42,9 @@ determine execution authority.
   access, and Flolah sign-in alone does not pair their tabs.
 - Workflow editor integration is a connector node, not a new autonomous agent
   type or an OpenClaw agent provisioned for every visitor.
-- A node can select websites and relay to one paired instance or all active
-  paired instances on those websites within one selected group.
+- A node can select websites and relay to one workflow-linked instance or all
+  active linked instances on those websites within one selected group. This
+  group need not contain a peer pairing.
 - Delivery is immediate to the captured recipient set. No delivery queue targets
   future visitors, and a new visitor never replaces a failed recipient.
 - A closed, disconnected, expired or login-blocked target fails its affected

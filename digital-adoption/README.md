@@ -1,5 +1,10 @@
 # Digital Adoption Copilot
 
+The [immediate-phase analysis and design](IMMEDIATE_PHASE_DESIGN.md) defines the
+next reliability, visitor clarity and fresh-owner self-service work, with source
+findings, proposed contracts and acceptance gates. It is a design, not a new
+implementation or certification claim.
+
 19 October 2026: private transaction passages now use separate 24-hour ISM-managed
 OpenSearch indexes on runtime **20261019-private-retention-d**. End task clears
 browser context and server access immediately; physical search deletion follows
