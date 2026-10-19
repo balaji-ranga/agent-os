@@ -3,7 +3,7 @@
   "runtime": "20261019-private-retention-d",
   "helpRelease": "20261019-copilot-help-h",
   "counts": {
-    "passed": 13,
+    "passed": 14,
     "partial": 1,
     "failed": 1
   },
@@ -101,6 +101,13 @@
       "status": "partial",
       "detail": "Actual ISM policy attachment and retained passages verified. The 24-hour elapsed deletion cycle has not yet occurred.",
       "recommendation": "Verify managed-index deletion after its retention cycle; allow for periodic scheduling and failures."
+    },
+    {
+      "id": "HELP_PUBLICATION_AND_RETRIEVAL",
+      "status": "passed",
+      "detail": "Eight shipped copilot guides match their indexed SHA-256 content; actual platform-only search retrieves the workflow target/linking guidance. Public guide URL returned HTTP 200.",
+      "recommendation": "Keep help publication hash and retrieval checks in the release process."
     }
-  ]
+  ],
+  "helpVerification": "help-verification.json"
 }

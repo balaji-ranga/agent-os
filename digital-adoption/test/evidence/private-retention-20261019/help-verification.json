@@ -1,0 +1,64 @@
+{
+  "status": "passed",
+  "verified": [
+    {
+      "filename": "platform-help-61-platform-help-ui-copilot.md",
+      "sha256": "ab365e6427746af796648dc74f20659fb35592946cdeffe2ebc51af27461720d"
+    },
+    {
+      "filename": "platform-help-62-copilot-coaching.md",
+      "sha256": "ab0227657cf775e27ddf002b136324f4570d9a032498051775b7c72356b0f98f"
+    },
+    {
+      "filename": "platform-help-63-copilot-platform-map.md",
+      "sha256": "b6fc3e850d678355466ee340d8acabf83c37357c267614ee687ee67fce5436cb"
+    },
+    {
+      "filename": "platform-help-64-digital-adoption-websites.md",
+      "sha256": "ef0c824f4cf5b41bb25a71aa465fcf83f3fcf06f4d382171bf2aabf5514ecf4e"
+    },
+    {
+      "filename": "platform-help-65-copilot-workflow-connectors.md",
+      "sha256": "ca6caf32ac856e2c9048f2a97a86092aaaf215d20718e34d5d5c155e886e3f69"
+    },
+    {
+      "filename": "public-guide-run--platform-help-copilot.md",
+      "sha256": "9e886674117f6ab281a8fa0d850579f91d269857f2d97dcc41264dda8fb0d590"
+    },
+    {
+      "filename": "public-guide-systems--copilot-workflows.md",
+      "sha256": "da92be03940869ffd02d51390f88f22af9c014f47e51fa7008cc6d8e0a231346"
+    },
+    {
+      "filename": "public-guide-systems--digital-adoption.md",
+      "sha256": "b8dbcc4a28475acac0de3d1e3e9d8227f67aaaa0aaaa2af59d489160c8e04ed4"
+    }
+  ],
+  "retrieved": [
+    {
+      "filename": "public-guide-systems--copilot-workflows.md",
+      "title": "Flolah Public Guide \u2014Website copilot workflow connectors"
+    },
+    {
+      "filename": "public-guide-systems--copilot-workflows.md",
+      "title": "Flolah Public Guide \u2014Website copilot workflow connectors"
+    },
+    {
+      "filename": "platform-help-65-copilot-workflow-connectors.md",
+      "title": "Flolah Help \u2014Copilot Workflow Connectors Persistent Target Groups And Authorization"
+    },
+    {
+      "filename": "public-guide-systems--digital-adoption.md",
+      "title": "Flolah Public Guide \u2014Digital Adoption website copilots"
+    },
+    {
+      "filename": "public-guide-systems--copilot-workflows.md",
+      "title": "Flolah Public Guide \u2014Website copilot workflow connectors"
+    },
+    {
+      "filename": "platform-help-65-copilot-workflow-connectors.md",
+      "title": "Flolah Help \u2014Copilot Workflow Connectors Persistent Target Groups And Authorization"
+    }
+  ],
+  "scope": "platform help only; no model or visitor action"
+}
