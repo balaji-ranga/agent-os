@@ -1,0 +1,25 @@
+PASS LIVE01_MODEL_FINDS_ALREADY_RENDERED_GENOSYS
+PASS LIVE02_TYPED_SHOW_ME_FOLLOWUP_POINTS_TO_SAME_ENTITY
+PASS LIVE03_MODEL_USES_OTHER_WEBSITE_RENDERED_CONTEXT
+PASS LIVE04_MODEL_DISTINGUISHES_QUERY_FROM_SELECTED_LABEL
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: {"error":"Copilot service temporarily unavailable","code":"COPILOT_CHECKER_UNAVAILABLE"}
+
+503 !== 200
+
+    at send (file:///C:/Users/balaj/projects/agents/agent-os/.worktrees/digital-adoption/digital-adoption/test/dynamic-context-live-browser.mjs:12:272)
+    at async file:///C:/Users/balaj/projects/agents/agent-os/.worktrees/digital-adoption/digital-adoption/test/dynamic-context-live-browser.mjs:23:107
+    at async check (file:///C:/Users/balaj/projects/agents/agent-os/.worktrees/digital-adoption/digital-adoption/test/dynamic-context-live-browser.mjs:9:46)
+    at async file:///C:/Users/balaj/projects/agents/agent-os/.worktrees/digital-adoption/digital-adoption/test/dynamic-context-live-browser.mjs:23:2 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: 503,
+  expected: 200,
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v22.22.0

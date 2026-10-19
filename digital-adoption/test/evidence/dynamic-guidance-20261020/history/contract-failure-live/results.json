@@ -1,0 +1,157 @@
+{
+  "at": "2026-10-19T16:26:56.545Z",
+  "scope": "Actual deployed registrations and global maker/passive-checker route. Public MCP data is the live directory response. Local added DOM is a synthetic fixture, not shared knowledge or backend seeding. No public host submission.",
+  "results": [
+    {
+      "id": "LIVE01_MODEL_FINDS_ALREADY_RENDERED_GENOSYS",
+      "status": "passed",
+      "detail": {
+        "decision": "Read-only observed DOM highlight; search input unchanged",
+        "target": "ae.genosys/genosys"
+      },
+      "screenshot": "LIVE01_MODEL_FINDS_ALREADY_RENDERED_GENOSYS.png"
+    },
+    {
+      "id": "LIVE02_TYPED_SHOW_ME_FOLLOWUP_POINTS_TO_SAME_ENTITY",
+      "status": "passed",
+      "screenshot": "LIVE02_TYPED_SHOW_ME_FOLLOWUP_POINTS_TO_SAME_ENTITY.png"
+    },
+    {
+      "id": "LIVE03_MODEL_USES_OTHER_WEBSITE_RENDERED_CONTEXT",
+      "status": "passed",
+      "screenshot": "LIVE03_MODEL_USES_OTHER_WEBSITE_RENDERED_CONTEXT.png"
+    },
+    {
+      "id": "LIVE04_MODEL_DISTINGUISHES_QUERY_FROM_SELECTED_LABEL",
+      "status": "failed",
+      "error": "{\"error\":\"Copilot service temporarily unavailable\",\"code\":\"COPILOT_REVIEW_FAILED\"}\n\n503 !== 200\n",
+      "screenshot": "LIVE04_MODEL_DISTINGUISHES_QUERY_FROM_SELECTED_LABEL-failed.png"
+    }
+  ],
+  "publicWrites": 0,
+  "observations": [
+    {
+      "task": "looking for genosys MCP provider",
+      "targets": [
+        {
+          "label": "ae.genosys/genosys",
+          "role": "article"
+        },
+        {
+          "label": "MCP Universe",
+          "role": "h1"
+        },
+        {
+          "label": "ac.inference.sh/mcp",
+          "role": "article"
+        },
+        {
+          "label": "ac.tandem/docs-mcp",
+          "role": "article"
+        },
+        {
+          "label": "ae.projectory/mcp",
+          "role": "article"
+        },
+        {
+          "label": "Include your MCP",
+          "role": "h2"
+        },
+        {
+          "label": "Submit an MCP",
+          "role": "button"
+        },
+        {
+          "label": "ae.easyvoice/tts",
+          "role": "article"
+        }
+      ],
+      "fields": [
+        {
+          "label": "Search MCPs, publishers, capabilities…",
+          "type": "text",
+          "constraints": {
+            "maxlength": "120"
+          }
+        },
+        {
+          "label": "transport",
+          "type": "select-one"
+        }
+      ]
+    },
+    {
+      "task": "show me where also",
+      "targets": [
+        {
+          "label": "ae.genosys/genosys",
+          "role": "article"
+        },
+        {
+          "label": "MCP Universe",
+          "role": "h1"
+        },
+        {
+          "label": "ac.inference.sh/mcp",
+          "role": "article"
+        },
+        {
+          "label": "ac.tandem/docs-mcp",
+          "role": "article"
+        },
+        {
+          "label": "ae.projectory/mcp",
+          "role": "article"
+        },
+        {
+          "label": "Include your MCP",
+          "role": "h2"
+        },
+        {
+          "label": "Submit an MCP",
+          "role": "button"
+        },
+        {
+          "label": "ae.easyvoice/tts",
+          "role": "article"
+        }
+      ],
+      "fields": [
+        {
+          "label": "Search MCPs, publishers, capabilities…",
+          "type": "text",
+          "constraints": {
+            "maxlength": "120"
+          }
+        },
+        {
+          "label": "transport",
+          "type": "select-one"
+        }
+      ]
+    },
+    {
+      "task": "I am looking for Violet Billing Portal",
+      "targets": [
+        {
+          "label": "Violet Billing Portal",
+          "role": "article"
+        }
+      ],
+      "fields": [
+        {
+          "label": "Company name",
+          "type": "text"
+        },
+        {
+          "label": "Contact email",
+          "type": "email"
+        },
+        {
+          "label": "Region",
+          "type": "text"
+        }
+      ]
+    }
+  ]
+}

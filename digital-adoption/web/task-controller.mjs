@@ -40,7 +40,7 @@ export function createTaskController({inspector,request,onState=()=>{},storage,c
      emit('applying',{index});
      // Adapter checks still run immediately before the effect. A crash here is unknown.
      dispatched=true;
-     const args={ref:action.ref,value:action.value,expectedRevision:proposal.revision,activation:action.activation,observationMs:proposal.outcomeProfile?.observationMs,approved:true,active:()=>active()&&token===generation};
+     const args={ref:action.ref,value:action.value,query:action.query,select:action.select,expectedRevision:proposal.revision,activation:action.activation,observationMs:proposal.outcomeProfile?.observationMs,approved:true,active:()=>active()&&token===generation};
      if(action.type==='submit')emit('waiting_host',{index});
      let result=await (action.type==='fill'?inspector.fill(args):action.type==='submit'?inspector.submit(args):action.type==='navigate'?inspector.navigate(args):action.type==='highlight'?inspector.highlight(args):Promise.reject(new Error('Unsupported action')));
      emit('verifying',{index});

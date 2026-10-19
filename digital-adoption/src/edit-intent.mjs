@@ -57,6 +57,7 @@ export function explicitEditProposal(text,snapshot){
   let value=String(text).slice(match.index+match[0].length,matches[index+1]?.index??text.length).trim().replace(/[.!]?\s+(?:do not|don't|never)\b[\s\S]*$/i,'').trim();
   if(/^(['"]).*\1$/s.test(value))value=value.slice(1,-1);else value=value.replace(/[.!]$/,'').trim();
   if(!value||value.length>8000)return null;
+  if(candidates[0].type==='combobox')return null; // Dynamic result selection requires model reasoning over fresh observations.
   if(candidates[0].type==='checkbox'&&!['true','false'].includes(value))return null;
   if(['select-one','radio','select-multiple'].includes(candidates[0].type)){if(!candidates[0].choices||candidates[0].type==='select-multiple')return null;value=resolveChoice(value,candidates[0].choices);if(value===null)return null;}
   used.add(candidates[0].ref);actions.push({type:'fill',ref:candidates[0].ref,value});

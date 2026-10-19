@@ -40,7 +40,7 @@ export async function mount(options) {
   const recorder=createRecorder(document);
   let recordedSteps=[];
   let recordingId,recordingTitle;
-  let currentSnapshot = null,currentTaskText='';
+  let currentSnapshot = null,currentTaskText='',lastOutcome;
   const hostContext=()=>({title:currentSnapshot?.forms?.[0]?.label||[...document.forms].find(form=>!form.closest('[data-adoption-widget],[data-adoption-private]')&&form.getClientRects().length)?.getAttribute('aria-label')||document.title.slice(0,120),path:location.pathname});
   let taskGeneration=0;
   let guidedQueue=null;
@@ -83,7 +83,7 @@ export async function mount(options) {
   let durableResume=false;
   const resumeStore={read(){try{return sessionStorage.getItem(resumeKey)||localStorage.getItem(resumeKey);}catch{return null;}},write(value){try{sessionStorage.setItem(resumeKey,value);if(durableResume)localStorage.setItem(resumeKey,value);}catch{}},clear(){try{sessionStorage.removeItem(resumeKey);localStorage.removeItem(resumeKey);}catch{}},persist(value){durableResume=value;try{if(value){const proof=sessionStorage.getItem(resumeKey);if(proof)localStorage.setItem(resumeKey,proof);}else localStorage.removeItem(resumeKey);}catch{}}};
   const privateClient=createTaskClient({request,service,resumeStore,inspect:task=>inspector.snapshot({task}),hostIdentity:getHostIdentity?async()=>{try{return await request('/v1/renew',{identityToken:await readHostIdentity()});}catch(error){try{await request('/v1/terminate');}finally{expireSession();}throw error;}}:null,onEvent:event=>{
-    if(event.type==='task-ended'){taskGeneration++;currentSnapshot=null;currentTaskText='';}
+    if(event.type==='task-ended'){lastOutcome=undefined;taskGeneration++;currentSnapshot=null;currentTaskText='';}
     if(event.type==='workflow-started'){taskGeneration++;currentSnapshot=null;}
     if(event.type==='workflow-proposal'){currentSnapshot=event.snapshot;event={...event,proposal:{...event.proposal,localReview:inspector.reviewValues(event.proposal.actions,event.proposal.revision)}};}
     frame.contentWindow?.postMessage({channel:'flolah-adoption-v1',type:'private-event',event},service.origin);
@@ -110,7 +110,7 @@ export async function mount(options) {
       }
       else if (message.type === 'minimize') {visitorAnalytics.event('copilot_close');frame.hidden=true;launcher.hidden=false;launcher.focus();result={minimized:true};}
       else if (message.type === 'history') result = await request('/v1/history');
-      else if(message.type==='clear-history'){taskGeneration++;currentSnapshot=null;currentTaskText='';if(privateClient.taskId)await privateClient.call('task-end');result=await request('/v1/history/clear');}
+      else if(message.type==='clear-history'){lastOutcome=undefined;taskGeneration++;currentSnapshot=null;currentTaskText='';if(privateClient.taskId)await privateClient.call('task-end');result=await request('/v1/history/clear');}
       else if(message.type==='documents')result=await request('/v1/knowledge/documents');
       else if(message.type==='upload-document')throw new Error('Shared knowledge uploads require authenticated owner or Flolah website management. Use Task files for private transaction documents.');
       else if(message.type==='upload-status')result=await request('/v1/knowledge/upload-status',{sourceId:message.sourceId});
@@ -191,7 +191,7 @@ export async function mount(options) {
       else if (message.type === 'inspect') {result=inspector.snapshot({inventory:true});const access=await request('/v1/capabilities');if(access.capabilities.coach)result.learning=await request('/v1/learning/observe',{snapshot:result});}
       else if (message.type === 'plan') {
         const generation=proposalGeneration=++taskGeneration;
-        currentTaskText=message.text;const snapshot=inspector.snapshot({task:message.text});currentSnapshot=snapshot;
+        const continuingGoal=currentTaskText===message.text;currentTaskText=message.text;const snapshot=inspector.snapshot({task:message.text});if(lastOutcome)snapshot.lastOutcome={...lastOutcome,...(!continuingGoal?{lookupOnly:false}:{})};currentSnapshot=snapshot;
         result = await privateClient.plan({text:message.text,snapshot,mode:message.mode})||await request('/v1/plan',{ text:message.text,snapshot,replyTo:message.replyTo,mode:message.mode });
         if(generation!==taskGeneration)throw new Error('Task stopped; proposal discarded');
         if(!result.actions?.length)currentSnapshot=null;
@@ -222,8 +222,9 @@ export async function mount(options) {
           }});results.push(...applied.results);if(proposal.binding?.testRunId)await request('/v1/recipe/test/observe',{proposalId:message.proposalId});
         }
         if(closed||generation!==taskGeneration)throw new Error('Task superseded after dispatch. Completed host changes remain; no further actions will run.');
+        if(!guided)lastOutcome={path:reviewedSnapshot.path,actionTypes:proposal.actions.map(a=>a.type),outcome:results.at(-1)?.outcome||'prepared',...(results.some(r=>r.observeAgain)?{lookupOnly:true}:{}),applied:results.filter(r=>r.valueObserved||r.navigated&&r.verified).length};
         let followup=[];if(!guided&&proposal.actions.every(a=>a.type==='fill')){followup=newlyAvailableFields(reviewedSnapshot,inspector.snapshot({task:currentTaskText}),currentTaskText).map(f=>f.label);}
-        currentSnapshot=null;if(!guided)result={followup, results,outcome:results.at(-1)?.outcome||'prepared',saved:false };
+        currentSnapshot=null;if(!guided)result={followup,observeAgain:results.some(r=>r.observeAgain),results,outcome:results.at(-1)?.outcome||'prepared',saved:false };
         if(!privateClient.taskId&&!guided&&proposal.actions[0]?.type==='submit'&&results[0]?.hostReported==='success'&&message.learningConsent===true){
           try{
             if(!getVerifiedOutcome)throw new Error('This website has no verified saved-record integration');
@@ -238,7 +239,7 @@ export async function mount(options) {
       else throw new Error('Unsupported operation');
       if(['plan','recipe-plan','revise'].includes(message.type)&&result?.actions)result={...result,hostContext:hostContext(),localReview:inspector.reviewValues(result.actions,result.revision)};
       if(!closed)frame.contentWindow?.postMessage({ channel: message.channel, id: message.id, result }, service.origin);
-    } catch (error) { if(error.name==='AbortError'&&error.code!=='TASK_CANCELLED')error=Object.assign(new Error('The task was interrupted. Check the website outcome before trying again.'),{code:'TASK_INTERRUPTED',outcome:error.outcome,results:error.results});if(error.code==='SESSION_ACCESS_DENIED')expireSession();if(proposalGeneration===taskGeneration)currentSnapshot=null;if(!closed)frame.contentWindow?.postMessage({ channel: message.channel, id: message.id, error: error.message,code:error.code,outcome:error.outcome,applied: error.results?.filter(r=>r.valueObserved).length||0 }, service.origin); }
+    } catch (error) { if(message.type==='approve')lastOutcome={path:currentSnapshot?.path||location.pathname,actionTypes:[],outcome:error.outcome==='unknown'?'unknown':'rejected',applied:error.results?.filter(r=>r.valueObserved).length||0};if(error.name==='AbortError'&&error.code!=='TASK_CANCELLED')error=Object.assign(new Error('The task was interrupted. Check the website outcome before trying again.'),{code:'TASK_INTERRUPTED',outcome:error.outcome,results:error.results});if(error.code==='SESSION_ACCESS_DENIED')expireSession();if(proposalGeneration===taskGeneration)currentSnapshot=null;if(!closed)frame.contentWindow?.postMessage({ channel: message.channel, id: message.id, error: error.message,code:error.code,outcome:error.outcome,applied: error.results?.filter(r=>r.valueObserved).length||0 }, service.origin); }
   };
   window.addEventListener('message', handler);
   (layout==='docked'?dockTarget:document.body).append(frame);document.body.append(launcher);

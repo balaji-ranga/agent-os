@@ -1,3 +1,4 @@
+import {barePointing} from './guidance-intent.mjs';
 import {appendProposedAction} from './review-card.mjs';
 import {mountWorkspace} from './workspace.mjs';
 import {addReviewEditor} from './review-editor.mjs';
@@ -162,6 +163,8 @@ async function prepare(text,generation,depth=0,repair=0){
           review.replaceChildren();
           if(result.results.every(r=>r.highlighted)){remainingGuidance(result,generation);return;}
           if(result.results.some(r=>r.navigated&&r.verified)){status.textContent='Navigation verified. Continuing your original task…';await prepare(text,generation,depth+1);}
+          else if(result.observeAgain&&repair<2){status.textContent='Search text verified. Inspecting the loaded results before preparing the next review…';await prepare(text,generation,depth,repair+1);}
+          else if(result.observeAgain){document.querySelector('#save-review').hidden=true;status.textContent='Search text verified. Result selection is still unresolved; clarify the intended result before continuing.';}
           else if(result.followup?.length&&repair<2){status.textContent='Dependent controls are now available. Preparing a fresh review for '+result.followup.join(', ');await prepare(text,generation,depth,repair+1);}
           else {document.querySelector('#save-review').hidden=assistanceMode==='guide'||!result.results.every(r=>r.valueObserved);status.textContent=result.results.every(r=>r.highlighted)?'Guidance shown. No field values were changed.':result.results.every(r=>r.valueObserved)?`${result.results.length} approved field values verified in the form. Save was not clicked.`:'A field did not retain its value. Check the form; no retry was attempted.';}
         }
@@ -173,7 +176,7 @@ async function prepare(text,generation,depth=0,repair=0){
 document.querySelector('#guide-chat').addEventListener('submit',async event=>{
  event.preventDefault();if(document.querySelector('#plan').disabled)return;const text=document.querySelector('#message').value;workspace?.showChat();
  if(workspace?.mode==='knowledge'&&!text.startsWith('@')){if(text.length>2000){showError(new Error('Knowledge questions allow up to 2,000 characters. Shorten this question before sending.'));return;}document.querySelector('#knowledge-message').value=text;document.querySelector('#message').value='';document.querySelector('#chat').requestSubmit();return;}
- show(text,'guide','user');document.querySelector('#message').value='';try{if(await taskPanel.sendIfMention(text))return;}catch(error){showError(error);return;}if(/^(?:please\s+)?(?:save|submit)(?:\s+(?:this|the)\s+(?:form|record|draft))?[.!]?$/i.test(text.trim())){document.querySelector('#save-review').onclick();}else {lastPageRequest=text;prepare(text,++task);}
+ show(text,'guide','user');document.querySelector('#message').value='';try{if(await taskPanel.sendIfMention(text))return;}catch(error){showError(error);return;}if(/^(?:please\s+)?(?:save|submit)(?:\s+(?:this|the)\s+(?:form|record|draft))?[.!]?$/i.test(text.trim())){document.querySelector('#save-review').onclick();}else {const goal=barePointing(text)&&lastPageRequest?`Show me where ${lastPageRequest}`:text;if(!barePointing(text))lastPageRequest=text;prepare(goal,++task);}
 });
 document.querySelector('#inspect').addEventListener('click', async () => {
   const button=document.querySelector('#inspect'),progress=document.querySelector('#inspection-status'),output=document.querySelector('#inspection-result');

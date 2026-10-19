@@ -1,0 +1,72 @@
+Candidate Linux regression passed. No running services changed.
+Coordinator/gateway candidates prepared; platform and parser workers stay untouched.
+Consistent independent database checkpoint retained on deployment host
+(node:1) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ Container flolah-adoption-adoption-1 Recreate
+ Container flolah-adoption-adoption-1 Recreated
+ Container flolah-adoption-adoption-1 Starting
+ Container flolah-adoption-adoption-1 Started
+ Container flolah-adoption-adoption-model-gateway-1 Recreate
+ Container flolah-adoption-adoption-model-gateway-1 Recreated
+ Container flolah-adoption-adoption-model-gateway-1 Starting
+ Container flolah-adoption-adoption-model-gateway-1 Started
+Scoped coordinator is healthy. Parser workers were not restarted; the captured gateway patch follows.
+Gateway keeps its captured parallel checker/provider base; only generic assignment guards changed. Parser workers and Admin model settings unchanged.
+{
+  "at": "2026-10-19T16:40:10.060489+00:00",
+  "status": "passed",
+  "release": "20261020-context-h",
+  "containers": {
+    "flolah-adoption-adoption-1": {
+      "imageId": "sha256:895b189dcc68fe8d6bcfa791db81c20b3c5db4cd9ec2e5fb0ef0f97c9ab40b71",
+      "image": "flolah-digital-adoption:20261020-context-h",
+      "startedAt": "2026-10-19T16:39:56.900179322Z",
+      "running": true,
+      "health": null
+    },
+    "flolah-adoption-adoption-model-gateway-1": {
+      "imageId": "sha256:21a583fe865af2b01ef41d3a79d0ae4b9179c6d9139de0376a0227c16617b773",
+      "image": "flolah-digital-adoption:20261020-context-h-gateway",
+      "startedAt": "2026-10-19T16:40:08.785805799Z",
+      "running": true,
+      "health": null
+    },
+    "flolah-adoption-adoption-worker-1": {
+      "imageId": "sha256:7133f95194a1df02b59712754b2b95a254528fa9ece34c4994647497dc052fe0",
+      "image": "flolah-digital-adoption:20261018-owner-workspace-c",
+      "startedAt": "2026-10-18T10:43:45.697774407Z",
+      "running": true,
+      "health": null
+    },
+    "flolah-adoption-adoption-worker-2": {
+      "imageId": "sha256:7133f95194a1df02b59712754b2b95a254528fa9ece34c4994647497dc052fe0",
+      "image": "flolah-digital-adoption:20261018-owner-workspace-c",
+      "startedAt": "2026-10-18T10:43:45.830124253Z",
+      "running": true,
+      "health": null
+    },
+    "agent-os-backend-1": {
+      "imageId": "sha256:01f6bd687e7cebb984996c0d1bcf6387a78ebbf64b9fb2871b2b7e1db8be2c52",
+      "image": "agent-os-backend:adoption-help-20261019-guidance-h",
+      "startedAt": "2026-10-19T15:47:23.678791796Z",
+      "running": true,
+      "health": "healthy"
+    },
+    "agent-os-frontend-1": {
+      "imageId": "sha256:bf6aaf311d995a76f6ee4591d21241e07566954a26d83e380ae2d39c8ba54cb0",
+      "image": "agent-os-frontend:adoption-20261019-immediate-j",
+      "startedAt": "2026-10-19T11:40:25.829931383Z",
+      "running": true,
+      "health": "healthy"
+    }
+  },
+  "healthUrlsPassed": 4,
+  "parserWorkersPreserved": true,
+  "sharedCheckerSettingReadOnly": {
+    "enabled": true,
+    "checkerMode": "platform_inactive",
+    "checkerMaxTokens": 1536
+  },
+  "gatewayPatch": "Generic review contract overlay; parent provider/runtime image and shared settings preserved"
+}

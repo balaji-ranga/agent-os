@@ -26,7 +26,11 @@ export async function reviewCopilotResponse({ config, messages, purpose, draft, 
   };
   for (;;) {
     try { content = validate(content, purpose, messages); }
-    catch { if (revisions) throw Object.assign(new Error('Review contract failed'), { code: 'COPILOT_REVIEW_FAILED' }); await revise('The proposal violated the supplied deterministic response or live-control contract. Correct it without broadening authority.'); continue; }
+    catch(error) {
+      const category=['invalid_json','invalid_response_shape','unsupported_action','invalid_action_shape','unobserved_navigation','unobserved_field','invalid_lookup_mode','invalid_picklist_query','invalid_field_value','unknown_or_ambiguous_choice'].includes(error.message)?error.message:'invalid_contract';
+      if (revisions) throw Object.assign(new Error('Review contract failed'), { code: 'COPILOT_REVIEW_FAILED',diagnosticCode:category });
+      await revise(`The deterministic contract rejected the proposal (${category}). Only fill, highlight and navigate are action types. Use at most ONE action per ref. ${['invalid_lookup_mode','invalid_action_shape','unsupported_action'].includes(category)?'Choose exactly one combobox mode: query-only is {type:"fill",ref,value:<search text>,select:false} with NO query property; selecting a known result is {type:"fill",ref,query:<search text>,value:<exact result label>} with select omitted or true. Never combine query with select:false. When lastOutcome.lookupOnly is true, the query has already run; use the fresh observed options for a final fill selection instead of repeating it. ':''}Correct it without broadening authority.`); continue;
+    }
     let verdict;
     try {
       const context=reviewContext(messages,purpose,JSON.parse(content)),blocked=deterministicReview(context);

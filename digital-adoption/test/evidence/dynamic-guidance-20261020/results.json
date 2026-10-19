@@ -1,0 +1,584 @@
+{
+  "at": "2026-10-19T16:47:05.984337+00:00",
+  "release": "20261020-context-h",
+  "status": "scoped_acceptance_passed",
+  "finalDistinctChecks": 406,
+  "finalPassed": 406,
+  "finalFailed": 0,
+  "finalPartial": 0,
+  "finalPassPercent": 100,
+  "counting": "343 distinct unit/service tests plus 63 browser cases. Linux repeats the same 343 unit/service tests. Nested journeys are not added to this count. Historical pre-fix failures retained, not included in final-run percentage. This is not an uptime or flakiness measurement.",
+  "globalCertification": "Not promoted. Previously reported broader families remain 14 Passed / 16 Partial / 2 Deferred. This scoped change does not close all Phase1/2 requirements.",
+  "suites": [
+    {
+      "suite": "Linux service regression",
+      "passed": 343,
+      "failed": 0,
+      "partial": 0,
+      "scope": "Same 343 tests repeated on each OS; not 686 distinct requirements",
+      "evidence": "logs/linux-tests.log"
+    },
+    {
+      "suite": "Windows service regression",
+      "passed": 343,
+      "failed": 0,
+      "partial": 0,
+      "scope": "Same 343 tests repeated on each OS; not 686 distinct requirements",
+      "evidence": "logs/windows-tests.log"
+    },
+    {
+      "suite": "Deployed maker / passive checker",
+      "passed": 7,
+      "failed": 0,
+      "partial": 0,
+      "scope": "Real registered sites and models; synthetic local DOM; public writes blocked",
+      "evidence": "live/results.json"
+    },
+    {
+      "suite": "Generic DOM guidance",
+      "passed": 7,
+      "failed": 0,
+      "partial": 0,
+      "scope": "Actual local SDK/service/DOM; synthetic planner/identity/policy",
+      "evidence": "browser/results.json"
+    },
+    {
+      "suite": "Visitor workspace regression",
+      "passed": 18,
+      "failed": 0,
+      "partial": 0,
+      "scope": "Synthetic planner/identity/policy; native media picker simulated",
+      "evidence": "workspace/results.json"
+    },
+    {
+      "suite": "Field pointing regression",
+      "passed": 8,
+      "failed": 0,
+      "partial": 0,
+      "scope": "Synthetic planner/identity/policy; marker geometry verified",
+      "evidence": "field-regression/results.json"
+    },
+    {
+      "suite": "Immediate phase regression",
+      "passed": 13,
+      "failed": 0,
+      "partial": 0,
+      "scope": "Synthetic planner/identity/policy; includes 30 valid journeys and 11-command saved-record flow",
+      "evidence": "immediate/results.json"
+    },
+    {
+      "suite": "Native, async and framework controls",
+      "passed": 10,
+      "failed": 0,
+      "partial": 0,
+      "scope": "Local React/Angular state and saved readback; does not prove all frameworks",
+      "evidence": "controls/results.json"
+    }
+  ],
+  "browserCases": [
+    {
+      "suite": "Deployed maker / passive checker",
+      "id": "LIVE01_MODEL_FINDS_ALREADY_RENDERED_GENOSYS",
+      "status": "passed",
+      "detail": {
+        "decision": "Read-only observed DOM highlight; search input unchanged",
+        "target": "ae.genosys/genosys"
+      },
+      "screenshot": "LIVE01_MODEL_FINDS_ALREADY_RENDERED_GENOSYS.png",
+      "artifactFolder": "live"
+    },
+    {
+      "suite": "Deployed maker / passive checker",
+      "id": "LIVE02_TYPED_SHOW_ME_FOLLOWUP_POINTS_TO_SAME_ENTITY",
+      "status": "passed",
+      "screenshot": "LIVE02_TYPED_SHOW_ME_FOLLOWUP_POINTS_TO_SAME_ENTITY.png",
+      "artifactFolder": "live"
+    },
+    {
+      "suite": "Deployed maker / passive checker",
+      "id": "LIVE03_MODEL_USES_OTHER_WEBSITE_RENDERED_CONTEXT",
+      "status": "passed",
+      "screenshot": "LIVE03_MODEL_USES_OTHER_WEBSITE_RENDERED_CONTEXT.png",
+      "artifactFolder": "live"
+    },
+    {
+      "suite": "Deployed maker / passive checker",
+      "id": "LIVE04_MODEL_DISTINGUISHES_QUERY_FROM_SELECTED_LABEL",
+      "status": "passed",
+      "detail": {
+        "mode": "reviewed query then fresh selection review",
+        "query": "orc",
+        "selected": "Orchid Trading",
+        "hostSelectedIdVerified": true
+      },
+      "screenshot": "LIVE04_MODEL_DISTINGUISHES_QUERY_FROM_SELECTED_LABEL.png",
+      "artifactFolder": "live"
+    },
+    {
+      "suite": "Deployed maker / passive checker",
+      "id": "LIVE05_NEXT_MODEL_STEP_RECEIVES_VERIFIED_OUTCOME_AND_NEW_CONTROLS",
+      "status": "passed",
+      "detail": {
+        "path": "/customer",
+        "actionTypes": [
+          "fill"
+        ],
+        "outcome": "local_state_verified",
+        "applied": 1,
+        "lookupOnly": false
+      },
+      "screenshot": "LIVE05_NEXT_MODEL_STEP_RECEIVES_VERIFIED_OUTCOME_AND_NEW_CONTROLS.png",
+      "artifactFolder": "live"
+    },
+    {
+      "suite": "Deployed maker / passive checker",
+      "id": "LIVE06_MODEL_QUERIES_OBSERVES_THEN_REVIEWS_AN_UNKNOWN_RESULT_LABEL",
+      "status": "passed",
+      "detail": {
+        "first": "Reviewed query-only fill",
+        "second": "New DOM result selected after separate review",
+        "saved": false
+      },
+      "screenshot": "LIVE06_MODEL_QUERIES_OBSERVES_THEN_REVIEWS_AN_UNKNOWN_RESULT_LABEL.png",
+      "artifactFolder": "live"
+    },
+    {
+      "suite": "Deployed maker / passive checker",
+      "id": "LIVE07_MODEL_USES_DOM_DESCRIPTION_TO_DISTINGUISH_SAME_NAMED_ITEMS",
+      "status": "passed",
+      "screenshot": "LIVE07_MODEL_USES_DOM_DESCRIPTION_TO_DISTINGUISH_SAME_NAMED_ITEMS.png",
+      "artifactFolder": "live"
+    },
+    {
+      "suite": "Generic DOM guidance",
+      "id": "D01_DYNAMIC_CARD_IN_INSERTED_RESPONSE_POINTS_WITHOUT_INPUT_WRITES",
+      "status": "passed",
+      "screenshot": "D01_DYNAMIC_CARD_IN_INSERTED_RESPONSE_POINTS_WITHOUT_INPUT_WRITES.png",
+      "artifactFolder": "browser"
+    },
+    {
+      "suite": "Generic DOM guidance",
+      "id": "D02_TYPED_FOLLOWUP_REUSES_ENTITY_AND_POINTS_AT_CARD",
+      "status": "passed",
+      "screenshot": "D02_TYPED_FOLLOWUP_REUSES_ENTITY_AND_POINTS_AT_CARD.png",
+      "artifactFolder": "browser"
+    },
+    {
+      "suite": "Generic DOM guidance",
+      "id": "D03_RERENDERED_RESULT_NEW_REVISION_AND_NO_MATCH_HONESTY",
+      "status": "passed",
+      "screenshot": "D03_RERENDERED_RESULT_NEW_REVISION_AND_NO_MATCH_HONESTY.png",
+      "artifactFolder": "browser"
+    },
+    {
+      "suite": "Generic DOM guidance",
+      "id": "D04_DUPLICATE_RESULT_CLARIFIES",
+      "status": "passed",
+      "screenshot": "D04_DUPLICATE_RESULT_CLARIFIES.png",
+      "artifactFolder": "browser"
+    },
+    {
+      "suite": "Generic DOM guidance",
+      "id": "D05_PARTIAL_QUERY_REVIEW_SELECTS_EXACT_ASYNC_RESULT_AND_HOST_STATE",
+      "status": "passed",
+      "screenshot": "D05_PARTIAL_QUERY_REVIEW_SELECTS_EXACT_ASYNC_RESULT_AND_HOST_STATE.png",
+      "artifactFolder": "browser"
+    },
+    {
+      "suite": "Generic DOM guidance",
+      "id": "D06_STALE_CARD_TEXT_CANNOT_BE_POINTED_OR_EXECUTED",
+      "status": "passed",
+      "screenshot": "D06_STALE_CARD_TEXT_CANNOT_BE_POINTED_OR_EXECUTED.png",
+      "artifactFolder": "browser"
+    },
+    {
+      "suite": "Generic DOM guidance",
+      "id": "D07_QUERY_OBSERVE_THEN_SEPARATE_SELECTION_REVIEW",
+      "status": "passed",
+      "screenshot": "D07_QUERY_OBSERVE_THEN_SEPARATE_SELECTION_REVIEW.png",
+      "artifactFolder": "browser"
+    },
+    {
+      "suite": "Visitor workspace regression",
+      "id": "UX01_VISITOR_CAPABILITIES_AND_SINGLE_COMPOSER",
+      "status": "passed",
+      "screenshot": "UX01_VISITOR_CAPABILITIES_AND_SINGLE_COMPOSER.png",
+      "artifactFolder": "workspace"
+    },
+    {
+      "suite": "Visitor workspace regression",
+      "id": "UX02_UNIFIED_KNOWLEDGE_AND_HISTORY",
+      "status": "passed",
+      "screenshot": "UX02_UNIFIED_KNOWLEDGE_AND_HISTORY.png",
+      "artifactFolder": "workspace"
+    },
+    {
+      "suite": "Visitor workspace regression",
+      "id": "UX03_REVIEW_EDIT_APPLY_AND_REJECT",
+      "status": "passed",
+      "screenshot": "UX03_REVIEW_EDIT_APPLY_AND_REJECT.png",
+      "artifactFolder": "workspace"
+    },
+    {
+      "suite": "Visitor workspace regression",
+      "id": "UX04_PERSISTENT_FAILURE_ACROSS_VIEWS",
+      "status": "passed",
+      "screenshot": "UX04_PERSISTENT_FAILURE_ACROSS_VIEWS.png",
+      "artifactFolder": "workspace"
+    },
+    {
+      "suite": "Visitor workspace regression",
+      "id": "UX05_TASK_UPLOAD_AND_CONTEXT_SEPARATION",
+      "status": "passed",
+      "screenshot": "UX05_TASK_UPLOAD_AND_CONTEXT_SEPARATION.png",
+      "artifactFolder": "workspace"
+    },
+    {
+      "suite": "Visitor workspace regression",
+      "id": "UX06_PAIRING_SETUP_AND_UNIFIED_HANDOFF",
+      "status": "passed",
+      "screenshot": "UX06_PAIRING_SETUP_AND_UNIFIED_HANDOFF.png",
+      "artifactFolder": "workspace"
+    },
+    {
+      "suite": "Visitor workspace regression",
+      "id": "UX07_END_TASK_CLEARS_BOTH_WITHOUT_UNPAIRING",
+      "status": "passed",
+      "screenshot": "UX07_END_TASK_CLEARS_BOTH_WITHOUT_UNPAIRING.png",
+      "artifactFolder": "workspace"
+    },
+    {
+      "suite": "Visitor workspace regression",
+      "id": "UX08_OWNER_COACHING_INSPECT_AND_TEACH",
+      "status": "passed",
+      "screenshot": "UX08_OWNER_COACHING_INSPECT_AND_TEACH.png",
+      "artifactFolder": "workspace"
+    },
+    {
+      "suite": "Visitor workspace regression",
+      "id": "UX16_SYNTHETIC_RECORDING_REVIEW_DOWNLOAD_AND_DISCARD",
+      "status": "passed",
+      "screenshot": "UX16_SYNTHETIC_RECORDING_REVIEW_DOWNLOAD_AND_DISCARD.png",
+      "artifactFolder": "workspace"
+    },
+    {
+      "suite": "Visitor workspace regression",
+      "id": "UX09_REVOKED_COACHING_FAILS_CLOSED_AND_HIDES_ACTIONS",
+      "status": "passed",
+      "screenshot": "UX09_REVOKED_COACHING_FAILS_CLOSED_AND_HIDES_ACTIONS.png",
+      "artifactFolder": "workspace"
+    },
+    {
+      "suite": "Visitor workspace regression",
+      "id": "UX10_SHORT_VIEWPORT_STICKY_COMPOSER_AND_KEYBOARD",
+      "status": "passed",
+      "screenshot": "UX10_SHORT_VIEWPORT_STICKY_COMPOSER_AND_KEYBOARD.png",
+      "artifactFolder": "workspace"
+    },
+    {
+      "suite": "Visitor workspace regression",
+      "id": "UX11_MOBILE_REFLOW_AND_SINGLE_COMPOSER",
+      "status": "passed",
+      "screenshot": "UX11_MOBILE_REFLOW_AND_SINGLE_COMPOSER.png",
+      "artifactFolder": "workspace"
+    },
+    {
+      "suite": "Visitor workspace regression",
+      "id": "UX12_DISABLED_FEATURES_AND_WORKFLOW_ONLY_VISITOR",
+      "status": "passed",
+      "screenshot": "UX12_DISABLED_FEATURES_AND_WORKFLOW_ONLY_VISITOR.png",
+      "artifactFolder": "workspace"
+    },
+    {
+      "suite": "Visitor workspace regression",
+      "id": "UX13_INLINE_NEW_CONVERSATION_CANCEL_AND_CONFIRM",
+      "status": "passed",
+      "screenshot": "UX13_INLINE_NEW_CONVERSATION_CANCEL_AND_CONFIRM.png",
+      "artifactFolder": "workspace"
+    },
+    {
+      "suite": "Visitor workspace regression",
+      "id": "UX14_BROWSER_LOCAL_CURRENT_VALUE_NEVER_UPLOADED",
+      "status": "passed",
+      "screenshot": "UX14_BROWSER_LOCAL_CURRENT_VALUE_NEVER_UPLOADED.png",
+      "artifactFolder": "workspace"
+    },
+    {
+      "suite": "Visitor workspace regression",
+      "id": "UX15_OPT_IN_DOCK_AND_EXPAND_RETAIN_FORM",
+      "status": "passed",
+      "screenshot": "UX15_OPT_IN_DOCK_AND_EXPAND_RETAIN_FORM.png",
+      "artifactFolder": "workspace"
+    },
+    {
+      "suite": "Visitor workspace regression",
+      "id": "UX17_PANEL_SIZE_AND_THEME_PREFERENCES",
+      "status": "passed",
+      "screenshot": "UX17_PANEL_SIZE_AND_THEME_PREFERENCES.png",
+      "artifactFolder": "workspace"
+    },
+    {
+      "suite": "Visitor workspace regression",
+      "id": "UX18_QUICK_ASSISTANCE_CHOICES",
+      "status": "passed",
+      "screenshot": "UX18_QUICK_ASSISTANCE_CHOICES.png",
+      "artifactFolder": "workspace"
+    },
+    {
+      "suite": "Field pointing regression",
+      "id": "G01_WHERE_QUESTION_POINTS_WITHOUT_EXTRA_APPROVAL_OR_MODEL",
+      "status": "passed",
+      "screenshot": "G01_WHERE_QUESTION_POINTS_WITHOUT_EXTRA_APPROVAL_OR_MODEL.png",
+      "artifactFolder": "field-regression"
+    },
+    {
+      "suite": "Field pointing regression",
+      "id": "G02_SHOW_ME_WHERE_REUSES_TARGET",
+      "status": "passed",
+      "screenshot": "G02_SHOW_ME_WHERE_REUSES_TARGET.png",
+      "artifactFolder": "field-regression"
+    },
+    {
+      "suite": "Field pointing regression",
+      "id": "G03_SUPERSEDING_SLOW_REQUEST_POINTS_WITHOUT_ABORT_ERROR",
+      "status": "passed",
+      "screenshot": "G03_SUPERSEDING_SLOW_REQUEST_POINTS_WITHOUT_ABORT_ERROR.png",
+      "artifactFolder": "field-regression"
+    },
+    {
+      "suite": "Field pointing regression",
+      "id": "G04_PRIVATE_TASK_DOES_NOT_DIVERT_POINTING_TO_FILE_SUMMARY",
+      "status": "passed",
+      "screenshot": "G04_PRIVATE_TASK_DOES_NOT_DIVERT_POINTING_TO_FILE_SUMMARY.png",
+      "artifactFolder": "field-regression"
+    },
+    {
+      "suite": "Field pointing regression",
+      "id": "G05_AMBIGUOUS_FIELDS_CLARIFY_WITHOUT_FALSE_POINT",
+      "status": "passed",
+      "screenshot": "G05_AMBIGUOUS_FIELDS_CLARIFY_WITHOUT_FALSE_POINT.png",
+      "artifactFolder": "field-regression"
+    },
+    {
+      "suite": "Field pointing regression",
+      "id": "G06_OFFSCREEN_TARGET_SCROLLS_AND_POINTS",
+      "status": "passed",
+      "screenshot": "G06_OFFSCREEN_TARGET_SCROLLS_AND_POINTS.png",
+      "artifactFolder": "field-regression"
+    },
+    {
+      "suite": "Field pointing regression",
+      "id": "G07_NEW_CONVERSATION_DOES_NOT_REPLAY_CLEARED_REQUEST",
+      "status": "passed",
+      "screenshot": "G07_NEW_CONVERSATION_DOES_NOT_REPLAY_CLEARED_REQUEST.png",
+      "artifactFolder": "field-regression"
+    },
+    {
+      "suite": "Field pointing regression",
+      "id": "G08_SHOW_ME_WHERE_USES_LATEST_QUESTION_AFTER_KNOWLEDGE_MODE",
+      "status": "passed",
+      "screenshot": "G08_SHOW_ME_WHERE_USES_LATEST_QUESTION_AFTER_KNOWLEDGE_MODE.png",
+      "artifactFolder": "field-regression"
+    },
+    {
+      "suite": "Immediate phase regression",
+      "id": "T02_EDIT_REPLACE_REJECT",
+      "status": "passed",
+      "detail": "New proposal applied; rejected proposal had no effect.",
+      "screenshot": "T02_EDIT_REPLACE_REJECT.png",
+      "artifactFolder": "immediate"
+    },
+    {
+      "suite": "Immediate phase regression",
+      "id": "T02_TYPED_REVIEW_EDITORS",
+      "status": "passed",
+      "detail": "Typed editors replaced and applied fresh reviews for text, email, select, checkbox, radio, multi-select, date, number and textarea.",
+      "screenshot": "T02_TYPED_REVIEW_EDITORS.png",
+      "artifactFolder": "immediate"
+    },
+    {
+      "suite": "Immediate phase regression",
+      "id": "R01_NATIVE_NOOP",
+      "status": "passed",
+      "detail": "Select/checkbox applied; repeated identical select emitted no change.",
+      "screenshot": "R01_NATIVE_NOOP.png",
+      "artifactFolder": "immediate"
+    },
+    {
+      "suite": "Immediate phase regression",
+      "id": "R11_STALE_REVIEW_PARTIAL",
+      "status": "passed",
+      "detail": "Human edit retained; stale approval refused.",
+      "screenshot": "R11_STALE_REVIEW_PARTIAL.png",
+      "artifactFolder": "immediate"
+    },
+    {
+      "suite": "Immediate phase regression",
+      "id": "T03_PERSISTENT_ERROR",
+      "status": "passed",
+      "detail": "An unrelated successful action did not erase the unresolved task error.",
+      "screenshot": "T03_PERSISTENT_ERROR.png",
+      "artifactFolder": "immediate"
+    },
+    {
+      "suite": "Immediate phase regression",
+      "id": "T01_STOP_PLANNING",
+      "status": "passed",
+      "detail": "Stopped inference produced no review or host effect.",
+      "screenshot": "T01_STOP_PLANNING.png",
+      "artifactFolder": "immediate"
+    },
+    {
+      "suite": "Immediate phase regression",
+      "id": "R06_MISSING_FIELDS_SAVE",
+      "status": "passed",
+      "detail": "Save blocked by actual host validity, with field-specific categories.",
+      "screenshot": "R06_MISSING_FIELDS_SAVE.png",
+      "artifactFolder": "immediate"
+    },
+    {
+      "suite": "Immediate phase regression",
+      "id": "R09_SAVED_ACK_LOST_NO_REPLAY",
+      "status": "passed",
+      "detail": {
+        "records": 1,
+        "dispatches": 1,
+        "outcome": "unknown",
+        "fault": "Existing host persisted the record; browser response was deliberately dropped. No retry or false saved claim."
+      },
+      "screenshot": "R09_SAVED_ACK_LOST_NO_REPLAY.png",
+      "artifactFolder": "immediate"
+    },
+    {
+      "suite": "Immediate phase regression",
+      "id": "R03_DEPENDENT_REVIEWS",
+      "status": "passed",
+      "detail": "Three dependent stages received fresh snapshots and separate visitor approvals.",
+      "screenshot": "R03_DEPENDENT_REVIEWS.png",
+      "artifactFolder": "immediate"
+    },
+    {
+      "suite": "Immediate phase regression",
+      "id": "R13_WS_CUSTOMER_NOTE_OPPORTUNITY",
+      "status": "passed",
+      "detail": {
+        "commands": 11,
+        "savedRecords": 3,
+        "proof": "Independent host readback; host_reported_saved remains the connector contract",
+        "policy": "simulated in this isolated coordinator"
+      },
+      "screenshot": "R13_WS_CUSTOMER_NOTE_OPPORTUNITY.png",
+      "artifactFolder": "immediate"
+    },
+    {
+      "suite": "Immediate phase regression",
+      "id": "R_VALID_JOURNEYS_30",
+      "status": "passed",
+      "detail": {
+        "journeys": 30,
+        "distinctTaskKinds": [
+          "text",
+          "email",
+          "region",
+          "select",
+          "checkbox",
+          "mixed native",
+          "opportunity",
+          "note",
+          "radio",
+          "multi-select"
+        ],
+        "freshVariantsPerKind": 3,
+        "planner": "deterministic; held-out LLM remains a separate gate",
+        "hostSubmissions": 0
+      },
+      "screenshot": "R_VALID_JOURNEYS_30.png",
+      "artifactFolder": "immediate"
+    },
+    {
+      "suite": "Immediate phase regression",
+      "id": "OWNER_READINESS_UI",
+      "status": "passed",
+      "detail": "Real server-derived state in owner UI; saved-map reload and discovery setup link verified. Synthetic owner/registration, not fresh-owner DNS proof.",
+      "screenshot": "OWNER_READINESS_UI.png",
+      "artifactFolder": "immediate"
+    },
+    {
+      "suite": "Immediate phase regression",
+      "id": "OWNER_MAP_CONTEXT",
+      "status": "passed",
+      "detail": "Form and field descriptions saved through owner UI, retained after reload, exported with navigation, re-imported and present in visitor planner guidance. Synthetic identity; actual LLM acceptance is separate.",
+      "screenshot": "OWNER_MAP_CONTEXT.png",
+      "artifactFolder": "immediate"
+    },
+    {
+      "suite": "Native, async and framework controls",
+      "id": "F03_NATIVE_SELECT_CHECKBOX_RADIO_MULTISELECT_DATALIST",
+      "status": "passed",
+      "artifactFolder": "controls"
+    },
+    {
+      "suite": "Native, async and framework controls",
+      "id": "F05_ASYNC_PICKLIST_AND_DEPENDENT_CONTROL",
+      "status": "passed",
+      "artifactFolder": "controls"
+    },
+    {
+      "suite": "Native, async and framework controls",
+      "id": "F05_PICKLIST_LOADING_EMPTY_ERROR_AMBIGUITY_AND_RECOVERY",
+      "status": "passed",
+      "artifactFolder": "controls"
+    },
+    {
+      "suite": "Native, async and framework controls",
+      "id": "F05_EDITABLE_TABLE_ROW_FILTER_SORT_PAGINATION_DYNAMIC_ROW",
+      "status": "passed",
+      "artifactFolder": "controls"
+    },
+    {
+      "suite": "Native, async and framework controls",
+      "id": "F05_MODAL_SCOPE",
+      "status": "passed",
+      "artifactFolder": "controls"
+    },
+    {
+      "suite": "Native, async and framework controls",
+      "id": "F05_TABLE_MODEL_AND_MULTISELECT_INDEPENDENT_READBACK",
+      "status": "passed",
+      "artifactFolder": "controls"
+    },
+    {
+      "suite": "Native, async and framework controls",
+      "id": "F03_STALE_REVIEW_REJECTS_CHANGED_OPTIONS",
+      "status": "passed",
+      "artifactFolder": "controls"
+    },
+    {
+      "suite": "Native, async and framework controls",
+      "id": "F02_F07_GENERIC_BUSY_DUPLICATE_GUARD_AND_NOTICE",
+      "status": "passed",
+      "artifactFolder": "controls"
+    },
+    {
+      "suite": "Native, async and framework controls",
+      "id": "F03_REACT_APPLICATION_STATE_AND_INDEPENDENT_SAVE",
+      "status": "passed",
+      "artifactFolder": "controls"
+    },
+    {
+      "suite": "Native, async and framework controls",
+      "id": "F03_ANGULAR_APPLICATION_STATE_AND_INDEPENDENT_SAVE",
+      "status": "passed",
+      "artifactFolder": "controls"
+    }
+  ],
+  "deferred": [
+    "Real Safari/macOS/iOS and Android Chrome device matrix",
+    "Full screen-reader validation"
+  ],
+  "recommendations": [
+    "Continue real-model multi-step acceptance with more dependent controls and adversarial/ambiguous observations.",
+    "Retain independent Save/readback verification and duplicate fencing; never convert rendered targets into arbitrary click permission.",
+    "Complete broader fresh-owner/DNS and lifecycle acceptance before claiming full Phase1/2 certification."
+  ]
+}

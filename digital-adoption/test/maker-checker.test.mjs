@@ -84,3 +84,18 @@ test('local reasoning admission is bounded and releases its slot on completion',
  const request={config:{baseUrl:'http://ollama:11434/v1',model:'configured',apiKey:'local',nativeOllama:true},messages:[],maxTokens:700};
  const first=complete(request);await assert.rejects(()=>complete(request),e=>e.diagnosticCode==='LOCAL_CAPACITY');await new Promise(setImmediate);finish();await first;const next=complete(request);await new Promise(setImmediate);finish();await next;
 });
+
+test('contradictory lookup mode is repaired once with precise feedback and never silently converted',async()=>{
+ const observed={revision:1,path:'/lookup',fields:[{ref:'r1f0',label:'Account search',type:'combobox'}],links:[]};
+ const request={...body,messages:[{role:'user',content:JSON.stringify({task:'In Account search type orc then select Orchid Trading. Do not save.',observed})}]};
+ const good={message:'Review the search and exact result.',actions:[{type:'fill',ref:'r1f0',query:'orc',value:'Orchid Trading'}]},bad={...good,actions:[{...good.actions[0],select:false}]};
+ const f=fixture();let makers=0,judges=0,feedback;
+ const gateway=createPlatformGateway({serviceToken,resolveActive:async()=>f.config,complete:async input=>{
+  if(input.config.slot){judges++;return {content:JSON.stringify({decision:'accept',feedback:'Supported task and combobox modes.',checks:{taskMatch:'pass',grounding:'pass',safety:'pass'}})};}
+  makers++;if(makers===2)feedback=JSON.parse(input.messages.at(-1).content).boundedCheckerFeedback;
+  return {content:JSON.stringify(makers===1?bad:good)};
+ }});
+ const result=await call(gateway,request);assert.equal(makers,2);assert.equal(judges,1);assert.match(feedback,/invalid_lookup_mode/);assert.match(feedback,/Never combine query with select:false/);assert.deepEqual(JSON.parse(result.content).actions,good.actions);
+ const refusing=createPlatformGateway({serviceToken,resolveActive:async()=>f.config,complete:async()=>({content:JSON.stringify(bad)})});
+ await assert.rejects(()=>call(refusing,request),error=>error.code==='COPILOT_REVIEW_FAILED'&&error.diagnosticCode==='invalid_lookup_mode');
+});

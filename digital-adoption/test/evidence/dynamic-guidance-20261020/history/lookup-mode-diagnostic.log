@@ -1,0 +1,5 @@
+(node:1) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+{"event":"maker_invalid","reason":"invalid_lookup_mode","content":"{\"message\":\"To proceed with the account search, I will type 'orc' in the Account search field and then select 'Orchid Trading' from the results. Please confirm if you would like me to continue with this action.\",\"actions\":[{\"type\":\"fill\",\"ref\":\"r1f8\",\"value\":\"Orchid Trading\",\"query\":\"orc\",\"select\":false}]}"}
+{"event":"maker_invalid","reason":"invalid_lookup_mode","content":"{\"message\":\"To proceed with the account search, I will type 'orc' in the Account search field. After that, I will need to select 'Orchid Trading' from the results. Please confirm if you would like me to continue with this action.\",\"actions\":[{\"type\":\"fill\",\"ref\":\"r1f8\",\"value\":\"Orchid Trading\",\"query\":\"orc\",\"select\":false}]}"}
+{"code":"COPILOT_REVIEW_FAILED","message":"Review contract failed"}

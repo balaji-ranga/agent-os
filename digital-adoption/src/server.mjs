@@ -11,6 +11,8 @@ import {attachLiveTransport} from './live-transport.mjs';
 import {fieldGuidance} from './field-guidance.mjs';
 
 const assets = new Map([
+  ['/page-targets.mjs',['../web/page-targets.mjs','text/javascript']],
+  ['/guidance-intent.mjs',['../web/guidance-intent.mjs','text/javascript']],
   ['/workspace.mjs', ['../web/workspace.mjs','text/javascript']],
   ['/workspace.css', ['../web/workspace.css','text/css']],
   ['/review-card.mjs', ['../web/review-card.mjs','text/javascript']],

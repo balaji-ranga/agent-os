@@ -470,7 +470,7 @@ export async function createPrivateTasks({
       });
       taskFor(scope, t.id, input.instanceId);
       if((t.contentRevision||0)!==contentRevision)reject('TASK_CHANGED');
-      const allowed = response.actions.every(a => a.type !== 'fill' || groundedValue(a.value,snapshot.fields.find(f=>f.ref===a.ref),[input.text,...evidence.map(e=>e.text)]));
+      const allowed = response.actions.every(a => a.type !== 'fill' || groundedValue(a.value,snapshot.fields.find(f=>f.ref===a.ref),[input.text,...evidence.map(e=>e.text)])&&(a.query===undefined||groundedValue(a.query,snapshot.fields.find(f=>f.ref===a.ref),[input.text,...evidence.map(e=>e.text)])));
       const checked = allowed ? response : {
         message: 'A proposed value lacked supporting task or document evidence. Clarify the missing values.',
         actions: []

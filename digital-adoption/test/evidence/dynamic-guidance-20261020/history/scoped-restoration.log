@@ -1,0 +1,10 @@
+ Container flolah-adoption-adoption-model-gateway-1 Recreate
+ Container flolah-adoption-adoption-model-gateway-1 Recreated
+ Container flolah-adoption-adoption-model-gateway-1 Starting
+ Container flolah-adoption-adoption-model-gateway-1 Started
+ Container flolah-adoption-adoption-1 Recreate
+ Container flolah-adoption-adoption-1 Recreated
+ Container flolah-adoption-adoption-1 Starting
+ Container flolah-adoption-adoption-1 Started
+Immediate previous images restored; database/action fencing unchanged
+{"status":"ok"}

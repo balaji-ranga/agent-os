@@ -1,0 +1,3 @@
+[opensearch/embeddings] provider=local base=http://embeddings:8080/v1 model=Qwen/Qwen3-Embedding-0.6B
+[opensearch/platform-docs] ensure done created=0 updated=1 skipped=125
+{"status":"published","scope":"platform help only","created":0,"updated":1,"skipped":125}

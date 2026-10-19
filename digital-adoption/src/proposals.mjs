@@ -14,7 +14,8 @@ export function validateSnapshot(snapshot) {
     if(field.form!==undefined&&(typeof field.form!=='string'||!/^[a-zA-Z][a-zA-Z0-9_-]{0,79}$/.test(field.form)))invalid();
     if(field.choices!==undefined&&(!Array.isArray(field.choices)||field.choices.length>20||field.choices.some(value=>typeof value!=='string'||!value.trim()||value.length>160)||!['select-one','select-multiple','radio'].includes(field.type)))invalid();
     if(field.defaultChoice!==undefined&&(!field.choices?.includes(field.defaultChoice)))invalid();
-    return { ref:field.ref,label:field.label,type:field.type,required:field.required===true,...(field.key?{key:field.key}:{}),...(field.form?{form:field.form}:{}),...(field.choices?{choices:[...field.choices],...(field.choicesTruncated===true?{choicesTruncated:true}:{}),...(field.defaultChoice?{defaultChoice:field.defaultChoice}:{})}:{}) };
+    if(field.constraints!==undefined&&(!field.constraints||Array.isArray(field.constraints)||typeof field.constraints!=='object'||Object.entries(field.constraints).some(([key,value])=>!['min','max','step','maxlength','minlength','pattern'].includes(key)||typeof value!=='string'||value.length>160)))invalid();
+    return { ref:field.ref,label:field.label,type:field.type,required:field.required===true,...(field.constraints?{constraints:{...field.constraints}}:{}),...(field.key?{key:field.key}:{}),...(field.form?{form:field.form}:{}),...(field.choices?{choices:[...field.choices],...(field.choicesTruncated===true?{choicesTruncated:true}:{}),...(field.defaultChoice?{defaultChoice:field.defaultChoice}:{})}:{}) };
   });
   if(fields.reduce((total,f)=>total+(f.choices?.length||0),0)>60)invalid();
   if(snapshot.links!==undefined&&(!Array.isArray(snapshot.links)||snapshot.links.length>30))invalid();
@@ -22,6 +23,9 @@ export function validateSnapshot(snapshot) {
     if(!/^r\d+n\d+$/.test(link.ref)||refs.has(link.ref)||typeof link.label!=='string'||link.label.length>160||typeof link.path!=='string'||!/^\/(?!\/)[^?#\\]*$/.test(link.path)||link.path.length>300)invalid();
     refs.add(link.ref);return {ref:link.ref,label:link.label,path:link.path};
   });
+  if(snapshot.targets!==undefined&&(!Array.isArray(snapshot.targets)||snapshot.targets.length>24))invalid();
+  const targets=(snapshot.targets||[]).map(target=>{if(!target||!/^r\d+t\d+$/.test(target.ref)||refs.has(target.ref)||target.kind!=='content'||typeof target.label!=='string'||!target.label.trim()||target.label.length>160||typeof target.text!=='string'||target.text.length>480||typeof target.role!=='string'||!/^[a-z][a-z0-9-]{0,31}$/.test(target.role))invalid();if(target.state!==undefined&&(!target.state||Array.isArray(target.state)||Object.entries(target.state).some(([key,value])=>!['disabled','busy','expanded','selected'].includes(key)||typeof value!=='boolean')))invalid();refs.add(target.ref);return {ref:target.ref,kind:target.kind,role:target.role,label:target.label,text:target.text,...(target.state?{state:{...target.state}}:{})};});
+  for(let i=0;i<fields.length;i++){const optionRefs=snapshot.fields[i].optionRefs;if(optionRefs!==undefined){if(fields[i].type!=='combobox'||!Array.isArray(optionRefs)||optionRefs.length>24||new Set(optionRefs).size!==optionRefs.length||optionRefs.some(ref=>!targets.some(t=>t.ref===ref&&t.role==='option')))invalid();fields[i].optionRefs=[...optionRefs];}}
   const screen=typeof snapshot.screen==='string'?snapshot.screen.slice(0,360):'';
   const path=typeof snapshot.path==='string'?snapshot.path.slice(0,300):'';
   if(snapshot.submissions!==undefined&&(!Array.isArray(snapshot.submissions)||snapshot.submissions.length>10))invalid();
@@ -33,7 +37,8 @@ export function validateSnapshot(snapshot) {
   const formKeys=new Set(),forms=(snapshot.forms||[]).map(form=>{
     if(!form||!/^[a-zA-Z][a-zA-Z0-9_-]{0,79}$/.test(form.key)||formKeys.has(form.key)||typeof form.label!=='string'||form.label.length>160||!Array.isArray(form.fields)||form.fields.length>60||form.fields.some(key=>!fields.some(f=>f.key===key&&f.form===form.key)))invalid();formKeys.add(form.key);return {key:form.key,label:form.label,fields:[...new Set(form.fields)]};
   });
-  return { revision:snapshot.revision,fields,forms,links,submissions,screen,path };
+  let lastOutcome;if(snapshot.lastOutcome!==undefined){const value=snapshot.lastOutcome;if(!value||typeof value.path!=='string'||value.path.length>300||!['prepared','local_state_verified','host_reported_saved','business_verified','unknown','rejected'].includes(value.outcome)||value.lookupOnly!==undefined&&typeof value.lookupOnly!=='boolean'||!Number.isSafeInteger(value.applied)||value.applied<0||value.applied>10||!Array.isArray(value.actionTypes)||value.actionTypes.length>10||value.actionTypes.some(type=>!['fill','highlight','navigate','submit'].includes(type)))invalid();lastOutcome={path:value.path,outcome:value.outcome,applied:value.applied,actionTypes:[...value.actionTypes],...(value.lookupOnly===true?{lookupOnly:true}:{}),authority:'Untrusted browser observation; never permission to execute'};}
+  return { revision:snapshot.revision,fields,forms,links,submissions,screen,path,...(lastOutcome?{lastOutcome}:{}),...(targets.length?{targets,domScope:'Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.'}:{}) };
 }
 
 // Authorization scope must come from SessionAuthority.context, never the model.
@@ -53,7 +58,7 @@ export function createProposalStore(repository, { clock = Date.now,checkBinding=
         if(fields.length!==1||!edit||typeof edit.value!=='string'||Object.keys(edit).some(k=>!['ref','value'].includes(k)))invalid();const field=fields[0];
         if(field.choices&&field.type!=='select-multiple'&&!field.choices.includes(edit.value))invalid();
         if(field.type==='select-multiple'){let values;try{values=JSON.parse(edit.value);}catch{invalid();}if(!Array.isArray(values)||values.some(v=>!field.choices?.includes(v)))invalid();}
-        return {type:'fill',ref:field.ref,value:edit.value};});
+        return {type:'fill',ref:field.ref,value:edit.value,...(action.select===false?{select:false}:{})};});
       const replacement=this.prepare(scope,observed,{message:'Review your edited values. Nothing has been changed.',actions},old.binding);
       old.status='replaced';proposals.set(id,old);return {...replacement,replaces:id};
     });},
@@ -78,20 +83,20 @@ export function createProposalStore(repository, { clock = Date.now,checkBinding=
         }
         const field = observed.fields.find(f=>f.ref===action.ref);
         if(action.type==='highlight'){
-          if(!field||used.has(action.ref)||Object.keys(action).some(k=>!['type','ref'].includes(k)))invalid();used.add(action.ref);return {type:'highlight',ref:field.ref,label:field.label};
+          const target=field||observed.targets?.find(t=>t.ref===action.ref);if(!target||used.has(action.ref)||Object.keys(action).some(k=>!['type','ref'].includes(k)))invalid();used.add(action.ref);return {type:'highlight',ref:target.ref,label:target.label};
         }
         if(field?.type==='checkbox'&&!['true','false'].includes(action.value))invalid();
         if (!field || used.has(action.ref) || action.type !== 'fill' || typeof action.value !== 'string' || action.value.length > 8000 ||
-            Object.keys(action).some(k=>!['type','ref','value'].includes(k))) invalid();
+            Object.keys(action).some(k=>!['type','ref','value','query','select'].includes(k))||action.select!==undefined&&(field.type!=='combobox'||typeof action.select!=='boolean'||action.select===false&&action.query!==undefined)||action.query!==undefined&&(field.type!=='combobox'||typeof action.query!=='string'||!action.query.trim()||action.query.length>160)) invalid();
         used.add(action.ref);
-        return { type:'fill',ref:field.ref,label:field.label,value:action.value };
+        return { type:'fill',ref:field.ref,label:field.label,value:action.value,...(action.query!==undefined?{query:action.query}:{}),...(action.select!==undefined?{select:action.select}:{}) };
       });
       if(!allowSubmit&&snapshot.partialEdit&&actions.length&&observed.fields.some(field=>!actions.some(action=>['fill','highlight'].includes(action.type)&&action.ref===field.ref))) {
         return {id:null,revision:observed.revision,message:'The proposal did not cover every requested field. Nothing was changed. Please clarify the requested values or prepare a new review.',actions:[],expiresAt:clock()};
       }
       const proposal = { id:randomUUID(),embeddingId:scope.embeddingId,sessionId:scope.sessionId,conversationVersion:scope.conversationVersion||0,revision:observed.revision,
         createdAt:clock(),path:observed.path,fields:observed.fields,teachingSteps:actions.filter(a=>a.type==='fill').map(action=>{const field=observed.fields.find(f=>f.ref===action.ref);return {action:'fill',path:observed.path,field:field.key||null,parameter:field.key||null};}),
-        message:allowSubmit?`Confirm ${actions[0].label} separately. This submits the current host form and may save data.`:actions.length?(actions[0].type==='navigate'?`I can open ${actions[0].label}, then continue your request on that screen.`:actions.every(a=>a.type==='highlight')?`I can highlight ${actions.length} field${actions.length===1?'':'s'} for you. No values will be changed.`:`Review these ${actions.length} proposed field change${actions.length===1?'':'s'}. Nothing has been changed yet.`):response.message,actions,expiresAt:clock()+120_000,status:'pending',binding };
+        message:allowSubmit?`Confirm ${actions[0].label} separately. This submits the current host form and may save data.`:actions.length?(actions[0].type==='navigate'?`I can open ${actions[0].label}, then continue your request on that screen.`:actions.every(a=>a.type==='highlight')?`I can highlight ${actions.length} target${actions.length===1?'':'s'} for you. No values will be changed.`:`Review these ${actions.length} proposed field change${actions.length===1?'':'s'}. Nothing has been changed yet.`):response.message,actions,expiresAt:clock()+120_000,status:'pending',binding };
       if(!allowSubmit&&actions.length){const explanation=response.message.replace(/\bNothing (?:has(?: been)?|was|is) (?:changed|applied|saved|submitted)\b\.?/gi,'').trim();if(explanation&&!/\b(?:saved|submitted|completed|filled|created|updated|changed)\b/i.test(explanation))proposal.message=`${explanation}\n${proposal.message}`.slice(0,4000);}
       proposals.set(proposal.id,proposal);
       return { id:proposal.id,revision:proposal.revision,message:proposal.message,actions:actions.map(a=>a.type==='fill'&&observed.fields.find(f=>f.ref===a.ref)?.type==='checkbox'?{...a,displayValue:a.value==='true'?'Selected':'Cleared'}:a),expiresAt:proposal.expiresAt,fields:observed.fields };

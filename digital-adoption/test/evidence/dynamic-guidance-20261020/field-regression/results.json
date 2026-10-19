@@ -1,0 +1,47 @@
+{
+  "at": "2026-10-19T16:45:25.485Z",
+  "scope": "Existing loopback host, actual SDK/service/DOM/WebSocket; deterministic planner/knowledge/extractor and synthetic owner/policy fixtures, not real-model acceptance",
+  "results": [
+    {
+      "id": "G01_WHERE_QUESTION_POINTS_WITHOUT_EXTRA_APPROVAL_OR_MODEL",
+      "status": "passed",
+      "screenshot": "G01_WHERE_QUESTION_POINTS_WITHOUT_EXTRA_APPROVAL_OR_MODEL.png"
+    },
+    {
+      "id": "G02_SHOW_ME_WHERE_REUSES_TARGET",
+      "status": "passed",
+      "screenshot": "G02_SHOW_ME_WHERE_REUSES_TARGET.png"
+    },
+    {
+      "id": "G03_SUPERSEDING_SLOW_REQUEST_POINTS_WITHOUT_ABORT_ERROR",
+      "status": "passed",
+      "screenshot": "G03_SUPERSEDING_SLOW_REQUEST_POINTS_WITHOUT_ABORT_ERROR.png"
+    },
+    {
+      "id": "G04_PRIVATE_TASK_DOES_NOT_DIVERT_POINTING_TO_FILE_SUMMARY",
+      "status": "passed",
+      "screenshot": "G04_PRIVATE_TASK_DOES_NOT_DIVERT_POINTING_TO_FILE_SUMMARY.png"
+    },
+    {
+      "id": "G05_AMBIGUOUS_FIELDS_CLARIFY_WITHOUT_FALSE_POINT",
+      "status": "passed",
+      "screenshot": "G05_AMBIGUOUS_FIELDS_CLARIFY_WITHOUT_FALSE_POINT.png"
+    },
+    {
+      "id": "G06_OFFSCREEN_TARGET_SCROLLS_AND_POINTS",
+      "status": "passed",
+      "screenshot": "G06_OFFSCREEN_TARGET_SCROLLS_AND_POINTS.png"
+    },
+    {
+      "id": "G07_NEW_CONVERSATION_DOES_NOT_REPLAY_CLEARED_REQUEST",
+      "status": "passed",
+      "screenshot": "G07_NEW_CONVERSATION_DOES_NOT_REPLAY_CLEARED_REQUEST.png"
+    },
+    {
+      "id": "G08_SHOW_ME_WHERE_USES_LATEST_QUESTION_AFTER_KNOWLEDGE_MODE",
+      "status": "passed",
+      "screenshot": "G08_SHOW_ME_WHERE_USES_LATEST_QUESTION_AFTER_KNOWLEDGE_MODE.png"
+    }
+  ],
+  "errors": []
+}

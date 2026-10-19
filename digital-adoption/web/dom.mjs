@@ -1,3 +1,4 @@
+import {pageTargets,targetText} from './page-targets.mjs';
 import {waitForHost} from './host-observation.mjs';
 import {requestedField} from './dependent-controls.mjs';
 import {choiceText,requestsChoice} from './choice-intent.mjs';
@@ -12,6 +13,7 @@ export function createInspector(document) {
   let cleanupHighlight=()=>{};
   const excluded = e => e.closest('[data-adoption-private], [data-adoption-widget]') ||
     /password|hidden|file/.test(e.type || '') || /password|token|secret|otp|credit.?card|cvv|api.?key|access.?key|private.?key/i.test(`${e.name} ${e.id} ${e.autocomplete}`);
+  const rendered = e => !e.hidden && e.getClientRects().length>0 && document.defaultView.getComputedStyle(e).visibility!=='hidden';
   const visible = e => !e.disabled && !e.hidden && e.getClientRects().length > 0 &&
     document.defaultView.getComputedStyle(e).visibility !== 'hidden';
   const controlType=e=>e.getAttribute('role')==='combobox'&&e.getAttribute('aria-controls')?'combobox':e.type||e.tagName.toLowerCase();
@@ -45,6 +47,7 @@ export function createInspector(document) {
         const descriptor={ ref, label: e.type==='radio'?(e.closest('fieldset')?.querySelector('legend')?.textContent.trim()||e.name):label(e), type: controlType(e), required: e.required,...(key?{key}:{}),...(form?{form}:{}),
           // No current values or private option text are sent by automatic inspection.
           optionCount: e.options?.length || 0 };
+          const rules=Object.fromEntries(['min','max','step','maxlength','minlength','pattern'].flatMap(key=>{const value=e.getAttribute(key);return typeof value==='string'&&value.length<=160?[[key,value]]:[];}));if(Object.keys(rules).length)descriptor.constraints=rules;
           // Choice labels are task-scoped evidence, never automatic inspection data.
           if(choiceBudget&&requestsChoice(task,descriptor,onlyChoice)&&(e.options||e.type==='radio')){const group=references.get(ref).radio,available=(e.options?[...e.options].filter(o=>!o.disabled).map(o=>o.text.trim()):group.filter(o=>visible(o)&&!excluded(o)).map(label)).filter(value=>value&&value.length<=160).slice(0,1000),text=choiceText(task);available.sort((a,b)=>Number(text.includes(choiceText(b)))-Number(text.includes(choiceText(a))));descriptor.choices=available.slice(0,Math.min(20,choiceBudget));choiceBudget-=descriptor.choices.length;if(available.length>descriptor.choices.length)descriptor.choicesTruncated=true;const defaults=e.options?[...e.options].filter(o=>o.defaultSelected&&!o.disabled):[];if(defaults.length===1&&descriptor.choices.includes(defaults[0].text.trim()))descriptor.defaultChoice=defaults[0].text.trim();}
           return descriptor;
@@ -55,6 +58,8 @@ export function createInspector(document) {
       const ref=`r${revision}n${i}`,name=(e.getAttribute('aria-label')||e.textContent||'').trim().slice(0,160);
       navigation.set(ref,{element:e,href:url.href,label:name});return [{ref,label:name,path:url.pathname}];
     }).slice(0,30);
+    const targets=dialogs.length>1?[]:pageTargets(document,root,{task,visible:rendered,excluded,revision});for(const target of targets)references.set(target.ref,{element:target.element,label:target.label,targetText:target.snippet,kind:target.kind});
+    for(const field of fields.filter(f=>f.type==='combobox')){const control=references.get(field.ref).element,ids=(control.getAttribute('aria-controls')||'').split(/\s+/),containers=ids.map(id=>document.getElementById(id)).filter(Boolean);const options=targets.filter(t=>t.role==='option'&&containers.some(container=>container.contains(t.element)));if(options.length)field.optionRefs=options.map(t=>t.ref);}
     const heading=[...root.querySelectorAll('h1,h2,[role="heading"]')].filter(e=>visible(e)&&!excluded(e)).slice(-3).map(e=>e.textContent.trim().slice(0,120)).join(' | ').slice(0,360);
     const blockedCount=Math.min(1000,[...document.querySelectorAll('button,[role="button"],a[href]')].filter(e=>{
       if(!visible(e)||excluded(e))return false;
@@ -76,9 +81,9 @@ export function createInspector(document) {
     const unsupportedControls=[...root.querySelectorAll('input,textarea,select,[role="combobox"],[contenteditable="true"]')].filter(e=>visible(e)&&!excluded(e)&&(!supported(e)||e.isContentEditable)).length;
     const embeddedFrames=root.querySelectorAll('iframe:not([data-adoption-widget])').length;
     const manualNotice=openShadowRoots||unsupportedControls||embeddedFrames?`Manual controls remain on this page: ${unsupportedControls} unsupported controls, ${openShadowRoots} open shadow roots and ${embeddedFrames} embedded frames. This review covers supported native controls in the main page only. Closed shadow roots and controls requiring a trusted user gesture must be handled on the website.`:'';
-    return { revision, fields,forms, links,...(inventory?{inventory}:{}),coverage:{fieldLimit:60,navigationLimit:30,visibleNativeControls:[...root.querySelectorAll('input,textarea,select')].filter(e=>visible(e)&&!excluded(e)).length,embeddedFrames,openShadowRoots,unsupportedControls,manualNotice},submissions:submit.snapshot(revision),navigationCandidates, screen:heading, path:document.location.pathname, ambiguousDialogs: dialogs.length > 1,blockedCount };
+    return { revision, fields,forms, links,...(targets.length?{targets:targets.map(({ref,label,kind,role,state,snippet})=>({ref,label,kind,role,state,text:snippet})),domScope:'Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.'}:{}),...(inventory?{inventory}:{}),coverage:{fieldLimit:60,navigationLimit:30,visibleNativeControls:[...root.querySelectorAll('input,textarea,select')].filter(e=>visible(e)&&!excluded(e)).length,embeddedFrames,openShadowRoots,unsupportedControls,manualNotice},submissions:submit.snapshot(revision),navigationCandidates, screen:heading, path:document.location.pathname, ambiguousDialogs: dialogs.length > 1,blockedCount };
   }
-  function fill({ ref, value, expectedRevision, approved }) {
+  function fill({ ref, value, query, select=true, expectedRevision, approved,active=()=>true }) {
     if (approved !== true || expectedRevision !== revision || typeof value !== 'string' || value.length > 8000) throw new Error('Review required');
     const record = references.get(ref), e = record?.element;
     if (!e || !e.isConnected || !visible(e) || excluded(e) || e.readOnly || e.value !== record.value || label(e) !== record.label || controlType(e) !== record.type) throw new Error('Screen changed; inspect and review again');
@@ -95,6 +100,8 @@ export function createInspector(document) {
       if(probe.value!==value||validity&&['badInput','typeMismatch','patternMismatch','rangeUnderflow','rangeOverflow','stepMismatch','tooLong'].some(key=>validity[key]))throw new Error('Value violates the current field constraints; review it before filling');
     }
 
+    if(typeof select!=='boolean'||select===false&&(record.type!=='combobox'||query!==undefined))throw new Error('Invalid lookup mode; review again');
+    if(query!==undefined&&(record.type!=='combobox'||typeof query!=='string'||!query.trim()||query.length>160))throw new Error('Invalid picklist query; review again');
     const view = document.defaultView;
     let expected=value;
     if(e.type==='checkbox'){
@@ -120,15 +127,39 @@ export function createInspector(document) {
       expected=matches[0].value;if(e.value===expected){references.delete(ref);return {dispatched:false,noOp:true,valueObserved:true,saved:false};}references.delete(ref);Object.getOwnPropertyDescriptor(view.HTMLSelectElement.prototype,'value').set.call(e,expected);
     }else{
       if(e.value===value&&record.type!=='combobox'){references.delete(ref);return {dispatched:false,noOp:true,valueObserved:true,saved:false};}
+      if(record.type==='combobox'){e.focus();if(!e.isConnected||!visible(e)||excluded(e))throw new Error('Picklist changed; inspect again');}
       references.delete(ref);const prototype = e.tagName === 'TEXTAREA' ? view.HTMLTextAreaElement.prototype : view.HTMLInputElement.prototype;
-      Object.getOwnPropertyDescriptor(prototype, 'value').set.call(e, value);
+      Object.getOwnPropertyDescriptor(prototype, 'value').set.call(e, record.type==='combobox'?(query??value):value);
     }
     e.dispatchEvent(new view.Event('input', { bubbles: true }));
     e.dispatchEvent(new view.Event('change', { bubbles: true }));
     if(record.type==='combobox'){
       references.delete(ref);
       const listId=e.getAttribute('aria-controls');
-      return (async()=>{const end=Date.now()+5000;while(Date.now()<end){if(!e.isConnected||excluded(e)||e.value!==value||e.getAttribute('aria-controls')!==listId)throw new Error('Picklist changed; inspect again');const list=document.getElementById(listId);const matches=list?[...list.querySelectorAll('[role=option]')].filter(o=>visible(o)&&o.getAttribute('aria-disabled')!=='true'&&o.textContent.trim().toLowerCase()===value.trim().toLowerCase()):[];if(matches.length>1)throw new Error('Picklist option is ambiguous');if(matches.length===1){matches[0].click();return {dispatched:true,valueObserved:e.value.trim().toLowerCase()===value.trim().toLowerCase(),saved:false};}await new Promise(resolve=>setTimeout(resolve,50));}throw new Error('Picklist option did not load. No option was selected.');})();
+      if(select===false){return (async()=>{let signature='',settledAt=Date.now();const until=Date.now()+5000;while(Date.now()<until){if(!active())throw new Error('Task stopped during lookup');if(!e.isConnected||excluded(e)||e.value!==value)throw new Error('Picklist changed; inspect again');const list=document.getElementById(listId),next=list?.textContent||'',busy=list?.getAttribute('aria-busy')==='true';if(next!==signature||busy){signature=next;settledAt=Date.now();}if(!busy&&Date.now()-settledAt>=400)return {dispatched:true,valueObserved:e.value===value,observeAgain:true,selected:false,saved:false};await new Promise(resolve=>setTimeout(resolve,50));}throw new Error('Lookup did not settle. Inspect the loaded results before continuing.');})();}
+      return (async()=>{
+        const end=Date.now()+5000;let readyOption,readyAt=0;
+        while(Date.now()<end){
+          if(!active())throw new Error('Task stopped; no picklist option was selected');
+          if(!e.isConnected||excluded(e)||e.value!==(query??value)||e.getAttribute('aria-controls')!==listId)throw new Error('Picklist changed; inspect again');
+          const list=document.getElementById(listId),matches=list?[...list.querySelectorAll('[role=option]')].filter(o=>visible(o)&&!excluded(o)&&o.getAttribute('aria-disabled')!=='true'&&o.textContent.trim().toLowerCase()===value.trim().toLowerCase()):[];
+          if(matches.length>1)throw new Error('Picklist option is ambiguous');
+          const candidate=matches.length===1&&list.getAttribute('aria-busy')!=='true'?matches[0]:null;
+          if(candidate!==readyOption){readyOption=candidate;readyAt=Date.now();}
+          if(candidate&&Date.now()-readyAt>=100){
+            if(!active())throw new Error('Task stopped; no picklist option was selected');
+            candidate.click(); // Exactly one selection, never repeat a host effect.
+            for(let i=0;i<10;i++){
+              if(!active())throw new Error('Task stopped after picklist selection. Inspect the website before continuing.');
+              if(e.isConnected&&e.value.trim().toLowerCase()===value.trim().toLowerCase()&&(!candidate.isConnected||e.getAttribute('aria-expanded')==='false'||candidate.getAttribute('aria-selected')==='true'))return {dispatched:true,valueObserved:true,saved:false};
+              await new Promise(resolve=>setTimeout(resolve,50));
+            }
+            return {dispatched:true,valueObserved:false,saved:false};
+          }
+          await new Promise(resolve=>setTimeout(resolve,50));
+        }
+        throw new Error('Picklist option did not load. No option was selected.');
+      })();
     }
     references.delete(ref); // One use; subsequent writes require another inspection/review.
     return { dispatched: true, valueObserved: (e.type==='checkbox'?e.checked:e.value) === expected, saved: false };
@@ -147,7 +178,7 @@ export function createInspector(document) {
   }
   function highlight({ref,expectedRevision}){
     const record=references.get(ref),element=record?.element;
-    if(expectedRevision!==revision||!element?.isConnected||!visible(element)||excluded(element)||label(element)!==record.label)throw new Error('Guidance target changed; inspect again');
+    if(expectedRevision!==revision||!element?.isConnected||!(record.kind?rendered(element):visible(element))||excluded(element)||(record.kind?targetText(element,rendered)!==record.targetText:label(element)!==record.label))throw new Error('Guidance target changed; inspect again');
     cleanupHighlight();element.scrollIntoView?.({block:'center',inline:'nearest'});const view=document.defaultView,marker=document.createElement('div'),caption=document.createElement('span');marker.dataset.adoptionWidget='true';marker.dataset.adoptionHighlight='true';marker.setAttribute('role','status');marker.style.cssText='box-sizing:border-box;position:fixed;pointer-events:none;z-index:2147483645;border:3px solid #3459cf;border-radius:6px;box-shadow:0 0 0 3px white';caption.textContent=`Next: ${record.label}`;caption.style.cssText='position:absolute;left:0;bottom:100%;max-width:300px;background:#172440;color:white;padding:4px 8px;border-radius:5px;font:13px system-ui;white-space:nowrap';marker.append(caption);
     const position=()=>{if(!element.isConnected){cleanupHighlight();return;}const box=element.getBoundingClientRect();Object.assign(marker.style,{left:`${box.left-3}px`,top:`${box.top-3}px`,width:`${box.width+6}px`,height:`${box.height+6}px`});};
     document.body.append(marker);position();view.addEventListener('scroll',position,true);view.addEventListener('resize',position);const timer=setTimeout(()=>cleanupHighlight(),10000);

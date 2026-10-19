@@ -1,0 +1,47 @@
+{
+  "at": "2026-10-19T16:44:37.522Z",
+  "scope": "http://127.0.0.1:4194",
+  "kind": "real browser adapter/framework integration; not model end-to-end",
+  "results": [
+    {
+      "id": "F03_NATIVE_SELECT_CHECKBOX_RADIO_MULTISELECT_DATALIST",
+      "status": "passed"
+    },
+    {
+      "id": "F05_ASYNC_PICKLIST_AND_DEPENDENT_CONTROL",
+      "status": "passed"
+    },
+    {
+      "id": "F05_PICKLIST_LOADING_EMPTY_ERROR_AMBIGUITY_AND_RECOVERY",
+      "status": "passed"
+    },
+    {
+      "id": "F05_EDITABLE_TABLE_ROW_FILTER_SORT_PAGINATION_DYNAMIC_ROW",
+      "status": "passed"
+    },
+    {
+      "id": "F05_MODAL_SCOPE",
+      "status": "passed"
+    },
+    {
+      "id": "F05_TABLE_MODEL_AND_MULTISELECT_INDEPENDENT_READBACK",
+      "status": "passed"
+    },
+    {
+      "id": "F03_STALE_REVIEW_REJECTS_CHANGED_OPTIONS",
+      "status": "passed"
+    },
+    {
+      "id": "F02_F07_GENERIC_BUSY_DUPLICATE_GUARD_AND_NOTICE",
+      "status": "passed"
+    },
+    {
+      "id": "F03_REACT_APPLICATION_STATE_AND_INDEPENDENT_SAVE",
+      "status": "passed"
+    },
+    {
+      "id": "F03_ANGULAR_APPLICATION_STATE_AND_INDEPENDENT_SAVE",
+      "status": "passed"
+    }
+  ]
+}

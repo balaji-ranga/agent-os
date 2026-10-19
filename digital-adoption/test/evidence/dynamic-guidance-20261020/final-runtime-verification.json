@@ -1,0 +1,51 @@
+{
+  "at": "2026-10-19T16:45:43.936461+00:00",
+  "status": "passed",
+  "release": "20261020-context-h",
+  "containers": {
+    "flolah-adoption-adoption-1": {
+      "image": "flolah-digital-adoption:20261020-context-h",
+      "imageId": "sha256:895b189dcc68fe8d6bcfa791db81c20b3c5db4cd9ec2e5fb0ef0f97c9ab40b71",
+      "running": true,
+      "health": null
+    },
+    "flolah-adoption-adoption-model-gateway-1": {
+      "image": "flolah-digital-adoption:20261020-context-h-gateway",
+      "imageId": "sha256:21a583fe865af2b01ef41d3a79d0ae4b9179c6d9139de0376a0227c16617b773",
+      "running": true,
+      "health": null
+    },
+    "flolah-adoption-adoption-worker-1": {
+      "image": "flolah-digital-adoption:20261018-owner-workspace-c",
+      "imageId": "sha256:7133f95194a1df02b59712754b2b95a254528fa9ece34c4994647497dc052fe0",
+      "running": true,
+      "health": null
+    },
+    "flolah-adoption-adoption-worker-2": {
+      "image": "flolah-digital-adoption:20261018-owner-workspace-c",
+      "imageId": "sha256:7133f95194a1df02b59712754b2b95a254528fa9ece34c4994647497dc052fe0",
+      "running": true,
+      "health": null
+    },
+    "agent-os-backend-1": {
+      "image": "agent-os-backend:adoption-help-20261020-context-h",
+      "imageId": "sha256:8df87b215fd305ad0bb57b6346dabec949c0e01593f4941b13d0c18e0b871e92",
+      "running": true,
+      "health": "healthy"
+    },
+    "agent-os-frontend-1": {
+      "image": "agent-os-frontend:adoption-20261019-immediate-j",
+      "imageId": "sha256:bf6aaf311d995a76f6ee4591d21241e07566954a26d83e380ae2d39c8ba54cb0",
+      "running": true,
+      "health": "healthy"
+    }
+  },
+  "healthUrlsPassed": 4,
+  "parserWorkersAndFrontendPreserved": true,
+  "backendChange": "Docs-only overlay followed scoped coordinator deployment; platform code parent preserved; indexed source hashes verified separately.",
+  "sharedCheckerSettingUnchanged": {
+    "enabled": true,
+    "checkerMode": "platform_inactive",
+    "checkerMaxTokens": 1536
+  }
+}
