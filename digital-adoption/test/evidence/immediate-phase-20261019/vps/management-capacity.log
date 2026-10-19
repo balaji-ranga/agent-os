@@ -1,0 +1,20 @@
+(node:1) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+{
+  "scope": "Isolated management HTTP/SQLite fixture; 25 websites, 25 concurrent clients, 500 requests, 4000 sources + 4000 recipes + 4000 observed screens. Excludes model/planning latency and production WAN.",
+  "at": "2026-10-19T10:43:31.401Z",
+  "requests": 500,
+  "concurrentClients": 25,
+  "websites": 25,
+  "failures": [],
+  "p95Ms": 112.97,
+  "maxMs": 328.37,
+  "elapsedMs": 1035,
+  "maxResponseBytes": 3947,
+  "rssMiB": 117,
+  "criteria": {
+    "p95Ms": 500,
+    "maxResponseBytes": 131072,
+    "rssMiB": 512
+  }
+}

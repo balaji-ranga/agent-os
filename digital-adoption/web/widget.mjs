@@ -1,10 +1,11 @@
 import {addReviewEditor} from './review-editor.mjs';
 import { normalizeTheme, themeProperties } from './theme.mjs';
+import {MODEL_SESSION_TIMEOUT_MS,WIDGET_REQUEST_TIMEOUT_MS} from './model-timeouts.mjs';
 import {encodeFile} from './files.mjs';
 import {createScreenCapture} from './screen-capture.mjs';
 import {mountTaskPanel} from './task-panel.mjs';
 import {createActionFeedback} from './action-feedback.mjs';
-let hostRequestTimeoutMs=60_000,coachingEnabled=false;
+let hostRequestTimeoutMs=WIDGET_REQUEST_TIMEOUT_MS,coachingEnabled=false;
 let executionStarted=0,executionStage=null,executionTimer;
 let currentTheme=normalizeTheme({}),initialTheme,assistanceMode='assist',sessionExpired=false;
 function applyTheme(value) {
@@ -273,7 +274,7 @@ document.querySelector('#capture-pause').onclick=()=>capture.state()==='paused'?
 document.querySelector('#capture-use').onclick=()=>{if(!reviewBlob)return;capturedFile=new File([reviewBlob],reviewBlob.type==='video/mp4'?'screen-recording.mp4':'screen-recording.webm',{type:reviewBlob.type});document.querySelector('#upload-title').value||='Screen recording';uploadStatus.textContent='Recording selected locally. Review the sharing checkbox, then Upload for processing.';openUpload();};
 window.addEventListener('pagehide',()=>{capture.discard();if(previewUrl)URL.revokeObjectURL(previewUrl);},{once:true});
 const taskPanel=mountTaskPanel({call,showError,show,isExpired:()=>sessionExpired,clearPrivate(){task++;log.replaceChildren();knowledgeLog.replaceChildren();document.querySelector('#knowledge-message').value='';knowledgeStatus.textContent='';document.querySelector('#review').replaceChildren();document.querySelector('#message').value='';document.querySelector('#save-review').hidden=true;for(const key of ['guide','knowledge']){replies[key]=null;replyHints[key].hidden=true;}}});
-try { const config=await call('config');if(Number.isSafeInteger(config.requestTimeoutMs)&&config.requestTimeoutMs>=6000&&config.requestTimeoutMs<=125000)hostRequestTimeoutMs=config.requestTimeoutMs+2000;document.querySelector('#panel-connection-status').textContent='Panel connected · installation accepted. Workflow access, peer pairing and task files are separate below.';taskPanel.configure(config);applyTheme(config.theme);coachingAvailability(config);verifiedLearningAvailable=config.learningEnabled===true&&config.canVerifyOutcome===true;uploadForm.hidden=!config.capabilities?.upload;uploadStatus.textContent=config.capabilities?.upload?'Up to 16 MB; PDF/DOCX/text/HTML/PNG/JPEG and MP4/WebM (English audio transcription).':'Visitor uploads are disabled. The website owner can add shared sources.';document.querySelector('#capture-use').disabled=!config.capabilities?.upload;const result = await call('history'); result.messages.forEach(message => show(message.text,message.channel||'guide',message.role,message.id)); }
+try { const config=await call('config');if(Number.isSafeInteger(config.requestTimeoutMs)&&config.requestTimeoutMs>=6000&&config.requestTimeoutMs<=MODEL_SESSION_TIMEOUT_MS)hostRequestTimeoutMs=Math.min(WIDGET_REQUEST_TIMEOUT_MS,config.requestTimeoutMs+5000);document.querySelector('#panel-connection-status').textContent='Panel connected · installation accepted. Workflow access, peer pairing and task files are separate below.';taskPanel.configure(config);applyTheme(config.theme);coachingAvailability(config);verifiedLearningAvailable=config.learningEnabled===true&&config.canVerifyOutcome===true;uploadForm.hidden=!config.capabilities?.upload;uploadStatus.textContent=config.capabilities?.upload?'Up to 16 MB; PDF/DOCX/text/HTML/PNG/JPEG and MP4/WebM (English audio transcription).':'Visitor uploads are disabled. The website owner can add shared sources.';document.querySelector('#capture-use').disabled=!config.capabilities?.upload;const result = await call('history'); result.messages.forEach(message => show(message.text,message.channel||'guide',message.role,message.id)); }
 catch(error) { showError(error); }
 
 document.querySelector('#discovery-extend').onclick=async()=>{try{const paths=document.querySelector('#discovery-paths').value.split('\n').map(s=>s.trim()).filter(Boolean);renderDiscovery(await call('discovery-extend',{jobId:discoverySelect.value||discoveryJob,paths}));}catch(error){showError(error);}};

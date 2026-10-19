@@ -1,0 +1,3 @@
+# Sanitized release evidence is intentionally versioned; runtime logs stay ignored.
+!local/*.log
+!vps/*.log

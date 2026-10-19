@@ -7,6 +7,77 @@ for executed-suite pass rates, screenshots, all 32 requirement families,
 remaining partial gates and recommendations. Executed checks and full Phase 1/2
 certification are reported separately.
 
+## Checker reliability release — 19 October 2026
+
+Merged source baseline: `9579893d`. Checker gateway and Admin API/UI images:
+`20261019-checker-reliability-d`. This incremental release does not implement or
+certify the separate immediate-phase design. The current coordinator/retention
+runtime and workers were preserved, as were the production checker selection,
+4-CPU/4-thread Ollama configuration, concurrency one and approval policies.
+
+Publication note: a separate worktree subsequently deployed the parallel
+`20261019-immediate-e` platform/gateway release on this checker baseline. The
+image IDs and evidence in this section describe the checker verification, not
+the current platform-wide release. Do not roll back that parallel release when
+publishing these source changes; its additional source belongs to its own merge.
+
+Admin → Models (also Admin → Digital Adoption) now offers an independently
+selected registered private local checker, a thinking option and an explicit
+128–2,048 output-token budget. Existing
+inactive-platform and legacy reasoning routes remain supported. No model name
+is embedded in the new selector. Capability discovery prevents unsupported
+thinking requests; the requested token budget is no longer silently raised to
+2,048. A configured deployment is not proof of model quality or availability.
+
+Reviews use a bounded dedicated task/evidence contract, structured task-match,
+grounding and safety checks, typed checkbox semantics, deterministic explicit
+assignment/advice-only checks and conservative named-subject citation binding.
+These guards do not establish general factual entailment or replace approval.
+Contradictory, incomplete or unavailable reviews remain fail-closed. Diagnostic
+logs use generated trace IDs, typed categories and timing/token counters; they
+do not contain prompts, credentials, provider error bodies or reasoning text.
+
+Reproduce with `checker-release.py prepare <release>` and activate only the
+tested candidate with `checker-release.py activate <release>`. The source archive
+must include the selected files, Dockerfiles, generated form inventories and
+tests. Images derive from captured live bases and retain the complete Compose
+overlay chains; activation aborts on concurrent changes and rolls back on failed
+readiness. `--gateway-only` retains already verified API/UI images for a typed
+review-contract update. Do not patch files inside running containers.
+
+The final image passed all **283** service checks and the Admin authorization /
+model-selection harness. The frontend production build, a mocked-transport UI
+interaction test and a real deployed Admin browser/API test also passed. The
+live test changed only unsaved UI drafts and rejected an unknown model ID;
+production model selection was not changed. The existing DeepSeek checker was
+retained with the tested 1,536-token budget. The real local customer-page test
+against the deployed gateway returned a checked Express-shipping proposal in
+49.0 seconds, HTTP 200, with zero host writes and the field unchanged. Approval
+and Save were never clicked.
+
+The [synthetic comparison evidence](../test/evidence/checker-reliability-20261019/model-comparison.json)
+records 11 same-case pipeline checks per model on the shared 4-CPU/4-thread VPS:
+DeepSeek R1 8B passed 11/11 with thinking and 1,536 tokens; Llama 3.2 passed 10/11
+without thinking and with 700 tokens. Both accepted all five valid original
+proposals; neither released an invalid original proposal after code safeguards.
+Llama produced one contradictory verdict, safely blocked as an error rather
+than counted as a clean rejection. Median elapsed time across the eight
+model-involving cases (including the first cold-load case) was 36.364 seconds
+for DeepSeek and 4.041 seconds for Llama. The three code-only cases per model
+are not model-accuracy samples. These are different explicit operating profiles,
+not an equal-token or raw-judge benchmark; the maker/revision fixture is synthetic.
+
+Recommendation: retain DeepSeek for now for its clean verdict outcomes on this
+small suite. Llama remains selectable for latency-oriented evaluation, but its
+contradictory verdict prevents claiming equal reliability. This is a smoke test,
+not a broad quality certification or proof for every form or production load.
+Keep user approval and review-stop behavior enabled regardless of model.
+The [Admin test](../test/evidence/checker-reliability-20261019/admin-live.json) and
+[customer test](../test/evidence/checker-reliability-20261019/customer-live.json)
+record the final deployed checks without private prompts or credentials.
+
+## Earlier workspace deployment evidence
+
 Latest deployment (18 October 2026): independent runtime **20261018-owner-workspace-c**, platform **adoption-20261018-maker-checker-c** (unchanged), source/evidence publication **20261018-owner-workspace-d**. Owner and account management now use a persistent website selector and seven focused tabs. Searchable bounded pages replace silent list caps; workflow editors and map details render on demand.
 
 All **260** service checks pass locally and in the final VPS image. **10** isolated browser cases and **6** analytics/pairing scenarios pass. The one-CPU/1-GiB VPS fixture served **500 requests from 25 concurrent clients across 25 websites**, with zero errors and **115.84 ms p95**. This measures management HTTP/SQLite with synthetic authentication, not external platform authentication, LLM capacity or WAN latency. The [workspace testcase table and screenshots](../test/evidence/owner-workspace-20261018/index.html) distinguish live administrator checks, isolated owner checks and the expired live email-owner session. Full Phase 1/2 device certification remains outside this incremental result.
@@ -14,6 +85,35 @@ All **260** service checks pass locally and in the final VPS image. **10** isola
 At the 18 October checkpoint global maker/checker was **Off**. Current Admin
 settings were preserved. Immediate-phase canaries use a process-local passive
 checker with a 2,048-token verdict budget. Its earlier [admin/review evidence](../test/evidence/admin-maker-checker-20261018/index.html) retains the optional local Ollama timeout and broad-agent coverage limitations; this workspace release does not recertify those cases.
+
+The global maker/checker feature was **Off** after the 18 October UAT and was explicitly enabled with the local Ollama reasoning checker on 19 October. Its earlier [admin/review evidence](../test/evidence/admin-maker-checker-20261018/index.html) retains the optional local Ollama timeout and broad-agent coverage limitations; this workspace release does not recertify those cases.
+
+The 19 October timeout update gives the complete gateway operation 180 seconds,
+including cold model loading and bounded revisions. Client, widget and scoped
+proxy deadlines are aligned as documented in [scaling](scaling.md). Deploy the
+runtime and gateway together with `web/model-timeouts.mjs`, then update both
+existing Nginx locations with `update-nginx.mjs`, syntax-test and reload Nginx.
+This does not change CPU, inference threads, concurrency, models or review policy.
+
+19 October verification: all 262 local regression checks passed. The synthetic
+customer-page cold test still failed closed at 180 seconds, with no host writes
+or changed fields. Ollama reported roughly 81 seconds of model startup. A warm
+browser retest received no final HTTP response; the gateway logged a provider
+failure after about 51 seconds. A separate minimal direct reasoning request also
+exceeded 180 seconds. These results do **not** certify local checker availability.
+The observed 2-CPU/2-thread inference used approximately 200% CPU and 6.6 GiB RAM.
+Benchmarking 4 CPUs with 4 threads is recommended before further deadline changes;
+resource settings and the explicitly enabled review policy remain unchanged.
+
+Later on 19 October, the user approved the resource benchmark. The persistent
+deployment now uses 4 CPUs shared by both local models, 4 inference threads in
+the backend and checker gateway, and unchanged checker concurrency one. Current
+images were retained: this is a Compose/environment configuration release, not
+an in-container source patch. The same browser retest returned HTTP 503 after
+180.258 seconds, with zero host writes and unchanged fields. Model startup was
+9.3 seconds and observed inference CPU was about 396%; the checker remains
+operationally unverified. See the tracked resource overlay and deployment runbook
+under `deploy/` for reproduction; do not infer successful checking from CPU use.
 
 Run the application tests from `digital-adoption/` with Node 22 or newer:
 

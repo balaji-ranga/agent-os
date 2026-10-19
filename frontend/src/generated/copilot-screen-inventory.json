@@ -1270,7 +1270,7 @@
       ],
       "controls": [
         {
-          "id": "components/CopilotQualityControls.jsx:20:13",
+          "id": "components/CopilotQualityControls.jsx:22:13",
           "label": "Enable maker/checker for all copilots",
           "type": "checkbox",
           "required": false,
@@ -1279,7 +1279,7 @@
           "mode": "guided"
         },
         {
-          "id": "components/CopilotQualityControls.jsx:21:75",
+          "id": "components/CopilotQualityControls.jsx:23:75",
           "label": "Checker route",
           "type": "select",
           "required": false,
@@ -1293,11 +1293,54 @@
               "label": "Inactive platform model slot"
             },
             {
+              "value": "ollama_local",
+              "label": "Local / efficiency model (choose registered deployment)"
+            },
+            {
               "value": "ollama_reasoning",
-              "label": "Ollama reasoning (efficiency)"
+              "label": "Legacy Ollama reasoning route"
             }
           ],
           "options_authority": "live_options_required"
+        },
+        {
+          "id": "components/CopilotQualityControls.jsx:27:78",
+          "label": "Local checker model",
+          "type": "select",
+          "required": false,
+          "conditional": true,
+          "readonly": false,
+          "mode": "guided",
+          "options": "Use the live authorized options shown on this screen.",
+          "source_options": [
+            {
+              "value": "",
+              "label": "Select a registered local model"
+            }
+          ],
+          "options_authority": "live_options_required"
+        },
+        {
+          "id": "components/CopilotQualityControls.jsx:32:53",
+          "label": "Enable thinking for this checker (requires model support; may increase latency)",
+          "type": "checkbox",
+          "required": false,
+          "conditional": true,
+          "readonly": false,
+          "mode": "guided"
+        },
+        {
+          "id": "components/CopilotQualityControls.jsx:35:84",
+          "label": "Checker output token budget",
+          "type": "number",
+          "required": false,
+          "min": "128",
+          "max": "2048",
+          "step": "1",
+          "conditional": false,
+          "readonly": false,
+          "mode": "guided",
+          "user_only": true
         }
       ]
     },

@@ -1,4 +1,5 @@
 import { timingSafeEqual } from 'node:crypto';
+import {MODEL_GATEWAY_TIMEOUT_MS} from '../web/model-timeouts.mjs';
 import { reviewCopilotResponse } from './maker-checker.mjs';
 
 // Optional platform backend adapter, not mounted automatically. Inject the
@@ -6,7 +7,7 @@ import { reviewCopilotResponse } from './maker-checker.mjs';
 // No dependency on Platform Help and no model keys returned to the caller.
 export function createPlatformGateway({serviceToken,resolveActive,complete}) {
  if(typeof serviceToken!=='string'||serviceToken.length<32)throw new Error('Service credential required');
- return async function handle({authorization,body,signal=AbortSignal.timeout(38_000)}){
+ return async function handle({authorization,body,signal=AbortSignal.timeout(MODEL_GATEWAY_TIMEOUT_MS)}){
   const supplied=Buffer.from(String(authorization||'')),expected=Buffer.from(`Bearer ${serviceToken}`);
   if(supplied.length!==expected.length||!timingSafeEqual(supplied,expected))throw new Error('Access denied');
   if(!['digital_adoption_plan','digital_adoption_knowledge','digital_adoption_review'].includes(body?.purpose)||body.selection!=='platform_active'||!Array.isArray(body.messages)||!body.messages.length||body.messages.length>14||

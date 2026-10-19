@@ -1,7 +1,8 @@
 // Serialize renewal with requests so an in-flight request cannot use a token
 // invalidated by a concurrent renewal. Never retry a possibly effectful request.
+import {MODEL_SESSION_TIMEOUT_MS,sessionRequestTimeoutMs} from './model-timeouts.mjs';
 export function createSessionClient({service,fetchImpl=fetch,clock=Date.now}) {
- let requestTimeoutMs=55_000;
+ let requestTimeoutMs=MODEL_SESSION_TIMEOUT_MS;
  let session=null,queue=Promise.resolve(),stopped=false,activeRead=null,analyticsAllowed=false;
  // Interrupt only requests that cannot submit host changes, upload content,
  // renew credentials or consume an approval. Aborted reads are never retried.
@@ -14,7 +15,7 @@ export function createSessionClient({service,fetchImpl=fetch,clock=Date.now}) {
   const controller=new AbortController(),read=interruptible.has(path)?{controller}:null;
   if(read)activeRead=read;
   try{
-  const send=()=>fetchImpl(new URL(path.replace(/^\/+/,''),service),{method:'POST',credentials:'omit',redirect:'error',signal:AbortSignal.any([controller.signal,AbortSignal.timeout(timeoutMs||(path==='/v1/sessions'?8000:requestTimeoutMs))]),
+  const send=()=>fetchImpl(new URL(path.replace(/^\/+/,''),service),{method:'POST',credentials:'omit',redirect:'error',signal:AbortSignal.any([controller.signal,AbortSignal.timeout(timeoutMs||Math.min(sessionRequestTimeoutMs(path),requestTimeoutMs))]),
    headers:{'Content-Type':'application/json',...(!analyticsAllowed?{'X-Adoption-Analytics':'off'}:{}),...(session?{Authorization:`Bearer ${session.sessionToken}`}:{})},body:JSON.stringify(data)});
   let response;
   try{response=await send();}catch(error){
@@ -28,7 +29,7 @@ export function createSessionClient({service,fetchImpl=fetch,clock=Date.now}) {
   if(path==='/v1/sessions'||path==='/v1/renew') {
    if(typeof result.sessionToken!=='string'||!Number.isSafeInteger(result.expiresAt)||!result.sessionId)throw new Error('Invalid session response');
    if(session&&result.sessionId!==session.sessionId)throw new Error('Session identity changed');
-   if(result.requestTimeoutMs!==undefined){if(!Number.isSafeInteger(result.requestTimeoutMs)||result.requestTimeoutMs<6000||result.requestTimeoutMs>125000)throw new Error('Invalid service deadline');requestTimeoutMs=result.requestTimeoutMs;}
+   if(result.requestTimeoutMs!==undefined){if(!Number.isSafeInteger(result.requestTimeoutMs)||result.requestTimeoutMs<6000||result.requestTimeoutMs>MODEL_SESSION_TIMEOUT_MS)throw new Error('Invalid service deadline');requestTimeoutMs=result.requestTimeoutMs;}
    session=result;
   }
   return result;

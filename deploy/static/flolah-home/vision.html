@@ -36,13 +36,29 @@
     @media(max-width:900px){.nav-links{display:none}.problem-grid,.horizon{grid-template-columns:1fr}.difference{grid-template-columns:1fr}.difference article.featured{transform:none}.manifesto{grid-template-columns:1fr}.orgline{grid-template-columns:repeat(2,1fr)}}
     @media(max-width:620px){.shell{width:min(100% - 24px,1160px)}.hero{padding-top:68px}h1{font-size:3.35rem}.actions .button{width:100%}.orgline,.principles{grid-template-columns:1fr}.statement{padding:36px 22px}.phase{grid-template-columns:1fr}section{padding:68px 0}}
   </style>
+  <link rel="stylesheet" href="/assets/site-navigation.css" />
+  <script src="/assets/site-navigation.js" defer></script>
 </head>
 <body>
   <nav>
     <div class="shell nav-inner">
       <a class="brand" href="index.html"><img src="assets/flolah-mark.png" alt=""><span>Flolah</span></a>
-      <div class="nav-links"><a href="#problem">The problem</a><a href="#difference">Why Flolah</a><a href="#vision">Long-term vision</a><a href="/blog/">Blog</a><a href="/docs/">Docs</a></div>
-      <a class="button primary" href="index.html">Explore the platform</a>
+      <div class="nav-links"><a href="#problem">The problem</a><a href="#difference">Why Flolah</a><a href="#vision">Long-term vision</a><a href="/blog/">Blog</a><a href="/docs/">Docs</a><a href="/free-tools/">Free Tools</a></div>
+      <a class="button primary nav-cta" href="index.html">Explore the platform</a>
+      <details class="mobile-nav">
+        <summary>Menu</summary>
+        <div class="mobile-nav-links" aria-label="Mobile navigation">
+          <a href="/">Home</a>
+          <a href="/vision.html" aria-current="page">Vision</a>
+          <a href="#problem">The problem</a>
+          <a href="#difference">Why Flolah</a>
+          <a href="#vision">Long-term vision</a>
+          <a href="/blog/">Blog</a>
+          <a href="/docs/">Docs</a>
+          <a href="/free-tools/">Free Tools</a>
+          <a class="button primary" href="/">Explore the platform</a>
+        </div>
+      </details>
     </div>
   </nav>
 

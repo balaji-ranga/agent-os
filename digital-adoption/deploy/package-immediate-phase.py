@@ -11,7 +11,7 @@ with out.open('xb') as stream,tarfile.open(fileobj=stream,mode='w:gz') as archiv
   data=data.replace(b'\r\n',b'\n');info=tarfile.TarInfo(name);info.size=len(data);info.mode=0o644;archive.addfile(info,io.BytesIO(data))
  for folder in ['src','web','integrations','deploy']:
   for file in sorted((service/folder).rglob('*')):
-   if file.is_file() and file.suffix in ['.mjs','.py','.sh','.html','.css','.md','.txt','.yml','.json','.dockerignore'] or file.is_file() and 'Dockerfile' in file.name:
+   if file.is_file() and file.suffix in ['.mjs','.py','.sh','.html','.css','.md','.txt','.yml','.json','.dockerignore','.conf','.example'] or file.is_file() and 'Dockerfile' in file.name:
     if file.is_symlink() or any(x in file.parts for x in ['node_modules','.local','__pycache__']):continue
     if file.name.startswith('.env') or file.suffix in ['.pem','.key']:raise ValueError('Secret file in source selection')
     add(file.relative_to(service).as_posix(),file.read_bytes())

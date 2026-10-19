@@ -9,6 +9,8 @@
 !deploy/
 !deploy/*.mjs
 !deploy/*.py
+!deploy/*.conf
+!deploy/*.example
 **/.env*
 **/*.sqlite*
 **/*.key

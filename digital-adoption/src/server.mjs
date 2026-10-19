@@ -1,3 +1,4 @@
+import {MODEL_CLIENT_TIMEOUT_MS,MODEL_SESSION_TIMEOUT_MS} from '../web/model-timeouts.mjs';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { validateSnapshot } from './proposals.mjs';
@@ -14,6 +15,8 @@ const assets = new Map([
   ['/review-editor.mjs', ['../web/review-editor.mjs','text/javascript']],
   ['/manage-onboarding.mjs', ['../web/manage-onboarding.mjs','text/javascript']],
   ['/manage-action-profiles.mjs', ['../web/manage-action-profiles.mjs','text/javascript']],
+
+  ['/model-timeouts.mjs', ['../web/model-timeouts.mjs', 'text/javascript']],
   ['/manage.css', ['../web/manage.css', 'text/css']],
   ['/manage-shell.mjs', ['../web/manage-shell.mjs', 'text/javascript']],
   ['/manage-pagination.mjs', ['../web/manage-pagination.mjs', 'text/javascript']],
@@ -62,7 +65,7 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
   const budget=createRequestBudget();
   const managementPerIp=capacity.managementPerIp??600;if(!Number.isInteger(managementPerIp)||managementPerIp<30||managementPerIp>6000)throw new Error('Invalid management network capacity');
   const modelSlots=createConcurrencyBudget({global:capacity.modelConcurrency??25,perDomain:capacity.modelPerDomain??5}),searchSlots=createConcurrencyBudget({global:capacity.searchConcurrency??25,perDomain:capacity.searchPerDomain??5});
-  const requestTimeoutMs=(capacity.modelDeadlineMs??120000)+5000;if(!Number.isSafeInteger(requestTimeoutMs)||requestTimeoutMs<6000||requestTimeoutMs>125000)throw new Error('Invalid model deadline');
+  const requestTimeoutMs=(capacity.modelDeadlineMs??MODEL_CLIENT_TIMEOUT_MS)+5000;if(!Number.isSafeInteger(requestTimeoutMs)||requestTimeoutMs<6000||requestTimeoutMs>MODEL_SESSION_TIMEOUT_MS)throw new Error('Invalid model deadline');
   let activeUploads=0;
   const server=createServer(async (req, res) => {
     const requestController=new AbortController();res.on('close',()=>{if(!res.writableEnded)requestController.abort();});

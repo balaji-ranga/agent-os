@@ -1,0 +1,63 @@
+
+> agent-os-frontend@0.1.0 prebuild
+> node scripts/test-knowledge-search-modes.mjs && node scripts/test-copilot-handoff.mjs && node scripts/test-copilot-navigation.mjs && node scripts/test-copilot-replay.mjs && node scripts/test-copilot-guide.mjs && node scripts/test-copilot-embed.mjs && node scripts/test-copilot-field-labels.mjs && node scripts/generate-copilot-screen-inventory.mjs --check
+
+Knowledge search modes: bounded existing APIs, isolation by endpoint, mode routing and partial failure visibility passed.
+PASS Copilot handoff: exact draft, explicit empty navigation, no auto-send, entitled-agent and explicit-call boundaries.
+PASS Copilot navigation: actual screen opening, fresh inspection, bounded continuation, permission/context checks and creation/write separation.
+PASS readiness: delayed registration, empty loading DOM, reload, destination check, bounded timeout and actor cancellation.
+PASS post-creation readiness: reject sidebar-only metadata and require stable form fields before model continuation.
+PASS guided replay: publication/version checks, placeholder matching, no values/selectors or write replay.
+PASS replay performs authorized shell and observed embedded navigation, waits for destination, and rejects unseen links and actor changes.
+PASS guided field lookup: labels, ambiguity, protected/hidden/disabled controls and cleanup. No values read or written.
+PASS DOM fill: controlled-input events, dependent no-op, stale-edit protection and all-or-nothing preflight.
+PASS embedded guide: exact origin/window, no write commands, no field values exported, highlight cleanup.
+PASS embedded reviewed fill: private baseline, stale-edit rejection, native events, one-use snapshot.
+PASS guided multi-field bridge: rotated tokens, preserved remaining baselines, intervening edits and cancellation.
+PASS CRM inline recipe: metadata discovery is read-only, approved editor reopening retains baseline.
+PASS inline click-away: re-observe and reopen editor once without replaying writes.
+PASS expired embedded review: no writes, actionable allowlisted failure messages.
+PASS embedded navigation: observed same-origin destinations only; no external URLs or payment paths.
+PASS record preview navigation: match rendered record identity before one-time expansion.
+PASS opportunity amount: compound-editor identity, numeric validation and reviewed commit; no currency change.
+PASS new-record recipe: observed button, separate review, one-use approval, no replay.
+PASS compact creation: observed resource, explicit review, one-use activation, sensitive resource rejection.
+PASS asynchronous editor readiness: hover activation, delayed input registration and no value writes.
+PASS hover-layer editor: re-inspect after hover and activate the actual portal control, not the stale placeholder.
+PASS embedded sensitive-label precedence across all field descriptors.
+PASS compound currency: observed options, separate numeric value, private baseline, stale-change and replay rejection.
+PASS rich-text transaction: metadata-only inspection, private baseline, plain text insertion, stale/replay rejection and article/ellipsis New labels.
+PASS accessible navigation: image-only workspace root exposes its observed alt label.
+PASS generic record-header Title editor commits with the same reviewed Enter contract as Name.
+PASS closed record-header discovery: read-only Title metadata and reviewed editor activation.
+PASS active modal scoping: identical background filters are neither selected nor modified.
+PASS source field labels: shared wrappers, explicit labels before examples, no values or arbitrary headings.
+PASS repeated field contracts: unique schema-backed identities; unknown fields remain unavailable.
+COPILOT_INVENTORY_OK: 169 source modules; 86 distinct routes. Unreviewed controls remain guided-only.
+
+> agent-os-frontend@0.1.0 build
+> node ./scripts/check-utf8.mjs && node ./scripts/test-display-timezone.mjs && node ./scripts/test-virtual-room-placement.mjs && node ./scripts/test-design-system.mjs && node ./scripts/test-ibkr-bridge-status.mjs && vite build --configLoader runner
+
+check-utf8: OK
+Display timezone checks passed.
+Virtual Room placement checks passed.
+Virtual Room early playback checks passed.
+design-system checks passed.
+IBKRNew active bridge status tests passed
+vite v6.4.3 building for production...
+transforming...
+✓ 510 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                            4.08 kB │ gzip:   1.38 kB
+dist/assets/index-SPKgtRL5.css           304.91 kB │ gzip:  53.09 kB
+dist/assets/OrbitControls-BJG1UU-V.js     19.01 kB │ gzip:   4.34 kB
+dist/assets/GLTFLoader-C3T5bmYp.js        46.88 kB │ gzip:  13.89 kB
+dist/assets/three.module-BtCAaDxU.js     688.39 kB │ gzip: 177.02 kB
+dist/assets/index-CDe_gxyJ.js          2,820.12 kB │ gzip: 744.22 kB
+✓ built in 15.80s
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.

@@ -1,3 +1,4 @@
+import {MODEL_CLIENT_TIMEOUT_MS} from '../web/model-timeouts.mjs';
 import {createActionAttempts} from './action-attempts.mjs';
 import {createVisitorAnalytics} from './visitor-analytics.mjs';
 import {readFileSync,writeFileSync,existsSync} from 'node:fs';
@@ -74,7 +75,7 @@ for(const [i,embeddingId] of embeddings.entries()){
   'Beta private test knowledge: the Beta verification code is BETA_COPPER_2846. Beta delivery promise is eleven working days. This must never be returned in the Alpha embedding.'});
  if(source.status==='pending'||source.status==='failed')await knowledge.ingest(scope,source.id);
 }
-const model={requestDeadlineMs:config.capacity?.modelDeadlineMs??120000,gatewayUrl:config.gatewayUrl,serviceToken:config.serviceToken};
+const model={requestDeadlineMs:config.capacity?.modelDeadlineMs??MODEL_CLIENT_TIMEOUT_MS,gatewayUrl:config.gatewayUrl,serviceToken:config.serviceToken};
 const planner=createPlatformPlanner(model);
 const taskWebsite=id=>repository.map('websites').get(id);
 const privateTasks=await createPrivateTasks({commandState:repository.map('command_attempts'),actionAttempts,passageStore:search.privateTasks,observe:(scope,event)=>analytics?.fact(scope,event),pairingState:repository.map('paired_groups'),root:'/data/private-objects',website:taskWebsite,activeScope:scope=>authority.activeScope(scope),planner,answer:createKnowledgeAnswer(model),guidance:(scope,text,snapshot)=>({sourceGuidance:sourceMap.guidance(scope,text,snapshot),recipeGuidance:learning.context(scope,text,snapshot),siteGuidance:learning.planningMemory(scope,text,snapshot)}),limits:config.privateTasks,authorizeEffect:async input=>{if(!config.taskPolicyUrl||!config.taskBridgeToken)return false;try{const response=await fetch(config.taskPolicyUrl,{method:'POST',redirect:'error',signal:AbortSignal.timeout(5000),headers:{'Content-Type':'application/json',Authorization:`Bearer ${config.taskBridgeToken}`},body:JSON.stringify(input)});return response.ok&&(await response.json()).allowed===true;}catch{return false;}}});

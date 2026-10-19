@@ -1,9 +1,10 @@
 import {readModelResponse} from './model-response.mjs';
+import {MODEL_CLIENT_TIMEOUT_MS} from '../web/model-timeouts.mjs';
 import {copySupportingQuote} from './evidence-quotation.mjs';
-export function createKnowledgeAnswer({gatewayUrl,serviceToken,fetchImpl=fetch,requestDeadlineMs=40_000}){
+export function createKnowledgeAnswer({gatewayUrl,serviceToken,fetchImpl=fetch,requestDeadlineMs=MODEL_CLIENT_TIMEOUT_MS}){
  const endpoint=new URL(gatewayUrl);
  if(endpoint.protocol!=='https:'||endpoint.username||endpoint.password||serviceToken.length<32)throw new Error('Invalid model configuration');
- if(!Number.isSafeInteger(requestDeadlineMs)||requestDeadlineMs<1000||requestDeadlineMs>120000)throw new Error('Invalid model deadline');
+ if(!Number.isSafeInteger(requestDeadlineMs)||requestDeadlineMs<1000||requestDeadlineMs>MODEL_CLIENT_TIMEOUT_MS)throw new Error('Invalid model deadline');
  return async({text,evidence,history=[],replyContext,signal})=>{
   if(/^(hi|hello|hey|good morning|good afternoon|good evening)[\s!.]*$/i.test(text.trim()))return {message:'Hello! Ask me a question about this website’s approved documents. For navigation or form filling, use Digital Experience Guide. The website owner manages shared sources.',citations:[],kind:'greeting'};
   if(!evidence.length)return {message:'I could not find supporting evidence in this website’s approved knowledge. Try a document title or a more specific question, or ask the website owner about available sources.',citations:[],kind:'no_evidence'};

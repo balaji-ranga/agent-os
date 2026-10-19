@@ -1,4 +1,5 @@
 import { validateSnapshot } from './proposals.mjs';
+import {MODEL_CLIENT_TIMEOUT_MS} from '../web/model-timeouts.mjs';
 import {constrainNavigation} from './navigation-intent.mjs';
 import {constrainEdit,explicitEditProposal} from './edit-intent.mjs';
 import {responseContract,parseAssistantResponse} from './assistant-contract.mjs';
@@ -9,10 +10,10 @@ import {readModelResponse} from './model-response.mjs';
 
 // Server-only adapter. The platform gateway owns model selection and secrets.
 // The website cannot choose a model, provider URL, key, or active slot.
-export function createPlatformPlanner({ gatewayUrl, serviceToken, fetchImpl=fetch,requestDeadlineMs=40_000 }) {
+export function createPlatformPlanner({ gatewayUrl, serviceToken, fetchImpl=fetch,requestDeadlineMs=MODEL_CLIENT_TIMEOUT_MS }) {
   const endpoint=new URL(gatewayUrl);
   if(endpoint.protocol!=='https:'||endpoint.username||endpoint.password||endpoint.search||endpoint.hash||typeof serviceToken!=='string'||serviceToken.length<32)throw new Error('Invalid platform gateway configuration');
-  if(!Number.isSafeInteger(requestDeadlineMs)||requestDeadlineMs<1000||requestDeadlineMs>120000)throw new Error('Invalid model deadline');
+  if(!Number.isSafeInteger(requestDeadlineMs)||requestDeadlineMs<1000||requestDeadlineMs>MODEL_CLIENT_TIMEOUT_MS)throw new Error('Invalid model deadline');
   return async({text,snapshot,history=[],replyContext,sourceGuidance,recipeGuidance,siteGuidance,privateGuidance,signal})=>{
     const readOnly=readOnlyIntent(text);
     const observed=readOnly?validateSnapshot(snapshot):constrainEdit(text,constrainNavigation(text,validateSnapshot(snapshot)));

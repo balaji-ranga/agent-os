@@ -1,10 +1,12 @@
 // Run after Admin selects the checker route. Uses only synthetic loopback UI.
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
-const {chromium}=await import('./frameworks/node_modules/playwright/index.mjs');
-const out=new URL('../.local/maker-checker-evidence/',import.meta.url);await mkdir(out,{recursive:true});
+import {pathToFileURL} from 'node:url';
+import {WIDGET_REQUEST_TIMEOUT_MS} from '../web/model-timeouts.mjs';
+const {chromium}=await import(process.env.ADOPTION_PLAYWRIGHT_PATH?pathToFileURL(process.env.ADOPTION_PLAYWRIGHT_PATH).href:'./frameworks/node_modules/playwright/index.mjs');
+const out=process.env.ADOPTION_EVIDENCE_DIR?pathToFileURL(process.env.ADOPTION_EVIDENCE_DIR+'/'):new URL('../.local/maker-checker-evidence/',import.meta.url);await mkdir(out,{recursive:true});
 const browser=await chromium.launch({channel:'chrome',headless:true}),context=await browser.newContext({viewport:{width:1440,height:1050}}),page=await context.newPage(),frame=page.frameLocator('iframe[data-adoption-widget]');
-context.setDefaultTimeout(60000);let writes=0;
+context.setDefaultTimeout(WIDGET_REQUEST_TIMEOUT_MS+10_000);let writes=0;
 await context.route('**/*',route=>{const request=route.request();if(new URL(request.url()).hostname==='127.0.0.1'&&!['GET','HEAD','OPTIONS'].includes(request.method())){writes++;return route.abort();}return route.continue();});
 try{
  await page.goto('http://127.0.0.1:4194/customer');await frame.locator('#private-task').waitFor();await page.getByRole('button',{name:'Decline analytics',exact:true}).click({timeout:2000}).catch(()=>{});await page.getByRole('button',{name:'Add native controls',exact:true}).click();

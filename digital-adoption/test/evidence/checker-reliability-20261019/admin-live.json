@@ -1,0 +1,10 @@
+{
+  "at": "2026-10-19T10:22:20.557Z",
+  "adminApi": 200,
+  "registeredLocalModels": 2,
+  "unsavedModelSelection": true,
+  "unsavedThinkingSelection": true,
+  "reloadPreservesSavedSelection": true,
+  "rejectUnknownDeployment": 400,
+  "productionSelectionChanged": false
+}

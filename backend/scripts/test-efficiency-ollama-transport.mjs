@@ -25,6 +25,13 @@ try {
   assert.equal(converted.choices[0].message.content,'{"query":"synthetic"}');
   assert.equal(converted.choices[0].finish_reason,'stop');
   assert.deepEqual(converted.usage,{prompt_tokens:5,completion_tokens:7});
+  process.env.OLLAMA_EFFICIENCY_THREADS='4';
+  globalThis.fetch=async(_url,init)=>{
+    assert.equal(JSON.parse(init.body).options.num_thread,4);
+    assert.equal(init.signal,signal);
+    return new Response(JSON.stringify({message:{content:'{}'},done:true,done_reason:'stop'}));
+  };
+  await fetchEfficiencyOllama('http://ollama:11434/v1/chat/completions',request());
   for(const result of [
     {done:false,message:{content:'unfinished'}},
     {done:true,done_reason:'length',message:{content:'truncated'}},
