@@ -21,6 +21,8 @@ export function createManagement({authenticate,control,knowledge,search,platform
   if(path==='/v1/manage/admin-websites')return control.inventory(actor,input);
   if(path==='/v1/manage/transfer-owner')return control.transfer(actor,input.id,input);
   if(path==='/v1/manage/register')return control.register(actor,{origin:input.origin,environment:input.environment,operationId:input.operationId});
+  if(path==='/v1/manage/renew-challenge')return control.renewChallenge(actor,input.id,input);
+  if(path==='/v1/manage/onboarding'){const state=control.readiness(actor,input.id);return {...state,knowledgeScope:'public',...(state.verified&&state.status==='approved'&&learning?{learning:learning.readiness(control.scope(actor,input.id))}:{}),diagnostics:['If the panel is missing: check the approved origin, snippet URL, token expiry, CSP script-src/connect-src/frame-src and blocked frames. Issuing a snippet alone does not prove installation.']};}
   if(path==='/v1/manage/verify')return control.verify(actor,input.id);
   if(path==='/v1/manage/approve')return control.transition(actor,input.id,'approved',input.reason);
   if(path==='/v1/manage/suspend')return control.transition(actor,input.id,'suspended',input.reason);

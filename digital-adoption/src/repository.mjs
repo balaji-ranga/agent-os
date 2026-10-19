@@ -6,7 +6,7 @@ export function openRepository(path = ':memory:') {
   const db = new DatabaseSync(path);
   db.exec('PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;');
   db.exec('CREATE TABLE IF NOT EXISTS adoption_state (namespace TEXT NOT NULL, key TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY(namespace,key))');
-  db.exec("CREATE INDEX IF NOT EXISTS adoption_embedding_scope ON adoption_state(namespace,json_extract(value,'$.embeddingId')); CREATE INDEX IF NOT EXISTS adoption_owner_scope ON adoption_state(namespace,json_extract(value,'$.organizationId'));");
+  db.exec("CREATE INDEX IF NOT EXISTS adoption_state_expiry ON adoption_state(namespace,json_extract(value,'$.expiresAt')); CREATE INDEX IF NOT EXISTS adoption_embedding_scope ON adoption_state(namespace,json_extract(value,'$.embeddingId')); CREATE INDEX IF NOT EXISTS adoption_owner_scope ON adoption_state(namespace,json_extract(value,'$.organizationId'));");
   db.exec("CREATE INDEX IF NOT EXISTS adoption_content_scope ON adoption_state(namespace,json_extract(value,'$.scope')); CREATE INDEX IF NOT EXISTS adoption_website_audit ON adoption_state(namespace,json_extract(value,'$.websiteId')); CREATE INDEX IF NOT EXISTS adoption_audience_scope ON adoption_state(namespace,json_extract(value,'$.embeddingId'),json_extract(value,'$.audienceId'));");
   db.exec("CREATE INDEX IF NOT EXISTS adoption_work_status ON adoption_state(namespace,json_extract(value,'$.status'),json_extract(value,'$.leaseUntil')); CREATE INDEX IF NOT EXISTS adoption_work_domain ON adoption_state(namespace,json_extract(value,'$.embeddingId'),json_extract(value,'$.status'));");
   const get = db.prepare('SELECT value FROM adoption_state WHERE namespace=? AND key=?');
@@ -25,6 +25,8 @@ export function openRepository(path = ':memory:') {
     return scopedStatements.get(cacheKey).all(namespace,...names.map(name=>filters[name]));
   };
   return {
+    durableActions:true,
+    expireActionAttempts(now){return Number(db.prepare("DELETE FROM adoption_state WHERE namespace='action_attempts' AND json_extract(value,'$.expiresAt')<=?").run(now).changes);},
     analyticsStore(){
       db.exec('CREATE TABLE IF NOT EXISTS visitor_analytics (id TEXT PRIMARY KEY, embedding_id TEXT NOT NULL, owner_id TEXT NOT NULL, at INTEGER NOT NULL, visitor TEXT NOT NULL, session TEXT NOT NULL, kind TEXT NOT NULL, payload TEXT NOT NULL, expires_at INTEGER NOT NULL); CREATE INDEX IF NOT EXISTS analytics_expiry ON visitor_analytics(expires_at); CREATE INDEX IF NOT EXISTS analytics_site_time ON visitor_analytics(embedding_id,owner_id,at); CREATE INDEX IF NOT EXISTS analytics_visitor_time ON visitor_analytics(embedding_id,owner_id,visitor,at)');
       const insert=db.prepare('INSERT OR IGNORE INTO visitor_analytics VALUES (?,?,?,?,?,?,?,?,?)');

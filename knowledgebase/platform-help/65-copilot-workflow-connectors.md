@@ -54,3 +54,29 @@ Use **Task handle / ID** and **Result handles from earlier task steps** for auth
 The recipient chat records the workflow instruction, progress and result; sender handoffs also leave a chat trace. The workflow run audit identifies the selected website/panel, action and per-recipient outcome. Inspect includes the observed path and supported field/navigation summary. Content-free audit/task handles are not independent proof of saving a business record. For a Customer → Note → Opportunity journey, navigate/inspect each form, fill the requested values, use each form's reviewed submission binding, then independently reopen and check the saved records.
 
 If no target appears, use **Refresh online copilots**, confirm the selected group and websites, check the website's workflow capability and current link authority, and ensure the intended panel is online. Offline persistent groups can remain saved in the definition; they do not authorize background delivery. If the request is refused, check Action Policies and the per-recipient error before retrying. Never substitute another user's browser group or broaden website permissions implicitly.
+
+
+## Outcome requirements and recovery
+
+The Copilot node's **Required outcome** selects the existing effect contract,
+verified field/navigation state, website-reported Save, or a trusted saved-record
+receipt. Choose the requirement that matches the action and host integration.
+A missing stronger proof fails the step even if the website displayed a success
+message. Browser-supplied success booleans cannot create a business-verified result.
+The optional host callback is `getActionOutcome`; its backend-signed receipt uses
+purpose `adoption_action_outcome` and binds the current action, proposal, session
+and path. It is separate from the verified-learning receipt.
+
+The recipient conversation waits for the coordinator's outcome acknowledgement
+before announcing completion. Content-free run results include stage, target,
+evidence level and applied field count; private values remain behind task handles.
+Progress frames are bounded. Saved workflow groups still target current authorized
+online panels; peer pairing remains optional for server delivery.
+
+Do not rerun an uncertain write automatically. Content-free action guards and
+workflow-operation tombstones reject replay after process recovery. A refreshed
+connection does not restore ended files, reuse approval or replay failed commands.
+For dependent forms, each new stage uses current controls and policy; the bounded
+continuation stops for unsupported or ambiguous states. A native Save can leave
+fields populated: navigation treats only matching, successfully submitted local
+values as acknowledged; a later edit remains a draft.

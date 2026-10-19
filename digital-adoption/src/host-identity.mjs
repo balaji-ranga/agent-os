@@ -31,6 +31,12 @@ export function createHostIdentity(repository,{clock=Date.now}={}){
   check(embeddingId,identity){const policy=policies.get(embeddingId);if(!identity){if(policy?.required)deny();return;}
    if(!policy||identity.policyRevision!==policy.revision||identity.expiresAt<=clock()||(revocations.get(embeddingId+':'+identity.principal)?.revokedAt??-1)>=identity.issuedAt)deny();
   },
+  verifyActionOutcome(scope,origin,token,{actionId,proposalId,path}){
+   const identity=service.verify(scope.embeddingId,origin,token,{purpose:'adoption_action_outcome'});if(!identity)deny();
+   const claims=JSON.parse(Buffer.from(token.split('.')[1],'base64url'));
+   if(claims.actionId!==actionId||claims.sessionId!==scope.sessionId||claims.proposalId!==proposalId||claims.path!==path||claims.success!==true||claims.evidenceKind!=='saved-record-readback'||!id(claims.operationId)||! /^[a-f0-9]{64}$/.test(claims.recordHash)||scope.hostPrincipal&&scope.hostPrincipal!==identity.principal)deny();
+   return {verified:true};
+  },
   verifyOutcome(scope,origin,token,{proposalId,path}){
    const identity=service.verify(scope.embeddingId,origin,token,{purpose:'adoption_outcome'});if(!identity)deny();
    const claims=JSON.parse(Buffer.from(token.split('.')[1],'base64url'));

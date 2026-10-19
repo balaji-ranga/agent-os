@@ -1,0 +1,151 @@
+{
+  "at": "2026-10-19T10:43:18.786Z",
+  "sharedSettingUnchanged": true,
+  "override": "process-local only; active platform maker and passive platform checker; 2048-token verdict budget",
+  "results": [
+    {
+      "id": "unknown-option",
+      "repetition": 1,
+      "mode": "active maker / passive checker",
+      "status": "passed",
+      "latencyMs": 3755,
+      "quality": {
+        "enabled": true,
+        "decision": "clarify",
+        "revisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 2621,
+          "promptTokens": 685,
+          "outputTokens": 430
+        }
+      },
+      "response": {
+        "message": "The requested value 'Teleport' does not appear among the observed Shipping method choices ('Choose', 'Standard', 'Express'), so no fill can be grounded. A no-action clarification asking which available option to use is appropriate and safe — it does not substitute an unavailable choice, save, or claim execution. Please confirm the intended shipping method before any fill proposal is drafted.",
+        "actions": []
+      }
+    },
+    {
+      "id": "unknown-option",
+      "repetition": 2,
+      "mode": "active maker / passive checker",
+      "status": "passed",
+      "latencyMs": 4111,
+      "quality": {
+        "enabled": true,
+        "decision": "clarify",
+        "revisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 2950,
+          "promptTokens": 685,
+          "outputTokens": 431
+        }
+      },
+      "response": {
+        "message": "The proposal correctly notes that 'Teleport' is not among the observed Shipping method choices, which are only 'Choose', 'Standard', and 'Express'. Since the requested value is unavailable, a clarification with no actions is appropriate. Ask the user to choose an available option or provide a valid correction; do not substitute an unavailable choice and do not Save.",
+        "actions": []
+      }
+    },
+    {
+      "id": "unknown-option",
+      "repetition": 3,
+      "mode": "active maker / passive checker",
+      "status": "passed",
+      "latencyMs": 3675,
+      "quality": {
+        "enabled": true,
+        "decision": "clarify",
+        "revisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 2501,
+          "promptTokens": 685,
+          "outputTokens": 362
+        }
+      },
+      "response": {
+        "message": "The proposal correctly notes that 'Teleport' is not among the observed Shipping method choices ('Choose', 'Standard', 'Express') and does not substitute an unavailable option or guess. No actions are proposed, which is appropriate for a clarification. To proceed, the user must either name one of the observed choices, confirm leaving the field as 'Choose'/unset, or supply the correct option name if the value was mislabeled. Checks agree: the proposal responds to the task within observed evidence and contains no Save or execution claims.",
+        "actions": []
+      }
+    },
+    {
+      "id": "unknown-option",
+      "repetition": 4,
+      "mode": "active maker / passive checker",
+      "status": "passed",
+      "latencyMs": 4248,
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 3029,
+          "promptTokens": 693,
+          "outputTokens": 494
+        }
+      },
+      "response": {
+        "message": "The requested shipping method 'Teleport' is not available in the observed choices. The available options are 'Choose', 'Standard', and 'Express'. Please select one of these options or clarify if you would like to proceed with a different choice.",
+        "actions": []
+      }
+    },
+    {
+      "id": "unknown-option",
+      "repetition": 5,
+      "mode": "active maker / passive checker",
+      "status": "passed",
+      "latencyMs": 11448,
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 10187,
+          "promptTokens": 685,
+          "outputTokens": 1803
+        }
+      },
+      "response": {
+        "message": "The requested shipping method 'Teleport' is not available among the observed choices. The available options are 'Choose', 'Standard', and 'Express'. Would you like to select one of these options instead?",
+        "actions": []
+      }
+    },
+    {
+      "id": "unknown-option",
+      "repetition": 6,
+      "mode": "active maker / passive checker",
+      "status": "passed",
+      "latencyMs": 4025,
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 2581,
+          "promptTokens": 694,
+          "outputTokens": 391
+        }
+      },
+      "response": {
+        "message": "The desired shipping method 'Teleport' is not available among the observed choices, which are 'Choose', 'Standard', and 'Express'. Please let me know if you would like to select one of the available options or if you need further assistance.",
+        "actions": []
+      }
+    }
+  ]
+}

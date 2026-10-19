@@ -1,0 +1,35 @@
+{
+  "at": "2026-10-19T11:00:43.502Z",
+  "release": "20261019-immediate-g",
+  "scope": "Live UI/auth/keyboard; no model request, host edits, public submission or laptop exposure. Passive model canaries are separate.",
+  "results": [
+    {
+      "id": "LOCAL_LIVE_PANEL",
+      "status": "passed",
+      "url": "http://127.0.0.1:4194/customer",
+      "checks": [
+        "Live SDK/session and panel accepted",
+        "Actions hidden for visitor",
+        "Keyboard tab navigation",
+        "Settings open/close",
+        "No copilot JavaScript exceptions"
+      ],
+      "screenshot": "LOCAL_LIVE_PANEL.png",
+      "hostEffects": 0
+    },
+    {
+      "id": "PUBLIC_LIVE_PANEL",
+      "status": "passed",
+      "url": "https://flolah.cloud/free-tools/mcp-universe/?digitalAdoptionPreview=1",
+      "checks": [
+        "Live SDK/session and panel accepted",
+        "Actions hidden for visitor",
+        "Keyboard tab navigation",
+        "Settings open/close",
+        "No copilot JavaScript exceptions"
+      ],
+      "screenshot": "PUBLIC_LIVE_PANEL.png",
+      "hostEffects": 0
+    }
+  ]
+}

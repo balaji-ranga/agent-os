@@ -1,0 +1,37 @@
+{
+  "at": "2026-10-19T10:26:23.814Z",
+  "source": "working-tree immediate phase",
+  "origin": "http://127.0.0.1:4194",
+  "dependencies": {
+    "planner": "deterministic fixture, not LLM",
+    "managementIdentity": "synthetic test adapter",
+    "dns": "not exercised",
+    "host": "existing loopback website"
+  },
+  "results": [
+    {
+      "id": "R_VALID_JOURNEYS_30",
+      "status": "passed",
+      "detail": {
+        "journeys": 30,
+        "distinctTaskKinds": [
+          "text",
+          "email",
+          "region",
+          "select",
+          "checkbox",
+          "mixed native",
+          "opportunity",
+          "note",
+          "radio",
+          "multi-select"
+        ],
+        "freshVariantsPerKind": 3,
+        "planner": "deterministic; held-out LLM remains a separate gate",
+        "hostSubmissions": 0
+      },
+      "screenshot": "R_VALID_JOURNEYS_30.png"
+    }
+  ],
+  "errors": []
+}

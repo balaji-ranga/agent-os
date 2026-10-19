@@ -1,9 +1,10 @@
 import {readModelResponse} from './model-response.mjs';
 import {copySupportingQuote} from './evidence-quotation.mjs';
-export function createKnowledgeAnswer({gatewayUrl,serviceToken,fetchImpl=fetch}){
+export function createKnowledgeAnswer({gatewayUrl,serviceToken,fetchImpl=fetch,requestDeadlineMs=40_000}){
  const endpoint=new URL(gatewayUrl);
  if(endpoint.protocol!=='https:'||endpoint.username||endpoint.password||serviceToken.length<32)throw new Error('Invalid model configuration');
- return async({text,evidence,history=[],replyContext})=>{
+ if(!Number.isSafeInteger(requestDeadlineMs)||requestDeadlineMs<1000||requestDeadlineMs>120000)throw new Error('Invalid model deadline');
+ return async({text,evidence,history=[],replyContext,signal})=>{
   if(/^(hi|hello|hey|good morning|good afternoon|good evening)[\s!.]*$/i.test(text.trim()))return {message:'Hello! Ask me a question about this website’s approved documents. For navigation or form filling, use Digital Experience Guide. The website owner manages shared sources.',citations:[],kind:'greeting'};
   if(!evidence.length)return {message:'I could not find supporting evidence in this website’s approved knowledge. Try a document title or a more specific question, or ask the website owner about available sources.',citations:[],kind:'no_evidence'};
   // Duplicate uploads and repeated workflow summaries must not consume the
@@ -21,9 +22,9 @@ export function createKnowledgeAnswer({gatewayUrl,serviceToken,fetchImpl=fetch})
   for(const candidate of candidates){if(selected.length===12)break;if(Buffer.byteLength(makeBody([...selected,candidate]))<=28_000)selected.push(candidate);}
   if(!selected.length)return {message:'I could not find readable supporting evidence in this website’s approved knowledge.',citations:[],kind:'no_evidence'};
   const normalize=value=>value.normalize('NFKC').replace(/\s+/g,' ').trim();
-  const deadline=Date.now()+40_000;let quotationHelp;
+  const deadline=Date.now()+requestDeadlineMs;let quotationHelp;
   for(let attempt=0;attempt<2;attempt++){
-   let response;try{response=await fetchImpl(endpoint,{method:'POST',redirect:'error',signal:AbortSignal.timeout(Math.max(1,deadline-Date.now())),headers:{Authorization:`Bearer ${serviceToken}`,'Content-Type':'application/json'},body:makeBody(selected,quotationHelp)});
+   let response;try{response=await fetchImpl(endpoint,{method:'POST',redirect:'error',signal:signal?AbortSignal.any([signal,AbortSignal.timeout(Math.max(1,deadline-Date.now()))]):AbortSignal.timeout(Math.max(1,deadline-Date.now())),headers:{Authorization:`Bearer ${serviceToken}`,'Content-Type':'application/json'},body:makeBody(selected,quotationHelp)});
    }catch{throw new Error('Knowledge model unavailable');}
    const payload=await readModelResponse(response,'Knowledge model unavailable');
    let answer;try{answer=JSON.parse(payload.content);}catch{}

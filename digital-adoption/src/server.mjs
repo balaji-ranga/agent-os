@@ -8,6 +8,12 @@ import {randomUUID} from 'node:crypto';
 import {attachLiveTransport} from './live-transport.mjs';
 
 const assets = new Map([
+  ['/dependent-controls.mjs', ['../web/dependent-controls.mjs','text/javascript']],
+  ['/task-controller.mjs', ['../web/task-controller.mjs','text/javascript']],
+  ['/host-observation.mjs', ['../web/host-observation.mjs','text/javascript']],
+  ['/review-editor.mjs', ['../web/review-editor.mjs','text/javascript']],
+  ['/manage-onboarding.mjs', ['../web/manage-onboarding.mjs','text/javascript']],
+  ['/manage-action-profiles.mjs', ['../web/manage-action-profiles.mjs','text/javascript']],
   ['/manage.css', ['../web/manage.css', 'text/css']],
   ['/manage-shell.mjs', ['../web/manage-shell.mjs', 'text/javascript']],
   ['/manage-pagination.mjs', ['../web/manage-pagination.mjs', 'text/javascript']],
@@ -56,8 +62,10 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
   const budget=createRequestBudget();
   const managementPerIp=capacity.managementPerIp??600;if(!Number.isInteger(managementPerIp)||managementPerIp<30||managementPerIp>6000)throw new Error('Invalid management network capacity');
   const modelSlots=createConcurrencyBudget({global:capacity.modelConcurrency??25,perDomain:capacity.modelPerDomain??5}),searchSlots=createConcurrencyBudget({global:capacity.searchConcurrency??25,perDomain:capacity.searchPerDomain??5});
+  const requestTimeoutMs=(capacity.modelDeadlineMs??120000)+5000;if(!Number.isSafeInteger(requestTimeoutMs)||requestTimeoutMs<6000||requestTimeoutMs>125000)throw new Error('Invalid model deadline');
   let activeUploads=0;
   const server=createServer(async (req, res) => {
+    const requestController=new AbortController();res.on('close',()=>{if(!res.writableEnded)requestController.abort();});
     let uploadSlot=false,releaseModel,releaseSearch;
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -140,11 +148,11 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
         managedScope(path,input);
         return send(200,result);
       }
-      if (path === '/v1/sessions') {budget.take(`init:${req.socket.remoteAddress}`,60);result = authority.initialize({ installationToken: input.installationToken, origin, initializationKey:input.initializationKey,identityToken:input.identityToken });}
+      if (path === '/v1/sessions') {budget.take(`init:${req.socket.remoteAddress}`,60);result = {...authority.initialize({ installationToken: input.installationToken, origin, initializationKey:input.initializationKey,identityToken:input.identityToken }),requestTimeoutMs};}
       else {
         const sessionToken = /^Bearer (\S+)$/.exec(req.headers.authorization || '')?.[1];
         const auth = { sessionToken, origin };
-        const scope = authority.context(auth);
+        const authorizedScope=authority.context(auth);const scope={...authorizedScope,websiteRevision:taskWebsite?.(authorizedScope.embeddingId)?.configurationRevision||0};
         requestScope=scope;if(req.headers['x-adoption-analytics']==='off')analytics?.endSession(scope);
         if(!path.startsWith('/v1/analytics/')&&!['/v1/renew','/v1/history','/v1/capabilities','/v1/pair/status','/v1/tasks/status','/v1/discovery/status','/v1/discovery/list','/v1/discovery/next'].includes(path))privateTasks?.touchSession(scope);
         // Authorized callers must be able to read dependency failures as well
@@ -152,16 +160,16 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
         res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin');
         if(path.startsWith('/v1/analytics/')){if(!analytics)throw new Error('Analytics unavailable');if(path==='/v1/analytics/policy')result=analytics.policy(scope);else if(path==='/v1/analytics/consent')result=analytics.consent(scope,input,req);else if(path==='/v1/analytics/events'){budget.take(`analytics:${scope.sessionId}`,60);result=analytics.collect(scope,input);authority.touch(auth);}else throw new Error('Unknown analytics operation');}
         else if (path === '/v1/history') result = { messages: authority.history(auth) };
-        else if(path==='/v1/capabilities')result={capabilities:scope.capabilities,taskPolicy:privateTasks?taskWebsite?.(scope.embeddingId)?.taskPolicy||{}:{},learningEnabled:learning?.learningEnabled?.(scope)===true};
+        else if(path==='/v1/capabilities')result={requestTimeoutMs,executionContractVersion:2,capabilities:scope.capabilities,taskPolicy:privateTasks?taskWebsite?.(scope.embeddingId)?.taskPolicy||{}:{},learningEnabled:learning?.learningEnabled?.(scope)===true};
         else if(path==='/v1/live/ticket'){if(!privateTasks)throw new Error('Private tasks unavailable');result=privateTasks.ticket(scope,input);}
         else if(path.startsWith('/v1/tasks/')||path.startsWith('/v1/pair/')){
           if(!privateTasks)throw new Error('Private tasks unavailable');
           budget.take(`private:${scope.sessionId}`,60);
-          const operations=path.startsWith('/v1/tasks/')?{start:'start',status:'status',end:'end',upload:'upload',remove:'remove',plan:'plan',summary:'summary',approve:'approve',reject:'reject','save-review':'saveReview',relay:'relay','command-plan':'commandPlan',effect:'effect'}:{invite:'invite',join:'join',status:'pairStatus',confirm:'confirm',revoke:'revoke',link:'linkRequest'};
+          const operations=path.startsWith('/v1/tasks/')?{start:'start',status:'status',end:'end',upload:'upload',remove:'remove',plan:'plan',summary:'summary',approve:'approve',revise:'revise',reject:'reject','save-review':'saveReview',relay:'relay','command-plan':'commandPlan',effect:'effect'}:{invite:'invite',join:'join',status:'pairStatus',confirm:'confirm',revoke:'revoke',link:'linkRequest'};
           const action=operations[path.split('/').at(-1)];if(!action)throw new Error('Unsupported private operation');
           if(['plan','summary','commandPlan'].includes(action))releaseModel=modelSlots.acquire(scope.embeddingId);
           if(!['status','pairStatus'].includes(action))authority.touch(auth);
-          result=await privateTasks[action](scope,input);
+          result=await privateTasks[action](scope,['plan','summary','commandPlan'].includes(action)?{...input,requestSignal:requestController.signal}:input);
         }
         else if(path==='/v1/learning/complete'){
           if(!learning?.learningEnabled(scope)||input.consent!==true)result={created:false};
@@ -200,9 +208,12 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
           else if(action==='status')result=discovery.status(discoveryScope,input.id);
           else throw new Error('Unsupported discovery operation');
         }
+        else if(path==='/v1/recipe/test/start'){if(!learning||!scope.capabilities.coach)throw new Error('Coaching required');result=learning.startTest(scope,input);}
+        else if(path==='/v1/recipe/test/observe'){if(!learning||!scope.capabilities.coach)throw new Error('Coaching required');result=learning.observeTest(scope,{proposalId:input.proposalId,evidence:proposals.testEvidence(scope,input.proposalId)});}
+        else if(path==='/v1/recipe/test/finish'){if(!learning||!scope.capabilities.coach)throw new Error('Coaching required');result=learning.finishTest(scope,input);}
         else if(path==='/v1/recipe/plan'){
           if(!learning||!proposals)throw new Error('Learning unavailable');
-          const snapshot=validateSnapshot(input.snapshot),review=learning.review(scope,snapshot,input);
+          const snapshot=validateSnapshot(input.snapshot),review=input.testRunId?learning.testReview(scope,snapshot,input):learning.review(scope,snapshot,input);
           result={...proposals.prepare(scope,snapshot,withMode(review.response,input.mode),review.binding),nextStep:review.nextStep,complete:review.complete};authority.touch(auth);
         }
         else if(path==='/v1/history/clear'){privateTasks?.endSession(scope);result=authority.clearConversation(auth);}
@@ -237,7 +248,7 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
           // No credentials or caller-provided identity are passed to the model.
           const guideHistory=authority.history(auth).filter(m=>(m.channel||'guide')==='guide');
           const recipeGuidance=learning?.context?.(scope,input.text,snapshot);
-          const response=['ambiguous','manual_replay'].includes(recipeGuidance?.status)?{message:recipeGuidance.status==='ambiguous'?`More than one reviewed workflow matches: ${recipeGuidance.candidates.map(candidate=>candidate.title).join('; ')}. Clarify which workflow you intend before I prepare changes.`:'This workflow is too large to include safely as one guidance context. Ask the website owner to split it into smaller reviewed workflows.',actions:[]}:await planner({ text:input.text,snapshot,history:guideHistory.slice(-12),replyContext:guideHistory.find(m=>m.id===input.replyTo)?.text,sourceGuidance:sourceMap?.guidance(scope,input.text,snapshot),recipeGuidance,siteGuidance:learning?.planningMemory?.(scope,input.text,snapshot) });
+          const response=['ambiguous','manual_replay'].includes(recipeGuidance?.status)?{message:recipeGuidance.status==='ambiguous'?`More than one reviewed workflow matches: ${recipeGuidance.candidates.map(candidate=>candidate.title).join('; ')}. Clarify which workflow you intend before I prepare changes.`:'This workflow is too large to include safely as one guidance context. Ask the website owner to split it into smaller reviewed workflows.',actions:[]}:await planner({signal:requestController.signal, text:input.text,snapshot,history:guideHistory.slice(-12),replyContext:guideHistory.find(m=>m.id===input.replyTo)?.text,sourceGuidance:sourceMap?.guidance(scope,input.text,snapshot),recipeGuidance,siteGuidance:learning?.planningMemory?.(scope,input.text,snapshot) });
           if(authority.context(auth).conversationVersion!==scope.conversationVersion)throw new Error('Conversation cleared; response discarded');
           const destination=response.actions?.length===1&&response.actions[0].type==='navigate'?snapshot.links.find(link=>link.ref===response.actions[0].ref)?.path:null;
           const navigationBinding=destination?learning?.navigationProfile?.(scope,destination):null;
@@ -258,7 +269,7 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
             if(!answer)return send(503,{error:'Knowledge model is not configured'});
             authority.appendMessage({...auth,text:input.text,channel:'knowledge',replyTo:input.replyTo??null});
             const knowledgeHistory=authority.history(auth).filter(m=>m.channel==='knowledge');
-            result=await answer({text:input.text,evidence:retrieved.evidence,history:knowledgeHistory,replyContext:knowledgeHistory.find(m=>m.id===input.replyTo)?.text});
+            result=await answer({signal:requestController.signal,text:input.text,evidence:retrieved.evidence,history:knowledgeHistory,replyContext:knowledgeHistory.find(m=>m.id===input.replyTo)?.text});
             if(authority.context(auth).conversationVersion!==scope.conversationVersion)throw new Error('Conversation cleared; response discarded');
             // Source deletion during inference must invalidate its citations.
             const current=await knowledge.retrieve(scope,{query:input.text,size:24});
@@ -267,10 +278,14 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
             result.messageId=authority.appendAssistant(auth,result.message,'knowledge').id;
           }
         }
+        else if(path==='/v1/actions/dispatch')result=proposals.ownsAttempt(scope,input.actionId)?proposals.dispatch(scope,input):await privateTasks.dispatchAction(scope,input);
+        else if(path==='/v1/actions/verify'){if(!hostIdentity)throw new Error('Host verification unavailable');const binding=proposals.attemptBinding(scope,input.actionId);hostIdentity.verifyActionOutcome(scope,origin,input.receipt,{actionId:input.actionId,proposalId:binding.proposalId,path:binding.path});result=proposals.verifyAttempt(scope,input);}
+        else if(path==='/v1/actions/observe')result=proposals.observeAttempt(scope,input);
+        else if(path==='/v1/revise')result=proposals.revise(scope,input);
         else if(path==='/v1/reject'){if(!proposals)throw new Error('Action review is not configured');result=proposals.reject(scope,input.id);authority.touch(auth);}
         else if (path === '/v1/approve') {
           if (!proposals) return send(503,{ error:'Action review is not configured' });
-          result=proposals.consume(scope,{ id:input.id,revision:input.revision,approved:input.approved });
+          result={...proposals.consume(scope,{ id:input.id,revision:input.revision,approved:input.approved }),outcomeProfile:taskWebsite?.(scope.embeddingId)?.taskPolicy?.outcomeProfile};
           authority.touch(auth);
         }
         else return send(404, { error: 'Not found' });
@@ -283,7 +298,7 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
       const invalidResponse=['Invalid platform model response','Invalid evidence citations','The assistant could not produce a valid current-screen proposal. Nothing was changed.'].includes(error.message);
       const code = error.message === 'Request too large' ? 413 : error.publicCode==='OWNER_CODE_COOLDOWN'||error.message==='Request rate exceeded'||error.message==='Request capacity reached'?429:unavailable?503:invalidResponse?502:403;
       if(code===429)res.setHeader('Retry-After',error.publicCode==='OWNER_CODE_COOLDOWN'?String(error.retryAfter):error.message==='Request rate exceeded'?'60':'2');
-      return send(code, { error: code===429?'Copilot is busy. Please retry shortly.':code===413?'Request too large':code===503?'Copilot service temporarily unavailable':code===502?'The assistant could not prepare a valid response. Nothing was changed.':'Access denied or invalid request',...(error.publicCode?{code:error.publicCode}:{}) });
+      return send(code, { error: ['DNS_CHALLENGE_EXPIRED','DNS_RECORD_MISSING','DNS_RECORD_MISMATCH','DNS_RESOLVER_UNAVAILABLE'].includes(error.publicCode)?error.message:code===429?'Copilot is busy. Please retry shortly.':code===413?'Request too large':code===503?'Copilot service temporarily unavailable':code===502?'The assistant could not prepare a valid response. Nothing was changed.':'Access denied or invalid request',...(error.publicCode?{code:error.publicCode}:{}) });
     }finally{releaseModel?.();releaseSearch?.();if(uploadSlot)activeUploads--;}
   });
   if(privateTasks)attachLiveTransport(server,{tasks:privateTasks});

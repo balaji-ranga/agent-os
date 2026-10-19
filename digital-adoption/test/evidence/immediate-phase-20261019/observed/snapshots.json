@@ -1,0 +1,308 @@
+{
+  "at": "2026-10-19T10:29:26.546Z",
+  "purpose": "Actual supported structural fields; no live values, only public choices",
+  "snapshots": {
+    "local": {
+      "revision": 1,
+      "fields": [
+        {
+          "ref": "r1f0",
+          "label": "Shipping method",
+          "type": "select-one",
+          "required": false,
+          "key": "shipping_method",
+          "form": "demo-form",
+          "optionCount": 3,
+          "choices": [
+            "Choose",
+            "Standard",
+            "Express"
+          ]
+        },
+        {
+          "ref": "r1f1",
+          "label": "Include gift wrap",
+          "type": "checkbox",
+          "required": false,
+          "key": "gift_wrap",
+          "form": "demo-form",
+          "optionCount": 0
+        },
+        {
+          "ref": "r1f2",
+          "label": "Company name",
+          "type": "text",
+          "required": true,
+          "key": "company_name",
+          "form": "demo-form",
+          "optionCount": 0
+        },
+        {
+          "ref": "r1f3",
+          "label": "Contact email",
+          "type": "email",
+          "required": true,
+          "key": "contact_email",
+          "form": "demo-form",
+          "optionCount": 0
+        },
+        {
+          "ref": "r1f4",
+          "label": "Region",
+          "type": "text",
+          "required": true,
+          "key": "region",
+          "form": "demo-form",
+          "optionCount": 0
+        },
+        {
+          "ref": "r1f5",
+          "label": "Delivery preference",
+          "type": "radio",
+          "required": false,
+          "key": "delivery_preference",
+          "form": "demo-form",
+          "optionCount": 0,
+          "choices": [
+            "Home delivery",
+            "Store pickup"
+          ]
+        },
+        {
+          "ref": "r1f6",
+          "label": "Interests",
+          "type": "select-multiple",
+          "required": false,
+          "key": "interests",
+          "form": "demo-form",
+          "optionCount": 3,
+          "choices": [
+            "Analytics",
+            "Inventory",
+            "Support"
+          ]
+        },
+        {
+          "ref": "r1f7",
+          "label": "Delivery date",
+          "type": "date",
+          "required": false,
+          "key": "delivery_date",
+          "form": "demo-form",
+          "optionCount": 0
+        },
+        {
+          "ref": "r1f8",
+          "label": "Suggested city",
+          "type": "text",
+          "required": false,
+          "key": "suggested_city",
+          "form": "demo-form",
+          "optionCount": 0
+        },
+        {
+          "ref": "r1f9",
+          "label": "Lookup scenario",
+          "type": "select-one",
+          "required": false,
+          "key": "lookup-mode",
+          "form": "demo-form",
+          "optionCount": 4
+        },
+        {
+          "ref": "r1f10",
+          "label": "Account search",
+          "type": "combobox",
+          "required": false,
+          "key": "account_search",
+          "form": "demo-form",
+          "optionCount": 0
+        },
+        {
+          "ref": "r1f11",
+          "label": "Table filter",
+          "type": "text",
+          "required": false,
+          "key": "table-filter",
+          "form": "demo-form",
+          "optionCount": 0
+        },
+        {
+          "ref": "r1f12",
+          "label": "Item 1 quantity",
+          "type": "number",
+          "required": false,
+          "key": "line_1_quantity",
+          "form": "demo-form",
+          "optionCount": 0
+        },
+        {
+          "ref": "r1f13",
+          "label": "Select Item 1",
+          "type": "checkbox",
+          "required": false,
+          "key": "line_1_selected",
+          "form": "demo-form",
+          "optionCount": 0
+        },
+        {
+          "ref": "r1f14",
+          "label": "Item 2 quantity",
+          "type": "number",
+          "required": false,
+          "key": "line_2_quantity",
+          "form": "demo-form",
+          "optionCount": 0
+        },
+        {
+          "ref": "r1f15",
+          "label": "Select Item 2",
+          "type": "checkbox",
+          "required": false,
+          "key": "line_2_selected",
+          "form": "demo-form",
+          "optionCount": 0
+        },
+        {
+          "ref": "r1f16",
+          "label": "Item 3 quantity",
+          "type": "number",
+          "required": false,
+          "key": "line_3_quantity",
+          "form": "demo-form",
+          "optionCount": 0
+        },
+        {
+          "ref": "r1f17",
+          "label": "Select Item 3",
+          "type": "checkbox",
+          "required": false,
+          "key": "line_3_selected",
+          "form": "demo-form",
+          "optionCount": 0
+        }
+      ],
+      "forms": [
+        {
+          "key": "demo-form",
+          "label": "demo-form",
+          "fields": [
+            "shipping_method",
+            "gift_wrap",
+            "company_name",
+            "contact_email",
+            "region",
+            "delivery_preference",
+            "interests",
+            "delivery_date",
+            "suggested_city",
+            "lookup-mode",
+            "account_search",
+            "table-filter",
+            "line_1_quantity",
+            "line_1_selected",
+            "line_2_quantity",
+            "line_2_selected",
+            "line_3_quantity",
+            "line_3_selected"
+          ]
+        }
+      ],
+      "links": [
+        {
+          "ref": "r1n0",
+          "label": "Customer",
+          "path": "/customer"
+        },
+        {
+          "ref": "r1n1",
+          "label": "Opportunity",
+          "path": "/opportunity"
+        },
+        {
+          "ref": "r1n2",
+          "label": "Note",
+          "path": "/note"
+        },
+        {
+          "ref": "r1n3",
+          "label": "Scheduled goal",
+          "path": "/goal"
+        }
+      ],
+      "coverage": {
+        "fieldLimit": 60,
+        "navigationLimit": 30,
+        "visibleNativeControls": 19,
+        "embeddedFrames": 0,
+        "openShadowRoots": 0,
+        "unsupportedControls": 0,
+        "manualNotice": ""
+      },
+      "submissions": [
+        {
+          "ref": "r1s0",
+          "label": "Save synthetic record"
+        }
+      ],
+      "navigationCandidates": [
+        "/customer",
+        "/opportunity",
+        "/note",
+        "/goal",
+        "/records"
+      ],
+      "screen": "Customer draft | Try these prompts | Generic changes and theme",
+      "path": "/customer",
+      "ambiguousDialogs": false,
+      "blockedCount": 11
+    },
+    "public": {
+      "revision": 1,
+      "fields": [
+        {
+          "ref": "r1f0",
+          "label": "Search MCPs, publishers, capabilities…",
+          "type": "text",
+          "required": false,
+          "key": "q",
+          "optionCount": 0
+        },
+        {
+          "ref": "r1f1",
+          "label": "transport",
+          "type": "select-one",
+          "required": false,
+          "key": "transport",
+          "optionCount": 4,
+          "choices": [
+            "All transports",
+            "streamable-http",
+            "sse",
+            "stdio"
+          ]
+        }
+      ],
+      "forms": [],
+      "links": [],
+      "coverage": {
+        "fieldLimit": 60,
+        "navigationLimit": 30,
+        "visibleNativeControls": 2,
+        "embeddedFrames": 0,
+        "openShadowRoots": 0,
+        "unsupportedControls": 0,
+        "manualNotice": ""
+      },
+      "submissions": [],
+      "navigationCandidates": [
+        "/free-tools/",
+        "/docs/"
+      ],
+      "screen": "agency.ottobot/business-contact-finder | agency.ottobot/contractor-license-changes | Include your MCP",
+      "path": "/free-tools/mcp-universe/",
+      "ambiguousDialogs": false,
+      "blockedCount": 30
+    }
+  }
+}

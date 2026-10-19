@@ -87,6 +87,8 @@ export default function CopilotConnectorFields({
   <label>Fan-out limit<input type="number" min="1" max="25" value={attrs.fanoutLimit || 25} onChange={e => set({
         fanoutLimit: Number(e.target.value)
       })} /></label>
+  <label>Required outcome<select value={attrs.requiredOutcome||'effect_observed'} onChange={e=>set({requiredOutcome:e.target.value})}><option value="effect_observed">Existing effect contract</option><option value="local_state_verified">Field or navigation verified</option><option value="host_reported_saved">Website reports saved</option><option value="business_verified">Trusted saved-record receipt</option></select></label>
+  <p>A stronger outcome requires matching host evidence. A timeout or success toast cannot prove a saved record. Unknown writes are never replayed.</p>
   <label>Execution timeout (ms)<input type="number" min="1000" max="120000" value={attrs.executionMs || 60000} onChange={e => set({
         executionMs: Number(e.target.value)
       })} /></label>

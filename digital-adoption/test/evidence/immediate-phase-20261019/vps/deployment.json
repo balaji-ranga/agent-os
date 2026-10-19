@@ -1,0 +1,57 @@
+{
+  "at": "2026-10-19T10:59:47.681611+00:00",
+  "status": "passed",
+  "release": "20261019-immediate-g",
+  "containers": {
+    "flolah-adoption-adoption-1": {
+      "imageId": "sha256:7773bae59ae17688926593b7aa8a07a066d4875c01b1f897549e732c48a60776",
+      "image": "flolah-digital-adoption:20261019-immediate-g",
+      "startedAt": "2026-10-19T10:59:46.413392561Z",
+      "running": true,
+      "health": null
+    },
+    "flolah-adoption-adoption-model-gateway-1": {
+      "imageId": "sha256:2d06721f569c071614e542679dfce49221ff6e9241de0e9a7621a2fb2ebcb83a",
+      "image": "flolah-digital-adoption:20261019-immediate-e-gateway",
+      "startedAt": "2026-10-19T10:46:24.466618455Z",
+      "running": true,
+      "health": null
+    },
+    "flolah-adoption-adoption-worker-1": {
+      "imageId": "sha256:7133f95194a1df02b59712754b2b95a254528fa9ece34c4994647497dc052fe0",
+      "image": "flolah-digital-adoption:20261018-owner-workspace-c",
+      "startedAt": "2026-10-18T10:43:45.697774407Z",
+      "running": true,
+      "health": null
+    },
+    "flolah-adoption-adoption-worker-2": {
+      "imageId": "sha256:7133f95194a1df02b59712754b2b95a254528fa9ece34c4994647497dc052fe0",
+      "image": "flolah-digital-adoption:20261018-owner-workspace-c",
+      "startedAt": "2026-10-18T10:43:45.830124253Z",
+      "running": true,
+      "health": null
+    },
+    "agent-os-backend-1": {
+      "imageId": "sha256:247fd179b54aadaae6a3cedfa39f38781e7d3d53aba9d8f6825cc961e59cbecf",
+      "image": "agent-os-backend:adoption-20261019-immediate-e",
+      "startedAt": "2026-10-19T10:47:40.497239676Z",
+      "running": true,
+      "health": "healthy"
+    },
+    "agent-os-frontend-1": {
+      "imageId": "sha256:221217eaae05cba79dc8e05140e74589eaafeefd917efcac581068811a51e597",
+      "image": "agent-os-frontend:adoption-20261019-immediate-e",
+      "startedAt": "2026-10-19T10:47:56.252366459Z",
+      "running": true,
+      "health": "healthy"
+    }
+  },
+  "healthUrlsPassed": 4,
+  "parserWorkersPreserved": true,
+  "sharedCheckerSettingReadOnly": {
+    "enabled": true,
+    "checkerMode": "ollama_reasoning",
+    "checkerMaxTokens": 1536
+  },
+  "gatewayPatch": "Only generic assignment helper and mixed-instruction guard; parent checker/provider image preserved"
+}

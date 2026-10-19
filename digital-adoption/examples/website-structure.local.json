@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "origin": "http://127.0.0.1:4194",
+  "screens": [
+    {
+      "path": "/customer",
+      "title": "Create customer",
+      "forms": [{ "id": "demo-form", "label": "Customer form" }],
+      "fields": [
+        { "key": "company_name", "label": "Company name", "type": "text", "required": true, "form": "demo-form" },
+        { "key": "contact_email", "label": "Contact email", "type": "email", "required": true, "form": "demo-form" },
+        { "key": "region", "label": "Region", "type": "text", "required": true, "form": "demo-form" }
+      ]
+    }
+  ]
+}

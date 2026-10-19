@@ -1,13 +1,19 @@
 # Digital Adoption Copilot
 
+19 October 2026: the immediate-phase implementation is available on coordinator
+**20261019-immediate-g**, with gateway/platform changes from
+**20261019-immediate-e**. See the [acceptance and regression report](test/evidence/immediate-phase-20261019/index.html)
+for executed-suite pass rates, screenshots, all 32 requirement families,
+remaining partial gates and recommendations. Executed checks and full Phase 1/2
+certification are reported separately.
+
 Open the [browser-ready immediate-phase review](IMMEDIATE_PHASE_REVIEW.html)
 for an interactive summary and filterable acceptance plan; it needs no build
 or external dependencies.
 
 The [immediate-phase analysis and design](IMMEDIATE_PHASE_DESIGN.md) defines the
-next reliability, visitor clarity and fresh-owner self-service work, with source
-findings, proposed contracts and acceptance gates. It is a design, not a new
-implementation or certification claim.
+reliability, visitor clarity and fresh-owner self-service scope. Its original
+proposal is retained; the linked report records implementation and evidence gaps.
 
 19 October 2026: private transaction passages now use separate 24-hour ISM-managed
 OpenSearch indexes on runtime **20261019-private-retention-d**. End task clears
@@ -22,7 +28,8 @@ Latest deployment (18 October 2026): independent runtime **20261018-owner-worksp
 
 All **260** service checks pass locally and in the final VPS image. **10** isolated browser cases and **6** analytics/pairing scenarios pass. The one-CPU/1-GiB VPS fixture served **500 requests from 25 concurrent clients across 25 websites**, with zero errors and **115.84 ms p95**. This measures management HTTP/SQLite with synthetic authentication, not external platform authentication, LLM capacity or WAN latency. The [workspace testcase table and screenshots](test/evidence/owner-workspace-20261018/index.html) distinguish live administrator checks, isolated owner checks and the expired live email-owner session. Full Phase 1/2 device certification remains outside this incremental result.
 
-The global maker/checker feature remains available and **Off** after UAT. Its earlier [admin/review evidence](test/evidence/admin-maker-checker-20261018/index.html) retains the optional local Ollama timeout and broad-agent coverage limitations; this workspace release does not recertify those cases.
+At the 18 October checkpoint global maker/checker was **Off**. Current Admin
+settings are independently managed and were preserved during this release. Its earlier [admin/review evidence](test/evidence/admin-maker-checker-20261018/index.html) retains the optional local Ollama timeout and broad-agent coverage limitations; this workspace release does not recertify those cases.
 
 Independent Flolah Free Tools product. This directory owns its implementation and tests; it does not import, mount, replace, or migrate Platform Help Copilot.
 

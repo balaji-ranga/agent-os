@@ -218,7 +218,7 @@ try {
     assert.equal(await p.locator("#busy-fixture").isEnabled(), true);
     await p
       .locator("#action-notice")
-      .getByText(/completed/)
+      .getByText(/response received/)
       .waitFor();
     await p.screenshot({path:new URL('action-completed.png',out).pathname.replace(/^\/C:/,'C:'),fullPage:false});
     await p

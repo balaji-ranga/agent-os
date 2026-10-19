@@ -52,6 +52,12 @@ export class SessionAuthority {
     return { installationId: id, installationToken: secret };
   }
 
+  installationReadiness(embeddingId){
+    const active=new Set(this.installationSummary(embeddingId).filter(i=>i.status==='active').map(i=>i.id));
+    const sessions=[...this.#sessions.values({embeddingId})].filter(s=>active.has(s.installationId)&&!s.terminated&&s.expiresAt>this.#clock()&&s.lastActivityAt+this.#idleMs>this.#clock());
+    return {activeInstallations:active.size,recentlyConnected:sessions.length>0,lastConnectedAt:sessions.length?Math.max(...sessions.map(s=>s.lastActivityAt)):null};
+  }
+
   installationSummary(embeddingId) {
     return [...this.#installations.values({embeddingId})].filter(i=>i.embeddingId===embeddingId).map(i=>({id:i.id,maskedId:`…${i.id.slice(-8)}`,expiresAt:i.expiresAt,status:this.#revoked.get(i.id)||i.revoked?'revoked':i.expiresAt<=this.#clock()?'expired':'active'}));
   }

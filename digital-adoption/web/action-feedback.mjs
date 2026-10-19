@@ -62,9 +62,8 @@ export function createActionFeedback(document, { expired = () => false } = {}) {
     return Promise.resolve(promise)
       .then(
         (value) => {
-          const banner = document.querySelector("#error-banner");
-          if (banner) banner.hidden = true;
-          report(`${action.label}: completed.`);
+          const failed=value?.outcome==='unknown'||value?.outcome==='rejected';
+          report(failed?`${action.label}: check the task result.`:`${action.label}: response received.`,failed);
           return value;
         },
         (error) => {

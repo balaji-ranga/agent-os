@@ -3717,7 +3717,36 @@
           "mode": "guided"
         },
         {
-          "id": "components/workflow/CopilotConnectorFields.jsx:90:31",
+          "id": "components/workflow/CopilotConnectorFields.jsx:90:25",
+          "label": "Required outcome",
+          "type": "select",
+          "required": false,
+          "conditional": false,
+          "readonly": false,
+          "mode": "guided",
+          "options": "Use the live authorized options shown on this screen.",
+          "source_options": [
+            {
+              "value": "effect_observed",
+              "label": "Existing effect contract"
+            },
+            {
+              "value": "local_state_verified",
+              "label": "Field or navigation verified"
+            },
+            {
+              "value": "host_reported_saved",
+              "label": "Website reports saved"
+            },
+            {
+              "value": "business_verified",
+              "label": "Trusted saved-record receipt"
+            }
+          ],
+          "options_authority": "live_options_required"
+        },
+        {
+          "id": "components/workflow/CopilotConnectorFields.jsx:92:31",
           "label": "Execution timeout (ms)",
           "type": "number",
           "required": false,

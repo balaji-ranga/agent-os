@@ -1,5 +1,5 @@
 import {pageRequest} from './pagination.mjs';
-import {createHash} from 'node:crypto';
+import {randomUUID,createHash} from 'node:crypto';
 import {validateSnapshot} from './proposals.mjs';
 import {validateInventory} from './domain-inventory.mjs';
 import {selectWorkflows,learnedWorkflowGraph} from './learning-intent.mjs';
@@ -13,7 +13,7 @@ const safePath=path=>typeof path==='string'&&/^\/(?!\/)[^?#\\]*$/.test(path)&&pa
 // Shared learning contains semantic structure only; task parameters and approvals
 // stay in the requesting session. Website maps do not contain current values.
 export function createLearningRuntime(repository,store,{clock=Date.now,knowledge}={}){
- const maps=repository.map('screen_maps'),validations=repository.map('recipe_validations');
+ const maps=repository.map('screen_maps'),validations=repository.map('recipe_validations'),taskTests=repository.map('recipe_task_tests');
  // Add explicit scope metadata to earlier structural maps without changing any
  // recorded fields. Customer list operations can then filter in SQLite itself.
  for(const [id,map] of maps.entries())if(!map.embeddingId){const [embeddingId,audienceId]=id.split(':');if(/^[A-Za-z0-9_-]{1,80}$/.test(embeddingId)&&/^[A-Za-z0-9_-]{1,80}$/.test(audienceId))maps.set(id,{...map,embeddingId,audienceId});}
@@ -22,6 +22,14 @@ export function createLearningRuntime(repository,store,{clock=Date.now,knowledge
   return (async()=>{try{const source=knowledge.createText(scope,{title:`Workflow: ${result.title}`,text:`Published workflow ${result.title}, version ${result.version}.\n${result.steps.map((s,i)=>`${i+1}. ${s.action} ${s.path}${s.field?' field '+s.field+' using parameter '+s.parameter:''}`).join('\n')}`,recipeBinding:{id:result.id,version:result.version}});await knowledge.ingest(scope,source.id);return {...result,indexed:true};}catch{return {...result,indexed:false,indexingError:'Workflow published; its searchable summary needs indexing retry.'};}})();
  };
  const service={
+  readiness(scope){const access=requireMaintainer(scope),recipes=store.list(access),screens=maps.values({embeddingId:access.embeddingId,audienceId:access.audienceId});return {observedScreens:screens.filter(m=>m.observedAt+86_400_000>clock()).length,recipes:recipes.length,published:recipes.filter(r=>r.status==='published').length,testedPublished:recipes.filter(r=>r.status==='published'&&service.taskTestStatus(access,{id:r.id,version:r.version}).tested).length};},
+  taskTestStatus(scope,{id,version}){const access=requireMaintainer(scope),recipe=store.get(access,id);if(recipe.version!==version)throw new Error('Recipe version changed');const tests=taskTests.values({embeddingId:access.embeddingId,audienceId:access.audienceId}).filter(t=>t.recipeId===id&&t.version===version&&t.status==='passed'&&t.websiteRevision===(scope.websiteRevision||0)&&t.finishedAt+86_400_000>clock()&&Object.entries(t.fingerprints).every(([path,fp])=>maps.get(key(access,path))?.fingerprint===fp&&maps.get(key(access,path)).observedAt+86_400_000>clock()));return {tested:tests.length>0,outcome:tests.length?'local_state_verified':null};},
+  startTest(scope,{id,version}){const access=requireMaintainer(scope),report=service.validate(access,{id,version});if(!report.compatible)throw new Error('Check compatibility and observe the current screens before a task test');const idTest=randomUUID(),test={id:idTest,embeddingId:access.embeddingId,audienceId:access.audienceId,sessionId:scope.sessionId,recipeId:id,version,status:'running',websiteRevision:scope.websiteRevision||0,nextStep:0,fingerprints:report.fingerprints,createdAt:clock(),expiresAt:clock()+600_000};taskTests.set(idTest,test);return {testRunId:idTest,version,outcomeRequired:'local_state_verified'};},
+  testReview(scope,snapshot,input){const access=requireMaintainer(scope),test=taskTests.get(input.testRunId);if(!test||test.embeddingId!==access.embeddingId||test.audienceId!==access.audienceId||test.sessionId!==scope.sessionId||test.expiresAt<=clock()||test.websiteRevision!==(scope.websiteRevision||0)||test.status!=='running'||test.recipeId!==input.id||test.version!==input.version||test.nextStep!==input.step)throw new Error('Task test changed or expired');
+   const review=service.review(scope,snapshot,input);return {...review,binding:{...review.binding,testRunId:test.id,testStep:input.step,testNextStep:review.nextStep}};
+  },
+  observeTest(scope,{evidence,proposalId}){const access=requireMaintainer(scope),b=evidence.binding,test=taskTests.get(b?.testRunId);if(!test||test.status!=='running'||test.sessionId!==scope.sessionId||test.embeddingId!==access.embeddingId||test.audienceId!==access.audienceId||test.expiresAt<=clock()||test.websiteRevision!==(scope.websiteRevision||0)||test.nextStep!==b.testStep||evidence.outcome!=='local_state_verified')throw new Error('Task test evidence changed');test.nextStep=b.testNextStep;taskTests.set(test.id,test);return {recorded:true,nextStep:test.nextStep};},
+  finishTest(scope,{id,testRunId,snapshot}){const access=requireMaintainer(scope),test=taskTests.get(testRunId);if(!test||test.recipeId!==id||test.embeddingId!==access.embeddingId||test.audienceId!==access.audienceId||test.sessionId!==scope.sessionId||test.status!=='running'||test.websiteRevision!==(scope.websiteRevision||0)||test.expiresAt<=clock())throw new Error('Task test changed or expired');const recipe=store.get(access,id);if(recipe.version!==test.version||!service.review(scope,snapshot,{id,version:test.version,step:test.nextStep}).complete||Object.entries(test.fingerprints).some(([path,fp])=>maps.get(key(access,path))?.fingerprint!==fp))throw new Error('Task test is incomplete or its map changed');test.status='passed';test.finishedAt=clock();taskTests.set(testRunId,test);return {tested:true,outcome:'local_state_verified',businessVerified:false};},
   learningEnabled(scope){return store.learningEnabled(scopeOf(scope));},
   settings(scope,{enabled}){const access=requireMaintainer(scope);store.setLearning(access,enabled);return {enabled};},
   candidate(scope,{title,steps,consent,evidence}){
@@ -72,13 +80,15 @@ export function createLearningRuntime(repository,store,{clock=Date.now,knowledge
     fingerprints[step.path]=map.fingerprint;
     if(step.action==='fill'&&map.fields.filter(f=>f.key===step.field).length!==1)issues.push(`${step.path}: ${step.field} is missing or ambiguous`);
    }
-   const report={id,version,compatible:issues.length===0,issues,fingerprints,validatedAt:clock()};
+   const report={id,version,validationKind:'structural_compatibility',taskTested:service.taskTestStatus(access,{id,version}).tested,compatible:issues.length===0,issues,fingerprints,validatedAt:clock()};
    validations.set(`${access.embeddingId}:${id}:${version}`,report);return report;
   },
   publish(scope,{id,version,reviewed}){
    const access=requireMaintainer(scope),report=validations.get(`${access.embeddingId}:${id}:${version}`);
    if(reviewed!==true||!report?.compatible||report.validatedAt+24*3_600_000<=clock()||Object.entries(report.fingerprints).some(([path,fingerprint])=>{const map=maps.get(key(access,path));return map?.fingerprint!==fingerprint||map.observedAt+24*3_600_000<=clock();}))throw new Error('Validate the current screens and review this version before publication');
-   return indexPublication(access,store.publish(access,id,version,{reviewed:true,validated:true}));
+   const current=store.get(access,id),publication=store.publish(access,id,version,{reviewed:true,validated:true});
+   if(JSON.stringify(current.steps)===JSON.stringify(publication.steps))for(const t of taskTests.values({embeddingId:access.embeddingId,audienceId:access.audienceId}).filter(t=>t.recipeId===id&&t.version===version&&t.status==='passed'&&t.websiteRevision===(scope.websiteRevision||0))){const copy={...t,id:randomUUID(),version:publication.version,publishedFromVersion:version};taskTests.set(copy.id,copy);}
+   return indexPublication(access,publication);
   },
   disable(scope,{id,version}){return store.disable(requireMaintainer(scope),id,version);},
   versions(scope,{id}){return store.versions(requireMaintainer(scope),id);},
@@ -121,7 +131,7 @@ export function createLearningRuntime(repository,store,{clock=Date.now,knowledge
     if(observed.path!==next.path)throw new Error(`Open ${next.path} before this recorded step`);
     while(cursor<recipe.steps.length&&recipe.steps[cursor].action==='fill'&&recipe.steps[cursor].path===observed.path&&actions.length<10){
      const item=recipe.steps[cursor],fields=observed.fields.filter(f=>f.key===item.field);
-     if(fields.length!==1)throw new Error(`The field ${item.field} changed or is ambiguous. Inspect and repair the recipe.`);
+     if(fields.length!==1){if(actions.length)break;throw new Error(`The field ${item.field} changed or is ambiguous. Inspect and repair the recipe.`);}
      if(!Object.hasOwn(parameters,item.parameter))throw new Error(`Enter the ${item.parameter} parameter`);
      actions.push({type:'fill',ref:fields[0].ref,value:parameters[item.parameter]});cursor++;
     }

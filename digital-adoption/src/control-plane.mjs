@@ -59,12 +59,13 @@ export function createControlPlane(repository,authority,{dns=resolveTxt,clock=Da
    });
   },
   cancelDelivery(actor,id,installationId){const website=owned(actor,id);if(!website.installations.includes(installationId))reject();authority.revokeInstallation(installationId);record(actor,'revoke_failed_delivery',id,'Email transport failed');},
-  scope(actor,id){const website=owned(actor,id);if(website.status!=='approved'||!website.verified)reject();return {embeddingId:website.id,audienceIds:['public'],audienceId:'public',origin:website.origin,role:'maintainer'};},
+  scope(actor,id){const website=owned(actor,id);if(website.status!=='approved'||!website.verified)reject();return {embeddingId:website.id,audienceIds:['public'],audienceId:'public',origin:website.origin,websiteRevision:website.configurationRevision||0,role:'maintainer'};},
   configure(actor,id,{visitorUploads,taskPolicy}){
-   if(visitorUploads!==undefined&&typeof visitorUploads!=='boolean'||taskPolicy!==undefined&&(!taskPolicy||typeof taskPolicy!=='object'||Object.keys(taskPolicy).some(k=>!['attachments','pairing','workflow','actionBindings','limits'].includes(k))||['attachments','pairing','workflow'].some(k=>taskPolicy[k]!==undefined&&typeof taskPolicy[k]!=='boolean')))reject();
+   if(visitorUploads!==undefined&&typeof visitorUploads!=='boolean'||taskPolicy!==undefined&&(!taskPolicy||typeof taskPolicy!=='object'||Object.keys(taskPolicy).some(k=>!['attachments','pairing','workflow','actionBindings','limits','outcomeProfile'].includes(k))||['attachments','pairing','workflow'].some(k=>taskPolicy[k]!==undefined&&typeof taskPolicy[k]!=='boolean')))reject();
+   if(taskPolicy?.outcomeProfile!==undefined){const p=taskPolicy.outcomeProfile;if(!p||Object.keys(p).some(k=>!['mode','observationMs'].includes(k))||!['host_status','signed_readback'].includes(p.mode)||!Number.isSafeInteger(p.observationMs)||p.observationMs<1000||p.observationMs>10000)reject();}
    if(taskPolicy?.limits!==undefined){const maxima={fileBytes:16*1024*1024,files:4,taskBytes:64*1024*1024,instances:100};if(!taskPolicy.limits||Array.isArray(taskPolicy.limits)||typeof taskPolicy.limits!=='object'||Object.entries(taskPolicy.limits).some(([k,v])=>!maxima[k]||!Number.isSafeInteger(v)||v<1||v>maxima[k]))reject();}
    if(taskPolicy?.actionBindings!==undefined&&(!Array.isArray(taskPolicy.actionBindings)||taskPolicy.actionBindings.length>30||new Set(taskPolicy.actionBindings.map(b=>b?.id)).size!==taskPolicy.actionBindings.length||taskPolicy.actionBindings.some(b=>!b||typeof b.id!=='string'||!/^[\w-]{1,80}$/.test(b.id)||typeof b.path!=='string'||!/^\/(?!\/)[^?#\\]*$/.test(b.path)||typeof b.label!=='string'||b.label.length>160||!['read','write_internal','communicate_external','financial_destructive'].includes(b.family))))reject();
-   return repository.transaction(()=>{const site=owned(actor,id);if(visitorUploads!==undefined){site.visitorUploads=visitorUploads;authority.setUploadPolicy(id,visitorUploads);}if(taskPolicy)site.taskPolicy={...site.taskPolicy,...taskPolicy};websites.set(id,site);record(actor,'configure_visitor_policy',id,'Visitor capabilities updated');return {visitorUploads:site.visitorUploads===true,taskPolicy:site.taskPolicy||{}};});
+   return repository.transaction(()=>{const site=owned(actor,id);if(visitorUploads!==undefined){site.visitorUploads=visitorUploads;authority.setUploadPolicy(id,visitorUploads);}if(taskPolicy)site.taskPolicy={...site.taskPolicy,...taskPolicy};site.configurationRevision=(site.configurationRevision||0)+1;websites.set(id,site);record(actor,'configure_visitor_policy',id,'Visitor capabilities updated');return {visitorUploads:site.visitorUploads===true,taskPolicy:site.taskPolicy||{}};});
   },
   register(actor,{origin,environment,operationId}){
    identity(actor);if(actor.role!=='owner'||!['staging','production'].includes(environment))reject();
@@ -75,20 +76,23 @@ export function createControlPlane(repository,authority,{dns=resolveTxt,clock=Da
     if(key){const previous=attempts.get(key);if(previous){if(previous.fingerprint!==fingerprint)reject();owned(actor,previous.result.id);return structuredClone(previous.result);}}
     const normalized=normalizedOrigin(origin),challenge=`flolah-adoption=${randomBytes(32).toString('base64url')}`;
     const website={id:randomUUID(),organizationId:actor.organizationId,origin:normalized,environment,status:'pending',verified:false,
-     challengeHash:hash(challenge),challengeExpiry:clock()+24*3_600_000,installations:[]};
+     challengeRevision:1,challengeHash:hash(challenge),challengeExpiry:clock()+24*3_600_000,installations:[]};
     websites.set(website.id,website);record(actor,'register',website.id);
     const result={id:website.id,status:'pending',dnsName:`_flolah-adoption.${new URL(normalized).hostname}`,dnsValue:challenge};
     if(key)attempts.set(key,{fingerprint,result});return result;
    });
   },
+  readiness(actor,id){const w=owned(actor,id);return {id:w.id,origin:w.origin,environment:w.environment,status:w.status,verified:w.verified===true,verificationCheckedAt:w.verificationCheckedAt||null,verificationStatus:w.verificationStatus||null,challengeRevision:w.challengeRevision||1,challengeExpired:!w.verified&&w.challengeExpiry<=clock(),challengeExpiry:w.challengeExpiry,...authority.installationReadiness(w.id)};},
+  renewChallenge(actor,id,{expectedExpiry,expectedRevision}){return repository.transaction(()=>{const w=owned(actor,id);if(w.verified||w.status!=='pending'||expectedExpiry!==w.challengeExpiry||expectedRevision!==(w.challengeRevision||1))reject();const challenge=`flolah-adoption=${randomBytes(32).toString('base64url')}`;w.challengeRevision=(w.challengeRevision||1)+1;w.challengeHash=hash(challenge);w.challengeExpiry=clock()+24*3_600_000;websites.set(id,w);record(actor,'renew_domain_challenge',id);return {id,dnsName:`_flolah-adoption.${new URL(w.origin).hostname}`,dnsValue:challenge,challengeExpiry:w.challengeExpiry};});},
   async verify(actor,id){
    const website=owned(actor,id);
-   if(website.challengeExpiry<=clock())reject();
-   const records=await dns(`_flolah-adoption.${new URL(website.origin).hostname}`);
-   if(!Array.isArray(records)||!records.some(parts=>Array.isArray(parts)&&hash(parts.join(''))===website.challengeHash))reject();
+   if(website.challengeExpiry<=clock())throw Object.assign(new Error('DNS challenge expired; renew it in Installation.'),{publicCode:'DNS_CHALLENGE_EXPIRED'});
+   const checked=status=>repository.transaction(()=>{const current=owned(actor,id);if(current.challengeHash===website.challengeHash){current.verificationCheckedAt=clock();current.verificationStatus=status;websites.set(id,current);}});
+   let records;try{records=await dns(`_flolah-adoption.${new URL(website.origin).hostname}`);}catch(error){checked(['ENODATA','ENOTFOUND'].includes(error.code)?'missing':'resolver_unavailable');throw Object.assign(new Error(['ENODATA','ENOTFOUND'].includes(error.code)?'DNS TXT record is not present yet. Check the name and allow propagation.':'DNS resolver unavailable. Retry the verification later.'),{publicCode:['ENODATA','ENOTFOUND'].includes(error.code)?'DNS_RECORD_MISSING':'DNS_RESOLVER_UNAVAILABLE'});}
+   if(!Array.isArray(records)||!records.some(parts=>Array.isArray(parts)&&hash(parts.join(''))===website.challengeHash)){checked('mismatch');throw Object.assign(new Error('DNS TXT value does not match this challenge.'),{publicCode:'DNS_RECORD_MISMATCH'});}
    return repository.transaction(()=>{
     const current=owned(actor,id);if(current.challengeHash!==website.challengeHash||current.challengeExpiry<=clock())reject();
-    current.verified=true;websites.set(id,current);record(actor,'verify_domain',id);return {verified:true};
+    current.verified=true;current.verificationCheckedAt=clock();current.verificationStatus='verified';websites.set(id,current);record(actor,'verify_domain',id);return {verified:true};
    });
   },
   approve(actor,id){

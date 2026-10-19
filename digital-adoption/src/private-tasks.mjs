@@ -80,7 +80,9 @@ export async function createPrivateTasks({
   authorizeEffect = async () => false,
   observe = () => {},
   pairingState = new Map(),
-  passageStore
+  passageStore,
+  actionAttempts,
+  commandState=new Map()
 }) {
   const config = {
     ...defaults,
@@ -162,7 +164,7 @@ export async function createPrivateTasks({
     r.code = code;
     const endpoint=instances.get(recipient);if(endpoint)try{observe(endpoint.scope,{kind:status==='succeeded'?'workflow_completed':status==='cancelled'?'workflow_cancelled':'workflow_failed',status:status==='succeeded'?'ok':status==='cancelled'?'cancelled':'failed'});}catch{}
     if(status!=='succeeded')c.status='failed';
-    if (result) r.result = result;
+    if (result){r.result=result;r.outcome=result.outcome;r.appliedFieldCount=result.fields?.length||0;r.savedVerified=result.savedVerified===true;}
     c.updatedAt = clock();
     if (c.recipients.every(r => ['succeeded', 'failed', 'expired', 'cancelled'].includes(r.status))) {
       c.status = c.recipients.every(r => r.status === 'succeeded') ? 'succeeded' : 'failed';
@@ -183,7 +185,7 @@ export async function createPrivateTasks({
       for (const r of c.recipients) {
         finishCommand(c, r.instanceId, r.status==='executing'&&r.nextEffect>0?'failed':'cancelled', r.status==='executing'&&r.nextEffect>0?'OUTCOME_UNKNOWN':'TASK_ENDED');
         delete r.result;
-        delete r.effects;
+        delete r.effects;delete r.effectHistory;delete r.effectSnapshot;delete r.completedKeys;
       }
       c.instruction = '';
       c.inputs = {};
@@ -442,6 +444,7 @@ export async function createPrivateTasks({
       const contentRevision=t.contentRevision||0;
       if ([...t.files.values()].some(f => f.uploaderId === input.instanceId && ['queued', 'extracting', 'storing'].includes(f.status))) reject('EXTRACTION_PENDING');
       const response = await planner({
+        signal:input.requestSignal,
         text: input.text,
         snapshot,
         ...guidance(scope, input.text, snapshot),
@@ -462,7 +465,7 @@ export async function createPrivateTasks({
       const store = createProposalStore({
         map: () => t.reviews,
         transaction: fn => fn()
-      });
+      },{attempts:actionAttempts});
       const proposal = store.prepare(scope, snapshot, input.mode === 'guide' ? {
         ...checked,
         actions: checked.actions.map(a => a.type === 'fill' ? {
@@ -494,6 +497,7 @@ export async function createPrivateTasks({
       const contentRevision=t.contentRevision||0;
       if (answer && evidence.length) {
         const out = await answer({
+          signal:input.requestSignal,
           text: input.text || 'Summarize the transaction details relevant to completing the requested form.',
           evidence: evidence.map(e => ({
             ...e,
@@ -522,14 +526,26 @@ export async function createPrivateTasks({
         message: passageStore ? 'Supporting passages from your private task files. End task immediately removes access; temporary indexed passages await the 24-hour retention policy.' : 'Supporting passages from your private task files. Files are deleted when you end the task.'
       };
     },
+    async dispatchAction(scope,input){
+      if(!actionAttempts)reject('ACTION_ATTEMPT_DENIED');const row=actionAttempts.status(scope,input.actionId);
+      const t=[...tasks.values()].find(t=>t.reviews.has(row.proposalId));if(!t)reject('TASK_ENDED');
+      const i=[...instances.values()].find(i=>i.scope.sessionId===scope.sessionId&&i.embeddingId===scope.embeddingId&&t.members.has(i.id));if(!i)reject('TASK_ACCESS_DENIED');taskFor(scope,t.id,i.id);
+      const command=[...commands.values()].find(c=>c.recipients.some(r=>r.effects?.actions.some(a=>a.actionId===input.actionId)));
+      if(command){const r=command.recipients.find(r=>r.instanceId===i.id);if(command.status==='failed'||r?.status!=='executing'||r.connectionId!==i.connectionId||!live(i)||command.expiresAt<=clock()||service.preflight(command.userId,command.preflightInput).fingerprint!==command.fingerprint)reject('POLICY_REVOKED');
+       const allowed=await authorizeEffect({userId:command.userId,policyReference:command.policyReference,fingerprint:command.fingerprint,commandId:command.id,instanceId:i.id});
+       if(!allowed||!live(i)||command.status==='failed'||r.status!=='executing'||service.preflight(command.userId,command.preflightInput).fingerprint!==command.fingerprint)reject('POLICY_REVOKED');
+      }
+      return actionAttempts.dispatch(scope,input);
+    },
     approve(scope, input) {
       const t = taskFor(scope, input.taskId, input.instanceId);
       touch(t);
       return createProposalStore({
         map: () => t.reviews,
         transaction: fn => fn()
-      }).consume(scope, input);
+      },{attempts:actionAttempts}).consume(scope, input);
     },
+    revise(scope,input){const t=taskFor(scope,input.taskId,input.instanceId);return createProposalStore({map:()=>t.reviews,transaction:fn=>fn()},{attempts:actionAttempts}).revise(scope,input);},
     reject(scope,input){const t=taskFor(scope,input.taskId,input.instanceId);return createProposalStore({map:()=>t.reviews,transaction:fn=>fn()}).reject(scope,input.id);},
     saveReview(scope, input) {
       const t = taskFor(scope, input.taskId, input.instanceId);
@@ -537,7 +553,7 @@ export async function createPrivateTasks({
       return createProposalStore({
         map: () => t.reviews,
         transaction: fn => fn()
-      }).prepareSave(scope, input.snapshot, input.ref);
+      },{attempts:actionAttempts}).prepareSave(scope, input.snapshot, input.ref);
     },
     invite(scope, {
       instanceId,name='My paired copilots',lifetimeHours=4,inactivityMinutes=0
@@ -802,6 +818,8 @@ export async function createPrivateTasks({
         return service.commandStatus(userId, c.id);
       }
       let t = input.taskId && tasks.get(input.taskId);
+      if(input.requiredOutcome!==undefined&&!['effect_observed','local_state_verified','host_reported_saved','business_verified'].includes(input.requiredOutcome))reject('INVALID_REQUIRED_OUTCOME');
+      if(commandState.get(key))reject('OPERATION_ALREADY_DISPATCHED');
       if (input.taskId && !t) reject('TASK_ENDED');
       if (!t) {
         if (tasks.size >= config.tasks) reject('TASK_CAPACITY');
@@ -832,6 +850,7 @@ export async function createPrivateTasks({
         groupId: input.groupId,
         taskId: t?.id || null,
         action: input.action,
+        requiredOutcome:input.requiredOutcome||'effect_observed',workflow:input.workflow||null,
         instruction: String(input.instruction || '').slice(0, 8000),
         inputs: input.inputs || {},
         fingerprint: snapshot.fingerprint,
@@ -849,6 +868,7 @@ export async function createPrivateTasks({
           status: 'dispatched'
         }))
       };
+      commandState.set(key,{operationId:input.operationId,commandId:c.id,userId,createdAt:clock(),state:'dispatched'});
       commands.set(c.id, c);
       operations.set(key, c.id);
       for (const r of c.recipients) try {
@@ -858,6 +878,7 @@ export async function createPrivateTasks({
           commandId: c.id,
           taskId: c.taskId,
           action: c.action,
+          requiredOutcome:c.requiredOutcome,
           instruction: c.instruction,
           inputs: c.inputs,
           expiresAt: c.expiresAt,
@@ -904,11 +925,11 @@ export async function createPrivateTasks({
       return {
         commandId: c.id,
         status: c.status,
-        taskId: c.taskId,
+        taskId: c.taskId,requiredOutcome:c.requiredOutcome||'effect_observed',
         // Execution bookkeeping includes proposed private field values. Only
         // publish this explicit status contract to the workflow/audit store.
-        recipients: c.recipients.map(({instanceId,websiteId,connectionId,status,code,startedAt,inspection,result}) => ({
-          instanceId,websiteId,connectionId,status,code,startedAt,
+        recipients: c.recipients.map(({instanceId,websiteId,connectionId,status,code,startedAt,stageName,stageAt,inspection,result,outcome,savedVerified,appliedFieldCount}) => ({
+          instanceId,websiteId,connectionId,status,code,startedAt,stage:stageName,stageAt,...(outcome?{outcome,savedVerified:savedVerified===true,appliedFieldCount:appliedFieldCount||0}:{}),
           ...(inspection?{inspection}:{}),
           ...(result ? {
             resultHandle: `task-result:${c.id}:${instanceId}`
@@ -923,6 +944,14 @@ export async function createPrivateTasks({
       if (!c || c.status==='failed'||r?.status !== 'executing' || c.expiresAt <= clock() || !live(i) || r.connectionId !== i.connectionId) reject('COMMAND_ENDED');
       const t = taskFor(scope, c.taskId, i.id),
         snapshot = validateSnapshot(input.snapshot);
+      if(input.continuation===true){
+        if(c.action!=='fill'||!actionAttempts||!r.effects||(r.stage||0)>=2||r.nextEffect!==r.effects.actions.length||r.effects.actions.some(a=>{try{return actionAttempts.status(scope,a.actionId).outcome!=='local_state_verified';}catch{return true;}}))reject('CONTINUATION_DENIED');
+        r.completedKeys=[...(r.completedKeys||[]),...r.effects.actions.map(a=>{const f=r.effectSnapshot.fields.find(f=>f.ref===a.ref);return JSON.stringify([r.effectSnapshot.path,f?.key,f?.form,f?.label,f?.type]);})];
+        r.effectHistory=[...(r.effectHistory||[]),...r.effects.actions];r.effects=null;r.nextEffect=0;r.stage=(r.stage||0)+1;
+        snapshot.fields=snapshot.fields.filter(f=>!r.completedKeys.includes(JSON.stringify([snapshot.path,f.key,f.form,f.label,f.type])));
+        snapshot.forms=snapshot.forms.map(f=>({...f,fields:f.fields.filter(key=>snapshot.fields.some(field=>field.key===key&&field.form===f.key))}));
+      }else if(r.effects)reject('EFFECT_ALREADY_USED');
+      r.effectSnapshot=snapshot;
       touch(t);
       if(c.action==='inspect')r.inspection={origin:site(scope).origin,path:snapshot.path,screen:snapshot.screen,fields:snapshot.fields.map(({label,type,required})=>({label,type,required})),forms:snapshot.forms.map(({label,fields})=>({label,fieldCount:fields.length})),navigation:snapshot.links.map(({label,path})=>({label,path})),valuesExcluded:true};
       if (['inspect', 'status'].includes(c.action)) return {
@@ -933,7 +962,7 @@ export async function createPrivateTasks({
       if (c.action === 'summarize') return service.summary(scope, {
         instanceId: i.id,
         taskId: t.id,
-        text: c.instruction
+        text: c.instruction,requestSignal:input.requestSignal
       },service.resolveHandles(c,i.id));
       if (c.action === 'cancel') return {
         cancelRequested: true
@@ -955,7 +984,7 @@ export async function createPrivateTasks({
         instanceId: i.id,
         taskId: t.id,
         snapshot,
-        text: c.instruction
+        text: c.instruction,requestSignal:input.requestSignal
       }, service.resolveHandles(c, i.id));
       if (c.action === 'navigate' && proposal.actions.some(a => a.type !== 'navigate') || c.action === 'fill' && proposal.actions.some(a => a.type !== 'fill')) reject('EFFECT_MISMATCH');
       r.plannedProposalId = proposal.id;
@@ -994,6 +1023,7 @@ export async function createPrivateTasks({
       const action = r.effects.actions[r.nextEffect++];
       return {
         revision: r.effects.revision,
+        outcomeProfile:site(scope).taskPolicy?.outcomeProfile,
         actions: [action]
       };
     },
@@ -1039,7 +1069,8 @@ export async function createPrivateTasks({
         i = instances.get(id),
         r = c?.recipients.find(r => r.instanceId === id);
       if (!c || !r || !live(i) || r.connectionId !== i.connectionId || !groups.get(c.groupId)?.members.has(id)) reject('COMMAND_DENIED');
-      if (['succeeded', 'failed', 'expired', 'cancelled'].includes(r.status)) return;
+      const acknowledgeOutcome=()=>{try{send(i,{type:'command-outcome',commandId:c.id,action:c.action,workflow:c.workflow,ok:r.status==='succeeded',code:r.code,outcome:r.result?.outcome});}catch{}};
+      if (['succeeded', 'failed', 'expired', 'cancelled'].includes(r.status)){if(message.type==='result')acknowledgeOutcome();return;}
       if (c.expiresAt <= clock()) return finishCommand(c, id, 'expired', 'COMMAND_EXPIRED');
       if (message.type === 'ack') {
         if (r.status === 'dispatched') {
@@ -1048,18 +1079,26 @@ export async function createPrivateTasks({
         }
         return;
       }
+      if(message.type==='progress'){if(r.status!=='executing'||!['observing','authorizing','applying','waiting_host','verifying','completed','completed_unverified','blocked','cancelled','outcome_unknown'].includes(message.stage))reject('INVALID_PROGRESS');r.stageName=message.stage;r.stageAt=clock();return;}
       if (message.type === 'result') {
         if (r.status !== 'executing') reject('COMMAND_NOT_ACKNOWLEDGED');
         const effectsComplete = !['fill', 'navigate', 'submit'].includes(c.action) || r.effects && r.nextEffect === r.effects.actions.length;
-        const valid = message.ok === true && message.result && typeof message.result === 'object' && effectsComplete;
-        finishCommand(c, id, valid ? 'succeeded' : 'failed', valid ? 'COMPLETED' : message.code === 'OUTCOME_UNKNOWN' ? 'OUTCOME_UNKNOWN' : 'HOST_EXECUTION_FAILED', valid ? {
+        const expected=c.requiredOutcome||'effect_observed';
+        const observed=message.result?.observations||[];
+        const verified=!!actionAttempts&&c.action==='submit'&&r.effects?.actions.every(a=>{try{return actionAttempts.status(i.scope,a.actionId).state==='verified';}catch{return false;}});
+        const localObserved=observed.length>0&&observed.every(o=>o.valueObserved===true||o.navigated&&o.verified);
+        const hostSaved=observed.some(o=>o.hostReported==='success')&&!observed.some(o=>o.hostReported==='failure');
+        const requirementMet=expected==='effect_observed'||expected==='local_state_verified'&&(localObserved||verified)||expected==='host_reported_saved'&&(hostSaved||verified)||expected==='business_verified'&&verified;
+        const valid = requirementMet&&message.ok === true && message.result && typeof message.result === 'object' && effectsComplete;
+        finishCommand(c, id, valid ? 'succeeded' : 'failed', valid ? 'COMPLETED' : message.code === 'OUTCOME_UNKNOWN' ? 'OUTCOME_UNKNOWN' : !requirementMet?'REQUIRED_OUTCOME_NOT_MET':['FIELD_VALIDATION','SCREEN_CHANGED','CONTROL_UNAVAILABLE','DEPENDENCY_LIMIT','DEPENDENCY_CLARIFICATION','DEPENDENCY_NOT_READY','HOST_VERIFICATION_REQUIRED','CANCELLED','POLICY_REVOKED'].includes(message.code)?message.code:'HOST_EXECUTION_FAILED', valid ? {
           observation: message.result,
-          fields: (r.effects?.actions || []).filter(a => a.type === 'fill').map(a => ({
+          fields: [...(r.effectHistory||[]),...(r.effects?.actions || [])].filter(a => a.type === 'fill').map(a => ({
             field: a.label,
             value: a.value
           })),
-          savedVerified: false
+          savedVerified:verified,outcome:verified?'business_verified':hostSaved?'host_reported_saved':localObserved?'local_state_verified':message.result?.prepared?'prepared':'effect_observed'
         } : null);
+        acknowledgeOutcome();
         if (c.action === 'cancel' && c.status === 'succeeded') {
           const t = tasks.get(c.taskId);
           if (t) end(t);

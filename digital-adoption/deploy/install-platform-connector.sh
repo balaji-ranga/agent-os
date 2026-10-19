@@ -27,7 +27,7 @@ if not target.exists():
 PY
 configs=$(cat "$bundle/compose-files.txt")
 cd /opt/agent-os/deploy
-COMPOSE_FILE="$configs" COMPOSE_PATH_SEPARATOR=, docker compose -p agent-os up -d --no-deps --no-build backend frontend
+COMPOSE_FILE="$configs" COMPOSE_PATH_SEPARATOR=, docker compose -p agent-os --profile optional-ollama up -d --no-deps --no-build backend frontend
 docker exec agent-os-nginx-1 nginx -t
 docker exec agent-os-nginx-1 nginx -s reload
 echo 'Scoped Copilot connector/editor deployed. OpenClaw and unrelated services were not restarted.'

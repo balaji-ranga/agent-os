@@ -33,3 +33,44 @@ Visitor field filling uses the inline change review with approval/rejection. A s
 Administrators can enable **Digital Adoption copilot review** under Admin, Models & routing, or Digital Adoption websites. This global website-copilot setting defaults Off. When enabled, the active platform model makes a proposal and the inactive slot checks it; an optional configured local reasoning route is available. The checker can accept, request one revision, ask for clarification or reject. An unavailable checker stops the request. It cannot grant permissions, replace visitor review or override Action Policies. This setting governs Digital Adoption website model responses; it does not make the separate Platform Help UI copilot autonomous.
 
 See **Copilot connectors in workflows** for server-to-browser commands. A website being installed, mapped or online is not proof that a business task completed. Verify the host application's saved result independently.
+
+
+## Reliable execution, review editing and setup readiness
+
+The copilot observes current controls, applies an authorized step once, then
+checks its result. New dependent controls need fresh observations: visitors see
+a new review; an authorized workflow can continue through up to three bounded
+stages with fresh policy checks. Known failures retain earlier verified changes.
+An uncertain Save stops for reconciliation and is never automatically replayed.
+An already-satisfied native assignment emits no redundant input/change event.
+
+Use **Edit values** to change proposed values before applying them, or **Reject**
+to leave the host untouched. Edited values create a replacement proposal; the old
+approval is invalid. Native types, choices and live constraints still apply.
+Stop remains available during planning and execution. Short button feedback lasts
+three seconds; material errors remain in the conversation until resolved or
+dismissed. Field readback, website-reported Save and trusted saved-record proof
+are different outcomes. A successful request alone does not establish a Save.
+
+**Installation → Setup readiness** checks registration, DNS, platform approval,
+active installation, a recent connected panel, observed maps, teaching and a
+current task-tested publication. **Snippet issued** does not mean installed.
+Pending DNS challenges can be renewed without creating another registration;
+update the TXT value and verify again. Owner email sign-in and the separate
+platform approval gate remain required. Guidance includes origin, token, CSP
+and blocked-frame checks. Empty shared-document indexes are supported.
+
+In **Teaching**, **Check compatibility** checks observed structure only.
+For **Test task**, open the website, enable owner coaching, choose **Actions →
+Reusable workflows**, enter synthetic parameters and select **Test task**.
+Approve each supported step. This does not authorize Save. The service records
+content-free evidence only after consumed effects are observed; map, policy or
+recipe changes invalidate readiness. Publishing unchanged tested steps retains
+their test evidence, while structural-only publication remains visibly untested.
+
+**Settings → Native Save controls** provides ordinary fields for exact binding
+name, page path, visible label and Action Policy family. Advanced JSON remains
+available. Optional saved-record verification needs a host backend integration;
+its private signing key stays with the host. A learning-only receipt is not an
+action verification receipt. Without this integration the panel reports honest
+website status and does not claim independent business verification.

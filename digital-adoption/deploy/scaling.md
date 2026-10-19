@@ -204,3 +204,32 @@ Task-specific expiry is not a new visitor control. Existing server task safety
 limits and independent pairing lifetime controls remain. Original upload objects
 are still encrypted on disk and removed on task cleanup. A coordinator restart
 loses task keys/authority and cannot recover access from the retained search text.
+
+## Immediate-phase action guards
+
+`execution.attemptRetentionMs` defaults to 86,400,000 ms (24 hours), bounded to
+10 minutes–7 days. SQLite keeps only opaque action/scope/fence/outcome metadata;
+indexed expiry maintenance removes old attempt rows. Missing/expired grants
+remain invalid. Workflow-operation tombstones are separate, content-free replay
+fences and are not removed by private-task End task or the search retention
+policy. Do not delete them to recover a stuck command.
+
+`capacity.modelDeadlineMs` bounds a model request (1,000–120,000 ms). Production
+setup defaults to 120 seconds and advertises the matching client deadline plus
+transport allowance. It is a ceiling, not an intentional delay or a latency
+promise. The platform still selects maker/checker routes; unavailable capacity
+fails closed without an unauthorized hosted fallback. Form effect segments keep
+a separate 55-second ceiling, at most two continuation/repair stages after the
+initial stage, and no uncertain-write replay.
+
+Use `deploy/immediate-phase.Dockerfile` only against the captured running
+coordinator image. Run Linux regressions with the disposable
+`deploy/immediate-test.Dockerfile`. `install-immediate-phase.py` checks source
+image identity, takes the usual consistent checkpoint and updates only the
+coordinator. Its optional gateway overlay preserves the captured checker/provider
+base and changes only the two generic intent/review guards. Parser replicas and
+Admin model settings are preserved. Coordinator-only mode leaves gateway and
+platform containers untouched. A rollback
+must preserve action/operation fencing; prefer repair forward to starting legacy
+code that ignores those guards. Standard Docker builds already copy all new
+source and browser modules.

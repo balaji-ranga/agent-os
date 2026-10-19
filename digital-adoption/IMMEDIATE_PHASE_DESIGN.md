@@ -545,3 +545,15 @@ Immediate stale-control detection, existing analytics correctness, basic keyboar
 usability, privacy quotas and current operational safeguards are not deferred.
 No new always-on browser hosting, offline visitor delivery or approval bypass is
 part of this phase.
+
+
+## Implementation evidence - 19 October 2026
+
+The scoped implementation is deployed as coordinator `20261019-immediate-g`
+and gateway/platform `20261019-immediate-e`. The [acceptance and regression report](test/evidence/immediate-phase-20261019/index.html)
+records exact executed-suite results, screenshots, fault tests, model route and
+budget, and remaining partial requirements. Existing local/public registrations
+were reused as requested; this does not establish a fresh owner's live email/DNS
+setup. Full certification is not inferred from unit/synthetic pass rates.
+Previously deferred devices, actual elapsed retention and sustained inference
+capacity remain separate evidence gates.

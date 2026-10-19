@@ -1,0 +1,171 @@
+{
+  "at": "2026-10-19T10:42:08.485Z",
+  "sharedSettingUnchanged": true,
+  "override": "process-local only; active platform maker and passive platform checker",
+  "results": [
+    {
+      "id": "unknown-option",
+      "repetition": 1,
+      "mode": "active maker / passive checker",
+      "status": "passed",
+      "latencyMs": 5010,
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 3847,
+          "promptTokens": 690,
+          "outputTokens": 658
+        }
+      },
+      "response": {
+        "message": "The requested shipping method 'Teleport' is not available among the observed choices. The available options are 'Choose', 'Standard', and 'Express'. Please select one of these options or clarify if you would like to proceed differently.",
+        "actions": []
+      }
+    },
+    {
+      "id": "unknown-option",
+      "repetition": 2,
+      "mode": "active maker / passive checker",
+      "status": "failed",
+      "latencyMs": 5324,
+      "error": "Platform model unavailable",
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 3847,
+          "promptTokens": 690,
+          "outputTokens": 658
+        }
+      },
+      "gatewayError": {
+        "code": "COPILOT_CHECKER_UNAVAILABLE",
+        "diagnosticCode": "PROVIDER_EMPTY_OR_INVALID"
+      },
+      "checkerVerdict": {
+        "content": "{\"decision\":\"accept\",\"feedback\":\"The proposal correctly recognizes that 'Teleport' is not among the observed Shipping method choices ('Choose', 'Standard', 'Express') and avoids substituting an unavailable option. Requesting clarification instead of guessing is appropriate, and the proposal contains no actions, no Save, and no execution claims. Grounding is solid: every cited choice comes directly from the observed field options. To proceed, the user should name one of the available options or supply the corrected shipping method name; if a different method is intended, it must appear in the observed choices before any fill is proposed.\",\"checks\":{\"taskMatch\":\"pass\",\"grounding\":\"pass\",\"safety\":\"pass\"}}",
+        "diagnostics": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 3847,
+          "promptTokens": 690,
+          "outputTokens": 658
+        }
+      }
+    },
+    {
+      "id": "unknown-option",
+      "repetition": 3,
+      "mode": "active maker / passive checker",
+      "status": "passed",
+      "latencyMs": 3337,
+      "quality": {
+        "enabled": true,
+        "decision": "clarify",
+        "revisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 2420,
+          "promptTokens": 685,
+          "outputTokens": 334
+        }
+      },
+      "response": {
+        "message": "The requested value 'Teleport' is not present among the observed Shipping method choices ('Choose', 'Standard', 'Express'), and substituting an unavailable choice is not permitted. The proposal correctly reports this and asks the user to pick an observed option, with no actions or Save proposed, so it is grounded and safe. Clarification is needed before any fill: the user must either confirm one of the observed choices or provide another way to proceed.",
+        "actions": []
+      }
+    },
+    {
+      "id": "unknown-option",
+      "repetition": 4,
+      "mode": "active maker / passive checker",
+      "status": "failed",
+      "latencyMs": 5601,
+      "error": "Platform model unavailable",
+      "quality": {
+        "enabled": true,
+        "decision": "clarify",
+        "revisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 2420,
+          "promptTokens": 685,
+          "outputTokens": 334
+        }
+      },
+      "gatewayError": {
+        "code": "COPILOT_CHECKER_UNAVAILABLE",
+        "diagnosticCode": "PROVIDER_EMPTY_OR_INVALID"
+      },
+      "checkerVerdict": {
+        "content": "{\"decision\":\"clarify\",\"feedback\":\"The requested value 'Teleport' is not present among the observed Shipping method choices ('Choose', 'Standard', 'Express'), and substituting an unavailable choice is not permitted. The proposal correctly reports this and asks the user to pick an observed option, with no actions or Save proposed, so it is grounded and safe. Clarification is needed before any fill: the user must either confirm one of the observed choices or provide another way to proceed.\",\"checks\":{\"taskMatch\":\"pass\",\"grounding\":\"pass\",\"safety\":\"pass\"}}",
+        "diagnostics": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 2420,
+          "promptTokens": 685,
+          "outputTokens": 334
+        }
+      }
+    },
+    {
+      "id": "unknown-option",
+      "repetition": 5,
+      "mode": "active maker / passive checker",
+      "status": "passed",
+      "latencyMs": 2722,
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 1611,
+          "promptTokens": 685,
+          "outputTokens": 208
+        }
+      },
+      "response": {
+        "message": "The requested shipping method 'Teleport' is not available among the observed choices. The available options are 'Choose', 'Standard', and 'Express'. Would you like to select one of these options instead?",
+        "actions": []
+      }
+    },
+    {
+      "id": "unknown-option",
+      "repetition": 6,
+      "mode": "active maker / passive checker",
+      "status": "passed",
+      "latencyMs": 3408,
+      "quality": {
+        "enabled": true,
+        "decision": "clarify",
+        "revisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 2349,
+          "promptTokens": 685,
+          "outputTokens": 356
+        }
+      },
+      "response": {
+        "message": "The proposal correctly identifies that “Teleport” is not an observed option for Shipping method and does not substitute an unavailable choice. It appropriately asks the user to choose among the observed options: Choose, Standard, or Express. No actions or Save are proposed, so clarification is the right next step.",
+        "actions": []
+      }
+    }
+  ]
+}

@@ -1,3 +1,5 @@
+import {waitForHost} from './host-observation.mjs';
+import {requestedField} from './dependent-controls.mjs';
 import {choiceText,requestsChoice} from './choice-intent.mjs';
 // Session-local references: never persist selectors or entered values as shared learning.
 import {createSubmitController} from './form-submit.mjs';
@@ -24,6 +26,7 @@ export function createInspector(document) {
     return copy.textContent;
   };
   const label = e => (e.getAttribute('aria-label') || Array.from(e.labels || []).map(labelText).join(' ') || e.placeholder || e.name || e.id || '').trim().replace(/\s+/g,' ').slice(0,160);
+  const rowIdentity=e=>{const row=e.closest('tr,[role=row]');if(!row)return null;const copy=row.cloneNode(true);for(const control of copy.querySelectorAll('input,textarea,select,button,[data-adoption-private]'))control.remove();return JSON.stringify([row.id,row.getAttribute('data-row-key'),row.getAttribute('data-key'),copy.textContent.trim().replace(/\s+/g,' ').slice(0,1000)]);};
   let approvedPaths=new Set();
   const submit=createSubmitController(document,{visible,excluded,label});
   function snapshot({inventory:includeInventory=false,task=''}={}) {
@@ -37,7 +40,7 @@ export function createInspector(document) {
     const fields = dialogs.length > 1 ? [] : [...root.querySelectorAll('input,textarea,select')]
       .filter(e=>{if(!visible(e)||excluded(e))return false;if(e.type!=='radio')return true;const key=(formKey(e.form)||'')+':'+e.name;if(radioNames.has(key))return false;radioNames.add(key);return true;}).filter(e => supported(e) && !e.readOnly && !/password|secret|token|otp|cvv|credit.?card|api.?key|access.?key|private.?key/i.test(label(e))).slice(0,60).map((e,i) => {
         const ref = `r${revision}f${i}`;
-        references.set(ref, { element: e, value: e.value, checked:e.checked, constraints:constraints(e), options:e.options?JSON.stringify([...e.options].map(o=>[o.value,o.text,o.disabled,o.selected])):null, label: label(e), type: controlType(e),radio:e.type==='radio'?[...root.querySelectorAll('input[type=radio]')].filter(r=>r.name===e.name&&r.form===e.form):null,radioState:e.type==='radio'?JSON.stringify([...root.querySelectorAll('input[type=radio]')].filter(r=>r.name===e.name&&r.form===e.form).map(r=>[r.value,r.checked,r.disabled,label(r)])):null });
+        references.set(ref, { element: e, rowIdentity:rowIdentity(e), value: e.value, checked:e.checked, constraints:constraints(e), options:e.options?JSON.stringify([...e.options].map(o=>[o.value,o.text,o.disabled,o.selected])):null, label: label(e), type: controlType(e),radio:e.type==='radio'?[...root.querySelectorAll('input[type=radio]')].filter(r=>r.name===e.name&&r.form===e.form):null,radioState:e.type==='radio'?JSON.stringify([...root.querySelectorAll('input[type=radio]')].filter(r=>r.name===e.name&&r.form===e.form).map(r=>[r.value,r.checked,r.disabled,label(r)])):null });
         const key=semanticFieldKey(e,label(e)),form=formKey(e.form);
         const descriptor={ ref, label: e.type==='radio'?(e.closest('fieldset')?.querySelector('legend')?.textContent.trim()||e.name):label(e), type: controlType(e), required: e.required,...(key?{key}:{}),...(form?{form}:{}),
           // No current values or private option text are sent by automatic inspection.
@@ -79,8 +82,10 @@ export function createInspector(document) {
     if (approved !== true || expectedRevision !== revision || typeof value !== 'string' || value.length > 8000) throw new Error('Review required');
     const record = references.get(ref), e = record?.element;
     if (!e || !e.isConnected || !visible(e) || excluded(e) || e.readOnly || e.value !== record.value || label(e) !== record.label || controlType(e) !== record.type) throw new Error('Screen changed; inspect and review again');
+    if(record.rowIdentity!==rowIdentity(e))throw new Error('Table row identity changed; inspect and review the intended row again');
     if(e.type==='checkbox'&&e.checked!==record.checked)throw new Error('Checkbox changed; inspect and review again');
     if(e.options&&JSON.stringify([...e.options].map(o=>[o.value,o.text,o.disabled,o.selected]))!==record.options)throw new Error('Options changed; inspect and review again');
+    if(e.minLength>0&&value&&value.length<e.minLength)throw new Error('Value is shorter than the field minimum; review it before filling');
     if(e.maxLength>=0&&value.length>e.maxLength)throw new Error('Value exceeds the field limit; review a shorter value');
     if(constraints(e)!==record.constraints)throw new Error('Field constraints changed; inspect and review again');
     // Validate without changing the host or dispatching application events.
@@ -94,26 +99,28 @@ export function createInspector(document) {
     let expected=value;
     if(e.type==='checkbox'){
       if(!['true','false'].includes(value))throw new Error('Checkbox requires true or false');
-      expected=value==='true';if(e.checked!==expected)e.click();
+      expected=value==='true';if(e.checked===expected){references.delete(ref);return {dispatched:false,noOp:true,valueObserved:true,saved:false};}references.delete(ref);e.click();return {dispatched:true,valueObserved:e.checked===expected,saved:false};
     }else if(record.radio){
       if(JSON.stringify(record.radio.map(r=>[r.value,r.checked,r.disabled,label(r)]))!==record.radioState)throw new Error('Radio group changed; inspect again');
       const choices=record.radio.filter(r=>r.isConnected&&visible(r)&&!excluded(r)&&(r.value===value||label(r).toLowerCase()===value.trim().toLowerCase()));
       if(choices.length!==1)throw new Error('Radio option not found or ambiguous; inspect again');
-      choices[0].click();references.delete(ref);return {dispatched:true,valueObserved:choices[0].checked,saved:false};
+      const noOp=choices[0].checked;references.delete(ref);if(!noOp)choices[0].click();return {dispatched:!noOp,noOp,valueObserved:choices[0].checked,saved:false};
     }else if(e.type==='select-multiple'){
       let values;try{values=JSON.parse(value);}catch{values=value.split(',').map(s=>s.trim());}
-      if(!Array.isArray(values)||!values.length||values.some(v=>typeof v!=='string'))throw new Error('Choose a list of option labels');
+      if(!Array.isArray(values)||values.some(v=>typeof v!=='string'))throw new Error('Choose a list of option labels');
       const chosen=values.map(v=>[...e.options].filter(o=>!o.disabled&&(o.value===v||o.text.trim().toLowerCase()===v.toLowerCase())));
       if(chosen.some(c=>c.length!==1)||new Set(chosen.map(c=>c[0])).size!==chosen.length)throw new Error('Options not found or ambiguous; inspect again');
-      for(const option of e.options)option.selected=chosen.some(c=>c[0]===option);
+      if([...e.selectedOptions].length===chosen.length&&chosen.every(c=>c[0].selected)){references.delete(ref);return {dispatched:false,noOp:true,valueObserved:true,saved:false};}
+      references.delete(ref);for(const option of e.options)option.selected=chosen.some(c=>c[0]===option);
       e.dispatchEvent(new view.Event('input',{bubbles:true}));e.dispatchEvent(new view.Event('change',{bubbles:true}));references.delete(ref);
       return {dispatched:true,valueObserved:[...e.selectedOptions].length===chosen.length&&chosen.every(c=>c[0].selected),saved:false};
     }else if(e.type==='select-one'){
       const matches=[...e.options].filter(o=>!o.disabled&&(o.value===value||o.text.trim().toLowerCase()===value.trim().toLowerCase()));
       if(matches.length!==1)throw new Error('Option not found or ambiguous; select manually');
-      expected=matches[0].value;Object.getOwnPropertyDescriptor(view.HTMLSelectElement.prototype,'value').set.call(e,expected);
+      expected=matches[0].value;if(e.value===expected){references.delete(ref);return {dispatched:false,noOp:true,valueObserved:true,saved:false};}references.delete(ref);Object.getOwnPropertyDescriptor(view.HTMLSelectElement.prototype,'value').set.call(e,expected);
     }else{
-      const prototype = e.tagName === 'TEXTAREA' ? view.HTMLTextAreaElement.prototype : view.HTMLInputElement.prototype;
+      if(e.value===value&&record.type!=='combobox'){references.delete(ref);return {dispatched:false,noOp:true,valueObserved:true,saved:false};}
+      references.delete(ref);const prototype = e.tagName === 'TEXTAREA' ? view.HTMLTextAreaElement.prototype : view.HTMLInputElement.prototype;
       Object.getOwnPropertyDescriptor(prototype, 'value').set.call(e, value);
     }
     e.dispatchEvent(new view.Event('input', { bubbles: true }));
@@ -147,7 +154,7 @@ export function createInspector(document) {
     cleanupHighlight=()=>{clearTimeout(timer);view.removeEventListener('scroll',position,true);view.removeEventListener('resize',position);marker.remove();cleanupHighlight=()=>{};};return {highlighted:true,wrote:false};
   }
   function hasDraft(){return [...document.querySelectorAll('input,textarea,select')].some(field=>{
-    if(field.closest('[data-adoption-widget]')||!visible(field))return false;
+    if(field.closest('[data-adoption-widget]')||!visible(field)||submit.matchesSavedBaseline(field))return false;
     if(['checkbox','radio'].includes(field.type))return field.checked!==field.defaultChecked;
     if(field.type==='file')return field.files?.length>0;
     if(field.tagName==='SELECT'){
@@ -156,5 +163,5 @@ export function createInspector(document) {
     }
     return typeof field.defaultValue==='string'&&field.value!==field.defaultValue;
   });}
-  return { snapshot, fill, navigate,highlight,hasDraft,submit:submit.submit,setReadOnlyPaths(paths){if(!Array.isArray(paths)||paths.length>100||paths.some(p=>typeof p!=='string'||!/^\/(?!\/)[^?#\\]*$/.test(p)))throw new Error('Invalid read-only route scope');approvedPaths=new Set(paths);},destroy:()=>cleanupHighlight() };
+  return { snapshot, fill, navigate,highlight,hasDraft,settle({active=()=>true,task=''}={}){const controls=[...document.querySelectorAll('input,select,textarea')].filter(e=>!excluded(e)&&e.getClientRects().length),labels=controls.map(label),waiting=controls.filter(e=>e.disabled&&requestedField(task,label(e),labels));return waitForHost({read:()=>({busy:[...document.querySelectorAll('[aria-busy=true]')].filter(e=>!excluded(e)&&e.getClientRects().length).length,ready:!waiting.length||waiting.some(e=>e.isConnected&&!e.disabled)}),ready:state=>!state.busy&&state.ready,active});},submit:submit.submit,setReadOnlyPaths(paths){if(!Array.isArray(paths)||paths.length>100||paths.some(p=>typeof p!=='string'||!/^\/(?!\/)[^?#\\]*$/.test(p)))throw new Error('Invalid read-only route scope');approvedPaths=new Set(paths);},destroy:()=>cleanupHighlight() };
 }

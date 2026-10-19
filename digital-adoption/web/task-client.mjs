@@ -1,3 +1,5 @@
+import {outcomeOf,outcomeMeets} from './task-controller.mjs';
+import {newlyAvailableFields} from './dependent-controls.mjs';
 // Runs in the SDK closure, not the widget iframe. No credentials reach the panel.
 export function createTaskClient({
   request,
@@ -38,6 +40,7 @@ export function createTaskClient({
       clearInterval(timer);
       socket=null;connecting=null;instanceId=null;
       generation++;
+      for(const [commandId,entry]of seen)if(!entry.done)notify({type:'workflow-result',commandId,action:entry.action,workflow:entry.workflow,ok:false,code:['fill','navigate','submit'].includes(entry.action)?'OUTCOME_UNKNOWN':'RECIPIENT_OFFLINE'});
       seen.clear();
       taskId = null;
       notify({type:'task-ended',reason:'Connection closed. Unfinished workflow steps fail; reconnect does not replay them.'});
@@ -79,6 +82,7 @@ export function createTaskClient({
           notify(message);
           return;
         }
+        if(message.type==='command-outcome'){const cached=seen.get(message.commandId);if(cached)notify({type:'workflow-result',commandId:message.commandId,action:message.action,workflow:message.workflow,ok:message.ok,code:message.code,outcome:message.outcome,result:message.ok?{...cached.done?.result,outcome:message.outcome}:undefined});return;}
         if (message.type !== 'command') return;
         const previous = seen.get(message.commandId);
         if (previous) {
@@ -89,7 +93,9 @@ export function createTaskClient({
         const commandGeneration = generation;
         taskId=message.taskId;
         notify({type:'workflow-started',taskId,action:message.action,instruction:message.instruction,workflow:message.workflow,commandId:message.commandId});
-        seen.set(message.commandId, {});
+        seen.set(message.commandId, {action:message.action,workflow:message.workflow});
+        let lastProgressAt=0,lastProgressStage,waitReported=false;
+        const progress=state=>{if(commandGeneration!==generation)return;const firstWait=state.stage==='waiting_host'&&!waitReported;if(firstWait)waitReported=true;if(!firstWait&&(Date.now()-lastProgressAt<500||lastProgressStage===state.stage))return;lastProgressAt=Date.now();lastProgressStage=state.stage;try{send({type:'progress',commandId:message.commandId,stage:state.stage});}catch{}};
         send({
           type: 'ack',
           commandId: message.commandId
@@ -97,8 +103,8 @@ export function createTaskClient({
         let result;
         try {
           if (hostIdentity) await hostIdentity();
-          const snapshot = inspect(message.instruction);
-          const proposal = await request('/v1/tasks/command-plan', {
+          let snapshot = inspect(message.instruction);
+          let proposal = await request('/v1/tasks/command-plan', {
             instanceId,
             commandId: message.commandId,
             snapshot
@@ -117,6 +123,7 @@ export function createTaskClient({
           } else if (['fill', 'navigate', 'submit'].includes(message.action)) {
             if (!proposal.actions?.length) throw new Error('No supported action was prepared');
             const observations = [];
+            for(let stage=0;stage<3;stage++){
             for (let effectIndex = 0; effectIndex < proposal.actions.length; effectIndex++) {
               if (hostIdentity) await hostIdentity();
               const grant = await request('/v1/tasks/effect', {
@@ -126,13 +133,21 @@ export function createTaskClient({
                 revision: proposal.revision,
                 effectIndex
               });
-              observations.push(...(await execute(grant)));
+              observations.push(...(await execute(grant,{task:message.instruction,onProgress:progress,active:()=>!closed&&commandGeneration===generation})));
+            }
+              if(message.action!=='fill')break;
+              const next=inspect(message.instruction),dependent=newlyAvailableFields(snapshot,next,message.instruction);
+              if(!dependent.length)break;
+              if(stage===2)throw Object.assign(new Error('Dependency stage limit reached; review remaining controls.'),{code:'DEPENDENCY_LIMIT',outcome:'rejected'});
+              proposal=await request('/v1/tasks/command-plan',{instanceId,commandId:message.commandId,snapshot:next,continuation:true});snapshot=next;
+              if(!proposal.actions?.length)throw Object.assign(new Error('New dependent controls need clarification.'),{code:'DEPENDENCY_CLARIFICATION',outcome:'rejected'});
             }
             if (observations.some(r => r.valueObserved === false || r.hostReported === 'failure')) throw new Error('Host rejected changes');
             result = {
               observations,
-              savedVerified: false
+              savedVerified: observations.some(o=>o.businessVerified===true),outcome:observations.map(outcomeOf).reduce((a,b)=>outcomeMeets(a,b)?b:a)
             };
+            if(!outcomeMeets(result.outcome,message.requiredOutcome||'effect_observed'))throw Object.assign(new Error('The required outcome was not verified.'),{code:'REQUIRED_OUTCOME_NOT_MET',outcome:result.outcome});
           } else result = proposal;
           const done = {
             type: 'result',
@@ -141,22 +156,22 @@ export function createTaskClient({
             result
           };
           if (commandGeneration === generation) {
-            notify({type:'workflow-result',action:message.action,ok:true,result,commandId:message.commandId,workflow:message.workflow});
+            notify({type:'workflow-observation',commandId:message.commandId});
             seen.set(message.commandId, {
-              done
+              done,action:message.action,workflow:message.workflow
             });
             send(done);
           }
-        } catch {
-          if(commandGeneration===generation)notify({type:'workflow-result',action:message.action,ok:false,commandId:message.commandId,workflow:message.workflow});
+        } catch (error) {
+          if(commandGeneration===generation)notify({type:'workflow-observation',commandId:message.commandId,reason:error.message});
           const done = {
             type: 'result',
             commandId: message.commandId,
             ok: false,
-            code: ['fill', 'navigate', 'submit'].includes(message.action) ? 'OUTCOME_UNKNOWN' : 'EXECUTION_FAILED'
+            code: error.outcome==='unknown'?'OUTCOME_UNKNOWN':error.code||'EXECUTION_FAILED'
           };
           if (commandGeneration === generation) seen.set(message.commandId, {
-            done
+            done,action:message.action,workflow:message.workflow
           });
           try {
             send(done);

@@ -1,0 +1,26 @@
+{
+  "at": "2026-10-19T10:44:27.100Z",
+  "source": "working-tree immediate phase",
+  "origin": "http://127.0.0.1:4194",
+  "dependencies": {
+    "planner": "deterministic fixture, not LLM",
+    "managementIdentity": "synthetic test adapter",
+    "dns": "not exercised",
+    "host": "existing loopback website"
+  },
+  "results": [
+    {
+      "id": "T02_EDIT_REPLACE_REJECT",
+      "status": "passed",
+      "detail": "New proposal applied; rejected proposal had no effect.",
+      "screenshot": "T02_EDIT_REPLACE_REJECT.png"
+    },
+    {
+      "id": "T01_STOP_PLANNING",
+      "status": "passed",
+      "detail": "Stopped inference produced no review or host effect.",
+      "screenshot": "T01_STOP_PLANNING.png"
+    }
+  ],
+  "errors": []
+}

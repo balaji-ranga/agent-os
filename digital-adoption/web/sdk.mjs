@@ -1,3 +1,5 @@
+import {newlyAvailableFields} from './dependent-controls.mjs';
+import {createTaskController} from './task-controller.mjs';
 import {createVisitorAnalytics} from './visitor-analytics.mjs';
 import {observePage} from './page-observer.mjs';
 import { createInspector } from './dom.mjs';
@@ -8,7 +10,7 @@ import {recordedPackage} from './learning-package.mjs';
 import {createTaskClient} from './task-client.mjs';
 
 export async function mount(options) {
-  const {serviceUrl,installationToken,theme={},getHostIdentity,getVerifiedOutcome,bindVerifiedSave}=options;
+  const {serviceUrl,installationToken,theme={},getHostIdentity,getVerifiedOutcome,bindVerifiedSave,getActionOutcome}=options;
   if(window.frameElement?.dataset.adoptionObservation==='true')return {updateTheme(){},async destroy(){}};
   let appearance = normalizeTheme(theme);
   let hostAppearance=appearance;
@@ -28,10 +30,14 @@ export async function mount(options) {
   catch(error){client.stop();bootstrapButton.disabled=false;bootstrapButton.textContent='Reconnect copilot';bootstrapButton.title=error.message;bootstrapButton.onclick=()=>{bootstrapButton.remove();mount(options).catch(()=>{});};throw error;}
   const visitorAnalytics=createVisitorAnalytics({document,setConsent:value=>client.setAnalyticsConsent(value),request:(path,data)=>client.background(path,data)});
   const inspector = createInspector(document);
+  let actionStorage;try{actionStorage=window.sessionStorage;}catch{}
+  if(getActionOutcome!==undefined&&typeof getActionOutcome!=='function')throw new Error('Action outcome must be a host receipt callback');
+  const verifyAction=getActionOutcome?async action=>{const receipt=await getActionOutcome({sessionId:bootstrap.sessionId,actionId:action.actionId,proposalId:action.actionId.split(':')[0],path:location.pathname});return request('/v1/actions/verify',{actionId:action.actionId,fence:action.fence,receipt});}:undefined;
+  const execution=createTaskController({inspector,request,storage:actionStorage,onState:state=>frame.contentWindow?.postMessage({channel:'flolah-adoption-v1',type:'execution-state',state},service.origin)});
   const recorder=createRecorder(document);
   let recordedSteps=[];
   let recordingId,recordingTitle;
-  let currentSnapshot = null;
+  let currentSnapshot = null,currentTaskText='';
   let taskGeneration=0;
   let guidedQueue=null;
   async function nextGuidance(){
@@ -70,11 +76,11 @@ export async function mount(options) {
   let durableResume=false;
   const resumeStore={read(){try{return sessionStorage.getItem(resumeKey)||localStorage.getItem(resumeKey);}catch{return null;}},write(value){try{sessionStorage.setItem(resumeKey,value);if(durableResume)localStorage.setItem(resumeKey,value);}catch{}},clear(){try{sessionStorage.removeItem(resumeKey);localStorage.removeItem(resumeKey);}catch{}},persist(value){durableResume=value;try{if(value){const proof=sessionStorage.getItem(resumeKey);if(proof)localStorage.setItem(resumeKey,proof);}else localStorage.removeItem(resumeKey);}catch{}}};
   const privateClient=createTaskClient({request,service,resumeStore,inspect:task=>inspector.snapshot({task}),hostIdentity:getHostIdentity?async()=>{try{return await request('/v1/renew',{identityToken:await readHostIdentity()});}catch(error){try{await request('/v1/terminate');}finally{expireSession();}throw error;}}:null,onEvent:event=>{
-    if(event.type==='task-ended'){taskGeneration++;currentSnapshot=null;}
+    if(event.type==='task-ended'){taskGeneration++;currentSnapshot=null;currentTaskText='';}
     if(event.type==='workflow-started'){taskGeneration++;currentSnapshot=null;}
     if(event.type==='workflow-proposal')currentSnapshot=event.snapshot;
     frame.contentWindow?.postMessage({channel:'flolah-adoption-v1',type:'private-event',event},service.origin);
-  },execute:async proposal=>{const results=[];for(const action of proposal.actions){if(closed)throw new Error('Session ended');if(action.type==='fill')results.push(await inspector.fill({ref:action.ref,value:action.value,expectedRevision:proposal.revision,approved:true}));else if(action.type==='navigate')results.push(await inspector.navigate({ref:action.ref,expectedRevision:proposal.revision,approved:true}));else if(action.type==='submit')results.push(await inspector.submit({ref:action.ref,expectedRevision:proposal.revision,approved:true,active:()=>!closed}));else throw new Error('Unsupported workflow effect');}return results;}});
+  },execute:async (proposal,context={})=>(await execution.execute(proposal,{onProgress:context.onProgress,verifyOutcome:verifyAction,settle:()=>inspector.settle({task:context.task,active:()=>!closed&&(context.active?.()??true)}),active:()=>!closed&&(context.active?.()??true)})).results});
   // The host never sends the bearer credential to the iframe or puts it in a URL.
   const handler = async event => {
     if (closed || event.source !== frame.contentWindow || event.origin !== service.origin) return;
@@ -82,6 +88,7 @@ export async function mount(options) {
     if (!message || message.channel !== 'flolah-adoption-v1' || typeof message.id !== 'string' || message.id.length > 80) return;
     let result,proposalGeneration;
     try {
+      if(execution.busy&&['plan','recipe-plan','save-review','approve','revise','inspect','discovery-start','record-start','replay-navigation'].includes(message.type))throw Object.assign(new Error('A task is already applying or verifying changes. Stop it or wait for its result.'),{code:'TASK_BUSY'});
       // Unblock the queue before the owner's fresh capability check. Waiting
       // for that check first would itself queue Pause behind the stalled read.
       if(['discovery-pause','discovery-stop'].includes(message.type))client.interruptRead();
@@ -95,7 +102,7 @@ export async function mount(options) {
       }
       else if (message.type === 'minimize') {visitorAnalytics.event('copilot_close');frame.hidden=true;launcher.hidden=false;launcher.focus();result={minimized:true};}
       else if (message.type === 'history') result = await request('/v1/history');
-      else if(message.type==='clear-history'){taskGeneration++;currentSnapshot=null;if(privateClient.taskId)await privateClient.call('task-end');result=await request('/v1/history/clear');}
+      else if(message.type==='clear-history'){taskGeneration++;currentSnapshot=null;currentTaskText='';if(privateClient.taskId)await privateClient.call('task-end');result=await request('/v1/history/clear');}
       else if(message.type==='documents')result=await request('/v1/knowledge/documents');
       else if(message.type==='upload-document'){if(!(await request('/v1/capabilities')).capabilities.upload)throw new Error('Uploads are disabled for this website.');result=await request('/v1/knowledge/upload',{title:message.title,filename:message.filename,mime:message.mime,content:message.content,sharedConsent:message.sharedConsent,operationId:message.operationId});}
       else if(message.type==='upload-status')result=await request('/v1/knowledge/upload-status',{sourceId:message.sourceId});
@@ -135,8 +142,10 @@ export async function mount(options) {
         const pack=await recordedPackage({title:recordingTitle||message.title,steps:recordedSteps,origin:location.origin});
         result=await request('/v1/learning/draft',{package:pack,operationId:recordingId||message.operationId});
       }
+      else if(message.type==='recipe-test-start'){result=await request('/v1/recipe/test/start',{id:message.recipeId,version:message.version});}
+      else if(message.type==='recipe-test-finish'){result=await request('/v1/recipe/test/finish',{id:message.recipeId,testRunId:message.testRunId,snapshot:inspector.snapshot()});}
       else if(message.type==='recipe-plan'){
-        const generation=proposalGeneration=++taskGeneration;currentSnapshot=inspector.snapshot();result=await request('/v1/recipe/plan',{id:message.recipeId,version:message.version,parameters:message.parameters,step:message.step,mode:message.mode,snapshot:currentSnapshot});if(generation!==taskGeneration)throw new Error('Task stopped; recipe review discarded');if(!result.actions?.length)currentSnapshot=null;
+        const generation=proposalGeneration=++taskGeneration;currentSnapshot=inspector.snapshot();result=await request('/v1/recipe/plan',{id:message.recipeId,version:message.version,parameters:message.parameters,step:message.step,mode:message.mode,testRunId:message.testRunId,snapshot:currentSnapshot});if(generation!==taskGeneration)throw new Error('Task stopped; recipe review discarded');if(!result.actions?.length)currentSnapshot=null;
       }
       else if(['record-start','record-pause','record-resume','record-stop'].includes(message.type)){
         await request('/v1/history'); // Revalidate session before local recording controls.
@@ -162,13 +171,19 @@ export async function mount(options) {
       }
       else if (message.type === 'message') result = await request('/v1/messages', { text: message.text });
       else if (message.type === 'ask') result = privateClient.taskId?await privateClient.call('task-summary',{text:message.text}):await request('/v1/ask',{text:message.text,replyTo:message.replyTo});
+      else if(message.type==='revise'){
+        if(!currentSnapshot)throw new Error('The review expired. Prepare it again.');
+        const generation=taskGeneration,reviewLabels=currentSnapshot.fields.map(f=>f.label).join(' ');currentSnapshot=inspector.snapshot({task:reviewLabels});
+        result=privateClient.taskId?await privateClient.call('task-revise',{id:message.proposalId,snapshot:currentSnapshot,edits:message.edits}):await request('/v1/revise',{id:message.proposalId,snapshot:currentSnapshot,edits:message.edits});
+        if(generation!==taskGeneration)throw new Error('Review stopped; edited proposal discarded');
+      }
       else if(message.type==='reject'){taskGeneration++;currentSnapshot=null;client.interruptRead();result=privateClient.taskId?await privateClient.call('task-reject',{id:message.proposalId}):await request('/v1/reject',{id:message.proposalId});}
       else if(message.type==='reconnect'){await controller.destroy();result=await mount(options);return;}
-      else if(message.type==='cancel'){taskGeneration++;currentSnapshot=null;client.interruptRead();result={stopped:true};}
+      else if(message.type==='cancel'){execution.stop();taskGeneration++;currentSnapshot=null;currentTaskText='';client.interruptRead();result={stopped:true};}
       else if (message.type === 'inspect') {result=inspector.snapshot({inventory:true});const access=await request('/v1/capabilities');if(access.capabilities.coach)result.learning=await request('/v1/learning/observe',{snapshot:result});}
       else if (message.type === 'plan') {
         const generation=proposalGeneration=++taskGeneration;
-        const snapshot=inspector.snapshot({task:message.text});currentSnapshot=snapshot;
+        currentTaskText=message.text;const snapshot=inspector.snapshot({task:message.text});currentSnapshot=snapshot;
         result = await privateClient.plan({text:message.text,snapshot,mode:message.mode})||await request('/v1/plan',{ text:message.text,snapshot,replyTo:message.replyTo,mode:message.mode });
         if(generation!==taskGeneration)throw new Error('Task stopped; proposal discarded');
         if(!result.actions?.length)currentSnapshot=null;
@@ -184,30 +199,23 @@ export async function mount(options) {
       else if (message.type === 'approve') {
         if (!currentSnapshot) throw new Error('Inspect and review again');
         if(getHostIdentity)await request('/v1/renew',{identityToken:await readHostIdentity()});
-        const generation=taskGeneration,reviewedRevision=currentSnapshot.revision;
+        const generation=taskGeneration,reviewedSnapshot=currentSnapshot,reviewedRevision=currentSnapshot.revision;
         const proposal = privateClient.taskId?await privateClient.call('task-approve',{id:message.proposalId,revision:reviewedRevision,approved:true}):await request('/v1/approve',{ id:message.proposalId,revision:reviewedRevision,approved:true });
         if(closed||generation!==taskGeneration)throw new Error('Task stopped or superseded; approved actions discarded');
         const results=[];
         const guided=proposal.actions.length>0&&proposal.actions.every(action=>action.type==='highlight');
         if(guided){
           guidedQueue={actions:proposal.actions,revision:proposal.revision,index:0,generation};result=await nextGuidance();
-        }else for (const action of proposal.actions) {
-          if(closed||generation!==taskGeneration)throw new Error('Task stopped; remaining actions cancelled');
-          if(action.type==='submit'){
-            if(message.learningConsent===true&&bindVerifiedSave){
-              await bindVerifiedSave({sessionId:bootstrap.sessionId,proposalId:message.proposalId,path:currentSnapshot.path});
-              if(closed||generation!==taskGeneration)throw new Error('Save stopped before dispatch');
-              if(getHostIdentity)await request('/v1/renew',{identityToken:await readHostIdentity()});
-              await request('/v1/history'); // Recheck access after the host binding.
-            }
-            results.push(await inspector.submit({ref:action.ref,expectedRevision:proposal.revision,approved:true,active:()=>!closed&&generation===taskGeneration}));
-          }
-          else if(action.type==='navigate')results.push(await inspector.navigate({ref:action.ref,expectedRevision:proposal.revision,activation:action.activation,approved:true}));
-          else if(action.type==='highlight')results.push(inspector.highlight({ref:action.ref,expectedRevision:proposal.revision}));
-          else {inspector.highlight({ref:action.ref,expectedRevision:proposal.revision});results.push(await inspector.fill({ ref:action.ref,value:action.value,expectedRevision:proposal.revision,approved:true }));}
+        }else {
+          const applied=await execution.execute(proposal,{verifyOutcome:verifyAction,settle:()=>inspector.settle({task:proposal.binding?'':currentTaskText,active:()=>!closed&&generation===taskGeneration}),active:()=>!closed&&generation===taskGeneration,beforeAction:async action=>{
+            if(getHostIdentity)await request('/v1/renew',{identityToken:await readHostIdentity()});
+            await request('/v1/history');
+            if(action.type==='submit'&&message.learningConsent===true&&bindVerifiedSave){await bindVerifiedSave({sessionId:bootstrap.sessionId,proposalId:message.proposalId,path:currentSnapshot.path});await request('/v1/history');}
+          }});results.push(...applied.results);if(proposal.binding?.testRunId)await request('/v1/recipe/test/observe',{proposalId:message.proposalId});
         }
         if(closed||generation!==taskGeneration)throw new Error('Task superseded after dispatch. Completed host changes remain; no further actions will run.');
-        currentSnapshot=null;if(!guided)result={ results,saved:false };
+        let followup=[];if(!guided&&proposal.actions.every(a=>a.type==='fill')){followup=newlyAvailableFields(reviewedSnapshot,inspector.snapshot({task:currentTaskText}),currentTaskText).map(f=>f.label);}
+        currentSnapshot=null;if(!guided)result={followup, results,outcome:results.at(-1)?.outcome||'prepared',saved:false };
         if(!privateClient.taskId&&!guided&&proposal.actions[0]?.type==='submit'&&results[0]?.hostReported==='success'&&message.learningConsent===true){
           try{
             if(!getVerifiedOutcome)throw new Error('This website has no verified saved-record integration');
@@ -221,13 +229,13 @@ export async function mount(options) {
       }
       else throw new Error('Unsupported operation');
       if(!closed)frame.contentWindow?.postMessage({ channel: message.channel, id: message.id, result }, service.origin);
-    } catch (error) { if(error.code==='SESSION_ACCESS_DENIED')expireSession();if(proposalGeneration===taskGeneration)currentSnapshot=null;if(!closed)frame.contentWindow?.postMessage({ channel: message.channel, id: message.id, error: error.message }, service.origin); }
+    } catch (error) { if(error.code==='SESSION_ACCESS_DENIED')expireSession();if(proposalGeneration===taskGeneration)currentSnapshot=null;if(!closed)frame.contentWindow?.postMessage({ channel: message.channel, id: message.id, error: error.message,code:error.code,outcome:error.outcome,applied: error.results?.filter(r=>r.valueObserved).length||0 }, service.origin); }
   };
   window.addEventListener('message', handler);
   document.body.append(frame,launcher);
   frame.addEventListener('load',()=>privateClient.resume().then(out=>{if(out)frame.contentWindow?.postMessage({channel:'flolah-adoption-v1',type:'private-event',event:{type:'pairing-restored',status:out}},service.origin);}).catch(error=>frame.contentWindow?.postMessage({channel:'flolah-adoption-v1',type:'private-event',event:{type:'pairing-offline',reason:error.message}},service.origin)));
   const expireSession=()=>{
-    if(!closed){closed=true;visitorAnalytics.destroy();privateClient.close();taskGeneration++;currentSnapshot=null;guidedQueue=null;client.interruptRead();recorder.stop();inspector.destroy();client.stop();clearInterval(timer);}
+    if(!closed){closed=true;visitorAnalytics.destroy();privateClient.close();execution.stop();taskGeneration++;currentSnapshot=null;currentTaskText='';guidedQueue=null;client.interruptRead();recorder.stop();inspector.destroy();client.stop();clearInterval(timer);}
     frame.title='Copilot session expired; reconnect to restore the saved group';launcher.textContent='Reconnect copilot';launcher.hidden=false;
     frame.contentWindow?.postMessage({channel:'flolah-adoption-v1',type:'expired'},service.origin);
   };
@@ -244,7 +252,7 @@ export async function mount(options) {
   const pageHide=()=>expireSession(),pageShow=event=>{if(event.persisted)expireSession();};
   window.addEventListener('pagehide',pageHide);window.addEventListener('pageshow',pageShow);
   const controller={ updateTheme: patch => {appearance=normalizeTheme({...appearance,...patch});hostAppearance=appearance;applyAppearance();}, destroy: async () => {
-    const wasClosed=closed;closed = true;visitorAnalytics.destroy();privateClient.close();taskGeneration++;client.interruptRead();recorder.stop();inspector.destroy(); clearInterval(timer); window.removeEventListener('message', handler); frame.remove();launcher.remove();
+    const wasClosed=closed;closed = true;visitorAnalytics.destroy();privateClient.close();execution.stop();taskGeneration++;client.interruptRead();recorder.stop();inspector.destroy(); clearInterval(timer); window.removeEventListener('message', handler); frame.remove();launcher.remove();
     window.removeEventListener('pagehide',pageHide);window.removeEventListener('pageshow',pageShow);
     try { if(!wasClosed)await request('/v1/terminate'); } finally { client.stop(); }
   } };return controller;

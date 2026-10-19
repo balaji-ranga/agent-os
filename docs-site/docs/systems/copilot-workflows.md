@@ -52,3 +52,29 @@ The recipient chat shows the workflow instruction and result. The run audit iden
 Keep private document passages and extracted values in task context and pass authorized handles. Do not place full private files or their contents in a persistent workflow definition. End task clears active context and access immediately. Original uploads are queued for deletion; extracted passages await the separate 24-hour private index-retention cleanup. Ending a task does not undo host records or automatically revoke the saved group.
 
 See [Workflows](./workflows.md), [Digital Adoption](./digital-adoption.md), and [Policies](./policies.md).
+
+
+## Outcome requirements and recovery
+
+The Copilot node's **Required outcome** selects the existing effect contract,
+verified field/navigation state, website-reported Save, or a trusted saved-record
+receipt. Choose the requirement that matches the action and host integration.
+A missing stronger proof fails the step even if the website displayed a success
+message. Browser-supplied success booleans cannot create a business-verified result.
+The optional host callback is `getActionOutcome`; its backend-signed receipt uses
+purpose `adoption_action_outcome` and binds the current action, proposal, session
+and path. It is separate from the verified-learning receipt.
+
+The recipient conversation waits for the coordinator's outcome acknowledgement
+before announcing completion. Content-free run results include stage, target,
+evidence level and applied field count; private values remain behind task handles.
+Progress frames are bounded. Saved workflow groups still target current authorized
+online panels; peer pairing remains optional for server delivery.
+
+Do not rerun an uncertain write automatically. Content-free action guards and
+workflow-operation tombstones reject replay after process recovery. A refreshed
+connection does not restore ended files, reuse approval or replay failed commands.
+For dependent forms, each new stage uses current controls and policy; the bounded
+continuation stops for unsupported or ambiguous states. A native Save can leave
+fields populated: navigation treats only matching, successfully submitted local
+values as acknowledged; a later edit remains a draft.

@@ -1,0 +1,475 @@
+{
+  "at": "2026-10-19T11:06:55.858588+00:00",
+  "coordinator": "20261019-immediate-g",
+  "gatewayAndPlatform": "20261019-immediate-e",
+  "executedSuiteMinimumPassRate": 100.0,
+  "executedGate98PercentMet": true,
+  "fullAcceptanceCertified": false,
+  "requirementFamilyCounts": {
+    "passed": 14,
+    "partial": 18,
+    "failed": 0
+  },
+  "suites": [
+    {
+      "title": "Service regression · Windows",
+      "passed": 291,
+      "failed": 0,
+      "artifact": "local/service-tests.log",
+      "scope": "All service tests; deterministic/model/provider mocks labelled in test names.",
+      "passRate": 100.0
+    },
+    {
+      "title": "Service regression · VPS Linux",
+      "passed": 291,
+      "failed": 0,
+      "artifact": "vps/service-tests.log",
+      "scope": "Same suite in exact final coordinator candidate; not 291 additional unique product scenarios.",
+      "passRate": 100.0
+    },
+    {
+      "title": "Platform connector · local and VPS",
+      "passed": 5,
+      "failed": 0,
+      "artifact": "vps/backend-connector.log",
+      "scope": "Five contracts also pass locally.",
+      "passRate": 100.0
+    },
+    {
+      "title": "Actual workflow runner · local and VPS",
+      "passed": 1,
+      "failed": 0,
+      "artifact": "vps/backend-runner.log",
+      "scope": "Real runner, Action Policies/HITL/autonomous cases and private result handles; synthetic loopback recipients.",
+      "passRate": 100.0
+    },
+    {
+      "title": "Immediate browser acceptance",
+      "passed": 11,
+      "failed": 0,
+      "artifact": "browser/results.json",
+      "scope": "Existing local host; isolated coordinator, deterministic planner, synthetic management identity and policy adapter.",
+      "passRate": 100.0
+    },
+    {
+      "title": "Varied supported task journeys",
+      "passed": 30,
+      "failed": 0,
+      "artifact": "journeys/results.json",
+      "scope": "Ten task kinds × three fresh variants; deterministic planner, no Save in this group.",
+      "passRate": 100.0
+    },
+    {
+      "title": "Custom/native/framework regression",
+      "passed": 10,
+      "failed": 0,
+      "artifact": "controls/results.json",
+      "scope": "Actual native controls, async picklist, table, modal, React and Angular state and Save.",
+      "passRate": 100.0
+    },
+    {
+      "title": "Live visitor panel regression",
+      "passed": 2,
+      "failed": 0,
+      "artifact": "live/results.json",
+      "scope": "Live two-site renderer/session/keyboard checks. No model call, host edit or public submission.",
+      "passRate": 100.0
+    },
+    {
+      "title": "Real maker / passive-checker acceptance",
+      "passed": 18,
+      "failed": 0,
+      "artifact": "models/final.json",
+      "scope": "18 requests: nine tasks in each mode, including cited summary. Real platform endpoints; process-local passive checker, 2048-token verdict allowance.",
+      "passRate": 100.0
+    },
+    {
+      "title": "Checker stability repetition",
+      "passed": 6,
+      "failed": 0,
+      "artifact": "models/stability.json",
+      "scope": "Six repeats of the previously unstable unavailable-choice case at the measured 2048-token budget.",
+      "passRate": 100.0
+    },
+    {
+      "title": "Management capacity fixture",
+      "passed": 1,
+      "failed": 0,
+      "artifact": "vps/management-capacity.log",
+      "scope": "25 websites / 25 concurrent clients / 500 HTTP requests; one CPU, 1 GiB. No LLM workload.",
+      "passRate": 100.0
+    },
+    {
+      "title": "Private-task capacity fixture",
+      "passed": 1,
+      "failed": 0,
+      "artifact": "vps/private-capacity.log",
+      "scope": "25 files, two real UTF-8 parser workers, 50 authenticated WebSockets / fanout recipients. No LLM workload.",
+      "passRate": 100.0
+    },
+    {
+      "title": "Merged frontend build",
+      "passed": 1,
+      "failed": 0,
+      "artifact": "vps/frontend-build.log",
+      "scope": "Exact deployed frontend lineage retained, including parallel checker UI; regenerated shared screen inventory.",
+      "passRate": 100.0
+    },
+    {
+      "title": "Help publication and retrieval",
+      "passed": 1,
+      "failed": 0,
+      "artifact": "vps/help-verification.json",
+      "scope": "Eight shipped guides have exact indexed hashes and actual platform-only retrieval.",
+      "passRate": 100.0
+    },
+    {
+      "title": "Scoped deployment verification",
+      "passed": 1,
+      "failed": 0,
+      "artifact": "vps/deployment.json",
+      "scope": "Four health URLs; final coordinator, gateway/platform identities; adjacent services and parser workers preserved.",
+      "passRate": 100.0
+    }
+  ],
+  "cases": [
+    {
+      "id": "R01",
+      "title": "Native partial edits, choice controls and verified no-op",
+      "status": "passed",
+      "evidence": [
+        "browser/results.json",
+        "controls/results.json",
+        "journeys/results.json"
+      ],
+      "recommendation": "Retain the different-control and no-op regressions."
+    },
+    {
+      "id": "R02",
+      "title": "Invalid and missing field facts",
+      "status": "passed",
+      "evidence": [
+        "local/service-tests.log",
+        "browser/R06_MISSING_FIELDS_SAVE.png",
+        "models/final.json"
+      ],
+      "recommendation": "Keep browser validation authoritative; never invent missing business data."
+    },
+    {
+      "id": "R03",
+      "title": "Country → Province → City dependencies",
+      "status": "passed",
+      "evidence": [
+        "browser/R03_DEPENDENT_REVIEWS.png",
+        "typed-review/results.json",
+        "local/service-tests.log"
+      ],
+      "recommendation": "Keep fresh refs per stage; regression covers overlapping labels and reordered choice evidence."
+    },
+    {
+      "id": "R04",
+      "title": "Async picklists and React/Angular state",
+      "status": "passed",
+      "evidence": [
+        "controls/results.json",
+        "controls/react-state-saved.png",
+        "controls/angular-state-saved.png"
+      ],
+      "recommendation": "Continue framework fixtures when adapters change."
+    },
+    {
+      "id": "R05",
+      "title": "Table row identity through sort/filter/pagination",
+      "status": "passed",
+      "evidence": [
+        "controls/results.json",
+        "local/service-tests.log"
+      ],
+      "recommendation": "Refuse stale row identity rather than reusing a numeric position."
+    },
+    {
+      "id": "R06",
+      "title": "Native Save validity and precise field errors",
+      "status": "passed",
+      "evidence": [
+        "browser/R06_MISSING_FIELDS_SAVE.png",
+        "browser/results.json"
+      ],
+      "recommendation": "Preserve field-specific validity categories without leaking host values."
+    },
+    {
+      "id": "R07",
+      "title": "Host business rejection and bounded repair",
+      "status": "partial",
+      "evidence": [
+        "local/service-tests.log",
+        "browser/R06_MISSING_FIELDS_SAVE.png"
+      ],
+      "recommendation": "Failure/partial-state handling is covered. A full browser rejection → supported repair → renewed review → Save journey remains to be demonstrated."
+    },
+    {
+      "id": "R08",
+      "title": "Unsupported/ambiguous controls and private frame boundaries",
+      "status": "partial",
+      "evidence": [
+        "controls/results.json",
+        "local/service-tests.log"
+      ],
+      "recommendation": "Modal and boundary regressions pass. Complete a real inaccessible-frame/closed-shadow host journey before claiming this entire family."
+    },
+    {
+      "id": "R09",
+      "title": "Saved record with lost acknowledgement",
+      "status": "passed",
+      "evidence": [
+        "browser/R09_SAVED_ACK_LOST_NO_REPLAY.png",
+        "browser/results.json"
+      ],
+      "recommendation": "Real host persisted one record; deliberately dropped response stayed unknown, with one dispatch and no replay."
+    },
+    {
+      "id": "R10",
+      "title": "Duplicate dispatch, expired grant and recovery fences",
+      "status": "passed",
+      "evidence": [
+        "local/service-tests.log",
+        "vps/service-tests.log",
+        "controls/action-working.png"
+      ],
+      "recommendation": "SQLite reopen, persistent workflow operation guard and click deduplication pass; preserve tombstones during recovery."
+    },
+    {
+      "id": "R11",
+      "title": "Concurrent host edits, edited/rejected reviews",
+      "status": "passed",
+      "evidence": [
+        "browser/T02_EDIT_REPLACE_REJECT.png",
+        "browser/R11_STALE_REVIEW_PARTIAL.png",
+        "local/service-tests.log"
+      ],
+      "recommendation": "Fresh edited proposal replaces the old approval; stale host edits are retained."
+    },
+    {
+      "id": "R12",
+      "title": "Stop, expiry, End task and revoked authority",
+      "status": "passed",
+      "evidence": [
+        "browser/T01_STOP_PLANNING.png",
+        "local/service-tests.log",
+        "vps/backend-runner.log"
+      ],
+      "recommendation": "Keep server policy recheck immediately before every dispatch; no offline command replay."
+    },
+    {
+      "id": "R13",
+      "title": "Workflow Customer → Note → Opportunity saved journey",
+      "status": "partial",
+      "evidence": [
+        "browser/workflow-records.json",
+        "browser/workflow-record-readback.png",
+        "vps/backend-runner.log"
+      ],
+      "recommendation": "Eleven real WebSocket commands saved/read back three local records; policy adapter is simulated there. Actual Flolah runner is tested separately. One fresh signed-in Flolah workflow run and CRM foreign-key linkage are not proved by this combined evidence."
+    },
+    {
+      "id": "R14",
+      "title": "Maker/checker functional and failure routes",
+      "status": "partial",
+      "evidence": [
+        "models/final.json",
+        "models/stability.json",
+        "history/checker-700-token.json",
+        "local/service-tests.log"
+      ],
+      "recommendation": "Maker-only/passive routes pass at 2048 tokens. The independent global Ollama/efficiency branch and its earlier live summary failure are not recertified by this route override."
+    },
+    {
+      "id": "T01",
+      "title": "Visible stages, elapsed progress and Stop",
+      "status": "passed",
+      "evidence": [
+        "review-detail/planning-stop.png",
+        "browser/T01_STOP_PLANNING.png",
+        "local/service-tests.log"
+      ],
+      "recommendation": "HTTP abort releases real capacity; Stop cancels remaining effects and never undoes a dispatched write."
+    },
+    {
+      "id": "T02",
+      "title": "Typed editable and rejectable reviews",
+      "status": "passed",
+      "evidence": [
+        "browser/typed-review-editors.png",
+        "browser/T02_TYPED_REVIEW_EDITORS.png",
+        "local/service-tests.log"
+      ],
+      "recommendation": "Nine representative editor types pass; every revision revalidates structure and invalidates old approval."
+    },
+    {
+      "id": "T03",
+      "title": "Persistent errors, action notices and accessibility",
+      "status": "partial",
+      "evidence": [
+        "browser/T03_PERSISTENT_ERROR.png",
+        "controls/action-working.png",
+        "controls/action-completed.png",
+        "live/results.json"
+      ],
+      "recommendation": "Chrome keyboard and notices pass. Full screen-reader announcement validation remains deferred."
+    },
+    {
+      "id": "T04",
+      "title": "Separate panel, task, group and counterpart state",
+      "status": "passed",
+      "evidence": [
+        "live/LOCAL_LIVE_PANEL.png",
+        "local/service-tests.log"
+      ],
+      "recommendation": "Lifecycle/session/pairing tests and explicit connection copy pass; ended private context is not resurrected."
+    },
+    {
+      "id": "T05",
+      "title": "Sender, recipient and workflow-run trace consistency",
+      "status": "partial",
+      "evidence": [
+        "browser/R13_WS_CUSTOMER_NOTE_OPPORTUNITY.png",
+        "vps/backend-runner.log"
+      ],
+      "recommendation": "Recipient completion now waits for coordinator acknowledgement. A fresh live Flolah run screenshot must close the three-surface UI comparison."
+    },
+    {
+      "id": "T06",
+      "title": "Held-out language and intelligent clarification",
+      "status": "partial",
+      "evidence": [
+        "models/final.json",
+        "models/stability.json"
+      ],
+      "recommendation": "Typos, checkbox language, radio intent, default plurals, preserve-current, unavailable choice, advice and cited summary pass. Broader comparisons/conflicting/missing-fact language is not fully measured."
+    },
+    {
+      "id": "O01",
+      "title": "Fresh owner email sign-in and empty registration",
+      "status": "partial",
+      "evidence": [
+        "local/service-tests.log",
+        "browser/owner-readiness.png"
+      ],
+      "recommendation": "Simulated clean-owner flow passes. Existing registrations were reused as requested, so a new real inbox/owner registration was not tested."
+    },
+    {
+      "id": "O02",
+      "title": "Real DNS ownership and challenge recovery",
+      "status": "partial",
+      "evidence": [
+        "local/service-tests.log",
+        "browser/owner-readiness.png"
+      ],
+      "recommendation": "Missing/wrong/renewed challenge and race guards pass in the resolver fixture. No new real DNS TXT change was made."
+    },
+    {
+      "id": "O03",
+      "title": "Actual installation, origin and diagnostics",
+      "status": "passed",
+      "evidence": [
+        "live/LOCAL_LIVE_PANEL.png",
+        "live/PUBLIC_LIVE_PANEL.png",
+        "local/service-tests.log"
+      ],
+      "recommendation": "Both authorized live origins initialize; expiry/origin/CSP error contracts remain covered. Installed tokens are not published in screenshots."
+    },
+    {
+      "id": "O04",
+      "title": "Persisted discovery and cross-site isolation",
+      "status": "partial",
+      "evidence": [
+        "local/service-tests.log",
+        "browser/owner-readiness.png"
+      ],
+      "recommendation": "Persistence/isolation regressions pass. Reusing existing registrations does not prove one fresh owner discovered an entirely new site unassisted."
+    },
+    {
+      "id": "O05",
+      "title": "Teach → task test → publish → fresh visitor replay",
+      "status": "partial",
+      "evidence": [
+        "local/service-tests.log",
+        "browser/owner-readiness.png"
+      ],
+      "recommendation": "Actual consumed/observed proposal evidence gates task-tested readiness, and publication carries only unchanged tested steps. Full UI teaching-to-fresh-visitor chain remains open."
+    },
+    {
+      "id": "O06",
+      "title": "Owner setup resumption and website isolation",
+      "status": "partial",
+      "evidence": [
+        "local/service-tests.log",
+        "browser/owner-readiness.png"
+      ],
+      "recommendation": "Server state, ownership and paging regressions pass; live owner logout/login plus two-account browser resumption remains unperformed."
+    },
+    {
+      "id": "O07",
+      "title": "Disable/revoke invalidates readiness and execution",
+      "status": "partial",
+      "evidence": [
+        "local/service-tests.log",
+        "vps/backend-runner.log"
+      ],
+      "recommendation": "Server revocation and policy-at-dispatch tests pass. Complete the owner UI disable/revoke → visitor UI refusal chain."
+    },
+    {
+      "id": "O08",
+      "title": "No domain-specific backend seeding",
+      "status": "partial",
+      "evidence": [
+        "local/service-tests.log",
+        "browser/results.json"
+      ],
+      "recommendation": "Clean self-service fixture asserts empty content. Existing live registrations have historical operator setup; that history cannot be relabelled unseeded."
+    },
+    {
+      "id": "P01",
+      "title": "25 websites and concurrent real planning workload",
+      "status": "partial",
+      "evidence": [
+        "vps/management-capacity.log",
+        "vps/private-capacity.log",
+        "models/final.json"
+      ],
+      "recommendation": "500 management requests: zero errors, 112.97 ms p95; 25 tasks/50 recipients pass. Concurrent inference queue/stage/search-memory capacity remains unmeasured."
+    },
+    {
+      "id": "P02",
+      "title": "Bounded multi-format parsing and private memory",
+      "status": "partial",
+      "evidence": [
+        "vps/private-capacity.log",
+        "local/service-tests.log"
+      ],
+      "recommendation": "25 real text files / two workers pass, with zero retained extraction bytes or cleanup backlog. A new concurrent PDF+image workload is still required."
+    },
+    {
+      "id": "P03",
+      "title": "Real 24-hour retention elapsed deletion",
+      "status": "partial",
+      "evidence": [
+        "../private-retention-20261019/report.json",
+        "local/service-tests.log"
+      ],
+      "recommendation": "Immediate ended-task denial and actual ISM policy passed previously. Verify physical deletion after its real elapsed cycle; do not shorten the shared policy to manufacture a pass."
+    },
+    {
+      "id": "P04",
+      "title": "Desktop keyboard plus deferred devices/assistive tech",
+      "status": "partial",
+      "evidence": [
+        "live/results.json",
+        "controls/results.json"
+      ],
+      "recommendation": "Desktop Chrome passes. Real Safari/iOS, Android and full screen-reader checks remain pending as previously agreed."
+    }
+  ],
+  "scope": "Only existing loopback fixture and public flolah.cloud as website targets. No public form submission, login or laptop exposure. Flolah signed-in consoles are control-plane checks. Fixtures and actual model/live UI layers are separate, explicitly labelled.",
+  "history": "Initial radio-fixture error, missing Linux test packaging helpers, startup health-probe/line-ending issues, two deterministic checker parsing faults, 700-token verdict instability, overlapping field-label dependency and choice-order false continuation were retained/repaired. Final results below supersede failed attempts for their exact executed scope; historical failures are not erased."
+}

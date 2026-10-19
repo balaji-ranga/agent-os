@@ -717,3 +717,15 @@ The console uses authenticated, bounded management pages for website registratio
 Management protection separates a configurable shared-network ceiling from an authenticated per-actor budget. Login/code throttling has its own unchanged budget. A shared reverse proxy no longer compresses all legitimate owners into a single 60-request management allowance. This does not remove authentication or website entitlement checks, and does not make coordinator-local budgets distributed.
 
 Runtime `20261018-owner-workspace-c` has 260 service passes, ten isolated UI passes, six analytics/governance UI passes and an isolated 25-client/25-website management benchmark. The signed-in administrator exercises the same deployed workspace against local and public Flolah registrations; fresh email-owner re-entry remains unobserved after its session expired. Review the separate workspace evidence for scope, screenshots and recommendations. Existing full Phase 1/2, device, local-checker and broad-agent gaps retain their earlier status.
+
+
+## Implementation evidence - 19 October 2026
+
+The scoped implementation is deployed as coordinator `20261019-immediate-g`
+and gateway/platform `20261019-immediate-e`. The [acceptance and regression report](test/evidence/immediate-phase-20261019/index.html)
+records exact executed-suite results, screenshots, fault tests, model route and
+budget, and remaining partial requirements. Existing local/public registrations
+were reused as requested; this does not establish a fresh owner's live email/DNS
+setup. Full certification is not inferred from unit/synthetic pass rates.
+Previously deferred devices, actual elapsed retention and sustained inference
+capacity remain separate evidence gates.

@@ -1,0 +1,26 @@
+{
+  "at": "2026-10-19T10:58:22.156Z",
+  "source": "working-tree immediate phase",
+  "origin": "http://127.0.0.1:4194",
+  "dependencies": {
+    "planner": "deterministic fixture, not LLM",
+    "managementIdentity": "synthetic test adapter",
+    "dns": "not exercised",
+    "host": "existing loopback website"
+  },
+  "results": [
+    {
+      "id": "T02_TYPED_REVIEW_EDITORS",
+      "status": "passed",
+      "detail": "Typed editors replaced and applied fresh reviews for text, email, select, checkbox, radio, multi-select, date, number and textarea.",
+      "screenshot": "T02_TYPED_REVIEW_EDITORS.png"
+    },
+    {
+      "id": "R03_DEPENDENT_REVIEWS",
+      "status": "passed",
+      "detail": "Three dependent stages received fresh snapshots and separate visitor approvals.",
+      "screenshot": "R03_DEPENDENT_REVIEWS.png"
+    }
+  ],
+  "errors": []
+}

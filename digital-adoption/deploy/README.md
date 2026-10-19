@@ -1,10 +1,19 @@
 # Build and VPS setup
 
+19 October 2026: the immediate-phase implementation is available on coordinator
+**20261019-immediate-g**, with gateway/platform changes from
+**20261019-immediate-e**. See the [acceptance and regression report](../test/evidence/immediate-phase-20261019/index.html)
+for executed-suite pass rates, screenshots, all 32 requirement families,
+remaining partial gates and recommendations. Executed checks and full Phase 1/2
+certification are reported separately.
+
 Latest deployment (18 October 2026): independent runtime **20261018-owner-workspace-c**, platform **adoption-20261018-maker-checker-c** (unchanged), source/evidence publication **20261018-owner-workspace-d**. Owner and account management now use a persistent website selector and seven focused tabs. Searchable bounded pages replace silent list caps; workflow editors and map details render on demand.
 
 All **260** service checks pass locally and in the final VPS image. **10** isolated browser cases and **6** analytics/pairing scenarios pass. The one-CPU/1-GiB VPS fixture served **500 requests from 25 concurrent clients across 25 websites**, with zero errors and **115.84 ms p95**. This measures management HTTP/SQLite with synthetic authentication, not external platform authentication, LLM capacity or WAN latency. The [workspace testcase table and screenshots](../test/evidence/owner-workspace-20261018/index.html) distinguish live administrator checks, isolated owner checks and the expired live email-owner session. Full Phase 1/2 device certification remains outside this incremental result.
 
-The global maker/checker feature remains available and **Off** after UAT. Its earlier [admin/review evidence](../test/evidence/admin-maker-checker-20261018/index.html) retains the optional local Ollama timeout and broad-agent coverage limitations; this workspace release does not recertify those cases.
+At the 18 October checkpoint global maker/checker was **Off**. Current Admin
+settings were preserved. Immediate-phase canaries use a process-local passive
+checker with a 2,048-token verdict budget. Its earlier [admin/review evidence](../test/evidence/admin-maker-checker-20261018/index.html) retains the optional local Ollama timeout and broad-agent coverage limitations; this workspace release does not recertify those cases.
 
 Run the application tests from `digital-adoption/` with Node 22 or newer:
 
@@ -385,3 +394,22 @@ and 24-hour policy. Full service regressions: 273 passed. Real OpenSearch cases:
 7 passed. Scoped browser cases: 5 passed. The earlier 90-second checked-summary
 timeout is retained as failed evidence, and elapsed retention deletion is pending.
 See `test/evidence/private-retention-20261019/index.html`.
+
+## Immediate-phase scoped release
+
+Package with `package-immediate-phase.py RELEASE --base-ref COMMIT`. Upload and
+unpack under `/opt/flolah-digital-adoption/releases/RELEASE`, then run
+`prepare-immediate-phase.py RELEASE`. It captures immutable bases, runs the full
+Linux regression and builds the merged platform frontend, preserving the exact
+source of a concurrent checker release. `install-immediate-phase.py` and
+`install-platform-connector.sh` perform separate guarded activations.
+For a coordinator-only correction use `prepare-immediate-phase.py RELEASE --coordinator-only`;
+its installer leaves gateway, platform and parser replicas untouched.
+`verify-immediate-phase.py RELEASE` checks images, untouched services and health.
+`export-immediate-evidence.py` is the allowlisted October acceptance export;
+runtime configs and overrides must never enter public evidence archives.
+
+The gateway overlay changes only the generic assignment helper and mixed-instruction
+review guard on the captured checker/provider image. Admin model settings are not
+changed. Preserve action/command replay fences; use repair forward when an older
+runtime would ignore those fences.

@@ -47,7 +47,7 @@ export function attachLiveTransport(server, {
               type: 'connected',
               instanceId
             });
-          } else if (message.type === 'heartbeat') send(tasks.heartbeat(instanceId));else if (['ack', 'result'].includes(message.type)) tasks.commandFrame(instanceId, message);else throw new Error('Invalid frame');
+          } else if (message.type === 'heartbeat') send(tasks.heartbeat(instanceId));else if (['ack', 'result', 'progress'].includes(message.type)) tasks.commandFrame(instanceId, message);else throw new Error('Invalid frame');
         } catch {
           ws.close(1008, 'Connection rejected');
         } finally {

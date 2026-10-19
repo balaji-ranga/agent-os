@@ -1,8 +1,11 @@
+import {addReviewEditor} from './review-editor.mjs';
 import { normalizeTheme, themeProperties } from './theme.mjs';
 import {encodeFile} from './files.mjs';
 import {createScreenCapture} from './screen-capture.mjs';
 import {mountTaskPanel} from './task-panel.mjs';
 import {createActionFeedback} from './action-feedback.mjs';
+let hostRequestTimeoutMs=60_000,coachingEnabled=false;
+let executionStarted=0,executionStage=null,executionTimer;
 let currentTheme=normalizeTheme({}),initialTheme,assistanceMode='assist',sessionExpired=false;
 function applyTheme(value) {
   const theme = normalizeTheme(value);
@@ -21,16 +24,18 @@ function call(type, extra = {}) {
   if (!parentOrigin) return Promise.reject(new Error('Host origin unavailable'));
   return actionFeedback.track(new Promise((resolve,reject) => {
     const id = crypto.randomUUID();
-    const timeout = setTimeout(() => { pending.delete(id); reject(new Error('Host did not respond')); }, 60_000);
+    const timeout = setTimeout(() => { pending.delete(id); reject(new Error('Host did not respond')); }, hostRequestTimeoutMs);
     pending.set(id, { resolve, reject, timeout });
     parent.postMessage({ channel: 'flolah-adoption-v1', id, type, ...extra }, parentOrigin);
   }));
 }
 window.addEventListener('message', event => {
   if (event.source !== parent || event.origin !== parentOrigin || event.data?.channel !== 'flolah-adoption-v1') return;
+  if(event.data.type==='execution-state'){renderExecution(event.data.state);return;}
   if(event.data.type==='private-event'){taskPanel.event(event.data.event);return;}
   if(event.data.type === 'theme') {try{applyTheme(event.data.theme);}catch{}return;}
   if(event.data.type === 'expired') {
+    renderExecution({stage:'blocked'});document.querySelector('#panel-connection-status').textContent='Panel session expired. Reconnect the website; saved workflow access and pairing have separate lifetimes.';
     sessionExpired=true;document.querySelector('#inspection-result').replaceChildren();document.querySelector('#inspection-result').hidden=true;document.querySelector('#inspection-status').textContent='';
     capture.discard();
     for(const item of pending.values()){clearTimeout(item.timeout);item.reject(new Error('Session expired'));}pending.clear();
@@ -43,17 +48,18 @@ window.addEventListener('message', event => {
   }
   const item = pending.get(event.data.id); if (!item) return;
   pending.delete(event.data.id); clearTimeout(item.timeout);
-  event.data.error ? item.reject(new Error(event.data.error)) : item.resolve(event.data.result);
+  event.data.error ? item.reject(Object.assign(new Error(event.data.error+(event.data.applied?` ${event.data.applied} earlier field changes remain applied.`:'')),{code:event.data.code,outcome:event.data.outcome})) : item.resolve(event.data.result);
 });
 function showError(error){
- const banner=document.querySelector('#error-banner');document.querySelector('#error-message').textContent=error.message||String(error);banner.hidden=false;
+ if(executionStage&&error.code!=='TASK_BUSY'){renderExecution({stage:'blocked'});status.textContent='Task paused. Review the explanation below; completed changes remain.';}
+ const banner=document.querySelector('#error-banner');document.querySelector('#error-message').textContent=(error.message||String(error))+(error.code?` [${error.code}]`:'');banner.hidden=false;
  actionFeedback.report(error.message||String(error),true);banner.scrollIntoView({block:'nearest'});
 }
 document.querySelector('#error-dismiss').onclick=()=>{document.querySelector('#error-banner').hidden=true;};
-const reviewObserver=new MutationObserver(()=>{const review=document.querySelector('#review');if(review.childElementCount){review.scrollIntoView({block:'nearest'});review.focus({preventScroll:true});}});
+const reviewObserver=new MutationObserver(()=>{const review=document.querySelector('#review');if(review.childElementCount){review.scrollIntoView({block:'nearest'});if(!review.contains(document.activeElement))review.focus({preventScroll:true});}});
 reviewObserver.observe(document.querySelector('#review'),{childList:true});
 function coachingAvailability(config){
- const enabled=config.capabilities?.coach===true,canUpload=config.capabilities?.upload===true;
+ const enabled=coachingEnabled=config.capabilities?.coach===true,canUpload=config.capabilities?.upload===true;
  document.querySelector('#knowledge-upload').hidden=!canUpload;document.querySelector('#upload-form').hidden=!canUpload;document.querySelector('#open-upload').disabled=!canUpload;document.querySelector('#capture-use').disabled=!canUpload;
  const actionsTab=document.querySelector('#tab-actions');actionsTab.hidden=!enabled;
  if(!enabled&&actionsTab.getAttribute('aria-selected')==='true')selectTab(document.querySelector('#tab-guide'));
@@ -88,7 +94,7 @@ document.querySelector('#save-review').onclick=async()=>{
   let learningConsent; if(verifiedLearningAvailable){const label=document.createElement('label');learningConsent=document.createElement('input');learningConsent.type='checkbox';label.append(learningConsent,document.createTextNode(' After a verified save, share the workflow structure for owner review. Field values and chat are excluded.'));review.append(label);}
   const confirm=document.createElement('button');confirm.textContent=`Confirm ${proposal.actions[0].label} now`;review.append(confirm);
   const reject=document.createElement('button');reject.textContent='Cancel save';reject.onclick=async()=>{try{await call('reject',{proposalId:proposal.id});task++;review.replaceChildren();status.textContent='Save cancelled.';}catch(error){showError(error);}};review.append(reject);
-  confirm.onclick=async()=>{confirm.disabled=true;try{if(generation!==task)return;const result=await call('approve',{proposalId:proposal.id,learningConsent:learningConsent?.checked===true});if(generation!==task)return;review.replaceChildren();const outcome=result.results[0];status.textContent=outcome.hostReported==='success'?`Host reported success: ${outcome.message} Verify the saved record; no retry was attempted.`:outcome.hostReported==='failure'?`Host reported a failure: ${outcome.message}`:outcome.reason||'Submission outcome is unverified. Inspect the host before retrying.';if(result.learning)status.textContent+=result.learning.created?' A parameterized draft was saved for owner review.':` No workflow was learned: ${result.learning.reason||'learning disabled'}.`;}catch(error){if(generation===task)showError(error);}};
+  confirm.onclick=async()=>{confirm.disabled=true;try{if(generation!==task)return;const result=await call('approve',{proposalId:proposal.id,learningConsent:learningConsent?.checked===true});if(generation!==task)return;review.replaceChildren();const outcome=result.results[0];status.textContent=outcome.businessVerified===true?'Saved record verified by the host readback receipt.':outcome.hostReported==='success'?`Host reported success: ${outcome.message} Verify the saved record; no retry was attempted.`:outcome.hostReported==='failure'?`Host reported a failure: ${outcome.message}`:outcome.reason||'Submission outcome is unverified. Inspect the host before retrying.';if(result.learning)status.textContent+=result.learning.created?' A parameterized draft was saved for owner review.':` No workflow was learned: ${result.learning.reason||'learning disabled'}.`;}catch(error){if(generation===task)showError(error);}};
  }catch(error){showError(error);}
 };
 const clearChat=document.createElement('button');clearChat.type='button';clearChat.textContent='Clear this conversation';settings.append(clearChat);
@@ -121,24 +127,25 @@ function remainingGuidance(result,generation,onComplete=()=>{}){
  if(result.guideRemaining){const next=document.createElement('button');next.textContent='Show next field';review.append(next);next.onclick=async()=>{next.disabled=true;try{if(generation!==task)return;const observed=await call('guide-next');if(generation!==task)return;remainingGuidance(observed,generation,onComplete);}catch(error){status.textContent=`Guidance paused: ${error.message}`;}};}else onComplete();
 }
 document.querySelector('#stop').onclick=async()=>{task++;document.querySelector('#plan').disabled=false;document.querySelector('#stop').hidden=true;document.querySelector('#save-review').hidden=true;document.querySelector('#review').replaceChildren();await call('cancel');status.textContent='Stopped. Completed changes remain; no further action will run.';};
-async function prepare(text,generation,depth=0){
+async function prepare(text,generation,depth=0,repair=0){
   const button=document.querySelector('#plan'), review=document.querySelector('#review');
   document.querySelector('#stop').hidden=false;document.querySelector('#save-review').hidden=true;
   button.disabled=true; review.replaceChildren();
   try {
     if(depth>3)throw new Error('Navigation limit reached. Please inspect the page and clarify the next step.');
-    status.textContent='Inspecting the current page and preparing your review…';
-    const proposal=await call('plan',{ text,replyTo:depth===0?replies.guide:null,mode:assistanceMode });
-    if(generation!==task)return;
+    renderExecution({stage:'planning'});status.textContent='Inspecting the current page and preparing your review…';
+    let proposal=await call('plan',{ text,replyTo:depth===0?replies.guide:null,mode:assistanceMode });
+    renderExecution({stage:'awaiting_review'});if(generation!==task)return;
     show(proposal.message,'guide','assistant',proposal.messageId);replies.guide=null;replyHints.guide.hidden=true;
     status.textContent=proposal.actions.length?'Review the proposed next step.':'';
     if(proposal.manualNotice){const note=document.createElement('p');note.textContent=proposal.manualNotice;review.append(note);}
     if(proposal.evidence?.length){const source=document.createElement('p');source.textContent='Private sources: '+proposal.evidence.map(e=>e.filename+' · '+e.locator).join('; ');review.append(source);}
-    for(const action of proposal.actions){const p=document.createElement('p');p.textContent=action.type==='navigate'?`Open ${action.label} (${action.path})`:action.type==='highlight'?`Show ${action.label}`:`${action.label}: ${action.displayValue||action.value}`;review.append(p);}
+    for(const action of proposal.actions){const p=document.createElement('p');p.dataset.proposedValue='true';p.textContent=action.type==='navigate'?`Open ${action.label} (${action.path})`:action.type==='highlight'?`Show ${action.label}`:`${action.label}: ${action.displayValue||action.value}`;review.append(p);}
     if(proposal.actions.length){
       const warning=document.createElement('p');warning.textContent=assistanceMode==='guide'?'Guidance only. No field values will change.':'Review before filling. Some websites autosave fields. This does not click Save.';review.append(warning);
       const approve=document.createElement('button');approve.textContent=proposal.actions[0].type==='navigate'?'Approve navigation':assistanceMode==='guide'?'Show guidance':'Approve field changes';review.append(approve);
       const reject=document.createElement('button');reject.type='button';reject.textContent='Reject changes';reject.onclick=async()=>{try{await call('reject',{proposalId:proposal.id});task++;review.replaceChildren();document.querySelector('#stop').hidden=true;status.textContent='Changes rejected. Nothing was applied.';}catch(error){showError(error);}};review.append(reject);
+      addReviewEditor(document,review,()=>proposal,{revise:(proposalId,edits)=>call('revise',{proposalId,edits}),onEditing:editing=>{approve.disabled=editing;},onRevised:replacement=>{proposal=replacement;for(const line of review.querySelectorAll('[data-proposed-value]'))line.remove();for(const action of proposal.actions){const line=document.createElement('p');line.dataset.proposedValue='true';line.textContent=`${action.label}: ${action.displayValue||action.value}`;review.prepend(line);}status.textContent='Edited values validated. Review and apply the new proposal.';},onError:showError});
       approve.addEventListener('click',async()=>{
         approve.disabled=true;document.querySelector('#stop').hidden=false;
         try {
@@ -147,12 +154,13 @@ async function prepare(text,generation,depth=0){
           review.replaceChildren();
           if(result.results.every(r=>r.highlighted)){remainingGuidance(result,generation);return;}
           if(result.results.some(r=>r.navigated&&r.verified)){status.textContent='Navigation verified. Continuing your original task…';await prepare(text,generation,depth+1);}
+          else if(result.followup?.length&&repair<2){status.textContent='Dependent controls are now available. Preparing a fresh review for '+result.followup.join(', ');await prepare(text,generation,depth,repair+1);}
           else {document.querySelector('#save-review').hidden=assistanceMode==='guide'||!result.results.every(r=>r.valueObserved);status.textContent=result.results.every(r=>r.highlighted)?'Guidance shown. No field values were changed.':result.results.every(r=>r.valueObserved)?`${result.results.length} approved field values verified in the form. Save was not clicked.`:'A field did not retain its value. Check the form; no retry was attempted.';}
         }
-        catch(error){if(generation===task)showError(error);}finally{if(generation===task)document.querySelector('#stop').hidden=true;}
+        catch(error){if(generation===task){showError(error);if(error.outcome!=='unknown'&&repair<2&&['SCREEN_CHANGED','FIELD_VALIDATION','CONTROL_UNAVAILABLE','HOST_REJECTED'].includes(error.code)){const retry=document.createElement('button');retry.type='button';retry.textContent='Review remaining request';retry.onclick=()=>prepare(text,++task,0,repair+1);review.append(retry);}}}finally{if(generation===task)document.querySelector('#stop').hidden=true;}
       },{once:true});
     }
-  }catch(error){if(generation===task)showError(error);}finally{if(generation===task){button.disabled=false;document.querySelector('#stop').hidden=true;}}
+  }catch(error){renderExecution({stage:'blocked'});if(generation===task)showError(error);}finally{if(generation===task){button.disabled=false;document.querySelector('#stop').hidden=true;}}
 }
 document.querySelector('#guide-chat').addEventListener('submit',async event=>{event.preventDefault();if(document.querySelector('#plan').disabled)return;const text=document.querySelector('#message').value;show(text,'guide','user');document.querySelector('#message').value='';try{if(await taskPanel.sendIfMention(text))return;}catch(error){showError(error);return;}if(/^(?:please\s+)?(?:save|submit)(?:\s+(?:this|the)\s+(?:form|record|draft))?[.!]?$/i.test(text.trim())){document.querySelector('#save-review').onclick();}else prepare(text,++task);});
 document.querySelector('#inspect').addEventListener('click', async () => {
@@ -210,31 +218,33 @@ async function record(operation){
 }
 document.querySelector('#record-start').onclick=()=>record('start');document.querySelector('#record-pause').onclick=()=>record(recordingState==='paused'?'resume':'pause');document.querySelector('#record-stop').onclick=()=>record('stop');
 document.querySelector('#record-export').onsubmit=async event=>{event.preventDefault();try{const pack=await call('record-package',{title:document.querySelector('#record-title').value}),url=URL.createObjectURL(new Blob([JSON.stringify(pack,null,2)],{type:'application/json'})),anchor=document.createElement('a');anchor.href=url;anchor.download='flolah-workflow-draft.json';anchor.click();setTimeout(()=>URL.revokeObjectURL(url),1000);actionStatus.textContent='Parameterized draft downloaded. Import it in the owner console for validation and publication.';}catch(error){showError(error);}};
-async function recipeReview(recipe,parameters,step,generation){
+async function recipeReview(recipe,parameters,step,generation,testRunId){
  const review=document.querySelector('#review');review.replaceChildren();
  try{
-  const proposal=await call('recipe-plan',{recipeId:recipe.id,version:recipe.version,parameters,step,mode:assistanceMode});
+  let proposal=await call('recipe-plan',{recipeId:recipe.id,version:recipe.version,parameters,step,testRunId,mode:assistanceMode});
   if(generation!==task)return;
+  if(proposal.complete&&testRunId){const test=await call('recipe-test-finish',{recipeId:recipe.id,testRunId});status.textContent=`Task tested: ${test.outcome}. No Save or business verification is implied.`;show(status.textContent);return;}
   show(`${recipe.title} · version ${recipe.version}: ${proposal.message}`);
   status.textContent=proposal.complete?(assistanceMode==='guide'?'Recorded guidance finished. No fields were filled.':'Recorded draft steps verified. Saving remains a separate action.'):'Review the next recorded step.';
-  for(const action of proposal.actions){const line=document.createElement('p');line.textContent=action.type==='navigate'?`Open ${action.label}${action.activation?` · ${action.activation} profile`:``}`:action.type==='highlight'?`Show ${action.label}`:`${action.label}: ${action.displayValue||action.value}`;review.append(line);}
+  for(const action of proposal.actions){const line=document.createElement('p');line.dataset.proposedValue='true';line.textContent=action.type==='navigate'?`Open ${action.label}${action.activation?` · ${action.activation} profile`:``}`:action.type==='highlight'?`Show ${action.label}`:`${action.label}: ${action.displayValue||action.value}`;review.append(line);}
   if(proposal.actions.length){
    const approve=document.createElement('button');approve.textContent=assistanceMode==='guide'?'Show recorded guidance':'Approve recorded step';review.append(approve);
    const cancel=document.createElement('button');cancel.type='button';cancel.textContent='Cancel workflow';cancel.onclick=async()=>{try{await call('reject',{proposalId:proposal.id});task++;review.replaceChildren();status.textContent='Recorded workflow cancelled.';}catch(error){showError(error);}};review.append(cancel);
+   addReviewEditor(document,review,()=>proposal,{revise:(proposalId,edits)=>call('revise',{proposalId,edits}),onEditing:editing=>{approve.disabled=editing;},onRevised:replacement=>{proposal={...proposal,...replacement};for(const line of review.querySelectorAll('[data-proposed-value]'))line.remove();for(const action of proposal.actions){const line=document.createElement('p');line.dataset.proposedValue='true';line.textContent=`${action.label}: ${action.displayValue||action.value}`;review.prepend(line);const field=proposal.fields?.find(f=>f.ref===action.ref),steps=recipe.steps.filter(step=>step.field===field?.key);for(const step of steps)if(step.parameter)parameters[step.parameter]=action.value;}status.textContent='Edited recorded values validated. Review again before applying.';},onError:showError});
    approve.onclick=async()=>{
     approve.disabled=true;
     try{
      const result=await call('approve',{proposalId:proposal.id});if(generation!==task)return;
      if(!result.results.every(r=>r.valueObserved||r.highlighted||r.navigated&&r.verified))throw new Error('The recorded step was not verified. Replay paused.');
-     if(result.results.every(r=>r.highlighted)){remainingGuidance(result,generation,()=>recipeReview(recipe,parameters,proposal.nextStep,generation));return;}
-     await recipeReview(recipe,parameters,proposal.nextStep,generation);
+     if(result.results.every(r=>r.highlighted)){remainingGuidance(result,generation,()=>recipeReview(recipe,parameters,proposal.nextStep,generation,testRunId));return;}
+     await recipeReview(recipe,parameters,proposal.nextStep,generation,testRunId);
     }catch(error){showError(error);}
    };
   }
  }
  catch(error){status.textContent=`Workflow paused: ${error.message}`;}
 }
-document.querySelector('#recipes-refresh').onclick=async()=>{try{const data=await call('recipes'),list=document.querySelector('#recipe-list');list.replaceChildren();for(const recipe of data.recipes){const item=document.createElement('li'),use=document.createElement('button');item.textContent=`${recipe.title} · ${recipe.status} · v${recipe.version} `;use.textContent=recipe.status==='published'?'Use workflow':'Preview draft';use.onclick=()=>{selectTab(document.querySelector('#tab-guide'));const generation=++task,review=document.querySelector('#review'),form=document.createElement('form');review.replaceChildren();for(const name of [...new Set(recipe.steps.filter(s=>s.action==='fill').map(s=>s.parameter))]){const label=document.createElement('label'),input=document.createElement('input');label.textContent=name.replaceAll('_',' ');input.name=name;input.required=true;input.maxLength=8000;label.append(input);form.append(label);}const prepare=document.createElement('button');prepare.textContent='Review workflow';form.append(prepare);form.onsubmit=event=>{event.preventDefault();recipeReview(recipe,Object.fromEntries(new FormData(form)),0,generation);};review.append(form);};item.append(use);list.append(item);}actionStatus.textContent=`${data.recipes.length} permitted workflows available.`;}catch(error){showError(error);}};
+document.querySelector('#recipes-refresh').onclick=async()=>{try{const data=await call('recipes'),list=document.querySelector('#recipe-list');list.replaceChildren();for(const recipe of data.recipes){const item=document.createElement('li'),use=document.createElement('button');item.textContent=`${recipe.title} · ${recipe.status} · v${recipe.version} `;use.textContent=recipe.status==='published'?'Use workflow':'Preview draft';use.onclick=()=>{selectTab(document.querySelector('#tab-guide'));const generation=++task,review=document.querySelector('#review'),form=document.createElement('form');review.replaceChildren();for(const name of [...new Set(recipe.steps.filter(s=>s.action==='fill').map(s=>s.parameter))]){const label=document.createElement('label'),input=document.createElement('input');label.textContent=name.replaceAll('_',' ');input.name=name;input.required=true;input.maxLength=8000;label.append(input);form.append(label);}const prepare=document.createElement('button');prepare.textContent='Review workflow';form.append(prepare);if(coachingEnabled){const test=document.createElement('button');test.type='button';test.textContent='Test task';test.onclick=async()=>{test.disabled=true;try{const run=await call('recipe-test-start',{recipeId:recipe.id,version:recipe.version});await recipeReview(recipe,Object.fromEntries(new FormData(form)),0,generation,run.testRunId);}catch(error){showError(error);}finally{test.disabled=false;}};form.append(test);}form.onsubmit=event=>{event.preventDefault();recipeReview(recipe,Object.fromEntries(new FormData(form)),0,generation);};review.append(form);};item.append(use);list.append(item);}actionStatus.textContent=`${data.recipes.length} permitted workflows available.`;}catch(error){showError(error);}};
 let capturedFile=null,lastUpload=null,uploadOperation=null,previewUrl,reviewBlob;
 let discoveryJob=null,discoveryEpoch=0,discoveryTimer,lastMapReport;
 const discoveryStatus=document.querySelector('#discovery-status'),discoverySelect=document.querySelector('#discovery-job');
@@ -263,7 +273,7 @@ document.querySelector('#capture-pause').onclick=()=>capture.state()==='paused'?
 document.querySelector('#capture-use').onclick=()=>{if(!reviewBlob)return;capturedFile=new File([reviewBlob],reviewBlob.type==='video/mp4'?'screen-recording.mp4':'screen-recording.webm',{type:reviewBlob.type});document.querySelector('#upload-title').value||='Screen recording';uploadStatus.textContent='Recording selected locally. Review the sharing checkbox, then Upload for processing.';openUpload();};
 window.addEventListener('pagehide',()=>{capture.discard();if(previewUrl)URL.revokeObjectURL(previewUrl);},{once:true});
 const taskPanel=mountTaskPanel({call,showError,show,isExpired:()=>sessionExpired,clearPrivate(){task++;log.replaceChildren();knowledgeLog.replaceChildren();document.querySelector('#knowledge-message').value='';knowledgeStatus.textContent='';document.querySelector('#review').replaceChildren();document.querySelector('#message').value='';document.querySelector('#save-review').hidden=true;for(const key of ['guide','knowledge']){replies[key]=null;replyHints[key].hidden=true;}}});
-try { const config=await call('config');taskPanel.configure(config);applyTheme(config.theme);coachingAvailability(config);verifiedLearningAvailable=config.learningEnabled===true&&config.canVerifyOutcome===true;uploadForm.hidden=!config.capabilities?.upload;uploadStatus.textContent=config.capabilities?.upload?'Up to 16 MB; PDF/DOCX/text/HTML/PNG/JPEG and MP4/WebM (English audio transcription).':'Visitor uploads are disabled. The website owner can add shared sources.';document.querySelector('#capture-use').disabled=!config.capabilities?.upload;const result = await call('history'); result.messages.forEach(message => show(message.text,message.channel||'guide',message.role,message.id)); }
+try { const config=await call('config');if(Number.isSafeInteger(config.requestTimeoutMs)&&config.requestTimeoutMs>=6000&&config.requestTimeoutMs<=125000)hostRequestTimeoutMs=config.requestTimeoutMs+2000;document.querySelector('#panel-connection-status').textContent='Panel connected · installation accepted. Workflow access, peer pairing and task files are separate below.';taskPanel.configure(config);applyTheme(config.theme);coachingAvailability(config);verifiedLearningAvailable=config.learningEnabled===true&&config.canVerifyOutcome===true;uploadForm.hidden=!config.capabilities?.upload;uploadStatus.textContent=config.capabilities?.upload?'Up to 16 MB; PDF/DOCX/text/HTML/PNG/JPEG and MP4/WebM (English audio transcription).':'Visitor uploads are disabled. The website owner can add shared sources.';document.querySelector('#capture-use').disabled=!config.capabilities?.upload;const result = await call('history'); result.messages.forEach(message => show(message.text,message.channel||'guide',message.role,message.id)); }
 catch(error) { showError(error); }
 
 document.querySelector('#discovery-extend').onclick=async()=>{try{const paths=document.querySelector('#discovery-paths').value.split('\n').map(s=>s.trim()).filter(Boolean);renderDiscovery(await call('discovery-extend',{jobId:discoverySelect.value||discoveryJob,paths}));}catch(error){showError(error);}};
@@ -273,3 +283,13 @@ const accessTimer=setInterval(async()=>{try{coachingAvailability(await call('acc
 window.addEventListener('pagehide',()=>clearInterval(accessTimer),{once:true});
 
 discoverySelect.onchange=async()=>{try{renderDiscovery(await call('discovery-report',{jobId:discoverySelect.value}));}catch(error){showError(error);}};
+
+function renderExecution(state){
+ const labels={observing:'Checking current controls',planning:'Preparing the next step',authorizing:'Checking action permission',applying:'Applying approved changes',waiting_host:'Waiting for website state',verifying:'Verifying the result'};
+ const running=Object.hasOwn(labels,state.stage);
+ if(running&&!executionStage){executionStarted=Date.now();executionTimer=setInterval(()=>{document.querySelector('#execution-elapsed').textContent=` · ${Math.floor((Date.now()-executionStarted)/1000)}s`;},1000);}
+ executionStage=running?state.stage:null;
+ const progress=document.querySelector('#execution-progress');progress.hidden=!running;document.querySelector('#execution-label').textContent=running?labels[state.stage]:'';document.querySelector('#execution-elapsed').textContent=running?` · ${Math.floor((Date.now()-executionStarted)/1000)}s`:'';
+ document.querySelector('#plan').disabled=running||sessionExpired;
+ if(!running){clearInterval(executionTimer);executionStarted=0;}
+}

@@ -1,0 +1,17 @@
+**
+!test/
+!test/*.test.mjs
+!test/acceptance-catalog.mjs
+!test/evidence-ledger.mjs
+!test/fixture.html
+!test/fixtures/
+!test/fixtures/**
+!deploy/
+!deploy/*.mjs
+!deploy/*.py
+**/.env*
+**/*.sqlite*
+**/*.key
+**/*.pem
+**/node_modules
+**/.local

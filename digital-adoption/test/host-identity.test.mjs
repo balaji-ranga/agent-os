@@ -61,3 +61,12 @@ test('two signed roles and tenants cannot retrieve privileged maps or redeem ano
   const grant=grants.issue(manager);assert.throws(()=>grants.exchange(contexts[1].scope,s.owner.origin,grant.code));assert.throws(()=>grants.exchange(contexts[2].scope,s.owner.origin,grant.code));assert.equal(grants.exchange(contexts[0].scope,s.owner.origin,grant.code).audienceId,manager.audienceId);
  }finally{s.repository.close();}
 });
+
+test('action saved-record receipts are purpose-separated and bind exact action/session/path',()=>{
+ const s=setup();try{const session=s.authority.initialize({...s.installation,origin:s.owner.origin,identityToken:s.token()}),scope=s.authority.context({sessionToken:session.sessionToken,origin:s.owner.origin});const expected={actionId:'opaque-save-action',proposalId:'review-one',path:'/customer'},claims={purpose:'adoption_action_outcome',...expected,sessionId:scope.sessionId,success:true,evidenceKind:'saved-record-readback',operationId:'operation-one',recordHash:'b'.repeat(64)},receipt=s.token(claims);
+ assert.equal(s.hostIdentity.verifyActionOutcome(scope,s.owner.origin,receipt,expected).verified,true);
+ assert.throws(()=>s.hostIdentity.verifyOutcome(scope,s.owner.origin,receipt,expected));
+ assert.throws(()=>s.authority.initialize({...s.installation,origin:s.owner.origin,identityToken:receipt}));
+ for(const patch of [{purpose:'adoption_outcome'},{actionId:'foreign'},{sessionId:'foreign'},{path:'/other'},{evidenceKind:'clicked-save'}])assert.throws(()=>s.hostIdentity.verifyActionOutcome(scope,s.owner.origin,s.token({...claims,...patch}),expected));
+ }finally{s.repository.close();}
+});

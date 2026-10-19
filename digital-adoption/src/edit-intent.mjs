@@ -3,6 +3,9 @@ import {booleanIntent,readOnlyIntent} from './task-intent.mjs';
 // Narrow explicit partial edits to observed controls, never infer business values.
 // Creation and ambiguous requests retain the full form for model reasoning.
 export function constrainEdit(text, snapshot) {
+  const escape=value=>String(value).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  const preserved=field=>[field.label,field.key].filter(Boolean).some(name=>new RegExp(`(?:\\b(?:keep|leave)\\s+(?:the\\s+)?${escape(name)}\\s+(?:unchanged|as is|at (?:its )?current value)|\\b(?:do not|don't|never)\\s+change\\s+(?:the\\s+)?${escape(name)}\\b)`,'i').test(text));
+  if(snapshot.fields.some(preserved)){const fields=snapshot.fields.filter(f=>!preserved(f));snapshot={...snapshot,fields,forms:(snapshot.forms||[]).map(form=>({...form,fields:form.fields.filter(key=>fields.some(f=>f.key===key&&f.form===form.key))}))};}
   if (!/^\s*(set|change|update|edit)\b/i.test(text) || snapshot.navigationRequired) return snapshot;
   const normalized = String(text).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
   const matching = snapshot.fields.filter(field => {
@@ -34,6 +37,7 @@ export function explicitEditProposal(text,snapshot){
   }
   if(candidates.size===1)return {message:'Review the requested choice. Nothing has changed.',actions:[...candidates.values()]};
  }
+ if(/\b(?:keep|leave)\b[\s\S]*\b(?:unchanged|as is|current value)\b/i.test(text))return null;
  // Mixed assignment/selection language belongs to semantic planning. Never
  // consume the second instruction as a dropdown's literal value.
  if(/\b(?:and|then)\s+(?:select|check|uncheck|choose|clear|tick|enable|disable)\b/i.test(text))return null;

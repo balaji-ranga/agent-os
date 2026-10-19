@@ -29,7 +29,6 @@ export function mountTaskPanel({
     safeTraces = [];
   const run = async (fn) => {
     try {
-      document.querySelector("#error-banner").hidden = true;
       return await fn();
     } catch (error) {
       showError(error);
@@ -288,6 +287,7 @@ export function mountTaskPanel({
         refreshTask().catch(showError);
         return;
       }
+      if(event.type==='workflow-observation'){const item=workflows.get(event.commandId);if(item){item.localFailure=event.reason;item.progress.textContent=event.reason?`Local execution stopped: ${event.reason}. Waiting for the workflow service to confirm its outcome.`:'Local observation reported. Waiting for the workflow service to confirm its outcome.';}return;}
       if (event.type === "workflow-result") {
         document.querySelector("#plan").disabled = isExpired();
         const item = workflows.get(event.commandId),
@@ -297,8 +297,8 @@ export function mountTaskPanel({
               : event.result?.message || "";
         if (item) {
           item.progress.textContent = event.ok
-            ? `Completed.\n${summary || "Requested step completed. Business save verification is separate."}`
-            : "Failed or outcome unknown. Inspect the host before retrying.";
+            ? `Completed (${event.outcome||"effect observed"}).\n${summary || "Requested step completed. Business save verification is separate."}`
+            : `Step stopped (${event.code||"execution failed"}). ${item.localFailure||'Inspect the host before retrying; completed changes remain.'}`;
           safeTraces.push(
             `${item.title}: ${event.ok ? "completed" : "failed"}. Private task instruction/data cleared at task end.${event.action === "inspect" ? "\n" + summary : ""}`,
           );

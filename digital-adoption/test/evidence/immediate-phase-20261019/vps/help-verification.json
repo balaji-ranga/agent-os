@@ -1,0 +1,65 @@
+[opensearch/embeddings] provider=local base=http://embeddings:8080/v1 model=Qwen/Qwen3-Embedding-0.6B
+{
+  "status": "passed",
+  "verified": [
+    {
+      "filename": "platform-help-61-platform-help-ui-copilot.md",
+      "sha256": "ab365e6427746af796648dc74f20659fb35592946cdeffe2ebc51af27461720d"
+    },
+    {
+      "filename": "platform-help-62-copilot-coaching.md",
+      "sha256": "ab0227657cf775e27ddf002b136324f4570d9a032498051775b7c72356b0f98f"
+    },
+    {
+      "filename": "platform-help-63-copilot-platform-map.md",
+      "sha256": "b6fc3e850d678355466ee340d8acabf83c37357c267614ee687ee67fce5436cb"
+    },
+    {
+      "filename": "platform-help-64-digital-adoption-websites.md",
+      "sha256": "acdc0ccf3d8e96ac893c5791ef11915ad1aaf8eabe043f46983ece12bb858a38"
+    },
+    {
+      "filename": "platform-help-65-copilot-workflow-connectors.md",
+      "sha256": "4774df4da215a7041ae009d6fda3d1226bae24777d591f163e2ed9844bc49ee6"
+    },
+    {
+      "filename": "public-guide-run--platform-help-copilot.md",
+      "sha256": "9e886674117f6ab281a8fa0d850579f91d269857f2d97dcc41264dda8fb0d590"
+    },
+    {
+      "filename": "public-guide-systems--copilot-workflows.md",
+      "sha256": "eb121dfed5698697f076006c3c272a577e5ff6802ec30a6b5684ee3a27024a01"
+    },
+    {
+      "filename": "public-guide-systems--digital-adoption.md",
+      "sha256": "e08c2066932ab7d10c59cf0073ad72fea4a530b6b2516a11de7b9427353b4707"
+    }
+  ],
+  "retrieved": [
+    {
+      "filename": "public-guide-systems--copilot-workflows.md",
+      "title": "Flolah Public Guide —Website copilot workflow connectors"
+    },
+    {
+      "filename": "public-guide-systems--copilot-workflows.md",
+      "title": "Flolah Public Guide —Website copilot workflow connectors"
+    },
+    {
+      "filename": "platform-help-65-copilot-workflow-connectors.md",
+      "title": "Flolah Help —Copilot Workflow Connectors Persistent Target Groups And Authorization"
+    },
+    {
+      "filename": "public-guide-systems--digital-adoption.md",
+      "title": "Flolah Public Guide —Digital Adoption website copilots"
+    },
+    {
+      "filename": "public-guide-systems--copilot-workflows.md",
+      "title": "Flolah Public Guide —Website copilot workflow connectors"
+    },
+    {
+      "filename": "platform-help-65-copilot-workflow-connectors.md",
+      "title": "Flolah Help —Copilot Workflow Connectors Persistent Target Groups And Authorization"
+    }
+  ],
+  "scope": "platform help only; no model or visitor action"
+}

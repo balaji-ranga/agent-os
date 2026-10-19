@@ -27,3 +27,44 @@ Approve or reject proposed field changes before visitor filling. Some websites a
 Analytics requires owner enablement and visitor consent. Reports cover pseudonymous browser activity, page/form use and copilot events, with bounded reports and paged tables. Typed values, document contents and chat prompts are excluded. Browser IDs and possible network/behavior matches are not proof of a person's identity and never grant access.
 
 Administrators may enable the global **Digital Adoption copilot review** setting. An independent checker can accept, request one revision, clarify or reject a website model response; an unavailable checker stops the response. Review does not replace visitor consent, website permissions or Action Policies. This setting is for Digital Adoption website copilots, not an autonomous mode for the separate Platform Help UI.
+
+
+## Reliable execution, review editing and setup readiness
+
+The copilot observes current controls, applies an authorized step once, then
+checks its result. New dependent controls need fresh observations: visitors see
+a new review; an authorized workflow can continue through up to three bounded
+stages with fresh policy checks. Known failures retain earlier verified changes.
+An uncertain Save stops for reconciliation and is never automatically replayed.
+An already-satisfied native assignment emits no redundant input/change event.
+
+Use **Edit values** to change proposed values before applying them, or **Reject**
+to leave the host untouched. Edited values create a replacement proposal; the old
+approval is invalid. Native types, choices and live constraints still apply.
+Stop remains available during planning and execution. Short button feedback lasts
+three seconds; material errors remain in the conversation until resolved or
+dismissed. Field readback, website-reported Save and trusted saved-record proof
+are different outcomes. A successful request alone does not establish a Save.
+
+**Installation → Setup readiness** checks registration, DNS, platform approval,
+active installation, a recent connected panel, observed maps, teaching and a
+current task-tested publication. **Snippet issued** does not mean installed.
+Pending DNS challenges can be renewed without creating another registration;
+update the TXT value and verify again. Owner email sign-in and the separate
+platform approval gate remain required. Guidance includes origin, token, CSP
+and blocked-frame checks. Empty shared-document indexes are supported.
+
+In **Teaching**, **Check compatibility** checks observed structure only.
+For **Test task**, open the website, enable owner coaching, choose **Actions →
+Reusable workflows**, enter synthetic parameters and select **Test task**.
+Approve each supported step. This does not authorize Save. The service records
+content-free evidence only after consumed effects are observed; map, policy or
+recipe changes invalidate readiness. Publishing unchanged tested steps retains
+their test evidence, while structural-only publication remains visibly untested.
+
+**Settings → Native Save controls** provides ordinary fields for exact binding
+name, page path, visible label and Action Policy family. Advanced JSON remains
+available. Optional saved-record verification needs a host backend integration;
+its private signing key stays with the host. A learning-only receipt is not an
+action verification receipt. Without this integration the panel reports honest
+website status and does not claim independent business verification.

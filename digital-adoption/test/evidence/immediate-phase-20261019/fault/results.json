@@ -1,0 +1,25 @@
+{
+  "at": "2026-10-19T10:53:06.856Z",
+  "source": "working-tree immediate phase",
+  "origin": "http://127.0.0.1:4194",
+  "dependencies": {
+    "planner": "deterministic fixture, not LLM",
+    "managementIdentity": "synthetic test adapter",
+    "dns": "not exercised",
+    "host": "existing loopback website"
+  },
+  "results": [
+    {
+      "id": "R09_SAVED_ACK_LOST_NO_REPLAY",
+      "status": "passed",
+      "detail": {
+        "records": 1,
+        "dispatches": 1,
+        "outcome": "unknown",
+        "fault": "Existing host persisted the record; browser response was deliberately dropped. No retry or false saved claim."
+      },
+      "screenshot": "R09_SAVED_ACK_LOST_NO_REPLAY.png"
+    }
+  ],
+  "errors": []
+}
