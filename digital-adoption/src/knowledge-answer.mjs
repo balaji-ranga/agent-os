@@ -1,4 +1,5 @@
 import {readModelResponse} from './model-response.mjs';
+import {MODEL_CLIENT_TIMEOUT_MS} from '../web/model-timeouts.mjs';
 import {copySupportingQuote} from './evidence-quotation.mjs';
 export function createKnowledgeAnswer({gatewayUrl,serviceToken,fetchImpl=fetch}){
  const endpoint=new URL(gatewayUrl);
@@ -21,7 +22,7 @@ export function createKnowledgeAnswer({gatewayUrl,serviceToken,fetchImpl=fetch})
   for(const candidate of candidates){if(selected.length===12)break;if(Buffer.byteLength(makeBody([...selected,candidate]))<=28_000)selected.push(candidate);}
   if(!selected.length)return {message:'I could not find readable supporting evidence in this website’s approved knowledge.',citations:[],kind:'no_evidence'};
   const normalize=value=>value.normalize('NFKC').replace(/\s+/g,' ').trim();
-  const deadline=Date.now()+40_000;let quotationHelp;
+  const deadline=Date.now()+MODEL_CLIENT_TIMEOUT_MS;let quotationHelp;
   for(let attempt=0;attempt<2;attempt++){
    let response;try{response=await fetchImpl(endpoint,{method:'POST',redirect:'error',signal:AbortSignal.timeout(Math.max(1,deadline-Date.now())),headers:{Authorization:`Bearer ${serviceToken}`,'Content-Type':'application/json'},body:makeBody(selected,quotationHelp)});
    }catch{throw new Error('Knowledge model unavailable');}

@@ -1,0 +1,9 @@
+# Optional explicit resource overlay for existing releases. Keep existing image,
+# model-volume and model-selection settings from the active Compose file chain.
+# The quota is shared across models; num_thread is supplied by inference callers.
+services:
+  ollama:
+    cpus: ${OLLAMA_CPU_LIMIT:-4.0}
+  backend:
+    environment:
+      OLLAMA_EFFICIENCY_THREADS: ${OLLAMA_EFFICIENCY_THREADS:-4}

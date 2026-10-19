@@ -1,4 +1,5 @@
 import { normalizeTheme, themeProperties } from './theme.mjs';
+import {WIDGET_REQUEST_TIMEOUT_MS} from './model-timeouts.mjs';
 import {encodeFile} from './files.mjs';
 import {createScreenCapture} from './screen-capture.mjs';
 import {mountTaskPanel} from './task-panel.mjs';
@@ -21,7 +22,7 @@ function call(type, extra = {}) {
   if (!parentOrigin) return Promise.reject(new Error('Host origin unavailable'));
   return actionFeedback.track(new Promise((resolve,reject) => {
     const id = crypto.randomUUID();
-    const timeout = setTimeout(() => { pending.delete(id); reject(new Error('Host did not respond')); }, 60_000);
+    const timeout = setTimeout(() => { pending.delete(id); reject(new Error('Host did not respond')); }, WIDGET_REQUEST_TIMEOUT_MS);
     pending.set(id, { resolve, reject, timeout });
     parent.postMessage({ channel: 'flolah-adoption-v1', id, type, ...extra }, parentOrigin);
   }));

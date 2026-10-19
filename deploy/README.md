@@ -9,15 +9,34 @@ The embeddings service defaults to a two-core Docker CPU quota via
 environment when capacity permits. Recreate only `embeddings` with the canonical
 VPS Compose overlays to apply it; no image rebuild or backend restart is needed.
 The quota bounds aggregate CPU usage, not CPU affinity or memory. Heavy embedding
-requests can take longer. Ollama separately defaults to `OLLAMA_CPU_LIMIT=2.0`.
+requests can take longer. Ollama separately defaults to `OLLAMA_CPU_LIMIT=4.0`
+and `OLLAMA_EFFICIENCY_THREADS=4` on the reference 8-vCPU VPS. Both local models
+share that aggregate CPU quota; inference threads are per request, not a Docker
+process/thread limit. Smaller hosts should override both settings together.
 
 Embedding inference retains its original threaded request processing and existing
 per-request model batching. Indexing/reindexing retains its original implementation;
 the proposed queue, worker and incremental-batching changes were withdrawn.
-Recreate Ollama to apply its CPU quota. The A2A result cache now expires after 15 minutes
+Persist resource changes in the deployment environment and Compose configuration.
+Recreate only Ollama to apply its CPU quota, or apply the same quota live with
+`docker update --cpus` after persisting it. Recreate only the backend when changing
+its thread environment, and update/reload the independent Digital Adoption gateway
+configuration when its checker uses Ollama. Retain the existing image versions,
+volumes, models and concurrency; resource-only settings require no image rebuild.
+Never treat an unpersisted live container edit as a completed deployment.
+Existing releases may append `docker-compose.ollama-resources.yml` to their
+existing, complete Compose file chain and run `up -d --no-deps --pull never
+backend ollama`. Do not replace that chain with a bare base file: doing so can
+lose unrelated image overrides or mounts. Validate rendered images, environment
+and volumes against the running containers first. The independent checker also
+requires `ollamaReasoning.threads=4` in its persistent gateway configuration and
+a scoped gateway restart; keep `ollamaReasoning.concurrency=1` for the single
+checker benchmark. CPU caps are not dedicated-core reservations or guarantees
+that all platform workloads can consume their limits simultaneously.
+The A2A result cache now expires after 15 minutes
 and is capped at 256 entries / 4 MiB serialized payload; durable task history is retained.
-Resource-bound changes require a backend rebuild. No functionality tests have been
-run for this change set; request focused validation before production deployment.
+Changes to application resource-control code require the usual image build and
+focused validation; environment-only tuning does not modify image contents.
 
 Production stack for Agent OS: **nginx**, **frontend**, **backend**, **OpenClaw gateway**, **OpenSearch** (+ Dashboards BFF), plus optional **init**, **MCP**, **OpenConnector**, **Ollama**, and **browser-login** services.
 

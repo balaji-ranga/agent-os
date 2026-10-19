@@ -15,7 +15,7 @@ function fixture({enabled=true,active='primary',verdicts=['accept'],values=['Exp
  const config={active,baseUrl:'https://maker.example/v1',model:'configured-maker',apiKey:'private-key',quality:{enabled},checker:missing?null:{slot:active==='primary'?'secondary':'primary',baseUrl:'https://checker.example/v1',model:'configured-checker',apiKey:'private-checker-key'}};
  const gateway=createPlatformGateway({serviceToken,resolveActive:async()=>config,complete:async request=>{
    calls.push(request);
-   if(request.config.slot){const decision=verdicts[Math.min(judge++,verdicts.length-1)];return {content:typeof decision==='string'?JSON.stringify({decision,feedback:decision==='accept'?'Supported by observed choices.':'Use the requested supported choice or clarify.'}):JSON.stringify(decision)};}
+   if(request.config.slot){const decision=verdicts[Math.min(judge++,verdicts.length-1)];return {content:typeof decision==='string'?JSON.stringify({decision,feedback:decision==='accept'?'Supported by observed choices.':'Use the requested supported choice or clarify.',checks:{taskMatch:decision==='accept'?'pass':'fail',grounding:'pass',safety:'pass'}}):JSON.stringify(decision)};}
    return {content:JSON.stringify(proposal(values[Math.min(maker++,values.length-1)]))};
  }});return {gateway,calls,config};
 }
@@ -68,19 +68,19 @@ test('global policy and inactive roles resolve fresh from persisted settings; lo
  }finally{db.close();}
 });
 test('Ollama reasoning transport requests native thinking/JSON and discards reasoning traces',async()=>{
- let sent;const signal=AbortSignal.timeout(1000),r=await completeProvider({config:{baseUrl:'http://ollama:11434/v1',model:'configured-reasoner',apiKey:'private',nativeOllama:true,threads:2},messages:[{role:'user',content:'Synthetic check'}],maxTokens:700,signal},async(url,init)=>{sent={url:String(url),...init,body:JSON.parse(init.body)};return {ok:true,json:async()=>({message:{content:'{"decision":"accept","feedback":"ok"}',thinking:'PRIVATE_REASONING_CANARY'},done:true,done_reason:'stop'})};});
+ let sent;const signal=AbortSignal.timeout(1000),r=await completeProvider({config:{baseUrl:'http://ollama:11434/v1',model:'configured-reasoner',apiKey:'private',nativeOllama:true,thinking:true,threads:2},messages:[{role:'user',content:'Synthetic check'}],maxTokens:700,signal},async(url,init)=>{if(url.pathname==='/api/show')return {ok:true,json:async()=>({capabilities:['completion','thinking']})};sent={url:String(url),...init,body:JSON.parse(init.body)};return {ok:true,json:async()=>({message:{content:'{"decision":"accept","feedback":"ok"}',thinking:'PRIVATE_REASONING_CANARY'},done:true,done_reason:'stop'})};});
  assert.equal(sent.url,'http://ollama:11434/api/chat');assert.equal(sent.body.think,true);assert.equal(sent.body.format,'json');assert.equal(sent.body.truncate,false);assert.equal(sent.signal,signal);assert.equal(JSON.stringify(r).includes('PRIVATE_REASONING_CANARY'),false);
 });
 
 test('knowledge answers also require checker review and rejected claims become insufficient',async()=>{
- for(const decision of ['accept','reject']){let calls=0;const f=fixture(),gateway=createPlatformGateway({serviceToken,resolveActive:async()=>f.config,complete:async({config})=>{calls++;return {content:JSON.stringify(config.slot?{decision,feedback:'The supplied passage does not support this claim.'}:{evidenceStatus:'supported',message:'Synthetic documented guidance.',citations:[{chunkId:'c1',quote:'Synthetic documented guidance.'}]})};}});
- const r=await call(gateway,{...body,purpose:'digital_adoption_knowledge'});assert.equal(calls,2);assert.equal(JSON.parse(r.content).evidenceStatus,decision==='accept'?'supported':'insufficient');if(decision==='reject')assert.deepEqual(JSON.parse(r.content).citations,[]);}
+ for(const decision of ['accept','reject']){let calls=0;const f=fixture(),gateway=createPlatformGateway({serviceToken,resolveActive:async()=>f.config,complete:async({config})=>{calls++;return {content:JSON.stringify(config.slot?{decision,feedback:'Synthetic evidence review.',checks:{taskMatch:'pass',grounding:decision==='accept'?'pass':'fail',safety:'pass'}}:{evidenceStatus:'supported',message:'Synthetic documented guidance.',citations:[{chunkId:'c1',quote:'Synthetic documented guidance.'}]})};}});
+ const r=await call(gateway,{...body,purpose:'digital_adoption_knowledge',messages:[{role:'user',content:JSON.stringify({question:'What is the synthetic guidance?',evidence:[{chunkId:'c1',text:'Synthetic documented guidance.'}]})}]});assert.equal(calls,2);assert.equal(JSON.parse(r.content).evidenceStatus,decision==='accept'?'supported':'insufficient');if(decision==='reject')assert.deepEqual(JSON.parse(r.content).citations,[]);}
 });
 test('checker failures surface a specific no-change message to the planner',async()=>{
  const planner=createPlatformPlanner({gatewayUrl:'https://platform.example/complete',serviceToken,fetchImpl:async()=>({ok:false,json:async()=>({code:'COPILOT_CHECKER_UNAVAILABLE'})})});await assert.rejects(()=>planner({text:'Set Shipping method to Express',snapshot}),e=>e.publicCode==='COPILOT_CHECKER_UNAVAILABLE');
 });
 test('local reasoning admission is bounded and releases its slot on completion',async()=>{
- let finish;const complete=createProviderCompletion({localConcurrency:1,fetchImpl:()=>new Promise(resolve=>{finish=()=>resolve({ok:true,json:async()=>({done:true,message:{content:'{}'}})});})});
+ let finish;const complete=createProviderCompletion({localConcurrency:1,fetchImpl:url=>url.pathname==='/api/show'?Promise.resolve({ok:true,json:async()=>({capabilities:['completion']})}):new Promise(resolve=>{finish=()=>resolve({ok:true,json:async()=>({done:true,message:{content:'{}'}})});})});
  const request={config:{baseUrl:'http://ollama:11434/v1',model:'configured',apiKey:'local',nativeOllama:true},messages:[],maxTokens:700};
- const first=complete(request);await assert.rejects(()=>complete(request),/capacity/);finish();await first;const next=complete(request);finish();await next;
+ const first=complete(request);await assert.rejects(()=>complete(request),e=>e.diagnosticCode==='LOCAL_CAPACITY');await new Promise(setImmediate);finish();await first;const next=complete(request);await new Promise(setImmediate);finish();await next;
 });

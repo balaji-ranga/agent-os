@@ -8,6 +8,7 @@ import {randomUUID} from 'node:crypto';
 import {attachLiveTransport} from './live-transport.mjs';
 
 const assets = new Map([
+  ['/model-timeouts.mjs', ['../web/model-timeouts.mjs', 'text/javascript']],
   ['/manage.css', ['../web/manage.css', 'text/css']],
   ['/manage-shell.mjs', ['../web/manage-shell.mjs', 'text/javascript']],
   ['/manage-pagination.mjs', ['../web/manage-pagination.mjs', 'text/javascript']],

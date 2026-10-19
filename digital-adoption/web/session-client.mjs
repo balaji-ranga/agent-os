@@ -1,5 +1,6 @@
 // Serialize renewal with requests so an in-flight request cannot use a token
 // invalidated by a concurrent renewal. Never retry a possibly effectful request.
+import {sessionRequestTimeoutMs} from './model-timeouts.mjs';
 export function createSessionClient({service,fetchImpl=fetch,clock=Date.now}) {
  let session=null,queue=Promise.resolve(),stopped=false,activeRead=null,analyticsAllowed=false;
  // Interrupt only requests that cannot submit host changes, upload content,
@@ -13,7 +14,7 @@ export function createSessionClient({service,fetchImpl=fetch,clock=Date.now}) {
   const controller=new AbortController(),read=interruptible.has(path)?{controller}:null;
   if(read)activeRead=read;
   try{
-  const send=()=>fetchImpl(new URL(path.replace(/^\/+/,''),service),{method:'POST',credentials:'omit',redirect:'error',signal:AbortSignal.any([controller.signal,AbortSignal.timeout(timeoutMs||(path==='/v1/sessions'?8000:55_000))]),
+  const send=()=>fetchImpl(new URL(path.replace(/^\/+/,''),service),{method:'POST',credentials:'omit',redirect:'error',signal:AbortSignal.any([controller.signal,AbortSignal.timeout(timeoutMs||sessionRequestTimeoutMs(path))]),
    headers:{'Content-Type':'application/json',...(!analyticsAllowed?{'X-Adoption-Analytics':'off'}:{}),...(session?{Authorization:`Bearer ${session.sessionToken}`}:{})},body:JSON.stringify(data)});
   let response;
   try{response=await send();}catch(error){

@@ -166,11 +166,41 @@ capability wording; no new backend scale claim is inferred. The JSON source is
 
 ## Copilot maker/checker capacity
 
+The 19 October reliability release preserves concurrency one while allowing an
+Admin-selected private registered checker. Native requests discover model
+capabilities and respect their supplied completion budget, without the old
+2,048-token floor. Compact review input preserves authorized task evidence and
+typed-control semantics; it does not silently truncate oversized facts. See
+`checker-model-live.mjs` for isolated same-case model measurements. Pure code
+guard outcomes are recorded separately from actual model calls; latency and
+accuracy results must not be extrapolated to concurrent production traffic.
+
+Admin → Models → Digital Adoption copilot review exposes the registered local
+deployment, model-supported thinking and an explicit 128–2,048 output-token
+budget. The budget includes local reasoning and defaults to 700 when absent;
+older valid configuration payloads preserve an explicitly saved budget. The
+model gateway reads these settings afresh for each request. Changing this checker
+does not rewrite general efficiency/reasoning deployments or provider keys.
+
+For a reproducible comparison, run `test/checker-model-live.mjs` inside the
+candidate image with the registered deployment IDs, a read-only platform volume
+and a private model network. `CHECKER_TOKEN_BUDGETS` accepts a JSON map of those
+IDs to explicit budgets; `CHECKER_TEST_TIMEOUT_MS` may not exceed 180,000. Keep
+these profiles in the evidence: a reasoning model given more output tokens is
+not an equal-token comparison. The harness uses a synthetic maker and cannot
+certify a complete live workflow or general model accuracy.
+
 The Admin review switch applies globally to new Digital Adoption model requests.
 Disabled mode adds no checker inference. Enabled mode makes one sequential
 checker call, with at most one maker revision and one final checker call. A
-shared 38-second gateway deadline and client cancellation bound the entire
-gateway operation; requests never fall back to unreviewed execution.
+shared 180-second gateway deadline and client cancellation bound the entire
+gateway operation; requests never fall back to unreviewed execution. This includes
+cold model loading and all bounded maker/checker revisions, not 180 seconds per
+attempt. The service client shares a 190-second budget across repairs; the widget
+waits up to 200 seconds; model-dependent session requests allow 195 seconds,
+while ordinary requests retain their 55-second budget. Scoped proxy budgets are 195 seconds (internal gateway)
+and 210 seconds (public service). A longer deadline does not increase model
+capacity, admission concurrency, CPU allocation or inference threads.
 
 The optional local reasoning checker uses the registered `ollama-reasoning`
 deployment, native JSON/thinking output and no hosted fallback. Its per-gateway
@@ -204,3 +234,13 @@ Task-specific expiry is not a new visitor control. Existing server task safety
 limits and independent pairing lifetime controls remain. Original upload objects
 are still encrypted on disk and removed on task cleanup. A coordinator restart
 loses task keys/authority and cannot recover access from the retained search text.
+
+## Reference VPS Ollama resource change (19 October 2026)
+The reference 8-vCPU VPS was changed on 19 October to a shared 4-CPU Ollama
+quota and explicit 4-thread efficiency/checker requests, with checker concurrency
+still one. The deployment environment, main Compose defaults and tracked resource
+overlay preserve the setting; both models share the CPU quota. No image contents,
+model selection, memory settings or review policy changed. The synthetic customer
+browser retest still failed closed at 180 seconds, despite approximately 396% CPU
+use and 9.3-second model startup. This resource change does not certify checker
+availability or resolve the outstanding provider/inference failure.

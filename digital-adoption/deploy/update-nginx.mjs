@@ -11,8 +11,12 @@ if(current.includes('location ^~ /free-tools/digital-adoption/')){
   if(/\bgzip\s+(on|off);/.test(updated))throw new Error('Review the existing adoption compression configuration before changing it');
   updated=updated.replace('client_max_body_size 23m;','client_max_body_size 23m;\n    # Public adoption assets only; application/json API bodies stay uncompressed.\n    gzip on;\n    gzip_min_length 1024;\n    gzip_vary on;\n    gzip_proxied any;\n    gzip_types text/javascript application/javascript text/css;');
  }
- if(updated!==block){copyFileSync(file,file+'.before-adoption-uploads');writeFileSync(file,current.replace(block,updated));}
- console.log('Independent service location verified; upload and public-asset compression settings remain scoped to this service');process.exit(0);
+ updated=updated.replace(/proxy_read_timeout\s+\d+s;/,'proxy_read_timeout 210s;');
+ const internal=current.match(/location = \/internal\/digital-adoption-model\s*\{[^}]+\}/g);
+ if(internal?.length!==1||!/proxy_read_timeout\s+\d+s;/.test(internal[0]))throw new Error('Expected one internal gateway timeout; refusing automatic edit');
+ const next=current.replace(block,updated).replace(internal[0],internal[0].replace(/proxy_read_timeout\s+\d+s;/,'proxy_read_timeout 195s;'));
+ if(next!==current){copyFileSync(file,file+'.before-adoption-uploads');writeFileSync(file,next);}
+ console.log('Independent service locations verified; upload, compression and model deadlines remain scoped to this service');process.exit(0);
 }
 const marker='server {\n    listen 443 ssl http2;\n    listen [::]:443 ssl http2;\n    server_name login.flolah.cloud;';
 if(current.split(marker).length!==2)throw new Error('Expected unique login HTTPS server; refusing automatic edit');
