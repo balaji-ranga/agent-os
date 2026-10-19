@@ -57,6 +57,16 @@ export const LEGACY_USER_GUIDE_TITLE = 'Flowlah User Guide';
 
 /** Logical help files under knowledgebase/platform-help/ (filename → doc title). */
 export const PLATFORM_HELP_DOCUMENTS = Object.freeze([
+  { filename: '56-okr-company-demo-seed-pack.md', title: `${PLATFORM_HELP_TITLE_PREFIX}OKR Company Demo Seed Pack` },
+  { filename: '57-event-productivity-pack.md', title: `${PLATFORM_HELP_TITLE_PREFIX}Event Productivity Pack` },
+  { filename: '58-marketing-operations.md', title: `${PLATFORM_HELP_TITLE_PREFIX}Marketing Operations` },
+  { filename: '59-company-email-channels.md', title: `${PLATFORM_HELP_TITLE_PREFIX}Company Email Channels` },
+  { filename: '60-risk-classifications.md', title: `${PLATFORM_HELP_TITLE_PREFIX}Risk Classifications` },
+  { filename: '62-copilot-coaching.md', title: `${PLATFORM_HELP_TITLE_PREFIX}Teach Copilot Private Screen Recipes` },
+  { filename: '63-copilot-platform-map.md', title: `${PLATFORM_HELP_TITLE_PREFIX}Copilot Platform And Learned Screen Maps` },
+  { filename: '64-digital-adoption-websites.md', title: `${PLATFORM_HELP_TITLE_PREFIX}Digital Adoption Website Management And Visitor Tasks` },
+  { filename: '65-copilot-workflow-connectors.md', title: `${PLATFORM_HELP_TITLE_PREFIX}Copilot Workflow Connectors Persistent Target Groups And Authorization` },
+
   { filename: '61-platform-help-ui-copilot.md', title: `${PLATFORM_HELP_TITLE_PREFIX}UI Copilot Forms Drafts And Connector Guidance` },
   { filename: 'README.md', title: `${PLATFORM_HELP_TITLE_PREFIX}Index` },
   { filename: '01-getting-started.md', title: `${PLATFORM_HELP_TITLE_PREFIX}Getting Started` },

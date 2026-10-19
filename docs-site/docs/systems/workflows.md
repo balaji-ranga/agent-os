@@ -51,3 +51,7 @@ Optional **input JSON Schema** on the Trigger validates Run / webhook / A2A payl
 ## Maker / Checker certify
 
 Some packs ship Maker and Checker graphs (for example `run crm maker checker`). High-risk steps can pause for **CEO approval** on Kanban. See [Maker and Checker](../operate/maker-checker.md).
+
+## Website copilot targets
+
+A Connector node can send governed instructions to authorized Digital Adoption website panels. A saved target group persists across runs; individual panels are authorized separately, and peer pairing is optional. See [Website copilot workflow connectors](./copilot-workflows.md) for linking, website selection, approvals and save verification.

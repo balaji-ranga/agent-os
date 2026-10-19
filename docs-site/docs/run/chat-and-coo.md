@@ -42,3 +42,7 @@ Configure **Channels** on the employee. Replies start with the employee name.
 ## Platform Help
 
 For how-to, switch to **Platform Help**. It answers from product docs first. It may suggest the COO or Workflow Builder for live data or graph edits, but it should not bounce you with only “talk to X”.
+
+## Platform Help and website copilots
+
+Use the floating [Platform Help copilot](./platform-help-copilot.md) for product help, reviewed field assistance, coaching and screen maps. Workflow Builder changes workflow graphs. [Digital Adoption website copilots](../systems/digital-adoption.md) are separate visitor-facing panels and can receive governed [workflow connector instructions](../systems/copilot-workflows.md).

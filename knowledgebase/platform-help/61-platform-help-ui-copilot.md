@@ -2,7 +2,7 @@
 
 Open the floating **Platform Help** button, or the Immersive top-bar Platform Help button. COO remains available through the existing agent chat and organization pages.
 
-Choose **Guided**, **Autofill**, or **Hybrid**. Describe what you want to configure without entering passwords or tokens. Review the proposed actions. **Open / apply fields** opens the registered form, then presents a before/after review. **Confirm field changes** fills it; it does not save production configuration. Review the real form and use its normal **Save** button. Existing server validation and permissions remain authoritative.
+Open **Copilot options** (⋯) and choose **Guide me step by step**, **Prepare fields for my review**, or **Prepare setup and guide me**. Describe what you want to configure without entering passwords or tokens. Review the proposed actions. **Review setup** opens the registered form, then presents a before/after review. **Approve and apply fields** (or **Approve and fill next field**) fills it; it does not save production configuration. Review the real form and use its normal **Save** button. Existing server validation and permissions remain authoritative.
 
 ## Registered forms
 
@@ -36,3 +36,7 @@ Explicit navigation requests run a bounded open–inspect–continue journey thr
 Platform Help has an icon launcher. Guided mode combines instructions, questions in chat, highlighting and reviewed field filling. Autofill prepares a batch for review. Both use registered or source-defined field contracts. DOM fills require approval and preserve newer user edits. Embedded CRM/ERP uses a scoped bridge; values can save immediately, and the review warns before applying. Credentials, permission grants and final submissions remain manual. A filled field is not proof of a saved record.
 
 After an approved fill, Copilot retains a browser-reported field-entry receipt in the current assistance session. This helps follow-up questions distinguish values already entered from missing inputs. Receipts are checked against the server's reviewed proposal and current screen permissions; they are not proof of saving or a replacement for checking the actual application. Navigating away can discard unsaved fields. Registered saved drafts can be restored separately; generic field-entry receipts do not restore a form. Cancelling assistance clears the receipts along with its drafts.
+
+## Website workflow targets are a separate feature
+
+Platform Help prepares reviewed Flolah UI changes; it does not run a server-to-visitor workflow connector. Digital Adoption website copilots can be authorized as targets of a persistent workflow group. **Link this copilot** authorizes one panel for the signed-in runner; it does not require peer pairing or a new group for every run. See **64 Digital Adoption websites** and **65 Copilot workflow connectors**. Do not describe a group ID alone as authority over all visitors on a domain.

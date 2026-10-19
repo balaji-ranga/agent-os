@@ -1,4 +1,5 @@
 import { knowledgeScope } from './knowledge-scope.mjs';
+import { createPrivateTaskSearch } from './private-task-search.mjs';
 
 // URL and authorization are trusted deployment configuration, never client input.
 export function createOpenSearch({ url, authorization, fetchImpl = fetch, development = false, privateNetwork = false }) {
@@ -11,12 +12,13 @@ export function createOpenSearch({ url, authorization, fetchImpl = fetch, develo
       headers:{'Content-Type':ndjson?'application/x-ndjson':'application/json',...(authorization?{Authorization:authorization}:{})},
       ...(body===undefined?{}:{body:ndjson?body:JSON.stringify(body)})});
     result=await response.json();}catch{throw new Error('Search operation failed');}
-    if (!response.ok || result.errors || result._shards?.failed>0 || result.timed_out || result.failures?.length) throw new Error('Search operation failed');
+    if (!response.ok || result.errors || result._shards?.failed>0 || result.timed_out || result.failures?.length) throw Object.assign(new Error('Search operation failed'), { statusCode: response.status });
     return result;
   }
   const indexFor=embeddingId=>knowledgeScope({embeddingId,audienceIds:['public']}).index;
   const lexicalText=()=>({type:'text',fields:{english:{type:'text',analyzer:'english'}}});
   return {
+    privateTasks: createPrivateTaskSearch({ request }),
     async provision(embeddingId) {
       const index=indexFor(embeddingId);
       const exists=await fetchImpl(new URL(`/${index}`,base),{method:'HEAD',redirect:'error',signal:AbortSignal.timeout(15_000),headers:authorization?{Authorization:authorization}:{}});

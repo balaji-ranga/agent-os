@@ -39,6 +39,7 @@ const sidebars = {
       items: [
         'run/navigation',
         'run/chat-and-coo',
+        'run/platform-help-copilot',
         'run/kanban-standups',
         'run/notifications-digest',
         'run/objectives-key-results',
@@ -52,6 +53,8 @@ const sidebars = {
       label: '4. Tools and systems',
       items: [
         'systems/workflows',
+        'systems/copilot-workflows',
+        'systems/digital-adoption',
         'systems/connectors-and-mcp',
         'systems/company-email-channels',
         'systems/mcp-universe',

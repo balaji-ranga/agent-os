@@ -41,3 +41,9 @@ npm run build:blog
 ```
 
 Output: `docs-site/build/` copied to `deploy/static/flolah-home/docs/`, and `docs-site/build-blog/` copied to `deploy/static/flolah-home/blog/`.
+
+## Copilot guides and publication
+
+The public guide now includes [Platform Help](./docs/run/platform-help-copilot.md), [Digital Adoption websites](./docs/systems/digital-adoption.md) and [website copilot workflow connectors](./docs/systems/copilot-workflows.md). The workflow guide distinguishes a saved target-group ID, one-use link-code expiry, group lifetime, optional peer pairing, Action Policies and native Save verification. Curated in-app counterparts are `61`–`65` under `knowledgebase/platform-help/`.
+
+Validate the help catalog with `node backend/scripts/check-platform-help-corpus.mjs`, scan public content with `node backend/scripts/scan-public-docs-sensitive.js`, then build this site. Both the public guide sources and curated corpus must ship in the backend image and be reindexed for Platform Help to retrieve the changes. Generated public output remains ignored; source and lockfiles are authoritative. Use the documentation-only release procedure in `deploy/README.md` when no application-code rollout is needed.

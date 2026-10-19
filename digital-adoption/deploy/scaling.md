@@ -13,9 +13,16 @@ limits remain a hard ceiling. Owners may lower per-registration limits.
 Anonymous pairing is not a physical-browser fingerprint.
 
 Shared and private extraction alternate through a combined parser broker under
-the same configured worker ceiling. Private leases and plaintext stay ephemeral;
-shared-help jobs retain their durable recovery behavior. A private task cannot
-resume after coordinator restart. Browser commands are deduplicated per captured
+the same configured worker ceiling. Private leases and authorization stay ephemeral;
+shared-help jobs retain their durable recovery behavior. Production extracted
+passages are stored in separate hourly private-search indexes with 24-hour ISM
+retention, not retained as full in-memory documents. Up to eight 1,800-character
+passages are loaded per request. Partial context, task history and provider request
+buffers still consume RAM. Raw upload, parser and request limits still apply.
+Hourly indexes add roughly 24 small primary shards after steady-state cleanup;
+that count is independent of website count. Measure OpenSearch heap/disk costs,
+not just coordinator RSS. ISM delays can temporarily increase the shard count.
+A private task cannot resume after coordinator restart. Browser commands are deduplicated per captured
 recipient, and a possibly dispatched write with no proof returns unknown outcome.
 Failed copilot workflow steps bypass automatic exception-policy replay and cannot
 be turned into successful default timeout output.
@@ -174,3 +181,26 @@ preparation preserves an existing custom concurrency value. Additional gateway
 replicas multiply this local admission budget and must be sized against the
 shared inference host. These bounds do not demonstrate 25 concurrent reasoning
 checks or sustained model latency; benchmark the selected models before sizing.
+
+## Private transaction search retention (19 October 2026)
+
+Production startup verifies `adoption-private-task-24h-v1` and binds hourly indexes
+under `adoption-private-tasks-v1-*`. A missing ISM plugin, denied policy permissions
+or conflicting policy fails startup; private indexing failures stay failed and
+do not fall back to a website help index or memory. Policy provisioning requires
+ISM policy/read/add/explain privileges as well as index/bulk/search access to this
+private prefix. Keep service credentials on the server. Shared website index
+names and policies are unchanged. No additional database or worker is required.
+
+The policy deletes whole indexes after 24 hours of index age. A later passage can
+therefore be deleted before 24 hours of its own age. ISM runs periodically and
+failures delay physical deletion. Application task authorization is revoked
+immediately at End task; document `expires_at` is a secondary read cutoff, not a
+native document TTL. Monitor managed-index failures and disk watermarks. Do not
+include the private prefix in snapshots/exports; external backups have their own
+retention and are not erased by End task.
+
+Task-specific expiry is not a new visitor control. Existing server task safety
+limits and independent pairing lifetime controls remain. Original upload objects
+are still encrypted on disk and removed on task cleanup. A coordinator restart
+loses task keys/authority and cannot recover access from the retained search text.

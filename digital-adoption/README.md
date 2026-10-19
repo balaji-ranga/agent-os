@@ -1,5 +1,14 @@
 # Digital Adoption Copilot
 
+19 October 2026: private transaction passages now use separate 24-hour ISM-managed
+OpenSearch indexes on runtime **20261019-private-retention-d**. End task clears
+browser context and server access immediately; physical search deletion follows
+retention. [Incremental evidence](test/evidence/private-retention-20261019/index.html)
+records 273 passing service tests, real search isolation and local/public browser
+checks. The enabled Ollama-checker summary timed out at 90 seconds; the elapsed
+24-hour physical-deletion observation remains pending. Prior release evidence
+below retains its original scope and dates.
+
 Latest deployment (18 October 2026): independent runtime **20261018-owner-workspace-c**, platform **adoption-20261018-maker-checker-c** (unchanged), source/evidence publication **20261018-owner-workspace-d**. Owner and account management now use a persistent website selector and seven focused tabs. Searchable bounded pages replace silent list caps; workflow editors and map details render on demand.
 
 All **260** service checks pass locally and in the final VPS image. **10** isolated browser cases and **6** analytics/pairing scenarios pass. The one-CPU/1-GiB VPS fixture served **500 requests from 25 concurrent clients across 25 websites**, with zero errors and **115.84 ms p95**. This measures management HTTP/SQLite with synthetic authentication, not external platform authentication, LLM capacity or WAN latency. The [workspace testcase table and screenshots](test/evidence/owner-workspace-20261018/index.html) distinguish live administrator checks, isolated owner checks and the expired live email-owner session. Full Phase 1/2 device certification remains outside this incremental result.
@@ -22,13 +31,17 @@ prepare current fields, pair panels with bilateral confirmation, share selected
 passages and end the task. Actions remains owner-only. A normal field review
 never submits a form; Save has its own reviewed activation.
 
-Files are encrypted per task. Keys, parsed passages, task chat, reviews and
-results stay in bounded memory, outside SQLite, shared indexes and checkpoints.
-Ending/expiring a task or restarting its coordinator revokes access and deletes
-its objects. Ending a task clears both conversation panels; previously applied
-host values and saved business records remain host data. Model provider retention
-is governed separately by the configured provider; application deletion does not
-claim to erase provider retention.
+Original files are encrypted per task. Task keys, chat, reviews and results stay
+in bounded memory outside SQLite/checkpoints. Extracted passages use separate
+private OpenSearch hourly indexes governed by 24-hour ISM retention. End task
+clears both panels and revokes server access immediately; it does not wait for
+search deletion. Removing a file also blocks its retained passages immediately.
+Original encrypted objects are queued for deletion. Temporary passages remain
+until index retention cleanup; ISM is periodic and not an exact erasure deadline.
+Coordinator restart ends task authority even if search passages survive. Already
+applied host values and saved business records remain host data. Provider-side
+retention is independent. Local development harnesses without OpenSearch retain
+the bounded memory adapter; production always requires private search storage.
 
 The Flolah workflow editor exposes **Digital Adoption Copilot** as a connector.
 Explicitly link authorized browser targets to your signed-in Flolah user, choose registrations

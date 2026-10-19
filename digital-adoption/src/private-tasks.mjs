@@ -65,8 +65,9 @@ function validateFile({
   };
 }
 
-// Private plaintext, task keys, reviews, messages and results never enter the
-// repository. Disk contains AES-GCM ciphertext only; a restart destroys keys.
+// Task authority, keys, reviews, messages and results never enter the repository.
+// Production passages use a separate 24h search store; raw disk objects remain
+// AES-GCM ciphertext. A restart destroys task authority, not indexed passages.
 export async function createPrivateTasks({
   root,
   website,
@@ -78,7 +79,8 @@ export async function createPrivateTasks({
   limits = {},
   authorizeEffect = async () => false,
   observe = () => {},
-  pairingState = new Map()
+  pairingState = new Map(),
+  passageStore
 }) {
   const config = {
     ...defaults,
@@ -200,6 +202,12 @@ export async function createPrivateTasks({
   const context = (t, query, instanceId) => {
     const grant = t.grants?.get(instanceId);
     if (Array.isArray(grant)) return structuredClone(grant);
+    if (passageStore) {
+      const revision=t.contentRevision||0;
+      return passageStore.search({ownerId:t.owner,taskId:t.id,query,
+        files:[...t.files.values()].filter(f=>f.status==='ready'&&f.uploaderId===instanceId).map(({id,embeddingId,uploaderId,attemptId})=>({id,embeddingId,uploaderId,attemptId}))})
+        .then(evidence=>{if(tasks.get(t.id)!==t)reject('TASK_ENDED');if((t.contentRevision||0)!==revision)reject('TASK_CHANGED');return evidence;});
+    }
     const terms = new Set(String(query).toLowerCase().match(/[a-z0-9]{3,}/g) || []);
     return [...t.files.values()].filter(f => f.status === 'ready' && f.uploaderId === instanceId).flatMap(f => f.sections.map((s, n) => ({
       attachmentId: f.id,
@@ -414,6 +422,7 @@ export async function createPrivateTasks({
       if (!f || f.uploaderId !== input.instanceId) reject();
       discard(f);
       t.files.delete(f.id);
+      t.contentRevision=(t.contentRevision||0)+1;
       t.reviews.clear();
       t.history = [];
       for (const [id, grant] of t.grants) if (Array.isArray(grant)) t.grants.set(id, grant.filter(e => e.attachmentId !== f.id));
@@ -428,7 +437,9 @@ export async function createPrivateTasks({
       if (typeof input.text !== 'string' || !input.text.trim() || input.text.length > 8000) reject('INVALID_TASK');
       if(readOnlyIntent(input.text)){const result=await service.summary(scope,input,taskEvidence);return {...result,actions:[],privateTaskId:t.id};}
       const snapshot = validateSnapshot(input.snapshot),
-        evidence = [...context(t, input.text, input.instanceId), ...taskEvidence].slice(0, 8);
+        evidence = [...await context(t, input.text, input.instanceId), ...taskEvidence].slice(0, 8);
+      taskFor(scope,t.id,input.instanceId);
+      const contentRevision=t.contentRevision||0;
       if ([...t.files.values()].some(f => f.uploaderId === input.instanceId && ['queued', 'extracting', 'storing'].includes(f.status))) reject('EXTRACTION_PENDING');
       const response = await planner({
         text: input.text,
@@ -442,6 +453,7 @@ export async function createPrivateTasks({
         }
       });
       taskFor(scope, t.id, input.instanceId);
+      if((t.contentRevision||0)!==contentRevision)reject('TASK_CHANGED');
       const allowed = response.actions.every(a => a.type !== 'fill' || groundedValue(a.value,snapshot.fields.find(f=>f.ref===a.ref),[input.text,...evidence.map(e=>e.text)]));
       const checked = allowed ? response : {
         message: 'A proposed value lacked supporting task or document evidence. Clarify the missing values.',
@@ -477,7 +489,9 @@ export async function createPrivateTasks({
     async summary(scope, input, taskEvidence = []) {
       const t = taskFor(scope, input.taskId, input.instanceId);
       touch(t);
-      const evidence = [...context(t, input.text || '', input.instanceId),...taskEvidence].slice(0,8);
+      const evidence = [...await context(t, input.text || '', input.instanceId),...taskEvidence].slice(0,8);
+      taskFor(scope,t.id,input.instanceId);
+      const contentRevision=t.contentRevision||0;
       if (answer && evidence.length) {
         const out = await answer({
           text: input.text || 'Summarize the transaction details relevant to completing the requested form.',
@@ -488,6 +502,7 @@ export async function createPrivateTasks({
           }))
         });
         taskFor(scope, t.id, input.instanceId);
+        if((t.contentRevision||0)!==contentRevision)reject('TASK_CHANGED');
         return {
           ...out,
           taskId: t.id,
@@ -504,7 +519,7 @@ export async function createPrivateTasks({
           title: e.filename,
           revision: 'private-task'
         })),
-        message: 'Supporting passages from your private task files. Files are deleted when you end the task.'
+        message: passageStore ? 'Supporting passages from your private task files. End task immediately removes access; temporary indexed passages await the 24-hour retention policy.' : 'Supporting passages from your private task files. Files are deleted when you end the task.'
       };
     },
     approve(scope, input) {
@@ -860,8 +875,14 @@ export async function createPrivateTasks({
         t = taskFor(scope, input.taskId, i.id);
       if (!validGroup(g) || !g.members.has(target?.id) || !(g.pairings||[]).some(edge=>edge.includes(i.participantId)&&edge.includes(target.participantId)) || !live(target) || enabled(scope,'pairing').organizationId!==i.owner || enabled(target.scope, 'pairing').organizationId !== i.owner || input.shareConsent !== true) reject('HANDOFF_DENIED');
       if([...tasks.values()].some(other=>other.id!==t.id&&other.members.has(target.id)))reject('TASK_CONFLICT');
+      const deliver = evidence => {
+      taskFor(scope,t.id,i.id);
+      if(!validGroup(g)||groups.get(g.id)!==g||!g.members.has(target.id)||!live(target)||
+        !(g.pairings||[]).some(edge=>edge.includes(i.participantId)&&edge.includes(target.participantId))||
+        enabled(scope,'pairing').organizationId!==i.owner||enabled(target.scope,'pairing').organizationId!==i.owner)reject('HANDOFF_DENIED');
+      if([...tasks.values()].some(other=>other.id!==t.id&&other.members.has(target.id)))reject('TASK_CONFLICT');
       t.members.add(target.id);
-      t.grants.set(target.id, context(t, input.instruction || '', i.id));
+      t.grants.set(target.id, evidence);
       send(target, {
         type: 'task-shared',
         taskId: t.id,
@@ -873,6 +894,9 @@ export async function createPrivateTasks({
         shared: true,
         taskId: t.id,context:t.grants.get(target.id)
       };
+      };
+      const evidence=context(t,input.instruction||'',i.id);
+      return evidence instanceof Promise?evidence.then(deliver):deliver(evidence);
     },
     commandStatus(userId, id) {
       const c = commands.get(id);
@@ -1107,12 +1131,20 @@ export async function createPrivateTasks({
         reused: true
       };
       if (!Array.isArray(result?.sections) || !result.sections.length || result.sections.length > 300 || Buffer.byteLength(JSON.stringify(result.sections)) > 250000 || result.sections.some(s => typeof s.text !== 'string' || typeof s.locator !== 'string' || s.locator.length > 300)) reject('INVALID_EXTRACTION');
-      f.sections = structuredClone(result.sections);
+      const ready = () => {
+      service.own(claim);
+      f.sections = passageStore ? [] : structuredClone(result.sections);
       f.status = 'ready';
       return {
         id: f.id,
         status: 'ready'
       };
+      };
+      if(passageStore){
+        const {t}=service.own(claim);
+        return passageStore.index({ownerId:t.owner,taskId:t.id,file:{...f},sections:result.sections}).then(ready);
+      }
+      return ready();
     },
     heartbeatClaim(claim) {
       const {
@@ -1193,6 +1225,8 @@ export async function createPrivateTasks({
         commandCounts: Object.fromEntries(['dispatched', 'succeeded', 'failed'].map(status => [status, [...commands.values()].filter(c => c.status === status).length])),
         fanoutFailures: [...commands.values()].reduce((sum, c) => sum + c.recipients.filter(r => r.status === 'failed' || r.status === 'expired').length, 0),
         privateBytes: files.reduce((n, f) => n + f.bytes, 0),
+        privatePassageStorage: passageStore ? 'temporary_opensearch' : 'memory_harness',
+        retainedExtractionBytes: files.reduce((n,f)=>n+(f.sections||[]).reduce((size,s)=>size+Buffer.byteLength(s.text),0),0),
         cleanupBacklog: cleanup.size
       };
     },

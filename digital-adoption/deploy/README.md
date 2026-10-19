@@ -72,7 +72,14 @@ Private files use `/data/private-objects/*.enc`; task keys are never written to
 configuration or SQLite. Startup sweeps orphan ciphertext, and task termination
 retries physical cleanup. Workers use tmpfs scratch. Coordinator restart fails
 private deliveries and does not resurrect tasks. Database/config checkpoints
-cannot recover private task plaintext or keys. Provider-side processing follows
+cannot recover private task authority or keys. Extracted passages now use
+`adoption-private-tasks-v1-*` hourly OpenSearch indexes under the verified 24-hour
+ISM policy; retained text survives task ending but cannot be retrieved through
+an inactive task. End task does not synchronously delete indexed passages. ISM
+operates periodically on index age. Exclude this prefix from search snapshots
+and exports; application checkpoint retention does not manage search indexes.
+See `scaling.md` for privileges, monitoring and the physical-cleanup timing.
+Provider-side processing follows
 the configured provider's actual retention policy; no zero-retention guarantee
 is implied by the application's task deletion.
 
@@ -359,3 +366,22 @@ The final platform C update only improves the admin registration table layout; t
 The existing Dockerfile copies all management CSS/modules through `COPY web`, so no extra build/runtime dependency is needed. Management CSP permits same-origin CSS; authenticated HTML and API responses remain uncached. Deployment retains consistent data/config checkpoints under the existing seven-day automatic expiry policy. No new backup mechanism is added by this UI release.
 
 The final fixture benchmark runs in `flolah-digital-adoption:20261018-owner-workspace-c` with `--cpus 1 --memory 1g`, no production data mount, 25 synthetic owners/websites and 25 HTTP clients. Results do not establish model, parsing or external authentication throughput. Current production parser replica count remains two.
+
+## Scoped private-retention rollout
+
+The normal installer builds the current source, including private search startup
+provisioning. For a scoped update, `private-retention.Dockerfile` inherits the
+captured live image and replaces only retention-related modules. The release
+helper `private-retention-release.py prepare RELEASE_DIRECTORY` three-way merges
+those modules using `_base/` Git copies, runs isolated regressions and real-search
+synthetic acceptance, and captures the live container identity. `activate` refuses
+a changed container, retains a database checkpoint and recreates only the
+coordinator with a health-checked rollback. Model settings, gateway and parser
+workers stay unchanged. Search policies/indexes are additive and are not erased
+by image rollback; they continue retention cleanup.
+
+Release 20261019-private-retention-d uses the existing private search connection
+and 24-hour policy. Full service regressions: 273 passed. Real OpenSearch cases:
+7 passed. Scoped browser cases: 5 passed. The earlier 90-second checked-summary
+timeout is retained as failed evidence, and elapsed retention deletion is pending.
+See `test/evidence/private-retention-20261019/index.html`.

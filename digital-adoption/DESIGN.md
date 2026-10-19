@@ -174,31 +174,44 @@ and End task control. Losing one recipient fails its step; the task may remain
 active in another authorized participating tab. Losing all participating
 connections ends the task. Reconnection never resumes a failed workflow step.
 
-Private task history, extracted text, derived values and private reviews reside
-in a bounded ephemeral store. Original upload objects are encrypted with a
-task-specific key held outside durable SQLite/config checkpoints. Parser scratch
-files use the isolated workers' temporary memory filesystem. Avoid creating an
-OpenSearch source/index for a transaction attachment.
+The 19 October 2026 retention decision supersedes the original memory-only
+passage design. Task history, derived values, keys and private reviews remain
+bounded and ephemeral. Extracted document passages use a separate private
+OpenSearch namespace with hourly indexes and a 24-hour ISM deletion policy.
+They never enter website help indexes or SQLite. Search requires a currently
+active task and authorized file/uploader/website/owner/attempt scope; OpenSearch
+hits never confer membership or permission. Context is checked again after
+asynchronous retrieval and model calls. Removing a file invalidates in-flight
+context; late extraction cannot make an ended task ready.
 
-Terminal task completion, cancellation, unrecoverable task failure, expiry or
-identity termination immediately revokes access and destroys the task key and
-private context. Cleanup removes raw ciphertext and scratch objects; failed
-physical cleanup is tracked with content-free metadata and retried. A user may
-also remove one attachment earlier. New tasks cannot revive an ended task or
-recover its files through an idempotent retry.
-All participating panels clear private task messages, file previews and pending
-reviews at termination. Values the user already applied to the host form or
-saved in a business record remain host data; ending the task does not undo them.
+**End task is an access/lifecycle action, not a retention timer.** It clears the
+browser task history, files, previews and reviews, revokes server task access,
+cancels remaining task work, releases server context and destroys the key for
+original encrypted upload objects. Original ciphertext cleanup remains retried.
+There is no visitor task-expiry selector. Existing bounded server idle/lifetime
+safety limits remain independent of the 24-hour search retention policy.
 
-Coordinator restart ends ephemeral tasks and fails their unfinished workflow
-deliveries. It does not resurrect old private data from application checkpoints.
-The implementation must verify deletion and ciphertext-only checkpoint behavior;
-ordinary live-row deletion alone cannot establish this privacy property.
+End task and Remove file do not synchronously delete indexed passages. They
+become inaccessible through the copilot immediately; ISM deletes the containing
+hourly index after it reaches 24 hours of age. Individual passages also carry an
+absolute 24-hour search cutoff. Index age starts at creation, so passages added
+later can be physically deleted earlier; ISM scheduling/cluster failures can
+delay physical deletion. This is a nominal retention policy, not a promise of
+exact erasure 24 hours after upload. Monitor ISM status and cluster disk pressure.
 
-Application deletion covers Flolah-controlled task stores. It does not undo
-authorized business records already saved in a host website or claim to erase
-an upstream model provider's independent retention. Provider processing must be
-documented consistently with the deployment's actual retention controls.
+Original upload objects remain AES-GCM encrypted with task-specific keys outside
+durable SQLite/config checkpoints. Workers use tmpfs scratch. The temporary
+search store necessarily contains searchable plaintext and must use private
+network access and restricted service credentials; deployment storage encryption
+is separate. Exclude its prefix from any future search snapshots/exports.
+Application checkpoints do not include these indexes. Normal task history,
+workflow results and derived values must not be added to the temporary index.
+
+Coordinator restart ends active tasks and fails unfinished deliveries. Surviving
+indexed passages cannot restore task authorization, resume old tasks or replay
+commands. Saved pairing/workflow group authority has its separate lifetime.
+Already applied host values and saved business records remain host data.
+Model providers retain their independent processing/retention policies.
 
 ## 7. Private data through workflows
 

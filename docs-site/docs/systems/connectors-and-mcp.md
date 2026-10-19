@@ -71,3 +71,7 @@ Do not paste client secrets into chat. Rotate keys in Connectors or API Keys.
 - Live catalog: [openconnector.dev/#connectors](https://openconnector.dev/#connectors)
 - [Workflows](./workflows.md)
 - [API keys](../setup/api-keys.md)
+
+## Website copilots as workflow targets
+
+The Digital Adoption Copilot connector targets explicitly authorized browser panels, using a saved workflow target group and website selection. It does not authorize every visitor on an owned domain. See [Copilot workflow connectors](./copilot-workflows.md).

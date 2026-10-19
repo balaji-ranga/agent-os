@@ -359,3 +359,7 @@ Stop listen from run UI when needed.
 5. **MCP tool → Brain:** Brain `userMessage` from MCP `text` or `result`.
 6. **Connector → Brain:** Brain summarizes `{{connector-1.text}}` after a GitHub/Gmail action.
 8. **Create from English:** “build a workflow that will …” always produces a graph. Workflow Builder sends the **full node catalog**, employee roles, tools, MCP, and connectors to the model and lets it choose nodes from those descriptions. It does not keyword-match employee names (so “reviews” is not ERP/CRM Checker).
+
+## Digital Adoption Copilot connector
+
+Use the Connector node with app Digital Adoption Copilot. Actions include Inspect, Summarize, Prepare, Navigate, Fill, Submit, Status and Cancel. The saved target group persists across runs; only its authorized online panels on selected websites receive a command. It is not a broadcast to all website visitors and does not depend on peer pairing. See [Copilot workflow connectors](./65-copilot-workflow-connectors.md) for policy gates and native Save bindings.

@@ -910,3 +910,25 @@ See [CONTENT_DOWNLOADS_AND_STEERING.md](CONTENT_DOWNLOADS_AND_STEERING.md) for
 generic file downloads, mandatory private ClamAV, chat formatting and checkpoint
 steering setup, testing and deployment. Canonical VPS Compose includes the
 content-antivirus overlay; download attachments fail closed without it.
+
+## Documentation-only Platform Help release
+
+Recent copilot documentation covers signed-in Platform Help field review/coaching/maps, Digital Adoption's seven-tab owner workspace and the workflow Copilot connector. A saved workflow group is reusable configuration. **Link this copilot** exchanges a short-lived one-use code for authorization of a particular panel; that code's expiry is separate from the visitor-selected group lifetime. Workflow delivery does not require peer pairing. Website response maker/checker settings do not make the separate Platform Help UI autonomous.
+
+From the reviewed checkout, run:
+
+```sh
+node backend/scripts/check-platform-help-corpus.mjs
+node backend/scripts/scan-public-docs-sensitive.js
+npm --prefix docs-site ci --ignore-scripts
+npm --prefix docs-site run build
+python deploy/scripts/platform-help-release.py package UNIQUE_REVISION --base-ref COMMIT_BEFORE_DOC_EDITS
+```
+
+Extract the resulting `digital-adoption/.local/platform-help-UNIQUE_REVISION.tar.gz` into a new directory under the VPS deployment root's `releases/`. Run the included `platform-help-release.py prepare RELEASE_DIRECTORY` and inspect its build output before `activate RELEASE_DIRECTORY`. `--root` supports a different deployment root; the extracted directory must be directly under its releases directory. Unique revisions and exclusive archive creation prevent silently replacing an earlier candidate.
+
+Preparation captures the running backend and existing corpus, merges reviewed documentation/catalog changes against their Git bases, scans public sources, builds a documentation-only backend overlay and builds the public guide. Genuine overlapping edits stop preparation. A pure appended section preserves the entire deployed document. Activation checks the captured backend/source state, retains prior public/source files, recreates only backend with the existing Compose configuration, waits for health, updates the existing public-docs bind-mount directory in place, reloads the proxy, then reindexes and verifies eight copilot guides plus actual platform-scoped retrieval. Other application code, frontend, independent Digital Adoption service, parser worker count, policies, secrets and model configuration remain unchanged. Full backend builds also validate the help catalog, and copilot-specific backend builds copy the public guide corpus.
+
+Rollback restores the prior image and public/source files. Search upserts are not transactional with the container rollout; if indexing partially succeeded before failure, review the platform corpus and reindex the restored release. Do not purge documents automatically. New Markdown help files are auto-discovered at ingestion; explicit entries give the current guides friendly titles without changing their stable filename-based document identities.
+
+`node scripts/verify-copilot-help.mjs` inside the deployed backend validates five curated and three public copilot documents against shipped hashes and confirms the persistent-group/authorization guidance is retrievable. It reads only Platform Help and does not call a model, inspect customer documents or run a workflow.

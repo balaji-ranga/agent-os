@@ -1,0 +1,32 @@
+{
+  "at": "2026-10-19T08:04:36.629Z",
+  "results": [
+    {
+      "id": "LOCAL_RETENTION_NOTICE",
+      "status": "passed",
+      "screenshot": "local-notice.png"
+    },
+    {
+      "id": "VISITOR_UPLOAD_READY",
+      "status": "passed",
+      "screenshot": "local-upload-ready.png"
+    },
+    {
+      "id": "SUMMARY_REQUEST_STARTED_FOR_CANCELLATION",
+      "status": "passed",
+      "screenshot": "local-summary-pending.png"
+    },
+    {
+      "id": "END_TASK_BROWSER_CONTEXT_CLEARED",
+      "status": "passed",
+      "screenshot": "local-task-ended.png"
+    },
+    {
+      "id": "PUBLIC_RETENTION_NOTICE",
+      "status": "passed",
+      "screenshot": "public-notice.png"
+    }
+  ],
+  "hostSubmits": 0,
+  "publicWrites": 0
+}

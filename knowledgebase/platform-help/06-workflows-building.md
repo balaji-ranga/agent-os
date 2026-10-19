@@ -136,3 +136,7 @@ Platform always sends the **CEO bell** on CEO-wait / terminal for watched runs. 
 4. Agent nodes pick a real `agentId`; MCP nodes pick a registered server; External Agent nodes pick a registered A2A agent.
 5. Chat/schedule/event trigger fields filled for that mode.
 6. Publish, then Run with a small test payload.
+
+## Website copilot connectors
+
+Choose a Connector node with Digital Adoption Copilot for authorized online website panels. Save a target group and website selection once; linking authorizes each panel, while peer pairing is optional. Prepare, Fill and Submit have distinct review/policy requirements. See [Copilot workflow connectors](./65-copilot-workflow-connectors.md) for setup, expiry, task handles and outcome verification.
