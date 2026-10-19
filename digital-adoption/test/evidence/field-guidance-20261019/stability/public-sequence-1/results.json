@@ -1,0 +1,61 @@
+{
+  "at": "2026-10-19T15:32:58.392Z",
+  "scope": "Real active maker and passive checker, actual browser/SDK/coordinator. Synthetic website registrations, approved retrieval fixture, local UTF-8 parser and isolated policy fixture; production models/settings remain unchanged. HTTPS service transport is proxied only inside this isolated test browser to loopback.",
+  "results": [
+    {
+      "id": "M10_PUBLIC_WHERE_POINTS_AT_SEARCH_INPUT",
+      "status": "passed",
+      "screenshot": "M10_PUBLIC_WHERE_POINTS_AT_SEARCH_INPUT.png"
+    },
+    {
+      "id": "M11_PUBLIC_DEFAULT_LANGUAGE_AND_REJECT",
+      "status": "passed",
+      "screenshot": "M11_PUBLIC_DEFAULT_LANGUAGE_AND_REJECT.png"
+    },
+    {
+      "id": "M12_PUBLIC_TYPO_CHOICE_AND_REVIEWED_FILL",
+      "status": "passed",
+      "screenshot": "M12_PUBLIC_TYPO_CHOICE_AND_REVIEWED_FILL.png"
+    }
+  ],
+  "errors": [],
+  "modelCalls": [
+    {
+      "purpose": "digital_adoption_review",
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 1993,
+          "promptTokens": 966,
+          "outputTokens": 289
+        }
+      },
+      "httpStatus": 200,
+      "elapsedMs": 2032
+    },
+    {
+      "purpose": "digital_adoption_plan",
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 1,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 5831,
+          "promptTokens": 1102,
+          "outputTokens": 1036
+        }
+      },
+      "httpStatus": 200,
+      "elapsedMs": 18810
+    }
+  ],
+  "publicWrites": 0
+}

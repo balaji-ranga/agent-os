@@ -1,0 +1,45 @@
+{
+  "at": "2026-10-19T15:48:26.733Z",
+  "scope": "Actual deployed registrations on both approved domains; no host form submission or model-route override. Pointing is local-control lookup; greeting does not require LLM inference.",
+  "results": [
+    {
+      "id": "local_WHERE_POINTS_TO_ACTUAL_INPUT",
+      "status": "passed",
+      "detail": {
+        "elapsedMs": 373,
+        "inputUnchanged": true
+      },
+      "screenshot": "local-WHERE_POINTS_TO_ACTUAL_INPUT.png"
+    },
+    {
+      "id": "local_SHOW_ME_WHERE_REUSES_TARGET_WITHOUT_ABORT_ERROR",
+      "status": "passed",
+      "screenshot": "local-SHOW_ME_WHERE_REUSES_TARGET_WITHOUT_ABORT_ERROR.png"
+    },
+    {
+      "id": "local_ASK_A_QUESTION_GREETING_USES_KNOWLEDGE",
+      "status": "passed",
+      "screenshot": "local-ASK_A_QUESTION_GREETING_USES_KNOWLEDGE.png"
+    },
+    {
+      "id": "public_WHERE_POINTS_TO_ACTUAL_INPUT",
+      "status": "passed",
+      "detail": {
+        "elapsedMs": 224,
+        "inputUnchanged": true
+      },
+      "screenshot": "public-WHERE_POINTS_TO_ACTUAL_INPUT.png"
+    },
+    {
+      "id": "public_SHOW_ME_WHERE_REUSES_TARGET_WITHOUT_ABORT_ERROR",
+      "status": "passed",
+      "screenshot": "public-SHOW_ME_WHERE_REUSES_TARGET_WITHOUT_ABORT_ERROR.png"
+    },
+    {
+      "id": "public_ASK_A_QUESTION_GREETING_USES_KNOWLEDGE",
+      "status": "passed",
+      "screenshot": "public-ASK_A_QUESTION_GREETING_USES_KNOWLEDGE.png"
+    }
+  ],
+  "publicWrites": 0
+}

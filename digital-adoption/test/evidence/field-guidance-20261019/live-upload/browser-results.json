@@ -1,0 +1,43 @@
+{
+  "at": "2026-10-19T15:13:37.806Z",
+  "results": [
+    {
+      "id": "local_SHARED_UPLOAD_NOT_OFFERED",
+      "status": "passed"
+    },
+    {
+      "id": "local_PRIVATE_UPLOAD_AND_SERVER_COOLDOWN",
+      "status": "passed",
+      "httpStatus": 429
+    },
+    {
+      "id": "local_AUTHENTICATED_VISITOR_SHARED_UPLOAD_REFUSED",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "id": "local_END_TASK_CLEAR",
+      "status": "passed"
+    },
+    {
+      "id": "public_SHARED_UPLOAD_NOT_OFFERED",
+      "status": "passed"
+    },
+    {
+      "id": "public_PRIVATE_UPLOAD_AND_SERVER_COOLDOWN",
+      "status": "passed",
+      "httpStatus": 429
+    },
+    {
+      "id": "public_AUTHENTICATED_VISITOR_SHARED_UPLOAD_REFUSED",
+      "status": "passed",
+      "httpStatus": 403
+    },
+    {
+      "id": "public_END_TASK_CLEAR",
+      "status": "passed"
+    }
+  ],
+  "publicWrites": 0,
+  "hostSubmits": 0
+}

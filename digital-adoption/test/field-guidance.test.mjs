@@ -1,0 +1,9 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {fieldGuidance} from '../src/field-guidance.mjs';
+const snapshot={fields:[{ref:'r1f0',label:'Search products, publishers, capabilities…',type:'search',key:'query'},{ref:'r1f1',label:'All delivery methods',type:'select-one',key:'delivery'}]};
+for(const text of ['Where is search field','Where is the search box?','Show me where search is','Please highlight the search input'])test('read-only actual ref: '+text,()=>{assert.deepEqual(fieldGuidance(text,snapshot).actions,[{type:'highlight',ref:'r1f0'}]);});
+test('generic follow-up resolves prior user target, never assistant claims',()=>{assert.deepEqual(fieldGuidance('show me where',snapshot,[{role:'user',text:'Where is search field'},{role:'assistant',text:'All delivery methods'}]).actions,[{type:'highlight',ref:'r1f0'}]);});
+test('new task without target clarifies; unknown and ambiguous targets never point arbitrarily',()=>{assert.deepEqual(fieldGuidance('Show me where',snapshot).actions,[]);assert.deepEqual(fieldGuidance('Where is billing code field',snapshot).actions,[]);const ambiguous={fields:[...snapshot.fields,{ref:'r1f2',label:'Search orders',type:'search'}]};assert.deepEqual(fieldGuidance('Where is search field',ambiguous).actions,[]);assert.match(fieldGuidance('Where is search field',ambiguous).message,/Which field/);});
+test('buttons are not confused with fields and edits/knowledge keep their existing planner',()=>{assert.deepEqual(fieldGuidance('Where is the search button',snapshot).actions,[]);for(const text of ['Set search to invoices','Explain the delivery rules','Summarize my attachment'])assert.equal(fieldGuidance(text,snapshot),null);});
+test('where questions about website pages retain model/navigation reasoning',()=>{assert.equal(fieldGuidance('Where can I find published workflows?',snapshot),null);});

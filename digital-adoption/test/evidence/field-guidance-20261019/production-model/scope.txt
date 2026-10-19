@@ -1,0 +1,1 @@
+Actual deployed registrations and globally configured passive checker after explicit user-approved Admin change. No per-request model override, synthetic identity adapter or host Save. Knowledge uses the real website index; Prepare applied and read back the reviewed local controls.

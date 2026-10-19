@@ -1,0 +1,284 @@
+{
+  "at": "2026-10-19T15:13:46.428Z",
+  "scope": "Isolated synthetic owner; actual UI; browser URL loopback 4194; no real registration changes",
+  "results": [
+    {
+      "id": "UI01_INITIAL_LAZY_LOAD",
+      "status": "passed"
+    },
+    {
+      "id": "UI02_SOURCES_BEYOND_100_SEARCH_AND_PAGE_SIZE",
+      "status": "passed"
+    },
+    {
+      "id": "UI03_WORKFLOWS_PAGED_AND_MAPS_NOT_REFETCHED",
+      "status": "passed"
+    },
+    {
+      "id": "UI04_PAGE_AND_LAZY_FIELD_PAGINATION",
+      "status": "passed"
+    },
+    {
+      "id": "UI05_ANALYTICS_DATASET_PAGINATION",
+      "status": "passed"
+    },
+    {
+      "id": "UI06_LATE_RESPONSE_CANNOT_CROSS_WEBSITES",
+      "status": "passed"
+    },
+    {
+      "id": "UI07_WEBSITE_SEARCH_BEYOND_100_AND_REFRESH_CONTEXT",
+      "status": "passed"
+    },
+    {
+      "id": "UI08_ERROR_AND_RETRY",
+      "status": "passed"
+    },
+    {
+      "id": "UI09_KEYBOARD_TABS_AND_MOBILE_REFLOW",
+      "status": "passed"
+    },
+    {
+      "id": "UI10_CLEAR_OLD_SETTINGS_DURING_WEBSITE_SWITCH",
+      "status": "passed"
+    }
+  ],
+  "errors": [],
+  "calls": [
+    {
+      "action": "website-page",
+      "input": {
+        "offset": 0,
+        "limit": 25,
+        "query": ""
+      }
+    },
+    {
+      "action": "onboarding",
+      "input": {
+        "id": "site-000"
+      }
+    },
+    {
+      "action": "source-page",
+      "input": {
+        "id": "site-000",
+        "offset": 0,
+        "limit": 25,
+        "query": ""
+      }
+    },
+    {
+      "action": "source-page",
+      "input": {
+        "id": "site-000",
+        "offset": 0,
+        "limit": 50,
+        "query": ""
+      }
+    },
+    {
+      "action": "source-page",
+      "input": {
+        "id": "site-000",
+        "offset": 50,
+        "limit": 50,
+        "query": ""
+      }
+    },
+    {
+      "action": "source-page",
+      "input": {
+        "id": "site-000",
+        "offset": 100,
+        "limit": 50,
+        "query": ""
+      }
+    },
+    {
+      "action": "source-page",
+      "input": {
+        "id": "site-000",
+        "offset": 0,
+        "limit": 50,
+        "query": "Source 129"
+      }
+    },
+    {
+      "action": "learning-status",
+      "input": {
+        "id": "site-000"
+      }
+    },
+    {
+      "action": "learning-page",
+      "input": {
+        "id": "site-000",
+        "offset": 0,
+        "limit": 25,
+        "query": ""
+      }
+    },
+    {
+      "action": "learning-map-page",
+      "input": {
+        "id": "site-000",
+        "offset": 0,
+        "limit": 25,
+        "query": ""
+      }
+    },
+    {
+      "action": "source-map-page",
+      "input": {
+        "id": "site-000",
+        "offset": 0,
+        "limit": 25,
+        "query": ""
+      }
+    },
+    {
+      "action": "analytics-report",
+      "input": {
+        "id": "site-000",
+        "days": 7
+      }
+    },
+    {
+      "action": "source-page",
+      "input": {
+        "id": "site-000",
+        "offset": 0,
+        "limit": 50,
+        "query": "Source 129"
+      }
+    },
+    {
+      "action": "website-page",
+      "input": {
+        "offset": 0,
+        "limit": 25,
+        "query": ""
+      }
+    },
+    {
+      "action": "onboarding",
+      "input": {
+        "id": "site-001"
+      }
+    },
+    {
+      "action": "source-page",
+      "input": {
+        "id": "site-001",
+        "offset": 0,
+        "limit": 50,
+        "query": ""
+      }
+    },
+    {
+      "action": "website-page",
+      "input": {
+        "offset": 0,
+        "limit": 25,
+        "query": "synthetic-129"
+      }
+    },
+    {
+      "action": "websites",
+      "input": {
+        "id": "site-001"
+      }
+    },
+    {
+      "action": "onboarding",
+      "input": {
+        "id": "site-001"
+      }
+    },
+    {
+      "action": "website-page",
+      "input": {
+        "offset": 0,
+        "limit": 25,
+        "query": "synthetic-129"
+      }
+    },
+    {
+      "action": "onboarding",
+      "input": {
+        "id": "site-129"
+      }
+    },
+    {
+      "action": "source-page",
+      "input": {
+        "id": "site-129",
+        "offset": 0,
+        "limit": 50,
+        "query": ""
+      }
+    },
+    {
+      "action": "website-page",
+      "input": {
+        "offset": 0,
+        "limit": 25,
+        "query": ""
+      }
+    },
+    {
+      "action": "websites",
+      "input": {
+        "id": "site-129"
+      }
+    },
+    {
+      "action": "onboarding",
+      "input": {
+        "id": "site-129"
+      }
+    },
+    {
+      "action": "source-page",
+      "input": {
+        "id": "site-129",
+        "offset": 0,
+        "limit": 25,
+        "query": ""
+      }
+    },
+    {
+      "action": "source-page",
+      "input": {
+        "id": "site-129",
+        "offset": 0,
+        "limit": 25,
+        "query": ""
+      }
+    },
+    {
+      "action": "source-page",
+      "input": {
+        "id": "site-129",
+        "offset": 0,
+        "limit": 25,
+        "query": ""
+      }
+    },
+    {
+      "action": "website-page",
+      "input": {
+        "offset": 0,
+        "limit": 25,
+        "query": ""
+      }
+    },
+    {
+      "action": "onboarding",
+      "input": {
+        "id": "site-000"
+      }
+    }
+  ]
+}

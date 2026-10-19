@@ -1,0 +1,85 @@
+{
+  "at": "2026-10-19T15:52:27.210Z",
+  "scope": "Actual deployed registrations and globally configured passive checker after explicit user-approved Admin change. No per-request model override, synthetic identity adapter or host Save. Knowledge uses the real website index; Prepare applied and read back the reviewed local controls.",
+  "results": [
+    {
+      "id": "LIVE_KNOWLEDGE",
+      "status": "passed",
+      "httpStatus": 200,
+      "elapsedMs": 2982,
+      "response": {
+        "message": "The Alpha delivery promise is seven working days.",
+        "citations": [
+          {
+            "sourceId": "e1e27744-23b7-4df0-96bb-04ea135f17a9",
+            "chunkId": "e1e27744-23b7-4df0-96bb-04ea135f17a9_00000",
+            "title": "Alpha demonstration handbook",
+            "text": "Alpha customer onboarding: company name, contact email and region are required. The Alpha delivery promise is seven working days. Alpha verification code is ALPHA_ORCHID_7391. Review entered details before saving. Amount is in the selected currency.",
+            "revision": "aa4c42cba06869b4cefebe94ed9474175300089f1ebfe54d4029a641abd0dcc2",
+            "supportingQuotes": [
+              "The Alpha delivery promise is seven working days."
+            ]
+          }
+        ],
+        "kind": "answer",
+        "messageId": "430e6d1b-9b52-479f-b054-90e0a217e922"
+      },
+      "hostWrites": 0,
+      "screenshot": "knowledge.png"
+    },
+    {
+      "id": "LIVE_PREPARE",
+      "status": "passed",
+      "httpStatus": 200,
+      "elapsedMs": 5291,
+      "response": {
+        "id": "3cb67aae-9ed3-4b84-8d94-9962099cb9bc",
+        "revision": 1,
+        "message": "The shipping method you requested, 'expres', is not available. The closest option is 'Express'. Would you like to select 'Express' instead? Additionally, I will select 'Include gift wrap' as requested.\nReview these 2 proposed field changes. Nothing has been changed yet.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f0",
+            "label": "Shipping method",
+            "value": "Express"
+          },
+          {
+            "type": "fill",
+            "ref": "r1f1",
+            "label": "Include gift wrap",
+            "value": "true",
+            "displayValue": "Selected"
+          }
+        ],
+        "expiresAt": 1792425266744,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Shipping method",
+            "type": "select-one",
+            "required": false,
+            "key": "shipping_method",
+            "form": "demo-form",
+            "choices": [
+              "Choose",
+              "Standard",
+              "Express"
+            ]
+          },
+          {
+            "ref": "r1f1",
+            "label": "Include gift wrap",
+            "type": "checkbox",
+            "required": false,
+            "key": "gift_wrap",
+            "form": "demo-form"
+          }
+        ],
+        "matchedWorkflows": [],
+        "messageId": "6be7b783-292b-4975-acb2-df8483cbe86c"
+      },
+      "hostWrites": 0,
+      "screenshot": "prepare.png"
+    }
+  ]
+}

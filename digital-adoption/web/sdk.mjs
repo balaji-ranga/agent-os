@@ -238,7 +238,7 @@ export async function mount(options) {
       else throw new Error('Unsupported operation');
       if(['plan','recipe-plan','revise'].includes(message.type)&&result?.actions)result={...result,hostContext:hostContext(),localReview:inspector.reviewValues(result.actions,result.revision)};
       if(!closed)frame.contentWindow?.postMessage({ channel: message.channel, id: message.id, result }, service.origin);
-    } catch (error) { if(error.code==='SESSION_ACCESS_DENIED')expireSession();if(proposalGeneration===taskGeneration)currentSnapshot=null;if(!closed)frame.contentWindow?.postMessage({ channel: message.channel, id: message.id, error: error.message,code:error.code,outcome:error.outcome,applied: error.results?.filter(r=>r.valueObserved).length||0 }, service.origin); }
+    } catch (error) { if(error.name==='AbortError'&&error.code!=='TASK_CANCELLED')error=Object.assign(new Error('The task was interrupted. Check the website outcome before trying again.'),{code:'TASK_INTERRUPTED',outcome:error.outcome,results:error.results});if(error.code==='SESSION_ACCESS_DENIED')expireSession();if(proposalGeneration===taskGeneration)currentSnapshot=null;if(!closed)frame.contentWindow?.postMessage({ channel: message.channel, id: message.id, error: error.message,code:error.code,outcome:error.outcome,applied: error.results?.filter(r=>r.valueObserved).length||0 }, service.origin); }
   };
   window.addEventListener('message', handler);
   (layout==='docked'?dockTarget:document.body).append(frame);document.body.append(launcher);

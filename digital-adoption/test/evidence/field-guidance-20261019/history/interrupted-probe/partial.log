@@ -1,0 +1,1 @@
+{"id":"LIVE_KNOWLEDGE","status":"failed","httpStatus":503,"elapsedMs":180315,"detail":"{\"error\":\"Copilot service temporarily unavailable\",\"code\":\"COPILOT_CHECKER_UNAVAILABLE\"}\n\nfalse !== true\n","response":{"error":"Copilot service temporarily unavailable","code":"COPILOT_CHECKER_UNAVAILABLE"},"hostWrites":0,"screenshot":"knowledge.png"}

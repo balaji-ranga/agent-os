@@ -1,0 +1,19 @@
+{
+  "at": "2026-10-19T15:39:09.445Z",
+  "scope": "Actual deployed registrations and global checker route. No model override, shared configuration change or host Save.",
+  "results": [
+    {
+      "id": "LIVE_KNOWLEDGE",
+      "status": "failed",
+      "httpStatus": 503,
+      "elapsedMs": 180315,
+      "detail": "{\"error\":\"Copilot service temporarily unavailable\",\"code\":\"COPILOT_CHECKER_UNAVAILABLE\"}\n\nfalse !== true\n",
+      "response": {
+        "error": "Copilot service temporarily unavailable",
+        "code": "COPILOT_CHECKER_UNAVAILABLE"
+      },
+      "hostWrites": 0,
+      "screenshot": "knowledge.png"
+    }
+  ]
+}

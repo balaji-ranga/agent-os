@@ -1,0 +1,57 @@
+{
+  "at": "2026-10-19T15:52:30.006105+00:00",
+  "status": "passed",
+  "release": "20261019-guidance-h",
+  "containers": {
+    "flolah-adoption-adoption-1": {
+      "imageId": "sha256:f815732ac5987d7a4887ce13ce230cf05fd76d5d8328ba498412fabc9da48251",
+      "image": "flolah-digital-adoption:20261019-guidance-h",
+      "startedAt": "2026-10-19T15:48:00.637082986Z",
+      "running": true,
+      "health": null
+    },
+    "flolah-adoption-adoption-model-gateway-1": {
+      "imageId": "sha256:397d4f547d541bae63364e0a550e3d5c5e23083666726ce17f2bb8387f5d002f",
+      "image": "flolah-digital-adoption:20261019-guidance-f-gateway",
+      "startedAt": "2026-10-19T15:34:23.445252647Z",
+      "running": true,
+      "health": null
+    },
+    "flolah-adoption-adoption-worker-1": {
+      "imageId": "sha256:7133f95194a1df02b59712754b2b95a254528fa9ece34c4994647497dc052fe0",
+      "image": "flolah-digital-adoption:20261018-owner-workspace-c",
+      "startedAt": "2026-10-18T10:43:45.697774407Z",
+      "running": true,
+      "health": null
+    },
+    "flolah-adoption-adoption-worker-2": {
+      "imageId": "sha256:7133f95194a1df02b59712754b2b95a254528fa9ece34c4994647497dc052fe0",
+      "image": "flolah-digital-adoption:20261018-owner-workspace-c",
+      "startedAt": "2026-10-18T10:43:45.830124253Z",
+      "running": true,
+      "health": null
+    },
+    "agent-os-backend-1": {
+      "imageId": "sha256:01f6bd687e7cebb984996c0d1bcf6387a78ebbf64b9fb2871b2b7e1db8be2c52",
+      "image": "agent-os-backend:adoption-help-20261019-guidance-h",
+      "startedAt": "2026-10-19T15:47:23.678791796Z",
+      "running": true,
+      "health": "healthy"
+    },
+    "agent-os-frontend-1": {
+      "imageId": "sha256:bf6aaf311d995a76f6ee4591d21241e07566954a26d83e380ae2d39c8ba54cb0",
+      "image": "agent-os-frontend:adoption-20261019-immediate-j",
+      "startedAt": "2026-10-19T11:40:25.829931383Z",
+      "running": true,
+      "health": "healthy"
+    }
+  },
+  "healthUrlsPassed": 4,
+  "parserWorkersPreserved": true,
+  "sharedCheckerSettingReadOnly": {
+    "enabled": true,
+    "checkerMode": "platform_inactive",
+    "checkerMaxTokens": 1536
+  },
+  "gatewayPatch": "Unchanged captured gateway"
+}

@@ -1,0 +1,9 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {deterministicReview} from '../integrations/checker-contract.mjs';
+const context=task=>({task,purpose:'digital_adoption_plan',observed:{fields:[{ref:'r1f0',label:'Delivery',type:'select-one',choices:['Standard','Express']}]},proposal:{message:'Review',actions:[{type:'fill',ref:'r1f0',value:'Express'}]}});
+for(const verb of ['Set','Change','Update','Edit'])test(verb+' descriptive choice reaches semantic checker instead of literal rejection',()=>{assert.equal(deterministicReview(context(verb+' Delivery to the fastest available option. Do not save.')),null);});
+test('unavailable named and quoted choices remain blocked; known wrong choice remains blocked',()=>{for(const value of ['Teleportation','"the fastest available option"','Standard'])assert.match(deterministicReview(context('Set Delivery to '+value+'. Do not save.')),/does not match/);});
+
+test('unique option typo can reach review but an unrelated choice cannot',()=>{assert.equal(deterministicReview(context('Set Delivery to Expres. Do not save.')),null);assert.match(deterministicReview(context('Set Delivery to Different. Do not save.')),/does not match/);});
+test('capitalized question commands are not mistaken for document subjects; actual subject binding stays enforced',()=>{const evidence=[{chunkId:'c1',title:'Synthetic transaction',text:'Company name: Synthetic Orchid. Alpha delivery takes seven days.'}];const proposal={evidenceStatus:'supported',message:'The company is Synthetic Orchid.',citations:[{chunkId:'c1',quote:'Company name: Synthetic Orchid.'}]};for(const task of ['Summarize the company name in my file.','Explain the company name in my file.'])assert.equal(deterministicReview({purpose:'digital_adoption_knowledge',task,evidence,proposal}),null);assert.match(deterministicReview({purpose:'digital_adoption_knowledge',task:'Summarize Beta delivery.',evidence,proposal}),/requested named subject/);});

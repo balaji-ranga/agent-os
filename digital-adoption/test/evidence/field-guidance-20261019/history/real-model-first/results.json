@@ -1,0 +1,255 @@
+{
+  "at": "2026-10-19T15:23:22.086Z",
+  "scope": "Real active maker and passive checker, actual browser/SDK/coordinator. Synthetic website registrations, approved retrieval fixture, local UTF-8 parser and isolated policy fixture; production models/settings remain unchanged. HTTPS service transport is proxied only inside this isolated test browser to loopback.",
+  "results": [
+    {
+      "id": "M01_ASK_KNOWLEDGE_WITH_VERIFIED_CITATION",
+      "status": "passed",
+      "screenshot": "M01_ASK_KNOWLEDGE_WITH_VERIFIED_CITATION.png"
+    },
+    {
+      "id": "M02_KNOWLEDGE_ABSTAINS_FOR_UNSUPPORTED_SUBJECT",
+      "status": "passed",
+      "screenshot": "M02_KNOWLEDGE_ABSTAINS_FOR_UNSUPPORTED_SUBJECT.png"
+    },
+    {
+      "id": "M03_PREPARE_TYPOS_CHECKBOX_REVIEW_AND_FILL",
+      "status": "passed",
+      "screenshot": "M03_PREPARE_TYPOS_CHECKBOX_REVIEW_AND_FILL.png"
+    },
+    {
+      "id": "M04_FASTEST_OPTION_SEMANTIC_INFERENCE_AND_REJECT",
+      "status": "passed",
+      "screenshot": "M04_FASTEST_OPTION_SEMANTIC_INFERENCE_AND_REJECT.png"
+    },
+    {
+      "id": "M05_UNKNOWN_CHOICE_CLARIFICATION",
+      "status": "passed",
+      "screenshot": "M05_UNKNOWN_CHOICE_CLARIFICATION.png"
+    },
+    {
+      "id": "M06_RECOMMEND_WITHOUT_FILL",
+      "status": "passed",
+      "screenshot": "M06_RECOMMEND_WITHOUT_FILL.png"
+    },
+    {
+      "id": "M07_GUIDE_POINTS_AFTER_EXISTING_REQUEST_WITH_NO_WRITES",
+      "status": "passed",
+      "screenshot": "M07_GUIDE_POINTS_AFTER_EXISTING_REQUEST_WITH_NO_WRITES.png"
+    },
+    {
+      "id": "M08_RADIO_NATURAL_INTENT_AND_APPLICATION_STATE",
+      "status": "passed",
+      "screenshot": "M08_RADIO_NATURAL_INTENT_AND_APPLICATION_STATE.png"
+    },
+    {
+      "id": "M09_PRIVATE_FILE_SUMMARY_AND_EXTRACTED_FORM_VALUES",
+      "status": "passed",
+      "screenshot": "M09_PRIVATE_FILE_SUMMARY_AND_EXTRACTED_FORM_VALUES.png"
+    },
+    {
+      "id": "M10_PUBLIC_WHERE_POINTS_AT_SEARCH_INPUT",
+      "status": "passed",
+      "screenshot": "M10_PUBLIC_WHERE_POINTS_AT_SEARCH_INPUT.png"
+    },
+    {
+      "id": "M11_PUBLIC_DEFAULT_LANGUAGE_AND_REJECT",
+      "status": "passed",
+      "screenshot": "M11_PUBLIC_DEFAULT_LANGUAGE_AND_REJECT.png"
+    },
+    {
+      "id": "M12_PUBLIC_TYPO_CHOICE_AND_REVIEWED_FILL",
+      "status": "failed",
+      "error": "Where is search field\n\nI will point to Search MCPs, publishers, capabilities…. No values will change. I can highlight 1 field for you. No values will be changed.↩\n\nKeep the transport default All transport. Do not submit.\n\nReview the requested choice. Review these 1 proposed field change. Nothing has been changed yet.↩\n\nPlease set transprot to stido. Do not submit.\n\nThe copilot checker is unavailable. No changes were prepared. Try again or ask the platform administrator. [COPILOT_CHECKER_UNAVAILABLE]\n\n0 !== 1\n"
+    }
+  ],
+  "errors": [],
+  "modelCalls": [
+    {
+      "purpose": "digital_adoption_knowledge",
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 955,
+          "promptTokens": 645,
+          "outputTokens": 107
+        }
+      },
+      "httpStatus": 200,
+      "elapsedMs": 2336
+    },
+    {
+      "purpose": "digital_adoption_knowledge",
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 1646,
+          "promptTokens": 669,
+          "outputTokens": 210
+        }
+      },
+      "httpStatus": 200,
+      "elapsedMs": 2837
+    },
+    {
+      "purpose": "digital_adoption_plan",
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 1738,
+          "promptTokens": 1244,
+          "outputTokens": 212
+        }
+      },
+      "httpStatus": 200,
+      "elapsedMs": 3484
+    },
+    {
+      "purpose": "digital_adoption_plan",
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 2170,
+          "promptTokens": 1075,
+          "outputTokens": 299
+        }
+      },
+      "httpStatus": 200,
+      "elapsedMs": 3531
+    },
+    {
+      "purpose": "digital_adoption_plan",
+      "quality": {
+        "enabled": true,
+        "decision": "clarify",
+        "revisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 2339,
+          "promptTokens": 1140,
+          "outputTokens": 319
+        }
+      },
+      "httpStatus": 200,
+      "elapsedMs": 3667
+    },
+    {
+      "purpose": "digital_adoption_plan",
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 2274,
+          "promptTokens": 1554,
+          "outputTokens": 305
+        }
+      },
+      "httpStatus": 200,
+      "elapsedMs": 3892
+    },
+    {
+      "purpose": "digital_adoption_plan",
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 1457,
+          "promptTokens": 994,
+          "outputTokens": 143
+        }
+      },
+      "httpStatus": 200,
+      "elapsedMs": 4518
+    },
+    {
+      "purpose": "digital_adoption_knowledge",
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 1321,
+          "promptTokens": 700,
+          "outputTokens": 132
+        }
+      },
+      "httpStatus": 200,
+      "elapsedMs": 2935
+    },
+    {
+      "purpose": "digital_adoption_plan",
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 1931,
+          "promptTokens": 1039,
+          "outputTokens": 239
+        }
+      },
+      "httpStatus": 200,
+      "elapsedMs": 3931
+    },
+    {
+      "purpose": "digital_adoption_review",
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 2078,
+          "promptTokens": 966,
+          "outputTokens": 262
+        }
+      },
+      "httpStatus": 200,
+      "elapsedMs": 2094
+    },
+    {
+      "purpose": "digital_adoption_plan",
+      "httpStatus": 503,
+      "elapsedMs": 12895
+    }
+  ],
+  "publicWrites": 0
+}

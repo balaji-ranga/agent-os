@@ -1,0 +1,268 @@
+{
+  "at": "2026-10-19T15:35:55.380Z",
+  "scope": "Real active maker and passive checker, actual browser/SDK/coordinator. Synthetic website registrations, approved retrieval fixture, local UTF-8 parser and isolated policy fixture; production models/settings remain unchanged. HTTPS service transport is proxied only inside this isolated test browser to loopback.",
+  "results": [
+    {
+      "id": "M01_ASK_KNOWLEDGE_WITH_VERIFIED_CITATION",
+      "status": "passed",
+      "screenshot": "M01_ASK_KNOWLEDGE_WITH_VERIFIED_CITATION.png"
+    },
+    {
+      "id": "M02_KNOWLEDGE_ABSTAINS_FOR_UNSUPPORTED_SUBJECT",
+      "status": "passed",
+      "screenshot": "M02_KNOWLEDGE_ABSTAINS_FOR_UNSUPPORTED_SUBJECT.png"
+    },
+    {
+      "id": "M03_PREPARE_TYPOS_CHECKBOX_REVIEW_AND_FILL",
+      "status": "passed",
+      "screenshot": "M03_PREPARE_TYPOS_CHECKBOX_REVIEW_AND_FILL.png"
+    },
+    {
+      "id": "M04_FASTEST_OPTION_SEMANTIC_INFERENCE_AND_REJECT",
+      "status": "passed",
+      "screenshot": "M04_FASTEST_OPTION_SEMANTIC_INFERENCE_AND_REJECT.png"
+    },
+    {
+      "id": "M05_UNKNOWN_CHOICE_CLARIFICATION",
+      "status": "passed",
+      "screenshot": "M05_UNKNOWN_CHOICE_CLARIFICATION.png"
+    },
+    {
+      "id": "M06_RECOMMEND_WITHOUT_FILL",
+      "status": "passed",
+      "screenshot": "M06_RECOMMEND_WITHOUT_FILL.png"
+    },
+    {
+      "id": "M07_GUIDE_POINTS_AFTER_EXISTING_REQUEST_WITH_NO_WRITES",
+      "status": "passed",
+      "screenshot": "M07_GUIDE_POINTS_AFTER_EXISTING_REQUEST_WITH_NO_WRITES.png"
+    },
+    {
+      "id": "M08_RADIO_NATURAL_INTENT_AND_APPLICATION_STATE",
+      "status": "passed",
+      "screenshot": "M08_RADIO_NATURAL_INTENT_AND_APPLICATION_STATE.png"
+    },
+    {
+      "id": "M09_PRIVATE_FILE_SUMMARY_AND_EXTRACTED_FORM_VALUES",
+      "status": "passed",
+      "screenshot": "M09_PRIVATE_FILE_SUMMARY_AND_EXTRACTED_FORM_VALUES.png"
+    },
+    {
+      "id": "M10_PUBLIC_WHERE_POINTS_AT_SEARCH_INPUT",
+      "status": "passed",
+      "screenshot": "M10_PUBLIC_WHERE_POINTS_AT_SEARCH_INPUT.png"
+    },
+    {
+      "id": "M11_PUBLIC_DEFAULT_LANGUAGE_AND_REJECT",
+      "status": "passed",
+      "screenshot": "M11_PUBLIC_DEFAULT_LANGUAGE_AND_REJECT.png"
+    },
+    {
+      "id": "M12_PUBLIC_TYPO_CHOICE_AND_REVIEWED_FILL",
+      "status": "passed",
+      "screenshot": "M12_PUBLIC_TYPO_CHOICE_AND_REVIEWED_FILL.png"
+    }
+  ],
+  "errors": [],
+  "modelCalls": [
+    {
+      "purpose": "digital_adoption_knowledge",
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 1330,
+          "promptTokens": 714,
+          "outputTokens": 129
+        }
+      },
+      "httpStatus": 200,
+      "elapsedMs": 2686
+    },
+    {
+      "purpose": "digital_adoption_knowledge",
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 1770,
+          "promptTokens": 738,
+          "outputTokens": 198
+        }
+      },
+      "httpStatus": 200,
+      "elapsedMs": 2786
+    },
+    {
+      "purpose": "digital_adoption_plan",
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 1829,
+          "promptTokens": 1319,
+          "outputTokens": 280
+        }
+      },
+      "httpStatus": 200,
+      "elapsedMs": 3209
+    },
+    {
+      "purpose": "digital_adoption_plan",
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 1225,
+          "promptTokens": 1132,
+          "outputTokens": 148
+        }
+      },
+      "httpStatus": 200,
+      "elapsedMs": 2436
+    },
+    {
+      "purpose": "digital_adoption_plan",
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 5837,
+          "promptTokens": 1196,
+          "outputTokens": 997
+        }
+      },
+      "httpStatus": 200,
+      "elapsedMs": 7190
+    },
+    {
+      "purpose": "digital_adoption_plan",
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 1213,
+          "promptTokens": 1576,
+          "outputTokens": 123
+        }
+      },
+      "httpStatus": 200,
+      "elapsedMs": 3400
+    },
+    {
+      "purpose": "digital_adoption_plan",
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 1256,
+          "promptTokens": 1075,
+          "outputTokens": 174
+        }
+      },
+      "httpStatus": 200,
+      "elapsedMs": 2727
+    },
+    {
+      "purpose": "digital_adoption_knowledge",
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 1707,
+          "promptTokens": 773,
+          "outputTokens": 165
+        }
+      },
+      "httpStatus": 200,
+      "elapsedMs": 3908
+    },
+    {
+      "purpose": "digital_adoption_plan",
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 2808,
+          "promptTokens": 1135,
+          "outputTokens": 342
+        }
+      },
+      "httpStatus": 200,
+      "elapsedMs": 4930
+    },
+    {
+      "purpose": "digital_adoption_review",
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 2015,
+          "promptTokens": 1035,
+          "outputTokens": 241
+        }
+      },
+      "httpStatus": 200,
+      "elapsedMs": 2206
+    },
+    {
+      "purpose": "digital_adoption_plan",
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 1,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 1747,
+          "promptTokens": 1182,
+          "outputTokens": 244
+        }
+      },
+      "httpStatus": 200,
+      "elapsedMs": 7740
+    }
+  ],
+  "publicWrites": 0
+}

@@ -1,0 +1,18 @@
+{
+  "at": "2026-10-19T15:53:36.288107+00:00",
+  "authorization": "User approved switching the global checker to the registered inactive platform model until efficiency mode is fixed.",
+  "previous": {
+    "enabled": true,
+    "checkerMode": "ollama_reasoning",
+    "checkerMaxTokens": 1536
+  },
+  "current": {
+    "enabled": true,
+    "checkerMode": "platform_inactive",
+    "checkerMaxTokens": 1536
+  },
+  "maker": "OpenAI gpt-4o-mini; active secondary slot",
+  "checker": "DeepSeek deepseek-v4-flash; inactive primary slot",
+  "method": "Existing signed-in Admin UI; exited user preview, changed Checker route and saved; read back persisted policy and live gateway review metadata.",
+  "screenshot": "admin-passive-checker.jpg"
+}

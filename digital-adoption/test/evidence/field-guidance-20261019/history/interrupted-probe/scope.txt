@@ -1,0 +1,1 @@
+Probe stopped because its second request overlapped coordinator deployment. Its completed knowledge request returned a checker timeout before that deployment. This incomplete run is excluded from final counts.

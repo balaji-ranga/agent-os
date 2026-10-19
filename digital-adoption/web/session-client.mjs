@@ -34,7 +34,8 @@ export function createSessionClient({service,fetchImpl=fetch,clock=Date.now}) {
   }
   return result;
   }catch(error){
-   if(!controller.signal.aborted&&['TypeError','TimeoutError'].includes(error.name))throw new Error('The copilot connection was interrupted. Check the current task before trying again.');
+   if(controller.signal.aborted&&read)throw Object.assign(new Error('Previous task stopped. No further work will run.'),{name:'AbortError',code:'TASK_CANCELLED'});
+   if(!controller.signal.aborted&&['TypeError','TimeoutError','AbortError'].includes(error.name))throw new Error('The copilot connection was interrupted. Check the current task before trying again.');
    throw error;
   }finally{if(activeRead===read)activeRead=null;}
  };

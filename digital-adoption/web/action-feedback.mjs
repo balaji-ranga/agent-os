@@ -67,7 +67,7 @@ export function createActionFeedback(document, { expired = () => false } = {}) {
           return value;
         },
         (error) => {
-          report(`${action.label}: ${error.message}`, true);
+          report(`${action.label}: ${error.code==='TASK_CANCELLED'?'previous request stopped.':error.message}`, error.code!=='TASK_CANCELLED');
           throw error;
         },
       )

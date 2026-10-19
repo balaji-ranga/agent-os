@@ -37,7 +37,7 @@ test('interrupting an observer unblocks queued pause without retrying or interru
   return {ok:true,json:async()=>({sessionId:'one',sessionToken:'credential',expiresAt:1000,sessionExpiresAt:2000})};
  }});
  await client.request('/v1/sessions');
- const pending=client.request('/v1/discovery/next');const rejected=assert.rejects(pending,{name:'AbortError'});await observing;
+ const pending=client.request('/v1/discovery/next');const rejected=assert.rejects(pending,{name:'AbortError',code:'TASK_CANCELLED'});await observing;
  const pause=client.request('/v1/discovery/pause');assert.equal(client.interruptRead(),true);await rejected;await pause;await client.request('/v1/approve');
  assert.deepEqual(calls,['/v1/sessions','/v1/discovery/next','/v1/discovery/pause','/v1/approve']);
 });
@@ -50,4 +50,9 @@ test('temporary service failure is distinct from authorization failure and is ne
 test('a disconnected approval is not retried or described as a confirmed failure',async()=>{
  let calls=0;const client=createSessionClient({service:'https://copilot.example/',fetchImpl:async()=>{calls++;throw new TypeError('Failed to fetch');}});
  await assert.rejects(client.request('/v1/approve'),/connection was interrupted.*Check the current task/);assert.equal(calls,1);
+});
+
+test('an unrequested fetch abort is a visible connection interruption, not intentional task cancellation',async()=>{
+ const client=createSessionClient({service:'https://copilot.example/',fetchImpl:async()=>{throw Object.assign(new Error('signal is aborted without reason'),{name:'AbortError'});}});
+ await assert.rejects(client.request('/v1/approve'),error=>error.code!=='TASK_CANCELLED'&&/connection was interrupted.*Check the current task/.test(error.message));
 });

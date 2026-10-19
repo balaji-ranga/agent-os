@@ -1,0 +1,1048 @@
+{
+  "at": "2026-10-19T15:54:47.966128+00:00",
+  "release": "20261019-guidance-h",
+  "passed": 425,
+  "failed": 0,
+  "executedPassRate": 100.0,
+  "linuxRepeated": 335,
+  "fullPhase12Certified": false,
+  "broaderRequirementFamilies": {
+    "passed": 14,
+    "partial": 16,
+    "failed": 0,
+    "deferred": 2
+  },
+  "suites": [
+    {
+      "name": "Service and authorization \u00b7 Windows",
+      "path": "service-windows.log",
+      "scope": "335 service tests, including cancellation, denied origins/entitlements, task isolation, expiry, recovery and checker contracts.",
+      "passed": 335,
+      "failed": 0,
+      "cases": [],
+      "repeated": false
+    },
+    {
+      "name": "Same service tests \u00b7 VPS Linux",
+      "path": "service-linux.log",
+      "scope": "Final coordinator candidate; repetition is excluded from the unique-check count.",
+      "passed": 335,
+      "failed": 0,
+      "cases": [],
+      "repeated": true
+    },
+    {
+      "name": "Admin checker access",
+      "path": "admin-checker.log",
+      "scope": "Isolated real settings routes; Admin-only changes, persistence, dynamic maker/checker slots and secret exclusion.",
+      "passed": 1,
+      "failed": 0,
+      "cases": [],
+      "repeated": false
+    },
+    {
+      "name": "Grounded pointing and interruption",
+      "path": "results.json",
+      "scope": "Actual SDK/service/DOM/WebSocket; deterministic planner and synthetic identity/policy fixtures.",
+      "passed": 8,
+      "failed": 0,
+      "cases": [
+        {
+          "id": "G01_WHERE_QUESTION_POINTS_WITHOUT_EXTRA_APPROVAL_OR_MODEL",
+          "status": "passed",
+          "screenshot": "G01_WHERE_QUESTION_POINTS_WITHOUT_EXTRA_APPROVAL_OR_MODEL.png"
+        },
+        {
+          "id": "G02_SHOW_ME_WHERE_REUSES_TARGET",
+          "status": "passed",
+          "screenshot": "G02_SHOW_ME_WHERE_REUSES_TARGET.png"
+        },
+        {
+          "id": "G03_SUPERSEDING_SLOW_REQUEST_POINTS_WITHOUT_ABORT_ERROR",
+          "status": "passed",
+          "screenshot": "G03_SUPERSEDING_SLOW_REQUEST_POINTS_WITHOUT_ABORT_ERROR.png"
+        },
+        {
+          "id": "G04_PRIVATE_TASK_DOES_NOT_DIVERT_POINTING_TO_FILE_SUMMARY",
+          "status": "passed",
+          "screenshot": "G04_PRIVATE_TASK_DOES_NOT_DIVERT_POINTING_TO_FILE_SUMMARY.png"
+        },
+        {
+          "id": "G05_AMBIGUOUS_FIELDS_CLARIFY_WITHOUT_FALSE_POINT",
+          "status": "passed",
+          "screenshot": "G05_AMBIGUOUS_FIELDS_CLARIFY_WITHOUT_FALSE_POINT.png"
+        },
+        {
+          "id": "G06_OFFSCREEN_TARGET_SCROLLS_AND_POINTS",
+          "status": "passed",
+          "screenshot": "G06_OFFSCREEN_TARGET_SCROLLS_AND_POINTS.png"
+        },
+        {
+          "id": "G07_NEW_CONVERSATION_DOES_NOT_REPLAY_CLEARED_REQUEST",
+          "status": "passed",
+          "screenshot": "G07_NEW_CONVERSATION_DOES_NOT_REPLAY_CLEARED_REQUEST.png"
+        },
+        {
+          "id": "G08_SHOW_ME_WHERE_USES_LATEST_QUESTION_AFTER_KNOWLEDGE_MODE",
+          "status": "passed",
+          "screenshot": "G08_SHOW_ME_WHERE_USES_LATEST_QUESTION_AFTER_KNOWLEDGE_MODE.png"
+        }
+      ],
+      "repeated": false
+    },
+    {
+      "name": "Deployed pointing \u00b7 both websites",
+      "path": "live/results.json",
+      "scope": "Actual registered loopback and public Flolah panels. No model override; no host submit. Greeting is not an LLM test.",
+      "passed": 6,
+      "failed": 0,
+      "cases": [
+        {
+          "id": "local_WHERE_POINTS_TO_ACTUAL_INPUT",
+          "status": "passed",
+          "detail": {
+            "elapsedMs": 373,
+            "inputUnchanged": true
+          },
+          "screenshot": "local-WHERE_POINTS_TO_ACTUAL_INPUT.png"
+        },
+        {
+          "id": "local_SHOW_ME_WHERE_REUSES_TARGET_WITHOUT_ABORT_ERROR",
+          "status": "passed",
+          "screenshot": "local-SHOW_ME_WHERE_REUSES_TARGET_WITHOUT_ABORT_ERROR.png"
+        },
+        {
+          "id": "local_ASK_A_QUESTION_GREETING_USES_KNOWLEDGE",
+          "status": "passed",
+          "screenshot": "local-ASK_A_QUESTION_GREETING_USES_KNOWLEDGE.png"
+        },
+        {
+          "id": "public_WHERE_POINTS_TO_ACTUAL_INPUT",
+          "status": "passed",
+          "detail": {
+            "elapsedMs": 224,
+            "inputUnchanged": true
+          },
+          "screenshot": "public-WHERE_POINTS_TO_ACTUAL_INPUT.png"
+        },
+        {
+          "id": "public_SHOW_ME_WHERE_REUSES_TARGET_WITHOUT_ABORT_ERROR",
+          "status": "passed",
+          "screenshot": "public-SHOW_ME_WHERE_REUSES_TARGET_WITHOUT_ABORT_ERROR.png"
+        },
+        {
+          "id": "public_ASK_A_QUESTION_GREETING_USES_KNOWLEDGE",
+          "status": "passed",
+          "screenshot": "public-ASK_A_QUESTION_GREETING_USES_KNOWLEDGE.png"
+        }
+      ],
+      "repeated": false
+    },
+    {
+      "name": "Real active maker / passive checker",
+      "path": "real-model-browser/results.json",
+      "scope": "Actual platform models in a read-only isolated process. Synthetic registration, retrieval, UTF-8 extraction and policy fixtures. This is not fresh-owner, production OpenSearch or production Ollama certification.",
+      "passed": 12,
+      "failed": 0,
+      "cases": [
+        {
+          "id": "M01_ASK_KNOWLEDGE_WITH_VERIFIED_CITATION",
+          "status": "passed",
+          "screenshot": "M01_ASK_KNOWLEDGE_WITH_VERIFIED_CITATION.png"
+        },
+        {
+          "id": "M02_KNOWLEDGE_ABSTAINS_FOR_UNSUPPORTED_SUBJECT",
+          "status": "passed",
+          "screenshot": "M02_KNOWLEDGE_ABSTAINS_FOR_UNSUPPORTED_SUBJECT.png"
+        },
+        {
+          "id": "M03_PREPARE_TYPOS_CHECKBOX_REVIEW_AND_FILL",
+          "status": "passed",
+          "screenshot": "M03_PREPARE_TYPOS_CHECKBOX_REVIEW_AND_FILL.png"
+        },
+        {
+          "id": "M04_FASTEST_OPTION_SEMANTIC_INFERENCE_AND_REJECT",
+          "status": "passed",
+          "screenshot": "M04_FASTEST_OPTION_SEMANTIC_INFERENCE_AND_REJECT.png"
+        },
+        {
+          "id": "M05_UNKNOWN_CHOICE_CLARIFICATION",
+          "status": "passed",
+          "screenshot": "M05_UNKNOWN_CHOICE_CLARIFICATION.png"
+        },
+        {
+          "id": "M06_RECOMMEND_WITHOUT_FILL",
+          "status": "passed",
+          "screenshot": "M06_RECOMMEND_WITHOUT_FILL.png"
+        },
+        {
+          "id": "M07_GUIDE_POINTS_AFTER_EXISTING_REQUEST_WITH_NO_WRITES",
+          "status": "passed",
+          "screenshot": "M07_GUIDE_POINTS_AFTER_EXISTING_REQUEST_WITH_NO_WRITES.png"
+        },
+        {
+          "id": "M08_RADIO_NATURAL_INTENT_AND_APPLICATION_STATE",
+          "status": "passed",
+          "screenshot": "M08_RADIO_NATURAL_INTENT_AND_APPLICATION_STATE.png"
+        },
+        {
+          "id": "M09_PRIVATE_FILE_SUMMARY_AND_EXTRACTED_FORM_VALUES",
+          "status": "passed",
+          "screenshot": "M09_PRIVATE_FILE_SUMMARY_AND_EXTRACTED_FORM_VALUES.png"
+        },
+        {
+          "id": "M10_PUBLIC_WHERE_POINTS_AT_SEARCH_INPUT",
+          "status": "passed",
+          "screenshot": "M10_PUBLIC_WHERE_POINTS_AT_SEARCH_INPUT.png"
+        },
+        {
+          "id": "M11_PUBLIC_DEFAULT_LANGUAGE_AND_REJECT",
+          "status": "passed",
+          "screenshot": "M11_PUBLIC_DEFAULT_LANGUAGE_AND_REJECT.png"
+        },
+        {
+          "id": "M12_PUBLIC_TYPO_CHOICE_AND_REVIEWED_FILL",
+          "status": "passed",
+          "screenshot": "M12_PUBLIC_TYPO_CHOICE_AND_REVIEWED_FILL.png"
+        }
+      ],
+      "repeated": false
+    },
+    {
+      "name": "Existing copilot workspace",
+      "path": "workspace-regression/results.json",
+      "scope": "18 browser groups; pairing, unified handoff, task end, capability visibility, reviews, recording, responsive layout and conversation reset. Deterministic planner/extractor and synthetic authentication/policy.",
+      "passed": 18,
+      "failed": 0,
+      "cases": [
+        {
+          "id": "UX01_VISITOR_CAPABILITIES_AND_SINGLE_COMPOSER",
+          "status": "passed",
+          "screenshot": "UX01_VISITOR_CAPABILITIES_AND_SINGLE_COMPOSER.png"
+        },
+        {
+          "id": "UX02_UNIFIED_KNOWLEDGE_AND_HISTORY",
+          "status": "passed",
+          "screenshot": "UX02_UNIFIED_KNOWLEDGE_AND_HISTORY.png"
+        },
+        {
+          "id": "UX03_REVIEW_EDIT_APPLY_AND_REJECT",
+          "status": "passed",
+          "screenshot": "UX03_REVIEW_EDIT_APPLY_AND_REJECT.png"
+        },
+        {
+          "id": "UX04_PERSISTENT_FAILURE_ACROSS_VIEWS",
+          "status": "passed",
+          "screenshot": "UX04_PERSISTENT_FAILURE_ACROSS_VIEWS.png"
+        },
+        {
+          "id": "UX05_TASK_UPLOAD_AND_CONTEXT_SEPARATION",
+          "status": "passed",
+          "screenshot": "UX05_TASK_UPLOAD_AND_CONTEXT_SEPARATION.png"
+        },
+        {
+          "id": "UX06_PAIRING_SETUP_AND_UNIFIED_HANDOFF",
+          "status": "passed",
+          "screenshot": "UX06_PAIRING_SETUP_AND_UNIFIED_HANDOFF.png"
+        },
+        {
+          "id": "UX07_END_TASK_CLEARS_BOTH_WITHOUT_UNPAIRING",
+          "status": "passed",
+          "screenshot": "UX07_END_TASK_CLEARS_BOTH_WITHOUT_UNPAIRING.png"
+        },
+        {
+          "id": "UX08_OWNER_COACHING_INSPECT_AND_TEACH",
+          "status": "passed",
+          "screenshot": "UX08_OWNER_COACHING_INSPECT_AND_TEACH.png"
+        },
+        {
+          "id": "UX16_SYNTHETIC_RECORDING_REVIEW_DOWNLOAD_AND_DISCARD",
+          "status": "passed",
+          "screenshot": "UX16_SYNTHETIC_RECORDING_REVIEW_DOWNLOAD_AND_DISCARD.png"
+        },
+        {
+          "id": "UX09_REVOKED_COACHING_FAILS_CLOSED_AND_HIDES_ACTIONS",
+          "status": "passed",
+          "screenshot": "UX09_REVOKED_COACHING_FAILS_CLOSED_AND_HIDES_ACTIONS.png"
+        },
+        {
+          "id": "UX10_SHORT_VIEWPORT_STICKY_COMPOSER_AND_KEYBOARD",
+          "status": "passed",
+          "screenshot": "UX10_SHORT_VIEWPORT_STICKY_COMPOSER_AND_KEYBOARD.png"
+        },
+        {
+          "id": "UX11_MOBILE_REFLOW_AND_SINGLE_COMPOSER",
+          "status": "passed",
+          "screenshot": "UX11_MOBILE_REFLOW_AND_SINGLE_COMPOSER.png"
+        },
+        {
+          "id": "UX12_DISABLED_FEATURES_AND_WORKFLOW_ONLY_VISITOR",
+          "status": "passed",
+          "screenshot": "UX12_DISABLED_FEATURES_AND_WORKFLOW_ONLY_VISITOR.png"
+        },
+        {
+          "id": "UX13_INLINE_NEW_CONVERSATION_CANCEL_AND_CONFIRM",
+          "status": "passed",
+          "screenshot": "UX13_INLINE_NEW_CONVERSATION_CANCEL_AND_CONFIRM.png"
+        },
+        {
+          "id": "UX14_BROWSER_LOCAL_CURRENT_VALUE_NEVER_UPLOADED",
+          "status": "passed",
+          "screenshot": "UX14_BROWSER_LOCAL_CURRENT_VALUE_NEVER_UPLOADED.png"
+        },
+        {
+          "id": "UX15_OPT_IN_DOCK_AND_EXPAND_RETAIN_FORM",
+          "status": "passed",
+          "screenshot": "UX15_OPT_IN_DOCK_AND_EXPAND_RETAIN_FORM.png"
+        },
+        {
+          "id": "UX17_PANEL_SIZE_AND_THEME_PREFERENCES",
+          "status": "passed",
+          "screenshot": "UX17_PANEL_SIZE_AND_THEME_PREFERENCES.png"
+        },
+        {
+          "id": "UX18_QUICK_ASSISTANCE_CHOICES",
+          "status": "passed",
+          "screenshot": "UX18_QUICK_ASSISTANCE_CHOICES.png"
+        }
+      ],
+      "repeated": false
+    },
+    {
+      "name": "Form and workflow execution",
+      "path": "../immediate-phase-20261019/visitor-regression/results.json",
+      "scope": "13 groups including 30 varied journeys, nine typed editors and 11 WebSocket steps saving/readback of three local records. Deterministic planner and isolated policy adapter; no new real Flolah workflow run.",
+      "passed": 13,
+      "failed": 0,
+      "cases": [
+        {
+          "id": "T02_EDIT_REPLACE_REJECT",
+          "status": "passed",
+          "detail": "New proposal applied; rejected proposal had no effect.",
+          "screenshot": "T02_EDIT_REPLACE_REJECT.png"
+        },
+        {
+          "id": "T02_TYPED_REVIEW_EDITORS",
+          "status": "passed",
+          "detail": "Typed editors replaced and applied fresh reviews for text, email, select, checkbox, radio, multi-select, date, number and textarea.",
+          "screenshot": "T02_TYPED_REVIEW_EDITORS.png"
+        },
+        {
+          "id": "R01_NATIVE_NOOP",
+          "status": "passed",
+          "detail": "Select/checkbox applied; repeated identical select emitted no change.",
+          "screenshot": "R01_NATIVE_NOOP.png"
+        },
+        {
+          "id": "R11_STALE_REVIEW_PARTIAL",
+          "status": "passed",
+          "detail": "Human edit retained; stale approval refused.",
+          "screenshot": "R11_STALE_REVIEW_PARTIAL.png"
+        },
+        {
+          "id": "T03_PERSISTENT_ERROR",
+          "status": "passed",
+          "detail": "An unrelated successful action did not erase the unresolved task error.",
+          "screenshot": "T03_PERSISTENT_ERROR.png"
+        },
+        {
+          "id": "T01_STOP_PLANNING",
+          "status": "passed",
+          "detail": "Stopped inference produced no review or host effect.",
+          "screenshot": "T01_STOP_PLANNING.png"
+        },
+        {
+          "id": "R06_MISSING_FIELDS_SAVE",
+          "status": "passed",
+          "detail": "Save blocked by actual host validity, with field-specific categories.",
+          "screenshot": "R06_MISSING_FIELDS_SAVE.png"
+        },
+        {
+          "id": "R09_SAVED_ACK_LOST_NO_REPLAY",
+          "status": "passed",
+          "detail": {
+            "records": 1,
+            "dispatches": 1,
+            "outcome": "unknown",
+            "fault": "Existing host persisted the record; browser response was deliberately dropped. No retry or false saved claim."
+          },
+          "screenshot": "R09_SAVED_ACK_LOST_NO_REPLAY.png"
+        },
+        {
+          "id": "R03_DEPENDENT_REVIEWS",
+          "status": "passed",
+          "detail": "Three dependent stages received fresh snapshots and separate visitor approvals.",
+          "screenshot": "R03_DEPENDENT_REVIEWS.png"
+        },
+        {
+          "id": "R13_WS_CUSTOMER_NOTE_OPPORTUNITY",
+          "status": "passed",
+          "detail": {
+            "commands": 11,
+            "savedRecords": 3,
+            "proof": "Independent host readback; host_reported_saved remains the connector contract",
+            "policy": "simulated in this isolated coordinator"
+          },
+          "screenshot": "R13_WS_CUSTOMER_NOTE_OPPORTUNITY.png"
+        },
+        {
+          "id": "R_VALID_JOURNEYS_30",
+          "status": "passed",
+          "detail": {
+            "journeys": 30,
+            "distinctTaskKinds": [
+              "text",
+              "email",
+              "region",
+              "select",
+              "checkbox",
+              "mixed native",
+              "opportunity",
+              "note",
+              "radio",
+              "multi-select"
+            ],
+            "freshVariantsPerKind": 3,
+            "planner": "deterministic; held-out LLM remains a separate gate",
+            "hostSubmissions": 0
+          },
+          "screenshot": "R_VALID_JOURNEYS_30.png"
+        },
+        {
+          "id": "OWNER_READINESS_UI",
+          "status": "passed",
+          "detail": "Real server-derived state in owner UI; saved-map reload and discovery setup link verified. Synthetic owner/registration, not fresh-owner DNS proof.",
+          "screenshot": "OWNER_READINESS_UI.png"
+        },
+        {
+          "id": "OWNER_MAP_CONTEXT",
+          "status": "passed",
+          "detail": "Form and field descriptions saved through owner UI, retained after reload, exported with navigation, re-imported and present in visitor planner guidance. Synthetic identity; actual LLM acceptance is separate.",
+          "screenshot": "OWNER_MAP_CONTEXT.png"
+        }
+      ],
+      "repeated": false
+    },
+    {
+      "name": "Complex controls and frameworks",
+      "path": "controls-regression/results.json",
+      "scope": "Native controls, async picklist, dynamic table, modal, React and Angular application-state/readback.",
+      "passed": 10,
+      "failed": 0,
+      "cases": [
+        {
+          "id": "F03_NATIVE_SELECT_CHECKBOX_RADIO_MULTISELECT_DATALIST",
+          "status": "passed"
+        },
+        {
+          "id": "F05_ASYNC_PICKLIST_AND_DEPENDENT_CONTROL",
+          "status": "passed"
+        },
+        {
+          "id": "F05_PICKLIST_LOADING_EMPTY_ERROR_AMBIGUITY_AND_RECOVERY",
+          "status": "passed"
+        },
+        {
+          "id": "F05_EDITABLE_TABLE_ROW_FILTER_SORT_PAGINATION_DYNAMIC_ROW",
+          "status": "passed"
+        },
+        {
+          "id": "F05_MODAL_SCOPE",
+          "status": "passed"
+        },
+        {
+          "id": "F05_TABLE_MODEL_AND_MULTISELECT_INDEPENDENT_READBACK",
+          "status": "passed"
+        },
+        {
+          "id": "F03_STALE_REVIEW_REJECTS_CHANGED_OPTIONS",
+          "status": "passed"
+        },
+        {
+          "id": "F02_F07_GENERIC_BUSY_DUPLICATE_GUARD_AND_NOTICE",
+          "status": "passed"
+        },
+        {
+          "id": "F03_REACT_APPLICATION_STATE_AND_INDEPENDENT_SAVE",
+          "status": "passed"
+        },
+        {
+          "id": "F03_ANGULAR_APPLICATION_STATE_AND_INDEPENDENT_SAVE",
+          "status": "passed"
+        }
+      ],
+      "repeated": false
+    },
+    {
+      "name": "Owner workspace",
+      "path": "owner-regression/results.json",
+      "scope": "Synthetic owner; actual paginated UI, lazy loading, stale responses, website isolation and error/retry.",
+      "passed": 10,
+      "failed": 0,
+      "cases": [
+        {
+          "id": "UI01_INITIAL_LAZY_LOAD",
+          "status": "passed"
+        },
+        {
+          "id": "UI02_SOURCES_BEYOND_100_SEARCH_AND_PAGE_SIZE",
+          "status": "passed"
+        },
+        {
+          "id": "UI03_WORKFLOWS_PAGED_AND_MAPS_NOT_REFETCHED",
+          "status": "passed"
+        },
+        {
+          "id": "UI04_PAGE_AND_LAZY_FIELD_PAGINATION",
+          "status": "passed"
+        },
+        {
+          "id": "UI05_ANALYTICS_DATASET_PAGINATION",
+          "status": "passed"
+        },
+        {
+          "id": "UI06_LATE_RESPONSE_CANNOT_CROSS_WEBSITES",
+          "status": "passed"
+        },
+        {
+          "id": "UI07_WEBSITE_SEARCH_BEYOND_100_AND_REFRESH_CONTEXT",
+          "status": "passed"
+        },
+        {
+          "id": "UI08_ERROR_AND_RETRY",
+          "status": "passed"
+        },
+        {
+          "id": "UI09_KEYBOARD_TABS_AND_MOBILE_REFLOW",
+          "status": "passed"
+        },
+        {
+          "id": "UI10_CLEAR_OLD_SETTINGS_DURING_WEBSITE_SWITCH",
+          "status": "passed"
+        }
+      ],
+      "repeated": false
+    },
+    {
+      "name": "Deployed private uploads and limits",
+      "path": "live-upload/browser-results.json",
+      "scope": "Both approved registrations, shared-upload denial, private-file cooldown and End task. Synthetic files; no public host submission.",
+      "passed": 8,
+      "failed": 0,
+      "cases": [
+        {
+          "id": "local_SHARED_UPLOAD_NOT_OFFERED",
+          "status": "passed"
+        },
+        {
+          "id": "local_PRIVATE_UPLOAD_AND_SERVER_COOLDOWN",
+          "status": "passed",
+          "httpStatus": 429
+        },
+        {
+          "id": "local_AUTHENTICATED_VISITOR_SHARED_UPLOAD_REFUSED",
+          "status": "passed",
+          "httpStatus": 403
+        },
+        {
+          "id": "local_END_TASK_CLEAR",
+          "status": "passed"
+        },
+        {
+          "id": "public_SHARED_UPLOAD_NOT_OFFERED",
+          "status": "passed"
+        },
+        {
+          "id": "public_PRIVATE_UPLOAD_AND_SERVER_COOLDOWN",
+          "status": "passed",
+          "httpStatus": 429
+        },
+        {
+          "id": "public_AUTHENTICATED_VISITOR_SHARED_UPLOAD_REFUSED",
+          "status": "passed",
+          "httpStatus": 403
+        },
+        {
+          "id": "public_END_TASK_CLEAR",
+          "status": "passed"
+        }
+      ],
+      "repeated": false
+    },
+    {
+      "name": "Bootstrap failure and explicit retry",
+      "path": "bootstrap-regression/results.json",
+      "scope": "Injected SDK failure/recovery on both sites; not a network-performance benchmark.",
+      "passed": 2,
+      "failed": 0,
+      "cases": [
+        {
+          "id": "F13_LOCAL_FAILED_DOWNLOAD_EXPLICIT_RETRY",
+          "status": "passed",
+          "blocked": 1,
+          "hostRemainedVisible": true,
+          "recoveredWithoutHostReload": true,
+          "wallMs": 767,
+          "publicWrites": 0,
+          "measurement": "Injected download failure, not an uncontrolled network latency benchmark"
+        },
+        {
+          "id": "F13_PUBLIC_FAILED_DOWNLOAD_EXPLICIT_RETRY",
+          "status": "passed",
+          "blocked": 1,
+          "hostRemainedVisible": true,
+          "recoveredWithoutHostReload": true,
+          "wallMs": 616,
+          "publicWrites": 0,
+          "measurement": "Injected download failure, not an uncontrolled network latency benchmark"
+        }
+      ],
+      "repeated": false
+    },
+    {
+      "name": "Actual deployed global model route",
+      "path": "production-model/results.json",
+      "scope": "Real registration, indexed knowledge and current shared checker settings after the approved Admin switch. No per-request route override. This suite is a separate release gate.",
+      "passed": 2,
+      "failed": 0,
+      "cases": [
+        {
+          "id": "LIVE_KNOWLEDGE",
+          "status": "passed",
+          "httpStatus": 200,
+          "elapsedMs": 2982,
+          "response": {
+            "message": "The Alpha delivery promise is seven working days.",
+            "citations": [
+              {
+                "sourceId": "e1e27744-23b7-4df0-96bb-04ea135f17a9",
+                "chunkId": "e1e27744-23b7-4df0-96bb-04ea135f17a9_00000",
+                "title": "Alpha demonstration handbook",
+                "text": "Alpha customer onboarding: company name, contact email and region are required. The Alpha delivery promise is seven working days. Alpha verification code is ALPHA_ORCHID_7391. Review entered details before saving. Amount is in the selected currency.",
+                "revision": "aa4c42cba06869b4cefebe94ed9474175300089f1ebfe54d4029a641abd0dcc2",
+                "supportingQuotes": [
+                  "The Alpha delivery promise is seven working days."
+                ]
+              }
+            ],
+            "kind": "answer",
+            "messageId": "430e6d1b-9b52-479f-b054-90e0a217e922"
+          },
+          "hostWrites": 0,
+          "screenshot": "knowledge.png"
+        },
+        {
+          "id": "LIVE_PREPARE",
+          "status": "passed",
+          "httpStatus": 200,
+          "elapsedMs": 5291,
+          "response": {
+            "id": "3cb67aae-9ed3-4b84-8d94-9962099cb9bc",
+            "revision": 1,
+            "message": "The shipping method you requested, 'expres', is not available. The closest option is 'Express'. Would you like to select 'Express' instead? Additionally, I will select 'Include gift wrap' as requested.\nReview these 2 proposed field changes. Nothing has been changed yet.",
+            "actions": [
+              {
+                "type": "fill",
+                "ref": "r1f0",
+                "label": "Shipping method",
+                "value": "Express"
+              },
+              {
+                "type": "fill",
+                "ref": "r1f1",
+                "label": "Include gift wrap",
+                "value": "true",
+                "displayValue": "Selected"
+              }
+            ],
+            "expiresAt": 1792425266744,
+            "fields": [
+              {
+                "ref": "r1f0",
+                "label": "Shipping method",
+                "type": "select-one",
+                "required": false,
+                "key": "shipping_method",
+                "form": "demo-form",
+                "choices": [
+                  "Choose",
+                  "Standard",
+                  "Express"
+                ]
+              },
+              {
+                "ref": "r1f1",
+                "label": "Include gift wrap",
+                "type": "checkbox",
+                "required": false,
+                "key": "gift_wrap",
+                "form": "demo-form"
+              }
+            ],
+            "matchedWorkflows": [],
+            "messageId": "6be7b783-292b-4975-acb2-df8483cbe86c"
+          },
+          "hostWrites": 0,
+          "screenshot": "prepare.png"
+        }
+      ],
+      "repeated": false
+    }
+  ],
+  "fixes": [
+    "Owned cancellation of a superseded read has TASK_CANCELLED and does not create a raw AbortError banner. Genuine connection interruption remains visible, with no automatic write retry.",
+    "Read-only field location resolves fresh observed refs through the scoped proposal/consume path, displays a ten-second marker, scrolls to the input and verifies no write. Ambiguous targets clarify.",
+    "Show me where reuses the latest question or page request; clear conversation and End task remove that browser-local context. @handoff and Save are not reused as page-location requests.",
+    "An active private file task no longer diverts field pointing into a document summary or waits unnecessarily for extraction.",
+    "Generic relative preferences reach semantic review; unsupported literal names remain blocked. Capitalized summary commands are not treated as document subjects.",
+    "Checker instructions agree with the maker on obvious observed-option spelling variants, retain clarification for ambiguity and request concise structured feedback. Earlier malformed verdict failures are preserved; a passing rerun is not a general model-stability guarantee."
+  ],
+  "recommendations": [
+    "The actual global route passes with the approved passive checker. Historical Ollama MODEL_TIMEOUT failures remain in the evidence; they are not certified by switching routes.",
+    "The user-approved Admin setting now uses the inactive platform checker with maker/checker enabled. Repair and certify Ollama efficiency mode before selecting it again; no per-website override exists.",
+    "Broader Phase 1/2 remains 14 Passed / 16 Partial / 2 Deferred requirement families in the linked acceptance report; these narrower regression groups do not reclassify those gates.",
+    "Real Safari/iOS, Android Chrome and full screen-reader verification remain user-deferred. Existing targets do not prove fresh-owner email/DNS onboarding without backend seeding.",
+    "Refresh existing website tabs to load the deployed widget. The automated checks used fresh isolated browser contexts and did not reload user-owned tabs."
+  ],
+  "broaderRequirementCases": [
+    {
+      "id": "R01",
+      "title": "Native partial edits, choice controls and verified no-op",
+      "status": "passed",
+      "evidence": [
+        "browser/results.json",
+        "controls/results.json",
+        "journeys/results.json"
+      ],
+      "recommendation": "Retain the different-control and no-op regressions."
+    },
+    {
+      "id": "R02",
+      "title": "Invalid and missing field facts",
+      "status": "passed",
+      "evidence": [
+        "local/service-tests.log",
+        "browser/R06_MISSING_FIELDS_SAVE.png",
+        "models/final.json"
+      ],
+      "recommendation": "Keep browser validation authoritative; never invent missing business data."
+    },
+    {
+      "id": "R03",
+      "title": "Country \u2192 Province \u2192 City dependencies",
+      "status": "passed",
+      "evidence": [
+        "browser/R03_DEPENDENT_REVIEWS.png",
+        "typed-review/results.json",
+        "local/service-tests.log"
+      ],
+      "recommendation": "Keep fresh refs per stage; regression covers overlapping labels and reordered choice evidence."
+    },
+    {
+      "id": "R04",
+      "title": "Async picklists and React/Angular state",
+      "status": "passed",
+      "evidence": [
+        "controls/results.json",
+        "controls/react-state-saved.png",
+        "controls/angular-state-saved.png"
+      ],
+      "recommendation": "Continue framework fixtures when adapters change."
+    },
+    {
+      "id": "R05",
+      "title": "Table row identity through sort/filter/pagination",
+      "status": "passed",
+      "evidence": [
+        "controls/results.json",
+        "local/service-tests.log"
+      ],
+      "recommendation": "Refuse stale row identity rather than reusing a numeric position."
+    },
+    {
+      "id": "R06",
+      "title": "Native Save validity and precise field errors",
+      "status": "passed",
+      "evidence": [
+        "browser/R06_MISSING_FIELDS_SAVE.png",
+        "browser/results.json"
+      ],
+      "recommendation": "Preserve field-specific validity categories without leaking host values."
+    },
+    {
+      "id": "R07",
+      "title": "Host business rejection and bounded repair",
+      "status": "partial",
+      "evidence": [
+        "local/service-tests.log",
+        "browser/R06_MISSING_FIELDS_SAVE.png"
+      ],
+      "recommendation": "Failure/partial-state handling is covered. A full browser rejection \u2192 supported repair \u2192 renewed review \u2192 Save journey remains to be demonstrated."
+    },
+    {
+      "id": "R08",
+      "title": "Unsupported/ambiguous controls and private frame boundaries",
+      "status": "partial",
+      "evidence": [
+        "controls/results.json",
+        "local/service-tests.log"
+      ],
+      "recommendation": "Modal and boundary regressions pass. Complete a real inaccessible-frame/closed-shadow host journey before claiming this entire family."
+    },
+    {
+      "id": "R09",
+      "title": "Saved record with lost acknowledgement",
+      "status": "passed",
+      "evidence": [
+        "browser/R09_SAVED_ACK_LOST_NO_REPLAY.png",
+        "browser/results.json"
+      ],
+      "recommendation": "Real host persisted one record; deliberately dropped response stayed unknown, with one dispatch and no replay."
+    },
+    {
+      "id": "R10",
+      "title": "Duplicate dispatch, expired grant and recovery fences",
+      "status": "passed",
+      "evidence": [
+        "local/service-tests.log",
+        "vps/service-tests.log",
+        "controls/action-working.png"
+      ],
+      "recommendation": "SQLite reopen, persistent workflow operation guard and click deduplication pass; preserve tombstones during recovery."
+    },
+    {
+      "id": "R11",
+      "title": "Concurrent host edits, edited/rejected reviews",
+      "status": "passed",
+      "evidence": [
+        "browser/T02_EDIT_REPLACE_REJECT.png",
+        "browser/R11_STALE_REVIEW_PARTIAL.png",
+        "local/service-tests.log"
+      ],
+      "recommendation": "Fresh edited proposal replaces the old approval; stale host edits are retained."
+    },
+    {
+      "id": "R12",
+      "title": "Stop, expiry, End task and revoked authority",
+      "status": "passed",
+      "evidence": [
+        "browser/T01_STOP_PLANNING.png",
+        "local/service-tests.log",
+        "vps/backend-runner.log"
+      ],
+      "recommendation": "Keep server policy recheck immediately before every dispatch; no offline command replay."
+    },
+    {
+      "id": "R13",
+      "title": "Workflow Customer \u2192 Note \u2192 Opportunity saved journey",
+      "status": "partial",
+      "evidence": [
+        "browser/workflow-records.json",
+        "browser/workflow-record-readback.png",
+        "vps/backend-runner.log"
+      ],
+      "recommendation": "Eleven real WebSocket commands saved/read back three local records; policy adapter is simulated there. Actual Flolah runner is tested separately. One fresh signed-in Flolah workflow run and CRM foreign-key linkage are not proved by this combined evidence."
+    },
+    {
+      "id": "R14",
+      "title": "Maker/checker functional and failure routes",
+      "status": "partial",
+      "evidence": [
+        "models/final.json",
+        "models/stability.json",
+        "closure/checker/ollama-route.json",
+        "closure/checked-summary-after-upload-fix/browser-results.json",
+        "closure/checked-summary-after-upload-fix/browser-failure.png",
+        "local/service-tests.log"
+      ],
+      "recommendation": "Maker-only/passive routes pass at 2048 tokens. The actual shared Ollama route offered Express for review in 94 seconds, but its cited-summary request failed closed at the 180-second checker deadline. Polling now remains bounded; this independent checker issue remains open with screenshot evidence."
+    },
+    {
+      "id": "T01",
+      "title": "Visible stages, elapsed progress and Stop",
+      "status": "passed",
+      "evidence": [
+        "review-detail/planning-stop.png",
+        "browser/T01_STOP_PLANNING.png",
+        "local/service-tests.log"
+      ],
+      "recommendation": "HTTP abort releases real capacity; Stop cancels remaining effects and never undoes a dispatched write."
+    },
+    {
+      "id": "T02",
+      "title": "Typed editable and rejectable reviews",
+      "status": "passed",
+      "evidence": [
+        "browser/typed-review-editors.png",
+        "browser/T02_TYPED_REVIEW_EDITORS.png",
+        "local/service-tests.log"
+      ],
+      "recommendation": "Nine representative editor types pass; every revision revalidates structure and invalidates old approval."
+    },
+    {
+      "id": "T03",
+      "title": "Persistent errors, action notices and accessibility",
+      "status": "deferred",
+      "evidence": [
+        "browser/T03_PERSISTENT_ERROR.png",
+        "controls/action-working.png",
+        "controls/action-completed.png",
+        "live/results.json"
+      ],
+      "recommendation": "Chrome keyboard and notices pass. Full screen-reader announcement validation is explicitly deferred by the user on 19 October; it is not an implementation partial."
+    },
+    {
+      "id": "T04",
+      "title": "Separate panel, task, group and counterpart state",
+      "status": "passed",
+      "evidence": [
+        "live/LOCAL_LIVE_PANEL.png",
+        "local/service-tests.log"
+      ],
+      "recommendation": "Lifecycle/session/pairing tests and explicit connection copy pass; ended private context is not resurrected."
+    },
+    {
+      "id": "T05",
+      "title": "Sender, recipient and workflow-run trace consistency",
+      "status": "partial",
+      "evidence": [
+        "browser/R13_WS_CUSTOMER_NOTE_OPPORTUNITY.png",
+        "vps/backend-runner.log"
+      ],
+      "recommendation": "Recipient completion now waits for coordinator acknowledgement. A fresh live Flolah run screenshot must close the three-surface UI comparison."
+    },
+    {
+      "id": "T06",
+      "title": "Held-out language and intelligent clarification",
+      "status": "partial",
+      "evidence": [
+        "models/final.json",
+        "models/stability.json"
+      ],
+      "recommendation": "Typos, checkbox language, radio intent, default plurals, preserve-current, unavailable choice, advice and cited summary pass. Broader comparisons/conflicting/missing-fact language is not fully measured."
+    },
+    {
+      "id": "O01",
+      "title": "Fresh owner email sign-in and empty registration",
+      "status": "partial",
+      "evidence": [
+        "local/service-tests.log",
+        "browser/owner-readiness.png"
+      ],
+      "recommendation": "Simulated clean-owner flow passes. Existing registrations were reused as requested, so a new real inbox/owner registration was not tested."
+    },
+    {
+      "id": "O02",
+      "title": "Real DNS ownership and challenge recovery",
+      "status": "partial",
+      "evidence": [
+        "local/service-tests.log",
+        "browser/owner-readiness.png"
+      ],
+      "recommendation": "Missing/wrong/renewed challenge and race guards pass in the resolver fixture. No new real DNS TXT change was made."
+    },
+    {
+      "id": "O03",
+      "title": "Actual installation, origin and diagnostics",
+      "status": "passed",
+      "evidence": [
+        "live/LOCAL_LIVE_PANEL.png",
+        "live/PUBLIC_LIVE_PANEL.png",
+        "local/service-tests.log"
+      ],
+      "recommendation": "Both authorized live origins initialize; expiry/origin/CSP error contracts remain covered. Installed tokens are not published in screenshots."
+    },
+    {
+      "id": "O04",
+      "title": "Persisted discovery and cross-site isolation",
+      "status": "partial",
+      "evidence": [
+        "local/service-tests.log",
+        "browser/owner-readiness.png"
+      ],
+      "recommendation": "Persistence/isolation regressions pass. Reusing existing registrations does not prove one fresh owner discovered an entirely new site unassisted."
+    },
+    {
+      "id": "O05",
+      "title": "Teach \u2192 task test \u2192 publish \u2192 fresh visitor replay",
+      "status": "partial",
+      "evidence": [
+        "local/service-tests.log",
+        "browser/owner-readiness.png"
+      ],
+      "recommendation": "Actual consumed/observed proposal evidence gates task-tested readiness, and publication carries only unchanged tested steps. Full UI teaching-to-fresh-visitor chain remains open."
+    },
+    {
+      "id": "O06",
+      "title": "Owner setup resumption and website isolation",
+      "status": "partial",
+      "evidence": [
+        "local/service-tests.log",
+        "browser/owner-readiness.png"
+      ],
+      "recommendation": "Server state, ownership and paging regressions pass; live owner logout/login plus two-account browser resumption remains unperformed."
+    },
+    {
+      "id": "O07",
+      "title": "Disable/revoke invalidates readiness and execution",
+      "status": "partial",
+      "evidence": [
+        "local/service-tests.log",
+        "vps/backend-runner.log"
+      ],
+      "recommendation": "Server revocation and policy-at-dispatch tests pass. Complete the owner UI disable/revoke \u2192 visitor UI refusal chain."
+    },
+    {
+      "id": "O08",
+      "title": "No domain-specific backend seeding",
+      "status": "partial",
+      "evidence": [
+        "local/service-tests.log",
+        "browser/results.json"
+      ],
+      "recommendation": "Clean self-service fixture asserts empty content. Existing live registrations have historical operator setup; that history cannot be relabelled unseeded."
+    },
+    {
+      "id": "P01",
+      "title": "25 websites and concurrent real planning workload",
+      "status": "partial",
+      "evidence": [
+        "vps/management-capacity.log",
+        "vps/private-capacity.log",
+        "models/final.json"
+      ],
+      "recommendation": "500 management requests: zero errors, 112.97 ms p95; 25 tasks/50 recipients pass. Concurrent inference queue/stage/search-memory capacity remains unmeasured."
+    },
+    {
+      "id": "P02",
+      "title": "Bounded multi-format parsing and private memory",
+      "status": "partial",
+      "evidence": [
+        "vps/private-capacity.log",
+        "local/service-tests.log"
+      ],
+      "recommendation": "25 real text files / two workers pass, with zero retained extraction bytes or cleanup backlog. A new concurrent PDF+image workload is still required."
+    },
+    {
+      "id": "P03",
+      "title": "Real 24-hour retention elapsed deletion",
+      "status": "partial",
+      "evidence": [
+        "../private-retention-20261019/report.json",
+        "local/service-tests.log"
+      ],
+      "recommendation": "Immediate ended-task denial and actual ISM policy passed previously. Verify physical deletion after its real elapsed cycle; do not shorten the shared policy to manufacture a pass."
+    },
+    {
+      "id": "P04",
+      "title": "Desktop keyboard plus deferred devices/assistive tech",
+      "status": "deferred",
+      "evidence": [
+        "live/results.json",
+        "controls/results.json"
+      ],
+      "recommendation": "Desktop Chrome passes. The user explicitly deferred real Safari/iOS, Android and full screen-reader checks on 19 October. These are excluded from the active certification scope until resumed."
+    }
+  ],
+  "broaderAssessmentAt": "2026-10-19T12:52:40.181041+00:00"
+}

@@ -8,6 +8,7 @@ import {constrainNavigation} from './navigation-intent.mjs';
 import {constrainEdit} from './edit-intent.mjs';
 import {randomUUID} from 'node:crypto';
 import {attachLiveTransport} from './live-transport.mjs';
+import {fieldGuidance} from './field-guidance.mjs';
 
 const assets = new Map([
   ['/workspace.mjs', ['../web/workspace.mjs','text/javascript']],
@@ -240,17 +241,17 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
           authority.touch(auth);result=proposals.prepareSave(scope,input.snapshot,input.ref);
         }
         else if (path === '/v1/plan') {
-          budget.take(`model:${scope.embeddingId}`);
-          releaseModel=modelSlots.acquire(scope.embeddingId);
-          if (!planner || !proposals) return send(503,{ error:'Model assistance is not configured' });
+          if (!proposals) return send(503,{ error:'Model assistance is not configured' });
           if (typeof input.text !== 'string' || !input.text.trim() || input.text.length > 8000) throw new Error('Invalid request');
           const snapshot=constrainEdit(input.text,constrainNavigation(input.text,validateSnapshot(input.snapshot)));
+          const pointing=fieldGuidance(input.text,snapshot,authority.history(auth).filter(m=>(m.channel||'guide')==='guide'));
+          if(!pointing){budget.take(`model:${scope.embeddingId}`);releaseModel=modelSlots.acquire(scope.embeddingId);if(!planner)return send(503,{error:'Model assistance is not configured'});}
           authority.touch(auth);
           authority.appendMessage({...auth,text:input.text,replyTo:input.replyTo??null});
           // No credentials or caller-provided identity are passed to the model.
           const guideHistory=authority.history(auth).filter(m=>(m.channel||'guide')==='guide');
           const recipeGuidance=learning?.context?.(scope,input.text,snapshot);
-          const response=['ambiguous','manual_replay'].includes(recipeGuidance?.status)?{message:recipeGuidance.status==='ambiguous'?`More than one reviewed workflow matches: ${recipeGuidance.candidates.map(candidate=>candidate.title).join('; ')}. Clarify which workflow you intend before I prepare changes.`:'This workflow is too large to include safely as one guidance context. Ask the website owner to split it into smaller reviewed workflows.',actions:[]}:await planner({signal:requestController.signal, text:input.text,snapshot,history:guideHistory.slice(-12),replyContext:guideHistory.find(m=>m.id===input.replyTo)?.text,sourceGuidance:sourceMap?.guidance(scope,input.text,snapshot),recipeGuidance,siteGuidance:learning?.planningMemory?.(scope,input.text,snapshot) });
+          const response=pointing||(['ambiguous','manual_replay'].includes(recipeGuidance?.status)?{message:recipeGuidance.status==='ambiguous'?`More than one reviewed workflow matches: ${recipeGuidance.candidates.map(candidate=>candidate.title).join('; ')}. Clarify which workflow you intend before I prepare changes.`:'This workflow is too large to include safely as one guidance context. Ask the website owner to split it into smaller reviewed workflows.',actions:[]}:await planner({signal:requestController.signal, text:input.text,snapshot,history:guideHistory.slice(-12),replyContext:guideHistory.find(m=>m.id===input.replyTo)?.text,sourceGuidance:sourceMap?.guidance(scope,input.text,snapshot),recipeGuidance,siteGuidance:learning?.planningMemory?.(scope,input.text,snapshot) }));
           if(authority.context(auth).conversationVersion!==scope.conversationVersion)throw new Error('Conversation cleared; response discarded');
           const destination=response.actions?.length===1&&response.actions[0].type==='navigate'?snapshot.links.find(link=>link.ref===response.actions[0].ref)?.path:null;
           const navigationBinding=destination?learning?.navigationProfile?.(scope,destination):null;

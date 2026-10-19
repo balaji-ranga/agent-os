@@ -3,6 +3,7 @@ import { mkdir, writeFile, readFile, rm, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createProposalStore, validateSnapshot } from './proposals.mjs';
 import {readOnlyIntent,groundedValue} from './task-intent.mjs';
+import {fieldGuidance} from './field-guidance.mjs';
 import {createPairingGovernance} from './pairing-governance.mjs';
 import {createUploadAdmission} from './upload-admission.mjs';
 const hash = value => createHash('sha256').update(value).digest('hex');
@@ -448,13 +449,14 @@ export async function createPrivateTasks({
       const t = taskFor(scope, input.taskId, input.instanceId);
       touch(t);
       if (typeof input.text !== 'string' || !input.text.trim() || input.text.length > 8000) reject('INVALID_TASK');
-      if(readOnlyIntent(input.text)){const result=await service.summary(scope,input,taskEvidence);return {...result,actions:[],privateTaskId:t.id};}
+      const pointing=fieldGuidance(input.text,validateSnapshot(input.snapshot),t.history.filter(m=>m.instanceId===input.instanceId));
+      if(!pointing&&readOnlyIntent(input.text)){const result=await service.summary(scope,input,taskEvidence);return {...result,actions:[],privateTaskId:t.id};}
       const snapshot = validateSnapshot(input.snapshot),
-        evidence = [...await context(t, input.text, input.instanceId), ...taskEvidence].slice(0, 8);
+        evidence = pointing?[]:[...await context(t, input.text, input.instanceId), ...taskEvidence].slice(0, 8);
       taskFor(scope,t.id,input.instanceId);
       const contentRevision=t.contentRevision||0;
-      if ([...t.files.values()].some(f => f.uploaderId === input.instanceId && ['queued', 'extracting', 'storing'].includes(f.status))) reject('EXTRACTION_PENDING');
-      const response = await planner({
+      if (!pointing&&[...t.files.values()].some(f => f.uploaderId === input.instanceId && ['queued', 'extracting', 'storing'].includes(f.status))) reject('EXTRACTION_PENDING');
+      const response = pointing||await planner({
         signal:input.requestSignal,
         text: input.text,
         snapshot,
