@@ -1,5 +1,9 @@
 # Digital Adoption Copilot
 
+Open the [browser-ready immediate-phase review](IMMEDIATE_PHASE_REVIEW.html)
+for an interactive summary and filterable acceptance plan; it needs no build
+or external dependencies.
+
 The [immediate-phase analysis and design](IMMEDIATE_PHASE_DESIGN.md) defines the
 next reliability, visitor clarity and fresh-owner self-service work, with source
 findings, proposed contracts and acceptance gates. It is a design, not a new
