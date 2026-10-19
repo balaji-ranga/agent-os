@@ -1,0 +1,41 @@
+TRACE /free-tools/digital-adoption/v1/goals/status 200 
+TRACE /free-tools/digital-adoption/v1/goals/create 200 draft
+TRACE /free-tools/digital-adoption/v1/goals/control 200 ready
+TRACE /free-tools/digital-adoption/v1/goals/next 200 awaiting_review
+TRACE /free-tools/digital-adoption/v1/goals/observe 200 ready
+TRACE /free-tools/digital-adoption/v1/goals/next 200 awaiting_review
+TRACE /free-tools/digital-adoption/v1/goals/observe 200 ready
+TRACE /free-tools/digital-adoption/v1/goals/next 200 awaiting_review
+TRACE /free-tools/digital-adoption/v1/goals/observe 200 ready
+TRACE /free-tools/digital-adoption/v1/goals/next 200 awaiting_review
+TRACE /free-tools/digital-adoption/v1/goals/observe 200 ready
+TRACE /free-tools/digital-adoption/v1/goals/next 200 awaiting_review
+TRACE /free-tools/digital-adoption/v1/goals/observe 200 ready
+TRACE /free-tools/digital-adoption/v1/goals/next 200 awaiting_review
+TRACE /free-tools/digital-adoption/v1/goals/observe 200 ready
+TRACE /free-tools/digital-adoption/v1/goals/next 200 awaiting_review
+TRACE /free-tools/digital-adoption/v1/goals/observe 200 ready
+TRACE /free-tools/digital-adoption/v1/goals/next 200 awaiting_review
+TRACE /free-tools/digital-adoption/v1/goals/observe 200 completed
+PASS LIVE_GOAL01_COMPLEX_CUSTOMER_NOTE_OPPORTUNITY_SAVED_AND_READ_BACK
+TRACE /free-tools/digital-adoption/v1/goals/status 200 
+TRACE /free-tools/digital-adoption/v1/goals/create 200 clarifying
+TRACE /free-tools/digital-adoption/v1/goals/clarify 200 clarifying
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+locator.waitFor: Timeout 25000ms exceeded.
+Call log:
+  - waiting for locator('iframe[data-adoption-widget]').contentFrame().locator('#goal-start') to be visible
+
+    at C:\Users\balaj\projects\agents\agent-os\.worktrees\digital-adoption\digital-adoption\test\goals-live-browser.mjs:42:1020
+    at async check (C:\Users\balaj\projects\agents\agent-os\.worktrees\digital-adoption\digital-adoption\test\goals-live-browser.mjs:28:46)
+    at async file:///C:/Users/balaj/projects/agents/agent-os/.worktrees/digital-adoption/digital-adoption/test/goals-live-browser.mjs:42:3 {
+  log: [
+    "  - waiting for locator('iframe[data-adoption-widget]').contentFrame().locator('#goal-start') to be visible"
+  ],
+  name: 'TimeoutError'
+}
+
+Node.js v22.22.0

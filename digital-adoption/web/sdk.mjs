@@ -40,7 +40,7 @@ export async function mount(options) {
   const recorder=createRecorder(document);
   let recordedSteps=[];
   let recordingId,recordingTitle;
-  let currentSnapshot = null,currentTaskText='',lastOutcome;
+  let currentSnapshot = null,currentTaskText='',lastOutcome,currentGoalProposal=false;
   const hostContext=()=>({title:currentSnapshot?.forms?.[0]?.label||[...document.forms].find(form=>!form.closest('[data-adoption-widget],[data-adoption-private]')&&form.getClientRects().length)?.getAttribute('aria-label')||document.title.slice(0,120),path:location.pathname});
   let taskGeneration=0;
   let guidedQueue=null;
@@ -83,8 +83,8 @@ export async function mount(options) {
   let durableResume=false;
   const resumeStore={read(){try{return sessionStorage.getItem(resumeKey)||localStorage.getItem(resumeKey);}catch{return null;}},write(value){try{sessionStorage.setItem(resumeKey,value);if(durableResume)localStorage.setItem(resumeKey,value);}catch{}},clear(){try{sessionStorage.removeItem(resumeKey);localStorage.removeItem(resumeKey);}catch{}},persist(value){durableResume=value;try{if(value){const proof=sessionStorage.getItem(resumeKey);if(proof)localStorage.setItem(resumeKey,proof);}else localStorage.removeItem(resumeKey);}catch{}}};
   const privateClient=createTaskClient({request,service,resumeStore,inspect:task=>inspector.snapshot({task}),hostIdentity:getHostIdentity?async()=>{try{return await request('/v1/renew',{identityToken:await readHostIdentity()});}catch(error){try{await request('/v1/terminate');}finally{expireSession();}throw error;}}:null,onEvent:event=>{
-    if(event.type==='task-ended'){lastOutcome=undefined;taskGeneration++;currentSnapshot=null;currentTaskText='';}
-    if(event.type==='workflow-started'){taskGeneration++;currentSnapshot=null;}
+    if(event.type==='task-ended'){currentGoalProposal=false;lastOutcome=undefined;taskGeneration++;currentSnapshot=null;currentTaskText='';}
+    if(event.type==='workflow-started'){currentGoalProposal=false;taskGeneration++;currentSnapshot=null;}
     if(event.type==='workflow-proposal'){currentSnapshot=event.snapshot;event={...event,proposal:{...event.proposal,localReview:inspector.reviewValues(event.proposal.actions,event.proposal.revision)}};}
     frame.contentWindow?.postMessage({channel:'flolah-adoption-v1',type:'private-event',event},service.origin);
   },execute:async (proposal,context={})=>(await execution.execute(proposal,{onProgress:context.onProgress,verifyOutcome:verifyAction,settle:()=>inspector.settle({task:context.task,active:()=>!closed&&(context.active?.()??true)}),active:()=>!closed&&(context.active?.()??true)})).results});
@@ -95,13 +95,13 @@ export async function mount(options) {
     if (!message || message.channel !== 'flolah-adoption-v1' || typeof message.id !== 'string' || message.id.length > 80) return;
     let result,proposalGeneration;
     try {
-      if(execution.busy&&['plan','recipe-plan','save-review','approve','revise','inspect','discovery-start','record-start','replay-navigation'].includes(message.type))throw Object.assign(new Error('A task is already applying or verifying changes. Stop it or wait for its result.'),{code:'TASK_BUSY'});
+      if(execution.busy&&['goal-create','goal-next','goal-observe','goal-clarify','plan','recipe-plan','save-review','approve','revise','inspect','discovery-start','record-start','replay-navigation'].includes(message.type))throw Object.assign(new Error('A task is already applying or verifying changes. Stop it or wait for its result.'),{code:'TASK_BUSY'});
       // Unblock the queue before the owner's fresh capability check. Waiting
       // for that check first would itself queue Pause behind the stalled read.
       if(['discovery-pause','discovery-stop'].includes(message.type))client.interruptRead();
       const ownerOperation=/^(?:discovery-|record-|replay-navigation$|inspect$|recipes$|recipe-plan$|documents$)/.test(message.type);
       if(ownerOperation&&!(await request('/v1/capabilities')).capabilities.coach)throw new Error('Actions requires owner coaching access. Enable a short-lived coaching code in settings.');
-      if(/^(task|pair)-/.test(message.type)){result=await privateClient.call(message.type,message);}
+      if(/^(task|pair)-/.test(message.type)){result=await privateClient.call(message.type,message);if(message.type==='task-remove'){currentSnapshot=null;taskGeneration++;frame.contentWindow?.postMessage({channel:'flolah-adoption-v1',type:'private-event',event:{type:'goal-context-changed'}},service.origin);}}
       else if(message.type==='access'){try{result=await request('/v1/capabilities');}finally{if(!result?.capabilities?.coach&&['recording','paused'].includes(recorder.state())){recorder.stop();recordedSteps=[];recordingId=null;recordingTitle=null;}}}
       else if (message.type === 'config') result = {theme:appearance,presentation:{layout,expanded},hostContext:hostContext(),canVerifyOutcome:typeof getVerifiedOutcome==='function',...await request('/v1/capabilities')};
       else if(message.type==='presentation'){expanded=message.expanded===true;applyAppearance();result={layout,expanded};}
@@ -185,19 +185,29 @@ export async function mount(options) {
         result=privateClient.taskId?await privateClient.call('task-revise',{id:message.proposalId,snapshot:currentSnapshot,edits:message.edits}):await request('/v1/revise',{id:message.proposalId,snapshot:currentSnapshot,edits:message.edits});
         if(generation!==taskGeneration)throw new Error('Review stopped; edited proposal discarded');
       }
-      else if(message.type==='reject'){taskGeneration++;currentSnapshot=null;client.interruptRead();result=privateClient.taskId?await privateClient.call('task-reject',{id:message.proposalId}):await request('/v1/reject',{id:message.proposalId});}
+      else if(message.type==='reject'){taskGeneration++;currentSnapshot=null;client.interruptRead();result=privateClient.taskId&&!currentGoalProposal?await privateClient.call('task-reject',{id:message.proposalId}):await request('/v1/reject',{id:message.proposalId});}
       else if(message.type==='reconnect'){await controller.destroy();result=await mount(options);return;}
-      else if(message.type==='cancel'){execution.stop();taskGeneration++;currentSnapshot=null;currentTaskText='';client.interruptRead();result={stopped:true};}
+      else if(message.type==='cancel'){currentGoalProposal=false;execution.stop();taskGeneration++;currentSnapshot=null;currentTaskText='';client.interruptRead();result={stopped:true};}
       else if (message.type === 'inspect') {result=inspector.snapshot({inventory:true});const access=await request('/v1/capabilities');if(access.capabilities.coach)result.learning=await request('/v1/learning/observe',{snapshot:result});}
+      else if(message.type.startsWith('goal-')){
+        const operation=message.type.slice(5),goalInput={id:message.goalId,version:message.version,action:message.action,text:message.text,answer:message.answer,edits:message.edits};if(['control','create','clarify'].includes(operation)){taskGeneration++;currentSnapshot=null;client.interruptRead();execution.stop();}
+        const generation=proposalGeneration=taskGeneration;
+        if(['create','next','observe','revise','clarify'].includes(operation)){const observed=inspector.snapshot({task:message.text||currentTaskText});if(lastOutcome)observed.lastOutcome=lastOutcome;currentSnapshot=observed;result=await request('/v1/goals/'+operation,{...goalInput,snapshot:observed,...(['create','clarify'].includes(operation)?{privateTask:privateClient.taskScope}: {})});}
+        else result=await request('/v1/goals/'+operation,goalInput);
+        if(generation!==taskGeneration)throw Object.assign(new Error('Goal request stopped; response discarded'),{code:'TASK_CANCELLED'});
+        if(result.proposal){currentGoalProposal=true;currentTaskText=result.goal.steps[result.goal.current].remainingInstruction||result.goal.steps[result.goal.current].instruction;result.proposal={...result.proposal,localReview:inspector.reviewValues(result.proposal.actions,result.proposal.revision)};}
+        else {currentSnapshot=null;currentGoalProposal=false;}
+      }
       else if (message.type === 'plan') {
         const generation=proposalGeneration=++taskGeneration;
-        const continuingGoal=currentTaskText===message.text;currentTaskText=message.text;const snapshot=inspector.snapshot({task:message.text});if(lastOutcome)snapshot.lastOutcome={...lastOutcome,...(!continuingGoal?{lookupOnly:false}:{})};currentSnapshot=snapshot;
+        const continuingGoal=currentTaskText===message.text;currentGoalProposal=false;currentTaskText=message.text;const snapshot=inspector.snapshot({task:message.text});if(lastOutcome)snapshot.lastOutcome={...lastOutcome,...(!continuingGoal?{lookupOnly:false}:{})};currentSnapshot=snapshot;
         result = await privateClient.plan({text:message.text,snapshot,mode:message.mode})||await request('/v1/plan',{ text:message.text,snapshot,replyTo:message.replyTo,mode:message.mode });
         if(generation!==taskGeneration)throw new Error('Task stopped; proposal discarded');
         if(!result.actions?.length)currentSnapshot=null;
         if(snapshot.coverage.manualNotice)result={...result,manualNotice:snapshot.coverage.manualNotice};
       }
       else if(message.type==='save-review'){
+        currentGoalProposal=false;
         if(message.mode==='guide')throw new Error('Guide mode does not submit forms. Use the host Save control yourself.');
         const generation=proposalGeneration=++taskGeneration;currentSnapshot=inspector.snapshot();
         if(currentSnapshot.submissions.length!==1)throw new Error('Choose Save on the host page: no unique supported native submit control is visible.');
@@ -208,7 +218,7 @@ export async function mount(options) {
         if (!currentSnapshot) throw new Error('Inspect and review again');
         if(getHostIdentity)await request('/v1/renew',{identityToken:await readHostIdentity()});
         const generation=taskGeneration,reviewedSnapshot=currentSnapshot,reviewedRevision=currentSnapshot.revision;
-        const proposal = privateClient.taskId?await privateClient.call('task-approve',{id:message.proposalId,revision:reviewedRevision,approved:true}):await request('/v1/approve',{ id:message.proposalId,revision:reviewedRevision,approved:true });
+        const proposal = privateClient.taskId&&!currentGoalProposal?await privateClient.call('task-approve',{id:message.proposalId,revision:reviewedRevision,approved:true}):await request('/v1/approve',{ id:message.proposalId,revision:reviewedRevision,approved:true });
         if(closed||generation!==taskGeneration)throw new Error('Task stopped or superseded; approved actions discarded');
         const results=[];
         const guided=proposal.actions.length>0&&proposal.actions.every(action=>action.type==='highlight');

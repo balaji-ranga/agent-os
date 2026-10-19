@@ -1,0 +1,17 @@
+TRACE /free-tools/digital-adoption/v1/goals/status 200 
+TRACE /free-tools/digital-adoption/v1/goals/create 200 draft
+TRACE /free-tools/digital-adoption/v1/goals/control 200 ready
+TRACE /free-tools/digital-adoption/v1/goals/next 200 awaiting_review
+TRACE /free-tools/digital-adoption/v1/goals/observe 200 ready
+TRACE /free-tools/digital-adoption/v1/goals/next 200 blocked
+file:///C:/Users/balaj/projects/agents/agent-os/.worktrees/digital-adoption/digital-adoption/test/goals-live-browser.mjs:23
+   const latest=traces.at(-1);if(latest?.goal?.status==='blocked')throw new Error(latest.goal.message||'Goal blocked');await new Promise(r=>setTimeout(r,100));
+                                                                        ^
+
+Error: The task requires showing the matching Genosys provider in the loaded results and summarizing its description. However, no field changes were prepared as the current step is focused on inspection rather than filling fields. The observed Genosys provider is 'ae.genosys/genosys', which offers Korean skincare products in the UAE, allowing users to find products, view AED prices, and order and pay.
+    at executeReviewedGoal (file:///C:/Users/balaj/projects/agents/agent-os/.worktrees/digital-adoption/digital-adoption/test/goals-live-browser.mjs:23:73)
+    at async file:///C:/Users/balaj/projects/agents/agent-os/.worktrees/digital-adoption/digital-adoption/test/goals-live-browser.mjs:46:100
+    at async check (file:///C:/Users/balaj/projects/agents/agent-os/.worktrees/digital-adoption/digital-adoption/test/goals-live-browser.mjs:28:46)
+    at async file:///C:/Users/balaj/projects/agents/agent-os/.worktrees/digital-adoption/digital-adoption/test/goals-live-browser.mjs:46:3
+
+Node.js v22.22.0

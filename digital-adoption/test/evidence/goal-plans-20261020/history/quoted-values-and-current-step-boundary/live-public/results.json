@@ -1,0 +1,242 @@
+{
+  "at": "2026-10-19T18:10:10.552Z",
+  "scope": "Actual deployed registrations, goal planner, step planner and global active-maker/passive-checker route. Browser explicitly approves each local effect. No autonomous workflow grant or backend knowledge seeding.",
+  "publicWrites": 0,
+  "localWrites": 0,
+  "results": [
+    {
+      "id": "LIVE_GOAL02_PUBLIC_FILTER_LOCATE_AND_SUMMARIZE_WITHOUT_SAVE",
+      "status": "failed",
+      "error": "The task requires showing the matching Genosys provider in the loaded results and summarizing its description. However, no field changes were prepared as the current step is focused on inspection rather than filling fields. The observed Genosys provider is 'ae.genosys/genosys', which offers Korean skincare products in the UAE, allowing users to find products, view AED prices, and order and pay.",
+      "screenshot": "LIVE_GOAL02_PUBLIC_FILTER_LOCATE_AND_SUMMARIZE_WITHOUT_SAVE-failed.png"
+    }
+  ],
+  "traces": [
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/create",
+      "status": 200,
+      "goal": {
+        "id": "00d9fcfd-f3c5-4ac4-8894-318f3156640d",
+        "status": "draft",
+        "current": 0,
+        "version": 1,
+        "message": "The plan to set the MCP search field to 'genosys' and keep the transport on 'All transports' is outlined below. After filling in the search field, we will inspect the results to find the matching Genosys provider and summarize its description.",
+        "steps": [
+          {
+            "title": "Fill MCP search field",
+            "kind": "fill",
+            "instruction": "Set the 'Search MCPs, publishers, capabilities…' field to 'genosys' and keep the 'transport' field on 'All transports'.",
+            "expected": "The search field is filled with 'genosys' and 'All transports' is selected.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Inspect search results",
+            "kind": "inspect",
+            "instruction": "Locate the matching Genosys provider in the loaded results and summarize its description.",
+            "expected": "The description of the matching Genosys provider is summarized.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/control",
+      "status": 200,
+      "goal": {
+        "id": "00d9fcfd-f3c5-4ac4-8894-318f3156640d",
+        "status": "ready",
+        "current": 0,
+        "version": 2,
+        "message": "The plan to set the MCP search field to 'genosys' and keep the transport on 'All transports' is outlined below. After filling in the search field, we will inspect the results to find the matching Genosys provider and summarize its description.",
+        "steps": [
+          {
+            "title": "Fill MCP search field",
+            "kind": "fill",
+            "instruction": "Set the 'Search MCPs, publishers, capabilities…' field to 'genosys' and keep the 'transport' field on 'All transports'.",
+            "expected": "The search field is filled with 'genosys' and 'All transports' is selected.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Inspect search results",
+            "kind": "inspect",
+            "instruction": "Locate the matching Genosys provider in the loaded results and summarize its description.",
+            "expected": "The description of the matching Genosys provider is summarized.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "goal": {
+        "id": "00d9fcfd-f3c5-4ac4-8894-318f3156640d",
+        "status": "awaiting_review",
+        "current": 0,
+        "version": 4,
+        "message": "Set the 'Search MCPs, publishers, capabilities…' field to 'genosys' and keep the 'transport' field on 'All transports'.\nReview these 2 proposed field changes. Nothing has been changed yet.",
+        "steps": [
+          {
+            "title": "Fill MCP search field",
+            "kind": "fill",
+            "instruction": "Set the 'Search MCPs, publishers, capabilities…' field to 'genosys' and keep the 'transport' field on 'All transports'.",
+            "expected": "The search field is filled with 'genosys' and 'All transports' is selected.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect search results",
+            "kind": "inspect",
+            "instruction": "Locate the matching Genosys provider in the loaded results and summarize its description.",
+            "expected": "The description of the matching Genosys provider is summarized.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      },
+      "proposal": {
+        "id": "c389392a-89ae-4baf-9f61-38a4adb69353",
+        "message": "Set the 'Search MCPs, publishers, capabilities…' field to 'genosys' and keep the 'transport' field on 'All transports'.\nReview these 2 proposed field changes. Nothing has been changed yet.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r2f0",
+            "label": "Search MCPs, publishers, capabilities…",
+            "value": "genosys"
+          },
+          {
+            "type": "fill",
+            "ref": "r2f1",
+            "label": "transport",
+            "value": "All transports"
+          }
+        ]
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "status": 200,
+      "goal": {
+        "id": "00d9fcfd-f3c5-4ac4-8894-318f3156640d",
+        "status": "ready",
+        "current": 0,
+        "version": 6,
+        "message": "The 'Search MCPs, publishers, capabilities…' field has been successfully filled with 'genosys' and the 'transport' field is set to 'All transports', as confirmed by local observations. The next step is to show the matching Genosys provider in the loaded results and summarize its description.",
+        "steps": [
+          {
+            "title": "Fill MCP search field",
+            "kind": "fill",
+            "instruction": "Set the 'Search MCPs, publishers, capabilities…' field to 'genosys' and keep the 'transport' field on 'All transports'.",
+            "expected": "The search field is filled with 'genosys' and 'All transports' is selected.",
+            "status": "pending",
+            "effects": [
+              {
+                "proposalId": "c389392a-89ae-4baf-9f61-38a4adb69353",
+                "status": "consumed",
+                "path": "/free-tools/mcp-universe/",
+                "responseMessage": "Set the 'Search MCPs, publishers, capabilities…' field to 'genosys' and keep the 'transport' field on 'All transports'.\nReview these 2 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Search MCPs, publishers, capabilities…",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "transport",
+                    "value": "All transports",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1,
+            "remainingInstruction": "Show the matching Genosys provider in the loaded results and summarize its description."
+          },
+          {
+            "title": "Inspect search results",
+            "kind": "inspect",
+            "instruction": "Locate the matching Genosys provider in the loaded results and summarize its description.",
+            "expected": "The description of the matching Genosys provider is summarized.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "goal": {
+        "id": "00d9fcfd-f3c5-4ac4-8894-318f3156640d",
+        "status": "blocked",
+        "current": 0,
+        "version": 8,
+        "message": "The task requires showing the matching Genosys provider in the loaded results and summarizing its description. However, no field changes were prepared as the current step is focused on inspection rather than filling fields. The observed Genosys provider is 'ae.genosys/genosys', which offers Korean skincare products in the UAE, allowing users to find products, view AED prices, and order and pay.",
+        "steps": [
+          {
+            "title": "Fill MCP search field",
+            "kind": "fill",
+            "instruction": "Set the 'Search MCPs, publishers, capabilities…' field to 'genosys' and keep the 'transport' field on 'All transports'.",
+            "expected": "The search field is filled with 'genosys' and 'All transports' is selected.",
+            "status": "pending",
+            "effects": [
+              {
+                "proposalId": "c389392a-89ae-4baf-9f61-38a4adb69353",
+                "status": "consumed",
+                "path": "/free-tools/mcp-universe/",
+                "responseMessage": "Set the 'Search MCPs, publishers, capabilities…' field to 'genosys' and keep the 'transport' field on 'All transports'.\nReview these 2 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Search MCPs, publishers, capabilities…",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "transport",
+                    "value": "All transports",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 2,
+            "remainingInstruction": "Show the matching Genosys provider in the loaded results and summarize its description."
+          },
+          {
+            "title": "Inspect search results",
+            "kind": "inspect",
+            "instruction": "Locate the matching Genosys provider in the loaded results and summarize its description.",
+            "expected": "The description of the matching Genosys provider is summarized.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      },
+      "proposal": {
+        "id": "f0c0631d-b56c-40e1-8e17-058873341457",
+        "message": "The task requires showing the matching Genosys provider in the loaded results and summarizing its description. However, no field changes were prepared as the current step is focused on inspection rather than filling fields. The observed Genosys provider is 'ae.genosys/genosys', which offers Korean skincare products in the UAE, allowing users to find products, view AED prices, and order and pay.",
+        "actions": []
+      }
+    }
+  ]
+}

@@ -193,6 +193,7 @@ export function createTaskClient({
     throw error;
   });
   return {
+    get taskScope(){return taskId&&instanceId?{taskId,instanceId}:null;},
     get taskId() {
       return taskId;
     },

@@ -1,0 +1,1085 @@
+{
+  "at": "2026-10-19T18:10:01.062Z",
+  "scope": "Actual deployed registrations, goal planner, step planner and global active-maker/passive-checker route. Browser explicitly approves each local effect. No autonomous workflow grant or backend knowledge seeding.",
+  "publicWrites": 0,
+  "localWrites": 1,
+  "results": [
+    {
+      "id": "LIVE_GOAL01_COMPLEX_CUSTOMER_NOTE_OPPORTUNITY_SAVED_AND_READ_BACK",
+      "status": "failed",
+      "error": "The proposal does not match every explicitly requested field and value. Please prepare a new review.",
+      "screenshot": "LIVE_GOAL01_COMPLEX_CUSTOMER_NOTE_OPPORTUNITY_SAVED_AND_READ_BACK-failed.png"
+    }
+  ],
+  "traces": [
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/create",
+      "status": 200,
+      "goal": {
+        "id": "3aea2133-4ced-4477-993d-bfe55d064587",
+        "status": "draft",
+        "current": 0,
+        "version": 1,
+        "message": "To create a customer, note, and opportunity, follow these steps. Please confirm if any required value is missing.",
+        "steps": [
+          {
+            "title": "Fill Customer Form",
+            "kind": "fill",
+            "instruction": "Fill the demo-form with Company name 'Goal UAT 1792433370436', Contact email 'goal.uat@example.test', and Region 'Singapore'.",
+            "expected": "The form is filled with the provided values.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save Customer",
+            "kind": "save",
+            "instruction": "Save the customer record.",
+            "expected": "The customer record is successfully saved.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Open Note Section",
+            "kind": "navigate",
+            "instruction": "Open the Note section.",
+            "expected": "The Note section is displayed.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Fill Note",
+            "kind": "fill",
+            "instruction": "Set Title to 'Followup Goal UAT 1792433370436' and Body to 'Follow up with Goal UAT 1792433370436 about their renewal'.",
+            "expected": "The note is filled with the provided title and body.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save Note",
+            "kind": "save",
+            "instruction": "Save the note.",
+            "expected": "The note is successfully saved.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Open Opportunity Section",
+            "kind": "navigate",
+            "instruction": "Open the Opportunity section.",
+            "expected": "The Opportunity section is displayed.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Fill Opportunity",
+            "kind": "fill",
+            "instruction": "Set Opportunity name to 'Renewal Goal UAT 1792433370436', Amount to 12500, and Currency to USD.",
+            "expected": "The opportunity is filled with the provided values.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save Opportunity",
+            "kind": "save",
+            "instruction": "Save the opportunity.",
+            "expected": "The opportunity is successfully saved.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/control",
+      "status": 200,
+      "goal": {
+        "id": "3aea2133-4ced-4477-993d-bfe55d064587",
+        "status": "ready",
+        "current": 0,
+        "version": 2,
+        "message": "To create a customer, note, and opportunity, follow these steps. Please confirm if any required value is missing.",
+        "steps": [
+          {
+            "title": "Fill Customer Form",
+            "kind": "fill",
+            "instruction": "Fill the demo-form with Company name 'Goal UAT 1792433370436', Contact email 'goal.uat@example.test', and Region 'Singapore'.",
+            "expected": "The form is filled with the provided values.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save Customer",
+            "kind": "save",
+            "instruction": "Save the customer record.",
+            "expected": "The customer record is successfully saved.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Open Note Section",
+            "kind": "navigate",
+            "instruction": "Open the Note section.",
+            "expected": "The Note section is displayed.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Fill Note",
+            "kind": "fill",
+            "instruction": "Set Title to 'Followup Goal UAT 1792433370436' and Body to 'Follow up with Goal UAT 1792433370436 about their renewal'.",
+            "expected": "The note is filled with the provided title and body.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save Note",
+            "kind": "save",
+            "instruction": "Save the note.",
+            "expected": "The note is successfully saved.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Open Opportunity Section",
+            "kind": "navigate",
+            "instruction": "Open the Opportunity section.",
+            "expected": "The Opportunity section is displayed.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Fill Opportunity",
+            "kind": "fill",
+            "instruction": "Set Opportunity name to 'Renewal Goal UAT 1792433370436', Amount to 12500, and Currency to USD.",
+            "expected": "The opportunity is filled with the provided values.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save Opportunity",
+            "kind": "save",
+            "instruction": "Save the opportunity.",
+            "expected": "The opportunity is successfully saved.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "goal": {
+        "id": "3aea2133-4ced-4477-993d-bfe55d064587",
+        "status": "awaiting_review",
+        "current": 0,
+        "version": 4,
+        "message": "Review these 3 proposed field changes. Nothing has been changed yet.",
+        "steps": [
+          {
+            "title": "Fill Customer Form",
+            "kind": "fill",
+            "instruction": "Fill the demo-form with Company name 'Goal UAT 1792433370436', Contact email 'goal.uat@example.test', and Region 'Singapore'.",
+            "expected": "The form is filled with the provided values.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer",
+            "kind": "save",
+            "instruction": "Save the customer record.",
+            "expected": "The customer record is successfully saved.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Open Note Section",
+            "kind": "navigate",
+            "instruction": "Open the Note section.",
+            "expected": "The Note section is displayed.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Fill Note",
+            "kind": "fill",
+            "instruction": "Set Title to 'Followup Goal UAT 1792433370436' and Body to 'Follow up with Goal UAT 1792433370436 about their renewal'.",
+            "expected": "The note is filled with the provided title and body.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save Note",
+            "kind": "save",
+            "instruction": "Save the note.",
+            "expected": "The note is successfully saved.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Open Opportunity Section",
+            "kind": "navigate",
+            "instruction": "Open the Opportunity section.",
+            "expected": "The Opportunity section is displayed.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Fill Opportunity",
+            "kind": "fill",
+            "instruction": "Set Opportunity name to 'Renewal Goal UAT 1792433370436', Amount to 12500, and Currency to USD.",
+            "expected": "The opportunity is filled with the provided values.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save Opportunity",
+            "kind": "save",
+            "instruction": "Save the opportunity.",
+            "expected": "The opportunity is successfully saved.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      },
+      "proposal": {
+        "id": "5c28ca7d-a6bc-4559-8e90-dc55ea098225",
+        "message": "Review these 3 proposed field changes. Nothing has been changed yet.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r2f0",
+            "label": "Company name",
+            "value": "Goal UAT 1792433370436"
+          },
+          {
+            "type": "fill",
+            "ref": "r2f1",
+            "label": "Contact email",
+            "value": "goal.uat@example.test"
+          },
+          {
+            "type": "fill",
+            "ref": "r2f2",
+            "label": "Region",
+            "value": "Singapore"
+          }
+        ]
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "status": 200,
+      "goal": {
+        "id": "3aea2133-4ced-4477-993d-bfe55d064587",
+        "status": "ready",
+        "current": 1,
+        "version": 6,
+        "message": "The form has been filled with the provided values: Company name 'Goal UAT 1792433370436', Contact email 'goal.uat@example.test', and Region 'Singapore'.",
+        "steps": [
+          {
+            "title": "Fill Customer Form",
+            "kind": "fill",
+            "instruction": "Fill the demo-form with Company name 'Goal UAT 1792433370436', Contact email 'goal.uat@example.test', and Region 'Singapore'.",
+            "expected": "The form is filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "5c28ca7d-a6bc-4559-8e90-dc55ea098225",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Review these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "Goal UAT 1792433370436",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "goal.uat@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer",
+            "kind": "save",
+            "instruction": "Save the customer record.",
+            "expected": "The customer record is successfully saved.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Open Note Section",
+            "kind": "navigate",
+            "instruction": "Open the Note section.",
+            "expected": "The Note section is displayed.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Fill Note",
+            "kind": "fill",
+            "instruction": "Set Title to 'Followup Goal UAT 1792433370436' and Body to 'Follow up with Goal UAT 1792433370436 about their renewal'.",
+            "expected": "The note is filled with the provided title and body.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save Note",
+            "kind": "save",
+            "instruction": "Save the note.",
+            "expected": "The note is successfully saved.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Open Opportunity Section",
+            "kind": "navigate",
+            "instruction": "Open the Opportunity section.",
+            "expected": "The Opportunity section is displayed.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Fill Opportunity",
+            "kind": "fill",
+            "instruction": "Set Opportunity name to 'Renewal Goal UAT 1792433370436', Amount to 12500, and Currency to USD.",
+            "expected": "The opportunity is filled with the provided values.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save Opportunity",
+            "kind": "save",
+            "instruction": "Save the opportunity.",
+            "expected": "The opportunity is successfully saved.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "goal": {
+        "id": "3aea2133-4ced-4477-993d-bfe55d064587",
+        "status": "awaiting_review",
+        "current": 1,
+        "version": 8,
+        "message": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+        "steps": [
+          {
+            "title": "Fill Customer Form",
+            "kind": "fill",
+            "instruction": "Fill the demo-form with Company name 'Goal UAT 1792433370436', Contact email 'goal.uat@example.test', and Region 'Singapore'.",
+            "expected": "The form is filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "5c28ca7d-a6bc-4559-8e90-dc55ea098225",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Review these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "Goal UAT 1792433370436",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "goal.uat@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer",
+            "kind": "save",
+            "instruction": "Save the customer record.",
+            "expected": "The customer record is successfully saved.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          },
+          {
+            "title": "Open Note Section",
+            "kind": "navigate",
+            "instruction": "Open the Note section.",
+            "expected": "The Note section is displayed.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Fill Note",
+            "kind": "fill",
+            "instruction": "Set Title to 'Followup Goal UAT 1792433370436' and Body to 'Follow up with Goal UAT 1792433370436 about their renewal'.",
+            "expected": "The note is filled with the provided title and body.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save Note",
+            "kind": "save",
+            "instruction": "Save the note.",
+            "expected": "The note is successfully saved.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Open Opportunity Section",
+            "kind": "navigate",
+            "instruction": "Open the Opportunity section.",
+            "expected": "The Opportunity section is displayed.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Fill Opportunity",
+            "kind": "fill",
+            "instruction": "Set Opportunity name to 'Renewal Goal UAT 1792433370436', Amount to 12500, and Currency to USD.",
+            "expected": "The opportunity is filled with the provided values.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save Opportunity",
+            "kind": "save",
+            "instruction": "Save the opportunity.",
+            "expected": "The opportunity is successfully saved.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      },
+      "proposal": {
+        "id": "bc60fb10-26e0-44e7-820a-a4060a08f05b",
+        "message": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+        "actions": [
+          {
+            "type": "submit",
+            "ref": "r5s0",
+            "label": "Save synthetic record"
+          }
+        ]
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "status": 200,
+      "goal": {
+        "id": "3aea2133-4ced-4477-993d-bfe55d064587",
+        "status": "ready",
+        "current": 2,
+        "version": 10,
+        "message": "The host reported a successful submission for this step. This is not independent business verification.",
+        "steps": [
+          {
+            "title": "Fill Customer Form",
+            "kind": "fill",
+            "instruction": "Fill the demo-form with Company name 'Goal UAT 1792433370436', Contact email 'goal.uat@example.test', and Region 'Singapore'.",
+            "expected": "The form is filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "5c28ca7d-a6bc-4559-8e90-dc55ea098225",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Review these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "Goal UAT 1792433370436",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "goal.uat@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer",
+            "kind": "save",
+            "instruction": "Save the customer record.",
+            "expected": "The customer record is successfully saved.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "bc60fb10-26e0-44e7-820a-a4060a08f05b",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Open Note Section",
+            "kind": "navigate",
+            "instruction": "Open the Note section.",
+            "expected": "The Note section is displayed.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Fill Note",
+            "kind": "fill",
+            "instruction": "Set Title to 'Followup Goal UAT 1792433370436' and Body to 'Follow up with Goal UAT 1792433370436 about their renewal'.",
+            "expected": "The note is filled with the provided title and body.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save Note",
+            "kind": "save",
+            "instruction": "Save the note.",
+            "expected": "The note is successfully saved.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Open Opportunity Section",
+            "kind": "navigate",
+            "instruction": "Open the Opportunity section.",
+            "expected": "The Opportunity section is displayed.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Fill Opportunity",
+            "kind": "fill",
+            "instruction": "Set Opportunity name to 'Renewal Goal UAT 1792433370436', Amount to 12500, and Currency to USD.",
+            "expected": "The opportunity is filled with the provided values.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save Opportunity",
+            "kind": "save",
+            "instruction": "Save the opportunity.",
+            "expected": "The opportunity is successfully saved.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "goal": {
+        "id": "3aea2133-4ced-4477-993d-bfe55d064587",
+        "status": "awaiting_review",
+        "current": 2,
+        "version": 12,
+        "message": "Review opening Note. Your task continues after navigation.\nI can open Note, then continue your request on that screen.",
+        "steps": [
+          {
+            "title": "Fill Customer Form",
+            "kind": "fill",
+            "instruction": "Fill the demo-form with Company name 'Goal UAT 1792433370436', Contact email 'goal.uat@example.test', and Region 'Singapore'.",
+            "expected": "The form is filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "5c28ca7d-a6bc-4559-8e90-dc55ea098225",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Review these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "Goal UAT 1792433370436",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "goal.uat@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer",
+            "kind": "save",
+            "instruction": "Save the customer record.",
+            "expected": "The customer record is successfully saved.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "bc60fb10-26e0-44e7-820a-a4060a08f05b",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Open Note Section",
+            "kind": "navigate",
+            "instruction": "Open the Note section.",
+            "expected": "The Note section is displayed.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          },
+          {
+            "title": "Fill Note",
+            "kind": "fill",
+            "instruction": "Set Title to 'Followup Goal UAT 1792433370436' and Body to 'Follow up with Goal UAT 1792433370436 about their renewal'.",
+            "expected": "The note is filled with the provided title and body.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save Note",
+            "kind": "save",
+            "instruction": "Save the note.",
+            "expected": "The note is successfully saved.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Open Opportunity Section",
+            "kind": "navigate",
+            "instruction": "Open the Opportunity section.",
+            "expected": "The Opportunity section is displayed.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Fill Opportunity",
+            "kind": "fill",
+            "instruction": "Set Opportunity name to 'Renewal Goal UAT 1792433370436', Amount to 12500, and Currency to USD.",
+            "expected": "The opportunity is filled with the provided values.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save Opportunity",
+            "kind": "save",
+            "instruction": "Save the opportunity.",
+            "expected": "The opportunity is successfully saved.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      },
+      "proposal": {
+        "id": "9cc92ce6-d15d-4ec6-a555-ef9e4e29158e",
+        "message": "Review opening Note. Your task continues after navigation.\nI can open Note, then continue your request on that screen.",
+        "actions": [
+          {
+            "type": "navigate",
+            "ref": "r7n2",
+            "label": "Note",
+            "path": "/note"
+          }
+        ]
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "status": 200,
+      "goal": {
+        "id": "3aea2133-4ced-4477-993d-bfe55d064587",
+        "status": "ready",
+        "current": 3,
+        "version": 14,
+        "message": "The browser observed navigation to /note.",
+        "steps": [
+          {
+            "title": "Fill Customer Form",
+            "kind": "fill",
+            "instruction": "Fill the demo-form with Company name 'Goal UAT 1792433370436', Contact email 'goal.uat@example.test', and Region 'Singapore'.",
+            "expected": "The form is filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "5c28ca7d-a6bc-4559-8e90-dc55ea098225",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Review these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "Goal UAT 1792433370436",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "goal.uat@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer",
+            "kind": "save",
+            "instruction": "Save the customer record.",
+            "expected": "The customer record is successfully saved.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "bc60fb10-26e0-44e7-820a-a4060a08f05b",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Open Note Section",
+            "kind": "navigate",
+            "instruction": "Open the Note section.",
+            "expected": "The Note section is displayed.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "9cc92ce6-d15d-4ec6-a555-ef9e4e29158e",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Review opening Note. Your task continues after navigation.\nI can open Note, then continue your request on that screen.",
+                "actions": [
+                  {
+                    "type": "navigate",
+                    "label": "Note",
+                    "destination": "/note",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Fill Note",
+            "kind": "fill",
+            "instruction": "Set Title to 'Followup Goal UAT 1792433370436' and Body to 'Follow up with Goal UAT 1792433370436 about their renewal'.",
+            "expected": "The note is filled with the provided title and body.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save Note",
+            "kind": "save",
+            "instruction": "Save the note.",
+            "expected": "The note is successfully saved.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Open Opportunity Section",
+            "kind": "navigate",
+            "instruction": "Open the Opportunity section.",
+            "expected": "The Opportunity section is displayed.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Fill Opportunity",
+            "kind": "fill",
+            "instruction": "Set Opportunity name to 'Renewal Goal UAT 1792433370436', Amount to 12500, and Currency to USD.",
+            "expected": "The opportunity is filled with the provided values.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save Opportunity",
+            "kind": "save",
+            "instruction": "Save the opportunity.",
+            "expected": "The opportunity is successfully saved.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "goal": {
+        "id": "3aea2133-4ced-4477-993d-bfe55d064587",
+        "status": "blocked",
+        "current": 3,
+        "version": 16,
+        "message": "The proposal does not match every explicitly requested field and value. Please prepare a new review.",
+        "steps": [
+          {
+            "title": "Fill Customer Form",
+            "kind": "fill",
+            "instruction": "Fill the demo-form with Company name 'Goal UAT 1792433370436', Contact email 'goal.uat@example.test', and Region 'Singapore'.",
+            "expected": "The form is filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "5c28ca7d-a6bc-4559-8e90-dc55ea098225",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Review these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "Goal UAT 1792433370436",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "goal.uat@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer",
+            "kind": "save",
+            "instruction": "Save the customer record.",
+            "expected": "The customer record is successfully saved.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "bc60fb10-26e0-44e7-820a-a4060a08f05b",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Open Note Section",
+            "kind": "navigate",
+            "instruction": "Open the Note section.",
+            "expected": "The Note section is displayed.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "9cc92ce6-d15d-4ec6-a555-ef9e4e29158e",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Review opening Note. Your task continues after navigation.\nI can open Note, then continue your request on that screen.",
+                "actions": [
+                  {
+                    "type": "navigate",
+                    "label": "Note",
+                    "destination": "/note",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Fill Note",
+            "kind": "fill",
+            "instruction": "Set Title to 'Followup Goal UAT 1792433370436' and Body to 'Follow up with Goal UAT 1792433370436 about their renewal'.",
+            "expected": "The note is filled with the provided title and body.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          },
+          {
+            "title": "Save Note",
+            "kind": "save",
+            "instruction": "Save the note.",
+            "expected": "The note is successfully saved.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Open Opportunity Section",
+            "kind": "navigate",
+            "instruction": "Open the Opportunity section.",
+            "expected": "The Opportunity section is displayed.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Fill Opportunity",
+            "kind": "fill",
+            "instruction": "Set Opportunity name to 'Renewal Goal UAT 1792433370436', Amount to 12500, and Currency to USD.",
+            "expected": "The opportunity is filled with the provided values.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save Opportunity",
+            "kind": "save",
+            "instruction": "Save the opportunity.",
+            "expected": "The opportunity is successfully saved.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      },
+      "proposal": {
+        "id": "e6d52bf6-8e71-4e71-aa55-dc0b41f13ef5",
+        "message": "The proposal does not match every explicitly requested field and value. Please prepare a new review.",
+        "actions": []
+      }
+    }
+  ]
+}

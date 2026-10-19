@@ -1,0 +1,8 @@
+TRACE /free-tools/digital-adoption/v1/goals/status 200 
+TRACE /free-tools/digital-adoption/v1/goals/create 200 draft
+TRACE /free-tools/digital-adoption/v1/goals/control 200 ready
+TRACE /free-tools/digital-adoption/v1/goals/next 200 awaiting_review
+TRACE /free-tools/digital-adoption/v1/goals/observe 200 ready
+TRACE /free-tools/digital-adoption/v1/goals/next 200 awaiting_review
+TRACE /free-tools/digital-adoption/v1/goals/observe 200 completed
+PASS LIVE_GOAL02_PUBLIC_FILTER_LOCATE_AND_SUMMARIZE_WITHOUT_SAVE

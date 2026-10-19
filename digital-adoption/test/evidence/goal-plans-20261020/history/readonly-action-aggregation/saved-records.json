@@ -1,0 +1,38 @@
+{
+  "marker": "Goal UAT 1792430815074",
+  "records": [
+    {
+      "id": "d214727c-3a8f-4fcd-9536-4bbf9cb9f0b1",
+      "path": "/customer",
+      "operationId": "b3b0a2b1-fbaa-486e-93e9-4f8b0a9d8be3",
+      "values": {
+        "company_name": "Goal UAT 1792430815074",
+        "contact_email": "goal.uat@example.test",
+        "region": "Singapore"
+      },
+      "createdAt": "2026-10-19T17:27:21.954Z"
+    },
+    {
+      "id": "b30cbd82-b7c1-40d5-b058-847c9b7821c2",
+      "path": "/note",
+      "operationId": "588bfa65-069a-4cd9-b708-fa8da266c8b3",
+      "values": {
+        "title": "Followup Goal UAT 1792430815074",
+        "body": "Follow up with Goal UAT 1792430815074 about their renewal"
+      },
+      "createdAt": "2026-10-19T17:27:56.362Z"
+    },
+    {
+      "id": "e0c391a3-1a1d-4cba-a259-cdee31bb7f17",
+      "path": "/opportunity",
+      "operationId": "cffb3eca-ad33-4dde-a05c-b5106e0e53af",
+      "values": {
+        "opportunity_name": "Renewal Goal UAT 1792430815074",
+        "amount": "12500",
+        "currency": "USD"
+      },
+      "createdAt": "2026-10-19T17:28:03.073Z"
+    }
+  ],
+  "verification": "Independent existing host records UI. Marker references are not CRM foreign-key relationships."
+}

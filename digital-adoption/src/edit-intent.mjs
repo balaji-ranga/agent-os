@@ -39,6 +39,7 @@ export function explicitEditProposal(text,snapshot){
   if(candidates.size===1)return {message:'Review the requested choice. Nothing has changed.',actions:[...candidates.values()]};
  }
  if(/\b(?:keep|leave)\b[\s\S]*\b(?:unchanged|as is|current value)\b/i.test(text))return null;
+ if(/\b(?:and|then)\s+(?:keep|leave|reset)\b/i.test(text))return null;
  // Mixed assignment/selection language belongs to semantic planning. Never
  // consume the second instruction as a dropdown's literal value.
  if(/\b(?:and|then)\s+(?:select|check|uncheck|choose|clear|tick|enable|disable)\b/i.test(text))return null;
@@ -55,6 +56,7 @@ export function explicitEditProposal(text,snapshot){
   const candidates=exact.length?exact:snapshot.fields.filter(field=>words.length&&[field.label,field.key].filter(Boolean).some(label=>words.every(word=>normalize(label).split(' ').includes(word))));
   if(candidates.length!==1||used.has(candidates[0].ref))return null;
   let value=String(text).slice(match.index+match[0].length,matches[index+1]?.index??text.length).trim().replace(/[.!]?\s+(?:do not|don't|never)\b[\s\S]*$/i,'').trim();
+  value=value.replace(/(['"])[.!]$/,'$1');
   if(/^(['"]).*\1$/s.test(value))value=value.slice(1,-1);else value=value.replace(/[.!]$/,'').trim();
   if(!value||value.length>8000)return null;
   if(candidates[0].type==='combobox')return null; // Dynamic result selection requires model reasoning over fresh observations.

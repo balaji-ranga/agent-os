@@ -1,0 +1,22 @@
+TRACE /free-tools/digital-adoption/v1/goals/status 200 
+TRACE /free-tools/digital-adoption/v1/goals/create 503 COPILOT_CHECKER_UNAVAILABLE
+TRACE /free-tools/digital-adoption/v1/goals/status 200 
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+locator.waitFor: Timeout 25000ms exceeded.
+Call log:
+  - waiting for locator('iframe[data-adoption-widget]').contentFrame().locator('#goal-start') to be visible
+
+    at runGoal (C:\Users\balaj\projects\agents\agent-os\.worktrees\digital-adoption\digital-adoption\test\goals-live-browser.mjs:11:196)
+    at async file:///C:/Users/balaj/projects/agents/agent-os/.worktrees/digital-adoption/digital-adoption/test/goals-live-browser.mjs:34:17
+    at async check (C:\Users\balaj\projects\agents\agent-os\.worktrees\digital-adoption\digital-adoption\test\goals-live-browser.mjs:28:46)
+    at async file:///C:/Users/balaj/projects/agents/agent-os/.worktrees/digital-adoption/digital-adoption/test/goals-live-browser.mjs:32:3 {
+  log: [
+    "  - waiting for locator('iframe[data-adoption-widget]').contentFrame().locator('#goal-start') to be visible"
+  ],
+  name: 'TimeoutError'
+}
+
+Node.js v22.22.0

@@ -1,3 +1,5 @@
+import {goalAuthorization} from './goal-store.mjs';
+import {handleGoal} from './goal-service.mjs';
 import {MODEL_CLIENT_TIMEOUT_MS,MODEL_SESSION_TIMEOUT_MS} from '../web/model-timeouts.mjs';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
@@ -11,6 +13,7 @@ import {attachLiveTransport} from './live-transport.mjs';
 import {fieldGuidance} from './field-guidance.mjs';
 
 const assets = new Map([
+  ['/goal-ui.mjs', ['../web/goal-ui.mjs','text/javascript']],
   ['/page-targets.mjs',['../web/page-targets.mjs','text/javascript']],
   ['/guidance-intent.mjs',['../web/guidance-intent.mjs','text/javascript']],
   ['/workspace.mjs', ['../web/workspace.mjs','text/javascript']],
@@ -69,7 +72,7 @@ async function body(req,limit=32_768) {
   return parsed;
 }
 
-export function createAdoptionServer({ authority, proposals, planner, knowledge, ingestion, learning, coaching, discovery, sourceMap,hostIdentity, answer, management, ownerIdentity, ownerManagement, platformOrigin,telemetry,privateTasks,taskWebsite,analytics,uploadAdmission,uploadProxyAddresses=[],capacity={}, development = false, fixture = null }) {
+export function createAdoptionServer({ goals,goalModel,authority, proposals, planner, knowledge, ingestion, learning, coaching, discovery, sourceMap,hostIdentity, answer, management, ownerIdentity, ownerManagement, platformOrigin,telemetry,privateTasks,taskWebsite,analytics,uploadAdmission,uploadProxyAddresses=[],capacity={}, development = false, fixture = null }) {
   const budget=createRequestBudget();
   const managementPerIp=capacity.managementPerIp??600;if(!Number.isInteger(managementPerIp)||managementPerIp<30||managementPerIp>6000)throw new Error('Invalid management network capacity');
   const modelSlots=createConcurrencyBudget({global:capacity.modelConcurrency??25,perDomain:capacity.modelPerDomain??5}),searchSlots=createConcurrencyBudget({global:capacity.searchConcurrency??25,perDomain:capacity.searchPerDomain??5});
@@ -176,7 +179,11 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
         res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin');
         if(path.startsWith('/v1/analytics/')){if(!analytics)throw new Error('Analytics unavailable');if(path==='/v1/analytics/policy')result=analytics.policy(scope);else if(path==='/v1/analytics/consent')result=analytics.consent(scope,input,req);else if(path==='/v1/analytics/events'){budget.take(`analytics:${scope.sessionId}`,60);result=analytics.collect(scope,input);authority.touch(auth);}else throw new Error('Unknown analytics operation');}
         else if (path === '/v1/history') result = { messages: authority.history(auth) };
-        else if(path==='/v1/capabilities')result={requestTimeoutMs,executionContractVersion:2,capabilities:scope.capabilities,uploadLimits:{...uploads.publicLimits(),fileBytes:Math.min(privateTasks?.limits?.fileBytes||16777216,taskWebsite?.(scope.embeddingId)?.taskPolicy?.limits?.fileBytes||16777216)},taskPolicy:privateTasks?taskWebsite?.(scope.embeddingId)?.taskPolicy||{}:{},learningEnabled:learning?.learningEnabled?.(scope)===true};
+        else if(path==='/v1/capabilities')result={requestTimeoutMs,executionContractVersion:2,goalPlanning:!!(goals&&goalModel),capabilities:scope.capabilities,uploadLimits:{...uploads.publicLimits(),fileBytes:Math.min(privateTasks?.limits?.fileBytes||16777216,taskWebsite?.(scope.embeddingId)?.taskPolicy?.limits?.fileBytes||16777216)},taskPolicy:privateTasks?taskWebsite?.(scope.embeddingId)?.taskPolicy||{}:{},learningEnabled:learning?.learningEnabled?.(scope)===true};
+        else if(path.startsWith('/v1/goals/')){
+          const operation=path.split('/').at(-1);if(['create','next','observe','clarify'].includes(operation)){budget.take(`model:${scope.embeddingId}`);releaseModel=modelSlots.acquire(scope.embeddingId);}
+          authority.touch(auth);result=await handleGoal({operation,scope,input,goals,goalModel,planner,proposals,privateTasks,sourceMap,learning,signal:requestController.signal,stillCurrent:()=>{const current=authority.context(auth);if(current.conversationVersion!==scope.conversationVersion||goalAuthorization({...current,websiteRevision:taskWebsite?.(current.embeddingId)?.configurationRevision||0})!==goalAuthorization(scope))throw Object.assign(new Error('Website access changed; goal response discarded.'),{publicCode:'GOAL_STALE'});}});
+        }
         else if(path==='/v1/live/ticket'){if(!privateTasks)throw new Error('Private tasks unavailable');result=privateTasks.ticket(scope,input);}
         else if(path.startsWith('/v1/tasks/')||path.startsWith('/v1/pair/')){
           if(!privateTasks)throw new Error('Private tasks unavailable');
@@ -185,6 +192,7 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
           const key=path.split('/').at(-1),action=Object.hasOwn(operations,key)?operations[key]:null;if(!action)throw new Error('Unsupported private operation');
           if(['plan','summary','commandPlan'].includes(action))releaseModel=modelSlots.acquire(scope.embeddingId);
           if(!['status','pairStatus'].includes(action))authority.touch(auth);
+          if(['end','remove'].includes(action))goals?.clear(scope);
           result=await privateTasks[action](scope,['plan','summary','commandPlan'].includes(action)?{...input,requestSignal:requestController.signal}:input,action==='upload'?uploadPermit:undefined);
         }
         else if(path==='/v1/learning/complete'){
@@ -232,12 +240,12 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
           const snapshot=validateSnapshot(input.snapshot),review=input.testRunId?learning.testReview(scope,snapshot,input):learning.review(scope,snapshot,input);
           result={...proposals.prepare(scope,snapshot,withMode(review.response,input.mode),review.binding),nextStep:review.nextStep,complete:review.complete};authority.touch(auth);
         }
-        else if(path==='/v1/history/clear'){privateTasks?.endSession(scope);result=authority.clearConversation(auth);}
+        else if(path==='/v1/history/clear'){privateTasks?.endSession(scope);goals?.clear(scope);result=authority.clearConversation(auth);}
         else if(path==='/v1/knowledge/documents'){if(!knowledge)throw new Error('Knowledge unavailable');result={sources:knowledge.available(scope)};}
         else if(path==='/v1/knowledge/upload-status'){if(!ingestion)throw new Error('Ingestion unavailable');result=ingestion.status(scope,input.sourceId);}
         else if (path === '/v1/messages') result = authority.appendMessage({ ...auth, text: input.text, replyTo: input.replyTo });
         else if (path === '/v1/renew') result = authority.renew({...auth,identityToken:input.identityToken});
-        else if (path === '/v1/terminate') { privateTasks?.endSession(scope);authority.terminate(auth); result = { terminated: true }; }
+        else if (path === '/v1/terminate') { privateTasks?.endSession(scope);goals?.clear(scope);authority.terminate(auth); result = { terminated: true }; }
         else if(path==='/v1/save/plan'){
           if(!proposals)throw new Error('Action reviews unavailable');
           authority.touch(auth);result=proposals.prepareSave(scope,input.snapshot,input.ref);
@@ -304,7 +312,7 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
       const uploadLimited=['UPLOAD_RATE_LIMIT','UPLOAD_BUDGET_EXCEEDED','UPLOAD_COOLDOWN','UPLOAD_BUSY','UPLOAD_QUEUE_FULL'].includes(error.publicCode);
       const code = error.message === 'Request too large' ? 413 : uploadLimited||error.publicCode==='OWNER_CODE_COOLDOWN'||error.message==='Request rate exceeded'||error.message==='Request capacity reached'?429:unavailable?503:invalidResponse?502:403;
       if(code===429){res.setHeader('Retry-After',String(error.retryAfter|| (error.message==='Request rate exceeded'?60:2)));res.setHeader('Access-Control-Expose-Headers','Retry-After, X-Adoption-Request-Id');}
-      return send(code, { error: ['DNS_CHALLENGE_EXPIRED','DNS_RECORD_MISSING','DNS_RECORD_MISMATCH','DNS_RESOLVER_UNAVAILABLE','SOURCE_MAP_CHANGED','SOURCE_MAP_INVALID'].includes(error.publicCode)?error.message:code===429?'Copilot is busy. Please retry shortly.':code===413?'Request too large':code===503?'Copilot service temporarily unavailable':code===502?'The assistant could not prepare a valid response. Nothing was changed.':'Access denied or invalid request',...(error.publicCode?{code:error.publicCode}:{}) });
+      return send(code, { error: error.publicCode?.startsWith('GOAL_')?error.message:['DNS_CHALLENGE_EXPIRED','DNS_RECORD_MISSING','DNS_RECORD_MISMATCH','DNS_RESOLVER_UNAVAILABLE','SOURCE_MAP_CHANGED','SOURCE_MAP_INVALID'].includes(error.publicCode)?error.message:code===429?'Copilot is busy. Please retry shortly.':code===413?'Request too large':code===503?'Copilot service temporarily unavailable':code===502?'The assistant could not prepare a valid response. Nothing was changed.':'Access denied or invalid request',...(error.publicCode?{code:error.publicCode}:{}) });
     }finally{clearTimeout(uploadReadTimer);uploads.release(uploadPermit);releaseModel?.();releaseSearch?.();if(uploadSlot)activeUploads--;}
   });
   if(privateTasks)attachLiveTransport(server,{tasks:privateTasks});

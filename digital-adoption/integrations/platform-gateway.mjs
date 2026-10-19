@@ -10,7 +10,7 @@ export function createPlatformGateway({serviceToken,resolveActive,complete}) {
  return async function handle({authorization,body,signal=AbortSignal.timeout(MODEL_GATEWAY_TIMEOUT_MS)}){
   const supplied=Buffer.from(String(authorization||'')),expected=Buffer.from(`Bearer ${serviceToken}`);
   if(supplied.length!==expected.length||!timingSafeEqual(supplied,expected))throw new Error('Access denied');
-  if(!['digital_adoption_plan','digital_adoption_knowledge','digital_adoption_review'].includes(body?.purpose)||body.selection!=='platform_active'||!Array.isArray(body.messages)||!body.messages.length||body.messages.length>14||
+  if(!['digital_adoption_plan','digital_adoption_knowledge','digital_adoption_review','digital_adoption_goal'].includes(body?.purpose)||body.selection!=='platform_active'||!Array.isArray(body.messages)||!body.messages.length||body.messages.length>14||
      Buffer.byteLength(JSON.stringify(body))>32_768||Object.keys(body).some(k=>!['purpose','selection','messages','maxTokens',...(body.purpose==='digital_adoption_review'?['draft']:[])].includes(k))||body.purpose==='digital_adoption_review'&&(!body.draft||typeof body.draft!=='object'))throw new Error('Invalid gateway request');
   for(const message of body.messages){if(!['system','user','assistant'].includes(message.role)||typeof message.content!=='string')throw new Error('Invalid messages');}
   const config=await resolveActive(); // Resolve for every call; no cached primary/secondary choice.

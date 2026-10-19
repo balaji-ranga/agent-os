@@ -42,25 +42,28 @@ export function validateSnapshot(snapshot) {
 }
 
 // Authorization scope must come from SessionAuthority.context, never the model.
-export function createProposalStore(repository, { clock = Date.now,checkBinding=()=>false,attempts=repository.durableActions?createActionAttempts(repository,{clock}):null } = {}) {
+export function createProposalStore(repository, { clock = Date.now,checkBinding=()=>false,checkPrivateTask=()=>false,checkGoal=()=>false,attempts=repository.durableActions?createActionAttempts(repository,{clock}):null } = {}) {
   const proposals = repository.map('proposals');
   return {
+    bindGoal(scope,id,goalId){const p=proposals.get(id);if(!p||p.embeddingId!==scope.embeddingId||p.sessionId!==scope.sessionId||p.conversationVersion!==(scope.conversationVersion||0))invalid();p.goalId=goalId;proposals.set(id,p);},
+    bindPrivateTask(scope,id,binding){const p=proposals.get(id);if(!p||p.embeddingId!==scope.embeddingId||p.sessionId!==scope.sessionId||!checkPrivateTask(scope,binding))invalid();p.taskBinding=binding;proposals.set(id,p);},
+    goalEvidence(scope,id){const p=proposals.get(id);if(!p||p.embeddingId!==scope.embeddingId||p.sessionId!==scope.sessionId||p.conversationVersion!==(scope.conversationVersion||0)||p.taskBinding&&!checkPrivateTask(scope,p.taskBinding)||p.goalId&&!checkGoal(scope,p.goalId,p.id,false))invalid();return {proposalId:id,status:p.status,path:p.path,responseMessage:p.message,actions:p.actions.map((a,index)=>({type:a.type,label:a.label,...(a.type==='fill'?{value:a.value,...(a.select===false?{queryOnly:true}:{})}:{}),...(a.type==='navigate'?{destination:a.path}:{}),outcome:p.status==='consumed'?(a.type==='highlight'?'read_only_guidance':attempts?.status(scope,`${id}:${index}`).outcome||'unknown'):'not_dispatched'}))};},
     attemptBinding(scope,id){return attempts.status(scope,id);},
     verifyAttempt(scope,input){return attempts.verify(scope,input);},
     ownsAttempt(scope,id){const row=attempts?.status(scope,id);return !!row&&!!proposals.get(row.proposalId);},
-    dispatch(scope,input){const row=attempts?.status(scope,input.actionId),p=row&&proposals.get(row.proposalId);if(!p||p.status!=='consumed'||p.binding&&!checkBinding(scope,p.binding))invalid();if(!attempts)throw new Error('Action fencing unavailable');return attempts.dispatch(scope,input);},
+    dispatch(scope,input){const row=attempts?.status(scope,input.actionId),p=row&&proposals.get(row.proposalId);if(!p||p.status!=='consumed'||p.binding&&!checkBinding(scope,p.binding)||p.taskBinding&&!checkPrivateTask(scope,p.taskBinding)||p.goalId&&!checkGoal(scope,p.goalId,p.id,true))invalid();if(!attempts)throw new Error('Action fencing unavailable');return attempts.dispatch(scope,input);},
     observeAttempt(scope,input){if(!attempts)throw new Error('Action fencing unavailable');return attempts.observe(scope,input);},
     testEvidence(scope,id){const p=proposals.get(id);if(!attempts||!p||p.embeddingId!==scope.embeddingId||p.sessionId!==scope.sessionId||p.conversationVersion!==(scope.conversationVersion||0)||p.status!=='consumed'||p.actions.some((a,index)=>!['local_state_verified','host_reported_saved'].includes(attempts.status(scope,`${id}:${index}`).outcome)))invalid();return {binding:p.binding,outcome:'local_state_verified'};},
     revise(scope,{id,snapshot,edits}){return repository.transaction(()=>{
       const old=proposals.get(id),observed=validateSnapshot(snapshot);
-      if(!old||old.embeddingId!==scope.embeddingId||old.sessionId!==scope.sessionId||old.conversationVersion!==(scope.conversationVersion||0)||old.status!=='pending'||old.expiresAt<=clock()||old.path!==observed.path||old.binding&&!checkBinding(scope,old.binding)||!Array.isArray(edits)||edits.length!==old.actions.length||old.actions.some(a=>a.type!=='fill')||new Set(edits.map(e=>e.ref)).size!==edits.length)invalid();
+      if(!old||old.embeddingId!==scope.embeddingId||old.sessionId!==scope.sessionId||old.conversationVersion!==(scope.conversationVersion||0)||old.status!=='pending'||old.expiresAt<=clock()||old.path!==observed.path||old.binding&&!checkBinding(scope,old.binding)||old.taskBinding&&!checkPrivateTask(scope,old.taskBinding)||old.goalId&&!checkGoal(scope,old.goalId,old.id,true)||!Array.isArray(edits)||edits.length!==old.actions.length||old.actions.some(a=>a.type!=='fill')||new Set(edits.map(e=>e.ref)).size!==edits.length)invalid();
       const actions=old.actions.map(action=>{const prior=old.fields?.find(f=>f.ref===action.ref),edit=edits.find(e=>e.ref===action.ref);const fields=observed.fields.filter(f=>prior&&f.key===prior.key&&f.label===prior.label&&f.type===prior.type&&f.form===prior.form);
         if(fields.length!==1||!edit||typeof edit.value!=='string'||Object.keys(edit).some(k=>!['ref','value'].includes(k)))invalid();const field=fields[0];
         if(field.choices&&field.type!=='select-multiple'&&!field.choices.includes(edit.value))invalid();
         if(field.type==='select-multiple'){let values;try{values=JSON.parse(edit.value);}catch{invalid();}if(!Array.isArray(values)||values.some(v=>!field.choices?.includes(v)))invalid();}
         return {type:'fill',ref:field.ref,value:edit.value,...(action.select===false?{select:false}:{})};});
       const replacement=this.prepare(scope,observed,{message:'Review your edited values. Nothing has been changed.',actions},old.binding);
-      old.status='replaced';proposals.set(id,old);return {...replacement,replaces:id};
+      if(old.goalId)this.bindGoal(scope,replacement.id,old.goalId);if(old.taskBinding)this.bindPrivateTask(scope,replacement.id,old.taskBinding);old.status='replaced';proposals.set(id,old);return {...replacement,replaces:id};
     });},
     reject(scope,id){return repository.transaction(()=>{const p=proposals.get(id);if(!p||p.embeddingId!==scope.embeddingId||p.sessionId!==scope.sessionId||p.conversationVersion!==(scope.conversationVersion||0)||!['pending','rejected'].includes(p.status))invalid();p.status='rejected';proposals.set(id,p);return {rejected:true};});},
     prepareSave(scope,snapshot,ref){return this.prepare(scope,snapshot,{message:'Review this separate form submission. It may save data or trigger other host side effects.',actions:[{type:'submit',ref}]},null,{allowSubmit:true});},
@@ -111,7 +114,7 @@ export function createProposalStore(repository, { clock = Date.now,checkBinding=
       return repository.transaction(()=>{
         const proposal = proposals.get(id);
         if (!proposal || proposal.embeddingId !== scope.embeddingId || proposal.sessionId !== scope.sessionId ||
-            (proposal.conversationVersion||0)!==(scope.conversationVersion||0)||proposal.status !== 'pending' || proposal.expiresAt <= clock() || proposal.revision !== revision || approved !== true || proposal.binding&&!checkBinding(scope,proposal.binding)) invalid();
+            (proposal.conversationVersion||0)!==(scope.conversationVersion||0)||proposal.status !== 'pending' || proposal.expiresAt <= clock() || proposal.revision !== revision || approved !== true || proposal.binding&&!checkBinding(scope,proposal.binding)||proposal.taskBinding&&!checkPrivateTask(scope,proposal.taskBinding)||proposal.goalId&&!checkGoal(scope,proposal.goalId,proposal.id,true)) invalid();
         proposal.status='consumed'; proposals.set(id,proposal);
         return { revision:proposal.revision,...(proposal.binding?{binding:proposal.binding}:{}),actions:proposal.actions.map((action,index)=>action.type==='highlight'||!attempts?action:{...action,...attempts.reserve(scope,{id:`${proposal.id}:${index}`,proposalId:proposal.id,index,path:proposal.path,grantExpiresAt:proposal.expiresAt})}) };
       });

@@ -1,0 +1,39 @@
+import {appendProposedAction} from './review-card.mjs';
+import {addReviewEditor} from './review-editor.mjs';
+// A plan coordinates ordinary reviews. It has no execution tool of its own.
+export function mountGoalUI(document,{call,show,showError,assist=()=>true,isExpired=()=>false}){
+ const root=document.querySelector('#goal-progress'),review=document.querySelector('#review'),status=document.querySelector('#status');let goal,epoch=0,busy=false,reviewShowing=false;
+ const element=(tag,text)=>{const node=document.createElement(tag);if(text)node.textContent=text;return node;};
+ const handle=async fn=>{if(busy)return;busy=true;document.querySelector('#plan').disabled=true;try{await fn();}catch(error){if(error.code==='GOAL_STALE'){epoch++;goal=null;reviewShowing=false;review.replaceChildren();render();}if(error.code!=='TASK_CANCELLED')showError(error);try{goal=(await call('goal-status',{goalId:goal?.id})).goal;render();}catch{}}finally{busy=false;document.querySelector('#plan').disabled=isExpired();}};
+ function button(text,id,fn){const b=element('button',text);b.type='button';b.id=id;b.onclick=()=>handle(fn);root.append(b);return b;}
+ function render(){root.replaceChildren();root.hidden=!goal;if(!goal)return;
+  root.append(element('h2',`Goal plan · ${goal.status==='clarifying'?'needs information':goal.status==='completed'?'completed':`${Math.min(goal.current+1,goal.steps.length)} / ${goal.steps.length}`}`));
+  const details=element('details'),summary=element('summary',goal.status==='draft'?'Review all steps before starting':`${goal.steps.filter(s=>s.status==='completed').length} steps completed · ${goal.status}`),list=element('ol');details.open=goal.status==='draft';details.append(summary,list);
+  goal.steps.forEach((s,i)=>{const li=element('li',`${s.status==='completed'?'✓ ':i===goal.current?'→ ':''}${s.title} · ${s.kind}`);const more=element('details'),heading=element('summary',li.textContent);li.textContent='';more.append(heading,element('p',s.instruction),element('small','Expected: '+s.expected));li.append(more);list.append(li);});root.append(details,element('p',goal.message));
+  if(goal.status==='draft')button('Start reviewed plan','goal-start',async()=>{goal=(await call('goal-control',{goalId:goal.id,version:goal.version,action:'start'})).goal;render();await next(epoch);});
+  if(goal.status==='ready')button('Continue next step','goal-continue',()=>next(epoch));
+  if(['paused','blocked'].includes(goal.status)||goal.status==='awaiting_review'&&!reviewShowing){
+   if(goal.pendingProposalId)button('Check recorded step outcome','goal-check',()=>observe(epoch));
+   button('Resume with a fresh review','goal-resume',async()=>{goal=(await call('goal-status',{goalId:goal.id})).goal;if(!goal){review.replaceChildren();render();return;}goal=(await call('goal-control',{goalId:goal.id,version:goal.version,action:'resume'})).goal;render();await next(epoch);});
+  }
+  if(!['completed','cancelled'].includes(goal.status)){
+   const pause=element('button','Pause plan');pause.type='button';pause.id='goal-pause';pause.onclick=()=>interrupt('pause').catch(showError);root.append(pause);
+   const cancel=element('button','Cancel plan');cancel.type='button';cancel.id='goal-cancel';cancel.onclick=()=>interrupt('cancel').catch(showError);root.append(cancel);
+  }
+ }
+ async function interrupt(action){epoch++;reviewShowing=false;await call('cancel');goal=(await call('goal-status',{goalId:goal.id})).goal;if(!goal){review.replaceChildren();render();return;}goal=(await call('goal-control',{goalId:goal.id,version:goal.version,action})).goal;review.replaceChildren();render();status.textContent=action==='cancel'?'Plan cancelled. Earlier host effects remain.':'Plan paused. Earlier host effects remain; nothing will be replayed automatically.';}
+ async function observe(token){reviewShowing=false;const result=await call('goal-observe',{goalId:goal.id,version:goal.version,text:goal.steps[goal.current].instruction});if(token!==epoch)return;goal=result.goal;show(goal.message,'guide','assistant');render();if(goal.status==='ready')await next(token);else if(goal.status==='completed'){review.replaceChildren();status.textContent='All plan steps completed with recorded outcomes. Review the final host results.';}}
+ async function next(token){if(!assist())throw new Error('Goal plans require Assist mode for reviewed changes. Switch to Assist before starting.');if(token!==epoch)return;render();status.textContent='Observing the page and preparing the next plan step…';const step=goal.steps[goal.current],result=await call('goal-next',{goalId:goal.id,version:goal.version,text:step.remainingInstruction||step.instruction});if(token!==epoch)return;goal=result.goal;reviewShowing=!!result.proposal?.actions?.length;render();let proposal=result.proposal;show(proposal.message,'guide','assistant');review.replaceChildren();
+  if(!proposal.actions.length){if(step.kind==='inspect')await observe(token);else status.textContent='Plan needs clarification. Review the message, then cancel or resume explicitly.';return;}
+  if(proposal.actions.every(a=>a.type==='highlight')){await call('approve',{proposalId:proposal.id});if(token===epoch)await observe(token);return;}
+  for(const action of proposal.actions)appendProposedAction(document,review,proposal,action);
+  const saving=proposal.actions.some(a=>a.type==='submit');review.append(element('p',saving?proposal.message:'Review this step. Some sites autosave inputs; this review does not click Save.'));
+  const approve=element('button',saving?`Confirm ${proposal.actions[0].label} now`:proposal.actions[0].type==='navigate'?'Approve navigation':'Approve field changes');approve.type='button';review.append(approve);
+  const reject=element('button','Reject changes');reject.type='button';review.append(reject);
+  const apply=async()=>{if(busy||token!==epoch)return;for(const control of review.querySelectorAll('button,input,select,textarea'))control.disabled=true;await handle(async()=>{await call('approve',{proposalId:proposal.id});if(token!==epoch)return;review.replaceChildren();await observe(token);});};approve.onclick=apply;
+  reject.onclick=()=>handle(async()=>{await call('reject',{proposalId:proposal.id});await interrupt('pause');});
+  addReviewEditor(document,review,()=>proposal,{revise:async(_id,edits)=>{const edited=await call('goal-revise',{goalId:goal.id,version:goal.version,text:step.instruction,edits});goal=edited.goal;render();return edited.proposal;},onEditing:editing=>{approve.disabled=editing;},onRevised:replacement=>{proposal=replacement;for(const card of review.querySelectorAll('[data-proposed-value]'))card.remove();for(const action of [...proposal.actions].reverse())appendProposedAction(document,review,proposal,action,{prepend:true});},onError:showError});
+  status.textContent=saving?'Confirm this Save separately to continue the plan.':'Review the proposed plan step.';
+ }
+ return {get active(){return !!goal&&!['completed','cancelled'].includes(goal.status);},async start(text){await handle(async()=>{if(!assist())throw new Error('Choose Assist mode to prepare a multi-step plan.');review.replaceChildren();const token=++epoch,result=goal&&!['completed','cancelled'].includes(goal.status)?await call('goal-clarify',{goalId:goal.id,version:goal.version,answer:text,text:goal.text+'\n'+text}):await call('goal-create',{text});if(token!==epoch)return;goal=result.goal;if(goal?.clarification){show(goal.clarification);goal=null;render();}else if(goal){show(goal.message);render();status.textContent=goal.status==='clarifying'?'Reply in Chat with the missing information; the goal will be kept.':'Review the plan before starting. Each effect retains its own approval.';}});},restore:()=>handle(async()=>{goal=(await call('goal-status')).goal;render();}),pause:()=>goal?interrupt('pause'):Promise.resolve(),clear(){epoch++;if(goal)review.replaceChildren();goal=null;reviewShowing=false;render();}};
+}

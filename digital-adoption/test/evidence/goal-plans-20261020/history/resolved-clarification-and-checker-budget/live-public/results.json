@@ -1,0 +1,119 @@
+{
+  "at": "2026-10-19T17:59:45.050Z",
+  "scope": "Actual deployed registrations, goal planner, step planner and global active-maker/passive-checker route. Browser explicitly approves each local effect. No autonomous workflow grant or backend knowledge seeding.",
+  "publicWrites": 0,
+  "localWrites": 0,
+  "results": [
+    {
+      "id": "LIVE_GOAL02_PUBLIC_FILTER_LOCATE_AND_SUMMARIZE_WITHOUT_SAVE",
+      "status": "failed",
+      "error": "The copilot checker is unavailable. No changes were prepared. Try again or ask the platform administrator. [COPILOT_CHECKER_UNAVAILABLE]",
+      "screenshot": "LIVE_GOAL02_PUBLIC_FILTER_LOCATE_AND_SUMMARIZE_WITHOUT_SAVE-failed.png"
+    }
+  ],
+  "traces": [
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/create",
+      "status": 200,
+      "goal": {
+        "id": "e10e9753-21b3-4634-95aa-b4b395c4d3a5",
+        "status": "draft",
+        "current": 0,
+        "version": 1,
+        "message": "To set the MCP search field to 'genosys' and keep transport on the default 'All transport', then show the matching Genosys provider and summarize its description, follow these steps:",
+        "steps": [
+          {
+            "title": "Fill search field",
+            "kind": "fill",
+            "instruction": "Set the 'Search MCPs, publishers, capabilities…' field to 'genosys' and ensure 'transport' is set to 'All transports'.",
+            "expected": "The search field is filled with 'genosys' and 'All transports' is selected.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Inspect results",
+            "kind": "inspect",
+            "instruction": "Locate the matching Genosys provider in the loaded results and summarize its description.",
+            "expected": "The Genosys provider is identified, and its description is summarized.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/control",
+      "status": 200,
+      "goal": {
+        "id": "e10e9753-21b3-4634-95aa-b4b395c4d3a5",
+        "status": "ready",
+        "current": 0,
+        "version": 2,
+        "message": "To set the MCP search field to 'genosys' and keep transport on the default 'All transport', then show the matching Genosys provider and summarize its description, follow these steps:",
+        "steps": [
+          {
+            "title": "Fill search field",
+            "kind": "fill",
+            "instruction": "Set the 'Search MCPs, publishers, capabilities…' field to 'genosys' and ensure 'transport' is set to 'All transports'.",
+            "expected": "The search field is filled with 'genosys' and 'All transports' is selected.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Inspect results",
+            "kind": "inspect",
+            "instruction": "Locate the matching Genosys provider in the loaded results and summarize its description.",
+            "expected": "The Genosys provider is identified, and its description is summarized.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 503,
+      "error": "Copilot service temporarily unavailable",
+      "code": "COPILOT_CHECKER_UNAVAILABLE"
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "goal": {
+        "id": "e10e9753-21b3-4634-95aa-b4b395c4d3a5",
+        "status": "blocked",
+        "current": 0,
+        "version": 4,
+        "message": "The next step could not be prepared. Inspect the explanation and resume explicitly; no new action was repeated.",
+        "steps": [
+          {
+            "title": "Fill search field",
+            "kind": "fill",
+            "instruction": "Set the 'Search MCPs, publishers, capabilities…' field to 'genosys' and ensure 'transport' is set to 'All transports'.",
+            "expected": "The search field is filled with 'genosys' and 'All transports' is selected.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect results",
+            "kind": "inspect",
+            "instruction": "Locate the matching Genosys provider in the loaded results and summarize its description.",
+            "expected": "The Genosys provider is identified, and its description is summarized.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      }
+    }
+  ]
+}

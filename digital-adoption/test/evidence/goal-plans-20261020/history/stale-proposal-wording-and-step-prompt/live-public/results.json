@@ -1,0 +1,118 @@
+{
+  "at": "2026-10-19T18:04:23.306Z",
+  "scope": "Actual deployed registrations, goal planner, step planner and global active-maker/passive-checker route. Browser explicitly approves each local effect. No autonomous workflow grant or backend knowledge seeding.",
+  "publicWrites": 0,
+  "localWrites": 0,
+  "results": [
+    {
+      "id": "LIVE_GOAL02_PUBLIC_FILTER_LOCATE_AND_SUMMARIZE_WITHOUT_SAVE",
+      "status": "failed",
+      "error": "Propose only action types allowed for the current goal step. The overall goal is background; do not bundle actions from later steps.",
+      "screenshot": "LIVE_GOAL02_PUBLIC_FILTER_LOCATE_AND_SUMMARIZE_WITHOUT_SAVE-failed.png"
+    }
+  ],
+  "traces": [
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/create",
+      "status": 200,
+      "goal": {
+        "id": "d25a6c4e-e01b-4754-b26e-a424d1ae3c9e",
+        "status": "draft",
+        "current": 0,
+        "version": 1,
+        "message": "The plan to set the MCP search field to 'genosys' and keep transport on the default 'All transport' is outlined below. After filling in the search field, we will inspect the results to find the matching Genosys provider and summarize its description.",
+        "steps": [
+          {
+            "title": "Fill search field",
+            "kind": "fill",
+            "instruction": "Set the 'Search MCPs, publishers, capabilities…' field to 'genosys' and ensure the 'transport' field is set to 'All transports'.",
+            "expected": "The search field is filled with 'genosys' and 'All transports' is selected.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Inspect results",
+            "kind": "inspect",
+            "instruction": "Locate the matching Genosys provider in the loaded results and summarize its description.",
+            "expected": "The description of the matching Genosys provider is summarized.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/control",
+      "status": 200,
+      "goal": {
+        "id": "d25a6c4e-e01b-4754-b26e-a424d1ae3c9e",
+        "status": "ready",
+        "current": 0,
+        "version": 2,
+        "message": "The plan to set the MCP search field to 'genosys' and keep transport on the default 'All transport' is outlined below. After filling in the search field, we will inspect the results to find the matching Genosys provider and summarize its description.",
+        "steps": [
+          {
+            "title": "Fill search field",
+            "kind": "fill",
+            "instruction": "Set the 'Search MCPs, publishers, capabilities…' field to 'genosys' and ensure the 'transport' field is set to 'All transports'.",
+            "expected": "The search field is filled with 'genosys' and 'All transports' is selected.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Inspect results",
+            "kind": "inspect",
+            "instruction": "Locate the matching Genosys provider in the loaded results and summarize its description.",
+            "expected": "The description of the matching Genosys provider is summarized.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "goal": {
+        "id": "d25a6c4e-e01b-4754-b26e-a424d1ae3c9e",
+        "status": "blocked",
+        "current": 0,
+        "version": 4,
+        "message": "Propose only action types allowed for the current goal step. The overall goal is background; do not bundle actions from later steps.",
+        "steps": [
+          {
+            "title": "Fill search field",
+            "kind": "fill",
+            "instruction": "Set the 'Search MCPs, publishers, capabilities…' field to 'genosys' and ensure the 'transport' field is set to 'All transports'.",
+            "expected": "The search field is filled with 'genosys' and 'All transports' is selected.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect results",
+            "kind": "inspect",
+            "instruction": "Locate the matching Genosys provider in the loaded results and summarize its description.",
+            "expected": "The description of the matching Genosys provider is summarized.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      },
+      "proposal": {
+        "id": "9ba18844-d57e-4101-aa29-b3660f97abf2",
+        "message": "Propose only action types allowed for the current goal step. The overall goal is background; do not bundle actions from later steps.",
+        "actions": []
+      }
+    }
+  ]
+}

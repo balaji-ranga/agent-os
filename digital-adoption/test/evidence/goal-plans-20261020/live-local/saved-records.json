@@ -1,0 +1,38 @@
+{
+  "marker": "Goal UAT 1792434246335",
+  "records": [
+    {
+      "id": "f87875fe-6521-4978-9fe8-6a4aa4ad2701",
+      "path": "/customer",
+      "operationId": "d5b6f5bd-58c1-43ee-997c-a2e036f5071e",
+      "values": {
+        "company_name": "Goal UAT 1792434246335",
+        "contact_email": "goal.uat@example.test",
+        "region": "Singapore"
+      },
+      "createdAt": "2026-10-19T18:24:27.683Z"
+    },
+    {
+      "id": "49059269-ba6d-4fa2-bb63-94c560009b26",
+      "path": "/note",
+      "operationId": "e977e23b-fdf8-4654-b8d8-6c2dec10baae",
+      "values": {
+        "title": "Followup Goal UAT 1792434246335",
+        "body": "Follow up with Goal UAT 1792434246335 about their renewal"
+      },
+      "createdAt": "2026-10-19T18:24:34.354Z"
+    },
+    {
+      "id": "5d2f3658-87cf-4706-bb47-f1b61a74cf12",
+      "path": "/opportunity",
+      "operationId": "e4c83e38-aca0-4c72-89e1-d6c08e5e69c3",
+      "values": {
+        "opportunity_name": "Renewal Goal UAT 1792434246335",
+        "amount": "12500",
+        "currency": "USD"
+      },
+      "createdAt": "2026-10-19T18:24:41.483Z"
+    }
+  ],
+  "verification": "Independent existing host records UI. Marker references are not CRM foreign-key relationships."
+}
