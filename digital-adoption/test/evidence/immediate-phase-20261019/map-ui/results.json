@@ -1,0 +1,20 @@
+{
+  "at": "2026-10-19T11:15:38.754Z",
+  "source": "working-tree immediate phase",
+  "origin": "http://127.0.0.1:4194",
+  "dependencies": {
+    "planner": "deterministic fixture, not LLM",
+    "managementIdentity": "synthetic test adapter",
+    "dns": "not exercised",
+    "host": "existing loopback website"
+  },
+  "results": [
+    {
+      "id": "OWNER_READINESS_UI",
+      "status": "passed",
+      "detail": "Real server-derived state in owner UI; saved-map reload and discovery setup link verified. Synthetic owner/registration, not fresh-owner DNS proof.",
+      "screenshot": "OWNER_READINESS_UI.png"
+    }
+  ],
+  "errors": []
+}

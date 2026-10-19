@@ -1,105 +1,105 @@
 {
-  "marker": "Immediate WS 1792407559079",
+  "marker": "Immediate WS 1792408406719",
   "commands": [
     {
       "action": "inspect",
-      "commandId": "1d0f8f60-7753-43bd-bde5-015f441d0ef2",
+      "commandId": "41d75120-53a7-49dd-856c-044440c842f7",
       "status": "succeeded",
       "outcome": "effect_observed"
     },
     {
       "action": "fill",
-      "commandId": "9c9db658-83b9-4109-808c-a24f04448e47",
+      "commandId": "447f05bc-b625-4628-b659-7809a71c676c",
       "status": "succeeded",
       "outcome": "local_state_verified"
     },
     {
       "action": "submit",
-      "commandId": "aea83777-95c6-4d4d-b788-52040832ac74",
+      "commandId": "d2959877-93fc-4352-9c4f-61f887e48670",
       "status": "succeeded",
       "outcome": "host_reported_saved"
     },
     {
       "action": "navigate",
-      "commandId": "303a52c6-ae5d-4f7e-b150-380ab993f1c0",
+      "commandId": "9749970f-0a88-4e82-bffd-7dbbb50cd8b2",
       "status": "succeeded",
       "outcome": "local_state_verified"
     },
     {
       "action": "inspect",
-      "commandId": "96d6fd30-814b-4f41-82b2-18bd43a6b782",
+      "commandId": "f5ecea2c-ac0d-43ff-a7d0-1bea29c72eb7",
       "status": "succeeded",
       "outcome": "effect_observed"
     },
     {
       "action": "fill",
-      "commandId": "f8e069bf-4af5-4764-9471-a82f5fe95131",
+      "commandId": "07acf56b-ba8c-4c29-8b8a-3cde260acfb7",
       "status": "succeeded",
       "outcome": "local_state_verified"
     },
     {
       "action": "submit",
-      "commandId": "f341f91e-6d65-4880-a756-483f023bf21c",
+      "commandId": "d119e2c8-fa4c-4a02-b6e4-ee8a216cf366",
       "status": "succeeded",
       "outcome": "host_reported_saved"
     },
     {
       "action": "navigate",
-      "commandId": "80f78b85-33f8-4497-900d-25b428fb9465",
+      "commandId": "57841fca-25aa-4fae-ba09-c7e98f03be85",
       "status": "succeeded",
       "outcome": "local_state_verified"
     },
     {
       "action": "inspect",
-      "commandId": "69c6e784-757b-4541-b728-d0b40be6a7a8",
+      "commandId": "b110486e-b678-45ed-b254-94431a4de6e4",
       "status": "succeeded",
       "outcome": "effect_observed"
     },
     {
       "action": "fill",
-      "commandId": "d89799de-da3d-4ab5-873d-ece5101bd5ec",
+      "commandId": "bcf78a2e-5f0e-4c15-b2ea-bccf061c97c9",
       "status": "succeeded",
       "outcome": "local_state_verified"
     },
     {
       "action": "submit",
-      "commandId": "5298b6e8-133a-417d-8357-2dcd3b6cddd9",
+      "commandId": "bc0240ec-085d-424f-b0a5-da134f54a9b5",
       "status": "succeeded",
       "outcome": "host_reported_saved"
     }
   ],
   "records": [
     {
-      "id": "cab2f677-9962-43f3-aef4-8a29f8018ce8",
+      "id": "56b581d7-2a7e-4b0c-b1cb-b76ad97e89aa",
       "path": "/customer",
-      "operationId": "2a7897c3-d67a-485f-83cf-79120e7721c2",
+      "operationId": "d6e35cc5-1049-42c9-98ff-aa8c646e3bdc",
       "values": {
-        "company_name": "Immediate WS 1792407559079",
+        "company_name": "Immediate WS 1792408406719",
         "contact_email": "immediate.workflow@example.test",
         "region": "Singapore"
       },
-      "createdAt": "2026-10-19T10:59:19.401Z"
+      "createdAt": "2026-10-19T11:13:26.927Z"
     },
     {
-      "id": "e21de8d7-9cd2-4a65-b155-0942448bfa73",
+      "id": "fc8ef9b8-d951-4b2e-b071-577b21a61957",
       "path": "/note",
-      "operationId": "a3f75286-020b-4065-b6af-4404533e251e",
+      "operationId": "36a9bf75-2c49-48a3-9440-cb6cd4b2c594",
       "values": {
-        "title": "Followup Immediate WS 1792407559079",
-        "body": "Follow up on the opportunity for Immediate WS 1792407559079"
+        "title": "Followup Immediate WS 1792408406719",
+        "body": "Follow up on the opportunity for Immediate WS 1792408406719"
       },
-      "createdAt": "2026-10-19T10:59:20.061Z"
+      "createdAt": "2026-10-19T11:13:27.304Z"
     },
     {
-      "id": "11ec074f-95c5-449e-8eb2-a73be51c42be",
+      "id": "8220b70e-28b2-4cd0-a316-fe4491af61fb",
       "path": "/opportunity",
-      "operationId": "82550b5a-ee6c-4674-a1aa-229d73c13d9f",
+      "operationId": "c15efa56-7bcf-42a9-a56f-9317eca1355f",
       "values": {
-        "opportunity_name": "Growth Immediate WS 1792407559079",
+        "opportunity_name": "Growth Immediate WS 1792408406719",
         "amount": "12500",
         "currency": "USD"
       },
-      "createdAt": "2026-10-19T10:59:20.715Z"
+      "createdAt": "2026-10-19T11:13:27.740Z"
     }
   ],
   "verification": "Independent existing host records page; shared synthetic marker references, not a CRM foreign-key claim.",

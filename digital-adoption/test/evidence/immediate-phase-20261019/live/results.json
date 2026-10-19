@@ -1,6 +1,6 @@
 {
-  "at": "2026-10-19T11:00:43.502Z",
-  "release": "20261019-immediate-g",
+  "at": "2026-10-19T11:14:23.787Z",
+  "release": "20261019-immediate-h",
   "scope": "Live UI/auth/keyboard; no model request, host edits, public submission or laptop exposure. Passive model canaries are separate.",
   "results": [
     {

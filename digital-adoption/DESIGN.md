@@ -721,7 +721,7 @@ Runtime `20261018-owner-workspace-c` has 260 service passes, ten isolated UI pas
 
 ## Implementation evidence - 19 October 2026
 
-The scoped implementation is deployed as coordinator `20261019-immediate-g`
+The scoped implementation is deployed as coordinator `20261019-immediate-h`
 and gateway/platform `20261019-immediate-e`. The [acceptance and regression report](test/evidence/immediate-phase-20261019/index.html)
 records exact executed-suite results, screenshots, fault tests, model route and
 budget, and remaining partial requirements. Existing local/public registrations

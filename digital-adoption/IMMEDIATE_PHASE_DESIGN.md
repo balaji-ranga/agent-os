@@ -549,7 +549,7 @@ part of this phase.
 
 ## Implementation evidence - 19 October 2026
 
-The scoped implementation is deployed as coordinator `20261019-immediate-g`
+The scoped implementation is deployed as coordinator `20261019-immediate-h`
 and gateway/platform `20261019-immediate-e`. The [acceptance and regression report](test/evidence/immediate-phase-20261019/index.html)
 records exact executed-suite results, screenshots, fault tests, model route and
 budget, and remaining partial requirements. Existing local/public registrations
@@ -557,3 +557,17 @@ were reused as requested; this does not establish a fresh owner's live email/DNS
 setup. Full certification is not inferred from unit/synthetic pass rates.
 Previously deferred devices, actual elapsed retention and sustained inference
 capacity remain separate evidence gates.
+
+### Owner map feedback - 19 October 2026
+
+Website discovery currently observes owner-approved routes within a bounded run,
+not every possible state or form in a website. The management reload action only
+reads persisted observations. JSON download of observed maps and reviewed source
+hints is missing from the management UI. The current structure manifest accepts
+labels, types and required flags but does not accept form/field descriptions.
+Track owner-editable purpose, field meaning, accepted-value guidance and
+dependencies as a map enrichment gap; any future enrichment must persist under
+the selected website and reach LLM guidance without granting execution authority.
+Website help content and teaching lessons remain the existing way to provide
+richer instructions. Do not describe the unsupported map editing/export controls
+as implemented or include them in the executed acceptance pass count.

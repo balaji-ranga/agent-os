@@ -1,12 +1,12 @@
 {
-  "at": "2026-10-19T10:59:47.681611+00:00",
+  "at": "2026-10-19T11:13:00.233502+00:00",
   "status": "passed",
-  "release": "20261019-immediate-g",
+  "release": "20261019-immediate-h",
   "containers": {
     "flolah-adoption-adoption-1": {
-      "imageId": "sha256:7773bae59ae17688926593b7aa8a07a066d4875c01b1f897549e732c48a60776",
-      "image": "flolah-digital-adoption:20261019-immediate-g",
-      "startedAt": "2026-10-19T10:59:46.413392561Z",
+      "imageId": "sha256:b967f5545ba05bda65e07bd521fee88bcb5b765f06752dbfda2ac4aa23f03c0e",
+      "image": "flolah-digital-adoption:20261019-immediate-h",
+      "startedAt": "2026-10-19T11:12:57.855053351Z",
       "running": true,
       "health": null
     },

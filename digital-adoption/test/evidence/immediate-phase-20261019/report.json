@@ -1,6 +1,6 @@
 {
-  "at": "2026-10-19T11:06:55.858588+00:00",
-  "coordinator": "20261019-immediate-g",
+  "at": "2026-10-19T11:19:49.268034+00:00",
+  "coordinator": "20261019-immediate-h",
   "gatewayAndPlatform": "20261019-immediate-e",
   "executedSuiteMinimumPassRate": 100.0,
   "executedGate98PercentMet": true,
@@ -13,7 +13,7 @@
   "suites": [
     {
       "title": "Service regression · Windows",
-      "passed": 291,
+      "passed": 301,
       "failed": 0,
       "artifact": "local/service-tests.log",
       "scope": "All service tests; deterministic/model/provider mocks labelled in test names.",
@@ -21,10 +21,10 @@
     },
     {
       "title": "Service regression · VPS Linux",
-      "passed": 291,
+      "passed": 301,
       "failed": 0,
       "artifact": "vps/service-tests.log",
-      "scope": "Same suite in exact final coordinator candidate; not 291 additional unique product scenarios.",
+      "scope": "Same suite in exact final coordinator candidate; not additional unique product scenarios.",
       "passRate": 100.0
     },
     {
@@ -130,6 +130,22 @@
       "artifact": "vps/deployment.json",
       "scope": "Four health URLs; final coordinator, gateway/platform identities; adjacent services and parser workers preserved.",
       "passRate": 100.0
+    },
+    {
+      "title": "Merged checker Admin contracts",
+      "passed": 1,
+      "failed": 0,
+      "passRate": 100.0,
+      "artifact": "local/quality-settings.log",
+      "scope": "Admin-only settings, persisted registered models and strict routing; existing parallel implementation preserved."
+    },
+    {
+      "title": "Merged efficiency transport contracts",
+      "passed": 1,
+      "failed": 0,
+      "passRate": 100.0,
+      "artifact": "local/efficiency-transport.log",
+      "scope": "Mocked transport regression; not live Ollama functional certification."
     }
   ],
   "cases": [

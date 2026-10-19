@@ -54,8 +54,8 @@ dist/assets/index-SPKgtRL5.css           304.91 kB │ gzip:  53.09 kB
 dist/assets/OrbitControls-BJG1UU-V.js     19.01 kB │ gzip:   4.34 kB
 dist/assets/GLTFLoader-C3T5bmYp.js        46.88 kB │ gzip:  13.89 kB
 dist/assets/three.module-BtCAaDxU.js     688.39 kB │ gzip: 177.02 kB
-dist/assets/index-CDe_gxyJ.js          2,820.12 kB │ gzip: 744.22 kB
-✓ built in 15.80s
+dist/assets/index-BLhMTRqW.js          2,822.27 kB │ gzip: 744.96 kB
+✓ built in 12.56s
 
 (!) Some chunks are larger than 500 kB after minification. Consider:
 - Using dynamic import() to code-split the application

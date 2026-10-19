@@ -1,7 +1,7 @@
 # Digital Adoption Copilot
 
 19 October 2026: the immediate-phase implementation is available on coordinator
-**20261019-immediate-g**, with gateway/platform changes from
+**20261019-immediate-h**, with gateway/platform changes from
 **20261019-immediate-e**. See the [acceptance and regression report](test/evidence/immediate-phase-20261019/index.html)
 for executed-suite pass rates, screenshots, all 32 requirement families,
 remaining partial gates and recommendations. Executed checks and full Phase 1/2

@@ -1,0 +1,4 @@
+# Stable evidence hashes on both Windows and Linux checkouts.
+* text eol=lf
+*.png -text
+*.jpg -text
