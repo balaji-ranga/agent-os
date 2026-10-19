@@ -5,12 +5,14 @@
     {
       "path": "/customer",
       "title": "Create customer",
-      "forms": [{ "id": "demo-form", "label": "Customer form" }],
+      "description": "Synthetic customer intake page. Review proposed values before applying them.",
+      "forms": [{ "id": "demo-form", "label": "Customer form", "description": "Create a customer using the supplied company, contact and servicing region. Ask for missing business facts." }],
       "fields": [
         { "key": "company_name", "label": "Company name", "type": "text", "required": true, "form": "demo-form" },
         { "key": "contact_email", "label": "Contact email", "type": "email", "required": true, "form": "demo-form" },
-        { "key": "region", "label": "Region", "type": "text", "required": true, "form": "demo-form" }
-      ]
+        { "key": "region", "label": "Region", "type": "text", "required": true, "form": "demo-form", "description": "The servicing region for this customer. Use the region supplied in the current task; do not infer it from an email address." }
+      ],
+      "links": [{ "path": "/records", "label": "Records" }]
     }
   ]
 }

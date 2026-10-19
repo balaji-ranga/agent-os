@@ -1,5 +1,5 @@
 {
-  "at": "2026-10-19T11:13:29.646Z",
+  "at": "2026-10-19T11:35:46.598Z",
   "source": "working-tree immediate phase",
   "origin": "http://127.0.0.1:4194",
   "dependencies": {
@@ -80,10 +80,39 @@
       "screenshot": "R13_WS_CUSTOMER_NOTE_OPPORTUNITY.png"
     },
     {
+      "id": "R_VALID_JOURNEYS_30",
+      "status": "passed",
+      "detail": {
+        "journeys": 30,
+        "distinctTaskKinds": [
+          "text",
+          "email",
+          "region",
+          "select",
+          "checkbox",
+          "mixed native",
+          "opportunity",
+          "note",
+          "radio",
+          "multi-select"
+        ],
+        "freshVariantsPerKind": 3,
+        "planner": "deterministic; held-out LLM remains a separate gate",
+        "hostSubmissions": 0
+      },
+      "screenshot": "R_VALID_JOURNEYS_30.png"
+    },
+    {
       "id": "OWNER_READINESS_UI",
       "status": "passed",
-      "detail": "Real server-derived state in owner UI; synthetic owner/registration, not fresh-owner DNS proof.",
+      "detail": "Real server-derived state in owner UI; saved-map reload and discovery setup link verified. Synthetic owner/registration, not fresh-owner DNS proof.",
       "screenshot": "OWNER_READINESS_UI.png"
+    },
+    {
+      "id": "OWNER_MAP_CONTEXT",
+      "status": "passed",
+      "detail": "Form and field descriptions saved through owner UI, retained after reload, exported with navigation, re-imported and present in visitor planner guidance. Synthetic identity; actual LLM acceptance is separate.",
+      "screenshot": "OWNER_MAP_CONTEXT.png"
     }
   ],
   "errors": []

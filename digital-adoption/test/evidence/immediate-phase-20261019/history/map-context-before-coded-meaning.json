@@ -1,0 +1,167 @@
+{
+  "at": "2026-10-19T11:33:52.868Z",
+  "scope": "Real model, owner-UI-exported map, real local DOM snapshot, process-local in-memory map. No host effects or shared settings changes.",
+  "sharedSettingUnchanged": true,
+  "results": [
+    {
+      "id": "field-description-interprets-assignment",
+      "status": "failed",
+      "mode": "maker only",
+      "latencyMs": 3162,
+      "error": "Expected values to be strictly deep-equal:\n+ actual - expected\n\n  {\n+   Region: 'Northern branch'\n-   Region: 'SYN-NORTH-42'\n  }\n",
+      "response": {
+        "message": "You want to set the Region to 'Northern branch' while leaving other fields unchanged. The current selection for the Region field is not known, so I will prepare the action to fill it with the requested value for your review.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f4",
+            "value": "Northern branch"
+          }
+        ]
+      }
+    },
+    {
+      "id": "form-description-determines-choice",
+      "status": "passed",
+      "mode": "maker only",
+      "latencyMs": 1764,
+      "quality": {
+        "enabled": false
+      },
+      "response": {
+        "message": "The Shipping method for a priority desk customer will be set to Express. Other fields will remain unchanged. Please review the proposed action.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f0",
+            "value": "Express"
+          }
+        ]
+      },
+      "contextRevision": "c2cc497b29c2af5f77c693fd8eadcf7d953c4da4c431f93a63b7158fa1c1f66e"
+    },
+    {
+      "id": "description-explains-business-meaning",
+      "status": "passed",
+      "mode": "maker only",
+      "latencyMs": 1301,
+      "quality": {
+        "enabled": false
+      },
+      "response": {
+        "message": "In this form, 'Region' refers to the servicing office rather than a postal address. The code used by the Northern branch is SYN-NORTH-42.",
+        "actions": []
+      },
+      "contextRevision": "c2cc497b29c2af5f77c693fd8eadcf7d953c4da4c431f93a63b7158fa1c1f66e"
+    },
+    {
+      "id": "unmapped-branch-clarifies",
+      "status": "passed",
+      "mode": "maker only",
+      "latencyMs": 3576,
+      "quality": {
+        "enabled": false
+      },
+      "response": {
+        "message": "To set the Region for the Southern branch, I need the servicing code. It appears that the code for the Southern branch is not documented in the provided guidance. Could you please provide the servicing code for the Southern branch?",
+        "actions": []
+      },
+      "contextRevision": "c2cc497b29c2af5f77c693fd8eadcf7d953c4da4c431f93a63b7158fa1c1f66e"
+    },
+    {
+      "id": "field-description-interprets-assignment",
+      "status": "failed",
+      "mode": "active maker / passive checker",
+      "latencyMs": 8609,
+      "error": "Expected values to be strictly deep-equal:\n+ actual - expected\n\n  {\n+   Region: 'Northern branch'\n-   Region: 'SYN-NORTH-42'\n  }\n",
+      "response": {
+        "message": "You want to set the Region to 'Northern branch' while leaving other fields unchanged. The current selection for the Region field is not known, so I will prepare the action to fill it with the requested value for your review.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f4",
+            "value": "Northern branch"
+          }
+        ]
+      }
+    },
+    {
+      "id": "form-description-determines-choice",
+      "status": "passed",
+      "mode": "active maker / passive checker",
+      "latencyMs": 3447,
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 1915,
+          "promptTokens": 1214,
+          "outputTokens": 203
+        }
+      },
+      "response": {
+        "message": "The Shipping method for a priority desk customer will be set to Express. Other fields will remain unchanged. Please review the proposed action.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f0",
+            "value": "Express"
+          }
+        ]
+      },
+      "contextRevision": "c2cc497b29c2af5f77c693fd8eadcf7d953c4da4c431f93a63b7158fa1c1f66e"
+    },
+    {
+      "id": "description-explains-business-meaning",
+      "status": "passed",
+      "mode": "active maker / passive checker",
+      "latencyMs": 4066,
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 2642,
+          "promptTokens": 1204,
+          "outputTokens": 278
+        }
+      },
+      "response": {
+        "message": "In this form, 'Region' refers to the servicing office rather than a postal address. The code used by the Northern branch is SYN-NORTH-42.",
+        "actions": []
+      },
+      "contextRevision": "c2cc497b29c2af5f77c693fd8eadcf7d953c4da4c431f93a63b7158fa1c1f66e"
+    },
+    {
+      "id": "unmapped-branch-clarifies",
+      "status": "passed",
+      "mode": "active maker / passive checker",
+      "latencyMs": 2895,
+      "quality": {
+        "enabled": true,
+        "decision": "accept",
+        "revisions": 0,
+        "makerSlot": "secondary",
+        "checkerSlot": "primary",
+        "checker": {
+          "model": "deepseek-v4-flash",
+          "latencyMs": 1986,
+          "promptTokens": 989,
+          "outputTokens": 230
+        }
+      },
+      "response": {
+        "message": "The guidance does not specify the servicing code for the Southern branch. Please provide the servicing code for the Southern branch so I can proceed with setting the Region.",
+        "actions": []
+      },
+      "contextRevision": "c2cc497b29c2af5f77c693fd8eadcf7d953c4da4c431f93a63b7158fa1c1f66e"
+    }
+  ]
+}

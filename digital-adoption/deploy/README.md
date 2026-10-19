@@ -1,8 +1,8 @@
 # Build and VPS setup
 
 19 October 2026: the immediate-phase implementation is available on coordinator
-**20261019-immediate-h**, with gateway/platform changes from
-**20261019-immediate-e**. See the [acceptance and regression report](../test/evidence/immediate-phase-20261019/index.html)
+**20261019-immediate-j**, with gateway/platform changes from
+**20261019-immediate-j**. See the [acceptance and regression report](../test/evidence/immediate-phase-20261019/index.html)
 for executed-suite pass rates, screenshots, all 32 requirement families,
 remaining partial gates and recommendations. Executed checks and full Phase 1/2
 certification are reported separately.
@@ -506,6 +506,14 @@ source of a concurrent checker release. `install-immediate-phase.py` and
 For a coordinator-only correction use `prepare-immediate-phase.py RELEASE --coordinator-only`;
 its installer leaves gateway, platform and parser replicas untouched.
 `verify-immediate-phase.py RELEASE` checks images, untouched services and health.
+
+After both coordinator/gateway and platform activation, run
+`publish-immediate-help.py RELEASE` to publish the shipped platform help and
+verify exact indexed hashes plus workflow/map-context retrieval. The package
+includes the two verification helpers separately; the runner does not assume
+they are present inside an older backend image. No visitor knowledge is changed.
+The map-context release adds no runtime configuration keys or database schema:
+annotations use the existing website/audience-scoped source-map records.
 `export-immediate-evidence.py` is the allowlisted October acceptance export;
 runtime configs and overrides must never enter public evidence archives.
 

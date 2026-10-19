@@ -48,6 +48,9 @@ export function createManagement({authenticate,control,knowledge,search,platform
   if(path==='/v1/manage/source-map-refresh'){if(!sourceMap)throw new Error('Source map unavailable');return sourceMap.refresh(scope,input.manifest);}
   if(path==='/v1/manage/source-map'){if(!sourceMap)throw new Error('Source map unavailable');return sourceMap.summary(scope);}
   if(path==='/v1/manage/source-map-page'){if(!sourceMap)throw new Error('Source map unavailable');return sourceMap.page(scope,input);}
+  if(path==='/v1/manage/source-map-screen'){if(!sourceMap)throw new Error('Source map unavailable');return sourceMap.screen(scope,{path:input.path});}
+  if(path==='/v1/manage/source-map-export'){if(!sourceMap)throw new Error('Source map unavailable');return sourceMap.export(scope,{path:input.path});}
+  if(path==='/v1/manage/source-map-context'){if(!sourceMap)throw new Error('Source map unavailable');return sourceMap.describe(scope,{path:input.path,revision:input.revision,target:input.target,description:input.description,reviewed:input.reviewed});}
   if(path==='/v1/manage/source-map-teach'){if(!sourceMap||!learning)throw new Error('Teaching unavailable');return learning.create(scope,sourceMap.recipeDraft(scope,input));}
   if(path==='/v1/manage/coaching-code'){if(!coaching)throw new Error('Coaching unavailable');return coaching.issue(scope);}
   if(path.startsWith('/v1/manage/learning-')){

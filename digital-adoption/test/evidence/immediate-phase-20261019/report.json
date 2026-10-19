@@ -1,7 +1,7 @@
 {
-  "at": "2026-10-19T11:19:49.268034+00:00",
-  "coordinator": "20261019-immediate-h",
-  "gatewayAndPlatform": "20261019-immediate-e",
+  "at": "2026-10-19T11:45:33.838064+00:00",
+  "coordinator": "20261019-immediate-j",
+  "gatewayAndPlatform": "20261019-immediate-j",
   "executedSuiteMinimumPassRate": 100.0,
   "executedGate98PercentMet": true,
   "fullAcceptanceCertified": false,
@@ -10,10 +10,74 @@
     "partial": 18,
     "failed": 0
   },
+  "mapContextAcceptance": {
+    "passed": 8,
+    "partial": 0,
+    "failed": 0,
+    "passRate": 100.0,
+    "cases": [
+      {
+        "id": "M01",
+        "title": "Importable combined map JSON with navigation",
+        "status": "passed",
+        "evidence": "browser/website-map.json",
+        "recommendation": "Review downloaded JSON before replacing hints; original observations stay separate."
+      },
+      {
+        "id": "M02",
+        "title": "Owner page/form/field description editing and reload",
+        "status": "passed",
+        "evidence": "map-context/owner-map-descriptions.png",
+        "recommendation": "Use descriptions for purpose, value meanings and dependencies; never enter visitor data."
+      },
+      {
+        "id": "M03",
+        "title": "Restart persistence, roundtrip and clearing descriptions",
+        "status": "passed",
+        "evidence": "local/service-tests.log",
+        "recommendation": "Keep persisted source maps scoped by website and audience."
+      },
+      {
+        "id": "M04",
+        "title": "Scope isolation, stale revisions and invalid input",
+        "status": "passed",
+        "evidence": "local/service-tests.log",
+        "recommendation": "Reload the saved map after a stale edit; owner review remains required."
+      },
+      {
+        "id": "M05",
+        "title": "Form description determines a supported live choice",
+        "status": "passed",
+        "evidence": "models/map-context.json",
+        "recommendation": "A priority-desk rule produced Express in maker-only and checker modes."
+      },
+      {
+        "id": "M06",
+        "title": "Field meaning translates a business concept to its code",
+        "status": "passed",
+        "evidence": "models/map-context.json",
+        "recommendation": "Both ordinary and short assignment phrasing produced the documented SYN-NORTH-42 code."
+      },
+      {
+        "id": "M07",
+        "title": "Guide explains descriptions and clarifies missing mappings",
+        "status": "passed",
+        "evidence": "models/map-context.json",
+        "recommendation": "Read-only explanations produced no actions; an undocumented branch requested its missing code."
+      },
+      {
+        "id": "M08",
+        "title": "Existing service, browser and live visitor regression",
+        "status": "passed",
+        "evidence": "browser/results.json",
+        "recommendation": "307 service checks per OS, the full browser suite and the two deployed visitor panels pass; broader partial requirements remain below."
+      }
+    ]
+  },
   "suites": [
     {
       "title": "Service regression · Windows",
-      "passed": 301,
+      "passed": 307,
       "failed": 0,
       "artifact": "local/service-tests.log",
       "scope": "All service tests; deterministic/model/provider mocks labelled in test names.",
@@ -21,7 +85,7 @@
     },
     {
       "title": "Service regression · VPS Linux",
-      "passed": 301,
+      "passed": 307,
       "failed": 0,
       "artifact": "vps/service-tests.log",
       "scope": "Same suite in exact final coordinator candidate; not additional unique product scenarios.",
@@ -45,7 +109,7 @@
     },
     {
       "title": "Immediate browser acceptance",
-      "passed": 11,
+      "passed": 13,
       "failed": 0,
       "artifact": "browser/results.json",
       "scope": "Existing local host; isolated coordinator, deterministic planner, synthetic management identity and policy adapter.",
@@ -81,6 +145,14 @@
       "failed": 0,
       "artifact": "models/final.json",
       "scope": "18 requests: nine tasks in each mode, including cited summary. Real platform endpoints; process-local passive checker, 2048-token verdict allowance.",
+      "passRate": 100.0
+    },
+    {
+      "title": "Map descriptions · real maker / passive checker",
+      "passed": 10,
+      "failed": 0,
+      "artifact": "models/map-context.json",
+      "scope": "Ten real requests using the owner-UI-exported map. Form-derived choice, documented field code, read-only explanation and missing-code clarification in both modes. No host effects or shared setting changes.",
       "passRate": 100.0
     },
     {
@@ -487,5 +559,5 @@
     }
   ],
   "scope": "Only existing loopback fixture and public flolah.cloud as website targets. No public form submission, login or laptop exposure. Flolah signed-in consoles are control-plane checks. Fixtures and actual model/live UI layers are separate, explicitly labelled.",
-  "history": "Initial radio-fixture error, missing Linux test packaging helpers, startup health-probe/line-ending issues, two deterministic checker parsing faults, 700-token verdict instability, overlapping field-label dependency and choice-order false continuation were retained/repaired. Final results below supersede failed attempts for their exact executed scope; historical failures are not erased."
+  "history": "Initial radio-fixture error, missing Linux test packaging helpers, startup health-probe/line-ending issues, two deterministic checker parsing faults, 700-token verdict instability, overlapping field-label dependency and choice-order false continuation were retained/repaired. Map-context testing also caught literal branch-name copying instead of its documented servicing code and an editor accessible-label mismatch; these were fixed and verified. The earlier failed real-model map results are retained. Final results below supersede failed attempts for their exact executed scope; historical failures are not erased."
 }

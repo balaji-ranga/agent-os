@@ -11,6 +11,31 @@ Select the registration in the persistent header. **Find another website** searc
 - **Installation:** ownership/approval status, installation snippet, registration and verified email instructions.
 - **Knowledge:** shared sources, processing status, retries, documents/recordings and explicitly approved public help pages. Only Ready sources can answer questions. Removing an indexed source is different from ending a visitor's private task.
 - **Website map:** owner-authorized observed pages, forms, fields and navigation. Expand a page and search its field/link list. Optional reviewed source hints remain distinct from live controls. A map is not a guarantee of full dynamic-state coverage or a saved task.
+
+### Website discovery, JSON export and descriptions
+
+In the selected website's Teaching tab, create a coaching code. Enter it under
+Coaching access in the website copilot, then open Actions → Website map → Choose
+pages. Review the same-origin routes, add any missing read-only routes, choose
+the page budget and select Build website map. Each run is bounded to at most
+50 pages and two minutes; check unobserved/blocked routes and inspect dynamic
+forms separately. Reload saved map only reads saved data, without scanning.
+
+In Website map, select Download website map JSON to export the combined observed
+structure and reviewed hints. Expand a saved page and select Edit page, form &
+field descriptions. Choose a page, form or field, explain its purpose, business
+meaning, accepted-value rules or dependencies, review the shared-guidance notice
+and select Save description. Descriptions persist for that website and selected
+content scope and are supplied to the LLM when relevant. They do not grant
+permission to fill, submit or save. Do not enter visitor data or secrets.
+
+The same schema-1 JSON can be edited and re-imported under Import an optional
+structure manifest. Each screen, form and field accepts an optional description
+up to 1,500 characters. Screens can include links with label/path. Review the
+download before re-import; it has reviewed:false. Import replaces reviewed hints,
+not observed maps. Unkeyed, ambiguous and unsupported fields are omitted from the
+importable export; original observations remain available. Use an individual
+page download if the full map exceeds 200 pages or 480 KB.
 - **Teaching:** coaching codes, reusable drafts/published workflows, purpose metadata, validation, publication review and version history. Editors open on demand. Verified-task learning requires the host integration and participant consent.
 - **Visitor groups:** saved workflow target groups, online/offline panels, pairing expiry and revocation. Owners can shorten or extend expiry; visitors can disconnect. Revocation stops remaining authority, not host changes already completed.
 - **Analytics:** consent-based aggregate website/copilot activity, report windows, paged datasets and policy settings. Browser identifiers are not verified people. Possible behavior/network matches never grant workflow access or pair visitors.

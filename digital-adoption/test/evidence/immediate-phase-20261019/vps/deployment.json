@@ -1,19 +1,19 @@
 {
-  "at": "2026-10-19T11:13:00.233502+00:00",
+  "at": "2026-10-19T11:42:56.699476+00:00",
   "status": "passed",
-  "release": "20261019-immediate-h",
+  "release": "20261019-immediate-j",
   "containers": {
     "flolah-adoption-adoption-1": {
-      "imageId": "sha256:b967f5545ba05bda65e07bd521fee88bcb5b765f06752dbfda2ac4aa23f03c0e",
-      "image": "flolah-digital-adoption:20261019-immediate-h",
-      "startedAt": "2026-10-19T11:12:57.855053351Z",
+      "imageId": "sha256:67c8c1a36a4f6a1093b4bda09ce9584050f4da2b4cbb6adbb8ebfd1f42c03072",
+      "image": "flolah-digital-adoption:20261019-immediate-j",
+      "startedAt": "2026-10-19T11:39:12.476508439Z",
       "running": true,
       "health": null
     },
     "flolah-adoption-adoption-model-gateway-1": {
-      "imageId": "sha256:2d06721f569c071614e542679dfce49221ff6e9241de0e9a7621a2fb2ebcb83a",
-      "image": "flolah-digital-adoption:20261019-immediate-e-gateway",
-      "startedAt": "2026-10-19T10:46:24.466618455Z",
+      "imageId": "sha256:1ed7bcc66b1d72a92fea765deb99099cd0d3815f8c0d7c17f615b43a6e4a5122",
+      "image": "flolah-digital-adoption:20261019-immediate-j-gateway",
+      "startedAt": "2026-10-19T11:39:24.214450375Z",
       "running": true,
       "health": null
     },
@@ -32,16 +32,16 @@
       "health": null
     },
     "agent-os-backend-1": {
-      "imageId": "sha256:247fd179b54aadaae6a3cedfa39f38781e7d3d53aba9d8f6825cc961e59cbecf",
-      "image": "agent-os-backend:adoption-20261019-immediate-e",
-      "startedAt": "2026-10-19T10:47:40.497239676Z",
+      "imageId": "sha256:a5c4f8af70fad85ae26ec256dafd04d698415880c1e63e4d33280d30cec12223",
+      "image": "agent-os-backend:adoption-20261019-immediate-j",
+      "startedAt": "2026-10-19T11:40:10.124994173Z",
       "running": true,
       "health": "healthy"
     },
     "agent-os-frontend-1": {
-      "imageId": "sha256:221217eaae05cba79dc8e05140e74589eaafeefd917efcac581068811a51e597",
-      "image": "agent-os-frontend:adoption-20261019-immediate-e",
-      "startedAt": "2026-10-19T10:47:56.252366459Z",
+      "imageId": "sha256:bf6aaf311d995a76f6ee4591d21241e07566954a26d83e380ae2d39c8ba54cb0",
+      "image": "agent-os-frontend:adoption-20261019-immediate-j",
+      "startedAt": "2026-10-19T11:40:25.829931383Z",
       "running": true,
       "health": "healthy"
     }

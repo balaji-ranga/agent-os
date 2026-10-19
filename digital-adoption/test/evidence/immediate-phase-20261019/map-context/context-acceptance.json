@@ -1,0 +1,203 @@
+{
+  "snapshot": {
+    "revision": 1,
+    "path": "/customer",
+    "screen": "Create customer",
+    "forms": [
+      {
+        "key": "demo-form",
+        "label": "Customer form",
+        "fields": [
+          "company_name",
+          "contact_email",
+          "region",
+          "shipping_method",
+          "gift_wrap"
+        ]
+      }
+    ],
+    "fields": [
+      {
+        "ref": "r1f0",
+        "key": "shipping_method",
+        "label": "Shipping method",
+        "type": "select-one",
+        "required": false,
+        "form": "demo-form",
+        "choices": [
+          "Choose",
+          "Standard",
+          "Express"
+        ]
+      },
+      {
+        "ref": "r1f1",
+        "key": "gift_wrap",
+        "label": "Include gift wrap",
+        "type": "checkbox",
+        "required": false,
+        "form": "demo-form"
+      },
+      {
+        "ref": "r1f2",
+        "key": "company_name",
+        "label": "Company name",
+        "type": "text",
+        "required": true,
+        "form": "demo-form"
+      },
+      {
+        "ref": "r1f3",
+        "key": "contact_email",
+        "label": "Contact email",
+        "type": "email",
+        "required": true,
+        "form": "demo-form"
+      },
+      {
+        "ref": "r1f4",
+        "key": "region",
+        "label": "Region",
+        "type": "text",
+        "required": true,
+        "form": "demo-form"
+      }
+    ],
+    "links": [
+      {
+        "ref": "r1n0",
+        "path": "/records",
+        "label": "Records"
+      }
+    ]
+  },
+  "manifest": {
+    "schema": 1,
+    "origin": "http://127.0.0.1:4194",
+    "reviewed": false,
+    "screens": [
+      {
+        "path": "/customer",
+        "title": "/customer",
+        "forms": [
+          {
+            "id": "demo-form",
+            "label": "Customer form",
+            "description": "For a priority desk customer, Shipping method is Express. This form collects synthetic customer intake."
+          }
+        ],
+        "fields": [
+          {
+            "key": "shipping_method",
+            "label": "Shipping method",
+            "type": "select-one",
+            "required": false,
+            "form": "demo-form"
+          },
+          {
+            "key": "gift_wrap",
+            "label": "Include gift wrap",
+            "type": "checkbox",
+            "required": false,
+            "form": "demo-form"
+          },
+          {
+            "key": "company_name",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "form": "demo-form"
+          },
+          {
+            "key": "contact_email",
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "form": "demo-form"
+          },
+          {
+            "key": "region",
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "form": "demo-form",
+            "description": "Region means servicing office, not postal address. The Northern branch servicing code is SYN-NORTH-42."
+          }
+        ],
+        "links": [
+          {
+            "path": "/records",
+            "label": "Records"
+          }
+        ]
+      }
+    ]
+  },
+  "guidance": {
+    "revision": "c2cc497b29c2af5f77c693fd8eadcf7d953c4da4c431f93a63b7158fa1c1f66e",
+    "evidence": "owner_source_metadata_not_live_acceptance",
+    "matches": [
+      {
+        "path": "/customer",
+        "title": "/customer",
+        "forms": [
+          {
+            "id": "demo-form",
+            "label": "Customer form",
+            "description": "For a priority desk customer, Shipping method is Express. This form collects synthetic customer intake."
+          }
+        ],
+        "fields": [
+          {
+            "key": "region",
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "form": "demo-form",
+            "description": "Region means servicing office, not postal address. The Northern branch servicing code is SYN-NORTH-42."
+          },
+          {
+            "key": "shipping_method",
+            "label": "Shipping method",
+            "type": "select-one",
+            "required": false,
+            "form": "demo-form"
+          },
+          {
+            "key": "gift_wrap",
+            "label": "Include gift wrap",
+            "type": "checkbox",
+            "required": false,
+            "form": "demo-form"
+          },
+          {
+            "key": "company_name",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "form": "demo-form"
+          },
+          {
+            "key": "contact_email",
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "form": "demo-form"
+          }
+        ],
+        "links": [
+          {
+            "path": "/records",
+            "label": "Records"
+          }
+        ],
+        "omittedFields": 0,
+        "omittedForms": 0
+      }
+    ],
+    "policy": "Guidance only. Open a uniquely observed safe destination, inspect its live controls and options, then prepare requested fields for approval. Do not use source keys as live refs or claim a save."
+  },
+  "origin": "http://127.0.0.1:4194",
+  "at": "2026-10-19T11:43:26.133Z",
+  "identity": "synthetic management identity; real owner UI and persistence routes"
+}

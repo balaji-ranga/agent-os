@@ -19,4 +19,6 @@ for(const source of [...curated,...publicSources]){
 }
 const result=await searchDocuments(PLATFORM_OWNER_ID,{query:'persistent workflow target group one-use authorization code expiry',topK:6});
 assert.ok(result.chunks.some(c=>/65-copilot-workflow|copilot-workflows/.test(c.filename)),'New workflow-target guidance must be retrievable');
-console.log(JSON.stringify({status:'passed',verified,retrieved:result.chunks.map(c=>({filename:c.filename,title:c.title})),scope:'platform help only; no model or visitor action'},null,2));
+const mapContext=await searchDocuments(PLATFORM_OWNER_ID,{query:'Download website map JSON Edit page form field descriptions',topK:6});
+assert.ok(mapContext.chunks.some(c=>/64-digital-adoption|systems--digital-adoption/.test(c.filename)&&/description/i.test(c.text||c.content||'')),'Map description guidance must be retrievable');
+console.log(JSON.stringify({status:'passed',verified,retrieved:[...result.chunks,...mapContext.chunks].map(c=>({filename:c.filename,title:c.title})),mapContextRetrievable:true,scope:'platform help only; no model or visitor action'},null,2));

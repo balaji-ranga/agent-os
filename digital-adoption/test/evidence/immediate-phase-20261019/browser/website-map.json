@@ -1,0 +1,62 @@
+{
+  "schema": 1,
+  "origin": "http://127.0.0.1:4194",
+  "reviewed": false,
+  "screens": [
+    {
+      "path": "/customer",
+      "title": "/customer",
+      "forms": [
+        {
+          "id": "demo-form",
+          "label": "Customer form",
+          "description": "For a priority desk customer, Shipping method is Express. This form collects synthetic customer intake."
+        }
+      ],
+      "fields": [
+        {
+          "key": "shipping_method",
+          "label": "Shipping method",
+          "type": "select-one",
+          "required": false,
+          "form": "demo-form"
+        },
+        {
+          "key": "gift_wrap",
+          "label": "Include gift wrap",
+          "type": "checkbox",
+          "required": false,
+          "form": "demo-form"
+        },
+        {
+          "key": "company_name",
+          "label": "Company name",
+          "type": "text",
+          "required": true,
+          "form": "demo-form"
+        },
+        {
+          "key": "contact_email",
+          "label": "Contact email",
+          "type": "email",
+          "required": true,
+          "form": "demo-form"
+        },
+        {
+          "key": "region",
+          "label": "Region",
+          "type": "text",
+          "required": true,
+          "form": "demo-form",
+          "description": "Region means servicing office, not postal address. The Northern branch servicing code is SYN-NORTH-42."
+        }
+      ],
+      "links": [
+        {
+          "path": "/records",
+          "label": "Records"
+        }
+      ]
+    }
+  ]
+}

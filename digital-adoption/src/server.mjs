@@ -19,6 +19,7 @@ const assets = new Map([
   ['/model-timeouts.mjs', ['../web/model-timeouts.mjs', 'text/javascript']],
   ['/manage.css', ['../web/manage.css', 'text/css']],
   ['/manage-shell.mjs', ['../web/manage-shell.mjs', 'text/javascript']],
+  ['/manage-map-context.mjs', ['../web/manage-map-context.mjs', 'text/javascript']],
   ['/manage-pagination.mjs', ['../web/manage-pagination.mjs', 'text/javascript']],
   ['/choice-intent.mjs', ['../web/choice-intent.mjs', 'text/javascript']],
   ['/owner.html', ['../web/manage.html', 'text/html']],
@@ -301,7 +302,7 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
       const invalidResponse=['Invalid platform model response','Invalid evidence citations','The assistant could not produce a valid current-screen proposal. Nothing was changed.'].includes(error.message);
       const code = error.message === 'Request too large' ? 413 : error.publicCode==='OWNER_CODE_COOLDOWN'||error.message==='Request rate exceeded'||error.message==='Request capacity reached'?429:unavailable?503:invalidResponse?502:403;
       if(code===429)res.setHeader('Retry-After',error.publicCode==='OWNER_CODE_COOLDOWN'?String(error.retryAfter):error.message==='Request rate exceeded'?'60':'2');
-      return send(code, { error: ['DNS_CHALLENGE_EXPIRED','DNS_RECORD_MISSING','DNS_RECORD_MISMATCH','DNS_RESOLVER_UNAVAILABLE'].includes(error.publicCode)?error.message:code===429?'Copilot is busy. Please retry shortly.':code===413?'Request too large':code===503?'Copilot service temporarily unavailable':code===502?'The assistant could not prepare a valid response. Nothing was changed.':'Access denied or invalid request',...(error.publicCode?{code:error.publicCode}:{}) });
+      return send(code, { error: ['DNS_CHALLENGE_EXPIRED','DNS_RECORD_MISSING','DNS_RECORD_MISMATCH','DNS_RESOLVER_UNAVAILABLE','SOURCE_MAP_CHANGED','SOURCE_MAP_INVALID'].includes(error.publicCode)?error.message:code===429?'Copilot is busy. Please retry shortly.':code===413?'Request too large':code===503?'Copilot service temporarily unavailable':code===502?'The assistant could not prepare a valid response. Nothing was changed.':'Access denied or invalid request',...(error.publicCode?{code:error.publicCode}:{}) });
     }finally{releaseModel?.();releaseSearch?.();if(uploadSlot)activeUploads--;}
   });
   if(privateTasks)attachLiveTransport(server,{tasks:privateTasks});

@@ -16,7 +16,7 @@
     },
     {
       "filename": "platform-help-64-digital-adoption-websites.md",
-      "sha256": "acdc0ccf3d8e96ac893c5791ef11915ad1aaf8eabe043f46983ece12bb858a38"
+      "sha256": "9c06545abcb1e7d915b03d12f65b84ad5a801ff6cb160b8b3a25379efa8c78f4"
     },
     {
       "filename": "platform-help-65-copilot-workflow-connectors.md",
@@ -32,7 +32,7 @@
     },
     {
       "filename": "public-guide-systems--digital-adoption.md",
-      "sha256": "e08c2066932ab7d10c59cf0073ad72fea4a530b6b2516a11de7b9427353b4707"
+      "sha256": "f91efaeb2d4b0564f9dcaf2b3b3a890c30db5130c1cd4165c83fda88ad9d5c4e"
     }
   ],
   "retrieved": [
@@ -59,7 +59,32 @@
     {
       "filename": "platform-help-65-copilot-workflow-connectors.md",
       "title": "Flolah Help —Copilot Workflow Connectors Persistent Target Groups And Authorization"
+    },
+    {
+      "filename": "platform-help-64-digital-adoption-websites.md",
+      "title": "Flolah Help —Digital Adoption Website Management And Visitor Tasks"
+    },
+    {
+      "filename": "public-guide-systems--digital-adoption.md",
+      "title": "Flolah Public Guide —Digital Adoption website copilots"
+    },
+    {
+      "filename": "platform-help-64-digital-adoption-websites.md",
+      "title": "Flolah Help —Digital Adoption Website Management And Visitor Tasks"
+    },
+    {
+      "filename": "public-guide-systems--digital-adoption.md",
+      "title": "Flolah Public Guide —Digital Adoption website copilots"
+    },
+    {
+      "filename": "public-guide-run--platform-help-copilot.md",
+      "title": "Flolah Public Guide —Platform Help copilot"
+    },
+    {
+      "filename": "platform-help-64-digital-adoption-websites.md",
+      "title": "Flolah Help —Digital Adoption Website Management And Visitor Tasks"
     }
   ],
+  "mapContextRetrievable": true,
   "scope": "platform help only; no model or visitor action"
 }

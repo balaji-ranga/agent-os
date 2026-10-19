@@ -14,6 +14,18 @@ Select the website registration in the persistent header. **Find another website
 
 Knowledge and teaching are indexed by website registration and audience. The owner email grants access; it does not pool every website's knowledge. Two registrations on the same domain remain separate. Website maps describe observed structure and optional reviewed hints, not every dynamic state or proof of a completed task.
 
+Website map supports **Download website map JSON** and **Edit page, form & field
+descriptions** inside each saved page. Explain the purpose and accepted-value
+rules, review the sharing notice and save. Descriptions persist under that
+website/content scope and reach relevant LLM planner guidance. Downloads combine
+observed structure with reviewed hints and can be edited/re-imported using the
+schema-1 manifest; optional `description` is supported on screens, forms and
+fields (1,500 characters each), and `links` on screens contains label/path pairs.
+Import replaces hints only. It never changes observed evidence or authorizes
+execution. Discovery still needs owner coaching and approved read-only routes;
+saved-map reload does not scan. Check gaps, hidden/dynamic states and unsupported
+controls separately; at most 50 pages are observed per bounded discovery run.
+
 ## Visitor tasks
 
 Ordinary visitors use chat and supported form review. Owner discovery/teaching Actions require coaching access. Task files are private transaction inputs for parsing, OCR, summaries and form preparation. They do not become the website's shared help index. End task immediately clears browser context and server access. Original uploads are queued for deletion; extracted passages await the separate private-search 24-hour index-retention cleanup. Ending a task does not delete business records already saved in the host website.

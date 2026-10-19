@@ -25,4 +25,6 @@ with out.open('xb') as stream,tarfile.open(fileobj=stream,mode='w:gz') as archiv
   before=subprocess.run(['git','-C',str(root),'show',base+':'+name],capture_output=True)
   if before.returncode==0:add('platform/base/'+name,before.stdout)
  add('platform/manifest.json',json.dumps({'release':a.release,'baseCommit':base,'paths':paths}).encode())
+ for name in ['publish-copilot-help.mjs','verify-copilot-help.mjs']:
+  add('platform/verification/'+name,(root/'backend/scripts'/name).read_bytes())
 print(out)

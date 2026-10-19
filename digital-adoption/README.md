@@ -1,11 +1,19 @@
 # Digital Adoption Copilot
 
 19 October 2026: the immediate-phase implementation is available on coordinator
-**20261019-immediate-h**, with gateway/platform changes from
-**20261019-immediate-e**. See the [acceptance and regression report](test/evidence/immediate-phase-20261019/index.html)
+**20261019-immediate-j**, with gateway/platform changes from
+**20261019-immediate-j**. See the [acceptance and regression report](test/evidence/immediate-phase-20261019/index.html)
 for executed-suite pass rates, screenshots, all 32 requirement families,
 remaining partial gates and recommendations. Executed checks and full Phase 1/2
 certification are reported separately.
+
+Website map now supports **Download website map JSON** and an **Edit page, form
+& field descriptions** editor inside each saved page. Reviewed descriptions are
+persisted by website/audience and supplied to relevant LLM plans and Guide
+responses. They explain business meanings without granting execution authority.
+The new map-context acceptance is 8/8 passing, including ten real-model checks in
+maker-only and active-maker/passive-checker modes. The original partial
+requirements remain separately listed in the evidence report.
 
 Open the [browser-ready immediate-phase review](IMMEDIATE_PHASE_REVIEW.html)
 for an interactive summary and filterable acceptance plan; it needs no build

@@ -1,5 +1,5 @@
 {
-  "at": "2026-10-19T10:53:54.546Z",
+  "at": "2026-10-19T11:41:35.281Z",
   "sharedSettingUnchanged": true,
   "override": "process-local only; active platform maker and passive platform checker; 2048-token verdict budget",
   "results": [
@@ -8,7 +8,7 @@
       "repetition": 1,
       "mode": "maker only",
       "status": "passed",
-      "latencyMs": 1490,
+      "latencyMs": 1205,
       "quality": {
         "enabled": false
       },
@@ -33,12 +33,12 @@
       "repetition": 1,
       "mode": "maker only",
       "status": "passed",
-      "latencyMs": 1651,
+      "latencyMs": 1478,
       "quality": {
         "enabled": false
       },
       "response": {
-        "message": "I will prepare to set the Shipping method to Express and select Include gift wrap. Here’s the review of the changes:\n\n- Shipping method: Express\n- Include gift wrap: true\n\nPlease confirm if you would like to proceed with these changes.",
+        "message": "I will set the Shipping method to Express and select Include gift wrap for your order. Here’s the proposed update for your review:",
         "actions": [
           {
             "type": "fill",
@@ -58,7 +58,7 @@
       "repetition": 1,
       "mode": "maker only",
       "status": "passed",
-      "latencyMs": 1810,
+      "latencyMs": 1287,
       "quality": {
         "enabled": false
       },
@@ -78,12 +78,12 @@
       "repetition": 1,
       "mode": "maker only",
       "status": "passed",
-      "latencyMs": 1254,
+      "latencyMs": 1357,
       "quality": {
         "enabled": false
       },
       "response": {
-        "message": "I will set the Delivery preference to Store pickup as requested. Please confirm if you would like to proceed with this change.",
+        "message": "I will set the Delivery preference to Store pickup as requested. Please confirm if you would like to proceed with this selection.",
         "actions": [
           {
             "type": "fill",
@@ -98,7 +98,7 @@
       "repetition": 1,
       "mode": "maker only",
       "status": "passed",
-      "latencyMs": 1259,
+      "latencyMs": 1204,
       "quality": {
         "enabled": false
       },
@@ -118,12 +118,12 @@
       "repetition": 1,
       "mode": "maker only",
       "status": "passed",
-      "latencyMs": 1180,
+      "latencyMs": 2173,
       "quality": {
         "enabled": false
       },
       "response": {
-        "message": "The requested shipping method 'Teleport' is not available in the observed choices. The available options are 'Choose', 'Standard', and 'Express'. Please select one of these options or clarify if you would like to proceed with a different choice.",
+        "message": "The requested shipping method 'Teleport' is not available in the observed choices. The available options are 'Choose', 'Standard', and 'Express'. Please let me know which of these options you would like to select instead.",
         "actions": []
       }
     },
@@ -132,7 +132,7 @@
       "repetition": 1,
       "mode": "maker only",
       "status": "passed",
-      "latencyMs": 2428,
+      "latencyMs": 1627,
       "quality": {
         "enabled": false
       },
@@ -166,12 +166,12 @@
       "repetition": 1,
       "mode": "maker only",
       "status": "passed",
-      "latencyMs": 1233,
+      "latencyMs": 1236,
       "quality": {
         "enabled": false
       },
       "response": {
-        "message": "I will set the transport to 'stdio'. Here’s the proposed action:",
+        "message": "I will set the transport to 'stdio' as requested. Here’s the proposed action for your review:",
         "actions": [
           {
             "type": "fill",
@@ -186,7 +186,7 @@
       "repetition": 1,
       "mode": "active maker / passive checker",
       "status": "passed",
-      "latencyMs": 2196,
+      "latencyMs": 2252,
       "quality": {
         "enabled": true,
         "decision": "accept",
@@ -195,9 +195,9 @@
         "checkerSlot": "primary",
         "checker": {
           "model": "deepseek-v4-flash",
-          "latencyMs": 1166,
-          "promptTokens": 589,
-          "outputTokens": 120
+          "latencyMs": 1314,
+          "promptTokens": 638,
+          "outputTokens": 124
         }
       },
       "response": {
@@ -221,7 +221,7 @@
       "repetition": 1,
       "mode": "active maker / passive checker",
       "status": "passed",
-      "latencyMs": 3405,
+      "latencyMs": 2842,
       "quality": {
         "enabled": true,
         "decision": "accept",
@@ -230,13 +230,13 @@
         "checkerSlot": "primary",
         "checker": {
           "model": "deepseek-v4-flash",
-          "latencyMs": 2062,
-          "promptTokens": 826,
-          "outputTokens": 294
+          "latencyMs": 1283,
+          "promptTokens": 864,
+          "outputTokens": 171
         }
       },
       "response": {
-        "message": "To set the shipping method to Express and include gift wrap, I will prepare the following actions for your review: set the Shipping method to 'Express' and check the Include gift wrap option.",
+        "message": "I will set the Shipping method to Express and select Include gift wrap for your order. Here’s the proposed update for your review:",
         "actions": [
           {
             "type": "fill",
@@ -256,7 +256,7 @@
       "repetition": 1,
       "mode": "active maker / passive checker",
       "status": "passed",
-      "latencyMs": 3546,
+      "latencyMs": 3552,
       "quality": {
         "enabled": true,
         "decision": "accept",
@@ -265,13 +265,13 @@
         "checkerSlot": "primary",
         "checker": {
           "model": "deepseek-v4-flash",
-          "latencyMs": 2175,
-          "promptTokens": 1460,
-          "outputTokens": 272
+          "latencyMs": 1820,
+          "promptTokens": 1536,
+          "outputTokens": 214
         }
       },
       "response": {
-        "message": "You requested to change the shipping method to 'Express'. I will prepare this change for review.",
+        "message": "You requested to change the shipping method to 'Express'. The current selection for the shipping method is not known, so I will prepare to fill that field with 'Express'. Please confirm if you would like to proceed with this change.",
         "actions": [
           {
             "type": "fill",
@@ -286,7 +286,7 @@
       "repetition": 1,
       "mode": "active maker / passive checker",
       "status": "passed",
-      "latencyMs": 2811,
+      "latencyMs": 4160,
       "quality": {
         "enabled": true,
         "decision": "accept",
@@ -295,9 +295,9 @@
         "checkerSlot": "primary",
         "checker": {
           "model": "deepseek-v4-flash",
-          "latencyMs": 1669,
-          "promptTokens": 1464,
-          "outputTokens": 227
+          "latencyMs": 2824,
+          "promptTokens": 1513,
+          "outputTokens": 291
         }
       },
       "response": {
@@ -316,7 +316,7 @@
       "repetition": 1,
       "mode": "active maker / passive checker",
       "status": "passed",
-      "latencyMs": 2879,
+      "latencyMs": 3672,
       "quality": {
         "enabled": true,
         "decision": "accept",
@@ -325,9 +325,9 @@
         "checkerSlot": "primary",
         "checker": {
           "model": "deepseek-v4-flash",
-          "latencyMs": 1724,
-          "promptTokens": 693,
-          "outputTokens": 229
+          "latencyMs": 2391,
+          "promptTokens": 742,
+          "outputTokens": 324
         }
       },
       "response": {
@@ -346,7 +346,7 @@
       "repetition": 1,
       "mode": "active maker / passive checker",
       "status": "passed",
-      "latencyMs": 2637,
+      "latencyMs": 4144,
       "quality": {
         "enabled": true,
         "decision": "clarify",
@@ -355,13 +355,13 @@
         "checkerSlot": "primary",
         "checker": {
           "model": "deepseek-v4-flash",
-          "latencyMs": 1694,
-          "promptTokens": 685,
-          "outputTokens": 231
+          "latencyMs": 3068,
+          "promptTokens": 741,
+          "outputTokens": 397
         }
       },
       "response": {
-        "message": "The requested value 'Teleport' is not among the observed choices for Shipping method ('Choose', 'Standard', 'Express'), so it cannot be proposed as a fill. Asking the user to pick an available option (or confirm a different field) is the right next step; no actions are taken and nothing is saved. Note that only the observed options may be selected — a value not present in the list cannot be substituted.",
+        "message": "Correct handling: 'Teleport' is not an available option—the Shipping method select only offers 'Choose', 'Standard', and 'Express', and substituting an unavailable value is not permitted. The proposal takes no actions and asks the user to choose a valid method, which is the right response. To proceed, the user needs to pick one of the listed shipping methods (or confirm no change is desired).",
         "actions": []
       }
     },
@@ -370,7 +370,7 @@
       "repetition": 1,
       "mode": "active maker / passive checker",
       "status": "passed",
-      "latencyMs": 3063,
+      "latencyMs": 3484,
       "quality": {
         "enabled": true,
         "decision": "accept",
@@ -379,13 +379,13 @@
         "checkerSlot": "primary",
         "checker": {
           "model": "deepseek-v4-flash",
-          "latencyMs": 1376,
-          "promptTokens": 1562,
-          "outputTokens": 184
+          "latencyMs": 1895,
+          "promptTokens": 1607,
+          "outputTokens": 254
         }
       },
       "response": {
-        "message": "The available shipping method choices are as follows:\n\n1. **Standard**: This is typically the most economical option, but it may take longer for delivery. It is suitable for non-urgent shipments where time is not a critical factor.\n\n2. **Express**: This option is designed for faster delivery, making it ideal for urgent shipments. If you need your items to arrive quickly, this is the recommended choice.\n\nGiven your urgency, I recommend selecting **Express** for faster delivery. If you have any specific requirements or need further assistance, please let me know!",
+        "message": "The available shipping method choices are as follows:\n\n1. **Standard**: This is typically the most economical option, but it may take longer for delivery. It is suitable for non-urgent shipments where cost is a priority.\n\n2. **Express**: This option is designed for faster delivery, making it ideal for urgent shipments. If you need your items quickly, this is the recommended choice.\n\nGiven your urgency, I recommend selecting **Express** for faster delivery. If you have any specific requirements or need further assistance, please let me know!",
         "actions": []
       }
     },
@@ -394,7 +394,7 @@
       "repetition": 1,
       "mode": "active maker / passive checker",
       "status": "passed",
-      "latencyMs": 1449,
+      "latencyMs": 2731,
       "quality": {
         "enabled": true,
         "decision": "accept",
@@ -403,9 +403,9 @@
         "checkerSlot": "primary",
         "checker": {
           "model": "deepseek-v4-flash",
-          "latencyMs": 1448,
-          "promptTokens": 696,
-          "outputTokens": 180
+          "latencyMs": 2729,
+          "promptTokens": 745,
+          "outputTokens": 379
         }
       },
       "response": {
@@ -424,7 +424,7 @@
       "repetition": 1,
       "mode": "active maker / passive checker",
       "status": "passed",
-      "latencyMs": 3085,
+      "latencyMs": 2816,
       "quality": {
         "enabled": true,
         "decision": "accept",
@@ -433,9 +433,9 @@
         "checkerSlot": "primary",
         "checker": {
           "model": "deepseek-v4-flash",
-          "latencyMs": 2060,
-          "promptTokens": 700,
-          "outputTokens": 258
+          "latencyMs": 1607,
+          "promptTokens": 749,
+          "outputTokens": 161
         }
       },
       "response": {

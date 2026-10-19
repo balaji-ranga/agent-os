@@ -1,5 +1,6 @@
 import {resolveChoice} from '../web/choice-intent.mjs';
 import {booleanIntent,readOnlyIntent} from './task-intent.mjs';
+export function hasSemanticMapContext(guidance,snapshot){return guidance?.matches?.some(screen=>screen.path===snapshot.path&&(screen.description||screen.forms?.some(f=>f.description)||screen.fields?.some(f=>f.description)))===true;}
 // Narrow explicit partial edits to observed controls, never infer business values.
 // Creation and ambiguous requests retain the full form for model reasoning.
 export function constrainEdit(text, snapshot) {
