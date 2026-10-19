@@ -2,11 +2,12 @@
 // Synthetic upload only. No host form filling, saving, login or public submit.
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
+import {WIDGET_REQUEST_TIMEOUT_MS} from '../web/model-timeouts.mjs';
+import { fileURLToPath,pathToFileURL } from 'node:url';
 const {chromium}=await import(process.env.ADOPTION_PLAYWRIGHT_MODULE||'./frameworks/node_modules/playwright/index.mjs');
-const evidence=new URL('./evidence/private-retention-20261019/',import.meta.url);await mkdir(evidence,{recursive:true});
+const evidence=process.env.ADOPTION_RETENTION_EVIDENCE_DIR?pathToFileURL(process.env.ADOPTION_RETENTION_EVIDENCE_DIR+'/'):new URL('./evidence/private-retention-20261019/',import.meta.url);await mkdir(evidence,{recursive:true});
 const browser=await chromium.launch({channel:'chrome',headless:true}),context=await browser.newContext({viewport:{width:1440,height:1000}});
-context.setDefaultTimeout(90000);
+context.setDefaultTimeout(WIDGET_REQUEST_TIMEOUT_MS+10000);
 const results=[];let publicWrites=0,hostSubmits=0;
 await context.route('**/*',route=>{
   const request=route.request(),url=new URL(request.url());
@@ -18,7 +19,7 @@ const local=await context.newPage(),publicPage=await context.newPage(),panel=p=>
 const open=async p=>{
   const f=panel(p);await f.locator('#private-task').waitFor({state:'attached'});
   const launcher=p.getByRole('button',{name:'Open help chat',exact:true});if(await launcher.isVisible())await launcher.click();
-  if(!await f.locator('#private-task').evaluate(e=>e.open))await f.locator('#private-task>summary').click();
+  if(!await f.locator('#private-task').evaluate(e=>e.open))await f.locator('#private-task>summary').press('Space');
   assert.match(await f.locator('#private-task').innerText(),/24-hour retention/);return f;
 };
 const screenshot=async(p,name)=>{await p.screenshot({path:fileURLToPath(new URL(name,evidence)),fullPage:false});return name;};

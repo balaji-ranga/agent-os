@@ -2,6 +2,8 @@
 # Digital Adoption API and assets remain separate from Platform Help routes.
 location /free-tools/digital-adoption/ {
     client_max_body_size 23m;
+    proxy_request_buffering off;
+    client_body_timeout 15s;
     proxy_pass http://digital-adoption:4193/;
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-Proto $scheme;
@@ -12,5 +14,8 @@ location /free-tools/digital-adoption/ {
     proxy_read_timeout 210s;
     proxy_buffering off;
 }
+# Include nginx-upload-zones.conf in http context. Add a dedicated upload
+# location with the appropriate upstream for this deployment, following
+# nginx-host-locations.conf, to enforce edge request and connection limits.
 # The service-to-service platform-model route must use its own authenticated
 # backend gateway; do not proxy an upstream provider or model key to browsers.

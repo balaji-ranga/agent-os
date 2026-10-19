@@ -1,4 +1,5 @@
 import {MODEL_CLIENT_TIMEOUT_MS} from '../web/model-timeouts.mjs';
+import {createUploadAdmission} from './upload-admission.mjs';
 import {createActionAttempts} from './action-attempts.mjs';
 import {createVisitorAnalytics} from './visitor-analytics.mjs';
 import {readFileSync,writeFileSync,existsSync} from 'node:fs';
@@ -34,6 +35,7 @@ import {createTaskBridge} from './live-transport.mjs';
 import {startLocalParsers} from './local-parser.mjs';
 const config=JSON.parse(readFileSync('/config/service.json','utf8'));
 const repository=openRepository('/data/adoption.sqlite');
+const uploadAdmission=createUploadAdmission({repository,limits:config.uploads});
 const actionAttempts=createActionAttempts(repository,{retentionMs:config.execution?.attemptRetentionMs??86_400_000});
 const telemetry=createOperationalTelemetry();
 const hostIdentity=createHostIdentity(repository);
@@ -47,7 +49,7 @@ const ingestion=createSourceIngestion(repository,{...config.ingestion,knowledge,
 knowledge.recoverExpired();
 authority.maintain();
 let analytics;
-const recoveryTimer=setInterval(()=>{try{knowledge.recoverExpired();authority.maintain();actionAttempts.expire();analytics?.maintain();}catch{/* Authorization remains fail-closed; retry maintenance next turn. */}},30_000);
+const recoveryTimer=setInterval(()=>{try{knowledge.recoverExpired();authority.maintain();actionAttempts.expire();uploadAdmission.maintain();analytics?.maintain();}catch{/* Authorization remains fail-closed; retry maintenance next turn. */}},30_000);
 recoveryTimer.unref();
 // Demo content is an explicit development option, never owner website knowledge.
 const embeddings=config.demoSeedEnabled===true?['adoption-demo-alpha','adoption-demo-beta']:[];
@@ -66,7 +68,7 @@ else {
  writeFileSync(publicPath,JSON.stringify(demo),{mode:0o600});
 }
 for(const [i,embeddingId] of embeddings.entries()){
- authority.setUploadPolicy(embeddingId,true); // Authorized synthetic acceptance embeddings only.
+ authority.setUploadPolicy(embeddingId,false); // Shared sources require authenticated management.
  const scope={embeddingId,audienceIds:['public'],role:'maintainer'};
  const title=i===0?'Alpha demonstration handbook':'Beta isolation handbook';
  const existing=knowledge.list(scope).find(s=>s.title===title&&s.status!=='deleted');
@@ -78,7 +80,7 @@ for(const [i,embeddingId] of embeddings.entries()){
 const model={requestDeadlineMs:config.capacity?.modelDeadlineMs??MODEL_CLIENT_TIMEOUT_MS,gatewayUrl:config.gatewayUrl,serviceToken:config.serviceToken};
 const planner=createPlatformPlanner(model);
 const taskWebsite=id=>repository.map('websites').get(id);
-const privateTasks=await createPrivateTasks({commandState:repository.map('command_attempts'),actionAttempts,passageStore:search.privateTasks,observe:(scope,event)=>analytics?.fact(scope,event),pairingState:repository.map('paired_groups'),root:'/data/private-objects',website:taskWebsite,activeScope:scope=>authority.activeScope(scope),planner,answer:createKnowledgeAnswer(model),guidance:(scope,text,snapshot)=>({sourceGuidance:sourceMap.guidance(scope,text,snapshot),recipeGuidance:learning.context(scope,text,snapshot),siteGuidance:learning.planningMemory(scope,text,snapshot)}),limits:config.privateTasks,authorizeEffect:async input=>{if(!config.taskPolicyUrl||!config.taskBridgeToken)return false;try{const response=await fetch(config.taskPolicyUrl,{method:'POST',redirect:'error',signal:AbortSignal.timeout(5000),headers:{'Content-Type':'application/json',Authorization:`Bearer ${config.taskBridgeToken}`},body:JSON.stringify(input)});return response.ok&&(await response.json()).allowed===true;}catch{return false;}}});
+const privateTasks=await createPrivateTasks({uploadAdmission,commandState:repository.map('command_attempts'),actionAttempts,passageStore:search.privateTasks,observe:(scope,event)=>analytics?.fact(scope,event),pairingState:repository.map('paired_groups'),root:'/data/private-objects',website:taskWebsite,activeScope:scope=>authority.activeScope(scope),planner,answer:createKnowledgeAnswer(model),guidance:(scope,text,snapshot)=>({sourceGuidance:sourceMap.guidance(scope,text,snapshot),recipeGuidance:learning.context(scope,text,snapshot),siteGuidance:learning.planningMemory(scope,text,snapshot)}),limits:config.privateTasks,authorizeEffect:async input=>{if(!config.taskPolicyUrl||!config.taskBridgeToken)return false;try{const response=await fetch(config.taskPolicyUrl,{method:'POST',redirect:'error',signal:AbortSignal.timeout(5000),headers:{'Content-Type':'application/json',Authorization:`Bearer ${config.taskBridgeToken}`},body:JSON.stringify(input)});return response.ok&&(await response.json()).allowed===true;}catch{return false;}}});
 const parserBroker=createParserBroker(ingestion,privateTasks,{maxWorkers:config.ingestion?.maxWorkers||2});
 const taskBridge=config.taskBridgeToken?createTaskBridge({tasks:privateTasks,token:config.taskBridgeToken}):null;
 taskBridge?.listen(4197,'0.0.0.0');
@@ -96,6 +98,6 @@ ingestion.start({local:false});
 const localParsers=!config.workerToken?startLocalParsers(parserBroker,createDocumentExtractor({python:'/opt/adoption-python/bin/python'}),{workers:config.ingestion?.maxWorkers||2}):null;
 const workerServer=config.workerToken?createWorkerServer({ingestion:parserBroker,token:config.workerToken}):null;
 workerServer?.listen(4196,'0.0.0.0');
-const server=createAdoptionServer({capacity:config.capacity,authority,knowledge,ingestion,learning,coaching,discovery,sourceMap,hostIdentity,management,ownerIdentity,ownerManagement,platformOrigin,telemetry,privateTasks,taskWebsite,analytics,answer:createKnowledgeAnswer(model),planner,proposals:createProposalStore(repository,{attempts:actionAttempts,checkBinding:(scope,binding)=>learning.bindingAllowed(scope,binding)})});
+const server=createAdoptionServer({uploadAdmission,uploadProxyAddresses:config.uploadProxyAddresses||[],capacity:config.capacity,authority,knowledge,ingestion,learning,coaching,discovery,sourceMap,hostIdentity,management,ownerIdentity,ownerManagement,platformOrigin,telemetry,privateTasks,taskWebsite,analytics,answer:createKnowledgeAnswer(model),planner,proposals:createProposalStore(repository,{attempts:actionAttempts,checkBinding:(scope,binding)=>learning.bindingAllowed(scope,binding)})});
 server.listen(4193,'0.0.0.0',()=>console.log('Independent adoption service listening; full acceptance not yet certified'));
 process.on('SIGTERM',async()=>{ingestion.stop();localParsers?.stop();clearInterval(recoveryTimer);await privateTasks.close();taskBridge?.closeAllConnections();taskBridge?.close();workerServer?.closeAllConnections();workerServer?.close();server.closeAllConnections();server.close(()=>{process.exit(0);});});

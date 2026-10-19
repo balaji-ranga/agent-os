@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { createProposalStore, validateSnapshot } from './proposals.mjs';
 import {readOnlyIntent,groundedValue} from './task-intent.mjs';
 import {createPairingGovernance} from './pairing-governance.mjs';
+import {createUploadAdmission} from './upload-admission.mjs';
 const hash = value => createHash('sha256').update(value).digest('hex');
 const secret = () => randomBytes(24).toString('base64url');
 const reject = (code = 'TASK_ACCESS_DENIED') => {
@@ -82,12 +83,14 @@ export async function createPrivateTasks({
   pairingState = new Map(),
   passageStore,
   actionAttempts,
-  commandState=new Map()
+  commandState=new Map(),
+  uploadAdmission
 }) {
   const config = {
     ...defaults,
     ...limits
   };
+  const uploads=uploadAdmission||createUploadAdmission({clock});
   for (const [key, value] of Object.entries(config)) if (!Object.hasOwn(defaults, key) || !Number.isSafeInteger(value) || value < 1 || value > defaults[key] * 16) throw new Error('Invalid private task limit');
   if (config.fileBytes > 16 * 1024 * 1024) throw new Error('Parser file ceiling is 16 MiB');
   await mkdir(root, {
@@ -245,6 +248,7 @@ export async function createPrivateTasks({
     revokeManagedPairing(scope,input){return governance.revoke(scope,input);},
     updateManagedPairing(scope,input){return governance.update(scope,input);},
     limits: config,
+    uploadAdmission:uploads,
     ticket(scope, {
       instanceId,resumeProof
     }) {
@@ -360,9 +364,13 @@ export async function createPrivateTasks({
       for (const t of tasks.values()) if ([...t.members].some(id => instances.get(id)?.sessionId === scope.sessionId)) end(t);
     },
     touchSession(scope){for(const i of instances.values())if(i.sessionId===scope.sessionId&&i.embeddingId===scope.embeddingId){const g=groupFor(i);if(g){g.touched=clock();saveGroup(g);}}},
-    async upload(scope, input) {
+    async upload(scope, input, admission) {
       enabled(scope, 'attachments');
       const t = taskFor(scope, input.taskId, input.instanceId);
+      const permit=admission||uploads.admit(scope,{ownerId:site(scope).organizationId});
+      let clearBytes;
+      try{
+      uploads.validate(permit,scope);
       if (typeof input.operationId !== 'string' || !/^[\w-]{16,80}$/.test(input.operationId)) reject('INVALID_OPERATION');
       const {
           bytes,
@@ -371,14 +379,16 @@ export async function createPrivateTasks({
           ...config,
           fileBytes: Math.min(config.fileBytes, site(scope).taskPolicy?.limits?.fileBytes || config.fileBytes)
         }),
-        fingerprint = hash(JSON.stringify([input.filename, input.mime]) + hash(bytes)),
+        fingerprint = hash(JSON.stringify([input.filename, input.mime]) + hash(clearBytes=bytes)),
         old = [...t.files.values()].find(f => f.operationId === input.operationId);
       if (old) {
         if (old.fingerprint !== fingerprint) reject('OPERATION_CONFLICT');
         return fileInfo(old);
       }
       const all = [...tasks.values()].flatMap(t => [...t.files.values()]);
+      if(all.filter(f=>['storing','queued','extracting'].includes(f.status)).length>=uploads.limits.maxQueuedFiles)reject('UPLOAD_QUEUE_FULL');
       if (t.files.size >= Math.min(config.files, site(scope).taskPolicy?.limits?.files || config.files) || [...t.files.values()].reduce((n, f) => n + f.bytes, 0) + bytes.length > Math.min(config.taskBytes, site(scope).taskPolicy?.limits?.taskBytes || config.taskBytes) || all.reduce((n, f) => n + f.bytes, 0) + bytes.length > config.totalBytes) reject('UPLOAD_CAPACITY');
+      uploads.charge(scope,{ownerId:site(scope).organizationId,taskId:t.id,operationId:input.operationId,bytes:bytes.length},permit);
       const f = {
         id: randomUUID(),
         uploaderId: input.instanceId,
@@ -417,6 +427,7 @@ export async function createPrivateTasks({
       } finally {
         bytes.fill(0);
       }
+      }finally{clearBytes?.fill(0);if(!admission)uploads.release(permit);}
     },
     remove(scope, input) {
       const t = taskFor(scope, input.taskId, input.instanceId),

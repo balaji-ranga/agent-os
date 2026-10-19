@@ -3,6 +3,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { validateSnapshot } from './proposals.mjs';
 import {createRequestBudget,createConcurrencyBudget} from './request-budget.mjs';
+import {createUploadAdmission} from './upload-admission.mjs';
 import {constrainNavigation} from './navigation-intent.mjs';
 import {constrainEdit} from './edit-intent.mjs';
 import {randomUUID} from 'node:crypto';
@@ -62,15 +63,17 @@ async function body(req,limit=32_768) {
   return parsed;
 }
 
-export function createAdoptionServer({ authority, proposals, planner, knowledge, ingestion, learning, coaching, discovery, sourceMap,hostIdentity, answer, management, ownerIdentity, ownerManagement, platformOrigin,telemetry,privateTasks,taskWebsite,analytics,capacity={}, development = false, fixture = null }) {
+export function createAdoptionServer({ authority, proposals, planner, knowledge, ingestion, learning, coaching, discovery, sourceMap,hostIdentity, answer, management, ownerIdentity, ownerManagement, platformOrigin,telemetry,privateTasks,taskWebsite,analytics,uploadAdmission,uploadProxyAddresses=[],capacity={}, development = false, fixture = null }) {
   const budget=createRequestBudget();
   const managementPerIp=capacity.managementPerIp??600;if(!Number.isInteger(managementPerIp)||managementPerIp<30||managementPerIp>6000)throw new Error('Invalid management network capacity');
   const modelSlots=createConcurrencyBudget({global:capacity.modelConcurrency??25,perDomain:capacity.modelPerDomain??5}),searchSlots=createConcurrencyBudget({global:capacity.searchConcurrency??25,perDomain:capacity.searchPerDomain??5});
   const requestTimeoutMs=(capacity.modelDeadlineMs??MODEL_CLIENT_TIMEOUT_MS)+5000;if(!Number.isSafeInteger(requestTimeoutMs)||requestTimeoutMs<6000||requestTimeoutMs>MODEL_SESSION_TIMEOUT_MS)throw new Error('Invalid model deadline');
   let activeUploads=0;
-  const server=createServer(async (req, res) => {
+  const uploads=uploadAdmission||privateTasks?.uploadAdmission||createUploadAdmission();
+  if(!Array.isArray(uploadProxyAddresses)||uploadProxyAddresses.some(ip=>typeof ip!=='string'||ip.length>80||!ip))throw new Error('Invalid trusted upload proxies');
+  const server=createServer({headersTimeout:15000,requestTimeout:30000,maxHeaderSize:16384},async (req, res) => {
     const requestController=new AbortController();res.on('close',()=>{if(!res.writableEnded)requestController.abort();});
-    let uploadSlot=false,releaseModel,releaseSearch;
+    let uploadSlot=false,uploadPermit,uploadReadTimer,uploadBodyLimit=23_000_000,releaseModel,releaseSearch;
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
@@ -114,15 +117,18 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
       }
       if (req.method !== 'POST') return send(404, { error: 'Not found' });
       if (!(req.headers['content-type'] || '').startsWith('application/json')) return send(415, { error: 'JSON required' });
-      const fileUpload=['/v1/manage/source-file','/v1/owner/manage/source-file','/v1/knowledge/upload','/v1/tasks/upload'].includes(path);
+      if(path==='/v1/knowledge/upload')throw Object.assign(new Error('Use authenticated website management to upload shared knowledge.'),{publicCode:'OWNER_KNOWLEDGE_UPLOAD_REQUIRED'});
+      if((path.startsWith('/v1/tasks/')||path.startsWith('/v1/pair/'))&&!/^\/v1\/(tasks|pair)\/[a-z-]+$/.test(path))throw new Error('Unsupported private operation');
+      const fileUpload=['/v1/manage/source-file','/v1/owner/manage/source-file','/v1/tasks/upload'].includes(path);
       if(fileUpload){
         budget.take(`upload:${req.socket.remoteAddress}`,path==='/v1/tasks/upload'?(capacity.privateUploadsPerIp??100):5);
         // Authorize before buffering a large file. Resource ownership is checked
         // again after parsing, before it reaches raw storage or a worker.
         if(path==='/v1/manage/source-file'){if(!management)throw new Error('Management unavailable');await management({authorization:req.headers.authorization,origin,path:'/v1/manage/websites',input:{}});}
         else if(path==='/v1/owner/manage/source-file'){if(!ownerManagement||origin!==platformOrigin)throw new Error('Owner access denied');await ownerManagement({authorization:req.headers.cookie,origin,path:'/v1/manage/websites',input:{}});}
-        else {const sessionToken=/^Bearer (\S+)$/.exec(req.headers.authorization||'')?.[1],scope=authority.context({sessionToken,origin});if(path==='/v1/tasks/upload'? !privateTasks||taskWebsite?.(scope.embeddingId)?.taskPolicy?.attachments!==true:!scope.capabilities.upload)throw new Error('Uploads disabled');if(path==='/v1/tasks/upload')budget.take(`private-upload:${scope.sessionId}`,5);}
-        if(activeUploads>=2)throw new Error('Request capacity reached');activeUploads++;uploadSlot=true;
+        else {const sessionToken=/^Bearer (\S+)$/.exec(req.headers.authorization||'')?.[1],scope=authority.context({sessionToken,origin}),site=taskWebsite?.(scope.embeddingId);if(!privateTasks||site?.taskPolicy?.attachments!==true)throw new Error('Uploads disabled');const fileBytes=Math.min(privateTasks.limits?.fileBytes||16777216,site.taskPolicy.limits?.fileBytes||16777216);uploadBodyLimit=Math.min(uploadBodyLimit,Math.ceil(fileBytes/3)*4+8192);const length=req.headers['content-length'];if(length!==undefined&&(!/^\d+$/.test(length)||Number(length)>uploadBodyLimit))throw new Error('Request too large');const peer=req.socket.remoteAddress,forwarded=req.headers['x-forwarded-for'],network=uploadProxyAddresses.includes(peer)&&typeof forwarded==='string'&&forwarded.length<512?forwarded.split(',').at(-1).trim():peer;uploadPermit=uploads.admit(scope,{ownerId:site.organizationId,network});}
+        if(path!=='/v1/tasks/upload'){if(activeUploads>=2)throw new Error('Request capacity reached');activeUploads++;uploadSlot=true;}
+        uploadReadTimer=setTimeout(()=>req.destroy(new Error('Upload body deadline reached')),uploads.limits.readTimeoutMs);uploadReadTimer.unref?.();
       }
       const mapRefresh=['/v1/manage/source-map-refresh','/v1/owner/manage/source-map-refresh'].includes(path);
       if(mapRefresh){
@@ -133,7 +139,7 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
       }
       const mapObservation=['/v1/learning/observe','/v1/discovery/observe'].includes(path);
       if(mapObservation){const sessionToken=/^Bearer (\S+)$/.exec(req.headers.authorization||'')?.[1],access=authority.context({sessionToken,origin});if(!access.capabilities.coach)throw new Error('Coaching permission required');budget.take(`map-observe:${access.sessionId}`,60);}
-      const input = await body(req,fileUpload?23_000_000:mapRefresh?512_000:mapObservation?256_000:32_768);
+      const input = await body(req,fileUpload?uploadBodyLimit:mapRefresh?512_000:mapObservation?256_000:32_768);clearTimeout(uploadReadTimer);
       let result;
       if(path.startsWith('/v1/owner/')){
         if(!ownerIdentity||origin!==platformOrigin)return send(403,{error:'Access denied'});
@@ -164,16 +170,16 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
         res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin');
         if(path.startsWith('/v1/analytics/')){if(!analytics)throw new Error('Analytics unavailable');if(path==='/v1/analytics/policy')result=analytics.policy(scope);else if(path==='/v1/analytics/consent')result=analytics.consent(scope,input,req);else if(path==='/v1/analytics/events'){budget.take(`analytics:${scope.sessionId}`,60);result=analytics.collect(scope,input);authority.touch(auth);}else throw new Error('Unknown analytics operation');}
         else if (path === '/v1/history') result = { messages: authority.history(auth) };
-        else if(path==='/v1/capabilities')result={requestTimeoutMs,executionContractVersion:2,capabilities:scope.capabilities,taskPolicy:privateTasks?taskWebsite?.(scope.embeddingId)?.taskPolicy||{}:{},learningEnabled:learning?.learningEnabled?.(scope)===true};
+        else if(path==='/v1/capabilities')result={requestTimeoutMs,executionContractVersion:2,capabilities:scope.capabilities,uploadLimits:{...uploads.publicLimits(),fileBytes:Math.min(privateTasks?.limits?.fileBytes||16777216,taskWebsite?.(scope.embeddingId)?.taskPolicy?.limits?.fileBytes||16777216)},taskPolicy:privateTasks?taskWebsite?.(scope.embeddingId)?.taskPolicy||{}:{},learningEnabled:learning?.learningEnabled?.(scope)===true};
         else if(path==='/v1/live/ticket'){if(!privateTasks)throw new Error('Private tasks unavailable');result=privateTasks.ticket(scope,input);}
         else if(path.startsWith('/v1/tasks/')||path.startsWith('/v1/pair/')){
           if(!privateTasks)throw new Error('Private tasks unavailable');
           budget.take(`private:${scope.sessionId}`,60);
           const operations=path.startsWith('/v1/tasks/')?{start:'start',status:'status',end:'end',upload:'upload',remove:'remove',plan:'plan',summary:'summary',approve:'approve',revise:'revise',reject:'reject','save-review':'saveReview',relay:'relay','command-plan':'commandPlan',effect:'effect'}:{invite:'invite',join:'join',status:'pairStatus',confirm:'confirm',revoke:'revoke',link:'linkRequest'};
-          const action=operations[path.split('/').at(-1)];if(!action)throw new Error('Unsupported private operation');
+          const key=path.split('/').at(-1),action=Object.hasOwn(operations,key)?operations[key]:null;if(!action)throw new Error('Unsupported private operation');
           if(['plan','summary','commandPlan'].includes(action))releaseModel=modelSlots.acquire(scope.embeddingId);
           if(!['status','pairStatus'].includes(action))authority.touch(auth);
-          result=await privateTasks[action](scope,['plan','summary','commandPlan'].includes(action)?{...input,requestSignal:requestController.signal}:input);
+          result=await privateTasks[action](scope,['plan','summary','commandPlan'].includes(action)?{...input,requestSignal:requestController.signal}:input,action==='upload'?uploadPermit:undefined);
         }
         else if(path==='/v1/learning/complete'){
           if(!learning?.learningEnabled(scope)||input.consent!==true)result={created:false};
@@ -222,17 +228,6 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
         }
         else if(path==='/v1/history/clear'){privateTasks?.endSession(scope);result=authority.clearConversation(auth);}
         else if(path==='/v1/knowledge/documents'){if(!knowledge)throw new Error('Knowledge unavailable');result={sources:knowledge.available(scope)};}
-        else if(path==='/v1/knowledge/upload'){
-          if(!ingestion||!scope.capabilities.upload)throw new Error('Uploads disabled');
-          authority.touch(auth);result=await ingestion.upload({...scope,role:'maintainer'},input);
-          try{if(!authority.context(auth).capabilities.upload)throw new Error('Uploads disabled');}
-          catch(error){
-            // Remove only this newly created upload. An idempotent retry must
-            // never delete a source created by an earlier authorized request.
-            if(!result.reused)await ingestion.remove({...scope,role:'maintainer'},result.id);
-            throw error;
-          }
-        }
         else if(path==='/v1/knowledge/upload-status'){if(!ingestion)throw new Error('Ingestion unavailable');result=ingestion.status(scope,input.sourceId);}
         else if (path === '/v1/messages') result = authority.appendMessage({ ...auth, text: input.text, replyTo: input.replyTo });
         else if (path === '/v1/renew') result = authority.renew({...auth,identityToken:input.identityToken});
@@ -300,10 +295,11 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
     } catch (error) {
       const unavailable=['COPILOT_CHECKER_UNAVAILABLE','COPILOT_REVIEW_FAILED'].includes(error.publicCode)||['Platform model unavailable','Knowledge model unavailable','Search operation failed','Search provisioning check failed','Management identity unavailable'].includes(error.message)||['ERR_SQLITE_ERROR','SQLITE_BUSY','SQLITE_IOERR','ENOSPC','EROFS','EIO','EMFILE','ENFILE'].includes(error.code)||error.code==='ERR_INVALID_STATE'&&/database|statement/i.test(error.message);
       const invalidResponse=['Invalid platform model response','Invalid evidence citations','The assistant could not produce a valid current-screen proposal. Nothing was changed.'].includes(error.message);
-      const code = error.message === 'Request too large' ? 413 : error.publicCode==='OWNER_CODE_COOLDOWN'||error.message==='Request rate exceeded'||error.message==='Request capacity reached'?429:unavailable?503:invalidResponse?502:403;
-      if(code===429)res.setHeader('Retry-After',error.publicCode==='OWNER_CODE_COOLDOWN'?String(error.retryAfter):error.message==='Request rate exceeded'?'60':'2');
+      const uploadLimited=['UPLOAD_RATE_LIMIT','UPLOAD_BUDGET_EXCEEDED','UPLOAD_COOLDOWN','UPLOAD_BUSY','UPLOAD_QUEUE_FULL'].includes(error.publicCode);
+      const code = error.message === 'Request too large' ? 413 : uploadLimited||error.publicCode==='OWNER_CODE_COOLDOWN'||error.message==='Request rate exceeded'||error.message==='Request capacity reached'?429:unavailable?503:invalidResponse?502:403;
+      if(code===429){res.setHeader('Retry-After',String(error.retryAfter|| (error.message==='Request rate exceeded'?60:2)));res.setHeader('Access-Control-Expose-Headers','Retry-After, X-Adoption-Request-Id');}
       return send(code, { error: ['DNS_CHALLENGE_EXPIRED','DNS_RECORD_MISSING','DNS_RECORD_MISMATCH','DNS_RESOLVER_UNAVAILABLE','SOURCE_MAP_CHANGED','SOURCE_MAP_INVALID'].includes(error.publicCode)?error.message:code===429?'Copilot is busy. Please retry shortly.':code===413?'Request too large':code===503?'Copilot service temporarily unavailable':code===502?'The assistant could not prepare a valid response. Nothing was changed.':'Access denied or invalid request',...(error.publicCode?{code:error.publicCode}:{}) });
-    }finally{releaseModel?.();releaseSearch?.();if(uploadSlot)activeUploads--;}
+    }finally{clearTimeout(uploadReadTimer);uploads.release(uploadPermit);releaseModel?.();releaseSearch?.();if(uploadSlot)activeUploads--;}
   });
   if(privateTasks)attachLiveTransport(server,{tasks:privateTasks});
   return server;

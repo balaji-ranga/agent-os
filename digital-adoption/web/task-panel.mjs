@@ -15,6 +15,9 @@ export function mountTaskPanel({
     files = panel.querySelector("#task-files"),
     composer = document.querySelector("#message"),
     log = document.querySelector("#log");
+  const uploadNotice=document.createElement('p');uploadNotice.id='task-upload-limits';panel.querySelector('#transaction-file').closest('label').after(uploadNotice);
+  let uploadLimits={},uploadEnabled=false,uploadTimer;
+  const coolUpload=seconds=>{const input=panel.querySelector('#transaction-file');input.disabled=true;clearTimeout(uploadTimer);uploadTimer=setTimeout(()=>{input.disabled=!uploadEnabled;},Math.min(seconds*1000,2147483647));};
   const mentions = document.createElement("div");
   mentions.id = "paired-mentions";
   mentions.hidden = true;
@@ -60,14 +63,19 @@ export function mountTaskPanel({
     }
     state.textContent = `Private task · expires ${new Date(t.expiresAt).toLocaleTimeString()}`;
   };
+  let refreshingTask=false;
   const refreshTask = async () => {
-    if (active) renderTask(await call("task-status"));
+    if(!active||refreshingTask)return;
+    refreshingTask=true;try{const task=await call('task-status');if(active)renderTask(task);}finally{refreshingTask=false;}
   };
   panel.querySelector("#transaction-file").onchange = () =>
     run(async () => {
       const input = panel.querySelector("#transaction-file"),
         file = input.files[0];
       if (!file) return;
+      if(file.size>(uploadLimits.fileBytes||16777216))throw new Error('This file exceeds this website’s task file size limit.');
+      input.disabled=true;
+      try{
       state.textContent = "Uploading private transaction file…";
       const data = await encodeFile(file);
       renderTask(await call("task-start"));
@@ -83,6 +91,8 @@ export function mountTaskPanel({
           }),
         3000,
       );
+      coolUpload(Math.ceil((uploadLimits.cooldownMs||0)/1000));
+      }catch(error){if(error.retryAfterSeconds)coolUpload(error.retryAfterSeconds);else input.disabled=!uploadEnabled;throw error;}
     });
   panel.querySelector("#task-summary").onclick = () =>
     run(async () => {
@@ -238,6 +248,8 @@ export function mountTaskPanel({
       return true;
     },
     configure(config) {
+      uploadLimits={...config.uploadLimits,fileBytes:Math.min(config.uploadLimits?.fileBytes||16777216,config.taskPolicy?.limits?.fileBytes||16777216)};uploadEnabled=config.taskPolicy?.attachments===true;
+      uploadNotice.textContent=config.uploadLimits?`Private task files: up to ${Math.ceil(uploadLimits.fileBytes/1048576)} MiB each; ${Math.ceil(uploadLimits.cooldownMs/1000)} seconds between uploads; ${uploadLimits.sessionRequests} requests per ${Math.ceil(uploadLimits.windowMs/60000)} minute. This session allows ${uploadLimits.sessionFiles} files / ${Math.ceil(uploadLimits.sessionBytes/1048576)} MiB per ${Math.ceil(uploadLimits.retentionWindowMs/3600000)} hours. Website and platform limits also apply. Removing files or ending tasks does not reset the allowance.`:'Server-enforced file, upload and processing limits apply.';
       panel.hidden = !Object.values(config.taskPolicy || {}).some(
         (v) => v === true,
       );

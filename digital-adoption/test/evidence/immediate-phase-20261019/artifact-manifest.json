@@ -170,6 +170,56 @@
     "bytes": 3191
   },
   {
+    "path": "closure/checked-summary/browser-failure.png",
+    "sha256": "33b7991f0b4940191cd8d027c4d1b42fa91bd42add29e5fa07a6b4e7b59f7439",
+    "bytes": 93544
+  },
+  {
+    "path": "closure/checked-summary/browser-results.json",
+    "sha256": "1b8c5dcd8538c73ebe8e6c120fa3d29f09e525be2328c0b2dc5e2a332effd413",
+    "bytes": 649
+  },
+  {
+    "path": "closure/checked-summary/local-notice.png",
+    "sha256": "594e292adcbdf36e506e2cd0220413406601494138ae81c27f5447cca9e0e2e9",
+    "bytes": 79592
+  },
+  {
+    "path": "closure/checked-summary/local-upload-ready.png",
+    "sha256": "ee8487f78857c2f37f5ae286f2c990fa280183de11ccfbb3cde95e38437203d4",
+    "bytes": 94149
+  },
+  {
+    "path": "closure/checked-summary-after-upload-fix/browser-failure.png",
+    "sha256": "a4b7bfa1386cfb4cea88ad41ba7e4f329d9179b68077798481baf4548430a4d0",
+    "bytes": 97550
+  },
+  {
+    "path": "closure/checked-summary-after-upload-fix/browser-results.json",
+    "sha256": "93fb0383d068ed8d82750aed8c86d611ca40e5a9acc258d423276b941cf32dd8",
+    "bytes": 649
+  },
+  {
+    "path": "closure/checked-summary-after-upload-fix/local-notice.png",
+    "sha256": "594e292adcbdf36e506e2cd0220413406601494138ae81c27f5447cca9e0e2e9",
+    "bytes": 79592
+  },
+  {
+    "path": "closure/checked-summary-after-upload-fix/local-upload-ready.png",
+    "sha256": "6b3c8e58c3ffc687dba404cdcb16392a13398c79dffdbcf6e11acc09b8014dba",
+    "bytes": 97099
+  },
+  {
+    "path": "closure/checker/ollama-route.json",
+    "sha256": "4cd38fa1e3d297a6525ca1fa95d532864964cc72925cde687ea6896157fc90a2",
+    "bytes": 391
+  },
+  {
+    "path": "closure/checker/ollama-route.png",
+    "sha256": "38c39bb53c997267b77cdf383295eba321fcadfcabbe306cc01788a046e5343e",
+    "bytes": 94489
+  },
+  {
     "path": "controls/action-completed.png",
     "sha256": "d33fedfe4600777da3f3ce5bd00dd2d35778197331144bfd248ec2fcd82366df",
     "bytes": 81020
@@ -246,8 +296,8 @@
   },
   {
     "path": "index.html",
-    "sha256": "7841fb15f6cd3995db45190ea284b9613c9da24a134834f5093f6c8364e654ff",
-    "bytes": 30903
+    "sha256": "388d80b0e023ad1f3a1f910f01f22337a939582c38e640ec1eb4ccc2896dd481",
+    "bytes": 31707
   },
   {
     "path": "journeys/R_VALID_JOURNEYS_30.png",
@@ -391,8 +441,8 @@
   },
   {
     "path": "report.json",
-    "sha256": "5d9b2f8964cd0df1999bd50e1b2d18608779586f3c3c69784b276cea160fa416",
-    "bytes": 21760
+    "sha256": "b676756915b102f45fd117f5abd0e507e4e91cedd31e241e6200b63b52f5eab9",
+    "bytes": 22198
   },
   {
     "path": "review-detail/planning-stop.png",

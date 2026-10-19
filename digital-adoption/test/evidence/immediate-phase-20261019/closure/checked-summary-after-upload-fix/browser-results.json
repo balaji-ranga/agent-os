@@ -1,0 +1,22 @@
+{
+  "at": "2026-10-19T12:51:26.007Z",
+  "results": [
+    {
+      "id": "LOCAL_RETENTION_NOTICE",
+      "status": "passed",
+      "screenshot": "local-notice.png"
+    },
+    {
+      "id": "VISITOR_UPLOAD_READY",
+      "status": "passed",
+      "screenshot": "local-upload-ready.png"
+    },
+    {
+      "id": "BROWSER_ACCEPTANCE",
+      "status": "failed",
+      "detail": "locator.waitFor: Timeout 210000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('iframe[data-adoption-widget]').contentFrame().locator('#log').getByText(/Private Retention Orchid/).first() to be visible\u001b[22m\n"
+    }
+  ],
+  "hostSubmits": 0,
+  "publicWrites": 0
+}

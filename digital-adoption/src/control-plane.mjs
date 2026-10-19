@@ -61,6 +61,7 @@ export function createControlPlane(repository,authority,{dns=resolveTxt,clock=Da
   cancelDelivery(actor,id,installationId){const website=owned(actor,id);if(!website.installations.includes(installationId))reject();authority.revokeInstallation(installationId);record(actor,'revoke_failed_delivery',id,'Email transport failed');},
   scope(actor,id){const website=owned(actor,id);if(website.status!=='approved'||!website.verified)reject();return {embeddingId:website.id,audienceIds:['public'],audienceId:'public',origin:website.origin,websiteRevision:website.configurationRevision||0,role:'maintainer'};},
   configure(actor,id,{visitorUploads,taskPolicy}){
+   if(visitorUploads===true)throw Object.assign(new Error('Shared knowledge uploads require authenticated owner or Flolah management.'),{publicCode:'OWNER_KNOWLEDGE_UPLOAD_REQUIRED'});
    if(visitorUploads!==undefined&&typeof visitorUploads!=='boolean'||taskPolicy!==undefined&&(!taskPolicy||typeof taskPolicy!=='object'||Object.keys(taskPolicy).some(k=>!['attachments','pairing','workflow','actionBindings','limits','outcomeProfile'].includes(k))||['attachments','pairing','workflow'].some(k=>taskPolicy[k]!==undefined&&typeof taskPolicy[k]!=='boolean')))reject();
    if(taskPolicy?.outcomeProfile!==undefined){const p=taskPolicy.outcomeProfile;if(!p||Object.keys(p).some(k=>!['mode','observationMs'].includes(k))||!['host_status','signed_readback'].includes(p.mode)||!Number.isSafeInteger(p.observationMs)||p.observationMs<1000||p.observationMs>10000)reject();}
    if(taskPolicy?.limits!==undefined){const maxima={fileBytes:16*1024*1024,files:4,taskBytes:64*1024*1024,instances:100};if(!taskPolicy.limits||Array.isArray(taskPolicy.limits)||typeof taskPolicy.limits!=='object'||Object.entries(taskPolicy.limits).some(([k,v])=>!maxima[k]||!Number.isSafeInteger(v)||v<1||v>maxima[k]))reject();}
@@ -105,7 +106,7 @@ export function createControlPlane(repository,authority,{dns=resolveTxt,clock=Da
   activate(actor,id){
    return repository.transaction(()=>{
    const website=owned(actor,id);if(!website.verified||website.status!=='approved')reject();
-   const installation=authority.registerApproved({embeddingId:website.id,origins:[website.origin],expiresAt:clock()+365*24*3_600_000,visitorUploads:website.visitorUploads===true});
+   const installation=authority.registerApproved({embeddingId:website.id,origins:[website.origin],expiresAt:clock()+365*24*3_600_000,visitorUploads:false});
    website.installations.push(installation.installationId);websites.set(id,website);record(actor,'issue_installation',id);
    return {embeddingId:website.id,...installation};
    });

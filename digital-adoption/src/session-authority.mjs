@@ -48,7 +48,7 @@ export class SessionAuthority {
     const allowed = [...new Set(origins.map(value => originOf(value, this.#development)))];
     const secret = token('dac_install_');
     const id = randomUUID();
-    this.#installations.set(digest(secret), { id, embeddingId, origins: allowed, expiresAt, revoked: false, visitorUploads });
+    this.#installations.set(digest(secret), { id, embeddingId, origins: allowed, expiresAt, revoked: false, visitorUploads:false });
     return { installationId: id, installationToken: secret };
   }
 
@@ -64,7 +64,7 @@ export class SessionAuthority {
 
   setUploadPolicy(embeddingId,enabled){
     if(typeof enabled!=='boolean')fail();
-    for(const [key,installation] of this.#installations.entries({embeddingId}))if(installation.embeddingId===embeddingId){installation.visitorUploads=enabled;this.#installations.set(key,installation);}
+    for(const [key,installation] of this.#installations.entries({embeddingId}))if(installation.embeddingId===embeddingId){installation.visitorUploads=false;this.#installations.set(key,installation);}
   }
 
   grantCoaching(auth,grant){
@@ -260,6 +260,6 @@ export class SessionAuthority {
     const { session,installation } = this.#authorize(sessionToken, origin);
     const coach=(session.coachingUntil||0)>this.#clock();
     const signedAudiences=session.identity?.audienceIds||['public'],audienceIds=coach?[session.coachingAudienceId||signedAudiences[0]]:signedAudiences;
-    return Object.freeze({ embeddingId: session.embeddingId, sessionId: session.id,origin:session.origin,audienceId:coach?session.coachingAudienceId||audienceIds[0]:audienceIds[0],audienceIds,hostPrincipal:session.identity?.principal||null,conversationVersion:session.conversationVersion||0,capabilities:{upload:installation.visitorUploads===true||coach,coach} });
+    return Object.freeze({ embeddingId: session.embeddingId, sessionId: session.id,origin:session.origin,audienceId:coach?session.coachingAudienceId||audienceIds[0]:audienceIds[0],audienceIds,hostPrincipal:session.identity?.principal||null,conversationVersion:session.conversationVersion||0,capabilities:{upload:false,coach} });
   }
 }

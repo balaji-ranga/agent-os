@@ -27,6 +27,7 @@ export function openRepository(path = ':memory:') {
   return {
     durableActions:true,
     expireActionAttempts(now){return Number(db.prepare("DELETE FROM adoption_state WHERE namespace='action_attempts' AND json_extract(value,'$.expiresAt')<=?").run(now).changes);},
+    expireUploadAdmission(now){return Number(db.prepare("DELETE FROM adoption_state WHERE namespace IN ('upload_windows','upload_leases') AND json_extract(value,'$.expiresAt')<=?").run(now).changes);},
     analyticsStore(){
       db.exec('CREATE TABLE IF NOT EXISTS visitor_analytics (id TEXT PRIMARY KEY, embedding_id TEXT NOT NULL, owner_id TEXT NOT NULL, at INTEGER NOT NULL, visitor TEXT NOT NULL, session TEXT NOT NULL, kind TEXT NOT NULL, payload TEXT NOT NULL, expires_at INTEGER NOT NULL); CREATE INDEX IF NOT EXISTS analytics_expiry ON visitor_analytics(expires_at); CREATE INDEX IF NOT EXISTS analytics_site_time ON visitor_analytics(embedding_id,owner_id,at); CREATE INDEX IF NOT EXISTS analytics_visitor_time ON visitor_analytics(embedding_id,owner_id,visitor,at)');
       const insert=db.prepare('INSERT OR IGNORE INTO visitor_analytics VALUES (?,?,?,?,?,?,?,?,?)');

@@ -1,5 +1,5 @@
 // Private test process only. Never imported by the runtime or exposed as an API.
-import {readFile} from 'node:fs/promises';
+import {readFile,readdir} from 'node:fs/promises';
 import {openRepository} from '../../src/repository.mjs';
 import {SessionAuthority} from '../../src/session-authority.mjs';
 import {createHostIdentity} from '../../src/host-identity.mjs';
@@ -28,7 +28,8 @@ await new Promise(resolve=>workerServer.listen(0,'127.0.0.1',resolve));
 server.listen(0,'127.0.0.1',()=>process.send({ready:true,base:'http://127.0.0.1:'+server.address().port,workerBase:'http://127.0.0.1:'+workerServer.address().port,workerToken}));
 process.on('message',async({rpc,method,args=[]})=>{try{
  let result;
- if(method==='install')result=authority.registerApproved({embeddingId:args[0],origins:[origin],expiresAt:clock()+3_600_000,visitorUploads:true});
+ if(method==='install'){if(!repository.map('websites').get(args[0]))repository.map('websites').set(args[0],{id:args[0],organizationId:owner.organizationId,origin,status:'approved',verified:true,installations:[]});result=authority.registerApproved({embeddingId:args[0],origins:[origin],expiresAt:clock()+3_600_000});}
+ else if(method==='upload-website')result=authority.context({sessionToken:args[0].sessionToken,origin}).embeddingId;
  else if(method==='policy')result=hostIdentity.configure({embeddingId:args[0],origin,role:'maintainer'},{required:true,issuer:origin,publicKeys:[args[1]],roles:['tester']});
  else if(method==='clock')state.set('clock',{now:args[0]});
  else if(method==='dns')state.set(args[0],{value:args[1]});
@@ -44,6 +45,7 @@ process.on('message',async({rpc,method,args=[]})=>{try{
  else if(method==='worker-metrics')result=ingestion.metrics();
  else if(method==='retry')result=ingestion.retry(args[0],args[1]);
  else if(method==='remove')result=await ingestion.remove(args[0],args[1]);
+ else if(method==='rawCount')result=(await readdir(blobRoot,{recursive:true,withFileTypes:true})).filter(entry=>entry.isFile()).length;
  else if(method==='rawExists'){try{await realBlobs.read(args[0],args[1]);result=true;}catch(e){if(e.code!=='ENOENT')throw e;result=false;}}
  else if(method==='rows')result=repository.map(args[0]).values();
  else if(method==='counts')result=counts;

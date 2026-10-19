@@ -65,7 +65,7 @@ export function createManagement({authenticate,control,knowledge,search,platform
   if(path==='/v1/manage/activate'){await search.provision(scope.embeddingId);return control.activate(actor,input.id);}
   if(path==='/v1/manage/sources')return {sources:knowledge.list(scope)};
   if(path==='/v1/manage/source-page')return knowledge.page(scope,input);
-  if(path==='/v1/manage/source-file'){if(!ingestion)throw new Error('File ingestion unavailable');return ingestion.upload(scope,input);}
+  if(path==='/v1/manage/source-file'){if(!ingestion)throw new Error('File ingestion unavailable');return ingestion.upload(scope,input,{checkAuthorized:()=>{const current=control.scope(actor,input.id);if(input.hostScope&&hostIdentity.audience(current,input.hostScope)!==scope.audienceId)throw new Error('Content audience changed');}});}
   if(path==='/v1/manage/source-url'){if(!ingestion)throw new Error('URL ingestion unavailable');return ingestion.addUrl(scope,input);}
   if(path==='/v1/manage/source-refresh'){if(!ingestion)throw new Error('URL ingestion unavailable');return ingestion.refresh(scope,input.sourceId);}
   if(path==='/v1/manage/source-job'){if(!ingestion)throw new Error('File ingestion unavailable');return ingestion.status(scope,input.sourceId);}

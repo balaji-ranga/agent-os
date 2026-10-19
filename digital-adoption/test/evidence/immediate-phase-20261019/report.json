@@ -1,5 +1,5 @@
 {
-  "at": "2026-10-19T11:45:33.838064+00:00",
+  "at": "2026-10-19T12:52:40.181041+00:00",
   "coordinator": "20261019-immediate-j",
   "gatewayAndPlatform": "20261019-immediate-j",
   "executedSuiteMinimumPassRate": 100.0,
@@ -7,7 +7,8 @@
   "fullAcceptanceCertified": false,
   "requirementFamilyCounts": {
     "passed": 14,
-    "partial": 18,
+    "partial": 16,
+    "deferred": 2,
     "failed": 0
   },
   "mapContextAcceptance": {
@@ -366,10 +367,12 @@
       "evidence": [
         "models/final.json",
         "models/stability.json",
-        "history/checker-700-token.json",
+        "closure/checker/ollama-route.json",
+        "closure/checked-summary-after-upload-fix/browser-results.json",
+        "closure/checked-summary-after-upload-fix/browser-failure.png",
         "local/service-tests.log"
       ],
-      "recommendation": "Maker-only/passive routes pass at 2048 tokens. The independent global Ollama/efficiency branch and its earlier live summary failure are not recertified by this route override."
+      "recommendation": "Maker-only/passive routes pass at 2048 tokens. The actual shared Ollama route offered Express for review in 94 seconds, but its cited-summary request failed closed at the 180-second checker deadline. Polling now remains bounded; this independent checker issue remains open with screenshot evidence."
     },
     {
       "id": "T01",
@@ -396,14 +399,14 @@
     {
       "id": "T03",
       "title": "Persistent errors, action notices and accessibility",
-      "status": "partial",
+      "status": "deferred",
       "evidence": [
         "browser/T03_PERSISTENT_ERROR.png",
         "controls/action-working.png",
         "controls/action-completed.png",
         "live/results.json"
       ],
-      "recommendation": "Chrome keyboard and notices pass. Full screen-reader announcement validation remains deferred."
+      "recommendation": "Chrome keyboard and notices pass. Full screen-reader announcement validation is explicitly deferred by the user on 19 October; it is not an implementation partial."
     },
     {
       "id": "T04",
@@ -550,12 +553,12 @@
     {
       "id": "P04",
       "title": "Desktop keyboard plus deferred devices/assistive tech",
-      "status": "partial",
+      "status": "deferred",
       "evidence": [
         "live/results.json",
         "controls/results.json"
       ],
-      "recommendation": "Desktop Chrome passes. Real Safari/iOS, Android and full screen-reader checks remain pending as previously agreed."
+      "recommendation": "Desktop Chrome passes. The user explicitly deferred real Safari/iOS, Android and full screen-reader checks on 19 October. These are excluded from the active certification scope until resumed."
     }
   ],
   "scope": "Only existing loopback fixture and public flolah.cloud as website targets. No public form submission, login or laptop exposure. Flolah signed-in consoles are control-plane checks. Fixtures and actual model/live UI layers are separate, explicitly labelled.",

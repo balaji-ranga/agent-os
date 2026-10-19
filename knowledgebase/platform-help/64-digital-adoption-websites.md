@@ -99,3 +99,6 @@ available. Optional saved-record verification needs a host backend integration;
 its private signing key stays with the host. A learning-only receipt is not an
 action verification receipt. Without this integration the panel reports honest
 website status and does not claim independent business verification.
+
+
+Shared knowledge uploads require a signed-in Flolah account authorized to manage the selected website, or its email-authenticated owner console. Visitors and coaching sessions cannot upload into Ask Knowledge. For a visitor's private transaction file, use **Task files & paired copilots**. The default private-upload controls include 16 MiB per file, a five-second cooldown, five attempts per minute per session, and 20 files/64 MiB per session per 24 hours, plus website, owner, network and platform limits. A lower website limit takes precedence. The panel displays the limits and any retry delay. End task or Remove file does not reset upload budgets.

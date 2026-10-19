@@ -1,0 +1,10 @@
+{
+  "status": "passed",
+  "outcome": "Checked Express proposal offered for visitor approval",
+  "review": "Shipping method: Express\n\nReview before filling. Some websites autosave fields. This does not click Save.\n\nApprove field changesReject changesEdit values",
+  "at": "2026-10-19T12:12:13.610Z",
+  "httpStatus": 200,
+  "elapsedMs": 94146,
+  "hostWrites": 0,
+  "fieldUnchanged": true
+}

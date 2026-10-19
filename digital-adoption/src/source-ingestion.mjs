@@ -28,7 +28,7 @@ export function createSourceIngestion(repository,{knowledge,blobs,extract,fetchU
    return repository.transaction(()=>{const previous=attempts.get(key);if(previous){if(previous.fingerprint!==fingerprint)throw new Error('Upload operation conflict');return {id:previous.id,reused:true};}const id=randomUUID();knowledge.createPending(scope,{id,title,kind:'url'});jobs.set(id,{id,embeddingId:scope.embeddingId,audienceIds:scope.audienceIds,status:'queued',bytes:0,kind:'url',url:normalized,createdAt:clock(),attempts:0});attempts.set(key,{id,fingerprint});return {id,status:'queued'};});
   },
   refresh(scope,id){return repository.transaction(()=>{const job=jobFor(scope,id);if(job.kind!=='url'||!['ready','failed'].includes(job.status))throw new Error('Help source cannot refresh');job.status='queued';job.lastError=null;job.attempts=0;job.nextAttemptAt=0;jobs.set(id,job);return {id,status:'queued'};});},
-  async upload(scope,{title,filename,mime,content,sharedConsent,operationId}){
+  async upload(scope,{title,filename,mime,content,sharedConsent,operationId},{checkAuthorized=()=>{}}={}){
    maintain(scope);
    if(sharedConsent!==true||typeof title!=='string'||!title.trim()||title.length>200||typeof filename!=='string'||filename.length>180||/[\\/\x00-\x1f]/.test(filename)||!Object.hasOwn(mimeTypes,mime)||!mimeTypes[mime][1].test(filename)||typeof content!=='string'||content.length>22_369_624||!content.length||typeof operationId!=='string'||!/^[A-Za-z0-9_-]{16,80}$/.test(operationId))throw new Error('Invalid upload, sharing consent or file type');
    const bytes=Buffer.from(content,'base64'),kind=mimeTypes[mime][0];
@@ -44,6 +44,7 @@ export function createSourceIngestion(repository,{knowledge,blobs,extract,fetchU
    try{
     // Recheck after asynchronous storage: simultaneous retries never create two jobs.
     const result=repository.transaction(()=>{
+     const checked=checkAuthorized();if(checked&&typeof checked.then==='function')throw new Error('Synchronous upload authorization required');
      const retry=attempts.get(key);if(retry){if(retry.fingerprint!==fingerprint)throw new Error('Upload operation conflict');return {id:retry.id,reused:true};}
      if(jobs.values({embeddingId:scope.embeddingId}).filter(j=>j.status!=='deleted').reduce((sum,j)=>sum+j.bytes,0)+bytes.length>64*1024*1024)throw new Error('Embedding raw storage quota reached');
      knowledge.createPending(scope,{id,title,kind,bytes:bytes.length,uploadedBySessionId:scope.sessionId||null});

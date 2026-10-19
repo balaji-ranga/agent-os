@@ -104,7 +104,7 @@ export async function mount(options) {
       else if (message.type === 'history') result = await request('/v1/history');
       else if(message.type==='clear-history'){taskGeneration++;currentSnapshot=null;currentTaskText='';if(privateClient.taskId)await privateClient.call('task-end');result=await request('/v1/history/clear');}
       else if(message.type==='documents')result=await request('/v1/knowledge/documents');
-      else if(message.type==='upload-document'){if(!(await request('/v1/capabilities')).capabilities.upload)throw new Error('Uploads are disabled for this website.');result=await request('/v1/knowledge/upload',{title:message.title,filename:message.filename,mime:message.mime,content:message.content,sharedConsent:message.sharedConsent,operationId:message.operationId});}
+      else if(message.type==='upload-document')throw new Error('Shared knowledge uploads require authenticated owner or Flolah website management. Use Task files for private transaction documents.');
       else if(message.type==='upload-status')result=await request('/v1/knowledge/upload-status',{sourceId:message.sourceId});
       else if(message.type==='coaching-exchange'){const grant=await request('/v1/coaching/exchange',{code:message.code});result={...grant,...await request('/v1/capabilities')};}
       else if(message.type==='recipes')result=await request('/v1/recipes');

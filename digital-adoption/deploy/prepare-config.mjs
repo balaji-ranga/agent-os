@@ -1,5 +1,6 @@
 // Run on the deployment host with docker-inspect JSON on stdin. Never logs keys.
 import {readFileSync,writeFileSync,existsSync} from 'node:fs';
+import {uploadDefaults} from '../src/upload-admission.mjs';
 import {randomBytes} from 'node:crypto';
 const inspection=JSON.parse(readFileSync(0,'utf8'))[0];
 const env=Object.fromEntries(inspection.Config.Env.map(line=>{const at=line.indexOf('=');return [line.slice(0,at),line.slice(at+1)];}));
@@ -15,6 +16,6 @@ const workerToken=priorService.workerToken||randomBytes(48).toString('base64url'
 const taskBridgeToken=priorService.taskBridgeToken||randomBytes(48).toString('base64url');
 const ingestion={maxWorkers:2,perDomainWorkers:1,leaseMs:90_000,maxAttemptMs:300_000,maxAttempts:3,retryDelayMs:1000,...priorService.ingestion};
 const capacity={modelDeadlineMs:190000,modelConcurrency:25,modelPerDomain:5,searchConcurrency:25,searchPerDomain:5,managementPerIp:600,managementPerActor:60,...priorService.capacity};
-writeFileSync(servicePath,JSON.stringify({...priorService,serviceToken,search,mail,workerToken,taskBridgeToken,ingestion,capacity,execution:{attemptRetentionMs:86_400_000,...priorService.execution},serviceUrl:'https://login.flolah.cloud/free-tools/digital-adoption/',gatewayUrl:'https://login.flolah.cloud/internal/digital-adoption-model'}),{mode:0o600});
+writeFileSync(servicePath,JSON.stringify({...priorService,serviceToken,search,mail,workerToken,taskBridgeToken,ingestion,capacity,uploads:{...uploadDefaults,...priorService.uploads},uploadProxyAddresses:priorService.uploadProxyAddresses||priorService.analytics?.trustedProxyAddresses||[],execution:{attemptRetentionMs:86_400_000,...priorService.execution},serviceUrl:'https://login.flolah.cloud/free-tools/digital-adoption/',gatewayUrl:'https://login.flolah.cloud/internal/digital-adoption-model'}),{mode:0o600});
 writeFileSync('/config/worker.json',JSON.stringify({coordinatorUrl:'http://adoption:4196/',token:workerToken}),{mode:0o600});
 console.log('Backend-only model/search configuration prepared; no credentials emitted');
