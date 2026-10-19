@@ -10,6 +10,9 @@ import {randomUUID} from 'node:crypto';
 import {attachLiveTransport} from './live-transport.mjs';
 
 const assets = new Map([
+  ['/workspace.mjs', ['../web/workspace.mjs','text/javascript']],
+  ['/workspace.css', ['../web/workspace.css','text/css']],
+  ['/review-card.mjs', ['../web/review-card.mjs','text/javascript']],
   ['/dependent-controls.mjs', ['../web/dependent-controls.mjs','text/javascript']],
   ['/task-controller.mjs', ['../web/task-controller.mjs','text/javascript']],
   ['/host-observation.mjs', ['../web/host-observation.mjs','text/javascript']],
@@ -92,7 +95,7 @@ export function createAdoptionServer({ authority, proposals, planner, knowledge,
       if (req.method === 'GET' && assets.has(path)) {
         res.setHeader('Access-Control-Allow-Origin','*'); // Public SDK assets only; API authorization is separate.
         const [file, type] = assets.get(path);
-        res.setHeader('Content-Security-Policy', ['/manage.html','/owner.html'].includes(path)?"default-src 'none'; script-src 'self'; connect-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'":"default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; media-src blob:; frame-ancestors *; base-uri 'none'; form-action 'none'");
+        res.setHeader('Content-Security-Policy', ['/manage.html','/owner.html'].includes(path)?"default-src 'none'; script-src 'self'; connect-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'":"default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; media-src blob:; frame-ancestors *; base-uri 'none'; form-action 'none'");
         res.writeHead(200, { 'Content-Type': type });
         return res.end(await readFile(new URL(file, import.meta.url)));
       }

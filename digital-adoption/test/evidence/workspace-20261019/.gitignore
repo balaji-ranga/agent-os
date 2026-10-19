@@ -1,0 +1,3 @@
+# Retain final sanitized evidence; intermediate failed-run screenshots stay local.
+*-failed.png
+!*.log

@@ -1,3 +1,5 @@
+import {appendProposedAction} from './review-card.mjs';
+import {mountWorkspace} from './workspace.mjs';
 import {addReviewEditor} from './review-editor.mjs';
 import { normalizeTheme, themeProperties } from './theme.mjs';
 import {MODEL_SESSION_TIMEOUT_MS,WIDGET_REQUEST_TIMEOUT_MS} from './model-timeouts.mjs';
@@ -5,7 +7,7 @@ import {encodeFile} from './files.mjs';
 import {createScreenCapture} from './screen-capture.mjs';
 import {mountTaskPanel} from './task-panel.mjs';
 import {createActionFeedback} from './action-feedback.mjs';
-let hostRequestTimeoutMs=WIDGET_REQUEST_TIMEOUT_MS,coachingEnabled=false;
+let workspace,hostRequestTimeoutMs=WIDGET_REQUEST_TIMEOUT_MS,coachingEnabled=false;
 let executionStarted=0,executionStage=null,executionTimer;
 let currentTheme=normalizeTheme({}),initialTheme,assistanceMode='assist',sessionExpired=false;
 function applyTheme(value) {
@@ -37,7 +39,7 @@ window.addEventListener('message', event => {
   if(event.data.type === 'theme') {try{applyTheme(event.data.theme);}catch{}return;}
   if(event.data.type === 'expired') {
     renderExecution({stage:'blocked'});document.querySelector('#panel-connection-status').textContent='Panel session expired. Reconnect the website; saved workflow access and pairing have separate lifetimes.';
-    sessionExpired=true;document.querySelector('#inspection-result').replaceChildren();document.querySelector('#inspection-result').hidden=true;document.querySelector('#inspection-status').textContent='';
+    sessionExpired=true;workspace?.expire();document.querySelector('#inspection-result').replaceChildren();document.querySelector('#inspection-result').hidden=true;document.querySelector('#inspection-status').textContent='';
     capture.discard();
     for(const item of pending.values()){clearTimeout(item.timeout);item.reject(new Error('Session expired'));}pending.clear();
     document.querySelector('#review').replaceChildren();
@@ -49,18 +51,19 @@ window.addEventListener('message', event => {
   }
   const item = pending.get(event.data.id); if (!item) return;
   pending.delete(event.data.id); clearTimeout(item.timeout);
+  if(event.data.result?.hostContext)workspace?.updateContext(event.data.result.hostContext);
   event.data.error ? item.reject(Object.assign(new Error(event.data.error+(event.data.applied?` ${event.data.applied} earlier field changes remain applied.`:'')),{code:event.data.code,outcome:event.data.outcome})) : item.resolve(event.data.result);
 });
 function showError(error){
  if(executionStage&&error.code!=='TASK_BUSY'){renderExecution({stage:'blocked'});status.textContent='Task paused. Review the explanation below; completed changes remain.';}
- const banner=document.querySelector('#error-banner');document.querySelector('#error-message').textContent=(error.message||String(error))+(error.code?` [${error.code}]`:'');banner.hidden=false;
- actionFeedback.report(error.message||String(error),true);banner.scrollIntoView({block:'nearest'});
+ const banner=document.querySelector('#error-banner'),message=(error.message||String(error))+(error.code?` [${error.code}]`:'');if(document.querySelector('#error-message').textContent!==message)show(message,'guide','assistant');document.querySelector('#error-message').textContent=message;banner.hidden=false;
+ if(document.querySelector('#settings')?.open)document.querySelector('#settings-status').textContent=message;actionFeedback.report(error.message||String(error),true);banner.scrollIntoView({block:'nearest'});
 }
 document.querySelector('#error-dismiss').onclick=()=>{document.querySelector('#error-banner').hidden=true;};
-const reviewObserver=new MutationObserver(()=>{const review=document.querySelector('#review');if(review.childElementCount){review.scrollIntoView({block:'nearest'});if(!review.contains(document.activeElement))review.focus({preventScroll:true});}});
+const reviewObserver=new MutationObserver(()=>{const review=document.querySelector('#review');if(review.childElementCount){workspace?.reviewReady();if(!document.querySelector('#panel-guide').hidden){review.scrollIntoView({block:'nearest'});if(!review.contains(document.activeElement))review.focus({preventScroll:true});}}});
 reviewObserver.observe(document.querySelector('#review'),{childList:true});
 function coachingAvailability(config){
- const enabled=coachingEnabled=config.capabilities?.coach===true,canUpload=false;
+ const wasCoaching=coachingEnabled,enabled=coachingEnabled=config.capabilities?.coach===true,canUpload=false;if(wasCoaching&&!enabled){capture.discard();recordingState='idle';document.querySelector('#record-review').replaceChildren();document.querySelector('#record-status').textContent='Coaching access ended. Recording stopped; obtain a new owner grant before teaching again.';}if(!wasCoaching&&enabled){document.querySelector('#record-start').disabled=false;document.querySelector('#record-pause').disabled=true;document.querySelector('#record-stop').disabled=true;}workspace?.configure({...workspace.config,...config,capabilities:config.capabilities||{}});if(config.taskPolicy)taskPanel.configure(config);
  document.querySelector('#knowledge-upload').hidden=!canUpload;document.querySelector('#upload-form').hidden=!canUpload;document.querySelector('#open-upload').disabled=!canUpload;document.querySelector('#capture-use').disabled=!canUpload;
  const actionsTab=document.querySelector('#tab-actions');actionsTab.hidden=!enabled;
  if(!enabled&&actionsTab.getAttribute('aria-selected')==='true')selectTab(document.querySelector('#tab-guide'));
@@ -70,22 +73,20 @@ function coachingAvailability(config){
  document.querySelector('#discovery-form button').disabled=!enabled;document.querySelector('#discovery-list').disabled=!enabled;if(!enabled||!lastMapReport)for(const id of ['discovery-pause','discovery-resume','discovery-stop','discovery-extend'])document.getElementById(id).disabled=true;else renderDiscovery(lastMapReport);
 }
 document.querySelector('#map-enable-coaching').onclick=()=>{document.querySelector('#settings-open').click();document.querySelector('#coaching-form').closest('details').open=true;document.querySelector('#coaching-code').focus();};
-const status = document.querySelector('#status'), log = document.querySelector('#log'),knowledgeLog=document.querySelector('#knowledge-log'),knowledgeStatus=document.querySelector('#knowledge-status'),actionStatus=document.querySelector('#action-status');
-const tabs=[...document.querySelectorAll('[role="tab"]')];
-function selectTab(tab){if(tab.hidden)return;for(const item of tabs){const selected=item===tab;item.setAttribute('aria-selected',String(selected));item.tabIndex=selected?0:-1;document.getElementById(item.getAttribute('aria-controls')).hidden=!selected;}}
-for(const [index,tab] of tabs.entries()){
- tab.onclick=()=>selectTab(tab);
- tab.onkeydown=event=>{const visibleTabs=tabs.filter(item=>!item.hidden),current=visibleTabs.indexOf(tab);let next;if(event.key==='ArrowRight')next=(current+1)%visibleTabs.length;else if(event.key==='ArrowLeft')next=(current+visibleTabs.length-1)%visibleTabs.length;else if(event.key==='Home')next=0;else if(event.key==='End')next=visibleTabs.length-1;else return;event.preventDefault();selectTab(visibleTabs[next]);visibleTabs[next].focus();};
-}
+const status = document.querySelector('#status'), log = document.querySelector('#log'),knowledgeLog=document.querySelector('#log'),knowledgeStatus=document.querySelector('#knowledge-status'),actionStatus=document.querySelector('#action-status');
+function selectTab(tab){if(tab?.id==='tab-knowledge'){workspace?.setMode('knowledge');workspace?.showChat();}else workspace?.select(tab);}
 document.querySelector('#minimize').onclick=()=>call('minimize').catch(error=>{showError(error);});
 const settings=document.querySelector('#settings'),appearance=document.querySelector('#appearance'),settingsStatus=document.querySelector('#settings-status');
-function loadAppearance(){for(const key of ['primary','background','foreground','fontSize','radius'])appearance.elements.namedItem(key).value=currentTheme[key];}
+function loadAppearance(){for(const key of ['primary','background','foreground','fontSize','radius','width','height'])appearance.elements.namedItem(key).value=currentTheme[key];}
 document.querySelector('#settings-open').onclick=()=>{loadAppearance();settings.showModal();};
 document.querySelector('#settings-close').onclick=()=>settings.close();
-appearance.onsubmit=async event=>{event.preventDefault();try{const data=new FormData(appearance),patch={};for(const key of ['primary','background','foreground'])patch[key]=data.get(key);for(const key of ['fontSize','radius'])patch[key]=Number(data.get(key));const result=await call('appearance',{theme:patch});applyTheme(result.theme);settingsStatus.textContent='Appearance updated for this session.';}catch(error){showError(error);}};
+appearance.onsubmit=async event=>{event.preventDefault();try{const data=new FormData(appearance),patch={};for(const key of ['primary','background','foreground'])patch[key]=data.get(key);for(const key of ['fontSize','radius','width','height'])patch[key]=Number(data.get(key));const result=await call('appearance',{theme:patch});applyTheme(result.theme);settingsStatus.textContent='Appearance updated for this session.';}catch(error){showError(error);}};
 document.querySelector('#theme-reset').onclick=async()=>{try{const result=await call('appearance-reset');applyTheme(result.theme);loadAppearance();settingsStatus.textContent='Website theme restored.';}catch(error){showError(error);}};
 document.querySelector('#coaching-form').onsubmit=async event=>{event.preventDefault();const field=document.querySelector('#coaching-code');try{const result=await call('coaching-exchange',{code:field.value});field.value='';document.querySelector('#upload-form').hidden=true;document.querySelector('#capture-use').disabled=true;coachingAvailability(result);document.querySelector('#coaching-status').textContent=`Coaching enabled until ${new Date(result.coachingUntil).toLocaleTimeString()}. Use Actions → Current page → Inspect form and page on each workflow screen.`;}catch(error){field.value='';document.querySelector('#coaching-status').textContent=error.message;}};
-document.querySelector('#assistance-mode').onchange=async event=>{assistanceMode=event.target.value;task++;document.querySelector('#stop').hidden=true;document.querySelector('#save-review').hidden=true;document.querySelector('#review').replaceChildren();await call('cancel');settingsStatus.textContent=assistanceMode==='guide'?'Guide mode highlights fields without changing values.':'Assist mode prepares changes for your approval.';};
+async function setAssistance(value){assistanceMode=value==='guide'?'guide':'assist';document.querySelector('#assistance-mode').value=assistanceMode;document.querySelector('#assistance-label').textContent=assistanceMode==='guide'?'Guide only · highlight fields':'Assist · reviewed changes';task++;document.querySelector('#stop').hidden=true;document.querySelector('#save-review').hidden=true;document.querySelector('#review').replaceChildren();await call('cancel');settingsStatus.textContent=assistanceMode==='guide'?'Guide mode highlights fields without changing values.':'Assist mode prepares changes for your approval.';}
+document.querySelector('#assistance-mode').onchange=event=>setAssistance(event.target.value).catch(showError);
+for(const [id,value]of [['choice-guide','guide'],['choice-prepare','assist']])document.getElementById(id).onclick=async()=>{try{await setAssistance(value);workspace?.setMode('guide');status.textContent=value==='guide'?'Describe what you need; I will show the supported controls without filling them.':'Describe the changes you need; review the proposal before it is applied.';document.querySelector('#message').focus();}catch(error){showError(error);}};
+document.querySelector('#choice-question').onclick=()=>{workspace?.setMode('knowledge');document.querySelector('#message').focus();};
 const replies={guide:null,knowledge:null};
 document.querySelector('#save-review').onclick=async()=>{
  const generation=++task,review=document.querySelector('#review');review.replaceChildren();
@@ -99,19 +100,22 @@ document.querySelector('#save-review').onclick=async()=>{
  }catch(error){showError(error);}
 };
 const clearChat=document.createElement('button');clearChat.type='button';clearChat.textContent='Clear this conversation';settings.append(clearChat);
-clearChat.onclick=async()=>{if(!confirm('Clear both chat tabs in this session? Shared website knowledge and website fields will not be deleted.'))return;try{task++;await call('clear-history');log.replaceChildren();knowledgeLog.replaceChildren();document.querySelector('#review').replaceChildren();for(const channel of ['guide','knowledge']){replies[channel]=null;replyHints[channel].hidden=true;}settingsStatus.textContent='Conversation cleared. Shared knowledge is unchanged.';}catch(error){showError(error);}};
+const resetReview=document.createElement('section');resetReview.id='conversation-reset-review';resetReview.hidden=true;const resetCopy=document.createElement('p');resetCopy.textContent='Start a new conversation? This ends the current private task and clears its chat and file access. Saved pairing, website knowledge and earlier host effects remain.';const resetConfirm=document.createElement('button');resetConfirm.type='button';resetConfirm.textContent='Start new conversation';const resetCancel=document.createElement('button');resetCancel.type='button';resetCancel.textContent='Keep conversation';resetReview.append(resetCopy,resetConfirm,resetCancel);settings.append(resetReview);
+function reviewNewConversation(){loadAppearance();if(!settings.open)settings.showModal();resetReview.hidden=false;resetReview.scrollIntoView({block:'nearest'});resetCancel.focus();}
+clearChat.onclick=reviewNewConversation;document.querySelector('#new-conversation').onclick=reviewNewConversation;resetCancel.onclick=()=>{resetReview.hidden=true;};
+resetConfirm.onclick=async()=>{resetConfirm.disabled=true;try{task++;await call('clear-history');log.replaceChildren();document.querySelector('#review').replaceChildren();for(const channel of ['guide','knowledge']){replies[channel]=null;replyHints[channel].hidden=true;}document.querySelector('#message').value='';document.querySelector('#error-message').textContent='';document.querySelector('#error-banner').hidden=true;resetReview.hidden=true;status.textContent='New conversation started. Saved pairing and host effects remain.';settings.close();workspace?.showChat();}catch(error){showError(error);}finally{resetConfirm.disabled=sessionExpired;}};
 const replyHints={};
 for(const [channel,form] of [['guide','#guide-chat'],['knowledge','#chat']]){
- const hint=document.createElement('button');hint.type='button';hint.hidden=true;hint.setAttribute('aria-label','Cancel reply');hint.onclick=()=>{replies[channel]=null;hint.hidden=true;};document.querySelector(form).prepend(hint);replyHints[channel]=hint;
+ const hint=document.createElement('button');hint.type='button';hint.hidden=true;hint.setAttribute('aria-label','Cancel reply');hint.onclick=()=>{replies[channel]=null;hint.hidden=true;};document.querySelector('#guide-chat').prepend(hint);replyHints[channel]=hint;
 }
 function show(text,channel='guide',role='assistant',id=null) {
- const p=document.createElement('p');p.textContent=text;p.dataset.role=role;
- if(id){const reply=document.createElement('button');reply.type='button';reply.textContent='↩';reply.setAttribute('aria-label',`Reply to ${role} message`);reply.style.cssText='padding:2px 6px;margin-left:6px;font-size:12px';reply.onclick=()=>{replies[channel]=id;replyHints[channel].textContent=`Replying: ${text.slice(0,60)} · ×`;replyHints[channel].hidden=false;document.querySelector(channel==='knowledge'?'#knowledge-message':'#message').focus();};p.append(reply);}
+ const p=document.createElement('p');p.textContent=text;p.dataset.role=role;p.dataset.channel=channel;
+ if(id){const reply=document.createElement('button');reply.type='button';reply.textContent='↩';reply.setAttribute('aria-label',`Reply to ${role} message`);reply.style.cssText='padding:2px 6px;margin-left:6px;font-size:12px';reply.onclick=()=>{workspace?.setMode(channel);replies[channel]=id;replyHints[channel].textContent=`Replying: ${text.slice(0,60)} · ×`;replyHints[channel].hidden=false;document.querySelector('#message').focus();};p.append(reply);}
  (channel==='knowledge'?knowledgeLog:log).append(p);if(!p.closest('[hidden]'))p.scrollIntoView({block:'nearest'});
 }
 document.querySelector('#chat').addEventListener('submit', async event => {
   event.preventDefault(); const field = document.querySelector('#knowledge-message');
-  const button=event.submitter||document.querySelector('#chat button[type=submit]');if(button.disabled)return;button.disabled=true;
+  const button=document.querySelector('#plan');if(button.disabled)return;button.disabled=true;workspace?.showChat();
   try {
     show(field.value,'knowledge','user');knowledgeStatus.textContent='Searching this website’s approved knowledge…';
     const result = await call('ask', { text: field.value,replyTo:replies.knowledge }); show(result.message,'knowledge','assistant',result.messageId); field.value = '';replies.knowledge=null;replyHints.knowledge.hidden=true;
@@ -119,7 +123,7 @@ document.querySelector('#chat').addEventListener('submit', async event => {
     knowledgeStatus.textContent=result.privateTaskId?'Answered from your private task files. End task clears access; temporary passages await 24-hour retention cleanup.':result.kind==='greeting'?'Ready for your knowledge question.':result.kind==='no_evidence'?'No matching evidence found. No page inspection was performed.':'Answered from this embedding’s knowledge. No page inspection was performed.';
   }
   catch(error) { showError(error); }
-  finally{button.disabled=false;}
+  finally{button.disabled=sessionExpired;}
 });
 let task=0;
 let verifiedLearningAvailable=false;
@@ -141,12 +145,12 @@ async function prepare(text,generation,depth=0,repair=0){
     status.textContent=proposal.actions.length?'Review the proposed next step.':'';
     if(proposal.manualNotice){const note=document.createElement('p');note.textContent=proposal.manualNotice;review.append(note);}
     if(proposal.evidence?.length){const source=document.createElement('p');source.textContent='Private sources: '+proposal.evidence.map(e=>e.filename+' · '+e.locator).join('; ');review.append(source);}
-    for(const action of proposal.actions){const p=document.createElement('p');p.dataset.proposedValue='true';p.textContent=action.type==='navigate'?`Open ${action.label} (${action.path})`:action.type==='highlight'?`Show ${action.label}`:`${action.label}: ${action.displayValue||action.value}`;review.append(p);}
+    for(const action of proposal.actions)appendProposedAction(document,review,proposal,action);
     if(proposal.actions.length){
       const warning=document.createElement('p');warning.textContent=assistanceMode==='guide'?'Guidance only. No field values will change.':'Review before filling. Some websites autosave fields. This does not click Save.';review.append(warning);
       const approve=document.createElement('button');approve.textContent=proposal.actions[0].type==='navigate'?'Approve navigation':assistanceMode==='guide'?'Show guidance':'Approve field changes';review.append(approve);
       const reject=document.createElement('button');reject.type='button';reject.textContent='Reject changes';reject.onclick=async()=>{try{await call('reject',{proposalId:proposal.id});task++;review.replaceChildren();document.querySelector('#stop').hidden=true;status.textContent='Changes rejected. Nothing was applied.';}catch(error){showError(error);}};review.append(reject);
-      addReviewEditor(document,review,()=>proposal,{revise:(proposalId,edits)=>call('revise',{proposalId,edits}),onEditing:editing=>{approve.disabled=editing;},onRevised:replacement=>{proposal=replacement;for(const line of review.querySelectorAll('[data-proposed-value]'))line.remove();for(const action of proposal.actions){const line=document.createElement('p');line.dataset.proposedValue='true';line.textContent=`${action.label}: ${action.displayValue||action.value}`;review.prepend(line);}status.textContent='Edited values validated. Review and apply the new proposal.';},onError:showError});
+      addReviewEditor(document,review,()=>proposal,{revise:(proposalId,edits)=>call('revise',{proposalId,edits}),onEditing:editing=>{approve.disabled=editing;},onRevised:replacement=>{proposal=replacement;for(const line of review.querySelectorAll('[data-proposed-value]'))line.remove();for(const action of [...proposal.actions].reverse())appendProposedAction(document,review,proposal,action,{prepend:true});status.textContent='Edited values validated. Review and apply the new proposal.';},onError:showError});
       approve.addEventListener('click',async()=>{
         approve.disabled=true;document.querySelector('#stop').hidden=false;
         try {
@@ -163,7 +167,11 @@ async function prepare(text,generation,depth=0,repair=0){
     }
   }catch(error){renderExecution({stage:'blocked'});if(generation===task)showError(error);}finally{if(generation===task){button.disabled=false;document.querySelector('#stop').hidden=true;}}
 }
-document.querySelector('#guide-chat').addEventListener('submit',async event=>{event.preventDefault();if(document.querySelector('#plan').disabled)return;const text=document.querySelector('#message').value;show(text,'guide','user');document.querySelector('#message').value='';try{if(await taskPanel.sendIfMention(text))return;}catch(error){showError(error);return;}if(/^(?:please\s+)?(?:save|submit)(?:\s+(?:this|the)\s+(?:form|record|draft))?[.!]?$/i.test(text.trim())){document.querySelector('#save-review').onclick();}else prepare(text,++task);});
+document.querySelector('#guide-chat').addEventListener('submit',async event=>{
+ event.preventDefault();if(document.querySelector('#plan').disabled)return;const text=document.querySelector('#message').value;workspace?.showChat();
+ if(workspace?.mode==='knowledge'&&!text.startsWith('@')){if(text.length>2000){showError(new Error('Knowledge questions allow up to 2,000 characters. Shorten this question before sending.'));return;}document.querySelector('#knowledge-message').value=text;document.querySelector('#message').value='';document.querySelector('#chat').requestSubmit();return;}
+ show(text,'guide','user');document.querySelector('#message').value='';try{if(await taskPanel.sendIfMention(text))return;}catch(error){showError(error);return;}if(/^(?:please\s+)?(?:save|submit)(?:\s+(?:this|the)\s+(?:form|record|draft))?[.!]?$/i.test(text.trim())){document.querySelector('#save-review').onclick();}else prepare(text,++task);
+});
 document.querySelector('#inspect').addEventListener('click', async () => {
   const button=document.querySelector('#inspect'),progress=document.querySelector('#inspection-status'),output=document.querySelector('#inspection-result');
   button.disabled=true;button.textContent='Inspecting…';progress.textContent='Inspecting this page and saving its screen map…';output.replaceChildren();output.hidden=true;
@@ -227,11 +235,11 @@ async function recipeReview(recipe,parameters,step,generation,testRunId){
   if(proposal.complete&&testRunId){const test=await call('recipe-test-finish',{recipeId:recipe.id,testRunId});status.textContent=`Task tested: ${test.outcome}. No Save or business verification is implied.`;show(status.textContent);return;}
   show(`${recipe.title} · version ${recipe.version}: ${proposal.message}`);
   status.textContent=proposal.complete?(assistanceMode==='guide'?'Recorded guidance finished. No fields were filled.':'Recorded draft steps verified. Saving remains a separate action.'):'Review the next recorded step.';
-  for(const action of proposal.actions){const line=document.createElement('p');line.dataset.proposedValue='true';line.textContent=action.type==='navigate'?`Open ${action.label}${action.activation?` · ${action.activation} profile`:``}`:action.type==='highlight'?`Show ${action.label}`:`${action.label}: ${action.displayValue||action.value}`;review.append(line);}
+  for(const action of proposal.actions)appendProposedAction(document,review,proposal,action);
   if(proposal.actions.length){
    const approve=document.createElement('button');approve.textContent=assistanceMode==='guide'?'Show recorded guidance':'Approve recorded step';review.append(approve);
    const cancel=document.createElement('button');cancel.type='button';cancel.textContent='Cancel workflow';cancel.onclick=async()=>{try{await call('reject',{proposalId:proposal.id});task++;review.replaceChildren();status.textContent='Recorded workflow cancelled.';}catch(error){showError(error);}};review.append(cancel);
-   addReviewEditor(document,review,()=>proposal,{revise:(proposalId,edits)=>call('revise',{proposalId,edits}),onEditing:editing=>{approve.disabled=editing;},onRevised:replacement=>{proposal={...proposal,...replacement};for(const line of review.querySelectorAll('[data-proposed-value]'))line.remove();for(const action of proposal.actions){const line=document.createElement('p');line.dataset.proposedValue='true';line.textContent=`${action.label}: ${action.displayValue||action.value}`;review.prepend(line);const field=proposal.fields?.find(f=>f.ref===action.ref),steps=recipe.steps.filter(step=>step.field===field?.key);for(const step of steps)if(step.parameter)parameters[step.parameter]=action.value;}status.textContent='Edited recorded values validated. Review again before applying.';},onError:showError});
+   addReviewEditor(document,review,()=>proposal,{revise:(proposalId,edits)=>call('revise',{proposalId,edits}),onEditing:editing=>{approve.disabled=editing;},onRevised:replacement=>{proposal={...proposal,...replacement};for(const line of review.querySelectorAll('[data-proposed-value]'))line.remove();for(const action of proposal.actions){appendProposedAction(document,review,proposal,action,{prepend:true});const field=proposal.fields?.find(f=>f.ref===action.ref),steps=recipe.steps.filter(step=>step.field===field?.key);for(const step of steps)if(step.parameter)parameters[step.parameter]=action.value;}status.textContent='Edited recorded values validated. Review again before applying.';},onError:showError});
    approve.onclick=async()=>{
     approve.disabled=true;
     try{
@@ -243,7 +251,7 @@ async function recipeReview(recipe,parameters,step,generation,testRunId){
    };
   }
  }
- catch(error){status.textContent=`Workflow paused: ${error.message}`;}
+ catch(error){status.textContent=`Workflow paused: ${error.message}`;showError(error);}
 }
 document.querySelector('#recipes-refresh').onclick=async()=>{try{const data=await call('recipes'),list=document.querySelector('#recipe-list');list.replaceChildren();for(const recipe of data.recipes){const item=document.createElement('li'),use=document.createElement('button');item.textContent=`${recipe.title} · ${recipe.status} · v${recipe.version} `;use.textContent=recipe.status==='published'?'Use workflow':'Preview draft';use.onclick=()=>{selectTab(document.querySelector('#tab-guide'));const generation=++task,review=document.querySelector('#review'),form=document.createElement('form');review.replaceChildren();for(const name of [...new Set(recipe.steps.filter(s=>s.action==='fill').map(s=>s.parameter))]){const label=document.createElement('label'),input=document.createElement('input');label.textContent=name.replaceAll('_',' ');input.name=name;input.required=true;input.maxLength=8000;label.append(input);form.append(label);}const prepare=document.createElement('button');prepare.textContent='Review workflow';form.append(prepare);if(coachingEnabled){const test=document.createElement('button');test.type='button';test.textContent='Test task';test.onclick=async()=>{test.disabled=true;try{const run=await call('recipe-test-start',{recipeId:recipe.id,version:recipe.version});await recipeReview(recipe,Object.fromEntries(new FormData(form)),0,generation,run.testRunId);}catch(error){showError(error);}finally{test.disabled=false;}};form.append(test);}form.onsubmit=event=>{event.preventDefault();recipeReview(recipe,Object.fromEntries(new FormData(form)),0,generation);};review.append(form);};item.append(use);list.append(item);}actionStatus.textContent=`${data.recipes.length} permitted workflows available.`;}catch(error){showError(error);}};
 let capturedFile=null,lastUpload=null,uploadOperation=null,previewUrl,reviewBlob;
@@ -255,7 +263,7 @@ function renderDiscovery(report){
 }
 async function discoveryTick(epoch){
  try{const result=await call('discovery-tick',{jobId:discoveryJob});if(epoch!==discoveryEpoch)return;if(result.report)renderDiscovery(result.report);if(result.paused){discoveryStatus.textContent=`Paused: ${result.reason||result.status}`;return;}if(!result.done&&result.report?.status==='running')discoveryTimer=setTimeout(()=>discoveryTick(epoch),300);}
- catch(error){if(epoch===discoveryEpoch)discoveryStatus.textContent=`Discovery paused: ${error.message}`;}
+ catch(error){if(epoch===discoveryEpoch){discoveryStatus.textContent=`Discovery paused: ${error.message}`;showError(error);}}
 }
 document.querySelector('#discovery-preview').onclick=async()=>{try{const result=await call('discovery-scope');document.querySelector('#discovery-paths').value=result.paths.join('\n');discoveryStatus.textContent=`${result.origin}: review ${result.paths.length} candidate routes. Approve only known read-only destinations. ${result.blockedCount} unknown/effectful controls will not be clicked.`;}catch(error){showError(error);}};
 document.querySelector('#discovery-form').onsubmit=async event=>{event.preventDefault();try{clearTimeout(discoveryTimer);const paths=document.querySelector('#discovery-paths').value.split('\n').map(s=>s.trim()).filter(Boolean),report=await call('discovery-start',{paths,maxPages:Number(document.querySelector('#discovery-pages').value)});renderDiscovery(report);const option=document.createElement('option');option.value=report.id;option.textContent=`${report.id.slice(0,8)} · ${report.status}`;discoverySelect.append(option);discoverySelect.value=report.id;discoveryTick(++discoveryEpoch);}catch(error){discoveryStatus.textContent=`Could not start mapping: ${error.message}`;showError(error);}};
@@ -268,19 +276,22 @@ document.querySelector('#open-upload').onclick=openUpload;
 uploadForm.onsubmit=async event=>{event.preventDefault();const button=event.submitter;button.disabled=true;try{const file=capturedFile||document.querySelector('#upload-file').files[0],title=document.querySelector('#upload-title').value;if(!file)throw new Error('Choose a file first.');const fingerprint=`${file.name}:${file.size}:${file.lastModified}:${title}`;if(uploadOperation?.fingerprint!==fingerprint)uploadOperation={fingerprint,id:crypto.randomUUID()};const data=await encodeFile(file);lastUpload=await call('upload-document',{...data,title,sharedConsent:document.querySelector('#upload-consent').checked,operationId:uploadOperation.id});uploadStatus.textContent=`Upload accepted · ${lastUpload.status}. It is searchable only when Ready.`;uploadRefresh.hidden=false;}catch(error){showError(error);}finally{button.disabled=false;}};
 uploadRefresh.onclick=async()=>{try{const result=await call('upload-status',{sourceId:lastUpload.id});uploadStatus.textContent=`Processing: ${result.status}${result.lastError?' · '+result.lastError:''}`;}catch(error){showError(error);}};
 document.querySelector('#upload-file').onchange=()=>{capturedFile=null;uploadOperation=null;};
-const capture=createScreenCapture({onChange:({state,blob})=>{reviewBlob=blob;document.querySelector('#capture-status').textContent=`Screen capture: ${state}. Nothing is uploaded automatically.`;document.querySelector('#capture-start').disabled=['requesting','recording','paused'].includes(state);document.querySelector('#capture-pause').disabled=!['recording','paused'].includes(state);document.querySelector('#capture-pause').textContent=state==='paused'?'Resume':'Pause';document.querySelector('#capture-stop').disabled=!['recording','paused'].includes(state);document.querySelector('#capture-discard').disabled=['idle','discarded'].includes(state);document.querySelector('#capture-use').hidden=!blob;const preview=document.querySelector('#capture-preview');if(previewUrl){URL.revokeObjectURL(previewUrl);previewUrl=null;}preview.hidden=!blob;if(blob){previewUrl=URL.createObjectURL(blob);preview.src=previewUrl;}else preview.removeAttribute('src');}});
-document.querySelector('#capture-start').onclick=()=>capture.start({audio:document.querySelector('#capture-audio').checked}).catch(error=>{document.querySelector('#capture-status').textContent=error.message;});
+const capture=createScreenCapture({onChange:({state,blob})=>{reviewBlob=blob;document.querySelector('#capture-download').hidden=!blob||!coachingEnabled;document.querySelector('#capture-status').textContent=`Screen capture: ${state}. Nothing is uploaded automatically.`;document.querySelector('#capture-start').disabled=['requesting','recording','paused'].includes(state);document.querySelector('#capture-pause').disabled=!['recording','paused'].includes(state);document.querySelector('#capture-pause').textContent=state==='paused'?'Resume':'Pause';document.querySelector('#capture-stop').disabled=!['recording','paused'].includes(state);document.querySelector('#capture-discard').disabled=['idle','discarded'].includes(state);document.querySelector('#capture-use').hidden=!blob;const preview=document.querySelector('#capture-preview');if(previewUrl){URL.revokeObjectURL(previewUrl);previewUrl=null;}preview.hidden=!blob;if(blob){previewUrl=URL.createObjectURL(blob);preview.src=previewUrl;}else preview.removeAttribute('src');}});
+document.querySelector('#capture-start').onclick=()=>actionFeedback.track(capture.start({audio:document.querySelector('#capture-audio').checked})).catch(error=>{document.querySelector('#capture-status').textContent=error.message;showError(error);});
 document.querySelector('#capture-pause').onclick=()=>capture.state()==='paused'?capture.resume():capture.pause();document.querySelector('#capture-stop').onclick=()=>capture.stop();document.querySelector('#capture-discard').onclick=()=>{capturedFile=null;capture.discard();};
 document.querySelector('#capture-use').onclick=()=>{if(!reviewBlob)return;capturedFile=new File([reviewBlob],reviewBlob.type==='video/mp4'?'screen-recording.mp4':'screen-recording.webm',{type:reviewBlob.type});document.querySelector('#upload-title').value||='Screen recording';uploadStatus.textContent='Recording selected locally. Review the sharing checkbox, then Upload for processing.';openUpload();};
+document.querySelector('#capture-download').onclick=()=>{if(!reviewBlob||!coachingEnabled)return;const url=URL.createObjectURL(reviewBlob),link=document.createElement('a');link.href=url;link.download=reviewBlob.type==='video/mp4'?'reviewed-screen-recording.mp4':'reviewed-screen-recording.webm';document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);document.querySelector('#capture-status').textContent='Recording downloaded locally. Upload shared knowledge only in authenticated website management.';};
 window.addEventListener('pagehide',()=>{capture.discard();if(previewUrl)URL.revokeObjectURL(previewUrl);},{once:true});
 const taskPanel=mountTaskPanel({call,showError,show,isExpired:()=>sessionExpired,clearPrivate(){task++;log.replaceChildren();knowledgeLog.replaceChildren();document.querySelector('#knowledge-message').value='';knowledgeStatus.textContent='';document.querySelector('#review').replaceChildren();document.querySelector('#message').value='';document.querySelector('#save-review').hidden=true;for(const key of ['guide','knowledge']){replies[key]=null;replyHints[key].hidden=true;}}});
-try { const config=await call('config');if(Number.isSafeInteger(config.requestTimeoutMs)&&config.requestTimeoutMs>=6000&&config.requestTimeoutMs<=MODEL_SESSION_TIMEOUT_MS)hostRequestTimeoutMs=Math.min(WIDGET_REQUEST_TIMEOUT_MS,config.requestTimeoutMs+5000);document.querySelector('#panel-connection-status').textContent='Panel connected · installation accepted. Workflow access, peer pairing and task files are separate below.';taskPanel.configure(config);applyTheme(config.theme);coachingAvailability(config);verifiedLearningAvailable=config.learningEnabled===true&&config.canVerifyOutcome===true;uploadForm.hidden=true;uploadStatus.textContent='Shared knowledge requires owner or Flolah sign-in in Website configuration. Use Task files for private transaction documents.';document.querySelector('#capture-use').disabled=true;const result = await call('history'); result.messages.forEach(message => show(message.text,message.channel||'guide',message.role,message.id)); }
+workspace=mountWorkspace(document,{onMode:channel=>{for(const key of ['guide','knowledge'])replyHints[key].hidden=key!==channel||!replies[key];}});
+document.querySelector('#workspace-expand').onclick=async()=>{try{const button=document.querySelector('#workspace-expand'),result=await call('presentation',{expanded:button.getAttribute('aria-pressed')!=='true'});button.setAttribute('aria-pressed',String(result.expanded));button.setAttribute('aria-label',result.expanded?'Restore copilot size':'Expand copilot');}catch(error){showError(error);}};
+try { const config=await call('config');if(Number.isSafeInteger(config.requestTimeoutMs)&&config.requestTimeoutMs>=6000&&config.requestTimeoutMs<=MODEL_SESSION_TIMEOUT_MS)hostRequestTimeoutMs=Math.min(WIDGET_REQUEST_TIMEOUT_MS,config.requestTimeoutMs+5000);document.querySelector('#panel-connection-status').textContent='Panel connected · private Tasks, Connections and workflow access have separate lifetimes.';taskPanel.configure(config);applyTheme(config.theme);coachingAvailability(config);verifiedLearningAvailable=config.learningEnabled===true&&config.canVerifyOutcome===true;uploadForm.hidden=true;uploadStatus.textContent='Shared knowledge requires owner or Flolah sign-in in Website configuration. Use Task files for private transaction documents.';document.querySelector('#capture-use').disabled=true;const result = await call('history'); result.messages.forEach(message => show(message.text,message.channel||'guide',message.role,message.id)); }
 catch(error) { showError(error); }
 
 document.querySelector('#discovery-extend').onclick=async()=>{try{const paths=document.querySelector('#discovery-paths').value.split('\n').map(s=>s.trim()).filter(Boolean);renderDiscovery(await call('discovery-extend',{jobId:discoverySelect.value||discoveryJob,paths}));}catch(error){showError(error);}};
 document.querySelector('#discovery-export').onclick=()=>{if(!lastMapReport)return;const link=document.createElement('a'),url=URL.createObjectURL(new Blob([JSON.stringify(lastMapReport,null,2)],{type:'application/json'}));link.href=url;link.download='website-map.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
 
-const accessTimer=setInterval(async()=>{try{coachingAvailability(await call('access'));}catch{coachingAvailability({});}},30000);
+const accessTimer=setInterval(async()=>{try{coachingAvailability(await call('access'));}catch{coachingAvailability({capabilities:{},taskPolicy:{}});}},30000);
 window.addEventListener('pagehide',()=>clearInterval(accessTimer),{once:true});
 
 discoverySelect.onchange=async()=>{try{renderDiscovery(await call('discovery-report',{jobId:discoverySelect.value}));}catch(error){showError(error);}};

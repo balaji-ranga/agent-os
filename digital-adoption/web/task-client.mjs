@@ -113,6 +113,7 @@ export function createTaskClient({
             taskId = message.taskId;
             notify({
               type: 'workflow-proposal',
+              commandId: message.commandId,
               proposal,
               snapshot
             });

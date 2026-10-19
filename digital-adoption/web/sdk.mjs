@@ -11,6 +11,9 @@ import {createTaskClient} from './task-client.mjs';
 
 export async function mount(options) {
   const {serviceUrl,installationToken,theme={},getHostIdentity,getVerifiedOutcome,bindVerifiedSave,getActionOutcome}=options;
+  const layout=options.layout||'floating',dockTarget=options.dockTarget;
+  if(!['floating','docked'].includes(layout)||layout==='docked'&&(!(dockTarget instanceof HTMLElement)||!dockTarget.isConnected||dockTarget.ownerDocument!==document))throw new Error('Docked layout requires an explicit connected host container');
+  let expanded=false;
   if(window.frameElement?.dataset.adoptionObservation==='true')return {updateTheme(){},async destroy(){}};
   let appearance = normalizeTheme(theme);
   let hostAppearance=appearance;
@@ -38,6 +41,7 @@ export async function mount(options) {
   let recordedSteps=[];
   let recordingId,recordingTitle;
   let currentSnapshot = null,currentTaskText='';
+  const hostContext=()=>({title:currentSnapshot?.forms?.[0]?.label||[...document.forms].find(form=>!form.closest('[data-adoption-widget],[data-adoption-private]')&&form.getClientRects().length)?.getAttribute('aria-label')||document.title.slice(0,120),path:location.pathname});
   let taskGeneration=0;
   let guidedQueue=null;
   async function nextGuidance(){
@@ -52,7 +56,7 @@ export async function mount(options) {
   const widgetUrl = new URL('widget.html', service);
   widgetUrl.hash = new URLSearchParams({ parentOrigin: location.origin }).toString();
   frame.src = widgetUrl.href;
-  frame.style.cssText = 'position:fixed;right:20px;bottom:20px;width:360px;height:500px;max-width:calc(100vw - 40px);max-height:80vh;border:1px solid #ccd2df;border-radius:16px;z-index:2147483646;background:white';
+  frame.style.cssText = 'box-sizing:border-box;position:fixed;right:20px;bottom:20px;width:360px;height:500px;max-width:calc(100vw - 40px);max-height:80vh;border:1px solid #ccd2df;border-radius:16px;z-index:2147483646;background:white';
   const launcher = document.createElement('button');
   launcher.dataset.adoptionWidget = 'true'; launcher.type = 'button'; launcher.textContent = 'Help';
   launcher.setAttribute('aria-label','Open help chat'); launcher.hidden = true;
@@ -67,6 +71,9 @@ export async function mount(options) {
     frame.style.maxWidth=`calc(100vw - ${appearance.offset * 2}px)`;
     frame.style.maxHeight=`calc(100dvh - ${appearance.offset * 2}px)`;
     frame.style.background=appearance.background;
+    if(layout==='docked'){
+      frame.style.position='sticky';frame.style.top=`${appearance.offset}px`;frame.style.bottom='auto';frame.style.left='auto';frame.style.right='auto';frame.style.width='100%';frame.style.maxWidth='100%';frame.style.zIndex='1';
+    }else if(expanded){frame.style.width='520px';frame.style.height=`calc(100dvh - ${appearance.offset*2}px)`;}
     launcher.style.background=appearance.primary; launcher.style.color=appearance.onPrimary;
     frame.contentWindow?.postMessage({channel:'flolah-adoption-v1',type:'theme',theme:appearance},service.origin);
   };
@@ -78,7 +85,7 @@ export async function mount(options) {
   const privateClient=createTaskClient({request,service,resumeStore,inspect:task=>inspector.snapshot({task}),hostIdentity:getHostIdentity?async()=>{try{return await request('/v1/renew',{identityToken:await readHostIdentity()});}catch(error){try{await request('/v1/terminate');}finally{expireSession();}throw error;}}:null,onEvent:event=>{
     if(event.type==='task-ended'){taskGeneration++;currentSnapshot=null;currentTaskText='';}
     if(event.type==='workflow-started'){taskGeneration++;currentSnapshot=null;}
-    if(event.type==='workflow-proposal')currentSnapshot=event.snapshot;
+    if(event.type==='workflow-proposal'){currentSnapshot=event.snapshot;event={...event,proposal:{...event.proposal,localReview:inspector.reviewValues(event.proposal.actions,event.proposal.revision)}};}
     frame.contentWindow?.postMessage({channel:'flolah-adoption-v1',type:'private-event',event},service.origin);
   },execute:async (proposal,context={})=>(await execution.execute(proposal,{onProgress:context.onProgress,verifyOutcome:verifyAction,settle:()=>inspector.settle({task:context.task,active:()=>!closed&&(context.active?.()??true)}),active:()=>!closed&&(context.active?.()??true)})).results});
   // The host never sends the bearer credential to the iframe or puts it in a URL.
@@ -95,8 +102,9 @@ export async function mount(options) {
       const ownerOperation=/^(?:discovery-|record-|replay-navigation$|inspect$|recipes$|recipe-plan$|documents$)/.test(message.type);
       if(ownerOperation&&!(await request('/v1/capabilities')).capabilities.coach)throw new Error('Actions requires owner coaching access. Enable a short-lived coaching code in settings.');
       if(/^(task|pair)-/.test(message.type)){result=await privateClient.call(message.type,message);}
-      else if(message.type==='access')result=await request('/v1/capabilities');
-      else if (message.type === 'config') result = {theme:appearance,canVerifyOutcome:typeof getVerifiedOutcome==='function',...await request('/v1/capabilities')};
+      else if(message.type==='access'){try{result=await request('/v1/capabilities');}finally{if(!result?.capabilities?.coach&&['recording','paused'].includes(recorder.state())){recorder.stop();recordedSteps=[];recordingId=null;recordingTitle=null;}}}
+      else if (message.type === 'config') result = {theme:appearance,presentation:{layout,expanded},hostContext:hostContext(),canVerifyOutcome:typeof getVerifiedOutcome==='function',...await request('/v1/capabilities')};
+      else if(message.type==='presentation'){expanded=message.expanded===true;applyAppearance();result={layout,expanded};}
       else if(message.type==='appearance'||message.type==='appearance-reset'){
         appearance=message.type==='appearance-reset'?hostAppearance:normalizeTheme({...appearance,...message.theme});applyAppearance();result={theme:appearance};
       }
@@ -228,11 +236,12 @@ export async function mount(options) {
         }
       }
       else throw new Error('Unsupported operation');
+      if(['plan','recipe-plan','revise'].includes(message.type)&&result?.actions)result={...result,hostContext:hostContext(),localReview:inspector.reviewValues(result.actions,result.revision)};
       if(!closed)frame.contentWindow?.postMessage({ channel: message.channel, id: message.id, result }, service.origin);
     } catch (error) { if(error.code==='SESSION_ACCESS_DENIED')expireSession();if(proposalGeneration===taskGeneration)currentSnapshot=null;if(!closed)frame.contentWindow?.postMessage({ channel: message.channel, id: message.id, error: error.message,code:error.code,outcome:error.outcome,applied: error.results?.filter(r=>r.valueObserved).length||0 }, service.origin); }
   };
   window.addEventListener('message', handler);
-  document.body.append(frame,launcher);
+  (layout==='docked'?dockTarget:document.body).append(frame);document.body.append(launcher);
   frame.addEventListener('load',()=>privateClient.resume().then(out=>{if(out)frame.contentWindow?.postMessage({channel:'flolah-adoption-v1',type:'private-event',event:{type:'pairing-restored',status:out}},service.origin);}).catch(error=>frame.contentWindow?.postMessage({channel:'flolah-adoption-v1',type:'private-event',event:{type:'pairing-offline',reason:error.message}},service.origin)));
   const expireSession=()=>{
     if(!closed){closed=true;visitorAnalytics.destroy();privateClient.close();execution.stop();taskGeneration++;currentSnapshot=null;currentTaskText='';guidedQueue=null;client.interruptRead();recorder.stop();inspector.destroy();client.stop();clearInterval(timer);}

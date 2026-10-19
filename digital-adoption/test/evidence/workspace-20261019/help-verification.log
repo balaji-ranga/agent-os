@@ -1,0 +1,90 @@
+[opensearch/embeddings] provider=local base=http://embeddings:8080/v1 model=Qwen/Qwen3-Embedding-0.6B
+{
+  "status": "passed",
+  "verified": [
+    {
+      "filename": "platform-help-61-platform-help-ui-copilot.md",
+      "sha256": "ab365e6427746af796648dc74f20659fb35592946cdeffe2ebc51af27461720d"
+    },
+    {
+      "filename": "platform-help-62-copilot-coaching.md",
+      "sha256": "ab0227657cf775e27ddf002b136324f4570d9a032498051775b7c72356b0f98f"
+    },
+    {
+      "filename": "platform-help-63-copilot-platform-map.md",
+      "sha256": "b6fc3e850d678355466ee340d8acabf83c37357c267614ee687ee67fce5436cb"
+    },
+    {
+      "filename": "platform-help-64-digital-adoption-websites.md",
+      "sha256": "464c8dff5dcbde8e9bdc77a4311c8039869b92b10079aece31bdcc6a78ce3c23"
+    },
+    {
+      "filename": "platform-help-65-copilot-workflow-connectors.md",
+      "sha256": "eefe3c244db8a04a3ed0a849333acdf7d03c3f27ff8fea062a63a5299838e3cd"
+    },
+    {
+      "filename": "public-guide-run--platform-help-copilot.md",
+      "sha256": "9e886674117f6ab281a8fa0d850579f91d269857f2d97dcc41264dda8fb0d590"
+    },
+    {
+      "filename": "public-guide-systems--copilot-workflows.md",
+      "sha256": "90ff4278e40204d857f7d38f299b67a2d65b4d54e20bb516725f68f65ba9e25a"
+    },
+    {
+      "filename": "public-guide-systems--digital-adoption.md",
+      "sha256": "2a1b5d1a84e52887c2028c1e5153c1bde136804ee33f80b4977bee5c8310d233"
+    }
+  ],
+  "retrieved": [
+    {
+      "filename": "platform-help-65-copilot-workflow-connectors.md",
+      "title": "Flolah Help —Copilot Workflow Connectors Persistent Target Groups And Authorization"
+    },
+    {
+      "filename": "public-guide-systems--digital-adoption.md",
+      "title": "Flolah Public Guide —Digital Adoption website copilots"
+    },
+    {
+      "filename": "platform-help-65-copilot-workflow-connectors.md",
+      "title": "Flolah Help —Copilot Workflow Connectors Persistent Target Groups And Authorization"
+    },
+    {
+      "filename": "platform-help-64-digital-adoption-websites.md",
+      "title": "Flolah Help —Digital Adoption Website Management And Visitor Tasks"
+    },
+    {
+      "filename": "platform-help-65-copilot-workflow-connectors.md",
+      "title": "Flolah Help —Copilot Workflow Connectors Persistent Target Groups And Authorization"
+    },
+    {
+      "filename": "platform-help-65-copilot-workflow-connectors.md",
+      "title": "Flolah Help —Copilot Workflow Connectors Persistent Target Groups And Authorization"
+    },
+    {
+      "filename": "platform-help-64-digital-adoption-websites.md",
+      "title": "Flolah Help —Digital Adoption Website Management And Visitor Tasks"
+    },
+    {
+      "filename": "public-guide-systems--digital-adoption.md",
+      "title": "Flolah Public Guide —Digital Adoption website copilots"
+    },
+    {
+      "filename": "platform-help-64-digital-adoption-websites.md",
+      "title": "Flolah Help —Digital Adoption Website Management And Visitor Tasks"
+    },
+    {
+      "filename": "public-guide-systems--digital-adoption.md",
+      "title": "Flolah Public Guide —Digital Adoption website copilots"
+    },
+    {
+      "filename": "public-guide-run--platform-help-copilot.md",
+      "title": "Flolah Public Guide —Platform Help copilot"
+    },
+    {
+      "filename": "platform-help-64-digital-adoption-websites.md",
+      "title": "Flolah Help —Digital Adoption Website Management And Visitor Tasks"
+    }
+  ],
+  "mapContextRetrievable": true,
+  "scope": "platform help only; no model or visitor action"
+}

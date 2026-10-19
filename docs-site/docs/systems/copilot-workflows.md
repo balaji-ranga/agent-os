@@ -9,7 +9,7 @@ Use a **Connector** node with **Digital Adoption Copilot** to send a workflow st
 ## First working workflow test: Inspect one copilot
 
 1. In Flolah, create or open a workflow. Add a **Connector** node, select **Digital Adoption Copilot**, then choose **Inspect**.
-2. In the intended website's copilot, expand **Task files & paired copilots → Pairing & workflow access**. The website owner must have enabled workflow access for this registration.
+2. In the intended website's copilot, open **Connections**. The website owner must have enabled workflow access for this registration.
 3. Click **Link this copilot to my Flolah workflows** and copy the generated code. Its redemption window is two minutes by default; generate it when the workflow editor is ready.
 4. Return to the node. Paste the code into **Copilot workflow link code**, then click **Link copilot as new group**. To add another separately authorized panel later, select the existing group and use **Add copilot to selected group**.
 5. Select that **Workflow target group** and the website under **Websites**. Keep the default **All authorized active instances on selected websites** for this one-panel test.
@@ -78,3 +78,10 @@ For dependent forms, each new stage uses current controls and policy; the bounde
 continuation stops for unsupported or ambiguous states. A native Save can leave
 fields populated: navigation treats only matching, successfully submitted local
 values as acknowledged; a later edit remains a draft.
+
+
+### Using the copilot workspace
+
+In the website copilot, open **Connections** to create a workflow link code. Peer pairing is optional. In Flolah, add a Copilot connector node and link the code to a new or existing persistent target group, then select the intended website(s). The code authorizes initial linking and expires; the saved target group is reused across runs. Only the workflow user's authorized online browser clients receive commands. Keep those website tabs open. Offline steps fail immediately and are not delivered to a later visitor.
+
+The website **Workflows** tab shows the current run/step/outcome. Its instruction and response also appear in **Chat**. Action Policies still decide whether an effect requires a visitor review or is authorized for autonomous execution. For peer-to-peer handoffs, set up consent in **Connections**, then use `@recipient` in the single Chat composer; do not use workflow linking as peer-sharing consent. Private files and End task are in **Tasks**, separate from the saved workflow target group's lifetime.

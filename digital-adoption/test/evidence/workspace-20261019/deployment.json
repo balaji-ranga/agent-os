@@ -1,0 +1,57 @@
+{
+  "at": "2026-10-19T14:06:25.116066+00:00",
+  "status": "passed",
+  "release": "20261019-workspace-d",
+  "containers": {
+    "flolah-adoption-adoption-1": {
+      "imageId": "sha256:3fcdd2b475af01e131d60612c2ff8c07a0eb32857f19d4447b2461c36cbd5293",
+      "image": "flolah-digital-adoption:20261019-workspace-d",
+      "startedAt": "2026-10-19T14:06:22.820489338Z",
+      "running": true,
+      "health": null
+    },
+    "flolah-adoption-adoption-model-gateway-1": {
+      "imageId": "sha256:1ed7bcc66b1d72a92fea765deb99099cd0d3815f8c0d7c17f615b43a6e4a5122",
+      "image": "flolah-digital-adoption:20261019-immediate-j-gateway",
+      "startedAt": "2026-10-19T11:39:24.214450375Z",
+      "running": true,
+      "health": null
+    },
+    "flolah-adoption-adoption-worker-1": {
+      "imageId": "sha256:7133f95194a1df02b59712754b2b95a254528fa9ece34c4994647497dc052fe0",
+      "image": "flolah-digital-adoption:20261018-owner-workspace-c",
+      "startedAt": "2026-10-18T10:43:45.697774407Z",
+      "running": true,
+      "health": null
+    },
+    "flolah-adoption-adoption-worker-2": {
+      "imageId": "sha256:7133f95194a1df02b59712754b2b95a254528fa9ece34c4994647497dc052fe0",
+      "image": "flolah-digital-adoption:20261018-owner-workspace-c",
+      "startedAt": "2026-10-18T10:43:45.830124253Z",
+      "running": true,
+      "health": null
+    },
+    "agent-os-backend-1": {
+      "imageId": "sha256:fce76e0044c31306a94722994ed5f4ed71299ddbf516ed1c02ca8127c5b6cfe5",
+      "image": "agent-os-backend:adoption-help-20261019-workspace-help-final",
+      "startedAt": "2026-10-19T14:02:17.536828317Z",
+      "running": true,
+      "health": "healthy"
+    },
+    "agent-os-frontend-1": {
+      "imageId": "sha256:bf6aaf311d995a76f6ee4591d21241e07566954a26d83e380ae2d39c8ba54cb0",
+      "image": "agent-os-frontend:adoption-20261019-immediate-j",
+      "startedAt": "2026-10-19T11:40:25.829931383Z",
+      "running": true,
+      "health": "healthy"
+    }
+  },
+  "healthUrlsPassed": 4,
+  "parserWorkersPreserved": true,
+  "sharedCheckerSettingReadOnly": {
+    "enabled": true,
+    "checkerMode": "ollama_reasoning",
+    "checkerMaxTokens": 1536
+  },
+  "gatewayPatch": "Only generic assignment helper and mixed-instruction guard; parent checker/provider image preserved"
+}

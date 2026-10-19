@@ -10,7 +10,7 @@ try{for(const [name,url] of [['local','http://127.0.0.1:4194/customer'],...(proc
  await p.route('**/sdk.mjs',r=>{blocked++;return r.abort();});const start=Date.now();await p.goto(url);await p.getByRole('button',{name:'Retry copilot',exact:true}).waitFor({timeout:12000});
  assert.equal(await p.locator(name==='local'?'#demo-form':'#q').isVisible(),true);assert.equal(blocked,1);
  await p.screenshot({path:new URL(`download-failed-${name}.png`,out).pathname.replace(/^\/C:/,'C:'),fullPage:false});
- await p.unroute('**/sdk.mjs');await p.getByRole('button',{name:'Retry copilot',exact:true}).click();await p.frameLocator('iframe[data-adoption-widget]').locator('#private-task').waitFor({timeout:12000});
+ await p.unroute('**/sdk.mjs');await p.getByRole('button',{name:'Retry copilot',exact:true}).click();await p.frameLocator('iframe[data-adoption-widget]').locator('#panel-connection-status').filter({hasText:/Panel connected/}).waitFor({timeout:12000});
  await p.screenshot({path:new URL(`recovered-${name}.png`,out).pathname.replace(/^\/C:/,'C:'),fullPage:false});assert.equal(publicWrites,0);
  results.push({id:`F13_${name.toUpperCase()}_FAILED_DOWNLOAD_EXPLICIT_RETRY`,status:'passed',blocked,hostRemainedVisible:true,recoveredWithoutHostReload:true,wallMs:Date.now()-start,publicWrites,measurement:'Injected download failure, not an uncontrolled network latency benchmark'});await context.close();
 }}finally{await writeFile(new URL('results.json',out),JSON.stringify({at:new Date().toISOString(),results},null,2));console.log(JSON.stringify(results));await browser.close();}

@@ -15,9 +15,9 @@ try{
   page.on('request',r=>{if(new URL(r.url()).pathname.endsWith('/v1/tasks/upload'))upload={url:r.url(),headers:r.headers(),input:r.postDataJSON()};});
   await page.goto(url);const panel=page.frameLocator('iframe[data-adoption-widget]');await panel.locator('#private-task').waitFor({state:'attached'});
   const launcher=page.getByRole('button',{name:'Open help chat',exact:true});if(await launcher.isVisible())await launcher.click();
-  await panel.locator('#tab-knowledge').click();assert.equal(await panel.locator('#knowledge-upload').isVisible(),false);assert.equal(await panel.locator('#upload-file').isVisible(),false);
+  await panel.locator('#chat-mode').selectOption('knowledge');assert.equal(await panel.locator('#knowledge-upload').isVisible(),false);assert.equal(await panel.locator('#upload-file').isVisible(),false);
   await page.screenshot({path:fileURLToPath(new URL(name+'-knowledge-owner-only.png',output))});results.push({id:name+'_SHARED_UPLOAD_NOT_OFFERED',status:'passed'});
-  await panel.locator('#tab-guide').click();if(!await panel.locator('#private-task').evaluate(e=>e.open))await panel.locator('#private-task>summary').press('Space');
+  await panel.locator('#tab-tasks').click();
   assert.match(await panel.locator('#task-upload-limits').innerText(),/5 seconds.*5.*minute.*20.*64 MiB/s);
   await panel.locator('#transaction-file').setInputFiles({name:'synthetic-upload-controls.txt',mimeType:'text/plain',buffer:Buffer.from('Company: Upload Controls Synthetic\nRegion: Singapore\nNo personal data.')});
   await panel.locator('#task-files li').first().waitFor();assert.equal(await panel.locator('#transaction-file').isDisabled(),true);assert.ok(upload);

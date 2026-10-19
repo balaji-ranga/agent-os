@@ -163,5 +163,15 @@ export function createInspector(document) {
     }
     return typeof field.defaultValue==='string'&&field.value!==field.defaultValue;
   });}
-  return { snapshot, fill, navigate,highlight,hasDraft,settle({active=()=>true,task=''}={}){const controls=[...document.querySelectorAll('input,select,textarea')].filter(e=>!excluded(e)&&e.getClientRects().length),labels=controls.map(label),waiting=controls.filter(e=>e.disabled&&requestedField(task,label(e),labels));return waitForHost({read:()=>({busy:[...document.querySelectorAll('[aria-busy=true]')].filter(e=>!excluded(e)&&e.getClientRects().length).length,ready:!waiting.length||waiting.some(e=>e.isConnected&&!e.disabled)}),ready:state=>!state.busy&&state.ready,active});},submit:submit.submit,setReadOnlyPaths(paths){if(!Array.isArray(paths)||paths.length>100||paths.some(p=>typeof p!=='string'||!/^\/(?!\/)[^?#\\]*$/.test(p)))throw new Error('Invalid read-only route scope');approvedPaths=new Set(paths);},destroy:()=>cleanupHighlight() };
+  function reviewValues(actions,expectedRevision){
+    if(expectedRevision!==revision)return [];
+    return actions.filter(action=>action.type==='fill').flatMap(action=>{
+      const record=references.get(action.ref),e=record?.element;if(!e?.isConnected||!visible(e)||excluded(e))return [];
+      const changed=e.value!==record.value||e.type==='checkbox'&&e.checked!==record.checked||label(e)!==record.label||record.rowIdentity!==rowIdentity(e)||e.options&&JSON.stringify([...e.options].map(o=>[o.value,o.text,o.disabled,o.selected]))!==record.options||record.radio&&JSON.stringify(record.radio.map(r=>[r.value,r.checked,r.disabled,label(r)]))!==record.radioState;
+      let display=e.type==='checkbox'?(e.checked?'Selected':'Cleared'):e.options?[...e.selectedOptions].map(option=>option.text.trim()).join(', '):record.radio?record.radio.filter(option=>option.checked).map(label).join(', '):String(e.value||'');
+      let matches=false;if(!changed){if(e.type==='checkbox')matches=String(e.checked)===action.value;else if(e.type==='select-multiple'){try{matches=JSON.stringify([...e.selectedOptions].map(option=>option.text.trim()).sort())===JSON.stringify(JSON.parse(action.value).sort());}catch{}}else matches=display.trim()===String(action.value).trim();}
+      return [{ref:action.ref,display:changed?'':display.slice(0,300),changed,matches}];
+    });
+  }
+  return { snapshot, fill, navigate,highlight,reviewValues,hasDraft,settle({active=()=>true,task=''}={}){const controls=[...document.querySelectorAll('input,select,textarea')].filter(e=>!excluded(e)&&e.getClientRects().length),labels=controls.map(label),waiting=controls.filter(e=>e.disabled&&requestedField(task,label(e),labels));return waitForHost({read:()=>({busy:[...document.querySelectorAll('[aria-busy=true]')].filter(e=>!excluded(e)&&e.getClientRects().length).length,ready:!waiting.length||waiting.some(e=>e.isConnected&&!e.disabled)}),ready:state=>!state.busy&&state.ready,active});},submit:submit.submit,setReadOnlyPaths(paths){if(!Array.isArray(paths)||paths.length>100||paths.some(p=>typeof p!=='string'||!/^\/(?!\/)[^?#\\]*$/.test(p)))throw new Error('Invalid read-only route scope');approvedPaths=new Set(paths);},destroy:()=>cleanupHighlight() };
 }

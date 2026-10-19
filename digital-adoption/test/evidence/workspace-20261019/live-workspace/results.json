@@ -1,0 +1,47 @@
+{
+  "at": "2026-10-19T14:06:54.672Z",
+  "scope": "Deployed SDK and service on the two approved websites; UI/context/cancellation only, no model request, host edit or form submission",
+  "results": [
+    {
+      "id": "local_CONNECTED_VISITOR_ENTITLEMENTS",
+      "status": "passed",
+      "screenshot": "local-CONNECTED_VISITOR_ENTITLEMENTS.png"
+    },
+    {
+      "id": "local_QUICK_CHOICES_AND_CONTEXT",
+      "status": "passed",
+      "screenshot": "local-QUICK_CHOICES_AND_CONTEXT.png"
+    },
+    {
+      "id": "local_VIEWS_EXPANSION_AND_HOST_VISIBILITY",
+      "status": "passed",
+      "screenshot": "local-VIEWS_EXPANSION_AND_HOST_VISIBILITY.png"
+    },
+    {
+      "id": "local_SHORT_VIEWPORT_COMPOSER_AND_KEYBOARD",
+      "status": "passed",
+      "screenshot": "local-SHORT_VIEWPORT_COMPOSER_AND_KEYBOARD.png"
+    },
+    {
+      "id": "public_CONNECTED_VISITOR_ENTITLEMENTS",
+      "status": "passed",
+      "screenshot": "public-CONNECTED_VISITOR_ENTITLEMENTS.png"
+    },
+    {
+      "id": "public_QUICK_CHOICES_AND_CONTEXT",
+      "status": "passed",
+      "screenshot": "public-QUICK_CHOICES_AND_CONTEXT.png"
+    },
+    {
+      "id": "public_VIEWS_EXPANSION_AND_HOST_VISIBILITY",
+      "status": "passed",
+      "screenshot": "public-VIEWS_EXPANSION_AND_HOST_VISIBILITY.png"
+    },
+    {
+      "id": "public_SHORT_VIEWPORT_COMPOSER_AND_KEYBOARD",
+      "status": "passed",
+      "screenshot": "public-SHORT_VIEWPORT_COMPOSER_AND_KEYBOARD.png"
+    }
+  ],
+  "publicWrites": 0
+}

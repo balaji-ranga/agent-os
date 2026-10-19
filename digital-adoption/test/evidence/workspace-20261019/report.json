@@ -1,0 +1,210 @@
+{
+  "at": "2026-10-19T14:09:28.862497+00:00",
+  "release": "20261019-workspace-d",
+  "result": "passed",
+  "suites": [
+    {
+      "name": "Service / authorization \u00b7 Windows",
+      "artifact": "service-windows.log",
+      "passed": 319,
+      "failed": 0,
+      "scope": "All service regressions; model/provider mocks are labelled.",
+      "repeatedOnLinux": false,
+      "passRate": 100.0
+    },
+    {
+      "name": "Service / authorization \u00b7 VPS Linux",
+      "artifact": "service-linux.log",
+      "passed": 319,
+      "failed": 0,
+      "scope": "Exact final coordinator candidate. Same tests, a separate environment verification.",
+      "repeatedOnLinux": true,
+      "passRate": 100.0
+    },
+    {
+      "name": "New workspace acceptance",
+      "artifact": "results.json",
+      "passed": 18,
+      "failed": 0,
+      "scope": "Actual SDK, DOM, service and WebSocket; deterministic planner, extractor and synthetic identity/policy fixtures.",
+      "repeatedOnLinux": false,
+      "passRate": 100.0
+    },
+    {
+      "name": "Existing form / task regression",
+      "artifact": "../immediate-phase-20261019/workspace-regression/results.json",
+      "passed": 13,
+      "failed": 0,
+      "scope": "13 groups, including 30 varied journeys, nine typed editors and 11 WebSocket steps saving/readback of three local records. Isolated policy adapter.",
+      "repeatedOnLinux": false,
+      "passRate": 100.0
+    },
+    {
+      "name": "Complex controls / frameworks",
+      "artifact": "controls/results.json",
+      "passed": 10,
+      "failed": 0,
+      "scope": "Native controls, dynamic picklists, table, modal, React and Angular state/readback.",
+      "repeatedOnLinux": false,
+      "passRate": 100.0
+    },
+    {
+      "name": "Owner workspace regression",
+      "artifact": "owner/results.json",
+      "passed": 10,
+      "failed": 0,
+      "scope": "Actual owner UI against isolated synthetic owner; lazy loading, pagination, website isolation and retries.",
+      "repeatedOnLinux": false,
+      "passRate": 100.0
+    },
+    {
+      "name": "Deployed workspace \u00b7 two domains",
+      "artifact": "live-workspace/results.json",
+      "passed": 8,
+      "failed": 0,
+      "scope": "Actual deployed local and public Flolah panels; no model call or host edit.",
+      "repeatedOnLinux": false,
+      "passRate": 100.0
+    },
+    {
+      "name": "Deployed upload / isolation",
+      "artifact": "live-upload/browser-results.json",
+      "passed": 8,
+      "failed": 0,
+      "scope": "Synthetic private files on both approved websites; shared upload 403, cooldown 429, End task. No public host submission.",
+      "repeatedOnLinux": false,
+      "passRate": 100.0
+    },
+    {
+      "name": "Bootstrap failure / explicit retry",
+      "artifact": "bootstrap/results.json",
+      "passed": 2,
+      "failed": 0,
+      "scope": "Injected SDK download failure and recovery on both websites; not a latency benchmark.",
+      "repeatedOnLinux": false,
+      "passRate": 100.0
+    },
+    {
+      "name": "Platform Admin entitlement regression",
+      "artifact": "admin-access.log",
+      "passed": 1,
+      "failed": 0,
+      "scope": "Real isolated settings routes: 401/403, persisted Admin control and maker/checker routing. No shared Admin changes.",
+      "repeatedOnLinux": false,
+      "passRate": 100.0
+    }
+  ],
+  "executedWindowsAndBrowserChecks": 389,
+  "failures": 0,
+  "minimumExecutedPassRate": 100.0,
+  "fullPhase12Certified": false,
+  "coverage": [
+    {
+      "feature": "Workspace shell",
+      "implementation": "Chat, Tasks, Workflows, Connections; Actions gated by coaching. Sticky composer and independent scrolling.",
+      "validation": "UX01, UX09\u201311; live-workspace"
+    },
+    {
+      "feature": "Unified conversation",
+      "implementation": "Questions, guidance, replies and @handoff use one composer. Inline New/Clear review.",
+      "validation": "UX02, UX06, UX13"
+    },
+    {
+      "feature": "Quick assistance choices",
+      "implementation": "Show me where / Ask a question / Prepare changes select existing Guide, Knowledge and Assist modes. No automatic effect.",
+      "validation": "UX18; live-workspace"
+    },
+    {
+      "feature": "Context disclosure",
+      "implementation": "Current page/form, source channel, private file count and separate connection/retention scope.",
+      "validation": "UX05, UX14; live-workspace"
+    },
+    {
+      "feature": "Field reviews",
+      "implementation": "Current/proposed display, typed edit/revalidate, reject; current values remain browser-local.",
+      "validation": "UX03, UX14; typed editor and stale-review regression"
+    },
+    {
+      "feature": "Errors and button feedback",
+      "implementation": "Persistent error above composer and in history, explicit dismissal; generic busy/duplicate guard and three-second outcome.",
+      "validation": "UX04; F02/F07 control regression"
+    },
+    {
+      "feature": "Execution transparency",
+      "implementation": "Actual progress stages, elapsed time, Stop and bounded failure; no simulated checker success.",
+      "validation": "T01, T03, R11 existing browser regression; service suite"
+    },
+    {
+      "feature": "Save outcomes",
+      "implementation": "Separate review, validity, host-reported vs verified receipt and unknown outcome without replay.",
+      "validation": "R06, R09, R13 existing browser regression"
+    },
+    {
+      "feature": "Private task files",
+      "implementation": "Upload, parse status, summarize, remove and End task; limits/cooldown retained.",
+      "validation": "UX05, UX07; live-upload; service suite"
+    },
+    {
+      "feature": "Pairing and recovery",
+      "implementation": "Visitor-selected lifetime/inactivity, bilateral confirmation, restore, disconnect and explicit live status.",
+      "validation": "UX06, UX07; service lifecycle suite"
+    },
+    {
+      "feature": "Peer task relay",
+      "implementation": "Named @recipient, sharing consent, sender/recipient conversation traces. Setup stays in Connections.",
+      "validation": "UX06, UX07"
+    },
+    {
+      "feature": "Flolah workflows",
+      "implementation": "Independent linking, persistent target group, run/step/outcome monitor and chat trace; owner teaching previews separate. Earlier completed steps retain their outcome when a later step prepares a review.",
+      "validation": "UX12 two-step activity isolation; R13 WebSocket regression; Admin/service contracts"
+    },
+    {
+      "feature": "Coaching access",
+      "implementation": "Owner grant controls Actions. Revocation hides privileged UI and stops local recording; server rechecks authority.",
+      "validation": "UX08, UX09; service authorization suite"
+    },
+    {
+      "feature": "Screen capture",
+      "implementation": "Explicit start, pause/resume, review, local download and discard. Shared upload requires authenticated management.",
+      "validation": "UX16 uses synthetic canvas capture; real browser permission recertification was not repeated."
+    },
+    {
+      "feature": "Semantic teaching",
+      "implementation": "Named recording, parameterized draft, review, recipe preview and publication validation preserved.",
+      "validation": "UX08; service learning suite. Full fresh-owner publish/replay UAT remains open."
+    },
+    {
+      "feature": "Discovery and shared sources",
+      "implementation": "Current inspection, bounded read-only map job controls, export and owner-only shared ingestion preserved.",
+      "validation": "UX08; owner map-context and service suites. New full-site live crawl not repeated."
+    },
+    {
+      "feature": "Owner onboarding and isolation",
+      "implementation": "Authenticated management outside visitor panel; selected website, persisted descriptions and readiness remain scoped.",
+      "validation": "OWNER_READINESS_UI, OWNER_MAP_CONTEXT; 10 owner UI regressions. Fresh real email/DNS remains open."
+    },
+    {
+      "feature": "Owner governance and analytics",
+      "implementation": "Owner-only pairing governance and opt-in analytics remain in the website console, not visitor preview drawers.",
+      "validation": "Existing server policy/isolation regressions; no new real-visitor analytics acceptance claim."
+    },
+    {
+      "feature": "Appearance and host layout",
+      "implementation": "Font/theme reset, bounded width/height, expand, minimize; docking only into a host-provided container.",
+      "validation": "UX10, UX11, UX15, UX17; live-workspace"
+    },
+    {
+      "feature": "Platform Admin",
+      "implementation": "Authenticated Flolah Admin keeps platform websites and maker/checker controls. Concept-only Admin/error previews are not shipped to visitors.",
+      "validation": "Admin access regression; UX01. No global model settings changed."
+    }
+  ],
+  "limitations": [
+    "Deterministic planner/extractor/policy fixtures establish UI and execution contracts, not new real-model acceptance.",
+    "Existing live Ollama cited-summary timeout and broader Phase 1/2 partial cases remain open; this UX release does not certify them.",
+    "Real Safari/iOS, Android Chrome and full screen-reader checks remain explicitly Deferred.",
+    "Docking requires a host-reserved container. Arbitrary third-party page layout is not rewritten.",
+    "Both approved live website targets were checked without public form submission or laptop exposure."
+  ]
+}

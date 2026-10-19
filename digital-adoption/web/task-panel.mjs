@@ -1,3 +1,4 @@
+import {appendProposedAction} from './review-card.mjs';
 import { encodeFile } from "./files.mjs";
 export function mountTaskPanel({
   call,
@@ -10,14 +11,17 @@ export function mountTaskPanel({
   panel.id = "private-task";
   panel.hidden = true;
   panel.innerHTML = `<summary>Task files & paired copilots</summary><p>Files and extracted values are private to this task. End task clears task history and access immediately. Original uploads are deleted; extracted passages remain in private temporary search storage until its 24-hour retention cleanup. Pairing groups have their own lifetime.</p><label>Transaction file <input id="transaction-file" type="file" accept=".pdf,.docx,.txt,.md,.png,.jpg,.jpeg"></label><div class="row"><button type="button" id="task-summary">Summarize files</button><button type="button" id="task-end">End task</button></div><p id="task-identity"></p><ul id="task-files"></ul><details><summary>Pairing & workflow access</summary><label>Connection group name <input id="pair-name" maxlength="80" value="My paired copilots"></label><label>Pairing lifetime <select id="pair-lifetime"><option value="1">1 hour</option><option value="4" selected>4 hours</option><option value="8">8 hours</option><option value="24">24 hours</option><option value="0">Until revoked on this browser</option></select></label><label>Pairing inactivity <select id="pair-inactivity"><option value="0">No separate inactivity expiry</option><option value="15">15 minutes</option><option value="60">1 hour</option><option value="240">4 hours</option></select></label><p>For pairing, both panels confirm the initial settings. The website owner can later revoke, shorten or extend expiry; you can disconnect at any time. Workflow linking also works with this copilot alone. Saved browser access can reconnect; offline tabs receive nothing and failed actions never replay.</p><button type="button" id="pair-invite">Create pairing code</button><p id="pair-code"></p><form id="pair-join"><label>Code from the other panel<input name="code" autocomplete="off" required maxlength="64"></label><button>Connect</button></form><button type="button" id="pair-refresh">Refresh paired sessions</button><div id="pair-members"></div><button type="button" id="pair-link">Link this copilot to my Flolah workflows</button><p id="pair-link-code"></p><label><input id="relay-consent" type="checkbox"> Share relevant private task context with the recipient selected in chat</label></details><p id="task-state" role="status" aria-live="polite"></p>`;
-  document.querySelector("#guide-chat").before(panel);
-  const state = panel.querySelector("#task-state"),
-    files = panel.querySelector("#task-files"),
+  document.querySelector("#task-content").append(panel);panel.open=true;
+  const connections=panel.querySelector('details');connections.id='pairing-settings';connections.open=true;document.querySelector('#connections-content').append(connections);
+  const pairState=document.createElement('p');pairState.id='pair-state';pairState.setAttribute('role','status');pairState.textContent='No connection status loaded. Peer pairing and Flolah workflow linking are separate.';connections.append(pairState);
+  const query=selector=>document.querySelector(selector);
+  const state = query("#task-state"),
+    files = query("#task-files"),
     composer = document.querySelector("#message"),
     log = document.querySelector("#log");
-  const uploadNotice=document.createElement('p');uploadNotice.id='task-upload-limits';panel.querySelector('#transaction-file').closest('label').after(uploadNotice);
-  let uploadLimits={},uploadEnabled=false,uploadTimer;
-  const coolUpload=seconds=>{const input=panel.querySelector('#transaction-file');input.disabled=true;clearTimeout(uploadTimer);uploadTimer=setTimeout(()=>{input.disabled=!uploadEnabled;},Math.min(seconds*1000,2147483647));};
+  const uploadNotice=document.createElement('p');uploadNotice.id='task-upload-limits';query('#transaction-file').closest('label').after(uploadNotice);
+  let uploadLimits={},uploadEnabled=false,uploadTimer,uploadBusy=false,uploadUntil=0;
+  const coolUpload=seconds=>{const input=query('#transaction-file');input.disabled=true;uploadUntil=Date.now()+seconds*1000;clearTimeout(uploadTimer);uploadTimer=setTimeout(()=>{input.disabled=!uploadEnabled||uploadBusy;},Math.min(seconds*1000,2147483647));};
   const mentions = document.createElement("div");
   mentions.id = "paired-mentions";
   mentions.hidden = true;
@@ -46,7 +50,7 @@ export function mountTaskPanel({
   };
   const renderTask = (t) => {
     active = true;
-    panel.querySelector("#task-identity").textContent = `Task ID: ${t.taskId}`;
+    query("#task-identity").textContent = `Task ID: ${t.taskId}`;
     files.replaceChildren();
     for (const f of t.files) {
       const li = document.createElement("li");
@@ -68,13 +72,13 @@ export function mountTaskPanel({
     if(!active||refreshingTask)return;
     refreshingTask=true;try{const task=await call('task-status');if(active)renderTask(task);}finally{refreshingTask=false;}
   };
-  panel.querySelector("#transaction-file").onchange = () =>
+  query("#transaction-file").onchange = () =>
     run(async () => {
-      const input = panel.querySelector("#transaction-file"),
+      const input = query("#transaction-file"),
         file = input.files[0];
       if (!file) return;
       if(file.size>(uploadLimits.fileBytes||16777216))throw new Error('This file exceeds this website’s task file size limit.');
-      input.disabled=true;
+      input.disabled=true;uploadBusy=true;
       try{
       state.textContent = "Uploading private transaction file…";
       const data = await encodeFile(file);
@@ -92,9 +96,9 @@ export function mountTaskPanel({
         3000,
       );
       coolUpload(Math.ceil((uploadLimits.cooldownMs||0)/1000));
-      }catch(error){if(error.retryAfterSeconds)coolUpload(error.retryAfterSeconds);else input.disabled=!uploadEnabled;throw error;}
+      }catch(error){if(error.retryAfterSeconds)coolUpload(error.retryAfterSeconds);input.value='';throw error;}finally{uploadBusy=false;input.disabled=!uploadEnabled||Date.now()<uploadUntil;}
     });
-  panel.querySelector("#task-summary").onclick = () =>
+  query("#task-summary").onclick = () =>
     run(async () => {
       const out = await call("task-summary");
       show(out.message);
@@ -107,16 +111,16 @@ export function mountTaskPanel({
     files.replaceChildren();
     state.textContent =
       "Task ended. Private files, instructions and extracted context cleared. Saved pairing is separate.";
-    panel.querySelector("#transaction-file").value = "";
-    panel.querySelector("#relay-consent").checked = false;
-    panel.querySelector("#task-identity").textContent = "";
+    query("#transaction-file").value = "";
+    query("#relay-consent").checked = false;
+    query("#task-identity").textContent = "";
     clearPrivate();
     for (const trace of safeTraces.slice(-20)) show(trace);
     workflows.clear();
     document.querySelector("#plan").disabled = isExpired();
     document.querySelector("#stop").hidden = true;
   };
-  panel.querySelector("#task-end").onclick = () =>
+  query("#task-end").onclick = () =>
     run(async () => {
       await call("task-end");
       safeTraces.length = 0;
@@ -129,12 +133,12 @@ export function mountTaskPanel({
       if (checkingPresence || document.hidden || isExpired()) return;
       checkingPresence = true;
       try { await pairs(); }
-      catch { members = members.map(m => ({...m, active:false})); mentions.replaceChildren(); mentions.hidden = true; state.textContent = 'Pairing presence unavailable. Refresh or reconnect before sending.'; }
+      catch { members = members.map(m => ({...m, active:false})); mentions.replaceChildren(); mentions.hidden = true; pairState.textContent = 'Pairing presence unavailable. Refresh or reconnect before sending.'; }
       finally { checkingPresence = false; }
     }, 10000);
     if (!pairing && !out.pending?.length) { clearInterval(presenceTimer); presenceTimer = null; }
     members = out.members || [];
-    const list = panel.querySelector("#pair-members");
+    const list = query("#pair-members");
     list.replaceChildren();
     for (const pending of out.pending || []) {
       const row = document.createElement("p");
@@ -163,7 +167,7 @@ export function mountTaskPanel({
       list.append(row);
     }
     const others = members.filter((m) => m.instanceId !== out.instanceId);
-    state.textContent = out.groupId
+    pairState.textContent = out.groupId
       ? `${out.name || "Paired group"} · ${out.groupId} · ${others.filter((m) => m.active).length} counterpart(s) online · ${out.workflowLinked ? "linked to Flolah user" : "not linked to workflows"} · ${out.expiresAt ? "expires " + new Date(out.expiresAt).toLocaleString() : "until revoked"}`
       : "No connected group. Pair for peer handoffs, or link this copilot directly to Flolah workflows.";
     mentions.replaceChildren();
@@ -186,19 +190,19 @@ export function mountTaskPanel({
     return out;
   };
   window.addEventListener('pagehide', () => { clearInterval(presenceTimer); clearInterval(timer); });
-  panel.querySelector("#pair-invite").onclick = () =>
+  query("#pair-invite").onclick = () =>
     run(async () => {
       const out = await call("pair-invite", {
-        name: panel.querySelector("#pair-name").value,
-        lifetimeHours: Number(panel.querySelector("#pair-lifetime").value),
+        name: query("#pair-name").value,
+        lifetimeHours: Number(query("#pair-lifetime").value),
         inactivityMinutes: Number(
-          panel.querySelector("#pair-inactivity").value,
+          query("#pair-inactivity").value,
         ),
       });
-      panel.querySelector("#pair-code").textContent =
+      query("#pair-code").textContent =
         `${out.code} · expires ${new Date(out.expiresAt).toLocaleTimeString()}. Enter in the other panel and confirm the displayed lifetime in both.`;
     });
-  panel.querySelector("#pair-join").onsubmit = (event) => {
+  query("#pair-join").onsubmit = (event) => {
     event.preventDefault();
     run(async () => {
       const input = event.target.elements.code;
@@ -207,11 +211,11 @@ export function mountTaskPanel({
       await pairs();
     });
   };
-  panel.querySelector("#pair-refresh").onclick = () => run(pairs);
-  panel.querySelector("#pair-link").onclick = () =>
+  query("#pair-refresh").onclick = () => run(pairs);
+  query("#pair-link").onclick = () =>
     run(async () => {
-      const out = await call("pair-link",{name:panel.querySelector("#pair-name").value,lifetimeHours:Number(panel.querySelector("#pair-lifetime").value),inactivityMinutes:Number(panel.querySelector("#pair-inactivity").value)});
-      panel.querySelector("#pair-link-code").textContent =
+      const out = await call("pair-link",{name:query("#pair-name").value,lifetimeHours:Number(query("#pair-lifetime").value),inactivityMinutes:Number(query("#pair-inactivity").value)});
+      query("#pair-link-code").textContent =
         `${out.code} · expires ${new Date(out.expiresAt).toLocaleTimeString()}. In Flolah, link this code to a new or selected existing workflow target group. Pairing is optional; peer handoffs need separate bilateral confirmation.`;
     });
   function structuralSummary(observed) {
@@ -233,9 +237,9 @@ export function mountTaskPanel({
         throw new Error(
           "Select an online paired recipient using @ in chat. Nothing was sent.",
         );
-      if (!panel.querySelector("#relay-consent").checked)
+      if (!query("#relay-consent").checked)
         throw new Error(
-          "Select private-context sharing consent in Task files & paired copilots before sending.",
+          "Select private-context sharing consent in Connections before sending.",
         );
       const out = await call("task-relay", {
         targetId: target[0].instanceId,
@@ -253,15 +257,24 @@ export function mountTaskPanel({
       panel.hidden = !Object.values(config.taskPolicy || {}).some(
         (v) => v === true,
       );
-      panel.querySelector("#transaction-file").disabled =
-        !config.taskPolicy?.attachments;
-      panel.querySelector("#pair-invite").disabled =
+      query("#transaction-file").disabled =
+        !config.taskPolicy?.attachments||uploadBusy||Date.now()<uploadUntil;
+      query("#pair-invite").disabled =
         !config.taskPolicy?.pairing;
-      panel.querySelector("#pair-link").disabled = !config.taskPolicy?.workflow;
+      query("#pair-link").disabled = !config.taskPolicy?.workflow;
+      const policy=config.taskPolicy||{},hasConnections=policy.pairing===true||policy.workflow===true;
+      for(const id of ['pair-invite','pair-join'])query('#'+id).hidden=policy.pairing!==true;
+      for(const id of ['pair-link','pair-link-code'])query('#'+id).hidden=policy.workflow!==true;
+      query('#relay-consent').closest('label').hidden=policy.pairing!==true;
+      query('#transaction-file').closest('label').hidden=!uploadEnabled;uploadNotice.hidden=!uploadEnabled;
+      query('#task-summary').hidden=!uploadEnabled;query('#task-summary').disabled=!uploadEnabled;
+      connections.hidden=!hasConnections;
+      if(!hasConnections){clearInterval(presenceTimer);presenceTimer=null;members=[];mentions.replaceChildren();mentions.hidden=true;}
+
     },
     event(event) {
       if (event.type === "pairing-restored") {
-        panel.open=true;panel.querySelector('details').open=true;
+        panel.open=true;connections.open=true;
         renderPairs(event.status);
         return;
       }
@@ -270,8 +283,8 @@ export function mountTaskPanel({
         members = [];
         mentions.replaceChildren();
         mentions.hidden = true;
-        panel.querySelector("#pair-members").replaceChildren();
-        state.textContent = event.reason;
+        query("#pair-members").replaceChildren();
+        pairState.textContent = event.reason;
         pairing = false;
         return;
       }
@@ -294,7 +307,8 @@ export function mountTaskPanel({
         article.append(incoming, progress);
         log.append(article);
         article.scrollIntoView({ block: "nearest" });
-        workflows.set(event.commandId, { article, progress, title });
+        const activity=document.createElement('article'),activityTitle=document.createElement('p'),activityProgress=document.createElement('p');activityTitle.textContent=title;activityProgress.textContent='Running · '+event.action;activity.append(activityTitle,activityProgress);document.querySelector('#workflow-empty')?.remove();document.querySelector('#workflow-activity').append(activity);while(document.querySelector('#workflow-activity').children.length>20)document.querySelector('#workflow-activity').firstElementChild.remove();
+        workflows.set(event.commandId, { article, progress, title,activityProgress });
         state.textContent = `Workflow ${event.action} is running. End task cancels remaining work.`;
         refreshTask().catch(showError);
         return;
@@ -308,6 +322,7 @@ export function mountTaskPanel({
               ? structuralSummary(event.result?.observed)
               : event.result?.message || "";
         if (item) {
+          item.activityProgress.textContent=event.ok?`Completed · ${event.outcome||'effect observed'}`:`Stopped · ${event.code||'outcome unknown'}`;
           item.progress.textContent = event.ok
             ? `Completed (${event.outcome||"effect observed"}).\n${summary || "Requested step completed. Business save verification is separate."}`
             : `Step stopped (${event.code||"execution failed"}). ${item.localFailure||'Inspect the host before retrying; completed changes remain.'}`;
@@ -320,6 +335,7 @@ export function mountTaskPanel({
         state.textContent = event.ok
           ? "Workflow step completed."
           : "Workflow step failed or outcome unknown.";
+        if(!event.ok)showError(Object.assign(new Error('Workflow step stopped. Inspect the host before retrying; earlier effects remain.'),{code:event.code}));
         return;
       }
       if (event.type === "task-ended") {
@@ -335,14 +351,7 @@ export function mountTaskPanel({
       if (event.type === "workflow-proposal") {
         const review = document.querySelector("#review");
         review.replaceChildren();
-        for (const action of event.proposal.actions) {
-          const line = document.createElement("p");
-          line.textContent =
-            action.type === "navigate"
-              ? `Open ${action.label}`
-              : `${action.label}: ${action.displayValue||action.value}`;
-          review.append(line);
-        }
+        for(const action of event.proposal.actions)appendProposedAction(document,review,event.proposal,action);
         if (event.proposal.actions.length) {
           review.append(
             button("Approve prepared changes", async () => {
@@ -363,6 +372,7 @@ export function mountTaskPanel({
             }),
           );
         }
+        const current=workflows.get(event.commandId);if(current?.activityProgress?.isConnected)current.activityProgress.textContent='Waiting for your field review in Chat';
         show(event.proposal.message);
       }
     },
