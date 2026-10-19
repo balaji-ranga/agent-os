@@ -27,6 +27,7 @@ export function parseAssistantResponse(content,snapshot){
    if(action.select!==undefined&&(action.type!=='fill'||field?.type!=='combobox'||typeof action.select!=='boolean'||action.select===false&&action.query!==undefined))throw new Error('invalid_lookup_mode');
    if(action.query!==undefined&&(action.type!=='fill'||field?.type!=='combobox'||typeof action.query!=='string'||!action.query.trim()||action.query.length>160))throw new Error('invalid_picklist_query');
    if(action.type==='fill'&&(typeof action.value!=='string'||action.value.length>8000||field.type==='checkbox'&&!['true','false'].includes(action.value)))throw new Error('invalid_field_value');
+   if(action.type==='fill'&&!field.choices&&['select-one','radio'].includes(field.type))throw Object.assign(new Error('unobserved_choices'),{fieldRef:field.ref});
    if(action.type==='fill'&&field.choices&&['select-one','radio'].includes(field.type)){const value=resolveChoice(action.value,field.choices);if(value===null)throw Object.assign(new Error('unknown_or_ambiguous_choice'),{fieldRef:field.ref});action.value=value;}
   }
  }

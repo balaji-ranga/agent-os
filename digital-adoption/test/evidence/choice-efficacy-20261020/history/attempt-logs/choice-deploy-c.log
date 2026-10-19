@@ -1,0 +1,9 @@
+Traceback (most recent call last):
+  File "/opt/flolah-digital-adoption/releases/20261020-choice-c/deploy/prepare-immediate-phase.py", line 29, in <module>
+    run(['docker','run','--rm','--network','none','--entrypoint','sh','flolah-immediate-tests:'+release,'-c','node --test --test-concurrency=2 test/*.test.mjs'],'linux-tests.log')
+  File "/opt/flolah-digital-adoption/releases/20261020-choice-c/deploy/prepare-immediate-phase.py", line 21, in run
+    with (bundle/name).open('w') as log:subprocess.run(args,check=True,stdout=log,stderr=subprocess.STDOUT)
+                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib64/python3.12/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['docker', 'run', '--rm', '--network', 'none', '--entrypoint', 'sh', 'flolah-immediate-tests:20261020-choice-c', '-c', 'node --test --test-concurrency=2 test/*.test.mjs']' returned non-zero exit status 1.

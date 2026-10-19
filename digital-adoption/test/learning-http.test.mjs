@@ -30,7 +30,7 @@ test('HTTP coaching/publication/recipe approvals preserve role, session, version
   await post('/v1/approve',{id:reviewA.id,revision:1,approved:true},b,403);
   learning.repair(owner,{id:draft.id,version:2,steps:[{action:'fill',path:'/customer',field:'customer_name',parameter:'new_company'}]});
   await post('/v1/approve',{id:reviewA.id,revision:1,approved:true},a,403);
-  const guide=await post('/v1/plan',{text:'Guide the customer field',snapshot,mode:'guide'},b);assert.equal(guide.actions[0].type,'highlight');assert.equal(Object.hasOwn(guide.actions[0],'value'),false);
+  const guide=await post('/v1/plan',{text:'Guide the customer field',snapshot,mode:'guide'},b);assert.equal(guide.actions[0].type,'highlight');assert.match(guide.message,/Guide only is active/);assert.match(guide.message,/Prepare changes/);assert.equal(Object.hasOwn(guide.actions[0],'value'),false);
   const approved=await post('/v1/approve',{id:guide.id,revision:1,approved:true},b);assert.ok(approved.actions.every(action=>action.type==='highlight'));
  }finally{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));repository.close();}
 });

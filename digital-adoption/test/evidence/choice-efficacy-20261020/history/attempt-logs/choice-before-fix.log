@@ -1,0 +1,6 @@
+FAIL C02_NATIVE_SHORT_FORM_REVIEW_AND_APPLY_WITHOUT_SAVE {"id":"fd57a1b6-4fd4-4203-9542-d3cb4ad99bec","revision":1,"message":"The proposed choice does not match the requested observed option. No substitution was approved; clarify the available choices.","actions":[],"expiresAt":1792451499837,"fields":[{"ref":"r1f0","label":"Shipping method","type":"select-one","required":false,"key":"shipping_method","form":"demo-form","choices":["Choose","Standard","Express"]}],"matchedWorkflows":[],"messageId":"c6c1fdeb-2428-4329-a99a-b166e489e69f"}
++ actual - expected
+
++ undefined
+- 'Express'
+

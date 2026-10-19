@@ -20,6 +20,12 @@ export function readOnlyIntent(text) {
       ))
   );
 }
+// Only an explicit user request authorizes fictional draft values. Document
+// passages never call this helper as the request or grant execution authority.
+export function syntheticDataIntent(text){
+ if(typeof text!=='string'||readOnlyIntent(text)||/\b(?:do not|don't|never)\s+(?:use|generate|create|fill|enter|provide)\b[^.!;]*\b(?:dummy|synthetic|mock|sample|fictional)\b/i.test(text))return false;
+ return /^\s*(?:(?:please|can you|could you|i want you to|i would like you to)\s+)?(?:fill|populate|generate|create|prepare|enter|use|provide)\b/i.test(text)&&/\b(?:dummy|synthetic|mock|sample|fictional)\s+(?:data|values?|details?|entries|records?)\b/i.test(text);
+}
 export function booleanIntent(text, field) {
   const name = String(field.label).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const pattern = new RegExp(
@@ -31,7 +37,8 @@ export function booleanIntent(text, field) {
     ? String(!/^(?:uncheck|deselect|untick|clear|disable)$/i.test(match[2]))
     : null;
 }
-export function groundedValue(value, field, texts) {
+export function groundedValue(value, field, texts, {synthetic=false}={}) {
+  if(synthetic&&field&&["text","textarea","email","tel","url","number","date","time","datetime-local","month","week","checkbox","select-one","radio"].includes(field.type)){if(field.choices)return field.choices.includes(value);if(field.type==="checkbox")return ["true","false"].includes(value);return typeof value==="string"&&value.length<=8000;}
   if (
     texts.some((text) =>
       String(text).toLowerCase().includes(String(value).toLowerCase()),

@@ -1,0 +1,18 @@
+{
+  "marker": "Choice UAT 1792452353062",
+  "records": [
+    {
+      "id": "12ceaf2c-098b-4cc7-a001-3d628699cf1b",
+      "path": "/customer",
+      "operationId": "843441fa-769e-46b9-af50-4056fdf4f19c",
+      "values": {
+        "shipping_method": "express",
+        "company_name": "Choice UAT 1792452353062",
+        "contact_email": "choice.uat@example.test",
+        "region": "Singapore"
+      },
+      "createdAt": "2026-10-19T23:26:06.667Z"
+    }
+  ],
+  "independentReadback": true
+}

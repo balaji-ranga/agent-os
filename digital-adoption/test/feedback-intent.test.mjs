@@ -10,7 +10,7 @@ const snapshot = {
   revision: 1,
   path: "/customer",
   fields: [
-    { ref: "r1f0", label: "Shipping method", type: "select-one" },
+    { ref: "r1f0", label: "Shipping method", type: "select-one", choices: ["Standard", "Express"] },
     { ref: "r1f1", label: "Include gift wrap", type: "checkbox" },
   ],
 };
@@ -44,6 +44,7 @@ test("F04: mixed dropdown/checkbox request reaches semantic planning with both f
     ["Express", "true"],
   );
   assert.equal(task.observed.fields.length, 2);
+  assert.deepEqual(task.observed.fields[0].choices,["Standard","Express"]);
   assert.equal(
     booleanIntent("select Include gift wrap.", snapshot.fields[1]),
     "true",

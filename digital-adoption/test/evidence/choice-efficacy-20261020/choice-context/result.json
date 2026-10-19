@@ -1,0 +1,14 @@
+{
+  "at": "2026-10-19T23:25:22.416Z",
+  "results": [
+    {
+      "id": "CHOICE_CONTEXT",
+      "status": "passed",
+      "automaticLabelsExcluded": true,
+      "unrelatedChoiceLabelsExcluded": true,
+      "requestedLabelsAvailable": true,
+      "wholeFormLabelsAvailable": true,
+      "currentFieldValuesExcluded": true
+    }
+  ]
+}

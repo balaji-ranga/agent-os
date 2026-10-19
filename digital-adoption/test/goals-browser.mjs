@@ -18,7 +18,7 @@ import {createControlPlane} from '../src/control-plane.mjs';
 import {createManagement} from '../src/management.mjs';
 import {createSourceMap} from '../src/source-map.mjs';
 const {chromium}=await import(process.env.ADOPTION_PLAYWRIGHT_MODULE||'./frameworks/node_modules/playwright/index.mjs');
-const out=new URL('./evidence/goal-plans-20261020/browser/',import.meta.url);await mkdir(out,{recursive:true});
+const out=new URL(process.env.ADOPTION_BROWSER_EVIDENCE||'./evidence/goal-plans-20261020/browser/',import.meta.url);await mkdir(out,{recursive:true});
 const repo=openRepository(),authority=new SessionAuthority({repository:repo,development:true}),origin='http://127.0.0.1:4194',owner={id:'synthetic-owner',organizationId:'synthetic-org',role:'owner'},admin={id:'synthetic-admin',organizationId:'platform',role:'platform_admin'};
 const install=authority.registerApproved({embeddingId:'immediate-local',origins:[origin],expiresAt:Date.now()+3_600_000});
 // Explicit test fixture, not evidence of unseeded owner onboarding.

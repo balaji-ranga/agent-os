@@ -1,11 +1,10 @@
 {
-  "at": "2026-10-19T18:25:48.472650+00:00",
-  "release": "20261020-goals-r",
-  "baseCommit": "9b4aef0bef16f8c36364b7498b2a71149278d466",
-  "scope": "Goal plans/multi-step tasks plus targeted existing regression. Linux repeats the same service checks and is not counted twice. Historical failed attempts are retained and excluded from the final-source denominator.",
+  "at": "2026-10-19T23:33:15.328785+00:00",
+  "release": "20261020-choice-e",
+  "baseCommit": "2ec34db7de9055b5f8bb2839fb3b5389c3aaa9ab",
   "summary": {
-    "total": 431,
-    "passed": 431,
+    "total": 448,
+    "passed": 448,
     "failed": 0,
     "partial": 0,
     "deferred": 0,
@@ -13,24 +12,345 @@
   },
   "suites": [
     {
-      "name": "Service and contract regression",
-      "type": "Deterministic / local HTTP",
-      "total": 371,
-      "passed": 371,
+      "name": "Service/contract regression",
+      "method": "Deterministic and local HTTP",
+      "path": "../choice-efficacy-20261020/logs/service-windows.log",
+      "total": 377,
+      "passed": 377,
+      "failed": 0,
+      "partial": 0,
+      "deferred": 0
+    },
+    {
+      "name": "Live new scenarios",
+      "method": "Actual deployed models/registrations",
+      "path": "../choice-efficacy-20261020/live/results.json",
+      "total": 10,
+      "passed": 10,
       "failed": 0,
       "partial": 0,
       "deferred": 0,
-      "path": "logs/service-tests-windows.log"
+      "cases": [
+        {
+          "id": "C01_NATIVE_TYPO_REVIEW_REJECT_NO_EFFECT",
+          "status": "passed",
+          "detail": {
+            "input": "expres",
+            "reviewed": "Express",
+            "rejected": true,
+            "hostUnchanged": true
+          },
+          "elapsedMs": 2875,
+          "screenshot": "C01_NATIVE_TYPO_REVIEW_REJECT_NO_EFFECT.png"
+        },
+        {
+          "id": "C02_NATIVE_SHORT_FORM_REVIEW_AND_APPLY_WITHOUT_SAVE",
+          "status": "passed",
+          "detail": {
+            "input": "exp",
+            "reviewed": "Express",
+            "hostValue": "express",
+            "saved": false
+          },
+          "elapsedMs": 2934,
+          "screenshot": "C02_NATIVE_SHORT_FORM_REVIEW_AND_APPLY_WITHOUT_SAVE.png"
+        },
+        {
+          "id": "C03_AMBIGUOUS_SHORT_FORM_ASKS_WITHOUT_CHANGE",
+          "status": "passed",
+          "detail": {
+            "input": "exp",
+            "actualOptions": [
+              "Express",
+              "Expedited"
+            ],
+            "clarification": "The proposed choice does not match the requested observed option. No substitution was approved; clarify the available choices."
+          },
+          "elapsedMs": 3986,
+          "screenshot": "C03_AMBIGUOUS_SHORT_FORM_ASKS_WITHOUT_CHANGE.png"
+        },
+        {
+          "id": "C04_UNSUPPORTED_OPTION_DOES_NOT_PICK_NEAREST_ARBITRARILY",
+          "status": "passed",
+          "detail": {
+            "input": "Teleportation",
+            "clarification": "The requested shipping method 'Teleportation' is not available in the observed options. The available choices are 'Choose', 'Standard', and 'Express'. Please select one of these options or clarify if you would like to proceed with a different choice.\nI can highlight 1 target for you. No values will be changed."
+          },
+          "elapsedMs": 5322,
+          "screenshot": "C04_UNSUPPORTED_OPTION_DOES_NOT_PICK_NEAREST_ARBITRARILY.png"
+        },
+        {
+          "id": "C05_DYNAMIC_LOADED_PICKLIST_CORRELATES_TYPO_AND_SHORT_FORM",
+          "status": "passed",
+          "detail": {
+            "input": "Orhcid Trdg",
+            "freshObservedResult": "Orchid Trading",
+            "actualSelectedIdVerified": true,
+            "saved": false
+          },
+          "elapsedMs": 8036,
+          "screenshot": "C05_DYNAMIC_LOADED_PICKLIST_CORRELATES_TYPO_AND_SHORT_FORM.png"
+        },
+        {
+          "id": "C06_PUBLIC_OTHER_DOMAIN_SHORT_FORM_MAPPING",
+          "status": "passed",
+          "detail": {
+            "input": "std",
+            "observedChoice": "stdio",
+            "domain": "flolah.cloud",
+            "saved": false
+          },
+          "elapsedMs": 3242,
+          "screenshot": "C06_PUBLIC_OTHER_DOMAIN_SHORT_FORM_MAPPING.png"
+        },
+        {
+          "id": "C07_SAME_FORM_GOAL_CORRECTS_CHOICE_AND_SAVES_AFTER_REVIEWS",
+          "status": "passed",
+          "detail": {
+            "input": "exp",
+            "resolved": "Express",
+            "savedHostValue": "express",
+            "approvals": 2,
+            "saves": 1,
+            "sameForm": true,
+            "independentReadback": true
+          },
+          "elapsedMs": 14516,
+          "screenshot": "C07_SAME_FORM_GOAL_CORRECTS_CHOICE_AND_SAVES_AFTER_REVIEWS.png"
+        },
+        {
+          "id": "C08_VISIBLE_MENU_ITEM_POINTING_DOES_NOT_CLICK",
+          "status": "passed",
+          "detail": {
+            "visibleMenuPointed": true,
+            "clicks": 0,
+            "animatedMouse": false,
+            "generalMenuClickExecution": false
+          },
+          "elapsedMs": 3672,
+          "screenshot": "C08_VISIBLE_MENU_ITEM_POINTING_DOES_NOT_CLICK.png"
+        },
+        {
+          "id": "C09_DUMMY_VALUES_ALL_APPLICABLE_FIELDS_REVIEW_THEN_AWAIT_SAVE",
+          "status": "passed",
+          "detail": {
+            "prompt": "fill the customer draft with dummy values for all applicable fields.. confirm with me before saving",
+            "filledLabels": [
+              "Shipping method",
+              "Include gift wrap",
+              "Company name",
+              "Contact email",
+              "Region"
+            ],
+            "reviewedBeforeFill": true,
+            "saveConfirmationOffered": true,
+            "saveCancelled": true,
+            "hostSubmissions": 0
+          },
+          "elapsedMs": 6031,
+          "screenshot": "C09_DUMMY_VALUES_ALL_APPLICABLE_FIELDS_REVIEW_THEN_AWAIT_SAVE.png"
+        },
+        {
+          "id": "C10_GUIDE_ONLY_DUMMY_REQUEST_EXPLAINS_HIGHLIGHTS_WITHOUT_FILLING",
+          "status": "passed",
+          "detail": {
+            "mode": "guide",
+            "explicitNotice": "Guide only is active: these are highlights, with no input edits. Choose Prepare changes and send the request again to review and apply values.\nI can highlight 5 targets for you. No values will be changed.",
+            "filled": false,
+            "saved": false
+          },
+          "elapsedMs": 6719,
+          "screenshot": "C10_GUIDE_ONLY_DUMMY_REQUEST_EXPLAINS_HIGHLIGHTS_WITHOUT_FILLING.png"
+        }
+      ]
     },
     {
-      "name": "Goal UI and recovery",
-      "type": "Real SDK/browser; synthetic model/identity",
+      "name": "Live goal regression",
+      "method": "Actual multi-form, clarification and public tasks",
+      "path": "../choice-efficacy-20261020/goal-regression/results.json",
+      "total": 3,
+      "passed": 3,
+      "failed": 0,
+      "partial": 0,
+      "deferred": 0,
+      "cases": [
+        {
+          "id": "LIVE_GOAL01_COMPLEX_CUSTOMER_NOTE_OPPORTUNITY_SAVED_AND_READ_BACK",
+          "status": "passed",
+          "detail": {
+            "approvals": 8,
+            "steps": [
+              {
+                "title": "Fill Customer Form",
+                "kind": "fill",
+                "instruction": "Fill the demo-form with Company name 'Goal UAT 1792452492372', Contact email 'goal.uat@example.test', and Region 'Singapore'",
+                "expected": "Customer details filled in the form",
+                "status": "pending",
+                "effects": [],
+                "attempts": 0
+              },
+              {
+                "title": "Save Customer",
+                "kind": "save",
+                "instruction": "Save the customer record",
+                "expected": "Customer record saved successfully",
+                "status": "pending",
+                "effects": [],
+                "attempts": 0
+              },
+              {
+                "title": "Navigate to Note",
+                "kind": "navigate",
+                "instruction": "Open the Note section",
+                "expected": "Note section is displayed",
+                "status": "pending",
+                "effects": [],
+                "attempts": 0
+              },
+              {
+                "title": "Fill Note Form",
+                "kind": "fill",
+                "instruction": "Fill the note-form with Title 'Followup Goal UAT 1792452492372' and Body 'Follow up with Goal UAT 1792452492372 about their renewal'",
+                "expected": "Note details filled in the form",
+                "status": "pending",
+                "effects": [],
+                "attempts": 0
+              },
+              {
+                "title": "Save Note",
+                "kind": "save",
+                "instruction": "Save the note",
+                "expected": "Note saved successfully",
+                "status": "pending",
+                "effects": [],
+                "attempts": 0
+              },
+              {
+                "title": "Navigate to Opportunity",
+                "kind": "navigate",
+                "instruction": "Open the Opportunity section",
+                "expected": "Opportunity section is displayed",
+                "status": "pending",
+                "effects": [],
+                "attempts": 0
+              },
+              {
+                "title": "Fill Opportunity Form",
+                "kind": "fill",
+                "instruction": "Fill the opportunity-form with Opportunity name 'Renewal Goal UAT 1792452492372', Amount 12500, and Currency 'USD'",
+                "expected": "Opportunity details filled in the form",
+                "status": "pending",
+                "effects": [],
+                "attempts": 0
+              },
+              {
+                "title": "Save Opportunity",
+                "kind": "save",
+                "instruction": "Save the opportunity",
+                "expected": "Opportunity saved successfully",
+                "status": "pending",
+                "effects": [],
+                "attempts": 0
+              }
+            ],
+            "marker": "Goal UAT 1792452492372",
+            "savedRecords": 3,
+            "independentReadback": true
+          },
+          "screenshot": "LIVE_GOAL01_COMPLEX_CUSTOMER_NOTE_OPPORTUNITY_SAVED_AND_READ_BACK.png"
+        },
+        {
+          "id": "LIVE_GOAL03_CLARIFICATION_CONTINUES_SAME_GOAL_BEFORE_FILL_OR_SAVE",
+          "status": "passed",
+          "detail": {
+            "approvals": 2,
+            "steps": [
+              {
+                "title": "Fill demo-form",
+                "kind": "fill",
+                "instruction": "Fill the demo-form with the following values: Company name: 'Clarify Goal 1792452532685', Contact email: 'clarification.uat@example.test', Region: 'Singapore'.",
+                "expected": "Form fields are filled with the provided values.",
+                "status": "pending",
+                "effects": [],
+                "attempts": 0
+              },
+              {
+                "title": "Save demo-form",
+                "kind": "save",
+                "instruction": "Save the filled demo-form.",
+                "expected": "The demo-form is successfully saved.",
+                "status": "pending",
+                "effects": [],
+                "attempts": 0
+              }
+            ],
+            "marker": "Clarify Goal 1792452532685",
+            "goalIdPreserved": true,
+            "writes": 1
+          },
+          "screenshot": "LIVE_GOAL03_CLARIFICATION_CONTINUES_SAME_GOAL_BEFORE_FILL_OR_SAVE.png"
+        },
+        {
+          "id": "LIVE_GOAL02_PUBLIC_FILTER_LOCATE_AND_SUMMARIZE_WITHOUT_SAVE",
+          "status": "passed",
+          "detail": {
+            "approvals": 1,
+            "steps": [
+              {
+                "title": "Fill MCP Search and Transport",
+                "kind": "fill",
+                "instruction": "Set the search field to 'genosys' and transport to 'All transports'.",
+                "expected": "Search field and transport are filled correctly.",
+                "status": "pending",
+                "effects": [],
+                "attempts": 0
+              },
+              {
+                "title": "Inspect Matching Provider",
+                "kind": "inspect",
+                "instruction": "Show where the matching Genosys provider is in the loaded results and summarize its description.",
+                "expected": "Description of the Genosys provider is visible.",
+                "status": "pending",
+                "effects": [],
+                "attempts": 0
+              }
+            ],
+            "publicWrites": 0
+          },
+          "screenshot": "LIVE_GOAL02_PUBLIC_FILTER_LOCATE_AND_SUMMARIZE_WITHOUT_SAVE.png"
+        }
+      ]
+    },
+    {
+      "name": "Option context/privacy",
+      "method": "Real browser/DOM fixture",
+      "path": "../choice-efficacy-20261020/choice-context/result.json",
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "partial": 0,
+      "deferred": 0,
+      "cases": [
+        {
+          "id": "CHOICE_CONTEXT",
+          "status": "passed",
+          "automaticLabelsExcluded": true,
+          "unrelatedChoiceLabelsExcluded": true,
+          "requestedLabelsAvailable": true,
+          "wholeFormLabelsAvailable": true,
+          "currentFieldValuesExcluded": true
+        }
+      ]
+    },
+    {
+      "name": "Goal UI",
+      "method": "SDK/browser, synthetic model/identity",
+      "path": "../choice-efficacy-20261020/goal-ui/results.json",
       "total": 8,
       "passed": 8,
       "failed": 0,
       "partial": 0,
       "deferred": 0,
-      "path": "browser/results.json",
       "cases": [
         {
           "id": "GOAL01_PLAN_REVIEW_HAS_NO_EFFECTS",
@@ -75,14 +395,14 @@
       ]
     },
     {
-      "name": "Workspace regression",
-      "type": "Synthetic local service",
+      "name": "Workspace",
+      "method": "SDK/browser, synthetic service",
+      "path": "../choice-efficacy-20261020/workspace/results.json",
       "total": 18,
       "passed": 18,
       "failed": 0,
       "partial": 0,
       "deferred": 0,
-      "path": "workspace/results.json",
       "cases": [
         {
           "id": "UX01_VISITOR_CAPABILITIES_AND_SINGLE_COMPOSER",
@@ -177,14 +497,14 @@
       ]
     },
     {
-      "name": "Field guidance regression",
-      "type": "Synthetic local service",
+      "name": "Field guidance",
+      "method": "SDK/browser, synthetic service",
+      "path": "../choice-efficacy-20261020/field-guidance/results.json",
       "total": 8,
       "passed": 8,
       "failed": 0,
       "partial": 0,
       "deferred": 0,
-      "path": "field-regression/results.json",
       "cases": [
         {
           "id": "G01_WHERE_QUESTION_POINTS_WITHOUT_EXTRA_APPROVAL_OR_MODEL",
@@ -229,14 +549,66 @@
       ]
     },
     {
-      "name": "Immediate reliability and workflow regression",
-      "type": "Synthetic local service and WebSocket workflow",
+      "name": "Complex controls",
+      "method": "Native/dynamic/React/Angular adapter",
+      "path": "../choice-efficacy-20261020/complex-controls/results.json",
+      "total": 10,
+      "passed": 10,
+      "failed": 0,
+      "partial": 0,
+      "deferred": 0,
+      "cases": [
+        {
+          "id": "F03_NATIVE_SELECT_CHECKBOX_RADIO_MULTISELECT_DATALIST",
+          "status": "passed"
+        },
+        {
+          "id": "F05_ASYNC_PICKLIST_AND_DEPENDENT_CONTROL",
+          "status": "passed"
+        },
+        {
+          "id": "F05_PICKLIST_LOADING_EMPTY_ERROR_AMBIGUITY_AND_RECOVERY",
+          "status": "passed"
+        },
+        {
+          "id": "F05_EDITABLE_TABLE_ROW_FILTER_SORT_PAGINATION_DYNAMIC_ROW",
+          "status": "passed"
+        },
+        {
+          "id": "F05_MODAL_SCOPE",
+          "status": "passed"
+        },
+        {
+          "id": "F05_TABLE_MODEL_AND_MULTISELECT_INDEPENDENT_READBACK",
+          "status": "passed"
+        },
+        {
+          "id": "F03_STALE_REVIEW_REJECTS_CHANGED_OPTIONS",
+          "status": "passed"
+        },
+        {
+          "id": "F02_F07_GENERIC_BUSY_DUPLICATE_GUARD_AND_NOTICE",
+          "status": "passed"
+        },
+        {
+          "id": "F03_REACT_APPLICATION_STATE_AND_INDEPENDENT_SAVE",
+          "status": "passed"
+        },
+        {
+          "id": "F03_ANGULAR_APPLICATION_STATE_AND_INDEPENDENT_SAVE",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "name": "Immediate reliability",
+      "method": "SDK/workflow/management, synthetic service",
+      "path": "../choice-efficacy-20261020/immediate/results.json",
       "total": 13,
       "passed": 13,
       "failed": 0,
       "partial": 0,
       "deferred": 0,
-      "path": "immediate-regression/results.json",
       "cases": [
         {
           "id": "T02_EDIT_REPLACE_REJECT",
@@ -344,239 +716,22 @@
           "screenshot": "OWNER_MAP_CONTEXT.png"
         }
       ]
-    },
-    {
-      "name": "Native, dynamic, React and Angular controls",
-      "type": "Actual loopback adapter/browser",
-      "total": 10,
-      "passed": 10,
-      "failed": 0,
-      "partial": 0,
-      "deferred": 0,
-      "path": "complex-controls/results.json",
-      "cases": [
-        {
-          "id": "F03_NATIVE_SELECT_CHECKBOX_RADIO_MULTISELECT_DATALIST",
-          "status": "passed"
-        },
-        {
-          "id": "F05_ASYNC_PICKLIST_AND_DEPENDENT_CONTROL",
-          "status": "passed"
-        },
-        {
-          "id": "F05_PICKLIST_LOADING_EMPTY_ERROR_AMBIGUITY_AND_RECOVERY",
-          "status": "passed"
-        },
-        {
-          "id": "F05_EDITABLE_TABLE_ROW_FILTER_SORT_PAGINATION_DYNAMIC_ROW",
-          "status": "passed"
-        },
-        {
-          "id": "F05_MODAL_SCOPE",
-          "status": "passed"
-        },
-        {
-          "id": "F05_TABLE_MODEL_AND_MULTISELECT_INDEPENDENT_READBACK",
-          "status": "passed"
-        },
-        {
-          "id": "F03_STALE_REVIEW_REJECTS_CHANGED_OPTIONS",
-          "status": "passed"
-        },
-        {
-          "id": "F02_F07_GENERIC_BUSY_DUPLICATE_GUARD_AND_NOTICE",
-          "status": "passed"
-        },
-        {
-          "id": "F03_REACT_APPLICATION_STATE_AND_INDEPENDENT_SAVE",
-          "status": "passed"
-        },
-        {
-          "id": "F03_ANGULAR_APPLICATION_STATE_AND_INDEPENDENT_SAVE",
-          "status": "passed"
-        }
-      ]
-    },
-    {
-      "name": "Live local goals",
-      "type": "Actual registrations, active maker/passive checker",
-      "total": 2,
-      "passed": 2,
-      "failed": 0,
-      "partial": 0,
-      "deferred": 0,
-      "path": "live-local/results.json",
-      "cases": [
-        {
-          "id": "LIVE_GOAL01_COMPLEX_CUSTOMER_NOTE_OPPORTUNITY_SAVED_AND_READ_BACK",
-          "status": "passed",
-          "detail": {
-            "approvals": 8,
-            "steps": [
-              {
-                "title": "Fill Customer Form",
-                "kind": "fill",
-                "instruction": "Fill the demo-form with Company name as 'Goal UAT 1792434246335', Contact email as 'goal.uat@example.test', and Region as 'Singapore'.",
-                "expected": "The form should display the entered values correctly.",
-                "status": "pending",
-                "effects": [],
-                "attempts": 0
-              },
-              {
-                "title": "Save Customer",
-                "kind": "save",
-                "instruction": "Save the customer record.",
-                "expected": "The customer should be saved successfully.",
-                "status": "pending",
-                "effects": [],
-                "attempts": 0
-              },
-              {
-                "title": "Open Note Section",
-                "kind": "navigate",
-                "instruction": "Open the Note section.",
-                "expected": "The Note page should be displayed.",
-                "status": "pending",
-                "effects": [],
-                "attempts": 0
-              },
-              {
-                "title": "Fill Note",
-                "kind": "fill",
-                "instruction": "Set Title to 'Followup Goal UAT 1792434246335' and Body to 'Follow up with Goal UAT 1792434246335 about their renewal'.",
-                "expected": "The note should display the entered title and body correctly.",
-                "status": "pending",
-                "effects": [],
-                "attempts": 0
-              },
-              {
-                "title": "Save Note",
-                "kind": "save",
-                "instruction": "Save the note.",
-                "expected": "The note should be saved successfully.",
-                "status": "pending",
-                "effects": [],
-                "attempts": 0
-              },
-              {
-                "title": "Open Opportunity Section",
-                "kind": "navigate",
-                "instruction": "Open the Opportunity section.",
-                "expected": "The Opportunity page should be displayed.",
-                "status": "pending",
-                "effects": [],
-                "attempts": 0
-              },
-              {
-                "title": "Fill Opportunity",
-                "kind": "fill",
-                "instruction": "Set Opportunity name to 'Renewal Goal UAT 1792434246335', Amount to '12500', and Currency to 'USD'.",
-                "expected": "The opportunity should display the entered values correctly.",
-                "status": "pending",
-                "effects": [],
-                "attempts": 0
-              },
-              {
-                "title": "Save Opportunity",
-                "kind": "save",
-                "instruction": "Save the opportunity.",
-                "expected": "The opportunity should be saved successfully.",
-                "status": "pending",
-                "effects": [],
-                "attempts": 0
-              }
-            ],
-            "marker": "Goal UAT 1792434246335",
-            "savedRecords": 3,
-            "independentReadback": true
-          },
-          "screenshot": "LIVE_GOAL01_COMPLEX_CUSTOMER_NOTE_OPPORTUNITY_SAVED_AND_READ_BACK.png"
-        },
-        {
-          "id": "LIVE_GOAL03_CLARIFICATION_CONTINUES_SAME_GOAL_BEFORE_FILL_OR_SAVE",
-          "status": "passed",
-          "detail": {
-            "approvals": 2,
-            "steps": [
-              {
-                "title": "Fill customer details",
-                "kind": "fill",
-                "instruction": "Fill the form with Company name as 'Clarify Goal 1792434284147', Contact email as 'clarification.uat@example.test', and Region as 'Singapore'.",
-                "expected": "The form should display the filled values correctly.",
-                "status": "pending",
-                "effects": [],
-                "attempts": 0
-              },
-              {
-                "title": "Save customer record",
-                "kind": "save",
-                "instruction": "Use the visible Save control to save the customer record.",
-                "expected": "The customer record should be saved successfully.",
-                "status": "pending",
-                "effects": [],
-                "attempts": 0
-              }
-            ],
-            "marker": "Clarify Goal 1792434284147",
-            "goalIdPreserved": true,
-            "writes": 1
-          },
-          "screenshot": "LIVE_GOAL03_CLARIFICATION_CONTINUES_SAME_GOAL_BEFORE_FILL_OR_SAVE.png"
-        }
-      ]
-    },
-    {
-      "name": "Live public goal",
-      "type": "Actual registration/models; public writes blocked",
-      "total": 1,
-      "passed": 1,
-      "failed": 0,
-      "partial": 0,
-      "deferred": 0,
-      "path": "live-public/results.json",
-      "cases": [
-        {
-          "id": "LIVE_GOAL02_PUBLIC_FILTER_LOCATE_AND_SUMMARIZE_WITHOUT_SAVE",
-          "status": "passed",
-          "detail": {
-            "approvals": 1,
-            "steps": [
-              {
-                "title": "Fill search fields",
-                "kind": "fill",
-                "instruction": "Set the 'Search MCPs, publishers, capabilities\u2026' field to 'genosys' and ensure 'transport' is set to 'All transports'.",
-                "expected": "The search fields are filled with the specified values.",
-                "status": "pending",
-                "effects": [],
-                "attempts": 0
-              },
-              {
-                "title": "Inspect search results",
-                "kind": "inspect",
-                "instruction": "Locate the matching Genosys provider in the loaded results and summarize its description.",
-                "expected": "The description of the matching Genosys provider is displayed.",
-                "status": "pending",
-                "effects": [],
-                "attempts": 0
-              }
-            ],
-            "publicWrites": 0
-          },
-          "screenshot": "LIVE_GOAL02_PUBLIC_FILTER_LOCATE_AND_SUMMARIZE_WITHOUT_SAVE.png"
-        }
-      ]
     }
   ],
-  "inheritedPhase12": {
-    "passed": 14,
-    "partial": 16,
-    "deferred": 2,
-    "note": "Not reassessed or promoted by this scoped feature release. Real Safari/iOS/Android and full screen-reader matrix remain deferred by user."
-  },
-  "recommendations": [
-    "Use Plan a task, review the outline, start it, and approve each effect/Save separately.",
-    "Keep target browser tabs open and authorized. This feature grants no autonomous workflow authority.",
-    "Inspect host state after unknown outcomes; do not replay uncertain writes.",
-    "Retain broader Phase 1/2 limitations and provider stability monitoring. A final passing run is not a guarantee of all model responses."
-  ]
+  "scope": "Generic option interpretation, whole-form synthetic draft preparation, Guide-only honesty and targeted existing regression. Linux repeats the service suite and is not double counted. Historical failures/incomplete attempts remain separate.",
+  "limitations": [
+    "Visible menu/button highlighting works. Animated mouse movement and unrestricted menu/button click execution are not implemented.",
+    "Native option labels are bounded and task scoped; hidden/private values remain excluded. Unobserved, ambiguous or unsupported choices do not grant a fallback selection.",
+    "Dynamic entity identities cannot be invented as dummy data. Generated values still require field review and a separate Save confirmation.",
+    "The 30-model-request/minute website guard remained unchanged. Parallel UAT hit it; final live runs were serialized after its cooldown. No effectful request was automatically retried.",
+    "Broader Phase 1/2 ledger remains 14 Passed / 16 Partial / 2 Deferred. Native Safari/iOS/Android and full screen-reader matrix remain user-deferred."
+  ],
+  "evidenceRoot": "../choice-efficacy-20261020/",
+  "evidenceManifest": "../choice-efficacy-20261020/manifest.sha256.json",
+  "previousReport": {
+    "path": "history/report-before-choice-update/report.json",
+    "passed": 431,
+    "commit": "2ec34db7de9055b5f8bb2839fb3b5389c3aaa9ab",
+    "overlapIsNotAdded": true
+  }
 }

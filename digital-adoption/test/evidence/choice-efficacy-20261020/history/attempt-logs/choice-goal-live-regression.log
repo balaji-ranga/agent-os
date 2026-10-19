@@ -1,0 +1,35 @@
+TRACE /free-tools/digital-adoption/v1/goals/status 200 
+TRACE /free-tools/digital-adoption/v1/goals/create 200 draft
+TRACE /free-tools/digital-adoption/v1/goals/control 200 ready
+TRACE /free-tools/digital-adoption/v1/goals/next 200 awaiting_review
+TRACE /free-tools/digital-adoption/v1/goals/observe 200 ready
+TRACE /free-tools/digital-adoption/v1/goals/next 200 awaiting_review
+TRACE /free-tools/digital-adoption/v1/goals/observe 200 ready
+TRACE /free-tools/digital-adoption/v1/goals/next 200 awaiting_review
+TRACE /free-tools/digital-adoption/v1/goals/observe 200 ready
+TRACE /free-tools/digital-adoption/v1/goals/next 200 awaiting_review
+TRACE /free-tools/digital-adoption/v1/goals/observe 200 ready
+TRACE /free-tools/digital-adoption/v1/goals/next 200 awaiting_review
+TRACE /free-tools/digital-adoption/v1/goals/observe 200 ready
+TRACE /free-tools/digital-adoption/v1/goals/next 200 awaiting_review
+TRACE /free-tools/digital-adoption/v1/goals/observe 200 ready
+TRACE /free-tools/digital-adoption/v1/goals/next 200 awaiting_review
+TRACE /free-tools/digital-adoption/v1/goals/observe 200 ready
+TRACE /free-tools/digital-adoption/v1/goals/next 200 awaiting_review
+TRACE /free-tools/digital-adoption/v1/goals/observe 200 completed
+PASS LIVE_GOAL01_COMPLEX_CUSTOMER_NOTE_OPPORTUNITY_SAVED_AND_READ_BACK
+TRACE /free-tools/digital-adoption/v1/goals/status 200 
+TRACE /free-tools/digital-adoption/v1/goals/create 200 clarifying
+TRACE /free-tools/digital-adoption/v1/goals/clarify 429 
+TRACE /free-tools/digital-adoption/v1/goals/status 200 clarifying
+file:///C:/Users/balaj/projects/agents/agent-os/.worktrees/digital-adoption/digital-adoption/test/goals-live-browser.mjs:11
+async function waitReviewedPlan(){const ready=await Promise.race([panel.locator('#goal-start').waitFor({timeout:210000}).then(()=>true),panel.locator('#error-banner').waitFor({timeout:210000}).then(()=>false)]);if(!ready)throw new Error(await panel.locator('#error-message').innerText());}
+                                                                                                                                                                                                                                   ^
+
+Error: The request limit was reached. Wait a moment before trying again.
+    at waitReviewedPlan (file:///C:/Users/balaj/projects/agents/agent-os/.worktrees/digital-adoption/digital-adoption/test/goals-live-browser.mjs:11:228)
+    at async file:///C:/Users/balaj/projects/agents/agent-os/.worktrees/digital-adoption/digital-adoption/test/goals-live-browser.mjs:43:985
+    at async check (file:///C:/Users/balaj/projects/agents/agent-os/.worktrees/digital-adoption/digital-adoption/test/goals-live-browser.mjs:29:46)
+    at async file:///C:/Users/balaj/projects/agents/agent-os/.worktrees/digital-adoption/digital-adoption/test/goals-live-browser.mjs:43:3
+
+Node.js v22.22.0

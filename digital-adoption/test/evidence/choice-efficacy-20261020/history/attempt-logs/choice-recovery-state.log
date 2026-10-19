@@ -1,0 +1,59 @@
+flolah-digital-adoption:20261020-choice-b
+flolah-digital-adoption:20261020-choice-b-gateway
+{
+  "at": "2026-10-19T23:14:25.645645+00:00",
+  "status": "passed",
+  "release": "20261020-choice-b",
+  "containers": {
+    "flolah-adoption-adoption-1": {
+      "imageId": "sha256:00d3e55cd64d22a7f7053a99b858aa6fd6645bc92702dba0026eb164021536ad",
+      "image": "flolah-digital-adoption:20261020-choice-b",
+      "startedAt": "2026-10-19T23:14:11.986031966Z",
+      "running": true,
+      "health": null
+    },
+    "flolah-adoption-adoption-model-gateway-1": {
+      "imageId": "sha256:bf685b66887a24cb8e4e80026556d0f3a2c7b1256e1dabda19e3a600607cfbd1",
+      "image": "flolah-digital-adoption:20261020-choice-b-gateway",
+      "startedAt": "2026-10-19T23:14:24.385642968Z",
+      "running": true,
+      "health": null
+    },
+    "flolah-adoption-adoption-worker-1": {
+      "imageId": "sha256:7133f95194a1df02b59712754b2b95a254528fa9ece34c4994647497dc052fe0",
+      "image": "flolah-digital-adoption:20261018-owner-workspace-c",
+      "startedAt": "2026-10-18T10:43:45.697774407Z",
+      "running": true,
+      "health": null
+    },
+    "flolah-adoption-adoption-worker-2": {
+      "imageId": "sha256:7133f95194a1df02b59712754b2b95a254528fa9ece34c4994647497dc052fe0",
+      "image": "flolah-digital-adoption:20261018-owner-workspace-c",
+      "startedAt": "2026-10-18T10:43:45.830124253Z",
+      "running": true,
+      "health": null
+    },
+    "agent-os-backend-1": {
+      "imageId": "sha256:f794fbb737b2d4eeaa702b861cff1edc8ac78834d1202ec2bc180a988c00056f",
+      "image": "agent-os-backend:adoption-help-20261020-goals-r",
+      "startedAt": "2026-10-19T18:25:53.216173847Z",
+      "running": true,
+      "health": "healthy"
+    },
+    "agent-os-frontend-1": {
+      "imageId": "sha256:bf6aaf311d995a76f6ee4591d21241e07566954a26d83e380ae2d39c8ba54cb0",
+      "image": "agent-os-frontend:adoption-20261019-immediate-j",
+      "startedAt": "2026-10-19T11:40:25.829931383Z",
+      "running": true,
+      "health": "healthy"
+    }
+  },
+  "healthUrlsPassed": 4,
+  "parserWorkersPreserved": true,
+  "sharedCheckerSettingReadOnly": {
+    "enabled": true,
+    "checkerMode": "platform_inactive",
+    "checkerMaxTokens": 1536
+  },
+  "gatewayPatch": "Generic review contract overlay; parent provider/runtime image and shared settings preserved"
+}

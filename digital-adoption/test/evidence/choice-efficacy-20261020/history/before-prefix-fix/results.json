@@ -1,0 +1,194 @@
+{
+  "at": "2026-10-19T23:09:39.982Z",
+  "scope": "Actual deployed copilot, platform active maker/passive checker, synthetic loopback controls and public flolah.cloud. Local DOM additions/ambiguity controls are test fixtures; no backend knowledge seed or model stub.",
+  "localWrites": 0,
+  "publicWrites": 0,
+  "results": [
+    {
+      "id": "C02_NATIVE_SHORT_FORM_REVIEW_AND_APPLY_WITHOUT_SAVE",
+      "status": "failed",
+      "error": "{\"id\":\"fd57a1b6-4fd4-4203-9542-d3cb4ad99bec\",\"revision\":1,\"message\":\"The proposed choice does not match the requested observed option. No substitution was approved; clarify the available choices.\",\"actions\":[],\"expiresAt\":1792451499837,\"fields\":[{\"ref\":\"r1f0\",\"label\":\"Shipping method\",\"type\":\"select-one\",\"required\":false,\"key\":\"shipping_method\",\"form\":\"demo-form\",\"choices\":[\"Choose\",\"Standard\",\"Express\"]}],\"matchedWorkflows\":[],\"messageId\":\"c6c1fdeb-2428-4329-a99a-b166e489e69f\"}\n+ actual - expected\n\n+ undefined\n- 'Express'\n",
+      "elapsedMs": 6822,
+      "screenshot": "C02_NATIVE_SHORT_FORM_REVIEW_AND_APPLY_WITHOUT_SAVE-failed.png"
+    }
+  ],
+  "traces": [
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "response": {
+        "goal": null
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "task": "Set Shipping method to exp. Do not save.",
+      "observed": {
+        "revision": 1,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Shipping method",
+            "type": "select-one",
+            "required": false,
+            "key": "shipping_method",
+            "form": "demo-form",
+            "optionCount": 3,
+            "choices": [
+              "Choose",
+              "Standard",
+              "Express"
+            ]
+          },
+          {
+            "ref": "r1f1",
+            "label": "Include gift wrap",
+            "type": "checkbox",
+            "required": false,
+            "key": "gift_wrap",
+            "form": "demo-form",
+            "optionCount": 0
+          },
+          {
+            "ref": "r1f2",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "key": "company_name",
+            "form": "demo-form",
+            "optionCount": 0
+          },
+          {
+            "ref": "r1f3",
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "key": "contact_email",
+            "form": "demo-form",
+            "optionCount": 0
+          },
+          {
+            "ref": "r1f4",
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "key": "region",
+            "form": "demo-form",
+            "optionCount": 0
+          }
+        ],
+        "forms": [
+          {
+            "key": "demo-form",
+            "label": "demo-form",
+            "fields": [
+              "shipping_method",
+              "gift_wrap",
+              "company_name",
+              "contact_email",
+              "region"
+            ]
+          }
+        ],
+        "links": [
+          {
+            "ref": "r1n0",
+            "label": "Customer",
+            "path": "/customer"
+          },
+          {
+            "ref": "r1n1",
+            "label": "Opportunity",
+            "path": "/opportunity"
+          },
+          {
+            "ref": "r1n2",
+            "label": "Note",
+            "path": "/note"
+          },
+          {
+            "ref": "r1n3",
+            "label": "Scheduled goal",
+            "path": "/goal"
+          }
+        ],
+        "targets": [
+          {
+            "ref": "r1t0",
+            "label": "Save synthetic record",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Save synthetic record"
+          },
+          {
+            "ref": "r1t1",
+            "label": "Try these prompts",
+            "kind": "content",
+            "role": "section",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Try these promptsAsk knowledge: What is the Alpha delivery promise?Prepare field review: Set the company name to Demo Test and contact email to demo@example.com.Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”Switch to Note: “Create a note with title Followup and body followup MrX on month end.”Review proposed values, approve, then verify the visible fields. No automatic Save is performed."
+          }
+        ],
+        "domScope": "Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.",
+        "coverage": {
+          "fieldLimit": 60,
+          "navigationLimit": 30,
+          "visibleNativeControls": 5,
+          "embeddedFrames": 0,
+          "openShadowRoots": 0,
+          "unsupportedControls": 0,
+          "manualNotice": ""
+        },
+        "submissions": [
+          {
+            "ref": "r1s0",
+            "label": "Save synthetic record"
+          }
+        ],
+        "navigationCandidates": [
+          "/customer",
+          "/opportunity",
+          "/note",
+          "/goal",
+          "/records"
+        ],
+        "screen": "Customer draft | Try these prompts | Generic changes and theme",
+        "path": "/customer",
+        "ambiguousDialogs": false,
+        "blockedCount": 7
+      },
+      "response": {
+        "id": "fd57a1b6-4fd4-4203-9542-d3cb4ad99bec",
+        "revision": 1,
+        "message": "The proposed choice does not match the requested observed option. No substitution was approved; clarify the available choices.",
+        "actions": [],
+        "expiresAt": 1792451499837,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Shipping method",
+            "type": "select-one",
+            "required": false,
+            "key": "shipping_method",
+            "form": "demo-form",
+            "choices": [
+              "Choose",
+              "Standard",
+              "Express"
+            ]
+          }
+        ],
+        "matchedWorkflows": [],
+        "messageId": "c6c1fdeb-2428-4329-a99a-b166e489e69f"
+      }
+    }
+  ]
+}

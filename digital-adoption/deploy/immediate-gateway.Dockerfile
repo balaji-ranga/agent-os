@@ -9,4 +9,6 @@ COPY --chown=1000:1000 src/assistant-contract.mjs /adoption/src/assistant-contra
 COPY --chown=1000:1000 integrations/maker-checker.mjs /adoption/integrations/maker-checker.mjs
 COPY --chown=1000:1000 src/goal-contract.mjs /adoption/src/goal-contract.mjs
 COPY --chown=1000:1000 integrations/platform-gateway.mjs /adoption/integrations/platform-gateway.mjs
+COPY --chown=1000:1000 web/choice-intent.mjs /adoption/web/choice-intent.mjs
+COPY --chown=1000:1000 src/task-intent.mjs /adoption/src/task-intent.mjs
 USER 1000:1000

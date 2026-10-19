@@ -60,7 +60,7 @@ const assets = new Map([
 ]);
 function withMode(response,mode='assist'){
  if(!['assist','guide'].includes(mode))throw new Error('Unsupported assistance mode');
- return mode==='guide'?{...response,actions:response.actions.map(action=>action.type==='fill'?{type:'highlight',ref:action.ref}:action)}:response;
+ return mode==='guide'?{...response,...(response.actions.some(action=>action.type==='fill')?{message:'Guide only is active: these are highlights, with no input edits. Choose Prepare changes and send the request again to review and apply values.'}:{}),actions:response.actions.map(action=>action.type==='fill'?{type:'highlight',ref:action.ref}:action)}:response;
 }
 async function body(req,limit=32_768) {
   const chunks=[];let size=0;
