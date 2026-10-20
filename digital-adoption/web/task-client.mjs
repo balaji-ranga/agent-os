@@ -15,10 +15,21 @@ export function createTaskClient({
     taskId,
     timer,
     connecting,
+    reconnectTimer,
+    reconnectAttempts = 0,
     closed = false,
     generation = 0;
   const seen = new Map();
   const notify = value => onEvent(value);
+  const recover = () => {
+    if(closed || !resumeStore?.read() || reconnectTimer || reconnectAttempts>=3)return;
+    reconnectTimer=setTimeout(async()=>{
+      reconnectTimer=null;reconnectAttempts++;
+      try { await connect(); const status=await api.call('pair-status');notify({type:'pairing-restored',status}); }
+      catch(error){notify({type:'pairing-offline',reason:`Connection recovery stopped: ${error.message}. Use Refresh paired sessions to try again. No action was replayed.`});
+        if(!['SESSION_ENDED','SESSION_ACCESS_DENIED','PAIRING_ALREADY_ONLINE'].includes(error.code))recover();}
+    },[1000,3000,8000][reconnectAttempts]);
+  };
   const send = value => {
     if (socket?.readyState !== 1) throw new Error('Paired connection is offline');
     socket.send(JSON.stringify(value));
@@ -45,6 +56,7 @@ export function createTaskClient({
       taskId = null;
       notify({type:'task-ended',reason:'Connection closed. Unfinished workflow steps fail; reconnect does not replay them.'});
       notify({type:'pairing-offline',reason:'Connection offline. Saved group retained; reconnect before sending. Unfinished actions are not replayed.'});
+      recover();
     };
     await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => { rejectHandshake=null; connection.close(); reject(new Error('Live connection timed out')); }, 7000);
@@ -63,6 +75,7 @@ export function createTaskClient({
           clearTimeout(timeout);
           rejectHandshake=null;
           resumeStore?.write(ticket.resumeProof);
+          reconnectAttempts=0;
           notify({type:'connection-restored',paired:ticket.paired});
           resolve();
           return;
@@ -192,7 +205,7 @@ export function createTaskClient({
     connecting = null;
     throw error;
   });
-  return {
+  const api = {
     get taskScope(){return taskId&&instanceId?{taskId,instanceId}:null;},
     get taskId() {
       return taskId;
@@ -208,13 +221,15 @@ export function createTaskClient({
       }
       const pair = type.startsWith('pair-'),
         action = type.replace(/^(task|pair)-/, '');
+      const requestedTaskId=taskId;
       const result = await request(`/v1/${pair ? 'pair' : 'tasks'}/${action}`, {
         ...input,
         instanceId,
         ...(!pair && taskId ? {
           taskId
         } : {})
-      }).catch(error=>{if(['TASK_ACCESS_DENIED','SESSION_ENDED','SESSION_ACCESS_DENIED'].includes(error.code)){socket?.close();connecting=null;instanceId=null;notify({type:'pairing-offline',reason:'Connection authorization ended. Reconnect to the saved group; this action was not retried.'});}throw error;});
+      }).catch(error=>{if(error.code==='TASK_ENDED'&&taskId===requestedTaskId){taskId=null;generation++;seen.clear();notify({type:'task-ended',reason:'The previous private task expired. Pairing is separate; explicitly resend to start fresh. Old files remain inaccessible.'});}if(['TASK_ACCESS_DENIED','SESSION_ENDED','SESSION_ACCESS_DENIED'].includes(error.code)){clearTimeout(reconnectTimer);reconnectTimer=null;reconnectAttempts=3;socket?.close();connecting=null;instanceId=null;notify({type:'pairing-offline',reason:'Connection authorization ended. Reconnect to the saved group; this action was not retried.'});}throw error;});
+      if(type==='task-relay'&&result.shared&&result.taskId){taskId=result.taskId;notify({type:'task-active',taskId});}
       if (type === 'task-end') {
         taskId = null;
         notify({
@@ -233,9 +248,11 @@ export function createTaskClient({
       closed = true;
       generation++;
       clearInterval(timer);
+      clearTimeout(reconnectTimer);
       socket?.close();
       taskId = null;
       seen.clear();
     }
   };
+  return api;
 }

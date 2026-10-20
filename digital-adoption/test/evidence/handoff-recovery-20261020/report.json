@@ -1,0 +1,41 @@
+{
+  "at": "2026-10-20T04:18:46.278023+00:00",
+  "release": "20261020-handoff-a",
+  "baseCommit": "e2143fe8",
+  "passed": 441,
+  "failed": 0,
+  "partial": 0,
+  "passRate": 100,
+  "cohorts": [
+    {
+      "name": "Service regression",
+      "passed": 414,
+      "evidence": "service-tests.log"
+    },
+    {
+      "name": "Actual SDK/service Chrome workspace with synthetic planner and policies",
+      "passed": 21,
+      "evidence": "workspace-verified/results.json"
+    },
+    {
+      "name": "Actual deployed public MCP and loopback cross-origin pairing",
+      "passed": 6,
+      "evidence": "live/results.json"
+    }
+  ],
+  "linuxRepeat": {
+    "passed": 414,
+    "countedAgain": false,
+    "evidence": "linux-tests.log"
+  },
+  "limitations": [
+    "Separate Playwright Chrome profile, not the user Chrome profile.",
+    "Live handoff verifies delivery of the inspection instruction; it does not assert that relay automatically executes or returns a recipient inspection.",
+    "No private task content or unfinished action is replayed during recovery.",
+    "Full Phase 1/2 certification and previously deferred native device/accessibility cases remain separate."
+  ],
+  "earlierAttempts": [
+    "workspace/results.json",
+    "workspace-final/results.json"
+  ]
+}

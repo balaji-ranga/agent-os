@@ -128,3 +128,43 @@ test('browser success booleans cannot fabricate workflow business verification',
 test('recovery tombstone rejects redispatch through a freshly authorized session and group',async t=>{
  const repository=openRepository();t.after(()=>repository.close());const commandState=repository.map('command_attempts'),f=await fixture(t,{commandState}),a=f.add('alpha'),linked=f.link(a),input={groupId:linked.groupId,websiteIds:['alpha'],action:'inspect',operationId:'stable-run-node'};f.tasks.dispatch('user',input,f.tasks.preflight('user',input));await f.tasks.close();const restarted=await fixture(t,{commandState}),b=restarted.add('alpha'),linked2=restarted.link(b),retry={...input,groupId:linked2.groupId};assert.throws(()=>restarted.tasks.dispatch('user',retry,restarted.tasks.preflight('user',retry)),/OPERATION_ALREADY_DISPATCHED/);assert.doesNotMatch(JSON.stringify(commandState.values()),/instruction|passage|fieldValue/);
 });
+
+
+test('RELAY02: fresh no-file handoff needs pairing, not attachment permission',async t=>{
+ const f=await fixture(t),a=f.add('alpha'),b=f.add('beta');f.pair(a,b);
+ for(const site of f.sites.values())site.taskPolicy.attachments=false;
+ const result=await f.tasks.relay(a.scope,{...a,targetId:b.instanceId,shareConsent:true,instruction:'Inspect the current form'});
+ assert.equal(result.shared,true);assert.deepEqual(result.context,[]);
+ assert.deepEqual(f.tasks.status(a.scope,{...a,taskId:result.taskId}).files,[]);
+ assert.equal(f.tasks.status(b.scope,{...b,taskId:result.taskId}).taskId,result.taskId);
+ assert.equal(b.messages.at(-1).instruction,'Inspect the current form');
+ assert.throws(()=>f.tasks.start(a.scope,a),/VISITOR_CAPABILITY_DISABLED/);
+ await assert.rejects(f.tasks.upload(a.scope,{...a,taskId:result.taskId,operationId:crypto.randomUUID(),filename:'x.txt',mime:'text/plain',content:Buffer.from('x').toString('base64')}),/VISITOR_CAPABILITY_DISABLED/);
+});
+test('RELAY03: rejected pairing/consent/offline/conflict never allocates a handoff task',async t=>{
+ const f=await fixture(t),a=f.add('alpha'),b=f.add('beta'),c=f.add('gamma');
+ const relay=extra=>f.tasks.relay(a.scope,{...a,targetId:b.instanceId,shareConsent:true,...extra});
+ assert.throws(()=>relay({}),/HANDOFF_DENIED/);assert.equal(f.tasks.metrics().tasks,0);f.pair(a,b);
+ assert.throws(()=>relay({shareConsent:false}),/HANDOFF_DENIED/);assert.equal(f.tasks.metrics().tasks,0);
+ assert.throws(()=>relay({targetId:c.instanceId}),/HANDOFF_DENIED/);assert.equal(f.tasks.metrics().tasks,0);
+ f.tasks.start(b.scope,b);assert.throws(()=>relay({}),/TASK_CONFLICT/);assert.equal(f.tasks.metrics().tasks,1);
+ f.tasks.disconnect(b.instanceId);assert.throws(()=>relay({}),/HANDOFF_DENIED/);assert.equal(f.tasks.metrics().tasks,0);
+});
+test('RELAY04: ending a shared task preserves pairing and the next handoff has no old files',async t=>{
+ const f=await fixture(t),a=f.add('alpha'),b=f.add('beta');const group=f.pair(a,b),task=await f.upload(a);
+ f.tasks.complete(f.tasks.claim('w'),{sections:[{text:'Secret prior file',locator:'Text'}]});
+ await f.tasks.relay(a.scope,{...a,taskId:task.taskId,targetId:b.instanceId,shareConsent:true,instruction:'Share file'});
+ f.tasks.end(a.scope,{...a,taskId:task.taskId});assert.equal(f.tasks.pairStatus(a.scope,a).groupId,group);
+ const result=await f.tasks.relay(a.scope,{...a,targetId:b.instanceId,shareConsent:true,instruction:'Inspect only'});
+ assert.notEqual(result.taskId,task.taskId);assert.deepEqual(result.context,[]);assert.deepEqual(f.tasks.status(b.scope,{...b,taskId:result.taskId}).files,[]);
+ assert.throws(()=>f.tasks.status(a.scope,{...a,taskId:task.taskId}),/TASK_ENDED/);
+});
+test('RELAY05: expired task IDs fail without delivery or revival; a fresh start discards old content',async t=>{
+ const f=await fixture(t),a=f.add('alpha'),b=f.add('beta');f.pair(a,b);const task=await f.upload(a);
+ for(let n=0;n<901;n++){f.advance(1000);f.tasks.heartbeat(a.instanceId);f.tasks.heartbeat(b.instanceId);}
+ const count=b.messages.filter(m=>m.type==='task-shared').length;
+ assert.throws(()=>f.tasks.relay(a.scope,{...a,taskId:task.taskId,targetId:b.instanceId,shareConsent:true,instruction:'Old file'}),/TASK_ENDED/);
+ assert.equal(b.messages.filter(m=>m.type==='task-shared').length,count);
+ const next=f.tasks.start(a.scope,a);assert.notEqual(next.taskId,task.taskId);assert.deepEqual(next.files,[]);
+ assert.throws(()=>f.tasks.status(a.scope,{...a,taskId:task.taskId}),/TASK_ENDED/);
+});

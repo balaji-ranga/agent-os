@@ -1,0 +1,13 @@
+{
+  "digital-adoption/README.md": "344fbf5134ded6fa784b599ef30612b1ddf50804875e1b7112dfe54659f57690",
+  "digital-adoption/src/private-tasks.mjs": "e49e5559483e95b0ff47a500c198ded73e7e6f7bea1aadbb140b5dc8e8c196a6",
+  "digital-adoption/test/private-tasks.test.mjs": "4e652456fce0952222e627b478c08cce3a084f7986ea39138a26e8bcc101455c",
+  "digital-adoption/test/workspace-browser.mjs": "090c4ba9a4e6d05738e075641bbc534fc3eb2cfe9b0e4f1217b043c9de734dc3",
+  "digital-adoption/web/sdk.mjs": "161e59b0a8286c5a0e4c3da93e493525f569ddc52c46c3af03c0aa9182ff3613",
+  "digital-adoption/web/session-client.mjs": "4930e8002fa31c75676dc3f4551735d85a18cd873e73bf80d292d296ae5496ea",
+  "digital-adoption/web/task-client.mjs": "69ec116f92f42d4bb73b9ee22518243ba75bae0771b7f4396e2f2649ed05b217",
+  "digital-adoption/web/task-panel.mjs": "e5eddb20329d81a845827aa9670b42e22e79466360ef703a2a784ff86148b172",
+  "digital-adoption/web/widget.mjs": "c6471eb878dc9d3421538ab92f596a0fef807d5f2b07dc2b384f49071f85f9f9",
+  "digital-adoption/test/task-client.test.mjs": "9d04826326606ca1f984fed18ec2c2ac9d0631c7d45f5f500bc21c04a6cf2336",
+  "digital-adoption/test/handoff-recovery-live.mjs": "bb11763b68fa1a8e0c1f92cf8976b731808812850634e18cdbe6cef1f1f77caa"
+}

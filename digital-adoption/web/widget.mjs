@@ -50,7 +50,7 @@ window.addEventListener('message', event => {
     document.querySelector('#log').replaceChildren();document.querySelector('#knowledge-log').replaceChildren();
     document.querySelectorAll('input,textarea').forEach(field=>{field.value='';if(field.type==='checkbox')field.checked=false;field.disabled=true;});
     document.querySelectorAll('button,textarea').forEach(e=>{e.disabled=true;});
-    document.querySelector('#status').textContent='Your session expired. Reload the host page to start a new empty conversation.';
+    document.querySelector('#status').textContent='Your session expired. Select Reconnect copilot on the website to start a new empty conversation and restore any still-authorized saved connections.';
     return;
   }
   const item = pending.get(event.data.id); if (!item) return;

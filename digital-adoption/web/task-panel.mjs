@@ -343,6 +343,7 @@ export function mountTaskPanel({
         reset();
         return;
       }
+      if (event.type === "task-active") {active=true;refreshTask().catch(showError);return;}
       if (event.type === "task-shared") {
         active = true;
         show(`Task shared from ${event.from}: ${event.instruction}`);

@@ -142,6 +142,22 @@ export async function createPrivateTasks({
     if (!t || !t.members.has(i.id) || t.expiresAt <= clock() || t.touched + config.idleMs <= clock()) reject('TASK_ENDED');
     return t;
   };
+  const currentTask = i => {
+    const existing = [...tasks.values()].find(t => t.members.has(i.id));
+    if (existing && (existing.expiresAt <= clock() || existing.touched + config.idleMs <= clock())) {
+      end(existing);
+      return null;
+    }
+    return existing;
+  };
+  // Pairing authorizes an empty handoff task, not attachment uploads.
+  const freshTask = i => {
+    if (tasks.size >= config.tasks) reject('TASK_CAPACITY');
+    const t = {id:randomUUID(),key:randomBytes(32),members:new Set([i.id]),grants:new Map(),owner:i.owner,
+      files:new Map(),history:[],reviews:new Map(),values:new Map(),createdAt:clock(),touched:clock(),expiresAt:clock()+config.lifetimeMs};
+    tasks.set(t.id,t);
+    return t;
+  };
   const touch = t => {
     t.touched = clock();
   };
@@ -331,27 +347,12 @@ export async function createPrivateTasks({
       enabled(scope, 'attachments');
       const i = member(scope, instanceId);
       if (!live(i)) reject('RECIPIENT_OFFLINE');
-      const existing = [...tasks.values()].find(t => t.members.has(i.id));
+      const existing = currentTask(i);
       if (existing) {
         touch(existing);
         return safeTask(existing, i.id);
       }
-      if (tasks.size >= config.tasks) reject('TASK_CAPACITY');
-      const t = {
-        id: randomUUID(),
-        key: randomBytes(32),
-        members: new Set([i.id]),
-        grants: new Map(),
-        owner: i.owner,
-        files: new Map(),
-        history: [],
-        reviews: new Map(),
-        values: new Map(),
-        createdAt: clock(),
-        touched: clock(),
-        expiresAt: clock() + config.lifetimeMs
-      };
-      tasks.set(t.id, t);
+      const t = freshTask(i);
       return safeTask(t, i.id);
     },
     status(scope, input) {
@@ -911,10 +912,13 @@ export async function createPrivateTasks({
     relay(scope, input) {
       const i = member(scope, input.instanceId),
         g = groups.get(i.groupId),
-        target = instances.get(input.targetId),
-        t = taskFor(scope, input.taskId, i.id);
-      if (!validGroup(g) || !g.members.has(target?.id) || !(g.pairings||[]).some(edge=>edge.includes(i.participantId)&&edge.includes(target.participantId)) || !live(target) || enabled(scope,'pairing').organizationId!==i.owner || enabled(target.scope, 'pairing').organizationId !== i.owner || input.shareConsent !== true) reject('HANDOFF_DENIED');
-      if([...tasks.values()].some(other=>other.id!==t.id&&other.members.has(target.id)))reject('TASK_CONFLICT');
+        target = instances.get(input.targetId);
+      if (!live(i) || !validGroup(g) || !g.members.has(target?.id) || !(g.pairings||[]).some(edge=>edge.includes(i.participantId)&&edge.includes(target.participantId)) || !live(target) || enabled(scope,'pairing').organizationId!==i.owner || enabled(target.scope, 'pairing').organizationId !== i.owner || input.shareConsent !== true) reject('HANDOFF_DENIED');
+      // An explicit ended ID must fail. Never silently replace document context.
+      const existing = input.taskId ? taskFor(scope,input.taskId,i.id) : currentTask(i);
+      const targetTask = currentTask(target);
+      if (targetTask && targetTask.id !== existing?.id) reject('TASK_CONFLICT');
+      const t = existing || freshTask(i);
       const deliver = evidence => {
       taskFor(scope,t.id,i.id);
       if(!validGroup(g)||groups.get(g.id)!==g||!g.members.has(target.id)||!live(target)||

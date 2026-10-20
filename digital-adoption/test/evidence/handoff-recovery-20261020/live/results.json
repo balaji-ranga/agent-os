@@ -1,0 +1,31 @@
+{
+  "at": "2026-10-20T04:17:46.919Z",
+  "scope": "Separate Playwright Chrome; actual VPS and browser WebSocket pairing, public flolah.cloud and loopback fixture only. No login, public form submissions, files or policy grants. This is not the user Chrome profile.",
+  "results": [
+    {
+      "id": "LIVE_PAIR01_PUBLIC_AND_LOCAL_PANELS_VISIBLE",
+      "status": "passed"
+    },
+    {
+      "id": "LIVE_PAIR02_BILATERAL_PAIRING_WITHOUT_UPLOAD",
+      "status": "passed"
+    },
+    {
+      "id": "LIVE_PAIR03_MCP_TO_LOCAL_NO_FILE_HANDOFF",
+      "status": "passed"
+    },
+    {
+      "id": "LIVE_PAIR04_END_TASK_THEN_FRESH_HANDOFF_KEEPS_PAIRING",
+      "status": "passed"
+    },
+    {
+      "id": "LIVE_PAIR05_RELOAD_RESTORES_SAME_GROUP_NO_TASK_REPLAY",
+      "status": "passed"
+    },
+    {
+      "id": "LIVE_PAIR06_SYNTHETIC_GROUP_CLEANUP",
+      "status": "passed"
+    }
+  ],
+  "errors": []
+}

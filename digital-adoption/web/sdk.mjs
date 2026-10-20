@@ -30,7 +30,7 @@ export async function mount(options) {
   const bootstrapButton=document.createElement('button');bootstrapButton.dataset.adoptionWidget='true';bootstrapButton.type='button';bootstrapButton.textContent='Connecting copilot…';bootstrapButton.setAttribute('aria-label','Copilot connection status');bootstrapButton.disabled=true;bootstrapButton.style.cssText='position:fixed;bottom:20px;right:20px;z-index:2147483646;padding:12px;border-radius:12px';if(options.externalConnectionStatus!==true)document.body.append(bootstrapButton);
   let bootstrap;
   try{bootstrap=await request('/v1/sessions',{installationToken,identityToken:await readHostIdentity()});bootstrapButton.remove();}
-  catch(error){client.stop();bootstrapButton.disabled=false;bootstrapButton.textContent='Reconnect copilot';bootstrapButton.title=error.message;bootstrapButton.onclick=()=>{bootstrapButton.remove();mount(options).catch(()=>{});};throw error;}
+  catch(error){client.stop();bootstrapButton.disabled=false;bootstrapButton.textContent='Reconnect copilot';bootstrapButton.title=error.message;bootstrapButton.onclick=async()=>{bootstrapButton.disabled=true;try{await mount({...options,externalConnectionStatus:true});bootstrapButton.remove();}catch(error){bootstrapButton.disabled=false;bootstrapButton.title=error.message;}};throw error;}
   const visitorAnalytics=createVisitorAnalytics({document,setConsent:value=>client.setAnalyticsConsent(value),request:(path,data)=>client.background(path,data)});
   const inspector = createInspector(document);
   let actionStorage;try{actionStorage=window.sessionStorage;}catch{}
@@ -80,7 +80,7 @@ export async function mount(options) {
     launcher.style.background=appearance.primary; launcher.style.color=appearance.onPrimary;
     frame.contentWindow?.postMessage({channel:'flolah-adoption-v1',type:'theme',theme:appearance},service.origin);
   };
-  launcher.onclick=()=>{if(closed){frame.remove();launcher.remove();window.removeEventListener('message',handler);mount(options).catch(()=>{});return;}frame.hidden=false;launcher.hidden=true;frame.focus();frame.contentWindow?.postMessage({channel:'flolah-adoption-v1',type:'presentation-visible'},service.origin);visitorAnalytics.event('copilot_open');};
+  launcher.onclick=async()=>{if(closed){launcher.disabled=true;launcher.textContent='Reconnecting copilot…';try{await mount({...options,externalConnectionStatus:true});frame.remove();launcher.remove();window.removeEventListener('message',handler);window.removeEventListener('pagehide',pageHide);window.removeEventListener('pageshow',pageShow);}catch(error){launcher.disabled=false;launcher.textContent='Reconnect copilot';launcher.title=error.message;}return;}frame.hidden=false;launcher.hidden=true;frame.focus();frame.contentWindow?.postMessage({channel:'flolah-adoption-v1',type:'presentation-visible'},service.origin);visitorAnalytics.event('copilot_open');};
   applyAppearance();
   const resumeKey=`flolah-copilot-pair:${service.origin}:${installationToken.slice(-16)}`;
   let durableResume=false;
@@ -268,7 +268,7 @@ export async function mount(options) {
   frame.addEventListener('load',()=>privateClient.resume().then(out=>{if(out)frame.contentWindow?.postMessage({channel:'flolah-adoption-v1',type:'private-event',event:{type:'pairing-restored',status:out}},service.origin);}).catch(error=>frame.contentWindow?.postMessage({channel:'flolah-adoption-v1',type:'private-event',event:{type:'pairing-offline',reason:error.message}},service.origin)));
   const expireSession=()=>{
     if(!closed){closed=true;visitorAnalytics.destroy();privateClient.close();execution.stop();taskGeneration++;currentSnapshot=null;currentTaskText='';guidedQueue=null;client.interruptRead();recorder.stop();inspector.destroy();client.stop();clearInterval(timer);}
-    frame.title='Copilot session expired; reconnect to restore the saved group';launcher.textContent='Reconnect copilot';launcher.hidden=false;
+    frame.title='Copilot session expired; reconnect to restore the saved group';launcher.textContent='Reconnect copilot';launcher.setAttribute('aria-label','Reconnect copilot');launcher.hidden=false;
     frame.contentWindow?.postMessage({channel:'flolah-adoption-v1',type:'expired'},service.origin);
   };
   const timer = setInterval(async () => {

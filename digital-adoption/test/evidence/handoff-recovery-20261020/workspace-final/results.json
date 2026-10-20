@@ -1,0 +1,57 @@
+{
+  "at": "2026-10-20T04:14:58.250Z",
+  "scope": "Existing loopback host, actual SDK/service/DOM/WebSocket; deterministic planner/knowledge/extractor and synthetic owner/policy fixtures, not real-model acceptance",
+  "results": [
+    {
+      "id": "UX01_VISITOR_CAPABILITIES_AND_SINGLE_COMPOSER",
+      "status": "passed",
+      "screenshot": "UX01_VISITOR_CAPABILITIES_AND_SINGLE_COMPOSER.png"
+    },
+    {
+      "id": "UX02_UNIFIED_KNOWLEDGE_AND_HISTORY",
+      "status": "passed",
+      "screenshot": "UX02_UNIFIED_KNOWLEDGE_AND_HISTORY.png"
+    },
+    {
+      "id": "UX03_REVIEW_EDIT_APPLY_AND_REJECT",
+      "status": "passed",
+      "screenshot": "UX03_REVIEW_EDIT_APPLY_AND_REJECT.png"
+    },
+    {
+      "id": "UX04_PERSISTENT_FAILURE_ACROSS_VIEWS",
+      "status": "passed",
+      "screenshot": "UX04_PERSISTENT_FAILURE_ACROSS_VIEWS.png"
+    },
+    {
+      "id": "UX05_TASK_UPLOAD_AND_CONTEXT_SEPARATION",
+      "status": "passed",
+      "screenshot": "UX05_TASK_UPLOAD_AND_CONTEXT_SEPARATION.png"
+    },
+    {
+      "id": "UX06_PAIRING_SETUP_AND_UNIFIED_HANDOFF",
+      "status": "passed",
+      "screenshot": "UX06_PAIRING_SETUP_AND_UNIFIED_HANDOFF.png"
+    },
+    {
+      "id": "UX07_END_TASK_CLEARS_BOTH_WITHOUT_UNPAIRING",
+      "status": "passed",
+      "screenshot": "UX07_END_TASK_CLEARS_BOTH_WITHOUT_UNPAIRING.png"
+    },
+    {
+      "id": "UX19_FRESH_HANDOFF_AFTER_END_WITHOUT_FILES",
+      "status": "passed",
+      "screenshot": "UX19_FRESH_HANDOFF_AFTER_END_WITHOUT_FILES.png"
+    },
+    {
+      "id": "UX20_DROPPED_WEBSOCKETS_RESTORE_PAIRING_WITHOUT_REFRESH_OR_REPLAY",
+      "status": "passed",
+      "screenshot": "UX20_DROPPED_WEBSOCKETS_RESTORE_PAIRING_WITHOUT_REFRESH_OR_REPLAY.png"
+    },
+    {
+      "id": "UX21_FAILED_SESSION_RECONNECT_RETAINS_VISIBLE_RETRY_CONTROL",
+      "status": "failed",
+      "error": "locator.click: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Reconnect copilot', exact: true })\u001b[22m\n\u001b[2m    - locator resolved to <button type=\"button\" data-adoption-widget=\"true\" aria-label=\"Reconnect copilot\" title=\"The copilot service is temporarily unavailable. Check the current task before trying again.\">Reconnect copilot</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <button type=\"button\" data-adoption-widget=\"true\" aria-label=\"Copilot connection status\" title=\"The copilot service is temporarily unavailable. Check the current task before trying again.\">Reconnect copilot</button> intercepts pointer events\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <button type=\"button\" data-adoption-widget=\"true\" aria-label=\"Copilot connection status\" title=\"The copilot service is temporarily unavailable. Check the current task before trying again.\">Reconnect copilot</button> intercepts pointer events\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m    3 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <button type=\"button\" data-adoption-widget=\"true\" aria-label=\"Copilot connection status\" title=\"The copilot service is temporarily unavailable. Check the current task before trying again.\">Reconnect copilot</button> intercepts pointer events\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 500ms\u001b[22m\n\u001b[2m    - waiting for element to be visible, enabled and stable\u001b[22m\n"
+    }
+  ],
+  "errors": []
+}
