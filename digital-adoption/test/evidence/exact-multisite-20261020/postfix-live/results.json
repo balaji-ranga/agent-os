@@ -1,0 +1,31 @@
+{
+  "at": "2026-10-20T12:59:16.565Z",
+  "scope": "Real configured maker/checker, two isolated Chrome tabs, existing loopback/public registrations, no backend seeding, no file, no autonomous grant. Synthetic reviewer approvals are exercised by this harness. Exact user email is preserved as a separate already-saved record.",
+  "marker": "mvgow3y5",
+  "email": "multisite.mvgow3y5@example.test",
+  "prompt": "Fill this Customer draft with Company name “genosys”, Contact email “[multisite.mvgow3y5@example.test](mailto:multisite.mvgow3y5@example.test)”, and Region “Singapore”. Let me review the changes and confirm before saving.\nAfter the Customer is saved, inspect the paired flolah.cloud MCP Universe tab. Share the Customer’s Company name privately with that copilot, without uploading a file.\nAsk that copilot to use the shared Company name as its MCP search text. Preserve the current transport selection. Let me review the field change before applying it. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud.\nWait for the other copilot’s actual result, then summarize what completed on each website. Report any failure specifically; do not repeat a Save.",
+  "publicWrites": 0,
+  "localSavePosts": 0,
+  "publicNavigations": 1,
+  "actions": 0,
+  "results": [
+    {
+      "id": "MULTI01_FRESH_PAIRED_PANELS_NO_FILES",
+      "status": "failed",
+      "error": "locator.selectOption: Timeout 20000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('iframe[data-adoption-widget]').contentFrame().locator('#pair-lifetime')\u001b[22m\n\u001b[2m    - locator resolved to <select id=\"pair-lifetime\">…</select>\u001b[22m\n\u001b[2m  - attempting select option action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible and enabled\u001b[22m\n\u001b[2m      - element is not visible\u001b[22m\n\u001b[2m    - retrying select option action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    2 × waiting for element to be visible and enabled\u001b[22m\n\u001b[2m      - element is not visible\u001b[22m\n\u001b[2m    - retrying select option action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m    37 × waiting for element to be visible and enabled\u001b[22m\n\u001b[2m       - element is not visible\u001b[22m\n\u001b[2m     - retrying select option action\u001b[22m\n\u001b[2m       - waiting 500ms\u001b[22m\n"
+    }
+  ],
+  "shares": [],
+  "traces": [
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "httpStatus": 200
+    },
+    {
+      "panel": "recipient",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "httpStatus": 200
+    }
+  ]
+}

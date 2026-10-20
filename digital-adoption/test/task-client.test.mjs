@@ -3,19 +3,20 @@ import assert from 'node:assert/strict';
 import {setTimeout as delay} from 'node:timers/promises';
 import {createTaskClient} from '../web/task-client.mjs';
 
-function fixture(t,{failRelay=false}={}){
+function fixture(t,{failRelay=false,protocol=false,heartbeatMs=60000}={}){
  const original=globalThis.WebSocket,events=[],requests=[],sockets=[];let proof='saved-proof',tickets=0;
  class Socket {
   readyState=0;
+  sent=[];
   constructor(){sockets.push(this);queueMicrotask(()=>{this.readyState=1;this.onopen?.();});}
-  send(text){const data=JSON.parse(text);if(data.type==='authenticate')queueMicrotask(()=>this.onmessage?.({data:JSON.stringify({type:'connected'})}));}
+  send(text){const data=JSON.parse(text);this.sent.push(data);if(data.type==='authenticate')queueMicrotask(()=>this.onmessage?.({data:JSON.stringify({type:'connected',...(protocol?{heartbeatMode:'protocol'}:{})})}));}
   close(){if(this.readyState===3)return;this.readyState=3;this.onclose?.();}
   message(data){this.onmessage({data:JSON.stringify(data)});}
  }
  globalThis.WebSocket=Socket;
  const client=createTaskClient({service:'https://service.test/',inspect:()=>({}),execute:async()=>[],onEvent:e=>events.push(e),resumeStore:{read:()=>proof,write:p=>proof=p,clear:()=>proof=null,persist:()=>{}},request:async(path,input)=>{
   requests.push({path,input});
-  if(path==='/v1/live/ticket')return {ticket:'one-use',instanceId:'instance-'+(++tickets),resumeProof:'saved-proof',heartbeatMs:60000,paired:true};
+  if(path==='/v1/live/ticket')return {ticket:'one-use',instanceId:'instance-'+(++tickets),resumeProof:'saved-proof',heartbeatMs,paired:true};
   if(path==='/v1/pair/status')return {groupId:'saved-group',members:[]};
   if(path==='/v1/tasks/start')return {taskId:'old-task'};
   if(path==='/v1/tasks/relay'){
@@ -32,6 +33,13 @@ test('fresh relay records returned task scope without a file-start permission re
  assert.deepEqual(f.client.taskScope,{taskId:'new-task',instanceId:'instance-1'});
  assert.equal(f.requests.some(r=>r.path==='/v1/tasks/start'),false);
  assert.equal(f.events.filter(e=>e.type==='task-active').length,1);
+});
+
+test('negotiated protocol presence avoids redundant browser heartbeat traffic; older servers retain fallback',async t=>{
+ const modern=fixture(t,{protocol:true,heartbeatMs:20});await modern.client.call('pair-status');await delay(80);
+ assert.deepEqual(modern.sockets[0].sent.map(m=>m.type),['authenticate']);modern.client.close();
+ const legacy=fixture(t,{heartbeatMs:20});await legacy.client.call('pair-status');await delay(80);
+ assert.ok(legacy.sockets[0].sent.some(m=>m.type==='heartbeat'));legacy.client.close();
 });
 test('ended task clears stale scope but preserves pairing and never retries the handoff',async t=>{
  const f=fixture(t,{failRelay:true});await f.client.call('task-start');

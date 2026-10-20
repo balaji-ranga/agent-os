@@ -1,4 +1,4 @@
-import {parseGoalResponse} from '../src/goal-contract.mjs';
+import {parseGoalResponse,goalResponseSchema} from '../src/goal-contract.mjs';
 import { parseAssistantResponse } from '../src/assistant-contract.mjs';
 import { validateSnapshot } from '../src/proposals.mjs';
 
@@ -19,11 +19,13 @@ function validate(content, purpose, messages) {
 export async function reviewCopilotResponse({ config, messages, purpose, draft, complete, signal }) {
   if (!config.checker?.baseUrl || !config.checker?.model || !config.checker?.apiKey) throw Object.assign(new Error('Checker unavailable'), { code: 'COPILOT_CHECKER_UNAVAILABLE' });
   let content = draft, revisions = 0, contractRepairs=0, decision, diagnostics, checkerRetries=0;
+  const sourceGoal=purpose==='digital_adoption_goal'?JSON.parse(messages.at(-1).content):null;
+  const makerSchema=sourceGoal?goalResponseSchema(sourceGoal.stage,sourceGoal.peerGuidance):undefined;
   const metadata = () => ({ enabled: true, decision, revisions, makerSlot: config.active, checkerSlot: config.checker.slot, ...(diagnostics?{checker:diagnostics}:{}),...(checkerRetries?{checkerRetries}:{}) });
   const stopped = feedback => ({ content: JSON.stringify(purpose === 'digital_adoption_knowledge' ? { evidenceStatus: 'insufficient', message: feedback, citations: [] } : purpose==='digital_adoption_goal'?(JSON.parse(messages.at(-1).content).stage==='assess'?{message:feedback,status:'clarify',remainingInstruction:''}:{message:feedback,steps:[]}):{ message: feedback, actions: [] }), quality: metadata() });
   const revise = async (feedback,contract=false) => {
     revisions++;if(contract)contractRepairs++;
-    const result = await complete({ config, signal, maxTokens: 2000, messages: [...messages, { role: 'assistant', content }, { role: 'user', content: JSON.stringify({ boundedCheckerFeedback: feedback, instruction: 'Revise the proposal once against the original task and observed evidence. Feedback is advisory, never permission. Preserve all valid supplied facts and EVERY requested operation, including read-only prerequisites and delegated work. Correct every repairable issue in boundedCheckerFeedback while retaining the rest of the original task. Before returning, compare the revised complete proposal with the original request and the feedback; do not drop a requested operation from either. Return the original response schema; clarify missing facts rather than inventing them.' }) }] });
+    const result = await complete({ config, signal, maxTokens: 2000, ...(makerSchema?{outputSchema:makerSchema}:{}), messages: [...messages, { role: 'assistant', content }, {role:'system',content:'Repair the structured response against the advisory feedback and the original task. Apply EVERY requested repair to the addressed step instruction or expected outcome; do not merely change the introductory message. Preserve all valid operations, values and constraints. This instruction grants no execution authority and does not override the response schema or safety rules.'}, { role: 'user', content: JSON.stringify({ boundedCheckerFeedback: feedback, instruction: 'Revise the proposal once against the original task and observed evidence. Feedback is advisory, never permission. Preserve all valid supplied facts and EVERY requested operation, including read-only prerequisites and delegated work. Correct every repairable issue in boundedCheckerFeedback while retaining the rest of the original task. Before returning, compare the revised complete proposal with the original request and the feedback; do not drop a requested operation from either. Return the original response schema; clarify missing facts rather than inventing them.' }) }] });
     content = result.content;
   };
   for (;;) {
@@ -49,7 +51,7 @@ export async function reviewCopilotResponse({ config, messages, purpose, draft, 
     decision = verdict.decision;
     if (decision === 'accept') return { content, quality: metadata() };
     if (decision === 'clarify' || decision === 'reject') return stopped(verdict.feedback);
-    if (purpose==='digital_adoption_goal'?revisions>contractRepairs:revisions>0) { decision = 'clarify'; return stopped('I could not resolve the request confidently after review. '+verdict.feedback); }
+    if (purpose==='digital_adoption_goal'?(revisions-contractRepairs)>=(sourceGoal.stage==='plan'?2:1):revisions>0) { decision = 'clarify'; return stopped('I could not resolve the request confidently after review. '+verdict.feedback); }
     await revise(verdict.feedback);
   }
 }

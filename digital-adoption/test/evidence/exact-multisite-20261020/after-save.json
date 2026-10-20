@@ -1,0 +1,17 @@
+{
+  "records": [
+    {
+      "id": "2de1d7b3-759d-43b5-9608-6bfe4267ca9b",
+      "path": "/customer",
+      "operationId": "e093d82a-096a-4613-b928-5b40af10c505",
+      "values": {
+        "company_name": "genosys",
+        "contact_email": "multisite.uat@example.test",
+        "region": "Singapore"
+      },
+      "createdAt": "2026-10-20T12:20:10.59Z"
+    }
+  ],
+  "matchingRecordCount": 1,
+  "at": "2026-10-20T12:20:28.3134336Z"
+}

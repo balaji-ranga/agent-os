@@ -21,6 +21,11 @@ export async function completeProvider({config:ep,messages,maxTokens,signal,outp
    ...(capabilities.includes('thinking')&&typeof ep.thinking==='boolean'?{think:ep.thinking}:{}),
    options:{num_predict:maxTokens,num_thread:Math.max(1,Math.min(8,Number(ep.threads)||2)),temperature:0}}:
    {model:ep.model,messages,max_tokens:maxTokens,temperature:0,response_format:{type:'json_object'}};
+  // Official OpenAI schema output constrains syntax; local validation and the
+  // configured checker still decide whether the proposal is acceptable.
+  // Other compatible providers retain JSON mode unless their adapter supports
+  // a schema (native Ollama already receives it through format above).
+  if(!ep.nativeOllama&&base.hostname==='api.openai.com'&&outputSchema)body.response_format={type:'json_schema',json_schema:{name:'copilot_response',strict:true,schema:outputSchema}};
   // Protocol adaptation only, never a model/website alias or an acceptance
   // fallback. DeepSeek's documented thinking default can consume the entire
   // bounded verdict budget before emitting content. Only the one recovery call

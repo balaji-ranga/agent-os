@@ -54,6 +54,19 @@ test('goal plans and assessments pass the existing global maker/checker policy',
  const result=await gateway({authorization:'Bearer '+token,body:{purpose:'digital_adoption_goal',selection:'platform_active',messages:[{role:'user',content:JSON.stringify({stage:'plan',task:'Prepare and save Orchid.',observed:snapshot})}]}});assert.equal(calls.length,2);assert.equal(JSON.parse(result.content).steps.length,2);assert.equal(result.quality.enabled,true);
 });
 
+test('goal planning repairs at most twice with schema preservation; repeated disagreement still returns no steps',async()=>{
+ for(const accept of [true,false]){
+  let makers=0,judges=0;
+  const token='synthetic-goal-service-token-00000000';
+  const gateway=createPlatformGateway({serviceToken:token,resolveActive:async()=>({active:'primary',quality:{enabled:true},checker:{slot:'secondary',baseUrl:'https://synthetic.invalid',model:'test',apiKey:'synthetic'}}),complete:async request=>{
+   if(request.config.slot){judges++;const pass=accept&&judges===3;return {content:JSON.stringify({decision:pass?'accept':'revise',feedback:pass?'All requested operations preserved.':'Preserve the requested constraints in the assigned instruction.',checks:{taskMatch:pass?'pass':'fail',grounding:'pass',safety:'pass'}})};}
+   makers++;assert.ok(request.outputSchema.properties.steps);return {content:JSON.stringify(plan)};
+  }});
+  const result=await gateway({authorization:'Bearer '+token,body:{purpose:'digital_adoption_goal',selection:'platform_active',messages:[{role:'user',content:JSON.stringify({stage:'plan',task:'Prepare and save Orchid.',observed:snapshot})}]}});
+  assert.equal(makers,3);assert.equal(judges,3);assert.equal(result.quality.revisions,2);assert.equal(JSON.parse(result.content).steps.length,accept?2:0);
+ }
+});
+
 
 test('invalid goal drafts receive goal-specific repair feedback instead of executable-action instructions',async()=>{
  const token='synthetic-goal-service-token-00000000';let makers=0,feedback;

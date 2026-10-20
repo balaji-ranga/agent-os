@@ -1,0 +1,166 @@
+(node:1) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+{
+  "stage": "descriptions-only",
+  "plan": {
+    "message": "Revised plan to fill the Customer draft and delegate combined tasks to the paired copilot.",
+    "steps": [
+      {
+        "title": "Fill Customer draft",
+        "kind": "fill",
+        "instruction": "Fill the Customer draft with Company name 'genosys', Contact email 'multisite.uat@example.test', and Region 'Singapore'.",
+        "expected": "Fields filled with the provided values."
+      },
+      {
+        "title": "Save Customer draft",
+        "kind": "save",
+        "instruction": "Propose to save the Customer draft after review.",
+        "expected": "Confirmation requested for saving the Customer draft."
+      },
+      {
+        "title": "Inspect MCP Universe tab",
+        "kind": "peer",
+        "recipient": "synthetic-exact-peer",
+        "mode": "inspect",
+        "instruction": "Inspect the paired flolah.cloud MCP Universe tab to return its supported form structure.",
+        "expected": "The other browser returns its supported fields and navigation."
+      },
+      {
+        "title": "Share and use Company name for MCP search",
+        "kind": "peer",
+        "recipient": "synthetic-exact-peer",
+        "mode": "goal",
+        "instruction": "Share the Customer's Company name 'genosys' privately with the copilot without uploading a file; use it as the MCP search text while preserving the current transport selection; pause for review of the MCP field change before applying; do not click Search, open a provider, navigate away, or submit anything on flolah.cloud.",
+        "expected": "The copilot receives the shared Company name and prepares to use it for search, pausing for review."
+      },
+      {
+        "title": "Summarize completed actions",
+        "kind": "inspect",
+        "instruction": "Summarize what completed on each website after receiving the actual result.",
+        "expected": "A summary of completed actions is provided."
+      }
+    ]
+  },
+  "qualities": [
+    {
+      "enabled": true,
+      "decision": "accept",
+      "revisions": 1,
+      "makerSlot": "secondary",
+      "checkerSlot": "primary",
+      "checker": {
+        "model": "deepseek-v4-flash",
+        "latencyMs": 1029,
+        "promptTokens": 1784,
+        "outputTokens": 84
+      },
+      "checkerRetries": 1
+    }
+  ],
+  "drafts": [
+    {
+      "message": "Plan to fill the Customer draft and delegate tasks to the paired copilot.",
+      "steps": [
+        {
+          "title": "Fill Customer draft",
+          "kind": "fill",
+          "instruction": "Fill the Customer draft with Company name 'genosys', Contact email 'multisite.uat@example.test', and Region 'Singapore'.",
+          "expected": "Fields filled with the provided values."
+        },
+        {
+          "title": "Save Customer draft",
+          "kind": "save",
+          "instruction": "Propose to save the Customer draft after review.",
+          "expected": "Confirmation requested for saving the Customer draft."
+        },
+        {
+          "title": "Inspect MCP Universe tab",
+          "kind": "peer",
+          "recipient": "synthetic-exact-peer",
+          "mode": "inspect",
+          "instruction": "Inspect the paired flolah.cloud MCP Universe tab to return its supported form structure.",
+          "expected": "The other browser returns its supported fields and navigation."
+        },
+        {
+          "title": "Share Company name with copilot",
+          "kind": "peer",
+          "recipient": "synthetic-exact-peer",
+          "mode": "goal",
+          "instruction": "Share the Customer's Company name 'genosys' privately with the copilot without uploading a file.",
+          "expected": "The copilot receives the shared Company name."
+        },
+        {
+          "title": "Use shared Company name for MCP search",
+          "kind": "peer",
+          "recipient": "synthetic-exact-peer",
+          "mode": "goal",
+          "instruction": "Use the shared Company name 'genosys' as the MCP search text while preserving the current transport selection.",
+          "expected": "The copilot prepares to use the shared Company name for search."
+        },
+        {
+          "title": "Review field change",
+          "kind": "peer",
+          "recipient": "synthetic-exact-peer",
+          "mode": "goal",
+          "instruction": "Request to review the field change before applying it.",
+          "expected": "The copilot pauses for review of the field change."
+        },
+        {
+          "title": "Wait for actual result",
+          "kind": "peer",
+          "recipient": "synthetic-exact-peer",
+          "mode": "goal",
+          "instruction": "Wait for the other copilot’s actual result after applying the changes.",
+          "expected": "The actual outcome is recorded."
+        },
+        {
+          "title": "Summarize completed actions",
+          "kind": "inspect",
+          "instruction": "Summarize what completed on each website after receiving the actual result.",
+          "expected": "A summary of completed actions is provided."
+        }
+      ]
+    },
+    {
+      "message": "Revised plan to fill the Customer draft and delegate combined tasks to the paired copilot.",
+      "steps": [
+        {
+          "title": "Fill Customer draft",
+          "kind": "fill",
+          "instruction": "Fill the Customer draft with Company name 'genosys', Contact email 'multisite.uat@example.test', and Region 'Singapore'.",
+          "expected": "Fields filled with the provided values."
+        },
+        {
+          "title": "Save Customer draft",
+          "kind": "save",
+          "instruction": "Propose to save the Customer draft after review.",
+          "expected": "Confirmation requested for saving the Customer draft."
+        },
+        {
+          "title": "Inspect MCP Universe tab",
+          "kind": "peer",
+          "recipient": "synthetic-exact-peer",
+          "mode": "inspect",
+          "instruction": "Inspect the paired flolah.cloud MCP Universe tab to return its supported form structure.",
+          "expected": "The other browser returns its supported fields and navigation."
+        },
+        {
+          "title": "Share and use Company name for MCP search",
+          "kind": "peer",
+          "recipient": "synthetic-exact-peer",
+          "mode": "goal",
+          "instruction": "Share the Customer's Company name 'genosys' privately with the copilot without uploading a file; use it as the MCP search text while preserving the current transport selection; pause for review of the MCP field change before applying; do not click Search, open a provider, navigate away, or submit anything on flolah.cloud.",
+          "expected": "The copilot receives the shared Company name and prepares to use it for search, pausing for review."
+        },
+        {
+          "title": "Summarize completed actions",
+          "kind": "inspect",
+          "instruction": "Summarize what completed on each website after receiving the actual result.",
+          "expected": "A summary of completed actions is provided."
+        }
+      ]
+    }
+  ],
+  "elapsedMs": 29331
+}
+PASS exact request coverage, grouped local fields, confirmation-gated Save, remote inspection and constrained peer goal

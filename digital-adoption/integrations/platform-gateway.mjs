@@ -1,6 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
 import {MODEL_GATEWAY_TIMEOUT_MS} from '../web/model-timeouts.mjs';
 import { reviewCopilotResponse } from './maker-checker.mjs';
+import {goalResponseSchema} from '../src/goal-contract.mjs';
 
 // Optional platform backend adapter, not mounted automatically. Inject the
 // platform's active-endpoint resolver and completion function at installation.
@@ -16,7 +17,8 @@ export function createPlatformGateway({serviceToken,resolveActive,complete}) {
   const config=await resolveActive(); // Resolve for every call; no cached primary/secondary choice.
   if(!config||!['primary','secondary'].includes(config.active))throw new Error('Active model unavailable');
   if(config.quality?.enabled&&(!config.checker?.baseUrl||!config.checker?.model||!config.checker?.apiKey))throw Object.assign(new Error('Checker unavailable'),{code:'COPILOT_CHECKER_UNAVAILABLE'});
-  const result=body.purpose==='digital_adoption_review'?{content:JSON.stringify(body.draft)}:await complete({config,messages:body.messages,maxTokens:2000,signal});
+  const goalContext=body.purpose==='digital_adoption_goal'?JSON.parse(body.messages.at(-1).content):null;
+  const result=body.purpose==='digital_adoption_review'?{content:JSON.stringify(body.draft)}:await complete({config,messages:body.messages,maxTokens:2000,signal,...(goalContext?{outputSchema:goalResponseSchema(goalContext.stage,goalContext.peerGuidance)}:{})});
   if(!config.quality?.enabled)return {content:result.content,active:config.active,quality:{enabled:false}};
   const reviewed=await reviewCopilotResponse({config,messages:body.messages,purpose:body.purpose,draft:result.content,complete,signal});
   return {...reviewed,active:config.active};

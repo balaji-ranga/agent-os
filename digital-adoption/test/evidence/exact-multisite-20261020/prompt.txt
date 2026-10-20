@@ -1,0 +1,4 @@
+Fill this Customer draft with Company name “genosys”, Contact email “[multisite.uat@example.test](mailto:multisite.uat@example.test)”, and Region “Singapore”. Let me review the changes and confirm before saving.
+After the Customer is saved, inspect the paired flolah.cloud MCP Universe tab. Share the Customer’s Company name privately with that copilot, without uploading a file.
+Ask that copilot to use the shared Company name as its MCP search text. Preserve the current transport selection. Let me review the field change before applying it. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud.
+Wait for the other copilot’s actual result, then summarize what completed on each website. Report any failure specifically; do not repeat a Save.

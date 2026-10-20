@@ -1,11 +1,11 @@
 import { WebSocketServer } from 'ws';
 import { createServer } from 'node:http';
-import { createHash, timingSafeEqual } from 'node:crypto';
+import { createHash, timingSafeEqual, randomBytes } from 'node:crypto';
 export function attachLiveTransport(server, {
   tasks,
   path = '/v1/live'
 }) {
-  const sockets = new Set(),
+  const sockets = new Set(), probes = new Map(),
     wss = new WebSocketServer({
       noServer: true,
       maxPayload: 64000,
@@ -42,9 +42,11 @@ export function attachLiveTransport(server, {
           if (!instanceId) {
             if (message.type !== 'authenticate' || typeof message.ticket !== 'string') throw new Error('Authentication required');
             instanceId = tasks.connect(message.ticket, req.headers.origin, send);
+            probes.set(ws, {instanceId, nextAt:Date.now()+tasks.limits.heartbeatMs, pending:null});
             clearTimeout(timeout);
             send({
               type: 'connected',
+              heartbeatMode: 'protocol',
               instanceId
             });
           } else if (message.type === 'heartbeat') send(tasks.heartbeat(instanceId));else if (['ack', 'result', 'progress'].includes(message.type)) tasks.commandFrame(instanceId, message);else throw new Error('Invalid frame');
@@ -54,17 +56,36 @@ export function attachLiveTransport(server, {
           busy = false;
         }
       });
+      // Browser JS timers are throttled in background tabs. Protocol pong is
+      // handled by the browser network stack, so transport presence must not
+      // depend on a foreground tab's setInterval. It grants no action authority:
+      // heartbeat still checks current session/website access, and commands keep
+      // their own acknowledgment, execution and outcome deadlines.
+      ws.on('pong', data => {
+        const probe=probes.get(ws);
+        if(!probe?.pending || !data.equals(probe.pending))return;
+        probe.pending=null;
+        try{tasks.heartbeat(probe.instanceId);}catch{ws.close(1008,'Connection authorization ended');}
+      });
       ws.on('close', () => {
         clearTimeout(timeout);
+        probes.delete(ws);
         sockets.delete(ws);
         if (instanceId) tasks.disconnect(instanceId);
       });
     });
   });
   const timer = setInterval(() => {
+    const now=Date.now();
+    for(const [ws,probe] of probes){
+      if(probe.pending){if(now-probe.sentAt>=tasks.limits.staleMs)ws.terminate();continue;}
+      if(now<probe.nextAt||ws.readyState!==1)continue;
+      probe.pending=randomBytes(16);probe.sentAt=now;probe.nextAt=now+tasks.limits.heartbeatMs;
+      ws.ping(probe.pending);
+    }
     tasks.maintain();
     tasks.cleanup().catch(() => {});
-  }, 1000);
+  }, Math.min(1000,tasks.limits.heartbeatMs));
   timer.unref();
   server.on('close', () => {
     clearInterval(timer);

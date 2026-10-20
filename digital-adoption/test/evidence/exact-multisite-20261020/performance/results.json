@@ -1,0 +1,117 @@
+{
+  "at": "2026-10-20T13:03:37.678Z",
+  "reports": [
+    {
+      "site": "local",
+      "sdkEnabled": false,
+      "rendererTargets": 1,
+      "seconds": 60.484,
+      "rendererCpuPercent": 0.42163712717412866,
+      "heapStartMiB": 1.2387924194335938,
+      "heapEndMiB": 0.7892036437988281,
+      "heapSamplesMiB": [
+        1.2387924194335938,
+        1.2492866516113281,
+        0.790863037109375,
+        0.7892036437988281,
+        0.7892036437988281
+      ],
+      "network": {
+        "startup": {
+          "requests": 3,
+          "bytes": 16974
+        },
+        "idle": {
+          "requests": 0,
+          "bytes": 0
+        }
+      },
+      "publicWrites": 0,
+      "limitations": "Fresh unpaired tabs; no model request, no upload, no analytics opt-in. Renderer JS heap is not browser RSS. HTTP sizes include headers/body, not TCP/TLS or WebSocket control frames. Baseline replaces only SDK mount; same host remains. Concurrent contexts can affect scheduling. One 60-second sample does not establish long-term leak freedom or device-wide capacity."
+    },
+    {
+      "site": "local",
+      "sdkEnabled": true,
+      "rendererTargets": 2,
+      "seconds": 60.421,
+      "rendererCpuPercent": 0.7561791430131907,
+      "heapStartMiB": 4.443614959716797,
+      "heapEndMiB": 3.7858505249023438,
+      "heapSamplesMiB": [
+        4.443614959716797,
+        4.446205139160156,
+        3.6920013427734375,
+        3.678234100341797,
+        3.7858505249023438
+      ],
+      "network": {
+        "startup": {
+          "requests": 42,
+          "bytes": 147177
+        },
+        "idle": {
+          "requests": 6,
+          "bytes": 9389
+        }
+      },
+      "publicWrites": 0,
+      "limitations": "Fresh unpaired tabs; no model request, no upload, no analytics opt-in. Renderer JS heap is not browser RSS. HTTP sizes include headers/body, not TCP/TLS or WebSocket control frames. Baseline replaces only SDK mount; same host remains. Concurrent contexts can affect scheduling. One 60-second sample does not establish long-term leak freedom or device-wide capacity."
+    },
+    {
+      "site": "public",
+      "sdkEnabled": false,
+      "rendererTargets": 1,
+      "seconds": 60.32,
+      "rendererCpuPercent": 0.24657824933687006,
+      "heapStartMiB": 1.4198646545410156,
+      "heapEndMiB": 0.9029922485351562,
+      "heapSamplesMiB": [
+        1.4198646545410156,
+        1.43035888671875,
+        0.9029922485351562,
+        0.9029922485351562,
+        0.9029922485351562
+      ],
+      "network": {
+        "startup": {
+          "requests": 7,
+          "bytes": 58058
+        },
+        "idle": {
+          "requests": 0,
+          "bytes": 0
+        }
+      },
+      "publicWrites": 0,
+      "limitations": "Fresh unpaired tabs; no model request, no upload, no analytics opt-in. Renderer JS heap is not browser RSS. HTTP sizes include headers/body, not TCP/TLS or WebSocket control frames. Baseline replaces only SDK mount; same host remains. Concurrent contexts can affect scheduling. One 60-second sample does not establish long-term leak freedom or device-wide capacity."
+    },
+    {
+      "site": "public",
+      "sdkEnabled": true,
+      "rendererTargets": 1,
+      "seconds": 60.285,
+      "rendererCpuPercent": 1.2863349091813885,
+      "heapStartMiB": 3.6758880615234375,
+      "heapEndMiB": 3.022003173828125,
+      "heapSamplesMiB": [
+        3.6758880615234375,
+        3.678478240966797,
+        2.9330825805664062,
+        2.9151268005371094,
+        3.022003173828125
+      ],
+      "network": {
+        "startup": {
+          "requests": 46,
+          "bytes": 187953
+        },
+        "idle": {
+          "requests": 2,
+          "bytes": 2410
+        }
+      },
+      "publicWrites": 0,
+      "limitations": "Fresh unpaired tabs; no model request, no upload, no analytics opt-in. Renderer JS heap is not browser RSS. HTTP sizes include headers/body, not TCP/TLS or WebSocket control frames. Baseline replaces only SDK mount; same host remains. Concurrent contexts can affect scheduling. One 60-second sample does not establish long-term leak freedom or device-wide capacity."
+    }
+  ]
+}

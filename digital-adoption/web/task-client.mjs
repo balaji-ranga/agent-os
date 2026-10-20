@@ -45,7 +45,7 @@ export function createTaskClient({
     url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
     socket = new WebSocket(url);
     const connection = socket;
-    let rejectHandshake;
+    let rejectHandshake, protocolHeartbeat=false;
     connection.onclose = () => {
       rejectHandshake?.(new Error('Live connection closed before authentication'));
       if (socket !== connection) return;
@@ -75,6 +75,7 @@ export function createTaskClient({
       socket.onmessage = async event => {
         const message = JSON.parse(event.data);
         if (message.type === 'connected') {
+          protocolHeartbeat=message.heartbeatMode==='protocol';
           clearTimeout(timeout);
           rejectHandshake=null;
           resumeStore?.write(ticket.resumeProof);
@@ -202,7 +203,9 @@ export function createTaskClient({
         }
       };
     });
-    timer = setInterval(() => {
+    // Modern servers probe the socket at protocol level. Avoid duplicate
+    // heartbeat traffic and browser timer wakeups; retain old-server fallback.
+    if(!protocolHeartbeat)timer = setInterval(() => {
       try {
         send({
           type: 'heartbeat'

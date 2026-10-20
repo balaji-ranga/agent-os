@@ -21,7 +21,10 @@ def run(args,name):
  with (bundle/name).open('w') as log:subprocess.run(args,check=True,stdout=log,stderr=subprocess.STDOUT)
 run(['docker','build','--build-arg','BASE_IMAGE='+base,'-f',str(bundle/'deploy/immediate-phase.Dockerfile'),'-t','flolah-digital-adoption:'+release,str(bundle)],'coordinator-build.log')
 gateway_base='flolah-immediate-gateway-base:'+release
-subprocess.run(['docker','tag',gateway['Image'],gateway_base],check=True)
+gateway_metadata=json.loads(subprocess.check_output(['docker','image','inspect',gateway['Image']]))[0]
+if not coordinator_only and len(gateway_metadata.get('RootFS',{}).get('Layers',[]))>=96:
+ subprocess.run(['python3',str(bundle/'deploy/flatten-runtime-base.py'),gateway['Image'],gateway_base],check=True)
+else:subprocess.run(['docker','tag',gateway['Image'],gateway_base],check=True)
 if not coordinator_only:
  # Stage the reviewed overlay once so repeated additive releases do not add
  # one filesystem layer per source file and exhaust overlayfs mount limits.

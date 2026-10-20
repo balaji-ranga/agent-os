@@ -1,0 +1,47 @@
+{
+  "at": "2026-10-20T12:57:26.798Z",
+  "scope": "Existing loopback host, actual SDK/service/DOM/WebSocket; deterministic planner/knowledge/extractor and synthetic owner/policy fixtures, not real-model acceptance",
+  "results": [
+    {
+      "id": "GOAL01_PLAN_REVIEW_HAS_NO_EFFECTS",
+      "status": "passed",
+      "screenshot": "GOAL01_PLAN_REVIEW_HAS_NO_EFFECTS.png"
+    },
+    {
+      "id": "GOAL02_PAUSE_PANEL_RELOAD_AND_FRESH_REVIEW",
+      "status": "passed",
+      "screenshot": "GOAL02_PAUSE_PANEL_RELOAD_AND_FRESH_REVIEW.png"
+    },
+    {
+      "id": "GOAL03_EDITED_REVIEW_THEN_QUERY_REQUIRES_SEPARATE_APPROVAL",
+      "status": "passed",
+      "screenshot": "GOAL03_EDITED_REVIEW_THEN_QUERY_REQUIRES_SEPARATE_APPROVAL.png"
+    },
+    {
+      "id": "GOAL04_SELECTION_AND_READONLY_STEP_COMPLETE_WITHOUT_SAVE",
+      "status": "passed",
+      "screenshot": "GOAL04_SELECTION_AND_READONLY_STEP_COMPLETE_WITHOUT_SAVE.png"
+    },
+    {
+      "id": "GOAL07_WORKFLOW_REVIEW_AFTER_GOAL_USES_ITS_OWN_CONTEXT",
+      "status": "passed",
+      "screenshot": "GOAL07_WORKFLOW_REVIEW_AFTER_GOAL_USES_ITS_OWN_CONTEXT.png"
+    },
+    {
+      "id": "GOAL05_PRIVATE_FILE_REMOVAL_CLEARS_GOAL_AND_PENDING_REVIEW",
+      "status": "passed",
+      "screenshot": "GOAL05_PRIVATE_FILE_REMOVAL_CLEARS_GOAL_AND_PENDING_REVIEW.png"
+    },
+    {
+      "id": "GOAL06_MISSING_FACT_CLARIFIES_WITHOUT_A_PLAN_OR_EFFECT",
+      "status": "passed",
+      "screenshot": "GOAL06_MISSING_FACT_CLARIFIES_WITHOUT_A_PLAN_OR_EFFECT.png"
+    },
+    {
+      "id": "GOAL08_CLARIFICATION_REPLY_KEEPS_GOAL_AND_RETURNS_REVIEWED_PLAN",
+      "status": "passed",
+      "screenshot": "GOAL08_CLARIFICATION_REPLY_KEEPS_GOAL_AND_RETURNS_REVIEWED_PLAN.png"
+    }
+  ],
+  "errors": []
+}
