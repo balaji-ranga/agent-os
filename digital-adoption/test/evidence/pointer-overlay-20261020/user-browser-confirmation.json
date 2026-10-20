@@ -1,0 +1,19 @@
+{
+  "at": "2026-10-20T02:50:41.174403+00:00",
+  "scope": "User existing Codex in-app browser tab, not a separate Playwright browser",
+  "url": "https://flolah.cloud/free-tools/mcp-universe/?digitalAdoptionPreview=1",
+  "before": {
+    "previewScriptPresent": true,
+    "widgetElements": 0,
+    "capturedConsoleWarningsOrErrors": 0
+  },
+  "action": "Reloaded the existing affected tab; no task form submission, expiry renewal or permission change",
+  "after": {
+    "copilotPanelVisible": true,
+    "status": "Panel connected \u00b7 private Tasks, Connections and workflow access have separate lifetimes.",
+    "tabKeptOpen": true
+  },
+  "screenshot": "user-mcp-panel-connected.jpg",
+  "interpretation": "The existing document had no widget nodes; reload initialized the installed preview. The earlier initialization failure was not captured, so this does not establish its precise cause.",
+  "automatedSuiteCountUnchanged": 530
+}

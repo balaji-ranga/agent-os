@@ -21,7 +21,7 @@
   "digital-adoption/src/task-intent.mjs": "de657d65ce9e2ad4085a4f130e39b1e75a50a4658e8bde77604d48bb3e1b38fc",
   "digital-adoption/src/website-private-search.mjs": "738edb9caa96cced22bdf03c337cab954fd3fae3b3b97651a14fff14c04099c8",
   "digital-adoption/test/assistant-contract.test.mjs": "a12016067382557cae59624bda8700e640b266f47d7d08fb5d9dd6551c829567",
-  "digital-adoption/test/build-pointer-report.py": "028cdef91220c2e3b2c8570cd8226af3a305e84dada6d17f7ff10766f942d96d",
+  "digital-adoption/test/build-pointer-report.py": "a54402560dde6ce684059ef57559eced4c4f4f7f6a0871d963b42668958335ba",
   "digital-adoption/test/choice-efficacy-live-browser.mjs": "c77eb6674178574696c1daabb48d16fccc5ed7300e99e80e53ac48a2a3cdb1fd",
   "digital-adoption/test/continuity-context.test.mjs": "fc4f70d51149e9c13cbc00b04f7c0f92f79b9e7e39b35ba0aa0d63874b722f21",
   "digital-adoption/test/continuity-live-browser.mjs": "2ebaf5c57e9db81074df4c56550a04efdafa6fbe75bfe80690d5dff473a5ab8f",
