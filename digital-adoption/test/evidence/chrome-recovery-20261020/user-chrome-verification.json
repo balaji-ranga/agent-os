@@ -1,0 +1,31 @@
+{
+  "at": "2026-10-20T09:00:37.653Z",
+  "browser": "Existing user Chrome profile",
+  "url": "https://flolah.cloud/free-tools/mcp-universe/?digitalAdoptionPreview=1",
+  "results": [
+    {
+      "id": "NATIVE_GUIDANCE_READONLY",
+      "status": "passed"
+    },
+    {
+      "id": "NATIVE_BROWSER_MINIMIZE_RESTORE_RETAINS_CHAT",
+      "status": "passed"
+    },
+    {
+      "id": "NATIVE_BROWSER_RESTORE_MAXIMIZE_RETAINS_CHAT",
+      "status": "passed"
+    }
+  ],
+  "publicFormsNotSubmitted": true,
+  "localHostReloadedForFix": true,
+  "localDraftRestoredToSameValues": true,
+  "localDraft": {
+    "company": "genosys",
+    "email": "multisite.uat@example.test",
+    "region": "Singapore"
+  },
+  "saveNeverClicked": true,
+  "localMode": "Goal plan",
+  "recoveryPromptPreparedNotSent": true,
+  "existingPairingCounterpartsOnline": 1
+}

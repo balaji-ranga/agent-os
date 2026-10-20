@@ -4,9 +4,27 @@ import {DatabaseSync} from 'node:sqlite';
 import {reviewContext,deterministicReview,parseVerdict,verdictSchema} from '../integrations/checker-contract.mjs';
 import {completeProvider} from '../integrations/provider-completion.mjs';
 import {resolveGatewaySettings} from '../integrations/gateway-settings.mjs';
+import {reviewCopilotResponse} from '../integrations/maker-checker.mjs';
 const observed={revision:1,fields:[{ref:'r1f0',label:'Shipping method',type:'select-one',choices:['Standard','Express']}],links:[]};
 const proposal=value=>({message:'Review only.',actions:[{type:'fill',ref:'r1f0',value}]});
 const context=(task,draft)=>reviewContext([{role:'system',content:'MAKER_SYSTEM_CANARY'},{role:'user',content:JSON.stringify({task,observed,validation:{instruction:'MAKER_REPAIR_CANARY'},responseContract:{policy:'MAKER_CONTRACT_CANARY'}})}],'digital_adoption_plan',draft);
+
+test('bounded cloud verdict retry uses documented protocol only on the supported endpoint and never raises budget',async()=>{
+ const sent=[],request={config:{baseUrl:'https://api.deepseek.com/v1',model:'registered-passive',apiKey:'private'},messages:[],maxTokens:2048,outputSchema:verdictSchema};
+ await assert.rejects(()=>completeProvider(request,async(_url,init)=>{sent.push(JSON.parse(init.body));return {ok:true,json:async()=>({choices:[{finish_reason:'length',message:{content:'',reasoning_content:'PRIVATE_REASONING'}}],usage:{completion_tokens:2048}})};}),e=>e.diagnosticCode==='PROVIDER_INCOMPLETE'&&!JSON.stringify(e).includes('PRIVATE_REASONING'));
+ assert.equal(sent[0].thinking,undefined);
+ const fetchImpl=async(_url,init)=>{sent.push(JSON.parse(init.body));return {ok:true,json:async()=>({choices:[{finish_reason:'stop',message:{content:'{}'}}]})};};
+ await completeProvider({...request,config:{...request.config,compactVerdict:true}},fetchImpl);assert.deepEqual(sent[1].thinking,{type:'disabled'});assert.equal(sent[1].max_tokens,2048);
+ await completeProvider({...request,config:{...request.config,baseUrl:'https://another-provider.example/v1',compactVerdict:true}},fetchImpl);assert.equal(sent[2].thinking,undefined);
+});
+
+test('one compact checker retry still requires a complete all-pass verdict on the same checker',async()=>{
+ const messages=[{role:'user',content:JSON.stringify({task:'Explain shipping options.',observed})}],draft=JSON.stringify({intent:'explain',message:'Standard or Express.',actions:[]}),requests=[];
+ const config={active:'secondary',checker:{baseUrl:'https://checker.example/v1',model:'registered-passive',apiKey:'private',slot:'primary',maxTokens:2048}};
+ const run=checks=>reviewCopilotResponse({config,messages,purpose:'digital_adoption_plan',draft,complete:async request=>{requests.push(request);if(!request.config.compactVerdict)throw Object.assign(Error('truncated'),{diagnosticCode:'PROVIDER_INCOMPLETE'});return {content:JSON.stringify({decision:'accept',feedback:'Reviewed.',checks})};}});
+ const result=await run({taskMatch:'pass',grounding:'pass',safety:'pass'});assert.equal(result.quality.checkerRetries,1);assert.equal(requests.length,2);assert.ok(requests.every(r=>r.maxTokens===2048&&r.config.model==='registered-passive'));assert.equal(requests[1].config.compactVerdict,true);
+ requests.length=0;await assert.rejects(()=>run({taskMatch:'pass',grounding:'pass',safety:'fail'}),e=>e.code==='COPILOT_CHECKER_UNAVAILABLE');assert.equal(requests.length,2);
+});
 test('explicit choices, mismatches, substitutions and advice-only constraints are checked before LLM acceptance',()=>{
  assert.equal(deterministicReview(context('Set Shipping method to Express. Do not save.',proposal('Express'))),null);
  for(const [task,draft] of [['Set Shipping method to Express.',proposal('Standard')],['Set Shipping method to Overnight. Do not substitute.',proposal('Express')],['Explain the options. Do not change fields.',proposal('Express')],['Set Shipping method to Express.',{message:'Already done.',actions:[]}]])assert.ok(deterministicReview(context(task,draft)));

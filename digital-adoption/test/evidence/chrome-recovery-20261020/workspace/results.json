@@ -1,0 +1,32 @@
+{
+  "at": "2026-10-20T08:52:36.123Z",
+  "scope": "Existing loopback host, actual SDK/service/DOM/WebSocket; deterministic planner/knowledge/extractor and synthetic owner/policy fixtures, not real-model acceptance",
+  "results": [
+    {
+      "id": "UX01_VISITOR_CAPABILITIES_AND_SINGLE_COMPOSER",
+      "status": "passed",
+      "screenshot": "UX01_VISITOR_CAPABILITIES_AND_SINGLE_COMPOSER.png"
+    },
+    {
+      "id": "UX02_UNIFIED_KNOWLEDGE_AND_HISTORY",
+      "status": "passed",
+      "screenshot": "UX02_UNIFIED_KNOWLEDGE_AND_HISTORY.png"
+    },
+    {
+      "id": "UX03_REVIEW_EDIT_APPLY_AND_REJECT",
+      "status": "passed",
+      "screenshot": "UX03_REVIEW_EDIT_APPLY_AND_REJECT.png"
+    },
+    {
+      "id": "UX04_PERSISTENT_FAILURE_ACROSS_VIEWS",
+      "status": "passed",
+      "screenshot": "UX04_PERSISTENT_FAILURE_ACROSS_VIEWS.png"
+    },
+    {
+      "id": "UX22_CHECKER_FAILURE_AND_PRESENTATION_RETAIN_CHAT",
+      "status": "failed",
+      "error": "The expression evaluated to a falsy value:\n\n  assert.ok((await panel.locator('#log').innerText()).includes(before))\n"
+    }
+  ],
+  "errors": []
+}

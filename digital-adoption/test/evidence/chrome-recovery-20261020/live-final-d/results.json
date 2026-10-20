@@ -1,0 +1,4622 @@
+{
+  "at": "2026-10-20T09:19:58.750Z",
+  "scope": "Separate Chrome profile, actual deployed goal/step maker and configured checker. Three paired tabs; only loopback synthetic records saved. No attachment, backend data seeding or autonomous policy grant.",
+  "marker": "mvggzqte",
+  "email": "peer.mvggzqte@example.test",
+  "publicWrites": 0,
+  "results": [
+    {
+      "id": "LIVE_PEER01_READY_AND_PAIRED_LOCAL_FORMS_WITHOUT_FILES",
+      "status": "passed"
+    },
+    {
+      "id": "LIVE_PEER02_ACTUAL_MODEL_CUSTOMER_TO_NOTE_GOAL_AND_TWO_SAVES",
+      "status": "passed"
+    },
+    {
+      "id": "LIVE_PEER03_CROSS_DOMAIN_INSPECTION_RETURNS_PUBLIC_FIELDS",
+      "status": "passed"
+    },
+    {
+      "id": "LIVE_PEER04_PRIVATE_FORM_VALUES_DRIVE_PUBLIC_INCOMING_GOAL",
+      "status": "passed"
+    },
+    {
+      "id": "LIVE_PEER05_TASK_AND_PAIRING_CLEANUP",
+      "status": "passed"
+    }
+  ],
+  "traces": [
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "goal": null,
+      "result": {
+        "goal": null
+      }
+    },
+    {
+      "panel": "note",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "goal": null,
+      "result": {
+        "goal": null
+      }
+    },
+    {
+      "panel": "public",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "goal": null,
+      "result": {
+        "goal": null
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/create",
+      "status": 200,
+      "goal": {
+        "id": "1fa3e1b5-3ff2-4c5d-8893-b7583f3a2435",
+        "embeddingId": "adoption-demo-alpha",
+        "sessionId": "96da4dee-5afd-4dc2-8688-362ecebb3df1",
+        "conversationVersion": 0,
+        "text": "Fill and save this Customer: Company name \"genosys\"; Contact email \"peer.mvggzqte@example.test\"; Region \"Singapore\". Then inspect the paired copilot instanceId 92d17260-9230-4178-a28f-0251a1c559f1, which is on Note. In that paired tab, use the shared Customer Company name as Note Title and Contact email as Note Body; fill and save the Note after normal reviews. I will confirm sharing current form values and each change.",
+        "message": "Plan to fill and save the Customer form, then inspect the paired Note instance and fill it with shared values.",
+        "steps": [
+          {
+            "title": "Fill Customer form",
+            "kind": "fill",
+            "instruction": "Fill the Customer form with Company name 'genosys', Contact email 'peer.mvggzqte@example.test', and Region 'Singapore'.",
+            "expected": "Customer form fields are filled with the provided values.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save Customer form",
+            "kind": "save",
+            "instruction": "Save the filled Customer form.",
+            "expected": "Customer form is saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Inspect paired Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "inspect",
+            "instruction": "Inspect the paired Note form to retrieve its supported structure.",
+            "expected": "The other browser returns its supported fields for the Note form.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Fill Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "goal",
+            "instruction": "Fill the Note form with Title 'genosys' and Body 'peer.mvggzqte@example.test', then save it.",
+            "expected": "Note form is filled and saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ],
+        "current": 0,
+        "status": "draft",
+        "clarifications": 0,
+        "version": 1,
+        "createdAt": 1792487901644,
+        "expiresAt": 1792574301644
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/control",
+      "status": 200,
+      "goal": {
+        "id": "1fa3e1b5-3ff2-4c5d-8893-b7583f3a2435",
+        "embeddingId": "adoption-demo-alpha",
+        "sessionId": "96da4dee-5afd-4dc2-8688-362ecebb3df1",
+        "conversationVersion": 0,
+        "text": "Fill and save this Customer: Company name \"genosys\"; Contact email \"peer.mvggzqte@example.test\"; Region \"Singapore\". Then inspect the paired copilot instanceId 92d17260-9230-4178-a28f-0251a1c559f1, which is on Note. In that paired tab, use the shared Customer Company name as Note Title and Contact email as Note Body; fill and save the Note after normal reviews. I will confirm sharing current form values and each change.",
+        "message": "Plan to fill and save the Customer form, then inspect the paired Note instance and fill it with shared values.",
+        "steps": [
+          {
+            "title": "Fill Customer form",
+            "kind": "fill",
+            "instruction": "Fill the Customer form with Company name 'genosys', Contact email 'peer.mvggzqte@example.test', and Region 'Singapore'.",
+            "expected": "Customer form fields are filled with the provided values.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save Customer form",
+            "kind": "save",
+            "instruction": "Save the filled Customer form.",
+            "expected": "Customer form is saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Inspect paired Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "inspect",
+            "instruction": "Inspect the paired Note form to retrieve its supported structure.",
+            "expected": "The other browser returns its supported fields for the Note form.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Fill Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "goal",
+            "instruction": "Fill the Note form with Title 'genosys' and Body 'peer.mvggzqte@example.test', then save it.",
+            "expected": "Note form is filled and saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ],
+        "current": 0,
+        "status": "ready",
+        "clarifications": 0,
+        "version": 2,
+        "createdAt": 1792487901644,
+        "expiresAt": 1792574301644
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "goal": {
+        "id": "1fa3e1b5-3ff2-4c5d-8893-b7583f3a2435",
+        "embeddingId": "adoption-demo-alpha",
+        "sessionId": "96da4dee-5afd-4dc2-8688-362ecebb3df1",
+        "conversationVersion": 0,
+        "text": "Fill and save this Customer: Company name \"genosys\"; Contact email \"peer.mvggzqte@example.test\"; Region \"Singapore\". Then inspect the paired copilot instanceId 92d17260-9230-4178-a28f-0251a1c559f1, which is on Note. In that paired tab, use the shared Customer Company name as Note Title and Contact email as Note Body; fill and save the Note after normal reviews. I will confirm sharing current form values and each change.",
+        "message": "Filling the Customer form with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+        "steps": [
+          {
+            "title": "Fill Customer form",
+            "kind": "fill",
+            "instruction": "Fill the Customer form with Company name 'genosys', Contact email 'peer.mvggzqte@example.test', and Region 'Singapore'.",
+            "expected": "Customer form fields are filled with the provided values.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer form",
+            "kind": "save",
+            "instruction": "Save the filled Customer form.",
+            "expected": "Customer form is saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Inspect paired Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "inspect",
+            "instruction": "Inspect the paired Note form to retrieve its supported structure.",
+            "expected": "The other browser returns its supported fields for the Note form.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Fill Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "goal",
+            "instruction": "Fill the Note form with Title 'genosys' and Body 'peer.mvggzqte@example.test', then save it.",
+            "expected": "Note form is filled and saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ],
+        "current": 0,
+        "status": "awaiting_review",
+        "clarifications": 0,
+        "version": 4,
+        "createdAt": 1792487901644,
+        "expiresAt": 1792574301644,
+        "pendingProposalId": "c0ede475-5c12-4e48-8544-5acdcfde1428"
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "status": 200,
+      "goal": {
+        "id": "1fa3e1b5-3ff2-4c5d-8893-b7583f3a2435",
+        "embeddingId": "adoption-demo-alpha",
+        "sessionId": "96da4dee-5afd-4dc2-8688-362ecebb3df1",
+        "conversationVersion": 0,
+        "text": "Fill and save this Customer: Company name \"genosys\"; Contact email \"peer.mvggzqte@example.test\"; Region \"Singapore\". Then inspect the paired copilot instanceId 92d17260-9230-4178-a28f-0251a1c559f1, which is on Note. In that paired tab, use the shared Customer Company name as Note Title and Contact email as Note Body; fill and save the Note after normal reviews. I will confirm sharing current form values and each change.",
+        "message": "All requested fields in the Customer form have been filled with the provided values: Company name 'genosys', Contact email 'peer.mvggzqte@example.test', and Region 'Singapore'.",
+        "steps": [
+          {
+            "title": "Fill Customer form",
+            "kind": "fill",
+            "instruction": "Fill the Customer form with Company name 'genosys', Contact email 'peer.mvggzqte@example.test', and Region 'Singapore'.",
+            "expected": "Customer form fields are filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c0ede475-5c12-4e48-8544-5acdcfde1428",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Filling the Customer form with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "peer.mvggzqte@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer form",
+            "kind": "save",
+            "instruction": "Save the filled Customer form.",
+            "expected": "Customer form is saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Inspect paired Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "inspect",
+            "instruction": "Inspect the paired Note form to retrieve its supported structure.",
+            "expected": "The other browser returns its supported fields for the Note form.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Fill Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "goal",
+            "instruction": "Fill the Note form with Title 'genosys' and Body 'peer.mvggzqte@example.test', then save it.",
+            "expected": "Note form is filled and saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ],
+        "current": 1,
+        "status": "ready",
+        "clarifications": 0,
+        "version": 6,
+        "createdAt": 1792487901644,
+        "expiresAt": 1792574301644
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "goal": {
+        "id": "1fa3e1b5-3ff2-4c5d-8893-b7583f3a2435",
+        "embeddingId": "adoption-demo-alpha",
+        "sessionId": "96da4dee-5afd-4dc2-8688-362ecebb3df1",
+        "conversationVersion": 0,
+        "text": "Fill and save this Customer: Company name \"genosys\"; Contact email \"peer.mvggzqte@example.test\"; Region \"Singapore\". Then inspect the paired copilot instanceId 92d17260-9230-4178-a28f-0251a1c559f1, which is on Note. In that paired tab, use the shared Customer Company name as Note Title and Contact email as Note Body; fill and save the Note after normal reviews. I will confirm sharing current form values and each change.",
+        "message": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+        "steps": [
+          {
+            "title": "Fill Customer form",
+            "kind": "fill",
+            "instruction": "Fill the Customer form with Company name 'genosys', Contact email 'peer.mvggzqte@example.test', and Region 'Singapore'.",
+            "expected": "Customer form fields are filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c0ede475-5c12-4e48-8544-5acdcfde1428",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Filling the Customer form with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "peer.mvggzqte@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer form",
+            "kind": "save",
+            "instruction": "Save the filled Customer form.",
+            "expected": "Customer form is saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect paired Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "inspect",
+            "instruction": "Inspect the paired Note form to retrieve its supported structure.",
+            "expected": "The other browser returns its supported fields for the Note form.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Fill Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "goal",
+            "instruction": "Fill the Note form with Title 'genosys' and Body 'peer.mvggzqte@example.test', then save it.",
+            "expected": "Note form is filled and saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ],
+        "current": 1,
+        "status": "awaiting_review",
+        "clarifications": 0,
+        "version": 8,
+        "createdAt": 1792487901644,
+        "expiresAt": 1792574301644,
+        "pendingProposalId": "59852a6d-3107-4bfa-8b21-ac98bf196b93"
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "status": 200,
+      "goal": {
+        "id": "1fa3e1b5-3ff2-4c5d-8893-b7583f3a2435",
+        "embeddingId": "adoption-demo-alpha",
+        "sessionId": "96da4dee-5afd-4dc2-8688-362ecebb3df1",
+        "conversationVersion": 0,
+        "text": "Fill and save this Customer: Company name \"genosys\"; Contact email \"peer.mvggzqte@example.test\"; Region \"Singapore\". Then inspect the paired copilot instanceId 92d17260-9230-4178-a28f-0251a1c559f1, which is on Note. In that paired tab, use the shared Customer Company name as Note Title and Contact email as Note Body; fill and save the Note after normal reviews. I will confirm sharing current form values and each change.",
+        "message": "The host reported a successful submission for this step. This is not independent business verification.",
+        "steps": [
+          {
+            "title": "Fill Customer form",
+            "kind": "fill",
+            "instruction": "Fill the Customer form with Company name 'genosys', Contact email 'peer.mvggzqte@example.test', and Region 'Singapore'.",
+            "expected": "Customer form fields are filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c0ede475-5c12-4e48-8544-5acdcfde1428",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Filling the Customer form with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "peer.mvggzqte@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer form",
+            "kind": "save",
+            "instruction": "Save the filled Customer form.",
+            "expected": "Customer form is saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "59852a6d-3107-4bfa-8b21-ac98bf196b93",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect paired Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "inspect",
+            "instruction": "Inspect the paired Note form to retrieve its supported structure.",
+            "expected": "The other browser returns its supported fields for the Note form.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Fill Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "goal",
+            "instruction": "Fill the Note form with Title 'genosys' and Body 'peer.mvggzqte@example.test', then save it.",
+            "expected": "Note form is filled and saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ],
+        "current": 2,
+        "status": "ready",
+        "clarifications": 0,
+        "version": 10,
+        "createdAt": 1792487901644,
+        "expiresAt": 1792574301644
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "goal": {
+        "id": "1fa3e1b5-3ff2-4c5d-8893-b7583f3a2435",
+        "embeddingId": "adoption-demo-alpha",
+        "sessionId": "96da4dee-5afd-4dc2-8688-362ecebb3df1",
+        "conversationVersion": 0,
+        "text": "Fill and save this Customer: Company name \"genosys\"; Contact email \"peer.mvggzqte@example.test\"; Region \"Singapore\". Then inspect the paired copilot instanceId 92d17260-9230-4178-a28f-0251a1c559f1, which is on Note. In that paired tab, use the shared Customer Company name as Note Title and Contact email as Note Body; fill and save the Note after normal reviews. I will confirm sharing current form values and each change.",
+        "message": "The host reported a successful submission for this step. This is not independent business verification.",
+        "steps": [
+          {
+            "title": "Fill Customer form",
+            "kind": "fill",
+            "instruction": "Fill the Customer form with Company name 'genosys', Contact email 'peer.mvggzqte@example.test', and Region 'Singapore'.",
+            "expected": "Customer form fields are filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c0ede475-5c12-4e48-8544-5acdcfde1428",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Filling the Customer form with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "peer.mvggzqte@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer form",
+            "kind": "save",
+            "instruction": "Save the filled Customer form.",
+            "expected": "Customer form is saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "59852a6d-3107-4bfa-8b21-ac98bf196b93",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect paired Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "inspect",
+            "instruction": "Inspect the paired Note form to retrieve its supported structure.",
+            "expected": "The other browser returns its supported fields for the Note form.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Fill Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "goal",
+            "instruction": "Fill the Note form with Title 'genosys' and Body 'peer.mvggzqte@example.test', then save it.",
+            "expected": "Note form is filled and saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ],
+        "current": 2,
+        "status": "ready",
+        "clarifications": 0,
+        "version": 10,
+        "createdAt": 1792487901644,
+        "expiresAt": 1792574301644
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/peer-send",
+      "status": 200,
+      "goal": {
+        "id": "1fa3e1b5-3ff2-4c5d-8893-b7583f3a2435",
+        "embeddingId": "adoption-demo-alpha",
+        "sessionId": "96da4dee-5afd-4dc2-8688-362ecebb3df1",
+        "conversationVersion": 0,
+        "text": "Fill and save this Customer: Company name \"genosys\"; Contact email \"peer.mvggzqte@example.test\"; Region \"Singapore\". Then inspect the paired copilot instanceId 92d17260-9230-4178-a28f-0251a1c559f1, which is on Note. In that paired tab, use the shared Customer Company name as Note Title and Contact email as Note Body; fill and save the Note after normal reviews. I will confirm sharing current form values and each change.",
+        "message": "Waiting for the paired copilot; its own reviews and permissions apply.",
+        "steps": [
+          {
+            "title": "Fill Customer form",
+            "kind": "fill",
+            "instruction": "Fill the Customer form with Company name 'genosys', Contact email 'peer.mvggzqte@example.test', and Region 'Singapore'.",
+            "expected": "Customer form fields are filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c0ede475-5c12-4e48-8544-5acdcfde1428",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Filling the Customer form with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "peer.mvggzqte@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer form",
+            "kind": "save",
+            "instruction": "Save the filled Customer form.",
+            "expected": "Customer form is saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "59852a6d-3107-4bfa-8b21-ac98bf196b93",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect paired Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "inspect",
+            "instruction": "Inspect the paired Note form to retrieve its supported structure.",
+            "expected": "The other browser returns its supported fields for the Note form.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          },
+          {
+            "title": "Fill Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "goal",
+            "instruction": "Fill the Note form with Title 'genosys' and Body 'peer.mvggzqte@example.test', then save it.",
+            "expected": "Note form is filled and saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ],
+        "current": 2,
+        "status": "awaiting_peer",
+        "clarifications": 0,
+        "version": 12,
+        "createdAt": 1792487901644,
+        "expiresAt": 1792574301644,
+        "pendingPeerId": "8d2c0405-45c9-47bc-9f30-f492cbbfd04a",
+        "privateTask": {
+          "taskId": "8f6ce1ee-890b-4a56-bbfb-f45609e6f955",
+          "instanceId": "8ccd3cbd-fe97-4287-8857-e5a290363104",
+          "contentRevision": 0
+        }
+      }
+    },
+    {
+      "panel": "note",
+      "path": "/free-tools/digital-adoption/v1/tasks/peer-answer",
+      "status": 200,
+      "result": {
+        "requestId": "8d2c0405-45c9-47bc-9f30-f492cbbfd04a",
+        "taskId": "8f6ce1ee-890b-4a56-bbfb-f45609e6f955",
+        "sourceInstanceId": "8ccd3cbd-fe97-4287-8857-e5a290363104",
+        "contentRevision": 0,
+        "mode": "inspect",
+        "status": "completed",
+        "from": "http://127.0.0.1:4194",
+        "to": "http://127.0.0.1:4194",
+        "instruction": "Inspect the paired Note form to retrieve its supported structure.",
+        "expiresAt": 1792491518252,
+        "result": {
+          "origin": "http://127.0.0.1:4194",
+          "path": "/note",
+          "forms": [
+            {
+              "key": "demo-form",
+              "label": "demo-form",
+              "fields": [
+                "title",
+                "body"
+              ]
+            }
+          ],
+          "fields": [
+            {
+              "label": "Title",
+              "type": "text",
+              "required": true,
+              "key": "title",
+              "form": "demo-form"
+            },
+            {
+              "label": "Body",
+              "type": "textarea",
+              "required": true,
+              "key": "body",
+              "form": "demo-form"
+            }
+          ],
+          "links": [
+            {
+              "label": "Customer",
+              "path": "/customer"
+            },
+            {
+              "label": "Opportunity",
+              "path": "/opportunity"
+            },
+            {
+              "label": "Note",
+              "path": "/note"
+            },
+            {
+              "label": "Scheduled goal",
+              "path": "/goal"
+            }
+          ],
+          "values": []
+        }
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/peer-check",
+      "status": 200,
+      "goal": {
+        "id": "1fa3e1b5-3ff2-4c5d-8893-b7583f3a2435",
+        "embeddingId": "adoption-demo-alpha",
+        "sessionId": "96da4dee-5afd-4dc2-8688-362ecebb3df1",
+        "conversationVersion": 0,
+        "text": "Fill and save this Customer: Company name \"genosys\"; Contact email \"peer.mvggzqte@example.test\"; Region \"Singapore\". Then inspect the paired copilot instanceId 92d17260-9230-4178-a28f-0251a1c559f1, which is on Note. In that paired tab, use the shared Customer Company name as Note Title and Contact email as Note Body; fill and save the Note after normal reviews. I will confirm sharing current form values and each change.",
+        "message": "The paired copilot returned its current form structure.",
+        "steps": [
+          {
+            "title": "Fill Customer form",
+            "kind": "fill",
+            "instruction": "Fill the Customer form with Company name 'genosys', Contact email 'peer.mvggzqte@example.test', and Region 'Singapore'.",
+            "expected": "Customer form fields are filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c0ede475-5c12-4e48-8544-5acdcfde1428",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Filling the Customer form with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "peer.mvggzqte@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer form",
+            "kind": "save",
+            "instruction": "Save the filled Customer form.",
+            "expected": "Customer form is saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "59852a6d-3107-4bfa-8b21-ac98bf196b93",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect paired Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "inspect",
+            "instruction": "Inspect the paired Note form to retrieve its supported structure.",
+            "expected": "The other browser returns its supported fields for the Note form.",
+            "status": "completed",
+            "effects": [
+              {
+                "peer": "8d2c0405-45c9-47bc-9f30-f492cbbfd04a",
+                "to": "http://127.0.0.1:4194",
+                "outcome": "recipient_goal_completed",
+                "message": "Recipient inspection returned"
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Fill Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "goal",
+            "instruction": "Fill the Note form with Title 'genosys' and Body 'peer.mvggzqte@example.test', then save it.",
+            "expected": "Note form is filled and saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ],
+        "current": 3,
+        "status": "ready",
+        "clarifications": 0,
+        "version": 13,
+        "createdAt": 1792487901644,
+        "expiresAt": 1792574301644,
+        "privateTask": {
+          "taskId": "8f6ce1ee-890b-4a56-bbfb-f45609e6f955",
+          "instanceId": "8ccd3cbd-fe97-4287-8857-e5a290363104",
+          "contentRevision": 0
+        }
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "goal": {
+        "id": "1fa3e1b5-3ff2-4c5d-8893-b7583f3a2435",
+        "embeddingId": "adoption-demo-alpha",
+        "sessionId": "96da4dee-5afd-4dc2-8688-362ecebb3df1",
+        "conversationVersion": 0,
+        "text": "Fill and save this Customer: Company name \"genosys\"; Contact email \"peer.mvggzqte@example.test\"; Region \"Singapore\". Then inspect the paired copilot instanceId 92d17260-9230-4178-a28f-0251a1c559f1, which is on Note. In that paired tab, use the shared Customer Company name as Note Title and Contact email as Note Body; fill and save the Note after normal reviews. I will confirm sharing current form values and each change.",
+        "message": "The paired copilot returned its current form structure.",
+        "steps": [
+          {
+            "title": "Fill Customer form",
+            "kind": "fill",
+            "instruction": "Fill the Customer form with Company name 'genosys', Contact email 'peer.mvggzqte@example.test', and Region 'Singapore'.",
+            "expected": "Customer form fields are filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c0ede475-5c12-4e48-8544-5acdcfde1428",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Filling the Customer form with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "peer.mvggzqte@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer form",
+            "kind": "save",
+            "instruction": "Save the filled Customer form.",
+            "expected": "Customer form is saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "59852a6d-3107-4bfa-8b21-ac98bf196b93",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect paired Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "inspect",
+            "instruction": "Inspect the paired Note form to retrieve its supported structure.",
+            "expected": "The other browser returns its supported fields for the Note form.",
+            "status": "completed",
+            "effects": [
+              {
+                "peer": "8d2c0405-45c9-47bc-9f30-f492cbbfd04a",
+                "to": "http://127.0.0.1:4194",
+                "outcome": "recipient_goal_completed",
+                "message": "Recipient inspection returned"
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Fill Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "goal",
+            "instruction": "Fill the Note form with Title 'genosys' and Body 'peer.mvggzqte@example.test', then save it.",
+            "expected": "Note form is filled and saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ],
+        "current": 3,
+        "status": "ready",
+        "clarifications": 0,
+        "version": 13,
+        "createdAt": 1792487901644,
+        "expiresAt": 1792574301644,
+        "privateTask": {
+          "taskId": "8f6ce1ee-890b-4a56-bbfb-f45609e6f955",
+          "instanceId": "8ccd3cbd-fe97-4287-8857-e5a290363104",
+          "contentRevision": 0
+        }
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/peer-send",
+      "status": 200,
+      "goal": {
+        "id": "1fa3e1b5-3ff2-4c5d-8893-b7583f3a2435",
+        "embeddingId": "adoption-demo-alpha",
+        "sessionId": "96da4dee-5afd-4dc2-8688-362ecebb3df1",
+        "conversationVersion": 0,
+        "text": "Fill and save this Customer: Company name \"genosys\"; Contact email \"peer.mvggzqte@example.test\"; Region \"Singapore\". Then inspect the paired copilot instanceId 92d17260-9230-4178-a28f-0251a1c559f1, which is on Note. In that paired tab, use the shared Customer Company name as Note Title and Contact email as Note Body; fill and save the Note after normal reviews. I will confirm sharing current form values and each change.",
+        "message": "Waiting for the paired copilot; its own reviews and permissions apply.",
+        "steps": [
+          {
+            "title": "Fill Customer form",
+            "kind": "fill",
+            "instruction": "Fill the Customer form with Company name 'genosys', Contact email 'peer.mvggzqte@example.test', and Region 'Singapore'.",
+            "expected": "Customer form fields are filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c0ede475-5c12-4e48-8544-5acdcfde1428",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Filling the Customer form with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "peer.mvggzqte@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer form",
+            "kind": "save",
+            "instruction": "Save the filled Customer form.",
+            "expected": "Customer form is saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "59852a6d-3107-4bfa-8b21-ac98bf196b93",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect paired Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "inspect",
+            "instruction": "Inspect the paired Note form to retrieve its supported structure.",
+            "expected": "The other browser returns its supported fields for the Note form.",
+            "status": "completed",
+            "effects": [
+              {
+                "peer": "8d2c0405-45c9-47bc-9f30-f492cbbfd04a",
+                "to": "http://127.0.0.1:4194",
+                "outcome": "recipient_goal_completed",
+                "message": "Recipient inspection returned"
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Fill Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "goal",
+            "instruction": "Fill the Note form with Title 'genosys' and Body 'peer.mvggzqte@example.test', then save it.",
+            "expected": "Note form is filled and saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          }
+        ],
+        "current": 3,
+        "status": "awaiting_peer",
+        "clarifications": 0,
+        "version": 15,
+        "createdAt": 1792487901644,
+        "expiresAt": 1792574301644,
+        "privateTask": {
+          "taskId": "8f6ce1ee-890b-4a56-bbfb-f45609e6f955",
+          "instanceId": "8ccd3cbd-fe97-4287-8857-e5a290363104",
+          "contentRevision": 0
+        },
+        "pendingPeerId": "4ddd108f-504c-4dad-96a4-923ab7585cfa"
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/peer-check",
+      "status": 200,
+      "goal": {
+        "id": "1fa3e1b5-3ff2-4c5d-8893-b7583f3a2435",
+        "embeddingId": "adoption-demo-alpha",
+        "sessionId": "96da4dee-5afd-4dc2-8688-362ecebb3df1",
+        "conversationVersion": 0,
+        "text": "Fill and save this Customer: Company name \"genosys\"; Contact email \"peer.mvggzqte@example.test\"; Region \"Singapore\". Then inspect the paired copilot instanceId 92d17260-9230-4178-a28f-0251a1c559f1, which is on Note. In that paired tab, use the shared Customer Company name as Note Title and Contact email as Note Body; fill and save the Note after normal reviews. I will confirm sharing current form values and each change.",
+        "message": "Waiting for the paired copilot; its own reviews and permissions apply.",
+        "steps": [
+          {
+            "title": "Fill Customer form",
+            "kind": "fill",
+            "instruction": "Fill the Customer form with Company name 'genosys', Contact email 'peer.mvggzqte@example.test', and Region 'Singapore'.",
+            "expected": "Customer form fields are filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c0ede475-5c12-4e48-8544-5acdcfde1428",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Filling the Customer form with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "peer.mvggzqte@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer form",
+            "kind": "save",
+            "instruction": "Save the filled Customer form.",
+            "expected": "Customer form is saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "59852a6d-3107-4bfa-8b21-ac98bf196b93",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect paired Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "inspect",
+            "instruction": "Inspect the paired Note form to retrieve its supported structure.",
+            "expected": "The other browser returns its supported fields for the Note form.",
+            "status": "completed",
+            "effects": [
+              {
+                "peer": "8d2c0405-45c9-47bc-9f30-f492cbbfd04a",
+                "to": "http://127.0.0.1:4194",
+                "outcome": "recipient_goal_completed",
+                "message": "Recipient inspection returned"
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Fill Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "goal",
+            "instruction": "Fill the Note form with Title 'genosys' and Body 'peer.mvggzqte@example.test', then save it.",
+            "expected": "Note form is filled and saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          }
+        ],
+        "current": 3,
+        "status": "awaiting_peer",
+        "clarifications": 0,
+        "version": 15,
+        "createdAt": 1792487901644,
+        "expiresAt": 1792574301644,
+        "privateTask": {
+          "taskId": "8f6ce1ee-890b-4a56-bbfb-f45609e6f955",
+          "instanceId": "8ccd3cbd-fe97-4287-8857-e5a290363104",
+          "contentRevision": 0
+        },
+        "pendingPeerId": "4ddd108f-504c-4dad-96a4-923ab7585cfa"
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/peer-check",
+      "status": 200,
+      "goal": {
+        "id": "1fa3e1b5-3ff2-4c5d-8893-b7583f3a2435",
+        "embeddingId": "adoption-demo-alpha",
+        "sessionId": "96da4dee-5afd-4dc2-8688-362ecebb3df1",
+        "conversationVersion": 0,
+        "text": "Fill and save this Customer: Company name \"genosys\"; Contact email \"peer.mvggzqte@example.test\"; Region \"Singapore\". Then inspect the paired copilot instanceId 92d17260-9230-4178-a28f-0251a1c559f1, which is on Note. In that paired tab, use the shared Customer Company name as Note Title and Contact email as Note Body; fill and save the Note after normal reviews. I will confirm sharing current form values and each change.",
+        "message": "Waiting for the paired copilot; its own reviews and permissions apply.",
+        "steps": [
+          {
+            "title": "Fill Customer form",
+            "kind": "fill",
+            "instruction": "Fill the Customer form with Company name 'genosys', Contact email 'peer.mvggzqte@example.test', and Region 'Singapore'.",
+            "expected": "Customer form fields are filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c0ede475-5c12-4e48-8544-5acdcfde1428",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Filling the Customer form with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "peer.mvggzqte@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer form",
+            "kind": "save",
+            "instruction": "Save the filled Customer form.",
+            "expected": "Customer form is saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "59852a6d-3107-4bfa-8b21-ac98bf196b93",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect paired Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "inspect",
+            "instruction": "Inspect the paired Note form to retrieve its supported structure.",
+            "expected": "The other browser returns its supported fields for the Note form.",
+            "status": "completed",
+            "effects": [
+              {
+                "peer": "8d2c0405-45c9-47bc-9f30-f492cbbfd04a",
+                "to": "http://127.0.0.1:4194",
+                "outcome": "recipient_goal_completed",
+                "message": "Recipient inspection returned"
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Fill Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "goal",
+            "instruction": "Fill the Note form with Title 'genosys' and Body 'peer.mvggzqte@example.test', then save it.",
+            "expected": "Note form is filled and saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          }
+        ],
+        "current": 3,
+        "status": "awaiting_peer",
+        "clarifications": 0,
+        "version": 15,
+        "createdAt": 1792487901644,
+        "expiresAt": 1792574301644,
+        "privateTask": {
+          "taskId": "8f6ce1ee-890b-4a56-bbfb-f45609e6f955",
+          "instanceId": "8ccd3cbd-fe97-4287-8857-e5a290363104",
+          "contentRevision": 0
+        },
+        "pendingPeerId": "4ddd108f-504c-4dad-96a4-923ab7585cfa"
+      }
+    },
+    {
+      "panel": "note",
+      "path": "/free-tools/digital-adoption/v1/goals/create",
+      "status": 200,
+      "goal": {
+        "id": "20f9fcb5-5833-480e-9912-eabb6780797f",
+        "embeddingId": "adoption-demo-alpha",
+        "sessionId": "aa57a80a-049e-461f-a73d-56696a2e47b2",
+        "conversationVersion": 0,
+        "text": "Fill the Note form with Title 'genosys' and Body 'peer.mvggzqte@example.test', then save it.",
+        "peerRequestId": "4ddd108f-504c-4dad-96a4-923ab7585cfa",
+        "message": "Plan to fill the Note form and save it.",
+        "steps": [
+          {
+            "title": "Fill Title field",
+            "kind": "fill",
+            "instruction": "Fill the Title field with 'genosys'.",
+            "expected": "Title field is filled with 'genosys'.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Fill Body field",
+            "kind": "fill",
+            "instruction": "Fill the Body field with 'peer.mvggzqte@example.test'.",
+            "expected": "Body field is filled with 'peer.mvggzqte@example.test'.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save the Note",
+            "kind": "save",
+            "instruction": "Save the Note form.",
+            "expected": "Note form is saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ],
+        "current": 0,
+        "status": "draft",
+        "clarifications": 0,
+        "version": 1,
+        "createdAt": 1792487928009,
+        "expiresAt": 1792574328009,
+        "privateTask": {
+          "taskId": "8f6ce1ee-890b-4a56-bbfb-f45609e6f955",
+          "instanceId": "92d17260-9230-4178-a28f-0251a1c559f1",
+          "contentRevision": 0,
+          "peerRequestId": "4ddd108f-504c-4dad-96a4-923ab7585cfa"
+        }
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/peer-check",
+      "status": 200,
+      "goal": {
+        "id": "1fa3e1b5-3ff2-4c5d-8893-b7583f3a2435",
+        "embeddingId": "adoption-demo-alpha",
+        "sessionId": "96da4dee-5afd-4dc2-8688-362ecebb3df1",
+        "conversationVersion": 0,
+        "text": "Fill and save this Customer: Company name \"genosys\"; Contact email \"peer.mvggzqte@example.test\"; Region \"Singapore\". Then inspect the paired copilot instanceId 92d17260-9230-4178-a28f-0251a1c559f1, which is on Note. In that paired tab, use the shared Customer Company name as Note Title and Contact email as Note Body; fill and save the Note after normal reviews. I will confirm sharing current form values and each change.",
+        "message": "Waiting for the paired copilot; its own reviews and permissions apply.",
+        "steps": [
+          {
+            "title": "Fill Customer form",
+            "kind": "fill",
+            "instruction": "Fill the Customer form with Company name 'genosys', Contact email 'peer.mvggzqte@example.test', and Region 'Singapore'.",
+            "expected": "Customer form fields are filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c0ede475-5c12-4e48-8544-5acdcfde1428",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Filling the Customer form with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "peer.mvggzqte@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer form",
+            "kind": "save",
+            "instruction": "Save the filled Customer form.",
+            "expected": "Customer form is saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "59852a6d-3107-4bfa-8b21-ac98bf196b93",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect paired Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "inspect",
+            "instruction": "Inspect the paired Note form to retrieve its supported structure.",
+            "expected": "The other browser returns its supported fields for the Note form.",
+            "status": "completed",
+            "effects": [
+              {
+                "peer": "8d2c0405-45c9-47bc-9f30-f492cbbfd04a",
+                "to": "http://127.0.0.1:4194",
+                "outcome": "recipient_goal_completed",
+                "message": "Recipient inspection returned"
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Fill Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "goal",
+            "instruction": "Fill the Note form with Title 'genosys' and Body 'peer.mvggzqte@example.test', then save it.",
+            "expected": "Note form is filled and saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          }
+        ],
+        "current": 3,
+        "status": "awaiting_peer",
+        "clarifications": 0,
+        "version": 15,
+        "createdAt": 1792487901644,
+        "expiresAt": 1792574301644,
+        "privateTask": {
+          "taskId": "8f6ce1ee-890b-4a56-bbfb-f45609e6f955",
+          "instanceId": "8ccd3cbd-fe97-4287-8857-e5a290363104",
+          "contentRevision": 0
+        },
+        "pendingPeerId": "4ddd108f-504c-4dad-96a4-923ab7585cfa"
+      }
+    },
+    {
+      "panel": "note",
+      "path": "/free-tools/digital-adoption/v1/goals/control",
+      "status": 200,
+      "goal": {
+        "id": "20f9fcb5-5833-480e-9912-eabb6780797f",
+        "embeddingId": "adoption-demo-alpha",
+        "sessionId": "aa57a80a-049e-461f-a73d-56696a2e47b2",
+        "conversationVersion": 0,
+        "text": "Fill the Note form with Title 'genosys' and Body 'peer.mvggzqte@example.test', then save it.",
+        "peerRequestId": "4ddd108f-504c-4dad-96a4-923ab7585cfa",
+        "message": "Plan to fill the Note form and save it.",
+        "steps": [
+          {
+            "title": "Fill Title field",
+            "kind": "fill",
+            "instruction": "Fill the Title field with 'genosys'.",
+            "expected": "Title field is filled with 'genosys'.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Fill Body field",
+            "kind": "fill",
+            "instruction": "Fill the Body field with 'peer.mvggzqte@example.test'.",
+            "expected": "Body field is filled with 'peer.mvggzqte@example.test'.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save the Note",
+            "kind": "save",
+            "instruction": "Save the Note form.",
+            "expected": "Note form is saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ],
+        "current": 0,
+        "status": "ready",
+        "clarifications": 0,
+        "version": 2,
+        "createdAt": 1792487928009,
+        "expiresAt": 1792574328009,
+        "privateTask": {
+          "taskId": "8f6ce1ee-890b-4a56-bbfb-f45609e6f955",
+          "instanceId": "92d17260-9230-4178-a28f-0251a1c559f1",
+          "contentRevision": 0,
+          "peerRequestId": "4ddd108f-504c-4dad-96a4-923ab7585cfa"
+        }
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/peer-check",
+      "status": 200,
+      "goal": {
+        "id": "1fa3e1b5-3ff2-4c5d-8893-b7583f3a2435",
+        "embeddingId": "adoption-demo-alpha",
+        "sessionId": "96da4dee-5afd-4dc2-8688-362ecebb3df1",
+        "conversationVersion": 0,
+        "text": "Fill and save this Customer: Company name \"genosys\"; Contact email \"peer.mvggzqte@example.test\"; Region \"Singapore\". Then inspect the paired copilot instanceId 92d17260-9230-4178-a28f-0251a1c559f1, which is on Note. In that paired tab, use the shared Customer Company name as Note Title and Contact email as Note Body; fill and save the Note after normal reviews. I will confirm sharing current form values and each change.",
+        "message": "Waiting for the paired copilot; its own reviews and permissions apply.",
+        "steps": [
+          {
+            "title": "Fill Customer form",
+            "kind": "fill",
+            "instruction": "Fill the Customer form with Company name 'genosys', Contact email 'peer.mvggzqte@example.test', and Region 'Singapore'.",
+            "expected": "Customer form fields are filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c0ede475-5c12-4e48-8544-5acdcfde1428",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Filling the Customer form with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "peer.mvggzqte@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer form",
+            "kind": "save",
+            "instruction": "Save the filled Customer form.",
+            "expected": "Customer form is saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "59852a6d-3107-4bfa-8b21-ac98bf196b93",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect paired Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "inspect",
+            "instruction": "Inspect the paired Note form to retrieve its supported structure.",
+            "expected": "The other browser returns its supported fields for the Note form.",
+            "status": "completed",
+            "effects": [
+              {
+                "peer": "8d2c0405-45c9-47bc-9f30-f492cbbfd04a",
+                "to": "http://127.0.0.1:4194",
+                "outcome": "recipient_goal_completed",
+                "message": "Recipient inspection returned"
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Fill Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "goal",
+            "instruction": "Fill the Note form with Title 'genosys' and Body 'peer.mvggzqte@example.test', then save it.",
+            "expected": "Note form is filled and saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          }
+        ],
+        "current": 3,
+        "status": "awaiting_peer",
+        "clarifications": 0,
+        "version": 15,
+        "createdAt": 1792487901644,
+        "expiresAt": 1792574301644,
+        "privateTask": {
+          "taskId": "8f6ce1ee-890b-4a56-bbfb-f45609e6f955",
+          "instanceId": "8ccd3cbd-fe97-4287-8857-e5a290363104",
+          "contentRevision": 0
+        },
+        "pendingPeerId": "4ddd108f-504c-4dad-96a4-923ab7585cfa"
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/peer-check",
+      "status": 200,
+      "goal": {
+        "id": "1fa3e1b5-3ff2-4c5d-8893-b7583f3a2435",
+        "embeddingId": "adoption-demo-alpha",
+        "sessionId": "96da4dee-5afd-4dc2-8688-362ecebb3df1",
+        "conversationVersion": 0,
+        "text": "Fill and save this Customer: Company name \"genosys\"; Contact email \"peer.mvggzqte@example.test\"; Region \"Singapore\". Then inspect the paired copilot instanceId 92d17260-9230-4178-a28f-0251a1c559f1, which is on Note. In that paired tab, use the shared Customer Company name as Note Title and Contact email as Note Body; fill and save the Note after normal reviews. I will confirm sharing current form values and each change.",
+        "message": "Waiting for the paired copilot; its own reviews and permissions apply.",
+        "steps": [
+          {
+            "title": "Fill Customer form",
+            "kind": "fill",
+            "instruction": "Fill the Customer form with Company name 'genosys', Contact email 'peer.mvggzqte@example.test', and Region 'Singapore'.",
+            "expected": "Customer form fields are filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c0ede475-5c12-4e48-8544-5acdcfde1428",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Filling the Customer form with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "peer.mvggzqte@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer form",
+            "kind": "save",
+            "instruction": "Save the filled Customer form.",
+            "expected": "Customer form is saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "59852a6d-3107-4bfa-8b21-ac98bf196b93",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect paired Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "inspect",
+            "instruction": "Inspect the paired Note form to retrieve its supported structure.",
+            "expected": "The other browser returns its supported fields for the Note form.",
+            "status": "completed",
+            "effects": [
+              {
+                "peer": "8d2c0405-45c9-47bc-9f30-f492cbbfd04a",
+                "to": "http://127.0.0.1:4194",
+                "outcome": "recipient_goal_completed",
+                "message": "Recipient inspection returned"
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Fill Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "goal",
+            "instruction": "Fill the Note form with Title 'genosys' and Body 'peer.mvggzqte@example.test', then save it.",
+            "expected": "Note form is filled and saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          }
+        ],
+        "current": 3,
+        "status": "awaiting_peer",
+        "clarifications": 0,
+        "version": 15,
+        "createdAt": 1792487901644,
+        "expiresAt": 1792574301644,
+        "privateTask": {
+          "taskId": "8f6ce1ee-890b-4a56-bbfb-f45609e6f955",
+          "instanceId": "8ccd3cbd-fe97-4287-8857-e5a290363104",
+          "contentRevision": 0
+        },
+        "pendingPeerId": "4ddd108f-504c-4dad-96a4-923ab7585cfa"
+      }
+    },
+    {
+      "panel": "note",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "goal": {
+        "id": "20f9fcb5-5833-480e-9912-eabb6780797f",
+        "embeddingId": "adoption-demo-alpha",
+        "sessionId": "aa57a80a-049e-461f-a73d-56696a2e47b2",
+        "conversationVersion": 0,
+        "text": "Fill the Note form with Title 'genosys' and Body 'peer.mvggzqte@example.test', then save it.",
+        "peerRequestId": "4ddd108f-504c-4dad-96a4-923ab7585cfa",
+        "message": "Fill the Title field with 'genosys'.\nReview these 1 proposed field change. Nothing has been changed yet.",
+        "steps": [
+          {
+            "title": "Fill Title field",
+            "kind": "fill",
+            "instruction": "Fill the Title field with 'genosys'.",
+            "expected": "Title field is filled with 'genosys'.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          },
+          {
+            "title": "Fill Body field",
+            "kind": "fill",
+            "instruction": "Fill the Body field with 'peer.mvggzqte@example.test'.",
+            "expected": "Body field is filled with 'peer.mvggzqte@example.test'.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save the Note",
+            "kind": "save",
+            "instruction": "Save the Note form.",
+            "expected": "Note form is saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ],
+        "current": 0,
+        "status": "awaiting_review",
+        "clarifications": 0,
+        "version": 4,
+        "createdAt": 1792487928009,
+        "expiresAt": 1792574328009,
+        "privateTask": {
+          "taskId": "8f6ce1ee-890b-4a56-bbfb-f45609e6f955",
+          "instanceId": "92d17260-9230-4178-a28f-0251a1c559f1",
+          "contentRevision": 0,
+          "peerRequestId": "4ddd108f-504c-4dad-96a4-923ab7585cfa"
+        },
+        "pendingProposalId": "e020060b-0e2c-48ec-8948-4af72012dd77"
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/peer-check",
+      "status": 200,
+      "goal": {
+        "id": "1fa3e1b5-3ff2-4c5d-8893-b7583f3a2435",
+        "embeddingId": "adoption-demo-alpha",
+        "sessionId": "96da4dee-5afd-4dc2-8688-362ecebb3df1",
+        "conversationVersion": 0,
+        "text": "Fill and save this Customer: Company name \"genosys\"; Contact email \"peer.mvggzqte@example.test\"; Region \"Singapore\". Then inspect the paired copilot instanceId 92d17260-9230-4178-a28f-0251a1c559f1, which is on Note. In that paired tab, use the shared Customer Company name as Note Title and Contact email as Note Body; fill and save the Note after normal reviews. I will confirm sharing current form values and each change.",
+        "message": "Waiting for the paired copilot; its own reviews and permissions apply.",
+        "steps": [
+          {
+            "title": "Fill Customer form",
+            "kind": "fill",
+            "instruction": "Fill the Customer form with Company name 'genosys', Contact email 'peer.mvggzqte@example.test', and Region 'Singapore'.",
+            "expected": "Customer form fields are filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c0ede475-5c12-4e48-8544-5acdcfde1428",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Filling the Customer form with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "peer.mvggzqte@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer form",
+            "kind": "save",
+            "instruction": "Save the filled Customer form.",
+            "expected": "Customer form is saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "59852a6d-3107-4bfa-8b21-ac98bf196b93",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect paired Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "inspect",
+            "instruction": "Inspect the paired Note form to retrieve its supported structure.",
+            "expected": "The other browser returns its supported fields for the Note form.",
+            "status": "completed",
+            "effects": [
+              {
+                "peer": "8d2c0405-45c9-47bc-9f30-f492cbbfd04a",
+                "to": "http://127.0.0.1:4194",
+                "outcome": "recipient_goal_completed",
+                "message": "Recipient inspection returned"
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Fill Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "goal",
+            "instruction": "Fill the Note form with Title 'genosys' and Body 'peer.mvggzqte@example.test', then save it.",
+            "expected": "Note form is filled and saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          }
+        ],
+        "current": 3,
+        "status": "awaiting_peer",
+        "clarifications": 0,
+        "version": 15,
+        "createdAt": 1792487901644,
+        "expiresAt": 1792574301644,
+        "privateTask": {
+          "taskId": "8f6ce1ee-890b-4a56-bbfb-f45609e6f955",
+          "instanceId": "8ccd3cbd-fe97-4287-8857-e5a290363104",
+          "contentRevision": 0
+        },
+        "pendingPeerId": "4ddd108f-504c-4dad-96a4-923ab7585cfa"
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/peer-check",
+      "status": 200,
+      "goal": {
+        "id": "1fa3e1b5-3ff2-4c5d-8893-b7583f3a2435",
+        "embeddingId": "adoption-demo-alpha",
+        "sessionId": "96da4dee-5afd-4dc2-8688-362ecebb3df1",
+        "conversationVersion": 0,
+        "text": "Fill and save this Customer: Company name \"genosys\"; Contact email \"peer.mvggzqte@example.test\"; Region \"Singapore\". Then inspect the paired copilot instanceId 92d17260-9230-4178-a28f-0251a1c559f1, which is on Note. In that paired tab, use the shared Customer Company name as Note Title and Contact email as Note Body; fill and save the Note after normal reviews. I will confirm sharing current form values and each change.",
+        "message": "Waiting for the paired copilot; its own reviews and permissions apply.",
+        "steps": [
+          {
+            "title": "Fill Customer form",
+            "kind": "fill",
+            "instruction": "Fill the Customer form with Company name 'genosys', Contact email 'peer.mvggzqte@example.test', and Region 'Singapore'.",
+            "expected": "Customer form fields are filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c0ede475-5c12-4e48-8544-5acdcfde1428",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Filling the Customer form with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "peer.mvggzqte@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer form",
+            "kind": "save",
+            "instruction": "Save the filled Customer form.",
+            "expected": "Customer form is saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "59852a6d-3107-4bfa-8b21-ac98bf196b93",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect paired Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "inspect",
+            "instruction": "Inspect the paired Note form to retrieve its supported structure.",
+            "expected": "The other browser returns its supported fields for the Note form.",
+            "status": "completed",
+            "effects": [
+              {
+                "peer": "8d2c0405-45c9-47bc-9f30-f492cbbfd04a",
+                "to": "http://127.0.0.1:4194",
+                "outcome": "recipient_goal_completed",
+                "message": "Recipient inspection returned"
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Fill Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "goal",
+            "instruction": "Fill the Note form with Title 'genosys' and Body 'peer.mvggzqte@example.test', then save it.",
+            "expected": "Note form is filled and saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          }
+        ],
+        "current": 3,
+        "status": "awaiting_peer",
+        "clarifications": 0,
+        "version": 15,
+        "createdAt": 1792487901644,
+        "expiresAt": 1792574301644,
+        "privateTask": {
+          "taskId": "8f6ce1ee-890b-4a56-bbfb-f45609e6f955",
+          "instanceId": "8ccd3cbd-fe97-4287-8857-e5a290363104",
+          "contentRevision": 0
+        },
+        "pendingPeerId": "4ddd108f-504c-4dad-96a4-923ab7585cfa"
+      }
+    },
+    {
+      "panel": "note",
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "status": 200,
+      "goal": {
+        "id": "20f9fcb5-5833-480e-9912-eabb6780797f",
+        "embeddingId": "adoption-demo-alpha",
+        "sessionId": "aa57a80a-049e-461f-a73d-56696a2e47b2",
+        "conversationVersion": 0,
+        "text": "Fill the Note form with Title 'genosys' and Body 'peer.mvggzqte@example.test', then save it.",
+        "peerRequestId": "4ddd108f-504c-4dad-96a4-923ab7585cfa",
+        "message": "The Title field has been filled with 'genosys' as evidenced by the local state verification.",
+        "steps": [
+          {
+            "title": "Fill Title field",
+            "kind": "fill",
+            "instruction": "Fill the Title field with 'genosys'.",
+            "expected": "Title field is filled with 'genosys'.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "e020060b-0e2c-48ec-8948-4af72012dd77",
+                "status": "consumed",
+                "path": "/note",
+                "responseMessage": "Fill the Title field with 'genosys'.\nReview these 1 proposed field change. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Title",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Fill Body field",
+            "kind": "fill",
+            "instruction": "Fill the Body field with 'peer.mvggzqte@example.test'.",
+            "expected": "Body field is filled with 'peer.mvggzqte@example.test'.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save the Note",
+            "kind": "save",
+            "instruction": "Save the Note form.",
+            "expected": "Note form is saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ],
+        "current": 1,
+        "status": "ready",
+        "clarifications": 0,
+        "version": 6,
+        "createdAt": 1792487928009,
+        "expiresAt": 1792574328009,
+        "privateTask": {
+          "taskId": "8f6ce1ee-890b-4a56-bbfb-f45609e6f955",
+          "instanceId": "92d17260-9230-4178-a28f-0251a1c559f1",
+          "contentRevision": 0,
+          "peerRequestId": "4ddd108f-504c-4dad-96a4-923ab7585cfa"
+        }
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/peer-check",
+      "status": 200,
+      "goal": {
+        "id": "1fa3e1b5-3ff2-4c5d-8893-b7583f3a2435",
+        "embeddingId": "adoption-demo-alpha",
+        "sessionId": "96da4dee-5afd-4dc2-8688-362ecebb3df1",
+        "conversationVersion": 0,
+        "text": "Fill and save this Customer: Company name \"genosys\"; Contact email \"peer.mvggzqte@example.test\"; Region \"Singapore\". Then inspect the paired copilot instanceId 92d17260-9230-4178-a28f-0251a1c559f1, which is on Note. In that paired tab, use the shared Customer Company name as Note Title and Contact email as Note Body; fill and save the Note after normal reviews. I will confirm sharing current form values and each change.",
+        "message": "Waiting for the paired copilot; its own reviews and permissions apply.",
+        "steps": [
+          {
+            "title": "Fill Customer form",
+            "kind": "fill",
+            "instruction": "Fill the Customer form with Company name 'genosys', Contact email 'peer.mvggzqte@example.test', and Region 'Singapore'.",
+            "expected": "Customer form fields are filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c0ede475-5c12-4e48-8544-5acdcfde1428",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Filling the Customer form with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "peer.mvggzqte@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer form",
+            "kind": "save",
+            "instruction": "Save the filled Customer form.",
+            "expected": "Customer form is saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "59852a6d-3107-4bfa-8b21-ac98bf196b93",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect paired Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "inspect",
+            "instruction": "Inspect the paired Note form to retrieve its supported structure.",
+            "expected": "The other browser returns its supported fields for the Note form.",
+            "status": "completed",
+            "effects": [
+              {
+                "peer": "8d2c0405-45c9-47bc-9f30-f492cbbfd04a",
+                "to": "http://127.0.0.1:4194",
+                "outcome": "recipient_goal_completed",
+                "message": "Recipient inspection returned"
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Fill Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "goal",
+            "instruction": "Fill the Note form with Title 'genosys' and Body 'peer.mvggzqte@example.test', then save it.",
+            "expected": "Note form is filled and saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          }
+        ],
+        "current": 3,
+        "status": "awaiting_peer",
+        "clarifications": 0,
+        "version": 15,
+        "createdAt": 1792487901644,
+        "expiresAt": 1792574301644,
+        "privateTask": {
+          "taskId": "8f6ce1ee-890b-4a56-bbfb-f45609e6f955",
+          "instanceId": "8ccd3cbd-fe97-4287-8857-e5a290363104",
+          "contentRevision": 0
+        },
+        "pendingPeerId": "4ddd108f-504c-4dad-96a4-923ab7585cfa"
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/peer-check",
+      "status": 200,
+      "goal": {
+        "id": "1fa3e1b5-3ff2-4c5d-8893-b7583f3a2435",
+        "embeddingId": "adoption-demo-alpha",
+        "sessionId": "96da4dee-5afd-4dc2-8688-362ecebb3df1",
+        "conversationVersion": 0,
+        "text": "Fill and save this Customer: Company name \"genosys\"; Contact email \"peer.mvggzqte@example.test\"; Region \"Singapore\". Then inspect the paired copilot instanceId 92d17260-9230-4178-a28f-0251a1c559f1, which is on Note. In that paired tab, use the shared Customer Company name as Note Title and Contact email as Note Body; fill and save the Note after normal reviews. I will confirm sharing current form values and each change.",
+        "message": "Waiting for the paired copilot; its own reviews and permissions apply.",
+        "steps": [
+          {
+            "title": "Fill Customer form",
+            "kind": "fill",
+            "instruction": "Fill the Customer form with Company name 'genosys', Contact email 'peer.mvggzqte@example.test', and Region 'Singapore'.",
+            "expected": "Customer form fields are filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c0ede475-5c12-4e48-8544-5acdcfde1428",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Filling the Customer form with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "peer.mvggzqte@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer form",
+            "kind": "save",
+            "instruction": "Save the filled Customer form.",
+            "expected": "Customer form is saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "59852a6d-3107-4bfa-8b21-ac98bf196b93",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect paired Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "inspect",
+            "instruction": "Inspect the paired Note form to retrieve its supported structure.",
+            "expected": "The other browser returns its supported fields for the Note form.",
+            "status": "completed",
+            "effects": [
+              {
+                "peer": "8d2c0405-45c9-47bc-9f30-f492cbbfd04a",
+                "to": "http://127.0.0.1:4194",
+                "outcome": "recipient_goal_completed",
+                "message": "Recipient inspection returned"
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Fill Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "goal",
+            "instruction": "Fill the Note form with Title 'genosys' and Body 'peer.mvggzqte@example.test', then save it.",
+            "expected": "Note form is filled and saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          }
+        ],
+        "current": 3,
+        "status": "awaiting_peer",
+        "clarifications": 0,
+        "version": 15,
+        "createdAt": 1792487901644,
+        "expiresAt": 1792574301644,
+        "privateTask": {
+          "taskId": "8f6ce1ee-890b-4a56-bbfb-f45609e6f955",
+          "instanceId": "8ccd3cbd-fe97-4287-8857-e5a290363104",
+          "contentRevision": 0
+        },
+        "pendingPeerId": "4ddd108f-504c-4dad-96a4-923ab7585cfa"
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/peer-check",
+      "status": 200,
+      "goal": {
+        "id": "1fa3e1b5-3ff2-4c5d-8893-b7583f3a2435",
+        "embeddingId": "adoption-demo-alpha",
+        "sessionId": "96da4dee-5afd-4dc2-8688-362ecebb3df1",
+        "conversationVersion": 0,
+        "text": "Fill and save this Customer: Company name \"genosys\"; Contact email \"peer.mvggzqte@example.test\"; Region \"Singapore\". Then inspect the paired copilot instanceId 92d17260-9230-4178-a28f-0251a1c559f1, which is on Note. In that paired tab, use the shared Customer Company name as Note Title and Contact email as Note Body; fill and save the Note after normal reviews. I will confirm sharing current form values and each change.",
+        "message": "Waiting for the paired copilot; its own reviews and permissions apply.",
+        "steps": [
+          {
+            "title": "Fill Customer form",
+            "kind": "fill",
+            "instruction": "Fill the Customer form with Company name 'genosys', Contact email 'peer.mvggzqte@example.test', and Region 'Singapore'.",
+            "expected": "Customer form fields are filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c0ede475-5c12-4e48-8544-5acdcfde1428",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Filling the Customer form with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "peer.mvggzqte@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer form",
+            "kind": "save",
+            "instruction": "Save the filled Customer form.",
+            "expected": "Customer form is saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "59852a6d-3107-4bfa-8b21-ac98bf196b93",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect paired Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "inspect",
+            "instruction": "Inspect the paired Note form to retrieve its supported structure.",
+            "expected": "The other browser returns its supported fields for the Note form.",
+            "status": "completed",
+            "effects": [
+              {
+                "peer": "8d2c0405-45c9-47bc-9f30-f492cbbfd04a",
+                "to": "http://127.0.0.1:4194",
+                "outcome": "recipient_goal_completed",
+                "message": "Recipient inspection returned"
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Fill Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "goal",
+            "instruction": "Fill the Note form with Title 'genosys' and Body 'peer.mvggzqte@example.test', then save it.",
+            "expected": "Note form is filled and saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          }
+        ],
+        "current": 3,
+        "status": "awaiting_peer",
+        "clarifications": 0,
+        "version": 15,
+        "createdAt": 1792487901644,
+        "expiresAt": 1792574301644,
+        "privateTask": {
+          "taskId": "8f6ce1ee-890b-4a56-bbfb-f45609e6f955",
+          "instanceId": "8ccd3cbd-fe97-4287-8857-e5a290363104",
+          "contentRevision": 0
+        },
+        "pendingPeerId": "4ddd108f-504c-4dad-96a4-923ab7585cfa"
+      }
+    },
+    {
+      "panel": "note",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "goal": {
+        "id": "20f9fcb5-5833-480e-9912-eabb6780797f",
+        "embeddingId": "adoption-demo-alpha",
+        "sessionId": "aa57a80a-049e-461f-a73d-56696a2e47b2",
+        "conversationVersion": 0,
+        "text": "Fill the Note form with Title 'genosys' and Body 'peer.mvggzqte@example.test', then save it.",
+        "peerRequestId": "4ddd108f-504c-4dad-96a4-923ab7585cfa",
+        "message": "Fill the Body field with 'peer.mvggzqte@example.test'.\nReview these 1 proposed field change. Nothing has been changed yet.",
+        "steps": [
+          {
+            "title": "Fill Title field",
+            "kind": "fill",
+            "instruction": "Fill the Title field with 'genosys'.",
+            "expected": "Title field is filled with 'genosys'.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "e020060b-0e2c-48ec-8948-4af72012dd77",
+                "status": "consumed",
+                "path": "/note",
+                "responseMessage": "Fill the Title field with 'genosys'.\nReview these 1 proposed field change. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Title",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Fill Body field",
+            "kind": "fill",
+            "instruction": "Fill the Body field with 'peer.mvggzqte@example.test'.",
+            "expected": "Body field is filled with 'peer.mvggzqte@example.test'.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          },
+          {
+            "title": "Save the Note",
+            "kind": "save",
+            "instruction": "Save the Note form.",
+            "expected": "Note form is saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ],
+        "current": 1,
+        "status": "awaiting_review",
+        "clarifications": 0,
+        "version": 8,
+        "createdAt": 1792487928009,
+        "expiresAt": 1792574328009,
+        "privateTask": {
+          "taskId": "8f6ce1ee-890b-4a56-bbfb-f45609e6f955",
+          "instanceId": "92d17260-9230-4178-a28f-0251a1c559f1",
+          "contentRevision": 0,
+          "peerRequestId": "4ddd108f-504c-4dad-96a4-923ab7585cfa"
+        },
+        "pendingProposalId": "c5074551-ca4f-424e-858d-27ec180f3ebf"
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/peer-check",
+      "status": 200,
+      "goal": {
+        "id": "1fa3e1b5-3ff2-4c5d-8893-b7583f3a2435",
+        "embeddingId": "adoption-demo-alpha",
+        "sessionId": "96da4dee-5afd-4dc2-8688-362ecebb3df1",
+        "conversationVersion": 0,
+        "text": "Fill and save this Customer: Company name \"genosys\"; Contact email \"peer.mvggzqte@example.test\"; Region \"Singapore\". Then inspect the paired copilot instanceId 92d17260-9230-4178-a28f-0251a1c559f1, which is on Note. In that paired tab, use the shared Customer Company name as Note Title and Contact email as Note Body; fill and save the Note after normal reviews. I will confirm sharing current form values and each change.",
+        "message": "Waiting for the paired copilot; its own reviews and permissions apply.",
+        "steps": [
+          {
+            "title": "Fill Customer form",
+            "kind": "fill",
+            "instruction": "Fill the Customer form with Company name 'genosys', Contact email 'peer.mvggzqte@example.test', and Region 'Singapore'.",
+            "expected": "Customer form fields are filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c0ede475-5c12-4e48-8544-5acdcfde1428",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Filling the Customer form with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "peer.mvggzqte@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer form",
+            "kind": "save",
+            "instruction": "Save the filled Customer form.",
+            "expected": "Customer form is saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "59852a6d-3107-4bfa-8b21-ac98bf196b93",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect paired Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "inspect",
+            "instruction": "Inspect the paired Note form to retrieve its supported structure.",
+            "expected": "The other browser returns its supported fields for the Note form.",
+            "status": "completed",
+            "effects": [
+              {
+                "peer": "8d2c0405-45c9-47bc-9f30-f492cbbfd04a",
+                "to": "http://127.0.0.1:4194",
+                "outcome": "recipient_goal_completed",
+                "message": "Recipient inspection returned"
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Fill Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "goal",
+            "instruction": "Fill the Note form with Title 'genosys' and Body 'peer.mvggzqte@example.test', then save it.",
+            "expected": "Note form is filled and saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          }
+        ],
+        "current": 3,
+        "status": "awaiting_peer",
+        "clarifications": 0,
+        "version": 15,
+        "createdAt": 1792487901644,
+        "expiresAt": 1792574301644,
+        "privateTask": {
+          "taskId": "8f6ce1ee-890b-4a56-bbfb-f45609e6f955",
+          "instanceId": "8ccd3cbd-fe97-4287-8857-e5a290363104",
+          "contentRevision": 0
+        },
+        "pendingPeerId": "4ddd108f-504c-4dad-96a4-923ab7585cfa"
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/peer-check",
+      "status": 200,
+      "goal": {
+        "id": "1fa3e1b5-3ff2-4c5d-8893-b7583f3a2435",
+        "embeddingId": "adoption-demo-alpha",
+        "sessionId": "96da4dee-5afd-4dc2-8688-362ecebb3df1",
+        "conversationVersion": 0,
+        "text": "Fill and save this Customer: Company name \"genosys\"; Contact email \"peer.mvggzqte@example.test\"; Region \"Singapore\". Then inspect the paired copilot instanceId 92d17260-9230-4178-a28f-0251a1c559f1, which is on Note. In that paired tab, use the shared Customer Company name as Note Title and Contact email as Note Body; fill and save the Note after normal reviews. I will confirm sharing current form values and each change.",
+        "message": "Waiting for the paired copilot; its own reviews and permissions apply.",
+        "steps": [
+          {
+            "title": "Fill Customer form",
+            "kind": "fill",
+            "instruction": "Fill the Customer form with Company name 'genosys', Contact email 'peer.mvggzqte@example.test', and Region 'Singapore'.",
+            "expected": "Customer form fields are filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c0ede475-5c12-4e48-8544-5acdcfde1428",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Filling the Customer form with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "peer.mvggzqte@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer form",
+            "kind": "save",
+            "instruction": "Save the filled Customer form.",
+            "expected": "Customer form is saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "59852a6d-3107-4bfa-8b21-ac98bf196b93",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect paired Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "inspect",
+            "instruction": "Inspect the paired Note form to retrieve its supported structure.",
+            "expected": "The other browser returns its supported fields for the Note form.",
+            "status": "completed",
+            "effects": [
+              {
+                "peer": "8d2c0405-45c9-47bc-9f30-f492cbbfd04a",
+                "to": "http://127.0.0.1:4194",
+                "outcome": "recipient_goal_completed",
+                "message": "Recipient inspection returned"
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Fill Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "goal",
+            "instruction": "Fill the Note form with Title 'genosys' and Body 'peer.mvggzqte@example.test', then save it.",
+            "expected": "Note form is filled and saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          }
+        ],
+        "current": 3,
+        "status": "awaiting_peer",
+        "clarifications": 0,
+        "version": 15,
+        "createdAt": 1792487901644,
+        "expiresAt": 1792574301644,
+        "privateTask": {
+          "taskId": "8f6ce1ee-890b-4a56-bbfb-f45609e6f955",
+          "instanceId": "8ccd3cbd-fe97-4287-8857-e5a290363104",
+          "contentRevision": 0
+        },
+        "pendingPeerId": "4ddd108f-504c-4dad-96a4-923ab7585cfa"
+      }
+    },
+    {
+      "panel": "note",
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "status": 200,
+      "goal": {
+        "id": "20f9fcb5-5833-480e-9912-eabb6780797f",
+        "embeddingId": "adoption-demo-alpha",
+        "sessionId": "aa57a80a-049e-461f-a73d-56696a2e47b2",
+        "conversationVersion": 0,
+        "text": "Fill the Note form with Title 'genosys' and Body 'peer.mvggzqte@example.test', then save it.",
+        "peerRequestId": "4ddd108f-504c-4dad-96a4-923ab7585cfa",
+        "message": "The Body field has been filled with 'peer.mvggzqte@example.test' as evidenced by the local state verification.",
+        "steps": [
+          {
+            "title": "Fill Title field",
+            "kind": "fill",
+            "instruction": "Fill the Title field with 'genosys'.",
+            "expected": "Title field is filled with 'genosys'.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "e020060b-0e2c-48ec-8948-4af72012dd77",
+                "status": "consumed",
+                "path": "/note",
+                "responseMessage": "Fill the Title field with 'genosys'.\nReview these 1 proposed field change. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Title",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Fill Body field",
+            "kind": "fill",
+            "instruction": "Fill the Body field with 'peer.mvggzqte@example.test'.",
+            "expected": "Body field is filled with 'peer.mvggzqte@example.test'.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c5074551-ca4f-424e-858d-27ec180f3ebf",
+                "status": "consumed",
+                "path": "/note",
+                "responseMessage": "Fill the Body field with 'peer.mvggzqte@example.test'.\nReview these 1 proposed field change. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Body",
+                    "value": "peer.mvggzqte@example.test",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save the Note",
+            "kind": "save",
+            "instruction": "Save the Note form.",
+            "expected": "Note form is saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ],
+        "current": 2,
+        "status": "ready",
+        "clarifications": 0,
+        "version": 10,
+        "createdAt": 1792487928009,
+        "expiresAt": 1792574328009,
+        "privateTask": {
+          "taskId": "8f6ce1ee-890b-4a56-bbfb-f45609e6f955",
+          "instanceId": "92d17260-9230-4178-a28f-0251a1c559f1",
+          "contentRevision": 0,
+          "peerRequestId": "4ddd108f-504c-4dad-96a4-923ab7585cfa"
+        }
+      }
+    },
+    {
+      "panel": "note",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "goal": {
+        "id": "20f9fcb5-5833-480e-9912-eabb6780797f",
+        "embeddingId": "adoption-demo-alpha",
+        "sessionId": "aa57a80a-049e-461f-a73d-56696a2e47b2",
+        "conversationVersion": 0,
+        "text": "Fill the Note form with Title 'genosys' and Body 'peer.mvggzqte@example.test', then save it.",
+        "peerRequestId": "4ddd108f-504c-4dad-96a4-923ab7585cfa",
+        "message": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+        "steps": [
+          {
+            "title": "Fill Title field",
+            "kind": "fill",
+            "instruction": "Fill the Title field with 'genosys'.",
+            "expected": "Title field is filled with 'genosys'.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "e020060b-0e2c-48ec-8948-4af72012dd77",
+                "status": "consumed",
+                "path": "/note",
+                "responseMessage": "Fill the Title field with 'genosys'.\nReview these 1 proposed field change. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Title",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Fill Body field",
+            "kind": "fill",
+            "instruction": "Fill the Body field with 'peer.mvggzqte@example.test'.",
+            "expected": "Body field is filled with 'peer.mvggzqte@example.test'.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c5074551-ca4f-424e-858d-27ec180f3ebf",
+                "status": "consumed",
+                "path": "/note",
+                "responseMessage": "Fill the Body field with 'peer.mvggzqte@example.test'.\nReview these 1 proposed field change. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Body",
+                    "value": "peer.mvggzqte@example.test",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save the Note",
+            "kind": "save",
+            "instruction": "Save the Note form.",
+            "expected": "Note form is saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          }
+        ],
+        "current": 2,
+        "status": "awaiting_review",
+        "clarifications": 0,
+        "version": 12,
+        "createdAt": 1792487928009,
+        "expiresAt": 1792574328009,
+        "privateTask": {
+          "taskId": "8f6ce1ee-890b-4a56-bbfb-f45609e6f955",
+          "instanceId": "92d17260-9230-4178-a28f-0251a1c559f1",
+          "contentRevision": 0,
+          "peerRequestId": "4ddd108f-504c-4dad-96a4-923ab7585cfa"
+        },
+        "pendingProposalId": "73b1a573-ed86-411d-b285-a25a551094dd"
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/peer-check",
+      "status": 200,
+      "goal": {
+        "id": "1fa3e1b5-3ff2-4c5d-8893-b7583f3a2435",
+        "embeddingId": "adoption-demo-alpha",
+        "sessionId": "96da4dee-5afd-4dc2-8688-362ecebb3df1",
+        "conversationVersion": 0,
+        "text": "Fill and save this Customer: Company name \"genosys\"; Contact email \"peer.mvggzqte@example.test\"; Region \"Singapore\". Then inspect the paired copilot instanceId 92d17260-9230-4178-a28f-0251a1c559f1, which is on Note. In that paired tab, use the shared Customer Company name as Note Title and Contact email as Note Body; fill and save the Note after normal reviews. I will confirm sharing current form values and each change.",
+        "message": "Waiting for the paired copilot; its own reviews and permissions apply.",
+        "steps": [
+          {
+            "title": "Fill Customer form",
+            "kind": "fill",
+            "instruction": "Fill the Customer form with Company name 'genosys', Contact email 'peer.mvggzqte@example.test', and Region 'Singapore'.",
+            "expected": "Customer form fields are filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c0ede475-5c12-4e48-8544-5acdcfde1428",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Filling the Customer form with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "peer.mvggzqte@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer form",
+            "kind": "save",
+            "instruction": "Save the filled Customer form.",
+            "expected": "Customer form is saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "59852a6d-3107-4bfa-8b21-ac98bf196b93",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect paired Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "inspect",
+            "instruction": "Inspect the paired Note form to retrieve its supported structure.",
+            "expected": "The other browser returns its supported fields for the Note form.",
+            "status": "completed",
+            "effects": [
+              {
+                "peer": "8d2c0405-45c9-47bc-9f30-f492cbbfd04a",
+                "to": "http://127.0.0.1:4194",
+                "outcome": "recipient_goal_completed",
+                "message": "Recipient inspection returned"
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Fill Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "goal",
+            "instruction": "Fill the Note form with Title 'genosys' and Body 'peer.mvggzqte@example.test', then save it.",
+            "expected": "Note form is filled and saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          }
+        ],
+        "current": 3,
+        "status": "awaiting_peer",
+        "clarifications": 0,
+        "version": 15,
+        "createdAt": 1792487901644,
+        "expiresAt": 1792574301644,
+        "privateTask": {
+          "taskId": "8f6ce1ee-890b-4a56-bbfb-f45609e6f955",
+          "instanceId": "8ccd3cbd-fe97-4287-8857-e5a290363104",
+          "contentRevision": 0
+        },
+        "pendingPeerId": "4ddd108f-504c-4dad-96a4-923ab7585cfa"
+      }
+    },
+    {
+      "panel": "note",
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "status": 200,
+      "goal": {
+        "id": "20f9fcb5-5833-480e-9912-eabb6780797f",
+        "embeddingId": "adoption-demo-alpha",
+        "sessionId": "aa57a80a-049e-461f-a73d-56696a2e47b2",
+        "conversationVersion": 0,
+        "text": "Fill the Note form with Title 'genosys' and Body 'peer.mvggzqte@example.test', then save it.",
+        "peerRequestId": "4ddd108f-504c-4dad-96a4-923ab7585cfa",
+        "message": "The host reported a successful submission for this step. This is not independent business verification.",
+        "steps": [
+          {
+            "title": "Fill Title field",
+            "kind": "fill",
+            "instruction": "Fill the Title field with 'genosys'.",
+            "expected": "Title field is filled with 'genosys'.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "e020060b-0e2c-48ec-8948-4af72012dd77",
+                "status": "consumed",
+                "path": "/note",
+                "responseMessage": "Fill the Title field with 'genosys'.\nReview these 1 proposed field change. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Title",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Fill Body field",
+            "kind": "fill",
+            "instruction": "Fill the Body field with 'peer.mvggzqte@example.test'.",
+            "expected": "Body field is filled with 'peer.mvggzqte@example.test'.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c5074551-ca4f-424e-858d-27ec180f3ebf",
+                "status": "consumed",
+                "path": "/note",
+                "responseMessage": "Fill the Body field with 'peer.mvggzqte@example.test'.\nReview these 1 proposed field change. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Body",
+                    "value": "peer.mvggzqte@example.test",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save the Note",
+            "kind": "save",
+            "instruction": "Save the Note form.",
+            "expected": "Note form is saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "73b1a573-ed86-411d-b285-a25a551094dd",
+                "status": "consumed",
+                "path": "/note",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          }
+        ],
+        "current": 3,
+        "status": "completed",
+        "clarifications": 0,
+        "version": 14,
+        "createdAt": 1792487928009,
+        "expiresAt": 1792574328009,
+        "privateTask": {
+          "taskId": "8f6ce1ee-890b-4a56-bbfb-f45609e6f955",
+          "instanceId": "92d17260-9230-4178-a28f-0251a1c559f1",
+          "contentRevision": 0,
+          "peerRequestId": "4ddd108f-504c-4dad-96a4-923ab7585cfa"
+        }
+      }
+    },
+    {
+      "panel": "note",
+      "path": "/free-tools/digital-adoption/v1/tasks/peer-answer",
+      "status": 200,
+      "result": {
+        "requestId": "4ddd108f-504c-4dad-96a4-923ab7585cfa",
+        "taskId": "8f6ce1ee-890b-4a56-bbfb-f45609e6f955",
+        "sourceInstanceId": "8ccd3cbd-fe97-4287-8857-e5a290363104",
+        "contentRevision": 0,
+        "mode": "goal",
+        "status": "completed",
+        "from": "http://127.0.0.1:4194",
+        "to": "http://127.0.0.1:4194",
+        "instruction": "Fill the Note form with Title 'genosys' and Body 'peer.mvggzqte@example.test', then save it.",
+        "expiresAt": 1792491518252,
+        "result": {
+          "message": "The host reported a successful submission for this step. This is not independent business verification.",
+          "observed": {
+            "origin": "http://127.0.0.1:4194",
+            "path": "/note",
+            "forms": [
+              {
+                "key": "demo-form",
+                "label": "demo-form",
+                "fields": [
+                  "title",
+                  "body"
+                ]
+              }
+            ],
+            "fields": [
+              {
+                "label": "Title",
+                "type": "text",
+                "required": true,
+                "key": "title",
+                "form": "demo-form"
+              },
+              {
+                "label": "Body",
+                "type": "textarea",
+                "required": true,
+                "key": "body",
+                "form": "demo-form"
+              }
+            ],
+            "links": [
+              {
+                "label": "Customer",
+                "path": "/customer"
+              },
+              {
+                "label": "Opportunity",
+                "path": "/opportunity"
+              },
+              {
+                "label": "Note",
+                "path": "/note"
+              },
+              {
+                "label": "Scheduled goal",
+                "path": "/goal"
+              }
+            ],
+            "values": []
+          },
+          "steps": [
+            {
+              "title": "Fill Title field",
+              "kind": "fill",
+              "status": "completed",
+              "effects": [
+                {
+                  "actions": [
+                    {
+                      "label": "Title",
+                      "type": "fill",
+                      "outcome": "local_state_verified",
+                      "value": "genosys"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "title": "Fill Body field",
+              "kind": "fill",
+              "status": "completed",
+              "effects": [
+                {
+                  "actions": [
+                    {
+                      "label": "Body",
+                      "type": "fill",
+                      "outcome": "local_state_verified",
+                      "value": "peer.mvggzqte@example.test"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "title": "Save the Note",
+              "kind": "save",
+              "status": "completed",
+              "effects": [
+                {
+                  "actions": [
+                    {
+                      "label": "Save synthetic record",
+                      "type": "submit",
+                      "outcome": "host_reported_saved"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/peer-check",
+      "status": 200,
+      "goal": {
+        "id": "1fa3e1b5-3ff2-4c5d-8893-b7583f3a2435",
+        "embeddingId": "adoption-demo-alpha",
+        "sessionId": "96da4dee-5afd-4dc2-8688-362ecebb3df1",
+        "conversationVersion": 0,
+        "text": "Fill and save this Customer: Company name \"genosys\"; Contact email \"peer.mvggzqte@example.test\"; Region \"Singapore\". Then inspect the paired copilot instanceId 92d17260-9230-4178-a28f-0251a1c559f1, which is on Note. In that paired tab, use the shared Customer Company name as Note Title and Contact email as Note Body; fill and save the Note after normal reviews. I will confirm sharing current form values and each change.",
+        "message": "The host reported a successful submission for this step. This is not independent business verification.",
+        "steps": [
+          {
+            "title": "Fill Customer form",
+            "kind": "fill",
+            "instruction": "Fill the Customer form with Company name 'genosys', Contact email 'peer.mvggzqte@example.test', and Region 'Singapore'.",
+            "expected": "Customer form fields are filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c0ede475-5c12-4e48-8544-5acdcfde1428",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Filling the Customer form with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "peer.mvggzqte@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer form",
+            "kind": "save",
+            "instruction": "Save the filled Customer form.",
+            "expected": "Customer form is saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "59852a6d-3107-4bfa-8b21-ac98bf196b93",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect paired Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "inspect",
+            "instruction": "Inspect the paired Note form to retrieve its supported structure.",
+            "expected": "The other browser returns its supported fields for the Note form.",
+            "status": "completed",
+            "effects": [
+              {
+                "peer": "8d2c0405-45c9-47bc-9f30-f492cbbfd04a",
+                "to": "http://127.0.0.1:4194",
+                "outcome": "recipient_goal_completed",
+                "message": "Recipient inspection returned"
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Fill Note form",
+            "kind": "peer",
+            "recipient": "92d17260-9230-4178-a28f-0251a1c559f1",
+            "mode": "goal",
+            "instruction": "Fill the Note form with Title 'genosys' and Body 'peer.mvggzqte@example.test', then save it.",
+            "expected": "Note form is filled and saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "peer": "4ddd108f-504c-4dad-96a4-923ab7585cfa",
+                "to": "http://127.0.0.1:4194",
+                "outcome": "recipient_goal_completed",
+                "message": "The host reported a successful submission for this step. This is not independent business verification."
+              }
+            ],
+            "attempts": 1
+          }
+        ],
+        "current": 4,
+        "status": "completed",
+        "clarifications": 0,
+        "version": 16,
+        "createdAt": 1792487901644,
+        "expiresAt": 1792574301644,
+        "privateTask": {
+          "taskId": "8f6ce1ee-890b-4a56-bbfb-f45609e6f955",
+          "instanceId": "8ccd3cbd-fe97-4287-8857-e5a290363104",
+          "contentRevision": 0
+        }
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/tasks/peer-request",
+      "status": 200,
+      "result": {
+        "requestId": "065cac6c-ae30-448e-af71-da8744cf553c",
+        "taskId": "8f6ce1ee-890b-4a56-bbfb-f45609e6f955",
+        "sourceInstanceId": "8ccd3cbd-fe97-4287-8857-e5a290363104",
+        "contentRevision": 0,
+        "mode": "inspect",
+        "status": "pending",
+        "from": "http://127.0.0.1:4194",
+        "to": "https://flolah.cloud",
+        "instruction": "Return current supported forms, required fields and navigation. No field values, filling or saving.",
+        "expiresAt": 1792491518252
+      }
+    },
+    {
+      "panel": "public",
+      "path": "/free-tools/digital-adoption/v1/tasks/peer-answer",
+      "status": 200,
+      "result": {
+        "requestId": "065cac6c-ae30-448e-af71-da8744cf553c",
+        "taskId": "8f6ce1ee-890b-4a56-bbfb-f45609e6f955",
+        "sourceInstanceId": "8ccd3cbd-fe97-4287-8857-e5a290363104",
+        "contentRevision": 0,
+        "mode": "inspect",
+        "status": "completed",
+        "from": "http://127.0.0.1:4194",
+        "to": "https://flolah.cloud",
+        "instruction": "Return current supported forms, required fields and navigation. No field values, filling or saving.",
+        "expiresAt": 1792491518252,
+        "result": {
+          "origin": "https://flolah.cloud",
+          "path": "/free-tools/mcp-universe/",
+          "forms": [],
+          "fields": [
+            {
+              "label": "Search MCPs, publishers, capabilities…",
+              "type": "text",
+              "required": false,
+              "constraints": {
+                "maxlength": "120"
+              },
+              "key": "q"
+            },
+            {
+              "label": "transport",
+              "type": "select-one",
+              "required": false,
+              "key": "transport"
+            }
+          ],
+          "links": [],
+          "values": []
+        }
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/tasks/peer-request",
+      "status": 200,
+      "result": {
+        "requestId": "6483773e-a38e-4113-9ce7-18948b7a4f61",
+        "taskId": "8f6ce1ee-890b-4a56-bbfb-f45609e6f955",
+        "sourceInstanceId": "8ccd3cbd-fe97-4287-8857-e5a290363104",
+        "contentRevision": 0,
+        "mode": "goal",
+        "status": "pending",
+        "from": "http://127.0.0.1:4194",
+        "to": "https://flolah.cloud",
+        "instruction": "Use the Company name from the privately shared current form as the search field text on your current page. Keep the transport at its current default. Do not click Search, submit, navigate or save. Plan the fill and use the normal field review.",
+        "expiresAt": 1792491518252
+      }
+    },
+    {
+      "panel": "public",
+      "path": "/free-tools/digital-adoption/v1/goals/create",
+      "status": 200,
+      "goal": {
+        "id": "25a78c73-06c8-431b-a8bc-d6c9acd5f3af",
+        "embeddingId": "uat_71ae86ec212b4501a02f28488bfc7c22",
+        "sessionId": "37f9e806-2107-4419-8af5-e5096835a721",
+        "conversationVersion": 0,
+        "text": "Use the Company name from the privately shared current form as the search field text on your current page. Keep the transport at its current default. Do not click Search, submit, navigate or save. Plan the fill and use the normal field review.",
+        "peerRequestId": "6483773e-a38e-4113-9ce7-18948b7a4f61",
+        "message": "Plan to fill the search field with the Company name from the current form.",
+        "steps": [
+          {
+            "title": "Fill Search field",
+            "kind": "fill",
+            "instruction": "Fill the Search MCPs, publishers, capabilities… field with the Company name 'genosys'.",
+            "expected": "The Search field contains 'genosys'.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ],
+        "current": 0,
+        "status": "draft",
+        "clarifications": 0,
+        "version": 1,
+        "createdAt": 1792487984620,
+        "expiresAt": 1792574384620,
+        "privateTask": {
+          "taskId": "8f6ce1ee-890b-4a56-bbfb-f45609e6f955",
+          "instanceId": "3eb8e175-67d9-4a9e-9aaf-081a49220180",
+          "contentRevision": 0,
+          "peerRequestId": "6483773e-a38e-4113-9ce7-18948b7a4f61"
+        }
+      }
+    },
+    {
+      "panel": "public",
+      "path": "/free-tools/digital-adoption/v1/goals/control",
+      "status": 200,
+      "goal": {
+        "id": "25a78c73-06c8-431b-a8bc-d6c9acd5f3af",
+        "embeddingId": "uat_71ae86ec212b4501a02f28488bfc7c22",
+        "sessionId": "37f9e806-2107-4419-8af5-e5096835a721",
+        "conversationVersion": 0,
+        "text": "Use the Company name from the privately shared current form as the search field text on your current page. Keep the transport at its current default. Do not click Search, submit, navigate or save. Plan the fill and use the normal field review.",
+        "peerRequestId": "6483773e-a38e-4113-9ce7-18948b7a4f61",
+        "message": "Plan to fill the search field with the Company name from the current form.",
+        "steps": [
+          {
+            "title": "Fill Search field",
+            "kind": "fill",
+            "instruction": "Fill the Search MCPs, publishers, capabilities… field with the Company name 'genosys'.",
+            "expected": "The Search field contains 'genosys'.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ],
+        "current": 0,
+        "status": "ready",
+        "clarifications": 0,
+        "version": 2,
+        "createdAt": 1792487984620,
+        "expiresAt": 1792574384620,
+        "privateTask": {
+          "taskId": "8f6ce1ee-890b-4a56-bbfb-f45609e6f955",
+          "instanceId": "3eb8e175-67d9-4a9e-9aaf-081a49220180",
+          "contentRevision": 0,
+          "peerRequestId": "6483773e-a38e-4113-9ce7-18948b7a4f61"
+        }
+      }
+    },
+    {
+      "panel": "public",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "goal": {
+        "id": "25a78c73-06c8-431b-a8bc-d6c9acd5f3af",
+        "embeddingId": "uat_71ae86ec212b4501a02f28488bfc7c22",
+        "sessionId": "37f9e806-2107-4419-8af5-e5096835a721",
+        "conversationVersion": 0,
+        "text": "Use the Company name from the privately shared current form as the search field text on your current page. Keep the transport at its current default. Do not click Search, submit, navigate or save. Plan the fill and use the normal field review.",
+        "peerRequestId": "6483773e-a38e-4113-9ce7-18948b7a4f61",
+        "message": "Fill the Search MCPs, publishers, capabilities… field with the Company name 'genosys'.\nReview these 1 proposed field change. Nothing has been changed yet.",
+        "steps": [
+          {
+            "title": "Fill Search field",
+            "kind": "fill",
+            "instruction": "Fill the Search MCPs, publishers, capabilities… field with the Company name 'genosys'.",
+            "expected": "The Search field contains 'genosys'.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          }
+        ],
+        "current": 0,
+        "status": "awaiting_review",
+        "clarifications": 0,
+        "version": 4,
+        "createdAt": 1792487984620,
+        "expiresAt": 1792574384620,
+        "privateTask": {
+          "taskId": "8f6ce1ee-890b-4a56-bbfb-f45609e6f955",
+          "instanceId": "3eb8e175-67d9-4a9e-9aaf-081a49220180",
+          "contentRevision": 0,
+          "peerRequestId": "6483773e-a38e-4113-9ce7-18948b7a4f61"
+        },
+        "pendingProposalId": "8f2603b5-b37e-4658-b228-1822a6d4298e"
+      }
+    },
+    {
+      "panel": "public",
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "status": 200,
+      "goal": {
+        "id": "25a78c73-06c8-431b-a8bc-d6c9acd5f3af",
+        "embeddingId": "uat_71ae86ec212b4501a02f28488bfc7c22",
+        "sessionId": "37f9e806-2107-4419-8af5-e5096835a721",
+        "conversationVersion": 0,
+        "text": "Use the Company name from the privately shared current form as the search field text on your current page. Keep the transport at its current default. Do not click Search, submit, navigate or save. Plan the fill and use the normal field review.",
+        "peerRequestId": "6483773e-a38e-4113-9ce7-18948b7a4f61",
+        "message": "The Search MCPs, publishers, capabilities… field has been filled with the Company name 'genosys'.",
+        "steps": [
+          {
+            "title": "Fill Search field",
+            "kind": "fill",
+            "instruction": "Fill the Search MCPs, publishers, capabilities… field with the Company name 'genosys'.",
+            "expected": "The Search field contains 'genosys'.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "8f2603b5-b37e-4658-b228-1822a6d4298e",
+                "status": "consumed",
+                "path": "/free-tools/mcp-universe/",
+                "responseMessage": "Fill the Search MCPs, publishers, capabilities… field with the Company name 'genosys'.\nReview these 1 proposed field change. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Search MCPs, publishers, capabilities…",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          }
+        ],
+        "current": 1,
+        "status": "completed",
+        "clarifications": 0,
+        "version": 6,
+        "createdAt": 1792487984620,
+        "expiresAt": 1792574384620,
+        "privateTask": {
+          "taskId": "8f6ce1ee-890b-4a56-bbfb-f45609e6f955",
+          "instanceId": "3eb8e175-67d9-4a9e-9aaf-081a49220180",
+          "contentRevision": 0,
+          "peerRequestId": "6483773e-a38e-4113-9ce7-18948b7a4f61"
+        }
+      }
+    },
+    {
+      "panel": "public",
+      "path": "/free-tools/digital-adoption/v1/tasks/peer-answer",
+      "status": 200,
+      "result": {
+        "requestId": "6483773e-a38e-4113-9ce7-18948b7a4f61",
+        "taskId": "8f6ce1ee-890b-4a56-bbfb-f45609e6f955",
+        "sourceInstanceId": "8ccd3cbd-fe97-4287-8857-e5a290363104",
+        "contentRevision": 0,
+        "mode": "goal",
+        "status": "completed",
+        "from": "http://127.0.0.1:4194",
+        "to": "https://flolah.cloud",
+        "instruction": "Use the Company name from the privately shared current form as the search field text on your current page. Keep the transport at its current default. Do not click Search, submit, navigate or save. Plan the fill and use the normal field review.",
+        "expiresAt": 1792491518252,
+        "result": {
+          "message": "The Search MCPs, publishers, capabilities… field has been filled with the Company name 'genosys'.",
+          "observed": {
+            "origin": "https://flolah.cloud",
+            "path": "/free-tools/mcp-universe/",
+            "forms": [],
+            "fields": [
+              {
+                "label": "Search MCPs, publishers, capabilities…",
+                "type": "text",
+                "required": false,
+                "constraints": {
+                  "maxlength": "120"
+                },
+                "key": "q"
+              },
+              {
+                "label": "transport",
+                "type": "select-one",
+                "required": false,
+                "key": "transport"
+              }
+            ],
+            "links": [],
+            "values": []
+          },
+          "steps": [
+            {
+              "title": "Fill Search field",
+              "kind": "fill",
+              "status": "completed",
+              "effects": [
+                {
+                  "actions": [
+                    {
+                      "label": "Search MCPs, publishers, capabilities…",
+                      "type": "fill",
+                      "outcome": "local_state_verified",
+                      "value": "genosys"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "requestEnvelopes": [
+    {
+      "panel": "source",
+      "body": {
+        "instanceId": "8ccd3cbd-fe97-4287-8857-e5a290363104",
+        "text": "Fill and save this Customer: Company name \"genosys\"; Contact email \"peer.mvggzqte@example.test\"; Region \"Singapore\". Then inspect the paired copilot instanceId 92d17260-9230-4178-a28f-0251a1c559f1, which is on Note. In that paired tab, use the shared Customer Company name as Note Title and Contact email as Note Body; fill and save the Note after normal reviews. I will confirm sharing current form values and each change.",
+        "snapshot": {
+          "revision": 1,
+          "fields": [
+            {
+              "ref": "r1f0",
+              "label": "Company name",
+              "type": "text",
+              "required": true,
+              "key": "company_name",
+              "form": "demo-form",
+              "optionCount": 0
+            },
+            {
+              "ref": "r1f1",
+              "label": "Contact email",
+              "type": "email",
+              "required": true,
+              "key": "contact_email",
+              "form": "demo-form",
+              "optionCount": 0
+            },
+            {
+              "ref": "r1f2",
+              "label": "Region",
+              "type": "text",
+              "required": true,
+              "key": "region",
+              "form": "demo-form",
+              "optionCount": 0
+            }
+          ],
+          "forms": [
+            {
+              "key": "demo-form",
+              "label": "demo-form",
+              "fields": [
+                "company_name",
+                "contact_email",
+                "region"
+              ]
+            }
+          ],
+          "links": [
+            {
+              "ref": "r1n0",
+              "label": "Customer",
+              "path": "/customer"
+            },
+            {
+              "ref": "r1n1",
+              "label": "Opportunity",
+              "path": "/opportunity"
+            },
+            {
+              "ref": "r1n2",
+              "label": "Note",
+              "path": "/note"
+            },
+            {
+              "ref": "r1n3",
+              "label": "Scheduled goal",
+              "path": "/goal"
+            }
+          ],
+          "recentActivity": {
+            "prepared": [],
+            "applied": [],
+            "unavailablePrepared": 0,
+            "unavailableApplied": 0
+          },
+          "targets": [
+            {
+              "ref": "r1t0",
+              "label": "Try these prompts",
+              "kind": "content",
+              "role": "section",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Try these promptsAsk knowledge: What is the Alpha delivery promise?Prepare field review: Set the company name to Demo Test and contact email to demo@example.com.Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”Switch to Note: “Create a note with title Followup and body followup MrX on month end.”Review proposed values, approve, then verify the visible fields. No automatic Save is performed."
+            },
+            {
+              "ref": "r1t1",
+              "label": "Generic changes and theme",
+              "kind": "content",
+              "role": "section",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Generic changes and themeAdding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field."
+            },
+            {
+              "ref": "r1t2",
+              "label": "Hide/show host form",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Hide/show host form"
+            },
+            {
+              "ref": "r1t3",
+              "label": "Digital Adoption test workspace",
+              "kind": "content",
+              "role": "header",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Local host page · VPS-hosted copilotDigital Adoption test workspaceThe widget, model backend and knowledge retrieval run on the VPS."
+            },
+            {
+              "ref": "r1t4",
+              "label": "Customer draft",
+              "kind": "content",
+              "role": "section",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Customer draftCompany nameContact emailRegion"
+            },
+            {
+              "ref": "r1t5",
+              "label": "Customer",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Customer"
+            },
+            {
+              "ref": "r1t6",
+              "label": "Note",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Note"
+            },
+            {
+              "ref": "r1t7",
+              "label": "Save synthetic record",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Save synthetic record"
+            },
+            {
+              "ref": "r1t8",
+              "label": "Opportunity",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Opportunity"
+            },
+            {
+              "ref": "r1t9",
+              "label": "Scheduled goal",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Scheduled goal"
+            },
+            {
+              "ref": "r1t10",
+              "label": "Saved synthetic records",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Saved synthetic records"
+            },
+            {
+              "ref": "r1t11",
+              "label": "Add Delivery city field",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Add Delivery city field"
+            },
+            {
+              "ref": "r1t12",
+              "label": "Add native controls",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Add native controls"
+            },
+            {
+              "ref": "r1t13",
+              "label": "Add complex controls",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Add complex controls"
+            },
+            {
+              "ref": "r1t14",
+              "label": "Switch widget palette",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Switch widget palette"
+            }
+          ],
+          "domScope": "Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.",
+          "coverage": {
+            "fieldLimit": 60,
+            "navigationLimit": 30,
+            "visibleNativeControls": 3,
+            "embeddedFrames": 0,
+            "openShadowRoots": 0,
+            "unsupportedControls": 0,
+            "manualNotice": ""
+          },
+          "submissions": [
+            {
+              "ref": "r1s0",
+              "label": "Save synthetic record"
+            }
+          ],
+          "navigationCandidates": [
+            "/customer",
+            "/opportunity",
+            "/note",
+            "/goal",
+            "/records"
+          ],
+          "screen": "Customer draft | Try these prompts | Generic changes and theme",
+          "path": "/customer",
+          "ambiguousDialogs": false,
+          "blockedCount": 7
+        },
+        "privateTask": null
+      }
+    },
+    {
+      "panel": "note",
+      "body": {
+        "instanceId": "92d17260-9230-4178-a28f-0251a1c559f1",
+        "peerRequestId": "4ddd108f-504c-4dad-96a4-923ab7585cfa",
+        "text": "Fill the Note form with Title 'genosys' and Body 'peer.mvggzqte@example.test', then save it.",
+        "snapshot": {
+          "revision": 1,
+          "fields": [
+            {
+              "ref": "r1f0",
+              "label": "Title",
+              "type": "text",
+              "required": true,
+              "key": "title",
+              "form": "demo-form",
+              "optionCount": 0
+            },
+            {
+              "ref": "r1f1",
+              "label": "Body",
+              "type": "textarea",
+              "required": true,
+              "key": "body",
+              "form": "demo-form",
+              "optionCount": 0
+            }
+          ],
+          "forms": [
+            {
+              "key": "demo-form",
+              "label": "demo-form",
+              "fields": [
+                "title",
+                "body"
+              ]
+            }
+          ],
+          "links": [
+            {
+              "ref": "r1n0",
+              "label": "Customer",
+              "path": "/customer"
+            },
+            {
+              "ref": "r1n1",
+              "label": "Opportunity",
+              "path": "/opportunity"
+            },
+            {
+              "ref": "r1n2",
+              "label": "Note",
+              "path": "/note"
+            },
+            {
+              "ref": "r1n3",
+              "label": "Scheduled goal",
+              "path": "/goal"
+            }
+          ],
+          "recentActivity": {
+            "prepared": [],
+            "applied": [],
+            "unavailablePrepared": 0,
+            "unavailableApplied": 0
+          },
+          "targets": [
+            {
+              "ref": "r1t0",
+              "label": "Try these prompts",
+              "kind": "content",
+              "role": "section",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Try these promptsAsk knowledge: What is the Alpha delivery promise?Prepare field review: Set the company name to Demo Test and contact email to demo@example.com.Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”Switch to Note: “Create a note with title Followup and body followup MrX on month end.”Review proposed values, approve, then verify the visible fields. No automatic Save is performed."
+            },
+            {
+              "ref": "r1t1",
+              "label": "Hide/show host form",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Hide/show host form"
+            },
+            {
+              "ref": "r1t2",
+              "label": "Digital Adoption test workspace",
+              "kind": "content",
+              "role": "header",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Local host page · VPS-hosted copilotDigital Adoption test workspaceThe widget, model backend and knowledge retrieval run on the VPS."
+            },
+            {
+              "ref": "r1t3",
+              "label": "Save synthetic record",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Save synthetic record"
+            },
+            {
+              "ref": "r1t4",
+              "label": "Note draft",
+              "kind": "content",
+              "role": "section",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Note draftTitleBody"
+            },
+            {
+              "ref": "r1t5",
+              "label": "Note",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Note"
+            },
+            {
+              "ref": "r1t6",
+              "label": "Customer",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Customer"
+            },
+            {
+              "ref": "r1t7",
+              "label": "Opportunity",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Opportunity"
+            },
+            {
+              "ref": "r1t8",
+              "label": "Scheduled goal",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Scheduled goal"
+            },
+            {
+              "ref": "r1t9",
+              "label": "Saved synthetic records",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Saved synthetic records"
+            },
+            {
+              "ref": "r1t10",
+              "label": "Add Delivery city field",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Add Delivery city field"
+            },
+            {
+              "ref": "r1t11",
+              "label": "Add native controls",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Add native controls"
+            },
+            {
+              "ref": "r1t12",
+              "label": "Add complex controls",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Add complex controls"
+            },
+            {
+              "ref": "r1t13",
+              "label": "Switch widget palette",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Switch widget palette"
+            }
+          ],
+          "domScope": "Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.",
+          "coverage": {
+            "fieldLimit": 60,
+            "navigationLimit": 30,
+            "visibleNativeControls": 2,
+            "embeddedFrames": 0,
+            "openShadowRoots": 0,
+            "unsupportedControls": 0,
+            "manualNotice": ""
+          },
+          "submissions": [
+            {
+              "ref": "r1s0",
+              "label": "Save synthetic record"
+            }
+          ],
+          "navigationCandidates": [
+            "/customer",
+            "/opportunity",
+            "/note",
+            "/goal",
+            "/records"
+          ],
+          "screen": "Note draft | Try these prompts | Generic changes and theme",
+          "path": "/note",
+          "ambiguousDialogs": false,
+          "blockedCount": 7
+        },
+        "privateTask": {
+          "taskId": "8f6ce1ee-890b-4a56-bbfb-f45609e6f955",
+          "instanceId": "92d17260-9230-4178-a28f-0251a1c559f1"
+        }
+      }
+    },
+    {
+      "panel": "public",
+      "body": {
+        "instanceId": "3eb8e175-67d9-4a9e-9aaf-081a49220180",
+        "peerRequestId": "6483773e-a38e-4113-9ce7-18948b7a4f61",
+        "text": "Use the Company name from the privately shared current form as the search field text on your current page. Keep the transport at its current default. Do not click Search, submit, navigate or save. Plan the fill and use the normal field review.",
+        "snapshot": {
+          "revision": 1,
+          "fields": [
+            {
+              "ref": "r1f0",
+              "label": "Search MCPs, publishers, capabilities…",
+              "type": "text",
+              "required": false,
+              "key": "q",
+              "optionCount": 0,
+              "constraints": {
+                "maxlength": "120"
+              }
+            },
+            {
+              "ref": "r1f1",
+              "label": "transport",
+              "type": "select-one",
+              "required": false,
+              "key": "transport",
+              "optionCount": 4,
+              "choices": [
+                "All transports",
+                "streamable-http",
+                "sse",
+                "stdio"
+              ]
+            }
+          ],
+          "forms": [],
+          "links": [],
+          "recentActivity": {
+            "prepared": [],
+            "applied": [],
+            "unavailablePrepared": 0,
+            "unavailableApplied": 0
+          },
+          "targets": [
+            {
+              "ref": "r1t0",
+              "label": "ag.hood/name-service",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "ag.hood/name-serviceResolve .hood names on Robinhood Chain — forward/reverse, text records, availability & pricing.ag.hood · streamable-http"
+            },
+            {
+              "ref": "r1t1",
+              "label": "Submit an MCP",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Submit an MCP"
+            },
+            {
+              "ref": "r1t2",
+              "label": "Search",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Search"
+            },
+            {
+              "ref": "r1t3",
+              "label": "Include your MCP",
+              "kind": "content",
+              "role": "h2",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Include your MCP"
+            },
+            {
+              "ref": "r1t4",
+              "label": "ae.easyvoice/tts",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "ae.easyvoice/ttsHosted text-to-speech MCP server: 66 voices in 9 languages, long-form narration, podcasts.ae.easyvoice · streamable-http"
+            },
+            {
+              "ref": "r1t5",
+              "label": "ae.brainy/grocery-prices",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "ae.brainy/grocery-pricesSource-backed UAE costs: groceries, schools, housing, transport, utilities, telecom and relocationae.brainy · streamable-http"
+            },
+            {
+              "ref": "r1t6",
+              "label": "ae.projectory/mcp",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "ae.projectory/mcpFind UAE off-plan developments and registered residential sales.ae.projectory · streamable-http"
+            },
+            {
+              "ref": "r1t7",
+              "label": "agency.ottobot/contractor-license-changes",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "agency.ottobot/contractor-license-changesDid this contractor's licence change? Observed lapses and reinstatements, not a snapshot.agency.ottobot · streamable-http"
+            },
+            {
+              "ref": "r1t8",
+              "label": "ae.waggle/fenlight",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "ae.waggle/fenlightGoogle search results, forum threads, local and shopping data, keyword ideas, AI answer tracking.ae.waggle · streamable-http"
+            },
+            {
+              "ref": "r1t9",
+              "label": "ac.snag/snag",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "ac.snag/snagGives your coding agent the captured console, network, replay and screenshot evidence for a bug.ac.snag · streamable-http"
+            },
+            {
+              "ref": "r1t10",
+              "label": "academy.apexai/apex-ai-academy",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "academy.apexai/apex-ai-academyCo-Learn with your Agent: fact-checked AI lessons with Human and Agent views.academy.apexai · streamable-http"
+            },
+            {
+              "ref": "r1t11",
+              "label": "ae.datadubai/dubai-real-estate",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "ae.datadubai/dubai-real-estateDubai property prices, AED/sqft, sales, rents, yields and projects from DLD registered transactions.ae.datadubai · streamable-http"
+            },
+            {
+              "ref": "r1t12",
+              "label": "ae.genosys/genosys",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "ae.genosys/genosysShop GENOSYS Korean skincare in the UAE from chat: find products, AED prices, order and pay.ae.genosys · streamable-http"
+            },
+            {
+              "ref": "r1t13",
+              "label": "ae.propick/propick",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "ae.propick/propickManage your real-estate stock on Propick (Dubai): bulk listing sync, lookups and run reports.ae.propick · streamable-http"
+            },
+            {
+              "ref": "r1t14",
+              "label": "africa.ugc/ugc",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "africa.ugc/ugcThe Human Ad Network. Campaigns, clipping, and Clip Studio from chat.africa.ugc · streamable-http"
+            },
+            {
+              "ref": "r1t15",
+              "label": "agency.goji/goji",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "agency.goji/gojiAnswers on AEO, SEO, web and brand from GOJI's published material. Melbourne, Australia.agency.goji · streamable-http"
+            },
+            {
+              "ref": "r1t16",
+              "label": "✺ Free Tools",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "✺ Free Tools"
+            },
+            {
+              "ref": "r1t17",
+              "label": "Docs",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Docs"
+            },
+            {
+              "ref": "r1t18",
+              "label": "Inspect",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Inspect"
+            },
+            {
+              "ref": "r1t19",
+              "label": "Inspect",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Inspect"
+            },
+            {
+              "ref": "r1t20",
+              "label": "Inspect",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Inspect"
+            },
+            {
+              "ref": "r1t21",
+              "label": "Inspect",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Inspect"
+            },
+            {
+              "ref": "r1t22",
+              "label": "Inspect",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Inspect"
+            },
+            {
+              "ref": "r1t23",
+              "label": "Inspect",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Inspect"
+            }
+          ],
+          "domScope": "Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.",
+          "coverage": {
+            "fieldLimit": 60,
+            "navigationLimit": 30,
+            "visibleNativeControls": 2,
+            "embeddedFrames": 0,
+            "openShadowRoots": 0,
+            "unsupportedControls": 0,
+            "manualNotice": ""
+          },
+          "submissions": [],
+          "navigationCandidates": [
+            "/free-tools/",
+            "/docs/"
+          ],
+          "screen": "agency.ottobot/business-contact-finder | agency.ottobot/contractor-license-changes | Include your MCP",
+          "path": "/free-tools/mcp-universe/",
+          "ambiguousDialogs": false,
+          "blockedCount": 30
+        },
+        "privateTask": {
+          "taskId": "8f6ce1ee-890b-4a56-bbfb-f45609e6f955",
+          "instanceId": "3eb8e175-67d9-4a9e-9aaf-081a49220180"
+        }
+      }
+    }
+  ]
+}

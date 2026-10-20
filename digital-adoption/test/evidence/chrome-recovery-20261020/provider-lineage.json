@@ -1,0 +1,7 @@
+{
+  "status": "passed",
+  "baseCommit": "bd06d3da",
+  "deployedProviderMatchedBaseBeforePatch": true,
+  "normalizedBaseSha256": "227bdc3846f2a72c9ce5ed27af69ffff8d8c5dfc8e5fa8d7bc4893091f0e6f56",
+  "nativeOllamaBehaviorPreserved": true
+}

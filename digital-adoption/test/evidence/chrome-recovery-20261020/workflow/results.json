@@ -1,0 +1,25 @@
+{
+  "at": "2026-10-20T09:04:21.828Z",
+  "source": "working-tree immediate phase",
+  "origin": "http://127.0.0.1:4194",
+  "dependencies": {
+    "planner": "deterministic fixture, not LLM",
+    "managementIdentity": "synthetic test adapter",
+    "dns": "not exercised",
+    "host": "existing loopback website"
+  },
+  "results": [
+    {
+      "id": "R13_WS_CUSTOMER_NOTE_OPPORTUNITY",
+      "status": "passed",
+      "detail": {
+        "commands": 11,
+        "savedRecords": 3,
+        "proof": "Independent host readback; host_reported_saved remains the connector contract",
+        "policy": "simulated in this isolated coordinator"
+      },
+      "screenshot": "R13_WS_CUSTOMER_NOTE_OPPORTUNITY.png"
+    }
+  ],
+  "errors": []
+}

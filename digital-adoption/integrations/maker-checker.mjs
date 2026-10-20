@@ -41,8 +41,8 @@ export async function reviewCopilotResponse({ config, messages, purpose, draft, 
       const checkRequest={ config: config.checker, signal, maxTokens: config.checker.maxTokens??700, outputSchema:verdictSchema, messages: [{ role: 'system', content: (purpose==='digital_adoption_goal'?goalReviewPrompt(context.stage):context.goalContext?.currentStep?goalStepCheckerPrompt:checkerPrompt)+' JSON schema: '+JSON.stringify(verdictSchema) }, { role: 'user', content: JSON.stringify(context) }] };
       let result;
       try{result=await complete(checkRequest);}catch(error){
-        if(error.diagnosticCode!=='PROVIDER_EMPTY_OR_INVALID'||signal?.aborted)throw error;
-        checkerRetries++;result=await complete({...checkRequest,messages:[{role:'system',content:checkRequest.messages[0].content+' Return the verdict JSON directly and keep feedback brief; no reasoning transcript.'},checkRequest.messages[1]]});
+        if(!['PROVIDER_EMPTY_OR_INVALID','PROVIDER_INCOMPLETE'].includes(error.diagnosticCode)||signal?.aborted)throw error;
+        checkerRetries++;result=await complete({...checkRequest,config:{...checkRequest.config,compactVerdict:true},messages:[{role:'system',content:checkRequest.messages[0].content+' Return the verdict JSON directly and keep feedback brief; no reasoning transcript.'},checkRequest.messages[1]]});
       }
       verdict = parseVerdict(result.content);diagnostics=result.diagnostics;
     } catch(error) { throw Object.assign(new Error('Checker unavailable or invalid'), { code: 'COPILOT_CHECKER_UNAVAILABLE',diagnosticCode:error.diagnosticCode||'VERDICT_SCHEMA',providerStatus:error.providerStatus,providerDiagnostics:error.providerDiagnostics }); }

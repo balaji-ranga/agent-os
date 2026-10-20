@@ -1,0 +1,44 @@
+{
+  "results": [
+    {
+      "id": "LIVE_CURRENT_PAGE_SCOPE_AND_COMPLETE_GOAL_REQUEST_PRESERVED",
+      "status": "passed"
+    }
+  ],
+  "proposal": {
+    "id": "00b6abf2-8dd4-4747-8f72-91a1d06bb451",
+    "revision": 1,
+    "message": "This request spans the host Customer page and a paired flolah.cloud MCP Universe tab. Please use Plan a task/Goal plan to coordinate the fill step, separate Save confirmation, and later cross-tab request; do not proceed with local-only fills here.",
+    "actions": [],
+    "expiresAt": 1792487966899,
+    "fields": [
+      {
+        "ref": "r1f0",
+        "label": "Company name",
+        "type": "text",
+        "required": true,
+        "key": "company_name",
+        "form": "demo-form"
+      },
+      {
+        "ref": "r1f1",
+        "label": "Contact email",
+        "type": "email",
+        "required": true,
+        "key": "contact_email",
+        "form": "demo-form"
+      },
+      {
+        "ref": "r1f2",
+        "label": "Region",
+        "type": "text",
+        "required": true,
+        "key": "region",
+        "form": "demo-form"
+      }
+    ],
+    "matchedWorkflows": [],
+    "messageId": "2ea4e5b9-9974-4951-a00a-f918222323b1"
+  },
+  "hostValuesChanged": false
+}

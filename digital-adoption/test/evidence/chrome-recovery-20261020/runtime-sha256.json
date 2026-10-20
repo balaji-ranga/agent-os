@@ -1,0 +1,22 @@
+{
+  "integrations/checker-contract.mjs": "3924d81d2479cdba00eded3f02560c6dcebc2244315374df237c6f1220afbb1b",
+  "integrations/maker-checker.mjs": "dbbe98d905a05c62fa69f748692a515d9b4e788267a4f68de528b2c11a09dfc3",
+  "src/goal-contract.mjs": "4aaf40f12aea91727a95e1cc2ba2c037dd26a21f1c0414d0b8f623cf2fa4d0b9",
+  "src/goal-model.mjs": "42216be876c49378f5518b4e4f47502ce82cdaf742e0abb459b413959417b464",
+  "src/goal-service.mjs": "ddada811780c04e6e3b723d254ace3f23894fb81b27bace72f13f449e9516802",
+  "src/goal-store.mjs": "d76055290a9fda8da7091fd7abe91881895b91163f4e4e59b904b10c796977db",
+  "src/private-tasks.mjs": "1be6fab40c8a10694c9e194036838e80222ed71dd03ac8805af7ca12fa260832",
+  "src/server.mjs": "928bba132138eac115d3c26193b232b912a86ec5289df0533d709b54bb7a273a",
+  "web/dom.mjs": "4a10b831b0335787d0d071764a903635f28556780a6317249aec190baf5b98ba",
+  "web/goal-ui.mjs": "d60168833166e7c909a8b7abae27d506c2765381b1a6e3bbd1e0f32126feae09",
+  "web/sdk.mjs": "3eb571b1035bf1cd05446a4d270124712c80cbc32a84378dadbea363fcea3ed0",
+  "web/session-client.mjs": "3d57d73e8081fee97c0eaea31398e0f49653379c54306d328f29eeded3ece47f",
+  "web/task-client.mjs": "dfabbbb1ab7b673e4e886de24d63742806eb5970aeed3d950dc2a12aab20ebc5",
+  "web/task-panel.mjs": "264319a269d9d8baf413e6f91543e349f96d2575c7d0b80c850dc86ef220b31b",
+  "web/widget.mjs": "6fbea1b179ffa1a074756dd08c9a8422ba574cfcd401d8a7db0c89ccf365b17e",
+  "src/peer-tasks.mjs": "f84263957910b897c695302127a8ef058c8bad3678e4abc570e484fbc9ba0b18",
+  "src/goal-prompts.mjs": "22765b8ef798f6a71eebb107410385434d9ebda7c8d5c6fd303806549857ee9f",
+  "src/platform-model.mjs": "200e6d52b00b3ff5df9db485eb26383ed7e4c351a82c828c664f22865fd4527a",
+  "web/widget.html": "432c0c779c55d36b1d00bae042765e92d2bbcfdc2455b77470cc58617f6ebe6b",
+  "integrations/provider-completion.mjs": "259eca69a2179f4d02a1f3fbd6b2dc25da5bdc26540d3f111a23d4938bda0013"
+}

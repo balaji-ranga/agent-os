@@ -108,7 +108,7 @@ export function mountTaskPanel({
       for (const e of out.evidence || [])
         show(`${e.filename} · ${e.locator}\n${e.text}`);
     });
-  const reset = () => {
+  const reset = ({preserveConversation=false,reason}={}) => {
     active = false;
     clearInterval(timer);
     files.replaceChildren();
@@ -117,7 +117,8 @@ export function mountTaskPanel({
     query("#transaction-file").value = "";
     query("#relay-consent").checked = false;query("#relay-values").checked=false;
     query("#task-identity").textContent = "";
-    clearPrivate();
+    clearPrivate({preserveConversation});
+    if(reason){state.textContent=reason;show(reason);}
     for (const trace of safeTraces.slice(-20)) show(trace);
     workflows.clear();
     document.querySelector("#plan").disabled = isExpired();
@@ -348,6 +349,7 @@ export function mountTaskPanel({
         reset();
         return;
       }
+      if(event.type==='task-interrupted'){reset({preserveConversation:true,reason:event.reason});return;}
       if(event.type==='peer-request'){active=true;show(`Task shared from ${event.from}: ${event.instruction}`);refreshTask().catch(showError);if(event.mode==='goal'){const article=document.createElement('article'),start=button('Review received goal',()=>onIncomingGoal(event));article.append(start,button('Decline request',async()=>{await call('task-peer-answer',{requestId:event.requestId,rejected:true});article.remove();}));log.append(article);if(canReceiveGoal())onIncomingGoal(event).then(()=>{start.disabled=true;start.textContent='Received goal shown in Chat';}).catch(showError);}return;}
       if(event.type==='peer-result'){const detail=event.mode==='inspect'?structuralSummary(event.result):[event.result?.message,structuralSummary(event.result?.observed)].filter(Boolean).join('\n');show(`Paired task ${event.requestId}: ${event.status}${event.code?' · '+event.code:''}.\n${detail}`);return;}
       if(event.type==='peer-error'){showError(new Error(event.message));return;}

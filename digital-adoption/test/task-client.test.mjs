@@ -44,10 +44,18 @@ test('ended task clears stale scope but preserves pairing and never retries the 
 test('dropped socket restores saved pairing automatically without resending any task command',async t=>{
  const f=fixture(t);await f.client.call('task-relay',{targetId:'recipient',shareConsent:true});
  f.sockets[0].close();assert.equal(f.client.taskScope,null);
+ assert.equal(f.events.some(e=>e.type==='task-ended'),false);
+ assert.equal(f.events.filter(e=>e.type==='task-interrupted').length,1);
  await delay(1200);
  assert.equal(f.sockets.length,2);assert.equal(f.requests.filter(r=>r.path==='/v1/tasks/relay').length,1);
  assert.equal(f.events.at(-1).type,'pairing-restored');assert.equal(f.events.at(-1).status.groupId,'saved-group');
  assert.equal(f.requests.filter(r=>r.path==='/v1/live/ticket').at(-1).input.resumeProof,'saved-proof');
+});
+
+test('an idle pairing transport closing does not manufacture a task-ended event',async t=>{
+ const f=fixture(t);await f.client.call('pair-status');f.sockets[0].close();
+ assert.equal(f.events.some(e=>['task-ended','task-interrupted'].includes(e.type)),false);
+ assert.equal(f.events.at(-1).type,'pairing-offline');
 });
 test('destroy cancels pending reconnect and ended messages for other tasks do not clear current task',async t=>{
  const f=fixture(t);await f.client.call('task-start');f.sockets[0].message({type:'task-ended',taskId:'other'});

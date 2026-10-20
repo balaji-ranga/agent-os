@@ -1,0 +1,63 @@
+{
+  "results": [
+    {
+      "id": "LIVE_SINGLE_PAGE_CROSS_SITE_SCOPE_GUARD",
+      "status": "failed",
+      "error": "Expected values to be strictly equal:\n+ actual - expected\n\n+ undefined\n- 'clarify'\n"
+    }
+  ],
+  "proposal": {
+    "id": "6b5a73b4-e5e2-49fe-9d6e-fe9da3712ae1",
+    "revision": 1,
+    "message": "I will prepare to fill the Customer fields with the following values: Company name as 'genosys', Contact email as 'multisite.uat@example.test', and Region as 'Singapore'. Please confirm if you would like to proceed with these values before saving.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+    "actions": [
+      {
+        "type": "fill",
+        "ref": "r1f0",
+        "label": "Company name",
+        "value": "genosys"
+      },
+      {
+        "type": "fill",
+        "ref": "r1f1",
+        "label": "Contact email",
+        "value": "multisite.uat@example.test"
+      },
+      {
+        "type": "fill",
+        "ref": "r1f2",
+        "label": "Region",
+        "value": "Singapore"
+      }
+    ],
+    "expiresAt": 1792487647674,
+    "fields": [
+      {
+        "ref": "r1f0",
+        "label": "Company name",
+        "type": "text",
+        "required": true,
+        "key": "company_name",
+        "form": "demo-form"
+      },
+      {
+        "ref": "r1f1",
+        "label": "Contact email",
+        "type": "email",
+        "required": true,
+        "key": "contact_email",
+        "form": "demo-form"
+      },
+      {
+        "ref": "r1f2",
+        "label": "Region",
+        "type": "text",
+        "required": true,
+        "key": "region",
+        "form": "demo-form"
+      }
+    ],
+    "matchedWorkflows": [],
+    "messageId": "4357d433-1b60-4801-be74-02e97a623db4"
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "at": "2026-10-20T09:25:56.482013+00:00",
+  "release": "20261020-recovery-d",
+  "gatewayRelease": "20261020-recovery-c-gateway",
+  "passed": 474,
+  "failed": 0,
+  "partial": 0,
+  "passRate": 100,
+  "cohorts": [
+    {
+      "name": "Service regression, including interruption and strict checker retry",
+      "passed": 429,
+      "path": "logs/service.log"
+    },
+    {
+      "name": "Workspace regression: checker error, presentation, real socket loss and explicit task end",
+      "passed": 22,
+      "path": "workspace-final-ui/results.json"
+    },
+    {
+      "name": "Existing goal continuity/reviews and workflow-context regression",
+      "passed": 8,
+      "path": "goals-final-ui/results.json"
+    },
+    {
+      "name": "Cross-tab SDK/DOM/WebSocket fill and Save regression",
+      "passed": 4,
+      "path": "peers-final-ui/results.json"
+    },
+    {
+      "name": "Three-form workflow Save/readback \u2014 synthetic model and policy adapter",
+      "passed": 1,
+      "path": "workflow/results.json"
+    },
+    {
+      "name": "Actual-model local Customer \u2192 Note \u2192 public MCP acceptance",
+      "passed": 5,
+      "path": "live-final-d/results.json"
+    },
+    {
+      "name": "Actual-model current-page scope notice and complete-request transfer",
+      "passed": 1,
+      "path": "scope-ui-final/results.json"
+    },
+    {
+      "name": "Existing user Chrome guidance, browser minimize/restore and restore/maximize",
+      "passed": 3,
+      "path": "user-chrome-verification.json"
+    },
+    {
+      "name": "Real provider truncation \u2192 one compact verdict retry, unchanged global setting",
+      "passed": 1,
+      "path": "real-checker-recovery.json"
+    }
+  ],
+  "scope": "Current Chrome/chat/checker/scope-recovery update; not full Phase 1/2 certification",
+  "limitations": [
+    "Earlier unarchived transcript was not recovered. The continuation was reconstructed from the observed synthetic draft.",
+    "Actual user Chrome checks were read-only guidance and window retention. Cross-tab fill/save acceptance used a separate explicitly authorized Chrome test profile.",
+    "The current-page scope notice is an explicit UI boundary and transition, not a claim of perfect semantic automatic goal routing.",
+    "The real retry probe used a temporary per-call 128-token cap to force truncation; global maker/checker remained enabled on the same passive route at 2048.",
+    "Native Safari/iOS, Android Chrome and full screen-reader checks remain previously deferred. Existing registrations do not establish fresh-owner DNS/email acceptance.",
+    "Earlier failures and test-harness readiness failures remain available; a successful final run does not prove statistical model reliability."
+  ]
+}

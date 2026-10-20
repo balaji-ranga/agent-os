@@ -1,0 +1,9 @@
+{
+  "results": [
+    {
+      "id": "LIVE_SINGLE_PAGE_CROSS_SITE_SCOPE_GUARD",
+      "status": "failed",
+      "error": "page.waitForResponse: Timeout 195000ms exceeded while waiting for event \"response\""
+    }
+  ]
+}

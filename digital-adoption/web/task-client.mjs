@@ -54,8 +54,10 @@ export function createTaskClient({
       generation++;
       for(const [commandId,entry]of seen)if(!entry.done)notify({type:'workflow-result',commandId,action:entry.action,workflow:entry.workflow,ok:false,code:['fill','navigate','submit'].includes(entry.action)?'OUTCOME_UNKNOWN':'RECIPIENT_OFFLINE'});
       seen.clear();
-      taskId = null;
-      notify({type:'task-ended',reason:'Connection closed. Unfinished workflow steps fail; reconnect does not replay them.'});
+      const interruptedTask=taskId;taskId = null;
+      // A lost transport is not the visitor's End task action. In particular,
+      // an idle pairing socket must never erase an unrelated page conversation.
+      if(interruptedTask)notify({type:'task-interrupted',taskId:interruptedTask,reason:'Connection interrupted. Private context must be shared again; historical messages remain. Unfinished actions fail and are not replayed.'});
       notify({type:'pairing-offline',reason:'Connection offline. Saved group retained; reconnect before sending. Unfinished actions are not replayed.'});
       recover();
     };

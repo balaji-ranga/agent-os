@@ -1,0 +1,47 @@
+{
+  "status": "passed",
+  "case": "LIVE_CHECKER_TRUNCATION_TO_BOUNDED_JSON_RECOVERY",
+  "globalSettingUnchanged": true,
+  "globalBudget": 2048,
+  "probeBudget": 128,
+  "firstCallWasRealProvider": true,
+  "quality": {
+    "enabled": true,
+    "decision": "accept",
+    "revisions": 0,
+    "makerSlot": "secondary",
+    "checkerSlot": "primary",
+    "checker": {
+      "model": "deepseek-v4-flash",
+      "latencyMs": 766,
+      "promptTokens": 1281,
+      "outputTokens": 49
+    },
+    "checkerRetries": 1
+  },
+  "calls": [
+    {
+      "compact": false,
+      "budget": 128,
+      "status": "failed",
+      "category": "PROVIDER_INCOMPLETE",
+      "diagnostics": {
+        "model": "deepseek-v4-flash",
+        "latencyMs": 1595,
+        "promptTokens": 1292,
+        "outputTokens": 128
+      }
+    },
+    {
+      "compact": true,
+      "budget": 128,
+      "status": "completed",
+      "diagnostics": {
+        "model": "deepseek-v4-flash",
+        "latencyMs": 766,
+        "promptTokens": 1281,
+        "outputTokens": 49
+      }
+    }
+  ]
+}
