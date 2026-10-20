@@ -1,0 +1,27 @@
+[
+  {
+    "path": "src/website-private-search.mjs",
+    "sha256": "738edb9caa96cced22bdf03c337cab954fd3fae3b3b97651a14fff14c04099c8",
+    "sameAsLiveStorageUat": true
+  },
+  {
+    "path": "src/conversation-history.mjs",
+    "sha256": "a62b05a124791aad71182c890c77ba414b6950f3a6afecc8f533884ee7334ee1",
+    "sameAsLiveStorageUat": true
+  },
+  {
+    "path": "src/private-tasks.mjs",
+    "sha256": "04ae62e305f6582a71e55638a1e0702590384a4b9fdc0ef5410664dbe3c60c92",
+    "sameAsLiveStorageUat": true
+  },
+  {
+    "path": "src/opensearch.mjs",
+    "sha256": "30b7439314d071639cd1005ce10f9040f0036775d7791b4756deae9cc194c4ee",
+    "sameAsLiveStorageUat": true
+  },
+  {
+    "path": "src/document-extractor.mjs",
+    "sha256": "a7cefb1cca027751f2b34795e0aafe58277bfd4356825a555f3616a87ca532b0",
+    "sameAsLiveStorageUat": true
+  }
+]

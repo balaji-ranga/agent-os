@@ -57,11 +57,11 @@ never submits a form; Save has its own reviewed activation.
 
 Original files are encrypted per task. Task keys, chat, reviews and results stay
 in bounded memory outside SQLite/checkpoints. Extracted passages use separate
-private OpenSearch hourly indexes governed by 24-hour ISM retention. End task
+a separate temporary OpenSearch index per website, with 24-hour expiry checks and a bounded cleanup worker. Legacy shared hourly indexes remain read-only until their original ISM cleanup. End task
 clears both panels and revokes server access immediately; it does not wait for
 search deletion. Removing a file also blocks its retained passages immediately.
 Original encrypted objects are queued for deletion. Temporary passages remain
-until index retention cleanup; ISM is periodic and not an exact erasure deadline.
+until private retention cleanup. Legacy ISM and the expiry worker run periodically; expiry denies access independently of physical deletion.
 Coordinator restart ends task authority even if search passages survive. Already
 applied host values and saved business records remain host data. Provider-side
 retention is independent. Local development harnesses without OpenSearch retain
@@ -445,6 +445,29 @@ If the checker provider returns an empty or truncated response, the gateway may 
 
 Goal drafts have separate bounded repair budgets: at most one schema repair and one semantic checker repair. Repairing missing JSON metadata does not consume the semantic correction opportunity. They share the existing request deadline and grant no action permission.
 
-Choice interpretation uses the actual observed option labels. A clear spelling error or unique short form can become the exact available label in the field review; ambiguous or unsupported wording requires clarification. No website-specific alias list is used, and free-text business names, email addresses and amounts are preserved. A correction does not authorize Save: approve the field review, then confirm any separately requested Save. Visual guidance can highlight visible menu items/buttons; it does not provide an animated mouse cursor or unrestricted menu/button click automation.
+Choice interpretation uses the actual observed option labels. A clear spelling error or unique short form can become the exact available label in the field review; ambiguous or unsupported wording requires clarification. No website-specific alias list is used, and free-text business names, email addresses and amounts are preserved. A correction does not authorize Save: approve the field review, then confirm any separately requested Save. Visual guidance uses an animated pointer and highlight for visible fields, menu items and buttons. “Next” means guidance only; it never clicks. A click ripple appears only when an authorized navigation, checkbox/radio, loaded picklist selection or separately approved Save is dispatched. Text/select changes show “Applying”. The overlay never grants permission or activates arbitrary controls. It follows moving targets, respects reduced-motion preferences and clears on fresh inspection, Stop or expiry.
 
 An explicit request to fill a draft with dummy/sample values permits synthetic content for applicable visible writable fields, using their labels, native choices, validation rules and owner descriptions. The assistant labels generated values as synthetic, preserves supplied values, and proposes them for review. This does not authorize Save or invent secret credentials, document facts or entity lookup identities. “Confirm with me before saving” permits preparing/filling the draft after review, then awaiting the separate Save confirmation. Guide-only mode explains that its highlights do not fill fields and directs the visitor to Prepare changes for reviewed filling.
+
+
+Follow-up requests are interpreted using the latest conversation, any explicitly replied-to message and fresh browser observations. Browser-local recent field identities distinguish a prepared review from verified applied changes; current field values are not uploaded as continuity context. A clear new field request uses its own fresh target. A reference to past work must use controls still present on the same page/form; unavailable or ambiguous referents need clarification, with no replay of fills or Save. New conversation, End task and session termination clear this local transaction context. The context bar identifies the visible screen heading; the Context dialog shows its origin and path separately from the website name.
+
+
+### Private conversation history and website temporary storage
+
+Select **+** to archive the current conversation privately and start a fresh chat immediately. **History** is a separate header button: choose **Continue conversation** to restore earlier messages, or **Delete conversation** to revoke the archive. Opening history does not replay a field change, navigation, Save, workflow command or an old approval. The resumed assistant uses historical context with fresh current-page observations; it asks when the referent or intended next task is unclear. New chats and resumed chats end the preceding active private task; expired or ended task files are never revived. Pairing and workflow connections keep their own lifetime.
+
+Archives are accessible only with a valid website session and the visitor's browser-held private history proof. Website, exact origin, authenticated host principal where available, audience and coaching scope are checked on every list/read/resume/delete. Anonymous visitors need no Flolah login; another browser does not inherit their private proof. Signed-in host identities cannot use another user's history. IP addresses do not authorize history. A page reload can find saved archives using that same browser proof; blocked or cleared browser storage can make them unavailable.
+
+The database owns archive identity, content checksum, entitlement, expiry and revocation. Production message bodies and extracted transaction passages live in a website-specific temporary index, separate from the website knowledge index. Both use **search.privateRetentionHours**, currently **24**; there is no independent chat-retention setting. Access is denied at expiry. A cleanup worker deletes expired temporary documents every minute; failures emit a secret-free operational alert and are retried. Legacy shared hourly task buckets are read-only during their original retention window. One temporary index per website avoids multiplying shards by active hours.
+
+Unverified registration creates database setup only. Successful domain verification provisions the website knowledge index and its temporary private index; activation checks both before issuing an installation. Existing verified approved websites are provisioned idempotently at startup. A provisioning failure does not issue an installation. Shared knowledge still requires authenticated owner/Flolah management and does not receive visitor chat or task content.
+
+History lists are paged. Default limits are 20 archives per visitor scope, 1,000 per website and 10,000 overall; each archive is bounded to 200 messages and 120 KiB. An oversized or full archive preserves the current chat and explains recovery. **Download current conversation** saves a private local JSON copy; clearing the current chat remains available in Settings.
+
+
+### Pointing and action intent
+
+The assistant interprets the complete request, reply context and current observed controls. It may resolve a uniquely matching singular/plural form or obvious spelling variant; consequential ambiguity needs clarification. A request to show a link or button produces a read-only highlight, including controls whose labels contain action words. Opening a destination, preparing field changes and saving remain separate stages with their existing reviews and policies. The maker declares guide, explain, edit, navigate or clarify intent; the checker judges whether that intent and its actions fulfill the request. Intent never grants execution authority. Guide proposals can contain highlights only; Save remains a separately authorized host action.
+
+Use the **History icon** to view private conversation titles and choose **Continue conversation**. The **+** button archives the current chat and starts a fresh one. Continuing restores advisory conversation context; it never replays historical actions or restores ended task files.

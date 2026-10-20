@@ -1,0 +1,6 @@
+{
+  "status": "passed",
+  "stagedSourceBlobs": 58,
+  "normalization": "Git staged blobs, SHA-256",
+  "noSourceMismatch": true
+}

@@ -23,7 +23,7 @@ export function createManagement({authenticate,control,knowledge,search,platform
   if(path==='/v1/manage/register')return control.register(actor,{origin:input.origin,environment:input.environment,operationId:input.operationId});
   if(path==='/v1/manage/renew-challenge')return control.renewChallenge(actor,input.id,input);
   if(path==='/v1/manage/onboarding'){const state=control.readiness(actor,input.id);return {...state,knowledgeScope:'public',...(state.verified&&state.status==='approved'&&learning?{learning:learning.readiness(control.scope(actor,input.id))}:{}),diagnostics:['If the panel is missing: check the approved origin, snippet URL, token expiry, CSP script-src/connect-src/frame-src and blocked frames. Issuing a snippet alone does not prove installation.']};}
-  if(path==='/v1/manage/verify')return control.verify(actor,input.id);
+  if(path==='/v1/manage/verify'){const result=await control.verify(actor,input.id);if(result.verified&&search){await search.provision(input.id);await search.privateTasks?.provision(input.id);}return result;}
   if(path==='/v1/manage/approve')return control.transition(actor,input.id,'approved',input.reason);
   if(path==='/v1/manage/suspend')return control.transition(actor,input.id,'suspended',input.reason);
   if(path==='/v1/manage/tokens')return {tokens:control.tokens(actor,input.id)};
@@ -62,7 +62,7 @@ export function createManagement({authenticate,control,knowledge,search,platform
    const operations={settings:()=>learning.settings(scope,input),status:()=>({enabled:learning.learningEnabled(scope)}),list:()=>({recipes:learning.list(scope)}),maps:()=>({screens:learning.maps(scope)}),graph:()=>learning.graph(scope),describe:()=>learning.describe(scope,request),create:()=>learning.create(scope,input),validate:()=>learning.validate(scope,request),publish:()=>learning.publish(scope,request),repair:()=>learning.repair(scope,request),disable:()=>learning.disable(scope,request),versions:()=>({versions:learning.versions(scope,request)}),rollback:()=>learning.rollback(scope,request),export:()=>learning.export(scope,request),import:()=>learning.import(scope,input)};
    const action=path.slice('/v1/manage/learning-'.length);if(!Object.hasOwn(operations,action))throw new Error('Unsupported learning operation');return operations[action]();
   }
-  if(path==='/v1/manage/activate'){await search.provision(scope.embeddingId);return control.activate(actor,input.id);}
+  if(path==='/v1/manage/activate'){await search.provision(scope.embeddingId);await search.privateTasks?.provision(scope.embeddingId);return control.activate(actor,input.id);}
   if(path==='/v1/manage/sources')return {sources:knowledge.list(scope)};
   if(path==='/v1/manage/source-page')return knowledge.page(scope,input);
   if(path==='/v1/manage/source-file'){if(!ingestion)throw new Error('File ingestion unavailable');return ingestion.upload(scope,input,{checkAuthorized:()=>{const current=control.scope(actor,input.id);if(input.hostScope&&hostIdentity.audience(current,input.hostScope)!==scope.audienceId)throw new Error('Content audience changed');}});}

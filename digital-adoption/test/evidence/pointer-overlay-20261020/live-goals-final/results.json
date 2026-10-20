@@ -1,0 +1,281 @@
+{
+  "at": "2026-10-20T00:42:08.396Z",
+  "scope": "Actual deployed registrations, goal planner, step planner and global active-maker/passive-checker route. Browser explicitly approves each local effect. No autonomous workflow grant or backend knowledge seeding.",
+  "publicWrites": 0,
+  "localWrites": 0,
+  "results": [
+    {
+      "id": "LIVE_GOAL01_COMPLEX_CUSTOMER_NOTE_OPPORTUNITY_SAVED_AND_READ_BACK",
+      "status": "failed",
+      "error": "Copilot review could not validate this request. Nothing was changed. Clarify the task before trying again. [COPILOT_REVIEW_FAILED]",
+      "screenshot": "LIVE_GOAL01_COMPLEX_CUSTOMER_NOTE_OPPORTUNITY_SAVED_AND_READ_BACK-failed.png"
+    }
+  ],
+  "traces": [
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/create",
+      "status": 200,
+      "goal": {
+        "id": "61881d0f-dde3-447b-93bf-bb58b3afaefc",
+        "status": "draft",
+        "current": 0,
+        "version": 1,
+        "message": "To create a customer, note, and opportunity, follow these steps. Please confirm if any required value is missing.",
+        "steps": [
+          {
+            "title": "Fill Customer Form",
+            "kind": "fill",
+            "instruction": "Fill the demo-form with Company name 'Goal UAT 1792456909415', Contact email 'goal.uat@example.test', and Region 'Singapore'.",
+            "expected": "Customer form filled successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save Customer",
+            "kind": "save",
+            "instruction": "Save the synthetic record.",
+            "expected": "Customer saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Navigate to Note",
+            "kind": "navigate",
+            "instruction": "Navigate to the Note page.",
+            "expected": "Note page opened.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Fill Note",
+            "kind": "fill",
+            "instruction": "Set Title to 'Followup Goal UAT 1792456909415' and Body to 'Follow up with Goal UAT 1792456909415 about their renewal'.",
+            "expected": "Note filled successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save Note",
+            "kind": "save",
+            "instruction": "Save the synthetic record.",
+            "expected": "Note saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Navigate to Opportunity",
+            "kind": "navigate",
+            "instruction": "Navigate to the Opportunity page.",
+            "expected": "Opportunity page opened.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Fill Opportunity",
+            "kind": "fill",
+            "instruction": "Set Opportunity name to 'Renewal Goal UAT 1792456909415', Amount to 12500, and Currency to 'USD'.",
+            "expected": "Opportunity filled successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save Opportunity",
+            "kind": "save",
+            "instruction": "Save the synthetic record.",
+            "expected": "Opportunity saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/control",
+      "status": 200,
+      "goal": {
+        "id": "61881d0f-dde3-447b-93bf-bb58b3afaefc",
+        "status": "ready",
+        "current": 0,
+        "version": 2,
+        "message": "To create a customer, note, and opportunity, follow these steps. Please confirm if any required value is missing.",
+        "steps": [
+          {
+            "title": "Fill Customer Form",
+            "kind": "fill",
+            "instruction": "Fill the demo-form with Company name 'Goal UAT 1792456909415', Contact email 'goal.uat@example.test', and Region 'Singapore'.",
+            "expected": "Customer form filled successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save Customer",
+            "kind": "save",
+            "instruction": "Save the synthetic record.",
+            "expected": "Customer saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Navigate to Note",
+            "kind": "navigate",
+            "instruction": "Navigate to the Note page.",
+            "expected": "Note page opened.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Fill Note",
+            "kind": "fill",
+            "instruction": "Set Title to 'Followup Goal UAT 1792456909415' and Body to 'Follow up with Goal UAT 1792456909415 about their renewal'.",
+            "expected": "Note filled successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save Note",
+            "kind": "save",
+            "instruction": "Save the synthetic record.",
+            "expected": "Note saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Navigate to Opportunity",
+            "kind": "navigate",
+            "instruction": "Navigate to the Opportunity page.",
+            "expected": "Opportunity page opened.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Fill Opportunity",
+            "kind": "fill",
+            "instruction": "Set Opportunity name to 'Renewal Goal UAT 1792456909415', Amount to 12500, and Currency to 'USD'.",
+            "expected": "Opportunity filled successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save Opportunity",
+            "kind": "save",
+            "instruction": "Save the synthetic record.",
+            "expected": "Opportunity saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 503,
+      "error": "Copilot service temporarily unavailable",
+      "code": "COPILOT_REVIEW_FAILED"
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "goal": {
+        "id": "61881d0f-dde3-447b-93bf-bb58b3afaefc",
+        "status": "blocked",
+        "current": 0,
+        "version": 4,
+        "message": "The next step could not be prepared. Inspect the explanation and resume explicitly; no new action was repeated.",
+        "steps": [
+          {
+            "title": "Fill Customer Form",
+            "kind": "fill",
+            "instruction": "Fill the demo-form with Company name 'Goal UAT 1792456909415', Contact email 'goal.uat@example.test', and Region 'Singapore'.",
+            "expected": "Customer form filled successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer",
+            "kind": "save",
+            "instruction": "Save the synthetic record.",
+            "expected": "Customer saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Navigate to Note",
+            "kind": "navigate",
+            "instruction": "Navigate to the Note page.",
+            "expected": "Note page opened.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Fill Note",
+            "kind": "fill",
+            "instruction": "Set Title to 'Followup Goal UAT 1792456909415' and Body to 'Follow up with Goal UAT 1792456909415 about their renewal'.",
+            "expected": "Note filled successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save Note",
+            "kind": "save",
+            "instruction": "Save the synthetic record.",
+            "expected": "Note saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Navigate to Opportunity",
+            "kind": "navigate",
+            "instruction": "Navigate to the Opportunity page.",
+            "expected": "Opportunity page opened.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Fill Opportunity",
+            "kind": "fill",
+            "instruction": "Set Opportunity name to 'Renewal Goal UAT 1792456909415', Amount to 12500, and Currency to 'USD'.",
+            "expected": "Opportunity filled successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save Opportunity",
+            "kind": "save",
+            "instruction": "Save the synthetic record.",
+            "expected": "Opportunity saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { createPlatformPlanner } from '../src/platform-model.mjs';
 import { createPlatformGateway } from '../integrations/platform-gateway.mjs';
 
-test('uniquely named navigation and complete explicit edits require no model inference',async()=>{
- const planner=createPlatformPlanner({gatewayUrl:'https://platform.test/internal/adoption-model',serviceToken:'synthetic-test-only-service-token-000000',fetchImpl:async(_,{body})=>{const input=JSON.parse(body);assert.equal(input.purpose,'digital_adoption_review');return {ok:true,json:async()=>({content:JSON.stringify(input.draft),quality:{enabled:false}})};}});
+test('navigation intent uses model context while exact field assignments retain reviewed shortcut',async()=>{
+ const planner=createPlatformPlanner({gatewayUrl:'https://platform.test/internal/adoption-model',serviceToken:'synthetic-test-only-service-token-000000',fetchImpl:async(_,{body})=>{const input=JSON.parse(body);if(input.purpose==='digital_adoption_plan'){const task=JSON.parse(input.messages.at(-1).content);assert.equal(task.observed.links[0].label,'Notes');return {ok:true,json:async()=>({content:JSON.stringify({intent:'navigate',message:'Review opening the observed Notes destination.',actions:[{type:'navigate',ref:'r1n0'}]}),quality:{enabled:false}})};}assert.equal(input.purpose,'digital_adoption_review');return {ok:true,json:async()=>({content:JSON.stringify(input.draft),quality:{enabled:false}})};}});
  const snapshot={revision:1,path:'/home',fields:[{ref:'r1f0',label:'Company name',type:'text'}],links:[{ref:'r1n0',label:'Notes',path:'/notes'}]};
  assert.deepEqual((await planner({text:'Open Notes',snapshot})).actions,[{type:'navigate',ref:'r1n0'}]);
  assert.deepEqual((await planner({text:'Set company name to New synthetic value.',snapshot})).actions,[{type:'fill',ref:'r1f0',value:'New synthetic value'}]);

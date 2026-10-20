@@ -1,10 +1,10 @@
 {
-  "at": "2026-10-19T23:33:15.328785+00:00",
-  "release": "20261020-choice-e",
-  "baseCommit": "2ec34db7de9055b5f8bb2839fb3b5389c3aaa9ab",
+  "at": "2026-10-20T00:55:45.628951+00:00",
+  "release": "20261020-pointer-l",
+  "baseCommit": "9bbb5d7bb1ac93f0658122dac34a309cde8a5c45",
   "summary": {
-    "total": 448,
-    "passed": 448,
+    "total": 530,
+    "passed": 530,
     "failed": 0,
     "partial": 0,
     "deferred": 0,
@@ -12,397 +12,254 @@
   },
   "suites": [
     {
-      "name": "Service/contract regression",
-      "method": "Deterministic and local HTTP",
-      "path": "../choice-efficacy-20261020/logs/service-windows.log",
-      "total": 377,
-      "passed": 377,
+      "name": "Service and entitlement regression",
+      "method": "Contracts, lifecycle, HTTP and connector/policy tests",
+      "path": "logs/service-windows.log",
+      "total": 406,
+      "passed": 406,
       "failed": 0,
       "partial": 0,
       "deferred": 0
     },
     {
-      "name": "Live new scenarios",
-      "method": "Actual deployed models/registrations",
-      "path": "../choice-efficacy-20261020/live/results.json",
-      "total": 10,
-      "passed": 10,
-      "failed": 0,
-      "partial": 0,
-      "deferred": 0,
+      "name": "Pointer \u00b7 Chrome",
+      "method": "Real browser, synthetic controls and recorded animation",
+      "path": "browser-final/results.json",
+      "total": 21,
       "cases": [
         {
-          "id": "C01_NATIVE_TYPO_REVIEW_REJECT_NO_EFFECT",
+          "id": "P01_GUIDANCE_ANIMATES_WITHOUT_CLICK_OR_EDIT",
           "status": "passed",
-          "detail": {
-            "input": "expres",
-            "reviewed": "Express",
-            "rejected": true,
-            "hostUnchanged": true
-          },
-          "elapsedMs": 2875,
-          "screenshot": "C01_NATIVE_TYPO_REVIEW_REJECT_NO_EFFECT.png"
+          "screenshot": "P01_GUIDANCE_ANIMATES_WITHOUT_CLICK_OR_EDIT.png"
         },
         {
-          "id": "C02_NATIVE_SHORT_FORM_REVIEW_AND_APPLY_WITHOUT_SAVE",
+          "id": "P02_MENU_GUIDANCE_HAS_NO_CLICK_RIPPLE_OR_ACTIVATION",
           "status": "passed",
-          "detail": {
-            "input": "exp",
-            "reviewed": "Express",
-            "hostValue": "express",
-            "saved": false
-          },
-          "elapsedMs": 2934,
-          "screenshot": "C02_NATIVE_SHORT_FORM_REVIEW_AND_APPLY_WITHOUT_SAVE.png"
+          "screenshot": "P02_MENU_GUIDANCE_HAS_NO_CLICK_RIPPLE_OR_ACTIVATION.png"
         },
         {
-          "id": "C03_AMBIGUOUS_SHORT_FORM_ASKS_WITHOUT_CHANGE",
+          "id": "P03_OVERLAY_IS_POINTER_TRANSPARENT",
           "status": "passed",
-          "detail": {
-            "input": "exp",
-            "actualOptions": [
-              "Express",
-              "Expedited"
-            ],
-            "clarification": "The proposed choice does not match the requested observed option. No substitution was approved; clarify the available choices."
-          },
-          "elapsedMs": 3986,
-          "screenshot": "C03_AMBIGUOUS_SHORT_FORM_ASKS_WITHOUT_CHANGE.png"
+          "screenshot": "P03_OVERLAY_IS_POINTER_TRANSPARENT.png"
         },
         {
-          "id": "C04_UNSUPPORTED_OPTION_DOES_NOT_PICK_NEAREST_ARBITRARILY",
+          "id": "P04_SCROLL_RESIZE_AND_LAYOUT_SHIFT_FOLLOW_TARGET",
           "status": "passed",
-          "detail": {
-            "input": "Teleportation",
-            "clarification": "The requested shipping method 'Teleportation' is not available in the observed options. The available choices are 'Choose', 'Standard', and 'Express'. Please select one of these options or clarify if you would like to proceed with a different choice.\nI can highlight 1 target for you. No values will be changed."
-          },
-          "elapsedMs": 5322,
-          "screenshot": "C04_UNSUPPORTED_OPTION_DOES_NOT_PICK_NEAREST_ARBITRARILY.png"
+          "screenshot": "P04_SCROLL_RESIZE_AND_LAYOUT_SHIFT_FOLLOW_TARGET.png"
         },
         {
-          "id": "C05_DYNAMIC_LOADED_PICKLIST_CORRELATES_TYPO_AND_SHORT_FORM",
+          "id": "P05_REMOVED_HIDDEN_OR_RELABELLED_TARGET_CLEARS",
           "status": "passed",
-          "detail": {
-            "input": "Orhcid Trdg",
-            "freshObservedResult": "Orchid Trading",
-            "actualSelectedIdVerified": true,
-            "saved": false
-          },
-          "elapsedMs": 8036,
-          "screenshot": "C05_DYNAMIC_LOADED_PICKLIST_CORRELATES_TYPO_AND_SHORT_FORM.png"
+          "screenshot": "P05_REMOVED_HIDDEN_OR_RELABELLED_TARGET_CLEARS.png"
         },
         {
-          "id": "C06_PUBLIC_OTHER_DOMAIN_SHORT_FORM_MAPPING",
+          "id": "P06_FRESH_SNAPSHOT_AND_STOP_CLEAR_POINTER",
           "status": "passed",
-          "detail": {
-            "input": "std",
-            "observedChoice": "stdio",
-            "domain": "flolah.cloud",
-            "saved": false
-          },
-          "elapsedMs": 3242,
-          "screenshot": "C06_PUBLIC_OTHER_DOMAIN_SHORT_FORM_MAPPING.png"
+          "screenshot": "P06_FRESH_SNAPSHOT_AND_STOP_CLEAR_POINTER.png"
         },
         {
-          "id": "C07_SAME_FORM_GOAL_CORRECTS_CHOICE_AND_SAVES_AFTER_REVIEWS",
+          "id": "P07_REDUCED_MOTION_RETAINS_STATIC_POINTER",
           "status": "passed",
-          "detail": {
-            "input": "exp",
-            "resolved": "Express",
-            "savedHostValue": "express",
-            "approvals": 2,
-            "saves": 1,
-            "sameForm": true,
-            "independentReadback": true
-          },
-          "elapsedMs": 14516,
-          "screenshot": "C07_SAME_FORM_GOAL_CORRECTS_CHOICE_AND_SAVES_AFTER_REVIEWS.png"
+          "screenshot": "P07_REDUCED_MOTION_RETAINS_STATIC_POINTER.png"
         },
         {
-          "id": "C08_VISIBLE_MENU_ITEM_POINTING_DOES_NOT_CLICK",
+          "id": "P08_APPROVED_CHECKBOX_RIPPLES_EXACTLY_ONE_CLICK",
           "status": "passed",
-          "detail": {
-            "visibleMenuPointed": true,
-            "clicks": 0,
-            "animatedMouse": false,
-            "generalMenuClickExecution": false
-          },
-          "elapsedMs": 3672,
-          "screenshot": "C08_VISIBLE_MENU_ITEM_POINTING_DOES_NOT_CLICK.png"
+          "screenshot": "P08_APPROVED_CHECKBOX_RIPPLES_EXACTLY_ONE_CLICK.png"
         },
         {
-          "id": "C09_DUMMY_VALUES_ALL_APPLICABLE_FIELDS_REVIEW_THEN_AWAIT_SAVE",
+          "id": "P09_NOOP_AND_UNAPPROVED_HAVE_NO_CLICK_FEEDBACK",
           "status": "passed",
-          "detail": {
-            "prompt": "fill the customer draft with dummy values for all applicable fields.. confirm with me before saving",
-            "filledLabels": [
-              "Shipping method",
-              "Include gift wrap",
-              "Company name",
-              "Contact email",
-              "Region"
-            ],
-            "reviewedBeforeFill": true,
-            "saveConfirmationOffered": true,
-            "saveCancelled": true,
-            "hostSubmissions": 0
-          },
-          "elapsedMs": 6031,
-          "screenshot": "C09_DUMMY_VALUES_ALL_APPLICABLE_FIELDS_REVIEW_THEN_AWAIT_SAVE.png"
+          "screenshot": "P09_NOOP_AND_UNAPPROVED_HAVE_NO_CLICK_FEEDBACK.png"
         },
         {
-          "id": "C10_GUIDE_ONLY_DUMMY_REQUEST_EXPLAINS_HIGHLIGHTS_WITHOUT_FILLING",
+          "id": "P10_SAVE_RIPPLE_WITH_HOST_SUCCESS_AND_NO_REPLAY",
           "status": "passed",
-          "detail": {
-            "mode": "guide",
-            "explicitNotice": "Guide only is active: these are highlights, with no input edits. Choose Prepare changes and send the request again to review and apply values.\nI can highlight 5 targets for you. No values will be changed.",
-            "filled": false,
-            "saved": false
-          },
-          "elapsedMs": 6719,
-          "screenshot": "C10_GUIDE_ONLY_DUMMY_REQUEST_EXPLAINS_HIGHLIGHTS_WITHOUT_FILLING.png"
+          "screenshot": "P10_SAVE_RIPPLE_WITH_HOST_SUCCESS_AND_NO_REPLAY.png"
+        },
+        {
+          "id": "P11_NAVIGATION_USES_ONE_REVIEWED_ACTIVATION",
+          "status": "passed",
+          "screenshot": "P11_NAVIGATION_USES_ONE_REVIEWED_ACTIVATION.png"
+        },
+        {
+          "id": "P12_TEXT_AND_SELECT_CHANGES_ARE_NOT_PRESENTED_AS_CLICKS",
+          "status": "passed",
+          "screenshot": "P12_TEXT_AND_SELECT_CHANGES_ARE_NOT_PRESENTED_AS_CLICKS.png"
+        },
+        {
+          "id": "P13_REPLACEMENT_AND_DESTROY_LEAVE_NO_NODES_OR_ANIMATIONS",
+          "status": "passed",
+          "screenshot": "P13_REPLACEMENT_AND_DESTROY_LEAVE_NO_NODES_OR_ANIMATIONS.png"
+        },
+        {
+          "id": "P14_GUIDANCE_EXPIRES_WITHOUT_HOST_ACTION",
+          "status": "passed",
+          "screenshot": "P14_GUIDANCE_EXPIRES_WITHOUT_HOST_ACTION.png"
+        },
+        {
+          "id": "P15_RECENT_CONTEXT_HAS_IDENTITIES_NOT_PRIVATE_VALUES",
+          "status": "passed",
+          "screenshot": "P15_RECENT_CONTEXT_HAS_IDENTITIES_NOT_PRIVATE_VALUES.png"
+        },
+        {
+          "id": "P16_PREVIOUS_FIELD_IDENTITY_CANNOT_REBIND_TO_REPLACEMENT",
+          "status": "passed",
+          "screenshot": "P16_PREVIOUS_FIELD_IDENTITY_CANNOT_REBIND_TO_REPLACEMENT.png"
+        },
+        {
+          "id": "P17_REJECT_AND_NEW_CONVERSATION_CLEAR_CONTEXT",
+          "status": "passed",
+          "screenshot": "P17_REJECT_AND_NEW_CONVERSATION_CLEAR_CONTEXT.png"
+        },
+        {
+          "id": "P18_ACTUAL_ACTIVATION_ANIMATION_SURVIVES_READONLY_OBSERVATION",
+          "status": "passed",
+          "screenshot": "P18_ACTUAL_ACTIVATION_ANIMATION_SURVIVES_READONLY_OBSERVATION.png"
+        },
+        {
+          "id": "P19_NAVIGATION_LINK_REF_POINTS_WITHOUT_ACTIVATING",
+          "status": "passed",
+          "screenshot": "P19_NAVIGATION_LINK_REF_POINTS_WITHOUT_ACTIVATING.png"
+        },
+        {
+          "id": "P20_CHANGED_LINK_DESTINATION_AND_LABEL_INVALIDATE_GUIDANCE",
+          "status": "passed",
+          "screenshot": "P20_CHANGED_LINK_DESTINATION_AND_LABEL_INVALIDATE_GUIDANCE.png"
+        },
+        {
+          "id": "P21_INTERACTIVE_RESERVE_EXPOSES_UNMATCHED_REAL_CONTROLS",
+          "status": "passed",
+          "screenshot": "P21_INTERACTIVE_RESERVE_EXPOSES_UNMATCHED_REAL_CONTROLS.png"
         }
-      ]
+      ],
+      "passed": 21,
+      "failed": 0,
+      "partial": 0,
+      "deferred": 0
     },
     {
-      "name": "Live goal regression",
-      "method": "Actual multi-form, clarification and public tasks",
-      "path": "../choice-efficacy-20261020/goal-regression/results.json",
-      "total": 3,
-      "passed": 3,
-      "failed": 0,
-      "partial": 0,
-      "deferred": 0,
+      "name": "Pointer \u00b7 Edge",
+      "method": "Real Edge, same independent browser checks",
+      "path": "edge-final/results.json",
+      "total": 21,
       "cases": [
         {
-          "id": "LIVE_GOAL01_COMPLEX_CUSTOMER_NOTE_OPPORTUNITY_SAVED_AND_READ_BACK",
+          "id": "P01_GUIDANCE_ANIMATES_WITHOUT_CLICK_OR_EDIT",
           "status": "passed",
-          "detail": {
-            "approvals": 8,
-            "steps": [
-              {
-                "title": "Fill Customer Form",
-                "kind": "fill",
-                "instruction": "Fill the demo-form with Company name 'Goal UAT 1792452492372', Contact email 'goal.uat@example.test', and Region 'Singapore'",
-                "expected": "Customer details filled in the form",
-                "status": "pending",
-                "effects": [],
-                "attempts": 0
-              },
-              {
-                "title": "Save Customer",
-                "kind": "save",
-                "instruction": "Save the customer record",
-                "expected": "Customer record saved successfully",
-                "status": "pending",
-                "effects": [],
-                "attempts": 0
-              },
-              {
-                "title": "Navigate to Note",
-                "kind": "navigate",
-                "instruction": "Open the Note section",
-                "expected": "Note section is displayed",
-                "status": "pending",
-                "effects": [],
-                "attempts": 0
-              },
-              {
-                "title": "Fill Note Form",
-                "kind": "fill",
-                "instruction": "Fill the note-form with Title 'Followup Goal UAT 1792452492372' and Body 'Follow up with Goal UAT 1792452492372 about their renewal'",
-                "expected": "Note details filled in the form",
-                "status": "pending",
-                "effects": [],
-                "attempts": 0
-              },
-              {
-                "title": "Save Note",
-                "kind": "save",
-                "instruction": "Save the note",
-                "expected": "Note saved successfully",
-                "status": "pending",
-                "effects": [],
-                "attempts": 0
-              },
-              {
-                "title": "Navigate to Opportunity",
-                "kind": "navigate",
-                "instruction": "Open the Opportunity section",
-                "expected": "Opportunity section is displayed",
-                "status": "pending",
-                "effects": [],
-                "attempts": 0
-              },
-              {
-                "title": "Fill Opportunity Form",
-                "kind": "fill",
-                "instruction": "Fill the opportunity-form with Opportunity name 'Renewal Goal UAT 1792452492372', Amount 12500, and Currency 'USD'",
-                "expected": "Opportunity details filled in the form",
-                "status": "pending",
-                "effects": [],
-                "attempts": 0
-              },
-              {
-                "title": "Save Opportunity",
-                "kind": "save",
-                "instruction": "Save the opportunity",
-                "expected": "Opportunity saved successfully",
-                "status": "pending",
-                "effects": [],
-                "attempts": 0
-              }
-            ],
-            "marker": "Goal UAT 1792452492372",
-            "savedRecords": 3,
-            "independentReadback": true
-          },
-          "screenshot": "LIVE_GOAL01_COMPLEX_CUSTOMER_NOTE_OPPORTUNITY_SAVED_AND_READ_BACK.png"
+          "screenshot": "P01_GUIDANCE_ANIMATES_WITHOUT_CLICK_OR_EDIT.png"
         },
         {
-          "id": "LIVE_GOAL03_CLARIFICATION_CONTINUES_SAME_GOAL_BEFORE_FILL_OR_SAVE",
+          "id": "P02_MENU_GUIDANCE_HAS_NO_CLICK_RIPPLE_OR_ACTIVATION",
           "status": "passed",
-          "detail": {
-            "approvals": 2,
-            "steps": [
-              {
-                "title": "Fill demo-form",
-                "kind": "fill",
-                "instruction": "Fill the demo-form with the following values: Company name: 'Clarify Goal 1792452532685', Contact email: 'clarification.uat@example.test', Region: 'Singapore'.",
-                "expected": "Form fields are filled with the provided values.",
-                "status": "pending",
-                "effects": [],
-                "attempts": 0
-              },
-              {
-                "title": "Save demo-form",
-                "kind": "save",
-                "instruction": "Save the filled demo-form.",
-                "expected": "The demo-form is successfully saved.",
-                "status": "pending",
-                "effects": [],
-                "attempts": 0
-              }
-            ],
-            "marker": "Clarify Goal 1792452532685",
-            "goalIdPreserved": true,
-            "writes": 1
-          },
-          "screenshot": "LIVE_GOAL03_CLARIFICATION_CONTINUES_SAME_GOAL_BEFORE_FILL_OR_SAVE.png"
+          "screenshot": "P02_MENU_GUIDANCE_HAS_NO_CLICK_RIPPLE_OR_ACTIVATION.png"
         },
         {
-          "id": "LIVE_GOAL02_PUBLIC_FILTER_LOCATE_AND_SUMMARIZE_WITHOUT_SAVE",
+          "id": "P03_OVERLAY_IS_POINTER_TRANSPARENT",
           "status": "passed",
-          "detail": {
-            "approvals": 1,
-            "steps": [
-              {
-                "title": "Fill MCP Search and Transport",
-                "kind": "fill",
-                "instruction": "Set the search field to 'genosys' and transport to 'All transports'.",
-                "expected": "Search field and transport are filled correctly.",
-                "status": "pending",
-                "effects": [],
-                "attempts": 0
-              },
-              {
-                "title": "Inspect Matching Provider",
-                "kind": "inspect",
-                "instruction": "Show where the matching Genosys provider is in the loaded results and summarize its description.",
-                "expected": "Description of the Genosys provider is visible.",
-                "status": "pending",
-                "effects": [],
-                "attempts": 0
-              }
-            ],
-            "publicWrites": 0
-          },
-          "screenshot": "LIVE_GOAL02_PUBLIC_FILTER_LOCATE_AND_SUMMARIZE_WITHOUT_SAVE.png"
+          "screenshot": "P03_OVERLAY_IS_POINTER_TRANSPARENT.png"
+        },
+        {
+          "id": "P04_SCROLL_RESIZE_AND_LAYOUT_SHIFT_FOLLOW_TARGET",
+          "status": "passed",
+          "screenshot": "P04_SCROLL_RESIZE_AND_LAYOUT_SHIFT_FOLLOW_TARGET.png"
+        },
+        {
+          "id": "P05_REMOVED_HIDDEN_OR_RELABELLED_TARGET_CLEARS",
+          "status": "passed",
+          "screenshot": "P05_REMOVED_HIDDEN_OR_RELABELLED_TARGET_CLEARS.png"
+        },
+        {
+          "id": "P06_FRESH_SNAPSHOT_AND_STOP_CLEAR_POINTER",
+          "status": "passed",
+          "screenshot": "P06_FRESH_SNAPSHOT_AND_STOP_CLEAR_POINTER.png"
+        },
+        {
+          "id": "P07_REDUCED_MOTION_RETAINS_STATIC_POINTER",
+          "status": "passed",
+          "screenshot": "P07_REDUCED_MOTION_RETAINS_STATIC_POINTER.png"
+        },
+        {
+          "id": "P08_APPROVED_CHECKBOX_RIPPLES_EXACTLY_ONE_CLICK",
+          "status": "passed",
+          "screenshot": "P08_APPROVED_CHECKBOX_RIPPLES_EXACTLY_ONE_CLICK.png"
+        },
+        {
+          "id": "P09_NOOP_AND_UNAPPROVED_HAVE_NO_CLICK_FEEDBACK",
+          "status": "passed",
+          "screenshot": "P09_NOOP_AND_UNAPPROVED_HAVE_NO_CLICK_FEEDBACK.png"
+        },
+        {
+          "id": "P10_SAVE_RIPPLE_WITH_HOST_SUCCESS_AND_NO_REPLAY",
+          "status": "passed",
+          "screenshot": "P10_SAVE_RIPPLE_WITH_HOST_SUCCESS_AND_NO_REPLAY.png"
+        },
+        {
+          "id": "P11_NAVIGATION_USES_ONE_REVIEWED_ACTIVATION",
+          "status": "passed",
+          "screenshot": "P11_NAVIGATION_USES_ONE_REVIEWED_ACTIVATION.png"
+        },
+        {
+          "id": "P12_TEXT_AND_SELECT_CHANGES_ARE_NOT_PRESENTED_AS_CLICKS",
+          "status": "passed",
+          "screenshot": "P12_TEXT_AND_SELECT_CHANGES_ARE_NOT_PRESENTED_AS_CLICKS.png"
+        },
+        {
+          "id": "P13_REPLACEMENT_AND_DESTROY_LEAVE_NO_NODES_OR_ANIMATIONS",
+          "status": "passed",
+          "screenshot": "P13_REPLACEMENT_AND_DESTROY_LEAVE_NO_NODES_OR_ANIMATIONS.png"
+        },
+        {
+          "id": "P14_GUIDANCE_EXPIRES_WITHOUT_HOST_ACTION",
+          "status": "passed",
+          "screenshot": "P14_GUIDANCE_EXPIRES_WITHOUT_HOST_ACTION.png"
+        },
+        {
+          "id": "P15_RECENT_CONTEXT_HAS_IDENTITIES_NOT_PRIVATE_VALUES",
+          "status": "passed",
+          "screenshot": "P15_RECENT_CONTEXT_HAS_IDENTITIES_NOT_PRIVATE_VALUES.png"
+        },
+        {
+          "id": "P16_PREVIOUS_FIELD_IDENTITY_CANNOT_REBIND_TO_REPLACEMENT",
+          "status": "passed",
+          "screenshot": "P16_PREVIOUS_FIELD_IDENTITY_CANNOT_REBIND_TO_REPLACEMENT.png"
+        },
+        {
+          "id": "P17_REJECT_AND_NEW_CONVERSATION_CLEAR_CONTEXT",
+          "status": "passed",
+          "screenshot": "P17_REJECT_AND_NEW_CONVERSATION_CLEAR_CONTEXT.png"
+        },
+        {
+          "id": "P18_ACTUAL_ACTIVATION_ANIMATION_SURVIVES_READONLY_OBSERVATION",
+          "status": "passed",
+          "screenshot": "P18_ACTUAL_ACTIVATION_ANIMATION_SURVIVES_READONLY_OBSERVATION.png"
+        },
+        {
+          "id": "P19_NAVIGATION_LINK_REF_POINTS_WITHOUT_ACTIVATING",
+          "status": "passed",
+          "screenshot": "P19_NAVIGATION_LINK_REF_POINTS_WITHOUT_ACTIVATING.png"
+        },
+        {
+          "id": "P20_CHANGED_LINK_DESTINATION_AND_LABEL_INVALIDATE_GUIDANCE",
+          "status": "passed",
+          "screenshot": "P20_CHANGED_LINK_DESTINATION_AND_LABEL_INVALIDATE_GUIDANCE.png"
+        },
+        {
+          "id": "P21_INTERACTIVE_RESERVE_EXPOSES_UNMATCHED_REAL_CONTROLS",
+          "status": "passed",
+          "screenshot": "P21_INTERACTIVE_RESERVE_EXPOSES_UNMATCHED_REAL_CONTROLS.png"
         }
-      ]
-    },
-    {
-      "name": "Option context/privacy",
-      "method": "Real browser/DOM fixture",
-      "path": "../choice-efficacy-20261020/choice-context/result.json",
-      "total": 1,
-      "passed": 1,
+      ],
+      "passed": 21,
       "failed": 0,
       "partial": 0,
-      "deferred": 0,
-      "cases": [
-        {
-          "id": "CHOICE_CONTEXT",
-          "status": "passed",
-          "automaticLabelsExcluded": true,
-          "unrelatedChoiceLabelsExcluded": true,
-          "requestedLabelsAvailable": true,
-          "wholeFormLabelsAvailable": true,
-          "currentFieldValuesExcluded": true
-        }
-      ]
-    },
-    {
-      "name": "Goal UI",
-      "method": "SDK/browser, synthetic model/identity",
-      "path": "../choice-efficacy-20261020/goal-ui/results.json",
-      "total": 8,
-      "passed": 8,
-      "failed": 0,
-      "partial": 0,
-      "deferred": 0,
-      "cases": [
-        {
-          "id": "GOAL01_PLAN_REVIEW_HAS_NO_EFFECTS",
-          "status": "passed",
-          "screenshot": "GOAL01_PLAN_REVIEW_HAS_NO_EFFECTS.png"
-        },
-        {
-          "id": "GOAL02_PAUSE_PANEL_RELOAD_AND_FRESH_REVIEW",
-          "status": "passed",
-          "screenshot": "GOAL02_PAUSE_PANEL_RELOAD_AND_FRESH_REVIEW.png"
-        },
-        {
-          "id": "GOAL03_EDITED_REVIEW_THEN_QUERY_REQUIRES_SEPARATE_APPROVAL",
-          "status": "passed",
-          "screenshot": "GOAL03_EDITED_REVIEW_THEN_QUERY_REQUIRES_SEPARATE_APPROVAL.png"
-        },
-        {
-          "id": "GOAL04_SELECTION_AND_READONLY_STEP_COMPLETE_WITHOUT_SAVE",
-          "status": "passed",
-          "screenshot": "GOAL04_SELECTION_AND_READONLY_STEP_COMPLETE_WITHOUT_SAVE.png"
-        },
-        {
-          "id": "GOAL07_WORKFLOW_REVIEW_AFTER_GOAL_USES_ITS_OWN_CONTEXT",
-          "status": "passed",
-          "screenshot": "GOAL07_WORKFLOW_REVIEW_AFTER_GOAL_USES_ITS_OWN_CONTEXT.png"
-        },
-        {
-          "id": "GOAL05_PRIVATE_FILE_REMOVAL_CLEARS_GOAL_AND_PENDING_REVIEW",
-          "status": "passed",
-          "screenshot": "GOAL05_PRIVATE_FILE_REMOVAL_CLEARS_GOAL_AND_PENDING_REVIEW.png"
-        },
-        {
-          "id": "GOAL06_MISSING_FACT_CLARIFIES_WITHOUT_A_PLAN_OR_EFFECT",
-          "status": "passed",
-          "screenshot": "GOAL06_MISSING_FACT_CLARIFIES_WITHOUT_A_PLAN_OR_EFFECT.png"
-        },
-        {
-          "id": "GOAL08_CLARIFICATION_REPLY_KEEPS_GOAL_AND_RETURNS_REVIEWED_PLAN",
-          "status": "passed",
-          "screenshot": "GOAL08_CLARIFICATION_REPLY_KEEPS_GOAL_AND_RETURNS_REVIEWED_PLAN.png"
-        }
-      ]
+      "deferred": 0
     },
     {
       "name": "Workspace",
-      "method": "SDK/browser, synthetic service",
-      "path": "../choice-efficacy-20261020/workspace/results.json",
+      "method": "SDK/browser; synthetic owner, model and policy fixtures",
+      "path": "workspace-final/results.json",
       "total": 18,
-      "passed": 18,
-      "failed": 0,
-      "partial": 0,
-      "deferred": 0,
       "cases": [
         {
           "id": "UX01_VISITOR_CAPABILITIES_AND_SINGLE_COMPOSER",
@@ -470,9 +327,9 @@
           "screenshot": "UX12_DISABLED_FEATURES_AND_WORKFLOW_ONLY_VISITOR.png"
         },
         {
-          "id": "UX13_INLINE_NEW_CONVERSATION_CANCEL_AND_CONFIRM",
+          "id": "UX13_NEW_CONVERSATION_ARCHIVE_AND_RESUME",
           "status": "passed",
-          "screenshot": "UX13_INLINE_NEW_CONVERSATION_CANCEL_AND_CONFIRM.png"
+          "screenshot": "UX13_NEW_CONVERSATION_ARCHIVE_AND_RESUME.png"
         },
         {
           "id": "UX14_BROWSER_LOCAL_CURRENT_VALUE_NEVER_UPLOADED",
@@ -494,17 +351,69 @@
           "status": "passed",
           "screenshot": "UX18_QUICK_ASSISTANCE_CHOICES.png"
         }
-      ]
+      ],
+      "passed": 18,
+      "failed": 0,
+      "partial": 0,
+      "deferred": 0
     },
     {
-      "name": "Field guidance",
-      "method": "SDK/browser, synthetic service",
-      "path": "../choice-efficacy-20261020/field-guidance/results.json",
+      "name": "Goal UI",
+      "method": "SDK/goal progression; synthetic model",
+      "path": "goals-final/results.json",
       "total": 8,
+      "cases": [
+        {
+          "id": "GOAL01_PLAN_REVIEW_HAS_NO_EFFECTS",
+          "status": "passed",
+          "screenshot": "GOAL01_PLAN_REVIEW_HAS_NO_EFFECTS.png"
+        },
+        {
+          "id": "GOAL02_PAUSE_PANEL_RELOAD_AND_FRESH_REVIEW",
+          "status": "passed",
+          "screenshot": "GOAL02_PAUSE_PANEL_RELOAD_AND_FRESH_REVIEW.png"
+        },
+        {
+          "id": "GOAL03_EDITED_REVIEW_THEN_QUERY_REQUIRES_SEPARATE_APPROVAL",
+          "status": "passed",
+          "screenshot": "GOAL03_EDITED_REVIEW_THEN_QUERY_REQUIRES_SEPARATE_APPROVAL.png"
+        },
+        {
+          "id": "GOAL04_SELECTION_AND_READONLY_STEP_COMPLETE_WITHOUT_SAVE",
+          "status": "passed",
+          "screenshot": "GOAL04_SELECTION_AND_READONLY_STEP_COMPLETE_WITHOUT_SAVE.png"
+        },
+        {
+          "id": "GOAL07_WORKFLOW_REVIEW_AFTER_GOAL_USES_ITS_OWN_CONTEXT",
+          "status": "passed",
+          "screenshot": "GOAL07_WORKFLOW_REVIEW_AFTER_GOAL_USES_ITS_OWN_CONTEXT.png"
+        },
+        {
+          "id": "GOAL05_PRIVATE_FILE_REMOVAL_CLEARS_GOAL_AND_PENDING_REVIEW",
+          "status": "passed",
+          "screenshot": "GOAL05_PRIVATE_FILE_REMOVAL_CLEARS_GOAL_AND_PENDING_REVIEW.png"
+        },
+        {
+          "id": "GOAL06_MISSING_FACT_CLARIFIES_WITHOUT_A_PLAN_OR_EFFECT",
+          "status": "passed",
+          "screenshot": "GOAL06_MISSING_FACT_CLARIFIES_WITHOUT_A_PLAN_OR_EFFECT.png"
+        },
+        {
+          "id": "GOAL08_CLARIFICATION_REPLY_KEEPS_GOAL_AND_RETURNS_REVIEWED_PLAN",
+          "status": "passed",
+          "screenshot": "GOAL08_CLARIFICATION_REPLY_KEEPS_GOAL_AND_RETURNS_REVIEWED_PLAN.png"
+        }
+      ],
       "passed": 8,
       "failed": 0,
       "partial": 0,
-      "deferred": 0,
+      "deferred": 0
+    },
+    {
+      "name": "Field guidance",
+      "method": "SDK/browser, role-scoped fixture",
+      "path": "field-guidance-final/results.json",
+      "total": 8,
       "cases": [
         {
           "id": "G01_WHERE_QUESTION_POINTS_WITHOUT_EXTRA_APPROVAL_OR_MODEL",
@@ -546,69 +455,17 @@
           "status": "passed",
           "screenshot": "G08_SHOW_ME_WHERE_USES_LATEST_QUESTION_AFTER_KNOWLEDGE_MODE.png"
         }
-      ]
-    },
-    {
-      "name": "Complex controls",
-      "method": "Native/dynamic/React/Angular adapter",
-      "path": "../choice-efficacy-20261020/complex-controls/results.json",
-      "total": 10,
-      "passed": 10,
+      ],
+      "passed": 8,
       "failed": 0,
       "partial": 0,
-      "deferred": 0,
-      "cases": [
-        {
-          "id": "F03_NATIVE_SELECT_CHECKBOX_RADIO_MULTISELECT_DATALIST",
-          "status": "passed"
-        },
-        {
-          "id": "F05_ASYNC_PICKLIST_AND_DEPENDENT_CONTROL",
-          "status": "passed"
-        },
-        {
-          "id": "F05_PICKLIST_LOADING_EMPTY_ERROR_AMBIGUITY_AND_RECOVERY",
-          "status": "passed"
-        },
-        {
-          "id": "F05_EDITABLE_TABLE_ROW_FILTER_SORT_PAGINATION_DYNAMIC_ROW",
-          "status": "passed"
-        },
-        {
-          "id": "F05_MODAL_SCOPE",
-          "status": "passed"
-        },
-        {
-          "id": "F05_TABLE_MODEL_AND_MULTISELECT_INDEPENDENT_READBACK",
-          "status": "passed"
-        },
-        {
-          "id": "F03_STALE_REVIEW_REJECTS_CHANGED_OPTIONS",
-          "status": "passed"
-        },
-        {
-          "id": "F02_F07_GENERIC_BUSY_DUPLICATE_GUARD_AND_NOTICE",
-          "status": "passed"
-        },
-        {
-          "id": "F03_REACT_APPLICATION_STATE_AND_INDEPENDENT_SAVE",
-          "status": "passed"
-        },
-        {
-          "id": "F03_ANGULAR_APPLICATION_STATE_AND_INDEPENDENT_SAVE",
-          "status": "passed"
-        }
-      ]
+      "deferred": 0
     },
     {
-      "name": "Immediate reliability",
-      "method": "SDK/workflow/management, synthetic service",
-      "path": "../choice-efficacy-20261020/immediate/results.json",
+      "name": "Workflow server \u2192 copilot",
+      "method": "Actual SDK and WebSocket; synthetic policy/model adapter",
+      "path": "workflow-sdk/results.json",
       "total": 13,
-      "passed": 13,
-      "failed": 0,
-      "partial": 0,
-      "deferred": 0,
       "cases": [
         {
           "id": "T02_EDIT_REPLACE_REJECT",
@@ -715,23 +572,406 @@
           "detail": "Form and field descriptions saved through owner UI, retained after reload, exported with navigation, re-imported and present in visitor planner guidance. Synthetic identity; actual LLM acceptance is separate.",
           "screenshot": "OWNER_MAP_CONTEXT.png"
         }
-      ]
+      ],
+      "passed": 13,
+      "failed": 0,
+      "partial": 0,
+      "deferred": 0
+    },
+    {
+      "name": "Live semantic continuity",
+      "method": "Actual deployed maker/passive checker; local draft, no Save",
+      "path": "continuity-final-k/results.json",
+      "total": 13,
+      "cases": [
+        {
+          "id": "CONT01_CURRENT_SCREEN_IN_CONTEXT_NOT_GENERIC_DOCUMENT_TITLE",
+          "status": "passed",
+          "screenshot": "CONT01_CURRENT_SCREEN_IN_CONTEXT_NOT_GENERIC_DOCUMENT_TITLE.png"
+        },
+        {
+          "id": "CONT11_PLURAL_CONTROL_LOCATION_POINTS_WITHOUT_NAVIGATION",
+          "status": "passed",
+          "screenshot": "CONT11_PLURAL_CONTROL_LOCATION_POINTS_WITHOUT_NAVIGATION.png"
+        },
+        {
+          "id": "CONT12_NONKEYWORD_LOCATION_AND_UNIQUE_TYPO_STAY_READONLY",
+          "status": "passed",
+          "screenshot": "CONT12_NONKEYWORD_LOCATION_AND_UNIQUE_TYPO_STAY_READONLY.png"
+        },
+        {
+          "id": "CONT13_ACTION_WORD_IN_LABEL_DOES_NOT_ACTIVATE_SAVE",
+          "status": "passed",
+          "screenshot": "CONT13_ACTION_WORD_IN_LABEL_DOES_NOT_ACTIVATE_SAVE.png"
+        },
+        {
+          "id": "CONT02_PREPARE_AND_APPLY_SYNTHETIC_DRAFT",
+          "status": "passed",
+          "screenshot": "CONT02_PREPARE_AND_APPLY_SYNTHETIC_DRAFT.png"
+        },
+        {
+          "id": "CONT03_INTERPRETS_RECENT_CHANGES_WITHOUT_REPLAY",
+          "status": "passed",
+          "screenshot": "CONT03_INTERPRETS_RECENT_CHANGES_WITHOUT_REPLAY.png"
+        },
+        {
+          "id": "CONT04_CLEAR_NEW_FIELD_REQUEST_USES_NEW_TARGET",
+          "status": "passed",
+          "screenshot": "CONT04_CLEAR_NEW_FIELD_REQUEST_USES_NEW_TARGET.png"
+        },
+        {
+          "id": "CONT05_EXPLICIT_REPLY_DEFAULTS_TO_REPLIED_CONTEXT",
+          "status": "passed",
+          "screenshot": "CONT05_EXPLICIT_REPLY_DEFAULTS_TO_REPLIED_CONTEXT.png"
+        },
+        {
+          "id": "CONT06_NEW_CONVERSATION_DOES_NOT_REUSE_OLD_FIELDS",
+          "status": "passed",
+          "screenshot": "CONT06_NEW_CONVERSATION_DOES_NOT_REUSE_OLD_FIELDS.png"
+        },
+        {
+          "id": "CONT07_PENDING_REVIEW_IS_NOT_CLAIMED_AS_APPLIED",
+          "status": "passed",
+          "screenshot": "CONT07_PENDING_REVIEW_IS_NOT_CLAIMED_AS_APPLIED.png"
+        },
+        {
+          "id": "CONT08_SCREEN_LABEL_UPDATES_FOR_ANOTHER_FORM",
+          "status": "passed",
+          "screenshot": "CONT08_SCREEN_LABEL_UPDATES_FOR_ANOTHER_FORM.png"
+        },
+        {
+          "id": "CONT09_NAVIGATION_CONTINUITY_USES_NEW_FORM_CONTEXT",
+          "status": "passed",
+          "screenshot": "CONT09_NAVIGATION_CONTINUITY_USES_NEW_FORM_CONTEXT.png"
+        },
+        {
+          "id": "CONT10_UNRELATED_NEW_TARGET_DOES_NOT_REUSE_PREVIOUS_TARGET",
+          "status": "passed",
+          "screenshot": "CONT10_UNRELATED_NEW_TARGET_DOES_NOT_REUSE_PREVIOUS_TARGET.png"
+        }
+      ],
+      "passed": 13,
+      "failed": 0,
+      "partial": 0,
+      "deferred": 0
+    },
+    {
+      "name": "Live private history",
+      "method": "Actual deployed sessions/search; refresh, restore, modes and isolation",
+      "path": "history-final-k/results.json",
+      "total": 7,
+      "cases": [
+        {
+          "id": "HIST00_MODES_MINIMIZE_AND_EXPAND_KEEP_CHAT_AND_DRAFT",
+          "status": "passed",
+          "screenshot": "HIST00_MODES_MINIMIZE_AND_EXPAND_KEEP_CHAT_AND_DRAFT.png"
+        },
+        {
+          "id": "HIST01_PLUS_ARCHIVES_AND_STARTS_FRESH_CHAT",
+          "status": "passed",
+          "screenshot": "HIST01_PLUS_ARCHIVES_AND_STARTS_FRESH_CHAT.png"
+        },
+        {
+          "id": "HIST02_REFRESH_AND_RESUME_RESTORE_MESSAGES_WITHOUT_ACTION_REPLAY",
+          "status": "passed",
+          "screenshot": "HIST02_REFRESH_AND_RESUME_RESTORE_MESSAGES_WITHOUT_ACTION_REPLAY.png"
+        },
+        {
+          "id": "HIST06_RESTORED_CONTEXT_GUIDES_FRESH_CONTROL_WITHOUT_REPLAY",
+          "status": "passed",
+          "screenshot": "HIST06_RESTORED_CONTEXT_GUIDES_FRESH_CONTROL_WITHOUT_REPLAY.png"
+        },
+        {
+          "id": "HIST03_DIFFERENT_VISITOR_CANNOT_LIST_ARCHIVED_CHAT",
+          "status": "passed",
+          "screenshot": "HIST03_DIFFERENT_VISITOR_CANNOT_LIST_ARCHIVED_CHAT.png"
+        },
+        {
+          "id": "HIST04_WEBSITE_SCOPE_DENIES_COPIED_BROWSER_PROOF",
+          "status": "passed",
+          "screenshot": "HIST04_WEBSITE_SCOPE_DENIES_COPIED_BROWSER_PROOF.png"
+        },
+        {
+          "id": "HIST05_DELETE_REMOVES_ONLY_OWN_ARCHIVE",
+          "status": "passed",
+          "screenshot": "HIST05_DELETE_REMOVES_ONLY_OWN_ARCHIVE.png"
+        }
+      ],
+      "passed": 7,
+      "failed": 0,
+      "partial": 0,
+      "deferred": 0
+    },
+    {
+      "name": "Live goal regression",
+      "method": "Actual models; approved local saves + independent readback; public host writes blocked",
+      "path": "live-goals-final-k/results.json",
+      "total": 3,
+      "cases": [
+        {
+          "id": "LIVE_GOAL01_COMPLEX_CUSTOMER_NOTE_OPPORTUNITY_SAVED_AND_READ_BACK",
+          "status": "passed",
+          "detail": {
+            "approvals": 8,
+            "steps": [
+              {
+                "title": "Fill Customer Form",
+                "kind": "fill",
+                "instruction": "Fill the demo-form with Company name 'Goal UAT 1792457631930', Contact email 'goal.uat@example.test', and Region 'Singapore'.",
+                "expected": "Customer form filled with provided values.",
+                "status": "pending",
+                "effects": [],
+                "attempts": 0
+              },
+              {
+                "title": "Save Customer",
+                "kind": "save",
+                "instruction": "Save the synthetic record.",
+                "expected": "Customer record saved successfully.",
+                "status": "pending",
+                "effects": [],
+                "attempts": 0
+              },
+              {
+                "title": "Navigate to Note",
+                "kind": "navigate",
+                "instruction": "Navigate to the Note page.",
+                "expected": "Note page is displayed.",
+                "status": "pending",
+                "effects": [],
+                "attempts": 0
+              },
+              {
+                "title": "Fill Note",
+                "kind": "fill",
+                "instruction": "Set Title to 'Followup Goal UAT 1792457631930' and Body to 'Follow up with Goal UAT 1792457631930 about their renewal'.",
+                "expected": "Note filled with provided values.",
+                "status": "pending",
+                "effects": [],
+                "attempts": 0
+              },
+              {
+                "title": "Save Note",
+                "kind": "save",
+                "instruction": "Save the synthetic record.",
+                "expected": "Note record saved successfully.",
+                "status": "pending",
+                "effects": [],
+                "attempts": 0
+              },
+              {
+                "title": "Navigate to Opportunity",
+                "kind": "navigate",
+                "instruction": "Navigate to the Opportunity page.",
+                "expected": "Opportunity page is displayed.",
+                "status": "pending",
+                "effects": [],
+                "attempts": 0
+              },
+              {
+                "title": "Fill Opportunity",
+                "kind": "fill",
+                "instruction": "Set Opportunity name to 'Renewal Goal UAT 1792457631930', Amount to 12500, and Currency to 'USD'.",
+                "expected": "Opportunity filled with provided values.",
+                "status": "pending",
+                "effects": [],
+                "attempts": 0
+              },
+              {
+                "title": "Save Opportunity",
+                "kind": "save",
+                "instruction": "Save the synthetic record.",
+                "expected": "Opportunity record saved successfully.",
+                "status": "pending",
+                "effects": [],
+                "attempts": 0
+              }
+            ],
+            "marker": "Goal UAT 1792457631930",
+            "savedRecords": 3,
+            "independentReadback": true
+          },
+          "screenshot": "local/LIVE_GOAL01_COMPLEX_CUSTOMER_NOTE_OPPORTUNITY_SAVED_AND_READ_BACK.png"
+        },
+        {
+          "id": "LIVE_GOAL03_CLARIFICATION_CONTINUES_SAME_GOAL_BEFORE_FILL_OR_SAVE",
+          "status": "passed",
+          "detail": {
+            "approvals": 2,
+            "steps": [
+              {
+                "title": "Fill customer form",
+                "kind": "fill",
+                "instruction": "Set company name to Clarify Goal 1792457670834, contact email to clarification.uat@example.test, and region to Singapore.",
+                "expected": "Form fields are filled with the correct values.",
+                "status": "pending",
+                "effects": [],
+                "attempts": 0
+              },
+              {
+                "title": "Save customer record",
+                "kind": "save",
+                "instruction": "Save synthetic record",
+                "expected": "Record is successfully saved.",
+                "status": "pending",
+                "effects": [],
+                "attempts": 0
+              }
+            ],
+            "marker": "Clarify Goal 1792457670834",
+            "goalIdPreserved": true,
+            "writes": 1
+          },
+          "screenshot": "local/LIVE_GOAL03_CLARIFICATION_CONTINUES_SAME_GOAL_BEFORE_FILL_OR_SAVE.png"
+        },
+        {
+          "id": "LIVE_GOAL02_PUBLIC_FILTER_LOCATE_AND_SUMMARIZE_WITHOUT_SAVE",
+          "status": "passed",
+          "detail": {
+            "approvals": 1,
+            "steps": [
+              {
+                "title": "Fill MCP Search and Transport",
+                "kind": "fill",
+                "instruction": "Set the search field to 'genosys' and keep transport on 'All transports'.",
+                "expected": "Search field updated with 'genosys' and transport set to 'All transports'.",
+                "status": "pending",
+                "effects": [],
+                "attempts": 0
+              },
+              {
+                "title": "Inspect Search Results",
+                "kind": "inspect",
+                "instruction": "Show the matching Genosys provider in the loaded results and summarize its description.",
+                "expected": "Description of the matching Genosys provider is visible.",
+                "status": "pending",
+                "effects": [],
+                "attempts": 0
+              }
+            ],
+            "publicWrites": 0
+          },
+          "screenshot": "public/LIVE_GOAL02_PUBLIC_FILTER_LOCATE_AND_SUMMARIZE_WITHOUT_SAVE.png"
+        }
+      ],
+      "passed": 3,
+      "failed": 0,
+      "partial": 0,
+      "deferred": 0
+    },
+    {
+      "name": "Live pointer \u00b7 both sites",
+      "method": "Actual deployed direct location, no model needed",
+      "path": "live-guidance/results.json",
+      "total": 2,
+      "cases": [
+        {
+          "id": "LIVE_POINTER_LOCAL",
+          "status": "passed",
+          "screenshot": "LIVE_POINTER_LOCAL.png",
+          "hostWrites": 0,
+          "scope": "Actual deployed SDK and website session, automatic field guidance; no LLM needed for direct pointing"
+        },
+        {
+          "id": "LIVE_POINTER_PUBLIC",
+          "status": "passed",
+          "screenshot": "LIVE_POINTER_PUBLIC.png",
+          "hostWrites": 0,
+          "scope": "Actual deployed SDK and website session, automatic field guidance; no LLM needed for direct pointing"
+        }
+      ],
+      "passed": 2,
+      "failed": 0,
+      "partial": 0,
+      "deferred": 0
+    },
+    {
+      "name": "Loader recovery",
+      "method": "Actual public page; browser-intercepted initialization/config faults",
+      "path": "loader-recovery/results.json",
+      "total": 2,
+      "cases": [
+        {
+          "id": "LOADER_SDK_INITIALIZATION",
+          "status": "passed",
+          "screenshot": "sdk-initialization-recovered.png",
+          "retryScreenshot": "sdk-initialization-retry.png",
+          "hostWrites": 0
+        },
+        {
+          "id": "LOADER_PREVIEW_DOWNLOAD",
+          "status": "passed",
+          "screenshot": "preview-download-recovered.png",
+          "retryScreenshot": "preview-download-retry.png",
+          "hostWrites": 0
+        }
+      ],
+      "passed": 2,
+      "failed": 0,
+      "partial": 0,
+      "deferred": 0
+    },
+    {
+      "name": "Private storage and expiry",
+      "method": "Actual OpenSearch/extractor and expiry worker; isolated authority fixture",
+      "path": "private-content.json",
+      "total": 8,
+      "cases": [
+        {
+          "id": "STORAGE01_DISTINCT_WEBSITE_INDEXES",
+          "status": "passed",
+          "detail": "Existing verified local and public UAT registrations have separate temporary indexes; shared configured retention is 24h."
+        },
+        {
+          "id": "STORAGE02_PARSE_INDEX_RETRIEVE",
+          "status": "passed",
+          "detail": "Real extractor and OpenSearch passages returned for the owning live synthetic task; no full extraction retained in coordinator state."
+        },
+        {
+          "id": "STORAGE03_OTHER_VISITOR_DENIED",
+          "status": "passed",
+          "detail": "Different visitor cannot retrieve this task."
+        },
+        {
+          "id": "STORAGE04_END_REVOKES_ACCESS_BEFORE_RETENTION",
+          "status": "passed",
+          "detail": "End task blocks retrieval while physical synthetic passages await expiry."
+        },
+        {
+          "id": "STORAGE05_PRIVATE_CHAT_ROUNDTRIP_AND_SEGREGATION",
+          "status": "passed",
+          "detail": "Real website-index chat payload roundtrip, with different visitor and website denied by isolated lifecycle authority."
+        },
+        {
+          "id": "STORAGE06_EXPIRED_CONTENT_INACCESSIBLE",
+          "status": "passed",
+          "detail": "Controlled expired canary excluded immediately by server-built expiry filter, before physical deletion."
+        },
+        {
+          "id": "STORAGE07_DEPLOYED_EXPIRY_WORKER",
+          "status": "passed",
+          "detail": "Actual deployed one-minute cleanup worker removed the controlled expired canary and retained unexpired chat; no global clock/config changes. This is not a 24h wall-clock observation."
+        },
+        {
+          "id": "STORAGE08_DELETE_REVOKES_PRIVATE_CHAT",
+          "status": "passed",
+          "detail": "Synthetic archive deletion revokes metadata and removes only its scoped OpenSearch payload."
+        }
+      ],
+      "passed": 8,
+      "failed": 0,
+      "partial": 0,
+      "deferred": 0
     }
   ],
-  "scope": "Generic option interpretation, whole-form synthetic draft preparation, Guide-only honesty and targeted existing regression. Linux repeats the service suite and is not double counted. Historical failures/incomplete attempts remain separate.",
+  "scope": "Generic intent and plural/typo interpretation, read-only pointing versus activation, animated feedback, form/reply/new-task continuity, private conversation archive/restore, view preservation and per-website temporary content. Linux repeats are not double counted.",
   "limitations": [
-    "Visible menu/button highlighting works. Animated mouse movement and unrestricted menu/button click execution are not implemented.",
-    "Native option labels are bounded and task scoped; hidden/private values remain excluded. Unobserved, ambiguous or unsupported choices do not grant a fallback selection.",
-    "Dynamic entity identities cannot be invented as dummy data. Generated values still require field review and a separate Save confirmation.",
-    "The 30-model-request/minute website guard remained unchanged. Parallel UAT hit it; final live runs were serialized after its cooldown. No effectful request was automatically retried.",
-    "Broader Phase 1/2 ledger remains 14 Passed / 16 Partial / 2 Deferred. Native Safari/iOS/Android and full screen-reader matrix remain user-deferred."
-  ],
-  "evidenceRoot": "../choice-efficacy-20261020/",
-  "evidenceManifest": "../choice-efficacy-20261020/manifest.sha256.json",
-  "previousReport": {
-    "path": "history/report-before-choice-update/report.json",
-    "passed": 431,
-    "commit": "2ec34db7de9055b5f8bb2839fb3b5389c3aaa9ab",
-    "overlapIsNotAdded": true
-  }
+    "This is scoped acceptance, not full Phase 1/2 certification. The broader pre-existing ledger remains 14 passed / 16 partial / 2 deferred; native Safari/iOS/Android and full screen-reader checks are deferred by user instruction.",
+    "Read-only targets can highlight buttons, menus, links and rendered content. Arbitrary button/menu execution is not supported. Navigation, field changes and owner-bound Save retain their existing reviews and policies.",
+    "The WebSocket regression exercises the real SDK/server command path with an isolated synthetic policy/model adapter. No new signed-in Flolah workflow-runner autonomous grant was used in this release.",
+    "The real three-form model test explicitly approves local browser effects, then independently reads the saved records. Public flolah.cloud host submissions are blocked.",
+    "Private-storage component authority metadata is isolated; actual browser session/origin/website/visitor entitlement is separately covered by HTTP and live history tests.",
+    "The cleanup worker deleted a controlled expired canary. A new 24-hour wall-clock retention interval was not observed. Ended/expired content is denied before physical cleanup.",
+    "Index provisioning occurs after successful verification and before activation. Pending/unverified registrations allocate no indexes. Existing approved UAT websites do not prove fresh-owner DNS/email onboarding without prior registration."
+  ]
 }

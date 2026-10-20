@@ -173,6 +173,10 @@ export class SessionAuthority {
     });
   }
 
+  restoreConversation(auth,messages){
+    return this.#transaction(()=>{const {session}=this.#authorize(auth.sessionToken,auth.origin);if(!Array.isArray(messages)||messages.length>200)fail();session.messages=structuredClone(messages);session.conversationVersion=(session.conversationVersion||0)+1;this.#sessions.set(session.id,session);return {messages:structuredClone(session.messages),conversationVersion:session.conversationVersion};});
+  }
+
   appendAssistant(auth,text,channel='guide') {
     return this.#transaction(()=>{
     const {session}=this.#authorize(auth.sessionToken,auth.origin);

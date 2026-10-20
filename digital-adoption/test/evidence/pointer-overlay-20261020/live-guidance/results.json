@@ -1,0 +1,19 @@
+{
+  "at": "2026-10-20T00:40:26.321Z",
+  "results": [
+    {
+      "id": "LIVE_POINTER_LOCAL",
+      "status": "passed",
+      "screenshot": "LIVE_POINTER_LOCAL.png",
+      "hostWrites": 0,
+      "scope": "Actual deployed SDK and website session, automatic field guidance; no LLM needed for direct pointing"
+    },
+    {
+      "id": "LIVE_POINTER_PUBLIC",
+      "status": "passed",
+      "screenshot": "LIVE_POINTER_PUBLIC.png",
+      "hostWrites": 0,
+      "scope": "Actual deployed SDK and website session, automatic field guidance; no LLM needed for direct pointing"
+    }
+  ]
+}

@@ -27,7 +27,7 @@ export async function mount(options) {
   if(getVerifiedOutcome!==undefined&&typeof getVerifiedOutcome!=='function')throw new Error('Verified outcome must be a backend receipt callback');
   if(bindVerifiedSave!==undefined&&typeof bindVerifiedSave!=='function')throw new Error('Save binding must be a backend callback');
   const readHostIdentity=async()=>{if(!getHostIdentity)return undefined;const identity=await getHostIdentity();if(typeof identity!=='string'||!identity)throw new Error('Host sign-in is required. Start a new copilot session after signing in.');return identity;};
-  const bootstrapButton=document.createElement('button');bootstrapButton.dataset.adoptionWidget='true';bootstrapButton.type='button';bootstrapButton.textContent='Connecting copilot…';bootstrapButton.setAttribute('aria-label','Copilot connection status');bootstrapButton.disabled=true;bootstrapButton.style.cssText='position:fixed;bottom:20px;right:20px;z-index:2147483646;padding:12px;border-radius:12px';document.body.append(bootstrapButton);
+  const bootstrapButton=document.createElement('button');bootstrapButton.dataset.adoptionWidget='true';bootstrapButton.type='button';bootstrapButton.textContent='Connecting copilot…';bootstrapButton.setAttribute('aria-label','Copilot connection status');bootstrapButton.disabled=true;bootstrapButton.style.cssText='position:fixed;bottom:20px;right:20px;z-index:2147483646;padding:12px;border-radius:12px';if(options.externalConnectionStatus!==true)document.body.append(bootstrapButton);
   let bootstrap;
   try{bootstrap=await request('/v1/sessions',{installationToken,identityToken:await readHostIdentity()});bootstrapButton.remove();}
   catch(error){client.stop();bootstrapButton.disabled=false;bootstrapButton.textContent='Reconnect copilot';bootstrapButton.title=error.message;bootstrapButton.onclick=()=>{bootstrapButton.remove();mount(options).catch(()=>{});};throw error;}
@@ -41,7 +41,10 @@ export async function mount(options) {
   let recordedSteps=[];
   let recordingId,recordingTitle;
   let currentSnapshot = null,currentTaskText='',lastOutcome,currentGoalProposal=false;
-  const hostContext=()=>({title:currentSnapshot?.forms?.[0]?.label||[...document.forms].find(form=>!form.closest('[data-adoption-widget],[data-adoption-private]')&&form.getClientRects().length)?.getAttribute('aria-label')||document.title.slice(0,120),path:location.pathname});
+  const hostContext=()=>{const visible=e=>!e.closest('[data-adoption-widget],[data-adoption-private]')&&e.getClientRects().length&&getComputedStyle(e).visibility!=='hidden',modal=[...document.querySelectorAll('[role=dialog][aria-modal=true],dialog[open]')].find(visible),root=modal||document.querySelector('main')||document,heading=[...root.querySelectorAll('h1,[role=heading][aria-level="1"]')].find(visible)||[...root.querySelectorAll('h2,[role=heading]')].find(visible);return {title:(heading?.textContent.trim()||[...document.forms].find(visible)?.getAttribute('aria-label')||document.title||location.pathname).slice(0,120),path:location.pathname,origin:location.origin};};
+  let historyKey;const historyStorageKey=`flolah-copilot-history:${service.href}`;
+  try{historyKey=localStorage.getItem(historyStorageKey);}catch{}
+  if(!/^[a-f0-9]{64}$/.test(historyKey||'')){historyKey=Array.from(crypto.getRandomValues(new Uint8Array(32)),b=>b.toString(16).padStart(2,'0')).join('');try{localStorage.setItem(historyStorageKey,historyKey);}catch{}}
   let taskGeneration=0;
   let guidedQueue=null;
   async function nextGuidance(){
@@ -77,15 +80,15 @@ export async function mount(options) {
     launcher.style.background=appearance.primary; launcher.style.color=appearance.onPrimary;
     frame.contentWindow?.postMessage({channel:'flolah-adoption-v1',type:'theme',theme:appearance},service.origin);
   };
-  launcher.onclick=()=>{if(closed){frame.remove();launcher.remove();window.removeEventListener('message',handler);mount(options).catch(()=>{});return;}frame.hidden=false;launcher.hidden=true;frame.focus();visitorAnalytics.event('copilot_open');};
+  launcher.onclick=()=>{if(closed){frame.remove();launcher.remove();window.removeEventListener('message',handler);mount(options).catch(()=>{});return;}frame.hidden=false;launcher.hidden=true;frame.focus();frame.contentWindow?.postMessage({channel:'flolah-adoption-v1',type:'presentation-visible'},service.origin);visitorAnalytics.event('copilot_open');};
   applyAppearance();
   const resumeKey=`flolah-copilot-pair:${service.origin}:${installationToken.slice(-16)}`;
   let durableResume=false;
   const resumeStore={read(){try{return sessionStorage.getItem(resumeKey)||localStorage.getItem(resumeKey);}catch{return null;}},write(value){try{sessionStorage.setItem(resumeKey,value);if(durableResume)localStorage.setItem(resumeKey,value);}catch{}},clear(){try{sessionStorage.removeItem(resumeKey);localStorage.removeItem(resumeKey);}catch{}},persist(value){durableResume=value;try{if(value){const proof=sessionStorage.getItem(resumeKey);if(proof)localStorage.setItem(resumeKey,proof);}else localStorage.removeItem(resumeKey);}catch{}}};
   const privateClient=createTaskClient({request,service,resumeStore,inspect:task=>inspector.snapshot({task}),hostIdentity:getHostIdentity?async()=>{try{return await request('/v1/renew',{identityToken:await readHostIdentity()});}catch(error){try{await request('/v1/terminate');}finally{expireSession();}throw error;}}:null,onEvent:event=>{
-    if(event.type==='task-ended'){currentGoalProposal=false;lastOutcome=undefined;taskGeneration++;currentSnapshot=null;currentTaskText='';}
+    if(event.type==='task-ended'){inspector.clearRecent();currentGoalProposal=false;lastOutcome=undefined;taskGeneration++;currentSnapshot=null;currentTaskText='';}
     if(event.type==='workflow-started'){currentGoalProposal=false;taskGeneration++;currentSnapshot=null;}
-    if(event.type==='workflow-proposal'){currentSnapshot=event.snapshot;event={...event,proposal:{...event.proposal,localReview:inspector.reviewValues(event.proposal.actions,event.proposal.revision)}};}
+    if(event.type==='workflow-proposal'){inspector.rememberReview(event.proposal.actions,event.proposal.revision);currentSnapshot=event.snapshot;event={...event,proposal:{...event.proposal,localReview:inspector.reviewValues(event.proposal.actions,event.proposal.revision)}};}
     frame.contentWindow?.postMessage({channel:'flolah-adoption-v1',type:'private-event',event},service.origin);
   },execute:async (proposal,context={})=>(await execution.execute(proposal,{onProgress:context.onProgress,verifyOutcome:verifyAction,settle:()=>inspector.settle({task:context.task,active:()=>!closed&&(context.active?.()??true)}),active:()=>!closed&&(context.active?.()??true)})).results});
   // The host never sends the bearer credential to the iframe or puts it in a URL.
@@ -95,7 +98,7 @@ export async function mount(options) {
     if (!message || message.channel !== 'flolah-adoption-v1' || typeof message.id !== 'string' || message.id.length > 80) return;
     let result,proposalGeneration;
     try {
-      if(execution.busy&&['goal-create','goal-next','goal-observe','goal-clarify','plan','recipe-plan','save-review','approve','revise','inspect','discovery-start','record-start','replay-navigation'].includes(message.type))throw Object.assign(new Error('A task is already applying or verifying changes. Stop it or wait for its result.'),{code:'TASK_BUSY'});
+      if(execution.busy&&['conversation-archive','conversation-resume','goal-create','goal-next','goal-observe','goal-clarify','plan','recipe-plan','save-review','approve','revise','inspect','discovery-start','record-start','replay-navigation'].includes(message.type))throw Object.assign(new Error('A task is already applying or verifying changes. Stop it or wait for its result.'),{code:'TASK_BUSY'});
       // Unblock the queue before the owner's fresh capability check. Waiting
       // for that check first would itself queue Pause behind the stalled read.
       if(['discovery-pause','discovery-stop'].includes(message.type))client.interruptRead();
@@ -110,7 +113,14 @@ export async function mount(options) {
       }
       else if (message.type === 'minimize') {visitorAnalytics.event('copilot_close');frame.hidden=true;launcher.hidden=false;launcher.focus();result={minimized:true};}
       else if (message.type === 'history') result = await request('/v1/history');
-      else if(message.type==='clear-history'){lastOutcome=undefined;taskGeneration++;currentSnapshot=null;currentTaskText='';if(privateClient.taskId)await privateClient.call('task-end');result=await request('/v1/history/clear');}
+      else if(message.type.startsWith('conversation-')){
+        const operation=message.type.slice(13);if(!['list','archive','resume','delete'].includes(operation))throw new Error('Unknown conversation operation');
+        const previousSummary=inspector.recentSummary(),previousOutcome=lastOutcome;let archiveMessages=message.messages;if(['archive','resume'].includes(operation)&&Array.isArray(archiveMessages)&&archiveMessages.length<200&&(previousSummary.labels.length||previousOutcome)){archiveMessages=[...archiveMessages,{id:`historical-${message.operationId}`,role:'assistant',channel:'guide',text:`Earlier browser report: ${previousSummary.phase==='applied'?'field changes were locally observed':'a field review was prepared'}${previousSummary.path?' on '+previousSummary.path:''}${previousSummary.labels.length?': '+previousSummary.labels.join(', '):''}. ${previousOutcome?.outcome==='host_reported_saved'?'The host reported a Save; independent business verification is separate.':'Saving and business completion are separate from field changes.'} These are historical observations. Inspect the current page before continuing; do not replay earlier actions automatically.`}];}
+        if(['archive','resume'].includes(operation)){execution.stop();taskGeneration++;currentSnapshot=null;currentTaskText='';currentGoalProposal=false;guidedQueue=null;lastOutcome=undefined;inspector.clearRecent();client.interruptRead();}
+        const latest=['archive','resume'].includes(operation)?await request('/v1/history'):null;
+        result=await request('/v1/conversations/'+operation,{historyKey,id:message.conversationId,operationId:message.operationId,messages:archiveMessages,offset:message.offset||0,limit:10,...(latest?{expectedVersion:latest.conversationVersion}:{})});
+      }
+      else if(message.type==='clear-history'){inspector.clearRecent();lastOutcome=undefined;taskGeneration++;currentSnapshot=null;currentTaskText='';if(privateClient.taskId)await privateClient.call('task-end');result=await request('/v1/history/clear');}
       else if(message.type==='documents')result=await request('/v1/knowledge/documents');
       else if(message.type==='upload-document')throw new Error('Shared knowledge uploads require authenticated owner or Flolah website management. Use Task files for private transaction documents.');
       else if(message.type==='upload-status')result=await request('/v1/knowledge/upload-status',{sourceId:message.sourceId});
@@ -185,7 +195,7 @@ export async function mount(options) {
         result=privateClient.taskId?await privateClient.call('task-revise',{id:message.proposalId,snapshot:currentSnapshot,edits:message.edits}):await request('/v1/revise',{id:message.proposalId,snapshot:currentSnapshot,edits:message.edits});
         if(generation!==taskGeneration)throw new Error('Review stopped; edited proposal discarded');
       }
-      else if(message.type==='reject'){taskGeneration++;currentSnapshot=null;client.interruptRead();result=privateClient.taskId&&!currentGoalProposal?await privateClient.call('task-reject',{id:message.proposalId}):await request('/v1/reject',{id:message.proposalId});}
+      else if(message.type==='reject'){inspector.discardReview();taskGeneration++;currentSnapshot=null;client.interruptRead();result=privateClient.taskId&&!currentGoalProposal?await privateClient.call('task-reject',{id:message.proposalId}):await request('/v1/reject',{id:message.proposalId});}
       else if(message.type==='reconnect'){await controller.destroy();result=await mount(options);return;}
       else if(message.type==='cancel'){currentGoalProposal=false;execution.stop();taskGeneration++;currentSnapshot=null;currentTaskText='';client.interruptRead();result={stopped:true};}
       else if (message.type === 'inspect') {result=inspector.snapshot({inventory:true});const access=await request('/v1/capabilities');if(access.capabilities.coach)result.learning=await request('/v1/learning/observe',{snapshot:result});}
@@ -201,7 +211,7 @@ export async function mount(options) {
       else if (message.type === 'plan') {
         const generation=proposalGeneration=++taskGeneration;
         const continuingGoal=currentTaskText===message.text;currentGoalProposal=false;currentTaskText=message.text;const snapshot=inspector.snapshot({task:message.text});if(lastOutcome)snapshot.lastOutcome={...lastOutcome,...(!continuingGoal?{lookupOnly:false}:{})};currentSnapshot=snapshot;
-        result = await privateClient.plan({text:message.text,snapshot,mode:message.mode})||await request('/v1/plan',{ text:message.text,snapshot,replyTo:message.replyTo,mode:message.mode });
+        result = await privateClient.plan({text:message.text,snapshot,mode:message.mode,replyTo:message.replyTo})||await request('/v1/plan',{ text:message.text,snapshot,replyTo:message.replyTo,mode:message.mode });
         if(generation!==taskGeneration)throw new Error('Task stopped; proposal discarded');
         if(!result.actions?.length)currentSnapshot=null;
         if(snapshot.coverage.manualNotice)result={...result,manualNotice:snapshot.coverage.manualNotice};
@@ -247,7 +257,9 @@ export async function mount(options) {
         }
       }
       else throw new Error('Unsupported operation');
+      if(result?.actions)inspector.rememberReview(result.actions,result.revision);if(result?.proposal?.actions)inspector.rememberReview(result.proposal.actions,result.proposal.revision);
       if(['plan','recipe-plan','revise'].includes(message.type)&&result?.actions)result={...result,hostContext:hostContext(),localReview:inspector.reviewValues(result.actions,result.revision)};
+      if(result&&typeof result==='object'&&!Array.isArray(result))result={...result,hostContext:hostContext()};
       if(!closed)frame.contentWindow?.postMessage({ channel: message.channel, id: message.id, result }, service.origin);
     } catch (error) { if(message.type==='approve')lastOutcome={path:currentSnapshot?.path||location.pathname,actionTypes:[],outcome:error.outcome==='unknown'?'unknown':'rejected',applied:error.results?.filter(r=>r.valueObserved).length||0};if(error.name==='AbortError'&&error.code!=='TASK_CANCELLED')error=Object.assign(new Error('The task was interrupted. Check the website outcome before trying again.'),{code:'TASK_INTERRUPTED',outcome:error.outcome,results:error.results});if(error.code==='SESSION_ACCESS_DENIED')expireSession();if(proposalGeneration===taskGeneration)currentSnapshot=null;if(!closed)frame.contentWindow?.postMessage({ channel: message.channel, id: message.id, error: error.message,code:error.code,outcome:error.outcome,applied: error.results?.filter(r=>r.valueObserved).length||0 }, service.origin); }
   };

@@ -34,3 +34,9 @@ footer{flex-shrink:0;padding:5px 12px;font-size:10px;display:flex;gap:8px;align-
 .conversation p{font-size:1em}#review article h3{font-size:.95em}.field-comparison p{font-size:.9em}nav button{font-size:.85em}
 
 #chat-choices{display:flex;flex-wrap:wrap;gap:5px;margin:10px 0}#chat-choices button{font-size:11px;padding:6px 8px;border-radius:16px;color:var(--adoption-primary)}
+
+#conversation-history{color:inherit;background:var(--adoption-background);border:1px solid var(--adoption-border);border-radius:16px;width:calc(100% - 24px);max-height:85vh;overflow:auto}#conversation-list{padding:0;list-style:none}#conversation-list li{padding:10px 0;border-bottom:1px solid var(--adoption-border)}#conversation-list p{overflow-wrap:anywhere}#conversation-list button{margin:4px 5px 4px 0;font-size:12px}#history-close{float:right}
+
+@media(max-width:360px){header{gap:4px;padding:8px}.workspace-title .subtitle{display:none}header h1{font-size:14px}}
+
+body[data-adoption-booting] button,body[data-adoption-booting] input,body[data-adoption-booting] select,body[data-adoption-booting] textarea{opacity:.55;cursor:progress}

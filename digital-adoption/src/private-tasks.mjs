@@ -1,3 +1,4 @@
+import {contextualReference,locating} from '../web/guidance-intent.mjs';
 import {syntheticDataIntent} from './task-intent.mjs';
 import { randomUUID, randomBytes, createHash, createCipheriv, createDecipheriv } from 'node:crypto';
 import { mkdir, writeFile, readFile, rm, readdir } from 'node:fs/promises';
@@ -452,8 +453,9 @@ export async function createPrivateTasks({
       const t = taskFor(scope, input.taskId, input.instanceId);
       touch(t);
       if (typeof input.text !== 'string' || !input.text.trim() || input.text.length > 8000) reject('INVALID_TASK');
-      const pointing=fieldGuidance(input.text,validateSnapshot(input.snapshot),t.history.filter(m=>m.instanceId===input.instanceId));
-      if(!pointing&&readOnlyIntent(input.text)){const result=await service.summary(scope,input,taskEvidence);return {...result,actions:[],privateTaskId:t.id};}
+      const reply=input.replyTo?t.history.find(m=>m.id===input.replyTo&&m.instanceId===input.instanceId)?.text||input.authorizedReplyContext:undefined;if(input.replyTo&&!reply)reject('REPLY_CONTEXT_UNAVAILABLE');
+      const pointing=input.replyTo?null:fieldGuidance(input.text,validateSnapshot(input.snapshot),t.history.filter(m=>m.instanceId===input.instanceId));
+      if(!pointing&&!reply&&!contextualReference(input.text)&&!locating(input.text)&&readOnlyIntent(input.text)){const result=await service.summary(scope,input,taskEvidence);return {...result,actions:[],privateTaskId:t.id};}
       const snapshot = validateSnapshot(input.snapshot),
         evidence = pointing?[]:[...await context(t, input.text, input.instanceId), ...taskEvidence].slice(0, 8);
       taskFor(scope,t.id,input.instanceId);
@@ -465,6 +467,7 @@ export async function createPrivateTasks({
         snapshot,
         ...guidance(scope, input.text, snapshot),
         history: t.history.filter(m => m.instanceId === input.instanceId).slice(-12),
+        replyContext:reply,
         privateGuidance: {
           untrusted: true,
           evidence,
@@ -489,18 +492,18 @@ export async function createPrivateTasks({
           ref: a.ref
         } : a)
       } : checked);
-      t.history.push({
-        role: 'user',
+      const messageId=randomUUID();t.history.push({
+        id:randomUUID(),replyTo:input.replyTo||null,role: 'user',
         text: input.text,
         instanceId: input.instanceId
       }, {
-        role: 'assistant',
+        id:messageId,role: 'assistant',
         text: proposal.message,
         instanceId: input.instanceId
       });
       if (t.history.length > 24) t.history.splice(0, t.history.length - 24);
       return {
-        ...proposal,
+        ...proposal,messageId,
         privateTaskId: t.id,
         evidence
       };
@@ -539,7 +542,7 @@ export async function createPrivateTasks({
           title: e.filename,
           revision: 'private-task'
         })),
-        message: passageStore ? 'Supporting passages from your private task files. End task immediately removes access; temporary indexed passages await the 24-hour retention policy.' : 'Supporting passages from your private task files. Files are deleted when you end the task.'
+        message: passageStore ? `Supporting passages from your private task files. End task immediately removes access; temporary indexed passages await the ${passageStore.retentionHours||24}-hour retention policy.` : 'Supporting passages from your private task files. Files are deleted when you end the task.'
       };
     },
     async dispatchAction(scope,input){

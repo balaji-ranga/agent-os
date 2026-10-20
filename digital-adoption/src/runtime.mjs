@@ -1,3 +1,4 @@
+import {createConversationHistory} from './conversation-history.mjs';
 import {createGoalModel} from './goal-model.mjs';
 import {createGoalStore} from './goal-store.mjs';
 import {MODEL_CLIENT_TIMEOUT_MS} from '../web/model-timeouts.mjs';
@@ -37,6 +38,7 @@ import {createTaskBridge} from './live-transport.mjs';
 import {startLocalParsers} from './local-parser.mjs';
 const config=JSON.parse(readFileSync('/config/service.json','utf8'));
 const repository=openRepository('/data/adoption.sqlite');
+
 const uploadAdmission=createUploadAdmission({repository,limits:config.uploads});
 const actionAttempts=createActionAttempts(repository,{retentionMs:config.execution?.attemptRetentionMs??86_400_000});
 const telemetry=createOperationalTelemetry();
@@ -46,18 +48,20 @@ const search=createOpenSearch({...config.search,privateNetwork:true});
 // Fail startup if the private retention policy cannot be installed/verified.
 // Shared website indexes are never used for transaction passages.
 await search.privateTasks.provision();
+const conversations=createConversationHistory({repository,contentStore:search.privateTasks.conversations,retentionMs:search.privateTasks.retentionHours*3600000});
+const privateCleanupTimer=setInterval(()=>search.privateTasks.expire().then(()=>telemetry.maintenance(true)).catch(()=>telemetry.maintenance(false)),60_000);privateCleanupTimer.unref();
 const knowledge=createKnowledgeService(repository,search);
 const ingestion=createSourceIngestion(repository,{...config.ingestion,knowledge,blobs:createBlobStore('/data/objects'),extract:createDocumentExtractor({python:'/opt/adoption-python/bin/python'}),fetchUrl:createPublicUrlFetcher(),onEvent:telemetry.job});
 knowledge.recoverExpired();
 authority.maintain();
 let analytics;
-const recoveryTimer=setInterval(()=>{try{knowledge.recoverExpired();authority.maintain();actionAttempts.expire();uploadAdmission.maintain();analytics?.maintain();repository.expireGoalPlans(Date.now());}catch{/* Authorization remains fail-closed; retry maintenance next turn. */}},30_000);
+const recoveryTimer=setInterval(()=>{try{knowledge.recoverExpired();authority.maintain();conversations.maintain();actionAttempts.expire();uploadAdmission.maintain();analytics?.maintain();repository.expireGoalPlans(Date.now());}catch{/* Authorization remains fail-closed; retry maintenance next turn. */}},30_000);
 recoveryTimer.unref();
 // Demo content is an explicit development option, never owner website knowledge.
 const embeddings=config.demoSeedEnabled===true?['adoption-demo-alpha','adoption-demo-beta']:[];
 // Apply additive lexical mappings to this service's existing source indexes
 // as well as fresh synthetic embeddings. No platform index is selected.
-for(const embeddingId of new Set([...embeddings,...repository.sourceEmbeddings()]))await search.provision(embeddingId);
+for(const embeddingId of new Set([...embeddings,...repository.sourceEmbeddings(),...repository.map('websites').values().filter(w=>w.verified&&w.status==='approved').map(w=>w.id)])){await search.provision(embeddingId);await search.privateTasks.provision(embeddingId);}
 const publicPath='/data/demo-public.json';
 let demo;
 if(existsSync(publicPath))demo=JSON.parse(readFileSync(publicPath,'utf8'));
@@ -101,6 +105,6 @@ ingestion.start({local:false});
 const localParsers=!config.workerToken?startLocalParsers(parserBroker,createDocumentExtractor({python:'/opt/adoption-python/bin/python'}),{workers:config.ingestion?.maxWorkers||2}):null;
 const workerServer=config.workerToken?createWorkerServer({ingestion:parserBroker,token:config.workerToken}):null;
 workerServer?.listen(4196,'0.0.0.0');
-const server=createAdoptionServer({goals,goalModel:createGoalModel(model),uploadAdmission,uploadProxyAddresses:config.uploadProxyAddresses||[],capacity:config.capacity,authority,knowledge,ingestion,learning,coaching,discovery,sourceMap,hostIdentity,management,ownerIdentity,ownerManagement,platformOrigin,telemetry,privateTasks,taskWebsite,analytics,answer:createKnowledgeAnswer(model),planner,proposals:createProposalStore(repository,{attempts:actionAttempts,checkGoal:(scope,id,proposalId,write)=>goals.allows(scope,id,proposalId,write),checkPrivateTask:(scope,binding)=>privateTasks.goalBinding(scope,binding),checkBinding:(scope,binding)=>learning.bindingAllowed(scope,binding)})});
+const server=createAdoptionServer({conversations,goals,goalModel:createGoalModel(model),uploadAdmission,uploadProxyAddresses:config.uploadProxyAddresses||[],capacity:config.capacity,authority,knowledge,ingestion,learning,coaching,discovery,sourceMap,hostIdentity,management,ownerIdentity,ownerManagement,platformOrigin,telemetry,privateTasks,taskWebsite,analytics,answer:createKnowledgeAnswer(model),planner,proposals:createProposalStore(repository,{attempts:actionAttempts,checkGoal:(scope,id,proposalId,write)=>goals.allows(scope,id,proposalId,write),checkPrivateTask:(scope,binding)=>privateTasks.goalBinding(scope,binding),checkBinding:(scope,binding)=>learning.bindingAllowed(scope,binding)})});
 server.listen(4193,'0.0.0.0',()=>console.log('Independent adoption service listening; full acceptance not yet certified'));
-process.on('SIGTERM',async()=>{ingestion.stop();localParsers?.stop();clearInterval(recoveryTimer);await privateTasks.close();taskBridge?.closeAllConnections();taskBridge?.close();workerServer?.closeAllConnections();workerServer?.close();server.closeAllConnections();server.close(()=>{process.exit(0);});});
+process.on('SIGTERM',async()=>{ingestion.stop();localParsers?.stop();clearInterval(recoveryTimer);clearInterval(privateCleanupTimer);await privateTasks.close();taskBridge?.closeAllConnections();taskBridge?.close();workerServer?.closeAllConnections();workerServer?.close();server.closeAllConnections();server.close(()=>{process.exit(0);});});

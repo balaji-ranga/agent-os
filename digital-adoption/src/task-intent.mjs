@@ -12,7 +12,7 @@ export function readOnlyIntent(text) {
     );
   return (
     !asksToWrite &&
-    (/\b(?:summari[sz]e|explain|describe|inspect|list|show|what|which|recommend|suggest)\b/i.test(
+    (/\b(?:summari[sz]e|explain|describe|inspect|list|show|highlight|locate|point|what|which|recommend|suggest)\b/i.test(
       value,
     ) ||
       /\b(?:do not|don't|never)\s+(?:fill|populate|change|edit|set)\b/i.test(

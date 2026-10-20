@@ -34,10 +34,10 @@ test('empty creation proposals get one same-task input recheck, while genuinely 
  supplied=false;const missing=await planner({text:'Create the task; I have not selected the assigned operator.',snapshot:current});assert.equal(missing.actions.length,0);assert.equal(requests.length,4);
 });
 
-test('prior assistant proposals are quoted context, and a matching current form has no unrelated navigation authority',async()=>{
+test('prior proposals remain quoted context and the model receives current form plus navigation evidence',async()=>{
  let sent;const current={revision:1,path:'/dispatch',fields:[{ref:'r1f0',label:'Office code',type:'text'},{ref:'r1f1',label:'Desk zone',type:'text'}],links:[{ref:'r1n0',label:'Reports',path:'/reports'}]};
  const planner=createPlatformPlanner({gatewayUrl:'https://model.example.com/gateway',serviceToken:'synthetic-service-token-for-contract-testing',fetchImpl:async(_url,input)=>{sent=JSON.parse(input.body);return {ok:true,json:async()=>({content:JSON.stringify({message:'Review',actions:[{type:'fill',ref:'r1f0',value:'A'},{type:'fill',ref:'r1f1',value:'West'}]})})};}});
- await planner({text:'Prepare office code A and desk zone West.',snapshot:current,history:[{role:'assistant',text:'I can open Reports, then continue your request.'}]});assert.deepEqual(sent.messages.map(m=>m.role),['system','user']);const task=JSON.parse(sent.messages.at(-1).content);assert.equal(task.conversationContext[0].role,'assistant');assert.deepEqual(task.observed.links,[]);assert.equal(task.responseContract.allowedActionTypes.includes('navigate'),false);
+ await planner({text:'Prepare office code A and desk zone West.',snapshot:current,history:[{role:'assistant',text:'I can open Reports, then continue your request.'}]});assert.deepEqual(sent.messages.map(m=>m.role),['system','user']);const task=JSON.parse(sent.messages.at(-1).content);assert.equal(task.conversationContext[0].role,'assistant');assert.deepEqual(task.observed.links,current.links);assert.ok(task.responseContract.allowedActionTypes.includes('navigate'));assert.deepEqual((await planner({text:'Prepare office code A and desk zone West.',snapshot:current})).actions.map(a=>a.type),['fill','fill']);
 });
 
 test('comma-and assignments resolve all explicit fields without model inference or unrelated writes',async()=>{

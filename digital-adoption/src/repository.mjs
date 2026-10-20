@@ -26,6 +26,7 @@ export function openRepository(path = ':memory:') {
   };
   return {
     durableActions:true,
+    expireConversations(now){return Number(db.prepare("DELETE FROM adoption_state WHERE namespace='conversation_history' AND json_extract(value,'$.expiresAt')<=?").run(now).changes);},
     expireGoalPlans(now){return Number(db.prepare("DELETE FROM adoption_state WHERE namespace='goal_plans' AND json_extract(value,'$.expiresAt')<=?").run(now).changes);},
     expireActionAttempts(now){return Number(db.prepare("DELETE FROM adoption_state WHERE namespace='action_attempts' AND json_extract(value,'$.expiresAt')<=?").run(now).changes);},
     expireUploadAdmission(now){return Number(db.prepare("DELETE FROM adoption_state WHERE namespace IN ('upload_windows','upload_leases') AND json_extract(value,'$.expiresAt')<=?").run(now).changes);},

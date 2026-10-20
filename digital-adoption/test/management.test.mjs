@@ -21,15 +21,15 @@ test('management routes enforce origin, ownership, approval and sharing consent 
  try{
   const control=createControlPlane(repository,new SessionAuthority({repository}),{dns:async()=>[[dns]]});
   const owner={id:'a',organizationId:'a',role:'owner'},foreign={id:'b',organizationId:'b',role:'owner'},admin={id:'admin',organizationId:'platform',role:'platform_admin'};
-  let actor=owner;const indexed=[];
-  const handler=createManagement({platformOrigin:'https://platform.example',authenticate:async()=>actor,control,sourceMap:createSourceMap(repository),search:{provision:async id=>indexed.push(id)},knowledge:{list:scope=>[{owner:scope.embeddingId}],createText:()=>({id:'source'}),ingest:async()=>{}}});
+  let actor=owner;const indexed=[],temporary=[];
+  const handler=createManagement({platformOrigin:'https://platform.example',authenticate:async()=>actor,control,sourceMap:createSourceMap(repository),search:{provision:async id=>indexed.push(id),privateTasks:{provision:async id=>temporary.push(id)}},knowledge:{list:scope=>[{owner:scope.embeddingId}],createText:()=>({id:'source'}),ingest:async()=>{}}});
   const call=(action,input={})=>handler({origin:'https://platform.example',path:'/v1/manage/'+action,input});
   const registered=await call('register',{origin:'https://customer.example',environment:'staging'});
-  await assert.rejects(()=>call('activate',{id:registered.id}));dns=registered.dnsValue;await call('verify',{id:registered.id});
+  await assert.rejects(()=>call('activate',{id:registered.id}));assert.deepEqual(indexed,[]);assert.deepEqual(temporary,[]);dns=registered.dnsValue;await call('verify',{id:registered.id});
   actor=foreign;assert.equal((await call('websites')).websites.length,0);await assert.rejects(()=>call('sources',{id:registered.id}));
   await assert.rejects(()=>call('approve',{id:registered.id,role:'platform_admin'}));
   actor=admin;await assert.rejects(()=>call('approve',{id:registered.id}));await call('approve',{id:registered.id,reason:'Synthetic acceptance approval'});actor=owner;
-  await call('activate',{id:registered.id});assert.deepEqual(indexed,[registered.id]);
+  await call('activate',{id:registered.id});assert.deepEqual(indexed,[registered.id,registered.id]);assert.deepEqual(temporary,[registered.id,registered.id]);
   await call('source-map-refresh',{id:registered.id,manifest:{schema:1,origin:'https://customer.example',reviewed:true,screens:[{path:'/new',title:'New form',forms:[],fields:[]}]}});
   assert.equal((await call('source-map',{id:registered.id})).counts.screens,1);actor=foreign;await assert.rejects(()=>call('source-map',{id:registered.id}));await assert.rejects(()=>call('source-map-refresh',{id:registered.id,manifest:{}}));actor=owner;
   await assert.rejects(()=>call('source-text',{id:registered.id,title:'Synthetic',text:'data'}));

@@ -1,7 +1,7 @@
 import {formValidation} from './host-observation.mjs';
 // Explicit user-requested native form submission, separate from model filling.
 // Only local state is retained here; values never enter the shared map.
-export function createSubmitController(document,{visible,excluded,label}){
+export function createSubmitController(document,{visible,excluded,label,onActivate=()=>{}}){
  let revision=0,targets=new Map();const savedBaselines=new WeakMap(),fieldState=e=>JSON.stringify([e.value,e.checked,e.options?[...e.options].map(o=>o.selected):null]);
  const state=form=>JSON.stringify([...form.elements].map(e=>[e,e.name,e.type,e.value,e.checked,e.disabled,e.required].slice(1)));
  const statuses=()=>[...document.querySelectorAll('[role="status"],[role="alert"]')].filter(e=>visible(e)&&!excluded(e)).map(e=>(e.textContent||'').trim().slice(0,500));
@@ -26,7 +26,7 @@ export function createSubmitController(document,{visible,excluded,label}){
    if(!active())throw new Error('Save cancelled before dispatch');
    const reviewedValues=new Map([...record.form.elements].map(e=>[e,fieldState(e)]));
    const before=statuses();targets.delete(ref); // Consume before a potentially effectful click.
-   element.click();
+   onActivate(element);element.click();
    for(let attempt=0;attempt<Math.max(10,Math.min(100,Math.floor(observationMs/100)));attempt++){
     if(!active())return {dispatched:true,outcomeObserved:false,businessVerified:false,reason:'Observation stopped after dispatch; do not retry blindly.'};
     const changed=statuses().filter(text=>text&&!before.includes(text));

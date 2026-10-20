@@ -12,3 +12,5 @@ COPY --chown=1000:1000 integrations/platform-gateway.mjs /adoption/integrations/
 COPY --chown=1000:1000 web/choice-intent.mjs /adoption/web/choice-intent.mjs
 COPY --chown=1000:1000 src/task-intent.mjs /adoption/src/task-intent.mjs
 USER 1000:1000
+
+COPY --chown=1000:1000 web/guidance-intent.mjs /adoption/web/guidance-intent.mjs

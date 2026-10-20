@@ -1,0 +1,977 @@
+{
+  "at": "2026-10-20T00:55:45.628951+00:00",
+  "release": "20261020-pointer-l",
+  "baseCommit": "9bbb5d7bb1ac93f0658122dac34a309cde8a5c45",
+  "summary": {
+    "total": 530,
+    "passed": 530,
+    "failed": 0,
+    "partial": 0,
+    "deferred": 0,
+    "passRate": 100.0
+  },
+  "suites": [
+    {
+      "name": "Service and entitlement regression",
+      "method": "Contracts, lifecycle, HTTP and connector/policy tests",
+      "path": "logs/service-windows.log",
+      "total": 406,
+      "passed": 406,
+      "failed": 0,
+      "partial": 0,
+      "deferred": 0
+    },
+    {
+      "name": "Pointer \u00b7 Chrome",
+      "method": "Real browser, synthetic controls and recorded animation",
+      "path": "browser-final/results.json",
+      "total": 21,
+      "cases": [
+        {
+          "id": "P01_GUIDANCE_ANIMATES_WITHOUT_CLICK_OR_EDIT",
+          "status": "passed",
+          "screenshot": "P01_GUIDANCE_ANIMATES_WITHOUT_CLICK_OR_EDIT.png"
+        },
+        {
+          "id": "P02_MENU_GUIDANCE_HAS_NO_CLICK_RIPPLE_OR_ACTIVATION",
+          "status": "passed",
+          "screenshot": "P02_MENU_GUIDANCE_HAS_NO_CLICK_RIPPLE_OR_ACTIVATION.png"
+        },
+        {
+          "id": "P03_OVERLAY_IS_POINTER_TRANSPARENT",
+          "status": "passed",
+          "screenshot": "P03_OVERLAY_IS_POINTER_TRANSPARENT.png"
+        },
+        {
+          "id": "P04_SCROLL_RESIZE_AND_LAYOUT_SHIFT_FOLLOW_TARGET",
+          "status": "passed",
+          "screenshot": "P04_SCROLL_RESIZE_AND_LAYOUT_SHIFT_FOLLOW_TARGET.png"
+        },
+        {
+          "id": "P05_REMOVED_HIDDEN_OR_RELABELLED_TARGET_CLEARS",
+          "status": "passed",
+          "screenshot": "P05_REMOVED_HIDDEN_OR_RELABELLED_TARGET_CLEARS.png"
+        },
+        {
+          "id": "P06_FRESH_SNAPSHOT_AND_STOP_CLEAR_POINTER",
+          "status": "passed",
+          "screenshot": "P06_FRESH_SNAPSHOT_AND_STOP_CLEAR_POINTER.png"
+        },
+        {
+          "id": "P07_REDUCED_MOTION_RETAINS_STATIC_POINTER",
+          "status": "passed",
+          "screenshot": "P07_REDUCED_MOTION_RETAINS_STATIC_POINTER.png"
+        },
+        {
+          "id": "P08_APPROVED_CHECKBOX_RIPPLES_EXACTLY_ONE_CLICK",
+          "status": "passed",
+          "screenshot": "P08_APPROVED_CHECKBOX_RIPPLES_EXACTLY_ONE_CLICK.png"
+        },
+        {
+          "id": "P09_NOOP_AND_UNAPPROVED_HAVE_NO_CLICK_FEEDBACK",
+          "status": "passed",
+          "screenshot": "P09_NOOP_AND_UNAPPROVED_HAVE_NO_CLICK_FEEDBACK.png"
+        },
+        {
+          "id": "P10_SAVE_RIPPLE_WITH_HOST_SUCCESS_AND_NO_REPLAY",
+          "status": "passed",
+          "screenshot": "P10_SAVE_RIPPLE_WITH_HOST_SUCCESS_AND_NO_REPLAY.png"
+        },
+        {
+          "id": "P11_NAVIGATION_USES_ONE_REVIEWED_ACTIVATION",
+          "status": "passed",
+          "screenshot": "P11_NAVIGATION_USES_ONE_REVIEWED_ACTIVATION.png"
+        },
+        {
+          "id": "P12_TEXT_AND_SELECT_CHANGES_ARE_NOT_PRESENTED_AS_CLICKS",
+          "status": "passed",
+          "screenshot": "P12_TEXT_AND_SELECT_CHANGES_ARE_NOT_PRESENTED_AS_CLICKS.png"
+        },
+        {
+          "id": "P13_REPLACEMENT_AND_DESTROY_LEAVE_NO_NODES_OR_ANIMATIONS",
+          "status": "passed",
+          "screenshot": "P13_REPLACEMENT_AND_DESTROY_LEAVE_NO_NODES_OR_ANIMATIONS.png"
+        },
+        {
+          "id": "P14_GUIDANCE_EXPIRES_WITHOUT_HOST_ACTION",
+          "status": "passed",
+          "screenshot": "P14_GUIDANCE_EXPIRES_WITHOUT_HOST_ACTION.png"
+        },
+        {
+          "id": "P15_RECENT_CONTEXT_HAS_IDENTITIES_NOT_PRIVATE_VALUES",
+          "status": "passed",
+          "screenshot": "P15_RECENT_CONTEXT_HAS_IDENTITIES_NOT_PRIVATE_VALUES.png"
+        },
+        {
+          "id": "P16_PREVIOUS_FIELD_IDENTITY_CANNOT_REBIND_TO_REPLACEMENT",
+          "status": "passed",
+          "screenshot": "P16_PREVIOUS_FIELD_IDENTITY_CANNOT_REBIND_TO_REPLACEMENT.png"
+        },
+        {
+          "id": "P17_REJECT_AND_NEW_CONVERSATION_CLEAR_CONTEXT",
+          "status": "passed",
+          "screenshot": "P17_REJECT_AND_NEW_CONVERSATION_CLEAR_CONTEXT.png"
+        },
+        {
+          "id": "P18_ACTUAL_ACTIVATION_ANIMATION_SURVIVES_READONLY_OBSERVATION",
+          "status": "passed",
+          "screenshot": "P18_ACTUAL_ACTIVATION_ANIMATION_SURVIVES_READONLY_OBSERVATION.png"
+        },
+        {
+          "id": "P19_NAVIGATION_LINK_REF_POINTS_WITHOUT_ACTIVATING",
+          "status": "passed",
+          "screenshot": "P19_NAVIGATION_LINK_REF_POINTS_WITHOUT_ACTIVATING.png"
+        },
+        {
+          "id": "P20_CHANGED_LINK_DESTINATION_AND_LABEL_INVALIDATE_GUIDANCE",
+          "status": "passed",
+          "screenshot": "P20_CHANGED_LINK_DESTINATION_AND_LABEL_INVALIDATE_GUIDANCE.png"
+        },
+        {
+          "id": "P21_INTERACTIVE_RESERVE_EXPOSES_UNMATCHED_REAL_CONTROLS",
+          "status": "passed",
+          "screenshot": "P21_INTERACTIVE_RESERVE_EXPOSES_UNMATCHED_REAL_CONTROLS.png"
+        }
+      ],
+      "passed": 21,
+      "failed": 0,
+      "partial": 0,
+      "deferred": 0
+    },
+    {
+      "name": "Pointer \u00b7 Edge",
+      "method": "Real Edge, same independent browser checks",
+      "path": "edge-final/results.json",
+      "total": 21,
+      "cases": [
+        {
+          "id": "P01_GUIDANCE_ANIMATES_WITHOUT_CLICK_OR_EDIT",
+          "status": "passed",
+          "screenshot": "P01_GUIDANCE_ANIMATES_WITHOUT_CLICK_OR_EDIT.png"
+        },
+        {
+          "id": "P02_MENU_GUIDANCE_HAS_NO_CLICK_RIPPLE_OR_ACTIVATION",
+          "status": "passed",
+          "screenshot": "P02_MENU_GUIDANCE_HAS_NO_CLICK_RIPPLE_OR_ACTIVATION.png"
+        },
+        {
+          "id": "P03_OVERLAY_IS_POINTER_TRANSPARENT",
+          "status": "passed",
+          "screenshot": "P03_OVERLAY_IS_POINTER_TRANSPARENT.png"
+        },
+        {
+          "id": "P04_SCROLL_RESIZE_AND_LAYOUT_SHIFT_FOLLOW_TARGET",
+          "status": "passed",
+          "screenshot": "P04_SCROLL_RESIZE_AND_LAYOUT_SHIFT_FOLLOW_TARGET.png"
+        },
+        {
+          "id": "P05_REMOVED_HIDDEN_OR_RELABELLED_TARGET_CLEARS",
+          "status": "passed",
+          "screenshot": "P05_REMOVED_HIDDEN_OR_RELABELLED_TARGET_CLEARS.png"
+        },
+        {
+          "id": "P06_FRESH_SNAPSHOT_AND_STOP_CLEAR_POINTER",
+          "status": "passed",
+          "screenshot": "P06_FRESH_SNAPSHOT_AND_STOP_CLEAR_POINTER.png"
+        },
+        {
+          "id": "P07_REDUCED_MOTION_RETAINS_STATIC_POINTER",
+          "status": "passed",
+          "screenshot": "P07_REDUCED_MOTION_RETAINS_STATIC_POINTER.png"
+        },
+        {
+          "id": "P08_APPROVED_CHECKBOX_RIPPLES_EXACTLY_ONE_CLICK",
+          "status": "passed",
+          "screenshot": "P08_APPROVED_CHECKBOX_RIPPLES_EXACTLY_ONE_CLICK.png"
+        },
+        {
+          "id": "P09_NOOP_AND_UNAPPROVED_HAVE_NO_CLICK_FEEDBACK",
+          "status": "passed",
+          "screenshot": "P09_NOOP_AND_UNAPPROVED_HAVE_NO_CLICK_FEEDBACK.png"
+        },
+        {
+          "id": "P10_SAVE_RIPPLE_WITH_HOST_SUCCESS_AND_NO_REPLAY",
+          "status": "passed",
+          "screenshot": "P10_SAVE_RIPPLE_WITH_HOST_SUCCESS_AND_NO_REPLAY.png"
+        },
+        {
+          "id": "P11_NAVIGATION_USES_ONE_REVIEWED_ACTIVATION",
+          "status": "passed",
+          "screenshot": "P11_NAVIGATION_USES_ONE_REVIEWED_ACTIVATION.png"
+        },
+        {
+          "id": "P12_TEXT_AND_SELECT_CHANGES_ARE_NOT_PRESENTED_AS_CLICKS",
+          "status": "passed",
+          "screenshot": "P12_TEXT_AND_SELECT_CHANGES_ARE_NOT_PRESENTED_AS_CLICKS.png"
+        },
+        {
+          "id": "P13_REPLACEMENT_AND_DESTROY_LEAVE_NO_NODES_OR_ANIMATIONS",
+          "status": "passed",
+          "screenshot": "P13_REPLACEMENT_AND_DESTROY_LEAVE_NO_NODES_OR_ANIMATIONS.png"
+        },
+        {
+          "id": "P14_GUIDANCE_EXPIRES_WITHOUT_HOST_ACTION",
+          "status": "passed",
+          "screenshot": "P14_GUIDANCE_EXPIRES_WITHOUT_HOST_ACTION.png"
+        },
+        {
+          "id": "P15_RECENT_CONTEXT_HAS_IDENTITIES_NOT_PRIVATE_VALUES",
+          "status": "passed",
+          "screenshot": "P15_RECENT_CONTEXT_HAS_IDENTITIES_NOT_PRIVATE_VALUES.png"
+        },
+        {
+          "id": "P16_PREVIOUS_FIELD_IDENTITY_CANNOT_REBIND_TO_REPLACEMENT",
+          "status": "passed",
+          "screenshot": "P16_PREVIOUS_FIELD_IDENTITY_CANNOT_REBIND_TO_REPLACEMENT.png"
+        },
+        {
+          "id": "P17_REJECT_AND_NEW_CONVERSATION_CLEAR_CONTEXT",
+          "status": "passed",
+          "screenshot": "P17_REJECT_AND_NEW_CONVERSATION_CLEAR_CONTEXT.png"
+        },
+        {
+          "id": "P18_ACTUAL_ACTIVATION_ANIMATION_SURVIVES_READONLY_OBSERVATION",
+          "status": "passed",
+          "screenshot": "P18_ACTUAL_ACTIVATION_ANIMATION_SURVIVES_READONLY_OBSERVATION.png"
+        },
+        {
+          "id": "P19_NAVIGATION_LINK_REF_POINTS_WITHOUT_ACTIVATING",
+          "status": "passed",
+          "screenshot": "P19_NAVIGATION_LINK_REF_POINTS_WITHOUT_ACTIVATING.png"
+        },
+        {
+          "id": "P20_CHANGED_LINK_DESTINATION_AND_LABEL_INVALIDATE_GUIDANCE",
+          "status": "passed",
+          "screenshot": "P20_CHANGED_LINK_DESTINATION_AND_LABEL_INVALIDATE_GUIDANCE.png"
+        },
+        {
+          "id": "P21_INTERACTIVE_RESERVE_EXPOSES_UNMATCHED_REAL_CONTROLS",
+          "status": "passed",
+          "screenshot": "P21_INTERACTIVE_RESERVE_EXPOSES_UNMATCHED_REAL_CONTROLS.png"
+        }
+      ],
+      "passed": 21,
+      "failed": 0,
+      "partial": 0,
+      "deferred": 0
+    },
+    {
+      "name": "Workspace",
+      "method": "SDK/browser; synthetic owner, model and policy fixtures",
+      "path": "workspace-final/results.json",
+      "total": 18,
+      "cases": [
+        {
+          "id": "UX01_VISITOR_CAPABILITIES_AND_SINGLE_COMPOSER",
+          "status": "passed",
+          "screenshot": "UX01_VISITOR_CAPABILITIES_AND_SINGLE_COMPOSER.png"
+        },
+        {
+          "id": "UX02_UNIFIED_KNOWLEDGE_AND_HISTORY",
+          "status": "passed",
+          "screenshot": "UX02_UNIFIED_KNOWLEDGE_AND_HISTORY.png"
+        },
+        {
+          "id": "UX03_REVIEW_EDIT_APPLY_AND_REJECT",
+          "status": "passed",
+          "screenshot": "UX03_REVIEW_EDIT_APPLY_AND_REJECT.png"
+        },
+        {
+          "id": "UX04_PERSISTENT_FAILURE_ACROSS_VIEWS",
+          "status": "passed",
+          "screenshot": "UX04_PERSISTENT_FAILURE_ACROSS_VIEWS.png"
+        },
+        {
+          "id": "UX05_TASK_UPLOAD_AND_CONTEXT_SEPARATION",
+          "status": "passed",
+          "screenshot": "UX05_TASK_UPLOAD_AND_CONTEXT_SEPARATION.png"
+        },
+        {
+          "id": "UX06_PAIRING_SETUP_AND_UNIFIED_HANDOFF",
+          "status": "passed",
+          "screenshot": "UX06_PAIRING_SETUP_AND_UNIFIED_HANDOFF.png"
+        },
+        {
+          "id": "UX07_END_TASK_CLEARS_BOTH_WITHOUT_UNPAIRING",
+          "status": "passed",
+          "screenshot": "UX07_END_TASK_CLEARS_BOTH_WITHOUT_UNPAIRING.png"
+        },
+        {
+          "id": "UX08_OWNER_COACHING_INSPECT_AND_TEACH",
+          "status": "passed",
+          "screenshot": "UX08_OWNER_COACHING_INSPECT_AND_TEACH.png"
+        },
+        {
+          "id": "UX16_SYNTHETIC_RECORDING_REVIEW_DOWNLOAD_AND_DISCARD",
+          "status": "passed",
+          "screenshot": "UX16_SYNTHETIC_RECORDING_REVIEW_DOWNLOAD_AND_DISCARD.png"
+        },
+        {
+          "id": "UX09_REVOKED_COACHING_FAILS_CLOSED_AND_HIDES_ACTIONS",
+          "status": "passed",
+          "screenshot": "UX09_REVOKED_COACHING_FAILS_CLOSED_AND_HIDES_ACTIONS.png"
+        },
+        {
+          "id": "UX10_SHORT_VIEWPORT_STICKY_COMPOSER_AND_KEYBOARD",
+          "status": "passed",
+          "screenshot": "UX10_SHORT_VIEWPORT_STICKY_COMPOSER_AND_KEYBOARD.png"
+        },
+        {
+          "id": "UX11_MOBILE_REFLOW_AND_SINGLE_COMPOSER",
+          "status": "passed",
+          "screenshot": "UX11_MOBILE_REFLOW_AND_SINGLE_COMPOSER.png"
+        },
+        {
+          "id": "UX12_DISABLED_FEATURES_AND_WORKFLOW_ONLY_VISITOR",
+          "status": "passed",
+          "screenshot": "UX12_DISABLED_FEATURES_AND_WORKFLOW_ONLY_VISITOR.png"
+        },
+        {
+          "id": "UX13_NEW_CONVERSATION_ARCHIVE_AND_RESUME",
+          "status": "passed",
+          "screenshot": "UX13_NEW_CONVERSATION_ARCHIVE_AND_RESUME.png"
+        },
+        {
+          "id": "UX14_BROWSER_LOCAL_CURRENT_VALUE_NEVER_UPLOADED",
+          "status": "passed",
+          "screenshot": "UX14_BROWSER_LOCAL_CURRENT_VALUE_NEVER_UPLOADED.png"
+        },
+        {
+          "id": "UX15_OPT_IN_DOCK_AND_EXPAND_RETAIN_FORM",
+          "status": "passed",
+          "screenshot": "UX15_OPT_IN_DOCK_AND_EXPAND_RETAIN_FORM.png"
+        },
+        {
+          "id": "UX17_PANEL_SIZE_AND_THEME_PREFERENCES",
+          "status": "passed",
+          "screenshot": "UX17_PANEL_SIZE_AND_THEME_PREFERENCES.png"
+        },
+        {
+          "id": "UX18_QUICK_ASSISTANCE_CHOICES",
+          "status": "passed",
+          "screenshot": "UX18_QUICK_ASSISTANCE_CHOICES.png"
+        }
+      ],
+      "passed": 18,
+      "failed": 0,
+      "partial": 0,
+      "deferred": 0
+    },
+    {
+      "name": "Goal UI",
+      "method": "SDK/goal progression; synthetic model",
+      "path": "goals-final/results.json",
+      "total": 8,
+      "cases": [
+        {
+          "id": "GOAL01_PLAN_REVIEW_HAS_NO_EFFECTS",
+          "status": "passed",
+          "screenshot": "GOAL01_PLAN_REVIEW_HAS_NO_EFFECTS.png"
+        },
+        {
+          "id": "GOAL02_PAUSE_PANEL_RELOAD_AND_FRESH_REVIEW",
+          "status": "passed",
+          "screenshot": "GOAL02_PAUSE_PANEL_RELOAD_AND_FRESH_REVIEW.png"
+        },
+        {
+          "id": "GOAL03_EDITED_REVIEW_THEN_QUERY_REQUIRES_SEPARATE_APPROVAL",
+          "status": "passed",
+          "screenshot": "GOAL03_EDITED_REVIEW_THEN_QUERY_REQUIRES_SEPARATE_APPROVAL.png"
+        },
+        {
+          "id": "GOAL04_SELECTION_AND_READONLY_STEP_COMPLETE_WITHOUT_SAVE",
+          "status": "passed",
+          "screenshot": "GOAL04_SELECTION_AND_READONLY_STEP_COMPLETE_WITHOUT_SAVE.png"
+        },
+        {
+          "id": "GOAL07_WORKFLOW_REVIEW_AFTER_GOAL_USES_ITS_OWN_CONTEXT",
+          "status": "passed",
+          "screenshot": "GOAL07_WORKFLOW_REVIEW_AFTER_GOAL_USES_ITS_OWN_CONTEXT.png"
+        },
+        {
+          "id": "GOAL05_PRIVATE_FILE_REMOVAL_CLEARS_GOAL_AND_PENDING_REVIEW",
+          "status": "passed",
+          "screenshot": "GOAL05_PRIVATE_FILE_REMOVAL_CLEARS_GOAL_AND_PENDING_REVIEW.png"
+        },
+        {
+          "id": "GOAL06_MISSING_FACT_CLARIFIES_WITHOUT_A_PLAN_OR_EFFECT",
+          "status": "passed",
+          "screenshot": "GOAL06_MISSING_FACT_CLARIFIES_WITHOUT_A_PLAN_OR_EFFECT.png"
+        },
+        {
+          "id": "GOAL08_CLARIFICATION_REPLY_KEEPS_GOAL_AND_RETURNS_REVIEWED_PLAN",
+          "status": "passed",
+          "screenshot": "GOAL08_CLARIFICATION_REPLY_KEEPS_GOAL_AND_RETURNS_REVIEWED_PLAN.png"
+        }
+      ],
+      "passed": 8,
+      "failed": 0,
+      "partial": 0,
+      "deferred": 0
+    },
+    {
+      "name": "Field guidance",
+      "method": "SDK/browser, role-scoped fixture",
+      "path": "field-guidance-final/results.json",
+      "total": 8,
+      "cases": [
+        {
+          "id": "G01_WHERE_QUESTION_POINTS_WITHOUT_EXTRA_APPROVAL_OR_MODEL",
+          "status": "passed",
+          "screenshot": "G01_WHERE_QUESTION_POINTS_WITHOUT_EXTRA_APPROVAL_OR_MODEL.png"
+        },
+        {
+          "id": "G02_SHOW_ME_WHERE_REUSES_TARGET",
+          "status": "passed",
+          "screenshot": "G02_SHOW_ME_WHERE_REUSES_TARGET.png"
+        },
+        {
+          "id": "G03_SUPERSEDING_SLOW_REQUEST_POINTS_WITHOUT_ABORT_ERROR",
+          "status": "passed",
+          "screenshot": "G03_SUPERSEDING_SLOW_REQUEST_POINTS_WITHOUT_ABORT_ERROR.png"
+        },
+        {
+          "id": "G04_PRIVATE_TASK_DOES_NOT_DIVERT_POINTING_TO_FILE_SUMMARY",
+          "status": "passed",
+          "screenshot": "G04_PRIVATE_TASK_DOES_NOT_DIVERT_POINTING_TO_FILE_SUMMARY.png"
+        },
+        {
+          "id": "G05_AMBIGUOUS_FIELDS_CLARIFY_WITHOUT_FALSE_POINT",
+          "status": "passed",
+          "screenshot": "G05_AMBIGUOUS_FIELDS_CLARIFY_WITHOUT_FALSE_POINT.png"
+        },
+        {
+          "id": "G06_OFFSCREEN_TARGET_SCROLLS_AND_POINTS",
+          "status": "passed",
+          "screenshot": "G06_OFFSCREEN_TARGET_SCROLLS_AND_POINTS.png"
+        },
+        {
+          "id": "G07_NEW_CONVERSATION_DOES_NOT_REPLAY_CLEARED_REQUEST",
+          "status": "passed",
+          "screenshot": "G07_NEW_CONVERSATION_DOES_NOT_REPLAY_CLEARED_REQUEST.png"
+        },
+        {
+          "id": "G08_SHOW_ME_WHERE_USES_LATEST_QUESTION_AFTER_KNOWLEDGE_MODE",
+          "status": "passed",
+          "screenshot": "G08_SHOW_ME_WHERE_USES_LATEST_QUESTION_AFTER_KNOWLEDGE_MODE.png"
+        }
+      ],
+      "passed": 8,
+      "failed": 0,
+      "partial": 0,
+      "deferred": 0
+    },
+    {
+      "name": "Workflow server \u2192 copilot",
+      "method": "Actual SDK and WebSocket; synthetic policy/model adapter",
+      "path": "workflow-sdk/results.json",
+      "total": 13,
+      "cases": [
+        {
+          "id": "T02_EDIT_REPLACE_REJECT",
+          "status": "passed",
+          "detail": "New proposal applied; rejected proposal had no effect.",
+          "screenshot": "T02_EDIT_REPLACE_REJECT.png"
+        },
+        {
+          "id": "T02_TYPED_REVIEW_EDITORS",
+          "status": "passed",
+          "detail": "Typed editors replaced and applied fresh reviews for text, email, select, checkbox, radio, multi-select, date, number and textarea.",
+          "screenshot": "T02_TYPED_REVIEW_EDITORS.png"
+        },
+        {
+          "id": "R01_NATIVE_NOOP",
+          "status": "passed",
+          "detail": "Select/checkbox applied; repeated identical select emitted no change.",
+          "screenshot": "R01_NATIVE_NOOP.png"
+        },
+        {
+          "id": "R11_STALE_REVIEW_PARTIAL",
+          "status": "passed",
+          "detail": "Human edit retained; stale approval refused.",
+          "screenshot": "R11_STALE_REVIEW_PARTIAL.png"
+        },
+        {
+          "id": "T03_PERSISTENT_ERROR",
+          "status": "passed",
+          "detail": "An unrelated successful action did not erase the unresolved task error.",
+          "screenshot": "T03_PERSISTENT_ERROR.png"
+        },
+        {
+          "id": "T01_STOP_PLANNING",
+          "status": "passed",
+          "detail": "Stopped inference produced no review or host effect.",
+          "screenshot": "T01_STOP_PLANNING.png"
+        },
+        {
+          "id": "R06_MISSING_FIELDS_SAVE",
+          "status": "passed",
+          "detail": "Save blocked by actual host validity, with field-specific categories.",
+          "screenshot": "R06_MISSING_FIELDS_SAVE.png"
+        },
+        {
+          "id": "R09_SAVED_ACK_LOST_NO_REPLAY",
+          "status": "passed",
+          "detail": {
+            "records": 1,
+            "dispatches": 1,
+            "outcome": "unknown",
+            "fault": "Existing host persisted the record; browser response was deliberately dropped. No retry or false saved claim."
+          },
+          "screenshot": "R09_SAVED_ACK_LOST_NO_REPLAY.png"
+        },
+        {
+          "id": "R03_DEPENDENT_REVIEWS",
+          "status": "passed",
+          "detail": "Three dependent stages received fresh snapshots and separate visitor approvals.",
+          "screenshot": "R03_DEPENDENT_REVIEWS.png"
+        },
+        {
+          "id": "R13_WS_CUSTOMER_NOTE_OPPORTUNITY",
+          "status": "passed",
+          "detail": {
+            "commands": 11,
+            "savedRecords": 3,
+            "proof": "Independent host readback; host_reported_saved remains the connector contract",
+            "policy": "simulated in this isolated coordinator"
+          },
+          "screenshot": "R13_WS_CUSTOMER_NOTE_OPPORTUNITY.png"
+        },
+        {
+          "id": "R_VALID_JOURNEYS_30",
+          "status": "passed",
+          "detail": {
+            "journeys": 30,
+            "distinctTaskKinds": [
+              "text",
+              "email",
+              "region",
+              "select",
+              "checkbox",
+              "mixed native",
+              "opportunity",
+              "note",
+              "radio",
+              "multi-select"
+            ],
+            "freshVariantsPerKind": 3,
+            "planner": "deterministic; held-out LLM remains a separate gate",
+            "hostSubmissions": 0
+          },
+          "screenshot": "R_VALID_JOURNEYS_30.png"
+        },
+        {
+          "id": "OWNER_READINESS_UI",
+          "status": "passed",
+          "detail": "Real server-derived state in owner UI; saved-map reload and discovery setup link verified. Synthetic owner/registration, not fresh-owner DNS proof.",
+          "screenshot": "OWNER_READINESS_UI.png"
+        },
+        {
+          "id": "OWNER_MAP_CONTEXT",
+          "status": "passed",
+          "detail": "Form and field descriptions saved through owner UI, retained after reload, exported with navigation, re-imported and present in visitor planner guidance. Synthetic identity; actual LLM acceptance is separate.",
+          "screenshot": "OWNER_MAP_CONTEXT.png"
+        }
+      ],
+      "passed": 13,
+      "failed": 0,
+      "partial": 0,
+      "deferred": 0
+    },
+    {
+      "name": "Live semantic continuity",
+      "method": "Actual deployed maker/passive checker; local draft, no Save",
+      "path": "continuity-final-k/results.json",
+      "total": 13,
+      "cases": [
+        {
+          "id": "CONT01_CURRENT_SCREEN_IN_CONTEXT_NOT_GENERIC_DOCUMENT_TITLE",
+          "status": "passed",
+          "screenshot": "CONT01_CURRENT_SCREEN_IN_CONTEXT_NOT_GENERIC_DOCUMENT_TITLE.png"
+        },
+        {
+          "id": "CONT11_PLURAL_CONTROL_LOCATION_POINTS_WITHOUT_NAVIGATION",
+          "status": "passed",
+          "screenshot": "CONT11_PLURAL_CONTROL_LOCATION_POINTS_WITHOUT_NAVIGATION.png"
+        },
+        {
+          "id": "CONT12_NONKEYWORD_LOCATION_AND_UNIQUE_TYPO_STAY_READONLY",
+          "status": "passed",
+          "screenshot": "CONT12_NONKEYWORD_LOCATION_AND_UNIQUE_TYPO_STAY_READONLY.png"
+        },
+        {
+          "id": "CONT13_ACTION_WORD_IN_LABEL_DOES_NOT_ACTIVATE_SAVE",
+          "status": "passed",
+          "screenshot": "CONT13_ACTION_WORD_IN_LABEL_DOES_NOT_ACTIVATE_SAVE.png"
+        },
+        {
+          "id": "CONT02_PREPARE_AND_APPLY_SYNTHETIC_DRAFT",
+          "status": "passed",
+          "screenshot": "CONT02_PREPARE_AND_APPLY_SYNTHETIC_DRAFT.png"
+        },
+        {
+          "id": "CONT03_INTERPRETS_RECENT_CHANGES_WITHOUT_REPLAY",
+          "status": "passed",
+          "screenshot": "CONT03_INTERPRETS_RECENT_CHANGES_WITHOUT_REPLAY.png"
+        },
+        {
+          "id": "CONT04_CLEAR_NEW_FIELD_REQUEST_USES_NEW_TARGET",
+          "status": "passed",
+          "screenshot": "CONT04_CLEAR_NEW_FIELD_REQUEST_USES_NEW_TARGET.png"
+        },
+        {
+          "id": "CONT05_EXPLICIT_REPLY_DEFAULTS_TO_REPLIED_CONTEXT",
+          "status": "passed",
+          "screenshot": "CONT05_EXPLICIT_REPLY_DEFAULTS_TO_REPLIED_CONTEXT.png"
+        },
+        {
+          "id": "CONT06_NEW_CONVERSATION_DOES_NOT_REUSE_OLD_FIELDS",
+          "status": "passed",
+          "screenshot": "CONT06_NEW_CONVERSATION_DOES_NOT_REUSE_OLD_FIELDS.png"
+        },
+        {
+          "id": "CONT07_PENDING_REVIEW_IS_NOT_CLAIMED_AS_APPLIED",
+          "status": "passed",
+          "screenshot": "CONT07_PENDING_REVIEW_IS_NOT_CLAIMED_AS_APPLIED.png"
+        },
+        {
+          "id": "CONT08_SCREEN_LABEL_UPDATES_FOR_ANOTHER_FORM",
+          "status": "passed",
+          "screenshot": "CONT08_SCREEN_LABEL_UPDATES_FOR_ANOTHER_FORM.png"
+        },
+        {
+          "id": "CONT09_NAVIGATION_CONTINUITY_USES_NEW_FORM_CONTEXT",
+          "status": "passed",
+          "screenshot": "CONT09_NAVIGATION_CONTINUITY_USES_NEW_FORM_CONTEXT.png"
+        },
+        {
+          "id": "CONT10_UNRELATED_NEW_TARGET_DOES_NOT_REUSE_PREVIOUS_TARGET",
+          "status": "passed",
+          "screenshot": "CONT10_UNRELATED_NEW_TARGET_DOES_NOT_REUSE_PREVIOUS_TARGET.png"
+        }
+      ],
+      "passed": 13,
+      "failed": 0,
+      "partial": 0,
+      "deferred": 0
+    },
+    {
+      "name": "Live private history",
+      "method": "Actual deployed sessions/search; refresh, restore, modes and isolation",
+      "path": "history-final-k/results.json",
+      "total": 7,
+      "cases": [
+        {
+          "id": "HIST00_MODES_MINIMIZE_AND_EXPAND_KEEP_CHAT_AND_DRAFT",
+          "status": "passed",
+          "screenshot": "HIST00_MODES_MINIMIZE_AND_EXPAND_KEEP_CHAT_AND_DRAFT.png"
+        },
+        {
+          "id": "HIST01_PLUS_ARCHIVES_AND_STARTS_FRESH_CHAT",
+          "status": "passed",
+          "screenshot": "HIST01_PLUS_ARCHIVES_AND_STARTS_FRESH_CHAT.png"
+        },
+        {
+          "id": "HIST02_REFRESH_AND_RESUME_RESTORE_MESSAGES_WITHOUT_ACTION_REPLAY",
+          "status": "passed",
+          "screenshot": "HIST02_REFRESH_AND_RESUME_RESTORE_MESSAGES_WITHOUT_ACTION_REPLAY.png"
+        },
+        {
+          "id": "HIST06_RESTORED_CONTEXT_GUIDES_FRESH_CONTROL_WITHOUT_REPLAY",
+          "status": "passed",
+          "screenshot": "HIST06_RESTORED_CONTEXT_GUIDES_FRESH_CONTROL_WITHOUT_REPLAY.png"
+        },
+        {
+          "id": "HIST03_DIFFERENT_VISITOR_CANNOT_LIST_ARCHIVED_CHAT",
+          "status": "passed",
+          "screenshot": "HIST03_DIFFERENT_VISITOR_CANNOT_LIST_ARCHIVED_CHAT.png"
+        },
+        {
+          "id": "HIST04_WEBSITE_SCOPE_DENIES_COPIED_BROWSER_PROOF",
+          "status": "passed",
+          "screenshot": "HIST04_WEBSITE_SCOPE_DENIES_COPIED_BROWSER_PROOF.png"
+        },
+        {
+          "id": "HIST05_DELETE_REMOVES_ONLY_OWN_ARCHIVE",
+          "status": "passed",
+          "screenshot": "HIST05_DELETE_REMOVES_ONLY_OWN_ARCHIVE.png"
+        }
+      ],
+      "passed": 7,
+      "failed": 0,
+      "partial": 0,
+      "deferred": 0
+    },
+    {
+      "name": "Live goal regression",
+      "method": "Actual models; approved local saves + independent readback; public host writes blocked",
+      "path": "live-goals-final-k/results.json",
+      "total": 3,
+      "cases": [
+        {
+          "id": "LIVE_GOAL01_COMPLEX_CUSTOMER_NOTE_OPPORTUNITY_SAVED_AND_READ_BACK",
+          "status": "passed",
+          "detail": {
+            "approvals": 8,
+            "steps": [
+              {
+                "title": "Fill Customer Form",
+                "kind": "fill",
+                "instruction": "Fill the demo-form with Company name 'Goal UAT 1792457631930', Contact email 'goal.uat@example.test', and Region 'Singapore'.",
+                "expected": "Customer form filled with provided values.",
+                "status": "pending",
+                "effects": [],
+                "attempts": 0
+              },
+              {
+                "title": "Save Customer",
+                "kind": "save",
+                "instruction": "Save the synthetic record.",
+                "expected": "Customer record saved successfully.",
+                "status": "pending",
+                "effects": [],
+                "attempts": 0
+              },
+              {
+                "title": "Navigate to Note",
+                "kind": "navigate",
+                "instruction": "Navigate to the Note page.",
+                "expected": "Note page is displayed.",
+                "status": "pending",
+                "effects": [],
+                "attempts": 0
+              },
+              {
+                "title": "Fill Note",
+                "kind": "fill",
+                "instruction": "Set Title to 'Followup Goal UAT 1792457631930' and Body to 'Follow up with Goal UAT 1792457631930 about their renewal'.",
+                "expected": "Note filled with provided values.",
+                "status": "pending",
+                "effects": [],
+                "attempts": 0
+              },
+              {
+                "title": "Save Note",
+                "kind": "save",
+                "instruction": "Save the synthetic record.",
+                "expected": "Note record saved successfully.",
+                "status": "pending",
+                "effects": [],
+                "attempts": 0
+              },
+              {
+                "title": "Navigate to Opportunity",
+                "kind": "navigate",
+                "instruction": "Navigate to the Opportunity page.",
+                "expected": "Opportunity page is displayed.",
+                "status": "pending",
+                "effects": [],
+                "attempts": 0
+              },
+              {
+                "title": "Fill Opportunity",
+                "kind": "fill",
+                "instruction": "Set Opportunity name to 'Renewal Goal UAT 1792457631930', Amount to 12500, and Currency to 'USD'.",
+                "expected": "Opportunity filled with provided values.",
+                "status": "pending",
+                "effects": [],
+                "attempts": 0
+              },
+              {
+                "title": "Save Opportunity",
+                "kind": "save",
+                "instruction": "Save the synthetic record.",
+                "expected": "Opportunity record saved successfully.",
+                "status": "pending",
+                "effects": [],
+                "attempts": 0
+              }
+            ],
+            "marker": "Goal UAT 1792457631930",
+            "savedRecords": 3,
+            "independentReadback": true
+          },
+          "screenshot": "local/LIVE_GOAL01_COMPLEX_CUSTOMER_NOTE_OPPORTUNITY_SAVED_AND_READ_BACK.png"
+        },
+        {
+          "id": "LIVE_GOAL03_CLARIFICATION_CONTINUES_SAME_GOAL_BEFORE_FILL_OR_SAVE",
+          "status": "passed",
+          "detail": {
+            "approvals": 2,
+            "steps": [
+              {
+                "title": "Fill customer form",
+                "kind": "fill",
+                "instruction": "Set company name to Clarify Goal 1792457670834, contact email to clarification.uat@example.test, and region to Singapore.",
+                "expected": "Form fields are filled with the correct values.",
+                "status": "pending",
+                "effects": [],
+                "attempts": 0
+              },
+              {
+                "title": "Save customer record",
+                "kind": "save",
+                "instruction": "Save synthetic record",
+                "expected": "Record is successfully saved.",
+                "status": "pending",
+                "effects": [],
+                "attempts": 0
+              }
+            ],
+            "marker": "Clarify Goal 1792457670834",
+            "goalIdPreserved": true,
+            "writes": 1
+          },
+          "screenshot": "local/LIVE_GOAL03_CLARIFICATION_CONTINUES_SAME_GOAL_BEFORE_FILL_OR_SAVE.png"
+        },
+        {
+          "id": "LIVE_GOAL02_PUBLIC_FILTER_LOCATE_AND_SUMMARIZE_WITHOUT_SAVE",
+          "status": "passed",
+          "detail": {
+            "approvals": 1,
+            "steps": [
+              {
+                "title": "Fill MCP Search and Transport",
+                "kind": "fill",
+                "instruction": "Set the search field to 'genosys' and keep transport on 'All transports'.",
+                "expected": "Search field updated with 'genosys' and transport set to 'All transports'.",
+                "status": "pending",
+                "effects": [],
+                "attempts": 0
+              },
+              {
+                "title": "Inspect Search Results",
+                "kind": "inspect",
+                "instruction": "Show the matching Genosys provider in the loaded results and summarize its description.",
+                "expected": "Description of the matching Genosys provider is visible.",
+                "status": "pending",
+                "effects": [],
+                "attempts": 0
+              }
+            ],
+            "publicWrites": 0
+          },
+          "screenshot": "public/LIVE_GOAL02_PUBLIC_FILTER_LOCATE_AND_SUMMARIZE_WITHOUT_SAVE.png"
+        }
+      ],
+      "passed": 3,
+      "failed": 0,
+      "partial": 0,
+      "deferred": 0
+    },
+    {
+      "name": "Live pointer \u00b7 both sites",
+      "method": "Actual deployed direct location, no model needed",
+      "path": "live-guidance/results.json",
+      "total": 2,
+      "cases": [
+        {
+          "id": "LIVE_POINTER_LOCAL",
+          "status": "passed",
+          "screenshot": "LIVE_POINTER_LOCAL.png",
+          "hostWrites": 0,
+          "scope": "Actual deployed SDK and website session, automatic field guidance; no LLM needed for direct pointing"
+        },
+        {
+          "id": "LIVE_POINTER_PUBLIC",
+          "status": "passed",
+          "screenshot": "LIVE_POINTER_PUBLIC.png",
+          "hostWrites": 0,
+          "scope": "Actual deployed SDK and website session, automatic field guidance; no LLM needed for direct pointing"
+        }
+      ],
+      "passed": 2,
+      "failed": 0,
+      "partial": 0,
+      "deferred": 0
+    },
+    {
+      "name": "Loader recovery",
+      "method": "Actual public page; browser-intercepted initialization/config faults",
+      "path": "loader-recovery/results.json",
+      "total": 2,
+      "cases": [
+        {
+          "id": "LOADER_SDK_INITIALIZATION",
+          "status": "passed",
+          "screenshot": "sdk-initialization-recovered.png",
+          "retryScreenshot": "sdk-initialization-retry.png",
+          "hostWrites": 0
+        },
+        {
+          "id": "LOADER_PREVIEW_DOWNLOAD",
+          "status": "passed",
+          "screenshot": "preview-download-recovered.png",
+          "retryScreenshot": "preview-download-retry.png",
+          "hostWrites": 0
+        }
+      ],
+      "passed": 2,
+      "failed": 0,
+      "partial": 0,
+      "deferred": 0
+    },
+    {
+      "name": "Private storage and expiry",
+      "method": "Actual OpenSearch/extractor and expiry worker; isolated authority fixture",
+      "path": "private-content.json",
+      "total": 8,
+      "cases": [
+        {
+          "id": "STORAGE01_DISTINCT_WEBSITE_INDEXES",
+          "status": "passed",
+          "detail": "Existing verified local and public UAT registrations have separate temporary indexes; shared configured retention is 24h."
+        },
+        {
+          "id": "STORAGE02_PARSE_INDEX_RETRIEVE",
+          "status": "passed",
+          "detail": "Real extractor and OpenSearch passages returned for the owning live synthetic task; no full extraction retained in coordinator state."
+        },
+        {
+          "id": "STORAGE03_OTHER_VISITOR_DENIED",
+          "status": "passed",
+          "detail": "Different visitor cannot retrieve this task."
+        },
+        {
+          "id": "STORAGE04_END_REVOKES_ACCESS_BEFORE_RETENTION",
+          "status": "passed",
+          "detail": "End task blocks retrieval while physical synthetic passages await expiry."
+        },
+        {
+          "id": "STORAGE05_PRIVATE_CHAT_ROUNDTRIP_AND_SEGREGATION",
+          "status": "passed",
+          "detail": "Real website-index chat payload roundtrip, with different visitor and website denied by isolated lifecycle authority."
+        },
+        {
+          "id": "STORAGE06_EXPIRED_CONTENT_INACCESSIBLE",
+          "status": "passed",
+          "detail": "Controlled expired canary excluded immediately by server-built expiry filter, before physical deletion."
+        },
+        {
+          "id": "STORAGE07_DEPLOYED_EXPIRY_WORKER",
+          "status": "passed",
+          "detail": "Actual deployed one-minute cleanup worker removed the controlled expired canary and retained unexpired chat; no global clock/config changes. This is not a 24h wall-clock observation."
+        },
+        {
+          "id": "STORAGE08_DELETE_REVOKES_PRIVATE_CHAT",
+          "status": "passed",
+          "detail": "Synthetic archive deletion revokes metadata and removes only its scoped OpenSearch payload."
+        }
+      ],
+      "passed": 8,
+      "failed": 0,
+      "partial": 0,
+      "deferred": 0
+    }
+  ],
+  "scope": "Generic intent and plural/typo interpretation, read-only pointing versus activation, animated feedback, form/reply/new-task continuity, private conversation archive/restore, view preservation and per-website temporary content. Linux repeats are not double counted.",
+  "limitations": [
+    "This is scoped acceptance, not full Phase 1/2 certification. The broader pre-existing ledger remains 14 passed / 16 partial / 2 deferred; native Safari/iOS/Android and full screen-reader checks are deferred by user instruction.",
+    "Read-only targets can highlight buttons, menus, links and rendered content. Arbitrary button/menu execution is not supported. Navigation, field changes and owner-bound Save retain their existing reviews and policies.",
+    "The WebSocket regression exercises the real SDK/server command path with an isolated synthetic policy/model adapter. No new signed-in Flolah workflow-runner autonomous grant was used in this release.",
+    "The real three-form model test explicitly approves local browser effects, then independently reads the saved records. Public flolah.cloud host submissions are blocked.",
+    "Private-storage component authority metadata is isolated; actual browser session/origin/website/visitor entitlement is separately covered by HTTP and live history tests.",
+    "The cleanup worker deleted a controlled expired canary. A new 24-hour wall-clock retention interval was not observed. Ended/expired content is denied before physical cleanup.",
+    "Index provisioning occurs after successful verification and before activation. Pending/unverified registrations allocate no indexes. Existing approved UAT websites do not prove fresh-owner DNS/email onboarding without prior registration."
+  ]
+}

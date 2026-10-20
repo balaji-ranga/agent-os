@@ -37,8 +37,9 @@ export function validateSnapshot(snapshot) {
   const formKeys=new Set(),forms=(snapshot.forms||[]).map(form=>{
     if(!form||!/^[a-zA-Z][a-zA-Z0-9_-]{0,79}$/.test(form.key)||formKeys.has(form.key)||typeof form.label!=='string'||form.label.length>160||!Array.isArray(form.fields)||form.fields.length>60||form.fields.some(key=>!fields.some(f=>f.key===key&&f.form===form.key)))invalid();formKeys.add(form.key);return {key:form.key,label:form.label,fields:[...new Set(form.fields)]};
   });
+  let recentActivity;if(snapshot.recentActivity!==undefined){const r=snapshot.recentActivity;if(!r||!['prepared','applied'].every(key=>Array.isArray(r[key])&&r[key].length<=10&&new Set(r[key]).size===r[key].length&&r[key].every(ref=>typeof ref==='string'&&/^r\d+f\d+$/.test(ref)))||!['unavailablePrepared','unavailableApplied'].every(key=>Number.isSafeInteger(r[key])&&r[key]>=0&&r[key]<=10))invalid();recentActivity={prepared:r.prepared.filter(ref=>fields.some(f=>f.ref===ref)),applied:r.applied.filter(ref=>fields.some(f=>f.ref===ref)),unavailablePrepared:Math.min(10,r.unavailablePrepared+r.prepared.filter(ref=>!fields.some(f=>f.ref===ref)).length),unavailableApplied:Math.min(10,r.unavailableApplied+r.applied.filter(ref=>!fields.some(f=>f.ref===ref)).length),authority:'Browser-local advisory field identities only; never values, save proof or execution permission'};}
   let lastOutcome;if(snapshot.lastOutcome!==undefined){const value=snapshot.lastOutcome;if(!value||typeof value.path!=='string'||value.path.length>300||!['prepared','local_state_verified','host_reported_saved','business_verified','unknown','rejected'].includes(value.outcome)||value.lookupOnly!==undefined&&typeof value.lookupOnly!=='boolean'||!Number.isSafeInteger(value.applied)||value.applied<0||value.applied>10||!Array.isArray(value.actionTypes)||value.actionTypes.length>10||value.actionTypes.some(type=>!['fill','highlight','navigate','submit'].includes(type)))invalid();lastOutcome={path:value.path,outcome:value.outcome,applied:value.applied,actionTypes:[...value.actionTypes],...(value.lookupOnly===true?{lookupOnly:true}:{}),authority:'Untrusted browser observation; never permission to execute'};}
-  return { revision:snapshot.revision,fields,forms,links,submissions,screen,path,...(lastOutcome?{lastOutcome}:{}),...(targets.length?{targets,domScope:'Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.'}:{}) };
+  return { revision:snapshot.revision,fields,forms,links,submissions,screen,path,...(recentActivity?{recentActivity}:{}),...(lastOutcome?{lastOutcome}:{}),...(targets.length?{targets,domScope:'Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.'}:{}) };
 }
 
 // Authorization scope must come from SessionAuthority.context, never the model.
@@ -70,7 +71,8 @@ export function createProposalStore(repository, { clock = Date.now,checkBinding=
     prepare(scope, snapshot, response, binding=null,{allowSubmit=false}={}) {
       const observed = validateSnapshot(snapshot);
       if (!scope?.sessionId || !scope.embeddingId || !response || typeof response.message !== 'string' || response.message.length > 4000 ||
-          !Array.isArray(response.actions) || response.actions.length > 10 || Object.keys(response).some(k => !['message','actions'].includes(k))) invalid();
+          !Array.isArray(response.actions) || response.actions.length > 10 || Object.keys(response).some(k => !['intent','message','actions'].includes(k))) invalid();
+      if(response.intent!==undefined&&(!['guide','explain','edit','navigate','clarify'].includes(response.intent)||response.actions.some(a=>!({guide:['highlight'],explain:[],edit:['fill'],navigate:['navigate'],clarify:[]}[response.intent]).includes(a.type))))invalid();
       const used = new Set();
       const actions = response.actions.map(action => {
         if(action.type==='submit'){
@@ -86,7 +88,7 @@ export function createProposalStore(repository, { clock = Date.now,checkBinding=
         }
         const field = observed.fields.find(f=>f.ref===action.ref);
         if(action.type==='highlight'){
-          const target=field||observed.targets?.find(t=>t.ref===action.ref);if(!target||used.has(action.ref)||Object.keys(action).some(k=>!['type','ref'].includes(k)))invalid();used.add(action.ref);return {type:'highlight',ref:target.ref,label:target.label};
+          const target=field||observed.targets?.find(t=>t.ref===action.ref)||observed.links.find(l=>l.ref===action.ref);if(!target||used.has(action.ref)||Object.keys(action).some(k=>!['type','ref'].includes(k)))invalid();used.add(action.ref);return {type:'highlight',ref:target.ref,label:target.label};
         }
         if(field?.type==='checkbox'&&!['true','false'].includes(action.value))invalid();
         if (!field || used.has(action.ref) || action.type !== 'fill' || typeof action.value !== 'string' || action.value.length > 8000 ||

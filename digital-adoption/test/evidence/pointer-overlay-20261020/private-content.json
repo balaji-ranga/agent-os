@@ -1,0 +1,53 @@
+{
+  "at": "2026-10-20T00:37:24.979Z",
+  "scope": "Actual private-search/extractor components; isolated synthetic authority metadata and existing UAT registration reads only. Browser origin/session proof tested separately.",
+  "cases": [
+    {
+      "id": "STORAGE01_DISTINCT_WEBSITE_INDEXES",
+      "status": "passed",
+      "detail": "Existing verified local and public UAT registrations have separate temporary indexes; shared configured retention is 24h."
+    },
+    {
+      "id": "STORAGE02_PARSE_INDEX_RETRIEVE",
+      "status": "passed",
+      "detail": "Real extractor and OpenSearch passages returned for the owning live synthetic task; no full extraction retained in coordinator state."
+    },
+    {
+      "id": "STORAGE03_OTHER_VISITOR_DENIED",
+      "status": "passed",
+      "detail": "Different visitor cannot retrieve this task."
+    },
+    {
+      "id": "STORAGE04_END_REVOKES_ACCESS_BEFORE_RETENTION",
+      "status": "passed",
+      "detail": "End task blocks retrieval while physical synthetic passages await expiry."
+    },
+    {
+      "id": "STORAGE05_PRIVATE_CHAT_ROUNDTRIP_AND_SEGREGATION",
+      "status": "passed",
+      "detail": "Real website-index chat payload roundtrip, with different visitor and website denied by isolated lifecycle authority."
+    },
+    {
+      "id": "STORAGE06_EXPIRED_CONTENT_INACCESSIBLE",
+      "status": "passed",
+      "detail": "Controlled expired canary excluded immediately by server-built expiry filter, before physical deletion."
+    },
+    {
+      "id": "STORAGE07_DEPLOYED_EXPIRY_WORKER",
+      "status": "passed",
+      "detail": "Actual deployed one-minute cleanup worker removed the controlled expired canary and retained unexpired chat; no global clock/config changes. This is not a 24h wall-clock observation."
+    },
+    {
+      "id": "STORAGE08_DELETE_REVOKES_PRIVATE_CHAT",
+      "status": "passed",
+      "detail": "Synthetic archive deletion revokes metadata and removes only its scoped OpenSearch payload."
+    }
+  ],
+  "indexes": [
+    "adoption-private-site-v2-7754be31962eb31eb7ac84aff242e71c",
+    "adoption-private-site-v2-3463cb9d1022be2ee6c92afa78ddf5a8"
+  ],
+  "retentionHours": 24,
+  "physical24HourElapsedObservation": "not performed; controlled expired canary proves worker path",
+  "hostWrites": 0
+}

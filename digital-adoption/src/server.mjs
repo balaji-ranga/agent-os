@@ -1,3 +1,4 @@
+import {createConversationHistory} from './conversation-history.mjs';
 import {goalAuthorization} from './goal-store.mjs';
 import {handleGoal} from './goal-service.mjs';
 import {MODEL_CLIENT_TIMEOUT_MS,MODEL_SESSION_TIMEOUT_MS} from '../web/model-timeouts.mjs';
@@ -41,7 +42,9 @@ const assets = new Map([
   ['/sdk.mjs', ['../web/sdk.mjs', 'text/javascript']],
   ['/theme.mjs', ['../web/theme.mjs', 'text/javascript']],
   ['/session-client.mjs', ['../web/session-client.mjs', 'text/javascript']],
+  ['/conversation-ui.mjs',['../web/conversation-ui.mjs','text/javascript']],
   ['/dom.mjs', ['../web/dom.mjs', 'text/javascript']],
+  ['/pointer-overlay.mjs', ['../web/pointer-overlay.mjs', 'text/javascript']],
   ['/activation.mjs', ['../web/activation.mjs', 'text/javascript']],
   ['/page-observer.mjs', ['../web/page-observer.mjs', 'text/javascript']],
   ['/form-submit.mjs', ['../web/form-submit.mjs', 'text/javascript']],
@@ -72,7 +75,7 @@ async function body(req,limit=32_768) {
   return parsed;
 }
 
-export function createAdoptionServer({ goals,goalModel,authority, proposals, planner, knowledge, ingestion, learning, coaching, discovery, sourceMap,hostIdentity, answer, management, ownerIdentity, ownerManagement, platformOrigin,telemetry,privateTasks,taskWebsite,analytics,uploadAdmission,uploadProxyAddresses=[],capacity={}, development = false, fixture = null }) {
+export function createAdoptionServer({ goals,goalModel,conversations=createConversationHistory(),authority, proposals, planner, knowledge, ingestion, learning, coaching, discovery, sourceMap,hostIdentity, answer, management, ownerIdentity, ownerManagement, platformOrigin,telemetry,privateTasks,taskWebsite,analytics,uploadAdmission,uploadProxyAddresses=[],capacity={}, development = false, fixture = null }) {
   const budget=createRequestBudget();
   const managementPerIp=capacity.managementPerIp??600;if(!Number.isInteger(managementPerIp)||managementPerIp<30||managementPerIp>6000)throw new Error('Invalid management network capacity');
   const modelSlots=createConcurrencyBudget({global:capacity.modelConcurrency??25,perDomain:capacity.modelPerDomain??5}),searchSlots=createConcurrencyBudget({global:capacity.searchConcurrency??25,perDomain:capacity.searchPerDomain??5});
@@ -148,7 +151,7 @@ export function createAdoptionServer({ goals,goalModel,authority, proposals, pla
       }
       const mapObservation=['/v1/learning/observe','/v1/discovery/observe'].includes(path);
       if(mapObservation){const sessionToken=/^Bearer (\S+)$/.exec(req.headers.authorization||'')?.[1],access=authority.context({sessionToken,origin});if(!access.capabilities.coach)throw new Error('Coaching permission required');budget.take(`map-observe:${access.sessionId}`,60);}
-      const input = await body(req,fileUpload?uploadBodyLimit:mapRefresh?512_000:mapObservation?256_000:32_768);clearTimeout(uploadReadTimer);
+      const input = await body(req,fileUpload?uploadBodyLimit:path.startsWith('/v1/conversations/')?131072:mapRefresh?512_000:mapObservation?256_000:32_768);clearTimeout(uploadReadTimer);
       let result;
       if(path.startsWith('/v1/owner/')){
         if(!ownerIdentity||origin!==platformOrigin)return send(403,{error:'Access denied'});
@@ -178,8 +181,20 @@ export function createAdoptionServer({ goals,goalModel,authority, proposals, pla
         // as successful responses, rather than receiving an opaque CORS error.
         res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin');
         if(path.startsWith('/v1/analytics/')){if(!analytics)throw new Error('Analytics unavailable');if(path==='/v1/analytics/policy')result=analytics.policy(scope);else if(path==='/v1/analytics/consent')result=analytics.consent(scope,input,req);else if(path==='/v1/analytics/events'){budget.take(`analytics:${scope.sessionId}`,60);result=analytics.collect(scope,input);authority.touch(auth);}else throw new Error('Unknown analytics operation');}
-        else if (path === '/v1/history') result = { messages: authority.history(auth) };
-        else if(path==='/v1/capabilities')result={requestTimeoutMs,executionContractVersion:2,goalPlanning:!!(goals&&goalModel),capabilities:scope.capabilities,uploadLimits:{...uploads.publicLimits(),fileBytes:Math.min(privateTasks?.limits?.fileBytes||16777216,taskWebsite?.(scope.embeddingId)?.taskPolicy?.limits?.fileBytes||16777216)},taskPolicy:privateTasks?taskWebsite?.(scope.embeddingId)?.taskPolicy||{}:{},learningEnabled:learning?.learningEnabled?.(scope)===true};
+        else if (path === '/v1/history') result = { messages: authority.history(auth),conversationVersion:scope.conversationVersion };
+        else if(path.startsWith('/v1/conversations/')){
+          budget.take(`conversations:${scope.sessionId}`,30);const operation=path.split('/').at(-1);
+          if(operation==='list')result=conversations.list(scope,input);
+          else if(operation==='delete')result=await conversations.remove(scope,input);
+          else if(operation==='archive'||operation==='resume'){
+            const target=operation==='resume'?await conversations.read(scope,input):null;
+            if(input.expectedVersion!==scope.conversationVersion)throw new Error('Conversation changed. Refresh history before switching.');
+            const archived=await conversations.archive(scope,{...input,messages:input.messages||authority.history(auth)});
+            authority.context(auth);if(archived.reused&&operation==='archive'){result={...archived,messages:authority.history(auth),conversationVersion:scope.conversationVersion};}
+            else {privateTasks?.endSession(scope);goals?.clear(scope);authority.clearConversation(auth);if(target){const restored=authority.restoreConversation(auth,target.messages);result={...restored,id:target.id,expiresAt:target.expiresAt,resumed:true,archived};}else result={...archived,conversationVersion:authority.context(auth).conversationVersion};}
+          }else throw new Error('Unknown private history operation');
+        }
+        else if(path==='/v1/capabilities')result={privateRetentionHours:conversations.retentionMs/3600000,requestTimeoutMs,executionContractVersion:2,goalPlanning:!!(goals&&goalModel),capabilities:scope.capabilities,uploadLimits:{...uploads.publicLimits(),fileBytes:Math.min(privateTasks?.limits?.fileBytes||16777216,taskWebsite?.(scope.embeddingId)?.taskPolicy?.limits?.fileBytes||16777216)},taskPolicy:privateTasks?taskWebsite?.(scope.embeddingId)?.taskPolicy||{}:{},learningEnabled:learning?.learningEnabled?.(scope)===true};
         else if(path.startsWith('/v1/goals/')){
           const operation=path.split('/').at(-1);if(['create','next','observe','clarify'].includes(operation)){budget.take(`model:${scope.embeddingId}`);releaseModel=modelSlots.acquire(scope.embeddingId);}
           authority.touch(auth);result=await handleGoal({operation,scope,input,goals,goalModel,planner,proposals,privateTasks,sourceMap,learning,signal:requestController.signal,stillCurrent:()=>{const current=authority.context(auth);if(current.conversationVersion!==scope.conversationVersion||goalAuthorization({...current,websiteRevision:taskWebsite?.(current.embeddingId)?.configurationRevision||0})!==goalAuthorization(scope))throw Object.assign(new Error('Website access changed; goal response discarded.'),{publicCode:'GOAL_STALE'});}});
@@ -193,7 +208,7 @@ export function createAdoptionServer({ goals,goalModel,authority, proposals, pla
           if(['plan','summary','commandPlan'].includes(action))releaseModel=modelSlots.acquire(scope.embeddingId);
           if(!['status','pairStatus'].includes(action))authority.touch(auth);
           if(['end','remove'].includes(action))goals?.clear(scope);
-          result=await privateTasks[action](scope,['plan','summary','commandPlan'].includes(action)?{...input,requestSignal:requestController.signal}:input,action==='upload'?uploadPermit:undefined);
+          result=await privateTasks[action](scope,['plan','summary','commandPlan'].includes(action)?{...input,authorizedReplyContext:authority.history(auth).find(m=>m.id===input.replyTo&&(m.channel||'guide')==='guide')?.text,requestSignal:requestController.signal}:input,action==='upload'?uploadPermit:undefined);
         }
         else if(path==='/v1/learning/complete'){
           if(!learning?.learningEnabled(scope)||input.consent!==true)result={created:false};
@@ -254,7 +269,7 @@ export function createAdoptionServer({ goals,goalModel,authority, proposals, pla
           if (!proposals) return send(503,{ error:'Model assistance is not configured' });
           if (typeof input.text !== 'string' || !input.text.trim() || input.text.length > 8000) throw new Error('Invalid request');
           const snapshot=constrainEdit(input.text,constrainNavigation(input.text,validateSnapshot(input.snapshot)));
-          const pointing=fieldGuidance(input.text,snapshot,authority.history(auth).filter(m=>(m.channel||'guide')==='guide'));
+          const pointing=input.replyTo?null:fieldGuidance(input.text,snapshot,authority.history(auth).filter(m=>(m.channel||'guide')==='guide'));
           if(!pointing){budget.take(`model:${scope.embeddingId}`);releaseModel=modelSlots.acquire(scope.embeddingId);if(!planner)return send(503,{error:'Model assistance is not configured'});}
           authority.touch(auth);
           authority.appendMessage({...auth,text:input.text,replyTo:input.replyTo??null});

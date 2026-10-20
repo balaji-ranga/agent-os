@@ -1,0 +1,367 @@
+[
+  {
+    "path": "src/action-attempts.mjs",
+    "sha256": "c0657b7855ee93cc3df9d84e882711cf478516ee6ca83b915f59b438cca131fd",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/assistant-contract.mjs",
+    "sha256": "d908aac7bd5f7c91eac792464209c5ce5c1bc3ace308137b3a9a52858d740d57",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/blob-store.mjs",
+    "sha256": "0a5ff97d748d7530ebd368f89ad316735ad6f47767ed3338afe49fa5f9101863",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/coaching-grants.mjs",
+    "sha256": "400d4adee555467fed3c25b27b16f970870ad33a600058ed973b2dfde566a92e",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/control-plane.mjs",
+    "sha256": "7f924cf433e996d7df0fb2eb3fbf339d6dd3c74d3f8f5a6637104930ac971637",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/conversation-history.mjs",
+    "sha256": "a62b05a124791aad71182c890c77ba414b6950f3a6afecc8f533884ee7334ee1",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/dev.mjs",
+    "sha256": "68cbab7f403184400f67f7f414eef9269efa997b6ae7a62c113d719f05dca7a7",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/discovery-jobs.mjs",
+    "sha256": "c4da04b80dc1126c17886b5ae605929db571813820173f3a5189aeb10701ca6a",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/discovery.mjs",
+    "sha256": "88943dc51274b177d2551371b466f7420be52366a2197e0c2db193c80061b8a6",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/document-extractor.mjs",
+    "sha256": "a7cefb1cca027751f2b34795e0aafe58277bfd4356825a555f3616a87ca532b0",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/domain-inventory.mjs",
+    "sha256": "b31022b75722377232b871e942e3a77b80bb845ace9020222407aabc63db57ba",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/edit-intent.mjs",
+    "sha256": "9b09aedc0d8e17c82809bb09b9c303249b7afb6f866362a4babcbba9299663cb",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/evidence-quotation.mjs",
+    "sha256": "f02e19a215a1eb0c3faa1224c9a5fbe52fe921477146e848cc3b80ebe7ae833c",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/extract-document.py",
+    "sha256": "98b270bfee0c08f9b2ea92e562ce6be6eb0fb7812d7e9a848ea523aefa2671f6",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/field-guidance.mjs",
+    "sha256": "5f94a90a7d50995b57001f5d6f86eb67118e80794f87a580c9c55249d9ea4207",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/goal-contract.mjs",
+    "sha256": "a3dd30ed4bc44948daba89e3bbfd437f3ef3c8112cd10be2e2f88e4a159783ce",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/goal-model.mjs",
+    "sha256": "1052c5504942fe8cfae4011dcdac6f2ddc7656ba5769ef2d2b01193be2f1ca96",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/goal-service.mjs",
+    "sha256": "6c38d8bf680c424b2bf6e32e9511c02fbdcd818dc9bf90856eeba7c954813cb8",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/goal-store.mjs",
+    "sha256": "dd8c71c973adc92546b5e6715a83c769c5b75708e4e496f6c061565ec8d4ad3e",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/host-identity.mjs",
+    "sha256": "ec21111a8f8965db42f1cc86a825fa4c84a5a75e9dd9ce21a4e25ad3354592a3",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/ingestion-worker.mjs",
+    "sha256": "30371c65274bf4996bf1d0ee5304559c6c34ccb2257ec5b0e9f93d05337cc63a",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/install-snippet.mjs",
+    "sha256": "f874996c42f32e2ec5110246ceef8b16b948be579aa65150259c8cd8f6534040",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/knowledge-answer.mjs",
+    "sha256": "906f9d816e982affbe939b475311a7dc85bc777df62309b66ce2c98961fb71da",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/knowledge-scope.mjs",
+    "sha256": "b3ccee785e15ba35c773cacc38e717cde71accf6dd0fa3fd5c90725a7291cb52",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/knowledge-service.mjs",
+    "sha256": "31c0f1816cebd776bcc3277bd4bf5b2657c03916664cea019cfad90a6d4d1dc5",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/learning-intent.mjs",
+    "sha256": "d06b0ac2d59b253e5d07bd2d67c11092b357e3f7742d5c3886015adbf53c2058",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/learning-runtime.mjs",
+    "sha256": "fb039cd493f7cc8836c1b2e7b04ded3f13d6da8d59488745fc3a260df0ddb89b",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/learning-store.mjs",
+    "sha256": "4cb39d3c16f9b1e25574ec632e2b056c92c3f18b27166f6ee802f20013b45873",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/live-transport.mjs",
+    "sha256": "c0ee6b4a3370e958ca5c6a05c8a142fd5527293914e6bb4ae5ac2452b8775202",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/local-parser.mjs",
+    "sha256": "a2b5fd91056990fb259845ca5f73265737142e59c3775a0e4779d8057b541455",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/local-vps-demo.mjs",
+    "sha256": "84ce45d3b41bdaad4d268225379ade3c4400035c6b0c675ef87918ba275be47d",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/mailer.mjs",
+    "sha256": "8fdc3cbe782fbd2c72b6f448adfbc98f94085e80ae5bdf1cde0fea4abaac80e3",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/management-identity.mjs",
+    "sha256": "47c69547fad3af5ddc0632b36e65b06f4c42fa70bd6bda8b53141050e10f3af4",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/management.mjs",
+    "sha256": "18a94583e1a57d910b36babe34d2e8953195b9bc618344212f3248557062c758",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/model-response.mjs",
+    "sha256": "1cc1529e2cf32b0a6cc0706efc42ba200f55c59757c2164be082adb6ba80b370",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/navigation-intent.mjs",
+    "sha256": "d82fa92a31c34c6b673cc3815741ca8950883d7f2e44a8d8042c6f03581f11d7",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/opensearch.mjs",
+    "sha256": "30b7439314d071639cd1005ce10f9040f0036775d7791b4756deae9cc194c4ee",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/operational-telemetry.mjs",
+    "sha256": "5b1935536e75080fd83a68d57af3691efbdf52881bbdde14ba49bcc161b9e2a6",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/owner-identity.mjs",
+    "sha256": "949ffb6255128f3d1cb79f0760ea3bdd80b15d86ba92035ff279acff3bb73b3f",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/pagination.mjs",
+    "sha256": "3bbff71fe9612c324d2bb97fc74fd7feec082603f9ec3f5ff8cb27f656e176d8",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/pairing-governance.mjs",
+    "sha256": "fa3064da4678afa4196b992a1d459b0bc618a3847ca33b535ca64e25a789247f",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/parser-broker.mjs",
+    "sha256": "e9932158099a7ab8699833bcae246e1a7184fb4b1069b5d1b54eef587f360b8a",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/planner-budget.mjs",
+    "sha256": "ed1c3fbdf602787c7180f5a59d06c99350d602b79f5cddb219645f5fb8c26df0",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/planning-memory.mjs",
+    "sha256": "19c222924d593e186e37340368e231fbe2af8f604d088eede010d35320421c42",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/platform-model.mjs",
+    "sha256": "9341cae00deb6f1376e5893a2d65d071c4252aac87404a95240f3a78c4c92591",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/private-field-evidence.mjs",
+    "sha256": "8541285e73c672482ee7cce4afda4c69034219a7f7a06a3567a4b8d61c91ee37",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/private-preview.mjs",
+    "sha256": "378e8caf302d3052bfe1959f4c2995025b93d96066187536030099a29c0b2626",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/private-task-search.mjs",
+    "sha256": "2342b0ff7252aa26f4f2e76139dcf85d2864be689f83db78bb4b926742c8ffd1",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/private-tasks.mjs",
+    "sha256": "04ae62e305f6582a71e55638a1e0702590384a4b9fdc0ef5410664dbe3c60c92",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/proposals.mjs",
+    "sha256": "92de3b5680126016e3e7d4cd311a2410e00898d86985cea44d9e126e80337533",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/public-url.mjs",
+    "sha256": "15fed78c2f720521a5687f7a914cd0392d8196b032c7c87507f0f030216f213c",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/registration-email.mjs",
+    "sha256": "f4ebd75286f3aa79ec226349cfd4eb21ee2b355b43466e9d9e7e1099a1252f44",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/repository.mjs",
+    "sha256": "8ab13e46a9a8dae6df856426dd0a88c8cf322759b4d75755703eda62f464dc72",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/request-budget.mjs",
+    "sha256": "0167bb2eebce52497ab7b41576f175d4dc4353418634a8d7b1dba643f37dc705",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/runtime.mjs",
+    "sha256": "c6ee0cc1f543e25a0028bf5fadc2a7e7a6ed68260dbf721fef09483316550c73",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/server.mjs",
+    "sha256": "f490225e32511004ff375d3e00ab0f0af23cebe4ea38a89010168ae99c6ef447",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/session-authority.mjs",
+    "sha256": "b544d2cd474aea76181e19b6c045117c62b8b22d8aea1fff233fcd16e4a1ac41",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/source-ingestion.mjs",
+    "sha256": "4948d038894b3c3c21c08e5357fe7d0be67550b508f2d12891ede65400717d16",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/source-map-structure.mjs",
+    "sha256": "0302d0a0b005d80fbf764b901f2e853187f90d529b293003555b8c7f3086e96a",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/source-map.mjs",
+    "sha256": "b4137599b984c4312f86897e92a0a368f165f76bd9e5806c394fcf3d0e8feb9d",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/task-intent.mjs",
+    "sha256": "de657d65ce9e2ad4085a4f130e39b1e75a50a4658e8bde77604d48bb3e1b38fc",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/upload-admission.mjs",
+    "sha256": "9c09d620357271418cfd154cccccfcc92ef419bb885048f564f6d4deec76fddd",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/visitor-analytics.mjs",
+    "sha256": "99d1c25b74062b9eaf5b84df6e43617be0d4f9e267f5558e423fc69681649ec7",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/website-private-search.mjs",
+    "sha256": "738edb9caa96cced22bdf03c337cab954fd3fae3b3b97651a14fff14c04099c8",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/worker-runtime.mjs",
+    "sha256": "908a83c6bdcfa57808528a2fed1e8c35b56fe663ec8de9020d4c2bd350208c7a",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "src/worker-server.mjs",
+    "sha256": "3d3ede99c231121418372c70ae1fa875ecf87c04d5353d7b92303cf41e84450d",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "integrations/checker-contract.mjs",
+    "sha256": "20d6113608abc8a1ec000f75220a3fe18b56e9b8a0ff6b9e6f8b08274bd0544c",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "integrations/gateway-settings.mjs",
+    "sha256": "b31f41b9bc8321ec22c3ad9e0c850dd957b3f2b24c9da5009972ca05b150cbf0",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "integrations/host-outcome-signer.mjs",
+    "sha256": "c8714eeab16591cebf61885ec59964a9b01d03fb3ffdc009649d4d8e0789a9b6",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "integrations/maker-checker.mjs",
+    "sha256": "15c618fa291185545b81af982f2eee53d3ce76c52e66cfdb930fdf7a881ecca3",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "integrations/model-gateway-server.mjs",
+    "sha256": "8b9d5e5d1836a9f0c5ad519c8a120fe8ed8052fddc6a62281f5d2496bd4cfe90",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "integrations/platform-gateway.mjs",
+    "sha256": "7be3e062c5c27b1b8050f24992c147c2e8cf7d485218da13527b828c8cb658db",
+    "sameAsModelAcceptanceK": true
+  },
+  {
+    "path": "integrations/provider-completion.mjs",
+    "sha256": "227bdc3846f2a72c9ce5ed27af69ffff8d8c5dfc8e5fa8d7bc4893091f0e6f56",
+    "sameAsModelAcceptanceK": true
+  }
+]

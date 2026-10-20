@@ -1,0 +1,17 @@
+{
+  "marker": "Clarify Goal 1792457195266",
+  "records": [
+    {
+      "id": "9d12e79b-a50e-4790-ac49-6e4783b463b0",
+      "path": "/customer",
+      "operationId": "44a27cb0-f4e8-46ac-8409-97b9cc411d57",
+      "values": {
+        "company_name": "Clarify Goal 1792457195266",
+        "contact_email": "clarification.uat@example.test",
+        "region": "Singapore"
+      },
+      "createdAt": "2026-10-20T00:46:56.890Z"
+    }
+  ],
+  "verification": "Independent local host GET readback; no field effects before the clarification was answered."
+}

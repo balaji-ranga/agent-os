@@ -24,12 +24,13 @@ export function createTaskController({inspector,request,onState=()=>{},storage,c
  const emit=(stage,detail={})=>{const state={stage,at:clock(),...detail};onState(state);progressSink?.(state);};
  return {
   get busy(){return busy;},
-  stop(){generation++;emit('cancelled');},
+  stop(){generation++;inspector.clearGuidance?.();emit('cancelled');},
   async execute(proposal,{active=()=>true,beforeAction=async()=>{},requiredOutcome='effect_observed',verifyOutcome,settle,onProgress}={}){
    if(busy)throw Object.assign(new Error('A task is already running. Stop it or wait for its result.'),{code:'TASK_BUSY'});
    busy=true;progressSink=onProgress;const start=clock(),token=generation,results=[];let dispatched=false;
    const check=()=>{if(!active()||token!==generation)throw new Error('Task stopped; remaining actions cancelled');if(clock()-start>=deadlineMs)throw new Error('Task deadline reached. Inspect the host before retrying.');};
    try{
+    if(proposal.actions.some(a=>a.type==='fill'))inspector.beginChanges?.();
     for(const [index,action]of proposal.actions.entries()){
      dispatched=false;check();emit('observing',{index,total:proposal.actions.length});await beforeAction(action);check();
      emit('authorizing',{index});

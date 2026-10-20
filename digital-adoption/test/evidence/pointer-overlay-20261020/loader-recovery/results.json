@@ -1,0 +1,20 @@
+{
+  "at": "2026-10-20T00:53:53.691Z",
+  "scope": "Actual deployed public page and loader; browser-only synthetic SDK/config failures. No server disruption, expiry change or public submission.",
+  "results": [
+    {
+      "id": "LOADER_SDK_INITIALIZATION",
+      "status": "passed",
+      "screenshot": "sdk-initialization-recovered.png",
+      "retryScreenshot": "sdk-initialization-retry.png",
+      "hostWrites": 0
+    },
+    {
+      "id": "LOADER_PREVIEW_DOWNLOAD",
+      "status": "passed",
+      "screenshot": "preview-download-recovered.png",
+      "retryScreenshot": "preview-download-retry.png",
+      "hostWrites": 0
+    }
+  ]
+}

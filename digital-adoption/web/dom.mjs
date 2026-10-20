@@ -1,3 +1,4 @@
+import {createPointerOverlay} from './pointer-overlay.mjs';
 import {pageTargets,targetText} from './page-targets.mjs';
 import {waitForHost} from './host-observation.mjs';
 import {requestedField} from './dependent-controls.mjs';
@@ -10,7 +11,12 @@ export function createInspector(document) {
   let revision = 0;
   let references = new Map();
   let navigation = new Map();
-  let cleanupHighlight=()=>{};
+  const pointer=createPointerOverlay(document);const cleanupHighlight=()=>pointer.clear();
+  let preparedFields=[],appliedFields=[];
+  const identity=record=>({element:record.element,label:record.label,type:record.type,rowIdentity:record.rowIdentity,form:record.element.form,path:document.location.pathname});
+  const current=record=>record.path===document.location.pathname&&record.element.isConnected&&record.form===record.element.form&&!excluded(record.element)&&visible(record.element)&&record.label===label(record.element)&&record.type===controlType(record.element)&&record.rowIdentity===rowIdentity(record.element);
+  function rememberReview(actions,expectedRevision){if(expectedRevision!==revision)return;const records=actions.filter(a=>a.type==='fill').map(a=>references.get(a.ref)).filter(Boolean);if(records.length)preparedFields=records.slice(0,10).map(identity);}
+  function recentActivity(fields){const resolve=records=>records.flatMap(record=>{if(!current(record))return [];const field=fields.find(f=>references.get(f.ref)?.element===record.element);return field?[field.ref]:[];});const prepared=resolve(preparedFields),applied=resolve(appliedFields);return {prepared,applied,unavailablePrepared:preparedFields.length-prepared.length,unavailableApplied:appliedFields.length-applied.length};}
   const excluded = e => e.closest('[data-adoption-private], [data-adoption-widget]') ||
     /password|hidden|file/.test(e.type || '') || /password|token|secret|otp|credit.?card|cvv|api.?key|access.?key|private.?key/i.test(`${e.name} ${e.id} ${e.autocomplete}`);
   const rendered = e => !e.hidden && e.getClientRects().length>0 && document.defaultView.getComputedStyle(e).visibility!=='hidden';
@@ -30,9 +36,9 @@ export function createInspector(document) {
   const label = e => (e.getAttribute('aria-label') || Array.from(e.labels || []).map(labelText).join(' ') || e.placeholder || e.name || e.id || '').trim().replace(/\s+/g,' ').slice(0,160);
   const rowIdentity=e=>{const row=e.closest('tr,[role=row]');if(!row)return null;const copy=row.cloneNode(true);for(const control of copy.querySelectorAll('input,textarea,select,button,[data-adoption-private]'))control.remove();return JSON.stringify([row.id,row.getAttribute('data-row-key'),row.getAttribute('data-key'),copy.textContent.trim().replace(/\s+/g,' ').slice(0,1000)]);};
   let approvedPaths=new Set();
-  const submit=createSubmitController(document,{visible,excluded,label});
+  const submit=createSubmitController(document,{visible,excluded,label,onActivate:e=>pointer.show(e,{label:label(e)||e.textContent.trim(),mode:'activate'})});
   function snapshot({inventory:includeInventory=false,task=''}={}) {
-    cleanupHighlight();
+    pointer.clearGuidance();
     revision++; references = new Map();navigation=new Map();
     const dialogs = [...document.querySelectorAll('[role="dialog"][aria-modal="true"],dialog[open]')].filter(visible);
     const root = dialogs.length === 1 ? dialogs[0] : document;
@@ -81,9 +87,13 @@ export function createInspector(document) {
     const unsupportedControls=[...root.querySelectorAll('input,textarea,select,[role="combobox"],[contenteditable="true"]')].filter(e=>visible(e)&&!excluded(e)&&(!supported(e)||e.isContentEditable)).length;
     const embeddedFrames=root.querySelectorAll('iframe:not([data-adoption-widget])').length;
     const manualNotice=openShadowRoots||unsupportedControls||embeddedFrames?`Manual controls remain on this page: ${unsupportedControls} unsupported controls, ${openShadowRoots} open shadow roots and ${embeddedFrames} embedded frames. This review covers supported native controls in the main page only. Closed shadow roots and controls requiring a trusted user gesture must be handled on the website.`:'';
-    return { revision, fields,forms, links,...(targets.length?{targets:targets.map(({ref,label,kind,role,state,snippet})=>({ref,label,kind,role,state,text:snippet})),domScope:'Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.'}:{}),...(inventory?{inventory}:{}),coverage:{fieldLimit:60,navigationLimit:30,visibleNativeControls:[...root.querySelectorAll('input,textarea,select')].filter(e=>visible(e)&&!excluded(e)).length,embeddedFrames,openShadowRoots,unsupportedControls,manualNotice},submissions:submit.snapshot(revision),navigationCandidates, screen:heading, path:document.location.pathname, ambiguousDialogs: dialogs.length > 1,blockedCount };
+    return { revision, fields,forms, links,...(task?{recentActivity:recentActivity(fields)}:{}),...(targets.length?{targets:targets.map(({ref,label,kind,role,state,snippet})=>({ref,label,kind,role,state,text:snippet})),domScope:'Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.'}:{}),...(inventory?{inventory}:{}),coverage:{fieldLimit:60,navigationLimit:30,visibleNativeControls:[...root.querySelectorAll('input,textarea,select')].filter(e=>visible(e)&&!excluded(e)).length,embeddedFrames,openShadowRoots,unsupportedControls,manualNotice},submissions:submit.snapshot(revision),navigationCandidates, screen:heading, path:document.location.pathname, ambiguousDialogs: dialogs.length > 1,blockedCount };
   }
-  function fill({ ref, value, query, select=true, expectedRevision, approved,active=()=>true }) {
+  function fill(args){
+    const record=references.get(args.ref),out=applyFill(args),remember=result=>{if(record&&result.dispatched===true&&result.valueObserved===true){const item=identity(record);appliedFields=appliedFields.filter(r=>r.element!==item.element);appliedFields.push(item);appliedFields=appliedFields.slice(-10);}return result;};
+    return out?.then?out.then(remember):remember(out);
+  }
+  function applyFill({ ref, value, query, select=true, expectedRevision, approved,active=()=>true }) {
     if (approved !== true || expectedRevision !== revision || typeof value !== 'string' || value.length > 8000) throw new Error('Review required');
     const record = references.get(ref), e = record?.element;
     if (!e || !e.isConnected || !visible(e) || excluded(e) || e.readOnly || e.value !== record.value || label(e) !== record.label || controlType(e) !== record.type) throw new Error('Screen changed; inspect and review again');
@@ -106,29 +116,29 @@ export function createInspector(document) {
     let expected=value;
     if(e.type==='checkbox'){
       if(!['true','false'].includes(value))throw new Error('Checkbox requires true or false');
-      expected=value==='true';if(e.checked===expected){references.delete(ref);return {dispatched:false,noOp:true,valueObserved:true,saved:false};}references.delete(ref);e.click();return {dispatched:true,valueObserved:e.checked===expected,saved:false};
+      expected=value==='true';if(e.checked===expected){references.delete(ref);return {dispatched:false,noOp:true,valueObserved:true,saved:false};}references.delete(ref);pointer.show(e,{label:record.label,mode:'activate'});e.click();return {dispatched:true,valueObserved:e.checked===expected,saved:false};
     }else if(record.radio){
       if(JSON.stringify(record.radio.map(r=>[r.value,r.checked,r.disabled,label(r)]))!==record.radioState)throw new Error('Radio group changed; inspect again');
       const choices=record.radio.filter(r=>r.isConnected&&visible(r)&&!excluded(r)&&(r.value===value||label(r).toLowerCase()===value.trim().toLowerCase()));
       if(choices.length!==1)throw new Error('Radio option not found or ambiguous; inspect again');
-      const noOp=choices[0].checked;references.delete(ref);if(!noOp)choices[0].click();return {dispatched:!noOp,noOp,valueObserved:choices[0].checked,saved:false};
+      const noOp=choices[0].checked;references.delete(ref);if(!noOp){pointer.show(choices[0],{label:label(choices[0]),mode:'activate'});choices[0].click();}return {dispatched:!noOp,noOp,valueObserved:choices[0].checked,saved:false};
     }else if(e.type==='select-multiple'){
       let values;try{values=JSON.parse(value);}catch{values=value.split(',').map(s=>s.trim());}
       if(!Array.isArray(values)||values.some(v=>typeof v!=='string'))throw new Error('Choose a list of option labels');
       const chosen=values.map(v=>[...e.options].filter(o=>!o.disabled&&(o.value===v||o.text.trim().toLowerCase()===v.toLowerCase())));
       if(chosen.some(c=>c.length!==1)||new Set(chosen.map(c=>c[0])).size!==chosen.length)throw new Error('Options not found or ambiguous; inspect again');
       if([...e.selectedOptions].length===chosen.length&&chosen.every(c=>c[0].selected)){references.delete(ref);return {dispatched:false,noOp:true,valueObserved:true,saved:false};}
-      references.delete(ref);for(const option of e.options)option.selected=chosen.some(c=>c[0]===option);
+      references.delete(ref);pointer.show(e,{label:record.label,mode:'apply'});for(const option of e.options)option.selected=chosen.some(c=>c[0]===option);
       e.dispatchEvent(new view.Event('input',{bubbles:true}));e.dispatchEvent(new view.Event('change',{bubbles:true}));references.delete(ref);
       return {dispatched:true,valueObserved:[...e.selectedOptions].length===chosen.length&&chosen.every(c=>c[0].selected),saved:false};
     }else if(e.type==='select-one'){
       const matches=[...e.options].filter(o=>!o.disabled&&(o.value===value||o.text.trim().toLowerCase()===value.trim().toLowerCase()));
       if(matches.length!==1)throw new Error('Option not found or ambiguous; select manually');
-      expected=matches[0].value;if(e.value===expected){references.delete(ref);return {dispatched:false,noOp:true,valueObserved:true,saved:false};}references.delete(ref);Object.getOwnPropertyDescriptor(view.HTMLSelectElement.prototype,'value').set.call(e,expected);
+      expected=matches[0].value;if(e.value===expected){references.delete(ref);return {dispatched:false,noOp:true,valueObserved:true,saved:false};}references.delete(ref);pointer.show(e,{label:record.label,mode:'apply'});Object.getOwnPropertyDescriptor(view.HTMLSelectElement.prototype,'value').set.call(e,expected);
     }else{
       if(e.value===value&&record.type!=='combobox'){references.delete(ref);return {dispatched:false,noOp:true,valueObserved:true,saved:false};}
       if(record.type==='combobox'){e.focus();if(!e.isConnected||!visible(e)||excluded(e))throw new Error('Picklist changed; inspect again');}
-      references.delete(ref);const prototype = e.tagName === 'TEXTAREA' ? view.HTMLTextAreaElement.prototype : view.HTMLInputElement.prototype;
+      references.delete(ref);pointer.show(e,{label:record.label,mode:'apply'});const prototype = e.tagName === 'TEXTAREA' ? view.HTMLTextAreaElement.prototype : view.HTMLInputElement.prototype;
       Object.getOwnPropertyDescriptor(prototype, 'value').set.call(e, record.type==='combobox'?(query??value):value);
     }
     e.dispatchEvent(new view.Event('input', { bubbles: true }));
@@ -148,7 +158,7 @@ export function createInspector(document) {
           if(candidate!==readyOption){readyOption=candidate;readyAt=Date.now();}
           if(candidate&&Date.now()-readyAt>=100){
             if(!active())throw new Error('Task stopped; no picklist option was selected');
-            candidate.click(); // Exactly one selection, never repeat a host effect.
+            pointer.show(candidate,{label:value,mode:'activate'});candidate.click(); // Exactly one selection, never repeat a host effect.
             for(let i=0;i<10;i++){
               if(!active())throw new Error('Task stopped after picklist selection. Inspect the website before continuing.');
               if(e.isConnected&&e.value.trim().toLowerCase()===value.trim().toLowerCase()&&(!candidate.isConnected||e.getAttribute('aria-expanded')==='false'||candidate.getAttribute('aria-selected')==='true'))return {dispatched:true,valueObserved:true,saved:false};
@@ -168,7 +178,7 @@ export function createInspector(document) {
     const record=navigation.get(ref),e=record?.element;
     if(!approved||expectedRevision!==revision||!e?.isConnected||!visible(e)||excluded(e)||e.href!==record.href||(e.getAttribute('aria-label')||e.textContent||'').trim().slice(0,160)!==record.label)throw new Error('Navigation changed; inspect again');
     if(hasDraft())throw new Error('This page has an edited draft. Save or discard it yourself before navigation.');
-    navigation.delete(ref);activateNavigation(e,activation);
+    navigation.delete(ref);pointer.show(e,{label:record.label,mode:'activate'});activateNavigation(e,activation);
     const expectedPath=new URL(record.href).pathname;
     for(let attempt=0;attempt<50;attempt++){
       if(document.location.pathname===expectedPath){await new Promise(resolve=>document.defaultView.requestAnimationFrame(resolve));return {navigated:true,expectedPath,verified:true};}
@@ -177,12 +187,10 @@ export function createInspector(document) {
     throw new Error('Navigation was not verified. Check the host page before continuing.');
   }
   function highlight({ref,expectedRevision}){
-    const record=references.get(ref),element=record?.element;
-    if(expectedRevision!==revision||!element?.isConnected||!(record.kind?rendered(element):visible(element))||excluded(element)||(record.kind?targetText(element,rendered)!==record.targetText:label(element)!==record.label))throw new Error('Guidance target changed; inspect again');
-    cleanupHighlight();element.scrollIntoView?.({block:'center',inline:'nearest'});const view=document.defaultView,marker=document.createElement('div'),caption=document.createElement('span');marker.dataset.adoptionWidget='true';marker.dataset.adoptionHighlight='true';marker.setAttribute('role','status');marker.style.cssText='box-sizing:border-box;position:fixed;pointer-events:none;z-index:2147483645;border:3px solid #3459cf;border-radius:6px;box-shadow:0 0 0 3px white';caption.textContent=`Next: ${record.label}`;caption.style.cssText='position:absolute;left:0;bottom:100%;max-width:300px;background:#172440;color:white;padding:4px 8px;border-radius:5px;font:13px system-ui;white-space:nowrap';marker.append(caption);
-    const position=()=>{if(!element.isConnected){cleanupHighlight();return;}const box=element.getBoundingClientRect();Object.assign(marker.style,{left:`${box.left-3}px`,top:`${box.top-3}px`,width:`${box.width+6}px`,height:`${box.height+6}px`});};
-    document.body.append(marker);position();view.addEventListener('scroll',position,true);view.addEventListener('resize',position);const timer=setTimeout(()=>cleanupHighlight(),10000);
-    cleanupHighlight=()=>{clearTimeout(timer);view.removeEventListener('scroll',position,true);view.removeEventListener('resize',position);marker.remove();cleanupHighlight=()=>{};};return {highlighted:true,wrote:false};
+    const record=references.get(ref)||navigation.get(ref),element=record?.element;
+    const matches=()=>!!element?.isConnected&&!excluded(element)&&(record.kind?rendered(element)&&targetText(element,rendered)===record.targetText:record.href?visible(element)&&element.href===record.href&&(element.getAttribute('aria-label')||element.textContent||'').trim().slice(0,160)===record.label:visible(element)&&label(element)===record.label);
+    if(expectedRevision!==revision||!matches())throw new Error('Guidance target changed; inspect again');
+    cleanupHighlight();element.scrollIntoView?.({block:'center',inline:'nearest',behavior:'instant'});pointer.show(element,{label:record.label,mode:'guide',valid:matches});return {highlighted:true,wrote:false};
   }
   function hasDraft(){return [...document.querySelectorAll('input,textarea,select')].some(field=>{
     if(field.closest('[data-adoption-widget]')||!visible(field)||submit.matchesSavedBaseline(field))return false;
@@ -204,5 +212,5 @@ export function createInspector(document) {
       return [{ref:action.ref,display:changed?'':display.slice(0,300),changed,matches}];
     });
   }
-  return { snapshot, fill, navigate,highlight,reviewValues,hasDraft,settle({active=()=>true,task=''}={}){const controls=[...document.querySelectorAll('input,select,textarea')].filter(e=>!excluded(e)&&e.getClientRects().length),labels=controls.map(label),waiting=controls.filter(e=>e.disabled&&requestedField(task,label(e),labels));return waitForHost({read:()=>({busy:[...document.querySelectorAll('[aria-busy=true]')].filter(e=>!excluded(e)&&e.getClientRects().length).length,ready:!waiting.length||waiting.some(e=>e.isConnected&&!e.disabled)}),ready:state=>!state.busy&&state.ready,active});},submit:submit.submit,setReadOnlyPaths(paths){if(!Array.isArray(paths)||paths.length>100||paths.some(p=>typeof p!=='string'||!/^\/(?!\/)[^?#\\]*$/.test(p)))throw new Error('Invalid read-only route scope');approvedPaths=new Set(paths);},destroy:()=>cleanupHighlight() };
+  return { snapshot, fill, navigate,highlight,rememberReview,recentSummary(){const records=appliedFields.length?appliedFields:preparedFields;return {phase:appliedFields.length?'applied':'prepared',path:records[0]?.path,labels:records.map(r=>r.label)};},beginChanges(){preparedFields=[];appliedFields=[];},discardReview(){preparedFields=[];},clearRecent(){preparedFields=[];appliedFields=[];},clearGuidance:cleanupHighlight,reviewValues,hasDraft,settle({active=()=>true,task=''}={}){const controls=[...document.querySelectorAll('input,select,textarea')].filter(e=>!excluded(e)&&e.getClientRects().length),labels=controls.map(label),waiting=controls.filter(e=>e.disabled&&requestedField(task,label(e),labels));return waitForHost({read:()=>({busy:[...document.querySelectorAll('[aria-busy=true]')].filter(e=>!excluded(e)&&e.getClientRects().length).length,ready:!waiting.length||waiting.some(e=>e.isConnected&&!e.disabled)}),ready:state=>!state.busy&&state.ready,active});},submit:submit.submit,setReadOnlyPaths(paths){if(!Array.isArray(paths)||paths.length>100||paths.some(p=>typeof p!=='string'||!/^\/(?!\/)[^?#\\]*$/.test(p)))throw new Error('Invalid read-only route scope');approvedPaths=new Set(paths);},destroy:()=>{preparedFields=[];appliedFields=[];cleanupHighlight();} };
 }

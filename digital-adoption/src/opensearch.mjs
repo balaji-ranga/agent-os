@@ -1,8 +1,8 @@
 import { knowledgeScope } from './knowledge-scope.mjs';
-import { createPrivateTaskSearch } from './private-task-search.mjs';
+import {createWebsitePrivateSearch} from './website-private-search.mjs';
 
 // URL and authorization are trusted deployment configuration, never client input.
-export function createOpenSearch({ url, authorization, fetchImpl = fetch, development = false, privateNetwork = false }) {
+export function createOpenSearch({ url, authorization, fetchImpl = fetch, development = false, privateNetwork = false,privateRetentionHours=24 }) {
   const base=new URL(url);
   const allowedHttp=base.protocol==='http:'&&((development&&['127.0.0.1','localhost'].includes(base.hostname))||(privateNetwork&&base.hostname==='opensearch'));
   if (base.username || base.password || base.search || base.hash || base.pathname !== '/' ||
@@ -18,7 +18,7 @@ export function createOpenSearch({ url, authorization, fetchImpl = fetch, develo
   const indexFor=embeddingId=>knowledgeScope({embeddingId,audienceIds:['public']}).index;
   const lexicalText=()=>({type:'text',fields:{english:{type:'text',analyzer:'english'}}});
   return {
-    privateTasks: createPrivateTaskSearch({ request }),
+    privateTasks: createWebsitePrivateSearch({request,retentionHours:privateRetentionHours}),
     async provision(embeddingId) {
       const index=indexFor(embeddingId);
       const exists=await fetchImpl(new URL(`/${index}`,base),{method:'HEAD',redirect:'error',signal:AbortSignal.timeout(15_000),headers:authorization?{Authorization:authorization}:{}});

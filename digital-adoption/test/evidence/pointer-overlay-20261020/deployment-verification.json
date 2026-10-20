@@ -1,0 +1,57 @@
+{
+  "at": "2026-10-20T00:53:22.983755+00:00",
+  "status": "passed",
+  "release": "20261020-pointer-l",
+  "containers": {
+    "flolah-adoption-adoption-1": {
+      "imageId": "sha256:29826887cab7d7d9e329d79e2e4270704a4084f4516d52958142d3bc8473d03d",
+      "image": "flolah-digital-adoption:20261020-pointer-l",
+      "startedAt": "2026-10-20T00:53:21.742574259Z",
+      "running": true,
+      "health": null
+    },
+    "flolah-adoption-adoption-model-gateway-1": {
+      "imageId": "sha256:6d62a249cec20bac5d37997a000f910b9492824caea00f2b67964a62126c4de5",
+      "image": "flolah-digital-adoption:20261020-pointer-k-gateway",
+      "startedAt": "2026-10-20T00:50:02.682089029Z",
+      "running": true,
+      "health": null
+    },
+    "flolah-adoption-adoption-worker-1": {
+      "imageId": "sha256:7133f95194a1df02b59712754b2b95a254528fa9ece34c4994647497dc052fe0",
+      "image": "flolah-digital-adoption:20261018-owner-workspace-c",
+      "startedAt": "2026-10-18T10:43:45.697774407Z",
+      "running": true,
+      "health": null
+    },
+    "flolah-adoption-adoption-worker-2": {
+      "imageId": "sha256:7133f95194a1df02b59712754b2b95a254528fa9ece34c4994647497dc052fe0",
+      "image": "flolah-digital-adoption:20261018-owner-workspace-c",
+      "startedAt": "2026-10-18T10:43:45.830124253Z",
+      "running": true,
+      "health": null
+    },
+    "agent-os-backend-1": {
+      "imageId": "sha256:92d085ae5a4a41182c35e018ff3e6d5119c6e6a97013799a51d350d729b67bf9",
+      "image": "agent-os-backend:adoption-help-20261020-pointer-h",
+      "startedAt": "2026-10-20T00:36:20.47864119Z",
+      "running": true,
+      "health": "healthy"
+    },
+    "agent-os-frontend-1": {
+      "imageId": "sha256:bf6aaf311d995a76f6ee4591d21241e07566954a26d83e380ae2d39c8ba54cb0",
+      "image": "agent-os-frontend:adoption-20261019-immediate-j",
+      "startedAt": "2026-10-19T11:40:25.829931383Z",
+      "running": true,
+      "health": "healthy"
+    }
+  },
+  "healthUrlsPassed": 4,
+  "parserWorkersPreserved": true,
+  "sharedCheckerSettingReadOnly": {
+    "enabled": true,
+    "checkerMode": "platform_inactive",
+    "checkerMaxTokens": 1536
+  },
+  "gatewayPatch": "Unchanged captured gateway"
+}

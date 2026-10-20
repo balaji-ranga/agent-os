@@ -1,0 +1,119 @@
+{
+  "at": "2026-10-19T23:55:54.136Z",
+  "source": "working-tree immediate phase",
+  "origin": "http://127.0.0.1:4194",
+  "dependencies": {
+    "planner": "deterministic fixture, not LLM",
+    "managementIdentity": "synthetic test adapter",
+    "dns": "not exercised",
+    "host": "existing loopback website"
+  },
+  "results": [
+    {
+      "id": "T02_EDIT_REPLACE_REJECT",
+      "status": "passed",
+      "detail": "New proposal applied; rejected proposal had no effect.",
+      "screenshot": "T02_EDIT_REPLACE_REJECT.png"
+    },
+    {
+      "id": "T02_TYPED_REVIEW_EDITORS",
+      "status": "passed",
+      "detail": "Typed editors replaced and applied fresh reviews for text, email, select, checkbox, radio, multi-select, date, number and textarea.",
+      "screenshot": "T02_TYPED_REVIEW_EDITORS.png"
+    },
+    {
+      "id": "R01_NATIVE_NOOP",
+      "status": "passed",
+      "detail": "Select/checkbox applied; repeated identical select emitted no change.",
+      "screenshot": "R01_NATIVE_NOOP.png"
+    },
+    {
+      "id": "R11_STALE_REVIEW_PARTIAL",
+      "status": "passed",
+      "detail": "Human edit retained; stale approval refused.",
+      "screenshot": "R11_STALE_REVIEW_PARTIAL.png"
+    },
+    {
+      "id": "T03_PERSISTENT_ERROR",
+      "status": "passed",
+      "detail": "An unrelated successful action did not erase the unresolved task error.",
+      "screenshot": "T03_PERSISTENT_ERROR.png"
+    },
+    {
+      "id": "T01_STOP_PLANNING",
+      "status": "passed",
+      "detail": "Stopped inference produced no review or host effect.",
+      "screenshot": "T01_STOP_PLANNING.png"
+    },
+    {
+      "id": "R06_MISSING_FIELDS_SAVE",
+      "status": "passed",
+      "detail": "Save blocked by actual host validity, with field-specific categories.",
+      "screenshot": "R06_MISSING_FIELDS_SAVE.png"
+    },
+    {
+      "id": "R09_SAVED_ACK_LOST_NO_REPLAY",
+      "status": "passed",
+      "detail": {
+        "records": 1,
+        "dispatches": 1,
+        "outcome": "unknown",
+        "fault": "Existing host persisted the record; browser response was deliberately dropped. No retry or false saved claim."
+      },
+      "screenshot": "R09_SAVED_ACK_LOST_NO_REPLAY.png"
+    },
+    {
+      "id": "R03_DEPENDENT_REVIEWS",
+      "status": "passed",
+      "detail": "Three dependent stages received fresh snapshots and separate visitor approvals.",
+      "screenshot": "R03_DEPENDENT_REVIEWS.png"
+    },
+    {
+      "id": "R13_WS_CUSTOMER_NOTE_OPPORTUNITY",
+      "status": "passed",
+      "detail": {
+        "commands": 11,
+        "savedRecords": 3,
+        "proof": "Independent host readback; host_reported_saved remains the connector contract",
+        "policy": "simulated in this isolated coordinator"
+      },
+      "screenshot": "R13_WS_CUSTOMER_NOTE_OPPORTUNITY.png"
+    },
+    {
+      "id": "R_VALID_JOURNEYS_30",
+      "status": "passed",
+      "detail": {
+        "journeys": 30,
+        "distinctTaskKinds": [
+          "text",
+          "email",
+          "region",
+          "select",
+          "checkbox",
+          "mixed native",
+          "opportunity",
+          "note",
+          "radio",
+          "multi-select"
+        ],
+        "freshVariantsPerKind": 3,
+        "planner": "deterministic; held-out LLM remains a separate gate",
+        "hostSubmissions": 0
+      },
+      "screenshot": "R_VALID_JOURNEYS_30.png"
+    },
+    {
+      "id": "OWNER_READINESS_UI",
+      "status": "passed",
+      "detail": "Real server-derived state in owner UI; saved-map reload and discovery setup link verified. Synthetic owner/registration, not fresh-owner DNS proof.",
+      "screenshot": "OWNER_READINESS_UI.png"
+    },
+    {
+      "id": "OWNER_MAP_CONTEXT",
+      "status": "passed",
+      "detail": "Form and field descriptions saved through owner UI, retained after reload, exported with navigation, re-imported and present in visitor planner guidance. Synthetic identity; actual LLM acceptance is separate.",
+      "screenshot": "OWNER_MAP_CONTEXT.png"
+    }
+  ],
+  "errors": []
+}

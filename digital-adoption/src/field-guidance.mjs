@@ -1,9 +1,10 @@
 // Grounded read-only location using fresh fields and task-scoped rendered targets.
-import {guidanceWords,locating,contentLookup} from '../web/guidance-intent.mjs';
+import {guidanceWords,locating,contentLookup,contextualReference,barePointing} from '../web/guidance-intent.mjs';
 export function fieldGuidance(text,snapshot,history=[]){
  if(!locating(text)||contentLookup(text))return null;
+ if(contextualReference(text)&&(!barePointing(text)||snapshot.recentActivity?.prepared?.length||snapshot.recentActivity?.applied?.length||snapshot.recentActivity?.unavailableApplied||snapshot.recentActivity?.unavailablePrepared))return null;
  // Content lookup stays with maker/checker; literal field location retains its read-only fast path.
- if(/\b(?:button|link|tab|menu)\b/i.test(text)&&!/\b(?:field|input|box|control|card|result)\b/i.test(text))return snapshot.targets?.length?null:{message:'I can point to supported form fields and rendered results here. Which input or result do you mean? Buttons, links and menus are not executable guidance targets.',actions:[]};
+ if(/\b(?:button|link|tab|menu)\b/i.test(text)&&!/\b(?:field|input|box|control|card|result)\b/i.test(text))return snapshot.targets?.length||snapshot.links?.length?null:{message:'I cannot identify that control in the current observation. Open the relevant screen or tell me its visible label.',actions:[]};
  let tokens=guidanceWords(text);
  if(!tokens.length){const previous=[...history].reverse().find(turn=>turn.role==='user'&&turn.text!==text&&guidanceWords(turn.text).length);if(previous)tokens=guidanceWords(previous.text);}
  if(!tokens.length)return {message:'Which field or result should I point to? Tell me its name or the text you see.',actions:[]};
