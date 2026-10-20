@@ -5,6 +5,7 @@ export function createTaskClient({
   request,
   service,
   inspect,
+  inspectPeer=inspect,
   onEvent,
   execute,
   hostIdentity,
@@ -88,6 +89,12 @@ export function createTaskClient({
           seen.clear();
           if (taskId === message.taskId) taskId = null;
           notify(message);
+          return;
+        }
+        if(message.type==='peer-result'){notify(message);return;}
+        if(message.type==='peer-request'){
+          taskId=message.taskId;notify(message);
+          if(message.mode==='inspect'){try{if(hostIdentity)await hostIdentity();await request('/v1/tasks/peer-answer',{instanceId,requestId:message.requestId,snapshot:inspectPeer(message.instruction)});}catch(error){notify({type:'peer-error',requestId:message.requestId,message:error.message});}}
           return;
         }
         if (message.type === 'task-shared') {
@@ -206,6 +213,8 @@ export function createTaskClient({
     throw error;
   });
   const api = {
+    adoptTask(id){if(typeof id==='string'&&id){taskId=id;notify({type:'task-active',taskId});}},
+    get instanceId(){return instanceId;},
     get taskScope(){return taskId&&instanceId?{taskId,instanceId}:null;},
     get taskId() {
       return taskId;
@@ -229,7 +238,7 @@ export function createTaskClient({
           taskId
         } : {})
       }).catch(error=>{if(error.code==='TASK_ENDED'&&taskId===requestedTaskId){taskId=null;generation++;seen.clear();notify({type:'task-ended',reason:'The previous private task expired. Pairing is separate; explicitly resend to start fresh. Old files remain inaccessible.'});}if(['TASK_ACCESS_DENIED','SESSION_ENDED','SESSION_ACCESS_DENIED'].includes(error.code)){clearTimeout(reconnectTimer);reconnectTimer=null;reconnectAttempts=3;socket?.close();connecting=null;instanceId=null;notify({type:'pairing-offline',reason:'Connection authorization ended. Reconnect to the saved group; this action was not retried.'});}throw error;});
-      if(type==='task-relay'&&result.shared&&result.taskId){taskId=result.taskId;notify({type:'task-active',taskId});}
+      if((type==='task-relay'&&result.shared||type==='task-peer-request')&&result.taskId){taskId=result.taskId;notify({type:'task-active',taskId});}
       if (type === 'task-end') {
         taskId = null;
         notify({

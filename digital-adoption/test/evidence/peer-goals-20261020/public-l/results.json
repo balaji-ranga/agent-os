@@ -1,0 +1,693 @@
+{
+  "at": "2026-10-20T05:14:40.800Z",
+  "scope": "Public transfer branch only: synthetic source fields entered locally as setup; actual deployed maker/checker receives private context and fills the public search field without Save. No record-save claim.",
+  "marker": "mvg8a0z5",
+  "email": "peer.mvg8a0z5@example.test",
+  "publicWrites": 0,
+  "results": [
+    {
+      "id": "LIVE_PEER01_READY_AND_PAIRED_LOCAL_FORMS_WITHOUT_FILES",
+      "status": "passed"
+    },
+    {
+      "id": "LIVE_PEER03_CROSS_DOMAIN_INSPECTION_RETURNS_PUBLIC_FIELDS",
+      "status": "passed"
+    },
+    {
+      "id": "LIVE_PEER04_PRIVATE_FORM_VALUES_DRIVE_PUBLIC_INCOMING_GOAL",
+      "status": "passed"
+    },
+    {
+      "id": "LIVE_PEER05_TASK_AND_PAIRING_CLEANUP",
+      "status": "passed"
+    }
+  ],
+  "traces": [
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "goal": null,
+      "result": {
+        "goal": null
+      }
+    },
+    {
+      "panel": "note",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "goal": null,
+      "result": {
+        "goal": null
+      }
+    },
+    {
+      "panel": "public",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "goal": null,
+      "result": {
+        "goal": null
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/tasks/peer-request",
+      "status": 200,
+      "result": {
+        "requestId": "a72e0f7d-ce51-4d2b-915d-3d2a9d0b61ce",
+        "taskId": "e9fe5b02-a4cf-4bc9-8684-0d19ebc99c6a",
+        "sourceInstanceId": "6c6b8e22-ebb5-4818-a03b-3baddec0ae24",
+        "contentRevision": 0,
+        "mode": "inspect",
+        "status": "pending",
+        "from": "http://127.0.0.1:4194",
+        "to": "https://flolah.cloud",
+        "instruction": "Return current supported forms, required fields and navigation. No field values, filling or saving.",
+        "expiresAt": 1792476849554
+      }
+    },
+    {
+      "panel": "public",
+      "path": "/free-tools/digital-adoption/v1/tasks/peer-answer",
+      "status": 200,
+      "result": {
+        "requestId": "a72e0f7d-ce51-4d2b-915d-3d2a9d0b61ce",
+        "taskId": "e9fe5b02-a4cf-4bc9-8684-0d19ebc99c6a",
+        "sourceInstanceId": "6c6b8e22-ebb5-4818-a03b-3baddec0ae24",
+        "contentRevision": 0,
+        "mode": "inspect",
+        "status": "completed",
+        "from": "http://127.0.0.1:4194",
+        "to": "https://flolah.cloud",
+        "instruction": "Return current supported forms, required fields and navigation. No field values, filling or saving.",
+        "expiresAt": 1792476849554,
+        "result": {
+          "origin": "https://flolah.cloud",
+          "path": "/free-tools/mcp-universe/",
+          "forms": [],
+          "fields": [
+            {
+              "label": "Search MCPs, publishers, capabilities…",
+              "type": "text",
+              "required": false,
+              "constraints": {
+                "maxlength": "120"
+              },
+              "key": "q"
+            },
+            {
+              "label": "transport",
+              "type": "select-one",
+              "required": false,
+              "key": "transport"
+            }
+          ],
+          "links": [],
+          "values": []
+        }
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/tasks/peer-request",
+      "status": 200,
+      "result": {
+        "requestId": "53bd4704-11ac-4987-9c30-8174b244528a",
+        "taskId": "e9fe5b02-a4cf-4bc9-8684-0d19ebc99c6a",
+        "sourceInstanceId": "6c6b8e22-ebb5-4818-a03b-3baddec0ae24",
+        "contentRevision": 0,
+        "mode": "goal",
+        "status": "pending",
+        "from": "http://127.0.0.1:4194",
+        "to": "https://flolah.cloud",
+        "instruction": "Use the Company name from the privately shared current form as the search field text on your current page. Keep the transport at its current default. Do not click Search, submit, navigate or save. Plan the fill and use the normal field review.",
+        "expiresAt": 1792476849554
+      }
+    },
+    {
+      "panel": "public",
+      "path": "/free-tools/digital-adoption/v1/goals/create",
+      "status": 200,
+      "goal": {
+        "id": "b1ddb3dd-198f-4441-9fad-61ccb0f6e3ff",
+        "embeddingId": "uat_71ae86ec212b4501a02f28488bfc7c22",
+        "sessionId": "1cf82e7c-8e14-48e0-9379-d0b59e8f87a9",
+        "conversationVersion": 0,
+        "text": "Use the Company name from the privately shared current form as the search field text on your current page. Keep the transport at its current default. Do not click Search, submit, navigate or save. Plan the fill and use the normal field review.",
+        "peerRequestId": "53bd4704-11ac-4987-9c30-8174b244528a",
+        "message": "Proceeding with the fill step using the Company name \"genosys\" for the search field.",
+        "steps": [
+          {
+            "title": "Fill search field",
+            "kind": "fill",
+            "instruction": "Fill the search field 'q' with the value 'genosys' while keeping the transport at its current default.",
+            "expected": "The search field 'q' is filled with 'genosys'.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ],
+        "current": 0,
+        "status": "draft",
+        "clarifications": 0,
+        "version": 1,
+        "createdAt": 1792473269200,
+        "expiresAt": 1792559669200,
+        "privateTask": {
+          "taskId": "e9fe5b02-a4cf-4bc9-8684-0d19ebc99c6a",
+          "instanceId": "45364fd5-ab5c-45ed-8f2a-b2b723497de5",
+          "contentRevision": 0,
+          "peerRequestId": "53bd4704-11ac-4987-9c30-8174b244528a"
+        }
+      }
+    },
+    {
+      "panel": "public",
+      "path": "/free-tools/digital-adoption/v1/goals/control",
+      "status": 200,
+      "goal": {
+        "id": "b1ddb3dd-198f-4441-9fad-61ccb0f6e3ff",
+        "embeddingId": "uat_71ae86ec212b4501a02f28488bfc7c22",
+        "sessionId": "1cf82e7c-8e14-48e0-9379-d0b59e8f87a9",
+        "conversationVersion": 0,
+        "text": "Use the Company name from the privately shared current form as the search field text on your current page. Keep the transport at its current default. Do not click Search, submit, navigate or save. Plan the fill and use the normal field review.",
+        "peerRequestId": "53bd4704-11ac-4987-9c30-8174b244528a",
+        "message": "Proceeding with the fill step using the Company name \"genosys\" for the search field.",
+        "steps": [
+          {
+            "title": "Fill search field",
+            "kind": "fill",
+            "instruction": "Fill the search field 'q' with the value 'genosys' while keeping the transport at its current default.",
+            "expected": "The search field 'q' is filled with 'genosys'.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ],
+        "current": 0,
+        "status": "ready",
+        "clarifications": 0,
+        "version": 2,
+        "createdAt": 1792473269200,
+        "expiresAt": 1792559669200,
+        "privateTask": {
+          "taskId": "e9fe5b02-a4cf-4bc9-8684-0d19ebc99c6a",
+          "instanceId": "45364fd5-ab5c-45ed-8f2a-b2b723497de5",
+          "contentRevision": 0,
+          "peerRequestId": "53bd4704-11ac-4987-9c30-8174b244528a"
+        }
+      }
+    },
+    {
+      "panel": "public",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "goal": {
+        "id": "b1ddb3dd-198f-4441-9fad-61ccb0f6e3ff",
+        "embeddingId": "uat_71ae86ec212b4501a02f28488bfc7c22",
+        "sessionId": "1cf82e7c-8e14-48e0-9379-d0b59e8f87a9",
+        "conversationVersion": 0,
+        "text": "Use the Company name from the privately shared current form as the search field text on your current page. Keep the transport at its current default. Do not click Search, submit, navigate or save. Plan the fill and use the normal field review.",
+        "peerRequestId": "53bd4704-11ac-4987-9c30-8174b244528a",
+        "message": "Fill the search field 'q' with the value 'genosys' while keeping the transport at its current default.\nReview these 1 proposed field change. Nothing has been changed yet.",
+        "steps": [
+          {
+            "title": "Fill search field",
+            "kind": "fill",
+            "instruction": "Fill the search field 'q' with the value 'genosys' while keeping the transport at its current default.",
+            "expected": "The search field 'q' is filled with 'genosys'.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          }
+        ],
+        "current": 0,
+        "status": "awaiting_review",
+        "clarifications": 0,
+        "version": 4,
+        "createdAt": 1792473269200,
+        "expiresAt": 1792559669200,
+        "privateTask": {
+          "taskId": "e9fe5b02-a4cf-4bc9-8684-0d19ebc99c6a",
+          "instanceId": "45364fd5-ab5c-45ed-8f2a-b2b723497de5",
+          "contentRevision": 0,
+          "peerRequestId": "53bd4704-11ac-4987-9c30-8174b244528a"
+        },
+        "pendingProposalId": "5a055154-e0c3-4c86-9073-4e2611072961"
+      }
+    },
+    {
+      "panel": "public",
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "status": 200,
+      "goal": {
+        "id": "b1ddb3dd-198f-4441-9fad-61ccb0f6e3ff",
+        "embeddingId": "uat_71ae86ec212b4501a02f28488bfc7c22",
+        "sessionId": "1cf82e7c-8e14-48e0-9379-d0b59e8f87a9",
+        "conversationVersion": 0,
+        "text": "Use the Company name from the privately shared current form as the search field text on your current page. Keep the transport at its current default. Do not click Search, submit, navigate or save. Plan the fill and use the normal field review.",
+        "peerRequestId": "53bd4704-11ac-4987-9c30-8174b244528a",
+        "message": "The search field 'q' has been filled with 'genosys' as evidenced by the local state verification. The transport remains at its current default setting, which is consistent with the instruction. All requested effects have been observed and verified.",
+        "steps": [
+          {
+            "title": "Fill search field",
+            "kind": "fill",
+            "instruction": "Fill the search field 'q' with the value 'genosys' while keeping the transport at its current default.",
+            "expected": "The search field 'q' is filled with 'genosys'.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "5a055154-e0c3-4c86-9073-4e2611072961",
+                "status": "consumed",
+                "path": "/free-tools/mcp-universe/",
+                "responseMessage": "Fill the search field 'q' with the value 'genosys' while keeping the transport at its current default.\nReview these 1 proposed field change. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Search MCPs, publishers, capabilities…",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          }
+        ],
+        "current": 1,
+        "status": "completed",
+        "clarifications": 0,
+        "version": 6,
+        "createdAt": 1792473269200,
+        "expiresAt": 1792559669200,
+        "privateTask": {
+          "taskId": "e9fe5b02-a4cf-4bc9-8684-0d19ebc99c6a",
+          "instanceId": "45364fd5-ab5c-45ed-8f2a-b2b723497de5",
+          "contentRevision": 0,
+          "peerRequestId": "53bd4704-11ac-4987-9c30-8174b244528a"
+        }
+      }
+    },
+    {
+      "panel": "public",
+      "path": "/free-tools/digital-adoption/v1/tasks/peer-answer",
+      "status": 200,
+      "result": {
+        "requestId": "53bd4704-11ac-4987-9c30-8174b244528a",
+        "taskId": "e9fe5b02-a4cf-4bc9-8684-0d19ebc99c6a",
+        "sourceInstanceId": "6c6b8e22-ebb5-4818-a03b-3baddec0ae24",
+        "contentRevision": 0,
+        "mode": "goal",
+        "status": "completed",
+        "from": "http://127.0.0.1:4194",
+        "to": "https://flolah.cloud",
+        "instruction": "Use the Company name from the privately shared current form as the search field text on your current page. Keep the transport at its current default. Do not click Search, submit, navigate or save. Plan the fill and use the normal field review.",
+        "expiresAt": 1792476849554,
+        "result": {
+          "message": "The search field 'q' has been filled with 'genosys' as evidenced by the local state verification. The transport remains at its current default setting, which is consistent with the instruction. All requested effects have been observed and verified.",
+          "observed": {
+            "origin": "https://flolah.cloud",
+            "path": "/free-tools/mcp-universe/",
+            "forms": [],
+            "fields": [
+              {
+                "label": "Search MCPs, publishers, capabilities…",
+                "type": "text",
+                "required": false,
+                "constraints": {
+                  "maxlength": "120"
+                },
+                "key": "q"
+              },
+              {
+                "label": "transport",
+                "type": "select-one",
+                "required": false,
+                "key": "transport"
+              }
+            ],
+            "links": [],
+            "values": []
+          },
+          "steps": [
+            {
+              "title": "Fill search field",
+              "kind": "fill",
+              "status": "completed",
+              "effects": [
+                {
+                  "actions": [
+                    {
+                      "label": "Search MCPs, publishers, capabilities…",
+                      "type": "fill",
+                      "outcome": "local_state_verified",
+                      "value": "genosys"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "requestEnvelopes": [
+    {
+      "panel": "public",
+      "body": {
+        "instanceId": "45364fd5-ab5c-45ed-8f2a-b2b723497de5",
+        "peerRequestId": "53bd4704-11ac-4987-9c30-8174b244528a",
+        "text": "Use the Company name from the privately shared current form as the search field text on your current page. Keep the transport at its current default. Do not click Search, submit, navigate or save. Plan the fill and use the normal field review.",
+        "snapshot": {
+          "revision": 1,
+          "fields": [
+            {
+              "ref": "r1f0",
+              "label": "Search MCPs, publishers, capabilities…",
+              "type": "text",
+              "required": false,
+              "key": "q",
+              "optionCount": 0,
+              "constraints": {
+                "maxlength": "120"
+              }
+            },
+            {
+              "ref": "r1f1",
+              "label": "transport",
+              "type": "select-one",
+              "required": false,
+              "key": "transport",
+              "optionCount": 4,
+              "choices": [
+                "All transports",
+                "streamable-http",
+                "sse",
+                "stdio"
+              ]
+            }
+          ],
+          "forms": [],
+          "links": [],
+          "recentActivity": {
+            "prepared": [],
+            "applied": [],
+            "unavailablePrepared": 0,
+            "unavailableApplied": 0
+          },
+          "targets": [
+            {
+              "ref": "r1t0",
+              "label": "ag.hood/name-service",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "ag.hood/name-serviceResolve .hood names on Robinhood Chain — forward/reverse, text records, availability & pricing.ag.hood · streamable-http"
+            },
+            {
+              "ref": "r1t1",
+              "label": "Submit an MCP",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Submit an MCP"
+            },
+            {
+              "ref": "r1t2",
+              "label": "Search",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Search"
+            },
+            {
+              "ref": "r1t3",
+              "label": "Include your MCP",
+              "kind": "content",
+              "role": "h2",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Include your MCP"
+            },
+            {
+              "ref": "r1t4",
+              "label": "ae.easyvoice/tts",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "ae.easyvoice/ttsHosted text-to-speech MCP server: 66 voices in 9 languages, long-form narration, podcasts.ae.easyvoice · streamable-http"
+            },
+            {
+              "ref": "r1t5",
+              "label": "ae.brainy/grocery-prices",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "ae.brainy/grocery-pricesSource-backed UAE costs: groceries, schools, housing, transport, utilities, telecom and relocationae.brainy · streamable-http"
+            },
+            {
+              "ref": "r1t6",
+              "label": "ae.projectory/mcp",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "ae.projectory/mcpFind UAE off-plan developments and registered residential sales.ae.projectory · streamable-http"
+            },
+            {
+              "ref": "r1t7",
+              "label": "agency.ottobot/contractor-license-changes",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "agency.ottobot/contractor-license-changesDid this contractor's licence change? Observed lapses and reinstatements, not a snapshot.agency.ottobot · streamable-http"
+            },
+            {
+              "ref": "r1t8",
+              "label": "ae.waggle/fenlight",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "ae.waggle/fenlightGoogle search results, forum threads, local and shopping data, keyword ideas, AI answer tracking.ae.waggle · streamable-http"
+            },
+            {
+              "ref": "r1t9",
+              "label": "ac.snag/snag",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "ac.snag/snagGives your coding agent the captured console, network, replay and screenshot evidence for a bug.ac.snag · streamable-http"
+            },
+            {
+              "ref": "r1t10",
+              "label": "academy.apexai/apex-ai-academy",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "academy.apexai/apex-ai-academyCo-Learn with your Agent: fact-checked AI lessons with Human and Agent views.academy.apexai · streamable-http"
+            },
+            {
+              "ref": "r1t11",
+              "label": "ae.datadubai/dubai-real-estate",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "ae.datadubai/dubai-real-estateDubai property prices, AED/sqft, sales, rents, yields and projects from DLD registered transactions.ae.datadubai · streamable-http"
+            },
+            {
+              "ref": "r1t12",
+              "label": "ae.genosys/genosys",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "ae.genosys/genosysShop GENOSYS Korean skincare in the UAE from chat: find products, AED prices, order and pay.ae.genosys · streamable-http"
+            },
+            {
+              "ref": "r1t13",
+              "label": "ae.propick/propick",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "ae.propick/propickManage your real-estate stock on Propick (Dubai): bulk listing sync, lookups and run reports.ae.propick · streamable-http"
+            },
+            {
+              "ref": "r1t14",
+              "label": "africa.ugc/ugc",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "africa.ugc/ugcThe Human Ad Network. Campaigns, clipping, and Clip Studio from chat.africa.ugc · streamable-http"
+            },
+            {
+              "ref": "r1t15",
+              "label": "agency.goji/goji",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "agency.goji/gojiAnswers on AEO, SEO, web and brand from GOJI's published material. Melbourne, Australia.agency.goji · streamable-http"
+            },
+            {
+              "ref": "r1t16",
+              "label": "✺ Free Tools",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "✺ Free Tools"
+            },
+            {
+              "ref": "r1t17",
+              "label": "Docs",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Docs"
+            },
+            {
+              "ref": "r1t18",
+              "label": "Inspect",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Inspect"
+            },
+            {
+              "ref": "r1t19",
+              "label": "Inspect",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Inspect"
+            },
+            {
+              "ref": "r1t20",
+              "label": "Inspect",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Inspect"
+            },
+            {
+              "ref": "r1t21",
+              "label": "Inspect",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Inspect"
+            },
+            {
+              "ref": "r1t22",
+              "label": "Inspect",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Inspect"
+            },
+            {
+              "ref": "r1t23",
+              "label": "Inspect",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Inspect"
+            }
+          ],
+          "domScope": "Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.",
+          "coverage": {
+            "fieldLimit": 60,
+            "navigationLimit": 30,
+            "visibleNativeControls": 2,
+            "embeddedFrames": 0,
+            "openShadowRoots": 0,
+            "unsupportedControls": 0,
+            "manualNotice": ""
+          },
+          "submissions": [],
+          "navigationCandidates": [
+            "/free-tools/",
+            "/docs/"
+          ],
+          "screen": "agency.ottobot/business-contact-finder | agency.ottobot/contractor-license-changes | Include your MCP",
+          "path": "/free-tools/mcp-universe/",
+          "ambiguousDialogs": false,
+          "blockedCount": 30
+        },
+        "privateTask": {
+          "taskId": "e9fe5b02-a4cf-4bc9-8684-0d19ebc99c6a",
+          "instanceId": "45364fd5-ab5c-45ed-8f2a-b2b723497de5"
+        }
+      }
+    }
+  ]
+}

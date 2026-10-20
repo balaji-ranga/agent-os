@@ -1,0 +1,54 @@
+import {createGoalStore} from '../src/goal-store.mjs';
+import {createPrivateTasks} from '../src/private-tasks.mjs';
+import {createActionAttempts} from '../src/action-attempts.mjs';
+// Scoped local-host acceptance. Deterministic planner/DNS/auth are explicitly simulated.
+// Real model, public-domain and fresh-owner proof are separate evidence gates.
+import assert from 'node:assert/strict';
+import {once} from 'node:events';
+import {mkdir,writeFile} from 'node:fs/promises';
+import {fileURLToPath} from 'node:url';
+import {openRepository} from '../src/repository.mjs';
+import {SessionAuthority} from '../src/session-authority.mjs';
+import {createProposalStore} from '../src/proposals.mjs';
+import {createAdoptionServer} from '../src/server.mjs';
+import {createLearningStore} from '../src/learning-store.mjs';
+import {createLearningRuntime} from '../src/learning-runtime.mjs';
+import {createCoachingGrants} from '../src/coaching-grants.mjs';
+import {createControlPlane} from '../src/control-plane.mjs';
+import {createManagement} from '../src/management.mjs';
+import {createSourceMap} from '../src/source-map.mjs';
+const {chromium}=await import(process.env.ADOPTION_PLAYWRIGHT_MODULE||'./frameworks/node_modules/playwright/index.mjs');
+const out=new URL(process.env.ADOPTION_BROWSER_EVIDENCE||'./evidence/peer-goals-20261020/browser-verified/',import.meta.url);await mkdir(out,{recursive:true});
+const repo=openRepository(),authority=new SessionAuthority({repository:repo,development:true}),origin='http://127.0.0.1:4194',owner={id:'synthetic-owner',organizationId:'synthetic-org',role:'owner'},admin={id:'synthetic-admin',organizationId:'platform',role:'platform_admin'};
+const install=authority.registerApproved({embeddingId:'immediate-local',origins:[origin],expiresAt:Date.now()+3_600_000});
+// Explicit test fixture, not evidence of unseeded owner onboarding.
+repo.map('websites').set('immediate-local',{id:'immediate-local',organizationId:owner.organizationId,origin,environment:'staging',status:'approved',verified:true,installations:[install.installationId],taskPolicy:{attachments:true,pairing:true,workflow:true,actionBindings:['customer','note','opportunity'].map(name=>({id:'save-'+name,path:'/'+name,label:'Save synthetic record',family:'write_internal'}))}});
+const learning=createLearningRuntime(repo,createLearningStore(repo)),sourceMap=createSourceMap(repo),coaching=createCoachingGrants(repo),control=createControlPlane(repo,authority),proposals=createProposalStore(repo,{checkGoal:(s,id,pid,write)=>goals.allows(s,id,pid,write),checkPrivateTask:(s,b)=>tasks.goalBinding(s,b),checkBinding:(s,b)=>learning.bindingAllowed(s,b)});
+
+let serviceUrl,receivedEvidence=[];const marker="Peer Orchid "+Date.now();
+const goalModel=async({stage,snapshot,peerGuidance,privateGuidance,goalContext})=>{
+ if(stage==='assess')return {message:'Recorded effects verified.',status:'complete',remainingInstruction:''};
+ if(snapshot.path==='/note'){
+  receivedEvidence.push(privateGuidance);const text=JSON.stringify(privateGuidance);assert.match(text,/Peer Orchid/);const data=privateGuidance.evidence.map(e=>{try{return JSON.parse(e.text);}catch{return null;}}).find(d=>d?.path==='/customer'&&d.values?.length);assert.ok(data);const name=data.values.find(v=>v.label==='Company name').value,email=data.values.find(v=>v.label==='Contact email').value;
+  return {message:'Use the incoming customer context to prepare and save a note.',steps:[{title:'Prepare note',kind:'fill',instruction:`Title: ${name}; Body: ${email}`,expected:'Note values observed'},{title:'Save note',kind:'save',instruction:'Save the reviewed note',expected:'Host reports saved'}]};
+ }
+ const target=peerGuidance[0];assert.ok(target);
+ return {message:'Fill and save here, inspect the paired form, then delegate its note.',steps:[{title:'Prepare customer',kind:'fill',instruction:`Company name: ${marker}; Contact email: peer@example.test; Region: Singapore`,expected:'Customer values observed'},{title:'Save customer',kind:'save',instruction:'Save customer',expected:'Host reports saved'},{title:'Inspect paired form',kind:'peer',recipient:target.instanceId,mode:'inspect',instruction:'Inspect current note form fields and navigation',expected:'Remote form returned'},{title:'Continue note remotely',kind:'peer',recipient:target.instanceId,mode:'goal',instruction:'Use the shared Company name as Title and Contact email as Body. Fill the note and save it after normal reviews.',expected:'Recipient note saved'}]};
+};
+const planner=async({text,snapshot,privateGuidance})=>{if(snapshot.path==='/note')receivedEvidence.push(privateGuidance);const values=Object.fromEntries(text.split(';').map(p=>{const n=p.indexOf(':');return [p.slice(0,n).trim().toLowerCase(),p.slice(n+1).trim()];}));return {message:'Review current form values',actions:snapshot.fields.filter(f=>values[f.label.toLowerCase()]!==undefined).map(f=>({type:'fill',ref:f.ref,value:values[f.label.toLowerCase()]}))};};
+const goals=createGoalStore(repo),tasks=await createPrivateTasks({root:fileURLToPath(new URL('../.local/peer-browser-private',import.meta.url)),website:id=>repo.map('websites').get(id),activeScope:s=>authority.activeScope(s),planner,actionAttempts:createActionAttempts(repo),pairingState:repo.map('paired_groups')});
+const server=createAdoptionServer({goals,goalModel,knowledge:{retrieve:async()=>({evidence:[]})},answer:async()=>({message:'Test answer',citations:[]}),authority,proposals,planner,learning,sourceMap,coaching,privateTasks:tasks,taskWebsite:id=>repo.map('websites').get(id),development:true});server.listen(0,'127.0.0.1');await once(server,'listening');serviceUrl=`http://127.0.0.1:${server.address().port}/`;
+const browser=await chromium.launch({channel:'chrome',headless:true}),context=await browser.newContext({viewport:{width:1440,height:1050}});context.setDefaultTimeout(25000);await context.route('**/demo-config.json',r=>r.fulfill({json:{serviceUrl,installationToken:install.installationToken}}));
+const a=await context.newPage(),b=await context.newPage(),ap=a.frameLocator('iframe[data-adoption-widget]'),bp=b.frameLocator('iframe[data-adoption-widget]'),results=[],errors=[];
+for(const p of [a,b])p.on('pageerror',e=>errors.push(e.message));
+const shot=async(name)=>{for(const [p,f,suffix]of [[a,ap,'source'],[b,bp,'recipient']])await p.screenshot({path:fileURLToPath(new URL(name+'-'+suffix+'.png',out)),mask:[f.locator('#pair-code'),f.locator('#pair-link-code')]});};
+const report=()=>writeFile(new URL('results.json',out),JSON.stringify({scope:'Actual local host + SDK + server + WebSockets + task-private context + goal/proposal/action fencing; deterministic models and isolated owner fixtures. No files or autonomous grants.',results,errors,receivedEvidence},null,2));
+const check=async(id,fn)=>{try{await fn();await shot(id);results.push({id,status:'passed'});console.log('PASS '+id);}catch(e){results.push({id,status:'failed',error:e.message});await shot(id+'-failed').catch(()=>{});throw e;}finally{await report();}};
+try{
+ await a.goto(origin+'/customer');await b.goto(origin+'/note');
+ await check('PEER_UI01_PAIR_WITHOUT_FILES_AND_INSPECT_REMOTE_FORM',async()=>{for(const [p,f]of [[a,ap],[b,bp]]){await f.locator('#tab-connections').waitFor();await p.getByRole('button',{name:'Decline analytics',exact:true}).click({timeout:500}).catch(()=>{});await f.locator('#tab-connections').click();}await ap.locator('#pair-invite').click();await ap.locator('#pair-code').filter({hasText:/expires/}).waitFor();const code=(await ap.locator('#pair-code').innerText()).split(' · ')[0];await bp.locator('#pair-join input').fill(code);await bp.locator('#pair-join button').click();await bp.getByRole('button',{name:'Confirm this panel'}).click();await ap.locator('#pair-refresh').click();await ap.getByRole('button',{name:'Confirm this panel'}).click();await ap.getByRole('button',{name:'Inspect this copilot'}).click();await ap.locator('#log').getByText(/Paired task.*completed/).waitFor({state:'attached'});assert.match(await ap.locator('#log').textContent(),/Title.*Body/s);assert.equal(await ap.locator('#task-files li').count(),0);});
+ await check('PEER_UI02_SOURCE_GOAL_FILLS_AND_SAVES_BEFORE_REMOTE_HANDOFF',async()=>{await ap.locator('#tab-guide').click();await ap.locator('#choice-goal').click();await ap.locator('#message').fill(`Fill and save customer ${marker}, peer@example.test, Singapore. Then inspect the paired note form and continue there using the customer details; save that note after normal reviews.`);await ap.locator('#plan').click();await ap.locator('#goal-start').click();await ap.getByRole('button',{name:'Approve field changes',exact:true}).click();await ap.getByRole('button',{name:/Confirm .* now/}).click();await ap.locator('#goal-peer-send').waitFor();assert.equal(await a.getByLabel('Company name',{exact:true}).inputValue(),marker);});
+ await check('PEER_UI03_GOAL_USES_PEER_INSPECTION_AND_SHARES_CURRENT_FORM_VALUES',async()=>{await ap.locator('#goal-peer-send').click();await ap.locator('#review p').filter({hasText:/Use the shared Company name/}).waitFor();await ap.locator('#goal-peer-values').check();await ap.locator('#goal-peer-send').click();await bp.locator('#tab-guide').click();await bp.locator('#goal-start').waitFor();assert.equal(await b.getByLabel('Title',{exact:true}).inputValue(),'');assert.match(JSON.stringify(receivedEvidence),/Peer Orchid/);assert.match(JSON.stringify(receivedEvidence),/peer@example.test/);assert.match(await ap.locator('#goal-progress').textContent(),/awaiting_peer/);});
+ await check('PEER_UI04_RECIPIENT_GOAL_FILLS_AND_SAVES_AND_SOURCE_COMPLETES',async()=>{await bp.locator('#goal-start').click();await bp.getByRole('button',{name:'Approve field changes',exact:true}).click();await bp.getByRole('button',{name:/Confirm .* now/}).click();await ap.locator('#goal-progress h2').getByText(/completed/).waitFor();await bp.locator('#goal-progress h2').getByText(/completed/).waitFor();assert.equal(await b.getByLabel('Title',{exact:true}).inputValue(),marker);const records=await context.newPage();await records.goto(origin+'/records');await records.locator('#records li').filter({hasText:marker}).first().waitFor();const data=await(await a.request.get(origin+'/api/records')).json();const saved=data.records.filter(r=>r.values.company_name===marker||r.values.title===marker);assert.equal(saved.length,2);assert.equal(saved.filter(r=>r.values.title===marker&&r.values.body==='peer@example.test').length,1);await writeFile(new URL('record-readback.json',out),JSON.stringify(saved,null,2));await records.screenshot({path:fileURLToPath(new URL('independent-record-readback.png',out))});await writeFile(new URL('record-readback.txt',out),await records.locator('body').innerText());});
+ assert.deepEqual(errors,[]);
+}finally{await report();await browser.close();await tasks.close();server.closeAllConnections();await new Promise(r=>server.close(r));repo.close();}

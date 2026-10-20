@@ -1,0 +1,70 @@
+{
+  "at": "2026-10-20T05:36:01.479777+00:00",
+  "release": "20261020-peer-p",
+  "gatewayRelease": "20261020-peer-p-gateway",
+  "baseCommit": "abfd9e77",
+  "certification": "Passed for this scoped feature update",
+  "passed": 465,
+  "failed": 0,
+  "partial": 0,
+  "notRun": 0,
+  "total": 465,
+  "combinedPassRate": 100.0,
+  "regressionPassed": 460,
+  "regressionFailed": 0,
+  "latestLivePassed": 5,
+  "latestLiveFailed": 0,
+  "latestLiveNotRun": 0,
+  "latestLivePassRate": 100,
+  "cohorts": [
+    {
+      "name": "Service regression and peer authority",
+      "passed": 426,
+      "failed": 0,
+      "path": "logs/service.log"
+    },
+    {
+      "name": "Workspace browser regression",
+      "passed": 21,
+      "failed": 0,
+      "path": "workspace-final-m/results.json"
+    },
+    {
+      "name": "Existing goal browser regression",
+      "passed": 8,
+      "failed": 0,
+      "path": "goals-final-m/results.json"
+    },
+    {
+      "name": "Cross-tab SDK/browser regression",
+      "passed": 4,
+      "failed": 0,
+      "path": "peer-final-m/results.json"
+    },
+    {
+      "name": "Workflow WebSocket three-form save/readback (synthetic model/policy)",
+      "passed": 1,
+      "failed": 0,
+      "path": "workflow-sdk/results.json"
+    },
+    {
+      "name": "Actual maker/checker integrated acceptance",
+      "passed": 5,
+      "failed": 0,
+      "path": "live-final-p/results.json"
+    }
+  ],
+  "budgetChange": {
+    "fromTokens": 1536,
+    "toTokens": 2048,
+    "approval": "Explicit user approval",
+    "applied": true
+  },
+  "limitations": [
+    "Approved loopback site and public flolah.cloud only, in a separate Playwright Chrome profile.",
+    "Browser regressions use deterministic model/owner fixtures; live acceptance uses the deployed active maker and passive checker.",
+    "No attachment, registration seeding, public host submission, autonomous policy grant or laptop exposure.",
+    "Earlier failures/interrupted attempts remain available. One successful run is not a statistical model-reliability guarantee.",
+    "Native Safari/iOS, Android and full screen-reader checks remain previously deferred. No fresh-owner DNS/email proof or full Phase 1/2 certification is claimed."
+  ]
+}

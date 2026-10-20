@@ -1,0 +1,39 @@
+{
+  "at": "2026-10-20T05:36:00.269211+00:00",
+  "status": "passed",
+  "release": "20261020-peer-p",
+  "coordinatorSourceFilesVerified": 17,
+  "gatewaySourceFilesVerified": 3,
+  "hashes": {
+    "integrations/checker-contract.mjs": "bc427bb7af1fa2318b1faa3ebb39a6d68819a27c654c92b79d59da9ba5504c0d",
+    "integrations/maker-checker.mjs": "1d3ebea21b08f1a4b62e5ac4da6fa173cc121d2c2f4e6196856b95a7f7bfd004",
+    "src/goal-contract.mjs": "4aaf40f12aea91727a95e1cc2ba2c037dd26a21f1c0414d0b8f623cf2fa4d0b9",
+    "src/goal-model.mjs": "42216be876c49378f5518b4e4f47502ce82cdaf742e0abb459b413959417b464",
+    "src/goal-service.mjs": "ddada811780c04e6e3b723d254ace3f23894fb81b27bace72f13f449e9516802",
+    "src/goal-store.mjs": "d76055290a9fda8da7091fd7abe91881895b91163f4e4e59b904b10c796977db",
+    "src/private-tasks.mjs": "1be6fab40c8a10694c9e194036838e80222ed71dd03ac8805af7ca12fa260832",
+    "src/server.mjs": "928bba132138eac115d3c26193b232b912a86ec5289df0533d709b54bb7a273a",
+    "web/dom.mjs": "4a10b831b0335787d0d071764a903635f28556780a6317249aec190baf5b98ba",
+    "web/goal-ui.mjs": "3f834af849c2aab96334f821187f67feeb8adccee67dd4444ce1d8bbb2af5f74",
+    "web/sdk.mjs": "9667179a51ba318832d8a20c85851ba370621255092948fd4ca05205a0acbaf2",
+    "web/session-client.mjs": "3d57d73e8081fee97c0eaea31398e0f49653379c54306d328f29eeded3ece47f",
+    "web/task-client.mjs": "e47dad08fab54d1c959f97a823e85dbcfa002b00abd35fecec23f359a527f90d",
+    "web/task-panel.mjs": "93bdc6e86399bd1828bc7f878aa89a7f0a2b7751d60ebfed462d17aab82c1816",
+    "web/widget.mjs": "d790bb833f0670a961c864b42cc55fe1120d481cdb2d5fc73ea0b2cc4d5c49a5",
+    "src/peer-tasks.mjs": "f84263957910b897c695302127a8ef058c8bad3678e4abc570e484fbc9ba0b18",
+    "src/goal-prompts.mjs": "d5161f03f86b58b67e02aa86d41f4fa837156093a5347edd7876fd9637320bc4"
+  },
+  "gatewayHashes": {
+    "integrations/checker-contract.mjs": "bc427bb7af1fa2318b1faa3ebb39a6d68819a27c654c92b79d59da9ba5504c0d",
+    "integrations/maker-checker.mjs": "1d3ebea21b08f1a4b62e5ac4da6fa173cc121d2c2f4e6196856b95a7f7bfd004",
+    "src/goal-contract.mjs": "4aaf40f12aea91727a95e1cc2ba2c037dd26a21f1c0414d0b8f623cf2fa4d0b9"
+  },
+  "settingsChangeApplied": true,
+  "approvedCheckerSetting": {
+    "enabled": true,
+    "checkerMode": "platform_inactive",
+    "checkerMaxTokens": 2048
+  },
+  "helpImage": "agent-os-backend:adoption-help-20261020-peer-h",
+  "authority": "User-approved checker budget 1536 to 2048; same enabled passive route. No new autonomous grant, public host submission, registration seeding or laptop exposure"
+}

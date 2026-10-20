@@ -729,3 +729,14 @@ were reused as requested; this does not establish a fresh owner's live email/DNS
 setup. Full certification is not inferred from unit/synthetic pass rates.
 Previously deferred devices, actual elapsed retention and sustained inference
 capacity remain separate evidence gates.
+
+
+### Private copilot-to-copilot tasks and goals
+
+No file is required. Pair the two open panels under the same website owner and confirm in both. In **Connections**, **Inspect this copilot** requests the other panel's current supported forms, required fields and navigation; it returns structure without current values or browser writes. The response appears in both chats and becomes private task evidence for subsequent planning. It is not published into either website's shared knowledge.
+
+To continue work in another tab, select private-context sharing consent, optionally select **Include current nonsecret form values**, then use `@` in the normal Chat composer to choose the current paired recipient and describe the task. The recipient interprets the incoming instruction with its own live page and shared task evidence. Read-only inspection plans can complete without a write review. Plans containing changes are shown for review; field changes, navigation and Save keep their existing confirmations. An active recipient goal is not replaced: finish/cancel it before selecting **Review received goal**. A request can be declined.
+
+A goal can also include a **peer** step selecting one currently observed recipient. Review **Send to paired copilot**, choose whether to include current nonsecret form values, and send. The source shows **Waiting for the paired copilot** while the recipient reviews and executes its own goal. Source progress advances only after a validated inspection response or a completed recipient goal with recorded outcomes. Example: fill and save Customer in tab A, inspect Note in tab B, then use the shared Customer name/email to fill and save Note there. A receipt is browser/host-reported evidence; it is not independently verified business completion unless that integration exists.
+
+Pairing is required for this visitor-to-visitor exchange; server workflow delivery continues to use separately linked workflow groups. Different website indexes remain isolated. Each RPC checks exact live source/recipient, bilateral pairing, owner, website/session and private task access. Values come only from supported visible nonsecret controls when explicitly selected. Pair revocation, changed permissions, task end, cancellation or disconnect invalidates pending work and associated pending goal approvals. Unfinished work fails without automatic replay or delivery to a replacement visitor. Private peer context is bounded and expires with its task; no attachment or shared document upload is implied.

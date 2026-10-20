@@ -1,0 +1,43 @@
+{
+  "at": "2026-10-20T05:27:49.292Z",
+  "scope": "Separate Chrome profile, actual deployed goal/step maker and configured checker. Three paired tabs; only loopback synthetic records saved. No attachment, backend data seeding or autonomous policy grant.",
+  "marker": "mvg8rox4",
+  "email": "peer.mvg8rox4@example.test",
+  "publicWrites": 0,
+  "results": [
+    {
+      "id": "LIVE_PEER01_READY_AND_PAIRED_LOCAL_FORMS_WITHOUT_FILES",
+      "status": "passed"
+    }
+  ],
+  "traces": [
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "goal": null,
+      "result": {
+        "goal": null
+      }
+    },
+    {
+      "panel": "note",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "goal": null,
+      "result": {
+        "goal": null
+      }
+    },
+    {
+      "panel": "public",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "goal": null,
+      "result": {
+        "goal": null
+      }
+    }
+  ],
+  "requestEnvelopes": []
+}

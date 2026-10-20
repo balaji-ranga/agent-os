@@ -1,0 +1,490 @@
+{
+  "at": "2026-10-20T05:07:12.970Z",
+  "scope": "Public transfer branch only: synthetic source fields entered locally as setup; actual deployed maker/checker receives private context and fills the public search field without Save. No record-save claim.",
+  "marker": "mvg7x5y5",
+  "email": "peer.mvg7x5y5@example.test",
+  "publicWrites": 0,
+  "results": [
+    {
+      "id": "LIVE_PEER01_READY_AND_PAIRED_LOCAL_FORMS_WITHOUT_FILES",
+      "status": "passed"
+    },
+    {
+      "id": "LIVE_PEER03_CROSS_DOMAIN_INSPECTION_RETURNS_PUBLIC_FIELDS",
+      "status": "passed"
+    },
+    {
+      "id": "LIVE_PEER04_PRIVATE_FORM_VALUES_DRIVE_PUBLIC_INCOMING_GOAL",
+      "status": "failed",
+      "error": "locator.waitFor: Timeout 180000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('iframe[data-adoption-widget]').contentFrame().locator('#goal-start') to be visible\u001b[22m\n"
+    }
+  ],
+  "traces": [
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "goal": null,
+      "result": {
+        "goal": null
+      }
+    },
+    {
+      "panel": "note",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "goal": null,
+      "result": {
+        "goal": null
+      }
+    },
+    {
+      "panel": "public",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "goal": null,
+      "result": {
+        "goal": null
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/tasks/peer-request",
+      "status": 200,
+      "result": {
+        "requestId": "19c5fcce-f3a7-43c2-b136-20f41cf28ff4",
+        "taskId": "ac5927a7-674e-4380-ad94-e50735b2c36e",
+        "sourceInstanceId": "efcba635-8d44-45c3-906c-31fdad0b02c9",
+        "contentRevision": 0,
+        "mode": "inspect",
+        "status": "pending",
+        "from": "http://127.0.0.1:4194",
+        "to": "https://flolah.cloud",
+        "instruction": "Return current supported forms, required fields and navigation. No field values, filling or saving.",
+        "expiresAt": 1792476242811
+      }
+    },
+    {
+      "panel": "public",
+      "path": "/free-tools/digital-adoption/v1/tasks/peer-answer",
+      "status": 200,
+      "result": {
+        "requestId": "19c5fcce-f3a7-43c2-b136-20f41cf28ff4",
+        "taskId": "ac5927a7-674e-4380-ad94-e50735b2c36e",
+        "sourceInstanceId": "efcba635-8d44-45c3-906c-31fdad0b02c9",
+        "contentRevision": 0,
+        "mode": "inspect",
+        "status": "completed",
+        "from": "http://127.0.0.1:4194",
+        "to": "https://flolah.cloud",
+        "instruction": "Return current supported forms, required fields and navigation. No field values, filling or saving.",
+        "expiresAt": 1792476242811,
+        "result": {
+          "origin": "https://flolah.cloud",
+          "path": "/free-tools/mcp-universe/",
+          "forms": [],
+          "fields": [
+            {
+              "label": "Search MCPs, publishers, capabilities…",
+              "type": "text",
+              "required": false,
+              "constraints": {
+                "maxlength": "120"
+              },
+              "key": "q"
+            },
+            {
+              "label": "transport",
+              "type": "select-one",
+              "required": false,
+              "key": "transport"
+            }
+          ],
+          "links": [],
+          "values": []
+        }
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/tasks/peer-request",
+      "status": 200,
+      "result": {
+        "requestId": "79d7ec61-28ab-46c4-b2e0-0ec02c5eaaef",
+        "taskId": "ac5927a7-674e-4380-ad94-e50735b2c36e",
+        "sourceInstanceId": "efcba635-8d44-45c3-906c-31fdad0b02c9",
+        "contentRevision": 0,
+        "mode": "goal",
+        "status": "pending",
+        "from": "http://127.0.0.1:4194",
+        "to": "https://flolah.cloud",
+        "instruction": "Use the Company name from the privately shared current form as the search field text on your current page. Keep the transport at its current default. Do not click Search, submit, navigate or save. Plan the fill and use the normal field review.",
+        "expiresAt": 1792476242811
+      }
+    },
+    {
+      "panel": "public",
+      "path": "/free-tools/digital-adoption/v1/goals/create",
+      "status": 200,
+      "goal": {
+        "id": "2a67eee1-6ddb-4156-8e6a-3ed5b87f36cf",
+        "embeddingId": "uat_71ae86ec212b4501a02f28488bfc7c22",
+        "sessionId": "64007a81-a840-423b-a354-0a09b77f57f9",
+        "conversationVersion": 0,
+        "text": "Use the Company name from the privately shared current form as the search field text on your current page. Keep the transport at its current default. Do not click Search, submit, navigate or save. Plan the fill and use the normal field review.",
+        "peerRequestId": "79d7ec61-28ab-46c4-b2e0-0ec02c5eaaef",
+        "message": "I could not resolve the request confidently after review. Add an explicit normal field-review step after the fill; keep the transport unchanged and do not click Search, submit, navigate, or save. The value 'genosys' is correctly sourced from the private Company name field.",
+        "steps": [],
+        "current": 0,
+        "status": "clarifying",
+        "clarifications": 0,
+        "version": 1,
+        "createdAt": 1792472663929,
+        "expiresAt": 1792559063929,
+        "privateTask": {
+          "taskId": "ac5927a7-674e-4380-ad94-e50735b2c36e",
+          "instanceId": "9670a934-53a2-450e-acba-906f9e120cb0",
+          "contentRevision": 0,
+          "peerRequestId": "79d7ec61-28ab-46c4-b2e0-0ec02c5eaaef"
+        }
+      }
+    }
+  ],
+  "requestEnvelopes": [
+    {
+      "panel": "public",
+      "body": {
+        "instanceId": "9670a934-53a2-450e-acba-906f9e120cb0",
+        "peerRequestId": "79d7ec61-28ab-46c4-b2e0-0ec02c5eaaef",
+        "text": "Use the Company name from the privately shared current form as the search field text on your current page. Keep the transport at its current default. Do not click Search, submit, navigate or save. Plan the fill and use the normal field review.",
+        "snapshot": {
+          "revision": 1,
+          "fields": [
+            {
+              "ref": "r1f0",
+              "label": "Search MCPs, publishers, capabilities…",
+              "type": "text",
+              "required": false,
+              "key": "q",
+              "optionCount": 0,
+              "constraints": {
+                "maxlength": "120"
+              }
+            },
+            {
+              "ref": "r1f1",
+              "label": "transport",
+              "type": "select-one",
+              "required": false,
+              "key": "transport",
+              "optionCount": 4,
+              "choices": [
+                "All transports",
+                "streamable-http",
+                "sse",
+                "stdio"
+              ]
+            }
+          ],
+          "forms": [],
+          "links": [],
+          "recentActivity": {
+            "prepared": [],
+            "applied": [],
+            "unavailablePrepared": 0,
+            "unavailableApplied": 0
+          },
+          "targets": [
+            {
+              "ref": "r1t0",
+              "label": "ag.hood/name-service",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "ag.hood/name-serviceResolve .hood names on Robinhood Chain — forward/reverse, text records, availability & pricing.ag.hood · streamable-http"
+            },
+            {
+              "ref": "r1t1",
+              "label": "Submit an MCP",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Submit an MCP"
+            },
+            {
+              "ref": "r1t2",
+              "label": "Search",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Search"
+            },
+            {
+              "ref": "r1t3",
+              "label": "Include your MCP",
+              "kind": "content",
+              "role": "h2",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Include your MCP"
+            },
+            {
+              "ref": "r1t4",
+              "label": "ae.easyvoice/tts",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "ae.easyvoice/ttsHosted text-to-speech MCP server: 66 voices in 9 languages, long-form narration, podcasts.ae.easyvoice · streamable-http"
+            },
+            {
+              "ref": "r1t5",
+              "label": "ae.brainy/grocery-prices",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "ae.brainy/grocery-pricesSource-backed UAE costs: groceries, schools, housing, transport, utilities, telecom and relocationae.brainy · streamable-http"
+            },
+            {
+              "ref": "r1t6",
+              "label": "ae.projectory/mcp",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "ae.projectory/mcpFind UAE off-plan developments and registered residential sales.ae.projectory · streamable-http"
+            },
+            {
+              "ref": "r1t7",
+              "label": "agency.ottobot/contractor-license-changes",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "agency.ottobot/contractor-license-changesDid this contractor's licence change? Observed lapses and reinstatements, not a snapshot.agency.ottobot · streamable-http"
+            },
+            {
+              "ref": "r1t8",
+              "label": "ae.waggle/fenlight",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "ae.waggle/fenlightGoogle search results, forum threads, local and shopping data, keyword ideas, AI answer tracking.ae.waggle · streamable-http"
+            },
+            {
+              "ref": "r1t9",
+              "label": "ac.snag/snag",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "ac.snag/snagGives your coding agent the captured console, network, replay and screenshot evidence for a bug.ac.snag · streamable-http"
+            },
+            {
+              "ref": "r1t10",
+              "label": "academy.apexai/apex-ai-academy",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "academy.apexai/apex-ai-academyCo-Learn with your Agent: fact-checked AI lessons with Human and Agent views.academy.apexai · streamable-http"
+            },
+            {
+              "ref": "r1t11",
+              "label": "ae.datadubai/dubai-real-estate",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "ae.datadubai/dubai-real-estateDubai property prices, AED/sqft, sales, rents, yields and projects from DLD registered transactions.ae.datadubai · streamable-http"
+            },
+            {
+              "ref": "r1t12",
+              "label": "ae.genosys/genosys",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "ae.genosys/genosysShop GENOSYS Korean skincare in the UAE from chat: find products, AED prices, order and pay.ae.genosys · streamable-http"
+            },
+            {
+              "ref": "r1t13",
+              "label": "ae.propick/propick",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "ae.propick/propickManage your real-estate stock on Propick (Dubai): bulk listing sync, lookups and run reports.ae.propick · streamable-http"
+            },
+            {
+              "ref": "r1t14",
+              "label": "africa.ugc/ugc",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "africa.ugc/ugcThe Human Ad Network. Campaigns, clipping, and Clip Studio from chat.africa.ugc · streamable-http"
+            },
+            {
+              "ref": "r1t15",
+              "label": "agency.goji/goji",
+              "kind": "content",
+              "role": "article",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "agency.goji/gojiAnswers on AEO, SEO, web and brand from GOJI's published material. Melbourne, Australia.agency.goji · streamable-http"
+            },
+            {
+              "ref": "r1t16",
+              "label": "✺ Free Tools",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "✺ Free Tools"
+            },
+            {
+              "ref": "r1t17",
+              "label": "Docs",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Docs"
+            },
+            {
+              "ref": "r1t18",
+              "label": "Inspect",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Inspect"
+            },
+            {
+              "ref": "r1t19",
+              "label": "Inspect",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Inspect"
+            },
+            {
+              "ref": "r1t20",
+              "label": "Inspect",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Inspect"
+            },
+            {
+              "ref": "r1t21",
+              "label": "Inspect",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Inspect"
+            },
+            {
+              "ref": "r1t22",
+              "label": "Inspect",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Inspect"
+            },
+            {
+              "ref": "r1t23",
+              "label": "Inspect",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Inspect"
+            }
+          ],
+          "domScope": "Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.",
+          "coverage": {
+            "fieldLimit": 60,
+            "navigationLimit": 30,
+            "visibleNativeControls": 2,
+            "embeddedFrames": 0,
+            "openShadowRoots": 0,
+            "unsupportedControls": 0,
+            "manualNotice": ""
+          },
+          "submissions": [],
+          "navigationCandidates": [
+            "/free-tools/",
+            "/docs/"
+          ],
+          "screen": "agency.ottobot/business-contact-finder | agency.ottobot/contractor-license-changes | Include your MCP",
+          "path": "/free-tools/mcp-universe/",
+          "ambiguousDialogs": false,
+          "blockedCount": 30
+        },
+        "privateTask": {
+          "taskId": "ac5927a7-674e-4380-ad94-e50735b2c36e",
+          "instanceId": "9670a934-53a2-450e-acba-906f9e120cb0"
+        }
+      }
+    }
+  ]
+}

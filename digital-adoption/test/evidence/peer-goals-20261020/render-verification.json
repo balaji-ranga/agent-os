@@ -1,0 +1,7 @@
+{
+  "status": "passed",
+  "localLinksChecked": 222,
+  "imagesChecked": 6,
+  "summary": "460/460 regressions passed",
+  "liveStatus": "Latest live acceptance: 5 passed, 0 failed, 0 not run (100%). Passed for this scoped feature update."
+}

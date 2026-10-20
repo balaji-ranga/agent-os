@@ -203,12 +203,12 @@ export function createAdoptionServer({ goals,goalModel,conversations=createConve
         else if(path.startsWith('/v1/tasks/')||path.startsWith('/v1/pair/')){
           if(!privateTasks)throw new Error('Private tasks unavailable');
           budget.take(`private:${scope.sessionId}`,60);
-          const operations=path.startsWith('/v1/tasks/')?{start:'start',status:'status',end:'end',upload:'upload',remove:'remove',plan:'plan',summary:'summary',approve:'approve',revise:'revise',reject:'reject','save-review':'saveReview',relay:'relay','command-plan':'commandPlan',effect:'effect'}:{invite:'invite',join:'join',status:'pairStatus',confirm:'confirm',revoke:'revoke',link:'linkRequest'};
+          const operations=path.startsWith('/v1/tasks/')?{start:'start',status:'status',end:'end',upload:'upload',remove:'remove',plan:'plan',summary:'summary',approve:'approve',revise:'revise',reject:'reject','save-review':'saveReview',relay:'relay','peer-catalog':'peerCatalog','peer-request':'peerRequest','peer-status':'peerStatus','peer-answer':'peerAnswer','peer-cancel':'peerCancel','command-plan':'commandPlan',effect:'effect'}:{invite:'invite',join:'join',status:'pairStatus',confirm:'confirm',revoke:'revoke',link:'linkRequest'};
           const key=path.split('/').at(-1),action=Object.hasOwn(operations,key)?operations[key]:null;if(!action)throw new Error('Unsupported private operation');
           if(['plan','summary','commandPlan'].includes(action))releaseModel=modelSlots.acquire(scope.embeddingId);
           if(!['status','pairStatus'].includes(action))authority.touch(auth);
           if(['end','remove'].includes(action))goals?.clear(scope);
-          result=await privateTasks[action](scope,['plan','summary','commandPlan'].includes(action)?{...input,authorizedReplyContext:authority.history(auth).find(m=>m.id===input.replyTo&&(m.channel||'guide')==='guide')?.text,requestSignal:requestController.signal}:input,action==='upload'?uploadPermit:undefined);
+          result=await privateTasks[action](scope,['plan','summary','commandPlan'].includes(action)?{...input,authorizedReplyContext:authority.history(auth).find(m=>m.id===input.replyTo&&(m.channel||'guide')==='guide')?.text,requestSignal:requestController.signal}:input,action==='upload'?uploadPermit:action==='peerAnswer'&&input.goalId?goals?.get(scope,input.goalId):undefined);
         }
         else if(path==='/v1/learning/complete'){
           if(!learning?.learningEnabled(scope)||input.consent!==true)result={created:false};

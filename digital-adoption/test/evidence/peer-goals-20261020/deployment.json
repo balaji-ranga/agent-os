@@ -1,0 +1,57 @@
+{
+  "at": "2026-10-20T05:36:00.262037+00:00",
+  "status": "passed",
+  "release": "20261020-peer-p",
+  "containers": {
+    "flolah-adoption-adoption-1": {
+      "imageId": "sha256:1b95ffaf6a6c7403597e6ad2243a7cca025cc7d6429f29ff3a83a146b911e72a",
+      "image": "flolah-digital-adoption:20261020-peer-p",
+      "startedAt": "2026-10-20T05:33:00.295414849Z",
+      "running": true,
+      "health": null
+    },
+    "flolah-adoption-adoption-model-gateway-1": {
+      "imageId": "sha256:769fd7607e70041d7584fda6944e464921c87d137d7398af50972b7da1f367ae",
+      "image": "flolah-digital-adoption:20261020-peer-p-gateway",
+      "startedAt": "2026-10-20T05:33:13.959334699Z",
+      "running": true,
+      "health": null
+    },
+    "flolah-adoption-adoption-worker-1": {
+      "imageId": "sha256:7133f95194a1df02b59712754b2b95a254528fa9ece34c4994647497dc052fe0",
+      "image": "flolah-digital-adoption:20261018-owner-workspace-c",
+      "startedAt": "2026-10-18T10:43:45.697774407Z",
+      "running": true,
+      "health": null
+    },
+    "flolah-adoption-adoption-worker-2": {
+      "imageId": "sha256:7133f95194a1df02b59712754b2b95a254528fa9ece34c4994647497dc052fe0",
+      "image": "flolah-digital-adoption:20261018-owner-workspace-c",
+      "startedAt": "2026-10-18T10:43:45.830124253Z",
+      "running": true,
+      "health": null
+    },
+    "agent-os-backend-1": {
+      "imageId": "sha256:9de8bcca553e9c18088ff64ffeac0564220705c8d81f22492a0aae6137b2e828",
+      "image": "agent-os-backend:adoption-help-20261020-peer-h",
+      "startedAt": "2026-10-20T05:04:41.777876384Z",
+      "running": true,
+      "health": "healthy"
+    },
+    "agent-os-frontend-1": {
+      "imageId": "sha256:bf6aaf311d995a76f6ee4591d21241e07566954a26d83e380ae2d39c8ba54cb0",
+      "image": "agent-os-frontend:adoption-20261019-immediate-j",
+      "startedAt": "2026-10-19T11:40:25.829931383Z",
+      "running": true,
+      "health": "healthy"
+    }
+  },
+  "healthUrlsPassed": 4,
+  "parserWorkersPreserved": true,
+  "sharedCheckerSettingReadOnly": {
+    "enabled": true,
+    "checkerMode": "platform_inactive",
+    "checkerMaxTokens": 2048
+  },
+  "gatewayPatch": "Generic review contract overlay; parent provider/runtime image and shared settings preserved"
+}

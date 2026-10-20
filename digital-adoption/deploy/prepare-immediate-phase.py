@@ -1,5 +1,5 @@
 """Build and test a scoped coordinator, then prepare the additive platform patch."""
-import json, pathlib, re, subprocess, sys
+import json, pathlib, re, shutil, subprocess, sys
 release=sys.argv[1]
 coordinator_only=sys.argv[2:]==['--coordinator-only']
 coordinator_gateway=sys.argv[2:]==['--coordinator-and-gateway']
@@ -23,6 +23,11 @@ run(['docker','build','--build-arg','BASE_IMAGE='+base,'-f',str(bundle/'deploy/i
 gateway_base='flolah-immediate-gateway-base:'+release
 subprocess.run(['docker','tag',gateway['Image'],gateway_base],check=True)
 if not coordinator_only:
+ # Stage the reviewed overlay once so repeated additive releases do not add
+ # one filesystem layer per source file and exhaust overlayfs mount limits.
+ overlay=bundle/'.gateway-overlay'
+ for name in ['src/edit-intent.mjs','integrations/checker-contract.mjs','src/proposals.mjs','src/action-attempts.mjs','src/assistant-contract.mjs','integrations/maker-checker.mjs','src/goal-contract.mjs','integrations/platform-gateway.mjs','web/choice-intent.mjs','src/task-intent.mjs','web/guidance-intent.mjs']:
+  target=overlay/name;target.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(bundle/name,target)
  run(['docker','build','--build-arg','BASE_IMAGE='+gateway_base,'-f',str(bundle/'deploy/immediate-gateway.Dockerfile'),'-t','flolah-digital-adoption:'+release+'-gateway',str(bundle)],'gateway-build.log')
  run(['docker','run','--rm','--network','none','--entrypoint','node','flolah-digital-adoption:'+release+'-gateway','--input-type=module','-e',"await import('/adoption/integrations/platform-gateway.mjs'); console.log('Gateway import/dependency smoke passed')"],'gateway-import-smoke.log')
 run(['docker','build','--build-arg','BASE_IMAGE=flolah-digital-adoption:'+release,'-f',str(bundle/'deploy/immediate-test.Dockerfile'),'-t','flolah-immediate-tests:'+release,str(bundle)],'coordinator-tests-build.log')

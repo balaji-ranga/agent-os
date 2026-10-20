@@ -3,37 +3,49 @@ import {constrainNavigation} from './navigation-intent.mjs';
 import {constrainEdit} from './edit-intent.mjs';
 import {groundedValue,syntheticDataIntent} from './task-intent.mjs';
 const fail=(message,code='GOAL_BLOCKED')=>{throw Object.assign(new Error(message),{publicCode:code});};
+const checkPeers=(plan,peers)=>{if(plan.steps.some(s=>s.kind==='peer'&&!peers.some(p=>p.instanceId===s.recipient)))fail('A paired tab is missing or ambiguous. Select an online paired copilot before planning.','GOAL_PEER_UNAVAILABLE');};
 const checkSaveRequest=(text,plan)=>{if(plan.steps.some(s=>s.kind==='save')&&!/\b(save|submit)\b/i.test(text.replace(/\b(?:do not|don't|never)\s+(?:save|submit)\b[^.!;]*/gi,'')))fail('This plan contains Save without a request to save. Clarify the goal before continuing.');};
 export async function handleGoal({operation,scope,input,goals,goalModel,planner,proposals,privateTasks,sourceMap,learning,signal,stillCurrent}){
  if(!goals||!goalModel||!planner||!proposals)fail('Goal planning is not configured');
  if(operation==='status'){const row=input.id?goals.get(scope,input.id):goals.current(scope);if(row?.privateTask&&!privateTasks?.goalBinding(scope,row.privateTask)){goals.clear(scope);return {goal:null};}return {goal:row};}
  const context=async(text,privateTask)=>{if(!privateTask)return;const found=await privateTasks?.goalContext(scope,{...privateTask,text})||fail('Private task context is unavailable');if(privateTask.contentRevision!==undefined&&found.contentRevision!==privateTask.contentRevision)fail('Task files changed. Cancel this goal and review a new plan.');return found;};
+ const peerGuidance=input.instanceId&&privateTasks?privateTasks.peerCatalog(scope,input):[];
  const guidance=(text,snapshot)=>({sourceGuidance:sourceMap?.guidance(scope,text,snapshot),siteGuidance:learning?.planningMemory?.(scope,text,snapshot)});
  if(operation==='create'){
   const prior=goals.current(scope);if(prior?.privateTask&&!privateTasks?.goalBinding(scope,prior.privateTask))goals.clear(scope);
+  const incoming=input.peerRequestId?privateTasks.peerBinding(scope,{...input,requestId:input.peerRequestId}):null;
+  if(incoming)input={...input,privateTask:incoming};
   const snapshot=validateSnapshot(input.snapshot),privateGuidance=await context(input.text,input.privateTask);
-  const plan=await goalModel({text:input.text,snapshot,privateGuidance,...guidance(input.text,snapshot),signal});stillCurrent();
-  await context(input.text,input.privateTask);checkSaveRequest(input.text,plan);return {goal:goals.create(scope,{text:input.text,plan,privateTask:input.privateTask?{...input.privateTask,contentRevision:privateGuidance.contentRevision}:undefined})};
+  const plan=await goalModel({text:input.text,snapshot,privateGuidance,peerGuidance,...(incoming?{goalContext:{delegation:incoming.delegation,instruction:'This is an incoming paired request. observed is the recipient browser. Private paired context identifies its sender by origin and path. Resolve which form the user means from the complete instruction and these roles; clarify consequential ambiguity. Do not confuse source-form evidence with live recipient executable fields. Normal local reviews still apply.'}}:{}),...guidance(input.text,snapshot),signal});stillCurrent();
+  await context(input.text,input.privateTask);checkSaveRequest(input.text,plan);checkPeers(plan,peerGuidance);return {goal:goals.create(scope,{text:input.text,plan,peerRequestId:input.peerRequestId,privateTask:input.privateTask?{...input.privateTask,contentRevision:privateGuidance.contentRevision}:undefined})};
  }
  let row=goals.get(scope,input.id);
+ if(row.peerRequestId&&!['status','control'].includes(operation))privateTasks.peerBinding(scope,{instanceId:row.privateTask.instanceId,requestId:row.peerRequestId});
+ if(operation==='peer-check'){const result=privateTasks.peerStatus(scope,{...input,requestId:row.pendingPeerId});return {goal:goals.peerAssessed(scope,input,result),peerResult:result};}
+ if(operation==='peer-send'){
+  const step=row.steps[row.current];if(step?.kind!=='peer'||row.version!==input.version)fail('Review the current peer step before sending.');
+  const lease=goals.reserve(scope,input);try{const request=await privateTasks.peerRequest(scope,{...input,targetId:step.recipient,mode:step.mode,instruction:step.instruction,operationId:'goal:'+row.id+':'+row.current});stillCurrent();return {goal:goals.peerPrepared(scope,row.id,lease.claim,request),peerRequest:request};}catch(error){goals.block(scope,row.id,'The paired step could not be sent. Inspect its status before retrying.',lease.claim);throw error;}
+ }
  if(operation==='control'){
   if(input.version!==row.version)fail('This plan changed. Refresh its progress.','GOAL_STALE');
   // Reject unconsumed reviews before resuming. Consumed actions require their
   // recorded outcome; they can never be silently replaced with a fresh write.
   if(['resume','cancel','pause'].includes(input.action)&&row.pendingProposalId){const e=proposals.goalEvidence(scope,row.pendingProposalId);if(e.status==='pending'||e.status==='rejected'){goals.discardPending(scope,row.id,id=>proposals.reject(scope,id));row=goals.get(scope,row.id);}else if(input.action==='resume')fail('An approved step already exists. Check its outcome; do not replay it.','GOAL_OUTCOME_REQUIRED');}
+  if(input.action==='cancel'&&row.pendingPeerId)privateTasks.peerCancel(scope,{...input,requestId:row.pendingPeerId});
   return {goal:goals.control(scope,{...input,version:row.version})};
  }
  if(operation==='clarify'){
   if(input.version!==row.version)fail('This plan changed. Refresh its progress.','GOAL_STALE');
   if(row.pendingProposalId){const e=proposals.goalEvidence(scope,row.pendingProposalId);if(!['pending','rejected'].includes(e.status))fail('Check the recorded step outcome before changing its goal; no approved effect will be repeated.','GOAL_OUTCOME_REQUIRED');goals.discardPending(scope,row.id,id=>proposals.reject(scope,id));row=goals.get(scope,row.id);}
   const snapshot=validateSnapshot(input.snapshot),binding=input.privateTask||row.privateTask,privateGuidance=await context(row.text,binding),lease=goals.reserveClarification(scope,{...input,version:row.version});
-  try{const plan=await goalModel({text:lease.row.text,snapshot,privateGuidance,...guidance(lease.row.text,snapshot),goalContext:{replanning:true,originalGoal:row.text,clarificationPrompt:row.message,resolvedClarification:{question:row.message,answer:input.answer},completedSteps:row.steps.slice(0,row.current),remainingSteps:row.steps.slice(row.current),priorEffects:row.replannedEffects||[],reviewedEdits:row.replannedEdits||[],instruction:'Preserve user-reviewed edited values unless the user changes them now. Return ONLY remaining work. Do not repeat completed steps or recorded effects. Preserve completed work. Incorporate the current user clarification and preserve every other supplied fact. The revised plan will be reviewed again before execution.'},signal});stillCurrent();await context(lease.row.text,binding);checkSaveRequest(lease.row.text,plan);return {goal:goals.clarified(scope,row.id,lease.claim,plan,binding?{taskId:binding.taskId,instanceId:binding.instanceId,contentRevision:privateGuidance.contentRevision}:undefined)};}catch(error){try{goals.block(scope,row.id,'The remaining plan could not be revised. Earlier effects remain; clarify or cancel explicitly.',lease.claim);}catch{}throw error;}
+  try{const plan=await goalModel({text:lease.row.text,snapshot,privateGuidance,peerGuidance,...guidance(lease.row.text,snapshot),goalContext:{replanning:true,originalGoal:row.text,clarificationPrompt:row.message,resolvedClarification:{question:row.message,answer:input.answer},completedSteps:row.steps.slice(0,row.current),remainingSteps:row.steps.slice(row.current),priorEffects:row.replannedEffects||[],reviewedEdits:row.replannedEdits||[],instruction:'Preserve user-reviewed edited values unless the user changes them now. Return ONLY remaining work. Do not repeat completed steps or recorded effects. Preserve completed work. Incorporate the current user clarification and preserve every other supplied fact. The revised plan will be reviewed again before execution.'},signal});stillCurrent();await context(lease.row.text,binding);checkSaveRequest(lease.row.text,plan);checkPeers(plan,peerGuidance);return {goal:goals.clarified(scope,row.id,lease.claim,plan,binding?{taskId:binding.taskId,instanceId:binding.instanceId,contentRevision:privateGuidance.contentRevision,...(binding.peerRequestId?{peerRequestId:binding.peerRequestId}:{})}:undefined)};}catch(error){try{goals.block(scope,row.id,'The remaining plan could not be revised. Earlier effects remain; clarify or cancel explicitly.',lease.claim);}catch{}throw error;}
  }
  const snapshot=validateSnapshot(input.snapshot),step=row.steps[row.current];if(!step)fail('The goal has no remaining step');
  if(input.version!==row.version)fail('This plan changed. Reload its current progress.','GOAL_STALE');
  if(operation==='revise')return goals.revise(scope,input,id=>proposals.revise(scope,{id,snapshot,edits:input.edits}));
  const privateGuidance=await context(row.text,row.privateTask);
  if(operation==='next'){
+  if(step.kind==='peer'){if(row.status!=='ready'||row.peerFailed)fail('Review the stopped paired task before continuing.');const peer=peerGuidance.find(p=>p.instanceId===step.recipient);if(!peer)fail('The selected paired tab is offline. No work was queued.');return {goal:row,peerReview:{...step,origin:peer.origin}};}
   const lease=goals.reserve(scope,input);
   try{
    const instruction=step.remainingInstruction||step.instruction;

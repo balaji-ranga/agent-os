@@ -33,6 +33,7 @@ export async function mount(options) {
   catch(error){client.stop();bootstrapButton.disabled=false;bootstrapButton.textContent='Reconnect copilot';bootstrapButton.title=error.message;bootstrapButton.onclick=async()=>{bootstrapButton.disabled=true;try{await mount({...options,externalConnectionStatus:true});bootstrapButton.remove();}catch(error){bootstrapButton.disabled=false;bootstrapButton.title=error.message;}};throw error;}
   const visitorAnalytics=createVisitorAnalytics({document,setConsent:value=>client.setAnalyticsConsent(value),request:(path,data)=>client.background(path,data)});
   const inspector = createInspector(document);
+  const peerSnapshot=task=>{const observer=createInspector(document);try{return observer.snapshot({task,inventory:true});}finally{observer.destroy();}};
   let actionStorage;try{actionStorage=window.sessionStorage;}catch{}
   if(getActionOutcome!==undefined&&typeof getActionOutcome!=='function')throw new Error('Action outcome must be a host receipt callback');
   const verifyAction=getActionOutcome?async action=>{const receipt=await getActionOutcome({sessionId:bootstrap.sessionId,actionId:action.actionId,proposalId:action.actionId.split(':')[0],path:location.pathname});return request('/v1/actions/verify',{actionId:action.actionId,fence:action.fence,receipt});}:undefined;
@@ -40,7 +41,7 @@ export async function mount(options) {
   const recorder=createRecorder(document);
   let recordedSteps=[];
   let recordingId,recordingTitle;
-  let currentSnapshot = null,currentTaskText='',lastOutcome,currentGoalProposal=false;
+  let currentSnapshot = null,currentTaskText='',lastOutcome,currentGoalProposal=false,incomingPeerRequest;
   const hostContext=()=>{const visible=e=>!e.closest('[data-adoption-widget],[data-adoption-private]')&&e.getClientRects().length&&getComputedStyle(e).visibility!=='hidden',modal=[...document.querySelectorAll('[role=dialog][aria-modal=true],dialog[open]')].find(visible),root=modal||document.querySelector('main')||document,heading=[...root.querySelectorAll('h1,[role=heading][aria-level="1"]')].find(visible)||[...root.querySelectorAll('h2,[role=heading]')].find(visible);return {title:(heading?.textContent.trim()||[...document.forms].find(visible)?.getAttribute('aria-label')||document.title||location.pathname).slice(0,120),path:location.pathname,origin:location.origin};};
   let historyKey;const historyStorageKey=`flolah-copilot-history:${service.href}`;
   try{historyKey=localStorage.getItem(historyStorageKey);}catch{}
@@ -85,7 +86,8 @@ export async function mount(options) {
   const resumeKey=`flolah-copilot-pair:${service.origin}:${installationToken.slice(-16)}`;
   let durableResume=false;
   const resumeStore={read(){try{return sessionStorage.getItem(resumeKey)||localStorage.getItem(resumeKey);}catch{return null;}},write(value){try{sessionStorage.setItem(resumeKey,value);if(durableResume)localStorage.setItem(resumeKey,value);}catch{}},clear(){try{sessionStorage.removeItem(resumeKey);localStorage.removeItem(resumeKey);}catch{}},persist(value){durableResume=value;try{if(value){const proof=sessionStorage.getItem(resumeKey);if(proof)localStorage.setItem(resumeKey,proof);}else localStorage.removeItem(resumeKey);}catch{}}};
-  const privateClient=createTaskClient({request,service,resumeStore,inspect:task=>inspector.snapshot({task}),hostIdentity:getHostIdentity?async()=>{try{return await request('/v1/renew',{identityToken:await readHostIdentity()});}catch(error){try{await request('/v1/terminate');}finally{expireSession();}throw error;}}:null,onEvent:event=>{
+  const privateClient=createTaskClient({request,service,resumeStore,inspectPeer:peerSnapshot,inspect:task=>inspector.snapshot({task}),hostIdentity:getHostIdentity?async()=>{try{return await request('/v1/renew',{identityToken:await readHostIdentity()});}catch(error){try{await request('/v1/terminate');}finally{expireSession();}throw error;}}:null,onEvent:event=>{
+    if(event.type==='peer-result'&&event.status==='failed'&&event.requestId===incomingPeerRequest){execution.stop();taskGeneration++;currentSnapshot=null;currentGoalProposal=false;incomingPeerRequest=null;}
     if(event.type==='task-ended'){inspector.clearRecent();currentGoalProposal=false;lastOutcome=undefined;taskGeneration++;currentSnapshot=null;currentTaskText='';}
     if(event.type==='workflow-started'){currentGoalProposal=false;taskGeneration++;currentSnapshot=null;}
     if(event.type==='workflow-proposal'){inspector.rememberReview(event.proposal.actions,event.proposal.revision);currentSnapshot=event.snapshot;event={...event,proposal:{...event.proposal,localReview:inspector.reviewValues(event.proposal.actions,event.proposal.revision)}};}
@@ -98,13 +100,13 @@ export async function mount(options) {
     if (!message || message.channel !== 'flolah-adoption-v1' || typeof message.id !== 'string' || message.id.length > 80) return;
     let result,proposalGeneration;
     try {
-      if(execution.busy&&['conversation-archive','conversation-resume','goal-create','goal-next','goal-observe','goal-clarify','plan','recipe-plan','save-review','approve','revise','inspect','discovery-start','record-start','replay-navigation'].includes(message.type))throw Object.assign(new Error('A task is already applying or verifying changes. Stop it or wait for its result.'),{code:'TASK_BUSY'});
+      if(execution.busy&&['task-peer-request','goal-peer-send','conversation-archive','conversation-resume','goal-create','goal-next','goal-observe','goal-clarify','plan','recipe-plan','save-review','approve','revise','inspect','discovery-start','record-start','replay-navigation'].includes(message.type))throw Object.assign(new Error('A task is already applying or verifying changes. Stop it or wait for its result.'),{code:'TASK_BUSY'});
       // Unblock the queue before the owner's fresh capability check. Waiting
       // for that check first would itself queue Pause behind the stalled read.
       if(['discovery-pause','discovery-stop'].includes(message.type))client.interruptRead();
       const ownerOperation=/^(?:discovery-|record-|replay-navigation$|inspect$|recipes$|recipe-plan$|documents$)/.test(message.type);
       if(ownerOperation&&!(await request('/v1/capabilities')).capabilities.coach)throw new Error('Actions requires owner coaching access. Enable a short-lived coaching code in settings.');
-      if(/^(task|pair)-/.test(message.type)){result=await privateClient.call(message.type,message);if(message.type==='task-remove'){currentSnapshot=null;taskGeneration++;frame.contentWindow?.postMessage({channel:'flolah-adoption-v1',type:'private-event',event:{type:'goal-context-changed'}},service.origin);}}
+      if(/^(task|pair)-/.test(message.type)){const extra=message.type==='task-peer-request'&&message.mode==='goal'?inspector.shareContext({includeValues:message.includeValues===true}):message.type==='task-peer-answer'&&message.goalId?{snapshot:peerSnapshot('Current supported forms and navigation')}:{};result=await privateClient.call(message.type,{...message,...extra});if(message.type==='task-remove'){currentSnapshot=null;taskGeneration++;frame.contentWindow?.postMessage({channel:'flolah-adoption-v1',type:'private-event',event:{type:'goal-context-changed'}},service.origin);}}
       else if(message.type==='access'){try{result=await request('/v1/capabilities');}finally{if(!result?.capabilities?.coach&&['recording','paused'].includes(recorder.state())){recorder.stop();recordedSteps=[];recordingId=null;recordingTitle=null;}}}
       else if (message.type === 'config') result = {theme:appearance,presentation:{layout,expanded},hostContext:hostContext(),canVerifyOutcome:typeof getVerifiedOutcome==='function',...await request('/v1/capabilities')};
       else if(message.type==='presentation'){expanded=message.expanded===true;applyAppearance();result={layout,expanded};}
@@ -200,9 +202,11 @@ export async function mount(options) {
       else if(message.type==='cancel'){currentGoalProposal=false;execution.stop();taskGeneration++;currentSnapshot=null;currentTaskText='';client.interruptRead();result={stopped:true};}
       else if (message.type === 'inspect') {result=inspector.snapshot({inventory:true});const access=await request('/v1/capabilities');if(access.capabilities.coach)result.learning=await request('/v1/learning/observe',{snapshot:result});}
       else if(message.type.startsWith('goal-')){
-        const operation=message.type.slice(5),goalInput={id:message.goalId,version:message.version,action:message.action,text:message.text,answer:message.answer,edits:message.edits};if(['control','create','clarify'].includes(operation)){taskGeneration++;currentSnapshot=null;client.interruptRead();execution.stop();}
+        const operation=message.type.slice(5);if(['create','next','clarify','peer-send','peer-check'].includes(operation)&&!privateClient.instanceId)await privateClient.call('pair-status');const goalInput={instanceId:privateClient.instanceId,peerRequestId:message.peerRequestId,shareConsent:message.shareConsent,id:message.goalId,version:message.version,action:message.action,text:message.text,answer:message.answer,edits:message.edits};if(['control','create','clarify'].includes(operation)){taskGeneration++;currentSnapshot=null;client.interruptRead();execution.stop();}
+        if(operation==='create')incomingPeerRequest=message.peerRequestId;
         const generation=proposalGeneration=taskGeneration;
-        if(['create','next','observe','revise','clarify'].includes(operation)){const observed=inspector.snapshot({task:message.text||currentTaskText});if(lastOutcome)observed.lastOutcome=lastOutcome;currentSnapshot=observed;result=await request('/v1/goals/'+operation,{...goalInput,snapshot:observed,...(['create','clarify'].includes(operation)?{privateTask:privateClient.taskScope}: {})});}
+        if(operation==='peer-send'){const packet=inspector.shareContext({includeValues:message.includeValues===true});result=await request('/v1/goals/peer-send',{...goalInput,...packet,...privateClient.taskScope});if(result.peerRequest)privateClient.adoptTask(result.peerRequest.taskId);}
+        else if(['create','next','observe','revise','clarify'].includes(operation)){const observed=inspector.snapshot({task:message.text||currentTaskText});if(lastOutcome)observed.lastOutcome=lastOutcome;currentSnapshot=observed;result=await request('/v1/goals/'+operation,{...goalInput,snapshot:observed,...(['create','clarify'].includes(operation)?{privateTask:privateClient.taskScope}: {})});}
         else result=await request('/v1/goals/'+operation,goalInput);
         if(generation!==taskGeneration)throw Object.assign(new Error('Goal request stopped; response discarded'),{code:'TASK_CANCELLED'});
         if(result.proposal){currentGoalProposal=true;currentTaskText=result.goal.steps[result.goal.current].remainingInstruction||result.goal.steps[result.goal.current].instruction;result.proposal={...result.proposal,localReview:inspector.reviewValues(result.proposal.actions,result.proposal.revision)};}

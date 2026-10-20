@@ -1,0 +1,65 @@
+{
+  "at": "2026-10-20T04:42:44.604Z",
+  "scope": "Separate Chrome profile, actual deployed goal/step maker and configured checker. Three paired tabs; only loopback synthetic records saved. No attachment, backend data seeding or autonomous policy grant.",
+  "marker": "mvg71shd",
+  "email": "peer.mvg71shd@example.test",
+  "publicWrites": 0,
+  "results": [
+    {
+      "id": "LIVE_PEER01_READY_AND_PAIRED_LOCAL_FORMS_WITHOUT_FILES",
+      "status": "passed"
+    },
+    {
+      "id": "LIVE_PEER02_ACTUAL_MODEL_CUSTOMER_TO_NOTE_GOAL_AND_TWO_SAVES",
+      "status": "failed",
+      "error": "locator.waitFor: Timeout 180000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('iframe[data-adoption-widget]').contentFrame().locator('#goal-start') to be visible\u001b[22m\n"
+    }
+  ],
+  "traces": [
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "goal": null,
+      "result": {
+        "goal": null
+      }
+    },
+    {
+      "panel": "note",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "goal": null,
+      "result": {
+        "goal": null
+      }
+    },
+    {
+      "panel": "public",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "goal": null,
+      "result": {
+        "goal": null
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/create",
+      "status": 503,
+      "result": {
+        "error": "Copilot service temporarily unavailable",
+        "code": "COPILOT_REVIEW_FAILED"
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "goal": null,
+      "result": {
+        "goal": null
+      }
+    }
+  ]
+}

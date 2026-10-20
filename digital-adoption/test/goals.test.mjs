@@ -169,3 +169,16 @@ test('a clarification request focuses the maker on the latest reply and retains 
 test('goal schema repair does not consume its one semantic checker repair and both remain bounded',async()=>{
  const {reviewCopilotResponse}=await import('../integrations/maker-checker.mjs');let makers=0,judges=0;const malformed={...plan,steps:plan.steps.map(({title,...rest})=>rest)};const result=await reviewCopilotResponse({config:{active:'primary',checker:{slot:'secondary',baseUrl:'https://synthetic.invalid',model:'test',apiKey:'synthetic'}},purpose:'digital_adoption_goal',messages:[{role:'user',content:JSON.stringify({stage:'plan',task:'Prepare and save Orchid.',observed:snapshot})}],draft:JSON.stringify(malformed),complete:async request=>{if(request.config.slot){judges++;return {content:JSON.stringify({decision:judges===1?'revise':'accept',feedback:judges===1?'Remove the resolved question step.':'Grounded remaining plan.',checks:{taskMatch:judges===1?'fail':'pass',grounding:'pass',safety:'pass'}})};}makers++;return {content:JSON.stringify(makers===1?{...plan,steps:[{title:'Ask email',kind:'fill',instruction:'Ask for email',expected:'Email supplied'},...plan.steps]}:plan)};}});assert.equal(makers,2);assert.equal(judges,2);assert.equal(result.quality.revisions,2);assert.equal(result.quality.decision,'accept');
 });
+
+test('peer goal contract accepts only described peer operations and exact recipient metadata',()=>{
+ const step={title:'Ask paired form',kind:'peer',recipient:'observed-instance',mode:'inspect',instruction:'Inspect the paired form',expected:'Form schema returned'};
+ assert.equal(parseGoalResponse(JSON.stringify({message:'Reviewed delegation',steps:[step]})).steps[0].mode,'inspect');
+ for(const bad of [{...step,mode:'execute'},{...step,recipient:undefined},{...plan.steps[0],recipient:'foreign',mode:'goal'}])assert.throws(()=>parseGoalResponse(JSON.stringify({message:'Bad',steps:[bad]})));
+});
+test('peer goal waiting and completion are version-fenced and do not claim a direct local write',()=>{
+ const f=fixture();try{const p={message:'Inspect the paired form',steps:[{title:'Inspect peer',kind:'peer',recipient:'known',mode:'inspect',instruction:'Inspect only',expected:'Schema returned'}]},r=f.goals.create(scope,{text:'Inspect only',plan:p}),started=f.goals.control(scope,{id:r.id,version:r.version,action:'start'}),claim=f.goals.reserve(scope,{id:r.id,version:started.version}),waiting=f.goals.peerPrepared(scope,r.id,claim.claim,{requestId:'rpc',taskId:'private',sourceInstanceId:'source',contentRevision:0});
+ assert.equal(waiting.status,'awaiting_peer');assert.throws(()=>f.goals.reserve(scope,{id:r.id,version:waiting.version}));
+ assert.throws(()=>f.goals.peerAssessed(scope,{id:r.id,version:waiting.version-1},{requestId:'rpc',status:'completed'}));
+ const done=f.goals.peerAssessed(scope,{id:r.id,version:waiting.version},{requestId:'rpc',status:'completed',to:'https://peer.test',result:{fields:[]}});assert.equal(done.status,'completed');assert.equal(done.steps[0].effects[0].peer,'rpc');
+ }finally{f.repo.close();}
+});

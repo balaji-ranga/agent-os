@@ -1,0 +1,340 @@
+{
+  "at": "2026-10-20T05:13:08.496Z",
+  "scope": "Separate Chrome profile, actual deployed goal/step maker and configured checker. Three paired tabs; only loopback synthetic records saved. No attachment, backend data seeding or autonomous policy grant.",
+  "marker": "mvg8861z",
+  "email": "peer.mvg8861z@example.test",
+  "publicWrites": 0,
+  "results": [
+    {
+      "id": "LIVE_PEER01_READY_AND_PAIRED_LOCAL_FORMS_WITHOUT_FILES",
+      "status": "passed"
+    },
+    {
+      "id": "LIVE_PEER02_ACTUAL_MODEL_CUSTOMER_TO_NOTE_GOAL_AND_TWO_SAVES",
+      "status": "failed",
+      "error": "Actual model rejected the source goal: {\"error\":\"Copilot service temporarily unavailable\",\"code\":\"COPILOT_CHECKER_UNAVAILABLE\"}\n\n503 !== 200\n"
+    }
+  ],
+  "traces": [
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "goal": null,
+      "result": {
+        "goal": null
+      }
+    },
+    {
+      "panel": "note",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "goal": null,
+      "result": {
+        "goal": null
+      }
+    },
+    {
+      "panel": "public",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "goal": null,
+      "result": {
+        "goal": null
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/create",
+      "status": 503,
+      "result": {
+        "error": "Copilot service temporarily unavailable",
+        "code": "COPILOT_CHECKER_UNAVAILABLE"
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "goal": null,
+      "result": {
+        "goal": null
+      }
+    }
+  ],
+  "requestEnvelopes": [
+    {
+      "panel": "source",
+      "body": {
+        "instanceId": "5f0e24f1-2b78-4181-ab2f-5464d674ca85",
+        "text": "Fill and save this Customer: Company name \"genosys\"; Contact email \"peer.mvg8861z@example.test\"; Region \"Singapore\". Then inspect the paired copilot instanceId 981353c9-d36b-466a-a809-fe1345d3f26f, which is on Note. In that paired tab, use the shared Customer Company name as Note Title and Contact email as Note Body; fill and save the Note after normal reviews. I will confirm sharing current form values and each change.",
+        "snapshot": {
+          "revision": 1,
+          "fields": [
+            {
+              "ref": "r1f0",
+              "label": "Company name",
+              "type": "text",
+              "required": true,
+              "key": "company_name",
+              "form": "demo-form",
+              "optionCount": 0
+            },
+            {
+              "ref": "r1f1",
+              "label": "Contact email",
+              "type": "email",
+              "required": true,
+              "key": "contact_email",
+              "form": "demo-form",
+              "optionCount": 0
+            },
+            {
+              "ref": "r1f2",
+              "label": "Region",
+              "type": "text",
+              "required": true,
+              "key": "region",
+              "form": "demo-form",
+              "optionCount": 0
+            }
+          ],
+          "forms": [
+            {
+              "key": "demo-form",
+              "label": "demo-form",
+              "fields": [
+                "company_name",
+                "contact_email",
+                "region"
+              ]
+            }
+          ],
+          "links": [
+            {
+              "ref": "r1n0",
+              "label": "Customer",
+              "path": "/customer"
+            },
+            {
+              "ref": "r1n1",
+              "label": "Opportunity",
+              "path": "/opportunity"
+            },
+            {
+              "ref": "r1n2",
+              "label": "Note",
+              "path": "/note"
+            },
+            {
+              "ref": "r1n3",
+              "label": "Scheduled goal",
+              "path": "/goal"
+            }
+          ],
+          "recentActivity": {
+            "prepared": [],
+            "applied": [],
+            "unavailablePrepared": 0,
+            "unavailableApplied": 0
+          },
+          "targets": [
+            {
+              "ref": "r1t0",
+              "label": "Try these prompts",
+              "kind": "content",
+              "role": "section",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Try these promptsAsk knowledge: What is the Alpha delivery promise?Prepare field review: Set the company name to Demo Test and contact email to demo@example.com.Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”Switch to Note: “Create a note with title Followup and body followup MrX on month end.”Review proposed values, approve, then verify the visible fields. No automatic Save is performed."
+            },
+            {
+              "ref": "r1t1",
+              "label": "Generic changes and theme",
+              "kind": "content",
+              "role": "section",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Generic changes and themeAdding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field."
+            },
+            {
+              "ref": "r1t2",
+              "label": "Hide/show host form",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Hide/show host form"
+            },
+            {
+              "ref": "r1t3",
+              "label": "Digital Adoption test workspace",
+              "kind": "content",
+              "role": "header",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Local host page · VPS-hosted copilotDigital Adoption test workspaceThe widget, model backend and knowledge retrieval run on the VPS."
+            },
+            {
+              "ref": "r1t4",
+              "label": "Customer draft",
+              "kind": "content",
+              "role": "section",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Customer draftCompany nameContact emailRegion"
+            },
+            {
+              "ref": "r1t5",
+              "label": "Customer",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Customer"
+            },
+            {
+              "ref": "r1t6",
+              "label": "Note",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Note"
+            },
+            {
+              "ref": "r1t7",
+              "label": "Save synthetic record",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Save synthetic record"
+            },
+            {
+              "ref": "r1t8",
+              "label": "Opportunity",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Opportunity"
+            },
+            {
+              "ref": "r1t9",
+              "label": "Scheduled goal",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Scheduled goal"
+            },
+            {
+              "ref": "r1t10",
+              "label": "Saved synthetic records",
+              "kind": "content",
+              "role": "a",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Saved synthetic records"
+            },
+            {
+              "ref": "r1t11",
+              "label": "Add Delivery city field",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Add Delivery city field"
+            },
+            {
+              "ref": "r1t12",
+              "label": "Add native controls",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Add native controls"
+            },
+            {
+              "ref": "r1t13",
+              "label": "Add complex controls",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Add complex controls"
+            },
+            {
+              "ref": "r1t14",
+              "label": "Switch widget palette",
+              "kind": "content",
+              "role": "button",
+              "state": {
+                "disabled": false,
+                "busy": false
+              },
+              "text": "Switch widget palette"
+            }
+          ],
+          "domScope": "Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.",
+          "coverage": {
+            "fieldLimit": 60,
+            "navigationLimit": 30,
+            "visibleNativeControls": 3,
+            "embeddedFrames": 0,
+            "openShadowRoots": 0,
+            "unsupportedControls": 0,
+            "manualNotice": ""
+          },
+          "submissions": [
+            {
+              "ref": "r1s0",
+              "label": "Save synthetic record"
+            }
+          ],
+          "navigationCandidates": [
+            "/customer",
+            "/opportunity",
+            "/note",
+            "/goal",
+            "/records"
+          ],
+          "screen": "Customer draft | Try these prompts | Generic changes and theme",
+          "path": "/customer",
+          "ambiguousDialogs": false,
+          "blockedCount": 7
+        },
+        "privateTask": null
+      }
+    }
+  ]
+}

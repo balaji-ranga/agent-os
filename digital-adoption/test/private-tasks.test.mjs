@@ -168,3 +168,63 @@ test('RELAY05: expired task IDs fail without delivery or revival; a fresh start 
  const next=f.tasks.start(a.scope,a);assert.notEqual(next.taskId,task.taskId);assert.deepEqual(next.files,[]);
  assert.throws(()=>f.tasks.status(a.scope,{...a,taskId:task.taskId}),/TASK_ENDED/);
 });
+
+test('PEER01: paired inspection RPC returns validated form structure without an attachment or values',async t=>{
+ const f=await fixture(t),a=f.add('alpha'),b=f.add('beta'),c=f.add('gamma');f.pair(a,b);
+ const request=await f.tasks.peerRequest(a.scope,{...a,targetId:b.instanceId,mode:'inspect',instruction:'Inspect forms',shareConsent:true,operationId:'inspect-one'});
+ assert.equal(b.messages.at(-1).type,'peer-request');assert.equal(request.status,'pending');
+ assert.throws(()=>f.tasks.peerStatus(c.scope,{...c,requestId:request.requestId}),/PEER_ACCESS_DENIED/);
+ assert.throws(()=>f.tasks.peerAnswer(a.scope,{...a,requestId:request.requestId,snapshot}),/PEER_ACCESS_DENIED/);
+ f.tasks.peerAnswer(b.scope,{...b,requestId:request.requestId,snapshot:{...snapshot,fields:[{...snapshot.fields[0],required:true,value:'Never copy this arbitrary property'}]}});
+ const result=f.tasks.peerStatus(a.scope,{...a,requestId:request.requestId});assert.equal(result.status,'completed');assert.equal(result.result.fields[0].required,true);assert.deepEqual(result.result.values,[]);assert.equal(JSON.stringify(result).includes('Never copy'),false);
+ assert.match(JSON.stringify((await f.tasks.goalContext(a.scope,{...a,taskId:request.taskId,text:'Use inspection'})).evidence),/Company name/);
+});
+test('PEER02: private form values become recipient goal evidence only after consent, with no upload permission',async t=>{
+ let evidence;const f=await fixture(t,{planner:async input=>{evidence=input.privateGuidance.evidence;return {message:'Review',actions:[{type:'fill',ref:'r1f0',value:'Peer Orchid'}]};}}),a=f.add('alpha'),b=f.add('beta');f.pair(a,b);f.sites.get('alpha').taskPolicy.attachments=false;f.sites.get('beta').taskPolicy.attachments=false;
+ const input={...a,targetId:b.instanceId,mode:'goal',instruction:'Use the privately shared company',operationId:'carry',sourceSnapshot:snapshot,values:[{ref:'r1f0',value:'Peer Orchid'}]};
+ await assert.rejects(f.tasks.peerRequest(a.scope,input),/HANDOFF_DENIED/);assert.equal(f.tasks.metrics().tasks,0);
+ const r=await f.tasks.peerRequest(a.scope,{...input,shareConsent:true}),binding=f.tasks.peerBinding(b.scope,{...b,requestId:r.requestId});assert.equal(binding.peerRequestId,r.requestId);
+ const proposal=await f.tasks.plan(b.scope,{...b,taskId:r.taskId,text:'Use the privately shared company',snapshot});assert.equal(proposal.actions[0].value,'Peer Orchid');assert.match(JSON.stringify(evidence),/Peer Orchid/);
+ f.tasks.end(a.scope,{...a,taskId:r.taskId});assert.throws(()=>f.tasks.peerBinding(b.scope,{...b,requestId:r.requestId}));
+});
+test('PEER03: duplicate dispatch is idempotent, altered reuse is refused and terminal replies require trusted completed goal evidence',async t=>{
+ const f=await fixture(t),a=f.add('alpha'),b=f.add('beta');f.pair(a,b);const input={...a,targetId:b.instanceId,mode:'goal',instruction:'Prepare a record; do not save',shareConsent:true,operationId:'one'};
+ const r=await f.tasks.peerRequest(a.scope,input);assert.equal((await f.tasks.peerRequest(a.scope,input)).requestId,r.requestId);assert.equal(b.messages.filter(m=>m.type==='peer-request').length,1);
+ await assert.rejects(f.tasks.peerRequest(a.scope,{...input,instruction:'Changed'}),/PEER_OPERATION_CONFLICT/);
+ assert.throws(()=>f.tasks.peerAnswer(b.scope,{...b,requestId:r.requestId,goalId:'fabricated',status:'completed'}),/PEER_OUTCOME_REQUIRED/);
+ f.tasks.peerAnswer(b.scope,{...b,requestId:r.requestId,rejected:true});assert.equal(f.tasks.peerStatus(a.scope,{...a,requestId:r.requestId}).code,'PEER_DECLINED');assert.throws(()=>f.tasks.peerBinding(b.scope,{...b,requestId:r.requestId}),/PEER_REQUEST_ENDED/);
+});
+test('PEER04: disconnect fails pending work and reconnect cannot replay or revive the request',async t=>{
+ const f=await fixture(t),a=f.add('alpha'),b=f.add('beta');f.pair(a,b);const r=await f.tasks.peerRequest(a.scope,{...a,targetId:b.instanceId,mode:'goal',instruction:'Continue',shareConsent:true,operationId:'disconnect'});f.tasks.disconnect(b.instanceId);
+ assert.equal(f.tasks.peerStatus(a.scope,{...a,requestId:r.requestId}).code,'RECIPIENT_OFFLINE');assert.equal(b.messages.filter(m=>m.type==='peer-request').length,1);
+ assert.equal(f.tasks.goalBinding(b.scope,{taskId:r.taskId,instanceId:b.instanceId,contentRevision:0,peerRequestId:r.requestId}),false);
+});
+test('PEER05: cancelled/revoked peer requests invalidate existing private action bindings',async t=>{
+ const f=await fixture(t),a=f.add('alpha'),b=f.add('beta');f.pair(a,b);const r=await f.tasks.peerRequest(a.scope,{...a,targetId:b.instanceId,mode:'goal',instruction:'Continue',shareConsent:true,operationId:'cancel'}),binding={...f.tasks.peerBinding(b.scope,{...b,requestId:r.requestId}),contentRevision:0};assert.equal(f.tasks.goalBinding(b.scope,binding),true);
+ f.tasks.peerCancel(a.scope,{...a,requestId:r.requestId});assert.equal(f.tasks.goalBinding(b.scope,binding),false);await assert.rejects(f.tasks.goalContext(b.scope,{...binding,text:'Late context'}),/PEER_REQUEST_ENDED/);
+});
+test('PEER06: unobserved/secret value refs and oversized private context are rejected before dispatch',async t=>{
+ const f=await fixture(t),a=f.add('alpha'),b=f.add('beta');f.pair(a,b);const input={...a,targetId:b.instanceId,mode:'goal',instruction:'Continue',shareConsent:true,operationId:'bad-values',sourceSnapshot:snapshot};
+ for(const values of [[{ref:'invented',value:'secret'}],[{ref:'r1f0',value:'x'.repeat(1001)}]])await assert.rejects(f.tasks.peerRequest(a.scope,{...input,values}),/PEER_CONTEXT_INVALID/);
+ assert.equal(f.tasks.metrics().tasks,0);
+});
+
+test('PEER07: planning excludes self, self requests fail, and disabling pairing invalidates pending bindings',async t=>{
+ const f=await fixture(t),a=f.add('alpha'),b=f.add('beta');f.pair(a,b);
+ assert.deepEqual(f.tasks.peerCatalog(a.scope,a).map(p=>p.instanceId),[b.instanceId]);
+ await assert.rejects(f.tasks.peerRequest(a.scope,{...a,targetId:a.instanceId,mode:'goal',instruction:'Self',shareConsent:true,operationId:'self'}),/HANDOFF_DENIED/);
+ const r=await f.tasks.peerRequest(a.scope,{...a,targetId:b.instanceId,mode:'goal',instruction:'Continue',shareConsent:true,operationId:'policy'}),binding={...f.tasks.peerBinding(b.scope,{...b,requestId:r.requestId}),contentRevision:0};
+ f.sites.get('beta').taskPolicy.pairing=false;assert.equal(f.tasks.goalBinding(b.scope,binding),false);assert.equal(f.tasks.peerStatus(a.scope,{...a,requestId:r.requestId}).status,'failed');
+});
+
+test('PEER08: concurrent retries share one in-flight request and cannot duplicate a handoff',async t=>{
+ let release;const gate=new Promise(resolve=>release=resolve);const f=await fixture(t,{passageStore:{search:async()=>{await gate;return [];}}}),a=f.add('alpha'),b=f.add('beta');f.pair(a,b);
+ const input={...a,targetId:b.instanceId,mode:'goal',instruction:'Continue privately',shareConsent:true,operationId:'concurrent'};
+ const first=f.tasks.peerRequest(a.scope,input),second=f.tasks.peerRequest(a.scope,input);release();const [x,y]=await Promise.all([first,second]);assert.equal(x.requestId,y.requestId);assert.equal(b.messages.filter(m=>m.type==='peer-request').length,1);
+});
+
+test('PEER09: a sender that disconnects during context lookup cannot deliver late to another paired tab',async t=>{
+ let wait=false,release;const gate=new Promise(resolve=>release=resolve);const f=await fixture(t,{passageStore:{search:async()=>{if(wait)await gate;return [];}}}),a=f.add('alpha'),b=f.add('beta'),c=f.add('gamma');f.pair(a,b);f.pair(a,c);
+ const task=f.tasks.start(a.scope,a);await f.tasks.relay(a.scope,{...a,taskId:task.taskId,targetId:b.instanceId,shareConsent:true,instruction:'Existing task'});
+ wait=true;const pending=f.tasks.peerRequest(a.scope,{...a,taskId:task.taskId,targetId:c.instanceId,mode:'goal',instruction:'Late request',shareConsent:true,operationId:'late'});f.tasks.disconnect(a.instanceId);release();await assert.rejects(pending,/HANDOFF_DENIED/);assert.equal(c.messages.filter(m=>m.type==='peer-request').length,0);
+});

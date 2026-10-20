@@ -1,0 +1,6 @@
+{
+  "status": "interrupted_before_full_acceptance",
+  "reason": "Fragmented per-field remote goals prompted a generic planning correction. Candidate was replaced; this attempt is not counted as passing. See retained review screenshots and gateway diagnostics.",
+  "sourceSaveOccurred": true,
+  "remoteFullSaveNotClaimed": true
+}

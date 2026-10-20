@@ -1,0 +1,20 @@
+{
+  "scope": "Actual local host + SDK + server + WebSockets + task-private context + goal/proposal/action fencing; deterministic models and isolated owner fixtures. No files or autonomous grants.",
+  "results": [
+    {
+      "id": "PEER_UI01_PAIR_WITHOUT_FILES_AND_INSPECT_REMOTE_FORM",
+      "status": "passed"
+    },
+    {
+      "id": "PEER_UI02_SOURCE_GOAL_FILLS_AND_SAVES_BEFORE_REMOTE_HANDOFF",
+      "status": "passed"
+    },
+    {
+      "id": "PEER_UI03_GOAL_USES_PEER_INSPECTION_AND_SHARES_CURRENT_FORM_VALUES",
+      "status": "failed",
+      "error": "locator.waitFor: Timeout 25000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('iframe[data-adoption-widget]').contentFrame().locator('#goal-start') to be visible\u001b[22m\n"
+    }
+  ],
+  "errors": [],
+  "receivedEvidence": []
+}

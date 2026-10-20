@@ -5,6 +5,8 @@ export function mountTaskPanel({
   showError,
   show,
   clearPrivate,
+  onIncomingGoal,
+  canReceiveGoal=()=>false,
   isExpired = () => false,
 }) {
   const panel = document.createElement("details");
@@ -13,6 +15,7 @@ export function mountTaskPanel({
   panel.innerHTML = `<summary>Task files & paired copilots</summary><p id="private-retention-notice">Files and extracted values are private to this task. End task clears task history and access immediately. Original uploads are deleted; extracted passages remain in private temporary search storage until its 24-hour retention cleanup. Pairing groups have their own lifetime.</p><label>Transaction file <input id="transaction-file" type="file" accept=".pdf,.docx,.txt,.md,.png,.jpg,.jpeg"></label><div class="row"><button type="button" id="task-summary">Summarize files</button><button type="button" id="task-end">End task</button></div><p id="task-identity"></p><ul id="task-files"></ul><details><summary>Pairing & workflow access</summary><label>Connection group name <input id="pair-name" maxlength="80" value="My paired copilots"></label><label>Pairing lifetime <select id="pair-lifetime"><option value="1">1 hour</option><option value="4" selected>4 hours</option><option value="8">8 hours</option><option value="24">24 hours</option><option value="0">Until revoked on this browser</option></select></label><label>Pairing inactivity <select id="pair-inactivity"><option value="0">No separate inactivity expiry</option><option value="15">15 minutes</option><option value="60">1 hour</option><option value="240">4 hours</option></select></label><p>For pairing, both panels confirm the initial settings. The website owner can later revoke, shorten or extend expiry; you can disconnect at any time. Workflow linking also works with this copilot alone. Saved browser access can reconnect; offline tabs receive nothing and failed actions never replay.</p><button type="button" id="pair-invite">Create pairing code</button><p id="pair-code"></p><form id="pair-join"><label>Code from the other panel<input name="code" autocomplete="off" required maxlength="64"></label><button>Connect</button></form><button type="button" id="pair-refresh">Refresh paired sessions</button><div id="pair-members"></div><button type="button" id="pair-link">Link this copilot to my Flolah workflows</button><p id="pair-link-code"></p><label><input id="relay-consent" type="checkbox"> Share relevant private task context with the recipient selected in chat</label></details><p id="task-state" role="status" aria-live="polite"></p>`;
   document.querySelector("#task-content").append(panel);panel.open=true;
   const connections=panel.querySelector('details');connections.id='pairing-settings';connections.open=true;document.querySelector('#connections-content').append(connections);
+  const valueSharing=document.createElement('label');valueSharing.innerHTML='<input id="relay-values" type="checkbox"> Include current nonsecret form values with the next handoff (no file needed)';connections.append(valueSharing);
   const pairState=document.createElement('p');pairState.id='pair-state';pairState.setAttribute('role','status');pairState.textContent='No connection status loaded. Peer pairing and Flolah workflow linking are separate.';connections.append(pairState);
   const query=selector=>document.querySelector(selector);
   const state = query("#task-state"),
@@ -112,7 +115,7 @@ export function mountTaskPanel({
     state.textContent =
       "Task ended. Private files, instructions and extracted context cleared. Saved pairing is separate.";
     query("#transaction-file").value = "";
-    query("#relay-consent").checked = false;
+    query("#relay-consent").checked = false;query("#relay-values").checked=false;
     query("#task-identity").textContent = "";
     clearPrivate();
     for (const trace of safeTraces.slice(-20)) show(trace);
@@ -164,6 +167,7 @@ export function mountTaskPanel({
           renderPairs(await call("pair-revoke", { targetId: m.instanceId })),
         ),
       );
+      if(m.instanceId!==out.instanceId&&m.active&&m.canHandoff)row.append(button('Inspect this copilot',async()=>{const result=await call('task-peer-request',{targetId:m.instanceId,mode:'inspect',shareConsent:true,instruction:'Return current supported forms, required fields and navigation. No field values, filling or saving.',operationId:crypto.randomUUID()});show(`Requested read-only inspection from ${m.origin} · ${result.requestId}`);}));
       list.append(row);
     }
     const others = members.filter((m) => m.instanceId !== out.instanceId);
@@ -192,6 +196,7 @@ export function mountTaskPanel({
   window.addEventListener('pagehide', () => { clearInterval(presenceTimer); clearInterval(timer); });
   query("#pair-invite").onclick = () =>
     run(async () => {
+      query("#pair-code").textContent="Creating pairing code…";
       const out = await call("pair-invite", {
         name: query("#pair-name").value,
         lifetimeHours: Number(query("#pair-lifetime").value),
@@ -241,13 +246,13 @@ export function mountTaskPanel({
         throw new Error(
           "Select private-context sharing consent in Connections before sending.",
         );
-      const out = await call("task-relay", {
-        targetId: target[0].instanceId,
+      const out = await call("task-peer-request", {
+        targetId: target[0].instanceId,mode:"goal",operationId:crypto.randomUUID(),includeValues:query("#relay-values").checked,
         shareConsent: true,
         instruction: match[2],
       });
       show(
-        `Sent to ${target[0].origin} at ${new Date().toLocaleTimeString()}: ${match[2]}\n${(out.context || []).map((e) => `${e.filename} · ${e.locator}: ${e.text}`).join("\n")}\nDelivered to the paired task.`,
+        `Sent to ${target[0].origin} at ${new Date().toLocaleTimeString()}: ${match[2]}\n${(out.context || []).map((e) => `${e.filename} · ${e.locator}: ${e.text}`).join("\n")}\nDelivered privately. Waiting for the recipient plan or read-only response; writes retain their normal reviews.`,
       );
       return true;
     },
@@ -266,7 +271,7 @@ export function mountTaskPanel({
       const policy=config.taskPolicy||{},hasConnections=policy.pairing===true||policy.workflow===true;
       for(const id of ['pair-invite','pair-join'])query('#'+id).hidden=policy.pairing!==true;
       for(const id of ['pair-link','pair-link-code'])query('#'+id).hidden=policy.workflow!==true;
-      query('#relay-consent').closest('label').hidden=policy.pairing!==true;
+      query('#relay-consent').closest('label').hidden=policy.pairing!==true;valueSharing.hidden=policy.pairing!==true;
       query('#transaction-file').closest('label').hidden=!uploadEnabled;uploadNotice.hidden=!uploadEnabled;
       query('#task-summary').hidden=!uploadEnabled;query('#task-summary').disabled=!uploadEnabled;
       connections.hidden=!hasConnections;
@@ -343,6 +348,9 @@ export function mountTaskPanel({
         reset();
         return;
       }
+      if(event.type==='peer-request'){active=true;show(`Task shared from ${event.from}: ${event.instruction}`);refreshTask().catch(showError);if(event.mode==='goal'){const article=document.createElement('article'),start=button('Review received goal',()=>onIncomingGoal(event));article.append(start,button('Decline request',async()=>{await call('task-peer-answer',{requestId:event.requestId,rejected:true});article.remove();}));log.append(article);if(canReceiveGoal())onIncomingGoal(event).then(()=>{start.disabled=true;start.textContent='Received goal shown in Chat';}).catch(showError);}return;}
+      if(event.type==='peer-result'){const detail=event.mode==='inspect'?structuralSummary(event.result):[event.result?.message,structuralSummary(event.result?.observed)].filter(Boolean).join('\n');show(`Paired task ${event.requestId}: ${event.status}${event.code?' · '+event.code:''}.\n${detail}`);return;}
+      if(event.type==='peer-error'){showError(new Error(event.message));return;}
       if (event.type === "task-active") {active=true;refreshTask().catch(showError);return;}
       if (event.type === "task-shared") {
         active = true;
