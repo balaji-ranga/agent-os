@@ -9,8 +9,8 @@ export const goalOperationSemantics={
  peer:'mode inspect returns recipient form structure; mode goal delegates its complete task and waits for its actual recorded outcome. Do not add a separate waiting step.'
 };
 export function goalResponseSchema(stage='plan',peers=[]){
- const string=maxLength=>({type:'string',maxLength});
- if(stage==='assess')return {type:'object',properties:{message:string(2000),status:{type:'string',enum:['complete','continue','clarify']},remainingInstruction:string(1600)},required:['message','status','remainingInstruction'],additionalProperties:false};
+ const string=(maxLength,minLength=1)=>({type:'string',minLength,maxLength});
+ if(stage==='assess')return {type:'object',properties:{message:string(2000),status:{type:'string',enum:['complete','continue','clarify']},remainingInstruction:string(1600,0)},required:['message','status','remainingInstruction'],additionalProperties:false};
  const properties={title:string(120),kind:{type:'string',enum:['navigate','fill','save','inspect']},instruction:string(1600),expected:string(240)};
  const local={type:'object',properties,required:Object.keys(properties),additionalProperties:false};
  const ids=peers.map(p=>p.instanceId).filter(id=>typeof id==='string'&&id.length<=100),variants=[local];
@@ -20,7 +20,7 @@ export function goalResponseSchema(stage='plan',peers=[]){
 const text=(value,max)=>typeof value==='string'&&value.trim()&&value.length<=max;
 export function parseGoalResponse(content,stage='plan'){
  let value;try{value=JSON.parse(content);}catch{throw new Error('invalid_goal_json');}
- if(!value||Array.isArray(value)||!text(value.message,2000))throw new Error('invalid_goal_response');
+ if(!value||Array.isArray(value)||!text(value.message,2000))throw Object.assign(new Error('invalid_goal_response'),{contractIssues:['Return an object with a nonempty message string of at most 2000 characters, plus the required stage-specific fields.']});
  if(stage==='assess'){
   if(Object.keys(value).some(k=>!['message','status','remainingInstruction'].includes(k))||!['complete','continue','clarify'].includes(value.status)||typeof value.remainingInstruction!=='string'||value.remainingInstruction.length>1600||value.status==='continue'&&!value.remainingInstruction.trim())throw new Error('invalid_goal_assessment');
  }else{

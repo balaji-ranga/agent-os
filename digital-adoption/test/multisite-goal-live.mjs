@@ -32,7 +32,7 @@ async function drive(){const until=Date.now()+480000;
     if(!await button.count()||!await button.isVisible()||!await button.isEnabled())continue;
     const title=await button.innerText();if(name==='recipient'&&/^Confirm /.test(title))throw Error('Public Save is forbidden');
     if(/^Confirm /.test(title)&&localSavePosts>0)throw Error('A second local Save must never be confirmed');
-    await shot(`review-${String(actions).padStart(2,'0')}-${name}`);await button.click();actions++;if(actions>16)throw Error('Review/action bound exceeded');await report();acted=true;break;
+    await (name==='source'?a:b).bringToFront();await shot(`review-${String(actions).padStart(2,'0')}-${name}`);await button.click();actions++;if(actions>16)throw Error('Review/action bound exceeded');await report();acted=true;break;
    }
    if(acted)break;
   }

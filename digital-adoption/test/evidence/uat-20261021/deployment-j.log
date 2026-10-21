@@ -1,0 +1,60 @@
+Consistent independent database checkpoint retained on deployment host
+Scoped coordinator is healthy. Parser workers were not restarted; the captured gateway patch follows.
+Gateway keeps its captured parallel checker/provider base; only generic assignment guards changed. Parser workers and Admin model settings unchanged.
+{
+  "at": "2026-10-21T16:49:27.219296+00:00",
+  "status": "passed",
+  "release": "20261021-uat-j",
+  "containers": {
+    "flolah-adoption-adoption-1": {
+      "imageId": "sha256:aa7effe8ffab315f7210b80409509701ce6d54ec65c70546aa3c6401e1e87ba1",
+      "image": "flolah-digital-adoption:20261021-uat-j",
+      "startedAt": "2026-10-21T16:49:13.923846253Z",
+      "running": true,
+      "health": null
+    },
+    "flolah-adoption-adoption-model-gateway-1": {
+      "imageId": "sha256:a7cf1c817563900f590de0f11ec6fe82854fa99a5933410f5ab7478990efbf9e",
+      "image": "flolah-digital-adoption:20261021-uat-j-gateway",
+      "startedAt": "2026-10-21T16:49:25.873399442Z",
+      "running": true,
+      "health": null
+    },
+    "flolah-adoption-adoption-worker-1": {
+      "imageId": "sha256:7133f95194a1df02b59712754b2b95a254528fa9ece34c4994647497dc052fe0",
+      "image": "flolah-digital-adoption:20261018-owner-workspace-c",
+      "startedAt": "2026-10-18T10:43:45.697774407Z",
+      "running": true,
+      "health": null
+    },
+    "flolah-adoption-adoption-worker-2": {
+      "imageId": "sha256:7133f95194a1df02b59712754b2b95a254528fa9ece34c4994647497dc052fe0",
+      "image": "flolah-digital-adoption:20261018-owner-workspace-c",
+      "startedAt": "2026-10-18T10:43:45.830124253Z",
+      "running": true,
+      "health": null
+    },
+    "agent-os-backend-1": {
+      "imageId": "sha256:96fee285bc7764df31eec7be860f2372938fc740a87bdb7a053d75e581c67a50",
+      "image": "agent-os-backend:adoption-help-20261021-uat-h",
+      "startedAt": "2026-10-21T16:35:42.798094963Z",
+      "running": true,
+      "health": "healthy"
+    },
+    "agent-os-frontend-1": {
+      "imageId": "sha256:bf6aaf311d995a76f6ee4591d21241e07566954a26d83e380ae2d39c8ba54cb0",
+      "image": "agent-os-frontend:adoption-20261019-immediate-j",
+      "startedAt": "2026-10-19T11:40:25.829931383Z",
+      "running": true,
+      "health": "healthy"
+    }
+  },
+  "healthUrlsPassed": 4,
+  "parserWorkersPreserved": true,
+  "sharedCheckerSettingReadOnly": {
+    "enabled": true,
+    "checkerMode": "platform_inactive",
+    "checkerMaxTokens": 2048
+  },
+  "gatewayPatch": "Generic review contract overlay; parent provider/runtime image and shared settings preserved"
+}

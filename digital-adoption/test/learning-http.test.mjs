@@ -15,7 +15,7 @@ test('HTTP coaching/publication/recipe approvals preserve role, session, version
  const learning=createLearningRuntime(repository,createLearningStore(repository)),coaching=createCoachingGrants(repository),proposals=createProposalStore(repository,{checkBinding:(scope,binding)=>learning.bindingAllowed(scope,binding)});
  const installation=authority.registerApproved({embeddingId:'http-learning',origins:[origin],expiresAt:Date.now()+3_600_000}),a=authority.initialize({...installation,origin}),b=authority.initialize({...installation,origin});
  const owner={embeddingId:'http-learning',audienceIds:['public'],audienceId:'public',origin,role:'maintainer'};
- const server=createAdoptionServer({authority,learning,coaching,proposals,planner:async()=>({message:'Fill draft',actions:[{type:'fill',ref:'r1f0',value:'Synthetic value'}]})});server.listen(0,'127.0.0.1');await once(server,'listening');
+ const server=createAdoptionServer({authority,learning,coaching,proposals,planner:async()=>({intent:'edit',message:'Fill draft',actions:[{type:'fill',ref:'r1f0',value:'Synthetic value'}]})});server.listen(0,'127.0.0.1');await once(server,'listening');
  const post=async(path,input,session=a,expected=200)=>{const response=await fetch(`http://127.0.0.1:${server.address().port}${path}`,{method:'POST',headers:{Origin:origin,'Content-Type':'application/json',Authorization:`Bearer ${session.sessionToken}`},body:JSON.stringify(input)});assert.equal(response.status,expected,path);return response.json();};
  try{
   await post('/v1/learning/observe',{snapshot,role:'maintainer'},b,403);

@@ -1,0 +1,32 @@
+{
+  "at": "2026-10-21T16:31:42.208Z",
+  "scope": "Actual deployed registrations, goal planner, step planner and global active-maker/passive-checker route. Browser explicitly approves each local effect. No autonomous workflow grant or backend knowledge seeding.",
+  "publicWrites": 0,
+  "localWrites": 0,
+  "results": [
+    {
+      "id": "LIVE_GOAL01_COMPLEX_CUSTOMER_NOTE_OPPORTUNITY_SAVED_AND_READ_BACK",
+      "status": "failed",
+      "error": "locator.waitFor: Timeout 210000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('iframe[data-adoption-widget]').contentFrame().locator('#goal-start') to be visible\u001b[22m\n",
+      "screenshot": "LIVE_GOAL01_COMPLEX_CUSTOMER_NOTE_OPPORTUNITY_SAVED_AND_READ_BACK-failed.png"
+    }
+  ],
+  "traces": [
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/create",
+      "status": 200,
+      "goal": {
+        "id": "5c337efb-9ac7-469a-9264-6618c7884855",
+        "status": "clarifying",
+        "current": 0,
+        "version": 1,
+        "message": "I could not resolve the request confidently after review. Remove the upfront confirmation message: all required values are present, and the task only says to stop/ask if a required value is missing. Also carry the explicit constraint “Do not create duplicates or change other records” into the relevant instructions or save steps; it is currently omitted. The customer, note, and opportunity values and sequence otherwise match.",
+        "steps": []
+      }
+    }
+  ]
+}

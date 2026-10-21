@@ -1,0 +1,3631 @@
+{
+  "at": "2026-10-21T16:20:34.130Z",
+  "scope": "Actual deployed copilot, platform active maker/passive checker, synthetic loopback controls and public flolah.cloud. Local DOM additions/ambiguity controls are test fixtures; no backend knowledge seed or model stub.",
+  "localWrites": 0,
+  "publicWrites": 0,
+  "results": [
+    {
+      "id": "C01_NATIVE_TYPO_REVIEW_REJECT_NO_EFFECT",
+      "status": "passed",
+      "detail": {
+        "input": "expres",
+        "reviewed": "Express",
+        "rejected": true,
+        "hostUnchanged": true
+      },
+      "elapsedMs": 2518,
+      "screenshot": "C01_NATIVE_TYPO_REVIEW_REJECT_NO_EFFECT.png"
+    },
+    {
+      "id": "C02_NATIVE_SHORT_FORM_REVIEW_AND_APPLY_WITHOUT_SAVE",
+      "status": "passed",
+      "detail": {
+        "input": "exp",
+        "reviewed": "Express",
+        "hostValue": "express",
+        "saved": false
+      },
+      "elapsedMs": 2477,
+      "screenshot": "C02_NATIVE_SHORT_FORM_REVIEW_AND_APPLY_WITHOUT_SAVE.png"
+    },
+    {
+      "id": "C03_AMBIGUOUS_SHORT_FORM_ASKS_WITHOUT_CHANGE",
+      "status": "passed",
+      "detail": {
+        "input": "exp",
+        "actualOptions": [
+          "Express",
+          "Expedited"
+        ],
+        "clarification": "The proposed choice does not match the requested observed option. No substitution was approved; clarify the available choices."
+      },
+      "elapsedMs": 5213,
+      "screenshot": "C03_AMBIGUOUS_SHORT_FORM_ASKS_WITHOUT_CHANGE.png"
+    },
+    {
+      "id": "C04_UNSUPPORTED_OPTION_DOES_NOT_PICK_NEAREST_ARBITRARILY",
+      "status": "passed",
+      "detail": {
+        "input": "Teleportation",
+        "clarification": "The proposed choice does not match the requested observed option. No substitution was approved; clarify the available choices."
+      },
+      "elapsedMs": 4273,
+      "screenshot": "C04_UNSUPPORTED_OPTION_DOES_NOT_PICK_NEAREST_ARBITRARILY.png"
+    },
+    {
+      "id": "C05_DYNAMIC_LOADED_PICKLIST_CORRELATES_TYPO_AND_SHORT_FORM",
+      "status": "passed",
+      "detail": {
+        "input": "Orhcid Trdg",
+        "freshObservedResult": "Orchid Trading",
+        "actualSelectedIdVerified": true,
+        "saved": false
+      },
+      "elapsedMs": 10158,
+      "screenshot": "C05_DYNAMIC_LOADED_PICKLIST_CORRELATES_TYPO_AND_SHORT_FORM.png"
+    },
+    {
+      "id": "C06_PUBLIC_OTHER_DOMAIN_SHORT_FORM_MAPPING",
+      "status": "passed",
+      "detail": {
+        "input": "std",
+        "observedChoice": "stdio",
+        "domain": "flolah.cloud",
+        "saved": false
+      },
+      "elapsedMs": 2754,
+      "screenshot": "C06_PUBLIC_OTHER_DOMAIN_SHORT_FORM_MAPPING.png"
+    },
+    {
+      "id": "C07_SAME_FORM_GOAL_CORRECTS_CHOICE_AND_SAVES_AFTER_REVIEWS",
+      "status": "failed",
+      "error": "The proposed choice does not match the requested observed option. No substitution was approved; clarify the available choices.",
+      "elapsedMs": 22621,
+      "screenshot": "C07_SAME_FORM_GOAL_CORRECTS_CHOICE_AND_SAVES_AFTER_REVIEWS-failed.png"
+    },
+    {
+      "id": "C08_VISIBLE_MENU_ITEM_POINTING_DOES_NOT_CLICK",
+      "status": "passed",
+      "detail": {
+        "visibleMenuPointed": true,
+        "clicks": 0,
+        "animatedPointerVisible": true,
+        "generalMenuClickExecution": false
+      },
+      "elapsedMs": 3387,
+      "screenshot": "C08_VISIBLE_MENU_ITEM_POINTING_DOES_NOT_CLICK.png"
+    },
+    {
+      "id": "C09_DUMMY_VALUES_ALL_APPLICABLE_FIELDS_REVIEW_THEN_AWAIT_SAVE",
+      "status": "passed",
+      "detail": {
+        "prompt": "fill the customer draft with dummy values for all applicable fields.. confirm with me before saving",
+        "filledLabels": [
+          "Shipping method",
+          "Include gift wrap",
+          "Company name",
+          "Contact email",
+          "Region"
+        ],
+        "reviewedBeforeFill": true,
+        "saveConfirmationOffered": true,
+        "saveCancelled": true,
+        "hostSubmissions": 0
+      },
+      "elapsedMs": 5699,
+      "screenshot": "C09_DUMMY_VALUES_ALL_APPLICABLE_FIELDS_REVIEW_THEN_AWAIT_SAVE.png"
+    },
+    {
+      "id": "C10_GUIDE_ONLY_DUMMY_REQUEST_EXPLAINS_HIGHLIGHTS_WITHOUT_FILLING",
+      "status": "failed",
+      "error": "{\"error\":\"Access denied or invalid request\"}\n\n403 !== 200\n",
+      "elapsedMs": 5626,
+      "screenshot": "C10_GUIDE_ONLY_DUMMY_REQUEST_EXPLAINS_HIGHLIGHTS_WITHOUT_FILLING-failed.png"
+    }
+  ],
+  "traces": [
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "response": {
+        "goal": null
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "task": "Set Shipping method to expres. Do not save.",
+      "observed": {
+        "revision": 1,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Shipping method",
+            "type": "select-one",
+            "required": false,
+            "key": "shipping_method",
+            "form": "demo-form",
+            "optionCount": 3,
+            "choices": [
+              "Choose",
+              "Standard",
+              "Express"
+            ]
+          },
+          {
+            "ref": "r1f1",
+            "label": "Include gift wrap",
+            "type": "checkbox",
+            "required": false,
+            "key": "gift_wrap",
+            "form": "demo-form",
+            "optionCount": 0
+          },
+          {
+            "ref": "r1f2",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "key": "company_name",
+            "form": "demo-form",
+            "optionCount": 0
+          },
+          {
+            "ref": "r1f3",
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "key": "contact_email",
+            "form": "demo-form",
+            "optionCount": 0
+          },
+          {
+            "ref": "r1f4",
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "key": "region",
+            "form": "demo-form",
+            "optionCount": 0
+          }
+        ],
+        "forms": [
+          {
+            "key": "demo-form",
+            "label": "demo-form",
+            "fields": [
+              "shipping_method",
+              "gift_wrap",
+              "company_name",
+              "contact_email",
+              "region"
+            ]
+          }
+        ],
+        "links": [
+          {
+            "ref": "r1n0",
+            "label": "Customer",
+            "path": "/customer"
+          },
+          {
+            "ref": "r1n1",
+            "label": "Opportunity",
+            "path": "/opportunity"
+          },
+          {
+            "ref": "r1n2",
+            "label": "Note",
+            "path": "/note"
+          },
+          {
+            "ref": "r1n3",
+            "label": "Scheduled goal",
+            "path": "/goal"
+          }
+        ],
+        "recentActivity": {
+          "prepared": [],
+          "applied": [],
+          "unavailablePrepared": 0,
+          "unavailableApplied": 0
+        },
+        "targets": [
+          {
+            "ref": "r1t0",
+            "label": "Save synthetic record",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Save synthetic record"
+          },
+          {
+            "ref": "r1t1",
+            "label": "Try these prompts",
+            "kind": "content",
+            "role": "section",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Try these promptsAsk knowledge: What is the Alpha delivery promise?Prepare field review: Set the company name to Demo Test and contact email to demo@example.com.Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”Switch to Note: “Create a note with title Followup and body followup MrX on month end.”Review proposed values, approve, then verify the visible fields. No automatic Save is performed."
+          },
+          {
+            "ref": "r1t2",
+            "label": "Customer",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Customer"
+          },
+          {
+            "ref": "r1t3",
+            "label": "Opportunity",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Opportunity"
+          },
+          {
+            "ref": "r1t4",
+            "label": "Note",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Note"
+          },
+          {
+            "ref": "r1t5",
+            "label": "Scheduled goal",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Scheduled goal"
+          },
+          {
+            "ref": "r1t6",
+            "label": "Saved synthetic records",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Saved synthetic records"
+          },
+          {
+            "ref": "r1t7",
+            "label": "Add Delivery city field",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Add Delivery city field"
+          },
+          {
+            "ref": "r1t8",
+            "label": "Add native controls",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Add native controls"
+          },
+          {
+            "ref": "r1t9",
+            "label": "Add complex controls",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Add complex controls"
+          }
+        ],
+        "domScope": "Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.",
+        "coverage": {
+          "fieldLimit": 60,
+          "navigationLimit": 30,
+          "visibleNativeControls": 5,
+          "embeddedFrames": 0,
+          "openShadowRoots": 0,
+          "unsupportedControls": 0,
+          "manualNotice": ""
+        },
+        "submissions": [
+          {
+            "ref": "r1s0",
+            "label": "Save synthetic record"
+          }
+        ],
+        "navigationCandidates": [
+          "/customer",
+          "/opportunity",
+          "/note",
+          "/goal",
+          "/records"
+        ],
+        "screen": "Customer draft | Try these prompts | Generic changes and theme",
+        "path": "/customer",
+        "ambiguousDialogs": false,
+        "blockedCount": 7
+      },
+      "response": {
+        "id": "7abe9ffc-ae4c-4ea4-b806-62e9a2af449a",
+        "revision": 1,
+        "message": "Review these 1 explicit field changes.  yet.\nReview these 1 proposed field change. Nothing has been changed yet.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f0",
+            "label": "Shipping method",
+            "value": "Express"
+          }
+        ],
+        "expiresAt": 1792599690976,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Shipping method",
+            "type": "select-one",
+            "required": false,
+            "key": "shipping_method",
+            "form": "demo-form",
+            "choices": [
+              "Choose",
+              "Standard",
+              "Express"
+            ]
+          }
+        ],
+        "matchedWorkflows": [],
+        "messageId": "b228d624-1da8-4325-98f8-e24fe95c97af"
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "response": {
+        "goal": null
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "task": "Set Shipping method to exp. Do not save.",
+      "observed": {
+        "revision": 1,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Shipping method",
+            "type": "select-one",
+            "required": false,
+            "key": "shipping_method",
+            "form": "demo-form",
+            "optionCount": 3,
+            "choices": [
+              "Choose",
+              "Standard",
+              "Express"
+            ]
+          },
+          {
+            "ref": "r1f1",
+            "label": "Include gift wrap",
+            "type": "checkbox",
+            "required": false,
+            "key": "gift_wrap",
+            "form": "demo-form",
+            "optionCount": 0
+          },
+          {
+            "ref": "r1f2",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "key": "company_name",
+            "form": "demo-form",
+            "optionCount": 0
+          },
+          {
+            "ref": "r1f3",
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "key": "contact_email",
+            "form": "demo-form",
+            "optionCount": 0
+          },
+          {
+            "ref": "r1f4",
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "key": "region",
+            "form": "demo-form",
+            "optionCount": 0
+          }
+        ],
+        "forms": [
+          {
+            "key": "demo-form",
+            "label": "demo-form",
+            "fields": [
+              "shipping_method",
+              "gift_wrap",
+              "company_name",
+              "contact_email",
+              "region"
+            ]
+          }
+        ],
+        "links": [
+          {
+            "ref": "r1n0",
+            "label": "Customer",
+            "path": "/customer"
+          },
+          {
+            "ref": "r1n1",
+            "label": "Opportunity",
+            "path": "/opportunity"
+          },
+          {
+            "ref": "r1n2",
+            "label": "Note",
+            "path": "/note"
+          },
+          {
+            "ref": "r1n3",
+            "label": "Scheduled goal",
+            "path": "/goal"
+          }
+        ],
+        "recentActivity": {
+          "prepared": [],
+          "applied": [],
+          "unavailablePrepared": 0,
+          "unavailableApplied": 0
+        },
+        "targets": [
+          {
+            "ref": "r1t0",
+            "label": "Save synthetic record",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Save synthetic record"
+          },
+          {
+            "ref": "r1t1",
+            "label": "Try these prompts",
+            "kind": "content",
+            "role": "section",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Try these promptsAsk knowledge: What is the Alpha delivery promise?Prepare field review: Set the company name to Demo Test and contact email to demo@example.com.Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”Switch to Note: “Create a note with title Followup and body followup MrX on month end.”Review proposed values, approve, then verify the visible fields. No automatic Save is performed."
+          },
+          {
+            "ref": "r1t2",
+            "label": "Customer",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Customer"
+          },
+          {
+            "ref": "r1t3",
+            "label": "Opportunity",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Opportunity"
+          },
+          {
+            "ref": "r1t4",
+            "label": "Note",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Note"
+          },
+          {
+            "ref": "r1t5",
+            "label": "Scheduled goal",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Scheduled goal"
+          },
+          {
+            "ref": "r1t6",
+            "label": "Saved synthetic records",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Saved synthetic records"
+          },
+          {
+            "ref": "r1t7",
+            "label": "Add Delivery city field",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Add Delivery city field"
+          },
+          {
+            "ref": "r1t8",
+            "label": "Add native controls",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Add native controls"
+          },
+          {
+            "ref": "r1t9",
+            "label": "Add complex controls",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Add complex controls"
+          }
+        ],
+        "domScope": "Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.",
+        "coverage": {
+          "fieldLimit": 60,
+          "navigationLimit": 30,
+          "visibleNativeControls": 5,
+          "embeddedFrames": 0,
+          "openShadowRoots": 0,
+          "unsupportedControls": 0,
+          "manualNotice": ""
+        },
+        "submissions": [
+          {
+            "ref": "r1s0",
+            "label": "Save synthetic record"
+          }
+        ],
+        "navigationCandidates": [
+          "/customer",
+          "/opportunity",
+          "/note",
+          "/goal",
+          "/records"
+        ],
+        "screen": "Customer draft | Try these prompts | Generic changes and theme",
+        "path": "/customer",
+        "ambiguousDialogs": false,
+        "blockedCount": 7
+      },
+      "response": {
+        "id": "27f12846-ef62-4d80-8107-0a82ec3d9acc",
+        "revision": 1,
+        "message": "Review these 1 explicit field changes.  yet.\nReview these 1 proposed field change. Nothing has been changed yet.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f0",
+            "label": "Shipping method",
+            "value": "Express"
+          }
+        ],
+        "expiresAt": 1792599693372,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Shipping method",
+            "type": "select-one",
+            "required": false,
+            "key": "shipping_method",
+            "form": "demo-form",
+            "choices": [
+              "Choose",
+              "Standard",
+              "Express"
+            ]
+          }
+        ],
+        "matchedWorkflows": [],
+        "messageId": "0ff8966f-7b95-4b2d-a91e-2b77aa5212ed"
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "response": {
+        "goal": null
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "task": "Set Shipping method to exp. Do not save.",
+      "observed": {
+        "revision": 1,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Shipping method",
+            "type": "select-one",
+            "required": false,
+            "key": "shipping_method",
+            "form": "demo-form",
+            "optionCount": 4,
+            "choices": [
+              "Choose",
+              "Standard",
+              "Express",
+              "Expedited"
+            ]
+          },
+          {
+            "ref": "r1f1",
+            "label": "Include gift wrap",
+            "type": "checkbox",
+            "required": false,
+            "key": "gift_wrap",
+            "form": "demo-form",
+            "optionCount": 0
+          },
+          {
+            "ref": "r1f2",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "key": "company_name",
+            "form": "demo-form",
+            "optionCount": 0
+          },
+          {
+            "ref": "r1f3",
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "key": "contact_email",
+            "form": "demo-form",
+            "optionCount": 0
+          },
+          {
+            "ref": "r1f4",
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "key": "region",
+            "form": "demo-form",
+            "optionCount": 0
+          }
+        ],
+        "forms": [
+          {
+            "key": "demo-form",
+            "label": "demo-form",
+            "fields": [
+              "shipping_method",
+              "gift_wrap",
+              "company_name",
+              "contact_email",
+              "region"
+            ]
+          }
+        ],
+        "links": [
+          {
+            "ref": "r1n0",
+            "label": "Customer",
+            "path": "/customer"
+          },
+          {
+            "ref": "r1n1",
+            "label": "Opportunity",
+            "path": "/opportunity"
+          },
+          {
+            "ref": "r1n2",
+            "label": "Note",
+            "path": "/note"
+          },
+          {
+            "ref": "r1n3",
+            "label": "Scheduled goal",
+            "path": "/goal"
+          }
+        ],
+        "recentActivity": {
+          "prepared": [],
+          "applied": [],
+          "unavailablePrepared": 0,
+          "unavailableApplied": 0
+        },
+        "targets": [
+          {
+            "ref": "r1t0",
+            "label": "Save synthetic record",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Save synthetic record"
+          },
+          {
+            "ref": "r1t1",
+            "label": "Try these prompts",
+            "kind": "content",
+            "role": "section",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Try these promptsAsk knowledge: What is the Alpha delivery promise?Prepare field review: Set the company name to Demo Test and contact email to demo@example.com.Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”Switch to Note: “Create a note with title Followup and body followup MrX on month end.”Review proposed values, approve, then verify the visible fields. No automatic Save is performed."
+          },
+          {
+            "ref": "r1t2",
+            "label": "Customer",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Customer"
+          },
+          {
+            "ref": "r1t3",
+            "label": "Opportunity",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Opportunity"
+          },
+          {
+            "ref": "r1t4",
+            "label": "Note",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Note"
+          },
+          {
+            "ref": "r1t5",
+            "label": "Scheduled goal",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Scheduled goal"
+          },
+          {
+            "ref": "r1t6",
+            "label": "Saved synthetic records",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Saved synthetic records"
+          },
+          {
+            "ref": "r1t7",
+            "label": "Add Delivery city field",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Add Delivery city field"
+          },
+          {
+            "ref": "r1t8",
+            "label": "Add native controls",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Add native controls"
+          },
+          {
+            "ref": "r1t9",
+            "label": "Add complex controls",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Add complex controls"
+          }
+        ],
+        "domScope": "Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.",
+        "coverage": {
+          "fieldLimit": 60,
+          "navigationLimit": 30,
+          "visibleNativeControls": 5,
+          "embeddedFrames": 0,
+          "openShadowRoots": 0,
+          "unsupportedControls": 0,
+          "manualNotice": ""
+        },
+        "submissions": [
+          {
+            "ref": "r1s0",
+            "label": "Save synthetic record"
+          }
+        ],
+        "navigationCandidates": [
+          "/customer",
+          "/opportunity",
+          "/note",
+          "/goal",
+          "/records"
+        ],
+        "screen": "Customer draft | Try these prompts | Generic changes and theme",
+        "path": "/customer",
+        "ambiguousDialogs": false,
+        "blockedCount": 7
+      },
+      "response": {
+        "id": "eba6fecf-6c24-411b-b556-e0ca1bc05f10",
+        "revision": 1,
+        "message": "The proposed choice does not match the requested observed option. No substitution was approved; clarify the available choices.",
+        "actions": [],
+        "expiresAt": 1792599698732,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Shipping method",
+            "type": "select-one",
+            "required": false,
+            "key": "shipping_method",
+            "form": "demo-form",
+            "choices": [
+              "Choose",
+              "Standard",
+              "Express",
+              "Expedited"
+            ]
+          }
+        ],
+        "matchedWorkflows": [],
+        "messageId": "74f5d74c-210f-431c-830c-89c4536115df"
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "response": {
+        "goal": null
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "task": "Set Shipping method to Teleportation. Do not save.",
+      "observed": {
+        "revision": 1,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Shipping method",
+            "type": "select-one",
+            "required": false,
+            "key": "shipping_method",
+            "form": "demo-form",
+            "optionCount": 3,
+            "choices": [
+              "Choose",
+              "Standard",
+              "Express"
+            ]
+          },
+          {
+            "ref": "r1f1",
+            "label": "Include gift wrap",
+            "type": "checkbox",
+            "required": false,
+            "key": "gift_wrap",
+            "form": "demo-form",
+            "optionCount": 0
+          },
+          {
+            "ref": "r1f2",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "key": "company_name",
+            "form": "demo-form",
+            "optionCount": 0
+          },
+          {
+            "ref": "r1f3",
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "key": "contact_email",
+            "form": "demo-form",
+            "optionCount": 0
+          },
+          {
+            "ref": "r1f4",
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "key": "region",
+            "form": "demo-form",
+            "optionCount": 0
+          }
+        ],
+        "forms": [
+          {
+            "key": "demo-form",
+            "label": "demo-form",
+            "fields": [
+              "shipping_method",
+              "gift_wrap",
+              "company_name",
+              "contact_email",
+              "region"
+            ]
+          }
+        ],
+        "links": [
+          {
+            "ref": "r1n0",
+            "label": "Customer",
+            "path": "/customer"
+          },
+          {
+            "ref": "r1n1",
+            "label": "Opportunity",
+            "path": "/opportunity"
+          },
+          {
+            "ref": "r1n2",
+            "label": "Note",
+            "path": "/note"
+          },
+          {
+            "ref": "r1n3",
+            "label": "Scheduled goal",
+            "path": "/goal"
+          }
+        ],
+        "recentActivity": {
+          "prepared": [],
+          "applied": [],
+          "unavailablePrepared": 0,
+          "unavailableApplied": 0
+        },
+        "targets": [
+          {
+            "ref": "r1t0",
+            "label": "Save synthetic record",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Save synthetic record"
+          },
+          {
+            "ref": "r1t1",
+            "label": "Try these prompts",
+            "kind": "content",
+            "role": "section",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Try these promptsAsk knowledge: What is the Alpha delivery promise?Prepare field review: Set the company name to Demo Test and contact email to demo@example.com.Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”Switch to Note: “Create a note with title Followup and body followup MrX on month end.”Review proposed values, approve, then verify the visible fields. No automatic Save is performed."
+          },
+          {
+            "ref": "r1t2",
+            "label": "Customer",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Customer"
+          },
+          {
+            "ref": "r1t3",
+            "label": "Opportunity",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Opportunity"
+          },
+          {
+            "ref": "r1t4",
+            "label": "Note",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Note"
+          },
+          {
+            "ref": "r1t5",
+            "label": "Scheduled goal",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Scheduled goal"
+          },
+          {
+            "ref": "r1t6",
+            "label": "Saved synthetic records",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Saved synthetic records"
+          },
+          {
+            "ref": "r1t7",
+            "label": "Add Delivery city field",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Add Delivery city field"
+          },
+          {
+            "ref": "r1t8",
+            "label": "Add native controls",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Add native controls"
+          },
+          {
+            "ref": "r1t9",
+            "label": "Add complex controls",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Add complex controls"
+          }
+        ],
+        "domScope": "Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.",
+        "coverage": {
+          "fieldLimit": 60,
+          "navigationLimit": 30,
+          "visibleNativeControls": 5,
+          "embeddedFrames": 0,
+          "openShadowRoots": 0,
+          "unsupportedControls": 0,
+          "manualNotice": ""
+        },
+        "submissions": [
+          {
+            "ref": "r1s0",
+            "label": "Save synthetic record"
+          }
+        ],
+        "navigationCandidates": [
+          "/customer",
+          "/opportunity",
+          "/note",
+          "/goal",
+          "/records"
+        ],
+        "screen": "Customer draft | Try these prompts | Generic changes and theme",
+        "path": "/customer",
+        "ambiguousDialogs": false,
+        "blockedCount": 7
+      },
+      "response": {
+        "id": "971b83b2-8456-4b35-a07b-1354353d75cb",
+        "revision": 1,
+        "message": "The proposed choice does not match the requested observed option. No substitution was approved; clarify the available choices.",
+        "actions": [],
+        "expiresAt": 1792599703003,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Shipping method",
+            "type": "select-one",
+            "required": false,
+            "key": "shipping_method",
+            "form": "demo-form",
+            "choices": [
+              "Choose",
+              "Standard",
+              "Express"
+            ]
+          }
+        ],
+        "matchedWorkflows": [],
+        "messageId": "10ee706b-22d3-4d7f-a65f-b194f39ab71d"
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "response": {
+        "goal": null
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "task": "In Account search select Orhcid Trdg from the currently available results. Do not save.",
+      "observed": {
+        "revision": 1,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Shipping method",
+            "type": "select-one",
+            "required": false,
+            "key": "shipping_method",
+            "form": "demo-form",
+            "optionCount": 3
+          },
+          {
+            "ref": "r1f1",
+            "label": "Include gift wrap",
+            "type": "checkbox",
+            "required": false,
+            "key": "gift_wrap",
+            "form": "demo-form",
+            "optionCount": 0
+          },
+          {
+            "ref": "r1f2",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "key": "company_name",
+            "form": "demo-form",
+            "optionCount": 0
+          },
+          {
+            "ref": "r1f3",
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "key": "contact_email",
+            "form": "demo-form",
+            "optionCount": 0
+          },
+          {
+            "ref": "r1f4",
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "key": "region",
+            "form": "demo-form",
+            "optionCount": 0
+          },
+          {
+            "ref": "r1f5",
+            "label": "Delivery preference",
+            "type": "radio",
+            "required": false,
+            "key": "delivery_preference",
+            "form": "demo-form",
+            "optionCount": 0
+          },
+          {
+            "ref": "r1f6",
+            "label": "Interests",
+            "type": "select-multiple",
+            "required": false,
+            "key": "interests",
+            "form": "demo-form",
+            "optionCount": 3
+          },
+          {
+            "ref": "r1f7",
+            "label": "Delivery date",
+            "type": "date",
+            "required": false,
+            "key": "delivery_date",
+            "form": "demo-form",
+            "optionCount": 0
+          },
+          {
+            "ref": "r1f8",
+            "label": "Suggested city",
+            "type": "text",
+            "required": false,
+            "key": "suggested_city",
+            "form": "demo-form",
+            "optionCount": 0
+          },
+          {
+            "ref": "r1f9",
+            "label": "Lookup scenario",
+            "type": "select-one",
+            "required": false,
+            "key": "lookup-mode",
+            "form": "demo-form",
+            "optionCount": 4
+          },
+          {
+            "ref": "r1f10",
+            "label": "Account search",
+            "type": "combobox",
+            "required": false,
+            "key": "account_search",
+            "form": "demo-form",
+            "optionCount": 0,
+            "optionRefs": [
+              "r1t0"
+            ]
+          },
+          {
+            "ref": "r1f11",
+            "label": "Table filter",
+            "type": "text",
+            "required": false,
+            "key": "table-filter",
+            "form": "demo-form",
+            "optionCount": 0
+          },
+          {
+            "ref": "r1f12",
+            "label": "Item 1 quantity",
+            "type": "number",
+            "required": false,
+            "key": "line_1_quantity",
+            "form": "demo-form",
+            "optionCount": 0,
+            "constraints": {
+              "min": "1"
+            }
+          },
+          {
+            "ref": "r1f13",
+            "label": "Select Item 1",
+            "type": "checkbox",
+            "required": false,
+            "key": "line_1_selected",
+            "form": "demo-form",
+            "optionCount": 0
+          },
+          {
+            "ref": "r1f14",
+            "label": "Item 2 quantity",
+            "type": "number",
+            "required": false,
+            "key": "line_2_quantity",
+            "form": "demo-form",
+            "optionCount": 0,
+            "constraints": {
+              "min": "1"
+            }
+          },
+          {
+            "ref": "r1f15",
+            "label": "Select Item 2",
+            "type": "checkbox",
+            "required": false,
+            "key": "line_2_selected",
+            "form": "demo-form",
+            "optionCount": 0
+          },
+          {
+            "ref": "r1f16",
+            "label": "Item 3 quantity",
+            "type": "number",
+            "required": false,
+            "key": "line_3_quantity",
+            "form": "demo-form",
+            "optionCount": 0,
+            "constraints": {
+              "min": "1"
+            }
+          },
+          {
+            "ref": "r1f17",
+            "label": "Select Item 3",
+            "type": "checkbox",
+            "required": false,
+            "key": "line_3_selected",
+            "form": "demo-form",
+            "optionCount": 0
+          }
+        ],
+        "forms": [
+          {
+            "key": "demo-form",
+            "label": "demo-form",
+            "fields": [
+              "shipping_method",
+              "gift_wrap",
+              "company_name",
+              "contact_email",
+              "region",
+              "delivery_preference",
+              "interests",
+              "delivery_date",
+              "suggested_city",
+              "lookup-mode",
+              "account_search",
+              "table-filter",
+              "line_1_quantity",
+              "line_1_selected",
+              "line_2_quantity",
+              "line_2_selected",
+              "line_3_quantity",
+              "line_3_selected"
+            ]
+          }
+        ],
+        "links": [
+          {
+            "ref": "r1n0",
+            "label": "Customer",
+            "path": "/customer"
+          },
+          {
+            "ref": "r1n1",
+            "label": "Opportunity",
+            "path": "/opportunity"
+          },
+          {
+            "ref": "r1n2",
+            "label": "Note",
+            "path": "/note"
+          },
+          {
+            "ref": "r1n3",
+            "label": "Scheduled goal",
+            "path": "/goal"
+          }
+        ],
+        "recentActivity": {
+          "prepared": [],
+          "applied": [],
+          "unavailablePrepared": 0,
+          "unavailableApplied": 0
+        },
+        "targets": [
+          {
+            "ref": "r1t0",
+            "label": "Orchid Trading",
+            "kind": "content",
+            "role": "option",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Orchid Trading"
+          },
+          {
+            "ref": "r1t1",
+            "label": "Save synthetic record",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Save synthetic record"
+          },
+          {
+            "ref": "r1t2",
+            "label": "Try these prompts",
+            "kind": "content",
+            "role": "section",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Try these promptsAsk knowledge: What is the Alpha delivery promise?Prepare field review: Set the company name to Demo Test and contact email to demo@example.com.Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”Switch to Note: “Create a note with title Followup and body followup MrX on month end.”Review proposed values, approve, then verify the visible fields. No automatic Save is performed."
+          },
+          {
+            "ref": "r1t3",
+            "label": "Customer",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Customer"
+          },
+          {
+            "ref": "r1t4",
+            "label": "Opportunity",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Opportunity"
+          },
+          {
+            "ref": "r1t5",
+            "label": "Note",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Note"
+          },
+          {
+            "ref": "r1t6",
+            "label": "Scheduled goal",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Scheduled goal"
+          },
+          {
+            "ref": "r1t7",
+            "label": "Saved synthetic records",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Saved synthetic records"
+          },
+          {
+            "ref": "r1t8",
+            "label": "Sort rows",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Sort rows"
+          },
+          {
+            "ref": "r1t9",
+            "label": "Add line",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Add line"
+          },
+          {
+            "ref": "r1t10",
+            "label": "Next rows",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Next rows"
+          }
+        ],
+        "domScope": "Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.",
+        "coverage": {
+          "fieldLimit": 60,
+          "navigationLimit": 30,
+          "visibleNativeControls": 19,
+          "embeddedFrames": 0,
+          "openShadowRoots": 0,
+          "unsupportedControls": 0,
+          "manualNotice": ""
+        },
+        "submissions": [
+          {
+            "ref": "r1s0",
+            "label": "Save synthetic record"
+          }
+        ],
+        "navigationCandidates": [
+          "/customer",
+          "/opportunity",
+          "/note",
+          "/goal",
+          "/records"
+        ],
+        "screen": "Customer draft | Try these prompts | Generic changes and theme",
+        "path": "/customer",
+        "ambiguousDialogs": false,
+        "blockedCount": 11
+      },
+      "response": {
+        "id": "1e2e8a29-f45b-49d4-8ea8-966aee0a0766",
+        "revision": 1,
+        "message": "I will prepare to select 'Orchid Trading' from the Account search results. Please review the proposed action below.\nReview these 1 proposed field change. Nothing has been changed yet.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f10",
+            "label": "Account search",
+            "value": "Orchid Trading"
+          }
+        ],
+        "expiresAt": 1792599712265,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Shipping method",
+            "type": "select-one",
+            "required": false,
+            "key": "shipping_method",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f1",
+            "label": "Include gift wrap",
+            "type": "checkbox",
+            "required": false,
+            "key": "gift_wrap",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f2",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "key": "company_name",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f3",
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "key": "contact_email",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f4",
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "key": "region",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f5",
+            "label": "Delivery preference",
+            "type": "radio",
+            "required": false,
+            "key": "delivery_preference",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f6",
+            "label": "Interests",
+            "type": "select-multiple",
+            "required": false,
+            "key": "interests",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f7",
+            "label": "Delivery date",
+            "type": "date",
+            "required": false,
+            "key": "delivery_date",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f8",
+            "label": "Suggested city",
+            "type": "text",
+            "required": false,
+            "key": "suggested_city",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f9",
+            "label": "Lookup scenario",
+            "type": "select-one",
+            "required": false,
+            "key": "lookup-mode",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f10",
+            "label": "Account search",
+            "type": "combobox",
+            "required": false,
+            "key": "account_search",
+            "form": "demo-form",
+            "optionRefs": [
+              "r1t0"
+            ]
+          },
+          {
+            "ref": "r1f11",
+            "label": "Table filter",
+            "type": "text",
+            "required": false,
+            "key": "table-filter",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f12",
+            "label": "Item 1 quantity",
+            "type": "number",
+            "required": false,
+            "constraints": {
+              "min": "1"
+            },
+            "key": "line_1_quantity",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f13",
+            "label": "Select Item 1",
+            "type": "checkbox",
+            "required": false,
+            "key": "line_1_selected",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f14",
+            "label": "Item 2 quantity",
+            "type": "number",
+            "required": false,
+            "constraints": {
+              "min": "1"
+            },
+            "key": "line_2_quantity",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f15",
+            "label": "Select Item 2",
+            "type": "checkbox",
+            "required": false,
+            "key": "line_2_selected",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f16",
+            "label": "Item 3 quantity",
+            "type": "number",
+            "required": false,
+            "constraints": {
+              "min": "1"
+            },
+            "key": "line_3_quantity",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f17",
+            "label": "Select Item 3",
+            "type": "checkbox",
+            "required": false,
+            "key": "line_3_selected",
+            "form": "demo-form"
+          }
+        ],
+        "matchedWorkflows": [],
+        "messageId": "f9bd28ff-95bb-49bd-81b8-e5822cd08744"
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "response": {
+        "goal": null
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "task": "Set transport to std. Do not submit or save.",
+      "observed": {
+        "revision": 1,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Search MCPs, publishers, capabilities…",
+            "type": "text",
+            "required": false,
+            "key": "q",
+            "optionCount": 0,
+            "constraints": {
+              "maxlength": "120"
+            }
+          },
+          {
+            "ref": "r1f1",
+            "label": "transport",
+            "type": "select-one",
+            "required": false,
+            "key": "transport",
+            "optionCount": 4,
+            "choices": [
+              "All transports",
+              "streamable-http",
+              "sse",
+              "stdio"
+            ]
+          }
+        ],
+        "forms": [],
+        "links": [],
+        "recentActivity": {
+          "prepared": [],
+          "applied": [],
+          "unavailablePrepared": 0,
+          "unavailableApplied": 0
+        },
+        "targets": [
+          {
+            "ref": "r1t0",
+            "label": "Submit an MCP",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Submit an MCP"
+          },
+          {
+            "ref": "r1t1",
+            "label": "ae.brainy/grocery-prices",
+            "kind": "content",
+            "role": "article",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "ae.brainy/grocery-pricesSource-backed UAE costs: groceries, schools, housing, transport, utilities, telecom and relocationae.brainy · streamable-http"
+          },
+          {
+            "ref": "r1t2",
+            "label": "✺ Free Tools",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "✺ Free Tools"
+          },
+          {
+            "ref": "r1t3",
+            "label": "Docs",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Docs"
+          },
+          {
+            "ref": "r1t4",
+            "label": "Search",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Search"
+          },
+          {
+            "ref": "r1t5",
+            "label": "Inspect",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Inspect"
+          },
+          {
+            "ref": "r1t6",
+            "label": "Inspect",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Inspect"
+          },
+          {
+            "ref": "r1t7",
+            "label": "Inspect",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Inspect"
+          },
+          {
+            "ref": "r1t8",
+            "label": "Inspect",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Inspect"
+          },
+          {
+            "ref": "r1t9",
+            "label": "Inspect",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Inspect"
+          }
+        ],
+        "domScope": "Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.",
+        "coverage": {
+          "fieldLimit": 60,
+          "navigationLimit": 30,
+          "visibleNativeControls": 2,
+          "embeddedFrames": 0,
+          "openShadowRoots": 0,
+          "unsupportedControls": 0,
+          "manualNotice": ""
+        },
+        "submissions": [],
+        "navigationCandidates": [
+          "/free-tools/",
+          "/docs/"
+        ],
+        "screen": "agency.lona/trading | agency.ottobot/business-contact-finder | Include your MCP",
+        "path": "/free-tools/mcp-universe/",
+        "ambiguousDialogs": false,
+        "blockedCount": 30
+      },
+      "response": {
+        "id": "8f05546c-77ff-41f8-86a8-f4f535a19623",
+        "revision": 1,
+        "message": "Review these 1 explicit field changes.  yet.\nReview these 1 proposed field change. Nothing has been changed yet.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f1",
+            "label": "transport",
+            "value": "stdio"
+          }
+        ],
+        "expiresAt": 1792599715775,
+        "fields": [
+          {
+            "ref": "r1f1",
+            "label": "transport",
+            "type": "select-one",
+            "required": false,
+            "key": "transport",
+            "choices": [
+              "All transports",
+              "streamable-http",
+              "sse",
+              "stdio"
+            ]
+          }
+        ],
+        "matchedWorkflows": [],
+        "messageId": "eca2689e-9316-488a-aa07-89bebb85639f"
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "response": {
+        "goal": null
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/create",
+      "status": 200,
+      "task": "Create a customer with Company name \"Choice UAT 1792599597390\", Contact email \"choice.uat@example.test\", Region \"Singapore\", and Shipping method \"exp\". Resolve that short form against the actual available options and save this customer after the normal reviews. Stay on the same form. Ask if ambiguous.",
+      "observed": {
+        "revision": 1,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Shipping method",
+            "type": "select-one",
+            "required": false,
+            "key": "shipping_method",
+            "form": "demo-form",
+            "optionCount": 3,
+            "choices": [
+              "Choose",
+              "Standard",
+              "Express"
+            ]
+          },
+          {
+            "ref": "r1f1",
+            "label": "Include gift wrap",
+            "type": "checkbox",
+            "required": false,
+            "key": "gift_wrap",
+            "form": "demo-form",
+            "optionCount": 0
+          },
+          {
+            "ref": "r1f2",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "key": "company_name",
+            "form": "demo-form",
+            "optionCount": 0
+          },
+          {
+            "ref": "r1f3",
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "key": "contact_email",
+            "form": "demo-form",
+            "optionCount": 0
+          },
+          {
+            "ref": "r1f4",
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "key": "region",
+            "form": "demo-form",
+            "optionCount": 0
+          }
+        ],
+        "forms": [
+          {
+            "key": "demo-form",
+            "label": "demo-form",
+            "fields": [
+              "shipping_method",
+              "gift_wrap",
+              "company_name",
+              "contact_email",
+              "region"
+            ]
+          }
+        ],
+        "links": [
+          {
+            "ref": "r1n0",
+            "label": "Customer",
+            "path": "/customer"
+          },
+          {
+            "ref": "r1n1",
+            "label": "Opportunity",
+            "path": "/opportunity"
+          },
+          {
+            "ref": "r1n2",
+            "label": "Note",
+            "path": "/note"
+          },
+          {
+            "ref": "r1n3",
+            "label": "Scheduled goal",
+            "path": "/goal"
+          }
+        ],
+        "recentActivity": {
+          "prepared": [],
+          "applied": [],
+          "unavailablePrepared": 0,
+          "unavailableApplied": 0
+        },
+        "targets": [
+          {
+            "ref": "r1t0",
+            "label": "Try these prompts",
+            "kind": "content",
+            "role": "section",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Try these promptsAsk knowledge: What is the Alpha delivery promise?Prepare field review: Set the company name to Demo Test and contact email to demo@example.com.Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”Switch to Note: “Create a note with title Followup and body followup MrX on month end.”Review proposed values, approve, then verify the visible fields. No automatic Save is performed."
+          },
+          {
+            "ref": "r1t1",
+            "label": "Generic changes and theme",
+            "kind": "content",
+            "role": "section",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Generic changes and themeAdding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field."
+          },
+          {
+            "ref": "r1t2",
+            "label": "Hide/show host form",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Hide/show host form"
+          },
+          {
+            "ref": "r1t3",
+            "label": "Digital Adoption test workspace",
+            "kind": "content",
+            "role": "header",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Local host page · VPS-hosted copilotDigital Adoption test workspaceThe widget, model backend and knowledge retrieval run on the VPS."
+          },
+          {
+            "ref": "r1t4",
+            "label": "Customer draft",
+            "kind": "content",
+            "role": "section",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Customer draftShipping methodInclude gift wrapCompany nameContact emailRegion"
+          },
+          {
+            "ref": "r1t5",
+            "label": "Customer",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Customer"
+          },
+          {
+            "ref": "r1t6",
+            "label": "Save synthetic record",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Save synthetic record"
+          },
+          {
+            "ref": "r1t7",
+            "label": "Opportunity",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Opportunity"
+          },
+          {
+            "ref": "r1t8",
+            "label": "Note",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Note"
+          },
+          {
+            "ref": "r1t9",
+            "label": "Scheduled goal",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Scheduled goal"
+          },
+          {
+            "ref": "r1t10",
+            "label": "Saved synthetic records",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Saved synthetic records"
+          },
+          {
+            "ref": "r1t11",
+            "label": "Add Delivery city field",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Add Delivery city field"
+          },
+          {
+            "ref": "r1t12",
+            "label": "Add native controls",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Add native controls"
+          },
+          {
+            "ref": "r1t13",
+            "label": "Add complex controls",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Add complex controls"
+          },
+          {
+            "ref": "r1t14",
+            "label": "Switch widget palette",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Switch widget palette"
+          }
+        ],
+        "domScope": "Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.",
+        "coverage": {
+          "fieldLimit": 60,
+          "navigationLimit": 30,
+          "visibleNativeControls": 5,
+          "embeddedFrames": 0,
+          "openShadowRoots": 0,
+          "unsupportedControls": 0,
+          "manualNotice": ""
+        },
+        "submissions": [
+          {
+            "ref": "r1s0",
+            "label": "Save synthetic record"
+          }
+        ],
+        "navigationCandidates": [
+          "/customer",
+          "/opportunity",
+          "/note",
+          "/goal",
+          "/records"
+        ],
+        "screen": "Customer draft | Try these prompts | Generic changes and theme",
+        "path": "/customer",
+        "ambiguousDialogs": false,
+        "blockedCount": 7
+      },
+      "response": {
+        "goal": {
+          "id": "962b6088-e723-4f9f-a69d-71cef34b28df",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "69ef1f46-be0e-4ff9-a959-9825a5186c2e",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Create a customer with Company name \"Choice UAT 1792599597390\", Contact email \"choice.uat@example.test\", Region \"Singapore\", and Shipping method \"exp\". Resolve that short form against the actual available options and save this customer after the normal reviews. Stay on the same form. Ask if ambiguous.",
+          "message": "The revised plan to create a customer with the specified details is as follows. All independent field edits have been combined into one fill step, and the save step remains separate as requested.",
+          "steps": [
+            {
+              "title": "Fill Customer Details",
+              "kind": "fill",
+              "instruction": "Set the company name to \"Choice UAT 1792599597390\", contact email to \"choice.uat@example.test\", region to \"Singapore\", and shipping method to \"Express\" (resolved from \"exp\").",
+              "expected": "Company name, contact email, region, and shipping method fields are filled with the respective values.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Save Customer",
+              "kind": "save",
+              "instruction": "Propose to save the customer with the filled details; confirmation will be required.",
+              "expected": "Prompt for confirmation to save the customer.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 0,
+          "status": "draft",
+          "clarifications": 0,
+          "version": 1,
+          "createdAt": 1792599614618,
+          "expiresAt": 1792686014618
+        }
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/control",
+      "status": 200,
+      "response": {
+        "goal": {
+          "id": "962b6088-e723-4f9f-a69d-71cef34b28df",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "69ef1f46-be0e-4ff9-a959-9825a5186c2e",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Create a customer with Company name \"Choice UAT 1792599597390\", Contact email \"choice.uat@example.test\", Region \"Singapore\", and Shipping method \"exp\". Resolve that short form against the actual available options and save this customer after the normal reviews. Stay on the same form. Ask if ambiguous.",
+          "message": "The revised plan to create a customer with the specified details is as follows. All independent field edits have been combined into one fill step, and the save step remains separate as requested.",
+          "steps": [
+            {
+              "title": "Fill Customer Details",
+              "kind": "fill",
+              "instruction": "Set the company name to \"Choice UAT 1792599597390\", contact email to \"choice.uat@example.test\", region to \"Singapore\", and shipping method to \"Express\" (resolved from \"exp\").",
+              "expected": "Company name, contact email, region, and shipping method fields are filled with the respective values.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            },
+            {
+              "title": "Save Customer",
+              "kind": "save",
+              "instruction": "Propose to save the customer with the filled details; confirmation will be required.",
+              "expected": "Prompt for confirmation to save the customer.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 0,
+          "status": "ready",
+          "clarifications": 0,
+          "version": 2,
+          "createdAt": 1792599614618,
+          "expiresAt": 1792686014618
+        }
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "task": "Set the company name to \"Choice UAT 1792599597390\", contact email to \"choice.uat@example.test\", region to \"Singapore\", and shipping method to \"Express\" (resolved from \"exp\").",
+      "observed": {
+        "revision": 2,
+        "fields": [
+          {
+            "ref": "r2f0",
+            "label": "Shipping method",
+            "type": "select-one",
+            "required": false,
+            "key": "shipping_method",
+            "form": "demo-form",
+            "optionCount": 3,
+            "choices": [
+              "Express",
+              "Choose",
+              "Standard"
+            ]
+          },
+          {
+            "ref": "r2f1",
+            "label": "Include gift wrap",
+            "type": "checkbox",
+            "required": false,
+            "key": "gift_wrap",
+            "form": "demo-form",
+            "optionCount": 0
+          },
+          {
+            "ref": "r2f2",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "key": "company_name",
+            "form": "demo-form",
+            "optionCount": 0
+          },
+          {
+            "ref": "r2f3",
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "key": "contact_email",
+            "form": "demo-form",
+            "optionCount": 0
+          },
+          {
+            "ref": "r2f4",
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "key": "region",
+            "form": "demo-form",
+            "optionCount": 0
+          }
+        ],
+        "forms": [
+          {
+            "key": "demo-form",
+            "label": "demo-form",
+            "fields": [
+              "shipping_method",
+              "gift_wrap",
+              "company_name",
+              "contact_email",
+              "region"
+            ]
+          }
+        ],
+        "links": [
+          {
+            "ref": "r2n0",
+            "label": "Customer",
+            "path": "/customer"
+          },
+          {
+            "ref": "r2n1",
+            "label": "Opportunity",
+            "path": "/opportunity"
+          },
+          {
+            "ref": "r2n2",
+            "label": "Note",
+            "path": "/note"
+          },
+          {
+            "ref": "r2n3",
+            "label": "Scheduled goal",
+            "path": "/goal"
+          }
+        ],
+        "recentActivity": {
+          "prepared": [],
+          "applied": [],
+          "unavailablePrepared": 0,
+          "unavailableApplied": 0
+        },
+        "targets": [
+          {
+            "ref": "r2t0",
+            "label": "Try these prompts",
+            "kind": "content",
+            "role": "section",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Try these promptsAsk knowledge: What is the Alpha delivery promise?Prepare field review: Set the company name to Demo Test and contact email to demo@example.com.Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”Switch to Note: “Create a note with title Followup and body followup MrX on month end.”Review proposed values, approve, then verify the visible fields. No automatic Save is performed."
+          },
+          {
+            "ref": "r2t1",
+            "label": "Digital Adoption test workspace",
+            "kind": "content",
+            "role": "header",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Local host page · VPS-hosted copilotDigital Adoption test workspaceThe widget, model backend and knowledge retrieval run on the VPS."
+          },
+          {
+            "ref": "r2t2",
+            "label": "Generic changes and theme",
+            "kind": "content",
+            "role": "section",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Generic changes and themeAdding a host field requires no copilot deployment. Ask it to set Delivery city to Singapore after adding the field."
+          },
+          {
+            "ref": "r2t3",
+            "label": "Customer",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Customer"
+          },
+          {
+            "ref": "r2t4",
+            "label": "Opportunity",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Opportunity"
+          },
+          {
+            "ref": "r2t5",
+            "label": "Note",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Note"
+          },
+          {
+            "ref": "r2t6",
+            "label": "Scheduled goal",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Scheduled goal"
+          },
+          {
+            "ref": "r2t7",
+            "label": "Saved synthetic records",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Saved synthetic records"
+          },
+          {
+            "ref": "r2t8",
+            "label": "Save synthetic record",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Save synthetic record"
+          },
+          {
+            "ref": "r2t9",
+            "label": "Add Delivery city field",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Add Delivery city field"
+          },
+          {
+            "ref": "r2t10",
+            "label": "Add native controls",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Add native controls"
+          }
+        ],
+        "domScope": "Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.",
+        "coverage": {
+          "fieldLimit": 60,
+          "navigationLimit": 30,
+          "visibleNativeControls": 5,
+          "embeddedFrames": 0,
+          "openShadowRoots": 0,
+          "unsupportedControls": 0,
+          "manualNotice": ""
+        },
+        "submissions": [
+          {
+            "ref": "r2s0",
+            "label": "Save synthetic record"
+          }
+        ],
+        "navigationCandidates": [
+          "/customer",
+          "/opportunity",
+          "/note",
+          "/goal",
+          "/records"
+        ],
+        "screen": "Customer draft | Try these prompts | Generic changes and theme",
+        "path": "/customer",
+        "ambiguousDialogs": false,
+        "blockedCount": 7
+      },
+      "response": {
+        "goal": {
+          "id": "962b6088-e723-4f9f-a69d-71cef34b28df",
+          "embeddingId": "adoption-demo-alpha",
+          "sessionId": "69ef1f46-be0e-4ff9-a959-9825a5186c2e",
+          "origin": "http://127.0.0.1:4194",
+          "conversationVersion": 0,
+          "text": "Create a customer with Company name \"Choice UAT 1792599597390\", Contact email \"choice.uat@example.test\", Region \"Singapore\", and Shipping method \"exp\". Resolve that short form against the actual available options and save this customer after the normal reviews. Stay on the same form. Ask if ambiguous.",
+          "message": "The proposed choice does not match the requested observed option. No substitution was approved; clarify the available choices.",
+          "steps": [
+            {
+              "title": "Fill Customer Details",
+              "kind": "fill",
+              "instruction": "Set the company name to \"Choice UAT 1792599597390\", contact email to \"choice.uat@example.test\", region to \"Singapore\", and shipping method to \"Express\" (resolved from \"exp\").",
+              "expected": "Company name, contact email, region, and shipping method fields are filled with the respective values.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 1
+            },
+            {
+              "title": "Save Customer",
+              "kind": "save",
+              "instruction": "Propose to save the customer with the filled details; confirmation will be required.",
+              "expected": "Prompt for confirmation to save the customer.",
+              "status": "pending",
+              "effects": [],
+              "attempts": 0
+            }
+          ],
+          "current": 0,
+          "status": "blocked",
+          "clarifications": 0,
+          "version": 4,
+          "createdAt": 1792599614618,
+          "expiresAt": 1792686014618,
+          "pendingProposalId": "19f85189-63ac-4850-930b-b874ce5c8399"
+        },
+        "proposal": {
+          "id": "19f85189-63ac-4850-930b-b874ce5c8399",
+          "revision": 2,
+          "message": "The proposed choice does not match the requested observed option. No substitution was approved; clarify the available choices.",
+          "actions": [],
+          "expiresAt": 1792599738520,
+          "fields": [
+            {
+              "ref": "r2f0",
+              "label": "Shipping method",
+              "type": "select-one",
+              "required": false,
+              "key": "shipping_method",
+              "form": "demo-form",
+              "choices": [
+                "Express",
+                "Choose",
+                "Standard"
+              ]
+            },
+            {
+              "ref": "r2f2",
+              "label": "Company name",
+              "type": "text",
+              "required": true,
+              "key": "company_name",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r2f3",
+              "label": "Contact email",
+              "type": "email",
+              "required": true,
+              "key": "contact_email",
+              "form": "demo-form"
+            },
+            {
+              "ref": "r2f4",
+              "label": "Region",
+              "type": "text",
+              "required": true,
+              "key": "region",
+              "form": "demo-form"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "response": {
+        "goal": null
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "task": "Show me where the Export report menu item is. Only point to it; do not click or change anything.",
+      "observed": {
+        "revision": 1,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Shipping method",
+            "type": "select-one",
+            "required": false,
+            "key": "shipping_method",
+            "form": "demo-form",
+            "optionCount": 3
+          },
+          {
+            "ref": "r1f1",
+            "label": "Include gift wrap",
+            "type": "checkbox",
+            "required": false,
+            "key": "gift_wrap",
+            "form": "demo-form",
+            "optionCount": 0
+          },
+          {
+            "ref": "r1f2",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "key": "company_name",
+            "form": "demo-form",
+            "optionCount": 0
+          },
+          {
+            "ref": "r1f3",
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "key": "contact_email",
+            "form": "demo-form",
+            "optionCount": 0
+          },
+          {
+            "ref": "r1f4",
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "key": "region",
+            "form": "demo-form",
+            "optionCount": 0
+          }
+        ],
+        "forms": [
+          {
+            "key": "demo-form",
+            "label": "demo-form",
+            "fields": [
+              "shipping_method",
+              "gift_wrap",
+              "company_name",
+              "contact_email",
+              "region"
+            ]
+          }
+        ],
+        "links": [
+          {
+            "ref": "r1n0",
+            "label": "Customer",
+            "path": "/customer"
+          },
+          {
+            "ref": "r1n1",
+            "label": "Opportunity",
+            "path": "/opportunity"
+          },
+          {
+            "ref": "r1n2",
+            "label": "Note",
+            "path": "/note"
+          },
+          {
+            "ref": "r1n3",
+            "label": "Scheduled goal",
+            "path": "/goal"
+          }
+        ],
+        "recentActivity": {
+          "prepared": [],
+          "applied": [],
+          "unavailablePrepared": 0,
+          "unavailableApplied": 0
+        },
+        "targets": [
+          {
+            "ref": "r1t0",
+            "label": "Export report",
+            "kind": "content",
+            "role": "menuitem",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Export report"
+          },
+          {
+            "ref": "r1t1",
+            "label": "Synthetic menu controls",
+            "kind": "content",
+            "role": "section",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": ""
+          },
+          {
+            "ref": "r1t2",
+            "label": "More tools",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false,
+              "expanded": true
+            },
+            "text": "More tools"
+          },
+          {
+            "ref": "r1t3",
+            "label": "Customer",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Customer"
+          },
+          {
+            "ref": "r1t4",
+            "label": "Opportunity",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Opportunity"
+          },
+          {
+            "ref": "r1t5",
+            "label": "Note",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Note"
+          },
+          {
+            "ref": "r1t6",
+            "label": "Scheduled goal",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Scheduled goal"
+          },
+          {
+            "ref": "r1t7",
+            "label": "Saved synthetic records",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Saved synthetic records"
+          },
+          {
+            "ref": "r1t8",
+            "label": "Save synthetic record",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Save synthetic record"
+          },
+          {
+            "ref": "r1t9",
+            "label": "Add Delivery city field",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Add Delivery city field"
+          }
+        ],
+        "domScope": "Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.",
+        "coverage": {
+          "fieldLimit": 60,
+          "navigationLimit": 30,
+          "visibleNativeControls": 5,
+          "embeddedFrames": 0,
+          "openShadowRoots": 0,
+          "unsupportedControls": 0,
+          "manualNotice": ""
+        },
+        "submissions": [
+          {
+            "ref": "r1s0",
+            "label": "Save synthetic record"
+          }
+        ],
+        "navigationCandidates": [
+          "/customer",
+          "/opportunity",
+          "/note",
+          "/goal",
+          "/records"
+        ],
+        "screen": "Customer draft | Try these prompts | Generic changes and theme",
+        "path": "/customer",
+        "ambiguousDialogs": false,
+        "blockedCount": 9
+      },
+      "response": {
+        "id": "c0495f8b-bf9e-400b-ac1c-93ec8f43b8e4",
+        "revision": 1,
+        "message": "The Export report menu item is located in the menu. You can find it labeled as 'Export report.'\nI can highlight 1 target for you. No values will be changed.",
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r1t0",
+            "label": "Export report"
+          }
+        ],
+        "expiresAt": 1792599741814,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Shipping method",
+            "type": "select-one",
+            "required": false,
+            "key": "shipping_method",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f1",
+            "label": "Include gift wrap",
+            "type": "checkbox",
+            "required": false,
+            "key": "gift_wrap",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f2",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "key": "company_name",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f3",
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "key": "contact_email",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f4",
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "key": "region",
+            "form": "demo-form"
+          }
+        ],
+        "matchedWorkflows": [],
+        "messageId": "361ed8ad-4f6f-4873-94a4-d21995c21a5c"
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "response": {
+        "goal": null
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "task": "fill the customer draft with dummy values for all applicable fields.. confirm with me before saving",
+      "observed": {
+        "revision": 1,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Shipping method",
+            "type": "select-one",
+            "required": false,
+            "key": "shipping_method",
+            "form": "demo-form",
+            "optionCount": 3,
+            "choices": [
+              "Choose",
+              "Standard",
+              "Express"
+            ]
+          },
+          {
+            "ref": "r1f1",
+            "label": "Include gift wrap",
+            "type": "checkbox",
+            "required": false,
+            "key": "gift_wrap",
+            "form": "demo-form",
+            "optionCount": 0
+          },
+          {
+            "ref": "r1f2",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "key": "company_name",
+            "form": "demo-form",
+            "optionCount": 0
+          },
+          {
+            "ref": "r1f3",
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "key": "contact_email",
+            "form": "demo-form",
+            "optionCount": 0
+          },
+          {
+            "ref": "r1f4",
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "key": "region",
+            "form": "demo-form",
+            "optionCount": 0
+          }
+        ],
+        "forms": [
+          {
+            "key": "demo-form",
+            "label": "demo-form",
+            "fields": [
+              "shipping_method",
+              "gift_wrap",
+              "company_name",
+              "contact_email",
+              "region"
+            ]
+          }
+        ],
+        "links": [
+          {
+            "ref": "r1n0",
+            "label": "Customer",
+            "path": "/customer"
+          },
+          {
+            "ref": "r1n1",
+            "label": "Opportunity",
+            "path": "/opportunity"
+          },
+          {
+            "ref": "r1n2",
+            "label": "Note",
+            "path": "/note"
+          },
+          {
+            "ref": "r1n3",
+            "label": "Scheduled goal",
+            "path": "/goal"
+          }
+        ],
+        "recentActivity": {
+          "prepared": [],
+          "applied": [],
+          "unavailablePrepared": 0,
+          "unavailableApplied": 0
+        },
+        "targets": [
+          {
+            "ref": "r1t0",
+            "label": "Customer draft",
+            "kind": "content",
+            "role": "section",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Customer draftShipping methodInclude gift wrapCompany nameContact emailRegion"
+          },
+          {
+            "ref": "r1t1",
+            "label": "Customer",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Customer"
+          },
+          {
+            "ref": "r1t2",
+            "label": "Try these prompts",
+            "kind": "content",
+            "role": "section",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Try these promptsAsk knowledge: What is the Alpha delivery promise?Prepare field review: Set the company name to Demo Test and contact email to demo@example.com.Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”Switch to Note: “Create a note with title Followup and body followup MrX on month end.”Review proposed values, approve, then verify the visible fields. No automatic Save is performed."
+          },
+          {
+            "ref": "r1t3",
+            "label": "Opportunity",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Opportunity"
+          },
+          {
+            "ref": "r1t4",
+            "label": "Note",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Note"
+          },
+          {
+            "ref": "r1t5",
+            "label": "Scheduled goal",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Scheduled goal"
+          },
+          {
+            "ref": "r1t6",
+            "label": "Saved synthetic records",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Saved synthetic records"
+          },
+          {
+            "ref": "r1t7",
+            "label": "Save synthetic record",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Save synthetic record"
+          },
+          {
+            "ref": "r1t8",
+            "label": "Add Delivery city field",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Add Delivery city field"
+          },
+          {
+            "ref": "r1t9",
+            "label": "Add native controls",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Add native controls"
+          },
+          {
+            "ref": "r1t10",
+            "label": "Add complex controls",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Add complex controls"
+          }
+        ],
+        "domScope": "Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.",
+        "coverage": {
+          "fieldLimit": 60,
+          "navigationLimit": 30,
+          "visibleNativeControls": 5,
+          "embeddedFrames": 0,
+          "openShadowRoots": 0,
+          "unsupportedControls": 0,
+          "manualNotice": ""
+        },
+        "submissions": [
+          {
+            "ref": "r1s0",
+            "label": "Save synthetic record"
+          }
+        ],
+        "navigationCandidates": [
+          "/customer",
+          "/opportunity",
+          "/note",
+          "/goal",
+          "/records"
+        ],
+        "screen": "Customer draft | Try these prompts | Generic changes and theme",
+        "path": "/customer",
+        "ambiguousDialogs": false,
+        "blockedCount": 7
+      },
+      "response": {
+        "id": "086f8618-192f-4b61-803e-20a6b45aca98",
+        "revision": 1,
+        "message": "I will fill the customer draft with dummy values for all applicable fields. Here are the proposed values:\n\n- **Shipping method**: Standard\n- **Include gift wrap**: Checked\n- **Company name**: Demo Test\n- **Contact email**: demo@example.com\n- **Region**: Demo Region\n\nPlease confirm if you would like to proceed with these values before saving.\nReview these 5 proposed field changes. Nothing has been changed yet.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f0",
+            "label": "Shipping method",
+            "value": "Standard"
+          },
+          {
+            "type": "fill",
+            "ref": "r1f1",
+            "label": "Include gift wrap",
+            "value": "true",
+            "displayValue": "Selected"
+          },
+          {
+            "type": "fill",
+            "ref": "r1f2",
+            "label": "Company name",
+            "value": "Demo Test"
+          },
+          {
+            "type": "fill",
+            "ref": "r1f3",
+            "label": "Contact email",
+            "value": "demo@example.com"
+          },
+          {
+            "type": "fill",
+            "ref": "r1f4",
+            "label": "Region",
+            "value": "Demo Region"
+          }
+        ],
+        "expiresAt": 1792599747035,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Shipping method",
+            "type": "select-one",
+            "required": false,
+            "key": "shipping_method",
+            "form": "demo-form",
+            "choices": [
+              "Choose",
+              "Standard",
+              "Express"
+            ]
+          },
+          {
+            "ref": "r1f1",
+            "label": "Include gift wrap",
+            "type": "checkbox",
+            "required": false,
+            "key": "gift_wrap",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f2",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "key": "company_name",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f3",
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "key": "contact_email",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f4",
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "key": "region",
+            "form": "demo-form"
+          }
+        ],
+        "matchedWorkflows": [],
+        "messageId": "2e0e31d4-ffb9-409c-b878-25f2b67b2cf5"
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "response": {
+        "goal": null
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 403,
+      "task": "fill the customer draft with dummy values for all applicable fields.. confirm with me before saving",
+      "observed": {
+        "revision": 1,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Shipping method",
+            "type": "select-one",
+            "required": false,
+            "key": "shipping_method",
+            "form": "demo-form",
+            "optionCount": 3,
+            "choices": [
+              "Choose",
+              "Standard",
+              "Express"
+            ]
+          },
+          {
+            "ref": "r1f1",
+            "label": "Include gift wrap",
+            "type": "checkbox",
+            "required": false,
+            "key": "gift_wrap",
+            "form": "demo-form",
+            "optionCount": 0
+          },
+          {
+            "ref": "r1f2",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "key": "company_name",
+            "form": "demo-form",
+            "optionCount": 0
+          },
+          {
+            "ref": "r1f3",
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "key": "contact_email",
+            "form": "demo-form",
+            "optionCount": 0
+          },
+          {
+            "ref": "r1f4",
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "key": "region",
+            "form": "demo-form",
+            "optionCount": 0
+          }
+        ],
+        "forms": [
+          {
+            "key": "demo-form",
+            "label": "demo-form",
+            "fields": [
+              "shipping_method",
+              "gift_wrap",
+              "company_name",
+              "contact_email",
+              "region"
+            ]
+          }
+        ],
+        "links": [
+          {
+            "ref": "r1n0",
+            "label": "Customer",
+            "path": "/customer"
+          },
+          {
+            "ref": "r1n1",
+            "label": "Opportunity",
+            "path": "/opportunity"
+          },
+          {
+            "ref": "r1n2",
+            "label": "Note",
+            "path": "/note"
+          },
+          {
+            "ref": "r1n3",
+            "label": "Scheduled goal",
+            "path": "/goal"
+          }
+        ],
+        "recentActivity": {
+          "prepared": [],
+          "applied": [],
+          "unavailablePrepared": 0,
+          "unavailableApplied": 0
+        },
+        "targets": [
+          {
+            "ref": "r1t0",
+            "label": "Customer draft",
+            "kind": "content",
+            "role": "section",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Customer draftShipping methodInclude gift wrapCompany nameContact emailRegion"
+          },
+          {
+            "ref": "r1t1",
+            "label": "Customer",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Customer"
+          },
+          {
+            "ref": "r1t2",
+            "label": "Try these prompts",
+            "kind": "content",
+            "role": "section",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Try these promptsAsk knowledge: What is the Alpha delivery promise?Prepare field review: Set the company name to Demo Test and contact email to demo@example.com.Switch to Opportunity: “Create an opportunity named Demo Test with amount 10000 and currency USD.”Switch to Note: “Create a note with title Followup and body followup MrX on month end.”Review proposed values, approve, then verify the visible fields. No automatic Save is performed."
+          },
+          {
+            "ref": "r1t3",
+            "label": "Opportunity",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Opportunity"
+          },
+          {
+            "ref": "r1t4",
+            "label": "Note",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Note"
+          },
+          {
+            "ref": "r1t5",
+            "label": "Scheduled goal",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Scheduled goal"
+          },
+          {
+            "ref": "r1t6",
+            "label": "Saved synthetic records",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Saved synthetic records"
+          },
+          {
+            "ref": "r1t7",
+            "label": "Save synthetic record",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Save synthetic record"
+          },
+          {
+            "ref": "r1t8",
+            "label": "Add Delivery city field",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Add Delivery city field"
+          },
+          {
+            "ref": "r1t9",
+            "label": "Add native controls",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Add native controls"
+          },
+          {
+            "ref": "r1t10",
+            "label": "Add complex controls",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Add complex controls"
+          }
+        ],
+        "domScope": "Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.",
+        "coverage": {
+          "fieldLimit": 60,
+          "navigationLimit": 30,
+          "visibleNativeControls": 5,
+          "embeddedFrames": 0,
+          "openShadowRoots": 0,
+          "unsupportedControls": 0,
+          "manualNotice": ""
+        },
+        "submissions": [
+          {
+            "ref": "r1s0",
+            "label": "Save synthetic record"
+          }
+        ],
+        "navigationCandidates": [
+          "/customer",
+          "/opportunity",
+          "/note",
+          "/goal",
+          "/records"
+        ],
+        "screen": "Customer draft | Try these prompts | Generic changes and theme",
+        "path": "/customer",
+        "ambiguousDialogs": false,
+        "blockedCount": 7
+      },
+      "response": {
+        "error": "Access denied or invalid request"
+      }
+    }
+  ]
+}

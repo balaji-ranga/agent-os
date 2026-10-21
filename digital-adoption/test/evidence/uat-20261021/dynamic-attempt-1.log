@@ -1,0 +1,24 @@
+(node:22680) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS D01_DYNAMIC_CARD_IN_INSERTED_RESPONSE_POINTS_WITHOUT_INPUT_WRITES
+PASS D02_TYPED_FOLLOWUP_REUSES_ENTITY_AND_POINTS_AT_CARD
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: The input did not match the regular expression /currently loaded/. Input:
+
+'Which result do you mean?↩'
+
+    at file:///C:/Users/balaj/projects/agents/agent-os/.worktrees/digital-adoption/digital-adoption/test/dynamic-guidance-browser.mjs:53:338
+    at async check (file:///C:/Users/balaj/projects/agents/agent-os/.worktrees/digital-adoption/digital-adoption/test/dynamic-guidance-browser.mjs:41:33)
+    at async file:///C:/Users/balaj/projects/agents/agent-os/.worktrees/digital-adoption/digital-adoption/test/dynamic-guidance-browser.mjs:53:2 {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: 'Which result do you mean?↩',
+  expected: /currently loaded/,
+  operator: 'match',
+  diff: 'simple'
+}
+
+Node.js v22.22.0

@@ -1,0 +1,22 @@
+PASS FILE_TXT_PRIVATE_PARSE
+PASS FILE_PDF_PRIVATE_PARSE
+PASS FILE_DOCX_PRIVATE_PARSE
+PASS FILE_PNG_PRIVATE_PARSE
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+locator.waitFor: Timeout 195000ms exceeded.
+Call log:
+[2m  - waiting for locator('iframe[data-adoption-widget]').contentFrame().locator('#task-files li').nth(4).filter({ hasText: /ready/ }) to be visible[22m
+
+    at C:\Users\balaj\projects\agents\agent-os\.worktrees\digital-adoption\digital-adoption\test\visitor-files-live.mjs:14:373
+    at async check (C:\Users\balaj\projects\agents\agent-os\.worktrees\digital-adoption\digital-adoption\test\visitor-files-live.mjs:10:46)
+    at async file:///C:/Users/balaj/projects/agents/agent-os/.worktrees/digital-adoption/digital-adoption/test/visitor-files-live.mjs:13:58 {
+  log: [
+    "  - waiting for locator('iframe[data-adoption-widget]').contentFrame().locator('#task-files li').nth(4).filter({ hasText: /ready/ }) to be visible"
+  ],
+  name: 'TimeoutError'
+}
+
+Node.js v22.22.0

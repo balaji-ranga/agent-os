@@ -1,0 +1,20 @@
+PASS FILE_TXT_PRIVATE_PARSE
+PASS FILE_PDF_PRIVATE_PARSE
+PASS FILE_DOCX_PRIVATE_PARSE
+PASS FILE_PNG_PRIVATE_PARSE
+PASS FILE_REMOVE_FREES_TASK_CAPACITY_WITHOUT_RESETTING_SESSION
+PASS FILE_JPG_PRIVATE_PARSE
+PASS FILE_SUMMARY_CONTAINS_EXTRACTED_SYNTHETIC_VALUES
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+page.waitForResponse: Timeout 195000ms exceeded while waiting for event "response"
+    at C:\Users\balaj\projects\agents\agent-os\.worktrees\digital-adoption\digital-adoption\test\visitor-files-live.mjs:18:112
+    at async check (C:\Users\balaj\projects\agents\agent-os\.worktrees\digital-adoption\digital-adoption\test\visitor-files-live.mjs:10:46)
+    at async file:///C:/Users/balaj/projects/agents/agent-os/.worktrees/digital-adoption/digital-adoption/test/visitor-files-live.mjs:17:2 {
+  log: [],
+  name: 'TimeoutError'
+}
+
+Node.js v22.22.0

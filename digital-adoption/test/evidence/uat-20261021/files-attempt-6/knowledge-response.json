@@ -1,0 +1,51 @@
+{
+  "message": "The company name you should use is 'Synthetic Orchid' and the region is 'Singapore'.",
+  "citations": [
+    {
+      "attachmentId": "2beede25-95a2-4ff5-82a3-e018bfc1f595",
+      "filename": "onboarding.docx",
+      "locator": "Document paragraphs",
+      "text": "Company name: Synthetic Orchid\nContact email: orchid@example.test\nRegion: Singapore\nRequested integration: Inventory API\nTransport: HTTP\nTitle: Delivery handoff\nBody: Prepare a shipment for Synthetic Orchid",
+      "reference": "2beede25-95a2-4ff5-82a3-e018bfc1f595:1:1",
+      "chunkId": "2beede25-95a2-4ff5-82a3-e018bfc1f595:1:1",
+      "title": "onboarding.docx",
+      "supportingQuotes": [
+        "Company name: Synthetic Orchid",
+        "Region: Singapore"
+      ]
+    }
+  ],
+  "kind": "answer",
+  "taskId": "b720a397-4772-424c-a4de-7a7b39413fad",
+  "privateTaskId": "b720a397-4772-424c-a4de-7a7b39413fad",
+  "evidence": [
+    {
+      "attachmentId": "2beede25-95a2-4ff5-82a3-e018bfc1f595",
+      "filename": "onboarding.docx",
+      "locator": "Document paragraphs",
+      "text": "Company name: Synthetic Orchid\nContact email: orchid@example.test\nRegion: Singapore\nRequested integration: Inventory API\nTransport: HTTP\nTitle: Delivery handoff\nBody: Prepare a shipment for Synthetic Orchid",
+      "reference": "2beede25-95a2-4ff5-82a3-e018bfc1f595:1:1"
+    },
+    {
+      "attachmentId": "36a4f3f3-fc63-4cf4-b0f2-2652add5ac6b",
+      "filename": "onboarding.png",
+      "locator": "Image OCR",
+      "text": "Company name: Synthetic Orchid\n\nContact email: orchid@example.test\n\nRegion: Singapore\n\nRequested integration: Inventory API\nTransport: HTTP\n\nTitle: Delivery handoff\n\nBody: Prepare a shipment for Synthetic Orchid",
+      "reference": "36a4f3f3-fc63-4cf4-b0f2-2652add5ac6b:1:1"
+    },
+    {
+      "attachmentId": "3e970153-2dc7-41e6-b9f5-b9d4bb68727a",
+      "filename": "onboarding.jpg",
+      "locator": "Image OCR",
+      "text": "Company name: Synthetic Orchid\n\nContact email: orchid@example.test\n\nRegion: Singapore\n\nRequested integration: Inventory API\nTransport: HTTP\n\nTitle: Delivery handoff\n\nBody: Prepare a shipment for Synthetic Orchid",
+      "reference": "3e970153-2dc7-41e6-b9f5-b9d4bb68727a:1:1"
+    },
+    {
+      "attachmentId": "ace5ccdb-4b16-4b37-87f3-e64591e21503",
+      "filename": "onboarding.pdf",
+      "locator": "Page 1",
+      "text": "Company name: Synthetic Orchid\nContact email: orchid@example.test\nRegion: Singapore\nRequested integration: Inventory API\nTransport: HTTP\nTitle: Delivery handoff\nBody: Prepare a shipment for Synthetic Orchid",
+      "reference": "ace5ccdb-4b16-4b37-87f3-e64591e21503:1:1"
+    }
+  ]
+}

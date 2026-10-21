@@ -1,0 +1,62 @@
+{
+  "at": "2026-10-21T15:32:28.474Z",
+  "scope": "Real Chrome DOM/adapter, synthetic loopback controls; no model or permission changes",
+  "results": [
+    {
+      "id": "P01_GUIDANCE_ANIMATES_WITHOUT_CLICK_OR_EDIT",
+      "status": "passed",
+      "screenshot": "P01_GUIDANCE_ANIMATES_WITHOUT_CLICK_OR_EDIT.png"
+    },
+    {
+      "id": "P02_MENU_GUIDANCE_HAS_NO_CLICK_RIPPLE_OR_ACTIVATION",
+      "status": "passed",
+      "screenshot": "P02_MENU_GUIDANCE_HAS_NO_CLICK_RIPPLE_OR_ACTIVATION.png"
+    },
+    {
+      "id": "P03_OVERLAY_IS_POINTER_TRANSPARENT",
+      "status": "passed",
+      "screenshot": "P03_OVERLAY_IS_POINTER_TRANSPARENT.png"
+    },
+    {
+      "id": "P04_SCROLL_RESIZE_AND_LAYOUT_SHIFT_FOLLOW_TARGET",
+      "status": "passed",
+      "screenshot": "P04_SCROLL_RESIZE_AND_LAYOUT_SHIFT_FOLLOW_TARGET.png"
+    },
+    {
+      "id": "P05_REMOVED_HIDDEN_OR_RELABELLED_TARGET_CLEARS",
+      "status": "passed",
+      "screenshot": "P05_REMOVED_HIDDEN_OR_RELABELLED_TARGET_CLEARS.png"
+    },
+    {
+      "id": "P06_FRESH_SNAPSHOT_AND_STOP_CLEAR_POINTER",
+      "status": "passed",
+      "screenshot": "P06_FRESH_SNAPSHOT_AND_STOP_CLEAR_POINTER.png"
+    },
+    {
+      "id": "P07_REDUCED_MOTION_RETAINS_STATIC_POINTER",
+      "status": "passed",
+      "screenshot": "P07_REDUCED_MOTION_RETAINS_STATIC_POINTER.png"
+    },
+    {
+      "id": "P08_APPROVED_CHECKBOX_RIPPLES_EXACTLY_ONE_CLICK",
+      "status": "passed",
+      "screenshot": "P08_APPROVED_CHECKBOX_RIPPLES_EXACTLY_ONE_CLICK.png"
+    },
+    {
+      "id": "P09_NOOP_AND_UNAPPROVED_HAVE_NO_CLICK_FEEDBACK",
+      "status": "passed",
+      "screenshot": "P09_NOOP_AND_UNAPPROVED_HAVE_NO_CLICK_FEEDBACK.png"
+    },
+    {
+      "id": "P10_SAVE_RIPPLE_WITH_HOST_SUCCESS_AND_NO_REPLAY",
+      "status": "passed",
+      "screenshot": "P10_SAVE_RIPPLE_WITH_HOST_SUCCESS_AND_NO_REPLAY.png"
+    },
+    {
+      "id": "P11_NAVIGATION_USES_ONE_REVIEWED_ACTIVATION",
+      "status": "failed",
+      "error": "The expression evaluated to a falsy value:\n\n  assert.ok(await page.locator('[data-adoption-click]').evaluate(e=>e.getAnimations().length)>0)\n"
+    }
+  ],
+  "errors": []
+}

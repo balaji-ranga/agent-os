@@ -1,0 +1,4 @@
+Shipped platform help published and exact indexed hashes/retrieval verified.
+Copilot workspace and upload guidance indexed; backend code, frontend and model settings preserved.
+Candidate Linux regression passed. No running services changed.
+Coordinator-only candidate prepared; gateway, platform and parser workers stay untouched.

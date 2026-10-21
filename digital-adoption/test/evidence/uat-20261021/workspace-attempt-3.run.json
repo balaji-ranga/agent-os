@@ -1,0 +1,12 @@
+{
+  "id": "workspace",
+  "kind": "browser",
+  "attempt": 3,
+  "code": 1,
+  "timedOut": false,
+  "startedAt": "2026-10-21T15:38:44.789Z",
+  "endedAt": "2026-10-21T15:39:06.290Z",
+  "elapsedMs": 21501,
+  "log": "workspace-attempt-3.log",
+  "evidence": "workspace-attempt-3/"
+}

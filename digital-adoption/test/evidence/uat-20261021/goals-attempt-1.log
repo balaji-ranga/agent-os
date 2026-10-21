@@ -1,0 +1,19 @@
+(node:16064) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:4194/customer
+Call log:
+[2m  - navigating to "http://127.0.0.1:4194/customer", waiting until "load"[22m
+
+    at fresh (C:\Users\balaj\projects\agents\agent-os\.worktrees\digital-adoption\digital-adoption\test\goals-browser.mjs:45:34)
+    at C:\Users\balaj\projects\agents\agent-os\.worktrees\digital-adoption\digital-adoption\test\goals-browser.mjs:52:8 {
+  log: [
+    '  - navigating to "http://127.0.0.1:4194/customer", waiting until "load"'
+  ],
+  name: 'Error'
+}
+
+Node.js v22.22.0

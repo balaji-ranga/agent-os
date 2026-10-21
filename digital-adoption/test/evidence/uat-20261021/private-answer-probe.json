@@ -1,0 +1,17 @@
+{
+  "events": [
+    {
+      "stage": "maker",
+      "content": "{\"evidenceStatus\":\"supported\",\"message\":\"The company name and region you should use are provided in the onboarding files.\",\"citations\":[{\"chunkId\":\"synthetic:1\",\"quote\":\"Company name: Synthetic Orchid\\nRegion: Singapore\"}]}"
+    },
+    {
+      "stage": "maker",
+      "content": "{\"evidenceStatus\":\"supported\",\"message\":\"The company name and region you should use are provided in the onboarding files.\",\"citations\":[{\"chunkId\":\"synthetic:1\",\"quote\":\"Company name: Synthetic Orchid\\nRegion: Singapore\"}]}"
+    }
+  ],
+  "result": {
+    "message": "I could not support an answer with the retrieved evidence. Try a more specific question or source title.",
+    "citations": [],
+    "kind": "no_evidence"
+  }
+}

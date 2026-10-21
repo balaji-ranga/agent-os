@@ -1,0 +1,45 @@
+{
+  "at": "2026-10-21T15:48:20.439Z",
+  "website": "https://flolah.cloud",
+  "scope": "Actual site installation, private parsers including OCR, private temporary search, and configured maker/checker. Generated synthetic files; no shared-source upload or backend seed.",
+  "hostWrites": 0,
+  "results": [
+    {
+      "id": "FILE_TXT_PRIVATE_PARSE",
+      "status": "passed",
+      "detail": {
+        "filename": "onboarding.txt",
+        "ready": true
+      }
+    },
+    {
+      "id": "FILE_PDF_PRIVATE_PARSE",
+      "status": "passed",
+      "detail": {
+        "filename": "onboarding.pdf",
+        "ready": true
+      }
+    },
+    {
+      "id": "FILE_DOCX_PRIVATE_PARSE",
+      "status": "passed",
+      "detail": {
+        "filename": "onboarding.docx",
+        "ready": true
+      }
+    },
+    {
+      "id": "FILE_PNG_PRIVATE_PARSE",
+      "status": "passed",
+      "detail": {
+        "filename": "onboarding.png",
+        "ready": true
+      }
+    },
+    {
+      "id": "FILE_JPG_PRIVATE_PARSE",
+      "status": "failed",
+      "error": "locator.waitFor: Timeout 195000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('iframe[data-adoption-widget]').contentFrame().locator('#task-files li').nth(4).filter({ hasText: /ready/ }) to be visible\u001b[22m\n"
+    }
+  ]
+}

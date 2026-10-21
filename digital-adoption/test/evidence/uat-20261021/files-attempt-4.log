@@ -1,0 +1,30 @@
+PASS FILE_TXT_PRIVATE_PARSE
+PASS FILE_PDF_PRIVATE_PARSE
+PASS FILE_DOCX_PRIVATE_PARSE
+PASS FILE_PNG_PRIVATE_PARSE
+PASS FILE_REMOVE_FREES_TASK_CAPACITY_WITHOUT_RESETTING_SESSION
+PASS FILE_JPG_PRIVATE_PARSE
+PASS FILE_SUMMARY_CONTAINS_EXTRACTED_SYNTHETIC_VALUES
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+
+  assert.ok(data.citations?.length)
+
+    at file:///C:/Users/balaj/projects/agents/agent-os/.worktrees/digital-adoption/digital-adoption/test/visitor-files-live.mjs:18:531
+    at runNextTicks (node:internal/process/task_queues:65:5)
+    at process.processImmediate (node:internal/timers:453:9)
+    at process.callbackTrampoline (node:internal/async_hooks:130:17)
+    at async check (file:///C:/Users/balaj/projects/agents/agent-os/.worktrees/digital-adoption/digital-adoption/test/visitor-files-live.mjs:10:46)
+    at async file:///C:/Users/balaj/projects/agents/agent-os/.worktrees/digital-adoption/digital-adoption/test/visitor-files-live.mjs:17:2 {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: 0,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+
+Node.js v22.22.0

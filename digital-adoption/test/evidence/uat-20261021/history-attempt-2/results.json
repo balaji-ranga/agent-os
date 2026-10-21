@@ -1,0 +1,240 @@
+{
+  "at": "2026-10-21T16:21:42.047Z",
+  "scope": "Actual deployed SDK/session, persistent coordinator metadata and real per-website temporary OpenSearch content. Synthetic private transcript only; no host form writes or owner data seeding.",
+  "results": [
+    {
+      "id": "HIST00_MODES_MINIMIZE_AND_EXPAND_KEEP_CHAT_AND_DRAFT",
+      "status": "passed",
+      "screenshot": "HIST00_MODES_MINIMIZE_AND_EXPAND_KEEP_CHAT_AND_DRAFT.png"
+    },
+    {
+      "id": "HIST01_PLUS_ARCHIVES_AND_STARTS_FRESH_CHAT",
+      "status": "passed",
+      "screenshot": "HIST01_PLUS_ARCHIVES_AND_STARTS_FRESH_CHAT.png"
+    },
+    {
+      "id": "HIST02_REFRESH_AND_RESUME_RESTORE_MESSAGES_WITHOUT_ACTION_REPLAY",
+      "status": "passed",
+      "screenshot": "HIST02_REFRESH_AND_RESUME_RESTORE_MESSAGES_WITHOUT_ACTION_REPLAY.png"
+    },
+    {
+      "id": "HIST06_RESTORED_CONTEXT_GUIDES_FRESH_CONTROL_WITHOUT_REPLAY",
+      "status": "passed",
+      "screenshot": "HIST06_RESTORED_CONTEXT_GUIDES_FRESH_CONTROL_WITHOUT_REPLAY.png"
+    },
+    {
+      "id": "HIST03_DIFFERENT_VISITOR_CANNOT_LIST_ARCHIVED_CHAT",
+      "status": "passed",
+      "screenshot": "HIST03_DIFFERENT_VISITOR_CANNOT_LIST_ARCHIVED_CHAT.png"
+    },
+    {
+      "id": "HIST04_WEBSITE_SCOPE_DENIES_COPIED_BROWSER_PROOF",
+      "status": "passed",
+      "screenshot": "HIST04_WEBSITE_SCOPE_DENIES_COPIED_BROWSER_PROOF.png"
+    },
+    {
+      "id": "HIST05_DELETE_REMOVES_ONLY_OWN_ARCHIVE",
+      "status": "passed",
+      "screenshot": "HIST05_DELETE_REMOVES_ONLY_OWN_ARCHIVE.png"
+    }
+  ],
+  "traces": [
+    {
+      "path": "/free-tools/digital-adoption/v1/conversations/archive",
+      "status": 200,
+      "data": {
+        "id": "52ab04299a248fe95b8125995629295faed8e00a6baf0f316e7c67ca8d2f8ccf",
+        "title": "Where is company name field?",
+        "createdAt": 1792599695806,
+        "expiresAt": 1792686095806,
+        "messages": 2,
+        "archived": true,
+        "conversationVersion": 1
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/conversations/list",
+      "status": 200,
+      "data": {
+        "items": [
+          {
+            "id": "52ab04299a248fe95b8125995629295faed8e00a6baf0f316e7c67ca8d2f8ccf",
+            "embeddingId": "adoption-demo-alpha",
+            "title": "Where is company name field?",
+            "hashVersion": 2,
+            "status": "ready",
+            "messageCount": 2,
+            "createdAt": 1792599695806,
+            "expiresAt": 1792686095806,
+            "messages": 2
+          }
+        ],
+        "pagination": {
+          "offset": 0,
+          "limit": 10,
+          "total": 1,
+          "hasNext": false,
+          "hasPrevious": false
+        },
+        "retentionMs": 86400000,
+        "persistent": true
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/conversations/list",
+      "status": 200,
+      "data": {
+        "items": [
+          {
+            "id": "52ab04299a248fe95b8125995629295faed8e00a6baf0f316e7c67ca8d2f8ccf",
+            "embeddingId": "adoption-demo-alpha",
+            "title": "Where is company name field?",
+            "hashVersion": 2,
+            "status": "ready",
+            "messageCount": 2,
+            "createdAt": 1792599695806,
+            "expiresAt": 1792686095806,
+            "messages": 2
+          }
+        ],
+        "pagination": {
+          "offset": 0,
+          "limit": 10,
+          "total": 1,
+          "hasNext": false,
+          "hasPrevious": false
+        },
+        "retentionMs": 86400000,
+        "persistent": true
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/conversations/resume",
+      "status": 200,
+      "data": {
+        "messages": [
+          {
+            "role": "user",
+            "channel": "guide",
+            "replyTo": null,
+            "historical": true,
+            "id": "52ab04299a248fe95b812599-0",
+            "text": "Where is company name field?"
+          },
+          {
+            "role": "assistant",
+            "channel": "guide",
+            "replyTo": null,
+            "historical": true,
+            "id": "9a299261-b2a7-40c1-91b6-8f2b1bedc5cf",
+            "text": "I will point to Company name. No values will change.\nI can highlight 1 target for you. No values will be changed."
+          }
+        ],
+        "conversationVersion": 2,
+        "id": "52ab04299a248fe95b8125995629295faed8e00a6baf0f316e7c67ca8d2f8ccf",
+        "expiresAt": 1792686095806,
+        "resumed": true,
+        "archived": {
+          "archived": false
+        }
+      }
+    },
+    {
+      "path": "/v1/plan",
+      "status": 200,
+      "data": {
+        "id": "fef51abd-60be-4c19-983a-caa7a1625454",
+        "revision": 1,
+        "message": "I will point to the Company name field for you. No values will change.\nI can highlight 1 target for you. No values will be changed.",
+        "actions": [
+          {
+            "type": "highlight",
+            "ref": "r1f0",
+            "label": "Company name"
+          }
+        ],
+        "expiresAt": 1792599819382,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Company name",
+            "type": "text",
+            "required": true,
+            "key": "company_name",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f1",
+            "label": "Contact email",
+            "type": "email",
+            "required": true,
+            "key": "contact_email",
+            "form": "demo-form"
+          },
+          {
+            "ref": "r1f2",
+            "label": "Region",
+            "type": "text",
+            "required": true,
+            "key": "region",
+            "form": "demo-form"
+          }
+        ],
+        "matchedWorkflows": [],
+        "messageId": "89a8ca40-de8b-4028-b2d8-a20d39fb4577"
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/conversations/list",
+      "status": 200,
+      "data": {
+        "items": [
+          {
+            "id": "52ab04299a248fe95b8125995629295faed8e00a6baf0f316e7c67ca8d2f8ccf",
+            "embeddingId": "adoption-demo-alpha",
+            "title": "Where is company name field?",
+            "hashVersion": 2,
+            "status": "ready",
+            "messageCount": 2,
+            "createdAt": 1792599695806,
+            "expiresAt": 1792686095806,
+            "messages": 2
+          }
+        ],
+        "pagination": {
+          "offset": 0,
+          "limit": 10,
+          "total": 1,
+          "hasNext": false,
+          "hasPrevious": false
+        },
+        "retentionMs": 86400000,
+        "persistent": true
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/conversations/delete",
+      "status": 200,
+      "data": {
+        "deleted": true
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/conversations/list",
+      "status": 200,
+      "data": {
+        "items": [],
+        "pagination": {
+          "offset": 0,
+          "limit": 10,
+          "total": 0,
+          "hasNext": false,
+          "hasPrevious": false
+        },
+        "retentionMs": 86400000,
+        "persistent": true
+      }
+    }
+  ],
+  "hostWrites": 0
+}

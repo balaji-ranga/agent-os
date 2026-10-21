@@ -1,0 +1,3 @@
+(node:1) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+{"event":"copilot_model_failed","traceId":"0664c8ca-302c-46eb-b935-e81b870bbb5c","code":"COPILOT_REVIEW_FAILED","category":"invalid_goal_response","latencyMs":40686}

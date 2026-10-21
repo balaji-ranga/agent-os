@@ -1,0 +1,32 @@
+(node:25892) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS UX01_VISITOR_CAPABILITIES_AND_SINGLE_COMPOSER
+PASS UX02_UNIFIED_KNOWLEDGE_AND_HISTORY
+PASS UX03_REVIEW_EDIT_APPLY_AND_REJECT
+PASS UX04_PERSISTENT_FAILURE_ACROSS_VIEWS
+PASS UX22_CHECKER_FAILURE_AND_PRESENTATION_RETAIN_CHAT
+PASS UX05_TASK_UPLOAD_AND_CONTEXT_SEPARATION
+PASS UX06_PAIRING_SETUP_AND_UNIFIED_HANDOFF
+PASS UX07_END_TASK_CLEARS_BOTH_WITHOUT_UNPAIRING
+PASS UX19_FRESH_HANDOFF_AFTER_END_WITHOUT_FILES
+PASS UX20_DROPPED_WEBSOCKETS_RESTORE_PAIRING_WITHOUT_REFRESH_OR_REPLAY
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+false !== true
+
+    at file:///C:/Users/balaj/projects/agents/agent-os/.worktrees/digital-adoption/digital-adoption/test/workspace-browser.mjs:60:411
+    at async check (file:///C:/Users/balaj/projects/agents/agent-os/.worktrees/digital-adoption/digital-adoption/test/workspace-browser.mjs:42:59)
+    at async file:///C:/Users/balaj/projects/agents/agent-os/.worktrees/digital-adoption/digital-adoption/test/workspace-browser.mjs:60:2 {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v22.22.0

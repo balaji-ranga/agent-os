@@ -12,7 +12,7 @@ import {createSourceMap} from '../src/source-map.mjs';
 import {createManagement} from '../src/management.mjs';
 import {SessionAuthority} from '../src/session-authority.mjs';
 const {chromium}=await import('./frameworks/node_modules/playwright/index.mjs');
-const out=new URL('../.local/owner-workspace/',import.meta.url);await mkdir(out,{recursive:true});
+const out=new URL(process.env.ADOPTION_BROWSER_EVIDENCE||'../.local/owner-workspace/',import.meta.url);await mkdir(out,{recursive:true});
 const repository=openRepository(),owner={id:'synthetic-owner',organizationId:'synthetic-owner',role:'owner'},origin='http://127.0.0.1:4194',base=origin+'/uat-owner-workspace/',calls=[],results=[],errors=[];
 for(let n=0;n<130;n++){const id=`site-${String(n).padStart(3,'0')}`;repository.map('websites').set(id,{id,origin:n===0?origin:`https://synthetic-${String(n).padStart(3,'0')}.example`,label:'Synthetic website',environment:'staging',status:'approved',verified:true,organizationId:owner.organizationId,installations:[]});}
 for(let n=0;n<130;n++){const id=`record-${String(n).padStart(3,'0')}`;repository.map('sources').set(id,{id,embeddingId:'site-000',title:`Source ${String(n).padStart(3,'0')}`,audienceIds:['public'],status:'deleted',createdAt:n,text:'PRIVATE_TEXT'});repository.map('recipes').set(id,{id,scope:'site-000:public',versions:[{title:`Workflow ${String(n).padStart(3,'0')}`,status:'draft',version:1,updatedAt:n,steps:[{action:'navigate',path:'/customer'}]}]});repository.map('screen_maps').set(id,{embeddingId:'site-000',audienceId:'public',path:`/page-${String(n).padStart(3,'0')}`,fields:Array.from({length:70},(_,i)=>({key:`field${i}`,label:`Field ${i}`,type:'text',required:i===0})),links:[],fingerprint:'synthetic',observedAt:Date.now()});}

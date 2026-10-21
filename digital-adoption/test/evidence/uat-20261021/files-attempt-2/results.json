@@ -1,0 +1,62 @@
+{
+  "at": "2026-10-21T15:55:41.623Z",
+  "website": "https://flolah.cloud",
+  "scope": "Actual site installation, private parsers including OCR, private temporary search, and configured maker/checker. Generated synthetic files; no shared-source upload or backend seed.",
+  "hostWrites": 0,
+  "results": [
+    {
+      "id": "FILE_TXT_PRIVATE_PARSE",
+      "status": "passed",
+      "detail": {
+        "filename": "onboarding.txt",
+        "ready": true
+      }
+    },
+    {
+      "id": "FILE_PDF_PRIVATE_PARSE",
+      "status": "passed",
+      "detail": {
+        "filename": "onboarding.pdf",
+        "ready": true
+      }
+    },
+    {
+      "id": "FILE_DOCX_PRIVATE_PARSE",
+      "status": "passed",
+      "detail": {
+        "filename": "onboarding.docx",
+        "ready": true
+      }
+    },
+    {
+      "id": "FILE_PNG_PRIVATE_PARSE",
+      "status": "passed",
+      "detail": {
+        "filename": "onboarding.png",
+        "ready": true
+      }
+    },
+    {
+      "id": "FILE_REMOVE_FREES_TASK_CAPACITY_WITHOUT_RESETTING_SESSION",
+      "status": "passed",
+      "detail": {
+        "removed": "onboarding.txt",
+        "remaining": 3,
+        "limitsUnchanged": true
+      }
+    },
+    {
+      "id": "FILE_JPG_PRIVATE_PARSE",
+      "status": "passed",
+      "detail": {
+        "filename": "onboarding.jpg",
+        "ready": true
+      }
+    },
+    {
+      "id": "FILE_SUMMARY_CONTAINS_EXTRACTED_SYNTHETIC_VALUES",
+      "status": "failed",
+      "error": "The input did not match the regular expression /Singapore/. Input:\n\n''\n"
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 // Scoped renderer measurements, not a whole-device capacity benchmark.
 import {chromium} from './frameworks/node_modules/playwright/index.mjs';
 import {mkdir,writeFile} from 'node:fs/promises';
-const out=new URL('./evidence/exact-multisite-20261020/performance/',import.meta.url);await mkdir(out,{recursive:true});
+const out=new URL(process.env.ADOPTION_PERFORMANCE_EVIDENCE||'./evidence/exact-multisite-20261020/performance/',import.meta.url);await mkdir(out,{recursive:true});
 const browser=await chromium.launch({channel:'chrome',headless:true}),contexts=[],reports=[];
 async function measure(site,url,enabled){
  const context=await browser.newContext();contexts.push(context);let phase='startup',publicWrites=0;const network={startup:{requests:0,bytes:0},idle:{requests:0,bytes:0}},pending=[];

@@ -4,6 +4,7 @@ export function mountTaskPanel({
   call,
   showError,
   show,
+  revealChat=()=>{},
   clearPrivate,
   onIncomingGoal,
   canReceiveGoal=()=>false,
@@ -107,6 +108,7 @@ export function mountTaskPanel({
       show(out.message);
       for (const e of out.evidence || [])
         show(`${e.filename} · ${e.locator}\n${e.text}`);
+      revealChat();
     });
   const reset = ({preserveConversation=false,reason}={}) => {
     active = false;
@@ -260,7 +262,7 @@ export function mountTaskPanel({
     configure(config) {
       query("#private-retention-notice").textContent=`Files and extracted values are private to this task. End task clears task history and access immediately. Original uploads are deleted; extracted passages use ${config.privateRetentionHours||24}-hour temporary retention. Pairing and explicitly archived chats have separate access lifecycles.`;
       uploadLimits={...config.uploadLimits,fileBytes:Math.min(config.uploadLimits?.fileBytes||16777216,config.taskPolicy?.limits?.fileBytes||16777216)};uploadEnabled=config.taskPolicy?.attachments===true;
-      uploadNotice.textContent=config.uploadLimits?`Private task files: up to ${Math.ceil(uploadLimits.fileBytes/1048576)} MiB each; ${Math.ceil(uploadLimits.cooldownMs/1000)} seconds between uploads; ${uploadLimits.sessionRequests} requests per ${Math.ceil(uploadLimits.windowMs/60000)} minute. This session allows ${uploadLimits.sessionFiles} files / ${Math.ceil(uploadLimits.sessionBytes/1048576)} MiB per ${Math.ceil(uploadLimits.retentionWindowMs/3600000)} hours. Website and platform limits also apply. Removing files or ending tasks does not reset the allowance.`:'Server-enforced file, upload and processing limits apply.';
+      uploadNotice.textContent=config.uploadLimits?`Private task files: ${uploadLimits.taskFiles?`up to ${uploadLimits.taskFiles} files / ${Math.ceil(uploadLimits.taskBytes/1048576)} MiB in one active task; `:""}up to ${Math.ceil(uploadLimits.fileBytes/1048576)} MiB each; ${Math.ceil(uploadLimits.cooldownMs/1000)} seconds between uploads; ${uploadLimits.sessionRequests} requests per ${Math.ceil(uploadLimits.windowMs/60000)} minute. This session allows ${uploadLimits.sessionFiles} files / ${Math.ceil(uploadLimits.sessionBytes/1048576)} MiB per ${Math.ceil(uploadLimits.retentionWindowMs/3600000)} hours. Website and platform limits also apply. Removing files or ending tasks does not reset the allowance.`:'Server-enforced file, upload and processing limits apply.';
       panel.hidden = !Object.values(config.taskPolicy || {}).some(
         (v) => v === true,
       );

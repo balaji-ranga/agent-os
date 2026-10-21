@@ -1,0 +1,70 @@
+{
+  "at": "2026-10-21T16:20:26.028Z",
+  "website": "https://flolah.cloud",
+  "scope": "Actual site installation, private parsers including OCR, private temporary search, and configured maker/checker. Generated synthetic files; no shared-source upload or backend seed.",
+  "hostWrites": 0,
+  "results": [
+    {
+      "id": "FILE_TXT_PRIVATE_PARSE",
+      "status": "passed",
+      "detail": {
+        "filename": "onboarding.txt",
+        "ready": true
+      }
+    },
+    {
+      "id": "FILE_PDF_PRIVATE_PARSE",
+      "status": "passed",
+      "detail": {
+        "filename": "onboarding.pdf",
+        "ready": true
+      }
+    },
+    {
+      "id": "FILE_DOCX_PRIVATE_PARSE",
+      "status": "passed",
+      "detail": {
+        "filename": "onboarding.docx",
+        "ready": true
+      }
+    },
+    {
+      "id": "FILE_PNG_PRIVATE_PARSE",
+      "status": "passed",
+      "detail": {
+        "filename": "onboarding.png",
+        "ready": true
+      }
+    },
+    {
+      "id": "FILE_REMOVE_FREES_TASK_CAPACITY_WITHOUT_RESETTING_SESSION",
+      "status": "passed",
+      "detail": {
+        "removed": "onboarding.txt",
+        "remaining": 3,
+        "limitsUnchanged": true
+      }
+    },
+    {
+      "id": "FILE_JPG_PRIVATE_PARSE",
+      "status": "passed",
+      "detail": {
+        "filename": "onboarding.jpg",
+        "ready": true
+      }
+    },
+    {
+      "id": "FILE_SUMMARY_CONTAINS_EXTRACTED_SYNTHETIC_VALUES",
+      "status": "passed",
+      "detail": {
+        "formatsParsed": 5,
+        "retainedFiles": 4
+      }
+    },
+    {
+      "id": "FILE_ASK_KNOWLEDGE_USES_PRIVATE_TASK_WITH_CITATION_AND_NO_DOM",
+      "status": "failed",
+      "error": "The expression evaluated to a falsy value:\n\n  assert.ok(data.citations?.length)\n"
+    }
+  ]
+}

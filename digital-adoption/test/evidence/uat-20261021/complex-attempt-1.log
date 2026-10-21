@@ -1,0 +1,17 @@
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+locator.waitFor: Timeout 25000ms exceeded.
+Call log:
+[2m  - waiting for locator('iframe[data-adoption-widget]').contentFrame().locator('#choice-goal') to be visible[22m
+
+    at open (C:\Users\balaj\projects\agents\agent-os\.worktrees\digital-adoption\digital-adoption\test\goals-live-browser.mjs:10:1240)
+    at async file:///C:/Users/balaj/projects/agents/agent-os/.worktrees/digital-adoption/digital-adoption/test/goals-live-browser.mjs:32:17 {
+  log: [
+    "  - waiting for locator('iframe[data-adoption-widget]').contentFrame().locator('#choice-goal') to be visible"
+  ],
+  name: 'TimeoutError'
+}
+
+Node.js v22.22.0

@@ -1,0 +1,12 @@
+{
+  "id": "continuity",
+  "kind": "live",
+  "attempt": 2,
+  "code": 0,
+  "timedOut": false,
+  "startedAt": "2026-10-21T16:20:34.318Z",
+  "endedAt": "2026-10-21T16:21:34.640Z",
+  "elapsedMs": 60322,
+  "log": "continuity-attempt-2.log",
+  "evidence": "continuity-attempt-2/"
+}

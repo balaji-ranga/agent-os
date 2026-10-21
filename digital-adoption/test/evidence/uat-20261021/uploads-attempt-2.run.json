@@ -1,0 +1,12 @@
+{
+  "id": "uploads",
+  "kind": "live",
+  "attempt": 2,
+  "code": 0,
+  "timedOut": false,
+  "startedAt": "2026-10-21T16:24:11.016Z",
+  "endedAt": "2026-10-21T16:24:30.457Z",
+  "elapsedMs": 19441,
+  "log": "uploads-attempt-2.log",
+  "evidence": "uploads-attempt-2/"
+}

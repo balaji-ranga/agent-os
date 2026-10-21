@@ -1,0 +1,12 @@
+{
+  "id": "immediate",
+  "kind": "browser",
+  "attempt": 3,
+  "code": 0,
+  "timedOut": false,
+  "startedAt": "2026-10-21T16:40:52.666Z",
+  "endedAt": "2026-10-21T16:42:50.224Z",
+  "elapsedMs": 117558,
+  "log": "immediate-attempt-3.log",
+  "evidence": "../immediate-phase-20261019/uat-20261021-immediate-attempt-3/"
+}

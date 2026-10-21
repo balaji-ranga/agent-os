@@ -1,0 +1,32 @@
+{
+  "at": "2026-10-21T16:41:40.904Z",
+  "scope": "Actual deployed registrations, goal planner, step planner and global active-maker/passive-checker route. Browser explicitly approves each local effect. No autonomous workflow grant or backend knowledge seeding.",
+  "publicWrites": 0,
+  "localWrites": 0,
+  "results": [
+    {
+      "id": "LIVE_GOAL01_COMPLEX_CUSTOMER_NOTE_OPPORTUNITY_SAVED_AND_READ_BACK",
+      "status": "failed",
+      "error": "Unexpected clarification: I could not resolve the request confidently after review. Remove the first \"Check for Missing Values\" inspect step: all required values are supplied, and a plan step cannot ask for or wait on a user reply. Start on the observed Customer form (already visible) and fill it directly; do not reopen it. Keep the three fill/save sequences and the exact supplied values. The no-duplicates/no-other-records constraint is preserved in the fill/save instructions.",
+      "screenshot": "LIVE_GOAL01_COMPLEX_CUSTOMER_NOTE_OPPORTUNITY_SAVED_AND_READ_BACK-failed.png"
+    }
+  ],
+  "traces": [
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/create",
+      "status": 200,
+      "goal": {
+        "id": "20d6455e-ef3c-455e-96eb-49333d487ee6",
+        "status": "clarifying",
+        "current": 0,
+        "version": 1,
+        "message": "I could not resolve the request confidently after review. Remove the first \"Check for Missing Values\" inspect step: all required values are supplied, and a plan step cannot ask for or wait on a user reply. Start on the observed Customer form (already visible) and fill it directly; do not reopen it. Keep the three fill/save sequences and the exact supplied values. The no-duplicates/no-other-records constraint is preserved in the fill/save instructions.",
+        "steps": []
+      }
+    }
+  ]
+}

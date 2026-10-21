@@ -1,0 +1,12 @@
+{
+  "id": "controls",
+  "kind": "browser",
+  "attempt": 1,
+  "code": 0,
+  "timedOut": false,
+  "startedAt": "2026-10-21T15:41:33.160Z",
+  "endedAt": "2026-10-21T15:41:58.608Z",
+  "elapsedMs": 25448,
+  "log": "controls-attempt-1.log",
+  "evidence": "controls-attempt-1/"
+}

@@ -1,0 +1,37 @@
+{
+  "message": "I could not support an answer with the retrieved evidence. Try a more specific question or source title.",
+  "citations": [],
+  "kind": "no_evidence",
+  "taskId": "a984ccbc-fd14-4ad7-8c09-6213edee58d5",
+  "privateTaskId": "a984ccbc-fd14-4ad7-8c09-6213edee58d5",
+  "evidence": [
+    {
+      "attachmentId": "6f3f7df7-1b8f-45de-8afd-9ec640cab933",
+      "filename": "onboarding.docx",
+      "locator": "Document paragraphs",
+      "text": "Company name: Synthetic Orchid\nContact email: orchid@example.test\nRegion: Singapore\nRequested integration: Inventory API\nTransport: HTTP\nTitle: Delivery handoff\nBody: Prepare a shipment for Synthetic Orchid",
+      "reference": "6f3f7df7-1b8f-45de-8afd-9ec640cab933:1:1"
+    },
+    {
+      "attachmentId": "6f671d0a-2247-4ac7-97f7-a120e921eb5c",
+      "filename": "onboarding.png",
+      "locator": "Image OCR",
+      "text": "Company name: Synthetic Orchid\n\nContact email: orchid@example.test\n\nRegion: Singapore\n\nRequested integration: Inventory API\nTransport: HTTP\n\nTitle: Delivery handoff\n\nBody: Prepare a shipment for Synthetic Orchid",
+      "reference": "6f671d0a-2247-4ac7-97f7-a120e921eb5c:1:1"
+    },
+    {
+      "attachmentId": "72baafb6-f466-458a-bab1-01728ee9631a",
+      "filename": "onboarding.jpg",
+      "locator": "Image OCR",
+      "text": "Company name: Synthetic Orchid\n\nContact email: orchid@example.test\n\nRegion: Singapore\n\nRequested integration: Inventory API\nTransport: HTTP\n\nTitle: Delivery handoff\n\nBody: Prepare a shipment for Synthetic Orchid",
+      "reference": "72baafb6-f466-458a-bab1-01728ee9631a:1:1"
+    },
+    {
+      "attachmentId": "f2d3648d-0b09-4f6d-a5c6-ee3b50b1a652",
+      "filename": "onboarding.pdf",
+      "locator": "Page 1",
+      "text": "Company name: Synthetic Orchid\nContact email: orchid@example.test\nRegion: Singapore\nRequested integration: Inventory API\nTransport: HTTP\nTitle: Delivery handoff\nBody: Prepare a shipment for Synthetic Orchid",
+      "reference": "f2d3648d-0b09-4f6d-a5c6-ee3b50b1a652:1:1"
+    }
+  ]
+}

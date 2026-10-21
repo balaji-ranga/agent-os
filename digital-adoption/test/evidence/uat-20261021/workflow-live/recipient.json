@@ -1,0 +1,8 @@
+{
+  "at": "2026-10-21T16:33:36.307Z",
+  "url": "http://127.0.0.1:4194/customer",
+  "chat": "Workflow uat-copilot-inspect-mvd9scdz \u00b7 run 4068 \u00b7 step connector-mvd9tv78: completed. Private task instruction/data cleared at task end. Page /customer: 1 forms, 3 supported fields, 4 approved navigation links. Company name (text, required) Contact email (email, required) Region (text, required) Customer: /customer Opportunity: /opportunity Note: /note Scheduled goal: /goal\n\nWorkflow uat-copilot-inspect-mvd9scdz \u00b7 run 4069 \u00b7 step connector-mvd9tv78: completed. Private task instruction/data cleared at task end. Page /customer: 1 forms, 3 supported fields, 4 approved navigation links. Company name (text, required) Contact email (email, required) Region (text, required) Customer: /customer Opportunity: /opportunity Note: /note Scheduled goal: /goal",
+  "activity": "Workflow uat-copilot-inspect-mvd9scdz \u00b7 run 4068 \u00b7 step connector-mvd9tv78\n\nCompleted \u00b7 effect_observed\n\nWorkflow uat-copilot-inspect-mvd9scdz \u00b7 run 4069 \u00b7 step connector-mvd9tv78\n\nCompleted \u00b7 effect_observed",
+  "hostWrites": 0,
+  "cleanup": "Agent-created observer browser closed after the two completed read-only runs. Saved UAT definition remains local-only; offline targets fail immediately. No workflow policy grant was created."
+}

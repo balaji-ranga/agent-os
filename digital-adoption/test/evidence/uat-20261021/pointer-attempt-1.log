@@ -1,0 +1,30 @@
+PASS P01_GUIDANCE_ANIMATES_WITHOUT_CLICK_OR_EDIT
+PASS P02_MENU_GUIDANCE_HAS_NO_CLICK_RIPPLE_OR_ACTIVATION
+PASS P03_OVERLAY_IS_POINTER_TRANSPARENT
+PASS P04_SCROLL_RESIZE_AND_LAYOUT_SHIFT_FOLLOW_TARGET
+PASS P05_REMOVED_HIDDEN_OR_RELABELLED_TARGET_CLEARS
+PASS P06_FRESH_SNAPSHOT_AND_STOP_CLEAR_POINTER
+PASS P07_REDUCED_MOTION_RETAINS_STATIC_POINTER
+PASS P08_APPROVED_CHECKBOX_RIPPLES_EXACTLY_ONE_CLICK
+PASS P09_NOOP_AND_UNAPPROVED_HAVE_NO_CLICK_FEEDBACK
+PASS P10_SAVE_RIPPLE_WITH_HOST_SUCCESS_AND_NO_REPLAY
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+
+  assert.ok(await page.locator('[data-adoption-click]').evaluate(e=>e.getAnimations().length)>0)
+
+    at file:///C:/Users/balaj/projects/agents/agent-os/.worktrees/digital-adoption/digital-adoption/test/pointer-overlay-browser.mjs:24:383
+    at async check (file:///C:/Users/balaj/projects/agents/agent-os/.worktrees/digital-adoption/digital-adoption/test/pointer-overlay-browser.mjs:11:47)
+    at async file:///C:/Users/balaj/projects/agents/agent-os/.worktrees/digital-adoption/digital-adoption/test/pointer-overlay-browser.mjs:24:2 {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+
+Node.js v22.22.0

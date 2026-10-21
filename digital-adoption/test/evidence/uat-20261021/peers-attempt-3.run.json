@@ -1,0 +1,12 @@
+{
+  "id": "peers",
+  "kind": "browser",
+  "attempt": 3,
+  "code": 0,
+  "timedOut": false,
+  "startedAt": "2026-10-21T16:40:21.968Z",
+  "endedAt": "2026-10-21T16:40:52.663Z",
+  "elapsedMs": 30695,
+  "log": "peers-attempt-3.log",
+  "evidence": "peers-attempt-3/"
+}

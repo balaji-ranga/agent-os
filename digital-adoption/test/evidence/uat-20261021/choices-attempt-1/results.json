@@ -1,0 +1,297 @@
+{
+  "at": "2026-10-21T15:25:02.655Z",
+  "scope": "Actual deployed copilot, platform active maker/passive checker, synthetic loopback controls and public flolah.cloud. Local DOM additions/ambiguity controls are test fixtures; no backend knowledge seed or model stub.",
+  "localWrites": 0,
+  "publicWrites": 0,
+  "results": [
+    {
+      "id": "C01_NATIVE_TYPO_REVIEW_REJECT_NO_EFFECT",
+      "status": "failed",
+      "error": "page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:4194/customer\nCall log:\n\u001b[2m  - navigating to \"http://127.0.0.1:4194/customer\", waiting until \"load\"\u001b[22m\n",
+      "elapsedMs": 4314,
+      "screenshot": "C01_NATIVE_TYPO_REVIEW_REJECT_NO_EFFECT-failed.png"
+    },
+    {
+      "id": "C02_NATIVE_SHORT_FORM_REVIEW_AND_APPLY_WITHOUT_SAVE",
+      "status": "failed",
+      "error": "page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:4194/customer\nCall log:\n\u001b[2m  - navigating to \"http://127.0.0.1:4194/customer\", waiting until \"load\"\u001b[22m\n",
+      "elapsedMs": 6174,
+      "screenshot": "C02_NATIVE_SHORT_FORM_REVIEW_AND_APPLY_WITHOUT_SAVE-failed.png"
+    },
+    {
+      "id": "C03_AMBIGUOUS_SHORT_FORM_ASKS_WITHOUT_CHANGE",
+      "status": "failed",
+      "error": "page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:4194/customer\nCall log:\n\u001b[2m  - navigating to \"http://127.0.0.1:4194/customer\", waiting until \"load\"\u001b[22m\n",
+      "elapsedMs": 7544,
+      "screenshot": "C03_AMBIGUOUS_SHORT_FORM_ASKS_WITHOUT_CHANGE-failed.png"
+    },
+    {
+      "id": "C04_UNSUPPORTED_OPTION_DOES_NOT_PICK_NEAREST_ARBITRARILY",
+      "status": "failed",
+      "error": "page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:4194/customer\nCall log:\n\u001b[2m  - navigating to \"http://127.0.0.1:4194/customer\", waiting until \"load\"\u001b[22m\n",
+      "elapsedMs": 4773,
+      "screenshot": "C04_UNSUPPORTED_OPTION_DOES_NOT_PICK_NEAREST_ARBITRARILY-failed.png"
+    },
+    {
+      "id": "C05_DYNAMIC_LOADED_PICKLIST_CORRELATES_TYPO_AND_SHORT_FORM",
+      "status": "failed",
+      "error": "page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:4194/customer\nCall log:\n\u001b[2m  - navigating to \"http://127.0.0.1:4194/customer\", waiting until \"load\"\u001b[22m\n",
+      "elapsedMs": 3622,
+      "screenshot": "C05_DYNAMIC_LOADED_PICKLIST_CORRELATES_TYPO_AND_SHORT_FORM-failed.png"
+    },
+    {
+      "id": "C06_PUBLIC_OTHER_DOMAIN_SHORT_FORM_MAPPING",
+      "status": "passed",
+      "detail": {
+        "input": "std",
+        "observedChoice": "stdio",
+        "domain": "flolah.cloud",
+        "saved": false
+      },
+      "elapsedMs": 14679,
+      "screenshot": "C06_PUBLIC_OTHER_DOMAIN_SHORT_FORM_MAPPING.png"
+    },
+    {
+      "id": "C07_SAME_FORM_GOAL_CORRECTS_CHOICE_AND_SAVES_AFTER_REVIEWS",
+      "status": "failed",
+      "error": "page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:4194/customer\nCall log:\n\u001b[2m  - navigating to \"http://127.0.0.1:4194/customer\", waiting until \"load\"\u001b[22m\n",
+      "elapsedMs": 2695,
+      "screenshot": "C07_SAME_FORM_GOAL_CORRECTS_CHOICE_AND_SAVES_AFTER_REVIEWS-failed.png"
+    },
+    {
+      "id": "C08_VISIBLE_MENU_ITEM_POINTING_DOES_NOT_CLICK",
+      "status": "failed",
+      "error": "page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:4194/customer\nCall log:\n\u001b[2m  - navigating to \"http://127.0.0.1:4194/customer\", waiting until \"load\"\u001b[22m\n",
+      "elapsedMs": 2928,
+      "screenshot": "C08_VISIBLE_MENU_ITEM_POINTING_DOES_NOT_CLICK-failed.png"
+    },
+    {
+      "id": "C09_DUMMY_VALUES_ALL_APPLICABLE_FIELDS_REVIEW_THEN_AWAIT_SAVE",
+      "status": "failed",
+      "error": "page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:4194/customer\nCall log:\n\u001b[2m  - navigating to \"http://127.0.0.1:4194/customer\", waiting until \"load\"\u001b[22m\n",
+      "elapsedMs": 2967,
+      "screenshot": "C09_DUMMY_VALUES_ALL_APPLICABLE_FIELDS_REVIEW_THEN_AWAIT_SAVE-failed.png"
+    },
+    {
+      "id": "C10_GUIDE_ONLY_DUMMY_REQUEST_EXPLAINS_HIGHLIGHTS_WITHOUT_FILLING",
+      "status": "failed",
+      "error": "page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:4194/customer\nCall log:\n\u001b[2m  - navigating to \"http://127.0.0.1:4194/customer\", waiting until \"load\"\u001b[22m\n",
+      "elapsedMs": 3766,
+      "screenshot": "C10_GUIDE_ONLY_DUMMY_REQUEST_EXPLAINS_HIGHLIGHTS_WITHOUT_FILLING-failed.png"
+    }
+  ],
+  "traces": [
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200,
+      "response": {
+        "goal": null
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/plan",
+      "status": 200,
+      "task": "Set transport to std. Do not submit or save.",
+      "observed": {
+        "revision": 1,
+        "fields": [
+          {
+            "ref": "r1f0",
+            "label": "Search MCPs, publishers, capabilities…",
+            "type": "text",
+            "required": false,
+            "key": "q",
+            "optionCount": 0,
+            "constraints": {
+              "maxlength": "120"
+            }
+          },
+          {
+            "ref": "r1f1",
+            "label": "transport",
+            "type": "select-one",
+            "required": false,
+            "key": "transport",
+            "optionCount": 4,
+            "choices": [
+              "All transports",
+              "streamable-http",
+              "sse",
+              "stdio"
+            ]
+          }
+        ],
+        "forms": [],
+        "links": [],
+        "recentActivity": {
+          "prepared": [],
+          "applied": [],
+          "unavailablePrepared": 0,
+          "unavailableApplied": 0
+        },
+        "targets": [
+          {
+            "ref": "r1t0",
+            "label": "Submit an MCP",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Submit an MCP"
+          },
+          {
+            "ref": "r1t1",
+            "label": "ae.brainy/grocery-prices",
+            "kind": "content",
+            "role": "article",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "ae.brainy/grocery-pricesSource-backed UAE costs: groceries, schools, housing, transport, utilities, telecom and relocationae.brainy · streamable-http"
+          },
+          {
+            "ref": "r1t2",
+            "label": "✺ Free Tools",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "✺ Free Tools"
+          },
+          {
+            "ref": "r1t3",
+            "label": "Docs",
+            "kind": "content",
+            "role": "a",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Docs"
+          },
+          {
+            "ref": "r1t4",
+            "label": "Search",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Search"
+          },
+          {
+            "ref": "r1t5",
+            "label": "Inspect",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Inspect"
+          },
+          {
+            "ref": "r1t6",
+            "label": "Inspect",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Inspect"
+          },
+          {
+            "ref": "r1t7",
+            "label": "Inspect",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Inspect"
+          },
+          {
+            "ref": "r1t8",
+            "label": "Inspect",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Inspect"
+          },
+          {
+            "ref": "r1t9",
+            "label": "Inspect",
+            "kind": "content",
+            "role": "button",
+            "state": {
+              "disabled": false,
+              "busy": false
+            },
+            "text": "Inspect"
+          }
+        ],
+        "domScope": "Task-relevant rendered content only; up to 24 targets from bounded loaded DOM traversal. Unloaded, hidden and private-marked content is excluded.",
+        "coverage": {
+          "fieldLimit": 60,
+          "navigationLimit": 30,
+          "visibleNativeControls": 2,
+          "embeddedFrames": 0,
+          "openShadowRoots": 0,
+          "unsupportedControls": 0,
+          "manualNotice": ""
+        },
+        "submissions": [],
+        "navigationCandidates": [
+          "/free-tools/",
+          "/docs/"
+        ],
+        "screen": "agency.lona/trading | agency.ottobot/business-contact-finder | Include your MCP",
+        "path": "/free-tools/mcp-universe/",
+        "ambiguousDialogs": false,
+        "blockedCount": 30
+      },
+      "response": {
+        "id": "5ab71a91-d9bf-4b7f-bffe-d58243e850ec",
+        "revision": 1,
+        "message": "Review these 1 explicit field changes.  yet.\nReview these 1 proposed field change. Nothing has been changed yet.",
+        "actions": [
+          {
+            "type": "fill",
+            "ref": "r1f1",
+            "label": "transport",
+            "value": "stdio"
+          }
+        ],
+        "expiresAt": 1792596407644,
+        "fields": [
+          {
+            "ref": "r1f1",
+            "label": "transport",
+            "type": "select-one",
+            "required": false,
+            "key": "transport",
+            "choices": [
+              "All transports",
+              "streamable-http",
+              "sse",
+              "stdio"
+            ]
+          }
+        ],
+        "matchedWorkflows": [],
+        "messageId": "f8de3297-7bed-4c94-8507-9bff8a0553ca"
+      }
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "id": "goals",
+  "kind": "browser",
+  "attempt": 2,
+  "code": 0,
+  "timedOut": false,
+  "startedAt": "2026-10-21T15:33:53.792Z",
+  "endedAt": "2026-10-21T15:34:06.361Z",
+  "elapsedMs": 12569,
+  "log": "goals-attempt-2.log",
+  "evidence": "goals-attempt-2/"
+}

@@ -1,0 +1,13 @@
+[
+  {
+    "id": "72a3581d-91d6-4989-9adf-cc7dd6fd000d",
+    "path": "/customer",
+    "operationId": "a11b93d3-8243-4bcc-8e59-ca1d89dfb29f",
+    "values": {
+      "company_name": "genosys",
+      "contact_email": "multisite.mvicc190@example.test",
+      "region": "Singapore"
+    },
+    "createdAt": "2026-10-21T16:43:49.203Z"
+  }
+]

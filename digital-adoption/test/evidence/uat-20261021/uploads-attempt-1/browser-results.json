@@ -1,0 +1,12 @@
+{
+  "at": "2026-10-21T15:36:10.886Z",
+  "results": [
+    {
+      "id": "UPLOAD_BROWSER_ACCEPTANCE",
+      "status": "failed",
+      "detail": "locator.waitFor: Timeout 60000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('iframe[data-adoption-widget]').contentFrame().locator('#private-task')\u001b[22m\n"
+    }
+  ],
+  "publicWrites": 0,
+  "hostSubmits": 0
+}

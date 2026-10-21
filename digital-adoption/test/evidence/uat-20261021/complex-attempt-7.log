@@ -1,0 +1,11 @@
+TRACE /free-tools/digital-adoption/v1/goals/status 200 
+TRACE /free-tools/digital-adoption/v1/goals/status 200 
+TRACE /free-tools/digital-adoption/v1/goals/create 200 clarifying
+TRACE /free-tools/digital-adoption/v1/goals/clarify 200 draft
+TRACE /free-tools/digital-adoption/v1/goals/control 200 ready
+TRACE /free-tools/digital-adoption/v1/goals/next 200 awaiting_review
+TRACE /free-tools/digital-adoption/v1/goals/observe 200 ready
+TRACE /free-tools/digital-adoption/v1/goals/next 200 awaiting_review
+TRACE /free-tools/digital-adoption/v1/goals/observe 200 completed
+PASS LIVE_GOAL03_CLARIFICATION_CONTINUES_SAME_GOAL_BEFORE_FILL_OR_SAVE
+TRACE /free-tools/digital-adoption/v1/goals/status 200 

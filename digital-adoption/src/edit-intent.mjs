@@ -56,8 +56,12 @@ export function explicitEditProposal(text,snapshot){
   const candidates=exact.length?exact:snapshot.fields.filter(field=>words.length&&[field.label,field.key].filter(Boolean).some(label=>words.every(word=>normalize(label).split(' ').includes(word))));
   if(candidates.length!==1||used.has(candidates[0].ref))return null;
   let value=String(text).slice(match.index+match[0].length,matches[index+1]?.index??text.length).trim().replace(/[.!]?\s+(?:do not|don't|never)\b[\s\S]*$/i,'').trim();
-  value=value.replace(/(['"])[.!]$/,'$1');
-  if(/^(['"]).*\1$/s.test(value))value=value.slice(1,-1);else value=value.replace(/[.!]$/,'').trim();
+  // A quoted literal ends at its closing delimiter. Later sentences and
+  // parenthetical explanations are context for the semantic judge, never
+  // characters to append to a host field's value.
+  const quoted=/^(?:"([^"]*)"|'([^']*)')(?=\s*(?:$|[.!,(;]))/s.exec(value);
+  if(/^['"]/.test(value)&&!quoted)return null;
+  if(quoted)value=quoted[1]??quoted[2];else value=value.replace(/[.!]$/,'').trim();
   if(!value||value.length>8000)return null;
   if(candidates[0].type==='combobox')return null; // Dynamic result selection requires model reasoning over fresh observations.
   if(candidates[0].type==='checkbox'&&!['true','false'].includes(value))return null;

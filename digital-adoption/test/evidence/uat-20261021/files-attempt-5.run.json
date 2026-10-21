@@ -1,0 +1,12 @@
+{
+  "id": "files",
+  "kind": "live",
+  "attempt": 5,
+  "code": 1,
+  "timedOut": false,
+  "startedAt": "2026-10-21T16:19:52.234Z",
+  "endedAt": "2026-10-21T16:20:26.222Z",
+  "elapsedMs": 33988,
+  "log": "files-attempt-5.log",
+  "evidence": "files-attempt-5/"
+}

@@ -1,0 +1,52 @@
+- link "Skip to main content":
+  - /url: "#main-content"
+- main [active]:
+  - link "← Exit run audit":
+    - /url: /workflows?run_id=4068
+  - 'heading "Run #9 · UAT Copilot Inspect" [level=1]'
+  - generic: completed
+  - generic: 100%
+  - code: id 4068
+  - link "Open editor":
+    - /url: /workflows/uat-copilot-inspect-mvd9scdz/edit
+  - button "Refresh"
+  - button "Hide steps"
+  - button "Retry from start"
+  - button "Delete"
+  - application:
+    - generic: ▶ Start · completed
+    - generic: trigger-1
+    - generic: manual
+    - generic: 🔌 Inspect website copilots · completed
+    - generic: connector-mvd9tv78
+    - generic: Digital Adoption C · digital_adoption.i
+    - generic "Control Panel":
+      - button "Zoom In":
+      - button "Zoom Out":
+      - button "Fit View":
+      - button "Toggle Interactivity":
+    - img "Mini Map"
+  - complementary:
+    - paragraph:
+      - text: Click a node to inspect I/O. Use
+      - strong: Retry from this step
+      - text: to re-execute that node and continue.
+  - complementary:
+    - heading "Steps" [level=2]
+    - list:
+      - text: Start
+      - generic: (trigger)
+      - generic: completed
+      - strong: "Inputs:"
+      - strong: "Outputs:"
+      - text: trigger_input=Triggered via manual
+      - text: Inspect website copilots
+      - generic: (connector)
+      - generic: completed
+      - strong: "Inputs:"
+      - text: "Action input: { \"groupId\": \"\", \"websiteIds\": [], \"instruction\": \"\" }"
+      - strong: "Outputs:"
+      - text: "text=All captured copilots completed the requested st · result={\"commandId\":\"2df7fb40-71b3-41b0-abda-d53719dc6d · ok=true · action_id=digital_adoption.inspect · transport=copilot"
+- complementary:
+  - button "Platform Help":
+    - generic: ✦

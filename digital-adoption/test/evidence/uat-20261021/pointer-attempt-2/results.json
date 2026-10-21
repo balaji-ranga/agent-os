@@ -1,0 +1,112 @@
+{
+  "at": "2026-10-21T15:39:55.846Z",
+  "scope": "Real Chrome DOM/adapter, synthetic loopback controls; no model or permission changes",
+  "results": [
+    {
+      "id": "P01_GUIDANCE_ANIMATES_WITHOUT_CLICK_OR_EDIT",
+      "status": "passed",
+      "screenshot": "P01_GUIDANCE_ANIMATES_WITHOUT_CLICK_OR_EDIT.png"
+    },
+    {
+      "id": "P02_MENU_GUIDANCE_HAS_NO_CLICK_RIPPLE_OR_ACTIVATION",
+      "status": "passed",
+      "screenshot": "P02_MENU_GUIDANCE_HAS_NO_CLICK_RIPPLE_OR_ACTIVATION.png"
+    },
+    {
+      "id": "P03_OVERLAY_IS_POINTER_TRANSPARENT",
+      "status": "passed",
+      "screenshot": "P03_OVERLAY_IS_POINTER_TRANSPARENT.png"
+    },
+    {
+      "id": "P04_SCROLL_RESIZE_AND_LAYOUT_SHIFT_FOLLOW_TARGET",
+      "status": "passed",
+      "screenshot": "P04_SCROLL_RESIZE_AND_LAYOUT_SHIFT_FOLLOW_TARGET.png"
+    },
+    {
+      "id": "P05_REMOVED_HIDDEN_OR_RELABELLED_TARGET_CLEARS",
+      "status": "passed",
+      "screenshot": "P05_REMOVED_HIDDEN_OR_RELABELLED_TARGET_CLEARS.png"
+    },
+    {
+      "id": "P06_FRESH_SNAPSHOT_AND_STOP_CLEAR_POINTER",
+      "status": "passed",
+      "screenshot": "P06_FRESH_SNAPSHOT_AND_STOP_CLEAR_POINTER.png"
+    },
+    {
+      "id": "P07_REDUCED_MOTION_RETAINS_STATIC_POINTER",
+      "status": "passed",
+      "screenshot": "P07_REDUCED_MOTION_RETAINS_STATIC_POINTER.png"
+    },
+    {
+      "id": "P08_APPROVED_CHECKBOX_RIPPLES_EXACTLY_ONE_CLICK",
+      "status": "passed",
+      "screenshot": "P08_APPROVED_CHECKBOX_RIPPLES_EXACTLY_ONE_CLICK.png"
+    },
+    {
+      "id": "P09_NOOP_AND_UNAPPROVED_HAVE_NO_CLICK_FEEDBACK",
+      "status": "passed",
+      "screenshot": "P09_NOOP_AND_UNAPPROVED_HAVE_NO_CLICK_FEEDBACK.png"
+    },
+    {
+      "id": "P10_SAVE_RIPPLE_WITH_HOST_SUCCESS_AND_NO_REPLAY",
+      "status": "passed",
+      "screenshot": "P10_SAVE_RIPPLE_WITH_HOST_SUCCESS_AND_NO_REPLAY.png"
+    },
+    {
+      "id": "P11_NAVIGATION_USES_ONE_REVIEWED_ACTIVATION",
+      "status": "passed",
+      "screenshot": "P11_NAVIGATION_USES_ONE_REVIEWED_ACTIVATION.png"
+    },
+    {
+      "id": "P12_TEXT_AND_SELECT_CHANGES_ARE_NOT_PRESENTED_AS_CLICKS",
+      "status": "passed",
+      "screenshot": "P12_TEXT_AND_SELECT_CHANGES_ARE_NOT_PRESENTED_AS_CLICKS.png"
+    },
+    {
+      "id": "P13_REPLACEMENT_AND_DESTROY_LEAVE_NO_NODES_OR_ANIMATIONS",
+      "status": "passed",
+      "screenshot": "P13_REPLACEMENT_AND_DESTROY_LEAVE_NO_NODES_OR_ANIMATIONS.png"
+    },
+    {
+      "id": "P14_GUIDANCE_EXPIRES_WITHOUT_HOST_ACTION",
+      "status": "passed",
+      "screenshot": "P14_GUIDANCE_EXPIRES_WITHOUT_HOST_ACTION.png"
+    },
+    {
+      "id": "P15_RECENT_CONTEXT_HAS_IDENTITIES_NOT_PRIVATE_VALUES",
+      "status": "passed",
+      "screenshot": "P15_RECENT_CONTEXT_HAS_IDENTITIES_NOT_PRIVATE_VALUES.png"
+    },
+    {
+      "id": "P16_PREVIOUS_FIELD_IDENTITY_CANNOT_REBIND_TO_REPLACEMENT",
+      "status": "passed",
+      "screenshot": "P16_PREVIOUS_FIELD_IDENTITY_CANNOT_REBIND_TO_REPLACEMENT.png"
+    },
+    {
+      "id": "P17_REJECT_AND_NEW_CONVERSATION_CLEAR_CONTEXT",
+      "status": "passed",
+      "screenshot": "P17_REJECT_AND_NEW_CONVERSATION_CLEAR_CONTEXT.png"
+    },
+    {
+      "id": "P18_ACTUAL_ACTIVATION_ANIMATION_SURVIVES_READONLY_OBSERVATION",
+      "status": "passed",
+      "screenshot": "P18_ACTUAL_ACTIVATION_ANIMATION_SURVIVES_READONLY_OBSERVATION.png"
+    },
+    {
+      "id": "P19_NAVIGATION_LINK_REF_POINTS_WITHOUT_ACTIVATING",
+      "status": "passed",
+      "screenshot": "P19_NAVIGATION_LINK_REF_POINTS_WITHOUT_ACTIVATING.png"
+    },
+    {
+      "id": "P20_CHANGED_LINK_DESTINATION_AND_LABEL_INVALIDATE_GUIDANCE",
+      "status": "passed",
+      "screenshot": "P20_CHANGED_LINK_DESTINATION_AND_LABEL_INVALIDATE_GUIDANCE.png"
+    },
+    {
+      "id": "P21_INTERACTIVE_RESERVE_EXPOSES_UNMATCHED_REAL_CONTROLS",
+      "status": "passed",
+      "screenshot": "P21_INTERACTIVE_RESERVE_EXPOSES_UNMATCHED_REAL_CONTROLS.png"
+    }
+  ],
+  "errors": []
+}

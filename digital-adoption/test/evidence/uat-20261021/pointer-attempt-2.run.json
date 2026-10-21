@@ -1,0 +1,12 @@
+{
+  "id": "pointer",
+  "kind": "browser",
+  "attempt": 2,
+  "code": 0,
+  "timedOut": false,
+  "startedAt": "2026-10-21T15:39:41.197Z",
+  "endedAt": "2026-10-21T15:39:56.063Z",
+  "elapsedMs": 14866,
+  "log": "pointer-attempt-2.log",
+  "evidence": "pointer-attempt-2/"
+}

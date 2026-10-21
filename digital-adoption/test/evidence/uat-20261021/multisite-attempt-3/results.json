@@ -1,0 +1,3139 @@
+{
+  "at": "2026-10-21T16:44:33.859Z",
+  "scope": "Real configured maker/checker, two isolated Chrome tabs, existing loopback/public registrations, no backend seeding, no file, no autonomous grant. Synthetic reviewer approvals are exercised by this harness. Exact user email is preserved as a separate already-saved record.",
+  "marker": "mvicc190",
+  "email": "multisite.mvicc190@example.test",
+  "prompt": "Fill this Customer draft with Company name “genosys”, Contact email “[multisite.mvicc190@example.test](mailto:multisite.mvicc190@example.test)”, and Region “Singapore”. Let me review the changes and confirm before saving.\nAfter the Customer is saved, inspect the paired flolah.cloud MCP Universe tab. Share the Customer’s Company name privately with that copilot, without uploading a file.\nAsk that copilot to use the shared Company name as its MCP search text. Preserve the current transport selection. Let me review the field change before applying it. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud.\nWait for the other copilot’s actual result, then summarize what completed on each website. Report any failure specifically; do not repeat a Save.",
+  "publicWrites": 0,
+  "localSavePosts": 1,
+  "publicNavigations": 0,
+  "transportBaseline": "",
+  "actions": 7,
+  "results": [
+    {
+      "id": "MULTI01_FRESH_PAIRED_PANELS_NO_FILES",
+      "status": "passed"
+    },
+    {
+      "id": "MULTI02_ONE_PROMPT_COMPLETES_BOTH_WEBSITES_WITHOUT_ROLE_CLARIFICATION",
+      "status": "passed"
+    },
+    {
+      "id": "MULTI03_ONE_SAVE_EXACT_VALUES_AND_ORIGINAL_RECORD_UNCHANGED",
+      "status": "passed"
+    },
+    {
+      "id": "MULTI04_PRIVATE_COMPANY_ONLY_NO_SEARCH_OR_PUBLIC_SIDE_EFFECTS",
+      "status": "passed"
+    }
+  ],
+  "shares": [
+    {
+      "panel": "source",
+      "includeValues": false,
+      "valueCount": 0
+    },
+    {
+      "panel": "source",
+      "includeValues": false,
+      "valueCount": 0
+    }
+  ],
+  "traces": [
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "httpStatus": 200
+    },
+    {
+      "panel": "recipient",
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "httpStatus": 200
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/create",
+      "httpStatus": 200,
+      "goal": {
+        "id": "f0056238-34cb-47b4-8883-75bd0e110a93",
+        "status": "draft",
+        "current": 0,
+        "version": 1,
+        "message": "Plan to fill the Customer draft and delegate tasks to the paired tab while ensuring all necessary reviews and confirmations are included, along with specific constraints for the delegated goal.",
+        "clarifications": 0,
+        "steps": [
+          {
+            "title": "Fill Customer draft",
+            "kind": "fill",
+            "instruction": "Fill the Customer draft with Company name 'genosys', Contact email 'multisite.mvicc190@example.test', and Region 'Singapore'.",
+            "expected": "Fields filled with the provided values.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save Customer draft",
+            "kind": "save",
+            "instruction": "Save the Customer draft after review.",
+            "expected": "Customer draft saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Inspect the paired flolah.cloud MCP Universe tab",
+            "kind": "peer",
+            "instruction": "Inspect the paired flolah.cloud MCP Universe tab to retrieve its form structure.",
+            "expected": "The other browser returns its supported fields and navigation.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "inspect",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Share Company name with paired copilot",
+            "kind": "peer",
+            "instruction": "Share the Company name 'genosys' privately with the paired copilot. Use the shared Company name 'genosys' as the MCP search text in the paired tab, preserving the current transport selection. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud. Pause for field-change review before applying.",
+            "expected": "All delegated instructions return their recorded recipient outcomes, with the field change prepared for review in the paired tab.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "goal",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Summarize outcomes",
+            "kind": "inspect",
+            "instruction": "Summarize what completed on each website, including the local Customer save and the returned peer result. Report any failure specifically; do not repeat the Save.",
+            "expected": "Summary of completed actions and any reported failures.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/control",
+      "httpStatus": 200,
+      "goal": {
+        "id": "f0056238-34cb-47b4-8883-75bd0e110a93",
+        "status": "ready",
+        "current": 0,
+        "version": 2,
+        "message": "Plan to fill the Customer draft and delegate tasks to the paired tab while ensuring all necessary reviews and confirmations are included, along with specific constraints for the delegated goal.",
+        "clarifications": 0,
+        "steps": [
+          {
+            "title": "Fill Customer draft",
+            "kind": "fill",
+            "instruction": "Fill the Customer draft with Company name 'genosys', Contact email 'multisite.mvicc190@example.test', and Region 'Singapore'.",
+            "expected": "Fields filled with the provided values.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save Customer draft",
+            "kind": "save",
+            "instruction": "Save the Customer draft after review.",
+            "expected": "Customer draft saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Inspect the paired flolah.cloud MCP Universe tab",
+            "kind": "peer",
+            "instruction": "Inspect the paired flolah.cloud MCP Universe tab to retrieve its form structure.",
+            "expected": "The other browser returns its supported fields and navigation.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "inspect",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Share Company name with paired copilot",
+            "kind": "peer",
+            "instruction": "Share the Company name 'genosys' privately with the paired copilot. Use the shared Company name 'genosys' as the MCP search text in the paired tab, preserving the current transport selection. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud. Pause for field-change review before applying.",
+            "expected": "All delegated instructions return their recorded recipient outcomes, with the field change prepared for review in the paired tab.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "goal",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Summarize outcomes",
+            "kind": "inspect",
+            "instruction": "Summarize what completed on each website, including the local Customer save and the returned peer result. Report any failure specifically; do not repeat the Save.",
+            "expected": "Summary of completed actions and any reported failures.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "httpStatus": 200,
+      "goal": {
+        "id": "f0056238-34cb-47b4-8883-75bd0e110a93",
+        "status": "awaiting_review",
+        "current": 0,
+        "version": 4,
+        "message": "Fill the Customer draft with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+        "clarifications": 0,
+        "steps": [
+          {
+            "title": "Fill Customer draft",
+            "kind": "fill",
+            "instruction": "Fill the Customer draft with Company name 'genosys', Contact email 'multisite.mvicc190@example.test', and Region 'Singapore'.",
+            "expected": "Fields filled with the provided values.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer draft",
+            "kind": "save",
+            "instruction": "Save the Customer draft after review.",
+            "expected": "Customer draft saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Inspect the paired flolah.cloud MCP Universe tab",
+            "kind": "peer",
+            "instruction": "Inspect the paired flolah.cloud MCP Universe tab to retrieve its form structure.",
+            "expected": "The other browser returns its supported fields and navigation.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "inspect",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Share Company name with paired copilot",
+            "kind": "peer",
+            "instruction": "Share the Company name 'genosys' privately with the paired copilot. Use the shared Company name 'genosys' as the MCP search text in the paired tab, preserving the current transport selection. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud. Pause for field-change review before applying.",
+            "expected": "All delegated instructions return their recorded recipient outcomes, with the field change prepared for review in the paired tab.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "goal",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Summarize outcomes",
+            "kind": "inspect",
+            "instruction": "Summarize what completed on each website, including the local Customer save and the returned peer result. Report any failure specifically; do not repeat the Save.",
+            "expected": "Summary of completed actions and any reported failures.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "httpStatus": 200,
+      "goal": {
+        "id": "f0056238-34cb-47b4-8883-75bd0e110a93",
+        "status": "ready",
+        "current": 1,
+        "version": 6,
+        "message": "All requested fields have been filled with the provided values: Company name set to 'genosys', Contact email set to 'multisite.mvicc190@example.test', and Region set to 'Singapore'.",
+        "clarifications": 0,
+        "steps": [
+          {
+            "title": "Fill Customer draft",
+            "kind": "fill",
+            "instruction": "Fill the Customer draft with Company name 'genosys', Contact email 'multisite.mvicc190@example.test', and Region 'Singapore'.",
+            "expected": "Fields filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c898bf8e-263e-4ae9-93db-80b0aa9fd1a3",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Fill the Customer draft with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "multisite.mvicc190@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer draft",
+            "kind": "save",
+            "instruction": "Save the Customer draft after review.",
+            "expected": "Customer draft saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Inspect the paired flolah.cloud MCP Universe tab",
+            "kind": "peer",
+            "instruction": "Inspect the paired flolah.cloud MCP Universe tab to retrieve its form structure.",
+            "expected": "The other browser returns its supported fields and navigation.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "inspect",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Share Company name with paired copilot",
+            "kind": "peer",
+            "instruction": "Share the Company name 'genosys' privately with the paired copilot. Use the shared Company name 'genosys' as the MCP search text in the paired tab, preserving the current transport selection. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud. Pause for field-change review before applying.",
+            "expected": "All delegated instructions return their recorded recipient outcomes, with the field change prepared for review in the paired tab.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "goal",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Summarize outcomes",
+            "kind": "inspect",
+            "instruction": "Summarize what completed on each website, including the local Customer save and the returned peer result. Report any failure specifically; do not repeat the Save.",
+            "expected": "Summary of completed actions and any reported failures.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "httpStatus": 200,
+      "goal": {
+        "id": "f0056238-34cb-47b4-8883-75bd0e110a93",
+        "status": "awaiting_review",
+        "current": 1,
+        "version": 8,
+        "message": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+        "clarifications": 0,
+        "steps": [
+          {
+            "title": "Fill Customer draft",
+            "kind": "fill",
+            "instruction": "Fill the Customer draft with Company name 'genosys', Contact email 'multisite.mvicc190@example.test', and Region 'Singapore'.",
+            "expected": "Fields filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c898bf8e-263e-4ae9-93db-80b0aa9fd1a3",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Fill the Customer draft with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "multisite.mvicc190@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer draft",
+            "kind": "save",
+            "instruction": "Save the Customer draft after review.",
+            "expected": "Customer draft saved successfully.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect the paired flolah.cloud MCP Universe tab",
+            "kind": "peer",
+            "instruction": "Inspect the paired flolah.cloud MCP Universe tab to retrieve its form structure.",
+            "expected": "The other browser returns its supported fields and navigation.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "inspect",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Share Company name with paired copilot",
+            "kind": "peer",
+            "instruction": "Share the Company name 'genosys' privately with the paired copilot. Use the shared Company name 'genosys' as the MCP search text in the paired tab, preserving the current transport selection. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud. Pause for field-change review before applying.",
+            "expected": "All delegated instructions return their recorded recipient outcomes, with the field change prepared for review in the paired tab.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "goal",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Summarize outcomes",
+            "kind": "inspect",
+            "instruction": "Summarize what completed on each website, including the local Customer save and the returned peer result. Report any failure specifically; do not repeat the Save.",
+            "expected": "Summary of completed actions and any reported failures.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "httpStatus": 200,
+      "goal": {
+        "id": "f0056238-34cb-47b4-8883-75bd0e110a93",
+        "status": "ready",
+        "current": 2,
+        "version": 10,
+        "message": "The host reported a successful submission for this step. This is not independent business verification.",
+        "clarifications": 0,
+        "steps": [
+          {
+            "title": "Fill Customer draft",
+            "kind": "fill",
+            "instruction": "Fill the Customer draft with Company name 'genosys', Contact email 'multisite.mvicc190@example.test', and Region 'Singapore'.",
+            "expected": "Fields filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c898bf8e-263e-4ae9-93db-80b0aa9fd1a3",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Fill the Customer draft with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "multisite.mvicc190@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer draft",
+            "kind": "save",
+            "instruction": "Save the Customer draft after review.",
+            "expected": "Customer draft saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "df8c3417-71b6-4e23-a48c-734d486395aa",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect the paired flolah.cloud MCP Universe tab",
+            "kind": "peer",
+            "instruction": "Inspect the paired flolah.cloud MCP Universe tab to retrieve its form structure.",
+            "expected": "The other browser returns its supported fields and navigation.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "inspect",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Share Company name with paired copilot",
+            "kind": "peer",
+            "instruction": "Share the Company name 'genosys' privately with the paired copilot. Use the shared Company name 'genosys' as the MCP search text in the paired tab, preserving the current transport selection. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud. Pause for field-change review before applying.",
+            "expected": "All delegated instructions return their recorded recipient outcomes, with the field change prepared for review in the paired tab.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "goal",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Summarize outcomes",
+            "kind": "inspect",
+            "instruction": "Summarize what completed on each website, including the local Customer save and the returned peer result. Report any failure specifically; do not repeat the Save.",
+            "expected": "Summary of completed actions and any reported failures.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "httpStatus": 200,
+      "goal": {
+        "id": "f0056238-34cb-47b4-8883-75bd0e110a93",
+        "status": "ready",
+        "current": 2,
+        "version": 10,
+        "message": "The host reported a successful submission for this step. This is not independent business verification.",
+        "clarifications": 0,
+        "steps": [
+          {
+            "title": "Fill Customer draft",
+            "kind": "fill",
+            "instruction": "Fill the Customer draft with Company name 'genosys', Contact email 'multisite.mvicc190@example.test', and Region 'Singapore'.",
+            "expected": "Fields filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c898bf8e-263e-4ae9-93db-80b0aa9fd1a3",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Fill the Customer draft with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "multisite.mvicc190@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer draft",
+            "kind": "save",
+            "instruction": "Save the Customer draft after review.",
+            "expected": "Customer draft saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "df8c3417-71b6-4e23-a48c-734d486395aa",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect the paired flolah.cloud MCP Universe tab",
+            "kind": "peer",
+            "instruction": "Inspect the paired flolah.cloud MCP Universe tab to retrieve its form structure.",
+            "expected": "The other browser returns its supported fields and navigation.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "inspect",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Share Company name with paired copilot",
+            "kind": "peer",
+            "instruction": "Share the Company name 'genosys' privately with the paired copilot. Use the shared Company name 'genosys' as the MCP search text in the paired tab, preserving the current transport selection. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud. Pause for field-change review before applying.",
+            "expected": "All delegated instructions return their recorded recipient outcomes, with the field change prepared for review in the paired tab.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "goal",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Summarize outcomes",
+            "kind": "inspect",
+            "instruction": "Summarize what completed on each website, including the local Customer save and the returned peer result. Report any failure specifically; do not repeat the Save.",
+            "expected": "Summary of completed actions and any reported failures.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/peer-send",
+      "httpStatus": 200,
+      "goal": {
+        "id": "f0056238-34cb-47b4-8883-75bd0e110a93",
+        "status": "awaiting_peer",
+        "current": 2,
+        "version": 12,
+        "message": "Waiting for the paired copilot; its own reviews and permissions apply.",
+        "clarifications": 0,
+        "steps": [
+          {
+            "title": "Fill Customer draft",
+            "kind": "fill",
+            "instruction": "Fill the Customer draft with Company name 'genosys', Contact email 'multisite.mvicc190@example.test', and Region 'Singapore'.",
+            "expected": "Fields filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c898bf8e-263e-4ae9-93db-80b0aa9fd1a3",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Fill the Customer draft with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "multisite.mvicc190@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer draft",
+            "kind": "save",
+            "instruction": "Save the Customer draft after review.",
+            "expected": "Customer draft saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "df8c3417-71b6-4e23-a48c-734d486395aa",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect the paired flolah.cloud MCP Universe tab",
+            "kind": "peer",
+            "instruction": "Inspect the paired flolah.cloud MCP Universe tab to retrieve its form structure.",
+            "expected": "The other browser returns its supported fields and navigation.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "inspect",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          },
+          {
+            "title": "Share Company name with paired copilot",
+            "kind": "peer",
+            "instruction": "Share the Company name 'genosys' privately with the paired copilot. Use the shared Company name 'genosys' as the MCP search text in the paired tab, preserving the current transport selection. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud. Pause for field-change review before applying.",
+            "expected": "All delegated instructions return their recorded recipient outcomes, with the field change prepared for review in the paired tab.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "goal",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Summarize outcomes",
+            "kind": "inspect",
+            "instruction": "Summarize what completed on each website, including the local Customer save and the returned peer result. Report any failure specifically; do not repeat the Save.",
+            "expected": "Summary of completed actions and any reported failures.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/peer-check",
+      "httpStatus": 200,
+      "goal": {
+        "id": "f0056238-34cb-47b4-8883-75bd0e110a93",
+        "status": "ready",
+        "current": 3,
+        "version": 13,
+        "message": "The paired copilot returned its current form structure.",
+        "clarifications": 0,
+        "steps": [
+          {
+            "title": "Fill Customer draft",
+            "kind": "fill",
+            "instruction": "Fill the Customer draft with Company name 'genosys', Contact email 'multisite.mvicc190@example.test', and Region 'Singapore'.",
+            "expected": "Fields filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c898bf8e-263e-4ae9-93db-80b0aa9fd1a3",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Fill the Customer draft with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "multisite.mvicc190@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer draft",
+            "kind": "save",
+            "instruction": "Save the Customer draft after review.",
+            "expected": "Customer draft saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "df8c3417-71b6-4e23-a48c-734d486395aa",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect the paired flolah.cloud MCP Universe tab",
+            "kind": "peer",
+            "instruction": "Inspect the paired flolah.cloud MCP Universe tab to retrieve its form structure.",
+            "expected": "The other browser returns its supported fields and navigation.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "inspect",
+            "status": "completed",
+            "effects": [
+              {
+                "peer": "10eb481d-a5af-471e-9abc-d6c645e75c1b",
+                "to": "https://flolah.cloud",
+                "outcome": "recipient_goal_completed",
+                "message": "Recipient inspection returned"
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Share Company name with paired copilot",
+            "kind": "peer",
+            "instruction": "Share the Company name 'genosys' privately with the paired copilot. Use the shared Company name 'genosys' as the MCP search text in the paired tab, preserving the current transport selection. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud. Pause for field-change review before applying.",
+            "expected": "All delegated instructions return their recorded recipient outcomes, with the field change prepared for review in the paired tab.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "goal",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Summarize outcomes",
+            "kind": "inspect",
+            "instruction": "Summarize what completed on each website, including the local Customer save and the returned peer result. Report any failure specifically; do not repeat the Save.",
+            "expected": "Summary of completed actions and any reported failures.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      },
+      "peerResult": {
+        "requestId": "10eb481d-a5af-471e-9abc-d6c645e75c1b",
+        "taskId": "bab63e4f-ecb7-4046-973e-7bcccaaf97fb",
+        "sourceInstanceId": "74531090-e115-4ec8-a240-56eb6b238d26",
+        "contentRevision": 0,
+        "mode": "inspect",
+        "status": "completed",
+        "from": "http://127.0.0.1:4194",
+        "to": "https://flolah.cloud",
+        "instruction": "Inspect the paired flolah.cloud MCP Universe tab to retrieve its form structure.",
+        "expiresAt": 1792604629631,
+        "result": {
+          "origin": "https://flolah.cloud",
+          "path": "/free-tools/mcp-universe/",
+          "forms": [],
+          "fields": [
+            {
+              "label": "Search MCPs, publishers, capabilities…",
+              "type": "text",
+              "required": false,
+              "constraints": {
+                "maxlength": "120"
+              },
+              "key": "q"
+            },
+            {
+              "label": "transport",
+              "type": "select-one",
+              "required": false,
+              "key": "transport"
+            }
+          ],
+          "links": [],
+          "values": []
+        }
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "httpStatus": 200,
+      "goal": {
+        "id": "f0056238-34cb-47b4-8883-75bd0e110a93",
+        "status": "ready",
+        "current": 3,
+        "version": 13,
+        "message": "The paired copilot returned its current form structure.",
+        "clarifications": 0,
+        "steps": [
+          {
+            "title": "Fill Customer draft",
+            "kind": "fill",
+            "instruction": "Fill the Customer draft with Company name 'genosys', Contact email 'multisite.mvicc190@example.test', and Region 'Singapore'.",
+            "expected": "Fields filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c898bf8e-263e-4ae9-93db-80b0aa9fd1a3",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Fill the Customer draft with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "multisite.mvicc190@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer draft",
+            "kind": "save",
+            "instruction": "Save the Customer draft after review.",
+            "expected": "Customer draft saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "df8c3417-71b6-4e23-a48c-734d486395aa",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect the paired flolah.cloud MCP Universe tab",
+            "kind": "peer",
+            "instruction": "Inspect the paired flolah.cloud MCP Universe tab to retrieve its form structure.",
+            "expected": "The other browser returns its supported fields and navigation.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "inspect",
+            "status": "completed",
+            "effects": [
+              {
+                "peer": "10eb481d-a5af-471e-9abc-d6c645e75c1b",
+                "to": "https://flolah.cloud",
+                "outcome": "recipient_goal_completed",
+                "message": "Recipient inspection returned"
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Share Company name with paired copilot",
+            "kind": "peer",
+            "instruction": "Share the Company name 'genosys' privately with the paired copilot. Use the shared Company name 'genosys' as the MCP search text in the paired tab, preserving the current transport selection. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud. Pause for field-change review before applying.",
+            "expected": "All delegated instructions return their recorded recipient outcomes, with the field change prepared for review in the paired tab.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "goal",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Summarize outcomes",
+            "kind": "inspect",
+            "instruction": "Summarize what completed on each website, including the local Customer save and the returned peer result. Report any failure specifically; do not repeat the Save.",
+            "expected": "Summary of completed actions and any reported failures.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/peer-send",
+      "httpStatus": 200,
+      "goal": {
+        "id": "f0056238-34cb-47b4-8883-75bd0e110a93",
+        "status": "awaiting_peer",
+        "current": 3,
+        "version": 15,
+        "message": "Waiting for the paired copilot; its own reviews and permissions apply.",
+        "clarifications": 0,
+        "steps": [
+          {
+            "title": "Fill Customer draft",
+            "kind": "fill",
+            "instruction": "Fill the Customer draft with Company name 'genosys', Contact email 'multisite.mvicc190@example.test', and Region 'Singapore'.",
+            "expected": "Fields filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c898bf8e-263e-4ae9-93db-80b0aa9fd1a3",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Fill the Customer draft with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "multisite.mvicc190@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer draft",
+            "kind": "save",
+            "instruction": "Save the Customer draft after review.",
+            "expected": "Customer draft saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "df8c3417-71b6-4e23-a48c-734d486395aa",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect the paired flolah.cloud MCP Universe tab",
+            "kind": "peer",
+            "instruction": "Inspect the paired flolah.cloud MCP Universe tab to retrieve its form structure.",
+            "expected": "The other browser returns its supported fields and navigation.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "inspect",
+            "status": "completed",
+            "effects": [
+              {
+                "peer": "10eb481d-a5af-471e-9abc-d6c645e75c1b",
+                "to": "https://flolah.cloud",
+                "outcome": "recipient_goal_completed",
+                "message": "Recipient inspection returned"
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Share Company name with paired copilot",
+            "kind": "peer",
+            "instruction": "Share the Company name 'genosys' privately with the paired copilot. Use the shared Company name 'genosys' as the MCP search text in the paired tab, preserving the current transport selection. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud. Pause for field-change review before applying.",
+            "expected": "All delegated instructions return their recorded recipient outcomes, with the field change prepared for review in the paired tab.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "goal",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          },
+          {
+            "title": "Summarize outcomes",
+            "kind": "inspect",
+            "instruction": "Summarize what completed on each website, including the local Customer save and the returned peer result. Report any failure specifically; do not repeat the Save.",
+            "expected": "Summary of completed actions and any reported failures.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/peer-check",
+      "httpStatus": 200,
+      "goal": {
+        "id": "f0056238-34cb-47b4-8883-75bd0e110a93",
+        "status": "awaiting_peer",
+        "current": 3,
+        "version": 15,
+        "message": "Waiting for the paired copilot; its own reviews and permissions apply.",
+        "clarifications": 0,
+        "steps": [
+          {
+            "title": "Fill Customer draft",
+            "kind": "fill",
+            "instruction": "Fill the Customer draft with Company name 'genosys', Contact email 'multisite.mvicc190@example.test', and Region 'Singapore'.",
+            "expected": "Fields filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c898bf8e-263e-4ae9-93db-80b0aa9fd1a3",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Fill the Customer draft with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "multisite.mvicc190@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer draft",
+            "kind": "save",
+            "instruction": "Save the Customer draft after review.",
+            "expected": "Customer draft saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "df8c3417-71b6-4e23-a48c-734d486395aa",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect the paired flolah.cloud MCP Universe tab",
+            "kind": "peer",
+            "instruction": "Inspect the paired flolah.cloud MCP Universe tab to retrieve its form structure.",
+            "expected": "The other browser returns its supported fields and navigation.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "inspect",
+            "status": "completed",
+            "effects": [
+              {
+                "peer": "10eb481d-a5af-471e-9abc-d6c645e75c1b",
+                "to": "https://flolah.cloud",
+                "outcome": "recipient_goal_completed",
+                "message": "Recipient inspection returned"
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Share Company name with paired copilot",
+            "kind": "peer",
+            "instruction": "Share the Company name 'genosys' privately with the paired copilot. Use the shared Company name 'genosys' as the MCP search text in the paired tab, preserving the current transport selection. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud. Pause for field-change review before applying.",
+            "expected": "All delegated instructions return their recorded recipient outcomes, with the field change prepared for review in the paired tab.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "goal",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          },
+          {
+            "title": "Summarize outcomes",
+            "kind": "inspect",
+            "instruction": "Summarize what completed on each website, including the local Customer save and the returned peer result. Report any failure specifically; do not repeat the Save.",
+            "expected": "Summary of completed actions and any reported failures.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      },
+      "peerResult": {
+        "requestId": "dfe6c3c2-1a7b-4e21-b4d9-97b69f6f6508",
+        "taskId": "bab63e4f-ecb7-4046-973e-7bcccaaf97fb",
+        "sourceInstanceId": "74531090-e115-4ec8-a240-56eb6b238d26",
+        "contentRevision": 0,
+        "mode": "goal",
+        "status": "pending",
+        "from": "http://127.0.0.1:4194",
+        "to": "https://flolah.cloud",
+        "instruction": "Share the Company name 'genosys' privately with the paired copilot. Use the shared Company name 'genosys' as the MCP search text in the paired tab, preserving the current transport selection. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud. Pause for field-change review before applying.",
+        "expiresAt": 1792604629631
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/peer-check",
+      "httpStatus": 200,
+      "goal": {
+        "id": "f0056238-34cb-47b4-8883-75bd0e110a93",
+        "status": "awaiting_peer",
+        "current": 3,
+        "version": 15,
+        "message": "Waiting for the paired copilot; its own reviews and permissions apply.",
+        "clarifications": 0,
+        "steps": [
+          {
+            "title": "Fill Customer draft",
+            "kind": "fill",
+            "instruction": "Fill the Customer draft with Company name 'genosys', Contact email 'multisite.mvicc190@example.test', and Region 'Singapore'.",
+            "expected": "Fields filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c898bf8e-263e-4ae9-93db-80b0aa9fd1a3",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Fill the Customer draft with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "multisite.mvicc190@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer draft",
+            "kind": "save",
+            "instruction": "Save the Customer draft after review.",
+            "expected": "Customer draft saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "df8c3417-71b6-4e23-a48c-734d486395aa",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect the paired flolah.cloud MCP Universe tab",
+            "kind": "peer",
+            "instruction": "Inspect the paired flolah.cloud MCP Universe tab to retrieve its form structure.",
+            "expected": "The other browser returns its supported fields and navigation.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "inspect",
+            "status": "completed",
+            "effects": [
+              {
+                "peer": "10eb481d-a5af-471e-9abc-d6c645e75c1b",
+                "to": "https://flolah.cloud",
+                "outcome": "recipient_goal_completed",
+                "message": "Recipient inspection returned"
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Share Company name with paired copilot",
+            "kind": "peer",
+            "instruction": "Share the Company name 'genosys' privately with the paired copilot. Use the shared Company name 'genosys' as the MCP search text in the paired tab, preserving the current transport selection. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud. Pause for field-change review before applying.",
+            "expected": "All delegated instructions return their recorded recipient outcomes, with the field change prepared for review in the paired tab.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "goal",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          },
+          {
+            "title": "Summarize outcomes",
+            "kind": "inspect",
+            "instruction": "Summarize what completed on each website, including the local Customer save and the returned peer result. Report any failure specifically; do not repeat the Save.",
+            "expected": "Summary of completed actions and any reported failures.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      },
+      "peerResult": {
+        "requestId": "dfe6c3c2-1a7b-4e21-b4d9-97b69f6f6508",
+        "taskId": "bab63e4f-ecb7-4046-973e-7bcccaaf97fb",
+        "sourceInstanceId": "74531090-e115-4ec8-a240-56eb6b238d26",
+        "contentRevision": 0,
+        "mode": "goal",
+        "status": "pending",
+        "from": "http://127.0.0.1:4194",
+        "to": "https://flolah.cloud",
+        "instruction": "Share the Company name 'genosys' privately with the paired copilot. Use the shared Company name 'genosys' as the MCP search text in the paired tab, preserving the current transport selection. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud. Pause for field-change review before applying.",
+        "expiresAt": 1792604629631
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/peer-check",
+      "httpStatus": 200,
+      "goal": {
+        "id": "f0056238-34cb-47b4-8883-75bd0e110a93",
+        "status": "awaiting_peer",
+        "current": 3,
+        "version": 15,
+        "message": "Waiting for the paired copilot; its own reviews and permissions apply.",
+        "clarifications": 0,
+        "steps": [
+          {
+            "title": "Fill Customer draft",
+            "kind": "fill",
+            "instruction": "Fill the Customer draft with Company name 'genosys', Contact email 'multisite.mvicc190@example.test', and Region 'Singapore'.",
+            "expected": "Fields filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c898bf8e-263e-4ae9-93db-80b0aa9fd1a3",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Fill the Customer draft with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "multisite.mvicc190@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer draft",
+            "kind": "save",
+            "instruction": "Save the Customer draft after review.",
+            "expected": "Customer draft saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "df8c3417-71b6-4e23-a48c-734d486395aa",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect the paired flolah.cloud MCP Universe tab",
+            "kind": "peer",
+            "instruction": "Inspect the paired flolah.cloud MCP Universe tab to retrieve its form structure.",
+            "expected": "The other browser returns its supported fields and navigation.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "inspect",
+            "status": "completed",
+            "effects": [
+              {
+                "peer": "10eb481d-a5af-471e-9abc-d6c645e75c1b",
+                "to": "https://flolah.cloud",
+                "outcome": "recipient_goal_completed",
+                "message": "Recipient inspection returned"
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Share Company name with paired copilot",
+            "kind": "peer",
+            "instruction": "Share the Company name 'genosys' privately with the paired copilot. Use the shared Company name 'genosys' as the MCP search text in the paired tab, preserving the current transport selection. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud. Pause for field-change review before applying.",
+            "expected": "All delegated instructions return their recorded recipient outcomes, with the field change prepared for review in the paired tab.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "goal",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          },
+          {
+            "title": "Summarize outcomes",
+            "kind": "inspect",
+            "instruction": "Summarize what completed on each website, including the local Customer save and the returned peer result. Report any failure specifically; do not repeat the Save.",
+            "expected": "Summary of completed actions and any reported failures.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      },
+      "peerResult": {
+        "requestId": "dfe6c3c2-1a7b-4e21-b4d9-97b69f6f6508",
+        "taskId": "bab63e4f-ecb7-4046-973e-7bcccaaf97fb",
+        "sourceInstanceId": "74531090-e115-4ec8-a240-56eb6b238d26",
+        "contentRevision": 0,
+        "mode": "goal",
+        "status": "pending",
+        "from": "http://127.0.0.1:4194",
+        "to": "https://flolah.cloud",
+        "instruction": "Share the Company name 'genosys' privately with the paired copilot. Use the shared Company name 'genosys' as the MCP search text in the paired tab, preserving the current transport selection. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud. Pause for field-change review before applying.",
+        "expiresAt": 1792604629631
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/peer-check",
+      "httpStatus": 200,
+      "goal": {
+        "id": "f0056238-34cb-47b4-8883-75bd0e110a93",
+        "status": "awaiting_peer",
+        "current": 3,
+        "version": 15,
+        "message": "Waiting for the paired copilot; its own reviews and permissions apply.",
+        "clarifications": 0,
+        "steps": [
+          {
+            "title": "Fill Customer draft",
+            "kind": "fill",
+            "instruction": "Fill the Customer draft with Company name 'genosys', Contact email 'multisite.mvicc190@example.test', and Region 'Singapore'.",
+            "expected": "Fields filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c898bf8e-263e-4ae9-93db-80b0aa9fd1a3",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Fill the Customer draft with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "multisite.mvicc190@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer draft",
+            "kind": "save",
+            "instruction": "Save the Customer draft after review.",
+            "expected": "Customer draft saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "df8c3417-71b6-4e23-a48c-734d486395aa",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect the paired flolah.cloud MCP Universe tab",
+            "kind": "peer",
+            "instruction": "Inspect the paired flolah.cloud MCP Universe tab to retrieve its form structure.",
+            "expected": "The other browser returns its supported fields and navigation.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "inspect",
+            "status": "completed",
+            "effects": [
+              {
+                "peer": "10eb481d-a5af-471e-9abc-d6c645e75c1b",
+                "to": "https://flolah.cloud",
+                "outcome": "recipient_goal_completed",
+                "message": "Recipient inspection returned"
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Share Company name with paired copilot",
+            "kind": "peer",
+            "instruction": "Share the Company name 'genosys' privately with the paired copilot. Use the shared Company name 'genosys' as the MCP search text in the paired tab, preserving the current transport selection. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud. Pause for field-change review before applying.",
+            "expected": "All delegated instructions return their recorded recipient outcomes, with the field change prepared for review in the paired tab.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "goal",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          },
+          {
+            "title": "Summarize outcomes",
+            "kind": "inspect",
+            "instruction": "Summarize what completed on each website, including the local Customer save and the returned peer result. Report any failure specifically; do not repeat the Save.",
+            "expected": "Summary of completed actions and any reported failures.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      },
+      "peerResult": {
+        "requestId": "dfe6c3c2-1a7b-4e21-b4d9-97b69f6f6508",
+        "taskId": "bab63e4f-ecb7-4046-973e-7bcccaaf97fb",
+        "sourceInstanceId": "74531090-e115-4ec8-a240-56eb6b238d26",
+        "contentRevision": 0,
+        "mode": "goal",
+        "status": "pending",
+        "from": "http://127.0.0.1:4194",
+        "to": "https://flolah.cloud",
+        "instruction": "Share the Company name 'genosys' privately with the paired copilot. Use the shared Company name 'genosys' as the MCP search text in the paired tab, preserving the current transport selection. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud. Pause for field-change review before applying.",
+        "expiresAt": 1792604629631
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/peer-check",
+      "httpStatus": 200,
+      "goal": {
+        "id": "f0056238-34cb-47b4-8883-75bd0e110a93",
+        "status": "awaiting_peer",
+        "current": 3,
+        "version": 15,
+        "message": "Waiting for the paired copilot; its own reviews and permissions apply.",
+        "clarifications": 0,
+        "steps": [
+          {
+            "title": "Fill Customer draft",
+            "kind": "fill",
+            "instruction": "Fill the Customer draft with Company name 'genosys', Contact email 'multisite.mvicc190@example.test', and Region 'Singapore'.",
+            "expected": "Fields filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c898bf8e-263e-4ae9-93db-80b0aa9fd1a3",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Fill the Customer draft with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "multisite.mvicc190@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer draft",
+            "kind": "save",
+            "instruction": "Save the Customer draft after review.",
+            "expected": "Customer draft saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "df8c3417-71b6-4e23-a48c-734d486395aa",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect the paired flolah.cloud MCP Universe tab",
+            "kind": "peer",
+            "instruction": "Inspect the paired flolah.cloud MCP Universe tab to retrieve its form structure.",
+            "expected": "The other browser returns its supported fields and navigation.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "inspect",
+            "status": "completed",
+            "effects": [
+              {
+                "peer": "10eb481d-a5af-471e-9abc-d6c645e75c1b",
+                "to": "https://flolah.cloud",
+                "outcome": "recipient_goal_completed",
+                "message": "Recipient inspection returned"
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Share Company name with paired copilot",
+            "kind": "peer",
+            "instruction": "Share the Company name 'genosys' privately with the paired copilot. Use the shared Company name 'genosys' as the MCP search text in the paired tab, preserving the current transport selection. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud. Pause for field-change review before applying.",
+            "expected": "All delegated instructions return their recorded recipient outcomes, with the field change prepared for review in the paired tab.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "goal",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          },
+          {
+            "title": "Summarize outcomes",
+            "kind": "inspect",
+            "instruction": "Summarize what completed on each website, including the local Customer save and the returned peer result. Report any failure specifically; do not repeat the Save.",
+            "expected": "Summary of completed actions and any reported failures.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      },
+      "peerResult": {
+        "requestId": "dfe6c3c2-1a7b-4e21-b4d9-97b69f6f6508",
+        "taskId": "bab63e4f-ecb7-4046-973e-7bcccaaf97fb",
+        "sourceInstanceId": "74531090-e115-4ec8-a240-56eb6b238d26",
+        "contentRevision": 0,
+        "mode": "goal",
+        "status": "pending",
+        "from": "http://127.0.0.1:4194",
+        "to": "https://flolah.cloud",
+        "instruction": "Share the Company name 'genosys' privately with the paired copilot. Use the shared Company name 'genosys' as the MCP search text in the paired tab, preserving the current transport selection. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud. Pause for field-change review before applying.",
+        "expiresAt": 1792604629631
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/peer-check",
+      "httpStatus": 200,
+      "goal": {
+        "id": "f0056238-34cb-47b4-8883-75bd0e110a93",
+        "status": "awaiting_peer",
+        "current": 3,
+        "version": 15,
+        "message": "Waiting for the paired copilot; its own reviews and permissions apply.",
+        "clarifications": 0,
+        "steps": [
+          {
+            "title": "Fill Customer draft",
+            "kind": "fill",
+            "instruction": "Fill the Customer draft with Company name 'genosys', Contact email 'multisite.mvicc190@example.test', and Region 'Singapore'.",
+            "expected": "Fields filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c898bf8e-263e-4ae9-93db-80b0aa9fd1a3",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Fill the Customer draft with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "multisite.mvicc190@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer draft",
+            "kind": "save",
+            "instruction": "Save the Customer draft after review.",
+            "expected": "Customer draft saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "df8c3417-71b6-4e23-a48c-734d486395aa",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect the paired flolah.cloud MCP Universe tab",
+            "kind": "peer",
+            "instruction": "Inspect the paired flolah.cloud MCP Universe tab to retrieve its form structure.",
+            "expected": "The other browser returns its supported fields and navigation.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "inspect",
+            "status": "completed",
+            "effects": [
+              {
+                "peer": "10eb481d-a5af-471e-9abc-d6c645e75c1b",
+                "to": "https://flolah.cloud",
+                "outcome": "recipient_goal_completed",
+                "message": "Recipient inspection returned"
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Share Company name with paired copilot",
+            "kind": "peer",
+            "instruction": "Share the Company name 'genosys' privately with the paired copilot. Use the shared Company name 'genosys' as the MCP search text in the paired tab, preserving the current transport selection. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud. Pause for field-change review before applying.",
+            "expected": "All delegated instructions return their recorded recipient outcomes, with the field change prepared for review in the paired tab.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "goal",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          },
+          {
+            "title": "Summarize outcomes",
+            "kind": "inspect",
+            "instruction": "Summarize what completed on each website, including the local Customer save and the returned peer result. Report any failure specifically; do not repeat the Save.",
+            "expected": "Summary of completed actions and any reported failures.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      },
+      "peerResult": {
+        "requestId": "dfe6c3c2-1a7b-4e21-b4d9-97b69f6f6508",
+        "taskId": "bab63e4f-ecb7-4046-973e-7bcccaaf97fb",
+        "sourceInstanceId": "74531090-e115-4ec8-a240-56eb6b238d26",
+        "contentRevision": 0,
+        "mode": "goal",
+        "status": "pending",
+        "from": "http://127.0.0.1:4194",
+        "to": "https://flolah.cloud",
+        "instruction": "Share the Company name 'genosys' privately with the paired copilot. Use the shared Company name 'genosys' as the MCP search text in the paired tab, preserving the current transport selection. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud. Pause for field-change review before applying.",
+        "expiresAt": 1792604629631
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/peer-check",
+      "httpStatus": 200,
+      "goal": {
+        "id": "f0056238-34cb-47b4-8883-75bd0e110a93",
+        "status": "awaiting_peer",
+        "current": 3,
+        "version": 15,
+        "message": "Waiting for the paired copilot; its own reviews and permissions apply.",
+        "clarifications": 0,
+        "steps": [
+          {
+            "title": "Fill Customer draft",
+            "kind": "fill",
+            "instruction": "Fill the Customer draft with Company name 'genosys', Contact email 'multisite.mvicc190@example.test', and Region 'Singapore'.",
+            "expected": "Fields filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c898bf8e-263e-4ae9-93db-80b0aa9fd1a3",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Fill the Customer draft with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "multisite.mvicc190@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer draft",
+            "kind": "save",
+            "instruction": "Save the Customer draft after review.",
+            "expected": "Customer draft saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "df8c3417-71b6-4e23-a48c-734d486395aa",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect the paired flolah.cloud MCP Universe tab",
+            "kind": "peer",
+            "instruction": "Inspect the paired flolah.cloud MCP Universe tab to retrieve its form structure.",
+            "expected": "The other browser returns its supported fields and navigation.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "inspect",
+            "status": "completed",
+            "effects": [
+              {
+                "peer": "10eb481d-a5af-471e-9abc-d6c645e75c1b",
+                "to": "https://flolah.cloud",
+                "outcome": "recipient_goal_completed",
+                "message": "Recipient inspection returned"
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Share Company name with paired copilot",
+            "kind": "peer",
+            "instruction": "Share the Company name 'genosys' privately with the paired copilot. Use the shared Company name 'genosys' as the MCP search text in the paired tab, preserving the current transport selection. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud. Pause for field-change review before applying.",
+            "expected": "All delegated instructions return their recorded recipient outcomes, with the field change prepared for review in the paired tab.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "goal",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          },
+          {
+            "title": "Summarize outcomes",
+            "kind": "inspect",
+            "instruction": "Summarize what completed on each website, including the local Customer save and the returned peer result. Report any failure specifically; do not repeat the Save.",
+            "expected": "Summary of completed actions and any reported failures.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      },
+      "peerResult": {
+        "requestId": "dfe6c3c2-1a7b-4e21-b4d9-97b69f6f6508",
+        "taskId": "bab63e4f-ecb7-4046-973e-7bcccaaf97fb",
+        "sourceInstanceId": "74531090-e115-4ec8-a240-56eb6b238d26",
+        "contentRevision": 0,
+        "mode": "goal",
+        "status": "pending",
+        "from": "http://127.0.0.1:4194",
+        "to": "https://flolah.cloud",
+        "instruction": "Share the Company name 'genosys' privately with the paired copilot. Use the shared Company name 'genosys' as the MCP search text in the paired tab, preserving the current transport selection. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud. Pause for field-change review before applying.",
+        "expiresAt": 1792604629631
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/peer-check",
+      "httpStatus": 200,
+      "goal": {
+        "id": "f0056238-34cb-47b4-8883-75bd0e110a93",
+        "status": "awaiting_peer",
+        "current": 3,
+        "version": 15,
+        "message": "Waiting for the paired copilot; its own reviews and permissions apply.",
+        "clarifications": 0,
+        "steps": [
+          {
+            "title": "Fill Customer draft",
+            "kind": "fill",
+            "instruction": "Fill the Customer draft with Company name 'genosys', Contact email 'multisite.mvicc190@example.test', and Region 'Singapore'.",
+            "expected": "Fields filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c898bf8e-263e-4ae9-93db-80b0aa9fd1a3",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Fill the Customer draft with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "multisite.mvicc190@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer draft",
+            "kind": "save",
+            "instruction": "Save the Customer draft after review.",
+            "expected": "Customer draft saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "df8c3417-71b6-4e23-a48c-734d486395aa",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect the paired flolah.cloud MCP Universe tab",
+            "kind": "peer",
+            "instruction": "Inspect the paired flolah.cloud MCP Universe tab to retrieve its form structure.",
+            "expected": "The other browser returns its supported fields and navigation.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "inspect",
+            "status": "completed",
+            "effects": [
+              {
+                "peer": "10eb481d-a5af-471e-9abc-d6c645e75c1b",
+                "to": "https://flolah.cloud",
+                "outcome": "recipient_goal_completed",
+                "message": "Recipient inspection returned"
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Share Company name with paired copilot",
+            "kind": "peer",
+            "instruction": "Share the Company name 'genosys' privately with the paired copilot. Use the shared Company name 'genosys' as the MCP search text in the paired tab, preserving the current transport selection. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud. Pause for field-change review before applying.",
+            "expected": "All delegated instructions return their recorded recipient outcomes, with the field change prepared for review in the paired tab.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "goal",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          },
+          {
+            "title": "Summarize outcomes",
+            "kind": "inspect",
+            "instruction": "Summarize what completed on each website, including the local Customer save and the returned peer result. Report any failure specifically; do not repeat the Save.",
+            "expected": "Summary of completed actions and any reported failures.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      },
+      "peerResult": {
+        "requestId": "dfe6c3c2-1a7b-4e21-b4d9-97b69f6f6508",
+        "taskId": "bab63e4f-ecb7-4046-973e-7bcccaaf97fb",
+        "sourceInstanceId": "74531090-e115-4ec8-a240-56eb6b238d26",
+        "contentRevision": 0,
+        "mode": "goal",
+        "status": "pending",
+        "from": "http://127.0.0.1:4194",
+        "to": "https://flolah.cloud",
+        "instruction": "Share the Company name 'genosys' privately with the paired copilot. Use the shared Company name 'genosys' as the MCP search text in the paired tab, preserving the current transport selection. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud. Pause for field-change review before applying.",
+        "expiresAt": 1792604629631
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/peer-check",
+      "httpStatus": 200,
+      "goal": {
+        "id": "f0056238-34cb-47b4-8883-75bd0e110a93",
+        "status": "awaiting_peer",
+        "current": 3,
+        "version": 15,
+        "message": "Waiting for the paired copilot; its own reviews and permissions apply.",
+        "clarifications": 0,
+        "steps": [
+          {
+            "title": "Fill Customer draft",
+            "kind": "fill",
+            "instruction": "Fill the Customer draft with Company name 'genosys', Contact email 'multisite.mvicc190@example.test', and Region 'Singapore'.",
+            "expected": "Fields filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c898bf8e-263e-4ae9-93db-80b0aa9fd1a3",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Fill the Customer draft with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "multisite.mvicc190@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer draft",
+            "kind": "save",
+            "instruction": "Save the Customer draft after review.",
+            "expected": "Customer draft saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "df8c3417-71b6-4e23-a48c-734d486395aa",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect the paired flolah.cloud MCP Universe tab",
+            "kind": "peer",
+            "instruction": "Inspect the paired flolah.cloud MCP Universe tab to retrieve its form structure.",
+            "expected": "The other browser returns its supported fields and navigation.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "inspect",
+            "status": "completed",
+            "effects": [
+              {
+                "peer": "10eb481d-a5af-471e-9abc-d6c645e75c1b",
+                "to": "https://flolah.cloud",
+                "outcome": "recipient_goal_completed",
+                "message": "Recipient inspection returned"
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Share Company name with paired copilot",
+            "kind": "peer",
+            "instruction": "Share the Company name 'genosys' privately with the paired copilot. Use the shared Company name 'genosys' as the MCP search text in the paired tab, preserving the current transport selection. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud. Pause for field-change review before applying.",
+            "expected": "All delegated instructions return their recorded recipient outcomes, with the field change prepared for review in the paired tab.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "goal",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          },
+          {
+            "title": "Summarize outcomes",
+            "kind": "inspect",
+            "instruction": "Summarize what completed on each website, including the local Customer save and the returned peer result. Report any failure specifically; do not repeat the Save.",
+            "expected": "Summary of completed actions and any reported failures.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      },
+      "peerResult": {
+        "requestId": "dfe6c3c2-1a7b-4e21-b4d9-97b69f6f6508",
+        "taskId": "bab63e4f-ecb7-4046-973e-7bcccaaf97fb",
+        "sourceInstanceId": "74531090-e115-4ec8-a240-56eb6b238d26",
+        "contentRevision": 0,
+        "mode": "goal",
+        "status": "pending",
+        "from": "http://127.0.0.1:4194",
+        "to": "https://flolah.cloud",
+        "instruction": "Share the Company name 'genosys' privately with the paired copilot. Use the shared Company name 'genosys' as the MCP search text in the paired tab, preserving the current transport selection. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud. Pause for field-change review before applying.",
+        "expiresAt": 1792604629631
+      }
+    },
+    {
+      "panel": "recipient",
+      "path": "/free-tools/digital-adoption/v1/goals/create",
+      "httpStatus": 200,
+      "goal": {
+        "id": "d62be95b-46b1-4b1d-a709-460f58666efb",
+        "status": "draft",
+        "current": 0,
+        "version": 1,
+        "message": "The revised plan to share the company name 'genosys' and use it as the MCP search text in the paired tab is outlined below. This plan adheres to the feedback provided and the original task requirements.",
+        "clarifications": 0,
+        "steps": [
+          {
+            "title": "Fill MCP Search Text",
+            "kind": "fill",
+            "instruction": "Fill the search field with the company name 'genosys' while preserving the current transport selection.",
+            "expected": "The search field should display 'genosys' as the input.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      }
+    },
+    {
+      "panel": "recipient",
+      "path": "/free-tools/digital-adoption/v1/goals/control",
+      "httpStatus": 200,
+      "goal": {
+        "id": "d62be95b-46b1-4b1d-a709-460f58666efb",
+        "status": "ready",
+        "current": 0,
+        "version": 2,
+        "message": "The revised plan to share the company name 'genosys' and use it as the MCP search text in the paired tab is outlined below. This plan adheres to the feedback provided and the original task requirements.",
+        "clarifications": 0,
+        "steps": [
+          {
+            "title": "Fill MCP Search Text",
+            "kind": "fill",
+            "instruction": "Fill the search field with the company name 'genosys' while preserving the current transport selection.",
+            "expected": "The search field should display 'genosys' as the input.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/peer-check",
+      "httpStatus": 200,
+      "goal": {
+        "id": "f0056238-34cb-47b4-8883-75bd0e110a93",
+        "status": "awaiting_peer",
+        "current": 3,
+        "version": 15,
+        "message": "Waiting for the paired copilot; its own reviews and permissions apply.",
+        "clarifications": 0,
+        "steps": [
+          {
+            "title": "Fill Customer draft",
+            "kind": "fill",
+            "instruction": "Fill the Customer draft with Company name 'genosys', Contact email 'multisite.mvicc190@example.test', and Region 'Singapore'.",
+            "expected": "Fields filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c898bf8e-263e-4ae9-93db-80b0aa9fd1a3",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Fill the Customer draft with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "multisite.mvicc190@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer draft",
+            "kind": "save",
+            "instruction": "Save the Customer draft after review.",
+            "expected": "Customer draft saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "df8c3417-71b6-4e23-a48c-734d486395aa",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect the paired flolah.cloud MCP Universe tab",
+            "kind": "peer",
+            "instruction": "Inspect the paired flolah.cloud MCP Universe tab to retrieve its form structure.",
+            "expected": "The other browser returns its supported fields and navigation.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "inspect",
+            "status": "completed",
+            "effects": [
+              {
+                "peer": "10eb481d-a5af-471e-9abc-d6c645e75c1b",
+                "to": "https://flolah.cloud",
+                "outcome": "recipient_goal_completed",
+                "message": "Recipient inspection returned"
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Share Company name with paired copilot",
+            "kind": "peer",
+            "instruction": "Share the Company name 'genosys' privately with the paired copilot. Use the shared Company name 'genosys' as the MCP search text in the paired tab, preserving the current transport selection. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud. Pause for field-change review before applying.",
+            "expected": "All delegated instructions return their recorded recipient outcomes, with the field change prepared for review in the paired tab.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "goal",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          },
+          {
+            "title": "Summarize outcomes",
+            "kind": "inspect",
+            "instruction": "Summarize what completed on each website, including the local Customer save and the returned peer result. Report any failure specifically; do not repeat the Save.",
+            "expected": "Summary of completed actions and any reported failures.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      },
+      "peerResult": {
+        "requestId": "dfe6c3c2-1a7b-4e21-b4d9-97b69f6f6508",
+        "taskId": "bab63e4f-ecb7-4046-973e-7bcccaaf97fb",
+        "sourceInstanceId": "74531090-e115-4ec8-a240-56eb6b238d26",
+        "contentRevision": 0,
+        "mode": "goal",
+        "status": "pending",
+        "from": "http://127.0.0.1:4194",
+        "to": "https://flolah.cloud",
+        "instruction": "Share the Company name 'genosys' privately with the paired copilot. Use the shared Company name 'genosys' as the MCP search text in the paired tab, preserving the current transport selection. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud. Pause for field-change review before applying.",
+        "expiresAt": 1792604629631
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/peer-check",
+      "httpStatus": 200,
+      "goal": {
+        "id": "f0056238-34cb-47b4-8883-75bd0e110a93",
+        "status": "awaiting_peer",
+        "current": 3,
+        "version": 15,
+        "message": "Waiting for the paired copilot; its own reviews and permissions apply.",
+        "clarifications": 0,
+        "steps": [
+          {
+            "title": "Fill Customer draft",
+            "kind": "fill",
+            "instruction": "Fill the Customer draft with Company name 'genosys', Contact email 'multisite.mvicc190@example.test', and Region 'Singapore'.",
+            "expected": "Fields filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c898bf8e-263e-4ae9-93db-80b0aa9fd1a3",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Fill the Customer draft with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "multisite.mvicc190@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer draft",
+            "kind": "save",
+            "instruction": "Save the Customer draft after review.",
+            "expected": "Customer draft saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "df8c3417-71b6-4e23-a48c-734d486395aa",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect the paired flolah.cloud MCP Universe tab",
+            "kind": "peer",
+            "instruction": "Inspect the paired flolah.cloud MCP Universe tab to retrieve its form structure.",
+            "expected": "The other browser returns its supported fields and navigation.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "inspect",
+            "status": "completed",
+            "effects": [
+              {
+                "peer": "10eb481d-a5af-471e-9abc-d6c645e75c1b",
+                "to": "https://flolah.cloud",
+                "outcome": "recipient_goal_completed",
+                "message": "Recipient inspection returned"
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Share Company name with paired copilot",
+            "kind": "peer",
+            "instruction": "Share the Company name 'genosys' privately with the paired copilot. Use the shared Company name 'genosys' as the MCP search text in the paired tab, preserving the current transport selection. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud. Pause for field-change review before applying.",
+            "expected": "All delegated instructions return their recorded recipient outcomes, with the field change prepared for review in the paired tab.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "goal",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          },
+          {
+            "title": "Summarize outcomes",
+            "kind": "inspect",
+            "instruction": "Summarize what completed on each website, including the local Customer save and the returned peer result. Report any failure specifically; do not repeat the Save.",
+            "expected": "Summary of completed actions and any reported failures.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      },
+      "peerResult": {
+        "requestId": "dfe6c3c2-1a7b-4e21-b4d9-97b69f6f6508",
+        "taskId": "bab63e4f-ecb7-4046-973e-7bcccaaf97fb",
+        "sourceInstanceId": "74531090-e115-4ec8-a240-56eb6b238d26",
+        "contentRevision": 0,
+        "mode": "goal",
+        "status": "pending",
+        "from": "http://127.0.0.1:4194",
+        "to": "https://flolah.cloud",
+        "instruction": "Share the Company name 'genosys' privately with the paired copilot. Use the shared Company name 'genosys' as the MCP search text in the paired tab, preserving the current transport selection. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud. Pause for field-change review before applying.",
+        "expiresAt": 1792604629631
+      }
+    },
+    {
+      "panel": "recipient",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "httpStatus": 200,
+      "goal": {
+        "id": "d62be95b-46b1-4b1d-a709-460f58666efb",
+        "status": "awaiting_review",
+        "current": 0,
+        "version": 4,
+        "message": "Fill the search field with the company name 'genosys' while preserving the current transport selection.\nReview these 1 proposed field change. Nothing has been changed yet.",
+        "clarifications": 0,
+        "steps": [
+          {
+            "title": "Fill MCP Search Text",
+            "kind": "fill",
+            "instruction": "Fill the search field with the company name 'genosys' while preserving the current transport selection.",
+            "expected": "The search field should display 'genosys' as the input.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          }
+        ]
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/peer-check",
+      "httpStatus": 200,
+      "goal": {
+        "id": "f0056238-34cb-47b4-8883-75bd0e110a93",
+        "status": "awaiting_peer",
+        "current": 3,
+        "version": 15,
+        "message": "Waiting for the paired copilot; its own reviews and permissions apply.",
+        "clarifications": 0,
+        "steps": [
+          {
+            "title": "Fill Customer draft",
+            "kind": "fill",
+            "instruction": "Fill the Customer draft with Company name 'genosys', Contact email 'multisite.mvicc190@example.test', and Region 'Singapore'.",
+            "expected": "Fields filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c898bf8e-263e-4ae9-93db-80b0aa9fd1a3",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Fill the Customer draft with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "multisite.mvicc190@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer draft",
+            "kind": "save",
+            "instruction": "Save the Customer draft after review.",
+            "expected": "Customer draft saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "df8c3417-71b6-4e23-a48c-734d486395aa",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect the paired flolah.cloud MCP Universe tab",
+            "kind": "peer",
+            "instruction": "Inspect the paired flolah.cloud MCP Universe tab to retrieve its form structure.",
+            "expected": "The other browser returns its supported fields and navigation.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "inspect",
+            "status": "completed",
+            "effects": [
+              {
+                "peer": "10eb481d-a5af-471e-9abc-d6c645e75c1b",
+                "to": "https://flolah.cloud",
+                "outcome": "recipient_goal_completed",
+                "message": "Recipient inspection returned"
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Share Company name with paired copilot",
+            "kind": "peer",
+            "instruction": "Share the Company name 'genosys' privately with the paired copilot. Use the shared Company name 'genosys' as the MCP search text in the paired tab, preserving the current transport selection. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud. Pause for field-change review before applying.",
+            "expected": "All delegated instructions return their recorded recipient outcomes, with the field change prepared for review in the paired tab.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "goal",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          },
+          {
+            "title": "Summarize outcomes",
+            "kind": "inspect",
+            "instruction": "Summarize what completed on each website, including the local Customer save and the returned peer result. Report any failure specifically; do not repeat the Save.",
+            "expected": "Summary of completed actions and any reported failures.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      },
+      "peerResult": {
+        "requestId": "dfe6c3c2-1a7b-4e21-b4d9-97b69f6f6508",
+        "taskId": "bab63e4f-ecb7-4046-973e-7bcccaaf97fb",
+        "sourceInstanceId": "74531090-e115-4ec8-a240-56eb6b238d26",
+        "contentRevision": 0,
+        "mode": "goal",
+        "status": "pending",
+        "from": "http://127.0.0.1:4194",
+        "to": "https://flolah.cloud",
+        "instruction": "Share the Company name 'genosys' privately with the paired copilot. Use the shared Company name 'genosys' as the MCP search text in the paired tab, preserving the current transport selection. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud. Pause for field-change review before applying.",
+        "expiresAt": 1792604629631
+      }
+    },
+    {
+      "panel": "recipient",
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "httpStatus": 200,
+      "goal": {
+        "id": "d62be95b-46b1-4b1d-a709-460f58666efb",
+        "status": "completed",
+        "current": 1,
+        "version": 6,
+        "message": "The search field has been filled with the company name 'genosys' as requested, and the current transport selection has been preserved. This outcome has been verified locally.",
+        "clarifications": 0,
+        "steps": [
+          {
+            "title": "Fill MCP Search Text",
+            "kind": "fill",
+            "instruction": "Fill the search field with the company name 'genosys' while preserving the current transport selection.",
+            "expected": "The search field should display 'genosys' as the input.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "63cd5339-1ced-49b0-b163-2f0060d265e7",
+                "status": "consumed",
+                "path": "/free-tools/mcp-universe/",
+                "responseMessage": "Fill the search field with the company name 'genosys' while preserving the current transport selection.\nReview these 1 proposed field change. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Search MCPs, publishers, capabilities…",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          }
+        ]
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/peer-check",
+      "httpStatus": 200,
+      "goal": {
+        "id": "f0056238-34cb-47b4-8883-75bd0e110a93",
+        "status": "ready",
+        "current": 4,
+        "version": 16,
+        "message": "The search field has been filled with the company name 'genosys' as requested, and the current transport selection has been preserved. This outcome has been verified locally.",
+        "clarifications": 0,
+        "steps": [
+          {
+            "title": "Fill Customer draft",
+            "kind": "fill",
+            "instruction": "Fill the Customer draft with Company name 'genosys', Contact email 'multisite.mvicc190@example.test', and Region 'Singapore'.",
+            "expected": "Fields filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c898bf8e-263e-4ae9-93db-80b0aa9fd1a3",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Fill the Customer draft with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "multisite.mvicc190@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer draft",
+            "kind": "save",
+            "instruction": "Save the Customer draft after review.",
+            "expected": "Customer draft saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "df8c3417-71b6-4e23-a48c-734d486395aa",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect the paired flolah.cloud MCP Universe tab",
+            "kind": "peer",
+            "instruction": "Inspect the paired flolah.cloud MCP Universe tab to retrieve its form structure.",
+            "expected": "The other browser returns its supported fields and navigation.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "inspect",
+            "status": "completed",
+            "effects": [
+              {
+                "peer": "10eb481d-a5af-471e-9abc-d6c645e75c1b",
+                "to": "https://flolah.cloud",
+                "outcome": "recipient_goal_completed",
+                "message": "Recipient inspection returned"
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Share Company name with paired copilot",
+            "kind": "peer",
+            "instruction": "Share the Company name 'genosys' privately with the paired copilot. Use the shared Company name 'genosys' as the MCP search text in the paired tab, preserving the current transport selection. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud. Pause for field-change review before applying.",
+            "expected": "All delegated instructions return their recorded recipient outcomes, with the field change prepared for review in the paired tab.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "goal",
+            "status": "completed",
+            "effects": [
+              {
+                "peer": "dfe6c3c2-1a7b-4e21-b4d9-97b69f6f6508",
+                "to": "https://flolah.cloud",
+                "outcome": "recipient_goal_completed",
+                "message": "The search field has been filled with the company name 'genosys' as requested, and the current transport selection has been preserved. This outcome has been verified locally."
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Summarize outcomes",
+            "kind": "inspect",
+            "instruction": "Summarize what completed on each website, including the local Customer save and the returned peer result. Report any failure specifically; do not repeat the Save.",
+            "expected": "Summary of completed actions and any reported failures.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      },
+      "peerResult": {
+        "requestId": "dfe6c3c2-1a7b-4e21-b4d9-97b69f6f6508",
+        "taskId": "bab63e4f-ecb7-4046-973e-7bcccaaf97fb",
+        "sourceInstanceId": "74531090-e115-4ec8-a240-56eb6b238d26",
+        "contentRevision": 0,
+        "mode": "goal",
+        "status": "completed",
+        "from": "http://127.0.0.1:4194",
+        "to": "https://flolah.cloud",
+        "instruction": "Share the Company name 'genosys' privately with the paired copilot. Use the shared Company name 'genosys' as the MCP search text in the paired tab, preserving the current transport selection. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud. Pause for field-change review before applying.",
+        "expiresAt": 1792604629631,
+        "result": {
+          "message": "The search field has been filled with the company name 'genosys' as requested, and the current transport selection has been preserved. This outcome has been verified locally.",
+          "clarifications": 0,
+          "interruptions": [],
+          "observed": {
+            "origin": "https://flolah.cloud",
+            "path": "/free-tools/mcp-universe/",
+            "forms": [],
+            "fields": [
+              {
+                "label": "Search MCPs, publishers, capabilities…",
+                "type": "text",
+                "required": false,
+                "constraints": {
+                  "maxlength": "120"
+                },
+                "key": "q"
+              },
+              {
+                "label": "transport",
+                "type": "select-one",
+                "required": false,
+                "key": "transport"
+              }
+            ],
+            "links": [],
+            "values": []
+          },
+          "steps": [
+            {
+              "title": "Fill MCP Search Text",
+              "kind": "fill",
+              "status": "completed",
+              "effects": [
+                {
+                  "actions": [
+                    {
+                      "label": "Search MCPs, publishers, capabilities…",
+                      "type": "fill",
+                      "outcome": "local_state_verified",
+                      "value": "genosys"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "httpStatus": 200,
+      "goal": {
+        "id": "f0056238-34cb-47b4-8883-75bd0e110a93",
+        "status": "blocked",
+        "current": 4,
+        "version": 18,
+        "message": "The Customer draft was successfully filled with the Company name 'genosys', Contact email 'multisite.mvicc190@example.test', and Region 'Singapore'. The Customer draft was then saved, and the outcome was reported as saved by the host. The paired flolah.cloud MCP Universe tab was inspected, and the search field was filled with the company name 'genosys' as requested, with the current transport selection preserved. No failures were reported during these actions.",
+        "clarifications": 0,
+        "steps": [
+          {
+            "title": "Fill Customer draft",
+            "kind": "fill",
+            "instruction": "Fill the Customer draft with Company name 'genosys', Contact email 'multisite.mvicc190@example.test', and Region 'Singapore'.",
+            "expected": "Fields filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c898bf8e-263e-4ae9-93db-80b0aa9fd1a3",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Fill the Customer draft with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "multisite.mvicc190@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer draft",
+            "kind": "save",
+            "instruction": "Save the Customer draft after review.",
+            "expected": "Customer draft saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "df8c3417-71b6-4e23-a48c-734d486395aa",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect the paired flolah.cloud MCP Universe tab",
+            "kind": "peer",
+            "instruction": "Inspect the paired flolah.cloud MCP Universe tab to retrieve its form structure.",
+            "expected": "The other browser returns its supported fields and navigation.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "inspect",
+            "status": "completed",
+            "effects": [
+              {
+                "peer": "10eb481d-a5af-471e-9abc-d6c645e75c1b",
+                "to": "https://flolah.cloud",
+                "outcome": "recipient_goal_completed",
+                "message": "Recipient inspection returned"
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Share Company name with paired copilot",
+            "kind": "peer",
+            "instruction": "Share the Company name 'genosys' privately with the paired copilot. Use the shared Company name 'genosys' as the MCP search text in the paired tab, preserving the current transport selection. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud. Pause for field-change review before applying.",
+            "expected": "All delegated instructions return their recorded recipient outcomes, with the field change prepared for review in the paired tab.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "goal",
+            "status": "completed",
+            "effects": [
+              {
+                "peer": "dfe6c3c2-1a7b-4e21-b4d9-97b69f6f6508",
+                "to": "https://flolah.cloud",
+                "outcome": "recipient_goal_completed",
+                "message": "The search field has been filled with the company name 'genosys' as requested, and the current transport selection has been preserved. This outcome has been verified locally."
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Summarize outcomes",
+            "kind": "inspect",
+            "instruction": "Summarize what completed on each website, including the local Customer save and the returned peer result. Report any failure specifically; do not repeat the Save.",
+            "expected": "Summary of completed actions and any reported failures.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          }
+        ]
+      }
+    },
+    {
+      "panel": "source",
+      "path": "/free-tools/digital-adoption/v1/goals/observe",
+      "httpStatus": 200,
+      "goal": {
+        "id": "f0056238-34cb-47b4-8883-75bd0e110a93",
+        "status": "completed",
+        "current": 5,
+        "version": 20,
+        "message": "On the website '/customer', the following actions were completed: The fields 'Company name', 'Contact email', and 'Region' were filled with the values 'genosys', 'multisite.mvicc190@example.test', and 'Singapore' respectively, and these changes were locally verified. Subsequently, the 'Save synthetic record' action was proposed and reported as saved by the host. Additionally, the peer inspection on 'flolah.cloud' confirmed that the search field was filled with the company name 'genosys' and the transport selection was preserved, which was also verified locally. No failures were reported during these actions.",
+        "clarifications": 0,
+        "steps": [
+          {
+            "title": "Fill Customer draft",
+            "kind": "fill",
+            "instruction": "Fill the Customer draft with Company name 'genosys', Contact email 'multisite.mvicc190@example.test', and Region 'Singapore'.",
+            "expected": "Fields filled with the provided values.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "c898bf8e-263e-4ae9-93db-80b0aa9fd1a3",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Fill the Customer draft with the provided values.\nReview these 3 proposed field changes. Nothing has been changed yet.",
+                "actions": [
+                  {
+                    "type": "fill",
+                    "label": "Company name",
+                    "value": "genosys",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Contact email",
+                    "value": "multisite.mvicc190@example.test",
+                    "outcome": "local_state_verified"
+                  },
+                  {
+                    "type": "fill",
+                    "label": "Region",
+                    "value": "Singapore",
+                    "outcome": "local_state_verified"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer draft",
+            "kind": "save",
+            "instruction": "Save the Customer draft after review.",
+            "expected": "Customer draft saved successfully.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "df8c3417-71b6-4e23-a48c-734d486395aa",
+                "status": "consumed",
+                "path": "/customer",
+                "responseMessage": "Confirm Save synthetic record separately. This submits the current host form and may save data.",
+                "actions": [
+                  {
+                    "type": "submit",
+                    "label": "Save synthetic record",
+                    "outcome": "host_reported_saved"
+                  }
+                ]
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Inspect the paired flolah.cloud MCP Universe tab",
+            "kind": "peer",
+            "instruction": "Inspect the paired flolah.cloud MCP Universe tab to retrieve its form structure.",
+            "expected": "The other browser returns its supported fields and navigation.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "inspect",
+            "status": "completed",
+            "effects": [
+              {
+                "peer": "10eb481d-a5af-471e-9abc-d6c645e75c1b",
+                "to": "https://flolah.cloud",
+                "outcome": "recipient_goal_completed",
+                "message": "Recipient inspection returned"
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Share Company name with paired copilot",
+            "kind": "peer",
+            "instruction": "Share the Company name 'genosys' privately with the paired copilot. Use the shared Company name 'genosys' as the MCP search text in the paired tab, preserving the current transport selection. Do not click Search, open a provider, navigate away, or submit anything on flolah.cloud. Pause for field-change review before applying.",
+            "expected": "All delegated instructions return their recorded recipient outcomes, with the field change prepared for review in the paired tab.",
+            "recipient": "d43f2697-a338-4dec-986f-29d0871591b1",
+            "mode": "goal",
+            "status": "completed",
+            "effects": [
+              {
+                "peer": "dfe6c3c2-1a7b-4e21-b4d9-97b69f6f6508",
+                "to": "https://flolah.cloud",
+                "outcome": "recipient_goal_completed",
+                "message": "The search field has been filled with the company name 'genosys' as requested, and the current transport selection has been preserved. This outcome has been verified locally."
+              }
+            ],
+            "attempts": 1
+          },
+          {
+            "title": "Summarize outcomes",
+            "kind": "inspect",
+            "instruction": "Summarize what completed on each website, including the local Customer save and the returned peer result. Report any failure specifically; do not repeat the Save.",
+            "expected": "Summary of completed actions and any reported failures.",
+            "status": "completed",
+            "effects": [
+              {
+                "proposalId": "62bdfafb-8e7c-4653-a22d-799e92da7e1f",
+                "status": "pending",
+                "path": "/customer",
+                "responseMessage": "The Customer draft was successfully filled with the Company name 'genosys', Contact email 'multisite.mvicc190@example.test', and Region 'Singapore'. The Customer draft was then saved, and the outcome was reported as saved by the host. The paired flolah.cloud MCP Universe tab was inspected, and the search field was filled with the company name 'genosys' as requested, with the current transport selection preserved. No failures were reported during these actions.",
+                "actions": []
+              }
+            ],
+            "attempts": 1
+          }
+        ]
+      }
+    }
+  ]
+}

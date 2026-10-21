@@ -1,0 +1,123 @@
+{
+  "createdAt": "2026-10-21T16:49:28.572Z",
+  "target": 98,
+  "successDefinition": "Passed / executed test cases; failures count, partial is not passed. First attempt and final retest shown separately. Deterministic regression, real-model browser journeys and service tests are reported separately. Do not claim full certification from weighted unit totals.",
+  "scope": [
+    "loopback 127.0.0.1:4194",
+    "public flolah.cloud opt-in preview",
+    "isolated Chrome profile; synthetic host values only; no public host submission"
+  ],
+  "deferred": [
+    "Real Safari/macOS/iOS, Android Chrome, full screen-reader matrix (previously user-deferred)",
+    "Fresh-owner real DNS/email onboarding: existing authorized registrations are reused; fixture onboarding is separate",
+    "Workflow qualification: real signed-in read-only engine runs passed (4068, 4069); current autonomous fill/Save engine policy was not expanded. Reviewed browser three-form Saves and isolated workflow write regression are separate evidence.",
+    "Real screen-sharing permission: synthetic capture regression only unless current interactive permission supplied"
+  ],
+  "suites": [
+    {
+      "id": "owner",
+      "script": "owner-workspace-browser",
+      "kind": "browser",
+      "env": "ADOPTION_BROWSER_EVIDENCE",
+      "coverage": "Owner tables, pagination, lazy fields, stale responses, tabs and website isolation"
+    },
+    {
+      "id": "dynamic",
+      "script": "dynamic-guidance-browser",
+      "kind": "browser",
+      "env": "ADOPTION_BROWSER_EVIDENCE",
+      "coverage": "Dynamic DOM targets, follow-ups, ambiguity, loaded picklists and staged option review"
+    },
+    {
+      "id": "controls",
+      "script": "feedback-controls-browser",
+      "kind": "browser",
+      "env": "ADOPTION_BROWSER_EVIDENCE",
+      "coverage": "Framework-controlled dynamic controls, modal scope, stale choices and duplicate clicks"
+    },
+    {
+      "id": "files",
+      "script": "visitor-files-live",
+      "kind": "live",
+      "env": "ADOPTION_BROWSER_EVIDENCE",
+      "coverage": "Five private transaction formats, OCR, knowledge citations, reviewed fill/reject and End task"
+    },
+    {
+      "id": "workspace",
+      "script": "workspace-browser",
+      "kind": "browser",
+      "env": "ADOPTION_BROWSER_EVIDENCE",
+      "coverage": "Chat, files, pairing, history, owner visibility, responsive layout and reconnect"
+    },
+    {
+      "id": "goals",
+      "script": "goals-browser",
+      "kind": "browser",
+      "env": "ADOPTION_BROWSER_EVIDENCE",
+      "coverage": "Plan, pause/resume, edit/reject, dependent controls, clarification and workflow context"
+    },
+    {
+      "id": "peers",
+      "script": "peer-goals-browser",
+      "kind": "browser",
+      "env": "ADOPTION_BROWSER_EVIDENCE",
+      "coverage": "Pair without documents, inspect, delegate, fill/save and await actual remote outcome"
+    },
+    {
+      "id": "pointer",
+      "script": "pointer-overlay-browser",
+      "kind": "browser",
+      "env": "ADOPTION_BROWSER_EVIDENCE",
+      "coverage": "Show versus execute, stale targets, reduced motion, scroll, lifecycle and no duplicate activation"
+    },
+    {
+      "id": "immediate",
+      "script": "immediate-browser",
+      "kind": "browser",
+      "env": "ADOPTION_IMMEDIATE_RUN",
+      "coverage": "Review validation, missing fields, lost Save acknowledgment, three-form WebSocket workflow, maps and onboarding UI"
+    },
+    {
+      "id": "choices",
+      "script": "choice-efficacy-live-browser",
+      "kind": "live",
+      "env": "CHOICE_EVIDENCE",
+      "coverage": "Typos, short forms, ambiguity, dynamic picklist, menu guidance, synthetic fields and reviewed Save"
+    },
+    {
+      "id": "continuity",
+      "script": "continuity-live-browser",
+      "kind": "live",
+      "env": "CONTINUITY_EVIDENCE",
+      "coverage": "Recent changes, reply references, fresh task, form navigation and unrelated new questions"
+    },
+    {
+      "id": "history",
+      "script": "conversation-live-browser",
+      "kind": "live",
+      "env": "HISTORY_EVIDENCE",
+      "coverage": "Minimize/modes, archive/restore/delete, refresh and user/website entitlement"
+    },
+    {
+      "id": "complex",
+      "script": "goals-live-browser",
+      "kind": "live",
+      "env": "GOAL_LIVE_EVIDENCE",
+      "coverage": "One prompt creates Customer, Note and Opportunity, handles clarification and public filters"
+    },
+    {
+      "id": "multisite",
+      "script": "multisite-goal-live",
+      "kind": "live",
+      "env": "ADOPTION_MULTISITE_EVIDENCE",
+      "coverage": "Customer Save then private public-MCP handoff, remote review, transport preserved and no public writes"
+    },
+    {
+      "id": "uploads",
+      "script": "upload-controls-browser",
+      "kind": "live",
+      "env": "ADOPTION_UPLOAD_EVIDENCE_DIR",
+      "coverage": "Task extraction, server cooldown, visitor shared-upload denial and End task on both domains"
+    }
+  ]
+}

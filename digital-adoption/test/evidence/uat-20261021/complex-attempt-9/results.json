@@ -1,0 +1,30 @@
+{
+  "at": "2026-10-21T16:46:15.185Z",
+  "scope": "Actual deployed registrations, goal planner, step planner and global active-maker/passive-checker route. Browser explicitly approves each local effect. No autonomous workflow grant or backend knowledge seeding.",
+  "publicWrites": 0,
+  "localWrites": 0,
+  "results": [
+    {
+      "id": "LIVE_GOAL01_COMPLEX_CUSTOMER_NOTE_OPPORTUNITY_SAVED_AND_READ_BACK",
+      "status": "failed",
+      "error": "Copilot review could not validate this request. Nothing was changed. Clarify the task before trying again. [COPILOT_REVIEW_FAILED]",
+      "screenshot": "LIVE_GOAL01_COMPLEX_CUSTOMER_NOTE_OPPORTUNITY_SAVED_AND_READ_BACK-failed.png"
+    }
+  ],
+  "traces": [
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/create",
+      "status": 503,
+      "error": "Copilot service temporarily unavailable",
+      "code": "COPILOT_REVIEW_FAILED"
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200
+    }
+  ]
+}

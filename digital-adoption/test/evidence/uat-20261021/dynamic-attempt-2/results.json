@@ -1,0 +1,42 @@
+{
+  "at": "2026-10-21T15:42:25.196Z",
+  "scope": "Existing loopback host, actual SDK/service/DOM/WebSocket; deterministic planner/knowledge/extractor and synthetic owner/policy fixtures, not real-model acceptance",
+  "results": [
+    {
+      "id": "D01_DYNAMIC_CARD_IN_INSERTED_RESPONSE_POINTS_WITHOUT_INPUT_WRITES",
+      "status": "passed",
+      "screenshot": "D01_DYNAMIC_CARD_IN_INSERTED_RESPONSE_POINTS_WITHOUT_INPUT_WRITES.png"
+    },
+    {
+      "id": "D02_TYPED_FOLLOWUP_REUSES_ENTITY_AND_POINTS_AT_CARD",
+      "status": "passed",
+      "screenshot": "D02_TYPED_FOLLOWUP_REUSES_ENTITY_AND_POINTS_AT_CARD.png"
+    },
+    {
+      "id": "D03_RERENDERED_RESULT_NEW_REVISION_AND_NO_MATCH_HONESTY",
+      "status": "passed",
+      "screenshot": "D03_RERENDERED_RESULT_NEW_REVISION_AND_NO_MATCH_HONESTY.png"
+    },
+    {
+      "id": "D04_DUPLICATE_RESULT_CLARIFIES",
+      "status": "passed",
+      "screenshot": "D04_DUPLICATE_RESULT_CLARIFIES.png"
+    },
+    {
+      "id": "D05_PARTIAL_QUERY_REVIEW_SELECTS_EXACT_ASYNC_RESULT_AND_HOST_STATE",
+      "status": "passed",
+      "screenshot": "D05_PARTIAL_QUERY_REVIEW_SELECTS_EXACT_ASYNC_RESULT_AND_HOST_STATE.png"
+    },
+    {
+      "id": "D06_STALE_CARD_TEXT_CANNOT_BE_POINTED_OR_EXECUTED",
+      "status": "passed",
+      "screenshot": "D06_STALE_CARD_TEXT_CANNOT_BE_POINTED_OR_EXECUTED.png"
+    },
+    {
+      "id": "D07_QUERY_OBSERVE_THEN_SEPARATE_SELECTION_REVIEW",
+      "status": "passed",
+      "screenshot": "D07_QUERY_OBSERVE_THEN_SEPARATE_SELECTION_REVIEW.png"
+    }
+  ],
+  "errors": []
+}

@@ -1,0 +1,12 @@
+{
+  "id": "owner",
+  "kind": "browser",
+  "attempt": 1,
+  "code": 0,
+  "timedOut": false,
+  "startedAt": "2026-10-21T15:41:26.473Z",
+  "endedAt": "2026-10-21T15:41:30.812Z",
+  "elapsedMs": 4339,
+  "log": "owner-attempt-1.log",
+  "evidence": "owner-attempt-1/"
+}

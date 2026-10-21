@@ -1,0 +1,12 @@
+{
+  "id": "dynamic",
+  "kind": "browser",
+  "attempt": 1,
+  "code": 1,
+  "timedOut": false,
+  "startedAt": "2026-10-21T15:41:30.816Z",
+  "endedAt": "2026-10-21T15:41:33.158Z",
+  "elapsedMs": 2342,
+  "log": "dynamic-attempt-1.log",
+  "evidence": "dynamic-attempt-1/"
+}

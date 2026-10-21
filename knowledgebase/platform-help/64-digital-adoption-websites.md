@@ -8,7 +8,7 @@ Website owners use **Free Tools → Digital Adoption → Website owner sign-in**
 
 Select the registration in the persistent header. **Find another website** searches domain, label or registration ID and pages through results. The selected registration and active tab survive refresh through the page URL. Seven tabs organize the console:
 
-- **Installation:** ownership/approval status, installation snippet, registration and verified email instructions.
+- **Installation:** ownership/approval status, installation snippet, registration and verified email instructions. Choose the installation lifetime (7, 30, 90 or 365 days) before issuing; the result shows its exact origin and expiry. Existing installation permissions are unchanged.
 - **Knowledge:** shared sources, processing status, retries, documents/recordings and explicitly approved public help pages. Only Ready sources can answer questions. Removing an indexed source is different from ending a visitor's private task.
 - **Website map:** owner-authorized observed pages, forms, fields and navigation. Expand a page and search its field/link list. Optional reviewed source hints remain distinct from live controls. A map is not a guarantee of full dynamic-state coverage or a saved task.
 
@@ -179,3 +179,11 @@ A receiving copilot acts against its own current page. The already-delivered ass
 Pairing expiry does not extend browser-session authorization. If an existing panel becomes unauthorized, reconnect it explicitly, then continue only unfinished work. Completed Save evidence stays in the goal and must not be replayed. Recovered goals retain earlier interruption codes and clarification counts in their final recorded summary; completion does not mean the first attempt was failure-free.
 
 Website observations are bounded and action-triggered. WebSocket protocol pings maintain transport liveness without a redundant browser heartbeat timer; they do not extend authorization. Analytics recurring timers start only after opt-in and stop on opt-out or widget destruction. These controls limit background work but do not establish capacity or latency on every device.
+
+### Task capacity and readiness freshness
+
+The Tasks panel shows effective website/server limits for one active task separately from the rolling visitor-session upload allowance. The default active task accepts four files; the larger session allowance does not permit all of those files in one task. Remove an unneeded task file before adding another, or end the task and explicitly start fresh. Removing files does not reset rolling upload or byte quotas. These notices reflect server-enforced limits; they do not increase capacity.
+
+Saved website maps remain available after 24 hours. Setup readiness requires a recently observed map and a current published-task test, so a stale saved map can still be visible while readiness asks for a new observation.
+
+**Summarize files** opens Chat with the private supporting passages so the result is visible immediately. File upload/removal remains in Tasks. This read-only summary does not fill or submit a website form.

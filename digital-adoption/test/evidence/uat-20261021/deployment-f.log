@@ -1,0 +1,60 @@
+Consistent independent database checkpoint retained on deployment host
+Scoped coordinator is healthy. Parser workers were not restarted; the captured gateway patch follows.
+Gateway keeps its captured parallel checker/provider base; only generic assignment guards changed. Parser workers and Admin model settings unchanged.
+{
+  "at": "2026-10-21T16:27:06.777981+00:00",
+  "status": "passed",
+  "release": "20261021-uat-f",
+  "containers": {
+    "flolah-adoption-adoption-1": {
+      "imageId": "sha256:c2db7bf8bc3d39d3ce27e465753856d594296121fdc9812fb00cbac42783615e",
+      "image": "flolah-digital-adoption:20261021-uat-f",
+      "startedAt": "2026-10-21T16:26:53.583377432Z",
+      "running": true,
+      "health": null
+    },
+    "flolah-adoption-adoption-model-gateway-1": {
+      "imageId": "sha256:9d2e66851aa3e149d3be2ed28ca50a4ea7e0203876a1c1c4f88057ed4bb485ac",
+      "image": "flolah-digital-adoption:20261021-uat-f-gateway",
+      "startedAt": "2026-10-21T16:27:05.496706416Z",
+      "running": true,
+      "health": null
+    },
+    "flolah-adoption-adoption-worker-1": {
+      "imageId": "sha256:7133f95194a1df02b59712754b2b95a254528fa9ece34c4994647497dc052fe0",
+      "image": "flolah-digital-adoption:20261018-owner-workspace-c",
+      "startedAt": "2026-10-18T10:43:45.697774407Z",
+      "running": true,
+      "health": null
+    },
+    "flolah-adoption-adoption-worker-2": {
+      "imageId": "sha256:7133f95194a1df02b59712754b2b95a254528fa9ece34c4994647497dc052fe0",
+      "image": "flolah-digital-adoption:20261018-owner-workspace-c",
+      "startedAt": "2026-10-18T10:43:45.830124253Z",
+      "running": true,
+      "health": null
+    },
+    "agent-os-backend-1": {
+      "imageId": "sha256:3d9498c3fdc27f3b73413e703061830e1af88676f340434d1583af275503c3c4",
+      "image": "agent-os-backend:adoption-help-20261021-uat-c",
+      "startedAt": "2026-10-21T16:17:09.12787954Z",
+      "running": true,
+      "health": "healthy"
+    },
+    "agent-os-frontend-1": {
+      "imageId": "sha256:bf6aaf311d995a76f6ee4591d21241e07566954a26d83e380ae2d39c8ba54cb0",
+      "image": "agent-os-frontend:adoption-20261019-immediate-j",
+      "startedAt": "2026-10-19T11:40:25.829931383Z",
+      "running": true,
+      "health": "healthy"
+    }
+  },
+  "healthUrlsPassed": 4,
+  "parserWorkersPreserved": true,
+  "sharedCheckerSettingReadOnly": {
+    "enabled": true,
+    "checkerMode": "platform_inactive",
+    "checkerMaxTokens": 2048
+  },
+  "gatewayPatch": "Generic review contract overlay; parent provider/runtime image and shared settings preserved"
+}

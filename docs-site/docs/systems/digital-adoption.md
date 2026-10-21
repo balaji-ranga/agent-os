@@ -10,7 +10,7 @@ Digital Adoption embeds a copilot on a registered website. It can guide visitors
 
 Open **Free Tools → Digital Adoption** and choose website owner sign-in. Owner email sign-in is separate from a Flolah account session. Existing Flolah accounts can also open account management; platform administrators have **Admin → Digital Adoption websites** for the platform-wide list.
 
-Select the website registration in the persistent header. **Find another website** searches registrations. The seven tabs are **Installation**, **Knowledge**, **Website map**, **Teaching**, **Visitor groups**, **Analytics** and **Settings**. Each tab belongs to that selection; switching clears earlier results. Search, page sizes and Previous/Next controls keep large lists manageable. Advanced forms and editors open on demand.
+Select the website registration in the persistent header. **Find another website** searches registrations. The seven tabs are **Installation**, **Knowledge**, **Website map**, **Teaching**, **Visitor groups**, **Analytics** and **Settings**. Each tab belongs to that selection; switching clears earlier results. Search, page sizes and Previous/Next controls keep large lists manageable. Advanced forms and editors open on demand. Installation lifetime is selected before issuing a snippet (7, 30, 90 or 365 days); the management API validates whole days from 1 to 365 and retains the existing 365-day default when omitted. Issuance displays the exact origin and expiry and never enables additional visitor permissions.
 
 Knowledge and teaching are indexed by website registration and audience. The owner email grants access; it does not pool every website's knowledge. Two registrations on the same domain remain separate. Website maps describe observed structure and optional reviewed hints, not every dynamic state or proof of a completed task.
 
@@ -160,3 +160,11 @@ A receiving copilot acts against its own current page. The already-delivered ass
 Pairing expiry does not extend browser-session authorization. If an existing panel becomes unauthorized, reconnect it explicitly, then continue only unfinished work. Completed Save evidence stays in the goal and must not be replayed. Recovered goals retain earlier interruption codes and clarification counts in their final recorded summary; completion does not mean the first attempt was failure-free.
 
 Website observations are bounded and action-triggered. WebSocket protocol pings maintain transport liveness without a redundant browser heartbeat timer; they do not extend authorization. Analytics recurring timers start only after opt-in and stop on opt-out or widget destruction. These controls limit background work but do not establish capacity or latency on every device.
+
+### Task capacity and readiness freshness
+
+The Tasks panel shows effective website/server limits for one active task separately from the rolling visitor-session upload allowance. The default active task accepts four files; the larger session allowance does not permit all of those files in one task. Remove an unneeded task file before adding another, or end the task and explicitly start fresh. Removing files does not reset rolling upload or byte quotas. These notices reflect server-enforced limits; they do not increase capacity.
+
+Saved website maps remain available after 24 hours. Setup readiness requires a recently observed map and a current published-task test, so a stale saved map can still be visible while readiness asks for a new observation.
+
+**Summarize files** opens Chat with the private supporting passages so the result is visible immediately. File upload/removal remains in Tasks. This read-only summary does not fill or submit a website form.

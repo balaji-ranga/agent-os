@@ -1,0 +1,15 @@
+TRACE /free-tools/digital-adoption/v1/goals/status 200 
+TRACE /free-tools/digital-adoption/v1/goals/create 503 COPILOT_REVIEW_FAILED
+TRACE /free-tools/digital-adoption/v1/goals/status 200 
+file:///C:/Users/balaj/projects/agents/agent-os/.worktrees/digital-adoption/digital-adoption/test/goals-live-browser.mjs:11
+async function waitReviewedPlan(){const ready=await Promise.race([panel.locator('#goal-start').waitFor({timeout:210000}).then(()=>true),panel.locator('#error-banner').waitFor({timeout:210000}).then(()=>false),panel.locator('#goal-progress h2').filter({hasText:/needs information/}).waitFor({timeout:210000}).then(()=>{throw new Error('Unexpected clarification: '+(traces.at(-1)?.goal?.message||'requested values were supplied'));})]);if(!ready)throw new Error(await panel.locator('#error-message').innerText());}
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                  ^
+
+Error: Copilot review could not validate this request. Nothing was changed. Clarify the task before trying again. [COPILOT_REVIEW_FAILED]
+    at waitReviewedPlan (file:///C:/Users/balaj/projects/agents/agent-os/.worktrees/digital-adoption/digital-adoption/test/goals-live-browser.mjs:11:451)
+    at async runGoal (file:///C:/Users/balaj/projects/agents/agent-os/.worktrees/digital-adoption/digital-adoption/test/goals-live-browser.mjs:12:161)
+    at async file:///C:/Users/balaj/projects/agents/agent-os/.worktrees/digital-adoption/digital-adoption/test/goals-live-browser.mjs:35:17
+    at async check (file:///C:/Users/balaj/projects/agents/agent-os/.worktrees/digital-adoption/digital-adoption/test/goals-live-browser.mjs:29:116)
+    at async file:///C:/Users/balaj/projects/agents/agent-os/.worktrees/digital-adoption/digital-adoption/test/goals-live-browser.mjs:33:3
+
+Node.js v22.22.0

@@ -103,12 +103,14 @@ export function createControlPlane(repository,authority,{dns=resolveTxt,clock=Da
    website.status='approved';websites.set(id,website);record(actor,'approve',id);return {status:'approved'};
    });
   },
-  activate(actor,id){
+  activate(actor,id,{lifetimeDays=365}={}){
    return repository.transaction(()=>{
    const website=owned(actor,id);if(!website.verified||website.status!=='approved')reject();
-   const installation=authority.registerApproved({embeddingId:website.id,origins:[website.origin],expiresAt:clock()+365*24*3_600_000,visitorUploads:false});
+   if(!Number.isInteger(lifetimeDays)||lifetimeDays<1||lifetimeDays>365)throw new Error('Installation lifetime must be a whole number from 1 to 365 days.');
+   const expiresAt=clock()+lifetimeDays*24*3_600_000;
+   const installation=authority.registerApproved({embeddingId:website.id,origins:[website.origin],expiresAt,visitorUploads:false});
    website.installations.push(installation.installationId);websites.set(id,website);record(actor,'issue_installation',id);
-   return {embeddingId:website.id,...installation};
+   return {embeddingId:website.id,...installation,expiresAt};
    });
   },
   suspend(actor,id){

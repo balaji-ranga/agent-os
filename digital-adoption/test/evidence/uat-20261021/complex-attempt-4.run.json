@@ -1,0 +1,12 @@
+{
+  "id": "complex",
+  "kind": "live",
+  "attempt": 4,
+  "code": 1,
+  "timedOut": false,
+  "startedAt": "2026-10-21T16:28:10.808Z",
+  "endedAt": "2026-10-21T16:31:42.403Z",
+  "elapsedMs": 211595,
+  "log": "complex-attempt-4.log",
+  "evidence": "complex-attempt-4/"
+}

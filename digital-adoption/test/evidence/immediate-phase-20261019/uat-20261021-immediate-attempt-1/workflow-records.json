@@ -1,0 +1,107 @@
+{
+  "marker": "Immediate WS 1792596855535",
+  "commands": [
+    {
+      "action": "inspect",
+      "commandId": "0441b2e6-76cb-4ac5-b597-d5764afebf57",
+      "status": "succeeded",
+      "outcome": "effect_observed"
+    },
+    {
+      "action": "fill",
+      "commandId": "a13c1f31-175c-44aa-95a0-2d5457dfdf69",
+      "status": "succeeded",
+      "outcome": "local_state_verified"
+    },
+    {
+      "action": "submit",
+      "commandId": "44d66a75-d1dc-497c-907d-8af596d8a97d",
+      "status": "succeeded",
+      "outcome": "host_reported_saved"
+    },
+    {
+      "action": "navigate",
+      "commandId": "97fefebc-7c76-4f15-932e-1616cd8dae23",
+      "status": "succeeded",
+      "outcome": "local_state_verified"
+    },
+    {
+      "action": "inspect",
+      "commandId": "9581fe10-9080-45ed-805b-f17b7df938dd",
+      "status": "succeeded",
+      "outcome": "effect_observed"
+    },
+    {
+      "action": "fill",
+      "commandId": "cddf3eba-964c-4387-87f6-07374d02e2b1",
+      "status": "succeeded",
+      "outcome": "local_state_verified"
+    },
+    {
+      "action": "submit",
+      "commandId": "b4b9c1a4-90c0-4ec3-805f-7548270c92b1",
+      "status": "succeeded",
+      "outcome": "host_reported_saved"
+    },
+    {
+      "action": "navigate",
+      "commandId": "08cdfb8c-7fdd-4470-b4ad-58920af8db23",
+      "status": "succeeded",
+      "outcome": "local_state_verified"
+    },
+    {
+      "action": "inspect",
+      "commandId": "4ef8d1be-bc73-4428-a38d-f199ea909631",
+      "status": "succeeded",
+      "outcome": "effect_observed"
+    },
+    {
+      "action": "fill",
+      "commandId": "a5e082ef-de42-4fe5-ab59-9def9697eb3a",
+      "status": "succeeded",
+      "outcome": "local_state_verified"
+    },
+    {
+      "action": "submit",
+      "commandId": "b0c7c8ec-02e0-489e-b39a-a78c526e8be2",
+      "status": "succeeded",
+      "outcome": "host_reported_saved"
+    }
+  ],
+  "records": [
+    {
+      "id": "bb046b80-47ae-42f5-a4f4-0ec7f4d82c1e",
+      "path": "/customer",
+      "operationId": "317fb9b2-bac1-440c-b517-cd5372743b0d",
+      "values": {
+        "company_name": "Immediate WS 1792596855535",
+        "contact_email": "immediate.workflow@example.test",
+        "region": "Singapore"
+      },
+      "createdAt": "2026-10-21T15:34:15.742Z"
+    },
+    {
+      "id": "4ae40407-f669-480d-ae16-fbb63a2d113b",
+      "path": "/note",
+      "operationId": "3c19444f-c30c-4d1b-812e-cd70da0fed77",
+      "values": {
+        "title": "Followup Immediate WS 1792596855535",
+        "body": "Follow up on the opportunity for Immediate WS 1792596855535"
+      },
+      "createdAt": "2026-10-21T15:34:16.219Z"
+    },
+    {
+      "id": "72059357-c1ac-4b9c-b884-8de4debbf65e",
+      "path": "/opportunity",
+      "operationId": "8bd6adb2-9e06-4ec5-90de-d6e95eeb8293",
+      "values": {
+        "opportunity_name": "Growth Immediate WS 1792596855535",
+        "amount": "12500",
+        "currency": "USD"
+      },
+      "createdAt": "2026-10-21T15:34:16.651Z"
+    }
+  ],
+  "verification": "Independent existing host records page; shared synthetic marker references, not a CRM foreign-key claim.",
+  "policy": "isolated authorizeEffect adapter; real Flolah runner separately regressed"
+}

@@ -1,0 +1,8 @@
+{
+  "at": "2026-10-21T15:34:48.213Z",
+  "scope": "Actual deployed registrations, goal planner, step planner and global active-maker/passive-checker route. Browser explicitly approves each local effect. No autonomous workflow grant or backend knowledge seeding.",
+  "publicWrites": 0,
+  "localWrites": 0,
+  "results": [],
+  "traces": []
+}

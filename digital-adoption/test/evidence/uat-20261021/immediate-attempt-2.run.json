@@ -1,0 +1,12 @@
+{
+  "id": "immediate",
+  "kind": "browser",
+  "attempt": 2,
+  "code": 0,
+  "timedOut": false,
+  "startedAt": "2026-10-21T16:02:09.059Z",
+  "endedAt": "2026-10-21T16:04:08.138Z",
+  "elapsedMs": 119079,
+  "log": "immediate-attempt-2.log",
+  "evidence": "../immediate-phase-20261019/uat-20261021-immediate-attempt-2/"
+}

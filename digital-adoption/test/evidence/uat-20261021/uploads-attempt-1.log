@@ -1,0 +1,16 @@
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+locator.waitFor: Timeout 60000ms exceeded.
+Call log:
+[2m  - waiting for locator('iframe[data-adoption-widget]').contentFrame().locator('#private-task')[22m
+
+    at C:\Users\balaj\projects\agents\agent-os\.worktrees\digital-adoption\digital-adoption\test\upload-controls-browser.mjs:16:123 {
+  log: [
+    "  - waiting for locator('iframe[data-adoption-widget]').contentFrame().locator('#private-task')"
+  ],
+  name: 'TimeoutError'
+}
+
+Node.js v22.22.0

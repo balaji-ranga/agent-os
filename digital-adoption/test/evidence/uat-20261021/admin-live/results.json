@@ -1,0 +1,52 @@
+{
+  "at": "2026-10-21T15:48:17.215Z",
+  "scope": "Signed-in Admin and user-authorized CEO view; read-only website checks, failed offline preflight and successful local-only workflow inspection. Only the explicitly approved seven-day local installation was issued. No model, Action Policy or website permission changes.",
+  "results": [
+    {
+      "id": "ADMIN01_PLATFORM_MENU_AND_SELECTED_WEBSITE",
+      "status": "passed",
+      "detail": "Platform administrator opened Digital Adoption websites and the selected approved loopback registration through its Manage website link."
+    },
+    {
+      "id": "ADMIN02_SAVED_MAP_VISIBLE",
+      "status": "passed",
+      "detail": "Website map showed seven persisted observed pages, download, paging and description controls; no import or rescan was claimed."
+    },
+    {
+      "id": "ADMIN03_TEACHING_LIST_VISIBLE",
+      "status": "passed",
+      "detail": "Ten persisted teaching workflows displayed with draft/published/disabled versions; no publication was changed."
+    },
+    {
+      "id": "ADMIN04_VISITOR_GROUP_EMPTY_STATE",
+      "status": "passed",
+      "detail": "Selected website shows zero saved groups and explicitly states that offline panels receive no queued commands. Revocation/extension mutations are covered by isolated regression, not this read-only check."
+    },
+    {
+      "id": "ADMIN05_ANALYTICS_SCOPED_REPORT",
+      "status": "passed",
+      "detail": "Consent-required scoped report loads 12 structural events, page/form/cohort sections and JSON export; it explicitly distinguishes browser IDs and submission attempts from people/business saves. No analytics setting changed."
+    },
+    {
+      "id": "ADMIN06_EXISTING_PERMISSIONS_VISIBLE",
+      "status": "passed",
+      "detail": "Local attachments, visitor-confirmed pairing and linked workflows are enabled; shared knowledge requires authenticated management. Permissions, identity scope and Action Policies were left unchanged."
+    },
+    {
+      "id": "ADMIN07_USER_WORKFLOW_EXPIRED_GROUP_FAILS_CLOSED",
+      "status": "passed",
+      "detail": "Authorized user view ran existing read-only UAT Copilot Inspect. Run 4067 failed immediately with COPILOT_GROUP_ACCESS_DENIED for the unavailable saved group. No task was delivered or queued; this is a negative access-boundary check, not successful online execution.",
+      "runId": 4067
+    },
+    {
+      "id": "ADMIN08_LIVE_WORKFLOW_REACHES_UNPAIRED_LOCAL_COPILOT",
+      "status": "passed",
+      "detail": "Run 4068 completed via the real Flolah engine and connector. Local browser reported 1 form, 3 required fields and 4 navigation links, effect_observed, zero host writes. Evidence: ../workflow-live/run-4068.png and recipient.json."
+    },
+    {
+      "id": "ADMIN09_SAVED_TARGET_GROUP_REUSED_AFTER_COORDINATOR_RESTART",
+      "status": "passed",
+      "detail": "Run 4069 reused the published read-only definition and same saved target group after coordinator/gateway restart. No new pairing, link code or group ID update between runs. Recipient and server both completed; zero host writes. Evidence: ../workflow-live/run-4069.png and recipient.json."
+    }
+  ]
+}

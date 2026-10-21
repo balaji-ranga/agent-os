@@ -1,0 +1,37 @@
+FAIL C01_NATIVE_TYPO_REVIEW_REJECT_NO_EFFECT page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:4194/customer
+Call log:
+[2m  - navigating to "http://127.0.0.1:4194/customer", waiting until "load"[22m
+
+FAIL C02_NATIVE_SHORT_FORM_REVIEW_AND_APPLY_WITHOUT_SAVE page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:4194/customer
+Call log:
+[2m  - navigating to "http://127.0.0.1:4194/customer", waiting until "load"[22m
+
+FAIL C03_AMBIGUOUS_SHORT_FORM_ASKS_WITHOUT_CHANGE page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:4194/customer
+Call log:
+[2m  - navigating to "http://127.0.0.1:4194/customer", waiting until "load"[22m
+
+FAIL C04_UNSUPPORTED_OPTION_DOES_NOT_PICK_NEAREST_ARBITRARILY page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:4194/customer
+Call log:
+[2m  - navigating to "http://127.0.0.1:4194/customer", waiting until "load"[22m
+
+FAIL C05_DYNAMIC_LOADED_PICKLIST_CORRELATES_TYPO_AND_SHORT_FORM page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:4194/customer
+Call log:
+[2m  - navigating to "http://127.0.0.1:4194/customer", waiting until "load"[22m
+
+PASS C06_PUBLIC_OTHER_DOMAIN_SHORT_FORM_MAPPING
+FAIL C07_SAME_FORM_GOAL_CORRECTS_CHOICE_AND_SAVES_AFTER_REVIEWS page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:4194/customer
+Call log:
+[2m  - navigating to "http://127.0.0.1:4194/customer", waiting until "load"[22m
+
+FAIL C08_VISIBLE_MENU_ITEM_POINTING_DOES_NOT_CLICK page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:4194/customer
+Call log:
+[2m  - navigating to "http://127.0.0.1:4194/customer", waiting until "load"[22m
+
+FAIL C09_DUMMY_VALUES_ALL_APPLICABLE_FIELDS_REVIEW_THEN_AWAIT_SAVE page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:4194/customer
+Call log:
+[2m  - navigating to "http://127.0.0.1:4194/customer", waiting until "load"[22m
+
+FAIL C10_GUIDE_ONLY_DUMMY_REQUEST_EXPLAINS_HIGHLIGHTS_WITHOUT_FILLING page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:4194/customer
+Call log:
+[2m  - navigating to "http://127.0.0.1:4194/customer", waiting until "load"[22m
+

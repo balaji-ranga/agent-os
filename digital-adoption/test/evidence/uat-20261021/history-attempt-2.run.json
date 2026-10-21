@@ -1,0 +1,12 @@
+{
+  "id": "history",
+  "kind": "live",
+  "attempt": 2,
+  "code": 0,
+  "timedOut": false,
+  "startedAt": "2026-10-21T16:21:34.644Z",
+  "endedAt": "2026-10-21T16:21:42.210Z",
+  "elapsedMs": 7566,
+  "log": "history-attempt-2.log",
+  "evidence": "history-attempt-2/"
+}

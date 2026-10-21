@@ -1,0 +1,280 @@
+{
+  "at": "2026-10-21T16:22:11.541Z",
+  "scope": "Actual deployed registrations, goal planner, step planner and global active-maker/passive-checker route. Browser explicitly approves each local effect. No autonomous workflow grant or backend knowledge seeding.",
+  "publicWrites": 0,
+  "localWrites": 0,
+  "results": [
+    {
+      "id": "LIVE_GOAL01_COMPLEX_CUSTOMER_NOTE_OPPORTUNITY_SAVED_AND_READ_BACK",
+      "status": "failed",
+      "error": "The proposal does not match every explicitly requested field and value. Please prepare a new review.",
+      "screenshot": "LIVE_GOAL01_COMPLEX_CUSTOMER_NOTE_OPPORTUNITY_SAVED_AND_READ_BACK-failed.png"
+    }
+  ],
+  "traces": [
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/status",
+      "status": 200
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/create",
+      "status": 200,
+      "goal": {
+        "id": "95c9dfbe-cf47-42db-96d7-2bb2264e9377",
+        "status": "draft",
+        "current": 0,
+        "version": 1,
+        "message": "The plan has been revised to address the feedback and ensure all requested operations are included without unnecessary navigation or confirmations.",
+        "steps": [
+          {
+            "title": "Fill Customer form",
+            "kind": "fill",
+            "instruction": "Set Company name to \"Goal UAT 1792599703319\", Contact email to \"goal.uat@example.test\", and Region to \"Singapore\". Ensure not to create duplicates or change other records.",
+            "expected": "Fields are filled with the provided values.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save Customer",
+            "kind": "save",
+            "instruction": "Propose to save the customer record while ensuring no duplicates are created or other records are changed.",
+            "expected": "Confirmation prompt for saving the customer appears.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Navigate to Note form",
+            "kind": "navigate",
+            "instruction": "Open the Note form at /note",
+            "expected": "Note form is displayed.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Fill Note form",
+            "kind": "fill",
+            "instruction": "Set Title to \"Followup Goal UAT 1792599703319\" and Body to \"Follow up with Goal UAT 1792599703319 about their renewal\".",
+            "expected": "Fields are filled with the provided values.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save Note",
+            "kind": "save",
+            "instruction": "Propose to save the note record.",
+            "expected": "Confirmation prompt for saving the note appears.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Navigate to Opportunity form",
+            "kind": "navigate",
+            "instruction": "Open the Opportunity form at /opportunity",
+            "expected": "Opportunity form is displayed.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Fill Opportunity form",
+            "kind": "fill",
+            "instruction": "Set Opportunity name to \"Renewal Goal UAT 1792599703319\", Amount to 12500, and Currency to USD.",
+            "expected": "Fields are filled with the provided values.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save Opportunity",
+            "kind": "save",
+            "instruction": "Propose to save the opportunity record while ensuring no duplicates are created or other records are changed.",
+            "expected": "Confirmation prompt for saving the opportunity appears.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/control",
+      "status": 200,
+      "goal": {
+        "id": "95c9dfbe-cf47-42db-96d7-2bb2264e9377",
+        "status": "ready",
+        "current": 0,
+        "version": 2,
+        "message": "The plan has been revised to address the feedback and ensure all requested operations are included without unnecessary navigation or confirmations.",
+        "steps": [
+          {
+            "title": "Fill Customer form",
+            "kind": "fill",
+            "instruction": "Set Company name to \"Goal UAT 1792599703319\", Contact email to \"goal.uat@example.test\", and Region to \"Singapore\". Ensure not to create duplicates or change other records.",
+            "expected": "Fields are filled with the provided values.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save Customer",
+            "kind": "save",
+            "instruction": "Propose to save the customer record while ensuring no duplicates are created or other records are changed.",
+            "expected": "Confirmation prompt for saving the customer appears.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Navigate to Note form",
+            "kind": "navigate",
+            "instruction": "Open the Note form at /note",
+            "expected": "Note form is displayed.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Fill Note form",
+            "kind": "fill",
+            "instruction": "Set Title to \"Followup Goal UAT 1792599703319\" and Body to \"Follow up with Goal UAT 1792599703319 about their renewal\".",
+            "expected": "Fields are filled with the provided values.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save Note",
+            "kind": "save",
+            "instruction": "Propose to save the note record.",
+            "expected": "Confirmation prompt for saving the note appears.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Navigate to Opportunity form",
+            "kind": "navigate",
+            "instruction": "Open the Opportunity form at /opportunity",
+            "expected": "Opportunity form is displayed.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Fill Opportunity form",
+            "kind": "fill",
+            "instruction": "Set Opportunity name to \"Renewal Goal UAT 1792599703319\", Amount to 12500, and Currency to USD.",
+            "expected": "Fields are filled with the provided values.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save Opportunity",
+            "kind": "save",
+            "instruction": "Propose to save the opportunity record while ensuring no duplicates are created or other records are changed.",
+            "expected": "Confirmation prompt for saving the opportunity appears.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      }
+    },
+    {
+      "path": "/free-tools/digital-adoption/v1/goals/next",
+      "status": 200,
+      "goal": {
+        "id": "95c9dfbe-cf47-42db-96d7-2bb2264e9377",
+        "status": "blocked",
+        "current": 0,
+        "version": 4,
+        "message": "The proposal does not match every explicitly requested field and value. Please prepare a new review.",
+        "steps": [
+          {
+            "title": "Fill Customer form",
+            "kind": "fill",
+            "instruction": "Set Company name to \"Goal UAT 1792599703319\", Contact email to \"goal.uat@example.test\", and Region to \"Singapore\". Ensure not to create duplicates or change other records.",
+            "expected": "Fields are filled with the provided values.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 1
+          },
+          {
+            "title": "Save Customer",
+            "kind": "save",
+            "instruction": "Propose to save the customer record while ensuring no duplicates are created or other records are changed.",
+            "expected": "Confirmation prompt for saving the customer appears.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Navigate to Note form",
+            "kind": "navigate",
+            "instruction": "Open the Note form at /note",
+            "expected": "Note form is displayed.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Fill Note form",
+            "kind": "fill",
+            "instruction": "Set Title to \"Followup Goal UAT 1792599703319\" and Body to \"Follow up with Goal UAT 1792599703319 about their renewal\".",
+            "expected": "Fields are filled with the provided values.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save Note",
+            "kind": "save",
+            "instruction": "Propose to save the note record.",
+            "expected": "Confirmation prompt for saving the note appears.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Navigate to Opportunity form",
+            "kind": "navigate",
+            "instruction": "Open the Opportunity form at /opportunity",
+            "expected": "Opportunity form is displayed.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Fill Opportunity form",
+            "kind": "fill",
+            "instruction": "Set Opportunity name to \"Renewal Goal UAT 1792599703319\", Amount to 12500, and Currency to USD.",
+            "expected": "Fields are filled with the provided values.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          },
+          {
+            "title": "Save Opportunity",
+            "kind": "save",
+            "instruction": "Propose to save the opportunity record while ensuring no duplicates are created or other records are changed.",
+            "expected": "Confirmation prompt for saving the opportunity appears.",
+            "status": "pending",
+            "effects": [],
+            "attempts": 0
+          }
+        ]
+      },
+      "proposal": {
+        "id": "f97db763-6786-4283-86f7-8e2396d25fb0",
+        "message": "The proposal does not match every explicitly requested field and value. Please prepare a new review.",
+        "actions": []
+      }
+    }
+  ]
+}

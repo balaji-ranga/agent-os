@@ -8,7 +8,7 @@ const { chromium } = await import(
 const origin = process.env.ADOPTION_FIXTURE_ORIGIN || "http://127.0.0.1:4194";
 if (origin !== "http://127.0.0.1:4194")
   throw new Error("This synthetic write test is loopback-only");
-const out = new URL("../.local/feedback-controls/", import.meta.url);
+const out = new URL(process.env.ADOPTION_BROWSER_EVIDENCE||"../.local/feedback-controls/", import.meta.url);
 await mkdir(out, { recursive: true });
 const browser = await chromium.launch({ channel: "chrome", headless: true }),
   context = await browser.newContext({

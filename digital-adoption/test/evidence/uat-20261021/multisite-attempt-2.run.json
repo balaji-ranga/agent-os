@@ -1,0 +1,12 @@
+{
+  "id": "multisite",
+  "kind": "live",
+  "attempt": 2,
+  "code": 0,
+  "timedOut": false,
+  "startedAt": "2026-10-21T16:22:11.765Z",
+  "endedAt": "2026-10-21T16:24:11.013Z",
+  "elapsedMs": 119248,
+  "log": "multisite-attempt-2.log",
+  "evidence": "multisite-attempt-2/"
+}

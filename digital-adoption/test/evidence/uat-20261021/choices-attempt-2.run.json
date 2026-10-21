@@ -1,0 +1,12 @@
+{
+  "id": "choices",
+  "kind": "live",
+  "attempt": 2,
+  "code": 1,
+  "timedOut": false,
+  "startedAt": "2026-10-21T16:19:28.740Z",
+  "endedAt": "2026-10-21T16:20:34.315Z",
+  "elapsedMs": 65575,
+  "log": "choices-attempt-2.log",
+  "evidence": "choices-attempt-2/"
+}

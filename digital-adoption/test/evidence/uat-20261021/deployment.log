@@ -1,0 +1,60 @@
+Consistent independent database checkpoint retained on deployment host
+Scoped coordinator is healthy. Parser workers were not restarted; the captured gateway patch follows.
+Coordinator-only patch healthy. Gateway, platform and parser workers were not restarted.
+{
+  "at": "2026-10-21T15:54:57.443215+00:00",
+  "status": "passed",
+  "release": "20261021-uat-a",
+  "containers": {
+    "flolah-adoption-adoption-1": {
+      "imageId": "sha256:e4032cc67bfe8fef789548f6db92d84f0b4e95c5da20e80b40b49c5a6bb0427e",
+      "image": "flolah-digital-adoption:20261021-uat-a",
+      "startedAt": "2026-10-21T15:54:56.135083159Z",
+      "running": true,
+      "health": null
+    },
+    "flolah-adoption-adoption-model-gateway-1": {
+      "imageId": "sha256:36fcc112e0db00d01f7c4bc9070881e638451204ec43830eff07cbe3ed24eb23",
+      "image": "flolah-digital-adoption:20261020-review-gates-m-gateway",
+      "startedAt": "2026-10-20T12:58:06.821643465Z",
+      "running": true,
+      "health": null
+    },
+    "flolah-adoption-adoption-worker-1": {
+      "imageId": "sha256:7133f95194a1df02b59712754b2b95a254528fa9ece34c4994647497dc052fe0",
+      "image": "flolah-digital-adoption:20261018-owner-workspace-c",
+      "startedAt": "2026-10-18T10:43:45.697774407Z",
+      "running": true,
+      "health": null
+    },
+    "flolah-adoption-adoption-worker-2": {
+      "imageId": "sha256:7133f95194a1df02b59712754b2b95a254528fa9ece34c4994647497dc052fe0",
+      "image": "flolah-digital-adoption:20261018-owner-workspace-c",
+      "startedAt": "2026-10-18T10:43:45.830124253Z",
+      "running": true,
+      "health": null
+    },
+    "agent-os-backend-1": {
+      "imageId": "sha256:97f364f612f21d8eb2870a6b883d68ca71a668048caa97f8c18f4d1b637cb262",
+      "image": "agent-os-backend:adoption-help-20261021-uat-a",
+      "startedAt": "2026-10-21T15:52:29.508447786Z",
+      "running": true,
+      "health": "healthy"
+    },
+    "agent-os-frontend-1": {
+      "imageId": "sha256:bf6aaf311d995a76f6ee4591d21241e07566954a26d83e380ae2d39c8ba54cb0",
+      "image": "agent-os-frontend:adoption-20261019-immediate-j",
+      "startedAt": "2026-10-19T11:40:25.829931383Z",
+      "running": true,
+      "health": "healthy"
+    }
+  },
+  "healthUrlsPassed": 4,
+  "parserWorkersPreserved": true,
+  "sharedCheckerSettingReadOnly": {
+    "enabled": true,
+    "checkerMode": "platform_inactive",
+    "checkerMaxTokens": 2048
+  },
+  "gatewayPatch": "Unchanged captured gateway"
+}
