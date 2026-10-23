@@ -37,6 +37,7 @@ import {
 import { applyIdentityNameToAgentEntry } from '../../../scripts/lib/openclaw-whatsapp-from-prefix.js';
 import { getAgentMcpBridgeGrants, MCP_AGENT_BRIDGE_TOOLS } from './agent-mcp-tool-grants.js';
 import { syncAgentSkillsToWorkspace } from './agent-skills.js';
+import {assertOpenClawAgentId} from '../../../scripts/lib/openclaw-config-contract.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_TEMPLATES = join(__dirname, '..', '..', '..', 'openclaw-workspace-templates');
@@ -72,7 +73,9 @@ function tenantGrantsForAgent(ownerUserId, agentId) {
 
 /** Runtime OpenClaw agent id for a CEO + logical agent. */
 export function tenantOpenClawAgentId(ceoUserId, baseOpenClawId) {
-  return `t-${sanitizeIdPart(ceoUserId)}--${sanitizeIdPart(baseOpenClawId)}`;
+  // Reject before creating workspaces or publishing the shared runtime roster.
+  // Never truncate: that could collide with another owner's scoped identity.
+  return assertOpenClawAgentId(`t-${sanitizeIdPart(ceoUserId)}--${sanitizeIdPart(baseOpenClawId)}`,'tenant runtime agent ID');
 }
 
 /** OpenClaw sessions_send / sessions_history key for a CEO-scoped agent. */

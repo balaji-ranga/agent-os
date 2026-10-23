@@ -1,6 +1,7 @@
 # OpenClaw gateway + Playwright Chromium for browser automation.
 # Rebuild after: openclaw-entrypoint.sh, openclaw-agent-db-preflight.mjs, configure-openclaw-docker.js,
 # ensure-openclaw-gateway-config.js, restore-openclaw-channel-routing.js,
+# scripts/lib/openclaw-config-contract.js and the installed-schema/seed gates,
 # content-tools plugins / browser CDP / extension relay.
 # Entrypoint always: ensure gateway.chatCompletions → configure → restore channels.
 # Chat 404 while container healthy = wiped openclaw.json gateway section — run
@@ -30,6 +31,7 @@ RUN mkdir -p "${PLAYWRIGHT_BROWSERS_PATH}" \
 
 WORKDIR /opt/agent-os
 COPY . .
+RUN node deploy/scripts/validate-openclaw-seeds.mjs
 RUN find /opt/agent-os/openclaw-extensions -type d -exec chmod 755 {} + && find /opt/agent-os/openclaw-extensions -type f -exec chmod 644 {} +
 
 # Audit belongs in dependency/security checks, not a production rollout network gate.

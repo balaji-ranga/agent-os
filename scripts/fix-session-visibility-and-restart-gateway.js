@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+const {writeValidatedOpenClawConfig} = require('./lib/openclaw-config-contract.js');
 /**
  * Set tools.sessions.visibility to "all" in ~/.openclaw/openclaw.json
  * so direct OpenClaw session chat can use sessions_history without forbidden.
@@ -20,6 +21,6 @@ const cfg = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 if (!cfg.tools) cfg.tools = {};
 if (!cfg.tools.sessions) cfg.tools.sessions = {};
 cfg.tools.sessions.visibility = 'all';
-fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2), 'utf8');
+writeValidatedOpenClawConfig(configPath, cfg);
 console.log('Updated', configPath, 'with tools.sessions.visibility=all');
 console.log('Restart the OpenClaw gateway so the config takes effect (e.g. .\\scripts\\stop-and-restart-all.ps1).');

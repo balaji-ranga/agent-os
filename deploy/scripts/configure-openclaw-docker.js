@@ -15,6 +15,7 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
 import { resolveOpenClawDir } from '../../scripts/lib/openclaw-paths.js';
+import {pinFlolahAgentRuntime,writeValidatedOpenClawConfig} from '../../scripts/lib/openclaw-config-contract.js';
 import { ensureChannelRoutingOnConfig } from '../../scripts/lib/openclaw-channel-routing.js';
 import {
   applyWhatsAppFromPrefixToChannel,
@@ -871,9 +872,10 @@ if (config.channels?.whatsapp?.accounts) {
       applyIdentityNameToAgentEntry(entry);
     }
   }
+  pinFlolahAgentRuntime(config);
   const serializedConfig = `${JSON.stringify(config, null, 2)}\n`;
   if (serializedConfig.trim() !== originalConfigText.trim()) {
-    writeFileSync(CONFIG_PATH, serializedConfig, 'utf8');
+    writeValidatedOpenClawConfig(CONFIG_PATH,config);
     console.log('Updated', CONFIG_PATH);
   } else {
     console.log('Configuration already current; preserving file revision', CONFIG_PATH);

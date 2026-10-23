@@ -1,3 +1,4 @@
+import {writeValidatedOpenClawConfig,addOpenClawAllowedTools} from './lib/openclaw-config-contract.js';
 /**
  * Set up Job Applicant workflow agents and tools without modifying existing agent templates.
  *
@@ -162,6 +163,7 @@ function mergeOpenClawConfig(overrides) {
       entry.workspace = toSlash(workspacePath);
       entry.tools = entry.tools || {};
       entry.tools.allow = allow;
+      delete entry.tools.alsoAllow;
       entry.tools.deny = entry.tools.deny || ['image'];
     }
   }
@@ -175,10 +177,7 @@ function mergeOpenClawConfig(overrides) {
     }
   }
 
-  if (!Array.isArray(config.tools.allow)) config.tools.allow = [];
-  for (const name of contentToolNames) {
-    if (!config.tools.allow.includes(name)) config.tools.allow.push(name);
-  }
+  if (config.tools.allow?.length || config.tools.alsoAllow?.length) addOpenClawAllowedTools(config.tools,contentToolNames);
 
   for (const a of config.agents.list) {
     const aid = (a.id || '').toLowerCase();
@@ -186,10 +185,11 @@ function mergeOpenClawConfig(overrides) {
     if (jobAllow) {
       a.tools = a.tools || {};
       a.tools.allow = [...jobAllow];
+      delete a.tools.alsoAllow;
       a.tools.deny = a.tools.deny || ['image'];
       continue;
     }
-    const allow = Array.isArray(a.tools?.allow) ? [...a.tools.allow] : [...contentToolNames];
+    const allow = Array.isArray(a.tools?.allow) ? [...a.tools.allow] : (a.tools?.profile || a.tools?.alsoAllow ? [] : [...contentToolNames]);
     for (const [toolName, agentsSpec] of Object.entries(overrides)) {
       if (
         agentsSpec === 'All' ||
@@ -199,10 +199,10 @@ function mergeOpenClawConfig(overrides) {
       }
     }
     a.tools = a.tools || {};
-    a.tools.allow = allow;
+    addOpenClawAllowedTools(a.tools,allow);
   }
 
-  writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8');
+  writeValidatedOpenClawConfig(CONFIG_PATH, config);
   console.log('Updated', CONFIG_PATH);
 }
 

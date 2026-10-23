@@ -1,0 +1,15 @@
+{
+  "suite": "post-deployment CEO chat",
+  "results": [
+    {
+      "agent": "t-ceo-bala--balserve",
+      "passed": true,
+      "latencyMs": 7772
+    },
+    {
+      "agent": "t-ceo-senthil-loganathan-480e8f--balserve",
+      "passed": true,
+      "latencyMs": 3637
+    }
+  ]
+}

@@ -54,6 +54,7 @@ deploy/.admin-password.txt
 *.bak
 
 # Local dumps, probes, and copies of live snapshots — never commit
+.local/
 tmp/
 backend/tmp/
 # Local one-off probes/patches (often talk to VPS or mint sessions) — never commit

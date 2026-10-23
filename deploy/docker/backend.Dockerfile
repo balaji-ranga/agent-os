@@ -12,6 +12,7 @@
 # IBKR Summary UI (/ibkr-summary) + clear transactional APIs (ibkr-transactional-clear.js),
 # bridge-order-events ingest (ingest API → ibkr_order_events; W3 journal/notify on EOD),
 # openclaw-config-safe.js (never strip gateway.chatCompletions / tools / plugins / browser),
+# scripts/lib/openclaw-config-contract.js (reject invalid IDs/tool/plugin policies before shared writes),
 # agent budgets + token_usage ledger + org leaf members (org-members routes, Agent View APIs),
 # verify-budgets-org-members / test-org-member-delegation-e2e / verify-agent-view-api scripts,
 # tests/ (regression-full / regression-minimal + ceo-session for VPS regression).

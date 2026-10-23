@@ -11,11 +11,13 @@
  * Run from openclaw or backend container, or host with OPENCLAW_CONFIG_PATH set.
  *   node deploy/scripts/ensure-openclaw-gateway-config.js
  *
- * Exit 0 when parseable (best-effort repair). Exit 1 only if config missing/unreadable.
+ * Reject unsafe publication contracts; the installed-runtime schema gate runs
+ * after this repair and before startup/deployment.
  */
 import { existsSync, readFileSync, writeFileSync, readdirSync, statSync } from 'fs';
 import { dirname, join } from 'path';
 import { resolveOpenClawDir } from '../../scripts/lib/openclaw-paths.js';
+import {pinFlolahAgentRuntime,writeValidatedOpenClawConfig} from '../../scripts/lib/openclaw-config-contract.js';
 
 const OPENCLAW_DIR = resolveOpenClawDir();
 const CONFIG_PATH = process.env.OPENCLAW_CONFIG_PATH || join(OPENCLAW_DIR, 'openclaw.json');
@@ -243,15 +245,13 @@ if (!String(sessionStore.agentId || '').trim()) {
   repairs.push('agents.defaults.sessionStore.agentId');
 }
 
+pinFlolahAgentRuntime(config);
 const after = JSON.stringify(config, null, 2) + '\n';
 if (after.trim() !== originalConfigText.trim()) {
-  writeFileSync(CONFIG_PATH, after, 'utf8');
+  writeValidatedOpenClawConfig(CONFIG_PATH,config);
 }
-try {
-  writeFileSync(CONFIG_PATH + '.last-good', after, 'utf8');
-} catch {
-  /* best-effort */
-}
+// A parseable file is not a known-good runtime config. Only the installed
+// schema gate records .runtime-validated.last-good after successful validation.
 
 const afterKeys = Object.keys(config).sort().join(',');
 console.log(

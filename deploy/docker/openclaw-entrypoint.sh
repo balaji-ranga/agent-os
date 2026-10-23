@@ -213,6 +213,9 @@ run_gateway_with_platform_llm_watch() {
     # BYOK sync can seed auth-only SQLite stores before OpenClaw's first use.
     # Initialize only that known shape, offline, using the installed canonical API.
     node "${AGENT_OS_ROOT}/deploy/scripts/openclaw-agent-db-preflight.mjs"
+    # Validate IDs, tool/plugin policy and the complete installed runtime schema.
+    # A JSON parse or parity-only check must never certify a config as healthy.
+    node "${AGENT_OS_ROOT}/deploy/scripts/validate-openclaw-config.mjs" --record-last-good
     echo "[openclaw] Starting gateway on port ${GATEWAY_PORT}..."
     openclaw gateway --port "${GATEWAY_PORT}" &
     local gpid=$!

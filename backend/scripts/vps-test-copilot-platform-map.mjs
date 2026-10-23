@@ -5,7 +5,14 @@ import {writeFileSync,readFileSync,existsSync,unlinkSync} from 'node:fs';
 if(process.env.COPILOT_VPS_ACCEPTANCE!=='1')throw new Error('COPILOT_VPS_ACCEPTANCE=1 required');
 const {getDb}=await import('../src/db/schema.js');const {createSession}=await import('../src/services/auth/session.js');
 const db=getDb(),uiFile='/tmp/copilot-map-ui-acceptance.json',base='https://login.flolah.cloud';
-function cleanup(ids){assert(Array.isArray(ids)&&ids.length===2&&ids.every(id=>/^copilot-map-acceptance-[ab]-[0-9a-f-]+$/.test(id)),'Only exact synthetic fixture users may be removed');db.transaction(()=>{for(const id of ids){
+const {readOpenClawConfigSafe,writeOpenClawConfigSafe}=await import('../src/services/openclaw-config-safe.js');
+function cleanup(ids){assert(Array.isArray(ids)&&ids.length===2&&ids.every(id=>/^copilot-map-acceptance-[ab]-[0-9a-f-]+$/.test(id)),'Only exact synthetic fixture users may be removed');
+ const config=readOpenClawConfigSafe(),owned=id=>ids.some(owner=>String(id).startsWith('t-'+owner+'--'));
+ if(config.agents?.entries)for(const id of Object.keys(config.agents.entries))if(owned(id))delete config.agents.entries[id];
+ if(Array.isArray(config.agents?.list))config.agents.list=config.agents.list.filter(row=>!owned(row.id));
+ if(Array.isArray(config.bindings))config.bindings=config.bindings.filter(row=>!owned(row.agentId));
+ writeOpenClawConfigSafe(config);
+ db.transaction(()=>{for(const id of ids){
  // A service restart can seed defaults for fixture users; remove children first.
  for(const [table,field] of [['ui_copilot_sessions','owner'],['ui_copilot_recipes','owner'],['efficiency_preferences','owner_user_id'],['efficiency_calls','owner_user_id'],['token_usage','owner_user_id'],['model_route_events','owner_user_id'],['master_data_rows','owner_user_id'],['master_data_tables','owner_user_id'],['ceo_org_strategy','owner_user_id'],['promotion_events','user_id'],['user_agents','user_id'],['platform_sessions','user_id']])if(db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(table))db.prepare(`DELETE FROM ${table} WHERE ${field}=?`).run(id);
  db.prepare('DELETE FROM platform_users WHERE id=?').run(id);
@@ -14,7 +21,9 @@ if(process.argv.includes('--cleanup-ui')){
  const config=JSON.parse(readFileSync(uiFile));assert(config.users.every(id=>/^copilot-map-acceptance-[ab]-[0-9a-f-]+$/.test(id)));cleanup(config.users);unlinkSync(uiFile);db.close();console.log('Exact UI acceptance users/sessions removed.');process.exit(0);
 }
 const keep=process.argv.includes('--prepare-ui');if(keep&&existsSync(uiFile))throw new Error('Existing UI fixture must be cleaned up first');
-const suffix=randomUUID(),users=['a','b'].map(k=>`copilot-map-acceptance-${k}-${suffix}`),tokens={};let checks=0;
+// Keep even the longest fixture agent (workflowbuilder) inside the runtime's
+// 64-character limit. This is an opaque test identity, never a gateway alias.
+const suffix=randomUUID().replaceAll('-','').slice(0,16),users=['a','b'].map(k=>`copilot-map-acceptance-${k}-${suffix}`),tokens={};let checks=0;
 const check=(a,b,label)=>{assert.deepEqual(a,b,label);checks++};
 async function call(path,who=users[0],method='GET',body){const r=await fetch(base+'/api/ui-copilot'+path,{method,signal:AbortSignal.timeout(60000),headers:{'content-type':'application/json',...(who?{authorization:`Bearer ${tokens[who]}`}:{})},...(body===undefined?{}:{body:JSON.stringify(body)})});return{status:r.status,data:await r.json()};}
 let passed=false;

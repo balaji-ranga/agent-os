@@ -1,0 +1,1 @@
+{"suite":"installed-openclaw-schema","passed":6,"failed":0,"results":[{"name":"valid recovered configuration","passed":true},{"name":"overlong agent ID","passed":true},{"name":"invalid tool profile","passed":true},{"name":"unknown enabled plugin","passed":true},{"name":"installed-only schema mismatch","passed":true},{"name":"source configuration unchanged","passed":true}]}

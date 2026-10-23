@@ -9,6 +9,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { resolveOpenClawDir } from './lib/openclaw-paths.js';
 import { ensureChannelRoutingOnConfig } from './lib/openclaw-channel-routing.js';
+import {pinFlolahAgentRuntime,writeValidatedOpenClawConfig} from './lib/openclaw-config-contract.js';
 import {
   REQUIRED_GLOBAL_CONTENT_TOOLS,
   COO_CONTENT_TOOLS_ALLOW,
@@ -478,7 +479,8 @@ const routing = ensureChannelRoutingOnConfig(config, OPENCLAW_DIR);
 if (routing.restored) {
   console.log('Restored channels/bindings from agent-os-channel-routing.json');
 }
-writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8');
+pinFlolahAgentRuntime(config);
+writeValidatedOpenClawConfig(CONFIG_PATH,config);
 console.log(
   'Written agents.list + model.primary:',
   DEFAULT_MODEL,

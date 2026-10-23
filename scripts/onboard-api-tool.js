@@ -1,3 +1,4 @@
+import {writeValidatedOpenClawConfig,addOpenClawAllowedTools} from './lib/openclaw-config-contract.js';
 /**
  * Onboard a new API as an OpenClaw tool for select agents or all agents.
  *
@@ -133,18 +134,17 @@ function main() {
   ];
   for (const a of config.agents?.list || []) {
     const aid = (a.id || '').toLowerCase();
-    const allow = Array.isArray(a.tools?.allow) ? [...a.tools.allow] : [...contentToolNames];
+    const allow = Array.isArray(a.tools?.allow) ? [...a.tools.allow] : (a.tools?.profile || a.tools?.alsoAllow ? [] : [...contentToolNames]);
     const agentsSpec = overrides[toolName];
     if (agentsSpec === 'All' || (Array.isArray(agentsSpec) && agentsSpec.includes(aid))) {
       if (!allow.includes(toolName)) allow.push(toolName);
     }
     a.tools = a.tools || {};
-    a.tools.allow = allow;
+    addOpenClawAllowedTools(a.tools,allow);
   }
-  if (!Array.isArray(config.tools?.allow)) config.tools = config.tools || {};
-  config.tools.allow = config.tools.allow || [];
-  if (!config.tools.allow.includes(toolName)) config.tools.allow.push(toolName);
-  writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8');
+  config.tools = config.tools || {};
+  if (config.tools.allow?.length || config.tools.alsoAllow?.length) addOpenClawAllowedTools(config.tools,[toolName]);
+  writeValidatedOpenClawConfig(CONFIG_PATH, config);
   console.log('Updated', CONFIG_PATH, '— added', toolName, 'to applicable agents.');
   console.log('Restart the OpenClaw gateway: npx openclaw gateway --port 18789');
 }

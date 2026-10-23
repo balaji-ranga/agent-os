@@ -1,3 +1,4 @@
+import {writeValidatedOpenClawConfig} from './lib/openclaw-config-contract.js';
 /**
  * Ensure ~/.openclaw/openclaw.json has models.providers.ollama.models as an array
  * of model objects (OpenClaw expects objects, not strings). Run: node scripts/fix-openclaw-ollama-models.js
@@ -32,7 +33,7 @@ if (!ollama) {
 
 if (!Array.isArray(ollama.models) || ollama.models.length === 0 || !isValidModelEntry(ollama.models[0])) {
   ollama.models = [modelObject('llama3.2')];
-  writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
+  writeValidatedOpenClawConfig(configPath, config);
   console.log('Fixed: set models.providers.ollama.models to [{ id: "llama3.2", ... }]');
 } else {
   console.log('OK: ollama.models already valid', ollama.models.map((m) => m.id));

@@ -78,7 +78,7 @@ fail() {
 }
 
 command -v node >/dev/null 2>&1 || fail "node is required on PATH"
-command -v openclaw >/dev/null 2>&1 || fail "openclaw CLI is required (npm install -g openclaw@latest)"
+command -v openclaw >/dev/null 2>&1 || fail "Pinned OpenClaw CLI is required (npm install -g openclaw@2026.8.2)"
 
 cd "${AGENT_OS_ROOT}"
 
@@ -165,6 +165,8 @@ if [[ -f "${AGENT_OS_ROOT}/deploy/scripts/verify-openclaw-parity.js" ]]; then
 fi
 
 echo ""
+run_step "16. Validate the installed OpenClaw runtime schema"
+node "${AGENT_OS_ROOT}/deploy/scripts/validate-openclaw-config.mjs" --record-last-good || fail "OpenClaw runtime schema rejected generated config"
 echo "Done. Bootstrap complete."
 if [[ "$DOCKER_MODE" -eq 0 ]]; then
   echo "Start the gateway:  openclaw gateway --port 18789"

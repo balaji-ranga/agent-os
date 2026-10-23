@@ -1,6 +1,6 @@
 # Set up OpenClaw from scratch with all Agent OS agents, skills, and config.
 # Run from agent-os: .\scripts\setup-openclaw-from-scratch.ps1
-# Prereq: Node.js 18+, OpenClaw CLI (npm install -g openclaw@latest). Optional: backend .env (OPENCLAW_WORKSPACE_PATH, etc.).
+# Prereq: Node.js 22+, pinned OpenClaw CLI (npm install -g openclaw@2026.8.2). Optional: backend .env.
 # AgentExchange / workflow A2A is platform (backend API + UI), not OpenClaw openclaw.json config
 # (publish, deny_all/whitelist, Test agent, async/callback, Admin A2A invocation logs).
 
@@ -58,6 +58,9 @@ Write-Host "`n=== 9. OpenClaw agent dirs (sessions) ===" -ForegroundColor Cyan
 node scripts/ensure-openclaw-agent-dirs.js
 if ($LASTEXITCODE -ne 0) { Pop-Location; exit $LASTEXITCODE }
 
+Write-Host "`n=== 10. Installed OpenClaw schema validation ===" -ForegroundColor Cyan
+node deploy/scripts/validate-openclaw-config.mjs --record-last-good
+if ($LASTEXITCODE -ne 0) { Pop-Location; exit $LASTEXITCODE }
 Pop-Location
 
 Write-Host "`nDone. Start the gateway:" -ForegroundColor Green

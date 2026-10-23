@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+const {writeValidatedOpenClawConfig} = require('./lib/openclaw-config-contract.js');
 /**
  * One-off: (1) Add tools.sessions.visibility=agent to ~/.openclaw/openclaw.json
  *         (2) Copy TechResearcher and ExpenseManager SOUL.md from templates to live workspaces.
@@ -19,7 +20,7 @@ if (!fs.existsSync(configPath)) {
 const cfg = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 if (!cfg.tools) cfg.tools = {};
 cfg.tools.sessions = { visibility: 'agent' };
-fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2), 'utf8');
+writeValidatedOpenClawConfig(configPath, cfg);
 console.log('Updated', configPath, 'with tools.sessions.visibility=agent');
 
 // 2) Copy SOUL.md to live workspaces (paths from typical openclaw config)

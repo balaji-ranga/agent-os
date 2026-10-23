@@ -54,6 +54,9 @@ if [[ "${SKIP_OPENCLAW_CHAT_REPAIR:-0}" != "1" ]]; then
   fi
 fi
 
+# Required after any requested repair and even in check-only mode.
+docker compose exec -T openclaw node /opt/agent-os/deploy/scripts/validate-openclaw-config.mjs
+
 STRUCT=$(
   docker compose exec -T openclaw node -e '
 const fs = require("fs");

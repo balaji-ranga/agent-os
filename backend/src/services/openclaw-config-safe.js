@@ -4,11 +4,13 @@
  */
 import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'fs';
 import { getOpenClawConfigPath, getOpenClawDir } from '../config/openclaw-paths.js';
+import {assertOpenClawConfigContract,pinFlolahAgentRuntime,writeValidatedOpenClawConfig} from '../../../scripts/lib/openclaw-config-contract.js';
 
 /** Sections that must not disappear when Agent OS rewrites openclaw.json. */
 const CRITICAL_SECTIONS = ['gateway', 'tools', 'plugins', 'browser'];
 let configBatchDepth = 0;
 let pendingOpenClawConfig = null;
+let configBatchFailed = false;
 
 /** True when an AgentSystem model slug still points at this models.providers key. */
 function providerStillReferenced(config, providerKey) {
@@ -184,6 +186,8 @@ export function writeOpenClawConfigSafe(config) {
     );
     return prev || merged;
   }
+  pinFlolahAgentRuntime(merged);
+  assertOpenClawConfigContract(merged);
   if (configBatchDepth > 0) {
     pendingOpenClawConfig = merged;
     return merged;
@@ -197,16 +201,7 @@ export function writeOpenClawConfigSafe(config) {
   // no-op hot reloads and the associated heap/context churn.
   if (existing === serialized) return merged;
 
-  const tempPath = `${path}.tmp-${process.pid}`;
-  writeFileSync(tempPath, serialized, { encoding: 'utf8', mode: 0o600 });
-  try {
-    renameSync(tempPath, path);
-  } catch (error) {
-    try { unlinkSync(tempPath); } catch (_) {}
-    // Windows development environments may not atomically replace an existing
-    // file. Keep the production atomic path and retain a portable fallback.
-    writeFileSync(path, serialized, { encoding: 'utf8', mode: 0o600 });
-  }
+  writeValidatedOpenClawConfig(path,merged);
   return merged;
 }
 
@@ -234,15 +229,20 @@ export function writeOpenClawTextFileIfChanged(path, content, { mode = 0o600 } =
  */
 export function withOpenClawConfigBatch(callback) {
   if (typeof callback !== 'function') throw new TypeError('callback is required');
+  if (configBatchDepth === 0) configBatchFailed = false;
   configBatchDepth += 1;
   try {
     return callback();
+  } catch (error) {
+    configBatchFailed = true;
+    throw error;
   } finally {
     configBatchDepth -= 1;
     if (configBatchDepth === 0 && pendingOpenClawConfig) {
       const finalConfig = pendingOpenClawConfig;
       pendingOpenClawConfig = null;
-      writeOpenClawConfigSafe(finalConfig);
+      if (!configBatchFailed) writeOpenClawConfigSafe(finalConfig);
     }
+    if (configBatchDepth === 0) configBatchFailed = false;
   }
 }

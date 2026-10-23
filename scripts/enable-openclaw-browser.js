@@ -1,3 +1,4 @@
+import {writeValidatedOpenClawConfig,addOpenClawAllowedTools} from './lib/openclaw-config-contract.js';
 /**
  * Enable OpenClaw browser automation in ~/.openclaw/openclaw.json:
  * - browser.enabled + defaultProfile openclaw
@@ -49,23 +50,20 @@ if (config.browser.headless == null && !process.env.DISPLAY) {
 if (config.browser.noSandbox == null) config.browser.noSandbox = true;
 
 if (!config.tools) config.tools = {};
-if (!Array.isArray(config.tools.allow)) config.tools.allow = [];
-if (!config.tools.allow.includes('browser')) config.tools.allow.push('browser');
+if (config.tools.allow?.length || config.tools.alsoAllow?.length) addOpenClawAllowedTools(config.tools,['browser']);
 
 if (!config.skills) config.skills = {};
 if (!config.skills.entries) config.skills.entries = {};
 config.skills.entries['browser-automation'] = { enabled: true, ...config.skills.entries['browser-automation'] };
 
-if (Array.isArray(config.agents?.list)) {
-  for (const a of config.agents.list) {
+if (config.agents) {
+  for (const a of (config.agents.list || Object.values(config.agents.entries || {}))) {
     a.tools = a.tools || {};
-    const allow = Array.isArray(a.tools.allow) ? a.tools.allow : [];
-    if (!allow.includes('browser')) allow.push('browser');
-    a.tools.allow = allow;
+    addOpenClawAllowedTools(a.tools,['browser']);
   }
 }
 
 if (!existsSync(OPENCLAW_DIR)) mkdirSync(OPENCLAW_DIR, { recursive: true });
-writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8');
+writeValidatedOpenClawConfig(CONFIG_PATH, config);
 console.log('Enabled browser automation in', CONFIG_PATH);
 console.log('Restart gateway: openclaw gateway --port 18789');

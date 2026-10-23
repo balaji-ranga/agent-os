@@ -1,3 +1,4 @@
+import {writeValidatedOpenClawConfig} from './lib/openclaw-config-contract.js';
 /**
  * Ensure the transitional backend/internal-sidecar TOOLS_API_KEY exists.
  *
@@ -85,7 +86,7 @@ function ensureOpenClawConfig(_key, internalApiUrl) {
       'http://127.0.0.1:3001';
   }
   config.plugins.entries['agent-os-content-tools'] = entry;
-  writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
+  writeValidatedOpenClawConfig(configPath, config);
   console.log('Removed legacy shared content-tools apiKey from openclaw.json');
 }
 

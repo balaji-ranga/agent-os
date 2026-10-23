@@ -221,6 +221,13 @@ fi
 # shellcheck disable=SC2086
 docker compose build "${BUILD_ARGS[@]}" $SERVICES
 
+# Validate the newly built gateway against the mounted configuration before
+# replacing any running service. Startup also gates fresh/generated config.
+if [[ " $SERVICES " == *" openclaw "* ]]; then
+  docker compose run --rm -T --no-deps --entrypoint node openclaw \
+    /opt/agent-os/deploy/scripts/validate-openclaw-config.mjs --if-present
+fi
+
 # Remove obsolete DeepSeek cloud API proxy container (replaced by Ollama)
 docker rm -f agent-os-deepseek-1 2>/dev/null || true
 

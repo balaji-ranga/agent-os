@@ -1,3 +1,4 @@
+import {writeValidatedOpenClawConfig} from './openclaw-config-contract.js';
 /**
  * Persist Slack/WhatsApp channel routing outside the parts of openclaw.json that
  * configure/apply scripts rewrite. Prevents deploy drift (creds on disk, no accounts/bindings).
@@ -129,7 +130,7 @@ export function restoreChannelRoutingIntoOpenClawJson(opts = {}) {
   }
   const serializedConfig = `${JSON.stringify(config, null, 2)}\n`;
   if (serializedConfig.trim() !== originalConfigText.trim()) {
-    writeFileSync(configPath, serializedConfig, 'utf8');
+    writeValidatedOpenClawConfig(configPath, config);
   }
   return {
     ok: true,

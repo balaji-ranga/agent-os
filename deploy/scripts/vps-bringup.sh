@@ -41,6 +41,9 @@ echo "==> Sync openclaw.json tokens from deploy/.env (skip full init to keep res
 docker compose run --rm --no-deps --entrypoint node openclaw deploy/scripts/configure-openclaw-docker.js || \
   docker compose run --rm --no-deps --entrypoint node openclaw /opt/agent-os/deploy/scripts/configure-openclaw-docker.js || true
 
+echo "==> Validate restored config using the installed runtime schema"
+docker compose run --rm -T --no-deps --entrypoint node openclaw /opt/agent-os/deploy/scripts/validate-openclaw-config.mjs
+
 echo "==> Start stack"
 docker compose up -d
 

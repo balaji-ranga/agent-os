@@ -1,3 +1,4 @@
+import {writeValidatedOpenClawConfig} from './lib/openclaw-config-contract.js';
 /**
  * Sync Agent OS OpenClaw extensions from the repo image into ~/.openclaw/extensions.
  *
@@ -166,7 +167,7 @@ function ensurePluginLoadPaths() {
 
   const serializedConfig = `${JSON.stringify(config, null, 2)}\n`;
   if (serializedConfig.trim() !== originalConfigText.trim()) {
-    writeFileSync(configPath, serializedConfig, 'utf8');
+    writeValidatedOpenClawConfig(configPath, config);
   }
   console.log('Ensured plugins.load.paths + enabled entries:', config.plugins.load.paths);
 }

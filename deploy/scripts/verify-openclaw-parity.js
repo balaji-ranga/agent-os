@@ -6,6 +6,7 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { resolveOpenClawDir, resolveOpenClawConfigPath } from '../../scripts/lib/openclaw-paths.js';
+import {assertOpenClawConfigContract} from '../../scripts/lib/openclaw-config-contract.js';
 import {
   REQUIRED_GLOBAL_CONTENT_TOOLS,
   BROWSER_SESSION_CONTENT_TOOLS,
@@ -67,6 +68,7 @@ if (!existsSync(CONFIG_PATH)) {
 let config;
 try {
   config = JSON.parse(readFileSync(CONFIG_PATH, 'utf8'));
+  assertOpenClawConfigContract(config);
 } catch (e) {
   console.error('Invalid openclaw.json:', e.message);
   process.exit(1);

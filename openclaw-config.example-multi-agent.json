@@ -2,13 +2,29 @@
   "gateway": {
     "mode": "local",
     "port": 18789,
-    "http": { "endpoints": { "chatCompletions": { "enabled": true } } }
+    "http": {
+      "endpoints": {
+        "chatCompletions": {
+          "enabled": true
+        }
+      }
+    }
   },
   "agents": {
-    "defaults": { "model": { "primary": "anthropic/claude-opus-4-6" } },
+    "defaults": {
+      "model": {
+        "primary": "anthropic/claude-opus-4-6"
+      }
+    },
     "list": [
-      { "id": "balserve", "workspace": "C:\\Users\\balaj\\.openclaw\\workspace-balserve" },
-      { "id": "techresearcher", "workspace": "C:\\Users\\balaj\\.openclaw\\workspace-techresearcher" }
+      {
+        "id": "balserve",
+        "workspace": "~/.openclaw/workspace-balserve"
+      },
+      {
+        "id": "techresearcher",
+        "workspace": "~/.openclaw/workspace-techresearcher"
+      }
     ]
   }
 }

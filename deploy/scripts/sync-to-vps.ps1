@@ -219,6 +219,8 @@ scp @ssh `
   "$Repo\deploy\scripts\vps-deploy-kanban-observer.sh" `
   "$Repo\deploy\scripts\ensure-content-converter-env.sh" `
   "$Repo\deploy\scripts\openclaw-agent-db-preflight.mjs" `
+  "$Repo\deploy\scripts\validate-openclaw-config.mjs" `
+  "$Repo\deploy\scripts\validate-openclaw-seeds.mjs" `
   "$Repo\deploy\scripts\test-openclaw-agent-db-preflight.mjs" `
   "$Repo\deploy\scripts\test-openclaw-model-reload.py" `
   "$Repo\deploy\scripts\prepare-multi-format-release.py" `
