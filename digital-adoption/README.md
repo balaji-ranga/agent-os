@@ -1,5 +1,7 @@
 # Digital Adoption Copilot
 
+23 October 2026: current-page questions now include bounded loaded text, a heading outline and browser-computed repeated-item counts, independently of ranked highlight targets. The maker receives an explicit response schema and precise bounded repair feedback; schema repair does not consume the separate checker-feedback correction. Inspection remains read-only and excludes private/hidden content and input values. Evidence and measured overhead are recorded in `test/evidence/page-inspection-20261023/`. OpenClaw gateway recovery/configuration hardening is separately documented in `../deploy/test-evidence/gateway-config-20261023/`.
+
 19 October 2026: the immediate-phase implementation is available on coordinator
 **20261019-immediate-j**, with gateway/platform changes from
 **20261019-immediate-j**. See the [acceptance and regression report](test/evidence/immediate-phase-20261019/index.html)

@@ -4,6 +4,14 @@ Digital Adoption adds a copilot to a registered external website. It is separate
 
 ## Sign-in and website workspace
 
+### Current-page inspection and reviewed answers
+
+The visitor copilot receives a fresh supported-control snapshot and bounded loaded-page text, headings and repeated-item group counts when answering a page question. Its ranked highlight targets are only a relevant sample; their count is not the page's item count. It distinguishes loaded results on the current page from a displayed total across pagination. It cannot inspect unloaded pages, closed shadow roots, private-marked regions or private input values through this context. When text or heading coverage is truncated, the answer must explain that limit. Repeated-item counts describe the loaded DOM only.
+
+Replying to an answer supplies that answer as conversational context, together with a fresh observation. Text-only inspection or counting can return an explanation without changing the page. Visual guidance highlights a fresh observed reference; it is separate from filling, clicking, navigation or Save.
+
+When platform-wide maker/checker is enabled, a repairable checker verdict is sent back to the maker and the revised answer is checked again. This does not grant action permission. Schema repair and checker-requested correction have separate bounded attempts. An invalid assistant response after repair is a response-contract failure; it does not mean that page inspection was forbidden. Repeated disagreement returns clarification without executing changes. The platform logs distinguish invalid response shape from checker/provider unavailability.
+
 Website owners use **Free Tools → Digital Adoption → Website owner sign-in** (`/free-tools/digital-adoption/owner.html`). This uses an email sign-in code and a separate session from the Flolah account. Existing Flolah accounts can use `manage.html`; platform administrators also have **Admin → Digital Adoption websites** (`/admin/digital-adoption`) to search registrations across owners and open a selected registration.
 
 Select the registration in the persistent header. **Find another website** searches domain, label or registration ID and pages through results. The selected registration and active tab survive refresh through the page URL. Seven tabs organize the console:

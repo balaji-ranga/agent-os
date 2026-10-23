@@ -2,6 +2,8 @@ import { timingSafeEqual } from 'node:crypto';
 import {MODEL_GATEWAY_TIMEOUT_MS} from '../web/model-timeouts.mjs';
 import { reviewCopilotResponse } from './maker-checker.mjs';
 import {goalResponseSchema} from '../src/goal-contract.mjs';
+import {assistantResponseSchema} from '../src/assistant-contract.mjs';
+import {validateSnapshot} from '../src/proposals.mjs';
 
 // Optional platform backend adapter, not mounted automatically. Inject the
 // platform's active-endpoint resolver and completion function at installation.
@@ -18,7 +20,9 @@ export function createPlatformGateway({serviceToken,resolveActive,complete}) {
   if(!config||!['primary','secondary'].includes(config.active))throw new Error('Active model unavailable');
   if(config.quality?.enabled&&(!config.checker?.baseUrl||!config.checker?.model||!config.checker?.apiKey))throw Object.assign(new Error('Checker unavailable'),{code:'COPILOT_CHECKER_UNAVAILABLE'});
   const goalContext=body.purpose==='digital_adoption_goal'?JSON.parse(body.messages.at(-1).content):null;
-  const result=body.purpose==='digital_adoption_review'?{content:JSON.stringify(body.draft)}:await complete({config,messages:body.messages,maxTokens:2000,signal,...(goalContext?{outputSchema:goalResponseSchema(goalContext.stage,goalContext.peerGuidance)}:{})});
+  const planContext=body.purpose==='digital_adoption_plan'?JSON.parse(body.messages.at(-1).content):null;
+  const outputSchema=goalContext?goalResponseSchema(goalContext.stage,goalContext.peerGuidance):planContext?assistantResponseSchema(validateSnapshot(planContext.observed),{goalStep:!!planContext.goalContext?.currentStep}):undefined;
+  const result=body.purpose==='digital_adoption_review'?{content:JSON.stringify(body.draft)}:await complete({config,messages:body.messages,maxTokens:2000,signal,...(outputSchema?{outputSchema}:{})});
   if(!config.quality?.enabled)return {content:result.content,active:config.active,quality:{enabled:false}};
   const reviewed=await reviewCopilotResponse({config,messages:body.messages,purpose:body.purpose,draft:result.content,complete,signal});
   return {...reviewed,active:config.active};

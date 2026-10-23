@@ -1,4 +1,12 @@
 import {resolveChoice} from '../web/choice-intent.mjs';
+export function assistantResponseSchema(snapshot,{goalStep=false}={}){
+ const shape=(properties)=>({type:'object',additionalProperties:false,properties,required:Object.keys(properties)}),ref=values=>values.length?{type:'string',enum:values}:{type:'string'};
+ const fieldRefs=snapshot.fields.map(f=>f.ref),linkRefs=snapshot.links.map(l=>l.ref),allRefs=[...fieldRefs,...linkRefs,...(snapshot.targets||[]).map(t=>t.ref)],actions=[];
+ if(fieldRefs.length){actions.push(shape({type:{type:'string',const:'fill'},ref:ref(fieldRefs),value:{type:'string'}}));const lookups=snapshot.fields.filter(f=>f.type==='combobox').map(f=>f.ref);if(lookups.length){actions.push(shape({type:{type:'string',const:'fill'},ref:ref(lookups),value:{type:'string'},select:{type:'boolean',const:false}}));actions.push(shape({type:{type:'string',const:'fill'},ref:ref(lookups),value:{type:'string'},query:{type:'string'}}));}}
+ if(allRefs.length)actions.push(shape({type:{type:'string',const:'highlight'},ref:ref(allRefs)}));
+ if(linkRefs.length)actions.push(shape({type:{type:'string',const:'navigate'},ref:ref(linkRefs)}));
+ return shape({...(!goalStep?{intent:{type:'string',enum:['guide','explain','edit','navigate','clarify']}}:{}),message:{type:'string'},actions:{type:'array',maxItems:allRefs.length?10:0,items:actions.length?{anyOf:actions}:shape({type:{type:'string',const:'highlight'},ref:{type:'string'}})}});
+}
 // This contract validates proposals; exact-state approval still precedes writes.
 export function responseContract(snapshot,{readOnly=false,includeIntent=true}={}){
  const fields=snapshot.fields.length>0,targets=(snapshot.targets||[]).length>0,links=snapshot.links.length>0;

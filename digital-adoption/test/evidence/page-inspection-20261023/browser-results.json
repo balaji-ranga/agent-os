@@ -1,0 +1,24 @@
+{
+  "results": [
+    {
+      "id": "all-loaded-headings-independent-of-target-ranking",
+      "passed": true,
+      "headingItems": 70,
+      "targetLimit": 24,
+      "elapsedMs": 11,
+      "bytes": 6148,
+      "privateAndHiddenContentExcluded": true
+    },
+    {
+      "id": "actual-public-mcp-loaded-page-and-reply-observation",
+      "passed": true,
+      "loadedListingCount": 24,
+      "initialRankedTargets": 9,
+      "followupRankedTargets": 24,
+      "allLoadedListingTitlesIncluded": true,
+      "elapsedMs": 8.900000005960464,
+      "bytes": 8212
+    }
+  ],
+  "publicWrites": 0
+}

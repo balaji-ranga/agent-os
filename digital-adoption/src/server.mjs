@@ -16,6 +16,7 @@ import {fieldGuidance} from './field-guidance.mjs';
 const assets = new Map([
   ['/goal-ui.mjs', ['../web/goal-ui.mjs','text/javascript']],
   ['/page-targets.mjs',['../web/page-targets.mjs','text/javascript']],
+  ['/page-context.mjs',['../web/page-context.mjs','text/javascript']],
   ['/guidance-intent.mjs',['../web/guidance-intent.mjs','text/javascript']],
   ['/workspace.mjs', ['../web/workspace.mjs','text/javascript']],
   ['/workspace.css', ['../web/workspace.css','text/css']],

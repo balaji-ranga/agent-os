@@ -1,0 +1,26 @@
+{
+  "at": "2026-10-23T15:26:56.986Z",
+  "results": [
+    {
+      "id": "live-initial-page-count",
+      "passed": true,
+      "message": "There are 24 MCPs listed on this page, as indicated by the item count in the loaded content.",
+      "replyToProvided": false,
+      "freshSnapshotRevision": 1,
+      "requestBytes": 8304,
+      "latencyMs": 6204,
+      "screenshot": "live-initial-page-count.png"
+    },
+    {
+      "id": "live-reply-full-dom-reinspection",
+      "passed": true,
+      "message": "The current page displays 24 MCPs, indicating that there are indeed more MCPs available beyond this page. To explore additional MCPs, you can navigate to the next page using the 'Next' button, which is currently visible. If you want to see more MCPs, you can click on that button to load the next set of results.",
+      "replyToProvided": true,
+      "freshSnapshotRevision": 2,
+      "requestBytes": 10019,
+      "latencyMs": 8606,
+      "screenshot": "live-reply-full-dom-reinspection.png"
+    }
+  ],
+  "publicWrites": 0
+}
